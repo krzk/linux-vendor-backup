@@ -1074,5 +1074,6 @@ extern int drm_mode_obj_set_property_ioctl(struct drm_device *dev, void *data,
 extern void drm_fb_get_bpp_depth(uint32_t format, unsigned int *depth,
 				 int *bpp);
 extern int drm_format_num_planes(uint32_t format);
+extern int drm_format_plane_cpp(uint32_t format, int plane);
 
 #endif /* __DRM_CRTC_H__ */
