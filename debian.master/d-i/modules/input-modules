@@ -10,6 +10,7 @@ hid-ezkey ?
 hid-generic ?
 hid-gyration ?
 hid-logitech ?
+hid-logitech-dj ?
 hid-microsoft ?
 hid-monterey ?
 hid-petalynx ?
