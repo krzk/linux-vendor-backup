@@ -562,7 +562,7 @@ static int exynos_drm_gem_mmap_buffer(struct file *filp,
 	 */
 	drm_gem_object_reference(obj);
 
-	drm_vm_open_locked(vma);
+	drm_vm_open_locked(dev, vma);
 
 	return 0;
 }
