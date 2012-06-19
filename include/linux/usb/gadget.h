@@ -533,6 +533,7 @@ struct usb_gadget {
 	unsigned			b_hnp_enable:1;
 	unsigned			a_hnp_support:1;
 	unsigned			a_alt_hnp_support:1;
+	atomic_t                        connect_count;
 	const char			*name;
 	struct device			dev;
 	unsigned			out_epnum;
@@ -724,7 +725,11 @@ static inline int usb_gadget_connect(struct usb_gadget *gadget)
 {
 	if (!gadget->ops->pullup)
 		return -EOPNOTSUPP;
-	return gadget->ops->pullup(gadget, 1);
+
+	if (atomic_inc_return(&gadget->connect_count) == 1)
+		return gadget->ops->pullup(gadget, 1);
+
+	return 0;
 }
 
 /**
@@ -746,7 +751,11 @@ static inline int usb_gadget_disconnect(struct usb_gadget *gadget)
 {
 	if (!gadget->ops->pullup)
 		return -EOPNOTSUPP;
-	return gadget->ops->pullup(gadget, 0);
+
+	if (atomic_dec_and_test(&gadget->connect_count))
+		return gadget->ops->pullup(gadget, 0);
+
+	return 0;
 }
 
 
