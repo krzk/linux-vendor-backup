@@ -88,7 +88,7 @@ static int audit_net(struct aa_profile *profile, int op, u16 family, int type,
 	} else {
 		u16 quiet_mask = profile->net.quiet[sa.u.net->family];
 		u16 kill_mask = 0;
-		u16 denied = (1 << sa.aad->net.type) & ~quiet_mask;
+		u16 denied = (1 << sa.aad->net.type);
 
 		if (denied & kill_mask)
 			audit_type = AUDIT_APPARMOR_KILL;
