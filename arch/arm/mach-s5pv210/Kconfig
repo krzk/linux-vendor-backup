@@ -282,6 +282,12 @@ config SAMSUNG_GALAXYS
 	help
 	 Select Samsung Galaxy S GT-I9000
 
+config SAMSUNG_GALAXYS4G
+	bool "select SGHT959V"
+	depends on MACH_ARIES
+	help
+	 Select Samsung Galaxy S 4G SGH-T959V
+
 config SAMSUNG_GALAXYSB
 	bool "select GTI9000B"
 	depends on MACH_ARIES

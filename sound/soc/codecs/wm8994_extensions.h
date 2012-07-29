@@ -9,6 +9,7 @@
 #define WM8994_EXTENSIONS_VERSION 10
 
 #if defined(CONFIG_MACH_HERRING) || defined (CONFIG_SAMSUNG_GALAXYS)	       \
+	|| defined (CONFIG_SAMSUNG_GALAXYS4G)				       \
 	|| defined (CONFIG_SAMSUNG_GALAXYSB)				       \
 	|| defined (CONFIG_SAMSUNG_CAPTIVATE)				       \
 	|| defined (CONFIG_SAMSUNG_VIBRANT)				       \

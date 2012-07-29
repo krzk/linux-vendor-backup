@@ -145,7 +145,7 @@ void s5pv210_adjust_sdhci_cfg_card(struct s3c_sdhci_platdata *pdata,
 void universal_sdhci2_cfg_ext_cd(void)
 {
 	printk(KERN_DEBUG "Universal :SD Detect configuration\n");
-#if defined(CONFIG_SAMSUNG_CAPTIVATE) || defined(CONFIG_SAMSUNG_VIBRANT)
+#if defined(CONFIG_SAMSUNG_CAPTIVATE) || defined(CONFIG_SAMSUNG_VIBRANT) || defined(CONFIG_SAMSUNG_GALAXYS4G)
     s3c_gpio_setpull(S5PV210_GPH3(4), S3C_GPIO_PULL_UP);
 #else
     s3c_gpio_setpull(S5PV210_GPH3(4), S3C_GPIO_PULL_NONE);
