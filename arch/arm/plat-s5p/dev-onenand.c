@@ -38,7 +38,11 @@ static struct resource s5p_onenand_resources[] = {
 };
 
 struct platform_device s5p_device_onenand = {
+#ifdef CONFIG_MTD_ONENAND_SAMSUNG_AUDI
+	.name		= "s5p-onenand",
+#else
 	.name		= "s5pc110-onenand",
+#endif
 	.id		= -1,
 	.num_resources	= ARRAY_SIZE(s5p_onenand_resources),
 	.resource	= s5p_onenand_resources,

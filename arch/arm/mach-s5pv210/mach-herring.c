@@ -5571,7 +5571,11 @@ static void __init herring_map_io(void)
 	s5p_reserve_bootmem(herring_media_devs,
 			ARRAY_SIZE(herring_media_devs), S5P_RANGE_MFC);
 #ifdef CONFIG_MTD_ONENAND
+#ifdef CONFIG_MTD_ONENAND_SAMSUNG_AUDI
+	s5p_device_onenand.name = "s5p-onenand";
+#else
 	s5p_device_onenand.name = "s5pc110-onenand";
+#endif
 #endif
 }
 
