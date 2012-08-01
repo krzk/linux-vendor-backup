@@ -82,6 +82,15 @@ void s5pv210_setup_sdhci_cfg_card(struct platform_device *dev,
 		if ((ios->clock > range_start) && (ios->clock < range_end))
 			ctrl3 = S3C_SDHCI_CTRL3_FCSELTX_BASIC |
 				S3C_SDHCI_CTRL3_FCSELRX_BASIC;
+#if defined(CONFIG_SAMSUNG_GALAXYS4G)
+		else {
+			ctrl3 = S3C_SDHCI_CTRL3_FCSELTX_BASIC;
+			//if(card->type & MMC_TYPE_SDIO)
+				ctrl3 |= S3C_SDHCI_CTRL3_FCSELRX_BASIC;
+			//else
+			//	ctrl3 |= S3C_SDHCI_CTRL3_FCSELRX_INVERT;
+		}
+#else
 		else if (machine_is_herring() && herring_is_cdma_wimax_dev() &&
 								dev->id == 2) {
 			ctrl3 = S3C_SDHCI_CTRL3_FCSELTX_BASIC;
@@ -92,6 +101,7 @@ void s5pv210_setup_sdhci_cfg_card(struct platform_device *dev,
 		} else
 			ctrl3 = S3C_SDHCI_CTRL3_FCSELTX_BASIC |
 				S3C_SDHCI_CTRL3_FCSELRX_INVERT;
+#endif
 	}
 
 
