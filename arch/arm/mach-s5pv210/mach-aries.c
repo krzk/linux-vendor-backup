@@ -5300,9 +5300,10 @@ static struct platform_device *aries_devices[] __initdata = {
 #ifdef CONFIG_PHONE_ARIES_CDMA
 	&sec_device_dpram,
 #endif
-
+#ifndef CONFIG_SAMSUNG_GALAXYS4G
 #ifdef CONFIG_S3C_DEV_HSMMC
 	&s3c_device_hsmmc0,
+#endif
 #endif
 #ifdef CONFIG_S3C_DEV_HSMMC1
 	&s3c_device_hsmmc1,
@@ -5310,8 +5311,10 @@ static struct platform_device *aries_devices[] __initdata = {
 #ifdef CONFIG_S3C_DEV_HSMMC2
 	&s3c_device_hsmmc2,
 #endif
+#ifndef CONFIG_SAMSUNG_GALAXYS4G
 #ifdef CONFIG_S3C_DEV_HSMMC3
 	&s3c_device_hsmmc3,
+#endif
 #endif
 #ifdef CONFIG_VIDEO_TV20
         &s5p_device_tvout,
@@ -5687,9 +5690,10 @@ static void __init aries_machine_init(void)
 	/* mfc */
 	s3c_mfc_set_platdata(NULL);
 #endif
-
+#ifndef CONFIG_SAMSUNG_GALAXYS4G
 #ifdef CONFIG_S3C_DEV_HSMMC
 	s5pv210_default_sdhci0();
+#endif
 #endif
 #ifdef CONFIG_S3C_DEV_HSMMC1
 	s5pv210_default_sdhci1();
@@ -5697,8 +5701,10 @@ static void __init aries_machine_init(void)
 #ifdef CONFIG_S3C_DEV_HSMMC2
 	s5pv210_default_sdhci2();
 #endif
+#ifndef CONFIG_SAMSUNG_GALAXYS4G
 #ifdef CONFIG_S3C_DEV_HSMMC3
 	s5pv210_default_sdhci3();
+#endif
 #endif
 #ifdef CONFIG_S5PV210_SETUP_SDHCI
 	s3c_sdhci_set_platdata();
