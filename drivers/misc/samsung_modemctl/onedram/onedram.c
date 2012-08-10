@@ -35,7 +35,13 @@
 #include <linux/fs.h>
 #include <linux/poll.h>
 #include <linux/sched.h>
+#if defined (CONFIG_SAMSUNG_GALAXYS4G)
+#include <linux/delay.h>
+#include <mach/param.h>
+#include <linux/gpio.h>
+#endif
 #include <linux/slab.h>
+#include <mach/gpio-aries.h>
 #include "onedram.h"
 
 #define DRVNAME "onedram"
@@ -94,6 +100,9 @@ struct onedram {
 	int irq;
 
 	struct completion comp;
+#if defined (CONFIG_SAMSUNG_GALAXYS4G)
+	struct completion comp_chkbit;
+#endif
 	atomic_t ref_sem;
 	unsigned long flags;
 
@@ -126,6 +135,10 @@ static ssize_t show_debug(struct device *d,
 	p += sprintf(p, "Mailbox send: %lu\n", send_cnt);
 	p += sprintf(p, "Mailbox recv: %lu\n", recv_cnt);
 
+	#if defined (CONFIG_SAMSUNG_GALAXYS4G)
+	p += sprintf(p, "Onedram ap interrupt status : %d\n", gpio_get_value(GPIO_nINT_ONEDRAM_AP));
+	#endif
+
 	return p - buf;
 }
 
@@ -153,6 +166,11 @@ static inline int _read_sem(struct onedram *od)
 
 static inline int _send_cmd(struct onedram *od, u32 cmd)
 {
+#if defined (CONFIG_SAMSUNG_GALAXYS4G)
+	u32 i = 0;
+	int retry = 0;
+	unsigned long timeleft;
+#endif
 	if (!od) {
 		printk(KERN_ERR "[%s]onedram: Dev is NULL, but try to access\n",__func__);
 		return -EFAULT;
@@ -162,7 +180,22 @@ static inline int _send_cmd(struct onedram *od, u32 cmd)
 		dev_err(od->dev, "Failed to send cmd, not initialized\n");
 		return -EFAULT;
 	}
+#if defined (CONFIG_SAMSUNG_GALAXYS4G)
+	while(od->reg->check_BA)
+	{
+		udelay(1000);
 
+		if (!od->reg->check_BA)
+			break;
+
+		retry++;
+		if (retry > 50 ) { /* time out after 1 seconds */
+			dev_err(od->dev, "Get ChkBit time out\n");
+			return -ETIMEDOUT;
+		}
+		dev_dbg(od->dev, "[%s]onedram: Waiting ChkBit \n",__func__);
+	}
+#endif
 	dev_dbg(od->dev, "send %x\n", cmd);
 	send_cnt++;
 	od->reg->mailbox_BA = cmd;
@@ -194,6 +227,26 @@ static inline int _get_auth(struct onedram *od, u32 cmd)
 	unsigned long timeleft;
 	int retry = 0;
 
+#if defined (CONFIG_SAMSUNG_GALAXYS4G)
+	_send_cmd(od, cmd);
+	while (!od->reg->sem) /* send cmd every 20m seconds */
+	{
+		timeleft = wait_for_completion_timeout(&od->comp, HZ/50);
+
+		if (_read_sem(od))
+			break;
+
+		retry++;
+		if (retry > 50 ) { /* time out after 1 seconds */
+			dev_err(od->dev, "get authority time out\n");
+			return -ETIMEDOUT;
+		}
+
+		dev_dbg(od->dev, "[%s]onedram: Waiting Semaphore \n",__func__);
+	}
+
+	return 0;
+#else
 	/* send cmd every 20m seconds */
 	while (1) {
 		_send_cmd(od, cmd);
@@ -214,6 +267,7 @@ static inline int _get_auth(struct onedram *od, u32 cmd)
 	}
 
 	return 0;
+#endif
 }
 
 static int get_auth(struct onedram *od, u32 cmd)
@@ -257,7 +311,12 @@ static int put_auth(struct onedram *od, int release)
 		dev_err(od->dev, "Failed to put authority\n");
 		return -EFAULT;
 	}
-
+#if defined (CONFIG_SAMSUNG_GALAXYS4G)
+	atomic_dec_and_test(&od->ref_sem);
+	INIT_COMPLETION(od->comp);
+	INIT_COMPLETION(od->comp_chkbit);
+	return 0;
+#else
 	if (release)
 		set_bit(0, &od->flags);
 
@@ -269,6 +328,7 @@ static int put_auth(struct onedram *od, int release)
 	}
 
 	return 0;
+#endif
 }
 
 static int rel_sem(struct onedram *od)
@@ -287,6 +347,10 @@ static int rel_sem(struct onedram *od)
 		return -EBUSY;
 
 	INIT_COMPLETION(od->comp);
+
+#if defined (CONFIG_SAMSUNG_GALAXYS4G)
+	INIT_COMPLETION(od->comp_chkbit);
+#endif
 	clear_bit(0, &od->flags);
 	_write_sem(od, 0);
 	dev_dbg(od->dev, "rel_sem: %d\n", _read_sem(od));
@@ -360,6 +424,10 @@ static irqreturn_t onedram_irq_handler(int irq, void *data)
 
 	r = onedram_read_mailbox(&mailbox);
 	if (r)
+#if defined (CONFIG_SAMSUNG_GALAXYS4G)
+	if (old_mailbox == mailbox &&
+			old_clock + 100000 > cpu_clock(smp_processor_id()))
+#endif
 		return IRQ_HANDLED;
 
 //	if (old_mailbox == mailbox &&
@@ -390,12 +458,20 @@ static irqreturn_t onedram_irq_handler(int irq, void *data)
 	if (_read_sem(od))
 		complete_all(&od->comp);
 
+#if defined (CONFIG_SAMSUNG_GALAXYS4G)
+	if (!od->reg->check_BA)
+		complete_all(&od->comp_chkbit);
+#endif
 	wake_up_interruptible(&od->waitq);
 	kill_fasync(&od->async_queue, SIGIO, POLL_IN);
 
+#if defined (CONFIG_SAMSUNG_GALAXYS4G)
+	old_clock = cpu_clock(smp_processor_id());
+	old_mailbox = mailbox;
+#else
 //	old_clock = cpu_clock(smp_processor_id());
 //	old_mailbox = mailbox;
-
+#endif
 	return IRQ_HANDLED;
 }
 
@@ -583,6 +659,16 @@ static long onedram_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
 	case ONEDRAM_REL_SEM:
 		r = rel_sem(od);
 		break;
+#if defined (CONFIG_SAMSUNG_GALAXYS4G)
+	case ONEDRAM_GET_ITP:
+	{
+		r = 0x00000000;
+		memcpy(onedram_resource.start+36, &r, 4);
+		printk("Get into M5720 Normal modem boot. (By key press) \n");
+		break;
+	}
+#endif
+
 	default:
 		r = -ENOIOCTLCMD;
 		break;
@@ -794,6 +880,9 @@ static void _unregister_all_handlers(void)
 static void _init_data(struct onedram *od)
 {
 	init_completion(&od->comp);
+#if defined (CONFIG_SAMSUNG_GALAXYS4G)
+	init_completion(&od->comp_chkbit);
+#endif
 	atomic_set(&od->ref_sem, 0);
 	INIT_LIST_HEAD(&h_list.list);
 	spin_lock_init(&h_list.lock);
