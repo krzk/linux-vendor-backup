@@ -3785,19 +3785,11 @@ static struct gpio_init_data aries_init_gpios[] = {
 		.pud	= S3C_GPIO_PULL_NONE,
 		.drv	= S3C_GPIO_DRVSTR_1X,
 	}, {
-#if defined(CONFIG_SAMSUNG_GALAXYS4G)
-		.num	= S5PV210_GPJ0(5), // GPIO_TOUCH_INT
-		.cfg	= S3C_GPIO_INPUT,
-		.val	= S3C_GPIO_SETPIN_NONE,
-		.pud	= S3C_GPIO_PULL_DOWN,
-		.drv	= S3C_GPIO_DRVSTR_1X,
-#else
 		.num	= S5PV210_GPJ0(5), // GPIO_TOUCH_INT
 		.cfg	= S3C_GPIO_SFN(0xF),
 		.val	= S3C_GPIO_SETPIN_NONE,
 		.pud	= S3C_GPIO_PULL_DOWN,
 		.drv	= S3C_GPIO_DRVSTR_1X,
-#endif
 	}, {
 		.num	= S5PV210_GPJ0(6), // GPIO_CAM_MEGA_EN
 		.cfg	= S3C_GPIO_OUTPUT,
