@@ -104,6 +104,17 @@
 		arm,tag-latency = <1 1 0>;
 	};
 
+	dsi_0: dsi@11C80000 {
+		compatible = "samsung,exynos4210-mipi-dsi";
+		reg = <0x11C80000 0x10000>;
+		interrupts = <0 79 0>;
+		samsung,phy-type = <0>;
+		samsung,power-domain = <&pd_lcd0>;
+		clocks = <&clock 286>, <&clock 143>;
+		clock-names = "bus_clk", "pll_clk";
+		status = "disabled";
+	};
+
 	camera {
 		compatible = "samsung,fimc", "simple-bus";
 		clocks = <&clock 132>, <&clock 133>, <&clock 351>, <&clock 352>,
