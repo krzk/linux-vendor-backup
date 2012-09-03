@@ -416,6 +416,7 @@ config MACH_EXYNOS4_DT
 	select PINCTRL
 	select PINCTRL_EXYNOS
 	select S5P_DEV_MFC
+	select S5P_SETUP_MIPIPHY
 	select USE_OF
 	select ARM_DMA_USE_IOMMU if EXYNOS_IOMMU
 	help
