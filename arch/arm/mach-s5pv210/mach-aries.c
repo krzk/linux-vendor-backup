@@ -4100,16 +4100,13 @@ static struct gpio_init_data aries_init_gpios[] = {
 		.val	= S3C_GPIO_SETPIN_NONE,
 		.pud	= S3C_GPIO_PULL_DOWN,
 		.drv	= S3C_GPIO_DRVSTR_1X,
-	},
-#if !defined(CONFIG_SAMSUNG_GALAXYS4G)
-	{
+	}, {
 		.num	= S5PV210_MP01(5), // GPIO_DIC_ID
 		.cfg	= S3C_GPIO_INPUT,
 		.val	= S3C_GPIO_SETPIN_NONE,
 		.pud	= S3C_GPIO_PULL_DOWN,
 		.drv	= S3C_GPIO_DRVSTR_1X,
 	},
-#endif
 
 	// MP02 ----------------------------
 	{
@@ -4199,7 +4196,6 @@ static struct gpio_init_data aries_init_gpios[] = {
 	},
 
 	// MP05 ----------------------------
-#if !defined(CONFIG_SAMSUNG_GALAXYS4G)
 	{
 		.num	= S5PV210_MP05(0), // FUEL_SCL_18V
 		.cfg	= S3C_GPIO_INPUT,
@@ -4224,9 +4220,7 @@ static struct gpio_init_data aries_init_gpios[] = {
 		.val	= S3C_GPIO_SETPIN_NONE,
 		.pud	= S3C_GPIO_PULL_NONE,
 		.drv	= S3C_GPIO_DRVSTR_1X,
-	},
-#endif
-	{
+	}, {
 		.num	= S5PV210_MP05(4),
 		.cfg	= S3C_GPIO_INPUT,
 		.val	= S3C_GPIO_SETPIN_NONE,
