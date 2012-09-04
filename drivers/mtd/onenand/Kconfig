@@ -40,7 +40,6 @@ config MTD_ONENAND_SAMSUNG
 config MTD_ONENAND_SAMSUNG_AUDI
 	tristate "OneNAND on Samsung AP (with AUDI controller) support"
 	depends on ARCH_S3C64XX || ARCH_S5PC100 || ARCH_S5PV210 || ARCH_EXYNOS4
-	default y
 	help
 	  Support for a OneNAND flash device connected to an Samsung CPU
 	  via the AUDI OneNAND controller.
