@@ -83,9 +83,15 @@ void s5pv210_setup_sdhci_cfg_card(struct platform_device *dev,
 			ctrl3 = S3C_SDHCI_CTRL3_FCSELTX_BASIC |
 				S3C_SDHCI_CTRL3_FCSELRX_BASIC;
 #if defined(CONFIG_SAMSUNG_GALAXYS4G)
-		else if (dev->id == 2) // 0 = nothing(emmc on other sgs phones), 1 = wifi, 2 = sdcard
-			ctrl3 = S3C_SDHCI_CTRL3_FCSELTX_BASIC |
-				S3C_SDHCI_CTRL3_FCSELRX_BASIC;
+		else {
+			// 0 = nothing(emmc on other sgs phones), 1 = wifi, 2 = sdcard
+			ctrl3 = S3C_SDHCI_CTRL3_FCSELTX_BASIC;
+			if (dev->id == 1) {
+				ctrl3 |= S3C_SDHCI_CTRL3_FCSELRX_INVERT;
+			} else if (dev->id == 2) {
+				ctrl3 |= S3C_SDHCI_CTRL3_FCSELRX_BASIC;
+			}
+		}
 #else
 		else if (machine_is_herring() && herring_is_cdma_wimax_dev() &&
 								dev->id == 2) {
