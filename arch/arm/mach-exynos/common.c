@@ -560,8 +560,10 @@ static int __init exynos4_l2x0_cache_init(void)
 	if (soc_is_exynos5250() || soc_is_exynos5440())
 		return 0;
 
-	ret = l2x0_of_init(L2_AUX_VAL, L2_AUX_MASK);
-	if (!ret) {
+	if (of_have_populated_dt()) {
+		ret = l2x0_of_init(L2_AUX_VAL, L2_AUX_MASK);
+		if (ret)
+			return ret;
 		l2x0_regs_phys = virt_to_phys(&l2x0_saved_regs);
 		clean_dcache_area(&l2x0_regs_phys, sizeof(unsigned long));
 		return 0;
