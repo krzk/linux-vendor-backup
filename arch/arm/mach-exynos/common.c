@@ -33,6 +33,7 @@
 
 #include <asm/proc-fns.h>
 #include <asm/exception.h>
+#include <asm/firmware.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/mach/map.h>
 #include <asm/mach/irq.h>
@@ -559,6 +560,8 @@ static int __init exynos4_l2x0_cache_init(void)
 
 	if (soc_is_exynos5250() || soc_is_exynos5440())
 		return 0;
+
+	call_firmware_op(l2x0_init);
 
 	if (of_have_populated_dt()) {
 		ret = l2x0_of_init(L2_AUX_VAL, L2_AUX_MASK);

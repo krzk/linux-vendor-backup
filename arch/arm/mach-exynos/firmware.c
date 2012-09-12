@@ -40,10 +40,18 @@ static int exynos_set_cpu_boot_addr(int cpu, unsigned long boot_addr)
 	return 0;
 }
 
+static int exynos_l2x0_init(void)
+{
+	exynos_smc(SMC_CMD_L2X0INVALL, 0, 0, 0);
+	exynos_smc(SMC_CMD_L2X0CTRL, 1, 0, 0);
+	return 0;
+}
+
 static const struct firmware_ops exynos_firmware_ops = {
 	.do_idle		= exynos_do_idle,
 	.set_cpu_boot_addr	= exynos_set_cpu_boot_addr,
 	.cpu_boot		= exynos_cpu_boot,
+	.l2x0_init	= exynos_l2x0_init,
 };
 
 void __init exynos_firmware_init(void)
