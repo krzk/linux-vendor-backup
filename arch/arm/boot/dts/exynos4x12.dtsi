@@ -36,6 +36,10 @@
 			     <0 16 0>, <0 17 0>, <0 18 0>, <0 19 0>;
 	};
 
+	cache-controller@0x10502000 {
+		arm,data-latency = <1 2 0>;
+	};
+
 	clock: clock-controller@0x10030000 {
 		compatible = "samsung,exynos4412-clock";
 		reg = <0x10030000 0x20000>;

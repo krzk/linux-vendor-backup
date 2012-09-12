@@ -48,6 +48,10 @@
 			     <0 12 0>, <0 13 0>, <0 14 0>, <0 15 0>;
 	};
 
+	cache-controller@0x10502000 {
+		arm,data-latency = <1 1 0>;
+	};
+
 	mct@10050000 {
 		compatible = "samsung,exynos4210-mct";
 		reg = <0x10050000 0x800>;

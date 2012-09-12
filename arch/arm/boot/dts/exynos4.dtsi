@@ -92,6 +92,12 @@
 		reg = <0x10010000 0x400>;
 	};
 
+	cache-controller@0x10502000 {
+		compatible = "arm,pl310-cache";
+		reg = <0x10502000 0x1000>;
+		arm,tag-latency = <1 1 0>;
+	};
+
 	watchdog@10060000 {
 		compatible = "samsung,s3c2410-wdt";
 		reg = <0x10060000 0x100>;
