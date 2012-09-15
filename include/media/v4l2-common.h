@@ -214,4 +214,6 @@ const struct v4l2_frmsize_discrete *v4l2_find_nearest_format(
 
 void v4l2_get_timestamp(struct timeval *tv);
 
+void v4l2_get_timestamp(struct timeval *tv);
+
 #endif /* V4L2_COMMON_H_ */
