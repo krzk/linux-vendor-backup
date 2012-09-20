@@ -553,6 +553,12 @@ static int tvp514x_querystd(struct v4l2_subdev *sd, v4l2_std_id *std_id)
 		msleep(LOCK_RETRY_DELAY);
 	}
 
+	/* To query the standard the TVP514x must power on the ADCs. */
+	if (!decoder->streaming) {
+		tvp514x_s_stream(sd, 1);
+		msleep(LOCK_RETRY_DELAY);
+	}
+
 	/* query the current standard */
 	current_std = tvp514x_query_current_std(sd);
 	if (current_std == STD_INVALID) {
