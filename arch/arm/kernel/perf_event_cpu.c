@@ -99,6 +99,7 @@ static void cpu_pmu_free_irq(struct arm_pmu *cpu_pmu)
 {
 	int i, irq, irqs;
 	struct platform_device *pmu_device = cpu_pmu->plat_device;
+	int cpu = -1;
 
 	irqs = min(pmu_device->num_resources, num_possible_cpus());
 
@@ -108,7 +109,8 @@ static void cpu_pmu_free_irq(struct arm_pmu *cpu_pmu)
 		free_percpu_irq(irq, &percpu_pmu);
 	} else {
 		for (i = 0; i < irqs; ++i) {
-			if (!cpumask_test_and_clear_cpu(i, &cpu_pmu->active_irqs))
+			cpu = cpumask_next(cpu, &cpu_pmu->valid_cpus);
+			if (!cpumask_test_and_clear_cpu(cpu, &cpu_pmu->active_irqs))
 				continue;
 			irq = platform_get_irq(pmu_device, i);
 			if (irq >= 0)
@@ -121,6 +123,7 @@ static int cpu_pmu_request_irq(struct arm_pmu *cpu_pmu, irq_handler_t handler)
 {
 	int i, err, irq, irqs;
 	struct platform_device *pmu_device = cpu_pmu->plat_device;
+	int cpu = -1;
 
 	if (!pmu_device)
 		return -ENODEV;
@@ -143,6 +146,7 @@ static int cpu_pmu_request_irq(struct arm_pmu *cpu_pmu, irq_handler_t handler)
 	} else {
 		for (i = 0; i < irqs; ++i) {
 			err = 0;
+			cpu = cpumask_next(cpu, &cpu_pmu->valid_cpus);
 			irq = platform_get_irq(pmu_device, i);
 			if (irq < 0)
 				continue;
@@ -152,7 +156,7 @@ static int cpu_pmu_request_irq(struct arm_pmu *cpu_pmu, irq_handler_t handler)
 			 * assume that we're running on a uniprocessor machine and
 			 * continue. Otherwise, continue without this interrupt.
 			 */
-			if (irq_set_affinity(irq, cpumask_of(i)) && irqs > 1) {
+			if (irq_set_affinity(irq, cpumask_of(cpu)) && irqs > 1) {
 				pr_warning("unable to set irq affinity (irq=%d, cpu=%u)\n",
 					    irq, i);
 				continue;
@@ -167,7 +171,7 @@ static int cpu_pmu_request_irq(struct arm_pmu *cpu_pmu, irq_handler_t handler)
 				return err;
 			}
 
-			cpumask_set_cpu(i, &cpu_pmu->active_irqs);
+			cpumask_set_cpu(cpu, &cpu_pmu->active_irqs);
 		}
 	}
 
