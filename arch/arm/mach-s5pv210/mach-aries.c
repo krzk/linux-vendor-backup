@@ -447,6 +447,12 @@ static struct regulator_consumer_supply ldo5_consumer[] = {
 };
 #endif
 
+#ifdef CONFIG_SAMSUNG_GALAXYS4G
+static struct regulator_consumer_supply ldo6_consumer[] = {
+	REGULATOR_SUPPLY("cp_rtc", NULL),
+};
+#endif
+
 static struct regulator_consumer_supply ldo7_consumer[] = {
 	{	.supply	= "vlcd", },
 };
@@ -552,6 +558,23 @@ static struct regulator_init_data aries_ldo5_data = {
 	},
 	.num_consumer_supplies	= ARRAY_SIZE(ldo5_consumer),
 	.consumer_supplies	= ldo5_consumer,
+};
+#endif
+
+#if defined(CONFIG_SAMSUNG_GALAXYS4G)
+static struct regulator_init_data aries_ldo6_data = {
+	.constraints	= {
+		.name		= "CP_RTC_1.8V",
+		.min_uV		= 1800000,
+		.max_uV		= 1800000,
+		.apply_uV	= 1,
+		.valid_ops_mask = REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_VOLTAGE,
+		.state_mem	= {
+			.disabled = 1,
+		},
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(ldo6_consumer),
+	.consumer_supplies	= ldo6_consumer,
 };
 #endif
 
@@ -769,6 +792,9 @@ static struct max8998_regulator_data aries_regulators[] = {
 	{ MAX8998_LDO4,  &aries_ldo4_data },
 #ifndef CONFIG_SAMSUNG_FASCINATE
 	{ MAX8998_LDO5,  &aries_ldo5_data },
+#endif
+#ifdef CONFIG_SAMSUNG_GALAXYS4G
+	{ MAX8998_LDO6,  &aries_ldo6_data },
 #endif
 	{ MAX8998_LDO7,  &aries_ldo7_data },
 	{ MAX8998_LDO8,  &aries_ldo8_data },
