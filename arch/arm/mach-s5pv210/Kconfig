@@ -259,6 +259,12 @@ config PHONE_ARIES
 	help
 	 Select Aries Phone
 
+config PHONE_ARIES_STE
+	bool "select aries ste"
+	depends on MACH_ARIES
+	help
+	 Select Aries Ste Phone
+
 config PHONE_ARIES_CDMA
 	bool "select aries cdma"
 	depends on MACH_ARIES
