@@ -514,6 +514,18 @@ static int pda_off(struct modemctl *mc)
 	return 0;
 }
 
+#if defined(CONFIG_PHONE_ARIES_STE)
+static int modem_get_active(struct modemctl *mc)
+{
+	dev_dbg(mc->dev, "%s\n", __func__);
+	if(!mc->gpio_phone_active)
+		return -ENXIO;
+
+	dev_dbg(mc->dev, "phone %d\n", gpio_get_value(mc->gpio_phone_active));
+
+	return gpio_get_value(mc->gpio_phone_active);
+}
+#else
 static int modem_get_active(struct modemctl *mc)
 {
 	dev_dbg(mc->dev, "%s\n", __func__);
