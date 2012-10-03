@@ -18,7 +18,7 @@
  * 02110-1301 USA
  */
 
-//#define DEBUG
+#define DEBUG
 
 #include <linux/init.h>
 #include <linux/module.h>
@@ -40,6 +40,14 @@
 #define MODEM_CTL_DEFAULT_WAKLOCK_HZ	(2*HZ)
 #endif
 
+#if defined(CONFIG_PHONE_ARIES_STE)
+#include <linux/regulator/consumer.h>
+static struct regulator *cp_rtc_regulator; /*LDO 6*/
+extern int max8998_clk_ctrl(int power);
+
+static struct wake_lock modemctl_wake_lock_int_resout;
+static struct wake_lock modemctl_wake_lock_cp_pwr_rst;
+#endif
 
 #define DRVNAME "modemctl"
 
@@ -63,6 +71,10 @@ struct modemctl_info {
 struct modemctl {
 	int irq_phone_active;
 	int irq_sim_ndetect;
+#if defined(CONFIG_PHONE_ARIES_STE)
+	int irq_int_resout;
+	int irq_cp_pwr_rst;
+#endif
 
 	unsigned gpio_phone_on;
 	unsigned gpio_phone_active;
@@ -71,6 +83,10 @@ struct modemctl {
 	unsigned gpio_reset_req_n;
 	unsigned gpio_usim_boot;
 	unsigned gpio_flm_sel;
+#if defined(CONFIG_PHONE_ARIES_STE)
+	unsigned gpio_int_resout;
+	unsigned gpio_cp_pwr_rst;
+#endif
 
 	unsigned gpio_sim_ndetect;
 	unsigned sim_reference_level;
@@ -89,6 +105,10 @@ struct modemctl {
 	const struct attribute_group *group;
 
 	struct work_struct work;
+#if defined(CONFIG_PHONE_ARIES_STE)
+	struct work_struct work_int_resout;
+	struct work_struct work_cp_pwr_rst;
+#endif
 };
 
 enum {
@@ -136,6 +156,25 @@ static int sim_check_status(struct modemctl *);
 static int sim_get_reference_status(struct modemctl *);
 static void sim_irq_debounce_timer_func(unsigned);
 
+
+#if defined(CONFIG_PHONE_ARIES_STE)
+static void m5720_on(struct modemctl *);
+static void m5720_off(struct modemctl *);
+static void m5720_reset(struct modemctl *);
+static void m5720_boot(struct modemctl *);
+
+static struct modemctl_info mdmctl_info[] = {
+	{
+		.name = "xmm",
+		.ops = {
+			.modem_on = m5720_on,
+			.modem_off = m5720_off,
+			.modem_reset = m5720_reset,
+			.modem_boot_on = m5720_boot,
+		},
+	},
+};
+#else
 static void xmm_on(struct modemctl *);
 static void xmm_off(struct modemctl *);
 static void xmm_reset(struct modemctl *);
@@ -152,6 +191,7 @@ static struct modemctl_info mdmctl_info[] = {
 		},
 	},
 };
+#endif /* defined(CONFIG_PHONE_ARIES_STE) */
 
 static ssize_t show_control(struct device *d,
 		struct device_attribute *attr, char *buf);
@@ -188,6 +228,119 @@ static const struct attribute_group modemctl_group = {
 /* declare mailbox init function for xmm */
 extern void onedram_init_mailbox(void);
 
+#if defined(CONFIG_PHONE_ARIES_STE)
+static void m5720_on(struct modemctl *mc)
+{
+	dev_dbg(mc->dev, "%s\n", __func__);
+
+	/* ensure pda active pin set to low */
+	gpio_set_value(mc->gpio_pda_active, 0);
+	/* call mailbox init : BA goes to high, AB goes to low */
+	onedram_init_mailbox();
+	/* ensure cp_reset pin set to low */
+	gpio_set_value(mc->gpio_cp_reset, 0);
+
+	msleep(100); /*wait modem stable */
+
+	if(mc->gpio_phone_on)
+		gpio_set_value(mc->gpio_phone_on, 1);
+
+	msleep(18);
+
+	if(IS_ERR_OR_NULL(cp_rtc_regulator)) {
+		pr_err("Error: cp_rtc_regulator not initialized\n");
+		return;
+	}
+
+	regulator_set_voltage(cp_rtc_regulator, 1800000, 1800000);
+
+	if (!regulator_is_enabled(cp_rtc_regulator)) {
+		int err = 0;
+
+		err = regulator_enable(cp_rtc_regulator);
+		if (err) {
+			pr_err("Failed to enable CP_RTC_1.8V regulator.\n");
+			return;
+		}
+	}
+	max8998_clk_ctrl(1);
+
+	gpio_set_value(mc->gpio_pda_active, 1);
+
+	msleep(150); /*wait modem stable */
+}
+
+static void m5720_off(struct modemctl *mc)
+{
+	int r;
+
+	dev_dbg(mc->dev, "%s\n", __func__);
+
+	if(mc->gpio_phone_on)
+		gpio_set_value(mc->gpio_phone_on, 0);
+
+	if(mc->gpio_cp_reset)
+		gpio_direction_output(mc->gpio_cp_reset, 0);
+
+	if(!gpio_get_value(mc->gpio_int_resout) && !gpio_get_value(mc->gpio_cp_pwr_rst)) {
+		max8998_clk_ctrl(0);
+		return;
+	}
+
+	r = gpio_get_value(mc->gpio_cp_pwr_rst);
+	if(r) {
+		dev_dbg(mc->dev, "%s, GPIO_CP_PWR_RST is high\n", __func__);
+		gpio_set_value(mc->gpio_cp_reset, 1);
+		while(gpio_get_value(mc->gpio_cp_pwr_rst)) {
+			dev_dbg(mc->dev, "[%s] waiting 1 sec for modem to stabilize. \n", __func__);
+			msleep(1000); /*wait modem stable */
+		}
+	}
+	else
+		dev_dbg(mc->dev, "%s, GPIO_CP_PWR_RST is already low\n", __func__);
+
+	max8998_clk_ctrl(0);
+
+	gpio_set_value(mc->gpio_cp_reset, 0);
+}
+
+static void m5720_reset(struct modemctl *mc)
+{
+	int r;
+
+	dev_dbg(mc->dev, "[%s][OFF]\n", __func__);
+
+	if(mc->gpio_phone_on)
+		gpio_set_value(mc->gpio_phone_on, 0);
+
+	r = gpio_get_value(mc->gpio_cp_pwr_rst);
+	if(r) {
+		dev_dbg(mc->dev, "%s, GPIO_CP_PWR_RST is high\n", __func__);
+		gpio_set_value(mc->gpio_cp_reset, 1);
+		while(gpio_get_value(mc->gpio_cp_pwr_rst)) {
+			dev_dbg(mc->dev, "[%s] waiting 1 sec for modem to stabilize. \n", __func__);
+			msleep(1000); /*wait modem stable */
+		}
+		gpio_set_value(mc->gpio_cp_reset, 0);
+	}
+
+	dev_dbg(mc->dev, "[%s][ON]\n", __func__);
+
+	msleep(150); /*wait modem stable */
+
+	if(mc->gpio_phone_on)
+	  gpio_set_value(mc->gpio_phone_on, 1);
+
+	gpio_set_value(mc->gpio_pda_active, 1);
+
+	msleep(150); /*wait modem stable */
+}
+
+static void m5720_boot(struct modemctl *mc)
+{
+	dev_dbg(mc->dev, "%s\n", __func__);
+}
+#else
 static void xmm_on(struct modemctl *mc)
 {
 	dev_dbg(mc->dev, "%s\n", __func__);
@@ -268,7 +421,7 @@ static void xmm_boot(struct modemctl *mc)
 	if(mc->gpio_flm_sel)
 		gpio_set_value(mc->gpio_flm_sel, 0);
 }
-
+#endif
 
 static int modem_on(struct modemctl *mc)
 {
@@ -376,6 +529,7 @@ static int modem_get_active(struct modemctl *mc)
 
 	return 0;
 }
+#endif
 
 static ssize_t show_control(struct device *d,
 		struct device_attribute *attr, char *buf)
@@ -486,7 +640,6 @@ static ssize_t show_phoneactive(struct device *d,
 static ssize_t show_debug(struct device *d,
 		struct device_attribute *attr, char *buf)
 {
-	/*
 	char *p = buf;
 	int i;
 	struct modemctl *mc = dev_get_drvdata(d);
@@ -519,6 +672,14 @@ static ssize_t show_debug(struct device *d,
 	if(mc->gpio_sim_ndetect)
 		p += sprintf(p, "\t%3d %d : Sim n Detect\n", mc->gpio_sim_ndetect,
 				gpio_get_value(mc->gpio_sim_ndetect));
+#if defined(CONFIG_PHONE_ARIES_STE)
+	if(mc->gpio_int_resout)
+		p += sprintf(p, "\t%3d %d : CP int resout\n", mc->gpio_int_resout,
+				gpio_get_value(mc->gpio_int_resout));
+	if(mc->gpio_cp_pwr_rst)
+		p += sprintf(p, "\t%3d %d : CP pwr rst\n", mc->gpio_cp_pwr_rst,
+				gpio_get_value(mc->gpio_cp_pwr_rst));
+#endif
 
 	p += sprintf(p, "Support types --- \n");
 	for(i=0;i<ARRAY_SIZE(mdmctl_info);i++) {
@@ -529,7 +690,7 @@ static ssize_t show_debug(struct device *d,
 		}
 		p += sprintf(p, "%s\n", mdmctl_info[i].name);
 	}
-*/
+
 	return 0;
 }
 
@@ -569,6 +730,67 @@ static irqreturn_t modemctl_irq_handler(int irq, void *dev_id)
 
 	return IRQ_HANDLED;
 }
+
+#if defined(CONFIG_PHONE_ARIES_STE)
+static void mc_int_resout_work(struct work_struct *work)
+{
+	struct modemctl *mc = container_of(work, struct modemctl, work_int_resout);
+
+	dev_dbg(mc->dev, "%s\n", __func__);
+
+	if(gpio_get_value(mc->gpio_int_resout))
+		return;
+
+	if (mc->gpio_phone_on && gpio_get_value(mc->gpio_phone_on)) {
+		wake_lock(&modemctl_wake_lock_int_resout);
+		dev_dbg(mc->dev, "[STE][%s] INT_RESOUT goes to low. Set PHONE_ON to low. = [%d] \n", __func__, mc->gpio_phone_on);
+		kobject_uevent(&mc->dev->kobj, KOBJ_OFFLINE);
+		wake_lock_timeout(&modemctl_wake_lock_int_resout, 600 * HZ);
+	}
+}
+
+static irqreturn_t modemctl_irq_handler_int_resout(int irq, void *dev_id)
+{
+	struct modemctl *mc = (struct modemctl *)dev_id;
+
+	if(gpio_get_value(mc->gpio_int_resout))
+		return IRQ_HANDLED;
+
+	if (!work_pending(&mc->work_int_resout))
+		schedule_work(&mc->work_int_resout);
+
+	return IRQ_HANDLED;
+}
+
+static void mc_cp_pwr_rst_work(struct work_struct *work)
+{
+	struct modemctl *mc = container_of(work, struct modemctl, work_cp_pwr_rst);
+
+	dev_dbg(mc->dev, "%s\n", __func__);
+
+	if(gpio_get_value(mc->gpio_cp_pwr_rst))
+		return;
+
+	if (mc->gpio_phone_on && gpio_get_value(mc->gpio_phone_on)) {
+		wake_lock(&modemctl_wake_lock_cp_pwr_rst);
+		dev_dbg(mc->dev, "[STE][%s] INT_CP_PWR_RST goes to Low \n", __func__);
+		wake_lock_timeout(&modemctl_wake_lock_cp_pwr_rst, 600 * HZ);
+	}
+}
+
+static irqreturn_t modemctl_irq_handler_cp_pwr_rst(int irq, void *dev_id)
+{
+	struct modemctl *mc = (struct modemctl *)dev_id;
+
+	if(gpio_get_value(mc->gpio_cp_pwr_rst))
+		return IRQ_HANDLED;
+
+	if (!work_pending(&mc->work_cp_pwr_rst))
+		schedule_work(&mc->work_cp_pwr_rst);
+
+	return IRQ_HANDLED;
+}
+#endif /* defined(CONFIG_PHONE_ARIES_STE) */
 
 static int sim_get_reference_status(struct modemctl* mc)
 {
@@ -688,6 +910,9 @@ static int __devinit modemctl_probe(struct platform_device *pdev)
 	struct resource *res;
 	int r = 0;
 	int irq_phone_active, irq_sim_ndetect;
+#if defined(CONFIG_PHONE_ARIES_STE)
+	int irq_int_resout, irq_cp_pwr_rst;
+#endif
 
 	printk("[%s]\n",__func__);
 
@@ -705,7 +930,7 @@ static int __devinit modemctl_probe(struct platform_device *pdev)
 		goto err;
 	}
 	irq_phone_active = res->start;
-
+#if !defined(CONFIG_PHONE_ARIES_STE)
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 1);
 	if(!res)  {
 		dev_err(&pdev->dev, "failed to get irq number\n");
@@ -713,6 +938,22 @@ static int __devinit modemctl_probe(struct platform_device *pdev)
 		goto err;
 	}
 	irq_sim_ndetect = res->start;
+#else
+	res = platform_get_resource(pdev, IORESOURCE_IRQ, 1);
+	if(!res)  {
+		dev_err(&pdev->dev, "failed to get irq number\n");
+		r = -EINVAL;
+		goto err;
+	}
+	irq_int_resout = res->start;
+	res = platform_get_resource(pdev, IORESOURCE_IRQ, 2);
+	if(!res)  {
+		dev_err(&pdev->dev, "failed to get irq number\n");
+		r = -EINVAL;
+		goto err;
+	}
+	irq_cp_pwr_rst = res->start;
+#endif
 	
 	mc = kzalloc(sizeof(struct modemctl), GFP_KERNEL);
 	if(!mc) {
@@ -731,6 +972,10 @@ static int __devinit modemctl_probe(struct platform_device *pdev)
 	mc->gpio_sim_ndetect = pdata->gpio_sim_ndetect;
 	mc->sim_change_reset = SIM_LEVEL_NONE;
 	mc->sim_reference_level = SIM_LEVEL_NONE;
+#if defined(CONFIG_PHONE_ARIES_STE)
+	mc->gpio_int_resout = pdata->gpio_int_resout;
+	mc->gpio_cp_pwr_rst = pdata->gpio_cp_pwr_rst;
+#endif
 
 	mc->ops = _find_ops(pdata->name);
 	if(!mc->ops) {
@@ -763,6 +1008,44 @@ static int __devinit modemctl_probe(struct platform_device *pdev)
 	}
 	mc->group = &modemctl_group;
 
+#if defined(CONFIG_PHONE_ARIES_STE)
+	INIT_WORK(&mc->work_int_resout, mc_int_resout_work);
+
+	r = request_irq(irq_int_resout, modemctl_irq_handler_int_resout,
+			IRQF_TRIGGER_FALLING, "int_resout", mc);
+	if(r) {
+		dev_err(&pdev->dev, "failed to allocate an interrupt(%d)\n",
+				irq_int_resout);
+		goto err;
+	}
+
+	r = enable_irq_wake(irq_int_resout);
+	if(r) {
+		dev_err(&pdev->dev, "failed to set wakeup source(%d)\n",
+				irq_int_resout);
+		goto err;
+	}
+
+	mc->irq_int_resout = irq_int_resout;
+	INIT_WORK(&mc->work_cp_pwr_rst, mc_cp_pwr_rst_work);
+
+	r = request_irq(irq_cp_pwr_rst, modemctl_irq_handler_cp_pwr_rst,
+			IRQF_TRIGGER_FALLING, "CP_PWR_RST", mc);
+	if(r) {
+		dev_err(&pdev->dev, "failed to allocate an interrupt(%d)\n",
+				irq_cp_pwr_rst);
+		goto err;
+	}
+
+	r = enable_irq_wake(irq_cp_pwr_rst);
+	if(r) {
+		dev_err(&pdev->dev, "failed to set wakeup source(%d)\n",
+				irq_cp_pwr_rst);
+		goto err;
+	}
+
+	mc->irq_cp_pwr_rst = irq_cp_pwr_rst;
+#else
 	INIT_WORK(&mc->work, mc_work);
 
 	r = request_irq(irq_phone_active, modemctl_irq_handler,
@@ -781,7 +1064,9 @@ static int __devinit modemctl_probe(struct platform_device *pdev)
 	}
 	
 	mc->irq_phone_active = irq_phone_active;
+#endif
 
+#if !defined(CONFIG_PHONE_ARIES_STE)
 	setup_timer(&mc->sim_irq_debounce_timer, (void*)sim_irq_debounce_timer_func,(unsigned long)mc);
 
 	r = request_irq(irq_sim_ndetect, simctl_irq_handler,
@@ -801,10 +1086,19 @@ static int __devinit modemctl_probe(struct platform_device *pdev)
 	}
 
 	mc->irq_sim_ndetect= irq_sim_ndetect;
+#endif
 
 	_wake_lock_init(mc);
 
 	platform_set_drvdata(pdev, mc);
+
+	if(IS_ERR_OR_NULL(cp_rtc_regulator)) {
+		cp_rtc_regulator = regulator_get(NULL, "cp_rtc");
+		if(IS_ERR_OR_NULL(cp_rtc_regulator)) {
+			pr_err("Failed to get CP_RTC_1.8V regulator\n");
+			return -1;
+		}
+	}
 
 	return 0;
 
@@ -859,6 +1153,12 @@ static struct platform_driver modemctl_driver = {
 static int __init modemctl_init(void)
 {
 	printk("[%s]\n",__func__);
+
+#if defined(CONFIG_PHONE_ARIES_STE)
+	wake_lock_init(&modemctl_wake_lock_int_resout, WAKE_LOCK_SUSPEND, "modemctl_wakelock");
+	wake_lock_init(&modemctl_wake_lock_cp_pwr_rst, WAKE_LOCK_SUSPEND, "modemctl_wakelock");
+#endif
+
 	return platform_driver_register(&modemctl_driver);
 }
 

@@ -50,5 +50,8 @@ extern void onedram_get_vbase(void **);
 #define ONEDRAM_GET_AUTH _IOW('o', 0x20, u32)
 #define ONEDRAM_PUT_AUTH _IO('o', 0x21)
 #define ONEDRAM_REL_SEM _IO('o', 0x22)
+#if defined(CONFIG_PHONE_ARIES_STE)
+#define ONEDRAM_GET_ITP   _IO('o', 0x23)
+#endif
 
 #endif /* __ONEDRAM_H__ */

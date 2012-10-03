@@ -307,7 +307,20 @@ static int _get_auth(void)
 
 	return r;
 }
+#if defined(CONFIG_PHONE_ARIES_STE)
+static void _put_auth(struct sipc *si, u32 mailbox)
+{
+	if (!si)
+		return;
 
+	onedram_put_auth(0);
+
+	if (!onedram_rel_sem()) {
+		if (mailbox == 0)
+			onedram_write_mailbox(MB_CMD(MBC_RES_SEM));
+	}
+}
+#else
 static void _put_auth(struct sipc *si)
 {
 	if (!si)
@@ -320,6 +333,7 @@ static void _put_auth(struct sipc *si)
 		si->od_rel = 0;
 	}
 }
+#endif
 
 static inline void _req_rel_auth(struct sipc *si)
 {
@@ -358,7 +372,11 @@ static void _check_buffer(struct sipc *si)
 
 		mailbox |= mb_data[i].mask_send;
 	}
+#if defined(CONFIG_PHONE_ARIES_STE)
+	_put_auth(si, 0);
+#else
 	_put_auth(si);
+#endif
 
 	if (mailbox)
 		si->queue(MB_DATA(mailbox), si->queue_data);
@@ -427,7 +445,9 @@ void sipc_handler(u32 mailbox, void *data)
 	}
 
 	if (mailbox & MB_COMMAND) {
+#if !defined(CONFIG_PHONE_ARIES_STE)
 		_check_buffer(si);  // check buffer for missing interrupt
+#endif
 		_do_command(si, mailbox);
 		return;
 	}
@@ -440,8 +460,10 @@ static inline void _init_data(struct sipc *si, unsigned char *base)
 	int i;
 
 	si->map = (struct sipc_mapped *)base;
+#if !defined(CONFIG_PHONE_ARIES_STE)
 	si->map->magic = 0x0;
 	si->map->access = 0x0;
+#endif
 	si->map->hwrev = HWREV;
 
 	for (i=0;i<IPCIDX_MAX;i++) {
@@ -453,11 +475,12 @@ static inline void _init_data(struct sipc *si, unsigned char *base)
 		r->in_base = base + info->in_off;
 		r->info = info;
 		r->cont = cont;
-
+#if !defined(CONFIG_PHONE_ARIES_STE)
 		cont->out_head = 0;
 		cont->out_tail = 0;
 		cont->in_head = 0;
 		cont->in_tail = 0;
+#endif
 	}
 }
 
@@ -919,7 +942,11 @@ int sipc_write(struct sipc *si, struct sk_buff_head *sbh)
 		skb_queue_purge(sbh);
 		return -ENXIO;
 	}
-
+#if defined(CONFIG_PHONE_ARIES_STE)
+	skb = skb_dequeue(sbh);
+	if ( !skb )
+		return 0;
+#endif
 	r = _get_auth();
 	if (r) {
 		if (factory_test_force_sleep){
@@ -932,7 +959,9 @@ int sipc_write(struct sipc *si, struct sk_buff_head *sbh)
 	}
 
 	r = mailbox = 0;
+#if !defined(CONFIG_PHONE_ARIES_STE)
 	skb = skb_dequeue(sbh);
+#endif
 	while (skb) {
 		struct net_device *ndev = skb->dev;
 		int len = skb->len;
@@ -955,8 +984,12 @@ int sipc_write(struct sipc *si, struct sk_buff_head *sbh)
 		skb = skb_dequeue(sbh);
 	}
 
+#if defined(CONFIG_PHONE_ARIES_STE)
+	_put_auth(si, mailbox);
+#else
 	_req_rel_auth(si);
 	_put_auth(si);
+#endif
 
 	if(mailbox)
 		onedram_write_mailbox(MB_DATA(mailbox));
@@ -1594,11 +1627,12 @@ int sipc_read(struct sipc *si, u32 mailbox, int *cond)
 		inbuf = CIRC_CNT(rb->rb_in_head, rb->rb_in_tail, rb->rb_size);
 		if (!inbuf)
 			continue;
-
+#if !defined(CONFIG_PHONE_ARIES_STE)
 		if (i == IPCIDX_FMT)
 			_fmt_wakelock_timeout();
 		else
-			_non_fmt_wakelock_timeout();			
+			_non_fmt_wakelock_timeout();
+#endif
 
 		_dbg("%s: %d bytes in %d\n", __func__, inbuf, i);
 
@@ -1610,11 +1644,15 @@ int sipc_read(struct sipc *si, u32 mailbox, int *cond)
 			dev_err(&si->svndev->dev, "read err %d\n", r);
 			break;
 		}
-
+#if !defined(CONFIG_PHONE_ARIES_STE)
 		if (mailbox & mb_data[i].mask_req_ack)
 			res = mb_data[i].mask_res_ack;
+#endif
 	}
 
+#if defined(CONFIG_PHONE_ARIES_STE)
+	onedram_put_auth(0);
+#else
 #if !defined(CONFIG_ARIES_NTT)
 	_req_rel_auth(si);
 #endif
@@ -1623,6 +1661,7 @@ int sipc_read(struct sipc *si, u32 mailbox, int *cond)
 
 	if (res)
 		onedram_write_mailbox(MB_DATA(res));
+#endif
 
 	*cond =	skb_queue_len(&si->rfs_rx);
 
@@ -1677,7 +1716,11 @@ static inline ssize_t _debug_show_buf(struct sipc *si, char *buf)
 				rb->rb_in_head, rb->rb_in_tail, inbuf,
 				rb->rb_out_head, rb->rb_out_tail, outbuf);
 	}
+#if defined(CONFIG_PHONE_ARIES_STE)
+	_put_auth(si, 0);
+#else
 	_put_auth(si);
+#endif
 
 	return p - buf;
 }
@@ -1757,7 +1800,11 @@ int sipc_debug(struct sipc *si, const char *buf)
 		/* do nothing */
 		break;
 	}
+#if defined(CONFIG_PHONE_ARIES_STE)
+	_put_auth(si, 0);
+#else
 	_put_auth(si);
+#endif
 
 	return 0;
 }
@@ -1787,7 +1834,11 @@ int sipc_whitelist(struct sipc *si, const char *buf, size_t count)
 	r =  __write(rb,(u8 *) buf, (unsigned int )count);
 
 	_req_rel_auth(si);
+#if defined(CONFIG_PHONE_ARIES_STE)
+	_put_auth(si, 0);
+#else
 	_put_auth(si);
+#endif
 
 	onedram_write_mailbox(MB_DATA(mb_data[IPCIDX_FMT].mask_send));
 	return r;
