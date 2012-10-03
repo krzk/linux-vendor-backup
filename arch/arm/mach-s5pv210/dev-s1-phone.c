@@ -69,7 +69,7 @@ static struct platform_device onedram = {
 static void modemctl_cfg_gpio(void);
 static struct modemctl_platform_data mdmctl_data = {
 	.name = "xmm",
-#if defined(CONFIG_PHONE_ARIES_CDMA)
+#if defined(CONFIG_PHONE_ARIES_CDMA) || defined(CONFIG_PHONE_ARIES_STE)
 	.gpio_phone_on = GPIO_PHONE_ON,
 #else
 	.gpio_phone_on = NULL,
@@ -77,6 +77,10 @@ static struct modemctl_platform_data mdmctl_data = {
 	.gpio_phone_active = GPIO_PHONE_ACTIVE,
 	.gpio_pda_active = GPIO_PDA_ACTIVE,
 	.gpio_cp_reset = GPIO_CP_RST,
+#if defined(CONFIG_PHONE_ARIES_STE)
+	.gpio_int_resout = GPIO_INT_RESOUT,
+	.gpio_cp_pwr_rst = GPIO_CP_PWR_RST,
+#endif
 	.cfg_gpio = modemctl_cfg_gpio,
 	};
 
@@ -86,11 +90,24 @@ static struct resource mdmctl_res[] = {
 		.end = IRQ_EINT15,
 		.flags = IORESOURCE_IRQ,
 		},
+#if defined(CONFIG_PHONE_ARIES_STE)
+	[1] = {
+		.start = IRQ_EINT12,
+		.end = IRQ_EINT12,
+		.flags = IORESOURCE_IRQ,
+		},
+	[2] = {
+		.start = IRQ_EINT9,
+		.end = IRQ_EINT9,
+		.flags = IORESOURCE_IRQ,
+		},
+#else
 	[1] = {
 		.start = IRQ_EINT(27),
 		.end = IRQ_EINT(27),
 		.flags = IORESOURCE_IRQ,
 		},
+#endif
 	};
 
 static struct platform_device modemctl = {
@@ -112,7 +129,11 @@ static void modemctl_cfg_gpio(void)
 	unsigned gpio_cp_rst = mdmctl_data.gpio_cp_reset;
 	unsigned gpio_pda_active = mdmctl_data.gpio_pda_active;
 	unsigned gpio_sim_ndetect = mdmctl_data.gpio_sim_ndetect;
-#if defined(CONFIG_PHONE_ARIES_CDMA)
+#if defined(CONFIG_PHONE_ARIES_STE)
+	unsigned gpio_int_resout = mdmctl_data.gpio_int_resout;
+	unsigned gpio_cp_pwr_rst = mdmctl_data.gpio_cp_pwr_rst;
+#endif
+#if defined(CONFIG_PHONE_ARIES_CDMA) || defined(CONFIG_PHONE_ARIES_STE)
 	err = gpio_request(gpio_phone_on, "PHONE_ON");
 	if (err) {
 		printk("fail to request gpio %s\n","PHONE_ON");
@@ -143,6 +164,32 @@ static void modemctl_cfg_gpio(void)
 		}
 	}
 #endif
+
+#if defined(CONFIG_PHONE_ARIES_STE)
+	err = gpio_request(gpio_int_resout, "INT_RESOUT");
+	if (err) {
+		printk("fail to request gpio %s\n","INT_RESOUT");
+	} else {
+		gpio_direction_output(gpio_int_resout, GPIO_LEVEL_LOW);
+		s3c_gpio_setpull(gpio_int_resout, S3C_GPIO_PULL_NONE);
+	}
+
+	s3c_gpio_cfgpin(gpio_int_resout, S3C_GPIO_SFN(0xF));
+	s3c_gpio_setpull(gpio_int_resout, S3C_GPIO_PULL_NONE);
+	irq_set_irq_type(gpio_int_resout, IRQ_TYPE_EDGE_BOTH);
+	err = gpio_request(gpio_cp_pwr_rst, "CP_PWR_RST");
+	if (err) {
+		printk("fail to request gpio %s\n","CP_PWR_RST");
+	} else {
+		gpio_direction_output(gpio_cp_pwr_rst, GPIO_LEVEL_LOW);
+		s3c_gpio_setpull(gpio_cp_pwr_rst, S3C_GPIO_PULL_NONE);
+	}
+
+	s3c_gpio_cfgpin(gpio_cp_pwr_rst, S3C_GPIO_SFN(0xF));
+	s3c_gpio_setpull(gpio_cp_pwr_rst, S3C_GPIO_PULL_NONE);
+	irq_set_irq_type(gpio_cp_pwr_rst, IRQ_TYPE_EDGE_BOTH);
+#endif
+
 	s3c_gpio_cfgpin(gpio_phone_active, S3C_GPIO_SFN(0xF));
 	s3c_gpio_setpull(gpio_phone_active, S3C_GPIO_PULL_NONE);
 	irq_set_irq_type(gpio_phone_active, IRQ_TYPE_EDGE_BOTH);
