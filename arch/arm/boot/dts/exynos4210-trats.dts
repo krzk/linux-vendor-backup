@@ -290,6 +290,12 @@
 		};
 	};
 
+	hsotg@12480000 {
+		status = "okay";
+		vusb_d-supply = <&vusb_reg>;
+		vusb_a-supply = <&vusbdac_reg>;
+	};
+
 	fixed-rate-clocks {
 		xxti {
 			compatible = "samsung,clock-xxti";
