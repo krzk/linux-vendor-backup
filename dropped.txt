@@ -1,4 +1,15 @@
-This is the list of patches/features which have been temporarily
-reverted or disabled for Q:
-
-UBUNTU: SAUCE: AppArmor: basic networking rules
+x86, mce: Xeon75xx specific interface to get corrected memory error information
+x86, mce: Rename cpu_specific_poll to mce_cpu_specific_poll
+x86, mce: Make xeon75xx memory driver dependent on PCI
+UBUNTU: SAUCE: (no-up) PM report driver and device suspend/resume times.
+UBUNTU: SAUCE: vt -- maintain bootloader screen mode and content until vt switch
+UBUNTU: SAUCE: vt -- allow grub to request automatic vt_handoff
+UBUNTU: SAUCE: headers_install: fix #include "..." usage for userspace
+UBUNTU: SAUCE: Remove redundant sun/cassini firmware
+UBUNTU: SAUCE: Yama: add link restrictions
+UBUNTU: SAUCE: security: unconditionally chain to Yama LSM
+UBUNTU: SAUCE: firmware: Remove cxgb3 files duplicated in linux-firmware
+UBUNTU: SAUCE: firmware: Remove matrox files duplicated in linux-firmware
+UBUNTU: SAUCE: firmware: Remove r128 files duplicated in linux-firmware
+UBUNTU: SAUCE: firmware: Remove radeon files duplicated in linux-firmware
+UBUNTU: SAUCE: drm/i915: Explicitly disable RC6 for certain models
