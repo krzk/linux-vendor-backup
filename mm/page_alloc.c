@@ -1101,6 +1101,15 @@ static struct page *__rmqueue(struct zone *zone, unsigned int order,
 {
 	struct page *page;
 
+#ifdef CONFIG_CMA
+	unsigned long nr_free = zone_page_state(zone, NR_FREE_PAGES);
+	unsigned long nr_cma_free = zone_page_state(zone, NR_FREE_CMA_PAGES);
+
+	if (migratetype == MIGRATE_MOVABLE && nr_cma_free &&
+	    nr_free - nr_cma_free < 2 * low_wmark_pages(zone))
+		migratetype = MIGRATE_CMA;
+#endif /* CONFIG_CMA */
+
 retry_reserve:
 	page = __rmqueue_smallest(zone, order, migratetype);
 
