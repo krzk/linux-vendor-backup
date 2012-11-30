@@ -65,6 +65,10 @@ static int debug = -1;
 module_param(debug, int, 0);
 MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
 
+static int eeprom_bad_csum_allow __read_mostly = 0;
+module_param(eeprom_bad_csum_allow, int, 0);
+MODULE_PARM_DESC(eeprom_bad_csum_allow, "Allow bad EEPROM checksums");
+
 static void e1000e_disable_aspm(struct pci_dev *pdev, u16 state);
 
 static const struct e1000_info *e1000_info_tbl[] = {
@@ -6261,8 +6265,14 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 			break;
 		if (i == 2) {
 			dev_err(&pdev->dev, "The NVM Checksum Is Not Valid\n");
-			err = -EIO;
-			goto err_eeprom;
+
+			/* if we allow bad checksums, just break */
+			if (eeprom_bad_csum_allow) {
+				break;
+			} else {
+				err = -EIO;
+				goto err_eeprom;
+			}
 		}
 	}
 

@@ -187,6 +187,10 @@ module_param(copybreak, uint, 0644);
 MODULE_PARM_DESC(copybreak,
 	"Maximum size of packet that is copied to a new buffer on receive");
 
+static int eeprom_bad_csum_allow __read_mostly = 0;
+module_param(eeprom_bad_csum_allow, int, 0);
+MODULE_PARM_DESC(eeprom_bad_csum_allow, "Allow bad EEPROM checksums");
+
 static pci_ers_result_t e1000_io_error_detected(struct pci_dev *pdev,
                      pci_channel_state_t state);
 static pci_ers_result_t e1000_io_slot_reset(struct pci_dev *pdev);
@@ -1103,8 +1107,8 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	e1000_reset_hw(hw);
 
-	/* make sure the EEPROM is good */
-	if (e1000_validate_eeprom_checksum(hw) < 0) {
+	/* make sure the EEPROM is good, skip if eeprom_bad_csum_allow is 1 */
+	if ((e1000_validate_eeprom_checksum(hw) < 0) && (!eeprom_bad_csum_allow)) {
 		e_err(probe, "The EEPROM Checksum Is Not Valid\n");
 		e1000_dump_eeprom(adapter);
 		/*
