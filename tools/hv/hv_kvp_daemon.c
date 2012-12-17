@@ -1423,7 +1423,9 @@ int main(void)
 	char	*if_name;
 	struct hv_kvp_ipaddr_value *kvp_ip_val;
 
+#if 0   /* It's much easier to manage from upstart if we don't fork */
 	daemon(1, 0);
+#endif
 	openlog("KVP", 0, LOG_USER);
 	syslog(LOG_INFO, "KVP starting; pid is:%d", getpid());
 	/*
