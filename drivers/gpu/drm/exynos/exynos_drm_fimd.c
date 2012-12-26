@@ -695,6 +695,28 @@ out:
 	return IRQ_HANDLED;
 }
 
+static void fimd_clear_channel(struct device *dev)
+{
+	struct fimd_context *ctx = get_fimd_context(dev);
+	int win, ch_enabled = 0;
+
+	DRM_DEBUG_KMS("%s\n", __FILE__);
+
+	/* Check if any channel is enabled */
+	for (win = 0; win < WINDOWS_NR; win++) {
+		u32 val = readl(ctx->regs + SHADOWCON);
+		if (val & SHADOWCON_CHx_ENABLE(win)) {
+			val &= ~SHADOWCON_CHx_ENABLE(win);
+			writel(val, ctx->regs + SHADOWCON);
+			ch_enabled = 1;
+		}
+	}
+
+	/* Wait for vsync, as disable channel takes effect at next vsync */
+	if (ch_enabled)
+		fimd_wait_for_vblank(dev);
+}
+
 static int fimd_subdrv_probe(struct drm_device *drm_dev, struct device *dev)
 {
 	DRM_DEBUG_KMS("%s\n", __FILE__);
@@ -717,9 +739,14 @@ static int fimd_subdrv_probe(struct drm_device *drm_dev, struct device *dev)
 	drm_dev->vblank_disable_allowed = 1;
 
 	/* attach this sub driver to iommu mapping if supported. */
-	if (is_drm_iommu_supported(drm_dev))
+	if (is_drm_iommu_supported(drm_dev)) {
+		/*
+		 * If any channel is already active, iommu will throw
+		 * a PAGE FAULT when enabled. So clear any channel if enabled.
+		 */
+		fimd_clear_channel(dev);
 		drm_iommu_attach_device(drm_dev, dev);
-
+	}
 	return 0;
 }
 
