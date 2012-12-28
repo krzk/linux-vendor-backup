@@ -290,6 +290,10 @@
 		};
 	};
 
+	usbphy@125B0000 {
+		status = "okay";
+	};
+
 	hsotg@12480000 {
 		status = "okay";
 		vusb_d-supply = <&vusb_reg>;
