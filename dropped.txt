@@ -34,6 +34,7 @@ UBUNTU: SAUCE: efi: add efivars kobject to efi sysfs folder
 UBUNTU: SAUCE: efivars: efivarfs_create() ensure we drop our reference on inode on error
 Revert "UBUNTU: ubuntu: AUFS"
 UBUNTU: ubuntu: AUFS (no-squash) -- aufs3-standalone.patch
+ - apw: this is needed, wiggled a version of this back on
 Revert "UBUNTU: SAUCE: omap3 clocks .dev_id = NULL"
 UBUNTU: SAUCE: Remove emi62 files duplicated in linux-firmware
 UBUNTU: SAUCE: Remove whiteheat files duplicated in linux-firmware
