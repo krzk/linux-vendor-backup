@@ -417,6 +417,7 @@ config MACH_EXYNOS4_DT
 	select PINCTRL_EXYNOS
 	select S5P_DEV_MFC
 	select USE_OF
+	select ARM_DMA_USE_IOMMU if EXYNOS_IOMMU
 	help
 	  Machine support for Samsung Exynos4 machine with device tree enabled.
 	  Select this if a fdt blob is available for the Exynos4 SoC based board.
