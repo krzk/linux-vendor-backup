@@ -22,6 +22,7 @@ config PLAT_S5P
 	select ARM_VIC if !ARCH_EXYNOS
 	select GIC_NON_BANKED if ARCH_EXYNOS4
 	select NO_IOPORT
+	select ARM_HAS_SG_CHAIN
 	select PLAT_SAMSUNG
 	select S3C_GPIO_TRACK
 	select S5P_GPIO_DRVSTR
