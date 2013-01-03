@@ -455,6 +455,10 @@
 		status = "okay";
 	};
 
+	sysmmu-fimd0 {
+		mmu-master = <&fimd>;
+	};
+
 	usbphy@125B0000 {
 		status = "okay";
 	};
