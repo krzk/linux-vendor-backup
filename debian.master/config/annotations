@@ -28,8 +28,8 @@ set +all ?mark 'Filesystem' ?flag EXPERIMENTAL ?type bool = n
 set +all ?mark 'Filesystem' ?flag EXPERIMENTAL ?type tristate = m note<experimental opt-in>`
 set +all ?mark 'Filesystem' !flag EXPERIMENTAL ?type tristate = m
 #  default installer filesystems should be built-in
-CONFIG_EXT3_FS					y note<default filesystem>
-CONFIG_EXT4_FS					y note<default filesystem>
+CONFIG_EXT3_FS					y note<default filesystem> mark<CRITICAL>
+CONFIG_EXT4_FS					y note<default filesystem> mark<CRITICAL>
 #  filesystems which do not probe
 CONFIG_FUSE_FS					y note<not autoloadable>
 CONFIG_ECRYPT_FS				y note<not autoloadable>
@@ -56,6 +56,7 @@ CONFIG_BTRFS_FS_POSIX_ACL			y
 CONFIG_CACHEFILES_HISTOGRAM			n
 #  CIFS
 CONFIG_CIFS_ACL					y
+CONFIG_CIFS_DEBUG				y
 CONFIG_CIFS_DEBUG2				n
 CONFIG_CIFS_DFS_UPCALL				y
 CONFIG_CIFS_FSCACHE				y
@@ -69,6 +70,8 @@ CONFIG_CIFS_WEAK_PW_HASH			y
 CONFIG_EXT2_FS_XIP				n
 #  ext3
 CONFIG_EXT3_DEFAULTS_TO_ORDERED			y
+#  f2fs
+CONFIG_F2FS_STAT_FS				y
 #  fat
 CONFIG_FAT_DEFAULT_CODEPAGE			437
 CONFIG_FAT_DEFAULT_IOCHARSET			"iso8859-1"
@@ -164,7 +167,6 @@ CONFIG_HWMON					y mark<Subsystem>
 CONFIG_HW_RANDOM				y mark<Subsystem>
 CONFIG_MMC					y mark<Subsystem>
 CONFIG_CONNECTOR				y mark<Subsystem>
-CONFIG_THERMAL					y mark<Subsystem>
 CONFIG_POWER_SUPPLY				y mark<Subsystem>
 CONFIG_TCG_TPM					y mark<Subsystem>
 
@@ -198,6 +200,8 @@ set +tree 'Networking options'			= - mark<Networking>
 set +all ?mark 'Networking' ?flag EXPERIMENTAL ?type bool = n
 set +all ?mark 'Networking' ?flag EXPERIMENTAL ?type tristate = m note<experimental opt-in>`
 set +all ?mark 'Networking' !flag EXPERIMENTAL ?type tristate = m
+#  enable all vendor menus by default
+set +pattern '^NET_VENDOR_' 			= y mark<Networking>
 #  the core subsystem
 CONFIG_NET					y mark<Subsystem>
 CONFIG_NETFILTER				y mark<Subsystem>
@@ -240,6 +244,7 @@ CONFIG_ARPD					n
 CONFIG_ATM_BR2684_IPFILTER			n
 CONFIG_ATM_CLIP_NO_ICMP				n 
 CONFIG_BATMAN_ADV_BLA				y
+CONFIG_BATMAN_ADV_DAT				y
 CONFIG_BPF_JIT					y note<REFER TO SECURITY>
 CONFIG_BRIDGE_EBT_ULOG				n flag<DEPRECATED>
 CONFIG_BRIDGE_IGMP_SNOOPING			y
@@ -312,8 +317,12 @@ CONFIG_NF_CONNTRACK_TIMESTAMP			y
 CONFIG_NF_CONNTRACK_ZONES			y
 #  SCTP default cookie protocol
 CONFIG_SCTP_HMAC_MD5				y
+CONFIG_SCTP_COOKIE_HMAC_MD5			y
+CONFIG_SCTP_COOKIE_HMAC_SHA1			y
+CONFIG_SCTP_DEFAULT_COOKIE_HMAC_SHA1		y
 CONFIG_SYN_COOKIES				y mark<Security>
 CONFIG_TCP_MD5SIG				y mark<Security>
+CONFIG_TIPC_PORTS				8191
 CONFIG_VLAN_8021Q_GVRP				y
 CONFIG_COPS_DAYNA				y
 CONFIG_COPS_TANGENT				y
@@ -366,13 +375,64 @@ set +all ?mark 'Disk Drivers' !mark EXPERIMENTAL ?type tristate = m
 #  the core subsystem
 CONFIG_SCSI					y mark<Subsystem>
 CONFIG_ATA					y mark<Subsystem>
-# ATA controllers: some are boot essential on specific architectures
+#  sections
+CONFIG_SCSI_LOWLEVEL				y
+CONFIG_SCSI_LOWLEVEL_PCMCIA			y
+#  general options
+CONFIG_ATA_VERBOSE_ERROR			y
+CONFIG_SCSI_CONSTANTS				y
+CONFIG_SCSI_LOGGING				y
+CONFIG_SCSI_MULTI_LUN				y
+CONFIG_SCSI_PROC_FS				y
+CONFIG_SCSI_SCAN_ASYNC				y
+#  generic drivers
+CONFIG_SATA_PMP					y
+CONFIG_ATA_ACPI					y
+CONFIG_ATA_SFF					y
+CONFIG_ATA_BMDMA				y
+CONFIG_SCSI_EATA_LINKED_COMMANDS		y
+CONFIG_SCSI_EATA_MAX_TAGS			16
+CONFIG_SCSI_EATA_TAGGED_QUEUE			y
+#  ATA controllers: some are boot essential on specific architectures
 CONFIG_ATA_GENERIC				p policy<(arch i386 amd64 &/ value y) | value m> note<boot essential on i386/amd64>
 CONFIG_ATA_PIIX					p policy<(arch i386 amd64 &/ value y) | value m> note<boot essential on i386/amd64>
 CONFIG_PATA_ACPI				p policy<(arch i386 amd64 &/ value y) | value m> note<boot essential on i386/amd64>
 CONFIG_PATA_SIS					p policy<(arch i386 amd64 &/ value y) | value m> note<boot essential on i386/amd64>
 CONFIG_SATA_SVW					p policy<(arch powerpc &/ value y) | value m> note<boot essential on powerpc>
 CONFIG_SATA_AHCI				p policy<(arch i386 amd64 powerpc &/ value y) | value m> note<boot essential on i386/amd64/powerpc>
+#  options:
+CONFIG_AIC79XX_CMDS_PER_DEVICE			32
+CONFIG_AIC79XX_DEBUG_MASK			0
+CONFIG_AIC79XX_REG_PRETTY_PRINT			y
+CONFIG_AIC79XX_RESET_DELAY_MS			5000
+CONFIG_AIC7XXX_CMDS_PER_DEVICE			8
+CONFIG_AIC7XXX_DEBUG_MASK			0
+CONFIG_AIC7XXX_REG_PRETTY_PRINT			y
+CONFIG_AIC7XXX_RESET_DELAY_MS			15000
+CONFIG_MEGARAID_NEWGEN				y
+CONFIG_SCSI_FC_TGT_ATTRS			y
+CONFIG_SCSI_IPR_DUMP				n
+CONFIG_SCSI_IPR_TRACE				n
+CONFIG_SCSI_IZIP_EPP16				n
+CONFIG_SCSI_IZIP_SLOW_CTR			n
+CONFIG_SCSI_MPT2SAS_LOGGING			n
+CONFIG_SCSI_MPT2SAS_MAX_SGE			128
+CONFIG_SCSI_MPT3SAS_LOGGING			n
+CONFIG_SCSI_MPT3SAS_MAX_SGE			128
+CONFIG_SCSI_MVSAS_TASKLET			n
+CONFIG_SCSI_OSD_DPRINT_SENSE			1
+CONFIG_SCSI_SAS_ATA				y
+CONFIG_SCSI_SAS_HOST_SMP			y
+CONFIG_SCSI_SRP_TGT_ATTRS			y
+CONFIG_SCSI_SYM53C8XX_DEFAULT_TAGS		16
+CONFIG_SCSI_SYM53C8XX_DMA_ADDRESSING_MODE	1
+CONFIG_SCSI_SYM53C8XX_MAX_TAGS			64
+CONFIG_SCSI_SYM53C8XX_MMIO			y
+CONFIG_SCSI_FLASHPOINT				y
+CONFIG_SCSI_GENERIC_NCR53C400			y
+CONFIG_SCSI_U14_34F_LINKED_COMMANDS		y
+CONFIG_SCSI_U14_34F_MAX_TAGS			8
+CONFIG_SCSI_U14_34F_TAGGED_QUEUE		y
 
 # Crypto drivers.
 set +tree 'CRYPTO'				= - mark<Crypto>
@@ -551,6 +611,15 @@ set +tree 'Device Drivers,IIO staging drivers,Analog to digital converters' = - 
 set +all ?mark 'A2D' ?flag EXPERIMENTAL ?type bool = n
 set +all ?mark 'A2D' ?flag EXPERIMENTAL ?type tristate = n
 set +all ?mark 'A2D' !mark EXPERIMENTAL ?type tristate = m
+#  options:
+CONFIG_AD799X_RING_BUFFER			y
+CONFIG_LP8788_ADC				y
+
+# Misc Devices -- D2A converters
+set +tree 'Device Drivers,Digital to analog converters' = - mark<D2A> mark<Misc Devices>
+set +all ?mark 'D2A' ?flag EXPERIMENTAL ?type bool = n
+set +all ?mark 'D2A' ?flag EXPERIMENTAL ?type tristate = n
+set +all ?mark 'D2A' !mark EXPERIMENTAL ?type tristate = m
 
 # UBUNTU
 set +tree 'Ubuntu Supplied Third-Party Device Drivers' = - mark<UBUNTU>
@@ -569,6 +638,11 @@ CONFIG_AUFS_SHWH				n
 CONFIG_AUFS_SP_IATTR				n	
 #  DM_RAID45 only appears in PC BIOS based systems
 CONFIG_DM_RAID45				p policy<(arch i386 amd64 &/ value m) | value n> note<PC BIOS specific> mark<MD>
+
+# Ubuntu Critical
+CONFIG_INIT_PASS_ALL_PARAMS			y mark<CRITICAL> note<upstart>
+CONFIG_ZRAM					y mark<CRITICAL> note<small memory support in installer>
+CONFIG_ZCACHE					y mark<CRITICAL> note<small memory support in installer>
 
 # RTC
 set +tree 'Device Drivers,RTC_CLASS'		= - mark<RTC>
@@ -617,7 +691,6 @@ CONFIG_I2C_DESIGNWARE_PLATFORM			p policy<(flavour highbank &/ value y) | value 
 CONFIG_I2C_POWERMAC				p policy<(arch powerpc &/ value y) | value m> note<boot essential on powerpc>
 CONFIG_I2C_ALGOBIT				p policy<(arch powerpc &/ value y) | value m>  note<boot essential dependancy on powerpc>
 
-
 # Graphics related
 set +tree 'Device Drivers,Graphics support'	= - mark<Graphics>
 set +all ?mark 'Graphics' ?flag EXPERIMENTAL ?type bool = n
@@ -652,6 +725,10 @@ CONFIG_AGP_VIA					y note<not autoloadable>
 CONFIG_AGP_AMD					y note<not autoloadable>
 CONFIG_AGP_NVIDIA				y note<not autoloadable>
 CONFIG_FB_CARMINE_DRAM_EVAL			y
+CONFIG_DRM_EXYNOS				n flag<BUILD FAILURE>
+#CONFIG_DRM_EXYNOS_FIMC				y
+#CONFIG_DRM_EXYNOS_IPP				y
+#CONFIG_DRM_EXYNOS_ROTATOR			y
 CONFIG_DRM_VMWGFX_FBCON				n
 CONFIG_FB_CYBER2000_DDC				y
 CONFIG_FB_FOREIGN_ENDIAN			n
@@ -691,8 +768,10 @@ CONFIG_FB_VIA_X_COMPATIBILITY			y
 #  omap2
 CONFIG_FB_OMAP2_NUM_FBS				3
 CONFIG_OMAP2_DSS_COLLECT_IRQ_STATS		n
+CONFIG_OMAP2_DSS_DEBUGFS			n
 CONFIG_OMAP2_DSS_DPI				y
 CONFIG_OMAP2_DSS_DSI				n
+CONFIG_OMAP4_DSS_HDMI				y
 CONFIG_OMAP2_DSS_MIN_FCK_PER_PCK		0
 CONFIG_OMAP2_DSS_RFBI				n
 CONFIG_OMAP2_DSS_SDI				y
@@ -741,6 +820,18 @@ CONFIG_CPU_FREQ_MAPLE				y
 #  cpufreq monitoring
 CONFIG_CPU_FREQ_STAT				p policy<(arch i386 amd64 armel armhf &/ value y) | value m> note<dependancy of boot essential>
 CONFIG_CPU_FREQ_STAT_DETAILS			y
+
+# Thermal drivers
+set +tree 'Device Drivers,THERMAL' = - mark<THERMAL>
+set +all ?mark 'THERMAL' !mark EXPERIMENTAL ?type tristate = m
+CONFIG_THERMAL					y mark<Subsystem>
+#  options:
+CONFIG_CPU_THERMAL				y
+#  governers;
+CONFIG_FAIR_SHARE				y
+CONFIG_STEP_WISE				y
+CONFIG_USER_SPACE				y
+CONFIG_THERMAL_DEFAULT_GOV_STEP_WISE		y
 
 # Virtualisation
 set +pattern '^XEN_'				= - mark<VIRT>
@@ -816,6 +907,8 @@ CONFIG_MEDIA_ATTACH				y
 CONFIG_MEDIA_SUBDRV_AUTOSELECT			y
 #  RADIO
 CONFIG_RADIO_SI470X				y
+#  SMS
+CONFIG_SMS_SIANO_RC				y
 #  USB
 CONFIG_USB_PWC_INPUT_EVDEV			y
 CONFIG_USB_VIDEO_CLASS_INPUT_EVDEV		y
@@ -826,12 +919,43 @@ CONFIG_VIDEO_PVRUSB2_DVB			y
 CONFIG_VIDEO_PVRUSB2_SYSFS			y
 CONFIG_VIDEO_SAA7134_RC				y
 CONFIG_VIDEO_STK1160_AC97			y
+#  misc
+CONFIG_IR_RX51					n flag<BUILD FAILURE on armhf>
 
 # Staging Drivers
 set +tree 'Device Drivers,STAGING'		= - mark<STAGING>
 set +all ?mark 'STAGING' ?flag EXPERIMENTAL ?type bool = n
 set +all ?mark 'STAGING' ?flag EXPERIMENTAL ?type tristate = n
 set +all ?mark 'STAGING' !flag EXPERIMENTAL ?type tristate = m
+#  staging sections:
+CONFIG_LIRC_STAGING				y
+CONFIG_STAGING_MEDIA				y
+#  comedi:
+CONFIG_COMEDI_DEFAULT_BUF_MAXSIZE_KB		20480
+CONFIG_COMEDI_DEFAULT_BUF_SIZE_KB		2048
+CONFIG_COMEDI_MISC_DRIVERS			y
+CONFIG_COMEDI_PCI_DRIVERS			y
+CONFIG_COMEDI_PCMCIA_DRIVERS			y
+CONFIG_COMEDI_ISA_DRIVERS			y
+#  lirc:
+CONFIG_LIRC_SERIAL_TRANSMITTER			y
+#  options:
+CONFIG_DT3155_CCIR				n note<US centric>
+CONFIG_DT3155_STREAMING				y
+CONFIG_PANEL_CHANGE_MESSAGE			n
+CONFIG_PANEL_PARPORT				0
+CONFIG_PANEL_PROFILE				5
+CONFIG_SBE_PMCC4_NCOMM				y
+CONFIG_WIMAX_GDM72XX_K_MODE			y
+CONFIG_WIMAX_GDM72XX_QOS			y
+CONFIG_WIMAX_GDM72XX_WIMAX2			y
+CONFIG_DRM_OMAP					n
+CONFIG_OMAP_BANDGAP				n
+CONFIG_TIDSPBRIDGE				n mark<BUILD FAILURE>
+#CONFIG_TIDSPBRIDGE_BACKTRACE			n mark<DEBUG>
+#CONFIG_TIDSPBRIDGE_CACHE_LINE_CHECK		n
+#CONFIG_TIDSPBRIDGE_NTFY_PWRERR			n
+#CONFIG_TIDSPBRIDGE_RECOVERY			y
 
 # Character Devices
 set +tree 'Device Drivers,Character devices'	= - mark<CHARACTER>
@@ -886,6 +1010,8 @@ CONFIG_SERIAL_ALTERA_UART_MAXPORTS		4
 #  serial amba
 CONFIG_SERIAL_AMBA_PL011			p policy<(flavour highbank &/ value y) | value m>
 CONFIG_SERIAL_AMBA_PL011_CONSOLE		y
+#  serial arc
+CONFIG_SERIAL_ARC_NR_PORTS			1
 #  serial scnxp
 CONFIG_SERIAL_SCCNXP				y
 CONFIG_SERIAL_SCCNXP_CONSOLE			y
