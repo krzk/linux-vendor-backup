@@ -1029,6 +1029,10 @@ CONFIG_SERIAL_KGDB_NMI				y
 CONFIG_SERIAL_MAX310X				y
 CONFIG_SERIAL_OMAP_CONSOLE			y
 
+# CONFIG_USB_OHCI_HCD_PLATFORM and CONFIG_USB_EHCI_HCD_PLATFORM must be off on omap
+CONFIG_USB_HCD_BCMA				p policy<(flavour omap &/ value n) | value m> note<USB_{O,E}HCI_HCD_PLATFORM must be off on omap>
+CONFIG_USB_HCD_SSB				p policy<(flavour omap &/ value n) | value m> note<USB_{O,E}HCI_HCD_PLATFORM must be off on omap>
+
 #
 # XXX: v--- unreviewed annotations.
 #
