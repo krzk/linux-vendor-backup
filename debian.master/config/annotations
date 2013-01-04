@@ -1,3 +1,6 @@
+# Overall defaults
+set +all !flag EXPERIMENTAL ?type tristate	= m
+
 # Mark debugging symbols.
 #  default all debug symbols off
 set +pattern '(^|_)DEBUG(_|$)' ?type bool	= n flag<DEBUG>
