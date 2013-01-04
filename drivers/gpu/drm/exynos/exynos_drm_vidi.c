@@ -85,6 +85,14 @@ static const char fake_edid_info[] = {
 	0x00, 0x00, 0x00, 0x06
 };
 
+#ifdef CONFIG_OF
+static const struct of_device_id vidi_driver_dt_match[] = {
+	{ .compatible = "samsung,exynos-drm-vidi" },
+	{},
+};
+MODULE_DEVICE_TABLE(of, vidi_driver_dt_match);
+#endif
+
 static bool vidi_display_is_connected(struct device *dev)
 {
 	struct vidi_context *ctx = get_vidi_context(dev);
@@ -664,5 +672,6 @@ struct platform_driver vidi_driver = {
 		.name	= "exynos-drm-vidi",
 		.owner	= THIS_MODULE,
 		.pm	= &vidi_pm_ops,
+		.of_match_table = of_match_ptr(vidi_driver_dt_match),
 	},
 };
