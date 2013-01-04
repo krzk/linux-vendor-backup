@@ -455,6 +455,10 @@
 		status = "okay";
 	};
 
+	vidi {
+		compatible = "samsung,exynos-drm-vidi";
+	};
+
 	sysmmu-fimd0 {
 		mmu-master = <&fimd>;
 	};
