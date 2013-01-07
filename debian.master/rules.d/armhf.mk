@@ -13,4 +13,4 @@ loader		= grub
 do_tools	= false
 
 # Flavour specific configuration.
-dtb_file_highbank	= arch/$(build_arch)/boot/highbank.dtb
+#dtb_file_highbank	= arch/$(build_arch)/boot/highbank.dtb
