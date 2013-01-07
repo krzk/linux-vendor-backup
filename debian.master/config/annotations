@@ -1,5 +1,10 @@
+#  not a thing
+CONFIG_USB_OHCI_HCD_PLATFORM			- flag<IGNORE>
+CONFIG_USB_EHCI_HCD_PLATFORM			- flag<IGNORE>
+CONFIG_USB_OHCI_HCD_PPC_OF_LE			- flag<IGNORE>
+
 # Overall defaults
-set +all !flag EXPERIMENTAL ?type tristate	= m
+set +all !flag EXPERIMENTAL !flag IGNORE ?type tristate	= m
 
 # Mark debugging symbols.
 #  default all debug symbols off
@@ -347,10 +352,6 @@ CONFIG_USB_OHCI_HCD				y note<ensures USB 2.0/1.1 probe ordering>
 CONFIG_USB_UHCI_HCD				y note<ensures USB 2.0/1.1 probe ordering>
 CONFIG_USB_XHCI_HCD				y note<ensures USB 2.0/1.1 probe ordering>
 CONFIG_USB_OTG					p policy<(arch armel armhf &/ value y) | value n> note<triggers breakage on x86>
-#  not a thing
-CONFIG_USB_OHCI_HCD_PLATFORM			- flag<IGNORE>
-CONFIG_USB_EHCI_HCD_PLATFORM			- flag<IGNORE>
-CONFIG_USB_OHCI_HCD_PPC_OF_LE			- flag<IGNORE>
 #  options:
 CONFIG_BRCMFMAC_USB				y
 CONFIG_COMEDI_USB_DRIVERS			y
@@ -483,8 +484,8 @@ CONFIG_CRYPTO_DEV_HIFN_795X_RNG			y
 # PHY support
 set +tree 'Device Drivers,NETDEVICES,PHYLIB'	= - mark<PHYS>
 #  PHY devices with non-standard naming.
-CONFIG_B43_PHY_HT				y mark<PHYS>
-CONFIG_B43_PHY_N				y mark<PHYS>
+CONFIG_B43_PHY_HT				- mark<PHYS>
+CONFIG_B43_PHY_N				- mark<PHYS>
 CONFIG_STE10XP					- mark<PHYS>
 #  enable modular network options by default
 set +all ?mark 'PHYS' ?flag EXPERIMENTAL ?type bool = n
@@ -493,6 +494,9 @@ set +all ?mark 'PHYS' !flag EXPERIMENTAL ?type tristate = y note<not autoloadabl
 #  the core subsystem
 CONFIG_PHYLIB					y mark<Subsystem> mark<PHYS>
 CONFIG_FIXED_PHY				y
+#  options:
+CONFIG_B43_PHY_HT				y
+CONFIG_B43_PHY_N				y
 
 # INPUT
 set +tree 'Device Drivers,Input device support,INPUT' = - mark<INPUT>
@@ -623,6 +627,14 @@ set +tree 'Device Drivers,Digital to analog converters' = - mark<D2A> mark<Misc 
 set +all ?mark 'D2A' ?flag EXPERIMENTAL ?type bool = n
 set +all ?mark 'D2A' ?flag EXPERIMENTAL ?type tristate = n
 set +all ?mark 'D2A' !mark EXPERIMENTAL ?type tristate = m
+
+# EXTCON
+set +tree 'Device Drivers,EXTCON'		= - mark<EXTCON> mark<Misc Devices>
+set +all ?mark 'EXTCON' ?flag EXPERIMENTAL ?type bool = n
+set +all ?mark 'EXTCON' ?flag EXPERIMENTAL ?type tristate = n
+set +all ?mark 'EXTCON' !mark EXPERIMENTAL ?type tristate = m
+# subsystem
+CONFIG_EXTCON					y mark<Subsystem>
 
 # UBUNTU
 set +tree 'Ubuntu Supplied Third-Party Device Drivers' = - mark<UBUNTU>
@@ -797,6 +809,7 @@ CONFIG_FB_PS3_DEFAULT_SIZE_M			9
 
 # CPU Frequency Scaling
 set +tree 'Power management and ACPI options,CPU Frequency scaling' = - mark<CPUFREQ>
+set +tree 'Device Drivers,PM_DEVFREQ'		= - mark<CPUFREQ>
 set +all ?mark 'CPUFREQ' !mark EXPERIMENTAL ?type tristate = m
 CONFIG_CPU_FREQ					y mark<Subsystem>
 #  cpu governers:
@@ -823,6 +836,11 @@ CONFIG_CPU_FREQ_MAPLE				y
 #  cpufreq monitoring
 CONFIG_CPU_FREQ_STAT				p policy<(arch i386 amd64 armel armhf &/ value y) | value m> note<dependancy of boot essential>
 CONFIG_CPU_FREQ_STAT_DETAILS			y
+#  devfreq
+CONFIG_DEVFREQ_GOV_PERFORMANCE			y
+CONFIG_DEVFREQ_GOV_POWERSAVE			y
+CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND		y
+CONFIG_DEVFREQ_GOV_USERSPACE			y
 
 # Thermal drivers
 set +tree 'Device Drivers,THERMAL' = - mark<THERMAL>
@@ -1075,6 +1093,7 @@ CONFIG_ZSMALLOC y note<dependancy of boot essential>
 # x86 boot essential
 CONFIG_PCI_IOAPIC p policy<(arch i386 amd64 &/ value y) | value m> note<boot essential on i386/amd64>
 CONFIG_SCSI_SPI_ATTRS p policy<(arch i386 amd64 &/ value y) | value m> note<dependancy of boot essential>
+CONFIG_TOSHIBA n note<recommended against use>
 
 # ARM/EFI requires FAT for kernel installation.
 CONFIG_FAT_FS p policy<(arch armel armhf i386 amd64 &/ value y) | value m> note<installation essential on ARM and EFI systems>
@@ -1091,6 +1110,17 @@ CONFIG_PANEL_GENERIC_DPI p policy<(arch armel armhf &/ value y) | value m> note<
 CONFIG_REGULATOR_FIXED_VOLTAGE p policy<(arch armel armhf &/ value y) | value m> note<boot essential on arm>
 CONFIG_SERIAL_OMAP p policy<(arch armel armhf &/ value y) | value m> note<boot essential on arm>
 CONFIG_OMAP2_DSS p policy<(arch armel armhf &/ value y) | value m> note<boot essential on arm>
+CONFIG_MMC_SDHCI_PLTFM				p policy<(flavour highbank &/ value y) | value m> note<boot essential on highbank>
+CONFIG_NET_CALXEDA_XGMAC			p policy<(flavour highbank &/ value y) | value m> note<boot essential on highbank>
+CONFIG_PL330_DMA				p policy<(flavour highbank &/ value y) | value m> note<boot essential on highbank>
+CONFIG_SERIO_SERPORT				p policy<(flavour highbank &/ value y) | value m> note<boot essential on highbank>
+CONFIG_OMAP_INTERCONNECT			y note<boot essential on omap>
+CONFIG_SND					p policy<(flavour omap &/ value y) | value m> note<not autoloadable on omap>
+CONFIG_SND_OMAP_SOC_OMAP_TWL4030		p policy<(flavour omap &/ value y) | value m> note<not autoloadable on omap>
+CONFIG_SND_SOC					p policy<(flavour omap &/ value y) | value m> note<not autoloadable on omap>
+CONFIG_SOUND					p policy<(flavour omap &/ value y) | value m> note<not autoloadable on omap>
+CONFIG_USB_MUSB_OMAP2PLUS			y
+CONFIG_USB_MUSB_HDRC				p policy<(flavour omap &/ value y) | value m> note<not autoloadable on omap>
 
 # omap3/omap4 boot essential
 CONFIG_MTD p policy<(flavour omap &/ value y) | value m> note<boot essential on arm>
@@ -1207,6 +1237,7 @@ CONFIG_SND_OMAP_SOC_MCBSP p policy<(flavour omap &/ value y) | value m> note<req
 CONFIG_SND_OMAP_SOC_OMAP3_BEAGLE p policy<(flavour omap &/ value y) | value m> note<required for omap3 sound>
 CONFIG_USB_MUSB_TUSB6010 p policy<(flavour omap highbank &/ value n) | value m> note<USB_MUSB choice>
 CONFIG_USB_OMAP n note<not used for our OMAP3/4 h/w>
+CONFIG_DMA_OMAP y
 
 # ARM gadget mode
 CONFIG_USB_GADGET p policy<(flavour omap omap4 &/ value y) | value m> note<not autoprobable -- only present commonly on omap>
@@ -1230,13 +1261,16 @@ CONFIG_CS5535_MFGPT n note<should be disabled by default>
 CONFIG_DVB_DUMMY_FE n note<expert use only>
 
 # ARM unsupported SOC
-CONFIG_FTGMAC100 n note<unsupported ARM device>
-CONFIG_FTMAC100 n note<unsupported ARM device>
-CONFIG_ARCH_EXYNOS n note<unsupported ARM arch>
-CONFIG_ARCH_HIGHBANK n note<unsupported ARM arch>
-CONFIG_ARCH_PICOXCELL n note<unsupported ARM arch>
-CONFIG_ARCH_PRIMA2 n note<unsupported ARM arch>
-CONFIG_ARCH_ZYNQ n note<unsupported ARM arch>
+#CONFIG_FTGMAC100 n note<unsupported ARM device>
+#CONFIG_FTMAC100 n note<unsupported ARM device>
+#CONFIG_ARCH_EXYNOS n note<unsupported ARM arch>
+#CONFIG_ARCH_HIGHBANK n note<unsupported ARM arch>
+#CONFIG_ARCH_PICOXCELL n note<unsupported ARM arch>
+#CONFIG_ARCH_PRIMA2 n note<unsupported ARM arch>
+#CONFIG_ARCH_ZYNQ n note<unsupported ARM arch>
+
+CONFIG_ARCH_MULTIPLATFORM			p policy<(flavour highbank &/ value y) | value n>
+CONFIG_ARCH_OMAP				p policy<(flavour omap &/ value y) | value n>
 
 # Options which really should not have an option at all.
 CONFIG_SIGMA n note<unused common driver infrastructure>
@@ -1319,16 +1353,16 @@ CONFIG_BLK_DEV_XIP n note<prevents use of HIGHMEM for ram disks>
 #
 
 # temporarily disabled options -- build failures.
-CONFIG_TI_CPSW - flag<BUILD FAILURE>
-CONFIG_USB_EHCI_HCD_PLATFORM - flag<BUILD FAILURE>
-CONFIG_LIS3L02DQ - flag<BUILD FAILURE>
-CONFIG_EZX_PCAP - flag<BUILD FAILURE>
-CONFIG_TOUCHSCREEN_EGALAX - flag<BUILD FAILURE>
-CONFIG_TOUCHSCREEN_EETI - flag<BUILD FAILURE>
-CONFIG_SPI_PL022 - flag<BUILD FAILURE>
-CONFIG_SPI_DW_MMIO - flag<BUILD FAILURE>
-CONFIG_SENSORS_AK8975 - flag<BUILD FAILURE> note<FTBS on ti-omap4>
-CONFIG_IIO p policy<(flavour omap4 &/ value n) | value m> flag<BUILD FAILURE>
+CONFIG_TI_CPSW					p policy<(flavour omap &/ value n) | value m> flag<BUILD FAILURE>
+CONFIG_USB_MUSB_DSPS				p policy<(flavour omap &/ value n) | value m> flag<BUILD FAILURE>
+CONFIG_LIS3L02DQ				p policy<(arch armhf &/ value n) | value m> flag<BUILD FAILURE>
+CONFIG_EZX_PCAP					- flag<BUILD FAILURE>
+CONFIG_TOUCHSCREEN_EGALAX			- flag<BUILD FAILURE>
+CONFIG_TOUCHSCREEN_EETI				- flag<BUILD FAILURE>
+CONFIG_SPI_PL022				- flag<BUILD FAILURE>
+CONFIG_SPI_DW_MMIO				- flag<BUILD FAILURE>
+CONFIG_SENSORS_AK8975				- flag<BUILD FAILURE> note<FTBS on ti-omap4>
+CONFIG_IIO					p policy<(flavour omap4 &/ value n) | value m> flag<BUILD FAILURE>
 
 # Ensure DEPRECATED options are off.
 set +all ?flag DEPRECATED ?type bool		= n
