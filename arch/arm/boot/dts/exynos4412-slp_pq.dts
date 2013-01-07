@@ -35,6 +35,18 @@
 		reg = <0x0204F000 0x1000>;
 	};
 
+	fixed-rate-clocks {
+		xxti {
+			compatible = "samsung,clock-xxti", "fixed-clock";
+			clock-frequency = <0>;
+		};
+
+		xusbxti {
+			compatible = "samsung,clock-xusbxti", "fixed-clock";
+			clock-frequency = <24000000>;
+		};
+	};
+
 	vemmc_reg: voltage-regulator@0 {
 	        compatible = "regulator-fixed";
 		regulator-name = "VMEM_VDD_2.8V";
