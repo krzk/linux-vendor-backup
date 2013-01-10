@@ -1296,7 +1296,9 @@ static void serial8250_start_tx(struct uart_port *port)
 	struct uart_8250_port *up =
 		container_of(port, struct uart_8250_port, port);
 
-	if (!(up->ier & UART_IER_THRI)) {
+	if (up->dma && !serial8250_tx_dma(up)) {
+		return;
+	} else if (!(up->ier & UART_IER_THRI)) {
 		up->ier |= UART_IER_THRI;
 		serial_port_out(port, UART_IER, up->ier);
 
@@ -1500,6 +1502,7 @@ int serial8250_handle_irq(struct uart_port *port, unsigned int iir)
 	unsigned long flags;
 	struct uart_8250_port *up =
 		container_of(port, struct uart_8250_port, port);
+	int dma_err = 0;
 
 	if (iir & UART_IIR_NO_INT)
 		return 0;
@@ -1510,8 +1513,13 @@ int serial8250_handle_irq(struct uart_port *port, unsigned int iir)
 
 	DEBUG_INTR("status = %x...", status);
 
-	if (status & (UART_LSR_DR | UART_LSR_BI))
-		status = serial8250_rx_chars(up, status);
+	if (status & (UART_LSR_DR | UART_LSR_BI)) {
+		if (up->dma)
+			dma_err = serial8250_rx_dma(up, iir);
+
+		if (!up->dma || dma_err)
+			status = serial8250_rx_chars(up, status);
+	}
 	serial8250_modem_status(up);
 	if (status & UART_LSR_THRE)
 		serial8250_tx_chars(up);
@@ -2154,6 +2162,18 @@ dont_test_tx_en:
 	up->msr_saved_flags = 0;
 
 	/*
+	 * Request DMA channels for both RX and TX.
+	 */
+	if (up->dma) {
+		retval = serial8250_request_dma(up);
+		if (retval) {
+			pr_warn_ratelimited("ttyS%d - failed to request DMA\n",
+					    serial_index(port));
+			up->dma = NULL;
+		}
+	}
+
+	/*
 	 * Finally, enable interrupts.  Note: Modem status interrupts
 	 * are set via set_termios(), which will be occurring imminently
 	 * anyway, so we don't enable them here.
@@ -2185,6 +2205,9 @@ static void serial8250_shutdown(struct uart_port *port)
 	 */
 	up->ier = 0;
 	serial_port_out(port, UART_IER, 0);
+
+	if (up->dma)
+		serial8250_release_dma(up);
 
 	spin_lock_irqsave(&port->lock, flags);
 	if (port->flags & UPF_FOURPORT) {
@@ -3250,6 +3273,8 @@ int serial8250_register_8250_port(struct uart_8250_port *up)
 			uart->dl_read = up->dl_read;
 		if (up->dl_write)
 			uart->dl_write = up->dl_write;
+		if (up->dma)
+			uart->dma = up->dma;
 
 		if (serial8250_isa_config != NULL)
 			serial8250_isa_config(0, &uart->port,
