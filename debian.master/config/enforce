@@ -121,3 +121,7 @@ value CONFIG_I2C_DESIGNWARE_PLATFORM m | \
 # Don't use the generic ehci/ohci code on omap, it doesn't work
 ((flavour omap &/ value CONFIG_USB_EHCI_HCD_PLATFORM n & value CONFIG_USB_OHCI_HCD_PLATFORM n) | \
 	!exists MISSING)
+
+# CONFIG_DRM_MGAG200, experimental driver hangs boot on HP Proliant Gen8
+# See LP:1042903
+(!exists CONFIG_DRM_MGAG200 | value CONFIG_DRM_MGAG200 n)
