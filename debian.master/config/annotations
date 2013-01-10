@@ -1363,7 +1363,7 @@ CONFIG_TOUCHSCREEN_EETI				- flag<BUILD FAILURE>
 CONFIG_SPI_PL022				- flag<BUILD FAILURE>
 CONFIG_SPI_DW_MMIO				- flag<BUILD FAILURE>
 CONFIG_SENSORS_AK8975				- flag<BUILD FAILURE> note<FTBS on ti-omap4>
-CONFIG_IIO					p policy<(flavour omap4 &/ value n) | value m> flag<BUILD FAILURE>
+CONFIG_IIO					p policy<(flavour omap4 &/ value n) | value m> flag<BUILD FAILURE> note<FTBS on ti-omap4>
 
 # Ensure DEPRECATED options are off.
 set +all ?flag DEPRECATED ?type bool		= n
