@@ -6,6 +6,11 @@ linux (3.8.0-0.1) UNRELEASED; urgency=low
 
   [ Upstream Kernel Changes ]
 
+  * rebase to v3.8-rc3
+    - LP: #1096789
+
+  [ Upstream Kernel Changes ]
+
   * rebase to v3.8-rc2
     - LP: #1082357
     - LP: #1075882
