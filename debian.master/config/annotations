@@ -1359,7 +1359,8 @@ CONFIG_LIS3L02DQ				p policy<(arch armhf &/ value n) | value m> flag<BUILD FAILU
 CONFIG_EZX_PCAP					- flag<BUILD FAILURE>
 CONFIG_TOUCHSCREEN_EGALAX			p policy<(flavour omap4 &/ value n) | value m> flag<BUILD FAILURE> not
 e<FTBS on ti-omap4>
-CONFIG_TOUCHSCREEN_EETI				- flag<BUILD FAILURE>
+CONFIG_TOUCHSCREEN_EETI				p policy<(flavour omap4 &/ value n) | value m> flag<BUILD FAILURE> not
+e<FTBS on ti-omap4>
 CONFIG_SPI_PL022				- flag<BUILD FAILURE>
 CONFIG_SPI_DW_MMIO				- flag<BUILD FAILURE>
 CONFIG_SENSORS_AK8975				- flag<BUILD FAILURE> note<FTBS on ti-omap4>
