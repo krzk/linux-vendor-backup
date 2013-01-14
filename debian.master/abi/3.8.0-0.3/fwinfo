@@ -14,6 +14,7 @@ firmware:       advansys/mcode.bin
 firmware:       agere_ap_fw.bin
 firmware:       agere_sta_fw.bin
 firmware:       aic94xx-seq.fw
+firmware:       ar5523.bin
 firmware:       asihpi/dsp5000.bin
 firmware:       asihpi/dsp6200.bin
 firmware:       asihpi/dsp6205.bin
@@ -40,6 +41,8 @@ firmware:       ath6k/AR6004/hw1.1/bdata.DB132.bin
 firmware:       ath6k/AR6004/hw1.1/fw.ram.bin
 firmware:       ath6k/AR6004/hw1.2/bdata.bin
 firmware:       ath6k/AR6004/hw1.2/fw.ram.bin
+firmware:       ath6k/AR6004/hw1.3/bdata.bin
+firmware:       ath6k/AR6004/hw1.3/fw.ram.bin
 firmware:       atmel_at76c502_3com.bin
 firmware:       atmel_at76c502_3com-wpa.bin
 firmware:       atmel_at76c502.bin
@@ -118,9 +121,7 @@ firmware:       comedi/jr3pci.idm
 firmware:       cp204unx.cod
 firmware:       cpia2/stv0672_vp4.bin
 firmware:       ct2fw-3.1.0.0.bin
-firmware:       ct2fw.bin
 firmware:       ctfw-3.1.0.0.bin
-firmware:       ctfw.bin
 firmware:       cxgb3/ael2005_opt_edc.bin
 firmware:       cxgb3/ael2005_twx_edc.bin
 firmware:       cxgb3/ael2020_twx_edc.bin
@@ -130,8 +131,11 @@ firmware:       cxgb3/t3fw-7.12.0.bin
 firmware:       cxgb4/t4fw.bin
 firmware:       cyzfirm.bin
 firmware:       daqboard2000_firmware.bin
+firmware:       digiface_firmware.bin
+firmware:       digiface_firmware_rev11.bin
 firmware:       dvb-cx18-mpc718-mt352.fw
 firmware:       dvb-fe-af9013.fw
+firmware:       dvb-fe-ds3000.fw
 firmware:       dvb-fe-tda10071.fw
 firmware:       dvb-fe-xc5000-1.6.114.fw
 firmware:       dvb-fe-xc5000c-4.1.30.7.fw
@@ -313,6 +317,8 @@ firmware:       mts_edge.fw
 firmware:       mts_gsm.fw
 firmware:       mts_mt9234mu.fw
 firmware:       mts_mt9234zba.fw
+firmware:       multiface_firmware.bin
+firmware:       multiface_firmware_rev11.bin
 firmware:       mwl8k/fmimage_8363.fw
 firmware:       mwl8k/fmimage_8366_ap-2.fw
 firmware:       mwl8k/fmimage_8366.fw
@@ -443,6 +449,7 @@ firmware:       radeon/VERDE_me.bin
 firmware:       radeon/VERDE_pfp.bin
 firmware:       radeon/VERDE_rlc.bin
 firmware:       riptide.hex
+firmware:       rpm_firmware.bin
 firmware:       rt2561.bin
 firmware:       rt2561s.bin
 firmware:       rt2661.bin
@@ -474,6 +481,8 @@ firmware:       rtlwifi/rtl8192cufw.bin
 firmware:       rtlwifi/rtl8192defw.bin
 firmware:       rtlwifi/rtl8192sefw.bin
 firmware:       rtlwifi/rtl8712u.bin
+firmware:       rtlwifi/rtl8723aefw_B.bin
+firmware:       rtlwifi/rtl8723aefw.bin
 firmware:       s2250.fw
 firmware:       s2250_loader.fw
 firmware:       sb16/alaw_main.csp
