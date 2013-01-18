@@ -204,6 +204,10 @@
 			reg = <0x12000000 0x260000>;
 			interrupts = <0 90 0>, <0 95 0>;
 			samsung,power-domain = <&pd_isp>;
+			clocks = <&clock 353>, <&clock 354>, <&clock 355>,
+			         <&clock 356>, <&clock 342>, <&clock 17>;
+			clock-names = "flite0", "flite1", "ppmuispx",
+			        "ppmuispmx", "sysreg", "mpll";
 			status = "disabled";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -214,6 +218,8 @@
 				reg = <0x12390000 0x1000>;
 				interrupts = <0 105 0>;
 				samsung,power-domain = <&pd_isp>;
+				clocks = <&clock 353>;
+				clock-names = "flite";
 				status = "disabled";
 			};
 
@@ -222,6 +228,8 @@
 				reg = <0x123A0000 0x1000>;
 				interrupts = <0 106 0>;
 				samsung,power-domain = <&pd_isp>;
+				clocks = <&clock 354>;
+				clock-names = "flite";
 				status = "disabled";
 			};
 		};
