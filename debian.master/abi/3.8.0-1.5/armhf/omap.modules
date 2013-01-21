@@ -876,6 +876,7 @@ hid-sensor-gyro-3d
 hid-sensor-hub
 hid-sensor-iio-common
 hid-sensor-magn-3d
+hid-sensor-trigger
 hid-sjoy
 hid-sony
 hid-speedlink
