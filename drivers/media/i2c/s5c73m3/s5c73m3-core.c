@@ -23,6 +23,7 @@
 #include <linux/init.h>
 #include <linux/media.h>
 #include <linux/module.h>
+#include <linux/of_gpio.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/spi/spi.h>
@@ -1511,17 +1512,28 @@ static const struct v4l2_subdev_ops oif_subdev_ops = {
 	.video	= &s5c73m3_oif_video_ops,
 };
 
-static int s5c73m3_configure_gpio(int nr, int val, const char *name)
+/*
+ * GPIO control helpers
+ */
+static int s5c73m3_configure_gpio(struct s5c73m3_gpio *gpio, int idx,
+				  const char *name, struct device_node *node)
 {
-	unsigned long flags = val ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW;
-	int ret;
+	enum of_gpio_flags of_flags;
+	unsigned long flags;
 
-	if (!gpio_is_valid(nr))
+	if (node) {
+		gpio->gpio = of_get_gpio_flags(node, idx, &of_flags);
+		gpio->level = !(of_flags & OF_GPIO_ACTIVE_LOW);
+	}
+
+	if (!gpio_is_valid(gpio->gpio))
 		return 0;
-	ret = gpio_request_one(nr, flags, name);
-	if (!ret)
-		gpio_export(nr, 0);
-	return ret;
+
+	flags = gpio->level ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW;
+	pr_debug("gpio[%d]: %d, flags: %#lx, of_flags: %#x\n",
+		 idx, gpio->gpio, flags, of_flags);
+
+	return gpio_request_one(gpio->gpio, flags, name);
 }
 
 static int s5c73m3_free_gpios(struct s5c73m3 *state)
@@ -1538,33 +1550,59 @@ static int s5c73m3_free_gpios(struct s5c73m3 *state)
 }
 
 static int s5c73m3_configure_gpios(struct s5c73m3 *state,
-				   const struct s5c73m3_platform_data *pdata)
+				   struct device *dev)
 {
-	const struct s5c73m3_gpio *gpio = &pdata->gpio_stby;
+	const struct s5c73m3_platform_data *pdata = dev->platform_data;
+	struct s5c73m3_gpio gpio;
 	int ret;
 
 	state->gpio[STBY].gpio = -EINVAL;
 	state->gpio[RST].gpio  = -EINVAL;
 
-	ret = s5c73m3_configure_gpio(gpio->gpio, gpio->level, "S5C73M3_STBY");
-	if (ret) {
-		s5c73m3_free_gpios(state);
-		return ret;
+	if (pdata)
+		gpio = pdata->gpio_stby;
+	else
+		gpio.gpio = -EINVAL;
+	ret = s5c73m3_configure_gpio(&gpio, STBY, "S5C73M3_STBY",
+				     dev->of_node);
+	if (!ret) {
+		state->gpio[STBY] = gpio;
+		if (gpio_is_valid(gpio.gpio))
+			gpio_set_value(gpio.gpio, 0);
+		if (pdata)
+			gpio = pdata->gpio_reset;
+		else
+			gpio.gpio = -EINVAL;
+		ret = s5c73m3_configure_gpio(&gpio, RST, "S5C73M3_RST",
+					     dev->of_node);
+		if (!ret && gpio_is_valid(gpio.gpio))
+			gpio_set_value(gpio.gpio, 0);
 	}
-	state->gpio[STBY] = *gpio;
-	if (gpio_is_valid(gpio->gpio))
-		gpio_set_value(gpio->gpio, 0);
-
-	gpio = &pdata->gpio_reset;
-	ret = s5c73m3_configure_gpio(gpio->gpio, gpio->level, "S5C73M3_RST");
-	if (ret) {
+	if (!ret)
+		state->gpio[RST] = gpio;
+	else
 		s5c73m3_free_gpios(state);
-		return ret;
-	}
-	state->gpio[RST] = *gpio;
-	if (gpio_is_valid(gpio->gpio))
-		gpio_set_value(gpio->gpio, 0);
 
+	return ret;
+}
+
+static int s5c73m3_get_platform_data(struct s5c73m3 *state, struct device *dev)
+{
+	const struct s5c73m3_platform_data *pdata = dev->platform_data;
+	struct device_node *node = dev->of_node;
+
+	if (!node) {
+		if (!pdata) {
+			dev_err(dev, "Platform data not specified\n");
+			return -EINVAL;
+		}
+
+		state->mclk_frequency = pdata->mclk_frequency;
+		state->bus_type = pdata->bus_type;
+		return 0;
+	}
+
+	of_property_read_u32(node, "clock-frequency", &state->mclk_frequency);
 	return 0;
 }
 
@@ -1572,20 +1610,18 @@ static int s5c73m3_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
 	struct device *dev = &client->dev;
-	const struct s5c73m3_platform_data *pdata = client->dev.platform_data;
 	struct v4l2_subdev *sd;
 	struct v4l2_subdev *oif_sd;
 	struct s5c73m3 *state;
 	int ret, i;
 
-	if (pdata == NULL) {
-		dev_err(&client->dev, "Platform data not specified\n");
-		return -EINVAL;
-	}
-
 	state = devm_kzalloc(dev, sizeof(*state), GFP_KERNEL);
 	if (!state)
 		return -ENOMEM;
+
+	ret = s5c73m3_get_platform_data(state, dev);
+	if (ret < 0)
+		return ret;
 
 	mutex_init(&state->lock);
 	sd = &state->sensor_sd;
@@ -1624,10 +1660,7 @@ static int s5c73m3_probe(struct i2c_client *client,
 	if (ret < 0)
 		return ret;
 
-	state->mclk_frequency = pdata->mclk_frequency;
-	state->bus_type = pdata->bus_type;
-
-	ret = s5c73m3_configure_gpios(state, pdata);
+	ret = s5c73m3_configure_gpios(state, dev);
 	if (ret)
 		goto out_err1;
 
@@ -1699,8 +1732,15 @@ static const struct i2c_device_id s5c73m3_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, s5c73m3_id);
 
+static const struct of_device_id s5c73m3_of_match[] = {
+	{ .compatible = "samsung,s5c73m3" },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, s5c73m3_of_match);
+
 static struct i2c_driver s5c73m3_i2c_driver = {
 	.driver = {
+		.of_match_table = s5c73m3_of_match,
 		.name	= DRIVER_NAME,
 	},
 	.probe		= s5c73m3_probe,
