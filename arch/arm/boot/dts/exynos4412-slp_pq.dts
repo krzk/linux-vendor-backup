@@ -627,6 +627,8 @@
 
 		fimc-is@12000000 {
 			status = "okay";
+			pinctrl-0 = <&fimc_is_i2c0 &fimc_is_i2c1 &fimc_is_uart>;
+			pinctrl-names = "default";
 
 			fimc_lite_0: fimc-lite@12390000 {
 				status = "okay";
@@ -637,6 +639,7 @@
 			};
 
 			fimc-is-i2c@0 {
+				/* compatible = "samsung,exynos4212-is-i2c"; */
 				#address-cells = <1>;
 				#size-cells = <0>;
 
