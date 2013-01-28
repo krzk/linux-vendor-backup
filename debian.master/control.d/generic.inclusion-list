@@ -77,6 +77,7 @@ drivers/video/fb_sys_fops.ko
 drivers/virtio/virtio_balloon.ko
 drivers/watchdog/softdog.ko
 drivers/xen/*
+fs/9p/*
 fs/binfmt_misc.ko
 fs/btrfs/*
 fs/cachefiles/cachefiles.ko
@@ -102,6 +103,7 @@ fs/udf/*
 lib/*
 net/802/*
 net/8021q/*
+net/9p/*
 net/appletalk/*
 net/atm/*
 net/ax25/*
