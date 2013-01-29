@@ -506,6 +506,11 @@ config SRAM
 	  the genalloc API. It is supposed to be used for small on-chip SRAM
 	  areas found on many SoCs.
 
+config TIZEN_GLOBAL_LOCK
+	bool "Tizen Global Lock"
+	help
+	  This supports global lock feature for Tizen.
+
 config VEXPRESS_SYSCFG
 	bool "Versatile Express System Configuration driver"
 	depends on VEXPRESS_CONFIG
