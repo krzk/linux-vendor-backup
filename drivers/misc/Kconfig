@@ -518,6 +518,11 @@ config LATTICE_ECP3_CONFIG
 
 	  If unsure, say N.
 
+config SLP_GLOBAL_LOCK
+	bool "SLP Global Lock"
+	help
+	  This supports global lock feature for SLP.
+
 config SRAM
 	bool "Generic on-chip SRAM driver"
 	depends on HAS_IOMEM
