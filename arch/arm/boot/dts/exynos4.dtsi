@@ -230,6 +230,8 @@
 		reg = <0x13400000 0x10000>;
 		interrupts = <0 94 0>;
 		samsung,power-domain = <&pd_mfc>;
+		clocks = <&clock 273>, <&clock 170>;
+		clock-names = "mfc", "sclk_mfc";
 		status = "disabled";
 		iommu = <&sysmmu_mfc_l>, <&sysmmu_mfc_r>;
 	};
