@@ -154,6 +154,8 @@
 			interrupts = <4 2>;
 			x-size = <720>;
 			y-size = <1280>;
+			x-invert;
+			y-invert;
 			avdd-supply = <&tsp_reg>;
 			vdd-supply = <&tsp_reg>;
 		};
