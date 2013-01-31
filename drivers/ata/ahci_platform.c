@@ -23,6 +23,9 @@
 #include <linux/platform_device.h>
 #include <linux/libata.h>
 #include <linux/ahci_platform.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_gpio.h>
 #include "ahci.h"
 
 static void ahci_host_stop(struct ata_host *host);
@@ -30,6 +33,7 @@ static void ahci_host_stop(struct ata_host *host);
 enum ahci_type {
 	AHCI,		/* standard platform ahci */
 	IMX53_AHCI,	/* ahci on i.mx53 */
+	IMX6Q_AHCI,	/* ahci on i.mx6q */
 	STRICT_AHCI,	/* delayed DMA engine start */
 };
 
@@ -39,6 +43,10 @@ static struct platform_device_id ahci_devtype[] = {
 		.driver_data = AHCI,
 	}, {
 		.name = "imx53-ahci",
+		.driver_data = IMX53_AHCI,
+	}, {
+	}, {
+		.name = "imx6q-ahci",
 		.driver_data = IMX53_AHCI,
 	}, {
 		.name = "strict-ahci",
@@ -86,12 +94,23 @@ static struct scsi_host_template ahci_platform_sht = {
 	AHCI_SHT("ahci_platform"),
 };
 
+static const struct of_device_id ahci_of_match[] = {
+	{ .compatible = "fsl,imx6q-ahci",   .data = &ahci_devtype[IMX6Q_AHCI],},
+	{ .compatible = "snps,spear-ahci", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, ahci_of_match);
+
 static int ahci_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct ahci_platform_data *pdata = dev_get_platdata(dev);
+	const struct of_device_id *of_id =
+			of_match_device(ahci_of_match, &pdev->dev);
+	const struct platform_device_id	*id_entry = of_id->data;
 	const struct platform_device_id *id = platform_get_device_id(pdev);
-	struct ata_port_info pi = ahci_port_info[id ? id->driver_data : 0];
+	struct ata_port_info pi = ahci_port_info[id ? id->driver_data : \
+		id_entry->driver_data];
 	const struct ata_port_info *ppi[] = { &pi, NULL };
 	struct ahci_host_priv *hpriv;
 	struct ata_host *host;
@@ -324,12 +343,6 @@ disable_unprepare_clk:
 #endif
 
 static SIMPLE_DEV_PM_OPS(ahci_pm_ops, ahci_suspend, ahci_resume);
-
-static const struct of_device_id ahci_of_match[] = {
-	{ .compatible = "snps,spear-ahci", },
-	{},
-};
-MODULE_DEVICE_TABLE(of, ahci_of_match);
 
 static struct platform_driver ahci_driver = {
 	.probe = ahci_probe,

@@ -131,6 +131,11 @@
 				};
 			};
 		};
+
+		ahci@0x02200000 { /* AHCI SATA */
+			status = "okay";
+		};
+
 	};
 
 	regulators {
