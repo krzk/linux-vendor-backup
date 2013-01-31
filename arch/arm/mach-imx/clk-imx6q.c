@@ -436,6 +436,9 @@ int __init mx6q_clocks_init(void)
 	for (i = 0; i < ARRAY_SIZE(clks_init_on); i++)
 		clk_prepare_enable(clk[clks_init_on[i]]);
 
+	if (IS_ENABLED(CONFIG_SATA_AHCI_PLATFORM))
+		clk_prepare_enable(clk[sata_ref_100m]);
+
 	/* Set initial power mode */
 	imx6q_set_lpm(WAIT_CLOCKED);
 
