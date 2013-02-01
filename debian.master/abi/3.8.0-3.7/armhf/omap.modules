@@ -352,10 +352,7 @@ ch
 ch341
 ch7006
 chnl_net
-ci13xxx_imx
-ci13xxx_msm
 cifs
-ci_hdrc
 clearpad_tm1217
 clip
 clk-max77686
@@ -719,7 +716,6 @@ gpio-charger
 gpio-da9052
 gpio-da9055
 gpio-fan
-gpio-generic
 gpio-ir-recv
 gpio_keys
 gpio_keys_polled
@@ -930,6 +926,7 @@ i2c-smbus
 i2c-stub
 i2c-taos-evm
 i2c-tiny-usb
+i2c-versatile
 i2c-viperboard
 i2c-xiic
 ibmaem
@@ -951,6 +948,9 @@ imm
 imon
 impa7
 imx074
+imxdrm
+imx-fbdev
+imx-ipu-v3
 ina2xx
 industrialio
 industrialio-triggered-buffer
@@ -1022,6 +1022,7 @@ ipt_MASQUERADE
 ipt_REJECT
 ipt_rpfilter
 ipt_ULOG
+ipuv3-crtc
 ip_vs
 ip_vs_dh
 ip_vs_ftp
@@ -1270,8 +1271,6 @@ mac-turkish
 macvlan
 macvtap
 magellan
-mailbox
-mailbox_mach
 map_absent
 map_ram
 map_rom
@@ -1526,7 +1525,6 @@ omap-aes
 omap_hdq
 omap-ocp2scp
 omap-sham
-omap-usb2
 omap-vout
 omap_wdt
 omfs
@@ -1566,7 +1564,7 @@ panel-acx565akm
 panel-lgphilips-lb035q02
 panel-nec-nl8048hl11-01b
 panel-picodlp
-panel-tfp410
+parallel-display
 paride
 parkbd
 parport
@@ -1948,7 +1946,6 @@ scsi_transport_spi
 scsi_transport_srp
 sctp
 sctp_probe
-sdhci-pltfm
 sdhci-pxav2
 sdhci-pxav3
 sdio_uart
@@ -2049,6 +2046,8 @@ snd-soc-da7210
 snd-soc-da732x
 snd-soc-da9055
 snd-soc-dfbmcs320
+snd-soc-imx-mc13783
+snd-soc-imx-ssi
 snd-soc-isabelle
 snd-soc-jz4740-codec
 snd-soc-l3
@@ -2063,13 +2062,9 @@ snd-soc-max9877
 snd-soc-mc13783
 snd-soc-ml26124
 snd-soc-omap3pandora
-snd-soc-omap-hdmi
-snd-soc-omap-hdmi-card
-snd-soc-omap-hdmi-codec
 snd-soc-pcm3008
 snd-soc-rt5631
 snd-soc-sdp3430
-snd-soc-sgtl5000
 snd-soc-simple-card
 snd-soc-spdif-rx
 snd-soc-spdif-tx
@@ -2082,7 +2077,6 @@ snd-soc-tlv320aic32x4
 snd-soc-tlv320aic3x
 snd-soc-tlv320dac33
 snd-soc-tpa6130a2
-snd-soc-twl6040
 snd-soc-uda134x
 snd-soc-uda1380
 snd-soc-wl1273
@@ -2176,6 +2170,7 @@ spidev
 spi-dw
 spi-dw-mmio
 spi-gpio
+spi-imx
 spi_ks8995
 spi-lm70llp
 spi-oc-tiny
@@ -2220,9 +2215,6 @@ symbolserial
 synaptics_i2c
 synaptics_i2c_rmi4
 synaptics_usb
-syscopyarea
-sysfillrect
-sysimgblt
 sysv
 target_core_file
 target_core_iblock
@@ -2300,7 +2292,6 @@ toim3232-sir
 touchit213
 touchright
 touchwin
-tpm_atmel
 tpm_i2c_infineon
 tpm-rng
 tps51632-regulator
@@ -2354,7 +2345,6 @@ twl4030-madc-hwmon
 twl4030-pwrbutton
 twl4030-vibra
 twl4030_wdt
-twl6030-usb
 twl6040-vibra
 twofish_common
 twofish_generic
@@ -2401,7 +2391,6 @@ usbkbd
 usblcd
 usbled
 usblp
-usbmisc_imx6q
 usbmon
 usbmouse
 usbnet
@@ -2424,6 +2413,7 @@ v4l2-mem2mem
 vcan
 vcnl4000
 veth
+vexpress
 vfio
 vgg2432a4
 vhci-hcd
