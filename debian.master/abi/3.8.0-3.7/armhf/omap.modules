@@ -171,10 +171,8 @@ altera_jtaguart
 altera_ps2
 altera-stapl
 altera_uart
-amba-clcd
 ambakmi
 amba-pl010
-amba-pl011
 amc6821
 ams369fg06
 analog
@@ -1351,7 +1349,6 @@ mISDN_dsp
 mk712
 mkiss
 mma8450
-mmci
 mms114
 mos7720
 mos7840
