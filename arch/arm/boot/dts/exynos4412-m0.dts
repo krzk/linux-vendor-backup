@@ -1,0 +1,22 @@
+/*
+ * Samsung's Exynos4412 based M0 board device tree source
+ *
+ * Copyright (c) 2012 Samsung Electronics Co., Ltd.
+ *		http://www.samsung.com
+ *
+ * Device tree source file for Samsung's M0 board which is based on
+ * Samsung's Exynos4412 SoC.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+*/
+
+/include/ "exynos4412-slp_pq.dts"
+
+/ {
+	model = "Samsung M0 based on Exynos4412";
+	compatible = "samsung,m0", "samsung,exynos4412";
+
+	/* Nothing to override here yet. */
+};
