@@ -94,6 +94,8 @@ lasi_82596 ?
 lne390 ?
 lp486e ?
 mace ?
+mlx4_core ?
+mlx4_en ?
 mv643xx_eth ?
 myri_sbus ?
 natsemi ?
