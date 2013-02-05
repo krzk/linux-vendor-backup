@@ -34,8 +34,8 @@
 #include "fimc-reg.h"
 #include "media-dev.h"
 
-static char *fimc_clocks[MAX_FIMC_CLOCKS] = {
-	"sclk_fimc", "fimc"
+static char *fimc_clocks[CLK_FIMC_MAX] = {
+	"sclk_fimc", "fimc", "mux", "parent"
 };
 
 static struct fimc_fmt fimc_formats[] = {
@@ -803,10 +803,10 @@ struct fimc_fmt *fimc_find_format(const u32 *pixelformat, const u32 *mbus_code,
 	return def_fmt;
 }
 
-static void fimc_clk_put(struct fimc_dev *fimc)
+static void fimc_put_clocks(struct fimc_dev *fimc)
 {
 	int i;
-	for (i = 0; i < MAX_FIMC_CLOCKS; i++) {
+	for (i = 0; i < CLK_FIMC_MAX; i++) {
 		if (IS_ERR(fimc->clock[i]))
 			continue;
 		clk_unprepare(fimc->clock[i]);
@@ -815,15 +815,21 @@ static void fimc_clk_put(struct fimc_dev *fimc)
 	}
 }
 
-static int fimc_clk_get(struct fimc_dev *fimc)
+static int fimc_get_clocks(struct fimc_dev *fimc)
 {
+	struct device *dev = &fimc->pdev->dev;
+	unsigned int num_clocks = CLK_FIMC_MAX;
 	int i, ret;
 
-	for (i = 0; i < MAX_FIMC_CLOCKS; i++)
+	/* Skip parent and mux clocks for non-dt platforms */
+	if (!dev->of_node)
+		num_clocks -= 2;
+
+	for (i = 0; i < CLK_FIMC_MAX; i++)
 		fimc->clock[i] = ERR_PTR(-EINVAL);
 
-	for (i = 0; i < MAX_FIMC_CLOCKS; i++) {
-		fimc->clock[i] = clk_get(&fimc->pdev->dev, fimc_clocks[i]);
+	for (i = 0; i < num_clocks; i++) {
+		fimc->clock[i] = clk_get(dev, fimc_clocks[i]);
 		if (IS_ERR(fimc->clock[i])) {
 			ret = PTR_ERR(fimc->clock[i]);
 			goto err;
@@ -837,10 +843,30 @@ static int fimc_clk_get(struct fimc_dev *fimc)
 	}
 	return 0;
 err:
-	fimc_clk_put(fimc);
-	dev_err(&fimc->pdev->dev, "failed to get clock: %s\n",
-		fimc_clocks[i]);
+	fimc_put_clocks(fimc);
+	dev_err(dev, "failed to get clock: %s\n", fimc_clocks[i]);
 	return -ENXIO;
+}
+
+static int fimc_setup_clocks(struct fimc_dev *fimc, unsigned long freq)
+{
+	int ret;
+
+	if (!IS_ERR(fimc->clock[CLK_PARENT])) {
+		ret = clk_set_parent(fimc->clock[CLK_MUX],
+				     fimc->clock[CLK_PARENT]);
+		if (ret < 0) {
+			dev_err(&fimc->pdev->dev,
+				"%s(): failed to set parent: %d\n",
+				__func__, ret);
+			return ret;
+		}
+	}
+	ret = clk_set_rate(fimc->clock[CLK_BUS], freq);
+	if (ret < 0)
+		return ret;
+
+	return clk_enable(fimc->clock[CLK_BUS]);
 }
 
 static int fimc_m2m_suspend(struct fimc_dev *fimc)
@@ -992,18 +1018,13 @@ static int fimc_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
-	ret = fimc_clk_get(fimc);
-	if (ret)
+	ret = fimc_get_clocks(fimc);
+	if (ret < 0)
 		return ret;
-
 	if (lclk_freq == 0)
 		lclk_freq = fimc->drv_data->lclk_frequency;
 
-	ret = clk_set_rate(fimc->clock[CLK_BUS], lclk_freq);
-	if (ret < 0)
-		return ret;
-
-	ret = clk_enable(fimc->clock[CLK_BUS]);
+	ret = fimc_setup_clocks(fimc, lclk_freq);
 	if (ret < 0)
 		return ret;
 
@@ -1040,7 +1061,7 @@ err_sd:
 	fimc_unregister_capture_subdev(fimc);
 err_clk:
 	clk_disable(fimc->clock[CLK_BUS]);
-	fimc_clk_put(fimc);
+	fimc_put_clocks(fimc);
 	return ret;
 }
 
@@ -1127,7 +1148,7 @@ static int fimc_remove(struct platform_device *pdev)
 	vb2_dma_contig_cleanup_ctx(fimc->alloc_ctx);
 
 	clk_disable(fimc->clock[CLK_BUS]);
-	fimc_clk_put(fimc);
+	fimc_put_clocks(fimc);
 
 	dev_info(&pdev->dev, "driver unloaded\n");
 	return 0;
