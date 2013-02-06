@@ -1,0 +1,1247 @@
+/* linux/drivers/video/s6e8aa0.c
+ *
+ * MIPI-DSI based s6e8aa0 AMOLED lcd 5.3 inch panel driver.
+ *
+ * Inki Dae, <inki.dae@samsung.com>
+ * Donghwa Lee, <dh09.lee@samsung.com>
+ * Joongmock Shin <jmock.shin@samsung.com>
+ * Eunchul Kim <chulspro.kim@samsung.com>
+ * Tomasz Figa <t.figa@samsung.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+*/
+
+#include <linux/module.h>
+#include <linux/kernel.h>
+
+#include <linux/backlight.h>
+#include <linux/ctype.h>
+#include <linux/delay.h>
+#include <linux/errno.h>
+#include <linux/fb.h>
+#include <linux/gpio.h>
+#include <linux/lcd.h>
+#include <linux/mutex.h>
+#include <linux/of.h>
+#include <linux/of_gpio.h>
+#include <linux/platform_device.h>
+#include <linux/regulator/consumer.h>
+
+#include <video/display.h>
+#include <video/mipi_display.h>
+#include <video/of_videomode.h>
+#include <video/panel-s6e8aa0.h>
+
+#define LDI_MTP_LENGTH			24
+#define GAMMA_LEVEL_NUM			25
+#define GAMMA_TABLE_LEN			26
+#define S6E8AA0_PANEL_COND_LEN		39
+
+/* 1 */
+#define PANELCTL_SS_MASK		(1 << 5)
+#define PANELCTL_SS_1_800		(0 << 5)
+#define PANELCTL_SS_800_1		(1 << 5)
+#define PANELCTL_GTCON_MASK		(7 << 2)
+#define PANELCTL_GTCON_110		(6 << 2)
+#define PANELCTL_GTCON_111		(7 << 2)
+/* LTPS */
+/* 30 */
+#define PANELCTL_CLK1_CON_MASK		(7 << 3)
+#define PANELCTL_CLK1_000		(0 << 3)
+#define PANELCTL_CLK1_001		(1 << 3)
+#define PANELCTL_CLK2_CON_MASK		(7 << 0)
+#define PANELCTL_CLK2_000		(0 << 0)
+#define PANELCTL_CLK2_001		(1 << 0)
+/* 31 */
+#define PANELCTL_INT1_CON_MASK		(7 << 3)
+#define PANELCTL_INT1_000		(0 << 3)
+#define PANELCTL_INT1_001		(1 << 3)
+#define PANELCTL_INT2_CON_MASK		(7 << 0)
+#define PANELCTL_INT2_000		(0 << 0)
+#define PANELCTL_INT2_001		(1 << 0)
+/* 32 */
+#define PANELCTL_BICTL_CON_MASK		(7 << 3)
+#define PANELCTL_BICTL_000		(0 << 3)
+#define PANELCTL_BICTL_001		(1 << 3)
+#define PANELCTL_BICTLB_CON_MASK	(7 << 0)
+#define PANELCTL_BICTLB_000		(0 << 0)
+#define PANELCTL_BICTLB_001		(1 << 0)
+/* 36 */
+#define PANELCTL_EM_CLK1_CON_MASK	(7 << 3)
+#define PANELCTL_EM_CLK1_110		(6 << 3)
+#define PANELCTL_EM_CLK1_111		(7 << 3)
+#define PANELCTL_EM_CLK1B_CON_MASK	(7 << 0)
+#define PANELCTL_EM_CLK1B_110		(6 << 0)
+#define PANELCTL_EM_CLK1B_111		(7 << 0)
+/* 37 */
+#define PANELCTL_EM_CLK2_CON_MASK	(7 << 3)
+#define PANELCTL_EM_CLK2_110		(6 << 3)
+#define PANELCTL_EM_CLK2_111		(7 << 3)
+#define PANELCTL_EM_CLK2B_CON_MASK	(7 << 0)
+#define PANELCTL_EM_CLK2B_110		(6 << 0)
+#define PANELCTL_EM_CLK2B_111		(7 << 0)
+/* 38 */
+#define PANELCTL_EM_INT1_CON_MASK	(7 << 3)
+#define PANELCTL_EM_INT1_000		(0 << 3)
+#define PANELCTL_EM_INT1_001		(1 << 3)
+#define PANELCTL_EM_INT2_CON_MASK	(7 << 0)
+#define PANELCTL_EM_INT2_000		(0 << 0)
+#define PANELCTL_EM_INT2_001		(1 << 0)
+
+#define AID_DISABLE			(0x4)
+#define AID_1				(0x5)
+#define AID_2				(0x6)
+#define AID_3				(0x7)
+
+typedef u8 s6e8aa0_gamma_table[GAMMA_TABLE_LEN];
+
+struct s6e8aa0 {
+	struct display_entity entity;
+	struct device *dev;
+
+	struct s6e8aa0_platform_data *pdata;
+	struct backlight_device *bd;
+	struct lcd_device *ld;
+	struct regulator_bulk_data supplies[2];
+
+	unsigned int id;
+	unsigned int aid;
+	const struct s6e8aa0_variant *variant;
+
+	unsigned int reset_gpio;
+
+	int power;
+	int brightness;
+	struct mutex mutex;
+};
+
+struct s6e8aa0_variant {
+	u8 version;
+
+	int (*panel_cond_set)(struct s6e8aa0 *);
+	const u8 *panel_cond_table;
+	size_t panel_cond_len;
+
+	const u8 *pentile_ctl_table;
+	size_t pentile_ctl_len;
+
+	const u8 *power_ctl_table;
+	size_t power_ctl_len;
+
+	int (*elvss_nvm_set)(struct s6e8aa0 *);
+	const u8 *elvss_nvm_table;
+	size_t elvss_nvm_len;
+
+	int (*brightness_set)(struct s6e8aa0 *);
+	const s6e8aa0_gamma_table *gamma_tables;
+};
+
+#define to_panel(p)	container_of(p, struct s6e8aa0, entity)
+
+static void s6e8aa0_apply_level_1_key(struct s6e8aa0 *lcd)
+{
+	const u8 data_to_send[] = {
+		0xf0, 0x5a, 0x5a
+	};
+
+	dsi_dcs_write(lcd->entity.source, 0,
+		data_to_send, ARRAY_SIZE(data_to_send));
+}
+
+static u8 s6e8aa0_apply_aid_panel_cond(unsigned int aid)
+{
+	u8 ret;
+
+	switch (aid) {
+	case AID_1:
+		ret = 0x60;
+		break;
+	case AID_2:
+		ret = 0x80;
+		break;
+	case AID_3:
+		ret = 0xA0;
+		break;
+	default:
+		ret = 0x04;
+		break;
+	}
+
+	return ret;
+}
+
+static const u8 s6e8aa0_panel_cond_v32[S6E8AA0_PANEL_COND_LEN] = {
+	0xf8, 0x19, 0x35, 0x00, 0x00, 0x00, 0x94, 0x00, 0x3c,
+	0x78, 0x10, 0x27, 0x08, 0x6e, 0x00, 0x00, 0x00, 0x00,
+	0x04, 0x08, 0x6e, 0x00, 0x00, 0x00, 0x00, 0x07, 0x07,
+	0x23, 0x6e, 0xc0, 0xc1, 0x01, 0x81, 0xc1, 0x00, 0xc3,
+	0xf6, 0xf6, 0xc1
+};
+
+static int s6e8aa0_panel_cond_set(struct s6e8aa0 *lcd)
+{
+	const struct s6e8aa0_variant *variant = lcd->variant;
+
+	return dsi_dcs_write(lcd->entity.source,
+			0, variant->panel_cond_table, variant->panel_cond_len);
+}
+
+static int s6e8aa0_panel_cond_set_v142(struct s6e8aa0 *lcd)
+{
+	static u8 data_to_send[] = {
+		0xf8, 0x3d, 0x35, 0x00, 0x00, 0x00, 0x93, 0x00, 0x3c,
+		0x78, 0x08, 0x27, 0x7d, 0x3f, 0x00, 0x00, 0x00, 0x20,
+		0x04, 0x08, 0x6e, 0x00, 0x00, 0x00, 0x02, 0x07, 0x07,
+		0x23, 0x23, 0xc0, 0xc8, 0x08, 0x48, 0xc1, 0x00, 0xc1,
+		0xff, 0xff, 0xc8
+	};
+
+	data_to_send[18] = s6e8aa0_apply_aid_panel_cond(lcd->aid);
+
+	if (lcd->pdata->flip_vertical) {
+		/* GTCON */
+		data_to_send[1] &= ~(PANELCTL_GTCON_MASK);
+		data_to_send[1] |= (PANELCTL_GTCON_110);
+	}
+
+	if (lcd->pdata->flip_horizontal) {
+		/* SS */
+		data_to_send[1] &= ~(PANELCTL_SS_MASK);
+		data_to_send[1] |= (PANELCTL_SS_1_800);
+	}
+
+	if (lcd->pdata->flip_horizontal || lcd->pdata->flip_vertical) {
+		/* CLK1,2_CON */
+		data_to_send[30] &= ~(PANELCTL_CLK1_CON_MASK |
+			PANELCTL_CLK2_CON_MASK);
+		data_to_send[30] |= (PANELCTL_CLK1_000 | PANELCTL_CLK2_001);
+
+		/* INT1,2_CON */
+		data_to_send[31] &= ~(PANELCTL_INT1_CON_MASK |
+			PANELCTL_INT2_CON_MASK);
+		data_to_send[31] |= (PANELCTL_INT1_000 | PANELCTL_INT2_001);
+
+		/* BICTL,B_CON */
+		data_to_send[32] &= ~(PANELCTL_BICTL_CON_MASK |
+			PANELCTL_BICTLB_CON_MASK);
+		data_to_send[32] |= (PANELCTL_BICTL_000 |
+			PANELCTL_BICTLB_001);
+
+		/* EM_CLK1,1B_CON */
+		data_to_send[36] &= ~(PANELCTL_EM_CLK1_CON_MASK |
+			PANELCTL_EM_CLK1B_CON_MASK);
+		data_to_send[36] |= (PANELCTL_EM_CLK1_110 |
+			PANELCTL_EM_CLK1B_110);
+
+		/* EM_CLK2,2B_CON */
+		data_to_send[37] &= ~(PANELCTL_EM_CLK2_CON_MASK |
+			PANELCTL_EM_CLK2B_CON_MASK);
+		data_to_send[37] |= (PANELCTL_EM_CLK2_110 |
+			PANELCTL_EM_CLK2B_110);
+
+		/* EM_INT1,2_CON */
+		data_to_send[38] &= ~(PANELCTL_EM_INT1_CON_MASK |
+			PANELCTL_EM_INT2_CON_MASK);
+		data_to_send[38] |= (PANELCTL_EM_INT1_000 |
+			PANELCTL_EM_INT2_001);
+	}
+
+	return dsi_dcs_write(lcd->entity.source,
+					0, data_to_send, sizeof(data_to_send));
+}
+
+static void s6e8aa0_display_condition_set(struct s6e8aa0 *lcd)
+{
+	static const u8 data_to_send[] = {
+		0xf2, 0x80, 0x03, 0x0d
+	};
+
+	dsi_dcs_write(lcd->entity.source, 0,
+		data_to_send, ARRAY_SIZE(data_to_send));
+}
+
+static void s6e8aa0_etc_source_control(struct s6e8aa0 *lcd)
+{
+	static const u8 data_to_send[] = {
+		0xf6, 0x00, 0x02, 0x00
+	};
+
+	dsi_dcs_write(lcd->entity.source, 0,
+		data_to_send, ARRAY_SIZE(data_to_send));
+}
+
+static u8 s6e8aa0_pentile_ctl_table[] = {
+	0xb6, 0x0c, 0x02, 0x03, 0x32, 0xff, 0x44, 0x44, 0xc0, 0x00
+};
+
+static u8 s6e8aa0_pentile_ctl_table_v32[] = {
+	0xb6, 0x0c, 0x02, 0x03, 0x32, 0xc0, 0x44, 0x44, 0xc0, 0x00
+};
+
+static int s6e8aa0_etc_pentile_control(struct s6e8aa0 *lcd)
+{
+	const struct s6e8aa0_variant *variant = lcd->variant;
+
+	return dsi_dcs_write(lcd->entity.source, 0,
+			variant->pentile_ctl_table, variant->pentile_ctl_len);
+}
+
+static const u8 s6e8aa0_power_ctl_table[] = {
+	0xf4, 0xcf, 0x0a, 0x12, 0x10, 0x1e, 0x33, 0x02
+};
+
+static const u8 s6e8aa0_power_ctl_table_v32[] = {
+	0xf4, 0xcf, 0x0a, 0x15, 0x10, 0x19, 0x33, 0x02
+};
+
+static int s6e8aa0_etc_power_control(struct s6e8aa0 *lcd)
+{
+	const struct s6e8aa0_variant *variant = lcd->variant;
+
+	return dsi_dcs_write(lcd->entity.source, 0,
+			variant->power_ctl_table, variant->power_ctl_len);
+}
+
+static int s6e8aa0_etc_elvss_control(struct s6e8aa0 *lcd)
+{
+	u8 data_to_send[] = {
+		0xb1, 0x04, 0x00
+	};
+
+	if (lcd->id == 0x00)
+		data_to_send[2] = 0x95;
+
+	return dsi_dcs_write(lcd->entity.source, 0,
+				data_to_send, ARRAY_SIZE(data_to_send));
+}
+
+static const u8 s6e8aa0_elvss_nvm_table_v32[] = {
+	0xd9, 0x14, 0x40, 0x0c, 0xcb, 0xce, 0x6e, 0xc4, 0x07,
+	0x40, 0x41, 0xc1, 0x00, 0x60, 0x19
+};
+
+static int s6e8aa0_elvss_nvm_set(struct s6e8aa0 *lcd)
+{
+	const struct s6e8aa0_variant *variant = lcd->variant;
+
+	return dsi_dcs_write(lcd->entity.source, 0,
+		variant->elvss_nvm_table, variant->elvss_nvm_len);
+};
+
+static int s6e8aa0_elvss_nvm_set_v142(struct s6e8aa0 *lcd)
+{
+	u8 data_to_send[] = {
+		0xd9, 0x14, 0x40, 0x0c, 0xcb, 0xce, 0x6e, 0xc4, 0x0f,
+		0x40, 0x41, 0xd9, 0x00, 0x60, 0x19
+	};
+
+	switch (lcd->brightness) {
+	case 0 ... 6: /* 30cd ~ 100cd */
+		data_to_send[11] = 0xdf;
+		break;
+	case 7 ... 11: /* 120cd ~ 150cd */
+		data_to_send[11] = 0xdd;
+		break;
+	case 12 ... 15: /* 180cd ~ 210cd */
+		data_to_send[11] = 0xd9;
+		break;
+	case 16 ... 24: /* 240cd ~ 300cd */
+		data_to_send[11] = 0xd0;
+		break;
+	}
+
+	return dsi_dcs_write(lcd->entity.source, 0,
+				data_to_send, ARRAY_SIZE(data_to_send));
+}
+
+static void s6e8aa0_sleep_in(struct s6e8aa0 *lcd)
+{
+	static const u8 data_to_send[] = {
+		0x10
+	};
+
+	dsi_dcs_write(lcd->entity.source, 0,
+		data_to_send, ARRAY_SIZE(data_to_send));
+}
+
+static void s6e8aa0_sleep_out(struct s6e8aa0 *lcd)
+{
+	static const u8 data_to_send[] = {
+		0x11
+	};
+
+	dsi_dcs_write(lcd->entity.source, 0,
+		data_to_send, ARRAY_SIZE(data_to_send));
+}
+
+static void s6e8aa0_display_on(struct s6e8aa0 *lcd)
+{
+	static const u8 data_to_send[] = {
+		0x29
+	};
+
+	dsi_dcs_write(lcd->entity.source, 0,
+		data_to_send, ARRAY_SIZE(data_to_send));
+}
+
+static void s6e8aa0_display_off(struct s6e8aa0 *lcd)
+{
+	static const u8 data_to_send[] = {
+		0x28
+	};
+
+	dsi_dcs_write(lcd->entity.source, 0,
+		data_to_send, ARRAY_SIZE(data_to_send));
+}
+
+static void s6e8aa0_apply_level_2_key(struct s6e8aa0 *lcd)
+{
+	const u8 data_to_send[] = {
+		0xfc, 0x5a, 0x5a
+	};
+
+	dsi_dcs_write(lcd->entity.source, 0,
+		data_to_send, ARRAY_SIZE(data_to_send));
+}
+
+static void s6e8aa0_enable_mtp_register(struct s6e8aa0 *lcd)
+{
+	static const u8 data_to_send[] = {
+		0xf1, 0x5a, 0x5a
+	};
+
+	dsi_dcs_write(lcd->entity.source, 0,
+				data_to_send, ARRAY_SIZE(data_to_send));
+}
+
+static void s6e8aa0_disable_mtp_register(struct s6e8aa0 *lcd)
+{
+	static const u8 data_to_send[] = {
+		0xf1, 0xa5, 0xa5
+	};
+
+	dsi_dcs_write(lcd->entity.source, 0,
+				data_to_send, ARRAY_SIZE(data_to_send));
+}
+
+static void s6e8aa0_read_id(struct s6e8aa0 *lcd, u8 *mtp_id)
+{
+	unsigned int addr = 0xd1;	/* MTP ID */
+
+	dsi_dcs_read(lcd->entity.source, 0, addr, mtp_id, 3);
+}
+
+static unsigned int s6e8aa0_read_mtp(struct s6e8aa0 *lcd, u8 *mtp_data)
+{
+	unsigned int ret;
+	unsigned int addr = 0xd3;	/* MTP addr */
+
+	s6e8aa0_enable_mtp_register(lcd);
+
+	ret = dsi_dcs_read(lcd->entity.source, 0, addr,
+						mtp_data, LDI_MTP_LENGTH);
+	if (ret)
+		dev_err(lcd->dev, "%s: dsi read error\n", __func__);
+
+	s6e8aa0_disable_mtp_register(lcd);
+
+	return ret;
+}
+
+static const s6e8aa0_gamma_table s6e8aa0_gamma_tables_v142[GAMMA_LEVEL_NUM] = {
+	{
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0x62, 0x55, 0x55,
+		0xaf, 0xb1, 0xb1, 0xbd, 0xce, 0xb7, 0x9a, 0xb1,
+		0x90, 0xb2, 0xc4, 0xae, 0x00, 0x60, 0x00, 0x40,
+		0x00, 0x70,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0x74, 0x68, 0x69,
+		0xb8, 0xc1, 0xb7, 0xbd, 0xcd, 0xb8, 0x93, 0xab,
+		0x88, 0xb4, 0xc4, 0xb1, 0x00, 0x6b, 0x00, 0x4d,
+		0x00, 0x7d,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0x95, 0x8a, 0x89,
+		0xb4, 0xc6, 0xb2, 0xc5, 0xd2, 0xbf, 0x90, 0xa8,
+		0x85, 0xb5, 0xc4, 0xb3, 0x00, 0x7b, 0x00, 0x5d,
+		0x00, 0x8f,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0x9f, 0x98, 0x92,
+		0xb3, 0xc4, 0xb0, 0xbc, 0xcc, 0xb4, 0x91, 0xa6,
+		0x87, 0xb5, 0xc5, 0xb4, 0x00, 0x87, 0x00, 0x6a,
+		0x00, 0x9e,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0x99, 0x93, 0x8b,
+		0xb2, 0xc2, 0xb0, 0xbd, 0xce, 0xb4, 0x90, 0xa6,
+		0x87, 0xb3, 0xc3, 0xb2, 0x00, 0x8d, 0x00, 0x70,
+		0x00, 0xa4,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0xa7, 0xa5, 0x99,
+		0xb2, 0xc2, 0xb0, 0xbb, 0xcd, 0xb1, 0x93, 0xa7,
+		0x8a, 0xb2, 0xc1, 0xb0, 0x00, 0x92, 0x00, 0x75,
+		0x00, 0xaa,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0xa0, 0xa0, 0x93,
+		0xb6, 0xc4, 0xb4, 0xb5, 0xc8, 0xaa, 0x94, 0xa9,
+		0x8c, 0xb2, 0xc0, 0xb0, 0x00, 0x97, 0x00, 0x7a,
+		0x00, 0xaf,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0xa3, 0xa7, 0x96,
+		0xb3, 0xc2, 0xb0, 0xba, 0xcb, 0xb0, 0x94, 0xa8,
+		0x8c, 0xb0, 0xbf, 0xaf, 0x00, 0x9f, 0x00, 0x83,
+		0x00, 0xb9,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0x9d, 0xa2, 0x90,
+		0xb6, 0xc5, 0xb3, 0xb8, 0xc9, 0xae, 0x94, 0xa8,
+		0x8d, 0xaf, 0xbd, 0xad, 0x00, 0xa4, 0x00, 0x88,
+		0x00, 0xbf,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0xa6, 0xac, 0x97,
+		0xb4, 0xc4, 0xb1, 0xbb, 0xcb, 0xb2, 0x93, 0xa7,
+		0x8d, 0xae, 0xbc, 0xad, 0x00, 0xa7, 0x00, 0x8c,
+		0x00, 0xc3,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0xa2, 0xa9, 0x93,
+		0xb6, 0xc5, 0xb2, 0xba, 0xc9, 0xb0, 0x93, 0xa7,
+		0x8d, 0xae, 0xbb, 0xac, 0x00, 0xab, 0x00, 0x90,
+		0x00, 0xc8,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0x9e, 0xa6, 0x8f,
+		0xb7, 0xc6, 0xb3, 0xb8, 0xc8, 0xb0, 0x93, 0xa6,
+		0x8c, 0xae, 0xbb, 0xad, 0x00, 0xae, 0x00, 0x93,
+		0x00, 0xcc,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0xab, 0xb4, 0x9c,
+		0xb3, 0xc3, 0xaf, 0xb7, 0xc7, 0xaf, 0x93, 0xa6,
+		0x8c, 0xaf, 0xbc, 0xad, 0x00, 0xb1, 0x00, 0x97,
+		0x00, 0xcf,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0xa6, 0xb1, 0x98,
+		0xb1, 0xc2, 0xab, 0xba, 0xc9, 0xb2, 0x93, 0xa6,
+		0x8d, 0xae, 0xba, 0xab, 0x00, 0xb5, 0x00, 0x9b,
+		0x00, 0xd4,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0xa3, 0xae, 0x94,
+		0xb2, 0xc3, 0xac, 0xbb, 0xca, 0xb4, 0x91, 0xa4,
+		0x8a, 0xae, 0xba, 0xac, 0x00, 0xb8, 0x00, 0x9e,
+		0x00, 0xd8,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0xab, 0xb7, 0x9c,
+		0xae, 0xc0, 0xa9, 0xba, 0xc9, 0xb3, 0x92, 0xa5,
+		0x8b, 0xad, 0xb9, 0xab, 0x00, 0xbb, 0x00, 0xa1,
+		0x00, 0xdc,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0xa7, 0xb4, 0x97,
+		0xb0, 0xc1, 0xaa, 0xb9, 0xc8, 0xb2, 0x92, 0xa5,
+		0x8c, 0xae, 0xb9, 0xab, 0x00, 0xbe, 0x00, 0xa4,
+		0x00, 0xdf,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0xa3, 0xb0, 0x94,
+		0xb0, 0xc2, 0xab, 0xbb, 0xc9, 0xb3, 0x91, 0xa4,
+		0x8b, 0xad, 0xb8, 0xaa, 0x00, 0xc1, 0x00, 0xa8,
+		0x00, 0xe2,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0xa3, 0xb0, 0x94,
+		0xae, 0xbf, 0xa8, 0xb9, 0xc8, 0xb3, 0x92, 0xa4,
+		0x8b, 0xad, 0xb7, 0xa9, 0x00, 0xc4, 0x00, 0xab,
+		0x00, 0xe6,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0xa7, 0xb6, 0x98,
+		0xaf, 0xc0, 0xa8, 0xb8, 0xc7, 0xb2, 0x93, 0xa5,
+		0x8d, 0xad, 0xb7, 0xa9, 0x00, 0xc7, 0x00, 0xae,
+		0x00, 0xe9,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0xa4, 0xb3, 0x95,
+		0xaf, 0xc1, 0xa9, 0xb9, 0xc8, 0xb3, 0x92, 0xa4,
+		0x8b, 0xad, 0xb7, 0xaa, 0x00, 0xc9, 0x00, 0xb0,
+		0x00, 0xec,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0xa4, 0xb3, 0x95,
+		0xac, 0xbe, 0xa6, 0xbb, 0xc9, 0xb4, 0x90, 0xa3,
+		0x8a, 0xad, 0xb7, 0xa9, 0x00, 0xcc, 0x00, 0xb4,
+		0x00, 0xf0,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0xa0, 0xb0, 0x91,
+		0xae, 0xc0, 0xa6, 0xba, 0xc8, 0xb4, 0x91, 0xa4,
+		0x8b, 0xad, 0xb7, 0xa9, 0x00, 0xcf, 0x00, 0xb7,
+		0x00, 0xf3,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0xa7, 0xb8, 0x98,
+		0xab, 0xbd, 0xa4, 0xbb, 0xc9, 0xb5, 0x91, 0xa3,
+		0x8b, 0xac, 0xb6, 0xa8, 0x00, 0xd1, 0x00, 0xb9,
+		0x00, 0xf6,
+	}, {
+		0xfa, 0x01, 0x71, 0x31, 0x7b, 0xa4, 0xb5, 0x95,
+		0xa9, 0xbc, 0xa1, 0xbb, 0xc9, 0xb5, 0x91, 0xa3,
+		0x8a, 0xad, 0xb6, 0xa8, 0x00, 0xd6, 0x00, 0xbf,
+		0x00, 0xfc,
+	},
+};
+
+static const s6e8aa0_gamma_table s6e8aa0_gamma_tables_v32[GAMMA_LEVEL_NUM] = {
+	{
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0x72, 0x5e, 0x6b,
+		0xa1, 0xa7, 0x9a, 0xb4, 0xcb, 0xb8, 0x92, 0xac,
+		0x97, 0xb4, 0xc3, 0xb5, 0x00, 0x4e, 0x00, 0x37,
+		0x00, 0x58,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0x85, 0x71, 0x7d,
+		0xa6, 0xb6, 0xa1, 0xb5, 0xca, 0xba, 0x93, 0xac,
+		0x98, 0xb2, 0xc0, 0xaf, 0x00, 0x59, 0x00, 0x43,
+		0x00, 0x64,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xa4, 0x94, 0x9e,
+		0xa0, 0xbb, 0x9c, 0xc3, 0xd2, 0xc6, 0x93, 0xaa,
+		0x95, 0xb7, 0xc2, 0xb4, 0x00, 0x65, 0x00, 0x50,
+		0x00, 0x74,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xad, 0xa1, 0xa6,
+		0xa0, 0xb9, 0x9b, 0xc3, 0xd1, 0xc8, 0x90, 0xa6,
+		0x90, 0xbb, 0xc3, 0xb7, 0x00, 0x6f, 0x00, 0x5b,
+		0x00, 0x80,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xa6, 0x9d, 0x9f,
+		0x9f, 0xb8, 0x9a, 0xc7, 0xd5, 0xcc, 0x90, 0xa5,
+		0x8f, 0xb8, 0xc1, 0xb6, 0x00, 0x74, 0x00, 0x60,
+		0x00, 0x85,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xb3, 0xae, 0xae,
+		0x9e, 0xb7, 0x9a, 0xc8, 0xd6, 0xce, 0x91, 0xa6,
+		0x90, 0xb6, 0xc0, 0xb3, 0x00, 0x78, 0x00, 0x65,
+		0x00, 0x8a,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xad, 0xa9, 0xa8,
+		0xa3, 0xb9, 0x9e, 0xc4, 0xd3, 0xcb, 0x94, 0xa6,
+		0x90, 0xb6, 0xbf, 0xb3, 0x00, 0x7c, 0x00, 0x69,
+		0x00, 0x8e,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xaf, 0xaf, 0xa9,
+		0xa5, 0xbc, 0xa2, 0xc7, 0xd5, 0xcd, 0x93, 0xa5,
+		0x8f, 0xb4, 0xbd, 0xb1, 0x00, 0x83, 0x00, 0x70,
+		0x00, 0x96,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xa9, 0xab, 0xa3,
+		0xaa, 0xbf, 0xa7, 0xc5, 0xd3, 0xcb, 0x93, 0xa5,
+		0x8f, 0xb2, 0xbb, 0xb0, 0x00, 0x86, 0x00, 0x74,
+		0x00, 0x9b,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xb1, 0xb5, 0xab,
+		0xab, 0xc0, 0xa9, 0xc7, 0xd4, 0xcc, 0x94, 0xa4,
+		0x8f, 0xb1, 0xbb, 0xaf, 0x00, 0x8a, 0x00, 0x77,
+		0x00, 0x9e,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xad, 0xb2, 0xa7,
+		0xae, 0xc2, 0xab, 0xc5, 0xd3, 0xca, 0x93, 0xa4,
+		0x8f, 0xb1, 0xba, 0xae, 0x00, 0x8d, 0x00, 0x7b,
+		0x00, 0xa2,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xa9, 0xaf, 0xa3,
+		0xb0, 0xc3, 0xae, 0xc4, 0xd1, 0xc8, 0x93, 0xa4,
+		0x8f, 0xb1, 0xba, 0xaf, 0x00, 0x8f, 0x00, 0x7d,
+		0x00, 0xa5,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xb4, 0xbd, 0xaf,
+		0xae, 0xc1, 0xab, 0xc2, 0xd0, 0xc6, 0x94, 0xa4,
+		0x8f, 0xb1, 0xba, 0xaf, 0x00, 0x92, 0x00, 0x80,
+		0x00, 0xa8,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xb0, 0xb9, 0xac,
+		0xad, 0xc1, 0xab, 0xc4, 0xd1, 0xc7, 0x95, 0xa4,
+		0x90, 0xb0, 0xb9, 0xad, 0x00, 0x95, 0x00, 0x84,
+		0x00, 0xac,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xad, 0xb6, 0xa7,
+		0xaf, 0xc2, 0xae, 0xc5, 0xd1, 0xc7, 0x93, 0xa3,
+		0x8e, 0xb0, 0xb9, 0xad, 0x00, 0x98, 0x00, 0x86,
+		0x00, 0xaf,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xb4, 0xbf, 0xaf,
+		0xad, 0xc1, 0xab, 0xc3, 0xd0, 0xc6, 0x94, 0xa3,
+		0x8f, 0xaf, 0xb8, 0xac, 0x00, 0x9a, 0x00, 0x89,
+		0x00, 0xb2,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xb0, 0xbc, 0xac,
+		0xaf, 0xc2, 0xad, 0xc2, 0xcf, 0xc4, 0x94, 0xa3,
+		0x90, 0xaf, 0xb8, 0xad, 0x00, 0x9c, 0x00, 0x8b,
+		0x00, 0xb5,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xad, 0xb9, 0xa7,
+		0xb1, 0xc4, 0xaf, 0xc3, 0xcf, 0xc5, 0x94, 0xa3,
+		0x8f, 0xae, 0xb7, 0xac, 0x00, 0x9f, 0x00, 0x8e,
+		0x00, 0xb8,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xad, 0xb9, 0xa7,
+		0xaf, 0xc2, 0xad, 0xc1, 0xce, 0xc3, 0x95, 0xa3,
+		0x90, 0xad, 0xb6, 0xab, 0x00, 0xa2, 0x00, 0x91,
+		0x00, 0xbb,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xb1, 0xbe, 0xac,
+		0xb1, 0xc4, 0xaf, 0xc1, 0xcd, 0xc1, 0x95, 0xa4,
+		0x91, 0xad, 0xb6, 0xab, 0x00, 0xa4, 0x00, 0x93,
+		0x00, 0xbd,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xad, 0xbb, 0xa8,
+		0xb3, 0xc5, 0xb2, 0xc1, 0xcd, 0xc2, 0x95, 0xa3,
+		0x90, 0xad, 0xb6, 0xab, 0x00, 0xa6, 0x00, 0x95,
+		0x00, 0xc0,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xad, 0xbb, 0xa8,
+		0xb0, 0xc3, 0xaf, 0xc2, 0xce, 0xc2, 0x94, 0xa2,
+		0x90, 0xac, 0xb6, 0xab, 0x00, 0xa8, 0x00, 0x98,
+		0x00, 0xc3,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xa9, 0xb8, 0xa5,
+		0xb3, 0xc5, 0xb2, 0xc1, 0xcc, 0xc0, 0x95, 0xa2,
+		0x90, 0xad, 0xb6, 0xab, 0x00, 0xaa, 0x00, 0x9a,
+		0x00, 0xc5,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xb0, 0xc0, 0xac,
+		0xb0, 0xc3, 0xaf, 0xc1, 0xcd, 0xc1, 0x95, 0xa2,
+		0x90, 0xac, 0xb5, 0xa9, 0x00, 0xac, 0x00, 0x9c,
+		0x00, 0xc8,
+	}, {
+		0xfa, 0x01, 0x43, 0x14, 0x45, 0xad, 0xbd, 0xa8,
+		0xaf, 0xc2, 0xaf, 0xc1, 0xcc, 0xc0, 0x95, 0xa2,
+		0x90, 0xac, 0xb5, 0xaa, 0x00, 0xb1, 0x00, 0xa1,
+		0x00, 0xcc,
+	},
+};
+
+static int s6e8aa0_brightness_set(struct s6e8aa0 *lcd)
+{
+	static const u8 data_to_send[] = {
+		0xf7, 0x03
+	};
+	const struct s6e8aa0_variant *variant = lcd->variant;
+	int ret;
+
+	ret = dsi_dcs_write(lcd->entity.source, 0,
+				variant->gamma_tables[lcd->brightness],
+				sizeof(variant->gamma_tables[lcd->brightness]));
+	if (ret < 0)
+		return ret;
+
+	/* update gamma table. */
+	ret = dsi_dcs_write(lcd->entity.source, 0, data_to_send,
+						ARRAY_SIZE(data_to_send));
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static int s6e8aa0_brightness_set_v142(struct s6e8aa0 *lcd)
+{
+	const struct s6e8aa0_variant *variant = lcd->variant;
+	int ret;
+
+	ret = variant->elvss_nvm_set(lcd);
+	if (ret < 0)
+		return ret;
+
+	return s6e8aa0_brightness_set(lcd);
+}
+
+static int s6e8aa0_panel_init(struct s6e8aa0 *lcd)
+{
+	const struct s6e8aa0_variant *variant = lcd->variant;
+
+	s6e8aa0_apply_level_1_key(lcd);
+	s6e8aa0_apply_level_2_key(lcd);
+	msleep(20);
+
+	s6e8aa0_sleep_out(lcd);
+	msleep(40);
+
+	variant->panel_cond_set(lcd);
+	s6e8aa0_display_condition_set(lcd);
+
+	s6e8aa0_brightness_set(lcd);
+
+	s6e8aa0_etc_source_control(lcd);
+	s6e8aa0_etc_pentile_control(lcd);
+	variant->elvss_nvm_set(lcd);
+	s6e8aa0_etc_power_control(lcd);
+	s6e8aa0_etc_elvss_control(lcd);
+	msleep(lcd->pdata->init_delay);
+
+	dev_dbg(lcd->dev, "panel init sequence done.\n");
+
+	return 0;
+}
+
+static int s6e8aa0_get_brightness(struct backlight_device *bd)
+{
+	return bd->props.brightness;
+}
+
+static int s6e8aa0_update_status(struct backlight_device *bd)
+{
+	struct s6e8aa0 *lcd = bl_get_data(bd);
+	const struct s6e8aa0_variant *variant = lcd->variant;
+	int ret;
+
+	mutex_lock(&lcd->mutex);
+
+	lcd->brightness = bd->props.brightness;
+
+	if (lcd->entity.state != DISPLAY_ENTITY_STATE_ON)
+		goto unlock;
+
+	ret = variant->brightness_set(lcd);
+	if (ret) {
+		dev_err(lcd->dev, "lcd brightness setting failed.\n");
+		goto unlock;
+	}
+
+unlock:
+	mutex_unlock(&lcd->mutex);
+
+	return 0;
+}
+
+static const struct backlight_ops s6e8aa0_backlight_ops = {
+	.get_brightness = s6e8aa0_get_brightness,
+	.update_status = s6e8aa0_update_status,
+};
+
+static int s6e8aa0_set_power(struct lcd_device *ld, int power)
+{
+	struct s6e8aa0 *lcd = lcd_get_data(ld);
+	enum display_entity_state state;
+	int ret = 0;
+
+	mutex_lock(&lcd->mutex);
+
+	switch (power) {
+	case FB_BLANK_UNBLANK:
+		state = DISPLAY_ENTITY_STATE_ON;
+		break;
+	case FB_BLANK_POWERDOWN:
+		state = DISPLAY_ENTITY_STATE_OFF;
+		break;
+	default:
+		state = DISPLAY_ENTITY_STATE_STANDBY;
+	}
+
+	ret = display_entity_set_state(&lcd->entity, state);
+	if (ret)
+		goto unlock;
+
+	lcd->power = power;
+
+unlock:
+	mutex_unlock(&lcd->mutex);
+
+	return ret;
+}
+
+static int s6e8aa0_get_power(struct lcd_device *ld)
+{
+	struct s6e8aa0 *lcd = lcd_get_data(ld);
+
+	return lcd->power;
+}
+
+static struct lcd_ops s6e8aa0_lcd_ops = {
+	.set_power = s6e8aa0_set_power,
+	.get_power = s6e8aa0_get_power,
+};
+
+static const struct s6e8aa0_variant s6e8aa0_variants[] = {
+	{
+		.version = 32,
+		.panel_cond_set = s6e8aa0_panel_cond_set,
+		.panel_cond_table = s6e8aa0_panel_cond_v32,
+		.panel_cond_len = ARRAY_SIZE(s6e8aa0_panel_cond_v32),
+		.pentile_ctl_table = s6e8aa0_pentile_ctl_table_v32,
+		.pentile_ctl_len = ARRAY_SIZE(s6e8aa0_pentile_ctl_table_v32),
+		.power_ctl_table = s6e8aa0_power_ctl_table_v32,
+		.power_ctl_len = ARRAY_SIZE(s6e8aa0_power_ctl_table_v32),
+		.elvss_nvm_set = s6e8aa0_elvss_nvm_set,
+		.elvss_nvm_table = s6e8aa0_elvss_nvm_table_v32,
+		.elvss_nvm_len = ARRAY_SIZE(s6e8aa0_elvss_nvm_table_v32),
+		.brightness_set = s6e8aa0_brightness_set,
+		.gamma_tables = s6e8aa0_gamma_tables_v32,
+	}, {
+		.version = 142,
+		.panel_cond_set = s6e8aa0_panel_cond_set_v142,
+		.pentile_ctl_table = s6e8aa0_pentile_ctl_table,
+		.pentile_ctl_len = ARRAY_SIZE(s6e8aa0_pentile_ctl_table),
+		.power_ctl_table = s6e8aa0_power_ctl_table,
+		.power_ctl_len = ARRAY_SIZE(s6e8aa0_power_ctl_table),
+		.elvss_nvm_set = s6e8aa0_elvss_nvm_set_v142,
+		.brightness_set = s6e8aa0_brightness_set_v142,
+		.gamma_tables = s6e8aa0_gamma_tables_v142,
+	}
+};
+
+static int s6e8aa0_check_mtp(struct s6e8aa0 *lcd)
+{
+	int ret;
+	u8 mtp_data[LDI_MTP_LENGTH] = {0, };
+	u8 mtp_id[3] = {0, };
+	int i;
+
+	s6e8aa0_read_id(lcd, mtp_id);
+	if (mtp_id[0] == 0x00) {
+		dev_err(lcd->dev, "read id failed\n");
+		return -EIO;
+	}
+
+	dev_info(lcd->dev, "Read ID : 0x%2x, 0x%2x, 0x%2x\n",
+					mtp_id[0], mtp_id[1], mtp_id[2]);
+
+	if (mtp_id[2] == 0x33)
+		dev_dbg(lcd->dev,
+			"ID-3 is 0xff does not support dynamic elvss\n");
+	else {
+		dev_dbg(lcd->dev,
+			"ID-3 is 0x%x support dynamic elvss\n", mtp_id[2]);
+		dev_dbg(lcd->dev, "Dynamic ELVSS Information\n");
+	}
+
+	for (i = 0; i < ARRAY_SIZE(s6e8aa0_variants); ++i) {
+		if (mtp_id[1] == s6e8aa0_variants[i].version)
+			break;
+	}
+	if (i >= ARRAY_SIZE(s6e8aa0_variants)) {
+		dev_err(lcd->dev, "unsupported display version %d\n",
+								mtp_id[1]);
+		return -EINVAL;
+	}
+
+	lcd->variant = &s6e8aa0_variants[i];
+	lcd->id = mtp_id[2];
+	lcd->aid = (mtp_id[2] >> 5);
+
+	ret = s6e8aa0_read_mtp(lcd, mtp_data);
+	if (ret) {
+		dev_err(lcd->dev, "read mtp failed\n");
+		return -EIO;
+	}
+
+	return 0;
+}
+
+static int s6e8aa0_set_sequence(struct s6e8aa0 *lcd)
+{
+	int ret;
+
+	ret = s6e8aa0_check_mtp(lcd);
+	if (ret < 0)
+		return ret;
+
+	s6e8aa0_panel_init(lcd);
+	s6e8aa0_display_on(lcd);
+
+	dev_dbg(lcd->dev, "%s:done.\n", __func__);
+
+	return 0;
+}
+
+#ifdef CONFIG_OF
+static int s6e8aa0_generic_reset(struct device *dev)
+{
+	struct s6e8aa0 *lcd = dev_get_drvdata(dev);
+
+	gpio_set_value(lcd->reset_gpio, 1);
+	usleep_range(10000, 11000);
+	gpio_set_value(lcd->reset_gpio, 0);
+	usleep_range(10000, 11000);
+	gpio_set_value(lcd->reset_gpio, 1);
+
+	return 0;
+}
+
+static struct s6e8aa0_platform_data *s6e8aa0_parse_dt(struct s6e8aa0 *lcd)
+{
+	struct device_node *node = lcd->dev->of_node;
+	struct s6e8aa0_platform_data *data;
+	const __be32 *prop_data;
+	int ret;
+
+	data = devm_kzalloc(lcd->dev, sizeof(*data), GFP_KERNEL);
+	if (!data) {
+		dev_err(lcd->dev, "failed to allocate platform data.\n");
+		return NULL;
+	}
+
+	ret = of_get_videomode(node, &data->mode, 0);
+	if (ret) {
+		dev_err(lcd->dev, "failed to read video mode from DT\n");
+		return NULL;
+	}
+
+	lcd->reset_gpio = of_get_named_gpio(node, "reset-gpio", 0);
+	if (lcd->reset_gpio < 0)
+		return NULL;
+
+	prop_data = of_get_property(node, "reset-delay", NULL);
+	if (!prop_data)
+		return NULL;
+	data->reset_delay = be32_to_cpu(*prop_data);
+
+	prop_data = of_get_property(node, "power-on-delay", NULL);
+	if (!prop_data)
+		return NULL;
+	data->power_on_delay = be32_to_cpu(*prop_data);
+
+	prop_data = of_get_property(node, "init-delay", NULL);
+	if (!prop_data)
+		return NULL;
+	data->init_delay = be32_to_cpu(*prop_data);
+
+	if (of_find_property(node, "flip-horizontal", NULL))
+		data->flip_horizontal = true;
+
+	if (of_find_property(node, "flip-vertical", NULL))
+		data->flip_vertical = true;
+
+	data->reset = s6e8aa0_generic_reset;
+
+	return data;
+}
+
+static struct of_device_id s6e8aa0_of_match[] = {
+	{ .compatible = "samsung,s6e8aa0" },
+	{ }
+};
+
+MODULE_DEVICE_TABLE(of, s6e8aa0_of_match);
+#else
+static struct s6e8aa0_platform_data *s6e8aa0_parse_dt(struct s6e8aa0 *lcd)
+{
+	return NULL;
+}
+#endif
+
+static const struct display_entity_interface_params s6e8aa0_params = {
+	.type = DISPLAY_ENTITY_INTERFACE_DSI,
+	.p.dsi = {
+		.format = DSI_FMT_RGB888,
+		.mode = DSI_MODE_VIDEO | DSI_MODE_VIDEO_BURST
+			| DSI_MODE_VIDEO_HFP | DSI_MODE_VIDEO_HBP
+			| DSI_MODE_VIDEO_HSA | DSI_MODE_EOT_PACKET
+			| DSI_MODE_VSYNC_FLUSH,
+		.data_lanes = 0xf,
+		.hs_clk_freq = 500000000,
+		.esc_clk_freq = 20000000,
+	},
+};
+
+static void s6e8aa0_power_on(struct s6e8aa0 *panel)
+{
+	struct video_source *src = panel->entity.source;
+
+	regulator_bulk_enable(ARRAY_SIZE(panel->supplies),
+						panel->supplies);
+
+	msleep(panel->pdata->power_on_delay);
+
+	/* lcd reset */
+	if (panel->pdata->reset)
+		panel->pdata->reset(panel->dev);
+
+	msleep(panel->pdata->reset_delay);
+
+	src->ops.dsi->enable(src);
+
+	s6e8aa0_set_sequence(panel);
+}
+
+static void s6e8aa0_power_off(struct s6e8aa0 *panel)
+{
+	struct video_source *src = panel->entity.source;
+
+	s6e8aa0_sleep_in(panel);
+	s6e8aa0_display_off(panel);
+
+	src->ops.dsi->disable(src);
+
+	regulator_bulk_disable(ARRAY_SIZE(panel->supplies),
+						panel->supplies);
+}
+
+static int s6e8aa0_set_state(struct display_entity *entity,
+			    enum display_entity_state state)
+{
+	struct s6e8aa0 *panel = to_panel(entity);
+	struct video_source *src = panel->entity.source;
+
+	switch (state) {
+	case DISPLAY_ENTITY_STATE_STANDBY:
+	case DISPLAY_ENTITY_STATE_OFF:
+		if (entity->state != DISPLAY_ENTITY_STATE_ON)
+			break;
+		src->common_ops->set_stream(src, DISPLAY_ENTITY_STREAM_STOPPED);
+		s6e8aa0_power_off(panel);
+		break;
+
+	case DISPLAY_ENTITY_STATE_ON:
+		s6e8aa0_power_on(panel);
+		src->common_ops->set_stream(src,
+					DISPLAY_ENTITY_STREAM_CONTINUOUS);
+		break;
+
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static int s6e8aa0_get_modes(struct display_entity *entity,
+			    const struct videomode **modes)
+{
+	struct s6e8aa0 *panel = to_panel(entity);
+
+	*modes = &panel->pdata->mode;
+	return 1;
+}
+
+static int s6e8aa0_get_size(struct display_entity *entity,
+			   unsigned int *width, unsigned int *height)
+{
+	struct s6e8aa0 *panel = to_panel(entity);
+
+	*width = panel->pdata->width;
+	*height = panel->pdata->height;
+	return 0;
+}
+
+static int s6e8aa0_get_params(struct display_entity *entity,
+				struct display_entity_interface_params *params)
+{
+	*params = s6e8aa0_params;
+	return 0;
+}
+
+static const struct display_entity_control_ops s6e8aa0_control_ops = {
+	.set_state = s6e8aa0_set_state,
+	.get_modes = s6e8aa0_get_modes,
+	.get_size = s6e8aa0_get_size,
+	.get_params = s6e8aa0_get_params,
+};
+
+static void s6e8aa0_release(struct display_entity *entity)
+{
+	struct s6e8aa0 *panel = to_panel(entity);
+
+	regulator_bulk_free(ARRAY_SIZE(panel->supplies), panel->supplies);
+	kfree(panel);
+}
+
+static int s6e8aa0_probe(struct platform_device *pdev)
+{
+	struct s6e8aa0 *lcd;
+	int ret;
+
+	lcd = kzalloc(sizeof(struct s6e8aa0), GFP_KERNEL);
+	if (!lcd) {
+		dev_err(&pdev->dev, "failed to allocate s6e8aa0 structure.\n");
+		return -ENOMEM;
+	}
+
+	lcd->dev = &pdev->dev;
+	lcd->pdata = (struct s6e8aa0_platform_data *)pdev->dev.platform_data;
+
+	if (!lcd->pdata) {
+		lcd->pdata = s6e8aa0_parse_dt(lcd);
+		if (!lcd->pdata) {
+			dev_err(&pdev->dev, "failed to find platform data\n");
+			return -ENODEV;
+		}
+	}
+
+	lcd->supplies[0].supply = "vdd3";
+	lcd->supplies[1].supply = "vci";
+	ret = regulator_bulk_get(&pdev->dev,
+				ARRAY_SIZE(lcd->supplies), lcd->supplies);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to get regulators: %d\n", ret);
+		goto err_regulator_bulk_get;
+	}
+
+	lcd->ld = lcd_device_register("s6e8aa0", &pdev->dev, lcd,
+			&s6e8aa0_lcd_ops);
+	if (IS_ERR(lcd->ld)) {
+		dev_err(lcd->dev, "failed to register lcd ops.\n");
+		ret = PTR_ERR(lcd->ld);
+		goto err_lcd_register;
+	}
+
+	lcd->bd = backlight_device_register("s6e8aa0-bl", &pdev->dev, lcd,
+			&s6e8aa0_backlight_ops, NULL);
+	if (IS_ERR(lcd->bd)) {
+		dev_err(&pdev->dev, "failed to register backlight ops.\n");
+		ret = PTR_ERR(lcd->bd);
+		goto err_backlight_register;
+	}
+
+	mutex_init(&lcd->mutex);
+
+	lcd->bd->props.max_brightness = GAMMA_LEVEL_NUM - 1;
+	lcd->bd->props.brightness = GAMMA_LEVEL_NUM - 1;
+	lcd->brightness = GAMMA_LEVEL_NUM - 1;
+
+	lcd->entity.of_node = pdev->dev.of_node;
+	lcd->entity.dev = &pdev->dev;
+	lcd->entity.release = s6e8aa0_release;
+	lcd->entity.ops = &s6e8aa0_control_ops;
+
+	platform_set_drvdata(pdev, lcd);
+
+	ret = display_entity_register(&lcd->entity);
+	if (ret < 0)
+		goto err_display_register;
+
+	display_entity_set_state(&lcd->entity, DISPLAY_ENTITY_STATE_ON);
+
+	dev_dbg(&pdev->dev, "probed s6e8aa0 panel driver.\n");
+
+	return 0;
+
+err_display_register:
+	backlight_device_unregister(lcd->bd);
+err_backlight_register:
+	lcd_device_unregister(lcd->ld);
+err_lcd_register:
+	regulator_bulk_free(ARRAY_SIZE(lcd->supplies), lcd->supplies);
+err_regulator_bulk_get:
+	kfree(lcd);
+
+	return ret;
+}
+
+static int s6e8aa0_remove(struct platform_device *pdev)
+{
+	struct s6e8aa0 *lcd = platform_get_drvdata(pdev);
+
+	backlight_device_unregister(lcd->bd);
+	lcd_device_unregister(lcd->ld);
+	platform_set_drvdata(pdev, NULL);
+	display_entity_unregister(&lcd->entity);
+
+	return 0;
+}
+
+static struct platform_driver s6e8aa0_driver = {
+	.probe = s6e8aa0_probe,
+	.remove = s6e8aa0_remove,
+	.driver = {
+		.name = "panel_s6e8aa0",
+		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(s6e8aa0_of_match),
+	},
+};
+module_platform_driver(s6e8aa0_driver);
+
+MODULE_AUTHOR("Donghwa Lee <dh09.lee@samsung.com>");
+MODULE_AUTHOR("Inki Dae <inki.dae@samsung.com>");
+MODULE_AUTHOR("Joongmock Shin <jmock.shin@samsung.com>");
+MODULE_AUTHOR("Eunchul Kim <chulspro.kim@samsung.com>");
+MODULE_AUTHOR("Tomasz Figa <t.figa@samsung.com>");
+MODULE_DESCRIPTION("MIPI-DSI based s6e8aa0 AMOLED LCD Panel Driver");
+MODULE_LICENSE("GPL");
