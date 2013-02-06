@@ -651,23 +651,6 @@
 		};
 	};
 
-	i2c0_isp: i2c-isp@12130000 {
-		s5k6a3@10 {
-			compatible = "samsung,s5k6a3";
-			reg = <0x10>;
-			svdda-supply = <&cam_io_reg>;
-			svddio-supply = <&ldo19_reg>;
-			clock-frequency = <24000000>;
-			gpios = <&gpm1 6 0>;
-			port {
-				is_s5k6a3_ep: endpoint {
-					remote-endpoint = <&csis1_ep>;
-					data-lanes = <1>;
-				};
-			};
-		};
-	};
-
 	camera {
 		status = "okay";
 
@@ -735,7 +718,7 @@
 
 		fimc-is@12000000 {
 			status = "okay";
-			pinctrl-0 = <&fimc_is_i2c0 &fimc_is_i2c1 &fimc_is_uart>;
+			pinctrl-0 = <&fimc_is_uart>;
 			pinctrl-names = "default";
 			memory-region = <&fimc_mem>;
 
@@ -745,6 +728,26 @@
 
 			fimc_lite_1: fimc-lite@123A0000 {
 				status = "okay";
+			};
+
+			i2c1_isp: i2c-isp@12140000 {
+				pinctrl-0 = <&fimc_is_i2c1>;
+				pinctrl-names = "default";
+
+				s5k6a3@10 {
+					compatible = "samsung,s5k6a3";
+					reg = <0x10>;
+					svdda-supply = <&cam_io_reg>;
+					svddio-supply = <&ldo19_reg>;
+					clock-frequency = <24000000>;
+					gpios = <&gpm1 6 0>;
+					port {
+						is_s5k6a3_ep: endpoint {
+							remote-endpoint = <&csis1_ep>;
+							data-lanes = <1>;
+						};
+					};
+				};
 			};
 		};
 	};
