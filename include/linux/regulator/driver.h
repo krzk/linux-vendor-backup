@@ -279,7 +279,7 @@ struct regulator_config {
  * no other direct access).
  */
 struct regulator_dev {
-	const struct regulator_desc *desc;
+	struct regulator_desc *desc;
 	int exclusive;
 	u32 use_count;
 	u32 open_count;
