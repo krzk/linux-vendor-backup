@@ -30,6 +30,25 @@
 #ifndef __LINUX_MFD_MAX77693_H
 #define __LINUX_MFD_MAX77693_H
 
+/* MAX77686 regulator IDs */
+enum max77693_regulators {
+	MAX77693_ESAFEOUT1 = 0,
+	MAX77693_ESAFEOUT2,
+
+	MAX77693_CHARGER,
+
+	MAX77693_USBHOST,
+	MAX77693_USB,
+
+	MAX77693_REG_MAX,
+};
+
+struct max77693_regulator_data {
+	int id;
+	struct regulator_init_data *initdata;
+	struct device_node *of_node;
+};
+
 struct max77693_reg_data {
 	u8 addr;
 	u8 data;
@@ -50,9 +69,17 @@ struct max77693_muic_platform_data {
 };
 
 struct max77693_platform_data {
+	/* IRQ */
+	int irq_base;
+	int irq_gpio;
 	int wakeup;
+	struct max77693_muic_data *muic;
+	bool (*is_default_uart_path_cp) (void);
+	struct max77693_regulator_data *regulators;
+	int num_regulators;
 
 	/* muic data */
 	struct max77693_muic_platform_data *muic_data;
 };
+
 #endif	/* __LINUX_MFD_MAX77693_H */
