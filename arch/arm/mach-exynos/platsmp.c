@@ -109,14 +109,15 @@ static int __cpuinit exynos_boot_secondary(unsigned int cpu, struct task_struct 
 	 */
 	write_pen_release(phys_cpu);
 
-	if (!(__raw_readl(S5P_ARM_CORE1_STATUS) & S5P_CORE_LOCAL_PWR_EN)) {
+	if (!(__raw_readl(S5P_ARM_CORE_STATUS(phys_cpu))
+		& S5P_CORE_LOCAL_PWR_EN)) {
 		__raw_writel(S5P_CORE_LOCAL_PWR_EN,
-			     S5P_ARM_CORE1_CONFIGURATION);
+			     S5P_ARM_CORE_CONFIGURATION(phys_cpu));
 
 		timeout = 10;
 
 		/* wait max 10 ms until cpu1 is on */
-		while ((__raw_readl(S5P_ARM_CORE1_STATUS)
+		while ((__raw_readl(S5P_ARM_CORE_STATUS(phys_cpu))
 			& S5P_CORE_LOCAL_PWR_EN) != S5P_CORE_LOCAL_PWR_EN) {
 			if (timeout-- == 0)
 				break;
@@ -125,7 +126,7 @@ static int __cpuinit exynos_boot_secondary(unsigned int cpu, struct task_struct 
 		}
 
 		if (timeout == 0) {
-			printk(KERN_ERR "cpu1 power enable failed");
+			printk(KERN_ERR "cpu%u power enable failed", cpu);
 			spin_unlock(&boot_lock);
 			return -ETIMEDOUT;
 		}

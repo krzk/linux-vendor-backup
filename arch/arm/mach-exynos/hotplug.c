@@ -93,10 +93,10 @@ static inline void cpu_leave_lowpower(void)
 static inline void platform_do_lowpower(unsigned int cpu, int *spurious)
 {
 	for (;;) {
+		void __iomem *reg_base;
 
-		/* make cpu1 to be turned off at next WFI command */
-		if (cpu == 1)
-			__raw_writel(0, S5P_ARM_CORE1_CONFIGURATION);
+		reg_base = S5P_ARM_CORE_CONFIGURATION(cpu_logical_map(cpu));
+		__raw_writel(0, reg_base);
 
 		/*
 		 * here's the WFI
