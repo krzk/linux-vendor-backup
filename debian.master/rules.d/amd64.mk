@@ -10,3 +10,4 @@ loader		= grub
 no_dumpfile	= true
 uefi_signed     = true
 do_hyperv	= true
+do_tools_perf   = true
