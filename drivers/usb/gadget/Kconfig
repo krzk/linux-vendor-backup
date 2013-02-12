@@ -271,7 +271,7 @@ config USB_PXA27X
 
 config USB_S3C_HSOTG
 	tristate "S3C HS/OtG USB Device controller"
-	depends on S3C_DEV_USB_HSOTG
+	depends on PLAT_SAMSUNG
 	help
 	  The Samsung S3C64XX USB2.0 high-speed gadget controller
 	  integrated into the S3C64XX series SoC.
