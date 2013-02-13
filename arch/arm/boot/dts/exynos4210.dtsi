@@ -190,5 +190,15 @@
 			clocks = <&clock 259>, <&clock 131>, <&clock 387>, <&clock 9>;
 			clock-names = "fimc", "sclk_fimc", "mux", "parent";
 		};
+
+		csis_0: csis@11880000 {
+			clocks = <&clock 260>, <&clock 134>, <&clock 390>, <&clock 9>;
+			clock-names = "csis", "sclk_csis", "mux", "parent";
+		};
+
+		csis_1: csis@11890000 {
+			clocks = <&clock 261>, <&clock 135>, <&clock 391>, <&clock 9>;
+			clock-names = "csis", "sclk_csis", "mux", "parent";
+		};
 	};
 };
