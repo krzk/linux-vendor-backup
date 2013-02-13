@@ -399,6 +399,9 @@
 	camera {
 		status = "okay";
 
+		pinctrl-names = "default";
+		pinctrl-0 = <>; /* TODO */
+
 		fimc_0: fimc@11800000 {
 			status = "okay";
 		};
