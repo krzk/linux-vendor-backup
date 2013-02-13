@@ -63,13 +63,60 @@
 		};
 	};
 
-	vemmc_reg: voltage-regulator@0 {
-	        compatible = "regulator-fixed";
-		regulator-name = "VMEM_VDD_2.8V";
-		regulator-min-microvolt = <2800000>;
-		regulator-max-microvolt = <2800000>;
-		gpio = <&gpk0 2 0>;
-		enable-active-high;
+	regulators {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		vemmc_reg: regulator@0 {
+			compatible = "regulator-fixed";
+			reg = <0>;
+			regulator-name = "VMEM_VDD_2.8V";
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			gpio = <&gpk0 2 0>;
+			enable-active-high;
+		};
+
+		tsp_reg: regulator@1 {
+			compatible = "regulator-fixed";
+			reg = <1>;
+			regulator-name = "TSP_FIXED_VOLTAGES";
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			gpio = <&gpl0 3 0>;
+			enable-active-high;
+		};
+
+		cam_af_28v_reg: regulator@2 {
+			compatible = "regulator-fixed";
+			reg = <2>;
+			regulator-name = "8M_AF_2.8V_EN";
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			gpio = <&gpk1 1 0>;
+			enable-active-high;
+		};
+
+		cam_io_en_reg: regulator@3 {
+			compatible = "regulator-fixed";
+			reg = <3>;
+			regulator-name = "CAM_IO_EN";
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			gpio = <&gpe2 1 0>;
+			enable-active-high;
+		};
+
+		cam_io_12v_reg: regulator@4 {
+			compatible = "regulator-fixed";
+			reg = <4>;
+			regulator-name = "8M_1.2V_EN";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			gpio = <&gpe2 5 0>;
+			enable-active-high;
+		};
 	};
 
 	sdhci_emmc: sdhci@12510000 {
@@ -130,14 +177,35 @@
 		};
 	};
 
-	tsp_reg: voltage-regulator {
-		compatible = "regulator-fixed";
-		regulator-name = "TSP_FIXED_VOLTAGES";
-		regulator-min-microvolt = <2800000>;
-		regulator-max-microvolt = <2800000>;
-		gpio = <&gpl0 3 0>;
-		enable-active-high;
+	i2c@13860000 {
+		samsung,i2c-sda-delay = <100>;
+		samsung,i2c-max-bus-freq = <400000>;
+		pinctrl-0 = <&i2c0_bus>;
+		pinctrl-names = "default";
+		status = "okay";
+
+		m5mols@1f {
+			compatible = "samsung,m5mols";
+			reg = <0x1f>;
+			interrupt-parent = <&gpx1>;
+			interrupts = <5 1>;
+			core-supply = <&camisp_breg>;
+			dig_18-supply = <&vcam_reg>;
+			d_sensor-supply = <&camsensor_reg>;
+			dig_28-supply = <&cam_af_28v_reg>;
+			a_sensor-supply = <&cam_io_en_reg>;
+			dig_12-supply = <&cam_io_12v_reg>;
+			gpios = <&gpy3 7 1>;
+			clock-frequency = <24000000>;
+
+			port {
+				m5mols_ep: endpoint {
+					remote-endpoint = <&m5mols_ep>;
+				};
+			};
+		};
 	};
+
 
 	i2c@13890000 {
 		samsung,i2c-sda-delay = <100>;
@@ -408,7 +476,7 @@
 		status = "okay";
 
 		pinctrl-names = "default";
-		pinctrl-0 = <>; /* TODO */
+		pinctrl-0 = <&cam_port_a_clk>;
 
 		fimc_0: fimc@11800000 {
 			status = "okay";
@@ -424,6 +492,25 @@
 
 		fimc_3: fimc@11830000 {
 			status = "okay";
+		};
+
+		csis_0: csis@11880000 {
+			status = "okay";
+			vddcore-supply = <&vusb_reg>;
+			vddio-supply = <&vmipi_reg>;
+			clock-frequency = <160000000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* Camera C (3) MIPI CSI-2 (CSIS0) */
+			port@3 {
+				reg = <3>;
+				csis0_ep: endpoint {
+					remote-endpoint = <&m5mols_ep>;
+					data-lanes = <1 2>;
+					samsung,csis-hs-settle = <12>;
+				};
+			};
 		};
 	};
 
