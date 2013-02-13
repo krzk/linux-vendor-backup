@@ -11,3 +11,7 @@ sata_sx4.ko ?
 sata_uli.ko ?
 sata_via.ko ?
 sata_vsc.ko ?
+ahci_platform ?
+ahci ?
+acard-ahci ?
+libahci ?
