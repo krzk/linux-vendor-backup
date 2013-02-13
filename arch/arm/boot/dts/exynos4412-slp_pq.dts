@@ -592,12 +592,10 @@
 	};
 
 	camera {
-		compatible = "samsung,fimc", "simple-bus";
 		status = "okay";
 
-		pinctrl-names = "default", "inactive";
+		pinctrl-names = "default";
 		pinctrl-0 = <&cam_port_a_clk_active>;
-		pinctrl-1 = <&cam_port_a_clk_idle>;
 
 		fimc_0: fimc@11800000 {
 			clock-frequency = <176000000>;
