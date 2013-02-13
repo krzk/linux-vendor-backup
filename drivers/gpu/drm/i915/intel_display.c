@@ -3497,15 +3497,15 @@ static void ironlake_crtc_disable(struct drm_crtc *crtc)
 	int plane = intel_crtc->plane;
 	u32 reg, temp;
 
-
 	if (!intel_crtc->active)
 		return;
+
+	intel_crtc_wait_for_pending_flips(crtc);
+	drm_vblank_off(dev, pipe);
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
 		encoder->disable(encoder);
 
-	intel_crtc_wait_for_pending_flips(crtc);
-	drm_vblank_off(dev, pipe);
 	intel_crtc_update_cursor(crtc, false);
 
 	intel_disable_plane(dev_priv, plane, pipe);
@@ -3581,13 +3581,14 @@ static void haswell_crtc_disable(struct drm_crtc *crtc)
 	if (!intel_crtc->active)
 		return;
 
+	intel_crtc_wait_for_pending_flips(crtc);
+	drm_vblank_off(dev, pipe);
+
 	is_pch_port = haswell_crtc_driving_pch(crtc);
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
 		encoder->disable(encoder);
 
-	intel_crtc_wait_for_pending_flips(crtc);
-	drm_vblank_off(dev, pipe);
 	intel_crtc_update_cursor(crtc, false);
 
 	intel_disable_plane(dev_priv, plane, pipe);
@@ -3699,16 +3700,16 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	int plane = intel_crtc->plane;
 	u32 pctl;
 
-
 	if (!intel_crtc->active)
 		return;
+
+	intel_crtc_wait_for_pending_flips(crtc);
+	drm_vblank_off(dev, pipe);
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
 		encoder->disable(encoder);
 
 	/* Give the overlay scaler a chance to disable if it's on this pipe */
-	intel_crtc_wait_for_pending_flips(crtc);
-	drm_vblank_off(dev, pipe);
 	intel_crtc_dpms_overlay(intel_crtc, false);
 	intel_crtc_update_cursor(crtc, false);
 
