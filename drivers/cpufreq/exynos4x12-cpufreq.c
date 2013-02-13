@@ -22,8 +22,8 @@
 #include "exynos-cpufreq.h"
 
 static struct clk *cpu_clk;
-static struct clk *moutcore;
-static struct clk *mout_mpll;
+static struct clk *mout_core;
+static struct clk *sclk_mpll;
 static struct clk *mout_apll;
 
 static unsigned int exynos4x12_volt_table[] = {
@@ -131,7 +131,7 @@ static void exynos4x12_set_apll(unsigned int index)
 	unsigned int tmp, pdiv;
 
 	/* 1. MUX_CORE_SEL = MPLL, ARMCLK uses MPLL for lock time */
-	clk_set_parent(moutcore, mout_mpll);
+	clk_set_parent(mout_core, sclk_mpll);
 
 	do {
 		cpu_relax();
@@ -158,7 +158,7 @@ static void exynos4x12_set_apll(unsigned int index)
 	} while (!(tmp & (0x1 << EXYNOS4_APLLCON0_LOCKED_SHIFT)));
 
 	/* 5. MUX_CORE_SEL = APLL */
-	clk_set_parent(moutcore, mout_apll);
+	clk_set_parent(mout_core, mout_apll);
 
 	do {
 		cpu_relax();
@@ -219,22 +219,21 @@ static void exynos4x12_set_frequency(unsigned int old_index,
 int exynos4x12_cpufreq_init(struct exynos_dvfs_info *info)
 {
 	unsigned long rate;
-
-	cpu_clk = clk_get(NULL, "armclk");
+	cpu_clk = clk_get(info->dev, "arm_clk");
 	if (IS_ERR(cpu_clk))
 		return PTR_ERR(cpu_clk);
 
-	moutcore = clk_get(NULL, "moutcore");
-	if (IS_ERR(moutcore))
+	mout_core = clk_get(info->dev, "mout_core");
+	if (IS_ERR(mout_core))
 		goto err_moutcore;
 
-	mout_mpll = clk_get(NULL, "mout_mpll");
-	if (IS_ERR(mout_mpll))
-		goto err_mout_mpll;
+	sclk_mpll = clk_get(info->dev, "sclk_mpll_user_c");
+	if (IS_ERR(sclk_mpll))
+		goto err_sclk_mpll;
 
-	rate = clk_get_rate(mout_mpll) / 1000;
+	rate = clk_get_rate(sclk_mpll) / 1000;
 
-	mout_apll = clk_get(NULL, "mout_apll");
+	mout_apll = clk_get(info->dev, "mout_apll");
 	if (IS_ERR(mout_apll))
 		goto err_mout_apll;
 
@@ -255,9 +254,9 @@ int exynos4x12_cpufreq_init(struct exynos_dvfs_info *info)
 	return 0;
 
 err_mout_apll:
-	clk_put(mout_mpll);
-err_mout_mpll:
-	clk_put(moutcore);
+	clk_put(sclk_mpll);
+err_sclk_mpll:
+	clk_put(mout_core);
 err_moutcore:
 	clk_put(cpu_clk);
 
