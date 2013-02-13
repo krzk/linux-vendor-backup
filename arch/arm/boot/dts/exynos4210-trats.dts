@@ -374,4 +374,24 @@
 		samsung,fimd-win-bpp = <32>;
 		status = "okay";
 	};
+
+	camera {
+		status = "okay";
+
+		fimc_0: fimc@11800000 {
+			status = "okay";
+		};
+
+		fimc_1: fimc@11810000 {
+			status = "okay";
+		};
+
+		fimc_2: fimc@11820000 {
+			status = "okay";
+		};
+
+		fimc_3: fimc@11830000 {
+			status = "okay";
+		};
+	};
 };
