@@ -164,4 +164,31 @@
 			reg = <0x10020704 0x8>;
 		};
 	};
+
+	camera {
+		clocks = <&clock 132>, <&clock 133>, <&clock 351>, <&clock 352>,
+		         <&clock 388>, <&clock 389>, <&clock 9>;
+		clock-names = "sclk_cam0", "sclk_cam1", "pxl_async0",
+			    "pxl_async1", "mux_cam0", "mux_cam1", "parent";
+
+		fimc_0: fimc@11800000 {
+			clocks = <&clock 256>, <&clock 128>, <&clock 384>, <&clock 9>;
+			clock-names = "fimc", "sclk_fimc", "mux", "parent";
+		};
+
+		fimc_1: fimc@11810000 {
+			clocks = <&clock 257>, <&clock 129>, <&clock 385>, <&clock 9>;
+			clock-names = "fimc", "sclk_fimc", "mux", "parent";
+		};
+
+		fimc_2: fimc@11820000 {
+			clocks = <&clock 258>, <&clock 130>, <&clock 386>, <&clock 9>;
+			clock-names = "fimc", "sclk_fimc", "mux", "parent";
+		};
+
+		fimc_3: fimc@11830000 {
+			clocks = <&clock 259>, <&clock 131>, <&clock 387>, <&clock 9>;
+			clock-names = "fimc", "sclk_fimc", "mux", "parent";
+		};
+	};
 };

@@ -117,10 +117,6 @@
 
 	camera {
 		compatible = "samsung,fimc", "simple-bus";
-		clocks = <&clock 132>, <&clock 133>, <&clock 351>, <&clock 352>,
-		         <&clock 388>, <&clock 389>, <&clock 17>;
-		clock-names = "sclk_cam0", "sclk_cam1", "pxl_async0",
-			    "pxl_async1", "mux_cam0", "mux_cam1", "parent";
 		status = "disabled";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -132,8 +128,6 @@
 			reg = <0x11800000 0x1000>;
 			interrupts = <0 84 0>;
 			samsung,power-domain = <&pd_cam>;
-			clocks = <&clock 256>, <&clock 128>, <&clock 384>, <&clock 17>;
-			clock-names = "fimc", "sclk_fimc", "mux", "parent";
 			status = "disabled";
 		};
 
@@ -142,8 +136,6 @@
 			reg = <0x11810000 0x1000>;
 			interrupts = <0 85 0>;
 			samsung,power-domain = <&pd_cam>;
-			clocks = <&clock 257>, <&clock 129>, <&clock 385>, <&clock 17>;
-			clock-names = "fimc", "sclk_fimc", "mux", "parent";
 			status = "disabled";
 		};
 
@@ -152,8 +144,6 @@
 			reg = <0x11820000 0x1000>;
 			interrupts = <0 86 0>;
 			samsung,power-domain = <&pd_cam>;
-			clocks = <&clock 258>, <&clock 130>, <&clock 386>, <&clock 17>;
-			clock-names = "fimc", "sclk_fimc", "mux", "parent";
 			status = "disabled";
 		};
 
@@ -162,8 +152,6 @@
 			reg = <0x11830000 0x1000>;
 			interrupts = <0 87 0>;
 			samsung,power-domain = <&pd_cam>;
-			clocks = <&clock 259>, <&clock 131>, <&clock 387>, <&clock 17>;
-			clock-names = "fimc", "sclk_fimc", "mux", "parent";
 			status = "disabled";
 		};
 
@@ -173,8 +161,6 @@
 			interrupts = <0 78 0>;
 			bus-width = <4>;
 			samsung,power-domain = <&pd_cam>;
-			clocks = <&clock 260>, <&clock 134>, <&clock 390>, <&clock 17>;
-			clock-names = "csis", "sclk_csis", "mux", "parent";
 			status = "disabled";
 		};
 
@@ -184,8 +170,6 @@
 			interrupts = <0 80 0>;
 			bus-width = <2>;
 			samsung,power-domain = <&pd_cam>;
-			clocks = <&clock 261>, <&clock 135>, <&clock 391>, <&clock 17>;
-			clock-names = "csis", "sclk_csis", "mux", "parent";
 			status = "disabled";
 		};
 	};
