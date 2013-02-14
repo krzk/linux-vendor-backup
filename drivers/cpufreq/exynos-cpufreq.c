@@ -17,6 +17,9 @@
 #include <linux/regulator/consumer.h>
 #include <linux/cpufreq.h>
 #include <linux/suspend.h>
+#include <linux/export.h>
+#include <linux/of.h>
+#include <linux/of_platform.h>
 
 #include <plat/cpu.h>
 
@@ -279,7 +282,16 @@ static struct cpufreq_driver exynos_driver = {
 #endif
 };
 
-static int __init exynos_cpufreq_init(void)
+/* Device Tree Support for CPU freq */
+
+#ifdef CONFIG_OF
+static struct of_device_id exynos_cpufreq_of_match[] __initconst = {
+	{ .compatible = "samsung,exynos-cpufreq", },
+	{ },
+};
+#endif
+
+static int __init exynos_cpufreq_probe(struct platform_device *pdev)
 {
 	int ret = -EINVAL;
 
@@ -329,4 +341,25 @@ err_vdd_arm:
 	pr_debug("%s: failed initialization\n", __func__);
 	return -EINVAL;
 }
+
+static struct platform_driver exynos_cpufreq_driver = {
+	.probe		= exynos_cpufreq_probe,
+	.driver		= {
+		.owner		= THIS_MODULE,
+		.name		= "exynos-cpufreq",
+		.of_match_table = of_match_ptr(exynos_cpufreq_of_match),
+	}
+};
+
+static int __init exynos_cpufreq_init(void)
+{
+	int ret;
+	ret = platform_driver_register(&exynos_cpufreq_driver);
+	if (ret) {
+		pr_err("%s: Failed to register CPUFREQ driver\n", __func__);
+	}
+
+	return ret;
+}
+
 late_initcall(exynos_cpufreq_init);

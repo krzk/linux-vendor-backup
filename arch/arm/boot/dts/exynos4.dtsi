@@ -623,4 +623,8 @@
 		samsung,power-domain = <&pd_lcd0>;
 		status = "ok";
 	};
+
+	cpufreq {
+		compatible = "samsung,exynos-cpufreq";
+	};
 };
