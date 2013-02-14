@@ -705,6 +705,11 @@
 		};
 	};
 
+	gpu@13000000 {
+		status = "okay";
+		vdd_g3d-supply = <&buck4_reg>;
+	};
+
 	cpufreq {
 		freq_table = <0xFFFFFFFF 0xFFFFFFFF 0xFFFFFFFF 1100000 1000000
 			     900000 800000 700000 600000 500000 400000 300000
