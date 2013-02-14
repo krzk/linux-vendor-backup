@@ -284,6 +284,72 @@ static struct cpufreq_driver exynos_driver = {
 
 /* Device Tree Support for CPU freq */
 
+struct cpufreq_frequency_table *exynos_of_parse_freq_table(
+		struct exynos_dvfs_info *info, const char *property_name)
+{
+	struct device_node *node = info->dev->of_node;
+	struct cpufreq_frequency_table *ft, *ret = NULL;
+	struct property *pp;
+	int len, num, i = 0;
+	u32 *of_f_tab;
+
+	if (!node)
+		return NULL;
+
+	pp = of_find_property(node, property_name, &len);
+	if (!pp) {
+		pr_debug("%s: Property: %s not found\n", __func__,
+			 property_name);
+		goto err;
+	}
+
+	if (len == 0) {
+		pr_debug("%s: Length wrong value!\n", __func__);
+		goto err;
+	}
+
+	of_f_tab = kzalloc(len, GFP_KERNEL);
+	if (!of_f_tab) {
+		pr_err("%s: Allocation failed\n", __func__);
+		goto err;
+	}
+
+	num = len / sizeof(u32);
+
+	if (of_property_read_u32_array(node, pp->name, of_f_tab, num)) {
+		pr_err("%s: Property: %s cannot be read!\n", __func__,
+		       pp->name);
+		goto err_of_f_tab;
+	}
+
+	/* Here + 2 is required for CPUFREQ_ENTRY_INVALID and
+	   CPUFREQ_TABLE_END  */
+	ft = kzalloc(sizeof(struct cpufreq_frequency_table) * (num + 2),
+		     GFP_KERNEL);
+	if (!ft) {
+		pr_err("%s: Allocation failed\n", __func__);
+		goto err_of_f_tab;
+	}
+
+	ft[0].index = L0;
+	ft[0].frequency = CPUFREQ_ENTRY_INVALID;
+
+	for (i = 1; i <= num; i++) {
+		ft[i].index = i;
+		ft[i].frequency = of_f_tab[i-1];
+	}
+
+	ft[i].index = 0;
+	ft[i].frequency = CPUFREQ_TABLE_END;
+
+	ret = ft;
+
+ err_of_f_tab:
+	kfree(of_f_tab);
+ err:
+	return ret;
+}
+
 #ifdef CONFIG_OF
 static struct of_device_id exynos_cpufreq_of_match[] __initconst = {
 	{ .compatible = "samsung,exynos-cpufreq", },

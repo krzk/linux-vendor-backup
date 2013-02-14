@@ -247,7 +247,11 @@ int exynos4x12_cpufreq_init(struct exynos_dvfs_info *info)
 	info->pll_safe_idx = L7;
 	info->cpu_clk = cpu_clk;
 	info->volt_table = exynos4x12_volt_table;
-	info->freq_table = exynos4x12_freq_table;
+
+	info->freq_table = exynos_of_parse_freq_table(info, "freq_table");
+	if (!info->freq_table)
+		info->freq_table = exynos4x12_freq_table;
+
 	info->set_freq = exynos4x12_set_frequency;
 	info->need_apll_change = exynos4x12_pms_change;
 
