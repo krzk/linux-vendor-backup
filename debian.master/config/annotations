@@ -567,6 +567,8 @@ CONFIG_SECURITY_PATH				y
 CONFIG_MODULE_SIG				y mark<Subsystem>
 CONFIG_MODULE_SIG_FORCE				n
 CONFIG_MODULE_SIG_SHA512			y
+# Other security related options.
+CONFIG_CC_STACKPROTECTOR			y mark<Security>
 
 # SENSORS
 set +pattern '^SENSORS_'			= - mark<Sensors>
