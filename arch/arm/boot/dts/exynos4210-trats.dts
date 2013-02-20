@@ -292,6 +292,12 @@
 				     regulator-always-on;
 				};
 
+				vg3d_breg: BUCK3 {
+					regulator-name = "VG3D_1.1V_C210";
+					regulator-min-microvolt = <850000>;
+					regulator-max-microvolt = <1100000>;
+				};
+
 				camisp_breg: BUCK4 {
 				     regulator-name = "CAM_ISP_CORE_1.2V";
 				     regulator-min-microvolt = <1200000>;
