@@ -192,10 +192,17 @@ static int wm8994_ldo_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id wm8994_ldo_of_match[] = {
+	{ .compatible = "wlf,wm8994-ldo" },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, wm8994_ldo_of_match);
+
 static struct platform_driver wm8994_ldo_driver = {
 	.probe = wm8994_ldo_probe,
 	.remove = wm8994_ldo_remove,
 	.driver		= {
+		.of_match_table = wm8994_ldo_of_match,
 		.name	= "wm8994-ldo",
 		.owner	= THIS_MODULE,
 	},
