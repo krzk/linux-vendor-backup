@@ -450,6 +450,42 @@
 		status = "disabled";
 	};
 
+	i2s0: i2s@03830000 {
+		compatible = "samsung,i2s-v5";
+		reg = <0x03830000 0x100>;
+		clocks = <&clock_audss 0>, <&clock_audss 3>, <&clock_audss 1>,
+			<&clock_audss 2>, <&clock_audss 4>, <&clock_audss 2>;
+		clock-names = "mout_audss", "mout_i2s", "dout_srp",
+			"dout_bus", "dout_i2s", "i2s_opclk0";
+		dmas = <&pdma0 12>, <&pdma0 11>, <&pdma0 10>;
+		dma-names = "tx", "rx", "tx-sec";
+		samsung,supports-6ch;
+		samsung,supports-rstclr;
+		samsung,supports-secdai;
+		samsung,idma-addr = <0x03000000>;
+		status = "disabled";
+	};
+
+	i2s1: i2s@12D60000 {
+		compatible = "samsung,i2s-v5";
+		reg = <0x12D60000 0x100>;
+		clocks = <&clock 330>;
+		clock-names = "iis";
+		dmas = <&pdma1 12>, <&pdma1 11>;
+		dma-names = "tx", "rx";
+		status = "disabled";
+	};
+
+	i2s2: i2s@12D70000 {
+		compatible = "samsung,i2s-v5";
+		reg = <0x12D70000 0x100>;
+		clocks = <&clock 331>;
+		clock-names = "iis";
+		dmas = <&pdma0 14>, <&pdma0 13>;
+		dma-names = "tx", "rx";
+		status = "disabled";
+	};
+
 	amba {
 		#address-cells = <1>;
 		#size-cells = <1>;
