@@ -183,6 +183,11 @@ config EXYNOS_SETUP_SPI
 	help
 	  Common setup code for SPI GPIO configurations.
 
+config SEC_DEBUG
+	bool "Enable sec_debug stub"
+	help
+	  Stub module for sec_debug functionality required in Tizen.
+
 # machine support
 
 if ARCH_EXYNOS4
