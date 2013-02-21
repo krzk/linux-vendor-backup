@@ -31,7 +31,11 @@
 	};
 
 	pd_isp: isp-power-domain@10023CA0 {
-		compatible = "samsung,exynos4210-pd";
+		/*
+		 * FIXME: ISP power domain needs special handling
+		 * (Implement proper ISP power domain on/off sequence)
+		 */
+		/* compatible = "samsung,exynos4210-pd"; */
 		reg = <0x10023CA0 0x20>;
 	};
 
