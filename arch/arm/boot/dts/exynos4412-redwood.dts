@@ -525,4 +525,9 @@
 			memory-region = <&mfc_r_mem>;
 		};
 	};
+
+	gpu@13000000 {
+		status = "okay";
+		vdd_g3d-supply = <&buck4_reg>;
+	};
 };
