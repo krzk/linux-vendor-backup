@@ -2608,6 +2608,7 @@ CONFIG_AUFS_RDU					n
 CONFIG_AUFS_SHWH				n
 CONFIG_AUFS_SP_IATTR				n	
 CONFIG_DM_RAID45				p policy<(arch i386 amd64 &/ value m) | value n> note<PC BIOS specific> mark<MD>
+CONFIG_ALX					p policy<(arch powerpc &/ value n) | value m> flag<BUILD FAILURE>
 # Userspace binary formats
 CONFIG_BINFMT_ELF				y
 CONFIG_COREDUMP					y
