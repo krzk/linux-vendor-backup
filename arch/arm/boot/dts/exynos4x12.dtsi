@@ -208,24 +208,42 @@
 			compatible = "samsung,exynos4212-fimc";
 			clocks = <&clock 256>, <&clock 128>, <&clock 384>, <&clock 17>;
 			clock-names = "fimc", "sclk_fimc", "mux", "parent";
+			samsung,pix-limits = <4224 8192 1920 4224>;
+			samsung,mainscaler-ext;
+			samsung,isp-wb;
+			samsung,cam-if;
 		};
 
 		fimc_1: fimc@11810000 {
 			compatible = "samsung,exynos4212-fimc";
 			clocks = <&clock 257>, <&clock 129>, <&clock 385>, <&clock 17>;
 			clock-names = "fimc", "sclk_fimc", "mux", "parent";
+			samsung,pix-limits = <4224 8192 1920 4224>;
+			samsung,mainscaler-ext;
+			samsung,isp-wb;
+			samsung,cam-if;
 		};
 
 		fimc_2: fimc@11820000 {
 			compatible = "samsung,exynos4212-fimc";
 			clocks = <&clock 258>, <&clock 130>, <&clock 386>, <&clock 17>;
 			clock-names = "fimc", "sclk_fimc", "mux", "parent";
+			samsung,pix-limits = <4224 8192 1920 4224>;
+			samsung,mainscaler-ext;
+			samsung,isp-wb;
+			samsung,lcd-wb;
+			samsung,cam-if;
 		};
 
 		fimc_3: fimc@11830000 {
 			compatible = "samsung,exynos4212-fimc";
 			clocks = <&clock 259>, <&clock 131>, <&clock 387>, <&clock 17>;
 			clock-names = "fimc", "sclk_fimc", "mux", "parent";
+			samsung,pix-limits = <1920 8192 1366 1920>;
+			samsung,rotators = <0>;
+			samsung,mainscaler-ext;
+			samsung,isp-wb;
+			samsung,lcd-wb;
 		};
 
 		csis_0: csis@11880000 {
