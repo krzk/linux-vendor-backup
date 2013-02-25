@@ -24,8 +24,19 @@ enum pll46xx_type {
 	pll_4650c,
 };
 
+struct pll_pms {
+	unsigned int f_out;
+	int p;
+	int m;
+	int s;
+	int k;
+};
+
+#define F_OUT_INVAL ~0
+
 extern struct clk * __init samsung_clk_register_pll35xx(const char *name,
-			const char *pname, const void __iomem *con_reg);
+			const char *pname, const void __iomem *base_reg,
+			struct pll_pms *pms);
 extern struct clk * __init samsung_clk_register_pll36xx(const char *name,
 			const char *pname, const void __iomem *con_reg);
 extern struct clk * __init samsung_clk_register_pll45xx(const char *name,

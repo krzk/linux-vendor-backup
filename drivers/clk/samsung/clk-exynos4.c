@@ -97,12 +97,14 @@
 #define GATE_IP_PERIL		0xc950
 #define E4210_GATE_IP_PERIR	0xc960
 #define GATE_BLOCK		0xc970
+#define E4X12_MPLL_LOCK		0x10008
 #define E4X12_MPLL_CON0		0x10108
 #define SRC_DMC			0x10200
 #define SRC_MASK_DMC		0x10300
 #define DIV_DMC0		0x10500
 #define DIV_DMC1		0x10504
 #define GATE_IP_DMC		0x10900
+#define APLL_LOCK		0x14000
 #define APLL_CON0		0x14100
 #define E4210_MPLL_CON0		0x14108
 #define SRC_CPU			0x14200
@@ -983,6 +985,25 @@ static __initdata struct of_device_id ext_clk_match[] = {
 	{},
 };
 
+/* PLLs PMS values */
+struct pll_pms pll35xx_exynos4412_pms[] = {
+	{.p = 4, .m = 250, .s = 0},
+	{.p = 3, .m = 175, .s = 0},
+	{.p = 6, .m = 325, .s = 0},
+	{.p = 4, .m = 200, .s = 0},
+	{.p = 6, .m = 275, .s = 0},
+	{.p = 3, .m = 125, .s = 0},
+	{.p = 4, .m = 150, .s = 0},
+	{.p = 3, .m = 100, .s = 0},
+	{.p = 3, .m = 175, .s = 1},
+	{.p = 4, .m = 200, .s = 1},
+	{.p = 3, .m = 125, .s = 1},
+	{.p = 3, .m = 100, .s = 1},
+	{.p = 4, .m = 200, .s = 2},
+	{.p = 3, .m = 100, .s = 2},
+	{.f_out = F_OUT_INVAL},
+};
+
 /* register exynos4 clocks */
 void __init exynos4_clk_init(struct device_node *np, enum exynos4_soc exynos4_soc, void __iomem *reg_base, unsigned long xom)
 {
@@ -1021,9 +1042,9 @@ void __init exynos4_clk_init(struct device_node *np, enum exynos4_soc exynos4_so
 					reg_base + VPLL_CON0, pll_4650c);
 	} else {
 		apll = samsung_clk_register_pll35xx("fout_apll", "fin_pll",
-					reg_base + APLL_CON0);
+			reg_base + APLL_LOCK, pll35xx_exynos4412_pms);
 		mpll = samsung_clk_register_pll35xx("fout_mpll", "fin_pll",
-					reg_base + E4X12_MPLL_CON0);
+			reg_base + E4X12_MPLL_LOCK, pll35xx_exynos4412_pms);
 		epll = samsung_clk_register_pll36xx("fout_epll", "fin_pll",
 					reg_base + EPLL_CON0);
 		vpll = samsung_clk_register_pll36xx("fout_vpll", "fin_pll",
