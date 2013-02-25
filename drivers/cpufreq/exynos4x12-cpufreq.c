@@ -128,11 +128,13 @@ static void exynos4x12_set_clkdiv(unsigned int div_index)
 
 static void exynos4x12_set_apll(unsigned int index)
 {
-	unsigned int tmp, pdiv;
+	unsigned int tmp, freq = apll_freq_4x12[index].freq * 1000;
+	struct clk *clk;
 
-	/* 1. MUX_CORE_SEL = MPLL, ARMCLK uses MPLL for lock time */
+	clk = clk_get_parent(mout_apll);
+
+	/* MUX_CORE_SEL = MPLL, ARMCLK uses MPLL for lock time */
 	clk_set_parent(mout_core, sclk_mpll);
-
 	do {
 		cpu_relax();
 		tmp = (__raw_readl(EXYNOS4_CLKMUX_STATCPU)
@@ -140,26 +142,10 @@ static void exynos4x12_set_apll(unsigned int index)
 		tmp &= 0x7;
 	} while (tmp != 0x2);
 
-	/* 2. Set APLL Lock time */
-	pdiv = ((apll_freq_4x12[index].mps >> 8) & 0x3f);
+	clk_set_rate(clk, freq);
 
-	__raw_writel((pdiv * 250), EXYNOS4_APLL_LOCK);
-
-	/* 3. Change PLL PMS values */
-	tmp = __raw_readl(EXYNOS4_APLL_CON0);
-	tmp &= ~((0x3ff << 16) | (0x3f << 8) | (0x7 << 0));
-	tmp |= apll_freq_4x12[index].mps;
-	__raw_writel(tmp, EXYNOS4_APLL_CON0);
-
-	/* 4. wait_lock_time */
-	do {
-		cpu_relax();
-		tmp = __raw_readl(EXYNOS4_APLL_CON0);
-	} while (!(tmp & (0x1 << EXYNOS4_APLLCON0_LOCKED_SHIFT)));
-
-	/* 5. MUX_CORE_SEL = APLL */
+	/* MUX_CORE_SEL = APLL */
 	clk_set_parent(mout_core, mout_apll);
-
 	do {
 		cpu_relax();
 		tmp = __raw_readl(EXYNOS4_CLKMUX_STATCPU);
