@@ -4253,6 +4253,7 @@ EXPORT_SYMBOL vmlinux 0x0c71381e	tcf_em_unregister
 EXPORT_SYMBOL vmlinux 0x0c7aacf5	nf_unregister_sockopt
 EXPORT_SYMBOL vmlinux 0x0c835f8b	x86_hyper_ms_hyperv
 EXPORT_SYMBOL vmlinux 0x0c8c9e99	scsi_show_extd_sense
+EXPORT_SYMBOL vmlinux 0x0ca0c882	twl6030_interrupt_mask
 EXPORT_SYMBOL vmlinux 0x0ca7b7a8	acpi_check_region
 EXPORT_SYMBOL vmlinux 0x0cae232b	utf16s_to_utf8s
 EXPORT_SYMBOL vmlinux 0x0cdb7d12	__kernel_fpu_begin
@@ -4405,6 +4406,7 @@ EXPORT_SYMBOL vmlinux 0x1790d76b	_raw_read_lock_irqsave
 EXPORT_SYMBOL vmlinux 0x179c2a8e	pci_find_parent_resource
 EXPORT_SYMBOL vmlinux 0x17a19a50	__alloc_skb
 EXPORT_SYMBOL vmlinux 0x17af28f1	acpi_walk_resources
+EXPORT_SYMBOL vmlinux 0x17b39cbf	twl6030_mmc_card_detect
 EXPORT_SYMBOL vmlinux 0x17b59386	dev_remove_pack
 EXPORT_SYMBOL vmlinux 0x17b64d09	dqstats
 EXPORT_SYMBOL vmlinux 0x17cc88a6	cfb_fillrect
@@ -5850,6 +5852,7 @@ EXPORT_SYMBOL vmlinux 0x72c50ac9	fsnotify_add_mark
 EXPORT_SYMBOL vmlinux 0x72ea7b2d	scsi_device_type
 EXPORT_SYMBOL vmlinux 0x72f3aa32	acpi_get_physical_device_location
 EXPORT_SYMBOL vmlinux 0x730d5ab9	security_task_getsecid
+EXPORT_SYMBOL vmlinux 0x7315a4e9	twl6030_mmc_card_detect_config
 EXPORT_SYMBOL vmlinux 0x73338bef	neigh_for_each
 EXPORT_SYMBOL vmlinux 0x733c3b54	kasprintf
 EXPORT_SYMBOL vmlinux 0x73510e77	sock_tx_timestamp
@@ -6026,6 +6029,7 @@ EXPORT_SYMBOL vmlinux 0x7c61340c	__release_region
 EXPORT_SYMBOL vmlinux 0x7c7099bf	journal_check_used_features
 EXPORT_SYMBOL vmlinux 0x7c731825	generic_pipe_buf_steal
 EXPORT_SYMBOL vmlinux 0x7c904ded	unregister_module_notifier
+EXPORT_SYMBOL vmlinux 0x7c98845d	twl_i2c_read
 EXPORT_SYMBOL vmlinux 0x7ca46555	tcp_sockets_allocated
 EXPORT_SYMBOL vmlinux 0x7cb1ae69	cpu_down
 EXPORT_SYMBOL vmlinux 0x7cbf7081	gen_pool_destroy
@@ -6136,6 +6140,7 @@ EXPORT_SYMBOL vmlinux 0x833c03aa	acpi_enable_all_runtime_gpes
 EXPORT_SYMBOL vmlinux 0x83443d5a	xfrm_unregister_mode
 EXPORT_SYMBOL vmlinux 0x8349ddfd	tcp_gro_receive
 EXPORT_SYMBOL vmlinux 0x8373692f	i2c_get_adapter
+EXPORT_SYMBOL vmlinux 0x838f70b0	twl_i2c_write_u8
 EXPORT_SYMBOL vmlinux 0x83a476ce	bitmap_scnlistprintf
 EXPORT_SYMBOL vmlinux 0x83a5b1c7	noop_qdisc
 EXPORT_SYMBOL vmlinux 0x83c8a355	param_set_int
@@ -6600,6 +6605,7 @@ EXPORT_SYMBOL vmlinux 0xa1035b74	dquot_alloc
 EXPORT_SYMBOL vmlinux 0xa108eb4d	sysctl_optmem_max
 EXPORT_SYMBOL vmlinux 0xa120d33c	tty_unregister_ldisc
 EXPORT_SYMBOL vmlinux 0xa121d7ba	__put_cred
+EXPORT_SYMBOL vmlinux 0xa1415618	twl6030_interrupt_unmask
 EXPORT_SYMBOL vmlinux 0xa14f3d8c	ewma_add
 EXPORT_SYMBOL vmlinux 0xa16027d4	dquot_free_inode
 EXPORT_SYMBOL vmlinux 0xa18722ea	md_set_array_sectors
@@ -7097,6 +7103,7 @@ EXPORT_SYMBOL vmlinux 0xc0406ade	netif_receive_skb
 EXPORT_SYMBOL vmlinux 0xc05a6012	acpi_resource_to_address64
 EXPORT_SYMBOL vmlinux 0xc0763484	rfkill_blocked
 EXPORT_SYMBOL vmlinux 0xc07f4d94	inet6_bind
+EXPORT_SYMBOL vmlinux 0xc0823e4c	twl_i2c_write
 EXPORT_SYMBOL vmlinux 0xc08b4978	scsi_is_sdev_device
 EXPORT_SYMBOL vmlinux 0xc0a3d105	find_next_bit
 EXPORT_SYMBOL vmlinux 0xc0a3f3b8	blkdev_get_by_path
@@ -7193,6 +7200,7 @@ EXPORT_SYMBOL vmlinux 0xc84e9d87	mdiobus_write
 EXPORT_SYMBOL vmlinux 0xc86189a1	inode_permission
 EXPORT_SYMBOL vmlinux 0xc8699170	tcf_hash_insert
 EXPORT_SYMBOL vmlinux 0xc86c5932	tty_port_hangup
+EXPORT_SYMBOL vmlinux 0xc87823bf	twl_i2c_read_u8
 EXPORT_SYMBOL vmlinux 0xc87a93e9	agp_generic_free_by_type
 EXPORT_SYMBOL vmlinux 0xc8854205	twl6040_set_bits
 EXPORT_SYMBOL vmlinux 0xc897c382	sg_init_table
@@ -7212,6 +7220,7 @@ EXPORT_SYMBOL vmlinux 0xc98dfaf9	vfs_link
 EXPORT_SYMBOL vmlinux 0xc996d097	del_timer
 EXPORT_SYMBOL vmlinux 0xc998d8bd	input_free_device
 EXPORT_SYMBOL vmlinux 0xc99e1d1b	devm_free_irq
+EXPORT_SYMBOL vmlinux 0xc99e2a55	twl_rev
 EXPORT_SYMBOL vmlinux 0xc9a50305	find_or_create_page
 EXPORT_SYMBOL vmlinux 0xc9a7e3e7	blk_stack_limits
 EXPORT_SYMBOL vmlinux 0xc9c8a71c	__mark_inode_dirty
@@ -9081,6 +9090,8 @@ EXPORT_SYMBOL_GPL drivers/mfd/tps65217 0x458031f8	tps65217_reg_read
 EXPORT_SYMBOL_GPL drivers/mfd/tps65217 0x4a17988d	tps65217_clear_bits
 EXPORT_SYMBOL_GPL drivers/mfd/tps65217 0x8e16a88a	tps65217_reg_write
 EXPORT_SYMBOL_GPL drivers/mfd/tps65217 0xec537108	tps65217_set_bits
+EXPORT_SYMBOL_GPL drivers/mfd/twl4030-madc 0x08b8dd2e	twl4030_madc_conversion
+EXPORT_SYMBOL_GPL drivers/mfd/twl4030-madc 0x4362dc66	twl4030_get_madc_conversion
 EXPORT_SYMBOL_GPL drivers/mfd/ucb1400_core 0x59f22e68	ucb1400_adc_read
 EXPORT_SYMBOL_GPL drivers/misc/cb710/cb710 0xae37bf72	cb710_sg_dwiter_write_next_block
 EXPORT_SYMBOL_GPL drivers/misc/cb710/cb710 0xcb185934	cb710_set_irq_handler
@@ -11485,6 +11496,7 @@ EXPORT_SYMBOL_GPL vmlinux 0x042db379	inet_getpeer
 EXPORT_SYMBOL_GPL vmlinux 0x0431494f	fat_get_dotdot_entry
 EXPORT_SYMBOL_GPL vmlinux 0x04486e88	rcu_batches_completed
 EXPORT_SYMBOL_GPL vmlinux 0x0465a073	regmap_reg_in_ranges
+EXPORT_SYMBOL_GPL vmlinux 0x048b5f8d	twl4030_audio_get_mclk
 EXPORT_SYMBOL_GPL vmlinux 0x048ce38d	usb_unpoison_urb
 EXPORT_SYMBOL_GPL vmlinux 0x04a79848	zs_create_pool
 EXPORT_SYMBOL_GPL vmlinux 0x04af4f9f	ahash_attr_alg
@@ -11704,6 +11716,7 @@ EXPORT_SYMBOL_GPL vmlinux 0x17555e11	rtnl_put_cacheinfo
 EXPORT_SYMBOL_GPL vmlinux 0x175760bb	usb_root_hub_lost_power
 EXPORT_SYMBOL_GPL vmlinux 0x17614bf3	apei_resources_sub
 EXPORT_SYMBOL_GPL vmlinux 0x176e7fbc	__blkg_release
+EXPORT_SYMBOL_GPL vmlinux 0x177c338d	twl_get_version
 EXPORT_SYMBOL_GPL vmlinux 0x17f12887	tpm_pm_suspend
 EXPORT_SYMBOL_GPL vmlinux 0x18248cd1	xfrm_audit_state_notfound_simple
 EXPORT_SYMBOL_GPL vmlinux 0x1829b9ed	hwpoison_filter_memcg
@@ -12037,6 +12050,7 @@ EXPORT_SYMBOL_GPL vmlinux 0x34b5d40b	usb_block_urb
 EXPORT_SYMBOL_GPL vmlinux 0x34b88164	ip6_datagram_send_ctl
 EXPORT_SYMBOL_GPL vmlinux 0x352650ee	gnttab_batch_map
 EXPORT_SYMBOL_GPL vmlinux 0x357874b5	platform_get_irq
+EXPORT_SYMBOL_GPL vmlinux 0x358ff60f	twl_get_hfclk_rate
 EXPORT_SYMBOL_GPL vmlinux 0x35951cf4	device_create_vargs
 EXPORT_SYMBOL_GPL vmlinux 0x3595ca34	fuse_abort_conn
 EXPORT_SYMBOL_GPL vmlinux 0x359db24e	unregister_acpi_bus_type
@@ -12095,6 +12109,7 @@ EXPORT_SYMBOL_GPL vmlinux 0x3a8f932b	__pci_reset_function
 EXPORT_SYMBOL_GPL vmlinux 0x3aa24773	kobject_get_path
 EXPORT_SYMBOL_GPL vmlinux 0x3ab43585	usb_reset_configuration
 EXPORT_SYMBOL_GPL vmlinux 0x3aba0979	pwm_get
+EXPORT_SYMBOL_GPL vmlinux 0x3acdf325	twl4030_audio_enable_resource
 EXPORT_SYMBOL_GPL vmlinux 0x3ad0e201	scatterwalk_copychunks
 EXPORT_SYMBOL_GPL vmlinux 0x3ad478a0	PageHuge
 EXPORT_SYMBOL_GPL vmlinux 0x3b45b329	pm_runtime_no_callbacks
@@ -13633,7 +13648,9 @@ EXPORT_SYMBOL_GPL vmlinux 0xc4052f97	acpi_dev_pm_attach
 EXPORT_SYMBOL_GPL vmlinux 0xc407f786	xenbus_dev_attrs
 EXPORT_SYMBOL_GPL vmlinux 0xc415a482	pci_enable_rom
 EXPORT_SYMBOL_GPL vmlinux 0xc428068d	sata_deb_timing_long
+EXPORT_SYMBOL_GPL vmlinux 0xc454fc7b	twl_get_type
 EXPORT_SYMBOL_GPL vmlinux 0xc46ce0e1	ata_sff_pause
+EXPORT_SYMBOL_GPL vmlinux 0xc471c67a	twl4030_audio_disable_resource
 EXPORT_SYMBOL_GPL vmlinux 0xc484623b	dev_get_regmap
 EXPORT_SYMBOL_GPL vmlinux 0xc48b7ccf	ata_mode_string
 EXPORT_SYMBOL_GPL vmlinux 0xc490d8f7	platform_driver_probe

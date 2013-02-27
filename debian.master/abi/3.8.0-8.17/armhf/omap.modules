@@ -653,6 +653,7 @@ fcrypt
 ff-memless
 fit2
 fit3
+flexcan
 fm_drv
 freevxfs
 friq
@@ -949,6 +950,7 @@ imx074
 imxdrm
 imx-fbdev
 imx-ipu-v3
+imx_keypad
 ina2xx
 industrialio
 industrialio-triggered-buffer
@@ -1386,6 +1388,8 @@ mv_udc
 mwifiex
 mwifiex_sdio
 mwifiex_usb
+mxc_nand
+mxc_w1
 mxl111sf-demod
 mxl111sf-tuner
 mxl5005s
@@ -1639,6 +1643,7 @@ pvrusb2
 pwc
 pwm-beeper
 pwm_bl
+pwm-imx
 pwm-tiecap
 pwm-tiehrpwm
 pwm-twl
