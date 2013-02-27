@@ -740,6 +740,22 @@ static const struct v4l2_subdev_video_ops m5mols_video_ops = {
 	.s_stream	= m5mols_s_stream,
 };
 
+static int regulator_bulk_enable_sync(int num_consumers,
+				      struct regulator_bulk_data *consumers)
+{
+	int ret = 0;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(supplies); ++i) {
+		ret = regulator_enable(supplies[i].consumer);
+	}
+	if (ret < 0)
+		for (; i >= 0; --i)
+			regulator_disable(supplies[i].consumer);
+
+	return ret;
+}
+
 static int m5mols_sensor_power(struct m5mols_info *info, bool enable)
 {
 	struct v4l2_subdev *sd = &info->sd;
@@ -757,13 +773,15 @@ static int m5mols_sensor_power(struct m5mols_info *info, bool enable)
 				return ret;
 		}
 
-		ret = regulator_bulk_enable(ARRAY_SIZE(supplies), supplies);
+		ret = regulator_bulk_enable_sync(ARRAY_SIZE(supplies),
+						  supplies);
 		if (ret) {
 			info->set_power(&client->dev, 0);
 			return ret;
 		}
 
 		gpio_set_value(pdata->gpio_reset, !pdata->reset_polarity);
+		usleep_range(1000, 1000);
 		info->power = 1;
 
 		return ret;
@@ -777,6 +795,7 @@ static int m5mols_sensor_power(struct m5mols_info *info, bool enable)
 		info->set_power(&client->dev, 0);
 
 	gpio_set_value(pdata->gpio_reset, pdata->reset_polarity);
+	usleep_range(1000, 1000);
 
 	info->isp_ready = 0;
 	info->power = 0;
