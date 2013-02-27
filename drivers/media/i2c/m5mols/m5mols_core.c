@@ -925,7 +925,31 @@ static int m5mols_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	return 0;
 }
 
+static int m5mols_registered(struct v4l2_subdev *sd)
+{
+	struct m5mols_info *info = to_m5mols(sd);
+	int ret;
+
+	mutex_lock(&info->lock);
+
+	ret = m5mols_sensor_power(info, true);
+	if (!ret)
+		ret = m5mols_fw_start(sd);
+	if (!ret)
+		ret = m5mols_init_controls(sd);
+
+	m5mols_sensor_power(info, false);
+
+	mutex_unlock(&info->lock);
+
+	v4l2_dbg(1, m5mols_debug, sd, "%s: Booting %s (%d)\n",
+		 __func__, ret ? "failed" : "succeded", ret);
+
+	return ret;
+}
+
 static const struct v4l2_subdev_internal_ops m5mols_subdev_internal_ops = {
+	.registered	= m5mols_registered,
 	.open		= m5mols_open,
 };
 
@@ -1013,19 +1037,8 @@ static int m5mols_probe(struct i2c_client *client,
 	info->ffmt[0] = m5mols_default_ffmt[0];
 	info->ffmt[1] =	m5mols_default_ffmt[1];
 
-	ret = m5mols_sensor_power(info, true);
-	if (ret)
-		goto out_irq;
+	return 0;
 
-	ret = m5mols_fw_start(sd);
-	if (!ret)
-		ret = m5mols_init_controls(sd);
-
-	ret = m5mols_sensor_power(info, false);
-	if (!ret)
-		return 0;
-out_irq:
-	free_irq(client->irq, sd);
 out_me:
 	media_entity_cleanup(&sd->entity);
 out_reg:
