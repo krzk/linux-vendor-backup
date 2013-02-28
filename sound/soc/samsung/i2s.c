@@ -34,6 +34,13 @@
 
 #define msecs_to_loops(t) (loops_per_jiffy / 1000 * HZ * t)
 
+#ifndef MHZ
+#define MHZ (1000*1000)
+#endif
+
+#define TARGET_SRPCLK_RATE	(200 * MHZ)
+#define TARGET_BUSCLK_RATE	(100 * MHZ)
+
 enum samsung_dai_type {
 	TYPE_PRI,
 	TYPE_SEC,
@@ -59,8 +66,16 @@ struct i2s_dai {
 	 * 0 indicates CPU driver is free to choose any value.
 	 */
 	unsigned rfs, bfs;
-	/* I2S Controller's core clock */
-	struct clk *clk;
+	/* Audss's source clock */
+	struct clk *mout_audss;
+	/* Audss's i2s source clock */
+	struct clk *mout_i2s;
+	/* SRP clock's divider */
+	struct clk *dout_srp;
+	/* Bus clock's divider */
+	struct clk *dout_bus;
+	/* i2s clock's divider */
+	struct clk *dout_i2s;
 	/* Clock for generating I2S signals */
 	struct clk *op_clk;
 	/* Pointer to the Primary_Fifo if this is Sec_Fifo, NULL otherwise */
@@ -400,6 +415,10 @@ static int i2s_set_sysclk(struct snd_soc_dai *dai,
 	u32 mod = readl(i2s->addr + I2SMOD);
 
 	switch (clk_id) {
+	case SAMSUNG_I2S_OPCLK:
+		mod &= ~MOD_OPCLK_MASK;
+		mod |= dir;
+		break;
 	case SAMSUNG_I2S_CDCLK:
 		/* Shouldn't matter in GATING(CLOCK_IN) mode */
 		if (dir == SND_SOC_CLOCK_IN)
@@ -433,7 +452,7 @@ static int i2s_set_sysclk(struct snd_soc_dai *dai,
 			clk_id = 1;
 
 		if (!any_active(i2s)) {
-			if (i2s->op_clk) {
+			if (!IS_ERR(i2s->op_clk)) {
 				if ((clk_id && !(mod & MOD_IMS_SYSMUX)) ||
 					(!clk_id && (mod & MOD_IMS_SYSMUX))) {
 					clk_disable_unprepare(i2s->op_clk);
@@ -451,6 +470,10 @@ static int i2s_set_sysclk(struct snd_soc_dai *dai,
 			else
 				i2s->op_clk = clk_get(&i2s->pdev->dev,
 						"i2s_opclk0");
+
+			if (!WARN_ON(IS_ERR(i2s->op_clk)))
+				return -EINVAL;
+
 			clk_prepare_enable(i2s->op_clk);
 			i2s->rclk_srcrate = clk_get_rate(i2s->op_clk);
 
@@ -849,6 +872,70 @@ i2s_delay(struct snd_pcm_substream *substream, struct snd_soc_dai *dai)
 	return delay;
 }
 
+static int clk_set_hierarchy(struct i2s_dai *i2s)
+{
+	struct device *dev = &i2s->pdev->dev;
+	struct clk *fout_epll;
+	unsigned int ret;
+
+	fout_epll = devm_clk_get(dev, "fout_epll");
+	if (IS_ERR(fout_epll)) {
+		dev_err(dev, "failed to get fout_epll clock\n");
+		return PTR_ERR(fout_epll);
+	}
+
+	i2s->mout_audss = devm_clk_get(dev, "mout_audss");
+	if (IS_ERR(i2s->mout_audss)) {
+		dev_err(dev, "failed to get mout_audss clock\n");
+		return PTR_ERR(i2s->mout_audss);
+	}
+
+	i2s->mout_i2s = devm_clk_get(dev, "mout_i2s");
+	if (IS_ERR(i2s->mout_i2s)) {
+		dev_err(dev, "failed to get mout_i2s clock\n");
+		return PTR_ERR(i2s->mout_i2s);
+	}
+
+	i2s->dout_srp = devm_clk_get(dev, "dout_srp");
+	if (IS_ERR(i2s->dout_srp)) {
+		dev_err(dev, "failed to get dout_srp div\n");
+		return PTR_ERR(i2s->dout_srp);
+	}
+
+	i2s->dout_bus = devm_clk_get(dev, "dout_bus");
+	if (IS_ERR(i2s->dout_bus)) {
+		dev_err(dev, "failed to get dout_bus div\n");
+		return PTR_ERR(i2s->dout_bus);
+	}
+
+	i2s->dout_i2s = devm_clk_get(dev, "dout_i2s");
+	if (IS_ERR(i2s->dout_i2s)) {
+		dev_err(dev, "failed to get dout_i2s div\n");
+		return PTR_ERR(i2s->dout_i2s);
+	}
+
+	ret = clk_set_parent(i2s->mout_audss, fout_epll);
+	if (ret) {
+		dev_err(dev, "failed to set parent clock of mout_audss\n");
+		return ret;
+	}
+
+	ret = clk_set_parent(i2s->mout_i2s, i2s->mout_audss);
+	if (ret) {
+		dev_err(dev, "failed to set parent clock of mout_i2s\n");
+		return ret;
+	}
+
+	clk_set_rate(i2s->dout_srp, TARGET_SRPCLK_RATE);
+	clk_set_rate(i2s->dout_bus, TARGET_BUSCLK_RATE);
+
+	dev_dbg(dev, "EPLL rate = %ld\n", clk_get_rate(fout_epll));
+	dev_dbg(dev, "SRP rate = %ld\n", clk_get_rate(i2s->dout_srp));
+	dev_dbg(dev, "BUS rate = %ld\n", clk_get_rate(i2s->dout_bus));
+
+	return 0;
+}
+
 #ifdef CONFIG_PM
 static int i2s_suspend(struct snd_soc_dai *dai)
 {
@@ -880,8 +967,9 @@ static int samsung_i2s_dai_probe(struct snd_soc_dai *dai)
 {
 	struct i2s_dai *i2s = to_info(dai);
 	struct i2s_dai *other = i2s->pri_dai ? : i2s->sec_dai;
+	int ret;
 
-	if (other && other->clk) /* If this is probe on secondary */
+	if (other && other->op_clk) /* If this is probe on secondary */
 		goto probe_exit;
 
 	i2s->addr = ioremap(i2s->base, 0x100);
@@ -890,17 +978,16 @@ static int samsung_i2s_dai_probe(struct snd_soc_dai *dai)
 		return -ENXIO;
 	}
 
-	i2s->clk = clk_get(&i2s->pdev->dev, "iis");
-	if (IS_ERR(i2s->clk)) {
-		dev_err(&i2s->pdev->dev, "failed to get i2s_clock\n");
-		iounmap(i2s->addr);
-		return -ENOENT;
+	/* Set clock hierarchy for audio subsystem */
+	ret = clk_set_hierarchy(i2s);
+	if (ret) {
+		dev_err(&i2s->pdev->dev, "failed to set clock hierachy.\n");
+		return ret;
 	}
-	clk_prepare_enable(i2s->clk);
 
 	if (other) {
 		other->addr = i2s->addr;
-		other->clk = i2s->clk;
+		other->op_clk = i2s->op_clk;
 	}
 
 	if (i2s->quirks & QUIRK_NEED_RSTCLR)
@@ -933,18 +1020,20 @@ static int samsung_i2s_dai_remove(struct snd_soc_dai *dai)
 	struct i2s_dai *i2s = snd_soc_dai_get_drvdata(dai);
 	struct i2s_dai *other = i2s->pri_dai ? : i2s->sec_dai;
 
-	if (!other || !other->clk) {
+	if (!other || !other->op_clk) {
 
 		if (i2s->quirks & QUIRK_NEED_RSTCLR)
 			writel(0, i2s->addr + I2SCON);
 
-		clk_disable_unprepare(i2s->clk);
-		clk_put(i2s->clk);
+		if (i2s->op_clk) {
+			clk_disable_unprepare(i2s->op_clk);
+			clk_put(i2s->op_clk);
+		}
 
 		iounmap(i2s->addr);
 	}
 
-	i2s->clk = NULL;
+	i2s->op_clk = ERR_PTR(-EINVAL);
 
 	return 0;
 }
@@ -1080,7 +1169,7 @@ static int i2s_runtime_suspend(struct device *dev)
 {
 	struct i2s_dai *i2s = dev_get_drvdata(dev);
 
-	clk_disable_unprepare(i2s->clk);
+	clk_disable_unprepare(i2s->op_clk);
 
 	return 0;
 }
@@ -1089,7 +1178,7 @@ static int i2s_runtime_resume(struct device *dev)
 {
 	struct i2s_dai *i2s = dev_get_drvdata(dev);
 
-	clk_prepare_enable(i2s->clk);
+	clk_prepare_enable(i2s->op_clk);
 
 	return 0;
 }
