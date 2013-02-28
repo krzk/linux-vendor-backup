@@ -199,6 +199,12 @@ config SND_SOC_TOBERMORY
 	select SND_SAMSUNG_I2S
 	select SND_SOC_WM8962
 
+config SND_SOC_TRATS
+	tristate "Audio support for Samsung Trats"
+	depends on SND_SOC_SAMSUNG && CPU_EXYNOS4210
+	select SND_SAMSUNG_I2S
+	select SND_SOC_MC1N2
+
 config SND_SOC_BELLS
 	tristate "Audio support for Wolfson Bells"
 	depends on SND_SOC_SAMSUNG && MACH_WLF_CRAGG_6410
