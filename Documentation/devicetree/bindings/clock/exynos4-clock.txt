@@ -46,6 +46,7 @@ Exynos4 SoC and this is specified where applicable.
   mout_mpll_user_c    18      Exynos4x12
   mout_core           19
   mout_apll           20
+  clkout              21
 
 
             [Clock Gate for Special Clocks]
@@ -253,6 +254,7 @@ Exynos4 SoC and this is specified where applicable.
   mout_g3d1		393
   mout_g3d		394
   aclk400_mcuisp	395	Exynos4x12
+  mout_clkout		396
 
 		[Div Clocks]
 

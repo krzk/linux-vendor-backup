@@ -143,7 +143,7 @@ enum exynos4_clks {
 	xxti, xusbxti, fin_pll, fout_apll, fout_mpll, fout_epll, fout_vpll,
 	sclk_apll, sclk_mpll, sclk_epll, sclk_vpll, arm_clk, aclk200, aclk100,
 	aclk160, aclk133, mout_mpll_user_t, mout_mpll_user_c, mout_core,
-	mout_apll, /* 20 */
+	mout_apll, clkout, /* 21 */
 
 	/* gate for special clocks (sclk) */
 	sclk_fimc0 = 128, sclk_fimc1, sclk_fimc2, sclk_fimc3, sclk_cam0,
@@ -177,7 +177,7 @@ enum exynos4_clks {
 	/* mux clocks */
 	mout_fimc0 = 384, mout_fimc1, mout_fimc2, mout_fimc3, mout_cam0,
 	mout_cam1, mout_csis0, mout_csis1, mout_g3d0, mout_g3d1, mout_g3d,
-	aclk400_mcuisp,
+	aclk400_mcuisp, mout_clkout,
 
 	/* div clocks */
 	div_isp0 = 450, div_isp1, div_mcuisp0, div_mcuisp1, div_aclk200,
@@ -299,6 +299,8 @@ PNAME(mout_spdif_p)	= { "sclk_audio0", "sclk_audio1", "sclk_audio2",
 				"spdif_extclk", };
 PNAME(mout_onenand_p)  = {"aclk133", "aclk160", };
 PNAME(mout_onenand1_p) = {"mout_onenand", "sclk_vpll", };
+PNAME(clkout_p)		= { "none", "none", "none", "none", "none", "none",
+				"none", "none", "xxti", "xusbxti", };
 
 /* Exynos 4210-specific parent groups */
 PNAME(sclk_vpll_p4210)	= { "mout_vpllsrc", "fout_vpll", };
@@ -910,6 +912,11 @@ struct samsung_gate_clock exynos4x12_gate_clks[] __initdata = {
 			CLK_IGNORE_UNUSED, 0),
 };
 
+static struct of_device_id exynos4_clkout_ids[] __initdata = {
+	{ .compatible = "samsung,exynos4210-clkout", },
+	{ },
+};
+
 /*
  * The parent of the fin_pll clock is selected by the XOM[0] bit. This bit
  * resides in chipid register space, outside of the clock controller memory
@@ -981,6 +988,8 @@ static __initdata struct of_device_id ext_clk_match[] = {
 	{ .compatible = "samsung,clock-xusbxti", .data = (void *)1, },
 	{},
 };
+
+static DEFINE_SPINLOCK(clkout_lock);
 
 /* PLLs PMS values */
 struct pll_pms pll35xx_exynos4412_pms[] = {
@@ -1118,6 +1127,42 @@ void __init exynos4_clk_init(struct device_node *np, enum exynos4_soc exynos4_so
 			ARRAY_SIZE(exynos4x12_gate_clks));
 	}
 
+	np = of_find_matching_node(NULL, exynos4_clkout_ids);
+	if (np) {
+		void __iomem *clkout_base;
+		struct clk *clk;
+
+		clkout_base = of_iomap(np, 0);
+		if (!clkout_base) {
+			pr_err("%s: failed to map clkout control register\n",
+								__func__);
+			goto clkout_fail;
+		}
+
+		clk = clk_register_mux(NULL, "mout_clkout", clkout_p,
+					ARRAY_SIZE(clkout_p), 0, clkout_base,
+					8, 4, 0, &clkout_lock);
+		if (IS_ERR(clk)) {
+			pr_err("%s: failed to register clkout mux clock\n",
+								__func__);
+			goto clkout_fail;
+		}
+
+		samsung_clk_add_lookup(clk, mout_clkout);
+
+		clk = clk_register_gate(NULL, "clkout", "mout_clkout",
+				0, clkout_base, 0, CLK_GATE_SET_TO_DISABLE,
+				&clkout_lock);
+		if (IS_ERR(clk)) {
+			pr_err("%s: failed to register clkout gate clock\n",
+								__func__);
+			goto clkout_fail;
+		}
+
+		samsung_clk_add_lookup(clk, clkout);
+	}
+
+clkout_fail:
 	pr_info("%s clocks: sclk_apll = %ld, sclk_mpll = %ld\n"
 		"\tsclk_epll = %ld, sclk_vpll = %ld, arm_clk = %ld\n",
 		exynos4_soc == EXYNOS4210 ? "Exynos4210" : "Exynos4x12",
