@@ -49,6 +49,11 @@
 		reg = <0x10000000 0x100>;
 	};
 
+	clkout: clock-controller@10020A00 {
+		compatible = "samsung,exynos4210-clkout";
+		reg = <0x10020A00 0x4>;
+	};
+
 	clock_audss: clock-controller@03810000 {
 		compatible = "samsung,exynos4-audss-clock";
 		reg = <0x03810000 0x0C>;
