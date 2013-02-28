@@ -305,6 +305,13 @@
 							 <1200000>, <1200000>;
 
 			regulators {
+				vadc_reg: LDO1 {
+					regulator-name = "VADC_3.3V_C210";
+					regulator-min-microvolt = <3300000>;
+					regulator-max-microvolt = <3300000>;
+					regulator-always-on;
+				};
+
 				valive_reg: LDO2 {
 				     regulator-name = "VALIVE_1.1V_C210";
 				     regulator-min-microvolt = <1100000>;
