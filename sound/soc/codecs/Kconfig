@@ -525,3 +525,5 @@ config SND_SOC_ML26124
 
 config SND_SOC_TPA6130A2
 	tristate
+
+source "sound/soc/codecs/mc1n2/Kconfig"
