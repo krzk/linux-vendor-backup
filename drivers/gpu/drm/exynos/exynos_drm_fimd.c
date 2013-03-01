@@ -932,6 +932,12 @@ static int fimd_probe(struct platform_device *pdev)
 			DRM_ERROR("failed: of_get_fb_videomode() : %d\n", ret);
 			return ret;
 		}
+
+		/* FIXME */
+		of_property_read_u32(display_np, "samsung,panel-width-mm",
+						&pdata->panel.width_mm);
+		of_property_read_u32(display_np, "samsung,panel-height-mm",
+						&pdata->panel.height_mm);
 	} else {
 		pdata = dev->platform_data;
 		if (!pdata) {
