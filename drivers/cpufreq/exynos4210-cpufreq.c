@@ -81,6 +81,7 @@ static void exynos4210_set_clkdiv(unsigned int div_index)
 
 static void exynos4210_set_apll(unsigned int index)
 {
+	unsigned long freq = apll_freq_4210[index].freq * 1000;
 	unsigned int tmp;
 
 	/* 1. MUX_CORE_SEL = MPLL, ARMCLK uses MPLL for lock time */
@@ -92,19 +93,7 @@ static void exynos4210_set_apll(unsigned int index)
 		tmp &= 0x7;
 	} while (tmp != 0x2);
 
-	/* 2. Set APLL Lock time */
-	__raw_writel(EXYNOS4_APLL_LOCKTIME, EXYNOS4_APLL_LOCK);
-
-	/* 3. Change PLL PMS values */
-	tmp = __raw_readl(EXYNOS4_APLL_CON0);
-	tmp &= ~((0x3ff << 16) | (0x3f << 8) | (0x7 << 0));
-	tmp |= apll_freq_4210[index].mps;
-	__raw_writel(tmp, EXYNOS4_APLL_CON0);
-
-	/* 4. wait_lock_time */
-	do {
-		tmp = __raw_readl(EXYNOS4_APLL_CON0);
-	} while (!(tmp & (0x1 << EXYNOS4_APLLCON0_LOCKED_SHIFT)));
+	clk_set_rate(mout_apll, freq);
 
 	/* 5. MUX_CORE_SEL = APLL */
 	clk_set_parent(moutcore, mout_apll);
