@@ -105,6 +105,7 @@
 #define DIV_DMC1		0x10504
 #define GATE_IP_DMC		0x10900
 #define APLL_LOCK		0x14000
+#define E4210_MPLL_LOCK		0x14008
 #define APLL_CON0		0x14100
 #define E4210_MPLL_CON0		0x14108
 #define SRC_CPU			0x14200
@@ -1004,6 +1005,17 @@ struct pll_pms pll35xx_exynos4412_pms[] = {
 	{.f_out = F_OUT_INVAL},
 };
 
+struct pll_pms pll45xx_exynos4210_pll45xx_pms[] = {
+	{.p =  6, .m = 250, .s = 1, .afc = 28}, /* 1000 MHz */
+	{.p =  6, .m = 200, .s = 1, .afc = 28}, /* 800 MHz */
+	{.p = 14, .m = 389, .s = 1, .afc = 13}, /* 667 MHz */
+	{.p =  4, .m = 100, .s = 1, .afc = 13}, /* 600 MHz */
+	{.p = 24, .m = 533, .s = 1, .afc =  5}, /* 533 MHz */
+	{.p =  6, .m = 200, .s = 3, .afc = 28}, /* 200 MHz */
+	{.p =  6, .m = 200, .s = 2, .afc = 28}, /* 400 MHz */
+	{.f_out = F_OUT_INVAL},
+};
+
 /* register exynos4 clocks */
 void __init exynos4_clk_init(struct device_node *np, enum exynos4_soc exynos4_soc, void __iomem *reg_base, unsigned long xom)
 {
@@ -1033,9 +1045,11 @@ void __init exynos4_clk_init(struct device_node *np, enum exynos4_soc exynos4_so
 
 	if (exynos4_soc == EXYNOS4210) {
 		apll = samsung_clk_register_pll45xx("fout_apll", "fin_pll",
-					reg_base + APLL_CON0, pll_4508);
+					reg_base + APLL_LOCK, pll_4508,
+					pll45xx_exynos4210_pll45xx_pms);
 		mpll = samsung_clk_register_pll45xx("fout_mpll", "fin_pll",
-					reg_base + E4210_MPLL_CON0, pll_4508);
+					reg_base + E4210_MPLL_LOCK, pll_4508,
+					pll45xx_exynos4210_pll45xx_pms);
 		epll = samsung_clk_register_pll46xx("fout_epll", "fin_pll",
 					reg_base + EPLL_CON0, pll_4600);
 		vpll = samsung_clk_register_pll46xx("fout_vpll", "mout_vpllsrc",
