@@ -318,7 +318,7 @@ static int __init exynos_cpufreq_probe(struct platform_device *pdev)
 		goto err_vdd_arm;
 	}
 
-	arm_regulator = regulator_get(NULL, "vdd_arm");
+	arm_regulator = regulator_get(exynos_info->dev, "vdd_arm");
 	if (IS_ERR(arm_regulator)) {
 		pr_err("%s: failed to get resource vdd_arm\n", __func__);
 		goto err_vdd_arm;
