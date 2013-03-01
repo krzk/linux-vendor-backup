@@ -169,21 +169,21 @@ int exynos4210_cpufreq_init(struct exynos_dvfs_info *info)
 {
 	unsigned long rate;
 
-	cpu_clk = clk_get(NULL, "armclk");
+	cpu_clk = clk_get(info->dev, "armclk");
 	if (IS_ERR(cpu_clk))
 		return PTR_ERR(cpu_clk);
 
-	moutcore = clk_get(NULL, "moutcore");
+	moutcore = clk_get(info->dev, "moutcore");
 	if (IS_ERR(moutcore))
 		goto err_moutcore;
 
-	mout_mpll = clk_get(NULL, "mout_mpll");
+	mout_mpll = clk_get(info->dev, "mout_mpll");
 	if (IS_ERR(mout_mpll))
 		goto err_mout_mpll;
 
 	rate = clk_get_rate(mout_mpll) / 1000;
 
-	mout_apll = clk_get(NULL, "mout_apll");
+	mout_apll = clk_get(info->dev, "mout_apll");
 	if (IS_ERR(mout_apll))
 		goto err_mout_apll;
 
