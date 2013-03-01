@@ -432,4 +432,10 @@
 			memory-region = <&mfc_r_mem>;
 		};
 	};
+
+	cpufreq {
+		/* No freq_table property to use default table. */
+		vdd_arm-supply = <&varm_breg>;
+		status = "okay";
+	};
 };
