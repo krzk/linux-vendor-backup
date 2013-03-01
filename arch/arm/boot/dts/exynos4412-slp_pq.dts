@@ -188,6 +188,34 @@
 		};
 	};
 
+	i2c@138A0000 {
+		samsung,i2c-sda-delay = <100>;
+		samsung,i2c-max-bus-freq = <100000>;
+		pinctrl-0 = <&i2c4_bus>;
+		pinctrl-names = "default";
+		status = "okay";
+
+		wm1811: wm1811@1a {
+			compatible = "wlf,wm1811";
+			reg = <0x1a>;
+			gpios = <&gpj0 4 0>; /* Temporary, LDO_EN */
+			interrupt-parent = <&gpx3>;
+			interrupts = <6 4>;
+
+			DBVDD1-supply = <&ldo3_reg>;
+			DBVDD2-supply = <&vbatt_reg>;
+			DBVDD3-supply = <&vbatt_reg>;
+			DCVDD-supply = <&vbatt_reg>;
+			AVDD1-supply = <&vbatt_reg>;
+			AVDD2-supply = <&vbatt_reg>;
+			AVDD3-supply = <&vbatt_reg>;
+			CPVDD-supply = <&vbatt_reg>;
+			SPKVDD1-supply = <&vbatt_reg>;
+			SPKVDD2-supply = <&vbatt_reg>;
+			LDO1VDD-supply = <&vbatt_reg>;
+		};
+	};
+
 	i2c@138D0000 {
 		samsung,i2c-sda-delay = <100>;
 		samsung,i2c-slave-addr = <0x10>;
@@ -508,6 +536,36 @@
 		regulator-always-on;
 	};
 
+	vbatt_reg: voltage-regulator@5 {
+	        compatible = "regulator-fixed";
+		regulator-name = "VBATT";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <>;
+		regulator-always-on;
+	};
+
+	wm1811_regulator {
+		compatible = "wlf,wm8994-ldo";
+		status = "disabled";
+		voltage-regulators {
+			wm1811_ldo1_reg: ldo@1 {
+				regulator-compatible = "LDO1";
+				regulator-name = "WM1811_LDO1";
+				regulator-min-microvolt = <2400000>;
+				regulator-max-microvolt = <2400000>;
+			};
+
+			wm1811_ldo2_reg: ldo@2 {
+				regulator-compatible = "LDO2";
+				regulator-name = "WM1811_LDO2";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <1200000>;
+				regulator-always-on;
+			};
+		};
+	};
+
 	fimd0_lcd: panel {
 		compatible = "samsung,s6e8aa0";
 		reset-gpio = <&gpy4 5 0>;
@@ -705,6 +763,23 @@
 		memport@1 {
 			memory-region = <&mfc_r_mem>;
 		};
+	};
+
+	i2s0: i2s@03830000 {
+		pinctrl-0 = <&i2s0_bus>;
+		pinctrl-names = "default";
+		status = "okay";
+	};
+
+	sound {
+		compatible = "samsung,exynos4-wm1811";
+		clocks = <&clock 2>, <&clock 395>, <&clock 21>, <&clock 6>;
+		clock-names = "parent", "out-mux", "out", "pll" /* EPLL */;
+		samsung,i2s-controller = <&i2s0>;
+		samsung,audio-codec = <&wm1811>;
+		samsung,model = "wm1811";
+		samsung,mic-availability = <1 1>;
+		samsung,mic-en-gpios = <&gpf1 7 0>, <&gpf2 0 0>;
 	};
 
 	gpu@13000000 {
