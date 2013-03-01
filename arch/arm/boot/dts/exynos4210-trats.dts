@@ -511,6 +511,8 @@
 		video-source = <&dsi_0>;
 		flip-horizontal;
 		flip-vertical;
+		samsung,panel-width-mm = <58>; /* FIXME */
+		samsung,panel-height-mm = <103>; /* FIXME */
 
 		display-timings {
 			native-mode = <&timing0>;
