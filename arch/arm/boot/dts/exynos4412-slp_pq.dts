@@ -517,6 +517,8 @@
 		vdd3-supply = <&lcd_vdd3_reg>;
 		vci-supply = <&ldo25_reg>;
 		video-source = <&dsi_0>;
+		samsung,panel-width-mm = <58>; /* FIXME */
+		samsung,panel-height-mm = <103>; /* FIXME */
 
 		display-timings {
 			native-mode = <&timing0>;
