@@ -2155,6 +2155,7 @@ parport_ax88796
 parport_cs
 parport_pc
 parport_serial
+pata_acpi
 pata_ali
 pata_amd
 pata_arasan_cf
