@@ -299,6 +299,8 @@ static int __init exynos_cpufreq_probe(struct platform_device *pdev)
 	if (!exynos_info)
 		return -ENOMEM;
 
+	exynos_info->dev = &pdev->dev;
+
 	if (soc_is_exynos4210())
 		ret = exynos4210_cpufreq_init(exynos_info);
 	else if (soc_is_exynos4212() || soc_is_exynos4412())
