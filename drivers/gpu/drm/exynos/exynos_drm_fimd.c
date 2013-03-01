@@ -913,14 +913,21 @@ static int fimd_probe(struct platform_device *pdev)
 	DRM_DEBUG_KMS("%s\n", __FILE__);
 
 	if (dev->of_node) {
+		struct device_node *display_np;
+
+		display_np = of_parse_phandle(dev->of_node,
+						"samsung,fimd-display", 0);
+		if (!display_np)
+			display_np = dev->of_node;
+
 		pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 		if (!pdata) {
 			DRM_ERROR("memory allocation for pdata failed\n");
 			return -ENOMEM;
 		}
 
-		ret = of_get_fb_videomode(dev->of_node, &pdata->panel.timing,
-					OF_USE_NATIVE_MODE);
+		ret = of_get_fb_videomode(display_np,
+				&pdata->panel.timing, OF_USE_NATIVE_MODE);
 		if (ret) {
 			DRM_ERROR("failed: of_get_fb_videomode() : %d\n", ret);
 			return ret;
