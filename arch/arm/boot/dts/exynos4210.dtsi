@@ -201,4 +201,11 @@
 			clock-names = "csis", "sclk_csis", "mux", "parent";
 		};
 	};
+
+	cpufreq {
+		compatible = "samsung,exynos-cpufreq";
+		clocks = <&clock 12>, <&clock 19>, <&clock 9>, <&clock 20>;
+		clock-names = "armclk", "moutcore", "mout_mpll", "mout_apll";
+		status = "disabled";
+	};
 };
