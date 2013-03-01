@@ -81,14 +81,14 @@ static long samsung_pll35xx_round_rate(struct clk_hw *hw,
 
 	if (!pms) {
 		pr_err("%s: no pms table passed", __func__);
-		return -ENOTSUPP;
+		return samsung_pll35xx_recalc_rate(hw, *prate);
 	}
 
 	for (i = 0; pms[i].f_out != F_OUT_INVAL; i++)
 		if (drate >= pms[i].f_out)
 			return pms[i].f_out;
 
-	return -EINVAL;
+	return samsung_pll35xx_recalc_rate(hw, *prate);
 }
 
 static int samsung_pll35xx_set_rate(struct clk_hw *hw, unsigned long drate,
