@@ -1,0 +1,46 @@
+Samsung Exynos4 audio complex
+
+Required properties:
+
+- compatible : "samsung,exynos4-wm1811";
+- samsung,model : the user-visible name of this sound complex;
+- samsung,audio-routing : A list of the connections between audio components.
+  Each entry is a pair of strings, the first being the connection's sink,
+  the second being the connection's source. Valid names for sources and
+  sinks are the WM8903's pins, and the jacks on the board:
+
+  ...
+
+  * Headphone Jack
+  * Int Spk
+  * Mic Jack
+
+- samsung,i2s-controller : the phandle of the Tegra I2S1 controller;
+- samsung,audio-codec : the phandle of the WM8903 audio codec.
+
+Optional properties:
+- nvidia,spkr-en-gpios : The GPIO that enables the speakers;
+- nvidia,hp-mute-gpios : The GPIO that mutes the headphones;
+- nvidia,hp-det-gpios : The GPIO that detect headphones are plugged in;
+- nvidia,int-mic-en-gpios : The GPIO that enables the internal microphone;
+- nvidia,ext-mic-en-gpios : The GPIO that enables the external microphone.
+
+Example:
+
+sound {
+	compatible = "samsung,exynos-wm1811";
+	nvidia,model = "redwood-wm1811";
+
+	samsung,audio-routing =
+		"Headphone Jack", "HPOUTR",
+		"Headphone Jack", "HPOUTL",
+		"IN1L", "Mic Jack";
+
+	samsung,i2s-controller = <&i2s0>;
+	samsung,audio-codec = <&wm1811>;
+
+	nvidia,spkr-en-gpios = <&codec 2 0>;
+	nvidia,int-mic-en-gpios = <&gpio 184 0>; /*gpio PX0 */
+	nvidia,ext-mic-en-gpios = <&gpio 185 0>; /* gpio PX1 */
+};
+
