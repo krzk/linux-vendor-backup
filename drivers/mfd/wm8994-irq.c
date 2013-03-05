@@ -144,16 +144,18 @@ int wm8994_irq_init(struct wm8994 *wm8994)
 	unsigned long irqflags;
 	struct wm8994_pdata *pdata = wm8994->dev->platform_data;
 
-	if (!wm8994->irq) {
+	if (!pdata || !wm8994->irq) {
 		dev_warn(wm8994->dev,
 			 "No interrupt specified, no interrupts\n");
 		wm8994->irq_base = 0;
 		return 0;
 	}
 
+	wm8994->irq_base = -1;
+
 	/* select user or default irq flags */
 	irqflags = IRQF_TRIGGER_HIGH | IRQF_ONESHOT;
-	if (pdata->irq_flags)
+	if (pdata && pdata->irq_flags)
 		irqflags = pdata->irq_flags;
 
 	ret = regmap_add_irq_chip(wm8994->regmap, wm8994->irq,
