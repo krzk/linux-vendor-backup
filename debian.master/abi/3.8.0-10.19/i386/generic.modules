@@ -3278,7 +3278,6 @@ spi-gpio
 spi_ks8995
 spi-lm70llp
 spi-oc-tiny
-spi-pxa2xx
 spi-sc18is602
 spi-tle62x0
 spi-topcliff-pch
