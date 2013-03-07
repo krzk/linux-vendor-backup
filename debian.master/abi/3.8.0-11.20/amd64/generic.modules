@@ -849,7 +849,6 @@ eeprom_93cx6
 eeprom_93xx46
 eeti_ts
 efs
-einj
 elo
 elsa_cs
 em28xx
@@ -2362,7 +2361,6 @@ raid456
 raid6_pq
 raid6test
 raid_class
-ramoops
 raw
 ray_cs
 rbd
