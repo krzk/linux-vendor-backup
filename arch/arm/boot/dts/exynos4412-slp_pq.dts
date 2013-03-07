@@ -698,7 +698,7 @@
 			status = "okay";
 			vddcore-supply = <&ldo8_reg>;
 			vddio-supply = <&ldo10_reg>;
-			clock-frequency = <160000000>;
+			clock-frequency = <176000000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 
@@ -717,7 +717,7 @@
 			status = "okay";
 			vddcore-supply = <&ldo8_reg>;
 			vddio-supply = <&ldo10_reg>;
-			clock-frequency = <160000000>;
+			clock-frequency = <176000000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 
