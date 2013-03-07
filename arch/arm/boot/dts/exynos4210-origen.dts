@@ -164,4 +164,21 @@
 			clock-frequency = <24000000>;
 		};
 	};
+
+	vusb_reg: voltage-regulator-1 {
+	        compatible = "regulator-fixed";
+		regulator-name = "VUSB_DUMMY";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
+	usbphy@125B0000 {
+		status = "okay";
+	};
+
+	hsotg@12480000 {
+		status = "okay";
+		vusb_d-supply = <&vusb_reg>;
+		vusb_a-supply = <&vusb_reg>;
+	};
 };
