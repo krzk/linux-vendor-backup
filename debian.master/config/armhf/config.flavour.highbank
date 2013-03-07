@@ -5,6 +5,7 @@
 # CONFIG_ACORN_PARTITION is not set
 # CONFIG_AMBA_PL08X is not set
 # CONFIG_AMIGA_PARTITION is not set
+# CONFIG_ARCH_HIGHBANK is not set
 # CONFIG_ARCH_MXC is not set
 # CONFIG_ARCH_NEEDS_CPU_IDLE_COUPLED is not set
 # CONFIG_ARCH_OMAP4 is not set
