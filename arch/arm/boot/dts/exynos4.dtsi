@@ -500,6 +500,15 @@
 		status = "disabled";
 	};
 
+	ehci@12580000 {
+		compatible = "samsung,exynos-ehci";
+		reg = <0x12580000 0x20000>;
+		interrupts = <0 70 0>;
+		clocks = <&clock 304>;
+		clock-names = "usbhost";
+		status = "disabled";
+	};
+
 	i2s0: i2s@03830000 {
 		compatible = "samsung,i2s-v5";
 		reg = <0x03830000 0x100>;
