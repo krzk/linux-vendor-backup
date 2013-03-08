@@ -831,6 +831,10 @@
 		vusb_a-supply = <&ldo12_reg>;
 	};
 
+	ehci@12580000 {
+		status = "okay";
+	};
+
 	spi_1: spi@13930000 {
 		pinctrl-names = "default";
 		pinctrl-0 = <&spi1_bus>;
