@@ -2,10 +2,8 @@
 # Update from the upstream repository.
 #
 
-### github:mcgrof == Luis R. Rodriguez
-# ALX_REPO="git://github.com/mcgrof/alx.git"
-### github:erikarn == Adrian Chadd
-ALX_REPO="git://github.com/erikarn/alx.git"
+### github:qca == QCA Project repo
+ALX_REPO="git://github.com/qca/alx.git"
 
 ALX_AUTHOR="Qualcomm Atheros, Inc. <nic-devel@qualcomm.com>"
 set -e
