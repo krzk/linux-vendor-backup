@@ -748,12 +748,14 @@ static int regulator_bulk_enable_sync(int num_consumers,
 
 	for (i = 0; i < ARRAY_SIZE(supplies); ++i) {
 		ret = regulator_enable(supplies[i].consumer);
+		if (ret < 0) {
+			for (; i >= 0; --i)
+				regulator_disable(supplies[i].consumer);
+			return ret;
+		}
 	}
-	if (ret < 0)
-		for (; i >= 0; --i)
-			regulator_disable(supplies[i].consumer);
 
-	return ret;
+	return 0;
 }
 
 static int m5mols_sensor_power(struct m5mols_info *info, bool enable)
