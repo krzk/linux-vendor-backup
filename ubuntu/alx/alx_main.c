@@ -26,6 +26,8 @@
 #include <linux/bitops.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
+#include <linux/vmalloc.h>
+#include <net/ip6_checksum.h>
 
 #include "alx_reg.h"
 #include "alx_hw.h"
@@ -33,7 +35,7 @@
 
 #define DRV_MAJ		1
 #define DRV_MIN		2
-#define DRV_PATCH	2
+#define DRV_PATCH	3
 #define DRV_MODULE_VER	\
 	__stringify(DRV_MAJ) "." __stringify(DRV_MIN) "." \
 	__stringify(DRV_PATCH)
@@ -400,7 +402,6 @@ int alx_alloc_rxring_buf(struct alx_adapter *adpt,
 			netdev_warn(adpt->netdev, "alloc skb failed\n");
 			break;
 		}
-		skb_reserve(skb, NET_IP_ALIGN);
 		dma = dma_map_single(rxq->dev,
 				     skb->data,
 				     adpt->rxbuf_size,
@@ -1195,7 +1196,7 @@ static int alx_change_mtu(struct net_device *netdev, int new_mtu)
 				   ALIGN(max_frame, 8) : ALX_DEF_RXBUF_SIZE;
 		netdev_update_features(netdev);
 		if (netif_running(netdev))
-			alx_reinit(adpt);
+			alx_reinit(adpt, false);
 	}
 
 	return 0;
@@ -1358,12 +1359,13 @@ err_out:
 	return err;
 }
 
-static void alx_halt(struct alx_adapter *adpt)
+static void alx_halt(struct alx_adapter *adpt, bool in_task)
 {
 	struct alx_hw *hw = &adpt->hw;
 
 	ALX_FLAG_SET(adpt, HALT);
-	alx_cancel_work(adpt);
+	if (!in_task)
+		alx_cancel_work(adpt);
 
 	alx_netif_stop(adpt);
 	hw->link_up = false;
@@ -1395,7 +1397,7 @@ static void alx_activate(struct alx_adapter *adpt)
 
 static void __alx_stop(struct alx_adapter *adpt)
 {
-	alx_halt(adpt);
+	alx_halt(adpt, false);
 
 	alx_free_irq(adpt);
 
@@ -1800,7 +1802,7 @@ static void alx_update_stats(struct alx_adapter *adpt)
 	spin_unlock(&adpt->smb_lock);
 }
 
-void alx_reinit(struct alx_adapter *adpt)
+void alx_reinit(struct alx_adapter *adpt, bool in_task)
 {
 	WARN_ON(in_interrupt());
 
@@ -1810,7 +1812,7 @@ void alx_reinit(struct alx_adapter *adpt)
 	if (ALX_FLAG(adpt, HALT))
 		return;
 
-	alx_halt(adpt);
+	alx_halt(adpt, in_task);
 	alx_activate(adpt);
 
 	ALX_FLAG_CLEAR(adpt, RESETING);
@@ -1831,7 +1833,7 @@ static void alx_task(struct work_struct *work)
 	if (test_and_clear_bit(ALX_FLAG_TASK_RESET, &adpt->flags)) {
 		netif_info(adpt, hw, adpt->netdev,
 			   "task:alx_reinit\n");
-		alx_reinit(adpt);
+		alx_reinit(adpt, true);
 	}
 
 	if (test_and_clear_bit(ALX_FLAG_TASK_UPDATE_SMB, &adpt->flags))
@@ -2718,7 +2720,7 @@ static pci_ers_result_t alx_pci_error_detected(struct pci_dev *pdev,
 
 	if (netif_running(netdev)) {
 		netif_device_detach(netdev);
-		alx_halt(adpt);
+		alx_halt(adpt, false);
 	}
 	if (state == pci_channel_io_perm_failure)
 		rc = PCI_ERS_RESULT_DISCONNECT;
