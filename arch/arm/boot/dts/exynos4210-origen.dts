@@ -182,6 +182,10 @@
 		vusb_a-supply = <&vusb_reg>;
 	};
 
+	ehci@12580000 {
+		status = "okay";
+	};
+
 	i2c@13860000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
