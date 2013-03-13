@@ -115,6 +115,11 @@
 		arm,tag-latency = <1 1 0>;
 	};
 
+	sys_reg: sysreg {
+		compatible = "exynos4-sysreg", "syscon";
+		reg = <0x10010000 0x400>;
+	};
+
 	dsi_0: dsi@11C80000 {
 		compatible = "samsung,exynos4210-mipi-dsi";
 		reg = <0x11C80000 0x10000>;
