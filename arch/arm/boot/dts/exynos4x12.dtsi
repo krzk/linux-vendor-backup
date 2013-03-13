@@ -190,14 +190,6 @@
 		};
 	};
 
-	i2c0_isp: i2c-isp@12130000 {
-		compatible = "samsung,exynos4212-is-i2c",
-			     "samsung,s3c2440-i2c";
-		reg = <0x12130000 0x100>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-	};
-
 	camera {
 		clocks = <&clock 132>, <&clock 133>, <&clock 351>, <&clock 352>,
 		         <&clock 388>, <&clock 389>, <&clock 17>;
@@ -292,6 +284,13 @@
 
 			pmu {
 				reg = <0x10020000 0x3000>;
+			};
+
+			i2c1_isp: i2c-isp@12140000 {
+				compatible = "samsung,exynos4212-i2c-isp";
+				reg = <0x12130000 0x100>;
+				#address-cells = <1>;
+				#size-cells = <0>;
 			};
 		};
 	};
