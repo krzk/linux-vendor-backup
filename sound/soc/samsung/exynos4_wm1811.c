@@ -1083,6 +1083,9 @@ static int machine_card_suspend_post(struct snd_soc_card *card)
 		/* change sysclk from pll out of mclk1 to mclk2
 		   to disable mclk1 from AP */
 		dev_info(codec->dev, "use mclk2 and disable fll");
+
+/* Disable this code until support for AIF2 interface is added. */
+#if 0
 		ret = snd_soc_dai_set_sysclk(aif2_dai,
 				WM8994_SYSCLK_MCLK2,
 				CODEC_CLK32K,
@@ -1095,7 +1098,7 @@ static int machine_card_suspend_post(struct snd_soc_card *card)
 		if (ret < 0)
 			dev_err(codec->dev,
 				"Unable to stop FLL2: %d\n", ret);
-
+#endif
 		ret = snd_soc_dai_set_sysclk(aif1_dai,
 				WM8994_SYSCLK_MCLK2,
 				CODEC_CLK32K,
