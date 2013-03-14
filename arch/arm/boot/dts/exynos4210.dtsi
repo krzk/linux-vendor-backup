@@ -174,21 +174,34 @@
 		fimc_0: fimc@11800000 {
 			clocks = <&clock 256>, <&clock 128>, <&clock 384>, <&clock 9>;
 			clock-names = "fimc", "sclk_fimc", "mux", "parent";
+			samsung,pix-limits = <4224 8192 1920 4224>;
+			samsung,mainscaler-ext;
+			samsung,cam-if;
 		};
 
 		fimc_1: fimc@11810000 {
 			clocks = <&clock 257>, <&clock 129>, <&clock 385>, <&clock 9>;
 			clock-names = "fimc", "sclk_fimc", "mux", "parent";
+			samsung,pix-limits = <4224 8192 1920 4224>;
+			samsung,mainscaler-ext;
+			samsung,cam-if;
 		};
 
 		fimc_2: fimc@11820000 {
 			clocks = <&clock 258>, <&clock 130>, <&clock 386>, <&clock 9>;
 			clock-names = "fimc", "sclk_fimc", "mux", "parent";
+			samsung,pix-limits = <4224 8192 1920 4224>;
+			samsung,mainscaler-ext;
+			samsung,lcd-wb;
 		};
 
 		fimc_3: fimc@11830000 {
 			clocks = <&clock 259>, <&clock 131>, <&clock 387>, <&clock 9>;
 			clock-names = "fimc", "sclk_fimc", "mux", "parent";
+			samsung,pix-limits = <1920 8192 1366 1920>;
+			samsung,rotators = <0>;
+			samsung,mainscaler-ext;
+			samsung,lcd-wb;
 		};
 
 		csis_0: csis@11880000 {
