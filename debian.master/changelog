@@ -4,6 +4,12 @@ linux (3.8.0-13.22) UNRELEASED; urgency=low
   CHANGELOG: Use the printchanges target to see the curent changes.
   CHANGELOG: Use the insertchanges target to create the final log.
 
+  [ Tim Gardner ]
+
+  * Drop 2 Reverts in favor of 3.8.3 stable:
+    Revert "efivarfs: Validate filenames much more aggressively"
+    Revert "efivarfs: guid part of filenames are case-insensitive"
+
  --  Tim Gardner <tim.gardner@canonical.com>  Mon, 11 Mar 2013 06:53:51 -0600
 
 linux (3.8.0-12.21) raring; urgency=low
