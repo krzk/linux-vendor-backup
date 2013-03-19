@@ -250,7 +250,7 @@ struct dw_mci_board {
 
 	int (*init)(u32 slot_id, irq_handler_t , void *);
 	int (*get_ro)(u32 slot_id);
-	int (*get_cd)(u32 slot_id);
+	int (*get_cd)(struct dw_mci *host, u32 slot_id);
 	int (*get_ocr)(u32 slot_id);
 	int (*get_bus_wd)(u32 slot_id);
 	/*

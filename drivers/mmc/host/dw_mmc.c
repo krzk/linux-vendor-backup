@@ -1037,7 +1037,7 @@ static int dw_mci_get_cd(struct mmc_host *mmc)
 	if (brd->quirks & DW_MCI_QUIRK_BROKEN_CARD_DETECTION)
 		present = 1;
 	else if (brd->get_cd)
-		present = !brd->get_cd(slot->id);
+		present = !brd->get_cd(slot->host, slot->id);
 	else
 		present = (mci_readl(slot->host, CDETECT) & (1 << slot->id))
 			== 0 ? 1 : 0;
