@@ -704,4 +704,13 @@
 			memory-region = <&mfc_r_mem>;
 		};
 	};
+
+	cpufreq {
+		/* 4294967295 is a ~0 representation with u32 */
+		freq_table = <4294967295 4294967295 4294967295 1100000 1000000
+			     900000 800000 700000 600000 500000 400000 300000
+			     200000>;
+		vdd_arm-supply = <&buck2_reg>;
+		status = "okay";
+	};
 };
