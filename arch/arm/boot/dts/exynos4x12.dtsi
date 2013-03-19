@@ -261,4 +261,12 @@
 			};
 		};
 	};
+
+	cpufreq {
+		compatible = "samsung,exynos-cpufreq";
+		clocks = <&clock 12>, <&clock 19>, <&clock 9>, <&clock 20>;
+		clock-names = "arm_clk", "mout_core", "mout_mpll_user_c",
+								"mout_apll";
+		status = "disabled";
+	};
 };
