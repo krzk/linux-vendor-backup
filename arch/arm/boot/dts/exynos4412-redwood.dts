@@ -132,6 +132,16 @@
 			debounce-interval = <10>;
 			gpio-key,wakeup;
 		};
+
+		key@139 {
+			interrupt-parent = <&gpx0>;
+			interrupts = <1 0>;
+			gpios = <&gpx0 1 1>;
+			linux,code = <139>;
+			label = "menu";
+			debounce-interval = <10>;
+			gpio-key,wakeup;
+		};
 	};
 
 	i2c_0: i2c@13860000 {
