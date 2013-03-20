@@ -8,7 +8,7 @@ repo_list=(
 
 package_prefixes linux-image linux-image-extra
 
-getall armhf omap
+getall armhf generic
 getall amd64 generic
 getall i386 generic
 
