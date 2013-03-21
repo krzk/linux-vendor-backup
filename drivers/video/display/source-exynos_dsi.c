@@ -989,7 +989,9 @@ static int exynos_dsi_enable(struct video_source *src)
 		return ret;
 	dsi->params = params.p.dsi;
 
-	regulator_bulk_enable(ARRAY_SIZE(dsi->supplies), dsi->supplies);
+	ret = regulator_bulk_enable(ARRAY_SIZE(dsi->supplies), dsi->supplies);
+	if (ret < 0)
+		return ret;
 
 	clk_prepare_enable(dsi->bus_clk);
 	clk_prepare_enable(dsi->pll_clk);
@@ -1008,6 +1010,7 @@ static int exynos_dsi_enable(struct video_source *src)
 static int exynos_dsi_disable(struct video_source *src)
 {
 	struct exynos_dsi *dsi = src_to_dsi(src);
+	int ret;
 
 	if (!dsi->enabled)
 		return 0;
@@ -1025,7 +1028,9 @@ static int exynos_dsi_disable(struct video_source *src)
 	clk_disable_unprepare(dsi->pll_clk);
 	clk_disable_unprepare(dsi->bus_clk);
 
-	regulator_bulk_disable(ARRAY_SIZE(dsi->supplies), dsi->supplies);
+	ret = regulator_bulk_disable(ARRAY_SIZE(dsi->supplies), dsi->supplies);
+	if (ret < 0)
+		return ret;
 
 	return 0;
 }
@@ -1297,18 +1302,40 @@ static int exynos_dsi_remove(struct platform_device *pdev)
  * Power management
  */
 
+#ifdef CONFIG_PM_SLEEP
 static int exynos_dsi_suspend(struct device *dev)
 {
 	struct exynos_dsi *dsi = dev_get_drvdata(dev);
+	struct video_source *src = &dsi->out;
+	int ret;
 
-	if (dsi->enabled)
-		return -EBUSY;
+	if (dsi->enabled) {
+		ret = display_entity_set_state(src->sink, DISPLAY_ENTITY_STATE_OFF);
+		if (ret < 0)
+			return -EBUSY;
+	}
 
 	return 0;
 }
 
+static int exynos_dsi_resume(struct device *dev)
+{
+	struct exynos_dsi *dsi = dev_get_drvdata(dev);
+	struct video_source *src = &dsi->out;
+	int ret;
+
+	if (!dsi->enabled) {
+		ret = display_entity_set_state(src->sink, DISPLAY_ENTITY_STATE_ON);
+		if (ret < 0)
+			return -EBUSY;
+	}
+
+	return 0;
+}
+#endif
+
 static const struct dev_pm_ops exynos_dsi_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(exynos_dsi_suspend, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(exynos_dsi_suspend, exynos_dsi_resume)
 };
 
 /*
