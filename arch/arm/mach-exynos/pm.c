@@ -36,6 +36,7 @@
 #include <mach/pm-core.h>
 
 #include "common.h"
+#include "smc.h"
 
 static struct sleep_save exynos4_set_clksrc[] = {
 	{ .reg = EXYNOS4_CLKSRC_MASK_TOP		, .val = 0x00000001, },
@@ -88,7 +89,8 @@ static int exynos_cpu_suspend(unsigned long arg)
 #endif
 
 	/* issue the standby signal into the pm unit. */
-	cpu_do_idle();
+	if (call_firmware_op(suspend, virt_to_phys(s3c_cpu_resume)) == -ENOSYS)
+		cpu_do_idle();
 
 	pr_info("Failed to suspend the system\n");
 	return 1; /* Aborting suspend */
@@ -286,7 +288,9 @@ static void exynos_pm_resume(void)
 		/* No need to perform below restore code */
 		goto early_wakeup;
 	}
-	if (!soc_is_exynos5250()) {
+	if (!soc_is_exynos5250()
+	    && call_firmware_op(c15resume, save_arm_register) == -ENOSYS)
+	{
 		/* Restore Power control register */
 		tmp = save_arm_register[0];
 		asm volatile ("mcr p15, 0, %0, c15, c0, 0"
@@ -328,6 +332,7 @@ early_wakeup:
 
 	/* Clear SLEEP mode set in INFORM1 */
 	__raw_writel(0x0, S5P_INFORM1);
+	call_firmware_op(resume);
 
 	return;
 }

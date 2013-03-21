@@ -37,6 +37,18 @@ struct firmware_ops {
 	 * Initializes L2 cache
 	 */
 	int (*l2x0_init)(void);
+	/*
+	 * Suspends the system
+	 */
+	int (*suspend)(unsigned long resume_addr);
+	/*
+	 * Acknowledges system resume
+	 */
+	int (*resume)(void);
+	/*
+	 * Restores coprocessor 15 registers
+	 */
+	int (*c15resume)(u32 *regs);
 };
 
 /* Global pointer for current firmware_ops structure, can't be NULL. */

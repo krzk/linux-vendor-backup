@@ -20,6 +20,8 @@
 
 #include "smc.h"
 
+#define EXYNOS_SLEEP_MAGIC	0x00000BAD
+
 static int exynos_do_idle(void)
 {
 	exynos_smc(SMC_CMD_SLEEP, 0, 0, 0);
@@ -47,11 +49,37 @@ static int exynos_l2x0_init(void)
 	return 0;
 }
 
+static int exynos_suspend(unsigned long resume_addr)
+{
+	writel(EXYNOS_SLEEP_MAGIC, S5P_VA_SYSRAM_NS + 0xC);
+	writel(resume_addr, S5P_VA_SYSRAM_NS + 0x8);
+	exynos_smc(SMC_CMD_SLEEP, 0, 0, 0);
+
+	return 0;
+}
+
+static int exynos_resume(void)
+{
+	writel(0, S5P_VA_SYSRAM_NS + 0xC);
+
+	return 0;
+}
+
+static int exynos_c15resume(u32 *regs)
+{
+	exynos_smc(SMC_CMD_C15RESUME, regs[0], regs[1], 0);
+
+	return 0;
+}
+
 static const struct firmware_ops exynos_firmware_ops = {
 	.do_idle		= exynos_do_idle,
 	.set_cpu_boot_addr	= exynos_set_cpu_boot_addr,
 	.cpu_boot		= exynos_cpu_boot,
 	.l2x0_init	= exynos_l2x0_init,
+	.suspend	= exynos_suspend,
+	.resume		= exynos_resume,
+	.c15resume	= exynos_c15resume,
 };
 
 void __init exynos_firmware_init(void)
