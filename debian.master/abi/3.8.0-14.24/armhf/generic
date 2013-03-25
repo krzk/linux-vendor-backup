@@ -7790,6 +7790,9 @@ EXPORT_SYMBOL_GPL drivers/usb/misc/ftdi-elan 0xa2be349f	usb_ftdi_elan_edset_inpu
 EXPORT_SYMBOL_GPL drivers/usb/misc/ftdi-elan 0xd809efd4	usb_ftdi_elan_edset_single
 EXPORT_SYMBOL_GPL drivers/usb/misc/ftdi-elan 0xdbf017d3	usb_ftdi_elan_edset_setup
 EXPORT_SYMBOL_GPL drivers/usb/misc/ftdi-elan 0xefea2564	usb_ftdi_elan_edset_output
+EXPORT_SYMBOL_GPL drivers/usb/musb/musb_hdrc 0x84a236eb	musb_interrupt
+EXPORT_SYMBOL_GPL drivers/usb/musb/musb_hdrc 0xe2a72aee	musb_dma_completion
+EXPORT_SYMBOL_GPL drivers/usb/musb/omap2430 0x6fb55e1f	omap_musb_mailbox
 EXPORT_SYMBOL_GPL drivers/usb/phy/isp1301 0x000d12df	isp1301_get_client
 EXPORT_SYMBOL_GPL drivers/usb/serial/usb_wwan 0x3ba18472	usb_wwan_port_probe
 EXPORT_SYMBOL_GPL drivers/usb/serial/usbserial 0x0cb7c700	usb_serial_register_drivers
@@ -9986,7 +9989,6 @@ EXPORT_SYMBOL_GPL vmlinux 0x6f6ac78c	dummy_irq_chip
 EXPORT_SYMBOL_GPL vmlinux 0x6f898954	pinctrl_add_gpio_range
 EXPORT_SYMBOL_GPL vmlinux 0x6f94318f	cgroup_taskset_next
 EXPORT_SYMBOL_GPL vmlinux 0x6fa19569	driver_remove_file
-EXPORT_SYMBOL_GPL vmlinux 0x6fb55e1f	omap_musb_mailbox
 EXPORT_SYMBOL_GPL vmlinux 0x6fc407a7	otg_ulpi_create
 EXPORT_SYMBOL_GPL vmlinux 0x6fe09ab7	tpm_gen_interrupt
 EXPORT_SYMBOL_GPL vmlinux 0x6fe3d8cf	ktime_add_safe
@@ -10214,7 +10216,6 @@ EXPORT_SYMBOL_GPL vmlinux 0x83e980bc	iommu_group_remove_device
 EXPORT_SYMBOL_GPL vmlinux 0x841d259c	crypto_destroy_tfm
 EXPORT_SYMBOL_GPL vmlinux 0x84658760	snd_soc_bytes_get
 EXPORT_SYMBOL_GPL vmlinux 0x8484a5c3	register_asymmetric_key_parser
-EXPORT_SYMBOL_GPL vmlinux 0x84a236eb	musb_interrupt
 EXPORT_SYMBOL_GPL vmlinux 0x84c5c258	page_cache_sync_readahead
 EXPORT_SYMBOL_GPL vmlinux 0x85050965	__irq_alloc_descs
 EXPORT_SYMBOL_GPL vmlinux 0x852e568d	of_get_nand_ecc_mode
@@ -11279,7 +11280,6 @@ EXPORT_SYMBOL_GPL vmlinux 0xe1dabdc6	ata_sg_init
 EXPORT_SYMBOL_GPL vmlinux 0xe1df8402	pm_generic_resume_noirq
 EXPORT_SYMBOL_GPL vmlinux 0xe23a4a6a	bgpio_init
 EXPORT_SYMBOL_GPL vmlinux 0xe2a4881f	unregister_pernet_subsys
-EXPORT_SYMBOL_GPL vmlinux 0xe2a72aee	musb_dma_completion
 EXPORT_SYMBOL_GPL vmlinux 0xe2dd67e5	regulator_set_current_limit
 EXPORT_SYMBOL_GPL vmlinux 0xe2e4c119	blkcg_print_blkgs
 EXPORT_SYMBOL_GPL vmlinux 0xe2ee731b	ata_sff_dev_classify

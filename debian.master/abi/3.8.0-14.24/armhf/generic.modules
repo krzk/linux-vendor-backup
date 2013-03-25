@@ -1,6 +1,7 @@
 6lowpan
 6pack
 8021q
+8250_dw
 88pm800
 88pm805
 88pm80x
@@ -1380,6 +1381,7 @@ mtdram
 mtdswap
 mtouch
 multipath
+musb_hdrc
 mv88e6060
 mv88e6xxx_drv
 mvmdio
@@ -1520,6 +1522,7 @@ of_serial
 old_belkin-sir
 omap
 omap2
+omap2430
 omap4-keypad
 omap-aes
 omap_hdq
@@ -2343,8 +2346,10 @@ twl4030_keypad
 twl4030-madc
 twl4030-madc-hwmon
 twl4030-pwrbutton
+twl4030-usb
 twl4030-vibra
 twl4030_wdt
+twl6030-usb
 twl6040-vibra
 twofish_common
 twofish_generic
