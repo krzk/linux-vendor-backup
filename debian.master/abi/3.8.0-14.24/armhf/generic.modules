@@ -588,7 +588,6 @@ ebt_stp
 ebt_vlan
 ec100
 echo
-edac_core
 edt-ft5x06
 eeprom
 eeprom_93cx6
@@ -1170,7 +1169,6 @@ lib80211
 lib80211_crypt_ccmp
 lib80211_crypt_tkip
 lib80211_crypt_wep
-libahci
 libceph
 libcomposite
 libcrc32c
@@ -1906,7 +1904,6 @@ saa7706h
 safe_serial
 salsa20_generic
 samsung-keypad
-sata_highbank
 sata_mv
 sbs-battery
 sca3000
@@ -2540,7 +2537,6 @@ xfrm_algo
 xfrm_ipcomp
 xfrm_user
 xfs
-xgmac
 xilinx_uartps
 xor
 xpad

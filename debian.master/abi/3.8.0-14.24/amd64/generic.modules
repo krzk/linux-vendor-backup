@@ -840,7 +840,6 @@ ebt_vlan
 ec100
 echo
 ec_sys
-edac_core
 edac_mce_amd
 edt-ft5x06
 eeepc-laptop
@@ -1637,7 +1636,6 @@ lib80211
 lib80211_crypt_ccmp
 lib80211_crypt_tkip
 lib80211_crypt_wep
-libahci
 libceph
 libcomposite
 libcrc32c
@@ -3598,7 +3596,6 @@ xfrm_ipcomp
 xfrm_user
 xfs
 xgifb
-xgmac
 xirc2ps_cs
 xircom_cb
 xo15-ebook
