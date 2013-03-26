@@ -100,6 +100,7 @@ CONFIG_FSL_RIO					p policy<(flavour powerpc-e500mc &/ value y) | value n>
 # CPU Power Management
 CONFIG_CPU_IDLE					y
 CONFIG_CPU_IDLE_MULTIPLE_DRIVERS		n
+CONFIG_CPU_IDLE_CALXEDA				n
 # CPU Power Management > CPU Frequency scaling
 CONFIG_CPU_FREQ					y mark<Subsystem>
 CONFIG_CPU_FREQ					p policy<(arch armhf &/ value n) | value y> flag<BUILD FAILURE>
@@ -317,6 +318,9 @@ set +tree 'Device Drivers,EDAC (Error Detection And Correction) reporting' ?flag
 CONFIG_EDAC					y
 CONFIG_EDAC_LEGACY_SYSFS			y
 CONFIG_EDAC_AMD64_ERROR_INJECTION		n
+CONFIG_EDAC_MM_EDAC				p policy<(arch armhf &/ value y) | value m>
+CONFIG_EDAC_HIGHBANK_MC				y
+CONFIG_EDAC_HIGHBANK_L2				y
 # Device Drivers > Encoders, decoders, sensors and other helper chips
 # Device Drivers > External Connector Class (extcon) support
 CONFIG_EXTCON					y mark<Subsystem>
@@ -590,7 +594,6 @@ CONFIG_INPUT_TOUCHSCREEN			y
 CONFIG_SERIO					y note<boot essential -- input devices>
 CONFIG_SERIO_I8042				y note<boot essential -- input devices>
 CONFIG_SERIO_LIBPS2				y note<boot essential -- input devices> 
-CONFIG_SERIO_SERPORT				p policy<(arch armhf &/ value m)> note<boot essential on highbank>
 # Device Drivers > IOMMU Hardware Support
 CONFIG_IOMMU_SUPPORT				y
 CONFIG_AMD_IOMMU				y
@@ -739,6 +742,9 @@ CONFIG_MMC_RICOH_MMC				y
 CONFIG_MMC_ARMMMCI				y
 CONFIG_MMC_SDHCI_ESDHC_IMX			y
 CONFIG_MMC_MXC					n
+# Device Drivers > Mailbox Hardware Support
+CONFIG_MAILBOX					y mark<Subsystem>
+CONFIG_PL320_MBOX				y
 # Device Drivers > Multifunction device drivers
 set +tree 'Device Drivers,Multifunction device drivers' ?pattern '^MFD_[^_]+(_SPI|_I2C|_CORE)?$' ?type bool !flag EXPERIMENTAL		= y
 set +tree 'Device Drivers,Multifunction device drivers' ?pattern '^MFD_[^_]+(_SPI|_I2C|_CORE)?$' ?type bool ?flag EXPERIMENTAL		= y note<experimental opt-in>
@@ -762,7 +768,7 @@ CONFIG_STMPE_SPI				y
 # Device Drivers > Multifunction device drivers > Support STMicroelectronics STMPE > STMPE Interface Drivers
 # Device Drivers > Multimedia Capabilities Port drivers
 # Device Drivers > Multimedia support
-CONFIG_MEDIA_SUPPORT				y mark<Subsystem>
+CONFIG_MEDIA_SUPPORT				m mark<Subsystem>
 CONFIG_MEDIA_ANALOG_TV_SUPPORT			y
 CONFIG_MEDIA_DIGITAL_TV_SUPPORT			y
 CONFIG_MEDIA_RC_SUPPORT				y
@@ -1127,7 +1133,9 @@ set +tree 'Device Drivers,Serial ATA and Parallel ATA drivers' ?flag EXPERIMENTA
 set +tree 'Device Drivers,Serial ATA and Parallel ATA drivers' ?flag EXPERIMENTAL ?type tristate	= m note<experimental opt-in>
 CONFIG_ATA					y mark<Subsystem>
 CONFIG_ATA_VERBOSE_ERROR			y
+CONFIG_SATA_ZPODD				y
 CONFIG_SATA_PMP					y
+CONFIG_SATA_HIGHBANK				p policy<(arch armhf &/ value y) | value n> note<ARM Highbank specific feature>
 CONFIG_ATA_ACPI					y
 CONFIG_ATA_SFF					y
 CONFIG_ATA_BMDMA				y
@@ -1467,7 +1475,7 @@ CONFIG_REISERFS_CHECK				n
 CONFIG_REISERFS_PROC_INFO			n
 CONFIG_XFS_QUOTA				y
 CONFIG_XFS_RT					y
-CONFIG_EXT2_FS					p policy<(arch armhf &/ value m)> note<boot essential on highbank>
+CONFIG_EXT2_FS					p policy<(arch armhf &/ value y) | value m> note<boot essential on highbank>
 # File systems > Caches
 CONFIG_CACHEFILES_HISTOGRAM			n
 CONFIG_FSCACHE_HISTOGRAM			n
@@ -1558,6 +1566,7 @@ CONFIG_TMPFS					y
 CONFIG_EDD					y note<BIOS boot disk identification>
 CONFIG_EDD_OFF					y
 CONFIG_EFI_VARS					y note<EFI boot requirement (d-i)>
+CONFIG_EFI_VARS_PSTORE				n note<can cause brickage>
 CONFIG_FIRMWARE_MEMMAP				y
 CONFIG_DMIID					y
 CONFIG_ISCSI_IBFT_FIND				y
@@ -1835,6 +1844,7 @@ CONFIG_RBTREE_TEST				m
 CONFIG_INTERVAL_TREE_TEST			m
 CONFIG_PROVE_RCU_DELAY				n
 CONFIG_OF_RECONFIG_NOTIFIER_ERROR_INJECT	n
+CONFIG_DEBUG_INFO				y
 # Kernel hacking > Kernel debugging > KGDB: kernel debugger
 CONFIG_KGDB					y
 CONFIG_KGDB_SERIAL_CONSOLE			y
@@ -1910,7 +1920,6 @@ CONFIG_PACKET					y note<core protocol>
 CONFIG_IEEE802154				m note<network protocol -- opt-in>
 CONFIG_LAPB					m note<network protocol -- opt-in>
 CONFIG_X25					m note<network protocol -- opt-in>
-CONFIG_WAN_ROUTER				p policy<(arch i386 amd64 powerpc &/ value m) | value n>
 CONFIG_ATM_BR2684_IPFILTER			n
 CONFIG_ATM_CLIP_NO_ICMP				n 
 CONFIG_BATMAN_ADV_BLA				y
@@ -2437,7 +2446,7 @@ CONFIG_SECURITY_PATH				y
 CONFIG_MMU					y
 CONFIG_ARCH_MVEBU				n
 CONFIG_ARCH_BCM					y
-CONFIG_ARCH_HIGHBANK				n
+CONFIG_ARCH_HIGHBANK				y
 CONFIG_ARCH_OMAP2PLUS				y
 CONFIG_ARCH_SOCFPGA				n
 CONFIG_ARCH_SUNXI				y
