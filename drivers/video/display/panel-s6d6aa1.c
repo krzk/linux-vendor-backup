@@ -751,6 +751,30 @@ static int s6d6aa1_remove(struct platform_device *dev)
 	return 0;
 }
 
+static int s6d6aa1_suspend(struct device *dev)
+{
+	struct s6d6aa1 *lcd = dev_get_drvdata(dev);
+
+	if (lcd->power != FB_BLANK_UNBLANK)
+		return 0;
+
+	return display_entity_set_state(&lcd->entity, DISPLAY_ENTITY_STATE_OFF);
+}
+
+static int s6d6aa1_resume(struct device *dev)
+{
+	struct s6d6aa1 *lcd = dev_get_drvdata(dev);
+
+	if (lcd->power != FB_BLANK_UNBLANK)
+		return 0;
+
+	return display_entity_set_state(&lcd->entity, DISPLAY_ENTITY_STATE_ON);
+}
+
+static struct dev_pm_ops s6d6aa1_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(s6d6aa1_suspend, s6d6aa1_resume)
+};
+
 static struct platform_driver s6d6aa1_driver = {
 	.probe = s6d6aa1_probe,
 	.remove = s6d6aa1_remove,
@@ -758,6 +782,7 @@ static struct platform_driver s6d6aa1_driver = {
 		.name = "panel_s6d6aa1",
 		.owner = THIS_MODULE,
 		.of_match_table = of_match_ptr(s6d6aa1_of_match),
+		.pm = &s6d6aa1_pm_ops,
 	},
 };
 module_platform_driver(s6d6aa1_driver);
