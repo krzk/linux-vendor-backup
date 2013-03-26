@@ -304,7 +304,7 @@ CONFIG_DW_DMAC_BIG_ENDIAN_IO			n
 CONFIG_MX3_IPU					y
 CONFIG_MX3_IPU_IRQS				4
 CONFIG_MXS_DMA					n
-CONFIG_PL330_DMA				p policy<(flavour highbank &/ value y) | value m> note<boot essential on highbank>
+CONFIG_PL330_DMA				p policy<(arch armhf &/ value m)> note<boot essential on highbank>
 CONFIG_DMATEST					n flag<TESTING>
 CONFIG_DMA_OMAP					y
 CONFIG_AMBA_PL08X				y
@@ -511,7 +511,7 @@ CONFIG_I2C_ALGOBIT				p policy<(arch powerpc &/ value y) | value m>  note<boot e
 set +tree 'Device Drivers,I2C Hardware Bus support' ?flag EXPERIMENTAL ?type bool	= n
 set +tree 'Device Drivers,I2C Hardware Bus support' ?flag EXPERIMENTAL ?type tristate	= m note<experimental opt-in>
 CONFIG_I2C_OMAP					p policy<(arch armel armhf &/ value y) | value m> note<boot essential on arm>
-CONFIG_I2C_DESIGNWARE_PLATFORM			p policy<(flavour highbank &/ value y) | value m> note<boot essential on highbank>
+CONFIG_I2C_DESIGNWARE_PLATFORM			p policy<(arch armhf &/ value m) | value n> note<boot essential on highbank>
 CONFIG_I2C_POWERMAC				p policy<(arch powerpc &/ value y) | value m> note<boot essential on powerpc>
 CONFIG_I2C_IMX					y
 # Device Drivers > I2C support
@@ -593,7 +593,7 @@ CONFIG_INPUT_TOUCHSCREEN			y
 CONFIG_SERIO					y note<boot essential -- input devices>
 CONFIG_SERIO_I8042				y note<boot essential -- input devices>
 CONFIG_SERIO_LIBPS2				y note<boot essential -- input devices> 
-CONFIG_SERIO_SERPORT				p policy<(flavour highbank &/ value y) | value m> note<boot essential on highbank>
+CONFIG_SERIO_SERPORT				p policy<(arch armhf &/ value m)> note<boot essential on highbank>
 # Device Drivers > IOMMU Hardware Support
 CONFIG_IOMMU_SUPPORT				y
 CONFIG_AMD_IOMMU				y
@@ -734,10 +734,10 @@ set +tree 'Device Drivers,MMC/SD/SDIO card support' ?flag EXPERIMENTAL ?type tri
 CONFIG_MMC					y mark<Subsystem>
 CONFIG_MMC_BLOCK				p policy<(arch armel armhf &/ value y) | value m> note<boot essential on arm>
 CONFIG_MMC_OMAP_HS				p policy<(arch armel armhf &/ value y) | value m> note<boot essential on arm>
-CONFIG_MMC_SDHCI_PLTFM				p policy<(flavour omap &/ value y) | value m> note<boot essential on highbank>
-CONFIG_MMC_OMAP					p policy<(flavour omap4 &/ value y) | value m> note<boot essential on OMAP4>
+CONFIG_MMC_SDHCI_PLTFM				p policy<(arch armhf &/ value y) | value m> note<boot essential on highbank>
+CONFIG_MMC_OMAP					p policy<(arch armhf &/ value m)> note<boot essential on OMAP4>
 CONFIG_MMC_TEST					n flag<TESTING>
-CONFIG_MMC_SDHCI				p policy<(flavour omap highbank &/ value y) | value m> note<installation essential on omap/highbank>
+CONFIG_MMC_SDHCI				p policy<(arch armhf &/ value y) | value m> note<installation essential on omap/highbank>
 CONFIG_MMC_BLOCK_MINORS				8
 CONFIG_MMC_BLOCK_BOUNCE				y
 CONFIG_MMC_DW_IDMAC				n
@@ -868,7 +868,7 @@ CONFIG_ATM_HE_USE_SUNI				y
 # Device Drivers > Network device support > Ethernet driver support
 set +tree 'Device Drivers,Network device support,Ethernet driver support' ?type tristate ?flag EXPERIMENTAL	= m note<experimental opt-in>
 CONFIG_ETHERNET					y
-CONFIG_NET_CALXEDA_XGMAC			p policy<(flavour highbank &/ value y) | value m> note<boot essential on highbank>
+CONFIG_NET_CALXEDA_XGMAC			p policy<(arch armhf &/ value y) | value m> note<boot essential on highbank>
 CONFIG_ACENIC_OMIT_TIGON_I			n
 CONFIG_NET_CADENCE				y
 CONFIG_CHELSIO_T1_1G				y
@@ -1343,14 +1343,14 @@ CONFIG_USB_MUSB_AM35X				n
 CONFIG_TWL6030_USB				y
 CONFIG_USB_MXS_PHY				y
 # CONFIG_USB_OHCI_HCD_PLATFORM and CONFIG_USB_EHCI_HCD_PLATFORM must be off on omap
-CONFIG_NOP_USB_XCEIV				p policy<(flavour omap highbank &/ value y) | value m> note<boot essential on omap/highbank>
+CONFIG_NOP_USB_XCEIV				p policy<(arch armhf &/ value y) | value m> note<boot essential on omap/highbank>
 CONFIG_USB_MUSB_OMAP2PLUS			y
 CONFIG_USB_MUSB_HDRC				p policy<(flavour omap &/ value y) | value m> note<not autoloadable on omap>
 CONFIG_USB_INVENTRA_DMA				p policy<(flavour omap &/ value y) | value n> note<OMAP2 specific feature>
 CONFIG_USB_XHCI_HCD_DEBUGGING			n flag<DEBUG>
 CONFIG_USB_OTG_BLACKLIST_HUB			n note<OTG white/blacklists are disabled>
 CONFIG_USB_OTG_WHITELIST			n note<OTG white/blacklists are disabled>
-CONFIG_USB_MUSB_TUSB6010			p policy<(flavour omap highbank &/ value n) | value m> note<USB_MUSB choice>
+CONFIG_USB_MUSB_TUSB6010			p policy<(arch armhf &/ value n) | value m> note<USB_MUSB choice>
 CONFIG_USB_MUSB_DSPS				p policy<(flavour omap &/ value n) | value m> flag<BUILD FAILURE>
 CONFIG_MUSB_PIO_ONLY				p policy<(flavour omap &/ value n) | value y>
 # Device Drivers > USB support > Support for Host-side USB > USB DSL modem support
@@ -1477,7 +1477,7 @@ CONFIG_REISERFS_CHECK				n
 CONFIG_REISERFS_PROC_INFO			n
 CONFIG_XFS_QUOTA				y
 CONFIG_XFS_RT					y
-CONFIG_EXT2_FS					p policy<(flavour highbank &/ value y) | value m> note<boot essential on highbank>
+CONFIG_EXT2_FS					p policy<(arch armhf &/ value m)> note<boot essential on highbank>
 # File systems > Caches
 CONFIG_CACHEFILES_HISTOGRAM			n
 CONFIG_FSCACHE_HISTOGRAM			n
@@ -2478,7 +2478,7 @@ CONFIG_ARM_ERRATA_775420			y
 #CONFIG_ARCH_HIGHBANK n note<unsupported ARM arch>
 #CONFIG_ARCH_PICOXCELL n note<unsupported ARM arch>
 #CONFIG_ARCH_ZYNQ n note<unsupported ARM arch>
-CONFIG_ARCH_MULTIPLATFORM			p policy<(flavour highbank omap &/ value y) | value n>
+CONFIG_ARCH_MULTIPLATFORM			p policy<(arch armhf &/ value y) | value n>
 # System Type > ARM Ltd. Versatile Express family
 CONFIG_ARCH_VEXPRESS				y
 # System Type > ARM Ltd. Versatile Express family > Versatile Express platform type

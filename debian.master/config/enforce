@@ -114,7 +114,7 @@ value CONFIG_EFI_VARS y | !exists CONFIG_EFI_VARS
 value CONFIG_AUDIT_LOGINUID_IMMUTABLE n
 
 # CONFIG_I2C_DESIGNWARE_PLATFORM is required by Calxeda Highbank
-(flavour highbank &/ value CONFIG_I2C_DESIGNWARE_PLATFORM y) | \
+(flavour generic & arch armhf &/ value CONFIG_I2C_DESIGNWARE_PLATFORM m) | \
 value CONFIG_I2C_DESIGNWARE_PLATFORM m | \
 !exists CONFIG_I2C_DESIGNWARE_PLATFORM
 
