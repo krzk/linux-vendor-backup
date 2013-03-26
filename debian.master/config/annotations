@@ -41,7 +41,7 @@ CONFIG_NET5501					y
 CONFIG_GEOS					y
 CONFIG_FSL_LBC					y
 # Bus options > PCCard (PCMCIA/CardBus) support
-CONFIG_PCCARD					p policy<(arch armel armhf &/ value n) | value m> note<not a supported interface on arm>
+CONFIG_PCCARD					p policy<(arch armhf &/ value n) | value m> note<not a supported interface on arm>
 CONFIG_PCMCIA					m mark<Subsystem>
 CONFIG_PCMCIA_LOAD_CIS				y
 CONFIG_CARDBUS					y mark<Subsystem>
@@ -102,7 +102,7 @@ CONFIG_CPU_IDLE					y
 CONFIG_CPU_IDLE_MULTIPLE_DRIVERS		n
 # CPU Power Management > CPU Frequency scaling
 CONFIG_CPU_FREQ					y mark<Subsystem>
-CONFIG_CPU_FREQ					p policy<(flavour omap &/ value n) | value y> flag<BUILD FAILURE>
+CONFIG_CPU_FREQ					p policy<(arch armhf &/ value n) | value y> flag<BUILD FAILURE>
 CONFIG_CPU_FREQ_GOV_CONSERVATIVE		y note<not autoloadable>
 CONFIG_CPU_FREQ_GOV_ONDEMAND			y note<not autoloadable>
 CONFIG_CPU_FREQ_GOV_PERFORMANCE			y note<not autoloadable>
@@ -110,7 +110,7 @@ CONFIG_CPU_FREQ_GOV_POWERSAVE			y note<not autoloadable>
 CONFIG_CPU_FREQ_GOV_USERSPACE			y note<not autoloadable>
 CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE		y note<for bootspeed>
 CONFIG_GENERIC_CPUFREQ_CPU0			y
-CONFIG_CPU_FREQ_STAT				p policy<(arch i386 amd64 armel armhf &/ value y) | value m> note<dependancy of boot essential>
+CONFIG_CPU_FREQ_STAT				p policy<(arch i386 amd64 armhf &/ value y) | value m> note<dependancy of boot essential>
 CONFIG_CPU_FREQ_STAT_DETAILS			y
 # CPU Power Management > CPU Frequency scaling > ARM CPU frequency scaling drivers
 CONFIG_ARM_OMAP2PLUS_CPUFREQ			y
@@ -194,7 +194,7 @@ CONFIG_BLK_DEV_LOOP_MIN_COUNT			8
 CONFIG_BLK_DEV_RAM_COUNT			16
 CONFIG_BLK_DEV_RAM_SIZE				65536
 CONFIG_XEN_BLKDEV_FRONTEND			y note<not autoloadable -- XEN paravirt support>
-CONFIG_VIRTIO_BLK				p policy<(arch i386 amd64 &/ value y) | (arch armel armhf &/ value n) | value m> note<KVM paravirt support -- not autoloadable>
+CONFIG_VIRTIO_BLK				p policy<(arch i386 amd64 &/ value y) | (arch armhf &/ value n) | value m> note<KVM paravirt support -- not autoloadable>
 CONFIG_BLK_DEV_XD				n note<ancient drives from pre-history>
 CONFIG_BLK_DEV_UMEM				m note<experimental NVRAM disk driver -- opt-in>
 CONFIG_BLK_DEV_RBD				m note<CEPH client side support>
@@ -210,7 +210,7 @@ CONFIG_BCMA_HOST_PCI				y
 CONFIG_BCMA_DRIVER_GMAC_CMN			y
 CONFIG_BCMA_DRIVER_GPIO				y
 # Device Drivers > Bus devices
-CONFIG_OMAP_INTERCONNECT			y note<boot essential on omap>
+CONFIG_OMAP_INTERCONNECT			y note<boot essential on arm>
 # Device Drivers > Character devices
 set +tree 'Device Drivers,Character devices' ?flag EXPERIMENTAL ?type bool = n
 set +tree 'Device Drivers,Character devices' ?flag EXPERIMENTAL ?type tristate = n
@@ -261,11 +261,11 @@ CONFIG_SERIAL_8250_RUNTIME_UARTS		32
 CONFIG_SERIAL_8250_SHARE_IRQ			y
 CONFIG_SERIAL_8250_EM				n
 CONFIG_SERIAL_8250								y note<boot essential -- serial consoles>
-CONFIG_SERIAL_8250_PCI				p policy<(arch i386 amd64 armel armhf &/ value y) | value m> note<boot essential -- serial consoles>
-CONFIG_SERIAL_8250_PNP				p policy<(arch i386 amd64 armel armhf &/ value y) | value m> note<boot essential -- serial consoles>
+CONFIG_SERIAL_8250_PCI				p policy<(arch i386 amd64 armhf &/ value y) | value m> note<boot essential -- serial consoles>
+CONFIG_SERIAL_8250_PNP				p policy<(arch i386 amd64 armhf &/ value y) | value m> note<boot essential -- serial consoles>
 CONFIG_SERIAL_ALTERA_UART_BAUDRATE		115200
 CONFIG_SERIAL_ALTERA_UART_MAXPORTS		4
-CONFIG_SERIAL_AMBA_PL011			p policy<(flavour omap &/ value y) | value m>
+CONFIG_SERIAL_AMBA_PL011			p policy<(arch armhf &/ value y) | value m>
 CONFIG_SERIAL_AMBA_PL011_CONSOLE		y
 CONFIG_SERIAL_ARC_NR_PORTS			1
 CONFIG_SERIAL_SCCNXP				y
@@ -275,7 +275,7 @@ CONFIG_SERIAL_PMACZILOG_TTYS			n
 CONFIG_SERIAL_KGDB_NMI				y
 CONFIG_SERIAL_MAX310X				y
 CONFIG_SERIAL_OMAP_CONSOLE			y
-CONFIG_SERIAL_OMAP				p policy<(arch armel armhf &/ value y) | value m> note<boot essential on arm>
+CONFIG_SERIAL_OMAP				p policy<(arch armhf &/ value y) | value m> note<boot essential on arm>
 CONFIG_SERIAL_PMACZILOG				p policy<(arch powerpc &/ value y) | value m> note<boot essential -- serial consoles>
 CONFIG_SERIAL_IMX				y
 CONFIG_SERIAL_IMX_CONSOLE			y
@@ -360,7 +360,7 @@ set +tree 'Device Drivers,GPIO Support' ?flag EXPERIMENTAL ?type bool			= n
 set +tree 'Device Drivers,GPIO Support' ?flag EXPERIMENTAL ?type tristate		= n
 set +tree 'Device Drivers,GPIO Support' ?pattern ^GPIO_ ?type bool !flag EXPERIMENTAL	= y
 CONFIG_GPIOLIB					y mark<Subsystem>
-CONFIG_GPIO_TWL4030				p policy<(arch armel armhf &/ value y) | value m> note<boot essential on arm>
+CONFIG_GPIO_TWL4030				p policy<(arch armhf &/ value y) | value m> note<boot essential on arm>
 CONFIG_GPIO_CS5535				p policy<(value CONFIG_OLPC_X01_SCI y &/ value y) | value m> note<dependancy OLPC_X01_SCI=y>
 CONFIG_GPIO_GE_FPGA				y
 CONFIG_GPIO_EM					n note<h/w not encounted>
@@ -381,7 +381,7 @@ CONFIG_BACKLIGHT_LCD_SUPPORT			y
 CONFIG_BACKLIGHT_CLASS_DEVICE			y
 # Device Drivers > Graphics support > Console display driver support
 CONFIG_VGA_CONSOLE				y
-CONFIG_FONTS					p policy<(flavour omap &/ value y) | value n>
+CONFIG_FONTS					p policy<(arch armhf &/ value y) | value n>
 CONFIG_FRAMEBUFFER_CONSOLE_DETECT_PRIMARY	y
 CONFIG_FRAMEBUFFER_CONSOLE_ROTATION		n
 CONFIG_VGACON_SOFT_SCROLLBACK			n
@@ -404,7 +404,6 @@ CONFIG_AGP_VIA					y note<not autoloadable>
 CONFIG_AGP_AMD					y note<not autoloadable>
 CONFIG_AGP_NVIDIA				y note<not autoloadable>
 # Device Drivers > Graphics support > Direct Rendering Manager (XFree86 4.1.0 and higher DRI support)
-CONFIG_DRM					p mark<Subsystem> policy<(flavour omap4 &/ value y) | value m> note<boot essential on OMAP4>
 CONFIG_DRM_EXYNOS				n flag<BUILD FAILURE>
 #CONFIG_DRM_EXYNOS_FIMC				y
 #CONFIG_DRM_EXYNOS_IPP				y
@@ -439,7 +438,7 @@ CONFIG_OMAP2_DSS_RFBI				n
 CONFIG_OMAP2_DSS_SDI				y
 CONFIG_OMAP2_DSS_SLEEP_AFTER_VENC_RESET		y
 CONFIG_OMAP2_DSS_VENC				y
-CONFIG_OMAP2_DSS				p policy<(arch armel armhf &/ value y) | value m> note<boot essential on arm>
+CONFIG_OMAP2_DSS				p policy<(arch armhf &/ value y) | value m> note<boot essential on arm>
 # Device Drivers > Graphics support > Support for frame buffer devices
 CONFIG_FB					y mark<Subsystem>
 CONFIG_FB_MODE_HELPERS				y
@@ -474,7 +473,7 @@ CONFIG_LOGO					n
 CONFIG_FB_FOREIGN_ENDIAN			n
 # Device Drivers > Graphics support > Support for frame buffer devices > OMAP2+ frame buffer support
 CONFIG_FB_OMAP2_NUM_FBS				3
-CONFIG_FB_OMAP2				p policy<(arch armel armhf &/ value y) | value m> note<boot essential on arm>
+CONFIG_FB_OMAP2				p policy<(arch armhf &/ value y) | value m> note<boot essential on arm>
 # Device Drivers > Hardware Monitoring support
 CONFIG_HWMON					y mark<Subsystem>
 CONFIG_HWMON					y mark<Subsystem> mark<Sensors>
@@ -510,7 +509,7 @@ CONFIG_I2C_ALGOBIT				p policy<(arch powerpc &/ value y) | value m>  note<boot e
 # Device Drivers > I2C Hardware Bus support
 set +tree 'Device Drivers,I2C Hardware Bus support' ?flag EXPERIMENTAL ?type bool	= n
 set +tree 'Device Drivers,I2C Hardware Bus support' ?flag EXPERIMENTAL ?type tristate	= m note<experimental opt-in>
-CONFIG_I2C_OMAP					p policy<(arch armel armhf &/ value y) | value m> note<boot essential on arm>
+CONFIG_I2C_OMAP					p policy<(arch armhf &/ value y) | value m> note<boot essential on arm>
 CONFIG_I2C_DESIGNWARE_PLATFORM			p policy<(arch armhf &/ value m) | value n> note<boot essential on highbank>
 CONFIG_I2C_POWERMAC				p policy<(arch powerpc &/ value y) | value m> note<boot essential on powerpc>
 CONFIG_I2C_IMX					y
@@ -576,8 +575,6 @@ CONFIG_JOYSTICK_XPAD_LEDS			y
 # Device Drivers > Input device support > Generic input layer (needed for keyboard, mouse, ...) > Keyboards
 CONFIG_INPUT_KEYBOARD				y
 CONFIG_KEYBOARD_ATKBD				y note<boot essential -- input device>
-CONFIG_KEYBOARD_OMAP4				p policy<(flavour omap4 &/ value y) | value m> note<boot essential on OMAP4>
-CONFIG_KEYBOARD_TWL4030				p policy<(flavour omap4 &/ value y) | value m> note<boot essential on OMAP4>
 # Device Drivers > Input device support > Generic input layer (needed for keyboard, mouse, ...) > Mice
 CONFIG_INPUT_MOUSE				y
 CONFIG_MOUSE_INPORT				n note<very old ISA based mouse support>
@@ -638,9 +635,6 @@ CONFIG_NEW_LEDS					y mark<Subsystem>
 CONFIG_LEDS_TRIGGERS				y
 CONFIG_LEDS_TRIGGER_CPU				y
 CONFIG_LEDS_CLASS				y
-CONFIG_LEDS_GPIO				p policy<(flavour omap4 &/ value y) | value m> note<enables early heartbeat LEDs>
-CONFIG_LEDS_PWM					p policy<(flavour omap4 &/ value y) | value m> note<enables early heartbeat LEDs>
-CONFIG_LEDS_TRIGGER_HEARTBEAT			p policy<(flavour omap4 &/ value y) | value m> note<enables early heartbeat LEDs>
 CONFIG_LEDS_RENESAS_TPU				y
 CONFIG_LEDS_ASIC3				y
 CONFIG_LEDS_PCA9532				m
@@ -669,11 +663,11 @@ CONFIG_MEMORY					y mark<Subsystem>
 # Device Drivers > Memory Technology Device (MTD) support
 set +tree 'Device Drivers,Memory Technology Device (MTD) support' ?flag EXPERIMENTAL ?type bool	= n
 set +tree 'Device Drivers,Memory Technology Device (MTD) support' ?flag EXPERIMENTAL ?type tristate	= m note<experimental opt-in>
-CONFIG_MTD					p policy<(flavour omap &/ value y) | value m> note<boot essential on arm>
-CONFIG_MTD_BLKDEVS				p policy<(flavour omap &/ value y) | value m> note<boot essential on arm>
-CONFIG_MTD_BLOCK				p policy<(flavour omap &/ value y) | value m> note<boot essential on arm>
-CONFIG_MTD_CHAR					p policy<(flavour omap &/ value y) | value m> note<boot essential on arm>
-CONFIG_MTD_OF_PARTS				p policy<(flavour omap &/ value y) | value m> note<boot essential on arm>
+CONFIG_MTD					p policy<(arch armhf &/ value y) | value m> note<boot essential on arm>
+CONFIG_MTD_BLKDEVS				p policy<(arch armhf &/ value y) | value m> note<boot essential on arm>
+CONFIG_MTD_BLOCK				p policy<(arch armhf &/ value y) | value m> note<boot essential on arm>
+CONFIG_MTD_CHAR					p policy<(arch armhf &/ value y) | value m> note<boot essential on arm>
+CONFIG_MTD_OF_PARTS				p policy<(arch armhf &/ value y) | value m> note<boot essential on arm>
 CONFIG_SM_FTL					m note<h/w specific experimental option -- opt-in>
 CONFIG_MTD_REDBOOT_DIRECTORY_BLOCK		-1
 CONFIG_MTD_REDBOOT_PARTS_UNALLOCATED		n
@@ -691,8 +685,8 @@ CONFIG_MTD_COMPLEX_MAPPINGS			y
 CONFIG_MTD_PHYSMAP_COMPAT			n
 CONFIG_MTD_PCMCIA_ANONYMOUS			n
 # Device Drivers > Memory Technology Device (MTD) support > NAND Device Support
-CONFIG_MTD_NAND					p policy<(flavour omap &/ value y) | value m> note<boot essential on arm>
-CONFIG_MTD_NAND_OMAP2				p policy<(flavour omap &/ value y) | value m> note<boot essential on arm>
+CONFIG_MTD_NAND					p policy<(arch armhf &/ value y) | value m> note<boot essential on arm>
+CONFIG_MTD_NAND_OMAP2				p policy<(arch armhf &/ value y) | value m> note<boot essential on arm>
 CONFIG_MTD_NAND_ECC_BCH				y
 CONFIG_MTD_NAND_MUSEUM_IDS			n
 CONFIG_MTD_NAND_OMAP_BCH			y
@@ -732,8 +726,8 @@ CONFIG_ARM_CHARLCD				y
 set +tree 'Device Drivers,MMC/SD/SDIO card support' ?flag EXPERIMENTAL ?type bool	= n
 set +tree 'Device Drivers,MMC/SD/SDIO card support' ?flag EXPERIMENTAL ?type tristate	= m note<experimental opt-in>
 CONFIG_MMC					y mark<Subsystem>
-CONFIG_MMC_BLOCK				p policy<(arch armel armhf &/ value y) | value m> note<boot essential on arm>
-CONFIG_MMC_OMAP_HS				p policy<(arch armel armhf &/ value y) | value m> note<boot essential on arm>
+CONFIG_MMC_BLOCK				p policy<(arch armhf &/ value y) | value m> note<boot essential on arm>
+CONFIG_MMC_OMAP_HS				p policy<(arch armhf &/ value y) | value m> note<boot essential on arm>
 CONFIG_MMC_SDHCI_PLTFM				p policy<(arch armhf &/ value y) | value m> note<boot essential on highbank>
 CONFIG_MMC_OMAP					p policy<(arch armhf &/ value m)> note<boot essential on OMAP4>
 CONFIG_MMC_TEST					n flag<TESTING>
@@ -750,7 +744,6 @@ set +tree 'Device Drivers,Multifunction device drivers' ?pattern '^MFD_[^_]+(_SP
 set +tree 'Device Drivers,Multifunction device drivers' ?pattern '^MFD_[^_]+(_SPI|_I2C|_CORE)?$' ?type bool ?flag EXPERIMENTAL		= y note<experimental opt-in>
 set +tree 'Device Drivers,Multifunction device drivers' ?pattern '^MFD_[^_]+(_SPI|_I2C|_CORE)?$' ?type tristate ?flag EXPERIMENTAL	= y note<experimental opt-in>
 CONFIG_MFD_OMAP_USB_HOST			y
-CONFIG_MFD_SM501				p policy<(flavour omap4 &/ value y) | value m> note<boot essential on OMAP4>
 CONFIG_EZX_PCAP					p policy<(arch armhf &/ value n) | value m> flag<BUILD FAILURE>
 CONFIG_MFD_SM501_GPIO				n
 CONFIG_HTC_I2CPLD				y
@@ -779,7 +772,6 @@ CONFIG_DVB_MAX_ADAPTERS				8
 CONFIG_MEDIA_SUBDRV_AUTOSELECT			y
 CONFIG_SMS_SIANO_RC				y
 CONFIG_VIDEO_FIXED_MINOR_RANGES			n
-CONFIG_MEDIA_SUPPORT				p policy<(flavour omap4 &/ value y) | value m> note<boot essential on OMAP4>
 # Device Drivers > Multimedia support > AM/FM radio receivers/transmitters support
 CONFIG_MEDIA_RADIO_SUPPORT			y
 CONFIG_MEDIA_ATTACH				y
@@ -802,8 +794,8 @@ CONFIG_VIDEO_CODA				n
 # Device Drivers > Multimedia support > Cameras/video grabbers support > V4L platform devices
 CONFIG_V4L_PLATFORM_DRIVERS			y
 CONFIG_VIDEO_MX3				n
-CONFIG_VIDEO_SH_MOBILE_CSI2			p policy<(flavour omap &/ value m) | value n>
-CONFIG_VIDEO_SH_MOBILE_CEU			p policy<(flavour omap &/ value m) | value n>
+CONFIG_VIDEO_SH_MOBILE_CSI2			p policy<(arch armhf &/ value m) | value n>
+CONFIG_VIDEO_SH_MOBILE_CEU			p policy<(arch armhf &/ value m) | value n>
 # Device Drivers > Multimedia support > Media PCI Adapters
 CONFIG_MEDIA_PCI_SUPPORT			y
 CONFIG_DVB_AV7110_OSD				y
@@ -911,7 +903,7 @@ CONFIG_MACE_AAUI_PORT				n
 #CONFIG_FTGMAC100 n note<unsupported ARM device>
 #CONFIG_FTMAC100 n note<unsupported ARM device>
 CONFIG_DM9000_FORCE_SIMPLE_PHY_POLL				n
-CONFIG_TI_CPSW					p policy<(flavour omap &/ value n) | value m> flag<BUILD FAILURE>
+CONFIG_TI_CPSW					p policy<(arch armhf &/ value n) | value m> flag<BUILD FAILURE>
 CONFIG_PASEMI_MAC				n
 CONFIG_XILINX_LL_TEMAC				n
 CONFIG_XILINX_EMACLITE				n
@@ -922,7 +914,7 @@ set +tree 'Device Drivers,Network device support,Network core driver support' ?t
 CONFIG_NET_CORE					y
 CONFIG_MII					y note<core networking>
 CONFIG_TUN					y note<core networking>
-CONFIG_VIRTIO_NET				p policy<(arch i386 amd64 &/ value y) | (arch armel armhf &/ value n) | value m> note<KVM paravirt support -- not autoloadable>
+CONFIG_VIRTIO_NET				p policy<(arch i386 amd64 &/ value y) | (arch armhf &/ value n) | value m> note<KVM paravirt support -- not autoloadable>
 CONFIG_NET_FC					y
 CONFIG_NETCONSOLE_DYNAMIC			y
 CONFIG_NETPOLL_TRAP				n
@@ -1052,7 +1044,7 @@ CONFIG_PPS_CLIENT_KTIMER			n flag<TESTING>
 CONFIG_PWM					y
 # Device Drivers > Real Time Clock
 CONFIG_RTC_CLASS				y mark<RTC> mark<Subsystem>
-CONFIG_RTC_DRV_TWL4030				p policy<(flavour omap omap4 &/ value y) | value m> note<boot essential on OMAP3/OMAP4>
+CONFIG_RTC_DRV_TWL4030				p policy<(arch armhf  &/ value y) | value m> note<boot essential on OMAP3/OMAP4>
 CONFIG_RTC_DRV_CMOS				p policy<(arch i386 amd64 &/ value y) | value m> note<boot essential on i386/amd64>
 CONFIG_RTC_DRV_M41T80_WDT			y
 CONFIG_RTC_HCTOSYS				y
@@ -1160,9 +1152,9 @@ CONFIG_SSB_DRIVER_GPIO				y
 set +tree 'Device Drivers,Sony MemoryStick card support (EXPERIMENTAL)' ?flag EXPERIMENTAL ?type tristate	= m note<experimental opt-in>
 CONFIG_MEMSTICK					m
 # Device Drivers > Sound card support
-CONFIG_SOUND					p policy<(flavour omap &/ value y) | value m> note<not autoloadable on omap>
+CONFIG_SOUND					p policy<(arch armhf &/ value y) | value m> note<not autoloadable on omap>
 # Device Drivers > Sound card support > Advanced Linux Sound Architecture
-CONFIG_SND					p policy<(flavour omap &/ value y) | value m> note<not autoloadable on omap>
+CONFIG_SND					p policy<(arch armhf &/ value y) | value m> note<not autoloadable on omap>
 CONFIG_SND_PCM_OSS				n note<deprecated in favour of pulseaudio emulation>
 CONFIG_SND_MIXER_OSS				n
 CONFIG_SND_SEQUENCER_OSS			n
@@ -1172,9 +1164,9 @@ CONFIG_SND_SUPPORT_OLD_API			y
 CONFIG_SND_VERBOSE_PROCFS			y
 CONFIG_SND_VERBOSE_PRINTK			n
 # Device Drivers > Sound card support > Advanced Linux Sound Architecture > ALSA for SoC audio support
-CONFIG_SND_OMAP_SOC_OMAP_TWL4030		p policy<(flavour omap &/ value y) | value m> note<not autoloadable on omap>
-CONFIG_SND_SOC					p policy<(flavour omap &/ value y) | value m> note<not autoloadable on omap>
-CONFIG_SND_OMAP_SOC				p policy<(flavour omap &/ value y) | value m> note<required for omap3 sound>
+CONFIG_SND_OMAP_SOC_OMAP_TWL4030		p policy<(arch armhf &/ value y) | value m> note<not autoloadable on omap>
+CONFIG_SND_SOC					p policy<(arch armhf &/ value y) | value m> note<not autoloadable on omap>
+CONFIG_SND_OMAP_SOC				p policy<(arch armhf &/ value y) | value m> note<required for omap3 sound>
 CONFIG_SND_OMAP_SOC_OMAP_ABE_TWL6040		y
 CONFIG_SND_OMAP_SOC_OMAP_HDMI			y
 # Device Drivers > Sound card support > Advanced Linux Sound Architecture > ALSA for SoC audio support > SoC Audio for Freescale i.MX CPUs
@@ -1292,8 +1284,6 @@ CONFIG_LIRC_SERIAL_TRANSMITTER			y
 set +tree 'Device Drivers,USB Network Adapters' ?pattern '^USB_[^_]*$' ?type bool !flag EXPERIMENTAL	= y
 set +tree 'Device Drivers,USB Network Adapters' ?pattern '^USB_[^_]*$' ?type bool ?flag EXPERIMENTAL	= y note<experimental opt-in>
 set +tree 'Device Drivers,USB Network Adapters' ?flag EXPERIMENTAL ?type tristate			= m note<experimental opt-in>
-CONFIG_USB_NET_SMSC95XX				p policy<(flavour omap4 &/ value y) | value m> note<boot essential on OMAP4>
-CONFIG_USB_USBNET				p policy<(flavour omap4 &/ value y) | value m> note<boot essential on OMAP4>
 CONFIG_USB_ALI_M5632				y
 # Device Drivers > USB Peripheral Controller
 CONFIG_USB_DUMMY_HCD				n flag<TESTING>
@@ -1301,11 +1291,11 @@ CONFIG_USB_OMAP					n note<not used for our OMAP3/4 h/w>
 CONFIG_USB_M66592				n note<gadget device>
 CONFIG_USB_NET2272_DMA				y
 CONFIG_USB_IMX					n
-CONFIG_USB_FSL_USB2				p policy<(flavour omap &/ value n) | value m>
+CONFIG_USB_FSL_USB2				p policy<(arch armhf &/ value n) | value m>
 # Device Drivers > USB support
 CONFIG_USB_SUPPORT				y
-CONFIG_USB_HCD_BCMA				p policy<(flavour omap &/ value n) | value m> note<USB_{O,E}HCI_HCD_PLATFORM must be off on omap>
-CONFIG_USB_HCD_SSB				p policy<(flavour omap &/ value n) | value m> note<USB_{O,E}HCI_HCD_PLATFORM must be off on omap>
+CONFIG_USB_HCD_BCMA				p policy<(arch armhf &/ value n) | value m> note<USB_{O,E}HCI_HCD_PLATFORM must be off on omap>
+CONFIG_USB_HCD_SSB				p policy<(arch armhf &/ value n) | value m> note<USB_{O,E}HCI_HCD_PLATFORM must be off on omap>
 CONFIG_USB_SISUSBVGA_CON			n
 CONFIG_OMAP_USB2				y
 # Device Drivers > USB support > Support for Host-side USB
@@ -1314,18 +1304,18 @@ set +pattern '_USB'				?flag EXPERIMENTAL ?type bool		= n
 set +pattern '_USB'				?flag EXPERIMENTAL ?type tristate	= m note<experimental opt-in>
 CONFIG_USB_ANNOUNCE_NEW_DEVICES			y
 CONFIG_USB_DYNAMIC_MINORS			y
-CONFIG_USB_SUSPEND				p policy<(flavour omap &/ value n) | value y>
+CONFIG_USB_SUSPEND				p policy<(arch armhf &/ value n) | value y>
 CONFIG_USB_EHCI_HCD				y note<ensures USB 2.0/1.1 probe ordering>
 CONFIG_USB_OHCI_HCD				y note<ensures USB 2.0/1.1 probe ordering>
 CONFIG_USB_UHCI_HCD				y note<ensures USB 2.0/1.1 probe ordering>
 CONFIG_USB_XHCI_HCD				y note<ensures USB 2.0/1.1 probe ordering>
-CONFIG_USB_OTG					p policy<((arch armel armhf | flavour powerpc-e500 powerpc-e500mc) &/ value y) | value n>
+CONFIG_USB_OTG					p policy<((arch armhf | flavour powerpc-e500 powerpc-e500mc) &/ value y) | value n>
 CONFIG_TWL4030_USB				y
 CONFIG_XPS_USB_HCD_XILINX			y
 CONFIG_USB_EHCI_ROOT_HUB_TT			y
 CONFIG_USB_EHCI_TT_NEWSCHED			y
 CONFIG_USB_SL811_HCD_ISO			y
-CONFIG_USB_CHIPIDEA				p policy<(flavour omap &/ value y) | value m>
+CONFIG_USB_CHIPIDEA				p policy<(arch armhf &/ value y) | value m>
 CONFIG_USB_CHIPIDEA_UDC				y
 CONFIG_USB_CHIPIDEA_HOST			y
 CONFIG_REALTEK_AUTOPM				y
@@ -1345,14 +1335,14 @@ CONFIG_USB_MXS_PHY				y
 # CONFIG_USB_OHCI_HCD_PLATFORM and CONFIG_USB_EHCI_HCD_PLATFORM must be off on omap
 CONFIG_NOP_USB_XCEIV				p policy<(arch armhf &/ value y) | value m> note<boot essential on omap/highbank>
 CONFIG_USB_MUSB_OMAP2PLUS			y
-CONFIG_USB_MUSB_HDRC				p policy<(flavour omap &/ value y) | value m> note<not autoloadable on omap>
-CONFIG_USB_INVENTRA_DMA				p policy<(flavour omap &/ value y) | value n> note<OMAP2 specific feature>
+CONFIG_USB_MUSB_HDRC				p policy<(arch armhf &/ value y) | value m> note<not autoloadable on omap>
+CONFIG_USB_INVENTRA_DMA				p policy<(arch armhf &/ value y) | value n> note<OMAP2 specific feature>
 CONFIG_USB_XHCI_HCD_DEBUGGING			n flag<DEBUG>
 CONFIG_USB_OTG_BLACKLIST_HUB			n note<OTG white/blacklists are disabled>
 CONFIG_USB_OTG_WHITELIST			n note<OTG white/blacklists are disabled>
 CONFIG_USB_MUSB_TUSB6010			p policy<(arch armhf &/ value n) | value m> note<USB_MUSB choice>
-CONFIG_USB_MUSB_DSPS				p policy<(flavour omap &/ value n) | value m> flag<BUILD FAILURE>
-CONFIG_MUSB_PIO_ONLY				p policy<(flavour omap &/ value n) | value y>
+CONFIG_USB_MUSB_DSPS				p policy<(arch armhf &/ value n) | value m> flag<BUILD FAILURE>
+CONFIG_MUSB_PIO_ONLY				p policy<(arch armhf &/ value n) | value y>
 # Device Drivers > USB support > Support for Host-side USB > USB DSL modem support
 # Device Drivers > USB support > Support for Host-side USB > USB Serial Converter support
 set +tree 'Device Drivers,USB support,Support for Host-side USB,USB Serial Converter support' !flag EXPERIMENTAL ?type bool ?pattern '^USB_SERIAL_KEYSPAN_'	= y note<experimental opt-in>
@@ -1364,8 +1354,8 @@ CONFIG_USB_SERIAL_MOS7715_PARPORT		y
 CONFIG_USB_ZERO_HNPTEST				n flag<TEST DEVICE>
 CONFIG_USB_FUNCTIONFS				m note<filesystems are opt-in>
 CONFIG_USB_GADGETFS				m note<filesystems are opt-in>
-CONFIG_USB_GADGET				p policy<(flavour omap omap4 &/ value y) | value m> note<not autoprobable -- only present commonly on omap>
-CONFIG_USB_G_MULTI				p policy<(flavour omap omap4 &/ value m) | value n> note<omap3/omap4 specific feature>
+CONFIG_USB_GADGET				p policy<(arch armhf &/ value y) | value m> note<not autoprobable -- only present commonly on omap>
+CONFIG_USB_G_MULTI				p policy<(arch armhf &/ value m) | value n> note<omap3/omap4 specific feature>
 CONFIG_USB_GADGET_VBUS_DRAW			2
 CONFIG_USB_GADGET_STORAGE_NUM_BUFFERS		2
 CONFIG_USB_ETH_RNDIS				y
@@ -1380,16 +1370,16 @@ CONFIG_GADGET_UAC1				y
 # Device Drivers > Userspace I/O drivers
 # Device Drivers > VFIO Non-Privileged userspace driver framework
 # Device Drivers > Virtio drivers
-CONFIG_VIRTIO_PCI				p policy<(arch i386 amd64 &/ value y) | (arch armel armhf &/ value n) | value m> note<KVM paravirt support -- not autoloadable>
-CONFIG_VIRTIO_MMIO				p policy<(arch armel armhf &/ value n) | value m> note<KVM paravirt support>
-CONFIG_VIRTIO_BALLOON				p policy<(arch armel armhf &/ value n) | value m> note<KVM paravirt support>
+CONFIG_VIRTIO_PCI				p policy<(arch i386 amd64 &/ value y) | (arch armhf &/ value n) | value m> note<KVM paravirt support -- not autoloadable>
+CONFIG_VIRTIO_MMIO				p policy<(arch armhf &/ value n) | value m> note<KVM paravirt support>
+CONFIG_VIRTIO_BALLOON				p policy<(arch armhf &/ value n) | value m> note<KVM paravirt support>
 CONFIG_VIRTIO_MMIO_CMDLINE_DEVICES		y
 # Device Drivers > Virtualization drivers
 CONFIG_VIRT_DRIVERS				y
 # Device Drivers > VME bridge support
 # Device Drivers > Voltage and Current Regulator Support
 CONFIG_REGULATOR				y
-CONFIG_REGULATOR_FIXED_VOLTAGE			p policy<(arch armel armhf &/ value y) | value m> note<boot essential on arm>
+CONFIG_REGULATOR_FIXED_VOLTAGE			p policy<(arch armhf &/ value y) | value m> note<boot essential on arm>
 CONFIG_REGULATOR_DUMMY				n
 CONFIG_REGULATOR_88PM8607			y
 CONFIG_REGULATOR_LP872X				y
@@ -1491,7 +1481,7 @@ CONFIG_ZISOFS					y
 CONFIG_FAT_DEFAULT_CODEPAGE			437
 CONFIG_FAT_DEFAULT_IOCHARSET			"iso8859-1"
 CONFIG_NTFS_RW					n
-CONFIG_VFAT_FS					p policy<(arch armel armhf i386 amd64 &/ value y) | value m> note<installation essential on ARM and EFI systems>
+CONFIG_VFAT_FS					p policy<(arch armhf i386 amd64 &/ value y) | value m> note<installation essential on ARM and EFI systems>
 # File systems > Miscellaneous filesystems
 CONFIG_ECRYPT_FS				y note<not autoloadable>
 CONFIG_MISC_FILESYSTEMS				y
@@ -1522,7 +1512,7 @@ CONFIG_UBIFS_FS_ZLIB				y
 CONFIG_LOGFS					n note<highly discouraged for use>
 CONFIG_SQUASHFS_4K_DEVBLK_SIZE			n note<non-default block size>
 # File systems > Native language support
-CONFIG_NLS_CODEPAGE_437				p policy<((flavour omap omap4 | arch i386 amd64) &/ value y) | value m> note<installation essential on ARM and EFI systems>
+CONFIG_NLS_CODEPAGE_437				p policy<(arch armhf i386 amd64 &/ value y) | value m> note<installation essential on ARM and EFI systems>
 CONFIG_NLS					y note<dependancy of boot essential>
 CONFIG_NLS_DEFAULT				"utf8"
 # File systems > Network File Systems
@@ -1877,7 +1867,7 @@ CONFIG_MMIOTRACE_TEST				n flag<TESTING>
 CONFIG_RING_BUFFER_BENCHMARK			n flag<TESTING>
 CONFIG_PREEMPT_TRACER				y
 # Kernel options
-CONFIG_APM_EMULATION				p policy<(arch armel armhf &/ value n) | value m> note<deliberatly forced off for ARM>
+CONFIG_APM_EMULATION				p policy<(arch armhf &/ value n) | value m> note<deliberatly forced off for ARM>
 CONFIG_SWIOTLB					y
 CONFIG_NUMA					y
 CONFIG_HZ_250					y
@@ -2183,7 +2173,7 @@ CONFIG_CPU_FREQ_GOV_POWERSAVE			y note<not autoloadable>
 CONFIG_CPU_FREQ_GOV_USERSPACE			y note<not autoloadable>
 CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE		y note<for bootspeed>
 CONFIG_GENERIC_CPUFREQ_CPU0			y
-CONFIG_CPU_FREQ_STAT				p policy<(arch i386 amd64 armel armhf &/ value y) | value m> note<dependancy of boot essential>
+CONFIG_CPU_FREQ_STAT				p policy<(arch i386 amd64 armhf &/ value y) | value m> note<dependancy of boot essential>
 CONFIG_CPU_FREQ_STAT_DETAILS			y
 # Platform support > CPU Frequency scaling > ARM CPU frequency scaling drivers
 CONFIG_ARM_OMAP2PLUS_CPUFREQ			y
@@ -2252,7 +2242,7 @@ CONFIG_PS3_REPOSITORY_WRITE			n
 CONFIG_PS3GELIC_UDBG				n
 # Platform support > WSP platform selection
 # Power management and ACPI options
-CONFIG_APM_EMULATION				p policy<(arch armel armhf &/ value n) | value m> note<deliberatly forced off for ARM>
+CONFIG_APM_EMULATION				p policy<(arch armhf &/ value n) | value m> note<deliberatly forced off for ARM>
 CONFIG_SFI					y
 CONFIG_INTEL_IDLE				y
 # Power management and ACPI options > ACPI (Advanced Configuration and Power Interface) Support
@@ -2298,7 +2288,7 @@ CONFIG_CPU_FREQ_GOV_POWERSAVE			y note<not autoloadable>
 CONFIG_CPU_FREQ_GOV_USERSPACE			y note<not autoloadable>
 CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE		y note<for bootspeed>
 CONFIG_GENERIC_CPUFREQ_CPU0			y
-CONFIG_CPU_FREQ_STAT				p policy<(arch i386 amd64 armel armhf &/ value y) | value m> note<dependancy of boot essential>
+CONFIG_CPU_FREQ_STAT				p policy<(arch i386 amd64 armhf &/ value y) | value m> note<dependancy of boot essential>
 CONFIG_CPU_FREQ_STAT_DETAILS			y
 # Power management and ACPI options > CPU Frequency scaling > ARM CPU frequency scaling drivers
 CONFIG_ARM_OMAP2PLUS_CPUFREQ			y
@@ -2318,7 +2308,7 @@ CONFIG_X86_SPEEDSTEP_RELAXED_CAP_CHECK		y
 # Power management and ACPI options > Memory power savings
 CONFIG_I7300_IDLE				m
 # Power management options
-CONFIG_APM_EMULATION				p policy<(arch armel armhf &/ value n) | value m> note<deliberatly forced off for ARM>
+CONFIG_APM_EMULATION				p policy<(arch armhf &/ value n) | value m> note<deliberatly forced off for ARM>
 # Processor support
 CONFIG_PPC_ICSWX_USE_SIGILL			n note<reviewed 05/2012>
 CONFIG_GENERIC_CPU				y
