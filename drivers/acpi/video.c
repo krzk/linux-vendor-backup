@@ -77,7 +77,7 @@ module_param(brightness_switch_enabled, bool, 0644);
  *  AC/battery status changes. On some laptops (MSI Wind) this doesn't
  *  work so we need a workaround.
  */
-static int brightness_autoswitch_via_bios = 0;
+static bool brightness_autoswitch_via_bios = false;
 module_param(brightness_autoswitch_via_bios, bool, 0644);
 
 /*
