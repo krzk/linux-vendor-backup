@@ -55,20 +55,21 @@ static struct fb_fix_screeninfo vesafb_fix = {
 #ifndef MODULE
 static int   inverse    __read_mostly;
 #endif
-static int   mtrr       __read_mostly = 3;	/* disable mtrr */
+static uint   mtrr       __read_mostly = 3;	/* disable mtrr */
+static bool   nomtrr     __read_mostly;		/* dummy */
 static int   vram_remap __initdata;		/* Set amount of memory to be used */
 static int   vram_total __initdata;		/* Set total amount of memory */
-static int   pmi_setpal __read_mostly = 1;	/* pmi for palette changes ??? */
-static int	redraw		__read_mostly;
-static int   ypan       __read_mostly;		/* 0..nothing, 1..ypan, 2..ywrap */
-static int	ywrap		__read_mostly;
+static bool   pmi_setpal __read_mostly = true;	/* pmi for palette changes ??? */
+static bool	redraw     __read_mostly;
+static uint   ypan       __read_mostly;		/* 0..nothing, 1..ypan, 2..ywrap */
+static bool	ywrap		__read_mostly;
 static void  (*pmi_start)(void) __read_mostly;
 static void  (*pmi_pal)  (void) __read_mostly;
 static int   depth      __read_mostly;
 static int   vga_compat __read_mostly;
 
 module_param(redraw, bool, 0);
-module_param(ypan, bool, 0);
+module_param(ypan, uint, 0);
 module_param(ywrap, bool, 0);
 module_param_named(vgapal, pmi_setpal, invbool, 0);
 MODULE_PARM_DESC(vgapal, "Use VGA for setting palette (default)");
@@ -76,7 +77,7 @@ module_param_named(pmipal, pmi_setpal, bool, 0);
 MODULE_PARM_DESC(pmipal, "Use PMI for setting palette");
 module_param(mtrr, uint, 0);
 MODULE_PARM_DESC(mtrr, "Enable MTRR support (default)");
-module_param_named(nomtrr, mtrr, invbool, 0);
+module_param_named(nomtrr, nomtrr, invbool, 0);
 MODULE_PARM_DESC(nomtrr, "Disable MTRR support");
 module_param(vram_remap, int, 0);
 MODULE_PARM_DESC(vram_remap, "Set total amount of memory to be used");
@@ -239,9 +240,9 @@ static int __init vesafb_setup(char *options)
 		else if (! strcmp(this_opt, "ywrap"))
 			ypan=2;
 		else if (! strcmp(this_opt, "vgapal"))
-			pmi_setpal=0;
+			pmi_setpal=false;
 		else if (! strcmp(this_opt, "pmipal"))
-			pmi_setpal=1;
+			pmi_setpal=true;
 		else if (! strncmp(this_opt, "mtrr:", 5))
 			mtrr = simple_strtoul(this_opt+5, NULL, 0);
 		else if (! strcmp(this_opt, "nomtrr"))
@@ -343,8 +344,10 @@ static int __init vesafb_probe(struct platform_device *dev)
 		       screen_info.vesapm_seg,screen_info.vesapm_off);
 	}
 
-	if (screen_info.vesapm_seg < 0xc000)
-		ypan = pmi_setpal = 0; /* not available or some DOS TSR ... */
+	if (screen_info.vesapm_seg < 0xc000) {
+		ypan = 0;
+		pmi_setpal = false; /* not available or some DOS TSR ... */
+	}
 
 	if (ypan || pmi_setpal) {
 		unsigned short *pmi_base;
@@ -365,7 +368,8 @@ static int __init vesafb_probe(struct platform_device *dev)
 				 * memory area and pass it in the ES register to the BIOS function.
 				 */
 				printk(KERN_INFO "vesafb: can't handle memory requests, pmi disabled\n");
-				ypan = pmi_setpal = 0;
+				ypan = 0;
+				pmi_setpal = false;
 			}
 		}
 	}
