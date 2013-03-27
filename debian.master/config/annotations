@@ -1343,7 +1343,6 @@ CONFIG_USB_MXS_PHY				y
 # CONFIG_USB_OHCI_HCD_PLATFORM and CONFIG_USB_EHCI_HCD_PLATFORM must be off on omap
 CONFIG_NOP_USB_XCEIV				p policy<(arch armhf &/ value y) | value m> note<boot essential on omap/highbank>
 CONFIG_USB_MUSB_OMAP2PLUS			y
-CONFIG_USB_MUSB_HDRC				p policy<(arch armhf &/ value y) | value m> note<not autoloadable on omap>
 CONFIG_USB_INVENTRA_DMA				p policy<(arch armhf &/ value y) | value n> note<OMAP2 specific feature>
 CONFIG_USB_XHCI_HCD_DEBUGGING			n flag<DEBUG>
 CONFIG_USB_OTG_BLACKLIST_HUB			n note<OTG white/blacklists are disabled>
@@ -1475,7 +1474,6 @@ CONFIG_REISERFS_CHECK				n
 CONFIG_REISERFS_PROC_INFO			n
 CONFIG_XFS_QUOTA				y
 CONFIG_XFS_RT					y
-CONFIG_EXT2_FS					p policy<(arch armhf &/ value y) | value m> note<boot essential on highbank>
 # File systems > Caches
 CONFIG_CACHEFILES_HISTOGRAM			n
 CONFIG_FSCACHE_HISTOGRAM			n
