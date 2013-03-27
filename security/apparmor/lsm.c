@@ -505,7 +505,7 @@ static int apparmor_file_mprotect(struct vm_area_struct *vma,
 			   !(vma->vm_flags & VM_SHARED) ? MAP_PRIVATE : 0);
 }
 
-static int apparmor_sb_mount(char *dev_name, struct path *path, char *type,
+static int apparmor_sb_mount(const char *dev_name, struct path *path, const char *type,
 			     unsigned long flags, void *data)
 {
 	struct aa_profile *profile;
