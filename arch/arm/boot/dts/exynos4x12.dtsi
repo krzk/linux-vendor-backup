@@ -280,9 +280,20 @@
 			interrupts = <0 90 0>, <0 95 0>;
 			samsung,power-domain = <&pd_isp>;
 			clocks = <&clock 353>, <&clock 354>, <&clock 355>,
-			         <&clock 356>, <&clock 342>, <&clock 17>;
-			clock-names = "flite0", "flite1", "ppmuispx",
-			        "ppmuispmx", "sysreg", "mpll";
+				<&clock 356>, <&clock 342>, <&clock 17>,
+				<&clock 357>, <&clock 358>, <&clock 359>,
+				<&clock 360>, <&clock 512>,<&clock 513>,
+				<&clock 514>, <&clock 515>, <&clock 176>,
+				<&clock 13>, <&clock 516>, <&clock 22>,
+				<&clock 517>;
+			clock-names = "lite0", "lite1", "ppmuispx",
+				      "ppmuispmx", "sysreg", "mpll",
+				      "isp", "drc", "fd",
+				      "mcuisp", "ispdiv0", "ispdiv1",
+				      "mcuispdiv0", "mcuispdiv1", "uart",
+				      "aclk200", "div_aclk200", "aclk400mcuisp",
+				      "div_aclk400mcuisp";
+
 			status = "disabled";
 			#address-cells = <1>;
 			#size-cells = <1>;
