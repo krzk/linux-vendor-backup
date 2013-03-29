@@ -139,6 +139,22 @@
 		};
 	};
 
+	i2c-gpio-0 {
+		compatible = "i2c-gpio";
+		gpios = <&gpy2 4 0>, <&gpy2 5 0>;
+		i2c-gpio,delay-us = <2>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "okay";
+
+		ak8975@0C {
+			compatible = "ak8975";
+			reg = <0x0C>;
+			gpios = <&gpj0 7 0>;
+			position = <2>;
+		};
+	};
+
 	i2c_0: i2c@13860000 {
 		samsung,i2c-sda-delay = <100>;
 		samsung,i2c-slave-addr = <0x10>;
