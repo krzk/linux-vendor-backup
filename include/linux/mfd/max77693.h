@@ -54,6 +54,11 @@ struct max77693_reg_data {
 	u8 data;
 };
 
+struct max77693_charger_platform_data {
+	struct max77693_reg_data *init_data;
+	int num_init_data;
+};
+
 struct max77693_muic_platform_data {
 	struct max77693_reg_data *init_data;
 	int num_init_data;
@@ -77,6 +82,9 @@ struct max77693_platform_data {
 	bool (*is_default_uart_path_cp) (void);
 	struct max77693_regulator_data *regulators;
 	int num_regulators;
+
+	/* charger data */
+	struct max77693_charger_platform_data *charger_data;
 
 	/* muic data */
 	struct max77693_muic_platform_data *muic_data;
