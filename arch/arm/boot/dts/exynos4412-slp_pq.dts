@@ -155,6 +155,21 @@
 		};
 	};
 
+	i2c-gpio-1 {
+		compatible = "i2c-gpio";
+		gpios = <&gpy2 2 0>, <&gpy2 3 0>;
+		i2c-gpio,delay-us = <2>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "okay";
+
+		lps331ap@5D {
+			compatible = "lps331ap";
+			reg = <0x5D>;
+			gpios = <&gpf0 5 0>;
+		};
+	};
+
 	i2c_0: i2c@13860000 {
 		samsung,i2c-sda-delay = <100>;
 		samsung,i2c-slave-addr = <0x10>;
