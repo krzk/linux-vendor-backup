@@ -244,6 +244,7 @@ firmware:       iwlwifi-105-6.ucode
 firmware:       iwlwifi-135-6.ucode
 firmware:       iwlwifi-2000-6.ucode
 firmware:       iwlwifi-2030-6.ucode
+firmware:       iwlwifi-3160-6.ucode
 firmware:       iwlwifi-3945-2.ucode
 firmware:       iwlwifi-4965-2.ucode
 firmware:       iwlwifi-5000-5.ucode
@@ -252,6 +253,7 @@ firmware:       iwlwifi-6000-4.ucode
 firmware:       iwlwifi-6000g2a-5.ucode
 firmware:       iwlwifi-6000g2b-6.ucode
 firmware:       iwlwifi-6050-5.ucode
+firmware:       iwlwifi-7260-6.ucode
 firmware:       kaweth/new_code.bin
 firmware:       kaweth/new_code_fix.bin
 firmware:       kaweth/trigger_code.bin
