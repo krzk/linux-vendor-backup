@@ -23,6 +23,8 @@
 
 #include <linux/module.h>
 #include <linux/usb.h>
+#include <linux/delay.h>
+#include <linux/firmware.h>
 
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
@@ -47,6 +49,7 @@ static struct usb_driver btusb_driver;
 #define BTUSB_BROKEN_ISOC	0x20
 #define BTUSB_WRONG_SCO_MTU	0x40
 #define BTUSB_ATH3012		0x80
+#define BTUSB_BCM_PATCHRAM	0x100
 
 static struct usb_device_id btusb_table[] = {
 	/* Generic Bluetooth USB device */
@@ -99,13 +102,13 @@ static struct usb_device_id btusb_table[] = {
 	{ USB_DEVICE(0x0b05, 0x17b5) },
 	{ USB_DEVICE(0x04ca, 0x2003) },
 	{ USB_DEVICE(0x0489, 0xe042) },
-	{ USB_DEVICE(0x413c, 0x8197) },
+	{ USB_DEVICE(0x413c, 0x8197), .driver_info = BTUSB_BCM_PATCHRAM },
 
 	/* Foxconn - Hon Hai */
-	{ USB_VENDOR_AND_INTERFACE_INFO(0x0489, 0xff, 0x01, 0x01) },
+	{ USB_VENDOR_AND_INTERFACE_INFO(0x0489, 0xff, 0x01, 0x01), .driver_info = BTUSB_BCM_PATCHRAM },
 
 	/*Broadcom devices with vendor specific id */
-	{ USB_VENDOR_AND_INTERFACE_INFO(0x0a5c, 0xff, 0x01, 0x01) },
+	{ USB_VENDOR_AND_INTERFACE_INFO(0x0a5c, 0xff, 0x01, 0x01), .driver_info = BTUSB_BCM_PATCHRAM },
 
 	{ }	/* Terminating entry */
 };
@@ -214,12 +217,14 @@ static struct usb_device_id blacklist_table[] = {
 #define BTUSB_ISOC_RUNNING	2
 #define BTUSB_SUSPENDING	3
 #define BTUSB_DID_ISO_RESUME	4
+#define BTUSB_FIRMWARE_DONE	5
 
 struct btusb_data {
 	struct hci_dev       *hdev;
 	struct usb_device    *udev;
 	struct usb_interface *intf;
 	struct usb_interface *isoc;
+	const struct usb_device_id *id;
 
 	spinlock_t lock;
 
@@ -924,6 +929,72 @@ static void btusb_waker(struct work_struct *work)
 	usb_autopm_put_interface(data->intf);
 }
 
+#define PATCHRAM_TIMEOUT	1000
+#define PATCHRAM_NAME_LEN	20
+
+static void btusb_load_firmware(struct hci_dev *hdev)
+{
+	struct btusb_data *data = hci_get_drvdata(hdev);
+	struct usb_device *udev = data->udev;
+	const struct usb_device_id *id = data->id;
+	size_t pos = 0;
+	int err = 0;
+	char filename[PATCHRAM_NAME_LEN];
+	const struct firmware *fw;
+
+	unsigned char reset_cmd[] = { 0x03, 0x0c, 0x00 };
+	unsigned char download_cmd[] = { 0x2e, 0xfc, 0x00 };
+
+	if (!(id->driver_info & BTUSB_BCM_PATCHRAM))
+		return;
+	if (test_and_set_bit(BTUSB_FIRMWARE_DONE, &data->flags))
+		return;
+
+	snprintf(filename, PATCHRAM_NAME_LEN, "fw-%04x_%04x.hcd",
+			le16_to_cpu(udev->descriptor.idVendor),
+			le16_to_cpu(udev->descriptor.idProduct));
+	if (request_firmware(&fw, (const char *) filename, &udev->dev) < 0) {
+		BT_INFO("can't load firmware, may not work correctly");
+		return;
+	}
+
+	if (usb_control_msg(udev, usb_sndctrlpipe(udev, 0), 0, USB_TYPE_CLASS, 0, 0,
+		reset_cmd, sizeof(reset_cmd), PATCHRAM_TIMEOUT) < 0) {
+		err = -1;
+		goto out;
+	}
+	msleep(300);
+
+	if (usb_control_msg(udev, usb_sndctrlpipe(udev, 0), 0, USB_TYPE_CLASS, 0, 0,
+		download_cmd, sizeof(download_cmd), PATCHRAM_TIMEOUT) < 0) {
+		err = -1;
+		goto out;
+	}
+	msleep(300);
+
+	while (pos < fw->size) {
+		size_t len;
+		len = fw->data[pos + 2] + 3;
+		if ((pos + len > fw->size) ||
+			(usb_control_msg(udev, usb_sndctrlpipe(udev, 0), 0,
+			USB_TYPE_CLASS, 0, 0, (void *)fw->data + pos, len,
+			PATCHRAM_TIMEOUT) < 0)) {
+			err = -1;
+			goto out;
+		}
+		pos += len;
+	}
+
+	err = (usb_control_msg(udev, usb_sndctrlpipe(udev, 0), 0, USB_TYPE_CLASS, 0, 0,
+		reset_cmd, sizeof(reset_cmd), PATCHRAM_TIMEOUT) < 0);
+out:
+	if (err)
+		BT_INFO("fail to load firmware, may not work correctly");
+	else
+		BT_INFO("firmware loaded");
+	release_firmware(fw);
+}
+
 static int btusb_probe(struct usb_interface *intf,
 				const struct usb_device_id *id)
 {
@@ -1009,6 +1080,8 @@ static int btusb_probe(struct usb_interface *intf,
 	init_usb_anchor(&data->isoc_anchor);
 	init_usb_anchor(&data->deferred);
 
+	data->id = id;
+
 	hdev = hci_alloc_dev();
 	if (!hdev)
 		return -ENOMEM;
@@ -1025,6 +1098,7 @@ static int btusb_probe(struct usb_interface *intf,
 	hdev->flush    = btusb_flush;
 	hdev->send     = btusb_send_frame;
 	hdev->notify   = btusb_notify;
+	hdev->load_firmware = btusb_load_firmware;
 
 	/* Interface numbers are hardcoded in the specification */
 	data->isoc = usb_ifnum_to_if(data->udev, 1);
