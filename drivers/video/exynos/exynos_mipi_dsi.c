@@ -373,7 +373,7 @@ static int exynos_mipi_dsi_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	dsim->phy = devm_phy_get(&pdev->dev, dsim_pd->phy_label);
+	dsim->phy = devm_phy_get(&pdev->dev, "dsim");
 	if (IS_ERR(dsim->phy))
 		return PTR_ERR(dsim->phy);
 
