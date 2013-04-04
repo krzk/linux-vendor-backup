@@ -25,9 +25,6 @@
  */
 struct exynos_dsi_platform_data {
 	unsigned int enabled;
-
-	int (*phy_enable)(struct platform_device *pdev, bool on);
-
 	unsigned int pll_stable_time;
 	unsigned long pll_clk_rate;
 	unsigned long esc_clk_rate;
@@ -35,7 +32,5 @@ struct exynos_dsi_platform_data {
 	unsigned char bta_timeout;
 	unsigned short rx_timeout;
 };
-
-int s5p_dsim_phy_enable(struct platform_device *pdev, bool on);
 
 #endif /* _EXYNOS_MIPI_DSIM_H */
