@@ -33,6 +33,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/mfd/max77693.h>
 #include <linux/mfd/max77693-private.h>
+#include <linux/regulator/of_regulator.h>
 
 struct max77693_data {
 	struct device *dev;
@@ -669,7 +670,57 @@ static struct regulator_desc regulators[] = {
 		.owner = THIS_MODULE,
 	},
 };
+#ifdef CONFIG_OF
+static int max77693_pmic_dt_parse_pdata(struct platform_device *pdev,
+					struct max77693_platform_data *pdata)
+{
+	struct max77693_dev *iodev = dev_get_drvdata(pdev->dev.parent);
+	struct device_node *np;
+	struct max77693_regulator_data *rdata;
+	struct of_regulator_match rmatch;
+	int i, ret, cnt = 0;
 
+	np = of_find_node_by_name(iodev->dev->of_node, "regulators");
+	if (!np)
+		return -EINVAL;
+
+	of_property_read_u32(np, "number-of-regulators", &pdata->num_regulators);
+
+	/* Keep going whether the number of regulators prdefined or not*/
+	if (!pdata->num_regulators) {
+		dev_err(&pdev->dev,
+			"failed to get the number of regulators supported\n");
+		pdata->num_regulators = ARRAY_SIZE(regulators);
+	}
+
+	rdata = devm_kzalloc(&pdev->dev, sizeof(*rdata) *
+			     pdata->num_regulators, GFP_KERNEL);
+	if (!rdata)
+		return -ENOMEM;
+
+	for (i = 0; i < pdata->num_regulators; i++) {
+		rmatch.name = regulators[i].name;
+		ret = of_regulator_match(&pdev->dev, np, &rmatch, 1);
+		if (ret == 1)
+			rdata[cnt++].id = regulators[i].id;
+		else
+			continue;
+		rdata[i].initdata = rmatch.init_data;
+		rdata[i].of_node = rmatch.of_node;
+	}
+
+	pdata->regulators = rdata;
+	pdata->num_regulators = cnt;
+
+	return 0;
+}
+#else
+static int max77693_pmic_dt_parse_pdata(struct platform_device *pdev,
+					struct max77693_platform_data *pdata)
+{
+	return 0;
+}
+#endif
 static int max77693_pmic_probe(struct platform_device *pdev)
 {
 	struct max77693_dev *iodev = dev_get_drvdata(pdev->dev.parent);
@@ -679,10 +730,17 @@ static int max77693_pmic_probe(struct platform_device *pdev)
 	struct regulator_config config = {};
 
 	dev_info(&pdev->dev, "%s\n", __func__);
+
 	if (!pdata) {
 		pr_info("[%s:%d] !pdata\n", __FILE__, __LINE__);
 		dev_err(pdev->dev.parent, "No platform init data supplied.\n");
 		return -ENODEV;
+	}
+
+	if (iodev->dev->of_node) {
+		ret = max77693_pmic_dt_parse_pdata(pdev, pdata);
+		if (ret)
+			return ret;
 	}
 
 	max77693 = devm_kzalloc(&pdev->dev, sizeof(struct max77693_data),
