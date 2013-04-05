@@ -106,6 +106,35 @@ static const struct regmap_config max77693_regmap_config = {
 	.max_register = MAX77693_PMIC_REG_END,
 };
 
+#ifdef CONFIG_OF
+static struct of_device_id max77693_pmic_dt_match[] = {
+	{ .compatible = "maxim,max77693", },
+	{},
+};
+
+static struct max77693_platform_data *max77693_i2c_parse_dt_data(struct device
+								*dev)
+{
+	struct max77693_platform_data *pdata;
+	struct device_node *np = dev->of_node;
+
+	pdata = devm_kzalloc(dev, sizeof(struct max77693_platform_data),
+			     GFP_KERNEL);
+	if (!pdata)
+		return ERR_PTR(ENOMEM);
+
+	of_property_read_u32(np, "wakeup", &pdata->wakeup);
+
+	return pdata;
+}
+#else
+static struct max77693_platform_data *max77693_i2c_parse_dt_data(struct device
+								*dev)
+{
+	return NULL;
+}
+#endif
+
 static int max77693_i2c_probe(struct i2c_client *i2c,
 			      const struct i2c_device_id *id)
 {
@@ -113,6 +142,10 @@ static int max77693_i2c_probe(struct i2c_client *i2c,
 	struct max77693_platform_data *pdata = i2c->dev.platform_data;
 	u8 reg_data;
 	int ret = 0;
+
+	if (i2c->dev.of_node)
+		pdata = i2c->dev.platform_data =
+			max77693_i2c_parse_dt_data(&i2c->dev);
 
 	if (!pdata) {
 		dev_err(&i2c->dev, "No platform data found.\n");
@@ -250,6 +283,7 @@ static struct i2c_driver max77693_i2c_driver = {
 		   .name = "max77693",
 		   .owner = THIS_MODULE,
 		   .pm = &max77693_pm,
+		   .of_match_table = of_match_ptr(max77693_pmic_dt_match),
 	},
 	.probe = max77693_i2c_probe,
 	.remove = max77693_i2c_remove,
