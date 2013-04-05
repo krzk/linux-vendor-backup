@@ -81,7 +81,8 @@ static int max77686_i2c_probe(struct i2c_client *i2c,
 	int ret = 0;
 
 	if (i2c->dev.of_node)
-		pdata = max77686_i2c_parse_dt_pdata(&i2c->dev);
+		pdata = i2c->dev.platform_data =
+			max77686_i2c_parse_dt_pdata(&i2c->dev);
 
 	if (!pdata) {
 		ret = -EIO;
