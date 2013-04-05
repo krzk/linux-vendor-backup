@@ -213,7 +213,7 @@ int exynos4x12_cpufreq_init(struct exynos_dvfs_info *info)
 	if (IS_ERR(mout_core))
 		goto err_moutcore;
 
-	sclk_mpll = clk_get(info->dev, "sclk_mpll_user_c");
+	sclk_mpll = clk_get(info->dev, "mout_mpll_user_c");
 	if (IS_ERR(sclk_mpll))
 		goto err_sclk_mpll;
 
