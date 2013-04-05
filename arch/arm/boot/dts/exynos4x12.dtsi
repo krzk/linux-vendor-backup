@@ -282,10 +282,10 @@
 			clocks = <&clock 353>, <&clock 354>, <&clock 355>,
 				<&clock 356>, <&clock 342>, <&clock 17>,
 				<&clock 357>, <&clock 358>, <&clock 359>,
-				<&clock 360>, <&clock 512>,<&clock 513>,
-				<&clock 514>, <&clock 515>, <&clock 176>,
-				<&clock 13>, <&clock 516>, <&clock 22>,
-				<&clock 517>;
+				<&clock 360>, <&clock 450>,<&clock 451>,
+				<&clock 452>, <&clock 453>, <&clock 176>,
+				<&clock 13>, <&clock 454>, <&clock 396>,
+				<&clock 455>;
 			clock-names = "lite0", "lite1", "ppmuispx",
 				      "ppmuispmx", "sysreg", "mpll",
 				      "isp", "drc", "fd",
