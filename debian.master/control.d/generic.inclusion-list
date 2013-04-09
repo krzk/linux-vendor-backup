@@ -113,6 +113,7 @@ net/atm/*
 net/ax25/*
 net/bridge/*
 net/can/*
+net/ceph/libceph.ko
 net/core/*
 net/dccp/*
 net/decnet/*
