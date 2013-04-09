@@ -125,3 +125,7 @@ value CONFIG_I2C_DESIGNWARE_PLATFORM m | \
 # CONFIG_DRM_MGAG200, experimental driver hangs boot on HP Proliant Gen8
 # See LP:1042903
 (!exists CONFIG_DRM_MGAG200 | value CONFIG_DRM_MGAG200 n)
+
+# CONFIG_PARPORT_PC_FIFO, causes slow/stutter printing on parallel port
+# See LP:339752
+(!exists CONFIG_PARPORT_PC_FIFO | value CONFIG_PARPORT_PC_FIFO n)
