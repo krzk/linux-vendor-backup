@@ -43,8 +43,6 @@ fw-shipped-$(CONFIG_INFINIBAND_QIB) += qlogic/sd7220.fw
 fw-shipped-$(CONFIG_TIGON3) += tigon/tg3.bin tigon/tg3_tso.bin \
 			       tigon/tg3_tso5.bin
 fw-shipped-$(CONFIG_TYPHOON) += 3com/typhoon.bin
-fw-shipped-$(CONFIG_USB_EMI26) += emi26/loader.fw emi26/firmware.fw \
-				  emi26/bitstream.fw
 fw-shipped-$(CONFIG_USB_SERIAL_WHITEHEAT) += whiteheat_loader.fw whiteheat.fw \
 					   # whiteheat_loader_debug.fw
 
