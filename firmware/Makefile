@@ -45,8 +45,6 @@ fw-shipped-$(CONFIG_TIGON3) += tigon/tg3.bin tigon/tg3_tso.bin \
 fw-shipped-$(CONFIG_TYPHOON) += 3com/typhoon.bin
 fw-shipped-$(CONFIG_USB_EMI26) += emi26/loader.fw emi26/firmware.fw \
 				  emi26/bitstream.fw
-fw-shipped-$(CONFIG_USB_EMI62) += emi62/loader.fw emi62/bitstream.fw \
-				  emi62/spdif.fw emi62/midi.fw
 fw-shipped-$(CONFIG_USB_SERIAL_WHITEHEAT) += whiteheat_loader.fw whiteheat.fw \
 					   # whiteheat_loader_debug.fw
 
