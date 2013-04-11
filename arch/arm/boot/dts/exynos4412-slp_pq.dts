@@ -15,6 +15,170 @@
 /dts-v1/;
 /include/ "exynos4412.dtsi"
 
+&pinctrl_0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pdn_group_low_0>,
+			<&pdn_group_high_0>,
+			<&pdn_group_in_nopull_0>,
+			<&pdn_group_in_down_0>,
+			<&pdn_group_in_up_0>,
+			<&pdn_group_prev_0>;
+
+	pdn_group_low_0: pdn-group-low {
+		samsung,pins = "gpa0-1";
+		samsung,pin-con-pdn = <0>;
+		samsung,pin-pud-pdn = <0>;
+	};
+
+	pdn_group_high_0: pdn-group-high {
+		samsung,pins = "gpf3-4";
+		samsung,pin-con-pdn = <1>;
+		samsung,pin-pud-pdn = <0>;
+	};
+
+	pdn_group_in_nopull_0: pdn-group-in-nopull {
+		samsung,pins = "gpa0-0", "gpa0-2", "gpa0-4", "gpb-0",
+				"gpb-1", "gpb-2", "gpb-3", "gpc1-0",
+				"gpc1-2", "gpc1-3", "gpc1-4", "gpd0-2",
+				"gpd0-3", "gpd1-2", "gpd1-3", "gpf0-0",
+				"gpf0-1", "gpf0-4", "gpf0-6", "gpf1-4",
+				"gpf1-5", "gpf2-6", "gpf2-7", "gpf3-0";
+		samsung,pin-con-pdn = <2>;
+		samsung,pin-pud-pdn = <0>;
+	};
+
+	pdn_group_in_down_0: pdn-group-in-down {
+		samsung,pins = "gpa0-5", "gpa0-6", "gpa1-0", "gpa1-1",
+				"gpa1-2", "gpa1-3", "gpa1-4", "gpa1-5",
+				"gpb-4", "gpb-6", "gpb-7", "gpc0-0",
+				"gpc0-1", "gpc0-2", "gpc0-3", "gpc0-4",
+				"gpd0-0", "gpd0-1", "gpd1-0", "gpd1-1",
+				"gpf0-2", "gpf0-3", "gpf0-5", "gpf0-7",
+				"gpf1-0", "gpf1-1", "gpf1-2", "gpf1-3",
+				"gpf1-6", "gpf2-1", "gpf2-2", "gpf2-3",
+				"gpf2-4", "gpf2-5", "gpf3-5", "gpj0-3",
+				"gpj0-6", "gpj0-7", "gpj1-0", "gpj1-3",
+				"gpj1-4";
+		samsung,pin-con-pdn = <2>;
+		samsung,pin-pud-pdn = <1>;
+	};
+
+	pdn_group_in_up_0: pdn-group-in-up {
+		samsung,pins = "gpa0-3", "gpa0-7", "gpb-5";
+		samsung,pin-con-pdn = <2>;
+		samsung,pin-pud-pdn = <2>;
+	};
+
+	pdn_group_prev_0: pdn-group-prev {
+		samsung,pins = "gpc1-1", "gpf1-7", "gpf2-0", "gpf3-1",
+				"gpf3-2", "gpf3-3", "gpj0-0", "gpj0-1",
+				"gpj0-2", "gpj0-4", "gpj0-5", "gpj1-1",
+				"gpj1-2";
+		samsung,pin-con-pdn = <3>;
+		samsung,pin-pud-pdn = <0>;
+	};
+};
+
+&pinctrl_1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pdn_group_low_1>,
+			<&pdn_group_high_1>,
+			<&pdn_group_in_nopull_1>,
+			<&pdn_group_in_down_1>,
+			<&pdn_group_prev_1>;
+
+	pdn_group_low_1: pdn-group-low {
+		samsung,pins = "gpk3-0", "gpk0-2";
+		samsung,pin-con-pdn = <0>;
+		samsung,pin-pud-pdn = <0>;
+	};
+
+	pdn_group_high_1: pdn-group-high {
+		samsung,pins = "gpm3-3";
+		samsung,pin-con-pdn = <1>;
+		samsung,pin-pud-pdn = <0>;
+	};
+
+	pdn_group_in_nopull_1: pdn-group-in-nopull {
+		samsung,pins = "gpk3-1", "gpk3-3", "gpk3-4", "gpk3-5",
+				"gpk3-6", "gpy2-2", "gpy2-3", "gpy2-4",
+				"gpy2-5", "gpm1-2", "gpm1-3", "gpm1-4",
+				"gpm1-5", "gpm2-0", "gpm2-1";
+		samsung,pin-con-pdn = <2>;
+		samsung,pin-pud-pdn = <0>;
+	};
+
+	pdn_group_in_down_1: pdn-group-in-down {
+		samsung,pins = "gpk1-0", "gpk1-1", "gpk1-2", "gpk2-0",
+				"gpk2-1", "gpk2-2", "gpk2-3", "gpk2-4",
+				"gpk2-5", "gpk2-6", "gpk3-2", "gpl0-0",
+				"gpl0-1", "gpl0-2", "gpl0-3", "gpl1-0",
+				"gpl1-1", "gpl2-0", "gpl2-1", "gpl2-2",
+				"gpl2-3", "gpl2-4", "gpl2-5", "gpl2-7",
+				"gpm0-0", "gpm0-1", "gpm0-2", "gpm0-3",
+				"gpm0-4", "gpm0-5", "gpm0-6", "gpm0-7",
+				"gpm1-0", "gpm1-1", "gpm1-6", "gpm2-2",
+				"gpm2-3", "gpm2-4", "gpm3-4", "gpm3-5",
+				"gpm3-6", "gpm3-7", "gpm4-0", "gpm4-1",
+				"gpm4-2", "gpm4-3", "gpm4-4", "gpm4-5",
+				"gpm4-6", "gpm4-7", "gpy0-0", "gpy0-1",
+				"gpy0-2", "gpy0-3", "gpy0-4", "gpy0-5",
+				"gpy1-0", "gpy1-1", "gpy1-2", "gpy1-3",
+				"gpy2-1", "gpy3-0", "gpy3-1", "gpy3-2",
+				"gpy3-3", "gpy3-4", "gpy3-5", "gpy3-6",
+				"gpy3-7", "gpy4-0", "gpy4-1", "gpy4-2",
+				"gpy4-3", "gpy4-4", "gpy4-5", "gpy4-6",
+				"gpy4-7", "gpy5-0", "gpy5-1", "gpy5-2",
+				"gpy5-3", "gpy5-4", "gpy5-5", "gpy5-6",
+				"gpy5-7", "gpy6-0", "gpy6-1", "gpy6-2",
+				"gpy6-3", "gpy6-4", "gpy6-5", "gpy6-6",
+				"gpy6-7";
+		samsung,pin-con-pdn = <2>;
+		samsung,pin-pud-pdn = <1>;
+	};
+
+	pdn_group_prev_1: pdn-group-prev {
+		samsung,pins = "gpk0-0", "gpk0-1", "gpk0-3", "gpk0-4",
+				"gpk0-5", "gpk0-6", "gpk1-3", "gpk1-4",
+				"gpk1-5", "gpk1-6", "gpl0-4", "gpl0-6",
+				"gpl2-6", "gpy2-0", "gpm3-0", "gpm3-1",
+				"gpm3-2";
+		samsung,pin-con-pdn = <3>;
+		samsung,pin-pud-pdn = <0>;
+	};
+};
+
+&pinctrl_2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pdn_group_in_down_2>;
+
+	pdn_group_in_down_2: pdn-group-in-down {
+		samsung,pins = "gpz-0", "gpz-1", "gpz-2", "gpz-3",
+				"gpz-4", "gpz-5", "gpz-6";
+		samsung,pin-con-pdn = <2>;
+		samsung,pin-pud-pdn = <1>;
+	};
+};
+
+&pinctrl_3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pdn_group_in_down_3>;
+
+	pdn_group_in_down_3: pdn-group-in-down {
+		samsung,pins = "gpv0-0", "gpv0-1", "gpv0-2", "gpv0-3",
+				"gpv0-4", "gpv0-5", "gpv0-6", "gpv0-7",
+				"gpv1-0", "gpv1-1", "gpv1-2", "gpv1-3",
+				"gpv1-4", "gpv1-5", "gpv1-6", "gpv1-7",
+				"gpv2-0", "gpv2-1", "gpv2-2", "gpv2-3",
+				"gpv2-4", "gpv2-5", "gpv2-6", "gpv2-7",
+				"gpv3-0", "gpv3-1", "gpv3-2", "gpv3-3",
+				"gpv3-4", "gpv3-5", "gpv3-6", "gpv3-7",
+				"gpv4-0";
+		samsung,pin-con-pdn = <2>;
+		samsung,pin-pud-pdn = <1>;
+	};
+};
+
 / {
 	model = "Samsung SLP PQ based on Exynos4412";
 	compatible = "samsung,slp_pq", "samsung,exynos4412";
