@@ -62,10 +62,11 @@ EXPORT_SYMBOL drivers/char/nvram 0x7da28f12	nvram_check_checksum
 EXPORT_SYMBOL drivers/char/nvram 0x9ce3f83f	nvram_write_byte
 EXPORT_SYMBOL drivers/char/nvram 0xa8813189	__nvram_write_byte
 EXPORT_SYMBOL drivers/dma/dw_dmac 0x437195c2	dw_dma_cyclic_start
+EXPORT_SYMBOL drivers/dma/dw_dmac 0x4c23a589	dw_dma_cyclic_prep
 EXPORT_SYMBOL drivers/dma/dw_dmac 0x643bf914	dw_dma_get_dst_addr
+EXPORT_SYMBOL drivers/dma/dw_dmac 0x6c610dd4	dw_dma_generic_filter
 EXPORT_SYMBOL drivers/dma/dw_dmac 0x7c4ba1e0	dw_dma_cyclic_free
 EXPORT_SYMBOL drivers/dma/dw_dmac 0xa08b428b	dw_dma_cyclic_stop
-EXPORT_SYMBOL drivers/dma/dw_dmac 0xb797bc1b	dw_dma_cyclic_prep
 EXPORT_SYMBOL drivers/dma/dw_dmac 0xc93c7696	dw_dma_get_src_addr
 EXPORT_SYMBOL drivers/dma/pl330 0x58b981bd	pl330_filter
 EXPORT_SYMBOL drivers/gpu/drm/drm 0x014e5dbe	drm_release

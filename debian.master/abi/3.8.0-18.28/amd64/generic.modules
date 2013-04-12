@@ -807,6 +807,7 @@ dwc3
 dwc3-exynos
 dwc3-omap
 dwc3-pci
+dw_dmac
 dyna_pci10xx
 dynapro
 e100
