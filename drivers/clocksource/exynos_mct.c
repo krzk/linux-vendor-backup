@@ -185,7 +185,7 @@ static void exynos4_frc_resume(struct clocksource *cs)
 
 struct clocksource mct_frc = {
 	.name		= "mct-frc",
-	.rating		= 400,
+	.rating		= 399,
 	.read		= exynos4_frc_read,
 	.mask		= CLOCKSOURCE_MASK(64),
 	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
