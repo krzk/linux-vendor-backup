@@ -1604,7 +1604,6 @@ pixcir_i2c_ts
 pktcdvd
 pktgen
 pl2303
-pl330
 platform_lcd
 plat_nand
 plat-ram
