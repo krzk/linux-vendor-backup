@@ -80,6 +80,7 @@ struct hdmi_spec_per_pin {
 };
 
 struct hdmi_spec {
+	struct hda_gen_spec gen;
 	int num_cvts;
 	struct hdmi_spec_per_cvt cvts[MAX_HDMI_CVTS];
 
