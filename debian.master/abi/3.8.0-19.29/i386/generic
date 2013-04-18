@@ -6814,7 +6814,6 @@ EXPORT_SYMBOL vmlinux 0xa769e0ee	inet_addr_type
 EXPORT_SYMBOL vmlinux 0xa7a26949	blkdev_put
 EXPORT_SYMBOL vmlinux 0xa7c2932b	blk_rq_map_user
 EXPORT_SYMBOL vmlinux 0xa7cf6c2f	atomic64_dec_return_cx8
-EXPORT_SYMBOL vmlinux 0xa80f3278	pv_mmu_ops
 EXPORT_SYMBOL vmlinux 0xa8232c78	strtobool
 EXPORT_SYMBOL vmlinux 0xa825ac82	security_inode_setsecctx
 EXPORT_SYMBOL vmlinux 0xa8261812	neigh_sysctl_unregister
@@ -7508,6 +7507,7 @@ EXPORT_SYMBOL vmlinux 0xd2c442f0	scm_detach_fds
 EXPORT_SYMBOL vmlinux 0xd2e6a582	acpi_processor_preregister_performance
 EXPORT_SYMBOL vmlinux 0xd32e39d7	kunmap
 EXPORT_SYMBOL vmlinux 0xd35e249a	_raw_read_lock_irq
+EXPORT_SYMBOL vmlinux 0xd3636c18	pv_mmu_ops
 EXPORT_SYMBOL vmlinux 0xd3650e93	tcf_hash_create
 EXPORT_SYMBOL vmlinux 0xd38280c4	file_sb_list_del
 EXPORT_SYMBOL vmlinux 0xd399c783	genl_unregister_family

@@ -68,7 +68,6 @@ EXPORT_SYMBOL drivers/dma/dw_dmac 0x6c610dd4	dw_dma_generic_filter
 EXPORT_SYMBOL drivers/dma/dw_dmac 0x7c4ba1e0	dw_dma_cyclic_free
 EXPORT_SYMBOL drivers/dma/dw_dmac 0xa08b428b	dw_dma_cyclic_stop
 EXPORT_SYMBOL drivers/dma/dw_dmac 0xc93c7696	dw_dma_get_src_addr
-EXPORT_SYMBOL drivers/dma/pl330 0x58b981bd	pl330_filter
 EXPORT_SYMBOL drivers/gpu/drm/drm 0x014e5dbe	drm_release
 EXPORT_SYMBOL drivers/gpu/drm/drm 0x014ee2f7	drm_property_create
 EXPORT_SYMBOL drivers/gpu/drm/drm 0x02a1bf95	drm_getsarea

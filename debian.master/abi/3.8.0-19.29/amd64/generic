@@ -4507,7 +4507,6 @@ EXPORT_SYMBOL vmlinux 0x1c7f3669	nobh_writepage
 EXPORT_SYMBOL vmlinux 0x1c8a04b0	acpi_reset
 EXPORT_SYMBOL vmlinux 0x1cc6719a	register_reboot_notifier
 EXPORT_SYMBOL vmlinux 0x1cc686c5	xfrm_state_update
-EXPORT_SYMBOL vmlinux 0x1cd02f99	pv_mmu_ops
 EXPORT_SYMBOL vmlinux 0x1cd3ab0c	tcf_action_dump_1
 EXPORT_SYMBOL vmlinux 0x1d38bbd9	pci_disable_ltr
 EXPORT_SYMBOL vmlinux 0x1d47bf6f	mb_cache_entry_insert
@@ -7340,6 +7339,7 @@ EXPORT_SYMBOL vmlinux 0xcf94ee55	bdi_register
 EXPORT_SYMBOL vmlinux 0xcfafe916	tcf_register_action
 EXPORT_SYMBOL vmlinux 0xcfb76c0a	idr_init
 EXPORT_SYMBOL vmlinux 0xcfd70a56	xfrm_policy_insert
+EXPORT_SYMBOL vmlinux 0xcfda4682	pv_mmu_ops
 EXPORT_SYMBOL vmlinux 0xcfeb91cd	i2c_smbus_write_byte_data
 EXPORT_SYMBOL vmlinux 0xcfee637a	tcp_v4_connect
 EXPORT_SYMBOL vmlinux 0xcff8a74e	nf_log_unregister
