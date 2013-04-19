@@ -8893,9 +8893,8 @@ static const struct intel_dmi_quirk intel_dmi_quirks[] = {
 };
 
 static struct intel_quirk intel_quirks[] = {
-	/* Dell XPS13 models */
+	/* Dell XPS13 SandyBridge */
 	{ 0x0116, 0x1028, 0x052e, quirk_no_pcm_pwm_enable },
-	{ 0x0166, 0x1028, 0x058b, quirk_no_pcm_pwm_enable },
 
 	/* HP Mini needs pipe A force quirk (LP: #322104) */
 	{ 0x27ae, 0x103c, 0x361a, quirk_pipea_force },
