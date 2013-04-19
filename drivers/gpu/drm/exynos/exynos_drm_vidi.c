@@ -90,7 +90,6 @@ static const struct of_device_id vidi_driver_dt_match[] = {
 	{ .compatible = "samsung,exynos-drm-vidi" },
 	{},
 };
-MODULE_DEVICE_TABLE(of, vidi_driver_dt_match);
 #endif
 
 static bool vidi_display_is_connected(struct device *dev)
