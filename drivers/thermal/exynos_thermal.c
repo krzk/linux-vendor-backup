@@ -38,6 +38,7 @@
 #include <linux/cpufreq.h>
 #include <linux/cpu_cooling.h>
 #include <linux/of.h>
+#include <linux/regulator/consumer.h>
 
 /* Exynos generic registers */
 #define EXYNOS_TMU_REG_TRIMINFO		0x0
@@ -116,6 +117,8 @@
 #define GET_TRIP(zone) (zone - 2)
 
 #define EXYNOS_ZONE_COUNT	3
+
+#define EXYNOS_TMU_REGULATOR "vdd_ts"
 
 struct exynos_tmu_data {
 	struct exynos_tmu_platform_data *pdata;
@@ -900,6 +903,7 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 {
 	struct exynos_tmu_data *data;
 	struct exynos_tmu_platform_data *pdata = pdev->dev.platform_data;
+	struct regulator *reg;
 	int ret, i;
 
 	if (!pdata)
@@ -909,6 +913,21 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "No platform init data supplied.\n");
 		return -ENODEV;
 	}
+
+	reg = regulator_get(&pdev->dev, EXYNOS_TMU_REGULATOR);
+	if (!IS_ERR(reg)) {
+		ret = regulator_enable(reg);
+		if (ret) {
+			dev_err(&pdev->dev, "Regulator %s not enabled.\n",
+				EXYNOS_TMU_REGULATOR);
+			return ret;
+		}
+	} else {
+		dev_warn(&pdev->dev,
+			 "Regulator %s not defined at device tree.\n",
+			 EXYNOS_TMU_REGULATOR);
+	}
+
 	data = devm_kzalloc(&pdev->dev, sizeof(struct exynos_tmu_data),
 					GFP_KERNEL);
 	if (!data) {
