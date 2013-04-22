@@ -5,3 +5,6 @@
 obj-$(CONFIG_MACH_HS_DT)	+= hs-dt.o system.o
 obj-$(CONFIG_SMP)		+= platsmp.o
 obj-$(CONFIG_HOTPLUG_CPU)	+= hotplug.o
+obj-$(CONFIG_PM)		+= pm.o
+obj-$(CONFIG_PM)		+= hilpm-cpugodp.o
+obj-$(CONFIG_PM)		+= lowpmregs.o

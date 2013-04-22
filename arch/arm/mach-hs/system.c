@@ -15,7 +15,7 @@
 
 #include "core.h"
 
-static void __iomem *hs_sctrl_base;
+void __iomem *hs_sctrl_base;
 static int hs_smp_reg;
 static int hs_resume_reg;
 static int hs_reboot_reg;
