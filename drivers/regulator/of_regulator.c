@@ -64,6 +64,26 @@ static void of_get_regulation_constraints(struct device_node *np,
 	ramp_delay = of_get_property(np, "regulator-ramp-delay", NULL);
 	if (ramp_delay)
 		constraints->ramp_delay = be32_to_cpu(*ramp_delay);
+
+	if (of_find_property(np, "regulator-mem-fast", NULL)) {
+		constraints->state_mem.enabled = true;
+		constraints->state_mem.mode = REGULATOR_MODE_FAST;
+	}
+
+	if (of_find_property(np, "regulator-mem-on", NULL)) {
+		constraints->state_mem.enabled = true;
+		constraints->state_mem.mode = REGULATOR_MODE_NORMAL;
+	}
+
+	if (of_find_property(np, "regulator-mem-idle", NULL)) {
+		constraints->state_mem.disabled = true;
+		constraints->state_mem.mode = REGULATOR_MODE_IDLE;
+	}
+
+	if (of_find_property(np, "regulator-mem-off", NULL)) {
+		constraints->state_mem.disabled = true;
+		constraints->state_mem.mode = REGULATOR_MODE_STANDBY;
+	}
 }
 
 /**
