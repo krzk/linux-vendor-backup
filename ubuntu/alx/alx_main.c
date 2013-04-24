@@ -1694,9 +1694,6 @@ static int alx_resume(struct device *dev)
 	struct alx_hw *hw = &adpt->hw;
 	int err;
 
-	if (!netif_running(netdev))
-		return 0;
-
 	pci_set_power_state(pdev, PCI_D0);
 	pci_restore_state(pdev);
 	pci_save_state(pdev);
