@@ -91,6 +91,22 @@ static int max77686_buck_set_suspend_disable(struct regulator_dev *rdev)
 	return 0;
 }
 
+static int max77686_buck_set_suspend_enable(struct regulator_dev *rdev)
+{
+	unsigned int val;
+	struct max77686_data *max77686 = rdev_get_drvdata(rdev);
+
+	if (rdev->desc->id == MAX77686_BUCK1)
+		val = MAX77686_OPMODE_MASK;
+	else
+		val = MAX77686_OPMODE_MASK << MAX77686_OPMODE_BUCK234_SHIFT;
+
+	max77686->opmode[rdev->desc->id] = val;
+	return regmap_update_bits(rdev->regmap, rdev->desc->enable_reg,
+				  rdev->desc->enable_mask,
+				  val);
+}
+
 /* Some LDOs supports [LPM/Normal]ON mode during suspend state */
 static int max77686_set_suspend_mode(struct regulator_dev *rdev,
 				     unsigned int mode)
@@ -226,6 +242,7 @@ static struct regulator_ops max77686_buck1_ops = {
 	.set_voltage_sel	= regulator_set_voltage_sel_regmap,
 	.set_voltage_time_sel	= regulator_set_voltage_time_sel,
 	.set_suspend_disable	= max77686_buck_set_suspend_disable,
+	.set_suspend_enable	= max77686_buck_set_suspend_enable,
 };
 
 static struct regulator_ops max77686_buck_dvs_ops = {
@@ -239,6 +256,7 @@ static struct regulator_ops max77686_buck_dvs_ops = {
 	.set_voltage_time_sel	= regulator_set_voltage_time_sel,
 	.set_ramp_delay		= max77686_set_ramp_delay,
 	.set_suspend_disable	= max77686_buck_set_suspend_disable,
+	.set_suspend_enable	= max77686_buck_set_suspend_enable,
 };
 
 #define regulator_desc_ldo(num)		{				\
