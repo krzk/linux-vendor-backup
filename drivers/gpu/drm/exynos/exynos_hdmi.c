@@ -45,6 +45,7 @@
 #include <linux/gpio.h>
 #include <media/s5p_hdmi.h>
 
+#define HOTPLUG_DEBOUNCE_MS	1100
 #define MAX_WIDTH		1920
 #define MAX_HEIGHT		1080
 #define get_hdmi_context(dev)	platform_get_drvdata(to_platform_device(dev))
@@ -165,6 +166,7 @@ struct hdmi_context {
 	void __iomem			*regs;
 	void				*parent_ctx;
 	int				irq;
+	struct delayed_work		hotplug_work;
 
 	struct i2c_client		*ddc_port;
 	struct i2c_client		*hdmiphy_port;
@@ -1951,6 +1953,8 @@ static void hdmi_poweroff(struct hdmi_context *hdata)
 	hdmiphy_conf_reset(hdata);
 	hdmiphy_poweroff(hdata);
 
+	cancel_delayed_work(&hdata->hotplug_work);
+
 	clk_disable(res->sclk_hdmi);
 	clk_disable(res->hdmi);
 	clk_disable(res->hdmiphy);
@@ -2001,10 +2005,12 @@ static struct exynos_hdmi_ops hdmi_ops = {
 	.dpms		= hdmi_dpms,
 };
 
-static irqreturn_t hdmi_irq_thread(int irq, void *arg)
+static void hdmi_hotplug_work_func(struct work_struct *work)
 {
-	struct exynos_drm_hdmi_context *ctx = arg;
-	struct hdmi_context *hdata = ctx->ctx;
+	struct hdmi_context *hdata = container_of(work, struct hdmi_context,
+						  hotplug_work.work);
+	struct exynos_drm_hdmi_context *ctx =
+		(struct exynos_drm_hdmi_context *) hdata->parent_ctx;
 
 	mutex_lock(&hdata->hdmi_mutex);
 	hdata->hpd = gpio_get_value(hdata->hpd_gpio);
@@ -2012,6 +2018,15 @@ static irqreturn_t hdmi_irq_thread(int irq, void *arg)
 
 	if (ctx->drm_dev)
 		drm_helper_hpd_irq_event(ctx->drm_dev);
+}
+
+static irqreturn_t hdmi_irq_thread(int irq, void *arg)
+{
+	struct exynos_drm_hdmi_context *ctx = arg;
+	struct hdmi_context *hdata = ctx->ctx;
+
+	mod_delayed_work(system_wq, &hdata->hotplug_work,
+				msecs_to_jiffies(HOTPLUG_DEBOUNCE_MS));
 
 	return IRQ_HANDLED;
 }
@@ -2206,6 +2221,7 @@ static int hdmi_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&hdata->hdmi_mutex);
+	INIT_DELAYED_WORK(&hdata->hotplug_work, hdmi_hotplug_work_func);
 
 	drm_hdmi_ctx->ctx = (void *)hdata;
 	hdata->parent_ctx = (void *)drm_hdmi_ctx;
@@ -2318,6 +2334,7 @@ static int hdmi_remove(struct platform_device *pdev)
 	pm_runtime_disable(dev);
 
 	free_irq(hdata->irq, hdata);
+	cancel_delayed_work_sync(&hdata->hotplug_work);
 
 
 	/* hdmiphy i2c driver */
