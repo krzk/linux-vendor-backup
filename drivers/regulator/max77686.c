@@ -113,13 +113,38 @@ static int max77686_set_suspend_mode(struct regulator_dev *rdev,
 {
 	struct max77686_data *max77686 = rdev_get_drvdata(rdev);
 	unsigned int val;
-	int ret, id = rdev_get_id(rdev);
-
-	/* BUCK[5-9] doesn't support this feature */
-	if (id >= MAX77686_BUCK5)
-		return 0;
 
 	switch (mode) {
+	case REGULATOR_MODE_IDLE:			/* ON in LP Mode */
+		val = 0x2 << MAX77686_OPMODE_SHIFT;
+		break;
+	case REGULATOR_MODE_NORMAL:			/* ON in Normal Mode */
+		val = 0x3 << MAX77686_OPMODE_SHIFT;
+		break;
+	default:
+		pr_warn("%s: regulator_suspend_mode : 0x%x not supported\n",
+			rdev->desc->name, mode);
+		return -EINVAL;
+	}
+
+	max77686->opmode[rdev->desc->id] = val;
+	return regmap_update_bits(rdev->regmap, rdev->desc->enable_reg,
+				  rdev->desc->enable_mask,
+				  val);
+}
+
+/* Some LDOs supports [LPM/Normal]ON mode during suspend state */
+static int max77686_ldo_en_set_suspend_mode(struct regulator_dev *rdev,
+				     unsigned int mode)
+{
+	struct max77686_data *max77686 = rdev_get_drvdata(rdev);
+	unsigned int val;
+	int ret, id = rdev_get_id(rdev);
+
+	switch (mode) {
+	case REGULATOR_MODE_STANDBY:		/* OFF when ENLDOx low */
+		val = 0x0 << MAX77686_OPMODE_SHIFT;
+		break;
 	case REGULATOR_MODE_IDLE:			/* ON in LP Mode */
 		val = 0x2 << MAX77686_OPMODE_SHIFT;
 		break;
@@ -220,6 +245,18 @@ static struct regulator_ops max77686_ops = {
 	.set_suspend_mode	= max77686_set_suspend_mode,
 };
 
+static struct regulator_ops max77686_ldo_en_ops = {
+	.list_voltage		= regulator_list_voltage_linear,
+	.map_voltage		= regulator_map_voltage_linear,
+	.is_enabled		= regulator_is_enabled_regmap,
+	.enable			= max77686_enable,
+	.disable		= regulator_disable_regmap,
+	.get_voltage_sel	= regulator_get_voltage_sel_regmap,
+	.set_voltage_sel	= regulator_set_voltage_sel_regmap,
+	.set_voltage_time_sel	= regulator_set_voltage_time_sel,
+	.set_suspend_mode	= max77686_ldo_en_set_suspend_mode,
+};
+
 static struct regulator_ops max77686_ldo_ops = {
 	.list_voltage		= regulator_list_voltage_linear,
 	.map_voltage		= regulator_map_voltage_linear,
@@ -259,10 +296,37 @@ static struct regulator_ops max77686_buck_dvs_ops = {
 	.set_suspend_enable	= max77686_buck_set_suspend_enable,
 };
 
+static struct regulator_ops max77686_buck_ops = {
+	.list_voltage		= regulator_list_voltage_linear,
+	.map_voltage		= regulator_map_voltage_linear,
+	.is_enabled		= regulator_is_enabled_regmap,
+	.enable			= max77686_enable,
+	.disable		= regulator_disable_regmap,
+	.get_voltage_sel	= regulator_get_voltage_sel_regmap,
+	.set_voltage_sel	= regulator_set_voltage_sel_regmap,
+	.set_voltage_time_sel	= regulator_set_voltage_time_sel,
+};
+
 #define regulator_desc_ldo(num)		{				\
 	.name		= "LDO"#num,					\
 	.id		= MAX77686_LDO##num,				\
 	.ops		= &max77686_ops,				\
+	.type		= REGULATOR_VOLTAGE,				\
+	.owner		= THIS_MODULE,					\
+	.min_uV		= MAX77686_LDO_MINUV,				\
+	.uV_step	= MAX77686_LDO_UVSTEP,				\
+	.ramp_delay	= MAX77686_RAMP_DELAY,				\
+	.n_voltages	= MAX77686_VSEL_MASK + 1,			\
+	.vsel_reg	= MAX77686_REG_LDO1CTRL1 + num - 1,		\
+	.vsel_mask	= MAX77686_VSEL_MASK,				\
+	.enable_reg	= MAX77686_REG_LDO1CTRL1 + num - 1,		\
+	.enable_mask	= MAX77686_OPMODE_MASK				\
+			<< MAX77686_OPMODE_SHIFT,			\
+}
+#define regulator_desc_ldo_en(num)		{				\
+	.name		= "LDO"#num,					\
+	.id		= MAX77686_LDO##num,				\
+	.ops		= &max77686_ldo_en_ops,				\
 	.type		= REGULATOR_VOLTAGE,				\
 	.owner		= THIS_MODULE,					\
 	.min_uV		= MAX77686_LDO_MINUV,				\
@@ -326,7 +390,22 @@ static struct regulator_ops max77686_buck_dvs_ops = {
 #define regulator_desc_buck(num)		{			\
 	.name		= "BUCK"#num,					\
 	.id		= MAX77686_BUCK##num,				\
-	.ops		= &max77686_ops,				\
+	.ops		= &max77686_buck_ops,				\
+	.type		= REGULATOR_VOLTAGE,				\
+	.owner		= THIS_MODULE,					\
+	.min_uV		= MAX77686_BUCK_MINUV,				\
+	.uV_step	= MAX77686_BUCK_UVSTEP,				\
+	.ramp_delay	= MAX77686_RAMP_DELAY,				\
+	.n_voltages	= MAX77686_VSEL_MASK + 1,			\
+	.vsel_reg	= MAX77686_REG_BUCK5OUT + (num - 5) * 2,	\
+	.vsel_mask	= MAX77686_VSEL_MASK,				\
+	.enable_reg	= MAX77686_REG_BUCK5CTRL + (num - 5) * 2,	\
+	.enable_mask	= MAX77686_OPMODE_MASK,				\
+}
+#define regulator_desc_buck89(num)		{			\
+	.name		= "BUCK"#num,					\
+	.id		= MAX77686_BUCK##num,				\
+	.ops		= &max77686_buck1_ops,				\
 	.type		= REGULATOR_VOLTAGE,				\
 	.owner		= THIS_MODULE,					\
 	.min_uV		= MAX77686_BUCK_MINUV,				\
@@ -390,9 +469,9 @@ static struct regulator_desc regulators[] = {
 	regulator_desc_ldo(17),
 	regulator_desc_ldo(18),
 	regulator_desc_ldo(19),
-	regulator_desc_ldo(20),
-	regulator_desc_ldo(21),
-	regulator_desc_ldo(22),
+	regulator_desc_ldo_en(20),
+	regulator_desc_ldo_en(21),
+	regulator_desc_ldo_en(22),
 	regulator_desc_ldo(23),
 	regulator_desc_ldo(24),
 	regulator_desc_ldo(25),
@@ -404,8 +483,8 @@ static struct regulator_desc regulators[] = {
 	regulator_desc_buck(5),
 	regulator_desc_buck(6),
 	regulator_desc_buck(7),
-	regulator_desc_buck(8),
-	regulator_desc_buck(9),
+	regulator_desc_buck89(8),
+	regulator_desc_buck89(9),
 };
 
 #ifdef CONFIG_OF
