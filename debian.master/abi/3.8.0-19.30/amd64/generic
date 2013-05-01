@@ -4489,6 +4489,7 @@ EXPORT_SYMBOL vmlinux 0x1ba6ff7c	get_phy_device
 EXPORT_SYMBOL vmlinux 0x1bac89d0	thaw_super
 EXPORT_SYMBOL vmlinux 0x1bafc0d6	seq_put_decimal_ull
 EXPORT_SYMBOL vmlinux 0x1bb40fbd	nla_reserve
+EXPORT_SYMBOL vmlinux 0x1bb7ed9c	file_ns_capable
 EXPORT_SYMBOL vmlinux 0x1bc19a50	blk_integrity_merge_rq
 EXPORT_SYMBOL vmlinux 0x1bc88786	inet_recvmsg
 EXPORT_SYMBOL vmlinux 0x1bd9fb54	ht_create_irq

@@ -8130,6 +8130,7 @@ EXPORT_SYMBOL vmlinux 0xf8c6ce66	blk_start_request
 EXPORT_SYMBOL vmlinux 0xf8efe146	block_commit_write
 EXPORT_SYMBOL vmlinux 0xf91d4345	request_key_with_auxdata
 EXPORT_SYMBOL vmlinux 0xf9348cbc	xz_dec_run
+EXPORT_SYMBOL vmlinux 0xf937c4d5	file_ns_capable
 EXPORT_SYMBOL vmlinux 0xf940a328	__next_cpu
 EXPORT_SYMBOL vmlinux 0xf9499c82	jbd2_journal_update_sb_errno
 EXPORT_SYMBOL vmlinux 0xf94c3c2f	bd_set_size

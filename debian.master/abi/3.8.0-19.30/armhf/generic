@@ -5106,6 +5106,7 @@ EXPORT_SYMBOL vmlinux 0xacd0a79a	of_gpio_named_count
 EXPORT_SYMBOL vmlinux 0xacd54376	dentry_update_name_case
 EXPORT_SYMBOL vmlinux 0xacddbaa3	mmc_try_claim_host
 EXPORT_SYMBOL vmlinux 0xacde6340	inet_peer_xrlim_allow
+EXPORT_SYMBOL vmlinux 0xacec9262	file_ns_capable
 EXPORT_SYMBOL vmlinux 0xacf4d843	match_strdup
 EXPORT_SYMBOL vmlinux 0xad026e4b	bio_integrity_prep
 EXPORT_SYMBOL vmlinux 0xad0413d4	match_hex
