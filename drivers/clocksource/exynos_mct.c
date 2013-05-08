@@ -25,6 +25,7 @@
 #include <linux/clocksource.h>
 
 #include <asm/localtimer.h>
+#include <asm/sched_clock.h>
 #include <asm/mach/time.h>
 
 #define EXYNOS4_MCTREG(x)		(x)
@@ -190,9 +191,16 @@ struct clocksource mct_frc = {
 	.resume		= exynos4_frc_resume,
 };
 
+static u32 notrace exynos4_mct_read_sched_clock(void)
+{
+	return __raw_readl(reg_base + EXYNOS4_MCT_G_CNT_L);
+}
+
 static void __init exynos4_clocksource_init(void)
 {
 	exynos4_mct_frc_start(0, 0);
+
+	setup_sched_clock(exynos4_mct_read_sched_clock, 32, clk_rate);
 
 	if (clocksource_register_hz(&mct_frc, clk_rate))
 		panic("%s: can't register clocksource\n", mct_frc.name);
