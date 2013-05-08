@@ -1307,8 +1307,7 @@ static int s3c24xx_serial_suspend(struct device *dev)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(dev);
 
-	if (port)
-		uart_suspend_port(&s3c24xx_uart_drv, port);
+	uart_suspend_port(&s3c24xx_uart_drv, port);
 
 	return 0;
 }
@@ -1318,13 +1317,11 @@ static int s3c24xx_serial_resume(struct device *dev)
 	struct uart_port *port = s3c24xx_dev_to_port(dev);
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
 
-	if (port) {
-		clk_prepare_enable(ourport->clk);
-		s3c24xx_serial_resetport(port, s3c24xx_port_to_cfg(port));
-		clk_disable_unprepare(ourport->clk);
+	clk_prepare_enable(ourport->clk);
+	s3c24xx_serial_resetport(port, s3c24xx_port_to_cfg(port));
+	clk_disable_unprepare(ourport->clk);
 
-		uart_resume_port(&s3c24xx_uart_drv, port);
-	}
+	uart_resume_port(&s3c24xx_uart_drv, port);
 
 	return 0;
 }
@@ -1333,16 +1330,14 @@ static int s3c24xx_serial_resume_noirq(struct device *dev)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(dev);
 
-	if (port) {
-		/* restore IRQ mask */
-		if (s3c24xx_serial_has_interrupt_mask(port)) {
-			unsigned int uintm = 0xf;
-			if (tx_enabled(port))
-				uintm &= ~S3C64XX_UINTM_TXD_MSK;
-			if (rx_enabled(port))
-				uintm &= ~S3C64XX_UINTM_RXD_MSK;
-			wr_regl(port, S3C64XX_UINTM, uintm);
-		}
+	/* restore IRQ mask */
+	if (s3c24xx_serial_has_interrupt_mask(port)) {
+		unsigned int uintm = 0xf;
+		if (tx_enabled(port))
+			uintm &= ~S3C64XX_UINTM_TXD_MSK;
+		if (rx_enabled(port))
+			uintm &= ~S3C64XX_UINTM_RXD_MSK;
+		wr_regl(port, S3C64XX_UINTM, uintm);
 	}
 
 	return 0;
