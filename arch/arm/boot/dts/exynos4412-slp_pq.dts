@@ -588,6 +588,22 @@
 		};	
 	};
 
+	i2c_fuel: i2c@1 {
+		compatible = "i2c-gpio";
+		gpios = <&gpf1 5 0
+			 &gpf1 4 0
+			>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		max17047@36 {
+			compatible = "maxim,max17047";
+			interrupt-parent = <&gpx2>;
+			interrupts = <3 2>;
+			reg = <0x36>;
+		};
+	};
+
 	lcd_vdd3_reg: voltage-regulator@1 {
 	        compatible = "regulator-fixed";
 		regulator-name = "LCD_VDD_2.2V";
