@@ -126,6 +126,7 @@ static int max17042_get_property(struct power_supply *psy,
 	struct max17042_chip *chip = container_of(psy,
 				struct max17042_chip, battery);
 	int ret;
+	u8 reg;
 
 	if (!chip->init_complete)
 		return -EAGAIN;
@@ -189,7 +190,12 @@ static int max17042_get_property(struct power_supply *psy,
 		val->intval = ret * 625 / 8;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
-		ret = max17042_read_reg(chip->client, MAX17042_RepSOC);
+		if (chip->pdata->enable_current_sense)
+			reg = MAX17042_RepSOC;
+		else
+			reg = MAX17042_VFSOC;		/* SOC from VFG */
+
+		ret = max17042_read_reg(chip->client, reg);
 		if (ret < 0)
 			return ret;
 
@@ -751,7 +757,7 @@ static int max17042_probe(struct i2c_client *client,
 	if (client->irq) {
 		ret = request_threaded_irq(client->irq, NULL,
 						max17042_thread_handler,
-						IRQF_TRIGGER_FALLING,
+						IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 						chip->battery.name, chip);
 		if (!ret) {
 			reg =  max17042_read_reg(client, MAX17042_CONFIG);
