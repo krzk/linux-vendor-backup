@@ -163,10 +163,19 @@
 		#size-cells = <0>;
 		status = "okay";
 
-		lps331ap@5D {
+		lps331ap@5d {
 			compatible = "lps331ap";
-			reg = <0x5D>;
-			gpios = <&gpf0 5 0>;
+			reg = <0x5d>;
+			gpios = <&gpf0 5 0>; /* Used only by legacy driver */
+			interrupt-parent = <&irq_map>;
+			interrupts = <0>, <1>;
+
+			irq_map: irq-map {
+				#interrupt-cells = <1>;
+				#address-cells = <0>;
+				#size-cells = <0>;
+				interrupt-map = <1 &gpf0 5 0>;
+			};
 		};
 	};
 
