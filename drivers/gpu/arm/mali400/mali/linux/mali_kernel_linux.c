@@ -17,6 +17,7 @@
 #include <linux/cdev.h>     /* character device definitions */
 #include <linux/mm.h>       /* memory manager definitions */
 #include <linux/mali/mali_utgard_ioctl.h>
+#include <linux/of.h>
 #include <linux/version.h>
 #include <linux/device.h>
 #include "mali_kernel_license.h"
@@ -95,11 +96,6 @@ MODULE_PARM_DESC(mali_max_pp_cores_group_2, "Limit the number of PP cores to use
 EXPORT_SYMBOL(mali_set_user_setting);
 EXPORT_SYMBOL(mali_get_user_setting);
 #if CONFIG_MALI_DVFS
-/* MALI_SEC */
-extern int mali_dvfs_control;
-module_param(mali_dvfs_control, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP| S_IROTH); /* rw-rw-r-- */
-MODULE_PARM_DESC(mali_dvfs_control, "Mali Current DVFS");
-
 #if 0
 extern int mali_gpu_clk;
 module_param(mali_gpu_clk, int, S_IRUSR | S_IRGRP | S_IROTH); /* r--r--r-- */
@@ -195,6 +191,7 @@ static struct platform_driver mali_platform_driver =
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,29))
 		.pm = &mali_dev_pm_ops,
 #endif
+		.of_match_table = of_match_ptr(mali_of_matches),
 	},
 };
 
@@ -302,6 +299,13 @@ static int mali_probe(struct platform_device *pdev)
 
 	mali_platform_device = pdev;
 
+	if (mali_platform_init() != _MALI_OSK_ERR_OK)
+	{
+		/* Platform-specific initialization failed, return error */
+		MALI_PRINT_ERROR(("mali_probe(): mali_platform_init() failed."));
+		return -EFAULT;
+	}
+
 	if (_MALI_OSK_ERR_OK == _mali_osk_wq_init())
 	{
 		/* Initialize the Mali GPU HW specified by pdev */
@@ -348,6 +352,7 @@ static int mali_remove(struct platform_device *pdev)
 	mali_miscdevice_unregister();
 	mali_terminate_subsystems();
 	_mali_osk_wq_term();
+	mali_platform_deinit();
 	mali_platform_device = NULL;
 	return 0;
 }

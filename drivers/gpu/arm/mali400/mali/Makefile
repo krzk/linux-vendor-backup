@@ -93,7 +93,6 @@ endif
 export CONFIG_MALI400=m
 
 ifneq ($(MALI_PLATFORM),)
-export EXTRA_DEFINES += -DMALI_FAKE_PLATFORM_DEVICE=1
 export MALI_PLATFORM_FILES = $(wildcard platform/$(MALI_PLATFORM)/*.c)
 endif
 
