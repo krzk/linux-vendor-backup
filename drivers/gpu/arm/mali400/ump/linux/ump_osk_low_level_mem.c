@@ -231,10 +231,7 @@ void _ump_osk_msync( ump_dd_mem * mem, void * virt, u32 offset, u32 size, ump_uk
 		/*  There is no dmac_clean_range, so the L1 is always flushed,
 		 *  also for UMP_MSYNC_CLEAN. */
 		/* MALI_SEC */
-		if (size >= SZ_64K)
-			flush_all_cpu_caches();
-		else
-			dmac_flush_range(start_v, end_v);
+		dmac_flush_range(start_v, end_v);
 
 		DBG_MSG(3, ("UMP[%02u] Flushing CPU L1 Cache. Cpu address: %x-%x\n", mem->secure_id, start_v,end_v));
 	}
