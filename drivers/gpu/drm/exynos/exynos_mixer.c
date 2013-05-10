@@ -1086,6 +1086,9 @@ static int mixer_resources_init(struct exynos_drm_hdmi_context *ctx,
 	}
 	mixer_res->irq = res->start;
 
+	clk_prepare(mixer_res->mixer);
+	clk_prepare(mixer_res->sclk_hdmi);
+
 	return 0;
 }
 
@@ -1113,9 +1116,6 @@ static int vp_resources_init(struct exynos_drm_hdmi_context *ctx,
 		return -ENODEV;
 	}
 
-	if (mixer_res->sclk_hdmi)
-		clk_set_parent(mixer_res->sclk_mixer, mixer_res->sclk_hdmi);
-
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (res == NULL) {
 		dev_err(dev, "get memory resource failed.\n");
@@ -1128,6 +1128,13 @@ static int vp_resources_init(struct exynos_drm_hdmi_context *ctx,
 		dev_err(dev, "register mapping failed.\n");
 		return -ENXIO;
 	}
+
+	clk_prepare(mixer_res->vp);
+	clk_prepare(mixer_res->sclk_mixer);
+	clk_prepare(mixer_res->sclk_dac);
+
+	if (mixer_res->sclk_hdmi)
+		clk_set_parent(mixer_res->sclk_mixer, mixer_res->sclk_hdmi);
 
 	return 0;
 }
@@ -1226,7 +1233,7 @@ static int mixer_probe(struct platform_device *pdev)
 		ret = vp_resources_init(drm_hdmi_ctx, pdev);
 		if (ret) {
 			DRM_ERROR("vp_resources_init failed\n");
-			goto fail;
+			goto out_vp;
 		}
 	}
 
@@ -1240,7 +1247,9 @@ static int mixer_probe(struct platform_device *pdev)
 
 	return 0;
 
-
+out_vp:
+	clk_unprepare(ctx->mixer_res.sclk_hdmi);
+	clk_unprepare(ctx->mixer_res.mixer);
 fail:
 	dev_info(dev, "probe failed\n");
 	return ret;
@@ -1248,9 +1257,22 @@ fail:
 
 static int mixer_remove(struct platform_device *pdev)
 {
+	struct exynos_drm_hdmi_context *drm_hdmi_ctx =
+			get_mixer_context(&pdev->dev);
+	struct mixer_context *ctx = drm_hdmi_ctx->ctx;
+
 	dev_info(&pdev->dev, "remove successful\n");
 
 	pm_runtime_disable(&pdev->dev);
+
+	clk_unprepare(ctx->mixer_res.mixer);
+	clk_unprepare(ctx->mixer_res.sclk_hdmi);
+
+	if (ctx->vp_enabled) {
+		clk_unprepare(ctx->mixer_res.vp);
+		clk_unprepare(ctx->mixer_res.sclk_mixer);
+		clk_unprepare(ctx->mixer_res.sclk_dac);
+	}
 
 	return 0;
 }
