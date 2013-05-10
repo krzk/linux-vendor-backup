@@ -41,7 +41,7 @@
 #include "mali_profiling_internal.h"
 #endif
 /* MALI_SEC */
-#include "../platform/pegasus-m400/exynos4_pmm.h"
+#include "../platform/exynos4/exynos4.h"
 
 /* Streamline support for the Mali driver */
 #if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_MALI400_PROFILING)
