@@ -555,7 +555,7 @@
 		max77693@66 {
 			compatible = "maxim,max77693";
 			interrupt-parent = <&gpx1>;
-			interrupts = <5 0>;
+			interrupts = <5 2>;
 			wakeup = <1>;
 			reg = <0x66>;
 
@@ -563,25 +563,18 @@
 				esafeout@1 {
 					regulator-compatible = "ESAFEOUT1";
 					regulator-name = "ESAFEOUT1";
-					regulator-min-microvolt = <4900000>;
-					regulator-max-microvolt = <4900000>;
+					regulator-boot-on;
 				};
 				esafeout@2 {
 					regulator-compatible = "ESAFEOUT2";
 					regulator-name = "ESAFEOUT2";
-					regulator-min-microvolt = <4900000>;
-					regulator-max-microvolt = <4900000>;
 				};
 				charger@0 {
 					regulator-compatible = "CHARGER";
 					regulator-name = "CHARGER";
-					regulator-min-microvolt = <100000>;
-					regulator-max-microvolt = <2100000>;
-					number-of-consumer-supplies = <1>;
-					consumer-suppilies@0 {
-						consumer-name = "vinchg1";
-						supply-name = "charger-manager.0";
-					};
+					regulator-min-microamp = <60000>;
+					regulator-max-microamp = <2580000>;
+					regulator-boot-on;
 				};
 			};
 			muic_regs {
