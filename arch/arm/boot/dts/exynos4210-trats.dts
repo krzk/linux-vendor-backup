@@ -117,6 +117,16 @@
 			gpio = <&gpe2 5 0>;
 			enable-active-high;
 		};
+
+		vt_core_15v_reg: regulator@5 {
+			compatible = "regulator-fixed";
+			reg = <5>;
+			regulator-name = "VT_CORE_1.5V";
+			regulator-min-microvolt = <1500000>;
+			regulator-max-microvolt = <1500000>;
+			gpio = <&gpe2 2 0>;
+			enable-active-high;
+		};
 	};
 
 	sdhci_emmc: sdhci@12510000 {
@@ -174,6 +184,32 @@
 			linux,code = <352>;
 			label = "ok";
 			debounce-interval = <10>;
+		};
+	};
+
+	i2c-gpio {
+		compatible = "i2c-gpio";
+		gpios = <&gpc1 0 0>, <&gpc1 2 0>;
+		i2c-gpio,delay-us = <2>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "okay";
+
+		s5k5bafx@2d {
+			compatible = "samsung,s5k5baf";
+			reg = <0x2d>;
+			vdda-supply = <&cam_io_en_reg>;
+			vdd_reg-supply = <&vt_core_15v_reg>;
+			vddio-supply = <&vtcam_reg>;
+			gpios = <&gpl2 1 1>,
+				<&gpl2 0 1>;
+			clock-frequency = <24000000>;
+
+			port {
+				s5k5bafx_ep: endpoint {
+					remote-endpoint = <&csis1_ep>;
+				};
+			};
 		};
 	};
 
@@ -319,6 +355,12 @@
 				     regulator-min-microvolt = <1100000>;
 				     regulator-max-microvolt = <1100000>;
 				     regulator-always-on;
+				};
+
+				vtcam_reg: LDO12 {
+				     regulator-name = "VT_CAM_1.8V";
+				     regulator-min-microvolt = <1800000>;
+				     regulator-max-microvolt = <1800000>;
 				};
 
 				vcclcd_reg: LDO13 {
@@ -509,6 +551,25 @@
 					remote-endpoint = <&m5mols_ep>;
 					data-lanes = <1 2>;
 					samsung,csis-hs-settle = <12>;
+				};
+			};
+		};
+
+		csis_1: csis@11890000 {
+			status = "okay";
+			vddcore-supply = <&vusb_reg>;
+			vddio-supply = <&vmipi_reg>;
+			clock-frequency = <160000000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* MIPI-CSIS1 */
+			port@4 {
+				reg = <4>;
+				csis1_ep: endpoint {
+					remote-endpoint = <&s5k5bafx_ep>;
+					data-lanes = <1>;
+					samsung,csis-hs-settle = <6>;
 				};
 			};
 		};
