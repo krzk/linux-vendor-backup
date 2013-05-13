@@ -2302,8 +2302,6 @@ error_isp:
 	isp_xclk_cleanup(isp);
 	omap3isp_put(isp);
 error:
-	platform_set_drvdata(pdev, NULL);
-
 	mutex_destroy(&isp->isp_mutex);
 
 	return ret;
