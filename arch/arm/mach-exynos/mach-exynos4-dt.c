@@ -68,6 +68,8 @@ static const struct of_dev_auxdata exynos4_auxdata_lookup[] __initconst = {
 				"s3c2440-i2c.6", NULL),
 	OF_DEV_AUXDATA("samsung,s3c2440-i2c", EXYNOS4_PA_IIC(7),
 				"s3c2440-i2c.7", NULL),
+	OF_DEV_AUXDATA("samsung,s3c2440-hdmiphy-i2c", EXYNOS4_PA_IIC(8),
+				"s3c2440-hdmiphy-i2c", NULL),
 	OF_DEV_AUXDATA("samsung,exynos4210-spi", EXYNOS4_PA_SPI0,
 				"exynos4210-spi.0", NULL),
 	OF_DEV_AUXDATA("samsung,exynos4210-spi", EXYNOS4_PA_SPI1,
@@ -113,6 +115,10 @@ static const struct of_dev_auxdata exynos4_auxdata_lookup[] __initconst = {
 			"exynos-sysmmu.14", NULL), /* FIMC-LITE0(4x12) */
 	OF_DEV_AUXDATA("samsung,exynos-sysmmu", 0x123C0000,
 			"exynos-sysmmu.15", NULL), /* FIMC-LITE1(4x12) */
+	OF_DEV_AUXDATA("samsung,exynos4-mixer", EXYNOS4_PA_MIXER,
+			"s5p-mixer", NULL),
+	OF_DEV_AUXDATA("samsung,exynos4-hdmi", EXYNOS4_PA_HDMI,
+			"exynos4-hdmi", NULL),
 	{},
 };
 

@@ -76,4 +76,18 @@
 		reg = <0x100C0000 0x100>;
 		interrupts = <2 4>;
 	};
+
+	hdmi {
+		compatible = "samsung,exynos4-hdmi";
+		reg = <0x12D00000 0x70000>;
+		interrupts = <0 92 0>;
+	};
+
+	mixer {
+		compatible = "samsung,exynos4-mixer";
+		reg = <0x12C10000 0x10000>, <0x12C00000 0x1000>;
+		reg-names = "mxr", "vp";
+		interrupts = <0 91 0>;
+		interrupt-names = "irq";
+	};
 };
