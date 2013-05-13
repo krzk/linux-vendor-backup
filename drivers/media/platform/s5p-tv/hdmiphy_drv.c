@@ -280,6 +280,25 @@ static const struct v4l2_subdev_ops hdmiphy_ops = {
 	.video = &hdmiphy_video_ops,
 };
 
+#ifdef CONFIG_OF
+static struct of_device_id hdmiphy_dt_match[] = {
+	{
+	.compatible = "samsung,s5pv210-hdmiphy",
+	.data	= (void	*)hdmiphy_conf_s5pv210,
+	}, {
+	.compatible = "samsung,exynos4-hdmiphy",
+	.data   = (void *)hdmiphy_conf_exynos4210,
+	}, {
+	.compatible = "samsung,exynos5-hdmiphy",
+	.data	= (void	*)hdmiphy_conf_exynos4212,
+	}, {
+		/* end node */
+	}
+};
+
+MODULE_DEVICE_TABLE(of, hdmiphy_dt_match);
+#endif
+
 static int hdmiphy_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
@@ -289,7 +308,16 @@ static int hdmiphy_probe(struct i2c_client *client,
 	if (!ctx)
 		return -ENOMEM;
 
-	ctx->conf_tab = (struct hdmiphy_conf *)id->driver_data;
+	if (client->dev.of_node) {
+		const struct of_device_id *match;
+		match = of_match_node(of_match_ptr(hdmiphy_dt_match),
+					client->dev.of_node);
+
+		ctx->conf_tab = (struct hdmiphy_conf *)match->data;
+	} else {
+		ctx->conf_tab = (struct hdmiphy_conf *)id->driver_data;
+	}
+
 	v4l2_i2c_subdev_init(&ctx->sd, client, &hdmiphy_ops);
 
 	dev_info(&client->dev, "probe successful\n");
@@ -316,14 +344,6 @@ static const struct i2c_device_id hdmiphy_id[] = {
 	{ },
 };
 MODULE_DEVICE_TABLE(i2c, hdmiphy_id);
-
-#ifdef CONFIG_OF
-static struct of_device_id hdmiphy_dt_match[] = {
-	{ .compatible = "samsung,s5pv210-hdmiphy" },
-	{ },
-};
-MODULE_DEVICE_TABLE(of, hdmiphy_dt_match);
-#endif
 
 static struct i2c_driver hdmiphy_driver = {
 	.driver = {
