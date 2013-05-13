@@ -31,6 +31,8 @@ struct pll_pms {
 	int s;
 	int k;
 	int afc;
+	int mfr;
+	int mrr;
 };
 
 #define F_OUT_INVAL ~0
@@ -39,7 +41,8 @@ extern struct clk * __init samsung_clk_register_pll35xx(const char *name,
 			const char *pname, const void __iomem *base_reg,
 			struct pll_pms *pms);
 extern struct clk * __init samsung_clk_register_pll36xx(const char *name,
-			const char *pname, const void __iomem *con_reg);
+			const char *pname, void __iomem *base,
+			struct pll_pms *pms);
 extern struct clk * __init samsung_clk_register_pll45xx(const char *name,
 			const char *pname, void __iomem *base_reg,
 			enum pll45xx_type type, struct pll_pms *pms);

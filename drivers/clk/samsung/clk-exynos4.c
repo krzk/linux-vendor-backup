@@ -1005,6 +1005,28 @@ struct pll_pms pll35xx_exynos4412_pms[] = {
 	{.f_out = F_OUT_INVAL},
 };
 
+static struct pll_pms exynos4_epll_pms[] = {
+	{ .p = 3, .m = 48, .s = 1, .k =     0 },
+	{ .p = 3, .m = 45, .s = 1, .k = 10381 },
+	{ .p = 3, .m = 45, .s = 1, .k =     0 },
+	{ .p = 3, .m = 73, .s = 3, .k = 47710 },
+	{ .p = 4, .m = 90, .s = 3, .k = 20762 },
+	{ .p = 3, .m = 49, .s = 3, .k =  9961 },
+	{ .p = 3, .m = 45, .s = 3, .k = 10381 },
+	{ .f_out = F_OUT_INVAL },
+};
+
+static struct pll_pms exynos4_vpll_pms[] = {
+	{ .p = 3, .m = 133, .s = 1, .k = 16384, .mrr =  0 },
+	{ .p = 3, .m = 110, .s = 1, .k =     0, .mrr =  0 },
+	{ .p = 3, .m = 175, .s = 2, .k =     0, .mrr =  0 },
+	{ .p = 3, .m = 133, .s = 2, .k =     0, .mrr =  0 },
+	{ .p = 3, .m = 160, .s = 3, .k =     0, .mrr =  0 },
+	{ .p = 3, .m =  53, .s = 2, .k =  1024, .mrr = 17 },
+	{ .p = 3, .m =  53, .s = 3, .k =  1024, .mrr = 17 },
+	{ .f_out = F_OUT_INVAL },
+};
+
 struct pll_pms pll45xx_exynos4210_pll45xx_pms[] = {
 	{.p =  6, .m = 250, .s = 1, .afc = 28}, /* 1000 MHz */
 	{.p =  6, .m = 200, .s = 1, .afc = 28}, /* 800 MHz */
@@ -1060,9 +1082,9 @@ void __init exynos4_clk_init(struct device_node *np, enum exynos4_soc exynos4_so
 		mpll = samsung_clk_register_pll35xx("fout_mpll", "fin_pll",
 			reg_base + E4X12_MPLL_LOCK, pll35xx_exynos4412_pms);
 		epll = samsung_clk_register_pll36xx("fout_epll", "fin_pll",
-					reg_base + EPLL_CON0);
+				reg_base + EPLL_LOCK, exynos4_epll_pms);
 		vpll = samsung_clk_register_pll36xx("fout_vpll", "fin_pll",
-					reg_base + VPLL_CON0);
+				reg_base + VPLL_LOCK, exynos4_vpll_pms);
 	}
 
 	samsung_clk_add_lookup(apll, fout_apll);
