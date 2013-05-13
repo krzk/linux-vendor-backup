@@ -960,7 +960,7 @@ static int bcap_probe(struct platform_device *pdev)
 	int ret;
 
 	config = pdev->dev.platform_data;
-	if (!config) {
+	if (!config || !config->num_inputs) {
 		v4l2_err(pdev->dev.driver, "Unable to get board config\n");
 		return -ENODEV;
 	}
@@ -1067,11 +1067,6 @@ static int bcap_probe(struct platform_device *pdev)
 						 NULL);
 	if (bcap_dev->sd) {
 		int i;
-		if (!config->num_inputs) {
-			v4l2_err(&bcap_dev->v4l2_dev,
-					"Unable to work without input\n");
-			goto err_unreg_vdev;
-		}
 
 		/* update tvnorms from the sub devices */
 		for (i = 0; i < config->num_inputs; i++)
@@ -1079,6 +1074,7 @@ static int bcap_probe(struct platform_device *pdev)
 	} else {
 		v4l2_err(&bcap_dev->v4l2_dev,
 				"Unable to register sub device\n");
+		ret = -ENODEV;
 		goto err_unreg_vdev;
 	}
 
