@@ -1064,8 +1064,13 @@ void __init exynos4_clk_init(struct device_node *np, enum exynos4_soc exynos4_so
 			ext_clk_match);
 
 	exynos4_clk_register_finpll(xom);
+	samsung_clk_register_fixed_rate(exynos4_fixed_rate_clks,
+			ARRAY_SIZE(exynos4_fixed_rate_clks));
 
 	if (exynos4_soc == EXYNOS4210) {
+		samsung_clk_register_mux(exynos4210_mux_clks,
+					ARRAY_SIZE(exynos4210_mux_clks));
+
 		apll = samsung_clk_register_pll45xx("fout_apll", "fin_pll",
 					reg_base + APLL_LOCK, pll_4508,
 					pll45xx_exynos4210_pll45xx_pms);
@@ -1092,8 +1097,6 @@ void __init exynos4_clk_init(struct device_node *np, enum exynos4_soc exynos4_so
 	samsung_clk_add_lookup(epll, fout_epll);
 	samsung_clk_add_lookup(vpll, fout_vpll);
 
-	samsung_clk_register_fixed_rate(exynos4_fixed_rate_clks,
-			ARRAY_SIZE(exynos4_fixed_rate_clks));
 	samsung_clk_register_mux(exynos4_mux_clks,
 			ARRAY_SIZE(exynos4_mux_clks));
 	samsung_clk_register_div(exynos4_div_clks,
@@ -1104,8 +1107,6 @@ void __init exynos4_clk_init(struct device_node *np, enum exynos4_soc exynos4_so
 	if (exynos4_soc == EXYNOS4210) {
 		samsung_clk_register_fixed_rate(exynos4210_fixed_rate_clks,
 			ARRAY_SIZE(exynos4210_fixed_rate_clks));
-		samsung_clk_register_mux(exynos4210_mux_clks,
-			ARRAY_SIZE(exynos4210_mux_clks));
 		samsung_clk_register_div(exynos4210_div_clks,
 			ARRAY_SIZE(exynos4210_div_clks));
 		samsung_clk_register_gate(exynos4210_gate_clks,
