@@ -1078,9 +1078,11 @@ void __init exynos4_clk_init(struct device_node *np, enum exynos4_soc exynos4_so
 					reg_base + E4210_MPLL_LOCK, pll_4508,
 					pll45xx_exynos4210_pll45xx_pms);
 		epll = samsung_clk_register_pll46xx("fout_epll", "fin_pll",
-					reg_base + EPLL_CON0, pll_4600);
+					reg_base + EPLL_LOCK, pll_4600,
+					exynos4_epll_pms);
 		vpll = samsung_clk_register_pll46xx("fout_vpll", "mout_vpllsrc",
-					reg_base + VPLL_CON0, pll_4650c);
+					reg_base + VPLL_LOCK, pll_4650c,
+					exynos4_vpll_pms);
 	} else {
 		apll = samsung_clk_register_pll35xx("fout_apll", "fin_pll",
 			reg_base + APLL_LOCK, pll35xx_exynos4412_pms);

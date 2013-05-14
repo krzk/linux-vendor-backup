@@ -47,8 +47,8 @@ extern struct clk * __init samsung_clk_register_pll45xx(const char *name,
 			const char *pname, void __iomem *base_reg,
 			enum pll45xx_type type, struct pll_pms *pms);
 extern struct clk * __init samsung_clk_register_pll46xx(const char *name,
-			const char *pname, const void __iomem *con_reg,
-			enum pll46xx_type type);
+			const char *pname, void __iomem *base,
+			enum pll46xx_type type, struct pll_pms *pms);
 extern struct clk * __init samsung_clk_register_pll2550x(const char *name,
 			const char *pname, const void __iomem *reg_base,
 			const unsigned long offset);
