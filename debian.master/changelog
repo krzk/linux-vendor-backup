@@ -1,3 +1,21 @@
+linux (3.8.0-21.32) raring-proposed; urgency=low
+
+  [Steve Conklin]
+
+  * Release Tracking Bug
+    - LP: #1180058
+  * Based on 3.8.0-19.30 release
+    - entire delta from 19.30 to 20.31 removed
+    - CVE release is based on updates+fix
+
+  [ Upstream Kernel Changes ]
+
+  * perf: Treat attr.config as u64 in perf_swevent_init()
+    - LP: #1179943
+    - CVE-2013-2094
+
+ -- Steve Conklin <sconklin@canonical.com>  Tue, 14 May 2013 14:19:21 -0500
+
 linux (3.8.0-20.31) raring; urgency=low
 
   [Brad Figg]
