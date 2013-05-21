@@ -37,7 +37,9 @@
 #include <linux/irq.h>
 #include <linux/gpio.h>
 #include <linux/delay.h>
+#ifdef CONFIG_HAS_WAKELOCK
 #include <linux/wakelock.h>
+#endif
 
 #include <linux/platform_data/modem.h>
 #include "modem_prj.h"
