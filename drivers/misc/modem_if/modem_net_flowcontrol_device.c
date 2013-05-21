@@ -113,5 +113,5 @@ static int __init modem_net_flowcontrol_device_init(void)
 
 module_init(modem_net_flowcontrol_device_init);
 
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("Samsung Modem IF Net Flowcontrol Driver");
+//MODULE_LICENSE("GPL");
+//MODULE_DESCRIPTION("Samsung Modem IF Net Flowcontrol Driver");
