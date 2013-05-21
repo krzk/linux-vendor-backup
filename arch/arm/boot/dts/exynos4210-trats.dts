@@ -19,6 +19,11 @@
 	model = "Samsung Trats based on Exynos4210";
 	compatible = "samsung,trats", "samsung,exynos4210";
 
+	aliases {
+		i2c8 = &i2c_s5k5baf;
+		i2c9 = &i2c_max17042;
+	};
+
 	memory {
 		reg =  <0x40000000 0x10000000
 			0x50000000 0x10000000
@@ -187,7 +192,7 @@
 		};
 	};
 
-	i2c-gpio {
+	i2c_s5k5baf: i2c-gpio {
 		compatible = "i2c-gpio";
 		gpios = <&gpc1 0 0>, <&gpc1 2 0>;
 		i2c-gpio,delay-us = <2>;
@@ -500,7 +505,7 @@
 		};
 	};
 
-	i2c-gpio-0 {
+	i2c_max17042: i2c-gpio-0 {
 		compatible = "i2c-gpio";
 		gpios = <&gpy4 0 0>, <&gpy4 1 0>;
 		i2c-gpio,delay-us = <5>;
