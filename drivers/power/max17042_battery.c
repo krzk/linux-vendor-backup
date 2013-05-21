@@ -70,8 +70,6 @@ struct max17042_chip {
 	struct power_supply battery;
 	enum max170xx_chip_type chip_type;
 	struct max17042_platform_data *pdata;
-	struct work_struct work;
-	int    init_complete;
 };
 
 static int max17042_write_reg(struct i2c_client *client, u8 reg, u16 value)
@@ -127,9 +125,6 @@ static int max17042_get_property(struct power_supply *psy,
 				struct max17042_chip, battery);
 	int ret;
 	u8 reg;
-
-	if (!chip->init_complete)
-		return -EAGAIN;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_PRESENT:
@@ -638,20 +633,18 @@ static irqreturn_t max17042_thread_handler(int id, void *dev)
 	return IRQ_HANDLED;
 }
 
-static void max17042_init_worker(struct work_struct *work)
+static int max17042_init_worker(struct max17042_chip *chip)
 {
-	struct max17042_chip *chip = container_of(work,
-				struct max17042_chip, work);
 	int ret;
 
 	/* Initialize registers according to values from the platform data */
 	if (chip->pdata->enable_por_init && chip->pdata->config_data) {
 		ret = max17042_init_chip(chip);
 		if (ret)
-			return;
+			return ret;
 	}
 
-	chip->init_complete = 1;
+	return 0;
 }
 
 #ifdef CONFIG_OF
@@ -748,12 +741,6 @@ static int max17042_probe(struct i2c_client *client,
 		max17042_write_reg(client, MAX17042_LearnCFG, 0x0007);
 	}
 
-	ret = power_supply_register(&client->dev, &chip->battery);
-	if (ret) {
-		dev_err(&client->dev, "failed: power supply register\n");
-		return ret;
-	}
-
 	if (client->irq) {
 		ret = request_threaded_irq(client->irq, NULL,
 						max17042_thread_handler,
@@ -773,13 +760,26 @@ static int max17042_probe(struct i2c_client *client,
 
 	reg = max17042_read_reg(chip->client, MAX17042_STATUS);
 	if (reg & STATUS_POR_BIT) {
-		INIT_WORK(&chip->work, max17042_init_worker);
-		schedule_work(&chip->work);
-	} else {
-		chip->init_complete = 1;
+		ret = max17042_init_worker(chip);
+		if (ret) {
+			dev_err(&client->dev, "failed: chip init\n");
+			goto err_irq;
+		}
+	}
+
+	ret = power_supply_register(&client->dev, &chip->battery);
+	if (ret) {
+		dev_err(&client->dev, "failed: power supply register\n");
+		goto err_irq;
 	}
 
 	return 0;
+
+err_irq:
+	if (client->irq)
+		free_irq(client->irq, chip);
+
+	return ret;
 }
 
 static int max17042_remove(struct i2c_client *client)
