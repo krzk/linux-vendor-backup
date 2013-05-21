@@ -1092,7 +1092,7 @@ static int s3c_fb_alloc_memory(struct s3c_fb *sfb, struct s3c_fb_win *win)
 	real_size = windata->xres * windata->yres;
 	virt_size = windata->virtual_x * windata->virtual_y;
 
-	dev_dbg(sfb->dev, "real_size=%u (%u.%u), virt_size=%u (%u.%u)\n",
+	dev_err(sfb->dev, "real_size=%u (%u.%u), virt_size=%u (%u.%u)\n",
 		real_size, windata->xres, windata->yres,
 		virt_size, windata->virtual_x, windata->virtual_y);
 
@@ -1103,14 +1103,14 @@ static int s3c_fb_alloc_memory(struct s3c_fb *sfb, struct s3c_fb_win *win)
 	fbi->fix.smem_len = size;
 	size = PAGE_ALIGN(size);
 
-	dev_dbg(sfb->dev, "want %u bytes for window\n", size);
+	dev_err(sfb->dev, "want %u bytes for window\n", size);
 
 	fbi->screen_base = dma_alloc_writecombine(sfb->dev, size,
 						  &map_dma, GFP_KERNEL);
 	if (!fbi->screen_base)
 		return -ENOMEM;
 
-	dev_dbg(sfb->dev, "mapped %x to %p\n",
+	dev_err(sfb->dev, "mapped %x to %p\n",
 		(unsigned int)map_dma, fbi->screen_base);
 
 	memset(fbi->screen_base, 0x0, size);
