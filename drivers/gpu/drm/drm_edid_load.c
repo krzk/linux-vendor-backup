@@ -166,12 +166,11 @@ static int edid_load(struct drm_connector *connector, char *name,
 		goto relfw_out;
 	}
 
-	edid = kmalloc(fwsize, GFP_KERNEL);
+	edid = kmemdup(fwdata, fwsize, GFP_KERNEL);
 	if (edid == NULL) {
 		err = -ENOMEM;
 		goto relfw_out;
 	}
-	memcpy(edid, fwdata, fwsize);
 
 	if (!drm_edid_block_valid(edid)) {
 		DRM_ERROR("Base block of EDID firmware \"%s\" is invalid ",
