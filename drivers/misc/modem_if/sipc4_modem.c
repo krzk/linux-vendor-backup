@@ -34,6 +34,8 @@
 #include <linux/wakelock.h>
 #endif
 #include <linux/rbtree.h>
+#include <linux/of.h>
+#include <linux/of_gpio.h>
 
 #include <linux/platform_data/modem.h>
 #include "modem_prj.h"
@@ -43,6 +45,100 @@
 #define FMT_WAKE_TIME   (HZ/2)
 #define RFS_WAKE_TIME   (HZ*3)
 #define RAW_WAKE_TIME   (HZ*6)
+
+
+/* umts target platform data */
+static struct modem_io_t umts_io_devices[] = {
+	[0] = {
+		.name = "umts_ipc0",
+		.id = 0x1,
+		.format = IPC_FMT,
+		.io_type = IODEV_MISC,
+		.links = LINKTYPE(LINKDEV_HSIC),
+	},
+	[1] = {
+		.name = "umts_rfs0",
+		.id = 0x41,
+		.format = IPC_RFS,
+		.io_type = IODEV_MISC,
+		.links = LINKTYPE(LINKDEV_HSIC),
+	},
+	[2] = {
+		.name = "umts_boot0",
+		.id = 0x0,
+		.format = IPC_BOOT,
+		.io_type = IODEV_MISC,
+		.links = LINKTYPE(LINKDEV_HSIC),
+	},
+	[3] = {
+		.name = "multipdp",
+		.id = 0x1,
+		.format = IPC_MULTI_RAW,
+		.io_type = IODEV_DUMMY,
+		.links = LINKTYPE(LINKDEV_HSIC),
+	},
+	[4] = {
+#ifdef CONFIG_SLP
+		.name = "pdp0",
+#else
+		.name = "rmnet0",
+#endif
+		.id = 0x2A,
+		.format = IPC_RAW,
+		.io_type = IODEV_NET,
+		.links = LINKTYPE(LINKDEV_HSIC),
+	},
+	[5] = {
+#ifdef CONFIG_SLP
+		.name = "pdp1",
+#else
+		.name = "rmnet1",
+#endif
+		.id = 0x2B,
+		.format = IPC_RAW,
+		.io_type = IODEV_NET,
+		.links = LINKTYPE(LINKDEV_HSIC),
+	},
+	[6] = {
+#ifdef CONFIG_SLP
+		.name = "pdp2",
+#else
+		.name = "rmnet2",
+#endif
+		.id = 0x2C,
+		.format = IPC_RAW,
+		.io_type = IODEV_NET,
+		.links = LINKTYPE(LINKDEV_HSIC),
+	},
+	[7] = {
+		.name = "umts_router",
+		.id = 0x39,
+		.format = IPC_RAW,
+		.io_type = IODEV_MISC,
+		.links = LINKTYPE(LINKDEV_HSIC),
+	},
+	[8] = {
+		.name = "umts_csd",
+		.id = 0x21,
+		.format = IPC_RAW,
+		.io_type = IODEV_MISC,
+		.links = LINKTYPE(LINKDEV_HSIC),
+	},
+	[9] = {
+		.name = "umts_ramdump0",
+		.id = 0x0,
+		.format = IPC_RAMDUMP,
+		.io_type = IODEV_MISC,
+		.links = LINKTYPE(LINKDEV_HSIC),
+	},
+	[10] = {
+		.name = "umts_loopback0",
+		.id = 0x3f,
+		.format = IPC_RAW,
+		.io_type = IODEV_MISC,
+		.links = LINKTYPE(LINKDEV_HSIC),
+	},
+};
 
 static struct modem_shared *create_modem_shared_data(void)
 {
@@ -243,13 +339,131 @@ static int attach_devices(struct io_device *iod, enum modem_link tx_link)
 	return 0;
 }
 
+static struct modem_data *modem_parse_dt(struct platform_device *pdev, struct device_node *np)
+{
+	struct modem_data *mc;
+	int err = 0;
+
+	mc = kzalloc(sizeof(struct modem_data), GFP_KERNEL);
+	if (!mc) {
+		mif_err("Insufficent memory to allocate struct modem_data\n");
+		err = -ENOMEM;
+		goto dt_parse_err;
+	}
+
+	mc->link_pm_data = kzalloc(sizeof(struct modemlink_pm_data), GFP_KERNEL);
+	if (!mc->link_pm_data) {
+		mif_err("Insufficent memory to allocate struct modem_data\n");
+		err = -ENOMEM;
+		goto dt_parse_err;
+	}
+
+	mc->gpio_reset_req_n = of_get_named_gpio(np, "reset-req-gpio", 0);
+	if (!gpio_is_valid(mc->gpio_reset_req_n)) {
+		mif_err("failed to get reset-req gpio\n");
+		err = -EINVAL;
+		goto dt_parse_err;
+	}
+
+	mc->gpio_cp_on = of_get_named_gpio(np, "cp-on-gpio", 0);
+	if (!gpio_is_valid(mc->gpio_cp_on)) {
+		mif_err("failed to get cp-on gpio\n");
+		err = -EINVAL;
+		goto dt_parse_err;
+	}
+
+	mc->gpio_cp_reset = of_get_named_gpio(np, "cp-reset-gpio", 0);
+	if (!gpio_is_valid(mc->gpio_cp_reset)) {
+		mif_err("failed to get cp-reset gpio\n");
+		err = -EINVAL;
+		goto dt_parse_err;
+	}
+
+	mc->gpio_pda_active = of_get_named_gpio(np, "pda-active-gpio", 0);
+	if (!gpio_is_valid(mc->gpio_pda_active)) {
+		mif_err("failed to get pda-active gpio\n");
+		err = -EINVAL;
+		goto dt_parse_err;
+	}
+
+	mc->gpio_phone_active = of_get_named_gpio(np, "phone-active-gpio", 0);
+	if (!gpio_is_valid(mc->gpio_phone_active)) {
+		mif_err("failed to get phone-active gpio\n");
+		err = -EINVAL;
+		goto dt_parse_err;
+	}
+
+	mc->gpio_cp_dump_int = of_get_named_gpio(np, "cp-dump-int-gpio", 0);
+	if (!gpio_is_valid(mc->gpio_cp_dump_int)) {
+		mif_err("failed to get cp-dump-int gpio\n");
+		err = -EINVAL;
+		goto dt_parse_err;
+	}
+
+	mc->link_pm_data->gpio_link_slavewake = of_get_named_gpio(np,
+						"link-slavewake-gpio", 0);
+	if (!gpio_is_valid(mc->link_pm_data->gpio_link_slavewake)) {
+		mif_err("failed to get link-slavewak gpio\n");
+		err = -EINVAL;
+		goto dt_parse_err;
+	}
+
+	mc->link_pm_data->gpio_link_hostwake = of_get_named_gpio(np,
+						"link-hostwake-gpio", 0);
+	if (!gpio_is_valid(mc->link_pm_data->gpio_link_hostwake)) {
+		mif_err("failed to get link-hostwake gpio\n");
+		err = -EINVAL;
+		goto dt_parse_err;
+	}
+
+	mc->link_pm_data->gpio_link_active = of_get_named_gpio(np, "link-active-gpio", 0);
+	if (!gpio_is_valid(mc->link_pm_data->gpio_link_active)) {
+		mif_err("failed to get link-active gpio\n");
+		err = -EINVAL;
+		goto dt_parse_err;
+	}
+
+	mc->link_pm_data->gpio_link_enable = of_get_named_gpio(np, "link-enable-gpio", 0);
+
+	/* link enable is optional */
+/*	if (!gpio_is_valid(mc->link_pm_data->gpio_link_enable)) {
+		mif_err("failed to get link-enable gpio\n");
+		return ERR_PTR(-EINVAL);
+	}*/
+
+	mc->link_pm_data->gpio_link_enable = 0;
+
+	devm_gpio_request(&pdev->dev, mc->gpio_reset_req_n, "gpio_reset_req_n");
+	devm_gpio_request(&pdev->dev, mc->gpio_cp_on, "gpio_cp_on");
+	devm_gpio_request(&pdev->dev, mc->gpio_cp_reset, "gpio_cp_reset");
+	devm_gpio_request(&pdev->dev, mc->gpio_pda_active, "gpio_pda_active");
+	devm_gpio_request(&pdev->dev, mc->gpio_phone_active, "gpio_phone_active");
+	devm_gpio_request(&pdev->dev, mc->gpio_cp_dump_int, "gpio_cp_dump_int");
+	devm_gpio_request(&pdev->dev, mc->link_pm_data->gpio_link_slavewake, "gpio_link_slavewake");
+	devm_gpio_request(&pdev->dev, mc->link_pm_data->gpio_link_hostwake, "gpio_link_hostwake");
+	devm_gpio_request(&pdev->dev, mc->link_pm_data->gpio_link_active, "gpio_link_active");
+	devm_gpio_request(&pdev->dev, mc->link_pm_data->gpio_link_enable, "gpio_link_enable");
+
+	platform_set_drvdata(pdev, mc);
+
+	return mc;
+
+dt_parse_err:
+	if (mc && mc->link_pm_data)
+		free(mc->link_pm_data);
+	if (mc)
+		free(mc);
+
+	return ERR_PTR(err);
+}
+
 static int modem_probe(struct platform_device *pdev)
 {
-	int i;
+	int i, ret;
 	struct modem_data *pdata = pdev->dev.platform_data;
 	struct modem_shared *msd = NULL;
 	struct modem_ctl *modemctl = NULL;
-	struct io_device *iod[pdata->num_iodevs];
+	struct io_device *iod[ARRAY_SIZE(umts_io_devices)];
 	struct link_device *ld;
 
 	mif_err("%s\n", pdev->name);
@@ -260,6 +474,22 @@ static int modem_probe(struct platform_device *pdev)
 		mif_err("msd == NULL\n");
 		goto err_free_modemctl;
 	}
+
+
+	pdata = modem_parse_dt(pdev, pdev->dev.of_node);
+	if (IS_ERR(pdata)) {
+		mif_err("Failed to parse device tree\n");
+		kfree(msd);
+		return -ENOMEM;
+	}
+
+	pdev->dev.platform_data = pdata;
+
+	pdata->num_iodevs = ARRAY_SIZE(umts_io_devices);
+	pdata->iodevs = umts_io_devices;
+	pdata->modem_type = 1;
+	pdata->name = "xmm6262";
+	pdata->link_types = LINKTYPE(LINKDEV_HSIC);
 
 	modemctl = create_modemctl_device(pdev, msd);
 	if (!modemctl) {
@@ -352,10 +582,17 @@ static const struct dev_pm_ops modem_pm_ops = {
 	.resume     = modem_resume,
 };
 
+static const struct of_device_id modem_of_match[] = {
+	{ .compatible = "samsung,modem_if" },
+	{},
+};
+MODULE_DEVICE_TABLE(of, modem_of_match);
+
 static struct platform_driver modem_driver = {
 	.probe = modem_probe,
 	.shutdown = modem_shutdown,
 	.driver = {
+		.of_match_table = modem_of_match,
 		.name = "modem_if",
 		.pm   = &modem_pm_ops,
 	},
