@@ -217,12 +217,13 @@ int xmm6262_init_modemctl_device(struct modem_ctl *mc,
 		goto err_phone_active_request_irq;
 	}
 
-	ret = enable_irq_wake(mc->irq_phone_active);
+/* not needed for suspend/resume */
+/*	ret = enable_irq_wake(mc->irq_phone_active);
 	if (ret) {
 		mif_err("failed to enable_irq_wake:%d\n", ret);
 		goto err_phone_active_set_wake_irq;
 	}
-
+*/
 	/* initialize sim_state if gpio_sim_detect exists */
 	mc->sim_state.online = false;
 	mc->sim_state.changed = false;

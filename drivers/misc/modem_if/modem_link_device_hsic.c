@@ -1555,11 +1555,11 @@ static int usb_link_pm_init(struct usb_link_device *usb_ld, void *data)
 		goto err_request_irq;
 	}
 
-	r = enable_irq_wake(pm_data->irq_link_hostwake);
+/*	r = enable_irq_wake(pm_data->irq_link_hostwake);
 	if (r) {
 		mif_err("failed to enable_irq_wake:%d\n", r);
 		goto err_set_wake_irq;
-	}
+	}*/
 
 	/* create work queue & init work for runtime pm */
 	pm_data->wq = create_singlethread_workqueue("linkpmd");
