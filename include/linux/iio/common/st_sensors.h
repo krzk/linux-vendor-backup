@@ -42,6 +42,13 @@
 #define ST_SENSORS_MAX_NAME			17
 #define ST_SENSORS_MAX_4WAI			7
 
+#define ST_SENSORS_INT_MAX			2
+#define ST_SENSORS_INT1				0
+#define ST_SENSORS_INT2				1
+#define ST_SENSORS_MAP_ONLY_DRDY_IRQ		1
+#define ST_SENSORS_MAP_ONLY_EVENT_IRQ		2
+
+
 #define ST_SENSORS_LSM_CHANNELS(device_type, index, mod, endian, bits, addr) \
 { \
 	.type = device_type, \
@@ -204,6 +211,7 @@ struct st_sensors {
  * @multiread_bit: Use or not particular bit for [I2C/SPI] multiread.
  * @buffer_data: Data used by buffer part.
  * @odr: Output data rate of the sensor [Hz].
+ * @irq_map: Container of mapped IRQs.
  * @get_irq_data_ready: Function to get the IRQ used for data ready signal.
  * @tf: Transfer function structure used by I/O operations.
  * @tb: Transfer buffers and mutex used by I/O operations.
@@ -220,6 +228,7 @@ struct st_sensor_data {
 	char *buffer_data;
 
 	unsigned int odr;
+	unsigned int irq_map[ST_SENSORS_INT_MAX];
 
 	unsigned int (*get_irq_data_ready) (struct iio_dev *indio_dev);
 
