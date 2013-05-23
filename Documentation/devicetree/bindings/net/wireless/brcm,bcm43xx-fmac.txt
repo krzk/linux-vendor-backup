@@ -1,0 +1,41 @@
+Broadcom BCM43xx-series FullMAC WLAN network adapter
+
+Required properties:
+- compatible: should be one of following:
+  - "brcm,bcm43143" - for BCM43134 chip,
+  - "brcm,bcm4324" - for BCM4324 chip,
+  - "brcm,bcm4329" - for BCM4329 chip,
+  - "brcm,bcm4330" - for BCM4330 chip,
+  - "brcm,bcm4334" - for BCM4334 chip,
+  - "brcm,bcm4335" - for BCM4335 chip.
+- wlan-supply: regulator used to control power of WLAN block of the chip.
+
+Optional properties:
+- interrupt-parent: interrupt controller to which the out-of-bound interrupt
+    signal of the chip (usually WL_HOST_WAKE pin) is connected.
+- interrupts: interrupt specifier of the out-of-bound interrupt in format
+    specific to interrupt controller specifiedy by interrupt-parent property.
+- clock-names: Should contain one clock entry - "32khz", which is the external
+    32768 Hz clock used by the chip.
+- clocks: Clock specifiers given in the same order as specified in clock-names
+    property.
+
+Example:
+
+	wlan_reg: voltage-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "WL_REG_ON";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&gpj0 0 0>;
+		enable-active-high;
+	};
+
+	wlan {
+		compatible = "brcm,bcm4334";
+		wlan-supply = <&wlan_reg>;
+		interrupt-parent = <&gpx2>;
+		interrupts = <5 4>;
+		clocks = <&max77686 2>;
+		clock-names = "32khz";
+	};

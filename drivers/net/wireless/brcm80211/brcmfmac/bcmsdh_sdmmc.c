@@ -16,17 +16,20 @@
 
 #include <linux/types.h>
 #include <linux/netdevice.h>
+#include <linux/clk-provider.h>
 #include <linux/mmc/sdio.h>
 #include <linux/mmc/core.h>
 #include <linux/mmc/sdio_func.h>
 #include <linux/mmc/sdio_ids.h>
 #include <linux/mmc/card.h>
+#include <linux/of.h>
 #include <linux/suspend.h>
 #include <linux/errno.h>
 #include <linux/sched.h>	/* request_irq() */
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/platform_data/brcmfmac-sdio.h>
+#include <linux/regulator/consumer.h>
 #include <net/cfg80211.h>
 
 #include <defs.h>
@@ -573,11 +576,73 @@ static struct sdio_driver brcmf_sdmmc_driver = {
 #endif	/* CONFIG_PM_SLEEP */
 };
 
+static struct regulator *brcmf_regulator;
+static struct clk *brcmf_clock;
+
+static void brcmf_generic_power_on(void)
+{
+	if (regulator_enable(brcmf_regulator) < 0)
+		pr_warn("%s: failed to enable regulator\n", __func__);
+	if (!IS_ERR(brcmf_clock))
+		clk_prepare_enable(brcmf_clock);
+}
+
+static void brcmf_generic_power_off(void)
+{
+	if (!IS_ERR(brcmf_clock))
+		clk_disable_unprepare(brcmf_clock);
+	regulator_disable(brcmf_regulator);
+}
+
+static void brcmf_generic_reset(void)
+{
+	brcmf_generic_power_off();
+	msleep(10);
+	brcmf_generic_power_on();
+}
+
+static struct brcmfmac_sdio_platform_data *brcmf_generic_pdata(
+						struct platform_device *pdev)
+{
+	struct brcmfmac_sdio_platform_data *pdata;
+	struct resource *res;
+
+	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata)
+		return pdata;
+
+	brcmf_regulator = devm_regulator_get(&pdev->dev, "wlan");
+	if (IS_ERR(brcmf_regulator))
+		return NULL;
+
+	brcmf_clock = devm_clk_get(&pdev->dev, "32khz");
+	if (IS_ERR(brcmf_clock))
+		dev_warn(&pdev->dev, "no 32khz clock provided, assuming always on\n");
+
+	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	if (res) {
+		pdata->oob_irq_supported = true;
+		pdata->oob_irq_nr = res->start;
+		pdata->oob_irq_flags = res->flags;
+	}
+
+	pdata->power_on = brcmf_generic_power_on;
+	pdata->power_off = brcmf_generic_power_off;
+	pdata->reset = brcmf_generic_reset;
+
+	return pdata;
+}
+
 static int brcmf_sdio_pd_probe(struct platform_device *pdev)
 {
 	brcmf_dbg(SDIO, "Enter\n");
 
 	brcmfmac_sdio_pdata = pdev->dev.platform_data;
+	if (!brcmfmac_sdio_pdata)
+		brcmfmac_sdio_pdata = brcmf_generic_pdata(pdev);
+
+	if (!brcmfmac_sdio_pdata)
+		return -EINVAL;
 
 	if (brcmfmac_sdio_pdata->power_on)
 		brcmfmac_sdio_pdata->power_on();
@@ -597,9 +662,22 @@ static int brcmf_sdio_pd_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static struct of_device_id brcmf_sdio_pd_of_match[] = {
+	{ .compatible = "brcm,bcm43143", },
+	{ .compatible = "brcm,bcm4324", },
+	{ .compatible = "brcm,bcm4329", },
+	{ .compatible = "brcm,bcm4330", },
+	{ .compatible = "brcm,bcm4334", },
+	{ .compatible = "brcm,bcm4335", },
+	{ /* sentinel */ }
+};
+#endif
+
 static struct platform_driver brcmf_sdio_pd = {
 	.remove		= brcmf_sdio_pd_remove,
 	.driver		= {
+		.of_match_table = of_match_ptr(brcmf_sdio_pd_of_match),
 		.name	= BRCMFMAC_SDIO_PDATA_NAME
 	}
 };
