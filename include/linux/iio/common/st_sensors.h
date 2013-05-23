@@ -14,6 +14,7 @@
 #include <linux/i2c.h>
 #include <linux/spi/spi.h>
 #include <linux/irqreturn.h>
+#include <linux/iio/events.h>
 #include <linux/iio/trigger.h>
 #include <linux/bitops.h>
 
@@ -22,6 +23,7 @@
 
 #define ST_SENSORS_ODR_LIST_MAX			10
 #define ST_SENSORS_FULLSCALE_AVL_MAX		10
+#define ST_SENSORS_EVENTS_MAX			10
 
 #define ST_SENSORS_NUMBER_ALL_CHANNELS		4
 #define ST_SENSORS_NUMBER_DATA_CHANNELS		3
@@ -48,6 +50,9 @@
 #define ST_SENSORS_MAP_ONLY_DRDY_IRQ		1
 #define ST_SENSORS_MAP_ONLY_EVENT_IRQ		2
 
+#define ST_SENSORS_LSM_EVENTS_MASK \
+		(IIO_EV_BIT(IIO_EV_TYPE_THRESH, IIO_EV_DIR_RISING) | \
+		IIO_EV_BIT(IIO_EV_TYPE_THRESH, IIO_EV_DIR_FALLING))
 
 #define ST_SENSORS_LSM_CHANNELS(device_type, index, mod, endian, bits, addr) \
 { \
@@ -56,6 +61,7 @@
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | \
 			BIT(IIO_CHAN_INFO_SCALE), \
 	.scan_index = index, \
+	.channel = mod, \
 	.channel2 = mod, \
 	.address = addr, \
 	.scan_type = { \
@@ -65,6 +71,7 @@
 		.storagebits = 16, \
 		.endianness = endian, \
 	}, \
+	.event_mask = ST_SENSORS_LSM_EVENTS_MASK, \
 }
 
 #define ST_SENSOR_DEV_ATTR_SAMP_FREQ() \
@@ -116,6 +123,12 @@ struct st_sensor_fullscale {
 	struct st_sensor_fullscale_avl fs_avl[ST_SENSORS_FULLSCALE_AVL_MAX];
 };
 
+struct st_sensor_register {
+	u8 addr;
+	u8 mask;
+	u8 val;
+};
+
 /**
  * struct st_sensor_bdu - ST sensor device block data update
  * @addr: address of the register.
@@ -142,6 +155,47 @@ struct st_sensor_data_ready_irq {
 		u8 en_mask;
 	} ig1;
 };
+
+/**
+ * struct st_sensor_event - event data.
+ * @bit: position of bit in status register related to event
+ * @chan: channel number.
+ * @chan_type: channel type.
+ * @modifier: modifier for the channel.
+ * @event_type: type of the event.
+ * @direction: direction of the event.
+ * @event_ths_reg:  represents the threshold
+ *	register of event.
+ */
+struct st_sensor_event {
+	u8 bit;
+	u8 chan;
+	enum iio_chan_type chan_type;
+	enum iio_modifier modifier;
+	enum iio_event_type event_type;
+	enum iio_event_direction direction;
+	struct st_sensor_register event_ths_reg;
+};
+
+/**
+ * struct st_sensor_event_irq -ST sensor event interrupt.
+ * @addr: address of the interrupt register.
+ * @mask: mask to write on/off value.
+ * @event_count: number of events declared in @events array.
+ * @ctrl_reg: represents the control register
+ *	of event system
+ * @status_reg: status register of event subsystem.
+ * @events array: of driver events declared by user
+ */
+struct st_sensor_event_irq {
+	u8 addr;
+	u8 mask;
+	u8 event_count;
+	struct st_sensor_register ctrl_reg;
+	struct st_sensor_register status_reg;
+	struct st_sensor_event events[ST_SENSORS_EVENTS_MAX];
+};
+
 
 /**
  * struct st_sensor_transfer_buffer - ST sensor device I/O buffer
@@ -184,6 +238,7 @@ struct st_sensor_transfer_function {
  * @fs: Full scale register and full scale list available.
  * @bdu: Block data update register.
  * @drdy_irq: Data ready register of the sensor.
+ * @event_irq: Event register of the sensor
  * @multi_read_bit: Use or not particular bit for [I2C/SPI] multi-read.
  * @bootime: samples to discard when sensor passing from power-down to power-up.
  */
@@ -197,6 +252,7 @@ struct st_sensors {
 	struct st_sensor_fullscale fs;
 	struct st_sensor_bdu bdu;
 	struct st_sensor_data_ready_irq drdy_irq;
+	struct st_sensor_event_irq event_irq;
 	bool multi_read_bit;
 	unsigned int bootime;
 };
@@ -211,8 +267,10 @@ struct st_sensors {
  * @multiread_bit: Use or not particular bit for [I2C/SPI] multiread.
  * @buffer_data: Data used by buffer part.
  * @odr: Output data rate of the sensor [Hz].
+ * @events_flag: Data used by event part.
  * @irq_map: Container of mapped IRQs.
  * @get_irq_data_ready: Function to get the IRQ used for data ready signal.
+ * @get_irq_event: Function to get the IRQ used for event signal.
  * @tf: Transfer function structure used by I/O operations.
  * @tb: Transfer buffers and mutex used by I/O operations.
  */
@@ -228,9 +286,11 @@ struct st_sensor_data {
 	char *buffer_data;
 
 	unsigned int odr;
+	unsigned int events_flag;
 	unsigned int irq_map[ST_SENSORS_INT_MAX];
 
 	unsigned int (*get_irq_data_ready) (struct iio_dev *indio_dev);
+	unsigned int (*get_irq_event) (struct iio_dev *indio_dev);
 
 	const struct st_sensor_transfer_function *tf;
 	struct st_sensor_transfer_buffer tb;
@@ -290,4 +350,19 @@ ssize_t st_sensors_sysfs_sampling_frequency_avail(struct device *dev,
 ssize_t st_sensors_sysfs_scale_avail(struct device *dev,
 				struct device_attribute *attr, char *buf);
 
+int st_sensors_read_event_config(struct iio_dev *indio_dev,
+				u64 event_code);
+
+int st_sensors_write_event_config(struct iio_dev *indio_dev,
+				  u64 event_code, int state);
+
+int st_sensors_read_event_value(struct iio_dev *indio_dev,
+				  u64 event_code, int *val);
+
+int st_sensors_write_event_value(struct iio_dev *indio_dev,
+				  u64 event_code, int val);
+
+int st_sensors_request_event_irq(struct iio_dev *indio_dev);
+
+int st_sensors_enable_events(struct iio_dev *indio_dev);
 #endif /* ST_SENSORS_H */

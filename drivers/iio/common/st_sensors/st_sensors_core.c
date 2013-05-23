@@ -13,7 +13,9 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/iio/iio.h>
+#include <linux/iio/events.h>
 #include <asm/unaligned.h>
+#include <linux/interrupt.h>
 
 #include <linux/iio/common/st_sensors.h>
 
@@ -441,6 +443,217 @@ ssize_t st_sensors_sysfs_scale_avail(struct device *dev,
 	return len;
 }
 EXPORT_SYMBOL(st_sensors_sysfs_scale_avail);
+
+static struct st_sensor_event *st_sensor_find_event_data(struct
+		st_sensor_data * sdata, u64 event_code)
+{
+	int i;
+	int mod = IIO_EVENT_CODE_EXTRACT_MODIFIER(event_code);
+	int type = IIO_EVENT_CODE_EXTRACT_TYPE(event_code);
+	int chan_type = IIO_EVENT_CODE_EXTRACT_CHAN_TYPE(event_code);
+	int dir = IIO_EVENT_CODE_EXTRACT_DIR(event_code);
+	struct st_sensor_event_irq *irq = &sdata->sensor->event_irq;
+	struct st_sensor_event *event;
+
+	if (irq->event_count == 0)
+		return NULL;
+
+	for (i = 0; i < irq->event_count; i++) {
+		event = &irq->events[i];
+
+		if (event->modifier == mod &&
+			event->event_type == type &&
+			event->direction == dir &&
+			event->chan_type == chan_type)
+				return event;
+	}
+
+	return NULL;
+}
+
+int st_sensors_read_event_config(struct iio_dev *indio_dev,
+				u64 event_code)
+{
+	struct st_sensor_data *sdata  = iio_priv(indio_dev);
+	struct st_sensor_event *event =
+		st_sensor_find_event_data(sdata, event_code);
+
+	if (event)
+		return (bool)(sdata->events_flag & (1 << event->bit));
+
+	return -EINVAL;
+}
+EXPORT_SYMBOL(st_sensors_read_event_config);
+
+int st_sensors_write_event_config(struct iio_dev *indio_dev,
+				  u64 event_code,
+				  int state)
+{
+	struct st_sensor_data *sdata = iio_priv(indio_dev);
+	struct st_sensor_event *event =
+		st_sensor_find_event_data(sdata, event_code);
+	int unsigned mask;
+	int err = -EINVAL;
+
+	mutex_lock(&indio_dev->mlock);
+
+	if (!event)
+		goto error;
+
+	mask = (1 << event->bit);
+	err =  st_sensors_write_data_with_mask(indio_dev,
+			sdata->sensor->event_irq.ctrl_reg.addr,
+			mask, (bool)state);
+	if (err < 0)
+		goto error;
+
+	if (state)
+		sdata->events_flag |= mask;
+	else
+		sdata->events_flag &= ~mask;
+
+	mutex_unlock(&indio_dev->mlock);
+
+	return 0;
+
+error:
+	mutex_unlock(&indio_dev->mlock);
+	return err;
+}
+EXPORT_SYMBOL(st_sensors_write_event_config);
+
+int st_sensors_read_event_value(struct iio_dev *indio_dev,
+				  u64 event_code,
+				  int *val)
+{
+	struct st_sensor_data *sdata = iio_priv(indio_dev);
+	struct st_sensor_event *event =
+		st_sensor_find_event_data(sdata, event_code);
+	u8 byte;
+	int err;
+
+	if (!event)
+		goto error;
+
+	mutex_lock(&indio_dev->mlock);
+
+	err = sdata->tf->read_byte(&sdata->tb, sdata->dev,
+			event->event_ths_reg.addr, &byte);
+	if (!err)
+		*val = byte;
+
+	mutex_unlock(&indio_dev->mlock);
+	return err;
+
+error:
+	return -EINVAL;
+
+}
+EXPORT_SYMBOL(st_sensors_read_event_value);
+
+int st_sensors_write_event_value(struct iio_dev *indio_dev,
+				  u64 event_code,
+				  int val)
+{
+	struct st_sensor_data *sdata = iio_priv(indio_dev);
+	struct st_sensor_event *event =
+		st_sensor_find_event_data(sdata, event_code);
+	int err;
+
+	if (!event)
+		goto error;
+
+	mutex_lock(&indio_dev->mlock);
+
+	err =  st_sensors_write_data_with_mask(indio_dev,
+			event->event_ths_reg.addr,
+			event->event_ths_reg.mask,
+			(u8)val);
+
+	mutex_unlock(&indio_dev->mlock);
+
+	return err;
+error:
+	return -EINVAL;
+
+}
+EXPORT_SYMBOL(st_sensors_write_event_value);
+
+static irqreturn_t st_sensor_event_handler(int irq, void *private)
+{
+	struct iio_dev *indio_dev = private;
+	struct st_sensor_data *sdata = iio_priv(indio_dev);
+	struct st_sensor_event_irq *irq_data =
+		&sdata->sensor->event_irq;
+	struct st_sensor_event *event;
+	s64 timestamp = iio_get_time_ns();
+	u8 status, mask, i;
+	int err = -EIO;
+
+	if (sdata)
+		err = sdata->tf->read_byte(&sdata->tb,
+				sdata->dev,
+				irq_data->status_reg.addr,
+				&status);
+
+	if (err < 0)
+		goto exit;
+
+	for (i = 0; i < irq_data->event_count; i++) {
+		event = &irq_data->events[i];
+		mask = (1 << event->bit);
+		if (status & mask)
+			iio_push_event(indio_dev,
+				IIO_MOD_EVENT_CODE(event->chan_type,
+					0,
+					event->modifier,
+					event->event_type,
+					event->direction),
+				timestamp);
+	}
+
+exit:
+
+	return IRQ_HANDLED;
+}
+
+int st_sensors_request_event_irq(struct iio_dev *indio_dev)
+{
+	int err;
+	struct st_sensor_data *sdata = iio_priv(indio_dev);
+
+	err = request_threaded_irq(sdata->get_irq_event(indio_dev),
+			NULL,
+			st_sensor_event_handler,
+			IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+			dev_name(&indio_dev->dev),
+			indio_dev);
+
+	return err;
+}
+
+int st_sensors_enable_events(struct iio_dev *indio_dev)
+{
+	int err;
+	struct st_sensor_data *sdata = iio_priv(indio_dev);
+	struct st_sensor_event_irq *irq = &sdata->sensor->event_irq;
+
+	err = st_sensors_write_data_with_mask(indio_dev,
+			irq->addr,
+			irq->mask,
+			1);
+
+	if (err < 0)
+		goto error;
+
+	err = st_sensors_write_data_with_mask(indio_dev,
+			irq->ctrl_reg.addr,
+			irq->ctrl_reg.mask,
+			irq->ctrl_reg.val);
+error:
+	return err;
+}
+EXPORT_SYMBOL(st_sensors_enable_events);
 
 MODULE_AUTHOR("Denis Ciocca <denis.ciocca@st.com>");
 MODULE_DESCRIPTION("STMicroelectronics ST-sensors core");

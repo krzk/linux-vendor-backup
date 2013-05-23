@@ -28,6 +28,13 @@ static unsigned int st_sensors_spi_get_data_rdy_irq(struct iio_dev *indio_dev)
 	return sdata->irq_map[ST_SENSORS_INT1];
 }
 
+static unsigned int st_sensors_spi_get_event_irq(struct iio_dev *indio_dev)
+{
+	struct st_sensor_data *sdata = iio_priv(indio_dev);
+
+	return sdata->irq_map[ST_SENSORS_INT2];
+}
+
 static void st_sensors_spi_map_irqs(struct spi_device *spi,
 		struct iio_dev *indio_dev)
 {
@@ -140,6 +147,7 @@ void st_sensors_spi_configure(struct iio_dev *indio_dev,
 
 	st_sensors_spi_map_irqs(spi, indio_dev);
 	sdata->get_irq_data_ready = st_sensors_spi_get_data_rdy_irq;
+	sdata->get_irq_event = st_sensors_spi_get_event_irq;
 }
 EXPORT_SYMBOL(st_sensors_spi_configure);
 
