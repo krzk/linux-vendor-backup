@@ -450,9 +450,9 @@ static struct modem_data *modem_parse_dt(struct platform_device *pdev, struct de
 
 dt_parse_err:
 	if (mc && mc->link_pm_data)
-		free(mc->link_pm_data);
+		kfree(mc->link_pm_data);
 	if (mc)
-		free(mc);
+		kfree(mc);
 
 	return ERR_PTR(err);
 }

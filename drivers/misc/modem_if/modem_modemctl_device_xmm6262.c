@@ -23,8 +23,51 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <plat/devs.h>
+#include <plat/gpio-cfg.h>
 #include <linux/platform_data/modem.h>
 #include "modem_prj.h"
+
+static void xmm_gpio_revers_bias_clear(struct modem_ctl *mc)
+{
+	gpio_direction_output(mc->gpio_pda_active, 0);
+	gpio_direction_output(mc->gpio_phone_active, 0);
+	gpio_direction_output(mc->gpio_cp_dump_int, 0);
+	gpio_direction_output(mc->mdm_data->link_pm_data->gpio_link_active, 0);
+	gpio_direction_output(mc->mdm_data->link_pm_data->gpio_link_hostwake, 0);
+	gpio_direction_output(mc->mdm_data->link_pm_data->gpio_link_slavewake, 0);
+
+	gpio_direction_output(mc->gpio_reset_req_n, 0); /* added by K */
+	gpio_direction_output(mc->gpio_cp_on, 0); /* added by K */
+	gpio_direction_output(mc->gpio_cp_reset, 0); /* added by K */
+
+/*
+	if (umts_modem_data.gpio_sim_detect)
+		gpio_direction_output(umts_modem_data.gpio_sim_detect, 0);
+*/
+
+	msleep(20);
+}
+
+static void xmm_gpio_revers_bias_restore(struct modem_ctl *mc)
+{
+/*
+	unsigned gpio_sim_detect = umts_modem_data.gpio_sim_detect;
+*/
+
+	s3c_gpio_cfgpin(mc->gpio_phone_active, S3C_GPIO_SFN(0xF));
+	s3c_gpio_cfgpin(mc->mdm_data->link_pm_data->gpio_link_hostwake,
+		S3C_GPIO_SFN(0xF));
+	gpio_direction_input(mc->gpio_cp_dump_int);
+
+/*	if (gpio_sim_detect) {
+		gpio_direction_input(gpio_sim_detect);
+		s3c_gpio_cfgpin(gpio_sim_detect, S3C_GPIO_SFN(0xF));
+		s3c_gpio_setpull(gpio_sim_detect, S3C_GPIO_PULL_NONE);
+		irq_set_irq_type(gpio_to_irq(gpio_sim_detect),
+				IRQ_TYPE_EDGE_BOTH);
+		enable_irq_wake(gpio_to_irq(gpio_sim_detect));
+	} */
+}
 
 static int xmm6262_on(struct modem_ctl *mc)
 {
@@ -35,8 +78,7 @@ static int xmm6262_on(struct modem_ctl *mc)
 		return -ENXIO;
 	}
 
-	if (mc->gpio_revers_bias_clear)
-		mc->gpio_revers_bias_clear();
+	xmm_gpio_revers_bias_clear(mc);
 
 	/* TODO */
 	gpio_set_value(mc->gpio_reset_req_n, 0);
@@ -52,8 +94,9 @@ static int xmm6262_on(struct modem_ctl *mc)
 	udelay(60);
 	gpio_set_value(mc->gpio_cp_on, 0);
 	msleep(20);
-	if (mc->gpio_revers_bias_restore)
-		mc->gpio_revers_bias_restore();
+
+	xmm_gpio_revers_bias_restore(mc);
+
 	gpio_set_value(mc->gpio_pda_active, 1);
 
 	mc->phone_state = STATE_BOOTING;
@@ -83,8 +126,7 @@ static int xmm6262_reset(struct modem_ctl *mc)
 	if (!mc->gpio_cp_reset || !mc->gpio_reset_req_n)
 		return -ENXIO;
 
-	if (mc->gpio_revers_bias_clear)
-		mc->gpio_revers_bias_clear();
+	xmm_gpio_revers_bias_clear(mc);
 
 	gpio_set_value(mc->gpio_cp_reset, 0);
 	gpio_set_value(mc->gpio_reset_req_n, 0);
@@ -105,8 +147,20 @@ static int xmm6262_reset(struct modem_ctl *mc)
 	gpio_set_value(mc->gpio_cp_on, 0);
 	msleep(20);
 
-	if (mc->gpio_revers_bias_restore)
-		mc->gpio_revers_bias_restore();
+	xmm_gpio_revers_bias_restore(mc);
+
+/* vvv added by Kamil */
+	gpio_direction_input(mc->mdm_data->link_pm_data->gpio_link_hostwake);
+	gpio_direction_input(mc->gpio_phone_active);
+	gpio_direction_input(mc->gpio_cp_dump_int);
+
+	gpio_set_value(mc->gpio_pda_active, 1);
+
+	msleep(10);
+
+	gpio_set_value(mc->mdm_data->link_pm_data->gpio_link_active, 1);
+	gpio_set_value(mc->mdm_data->link_pm_data->gpio_link_slavewake, 1);
+/* ^^^ added by Kamil */
 
 	mc->phone_state = STATE_BOOTING;
 
