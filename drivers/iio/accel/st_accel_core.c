@@ -19,6 +19,7 @@
 #include <linux/gpio.h>
 #include <linux/irq.h>
 #include <linux/iio/iio.h>
+#include <linux/iio/events.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/trigger.h>
 #include <linux/iio/buffer.h>
@@ -65,6 +66,20 @@
 #define ST_ACCEL_1_DRDY_IRQ_ADDR		0x22
 #define ST_ACCEL_1_DRDY_IRQ_MASK		0x10
 #define ST_ACCEL_1_MULTIREAD_BIT		true
+#define ST_ACCEL_1_EVENT_IRQ_ADDR		0x22
+#define ST_ACCEL_1_EVENT_IRQ_MASK		0x40
+#define ST_ACCEL_1_EVENT_CTRL_REG		0x30
+#define ST_ACCEL_1_EVENT_CTRL_MASK		0xc0
+#define ST_ACCEL_1_EVENT_CTRL_DEFAULT_VAL	0x01
+#define ST_ACCEL_1_THS_REG			0x32
+#define ST_ACCEL_1_EVENT_STATUS_REG		0x31
+#define ST_ACCEL_1_EVENT_STATUS_REG_MASK	0x7f
+#define ST_ACCEL_1_INT1_XL			0
+#define ST_ACCEL_1_INT1_XH			1
+#define ST_ACCEL_1_INT1_YL			2
+#define ST_ACCEL_1_INT1_YH			3
+#define ST_ACCEL_1_INT1_ZL			4
+#define ST_ACCEL_1_INT1_ZH			5
 
 /* CUSTOM VALUES FOR SENSOR 2 */
 #define ST_ACCEL_2_WAI_EXP			0x32
@@ -89,6 +104,20 @@
 #define ST_ACCEL_2_DRDY_IRQ_ADDR		0x22
 #define ST_ACCEL_2_DRDY_IRQ_MASK		0x02
 #define ST_ACCEL_2_MULTIREAD_BIT		true
+#define ST_ACCEL_2_EVENT_IRQ_ADDR		0x22
+#define ST_ACCEL_2_EVENT_IRQ_MASK		0x01
+#define ST_ACCEL_2_EVENT_CTRL_REG		0x30
+#define ST_ACCEL_2_EVENT_CTRL_MASK		0xc0
+#define ST_ACCEL_2_EVENT_CTRL_DEFAULT_VAL	0x01
+#define ST_ACCEL_2_THS_REG			0x32
+#define ST_ACCEL_2_EVENT_STATUS_REG		0x31
+#define ST_ACCEL_2_EVENT_STATUS_REG_MASK	0x7f
+#define ST_ACCEL_2_INT1_XL			0
+#define ST_ACCEL_2_INT1_XH			1
+#define ST_ACCEL_2_INT1_YL			2
+#define ST_ACCEL_2_INT1_YH			3
+#define ST_ACCEL_2_INT1_ZL			4
+#define ST_ACCEL_2_INT1_ZH			5
 
 /* CUSTOM VALUES FOR SENSOR 3 */
 #define ST_ACCEL_3_WAI_EXP			0x40
@@ -123,6 +152,20 @@
 #define ST_ACCEL_3_IG1_EN_ADDR			0x23
 #define ST_ACCEL_3_IG1_EN_MASK			0x08
 #define ST_ACCEL_3_MULTIREAD_BIT		false
+
+#define ST_SENSORS_LSM_ACCEL_EVENT(ch, mod, dir, bit_pos, ths_reg) \
+{ \
+	.bit = bit_pos,\
+	.chan = ch, \
+	.chan_type = IIO_ACCEL, \
+	.modifier = mod, \
+	.event_type = IIO_EV_TYPE_THRESH, \
+	.direction = dir, \
+	.event_ths_reg = { \
+		.addr = ths_reg, \
+		.mask = 0x7f, \
+	}, \
+}
 
 static const struct iio_chan_spec st_accel_12bit_channels[] = {
 	ST_SENSORS_LSM_CHANNELS(IIO_ACCEL, ST_SENSORS_SCAN_X, IIO_MOD_X, IIO_LE,
@@ -214,6 +257,46 @@ static const struct st_sensors st_accel_sensors[] = {
 		},
 		.multi_read_bit = ST_ACCEL_1_MULTIREAD_BIT,
 		.bootime = 2,
+		.event_irq = {
+			.addr = ST_ACCEL_1_EVENT_IRQ_ADDR,
+			.mask = ST_ACCEL_1_EVENT_IRQ_MASK,
+			.event_count = 6,
+			.ctrl_reg = {
+				.addr = ST_ACCEL_1_EVENT_CTRL_REG,
+				.mask = ST_ACCEL_1_EVENT_CTRL_MASK,
+				.val = ST_ACCEL_1_EVENT_CTRL_DEFAULT_VAL,
+			},
+			.status_reg = {
+				.addr = ST_ACCEL_1_EVENT_STATUS_REG,
+				.mask = ST_ACCEL_1_EVENT_STATUS_REG_MASK,
+			},
+			.events = {
+				ST_SENSORS_LSM_ACCEL_EVENT(0, IIO_MOD_X,
+						IIO_EV_DIR_FALLING,
+						ST_ACCEL_1_INT1_XL,
+						ST_ACCEL_1_THS_REG),
+				ST_SENSORS_LSM_ACCEL_EVENT(0, IIO_MOD_X,
+						IIO_EV_DIR_RISING,
+						ST_ACCEL_1_INT1_XH,
+						ST_ACCEL_1_THS_REG),
+				ST_SENSORS_LSM_ACCEL_EVENT(1, IIO_MOD_Y,
+						IIO_EV_DIR_FALLING,
+						ST_ACCEL_1_INT1_YL,
+						ST_ACCEL_1_THS_REG),
+				ST_SENSORS_LSM_ACCEL_EVENT(1, IIO_MOD_Y,
+						IIO_EV_DIR_RISING,
+						ST_ACCEL_1_INT1_YH,
+						ST_ACCEL_1_THS_REG),
+				ST_SENSORS_LSM_ACCEL_EVENT(2, IIO_MOD_Z,
+						IIO_EV_DIR_FALLING,
+						ST_ACCEL_1_INT1_ZL,
+						ST_ACCEL_1_THS_REG),
+				ST_SENSORS_LSM_ACCEL_EVENT(2, IIO_MOD_Z,
+						IIO_EV_DIR_RISING,
+						ST_ACCEL_1_INT1_ZH,
+						ST_ACCEL_1_THS_REG),
+			},
+		},
 	},
 	{
 		.wai = ST_ACCEL_2_WAI_EXP,
@@ -275,6 +358,47 @@ static const struct st_sensors st_accel_sensors[] = {
 		},
 		.multi_read_bit = ST_ACCEL_2_MULTIREAD_BIT,
 		.bootime = 2,
+		.event_irq = {
+			.addr = ST_ACCEL_2_EVENT_IRQ_ADDR,
+			.mask = ST_ACCEL_2_EVENT_IRQ_MASK,
+			.event_count = 6,
+			.ctrl_reg = {
+				.addr = ST_ACCEL_2_EVENT_CTRL_REG,
+				.mask = ST_ACCEL_2_EVENT_CTRL_MASK,
+				.val = ST_ACCEL_2_EVENT_CTRL_DEFAULT_VAL,
+			},
+			.status_reg = {
+				.addr = ST_ACCEL_2_EVENT_STATUS_REG,
+				.mask = ST_ACCEL_2_EVENT_STATUS_REG_MASK,
+			},
+			.events = {
+				ST_SENSORS_LSM_ACCEL_EVENT(0, IIO_MOD_X,
+						IIO_EV_DIR_FALLING,
+						ST_ACCEL_2_INT1_XL,
+						ST_ACCEL_2_THS_REG),
+				ST_SENSORS_LSM_ACCEL_EVENT(0, IIO_MOD_X,
+						IIO_EV_DIR_RISING,
+						ST_ACCEL_2_INT1_XH,
+						ST_ACCEL_2_THS_REG),
+				ST_SENSORS_LSM_ACCEL_EVENT(1, IIO_MOD_Y,
+						IIO_EV_DIR_FALLING,
+						ST_ACCEL_2_INT1_YL,
+						ST_ACCEL_2_THS_REG),
+				ST_SENSORS_LSM_ACCEL_EVENT(1, IIO_MOD_Y,
+						IIO_EV_DIR_RISING,
+						ST_ACCEL_2_INT1_YH,
+						ST_ACCEL_2_THS_REG),
+				ST_SENSORS_LSM_ACCEL_EVENT(2, IIO_MOD_Z,
+						IIO_EV_DIR_FALLING,
+						ST_ACCEL_2_INT1_ZL,
+						ST_ACCEL_2_THS_REG),
+				ST_SENSORS_LSM_ACCEL_EVENT(2, IIO_MOD_Z,
+						IIO_EV_DIR_RISING,
+						ST_ACCEL_2_INT1_ZH,
+						ST_ACCEL_2_THS_REG),
+			},
+		},
+
 	},
 	{
 		.wai = ST_ACCEL_3_WAI_EXP,
@@ -417,6 +541,10 @@ static const struct iio_info accel_info = {
 	.attrs = &st_accel_attribute_group,
 	.read_raw = &st_accel_read_raw,
 	.write_raw = &st_accel_write_raw,
+	.read_event_value = &st_sensors_read_event_value,
+	.write_event_value = &st_sensors_write_event_value,
+	.read_event_config = &st_sensors_read_event_config,
+	.write_event_config = &st_sensors_write_event_config,
 };
 
 #ifdef CONFIG_IIO_TRIGGER
@@ -432,6 +560,7 @@ static const struct iio_trigger_ops st_accel_trigger_ops = {
 int st_accel_common_probe(struct iio_dev *indio_dev)
 {
 	int err;
+	int i;
 	struct st_sensor_data *adata = iio_priv(indio_dev);
 
 	indio_dev->modes = INDIO_DIRECT_MODE;
@@ -465,6 +594,19 @@ int st_accel_common_probe(struct iio_dev *indio_dev)
 			goto st_accel_probe_trigger_error;
 	}
 
+	if (adata->get_irq_event(indio_dev) > 0) {
+		err = st_sensors_request_event_irq(indio_dev);
+		if (err < 0)
+			goto st_accel_request_irq_event_error;
+
+		err = st_sensors_enable_events(indio_dev);
+		if (err < 0)
+			goto st_accel_enable_events_error;
+	} else {
+		for (i = 0; i < indio_dev->num_channels; i++)
+			adata->sensor->ch[i].event_mask = 0;
+	}
+
 	err = iio_device_register(indio_dev);
 	if (err)
 		goto st_accel_device_register_error;
@@ -474,6 +616,10 @@ int st_accel_common_probe(struct iio_dev *indio_dev)
 st_accel_device_register_error:
 	if (adata->get_irq_data_ready(indio_dev) > 0)
 		st_sensors_deallocate_trigger(indio_dev);
+st_accel_enable_events_error:
+	if (adata->get_irq_event(indio_dev) > 0)
+		free_irq(adata->get_irq_event(indio_dev), indio_dev);
+st_accel_request_irq_event_error:
 st_accel_probe_trigger_error:
 	if (adata->get_irq_data_ready(indio_dev) > 0)
 		st_accel_deallocate_ring(indio_dev);
@@ -491,6 +637,8 @@ void st_accel_common_remove(struct iio_dev *indio_dev)
 		st_sensors_deallocate_trigger(indio_dev);
 		st_accel_deallocate_ring(indio_dev);
 	}
+	if (adata->get_irq_event(indio_dev) > 0)
+		free_irq(adata->get_irq_event(indio_dev), indio_dev);
 	iio_device_free(indio_dev);
 }
 EXPORT_SYMBOL(st_accel_common_remove);
