@@ -432,10 +432,6 @@ void inline _mali_osk_mem_unreqregion( u32 phys, u32 size )
 
 void inline _mali_osk_mem_iowrite32_relaxed( volatile mali_io_address addr, u32 offset, u32 val )
 {
-#ifdef CONFIG_SLP_MALI_DBG
-	if (!(__raw_readl(EXYNOS4_G3D_CONFIGURATION) & 0x7))
-		panic("%s:addr[0x%x]\n", __func__, (u32)addr + offset);
-#endif
 	__raw_writel(cpu_to_le32(val),((u8*)addr) + offset);
 }
 
@@ -449,10 +445,6 @@ void inline _mali_osk_mem_iowrite32_relaxed_cpu( volatile mali_io_address addr,
 
 u32 inline _mali_osk_mem_ioread32( volatile mali_io_address addr, u32 offset )
 {
-#ifdef CONFIG_SLP_MALI_DBG
-	if (!(__raw_readl(EXYNOS4_G3D_CONFIGURATION) & 0x7))
-		panic("%s:addr[0x%x]\n", __func__, (u32)addr + offset);
-#endif
 	return ioread32(((u8*)addr) + offset);
 }
 
@@ -465,10 +457,6 @@ u32 inline _mali_osk_mem_ioread32_cpu(volatile mali_io_address addr, u32 offset)
 
 void inline _mali_osk_mem_iowrite32( volatile mali_io_address addr, u32 offset, u32 val )
 {
-#ifdef CONFIG_SLP_MALI_DBG
-	if (!(__raw_readl(EXYNOS4_G3D_CONFIGURATION) & 0x7))
-		panic("%s:addr[0x%x]\n", __func__, (u32)addr + offset);
-#endif
 	iowrite32(val, ((u8*)addr) + offset);
 }
 
