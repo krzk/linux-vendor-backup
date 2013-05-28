@@ -5937,6 +5937,7 @@ EXPORT_SYMBOL vmlinux 0xe36d103f	sock_sendmsg
 EXPORT_SYMBOL vmlinux 0xe372890c	serial8250_set_isa_configurator
 EXPORT_SYMBOL vmlinux 0xe37d10ae	omap_dispc_unregister_isr
 EXPORT_SYMBOL vmlinux 0xe393c4eb	truncate_inode_pages
+EXPORT_SYMBOL vmlinux 0xe39fb943	vm_iomap_memory
 EXPORT_SYMBOL vmlinux 0xe3b4b4dc	dev_set_drvdata
 EXPORT_SYMBOL vmlinux 0xe3c38a0c	__dev_get_by_index
 EXPORT_SYMBOL vmlinux 0xe3d6f284	fb_find_mode_cvt
@@ -7577,6 +7578,7 @@ EXPORT_SYMBOL_GPL drivers/spi/spi-dw 0x47c436b2	dw_spi_xfer_done
 EXPORT_SYMBOL_GPL drivers/spi/spi-dw 0x5f3b8cef	dw_spi_remove_host
 EXPORT_SYMBOL_GPL drivers/spi/spi-dw 0x992d0fb7	dw_spi_add_host
 EXPORT_SYMBOL_GPL drivers/spi/spi-dw 0x9bf579f1	dw_spi_resume_host
+EXPORT_SYMBOL_GPL drivers/ssb/ssb 0x3d8422e1	ssb_pmu_spuravoid_pllupdate
 EXPORT_SYMBOL_GPL drivers/staging/csr/csr_helper 0x043993b8	CsrUint32Ser
 EXPORT_SYMBOL_GPL drivers/staging/csr/csr_helper 0x063ce8fd	CsrMemCpySer
 EXPORT_SYMBOL_GPL drivers/staging/csr/csr_helper 0x1a2f4153	CsrUint16Des
