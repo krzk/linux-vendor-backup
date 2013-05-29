@@ -1372,7 +1372,7 @@ static int vidioc_g_register (struct file *file, void *fh,
 	if (!v4l2_chip_match_host(&reg->match))
 		return -EINVAL;
 	/* cx2388x has a 24-bit register space */
-	reg->val = cx_read(reg->reg & 0xffffff);
+	reg->val = cx_read(reg->reg & 0xfffffc);
 	reg->size = 4;
 	return 0;
 }
@@ -1384,7 +1384,7 @@ static int vidioc_s_register (struct file *file, void *fh,
 
 	if (!v4l2_chip_match_host(&reg->match))
 		return -EINVAL;
-	cx_write(reg->reg & 0xffffff, reg->val);
+	cx_write(reg->reg & 0xfffffc, reg->val);
 	return 0;
 }
 #endif
