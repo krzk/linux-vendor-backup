@@ -1522,6 +1522,7 @@ static SIMPLE_DEV_PM_OPS(g2d_pm_ops, g2d_suspend, g2d_resume);
 
 #ifdef CONFIG_OF
 static const struct of_device_id exynos_g2d_match[] = {
+	{ .compatible = "samsung,exynos4212-g2d" },
 	{ .compatible = "samsung,exynos5250-g2d" },
 	{},
 };
