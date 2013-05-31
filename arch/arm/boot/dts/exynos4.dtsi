@@ -131,6 +131,29 @@
 		status = "disabled";
 	};
 
+	rotator: rotator@12810000 {
+		compatible = "samsung,exynos4210-rotator";
+		reg = <0x12810000 0x1000>;
+		interrupts = <0 83 0>;
+		clocks = <&clock 278>;
+		clock-names = "rotator";
+		status = "disabled";
+		ycbcr420_2p {
+			min_w = <32>;
+			min_h = <32>;
+			max_w = <32768>;
+			max_h = <32768>;
+			align = <3>;
+		};
+		rgb888 {
+			min_w = <8>;
+			min_h = <8>;
+			max_w = <8192>;
+			max_h = <8192>;
+			align = <2>;
+		};
+	};
+
 	camera {
 		compatible = "samsung,fimc", "simple-bus";
 		status = "disabled";
