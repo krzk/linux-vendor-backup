@@ -599,6 +599,10 @@
 		};
 	};
 
+	rotator: rotator@12810000 {
+		status = "okay";
+	};
+
 	camera {
 		status = "okay";
 
