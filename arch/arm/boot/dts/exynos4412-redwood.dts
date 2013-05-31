@@ -599,6 +599,10 @@
 		};
 	};
 
+	g2d@10800000 {
+		status = "okay";
+	};
+
 	rotator: rotator@12810000 {
 		status = "okay";
 	};
