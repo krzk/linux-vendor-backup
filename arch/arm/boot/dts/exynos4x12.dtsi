@@ -102,6 +102,8 @@
 		compatible = "samsung,exynos4212-g2d";
 		reg = <0x10800000 0x1000>;
 		interrupts = <0 89 0>;
+		clocks = <&clock 277>;
+		clock-names = "fimg2d";
 		status = "disabled";
 	};
 
