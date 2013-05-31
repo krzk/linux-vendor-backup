@@ -190,6 +190,9 @@ static int fimc_is_register_subdevs(struct fimc_is *is)
 	if (ret < 0)
 		return ret;
 
+	/* Initialize memory allocator context for the ISP DMA. */
+	is->isp.alloc_ctx = is->alloc_ctx;
+
 	for_each_compatible_node(adapter, NULL, FIMC_IS_I2C_COMPATIBLE) {
 		if (!of_find_device_by_node(adapter)) {
 			of_node_put(adapter);
