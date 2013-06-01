@@ -2612,8 +2612,13 @@ static void wm8994_set_gsm_voicecall_common_setting(struct snd_soc_codec *codec)
 	/* GPIO Configuration */
 	wm8994_write(codec, WM8994_GPIO_1, 0xA101);
 	wm8994_write(codec, WM8994_GPIO_2, 0x8100);
+#if !defined(CONFIG_SAMSUNG_GALAXYS4G)
 	wm8994_write(codec, WM8994_GPIO_3, 0x0100);
 	wm8994_write(codec, WM8994_GPIO_4, 0x0100);
+#else
+	wm8994_write(codec, WM8994_GPIO_3, 0x8100);
+	wm8994_write(codec, WM8994_GPIO_4, 0x8100);
+#endif
 	wm8994_write(codec, WM8994_GPIO_5, 0x8100);
 	wm8994_write(codec, WM8994_GPIO_6, 0xA101);
 	wm8994_write(codec, WM8994_GPIO_7, 0x0100);
@@ -2622,10 +2627,17 @@ static void wm8994_set_gsm_voicecall_common_setting(struct snd_soc_codec *codec)
 	wm8994_write(codec, WM8994_GPIO_10, 0xA101);
 	wm8994_write(codec, WM8994_GPIO_11, 0xA101);
 
+#if !defined(CONFIG_SAMSUNG_GALAXYS4G)
 	wm8994_write(codec, WM8994_FLL2_CONTROL_2, 0x2F00);
 	wm8994_write(codec, WM8994_FLL2_CONTROL_3, 0x3126);
 	wm8994_write(codec, WM8994_FLL2_CONTROL_4, 0x0100);
 	wm8994_write(codec, WM8994_FLL2_CONTROL_5, 0x0C88);
+#else
+	wm8994_write(codec, WM8994_FLL2_CONTROL_2, 0x0700);
+	wm8994_write(codec, WM8994_FLL2_CONTROL_3, 0x8FD5);
+	wm8994_write(codec, WM8994_FLL2_CONTROL_4, 0x00E0);
+	wm8994_write(codec, WM8994_FLL2_CONTROL_5, 0x0C89);
+#endif
 	wm8994_write(codec, WM8994_FLL2_CONTROL_1,
 		WM8994_FLL2_FRACN_ENA | WM8994_FLL2_ENA);
 
@@ -2633,7 +2645,24 @@ static void wm8994_set_gsm_voicecall_common_setting(struct snd_soc_codec *codec)
 	if (!(val & WM8994_AIF2CLK_ENA))
 		wm8994_write(codec, WM8994_AIF2_CLOCKING_1, 0x0018);
 
+#if !defined(CONFIG_SAMSUNG_GALAXYS4G)
 	wm8994_write(codec, WM8994_AIF2_RATE, 0x3 << WM8994_AIF2CLK_RATE_SHIFT);
+#else
+	wm8994_write(codec, WM8994_AIF2_RATE, 0x9 << WM8994_AIF2CLK_RATE_SHIFT);
+#endif
+
+#if defined(CONFIG_SAMSUNG_GALAXYS4G)
+	/* AIF2 Interface - PCM Stereo mode */
+	/* Left Justified, BCLK invert, LRCLK Invert */
+	wm8994_write(codec, WM8994_AIF2_CONTROL_1,
+		WM8994_AIF2_BCLK_INV | 0x18);
+
+	wm8994_write(codec, WM8994_AIF2_BCLK, 0x70);
+
+	wm8994_write(codec, WM8994_AIF2_CONTROL_2, 0x0000);
+
+	wm8994_write(codec, WM8994_AIF2_MASTER_SLAVE, 0x0000);
+#else
 
 	/* AIF2 Interface - PCM Stereo mode */
 	/* Left Justified, BCLK invert, LRCLK Invert */
@@ -2645,6 +2674,7 @@ static void wm8994_set_gsm_voicecall_common_setting(struct snd_soc_codec *codec)
 	wm8994_write(codec, WM8994_AIF2_MASTER_SLAVE, WM8994_AIF2_MSTR |
 		WM8994_AIF2_CLK_FRC | WM8994_AIF2_LRCLK_FRC);
 
+#endif
 	val = wm8994_read(codec, WM8994_POWER_MANAGEMENT_5);
 	val &= ~(WM8994_AIF2DACL_ENA_MASK | WM8994_AIF2DACR_ENA_MASK |
 		WM8994_AIF1DAC1L_ENA_MASK | WM8994_AIF1DAC1R_ENA_MASK |
@@ -2656,8 +2686,16 @@ static void wm8994_set_gsm_voicecall_common_setting(struct snd_soc_codec *codec)
 
 	/* Clocking */
 	val = wm8994_read(codec, WM8994_CLOCKING_1);
+#if !defined(CONFIG_SAMSUNG_GALAXYS4G)
 	val |= (WM8994_DSP_FS2CLK_ENA);
+#else
+	val |= (WM8994_DSP_FS2CLK_ENA | 0x01);
+#endif
 	wm8994_write(codec, WM8994_CLOCKING_1, val);
+
+#if defined(CONFIG_SAMSUNG_GALAXYS4G)
+	wm8994_write(codec, WM8994_OVERSAMPLING, 0x0001);
+#endif
 
 	wm8994_write(codec, WM8994_POWER_MANAGEMENT_6, 0x0);
 
@@ -2674,7 +2712,9 @@ static void wm8994_set_gsm_voicecall_common_setting(struct snd_soc_codec *codec)
 	val |= (WM8994_AIF1DAC1R_TO_DAC1R | WM8994_AIF2DACR_TO_DAC1R);
 	wm8994_write(codec, WM8994_DAC1_RIGHT_MIXER_ROUTING, val);
 
+#if !defined(CONFIG_SAMSUNG_GALAXYS4G)
 	wm8994_write(codec, 0x6, 0x0);
+#endif
 }
 
 
