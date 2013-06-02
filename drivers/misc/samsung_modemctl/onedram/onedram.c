@@ -36,6 +36,9 @@
 #include <linux/poll.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+#if defined(CONFIG_PHONE_ARIES_STE)
+#include <linux/delay.h>
+#endif
 #include "onedram.h"
 
 #define DRVNAME "onedram"
@@ -94,6 +97,9 @@ struct onedram {
 	int irq;
 
 	struct completion comp;
+#if defined(CONFIG_PHONE_ARIES_STE)
+	struct completion comp_chkbit;
+#endif
 	atomic_t ref_sem;
 	unsigned long flags;
 
@@ -102,6 +108,10 @@ struct onedram {
 	struct onedram_reg_mapped *reg;
 };
 struct onedram *onedram;
+
+#if defined(CONFIG_PHONE_ARIES_STE)
+static inline int _get_checkbit(struct onedram *od);
+#endif
 
 static DEFINE_SPINLOCK(onedram_lock);
 
@@ -162,6 +172,23 @@ static inline int _send_cmd(struct onedram *od, u32 cmd)
 		dev_err(od->dev, "Failed to send cmd, not initialized\n");
 		return -EFAULT;
 	}
+#if defined(CONFIG_PHONE_ARIES_STE)
+	int retry = 0;
+	while(od->reg->check_BA)
+	{
+		udelay(1000);
+
+		if (!od->reg->check_BA)
+			break;
+
+		retry++;
+		if (retry > 50 ) { /* time out after 1 seconds */
+			dev_err(od->dev, "Get ChkBit time out\n");
+			return -ETIMEDOUT;
+		}
+		dev_dbg(od->dev, "[%s]onedram: Waiting ChkBit \n",__func__);
+	}
+#endif
 
 	dev_dbg(od->dev, "send %x\n", cmd);
 	send_cnt++;
@@ -193,10 +220,14 @@ static inline int _get_auth(struct onedram *od, u32 cmd)
 {
 	unsigned long timeleft;
 	int retry = 0;
-
+#if defined(CONFIG_PHONE_ARIES_STE)
+	_send_cmd(od, cmd);
+	while (!od->reg->sem) { /* send cmd every 20m seconds */
+#else
 	/* send cmd every 20m seconds */
 	while (1) {
 		_send_cmd(od, cmd);
+#endif
 
 		timeleft = wait_for_completion_timeout(&od->comp, HZ/50);
 #if 0		
@@ -211,6 +242,9 @@ static inline int _get_auth(struct onedram *od, u32 cmd)
 			dev_err(od->dev, "get authority time out\n");
 			return -ETIMEDOUT;
 		}
+#if defined(CONFIG_PHONE_ARIES_STE)
+		dev_dbg(od->dev, "[%s]onedram: Waiting Semaphore \n",__func__);
+#endif
 	}
 
 	return 0;
@@ -257,7 +291,11 @@ static int put_auth(struct onedram *od, int release)
 		dev_err(od->dev, "Failed to put authority\n");
 		return -EFAULT;
 	}
-
+#if defined(CONFIG_PHONE_ARIES_STE)
+	atomic_dec_and_test(&od->ref_sem);
+	INIT_COMPLETION(od->comp);
+	INIT_COMPLETION(od->comp_chkbit);
+#else
 	if (release)
 		set_bit(0, &od->flags);
 
@@ -267,7 +305,7 @@ static int put_auth(struct onedram *od, int release)
 		_write_sem(od, 0);
 		dev_dbg(od->dev, "rel_sem: %d\n", _read_sem(od));
 	}
-
+#endif
 	return 0;
 }
 
@@ -287,6 +325,9 @@ static int rel_sem(struct onedram *od)
 		return -EBUSY;
 
 	INIT_COMPLETION(od->comp);
+#if defined(CONFIG_PHONE_ARIES_STE)
+	INIT_COMPLETION(od->comp_chkbit);
+#endif
 	clear_bit(0, &od->flags);
 	_write_sem(od, 0);
 	dev_dbg(od->dev, "rel_sem: %d\n", _read_sem(od));
@@ -361,11 +402,11 @@ static irqreturn_t onedram_irq_handler(int irq, void *data)
 	r = onedram_read_mailbox(&mailbox);
 	if (r)
 		return IRQ_HANDLED;
-
-//	if (old_mailbox == mailbox &&
-//			old_clock + 100000 > cpu_clock(smp_processor_id()))
-//		return IRQ_HANDLED;
-
+#if defined(CONFIG_PHONE_ARIES_STE)
+	if (old_mailbox == mailbox &&
+			old_clock + 100000 > cpu_clock(smp_processor_id()))
+		return IRQ_HANDLED;
+#endif
 	dev_dbg(od->dev, "[%d] recv %x\n", _read_sem(od), mailbox);
 	hw_tmp = _read_sem(od); /* for hardware */
 
@@ -390,12 +431,16 @@ static irqreturn_t onedram_irq_handler(int irq, void *data)
 	if (_read_sem(od))
 		complete_all(&od->comp);
 
+#if defined(CONFIG_PHONE_ARIES_STE)
+	if (!od->reg->check_BA)
+		complete_all(&od->comp_chkbit);
+#endif
 	wake_up_interruptible(&od->waitq);
 	kill_fasync(&od->async_queue, SIGIO, POLL_IN);
-
-//	old_clock = cpu_clock(smp_processor_id());
-//	old_mailbox = mailbox;
-
+#if defined(CONFIG_PHONE_ARIES_STE)
+	old_clock = cpu_clock(smp_processor_id());
+	old_mailbox = mailbox;
+#endif
 	return IRQ_HANDLED;
 }
 
@@ -583,6 +628,12 @@ static long onedram_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
 	case ONEDRAM_REL_SEM:
 		r = rel_sem(od);
 		break;
+#if defined(CONFIG_PHONE_ARIES_STE)
+	case ONEDRAM_GET_ITP:
+		r = 0x00000000;
+		memcpy(onedram_resource.start+36, &r, 4);
+		break;
+#endif
 	default:
 		r = -ENOIOCTLCMD;
 		break;
@@ -794,6 +845,9 @@ static void _unregister_all_handlers(void)
 static void _init_data(struct onedram *od)
 {
 	init_completion(&od->comp);
+#if defined(CONFIG_PHONE_ARIES_STE)
+	init_completion(&od->comp_chkbit);
+#endif
 	atomic_set(&od->ref_sem, 0);
 	INIT_LIST_HEAD(&h_list.list);
 	spin_lock_init(&h_list.lock);

@@ -32,6 +32,10 @@ struct modemctl_platform_data {
 	unsigned gpio_usim_boot;
 	unsigned gpio_flm_sel;
 	unsigned gpio_sim_ndetect;
+#if defined(CONFIG_PHONE_ARIES_STE)
+	unsigned gpio_int_resout;
+	unsigned gpio_cp_pwr_rst;
+#endif
 
 	void (*cfg_gpio)(void);
 };
