@@ -3426,7 +3426,7 @@ static int dib8000_set_frontend(struct dvb_frontend *fe)
 {
 	struct dib8000_state *state = fe->demodulator_priv;
 	struct dtv_frontend_properties *c = &state->fe[0]->dtv_property_cache;
-	int l, i, active, time, ret, time_slave = FE_CALLBACK_TIME_NEVER;
+	int l, i, active, time, time_slave = FE_CALLBACK_TIME_NEVER;
 	u8 exit_condition, index_frontend;
 	u32 delay, callback_time;
 
@@ -3573,7 +3573,7 @@ static int dib8000_set_frontend(struct dvb_frontend *fe)
 		}
 	}
 
-	return ret;
+	return 0;
 }
 
 static int dib8000_read_status(struct dvb_frontend *fe, fe_status_t * stat)
