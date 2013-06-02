@@ -58,7 +58,7 @@ void s5pv210_setup_sdhci_cfg_card(struct platform_device *dev,
 				    struct mmc_card *card)
 {
 	u32 ctrl2;
-	u32 ctrl3;
+	u32 ctrl3 = 0;
 
 	ctrl2 = readl(r + S3C_SDHCI_CONTROL2);
 	ctrl2 &= S3C_SDHCI_CTRL2_SELBASECLK_MASK;
@@ -88,6 +88,17 @@ void s5pv210_setup_sdhci_cfg_card(struct platform_device *dev,
 		if ((ios->clock > range_start) && (ios->clock < range_end))
 			ctrl3 = S3C_SDHCI_CTRL3_FCSELTX_BASIC |
 				S3C_SDHCI_CTRL3_FCSELRX_BASIC;
+#if defined(CONFIG_SAMSUNG_GALAXYS4G)
+		else {
+			// 0 = nothing(emmc on other sgs phones), 1 = wifi, 2 = sdcard
+			ctrl3 = S3C_SDHCI_CTRL3_FCSELTX_BASIC;
+			if (dev->id == 1) {
+				ctrl3 |= S3C_SDHCI_CTRL3_FCSELRX_INVERT;
+			} else if (dev->id == 2) {
+				ctrl3 |= S3C_SDHCI_CTRL3_FCSELRX_BASIC;
+			}
+		}
+#else
 		else if (((machine_is_herring() && herring_is_cdma_wimax_dev()) ||
 					machine_is_p1()) && dev->id == 2) {
 			ctrl3 = S3C_SDHCI_CTRL3_FCSELTX_BASIC;
@@ -98,6 +109,7 @@ void s5pv210_setup_sdhci_cfg_card(struct platform_device *dev,
 		} else
 			ctrl3 = S3C_SDHCI_CTRL3_FCSELTX_BASIC |
 				S3C_SDHCI_CTRL3_FCSELRX_INVERT;
+#endif
 	}
 
 
@@ -151,7 +163,7 @@ void s5pv210_adjust_sdhci_cfg_card(struct s3c_sdhci_platdata *pdata,
 void universal_sdhci2_cfg_ext_cd(void)
 {
 	printk(KERN_DEBUG "Universal :SD Detect configuration\n");
-#if defined(CONFIG_SAMSUNG_CAPTIVATE) || defined(CONFIG_SAMSUNG_VIBRANT)
+#if defined(CONFIG_SAMSUNG_CAPTIVATE) || defined(CONFIG_SAMSUNG_VIBRANT) || defined(CONFIG_SAMSUNG_GALAXYS4G)
     s3c_gpio_setpull(S5PV210_GPH3(4), S3C_GPIO_PULL_UP);
 #else
 #if defined(CONFIG_PHONE_P1_GSM)

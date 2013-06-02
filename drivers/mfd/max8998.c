@@ -34,6 +34,9 @@
 
 #define RTC_I2C_ADDR		(0x0c >> 1)
 
+/* Nasty hack for EN32kHzCP control */
+struct i2c_client *max8998_i2cptr;
+
 static struct mfd_cell max8998_devs[] = {
 	{
 		.name = "max8998-pmic",
@@ -51,6 +54,21 @@ static struct mfd_cell lp3974_devs[] = {
 		.name = "lp3974-rtc",
 	},
 };
+
+int max8998_clk_ctrl(int power)
+{
+	int ret = 0;
+
+	printk("[EN32kHzCP] on = %d\n", power);
+
+	if(power)
+		ret = max8998_update_reg(max8998_i2cptr, MAX8998_REG_ONOFF4, MAX8998_MASK_EN32KHZCP, MAX8998_MASK_EN32KHZCP);
+	else
+		ret = max8998_update_reg(max8998_i2cptr, MAX8998_REG_ONOFF4, 0x0, MAX8998_MASK_EN32KHZCP);
+
+	return ret;
+}
+EXPORT_SYMBOL(max8998_clk_ctrl);
 
 int max8998_read_reg(struct i2c_client *i2c, u8 reg, u8 *dest)
 {
@@ -142,6 +160,7 @@ static int max8998_i2c_probe(struct i2c_client *i2c,
 	i2c_set_clientdata(i2c, max8998);
 	max8998->dev = &i2c->dev;
 	max8998->i2c = i2c;
+	max8998_i2cptr = i2c;
 	max8998->irq = i2c->irq;
 	max8998->type = id->driver_data;
 	if (pdata) {
