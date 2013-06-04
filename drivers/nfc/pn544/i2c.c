@@ -25,6 +25,8 @@
 #include <linux/miscdevice.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
+#include <linux/of.h>
+#include <linux/of_gpio.h>
 
 #include <linux/platform_data/pn544.h>
 
@@ -45,6 +47,13 @@
 #define PN544_HCI_I2C_LLC_MAX_PAYLOAD	29
 #define PN544_HCI_I2C_LLC_MAX_SIZE	(PN544_HCI_I2C_LLC_LEN_CRC + 1 + \
 					 PN544_HCI_I2C_LLC_MAX_PAYLOAD)
+
+#ifdef CONFIG_OF
+static struct of_device_id pn544_hci_dt_match[] = {
+	{ .compatible = "nxp,pn544-hci-i2c" },
+	{},
+};
+#endif
 
 static struct i2c_device_id pn544_hci_i2c_id_table[] = {
 	{"pn544", 0},
@@ -361,6 +370,89 @@ static struct nfc_phy_ops i2c_phy_ops = {
 	.disable = pn544_hci_i2c_disable,
 };
 
+static int pn544_hci_i2c_parse_pdata(
+		struct i2c_client *client,
+		struct pn544_nfc_platform_data *pdata,
+		struct pn544_i2c_phy *phy)
+{
+	int r;
+
+	if (pdata == NULL)
+		return -EINVAL;
+
+	if (pdata->request_resources == NULL) {
+		dev_err(&client->dev, "request_resources() missing\n");
+		return -EINVAL;
+	}
+
+	r = pdata->request_resources(client);
+	if (r) {
+		dev_err(&client->dev, "Cannot get platform resources\n");
+		return r;
+	}
+
+	phy->gpio_en = pdata->get_gpio(NFC_GPIO_ENABLE);
+	phy->gpio_fw = pdata->get_gpio(NFC_GPIO_FW_RESET);
+	phy->gpio_irq = pdata->get_gpio(NFC_GPIO_IRQ);
+
+	return 0;
+}
+
+#ifdef CONFIG_OF
+static const char * const pn544_hci_i2c_gpio_names[] = {
+	"nfc_gpio_enable",
+	"nfc_gpio_fw_reset",
+	"nfc_gpio_irq"
+};
+
+static int pn544_hci_i2c_parse_dt(struct i2c_client *client,
+		struct pn544_i2c_phy *phy)
+{
+	struct device_node *np = client->dev.of_node;
+	unsigned long flags = 0;
+	enum of_gpio_flags of_flags;
+	int gpio, err, i;
+
+	if (!np)
+		return -EINVAL;
+
+	for (i = 0; i < NFC_GPIO_COUNT; i++) {
+		gpio = of_get_gpio_flags(np, i, &of_flags);
+		flags = of_flags ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW;
+		switch (i) {
+		case NFC_GPIO_ENABLE:
+			phy->gpio_en = gpio;
+			break;
+		case NFC_GPIO_FW_RESET:
+			phy->gpio_fw = gpio;
+			break;
+		case NFC_GPIO_IRQ:
+			phy->gpio_irq = gpio;
+			break;
+		default:
+			break;
+		}
+
+		if (gpio > 0)
+			err = devm_gpio_request_one(&client->dev, gpio, flags,
+				pn544_hci_i2c_gpio_names[i]);
+		else {
+			dev_err(&client->dev, "%s no platform data\n",
+				pn544_hci_i2c_gpio_names[i]);
+			return -ENODEV;
+		}
+	}
+
+	return 0;
+}
+#else
+static static pn544_hci_i2c_parse_dt(struct i2c_client *client,
+		struct pn544_i2c_phy *phy)
+{
+	return -EINVAL;
+}
+#endif
+
 static int pn544_hci_i2c_probe(struct i2c_client *client,
 			       const struct i2c_device_id *id)
 {
@@ -388,25 +480,16 @@ static int pn544_hci_i2c_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, phy);
 
 	pdata = client->dev.platform_data;
-	if (pdata == NULL) {
+
+	if (pdata)
+		r = pn544_hci_i2c_parse_pdata(client, pdata, phy);
+	else
+		r = pn544_hci_i2c_parse_dt(client, phy);
+
+	if (r < 0) {
 		dev_err(&client->dev, "No platform data\n");
-		return -EINVAL;
+		goto err;
 	}
-
-	if (pdata->request_resources == NULL) {
-		dev_err(&client->dev, "request_resources() missing\n");
-		return -EINVAL;
-	}
-
-	r = pdata->request_resources(client);
-	if (r) {
-		dev_err(&client->dev, "Cannot get platform resources\n");
-		return r;
-	}
-
-	phy->gpio_en = pdata->get_gpio(NFC_GPIO_ENABLE);
-	phy->gpio_fw = pdata->get_gpio(NFC_GPIO_FW_RESET);
-	phy->gpio_irq = pdata->get_gpio(NFC_GPIO_IRQ);
 
 	pn544_hci_i2c_platform_init(phy);
 
@@ -430,9 +513,11 @@ err_hci:
 	free_irq(client->irq, phy);
 
 err_rti:
-	if (pdata->free_resources != NULL)
-		pdata->free_resources();
-
+	if (pdata) {
+		if (pdata->free_resources)
+			pdata->free_resources();
+	}
+err:
 	return r;
 }
 
@@ -449,8 +534,10 @@ static int pn544_hci_i2c_remove(struct i2c_client *client)
 		pn544_hci_i2c_disable(phy);
 
 	free_irq(client->irq, phy);
-	if (pdata->free_resources)
-		pdata->free_resources();
+	if (pdata) {
+		if (pdata->free_resources)
+			pdata->free_resources();
+	}
 
 	return 0;
 }
@@ -458,6 +545,7 @@ static int pn544_hci_i2c_remove(struct i2c_client *client)
 static struct i2c_driver pn544_hci_i2c_driver = {
 	.driver = {
 		   .name = PN544_HCI_I2C_DRIVER_NAME,
+		   .of_match_table = of_match_ptr(pn544_hci_dt_match),
 		  },
 	.probe = pn544_hci_i2c_probe,
 	.id_table = pn544_hci_i2c_id_table,
