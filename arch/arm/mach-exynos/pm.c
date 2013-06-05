@@ -21,6 +21,7 @@
 #include <linux/clk.h>
 
 #include <asm/cacheflush.h>
+#include <asm/firmware.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/smp_scu.h>
 
@@ -273,7 +274,8 @@ static void exynos_pm_resume(void)
 {
 	unsigned long tmp;
 #ifdef CONFIG_CACHE_L2X0
-	outer_resume();
+	if (call_firmware_op(l2x0_resume) < 0)
+		outer_resume();
 #endif
 	/*
 	 * If PMU failed while entering sleep mode, WFI will be
