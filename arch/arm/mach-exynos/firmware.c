@@ -15,6 +15,7 @@
 #include <linux/of_address.h>
 
 #include <asm/firmware.h>
+#include <asm/hardware/cache-l2x0.h>
 
 #include <mach/map.h>
 
@@ -49,6 +50,17 @@ static int exynos_l2x0_init(void)
 	return 0;
 }
 
+static int exynos_l2x0_resume(void)
+{
+	exynos_smc(SMC_CMD_L2X0SETUP1, l2x0_saved_regs.tag_latency,
+		   l2x0_saved_regs.data_latency, l2x0_saved_regs.prefetch_ctrl);
+	exynos_smc(SMC_CMD_L2X0SETUP2, 0x3, 0x7C470001, 0xC200FFFF);
+	exynos_smc(SMC_CMD_L2X0INVALL, 0, 0, 0);
+	exynos_smc(SMC_CMD_L2X0CTRL, 1, 0, 0);
+
+	return 0;
+}
+
 static int exynos_suspend(unsigned long resume_addr)
 {
 	writel(EXYNOS_SLEEP_MAGIC, S5P_VA_SYSRAM_NS + 0xC);
@@ -77,6 +89,7 @@ static const struct firmware_ops exynos_firmware_ops = {
 	.set_cpu_boot_addr	= exynos_set_cpu_boot_addr,
 	.cpu_boot		= exynos_cpu_boot,
 	.l2x0_init	= exynos_l2x0_init,
+	.l2x0_resume	= exynos_l2x0_resume,
 	.suspend	= exynos_suspend,
 	.resume		= exynos_resume,
 	.c15resume	= exynos_c15resume,
