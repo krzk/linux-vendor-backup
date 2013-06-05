@@ -43,6 +43,7 @@ static int exynos_set_cpu_boot_addr(int cpu, unsigned long boot_addr)
 	return 0;
 }
 
+#ifdef CONFIG_CACHE_L2X0
 static int exynos_l2x0_init(void)
 {
 	exynos_smc(SMC_CMD_L2X0INVALL, 0, 0, 0);
@@ -60,6 +61,7 @@ static int exynos_l2x0_resume(void)
 
 	return 0;
 }
+#endif
 
 static int exynos_suspend(unsigned long resume_addr)
 {
@@ -88,8 +90,10 @@ static const struct firmware_ops exynos_firmware_ops = {
 	.do_idle		= exynos_do_idle,
 	.set_cpu_boot_addr	= exynos_set_cpu_boot_addr,
 	.cpu_boot		= exynos_cpu_boot,
+#ifdef CONFIG_CACHE_L2X0
 	.l2x0_init	= exynos_l2x0_init,
 	.l2x0_resume	= exynos_l2x0_resume,
+#endif
 	.suspend	= exynos_suspend,
 	.resume		= exynos_resume,
 	.c15resume	= exynos_c15resume,
