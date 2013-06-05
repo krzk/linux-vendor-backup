@@ -38,6 +38,10 @@ struct firmware_ops {
 	 */
 	int (*l2x0_init)(void);
 	/*
+	 * Restores state of L2 cache after power down
+	 */
+	int (*l2x0_resume)(void);
+	/*
 	 * Suspends the system
 	 */
 	int (*suspend)(unsigned long resume_addr);
