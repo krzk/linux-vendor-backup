@@ -161,14 +161,6 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 			lb_dbs_info->idle_time = (100 * idle_time) / wall_time;
 		}
 
-		if (dbs_data->cdata->governor == GOV_ONDEMAND) {
-			int freq_avg = __cpufreq_driver_getavg(policy, j);
-			if (freq_avg <= 0)
-				freq_avg = policy->cur;
-
-			load *= freq_avg;
-		}
-
 		if (load > max_load)
 			max_load = load;
 	}
