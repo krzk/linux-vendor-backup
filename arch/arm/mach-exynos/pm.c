@@ -272,7 +272,9 @@ static int exynos_pm_suspend(void)
 static void exynos_pm_resume(void)
 {
 	unsigned long tmp;
-
+#ifdef CONFIG_CACHE_L2X0
+	outer_resume();
+#endif
 	/*
 	 * If PMU failed while entering sleep mode, WFI will be
 	 * ignored by PMU and then exiting cpu_do_idle().
