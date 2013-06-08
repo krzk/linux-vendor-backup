@@ -34,12 +34,14 @@ nod /dev/mtd/mtd6ro 644 1001 1001 c 90 13
 nod /dev/mtd/mtd7ro 644 0 0 c 90 15
 slink /init /stage1/init 777 0 0
 dir /proc 755 0 0
-dir /sys 755 0 0
 dir /stage1 755 0 0
 dir /system 755 0 0
 dir /cache 755 0 0
 dir /sdcard 755 0 0
-file /stage1/busybox source/usr/galaxys4gmtd_initramfs_files/busybox 755 0 0
+file /stage1/busybox ../../utilities/busybox 755 0 0
 file /stage1/init source/usr/galaxys4gmtd_initramfs_files/init 755 0 0
-file /stage1/bml_over_mtd source/usr/galaxys4gmtd_initramfs_files/bml_over_mtd 755 0 0
-file /stage1/erase_image source/usr/galaxys4gmtd_initramfs_files/erase_image 755 0 0
+file /stage1/erase_image ../../utilities/erase_image 755 0 0
+file /stage1/ramdisk.img ../../ramdisk.img 700 0 0
+file /stage1/ramdisk-recovery.img ../../ramdisk-recovery.img 700 0 0
+dir /sys 755 0 0
+
