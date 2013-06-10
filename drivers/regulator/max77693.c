@@ -772,6 +772,7 @@ static int max77693_pmic_probe(struct platform_device *pdev)
 		int id = pdata->regulators[i].id;
 
 		config.init_data = pdata->regulators[i].initdata;
+		config.of_node = pdata->regulators[i].of_node;
 
 		pr_info("[%s:%d] for in pdata->num_regulators:%d\n", __FILE__,
 			__LINE__, pdata->num_regulators);
