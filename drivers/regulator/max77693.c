@@ -812,7 +812,7 @@ static int max77693_pmic_remove(struct platform_device *pdev)
 }
 
 static const struct platform_device_id max77693_pmic_id[] = {
-	{"max77693-safeout", 0},
+	{"max77693-pmic", 0},
 	{},
 };
 
@@ -820,7 +820,7 @@ MODULE_DEVICE_TABLE(platform, max77693_pmic_id);
 
 static struct platform_driver max77693_pmic_driver = {
 	.driver = {
-		   .name = "max77693-safeout",
+		   .name = "max77693-pmic",
 		   .owner = THIS_MODULE,
 		   },
 	.probe = max77693_pmic_probe,
