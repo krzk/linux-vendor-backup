@@ -23,6 +23,7 @@
 #include <linux/power/charger-manager.h>
 #include <linux/regulator/consumer.h>
 #include <linux/sysfs.h>
+#include <linux/of.h>
 
 static const char * const default_event_names[] = {
 	[CM_EVENT_UNKNOWN] = "Unknown",
@@ -1451,9 +1452,118 @@ err:
 	return ret;
 }
 
+/*
+ * Charger driver platform data
+ * To do : Should be transferred to DT.
+ */
+
+static int thermistor_ck(int *mC)
+{
+	return 0;
+}
+
+static char *charger_stats[] = {
+#if defined(CONFIG_CHARGER_MAX77693)
+	"max77693-charger",
+#endif
+	NULL,
+};
+
+#define BATT_CHARGING_SOURCE_TA		2
+#define BATT_CHARGING_SOURCE_USB	3
+#define BATT_CHARGING_SOURCE_SLOW_TA	4
+#define BATT_CHARGING_SOURCE_FAST_TA	5
+#define BATT_CHARGING_SOURCE_MHL_TA	6
+
+struct charger_cable charger_cable_vinchg1[] = {
+	{
+		.extcon_name	= "max77693-muic",
+		.name		= "USB",
+		.min_uA		= 475000,
+		.max_uA		= 475000 + 25000,
+	}, {
+		.extcon_name	= "max77693-muic",
+		.name		= "TA",
+		.min_uA		= 650000,
+		.max_uA		= 650000 + 25000,
+	}, {
+		.extcon_name	= "max77693-muic",
+		.name		= "Slow-charger",
+		.min_uA		= 650000,
+		.max_uA		= 650000 + 25000,
+	}, {
+		.extcon_name	= "max77693-muic",
+		.name		= "Fast-charger",
+		.min_uA		= 650000,
+		.max_uA		= 650000 + 25000,
+	}, {
+		.extcon_name	= "max77693-muic",
+		.name		= "MHL",
+		.min_uA		= 475000,
+		.max_uA		= 475000 + 25000,
+	},
+};
+static struct charger_regulator regulators[] = {
+	{
+		.regulator_name	= "vinchg1",
+		.cables		= charger_cable_vinchg1,
+		.num_cables	= ARRAY_SIZE(charger_cable_vinchg1),
+	},
+};
+
+static struct charger_desc cm_drv_data = {
+	.psy_name		= "battery",
+	.polling_mode		= CM_POLL_EXTERNAL_POWER_ONLY,
+	.polling_interval_ms	= 30000,
+	.fullbatt_vchkdrop_ms	= 30000,
+	.fullbatt_vchkdrop_uV	= 150000,
+	.fullbatt_uV		= 4200000,
+	.fullbatt_soc		= 100,
+	.fullbatt_full_capacity	= 0,
+
+	.battery_present	= CM_CHARGER_STAT,
+	.psy_charger_stat	= charger_stats,
+	.num_charger_regulators	= 1,
+	.psy_fuel_gauge		= "max170xx_battery",
+	.charger_regulators	= regulators,
+	.num_charger_regulators	= ARRAY_SIZE(regulators),
+
+	.temperature_out_of_range	= thermistor_ck,
+	.measure_battery_temp	= true,
+
+	.charging_max_duration_ms	= (6 * 60 * 60 * 1000),  /* 6hr */
+	.discharging_max_duration_ms	= (1.5 * 60 * 60 * 1000),/* 1.5hr */
+};
+
+#ifdef CONFIG_OF
+static struct of_device_id charger_manager_match[] = {
+	{
+		.compatible = "charger-manager",
+		.data	= (void *)&cm_drv_data,
+	},
+	{},
+};
+#endif
+
+static inline struct charger_desc *cm_get_drv_data(
+				struct platform_device *pdev)
+{
+#ifdef CONFIG_OF
+	if (pdev->dev.of_node) {
+		const struct of_device_id *match;
+		match = of_match_node(charger_manager_match,
+					pdev->dev.of_node);
+		if (!match)
+			return NULL;
+		return (struct charger_desc *)match->data;
+	}
+#endif
+	return (struct charger_desc *)dev_get_platdata(&pdev->dev);
+}
+
 static int charger_manager_probe(struct platform_device *pdev)
 {
-	struct charger_desc *desc = dev_get_platdata(&pdev->dev);
+	struct charger_desc *desc;
 	struct charger_manager *cm;
 	int ret = 0, i = 0;
 	int j = 0;
@@ -1469,6 +1579,8 @@ static int charger_manager_probe(struct platform_device *pdev)
 			goto err_alloc;
 		}
 	}
+
+	desc = cm_get_drv_data(pdev);
 
 	if (!desc) {
 		dev_err(&pdev->dev, "No platform data (desc) found.\n");
@@ -1861,6 +1973,7 @@ static struct platform_driver charger_manager_driver = {
 		.name = "charger-manager",
 		.owner = THIS_MODULE,
 		.pm = &charger_manager_pm,
+		.of_match_table = charger_manager_match,
 	},
 	.probe = charger_manager_probe,
 	.remove = charger_manager_remove,
