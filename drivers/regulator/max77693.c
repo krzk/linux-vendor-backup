@@ -68,7 +68,6 @@ static const struct voltage_map_desc *reg_voltage_map[] = {
 
 static inline int max77693_get_rid(struct regulator_dev *rdev)
 {
-	dev_info(&rdev->dev, "func:%s\n", __func__);
 	return rdev_get_id(rdev);
 }
 
@@ -76,7 +75,7 @@ static int max77693_list_voltage_safeout(struct regulator_dev *rdev,
 					 unsigned int selector)
 {
 	int rid = max77693_get_rid(rdev);
-	dev_info(&rdev->dev, "func:%s\n", __func__);
+
 	if (rid == MAX77693_ESAFEOUT1 || rid == MAX77693_ESAFEOUT2) {
 		switch (selector) {
 		case 0:
@@ -99,7 +98,6 @@ static int max77693_get_enable_register(struct regulator_dev *rdev,
 					int *reg, int *mask, int *pattern)
 {
 	int rid = max77693_get_rid(rdev);
-	dev_info(&rdev->dev, "func:%s\n", __func__);
 	switch (rid) {
 	case MAX77693_ESAFEOUT1...MAX77693_ESAFEOUT2:
 		*reg = MAX77693_CHG_REG_SAFEOUT_CTRL;
@@ -123,7 +121,7 @@ static int max77693_get_disable_register(struct regulator_dev *rdev,
 					int *reg, int *mask, int *pattern)
 {
 	int rid = max77693_get_rid(rdev);
-	dev_info(&rdev->dev, "func:%s\n", __func__);
+
 	switch (rid) {
 	case MAX77693_ESAFEOUT1...MAX77693_ESAFEOUT2:
 		*reg = MAX77693_CHG_REG_SAFEOUT_CTRL;
@@ -146,8 +144,8 @@ static int max77693_get_disable_register(struct regulator_dev *rdev,
 static int max77693_reg_is_enabled(struct regulator_dev *rdev)
 {
 	int ret, reg, mask, pattern;
+
 	u8 val;
-	dev_info(&rdev->dev, "func:%s\n", __func__);
 	ret = max77693_get_enable_register(rdev, &reg, &mask, &pattern);
 	if (ret == -EINVAL)
 		return 1;	/* "not controllable" */
@@ -164,7 +162,7 @@ static int max77693_reg_is_enabled(struct regulator_dev *rdev)
 static int max77693_reg_enable(struct regulator_dev *rdev)
 {
 	int ret, reg, mask, pattern;
-	dev_info(&rdev->dev, "func:%s\n", __func__);
+
 	ret = max77693_get_enable_register(rdev, &reg, &mask, &pattern);
 	if (ret)
 		return ret;
@@ -175,7 +173,7 @@ static int max77693_reg_enable(struct regulator_dev *rdev)
 static int max77693_reg_disable(struct regulator_dev *rdev)
 {
 	int ret, reg, mask, pattern;
-	dev_info(&rdev->dev, "func:%s\n", __func__);
+
 	ret = max77693_get_disable_register(rdev, &reg, &mask, &pattern);
 	if (ret)
 		return ret;
@@ -188,7 +186,7 @@ static int max77693_get_voltage_register(struct regulator_dev *rdev,
 {
 	int rid = max77693_get_rid(rdev);
 	int reg, shift = 0, mask = 0x3f;
-	dev_info(&rdev->dev, "func:%s\n", __func__);
+
 	switch (rid) {
 	case MAX77693_ESAFEOUT1...MAX77693_ESAFEOUT2:
 		reg = MAX77693_CHG_REG_SAFEOUT_CTRL;
@@ -217,7 +215,7 @@ static int max77693_list_voltage(struct regulator_dev *rdev,
 	const struct voltage_map_desc *desc;
 	int rid = max77693_get_rid(rdev);
 	int val;
-	dev_info(&rdev->dev, "func:%s\n", __func__);
+
 	if (rid >= ARRAY_SIZE(reg_voltage_map) || rid < 0)
 		return -EINVAL;
 
@@ -245,7 +243,7 @@ static int max77693_get_voltage(struct regulator_dev *rdev)
 	int reg, shift, mask, ret;
 
 	u8 val;
-	dev_info(&rdev->dev, "func:%s\n", __func__);
+
 	ret = max77693_get_voltage_register(rdev, &reg, &shift, &mask);
 	if (ret)
 		return ret;
@@ -348,7 +346,7 @@ static int max77693_set_voltage_safeout(struct regulator_dev *rdev,
 	int reg, shift = 0, mask, ret;
 	int i = 0;
 	u8 val;
-	dev_info(&rdev->dev, "func:%s\n", __func__);
+
 	if (rid != MAX77693_ESAFEOUT1 && rid != MAX77693_ESAFEOUT2)
 		return -EINVAL;
 
@@ -377,7 +375,6 @@ static int max77693_set_voltage_safeout(struct regulator_dev *rdev,
 
 static int max77693_reg_enable_suspend(struct regulator_dev *rdev)
 {
-	dev_info(&rdev->dev, "func:%s\n", __func__);
 	return 0;
 }
 
@@ -386,7 +383,7 @@ static int max77693_reg_disable_suspend(struct regulator_dev *rdev)
 	struct max77693_data *max77693 = rdev_get_drvdata(rdev);
 	int ret, reg, mask, pattern;
 	int rid = max77693_get_rid(rdev);
-	dev_info(&rdev->dev, "func:%s\n", __func__);
+
 	ret = max77693_get_disable_register(rdev, &reg, &mask, &pattern);
 	if (ret)
 		return ret;
@@ -459,7 +456,7 @@ static void max77693_muic_enable_otg(struct regulator_dev *rdev, int enable)
 	u8 cdetctrl1;
 	u8 chg_cnfg_00;
 
-	dev_info(&rdev->dev, "enable(%d)\n", enable);
+	dev_dbg(&rdev->dev, "enable(%d)\n", enable);
 
 	/*
 	 * FIXME: This function write/read directly the register of max77693
@@ -527,7 +524,7 @@ static void max77693_muic_enable_otg(struct regulator_dev *rdev, int enable)
 			MAX77693_CHG_REG_CHG_INT_MASK, &int_mask);
 	}
 
-	dev_info(&rdev->dev,
+	dev_dbg(&rdev->dev,
 		"INT_MASK(0x%x), CDETCTRL1(0x%x), CHG_CNFG_00(0x%x)\n",
 		int_mask, cdetctrl1, chg_cnfg_00);
 }
@@ -539,7 +536,7 @@ static void max77693_muic_enable_otg(struct regulator_dev *rdev, int enable)
  */
 static void max77693_muic_enable_usb(struct regulator_dev *rdev, int enable)
 {
-	dev_info(&rdev->dev, "enable(%d)\n", enable);
+	dev_dbg(&rdev->dev, "enable(%d)\n", enable);
 
 	if (enable) {
 		/* OTG on, boost on */
@@ -729,8 +726,6 @@ static int max77693_pmic_probe(struct platform_device *pdev)
 	int i, ret, size;
 	struct regulator_config config = {};
 
-	dev_info(&pdev->dev, "%s\n", __func__);
-
 	if (!pdata) {
 		pr_info("[%s:%d] !pdata\n", __FILE__, __LINE__);
 		dev_err(pdev->dev.parent, "No platform init data supplied.\n");
@@ -765,7 +760,7 @@ static int max77693_pmic_probe(struct platform_device *pdev)
 	config.driver_data = max77693;
 	platform_set_drvdata(pdev, max77693);
 
-	pr_info("[%s:%d] pdata->num_regulators:%d\n", __FILE__, __LINE__,
+	pr_debug("[%s:%d] pdata->num_regulators:%d\n", __FILE__, __LINE__,
 		pdata->num_regulators);
 	for (i = 0; i < pdata->num_regulators; i++) {
 		const struct voltage_map_desc *desc;
@@ -774,7 +769,7 @@ static int max77693_pmic_probe(struct platform_device *pdev)
 		config.init_data = pdata->regulators[i].initdata;
 		config.of_node = pdata->regulators[i].of_node;
 
-		pr_info("[%s:%d] for in pdata->num_regulators:%d\n", __FILE__,
+		pr_debug("[%s:%d] for in pdata->num_regulators:%d\n", __FILE__,
 			__LINE__, pdata->num_regulators);
 		desc = reg_voltage_map[id];
 		if (id == MAX77693_ESAFEOUT1 || id == MAX77693_ESAFEOUT2)
@@ -804,7 +799,7 @@ static int max77693_pmic_remove(struct platform_device *pdev)
 	struct max77693_data *max77693 = platform_get_drvdata(pdev);
 	struct regulator_dev **rdev = max77693->rdev;
 	int i;
-	dev_info(&pdev->dev, "%s\n", __func__);
+
 	for (i = 0; i < max77693->num_regulators; i++)
 		if (rdev[i])
 			regulator_unregister(rdev[i]);
