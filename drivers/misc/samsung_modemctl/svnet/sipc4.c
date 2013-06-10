@@ -462,8 +462,18 @@ static inline void _init_data(struct sipc *si, unsigned char *base)
 	si->map = (struct sipc_mapped *)base;
 #if !defined(CONFIG_PHONE_ARIES_STE)
 	si->map->magic = 0x0;
-	si->map->access = 0x0;
+
+#else
+	if(si->map->magic == 0xFF)
+	{
+		si->map->magic = 0x0;
+	}
+	else
+	{
+		si->map->magic = 0xFF;
+	}
 #endif
+	si->map->access = 0x0;
 	si->map->hwrev = HWREV;
 
 	for (i=0;i<IPCIDX_MAX;i++) {
