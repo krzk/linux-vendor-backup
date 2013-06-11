@@ -34,6 +34,7 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
+#include <linux/of_address.h>
 
 #include <drm/exynos_drm.h>
 
@@ -82,7 +83,6 @@ struct hdmi_resources {
 	struct clk			*sclk_hdmi;
 	struct clk			*sclk_pixel;
 	struct clk			*sclk_hdmiphy;
-	struct clk			*hdmiphy;
 	struct clk			*mout_hdmi;
 	struct regulator_bulk_data	*regul_bulk;
 	int				regul_count;
@@ -189,6 +189,7 @@ struct hdmi_context {
 	struct mutex			hdmi_mutex;
 
 	void __iomem			*regs;
+	void __iomem			*phy_pow_ctrl_reg;
 	void				*parent_ctx;
 	int				irq;
 
@@ -402,6 +403,14 @@ static inline void hdmi_reg_writemask(struct hdmi_context *hdata,
 	u32 old = readl(hdata->regs + reg_id);
 	value = (value & mask) | (old & ~mask);
 	writel(value, hdata->regs + reg_id);
+}
+
+static inline void hdmi_phy_pow_ctrl_reg_writemask(struct hdmi_context *hdata,
+				 u32 value, u32 mask)
+{
+	u32 old = readl(hdata->phy_pow_ctrl_reg);
+	value = (value & mask) | (old & ~mask);
+	writel(value, hdata->phy_pow_ctrl_reg);
 }
 
 static void hdmi_v13_regs_dump(struct hdmi_context *hdata, char *prefix)
@@ -1686,7 +1695,8 @@ static void hdmi_poweron(struct hdmi_context *hdata)
 	if (regulator_bulk_enable(res->regul_count, res->regul_bulk))
 		DRM_DEBUG_KMS("failed to enable regulator bulk\n");
 
-	clk_prepare_enable(res->hdmiphy);
+	hdmi_phy_pow_ctrl_reg_writemask(hdata, PMU_HDMI_PHY_ENABLE,
+		PMU_HDMI_PHY_CONTROL_MASK);
 	clk_prepare_enable(res->hdmi);
 	clk_prepare_enable(res->sclk_hdmi);
 
@@ -1711,7 +1721,8 @@ static void hdmi_poweroff(struct hdmi_context *hdata)
 
 	clk_disable_unprepare(res->sclk_hdmi);
 	clk_disable_unprepare(res->hdmi);
-	clk_disable_unprepare(res->hdmiphy);
+	hdmi_phy_pow_ctrl_reg_writemask(hdata, PMU_HDMI_PHY_DISABLE,
+		PMU_HDMI_PHY_CONTROL_MASK);
 	regulator_bulk_disable(res->regul_count, res->regul_bulk);
 
 	mutex_lock(&hdata->hdmi_mutex);
@@ -1810,11 +1821,6 @@ static int hdmi_resources_init(struct hdmi_context *hdata)
 		DRM_ERROR("failed to get clock 'sclk_hdmiphy'\n");
 		goto fail;
 	}
-	res->hdmiphy = devm_clk_get(dev, "hdmiphy");
-	if (IS_ERR(res->hdmiphy)) {
-		DRM_ERROR("failed to get clock 'hdmiphy'\n");
-		goto fail;
-	}
 	res->mout_hdmi = devm_clk_get(dev, "mout_hdmi");
 	if (IS_ERR(res->mout_hdmi)) {
 		DRM_ERROR("failed to get clock 'mout_hdmi'\n");
@@ -1842,7 +1848,6 @@ static int hdmi_resources_init(struct hdmi_context *hdata)
 	clk_prepare(res->sclk_hdmi);
 	clk_prepare(res->sclk_pixel);
 	clk_prepare(res->sclk_hdmiphy);
-	clk_prepare(res->hdmiphy);
 
 	clk_set_parent(res->sclk_hdmi, res->sclk_pixel);
 
@@ -1888,6 +1893,39 @@ static struct s5p_hdmi_platform_data *drm_hdmi_dt_parse_pdata
 
 err_data:
 	return NULL;
+}
+
+static int drm_hdmi_dt_parse_phy_pow_control(struct hdmi_context *hdata)
+{
+	struct device_node *phy_pow_ctrl_node;
+	u32 buf[2];
+	int ret = 0;
+
+	phy_pow_ctrl_node = of_find_node_by_name(NULL, "phy-power-control");
+	if (!phy_pow_ctrl_node) {
+		DRM_ERROR("Failed to find phy power control node\n");
+		ret = -ENODEV;
+		goto fail;
+	}
+
+	/* reg property holds two informations: addr of pmu register, size */
+	if (of_property_read_u32_array(phy_pow_ctrl_node, "reg",
+			(u32 *)&buf, 2)) {
+		DRM_ERROR("faild to get phy power control reg\n");
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	hdata->phy_pow_ctrl_reg = devm_ioremap(hdata->dev, buf[0],  buf[1]);
+	if (!hdata->phy_pow_ctrl_reg) {
+		DRM_ERROR("failed to ioremap phy pmu reg\n");
+		ret = -ENOMEM;
+		goto fail;
+	}
+
+fail:
+	of_node_put(phy_pow_ctrl_node);
+	return ret;
 }
 
 static struct of_device_id hdmi_match_types[] = {
@@ -1961,6 +1999,13 @@ static int hdmi_probe(struct platform_device *pdev)
 		goto err_clk_res;
 	}
 
+	/* map hdmiphy power control reg */
+	ret = drm_hdmi_dt_parse_phy_pow_control(hdata);
+	if (ret) {
+		DRM_ERROR("failed to map phy power control registers\n");
+		return ret;
+	}
+
 	/* DDC i2c driver */
 	if (i2c_add_driver(&ddc_driver)) {
 		DRM_ERROR("failed to register ddc i2c driver\n");
@@ -2016,7 +2061,6 @@ err_clk_res:
 	clk_unprepare(hdata->res.sclk_hdmi);
 	clk_unprepare(hdata->res.sclk_pixel);
 	clk_unprepare(hdata->res.sclk_hdmiphy);
-	clk_unprepare(hdata->res.hdmiphy);
 	return ret;
 }
 
@@ -2037,7 +2081,6 @@ static int hdmi_remove(struct platform_device *pdev)
 	clk_unprepare(hdata->res.sclk_hdmi);
 	clk_unprepare(hdata->res.sclk_pixel);
 	clk_unprepare(hdata->res.sclk_hdmiphy);
-	clk_unprepare(hdata->res.hdmiphy);
 	return 0;
 }
 
