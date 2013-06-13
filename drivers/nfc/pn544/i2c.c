@@ -206,7 +206,7 @@ static int pn544_hci_i2c_write(void *phy_id, struct sk_buff *skb)
 
 	r = i2c_master_send(client, skb->data, skb->len);
 
-	if (r == -EREMOTEIO) {	/* Retry, chip was in standby */
+	if (r < 0) {	/* Retry, chip was in standby */
 		usleep_range(6000, 10000);
 		r = i2c_master_send(client, skb->data, skb->len);
 	}
