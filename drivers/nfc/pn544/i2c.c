@@ -69,7 +69,6 @@ struct pn544_i2c_phy {
 	struct nfc_hci_dev *hdev;
 
 	unsigned int gpio_en;
-	unsigned int gpio_irq;
 	unsigned int gpio_fw;
 	unsigned int en_polarity;
 
@@ -393,7 +392,6 @@ static int pn544_hci_i2c_parse_pdata(
 
 	phy->gpio_en = pdata->get_gpio(NFC_GPIO_ENABLE);
 	phy->gpio_fw = pdata->get_gpio(NFC_GPIO_FW_RESET);
-	phy->gpio_irq = pdata->get_gpio(NFC_GPIO_IRQ);
 
 	return 0;
 }
@@ -401,8 +399,7 @@ static int pn544_hci_i2c_parse_pdata(
 #ifdef CONFIG_OF
 static const char * const pn544_hci_i2c_gpio_names[] = {
 	"nfc_gpio_enable",
-	"nfc_gpio_fw_reset",
-	"nfc_gpio_irq"
+	"nfc_gpio_fw_reset"
 };
 
 static int pn544_hci_i2c_parse_dt(struct i2c_client *client,
@@ -425,9 +422,6 @@ static int pn544_hci_i2c_parse_dt(struct i2c_client *client,
 			break;
 		case NFC_GPIO_FW_RESET:
 			phy->gpio_fw = gpio;
-			break;
-		case NFC_GPIO_IRQ:
-			phy->gpio_irq = gpio;
 			break;
 		default:
 			break;
