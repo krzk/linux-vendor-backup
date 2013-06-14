@@ -197,6 +197,23 @@
 		};
 	};
 
+	i2c-gpio-2 {
+		compatible = "i2c-gpio";
+		gpios = <&gpk1 1 0>, <&gpk2 2 0>;
+		i2c-gpio,delay-us = <2>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "okay";
+
+		gp2ap002a00f@39 {
+			compatible = "gp2ap002a00f";
+			reg = <0x39>;
+			interrupt-parent = <&gpx0>;
+			interrupts = <2 0>;
+			vled-supply = <&ps_als_reg>;
+		};
+	};
+
 	i2c_0: i2c@13860000 {
 		samsung,i2c-sda-delay = <100>;
 		samsung,i2c-slave-addr = <0x10>;
@@ -713,6 +730,15 @@
 		regulator-max-microvolt = <5000000>;
 		gpio = <>;
 		regulator-always-on;
+	};
+
+	ps_als_reg: voltage-regulator@6 {
+		compatible = "regulator-fixed";
+		regulator-name = "LED_A_3.0V";
+		regulator-min-microvolt = <3000000>;
+		regulator-max-microvolt = <3000000>;
+		gpio = <&gpj0 5 0>;
+		enable-active-high;
 	};
 
 	fimd0_lcd: panel {
