@@ -1212,6 +1212,9 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 	struct clk *top, *fail_clk;
 	int ret = 0;
 
+	if (IS_ERR_OR_NULL(clk))
+		return -EINVAL;
+
 	/* prevent racing with updates to the clock topology */
 	clk_prepare_lock();
 
