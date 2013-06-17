@@ -105,11 +105,17 @@ static struct fmt_desc fmt_conv_table[] = {
 
 static void create_ump_ids(struct vb2_fb_data *data, unsigned int smem, int size)
 {
-        ump_dd_physical_block block;
-        block.addr = smem;
-        block.size = size;
-        data->ump_handle[0] = ump_dd_handle_create_from_phys_blocks(&block, 1);
-        data->ump_handle[1] = ump_dd_handle_create_from_phys_blocks(&block, 1);
+        ump_dd_physical_block block0;
+        ump_dd_physical_block block1;
+        
+        block0.addr = smem;
+        block0.size = size;
+        
+        block1.addr = smem + size;
+        block1.size = size;
+
+        data->ump_handle[0] = ump_dd_handle_create_from_phys_blocks(&block0, 1);
+        data->ump_handle[1] = ump_dd_handle_create_from_phys_blocks(&block1, 1);
 }
 
 static int vb2_wait_for_vsync(struct fb_info *info, u32 crtc) {
