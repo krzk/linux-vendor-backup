@@ -887,11 +887,13 @@ void fimc_get_nv12t_size(int img_hres, int img_vres,
 	int y_hres_roundup, y_vres_roundup;
 	int cb_hres_roundup, cb_vres_roundup;
 
+#ifndef CONFIG_SAMSUNG_GALAXYS4G
 	if (rotate == 90 || rotate == 270) {
 		int tmp = img_hres;
 		img_hres = img_vres;
 		img_vres = tmp;
 	}
+#endif
 
 	/* to make 'img_hres and img_vres' be 16 multiple */
 	remain = img_hres % 16;
