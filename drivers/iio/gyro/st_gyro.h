@@ -15,12 +15,13 @@
 #include <linux/iio/common/st_sensors.h>
 
 #define L3G4200D_GYRO_DEV_NAME		"l3g4200d"
-#define LSM330D_GYRO_DEV_NAME		"lsm330d_gyro"
-#define LSM330DL_GYRO_DEV_NAME		"lsm330dl_gyro"
-#define LSM330DLC_GYRO_DEV_NAME		"lsm330dlc_gyro"
+#define LSM330D_GYRO_DEV_NAME		"lsm330d-gyro"
+#define LSM330DL_GYRO_DEV_NAME		"lsm330dl-gyro"
+#define LSM330DLC_GYRO_DEV_NAME		"lsm330dlc-gyro"
 #define L3GD20_GYRO_DEV_NAME		"l3gd20"
-#define L3G4IS_GYRO_DEV_NAME		"l3g4is_ui"
-#define LSM330_GYRO_DEV_NAME		"lsm330_gyro"
+#define L3GD20H_GYRO_DEV_NAME		"l3gd20h"
+#define L3G4IS_GYRO_DEV_NAME		"l3g4is-ui"
+#define LSM330_GYRO_DEV_NAME		"lsm330-gyro"
 
 int st_gyro_common_probe(struct iio_dev *indio_dev);
 void st_gyro_common_remove(struct iio_dev *indio_dev);

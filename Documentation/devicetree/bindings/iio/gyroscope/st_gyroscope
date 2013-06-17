@@ -1,0 +1,44 @@
+STMicroelectronics 3D  gyroscope
+
+Required properties:
+
+  - compatible : should be one from
+	"st,l3g4200d"
+	"st,lsm330d_gyro"
+	"st,lsm330dl_gyro"
+	"st,lsm330dlc_gyro"
+	"st,l3gd20"
+	"st,l3gd20h"
+	"st,l3g4is_ui"
+	"st,lsm330_gyro"
+
+  - reg : the I2C address of the accelerometer
+
+Optional properties:
+
+  - irq-map-policy: irqs from interrupt-map assigment policy
+	0: no irqs
+	1: map first irq to irq_data_ready
+	2: map first irq to irq_event
+	3..n: future improvements
+  - interrupt-parent: should contain interrupt map
+
+Example:
+
+	lsm330dlc_gyro@6b {
+		compatible = "st,lsm330dlc_gyro";
+		reg = <0x6b>;
+		irq-map-policy = <0>;
+		interrupt-controller;
+		#interrups-cells = <2>;
+          	interrupt-parent = <&lsm330dlc_gyro_map>;
+           	interrupts= <1 0>;
+
+		lsm330dlc_gyro_map: lsm330dlc-gyro-map {
+               		compatible = "samsung,lsm330dlc-gyro-map";
+               		#interrupt-cells = <2>;
+               		#address-cells = <0>;
+               		#size-cells = <0>;
+               		interrupt-map = <0x1 0 &gpf0 3 0>;
+		};
+	};
