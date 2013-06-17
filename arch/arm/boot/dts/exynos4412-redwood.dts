@@ -173,6 +173,51 @@
 		};
 	};
 
+	i2c@13870000 {
+		samsung,i2c-sda-delay = <100>;
+		samsung,i2c-slave-addr = <0x10>;
+		samsung,i2c-max-bus-freq = <400000>;
+		pinctrl-0 = <&i2c1_bus>;
+		pinctrl-names = "default";
+		status = "okay";
+
+		lsm330dlc_gyro@6b {
+			compatible = "st,lsm330dlc-gyro";
+			reg = <0x6b>;
+			irq-map-policy = <1>;
+			interrupt-controller;
+			#interrups-cells = <2>;
+            		interrupt-parent = <&lsm330dlc_gyro_map>;
+            		interrupts= <1 0>;
+
+			lsm330dlc_gyro_map: lsm330dlc-gyro-map {
+                		compatible = "samsung,lsm330dlc-gyro-map";
+                		#interrupt-cells = <2>;
+                		#address-cells = <0>;
+                		#size-cells = <0>;
+                		interrupt-map = <0x1 0 &gpf0 3 0>;
+            		};
+		};
+
+		lsm330dlc_accel@19 {
+			compatible = "st,lsm330dlc-accel";
+			reg = <0x19>;
+			irq-map-policy = <2>;
+			interrupt-controller;
+            		#interrups-cells = <2>;
+            		interrupt-parent = <&lsm330dlc_accel_map>;
+            		interrupts= <1 0>;
+
+			lsm330dlc_accel_map: lsm330dlc-accel-map {
+                		compatible = "samsung,lsm330dlc-accel-map";
+                		#interrupt-cells = <2>;
+                		#address-cells = <0>;
+                		#size-cells = <0>;
+                		interrupt-map = <0x1 0 &gpx0 0 0>;
+            		};
+		};
+	};
+
 	i2c@13890000 {
 		samsung,i2c-sda-delay = <100>;
 		samsung,i2c-slave-addr = <0x10>;
