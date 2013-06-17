@@ -1,0 +1,20 @@
+* Sharp GP2AP002A00F I2C Proximity/Opto sensor
+
+Required properties:
+
+  - compatible : should be "sharp,gp2ap002a00f"
+  - reg : the I2C address of the light sensor
+  - interrupt-parent : phandle to the parent interrupt controller
+  - interrupts : should be INT interrupt pin
+  - vled-supply : VLED power supply, as covered
+		  in Documentation/devicetree/bindings/regulator/regulator.txt
+
+Example:
+
+gp2ap002a00f@39 {
+	compatible = "sharp,gp2ap002a00f";
+	reg = <0x39>;
+	interrupt-parent = <&gpx0>;
+	interrupts = <2 0>;
+	vled-supply = <...>;
+};
