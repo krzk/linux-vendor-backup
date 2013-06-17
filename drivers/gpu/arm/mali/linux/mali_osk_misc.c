@@ -54,11 +54,11 @@ void _mali_osk_break(void)
 u32 _mali_osk_get_pid(void)
 {
 	/* Thread group ID is the process ID on Linux */
-	return (u32)current->tgid;
+	return (u32)current->pid;
 }
 
 u32 _mali_osk_get_tid(void)
 {
 	/* pid is actually identifying the thread on Linux */
-	return (u32)current->pid;
+	return (u32)current->tgid;
 }
