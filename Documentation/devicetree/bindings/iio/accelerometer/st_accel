@@ -1,0 +1,47 @@
+STMicroelectronics 3D  accelerometer
+
+Required properties:
+
+  - compatible : should be one from
+	"st,lsm330dlhc_accel"
+	"st,lis3dh"
+	"st,lsm330d_accel"
+	"st,lsm330dl_accel"
+	"st,lsm330dlc_accel"
+	"st,lsm331dlh"
+	"st,lsm303dl_accel"
+	"st,lsm303dlh_accel"
+	"st,lsm303dlm_accel"
+	"st,lsm330_accelc"
+
+  - reg : the I2C address of the accelerometer
+
+Optional properties:
+
+  - irq-map-policy: irqs from interrupt-map assigment policy
+	0: no irqs
+	1: map first irq to irq_data_ready
+	2: map first irq to irq_event
+	3..n: future improvements
+  - interrupt-parent: should contain interrupt map
+
+Example:
+
+lsm330dlc_accel@19 {
+	compatible = "st,lsm330dlc_accel";
+	reg = <0x19>;
+	irq-map-policy = <1>;
+	interrupt-controller;
+	#interrups-cells = <2>;
+	interrupt-parent = <&lsm330dlc_accel_map>;
+	interrupts= <1 0>;
+
+	lsm330dlc_accel_map: lsm330dlc-accel-map {
+		compatible = "samsung,lsm330dlc-accel-map";
+		#interrupt-cells = <2>;
+		#address-cells = <0>;
+		#size-cells = <0>;
+		interrupt-map = <0x1 0 &gpx0 0 0>;
+	};
+};
+

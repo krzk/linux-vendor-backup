@@ -69,10 +69,27 @@ static const struct spi_device_id st_accel_id_table[] = {
 };
 MODULE_DEVICE_TABLE(spi, st_accel_id_table);
 
+#ifdef CONFIG_OF
+static struct of_device_id st_accel_dt_match[] = {
+	{ .compatible = "st,lsm330dlhc-accel" },
+	{ .compatible = "st,lis3dh" },
+	{ .compatible = "st,lsm330d-accel" },
+	{ .compatible = "st,lsm330dl-accel" },
+	{ .compatible = "st,lsm330dlc-accel" },
+	{ .compatible = "st,lsm331dlh" },
+	{ .compatible = "st,lsm303dl-accel" },
+	{ .compatible = "st,lsm303dlh-accel" },
+	{ .compatible = "st,lsm303dlm-accel" },
+	{ .compatible = "st,lsm330-accel" },
+	{ }
+};
+#endif
+
 static struct spi_driver st_accel_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = "st-accel-spi",
+		.of_match_table = of_match_ptr(st_accel_dt_match),
 	},
 	.probe = st_accel_spi_probe,
 	.remove = st_accel_spi_remove,

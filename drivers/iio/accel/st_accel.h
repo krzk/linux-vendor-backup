@@ -14,16 +14,16 @@
 #include <linux/types.h>
 #include <linux/iio/common/st_sensors.h>
 
-#define LSM303DLHC_ACCEL_DEV_NAME	"lsm303dlhc_accel"
+#define LSM303DLHC_ACCEL_DEV_NAME	"lsm303dlhc-accel"
 #define LIS3DH_ACCEL_DEV_NAME		"lis3dh"
-#define LSM330D_ACCEL_DEV_NAME		"lsm330d_accel"
-#define LSM330DL_ACCEL_DEV_NAME		"lsm330dl_accel"
-#define LSM330DLC_ACCEL_DEV_NAME	"lsm330dlc_accel"
+#define LSM330D_ACCEL_DEV_NAME		"lsm330d-accel"
+#define LSM330DL_ACCEL_DEV_NAME		"lsm330dl-accel"
+#define LSM330DLC_ACCEL_DEV_NAME	"lsm330dlc-accel"
 #define LIS331DLH_ACCEL_DEV_NAME	"lis331dlh"
-#define LSM303DL_ACCEL_DEV_NAME		"lsm303dl_accel"
-#define LSM303DLH_ACCEL_DEV_NAME	"lsm303dlh_accel"
-#define LSM303DLM_ACCEL_DEV_NAME	"lsm303dlm_accel"
-#define LSM330_ACCEL_DEV_NAME		"lsm330_accel"
+#define LSM303DL_ACCEL_DEV_NAME		"lsm303dl-accel"
+#define LSM303DLH_ACCEL_DEV_NAME	"lsm303dlh-accel"
+#define LSM303DLM_ACCEL_DEV_NAME	"lsm303dlm-accel"
+#define LSM330_ACCEL_DEV_NAME		"lsm330-accel"
 
 int st_accel_common_probe(struct iio_dev *indio_dev);
 void st_accel_common_remove(struct iio_dev *indio_dev);
