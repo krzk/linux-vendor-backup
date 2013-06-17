@@ -523,6 +523,52 @@
 		};
 	};
 
+	i2c_if_pmic: i2c@0 {
+		compatible = "i2c-gpio";
+		gpios = <&gpm2 0 0
+			 &gpm2 1 0
+			>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		max77693@66 {
+			compatible = "maxim,max77693";
+			interrupt-parent = <&gpx1>;
+			interrupts = <5 2>;
+			wakeup = <1>;
+			reg = <0x66>;
+
+			regulators {
+				esafeout@1 {
+					regulator-compatible = "ESAFEOUT1";
+					regulator-name = "ESAFEOUT1";
+					regulator-boot-on;
+				};
+				esafeout@2 {
+					regulator-compatible = "ESAFEOUT2";
+					regulator-name = "ESAFEOUT2";
+				};
+				charger@0 {
+					regulator-compatible = "CHARGER";
+					regulator-name = "CHARGER";
+					regulator-min-microamp = <60000>;
+					regulator-max-microamp = <2580000>;
+					regulator-boot-on;
+				};
+			};
+			muic_regs {
+				intmask@1 {
+					addr = <0x7>;
+					data = <0x9>;
+				};
+				intmask@2 {
+					addr = <0x8>;
+					data = <0x1>;
+				};
+			};
+		};
+	};
+
 	lcd_vdd_reg: voltage-regulator@1 {
 	        compatible = "regulator-fixed";
 		regulator-name = "LCD_VDD_5.0V";
