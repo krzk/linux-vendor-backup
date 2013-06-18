@@ -285,6 +285,14 @@ static int max77693_muic_set_path(struct max77693_muic_info *info,
 	int ret = 0;
 	u8 ctrl1, ctrl2 = 0;
 
+	/* Set open state to path before changing hw path */
+	ret = max77693_update_reg(info->max77693->regmap_muic,
+		MAX77693_MUIC_REG_CTRL1, CONTROL1_SW_OPEN, COMP_SW_MASK);
+	if (ret < 0) {
+		dev_err(info->dev, "failed to update MUIC register\n");
+		return ret;
+	}
+
 	if (attached)
 		ctrl1 = val;
 	else
@@ -1246,7 +1254,7 @@ static int max77693_muic_probe(struct platform_device *pdev)
 	}
 
 	/* Set initial path for UART */
-	 max77693_muic_set_path(info, info->path_uart, true);
+	max77693_muic_set_path(info, info->path_uart, true);
 
 	/* Check revision number of MUIC device*/
 	ret = max77693_read_reg(info->max77693->regmap_muic,
