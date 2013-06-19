@@ -552,12 +552,12 @@ static inline dma_addr_t vb2_dc_pfn_to_dma(struct device *dev, unsigned long pfn
 {
 	return (dma_addr_t)__arch_pfn_to_dma(dev, pfn);
 }
-#elsif defined(__pfn_to_bus)
+#elif defined(__pfn_to_bus)
 static inline dma_addr_t vb2_dc_pfn_to_dma(struct device *dev, unsigned long pfn)
 {
 	return (dma_addr_t)__pfn_to_bus(pfn);
 }
-#elsif defined(__pfn_to_phys)
+#elif defined(__pfn_to_phys)
 static inline dma_addr_t vb2_dc_pfn_to_dma(struct device *dev, unsigned long pfn)
 {
 	return (dma_addr_t)__pfn_to_phys(pfn);
