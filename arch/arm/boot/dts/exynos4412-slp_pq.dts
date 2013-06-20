@@ -98,6 +98,17 @@
 		status = "okay";
 	};
 
+	sdhci_sd: sdhci@12530000 {
+		bus-width = <4>;
+		cd-gpios = <&gpx3 4 0>;
+		cd-inverted;
+		interrupts = <0 75 0>;
+		pinctrl-0 = <&sd2_clk &sd2_cmd &sd2_bus4>;
+		pinctrl-names = "default";
+		vmmc-supply = <&ldo21_reg>;
+		status = "okay";
+	};
+
 	serial@13800000 {
 		status = "okay";
 	};
