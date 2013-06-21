@@ -3019,8 +3019,9 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
 			kfree(common);
 		return ERR_PTR(rc);
 	}
-	common->ops = cfg->ops;
-	common->private_data = cfg->private_data;
+
+	fsg_common_set_ops(common, cfg->ops);
+	fsg_common_set_private_data(common, cfg->private_data);
 
 	common->gadget = gadget;
 	common->ep0 = gadget->ep0;
