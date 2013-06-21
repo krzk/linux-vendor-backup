@@ -1,0 +1,12 @@
+#
+# Magnetometer sensors
+#
+menu "Barometer sensors"
+
+config SENSORS_LPS331
+        tristate "STMicro LPS331 driver"
+        depends on I2C
+        help
+          Driver for STMicro LPS331
+
+endmenu

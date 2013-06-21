@@ -1,0 +1,40 @@
+* STMicroelectronics LPS331AP barometer sensor
+
+Required properties:
+
+  - compatible : should be "st,lps331ap"
+  - reg : the I2C address of the barometer
+
+Optional properties:
+
+  - interrupt-parent : phandle to the interrupt map subnode
+  - interrupts : interrupt mapping for LPS331AP interrupt sources:
+		 2 sources: 0 - INT1, 1 - INT2
+  - irq-map : irq sub-node defining interrupt map
+              (all properties listed below are required):
+      - #interrupt-cells : should be 1
+      - #address-cells : should be 0
+      - #size-cells : should be 0
+      - interrupt-map : table of entries consisting of three child elements:
+          - unit_interrupt_specifier - 0 : INT1, 1 : INT2
+          - interrupt parent phandle
+          - parent unit interrupt specifier consisiting of two elements:
+              - index of the interrupt within the controller
+              - flags : should be 0
+
+Example:
+
+lps331ap@5d {
+	compatible = "lps331ap";
+	reg = <0x5d>;
+	interrupt-parent = <&irq_map>;
+	interrupts = <0>, <1>;
+
+	irq_map: irq-map {
+		#interrupt-cells = <1>;
+		#address-cells = <0>;
+		#size-cells = <0>;
+		interrupt-map = <0 &gpf0 5 0>,
+				<1 &gpx0 3 0>;
+	};
+};
