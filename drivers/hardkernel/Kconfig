@@ -7,5 +7,12 @@ config ODROID_U2_FAN
 	---help---
 		Enables the PWM Controlled FAN on ODROID-U2
 
+config ODROID_UMP
+        bool "Enable ODROID UMP IOCTL's for MALI"
+        default y
+        ---help---
+                This enables UMP IOCTL's on Framebuffer 
+
+
 endmenu
 
