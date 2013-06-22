@@ -27,6 +27,12 @@
 
 static int debug = 1;
 module_param(debug, int, 0644);
+#include "../platform/s5p-tv/mixer.h"
+
+#include <ump/ump_kernel_interface_ref_drv.h>
+
+#define GET_UMP_SECURE_ID_BUF1   _IOWR('m', 311, unsigned int)
+#define GET_UMP_SECURE_ID_BUF2   _IOWR('m', 312, unsigned int)
 
 #define dprintk(level, fmt, arg...)					\
 	do {								\
@@ -50,6 +56,9 @@ struct vb2_fb_data {
 	struct file fake_file;
 	struct dentry fake_dentry;
 	struct inode fake_inode;
+
+	struct mutex fb_lock;
+        ump_dd_handle ump_handle[2];        
 };
 
 static int vb2_fb_stop(struct fb_info *info);
@@ -93,6 +102,73 @@ static struct fmt_desc fmt_conv_table[] = {
 	},
 	/* TODO: add more format descriptors */
 };
+
+static void create_ump_ids(struct vb2_fb_data *data, unsigned int smem, int size)
+{
+        ump_dd_physical_block block0;
+        ump_dd_physical_block block1;
+        
+        block0.addr = smem;
+        block0.size = size;
+        
+        block1.addr = smem + size;
+        block1.size = size;
+
+        data->ump_handle[0] = ump_dd_handle_create_from_phys_blocks(&block0, 1);
+        data->ump_handle[1] = ump_dd_handle_create_from_phys_blocks(&block1, 1);
+}
+
+static int vb2_wait_for_vsync(struct fb_info *info, u32 crtc) {
+	struct vb2_fb_data *data = info->par;
+	struct vb2_queue *q = data->q;
+	struct mxr_layer *layer = vb2_get_drv_priv(q);
+	struct mxr_device *mdev = layer->mdev;
+
+	if(crtc != 0)
+		return -ENODEV;
+	
+	if(mxr_reg_wait4vsync(mdev) < 0)
+		return -ETIMEDOUT;
+
+	return 0;
+}
+
+static int do_hkdk_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg) {
+
+        struct vb2_fb_data *data = info->par;
+	u32 crtc;
+        int ret = 0;
+
+        switch (cmd) {
+	case FBIO_WAITFORVSYNC:
+		pr_emerg("videobuf2-fb: FBIO_WAITFORVSYNC called\n");
+		if(get_user(crtc, (__u32 __user *)arg))
+			ret = -EFAULT;
+		else
+			ret = vb2_wait_for_vsync(info, crtc);
+		break;
+
+        case GET_UMP_SECURE_ID_BUF1: {
+		pr_emerg("videobuf2-fb: GET_UMP_SECURE_ID_BUF1 called\n");
+		u32 __user *secureid = (u32 __user *) arg;
+                ret = put_user(ump_dd_secure_id_get(data->ump_handle[0]), secureid);
+                break;
+        }
+
+        case GET_UMP_SECURE_ID_BUF2: {
+		pr_emerg("videobuf2-fb: GET_UMP_SECURE_ID_BUF2 called\n");
+                u32 __user *secureid = (u32 __user *) arg;
+                ret = put_user(ump_dd_secure_id_get(data->ump_handle[1]), secureid);
+                break;
+        }
+
+        default:
+                printk(KERN_ERR "videobuf2-fb: unknown ioctl command: %x\n", cmd);
+                ret =  -EINVAL;
+                break;
+        }
+        return ret;
+}
 
 /**
  * vb2_drv_lock() - a shortcut to call driver specific lock()
@@ -235,9 +311,9 @@ static int vb2_fb_activate(struct fb_info *info)
 	info->screen_base = data->vaddr;
 	info->screen_size = size;
 	info->fix.line_length = bpl;
-
-
 	info->fix.smem_len = info->fix.mmio_len = size;
+
+	create_ump_ids(data, info->fix.smem_start, info->fix.smem_len);
 
 	var = &info->var;
 	var->xres = var->xres_virtual = var->width = width;
@@ -359,7 +435,7 @@ static int vb2_fb_open(struct fb_info *info, int user)
 	if (user == 0)
 		return -ENODEV;
 
-	vb2_drv_lock(data->q);
+	mutex_lock(&data->fb_lock);
 
 	/*
 	 * Activate emulation on the first open.
@@ -370,7 +446,7 @@ static int vb2_fb_open(struct fb_info *info, int user)
 	if (ret == 0)
 		data->refcount++;
 
-	vb2_drv_unlock(data->q);
+	mutex_unlock(&data->fb_lock);
 
 	return ret;
 }
@@ -387,12 +463,12 @@ static int vb2_fb_release(struct fb_info *info, int user)
 
 	dprintk(3, "fb emu: release()\n");
 
-	vb2_drv_lock(data->q);
+	mutex_lock(&data->fb_lock);
 
 	if (--data->refcount == 0)
 		ret = vb2_fb_deactivate(info);
 
-	vb2_drv_unlock(data->q);
+	mutex_unlock(&data->fb_lock);
 
 	return ret;
 }
@@ -488,6 +564,7 @@ static struct fb_ops vb2_fb_ops = {
 	.fb_fillrect	= cfb_fillrect,
 	.fb_copyarea	= cfb_copyarea,
 	.fb_imageblit	= cfb_imageblit,
+	.fb_ioctl	= do_hkdk_ioctl,
 };
 
 /**
@@ -541,6 +618,8 @@ void *vb2_fb_register(struct vb2_queue *q, struct video_device *vfd)
 	data->fake_file.f_path.dentry = &data->fake_dentry;
 	data->fake_dentry.d_inode = &data->fake_inode;
 	data->fake_inode.i_rdev = vfd->cdev->dev;
+
+	mutex_init(&data->fb_lock);
 
 	return info;
 }
