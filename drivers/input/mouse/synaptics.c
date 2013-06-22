@@ -1293,7 +1293,9 @@ static void set_input_params(struct input_dev *dev, struct synaptics_data *priv)
 		/* Clickpads report only left button */
 		__clear_bit(BTN_RIGHT, dev->keybit);
 		__clear_bit(BTN_MIDDLE, dev->keybit);
-	}
+	} else if (SYN_CAP_CLICKPAD2BTN(priv->ext_cap_0c) ||
+		   SYN_CAP_CLICKPAD2BTN2(priv->ext_cap_0c))
+		__set_bit(INPUT_PROP_BUTTONPAD, dev->propbit);
 }
 
 static ssize_t synaptics_show_disable_gesture(struct psmouse *psmouse,
@@ -1355,6 +1357,7 @@ static int synaptics_reconnect(struct psmouse *psmouse)
 {
 	struct synaptics_data *priv = psmouse->private;
 	struct synaptics_data old_priv = *priv;
+	unsigned char param[2];
 	int retry = 0;
 	int error;
 
@@ -1370,6 +1373,7 @@ static int synaptics_reconnect(struct psmouse *psmouse)
 			 */
 			ssleep(1);
 		}
+		ps2_command(&psmouse->ps2dev, param, PSMOUSE_CMD_GETID);
 		error = synaptics_detect(psmouse, 0);
 	} while (error && ++retry < 3);
 

@@ -78,6 +78,8 @@ static inline int omap_mux_late_init(void)
 #endif
 
 extern void omap2_init_common_infrastructure(void);
+extern int omap_register_mac_device_fixup_paths(const char * const *paths,
+								    int count); 
 
 extern struct sys_timer omap2_timer;
 extern struct sys_timer omap3_timer;

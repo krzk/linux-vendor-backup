@@ -1056,5 +1056,13 @@
 			clocks = <&clks 133>, <&clks 134>, <&clks 137>;
 			clock-names = "bus", "di0", "di1";
 		};
+
+		ahci@0x02200000 { /* AHCI SATA */
+			compatible = "fsl,imx6q-ahci";
+			reg = <0x02200000 0x4000>;
+			interrupts = <0 39 0x04>;
+			clocks = <&clks 154>;
+			status = "disabled";
+		};
 	};
 };

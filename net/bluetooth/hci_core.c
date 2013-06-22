@@ -777,6 +777,8 @@ int hci_dev_open(__u16 dev)
 done:
 	hci_req_unlock(hdev);
 	hci_dev_put(hdev);
+	if (!ret && hdev->load_firmware)
+		hdev->load_firmware(hdev);
 	return ret;
 }
 
