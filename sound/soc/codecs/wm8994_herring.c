@@ -2608,6 +2608,9 @@ static void wm8994_set_cdma_voicecall_common_setting(struct snd_soc_codec *codec
 static void wm8994_set_gsm_voicecall_common_setting(struct snd_soc_codec *codec)
 {
 	int val;
+#if defined(CONFIG_SAMSUNG_GALAXYS4G)
+	struct wm8994_priv *wm8994 = snd_soc_codec_get_drvdata(codec);
+#endif
 
 	/* GPIO Configuration */
 	wm8994_write(codec, WM8994_GPIO_1, 0xA101);
@@ -2652,12 +2655,20 @@ static void wm8994_set_gsm_voicecall_common_setting(struct snd_soc_codec *codec)
 #endif
 
 #if defined(CONFIG_SAMSUNG_GALAXYS4G)
+	if(wm8994->hw_version == 3)	// H/W Rev D
+	{
 	/* AIF2 Interface - PCM Stereo mode */
 	/* Left Justified, BCLK invert, LRCLK Invert */
-	wm8994_write(codec, WM8994_AIF2_CONTROL_1,
-		WM8994_AIF2_BCLK_INV | 0x18);
+		wm8994_write(codec, WM8994_AIF2_CONTROL_1,
+			WM8994_AIF2_BCLK_INV | 0x18);
 
-	wm8994_write(codec, WM8994_AIF2_BCLK, 0x70);
+		wm8994_write(codec, WM8994_AIF2_BCLK, 0x70);
+	}
+	else // H/W Rev B
+	{
+		wm8994_write(codec, WM8994_AIF2_CONTROL_1,	//Left Justified, BCLK invert, LRCLK Invert
+		WM8994_AIF2ADCR_SRC | WM8994_AIF2_BCLK_INV |WM8994_AIF2_LRCLK_INV | 0x1 << WM8994_AIF2_FMT_SHIFT);
+	}
 
 	wm8994_write(codec, WM8994_AIF2_CONTROL_2, 0x0000);
 
