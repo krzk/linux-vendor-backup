@@ -417,11 +417,7 @@ static void kernel_shutdown_prepare(enum system_states state)
 void kernel_halt(void)
 {
 	kernel_shutdown_prepare(SYSTEM_HALT);
-<<<<<<< HEAD
-	migrate_to_reboot_cpu();
-=======
 	disable_nonboot_cpus();
->>>>>>> f4af4372dbf757c78adbad5433c7044d44abd41a
 	syscore_shutdown();
 	printk(KERN_EMERG "System halted.\n");
 	kmsg_dump(KMSG_DUMP_HALT);
