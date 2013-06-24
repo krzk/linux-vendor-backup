@@ -24,6 +24,7 @@
 		i2c9 = &i2c_lps331ap;
 		i2c10 = &i2c_if_pmic;
 		i2c11 = &i2c_fuel;
+		i2c12 = &i2c_gp2ap020a00f;
 	};
 
 	memory {
@@ -197,7 +198,7 @@
 		};
 	};
 
-	i2c-gpio-2 {
+	i2c_gp2ap020a00f: i2c-gpio-2 {
 		compatible = "i2c-gpio";
 		gpios = <&gpk1 1 0>, <&gpk2 2 0>;
 		i2c-gpio,delay-us = <2>;
