@@ -1547,6 +1547,7 @@ static int hdmi_resources_init(struct hdmi_context *hdata)
 {
 	struct device *dev = hdata->dev;
 	struct hdmi_resources *res = &hdata->res;
+#if 0
 	static char *supply[] = {
 		"hdmi-en",
 		"vdd",
@@ -1554,6 +1555,7 @@ static int hdmi_resources_init(struct hdmi_context *hdata)
 		"vdd_pll",
 	};
 	int i, ret;
+#endif
 
 	DRM_DEBUG_KMS("HDMI resource init\n");
 
@@ -1587,7 +1589,7 @@ static int hdmi_resources_init(struct hdmi_context *hdata)
 	}
 
 	clk_set_parent(res->mout_hdmi, res->sclk_pixel);
-
+#if 0
 	res->regul_bulk = devm_kzalloc(dev, ARRAY_SIZE(supply) *
 		sizeof(res->regul_bulk[0]), GFP_KERNEL);
 	if (!res->regul_bulk)
@@ -1602,14 +1604,7 @@ static int hdmi_resources_init(struct hdmi_context *hdata)
 		goto fail;
 	}
 	res->regul_count = ARRAY_SIZE(supply);
-
-	clk_prepare(res->hdmi);
-	clk_prepare(res->sclk_hdmi);
-	clk_prepare(res->sclk_pixel);
-	clk_prepare(res->sclk_hdmiphy);
-
-	clk_set_parent(res->sclk_hdmi, res->sclk_pixel);
-
+#endif
 	return 0;
 fail:
 	DRM_ERROR("HDMI resource init - failed\n");
