@@ -144,6 +144,7 @@ static int omap_gem_dmabuf_mmap(struct dma_buf *buffer,
 		struct vm_area_struct *vma)
 {
 	struct drm_gem_object *obj = buffer->priv;
+	struct drm_device *dev = obj->dev;
 	int ret = 0;
 
 	if (WARN_ON(!obj->filp))
