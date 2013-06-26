@@ -905,16 +905,38 @@ static int fimc_is_runtime_suspend(struct device *dev)
 static int fimc_is_resume(struct device *dev)
 {
 	/* TODO: */
+	struct fimc_is *is = dev_get_drvdata(dev);
+	int i;
+
+	for (i = ISS_GATE_CLKS_SUSPEND; i < ISS_GATE_CLKS_MAX; i++)
+		if (!IS_ERR(is->clocks[i]))
+			clk_disable_unprepare(is->clocks[i]);
+
 	return 0;
 }
 
 static int fimc_is_suspend(struct device *dev)
 {
 	struct fimc_is *is = dev_get_drvdata(dev);
+	int i, ret;
 
 	/* TODO: */
 	if (test_bit(IS_ST_A5_PWR_ON, &is->state))
 		return -EBUSY;
+
+	for (i = ISS_GATE_CLKS_SUSPEND; i < ISS_GATE_CLKS_MAX; i++) {
+		if (IS_ERR(is->clocks[i]))
+			continue;
+
+		ret = clk_prepare_enable(is->clocks[i]);
+		if (ret < 0) {
+			dev_err(&is->pdev->dev, "clock %s enable failed\n",
+							fimc_is_clocks[i]);
+			for (--i; i >= ISS_GATE_CLKS_SUSPEND; i--)
+				clk_disable_unprepare(is->clocks[i]);
+			return ret;
+		}
+	}
 
 	return 0;
 }
