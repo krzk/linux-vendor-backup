@@ -402,24 +402,23 @@ static void sdhci_s3c_setup_card_detect_gpio(struct sdhci_s3c *sc)
 {
 	struct s3c_sdhci_platdata *pdata = sc->pdata;
 	struct device *dev = &sc->pdev->dev;
+	int ret = 0;
 
 	if (devm_gpio_request(dev, pdata->ext_cd_gpio, "SDHCI EXT CD") == 0) {
 		sc->ext_cd_gpio = pdata->ext_cd_gpio;
 		sc->ext_cd_irq = gpio_to_irq(pdata->ext_cd_gpio);
-		if (sc->ext_cd_irq &&
-		    request_threaded_irq(sc->ext_cd_irq, NULL,
-					 sdhci_s3c_gpio_card_detect_thread,
-					 IRQF_TRIGGER_RISING |
-					 IRQF_TRIGGER_FALLING |
-					 IRQF_ONESHOT,
-					 dev_name(dev), sc) == 0) {
-			int status = gpio_get_value(sc->ext_cd_gpio);
-			if (pdata->ext_cd_gpio_invert)
-				status = !status;
-			sdhci_s3c_notify_change(sc->pdev, status);
-		} else {
-			dev_warn(dev, "cannot request irq for card detect\n");
-			sc->ext_cd_irq = 0;
+		if (sc->ext_cd_irq) {
+			ret = request_threaded_irq(sc->ext_cd_irq, NULL,
+					sdhci_s3c_gpio_card_detect_thread,
+					IRQF_TRIGGER_RISING |
+					IRQF_TRIGGER_FALLING |
+					IRQF_ONESHOT,
+					dev_name(dev), sc);
+			if (ret) {
+				dev_warn(dev,
+					"cannot request irq for card detect\n");
+				sc->ext_cd_irq = 0;
+			}
 		}
 	} else {
 		dev_err(dev, "cannot request gpio for card detect\n");
