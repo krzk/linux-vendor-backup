@@ -17,8 +17,13 @@
 // Modified includes:
 #include <linux/sched.h> 
 #include <linux/module.h>
+#include <linux/platform_device.h>
 
-#include "../../../arch/arm/plat-samsung/include/plat/tvout.h"
+//#include "../../../arch/arm/plat-samsung/include/plat/tvout.h"
+struct s5p_platform_cec {
+	void	(*cfg_gpio)(struct platform_device *pdev);
+};
+
 
 #include "s5p_tvout_common_lib.h"
 #include "hw_if/hw_if.h"
@@ -87,6 +92,8 @@ static ssize_t s5p_cec_read(struct file *file, char __user *buffer,
 {
 	ssize_t retval;
 
+	printk("s5p_cec_read, count = %lu", (unsigned long)count);
+	
 	if (wait_event_interruptible(cec_rx_struct.waitq, atomic_read(&cec_rx_struct.state) == STATE_DONE))
 		return -ERESTARTSYS;
 
@@ -157,6 +164,8 @@ static long s5p_cec_ioctl(struct file *file, unsigned int cmd,
 			  unsigned long arg)
 {
 	u32 laddr;
+	
+	printk("s5p_cec_read, cmd = %u, arg = %lu", cmd, arg);
 
 	switch (cmd) {
 	case CEC_IOC_SETLADDR:
@@ -253,7 +262,7 @@ static irqreturn_t s5p_cec_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int __init s5p_cec_probe(struct platform_device *pdev)
+static int s5p_cec_probe(struct platform_device *pdev)
 {
 	struct s5p_platform_cec *pdata;
 	u8 *buffer = NULL;
@@ -261,7 +270,8 @@ static int __init s5p_cec_probe(struct platform_device *pdev)
 	int ret = 0;
 
 	pdata = to_tvout_plat(&pdev->dev);
-
+	printk("s5p_cec_probe: pdata=0x%08x\n", pdata);
+	
 	if (pdata->cfg_gpio)
 		pdata->cfg_gpio(pdev);
 
@@ -357,6 +367,8 @@ static int __init s5p_cec_init(void)
 
 static void __exit s5p_cec_exit(void)
 {
+	printk(KERN_INFO "S5P CEC for TVOUT Driver, exiting\n");
+	
 	kfree(cec_rx_struct.buffer);
 
 	platform_driver_unregister(&s5p_cec_driver);
@@ -364,8 +376,10 @@ static void __exit s5p_cec_exit(void)
 module_init(s5p_cec_init);
 module_exit(s5p_cec_exit);
 
-MODULE_AUTHOR("KyungHwan Kim <kh.k.kim@samsung.com>");
-MODULE_DESCRIPTION("Samsung S5P CEC driver");
-MODULE_LICENSE("GPL");
+//module_platform_driver(s5p_cec_driver);
+
+//MODULE_AUTHOR("KyungHwan Kim <kh.k.kim@samsung.com>");
+//MODULE_DESCRIPTION("Samsung S5P CEC driver");
+//MODULE_LICENSE("GPL");
 
 
