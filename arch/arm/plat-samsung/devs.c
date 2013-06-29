@@ -1360,7 +1360,7 @@ struct platform_device s5p_device_hdmi = {
 struct platform_device s5p_device_hdmi_cec = {
 	.name		= "s5p-cec",
 	.id		= -1,
-	.num_resources	= 0; //ARRAY_SIZE(s5p_hdmi_resources),
+	.num_resources	= 0, //ARRAY_SIZE(s5p_hdmi_resources),
 	.resource	= s5p_hdmi_resources,
 };
 

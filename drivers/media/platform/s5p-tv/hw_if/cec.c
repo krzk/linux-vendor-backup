@@ -18,6 +18,7 @@
 
 #include "../s5p_tvout_common_lib.h"
 #include "hw_if.h"
+#include "regs-cec.h"		// TODO: move to /arch/arm/plat*
 
 #define S5P_HDMI_FIN			24000000
 #define CEC_DIV_RATIO			320000

@@ -20,7 +20,7 @@ obj-$(CONFIG_VIDEO_SAMSUNG_S5P_HDMI_CEC) += s5p-cec.o
 s5p-cec-y += cec_drv.o
 
 obj-$(CONFIG_VIDEO_SAMSUNG_S5P_SDO) += s5p-sdo.o
-s5p-sdo-y += sdo_drv.o
+s5p-sdo-y += sdo_drv.o hw_if/cec.o
 
 obj-$(CONFIG_VIDEO_SAMSUNG_S5P_MIXER) += s5p-mixer.o
 s5p-mixer-y += mixer_drv.o mixer_video.o mixer_reg.o mixer_grp_layer.o mixer_vp_layer.o

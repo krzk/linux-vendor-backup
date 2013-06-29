@@ -270,7 +270,7 @@ static int s5p_cec_probe(struct platform_device *pdev)
 	int ret = 0;
 
 	pdata = to_tvout_plat(&pdev->dev);
-	printk("s5p_cec_probe: pdata=0x%08x\n", pdata);
+	printk(KERN_INFO "s5p_cec_probe: pdata=%p\n", pdata);
 	
 	if (pdata->cfg_gpio)
 		pdata->cfg_gpio(pdev);
@@ -361,25 +361,19 @@ static struct platform_driver s5p_cec_driver = {
 static int __init s5p_cec_init(void)
 {
 	printk(KERN_INFO "S5P CEC for TVOUT Driver, Copyright (c) 2011 Samsung Electronics Co., LTD.\n");
-
 	return platform_driver_register(&s5p_cec_driver);
 }
 
 static void __exit s5p_cec_exit(void)
 {
 	printk(KERN_INFO "S5P CEC for TVOUT Driver, exiting\n");
-	
 	kfree(cec_rx_struct.buffer);
-
 	platform_driver_unregister(&s5p_cec_driver);
 }
+
 module_init(s5p_cec_init);
 module_exit(s5p_cec_exit);
 
-//module_platform_driver(s5p_cec_driver);
-
-//MODULE_AUTHOR("KyungHwan Kim <kh.k.kim@samsung.com>");
-//MODULE_DESCRIPTION("Samsung S5P CEC driver");
-//MODULE_LICENSE("GPL");
-
-
+MODULE_AUTHOR("KyungHwan Kim <kh.k.kim@samsung.com>");
+MODULE_DESCRIPTION("Samsung S5P CEC driver");
+MODULE_LICENSE("GPL");
