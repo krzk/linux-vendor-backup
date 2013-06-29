@@ -1357,6 +1357,13 @@ struct platform_device s5p_device_hdmi = {
 	.resource	= s5p_hdmi_resources,
 };
 
+struct platform_device s5p_device_hdmi_cec = {
+	.name		= "s5p-cec",
+	.id		= -1,
+	.num_resources	= 0; //ARRAY_SIZE(s5p_hdmi_resources),
+	.resource	= s5p_hdmi_resources,
+};
+
 static struct resource s5p_sdo_resources[] = {
 	[0] = DEFINE_RES_MEM(S5P_PA_SDO, SZ_64K),
 	[1] = DEFINE_RES_IRQ(IRQ_SDO),
