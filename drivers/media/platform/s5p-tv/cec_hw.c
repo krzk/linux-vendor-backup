@@ -141,6 +141,7 @@ void s5p_cec_copy_packet(char *data, size_t count)
 		writeb(data[i], cec_base + (S5P_CEC_TX_BUFF0 + (i * 4)));
 		i++;
 	}
+	printk(KERN_INFO "s5p_cec_copy_packet(): written %i bytes to cec_base\n", count);
 
 	writeb(count, cec_base + S5P_CEC_TX_BYTES);
 	s5p_cec_set_tx_state(STATE_TX);
@@ -152,6 +153,7 @@ void s5p_cec_copy_packet(char *data, size_t count)
 	else
 		reg &= ~S5P_CEC_TX_CTRL_BCAST;
 
+	printk(KERN_INFO "s5p_cec_copy_packet(): flagging S5P_CEC_TX_CTRL\n");
 	reg |= 0x50;
 	writeb(reg, cec_base + S5P_CEC_TX_CTRL);
 }
@@ -221,6 +223,7 @@ int s5p_cec_mem_probe(struct platform_device *pdev)
 			"failed to ioremap address region for cec\n");
 		return -ENOENT;
 	}
+	dev_info(&pdev->dev, "s5p_cec_mem_probe(): mapped cec_base to %p, size %x\n", cec_base, size);
 	return ret;
 }
 

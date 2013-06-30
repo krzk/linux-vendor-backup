@@ -160,21 +160,29 @@ static ssize_t s5p_cec_write(struct file *file, const char __user *buffer,
 		return -EFAULT;
 	}
 
+	printk(KERN_INFO "\tCopying data\n");
 	s5p_cec_copy_packet(data, count);
 
 	kfree(data);
+	
+	printk(KERN_INFO "s5p_cec_write: waiting for interrupt\n");
 
 	/* wait for interrupt */
 	if (wait_event_interruptible(cec_tx_struct.waitq,
 		atomic_read(&cec_tx_struct.state)
-		!= STATE_TX)) {
-
+		!= STATE_TX)) 
+	{
+		printk(KERN_INFO "\ttx no interrupt received\n");
 		return -ERESTARTSYS;
 	}
 
 	if (atomic_read(&cec_tx_struct.state) == STATE_ERROR)
+	{
+		printk(KERN_INFO "\ttx error\n");
 		return -1;
+	}
 
+	printk(KERN_INFO "\twritten count: %i\n", count);
 	return count;
 }
 
@@ -296,12 +304,10 @@ static int s5p_cec_probe(struct platform_device *pdev)
 
 	//pdata = to_tvout_plat(&pdev->dev);
 	pdata = to_platform_device(&pdev->dev)->dev.platform_data;
+	printk(KERN_INFO "s5p_cec_probe: pdata=%p\n", pdata);
 	if (pdata && pdata->cfg_gpio)
-	{
-		printk(KERN_INFO "s5p_cec_probe: pdata=%p\n", pdata);
 		pdata->cfg_gpio(pdev);
-	}
-
+	
 	/* get ioremap addr */
 	ret = s5p_cec_mem_probe(pdev);
 	if (ret != 0) {
