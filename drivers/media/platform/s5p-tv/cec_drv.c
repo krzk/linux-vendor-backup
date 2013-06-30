@@ -277,10 +277,11 @@ static int s5p_cec_probe(struct platform_device *pdev)
 	dev_info(dev, "probe start\n");
 
 	pdata = to_tvout_plat(&pdev->dev);
-	printk(KERN_INFO "s5p_cec_probe: pdata=%p\n", pdata);
-	
-	if (pdata->cfg_gpio)
+	if (pdata && pdata->cfg_gpio)
+	{
+		printk(KERN_INFO "s5p_cec_probe: pdata=%p\n", pdata);
 		pdata->cfg_gpio(pdev);
+	}
 
 	/* get ioremap addr */
 	s5p_cec_mem_probe(pdev);
