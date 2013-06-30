@@ -46,27 +46,16 @@ MODULE_LICENSE("GPL");
 
 #define CEC_TX_BUFF_SIZE		16
 
-#define TV_CLK_GET_WITH_ERR_CHECK(clk, pdev, clk_name)                  \
-	do {                                                    \
-		clk = clk_get(&pdev->dev, clk_name);            \
-		if (IS_ERR(clk)) {                              \
-			printk(KERN_ERR                         \
-			"failed to find clock %s\n", clk_name); \
-			return -ENOENT;                         \
-		}                                               \
-	} while (0);
-
-
 static atomic_t hdmi_on = ATOMIC_INIT(0);
 static DEFINE_MUTEX(cec_lock);
-struct clk *hdmi_cec_clk;
+//struct clk *hdmi_cec_clk;
 
 static int s5p_cec_open(struct inode *inode, struct file *file)
 {
 	int ret = 0;
 
 	mutex_lock(&cec_lock);
-	clk_enable(hdmi_cec_clk);
+	//clk_enable(hdmi_cec_clk);
 
 	if (atomic_read(&hdmi_on)) {
 		tvout_dbg("do not allow multiple open for tvout cec\n");
@@ -100,8 +89,8 @@ static int s5p_cec_release(struct inode *inode, struct file *file)
 	s5p_cec_mask_tx_interrupts();
 	s5p_cec_mask_rx_interrupts();
 
-	clk_disable(hdmi_cec_clk);
-	clk_put(hdmi_cec_clk);
+	//clk_disable(hdmi_cec_clk);
+	//clk_put(hdmi_cec_clk);
 
 	return 0;
 }
@@ -342,7 +331,14 @@ static int s5p_cec_probe(struct platform_device *pdev)
 
 	cec_rx_struct.buffer = buffer;
 	cec_rx_struct.size   = 0;
-	TV_CLK_GET_WITH_ERR_CHECK(hdmi_cec_clk, pdev, "hdmicec");
+	
+#if 0	// Someone on the internet does this, most people don't:
+	clk = clk_get(&pdev->dev, clk_name);
+	if (IS_ERR(clk)) {
+		printk(KERN_ERR "failed to find clock %s\n", clk_name);
+		return -ENOENT;
+	}
+#endif
 
 err_kmalloc:
 	free_irq(irq_num, NULL);

@@ -227,6 +227,7 @@ int s5p_cec_mem_probe(struct platform_device *pdev)
 
 int __init s5p_cec_mem_release(struct platform_device *pdev)
 {
+	dev_info(&pdev->dev, "releasing memory\n");
 	iounmap(cec_base);
 	if (cec_mem != NULL) {
 		if (release_resource(cec_mem))
