@@ -48,7 +48,7 @@ MODULE_LICENSE("GPL");
 
 static atomic_t hdmi_on = ATOMIC_INIT(0);
 static DEFINE_MUTEX(cec_lock);
-//struct clk *hdmi_cec_clk;		// Seems to be an exynos5 thingie. probe() needs work
+struct clk *hdmi_cec_clk;
 
 static int s5p_cec_open(struct inode *inode, struct file *file)
 {
@@ -56,7 +56,7 @@ static int s5p_cec_open(struct inode *inode, struct file *file)
 	printk(KERN_INFO "s5p_cec_open\n");
 
 	mutex_lock(&cec_lock);
-	//clk_enable(hdmi_cec_clk);
+	clk_enable(hdmi_cec_clk);
 
 	if (atomic_read(&hdmi_on)) {
 		tvout_dbg("do not allow multiple open for tvout cec\n");
@@ -85,14 +85,15 @@ err_multi_open:
 
 static int s5p_cec_release(struct inode *inode, struct file *file)
 {
-	printk(KERN_INFO "s5p_cec_release\n");
+	printk(KERN_INFO "s5p_cec_release, hdmi_on=%i\n", atomic_read(&hdmi_on));
 	
 	atomic_dec(&hdmi_on);
 
 	s5p_cec_mask_tx_interrupts();
 	s5p_cec_mask_rx_interrupts();
 
-	//clk_disable(hdmi_cec_clk);
+	clk_disable(hdmi_cec_clk);
+	// clk_get() is done in probe(), so clk_put() is done in remove(), not in release():
 	//clk_put(hdmi_cec_clk);
 
 	return 0;
@@ -138,6 +139,8 @@ static ssize_t s5p_cec_write(struct file *file, const char __user *buffer,
 			size_t count, loff_t *ppos)
 {
 	char *data;
+	
+	printk(KERN_INFO "s5p_cec_write, %li bytes\n", (long)count);
 
 	/* check data size */
 
@@ -148,14 +151,12 @@ static ssize_t s5p_cec_write(struct file *file, const char __user *buffer,
 
 	if (!data) {
 		printk(KERN_ERR " kmalloc() failed!\n");
-
 		return -1;
 	}
 
 	if (copy_from_user(data, buffer, count)) {
 		printk(KERN_ERR " copy_from_user() failed!\n");
 		kfree(data);
-
 		return -EFAULT;
 	}
 
@@ -231,6 +232,7 @@ static struct miscdevice cec_misc_device = {
 static irqreturn_t s5p_cec_irq_handler(int irq, void *dev_id)
 {
 	u32 status = s5p_cec_get_status();
+	printk(KERN_INFO "s5p_cec_irq_handler on irq %i\n", irq);
 
 	if (status & CEC_STATUS_TX_DONE) {
 		if (status & CEC_STATUS_TX_ERROR) {
@@ -340,19 +342,20 @@ static int s5p_cec_probe(struct platform_device *pdev)
 	cec_rx_struct.buffer = buffer;
 	cec_rx_struct.size   = 0;
 	
-#if 0	// Someone on the internet does this, most people don't:
-	clk = clk_get(&pdev->dev, clk_name);
-	if (IS_ERR(clk)) {
-		printk(KERN_ERR "failed to find clock %s\n", clk_name);
-		//return -ENOENT;
+	hdmi_cec_clk = clk_get(&pdev->dev, "hdmicec");
+	if (IS_ERR(hdmi_cec_clk)) {
+		printk(KERN_ERR "failed to find clock 'hdmicec'\n");
+		ret = -ENOENT;
 		goto err_clock;
 	}
-#endif
 
 	dev_info(&pdev->dev, "probe successful\n");
 	return ret;	// All good
 
-	// unwind the allocations on error
+	// Unwind the allocations on error
+err_clock:
+	kfree(cec_rx_struct.buffer);
+	cec_rx_struct.buffer = NULL;
 err_kmalloc:
 	free_irq(irq_num, NULL);
 err_request_irq:
@@ -367,10 +370,16 @@ static int s5p_cec_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct resource *res;
+	dev_info(dev, "s5p_cec_remove, putting clk to sleep\n");
+	clk_put(hdmi_cec_clk);
+	
 	
 	dev_info(dev, "s5p_cec_remove, cec_rx_struct.buffer=%p\n", cec_rx_struct.buffer);
 	if(cec_rx_struct.buffer)
+	{
 		kfree(cec_rx_struct.buffer);
+		cec_rx_struct.buffer = NULL;
+	}
 	
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if(res)
@@ -414,7 +423,7 @@ static struct platform_driver s5p_cec_driver = {
 };
 
 #if 0
-	// The rest of the modules in s5p-tv do this:
+	// The rest of the modules in s5p-tv do module_platform_driver()
 	// It makes debugging the probe a bit trickier, so don't do this now
 	module_platform_driver(s5p_cec_driver);
 #else
@@ -428,7 +437,7 @@ static struct platform_driver s5p_cec_driver = {
 	static void __exit s5p_cec_exit(void)
 	{
 		printk(KERN_INFO "S5P CEC for TVOUT Driver, exiting\n");
-		kfree(cec_rx_struct.buffer);
+		//kfree(cec_rx_struct.buffer);	// moved to s5p_cec_remove()
 		platform_driver_unregister(&s5p_cec_driver);
 	}
 
