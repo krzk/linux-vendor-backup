@@ -1358,7 +1358,7 @@ struct platform_device s5p_device_hdmi = {
 };
 
 static struct resource s5p_cec_resources[] = {
-	[0] = DEFINE_RES_MEM(S5P_PA_CEC, S5P_SZ_CEC),
+	[0] = DEFINE_RES_MEM(S5P_PA_HDMI_CEC, S5P_SZ_HDMI_CEC),
 	[1] = DEFINE_RES_IRQ(IRQ_CEC),
 };
 

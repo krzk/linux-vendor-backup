@@ -28,6 +28,10 @@ struct s5p_platform_cec {
 #include "s5p_tvout_common_lib.h"
 #include "hw_if/hw_if.h"
 
+MODULE_AUTHOR("KyungHwan Kim <kh.k.kim@samsung.com>");
+MODULE_DESCRIPTION("Samsung S5P CEC driver");
+MODULE_LICENSE("GPL");
+
 #define CEC_IOC_MAGIC			'c'
 #define CEC_IOC_SETLADDR		_IOW(CEC_IOC_MAGIC, 0, unsigned int)
 
@@ -347,17 +351,36 @@ static int s5p_cec_resume(struct platform_device *dev)
 #define s5p_cec_resume NULL
 #endif
 
+static struct platform_device_id hdmi_driver_types[] = {
+	{
+		.name		= "s5pv210-hdmi",
+	}, {
+		.name		= "exynos4-hdmi",
+	}, {
+		/* end node */
+	}
+};
+
 static struct platform_driver s5p_cec_driver = {
 	.probe		= s5p_cec_probe,
 	.remove		= s5p_cec_remove,
+	//.id_table   = hdmi_driver_types,	// Shouldn't be necessary
 	.suspend	= s5p_cec_suspend,
 	.resume		= s5p_cec_resume,
 	.driver		= {
-		.name		= "s5p-tvout-cec",
+		.name		= "s5p-cec",
 		.owner		= THIS_MODULE,
 	},
 };
 
+#if 0
+
+	// The rest of the modules in s5p-tv do this, but it currently results in:
+	//		[315031.925000] s5p_cec: Unknown symbol platform_driver_unregister (err 0)
+	module_platform_driver(s5p_cec_driver);
+
+#else
+	
 static int __init s5p_cec_init(void)
 {
 	printk(KERN_INFO "S5P CEC for TVOUT Driver, Copyright (c) 2011 Samsung Electronics Co., LTD.\n");
@@ -373,7 +396,4 @@ static void __exit s5p_cec_exit(void)
 
 module_init(s5p_cec_init);
 module_exit(s5p_cec_exit);
-
-MODULE_AUTHOR("KyungHwan Kim <kh.k.kim@samsung.com>");
-MODULE_DESCRIPTION("Samsung S5P CEC driver");
-MODULE_LICENSE("GPL");
+#endif
