@@ -1,16 +1,17 @@
 Summary:
 	Trying to get CEC (tv-remote control over HDMI) working on linux.
 	There appear to be android-kernel sources. 
-	The hardkernel linux doesn't have them
+	The hardkernel linux-tree doesn't have those
 
 Status:
 	Copied s5p-cec code from all over the internet
 	Made it compile as module (s5p-cec.ko)
-	It can be insmod-ed succesfully, that's all
-
+	It can be insmod, it allocates memory and irq, /dev/CEC is registered.
+	rmmod will mess up your system, requiring a reboot
+	
 TODO: 
-	Make it do something
-	Look at the latest android kernel sources 
+	Try to read/write some data to /dev/CEC
+	Merge latest android sources into here 
 		http://dn.odroid.com/Android_Alpha_4.0.3/BSP/
 	Cleanup this tree, so it becomes a nice diff upon hardkernel's 3.8 tree
 
