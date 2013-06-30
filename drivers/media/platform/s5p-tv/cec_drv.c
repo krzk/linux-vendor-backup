@@ -316,7 +316,7 @@ static int s5p_cec_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (res == NULL) {
 		dev_err(&pdev->dev, "Failed to get irq resource.\n");
-		ret = -ENOENT;
+		ret = -ENODEV;
 		goto err_get_irq;
 	}
 	irq_num = res->start;

@@ -211,8 +211,7 @@ int s5p_cec_mem_probe(struct platform_device *pdev)
 
 	cec_mem = request_mem_region(res->start, size, pdev->name);
 	if (cec_mem == NULL) {
-		dev_err(&pdev->dev, "failed to get memory at %p, size %i, name '%s'\n", 
-				res->start, size, pdev->name);
+		dev_err(&pdev->dev, "failed to get memory at size %i, name %s\n", size, pdev->name);
 		return -ENOENT;
 	}
 
