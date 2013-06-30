@@ -268,10 +268,13 @@ static irqreturn_t s5p_cec_irq_handler(int irq, void *dev_id)
 
 static int s5p_cec_probe(struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
 	struct s5p_platform_cec *pdata;
 	u8 *buffer = NULL;
 	int irq_num;
 	int ret = 0;
+	
+	dev_info(dev, "probe start\n");
 
 	pdata = to_tvout_plat(&pdev->dev);
 	printk(KERN_INFO "s5p_cec_probe: pdata=%p\n", pdata);

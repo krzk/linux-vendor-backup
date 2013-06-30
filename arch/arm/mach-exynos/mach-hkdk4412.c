@@ -393,6 +393,7 @@ static struct platform_device *hkdk4412_devices[] __initdata = {
 	&mali_gpu_device,
 #if defined(CONFIG_S5P_DEV_TV)
 	&s5p_device_hdmi,
+	&s5p_device_cec,
 	&s5p_device_i2c_hdmiphy,
 	&s5p_device_mixer,
 	&hdmi_fixed_voltage,

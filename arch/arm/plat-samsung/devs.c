@@ -1362,7 +1362,7 @@ static struct resource s5p_cec_resources[] = {
 	[1] = DEFINE_RES_IRQ(IRQ_CEC),
 };
 
-struct platform_device s5p_device_hdmi_cec = {
+struct platform_device s5p_device_cec = {
 	.name           = "s5p-cec",
 	.id             = -1,
 	.num_resources  = ARRAY_SIZE(s5p_cec_resources),
