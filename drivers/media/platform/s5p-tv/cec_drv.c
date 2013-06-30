@@ -183,7 +183,7 @@ static long s5p_cec_ioctl(struct file *file, unsigned int cmd,
 {
 	u32 laddr;
 	
-	printk(KERN_INFO "s5p_cec_ioctl, cmd = %u, arg = %lu\n", cmd, arg);
+	printk(KERN_INFO "s5p_cec_ioctl, cmd = 0x%x, arg = 0x%lx\n", cmd, arg);
 
 	switch (cmd) {
 	case CEC_IOC_SETLADDR:
@@ -204,12 +204,13 @@ static long s5p_cec_ioctl(struct file *file, unsigned int cmd,
 
 static u32 s5p_cec_poll(struct file *file, poll_table *wait)
 {
-	printk(KERN_INFO "s5p_cec_poll\n");
 	poll_wait(file, &cec_rx_struct.waitq, wait);
 
 	if (atomic_read(&cec_rx_struct.state) == STATE_DONE)
+	{
+		printk(KERN_INFO "s5p_cec_poll: rx = done\n");
 		return POLLIN | POLLRDNORM;
-
+	}
 	return 0;
 }
 
