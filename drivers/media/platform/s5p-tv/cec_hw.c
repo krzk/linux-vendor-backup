@@ -14,7 +14,7 @@
 #include <linux/platform_device.h>
 
 #include <mach/regs-clock.h>
-#include <mach/regs-cec.h>
+//#include <mach/regs-cec.h>	// doesn't seem to work
 
 #include "cec_hw.h"
 #include "regs-cec.h"		// somehow mach/regs-cec.h isn't picked up

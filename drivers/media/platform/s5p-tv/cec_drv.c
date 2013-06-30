@@ -20,15 +20,13 @@
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
 
-//#include "../../../arch/arm/plat-samsung/include/plat/tvout.h"
+
 struct s5p_platform_cec {
 	void	(*cfg_gpio)(struct platform_device *pdev);
 };
 
-
-//#include "s5p_tvout_common_lib.h"
-//#include "hw_if/hw_if.h"
 #include "cec_hw.h"
+
 
 MODULE_AUTHOR("KyungHwan Kim <kh.k.kim@samsung.com>");
 MODULE_DESCRIPTION("Samsung S5P CEC driver");
