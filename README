@@ -10,11 +10,12 @@ Status:
 
 TODO: 
 	Make it do something
-	Look at the latest android kernel sources http://dn.odroid.com/Android_Alpha_4.0.3/BSP/
-	Cleanup this tree, so it becomes a minimal diff upon hardkernel's 3.8 tree
+	Look at the latest android kernel sources 
+		http://dn.odroid.com/Android_Alpha_4.0.3/BSP/
+	Cleanup this tree, so it becomes a nice diff upon hardkernel's 3.8 tree
 
 
-=================================================================================================
+================================================================================
 
         Linux kernel release 3.x <http://kernel.org/>
 
