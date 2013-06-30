@@ -293,7 +293,8 @@ static int s5p_cec_probe(struct platform_device *pdev)
 	
 	dev_info(dev, "probe start\n");
 
-	pdata = to_tvout_plat(&pdev->dev);
+	//pdata = to_tvout_plat(&pdev->dev);
+	pdata = to_platform_device(&pdev->dev)->dev.platform_data;
 	if (pdata && pdata->cfg_gpio)
 	{
 		printk(KERN_INFO "s5p_cec_probe: pdata=%p\n", pdata);
@@ -386,7 +387,7 @@ static int s5p_cec_remove(struct platform_device *pdev)
 	{
 		int irq_num = res->start;
 		printk(KERN_INFO "s5p_cec_remove, irq=%i\n", irq_num); 
-		free_irq(irq_num, NULL);
+		free_irq(irq_num, &pdev->id);
 	}
 	
 	misc_deregister(&cec_misc_device);
