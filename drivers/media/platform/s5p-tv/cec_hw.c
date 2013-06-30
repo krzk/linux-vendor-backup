@@ -224,13 +224,13 @@ int s5p_cec_mem_probe(struct platform_device *pdev)
 	return ret;
 }
 
-int __init s5p_cec_mem_release(struct platform_device *pdev)
+int s5p_cec_mem_release(struct platform_device *pdev)
 {
 	dev_info(&pdev->dev, "releasing memory\n");
 	iounmap(cec_base);
 	if (cec_mem != NULL) {
 		if (release_resource(cec_mem))
-			dev_err(&pdev->dev, "can't remove tvout drv !!\n");
+			dev_err(&pdev->dev, "can't remove s5p-cec driver !!\n");
 
 		kfree(cec_mem);
 

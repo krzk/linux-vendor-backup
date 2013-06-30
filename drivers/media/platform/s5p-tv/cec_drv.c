@@ -358,11 +358,12 @@ err_clock:
 	kfree(cec_rx_struct.buffer);
 	cec_rx_struct.buffer = NULL;
 err_kmalloc:
-	free_irq(irq_num, NULL);
+	free_irq(irq_num, &pdev->id);
 err_request_irq:
 err_get_irq:
 	misc_deregister(&cec_misc_device);
 err_misc_register:
+	s5p_cec_mem_release(pdev);
 err_mem_probe:
 	return ret;
 }
@@ -372,8 +373,7 @@ static int s5p_cec_remove(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	dev_info(dev, "s5p_cec_remove, putting clk to sleep\n");
-	clk_put(hdmi_cec_clk);
-	
+	clk_put(hdmi_cec_clk);	
 	
 	dev_info(dev, "s5p_cec_remove, cec_rx_struct.buffer=%p\n", cec_rx_struct.buffer);
 	if(cec_rx_struct.buffer)
@@ -391,6 +391,9 @@ static int s5p_cec_remove(struct platform_device *pdev)
 	}
 	
 	misc_deregister(&cec_misc_device);
+	
+	s5p_cec_mem_release(pdev);
+	
 	return 0;
 }
 
