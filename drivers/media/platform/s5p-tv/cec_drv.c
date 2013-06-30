@@ -330,6 +330,7 @@ out:
 static int s5p_cec_remove(struct platform_device *pdev)
 {
 	int irq_num = platform_get_irq(pdev, 0);
+	printk(KERN_INFO "s5p_cec_remove, irq=%i\n", irq_num); 
 
 	free_irq(irq_num, NULL);
 	misc_deregister(&cec_misc_device);
@@ -340,11 +341,13 @@ static int s5p_cec_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int s5p_cec_suspend(struct platform_device *dev, pm_message_t state)
 {
+	printk(KERN_INFO "s5p_cec_suspend is a NOP\n");
 	return 0;
 }
 
 static int s5p_cec_resume(struct platform_device *dev)
 {
+	printk(KERN_INFO "s5p_cec_resume is a NOP\n");
 	return 0;
 }
 
@@ -378,29 +381,24 @@ static struct platform_driver s5p_cec_driver = {
 };
 
 #if 0
-
-	// The rest of the modules in s5p-tv do this, but it currently results in:
-	//		[315031.925000] s5p_cec: Unknown symbol platform_driver_unregister (err 0)
+	// The rest of the modules in s5p-tv do this:
+	// It makes debugging the probe a bit trickier, so don't do this now
 	module_platform_driver(s5p_cec_driver);
-
 #else
-	
-static int __init s5p_cec_init(void)
-{
-	printk(KERN_INFO "S5P CEC for TVOUT Driver, Copyright (c) 2011 Samsung Electronics Co., LTD.\n");
-	
-	request_module("s5p-hdmi");
-	
-	return platform_driver_register(&s5p_cec_driver);
-}
+	static int __init s5p_cec_init(void)
+	{
+		printk(KERN_INFO "S5P CEC for TVOUT Driver, Copyright (c) 2011 Samsung Electronics Co., LTD.\n");
+		request_module("s5p-hdmi");
+		return platform_driver_register(&s5p_cec_driver);
+	}
 
-static void __exit s5p_cec_exit(void)
-{
-	printk(KERN_INFO "S5P CEC for TVOUT Driver, exiting\n");
-	kfree(cec_rx_struct.buffer);
-	platform_driver_unregister(&s5p_cec_driver);
-}
+	static void __exit s5p_cec_exit(void)
+	{
+		printk(KERN_INFO "S5P CEC for TVOUT Driver, exiting\n");
+		kfree(cec_rx_struct.buffer);
+		platform_driver_unregister(&s5p_cec_driver);
+	}
 
-module_init(s5p_cec_init);
-module_exit(s5p_cec_exit);
+	module_init(s5p_cec_init);
+	module_exit(s5p_cec_exit);
 #endif
