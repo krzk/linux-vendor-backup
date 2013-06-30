@@ -19,6 +19,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
+#include <linux/clk.h>
 
 
 struct s5p_platform_cec {
@@ -45,15 +46,27 @@ MODULE_LICENSE("GPL");
 
 #define CEC_TX_BUFF_SIZE		16
 
+#define TV_CLK_GET_WITH_ERR_CHECK(clk, pdev, clk_name)                  \
+	do {                                                    \
+		clk = clk_get(&pdev->dev, clk_name);            \
+		if (IS_ERR(clk)) {                              \
+			printk(KERN_ERR                         \
+			"failed to find clock %s\n", clk_name); \
+			return -ENOENT;                         \
+		}                                               \
+	} while (0);
+
 
 static atomic_t hdmi_on = ATOMIC_INIT(0);
 static DEFINE_MUTEX(cec_lock);
+struct clk *hdmi_cec_clk;
 
 static int s5p_cec_open(struct inode *inode, struct file *file)
 {
 	int ret = 0;
 
 	mutex_lock(&cec_lock);
+	clk_enable(hdmi_cec_clk);
 
 	if (atomic_read(&hdmi_on)) {
 		tvout_dbg("do not allow multiple open for tvout cec\n");
@@ -80,7 +93,6 @@ err_multi_open:
 	return ret;
 }
 
-
 static int s5p_cec_release(struct inode *inode, struct file *file)
 {
 	atomic_dec(&hdmi_on);
@@ -88,29 +100,32 @@ static int s5p_cec_release(struct inode *inode, struct file *file)
 	s5p_cec_mask_tx_interrupts();
 	s5p_cec_mask_rx_interrupts();
 
+	clk_disable(hdmi_cec_clk);
+	clk_put(hdmi_cec_clk);
+
 	return 0;
 }
 
 static ssize_t s5p_cec_read(struct file *file, char __user *buffer,
-			    size_t count, loff_t *ppos)
+			size_t count, loff_t *ppos)
 {
 	ssize_t retval;
+	unsigned long spin_flags;
 
-	printk("s5p_cec_read, count = %lu", (unsigned long)count);
-	
-	if (wait_event_interruptible(cec_rx_struct.waitq, atomic_read(&cec_rx_struct.state) == STATE_DONE))
+	if (wait_event_interruptible(cec_rx_struct.waitq,
+			atomic_read(&cec_rx_struct.state) == STATE_DONE)) {
 		return -ERESTARTSYS;
-
-	spin_lock_irq(&cec_rx_struct.lock);
+	}
+	spin_lock_irqsave(&cec_rx_struct.lock, spin_flags);
 
 	if (cec_rx_struct.size > count) {
-		spin_unlock_irq(&cec_rx_struct.lock);
+		spin_unlock_irqrestore(&cec_rx_struct.lock, spin_flags);
 
 		return -1;
 	}
 
 	if (copy_to_user(buffer, cec_rx_struct.buffer, cec_rx_struct.size)) {
-		spin_unlock_irq(&cec_rx_struct.lock);
+		spin_unlock_irqrestore(&cec_rx_struct.lock, spin_flags);
 		printk(KERN_ERR " copy_to_user() failed!\n");
 
 		return -EFAULT;
@@ -119,14 +134,14 @@ static ssize_t s5p_cec_read(struct file *file, char __user *buffer,
 	retval = cec_rx_struct.size;
 
 	s5p_cec_set_rx_state(STATE_RX);
-	spin_unlock_irq(&cec_rx_struct.lock);
+	spin_unlock_irqrestore(&cec_rx_struct.lock, spin_flags);
 
 	return retval;
 }
 
 
 static ssize_t s5p_cec_write(struct file *file, const char __user *buffer,
-			     size_t count, loff_t *ppos)
+			size_t count, loff_t *ppos)
 {
 	char *data;
 
@@ -155,8 +170,12 @@ static ssize_t s5p_cec_write(struct file *file, const char __user *buffer,
 	kfree(data);
 
 	/* wait for interrupt */
-	if (wait_event_interruptible(cec_tx_struct.waitq, atomic_read(&cec_tx_struct.state) != STATE_TX))
+	if (wait_event_interruptible(cec_tx_struct.waitq,
+		atomic_read(&cec_tx_struct.state)
+		!= STATE_TX)) {
+
 		return -ERESTARTSYS;
+	}
 
 	if (atomic_read(&cec_tx_struct.state) == STATE_ERROR)
 		return -1;
@@ -284,50 +303,57 @@ static int s5p_cec_probe(struct platform_device *pdev)
 	}
 
 	/* get ioremap addr */
-	s5p_cec_mem_probe(pdev);
+	ret = s5p_cec_mem_probe(pdev);
+	if (ret != 0) {
+		printk(KERN_ERR  "failed to s5p_cec_mem_probe ret = %d\n", ret);
+		goto err_mem_probe;
+	}
 
 	if (misc_register(&cec_misc_device)) {
 		printk(KERN_WARNING " Couldn't register device 10, %d.\n", CEC_MINOR);
 		ret = -EBUSY;
-		goto out;
+		goto err_misc_register;
 	}
 
 	irq_num = platform_get_irq(pdev, 0);
 	if (irq_num < 0) {
 		printk(KERN_ERR  "failed to get %s irq resource\n", "cec");
 		ret = -EBUSY;
-		goto irq_err;
+		goto err_get_irq;
 	}
 
 	if (request_irq(irq_num, s5p_cec_irq_handler, IRQF_DISABLED, pdev->name, &pdev->id)) {
 		printk(KERN_ERR  "failed to install %s irq (%d)\n", "cec", ret);
 		ret = -EBUSY;
-		goto irq_err;
+		goto err_request_irq;
 	}
 
 	init_waitqueue_head(&cec_rx_struct.waitq);
 	spin_lock_init(&cec_rx_struct.lock);
 	init_waitqueue_head(&cec_tx_struct.waitq);
 
-	if (kmalloc(CEC_TX_BUFF_SIZE, GFP_KERNEL)) {
+	buffer = kmalloc(CEC_TX_BUFF_SIZE, GFP_KERNEL);
+	if (!buffer) {
 		printk(KERN_ERR " kmalloc() failed!\n");
+		misc_deregister(&cec_misc_device);
 		ret = -EIO;
-		goto kmalloc_err;
+		goto err_kmalloc;
 	}
 
 	cec_rx_struct.buffer = buffer;
 	cec_rx_struct.size   = 0;
+	TV_CLK_GET_WITH_ERR_CHECK(hdmi_cec_clk, pdev, "hdmicec");
 
-	return 0;
-
-kmalloc_err:
+err_kmalloc:
 	free_irq(irq_num, NULL);
-irq_err:
+err_request_irq:
+err_get_irq:
 	misc_deregister(&cec_misc_device);
-out:
+err_misc_register:
+err_mem_probe:
 	return ret;
-
 }
+
 
 static int s5p_cec_remove(struct platform_device *pdev)
 {

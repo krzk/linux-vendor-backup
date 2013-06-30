@@ -195,33 +195,34 @@ void s5p_cec_get_rx_buf(u32 size, u8 *buffer)
 	}
 }
 
-void s5p_cec_mem_probe(struct platform_device *pdev)
+int s5p_cec_mem_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	size_t size = 0;
-	int ret;
+	int ret = 0;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res == NULL) {
 		dev_err(&pdev->dev,
 			"failed to get memory region resource for cec\n");
-		ret = -ENOENT;
+		return -ENOENT;
 	} else
 		size = resource_size(res);
 
 	cec_mem = request_mem_region(res->start, size, pdev->name);
 	if (cec_mem == NULL) {
-		dev_err(&pdev->dev,
-			"failed to get memory region for cec\n");
-		ret = -ENOENT;
+		dev_err(&pdev->dev, "failed to get memory at %p, size %i, name '%s'\n", 
+				res->start, size, pdev->name);
+		return -ENOENT;
 	}
 
 	cec_base = ioremap(res->start, size);
 	if (cec_base == NULL) {
 		dev_err(&pdev->dev,
 			"failed to ioremap address region for cec\n");
-		ret = -ENOENT;
+		return -ENOENT;
 	}
+	return ret;
 }
 
 int __init s5p_cec_mem_release(struct platform_device *pdev)

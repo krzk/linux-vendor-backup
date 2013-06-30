@@ -62,7 +62,7 @@ u32 s5p_cec_get_status(void);
 void s5p_clr_pending_tx(void);
 void s5p_clr_pending_rx(void);
 void s5p_cec_get_rx_buf(u32 size, u8 *buffer);
-void s5p_cec_mem_probe(struct platform_device *pdev);
+int s5p_cec_mem_probe(struct platform_device *pdev);
 
 
 #endif
