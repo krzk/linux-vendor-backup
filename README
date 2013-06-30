@@ -1,3 +1,20 @@
+Summary:
+	Trying to get CEC (tv-remote control over HDMI) working on linux.
+
+Status:
+	Copied s5p-cec code from all over the internet
+	Made it compile as module (s5p-cec.ko)
+	Not tested in any way
+
+TODO: 
+	Try to load the module, and observe how it crashes
+	Fix the crash
+	Look at the latest android kernel sources http://dn.odroid.com/Android_Alpha_4.0.3/BSP/
+	Cleanup this tree, so it becomes a minimal diff upon hardkernel's 3.8 tree
+
+
+=================================================================================================
+
         Linux kernel release 3.x <http://kernel.org/>
 
 These are the release notes for Linux version 3.  Read them carefully,
