@@ -17,7 +17,7 @@ s5p-hdmi-$(CONFIG_CPU_EXYNOS4210) += hdmi_drv.o
 s5p-hdmi-$(CONFIG_SOC_EXYNOS4412) += hdmi_v14_drv.o
 
 obj-$(CONFIG_VIDEO_SAMSUNG_S5P_HDMI_CEC) += s5p-cec.o
-s5p-cec-y += cec_drv.o hw_if/cec.o
+s5p-cec-y += cec_drv.o cec_hw.o
 
 obj-$(CONFIG_VIDEO_SAMSUNG_S5P_SDO) += s5p-sdo.o
 s5p-sdo-y += sdo_drv.o

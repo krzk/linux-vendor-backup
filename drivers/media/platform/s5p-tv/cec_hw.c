@@ -11,14 +11,13 @@
 
 #include <linux/io.h>
 #include <linux/slab.h>
+#include <linux/platform_device.h>
 
-#include <mach/regs-clock.h>
 #include <mach/regs-clock.h>
 #include <mach/regs-cec.h>
 
-#include "../s5p_tvout_common_lib.h"
-#include "hw_if.h"
-#include "regs-cec.h"		// TODO: move to /arch/arm/plat*
+#include "cec_hw.h"
+#include "regs-cec.h"		// somehow mach/regs-cec.h isn't picked up
 
 #define S5P_HDMI_FIN			24000000
 #define CEC_DIV_RATIO			320000

@@ -18,6 +18,7 @@
 #include <linux/sched.h> 
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/interrupt.h>
 
 //#include "../../../arch/arm/plat-samsung/include/plat/tvout.h"
 struct s5p_platform_cec {
@@ -25,8 +26,9 @@ struct s5p_platform_cec {
 };
 
 
-#include "s5p_tvout_common_lib.h"
-#include "hw_if/hw_if.h"
+//#include "s5p_tvout_common_lib.h"
+//#include "hw_if/hw_if.h"
+#include "cec_hw.h"
 
 MODULE_AUTHOR("KyungHwan Kim <kh.k.kim@samsung.com>");
 MODULE_DESCRIPTION("Samsung S5P CEC driver");
@@ -351,6 +353,7 @@ static int s5p_cec_resume(struct platform_device *dev)
 #define s5p_cec_resume NULL
 #endif
 
+#if 0
 static struct platform_device_id hdmi_driver_types[] = {
 	{
 		.name		= "s5pv210-hdmi",
@@ -360,6 +363,7 @@ static struct platform_device_id hdmi_driver_types[] = {
 		/* end node */
 	}
 };
+#endif
 
 static struct platform_driver s5p_cec_driver = {
 	.probe		= s5p_cec_probe,
@@ -384,6 +388,9 @@ static struct platform_driver s5p_cec_driver = {
 static int __init s5p_cec_init(void)
 {
 	printk(KERN_INFO "S5P CEC for TVOUT Driver, Copyright (c) 2011 Samsung Electronics Co., LTD.\n");
+	
+	request_module("s5p-hdmi");
+	
 	return platform_driver_register(&s5p_cec_driver);
 }
 
