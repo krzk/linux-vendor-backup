@@ -48,11 +48,12 @@ MODULE_LICENSE("GPL");
 
 static atomic_t hdmi_on = ATOMIC_INIT(0);
 static DEFINE_MUTEX(cec_lock);
-//struct clk *hdmi_cec_clk;
+//struct clk *hdmi_cec_clk;		// Seems to be an exynos5 thingie. probe() needs work
 
 static int s5p_cec_open(struct inode *inode, struct file *file)
 {
 	int ret = 0;
+	printk(KERN_INFO "s5p_cec_open\n");
 
 	mutex_lock(&cec_lock);
 	//clk_enable(hdmi_cec_clk);
@@ -84,6 +85,8 @@ err_multi_open:
 
 static int s5p_cec_release(struct inode *inode, struct file *file)
 {
+	printk(KERN_INFO "s5p_cec_release\n");
+	
 	atomic_dec(&hdmi_on);
 
 	s5p_cec_mask_tx_interrupts();
@@ -100,6 +103,8 @@ static ssize_t s5p_cec_read(struct file *file, char __user *buffer,
 {
 	ssize_t retval;
 	unsigned long spin_flags;
+	
+	printk(KERN_INFO "s5p_cec_read, %li bytes\n", (long)count);
 
 	if (wait_event_interruptible(cec_rx_struct.waitq,
 			atomic_read(&cec_rx_struct.state) == STATE_DONE)) {
@@ -177,7 +182,7 @@ static long s5p_cec_ioctl(struct file *file, unsigned int cmd,
 {
 	u32 laddr;
 	
-	printk("s5p_cec_read, cmd = %u, arg = %lu", cmd, arg);
+	printk(KERN_INFO "s5p_cec_ioctl, cmd = %u, arg = %lu\n", cmd, arg);
 
 	switch (cmd) {
 	case CEC_IOC_SETLADDR:
@@ -198,6 +203,7 @@ static long s5p_cec_ioctl(struct file *file, unsigned int cmd,
 
 static u32 s5p_cec_poll(struct file *file, poll_table *wait)
 {
+	printk(KERN_INFO "s5p_cec_poll\n");
 	poll_wait(file, &cec_rx_struct.waitq, wait);
 
 	if (atomic_read(&cec_rx_struct.state) == STATE_DONE)
@@ -281,6 +287,7 @@ static int s5p_cec_probe(struct platform_device *pdev)
 	u8 *buffer = NULL;
 	int irq_num;
 	int ret = 0;
+	struct resource *res;
 	
 	dev_info(dev, "probe start\n");
 
@@ -304,16 +311,18 @@ static int s5p_cec_probe(struct platform_device *pdev)
 		goto err_misc_register;
 	}
 
-	irq_num = platform_get_irq(pdev, 0);
-	if (irq_num < 0) {
-		printk(KERN_ERR  "failed to get %s irq resource\n", "cec");
-		ret = -EBUSY;
+	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	if (res == NULL) {
+		dev_err(&pdev->dev, "Failed to get irq resource.\n");
+		ret = -ENOENT;
 		goto err_get_irq;
 	}
+	irq_num = res->start;
 
-	if (request_irq(irq_num, s5p_cec_irq_handler, IRQF_DISABLED, pdev->name, &pdev->id)) {
-		printk(KERN_ERR  "failed to install %s irq (%d)\n", "cec", ret);
-		ret = -EBUSY;
+	dev_info(dev, "Requesting irq %i for %s\n", irq_num, pdev->name);
+	ret = request_irq(irq_num, s5p_cec_irq_handler, IRQF_DISABLED, pdev->name, &pdev->id); 
+	if (ret != 0) {
+		dev_err(dev, "Failed to install irq (%d), error %i\n", irq_num, ret);
 		goto err_request_irq;
 	}
 
@@ -324,7 +333,6 @@ static int s5p_cec_probe(struct platform_device *pdev)
 	buffer = kmalloc(CEC_TX_BUFF_SIZE, GFP_KERNEL);
 	if (!buffer) {
 		printk(KERN_ERR " kmalloc() failed!\n");
-		misc_deregister(&cec_misc_device);
 		ret = -EIO;
 		goto err_kmalloc;
 	}
@@ -336,10 +344,15 @@ static int s5p_cec_probe(struct platform_device *pdev)
 	clk = clk_get(&pdev->dev, clk_name);
 	if (IS_ERR(clk)) {
 		printk(KERN_ERR "failed to find clock %s\n", clk_name);
-		return -ENOENT;
+		//return -ENOENT;
+		goto err_clock;
 	}
 #endif
 
+	dev_info(&pdev->dev, "probe successful\n");
+	return ret;	// All good
+
+	// unwind the allocations on error
 err_kmalloc:
 	free_irq(irq_num, NULL);
 err_request_irq:
@@ -350,15 +363,24 @@ err_mem_probe:
 	return ret;
 }
 
-
 static int s5p_cec_remove(struct platform_device *pdev)
 {
-	int irq_num = platform_get_irq(pdev, 0);
-	printk(KERN_INFO "s5p_cec_remove, irq=%i\n", irq_num); 
-
-	free_irq(irq_num, NULL);
+	struct device *dev = &pdev->dev;
+	struct resource *res;
+	
+	dev_info(dev, "s5p_cec_remove, cec_rx_struct.buffer=%p\n", cec_rx_struct.buffer);
+	if(cec_rx_struct.buffer)
+		kfree(cec_rx_struct.buffer);
+	
+	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	if(res)
+	{
+		int irq_num = res->start;
+		printk(KERN_INFO "s5p_cec_remove, irq=%i\n", irq_num); 
+		free_irq(irq_num, NULL);
+	}
+	
 	misc_deregister(&cec_misc_device);
-
 	return 0;
 }
 
@@ -380,22 +402,9 @@ static int s5p_cec_resume(struct platform_device *dev)
 #define s5p_cec_resume NULL
 #endif
 
-#if 0
-static struct platform_device_id hdmi_driver_types[] = {
-	{
-		.name		= "s5pv210-hdmi",
-	}, {
-		.name		= "exynos4-hdmi",
-	}, {
-		/* end node */
-	}
-};
-#endif
-
 static struct platform_driver s5p_cec_driver = {
 	.probe		= s5p_cec_probe,
 	.remove		= s5p_cec_remove,
-	//.id_table   = hdmi_driver_types,	// Shouldn't be necessary
 	.suspend	= s5p_cec_suspend,
 	.resume		= s5p_cec_resume,
 	.driver		= {
