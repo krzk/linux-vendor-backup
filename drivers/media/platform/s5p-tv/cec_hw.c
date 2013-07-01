@@ -14,10 +14,9 @@
 #include <linux/platform_device.h>
 
 #include <mach/regs-clock.h>
-//#include <mach/regs-cec.h>	// doesn't seem to work
 
 #include "cec_hw.h"
-#include "regs-cec.h"		// somehow mach/regs-cec.h isn't picked up
+#include "regs-cec.h"
 
 #define S5P_HDMI_FIN			24000000
 #define CEC_DIV_RATIO			320000
@@ -153,7 +152,6 @@ void s5p_cec_copy_packet(char *data, size_t count)
 	else
 		reg &= ~S5P_CEC_TX_CTRL_BCAST;
 
-	printk(KERN_INFO "s5p_cec_copy_packet(): flagging S5P_CEC_TX_CTRL\n");
 	reg |= 0x50;
 	writeb(reg, cec_base + S5P_CEC_TX_CTRL);
 }
@@ -206,34 +204,34 @@ int s5p_cec_mem_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res == NULL) {
 		dev_err(&pdev->dev,
-			"failed to get memory region resource for cec\n");
+			"Failed to get memory region resource for cec\n");
 		return -ENOENT;
 	} else
 		size = resource_size(res);
 
 	cec_mem = request_mem_region(res->start, size, pdev->name);
 	if (cec_mem == NULL) {
-		dev_err(&pdev->dev, "failed to get memory at size %i, name %s\n", size, pdev->name);
+		dev_err(&pdev->dev, "Failed to get memory at size %i, name %s\n", size, pdev->name);
 		return -ENOENT;
 	}
 
 	cec_base = ioremap(res->start, size);
 	if (cec_base == NULL) {
 		dev_err(&pdev->dev,
-			"failed to ioremap address region for cec\n");
+			"Failed to ioremap address region for cec\n");
 		return -ENOENT;
 	}
-	dev_info(&pdev->dev, "s5p_cec_mem_probe(): mapped cec_base to %p, size %x\n", cec_base, size);
+	dev_info(&pdev->dev, "s5p_cec_mem_probe(): mapped cec_base to %p, size 0x%x\n", cec_base, size);
 	return ret;
 }
 
 int s5p_cec_mem_release(struct platform_device *pdev)
 {
-	dev_info(&pdev->dev, "releasing memory\n");
+	dev_info(&pdev->dev, "Releasing memory\n");
 	iounmap(cec_base);
 	if (cec_mem != NULL) {
 		if (release_resource(cec_mem))
-			dev_err(&pdev->dev, "can't remove s5p-cec driver !!\n");
+			dev_err(&pdev->dev, "Can't remove s5p-cec driver\n");
 
 		kfree(cec_mem);
 

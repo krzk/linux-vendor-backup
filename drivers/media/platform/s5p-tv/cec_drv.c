@@ -90,8 +90,6 @@ static int s5p_cec_release(struct inode *inode, struct file *file)
 	s5p_cec_mask_rx_interrupts();
 
 	clk_disable(hdmi_cec_clk);
-	// clk_get() is done in probe(), so clk_put() is done in remove(), not in release():
-	//clk_put(hdmi_cec_clk);
 
 	return 0;
 }
@@ -157,13 +155,10 @@ static ssize_t s5p_cec_write(struct file *file, const char __user *buffer,
 		return -EFAULT;
 	}
 
-	printk(KERN_INFO "\tCopying data\n");
 	s5p_cec_copy_packet(data, count);
 
 	kfree(data);
 	
-	printk(KERN_INFO "s5p_cec_write: waiting for interrupt\n");
-
 	/* wait for interrupt */
 	if (wait_event_interruptible(cec_tx_struct.waitq,
 		atomic_read(&cec_tx_struct.state)
@@ -297,23 +292,22 @@ static int s5p_cec_probe(struct platform_device *pdev)
 	int ret = 0;
 	struct resource *res;
 	
-	dev_info(dev, "probe start\n");
+	dev_info(dev, "Probe start\n");
 
-	//pdata = to_tvout_plat(&pdev->dev);
 	pdata = to_platform_device(&pdev->dev)->dev.platform_data;
-	printk(KERN_INFO "s5p_cec_probe: pdata=%p\n", pdata);
+	dev_info(dev, "s5p_cec_probe: pdata=%p\n", pdata);
 	if (pdata && pdata->cfg_gpio)
 		pdata->cfg_gpio(pdev);
 	
 	/* get ioremap addr */
 	ret = s5p_cec_mem_probe(pdev);
 	if (ret != 0) {
-		printk(KERN_ERR  "failed to s5p_cec_mem_probe(). ret = %d\n", ret);
+		dev_err(dev, "Failed to s5p_cec_mem_probe(). ret = %d\n", ret);
 		goto err_mem_probe;
 	}
 
 	if (misc_register(&cec_misc_device)) {
-		printk(KERN_WARNING " Couldn't register device 10, %d.\n", CEC_MINOR);
+		dev_err(dev, "Couldn't register device 10, %d.\n", CEC_MINOR);
 		ret = -EBUSY;
 		goto err_misc_register;
 	}
@@ -339,7 +333,7 @@ static int s5p_cec_probe(struct platform_device *pdev)
 
 	buffer = kmalloc(CEC_TX_BUFF_SIZE, GFP_KERNEL);
 	if (!buffer) {
-		printk(KERN_ERR " kmalloc() failed!\n");
+		dev_err(dev, "kmalloc() failed\n");
 		ret = -EIO;
 		goto err_kmalloc;
 	}
@@ -349,7 +343,7 @@ static int s5p_cec_probe(struct platform_device *pdev)
 	
 	hdmi_cec_clk = clk_get(&pdev->dev, "hdmicec");
 	if (IS_ERR(hdmi_cec_clk)) {
-		printk(KERN_ERR "failed to find clock 'hdmicec'\n");
+		dev_err(dev, "failed to find clock 'hdmicec'\n");
 		ret = -ENOENT;
 		goto err_clock;
 	}
@@ -402,21 +396,20 @@ static int s5p_cec_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
-static int s5p_cec_suspend(struct platform_device *dev, pm_message_t state)
-{
-	printk(KERN_INFO "s5p_cec_suspend is a NOP\n");
-	return 0;
-}
+	static int s5p_cec_suspend(struct platform_device *dev, pm_message_t state)
+	{
+		printk(KERN_INFO "s5p_cec_suspend is a NOP\n");
+		return 0;
+	}
 
-static int s5p_cec_resume(struct platform_device *dev)
-{
-	printk(KERN_INFO "s5p_cec_resume is a NOP\n");
-	return 0;
-}
-
+	static int s5p_cec_resume(struct platform_device *dev)
+	{
+		printk(KERN_INFO "s5p_cec_resume is a NOP\n");
+		return 0;
+	}
 #else
-#define s5p_cec_suspend NULL
-#define s5p_cec_resume NULL
+	#define s5p_cec_suspend NULL
+	#define s5p_cec_resume NULL
 #endif
 
 static struct platform_driver s5p_cec_driver = {
@@ -430,25 +423,4 @@ static struct platform_driver s5p_cec_driver = {
 	},
 };
 
-#if 0
-	// The rest of the modules in s5p-tv do module_platform_driver()
-	// It makes debugging the probe a bit trickier, so don't do this now
-	module_platform_driver(s5p_cec_driver);
-#else
-	static int __init s5p_cec_init(void)
-	{
-		printk(KERN_INFO "S5P CEC for TVOUT Driver, Copyright (c) 2011 Samsung Electronics Co., LTD.\n");
-		request_module("s5p-hdmi");
-		return platform_driver_register(&s5p_cec_driver);
-	}
-
-	static void __exit s5p_cec_exit(void)
-	{
-		printk(KERN_INFO "S5P CEC for TVOUT Driver, exiting\n");
-		//kfree(cec_rx_struct.buffer);	// moved to s5p_cec_remove()
-		platform_driver_unregister(&s5p_cec_driver);
-	}
-
-	module_init(s5p_cec_init);
-	module_exit(s5p_cec_exit);
-#endif
+module_platform_driver(s5p_cec_driver);
