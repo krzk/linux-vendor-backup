@@ -1,7 +1,8 @@
 Summary:
-	Trying to get CEC (tv-remote control over HDMI) working on linux.
-	There appear to be android-kernel sources. 
-	The hardkernel linux-tree doesn't have those
+	Get CEC (tv-remote control over HDMI) working on linux.
+	There are android-kernel sources, which have not made it 
+	to the main linux kernel-tree, so also the hardkernel 
+	linux-tree doesn't have CEC for exynos platforms.
 
 Status:
 	Copied s5p-cec code from all over the internet, mostly from
@@ -10,11 +11,11 @@ Status:
 	Fixed the insmod()/rmmod() stuff. Error handling and resource 
 		free-ing were quite broken.
 
-	cec-client recognizes the device, have not seen data yet:
+	Using a modified cec-client, it's possible to observe the
+	tv changing it's inputs, see:
 		https://github.com/vamanea/libcec.git
 	
 TODO: 
-	Try to read/write some data to /dev/CEC
 	Cleanup this tree, so it becomes a nice diff upon hardkernel's 3.8 tree
 
 
