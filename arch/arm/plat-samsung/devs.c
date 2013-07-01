@@ -808,21 +808,6 @@ void __init s5p_hdmi_set_platdata(struct i2c_board_info *hdmiphy_info,
 
 #endif /* CONFIG_S5P_DEV_I2C_HDMIPHY */
 
-void __init s5p_hdmi_cec_set_platdata(struct s5p_platform_cec *pd)
-{
-	struct s5p_platform_cec *npd;
-
-	npd = kmemdup(pd, sizeof(struct s5p_platform_cec), GFP_KERNEL);
-	if (!npd)
-		printk(KERN_ERR "%s: no memory for platform data\n", __func__);
-	else {
-		if (!npd->cfg_gpio)
-			npd->cfg_gpio = s5p_cec_cfg_gpio;
-
-		s5p_device_cec.dev.platform_data = npd;
-	}
-}
-
 
 /* I2S */
 
@@ -1415,6 +1400,22 @@ struct platform_device s5p_device_mixer = {
 		.coherent_dma_mask	= DMA_BIT_MASK(32),
 	}
 };
+
+void __init s5p_hdmi_cec_set_platdata(struct s5p_platform_cec *pd)
+{
+	struct s5p_platform_cec *npd;
+	printk(KERN_INFO "s5p_hdmi_cec_set_platdata()\n");
+
+	npd = kmemdup(pd, sizeof(struct s5p_platform_cec), GFP_KERNEL);
+	if (!npd)
+		printk(KERN_ERR "%s: no memory for platform data\n", __func__);
+	else {
+		if (!npd->cfg_gpio)
+			npd->cfg_gpio = s5p_cec_cfg_gpio;
+
+		s5p_device_cec.dev.platform_data = npd;
+	}
+}
 #endif /* CONFIG_S5P_DEV_TV */
 
 /* USB */

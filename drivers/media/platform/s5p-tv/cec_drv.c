@@ -21,10 +21,7 @@
 #include <linux/interrupt.h>
 #include <linux/clk.h>
 
-
-struct s5p_platform_cec {
-	void	(*cfg_gpio)(struct platform_device *pdev);
-};
+#include <plat/hdmi.h>
 
 #include "cec_hw.h"
 
