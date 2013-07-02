@@ -68,6 +68,7 @@ static void samsung_exynos5_usb2phy_enable(struct samsung_usbphy *sphy)
 	 * the last consumer to disable it.
 	 */
 
+
 	atomic_inc(&sphy->phy_usage);
 
 	if (exynos5_phyhost_is_on(regs)) {
@@ -164,22 +165,41 @@ static void samsung_usb2phy_enable(struct samsung_usbphy *sphy)
 	u32 phypwr;
 	u32 phyclk;
 	u32 rstcon;
+	u32 rstbits;
 
 	/* set clock frequency for PLL */
 	phyclk = sphy->ref_clk_freq;
 	phypwr = readl(regs + SAMSUNG_PHYPWR);
 	rstcon = readl(regs + SAMSUNG_RSTCON);
+	rstbits = 0;
 
 	switch (sphy->drv_data->cpu_type) {
 	case TYPE_S3C64XX:
 		phyclk &= ~PHYCLK_COMMON_ON_N;
 		phypwr &= ~PHYPWR_NORMAL_MASK;
-		rstcon |= RSTCON_SWRST;
+		rstbits = RSTCON_SWRST;
 		break;
 	case TYPE_EXYNOS4210:
-	case TYPE_EXYNOS4X12:
 		phypwr &= ~PHYPWR_NORMAL_MASK_PHY0;
-		rstcon |= RSTCON_SWRST;
+		rstbits = RSTCON_SWRST;
+		break;
+	case TYPE_EXYNOS4X12:
+		if (sphy->phy_type == USB_PHY_TYPE_HOST) {
+			phypwr &= ~PHYPWR_NORMAL_MASK_PHY1;
+			phypwr &= ~PHYPWR_NORMAL_MASK_HSIC0_4X12;
+			phypwr &= ~PHYPWR_NORMAL_MASK_HSIC1_4X12;
+			rstbits = RSTCON_SWRST_HOST_4X12;
+			/* The following register (0x125b0034) is not documented
+			 * for Exynos4412, however it is documented for S5PC210.
+			 * There is means that is should not be used, but hey,
+			 * who knows? */
+			writel(PHY1CON_FPENABLEN, regs + EXYNOS4_PHY1CON);
+		} else {
+			phypwr &= ~PHYPWR_NORMAL_MASK_PHY0;
+			rstbits |= RSTCON_SWRST;
+		}
+		break;
+
 	default:
 		break;
 	}
@@ -188,9 +208,11 @@ static void samsung_usb2phy_enable(struct samsung_usbphy *sphy)
 	/* Configure PHY0 for normal operation*/
 	writel(phypwr, regs + SAMSUNG_PHYPWR);
 	/* reset all ports of PHY and Link */
+	/* Keep track of which bits are reset with rstbits. */
+	rstcon |= rstbits;
 	writel(rstcon, regs + SAMSUNG_RSTCON);
 	udelay(10);
-	rstcon &= ~RSTCON_SWRST;
+	rstcon &= ~rstbits;
 	writel(rstcon, regs + SAMSUNG_RSTCON);
 }
 
@@ -241,8 +263,17 @@ static void samsung_usb2phy_disable(struct samsung_usbphy *sphy)
 		phypwr |= PHYPWR_NORMAL_MASK;
 		break;
 	case TYPE_EXYNOS4210:
-	case TYPE_EXYNOS4X12:
 		phypwr |= PHYPWR_NORMAL_MASK_PHY0;
+		break;
+	case TYPE_EXYNOS4X12:
+		if (sphy->phy_type == USB_PHY_TYPE_HOST) {
+			phypwr |= PHYPWR_NORMAL_MASK_PHY1;
+			phypwr |= PHYPWR_NORMAL_MASK_HSIC0_4X12;
+			phypwr |= PHYPWR_NORMAL_MASK_HSIC1_4X12;
+		} else {
+			phypwr |= PHYPWR_NORMAL_MASK_PHY0;
+		}
+		break;
 	default:
 		break;
 	}
@@ -457,6 +488,7 @@ static const struct samsung_usbphy_drvdata usb2phy_exynos4x12 = {
 	.cpu_type		= TYPE_EXYNOS4X12,
 	.devphy_en_mask		= EXYNOS_USBPHY_ENABLE,
 	.hostphy_en_mask	= EXYNOS_USBPHY_ENABLE,
+	.hostphy_reg_offset	= EXYNOS4x12_HSIC1_PHY_CTRL_OFFSET,
 	.rate_to_clksel		= samsung_usbphy_rate_to_clksel_4x12,
 	.set_isolation		= samsung_usbphy_set_isolation_4210,
 	.phy_enable		= samsung_usb2phy_enable,
@@ -466,7 +498,7 @@ static const struct samsung_usbphy_drvdata usb2phy_exynos4x12 = {
 static struct samsung_usbphy_drvdata usb2phy_exynos5 = {
 	.cpu_type		= TYPE_EXYNOS5250,
 	.hostphy_en_mask	= EXYNOS_USBPHY_ENABLE,
-	.hostphy_reg_offset	= EXYNOS_USBHOST_PHY_CTRL_OFFSET,
+	.hostphy_reg_offset	= EXYNOS5_USBHOST_PHY_CTRL_OFFSET,
 	.rate_to_clksel		= samsung_usbphy_rate_to_clksel_4x12,
 	.set_isolation		= samsung_usbphy_set_isolation_4210,
 	.phy_enable		= samsung_exynos5_usb2phy_enable,
