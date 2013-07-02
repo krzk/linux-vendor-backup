@@ -541,6 +541,7 @@ void *vb2_fb_register(struct vb2_queue *q, struct video_device *vfd)
 	data->q = q;
 	data->fake_file.f_path.dentry = &data->fake_dentry;
 	data->fake_dentry.d_inode = &data->fake_inode;
+	data->fake_file.f_inode = data->fake_dentry.d_inode;
 	data->fake_inode.i_rdev = vfd->cdev->dev;
 
 	return info;
