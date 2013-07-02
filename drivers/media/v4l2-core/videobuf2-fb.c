@@ -362,8 +362,11 @@ static int vb2_fb_open(struct fb_info *info, int user)
 	/*
 	 * Activate emulation on the first open.
 	 */
-	if (data->refcount == 0)
+	if (data->refcount == 0) {
+		vb2_drv_unlock(data->q);
 		ret = vb2_fb_activate(info);
+		vb2_drv_lock(data->q);
+	}
 
 	if (ret == 0)
 		data->refcount++;
