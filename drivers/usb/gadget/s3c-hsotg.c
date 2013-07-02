@@ -2214,8 +2214,8 @@ static void s3c_hsotg_core_init(struct s3c_hsotg *hsotg)
 	 */
 
 	/* set the PLL on, remove the HNP/SRP and set the PHY */
-	writel(GUSBCFG_PHYIf16 | GUSBCFG_TOutCal(7) |
-	       (0x5 << 10), hsotg->regs + GUSBCFG);
+	writel(GUSBCFG_PHYIf8 | GUSBCFG_TOutCal(7) |
+	       (0x9 << 10), hsotg->regs + GUSBCFG);
 
 	s3c_hsotg_init_fifo(hsotg);
 
@@ -2883,7 +2883,7 @@ static void s3c_hsotg_init(struct s3c_hsotg *hsotg)
 	s3c_hsotg_init_fifo(hsotg);
 
 	/* set the PLL on, remove the HNP/SRP and set the PHY */
-	writel(GUSBCFG_PHYIf16 | GUSBCFG_TOutCal(7) | (0x5 << 10),
+	writel(GUSBCFG_PHYIf8 | GUSBCFG_TOutCal(7) | (0x9 << 10),
 	       hsotg->regs + GUSBCFG);
 
 	writel(using_dma(hsotg) ? GAHBCFG_DMAEn : 0x0,
