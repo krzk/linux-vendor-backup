@@ -726,4 +726,9 @@
 		status = "okay";
 	};
 
+	ehci@12580000 {
+		status = "okay";
+	};
+
+
 };
