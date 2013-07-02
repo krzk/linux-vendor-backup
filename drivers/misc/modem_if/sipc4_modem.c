@@ -46,6 +46,8 @@
 #define RFS_WAKE_TIME   (HZ*3)
 #define RAW_WAKE_TIME   (HZ*6)
 
+/* pdp for SLP, rmnet for others */
+#define NET_DEVICE_NAME(n) "pdp"#n
 
 /* umts target platform data */
 static struct modem_io_t umts_io_devices[] = {
@@ -78,33 +80,21 @@ static struct modem_io_t umts_io_devices[] = {
 		.links = LINKTYPE(LINKDEV_HSIC),
 	},
 	[4] = {
-#ifdef CONFIG_SLP
-		.name = "pdp0",
-#else
-		.name = "rmnet0",
-#endif
+		.name = NET_DEVICE_NAME(0),
 		.id = 0x2A,
 		.format = IPC_RAW,
 		.io_type = IODEV_NET,
 		.links = LINKTYPE(LINKDEV_HSIC),
 	},
 	[5] = {
-#ifdef CONFIG_SLP
-		.name = "pdp1",
-#else
-		.name = "rmnet1",
-#endif
+		.name = NET_DEVICE_NAME(1) ,
 		.id = 0x2B,
 		.format = IPC_RAW,
 		.io_type = IODEV_NET,
 		.links = LINKTYPE(LINKDEV_HSIC),
 	},
 	[6] = {
-#ifdef CONFIG_SLP
-		.name = "pdp2",
-#else
-		.name = "rmnet2",
-#endif
+		.name = NET_DEVICE_NAME(2),
 		.id = 0x2C,
 		.format = IPC_RAW,
 		.io_type = IODEV_NET,
