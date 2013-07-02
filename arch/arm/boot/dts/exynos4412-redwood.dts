@@ -365,6 +365,7 @@
 					regulator-name = "VHSIC_1.0V";
 					regulator-min-microvolt = <1000000>;
 					regulator-max-microvolt = <1000000>;
+					regulator-always-on;
 				};
 
 				ldo16_reg: ldo@16 {
@@ -372,6 +373,7 @@
 					regulator-name = "VHSIC_1.8V";
 					regulator-min-microvolt = <1800000>;
 					regulator-max-microvolt = <1800000>;
+					regulator-always-on;
 				};
 
 				ldo17_reg: ldo@17 {
@@ -731,4 +733,45 @@
 	};
 
 
+	modem_if {
+		compatible = "samsung,modem_if";
+		reset-req-gpio = <&gpm3 3 0>;
+		cp-on-gpio = <&gpl2 5 0>;
+		cp-reset-gpio = <&gpx3 2 0>;
+		pda-active-gpio = <&gpf1 6 0>;
+
+		phone-active-gpio = <&gpx1 6 0>;
+		cp-dump-int-gpio = <&gpx1 2 0>;
+
+		ap-dump-int-gpio = <0>;
+		flm_uart_sel = <0>;
+		cp_warm_reset = <0>;
+		sim_detect = <0>;
+
+		link-slavewake-gpio = <&gpx1 0 0>;
+		link-hostwake-gpio = <&gpx1 1 0>;
+		link-active-gpio = <&gpf1 1 0>;
+		link-enable-gpio = <0>;
+
+		modem-type = "xmm6262";
+		link-type = "hsic";
+		modem-net = "umts";
+		use-handover = <0>;
+
+		pinctrl-names = "default", "active";
+		pinctrl-0 = <&modem_state_off>;
+		pinctrl-1 = <&modem_state_active>;
+	};
+
+};
+
+&pinctrl_1 {
+	modem_state_active: modem-state-active {
+		samsung,pins = "gpx1-6", "gpx1-1", "gpx1-2";
+		samsung,pin-pud = <0>;
+	};
+	modem_state_off: modem-state-off {
+		samsung,pins = "gpx1-6", "gpx1-1", "gpx1-2";
+		samsung,pin-pud = <1>;
+	};
 };
