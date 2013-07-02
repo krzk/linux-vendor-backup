@@ -39,6 +39,9 @@
 #define EHCI_INSNREG00_ENABLE_DMA_BURST	\
 	(EHCI_INSNREG00_ENA_INCR16 | EHCI_INSNREG00_ENA_INCR8 |	\
 	 EHCI_INSNREG00_ENA_INCR4 | EHCI_INSNREG00_ENA_INCRX_ALIGN)
+#define INSNREG00(base)                         (base + 0x90)
+#define ENA_DMA_INCR                            (0xF << 22)
+#define OHCI_SUSP_LGCY                          (1 << 20)
 
 static const char hcd_name[] = "ehci-s5p";
 static struct hc_driver __read_mostly s5p_ehci_hc_driver;
@@ -82,6 +85,28 @@ static ssize_t show_ehci_power(struct device *dev,
 	return sprintf(buf, "EHCI Power %s\n", (s5p_ehci->power_on) ? "on" : "off");
 }
 
+static int s5p_ehci_configurate(struct usb_hcd *hcd)
+{
+	int delay_count = 0;
+
+	/* This is for waiting phy before ehci configuration */
+	do {
+		if (readl(hcd->regs))
+			break;
+		udelay(1);
+		++delay_count;
+	} while (delay_count < 200);
+	if (delay_count)
+		dev_info(hcd->self.controller, "phy delay count = %d\n",
+			delay_count);
+
+	/* DMA burst Enable, set utmi suspend_on_n */
+	writel(readl(INSNREG00(hcd->regs)) | ENA_DMA_INCR | OHCI_SUSP_LGCY,
+		INSNREG00(hcd->regs));
+	return 0;
+}
+
+
 static ssize_t store_ehci_power(struct device *dev,
 				struct device_attribute *attr,
 				const char *buf, size_t count)
@@ -111,6 +136,8 @@ static ssize_t store_ehci_power(struct device *dev,
 		}
 
 		s5p_ehci_phy_enable(s5p_ehci, pdev);
+			
+		s5p_ehci_configurate(hcd);
 
 		irq = platform_get_irq(pdev, 0);
 		retval = usb_add_hcd(hcd, irq,
