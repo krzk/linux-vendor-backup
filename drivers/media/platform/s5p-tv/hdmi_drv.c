@@ -48,7 +48,7 @@ MODULE_DESCRIPTION("Samsung HDMI");
 MODULE_LICENSE("GPL");
 
 /* default preset configured on probe */
-#define HDMI_DEFAULT_PRESET V4L2_DV_480P59_94
+#define HDMI_DEFAULT_PRESET V4L2_DV_720P59_94
 
 enum hdmi_type {
 	HDMI_TYPE13,
