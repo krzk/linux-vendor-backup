@@ -2570,14 +2570,71 @@ static int fsg_main_thread(void *common_)
 
 /*************************** DEVICE ATTRIBUTES ***************************/
 
-static DEVICE_ATTR(ro, 0644, fsg_show_ro, fsg_store_ro);
-static DEVICE_ATTR(nofua, 0644, fsg_show_nofua, fsg_store_nofua);
-static DEVICE_ATTR(file, 0644, fsg_show_file, fsg_store_file);
+static ssize_t sysfs_fsg_show_ro(struct device *dev,
+				 struct device_attribute *attr,
+				 char *buf)
+{
+	struct fsg_lun		*curlun = fsg_lun_from_dev(dev);
+
+	return fsg_show_ro(curlun, buf);
+}
+
+static ssize_t sysfs_fsg_show_nofua(struct device *dev,
+				    struct device_attribute *attr,
+				    char *buf)
+{
+	struct fsg_lun		*curlun = fsg_lun_from_dev(dev);
+
+	return fsg_show_nofua(curlun, buf);
+}
+
+static ssize_t sysfs_fsg_show_file(struct device *dev,
+				   struct device_attribute *attr,
+				   char *buf)
+{
+	struct fsg_lun		*curlun = fsg_lun_from_dev(dev);
+	struct rw_semaphore	*filesem = dev_get_drvdata(dev);
+
+	return fsg_show_file(curlun, filesem, buf);
+}
+
+static ssize_t sysfs_fsg_store_ro(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
+{
+	struct fsg_lun		*curlun = fsg_lun_from_dev(dev);
+	struct rw_semaphore	*filesem = dev_get_drvdata(dev);
+
+	return fsg_store_ro(curlun, filesem, buf, count);
+}
+
+static ssize_t sysfs_fsg_store_nofua(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t count)
+{
+	struct fsg_lun		*curlun = fsg_lun_from_dev(dev);
+
+	return fsg_store_nofua(curlun, buf, count);
+}
+
+static ssize_t sysfs_fsg_store_file(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	struct fsg_lun		*curlun = fsg_lun_from_dev(dev);
+	struct rw_semaphore	*filesem = dev_get_drvdata(dev);
+
+	return fsg_store_file(curlun, filesem, buf, count);
+}
+
+static DEVICE_ATTR(ro, 0644, sysfs_fsg_show_ro, sysfs_fsg_store_ro);
+static DEVICE_ATTR(nofua, 0644, sysfs_fsg_show_nofua, sysfs_fsg_store_nofua);
+static DEVICE_ATTR(file, 0644, sysfs_fsg_show_file, sysfs_fsg_store_file);
 
 static struct device_attribute dev_attr_ro_cdrom =
-	__ATTR(ro, 0444, fsg_show_ro, NULL);
+	__ATTR(ro, 0444, sysfs_fsg_show_ro, NULL);
 static struct device_attribute dev_attr_file_nonremovable =
-	__ATTR(file, 0444, fsg_show_file, NULL);
+	__ATTR(file, 0444, sysfs_fsg_show_file, NULL);
 
 
 /****************************** FSG COMMON ******************************/
