@@ -3032,21 +3032,13 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
 
 	fsg_common_set_inquiry_string(common, cfg->vendor_name,
 				      cfg->product_name);
-	/* Tell the thread to start working */
-	common->thread_task =
-		kthread_create(fsg_main_thread, common, "file-storage");
-	if (IS_ERR(common->thread_task)) {
-		rc = PTR_ERR(common->thread_task);
-		goto error_release;
-	}
 
 	/* Information */
 	INFO(common, FSG_DRIVER_DESC ", version: " FSG_DRIVER_VERSION "\n");
-	INFO(common, "Number of LUNs=%d\n", common->nluns);
 
-	DBG(common, "I/O thread pid: %d\n", task_pid_nr(common->thread_task));
-
-	wake_up_process(common->thread_task);
+	rc = fsg_common_run_thread(common);
+	if (rc)
+		goto error_release;
 
 	return common;
 
