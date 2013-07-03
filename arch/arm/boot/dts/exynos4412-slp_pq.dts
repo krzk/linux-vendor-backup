@@ -261,6 +261,8 @@
 		non-removable;
 		fifo-depth = <0x80>;
 		card-detect-delay = <200>;
+		clocks = <&clock 351>, <&clock 132>;
+		clock-name = "biu", "ciu";
 		vmmc-supply = <&vemmc_reg>;
 		clock-frequency = <400000000>;
 		samsung,dw-mshc-ciu-div = <0>;
