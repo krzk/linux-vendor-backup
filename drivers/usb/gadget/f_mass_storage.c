@@ -2999,7 +2999,7 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
 				   struct usb_composite_dev *cdev,
 				   struct fsg_config *cfg)
 {
-	int i, rc;
+	int rc;
 
 	common = fsg_common_setup(common, !!common);
 	if (IS_ERR(common))
@@ -3029,16 +3029,9 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
 	if (rc)
 		goto error_release;
 
-	/* Prepare inquiryString */
-	i = get_default_bcdDevice();
-	snprintf(common->inquiry_string, sizeof common->inquiry_string,
-		 "%-8s%-16s%04x", cfg->vendor_name ?: "Linux",
-		 /* Assume product name dependent on the first LUN */
-		 cfg->product_name ?: ((*common->luns)->cdrom
-				     ? "File-CD Gadget"
-				     : "File-Stor Gadget"),
-		 i);
 
+	fsg_common_set_inquiry_string(common, cfg->vendor_name,
+				      cfg->product_name);
 	/* Tell the thread to start working */
 	common->thread_task =
 		kthread_create(fsg_main_thread, common, "file-storage");
