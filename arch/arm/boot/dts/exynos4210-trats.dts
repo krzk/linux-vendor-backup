@@ -24,6 +24,27 @@
 			0x50000000 0x10000000
 			0x60000000 0x10000000
 			0x70000000 0x10000000>;
+
+		reserved-memory {
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			contig_mem: region@72000000 {
+				compatible = "linux,contiguous-memory-region";
+				reg = <0x72000000 0xc000000>;
+				linux,default-contiguous-region;
+			};
+
+			mfc_l_mem: mfc_l_region@43000000 {
+				compatible = "linux,contiguous-memory-region", "reserved-memory-region";
+				reg = <0x43000000 0x1000000>;
+			};
+
+			mfc_r_mem: mfc_r_region@51000000 {
+				compatible = "linux,contiguous-memory-region", "reserved-memory-region";
+				reg = <0x51000000 0x1000000>;
+			};
+		};
 	};
 
 	chosen {
@@ -392,6 +413,18 @@
 
 		fimc_3: fimc@11830000 {
 			status = "okay";
+		};
+	};
+
+	mfc: codec@13400000 {
+		status = "okay";
+
+		memport@0 {
+			memory-region = <&mfc_l_mem>;
+		};
+
+		memport@1 {
+			memory-region = <&mfc_r_mem>;
 		};
 	};
 };
