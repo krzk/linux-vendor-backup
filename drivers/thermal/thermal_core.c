@@ -33,6 +33,7 @@
 #include <linux/idr.h>
 #include <linux/thermal.h>
 #include <linux/reboot.h>
+#include <linux/cpufreq.h>
 #include <net/netlink.h>
 #include <net/genetlink.h>
 
@@ -352,9 +353,59 @@ static void handle_critical_trips(struct thermal_zone_device *tz,
 	}
 }
 
+static int thermal_boost_enable(struct thermal_zone_device *tz)
+{
+	enum thermal_trend trend = get_tz_trend(tz, 0);
+	long trip_temp;
+
+	if (!tz->ops->get_trip_temp || !tz->overheated)
+		return -EPERM;
+	if (trend == THERMAL_TREND_RAISING || trend == THERMAL_TREND_RAISE_FULL)
+		return -EBUSY;
+
+	tz->ops->get_trip_temp(tz, 0, &trip_temp);
+	/*
+	 * Enable boost again only when current temperature is less
+	 * than 75% of trip_temp[0]
+	 */
+	if ((tz->temperature + (trip_temp >> 2)) < trip_temp) {
+		mutex_lock(&tz->lock);
+		tz->overheated = false;
+		if (tz->boost_polling) {
+			tz->boost_polling = false;
+			tz->polling_delay = 0;
+		}
+		mutex_unlock(&tz->lock);
+		cpufreq_boost_trigger_state(1);
+		return 0;
+	}
+	return -EBUSY;
+}
+
+static void thermal_boost_disable(struct thermal_zone_device *tz)
+{
+	cpufreq_boost_trigger_state(0);
+
+	/*
+	 * If no workqueue for monitoring is running - start one with
+	 * 1000 ms monitoring period
+	 * If workqueue already running - do not change its period and only
+	 * test if target CPU has cooled down
+	 */
+	mutex_lock(&tz->lock);
+	if (!tz->polling_delay) {
+		tz->boost_polling = true;
+		tz->polling_delay = 1000;
+	}
+	tz->overheated = true;
+	mutex_unlock(&tz->lock);
+}
+
 static void handle_thermal_trip(struct thermal_zone_device *tz, int trip)
 {
 	enum thermal_trip_type type;
+	if (cpufreq_boost_supported() && cpufreq_boost_enabled())
+		thermal_boost_disable(tz);
 
 	tz->ops->get_trip_type(tz, trip, &type);
 
@@ -453,6 +504,10 @@ static void thermal_zone_device_check(struct work_struct *work)
 	struct thermal_zone_device *tz = container_of(work, struct
 						      thermal_zone_device,
 						      poll_queue.work);
+	if (cpufreq_boost_supported())
+		if (!thermal_boost_enable(tz))
+			return;
+
 	thermal_zone_device_update(tz);
 }
 
