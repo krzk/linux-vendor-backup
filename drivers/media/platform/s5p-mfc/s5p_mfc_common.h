@@ -674,7 +674,7 @@ void set_work_bit_irqsave(struct s5p_mfc_ctx *ctx);
 #define HAS_PORTNUM(dev)	(dev ? (dev->variant ? \
 				(dev->variant->port_num ? 1 : 0) : 0) : 0)
 #define IS_TWOPORT(dev)		(dev->variant->port_num == 2 ? 1 : 0)
-#define IS_MFCV6(dev)		(dev->variant->version >= 0x60 ? 1 : 0)
+#define IS_MFCV6_PLUS(dev)	(dev->variant->version >= 0x60 ? 1 : 0)
 
 #define s5p_mfc_supported_mem_type(mem)	\
 	((mem == V4L2_MEMORY_MMAP || \
