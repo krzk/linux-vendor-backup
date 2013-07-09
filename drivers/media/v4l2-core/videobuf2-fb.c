@@ -94,6 +94,8 @@ static struct fmt_desc fmt_conv_table[] = {
 	/* TODO: add more format descriptors */
 };
 
+static int vb2_fb_blank(int blank_mode, struct fb_info *info);
+
 /**
  * vb2_drv_lock() - a shortcut to call driver specific lock()
  * @q:		videobuf2 queue
@@ -425,6 +427,8 @@ static int vb2_fb_mmap(struct fb_info *info, struct vm_area_struct *vma)
 	vb2_drv_lock(data->q);
 	ret = vb2_mmap(data->q, vma);
 	vb2_drv_unlock(data->q);
+
+	ret = vb2_fb_blank(FB_BLANK_UNBLANK, info);
 
 	return ret;
 }
