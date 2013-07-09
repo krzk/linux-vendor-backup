@@ -17,6 +17,7 @@ Required properties:
 	(b) "samsung,mfc-v6" for MFC v6 present in Exynos5 SoCs
 	and additionally "simple-bus" to correctly initialize child
 	devices for memory ports (AXI masters)
+	(c) "samsung,mfc-v7" for MFC v7 present in Exynos5420 SoC
 
   - reg : Physical base address of the IP registers and length of memory
 	  mapped region.
