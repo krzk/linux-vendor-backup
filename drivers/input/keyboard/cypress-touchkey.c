@@ -60,6 +60,9 @@ unsigned long last_error_time;
 #endif
 
 int bl_on = 0;
+#ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_ALLOW_DISABLE
+int touchkey_disabled = 0;
+#endif
 static DEFINE_SEMAPHORE(enable_sem);
 static DEFINE_SEMAPHORE(i2c_sem);
 
@@ -403,6 +406,9 @@ static void cypress_touchkey_early_suspend(struct early_suspend *h)
 
 	down(&enable_sem);
 
+#ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_ALLOW_DISABLE
+	if(touchkey_disabled) goto out;
+#endif
 	devdata->is_powering_on = true;
 
 	if (unlikely(devdata->is_dead)) {
@@ -425,6 +431,10 @@ static void cypress_touchkey_early_resume(struct early_suspend *h)
 {
 	struct cypress_touchkey_devdata *devdata =
 		container_of(h, struct cypress_touchkey_devdata, early_suspend);
+
+#ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_ALLOW_DISABLE
+	if(touchkey_disabled) return;
+#endif
 
 	// Avoid race condition with LED notification disable
 	down(&enable_sem);
@@ -477,6 +487,22 @@ static ssize_t bl_timeout_read(struct device *dev, struct device_attribute *attr
 static ssize_t bl_timeout_write(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
 {
 	sscanf(buf, "%d\n", &bl_timeout);
+#ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_ALLOW_DISABLE
+	if(!bl_timeout && !touchkey_disabled) {
+		down(&enable_sem);
+		bl_devdata->pdata->touchkey_onoff(TOUCHKEY_OFF);
+		disable_irq(bl_devdata->client->irq);
+		up(&enable_sem);
+		touchkey_disabled = 1;
+	}
+	else if(bl_timeout && touchkey_disabled) {
+		down(&enable_sem);
+		bl_devdata->pdata->touchkey_onoff(TOUCHKEY_ON);
+		enable_irq(bl_devdata->client->irq);
+		up(&enable_sem);
+		touchkey_disabled = 0;
+	}
+#endif
 	return size;
 }
 
