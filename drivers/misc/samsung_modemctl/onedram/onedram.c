@@ -406,8 +406,9 @@ static irqreturn_t onedram_irq_handler(int irq, void *data)
 	if (old_mailbox == mailbox &&
 			old_clock + 100000 > cpu_clock(smp_processor_id()))
 		return IRQ_HANDLED;
-#endif
+#else
 	dev_dbg(od->dev, "[%d] recv %x\n", _read_sem(od), mailbox);
+#endif
 	hw_tmp = _read_sem(od); /* for hardware */
 
 	if (h_list.len) {

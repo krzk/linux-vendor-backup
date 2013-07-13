@@ -490,6 +490,14 @@ static inline void _init_data(struct sipc *si, unsigned char *base)
 		cont->out_tail = 0;
 		cont->in_head = 0;
 		cont->in_tail = 0;
+#else
+		if(si->map->magic == 0xFF)
+		{
+			cont->out_head = 0;
+			cont->out_tail = 0;
+			cont->in_head = 0;
+			cont->in_tail = 0;
+		}
 #endif
 	}
 }
