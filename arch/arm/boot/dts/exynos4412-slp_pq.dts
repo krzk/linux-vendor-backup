@@ -858,16 +858,16 @@
 			reg = <0x66>;
 
 			regulators {
-				esafeout@1 {
+				esafeout1_reg: esafeout@1 {
 					regulator-compatible = "ESAFEOUT1";
 					regulator-name = "ESAFEOUT1";
 					regulator-boot-on;
 				};
-				esafeout@2 {
+				esafeout2_reg: esafeout@2 {
 					regulator-compatible = "ESAFEOUT2";
 					regulator-name = "ESAFEOUT2";
 				};
-				charger@0 {
+				charger_reg: charger@0 {
 					regulator-compatible = "CHARGER";
 					regulator-name = "CHARGER";
 					regulator-min-microamp = <60000>;
@@ -1221,6 +1221,11 @@
 		pinctrl-1 = <&modem_state_active>;
 	};
 
+	charger {
+		compatible = "charger-manager";
+		status = "okay";
+		vinchg1-supply = <&charger_reg>;
+	};
 };
 
 &pinctrl_1 {
