@@ -29,6 +29,7 @@
 #include <linux/export.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
+#include <linux/dmabuf-sync.h>
 
 static inline int is_dma_buf_file(struct file *);
 
@@ -55,6 +56,8 @@ static int dma_buf_release(struct inode *inode, struct file *file)
 	mutex_lock(&db_list.lock);
 	list_del(&dmabuf->list_node);
 	mutex_unlock(&db_list.lock);
+
+	dmabuf_sync_reservation_fini(dmabuf);
 
 	kfree(dmabuf);
 	return 0;
@@ -134,6 +137,7 @@ struct dma_buf *dma_buf_export_named(void *priv, const struct dma_buf_ops *ops,
 
 	file = anon_inode_getfile("dmabuf", &dma_buf_fops, dmabuf, flags);
 
+	dmabuf_sync_reservation_init(dmabuf);
 	dmabuf->file = file;
 
 	mutex_init(&dmabuf->lock);

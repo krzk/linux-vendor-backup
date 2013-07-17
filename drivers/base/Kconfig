@@ -202,6 +202,13 @@ config DMA_SHARED_BUFFER
 	  APIs extension; the file's descriptor can then be passed on to other
 	  driver.
 
+config DMABUF_SYNC
+	bool "DMABUF Synchronization Framework"
+	depends on DMA_SHARED_BUFFER
+	help
+	  This option enables dmabuf sync framework for buffer synchronization between
+	  DMA and DMA, CPU and DMA, and CPU and CPU.
+
 config CMA
 	bool "Contiguous Memory Allocator"
 	depends on HAVE_DMA_CONTIGUOUS && HAVE_MEMBLOCK

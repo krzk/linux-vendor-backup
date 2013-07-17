@@ -1,0 +1,290 @@
+                    DMA Buffer Synchronization Framework
+                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+                                  Inki Dae
+                      <inki dot dae at samsung dot com>
+                          <daeinki at gmail dot com>
+
+This document is a guide for device-driver writers describing the DMA buffer
+synchronization API. This document also describes how to use the API to
+use buffer synchronization mechanism between DMA and DMA, CPU and DMA, and
+CPU and CPU.
+
+The DMA Buffer synchronization API provides buffer synchronization mechanism;
+i.e., buffer access control to CPU and DMA, and easy-to-use interfaces for
+device drivers and user application. And this API can be used for all dma
+devices using system memory as dma buffer, especially for most ARM based SoCs.
+
+
+Motivation
+----------
+
+Buffer synchronization issue between DMA and DMA:
+	Sharing a buffer, a device cannot be aware of when the other device
+	will access the shared buffer: a device may access a buffer containing
+	wrong data if the device accesses the shared buffer while another
+	device is still accessing the shared buffer.
+	Therefore, a user process should have waited for the completion of DMA
+	access by another device before a device tries to access the shared
+	buffer.
+
+Buffer synchronization issue between CPU and DMA:
+	A user process should consider that when having to send a buffer, filled
+	by CPU, to a device driver for the device driver to access the buffer as
+	a input buffer while CPU and DMA are sharing the buffer.
+	This means that the user process needs to understand how the device
+	driver is worked. Hence, the conventional mechanism not only makes
+	user application complicated but also incurs performance overhead.
+
+Buffer synchronization issue between CPU and CPU:
+	In case that two processes share one buffer; shared with DMA also,
+	they may need some mechanism to allow process B to access the shared
+	buffer after the completion of CPU access by process A.
+	Therefore, process B should have waited for the completion of CPU access
+	by process A using the mechanism before trying to access the shared
+	buffer.
+
+What is the best way to solve these buffer synchronization issues?
+	We may need a common object that a device driver and a user process
+	notify the common object of when they try to access a shared buffer.
+	That way we could decide when we have to allow or not to allow for CPU
+	or DMA to access the shared buffer through the common object.
+	If so, what could become the common object? Right, that's a dma-buf[1].
+	Now we have already been using the dma-buf to share one buffer with
+	other drivers.
+
+How we can utilize multi threads for more performance?
+	DMA and CPU works individually. So CPU could perform other works while
+	DMA are performing some works, and vise versa.
+	However, in the conventional way, that is not easy to do so because
+	DMA operation is depend on CPU operation, and vice versa.
+
+	Conventional way:
+        User                                     Kernel
+        ---------------------------------------------------------------------
+        CPU writes something to src
+        send the src to driver------------------------->
+                                                 update DMA register
+        request DMA start(1)--------------------------->
+                                                 DMA start
+                <---------completion signal(2)----------
+        CPU accesses dst
+
+        (1) Request DMA start after the CPU access to src buffer is completed.
+        (2) Access dst buffer after DMA access to the dst buffer is completed.
+
+On the other hand, if there is something to control buffer access between CPU
+and DMA? The below shows that:
+
+        User(thread a)          User(thread b)            Kernel
+        ---------------------------------------------------------------------
+        send a src to driver---------------------------------->
+                                                          update DMA register
+        lock the src
+                                request DMA start(1)---------->
+        CPU acccess to src
+        unlock the src                                    lock src and dst
+                                                          DMA start
+                <-------------completion signal(2)-------------
+        lock dst                                          DMA completion
+        CPU access to dst                                 unlock src and dst
+        unlock DST
+
+        (1) Try to start DMA operation while CPU is accessing the src buffer.
+        (2) Try CPU access to dst buffer while DMA is accessing the dst buffer.
+
+	In the same way, we could reduce hand shaking overhead between
+	two processes when those processes need to share a shared buffer.
+	There may be other cases that we could reduce overhead as well.
+
+
+Basic concept
+-------------
+
+The mechanism of this framework has the following steps,
+    1. Register dmabufs to a sync object - A task gets a new sync object and
+    can add one or more dmabufs that the task wants to access.
+    This registering should be performed when a device context or an event
+    context such as a page flip event is created or before CPU accesses a shared
+    buffer.
+
+	dma_buf_sync_get(a sync object, a dmabuf);
+
+    2. Lock a sync object - A task tries to lock all dmabufs added in its own
+    sync object. Basically, the lock mechanism uses ww-mutexes[2] to avoid dead
+    lock issue and for race condition between CPU and CPU, CPU and DMA, and DMA
+    and DMA. Taking a lock means that others cannot access all locked dmabufs
+    until the task that locked the corresponding dmabufs, unlocks all the locked
+    dmabufs.
+    This locking should be performed before DMA or CPU accesses these dmabufs.
+
+	dma_buf_sync_lock(a sync object);
+
+    3. Unlock a sync object - The task unlocks all dmabufs added in its own sync
+    object. The unlock means that the DMA or CPU accesses to the dmabufs have
+    been completed so that others may access them.
+    This unlocking should be performed after DMA or CPU has completed accesses
+    to the dmabufs.
+
+	dma_buf_sync_unlock(a sync object);
+
+    4. Unregister one or all dmabufs from a sync object - A task unregisters
+    the given dmabufs from the sync object. This means that the task dosen't
+    want to lock the dmabufs.
+    The unregistering should be performed after DMA or CPU has completed
+    accesses to the dmabufs or when dma_buf_sync_lock() is failed.
+
+	dma_buf_sync_put(a sync object, a dmabuf);
+	dma_buf_sync_put_all(a sync object);
+
+    The described steps may be summarized as:
+	get -> lock -> CPU or DMA access to a buffer/s -> unlock -> put
+
+This framework includes the following two features.
+    1. read (shared) and write (exclusive) locks - A task is required to declare
+    the access type when the task tries to register a dmabuf;
+    READ, WRITE, READ DMA, or WRITE DMA.
+
+    The below is example codes,
+	struct dmabuf_sync *sync;
+
+	sync = dmabuf_sync_init(NULL, "test sync");
+
+	dmabuf_sync_get(sync, dmabuf, DMA_BUF_ACCESS_R);
+	...
+
+    2. Mandatory resource releasing - a task cannot hold a lock indefinitely.
+    A task may never try to unlock a buffer after taking a lock to the buffer.
+    In this case, a timer handler to the corresponding sync object is called
+    in five (default) seconds and then the timed-out buffer is unlocked by work
+    queue handler to avoid lockups and to enforce resources of the buffer.
+
+
+Access types
+------------
+
+DMA_BUF_ACCESS_R - CPU will access a buffer for read.
+DMA_BUF_ACCESS_W - CPU will access a buffer for read or write.
+DMA_BUF_ACCESS_DMA_R - DMA will access a buffer for read
+DMA_BUF_ACCESS_DMA_W - DMA will access a buffer for read or write.
+
+
+Generic user interfaces
+-----------------------
+
+And this framework includes fcntl system call[3] as interfaces exported
+to user. As you know, user sees a buffer object as a dma-buf file descriptor.
+So fcntl() call with the file descriptor means to lock some buffer region being
+managed by the dma-buf object.
+
+
+API set
+-------
+
+bool is_dmabuf_sync_supported(void)
+	- Check if dmabuf sync is supported or not.
+
+struct dmabuf_sync *dmabuf_sync_init(void *priv, const char *name)
+	- Allocate and initialize a new sync object. The caller can get a new
+	sync object for buffer synchronization. priv is used to set caller's
+	private data and name is the name of sync object.
+
+void dmabuf_sync_fini(struct dmabuf_sync *sync)
+	- Release all resources to the sync object.
+
+int dmabuf_sync_get(struct dmabuf_sync *sync, void *sync_buf,
+			unsigned int type)
+	- Get dmabuf sync object. Internally, this function allocates
+	a dmabuf_sync object and adds a given dmabuf to it, and also takes
+	a reference to the dmabuf. The caller can tie up multiple dmabufs
+	into one sync object by calling this function several times.
+
+void dmabuf_sync_put(struct dmabuf_sync *sync, struct dma_buf *dmabuf)
+	- Put dmabuf sync object to a given dmabuf. Internally, this function
+	removes a given dmabuf from a sync object and remove the sync object.
+	At this time, the dmabuf is putted.
+
+void dmabuf_sync_put_all(struct dmabuf_sync *sync)
+	- Put dmabuf sync object to dmabufs. Internally, this function removes
+	all dmabufs from a sync object and remove the sync object.
+	At this time, all dmabufs are putted.
+
+int dmabuf_sync_lock(struct dmabuf_sync *sync)
+	- Lock all dmabufs added in a sync object. The caller should call this
+	function prior to CPU or DMA access to the dmabufs so that others can
+	not access the dmabufs. Internally, this function avoids dead lock
+	issue with ww-mutexes.
+
+int dmabuf_sync_single_lock(struct dma_buf *dmabuf)
+	- Lock a dmabuf. The caller should call this
+	function prior to CPU or DMA access to the dmabuf so that others can
+	not access the dmabuf.
+
+int dmabuf_sync_unlock(struct dmabuf_sync *sync)
+	- Unlock all dmabufs added in a sync object. The caller should call
+	this function after CPU or DMA access to the dmabufs is completed so
+	that others can access the dmabufs.
+
+void dmabuf_sync_single_unlock(struct dma_buf *dmabuf)
+	- Unlock a dmabuf. The caller should call this function after CPU or
+	DMA access to the dmabuf is completed so that others can access
+	the dmabuf.
+
+
+Tutorial for device driver
+--------------------------
+
+1. Allocate and Initialize a sync object:
+	struct dmabuf_sync *sync;
+
+	sync = dmabuf_sync_init(NULL, "test sync");
+	...
+
+2. Add a dmabuf to the sync object when setting up dma buffer relevant registers:
+	dmabuf_sync_get(sync, dmabuf, DMA_BUF_ACCESS_READ);
+	...
+
+3. Lock all dmabufs of the sync object before DMA or CPU accesses the dmabufs:
+	dmabuf_sync_lock(sync);
+	...
+
+4. Now CPU or DMA can access all dmabufs locked in step 3.
+
+5. Unlock all dmabufs added in a sync object after DMA or CPU access to these
+   dmabufs is completed:
+	dmabuf_sync_unlock(sync);
+
+   And call the following functions to release all resources,
+	dmabuf_sync_put_all(sync);
+	dmabuf_sync_fini(sync);
+
+
+Tutorial for user application
+-----------------------------
+	struct flock filelock;
+
+1. Lock a dma buf:
+	filelock.l_type = F_WRLCK or F_RDLCK;
+
+	/* lock entire region to the dma buf. */
+	filelock.lwhence = SEEK_CUR;
+	filelock.l_start = 0;
+	filelock.l_len = 0;
+
+	fcntl(dmabuf fd, F_SETLKW or F_SETLK, &filelock);
+	...
+	CPU access to the dma buf
+
+2. Unlock a dma buf:
+	filelock.l_type = F_UNLCK;
+
+	fcntl(dmabuf fd, F_SETLKW or F_SETLK, &filelock);
+
+	close(dmabuf fd) call would also unlock the dma buf. And for more
+	detail, please refer to [3]
+
+
+References:
+[1] http://lwn.net/Articles/470339/
+[2] https://patchwork.kernel.org/patch/2625361/
+[3] http://linux.die.net/man/2/fcntl
