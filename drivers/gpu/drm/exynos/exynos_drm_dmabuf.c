@@ -129,6 +129,38 @@ static void exynos_gem_unmap_dma_buf(struct dma_buf_attachment *attach,
 	/* Nothing to do. */
 }
 
+static int exynos_gem_begin_cpu_access(struct dma_buf *dmabuf, size_t start,
+					size_t len, enum dma_data_direction dir)
+{
+	struct exynos_drm_gem_obj *exynos_gem_obj = dmabuf->priv;
+	struct exynos_drm_gem_buf *buf = exynos_gem_obj->buffer;
+	struct drm_device *drm_dev = exynos_gem_obj->base.dev;
+
+	if (dma_get_attr(DMA_ATTR_SKIP_CPU_SYNC, &buf->dma_attrs))
+		return 0;
+
+	/* TODO. need to optimize cache operation. */
+	dma_sync_sg_for_cpu(drm_dev->dev, buf->sgt->sgl, buf->sgt->orig_nents,
+				dir);
+
+	return 0;
+}
+
+static void exynos_gem_end_cpu_access(struct dma_buf *dmabuf, size_t start,
+					size_t len, enum dma_data_direction dir)
+{
+	struct exynos_drm_gem_obj *exynos_gem_obj = dmabuf->priv;
+	struct exynos_drm_gem_buf *buf = exynos_gem_obj->buffer;
+	struct drm_device *drm_dev = exynos_gem_obj->base.dev;
+
+	if (dma_get_attr(DMA_ATTR_SKIP_CPU_SYNC, &buf->dma_attrs))
+		return;
+
+	/* TODO. need to optimize cache operation. */
+	dma_sync_sg_for_device(drm_dev->dev, buf->sgt->sgl, buf->sgt->orig_nents,
+				dir);
+}
+
 static void exynos_dmabuf_release(struct dma_buf *dmabuf)
 {
 	struct exynos_drm_gem_obj *exynos_gem_obj = dmabuf->priv;
@@ -192,6 +224,8 @@ static struct dma_buf_ops exynos_dmabuf_ops = {
 	.detach			= exynos_gem_detach_dma_buf,
 	.map_dma_buf		= exynos_gem_map_dma_buf,
 	.unmap_dma_buf		= exynos_gem_unmap_dma_buf,
+	.begin_cpu_access	= exynos_gem_begin_cpu_access,
+	.end_cpu_access		= exynos_gem_end_cpu_access,
 	.kmap			= exynos_gem_dmabuf_kmap,
 	.kmap_atomic		= exynos_gem_dmabuf_kmap_atomic,
 	.kunmap			= exynos_gem_dmabuf_kunmap,
