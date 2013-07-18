@@ -33,7 +33,7 @@
 int m5mols_debug;
 module_param(m5mols_debug, int, 0644);
 
-#define MODULE_NAME		"M5MOLS"
+#define MODULE_NAME		"m5mols"
 #define M5MOLS_I2C_CHECK_RETRY	500
 
 /* The regulator consumer names for external voltage regulators */
@@ -996,7 +996,7 @@ static int m5mols_probe(struct i2c_client *client,
 
 	sd = &info->sd;
 	v4l2_i2c_subdev_init(sd, client, &m5mols_ops);
-	strlcpy(sd->name, MODULE_NAME, sizeof(sd->name));
+	strlcpy(sd->name, "M5MOLS", sizeof(sd->name));
 	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 
 	sd->internal_ops = &m5mols_subdev_internal_ops;
