@@ -3006,12 +3006,6 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
 	int nluns, i, rc;
 	char *pathbuf;
 
-	/* Find out how many LUNs there should be */
-	nluns = cfg->nluns;
-	if (nluns < 1 || nluns > FSG_MAX_LUNS) {
-		dev_err(&gadget->dev, "invalid number of LUNs: %u\n", nluns);
-		return ERR_PTR(-EINVAL);
-	}
 
 	common = fsg_common_setup(common, !!common);
 	if (IS_ERR(common))
@@ -3041,17 +3035,12 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
 	}
 	fsg_intf_desc.iInterface = us[FSG_STRING_INTERFACE].id;
 
-	/*
-	 * Create the LUNs, open their backing files, and register the
-	 * LUN devices in sysfs.
-	 */
-	curlun_it = kcalloc(nluns, sizeof(*curlun_it), GFP_KERNEL);
-	if (unlikely(!curlun_it)) {
-		rc = -ENOMEM;
-		goto error_release;
-	}
-	common->luns = curlun_it;
 
+	rc = fsg_common_set_nluns(common, cfg->nluns);
+	if (rc)
+		goto error_release;
+	curlun_it = common->luns;
+	nluns = cfg->nluns;
 	for (i = 0, lcfg = cfg->luns; i < nluns; ++i, ++curlun_it, ++lcfg) {
 		struct fsg_lun *curlun;
 
@@ -3115,7 +3104,6 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
 			goto error_luns;
 		}
 	}
-	common->nluns = nluns;
 
 
 	/* Prepare inquiryString */
