@@ -23,6 +23,20 @@ config CPU_FREQ_TABLE
 config CPU_FREQ_GOV_COMMON
 	bool
 
+config CPU_FREQ_BOOST_SW
+	bool "CPU Frequency Overclocking - Software"
+	depends on THERMAL
+	default n
+	help
+	  This driver supports software managed overclocking (BOOST).
+	  It allows usage of special frequencies for a particular processor
+	  if thermal conditions are appropriate.
+
+	  It reguires, for safe operation, thermal framework with properly
+	  defined trip points.
+
+	  If in doubt, say N.
+
 config CPU_FREQ_STAT
 	tristate "CPU frequency translation statistics"
 	select CPU_FREQ_TABLE
