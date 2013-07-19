@@ -77,7 +77,7 @@ static struct of_device_id audss_of_match[] __initdata = {
 
 static DEFINE_SPINLOCK(audss_clk_lock);
 
-static int samsung_audss_clk_init(void)
+static int __init samsung_audss_clk_init(void)
 {
 	struct device_node *node;
 
