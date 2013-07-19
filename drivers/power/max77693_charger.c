@@ -654,7 +654,7 @@ static SIMPLE_DEV_PM_OPS(max77693_charger_pm_ops, max77693_charger_suspend,
 			max77693_charger_resume);
 
 #ifdef CONFIG_OF
-static struct of_device_id max77693_charger_of_match[] __initconst = {
+static struct of_device_id max77693_charger_of_match[] = {
 	{ .compatible = "samsung,max77693-charger", },
 	{ },
 };
