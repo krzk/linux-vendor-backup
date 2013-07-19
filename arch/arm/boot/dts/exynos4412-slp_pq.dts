@@ -908,7 +908,9 @@
 					regulator-boot-on;
 				};
 			};
-			muic_regs {
+
+			max_muic: max77693-muic {
+				compatible = "maxim,max77693-muic";
 				intmask@1 {
 					addr = <0x7>;
 					data = <0x9>;
@@ -917,8 +919,9 @@
 					addr = <0x8>;
 					data = <0x1>;
 				};
+
 			};
-		};	
+		};
 	};
 
 	i2c_fuel: i2c@1 {
@@ -1067,6 +1070,7 @@
 		status = "okay";
 		vusb_d-supply = <&ldo15_reg>;
 		vusb_a-supply = <&ldo12_reg>;
+		extcon = <&max_muic>;
 		phys = <&exynos_usbphy 0>;
 		phy-names = "device";
 	};
