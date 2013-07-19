@@ -351,13 +351,13 @@ struct cpufreq_frequency_table *exynos_of_parse_freq_table(
 }
 
 #ifdef CONFIG_OF
-static struct of_device_id exynos_cpufreq_of_match[] __initconst = {
+static struct of_device_id exynos_cpufreq_of_match[] = {
 	{ .compatible = "samsung,exynos-cpufreq", },
 	{ },
 };
 #endif
 
-static int __init exynos_cpufreq_probe(struct platform_device *pdev)
+static int exynos_cpufreq_probe(struct platform_device *pdev)
 {
 	int ret = -EINVAL;
 
