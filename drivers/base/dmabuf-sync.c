@@ -320,7 +320,9 @@ EXPORT_SYMBOL(is_dmabuf_sync_supported);
  * The caller can get a new sync object for buffer synchronization
  * through this function.
  */
-struct dmabuf_sync *dmabuf_sync_init(void *priv, const char *name)
+struct dmabuf_sync *dmabuf_sync_init(const char *name,
+					struct dmabuf_sync_priv_ops *ops,
+					void *priv)
 {
 	struct dmabuf_sync *sync;
 
@@ -330,6 +332,7 @@ struct dmabuf_sync *dmabuf_sync_init(void *priv, const char *name)
 
 	strncpy(sync->name, name, ARRAY_SIZE(sync->name) - 1);
 
+	sync->ops = ops;
 	sync->priv = priv;
 	INIT_LIST_HEAD(&sync->syncs);
 	mutex_init(&sync->lock);
@@ -352,6 +355,9 @@ void dmabuf_sync_fini(struct dmabuf_sync *sync)
 {
 	if (WARN_ON(!sync))
 		return;
+
+	if (sync->ops && sync->ops->free)
+		sync->ops->free(sync->priv);
 
 	kfree(sync);
 }
