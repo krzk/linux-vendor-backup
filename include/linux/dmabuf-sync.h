@@ -24,7 +24,6 @@ struct dmabuf_sync_reservation {
 	struct mutex		lock;
 	atomic_t		shared_cnt;
 	unsigned int		accessed_type;
-	unsigned int		shared;
 	unsigned int		locked;
 };
 

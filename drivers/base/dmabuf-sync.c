@@ -63,8 +63,7 @@ static void dmabuf_sync_timeout_worker(struct work_struct *work)
 			continue;
 		}
 
-		if (sobj->robj->shared &&
-		    atomic_add_unless(&sobj->robj->shared_cnt, -1, 1)) {
+		if (atomic_add_unless(&sobj->robj->shared_cnt, -1, 1)) {
 			mutex_unlock(&sobj->robj->lock);
 			continue;
 		}
@@ -74,6 +73,7 @@ static void dmabuf_sync_timeout_worker(struct work_struct *work)
 		ww_mutex_unlock(&sobj->robj->sync_lock);
 
 		mutex_lock(&sobj->robj->lock);
+		sobj->robj->locked = false;
 
 		if (sobj->access_type & DMA_BUF_ACCESS_R)
 			printk(KERN_WARNING "%s: r-unlocked = 0x%x\n",
@@ -183,7 +183,6 @@ retry:
 		if (sobj->robj->accessed_type & DMA_BUF_ACCESS_R &&
 		    sobj->access_type & DMA_BUF_ACCESS_R) {
 			atomic_inc(&sobj->robj->shared_cnt);
-			sobj->robj->shared = true;
 			mutex_unlock(&sobj->robj->lock);
 			continue;
 		}
@@ -278,29 +277,17 @@ static void dmabuf_sync_unlock_objs(struct dmabuf_sync *sync,
 	list_for_each_entry(sobj, &sync->syncs, head) {
 		mutex_lock(&sobj->robj->lock);
 
-		if (sobj->robj->shared) {
-			if (atomic_add_unless(&sobj->robj->shared_cnt, -1,
-						1)) {
-				mutex_unlock(&sobj->robj->lock);
-				continue;
-			}
-
+		if (atomic_add_unless(&sobj->robj->shared_cnt, -1, 1)) {
 			mutex_unlock(&sobj->robj->lock);
-
-			ww_mutex_unlock(&sobj->robj->sync_lock);
-
-			mutex_lock(&sobj->robj->lock);
-			sobj->robj->shared = false;
-			sobj->robj->locked = false;
-		} else {
-			mutex_unlock(&sobj->robj->lock);
-
-			ww_mutex_unlock(&sobj->robj->sync_lock);
-
-			mutex_lock(&sobj->robj->lock);
-			sobj->robj->locked = false;
+			continue;
 		}
 
+		mutex_unlock(&sobj->robj->lock);
+
+		ww_mutex_unlock(&sobj->robj->sync_lock);
+
+		mutex_lock(&sobj->robj->lock);
+		sobj->robj->locked = false;
 		mutex_unlock(&sobj->robj->lock);
 	}
 
@@ -585,7 +572,6 @@ int dmabuf_sync_single_lock(struct dma_buf *dmabuf, unsigned int type,
 	/* Don't lock in case of read and read. */
 	if (robj->accessed_type & DMA_BUF_ACCESS_R && type & DMA_BUF_ACCESS_R) {
 		atomic_inc(&robj->shared_cnt);
-		robj->shared = true;
 		mutex_unlock(&robj->lock);
 		return 0;
 	}
@@ -635,13 +621,10 @@ void dmabuf_sync_single_unlock(struct dma_buf *dmabuf)
 
 	mutex_lock(&robj->lock);
 
-	if (robj->shared) {
-		if (atomic_add_unless(&robj->shared_cnt, -1 , 1)) {
-			mutex_unlock(&robj->lock);
-			return;
-		}
-
-		robj->shared = false;
+	if (atomic_add_unless(&robj->shared_cnt, -1 , 1)) {
+		mutex_unlock(&robj->lock);
+		dma_buf_put(dmabuf);
+		return;
 	}
 
 	mutex_unlock(&robj->lock);
