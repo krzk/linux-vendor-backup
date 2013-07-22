@@ -645,7 +645,6 @@ static const struct of_device_id exynos_rotator_match[] = {
 	},
 	{},
 };
-MODULE_DEVICE_TABLE(of, exynos_rotator_match);
 
 static int rotator_parse_dt_tbl(struct device_node *np, struct rot_limit *rlim)
 {
