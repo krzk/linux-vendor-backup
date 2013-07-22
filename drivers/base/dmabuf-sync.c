@@ -394,18 +394,15 @@ static int dmabuf_sync_get_obj(struct dmabuf_sync *sync, struct dma_buf *dmabuf,
 		return -ENOMEM;
 	}
 
+	get_dma_buf(dmabuf);
+
 	sobj->dmabuf = dmabuf;
 	sobj->robj = dmabuf->sync;
+	sobj->access_type = type;
 
 	mutex_lock(&sync->lock);
 	list_add_tail(&sobj->head, &sync->syncs);
 	mutex_unlock(&sync->lock);
-
-	get_dma_buf(dmabuf);
-
-	mutex_lock(&sobj->robj->lock);
-	sobj->access_type = type;
-	mutex_unlock(&sobj->robj->lock);
 
 	return 0;
 }
