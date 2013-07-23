@@ -229,7 +229,7 @@
 		status = "okay";
 
 		m5mols@1f {
-			compatible = "samsung,m5mols";
+			compatible = "fujitsu,m5mols";
 			reg = <0x1f>;
 			interrupt-parent = <&gpx1>;
 			interrupts = <5 1>;
@@ -249,7 +249,6 @@
 			};
 		};
 	};
-
 
 	i2c@13890000 {
 		samsung,i2c-sda-delay = <100>;
