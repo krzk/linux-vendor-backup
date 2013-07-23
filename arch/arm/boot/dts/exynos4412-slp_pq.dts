@@ -1015,6 +1015,8 @@
 	};
 
 	sysmmu-fimd0 {
+		clock-names = "sysmmu";
+		clocks = <&clock 287>;
 		mmu-master = <&fimd>;
 	};
 
