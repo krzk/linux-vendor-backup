@@ -1010,6 +1010,10 @@
 		status = "okay";
 	};
 
+	g2d@10800000 {
+		status = "okay";
+	};
+
 	vidi {
 		compatible = "samsung,exynos-drm-vidi";
 	};
@@ -1018,6 +1022,12 @@
 		clock-names = "sysmmu";
 		clocks = <&clock 287>;
 		mmu-master = <&fimd>;
+	};
+
+	sysmmu-g2d {
+		clock-names = "sysmmu";
+		clocks = <&clock 280>;
+		mmu-master = <&g2d>;
 	};
 
 	usbphy@125B0000 {
