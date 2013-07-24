@@ -812,7 +812,7 @@ static void g2d_dma_start(struct g2d_data *g2d,
 						struct g2d_cmdlist_node, list);
 
 	pm_runtime_get_sync(g2d->dev);
-	clk_enable(g2d->gate_clk);
+	clk_prepare_enable(g2d->gate_clk);
 
 	writel_relaxed(node->dma_addr, g2d->regs + G2D_DMA_SFR_BASE_ADDR);
 	writel_relaxed(G2D_DMA_START, g2d->regs + G2D_DMA_COMMAND);
@@ -865,7 +865,7 @@ static void g2d_runqueue_worker(struct work_struct *work)
 					    runqueue_work);
 
 	mutex_lock(&g2d->runqueue_mutex);
-	clk_disable(g2d->gate_clk);
+	clk_disable_unprepare(g2d->gate_clk);
 	pm_runtime_put_sync(g2d->dev);
 
 	complete(&g2d->runqueue_node->complete);
