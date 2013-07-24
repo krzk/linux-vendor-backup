@@ -525,7 +525,6 @@ struct samsung_div_clock exynos4_div_clks[] __initdata = {
 	DIV(sclk_i2s1, "sclk_i2s1", "sclk_audio1", DIV_PERIL5, 0, 6),
 	DIV(sclk_i2s2, "sclk_i2s2", "sclk_audio2", DIV_PERIL5, 8, 6),
 	DIV(none, "div_mmc4", "mout_mmc4", DIV_FSYS3, 0, 4),
-	DIV(none, "div_mmc_pre4", "div_mmc4", DIV_FSYS3, 8, 8),
 	DIV(none, "div_uart0", "mout_uart0", DIV_PERIL0, 0, 4),
 	DIV(none, "div_uart1", "mout_uart1", DIV_PERIL0, 4, 4),
 	DIV(none, "div_uart2", "mout_uart2", DIV_PERIL0, 8, 4),
@@ -551,6 +550,8 @@ struct samsung_div_clock exynos4_div_clks[] __initdata = {
 	DIV_F(none, "div_mmc_pre2", "div_mmc2", DIV_FSYS2, 8, 8,
 			CLK_SET_RATE_PARENT, 0),
 	DIV_F(none, "div_mmc_pre3", "div_mmc3", DIV_FSYS2, 24, 8,
+			CLK_SET_RATE_PARENT, 0),
+	DIV_F(none, "div_mmc_pre4", "div_mmc4", DIV_FSYS3, 8, 8,
 			CLK_SET_RATE_PARENT, 0),
 };
 
