@@ -125,6 +125,9 @@ enum exynos5250_clks {
 	/* mux clocks */
 	mout_hdmi = 1024,
 
+	/* mux clocks */
+	mout_hdmi = 1024,
+
 	nr_clks,
 };
 
