@@ -83,4 +83,80 @@
 		interrupts = <0 89 0>;
 		status = "disabled";
 	};
+
+	sysmmu_g2d: sysmmu@10A40000{
+		compatible = "samsung,exynos4210-sysmmu";
+		reg = <0x10A40000 0x1000>;
+		interrupt-parent = <&combiner>;
+		interrupt-names = "sysmmu-g2d";
+		interrupts = <4 7>;
+		clock-names = "sysmmu";
+		status = "ok";
+	};
+
+	sysmmu_fimc_isp: sysmmu@12260000 {
+		compatible = "samsung,exynos4210-sysmmu";
+		reg = <0x12260000 0x1000>;
+		interrupt-parent = <&combiner>;
+		interrupt-names = "sysmmu-fimc_isp";
+		interrupts = <16 2>;
+		clock-names = "sysmmu";
+		clocks = <&clock 362>;
+		status = "ok";
+	};
+
+	sysmmu_fimc_drc: sysmmu@12270000 {
+		compatible = "samsung,exynos4210-sysmmu";
+		reg = <0x12270000 0x1000>;
+		interrupt-parent = <&combiner>;
+		interrupt-names = "sysmmu-fimc_drc";
+		interrupts = <16 3>;
+		clock-names = "sysmmu";
+		clocks = <&clock 363>;
+		status = "ok";
+	};
+
+	sysmmu_fimc_fd: sysmmu@122A0000 {
+		compatible = "samsung,exynos4210-sysmmu";
+		reg = <0x122A0000 0x1000>;
+		interrupt-parent = <&combiner>;
+		interrupt-names = "sysmmu-fimc_fd";
+		interrupts = <16 4>;
+		clock-names = "sysmmu";
+		clocks = <&clock 364>;
+		status = "ok";
+	};
+
+	sysmmu_fimc_mcuctl: sysmmu@122B0000 {
+		compatible = "samsung,exynos4210-sysmmu";
+		reg = <0x122B0000 0x1000>;
+		interrupt-parent = <&combiner>;
+		interrupt-names = "sysmmu-fimc_mcuctl";
+		interrupts = <16 5>;
+		clock-names = "sysmmu";
+		clocks = <&clock 376>;
+		status = "ok";
+	};
+
+	sysmmu_fimc_lite0: sysmmu@123B0000 {
+		compatible = "samsung,exynos4210-sysmmu";
+		reg = <0x123B0000 0x1000>;
+		interrupt-parent = <&combiner>;
+		interrupt-names = "sysmmu-fimc_lite0";
+		interrupts = <16 0>;
+		clock-names = "sysmmu";
+		clocks = <&clock 366>;
+		status = "ok";
+	};
+
+	sysmmu_fimc_lite1: sysmmu@123C0000 {
+		compatible = "samsung,exynos4210-sysmmu";
+		reg = <0x123C0000 0x1000>;
+		interrupt-parent = <&combiner>;
+		interrupt-names = "sysmmu-fimc_lite1";
+		interrupts = <16 1>;
+		clock-names = "sysmmu";
+		clocks = <&clock 365>;
+		status = "ok";
+	};
 };

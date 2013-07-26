@@ -167,6 +167,7 @@
 		interrupts = <0 94 0>;
 		samsung,power-domain = <&pd_mfc>;
 		status = "disabled";
+		iommu = <&sysmmu_mfc_l>, <&sysmmu_mfc_r>;
 	};
 
 	serial@13800000 {
@@ -408,5 +409,126 @@
 		clock-names = "sclk_fimd", "fimd";
 		samsung,power-domain = <&pd_lcd0>;
 		status = "disabled";
+		iommu = <&sysmmu_fimd0>;
+	};
+
+	sysmmu_mfc_l: sysmmu@13620000 {
+		compatible = "samsung,exynos4210-sysmmu";
+		reg = <0x13620000 0x1000>;
+		interrupt-parent = <&combiner>;
+		interrupt-names = "sysmmu-mfc-l";
+		interrupts = <5 5>;
+		clock-names = "sysmmu";
+		clocks = <&clock 274>;
+		samsung,power-domain = <&pd_mfc>;
+		status = "ok";
+	};
+
+	sysmmu_mfc_r: sysmmu@13630000 {
+		compatible = "samsung,exynos4210-sysmmu";
+		reg = <0x13630000 0x1000>;
+		interrupt-parent = <&combiner>;
+		interrupt-names = "sysmmu-mfc-r";
+		interrupts = <5 6>;
+		clock-names = "sysmmu";
+		clocks = <&clock 275>;
+		samsung,power-domain = <&pd_mfc>;
+		status = "ok";
+	};
+
+	sysmmu_tv: sysmmu@13E20000 {
+		compatible = "samsung,exynos4210-sysmmu";
+		reg = <0x13E20000 0x1000>;
+		interrupt-parent = <&combiner>;
+		interrupt-names = "sysmmu-tv";
+		interrupts = <5 4>;
+		clock-names = "sysmmu";
+		clocks = <&clock 272>;
+		samsung,power-domain = <&pd_tv>;
+		status = "ok";
+	};
+
+	sysmmu_fimc0: sysmmu@11A20000 {
+		compatible = "samsung,exynos4210-sysmmu";
+		reg = <0x11A20000 0x1000>;
+		interrupt-parent = <&combiner>;
+		interrupt-names = "sysmmu-fimc0";
+		interrupts = <4 2>;
+		clock-names = "sysmmu";
+		clocks = <&clock 263>;
+		samsung,power-domain = <&pd_cam>;
+		status = "ok";
+	};
+
+	sysmmu_fimc1: sysmmu@11A30000 {
+		compatible = "samsung,exynos4210-sysmmu";
+		reg = <0x11A30000 0x1000>;
+		interrupt-parent = <&combiner>;
+		interrupt-names = "sysmmu-fimc1";
+		interrupts = <4 3>;
+		clock-names = "sysmmu";
+		clocks = <&clock 264>;
+		samsung,power-domain = <&pd_cam>;
+		status = "ok";
+	};
+
+	sysmmu_fimc2: sysmmu@11A40000 {
+		compatible = "samsung,exynos4210-sysmmu";
+		reg = <0x11A40000 0x1000>;
+		interrupt-parent = <&combiner>;
+		interrupt-names = "sysmmu-fimc2";
+		interrupts = <4 4>;
+		clock-names = "sysmmu";
+		clocks = <&clock 265>;
+		samsung,power-domain = <&pd_cam>;
+		status = "ok";
+	};
+
+	sysmmu_fimc3: sysmmu@11A50000 {
+		compatible = "samsung,exynos4210-sysmmu";
+		reg = <0x11A50000 0x1000>;
+		interrupt-parent = <&combiner>;
+		interrupt-names = "sysmmu-fimc3";
+		interrupts = <4 5>;
+		clock-names = "sysmmu";
+		clocks = <&clock 266>;
+		samsung,power-domain = <&pd_cam>;
+		status = "ok";
+	};
+
+	sysmmu_jpeg: sysmmu@11A60000 {
+		compatible = "samsung,exynos4210-sysmmu";
+		reg = <0x11A60000 0x1000>;
+		interrupt-parent = <&combiner>;
+		interrupt-names = "sysmmu-jpeg";
+		interrupts = <4 6>;
+		clock-names = "sysmmu";
+		clocks = <&clock 267>;
+		samsung,power-domain = <&pd_cam>;
+		status = "ok";
+	};
+
+	sysmmu_rotator: sysmmu@12A30000 {
+		compatible = "samsung,exynos4210-sysmmu";
+		reg = <0x12A30000 0x1000>;
+		interrupt-parent = <&combiner>;
+		interrupt-names = "sysmmu-rotator";
+		interrupts = <5 0>;
+		clock-names = "sysmmu";
+		clocks = <&clock 281>;
+		samsung,power-domain = <&pd_lcd0>;
+		status = "ok";
+	};
+
+	sysmmu_fimd0: sysmmu@11E20000 {
+		compatible = "samsung,exynos4210-sysmmu";
+		reg = <0x11E20000 0x1000>;
+		interrupt-parent = <&combiner>;
+		interrupt-names = "sysmmu-fimd0";
+		interrupts = <5 2>;
+		clock-names = "sysmmu";
+		clocks = <&clock 287>;
+		samsung,power-domain = <&pd_lcd0>;
+		status = "ok";
 	};
 };

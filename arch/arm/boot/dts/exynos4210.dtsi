@@ -123,5 +123,30 @@
 		reg = <0x12800000 0x1000>;
 		interrupts = <0 89 0>;
 		status = "disabled";
+		iommu = <&sysmmu_g2d>;
+	};
+
+	sysmmu_g2d: sysmmu@12A20000 {
+		compatible = "samsung,exynos4210-sysmmu";
+		reg = <0x12A20000 0x1000>;
+		interrupt-parent = <&combiner>;
+		interrupt-names = "sysmmu-g2d";
+		interrupts = <4 7>;
+		clock-names = "sysmmu";
+		clocks = <&clock 280>;
+		samsung,power-domain = <&pd_lcd0>;
+		status = "ok";
+	};
+
+	sysmmu_fimd1: sysmmu@12220000 {
+		compatible = "samsung,exynos4210-sysmmu";
+		interrupt-parent = <&combiner>;
+		interrupt-names = "sysmmu-fimd1";
+		reg = <0x12220000 0x1000>;
+		interrupts = <5 3>;
+		clock-names = "sysmmu";
+		clocks = <&clock 291>;
+		samsung,power-domain = <&pd_lcd1>;
+		status = "ok";
 	};
 };
