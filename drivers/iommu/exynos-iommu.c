@@ -882,15 +882,16 @@ static int exynos_iommu_attach_device(struct iommu_domain *domain,
 
 	spin_unlock_irqrestore(&priv->lock, flags);
 
-	if (ret < 0)
+	if (ret < 0) {
 		dev_err(dev, "%s: Failed to attach IOMMU with pgtable %#lx\n",
 				__func__, __pa(priv->pgtable));
-	else
-		dev_dbg(dev, "%s: Attached IOMMU with pgtable 0x%lx%s\n",
-					__func__, __pa(priv->pgtable),
-					(ret == 0) ? "" : ", again");
+		return ret;
+	}
 
-	return ret;
+	dev_dbg(dev, "%s: Attached IOMMU with pgtable 0x%lx%s\n",
+		__func__, __pa(priv->pgtable), (ret == 0) ? "" : ", again");
+
+	return 0;
 }
 
 static void exynos_iommu_detach_device(struct iommu_domain *domain,
