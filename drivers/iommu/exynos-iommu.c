@@ -80,6 +80,8 @@
 #define CTRL_BLOCK	0x7
 #define CTRL_DISABLE	0x0
 
+#define CFG_FLPDCACHE	(1 << 20) /* System MMU 3.2+ only */
+
 #define REG_MMU_CTRL		0x000
 #define REG_MMU_CFG		0x004
 #define REG_MMU_STATUS		0x008
@@ -95,6 +97,9 @@
 #define REG_DEFAULT_SLAVE_ADDR	0x030
 
 #define REG_MMU_VERSION		0x034
+
+#define MMU_MAJ_VER(reg)	(reg >> 28)
+#define MMU_MIN_VER(reg)	((reg >> 21) & 0x7F)
 
 #define REG_PB0_SADDR		0x04C
 #define REG_PB0_EADDR		0x050
@@ -198,6 +203,22 @@ static bool set_sysmmu_inactive(struct sysmmu_drvdata *data)
 static bool is_sysmmu_active(struct sysmmu_drvdata *data)
 {
 	return data->activations > 0;
+}
+
+static unsigned int __sysmmu_version(struct sysmmu_drvdata *data,
+				     int idx, unsigned int *minor)
+{
+	unsigned long major;
+
+	major = readl(data->sfrbases[idx] + REG_MMU_VERSION);
+
+	if (minor)
+		*minor = MMU_MIN_VER(major);
+
+	if (MMU_MAJ_VER(major) > 3)
+		return 1;
+
+	return MMU_MAJ_VER(major);
 }
 
 static void sysmmu_unblock(void __iomem *sfrbase)
@@ -460,14 +481,15 @@ static int __exynos_sysmmu_enable(struct sysmmu_drvdata *data,
 	data->pgtable = pgtable;
 
 	for (i = 0; i < data->nsfrs; i++) {
+		unsigned int min;
+
 		__sysmmu_set_ptbase(data->sfrbases[i], pgtable);
 
-		if ((readl(data->sfrbases[i] + REG_MMU_VERSION) >> 28) == 3) {
-			/* System MMU version is 3.x */
-			__raw_writel((1 << 12) | (2 << 28),
+		if ((__sysmmu_version(data, i, &min) == 3) && (min > 1)) {
+			unsigned long cfg;
+			cfg = __raw_readl(data->sfrbases[i] + REG_MMU_CFG);
+			__raw_writel(cfg | CFG_FLPDCACHE,
 					data->sfrbases[i] + REG_MMU_CFG);
-			__sysmmu_set_prefbuf(data->sfrbases[i], 0, -1, 0);
-			__sysmmu_set_prefbuf(data->sfrbases[i], 0, -1, 1);
 		}
 
 		__raw_writel(CTRL_ENABLE, data->sfrbases[i] + REG_MMU_CTRL);
