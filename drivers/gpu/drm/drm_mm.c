@@ -217,12 +217,13 @@ EXPORT_SYMBOL(drm_mm_get_block_generic);
  */
 int drm_mm_insert_node_generic(struct drm_mm *mm, struct drm_mm_node *node,
 			       unsigned long size, unsigned alignment,
-			       unsigned long color)
+			       unsigned long color,
+			       enum drm_mm_search_flags flags)
 {
 	struct drm_mm_node *hole_node;
 
 	hole_node = drm_mm_search_free_generic(mm, size, alignment,
-					       color, 0);
+					       color, flags);
 	if (!hole_node)
 		return -ENOSPC;
 
@@ -230,13 +231,6 @@ int drm_mm_insert_node_generic(struct drm_mm *mm, struct drm_mm_node *node,
 	return 0;
 }
 EXPORT_SYMBOL(drm_mm_insert_node_generic);
-
-int drm_mm_insert_node(struct drm_mm *mm, struct drm_mm_node *node,
-		       unsigned long size, unsigned alignment)
-{
-	return drm_mm_insert_node_generic(mm, node, size, alignment, 0);
-}
-EXPORT_SYMBOL(drm_mm_insert_node);
 
 static void drm_mm_insert_helper_range(struct drm_mm_node *hole_node,
 				       struct drm_mm_node *node,
@@ -318,13 +312,14 @@ EXPORT_SYMBOL(drm_mm_get_block_range_generic);
  */
 int drm_mm_insert_node_in_range_generic(struct drm_mm *mm, struct drm_mm_node *node,
 					unsigned long size, unsigned alignment, unsigned long color,
-					unsigned long start, unsigned long end)
+					unsigned long start, unsigned long end,
+					enum drm_mm_search_flags flags)
 {
 	struct drm_mm_node *hole_node;
 
 	hole_node = drm_mm_search_free_in_range_generic(mm,
 							size, alignment, color,
-							start, end, 0);
+							start, end, flags);
 	if (!hole_node)
 		return -ENOSPC;
 
@@ -334,14 +329,6 @@ int drm_mm_insert_node_in_range_generic(struct drm_mm *mm, struct drm_mm_node *n
 	return 0;
 }
 EXPORT_SYMBOL(drm_mm_insert_node_in_range_generic);
-
-int drm_mm_insert_node_in_range(struct drm_mm *mm, struct drm_mm_node *node,
-				unsigned long size, unsigned alignment,
-				unsigned long start, unsigned long end)
-{
-	return drm_mm_insert_node_in_range_generic(mm, node, size, alignment, 0, start, end);
-}
-EXPORT_SYMBOL(drm_mm_insert_node_in_range);
 
 /**
  * Remove a memory node from the allocator.
@@ -418,7 +405,7 @@ struct drm_mm_node *drm_mm_search_free_generic(const struct drm_mm *mm,
 					       unsigned long size,
 					       unsigned alignment,
 					       unsigned long color,
-					       bool best_match)
+					       enum drm_mm_search_flags flags)
 {
 	struct drm_mm_node *entry;
 	struct drm_mm_node *best;
@@ -441,7 +428,7 @@ struct drm_mm_node *drm_mm_search_free_generic(const struct drm_mm *mm,
 		if (!check_free_hole(adj_start, adj_end, size, alignment))
 			continue;
 
-		if (!best_match)
+		if (!(flags & DRM_MM_SEARCH_BEST))
 			return entry;
 
 		if (entry->size < best_size) {
@@ -460,7 +447,7 @@ struct drm_mm_node *drm_mm_search_free_in_range_generic(const struct drm_mm *mm,
 							unsigned long color,
 							unsigned long start,
 							unsigned long end,
-							bool best_match)
+							enum drm_mm_search_flags flags)
 {
 	struct drm_mm_node *entry;
 	struct drm_mm_node *best;
@@ -488,7 +475,7 @@ struct drm_mm_node *drm_mm_search_free_in_range_generic(const struct drm_mm *mm,
 		if (!check_free_hole(adj_start, adj_end, size, alignment))
 			continue;
 
-		if (!best_match)
+		if (!(flags & DRM_MM_SEARCH_BEST))
 			return entry;
 
 		if (entry->size < best_size) {
@@ -634,8 +621,8 @@ EXPORT_SYMBOL(drm_mm_scan_add_block);
  * corrupted.
  *
  * When the scan list is empty, the selected memory nodes can be freed. An
- * immediately following drm_mm_search_free with best_match = 0 will then return
- * the just freed block (because its at the top of the free_stack list).
+ * immediately following drm_mm_search_free with !DRM_MM_SEARCH_BEST will then
+ * return the just freed block (because its at the top of the free_stack list).
  *
  * Returns one if this block should be evicted, zero otherwise. Will always
  * return zero when no hole has been found.
