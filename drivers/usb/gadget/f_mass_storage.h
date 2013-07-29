@@ -102,6 +102,39 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
 				   struct usb_composite_dev *cdev,
 				   struct fsg_config *cfg);
 
+void fsg_common_set_sysfs(struct fsg_common *common, bool sysfs);
+
+int fsg_common_set_num_buffers(struct fsg_common *common, unsigned int n);
+
+void fsg_common_free_buffers(struct fsg_common *common);
+
+int fsg_common_set_nluns(struct fsg_common *common, int nluns);
+
+void fsg_common_free_luns(struct fsg_common *common);
+
+void fsg_common_set_ops(struct fsg_common *common,
+			const struct fsg_operations *ops);
+
+void fsg_common_set_private_data(struct fsg_common *common, void *priv);
+
+int fsg_common_set_cdev(struct fsg_common *common,
+			struct usb_composite_dev *cdev, bool can_stall);
+
+void fsg_common_remove_lun(struct fsg_lun *lun, bool sysfs);
+
+void fsg_common_remove_luns(struct fsg_common *common);
+
+int fsg_common_create_lun(struct fsg_common *common, struct fsg_lun_config *cfg,
+			  unsigned int id, const char *name,
+			  const char **name_pfx);
+
+int fsg_common_create_luns(struct fsg_common *common, struct fsg_config *cfg);
+
+void fsg_common_set_inquiry_string(struct fsg_common *common, const char *vn,
+				   const char *pn);
+
+int fsg_common_run_thread(struct fsg_common *common);
+
 void fsg_config_from_params(struct fsg_config *cfg,
 			    const struct fsg_module_parameters *params,
 			    unsigned int fsg_num_buffers);
