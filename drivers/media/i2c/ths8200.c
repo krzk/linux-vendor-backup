@@ -22,6 +22,8 @@
 #include <linux/of.h>
 #include <linux/v4l2-dv-timings.h>
 
+#include <media/v4l2-dv-timings.h>
+#include <media/v4l2-async.h>
 #include <media/v4l2-device.h>
 
 #include "ths8200_regs.h"
