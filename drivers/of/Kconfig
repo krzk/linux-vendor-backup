@@ -83,4 +83,10 @@ config OF_MTD
 	depends on MTD
 	def_bool y
 
+config OF_RESERVED_MEM
+	depends on CMA || (HAVE_GENERIC_DMA_COHERENT && HAVE_MEMBLOCK)
+	def_bool y
+	help
+	  Initialization code for DMA reserved memory
+
 endmenu # OF
