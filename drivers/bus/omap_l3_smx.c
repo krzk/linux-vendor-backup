@@ -31,12 +31,12 @@
 
 static inline u64 omap3_l3_readll(void __iomem *base, u16 reg)
 {
-	return __raw_readll(base + reg);
+	return readll_relaxed(base + reg);
 }
 
 static inline void omap3_l3_writell(void __iomem *base, u16 reg, u64 value)
 {
-	__raw_writell(value, base + reg);
+	writell_relaxed(value, base + reg);
 }
 
 static inline enum omap3_l3_code omap3_l3_decode_error_code(u64 error)

@@ -334,5 +334,9 @@ static u32 *omap3_l3_bases[] = {
 				*(volatile u64 __force *)(a) = (v))
 #define __raw_readll(a)		(__chk_io_ptr(a), \
 				*(volatile u64 __force *)(a))
+#define writell_relaxed(v,c)	((void)__raw_writell((__force u64) \
+					cpu_to_le64(v),c))
+#define readll_relaxed(c) ({ u64 __v = le64_to_cpu((__force __le64) \
+					__raw_readll(c)); __v; })
 
 #endif
