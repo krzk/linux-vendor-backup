@@ -13,13 +13,10 @@
 
 #include <linux/kernel.h>
 #include <linux/of_platform.h>
-#include <linux/of_fdt.h>
 #include <linux/serial_core.h>
-#include <linux/memblock.h>
 #include <linux/clocksource.h>
 
 #include <asm/mach/arch.h>
-#include <plat/mfc.h>
 
 #include "common.h"
 
@@ -40,18 +37,6 @@ static char const *exynos4_dt_compat[] __initdata = {
 	NULL
 };
 
-static void __init exynos4_reserve(void)
-{
-#ifdef CONFIG_S5P_DEV_MFC
-	struct s5p_mfc_dt_meminfo mfc_mem;
-
-	/* Reserve memory for MFC only if it's available */
-	mfc_mem.compatible = "samsung,mfc-v5";
-	if (of_scan_flat_dt(s5p_fdt_find_mfc_mem, &mfc_mem))
-		s5p_mfc_reserve_mem(mfc_mem.roff, mfc_mem.rsize, mfc_mem.loff,
-				mfc_mem.lsize);
-#endif
-}
 DT_MACHINE_START(EXYNOS4210_DT, "Samsung Exynos4 (Flattened Device Tree)")
 	/* Maintainer: Thomas Abraham <thomas.abraham@linaro.org> */
 	.smp		= smp_ops(exynos_smp_ops),
@@ -63,5 +48,4 @@ DT_MACHINE_START(EXYNOS4210_DT, "Samsung Exynos4 (Flattened Device Tree)")
 	.init_time	= exynos_init_time,
 	.dt_compat	= exynos4_dt_compat,
 	.restart        = exynos4_restart,
-	.reserve	= exynos4_reserve,
 MACHINE_END

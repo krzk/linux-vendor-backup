@@ -191,6 +191,19 @@
 		interrupts = <0 96 0>;
 		samsung,power-domain = <&pd_mfc>;
 		iommu = <&sysmmu_mfc_l &sysmmu_mfc_l>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+
+		mfc_l: memport@0 {
+			compatible = "samsung,memport";
+			reg = <0>;
+		};
+
+		mfc_r: memport@1 {
+			compatible = "samsung,memport";
+			reg = <1>;
+		};
 	};
 
 	rtc {

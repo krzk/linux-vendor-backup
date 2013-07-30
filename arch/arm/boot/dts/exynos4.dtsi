@@ -249,8 +249,20 @@
 		samsung,power-domain = <&pd_mfc>;
 		clocks = <&clock 273>, <&clock 170>;
 		clock-names = "mfc", "sclk_mfc";
+		#address-cells = <1>;
+		#size-cells = <0>;
 		status = "disabled";
 		iommu = <&sysmmu_mfc_l>, <&sysmmu_mfc_r>;
+
+		mfc_l: memport@0 {
+			compatible = "samsung,memport";
+			reg = <0>;
+		};
+
+		mfc_r: memport@1 {
+			compatible = "samsung,memport";
+			reg = <1>;
+		};
 	};
 
 	serial@13800000 {

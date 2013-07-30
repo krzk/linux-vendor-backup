@@ -10,16 +10,13 @@
 */
 
 #include <linux/of_platform.h>
-#include <linux/of_fdt.h>
 #include <linux/memblock.h>
-#include <linux/io.h>
 #include <linux/clocksource.h>
 
 #include <asm/mach/arch.h>
 #include <mach/regs-pmu.h>
 
 #include <plat/cpu.h>
-#include <plat/mfc.h>
 
 #include "common.h"
 
@@ -61,19 +58,6 @@ static char const *exynos5_dt_compat[] __initdata = {
 	NULL
 };
 
-static void __init exynos5_reserve(void)
-{
-#ifdef CONFIG_S5P_DEV_MFC
-	struct s5p_mfc_dt_meminfo mfc_mem;
-
-	/* Reserve memory for MFC only if it's available */
-	mfc_mem.compatible = "samsung,mfc-v6";
-	if (of_scan_flat_dt(s5p_fdt_find_mfc_mem, &mfc_mem))
-		s5p_mfc_reserve_mem(mfc_mem.roff, mfc_mem.rsize, mfc_mem.loff,
-				mfc_mem.lsize);
-#endif
-}
-
 DT_MACHINE_START(EXYNOS5_DT, "SAMSUNG EXYNOS5 (Flattened Device Tree)")
 	/* Maintainer: Kukjin Kim <kgene.kim@samsung.com> */
 	.init_irq	= exynos5_init_irq,
@@ -84,5 +68,4 @@ DT_MACHINE_START(EXYNOS5_DT, "SAMSUNG EXYNOS5 (Flattened Device Tree)")
 	.init_time	= exynos_init_time,
 	.dt_compat	= exynos5_dt_compat,
 	.restart        = exynos5_restart,
-	.reserve	= exynos5_reserve,
 MACHINE_END
