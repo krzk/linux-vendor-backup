@@ -21,4 +21,25 @@ config PHY_EXYNOS_MIPI_VIDEO
 	  Support for MIPI CSI-2 and MIPI DSI DPHY found on Samsung
 	  S5P and EXYNOS SoCs.
 
+config PHY_EXYNOS_USB
+	tristate "Samsung USB PHY driver (using the Generic PHY Framework)"
+	help
+	  Enable this to support Samsung USB phy helper driver for Samsung SoCs.
+	  This driver provides common interface to interact, for Samsung
+	  USB 2.0 PHY driver.
+
+config PHY_EXYNOS4210_USB
+	bool "Support for Exynos 4210"
+	depends on PHY_EXYNOS_USB
+	depends on CPU_EXYNOS4210
+	help
+	  Enable USB PHY support for Exynos 4210
+
+config PHY_EXYNOS4212_USB
+	bool "Support for Exynos 4212"
+	depends on PHY_EXYNOS_USB
+	depends on (SOC_EXYNOS4212 || SOC_EXYNOS4412)
+	help
+  	  Enable USB PHY support for Exynos 4212
+  	  
 endmenu

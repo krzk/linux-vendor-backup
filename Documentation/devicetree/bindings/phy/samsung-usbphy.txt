@@ -1,0 +1,51 @@
+Samsung S5P/EXYNOS SoC series USB PHY
+-------------------------------------------------
+
+Required properties:
+- compatible : should be one of the listed compatibles:
+	- "samsung,exynos4210-usbphy"
+	- "samsung,exynos4212-usbphy"
+- reg : a list of registers used by phy driver
+	- first and obligatory is the location of phy modules registers
+	- second and also required is the location of isolation registers
+	  (isolation registers control the physical connection between the in
+	  SoC modules and outside of the SoC, this also can be called enable
+	  control in the documentation of the SoC)
+	- third is the location of the mode switch register, this only applies
+	  to SoCs that have such a feature; mode switching enables to have
+	  both host and device used the same SoC pins and is commonly used
+	  when OTG is supported
+- #phy-cells : from the generic phy bindings, must be 1;
+
+The second cell in the PHY specifier identifies the PHY its meaning is SoC
+dependent. For the currently supported SoCs (Exynos 4210 and Exynos 4212) it
+is as follows:
+  0 - USB device,
+  1 - USB host,
+  2 - HSIC0,
+  3 - HSIC1,
+
+Example:
+
+For Exynos 4412 (compatible with Exynos 4212):
+
+exynos_usbphy: exynos-usbphy@125B0000 {
+	compatible = "samsung,exynos4212-usbphy";
+	reg = <0x125B0000 0x100 0x10020704 0x0c 0x1001021c 0x4>;
+	ranges;
+	#address-cells = <1>;
+	#size-cells = <1>;
+	clocks = <&clock 305>, <&clock 2>, <&clock 2>, <&clock 2>,
+							<&clock 2>;
+	clock-names = "phy", "device", "host", "hsic0", "hsic1";
+	status = "okay";
+	#phy-cells = <1>;
+};
+
+Then the PHY can be used in other nodes such as:
+
+ehci@12580000 {
+	status = "okay";
+	phys = <&exynos_usbphy 2>;
+	phy-names = "hsic0";
+};
