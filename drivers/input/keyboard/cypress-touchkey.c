@@ -490,8 +490,8 @@ static ssize_t bl_timeout_write(struct device *dev, struct device_attribute *att
 #ifdef CONFIG_KEYPAD_CYPRESS_TOUCH_ALLOW_DISABLE
 	if(!bl_timeout && !touchkey_disabled) {
 		down(&enable_sem);
-		bl_devdata->pdata->touchkey_onoff(TOUCHKEY_OFF);
 		disable_irq(bl_devdata->client->irq);
+		bl_devdata->pdata->touchkey_onoff(TOUCHKEY_OFF);
 		up(&enable_sem);
 		touchkey_disabled = 1;
 	}
