@@ -19,6 +19,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
+#include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/platform_data/usb-ehci-s5p.h>
 #include <linux/usb/phy.h>
@@ -49,7 +50,7 @@ static struct hc_driver __read_mostly s5p_ehci_hc_driver;
 struct s5p_ehci_hcd {
 	struct clk *clk;
 	int power_on;
-	struct usb_phy *phy;
+	struct phy *phy;
 	struct usb_otg *otg;
 	struct usb_bus *host;
 	struct s5p_ehci_platdata *pdata;
@@ -60,11 +61,8 @@ struct s5p_ehci_hcd {
 static void s5p_ehci_phy_enable(struct s5p_ehci_hcd *s5p_ehci,
 						struct platform_device *pdev)
 {
-	if (s5p_ehci->phy) {
-		if (s5p_ehci->otg)
-			otg_set_host(s5p_ehci->otg, s5p_ehci->host);
-		usb_phy_init(s5p_ehci->phy);
-	}
+	if (s5p_ehci->phy)
+		phy_power_on(s5p_ehci->phy);
 	else if (s5p_ehci->pdata->phy_init)
 		s5p_ehci->pdata->phy_init(pdev, USB_PHY_TYPE_HOST);
 }
@@ -72,11 +70,8 @@ static void s5p_ehci_phy_enable(struct s5p_ehci_hcd *s5p_ehci,
 static void s5p_ehci_phy_disable(struct s5p_ehci_hcd *s5p_ehci,
 						 struct platform_device *pdev)
 {
-	if (s5p_ehci->phy) {
-		if (s5p_ehci->otg)
-			otg_set_host(s5p_ehci->otg, NULL);
-		usb_phy_shutdown(s5p_ehci->phy);
-	}
+	if (s5p_ehci->phy)
+		phy_power_off(s5p_ehci->phy);
 	else if (s5p_ehci->pdata->phy_exit)
 		s5p_ehci->pdata->phy_exit(pdev, USB_PHY_TYPE_HOST);
 }
@@ -197,10 +192,10 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 {
 	struct s5p_ehci_platdata *pdata = pdev->dev.platform_data;
 	struct s5p_ehci_hcd *s5p_ehci;
+	struct phy *phy;
 	struct usb_hcd *hcd;
 	struct ehci_hcd *ehci;
 	struct resource *res;
-	struct usb_phy *phy;
 	int irq;
 	int err;
 
@@ -223,7 +218,7 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	s5p_ehci = to_s5p_ehci(hcd);
-	phy = devm_usb_get_phy(&pdev->dev, USB_PHY_TYPE_USB2);
+	phy =  devm_phy_get(&pdev->dev, "hsic0");
 	if (IS_ERR(phy)) {
 		/* Fallback to pdata */
 		if (!pdata) {
@@ -235,7 +230,7 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 		}
 	} else {
 		s5p_ehci->phy = phy;
-		s5p_ehci->otg = phy->otg;
+/*		s5p_ehci->otg = phy->otg;*/
 	}
 
 	s5p_ehci->clk = devm_clk_get(&pdev->dev, "usbhost");
