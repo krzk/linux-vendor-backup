@@ -1951,6 +1951,9 @@ static int dw_mci_init_slot(struct dw_mci *host, unsigned int id)
 	if (host->pdata->caps2)
 		mmc->caps2 = host->pdata->caps2;
 
+	if (drv_data && drv_data->caps2)
+		mmc->caps2 |= drv_data->caps2[ctrl_id];
+
 	if (host->pdata->get_bus_wd)
 		bus_width = host->pdata->get_bus_wd(slot->id);
 	else if (host->dev->of_node)

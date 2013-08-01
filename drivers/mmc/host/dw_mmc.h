@@ -185,6 +185,7 @@ extern int dw_mci_resume(struct dw_mci *host);
 /**
  * dw_mci driver data - dw-mshc implementation specific driver data.
  * @caps: mmc subsystem specified capabilities of the controller(s).
+ * @caps2: mmc subsystem specified capabilities2 of the controller(s).
  * @init: early implementation specific initialization.
  * @setup_clock: implementation specific clock configuration.
  * @prepare_command: handle CMD register extensions.
@@ -197,6 +198,7 @@ extern int dw_mci_resume(struct dw_mci *host);
  */
 struct dw_mci_drv_data {
 	unsigned long	*caps;
+	unsigned long	*caps2;
 	int		(*init)(struct dw_mci *host);
 	int		(*setup_clock)(struct dw_mci *host);
 	void		(*prepare_command)(struct dw_mci *host, u32 *cmdr);
