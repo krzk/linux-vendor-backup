@@ -574,6 +574,61 @@
 		regulator-always-on;
 	};
 
+	fimd0_lcd: panel {
+		compatible = "samsung,l5f31188";
+		width = <720>;
+		height = <1280>;
+		reset-gpio = <&gpf2 1 0>;
+		reset-delay1 = <15>;
+		reset-delay2 = <180>;
+		power-on-delay = <120>;
+		power-off-delay1 = <100>;
+		power-off-delay2 = <200>;
+		vdd-supply = <&ldo25_reg>;
+		vddi-supply = <&ldo5_reg>;
+		video-source = <&dsi_0>;
+		samsung,panel-width-mm = <59>; /* FIXME */
+		samsung,panel-height-mm = <105>; /* FIXME */
+
+		display-timings {
+			native-mode = <&timing0>;
+
+			timing0: timing-0 {
+				clock-frequency = <0>;
+				hactive = <720>;
+				vactive = <1280>;
+				hfront-porch = <81>;
+				hback-porch = <81>;
+				hsync-len = <27>;
+				vfront-porch = <11>;
+				vback-porch = <4>;
+				vsync-len = <2>;
+			};
+		};
+	};
+
+	dsi_0: dsi@11C80000 {
+		samsung,pll-stable-time = <500>;
+		samsung,stop-holding-count = <0x7ff>;
+		samsung,bta-timeout = <0xff>;
+		samsung,rx-timeout = <0xffff>;
+		samsung,pll-clk-freq = <24000000>;
+		samsung,cmd-allow = <0xf>;
+		vdd11-supply = <&ldo8_reg>;
+		vdd18-supply = <&ldo10_reg>;
+		status = "okay";
+	};
+
+	fimd@11c00000 {
+		samsung,fimd-display = <&fimd0_lcd>;
+		samsung,fimd-vidout-rgb;
+		samsung,fimd-inv-vclk;
+		samsung,fimd-frame-rate = <60>;
+		samsung,default-window = <3>;
+		samsung,fimd-win-bpp = <32>;
+		status = "okay";
+	};
+
 	vidi {
 		compatible = "samsung,exynos-drm-vidi";
 	};
