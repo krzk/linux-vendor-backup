@@ -1,0 +1,21 @@
+config ARCH_HI3xxx
+	bool "Hisilicon Hi36xx/Hi37xx family" if ARCH_MULTI_V7
+	select CACHE_L2X0
+	select CACHE_PL310
+	select PINCTRL
+	select PINCTRL_SINGLE
+	select SERIAL_AMBA_PL011
+	select SERIAL_AMBA_PL011_CONSOLE
+	help
+	  Support for Hislicon Hi36xx/Hi37xx processor family
+
+if ARCH_HI3xxx
+
+config MACH_HS_DT
+	bool "Hisilicon Development Board"
+	default y
+	help
+	  Say 'Y' here if you want to support the Hisilicon Development
+	  Board.
+
+endif

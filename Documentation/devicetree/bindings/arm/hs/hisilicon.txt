@@ -1,0 +1,10 @@
+Hisilicon Platforms Device Tree Bindings
+----------------------------------------------------
+
+Hi3716 Development Board
+Required root node properties:
+	- compatible = "hisilicon,hi3716-dkb";
+
+Hi4511 Board
+Required root node properties:
+	- compatible = "hisilicon,hi3620-hi4511";

@@ -929,6 +929,8 @@ source "arch/arm/mach-gemini/Kconfig"
 
 source "arch/arm/mach-highbank/Kconfig"
 
+source "arch/arm/mach-hs/Kconfig"
+
 source "arch/arm/mach-integrator/Kconfig"
 
 source "arch/arm/mach-iop32x/Kconfig"
