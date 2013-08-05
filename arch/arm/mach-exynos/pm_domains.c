@@ -107,6 +107,9 @@ static void exynos_remove_device_from_domain(struct device *dev)
 	struct generic_pm_domain *genpd = dev_to_genpd(dev);
 	int ret;
 
+	if (IS_ERR(genpd))
+		return;
+
 	dev_dbg(dev, "removing from power domain %s\n", genpd->name);
 
 	while (1) {
