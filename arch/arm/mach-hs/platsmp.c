@@ -32,6 +32,7 @@ static void __init hs_smp_prepare_cpus(unsigned int max_cpus)
 
 static int hs_boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
+	hs_set_cpu(cpu, true);
 	hs_set_cpu_jump(cpu, secondary_startup);
 	arch_send_wakeup_ipi_mask(cpumask_of(cpu));
 	return 0;
@@ -40,4 +41,8 @@ static int hs_boot_secondary(unsigned int cpu, struct task_struct *idle)
 struct smp_operations hs_smp_ops __initdata = {
 	.smp_prepare_cpus	= hs_smp_prepare_cpus,
 	.smp_boot_secondary	= hs_boot_secondary,
+#ifdef CONFIG_HOTPLUG_CPU
+	.cpu_die		= hs_cpu_die,
+	.cpu_kill		= hs_cpu_kill,
+#endif
 };
