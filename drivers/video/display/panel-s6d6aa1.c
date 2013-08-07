@@ -128,16 +128,6 @@ static void s6d6aa1_apply_level_2_key(struct s6d6aa1 *lcd)
 		data_to_send, ARRAY_SIZE(data_to_send));
 }
 
-static void s6d6aa1_read_id(struct s6d6aa1 *lcd, u8 *mtp_id)
-{
-	dsi_dcs_read(lcd->entity.source, 0,
-			0xDA, &mtp_id[0], 1);
-	dsi_dcs_read(lcd->entity.source, 0,
-			0xDB, &mtp_id[1], 1);
-	dsi_dcs_read(lcd->entity.source, 0,
-			0xDC, &mtp_id[2], 1);
-}
-
 static void s6d6aa1_write_ddb(struct s6d6aa1 *lcd)
 {
 	const unsigned char data_to_send[] = {
@@ -427,23 +417,11 @@ static const struct backlight_ops s6d6aa1_backlight_ops = {
 
 static int s6d6aa1_check_mtp(struct s6d6aa1 *lcd)
 {
-	u8 mtp_id[3] = {0, };
-
 	s6d6aa1_apply_level_1_key(lcd);
 	s6d6aa1_apply_level_2_key(lcd);
 
-	s6d6aa1_read_id(lcd, mtp_id);
-	if (mtp_id[0] == 0x00) {
-		dev_err(lcd->dev, "read id failed\n");
-		return -EIO;
-	}
-
 	s6d6aa1_register_access_dis_1(lcd);
 	s6d6aa1_register_access_dis_2(lcd);
-
-	lcd->ver = mtp_id[1];
-	dev_info(lcd->dev, "Read ID : 0x%2x, 0x%2x, 0x%2x\n",
-		mtp_id[0], mtp_id[1], mtp_id[2]);
 
 	return 0;
 }
