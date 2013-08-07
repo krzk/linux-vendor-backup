@@ -19,6 +19,7 @@
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
 #include <linux/clk.h>
+#include <linux/dma-mapping.h>
 #include <linux/err.h>
 #include <linux/mm.h>
 #include <linux/iommu.h>
@@ -31,6 +32,7 @@
 #include <linux/pm_domain.h>
 #include <linux/notifier.h>
 
+#include <asm/dma-iommu.h>
 #include <asm/cacheflush.h>
 #include <asm/pgtable.h>
 
@@ -1053,31 +1055,6 @@ static struct iommu_ops exynos_iommu_ops = {
 	.pgsize_bitmap = SECT_SIZE | LPAGE_SIZE | SPAGE_SIZE,
 };
 
-static int __init exynos_iommu_init(void)
-{
-	int ret;
-
-	lv2table_kmem_cache = kmem_cache_create("exynos-iommu-lv2table",
-				LV2TABLE_SIZE, LV2TABLE_SIZE, 0, NULL);
-	if (!lv2table_kmem_cache) {
-		pr_err("%s: Failed to create kmem cache\n", __func__);
-		return -ENOMEM;
-	}
-
-	ret = platform_driver_register(&exynos_sysmmu_driver);
-
-	if (ret == 0)
-		ret = bus_set_iommu(&platform_bus_type, &exynos_iommu_ops);
-
-	if (ret) {
-		pr_err("%s: Failed to register exynos-iommu driver.\n",
-								__func__);
-		kmem_cache_destroy(lv2table_kmem_cache);
-	}
-
-	return ret;
-}
-subsys_initcall(exynos_iommu_init);
 
 #ifdef CONFIG_PM_SLEEP
 static int sysmmu_pm_genpd_suspend(struct device *dev)
@@ -1213,6 +1190,31 @@ struct gpd_dev_ops sysmmu_devpm_ops = {
 };
 #endif /* CONFIG_PM_GENERIC_DOMAINS */
 
+
+static int exynos_create_default_iommu_mapping(struct device *dev)
+{
+	struct dma_iommu_mapping *mapping;
+	dma_addr_t base = 0x20000000;
+	unsigned int size = SZ_128M;
+	int order = 4;
+
+	mapping = arm_iommu_create_mapping(&platform_bus_type, base, size, order);
+	if (!mapping)
+		return -ENOMEM;
+	dev->dma_parms = kzalloc(sizeof(*dev->dma_parms), GFP_KERNEL);
+	dma_set_max_seg_size(dev, 0xffffffffu);
+	arm_iommu_attach_device(dev, mapping);
+	return 0;
+}
+
+static int exynos_remove_iommu_mapping(struct device *dev)
+{
+	struct dma_iommu_mapping *mapping = to_dma_iommu_mapping(dev);
+	arm_iommu_detach_device(dev);
+	arm_iommu_release_mapping(mapping);
+	return 0;
+}
+
 static int sysmmu_hook_driver_register(struct notifier_block *nb,
 					unsigned long val,
 					void *p)
@@ -1239,6 +1241,8 @@ static int sysmmu_hook_driver_register(struct notifier_block *nb,
 				np->name);
 				return -ENODEV;
 		}
+		dev_info(dev, "attaching sysmmu controller %s\n",
+			 dev_name(&sysmmu->dev));
 
 		ret = pm_genpd_add_callbacks(dev, &sysmmu_devpm_ops, NULL);
 		if (ret && (ret != -ENOSYS)) {
@@ -1248,6 +1252,9 @@ static int sysmmu_hook_driver_register(struct notifier_block *nb,
 		}
 
 		dev->archdata.iommu = &sysmmu->dev;
+
+		if (!to_dma_iommu_mapping(dev))
+			exynos_create_default_iommu_mapping(dev);
 		break;
 	}
 	case BUS_NOTIFY_BOUND_DRIVER:
@@ -1265,9 +1272,12 @@ static int sysmmu_hook_driver_register(struct notifier_block *nb,
 		break;
 	}
 	case BUS_NOTIFY_UNBOUND_DRIVER:
+	case BUS_NOTIFY_BIND_FAILED:
 	{
 		if (dev->archdata.iommu) {
 			__pm_genpd_remove_callbacks(dev, false);
+			if (to_dma_iommu_mapping(dev))
+				exynos_remove_iommu_mapping(dev);
 			dev->archdata.iommu = NULL;
 		}
 		break;
@@ -1281,8 +1291,31 @@ static struct notifier_block sysmmu_notifier = {
 	.notifier_call = &sysmmu_hook_driver_register,
 };
 
-static int __init exynos_iommu_prepare(void)
+static int __init exynos_iommu_init(void)
 {
-	return bus_register_notifier(&platform_bus_type, &sysmmu_notifier);
+	int ret;
+
+	lv2table_kmem_cache = kmem_cache_create("exynos-iommu-lv2table",
+				LV2TABLE_SIZE, LV2TABLE_SIZE, 0, NULL);
+	if (!lv2table_kmem_cache) {
+		pr_err("%s: Failed to create kmem cache\n", __func__);
+		return -ENOMEM;
+	}
+
+	ret = platform_driver_register(&exynos_sysmmu_driver);
+	if (ret == 0) {
+		ret = bus_set_iommu(&platform_bus_type, &exynos_iommu_ops);
+		if (ret == 0)
+			ret = bus_register_notifier(&platform_bus_type,
+						    &sysmmu_notifier);
+	}
+
+	if (ret) {
+		pr_err("%s: Failed to register exynos-iommu driver.\n",
+								__func__);
+		kmem_cache_destroy(lv2table_kmem_cache);
+	}
+
+	return ret;
 }
-arch_initcall(exynos_iommu_prepare);
+arch_initcall(exynos_iommu_init);
