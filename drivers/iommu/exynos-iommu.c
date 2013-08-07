@@ -515,31 +515,20 @@ int exynos_sysmmu_enable(struct device *dev, unsigned long pgtable)
 	return ret;
 }
 
-static bool exynos_sysmmu_disable(struct device *dev)
+static bool exynos_sysmmu_disable(struct sysmmu_drvdata *data)
 {
-	struct device *sysmmu = dev->archdata.iommu;
-	struct sysmmu_drvdata *data;
-	bool disabled = true;
+	bool disabled = __sysmmu_disable(data);
 
-	if (WARN_ON(!sysmmu))
-		return -ENODEV;
-
-	data = dev_get_drvdata(sysmmu);
-
-	disabled = __sysmmu_disable(data);
 	if (disabled)
 		data->master = NULL;
 
 	return disabled;
 }
 
-static void sysmmu_tlb_invalidate_entry(struct device *dev, unsigned long iova)
+static void sysmmu_tlb_invalidate_entry(struct sysmmu_drvdata *data,
+					unsigned long iova)
 {
-	struct device *sysmmu = dev->archdata.iommu;
-	struct sysmmu_drvdata *data;
 	unsigned long flags;
-
-	data = dev_get_drvdata(sysmmu);
 
 	spin_lock_irqsave(&data->lock, flags);
 	if (is_sysmmu_active(data) && data->runtime_active) {
@@ -547,7 +536,7 @@ static void sysmmu_tlb_invalidate_entry(struct device *dev, unsigned long iova)
 		__sysmmu_tlb_invalidate_entry(data->sfrbase, iova);
 		clk_disable(data->clk_master);
 	} else {
-		dev_dbg(dev,
+		dev_dbg(data->master,
 			"disabled. Skipping TLB invalidation @ %#lx\n", iova);
 	}
 	spin_unlock_irqrestore(&data->lock, flags);
@@ -755,7 +744,7 @@ static void exynos_iommu_domain_destroy(struct iommu_domain *domain)
 	spin_lock_irqsave(&priv->lock, flags);
 
 	list_for_each_entry(data, &priv->clients, node) {
-		while (!exynos_sysmmu_disable(data->master))
+		while (!exynos_sysmmu_disable(data))
 			; /* until System MMU is actually disabled */
 	}
 
@@ -814,7 +803,7 @@ static void exynos_iommu_detach_device(struct iommu_domain *domain,
 
 	list_for_each_entry(data, &priv->clients, node) {
 		if (data->sysmmu == dev->archdata.iommu) {
-			if (exynos_sysmmu_disable(dev))
+			if (exynos_sysmmu_disable(data))
 				list_del_init(&data->node);
 			break;
 		}
@@ -1010,7 +999,7 @@ done:
 
 	spin_lock_irqsave(&priv->lock, flags);
 	list_for_each_entry(data, &priv->clients, node)
-		sysmmu_tlb_invalidate_entry(data->master, iova);
+		sysmmu_tlb_invalidate_entry(data, iova);
 	spin_unlock_irqrestore(&priv->lock, flags);
 
 	return size;
