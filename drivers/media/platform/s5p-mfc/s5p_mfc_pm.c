@@ -97,6 +97,8 @@ void s5p_mfc_clock_off(void)
 int s5p_mfc_power_on(void)
 {
 #ifdef CONFIG_PM_RUNTIME
+	pm_runtime_get_sync(p_dev->mem_dev_l);
+	pm_runtime_get_sync(p_dev->mem_dev_r);
 	return pm_runtime_get_sync(pm->device);
 #else
 	atomic_set(&pm->power, 1);
@@ -107,6 +109,8 @@ int s5p_mfc_power_on(void)
 int s5p_mfc_power_off(void)
 {
 #ifdef CONFIG_PM_RUNTIME
+	pm_runtime_put_sync(p_dev->mem_dev_l);
+	pm_runtime_put_sync(p_dev->mem_dev_r);
 	return pm_runtime_put_sync(pm->device);
 #else
 	atomic_set(&pm->power, 0);
