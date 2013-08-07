@@ -35,8 +35,8 @@
 		compatible = "gpio-keys";
 
 		key@114 {
-			interrupt-parent = <&gpj1>;
-			interrupts = <2 0>;
+			interrupt-parent = <&gpx3>;
+			interrupts = <3 0>;
 			gpios = <&gpx3 3 1>;
 			linux,code = <114>;
 			label = "volume down";
@@ -44,8 +44,8 @@
 		};
 
 		key@115 {
-			interrupt-parent = <&gpj1>;
-			interrupts = <1 0>;
+			interrupt-parent = <&gpx2>;
+			interrupts = <2 0>;
 			gpios = <&gpx2 2 1>;
 			linux,code = <115>;
 			label = "volume up";
