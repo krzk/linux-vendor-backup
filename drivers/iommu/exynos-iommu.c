@@ -1319,3 +1319,37 @@ static int __init exynos_iommu_init(void)
 	return ret;
 }
 arch_initcall(exynos_iommu_init);
+
+/*
+ * Dummy driver to enable runtime power management for memport
+ * devices, which required for correct Exynos SYSMMU operation.
+ * Must be registered before drivers, which will use memport nodes.
+ */
+static int __init exynos_memport_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	pm_runtime_enable(dev);
+	return 0;
+}
+
+#ifdef CONFIG_OF
+static struct of_device_id memport_of_match[] __initconst = {
+	{ .compatible	= "samsung,memport", },
+	{ },
+};
+#endif
+
+static struct platform_driver exynos_memport_driver __refdata = {
+	.probe	= exynos_memport_probe,
+	.driver	= {
+		.owner		= THIS_MODULE,
+		.name		= "exynos-memport",
+		.of_match_table	= of_match_ptr(memport_of_match),
+	}
+};
+
+static int __init exynos_memport_init(void)
+{
+	return platform_driver_register(&exynos_memport_driver);
+}
+subsys_initcall(exynos_memport_init);
