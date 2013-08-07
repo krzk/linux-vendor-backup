@@ -183,7 +183,6 @@ struct sysmmu_drvdata {
 	struct list_head node; /* entry of exynos_iommu_domain.clients */
 	struct device *sysmmu;	/* System MMU's device descriptor */
 	struct device *master;	/* Owner of system MMU */
-	int nsfrs;
 	struct clk *clk;
 	struct clk *clk_master;
 	int activations;
@@ -191,7 +190,7 @@ struct sysmmu_drvdata {
 	struct iommu_domain *domain;
 	bool runtime_active;
 	unsigned long pgtable;
-	void __iomem *sfrbases[0];
+	void __iomem *sfrbase;
 };
 
 static bool set_sysmmu_active(struct sysmmu_drvdata *data)
@@ -214,11 +213,11 @@ static bool is_sysmmu_active(struct sysmmu_drvdata *data)
 }
 
 static unsigned int __sysmmu_version(struct sysmmu_drvdata *data,
-				     int idx, unsigned int *minor)
+				     unsigned int *minor)
 {
 	unsigned long major;
 
-	major = readl(data->sfrbases[idx] + REG_MMU_VERSION);
+	major = readl(data->sfrbase + REG_MMU_VERSION);
 
 	if (minor)
 		*minor = MMU_MIN_VER(major);
@@ -282,7 +281,6 @@ void exynos_sysmmu_set_prefbuf(struct device *dev,
 {
 	struct sysmmu_drvdata *data = dev_get_drvdata(dev->archdata.iommu);
 	unsigned long flags;
-	int i;
 
 	BUG_ON((base0 + size0) <= base0);
 	BUG_ON((size1 > 0) && ((base1 + size1) <= base1));
@@ -292,31 +290,31 @@ void exynos_sysmmu_set_prefbuf(struct device *dev,
 		goto finish;
 
 	clk_enable(data->clk_master);
-	for (i = 0; i < data->nsfrs; i++) {
-		if ((readl(data->sfrbases[i] + REG_MMU_VERSION) >> 28) == 3) {
-			if (!sysmmu_block(data->sfrbases[i]))
-				continue;
 
-			if (size1 == 0) {
-				if (size0 <= SZ_128K) {
-					base1 = base0;
-					size1 = size0;
-				} else {
-					size1 = size0 -
-						ALIGN(size0 / 2, SZ_64K);
-					size0 = size0 - size1;
-					base1 = base0 + size0;
-				}
+	if ((readl(data->sfrbase + REG_MMU_VERSION) >> 28) == 3) {
+		if (!sysmmu_block(data->sfrbase))
+			goto skip;
+
+		if (size1 == 0) {
+			if (size0 <= SZ_128K) {
+				base1 = base0;
+				size1 = size0;
+			} else {
+				size1 = size0 -
+					ALIGN(size0 / 2, SZ_64K);
+				size0 = size0 - size1;
+				base1 = base0 + size0;
 			}
-
-			__sysmmu_set_prefbuf(
-					data->sfrbases[i], base0, size0, 0);
-			__sysmmu_set_prefbuf(
-					data->sfrbases[i], base1, size1, 1);
-
-			sysmmu_unblock(data->sfrbases[i]);
 		}
+
+		__sysmmu_set_prefbuf(
+				data->sfrbase, base0, size0, 0);
+		__sysmmu_set_prefbuf(
+				data->sfrbase, base1, size1, 1);
+
+		sysmmu_unblock(data->sfrbase);
 	}
+skip:
 	clk_disable(data->clk_master);
 finish:
 	spin_unlock_irqrestore(&data->lock, flags);
@@ -354,53 +352,41 @@ static irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 	struct exynos_iommu_client *client = NULL;
 	enum exynos_sysmmu_inttype itype;
 	unsigned long addr = -1;
-	int i, ret = -ENOSYS;
+	int ret = -ENOSYS;
 
 	if (data->master)
 		client = data->master->archdata.iommu;
 
 	WARN_ON(!is_sysmmu_active(data));
 
-	for (i = 0; i < data->nsfrs; i++) {
-		struct resource *irqres;
-		irqres = platform_get_resource(to_platform_device(data->sysmmu),
-						IORESOURCE_IRQ, i);
-		if (irqres && ((int)irqres->start == irq))
-			break;
-	}
-
 	if (client)
 		spin_lock(&client->lock);
 	spin_lock(&data->lock);
 
-	if (i == data->nsfrs) {
+	itype = (enum exynos_sysmmu_inttype)
+		__ffs(__raw_readl(data->sfrbase + REG_INT_STATUS));
+	if (WARN_ON(!((itype >= 0) && (itype < SYSMMU_FAULT_UNKNOWN))))
 		itype = SYSMMU_FAULT_UNKNOWN;
-	} else {
-		itype = (enum exynos_sysmmu_inttype)
-			__ffs(__raw_readl(data->sfrbases[i] + REG_INT_STATUS));
-		if (WARN_ON(!((itype >= 0) && (itype < SYSMMU_FAULT_UNKNOWN))))
-			itype = SYSMMU_FAULT_UNKNOWN;
-		else
-			addr = __raw_readl(
-				data->sfrbases[i] + fault_reg_offset[itype]);
-	}
+	else
+		addr = __raw_readl(
+			data->sfrbase + fault_reg_offset[itype]);
 
 	if (data->domain)
 		ret = report_iommu_fault(data->domain, data->master,
 				addr, itype);
 
 	if (!ret && (itype != SYSMMU_FAULT_UNKNOWN))
-		__raw_writel(1 << itype, data->sfrbases[i] + REG_INT_CLEAR);
+		__raw_writel(1 << itype, data->sfrbase + REG_INT_CLEAR);
 	else {
 		unsigned long ba = data->pgtable;
 		if (itype != SYSMMU_FAULT_UNKNOWN)
-			ba = __raw_readl(data->sfrbases[i] + REG_PT_BASE_ADDR);
+			ba = __raw_readl(data->sfrbase + REG_PT_BASE_ADDR);
 		show_fault_information(dev_name(data->sysmmu),
 					itype, ba, addr);
 	}
 
 	if (itype != SYSMMU_FAULT_UNKNOWN)
-		sysmmu_unblock(data->sfrbases[i]);
+		sysmmu_unblock(data->sfrbase);
 
 	spin_unlock(&data->lock);
 	if (client)
@@ -411,14 +397,10 @@ static irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 
 static void __sysmmu_disable_nocount(struct sysmmu_drvdata *data)
 {
-	int i;
-
 	clk_enable(data->clk_master);
-	for (i = 0; i < data->nsfrs; i++) {
-		__raw_writel(CTRL_DISABLE,
-				data->sfrbases[i] + REG_MMU_CTRL);
-		__raw_writel(0, data->sfrbases[i] + REG_MMU_CFG);
-	}
+
+	__raw_writel(CTRL_DISABLE, data->sfrbase + REG_MMU_CTRL);
+	__raw_writel(0, data->sfrbase + REG_MMU_CFG);
 
 	clk_disable(data->clk);
 	clk_disable(data->clk_master);
@@ -452,12 +434,12 @@ static bool __sysmmu_disable(struct sysmmu_drvdata *data)
 }
 
 
-static void __sysmmu_init_config(struct sysmmu_drvdata *data, int idx)
+static void __sysmmu_init_config(struct sysmmu_drvdata *data)
 {
 	unsigned long cfg = CFG_LRU | CFG_QOS(15);
 	int maj, min = 0;
 
-	maj = __sysmmu_version(data, idx, &min);
+	maj = __sysmmu_version(data, &min);
 	if (maj == 3) {
 		if (min > 1) {
 			cfg |= CFG_FLPDCACHE;
@@ -465,25 +447,22 @@ static void __sysmmu_init_config(struct sysmmu_drvdata *data, int idx)
 		}
 	}
 
-	__raw_writel(cfg, data->sfrbases[idx] + REG_MMU_CFG);
+	__raw_writel(cfg, data->sfrbase + REG_MMU_CFG);
 }
 
 static void __sysmmu_enable_nocount(struct sysmmu_drvdata *data)
 {
-	int i;
-
 	clk_enable(data->clk_master);
 	clk_enable(data->clk);
 
-	for (i = 0; i < data->nsfrs; i++) {
-		__raw_writel(CTRL_BLOCK, data->sfrbases[i] + REG_MMU_CTRL);
+	__raw_writel(CTRL_BLOCK, data->sfrbase + REG_MMU_CTRL);
 
-		__sysmmu_init_config(data, i);
+	__sysmmu_init_config(data);
 
-		__sysmmu_set_ptbase(data->sfrbases[i], data->pgtable);
+	__sysmmu_set_ptbase(data->sfrbase, data->pgtable);
 
-		__raw_writel(CTRL_ENABLE, data->sfrbases[i] + REG_MMU_CTRL);
-	}
+	__raw_writel(CTRL_ENABLE, data->sfrbase + REG_MMU_CTRL);
+
 	clk_disable(data->clk_master);
 }
 
@@ -604,11 +583,8 @@ static void sysmmu_tlb_invalidate_entry(struct device *dev, unsigned long iova)
 
 		spin_lock_irqsave(&data->lock, flags);
 		if (is_sysmmu_active(data) && data->runtime_active) {
-			int i;
 			clk_enable(data->clk_master);
-			for (i = 0; i < data->nsfrs; i++)
-				__sysmmu_tlb_invalidate_entry(
-						data->sfrbases[i], iova);
+			__sysmmu_tlb_invalidate_entry(data->sfrbase, iova);
 			clk_disable(data->clk_master);
 		} else {
 			dev_dbg(dev,
@@ -633,16 +609,12 @@ void exynos_sysmmu_tlb_invalidate(struct device *dev)
 		spin_lock_irqsave(&data->lock, flags);
 		if (is_sysmmu_active(data) &&
 				data->runtime_active) {
-			int i;
-			for (i = 0; i < data->nsfrs; i++) {
-				clk_enable(data->clk_master);
-				if (sysmmu_block(data->sfrbases[i])) {
-					__sysmmu_tlb_invalidate(
-							data->sfrbases[i]);
-					sysmmu_unblock(data->sfrbases[i]);
-				}
-				clk_disable(data->clk_master);
+			clk_enable(data->clk_master);
+			if (sysmmu_block(data->sfrbase)) {
+				__sysmmu_tlb_invalidate(data->sfrbase);
+				sysmmu_unblock(data->sfrbase);
 			}
+			clk_disable(data->clk_master);
 		} else {
 			dev_dbg(dev, "disabled. Skipping TLB invalidation\n");
 		}
@@ -652,58 +624,41 @@ void exynos_sysmmu_tlb_invalidate(struct device *dev)
 
 static int __init exynos_sysmmu_probe(struct platform_device *pdev)
 {
-	int i, ret;
+	int ret;
 	struct device *dev = &pdev->dev;
 	struct sysmmu_drvdata *data;
+	struct resource *res;
+	int irq;
 
-	if (pdev->num_resources == 0) {
-		dev_err(dev, "No System MMU resource defined\n");
-		return -ENODEV;
-	}
-
-	data = devm_kzalloc(dev,
-			sizeof(*data) +
-			sizeof(*data->sfrbases) * (pdev->num_resources / 2),
-			GFP_KERNEL);
+	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
 	if (!data) {
 		dev_err(dev, "Not enough memory for initialization\n");
 		return -ENOMEM;
 	}
 
-	data->nsfrs = pdev->num_resources / 2;
-
-	for (i = 0; i < data->nsfrs; i++) {
-		struct resource *res;
-
-		res = platform_get_resource(pdev, IORESOURCE_MEM, i);
-		if (!res) {
-			dev_err(dev, "Unable to find IOMEM region\n");
-			return -ENOENT;
-		}
-
-		data->sfrbases[i] = devm_request_and_ioremap(dev, res);
-		if (!data->sfrbases[i]) {
-			dev_err(dev, "Unable to map IOMEM @ %#x\n", res->start);
-			return -EBUSY;
-		}
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		dev_err(dev, "Unable to find IOMEM region\n");
+		return -ENOENT;
 	}
 
-	for (i = 0; i < data->nsfrs; i++) {
-		int irq;
+	data->sfrbase = devm_request_and_ioremap(dev, res);
+	if (!data->sfrbase) {
+		dev_err(dev, "Unable to map IOMEM @ %#x\n", res->start);
+		return -EBUSY;
+	}
 
-		irq = platform_get_irq(pdev, i);
-		if (irq <= 0) {
-			dev_err(dev, "Unable to find IRQ resource\n");
-			return -ENOENT;
-		}
+	irq = platform_get_irq(pdev, 0);
+	if (irq <= 0) {
+	dev_err(dev, "Unable to find IRQ resource\n");
+		return -ENOENT;
+	}
 
-		ret = devm_request_irq(dev, irq, exynos_sysmmu_irq,
-					0, dev_name(dev), data);
-		if (ret) {
-			dev_err(dev, "Unable to register handler to irq %d\n",
-				irq);
-			return ret;
-		}
+	ret = devm_request_irq(dev, irq, exynos_sysmmu_irq, 0, dev_name(dev),
+			       data);
+	if (ret) {
+		dev_err(dev, "Unable to register handler to irq %d\n", irq);
+		return ret;
 	}
 
 	pm_runtime_enable(dev);
