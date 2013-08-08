@@ -1021,8 +1021,11 @@ static int fimd_probe(struct platform_device *pdev)
 	DRM_DEBUG_KMS("pixel clock = %d, clkdiv = %d\n",
 			panel->timing.pixclock, ctx->clkdiv);
 
-	for (win = 0; win < WINDOWS_NR; win++)
+	for (win = 0; win < WINDOWS_NR; win++) {
 		fimd_clear_win(ctx, win);
+		fimd_win_disable(dev, win);
+	}
+	fimd_wait_for_vblank(dev);
 
 	exynos_drm_subdrv_register(subdrv);
 
