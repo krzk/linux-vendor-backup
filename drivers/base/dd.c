@@ -237,9 +237,13 @@ static int driver_sysfs_add(struct device *dev)
 	return ret;
 }
 
-static void driver_sysfs_remove(struct device *dev)
+static void driver_sysfs_remove(struct device *dev, int failed)
 {
 	struct device_driver *drv = dev->driver;
+
+	if (failed && dev->bus)
+		blocking_notifier_call_chain(&dev->bus->p->bus_notifier,
+					     BUS_NOTIFY_BIND_FAILED, dev);
 
 	if (drv) {
 		sysfs_remove_link(&drv->p->kobj, kobject_name(&dev->kobj));
@@ -316,7 +320,7 @@ static int really_probe(struct device *dev, struct device_driver *drv)
 
 probe_failed:
 	devres_release_all(dev);
-	driver_sysfs_remove(dev);
+	driver_sysfs_remove(dev, true);
 	dev->driver = NULL;
 	dev_set_drvdata(dev, NULL);
 
@@ -509,7 +513,7 @@ static void __device_release_driver(struct device *dev)
 	if (drv) {
 		pm_runtime_get_sync(dev);
 
-		driver_sysfs_remove(dev);
+		driver_sysfs_remove(dev, false);
 
 		if (dev->bus)
 			blocking_notifier_call_chain(&dev->bus->p->bus_notifier,
