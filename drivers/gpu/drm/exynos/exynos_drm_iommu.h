@@ -12,6 +12,8 @@
 #ifndef _EXYNOS_DRM_IOMMU_H_
 #define _EXYNOS_DRM_IOMMU_H_
 
+#include "exynos_drm_iommu_init.h"
+
 #define EXYNOS_DEV_ADDR_START	0x20000000
 #define EXYNOS_DEV_ADDR_SIZE	0x40000000
 #define EXYNOS_DEV_ADDR_ORDER	0x0
@@ -32,11 +34,11 @@ static inline bool is_drm_iommu_supported(struct drm_device *drm_dev)
 {
 #ifdef CONFIG_ARM_DMA_USE_IOMMU
 	struct device *dev = drm_dev->dev;
-
-	return dev->archdata.mapping ? true : false;
-#else
-	return false;
+	if (dev->archdata.mapping &&
+	    dev->archdata.mapping != EXYNOS_DRM_INITIAL_MAPPING_VAL)
+		return true;
 #endif
+	return false;
 }
 
 #else

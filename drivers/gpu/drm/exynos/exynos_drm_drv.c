@@ -28,6 +28,7 @@
 #include "exynos_drm_g2d.h"
 #include "exynos_drm_ipp.h"
 #include "exynos_drm_iommu.h"
+#include "exynos_drm_iommu_init.h"
 
 #define DRIVER_NAME	"exynos"
 #define DRIVER_DESC	"Samsung SoC DRM"
@@ -335,6 +336,11 @@ static int __init exynos_drm_init(void)
 {
 	int ret, i = 0;
 
+	ret = exynos_drm_iommu_register(exynos_drm_subdrivers,
+					ARRAY_SIZE(exynos_drm_subdrivers));
+	if (ret < 0)
+		return ret;
+
 #ifdef CONFIG_DRM_EXYNOS_HDMI
 	ret = exynos_platform_device_hdmi_register();
 	if (ret < 0)
@@ -375,6 +381,7 @@ out_ipp:
 out_hdmi:
 	exynos_platform_device_hdmi_unregister();
 #endif
+	exynos_drm_iommu_unregister();
 	return ret;
 }
 
@@ -391,6 +398,7 @@ static void __exit exynos_drm_exit(void)
 #ifdef CONFIG_DRM_EXYNOS_HDMI
 	exynos_platform_device_hdmi_unregister();
 #endif
+	exynos_drm_iommu_unregister();
 }
 
 module_init(exynos_drm_init);
