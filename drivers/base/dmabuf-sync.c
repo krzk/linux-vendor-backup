@@ -63,6 +63,12 @@ static void dmabuf_sync_timeout_worker(struct work_struct *work)
 			continue;
 		}
 
+		if (sobj->robj->polled) {
+			sobj->robj->poll_event = true;
+			sobj->robj->polled = false;
+			wake_up_interruptible(&sobj->robj->poll_wait);
+		}
+
 		if (atomic_add_unless(&sobj->robj->shared_cnt, -1, 1)) {
 			mutex_unlock(&sobj->robj->lock);
 			continue;
@@ -276,6 +282,12 @@ static void dmabuf_sync_unlock_objs(struct dmabuf_sync *sync,
 
 	list_for_each_entry(sobj, &sync->syncs, head) {
 		mutex_lock(&sobj->robj->lock);
+
+		if (sobj->robj->polled) {
+			sobj->robj->poll_event = true;
+			sobj->robj->polled = false;
+			wake_up_interruptible(&sobj->robj->poll_wait);
+		}
 
 		if (atomic_add_unless(&sobj->robj->shared_cnt, -1, 1)) {
 			mutex_unlock(&sobj->robj->lock);
@@ -623,6 +635,12 @@ void dmabuf_sync_single_unlock(struct dma_buf *dmabuf)
 	robj = dmabuf->sync;
 
 	mutex_lock(&robj->lock);
+
+	if (robj->polled) {
+		robj->poll_event = true;
+		robj->polled = false;
+		wake_up_interruptible(&robj->poll_wait);
+	}
 
 	if (atomic_add_unless(&robj->shared_cnt, -1 , 1)) {
 		mutex_unlock(&robj->lock);

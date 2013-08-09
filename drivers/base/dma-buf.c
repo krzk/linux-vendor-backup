@@ -29,6 +29,7 @@
 #include <linux/export.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
+#include <linux/poll.h>
 #include <linux/dmabuf-sync.h>
 
 static inline int is_dma_buf_file(struct file *);
@@ -80,6 +81,52 @@ static int dma_buf_mmap_internal(struct file *file, struct vm_area_struct *vma)
 	return dmabuf->ops->mmap(dmabuf, vma);
 }
 
+static unsigned int dma_buf_poll(struct file *filp,
+					struct poll_table_struct *poll)
+{
+	struct dma_buf *dmabuf;
+	struct dmabuf_sync_reservation *robj;
+	int ret = 0;
+
+	if (!is_dma_buf_file(filp))
+		return POLLERR;
+
+	dmabuf = filp->private_data;
+	if (!dmabuf || !dmabuf->sync)
+		return POLLERR;
+
+	robj = dmabuf->sync;
+
+	mutex_lock(&robj->lock);
+
+	robj->polled = true;
+
+	/*
+	 * CPU or DMA access to this buffer has been completed, and
+	 * the blocked task has been waked up. Return poll event
+	 * so that the task can get out of select().
+	 */
+	if (robj->poll_event) {
+		robj->poll_event = false;
+		mutex_unlock(&robj->lock);
+		return POLLIN | POLLOUT;
+	}
+
+	/*
+	 * There is no anyone accessing this buffer so just return POLLERR.
+	 */
+	if (!robj->locked) {
+		mutex_unlock(&robj->lock);
+		return POLLERR;
+	}
+
+	poll_wait(filp, &robj->poll_wait, poll);
+
+	mutex_unlock(&robj->lock);
+
+	return ret;
+}
+
 static int dma_buf_lock(struct file *file, int cmd, struct file_lock *fl)
 {
 	struct dma_buf *dmabuf;
@@ -115,6 +162,7 @@ static int dma_buf_lock(struct file *file, int cmd, struct file_lock *fl)
 static const struct file_operations dma_buf_fops = {
 	.release	= dma_buf_release,
 	.mmap		= dma_buf_mmap_internal,
+	.poll		= dma_buf_poll,
 	.lock		= dma_buf_lock,
 };
 

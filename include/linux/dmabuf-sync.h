@@ -22,6 +22,9 @@ enum dmabuf_sync_status {
 struct dmabuf_sync_reservation {
 	struct ww_mutex		sync_lock;
 	struct mutex		lock;
+	wait_queue_head_t	poll_wait;
+	unsigned int		poll_event;
+	unsigned int		polled;
 	atomic_t		shared_cnt;
 	unsigned int		accessed_type;
 	unsigned int		locked;
@@ -91,6 +94,8 @@ static inline void dmabuf_sync_reservation_init(struct dma_buf *dmabuf)
 
 	mutex_init(&obj->lock);
 	atomic_set(&obj->shared_cnt, 1);
+
+	init_waitqueue_head(&obj->poll_wait);
 }
 
 static inline void dmabuf_sync_reservation_fini(struct dma_buf *dmabuf)
