@@ -588,6 +588,14 @@
 		};
 	};
 
+	rotator@11C00000 {
+		compatible = "samsung,exynos5250-rotator";
+		reg = <0x11C00000 0x1000>;
+		interrupts = <0 84 0>;
+		clocks = <&clock 269>;
+		clock-names = "rotator";
+	};
+
 	gsc_0:  gsc@0x13e00000 {
 		compatible = "samsung,exynos5-gsc";
 		reg = <0x13e00000 0x1000>;
