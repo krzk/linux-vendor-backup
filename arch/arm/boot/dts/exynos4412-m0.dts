@@ -71,6 +71,25 @@
 		};
 	};
 
+	i2c_touch_key: i2c-gpio-3 {
+		compatible = "i2c-gpio";
+		gpios = <&gpl0 2 0>, <&gpl0 1 0>;
+		i2c-gpio,delay-us = <2>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "okay";
+
+		touch_key@20 {
+			compatible = "mcs5080_touchkey";
+			reg = <0x20>;
+			interrupt-parent = <&gpj0>;
+			interrupts = <3 0>;
+			key_maxval = <2>;
+			linux,code = <0x0000009e	/* KEY_BACK */
+				      0x000000a9>;	/* KEY_MENU */
+		};
+	};
+
 	camera {
 		status = "okay";
 
