@@ -357,4 +357,8 @@
 		clock-names = "tmu_apbif";
 		status = "disabled";
 	};
+
+	rotator@12810000 {
+		compatible = "samsung,exynos4212-rotator";
+	};
 };
