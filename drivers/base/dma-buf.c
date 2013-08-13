@@ -113,11 +113,11 @@ static unsigned int dma_buf_poll(struct file *filp,
 	}
 
 	/*
-	 * There is no anyone accessing this buffer so just return POLLERR.
+	 * There is no anyone accessing this buffer so just return.
 	 */
 	if (!robj->locked) {
 		mutex_unlock(&robj->lock);
-		return POLLERR;
+		return POLLIN | POLLOUT;
 	}
 
 	poll_wait(filp, &robj->poll_wait, poll);
