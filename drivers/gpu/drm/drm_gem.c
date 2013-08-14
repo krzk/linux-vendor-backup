@@ -208,10 +208,76 @@ drm_gem_remove_prime_handles(struct drm_gem_object *obj, struct drm_file *filp)
 		drm_prime_remove_buf_handle(&filp->prime,
 				obj->import_attach->dmabuf);
 	}
-	if (obj->export_dma_buf) {
+
+	/*
+	 * Note: obj->dma_buf can't disappear as long as we still hold a
+	 * handle reference in obj->handle_count.
+	 */
+	if (obj->dma_buf) {
 		drm_prime_remove_buf_handle(&filp->prime,
-				obj->export_dma_buf);
+				obj->dma_buf);
 	}
+}
+
+static void drm_gem_object_ref_bug(struct kref *list_kref)
+{
+	BUG();
+}
+
+/**
+ * Called after the last handle to the object has been closed
+ *
+ * Removes any name for the object. Note that this must be
+ * called before drm_gem_object_free or we'll be touching
+ * freed memory
+ */
+static void drm_gem_object_handle_free(struct drm_gem_object *obj)
+{
+	struct drm_device *dev = obj->dev;
+
+	/* Remove any name for this object */
+	if (obj->name) {
+		idr_remove(&dev->object_name_idr, obj->name);
+		obj->name = 0;
+		/*
+		 * The object name held a reference to this object, drop
+		 * that now.
+		*
+		* This cannot be the last reference, since the handle holds one too.
+		 */
+		kref_put(&obj->refcount, drm_gem_object_ref_bug);
+	}
+}
+
+static void drm_gem_object_exported_dma_buf_free(struct drm_gem_object *obj)
+{
+	/* Unbreak the reference cycle if we have an exported dma_buf. */
+	if (obj->dma_buf) {
+		dma_buf_put(obj->dma_buf);
+		obj->dma_buf = NULL;
+	}
+}
+
+static void
+drm_gem_object_handle_unreference_unlocked(struct drm_gem_object *obj)
+{
+	if (WARN_ON(obj->handle_count == 0))
+		return;
+
+	/*
+	* Must bump handle count first as this may be the last
+	* ref, in which case the object would disappear before we
+	* checked for a name
+	*/
+
+	mutex_lock(&obj->dev->object_name_lock);
+	if (--obj->handle_count == 0) {
+		drm_gem_object_handle_free(obj);
+		drm_gem_object_exported_dma_buf_free(obj);
+	}
+	mutex_unlock(&obj->dev->object_name_lock);
+
+	drm_gem_object_unreference_unlocked(obj);
 }
 
 /**
@@ -557,6 +623,8 @@ drm_gem_release(struct drm_device *dev, struct drm_file *file_private)
 void
 drm_gem_object_release(struct drm_gem_object *obj)
 {
+	WARN_ON(obj->dma_buf);
+
 	if (obj->filp)
 	    fput(obj->filp);
 }
