@@ -1,0 +1,24 @@
+* CAPELLA CM36651 I2C Proximity sensor with Color sensor
+
+Required properties:
+- compatible: must be "capella,cm36651" or "cm36651"
+- reg: the I2C address of light sensor
+- interrupts: interrupt to which the chip is connected
+- vled-suppled: regulator for the sensor device, refere to
+		Documentation/devicetree/bindings/regulator/regulator.txt
+
+Example:
+
+	i2c_cm36651: i2c-gpio-2 {
+		/* ... */
+
+		cm36651@18 {
+			compatible = "cm36651";
+			reg = <0x18>;
+			interrupt-parent = <&gpx0>;
+			interrupts = <2 0>;
+			vled-supply = <&ps_als_reg>;
+		};
+
+		/* ... */
+	};

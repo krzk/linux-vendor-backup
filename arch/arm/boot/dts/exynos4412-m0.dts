@@ -90,6 +90,23 @@
 		};
 	};
 
+	i2c_cm36651: i2c-gpio-2 {
+		compatible = "i2c-gpio";
+		gpios = <&gpf0 0 0>, <&gpf0 1 0>;
+		i2c-gpio,delay-us = <2>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "okay";
+
+		cm36651@18 {
+			compatible = "cm36651";
+			reg = <0x18>;
+			interrupt-parent = <&gpx0>;
+			interrupts = <2 0>;
+			vled-supply = <&ps_als_reg>;
+		};
+	};
+
 	camera {
 		status = "okay";
 
