@@ -242,7 +242,7 @@ int drm_gem_one_name_info(int id, void *ptr, void *data)
 
 	seq_printf(m, "%6d %8zd %7d %8d\n",
 		   obj->name, obj->size,
-		   atomic_read(&obj->handle_count),
+		   obj->handle_count,
 		   atomic_read(&obj->refcount.refcount));
 	return 0;
 }
