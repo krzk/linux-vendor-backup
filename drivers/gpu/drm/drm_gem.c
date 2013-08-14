@@ -92,7 +92,7 @@ drm_gem_init(struct drm_device *dev)
 {
 	struct drm_gem_mm *mm;
 
-	spin_lock_init(&dev->object_name_lock);
+	mutex_init(&dev->object_name_lock);
 	idr_init(&dev->object_name_idr);
 
 	mm = kzalloc(sizeof(struct drm_gem_mm), GFP_KERNEL);
@@ -252,10 +252,10 @@ drm_gem_object_handle_unreference_unlocked(struct drm_gem_object *obj)
 	* checked for a name
 	*/
 
-	spin_lock(&obj->dev->object_name_lock);
+	mutex_lock(&obj->dev->object_name_lock);
 	if (--obj->handle_count == 0)
 		drm_gem_object_handle_free(obj);
-	spin_unlock(&obj->dev->object_name_lock);
+	mutex_unlock(&obj->dev->object_name_lock);
 
 	drm_gem_object_unreference_unlocked(obj);
 }
@@ -324,18 +324,20 @@ drm_gem_handle_create(struct drm_file *file_priv,
 	 * Get the user-visible handle using idr.
 	 */
 again:
+	mutex_lock(&dev->object_name_lock);
 	/* ensure there is space available to allocate a handle */
-	if (idr_pre_get(&file_priv->object_idr, GFP_KERNEL) == 0)
+	if (idr_pre_get(&file_priv->object_idr, GFP_KERNEL) == 0) {
+		mutex_unlock(&dev->object_name_lock);
 		return -ENOMEM;
+	}
 
 	/* do the allocation under our spinlock */
-	spin_lock(&dev->object_name_lock);
 	spin_lock(&file_priv->table_lock);
 	ret = idr_get_new_above(&file_priv->object_idr, obj, 1, (int *)handlep);
 	drm_gem_object_reference(obj);
 	obj->handle_count++;
 	spin_unlock(&file_priv->table_lock);
-	spin_unlock(&dev->object_name_lock);
+	mutex_unlock(&dev->object_name_lock);
 	if (ret == -EAGAIN) {
 		drm_gem_object_handle_unreference_unlocked(obj);
 		goto again;
@@ -514,12 +516,12 @@ drm_gem_flink_ioctl(struct drm_device *dev, void *data,
 		return -ENOENT;
 
 again:
+	mutex_lock(&dev->object_name_lock);
 	if (idr_pre_get(&dev->object_name_idr, GFP_KERNEL) == 0) {
-		drm_gem_object_unreference_unlocked(obj);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto err;
 	}
 
-	spin_lock(&dev->object_name_lock);
 	/* prevent races with concurrent gem_close. */
 	if (obj->handle_count == 0) {
 		ret = -ENOENT;
@@ -532,7 +534,7 @@ again:
 		args->name = (uint64_t) obj->name;
 
 		if (ret == -EAGAIN) {
-			spin_unlock(&dev->object_name_lock);
+			mutex_unlock(&dev->object_name_lock);
 			goto again;
 		}
 
@@ -547,7 +549,7 @@ again:
 	}
 
 err:
-	spin_unlock(&dev->object_name_lock);
+	mutex_unlock(&dev->object_name_lock);
 	drm_gem_object_unreference_unlocked(obj);
 
 	DRM_DEBUG("%s:hdl[%d]obj[0x%x]name[%d]\n",
@@ -574,11 +576,11 @@ drm_gem_open_ioctl(struct drm_device *dev, void *data,
 	if (!(dev->driver->driver_features & DRIVER_GEM))
 		return -ENODEV;
 
-	spin_lock(&dev->object_name_lock);
+	mutex_lock(&dev->object_name_lock);
 	obj = idr_find(&dev->object_name_idr, (int) args->name);
 	if (obj)
 		drm_gem_object_reference(obj);
-	spin_unlock(&dev->object_name_lock);
+	mutex_unlock(&dev->object_name_lock);
 	if (!obj)
 		return -ENOENT;
 
