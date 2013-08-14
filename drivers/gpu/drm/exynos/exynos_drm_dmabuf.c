@@ -194,31 +194,6 @@ static void exynos_gem_end_cpu_access(struct dma_buf *dmabuf, size_t start,
 				buf->sgt->orig_nents, dir);
 }
 
-static void exynos_dmabuf_release(struct dma_buf *dmabuf)
-{
-	struct exynos_drm_gem_obj *exynos_gem_obj = dmabuf->priv;
-	struct drm_gem_object *obj = &exynos_gem_obj->base;
-
-	DRM_DEBUG_PRIME("%s\n", __FILE__);
-
-	/*
-	 * exynos_dmabuf_release() call means that file object's
-	 * f_count is 0 and it calls drm_gem_object_handle_unreference()
-	 * to drop the references that these values had been increased
-	 * at drm_prime_handle_to_fd()
-	 */
-	if (obj->export_dma_buf == dmabuf) {
-		obj->export_dma_buf = NULL;
-
-		/*
-		 * drop this gem object refcount to release allocated buffer
-		 * and resources.
-		 */
-		drm_gem_object_unreference_unlocked(obj);
-		return;
-	}
-}
-
 static void *exynos_gem_dmabuf_kmap_atomic(struct dma_buf *dma_buf,
 						unsigned long page_num)
 {
@@ -346,7 +321,7 @@ static struct dma_buf_ops exynos_dmabuf_ops = {
 	.kunmap			= exynos_gem_dmabuf_kunmap,
 	.kunmap_atomic		= exynos_gem_dmabuf_kunmap_atomic,
 	.mmap			= exynos_gem_dmabuf_mmap,
-	.release		= exynos_dmabuf_release,
+	.release		= drm_gem_dmabuf_release,
 	.vmap			= exynos_gem_dmabuf_vmap,
 	.vunmap			= exynos_gem_dmabuf_vunmap,
 #ifdef CONFIG_DMABUF_SYNC_PROFILE
