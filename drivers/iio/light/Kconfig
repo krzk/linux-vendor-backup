@@ -75,4 +75,15 @@ config HID_SENSOR_ALS
 	  Say yes here to build support for the HID SENSOR
 	  Ambient light sensor.
 
+config CM36651
+	depends on I2C
+	tristate "CM36651 driver"
+	default n
+	help
+	  Sya Y here if you use cm36651.
+	  This option enables proximity & RGB sensor using
+	  Capella cm36651 device driver.
+
+	  Say N here if you do not use cm36651.
+
 endmenu
