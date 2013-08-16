@@ -1,0 +1,3 @@
+config HI3xxx_CLK_CORE
+	bool "Core clock driver of Hi3xxx Soc"
+	default y if COMMON_CLK
