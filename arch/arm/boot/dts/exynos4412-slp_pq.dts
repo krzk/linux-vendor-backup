@@ -716,19 +716,19 @@
 			};
 		};
 
+		fimc_lite_0: fimc-lite@12390000 {
+			status = "okay";
+		};
+
+		fimc_lite_1: fimc-lite@123A0000 {
+			status = "okay";
+		};
+
 		fimc-is@12000000 {
 			status = "okay";
 			pinctrl-0 = <&fimc_is_uart>;
 			pinctrl-names = "default";
 			memory-region = <&fimc_mem>;
-
-			fimc_lite_0: fimc-lite@12390000 {
-				status = "okay";
-			};
-
-			fimc_lite_1: fimc-lite@123A0000 {
-				status = "okay";
-			};
 
 			i2c1_isp: i2c-isp@12140000 {
 				pinctrl-0 = <&fimc_is_i2c1>;

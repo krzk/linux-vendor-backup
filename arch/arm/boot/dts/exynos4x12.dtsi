@@ -256,6 +256,26 @@
 			clock-names = "csis", "sclk_csis", "mux", "parent";
 		};
 
+		fimc_lite_0: fimc-lite@12390000 {
+			compatible = "samsung,exynos4212-fimc-lite";
+			reg = <0x12390000 0x1000>;
+			interrupts = <0 105 0>;
+			samsung,power-domain = <&pd_isp>;
+			clocks = <&clock 353>;
+			clock-names = "flite";
+			status = "disabled";
+		};
+
+		fimc_lite_1: fimc-lite@123A0000 {
+			compatible = "samsung,exynos4212-fimc-lite";
+			reg = <0x123A0000 0x1000>;
+			interrupts = <0 106 0>;
+			samsung,power-domain = <&pd_isp>;
+			clocks = <&clock 354>;
+			clock-names = "flite";
+			status = "disabled";
+		};
+
 		fimc_is: fimc-is@12000000 {
 			compatible = "samsung,exynos4212-fimc-is", "simple-bus";
 			reg = <0x12000000 0x260000>;
@@ -272,26 +292,6 @@
 
 			pmu {
 				reg = <0x10020000 0x3000>;
-			};
-
-			fimc_lite_0: fimc-lite@12390000 {
-				compatible = "samsung,exynos4212-fimc-lite";
-				reg = <0x12390000 0x1000>;
-				interrupts = <0 105 0>;
-				samsung,power-domain = <&pd_isp>;
-				clocks = <&clock 353>;
-				clock-names = "flite";
-				status = "disabled";
-			};
-
-			fimc_lite_1: fimc-lite@123A0000 {
-				compatible = "samsung,exynos4212-fimc-lite";
-				reg = <0x123A0000 0x1000>;
-				interrupts = <0 106 0>;
-				samsung,power-domain = <&pd_isp>;
-				clocks = <&clock 354>;
-				clock-names = "flite";
-				status = "disabled";
 			};
 		};
 	};
