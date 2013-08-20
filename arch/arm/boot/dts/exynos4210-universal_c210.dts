@@ -22,6 +22,27 @@
 	memory {
 		reg =  <0x40000000 0x10000000
 			0x50000000 0x10000000>;
+
+		reserved-memory {
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			contig_mem: region@0 {
+				compatible = "linux,contiguous-memory-region";
+				reg = <0x0 0x4000000>;
+				linux,default-contiguous-region;
+			};
+
+			mfc_l_mem: mfc_l_region@43000000 {
+				compatible = "linux,contiguous-memory-region", "reserved-memory-region";
+				reg = <0x43000000 0x1000000>;
+			};
+
+			mfc_r_mem: mfc_r_region@51000000 {
+				compatible = "linux,contiguous-memory-region", "reserved-memory-region";
+				reg = <0x51000000 0x1000000>;
+			};
+		};
 	};
 
 	chosen {
@@ -53,12 +74,22 @@
 		enable-active-high;
 	};
 
+	hsotg@12480000 {
+		vusb_d-supply = <&ldo3_reg>;
+		vusb_a-supply = <&ldo8_reg>;
+		status = "okay";
+	};
+
 	sdhci_emmc: sdhci@12510000 {
 		bus-width = <8>;
 		non-removable;
 		pinctrl-0 = <&sd0_clk &sd0_cmd &sd0_bus8>;
 		pinctrl-names = "default";
 		vmmc-supply = <&vemmc_reg>;
+		status = "okay";
+	};
+
+	usbphy@125B0000 {
 		status = "okay";
 	};
 
@@ -225,6 +256,7 @@
 					regulator-name = "VLCD+VMIPI_1.8V";
 					regulator-min-microvolt = <1800000>;
 					regulator-max-microvolt = <1800000>;
+					regulator-always-on;
 				};
 
 				ldo8_reg: LDO8 {
@@ -288,6 +320,7 @@
 					regulator-name = "VCC_3.0V_LCD";
 					regulator-min-microvolt = <3000000>;
 					regulator-max-microvolt = <3000000>;
+					regulator-always-on;
 				};
 
 				buck1_reg: BUCK1 {
@@ -345,8 +378,68 @@
 		};
 	};
 
+	fimd: fimd@11c00000 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&lcd_clk>, <&lcd_data24>;
+		status = "okay";
+
+		display-timings {
+			native-mode = <&timing0>;
+			timing0: timing {
+				clock-frequency = <24000000>;
+				hactive = <480>;
+				vactive = <800>;
+				hfront-porch = <16>;
+				hback-porch = <16>;
+				hsync-len = <2>;
+				vback-porch = <2>;
+				vfront-porch = <28>;
+				vsync-len = <1>;
+				vsync-active = <0>;
+				hsync-active = <0>;
+				de-active = <0>;
+				pixelclk-active = <0>;
+			};
+		};
+	};
+
 	pwm@139D0000 {
 		compatible = "samsung,s5p6440-pwm";
 		status = "okay";
+	};
+
+	camera {
+		status = "okay";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&cam_port_a_clk_off>;
+
+		fimc_0: fimc@11800000 {
+			status = "okay";
+		};
+
+		fimc_1: fimc@11810000 {
+			status = "okay";
+		};
+
+		fimc_2: fimc@11820000 {
+			status = "okay";
+		};
+
+		fimc_3: fimc@11830000 {
+			status = "okay";
+		};
+	};
+
+	codec@13400000 {
+		status = "okay";
+
+		memport@0 {
+			memory-region = <&mfc_l_mem>;
+		};
+
+		memport@1 {
+			memory-region = <&mfc_r_mem>;
+		};
 	};
 };
