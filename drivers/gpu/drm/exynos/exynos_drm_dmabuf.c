@@ -72,8 +72,6 @@ static struct sg_table *
 	unsigned int i;
 	int nents, ret;
 
-	DRM_DEBUG_PRIME("%s\n", __FILE__);
-
 	/* just return current sgt if already requested. */
 	if (exynos_attach->dir == dir && exynos_attach->is_mapped)
 		return &exynos_attach->sgt;
@@ -166,8 +164,6 @@ static void exynos_dmabuf_release(struct dma_buf *dmabuf)
 {
 	struct exynos_drm_gem_obj *exynos_gem_obj = dmabuf->priv;
 
-	DRM_DEBUG_PRIME("%s\n", __FILE__);
-
 	/*
 	 * exynos_dmabuf_release() call means that file object's
 	 * f_count is 0 and it calls drm_gem_object_handle_unreference()
@@ -255,8 +251,6 @@ struct drm_gem_object *exynos_dmabuf_prime_import(struct drm_device *drm_dev,
 	struct exynos_drm_gem_obj *exynos_gem_obj;
 	struct exynos_drm_gem_buf *buffer;
 	int ret;
-
-	DRM_DEBUG_PRIME("%s\n", __FILE__);
 
 	/* is this one of own objects? */
 	if (dma_buf->ops == &exynos_dmabuf_ops) {

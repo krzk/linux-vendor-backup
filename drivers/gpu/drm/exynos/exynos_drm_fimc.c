@@ -176,8 +176,6 @@ static void fimc_sw_reset(struct fimc_context *ctx)
 {
 	u32 cfg;
 
-	DRM_DEBUG_KMS("%s\n", __func__);
-
 	/* stop dma operation */
 	cfg = fimc_read(EXYNOS_CISTATUS);
 	if (EXYNOS_CISTATUS_GET_ENVID_STATUS(cfg)) {
@@ -211,8 +209,6 @@ static void fimc_sw_reset(struct fimc_context *ctx)
 
 static int fimc_set_camblk_fimd0_wb(struct fimc_context *ctx)
 {
-	DRM_DEBUG_KMS("%s\n", __func__);
-
 	return regmap_update_bits(ctx->sysreg, SYSREG_CAMERA_BLK,
 				  SYSREG_FIMD0WB_DEST_MASK,
 				  ctx->id << SYSREG_FIMD0WB_DEST_SHIFT);
@@ -320,8 +316,6 @@ static void fimc_clear_irq(struct fimc_context *ctx)
 {
 	u32 cfg;
 
-	DRM_DEBUG_KMS("%s\n", __func__);
-
 	cfg = fimc_read(EXYNOS_CIGCTRL);
 	cfg |= EXYNOS_CIGCTRL_IRQ_CLR;
 	fimc_write(cfg, EXYNOS_CIGCTRL);
@@ -380,8 +374,6 @@ static int fimc_get_buf_id(struct fimc_context *ctx)
 {
 	u32 cfg;
 	int frame_cnt, buf_id;
-
-	DRM_DEBUG_KMS("%s\n", __func__);
 
 	cfg = fimc_read(EXYNOS_CISTATUS2);
 	frame_cnt = EXYNOS_CISTATUS2_GET_FRAMECOUNT_BEFORE(cfg);
@@ -1358,8 +1350,6 @@ static int fimc_init_prop_list(struct exynos_drm_ippdrv *ippdrv)
 {
 	struct drm_exynos_ipp_prop_list *prop_list;
 
-	DRM_DEBUG_KMS("%s\n", __func__);
-
 	prop_list = devm_kzalloc(ippdrv->dev, sizeof(*prop_list), GFP_KERNEL);
 	if (!prop_list)
 		return -ENOMEM;
@@ -1417,8 +1407,6 @@ static int fimc_ippdrv_check_property(struct device *dev,
 	struct drm_exynos_sz *sz;
 	bool swap;
 	int i;
-
-	DRM_DEBUG_KMS("%s\n", __func__);
 
 	for_each_ipp_ops(i) {
 		if ((i == EXYNOS_DRM_OPS_SRC) &&
@@ -1525,8 +1513,6 @@ static void fimc_clear_addr(struct fimc_context *ctx)
 {
 	int i;
 
-	DRM_DEBUG_KMS("%s:\n", __func__);
-
 	for (i = 0; i < FIMC_MAX_SRC; i++) {
 		fimc_write(0, EXYNOS_CIIYSA(i));
 		fimc_write(0, EXYNOS_CIICBSA(i));
@@ -1543,8 +1529,6 @@ static void fimc_clear_addr(struct fimc_context *ctx)
 static int fimc_ippdrv_reset(struct device *dev)
 {
 	struct fimc_context *ctx = get_fimc_context(dev);
-
-	DRM_DEBUG_KMS("%s\n", __func__);
 
 	/* reset h/w block */
 	fimc_sw_reset(ctx);
