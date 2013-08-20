@@ -19,6 +19,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/dma-attrs.h>
 #include <linux/of.h>
+#include <linux/dmabuf-sync.h>
 
 #include <drm/drmP.h>
 #include <drm/exynos_drm.h>
@@ -205,6 +206,7 @@ struct g2d_cmdlist_node {
 	struct g2d_buf_info	buf_info;
 
 	struct drm_exynos_pending_g2d_event	*event;
+	struct dmabuf_sync	*sync;
 };
 
 struct g2d_runqueue_node {
@@ -243,6 +245,20 @@ struct g2d_data {
 
 	unsigned long			current_pool;
 	unsigned long			max_pool;
+};
+
+static void g2d_dmabuf_sync_free(void *priv)
+{
+	struct g2d_cmdlist_node *node = priv;
+
+	if (!node)
+		return;
+
+	node->sync = NULL;
+}
+
+static struct dmabuf_sync_priv_ops dmabuf_sync_ops = {
+	.free	= g2d_dmabuf_sync_free,
 };
 
 static int g2d_init_cmdlist(struct g2d_data *g2d)
@@ -684,6 +700,12 @@ static int g2d_map_cmdlist_gem(struct g2d_data *g2d,
 	int ret;
 	int i;
 
+	if (is_dmabuf_sync_supported()) {
+		node->sync = dmabuf_sync_init("g2d", &dmabuf_sync_ops, node);
+		if (IS_ERR(node->sync))
+			node->sync = NULL;
+	}
+
 	for (i = 0; i < buf_info->map_nr; i++) {
 		struct g2d_buf_desc *buf_desc;
 		enum g2d_reg_type reg_type;
@@ -706,7 +728,30 @@ static int g2d_map_cmdlist_gem(struct g2d_data *g2d,
 
 		if (buf_info->types[reg_type] == BUF_TYPE_GEM) {
 			unsigned long size;
+			unsigned int type;
+			void *dma_buf = NULL;
 
+			if (!node->sync)
+				goto out_dmabuf_sync;
+
+			dma_buf = exynos_drm_gem_get_dmabuf(drm_dev, handle,
+								file);
+			if (!dma_buf)
+				goto out_dmabuf_sync;
+
+			if (reg_type == REG_TYPE_DST_PLANE2 ||
+					reg_type == REG_TYPE_DST)
+				type = DMA_BUF_ACCESS_DMA_W;
+			else
+				type = DMA_BUF_ACCESS_DMA_R;
+
+			ret = dmabuf_sync_get(node->sync, dma_buf, type);
+			if (ret < 0) {
+				WARN_ON(1);
+				dmabuf_sync_put_all(node->sync);
+			}
+
+out_dmabuf_sync:
 			size = exynos_drm_gem_get_size(drm_dev, handle, file);
 			if (!size) {
 				ret = -EFAULT;
@@ -756,9 +801,19 @@ static int g2d_map_cmdlist_gem(struct g2d_data *g2d,
 		buf_info->handles[reg_type] = handle;
 	}
 
-	return 0;
+	if (node->sync) {
+		if (list_empty(&node->sync->syncs))
+			dmabuf_sync_fini(node->sync);
+	}
+
+	return ret;
 
 err:
+	if (node->sync) {
+		dmabuf_sync_put_all(node->sync);
+		dmabuf_sync_fini(node->sync);
+	}
+
 	buf_info->map_nr = i;
 	return ret;
 }
@@ -805,6 +860,17 @@ static void g2d_dma_start(struct g2d_data *g2d,
 						struct g2d_cmdlist_node, list);
 	int ret;
 
+	if (node->sync) {
+		int ret;
+
+		ret = dmabuf_sync_lock(node->sync);
+		if (ret < 0) {
+			WARN_ON(1);
+			dmabuf_sync_put_all(node->sync);
+			dmabuf_sync_fini(node->sync);
+		}
+	}
+
 	ret = pm_runtime_get_sync(g2d->dev);
 	if (ret < 0)
 		return;
@@ -839,8 +905,22 @@ static void g2d_free_runqueue_node(struct g2d_data *g2d,
 	 * commands in run_cmdlist have been completed so unmap all gem
 	 * objects in each command node so that they are unreferenced.
 	 */
-	list_for_each_entry(node, &runqueue_node->run_cmdlist, list)
+	list_for_each_entry(node, &runqueue_node->run_cmdlist, list) {
+		if (node->sync) {
+			int ret;
+
+			ret = dmabuf_sync_unlock(node->sync);
+			if (ret < 0) {
+				WARN_ON(1);
+				/* TODO */
+			}
+
+			dmabuf_sync_put_all(node->sync);
+			dmabuf_sync_fini(node->sync);
+		}
+
 		g2d_unmap_cmdlist_gem(g2d, node, runqueue_node->filp);
+	}
 	list_splice_tail_init(&runqueue_node->run_cmdlist, &g2d->free_cmdlist);
 	mutex_unlock(&g2d->cmdlist_mutex);
 
