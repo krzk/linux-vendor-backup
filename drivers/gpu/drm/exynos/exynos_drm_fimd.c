@@ -920,10 +920,8 @@ static int fimd_probe(struct platform_device *pdev)
 			display_np = dev->of_node;
 
 		pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
-		if (!pdata) {
-			DRM_ERROR("memory allocation for pdata failed\n");
+		if (!pdata)
 			return -ENOMEM;
-		}
 
 		ret = of_get_fb_videomode(display_np,
 				&pdata->panel.timing, OF_USE_NATIVE_MODE);

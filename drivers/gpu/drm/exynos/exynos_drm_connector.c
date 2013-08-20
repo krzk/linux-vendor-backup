@@ -326,10 +326,8 @@ struct drm_connector *exynos_drm_connector_create(struct drm_device *dev,
 	DRM_DEBUG_KMS("%s\n", __FILE__);
 
 	exynos_connector = kzalloc(sizeof(*exynos_connector), GFP_KERNEL);
-	if (!exynos_connector) {
-		DRM_ERROR("failed to allocate connector\n");
+	if (!exynos_connector)
 		return NULL;
-	}
 
 	connector = &exynos_connector->drm_connector;
 

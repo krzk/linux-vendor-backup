@@ -347,10 +347,8 @@ int exynos_drm_crtc_create(struct drm_device *dev, unsigned int nr)
 	DRM_DEBUG_KMS("%s\n", __FILE__);
 
 	exynos_crtc = kzalloc(sizeof(*exynos_crtc), GFP_KERNEL);
-	if (!exynos_crtc) {
-		DRM_ERROR("failed to allocate exynos crtc\n");
+	if (!exynos_crtc)
 		return -ENOMEM;
-	}
 
 	exynos_crtc->pipe = nr;
 	exynos_crtc->dpms = DRM_MODE_DPMS_OFF;

@@ -1361,10 +1361,8 @@ static int fimc_init_prop_list(struct exynos_drm_ippdrv *ippdrv)
 	DRM_DEBUG_KMS("%s\n", __func__);
 
 	prop_list = devm_kzalloc(ippdrv->dev, sizeof(*prop_list), GFP_KERNEL);
-	if (!prop_list) {
-		DRM_ERROR("failed to alloc property list.\n");
+	if (!prop_list)
 		return -ENOMEM;
-	}
 
 	prop_list->version = 1;
 	prop_list->writeback = 1;
