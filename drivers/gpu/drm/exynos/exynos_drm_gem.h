@@ -111,6 +111,10 @@ void exynos_drm_gem_put_dma_addr(struct drm_device *dev,
 					unsigned int gem_handle,
 					struct drm_file *filp);
 
+void *exynos_drm_gem_get_dmabuf(struct drm_device *dev,
+					unsigned int gem_handle,
+					struct drm_file *filp);
+
 /* get buffer offset to map to user space. */
 int exynos_drm_gem_map_offset_ioctl(struct drm_device *dev, void *data,
 				    struct drm_file *file_priv);

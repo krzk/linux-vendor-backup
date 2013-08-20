@@ -319,6 +319,23 @@ void exynos_drm_gem_put_dma_addr(struct drm_device *dev,
 	drm_gem_object_unreference_unlocked(obj);
 }
 
+void *exynos_drm_gem_get_dmabuf(struct drm_device *dev,
+					unsigned int gem_handle,
+					struct drm_file *filp)
+{
+	struct drm_gem_object *obj;
+
+	obj = drm_gem_object_lookup(dev, filp, gem_handle);
+	if (!obj) {
+		DRM_ERROR("failed to lookup gem object.\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	drm_gem_object_unreference_unlocked(obj);
+
+	return obj->export_dma_buf;
+}
+
 int exynos_drm_gem_map_offset_ioctl(struct drm_device *dev, void *data,
 				    struct drm_file *file_priv)
 {
