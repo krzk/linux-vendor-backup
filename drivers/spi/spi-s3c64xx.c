@@ -277,7 +277,7 @@ static void s3c64xx_spi_dmacb(void *data)
 	spin_unlock_irqrestore(&sdd->lock, flags);
 }
 
-static void prepare_dma(struct s3c64xx_spi_dma_data *dma,
+static void s3c64xx_prepare_dma(struct s3c64xx_spi_dma_data *dma,
 					unsigned len, dma_addr_t buf)
 {
 	struct s3c64xx_spi_driver_data *sdd;
@@ -381,7 +381,7 @@ static void s3c64xx_spi_dma_stop(struct s3c64xx_spi_driver_data *sdd,
 	dmaengine_terminate_all(dma->ch);
 }
 
-static void enable_datapath(struct s3c64xx_spi_driver_data *sdd,
+static void s3c64xx_enable_datapath(struct s3c64xx_spi_driver_data *sdd,
 				struct spi_device *spi,
 				struct spi_transfer *xfer, int dma_mode)
 {
@@ -412,7 +412,8 @@ static void enable_datapath(struct s3c64xx_spi_driver_data *sdd,
 		chcfg |= S3C64XX_SPI_CH_TXCH_ON;
 		if (dma_mode) {
 			modecfg |= S3C64XX_SPI_MODE_TXDMA_ON;
-			prepare_dma(&sdd->tx_dma, xfer->len, xfer->tx_dma);
+			s3c64xx_prepare_dma(&sdd->tx_dma,
+					xfer->len, xfer->tx_dma);
 		} else {
 			switch (sdd->cur_bpw) {
 			case 32:
@@ -444,7 +445,8 @@ static void enable_datapath(struct s3c64xx_spi_driver_data *sdd,
 			writel(((xfer->len * 8 / sdd->cur_bpw) & 0xffff)
 					| S3C64XX_SPI_PACKET_CNT_EN,
 					regs + S3C64XX_SPI_PACKET_CNT);
-			prepare_dma(&sdd->rx_dma, xfer->len, xfer->rx_dma);
+			s3c64xx_prepare_dma(&sdd->rx_dma,
+					xfer->len, xfer->rx_dma);
 		}
 	}
 
@@ -452,7 +454,7 @@ static void enable_datapath(struct s3c64xx_spi_driver_data *sdd,
 	writel(chcfg, regs + S3C64XX_SPI_CH_CFG);
 }
 
-static inline void enable_cs(struct s3c64xx_spi_driver_data *sdd,
+static inline void s3c64xx_enable_cs(struct s3c64xx_spi_driver_data *sdd,
 						struct spi_device *spi)
 {
 	struct s3c64xx_spi_csinfo *cs;
@@ -471,7 +473,7 @@ static inline void enable_cs(struct s3c64xx_spi_driver_data *sdd,
 	gpio_set_value(cs->line, spi->mode & SPI_CS_HIGH ? 1 : 0);
 }
 
-static int wait_for_xfer(struct s3c64xx_spi_driver_data *sdd,
+static int s3c64xx_wait_for_xfer(struct s3c64xx_spi_driver_data *sdd,
 				struct spi_transfer *xfer, int dma_mode)
 {
 	void __iomem *regs = sdd->regs;
@@ -546,7 +548,7 @@ static int wait_for_xfer(struct s3c64xx_spi_driver_data *sdd,
 	return 0;
 }
 
-static inline void disable_cs(struct s3c64xx_spi_driver_data *sdd,
+static inline void s3c64xx_disable_cs(struct s3c64xx_spi_driver_data *sdd,
 						struct spi_device *spi)
 {
 	struct s3c64xx_spi_csinfo *cs = spi->controller_data;
@@ -774,17 +776,17 @@ static int s3c64xx_spi_transfer_one_message(struct spi_master *master,
 		sdd->state &= ~RXBUSY;
 		sdd->state &= ~TXBUSY;
 
-		enable_datapath(sdd, spi, xfer, use_dma);
+		s3c64xx_enable_datapath(sdd, spi, xfer, use_dma);
 
 		/* Slave Select */
-		enable_cs(sdd, spi);
+		s3c64xx_enable_cs(sdd, spi);
 
 		/* Start the signals */
 		writel(0, sdd->regs + S3C64XX_SPI_SLAVE_SEL);
 
 		spin_unlock_irqrestore(&sdd->lock, flags);
 
-		status = wait_for_xfer(sdd, xfer, use_dma);
+		status = s3c64xx_wait_for_xfer(sdd, xfer, use_dma);
 
 		/* Quiese the signals */
 		writel(S3C64XX_SPI_SLAVE_SIG_INACT,
@@ -827,7 +829,7 @@ static int s3c64xx_spi_transfer_one_message(struct spi_master *master,
 
 out:
 	if (!cs_toggle || status)
-		disable_cs(sdd, spi);
+		s3c64xx_disable_cs(sdd, spi);
 	else
 		sdd->tgl_spi = spi;
 
@@ -974,12 +976,12 @@ static int s3c64xx_spi_setup(struct spi_device *spi)
 	}
 
 	pm_runtime_put(&sdd->pdev->dev);
-	disable_cs(sdd, spi);
+	s3c64xx_disable_cs(sdd, spi);
 	return 0;
 
 setup_exit:
 	/* setup() returns with device de-selected */
-	disable_cs(sdd, spi);
+	s3c64xx_disable_cs(sdd, spi);
 
 err_msgq:
 	gpio_free(cs->line);
