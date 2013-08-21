@@ -18,7 +18,10 @@
 	model = "Samsung M0 based on Exynos4412";
 	compatible = "samsung,m0", "samsung,exynos4412";
 
-	/* Nothing to override here yet. */
+	aliases {
+		i2c20 = &i2c_touch_key;
+		i2c21 = &i2c_cm36651;
+	};
 
 	pinctrl@11400000 {
 		vt_cam_id: vt-cam-id {
