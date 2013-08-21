@@ -34,10 +34,6 @@
 
 #include <linux/platform_data/spi-s3c64xx.h>
 
-#ifdef CONFIG_S3C_DMA
-#include <mach/dma.h>
-#endif
-
 #define MAX_SPI_PORTS		3
 
 /* Registers and bit-fields */
@@ -199,9 +195,7 @@ struct s3c64xx_spi_driver_data {
 	unsigned                        cur_speed;
 	struct s3c64xx_spi_dma_data	rx_dma;
 	struct s3c64xx_spi_dma_data	tx_dma;
-#ifdef CONFIG_S3C_DMA
-	struct samsung_dma_ops		*ops;
-#endif
+
 	struct s3c64xx_spi_port_config	*port_conf;
 	unsigned int			port_id;
 	unsigned long			gpios[4];
@@ -282,96 +276,6 @@ static void s3c64xx_spi_dmacb(void *data)
 
 	spin_unlock_irqrestore(&sdd->lock, flags);
 }
-
-#ifdef CONFIG_S3C_DMA
-/* FIXME: remove this section once arch/arm/mach-s3c64xx uses dmaengine */
-
-static struct s3c2410_dma_client s3c64xx_spi_dma_client = {
-	.name = "samsung-spi-dma",
-};
-
-static void prepare_dma(struct s3c64xx_spi_dma_data *dma,
-					unsigned len, dma_addr_t buf)
-{
-	struct s3c64xx_spi_driver_data *sdd;
-	struct samsung_dma_prep info;
-	struct samsung_dma_config config;
-
-	if (dma->direction == DMA_DEV_TO_MEM) {
-		sdd = container_of((void *)dma,
-			struct s3c64xx_spi_driver_data, rx_dma);
-		config.direction = sdd->rx_dma.direction;
-		config.fifo = sdd->sfr_start + S3C64XX_SPI_RX_DATA;
-		config.width = sdd->cur_bpw / 8;
-		sdd->ops->config((enum dma_ch)sdd->rx_dma.ch, &config);
-	} else {
-		sdd = container_of((void *)dma,
-			struct s3c64xx_spi_driver_data, tx_dma);
-		config.direction =  sdd->tx_dma.direction;
-		config.fifo = sdd->sfr_start + S3C64XX_SPI_TX_DATA;
-		config.width = sdd->cur_bpw / 8;
-		sdd->ops->config((enum dma_ch)sdd->tx_dma.ch, &config);
-	}
-
-	info.cap = DMA_SLAVE;
-	info.len = len;
-	info.fp = s3c64xx_spi_dmacb;
-	info.fp_param = dma;
-	info.direction = dma->direction;
-	info.buf = buf;
-
-	sdd->ops->prepare((enum dma_ch)dma->ch, &info);
-	sdd->ops->trigger((enum dma_ch)dma->ch);
-}
-
-static int acquire_dma(struct s3c64xx_spi_driver_data *sdd)
-{
-	struct samsung_dma_req req;
-	struct device *dev = &sdd->pdev->dev;
-
-	sdd->ops = samsung_dma_get_ops();
-
-	req.cap = DMA_SLAVE;
-	req.client = &s3c64xx_spi_dma_client;
-
-	sdd->rx_dma.ch = (void *)sdd->ops->request(sdd->rx_dma.dmach, &req, dev, "rx");
-	sdd->tx_dma.ch = (void *)sdd->ops->request(sdd->tx_dma.dmach, &req, dev, "tx");
-
-	return 1;
-}
-
-static int s3c64xx_spi_prepare_transfer(struct spi_master *spi)
-{
-	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(spi);
-
-	/* Acquire DMA channels */
-	while (!acquire_dma(sdd))
-		usleep_range(10000, 11000);
-
-	pm_runtime_get_sync(&sdd->pdev->dev);
-
-	return 0;
-}
-
-static int s3c64xx_spi_unprepare_transfer(struct spi_master *spi)
-{
-	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(spi);
-
-	/* Free DMA channels */
-	sdd->ops->release((enum dma_ch)sdd->rx_dma.ch, &s3c64xx_spi_dma_client);
-	sdd->ops->release((enum dma_ch)sdd->tx_dma.ch, &s3c64xx_spi_dma_client);
-
-	pm_runtime_put(&sdd->pdev->dev);
-
-	return 0;
-}
-
-static void s3c64xx_spi_dma_stop(struct s3c64xx_spi_driver_data *sdd,
-				 struct s3c64xx_spi_dma_data *dma)
-{
-	sdd->ops->stop((enum dma_ch)dma->ch);
-}
-#else
 
 static void prepare_dma(struct s3c64xx_spi_dma_data *dma,
 					unsigned len, dma_addr_t buf)
@@ -476,7 +380,6 @@ static void s3c64xx_spi_dma_stop(struct s3c64xx_spi_driver_data *sdd,
 {
 	dmaengine_terminate_all(dma->ch);
 }
-#endif
 
 static void enable_datapath(struct s3c64xx_spi_driver_data *sdd,
 				struct spi_device *spi,
