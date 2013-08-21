@@ -2360,8 +2360,14 @@ static int coda_open(struct file *file)
 		ctx->reg_idx = idx;
 	}
 
-	clk_prepare_enable(dev->clk_per);
-	clk_prepare_enable(dev->clk_ahb);
+	ret = clk_prepare_enable(dev->clk_per);
+	if (ret)
+		goto err_clk_per;
+
+	ret = clk_prepare_enable(dev->clk_ahb);
+	if (ret)
+		goto err_clk_ahb;
+
 	set_default_params(ctx);
 	ctx->m2m_ctx = v4l2_m2m_ctx_init(dev->m2m_dev, ctx,
 					 &coda_queue_init);
@@ -2419,7 +2425,9 @@ err_ctrls_setup:
 	v4l2_m2m_ctx_release(ctx->m2m_ctx);
 err_ctx_init:
 	clk_disable_unprepare(dev->clk_ahb);
+err_clk_ahb:
 	clk_disable_unprepare(dev->clk_per);
+err_clk_per:
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
 	clear_bit(ctx->idx, &dev->instance_mask);
@@ -2827,10 +2835,15 @@ static int coda_hw_init(struct coda_dev *dev)
 	u16 product, major, minor, release;
 	u32 data;
 	u16 *p;
-	int i;
+	int i, ret;
 
-	clk_prepare_enable(dev->clk_per);
-	clk_prepare_enable(dev->clk_ahb);
+	ret = clk_prepare_enable(dev->clk_per);
+	if (ret)
+		return ret;
+
+	ret = clk_prepare_enable(dev->clk_ahb);
+	if (ret)
+		goto err_clk_ahb;
 
 	/*
 	 * Copy the first CODA_ISRAM_SIZE in the internal SRAM.
@@ -2939,6 +2952,10 @@ static int coda_hw_init(struct coda_dev *dev)
 	}
 
 	return 0;
+
+err_clk_ahb:
+	clk_disable_unprepare(dev->clk_per);
+	return ret;
 }
 
 static void coda_fw_callback(const struct firmware *fw, void *context)
