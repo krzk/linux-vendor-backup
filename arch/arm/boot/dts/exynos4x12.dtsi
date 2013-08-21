@@ -102,8 +102,10 @@
 		compatible = "samsung,exynos4212-g2d";
 		reg = <0x10800000 0x1000>;
 		interrupts = <0 89 0>;
-		clocks = <&clock 277>;
-		clock-names = "fimg2d";
+		clocks = <&clock 177>, <&clock 277>;
+		clock-names = "sclk_fimg2d", "fimg2d";
+		samsung,power-domain = <&pd_lcd0>;
+		iommu = <&sysmmu_g2d>;
 		status = "disabled";
 	};
 
@@ -113,7 +115,8 @@
 		interrupt-parent = <&combiner>;
 		interrupt-names = "sysmmu-g2d";
 		interrupts = <4 7>;
-		clock-names = "sysmmu";
+		clocks = <&clock 280>, <&clock 277>;
+		clock-names = "sysmmu", "master";
 		status = "ok";
 	};
 
@@ -167,8 +170,9 @@
 		interrupt-parent = <&combiner>;
 		interrupt-names = "sysmmu-fimc_lite0";
 		interrupts = <16 0>;
-		clock-names = "sysmmu";
-		clocks = <&clock 366>;
+		clock-names = "sysmmu", "master";
+		clocks = <&clock 366>, <&clock 353>;
+		samsung,power-domain = <&pd_isp>;
 		status = "ok";
 	};
 
@@ -178,8 +182,9 @@
 		interrupt-parent = <&combiner>;
 		interrupt-names = "sysmmu-fimc_lite1";
 		interrupts = <16 1>;
-		clock-names = "sysmmu";
-		clocks = <&clock 365>;
+		clock-names = "sysmmu", "master";
+		clocks = <&clock 365>, <&clock 354>;
+		samsung,power-domain = <&pd_isp>;
 		status = "ok";
 	};
 
@@ -264,6 +269,7 @@
 			clocks = <&clock 353>;
 			clock-names = "flite";
 			status = "disabled";
+			iommu = <&sysmmu_fimc_lite0>;
 		};
 
 		fimc_lite_1: fimc-lite@123A0000 {
@@ -274,6 +280,7 @@
 			clocks = <&clock 354>;
 			clock-names = "flite";
 			status = "disabled";
+			iommu = <&sysmmu_fimc_lite1>;
 		};
 
 		fimc_is: fimc-is@12000000 {

@@ -172,6 +172,7 @@
 			samsung,power-domain = <&pd_cam>;
 			samsung,sysreg = <&sys_reg>;
 			status = "disabled";
+			iommu = <&sysmmu_fimc0>;
 		};
 
 		fimc_1: fimc@11810000 {
@@ -181,6 +182,7 @@
 			samsung,power-domain = <&pd_cam>;
 			samsung,sysreg = <&sys_reg>;
 			status = "disabled";
+			iommu = <&sysmmu_fimc1>;
 		};
 
 		fimc_2: fimc@11820000 {
@@ -190,6 +192,7 @@
 			samsung,power-domain = <&pd_cam>;
 			samsung,sysreg = <&sys_reg>;
 			status = "disabled";
+			iommu = <&sysmmu_fimc2>;
 		};
 
 		fimc_3: fimc@11830000 {
@@ -199,6 +202,7 @@
 			samsung,power-domain = <&pd_cam>;
 			samsung,sysreg = <&sys_reg>;
 			status = "disabled";
+			iommu = <&sysmmu_fimc3>;
 		};
 
 		csis_0: csis@11880000 {
@@ -297,16 +301,19 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		status = "disabled";
-		iommu = <&sysmmu_mfc_l>, <&sysmmu_mfc_r>;
 
 		mfc_l: memport@0 {
 			compatible = "samsung,memport";
 			reg = <0>;
+			iommu = <&sysmmu_mfc_l>;
+			samsung,power-domain = <&pd_mfc>;
 		};
 
 		mfc_r: memport@1 {
 			compatible = "samsung,memport";
 			reg = <1>;
+			iommu = <&sysmmu_mfc_r>;
+			samsung,power-domain = <&pd_mfc>;
 		};
 	};
 
@@ -605,8 +612,8 @@
 		interrupt-parent = <&combiner>;
 		interrupt-names = "sysmmu-mfc-l";
 		interrupts = <5 5>;
-		clock-names = "sysmmu";
-		clocks = <&clock 274>;
+		clock-names = "sysmmu", "master";
+		clocks = <&clock 274>, <&clock 273>;
 		samsung,power-domain = <&pd_mfc>;
 		status = "ok";
 	};
@@ -617,8 +624,8 @@
 		interrupt-parent = <&combiner>;
 		interrupt-names = "sysmmu-mfc-r";
 		interrupts = <5 6>;
-		clock-names = "sysmmu";
-		clocks = <&clock 275>;
+		clock-names = "sysmmu", "master";
+		clocks = <&clock 275>, <&clock 273>;
 		samsung,power-domain = <&pd_mfc>;
 		status = "ok";
 	};
@@ -629,8 +636,8 @@
 		interrupt-parent = <&combiner>;
 		interrupt-names = "sysmmu-tv";
 		interrupts = <5 4>;
-		clock-names = "sysmmu";
-		clocks = <&clock 272>;
+		clock-names = "sysmmu", "master";
+		clocks = <&clock 272>, <&clock 269>;
 		samsung,power-domain = <&pd_tv>;
 		status = "ok";
 	};
@@ -641,8 +648,8 @@
 		interrupt-parent = <&combiner>;
 		interrupt-names = "sysmmu-fimc0";
 		interrupts = <4 2>;
-		clock-names = "sysmmu";
-		clocks = <&clock 263>;
+		clock-names = "sysmmu", "master";
+		clocks = <&clock 263>, <&clock 256>;
 		samsung,power-domain = <&pd_cam>;
 		status = "ok";
 	};
@@ -653,8 +660,8 @@
 		interrupt-parent = <&combiner>;
 		interrupt-names = "sysmmu-fimc1";
 		interrupts = <4 3>;
-		clock-names = "sysmmu";
-		clocks = <&clock 264>;
+		clock-names = "sysmmu", "master";
+		clocks = <&clock 264>, <&clock 257>;
 		samsung,power-domain = <&pd_cam>;
 		status = "ok";
 	};
@@ -665,8 +672,8 @@
 		interrupt-parent = <&combiner>;
 		interrupt-names = "sysmmu-fimc2";
 		interrupts = <4 4>;
-		clock-names = "sysmmu";
-		clocks = <&clock 265>;
+		clock-names = "sysmmu", "master";
+		clocks = <&clock 265>, <&clock 258>;
 		samsung,power-domain = <&pd_cam>;
 		status = "ok";
 	};
@@ -677,8 +684,8 @@
 		interrupt-parent = <&combiner>;
 		interrupt-names = "sysmmu-fimc3";
 		interrupts = <4 5>;
-		clock-names = "sysmmu";
-		clocks = <&clock 266>;
+		clock-names = "sysmmu", "master";
+		clocks = <&clock 266>, <&clock 259>;
 		samsung,power-domain = <&pd_cam>;
 		status = "ok";
 	};
@@ -689,8 +696,8 @@
 		interrupt-parent = <&combiner>;
 		interrupt-names = "sysmmu-jpeg";
 		interrupts = <4 6>;
-		clock-names = "sysmmu";
-		clocks = <&clock 267>;
+		clock-names = "sysmmu", "master";
+		clocks = <&clock 267>, <&clock 262>;
 		samsung,power-domain = <&pd_cam>;
 		status = "ok";
 	};
@@ -701,8 +708,8 @@
 		interrupt-parent = <&combiner>;
 		interrupt-names = "sysmmu-rotator";
 		interrupts = <5 0>;
-		clock-names = "sysmmu";
-		clocks = <&clock 281>;
+		clock-names = "sysmmu", "master";
+		clocks = <&clock 281>, <&clock 278>;
 		samsung,power-domain = <&pd_lcd0>;
 		status = "ok";
 	};
@@ -713,8 +720,8 @@
 		interrupt-parent = <&combiner>;
 		interrupt-names = "sysmmu-fimd0";
 		interrupts = <5 2>;
-		clock-names = "sysmmu";
-		clocks = <&clock 287>;
+		clock-names = "sysmmu", "master";
+		clocks = <&clock 287>, <&clock 283>;
 		samsung,power-domain = <&pd_lcd0>;
 		status = "ok";
 	};
