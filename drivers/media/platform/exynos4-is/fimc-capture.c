@@ -991,8 +991,8 @@ static int __video_try_or_set_format(struct fimc_dev *fimc,
 
 		sensor = __fimc_md_get_subdev(ve->pipe, IDX_SENSOR);
 		if (sensor)
-			fimc_get_sensor_frame_desc(sensor, pix->plane_fmt,
-						   (*out_fmt)->memplanes, try);
+			ret = fimc_get_sensor_frame_desc(sensor, pix->plane_fmt,
+						   (*out_fmt)->memplanes, true);
 		else
 			ret = -EPIPE;
 
