@@ -1699,6 +1699,10 @@ static int s5c73m3_probe(struct i2c_client *client,
 
 	state->i2c_client = client;
 
+	/* Initialize data plane lengths for the interleaved image data. */
+	state->frame_desc.entry[0].length = 10 * SZ_1M;
+	state->frame_desc.entry[1].length = S5C73M3_EMBEDDED_DATA_MAXLEN;
+
 	v4l2_info(sd, "%s: completed succesfully\n", __func__);
 	return 0;
 
