@@ -39,9 +39,28 @@ static struct mfd_cell max77686_devs[] = {
 	{ .name = "max77686-rtc", },
 };
 
+static bool max77686_volatile(struct device *dev, unsigned int reg)
+{
+	switch (reg) {
+	case MAX77686_REG_INTSRC:
+	case MAX77686_REG_INT1:
+	case MAX77686_REG_INT2:
+	case MAX77686_REG_STATUS1:
+	case MAX77686_REG_STATUS2:
+	case MAX77686_REG_PWRON:
+		return true;
+	default:
+		return false;
+	}
+}
+
 static struct regmap_config max77686_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
+	.max_register = MAX77686_REG_PMIC_END,
+	.cache_type = REGCACHE_FLAT,
+	.volatile_reg = max77686_volatile,
+	.num_reg_defaults_raw = MAX77686_REG_PMIC_END,
 };
 
 #ifdef CONFIG_OF
