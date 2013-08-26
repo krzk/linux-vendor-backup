@@ -73,10 +73,8 @@ int s5c73m3_spi_write(struct s5c73m3 *state, const void *addr,
 	u32 count = len / tx_size;
 	u32 extra = len % tx_size;
 	unsigned int i, j = 0;
-	u8 padding[32];
-	int r = 0;
 
-	memset(padding, 0, sizeof(padding));
+	int r = 0;
 
 	for (i = 0; i < count ; i++) {
 		r = spi_xmit(spi_dev, (void *)addr + j, tx_size, SPI_DIR_TX);
@@ -85,13 +83,10 @@ int s5c73m3_spi_write(struct s5c73m3 *state, const void *addr,
 		j += tx_size;
 	}
 
-	if (extra > 0) {
+	if (extra > 0)
 		r = spi_xmit(spi_dev, (void *)addr + j, extra, SPI_DIR_TX);
-		if (r < 0)
-			return r;
-	}
 
-	return spi_xmit(spi_dev, padding, sizeof(padding), SPI_DIR_TX);
+	return r;
 }
 
 int s5c73m3_spi_read(struct s5c73m3 *state, void *addr,
