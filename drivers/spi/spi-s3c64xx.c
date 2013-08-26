@@ -277,31 +277,86 @@ static void s3c64xx_spi_dmacb(void *data)
 	spin_unlock_irqrestore(&sdd->lock, flags);
 }
 
-static void s3c64xx_prepare_dma(struct s3c64xx_spi_dma_data *dma,
-					unsigned len, dma_addr_t buf)
+static int s3c64xx_dma_init_param(struct s3c64xx_spi_driver_data *sdd,
+					bool dma_to_memory)
 {
-	struct s3c64xx_spi_driver_data *sdd;
+	struct dma_chan *dma_chan;
 	struct dma_slave_config config;
-	struct scatterlist sg;
-	struct dma_async_tx_descriptor *desc;
+	struct device *dev = &sdd->pdev->dev;
+	struct s3c64xx_spi_dma_data *dma_data = NULL;
+	dma_filter_fn filter = sdd->cntrlr_info->filter;
+	dma_cap_mask_t mask;
+	int ret;
 
-	if (dma->direction == DMA_DEV_TO_MEM) {
-		sdd = container_of((void *)dma,
-			struct s3c64xx_spi_driver_data, rx_dma);
-		config.direction = dma->direction;
+	memset(&config, 0, sizeof(struct dma_slave_config));
+
+	dma_cap_zero(mask);
+	dma_cap_set(DMA_SLAVE, mask);
+
+	if (dma_to_memory) {
+		dma_data = &sdd->rx_dma;
+		config.direction = DMA_DEV_TO_MEM;
 		config.src_addr = sdd->sfr_start + S3C64XX_SPI_RX_DATA;
 		config.src_addr_width = sdd->cur_bpw / 8;
 		config.src_maxburst = 1;
-		dmaengine_slave_config(dma->ch, &config);
 	} else {
-		sdd = container_of((void *)dma,
-			struct s3c64xx_spi_driver_data, tx_dma);
-		config.direction = dma->direction;
+		dma_data = &sdd->tx_dma;
+		config.direction = DMA_MEM_TO_DEV;
 		config.dst_addr = sdd->sfr_start + S3C64XX_SPI_TX_DATA;
 		config.dst_addr_width = sdd->cur_bpw / 8;
 		config.dst_maxburst = 1;
-		dmaengine_slave_config(dma->ch, &config);
 	}
+
+	if (dma_data->ch)
+		return 0;
+
+	dma_chan = dma_request_slave_channel_compat(mask,
+			filter, (void *)dma_data->dmach, dev,
+			dma_to_memory ? "rx" : "tx");
+	if (!dma_chan) {
+		dev_err(dev, "Failed to get %d DMA channel\n", dma_data->dmach);
+		return -EBUSY;
+	}
+
+	ret = dmaengine_slave_config(dma_chan, &config);
+	if (ret)
+		goto release;
+
+	ret = pm_runtime_get_sync(&sdd->pdev->dev);
+	if (ret < 0) {
+		dev_err(dev, "Failed to enable device: %d\n", ret);
+		goto release;
+	}
+
+	dma_data->ch = dma_chan;
+
+	return 0;
+
+release:
+	dma_release_channel(dma_chan);
+
+	return ret;
+}
+
+static void s3c64xx_dma_deinit_param(struct s3c64xx_spi_driver_data *sdd,
+					bool dma_to_memory)
+{
+	struct dma_chan *dma_chan;
+
+	if (dma_to_memory)
+		dma_chan = sdd->rx_dma.ch;
+	else
+		dma_chan = sdd->tx_dma.ch;
+
+	dma_release_channel(dma_chan);
+	pm_runtime_put(&sdd->pdev->dev);
+}
+
+static void s3c64xx_prepare_dma(struct s3c64xx_spi_dma_data *dma,
+					unsigned len, dma_addr_t buf)
+{
+	struct scatterlist sg;
+	struct dma_async_tx_descriptor *desc;
 
 	sg_init_table(&sg, 1);
 	sg_dma_len(&sg) = len;
@@ -322,56 +377,26 @@ static void s3c64xx_prepare_dma(struct s3c64xx_spi_dma_data *dma,
 static int s3c64xx_spi_prepare_transfer(struct spi_master *spi)
 {
 	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(spi);
-	dma_filter_fn filter = sdd->cntrlr_info->filter;
 	struct device *dev = &sdd->pdev->dev;
-	dma_cap_mask_t mask;
 	int ret;
 
-	dma_cap_zero(mask);
-	dma_cap_set(DMA_SLAVE, mask);
-
-	/* Acquire DMA channels */
-	sdd->rx_dma.ch = dma_request_slave_channel_compat(mask, filter,
-				(void*)sdd->rx_dma.dmach, dev, "rx");
-	if (!sdd->rx_dma.ch) {
-		dev_err(dev, "Failed to get RX DMA channel\n");
-		ret = -EBUSY;
-		goto out;
-	}
-
-	sdd->tx_dma.ch = dma_request_slave_channel_compat(mask, filter,
-				(void*)sdd->tx_dma.dmach, dev, "tx");
-	if (!sdd->tx_dma.ch) {
-		dev_err(dev, "Failed to get TX DMA channel\n");
-		ret = -EBUSY;
-		goto out_rx;
-	}
-
 	ret = pm_runtime_get_sync(&sdd->pdev->dev);
-	if (ret < 0) {
+	if (ret < 0)
 		dev_err(dev, "Failed to enable device: %d\n", ret);
-		goto out_tx;
-	}
 
 	return 0;
-
-out_tx:
-	dma_release_channel(sdd->tx_dma.ch);
-out_rx:
-	dma_release_channel(sdd->rx_dma.ch);
-out:
-	return ret;
 }
 
 static int s3c64xx_spi_unprepare_transfer(struct spi_master *spi)
 {
 	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(spi);
+	struct device *dev = &sdd->pdev->dev;
+	int ret;
 
-	/* Free DMA channels */
-	dma_release_channel(sdd->rx_dma.ch);
-	dma_release_channel(sdd->tx_dma.ch);
+	ret = pm_runtime_put(&sdd->pdev->dev);
+	if (ret < 0)
+		dev_err(dev, "Failed to disable device: %d\n", ret);
 
-	pm_runtime_put(&sdd->pdev->dev);
 	return 0;
 }
 
@@ -726,6 +751,16 @@ static int s3c64xx_spi_transfer_one_message(struct spi_master *master,
 		sdd->cur_speed = spi->max_speed_hz;
 		sdd->cur_mode = spi->mode;
 		s3c64xx_spi_config(sdd);
+	}
+
+	/*  Initialize DMA */
+	if (!sdd->rx_dma.ch || !sdd->tx_dma.ch) {
+		status = s3c64xx_dma_init_param(sdd, false);
+		if (status < 0)
+			goto out;
+		status = s3c64xx_dma_init_param(sdd, true);
+		if (status < 0)
+			goto out;
 	}
 
 	/* Map all the transfers if needed */
@@ -1316,6 +1351,8 @@ static int s3c64xx_spi_remove(struct platform_device *pdev)
 	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(master);
 
 	pm_runtime_disable(&pdev->dev);
+	s3c64xx_dma_deinit_param(sdd, false);
+	s3c64xx_dma_deinit_param(sdd, true);
 
 	spi_unregister_master(master);
 
