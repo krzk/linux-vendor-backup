@@ -1469,6 +1469,7 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 	spin_lock_init(&dev_priv->error_lock);
 	spin_lock_init(&dev_priv->rps.lock);
 	spin_lock_init(&dev_priv->dpio_lock);
+	spin_lock_init(&dev_priv->gt_lock);
 	mutex_init(&dev_priv->rps.hw_lock);
 
 	i915_dump_device_info(dev_priv);
@@ -1560,6 +1561,7 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 	intel_detect_pch(dev);
 
 	intel_irq_init(dev);
+	intel_pm_init(dev);
 	intel_gt_sanitize(dev);
 	intel_gt_init(dev);
 
