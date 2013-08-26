@@ -47,6 +47,7 @@ static int update_fw;
 module_param(update_fw, int, 0644);
 
 #define S5C73M3_EMBEDDED_DATA_MAXLEN	SZ_4K
+#define S5C73M3_SPI_TX_SIZE		(16 * SZ_1K)
 
 static const char * const s5c73m3_supply_names[S5C73M3_MAX_SUPPLIES] = {
 	"vdd-int",	/* Digital Core supply (1.2V), CAM_ISP_CORE_1.2V */
@@ -360,7 +361,7 @@ static int s5c73m3_load_fw(struct v4l2_subdev *sd)
 
 	v4l2_info(sd, "Loading firmware (%s, %zu B)\n", fw_name, fw->size);
 
-	ret = s5c73m3_spi_write(state, fw->data, fw->size, 64);
+	ret = s5c73m3_spi_write(state, fw->data, fw->size, S5C73M3_SPI_TX_SIZE);
 
 	if (ret >= 0)
 		state->isp_ready = 1;
