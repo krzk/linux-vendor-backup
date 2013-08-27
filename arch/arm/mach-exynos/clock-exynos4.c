@@ -537,7 +537,7 @@ static struct clksrc_clk exynos4_clk_mout_g3d0 = {
   
 static struct clk *exynos4_clkset_mout_g3d1_list[] = {
         [0] = &exynos4_clk_mout_epll.clk,
-        [1] = &exynos4_clk_vpllsrc.clk,
+        [1] = &exynos4_clk_sclk_vpll.clk,
 };
   
 static struct clksrc_sources exynos4_clkset_mout_g3d1 = {
