@@ -26,10 +26,13 @@
 #include <media/v4l2-ioctl.h>
 #include <media/videobuf2-core.h>
 #include <media/videobuf2-dma-contig.h>
+#include <plat/cpu.h>
 
 #include "fimc-core.h"
 #include "fimc-reg.h"
 #include "fimc-mdevice.h"
+
+#define FIMC_SRC_CLK	"mout_mpll_user"
 
 static char *fimc_clocks[MAX_FIMC_CLOCKS] = {
 	"sclk_fimc", "fimc"
@@ -885,6 +888,7 @@ static int fimc_probe(struct platform_device *pdev)
 	struct s5p_platform_fimc *pdata;
 	struct fimc_dev *fimc;
 	struct resource *res;
+	struct clk *srclk; 
 	int ret = 0;
 
 	if (pdev->id >= drv_data->num_entities) {
@@ -924,8 +928,19 @@ static int fimc_probe(struct platform_device *pdev)
 	ret = fimc_clk_get(fimc);
 	if (ret)
 		return ret;
-	clk_set_rate(fimc->clock[CLK_BUS], drv_data->lclk_frequency);
+	srclk = clk_get(&pdev->dev, FIMC_SRC_CLK);
+	if (IS_ERR_OR_NULL(srclk)) {
+		dev_err(&pdev->dev, "Failed to get parent clock of fimc\n");
+		goto err_clk;
+	}
+    clk_set_parent(fimc->clock[CLK_BUS], srclk);
+	if (samsung_rev() >= EXYNOS4412_REV_2_0)
+		clk_set_rate(fimc->clock[CLK_BUS], 176000000UL);
+	else
+		clk_set_rate(fimc->clock[CLK_BUS], drv_data->lclk_frequency);
+	dev_info(&pdev->dev, "sclk_fimc rate is %d\n", (int) (clk_get_rate(fimc->clock[CLK_BUS])));
 	clk_enable(fimc->clock[CLK_BUS]);
+	clk_put(srclk);
 
 	ret = devm_request_irq(&pdev->dev, res->start, fimc_irq_handler,
 			       0, dev_name(&pdev->dev), fimc);
