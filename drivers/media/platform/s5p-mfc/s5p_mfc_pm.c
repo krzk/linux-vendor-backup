@@ -20,6 +20,8 @@
 #include "s5p_mfc_debug.h"
 #include "s5p_mfc_pm.h"
 
+#define MFC_PARENT_CLK_NAME     "mout_mfc0"
+#define MFC_CLKNAME             "sclk_mfc"
 #define MFC_GATE_CLK_NAME	"mfc"
 
 #define CLK_DEBUG
@@ -33,10 +35,33 @@ static atomic_t clk_ref;
 
 int s5p_mfc_init_pm(struct s5p_mfc_dev *dev)
 {
+	struct clk *parent, *sclk;
 	int ret = 0;
 
 	pm = &dev->pm;
 	p_dev = dev;
+
+        /* FIXME : move to platform resource NAME */
+        parent = clk_get(&dev->plat_dev->dev, MFC_PARENT_CLK_NAME);
+        if (IS_ERR(parent)) {
+                printk(KERN_ERR "failed to get parent clock\n");
+                ret = -ENOENT;
+                goto err_p_clk;
+        }
+
+        /* FIXME : move to platform resource NAME */
+        sclk = clk_get(&dev->plat_dev->dev, MFC_CLKNAME);
+        if (IS_ERR(sclk)) {
+                printk(KERN_ERR "failed to get source clock\n");
+                ret = -ENOENT;
+                goto err_s_clk;
+        }
+
+        clk_set_parent(sclk, parent);
+        /* FIXME : move to platform resource RATE */
+        clk_set_rate(sclk, 240 * 1000000); // set to 220Mhz; use 200 * 1000000 to set to 176Mhz
+ 
+ 
 	pm->clock_gate = clk_get(&dev->plat_dev->dev, MFC_GATE_CLK_NAME);
 	if (IS_ERR(pm->clock_gate)) {
 		mfc_err("Failed to get clock-gating control\n");
@@ -63,6 +88,8 @@ int s5p_mfc_init_pm(struct s5p_mfc_dev *dev)
 		goto err_p_ip_clk_2;
 	}
 
+       printk("sclk_mfc rate is: %d\n", (int)(clk_get_rate(pm->clock)/1000000));
+
 	atomic_set(&pm->power, 0);
 #ifdef CONFIG_PM_RUNTIME
 	pm->device = &dev->plat_dev->dev;
@@ -80,6 +107,10 @@ err_p_ip_clk:
 	clk_put(pm->clock_gate);
 err_g_ip_clk:
 	return ret;
+err_s_clk:
+        clk_put(parent);
+err_p_clk:
+        return ret;
 }
 
 void s5p_mfc_final_pm(struct s5p_mfc_dev *dev)
