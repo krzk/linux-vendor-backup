@@ -11,6 +11,8 @@
  */
 
 #include <linux/bug.h>
+#include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <linux/device.h>
 #include <linux/errno.h>
 #include <linux/i2c.h>
@@ -1455,6 +1457,101 @@ static int fimc_md_get_pinctrl(struct fimc_md *fmd)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static int cam_clk_prepare(struct clk_hw *hw)
+{
+	struct cam_clk *camclk = to_cam_clk(hw);
+	int ret;
+
+	if (camclk->fmd->pmf == NULL)
+		return -ENODEV;
+
+	ret = pm_runtime_get_sync(camclk->fmd->pmf);
+	return ret < 0 ? ret : 0;
+}
+
+static void cam_clk_unprepare(struct clk_hw *hw)
+{
+	struct cam_clk *camclk = to_cam_clk(hw);
+
+	if (camclk->fmd->pmf == NULL)
+		return;
+
+	pm_runtime_put_sync(camclk->fmd->pmf);
+}
+
+static const struct clk_ops cam_clk_ops = {
+	.prepare = cam_clk_prepare,
+	.unprepare = cam_clk_unprepare,
+};
+
+static const char *cam_clk_p_names[] = { "sclk_cam0", "sclk_cam1" };
+
+static void fimc_md_unregister_clk_provider(struct fimc_md *fmd)
+{
+	struct cam_clk_provider *cp = &fmd->clk_provider;
+	unsigned int i;
+
+	if (cp->of_node)
+		of_clk_del_provider(cp->of_node);
+
+	for (i = 0; i < ARRAY_SIZE(cp->clks); i++)
+		if (!IS_ERR(cp->clks[i]))
+			clk_unregister(cp->clks[i]);
+}
+
+static int fimc_md_register_clk_provider(struct fimc_md *fmd)
+{
+	struct cam_clk_provider *cp = &fmd->clk_provider;
+	struct device *dev = &fmd->pdev->dev;
+	int i, ret;
+
+	for (i = 0; i < ARRAY_SIZE(cp->clks); i++)
+		cp->clks[i] = ERR_PTR(-EINVAL);
+
+	for (i = 0; i < FIMC_MAX_CAMCLKS; i++) {
+		struct cam_clk *camclk = &cp->camclk[i];
+		struct clk_init_data init;
+		char clk_name[16];
+		struct clk *clk;
+
+		snprintf(clk_name, sizeof(clk_name), "cam_clkout%d", i);
+
+		init.name = clk_name;
+		init.ops = &cam_clk_ops;
+		init.flags = CLK_SET_RATE_PARENT;
+		init.parent_names = &cam_clk_p_names[i];
+		init.num_parents = 1;
+		camclk->hw.init = &init;
+		camclk->fmd = fmd;
+
+		clk = clk_register(dev, &camclk->hw);
+		if (IS_ERR(clk)) {
+			dev_err(dev, "failed to register clock: %s (%ld)\n",
+						clk_name, PTR_ERR(clk));
+			ret = PTR_ERR(clk);
+			goto err;
+		}
+		cp->clks[i] = clk;
+	}
+
+	cp->clk_data.clks = cp->clks;
+	cp->clk_data.clk_num = i;
+	cp->of_node = dev->of_node;
+
+	ret = of_clk_add_provider(dev->of_node, of_clk_src_onecell_get,
+				  &cp->clk_data);
+	if (!ret)
+		return 0;
+err:
+	fimc_md_unregister_clk_provider(fmd);
+	return ret;
+}
+#else
+#define fimc_md_register_clk_provider(fmd) (0)
+#define fimc_md_unregister_clk_provider(fmd) (0)
+#endif
+
 static int fimc_md_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1482,16 +1579,24 @@ static int fimc_md_probe(struct platform_device *pdev)
 
 	fmd->use_isp = fimc_md_is_isp_available(dev->of_node);
 
+	ret = fimc_md_register_clk_provider(fmd);
+	if (ret < 0) {
+		v4l2_err(v4l2_dev, "clock provider registration failed\n");
+		return ret;
+	}
+
 	ret = v4l2_device_register(dev, &fmd->v4l2_dev);
 	if (ret < 0) {
 		v4l2_err(v4l2_dev, "Failed to register v4l2_device: %d\n", ret);
 		return ret;
 	}
+
 	ret = media_device_register(&fmd->media_dev);
 	if (ret < 0) {
 		v4l2_err(v4l2_dev, "Failed to register media device: %d\n", ret);
 		goto err_md;
 	}
+
 	ret = fimc_md_get_clocks(fmd);
 	if (ret)
 		goto err_clk;
@@ -1525,6 +1630,7 @@ static int fimc_md_probe(struct platform_device *pdev)
 	ret = fimc_md_create_links(fmd);
 	if (ret)
 		goto err_unlock;
+
 	ret = v4l2_device_register_subdev_nodes(&fmd->v4l2_dev);
 	if (ret)
 		goto err_unlock;
@@ -1545,6 +1651,7 @@ err_clk:
 	media_device_unregister(&fmd->media_dev);
 err_md:
 	v4l2_device_unregister(&fmd->v4l2_dev);
+	fimc_md_unregister_clk_provider(fmd);
 	return ret;
 }
 
@@ -1555,6 +1662,7 @@ static int fimc_md_remove(struct platform_device *pdev)
 	if (!fmd)
 		return 0;
 
+	fimc_md_unregister_clk_provider(fmd);
 	v4l2_device_unregister(&fmd->v4l2_dev);
 	device_remove_file(&pdev->dev, &dev_attr_subdev_conf_mode);
 	fimc_md_unregister_entities(fmd);
