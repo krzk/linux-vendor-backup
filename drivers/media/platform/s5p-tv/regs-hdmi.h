@@ -20,6 +20,7 @@
 /* HDMI Version 1.3 & Common */
 #define HDMI_CTRL_BASE(x)		((x) + 0x00000000)
 #define HDMI_CORE_BASE(x)		((x) + 0x00010000)
+#define HDMI_I2S_BASE(x)		((x) + 0x00040000)
 #define HDMI_TG_BASE(x)			((x) + 0x00050000)
 
 /* Control registers */
@@ -130,6 +131,9 @@
 
 /* HDMI_CON_0 */
 #define HDMI_BLUE_SCR_EN		(1 << 5)
+#define HDMI_ASP_EN			(1 << 2)
+#define HDMI_ASP_DIS			(0 << 2)
+#define HDMI_ASP_MASK			(1 << 2)
 #define HDMI_EN				(1 << 0)
 
 /* HDMI_CON_2 */
