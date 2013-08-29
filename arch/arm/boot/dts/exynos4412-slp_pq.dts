@@ -879,6 +879,7 @@
 				esafeout1_reg: esafeout@1 {
 					regulator-compatible = "ESAFEOUT1";
 					regulator-name = "ESAFEOUT1";
+					regulator-always-on;
 					regulator-boot-on;
 				};
 				esafeout2_reg: esafeout@2 {
