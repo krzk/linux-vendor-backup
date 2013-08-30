@@ -51,6 +51,7 @@ struct s5p_ehci_hcd {
 	int power_on;
 	struct usb_phy *phy;
 	struct usb_otg *otg;
+	struct usb_bus *host;
 	struct s5p_ehci_platdata *pdata;
 };
 
@@ -59,8 +60,11 @@ struct s5p_ehci_hcd {
 static void s5p_ehci_phy_enable(struct s5p_ehci_hcd *s5p_ehci,
 						struct platform_device *pdev)
 {
-	if (s5p_ehci->phy)
+	if (s5p_ehci->phy) {
+		if (s5p_ehci->otg)
+			otg_set_host(s5p_ehci->otg, s5p_ehci->host);
 		usb_phy_init(s5p_ehci->phy);
+	}
 	else if (s5p_ehci->pdata->phy_init)
 		s5p_ehci->pdata->phy_init(pdev, USB_PHY_TYPE_HOST);
 }
@@ -68,8 +72,11 @@ static void s5p_ehci_phy_enable(struct s5p_ehci_hcd *s5p_ehci,
 static void s5p_ehci_phy_disable(struct s5p_ehci_hcd *s5p_ehci,
 						 struct platform_device *pdev)
 {
-	if (s5p_ehci->phy)
+	if (s5p_ehci->phy) {
+		if (s5p_ehci->otg)
+			otg_set_host(s5p_ehci->otg, NULL);
 		usb_phy_shutdown(s5p_ehci->phy);
+	}
 	else if (s5p_ehci->pdata->phy_exit)
 		s5p_ehci->pdata->phy_exit(pdev, USB_PHY_TYPE_HOST);
 }
@@ -266,8 +273,7 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 		goto fail_io;
 	}
 
-	if (s5p_ehci->otg)
-		s5p_ehci->otg->set_host(s5p_ehci->otg, &hcd->self);
+	s5p_ehci->host = &hcd->self;
 
 	s5p_ehci_phy_enable(s5p_ehci, pdev);
 
