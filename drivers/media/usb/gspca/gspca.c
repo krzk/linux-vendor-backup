@@ -1140,6 +1140,12 @@ static int try_fmt_vid_cap(struct gspca_dev *gspca_dev,
 			mode = mode2;
 	}
 	fmt->fmt.pix = gspca_dev->cam.cam_mode[mode];
+	if (gspca_dev->sd_desc->try_fmt) {
+		/* pass original resolution to subdriver try_fmt */
+		fmt->fmt.pix.width = w;
+		fmt->fmt.pix.height = h;
+		gspca_dev->sd_desc->try_fmt(gspca_dev, fmt);
+	}
 	/* some drivers use priv internally, zero it before giving it to
 	   userspace */
 	fmt->fmt.pix.priv = 0;
@@ -1178,11 +1184,6 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 		goto out;
 	}
 
-	if (ret == gspca_dev->curr_mode) {
-		ret = 0;
-		goto out;			/* same mode */
-	}
-
 	if (gspca_dev->streaming) {
 		ret = -EBUSY;
 		goto out;
@@ -1204,6 +1205,9 @@ static int vidioc_enum_framesizes(struct file *file, void *priv,
 	struct gspca_dev *gspca_dev = video_drvdata(file);
 	int i;
 	__u32 index = 0;
+
+	if (gspca_dev->sd_desc->enum_framesizes)
+		return gspca_dev->sd_desc->enum_framesizes(gspca_dev, fsize);
 
 	for (i = 0; i < gspca_dev->cam.nmodes; i++) {
 		if (fsize->pixel_format !=
