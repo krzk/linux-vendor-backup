@@ -14,12 +14,58 @@
 #include <linux/sched.h>
 #include <linux/dma-buf.h>
 
+#define DMABUF_SYNC_NAME_SIZE	64
+
+/*
+ * Status to a dmabuf_sync object.
+ *
+ * @DMABUF_SYNC_GOT: Indicate that one more dmabuf objects have been added
+ *			to a sync's list.
+ * @DMABUF_SYNC_LOCKED: Indicate that all dmabuf objects in a sync's list
+ *			have been locked.
+ */
 enum dmabuf_sync_status {
 	DMABUF_SYNC_GOT		= 1,
 	DMABUF_SYNC_LOCKED,
 };
 
+/*
+ * A structure for dmabuf_sync_reservation.
+ *
+ * @syncs: A list head to sync object and this is global to system.
+ *	This contains sync objects of tasks that requested a lock
+ *	to this dmabuf.
+ * @sync_lock: This provides read or write lock to a dmabuf.
+ *	Except in the below cases, a task will be blocked if the task
+ *	tries to lock a dmabuf for CPU or DMA access when other task
+ *	already locked the dmabuf.
+ *
+ *	Before		After
+ *	--------------------------
+ *	CPU read	CPU read
+ *	CPU read	DMA read
+ *	DMA read	CPU read
+ *	DMA read	DMA read
+ *
+ * @lock: Protecting a dmabuf_sync_reservation object.
+ * @poll_wait: A wait queue object to poll a dmabuf object.
+ * @poll_event: Indicate whether a dmabuf object - being polled -
+ *	was unlocked or not. If true, a blocked task will be out
+ *	of select system call.
+ * @poll: Indicate whether the polling to a dmabuf object was requested
+ *	or not by userspace.
+ * @shared_cnt: Shared count to a dmabuf object.
+ * @accessed_type: Indicate how and who a dmabuf object was accessed by.
+ *	One of the below types could be set.
+ *	DMA_BUF_ACCESS_R -> CPU access for read.
+ *	DMA_BUF_ACCRSS_W -> CPU access for write.
+ *	DMA_BUF_ACCESS_R | DMA_BUF_ACCESS_DMA -> DMA access for read.
+ *	DMA_BUF_ACCESS_W | DMA_BUF_ACCESS_DMA -> DMA access for write.
+ * @locked: Indicate whether a dmabuf object has been locked or not.
+ *
+ */
 struct dmabuf_sync_reservation {
+	struct list_head	syncs;
 	struct ww_mutex		sync_lock;
 	struct mutex		lock;
 	wait_queue_head_t	poll_wait;
@@ -33,17 +79,36 @@ struct dmabuf_sync_reservation {
 /*
  * A structure for dmabuf_sync_object.
  *
- * @head: A list head to be added to syncs list.
+ * @head: A list head to be added to dmabuf_sync's syncs.
+ * @r_head: A list head to be added to dmabuf_sync_reservation's syncs.
  * @robj: A reservation_object object.
  * @dma_buf: A dma_buf object.
+ * @task: An address value to current task.
+ *	This is used to indicate who is a owner of a sync object.
+ * @wq: A wait queue head.
+ *	This is used to guarantee that a task can take a lock to a dmabuf
+ *	if the task requested a lock to the dmabuf prior to other task.
+ *	For more details, see dmabuf_sync_wait_prev_objs function.
+ * @refcnt: A reference count to a sync object.
  * @access_type: Indicate how a current task tries to access
- *	a given buffer.
+ *	a given buffer, and one of the below types could be set.
+ *	DMA_BUF_ACCESS_R -> CPU access for read.
+ *	DMA_BUF_ACCRSS_W -> CPU access for write.
+ *	DMA_BUF_ACCESS_R | DMA_BUF_ACCESS_DMA -> DMA access for read.
+ *	DMA_BUF_ACCESS_W | DMA_BUF_ACCESS_DMA -> DMA access for write.
+ * @waiting: Indicate whether current task is waiting for the wake up event
+ *	from other task or not.
  */
 struct dmabuf_sync_object {
 	struct list_head		head;
+	struct list_head		r_head;
 	struct dmabuf_sync_reservation	*robj;
 	struct dma_buf			*dmabuf;
+	unsigned long			task;
+	wait_queue_head_t		wq;
+	atomic_t			refcnt;
 	unsigned int			access_type;
+	unsigned int			waiting;
 };
 
 struct dmabuf_sync_priv_ops {
@@ -54,8 +119,9 @@ struct dmabuf_sync_priv_ops {
  * A structure for dmabuf_sync.
  *
  * @syncs: A list head to sync object and this is global to system.
+ *	This contains sync objects of dmabuf_sync owner.
  * @list: A list entry used as committed list node
- * @lock: A mutex lock to current sync object.
+ * @lock: Protecting a dmabuf_sync object.
  * @ctx: A current context for ww mutex.
  * @work: A work struct to release resources at timeout.
  * @priv: A private data.
@@ -71,7 +137,7 @@ struct dmabuf_sync {
 	struct work_struct		work;
 	void				*priv;
 	struct dmabuf_sync_priv_ops	*ops;
-	char				name[64];
+	char				name[DMABUF_SYNC_NAME_SIZE];
 	struct timer_list		timer;
 	unsigned int			status;
 };
@@ -94,6 +160,7 @@ static inline void dmabuf_sync_reservation_init(struct dma_buf *dmabuf)
 
 	mutex_init(&obj->lock);
 	atomic_set(&obj->shared_cnt, 1);
+	INIT_LIST_HEAD(&obj->syncs);
 
 	init_waitqueue_head(&obj->poll_wait);
 }
@@ -112,29 +179,29 @@ static inline void dmabuf_sync_reservation_fini(struct dma_buf *dmabuf)
 	kfree(obj);
 }
 
-extern bool is_dmabuf_sync_supported(void);
+bool dmabuf_sync_is_supported(void);
 
-extern struct dmabuf_sync *dmabuf_sync_init(const char *name,
+struct dmabuf_sync *dmabuf_sync_init(const char *name,
 					struct dmabuf_sync_priv_ops *ops,
 					void *priv);
 
-extern void dmabuf_sync_fini(struct dmabuf_sync *sync);
+void dmabuf_sync_fini(struct dmabuf_sync *sync);
 
-extern int dmabuf_sync_lock(struct dmabuf_sync *sync);
+int dmabuf_sync_lock(struct dmabuf_sync *sync);
 
-extern int dmabuf_sync_unlock(struct dmabuf_sync *sync);
+int dmabuf_sync_unlock(struct dmabuf_sync *sync);
 
 int dmabuf_sync_single_lock(struct dma_buf *dmabuf, unsigned int type,
 				bool wait);
 
 void dmabuf_sync_single_unlock(struct dma_buf *dmabuf);
 
-extern int dmabuf_sync_get(struct dmabuf_sync *sync, void *sync_buf,
+int dmabuf_sync_get(struct dmabuf_sync *sync, void *sync_buf,
 				unsigned int type);
 
-extern void dmabuf_sync_put(struct dmabuf_sync *sync, struct dma_buf *dmabuf);
+void dmabuf_sync_put(struct dmabuf_sync *sync, struct dma_buf *dmabuf);
 
-extern void dmabuf_sync_put_all(struct dmabuf_sync *sync);
+void dmabuf_sync_put_all(struct dmabuf_sync *sync);
 
 #else
 
@@ -142,7 +209,7 @@ static inline void dmabuf_sync_reservation_init(struct dma_buf *dmabuf) { }
 
 static inline void dmabuf_sync_reservation_fini(struct dma_buf *dmabuf) { }
 
-static inline bool is_dmabuf_sync_supported(void) { return false; }
+static inline bool dmabuf_sync_is_supported(void) { return false; }
 
 static inline  struct dmabuf_sync *dmabuf_sync_init(const char *name,
 					struct dmabuf_sync_priv_ops *ops,

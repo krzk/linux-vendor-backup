@@ -700,7 +700,7 @@ static int g2d_map_cmdlist_gem(struct g2d_data *g2d,
 	int ret;
 	int i;
 
-	if (is_dmabuf_sync_supported()) {
+	if (dmabuf_sync_is_supported()) {
 		node->sync = dmabuf_sync_init("g2d", &dmabuf_sync_ops, node);
 		if (IS_ERR(node->sync))
 			node->sync = NULL;

@@ -53,50 +53,6 @@ What is the best way to solve these buffer synchronization issues?
 	Now we have already been using the dma-buf to share one buffer with
 	other drivers.
 
-How we can utilize multi threads for more performance?
-	DMA and CPU works individually. So CPU could perform other works while
-	DMA are performing some works, and vise versa.
-	However, in the conventional way, that is not easy to do so because
-	DMA operation is depend on CPU operation, and vice versa.
-
-	Conventional way:
-        User                                     Kernel
-        ---------------------------------------------------------------------
-        CPU writes something to src
-        send the src to driver------------------------->
-                                                 update DMA register
-        request DMA start(1)--------------------------->
-                                                 DMA start
-                <---------completion signal(2)----------
-        CPU accesses dst
-
-        (1) Request DMA start after the CPU access to src buffer is completed.
-        (2) Access dst buffer after DMA access to the dst buffer is completed.
-
-On the other hand, if there is something to control buffer access between CPU
-and DMA? The below shows that:
-
-        User(thread a)          User(thread b)            Kernel
-        ---------------------------------------------------------------------
-        send a src to driver---------------------------------->
-                                                          update DMA register
-        lock the src
-                                request DMA start(1)---------->
-        CPU acccess to src
-        unlock the src                                    lock src and dst
-                                                          DMA start
-                <-------------completion signal(2)-------------
-        lock dst                                          DMA completion
-        CPU access to dst                                 unlock src and dst
-        unlock DST
-
-        (1) Try to start DMA operation while CPU is accessing the src buffer.
-        (2) Try CPU access to dst buffer while DMA is accessing the dst buffer.
-
-	In the same way, we could reduce hand shaking overhead between
-	two processes when those processes need to share a shared buffer.
-	There may be other cases that we could reduce overhead as well.
-
 
 Basic concept
 -------------
@@ -172,10 +128,12 @@ DMA_BUF_ACCESS_DMA_W - DMA will access a buffer for read or write.
 Generic user interfaces
 -----------------------
 
-And this framework includes fcntl system call[3] as interfaces exported
-to user. As you know, user sees a buffer object as a dma-buf file descriptor.
-So fcntl() call with the file descriptor means to lock some buffer region being
-managed by the dma-buf object.
+And this framework includes fcntl[3] and select system calls as interfaces
+exported to user. As you know, user sees a buffer object as a dma-buf file
+descriptor. fcntl() call with the file descriptor means to lock some buffer
+region being managed by the dma-buf object. And select call with the file
+descriptor means to poll the completion event of CPU or DMA access to
+the dma-buf.
 
 
 API set
@@ -184,10 +142,14 @@ API set
 bool is_dmabuf_sync_supported(void)
 	- Check if dmabuf sync is supported or not.
 
-struct dmabuf_sync *dmabuf_sync_init(void *priv, const char *name)
+struct dmabuf_sync *dmabuf_sync_init(const char *name,
+					struct dmabuf_sync_priv_ops *ops,
+					void priv*)
 	- Allocate and initialize a new sync object. The caller can get a new
-	sync object for buffer synchronization. priv is used to set caller's
-	private data and name is the name of sync object.
+	sync object for buffer synchronization. ops is used for device driver
+	to clean up its own sync object. For this, each device driver should
+	implement a free callback. priv is used for device driver to get its
+	device context when free callback is called.
 
 void dmabuf_sync_fini(struct dmabuf_sync *sync)
 	- Release all resources to the sync object.
@@ -235,9 +197,25 @@ Tutorial for device driver
 --------------------------
 
 1. Allocate and Initialize a sync object:
+	static void xxx_dmabuf_sync_free(void *priv)
+	{
+		struct xxx_context *ctx = priv;
+
+		if (!ctx)
+			return;
+
+		ctx->sync = NULL;
+	}
+	...
+
+	static struct dmabuf_sync_priv_ops driver_specific_ops = {
+		.free = xxx_dmabuf_sync_free,
+	};
+	...
+
 	struct dmabuf_sync *sync;
 
-	sync = dmabuf_sync_init(NULL, "test sync");
+	sync = dmabuf_sync_init("test sync", &driver_specific_ops, ctx);
 	...
 
 2. Add a dmabuf to the sync object when setting up dma buffer relevant registers:
@@ -261,6 +239,8 @@ Tutorial for device driver
 
 Tutorial for user application
 -----------------------------
+fcntl system call:
+
 	struct flock filelock;
 
 1. Lock a dma buf:
@@ -283,6 +263,22 @@ Tutorial for user application
 	close(dmabuf fd) call would also unlock the dma buf. And for more
 	detail, please refer to [3]
 
+
+select system call:
+
+	fd_set wdfs or rdfs;
+
+	FD_ZERO(&wdfs or &rdfs);
+	FD_SET(fd, &wdfs or &rdfs);
+
+	select(fd + 1, &rdfs, NULL, NULL, NULL);
+		or
+	select(fd + 1, NULL, &wdfs, NULL, NULL);
+
+	Every time select system call is called, a caller will wait for
+	the completion of DMA or CPU access to a shared buffer if there
+	is someone accessing the shared buffer. If no anyone then select
+	system call will be returned at once.
 
 References:
 [1] http://lwn.net/Articles/470339/
