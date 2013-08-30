@@ -37,8 +37,7 @@ static int samsung_usbphy_set_host(struct usb_otg *otg, struct usb_bus *host)
 	if (!otg)
 		return -ENODEV;
 
-	if (!otg->host)
-		otg->host = host;
+	otg->host = host;
 
 	return 0;
 }
