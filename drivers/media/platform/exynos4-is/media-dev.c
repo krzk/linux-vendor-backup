@@ -1145,6 +1145,9 @@ static int fimc_md_get_clocks(struct fimc_md *fmd)
 	for (i = 0; i < FIMC_MAX_CAMCLKS; i++)
 		fmd->camclk[i].clock = ERR_PTR(-EINVAL);
 
+	for (i = 0; i < FIMC_MAX_WBCLKS; i++)
+		fmd->wbclk[i] = ERR_PTR(-EINVAL);
+
 	if (fmd->pdev->dev.of_node)
 		dev = &fmd->pdev->dev;
 
@@ -1169,8 +1172,6 @@ static int fimc_md_get_clocks(struct fimc_md *fmd)
 	 * For now get only PIXELASYNCM1 clock (Writeback B/ISP),
 	 * leave PIXELASYNCM0 out for the LCD Writeback driver.
 	 */
-	fmd->wbclk[CLK_IDX_WB_A] = ERR_PTR(-EINVAL);
-
 	for (i = CLK_IDX_WB_B; i < FIMC_MAX_WBCLKS; i++) {
 		snprintf(clk_name, sizeof(clk_name), "pxl_async%u", i);
 		clock = clk_get(dev, clk_name);
