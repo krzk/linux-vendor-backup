@@ -1182,7 +1182,11 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 		goto out;
 	}
 	gspca_dev->curr_mode = ret;
-	gspca_dev->pixfmt = gspca_dev->cam.cam_mode[ret];
+	if (gspca_dev->sd_desc->try_fmt)
+		/* subdriver try_fmt can modify format parameters */
+		gspca_dev->pixfmt = fmt->fmt.pix;
+	else
+		gspca_dev->pixfmt = gspca_dev->cam.cam_mode[ret];
 
 	ret = 0;
 out:
