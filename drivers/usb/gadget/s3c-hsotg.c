@@ -34,6 +34,7 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/phy.h>
+#include <linux/usb/otg.h>
 #include <linux/platform_data/s3c-hsotg.h>
 
 #include <mach/map.h>
@@ -2824,8 +2825,12 @@ static void s3c_hsotg_phy_enable(struct s3c_hsotg *hsotg)
 
 	dev_dbg(hsotg->dev, "pdev 0x%p\n", pdev);
 
-	if (hsotg->phy)
+	if (hsotg->phy) {
+		struct usb_otg *otg = hsotg->phy->otg;
+		if (otg && otg->set_host)
+			otg->set_host(otg, NULL);
 		usb_phy_init(hsotg->phy);
+	}
 	else if (hsotg->plat->phy_init)
 		hsotg->plat->phy_init(pdev, hsotg->plat->phy_type);
 }
