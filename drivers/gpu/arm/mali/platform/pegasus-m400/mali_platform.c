@@ -63,8 +63,8 @@ static struct clk  *mali_clock = 0;
 
 static unsigned int GPU_MHZ	= 1000000;
 
-int mali_gpu_clk = 440;//266;
-int mali_gpu_vol = 1025000;//900000
+int mali_gpu_clk = 533;//266;
+int mali_gpu_vol = 1075000;//900000
 
 #ifdef CONFIG_MALI_DVFS
 #define MALI_DVFS_DEFAULT_STEP 0

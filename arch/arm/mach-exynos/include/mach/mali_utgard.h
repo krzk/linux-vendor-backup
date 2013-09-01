@@ -333,25 +333,8 @@ int mali_pmu_powerdown(void);
  */
 int mali_pmu_powerup(void);
 
-#ifdef CONFIG_MALI_DVFS
 extern int mali_platform_init(void);
 extern int mali_platform_deinit(void);
 extern void mali_gpu_utilization_handler(u32 utilization);
-#else
-static int mali_platform_init(void)
-{
-	return 0;
-}
-
-static int  mali_platform_deinit(void)
-{
-	return 0;
-}
-
-static void mali_gpu_utilization_handler(u32 utilization)
-{
-	return;
-}
-#endif
 
 #endif

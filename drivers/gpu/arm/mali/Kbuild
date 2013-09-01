@@ -96,6 +96,7 @@ mali-y += \
 	common/mali_l2_cache.o \
 	linux/mali_osk_pm.o \
 	linux/mali_pmu_power_up_down.o \
+	platform/pegasus-m400/mali_platform.o \
 	__malidrv_build_info.o
 
 ifneq ($(MALI_PLATFORM_FILES),)
@@ -103,7 +104,6 @@ ifneq ($(MALI_PLATFORM_FILES),)
 endif
 
 mali-$(CONFIG_MALI_DVFS) += platform/pegasus-m400/mali_platform_dvfs.o
-mali-$(CONFIG_MALI_DVFS) += platform/pegasus-m400/mali_platform.o
 
 mali-$(CONFIG_MALI400_PROFILING) += linux/mali_ukk_profiling.o
 mali-$(CONFIG_MALI400_PROFILING) += linux/mali_osk_profiling.o
@@ -117,6 +117,7 @@ mali-$(CONFIG_SYNC) += linux/mali_sync.o linux/mali_sync_user.o
 # Tell the Linux build system from which .o file to create the kernel module
 obj-$(CONFIG_MALI400) := mali.o
 
+export EXTRA_DEFINES += -DCONFIG_REGULATOR=1
 ccflags-y += $(EXTRA_DEFINES)
 
 # Set up our defines, which will be passed to gcc
