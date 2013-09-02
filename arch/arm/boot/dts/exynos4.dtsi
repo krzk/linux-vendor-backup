@@ -134,13 +134,13 @@
 		status = "disabled";
 	};
 
-	camera {
+	camera: camera {
 		compatible = "samsung,fimc", "simple-bus";
 		status = "disabled";
 		#address-cells = <1>;
 		#size-cells = <1>;
+		#clock-cells = <1>;
 		ranges;
-
 
 		fimc_0: fimc@11800000 {
 			compatible = "samsung,exynos4210-fimc";
