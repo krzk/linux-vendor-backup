@@ -19,6 +19,7 @@
  */
 
 #include "e4000_priv.h"
+#include <linux/math64.h>
 
 /* Max transfer size done by I2C transfer functions */
 #define MAX_XFER_SIZE  64
@@ -250,7 +251,7 @@ static int e4000_set_params(struct dvb_frontend *fe)
 	 * or more.
 	 */
 	f_vco = c->frequency * e4000_pll_lut[i].mul;
-	sigma_delta = 0x10000UL * (f_vco % priv->cfg->clock) / priv->cfg->clock;
+	sigma_delta = div_u64(0x10000ULL * (f_vco % priv->cfg->clock), priv->cfg->clock);
 	buf[0] = f_vco / priv->cfg->clock;
 	buf[1] = (sigma_delta >> 0) & 0xff;
 	buf[2] = (sigma_delta >> 8) & 0xff;
