@@ -415,8 +415,9 @@
 			vddio-host-supply = <&ldo18_reg>;
 			vdd-af-supply = <&cam_af_reg>;
 			vdd-reg-supply = <&cam_io_reg>;
+			clocks = <&camera 0>;		/* CAM_A_CLKOUT */
+			clock-names = "cis_extclk";
 			clock-frequency = <24000000>;
-
 			port {
 				s5c73m3_ep: endpoint {
 					remote-endpoint = <&csis0_ep>;
@@ -1168,8 +1169,11 @@
 					reg = <0x10>;
 					svdda-supply = <&cam_io_reg>;
 					svddio-supply = <&ldo19_reg>;
-					clock-frequency = <24000000>;
 					gpios = <&gpm1 6 0>;
+					clocks = <&camera 0>; /* CAM_A_CLKOUT */
+					clock-names = "extclk";
+					clock-frequency = <24000000>;
+
 					port {
 						is_s5k6a3_ep: endpoint {
 							remote-endpoint = <&csis1_ep>;

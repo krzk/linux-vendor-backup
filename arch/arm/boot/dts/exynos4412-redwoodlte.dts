@@ -169,7 +169,8 @@
 			vdd-af-supply = <&cam_af_reg>;
 			vdd-reg-supply = <&cam_io_reg>;
 			clock-frequency = <24000000>;
-
+			clocks = <&camera 0>;		/* CAM_A_CLKOUT */
+			clock-names = "cis_extclk";
 			port {
 				s5c73m3_ep: endpoint {
 					remote-endpoint = <&csis0_ep>;

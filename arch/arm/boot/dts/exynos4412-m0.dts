@@ -199,12 +199,12 @@
 					reg = <0x10>;
 					svdda-supply = <&cam_io_reg>;
 					svddio-supply = <&ldo19_reg>;
-					clock-frequency = <24000000>;
-					samsung,camclk-out = <1>;
 					gpios = <&gpm1 6 0>;
 					pinctrl-names = "default";
 					pinctrl-0 = <&vt_cam_id>;
-
+					clocks = <&camera 1>; /* CAM_B_CLKOUT */
+					clock-names = "extclk";
+					clock-frequency = <24000000>;
 					port {
 						is_s5k6a3_ep: endpoint {
 							remote-endpoint = <&csis1_ep>;
