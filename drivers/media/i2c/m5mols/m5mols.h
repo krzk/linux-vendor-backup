@@ -18,8 +18,6 @@
 
 #include <linux/sizes.h>
 #include <media/v4l2-subdev.h>
-#include <media/m5mols.h>
-
 #include "m5mols_reg.h"
 
 
@@ -184,6 +182,7 @@ struct m5mols_version {
  * @wdr: wide dynamic range control
  * @stabilization: image stabilization control
  * @jpeg_quality: JPEG compression quality control
+ * @set_power: optional power callback to the board code
  * @lock: mutex protecting the structure fields below
  * @ffmt: current fmt according to resolution type
  * @res_type: current resolution type
@@ -196,8 +195,7 @@ struct m5mols_version {
  * @mode: register value for current operation mode
  */
 struct m5mols_info {
-	struct m5mols_platform_data pdata;
-
+	const struct m5mols_platform_data *pdata;
 	struct v4l2_subdev sd;
 	struct media_pad pad;
 
@@ -226,6 +224,8 @@ struct m5mols_info {
 	struct v4l2_ctrl *wdr;
 	struct v4l2_ctrl *stabilization;
 	struct v4l2_ctrl *jpeg_quality;
+
+	int (*set_power)(struct device *dev, int on);
 
 	struct mutex lock;
 
