@@ -700,11 +700,6 @@ enum v4l2_auto_focus_range {
 	V4L2_AUTO_FOCUS_RANGE_INFINITY		= 3,
 };
 
-/* Camera class private control IDs */
-
-/* The base for the s5k5baf driver controls. See linux/s5k5baf.h for the list
- * of controls. We reserve 16 controls for this driver. */
-#define V4L2_CID_CAMERA_S5K5BAF_BASE		(V4L2_CID_CAMERA_CLASS_BASE + 0x1000)
 
 /* FM Modulator class control IDs */
 
