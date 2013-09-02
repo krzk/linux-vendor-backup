@@ -274,6 +274,7 @@
 		interrupts = <0 83 0>;
 		clocks = <&clock 278>;
 		clock-names = "rotator";
+		iommu = <&sysmmu_rotator>;
 	};
 
 	mfc: codec@13400000 {
