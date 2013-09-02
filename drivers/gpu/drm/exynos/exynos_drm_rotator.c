@@ -96,7 +96,7 @@ struct rot_context {
 	struct resource	*regs_res;
 	void __iomem	*regs;
 	struct clk	*clock;
-	struct rot_limit_table	limit_tbl;
+	struct rot_limit_table	*limit_tbl;
 	int	irq;
 	int	cur_buf_id[EXYNOS_DRM_OPS_MAX];
 	bool	suspended;
@@ -167,7 +167,7 @@ static irqreturn_t rotator_irq_handler(int irq, void *arg)
 static void rotator_align_size(struct rot_context *rot, u32 fmt, u32 *hsize,
 		u32 *vsize)
 {
-	struct rot_limit_table *limit_tbl = &rot->limit_tbl;
+	struct rot_limit_table *limit_tbl = rot->limit_tbl;
 	struct rot_limit *limit;
 	u32 mask, val;
 
@@ -635,71 +635,6 @@ static int rotator_ippdrv_start(struct device *dev, enum drm_exynos_ipp_cmd cmd)
 	return 0;
 }
 
-static const struct of_device_id exynos_rotator_match[] = {
-	{
-		.compatible = "samsung,exynos4210-rotator",
-	},
-	{},
-};
-
-static int rotator_parse_dt_tbl(struct device_node *np, struct rot_limit *rlim)
-{
-	int ret;
-
-	ret = of_property_read_u32(np, "min_w", &rlim->min_w);
-	if (ret)
-		return ret;
-
-	ret = of_property_read_u32(np, "min_h", &rlim->min_h);
-	if (ret)
-		return ret;
-
-	ret = of_property_read_u32(np, "max_w", &rlim->max_w);
-	if (ret)
-		return ret;
-
-	ret = of_property_read_u32(np, "max_h", &rlim->max_h);
-	if (ret)
-		return ret;
-
-	ret = of_property_read_u32(np, "align", &rlim->align);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
-static int rotator_parse_dt(struct device *dev, struct rot_context *rot)
-{
-	struct device_node *ycbcr_node, *rgb888_node;
-	int ret;
-
-	ycbcr_node = of_get_child_by_name(dev->of_node, "ycbcr420_2p");
-	if (!ycbcr_node) {
-		dev_err(dev, "can't find ycbcr420_2p node\n");
-		return -ENODEV;
-	}
-
-	rgb888_node = of_get_child_by_name(dev->of_node, "rgb888");
-	if (!rgb888_node) {
-		dev_err(dev, "can't find rgb888 node\n");
-		return -ENODEV;
-	}
-
-	ret = rotator_parse_dt_tbl(ycbcr_node, &rot->limit_tbl.ycbcr420_2p);
-	if (ret) {
-		dev_err(dev, "failed to parse ycbcr420 data\n");
-		return ret;
-	}
-	ret = rotator_parse_dt_tbl(rgb888_node, &rot->limit_tbl.rgb888);
-	if (ret) {
-		dev_err(dev, "failed to parse rgb888 data\n");
-		return ret;
-	}
-
-	return 0;
-}
-
 static int rotator_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -707,21 +642,12 @@ static int rotator_probe(struct platform_device *pdev)
 	struct exynos_drm_ippdrv *ippdrv;
 	int ret;
 
-	if (!dev->of_node) {
-		dev_err(dev, "Cannot find device tree node\n");
-		return -ENODEV;
-	}
-
 	rot = devm_kzalloc(dev, sizeof(*rot), GFP_KERNEL);
 	if (!rot)
 		return -ENOMEM;
 
-	ret = rotator_parse_dt(dev, rot);
-	if (ret) {
-		dev_err(dev, "failed parse dt info\n");
-		devm_kfree(dev, rot);
-		return ret;
-	}
+	rot->limit_tbl = (struct rot_limit_table *)
+				platform_get_device_id(pdev)->driver_data;
 
 	rot->regs_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	rot->regs = devm_ioremap_resource(dev, rot->regs_res);
@@ -793,6 +719,31 @@ static int rotator_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static struct rot_limit_table rot_limit_tbl = {
+	.ycbcr420_2p = {
+		.min_w = 32,
+		.min_h = 32,
+		.max_w = SZ_32K,
+		.max_h = SZ_32K,
+		.align = 3,
+	},
+	.rgb888 = {
+		.min_w = 8,
+		.min_h = 8,
+		.max_w = SZ_8K,
+		.max_h = SZ_8K,
+		.align = 2,
+	},
+};
+
+static struct platform_device_id rotator_driver_ids[] = {
+	{
+		.name		= "exynos-rot",
+		.driver_data	= (unsigned long)&rot_limit_tbl,
+	},
+	{},
+};
+
 static int rotator_clk_crtl(struct rot_context *rot, bool enable)
 {
 	if (enable) {
@@ -854,10 +805,10 @@ static const struct dev_pm_ops rotator_pm_ops = {
 struct platform_driver rotator_driver = {
 	.probe		= rotator_probe,
 	.remove		= rotator_remove,
+	.id_table	= rotator_driver_ids,
 	.driver		= {
 		.name	= "exynos-rot",
 		.owner	= THIS_MODULE,
 		.pm	= &rotator_pm_ops,
-		.of_match_table = of_match_ptr(exynos_rotator_match),
 	},
 };
