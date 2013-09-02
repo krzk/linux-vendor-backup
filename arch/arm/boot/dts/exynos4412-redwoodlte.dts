@@ -173,6 +173,7 @@
 			port {
 				s5c73m3_ep: endpoint {
 					remote-endpoint = <&csis0_ep>;
+					data-lanes = <1 2 3 4>;
 				};
 			};
 		};
