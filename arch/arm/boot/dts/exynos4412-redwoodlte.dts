@@ -160,8 +160,8 @@
 		s5c73m3@3c {
 			compatible = "samsung,s5c73m3";
 			reg = <0x3c>;
-			gpios = <&gpm0 1 1>, /* ISP_STANDBY */
-				<&gpf1 3 1>; /* ISP_RESET */
+			standby-gpios = <&gpm0 1 1>;	/* ISP_STANDBY */
+			xshutdown-gpios = <&gpf1 3 1>;	/* ISP_RESET */
 			vdd-int-supply = <&buck9_reg>;
 			vddio-cis-supply = <&ldo9_reg>;
 			vdda-supply = <&ldo17_reg>;
