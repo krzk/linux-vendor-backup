@@ -374,17 +374,10 @@ static void s3c64xx_dma_deinit_param(struct s3c64xx_spi_driver_data *sdd,
 static void s3c64xx_prepare_dma(struct s3c64xx_spi_dma_data *dma,
 					unsigned len, dma_addr_t buf)
 {
-	struct scatterlist sg;
 	struct dma_async_tx_descriptor *desc;
 
-	sg_init_table(&sg, 1);
-	sg_dma_len(&sg) = len;
-	sg_set_page(&sg, pfn_to_page(PFN_DOWN(buf)),
-		    len, offset_in_page(buf));
-	sg_dma_address(&sg) = buf;
-
-	desc = dmaengine_prep_slave_sg(dma->ch,
-		&sg, 1, dma->direction, DMA_PREP_INTERRUPT);
+	desc = dmaengine_prep_slave_single(dma->ch,
+		dma->dma_phys, len, dma->direction, DMA_PREP_INTERRUPT);
 
 	desc->callback = s3c64xx_spi_dmacb;
 	desc->callback_param = dma;
