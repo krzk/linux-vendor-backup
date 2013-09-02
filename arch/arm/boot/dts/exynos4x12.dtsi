@@ -199,7 +199,7 @@
 		status = "disabled";
 
 		usbphy-sys {
-			reg = <0x10020704 0x0c>, <0x1001021C 0x04>;
+			reg = <0x10020704 0x0c>;
 		};
 	};
 
