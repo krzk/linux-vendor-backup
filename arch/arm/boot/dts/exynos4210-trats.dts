@@ -239,12 +239,15 @@
 			dig_28-supply = <&cam_af_28v_reg>;
 			a_sensor-supply = <&cam_io_en_reg>;
 			dig_12-supply = <&cam_io_12v_reg>;
-			gpios = <&gpy3 7 1>;
+			resetb-gpios = <&gpy3 7 1>;
+			clocks = <&camera 0>;
+			clock-names = "clkin";
 			clock-frequency = <24000000>;
 
 			port {
 				m5mols_ep: endpoint {
 					remote-endpoint = <&m5mols_ep>;
+					data-lanes = <1 2 3 4>;
 				};
 			};
 		};
