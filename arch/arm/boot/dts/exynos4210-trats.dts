@@ -206,8 +206,10 @@
 			vdda-supply = <&cam_io_en_reg>;
 			vddreg-supply = <&vt_core_15v_reg>;
 			vddio-supply = <&vtcam_reg>;
-			gpios = <&gpl2 0 1>,
-				<&gpl2 1 1>;
+			clocks = <&camera 0>;
+			clock-names = "mclk";
+			stbyn-gpios = <&gpl2 0 1>;
+			rstn-gpios = <&gpl2 1 1>;
 			clock-frequency = <24000000>;
 
 			port {
