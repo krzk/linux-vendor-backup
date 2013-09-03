@@ -160,6 +160,11 @@ struct m5mols_version {
 	u8	af;
 };
 
+struct m5mols_gpio {
+	int gpio;
+	int level;
+};
+
 /**
  * struct m5mols_info - M-5MOLS driver data structure
  * @pdata: platform data
@@ -195,13 +200,13 @@ struct m5mols_version {
  * @mode: register value for current operation mode
  */
 struct m5mols_info {
-	const struct m5mols_platform_data *pdata;
 	struct v4l2_subdev sd;
 	struct media_pad pad;
 
 	wait_queue_head_t irq_waitq;
 	atomic_t irq_done;
 
+	struct m5mols_gpio reset_gpio;
 	struct v4l2_ctrl_handler handle;
 	struct {
 		/* exposure/exposure bias/auto exposure cluster */

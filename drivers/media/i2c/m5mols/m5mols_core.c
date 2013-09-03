@@ -19,6 +19,7 @@
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <linux/regulator/consumer.h>
 #include <linux/videodev2.h>
 #include <linux/module.h>
@@ -760,9 +761,7 @@ static int regulator_bulk_enable_sync(int num_consumers,
 
 static int m5mols_sensor_power(struct m5mols_info *info, bool enable)
 {
-	struct v4l2_subdev *sd = &info->sd;
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	const struct m5mols_platform_data *pdata = info->pdata;
+	struct device *dev = info->sd.dev;
 	int ret;
 
 	if (info->power == enable)
@@ -770,19 +769,21 @@ static int m5mols_sensor_power(struct m5mols_info *info, bool enable)
 
 	if (enable) {
 		if (info->set_power) {
-			ret = info->set_power(&client->dev, 1);
+			ret = info->set_power(dev, 1);
 			if (ret)
 				return ret;
 		}
 
 		ret = regulator_bulk_enable_sync(ARRAY_SIZE(supplies),
 						  supplies);
-		if (ret) {
-			info->set_power(&client->dev, 0);
+
+		if (ret < 0) {
+			regulator_bulk_disable(ARRAY_SIZE(supplies), supplies);
+			info->set_power(dev, 0);
 			return ret;
 		}
 
-		gpio_set_value(pdata->gpio_reset, !pdata->reset_polarity);
+		gpio_set_value(info->reset_gpio.gpio, !info->reset_gpio.level);
 		usleep_range(1000, 1000);
 		info->power = 1;
 
@@ -790,13 +791,14 @@ static int m5mols_sensor_power(struct m5mols_info *info, bool enable)
 	}
 
 	ret = regulator_bulk_disable(ARRAY_SIZE(supplies), supplies);
-	if (ret)
-		return ret;
+	if (ret) {
+		v4l2_err(&info->sd, "error disabling regulators: %d\n", ret);
+	}
 
 	if (info->set_power)
-		info->set_power(&client->dev, 0);
+		info->set_power(dev, 0);
 
-	gpio_set_value(pdata->gpio_reset, pdata->reset_polarity);
+	gpio_set_value(info->reset_gpio.gpio, info->reset_gpio.level);
 	usleep_range(1000, 1000);
 
 	info->isp_ready = 0;
@@ -947,24 +949,45 @@ static irqreturn_t m5mols_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static int m5mols_get_platform_data(struct m5mols_info *info,
+				    struct device *dev)
+{
+	const struct m5mols_platform_data *pdata = dev->platform_data;
+
+	if (pdata) {
+		info->reset_gpio.gpio = pdata->gpio_reset;
+		info->reset_gpio.level = pdata->reset_polarity;
+		info->set_power = pdata->set_power;
+		return 0;
+	}
+
+	if (dev->of_node) {
+		int ret;
+		enum of_gpio_flags flags;
+
+		ret = of_get_named_gpio_flags(dev->of_node, "resetb-gpios", 0,
+					      &flags);
+		if (ret < 0) {
+			dev_err(dev, "no resetb-gpios GPIO provided\n");
+			return ret;
+		}
+		info->reset_gpio.gpio = ret;
+		info->reset_gpio.level = !(flags & OF_GPIO_ACTIVE_LOW);
+
+		return 0;
+	}
+
+	dev_err(dev, "no platform data provided\n");
+	return -EINVAL;
+}
+
 static int m5mols_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
-	const struct m5mols_platform_data *pdata = client->dev.platform_data;
 	unsigned long gpio_flags;
 	struct m5mols_info *info;
 	struct v4l2_subdev *sd;
 	int ret;
-
-	if (pdata == NULL) {
-		dev_err(&client->dev, "No platform data\n");
-		return -EINVAL;
-	}
-
-	if (!gpio_is_valid(pdata->gpio_reset)) {
-		dev_err(&client->dev, "No valid RESET GPIO specified\n");
-		return -EINVAL;
-	}
 
 	if (!client->irq) {
 		dev_err(&client->dev, "Interrupt not assigned\n");
@@ -975,21 +998,23 @@ static int m5mols_probe(struct i2c_client *client,
 	if (!info)
 		return -ENOMEM;
 
-	info->pdata = pdata;
-	info->set_power	= pdata->set_power;
+	ret = m5mols_get_platform_data(info, &client->dev);
+	if (ret < 0)
+		return ret;
 
-	gpio_flags = pdata->reset_polarity
-		   ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW;
-	ret = devm_gpio_request_one(&client->dev, pdata->gpio_reset, gpio_flags,
-				    "M5MOLS_NRST");
-	if (ret) {
-		dev_err(&client->dev, "Failed to request gpio: %d\n", ret);
+	gpio_flags = info->reset_gpio.level ? GPIOF_OUT_INIT_HIGH :
+			GPIOF_OUT_INIT_LOW;
+	ret = devm_gpio_request_one(&client->dev, info->reset_gpio.gpio,
+				    gpio_flags, "M5MOLS_RESETB");
+	if (ret < 0) {
+		dev_err(&client->dev, "Failed to request gpio: %d\n",
+			ret);
 		return ret;
 	}
 
 	ret = devm_regulator_bulk_get(&client->dev, ARRAY_SIZE(supplies),
 				      supplies);
-	if (ret) {
+	if (ret < 0) {
 		dev_err(&client->dev, "Failed to get regulators: %d\n", ret);
 		return ret;
 	}
@@ -1011,7 +1036,7 @@ static int m5mols_probe(struct i2c_client *client,
 
 	ret = devm_request_irq(&client->dev, client->irq, m5mols_irq_handler,
 			       IRQF_TRIGGER_RISING, MODULE_NAME, sd);
-	if (ret) {
+	if (ret < 0) {
 		dev_err(&client->dev, "Interrupt request failed: %d\n", ret);
 		goto error;
 	}
@@ -1020,16 +1045,18 @@ static int m5mols_probe(struct i2c_client *client,
 	info->ffmt[1] =	m5mols_default_ffmt[1];
 
 	ret = m5mols_sensor_power(info, true);
-	if (ret)
+	if (ret < 0)
 		goto error;
 
 	ret = m5mols_fw_start(sd);
 	if (!ret)
 		ret = m5mols_init_controls(sd);
 
-	ret = m5mols_sensor_power(info, false);
-	if (!ret)
-		return 0;
+	m5mols_sensor_power(info, false);
+	if (ret < 0)
+		goto error;
+
+	return 0;
 error:
 	media_entity_cleanup(&sd->entity);
 	return ret;
@@ -1052,8 +1079,17 @@ static const struct i2c_device_id m5mols_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, m5mols_id);
 
+#ifdef CONFIG_OF
+static const struct of_device_id m5mols_of_match[] = {
+	{ .compatible = "fujitsu,m5mols" },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, m5mols_of_match);
+#endif
+
 static struct i2c_driver m5mols_i2c_driver = {
 	.driver = {
+		.of_match_table = of_match_ptr(m5mols_of_match),
 		.name	= MODULE_NAME,
 	},
 	.probe		= m5mols_probe,
