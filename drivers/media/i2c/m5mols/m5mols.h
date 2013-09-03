@@ -207,6 +207,7 @@ struct m5mols_info {
 	atomic_t irq_done;
 
 	struct m5mols_gpio reset_gpio;
+	struct clk *clock;
 	struct v4l2_ctrl_handler handle;
 	struct {
 		/* exposure/exposure bias/auto exposure cluster */

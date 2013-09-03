@@ -13,6 +13,7 @@
  * (at your option) any later version.
  */
 
+#include <linux/clk.h>
 #include <linux/i2c.h>
 #include <linux/slab.h>
 #include <linux/irq.h>
@@ -36,6 +37,7 @@ module_param(m5mols_debug, int, 0644);
 
 #define MODULE_NAME		"m5mols"
 #define M5MOLS_I2C_CHECK_RETRY	500
+#define M5MOLS_CLK_NAME 	"clkin"
 
 /* The regulator consumer names for external voltage regulators */
 static struct regulator_bulk_data supplies[] = {
@@ -777,6 +779,9 @@ static int m5mols_sensor_power(struct m5mols_info *info, bool enable)
 		ret = regulator_bulk_enable_sync(ARRAY_SIZE(supplies),
 						  supplies);
 
+		if (!ret)
+			ret = clk_prepare_enable(info->clock);
+
 		if (ret < 0) {
 			regulator_bulk_disable(ARRAY_SIZE(supplies), supplies);
 			info->set_power(dev, 0);
@@ -789,6 +794,8 @@ static int m5mols_sensor_power(struct m5mols_info *info, bool enable)
 
 		return ret;
 	}
+
+	clk_disable_unprepare(info->clock);
 
 	ret = regulator_bulk_disable(ARRAY_SIZE(supplies), supplies);
 	if (ret) {
@@ -1018,6 +1025,10 @@ static int m5mols_probe(struct i2c_client *client,
 		dev_err(&client->dev, "Failed to get regulators: %d\n", ret);
 		return ret;
 	}
+
+	info->clock = devm_clk_get(&client->dev, M5MOLS_CLK_NAME);
+	if (IS_ERR(info->clock))
+		return -EPROBE_DEFER;
 
 	sd = &info->sd;
 	v4l2_i2c_subdev_init(sd, client, &m5mols_ops);
