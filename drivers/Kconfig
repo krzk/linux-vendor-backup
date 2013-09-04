@@ -166,6 +166,4 @@ source "drivers/ipack/Kconfig"
 
 source "drivers/reset/Kconfig"
 
-source "drivers/phy/Kconfig"
-
 endmenu
