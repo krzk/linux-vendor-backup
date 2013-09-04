@@ -1019,6 +1019,10 @@ static const struct usb_device_id	products [] = {
 	USB_DEVICE (0x0b95, 0x7e2b),
 	.driver_info = (unsigned long) &ax88772_info,
 }, {
+	// Another Asix Clone Adapter
+	USB_DEVICE(0x0b95, 0x1790),
+	.driver_info = (unsigned long) &ax8817x_info,
+}, {
 	/* ASIX 88172a demo board */
 	USB_DEVICE(0x0b95, 0x172a),
 	.driver_info = (unsigned long) &ax88172a_info,
