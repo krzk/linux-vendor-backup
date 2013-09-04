@@ -11,12 +11,3 @@ menuconfig GENERIC_PHY
 	  devices present in the kernel. This layer will have the generic
 	  API by which phy drivers can create PHY using the phy framework and
 	  phy users can obtain reference to the PHY.
-
-if GENERIC_PHY
-
-config PHY_EXYNOS_MIPI_VIDEO
-	tristate "S5P/EXYNOS SoC series MIPI CSI-2/DSI PHY driver"
-	help
-	  Support for MIPI CSI-2 and MIPI DSI DPHY found on Samsung
-	  S5P and EXYNOS SoCs.
-endif
