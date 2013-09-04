@@ -24,7 +24,6 @@
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
@@ -220,7 +219,6 @@ struct exynos_dsi {
 	bool enabled;
 
 	struct platform_device *pdev;
-	struct phy *phy;
 	struct device *dev;
 	struct resource *res;
 	struct clk *pll_clk;
@@ -818,7 +816,6 @@ again:
 
 static bool exynos_dsi_transfer_finish(struct exynos_dsi *dsi)
 {
-	static unsigned long j;
 	struct exynos_dsi_transfer *xfer;
 	unsigned long flags;
 	bool start = true;
@@ -827,8 +824,7 @@ static bool exynos_dsi_transfer_finish(struct exynos_dsi *dsi)
 
 	if (list_empty(&dsi->transfer_list)) {
 		spin_unlock_irqrestore(&dsi->transfer_lock, flags);
-		if (printk_timed_ratelimit(&j, 500))
-			dev_warn(dsi->dev, "unexpected TX/RX interrupt\n");
+		dev_warn(dsi->dev, "unexpected TX/RX interrupt\n");
 		return false;
 	}
 
@@ -1000,7 +996,8 @@ static int exynos_dsi_enable(struct video_source *src)
 	clk_prepare_enable(dsi->bus_clk);
 	clk_prepare_enable(dsi->pll_clk);
 
-	phy_power_on(dsi->phy);
+	if (dsi->pd->phy_enable)
+		dsi->pd->phy_enable(dsi->pdev, true);
 
 	exynos_dsi_reset(dsi);
 	exynos_dsi_init_link(dsi);
@@ -1025,7 +1022,8 @@ static int exynos_dsi_disable(struct video_source *src)
 
 	exynos_dsi_disable_clock(dsi);
 
-	phy_power_off(dsi->phy);
+	if (dsi->pd->phy_enable)
+		dsi->pd->phy_enable(dsi->pdev, false);
 
 	clk_disable_unprepare(dsi->pll_clk);
 	clk_disable_unprepare(dsi->bus_clk);
@@ -1106,6 +1104,12 @@ static const struct dsi_video_source_ops exynos_dsi_ops = {
  * Device Tree
  */
 
+static int (* const of_phy_enables[])(struct platform_device *, bool) = {
+#ifdef CONFIG_S5P_SETUP_MIPIPHY
+	[0] = s5p_dsim_phy_enable,
+#endif
+};
+
 static struct exynos_dsi_platform_data *exynos_dsi_parse_dt(
 						struct platform_device *pdev)
 {
@@ -1113,12 +1117,26 @@ static struct exynos_dsi_platform_data *exynos_dsi_parse_dt(
 	struct exynos_dsi_platform_data *dsi_pd;
 	struct device *dev = &pdev->dev;
 	const __be32 *prop_data;
+	u32 val;
 
 	dsi_pd = kzalloc(sizeof(*dsi_pd), GFP_KERNEL);
 	if (!dsi_pd) {
 		dev_err(dev, "failed to allocate dsi platform data\n");
 		return NULL;
 	}
+
+	prop_data = of_get_property(node, "samsung,phy-type", NULL);
+	if (!prop_data) {
+		dev_err(dev, "failed to get phy-type property\n");
+		goto err_free_pd;
+	}
+
+	val = be32_to_cpu(*prop_data);
+	if (val >= ARRAY_SIZE(of_phy_enables) || !of_phy_enables[val]) {
+		dev_err(dev, "Invalid phy-type %u\n", val);
+		goto err_free_pd;
+	}
+	dsi_pd->phy_enable = of_phy_enables[val];
 
 	prop_data = of_get_property(node, "samsung,pll-stable-time", NULL);
 	if (!prop_data) {
@@ -1240,10 +1258,6 @@ static int exynos_dsi_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to remap io region\n");
 		return -ENOMEM;
 	}
-
-	dsi->phy = devm_phy_get(&pdev->dev, "dsim");
-	if (IS_ERR(dsi->phy))
-		return PTR_ERR(dsi->phy);
 
 	platform_set_drvdata(pdev, dsi);
 
