@@ -1067,6 +1067,10 @@ static int m5mols_probe(struct i2c_client *client,
 	if (ret < 0)
 		goto error;
 
+	ret = v4l2_async_register_subdev(&info->sd);
+	if (ret < 0)
+		goto error;
+
 	return 0;
 error:
 	media_entity_cleanup(&sd->entity);
@@ -1076,6 +1080,8 @@ error:
 static int m5mols_remove(struct i2c_client *client)
 {
 	struct v4l2_subdev *sd = i2c_get_clientdata(client);
+
+	v4l2_async_unregister_subdev(sd);
 
 	v4l2_device_unregister_subdev(sd);
 	v4l2_ctrl_handler_free(sd->ctrl_handler);
