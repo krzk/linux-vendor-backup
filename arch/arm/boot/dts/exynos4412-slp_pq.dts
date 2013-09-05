@@ -189,6 +189,8 @@
 		i2c10 = &i2c_if_pmic;
 		i2c11 = &i2c_fuel;
 		i2c12 = &i2c_gp2ap020a00f;
+		/* 15...16 reserved for i2c0_isp, i2c1_isp */
+		i2c16 = &i2c1_isp;
 	};
 
 	memory {
