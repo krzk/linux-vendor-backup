@@ -232,6 +232,15 @@
 		status = "disabled";
 	};
 
+	jpeg-codec@11840000 {
+		compatible = "samsung,exynos4210-jpeg";
+		reg = <0x11840000 0x1000>;
+		interrupts = <0 88 0>;
+		clocks = <&clock 262>;
+		clock-names = "jpeg";
+		samsung,power-domain = <&pd_cam>;
+	};
+
 	sdhci@12510000 {
 		compatible = "samsung,exynos4210-sdhci";
 		reg = <0x12510000 0x100>;

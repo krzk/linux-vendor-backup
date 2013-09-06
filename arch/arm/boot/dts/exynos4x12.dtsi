@@ -120,6 +120,10 @@
 		status = "ok";
 	};
 
+	jpeg-codec@11840000 {
+		compatible = "samsung,exynos4212-jpeg";
+	};
+
 	sysmmu_fimc_isp: sysmmu@12260000 {
 		compatible = "samsung,exynos4210-sysmmu";
 		reg = <0x12260000 0x1000>;
