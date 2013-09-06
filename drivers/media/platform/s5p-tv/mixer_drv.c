@@ -66,10 +66,12 @@ void mxr_streamer_get(struct mxr_device *mdev)
 		struct mxr_resources *res = &mdev->res;
 		int ret;
 
-		if (to_output(mdev)->cookie == 0)
-			clk_set_parent(res->sclk_mixer, res->sclk_dac);
-		else
-			clk_set_parent(res->sclk_mixer, res->sclk_hdmi);
+		if (mdev->vp_enabled) {
+			if (to_output(mdev)->cookie == 0)
+				clk_set_parent(res->mout_mixer, res->sclk_dac);
+			else
+				clk_set_parent(res->mout_mixer, res->sclk_hdmi);
+		}
 		mxr_reg_s_output(mdev, to_output(mdev)->cookie);
 
 		ret = v4l2_subdev_call(sd, video, g_mbus_fmt, &mbus_fmt);
@@ -171,18 +173,20 @@ static int mxr_acquire_plat_resources(struct mxr_device *mdev,
 		goto fail;
 	}
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vp");
-	if (res == NULL) {
-		mxr_err(mdev, "get memory resource failed.\n");
-		ret = -ENXIO;
-		goto fail_mxr_regs;
-	}
+	if (mdev->vp_enabled) {
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vp");
+		if (res == NULL) {
+			mxr_err(mdev, "get memory resource failed.\n");
+			ret = -ENXIO;
+			goto fail_mxr_regs;
+		}
 
-	mdev->res.vp_regs = ioremap(res->start, resource_size(res));
-	if (mdev->res.vp_regs == NULL) {
-		mxr_err(mdev, "register mapping failed.\n");
-		ret = -ENXIO;
-		goto fail_mxr_regs;
+		mdev->res.vp_regs = ioremap(res->start, resource_size(res));
+		if (mdev->res.vp_regs == NULL) {
+			mxr_err(mdev, "register mapping failed.\n");
+			ret = -ENXIO;
+			goto fail_mxr_regs;
+		}
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "irq");
@@ -202,7 +206,8 @@ static int mxr_acquire_plat_resources(struct mxr_device *mdev,
 	return 0;
 
 fail_vp_regs:
-	iounmap(mdev->res.vp_regs);
+	if (mdev->vp_enabled)
+		iounmap(mdev->res.vp_regs);
 
 fail_mxr_regs:
 	iounmap(mdev->res.mxr_regs);
@@ -218,12 +223,14 @@ static void mxr_resource_clear_clocks(struct mxr_resources *res)
 	res->sclk_mixer	= ERR_PTR(-EINVAL);
 	res->sclk_hdmi	= ERR_PTR(-EINVAL);
 	res->sclk_dac	= ERR_PTR(-EINVAL);
+	res->mout_mixer	= ERR_PTR(-EINVAL);
 }
 
 static void mxr_release_plat_resources(struct mxr_device *mdev)
 {
 	free_irq(mdev->res.irq, mdev);
-	iounmap(mdev->res.vp_regs);
+	if (mdev->vp_enabled)
+		iounmap(mdev->res.vp_regs);
 	iounmap(mdev->res.mxr_regs);
 }
 
@@ -231,16 +238,20 @@ static void mxr_release_clocks(struct mxr_device *mdev)
 {
 	struct mxr_resources *res = &mdev->res;
 
-	if (!IS_ERR(res->sclk_dac))
-		clk_put(res->sclk_dac);
 	if (!IS_ERR(res->sclk_hdmi))
 		clk_put(res->sclk_hdmi);
-	if (!IS_ERR(res->sclk_mixer))
-		clk_put(res->sclk_mixer);
-	if (!IS_ERR(res->vp))
-		clk_put(res->vp);
 	if (!IS_ERR(res->mixer))
 		clk_put(res->mixer);
+	if (mdev->vp_enabled) {
+		if (!IS_ERR(res->mout_mixer))
+			clk_put(res->mout_mixer);
+		if (!IS_ERR_OR_NULL(res->sclk_dac))
+			clk_put(res->sclk_dac);
+		if (!IS_ERR_OR_NULL(res->sclk_mixer))
+			clk_put(res->sclk_mixer);
+		if (!IS_ERR_OR_NULL(res->vp))
+			clk_put(res->vp);
+	}
 }
 
 static int mxr_acquire_clocks(struct mxr_device *mdev)
@@ -255,24 +266,31 @@ static int mxr_acquire_clocks(struct mxr_device *mdev)
 		mxr_err(mdev, "failed to get clock 'mixer'\n");
 		goto fail;
 	}
-	res->vp = clk_get(dev, "vp");
-	if (IS_ERR(res->vp)) {
-		mxr_err(mdev, "failed to get clock 'vp'\n");
-		goto fail;
-	}
-	res->sclk_mixer = clk_get(dev, "sclk_mixer");
-	if (IS_ERR(res->sclk_mixer)) {
-		mxr_err(mdev, "failed to get clock 'sclk_mixer'\n");
-		goto fail;
+	if (mdev->vp_enabled) {
+		res->vp = clk_get(dev, "vp");
+		if (IS_ERR_OR_NULL(res->vp)) {
+			mxr_err(mdev, "failed to get clock 'vp'\n");
+			goto fail;
+		}
+		res->sclk_mixer = clk_get(dev, "sclk_mixer");
+		if (IS_ERR_OR_NULL(res->sclk_mixer)) {
+			mxr_err(mdev, "failed to get clock 'sclk_mixer'\n");
+			goto fail;
+		}
+		res->sclk_dac = clk_get(dev, "sclk_dac");
+		if (IS_ERR_OR_NULL(res->sclk_dac)) {
+			mxr_err(mdev, "failed to get clock 'sclk_dac'\n");
+			goto fail;
+		}
+		res->mout_mixer = clk_get(dev, "mout_mixer");
+		if (IS_ERR(res->mout_mixer)) {
+			mxr_err(mdev, "failed to get clock 'mout_mixer'\n");
+			goto fail;
+		}
 	}
 	res->sclk_hdmi = clk_get(dev, "sclk_hdmi");
 	if (IS_ERR(res->sclk_hdmi)) {
 		mxr_err(mdev, "failed to get clock 'sclk_hdmi'\n");
-		goto fail;
-	}
-	res->sclk_dac = clk_get(dev, "sclk_dac");
-	if (IS_ERR(res->sclk_dac)) {
-		mxr_err(mdev, "failed to get clock 'sclk_dac'\n");
 		goto fail;
 	}
 
@@ -327,10 +345,16 @@ static int mxr_acquire_layers(struct mxr_device *mdev,
 {
 	mdev->layer[0] = mxr_graph_layer_create(mdev, 0);
 	mdev->layer[1] = mxr_graph_layer_create(mdev, 1);
-	mdev->layer[2] = mxr_vp_layer_create(mdev, 0);
 
-	if (!mdev->layer[0] || !mdev->layer[1] || !mdev->layer[2]) {
+	if (mdev->vp_enabled)
+		mdev->layer[2] = mxr_vp_layer_create(mdev, 0);
+
+	if (!mdev->layer[0] || !mdev->layer[1]) {
 		mxr_err(mdev, "failed to acquire layers\n");
+		goto fail;
+	}
+	if (mdev->vp_enabled && !mdev->layer[2]) {
+		mxr_err(mdev, "failed to acquire vp layer\n");
 		goto fail;
 	}
 
@@ -357,15 +381,17 @@ static int mxr_runtime_resume(struct device *dev)
 		dev_err(mdev->dev, "clk_prepare_enable(mixer) failed\n");
 		goto fail;
 	}
-	ret = clk_prepare_enable(res->vp);
-	if (ret < 0) {
-		dev_err(mdev->dev, "clk_prepare_enable(vp) failed\n");
-		goto fail_mixer;
-	}
-	ret = clk_prepare_enable(res->sclk_mixer);
-	if (ret < 0) {
-		dev_err(mdev->dev, "clk_prepare_enable(sclk_mixer) failed\n");
-		goto fail_vp;
+	if (mdev->vp_enabled) {
+		ret = clk_prepare_enable(res->vp);
+		if (ret < 0) {
+			dev_err(mdev->dev, "clk_prepare_enable(vp) failed\n");
+			goto fail_mixer;
+		}
+		ret = clk_prepare_enable(res->sclk_mixer);
+		if (ret < 0) {
+			dev_err(mdev->dev, "clk_prepare_enable(sclk_mixer) failed\n");
+			goto fail_vp;
+		}
 	}
 	/* apply default configuration */
 	mxr_reg_reset(mdev);
@@ -391,8 +417,10 @@ static int mxr_runtime_suspend(struct device *dev)
 	mxr_dbg(mdev, "suspend - start\n");
 	mutex_lock(&mdev->mutex);
 	/* turn clocks off */
-	clk_disable_unprepare(res->sclk_mixer);
-	clk_disable_unprepare(res->vp);
+	if (mdev->vp_enabled) {
+		clk_disable_unprepare(res->sclk_mixer);
+		clk_disable_unprepare(res->vp);
+	}
 	clk_disable_unprepare(res->mixer);
 	mutex_unlock(&mdev->mutex);
 	mxr_dbg(mdev, "suspend - finished\n");
@@ -406,11 +434,59 @@ static const struct dev_pm_ops mxr_pm_ops = {
 
 /* --------- DRIVER INITIALIZATION ---------- */
 
+struct mixer_drv_data {
+	enum mixer_version_id	version;
+	bool			is_vp_enabled;
+};
+
+static struct mixer_drv_data exynos5_mxr_drv_data = {
+	.version = MXR_VER_16_0_33_0,
+	.is_vp_enabled = 0,
+};
+
+static struct mixer_drv_data exynos4_mxr_drv_data = {
+	.version = MXR_VER_0_0_0_16,
+	.is_vp_enabled = 1,
+};
+
+static struct platform_device_id mixer_driver_types[] = {
+	{
+		.name		= "s5p-mixer",
+		.driver_data	= (unsigned long)&exynos4_mxr_drv_data,
+	}, {
+		.name		= "exynos5-mixer",
+		.driver_data	= (unsigned long)&exynos5_mxr_drv_data,
+	}, {
+		/* end node */
+	}
+};
+
+#ifdef CONFIG_OF
+
+static struct of_device_id mxr_dt_match[] = {
+	{
+		.compatible = "samsung,s5pv210-tvmixer",
+		.data	= &exynos4_mxr_drv_data,
+	}, {
+		.compatible = "samsung,exynos4-mixer",
+		.data   = &exynos4_mxr_drv_data,
+	}, {
+		.compatible = "samsung,exynos5250-mixer",
+		.data	= &exynos5_mxr_drv_data,
+	}, {
+		/* end node */
+	}
+};
+
+MODULE_DEVICE_TABLE(of, mxr_dt_match);
+#endif
+
 static int mxr_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mxr_platform_data *pdata = dev->platform_data;
 	struct mxr_device *mdev;
+	struct mixer_drv_data *drv = NULL;
 	int ret;
 
 	/* mdev does not exist yet so no mxr_dbg is used */
@@ -423,8 +499,21 @@ static int mxr_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
+	if (dev->of_node) {
+		const struct of_device_id *match;
+		match = of_match_node(of_match_ptr(mxr_dt_match),
+				pdev->dev.of_node);
+
+		drv = (struct mixer_drv_data *)match->data;
+	} else {
+		drv = (struct mixer_drv_data *)
+			platform_get_device_id(pdev)->driver_data;
+	}
+
 	/* setup pointer to master device */
 	mdev->dev = dev;
+	mdev->vp_enabled = drv->is_vp_enabled;
+	mdev->mxr_ver = drv->version;
 
 	mutex_init(&mdev->mutex);
 	spin_lock_init(&mdev->reg_slock);
@@ -485,10 +574,12 @@ static int mxr_remove(struct platform_device *pdev)
 static struct platform_driver mxr_driver __refdata = {
 	.probe = mxr_probe,
 	.remove = mxr_remove,
+	.id_table = mixer_driver_types,
 	.driver = {
 		.name = MXR_DRIVER_NAME,
 		.owner = THIS_MODULE,
 		.pm = &mxr_pm_ops,
+		.of_match_table = mxr_dt_match,
 	}
 };
 

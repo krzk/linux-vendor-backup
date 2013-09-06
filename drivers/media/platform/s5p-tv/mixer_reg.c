@@ -57,12 +57,25 @@ static inline void mxr_write_mask(struct mxr_device *mdev, u32 reg_id,
 	writel(val, mdev->res.mxr_regs + reg_id);
 }
 
+static void mxr_reg_layer_update(struct mxr_device *mdev)
+{
+	u32 val;
+
+	val = mxr_read(mdev, MXR_CFG);
+
+	/* allow one update per vsync only */
+	if (!(val & MXR_CFG_LAYER_UPDATE_COUNT_MASK))
+		mxr_write_mask(mdev, MXR_CFG, ~0, MXR_CFG_LAYER_UPDATE);
+}
+
 void mxr_vsync_set_update(struct mxr_device *mdev, int en)
 {
 	/* block update on vsync */
 	mxr_write_mask(mdev, MXR_STATUS, en ? MXR_STATUS_SYNC_ENABLE : 0,
 		MXR_STATUS_SYNC_ENABLE);
-	vp_write(mdev, VP_SHADOW_UPDATE, en ? VP_SHADOW_UPDATE_ENABLE : 0);
+	if (mdev->vp_enabled)
+		vp_write(mdev, VP_SHADOW_UPDATE,
+			en ? VP_SHADOW_UPDATE_ENABLE : 0);
 }
 
 static void __mxr_reg_vp_reset(struct mxr_device *mdev)
@@ -103,8 +116,9 @@ void mxr_reg_reset(struct mxr_device *mdev)
 	 * layer1 - OSD
 	 */
 	val  = MXR_LAYER_CFG_GRP0_VAL(1);
-	val |= MXR_LAYER_CFG_VP_VAL(2);
 	val |= MXR_LAYER_CFG_GRP1_VAL(3);
+	if (mdev->vp_enabled)
+		val |= MXR_LAYER_CFG_VP_VAL(2);
 	mxr_write(mdev, MXR_LAYER_CFG, val);
 
 	/* use dark gray background color */
@@ -123,8 +137,10 @@ void mxr_reg_reset(struct mxr_device *mdev)
 	mxr_write(mdev, MXR_GRAPHIC_CFG(1), val);
 
 	/* configuration of Video Processor Registers */
-	__mxr_reg_vp_reset(mdev);
-	mxr_reg_vp_default_filter(mdev);
+	if (mdev->vp_enabled) {
+		__mxr_reg_vp_reset(mdev);
+		mxr_reg_vp_default_filter(mdev);
+	}
 
 	/* enable all interrupts */
 	mxr_write_mask(mdev, MXR_INT_EN, ~0, MXR_INT_EN_ALL);
@@ -224,6 +240,9 @@ void mxr_reg_graph_buffer(struct mxr_device *mdev, int idx, dma_addr_t addr)
 	else
 		mxr_write_mask(mdev, MXR_CFG, val, MXR_CFG_GRP1_ENABLE);
 	mxr_write(mdev, MXR_GRAPHIC_BASE(idx), addr);
+
+	if (mdev->mxr_ver == MXR_VER_16_0_33_0)
+		mxr_reg_layer_update(mdev);
 
 	mxr_vsync_set_update(mdev, MXR_ENABLE);
 	spin_unlock_irqrestore(&mdev->reg_slock, flags);
@@ -409,8 +428,11 @@ void mxr_reg_set_mbus_fmt(struct mxr_device *mdev,
 		MXR_CFG_OUT_MASK);
 
 	val = (fmt->field == V4L2_FIELD_INTERLACED) ? ~0 : 0;
-	vp_write_mask(mdev, VP_MODE, val,
-		VP_MODE_LINE_SKIP | VP_MODE_FIELD_ID_AUTO_TOGGLING);
+
+	if (mdev->vp_enabled) {
+		vp_write_mask(mdev, VP_MODE, val,
+			VP_MODE_LINE_SKIP | VP_MODE_FIELD_ID_AUTO_TOGGLING);
+	}
 
 	mxr_vsync_set_update(mdev, MXR_ENABLE);
 	spin_unlock_irqrestore(&mdev->reg_slock, flags);
@@ -548,6 +570,7 @@ do { \
 void mxr_reg_dump(struct mxr_device *mdev)
 {
 	mxr_reg_mxr_dump(mdev);
-	mxr_reg_vp_dump(mdev);
+	if (mdev->vp_enabled)
+		mxr_reg_vp_dump(mdev);
 }
 

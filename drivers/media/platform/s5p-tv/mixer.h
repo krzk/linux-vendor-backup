@@ -222,12 +222,18 @@ struct mxr_resources {
 	struct clk *sclk_mixer;
 	struct clk *sclk_hdmi;
 	struct clk *sclk_dac;
+	struct clk *mout_mixer;
 };
 
 /* event flags used  */
 enum mxr_devide_flags {
 	MXR_EVENT_VSYNC = 0,
 	MXR_EVENT_TOP = 1,
+};
+
+enum mixer_version_id {
+	MXR_VER_0_0_0_16,
+	MXR_VER_16_0_33_0,
 };
 
 /** drivers instance */
@@ -265,6 +271,10 @@ struct mxr_device {
 	int current_output;
 	/** auxiliary resources used my mixer */
 	struct mxr_resources res;
+	/** is Video Processor is enabled */
+	bool vp_enabled;
+	/** is Video Processor is enabled */
+	enum mixer_version_id mxr_ver;
 };
 
 /** transform device structure into mixer device */

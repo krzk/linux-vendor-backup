@@ -31,7 +31,10 @@
 #include <linux/pm_runtime.h>
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
+#include <linux/of.h>
 #include <linux/v4l2-dv-timings.h>
+#include <linux/of_gpio.h>
+#include <linux/gpio.h>
 
 #include <media/s5p_hdmi.h>
 #include <media/v4l2-common.h>
@@ -44,6 +47,11 @@
 MODULE_AUTHOR("Tomasz Stanislawski, <t.stanislaws@samsung.com>");
 MODULE_DESCRIPTION("Samsung HDMI");
 MODULE_LICENSE("GPL");
+
+enum hdmi_type {
+	HDMI_TYPE13,
+	HDMI_TYPE14,
+};
 
 struct hdmi_pulse {
 	u32 beg;
@@ -66,7 +74,7 @@ struct hdmi_resources {
 	struct clk *sclk_hdmi;
 	struct clk *sclk_pixel;
 	struct clk *sclk_hdmiphy;
-	struct clk *hdmiphy;
+	struct clk *mout_hdmi;
 	struct regulator_bulk_data *regul_bulk;
 	int regul_count;
 };
@@ -92,6 +100,10 @@ struct hdmi_device {
 	int cur_conf_dirty;
 	/** current timings */
 	struct v4l2_dv_timings cur_timings;
+	/** hpd gpio number */
+	int hpd_gpio;
+	/** hdmi version */
+	enum hdmi_type type;
 	/** other resources */
 	struct hdmi_resources res;
 };
@@ -99,12 +111,34 @@ struct hdmi_device {
 static struct platform_device_id hdmi_driver_types[] = {
 	{
 		.name		= "s5pv210-hdmi",
+		.driver_data	= HDMI_TYPE13,
 	}, {
 		.name		= "exynos4-hdmi",
+		.driver_data	= HDMI_TYPE13,
 	}, {
 		/* end node */
 	}
 };
+
+#ifdef CONFIG_OF
+static struct of_device_id hdmi_dt_match[] = {
+	{
+		.compatible = "samsung,s5pv210-hdmi",
+		.data	= (void	*)HDMI_TYPE13,
+	}, {
+		.compatible = "samsung,exynos4-hdmi",
+		.data   = (void *)HDMI_TYPE13,
+	}, {
+		.compatible = "samsung,exynos5-hdmi",
+		.data	= (void	*)HDMI_TYPE14,
+	}, {
+		.compatible = "samsung,exynos4212-hdmi",
+		.data	= (void	*)HDMI_TYPE14,
+	}, {
+		/* end node */
+	},
+};
+#endif
 
 static const struct v4l2_subdev_ops hdmi_sd_ops;
 
@@ -156,21 +190,13 @@ static inline u32 hdmi_read(struct hdmi_device *hdev, u32 reg_id)
 static irqreturn_t hdmi_irq_handler(int irq, void *dev_data)
 {
 	struct hdmi_device *hdev = dev_data;
-	u32 intc_flag;
+	u32 hpd_status;
 
-	(void)irq;
-	intc_flag = hdmi_read(hdev, HDMI_INTC_FLAG);
-	/* clearing flags for HPD plug/unplug */
-	if (intc_flag & HDMI_INTC_FLAG_HPD_UNPLUG) {
+	hpd_status = gpio_get_value(hdev->hpd_gpio);
+	if (hpd_status == 0)
 		pr_info("unplugged\n");
-		hdmi_write_mask(hdev, HDMI_INTC_FLAG, ~0,
-			HDMI_INTC_FLAG_HPD_UNPLUG);
-	}
-	if (intc_flag & HDMI_INTC_FLAG_HPD_PLUG) {
+	else
 		pr_info("plugged\n");
-		hdmi_write_mask(hdev, HDMI_INTC_FLAG, ~0,
-			HDMI_INTC_FLAG_HPD_PLUG);
-	}
 
 	return IRQ_HANDLED;
 }
@@ -188,9 +214,9 @@ static void hdmi_reg_init(struct hdmi_device *hdev)
 	/* disable bluescreen */
 	hdmi_write_mask(hdev, HDMI_CON_0, 0, HDMI_BLUE_SCR_EN);
 	/* choose bluescreen (fecal) color */
-	hdmi_writeb(hdev, HDMI_BLUE_SCREEN_0, 0x12);
-	hdmi_writeb(hdev, HDMI_BLUE_SCREEN_1, 0x34);
-	hdmi_writeb(hdev, HDMI_BLUE_SCREEN_2, 0x56);
+	hdmi_writeb(hdev, HDMI_V13_BLUE_SCREEN_0, 0x12);
+	hdmi_writeb(hdev, HDMI_V13_BLUE_SCREEN_1, 0x34);
+	hdmi_writeb(hdev, HDMI_V13_BLUE_SCREEN_2, 0x56);
 }
 
 static void hdmi_timing_apply(struct hdmi_device *hdev,
@@ -198,28 +224,28 @@ static void hdmi_timing_apply(struct hdmi_device *hdev,
 {
 	/* setting core registers */
 	hdmi_writebn(hdev, HDMI_H_BLANK_0, 2, t->hact.beg);
-	hdmi_writebn(hdev, HDMI_H_SYNC_GEN_0, 3,
+	hdmi_writebn(hdev, HDMI_V13_H_SYNC_GEN_0, 3,
 		(t->hsyn_pol << 20) | (t->hsyn.end << 10) | t->hsyn.beg);
 	hdmi_writeb(hdev, HDMI_VSYNC_POL, t->vsyn_pol);
-	hdmi_writebn(hdev, HDMI_V_BLANK_0, 3,
+	hdmi_writebn(hdev, HDMI_V13_V_BLANK_0, 3,
 		(t->vact[0].beg << 11) | t->vact[0].end);
-	hdmi_writebn(hdev, HDMI_V_SYNC_GEN_1_0, 3,
+	hdmi_writebn(hdev, HDMI_V13_V_SYNC_GEN_1_0, 3,
 		(t->vsyn[0].beg << 12) | t->vsyn[0].end);
 	if (t->interlaced) {
 		u32 vsyn_trans = t->hsyn.beg + t->vsyn_off;
 
 		hdmi_writeb(hdev, HDMI_INT_PRO_MODE, 1);
-		hdmi_writebn(hdev, HDMI_H_V_LINE_0, 3,
+		hdmi_writebn(hdev, HDMI_V13_H_V_LINE_0, 3,
 			(t->hact.end << 12) | t->vact[1].end);
-		hdmi_writebn(hdev, HDMI_V_BLANK_F_0, 3,
+		hdmi_writebn(hdev, HDMI_V13_V_BLANK_F_0, 3,
 			(t->vact[1].end << 11) | t->vact[1].beg);
-		hdmi_writebn(hdev, HDMI_V_SYNC_GEN_2_0, 3,
+		hdmi_writebn(hdev, HDMI_V13_V_SYNC_GEN_2_0, 3,
 			(t->vsyn[1].beg << 12) | t->vsyn[1].end);
-		hdmi_writebn(hdev, HDMI_V_SYNC_GEN_3_0, 3,
+		hdmi_writebn(hdev, HDMI_V13_V_SYNC_GEN_3_0, 3,
 			(vsyn_trans << 12) | vsyn_trans);
 	} else {
 		hdmi_writeb(hdev, HDMI_INT_PRO_MODE, 0);
-		hdmi_writebn(hdev, HDMI_H_V_LINE_0, 3,
+		hdmi_writebn(hdev, HDMI_V13_H_V_LINE_0, 3,
 			(t->hact.end << 12) | t->vact[0].end);
 	}
 
@@ -246,6 +272,301 @@ static void hdmi_timing_apply(struct hdmi_device *hdev,
 		hdmi_writebn(hdev, HDMI_TG_V_FSZ_L, 2, t->vact[0].end);
 	}
 }
+
+struct drm_display_mode {
+	/* Proposed mode values */
+	int clock;		/* in kHz */
+	int hdisplay;
+	int hsync_start;
+	int hsync_end;
+	int htotal;
+	int hskew;
+	int vdisplay;
+	int vsync_start;
+	int vsync_end;
+	int vtotal;
+	int vscan;
+	unsigned int flags;
+};
+
+#define DRM_MODE_FLAG_PHSYNC	(1<<0)
+#define DRM_MODE_FLAG_NHSYNC	(1<<1)
+#define DRM_MODE_FLAG_PVSYNC	(1<<2)
+#define DRM_MODE_FLAG_NVSYNC	(1<<3)
+#define DRM_MODE_FLAG_INTERLACE	(1<<4)
+
+static void hdmi_v14_timing_apply(struct hdmi_device *hdev,
+	const struct hdmi_timings *t)
+{
+	struct drm_display_mode mode = {0};
+	struct drm_display_mode *m;
+
+	m = &mode;
+
+	m->hdisplay = t->hact.end - t->hact.beg;
+	m->hsync_start = m->hdisplay + t->hsyn.beg;
+	m->hsync_end = m->hdisplay + t->hsyn.end;
+	m->htotal = t->hact.end;
+	m->hskew = 0;
+
+	m->vdisplay = t->vact[0].end - t->vact[0].beg;
+	m->vsync_start = m->vdisplay + t->vsyn[0].beg;
+	m->vsync_end = m->vdisplay + t->vsyn[0].end;
+	m->vtotal = t->vact[0].end;
+	m->vscan = 0;
+
+	if(t->vsyn_pol)
+		m->flags |= DRM_MODE_FLAG_NVSYNC;
+	else
+		m->flags |= DRM_MODE_FLAG_PVSYNC;
+
+	if(t->hsyn_pol)
+		m->flags |= DRM_MODE_FLAG_NHSYNC;
+	else
+		m->flags |= DRM_MODE_FLAG_PHSYNC;
+
+	if(t->interlaced)
+		m->flags |= DRM_MODE_FLAG_INTERLACE;
+
+	hdmi_writebn(hdev, HDMI_H_BLANK_0, 2, m->htotal - m->hdisplay);
+//	hdmi_writebn(hdev, HDMI_H_BLANK_1, 2, m->htotal - m->hdisplay);
+
+	hdmi_writebn(hdev, HDMI_V_LINE_0, 2, m->vtotal);
+//	hdmi_writebn(hdev, HDMI_V_LINE_1, 2, m->vtotal);
+
+	hdmi_writebn(hdev, HDMI_H_LINE_0, 2, m->htotal);
+//	hdmi_writebn(hdev, HDMI_H_LINE_0, 2, m->htotal);
+
+	hdmi_writebn(hdev, HDMI_HSYNC_POL, 1,
+			(m->flags & DRM_MODE_FLAG_NHSYNC)  ? 1 : 0);
+	hdmi_writebn(hdev, HDMI_VSYNC_POL, 1,
+			(m->flags & DRM_MODE_FLAG_NVSYNC) ? 1 : 0);
+	hdmi_writebn(hdev, HDMI_INT_PRO_MODE, 1,
+			(m->flags & DRM_MODE_FLAG_INTERLACE) ? 1 : 0);
+
+	/*
+	 * Quirk requirement for exynos 5 HDMI IP design,
+	 * 2 pixels less than the actual calculation for hsync_start
+	 * and end.
+	 */
+
+	/* Following values & calculations differ for different type of modes */
+	if (m->flags & DRM_MODE_FLAG_INTERLACE) {
+		/* Interlaced Mode */
+		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_BEF_2_0, 2,
+			(m->vsync_end - m->vdisplay) / 2);
+//		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_BEF_2_1, 2,
+//			(m->vsync_end - m->vdisplay) / 2);
+
+		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_BEF_1_0, 2,
+			(m->vsync_start - m->vdisplay) / 2);
+//		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_BEF_1_1, 2,
+//			(m->vsync_start - m->vdisplay) / 2);
+
+
+		hdmi_writebn(hdev, HDMI_V2_BLANK_0, 2, m->vtotal / 2);
+//		hdmi_writebn(hdev, HDMI_V2_BLANK_1, 2, m->vtotal / 2);
+
+		hdmi_writebn(hdev, HDMI_V1_BLANK_0, 2, (m->vtotal - m->vdisplay) / 2);
+//		hdmi_writebn(hdev, HDMI_V1_BLANK_1, 2, (m->vtotal - m->vdisplay) / 2);
+
+		hdmi_writebn(hdev, HDMI_V_BLANK_F0_0, 2, m->vtotal - m->vdisplay / 2);
+//		hdmi_writebn(hdev, HDMI_V_BLANK_F0_1, 2, m->vtotal - m->vdisplay / 2);
+
+		hdmi_writebn(hdev, HDMI_V_BLANK_F1_0, 2, m->vtotal);
+//		hdmi_writebn(hdev, HDMI_V_BLANK_F1_1, 2, m->vtotal);
+
+		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_2_0, 2, (m->vtotal / 2) + 7);
+//		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_2_1, 2, (m->vtotal / 2) + 7);
+
+		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_1_0, 2, (m->vtotal / 2) + 2);
+//		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_1_0, 2, (m->vtotal / 2) + 2);
+
+		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_PXL_2_0, 2,
+			(m->htotal / 2) + (m->hsync_start - m->hdisplay));
+//		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_PXL_2_1, 2,
+//			(m->htotal / 2) + (m->hsync_start - m->hdisplay));
+
+
+		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_PXL_1_0, 2,
+			(m->htotal / 2) + (m->hsync_start - m->hdisplay));
+//		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_PXL_1_1, 2,
+//			(m->htotal / 2) + (m->hsync_start - m->hdisplay));
+
+		hdmi_writebn(hdev, HDMI_TG_VACT_ST_L, 2, (m->vtotal - m->vdisplay) / 2);
+//		hdmi_writebn(hdev, HDMI_TG_VACT_ST_H, 2, (m->vtotal - m->vdisplay) / 2);
+
+		hdmi_writebn(hdev, HDMI_TG_VACT_SZ_L, 2, m->vdisplay / 2);
+//		hdmi_writebn(hdev, HDMI_TG_VACT_SZ_H, 2, m->vdisplay / 2);
+
+		hdmi_writebn(hdev, HDMI_TG_VACT_ST2_L, 2, m->vtotal - m->vdisplay / 2);
+//		hdmi_writebn(hdev, HDMI_TG_VACT_ST2_H, 2, m->vtotal - m->vdisplay / 2);
+
+		hdmi_writebn(hdev, HDMI_TG_VSYNC2_L, 2, (m->vtotal / 2) + 1);
+//		hdmi_writebn(hdev, HDMI_TG_VSYNC2_H, 2, (m->vtotal / 2) + 1);
+
+		hdmi_writebn(hdev, HDMI_TG_VSYNC_BOT_HDMI_L, 2, (m->vtotal / 2) + 1);
+//		hdmi_writebn(hdev, HDMI_TG_VSYNC_BOT_HDMI_H, 2, (m->vtotal / 2) + 1);
+
+		hdmi_writebn(hdev, HDMI_TG_FIELD_BOT_HDMI_L, 2, (m->vtotal / 2) + 1);
+//		hdmi_writebn(hdev, HDMI_TG_FIELD_BOT_HDMI_H, 2, (m->vtotal / 2) + 1);
+
+		hdmi_writebn(hdev, HDMI_TG_VACT_ST3_L, 2, 0x0);
+//		hdmi_writebn(hdev, HDMI_TG_VACT_ST3_H, 2, 0x0);
+		
+		hdmi_writebn(hdev, HDMI_TG_VACT_ST4_L, 2, 0x0);
+//		hdmi_writebn(hdev, HDMI_TG_VACT_ST4_H, 2, 0x0);
+	} else {
+		/* Progressive Mode */
+		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_BEF_2_0, 2,
+			m->vsync_end - m->vdisplay);
+//		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_BEF_2_0, 2,
+///			m->vsync_end - m->vdisplay);
+
+		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_BEF_1_0, 2,
+			m->vsync_start - m->vdisplay);
+//		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_BEF_1_1, 2,
+//			m->vsync_start - m->vdisplay);
+
+		hdmi_writebn(hdev, HDMI_V2_BLANK_0, 2, m->vtotal);
+//		hdmi_writebn(hdev, HDMI_V2_BLANK_1, 2, m->vtotal);
+
+		hdmi_writebn(hdev, HDMI_V1_BLANK_0, 2, m->vtotal - m->vdisplay);
+//		hdmi_writebn(hdev, HDMI_V1_BLANK_1, 2, m->vtotal - m->vdisplay);
+
+		hdmi_writebn(hdev, HDMI_V_BLANK_F0_0, 2, 0xffff);
+//		hdmi_writebn(hdev, HDMI_V_BLANK_F0_1, 2, 0xffff);
+
+		hdmi_writebn(hdev, HDMI_V_BLANK_F1_0, 2, 0xffff);
+//		hdmi_writebn(hdev, HDMI_V_BLANK_F1_1, 2, 0xffff);
+
+		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_2_0, 2, 0xffff);
+//		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_2_1, 2, 0xffff);
+		
+		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_1_0, 2, 0xffff);
+//		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_1_0, 2, 0xffff);
+
+		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_PXL_2_0, 2, 0xffff);
+//		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_PXL_2_1, 2, 0xffff);
+
+		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_PXL_1_0, 2, 0xffff);
+//		hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_PXL_1_1, 2, 0xffff);
+
+		hdmi_writebn(hdev, HDMI_TG_VACT_ST_L, 2, m->vtotal - m->vdisplay);
+//		hdmi_writebn(hdev, HDMI_TG_VACT_ST_H, 2, m->vtotal - m->vdisplay);
+
+		hdmi_writebn(hdev, HDMI_TG_VACT_SZ_L, 2, m->vdisplay);
+//		hdmi_writebn(hdev, HDMI_TG_VACT_SZ_H, 2, m->vdisplay);
+
+		hdmi_writebn(hdev, HDMI_TG_VACT_ST2_L, 2, 0x248); /* Reset value */
+//		hdmi_writebn(hdev, HDMI_TG_VACT_ST2_H, 2, 0x248); /* Reset value */
+		
+		hdmi_writebn(hdev, HDMI_TG_VACT_ST3_L, 2, 0x47b); /* Reset value */
+//		hdmi_writebn(hdev, HDMI_TG_VACT_ST3_L, 2, 0x47b); /* Reset value */
+		
+		hdmi_writebn(hdev, HDMI_TG_VACT_ST4_L, 2, 0x6ae); /* Reset value */
+//		hdmi_writebn(hdev, HDMI_TG_VACT_ST4_H, 2, 0x6ae); /* Reset value */
+
+		hdmi_writebn(hdev, HDMI_TG_VSYNC2_L, 2, 0x233); /* Reset value */
+//		hdmi_writebn(hdev, HDMI_TG_VSYNC2_H, 2, 0x233); /* Reset value */
+		
+		hdmi_writebn(hdev, HDMI_TG_VSYNC_BOT_HDMI_L, 2, 0x233); /* Reset value */
+//		hdmi_writebn(hdev, HDMI_TG_VSYNC_BOT_HDMI_H, 2, 0x233); /* Reset value */
+		
+		hdmi_writebn(hdev, HDMI_TG_FIELD_BOT_HDMI_L, 2, 0x233); /* Reset value */
+//		hdmi_writebn(hdev, HDMI_TG_FIELD_BOT_HDMI_H, 2, 0x233); /* Reset value */
+	}
+
+	/* Following values & calculations are same irrespective of mode type */
+	hdmi_writebn(hdev, HDMI_H_SYNC_START_0, 2, m->hsync_start - m->hdisplay - 2);
+//	hdmi_writebn(hdev, HDMI_H_SYNC_START_1, 2, m->hsync_start - m->hdisplay - 2);
+	
+	hdmi_writebn(hdev, HDMI_H_SYNC_END_0, 2, m->hsync_end - m->hdisplay - 2);
+//	hdmi_writebn(hdev, HDMI_H_SYNC_END_1, 2, m->hsync_end - m->hdisplay - 2);
+	
+	hdmi_writebn(hdev, HDMI_VACT_SPACE_1_0, 2, 0xffff);
+//	hdmi_writebn(hdev, HDMI_VACT_SPACE_1_1, 2, 0xffff);
+	
+	hdmi_writebn(hdev, HDMI_VACT_SPACE_2_0, 2, 0xffff);
+//	hdmi_writebn(hdev, HDMI_VACT_SPACE_2_1 2, 0xffff);
+	
+	hdmi_writebn(hdev, HDMI_VACT_SPACE_3_0, 2, 0xffff);
+//	hdmi_writebn(hdev, HDMI_VACT_SPACE_3_1 2, 0xffff);
+	
+	hdmi_writebn(hdev, HDMI_VACT_SPACE_4_0, 2, 0xffff);
+//	hdmi_writebn(hdev, HDMI_VACT_SPACE_4_1 2, 0xffff);
+	
+	hdmi_writebn(hdev, HDMI_VACT_SPACE_5_0, 2, 0xffff);
+//	hdmi_writebn(hdev, HDMI_VACT_SPACE_5_1 2, 0xffff);
+	
+	hdmi_writebn(hdev, HDMI_VACT_SPACE_6_0, 2, 0xffff);
+//	hdmi_writebn(hdev, HDMI_VACT_SPACE_6_1 2, 0xffff);
+	
+	hdmi_writebn(hdev, HDMI_V_BLANK_F2_0, 2, 0xffff);
+//	hdmi_writebn(hdev, HDMI_V_BLANK_F2_1 2, 0xffff);
+	
+	hdmi_writebn(hdev, HDMI_V_BLANK_F3_0, 2, 0xffff);
+//	hdmi_writebn(hdev, HDMI_V_BLANK_F3_1 2, 0xffff);
+	
+	hdmi_writebn(hdev, HDMI_V_BLANK_F4_0, 2, 0xffff);
+//	hdmi_writebn(hdev, HDMI_V_BLANK_F4_1 2, 0xffff);
+	
+	hdmi_writebn(hdev, HDMI_V_BLANK_F5_0, 2, 0xffff);
+//	hdmi_writebn(hdev, HDMI_V_BLANK_F5_1, 2, 0xffff);
+	
+	hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_3_0, 2, 0xffff);
+//	hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_3_1, 2, 0xffff);
+	
+	hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_4_0, 2, 0xffff);
+//	hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_4_1, 2, 0xffff);
+	
+	hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_5_0, 2, 0xffff);
+//	hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_5_1, 2, 0xffff);
+	
+	hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_6_0, 2, 0xffff);
+//	hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_6_1, 2, 0xffff);
+	
+	hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_PXL_3_0, 2, 0xffff);
+//	hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_PXL_3_1, 2, 0xffff);
+	
+	hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_PXL_4_0, 2, 0xffff);
+//	hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_PXL_4_1, 2, 0xffff);
+	
+	hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_PXL_4_0, 2, 0xffff);
+//	hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_PXL_4_1, 2, 0xffff);
+	
+	hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_PXL_6_0, 2, 0xffff);
+//	hdmi_writebn(hdev, HDMI_V_SYNC_LINE_AFT_PXL_6_1, 2, 0xffff);
+	
+
+	hdmi_writebn(hdev, HDMI_TG_H_FSZ_L, 2, m->htotal);
+//	hdmi_writebn(hdev, HDMI_TG_H_FSZ_H, 2, m->htotal);
+	
+	hdmi_writebn(hdev, HDMI_TG_HACT_ST_L, 2, m->htotal - m->hdisplay);
+//	hdmi_writebn(hdev, HDMI_TG_HACT_ST_H, 2, m->htotal - m->hdisplay);
+	
+	hdmi_writebn(hdev, HDMI_TG_HACT_SZ_L, 2, m->hdisplay);
+//	hdmi_writebn(hdev, HDMI_TG_HACT_SZ_H, 2, m->hdisplay);
+	
+	hdmi_writebn(hdev, HDMI_TG_V_FSZ_L, 2, m->vtotal);
+//	hdmi_writebn(hdev, HDMI_TG_V_FSZ_H, 2, m->vtotal);
+	
+	hdmi_writebn(hdev, HDMI_TG_VSYNC_L, 2, 0x1);
+//	hdmi_writebn(hdev, HDMI_TG_VSYNC_H, 2, 0x1);
+	
+	hdmi_writebn(hdev, HDMI_TG_FIELD_CHG_L, 2, 0x233); /* Reset value */
+//	hdmi_writebn(hdev, HDMI_TG_FIELD_CHG_H, 2, 0x233); /* Reset value */
+	
+	hdmi_writebn(hdev, HDMI_TG_VSYNC_TOP_HDMI_L, 2, 0x1); /* Reset value */
+//	hdmi_writebn(hdev, HDMI_TG_VSYNC_TOP_HDMI_H, 2, 0x1); /* Reset value */
+	
+	hdmi_writebn(hdev, HDMI_TG_FIELD_TOP_HDMI_L, 2, 0x1); /* Reset value */
+//	hdmi_writebn(hdev, HDMI_TG_FIELD_TOP_HDMI_H, 2, 0x1); /* Reset value */
+	
+	hdmi_writebn(hdev, HDMI_TG_3D, 1, 0x0);
+
+}
+
 
 static int hdmi_conf_apply(struct hdmi_device *hdmi_dev)
 {
@@ -282,7 +603,8 @@ static int hdmi_conf_apply(struct hdmi_device *hdmi_dev)
 	hdmi_reg_init(hdmi_dev);
 
 	/* setting core registers */
-	hdmi_timing_apply(hdmi_dev, conf);
+	//hdmi_timing_apply(hdmi_dev, conf);
+	hdmi_v14_timing_apply(hdmi_dev, conf);
 
 	hdmi_dev->cur_conf_dirty = 0;
 
@@ -309,40 +631,40 @@ static void hdmi_dumpregs(struct hdmi_device *hdev, char *prefix)
 	DUMPREG(HDMI_CON_1);
 	DUMPREG(HDMI_CON_2);
 	DUMPREG(HDMI_SYS_STATUS);
-	DUMPREG(HDMI_PHY_STATUS);
+	DUMPREG(HDMI_V13_PHY_STATUS);
 	DUMPREG(HDMI_STATUS_EN);
 	DUMPREG(HDMI_HPD);
 	DUMPREG(HDMI_MODE_SEL);
-	DUMPREG(HDMI_HPD_GEN);
+	DUMPREG(HDMI_V13_HPD_GEN);
 	DUMPREG(HDMI_DC_CONTROL);
 	DUMPREG(HDMI_VIDEO_PATTERN_GEN);
 
 	dev_dbg(hdev->dev, "%s: ---- CORE SYNC REGISTERS ----\n", prefix);
 	DUMPREG(HDMI_H_BLANK_0);
 	DUMPREG(HDMI_H_BLANK_1);
-	DUMPREG(HDMI_V_BLANK_0);
-	DUMPREG(HDMI_V_BLANK_1);
-	DUMPREG(HDMI_V_BLANK_2);
-	DUMPREG(HDMI_H_V_LINE_0);
-	DUMPREG(HDMI_H_V_LINE_1);
-	DUMPREG(HDMI_H_V_LINE_2);
+	DUMPREG(HDMI_V13_V_BLANK_0);
+	DUMPREG(HDMI_V13_V_BLANK_1);
+	DUMPREG(HDMI_V13_V_BLANK_2);
+	DUMPREG(HDMI_V13_H_V_LINE_0);
+	DUMPREG(HDMI_V13_H_V_LINE_1);
+	DUMPREG(HDMI_V13_H_V_LINE_2);
 	DUMPREG(HDMI_VSYNC_POL);
 	DUMPREG(HDMI_INT_PRO_MODE);
-	DUMPREG(HDMI_V_BLANK_F_0);
-	DUMPREG(HDMI_V_BLANK_F_1);
-	DUMPREG(HDMI_V_BLANK_F_2);
-	DUMPREG(HDMI_H_SYNC_GEN_0);
-	DUMPREG(HDMI_H_SYNC_GEN_1);
-	DUMPREG(HDMI_H_SYNC_GEN_2);
-	DUMPREG(HDMI_V_SYNC_GEN_1_0);
-	DUMPREG(HDMI_V_SYNC_GEN_1_1);
-	DUMPREG(HDMI_V_SYNC_GEN_1_2);
-	DUMPREG(HDMI_V_SYNC_GEN_2_0);
-	DUMPREG(HDMI_V_SYNC_GEN_2_1);
-	DUMPREG(HDMI_V_SYNC_GEN_2_2);
-	DUMPREG(HDMI_V_SYNC_GEN_3_0);
-	DUMPREG(HDMI_V_SYNC_GEN_3_1);
-	DUMPREG(HDMI_V_SYNC_GEN_3_2);
+	DUMPREG(HDMI_V13_V_BLANK_F_0);
+	DUMPREG(HDMI_V13_V_BLANK_F_1);
+	DUMPREG(HDMI_V13_V_BLANK_F_2);
+	DUMPREG(HDMI_V13_H_SYNC_GEN_0);
+	DUMPREG(HDMI_V13_H_SYNC_GEN_1);
+	DUMPREG(HDMI_V13_H_SYNC_GEN_2);
+	DUMPREG(HDMI_V13_V_SYNC_GEN_1_0);
+	DUMPREG(HDMI_V13_V_SYNC_GEN_1_1);
+	DUMPREG(HDMI_V13_V_SYNC_GEN_1_2);
+	DUMPREG(HDMI_V13_V_SYNC_GEN_2_0);
+	DUMPREG(HDMI_V13_V_SYNC_GEN_2_1);
+	DUMPREG(HDMI_V13_V_SYNC_GEN_2_2);
+	DUMPREG(HDMI_V13_V_SYNC_GEN_3_0);
+	DUMPREG(HDMI_V13_V_SYNC_GEN_3_1);
+	DUMPREG(HDMI_V13_V_SYNC_GEN_3_2);
 
 	dev_dbg(hdev->dev, "%s: ---- TG REGISTERS ----\n", prefix);
 	DUMPREG(HDMI_TG_CMD);
@@ -511,7 +833,7 @@ static int hdmi_streamon(struct hdmi_device *hdev)
 
 	/* waiting for HDMIPHY's PLL to get to steady state */
 	for (tries = 100; tries; --tries) {
-		u32 val = hdmi_read(hdev, HDMI_PHY_STATUS);
+		u32 val = hdmi_read(hdev, HDMI_PHY_STATUS_0);
 		if (val & HDMI_PHY_STATUS_READY)
 			break;
 		mdelay(1);
@@ -533,9 +855,9 @@ static int hdmi_streamon(struct hdmi_device *hdev)
 	}
 
 	/* hdmiphy clock is used for HDMI in streaming mode */
-	clk_disable(res->sclk_hdmi);
-	clk_set_parent(res->sclk_hdmi, res->sclk_hdmiphy);
-	clk_enable(res->sclk_hdmi);
+	clk_disable_unprepare(res->sclk_hdmi);
+	clk_set_parent(res->mout_hdmi, res->sclk_hdmiphy);
+	clk_prepare_enable(res->sclk_hdmi);
 
 	/* enable HDMI and timing generator */
 	hdmi_write_mask(hdev, HDMI_CON_0, ~0, HDMI_EN);
@@ -555,9 +877,9 @@ static int hdmi_streamoff(struct hdmi_device *hdev)
 	hdmi_write_mask(hdev, HDMI_TG_CMD, 0, HDMI_TG_EN);
 
 	/* pixel(vpll) clock is used for HDMI in config mode */
-	clk_disable(res->sclk_hdmi);
-	clk_set_parent(res->sclk_hdmi, res->sclk_pixel);
-	clk_enable(res->sclk_hdmi);
+	clk_disable_unprepare(res->sclk_hdmi);
+	clk_set_parent(res->mout_hdmi, res->sclk_pixel);
+	clk_prepare_enable(res->sclk_hdmi);
 
 	v4l2_subdev_call(hdev->mhl_sd, video, s_stream, 0);
 	v4l2_subdev_call(hdev->phy_sd, video, s_stream, 0);
@@ -585,12 +907,10 @@ static int hdmi_resource_poweron(struct hdmi_resources *res)
 	ret = regulator_bulk_enable(res->regul_count, res->regul_bulk);
 	if (ret < 0)
 		return ret;
-	/* power-on hdmi physical interface */
-	clk_enable(res->hdmiphy);
 	/* use VPP as parent clock; HDMIPHY is not working yet */
-	clk_set_parent(res->sclk_hdmi, res->sclk_pixel);
+	clk_set_parent(res->mout_hdmi, res->sclk_pixel);
 	/* turn clocks on */
-	clk_enable(res->sclk_hdmi);
+	clk_prepare_enable(res->sclk_hdmi);
 
 	return 0;
 }
@@ -598,9 +918,7 @@ static int hdmi_resource_poweron(struct hdmi_resources *res)
 static void hdmi_resource_poweroff(struct hdmi_resources *res)
 {
 	/* turn clocks off */
-	clk_disable(res->sclk_hdmi);
-	/* power-off hdmiphy */
-	clk_disable(res->hdmiphy);
+	clk_disable_unprepare(res->sclk_hdmi);
 	/* turn HDMI power off */
 	regulator_bulk_disable(res->regul_count, res->regul_bulk);
 }
@@ -700,6 +1018,56 @@ static int hdmi_dv_timings_cap(struct v4l2_subdev *sd,
 	return 0;
 }
 
+#ifdef CONFIG_OF
+/* Heavily based[1] on v4l2_i2c_new_subdev_board()
+ *
+ * [1] Copy-pasted, that is
+ */
+struct v4l2_subdev *hdmi_of_get_i2c_subdev(struct v4l2_device *v4l2_dev,
+	struct device_node *np, const char *propname)
+{
+	struct v4l2_subdev *sd = NULL;
+	struct i2c_client *client;
+	struct device_node *cnp;
+
+	BUG_ON(!v4l2_dev);
+
+	cnp = of_parse_phandle(np, propname, 0);
+	if (!cnp) {
+		dev_err(v4l2_dev->dev, "Can't find subdev %s\n", propname);
+		goto err;
+	}
+
+	client = of_find_i2c_device_by_node(cnp);
+	if (!client) {
+		dev_err(v4l2_dev->dev, "subdev %s doesn't reference correct node\n",
+			propname);
+		goto err;
+	}
+
+	if (client == NULL || client->driver == NULL)
+		goto err;
+
+	/* Lock the module so we can safely get the v4l2_subdev pointer */
+	if (!try_module_get(client->driver->driver.owner))
+		goto err;
+	sd = i2c_get_clientdata(client);
+
+	/* Register with the v4l2_device which increases the module's
+	   use count as well. */
+	if (v4l2_device_register_subdev(v4l2_dev, sd)) {
+		printk(KERN_ERR "%s: failed to register subdev\n", __func__);
+		sd = NULL;
+	}
+	/* Decrease the module use count to match the first try_module_get. */
+	module_put(client->driver->driver.owner);
+err:
+	of_node_put(cnp);
+
+	return sd;
+}
+#endif
+
 static const struct v4l2_subdev_core_ops hdmi_sd_core_ops = {
 	.s_power = hdmi_s_power,
 };
@@ -722,12 +1090,20 @@ static int hdmi_runtime_suspend(struct device *dev)
 {
 	struct v4l2_subdev *sd = dev_get_drvdata(dev);
 	struct hdmi_device *hdev = sd_to_hdmi_dev(sd);
+	int ret;
 
 	dev_dbg(dev, "%s\n", __func__);
 	v4l2_subdev_call(hdev->mhl_sd, core, s_power, 0);
 	hdmi_resource_poweroff(&hdev->res);
 	/* flag that device context is lost */
 	hdev->cur_conf_dirty = 1;
+
+	/* powering off PHY */
+	ret = v4l2_subdev_call(hdev->phy_sd, core, s_power, 0);
+	if (hdev->phy_sd && ret)
+		return ret;
+	
+
 	return 0;
 }
 
@@ -738,6 +1114,11 @@ static int hdmi_runtime_resume(struct device *dev)
 	int ret;
 
 	dev_dbg(dev, "%s\n", __func__);
+
+	/* starting PHY */
+	ret = v4l2_subdev_call(hdev->phy_sd, core, s_power, 1);
+	if (hdev->phy_sd && ret)
+		goto fail;
 
 	ret = hdmi_resource_poweron(&hdev->res);
 	if (ret < 0)
@@ -770,7 +1151,6 @@ static void hdmi_resource_clear_clocks(struct hdmi_resources *res)
 	res->sclk_hdmi	 = ERR_PTR(-EINVAL);
 	res->sclk_pixel	 = ERR_PTR(-EINVAL);
 	res->sclk_hdmiphy = ERR_PTR(-EINVAL);
-	res->hdmiphy	 = ERR_PTR(-EINVAL);
 }
 
 static void hdmi_resources_cleanup(struct hdmi_device *hdev)
@@ -783,8 +1163,6 @@ static void hdmi_resources_cleanup(struct hdmi_device *hdev)
 		regulator_bulk_free(res->regul_count, res->regul_bulk);
 	/* kfree is NULL-safe */
 	kfree(res->regul_bulk);
-	if (!IS_ERR(res->hdmiphy))
-		clk_put(res->hdmiphy);
 	if (!IS_ERR(res->sclk_hdmiphy))
 		clk_put(res->sclk_hdmiphy);
 	if (!IS_ERR(res->sclk_pixel))
@@ -801,13 +1179,6 @@ static int hdmi_resources_init(struct hdmi_device *hdev)
 {
 	struct device *dev = hdev->dev;
 	struct hdmi_resources *res = &hdev->res;
-	static char *supply[] = {
-		"hdmi-en",
-		"vdd",
-		"vdd_osc",
-		"vdd_pll",
-	};
-	int i, ret;
 
 	dev_dbg(dev, "HDMI resource init\n");
 
@@ -835,28 +1206,11 @@ static int hdmi_resources_init(struct hdmi_device *hdev)
 		dev_err(dev, "failed to get clock 'sclk_hdmiphy'\n");
 		goto fail;
 	}
-	res->hdmiphy = clk_get(dev, "hdmiphy");
-	if (IS_ERR(res->hdmiphy)) {
-		dev_err(dev, "failed to get clock 'hdmiphy'\n");
+	res->mout_hdmi = clk_get(dev, "mout_hdmi");
+	if (IS_ERR(res->mout_hdmi)) {
+		dev_err(dev, "failed to get clock 'mout_hdmi'\n");
 		goto fail;
 	}
-	res->regul_bulk = kcalloc(ARRAY_SIZE(supply),
-				  sizeof(res->regul_bulk[0]), GFP_KERNEL);
-	if (!res->regul_bulk) {
-		dev_err(dev, "failed to get memory for regulators\n");
-		goto fail;
-	}
-	for (i = 0; i < ARRAY_SIZE(supply); ++i) {
-		res->regul_bulk[i].supply = supply[i];
-		res->regul_bulk[i].consumer = NULL;
-	}
-
-	ret = regulator_bulk_get(dev, ARRAY_SIZE(supply), res->regul_bulk);
-	if (ret) {
-		dev_err(dev, "failed to get regulators\n");
-		goto fail;
-	}
-	res->regul_count = ARRAY_SIZE(supply);
 
 	return 0;
 fail:
@@ -865,23 +1219,57 @@ fail:
 	return -ENODEV;
 }
 
+static struct v4l2_subdev *hdmi_get_subdev(
+	struct hdmi_device *hdmi_dev,
+	struct i2c_board_info *bdinfo,
+	int bus,
+	const char *propname)
+{
+	struct v4l2_subdev *sd = NULL;
+	struct i2c_adapter *adapter;
+	struct device *dev = hdmi_dev->dev;
+
+#ifdef CONFIG_OF
+	if (dev->of_node)
+		return hdmi_of_get_i2c_subdev(&hdmi_dev->v4l2_dev,
+					   dev->of_node, propname);
+#endif
+
+	if (!bdinfo) {
+		dev_err(dev, "%s info is missing in platform data\n",
+			propname);
+		return ERR_PTR(-ENXIO);
+	}
+
+	adapter = i2c_get_adapter(bus);
+	if (adapter == NULL) {
+		dev_err(dev, "%s adapter request failed, name\n",
+			propname);
+		return ERR_PTR(-ENXIO);
+	}
+
+	sd = v4l2_i2c_new_subdev_board(&hdmi_dev->v4l2_dev,
+				       adapter, bdinfo, NULL);
+
+	/* on failure or not adapter is no longer useful */
+	i2c_put_adapter(adapter);
+
+	if (sd == NULL) {
+		dev_err(dev, "missing subdev for %s\n", propname);
+		return ERR_PTR(-ENODEV);
+	}
+
+	return sd;
+}
 static int hdmi_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-	struct i2c_adapter *adapter;
 	struct v4l2_subdev *sd;
 	struct hdmi_device *hdmi_dev = NULL;
-	struct s5p_hdmi_platform_data *pdata = dev->platform_data;
 	int ret;
 
 	dev_dbg(dev, "probe start\n");
-
-	if (!pdata) {
-		dev_err(dev, "platform data is missing\n");
-		ret = -ENODEV;
-		goto fail;
-	}
 
 	hdmi_dev = devm_kzalloc(&pdev->dev, sizeof(*hdmi_dev), GFP_KERNEL);
 	if (!hdmi_dev) {
@@ -912,15 +1300,31 @@ static int hdmi_probe(struct platform_device *pdev)
 		goto fail_init;
 	}
 
-	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (res == NULL) {
-		dev_err(dev, "get interrupt resource failed.\n");
-		ret = -ENXIO;
-		goto fail_init;
+	if (pdev->dev.of_node) {
+		if (!of_find_property(pdev->dev.of_node, "hpd-gpio", NULL)) {
+			dev_err(dev, "no hpd gpio property found\n");
+			goto fail_init;
+		}
+
+		hdmi_dev->hpd_gpio = of_get_named_gpio_flags(pdev->dev.of_node,
+				"hpd-gpio", 0, NULL);
 	}
 
-	ret = devm_request_irq(&pdev->dev, res->start, hdmi_irq_handler, 0,
-			       "hdmi", hdmi_dev);
+	ret = devm_gpio_request(&pdev->dev, hdmi_dev->hpd_gpio, "HPD");
+	if (ret) {
+		dev_err(dev, "failed to request HPD gpio\n");
+		return ret;
+	}
+
+	res->start = gpio_to_irq(hdmi_dev->hpd_gpio);
+	if (res->start < 0) {
+		dev_err(dev, "failed to get GPIO irq\n");
+		return ret;
+	}
+
+	ret = devm_request_irq(&pdev->dev, res->start, hdmi_irq_handler,
+			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING |
+			IRQF_ONESHOT, "hdmi", hdmi_dev);
 	if (ret) {
 		dev_err(dev, "request interrupt failed.\n");
 		goto fail_init;
@@ -937,58 +1341,38 @@ static int hdmi_probe(struct platform_device *pdev)
 		goto fail_init;
 	}
 
-	/* testing if hdmiphy info is present */
-	if (!pdata->hdmiphy_info) {
-		dev_err(dev, "hdmiphy info is missing in platform data\n");
-		ret = -ENXIO;
+ 	hdmi_dev->phy_sd = hdmi_get_subdev(hdmi_dev, NULL, -1, "phy");
+	if (IS_ERR_OR_NULL(hdmi_dev->phy_sd)) {
+		ret = PTR_ERR(hdmi_dev->phy_sd);
 		goto fail_vdev;
 	}
 
-	adapter = i2c_get_adapter(pdata->hdmiphy_bus);
-	if (adapter == NULL) {
-		dev_err(dev, "hdmiphy adapter request failed\n");
-		ret = -ENXIO;
-		goto fail_vdev;
+	hdmi_dev->mhl_sd = hdmi_get_subdev(hdmi_dev, NULL, -1, "mhl");
+	if (IS_ERR_OR_NULL(hdmi_dev->mhl_sd)) {
+		ret = PTR_ERR(hdmi_dev->mhl_sd);
+		dev_err(dev, "could not find mhl subdev. ret(%d)\n", ret);
+		hdmi_dev->mhl_sd = NULL;
 	}
 
-	hdmi_dev->phy_sd = v4l2_i2c_new_subdev_board(&hdmi_dev->v4l2_dev,
-		adapter, pdata->hdmiphy_info, NULL);
-	/* on failure or not adapter is no longer useful */
-	i2c_put_adapter(adapter);
-	if (hdmi_dev->phy_sd == NULL) {
-		dev_err(dev, "missing subdev for hdmiphy\n");
-		ret = -ENODEV;
-		goto fail_vdev;
-	}
-
-	/* initialization of MHL interface if present */
-	if (pdata->mhl_info) {
-		adapter = i2c_get_adapter(pdata->mhl_bus);
-		if (adapter == NULL) {
-			dev_err(dev, "MHL adapter request failed\n");
-			ret = -ENXIO;
-			goto fail_vdev;
-		}
-
-		hdmi_dev->mhl_sd = v4l2_i2c_new_subdev_board(
-			&hdmi_dev->v4l2_dev, adapter,
-			pdata->mhl_info, NULL);
-		/* on failure or not adapter is no longer useful */
-		i2c_put_adapter(adapter);
-		if (hdmi_dev->mhl_sd == NULL) {
-			dev_err(dev, "missing subdev for MHL\n");
-			ret = -ENODEV;
-			goto fail_vdev;
-		}
-	}
-
-	clk_enable(hdmi_dev->res.hdmi);
+	clk_prepare_enable(hdmi_dev->res.hdmi);
 
 	pm_runtime_enable(dev);
 
 	sd = &hdmi_dev->sd;
 	v4l2_subdev_init(sd, &hdmi_sd_ops);
 	sd->owner = THIS_MODULE;
+
+	if (dev->of_node) {
+		const struct of_device_id *match;
+		match = of_match_node(of_match_ptr(hdmi_dt_match),
+					pdev->dev.of_node);
+		if (match == NULL)
+			return -ENODEV;
+		hdmi_dev->type = (enum hdmi_type)match->data;
+	} else {
+		hdmi_dev->type = (enum hdmi_type)platform_get_device_id
+					(pdev)->driver_data;
+	}
 
 	strlcpy(sd->name, "s5p-hdmi", sizeof(sd->name));
 	hdmi_dev->cur_timings =
@@ -1023,7 +1407,7 @@ static int hdmi_remove(struct platform_device *pdev)
 	struct hdmi_device *hdmi_dev = sd_to_hdmi_dev(sd);
 
 	pm_runtime_disable(dev);
-	clk_disable(hdmi_dev->res.hdmi);
+	clk_disable_unprepare(hdmi_dev->res.hdmi);
 	v4l2_device_unregister(&hdmi_dev->v4l2_dev);
 	disable_irq(hdmi_dev->irq);
 	hdmi_resources_cleanup(hdmi_dev);
@@ -1040,6 +1424,7 @@ static struct platform_driver hdmi_driver __refdata = {
 		.name = "s5p-hdmi",
 		.owner = THIS_MODULE,
 		.pm = &hdmi_pm_ops,
+		.of_match_table = hdmi_dt_match,
 	}
 };
 

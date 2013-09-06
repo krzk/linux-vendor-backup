@@ -25,6 +25,14 @@ MODULE_AUTHOR("Tomasz Stanislawski <t.stanislaws@samsung.com>");
 MODULE_DESCRIPTION("Samsung HDMI Physical interface driver");
 MODULE_LICENSE("GPL");
 
+/* HDMIPHY_MODE_SET_DONE */
+#define HDMIPHY_MODE_EN		(1 << 7)
+
+/* hdmiphy pmu control bits */
+#define PMU_HDMI_PHY_CONTROL_MASK	(1 << 0)
+#define PMU_HDMI_PHY_ENABLE		(1)
+#define PMU_HDMI_PHY_DISABLE		(0)
+
 struct hdmiphy_conf {
 	unsigned long pixclk;
 	const u8 *data;
@@ -33,6 +41,8 @@ struct hdmiphy_conf {
 struct hdmiphy_ctx {
 	struct v4l2_subdev sd;
 	const struct hdmiphy_conf *conf_tab;
+	void __iomem *phy_pow_ctrl_reg;
+	
 };
 
 static const struct hdmiphy_conf hdmiphy_conf_s5pv210[] = {
@@ -185,9 +195,26 @@ static const u8 *hdmiphy_find_conf(unsigned long pixclk,
 	return NULL;
 }
 
+static inline void hdmiphy_pow_ctrl_reg_writemask(
+			struct hdmiphy_ctx *ctx,
+			u32 value, u32 mask)
+{
+	u32 old = readl(ctx->phy_pow_ctrl_reg);
+	value = (value & mask) | (old & ~mask);
+	writel(value, ctx->phy_pow_ctrl_reg);
+}
+
 static int hdmiphy_s_power(struct v4l2_subdev *sd, int on)
 {
-	/* to be implemented */
+	struct hdmiphy_ctx *ctx = sd_to_ctx(sd);
+
+	if(on) {
+		hdmiphy_pow_ctrl_reg_writemask(ctx, PMU_HDMI_PHY_ENABLE,
+			PMU_HDMI_PHY_CONTROL_MASK);
+	} else {
+		hdmiphy_pow_ctrl_reg_writemask(ctx, PMU_HDMI_PHY_DISABLE,
+			PMU_HDMI_PHY_CONTROL_MASK);
+	}
 	return 0;
 }
 
@@ -268,6 +295,59 @@ static const struct v4l2_subdev_ops hdmiphy_ops = {
 	.video = &hdmiphy_video_ops,
 };
 
+#ifdef CONFIG_OF
+static struct of_device_id hdmiphy_dt_match[] = {
+	{
+	.compatible = "samsung,s5pv210-hdmiphy",
+	.data	= (void	*)hdmiphy_conf_s5pv210,
+	}, {
+	.compatible = "samsung,exynos4-hdmiphy",
+	.data   = (void *)hdmiphy_conf_exynos4210,
+	}, {
+	.compatible = "samsung,exynos4212-hdmiphy",
+	.data	= (void	*)hdmiphy_conf_exynos4212,
+	}, {
+		/* end node */
+	}
+};
+
+MODULE_DEVICE_TABLE(of, hdmiphy_dt_match);
+#endif
+
+static int hdmiphy_dt_parse_power_control(struct hdmiphy_ctx *ctx)
+{
+	struct device_node *phy_pow_ctrl_node;
+	u32 buf[2];
+	int ret = 0;
+
+	phy_pow_ctrl_node = of_get_child_by_name(ctx->sd.dev->of_node,
+			"phy-power-control");
+	if (!phy_pow_ctrl_node) {
+		printk("failed to find phy power control node\n");
+		ret = -ENODEV;
+		goto fail;
+	}
+
+	/* reg property holds two informations: addr of pmu register, size */
+	if (of_property_read_u32_array(phy_pow_ctrl_node, "reg",
+			(u32 *)&buf, 2)) {
+		printk("faild to get phy power control reg\n");
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	ctx->phy_pow_ctrl_reg = devm_ioremap(ctx->sd.dev, buf[0], buf[1]);
+	if (!ctx->phy_pow_ctrl_reg) {
+		printk("failed to ioremap phy pmu reg\n");
+		ret = -ENOMEM;
+		goto fail;
+	}
+
+fail:
+	of_node_put(phy_pow_ctrl_node);
+	return ret;
+}
+
 static int hdmiphy_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
@@ -277,8 +357,18 @@ static int hdmiphy_probe(struct i2c_client *client,
 	if (!ctx)
 		return -ENOMEM;
 
-	ctx->conf_tab = (struct hdmiphy_conf *)id->driver_data;
+	if (client->dev.of_node) {
+		const struct of_device_id *match;
+		match = of_match_node(of_match_ptr(hdmiphy_dt_match),
+					client->dev.of_node);
+
+		ctx->conf_tab = (struct hdmiphy_conf *)match->data;
+	} else {
+		ctx->conf_tab = (struct hdmiphy_conf *)id->driver_data;
+	}
+
 	v4l2_i2c_subdev_init(&ctx->sd, client, &hdmiphy_ops);
+	hdmiphy_dt_parse_power_control(ctx);
 
 	dev_info(&client->dev, "probe successful\n");
 	return 0;
@@ -309,6 +399,7 @@ static struct i2c_driver hdmiphy_driver = {
 	.driver = {
 		.name	= "s5p-hdmiphy",
 		.owner	= THIS_MODULE,
+		.of_match_table = hdmiphy_dt_match,
 	},
 	.probe		= hdmiphy_probe,
 	.remove		= hdmiphy_remove,

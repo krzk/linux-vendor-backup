@@ -38,6 +38,11 @@
 #define MXR_BG_COLOR0			0x0064
 #define MXR_BG_COLOR1			0x0068
 #define MXR_BG_COLOR2			0x006C
+#define MXR_CM_COEFF_Y			0x0080
+#define MXR_CM_COEFF_CB			0x0084
+#define MXR_CM_COEFF_CR			0x0088
+#define MXR_GRAPHIC0_BASE_S		0x2024
+#define MXR_GRAPHIC1_BASE_S		0x2044
 
 /* for parametrized access to layer registers */
 #define MXR_GRAPHIC_CFG(i)		(0x0020 + (i) * 0x20)
@@ -46,6 +51,8 @@
 #define MXR_GRAPHIC_SXY(i)		(0x002C + (i) * 0x20)
 #define MXR_GRAPHIC_WH(i)		(0x0030 + (i) * 0x20)
 #define MXR_GRAPHIC_DXY(i)		(0x0034 + (i) * 0x20)
+#define MXR_GRAPHIC_BLANK(i)		(0x0038 + (i) * 0x20)
+#define MXR_GRAPHIC_BASE_S(i)		(0x2024 + (i) * 0x20)
 
 /*
  * Bit definition part
@@ -59,12 +66,22 @@
 	(((val) << (low_bit)) & MXR_MASK(high_bit, low_bit))
 
 /* bits for MXR_STATUS */
+#define MXR_STATUS_SOFT_RESET		(1 << 8)
 #define MXR_STATUS_16_BURST		(1 << 7)
 #define MXR_STATUS_BURST_MASK		(1 << 7)
+#define MXR_STATUS_BIG_ENDIAN		(1 << 3)
+#define MXR_STATUS_ENDIAN_MASK		(1 << 3)
 #define MXR_STATUS_SYNC_ENABLE		(1 << 2)
 #define MXR_STATUS_REG_RUN		(1 << 0)
 
 /* bits for MXR_CFG */
+#define MXR_CFG_LAYER_UPDATE		(1 << 31)
+#define MXR_CFG_LAYER_UPDATE_COUNT_MASK (3 << 29)
+#define MXR_CFG_RGB601_0_255		(0 << 9)
+#define MXR_CFG_RGB601_16_235		(1 << 9)
+#define MXR_CFG_RGB709_0_255		(2 << 9)
+#define MXR_CFG_RGB709_16_235		(3 << 9)
+#define MXR_CFG_RGB_FMT_MASK		0x600
 #define MXR_CFG_OUT_YUV444		(0 << 8)
 #define MXR_CFG_OUT_RGB888		(1 << 8)
 #define MXR_CFG_OUT_MASK		(1 << 8)
@@ -87,6 +104,8 @@
 /* bits for MXR_GRAPHICn_CFG */
 #define MXR_GRP_CFG_COLOR_KEY_DISABLE	(1 << 21)
 #define MXR_GRP_CFG_BLEND_PRE_MUL	(1 << 20)
+#define MXR_GRP_CFG_WIN_BLEND_EN	(1 << 17)
+#define MXR_GRP_CFG_PIXEL_BLEND_EN	(1 << 16)
 #define MXR_GRP_CFG_FORMAT_VAL(x)	MXR_MASK_VAL(x, 11, 8)
 #define MXR_GRP_CFG_FORMAT_MASK		MXR_GRP_CFG_FORMAT_VAL(~0)
 #define MXR_GRP_CFG_ALPHA_VAL(x)	MXR_MASK_VAL(x, 7, 0)
