@@ -82,6 +82,7 @@ g_nokia-y			:= nokia.o
 g_webcam-y			:= webcam.o
 g_ncm-y				:= ncm.o
 g_acm_ms-y			:= acm_ms.o
+g_slp-y				:= slp.o
 g_tcm_usb_gadget-y		:= tcm_usb_gadget.o
 
 obj-$(CONFIG_USB_ZERO)		+= g_zero.o
@@ -101,4 +102,5 @@ obj-$(CONFIG_USB_G_NOKIA)	+= g_nokia.o
 obj-$(CONFIG_USB_G_WEBCAM)	+= g_webcam.o
 obj-$(CONFIG_USB_G_NCM)		+= g_ncm.o
 obj-$(CONFIG_USB_G_ACM_MS)	+= g_acm_ms.o
+obj-$(CONFIG_USB_G_SLP)		+= g_slp.o
 obj-$(CONFIG_USB_GADGET_TARGET)	+= tcm_usb_gadget.o
