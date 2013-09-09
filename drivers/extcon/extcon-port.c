@@ -26,6 +26,54 @@
 #include <linux/extcon/extcon-port.h>
 #include <linux/mfd/max77693.h>
 
+/************************************************************/
+/************* extcon-port platform device ******************/
+/************************************************************/
+/*
+ * FIXME: extcon-port driver maintain compatibility of preivous jack device
+ * driver. extcon-port driver have to support DT instead of platform_data way.
+ * Temporarily, add below jack_platform_data to update uevent when cable is
+ * attached or detached.
+ */
+
+/*
+ * extcon-port device
+ */
+#define EXTCON_DEV_MUIC_NAME	"max77693-muic"
+#define EXTCON_DEV_JACK_NAME	"Headset Jack"
+#define EXTCON_DEV_HDMI_NAME	"hdmi"
+
+struct jack_platform_data jack_data = {
+	.usb_online     = 0,
+	.charger_online = 0,
+	.hdmi_online    = 0,
+	.earjack_online = 0,
+	.earkey_online  = 0,
+	.ums_online     = -1,
+	.cdrom_online   = -1,
+	.jig_online     = -1,
+	.host_online    = 0,
+	.cradle_online  = 0,
+
+#ifdef CONFIG_EXTCON_PORT
+	.extcon_name_muic	= EXTCON_DEV_MUIC_NAME,
+	/* .extcon_name_jack	= EXTCON_DEV_JACK_NAME, */
+	/* .extcon_name_hdmi	= EXTCON_DEV_HDMI_NAME, */
+#endif
+};
+
+static struct platform_device extcon_port_device = {
+	.name	= "jack",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &jack_data,
+	},
+};
+
+/************************************************************/
+/************* extcon-port platform driver ******************/
+/************************************************************/
+
 struct extcon_cable_block {
 	char extcon_name[32];
 	char name[32];
@@ -573,6 +621,14 @@ static struct platform_driver extcon_port_driver = {
 
 static int __init extcon_port_init(void)
 {
+	int ret;
+
+	ret = platform_device_register(&extcon_port_device);
+	if (ret < 0) {
+		pr_err("Failed to register extcon-port device\n");
+		return ret;
+	}
+
 	return platform_driver_register(&extcon_port_driver);
 }
 late_initcall(extcon_port_init);
