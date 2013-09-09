@@ -1053,19 +1053,20 @@
 		mmu-master = <&g2d>;
 	};
 
-	usbphy@125B0000 {
-		status = "okay";
-	};
-
 	hsotg@12480000 {
 		status = "okay";
 		vusb_d-supply = <&ldo15_reg>;
 		vusb_a-supply = <&ldo12_reg>;
+		phys = <&exynos_usbphy 0>;
+		phy-names = "device";
 	};
 
 	ehci@12580000 {
 		status = "okay";
+		phys = <&exynos_usbphy 2>;
+		phy-names = "hsic0";
 	};
+
 
 	spi_1: spi@13930000 {
 		pinctrl-names = "default";
@@ -1298,6 +1299,20 @@
 		pinctrl-0 = <&sd3_clk &sd3_cmd &sd3_bus4>;
 		pinctrl-names = "default";
 		status = "okay";
+	};
+
+
+	exynos_usbphy: exynos-usbphy@125B0000 {
+		compatible = "samsung,exynos4212-usbphy";
+		reg = <0x125B0000 0x100 0x10020704 0x0c 0x1001021c 0x4>;
+		ranges;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		clocks = <&clock 305>, <&clock 2>, <&clock 2>, <&clock 2>,
+								<&clock 2>;
+		clock-names = "phy", "device", "host", "hsic0", "hsic1";
+		status = "okay";
+		#phy-cells = <1>;
 	};
 };
 
