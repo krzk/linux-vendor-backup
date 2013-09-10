@@ -310,6 +310,27 @@ static void dw_mci_stop_dma(struct dw_mci *host)
 	}
 }
 
+static bool dw_mci_wait_reset(struct device *dev, struct dw_mci *host,
+		unsigned int reset_val)
+{
+	unsigned long timeout = jiffies + msecs_to_jiffies(500);
+	unsigned int ctrl;
+
+	ctrl = mci_readl(host, CTRL);
+	ctrl |= reset_val;
+	mci_writel(host, CTRL, ctrl);
+
+	/* wait till resets clear */
+	do {
+		if (!(mci_readl(host, CTRL) & reset_val))
+			return true;
+	} while (time_before(jiffies, timeout));
+
+	dev_err(dev, "Timeout resetting block (ctrl %#x)\n", ctrl);
+
+	return false;
+}
+
 static int dw_mci_get_dma_dir(struct mmc_data *data)
 {
 	if (data->flags & MMC_DATA_WRITE)
@@ -634,6 +655,7 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, bool force_clkinit)
 	struct dw_mci *host = slot->host;
 	u32 div;
 	u32 clk_en_a;
+	int timeout = 1000;
 
 	if (slot->clock != host->current_speed || force_clkinit) {
 		div = host->bus_hz / slot->clock;
@@ -650,6 +672,23 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, bool force_clkinit)
 			 "Bus speed (slot %d) = %dHz (slot req %dHz, actual %dHZ"
 			 " div = %d)\n", slot->id, host->bus_hz, slot->clock,
 			 div ? ((host->bus_hz / div) >> 1) : host->bus_hz, div);
+
+		/*
+		 * Before disable the clock,
+		 * must check whether the card is busy or not.
+		 */
+		do {
+			if (!(mci_readl(host, STATUS) & BIT(9)))
+				break;
+			if (timeout-- < 0) {
+				dev_err(host->dev, "Can't disable clock"
+						"because Card is busy!!\n");
+				return;
+			}
+			host->cur_slot = slot;
+			dw_mci_wait_reset(host->dev, host, SDMMC_CTRL_RESET);
+
+		} while (1);
 
 		/* disable clock */
 		mci_writel(host, CLKENA, 0);
