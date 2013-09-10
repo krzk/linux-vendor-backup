@@ -1304,10 +1304,7 @@
 
 	exynos_usbphy: exynos-usbphy@125B0000 {
 		compatible = "samsung,exynos4212-usbphy";
-		reg = <0x125B0000 0x100 0x10020704 0x0c 0x1001021c 0x4>;
-		ranges;
-		#address-cells = <1>;
-		#size-cells = <1>;
+		reg = <0x125B0000 0x100>, <0x10020704 0x0c>, <0x1001021c 0x4>;
 		clocks = <&clock 305>, <&clock 2>, <&clock 2>, <&clock 2>,
 								<&clock 2>;
 		clock-names = "phy", "device", "host", "hsic0", "hsic1";
