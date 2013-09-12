@@ -1029,23 +1029,18 @@ static int fimc_probe(struct platform_device *pdev)
 		goto err_clk;
 
 	platform_set_drvdata(pdev, fimc);
-	pm_runtime_enable(dev);
-	ret = pm_runtime_get_sync(dev);
-	if (ret < 0)
-		goto err_sd;
+
 	/* Initialize contiguous memory allocator */
 	fimc->alloc_ctx = vb2_dma_contig_init_ctx(dev);
 	if (IS_ERR(fimc->alloc_ctx)) {
 		ret = PTR_ERR(fimc->alloc_ctx);
-		goto err_pm;
+		goto err_sd;
 	}
 
-	dev_dbg(dev, "FIMC.%d registered successfully\n", fimc->id);
+	pm_runtime_enable(dev);
 
-	pm_runtime_put(dev);
+	dev_dbg(dev, "FIMC.%d registered successfully\n", fimc->id);
 	return 0;
-err_pm:
-	pm_runtime_put(dev);
 err_sd:
 	fimc_unregister_capture_subdev(fimc);
 err_clk:
