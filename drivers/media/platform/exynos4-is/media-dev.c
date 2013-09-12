@@ -783,7 +783,7 @@ static int fimc_md_pdev_match(struct device *dev, void *data)
 static int fimc_md_register_of_platform_entities(struct fimc_md *fmd,
 						 struct device_node *parent)
 {
-	struct device_node *node;
+	struct device_node *node, *fimc_is_node = NULL;
 	int ret = 0;
 
 	for_each_available_child_of_node(parent, node) {
@@ -810,10 +810,16 @@ static int fimc_md_register_of_platform_entities(struct fimc_md *fmd,
 							plat_entity);
 		put_device(&pdev->dev);
 		if (ret < 0)
-			break;
+			return ret;
+
+		if (plat_entity == IDX_IS_ISP)
+			fimc_is_node = node;
 	}
 
-	return ret;
+	if (!fimc_is_node)
+		return 0;
+
+	return fimc_md_register_of_platform_entities(fmd, fimc_is_node);
 }
 #else
 #define fimc_md_register_of_platform_entities(fmd, node) (-ENOSYS)
