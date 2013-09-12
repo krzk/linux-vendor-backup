@@ -1558,26 +1558,21 @@ static int fimc_lite_probe(struct platform_device *pdev)
 		goto err_clk;
 
 	platform_set_drvdata(pdev, fimc);
-	pm_runtime_enable(dev);
-	ret = pm_runtime_get_sync(dev);
-	if (ret < 0)
-		goto err_sd;
 
 	fimc->alloc_ctx = vb2_dma_contig_init_ctx(dev);
 	if (IS_ERR(fimc->alloc_ctx)) {
 		ret = PTR_ERR(fimc->alloc_ctx);
-		goto err_pm;
+		goto err_sd;
 	}
 
-	pm_runtime_put(dev);
-
 	fimc_lite_set_default_config(fimc);
+
+	pm_runtime_enable(dev);
 
 	dev_dbg(dev, "FIMC-LITE.%d registered successfully\n",
 		fimc->index);
 	return 0;
-err_pm:
-	pm_runtime_put(dev);
+
 err_sd:
 	fimc_lite_unregister_capture_subdev(fimc);
 err_clk:
