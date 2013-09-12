@@ -824,11 +824,6 @@ static int fimc_is_probe(struct platform_device *pdev)
 		dev_err(dev, "irq request failed\n");
 		goto err_clk;
 	}
-	pm_runtime_enable(dev);
-
-	ret = pm_runtime_get_sync(dev);
-	if (ret < 0)
-		goto err_irq;
 
 	is->alloc_ctx = vb2_dma_contig_init_ctx(dev);
 	if (IS_ERR(is->alloc_ctx)) {
@@ -851,7 +846,7 @@ static int fimc_is_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_dfs;
 
-	pm_runtime_put_sync(dev);
+	pm_runtime_enable(dev);
 
 	dev_dbg(dev, "FIMC-IS registered successfully\n");
 	return 0;
