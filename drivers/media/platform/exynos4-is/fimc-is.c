@@ -52,7 +52,7 @@ static char *fimc_is_clocks[ISS_CLKS_MAX] = {
 	[ISS_CLK_DRC]			= "drc",
 	[ISS_CLK_FD]			= "fd",
 	[ISS_CLK_MCUISP]		= "mcuisp",
-	[ISS_CLK_UART]			= "uart",
+	/* [ISS_CLK_UART]		= "uart", */
 	[ISS_CLK_ISP_DIV0]		= "ispdiv0",
 	[ISS_CLK_ISP_DIV1]		= "ispdiv1",
 	[ISS_CLK_MCUISP_DIV0]		= "mcuispdiv0",
@@ -83,6 +83,8 @@ static int fimc_is_get_clocks(struct fimc_is *is)
 		is->clocks[i] = ERR_PTR(-EINVAL);
 
 	for (i = 0; i < ISS_CLKS_MAX; i++) {
+		if (fimc_is_clocks[i] == NULL)
+			continue;
 		is->clocks[i] = clk_get(&is->pdev->dev, fimc_is_clocks[i]);
 		if (IS_ERR(is->clocks[i])) {
 			ret = PTR_ERR(is->clocks[i]);
