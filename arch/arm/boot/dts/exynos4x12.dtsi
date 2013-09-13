@@ -274,7 +274,7 @@
 				<&clock 356>, <&clock 342>, <&clock 17>,
 				<&clock 357>, <&clock 358>, <&clock 359>,
 				<&clock 360>, <&clock 450>,<&clock 451>,
-				<&clock 452>, <&clock 453>, <&clock 176>,
+				<&clock 452>, <&clock 453>, <&clock 382>,
 				<&clock 13>, <&clock 454>, <&clock 395>,
 				<&clock 455>;
 			clock-names = "lite0", "lite1", "ppmuispx",
