@@ -19,6 +19,10 @@
 #include "exynos_drm_drv.h"
 #include "exynos_drm_encoder.h"
 #include "exynos_drm_plane.h"
+#include "exynos_drm_fb.h"
+#include "exynos_drm_gem.h"
+
+#include <linux/dmabuf-sync.h>
 
 #define to_exynos_crtc(x)	container_of(x, struct exynos_drm_crtc,\
 				drm_crtc)
@@ -51,6 +55,18 @@ struct exynos_drm_crtc {
 	enum exynos_crtc_mode		mode;
 	wait_queue_head_t		pending_flip_queue;
 	atomic_t			pending_flip;
+	struct list_head		sync_committed;
+};
+
+static void exynos_drm_dmabuf_sync_free(void *priv)
+{
+	struct drm_pending_vblank_event *event = priv;
+
+	event->event.reserved = 0;
+}
+
+static struct dmabuf_sync_priv_ops dmabuf_sync_ops = {
+	.free	= exynos_drm_dmabuf_sync_free,
 };
 
 static void exynos_drm_crtc_dpms(struct drm_crtc *crtc, int mode)
@@ -105,6 +121,7 @@ exynos_drm_crtc_mode_set(struct drm_crtc *crtc, struct drm_display_mode *mode,
 {
 	struct exynos_drm_crtc *exynos_crtc = to_exynos_crtc(crtc);
 	struct drm_plane *plane = exynos_crtc->plane;
+	struct dmabuf_sync *sync;
 	unsigned int crtc_w;
 	unsigned int crtc_h;
 	int pipe = exynos_crtc->pipe;
@@ -128,6 +145,15 @@ exynos_drm_crtc_mode_set(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	plane->fb = crtc->fb;
 
 	exynos_drm_fn_encoder(crtc, &pipe, exynos_drm_encoder_crtc_pipe);
+
+	if (!dmabuf_sync_is_supported())
+		return 0;
+
+	sync = (struct dmabuf_sync *)exynos_drm_dmabuf_sync_work(crtc->fb);
+	if (IS_ERR(sync)) {
+		/* just ignore buffer synchronization this time. */
+		return 0;
+	}
 
 	return 0;
 }
@@ -169,7 +195,22 @@ static void exynos_drm_crtc_load_lut(struct drm_crtc *crtc)
 static int exynos_drm_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
 					  struct drm_framebuffer *old_fb)
 {
-	return exynos_drm_crtc_mode_set_commit(crtc, x, y, old_fb);
+	struct dmabuf_sync *sync;
+	int ret;
+
+	ret = exynos_drm_crtc_mode_set_commit(crtc, x, y, old_fb);
+	if (ret < 0)
+		return ret;
+
+	if (!dmabuf_sync_is_supported())
+		return 0;
+
+	sync = (struct dmabuf_sync *)exynos_drm_dmabuf_sync_work(crtc->fb);
+	if (IS_ERR(sync))
+		/* just ignore buffer synchronization this time. */
+		return 0;
+
+	return 0;
 }
 
 static void exynos_drm_crtc_disable(struct drm_crtc *crtc)
@@ -207,9 +248,14 @@ static int exynos_drm_crtc_page_flip(struct drm_crtc *crtc,
 		return -EINVAL;
 	}
 
-	mutex_lock(&dev->struct_mutex);
-
 	if (event) {
+		struct exynos_drm_fb *exynos_fb;
+		struct drm_gem_object *obj;
+		struct dmabuf_sync *sync;
+		unsigned int i;
+
+		mutex_lock(&dev->struct_mutex);
+
 		/*
 		 * the pipe from user always is 0 so we can set pipe number
 		 * of current owner to event.
@@ -219,9 +265,52 @@ static int exynos_drm_crtc_page_flip(struct drm_crtc *crtc,
 		ret = drm_vblank_get(dev, exynos_crtc->pipe);
 		if (ret) {
 			DRM_DEBUG("failed to acquire vblank counter\n");
-
-			goto out;
+			mutex_unlock(&dev->struct_mutex);
+			return ret;
 		}
+
+		if (!dmabuf_sync_is_supported())
+			goto out_fence;
+
+		sync = dmabuf_sync_init("DRM", &dmabuf_sync_ops, event);
+		if (IS_ERR(sync)) {
+			WARN_ON(1);
+			goto out_fence;
+		}
+
+		exynos_fb = to_exynos_fb(fb);
+
+		for (i = 0; i < exynos_fb->buf_cnt; i++) {
+			if (!exynos_fb->exynos_gem_obj[i]) {
+				WARN_ON(1);
+				continue;
+			}
+
+			obj = &exynos_fb->exynos_gem_obj[i]->base;
+			if (!obj->export_dma_buf)
+				continue;
+
+			/*
+			 * set dmabuf to fence and registers reservation
+			 * object to reservation entry.
+			 */
+			ret = dmabuf_sync_get(sync,
+					obj->export_dma_buf,
+					DMA_BUF_ACCESS_DMA_R);
+			if (WARN_ON(ret < 0))
+				continue;
+		}
+
+		ret = dmabuf_sync_lock(sync);
+		if (ret < 0) {
+			dmabuf_sync_put_all(sync);
+			dmabuf_sync_fini(sync);
+			goto out_fence;
+		}
+
+		event->event.reserved = (unsigned long)sync;
+
+out_fence:
 
 		spin_lock_irq(&dev->event_lock);
 		list_add_tail(&event->base.link,
@@ -240,11 +329,13 @@ static int exynos_drm_crtc_page_flip(struct drm_crtc *crtc,
 			list_del(&event->base.link);
 			spin_unlock_irq(&dev->event_lock);
 
-			goto out;
+			mutex_unlock(&dev->struct_mutex);
+			return ret;
 		}
+
+		mutex_unlock(&dev->struct_mutex);
 	}
-out:
-	mutex_unlock(&dev->struct_mutex);
+
 	return ret;
 }
 
@@ -344,6 +435,8 @@ int exynos_drm_crtc_create(struct drm_device *dev, unsigned int nr)
 		return -ENOMEM;
 	}
 
+	INIT_LIST_HEAD(&exynos_crtc->sync_committed);
+
 	crtc = &exynos_crtc->drm_crtc;
 
 	private->crtc[nr] = crtc;
@@ -392,6 +485,19 @@ void exynos_drm_crtc_finish_pageflip(struct drm_device *dev, int crtc)
 	struct exynos_drm_crtc *exynos_crtc = to_exynos_crtc(drm_crtc);
 	unsigned long flags;
 
+	if (!list_empty(&exynos_crtc->sync_committed) &&
+			dmabuf_sync_is_supported()) {
+		struct dmabuf_sync *sync;
+
+		sync = list_first_entry(&exynos_crtc->sync_committed,
+					struct dmabuf_sync, list);
+		if (!dmabuf_sync_unlock(sync)) {
+			list_del_init(&sync->list);
+			dmabuf_sync_put_all(sync);
+			dmabuf_sync_fini(sync);
+		}
+	}
+
 	spin_lock_irqsave(&dev->event_lock, flags);
 
 	list_for_each_entry_safe(e, t, &dev_priv->pageflip_event_list,
@@ -399,6 +505,15 @@ void exynos_drm_crtc_finish_pageflip(struct drm_device *dev, int crtc)
 		/* if event's pipe isn't same as crtc then ignore it. */
 		if (crtc != e->pipe)
 			continue;
+
+		if (e->event.reserved && dmabuf_sync_is_supported()) {
+			struct dmabuf_sync *sync;
+
+			sync = (struct dmabuf_sync *)e->event.reserved;
+			e->event.reserved = 0;
+			list_add_tail(&sync->list,
+					&exynos_crtc->sync_committed);
+		}
 
 		list_del(&e->base.link);
 		drm_send_vblank_event(dev, -1, e);

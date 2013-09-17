@@ -18,6 +18,8 @@
 #include "exynos_drm_gem.h"
 #include "exynos_drm_plane.h"
 
+#include <linux/dmabuf-sync.h>
+
 #define to_exynos_plane(x)	container_of(x, struct exynos_plane, base)
 
 struct exynos_plane {
@@ -184,6 +186,7 @@ exynos_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		     uint32_t src_x, uint32_t src_y,
 		     uint32_t src_w, uint32_t src_h)
 {
+	struct dmabuf_sync *sync;
 	int ret;
 
 	ret = exynos_plane_mode_set(plane, crtc, fb, crtc_x, crtc_y,
@@ -196,6 +199,16 @@ exynos_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 
 	exynos_plane_commit(plane);
 	exynos_plane_dpms(plane, DRM_MODE_DPMS_ON);
+
+	if (!dmabuf_sync_is_supported())
+		return 0;
+
+	sync = (struct dmabuf_sync *)exynos_drm_dmabuf_sync_work(fb);
+	if (IS_ERR(sync)) {
+		WARN_ON(1);
+		/* just ignore buffer synchronization this time. */
+		return 0;
+	}
 
 	return 0;
 }
