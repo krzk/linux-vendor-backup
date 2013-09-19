@@ -1126,6 +1126,28 @@ static int arizona_extcon_of_get_pdata(struct arizona *arizona)
 
 	of_property_read_u32(arizona->dev->of_node, "wlf,gpsw", &pdata->gpsw);
 
+	of_property_read_u32(arizona->dev->of_node, "wlf,micd-detect-debounce",
+			     &pdata->micd_detect_debounce);
+
+	pdata->micd_pol_gpio =
+		arizona_of_get_named_gpio(arizona, "wlf,micd-pol-gpio", true);
+
+	of_property_read_u32(arizona->dev->of_node, "wlf,micd-bias-start-time",
+			     &pdata->micd_bias_start_time);
+
+	of_property_read_u32(arizona->dev->of_node, "wlf,micd-rate",
+			     &pdata->micd_rate);
+
+	of_property_read_u32(arizona->dev->of_node, "wlf,micd-dbtime",
+			     &pdata->micd_dbtime);
+
+	of_property_read_u32(arizona->dev->of_node, "wlf,micd-timeout",
+			     &pdata->micd_timeout);
+
+	pdata->micd_force_micbias =
+			of_property_read_bool(arizona->dev->of_node,
+					      "wlf,micd-force-micbias");
+
 	return 0;
 }
 
