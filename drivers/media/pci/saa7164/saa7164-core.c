@@ -1441,7 +1441,6 @@ static void saa7164_finidev(struct pci_dev *pci_dev)
 
 	/* unregister stuff */
 	free_irq(pci_dev->irq, dev);
-	pci_set_drvdata(pci_dev, NULL);
 
 	mutex_lock(&devlist);
 	list_del(&dev->devlist);
