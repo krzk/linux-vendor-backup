@@ -35,6 +35,7 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/of_address.h>
+#include <linux/of_platform.h>
 
 #include <drm/exynos_drm.h>
 
@@ -1684,10 +1685,14 @@ static int hdmi_register_phy_device(struct hdmi_context *hdata, bool i2c_dev)
 {
 	struct device_node *np;
 	struct i2c_client *client;
+	struct platform_device *pdev;
 	int ret;
 
 	/* register hdmiphy driver */
-	ret = exynos_hdmiphy_i2c_driver_register();
+	if (i2c_dev)
+		ret = exynos_hdmiphy_i2c_driver_register();
+	else
+		ret = exynos_hdmiphy_platform_driver_register();
 	if (ret) {
 		DRM_ERROR("failed to register phy driver. ret %d.\n", ret);
 		goto err;
@@ -1700,16 +1705,29 @@ static int hdmi_register_phy_device(struct hdmi_context *hdata, bool i2c_dev)
 		goto err;
 	}
 
-	/* find hdmi phy on i2c bus */
-	client = of_find_i2c_device_by_node(np);
-	if (!client) {
-		DRM_ERROR("Could not find i2c 'phy' device\n");
-		ret = -ENODEV;
-		goto err;
+	if (i2c_dev) {
+		/* find hdmi phy on i2c bus */
+		client = of_find_i2c_device_by_node(np);
+		if (!client) {
+			DRM_ERROR("Could not find i2c 'phy' device\n");
+			ret = -ENODEV;
+			goto err;
+		}
+		hdata->phy_dev = &client->dev;
+		hdata->phy_ops = exynos_hdmiphy_i2c_device_get_ops(
+					hdata->phy_dev);
+	} else {
+		/* find hdmi phy on platform bus */
+		pdev = of_find_device_by_node(np);
+		if (!pdev) {
+			DRM_ERROR("Could not find platform 'phy' device\n");
+			ret = -ENODEV;
+			goto err;
+		}
+		hdata->phy_dev = &pdev->dev;
+		hdata->phy_ops = exynos_hdmiphy_platform_device_get_ops(
+					hdata->phy_dev);
 	}
-	hdata->phy_dev = &client->dev;
-	hdata->phy_ops = exynos_hdmiphy_i2c_device_get_ops(
-				hdata->phy_dev);
 
 	if (!hdata->phy_ops) {
 		ret = -EINVAL;
@@ -1728,6 +1746,11 @@ static struct hdmi_drv_data exynos5250_hdmi_drv_data = {
 	.i2c_hdmiphy = 1,
 };
 
+static struct hdmi_drv_data exynos5420_hdmi_drv_data = {
+	.type = HDMI_TYPE14,
+	.i2c_hdmiphy = 0,
+};
+
 static struct of_device_id hdmi_match_types[] = {
 	{
 		.compatible = "samsung,exynos5-hdmi",
@@ -1735,6 +1758,9 @@ static struct of_device_id hdmi_match_types[] = {
 	}, {
 		.compatible = "samsung,exynos4212-hdmi",
 		.data	= &exynos5250_hdmi_drv_data,
+	}, {
+		.compatible = "samsung,exynos5420-hdmi",
+		.data	= &exynos5420_hdmi_drv_data,
 	}, {
 		/* end node */
 	}
@@ -1853,7 +1879,10 @@ static int hdmi_probe(struct platform_device *pdev)
 	return 0;
 
 err_hdmiphy:
-	exynos_hdmiphy_i2c_driver_unregister();
+	if (drv->i2c_hdmiphy)
+		exynos_hdmiphy_i2c_driver_unregister();
+	else
+		exynos_hdmiphy_platform_driver_unregister();
 err_ddc:
 	i2c_del_driver(&ddc_driver);
 err_clk_res:
@@ -1872,8 +1901,12 @@ static int hdmi_remove(struct platform_device *pdev)
 
 	pm_runtime_disable(dev);
 
-	/* hdmiphy i2c driver */
-	exynos_hdmiphy_i2c_driver_unregister();
+	/* hdmiphy driver */
+	if (i2c_verify_client(hdata->phy_dev))
+		exynos_hdmiphy_i2c_driver_unregister();
+	else
+		exynos_hdmiphy_platform_driver_unregister();
+
 	/* DDC i2c driver */
 	i2c_del_driver(&ddc_driver);
 
