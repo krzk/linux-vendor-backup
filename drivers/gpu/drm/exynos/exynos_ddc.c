@@ -51,9 +51,8 @@ static struct of_device_id hdmiddc_match_types[] = {
 	}
 };
 
-static const struct i2c_device_id hdmiddc_id[] = {
-	{ "exynos5-hdmiddc", 0 },
-	{ "exynos4210-hdmiddc", 0 },
+static struct i2c_device_id ddc_idtable[] = {
+	{ },
 };
 
 struct i2c_driver ddc_driver = {
@@ -62,7 +61,7 @@ struct i2c_driver ddc_driver = {
 		.owner = THIS_MODULE,
 		.of_match_table = hdmiddc_match_types,
 	},
-	.id_table	= hdmiddc_id,
+	.id_table	= ddc_idtable,
 	.probe		= s5p_ddc_probe,
 	.remove		= s5p_ddc_remove,
 	.command		= NULL,
