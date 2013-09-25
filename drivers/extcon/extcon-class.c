@@ -229,6 +229,7 @@ int extcon_update_state(struct extcon_dev *edev, u32 mask, u32 state)
 	int env_offset = 0;
 	int length;
 	unsigned long flags;
+	int ret;
 
 	spin_lock_irqsave(&edev->lock, flags);
 
@@ -244,7 +245,12 @@ int extcon_update_state(struct extcon_dev *edev, u32 mask, u32 state)
 		edev->state &= ~mask;
 		edev->state |= state & mask;
 
-		raw_notifier_call_chain(&edev->nh, old_state, edev);
+		ret = raw_notifier_call_chain(&edev->nh, old_state, edev);
+		if ((ret & ~NOTIFY_STOP_MASK) != NOTIFY_OK) {
+			edev->state = old_state;
+			spin_unlock_irqrestore(&edev->lock, flags);
+			return -ENODEV;
+		}
 
 		/* This could be in interrupt handler */
 		prop_buf = (char *)get_zeroed_page(GFP_ATOMIC);
