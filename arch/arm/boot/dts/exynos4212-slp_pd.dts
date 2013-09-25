@@ -1,0 +1,348 @@
+/*
+ * Samsung's Exynos4412 based SMDK board device tree source
+ *
+ * Copyright (c) 2012-2013 Samsung Electronics Co., Ltd.
+ *		http://www.samsung.com
+ *
+ * Device tree source file for Samsung's SMDK4412 board which is based on
+ * Samsung's Exynos4412 SoC.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+*/
+
+/dts-v1/;
+/include/ "exynos4212.dtsi"
+
+/ {
+	model = "Samsung PegasusD evaluation board based on Exynos4212";
+	compatible = "samsung,slp_pd", "samsung,exynos4412";
+
+	aliases {
+	};
+
+	memory {
+		reg = <0x40000000 0x40000000>;
+
+		reserved-memory {
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			contig_mem: region@71000000 {
+				compatible = "linux,contiguous-memory-region";
+				reg = <0x71000000 0x0c000000>;
+				linux,default-contiguous-region;
+			};
+		};
+	};
+
+	chosen {
+		bootargs ="root=/dev/ram0 rw ramdisk=8192 initrd=0x41000000,8M console=ttySAC1,115200 init=/linuxrc";
+	};
+
+	vemmc_reg: voltage-regulator@0 {
+	        compatible = "regulator-fixed";
+		regulator-name = "VMEM_VDD_2.8V";
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+		gpio = <&gpk0 2 0>;
+		enable-active-high;
+	};
+
+	mshc@12550000 {
+		num-slots = <1>;
+		supports-highspeed;
+		broken-cd;
+		non-removable;
+		fifo-depth = <0x80>;
+		card-detect-delay = <200>;
+		clocks = <&clock 351>, <&clock 132>;
+		clock-name = "biu", "ciu";
+		vmmc-supply = <&vemmc_reg>;
+		clock-frequency = <400000000>;
+		samsung,dw-mshc-ciu-div = <0>;
+		samsung,dw-mshc-sdr-timing = <2 3>;
+		samsung,dw-mshc-ddr-timing = <1 2>;
+		pinctrl-0 = <&sd4_clk &sd4_cmd &sd4_bus4 &sd4_bus8>;
+		pinctrl-names = "default";
+		status = "disabled";
+
+		slot@0 {
+			reg = <0>;
+			bus-width = <8>;
+		};
+	};
+
+	sdhci_emmc: sdhci@12510000 {
+		bus-width = <8>;
+		non-removable;
+		pinctrl-0 = <&sd0_clk &sd0_cmd &sd0_bus8>;
+		pinctrl-names = "default";
+		vmmc-supply = <&vemmc_reg>;
+		status = "okay";
+	};
+
+	sdhci_sd: sdhci@12530000 {
+		bus-width = <4>;
+		cd-gpios = <&gpx3 4 0>;
+		cd-inverted;
+		interrupts = <0 75 0>;
+		pinctrl-0 = <&sd2_clk &sd2_cmd &sd2_bus4>;
+		pinctrl-names = "default";
+		status = "okay";
+	};
+
+	serial@13800000 {
+		status = "okay";
+	};
+
+	serial@13810000 {
+		status = "okay";
+	};
+
+	serial@13820000 {
+		status = "okay";
+	};
+
+	serial@13830000 {
+		status = "okay";
+	};
+
+	fixed-rate-clocks {
+		xxti {
+			compatible = "samsung,clock-xxti";
+			clock-frequency = <0>;
+		};
+
+		xusbxti {
+			compatible = "samsung,clock-xusbxti";
+			clock-frequency = <24000000>;
+		};
+	};
+
+	i2c@138B0000 {
+		samsung,i2c-sda-delay = <100>;
+		samsung,i2c-slave-addr = <0x10>;
+		samsung,i2c-max-bus-freq = <100000>;
+		pinctrl-0 = <&i2c5_bus>;
+		pinctrl-names = "default";
+		status = "okay";
+
+		max8997: max8997_pmic@66 {
+			compatible = "maxim,max8997-pmic";
+			interrupt-parent = <&gpx0>;
+			interrupts = <7 0>;
+			reg = <0x66>;
+
+			max8997,pmic-buck1-uses-gpio-dvs;
+			max8997,pmic-buck2-uses-gpio-dvs;
+			max8997,pmic-buck5-uses-gpio-dvs;
+
+			max8997,pmic-ignore-gpiodvs-side-effect;
+			max8997,pmic-buck125-default-dvs-idx = <0>;
+
+			max8997,pmic-buck125-dvs-gpios = <&gpj1 1 0>,
+						         <&gpj1 2 0>,
+							 <&gpl0 0 0>;
+
+			max8997,pmic-buck1-dvs-voltage = <1100000>, <1100000>,
+							 <1100000>, <1100000>,
+							 <1100000>, <1100000>,
+							 <1100000>, <1100000>;
+
+			max8997,pmic-buck2-dvs-voltage = <1100000>, <1100000>,
+							 <1100000>, <1100000>,
+							 <1100000>, <1100000>,
+							 <1100000>, <1100000>;
+
+			max8997,pmic-buck5-dvs-voltage = <1100000>, <1100000>,
+							 <1100000>, <1100000>,
+							 <1100000>, <1100000>,
+							 <1100000>, <1100000>;
+
+			regulators {
+
+				ldo1_reg: LDO1 {
+					regulator-name = "VMIPI_1.8V_AP";
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <1800000>;
+					regulator-always-on;
+				};
+
+				ldo2_reg: LDO2 {
+					regulator-name = "VALIVE_1.0A_AP";
+					regulator-min-microvolt = <1000000>;
+					regulator-max-microvolt = <1000000>;
+					regulator-always-on;
+				};
+
+				ldo3_reg: LDO3 {
+					regulator-name = "VMPLL_1.0V_AP";
+					regulator-min-microvolt = <1000000>;
+					regulator-max-microvolt = <1000000>;
+					regulator-always-on;
+				};
+
+				ldo4_reg: LDO4 {
+					regulator-name = "VABB02_1.8V_AP";
+					regulator-min-microvolt = <1000000>;
+					regulator-max-microvolt = <1000000>;
+					regulator-always-on;
+				};
+
+				ldo5_reg: LDO5 {
+					regulator-name = "VABB1_1.8V_AP";
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <1800000>;
+					regulator-always-on;
+				};
+
+				ldo6_reg: LDO6 {
+					regulator-name = "VCC_1.8V_AP";
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <1800000>;
+					regulator-always-on;
+				};
+
+				ldo7_reg: LDO7 {
+					regulator-name = "CAM_ISP_1.8V";
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <1800000>;
+					regulator-always-on;
+				};
+
+				ldo8_reg: LDO8 {
+					regulator-name = "VUOTG_3.0V_AP";
+					regulator-min-microvolt = <3000000>;
+					regulator-max-microvolt = <3000000>;
+				};
+
+				ldo9_reg: LDO9 {
+					regulator-name = "VCC_2.8V_AP";
+					regulator-min-microvolt = <2800000>;
+					regulator-max-microvolt = <2800000>;
+				};
+
+				ldo10_reg: LDO10 {
+					regulator-name = "VPLL_1.0V_AP";
+					regulator-min-microvolt = <1000000>;
+					regulator-max-microvolt = <1000000>;
+					regulator-always-on;
+				};
+
+				ldo11_reg: LDO11 {
+					regulator-name = "VMIPI_1.0V_AP";
+					regulator-min-microvolt = <1000000>;
+					regulator-max-microvolt = <1000000>;
+				};
+
+				ldo12_reg: LDO12 {
+					regulator-name = "VT_CAM_1.8";
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <1800000>;
+				};
+
+				ldo13_reg: LDO13 {
+					regulator-name = "VCC_3.3V_LCD";
+					regulator-min-microvolt = <3300000>;
+					regulator-max-microvolt = <3300000>;
+				};
+
+				ldo14_reg: LDO14 {
+					regulator-name = "VCC_1.8V_IO";
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <1800000>;
+				};
+
+				ldo15_reg: LDO15 {
+					regulator-name = "LCD_VDD_2.2V";
+					regulator-min-microvolt = <2200000>;
+					regulator-max-microvolt = <2200000>;
+				};
+
+				ldo16_reg: LDO16 {
+					regulator-name = "CAM_SENSOR_IO_1.8V";
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <1800000>;
+				};
+
+				ldo17_reg: LDO17 {
+					regulator-name = "CAM_AF_2.8V";
+					regulator-min-microvolt = <2800000>;
+					regulator-max-microvolt = <2800000>;
+					regulator-mem-idle;
+				};
+
+				ldo18_reg: LDO18 {
+					regulator-name = "TSP_AVDD_3.3V";
+					regulator-min-microvolt = <3300000>;
+					regulator-max-microvolt = <3300000>;
+				};
+
+				vddq_reg: LDO21 {
+				     regulator-name = "VM1M2_1.2V_AP";
+				     regulator-min-microvolt = <1200000>;
+				     regulator-max-microvolt = <1200000>;
+				     regulator-always-on;
+				};
+
+				buck1_reg: BUCK1 {
+					regulator-name = "VARM_1.0V_AP";
+					regulator-min-microvolt = <1000000>;
+					regulator-max-microvolt = <1000000>;
+					regulator-always-on;
+				};
+
+				buck2_reg: BUCK2 {
+					regulator-name = "VINT_1.0V_AP";
+					regulator-min-microvolt = <1000000>;
+					regulator-max-microvolt = <1000000>;
+					regulator-always-on;
+				};
+
+				buck3_reg: BUCK3 {
+					regulator-name = "VG3D_1.0V_AP";
+					regulator-min-microvolt = <1000000>;
+					regulator-max-microvolt = <1000000>;
+					regulator-always-on;
+				};
+
+				buck4_reg: BUCK4 {
+					regulator-name = "CAM_ISO_CORE_1.2V";
+					regulator-min-microvolt = <1200000>;
+					regulator-max-microvolt = <1200000>;
+				};
+
+				safe1_sreg: ESAFEOUT1 {
+				     regulator-name = "SAFEOUT1";
+				     regulator-always-on;
+				};
+
+				safe2_sreg: ESAFEOUT2 {
+				     regulator-name = "SAFEOUT2";
+				     regulator-boot-on;
+				};
+
+			};
+		};
+	};
+
+	hsotg@12480000 {
+		status = "okay";
+		vusb_d-supply = <&ldo8_reg>;
+		vusb_a-supply = <&ldo11_reg>;
+		phys = <&exynos_usbphy 0>;
+		phy-names = "device";
+	};
+
+	exynos_usbphy: exynos-usbphy@125B0000 {
+		compatible = "samsung,exynos4212-usbphy";
+		reg = <0x125B0000 0x100>, <0x10020704 0x0c>, <0x1001021c 0x4>;
+		clocks = <&clock 305>, <&clock 2>, <&clock 2>, <&clock 2>,
+								<&clock 2>;
+		clock-names = "phy", "device", "host", "hsic0", "hsic1";
+		status = "okay";
+		#phy-cells = <1>;
+	};
+};
