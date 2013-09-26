@@ -477,14 +477,6 @@ static int rndis_function_bind_config(struct slp_multi_usb_function *f,
 		rndis_control_intf.bInterfaceProtocol = 0x03;
 	}
 
-	/* ... and setup RNDIS itself */
-	ret = rndis_init();
-	if (ret < 0) {
-		dev_err(f->dev, "rndis_init failed(ret:%d)\n", ret);
-		gether_cleanup(rndis->edev);
-		return ret;
-	}
-
 	/* Android team reset "rndis_string_defs[0].id" when RNDIS unbinded
 	 * in f_rndis.c but, that makes failure of rndis_bind_config() by
 	 * the overflow of "next_string_id" value in usb_string_id().
