@@ -196,6 +196,7 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 	struct usb_hcd *hcd;
 	struct ehci_hcd *ehci;
 	struct resource *res;
+	const char *phy_name;
 	int irq;
 	int err;
 
@@ -218,7 +219,8 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	s5p_ehci = to_s5p_ehci(hcd);
-	phy =  devm_phy_get(&pdev->dev, "hsic0");
+	phy_name = of_get_property(pdev->dev.of_node, "phy-names", NULL);
+	phy =  devm_phy_get(&pdev->dev, phy_name);
 	if (IS_ERR(phy)) {
 		/* Fallback to pdata */
 		if (!pdata) {
