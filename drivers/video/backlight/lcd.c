@@ -17,6 +17,10 @@
 #include <linux/fb.h>
 #include <linux/slab.h>
 
+#ifdef CONFIG_DRM
+#include <drm/drm_backlight.h>
+#endif
+
 #if defined(CONFIG_FB) || (defined(CONFIG_FB_MODULE) && \
 			   defined(CONFIG_LCD_CLASS_DEVICE_MODULE))
 /* This callback gets called when something important happens inside a
@@ -236,6 +240,10 @@ struct lcd_device *lcd_device_register(const char *name, struct device *parent,
 
 	new_ld->ops = ops;
 
+#ifdef CONFIG_DRM
+	drm_bl_register(&new_ld->dev, BL_LCD_CLASS);
+#endif
+
 	return new_ld;
 }
 EXPORT_SYMBOL(lcd_device_register);
@@ -250,6 +258,10 @@ void lcd_device_unregister(struct lcd_device *ld)
 {
 	if (!ld)
 		return;
+
+#ifdef CONFIG_DRM
+	drm_bl_unregister(&ld->dev);
+#endif
 
 	mutex_lock(&ld->ops_lock);
 	ld->ops = NULL;
