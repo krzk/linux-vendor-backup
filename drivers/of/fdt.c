@@ -19,6 +19,7 @@
 #include <linux/slab.h>
 
 #include <asm/setup.h>  /* for COMMAND_LINE_SIZE */
+#include <asm/system_info.h>
 #ifdef CONFIG_PPC
 #include <asm/machdep.h>
 #endif /* CONFIG_PPC */
@@ -741,6 +742,7 @@ int __init early_init_dt_scan_chosen(unsigned long node, const char *uname,
 				     int depth, void *data)
 {
 	unsigned long l;
+	__be32 *serial;
 	char *p;
 
 	pr_debug("search \"chosen\", depth: %d, uname: %s\n", depth, uname);
@@ -750,6 +752,13 @@ int __init early_init_dt_scan_chosen(unsigned long node, const char *uname,
 		return 0;
 
 	early_init_dt_check_for_initrd(node);
+
+	/* Retrieve serial number */
+	serial = of_get_flat_dt_prop(node, "linux,serial-number", &l);
+	if (serial != NULL && l == 2 * sizeof(u32)) {
+		system_serial_high = be32_to_cpu(serial[0]);
+		system_serial_low = be32_to_cpu(serial[1]);
+	}
 
 	/* Retrieve command line */
 	p = of_get_flat_dt_prop(node, "bootargs", &l);
