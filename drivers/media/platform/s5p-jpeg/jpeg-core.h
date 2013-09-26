@@ -13,11 +13,14 @@
 #ifndef JPEG_CORE_H_
 #define JPEG_CORE_H_
 
+#include <linux/interrupt.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-fh.h>
 #include <media/v4l2-ctrls.h>
 
 #define S5P_JPEG_M2M_NAME		"s5p-jpeg"
+
+#define JPEG_MAX_PLANE		3
 
 /* JPEG compression quality setting */
 #define S5P_JPEG_COMPR_QUAL_BEST	0
@@ -43,8 +46,45 @@
 #define DHP				0xde
 
 /* Flags that indicate a format can be used for capture/output */
-#define MEM2MEM_CAPTURE			(1 << 0)
-#define MEM2MEM_OUTPUT			(1 << 1)
+#define SJPEG_FMT_FLAG_ENC_CAPTURE	(1 << 0)
+#define SJPEG_FMT_FLAG_ENC_OUTPUT	(1 << 1)
+#define SJPEG_FMT_FLAG_DEC_CAPTURE	(1 << 2)
+#define SJPEG_FMT_FLAG_DEC_OUTPUT	(1 << 3)
+#define SJPEG_FMT_FLAG_S5P		(1 << 4)
+#define SJPEG_FMT_FLAG_EXYNOS		(1 << 5)
+
+#define SJPEG_ENCODE		0
+#define SJPEG_DECODE		1
+
+#define FMT_TYPE_OUTPUT		0
+#define FMT_TYPE_CAPTURE	1
+
+/* Version numbers */
+
+#define SJPEG_S5P	1
+#define SJPEG_EXYNOS	2
+
+enum exynos_jpeg_result {
+	OK_ENC_OR_DEC,
+	ERR_PROT,
+	ERR_DEC_INVALID_FORMAT,
+	ERR_MULTI_SCAN,
+	ERR_FRAME,
+	ERR_UNKNOWN,
+};
+
+enum  exynos_jpeg_img_quality_level {
+	QUALITY_LEVEL_1 = 0,	/* high */
+	QUALITY_LEVEL_2,
+	QUALITY_LEVEL_3,
+	QUALITY_LEVEL_4,	/* low */
+};
+
+enum exynos_jpeg_scale_value {
+	JPEG_SCALE_NORMAL,
+	JPEG_SCALE_2,
+	JPEG_SCALE_4,
+};
 
 /**
  * struct s5p_jpeg - JPEG IP abstraction
@@ -71,9 +111,16 @@ struct s5p_jpeg {
 
 	void __iomem		*regs;
 	unsigned int		irq;
+	enum exynos_jpeg_result	irq_ret;
 	struct clk		*clk;
 	struct device		*dev;
 	void			*alloc_ctx;
+	struct s5p_jpeg_variant *variant;
+};
+
+struct s5p_jpeg_variant {
+	unsigned int	version;
+	irqreturn_t	(*jpeg_irq)(int irq, void *priv);
 };
 
 /**
@@ -91,6 +138,7 @@ struct s5p_jpeg_fmt {
 	u32	fourcc;
 	int	depth;
 	int	colplanes;
+	int	memplanes;
 	int	h_align;
 	int	v_align;
 	u32	types;

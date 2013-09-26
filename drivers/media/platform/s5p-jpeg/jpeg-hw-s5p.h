@@ -15,15 +15,12 @@
 #include <linux/io.h>
 #include <linux/videodev2.h>
 
-#include "jpeg-hw.h"
 #include "jpeg-regs.h"
 
 #define S5P_JPEG_MIN_WIDTH		32
 #define S5P_JPEG_MIN_HEIGHT		32
 #define S5P_JPEG_MAX_WIDTH		8192
 #define S5P_JPEG_MAX_HEIGHT		8192
-#define S5P_JPEG_ENCODE			0
-#define S5P_JPEG_DECODE			1
 #define S5P_JPEG_RAW_IN_565		0
 #define S5P_JPEG_RAW_IN_422		1
 #define S5P_JPEG_RAW_OUT_422		0
@@ -80,7 +77,7 @@ static inline void jpeg_proc_mode(void __iomem *regs, unsigned long mode)
 	unsigned long reg, m;
 
 	m = S5P_PROC_MODE_DECOMPR;
-	if (mode == S5P_JPEG_ENCODE)
+	if (mode == SJPEG_ENCODE)
 		m = S5P_PROC_MODE_COMPR;
 	else
 		m = S5P_PROC_MODE_DECOMPR;
