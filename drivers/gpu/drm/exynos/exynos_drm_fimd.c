@@ -23,6 +23,7 @@
 #include <video/of_display_timing.h>
 #include <video/samsung_fimd.h>
 #include <drm/exynos_drm.h>
+#include <drm/drm_backlight.h>
 
 #include "exynos_drm_drv.h"
 #include "exynos_drm_fbdev.h"
@@ -173,7 +174,21 @@ static int fimd_check_mode(struct device *dev, struct drm_display_mode *mode)
 
 static int fimd_display_power_on(struct device *dev, int mode)
 {
-	/* TODO */
+	DRM_INFO("%s:mode[%d]\n", __func__, mode);
+
+	switch (mode) {
+	case DRM_MODE_DPMS_ON:
+		drm_bl_dpms(mode);
+		break;
+	case DRM_MODE_DPMS_STANDBY:
+	case DRM_MODE_DPMS_SUSPEND:
+	case DRM_MODE_DPMS_OFF:
+		drm_bl_dpms(mode);
+		break;
+	default:
+		DRM_DEBUG_KMS("unspecified mode %d\n", mode);
+		break;
+	}
 
 	return 0;
 }
@@ -185,39 +200,6 @@ static struct exynos_drm_display_ops fimd_display_ops = {
 	.check_mode = fimd_check_mode,
 	.power_on = fimd_display_power_on,
 };
-
-static void fimd_dpms(struct device *subdrv_dev, int mode)
-{
-	struct fimd_context *ctx = get_fimd_context(subdrv_dev);
-
-	DRM_DEBUG_KMS("%d\n", mode);
-
-	mutex_lock(&ctx->lock);
-
-	switch (mode) {
-	case DRM_MODE_DPMS_ON:
-		/*
-		 * enable fimd hardware only if suspended status.
-		 *
-		 * P.S. fimd_dpms function would be called at booting time so
-		 * clk_enable could be called double time.
-		 */
-		if (ctx->suspended)
-			pm_runtime_get_sync(subdrv_dev);
-		break;
-	case DRM_MODE_DPMS_STANDBY:
-	case DRM_MODE_DPMS_SUSPEND:
-	case DRM_MODE_DPMS_OFF:
-		if (!ctx->suspended)
-			pm_runtime_put_sync(subdrv_dev);
-		break;
-	default:
-		DRM_DEBUG_KMS("unspecified mode %d\n", mode);
-		break;
-	}
-
-	mutex_unlock(&ctx->lock);
-}
 
 static void fimd_apply(struct device *subdrv_dev)
 {
@@ -355,15 +337,6 @@ static void fimd_wait_for_vblank(struct device *dev)
 				DRM_HZ/20))
 		DRM_DEBUG_KMS("vblank wait timed out.\n");
 }
-
-static struct exynos_drm_manager_ops fimd_manager_ops = {
-	.dpms = fimd_dpms,
-	.apply = fimd_apply,
-	.commit = fimd_commit,
-	.enable_vblank = fimd_enable_vblank,
-	.disable_vblank = fimd_disable_vblank,
-	.wait_for_vblank = fimd_wait_for_vblank,
-};
 
 static void fimd_win_mode_set(struct device *dev,
 			      struct exynos_drm_overlay *overlay)
@@ -680,13 +653,6 @@ static struct exynos_drm_overlay_ops fimd_overlay_ops = {
 	.disable = fimd_win_disable,
 };
 
-static struct exynos_drm_manager fimd_manager = {
-	.pipe		= -1,
-	.ops		= &fimd_manager_ops,
-	.overlay_ops	= &fimd_overlay_ops,
-	.display_ops	= &fimd_display_ops,
-};
-
 static irqreturn_t fimd_irq_handler(int irq, void *dev_id)
 {
 	struct fimd_context *ctx = (struct fimd_context *)dev_id;
@@ -906,6 +872,68 @@ static int fimd_activate(struct fimd_context *ctx, bool enable)
 
 	return 0;
 }
+
+static void fimd_dpms(struct device *subdrv_dev, int mode)
+{
+	struct fimd_context *ctx = get_fimd_context(subdrv_dev);
+	int ret;
+
+	DRM_DEBUG_KMS("%d\n", mode);
+
+	mutex_lock(&ctx->lock);
+
+	switch (mode) {
+	case DRM_MODE_DPMS_ON:
+		/*
+		 * enable fimd hardware only if suspended status.
+		 *
+		 * P.S. fimd_dpms function would be called at booting time so
+		 * clk_enable could be called double time.
+		 */
+		if (ctx->suspended) {
+			pm_runtime_get_sync(subdrv_dev);
+
+			ret = fimd_activate(ctx, true);
+			if (ret < 0) {
+				DRM_ERROR("failed to activate.\n");
+				pm_runtime_put_sync(subdrv_dev);
+			}
+		}
+		break;
+	case DRM_MODE_DPMS_STANDBY:
+	case DRM_MODE_DPMS_SUSPEND:
+	case DRM_MODE_DPMS_OFF:
+		if (!ctx->suspended) {
+			ret = fimd_activate(ctx, false);
+			if (ret < 0)
+				DRM_ERROR("failed to deactivate.\n");
+
+			pm_runtime_put_sync(subdrv_dev);
+		}
+		break;
+	default:
+		DRM_DEBUG_KMS("unspecified mode %d\n", mode);
+		break;
+	}
+
+	mutex_unlock(&ctx->lock);
+}
+
+static struct exynos_drm_manager_ops fimd_manager_ops = {
+	.dpms = fimd_dpms,
+	.apply = fimd_apply,
+	.commit = fimd_commit,
+	.enable_vblank = fimd_enable_vblank,
+	.disable_vblank = fimd_disable_vblank,
+	.wait_for_vblank = fimd_wait_for_vblank,
+};
+
+static struct exynos_drm_manager fimd_manager = {
+	.pipe		= -1,
+	.ops		= &fimd_manager_ops,
+	.overlay_ops	= &fimd_overlay_ops,
+	.display_ops	= &fimd_display_ops,
+};
 
 static int fimd_probe(struct platform_device *pdev)
 {
