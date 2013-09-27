@@ -170,4 +170,6 @@ source "drivers/reset/Kconfig"
 
 source "drivers/gud/Kconfig"
 
+source "drivers/phy/Kconfig"
+
 endmenu
