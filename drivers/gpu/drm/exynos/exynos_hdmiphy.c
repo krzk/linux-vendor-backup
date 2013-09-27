@@ -52,14 +52,22 @@ static struct of_device_id hdmiphy_match_types[] = {
 	}
 };
 
+static const struct i2c_device_id hdmiphy_id[] = {
+	{ "exynos5-hdmiphy", 0 },
+	{ "exynos4210-hdmiphy", 0 },
+	{ "exynos4212-hdmiphy", 0 },
+};
+
 struct i2c_driver hdmiphy_driver = {
 	.driver = {
 		.name	= "exynos-hdmiphy",
 		.owner	= THIS_MODULE,
 		.of_match_table = hdmiphy_match_types,
 	},
+	.id_table	= hdmiphy_id,
 	.probe		= hdmiphy_probe,
 	.remove		= hdmiphy_remove,
 	.command		= NULL,
 };
+
 EXPORT_SYMBOL(hdmiphy_driver);
