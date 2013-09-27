@@ -56,6 +56,7 @@ struct s6d6aa1 {
 	struct device *dev;
 
 	struct s6d6aa1_platform_data *pdata;
+	struct lcd_device *ld;
 	struct backlight_device *bd;
 	struct regulator_bulk_data supplies[2];
 
@@ -415,6 +416,51 @@ static const struct backlight_ops s6d6aa1_backlight_ops = {
 	.update_status = s6d6aa1_set_brightness,
 };
 
+static int s6d6aa1_set_power(struct lcd_device *ld, int power)
+{
+	struct s6d6aa1 *lcd = lcd_get_data(ld);
+	enum display_entity_state state;
+	int ret = 0;
+
+	switch (power) {
+	case FB_BLANK_UNBLANK:
+		state = DISPLAY_ENTITY_STATE_ON;
+		ret = display_entity_set_state(&lcd->entity, state);
+		if (ret)
+			goto unlock;
+
+		s6d6aa1_brightness_ctrl(lcd, lcd->bd->props.brightness);
+		break;
+	case FB_BLANK_POWERDOWN:
+		s6d6aa1_brightness_ctrl(lcd, 0);
+
+		state = DISPLAY_ENTITY_STATE_OFF;
+		ret = display_entity_set_state(&lcd->entity, state);
+		if (ret)
+			goto unlock;
+		break;
+	default:
+		state = DISPLAY_ENTITY_STATE_STANDBY;
+	}
+
+	lcd->power = power;
+
+unlock:
+	return ret;
+}
+
+static int s6d6aa1_get_power(struct lcd_device *ld)
+{
+	struct s6d6aa1 *lcd = lcd_get_data(ld);
+
+	return lcd->power;
+}
+
+static struct lcd_ops s6d6aa1_lcd_ops = {
+	.set_power = s6d6aa1_set_power,
+	.get_power = s6d6aa1_get_power,
+};
+
 static int s6d6aa1_check_mtp(struct s6d6aa1 *lcd)
 {
 	s6d6aa1_apply_level_1_key(lcd);
@@ -679,6 +725,14 @@ static int s6d6aa1_probe(struct platform_device *pdev)
 		goto err_regulator_bulk_get;
 	}
 
+	lcd->ld = lcd_device_register("s6d6aa1", &pdev->dev, lcd,
+			&s6d6aa1_lcd_ops);
+	if (IS_ERR(lcd->ld)) {
+		dev_err(lcd->dev, "failed to register lcd ops.\n");
+		ret = PTR_ERR(lcd->ld);
+		goto err_lcd_register;
+	}
+
 	lcd->bd = backlight_device_register("s6d6aa1", &pdev->dev, lcd,
 			&s6d6aa1_backlight_ops, NULL);
 	if (IS_ERR(lcd->bd)) {
@@ -712,6 +766,8 @@ static int s6d6aa1_probe(struct platform_device *pdev)
 err_display_register:
 	backlight_device_unregister(lcd->bd);
 err_backlight_register:
+	lcd_device_unregister(lcd->ld);
+err_lcd_register:
 	regulator_bulk_free(ARRAY_SIZE(lcd->supplies), lcd->supplies);
 err_regulator_bulk_get:
 	kfree(lcd);
