@@ -113,12 +113,12 @@ static void __iomem *edmacc_regs_base[EDMA_MAX_CC];
 
 static inline unsigned int edma_read(unsigned ctlr, int offset)
 {
-	return (unsigned int)__raw_readl(edmacc_regs_base[ctlr] + offset);
+	return (unsigned int)readl_relaxed(edmacc_regs_base[ctlr] + offset);
 }
 
 static inline void edma_write(unsigned ctlr, int offset, int val)
 {
-	__raw_writel(val, edmacc_regs_base[ctlr] + offset);
+	writel_relaxed(val, edmacc_regs_base[ctlr] + offset);
 }
 static inline void edma_modify(unsigned ctlr, int offset, unsigned and,
 		unsigned or)

@@ -123,10 +123,10 @@ static int cpsw_ale_read(struct cpsw_ale *ale, int idx, u32 *ale_entry)
 
 	WARN_ON(idx > ale->params.ale_entries);
 
-	__raw_writel(idx, ale->params.ale_regs + ALE_TABLE_CONTROL);
+	writel_relaxed(idx, ale->params.ale_regs + ALE_TABLE_CONTROL);
 
 	for (i = 0; i < ALE_ENTRY_WORDS; i++)
-		ale_entry[i] = __raw_readl(ale->params.ale_regs +
+		ale_entry[i] = readl_relaxed(ale->params.ale_regs +
 					   ALE_TABLE + 4 * i);
 
 	return idx;
@@ -139,10 +139,10 @@ static int cpsw_ale_write(struct cpsw_ale *ale, int idx, u32 *ale_entry)
 	WARN_ON(idx > ale->params.ale_entries);
 
 	for (i = 0; i < ALE_ENTRY_WORDS; i++)
-		__raw_writel(ale_entry[i], ale->params.ale_regs +
+		writel_relaxed(ale_entry[i], ale->params.ale_regs +
 			     ALE_TABLE + 4 * i);
 
-	__raw_writel(idx | ALE_TABLE_WRITE, ale->params.ale_regs +
+	writel_relaxed(idx | ALE_TABLE_WRITE, ale->params.ale_regs +
 		     ALE_TABLE_CONTROL);
 
 	return idx;
@@ -647,9 +647,9 @@ int cpsw_ale_control_set(struct cpsw_ale *ale, int port, int control,
 	offset = info->offset + (port * info->port_offset);
 	shift  = info->shift  + (port * info->port_shift);
 
-	tmp = __raw_readl(ale->params.ale_regs + offset);
+	tmp = readl_relaxed(ale->params.ale_regs + offset);
 	tmp = (tmp & ~(mask << shift)) | (value << shift);
-	__raw_writel(tmp, ale->params.ale_regs + offset);
+	writel_relaxed(tmp, ale->params.ale_regs + offset);
 
 	return 0;
 }
@@ -673,7 +673,7 @@ int cpsw_ale_control_get(struct cpsw_ale *ale, int port, int control)
 	offset = info->offset + (port * info->port_offset);
 	shift  = info->shift  + (port * info->port_shift);
 
-	tmp = __raw_readl(ale->params.ale_regs + offset) >> shift;
+	tmp = readl_relaxed(ale->params.ale_regs + offset) >> shift;
 	return tmp & BITMASK(info->bits);
 }
 
@@ -704,7 +704,7 @@ void cpsw_ale_start(struct cpsw_ale *ale)
 {
 	u32 rev;
 
-	rev = __raw_readl(ale->params.ale_regs + ALE_IDVER);
+	rev = readl_relaxed(ale->params.ale_regs + ALE_IDVER);
 	dev_dbg(ale->params.dev, "initialized cpsw ale revision %d.%d\n",
 		ALE_VERSION_MAJOR(rev), ALE_VERSION_MINOR(rev));
 	cpsw_ale_control_set(ale, 0, ALE_ENABLE, 1);

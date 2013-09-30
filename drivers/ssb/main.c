@@ -647,7 +647,7 @@ static void ssb_ssb_block_read(struct ssb_device *dev, void *buffer,
 		u8 *buf = buffer;
 
 		while (count) {
-			*buf = __raw_readb(addr);
+			*buf = readb_relaxed(addr);
 			buf++;
 			count--;
 		}
@@ -658,7 +658,7 @@ static void ssb_ssb_block_read(struct ssb_device *dev, void *buffer,
 
 		SSB_WARN_ON(count & 1);
 		while (count) {
-			*buf = (__force __le16)__raw_readw(addr);
+			*buf = (__force __le16)readw_relaxed(addr);
 			buf++;
 			count -= 2;
 		}
@@ -669,7 +669,7 @@ static void ssb_ssb_block_read(struct ssb_device *dev, void *buffer,
 
 		SSB_WARN_ON(count & 3);
 		while (count) {
-			*buf = (__force __le32)__raw_readl(addr);
+			*buf = (__force __le32)readl_relaxed(addr);
 			buf++;
 			count -= 4;
 		}
@@ -720,7 +720,7 @@ static void ssb_ssb_block_write(struct ssb_device *dev, const void *buffer,
 		const u8 *buf = buffer;
 
 		while (count) {
-			__raw_writeb(*buf, addr);
+			writeb_relaxed(*buf, addr);
 			buf++;
 			count--;
 		}
@@ -731,7 +731,7 @@ static void ssb_ssb_block_write(struct ssb_device *dev, const void *buffer,
 
 		SSB_WARN_ON(count & 1);
 		while (count) {
-			__raw_writew((__force u16)(*buf), addr);
+			writew_relaxed((__force u16)(*buf), addr);
 			buf++;
 			count -= 2;
 		}
@@ -742,7 +742,7 @@ static void ssb_ssb_block_write(struct ssb_device *dev, const void *buffer,
 
 		SSB_WARN_ON(count & 3);
 		while (count) {
-			__raw_writel((__force u32)(*buf), addr);
+			writel_relaxed((__force u32)(*buf), addr);
 			buf++;
 			count -= 4;
 		}

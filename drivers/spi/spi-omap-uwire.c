@@ -113,12 +113,12 @@ static void __iomem *uwire_base;
 
 static inline void uwire_write_reg(int idx, u16 val)
 {
-	__raw_writew(val, uwire_base + (idx << uwire_idx_shift));
+	writew_relaxed(val, uwire_base + (idx << uwire_idx_shift));
 }
 
 static inline u16 uwire_read_reg(int idx)
 {
-	return __raw_readw(uwire_base + (idx << uwire_idx_shift));
+	return readw_relaxed(uwire_base + (idx << uwire_idx_shift));
 }
 
 static inline void omap_uwire_configure_mode(u8 cs, unsigned long flags)

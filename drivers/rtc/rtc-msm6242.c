@@ -76,13 +76,13 @@ struct msm6242_priv {
 static inline unsigned int msm6242_read(struct msm6242_priv *priv,
 				       unsigned int reg)
 {
-	return __raw_readl(&priv->regs[reg]) & 0xf;
+	return readl_relaxed(&priv->regs[reg]) & 0xf;
 }
 
 static inline void msm6242_write(struct msm6242_priv *priv, unsigned int val,
 				unsigned int reg)
 {
-	__raw_writel(val, &priv->regs[reg]);
+	writel_relaxed(val, &priv->regs[reg]);
 }
 
 static inline void msm6242_set(struct msm6242_priv *priv, unsigned int val,

@@ -130,12 +130,12 @@ struct cpdma_chan {
 #define num_chan	params.num_chan
 
 /* various accessors */
-#define dma_reg_read(ctlr, ofs)		__raw_readl((ctlr)->dmaregs + (ofs))
-#define chan_read(chan, fld)		__raw_readl((chan)->fld)
-#define desc_read(desc, fld)		__raw_readl(&(desc)->fld)
-#define dma_reg_write(ctlr, ofs, v)	__raw_writel(v, (ctlr)->dmaregs + (ofs))
-#define chan_write(chan, fld, v)	__raw_writel(v, (chan)->fld)
-#define desc_write(desc, fld, v)	__raw_writel((u32)(v), &(desc)->fld)
+#define dma_reg_read(ctlr, ofs)		readl_relaxed((ctlr)->dmaregs + (ofs))
+#define chan_read(chan, fld)		readl_relaxed((chan)->fld)
+#define desc_read(desc, fld)		readl_relaxed(&(desc)->fld)
+#define dma_reg_write(ctlr, ofs, v)	writel_relaxed(v, (ctlr)->dmaregs + (ofs))
+#define chan_write(chan, fld, v)	writel_relaxed(v, (chan)->fld)
+#define desc_write(desc, fld, v)	writel_relaxed((u32)(v), &(desc)->fld)
 
 #define cpdma_desc_to_port(chan, mode, directed)			\
 	do {								\
@@ -327,10 +327,10 @@ int cpdma_ctlr_start(struct cpdma_ctlr *ctlr)
 	}
 
 	for (i = 0; i < ctlr->num_chan; i++) {
-		__raw_writel(0, ctlr->params.txhdp + 4 * i);
-		__raw_writel(0, ctlr->params.rxhdp + 4 * i);
-		__raw_writel(0, ctlr->params.txcp + 4 * i);
-		__raw_writel(0, ctlr->params.rxcp + 4 * i);
+		writel_relaxed(0, ctlr->params.txhdp + 4 * i);
+		writel_relaxed(0, ctlr->params.rxhdp + 4 * i);
+		writel_relaxed(0, ctlr->params.txcp + 4 * i);
+		writel_relaxed(0, ctlr->params.rxcp + 4 * i);
 	}
 
 	dma_reg_write(ctlr, CPDMA_RXINTMASKCLEAR, 0xffffffff);
@@ -800,7 +800,7 @@ static int __cpdma_chan_process(struct cpdma_chan *chan)
 	}
 	desc_dma = desc_phys(pool, desc);
 
-	status	= __raw_readl(&desc->hw_mode);
+	status	= readl_relaxed(&desc->hw_mode);
 	outlen	= status & 0x7ff;
 	if (status & CPDMA_DESC_OWNER) {
 		chan->stats.busy_dequeue++;

@@ -121,12 +121,12 @@ static DEFINE_SPINLOCK(tll_lock);	/* serialize access to tll_dev */
 
 static inline void usbtll_write(void __iomem *base, u32 reg, u32 val)
 {
-	__raw_writel(val, base + reg);
+	writel_relaxed(val, base + reg);
 }
 
 static inline u32 usbtll_read(void __iomem *base, u32 reg)
 {
-	return __raw_readl(base + reg);
+	return readl_relaxed(base + reg);
 }
 
 static inline void usbtll_writeb(void __iomem *base, u8 reg, u8 val)

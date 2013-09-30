@@ -62,9 +62,9 @@ static void w90p910_report_event(struct w90p910_ts *w90p910_ts, bool down)
 
 	if (down) {
 		input_report_abs(dev, ABS_X,
-				 __raw_readl(w90p910_ts->ts_reg + 0x0c));
+				 readl_relaxed(w90p910_ts->ts_reg + 0x0c));
 		input_report_abs(dev, ABS_Y,
-				 __raw_readl(w90p910_ts->ts_reg + 0x10));
+				 readl_relaxed(w90p910_ts->ts_reg + 0x10));
 	}
 
 	input_report_key(dev, BTN_TOUCH, down);
@@ -75,11 +75,11 @@ static void w90p910_prepare_x_reading(struct w90p910_ts *w90p910_ts)
 {
 	unsigned long ctlreg;
 
-	__raw_writel(ADC_TSC_X, w90p910_ts->ts_reg + 0x04);
-	ctlreg = __raw_readl(w90p910_ts->ts_reg);
+	writel_relaxed(ADC_TSC_X, w90p910_ts->ts_reg + 0x04);
+	ctlreg = readl_relaxed(w90p910_ts->ts_reg);
 	ctlreg &= ~(ADC_WAITTRIG | WT_INT | WT_INT_EN);
 	ctlreg |= ADC_SEMIAUTO | ADC_INT_EN | ADC_CONV;
-	__raw_writel(ctlreg, w90p910_ts->ts_reg);
+	writel_relaxed(ctlreg, w90p910_ts->ts_reg);
 
 	w90p910_ts->state = TS_WAIT_X_COORD;
 }
@@ -88,11 +88,11 @@ static void w90p910_prepare_y_reading(struct w90p910_ts *w90p910_ts)
 {
 	unsigned long ctlreg;
 
-	__raw_writel(ADC_TSC_Y, w90p910_ts->ts_reg + 0x04);
-	ctlreg = __raw_readl(w90p910_ts->ts_reg);
+	writel_relaxed(ADC_TSC_Y, w90p910_ts->ts_reg + 0x04);
+	ctlreg = readl_relaxed(w90p910_ts->ts_reg);
 	ctlreg &= ~(ADC_WAITTRIG | ADC_INT | WT_INT_EN);
 	ctlreg |= ADC_SEMIAUTO | ADC_INT_EN | ADC_CONV;
-	__raw_writel(ctlreg, w90p910_ts->ts_reg);
+	writel_relaxed(ctlreg, w90p910_ts->ts_reg);
 
 	w90p910_ts->state = TS_WAIT_Y_COORD;
 }
@@ -101,10 +101,10 @@ static void w90p910_prepare_next_packet(struct w90p910_ts *w90p910_ts)
 {
 	unsigned long ctlreg;
 
-	ctlreg = __raw_readl(w90p910_ts->ts_reg);
+	ctlreg = readl_relaxed(w90p910_ts->ts_reg);
 	ctlreg &= ~(ADC_INT | ADC_INT_EN | ADC_SEMIAUTO | ADC_CONV);
 	ctlreg |= ADC_WAITTRIG | WT_INT_EN;
-	__raw_writel(ctlreg, w90p910_ts->ts_reg);
+	writel_relaxed(ctlreg, w90p910_ts->ts_reg);
 
 	w90p910_ts->state = TS_WAIT_NEW_PACKET;
 }
@@ -154,7 +154,7 @@ static void w90p910_check_pen_up(unsigned long data)
 	spin_lock_irqsave(&w90p910_ts->lock, flags);
 
 	if (w90p910_ts->state == TS_WAIT_NEW_PACKET &&
-	    !(__raw_readl(w90p910_ts->ts_reg + 0x04) & ADC_DOWN)) {
+	    !(readl_relaxed(w90p910_ts->ts_reg + 0x04) & ADC_DOWN)) {
 
 		w90p910_report_event(w90p910_ts, false);
 	}
@@ -170,23 +170,23 @@ static int w90p910_open(struct input_dev *dev)
 	/* enable the ADC clock */
 	clk_enable(w90p910_ts->clk);
 
-	__raw_writel(ADC_RST1, w90p910_ts->ts_reg);
+	writel_relaxed(ADC_RST1, w90p910_ts->ts_reg);
 	msleep(1);
-	__raw_writel(ADC_RST0, w90p910_ts->ts_reg);
+	writel_relaxed(ADC_RST0, w90p910_ts->ts_reg);
 	msleep(1);
 
 	/* set delay and screen type */
-	val = __raw_readl(w90p910_ts->ts_reg + 0x04);
-	__raw_writel(val & TSC_FOURWIRE, w90p910_ts->ts_reg + 0x04);
-	__raw_writel(ADC_DELAY, w90p910_ts->ts_reg + 0x08);
+	val = readl_relaxed(w90p910_ts->ts_reg + 0x04);
+	writel_relaxed(val & TSC_FOURWIRE, w90p910_ts->ts_reg + 0x04);
+	writel_relaxed(ADC_DELAY, w90p910_ts->ts_reg + 0x08);
 
 	w90p910_ts->state = TS_WAIT_NEW_PACKET;
 	wmb();
 
 	/* set trigger mode */
-	val = __raw_readl(w90p910_ts->ts_reg);
+	val = readl_relaxed(w90p910_ts->ts_reg);
 	val |= ADC_WAITTRIG | ADC_DIV | ADC_EN | WT_INT_EN;
-	__raw_writel(val, w90p910_ts->ts_reg);
+	writel_relaxed(val, w90p910_ts->ts_reg);
 
 	return 0;
 }
@@ -202,9 +202,9 @@ static void w90p910_close(struct input_dev *dev)
 
 	w90p910_ts->state = TS_IDLE;
 
-	val = __raw_readl(w90p910_ts->ts_reg);
+	val = readl_relaxed(w90p910_ts->ts_reg);
 	val &= ~(ADC_WAITTRIG | ADC_DIV | ADC_EN | WT_INT_EN | ADC_INT_EN);
-	__raw_writel(val, w90p910_ts->ts_reg);
+	writel_relaxed(val, w90p910_ts->ts_reg);
 
 	spin_unlock_irq(&w90p910_ts->lock);
 

@@ -183,12 +183,12 @@ struct omap1_cam_dev {
 static void cam_write(struct omap1_cam_dev *pcdev, u16 reg, u32 val)
 {
 	pcdev->reg_cache[reg / sizeof(u32)] = val;
-	__raw_writel(val, pcdev->base + reg);
+	writel_relaxed(val, pcdev->base + reg);
 }
 
 static u32 cam_read(struct omap1_cam_dev *pcdev, u16 reg, bool from_cache)
 {
-	return !from_cache ? __raw_readl(pcdev->base + reg) :
+	return !from_cache ? readl_relaxed(pcdev->base + reg) :
 			pcdev->reg_cache[reg / sizeof(u32)];
 }
 

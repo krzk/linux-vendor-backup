@@ -70,13 +70,13 @@ struct rp5c01_priv {
 static inline unsigned int rp5c01_read(struct rp5c01_priv *priv,
 				       unsigned int reg)
 {
-	return __raw_readl(&priv->regs[reg]) & 0xf;
+	return readl_relaxed(&priv->regs[reg]) & 0xf;
 }
 
 static inline void rp5c01_write(struct rp5c01_priv *priv, unsigned int val,
 				unsigned int reg)
 {
-	__raw_writel(val, &priv->regs[reg]);
+	writel_relaxed(val, &priv->regs[reg]);
 }
 
 static void rp5c01_lock(struct rp5c01_priv *priv)

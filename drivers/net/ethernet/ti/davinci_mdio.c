@@ -107,7 +107,7 @@ static void __davinci_mdio_reset(struct davinci_mdio_data *data)
 		div = CONTROL_MAX_DIV;
 
 	/* set enable and clock divider */
-	__raw_writel(div | CONTROL_ENABLE, &data->regs->control);
+	writel_relaxed(div | CONTROL_ENABLE, &data->regs->control);
 
 	/*
 	 * One mdio transaction consists of:
@@ -140,12 +140,12 @@ static int davinci_mdio_reset(struct mii_bus *bus)
 	msleep(PHY_MAX_ADDR * data->access_time);
 
 	/* dump hardware version info */
-	ver = __raw_readl(&data->regs->version);
+	ver = readl_relaxed(&data->regs->version);
 	dev_info(data->dev, "davinci mdio revision %d.%d\n",
 		 (ver >> 8) & 0xff, ver & 0xff);
 
 	/* get phy mask from the alive register */
-	phy_mask = __raw_readl(&data->regs->alive);
+	phy_mask = readl_relaxed(&data->regs->alive);
 	if (phy_mask) {
 		/* restrict mdio bus to live phys only */
 		dev_info(data->dev, "detected phy mask %x\n", ~phy_mask);
@@ -168,11 +168,11 @@ static inline int wait_for_user_access(struct davinci_mdio_data *data)
 	u32 reg;
 
 	while (time_after(timeout, jiffies)) {
-		reg = __raw_readl(&regs->user[0].access);
+		reg = readl_relaxed(&regs->user[0].access);
 		if ((reg & USERACCESS_GO) == 0)
 			return 0;
 
-		reg = __raw_readl(&regs->control);
+		reg = readl_relaxed(&regs->control);
 		if ((reg & CONTROL_IDLE) == 0)
 			continue;
 
@@ -186,7 +186,7 @@ static inline int wait_for_user_access(struct davinci_mdio_data *data)
 		return -EAGAIN;
 	}
 
-	reg = __raw_readl(&regs->user[0].access);
+	reg = readl_relaxed(&regs->user[0].access);
 	if ((reg & USERACCESS_GO) == 0)
 		return 0;
 
@@ -201,7 +201,7 @@ static inline int wait_for_idle(struct davinci_mdio_data *data)
 	unsigned long timeout = jiffies + msecs_to_jiffies(MDIO_TIMEOUT);
 
 	while (time_after(timeout, jiffies)) {
-		if (__raw_readl(&regs->control) & CONTROL_IDLE)
+		if (readl_relaxed(&regs->control) & CONTROL_IDLE)
 			return 0;
 	}
 	dev_err(data->dev, "timed out waiting for idle\n");
@@ -234,7 +234,7 @@ static int davinci_mdio_read(struct mii_bus *bus, int phy_id, int phy_reg)
 		if (ret < 0)
 			break;
 
-		__raw_writel(reg, &data->regs->user[0].access);
+		writel_relaxed(reg, &data->regs->user[0].access);
 
 		ret = wait_for_user_access(data);
 		if (ret == -EAGAIN)
@@ -242,7 +242,7 @@ static int davinci_mdio_read(struct mii_bus *bus, int phy_id, int phy_reg)
 		if (ret < 0)
 			break;
 
-		reg = __raw_readl(&data->regs->user[0].access);
+		reg = readl_relaxed(&data->regs->user[0].access);
 		ret = (reg & USERACCESS_ACK) ? (reg & USERACCESS_DATA) : -EIO;
 		break;
 	}
@@ -279,7 +279,7 @@ static int davinci_mdio_write(struct mii_bus *bus, int phy_id,
 		if (ret < 0)
 			break;
 
-		__raw_writel(reg, &data->regs->user[0].access);
+		writel_relaxed(reg, &data->regs->user[0].access);
 
 		ret = wait_for_user_access(data);
 		if (ret == -EAGAIN)
@@ -446,9 +446,9 @@ static int davinci_mdio_suspend(struct device *dev)
 	spin_lock(&data->lock);
 
 	/* shutdown the scan state machine */
-	ctrl = __raw_readl(&data->regs->control);
+	ctrl = readl_relaxed(&data->regs->control);
 	ctrl &= ~CONTROL_ENABLE;
-	__raw_writel(ctrl, &data->regs->control);
+	writel_relaxed(ctrl, &data->regs->control);
 	wait_for_idle(data);
 
 	data->suspended = true;

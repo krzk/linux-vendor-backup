@@ -30,12 +30,12 @@ struct ds1286_priv {
 
 static inline u8 ds1286_rtc_read(struct ds1286_priv *priv, int reg)
 {
-	return __raw_readl(&priv->rtcregs[reg]) & 0xff;
+	return readl_relaxed(&priv->rtcregs[reg]) & 0xff;
 }
 
 static inline void ds1286_rtc_write(struct ds1286_priv *priv, u8 data, int reg)
 {
-	__raw_writel(data, &priv->rtcregs[reg]);
+	writel_relaxed(data, &priv->rtcregs[reg]);
 }
 
 
