@@ -88,17 +88,17 @@ static void set_clkdiv(unsigned int div_index)
 
 	tmp = apll_freq_5250[div_index].clk_div_cpu0;
 
-	__raw_writel(tmp, EXYNOS5_CLKDIV_CPU0);
+	writel_relaxed(tmp, EXYNOS5_CLKDIV_CPU0);
 
-	while (__raw_readl(EXYNOS5_CLKDIV_STATCPU0) & 0x11111111)
+	while (readl_relaxed(EXYNOS5_CLKDIV_STATCPU0) & 0x11111111)
 		cpu_relax();
 
 	/* Change Divider - CPU1 */
 	tmp = apll_freq_5250[div_index].clk_div_cpu1;
 
-	__raw_writel(tmp, EXYNOS5_CLKDIV_CPU1);
+	writel_relaxed(tmp, EXYNOS5_CLKDIV_CPU1);
 
-	while (__raw_readl(EXYNOS5_CLKDIV_STATCPU1) & 0x11)
+	while (readl_relaxed(EXYNOS5_CLKDIV_STATCPU1) & 0x11)
 		cpu_relax();
 }
 
@@ -112,25 +112,25 @@ static void set_apll(unsigned int new_index,
 
 	do {
 		cpu_relax();
-		tmp = (__raw_readl(EXYNOS5_CLKMUX_STATCPU) >> 16);
+		tmp = (readl_relaxed(EXYNOS5_CLKMUX_STATCPU) >> 16);
 		tmp &= 0x7;
 	} while (tmp != 0x2);
 
 	/* 2. Set APLL Lock time */
 	pdiv = ((apll_freq_5250[new_index].mps >> 8) & 0x3f);
 
-	__raw_writel((pdiv * 250), EXYNOS5_APLL_LOCK);
+	writel_relaxed((pdiv * 250), EXYNOS5_APLL_LOCK);
 
 	/* 3. Change PLL PMS values */
-	tmp = __raw_readl(EXYNOS5_APLL_CON0);
+	tmp = readl_relaxed(EXYNOS5_APLL_CON0);
 	tmp &= ~((0x3ff << 16) | (0x3f << 8) | (0x7 << 0));
 	tmp |= apll_freq_5250[new_index].mps;
-	__raw_writel(tmp, EXYNOS5_APLL_CON0);
+	writel_relaxed(tmp, EXYNOS5_APLL_CON0);
 
 	/* 4. wait_lock_time */
 	do {
 		cpu_relax();
-		tmp = __raw_readl(EXYNOS5_APLL_CON0);
+		tmp = readl_relaxed(EXYNOS5_APLL_CON0);
 	} while (!(tmp & (0x1 << 29)));
 
 	/* 5. MUX_CORE_SEL = APLL */
@@ -138,7 +138,7 @@ static void set_apll(unsigned int new_index,
 
 	do {
 		cpu_relax();
-		tmp = __raw_readl(EXYNOS5_CLKMUX_STATCPU);
+		tmp = readl_relaxed(EXYNOS5_CLKMUX_STATCPU);
 		tmp &= (0x7 << 16);
 	} while (tmp != (0x1 << 16));
 
@@ -162,10 +162,10 @@ static void exynos5250_set_frequency(unsigned int old_index,
 			/* 1. Change the system clock divider values */
 			set_clkdiv(new_index);
 			/* 2. Change just s value in apll m,p,s value */
-			tmp = __raw_readl(EXYNOS5_APLL_CON0);
+			tmp = readl_relaxed(EXYNOS5_APLL_CON0);
 			tmp &= ~(0x7 << 0);
 			tmp |= apll_freq_5250[new_index].mps & 0x7;
-			__raw_writel(tmp, EXYNOS5_APLL_CON0);
+			writel_relaxed(tmp, EXYNOS5_APLL_CON0);
 
 		} else {
 			/* Clock Configuration Procedure */
@@ -177,10 +177,10 @@ static void exynos5250_set_frequency(unsigned int old_index,
 	} else if (old_index < new_index) {
 		if (!exynos5250_pms_change(old_index, new_index)) {
 			/* 1. Change just s value in apll m,p,s value */
-			tmp = __raw_readl(EXYNOS5_APLL_CON0);
+			tmp = readl_relaxed(EXYNOS5_APLL_CON0);
 			tmp &= ~(0x7 << 0);
 			tmp |= apll_freq_5250[new_index].mps & 0x7;
-			__raw_writel(tmp, EXYNOS5_APLL_CON0);
+			writel_relaxed(tmp, EXYNOS5_APLL_CON0);
 			/* 2. Change the system clock divider values */
 			set_clkdiv(new_index);
 		} else {
