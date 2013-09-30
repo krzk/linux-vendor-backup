@@ -42,4 +42,9 @@ config PHY_EXYNOS4212_USB
 	help
   	  Enable USB PHY support for Exynos 4212
   	  
+config EXYNOS_PHY
+	tristate "Exynos PHY driver"
+	help
+	  Support for PHY controllers on SoCs from Exynos family.
+
 endmenu
