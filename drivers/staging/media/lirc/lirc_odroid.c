@@ -3,12 +3,10 @@
  *
  * lirc_odroid - Device driver that records pulse- and pause-lengths
  *	      (space-lengths) (just like the lirc_serial driver does)
- *	      between GPIO interrupt events on the Raspberry Pi.
- *	      Lots of code has been taken from the lirc_serial module,
+ *	      between GPIO interrupt events on the Odroid X/X2.
+ *	      This was ported from the lirc_rpi driver,
  *	      so I would like say thanks to the authors.
  *
- * Copyright (C) 2012 Aron Robert Szabo <aron@reon.hu>,
- *		      Michael Bishop <cleverca22@gmail.com>
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation; either version 2 of the License, or
