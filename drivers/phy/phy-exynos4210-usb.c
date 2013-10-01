@@ -250,7 +250,7 @@ static int exynos4210_power_off(struct uphy_instance *inst)
 	}
 
 	inst->state = STATE_OFF;
-	inst->ref_cnt++;
+	inst->ref_cnt--;
 	if (inst->ref_cnt > 0)
 		return 0;
 
