@@ -22,6 +22,7 @@
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/platform_data/usb-ehci-s5p.h>
+#include <linux/regulator/consumer.h>
 #include <linux/usb/phy.h>
 #include <linux/usb/samsung_usb_phy.h>
 #include <linux/usb.h>
@@ -47,6 +48,11 @@
 static const char hcd_name[] = "ehci-s5p";
 static struct hc_driver __read_mostly s5p_ehci_hc_driver;
 
+static const char * const s5p_ehci_supply_names[] = {
+	"vusb_d",		/* digital USB supply */
+	"vusb_a",		/* analog USB supply */
+};
+
 struct s5p_ehci_hcd {
 	struct clk *clk;
 	int power_on;
@@ -54,6 +60,7 @@ struct s5p_ehci_hcd {
 	struct usb_otg *otg;
 	struct usb_bus *host;
 	struct s5p_ehci_platdata *pdata;
+	struct regulator_bulk_data supplies[ARRAY_SIZE(s5p_ehci_supply_names)];
 };
 
 #define to_s5p_ehci(hcd)      (struct s5p_ehci_hcd *)(hcd_to_ehci(hcd)->priv)
@@ -138,7 +145,7 @@ static ssize_t store_ehci_power(struct device *dev,
 		}
 
 		s5p_ehci_phy_enable(s5p_ehci, pdev);
-			
+
 		s5p_ehci_configurate(hcd);
 
 		irq = platform_get_irq(pdev, 0);
@@ -199,6 +206,7 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 	const char *phy_name;
 	int irq;
 	int err;
+	int i;
 
 	/*
 	 * Right now device-tree probed devices don't get dma_mask set.
@@ -271,6 +279,25 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 	}
 
 	s5p_ehci->host = &hcd->self;
+	/* regulators */
+	for (i = 0; i < ARRAY_SIZE(s5p_ehci->supplies); i++)
+		s5p_ehci->supplies[i].supply = s5p_ehci_supply_names[i];
+
+	err = devm_regulator_bulk_get(&pdev->dev, ARRAY_SIZE(s5p_ehci->supplies),
+				 s5p_ehci->supplies);
+	if (err) {
+		dev_err(&pdev->dev, "Failed to request regulators\n");
+		goto fail_get_reg;
+	}
+
+	err = regulator_bulk_enable(ARRAY_SIZE(s5p_ehci->supplies),
+				    s5p_ehci->supplies);
+
+	if (err) {
+		dev_err(&pdev->dev, "Failed to enable regulators\n");
+		goto fail_enable_reg;
+	}
+
 
 	s5p_ehci_phy_enable(s5p_ehci, pdev);
 
@@ -295,7 +322,10 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 
 fail_add_hcd:
 	s5p_ehci_phy_disable(s5p_ehci, pdev);
-
+	regulator_bulk_disable(ARRAY_SIZE(s5p_ehci->supplies),
+				    s5p_ehci->supplies);
+fail_enable_reg:
+fail_get_reg:
 fail_io:
 	clk_disable_unprepare(s5p_ehci->clk);
 fail_clk:
@@ -319,6 +349,8 @@ static int s5p_ehci_remove(struct platform_device *pdev)
 
 	clk_disable_unprepare(s5p_ehci->clk);
 
+	regulator_bulk_disable(ARRAY_SIZE(s5p_ehci->supplies),
+				    s5p_ehci->supplies);
 	usb_put_hcd(hcd);
 
 	return 0;
