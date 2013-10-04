@@ -31,7 +31,11 @@ parisc*)
 mips*)
 	debarch=mips$(grep -q CPU_LITTLE_ENDIAN=y $KCONFIG_CONFIG && echo el) ;;
 arm*)
-	debarch=arm$(grep -q CONFIG_AEABI=y $KCONFIG_CONFIG && echo el) ;;
+	if grep -q '^CONFIG_ARM64=y' $KCONFIG_CONFIG ; then
+		debarch=arm64
+	else
+		debarch=arm$(grep -q CONFIG_AEABI=y $KCONFIG_CONFIG && echo el)
+	fi ;;
 *)
 	echo "" >&2
 	echo "** ** **  WARNING  ** ** **" >&2
