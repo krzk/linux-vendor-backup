@@ -143,7 +143,7 @@ enum exynos4_clks {
 	xxti, xusbxti, fin_pll, fout_apll, fout_mpll, fout_epll, fout_vpll,
 	sclk_apll, sclk_mpll, sclk_epll, sclk_vpll, arm_clk, aclk200, aclk100,
 	aclk160, aclk133, mout_mpll_user_t, mout_mpll_user_c, mout_core,
-	mout_apll, clkout, /* 21 */
+	mout_apll, clkout, sclk_hdmiphy, /* 22 */
 
 	/* gate for special clocks (sclk) */
 	sclk_fimc0 = 128, sclk_fimc1, sclk_fimc2, sclk_fimc3, sclk_cam0,
@@ -351,7 +351,7 @@ struct samsung_fixed_rate_clock exynos4_fixed_rate_ext_clks[] __initdata = {
 /* fixed rate clocks generated inside the soc */
 struct samsung_fixed_rate_clock exynos4_fixed_rate_clks[] __initdata = {
 	FRATE(none, "sclk_hdmi24m", NULL, CLK_IS_ROOT, 24000000),
-	FRATE(none, "sclk_hdmiphy", NULL, CLK_IS_ROOT, 27000000),
+	FRATE(sclk_hdmiphy, "sclk_hdmiphy", NULL, CLK_IS_ROOT, 27000000),
 	FRATE(none, "sclk_usbphy0", NULL, CLK_IS_ROOT, 48000000),
 };
 
