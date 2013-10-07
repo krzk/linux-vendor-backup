@@ -364,4 +364,9 @@
 	rotator@12810000 {
 		compatible = "samsung,exynos4212-rotator";
 	};
+
+	busfreq@0 {
+		compatible = "samsung,exynos4x12-busfreq";
+		status = "disabled";
+	};
 };
