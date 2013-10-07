@@ -24,6 +24,7 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/module.h>
+#include <linux/of.h>
 
 /* Exynos4 ASV has been in the mailing list, but not upstreamed, yet. */
 #ifdef CONFIG_EXYNOS_ASV
@@ -1016,12 +1017,28 @@ unlock:
 	return NOTIFY_DONE;
 }
 
+#ifdef CONFIG_OF
+static const struct of_device_id exynos4_busfreq_match[] = {
+	{
+		.compatible = "samsung,exynos4210-busfreq",
+		.data = (void *)TYPE_BUSF_EXYNOS4210,
+	},
+	{
+		.compatible = "samsung,exynos4x12-busfreq",
+		.data = (void *)TYPE_BUSF_EXYNOS4x12,
+	},
+};
+MODULE_DEVICE_TABLE(of, exynos4_busfreq_match[]);
+#else
+#define exynos4_busfreq_match	NULL
+#endif
+
 static int exynos4_busfreq_probe(struct platform_device *pdev)
 {
 	struct busfreq_data *data;
 	struct opp *opp;
 	struct device *dev = &pdev->dev;
-	int err = 0;
+	int type, err = 0;
 
 	data = devm_kzalloc(&pdev->dev, sizeof(struct busfreq_data), GFP_KERNEL);
 	if (data == NULL) {
@@ -1029,11 +1046,20 @@ static int exynos4_busfreq_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	data->type = pdev->id_entry->driver_data;
+	if (dev->of_node) {
+		const struct of_device_id *match;
+		match = of_match_node(exynos4_busfreq_match, dev->of_node);
+		type = (int) match->data;
+	} else {
+		type = pdev->id_entry->driver_data;
+	}
+
+	data->type = type;
 	data->dmc[0].hw_base = S5P_VA_DMC0;
 	data->dmc[1].hw_base = S5P_VA_DMC1;
 	data->pm_notifier.notifier_call = exynos4_busfreq_pm_notifier_event;
 	data->dev = dev;
+
 	mutex_init(&data->lock);
 
 	switch (data->type) {
@@ -1133,6 +1159,7 @@ static struct platform_driver exynos4_busfreq_driver = {
 		.name	= "exynos4-busfreq",
 		.owner	= THIS_MODULE,
 		.pm	= &exynos4_busfreq_pm,
+		.of_match_table = of_match_ptr(exynos4_busfreq_match),
 	},
 };
 
