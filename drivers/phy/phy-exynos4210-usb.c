@@ -222,19 +222,9 @@ static int exynos4210_power_on(struct uphy_instance *inst)
 	if (inst->ref_cnt > 1)
 		return 0;
 
-	exynos4210_isol(inst, 0);
+	/* Order of initialisation is important - first power then isolation */
 	exynos4210_phy_pwr(inst, 1);
-
-	/* Power on the device, as it is necessary for HSIC to work */
-	if (inst->cfg->id == EXYNOS4210_HOST) {
-		struct uphy_instance *device =
-					&drv->uphy_instances[EXYNOS4210_DEVICE];
-		device->ref_cnt++;
-		if (device->ref_cnt > 1)
-			return 0;
-		exynos4210_phy_pwr(device, 1);
-		exynos4210_isol(device, 0);
-	}
+	exynos4210_isol(inst, 0);
 
 	return 0;
 }
@@ -256,16 +246,6 @@ static int exynos4210_power_off(struct uphy_instance *inst)
 
 	exynos4210_phy_pwr(inst, 0);
 	exynos4210_isol(inst, 1);
-
-	if (inst->cfg->id == EXYNOS4210_HOST) {
-		struct uphy_instance *device =
-					&drv->uphy_instances[EXYNOS4210_DEVICE];
-		device->ref_cnt--;
-		if (device->ref_cnt > 0)
-			return 0;
-		exynos4210_phy_pwr(device, 0);
-		exynos4210_isol(device, 1);
-	}
 
 	return 0;
 }

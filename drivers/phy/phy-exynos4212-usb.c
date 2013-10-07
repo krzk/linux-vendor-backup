@@ -255,8 +255,8 @@ static int exynos4212_power_on(struct uphy_instance *inst)
 	if (inst->ref_cnt > 1)
 		return 0;
 
-	exynos4212_isol(inst, 0);
 	exynos4212_phy_pwr(inst, 1);
+	exynos4212_isol(inst, 0);
 
 	/* Power on the device, as it is necessary for HSIC to work */
 	if (inst->cfg->id == EXYNOS4212_HSIC0) {
