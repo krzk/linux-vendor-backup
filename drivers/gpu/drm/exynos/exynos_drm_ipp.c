@@ -349,7 +349,7 @@ int exynos_drm_ipp_get_property(struct drm_device *drm_dev, void *data,
 			return -EINVAL;
 		}
 
-		prop_list = ippdrv->prop_list;
+		*prop_list = *ippdrv->prop_list;
 	}
 
 	return 0;
