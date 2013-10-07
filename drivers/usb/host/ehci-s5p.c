@@ -54,7 +54,8 @@ static const char * const s5p_ehci_supply_names[] = {
 };
 
 struct s5p_ehci_hcd {
-	struct clk *clk;
+	struct clk *clk1;
+	struct clk *clk2;
 	int power_on;
 	struct phy *phy;
 	struct usb_otg *otg;
@@ -121,7 +122,6 @@ static ssize_t store_ehci_power(struct device *dev,
 				const char *buf, size_t count)
 {
 	struct platform_device *pdev = to_platform_device(dev);
-	struct s5p_ehci_platdata *pdata = pdev->dev.platform_data;
 	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 	struct s5p_ehci_hcd *s5p_ehci = to_s5p_ehci(hcd);
 	int power_on;
@@ -243,17 +243,29 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 /*		s5p_ehci->otg = phy->otg;*/
 	}
 
-	s5p_ehci->clk = devm_clk_get(&pdev->dev, "usbhost");
+	s5p_ehci->clk1 = devm_clk_get(&pdev->dev, "usbhost");
 
-	if (IS_ERR(s5p_ehci->clk)) {
+	if (IS_ERR(s5p_ehci->clk1)) {
 		dev_err(&pdev->dev, "Failed to get usbhost clock\n");
-		err = PTR_ERR(s5p_ehci->clk);
-		goto fail_clk;
+		err = PTR_ERR(s5p_ehci->clk1);
+		goto fail_clk1;
 	}
 
-	err = clk_prepare_enable(s5p_ehci->clk);
+	err = clk_prepare_enable(s5p_ehci->clk1);
 	if (err)
-		goto fail_clk;
+		goto fail_clk1;
+
+	s5p_ehci->clk2 = devm_clk_get(&pdev->dev, "otg");
+
+	if (IS_ERR(s5p_ehci->clk2)) {
+		dev_err(&pdev->dev, "Failed to get otg clock\n");
+		err = PTR_ERR(s5p_ehci->clk2);
+		goto fail_clk2;
+	}
+
+	err = clk_prepare_enable(s5p_ehci->clk2);
+	if (err)
+		goto fail_clk2;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -327,8 +339,10 @@ fail_add_hcd:
 fail_enable_reg:
 fail_get_reg:
 fail_io:
-	clk_disable_unprepare(s5p_ehci->clk);
-fail_clk:
+	clk_disable_unprepare(s5p_ehci->clk2);
+fail_clk2:
+	clk_disable_unprepare(s5p_ehci->clk1);
+fail_clk1:
 	usb_put_hcd(hcd);
 	return err;
 }
@@ -347,7 +361,8 @@ static int s5p_ehci_remove(struct platform_device *pdev)
 
 	s5p_ehci_phy_disable(s5p_ehci, pdev);
 
-	clk_disable_unprepare(s5p_ehci->clk);
+	clk_disable_unprepare(s5p_ehci->clk1);
+	clk_disable_unprepare(s5p_ehci->clk2);
 
 	regulator_bulk_disable(ARRAY_SIZE(s5p_ehci->supplies),
 				    s5p_ehci->supplies);
@@ -381,7 +396,8 @@ static int s5p_ehci_suspend(struct device *dev)
 
 	s5p_ehci_phy_disable(s5p_ehci, pdev);
 
-	clk_disable_unprepare(s5p_ehci->clk);
+	clk_disable_unprepare(s5p_ehci->clk1);
+	clk_disable_unprepare(s5p_ehci->clk2);
 
 	return rc;
 }
@@ -392,7 +408,8 @@ static int s5p_ehci_resume(struct device *dev)
 	struct  s5p_ehci_hcd *s5p_ehci = to_s5p_ehci(hcd);
 	struct platform_device *pdev = to_platform_device(dev);
 
-	clk_prepare_enable(s5p_ehci->clk);
+	clk_prepare_enable(s5p_ehci->clk1);
+	clk_prepare_enable(s5p_ehci->clk2);
 
 	if (s5p_ehci->otg)
 		s5p_ehci->otg->set_host(s5p_ehci->otg, &hcd->self);
