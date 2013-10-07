@@ -110,6 +110,8 @@ struct max77686_platform_data {
 	unsigned int buck2_voltage[8]; /* buckx_voltage in uV */
 	unsigned int buck3_voltage[8];
 	unsigned int buck4_voltage[8];
+
+	unsigned int dvs_idx;
 };
 
 #endif /* __LINUX_MFD_MAX77686_H */

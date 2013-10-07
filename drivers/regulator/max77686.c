@@ -34,6 +34,7 @@
 #include <linux/regulator/of_regulator.h>
 #include <linux/mfd/max77686.h>
 #include <linux/mfd/max77686-private.h>
+#include <linux/of_gpio.h>
 
 #define MAX77686_LDO_MINUV	800000
 #define MAX77686_LDO_UVSTEP	50000
@@ -495,9 +496,36 @@ static int max77686_pmic_dt_parse_pdata(struct platform_device *pdev,
 	struct device_node *pmic_np, *regulators_np;
 	struct max77686_regulator_data *rdata;
 	struct of_regulator_match rmatch;
-	unsigned int i;
+	unsigned int i, gpio;
 
 	pmic_np = iodev->dev->of_node;
+
+	for (i = 0; i < 3; i++) {
+		/* GPIO-DVS */
+		gpio = of_get_named_gpio(pmic_np, "max77686,dvs_gpios", i);
+		if (!gpio_is_valid(gpio)) {
+			dev_err(&pdev->dev, "could not find gpio-dvs\n");
+			while (i--)
+				pdata->buck234_gpio_dvs[i] = 0;
+			break;
+		}
+		pdata->buck234_gpio_dvs[i] = gpio;
+
+		/* GPIO-SELB */
+		gpio = of_get_named_gpio(pmic_np, "max77686,selb_gpios", i);
+		if (!gpio_is_valid(gpio)) {
+			dev_err(&pdev->dev, "could not find gpio-selb\n");
+			while (i--)
+				pdata->buck234_gpio_selb[i] = 0;
+			break;
+		}
+		pdata->buck234_gpio_selb[i] = gpio;
+	}
+
+	if (of_property_read_u32(pmic_np, "max77686,default_dvs_idx",
+				 &pdata->dvs_idx))
+		pdata->dvs_idx = 0;
+
 	regulators_np = of_find_node_by_name(pmic_np, "voltage-regulators");
 	if (!regulators_np) {
 		dev_err(&pdev->dev, "could not find regulators sub-node\n");
@@ -570,6 +598,71 @@ static int max77686_pmic_probe(struct platform_device *pdev)
 	config.regmap = iodev->regmap;
 	config.driver_data = max77686;
 	platform_set_drvdata(pdev, max77686);
+
+	/* GPIO-DVS, SELB */
+	if (pdata->buck234_gpio_dvs[0]) {
+		int ret, i;
+		for (i = 0 ; i < 3; i++) {
+			char label[20];
+			unsigned long flag;
+
+			sprintf(label, "MAX77686_DVS%d", i);
+
+			flag = (test_bit(i, (unsigned long *) &pdata->dvs_idx)) ?
+					 GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW;
+
+			ret = devm_gpio_request_one(&pdev->dev,
+						pdata->buck234_gpio_dvs[i], flag, label);
+			if (ret) {
+				dev_err(&pdev->dev, "failed to request gpio-dvs\n");
+				while (i--)
+					gpio_set_value(pdata->buck234_gpio_dvs[i], 0);
+
+				pdata->dvs_idx = 0;
+				break;
+			}
+		}
+	}
+
+	if (pdata->buck234_gpio_selb[0]) {
+		int ret, i;
+		for (i = 0 ; i < 3; i++) {
+			char label[20];
+			unsigned long flag;
+
+			sprintf(label, "MAX77686_SELB%d", i);
+
+			flag = GPIOF_OUT_INIT_LOW;
+
+			ret = devm_gpio_request_one(&pdev->dev,
+						pdata->buck234_gpio_selb[i], flag, label);
+			if (ret) {
+				dev_err(&pdev->dev, "failed to request gpio-dvs\n");
+				while (i--)
+					gpio_set_value(pdata->buck234_gpio_dvs[i], 0);
+				break;
+			}
+		}
+	}
+
+	/* Initialize DVS voltage table */
+	for (i = 0; i < 8; i++) {
+		unsigned int buck2_dvs = pdata->buck2_voltage[i];
+		unsigned int buck3_dvs = pdata->buck3_voltage[i];
+		unsigned int buck4_dvs = pdata->buck4_voltage[i];
+		unsigned int reg[3];
+
+		regmap_write(iodev->regmap, MAX77686_REG_BUCK2DVS1 + i,
+				buck2_dvs ? : 0x28);
+		regmap_write(iodev->regmap, MAX77686_REG_BUCK3DVS1 + i,
+					buck3_dvs ? : 0x28);
+		regmap_write(iodev->regmap, MAX77686_REG_BUCK4DVS1 + i,
+				buck4_dvs ? : 0x28);
+	}
+
+	regulators[MAX77686_BUCK2].vsel_reg += pdata->dvs_idx;
+	regulators[MAX77686_BUCK3].vsel_reg += pdata->dvs_idx;
+	regulators[MAX77686_BUCK4].vsel_reg += pdata->dvs_idx;
 
 	for (i = 0; i < MAX77686_REGULATORS; i++) {
 		config.init_data = pdata->regulators[i].initdata;
