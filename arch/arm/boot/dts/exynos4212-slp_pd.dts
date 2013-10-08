@@ -353,4 +353,9 @@
 			     950000 950000>;
 		status = "okay";
 	};
+
+	tmu@100C0000 {
+		vdd_ts-supply = <&ldo4_reg>;
+		status = "okay";
+	};
 };
