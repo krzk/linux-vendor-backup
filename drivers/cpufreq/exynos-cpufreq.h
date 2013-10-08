@@ -47,7 +47,7 @@ struct exynos_dvfs_info {
 extern int exynos4210_cpufreq_init(struct exynos_dvfs_info *);
 extern int exynos4x12_cpufreq_init(struct exynos_dvfs_info *);
 extern int exynos5250_cpufreq_init(struct exynos_dvfs_info *);
-extern struct cpufreq_frequency_table *exynos_of_parse_freq_table(
-		struct exynos_dvfs_info *info, const char *property_name);
+struct cpufreq_frequency_table *exynos_of_parse_freq_table(
+       struct exynos_dvfs_info *info, const char *property_name);
 unsigned int *exynos_of_parse_volt_table(struct exynos_dvfs_info *info,
 					 const char *property_name);
