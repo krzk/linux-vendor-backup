@@ -350,6 +350,51 @@ struct cpufreq_frequency_table *exynos_of_parse_freq_table(
 	return ret;
 }
 
+unsigned int *exynos_of_parse_volt_table(struct exynos_dvfs_info *info,
+					 const char *property_name)
+{
+	struct device_node *node = info->dev->of_node;
+	struct property *pp;
+	int len, num;
+	u32 *of_v_tab;
+
+	if (!node)
+		return NULL;
+
+	pp = of_find_property(node, property_name, &len);
+	if (!pp) {
+		pr_debug("%s: Property: %s not found\n", __func__,
+			 property_name);
+		goto err;
+	}
+
+	if (len == 0) {
+		pr_debug("%s: Length wrong value!\n", __func__);
+		goto err;
+	}
+
+	of_v_tab = kzalloc(len, GFP_KERNEL);
+	if (!of_v_tab) {
+		pr_err("%s: Allocation failed\n", __func__);
+		goto err;
+	}
+
+	num = len / sizeof(u32);
+	if (of_property_read_u32_array(node, pp->name, of_v_tab, num)) {
+		pr_err("%s: Property: %s cannot be read!\n", __func__,
+		       pp->name);
+		goto err_of_v_tab;
+	}
+
+	return of_v_tab;
+
+ err_of_v_tab:
+	kfree(of_v_tab);
+ err:
+	return NULL;
+}
+
+
 #ifdef CONFIG_OF
 static struct of_device_id exynos_cpufreq_of_match[] = {
 	{ .compatible = "samsung,exynos-cpufreq", },

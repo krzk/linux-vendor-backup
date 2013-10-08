@@ -232,7 +232,10 @@ int exynos4x12_cpufreq_init(struct exynos_dvfs_info *info)
 	/* 800Mhz */
 	info->pll_safe_idx = L7;
 	info->cpu_clk = cpu_clk;
-	info->volt_table = exynos4x12_volt_table;
+
+	info->volt_table = exynos_of_parse_volt_table(info, "volt_table");
+	if (!info->volt_table)
+		info->volt_table = exynos4x12_volt_table;
 
 	info->freq_table = exynos_of_parse_freq_table(info, "freq_table");
 	if (!info->freq_table)
