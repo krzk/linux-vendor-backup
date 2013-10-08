@@ -1073,6 +1073,8 @@
 
 	ehci@12580000 {
 		status = "okay";
+		vusb_d-supply = <&ldo15_reg>;
+		vusb_a-supply = <&ldo12_reg>;
 		phys = <&exynos_usbphy 2>;
 		phy-names = "hsic0";
 	};

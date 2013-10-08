@@ -445,6 +445,8 @@
 		status = "okay";
 		phys = <&exynos_usbphy 1>;
 		phy-names = "host";
+		vusb_d-supply = <&ldo3_reg>;
+		vusb_a-supply = <&ldo8_reg>;
 	};
 
 	exynos_usbphy: exynos-usbphy@125B0000 {

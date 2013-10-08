@@ -506,8 +506,8 @@
 		compatible = "samsung,exynos-ehci";
 		reg = <0x12580000 0x20000>;
 		interrupts = <0 70 0>;
-		clocks = <&clock 304>;
-		clock-names = "usbhost";
+		clocks = <&clock 304>, <&clock 305>;
+		clock-names = "usbhost", "otg";
 		status = "disabled";
 	};
 
