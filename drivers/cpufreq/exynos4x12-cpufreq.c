@@ -153,52 +153,15 @@ static void exynos4x12_set_apll(unsigned int index)
 	} while (tmp != (0x1 << EXYNOS4_CLKSRC_CPU_MUXCORE_SHIFT));
 }
 
-static bool exynos4x12_pms_change(unsigned int old_index, unsigned int new_index)
-{
-	unsigned int old_pm = apll_freq_4x12[old_index].mps >> 8;
-	unsigned int new_pm = apll_freq_4x12[new_index].mps >> 8;
-
-	return (old_pm == new_pm) ? 0 : 1;
-}
-
 static void exynos4x12_set_frequency(unsigned int old_index,
 				  unsigned int new_index)
 {
-	unsigned int tmp;
-
 	if (old_index > new_index) {
-		if (!exynos4x12_pms_change(old_index, new_index)) {
-			/* 1. Change the system clock divider values */
-			exynos4x12_set_clkdiv(new_index);
-			/* 2. Change just s value in apll m,p,s value */
-			tmp = __raw_readl(EXYNOS4_APLL_CON0);
-			tmp &= ~(0x7 << 0);
-			tmp |= apll_freq_4x12[new_index].mps & 0x7;
-			__raw_writel(tmp, EXYNOS4_APLL_CON0);
-
-		} else {
-			/* Clock Configuration Procedure */
-			/* 1. Change the system clock divider values */
-			exynos4x12_set_clkdiv(new_index);
-			/* 2. Change the apll m,p,s value */
-			exynos4x12_set_apll(new_index);
-		}
+		exynos4x12_set_clkdiv(new_index);
+		exynos4x12_set_apll(new_index);
 	} else if (old_index < new_index) {
-		if (!exynos4x12_pms_change(old_index, new_index)) {
-			/* 1. Change just s value in apll m,p,s value */
-			tmp = __raw_readl(EXYNOS4_APLL_CON0);
-			tmp &= ~(0x7 << 0);
-			tmp |= apll_freq_4x12[new_index].mps & 0x7;
-			__raw_writel(tmp, EXYNOS4_APLL_CON0);
-			/* 2. Change the system clock divider values */
-			exynos4x12_set_clkdiv(new_index);
-		} else {
-			/* Clock Configuration Procedure */
-			/* 1. Change the apll m,p,s value */
-			exynos4x12_set_apll(new_index);
-			/* 2. Change the system clock divider values */
-			exynos4x12_set_clkdiv(new_index);
-		}
+		exynos4x12_set_apll(new_index);
+		exynos4x12_set_clkdiv(new_index);
 	}
 }
 
@@ -242,7 +205,6 @@ int exynos4x12_cpufreq_init(struct exynos_dvfs_info *info)
 		info->freq_table = exynos4x12_freq_table;
 
 	info->set_freq = exynos4x12_set_frequency;
-	info->need_apll_change = exynos4x12_pms_change;
 
 	return 0;
 
