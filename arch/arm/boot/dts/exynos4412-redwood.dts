@@ -139,9 +139,8 @@
 	};
 
 	cpufreq {
+		freq_table;
 		status = "okay";
-		overclocking = "okay";
-		max_overclocking_freq = <1500000>;
 	};
 
 	tmu@100C0000 {
