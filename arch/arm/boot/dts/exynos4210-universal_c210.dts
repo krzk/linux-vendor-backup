@@ -77,6 +77,8 @@
 	hsotg@12480000 {
 		vusb_d-supply = <&ldo3_reg>;
 		vusb_a-supply = <&ldo8_reg>;
+		phys = <&exynos_usbphy 0>;
+		phy-names = "device";
 		status = "okay";
 	};
 
@@ -86,10 +88,6 @@
 		pinctrl-0 = <&sd0_clk &sd0_cmd &sd0_bus8>;
 		pinctrl-names = "default";
 		vmmc-supply = <&vemmc_reg>;
-		status = "okay";
-	};
-
-	usbphy@125B0000 {
 		status = "okay";
 	};
 
@@ -441,5 +439,21 @@
 		memport@1 {
 			memory-region = <&mfc_r_mem>;
 		};
+	};
+
+	ehci@12580000 {
+		status = "okay";
+		phys = <&exynos_usbphy 1>;
+		phy-names = "host";
+	};
+
+	exynos_usbphy: exynos-usbphy@125B0000 {
+		compatible = "samsung,exynos4210-usbphy";
+		reg = <0x125B0000 0x100 0x10020704 0x0c 0x1001021c 0x4>;
+		clocks = <&clock 305>, <&clock 2>, <&clock 2>, <&clock 2>,
+								<&clock 2>;
+		clock-names = "phy", "device", "host", "hsic0", "hsic1";
+		status = "okay";
+		#phy-cells = <1>;
 	};
 };

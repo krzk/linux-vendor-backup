@@ -150,21 +150,6 @@
 		status = "ok";
 	};
 
-	usbphy@125B0000 {
-		compatible = "samsung,exynos4210-usb2phy";
-		reg = <0x125B0000 0x100>;
-		ranges;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		clocks = <&clock 305>;
-		clock-names = "otg";
-		status = "disabled";
-
-		usbphy-sys {
-			reg = <0x10020704 0x8>;
-		};
-	};
-
 	camera {
 		clocks = <&clock 132>, <&clock 133>, <&clock 351>, <&clock 352>,
 		         <&clock 388>, <&clock 389>, <&clock 9>;
