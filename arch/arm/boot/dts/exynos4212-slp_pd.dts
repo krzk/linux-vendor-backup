@@ -143,23 +143,23 @@
 			max8997,pmic-buck125-default-dvs-idx = <0>;
 
 			max8997,pmic-buck125-dvs-gpios = <&gpj1 1 0>,
-						         <&gpj1 2 0>,
+							 <&gpj1 2 0>,
 							 <&gpl0 0 0>;
 
-			max8997,pmic-buck1-dvs-voltage = <1100000>, <1100000>,
-							 <1100000>, <1100000>,
-							 <1100000>, <1100000>,
-							 <1100000>, <1100000>;
+			max8997,pmic-buck1-dvs-voltage = <1350000>, <1300000>,
+							 <1250000>, <1200000>,
+							 <1150000>, <1100000>,
+							 <1000000>, <950000>;
 
-			max8997,pmic-buck2-dvs-voltage = <1100000>, <1100000>,
-							 <1100000>, <1100000>,
-							 <1100000>, <1100000>,
-							 <1100000>, <1100000>;
+			max8997,pmic-buck2-dvs-voltage = <1100000>, <1000000>,
+							 <950000>,  <900000>,
+							 <1100000>, <1000000>,
+							 <950000>,  <900000>;
 
-			max8997,pmic-buck5-dvs-voltage = <1100000>, <1100000>,
-							 <1100000>, <1100000>,
-							 <1100000>, <1100000>,
-							 <1100000>, <1100000>;
+			max8997,pmic-buck5-dvs-voltage = <1200000>, <1200000>,
+							 <1200000>, <1200000>,
+							 <1200000>, <1200000>,
+							 <1200000>, <1200000>;
 
 			regulators {
 
@@ -186,8 +186,8 @@
 
 				ldo4_reg: LDO4 {
 					regulator-name = "VABB02_1.8V_AP";
-					regulator-min-microvolt = <1000000>;
-					regulator-max-microvolt = <1000000>;
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <1800000>;
 					regulator-always-on;
 				};
 
@@ -226,8 +226,8 @@
 
 				ldo10_reg: LDO10 {
 					regulator-name = "VPLL_1.0V_AP";
-					regulator-min-microvolt = <1000000>;
-					regulator-max-microvolt = <1000000>;
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <1800000>;
 					regulator-always-on;
 				};
 
@@ -288,23 +288,23 @@
 				};
 
 				buck1_reg: BUCK1 {
-					regulator-name = "VARM_1.0V_AP";
-					regulator-min-microvolt = <1000000>;
-					regulator-max-microvolt = <1000000>;
+					regulator-name = "vdd_arm";
+					regulator-min-microvolt = <900000>;
+					regulator-max-microvolt = <1350000>;
 					regulator-always-on;
 				};
 
 				buck2_reg: BUCK2 {
-					regulator-name = "VINT_1.0V_AP";
-					regulator-min-microvolt = <1000000>;
-					regulator-max-microvolt = <1000000>;
+					regulator-name = "vdd_int";
+					regulator-min-microvolt = <900000>;
+					regulator-max-microvolt = <1100000>;
 					regulator-always-on;
 				};
 
 				buck3_reg: BUCK3 {
 					regulator-name = "VG3D_1.0V_AP";
-					regulator-min-microvolt = <1000000>;
-					regulator-max-microvolt = <1000000>;
+					regulator-min-microvolt = <850000>;
+					regulator-max-microvolt = <1100000>;
 					regulator-always-on;
 				};
 
