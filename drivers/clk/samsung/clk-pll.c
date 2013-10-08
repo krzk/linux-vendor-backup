@@ -58,16 +58,22 @@ static inline unsigned long samsung_pll35xx_calc_f_out(u64 f_in,
 
 #define to_clk_pll35xx(_hw) container_of(_hw, struct samsung_clk_pll35xx, hw)
 
+static inline void samsung_pll35xx_get_mps(struct samsung_clk_pll35xx *pll,
+					   u32 *m, u32 *p, u32 *s)
+{
+	u32 pll_con = __raw_readl(pll->base_reg + PLL35XX_PLL_CON0);
+
+	*m = (pll_con >> PLL35XX_MDIV_SHIFT) & PLL35XX_MDIV_MASK;
+	*p = (pll_con >> PLL35XX_PDIV_SHIFT) & PLL35XX_PDIV_MASK;
+	*s = (pll_con >> PLL35XX_SDIV_SHIFT) & PLL35XX_SDIV_MASK;
+}
+
 static unsigned long samsung_pll35xx_recalc_rate(struct clk_hw *hw,
 				unsigned long parent_rate)
 {
 	struct samsung_clk_pll35xx *pll = to_clk_pll35xx(hw);
-	u32 mdiv, pdiv, sdiv, pll_con;
-
-	pll_con = __raw_readl(pll->base_reg + PLL35XX_PLL_CON0);
-	mdiv = (pll_con >> PLL35XX_MDIV_SHIFT) & PLL35XX_MDIV_MASK;
-	pdiv = (pll_con >> PLL35XX_PDIV_SHIFT) & PLL35XX_PDIV_MASK;
-	sdiv = (pll_con >> PLL35XX_SDIV_SHIFT) & PLL35XX_SDIV_MASK;
+	u32 mdiv, pdiv, sdiv;
+	samsung_pll35xx_get_mps(pll, &mdiv, &pdiv, &sdiv);
 
 	return samsung_pll35xx_calc_f_out(parent_rate, pdiv, mdiv, sdiv);
 }
@@ -97,6 +103,7 @@ static int samsung_pll35xx_set_rate(struct clk_hw *hw, unsigned long drate,
 	struct samsung_clk_pll35xx *pll = to_clk_pll35xx(hw);
 	u32 p = 0, m = 0, s = 0, tmp = 0;
 	struct pll_pms *pms = pll->pms;
+	u32 p_cur, m_cur, s_cur;
 	int index;
 
 	if (!pms) {
@@ -105,16 +112,26 @@ static int samsung_pll35xx_set_rate(struct clk_hw *hw, unsigned long drate,
 	}
 
 	index = get_index(drate, pll->pms);
+	p = pms[index].p;
+	m = pms[index].m;
+	s = pms[index].s;
+
+	samsung_pll35xx_get_mps(pll, &m_cur, &p_cur, &s_cur);
+
+	if (p == p_cur && m == m_cur) {
+		tmp = __raw_readl(pll->base_reg + PLL35XX_PLL_CON0);
+		tmp &= ~(PLL35XX_SDIV_MASK << PLL35XX_SDIV_SHIFT);
+		tmp |= s << PLL35XX_SDIV_SHIFT;
+		__raw_writel(tmp, (u32 *)(pll->base_reg  + PLL35XX_PLL_CON0));
+
+		return 0;
+	}
 
 	/* Define PLL lock time */
-	p = pms[index].p;
 	__raw_writel((p * PLL35XX_PLL_LOCK_CONST),
 		     (u32*) (pll->base_reg + PLL35XX_PLL_LOCK));
 
 	/* Change PLL PMS */
-	m = pms[index].m;
-	s = pms[index].s;
-
 	tmp = __raw_readl(pll->base_reg + PLL35XX_PLL_CON0);
 	tmp &= ~((PLL35XX_PDIV_MASK << PLL35XX_PDIV_SHIFT) |
 		(PLL35XX_MDIV_MASK << PLL35XX_MDIV_SHIFT) |
