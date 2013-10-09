@@ -18,6 +18,7 @@
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
 #include <linux/of.h>
+#include <linux/spinlock.h>
 
 #include <drm/drmP.h>
 #include <drm/exynos_drm.h>
@@ -158,7 +159,7 @@ struct fimc_context {
 	struct exynos_drm_ippdrv	ippdrv;
 	struct resource	*regs_res;
 	void __iomem	*regs;
-	struct mutex	lock;
+	spinlock_t	lock;
 	struct clk	*clocks[FIMC_CLKS_MAX];
 	u32		clk_frequency;
 	struct regmap	*sysreg;
@@ -1151,11 +1152,12 @@ static int fimc_dst_set_buf_seq(struct fimc_context *ctx, u32 buf_id,
 	u32 cfg;
 	u32 mask = 0x00000001 << buf_id;
 	int ret = 0;
+	unsigned long flags;
 
 	DRM_DEBUG_KMS("%s:buf_id[%d]buf_type[%d]\n", __func__,
 		buf_id, buf_type);
 
-	mutex_lock(&ctx->lock);
+	spin_lock_irqsave(&ctx->lock, flags);
 
 	/* mask register set */
 	cfg = fimc_read(ctx, EXYNOS_CIFCNTSEQ);
@@ -1189,7 +1191,7 @@ static int fimc_dst_set_buf_seq(struct fimc_context *ctx, u32 buf_id,
 		fimc_mask_irq(ctx, false, false, true);
 
 err_unlock:
-	mutex_unlock(&ctx->lock);
+	spin_unlock_irqrestore(&ctx->lock, flags);
 	return ret;
 }
 
@@ -1807,7 +1809,7 @@ static int fimc_probe(struct platform_device *pdev)
 	DRM_DEBUG_KMS("%s:id[%d]ippdrv[0x%x]\n", __func__, ctx->id,
 		(int)ippdrv);
 
-	mutex_init(&ctx->lock);
+	spin_lock_init(&ctx->lock);
 	platform_set_drvdata(pdev, ctx);
 
 	pm_runtime_set_active(dev);
@@ -1838,7 +1840,6 @@ static int fimc_remove(struct platform_device *pdev)
 	struct exynos_drm_ippdrv *ippdrv = &ctx->ippdrv;
 
 	exynos_drm_ippdrv_unregister(ippdrv);
-	mutex_destroy(&ctx->lock);
 
 	fimc_put_clocks(ctx);
 	pm_runtime_set_suspended(dev);
