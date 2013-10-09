@@ -183,6 +183,7 @@ struct sysmmu_drvdata {
 	spinlock_t lock;
 	struct iommu_domain *domain;
 	bool runtime_active;
+	bool suspended;
 	unsigned long pgtable;
 	void __iomem *sfrbase;
 };
@@ -383,6 +384,10 @@ static irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 
 static void __sysmmu_disable_nocount(struct sysmmu_drvdata *data)
 {
+	if (data->suspended)
+		return;
+
+	data->suspended = 1;
 	clk_enable(data->clk_master);
 
 	__raw_writel(CTRL_DISABLE, data->sfrbase + REG_MMU_CTRL);
@@ -438,6 +443,11 @@ static void __sysmmu_init_config(struct sysmmu_drvdata *data)
 
 static void __sysmmu_enable_nocount(struct sysmmu_drvdata *data)
 {
+	if (!data->suspended)
+		return;
+
+	data->suspended = 0;
+
 	clk_enable(data->clk_master);
 	clk_enable(data->clk);
 
@@ -634,6 +644,7 @@ static int __init exynos_sysmmu_probe(struct platform_device *pdev)
 	}
 
 	data->runtime_active = !pm_runtime_enabled(dev);
+	data->suspended = 1;
 
 	spin_lock_init(&data->lock);
 	INIT_LIST_HEAD(&data->node);
