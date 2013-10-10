@@ -1088,6 +1088,8 @@ static int fimc_resume(struct device *dev)
 	struct fimc_dev *fimc =	dev_get_drvdata(dev);
 	unsigned long flags;
 
+	clk_enable(fimc->clock[CLK_GATE]);
+
 	dbg("fimc%d: state: 0x%lx", fimc->id, fimc->state);
 
 	/* Do not resume if the device was idle before system suspend */
@@ -1109,15 +1111,20 @@ static int fimc_resume(struct device *dev)
 static int fimc_suspend(struct device *dev)
 {
 	struct fimc_dev *fimc =	dev_get_drvdata(dev);
+	int ret = 0;
 
 	dbg("fimc%d: state: 0x%lx", fimc->id, fimc->state);
 
 	if (test_and_set_bit(ST_LPM, &fimc->state))
-		return 0;
+		ret = 0;
 	if (fimc_capture_busy(fimc))
-		return fimc_capture_suspend(fimc);
+		ret = fimc_capture_suspend(fimc);
 
-	return fimc_m2m_suspend(fimc);
+	ret = fimc_m2m_suspend(fimc);
+
+	clk_disable(fimc->clock[CLK_GATE]);
+
+	return ret;
 }
 #endif /* CONFIG_PM_SLEEP */
 
