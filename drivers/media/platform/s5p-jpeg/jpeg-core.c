@@ -1849,9 +1849,25 @@ static int s5p_jpeg_runtime_resume(struct device *dev)
 	return 0;
 }
 
+static int s5p_jpeg_suspend(struct device *dev)
+{
+	struct s5p_jpeg *jpeg = dev_get_drvdata(dev);
+	clk_disable_unprepare(jpeg->clk);
+	s5p_jpeg_runtime_suspend(dev);
+	return 0;
+}
+
+static int s5p_jpeg_resume(struct device *dev)
+{
+	struct s5p_jpeg *jpeg = dev_get_drvdata(dev);
+	clk_prepare_enable(jpeg->clk);
+	s5p_jpeg_runtime_resume(dev);
+	return 0;
+}
+
 static const struct dev_pm_ops s5p_jpeg_pm_ops = {
-	.runtime_suspend = s5p_jpeg_runtime_suspend,
-	.runtime_resume	 = s5p_jpeg_runtime_resume,
+	SET_SYSTEM_SLEEP_PM_OPS(s5p_jpeg_suspend, s5p_jpeg_resume)
+	SET_RUNTIME_PM_OPS(s5p_jpeg_runtime_suspend, s5p_jpeg_runtime_resume, NULL)
 };
 
 #ifdef CONFIG_OF
