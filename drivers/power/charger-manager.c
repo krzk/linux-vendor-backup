@@ -911,9 +911,14 @@ static enum power_supply_property default_charger_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
+
+	/* FIXME : 20131011
+	 * This property has been used in wrong way.
+	 * It'll be fixed sooner to it's original purpose.
+	 */
+	POWER_SUPPLY_PROP_CHARGE_NOW,
 	/*
 	 * Optional properties are:
-	 * POWER_SUPPLY_PROP_CHARGE_NOW,
 	 * POWER_SUPPLY_PROP_CURRENT_NOW,
 	 * POWER_SUPPLY_PROP_TEMP, and
 	 * POWER_SUPPLY_PROP_TEMP_AMBIENT,
