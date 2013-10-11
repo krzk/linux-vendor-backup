@@ -310,66 +310,39 @@ unlock_finish:
 static void max77693_charger_reg_init(struct max77693_charger_data *chg_data)
 {
 	struct regmap *rmap = chg_data->max77693->regmap;
-	u8 reg_data;
 
 	/*
 	 * fast charge timer 10hrs
 	 * restart threshold disable
 	 * pre-qual charge enable(default)
 	 */
-	reg_data = (0x04 << 0) | (0x03 << 4);
-	max77693_write_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_01, reg_data);
+	max77693_update_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_01,
+			MAX77693_FCHGTIME_10HRS | MAX77693_CHG_RSTRT_MASK,
+			MAX77693_FCHGTIME_MASK | MAX77693_CHG_RSTRT_MASK);
 
 	/*
 	 * charge current 466mA(default)
 	 * otg current limit 900mA
 	 */
-	reg_data = (1 << 7);
-	max77693_write_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_02, reg_data);
-
+	max77693_update_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_02,
+			MAX77693_OTG_ILIM_MASK, MAX77693_OTG_ILIM_MASK);
 	/*
 	 * top off current 100mA
 	 * top off timer 0min
 	 */
-	reg_data = (0x00 << 0);	/* 100mA */
-
-	reg_data |= (0x00 << 3);
-	max77693_write_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_03, reg_data);
+	max77693_update_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_03,
+			0x0, MAX77693_CHG_TO_ITHM | MAX77693_CHG_TO_TIMEM);
 
 	/*
-	 * cv voltage 4.2V or 4.35V
+	 * cv voltage 4.35V
 	 * MINVSYS 3.6V(default)
 	 */
-	reg_data &= (~MAX77693_CHG_MINVSYS_MASK);
-	reg_data |= (MAX77693_CHG_MINVSYS_3_6V << MAX77693_CHG_MINVSYS_SHIFT);
-	reg_data &= (~MAX77693_CHG_CV_PRM_MASK);
-#if defined(CONFIG_MACH_M0)
-	if ((system_rev != 3) && (system_rev >= 1))
-		reg_data |= (MAX77693_CHG_CV_PRM_4_35V << 0);
-	else
-		reg_data |= (MAX77693_CHG_CV_PRM_4_20V << 0);
-#else	/* C1, C2, M3, T0, ... */
-		reg_data |= (MAX77693_CHG_CV_PRM_4_35V << 0);
-#endif
-
-	/*
-	 * For GC1 Model,  MINVSYS is 3.4V.
-	 *  For GC1 Model  PRMV( Primary Charge Regn. Voltage) = 4.2V.
-	 * Actual expected regulated voltage needs to be 4.2V but due to
-	 * internal resistance and circuit deviation we might have to set the
-	 * benchmark a bit higher sometimes. (4.225V now)
-	 */
-#if defined(CONFIG_MACH_GC1)
-	reg_data &= (~MAX77693_CHG_CV_PRM_MASK);
-	reg_data |= (0x17 << MAX77693_CHG_CV_PRM_SHIFT);
-	reg_data &= (~MAX77693_CHG_MINVSYS_MASK);
-	reg_data |= (0x4 << MAX77693_CHG_MINVSYS_SHIFT);
-#endif
-	max77693_write_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_04, reg_data);
+	max77693_update_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_04,
+			MAX77693_CHG_CV_PRM_4_35V, MAX77693_CHG_MINVSYS_MASK);
 
 	/* VBYPSET 5V */
-	reg_data = 0x50;
-	max77693_write_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_11, reg_data);
+	max77693_write_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_11,
+					MAX77693_CHG_VBYPSET_5V);
 }
 
 /* Support property from charger */
