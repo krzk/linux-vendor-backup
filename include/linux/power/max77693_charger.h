@@ -18,12 +18,7 @@
 #ifndef __MAX77693_CHARGER_H
 #define __MAX77693_CHARGER_H __FILE__
 #include <linux/mfd/core.h>
-#include <linux/mfd/max77693_sec.h>
-#include <linux/mfd/max77693-private_sec.h>
 #include <linux/regulator/machine.h>
-
-#define ENABLE 1
-#define DISABLE 0
 
 /* macro */
 #define MAX(x, y)	((x) > (y) ? (x) : (y))
@@ -128,6 +123,14 @@
 #define MAX77693_CHG_MINVSYS_SHIFT      5
 #define MAX77693_CHG_PRM_MASK           0x1F
 #define MAX77693_CHG_PRM_SHIFT          0
+#define MAX77693_CHG_CV_PRM_4_20V		0x16
+#define MAX77693_CHG_CV_PRM_4_35V		0x1D
+#define MAX77693_CHG_CV_PRM_4_40V		0x1F
+
+/* MAX77693_CHG_REG_CHG_CNFG_06 */
+#define MAX77693_CHG_CHGPROT		0x0C
+#define MAX77693_CHG_CHGPROT_SHIFT	2
+#define MAX77693_CHG_CHGPROT_UNLOCK	0x03
 
 /* MAX77693_CHG_REG_CHG_CNFG_09 */
 #define MAX77693_CHG_CHGIN_LIM  0x7F
@@ -150,6 +153,10 @@
 /* irq */
 #define IRQ_DEBOUNCE_TIME       20      /* msec */
 
+/* charger unlock */
+#define CHG_UNLOCK_RETRY	10
+#define CHG_UNLOCK_DELAY	100
+
 /* charger type detection */
 #define DET_ERR_RETRY   5
 #define DET_ERR_DELAY   200
@@ -163,15 +170,11 @@
 #define DEFAULT_AC_CURRENT	1600	/* mA */
 #define DEFAULT_USB_CURRENT	500	/* mA */
 
-#ifndef CONFIG_MACH_SLP_ADONIS
 enum {
-	POWER_SUPPLY_VBUS_UNKNOWN = 0,
-	POWER_SUPPLY_VBUS_UVLO,
+	POWER_SUPPLY_VBUS_UVLO = 0,
 	POWER_SUPPLY_VBUS_WEAK,
 	POWER_SUPPLY_VBUS_OVLO,
 	POWER_SUPPLY_VBUS_GOOD,
 };
-#endif
 
-extern sec_battery_platform_data_t sec_battery_pdata;
 #endif
