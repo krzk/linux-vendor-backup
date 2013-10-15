@@ -27,6 +27,11 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 
+#include <linux/of.h>
+#include <linux/extcon.h>
+#include <linux/extcon/of_extcon.h>
+#include <linux/workqueue.h>
+
 /**
  * struct usb_udc - describes one usb device controller
  * @driver - the gadget driver pointer. For use by the class code
@@ -42,6 +47,12 @@ struct usb_udc {
 	struct usb_gadget		*gadget;
 	struct device			dev;
 	struct list_head		list;
+	struct extcon_specific_cable_nb extcon_usb_dev;
+	struct notifier_block		extcon_nb;
+	struct workqueue_struct		*pwr_workqueue;
+	struct work_struct		pwr_work;
+	char				cable_state;
+	char				enabled;
 };
 
 static struct class *udc_class;
@@ -266,6 +277,10 @@ static void usb_gadget_remove_driver(struct usb_udc *udc)
 	dev_dbg(&udc->dev, "unregistering UDC driver [%s]\n",
 			udc->gadget->name);
 
+	if (udc->extcon_usb_dev.edev)
+		extcon_unregister_notifier(udc->extcon_usb_dev.edev,
+							&udc->extcon_nb);
+
 	kobject_uevent(&udc->dev.kobj, KOBJ_CHANGE);
 
 	usb_gadget_disconnect(udc->gadget);
@@ -314,10 +329,44 @@ found:
 }
 EXPORT_SYMBOL_GPL(usb_del_gadget_udc);
 
+static void udc_pwr_worker(struct work_struct * work)
+{
+	struct usb_udc *udc = container_of(work, struct usb_udc, pwr_work);
+
+	dev_dbg(&udc->dev, "UDC power worker, cable_state=%d, enabled=%d\n",
+						udc->cable_state, udc->enabled);
+
+	if (udc->cable_state && !udc->enabled) {
+		usb_gadget_udc_start(udc->gadget, udc->driver);
+		usb_gadget_connect(udc->gadget);
+		udc->enabled = 1;
+	} else if (!udc->cable_state && udc->enabled) {
+		usb_gadget_disconnect(udc->gadget);
+		usb_gadget_udc_stop(udc->gadget, udc->driver);
+		udc->enabled = 0;
+	}
+}
+
+static int udc_extcon_notifier(struct notifier_block *nb, unsigned long event,
+								void *ptr)
+{
+	struct usb_udc *udc = container_of(nb, struct usb_udc, extcon_nb);
+
+	dev_dbg(&udc->dev, "extcon notifier, cable state=%lu\n", event);
+	udc->cable_state = event;
+
+	queue_work(udc->pwr_workqueue, &udc->pwr_work);
+
+	return NOTIFY_OK;
+}
+
+
 /* ------------------------------------------------------------------------- */
 
 static int udc_bind_to_driver(struct usb_udc *udc, struct usb_gadget_driver *driver)
 {
+	const struct device_node *node;
+	struct extcon_dev *edev = 0;
 	int ret;
 
 	dev_dbg(&udc->dev, "registering UDC driver [%s]\n",
@@ -327,18 +376,54 @@ static int udc_bind_to_driver(struct usb_udc *udc, struct usb_gadget_driver *dri
 	udc->dev.driver = &driver->driver;
 	udc->gadget->dev.driver = &driver->driver;
 
+	node = udc->gadget->dev.of_node;
+	/* Check if we have an extcon associated with the UDC driver */
+	if (node && of_property_read_bool(node, "extcon")) {
+		edev = of_extcon_get_extcon_dev(&udc->gadget->dev, 0);
+
+		if(IS_ERR(edev)) {
+			dev_dbg(&udc->dev, "couldn't get extcon device\n");
+			ret = -EINVAL;
+			goto err1;
+		}
+
+		udc->pwr_workqueue = create_singlethread_workqueue("udc");
+		INIT_WORK(&udc->pwr_work, udc_pwr_worker);
+		udc->extcon_nb.notifier_call = udc_extcon_notifier;
+		ret = extcon_register_interest(&udc->extcon_usb_dev, edev->name,
+							"USB", &udc->extcon_nb);
+
+		if (ret) {
+			dev_err(&udc->dev, "failed to register notifier for USB\n");
+			goto err1;
+		}
+
+	}
+
 	ret = driver->bind(udc->gadget, driver);
 	if (ret)
-		goto err1;
+		goto err2;
 	ret = usb_gadget_udc_start(udc->gadget, driver);
 	if (ret) {
 		driver->unbind(udc->gadget);
-		goto err1;
+		goto err2;
 	}
+
 	usb_gadget_connect(udc->gadget);
+
+	if (udc->extcon_usb_dev.edev) {
+		udc->enabled = 1;
+		udc->cable_state = extcon_get_cable_state_(
+					udc->extcon_usb_dev.edev,
+					udc->extcon_usb_dev.cable_index);
+		queue_work(udc->pwr_workqueue, &udc->pwr_work);
+	}
 
 	kobject_uevent(&udc->dev.kobj, KOBJ_CHANGE);
 	return 0;
+err2:
+	if (udc->extcon_usb_dev.edev)
+		extcon_unregister_notifier(edev, &udc->extcon_nb);
 err1:
 	dev_err(&udc->dev, "failed to start %s: %d\n",
 			udc->driver->function, ret);
@@ -556,6 +641,7 @@ static int __init usb_udc_init(void)
 	}
 
 	udc_class->dev_uevent = usb_udc_uevent;
+
 	return 0;
 }
 subsys_initcall(usb_udc_init);
