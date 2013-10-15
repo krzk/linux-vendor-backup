@@ -697,7 +697,6 @@
 					regulator-name = "VHSIC_1.0V";
 					regulator-min-microvolt = <1000000>;
 					regulator-max-microvolt = <1000000>;
-					regulator-always-on;
 					regulator-mem-off;
 				};
 
@@ -1082,7 +1081,6 @@
 		phys = <&exynos_usbphy 2>;
 		phy-names = "hsic0";
 	};
-
 
 	spi_1: spi@13930000 {
 		pinctrl-names = "default";
