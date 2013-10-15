@@ -1857,24 +1857,18 @@ static struct s5p_hdmi_platform_data *drm_hdmi_dt_parse_pdata
 {
 	struct device_node *np = dev->of_node;
 	struct s5p_hdmi_platform_data *pd;
-	enum of_gpio_flags flags;
-	u32 value;
 
 	pd = devm_kzalloc(dev, sizeof(*pd), GFP_KERNEL);
 	if (!pd)
-		goto err_data;
+		return NULL;
 
-	if (!of_find_property(np, "hpd-gpio", &value)) {
+	pd->hpd_gpio = of_get_named_gpio_flags(np, "hpd-gpio", 0, NULL);
+	if (pd->hpd_gpio < 0) {
 		DRM_ERROR("no hpd gpio property found\n");
-		goto err_data;
+		return NULL;
 	}
 
-	pd->hpd_gpio = of_get_named_gpio_flags(np, "hpd-gpio", 0, &flags);
-
 	return pd;
-
-err_data:
-	return NULL;
 }
 #else
 static struct s5p_hdmi_platform_data *drm_hdmi_dt_parse_pdata
