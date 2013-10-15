@@ -262,9 +262,6 @@ static int exynos4212_power_on(struct uphy_instance *inst)
 	if (inst->cfg->id == EXYNOS4212_HSIC0) {
 		struct uphy_instance *device =
 					&drv->uphy_instances[EXYNOS4212_DEVICE];
-		device->ref_cnt++;
-		if (device->ref_cnt > 1)
-			return 0;
 		exynos4212_phy_pwr(device, 1);
 		exynos4212_isol(device, 0);
 	}
@@ -294,9 +291,6 @@ static int exynos4212_power_off(struct uphy_instance *inst)
 	if (inst->cfg->id == EXYNOS4212_HSIC0) {
 		struct uphy_instance *device =
 					&drv->uphy_instances[EXYNOS4212_DEVICE];
-		device->ref_cnt--;
-		if (device->ref_cnt > 0)
-			return 0;
 		exynos4212_phy_pwr(device, 0);
 		exynos4212_isol(device, 1);
 	}
