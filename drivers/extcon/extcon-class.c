@@ -847,7 +847,7 @@ static int __init extcon_class_init(void)
 {
 	return create_extcon_class();
 }
-module_init(extcon_class_init);
+subsys_initcall(extcon_class_init);
 
 static void __exit extcon_class_exit(void)
 {

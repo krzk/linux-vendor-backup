@@ -1312,7 +1312,19 @@ static struct platform_driver max77693_muic_driver = {
 	.remove		= max77693_muic_remove,
 };
 
-module_platform_driver(max77693_muic_driver);
+static int __init max77693_muic_init(void)
+{
+	return platform_driver_register(&max77693_muic_driver);
+}
+
+subsys_initcall(max77693_muic_init);
+
+static void __exit max77693_muic_cleanup(void)
+{
+	platform_driver_unregister(&max77693_muic_driver);
+}
+
+module_exit(max77693_muic_cleanup);
 
 MODULE_DESCRIPTION("Maxim MAX77693 Extcon driver");
 MODULE_AUTHOR("Chanwoo Choi <cw00.choi@samsung.com>");
