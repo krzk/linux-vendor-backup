@@ -1521,7 +1521,7 @@ static struct charger_desc cm_drv_data = {
 	.polling_interval_ms	= 30000,
 	.fullbatt_vchkdrop_ms	= 30000,
 	.fullbatt_vchkdrop_uV	= 150000,
-	.fullbatt_uV		= 4200000,
+	.fullbatt_uV		= 0,
 	.fullbatt_soc		= 100,
 	.fullbatt_full_capacity	= 0,
 

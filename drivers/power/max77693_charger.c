@@ -338,7 +338,7 @@ static void max77693_charger_reg_init(struct max77693_charger_data *chg_data)
 	 * MINVSYS 3.6V(default)
 	 */
 	max77693_update_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_04,
-			MAX77693_CHG_CV_PRM_4_35V, MAX77693_CHG_MINVSYS_MASK);
+			MAX77693_CHG_CV_PRM_4_35V, MAX77693_CHG_CV_PRM_MASK);
 
 	/* VBYPSET 5V */
 	max77693_write_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_11,
