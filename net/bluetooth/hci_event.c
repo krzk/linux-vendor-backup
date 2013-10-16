@@ -40,20 +40,12 @@ static void hci_cc_inquiry_cancel(struct hci_dev *hdev, struct sk_buff *skb)
 
 	BT_DBG("%s status 0x%2.2x", hdev->name, status);
 
-	if (status) {
-		hci_dev_lock(hdev);
-		mgmt_stop_discovery_failed(hdev, status);
-		hci_dev_unlock(hdev);
+	if (status)
 		return;
-	}
 
 	clear_bit(HCI_INQUIRY, &hdev->flags);
 	smp_mb__after_clear_bit(); /* wake_up_bit advises about this barrier */
 	wake_up_bit(&hdev->flags, HCI_INQUIRY);
-
-	hci_dev_lock(hdev);
-	hci_discovery_set_state(hdev, DISCOVERY_STOPPED);
-	hci_dev_unlock(hdev);
 
 	hci_conn_check_pending(hdev);
 }
@@ -937,20 +929,6 @@ static void hci_cc_le_set_adv_enable(struct hci_dev *hdev, struct sk_buff *skb)
 	hci_dev_unlock(hdev);
 }
 
-static void hci_cc_le_set_scan_param(struct hci_dev *hdev, struct sk_buff *skb)
-{
-	__u8 status = *((__u8 *) skb->data);
-
-	BT_DBG("%s status 0x%2.2x", hdev->name, status);
-
-	if (status) {
-		hci_dev_lock(hdev);
-		mgmt_start_discovery_failed(hdev, status);
-		hci_dev_unlock(hdev);
-		return;
-	}
-}
-
 static void hci_cc_le_set_scan_enable(struct hci_dev *hdev,
 				      struct sk_buff *skb)
 {
@@ -963,41 +941,16 @@ static void hci_cc_le_set_scan_enable(struct hci_dev *hdev,
 	if (!cp)
 		return;
 
+	if (status)
+		return;
+
 	switch (cp->enable) {
 	case LE_SCAN_ENABLE:
-		if (status) {
-			hci_dev_lock(hdev);
-			mgmt_start_discovery_failed(hdev, status);
-			hci_dev_unlock(hdev);
-			return;
-		}
-
 		set_bit(HCI_LE_SCAN, &hdev->dev_flags);
-
-		hci_dev_lock(hdev);
-		hci_discovery_set_state(hdev, DISCOVERY_FINDING);
-		hci_dev_unlock(hdev);
 		break;
 
 	case LE_SCAN_DISABLE:
-		if (status) {
-			hci_dev_lock(hdev);
-			mgmt_stop_discovery_failed(hdev, status);
-			hci_dev_unlock(hdev);
-			return;
-		}
-
 		clear_bit(HCI_LE_SCAN, &hdev->dev_flags);
-
-		if (hdev->discovery.type == DISCOV_TYPE_INTERLEAVED &&
-		    hdev->discovery.state == DISCOVERY_FINDING) {
-			mgmt_interleaved_discovery(hdev);
-		} else {
-			hci_dev_lock(hdev);
-			hci_discovery_set_state(hdev, DISCOVERY_STOPPED);
-			hci_dev_unlock(hdev);
-		}
-
 		break;
 
 	default:
@@ -1077,18 +1030,10 @@ static void hci_cs_inquiry(struct hci_dev *hdev, __u8 status)
 
 	if (status) {
 		hci_conn_check_pending(hdev);
-		hci_dev_lock(hdev);
-		if (test_bit(HCI_MGMT, &hdev->dev_flags))
-			mgmt_start_discovery_failed(hdev, status);
-		hci_dev_unlock(hdev);
 		return;
 	}
 
 	set_bit(HCI_INQUIRY, &hdev->flags);
-
-	hci_dev_lock(hdev);
-	hci_discovery_set_state(hdev, DISCOVERY_FINDING);
-	hci_dev_unlock(hdev);
 }
 
 static void hci_cs_create_conn(struct hci_dev *hdev, __u8 status)
@@ -1119,7 +1064,7 @@ static void hci_cs_create_conn(struct hci_dev *hdev, __u8 status)
 		}
 	} else {
 		if (!conn) {
-			conn = hci_conn_add(hdev, ACL_LINK, 0, &cp->bdaddr);
+			conn = hci_conn_add(hdev, ACL_LINK, &cp->bdaddr);
 			if (conn) {
 				conn->out = true;
 				conn->link_mode |= HCI_LM_MASTER;
@@ -1748,15 +1693,6 @@ unlock:
 	hci_conn_check_pending(hdev);
 }
 
-static inline bool is_sco_active(struct hci_dev *hdev)
-{
-	if (hci_conn_hash_lookup_state(hdev, SCO_LINK, BT_CONNECTED) ||
-			(hci_conn_hash_lookup_state(hdev, ESCO_LINK,
-						    BT_CONNECTED)))
-		return true;
-	return false;
-}
-
 static void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	struct hci_ev_conn_request *ev = (void *) skb->data;
@@ -1784,8 +1720,7 @@ static void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
 		conn = hci_conn_hash_lookup_ba(hdev, ev->link_type,
 					       &ev->bdaddr);
 		if (!conn) {
-			/* pkt_type not yet used for incoming connections */
-			conn = hci_conn_add(hdev, ev->link_type, 0, &ev->bdaddr);
+			conn = hci_conn_add(hdev, ev->link_type, &ev->bdaddr);
 			if (!conn) {
 				BT_ERR("No memory for new connection");
 				hci_dev_unlock(hdev);
@@ -1804,8 +1739,7 @@ static void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
 
 			bacpy(&cp.bdaddr, &ev->bdaddr);
 
-			if (lmp_rswitch_capable(hdev) && ((mask & HCI_LM_MASTER)
-						|| is_sco_active(hdev)))
+			if (lmp_rswitch_capable(hdev) && (mask & HCI_LM_MASTER))
 				cp.role = 0x00; /* Become master */
 			else
 				cp.role = 0x01; /* Remain slave */
@@ -2309,10 +2243,6 @@ static void hci_cmd_complete_evt(struct hci_dev *hdev, struct sk_buff *skb)
 		hci_cc_user_passkey_neg_reply(hdev, skb);
 		break;
 
-	case HCI_OP_LE_SET_SCAN_PARAM:
-		hci_cc_le_set_scan_param(hdev, skb);
-		break;
-
 	case HCI_OP_LE_SET_ADV_ENABLE:
 		hci_cc_le_set_adv_enable(hdev, skb);
 		break;
@@ -2681,7 +2611,7 @@ static void hci_link_key_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
 
 	BT_DBG("%s", hdev->name);
 
-	if (!test_bit(HCI_LINK_KEYS, &hdev->dev_flags))
+	if (!test_bit(HCI_MGMT, &hdev->dev_flags))
 		return;
 
 	hci_dev_lock(hdev);
@@ -2757,7 +2687,7 @@ static void hci_link_key_notify_evt(struct hci_dev *hdev, struct sk_buff *skb)
 		hci_conn_drop(conn);
 	}
 
-	if (test_bit(HCI_LINK_KEYS, &hdev->dev_flags))
+	if (test_bit(HCI_MGMT, &hdev->dev_flags))
 		hci_add_link_key(hdev, conn, 1, &ev->bdaddr, ev->link_key,
 				 ev->key_type, pin_len);
 
@@ -2974,16 +2904,16 @@ static void hci_sync_conn_complete_evt(struct hci_dev *hdev,
 		hci_conn_add_sysfs(conn);
 		break;
 
-	case 0x10:	/* Connection Accept Timeout */
+	case 0x0d:	/* Connection Rejected due to Limited Resources */
 	case 0x11:	/* Unsupported Feature or Parameter Value */
 	case 0x1c:	/* SCO interval rejected */
 	case 0x1a:	/* Unsupported Remote Feature */
 	case 0x1f:	/* Unspecified error */
-		if (conn->out && conn->attempt < 2) {
+		if (conn->out) {
 			conn->pkt_type = (hdev->esco_type & SCO_ESCO_MASK) |
 					(hdev->esco_type & EDR_ESCO_MASK);
-			hci_setup_sync(conn, conn->link->handle);
-			goto unlock;
+			if (hci_setup_sync(conn, conn->link->handle))
+				goto unlock;
 		}
 		/* fall through */
 
@@ -3095,17 +3025,20 @@ unlock:
 static u8 hci_get_auth_req(struct hci_conn *conn)
 {
 	/* If remote requests dedicated bonding follow that lead */
-	if (conn->remote_auth == 0x02 || conn->remote_auth == 0x03) {
+	if (conn->remote_auth == HCI_AT_DEDICATED_BONDING ||
+	    conn->remote_auth == HCI_AT_DEDICATED_BONDING_MITM) {
 		/* If both remote and local IO capabilities allow MITM
 		 * protection then require it, otherwise don't */
-		if (conn->remote_cap == 0x03 || conn->io_capability == 0x03)
-			return 0x02;
+		if (conn->remote_cap == HCI_IO_NO_INPUT_OUTPUT ||
+		    conn->io_capability == HCI_IO_NO_INPUT_OUTPUT)
+			return HCI_AT_DEDICATED_BONDING;
 		else
-			return 0x03;
+			return HCI_AT_DEDICATED_BONDING_MITM;
 	}
 
 	/* If remote requests no-bonding follow that lead */
-	if (conn->remote_auth == 0x00 || conn->remote_auth == 0x01)
+	if (conn->remote_auth == HCI_AT_NO_BONDING ||
+	    conn->remote_auth == HCI_AT_NO_BONDING_MITM)
 		return conn->remote_auth | (conn->auth_type & 0x01);
 
 	return conn->auth_type;
@@ -3137,7 +3070,7 @@ static void hci_io_capa_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
 		/* Change the IO capability from KeyboardDisplay
 		 * to DisplayYesNo as it is not supported by BT spec. */
 		cp.capability = (conn->io_capability == 0x04) ?
-						0x01 : conn->io_capability;
+				HCI_IO_DISPLAY_YESNO : conn->io_capability;
 		conn->auth_type = hci_get_auth_req(conn);
 		cp.authentication = conn->auth_type;
 
@@ -3211,7 +3144,8 @@ static void hci_user_confirm_request_evt(struct hci_dev *hdev,
 	 * request. The only exception is when we're dedicated bonding
 	 * initiators (connect_cfm_cb set) since then we always have the MITM
 	 * bit set. */
-	if (!conn->connect_cfm_cb && loc_mitm && conn->remote_cap == 0x03) {
+	if (!conn->connect_cfm_cb && loc_mitm &&
+	    conn->remote_cap == HCI_IO_NO_INPUT_OUTPUT) {
 		BT_DBG("Rejecting request: remote device can't provide MITM");
 		hci_send_cmd(hdev, HCI_OP_USER_CONFIRM_NEG_REPLY,
 			     sizeof(ev->bdaddr), &ev->bdaddr);
@@ -3219,8 +3153,8 @@ static void hci_user_confirm_request_evt(struct hci_dev *hdev,
 	}
 
 	/* If no side requires MITM protection; auto-accept */
-	if ((!loc_mitm || conn->remote_cap == 0x03) &&
-	    (!rem_mitm || conn->io_capability == 0x03)) {
+	if ((!loc_mitm || conn->remote_cap == HCI_IO_NO_INPUT_OUTPUT) &&
+	    (!rem_mitm || conn->io_capability == HCI_IO_NO_INPUT_OUTPUT)) {
 
 		/* If we're not the initiators request authorization to
 		 * proceed from user space (mgmt_user_confirm with
@@ -3543,7 +3477,7 @@ static void hci_le_conn_complete_evt(struct hci_dev *hdev, struct sk_buff *skb)
 
 	conn = hci_conn_hash_lookup_state(hdev, LE_LINK, BT_CONNECT);
 	if (!conn) {
-		conn = hci_conn_add(hdev, LE_LINK, 0, &ev->bdaddr);
+		conn = hci_conn_add(hdev, LE_LINK, &ev->bdaddr);
 		if (!conn) {
 			BT_ERR("No memory for new connection");
 			goto unlock;

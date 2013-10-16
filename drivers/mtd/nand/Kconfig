@@ -50,6 +50,7 @@ config MTD_SM_COMMON
 
 config MTD_NAND_DENALI
         tristate "Support Denali NAND controller"
+        depends on HAS_DMA
         help
 	  Enable support for the Denali NAND controller.  This should be
 	  combined with either the PCI or platform drivers to provide device
@@ -82,7 +83,7 @@ config MTD_NAND_DENALI_SCRATCH_REG_ADDR
 
 config MTD_NAND_GPIO
 	tristate "GPIO NAND Flash driver"
-	depends on GPIOLIB && ARM
+	depends on GPIOLIB
 	help
 	  This enables a GPIO based NAND flash driver.
 
@@ -102,7 +103,7 @@ config MTD_NAND_OMAP2
 
 config MTD_NAND_OMAP_BCH
 	depends on MTD_NAND && MTD_NAND_OMAP2 && ARCH_OMAP3
-	bool "Enable support for hardware BCH error correction"
+	tristate "Enable support for hardware BCH error correction"
 	default n
 	select BCH
 	select BCH_CONST_PARAMS
@@ -358,7 +359,7 @@ config MTD_NAND_ATMEL
 
 config MTD_NAND_PXA3xx
 	tristate "Support for NAND flash devices on PXA3xx"
-	depends on PXA3xx || ARCH_MMP
+	depends on PXA3xx || ARCH_MMP || PLAT_ORION
 	help
 	  This enables the driver for the NAND flash device found on
 	  PXA3xx processors
@@ -435,13 +436,6 @@ config MTD_NAND_PLATFORM
 	  This implements a generic NAND driver for on-SOC platform
 	  devices. You will need to provide platform-specific functions
 	  via platform_data.
-
-config MTD_ALAUDA
-	tristate "MTD driver for Olympus MAUSB-10 and Fujifilm DPC-R1"
-	depends on USB
-	help
-	  These two (and possibly other) Alauda-based cardreaders for
-	  SmartMedia and xD allow raw flash access.
 
 config MTD_NAND_ORION
 	tristate "NAND Flash support for Marvell Orion SoC"

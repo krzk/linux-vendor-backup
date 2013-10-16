@@ -77,15 +77,17 @@ static void power_supply_changed_work(struct work_struct *work)
 	if (psy->changed) {
 		psy->changed = false;
 		spin_unlock_irqrestore(&psy->changed_lock, flags);
-
 		class_for_each_device(power_supply_class, NULL, psy,
 				      __power_supply_changed_work);
-
 		power_supply_update_leds(psy);
-
 		kobject_uevent(&psy->dev->kobj, KOBJ_CHANGE);
 		spin_lock_irqsave(&psy->changed_lock, flags);
 	}
+	/*
+	 * Dependent power supplies (e.g. battery) may have changed state
+	 * as a result of this event, so poll again and hold the
+	 * wakeup_source until all events are processed.
+	 */
 	if (!psy->changed)
 		pm_relax(psy->dev);
 	spin_unlock_irqrestore(&psy->changed_lock, flags);
@@ -126,8 +128,10 @@ static int __power_supply_populate_supplied_from(struct device *dev,
 				psy->name, epsy->name);
 			psy->supplied_from[i-1] = (char *)epsy->name;
 			psy->num_supplies++;
+			of_node_put(np);
 			break;
 		}
+		of_node_put(np);
 	} while (np);
 
 	return 0;
@@ -210,8 +214,10 @@ static int power_supply_check_supplies(struct power_supply *psy)
 		ret = power_supply_find_supply_from_node(np);
 		if (ret) {
 			dev_dbg(psy->dev, "Failed to find supply, defer!\n");
+			of_node_put(np);
 			return -EPROBE_DEFER;
 		}
+		of_node_put(np);
 	} while (np);
 
 	/* All supplies found, allocate char ** array for filling */
@@ -513,6 +519,11 @@ int power_supply_register(struct device *parent, struct power_supply *psy)
 		goto check_supplies_failed;
 	}
 
+	spin_lock_init(&psy->changed_lock);
+	rc = device_init_wakeup(dev, true);
+	if (rc)
+		goto wakeup_init_failed;
+
 	rc = kobject_set_name(&dev->kobj, "%s", psy->name);
 	if (rc)
 		goto kobject_set_name_failed;
@@ -565,6 +576,7 @@ void power_supply_unregister(struct power_supply *psy)
 	power_supply_remove_triggers(psy);
 	psy_unregister_cooler(psy);
 	psy_unregister_thermal(psy);
+	device_init_wakeup(psy->dev, false);
 	device_unregister(psy->dev);
 }
 EXPORT_SYMBOL_GPL(power_supply_unregister);

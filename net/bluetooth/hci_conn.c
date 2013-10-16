@@ -31,6 +31,24 @@
 #include <net/bluetooth/a2mp.h>
 #include <net/bluetooth/smp.h>
 
+struct sco_param {
+	u16 pkt_type;
+	u16 max_latency;
+};
+
+static const struct sco_param sco_param_cvsd[] = {
+	{ EDR_ESCO_MASK & ~ESCO_2EV3, 0x000a }, /* S3 */
+	{ EDR_ESCO_MASK & ~ESCO_2EV3, 0x0007 }, /* S2 */
+	{ EDR_ESCO_MASK | ESCO_EV3,   0x0007 }, /* S1 */
+	{ EDR_ESCO_MASK | ESCO_HV3,   0xffff }, /* D1 */
+	{ EDR_ESCO_MASK | ESCO_HV1,   0xffff }, /* D0 */
+};
+
+static const struct sco_param sco_param_wideband[] = {
+	{ EDR_ESCO_MASK & ~ESCO_2EV3, 0x000d }, /* T2 */
+	{ EDR_ESCO_MASK | ESCO_EV3,   0x0008 }, /* T1 */
+};
+
 static void hci_le_create_connection(struct hci_conn *conn)
 {
 	struct hci_dev *hdev = conn->hdev;
@@ -172,10 +190,11 @@ static void hci_add_sco(struct hci_conn *conn, __u16 handle)
 	hci_send_cmd(hdev, HCI_OP_ADD_SCO, sizeof(cp), &cp);
 }
 
-void hci_setup_sync(struct hci_conn *conn, __u16 handle)
+bool hci_setup_sync(struct hci_conn *conn, __u16 handle)
 {
 	struct hci_dev *hdev = conn->hdev;
 	struct hci_cp_setup_sync_conn cp;
+	const struct sco_param *param;
 
 	BT_DBG("hcon %p", conn);
 
@@ -185,15 +204,35 @@ void hci_setup_sync(struct hci_conn *conn, __u16 handle)
 	conn->attempt++;
 
 	cp.handle   = cpu_to_le16(handle);
-	cp.pkt_type = cpu_to_le16(conn->pkt_type);
 
 	cp.tx_bandwidth   = __constant_cpu_to_le32(0x00001f40);
 	cp.rx_bandwidth   = __constant_cpu_to_le32(0x00001f40);
-	cp.max_latency    = __constant_cpu_to_le16(0xffff);
-	cp.voice_setting  = cpu_to_le16(hdev->voice_setting);
-	cp.retrans_effort = 0xff;
+	cp.voice_setting  = cpu_to_le16(conn->setting);
 
-	hci_send_cmd(hdev, HCI_OP_SETUP_SYNC_CONN, sizeof(cp), &cp);
+	switch (conn->setting & SCO_AIRMODE_MASK) {
+	case SCO_AIRMODE_TRANSP:
+		if (conn->attempt > ARRAY_SIZE(sco_param_wideband))
+			return false;
+		cp.retrans_effort = 0x02;
+		param = &sco_param_wideband[conn->attempt - 1];
+		break;
+	case SCO_AIRMODE_CVSD:
+		if (conn->attempt > ARRAY_SIZE(sco_param_cvsd))
+			return false;
+		cp.retrans_effort = 0x01;
+		param = &sco_param_cvsd[conn->attempt - 1];
+		break;
+	default:
+		return false;
+	}
+
+	cp.pkt_type = __cpu_to_le16(param->pkt_type);
+	cp.max_latency = __cpu_to_le16(param->max_latency);
+
+	if (hci_send_cmd(hdev, HCI_OP_SETUP_SYNC_CONN, sizeof(cp), &cp) < 0)
+		return false;
+
+	return true;
 }
 
 void hci_le_conn_update(struct hci_conn *conn, u16 min, u16 max,
@@ -354,8 +393,7 @@ static void hci_conn_auto_accept(unsigned long arg)
 		     &conn->dst);
 }
 
-struct hci_conn *hci_conn_add(struct hci_dev *hdev, int type,
-					__u16 pkt_type, bdaddr_t *dst)
+struct hci_conn *hci_conn_add(struct hci_dev *hdev, int type, bdaddr_t *dst)
 {
 	struct hci_conn *conn;
 
@@ -383,22 +421,14 @@ struct hci_conn *hci_conn_add(struct hci_dev *hdev, int type,
 		conn->pkt_type = hdev->pkt_type & ACL_PTYPE_MASK;
 		break;
 	case SCO_LINK:
-		if (!pkt_type)
-			pkt_type = SCO_ESCO_MASK;
+		if (lmp_esco_capable(hdev))
+			conn->pkt_type = (hdev->esco_type & SCO_ESCO_MASK) |
+					(hdev->esco_type & EDR_ESCO_MASK);
+		else
+			conn->pkt_type = hdev->pkt_type & SCO_PTYPE_MASK;
+		break;
 	case ESCO_LINK:
-		if (!pkt_type)
-			pkt_type = ALL_ESCO_MASK;
-		if (lmp_esco_capable(hdev)) {
-			/* HCI Setup Synchronous Connection Command uses
-			   reverse logic on the EDR_ESCO_MASK bits */
-			conn->pkt_type = (pkt_type ^ EDR_ESCO_MASK) &
-					hdev->esco_type;
-		} else {
-			/* Legacy HCI Add Sco Connection Command uses a
-			   shifted bitmask */
-			conn->pkt_type = (pkt_type << 5) & hdev->pkt_type &
-					SCO_PTYPE_MASK;
-		}
+		conn->pkt_type = hdev->esco_type & ~EDR_ESCO_MASK;
 		break;
 	}
 
@@ -529,7 +559,7 @@ static struct hci_conn *hci_connect_le(struct hci_dev *hdev, bdaddr_t *dst,
 		if (le)
 			return ERR_PTR(-EBUSY);
 
-		le = hci_conn_add(hdev, LE_LINK, 0, dst);
+		le = hci_conn_add(hdev, LE_LINK, dst);
 		if (!le)
 			return ERR_PTR(-ENOMEM);
 
@@ -552,7 +582,7 @@ static struct hci_conn *hci_connect_acl(struct hci_dev *hdev, bdaddr_t *dst,
 
 	acl = hci_conn_hash_lookup_ba(hdev, ACL_LINK, dst);
 	if (!acl) {
-		acl = hci_conn_add(hdev, ACL_LINK, 0, dst);
+		acl = hci_conn_add(hdev, ACL_LINK, dst);
 		if (!acl)
 			return ERR_PTR(-ENOMEM);
 	}
@@ -569,20 +599,19 @@ static struct hci_conn *hci_connect_acl(struct hci_dev *hdev, bdaddr_t *dst,
 	return acl;
 }
 
-static struct hci_conn *hci_connect_sco(struct hci_dev *hdev, int type,
-					__u16 pkt_type, bdaddr_t *dst,
-					u8 sec_level, u8 auth_type)
+struct hci_conn *hci_connect_sco(struct hci_dev *hdev, int type, bdaddr_t *dst,
+				 __u16 setting)
 {
 	struct hci_conn *acl;
 	struct hci_conn *sco;
 
-	acl = hci_connect_acl(hdev, dst, sec_level, auth_type);
+	acl = hci_connect_acl(hdev, dst, BT_SECURITY_LOW, HCI_AT_NO_BONDING);
 	if (IS_ERR(acl))
 		return acl;
 
 	sco = hci_conn_hash_lookup_ba(hdev, type, dst);
 	if (!sco) {
-		sco = hci_conn_add(hdev, type, pkt_type, dst);
+		sco = hci_conn_add(hdev, type, dst);
 		if (!sco) {
 			hci_conn_drop(acl);
 			return ERR_PTR(-ENOMEM);
@@ -593,6 +622,8 @@ static struct hci_conn *hci_connect_sco(struct hci_dev *hdev, int type,
 	sco->link = acl;
 
 	hci_conn_hold(sco);
+
+	sco->setting = setting;
 
 	if (acl->state == BT_CONNECTED &&
 	    (sco->state == BT_OPEN || sco->state == BT_CLOSED)) {
@@ -612,8 +643,7 @@ static struct hci_conn *hci_connect_sco(struct hci_dev *hdev, int type,
 }
 
 /* Create SCO, ACL or LE connection. */
-struct hci_conn *hci_connect(struct hci_dev *hdev, int type,
-			     __u16 pkt_type, bdaddr_t *dst,
+struct hci_conn *hci_connect(struct hci_dev *hdev, int type, bdaddr_t *dst,
 			     __u8 dst_type, __u8 sec_level, __u8 auth_type)
 {
 	BT_DBG("%s dst %pMR type 0x%x", hdev->name, dst, type);
@@ -623,9 +653,6 @@ struct hci_conn *hci_connect(struct hci_dev *hdev, int type,
 		return hci_connect_le(hdev, dst, dst_type, sec_level, auth_type);
 	case ACL_LINK:
 		return hci_connect_acl(hdev, dst, sec_level, auth_type);
-	case SCO_LINK:
-	case ESCO_LINK:
-		return hci_connect_sco(hdev, type, pkt_type, dst, sec_level, auth_type);
 	}
 
 	return ERR_PTR(-EINVAL);
@@ -891,15 +918,6 @@ int hci_get_conn_list(void __user *arg)
 		(ci + n)->out   = c->out;
 		(ci + n)->state = c->state;
 		(ci + n)->link_mode = c->link_mode;
-		if (c->type == SCO_LINK) {
-			(ci + n)->mtu = hdev->sco_mtu;
-			(ci + n)->cnt = hdev->sco_cnt;
-			(ci + n)->pkts = hdev->sco_pkts;
-		} else {
-			(ci + n)->mtu = hdev->acl_mtu;
-			(ci + n)->cnt = hdev->acl_cnt;
-			(ci + n)->pkts = hdev->acl_pkts;
-		}
 		if (++n >= req.conn_num)
 			break;
 	}
@@ -936,15 +954,6 @@ int hci_get_conn_info(struct hci_dev *hdev, void __user *arg)
 		ci.out   = conn->out;
 		ci.state = conn->state;
 		ci.link_mode = conn->link_mode;
-		if (req.type == SCO_LINK) {
-			ci.mtu = hdev->sco_mtu;
-			ci.cnt = hdev->sco_cnt;
-			ci.pkts = hdev->sco_pkts;
-		} else {
-			ci.mtu = hdev->acl_mtu;
-			ci.cnt = hdev->acl_cnt;
-			ci.pkts = hdev->acl_pkts;
-		}
 	}
 	hci_dev_unlock(hdev);
 

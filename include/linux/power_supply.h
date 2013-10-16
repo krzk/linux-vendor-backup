@@ -15,6 +15,7 @@
 
 #include <linux/workqueue.h>
 #include <linux/leds.h>
+#include <linux/spinlock.h>
 
 struct device;
 
@@ -166,6 +167,8 @@ union power_supply_propval {
 	const char *strval;
 };
 
+struct device_node;
+
 struct power_supply {
 	const char *name;
 	enum power_supply_type type;
@@ -177,9 +180,7 @@ struct power_supply {
 
 	char **supplied_from;
 	size_t num_supplies;
-#ifdef CONFIG_OF
 	struct device_node *of_node;
-#endif
 
 	int (*get_property)(struct power_supply *psy,
 			    enum power_supply_property psp,
