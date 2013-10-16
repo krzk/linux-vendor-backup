@@ -36,9 +36,13 @@
 #include "f_mtp.c"
 #include "f_accessory.c"
 #define USB_ETH_RNDIS y
+#define USB_FRNDIS_INCLUDED y
 #include "f_rndis.c"
 #include "rndis.c"
 #include "u_ether.c"
+
+USB_ETHERNET_MODULE_PARAMETERS();
+
 
 MODULE_AUTHOR("Mike Lockwood");
 MODULE_DESCRIPTION("Android Composite USB Driver");
@@ -596,7 +600,7 @@ rndis_function_bind_config(struct android_usb_function *f,
 		rndis->ethaddr[0], rndis->ethaddr[1], rndis->ethaddr[2],
 		rndis->ethaddr[3], rndis->ethaddr[4], rndis->ethaddr[5]);
 
-	dev = gether_setup_name(c->cdev->gadget, rndis->ethaddr, "rndis");
+	dev = gether_setup_name(c->cdev->gadget,dev_addr, host_addr, rndis->ethaddr, qmult, "rndis");
 	if (IS_ERR(dev)) {
 		ret = PTR_ERR(dev);
 		pr_err("%s: gether_setup failed\n", __func__);
