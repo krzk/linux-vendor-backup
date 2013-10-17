@@ -744,4 +744,23 @@
 	cpufreq {
 		compatible = "samsung,exynos-cpufreq";
 	};
+
+	hdmi: hdmi@12D00000 {
+		reg = <0x12D00000 0x70000>;
+		interrupts = <0 92 0>;
+		clock-names = "hdmi", "sclk_hdmi", "sclk_pixel", "sclk_hdmiphy";
+		clocks = <&clock 271>, <&clock 136>, <&clock 139>, <&clock 22>;
+		status = "disabled";
+		samsung,power-domain = <&pd_tv>;
+	};
+
+	mixer: mixer@12C10000 {
+		compatible = "samsung,exynos4-mixer";
+		interrupts = <0 91 0>;
+		reg = <0x12C10000 0x2100>, <0x12c00000 0x300>;
+		clock-names = "mixer", "sclk_hdmi", "vp", "sclk_dac", "sclk_mixer";
+		clocks = <&clock 269>, <&clock 136>, <&clock 268>, <&clock 138>, <&clock 137>;
+		samsung,power-domain = <&pd_tv>;
+		iommu = <&sysmmu_tv>;
+	};
 };

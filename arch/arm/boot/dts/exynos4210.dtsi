@@ -223,4 +223,16 @@
 		clock-names = "armclk", "moutcore", "mout_mpll", "mout_apll";
 		status = "disabled";
 	};
+
+	exynos_phy: exynos-phy@10020000 {
+		compatible = "exynos4210-phy";
+		reg = <0x10020000 0x1000>;
+		#phy-cells = <1>;
+	};
+
+	hdmi: hdmi@12D00000 {
+		phys = <&exynos_phy 0>;
+		phy-names = "hdmiphy";
+		compatible = "samsung,exynos4210-hdmi";
+	};
 };
