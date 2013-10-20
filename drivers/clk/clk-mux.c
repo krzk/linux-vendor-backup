@@ -51,7 +51,7 @@ static u8 clk_mux_get_parent(struct clk_hw *hw)
 		for (i = 0; i < num_parents; i++)
 			if (mux->table[i] == val)
 				return i;
-		return -EINVAL;
+		return 0;
 	}
 
 	if (val && (mux->flags & CLK_MUX_INDEX_BIT))
@@ -61,7 +61,7 @@ static u8 clk_mux_get_parent(struct clk_hw *hw)
 		val--;
 
 	if (val >= num_parents)
-		return -EINVAL;
+		return 0;
 
 	return val;
 }
