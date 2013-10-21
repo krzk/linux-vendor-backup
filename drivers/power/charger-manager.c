@@ -925,6 +925,10 @@ static enum power_supply_property default_charger_props[] = {
 	 */
 };
 
+#define cm_chg_add_property(_property) \
+{ cm->charger_psy.properties[cm->charger_psy.num_properties] = _property;\
+  cm->charger_psy.num_properties++; }
+
 static struct power_supply psy_default = {
 	.name = "battery",
 	.type = POWER_SUPPLY_TYPE_BATTERY,
@@ -1725,27 +1729,17 @@ static int charger_manager_probe(struct platform_device *pdev)
 
 	/* Find which optional psy-properties are available */
 	if (!cm->fuel_gauge->get_property(cm->fuel_gauge,
-					  POWER_SUPPLY_PROP_CHARGE_NOW, &val)) {
-		cm->charger_psy.properties[cm->charger_psy.num_properties] =
-				POWER_SUPPLY_PROP_CHARGE_NOW;
-		cm->charger_psy.num_properties++;
-	}
+					  POWER_SUPPLY_PROP_CHARGE_NOW, &val))
+		cm_chg_add_property(POWER_SUPPLY_PROP_CHARGE_NOW);
 	if (!cm->fuel_gauge->get_property(cm->fuel_gauge,
 					  POWER_SUPPLY_PROP_CURRENT_NOW,
-					  &val)) {
-		cm->charger_psy.properties[cm->charger_psy.num_properties] =
-				POWER_SUPPLY_PROP_CURRENT_NOW;
-		cm->charger_psy.num_properties++;
-	}
+					  &val))
+		cm_chg_add_property(POWER_SUPPLY_PROP_CURRENT_NOW);
 
 	if (desc->measure_battery_temp) {
-		cm->charger_psy.properties[cm->charger_psy.num_properties] =
-				POWER_SUPPLY_PROP_TEMP;
-		cm->charger_psy.num_properties++;
+		cm_chg_add_property(POWER_SUPPLY_PROP_TEMP);
 	} else {
-		cm->charger_psy.properties[cm->charger_psy.num_properties] =
-				POWER_SUPPLY_PROP_TEMP_AMBIENT;
-		cm->charger_psy.num_properties++;
+		cm_chg_add_property(POWER_SUPPLY_PROP_TEMP_AMBIENT);
 	}
 
 	INIT_DELAYED_WORK(&cm->fullbatt_vchk_work, fullbatt_vchk);
