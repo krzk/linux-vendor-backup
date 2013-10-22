@@ -687,6 +687,7 @@ static struct drm_exynos_ipp_mem_node
 	struct drm_exynos_ipp_mem_node *m_node;
 	struct drm_exynos_ipp_buf_info buf_info;
 	void *addr;
+	unsigned long size;
 	int i;
 
 	mutex_lock(&c_node->mem_lock);
@@ -721,11 +722,20 @@ static struct drm_exynos_ipp_mem_node
 				goto err_clear;
 			}
 
+			size = exynos_drm_gem_get_size(drm_dev,
+						qbuf->handle[i], file);
+			if (!size) {
+				DRM_ERROR("failed to get size.\n");
+				goto err_clear;
+			}
+
 			buf_info.handles[i] = qbuf->handle[i];
 			buf_info.base[i] = *(dma_addr_t *) addr;
-			DRM_DEBUG_KMS("%s:i[%d]base[0x%x]hd[0x%x]\n",
+			buf_info.size[i] = (uint64_t) size;
+			DRM_DEBUG_KMS("%s:i[%d]base[0x%x]hd[0x%x]sz[%d]\n",
 				__func__, i, buf_info.base[i],
-				(int)buf_info.handles[i]);
+				(int)buf_info.handles[i],
+				(int)buf_info.size[i]);
 		}
 	}
 
