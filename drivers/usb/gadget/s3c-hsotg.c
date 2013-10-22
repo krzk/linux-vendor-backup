@@ -1133,7 +1133,7 @@ static int s3c_hsotg_process_req_feature(struct s3c_hsotg *hsotg,
 			 * and the halt was cleared by CLEAR_FEATURE
 			 */
 
-			if (!set || halted) {
+			if (!set && halted) {
 				/*
 				 * If we have request in progress,
 				 * then complete it
