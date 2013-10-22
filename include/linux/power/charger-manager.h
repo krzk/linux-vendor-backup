@@ -195,7 +195,7 @@ struct charger_manager;
  *	max_duration_ms', cm start charging.
  */
 struct charger_desc {
-	char *psy_name;
+	const char *psy_name;
 
 	enum polling_modes polling_mode;
 	unsigned int polling_interval_ms;
@@ -208,12 +208,12 @@ struct charger_desc {
 
 	enum data_source battery_present;
 
-	char **psy_charger_stat;
+	const char **psy_charger_stat;
 
 	int num_charger_regulators;
 	struct charger_regulator *charger_regulators;
 
-	char *psy_fuel_gauge;
+	const char *psy_fuel_gauge;
 
 	int temp_alert_min;
 	int temp_alert_max;
@@ -222,8 +222,8 @@ struct charger_desc {
 	int (*temperature_out_of_range)(struct charger_manager *);
 	bool measure_battery_temp;
 
-	u64 charging_max_duration_ms;
-	u64 discharging_max_duration_ms;
+	u32 charging_max_duration_ms;
+	u32 discharging_max_duration_ms;
 };
 
 #define PSY_NAME_MAX	30

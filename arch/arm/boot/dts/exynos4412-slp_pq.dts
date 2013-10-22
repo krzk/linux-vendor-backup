@@ -1274,10 +1274,69 @@
 		pinctrl-1 = <&modem_state_active>;
 	};
 
-	charger {
+	charger-manager@0 {
 		compatible = "charger-manager";
 		status = "okay";
 		vinchg1-supply = <&charger_reg>;
+
+		cm-name = "battery";
+		cm-poll-mode = <2>;
+		cm-poll-interval = <30000>;
+
+		cm-fullbatt-vchkdrop-ms = <30000>;
+		cm-fullbatt-vchkdrop-volt = <150000>;
+		cm-fullbatt-soc = <100>;
+
+		cm-battery-stat = <3>;
+
+		cm-battery-cold = <5000>;
+		cm-battery-cold-in-minus;
+		cm-battery-hot = <65000>;
+		cm-battery-temp-diff = <15000>;
+
+		cm-num-chargers = <1>;
+		cm-chargers = "max77693-charger";
+
+		cm-fuel-gauge = "max170xx_battery";
+		cm-battery-has-therm;
+
+		cm-charging-max = <21600000>;
+		cm-discharging-max = <540000>;
+
+		regulator@0 {
+			cm-regulator-name = "vinchg1";
+			cable@0 {
+				cm-cable-name = "USB";
+				cm-cable-extcon = "max77693-muic";
+				cm-cable-min = <475000>;
+				cm-cable-max = <500000>;
+			};
+			cable@1 {
+				cm-cable-name = "TA";
+				cm-cable-extcon = "max77693-muic";
+				cm-cable-min = <650000>;
+				cm-cable-max = <675000>;
+			};
+			cable@2 {
+				cm-cable-name = "Slow-charger";
+				cm-cable-extcon = "max77693-muic";
+				cm-cable-min = <650000>;
+				cm-cable-max = <675000>;
+			};
+			cable@3 {
+				cm-cable-name = "Fast-charger";
+				cm-cable-extcon = "max77693-muic";
+				cm-cable-min = <650000>;
+				cm-cable-max = <675000>;
+			};
+			cable@4 {
+				cm-cable-name = "MHL";
+				cm-cable-extcon = "max77693-muic";
+				cm-cable-min = <475000>;
+				cm-cable-max = <500000>;
+			};
+		};
+
 	};
 
 	fixed-regulators {
