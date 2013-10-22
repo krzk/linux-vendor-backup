@@ -552,7 +552,7 @@ static int check_charging_duration(struct charger_manager *cm)
 static bool _cm_monitor(struct charger_manager *cm)
 {
 	struct charger_desc *desc = cm->desc;
-	int temp = desc->temperature_out_of_range(&cm->last_temp_mC);
+	int temp = desc->temperature_out_of_range(cm);
 
 	dev_dbg(cm->dev, "monitoring (%2.2d.%3.3dC)\n",
 		cm->last_temp_mC / 1000, cm->last_temp_mC % 1000);
@@ -804,18 +804,19 @@ static int charger_get_property(struct power_supply *psy,
 				POWER_SUPPLY_PROP_CURRENT_NOW, val);
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-		/* in thenth of centigrade */
+		/* in tenth of centigrade */
 		if (cm->last_temp_mC == INT_MIN)
-			desc->temperature_out_of_range(&cm->last_temp_mC);
-		val->intval = cm->last_temp_mC / 100;
+			desc->temperature_out_of_range(cm);
+
+		val->intval = cm->last_temp_mC;
 		if (!desc->measure_battery_temp)
 			ret = -ENODEV;
 		break;
 	case POWER_SUPPLY_PROP_TEMP_AMBIENT:
-		/* in thenth of centigrade */
+		/* in tenth of centigrade */
 		if (cm->last_temp_mC == INT_MIN)
-			desc->temperature_out_of_range(&cm->last_temp_mC);
-		val->intval = cm->last_temp_mC / 100;
+			desc->temperature_out_of_range(cm);
+		val->intval = cm->last_temp_mC;
 		if (desc->measure_battery_temp)
 			ret = -ENODEV;
 		break;
@@ -1461,15 +1462,74 @@ err:
 	return ret;
 }
 
+/* Every temperature units are in milli centigrade */
+#define CM_DEFAULT_TEMP_ALERT_DIFF	10000
+#define CM_DEFAULT_TEMP_ALERT_MAX	127000
+#define CM_DEFAULT_TEMP_ALERT_MIN	(-127000)
+
+static int cm_default_get_temp(struct charger_manager *cm)
+{
+	struct charger_desc *desc = cm->desc;
+	union power_supply_propval val;
+	static int temp_alert_min = 0;
+	static int temp_alert_max = 0;
+	static int temp_alert_diff = 0;
+	static int last_temp_status = 0;
+	int ret;
+
+	if (!temp_alert_min && !temp_alert_max) {
+		/* Initialize minimum temperature for alert */
+		ret = cm->fuel_gauge->get_property(cm->fuel_gauge,
+					POWER_SUPPLY_PROP_TEMP_ALERT_MIN,
+					&val);
+		temp_alert_min = ret ? desc->temp_alert_min :
+					min(desc->temp_alert_min, val.intval);
+		if (!temp_alert_min)
+			temp_alert_min = CM_DEFAULT_TEMP_ALERT_MIN;
+
+		/* Initialize maximum temperature for alert */
+		ret = cm->fuel_gauge->get_property(cm->fuel_gauge,
+					POWER_SUPPLY_PROP_TEMP_ALERT_MAX,
+					&val);
+		temp_alert_max = ret ? desc->temp_alert_max :
+					min(desc->temp_alert_max, val.intval);
+		if (!temp_alert_max)
+			temp_alert_max = CM_DEFAULT_TEMP_ALERT_MAX;
+
+		temp_alert_diff = desc->temp_alert_diff ?
+					: CM_DEFAULT_TEMP_ALERT_DIFF;
+	}
+
+	/* Get battery temperature */
+	ret = cm->fuel_gauge->get_property(cm->fuel_gauge,
+					POWER_SUPPLY_PROP_TEMP,
+					&val);
+	if (ret) {
+		cm->last_temp_mC = INT_MIN;
+		return 0;
+	}
+
+	cm->last_temp_mC = val.intval;
+
+	if (cm->last_temp_mC > temp_alert_max || (last_temp_status &&
+			cm->last_temp_mC + temp_alert_diff > temp_alert_max)) {
+		/* OVERHEAT */
+		last_temp_status = 1;
+	} else if (cm->last_temp_mC < temp_alert_min ||	(last_temp_status &&
+			cm->last_temp_mC < temp_alert_min + temp_alert_diff)) {
+		/* Too COLD */
+		last_temp_status = -1;
+	} else {
+		last_temp_status = 0;
+	}
+
+	return last_temp_status;
+}
+
 /*
  * Charger driver platform data
  * To do : Should be transferred to DT.
  */
-
-static int thermistor_ck(int *mC)
-{
-	return 0;
-}
 
 static char *charger_stats[] = {
 #if defined(CONFIG_CHARGER_MAX77693)
@@ -1537,7 +1597,6 @@ static struct charger_desc cm_drv_data = {
 	.charger_regulators	= regulators,
 	.num_charger_regulators	= ARRAY_SIZE(regulators),
 
-	.temperature_out_of_range	= thermistor_ck,
 	.measure_battery_temp	= true,
 
 	.charging_max_duration_ms	= (6 * 60 * 60 * 1000),  /* 6hr */
@@ -1674,11 +1733,6 @@ static int charger_manager_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	if (!desc->temperature_out_of_range) {
-		dev_err(&pdev->dev, "there is no temperature_out_of_range\n");
-		return -EINVAL;
-	}
-
 	if (!desc->charging_max_duration_ms ||
 			!desc->discharging_max_duration_ms) {
 		dev_info(&pdev->dev, "Cannot limit charging duration "
@@ -1723,7 +1777,14 @@ static int charger_manager_probe(struct platform_device *pdev)
 
 	if (desc->measure_battery_temp) {
 		cm_chg_add_property(POWER_SUPPLY_PROP_TEMP);
+		desc->temperature_out_of_range = cm_default_get_temp;
 	} else {
+		if (!desc->temperature_out_of_range) {
+			dev_err(&pdev->dev,
+				"%s : No battery thermometer exists\n",
+				__func__);
+			return -EINVAL;
+		}
 		cm_chg_add_property(POWER_SUPPLY_PROP_TEMP_AMBIENT);
 	}
 

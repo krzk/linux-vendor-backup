@@ -148,6 +148,8 @@ struct charger_regulator {
 	struct charger_manager *cm;
 };
 
+struct charger_manager;
+
 /**
  * struct charger_desc
  * @psy_name: the name of power-supply-class for charger manager
@@ -173,6 +175,9 @@ struct charger_regulator {
  * @num_charger_regulator: the number of entries in charger_regulators
  * @charger_regulators: array of charger regulators
  * @psy_fuel_gauge: the name of power-supply for fuel gauge
+ * @temp_alert_min : Minimum battery temperature to be allowed.
+ * @temp_alert_max : Maximum battery temperature to be allowed.
+ * @temp_alert_diff : Temperature diffential to restart charging. 
  * @temperature_out_of_range:
  *	Determine whether the status is overheat or cold or normal.
  *	return_value > 0: overheat
@@ -210,7 +215,11 @@ struct charger_desc {
 
 	char *psy_fuel_gauge;
 
-	int (*temperature_out_of_range)(int *mC);
+	int temp_alert_min;
+	int temp_alert_max;
+	int temp_alert_diff;
+
+	int (*temperature_out_of_range)(struct charger_manager *);
 	bool measure_battery_temp;
 
 	u64 charging_max_duration_ms;
