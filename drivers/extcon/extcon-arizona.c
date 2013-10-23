@@ -1122,6 +1122,10 @@ static void arizona_micd_set_level(struct arizona *arizona, int index,
 
 static int arizona_extcon_of_get_pdata(struct arizona *arizona)
 {
+	struct arizona_pdata *pdata = &arizona->pdata;
+
+	of_property_read_u32(arizona->dev->of_node, "wlf,gpsw", &pdata->gpsw);
+
 	return 0;
 }
 
@@ -1224,6 +1228,10 @@ static int arizona_extcon_probe(struct platform_device *pdev)
 		info->micd_modes = micd_default_modes;
 		info->micd_num_modes = ARRAY_SIZE(micd_default_modes);
 	}
+
+	if (arizona->pdata.gpsw > 0)
+		regmap_update_bits(arizona->regmap, ARIZONA_GP_SWITCH_1,
+				   ARIZONA_SW1_MODE_MASK, arizona->pdata.gpsw);
 
 	if (arizona->pdata.micd_pol_gpio > 0) {
 		if (info->micd_modes[0].gpio)
