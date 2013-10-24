@@ -264,6 +264,7 @@
 		broken-cd;
 		non-removable;
 		fifo-depth = <0x80>;
+		desc-num = <4>;
 		card-detect-delay = <200>;
 		clocks = <&clock 351>, <&clock 132>;
 		clock-name = "biu", "ciu";
