@@ -138,6 +138,7 @@ struct dw_mci {
 	dma_addr_t		sg_dma;
 	void			*sg_cpu;
 	const struct dw_mci_dma_ops	*dma_ops;
+	unsigned int		buf_size;
 #ifdef CONFIG_MMC_DW_IDMAC
 	unsigned int		ring_size;
 #else
@@ -240,6 +241,9 @@ struct dw_mci_board {
 	 * it.
 	 */
 	unsigned int fifo_depth;
+
+	/* Numer of descriptor */
+	unsigned int desc_num;
 
 	/* delay in mS before detecting cards after interrupt */
 	u32 detect_delay_ms;
