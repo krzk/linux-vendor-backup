@@ -251,7 +251,7 @@
 
 	vemmc_reg: voltage-regulator@0 {
 	        compatible = "regulator-fixed";
-		regulator-name = "VMEM_VDD_2.8V";
+		regulator-name = "MASSMEMORY_EN";
 		regulator-min-microvolt = <2800000>;
 		regulator-max-microvolt = <2800000>;
 		gpio = <&gpk0 2 0>;
