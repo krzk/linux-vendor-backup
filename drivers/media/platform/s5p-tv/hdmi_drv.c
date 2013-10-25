@@ -959,7 +959,7 @@ static const struct hdmi_timings hdmi_timings_1080p50 = {
 };
 
 /* default hdmi_timings index of the timings configured on probe */
-#define HDMI_DEFAULT_TIMINGS_IDX (0)
+#define HDMI_DEFAULT_TIMINGS_IDX (3)
 
 static const struct {
 	bool reduced_fps;
