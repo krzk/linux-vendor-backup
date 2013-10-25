@@ -3690,6 +3690,8 @@ static int s3c_hsotg_suspend(struct platform_device *pdev, pm_message_t state)
 
 	if (hsotg->driver)
 		dev_info(hsotg->dev, "suspending usb gadget %s\n", hsotg->driver->driver.name);
+	else
+		return ret;
 
 	spin_lock_irqsave(&hsotg->lock, flags);
 	s3c_hsotg_disconnect(hsotg);
@@ -3718,7 +3720,8 @@ static int s3c_hsotg_resume(struct platform_device *pdev)
 		dev_info(hsotg->dev, "resuming usb gadget %s\n", hsotg->driver->driver.name);
 		ret = regulator_bulk_enable(ARRAY_SIZE(hsotg->supplies),
 				      hsotg->supplies);
-	}
+	} else
+		return ret;
 
 	spin_lock_irqsave(&hsotg->lock, flags);
 	hsotg->last_rst = jiffies;
