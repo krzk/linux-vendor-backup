@@ -3709,18 +3709,17 @@ static int s3c_hsotg_resume(struct platform_device *pdev)
 	unsigned long flags;
 	int ret = 0;
 
-	if (hsotg->driver)
+	if (hsotg->driver) {
 		dev_info(hsotg->dev, "resuming usb gadget %s\n", hsotg->driver->driver.name);
+		ret = regulator_bulk_enable(ARRAY_SIZE(hsotg->supplies),
+				      hsotg->supplies);
+	}
 
 	spin_lock_irqsave(&hsotg->lock, flags);
 	hsotg->last_rst = jiffies;
 	s3c_hsotg_phy_enable(hsotg);
 	s3c_hsotg_core_init(hsotg);
 	spin_unlock_irqrestore(&hsotg->lock, flags);
-
-	if (hsotg->driver)
-		ret = regulator_bulk_enable(ARRAY_SIZE(hsotg->supplies),
-				      hsotg->supplies);
 
 	return ret;
 }
