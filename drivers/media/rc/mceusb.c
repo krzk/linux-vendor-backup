@@ -280,6 +280,8 @@ static struct usb_device_id mceusb_dev_table[] = {
 	  .driver_info = MCE_GEN2_TX_INV },
 	/* Philips SRM5100 */
 	{ USB_DEVICE(VENDOR_PHILIPS, 0x060d) },
+	/* Philips Consumer Infrared Transceiver (HP) */
+	{ USB_DEVICE(VENDOR_PHILIPS, 0x0471) },
 	/* Philips Infrared Transceiver - Omaura */
 	{ USB_DEVICE(VENDOR_PHILIPS, 0x060f) },
 	/* Philips Infrared Transceiver - Spinel plus */
