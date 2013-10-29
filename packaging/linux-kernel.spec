@@ -1,6 +1,6 @@
 Name: linux-kernel
 Summary: The Linux Kernel
-Version: 3.8.3
+Version: 3.10.19
 Release: 1
 License: GPL
 Group: System Environment/Kernel
