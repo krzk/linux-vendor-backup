@@ -599,6 +599,7 @@
 		samsung,power-domain = <&pd_lcd0>;
 		status = "disabled";
 		iommu = <&sysmmu_fimd0>;
+		lcdblk-cfg = <&sys_reg>;
 	};
 
 	sysmmu_mfc_l: sysmmu@13620000 {
