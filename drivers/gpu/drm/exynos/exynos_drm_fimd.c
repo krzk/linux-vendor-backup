@@ -895,7 +895,6 @@ static int fimd_activate(struct fimd_context *ctx, bool enable)
 static void fimd_dpms(struct device *subdrv_dev, int mode)
 {
 	struct fimd_context *ctx = get_fimd_context(subdrv_dev);
-	int ret;
 
 	DRM_DEBUG_KMS("%d\n", mode);
 
@@ -909,26 +908,16 @@ static void fimd_dpms(struct device *subdrv_dev, int mode)
 		 * P.S. fimd_dpms function would be called at booting time so
 		 * clk_enable could be called double time.
 		 */
-		if (ctx->suspended) {
+		if (ctx->suspended)
 			pm_runtime_get_sync(subdrv_dev);
 
-			ret = fimd_activate(ctx, true);
-			if (ret < 0) {
-				DRM_ERROR("failed to activate.\n");
-				pm_runtime_put_sync(subdrv_dev);
-			}
-		}
 		break;
 	case DRM_MODE_DPMS_STANDBY:
 	case DRM_MODE_DPMS_SUSPEND:
 	case DRM_MODE_DPMS_OFF:
-		if (!ctx->suspended) {
-			ret = fimd_activate(ctx, false);
-			if (ret < 0)
-				DRM_ERROR("failed to deactivate.\n");
-
+		if (!ctx->suspended)
 			pm_runtime_put_sync(subdrv_dev);
-		}
+
 		break;
 	default:
 		DRM_DEBUG_KMS("unspecified mode %d\n", mode);
