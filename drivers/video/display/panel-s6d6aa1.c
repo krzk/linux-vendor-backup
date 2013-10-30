@@ -787,22 +787,12 @@ static int s6d6aa1_remove(struct platform_device *dev)
 
 static int s6d6aa1_suspend(struct device *dev)
 {
-	struct s6d6aa1 *lcd = dev_get_drvdata(dev);
-
-	if (lcd->power != FB_BLANK_UNBLANK)
-		return 0;
-
-	return display_entity_set_state(&lcd->entity, DISPLAY_ENTITY_STATE_OFF);
+	return 0;
 }
 
 static int s6d6aa1_resume(struct device *dev)
 {
-	struct s6d6aa1 *lcd = dev_get_drvdata(dev);
-
-	if (lcd->power != FB_BLANK_UNBLANK)
-		return 0;
-
-	return display_entity_set_state(&lcd->entity, DISPLAY_ENTITY_STATE_ON);
+	return 0;
 }
 
 static struct dev_pm_ops s6d6aa1_pm_ops = {

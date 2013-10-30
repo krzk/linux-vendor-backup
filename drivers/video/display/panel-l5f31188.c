@@ -632,24 +632,12 @@ static int l5f31188_remove(struct platform_device *pdev)
 
 static int l5f31188_suspend(struct device *dev)
 {
-	struct l5f31188 *panel = dev_get_drvdata(dev);
-
-	if (panel->power != FB_BLANK_UNBLANK)
-		return 0;
-
-	return display_entity_set_state(&panel->entity,
-			DISPLAY_ENTITY_STATE_OFF);
+	return 0;
 }
 
 static int l5f31188_resume(struct device *dev)
 {
-	struct l5f31188 *panel = dev_get_drvdata(dev);
-
-	if (panel->power != FB_BLANK_UNBLANK)
-		return 0;
-
-	return display_entity_set_state(&panel->entity,
-			DISPLAY_ENTITY_STATE_ON);
+	return 0;
 }
 
 static const struct dev_pm_ops l5f31188_pm_ops = {
