@@ -44,6 +44,7 @@
 #include "s3c-hsotg.h"
 
 static const char * const s3c_hsotg_supply_names[] = {
+	"vusb_core",		/* core USB supply, 4.9V */
 	"vusb_d",		/* digital USB supply, 1.2V */
 	"vusb_a",		/* analog USB supply, 1.1V */
 };
