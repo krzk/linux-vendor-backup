@@ -215,4 +215,22 @@
 			};
 		};
 	};
+
+	thermistor-ap@0 {
+		compatible = "ntc,ncp03wb473";
+		status = "ok";
+		pullup-uv = <1800000>;
+		pullup-ohm = <100000>;
+		pulldown-ohm = <100000> ;
+		io-channels = <&adc 1>;
+	};
+
+	thermistor-batt@0 {
+		compatible = "ntc,ncp03wb473";
+		status = "ok";
+		pullup-uv = <1800000>;
+		pullup-ohm = <100000>;
+		pulldown-ohm = <100000> ;
+		io-channels = <&adc 2>;
+	};
 };
