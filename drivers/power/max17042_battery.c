@@ -195,9 +195,9 @@ static int max17042_get_property(struct power_supply *psy,
 			val->intval = (0x7fff & ~val->intval) + 1;
 			val->intval *= -1;
 		}
-		/* The value is converted into milli-centigrade scale */
+		/* The value is converted into deci-centigrade scale */
 		/* Units of LSB = 1 / 256 degree Celsius */
-		val->intval = val->intval * 1000 / 256;
+		val->intval = val->intval * 10 / 256;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		if (chip->pdata->enable_current_sense) {
