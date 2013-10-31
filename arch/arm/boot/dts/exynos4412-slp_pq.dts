@@ -561,11 +561,11 @@
 			reg = <0x09>;
 			#clock-cells = <1>;
 
-			max77686,dvs_gpios = <&gpf3 1 0>,
+			max77686,selb_gpios = <&gpf3 1 0>,
 					     <&gpf3 2 0>,
 					     <&gpf3 3 0>;
 
-			max77686,selb_gpios = <&gpm3 0 0>,
+			max77686,dvs_gpios = <&gpm3 0 0>,
 					      <&gpm3 1 0>,
 					      <&gpm3 2 0>;
 
