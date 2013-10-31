@@ -1462,10 +1462,10 @@ err:
 	return ret;
 }
 
-/* Every temperature units are in milli centigrade */
-#define CM_DEFAULT_TEMP_ALERT_DIFF	10000
-#define CM_DEFAULT_TEMP_ALERT_MAX	127000
-#define CM_DEFAULT_TEMP_ALERT_MIN	(-127000)
+/* Every temperature units are in decii centigrade */
+#define CM_DEFAULT_TEMP_ALERT_DIFF	100
+#define CM_DEFAULT_TEMP_ALERT_MAX	1270
+#define CM_DEFAULT_TEMP_ALERT_MIN	(-1270)
 
 static int cm_default_get_temp(struct charger_manager *cm)
 {

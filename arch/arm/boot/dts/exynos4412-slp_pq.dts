@@ -1290,10 +1290,10 @@
 
 		cm-battery-stat = <3>;
 
-		cm-battery-cold = <5000>;
+		cm-battery-cold = <50>;
 		cm-battery-cold-in-minus;
-		cm-battery-hot = <65000>;
-		cm-battery-temp-diff = <15000>;
+		cm-battery-hot = <650>;
+		cm-battery-temp-diff = <150>;
 
 		cm-num-chargers = <1>;
 		cm-chargers = "max77693-charger";
