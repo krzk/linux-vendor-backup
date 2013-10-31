@@ -1385,6 +1385,18 @@
 		status = "okay";
 		#phy-cells = <1>;
 	};
+
+	adc: adc@126C0000 {
+		compatible = "samsung,exynos-adc-v1";
+		reg = <0x126C0000 0x20>, <0x10020718 0x4>;
+		interrupt-parent = <&combiner>;
+		interrupts = <10 3>;
+		#io-channel-cells = <1>;
+		clocks = <&clock 326>;
+		clock-names = "adc";
+		vdd-supply = <&ldo3_reg>;
+		status = "ok";
+	};
 };
 
 &pinctrl_1 {
