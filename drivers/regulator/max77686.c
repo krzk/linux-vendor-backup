@@ -650,7 +650,6 @@ static int max77686_pmic_probe(struct platform_device *pdev)
 		unsigned int buck2_dvs = pdata->buck2_voltage[i];
 		unsigned int buck3_dvs = pdata->buck3_voltage[i];
 		unsigned int buck4_dvs = pdata->buck4_voltage[i];
-		unsigned int reg[3];
 
 		regmap_write(iodev->regmap, MAX77686_REG_BUCK2DVS1 + i,
 				buck2_dvs ? : 0x28);
