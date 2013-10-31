@@ -1954,7 +1954,7 @@ static struct notifier_block __refdata cpufreq_cpu_notifier = {
 /*********************************************************************
  *               BOOST						     *
  *********************************************************************/
-static int cpufreq_boost_enable_sw(int state)
+static int cpufreq_boost_set_sw(int state)
 {
 	struct cpufreq_frequency_table *freq_table;
 	struct cpufreq_policy *policy;
@@ -1965,8 +1965,13 @@ static int cpufreq_boost_enable_sw(int state)
 		if (freq_table) {
 			ret = cpufreq_frequency_table_cpuinfo(policy,
 							freq_table);
-			if (!ret)
-				policy->user_policy.max = policy->max;
+			if (ret) {
+				pr_err("%s: Policy frequency update failed\n",
+				       __func__);
+				break;
+			}
+			policy->user_policy.max = policy->max;
+			__cpufreq_governor(policy, CPUFREQ_GOV_LIMITS);
 		}
 	}
 
@@ -1978,19 +1983,21 @@ int cpufreq_boost_trigger_state(int state)
 	unsigned long flags;
 	int ret = 0;
 
-	if (cpufreq_driver->boost_enabled != state) {
+	if (cpufreq_driver->boost_enabled == state)
+		return 0;
+
+	write_lock_irqsave(&cpufreq_driver_lock, flags);
+	cpufreq_driver->boost_enabled = state;
+	write_unlock_irqrestore(&cpufreq_driver_lock, flags);
+
+	ret = cpufreq_driver->set_boost(state);
+	if (ret) {
 		write_lock_irqsave(&cpufreq_driver_lock, flags);
-		cpufreq_driver->boost_enabled = state;
-
-		ret = cpufreq_driver->enable_boost(state);
-		if (ret)
-			cpufreq_driver->boost_enabled = 0;
-
+		cpufreq_driver->boost_enabled = !state;
 		write_unlock_irqrestore(&cpufreq_driver_lock, flags);
 
-		if (ret)
-			pr_err("%s: BOOST cannot %s\n", __func__,
-			       state ? "enabled" : "disabled");
+		pr_err("%s: Cannot %s BOOST\n", __func__,
+		       state ? "enable" : "disable");
 	}
 
 	return ret;
@@ -1998,7 +2005,7 @@ int cpufreq_boost_trigger_state(int state)
 
 int cpufreq_boost_supported(void)
 {
-	if (cpufreq_driver)
+	if (likely(cpufreq_driver))
 		return cpufreq_driver->boost_supported;
 
 	return 0;
@@ -2050,13 +2057,13 @@ int cpufreq_register_driver(struct cpufreq_driver *driver_data)
 	cpufreq_driver = driver_data;
 	write_unlock_irqrestore(&cpufreq_driver_lock, flags);
 
-	if (cpufreq_driver->boost_supported) {
+	if (cpufreq_boost_supported()) {
 		/*
 		 * Check if boost driver provides function to enable boost -
 		 * if not, use cpufreq_boost_enable_sw as default
 		 */
-		if (!cpufreq_driver->enable_boost)
-			cpufreq_driver->enable_boost = cpufreq_boost_enable_sw;
+		if (!cpufreq_driver->set_boost)
+			cpufreq_driver->set_boost = cpufreq_boost_set_sw;
 
 		ret = cpufreq_sysfs_create_file(&(boost.attr));
 		if (ret) {
@@ -2096,7 +2103,7 @@ int cpufreq_register_driver(struct cpufreq_driver *driver_data)
 err_if_unreg:
 	subsys_interface_unregister(&cpufreq_interface);
 err_boost_unreg:
-	if (cpufreq_driver->boost_supported)
+	if (cpufreq_boost_supported())
 		cpufreq_sysfs_remove_file(&(boost.attr));
 err_null_driver:
 	write_lock_irqsave(&cpufreq_driver_lock, flags);

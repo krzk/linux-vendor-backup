@@ -272,7 +272,7 @@ struct cpufreq_driver {
 	/* platform specific boost support code */
 	bool                    boost_supported;
 	bool                    boost_enabled;
-	int (*enable_boost)     (int state);
+	int     (*set_boost)    (int state);
 };
 
 /* flags */
