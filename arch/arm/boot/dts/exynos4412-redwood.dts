@@ -144,11 +144,6 @@
 		status = "okay";
 	};
 
-	tmu@100C0000 {
-		vdd_ts-supply = <&ldo10_reg>;
-		status = "okay";
-	};
-
 	ehci@12580000 {
 		status = "okay";
 	};

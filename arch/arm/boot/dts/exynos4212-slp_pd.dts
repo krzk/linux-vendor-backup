@@ -355,7 +355,7 @@
 	};
 
 	tmu@100C0000 {
-		vdd_ts-supply = <&ldo4_reg>;
+		vtmu-supply = <&ldo4_reg>;
 		status = "okay";
 	};
 };

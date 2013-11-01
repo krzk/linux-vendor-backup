@@ -750,11 +750,6 @@
 		max_overclocking_freq = <1500000>;
 	};
 
-	tmu@100C0000 {
-		vdd_ts-supply = <&ldo10_reg>;
-		status = "okay";
-	};
-
 	ehci@12580000 {
 		status = "okay";
 	};
