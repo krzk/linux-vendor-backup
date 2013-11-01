@@ -17,6 +17,7 @@ config ARCH_EXYNOS4
 	select HAVE_ARM_SCU if SMP
 	select HAVE_SMP
 	select MIGHT_HAVE_CACHE_L2X0
+	select ARCH_HAS_BANDGAP
 	help
 	  Samsung EXYNOS4 SoCs based systems
 
@@ -24,6 +25,7 @@ config ARCH_EXYNOS5
 	bool "SAMSUNG EXYNOS5"
 	select HAVE_ARM_SCU if SMP
 	select HAVE_SMP
+	select ARCH_HAS_BANDGAP
 	help
 	  Samsung EXYNOS5 (Cortex-A15) SoC based systems
 
