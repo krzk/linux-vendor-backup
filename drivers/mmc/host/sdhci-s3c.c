@@ -27,6 +27,7 @@
 #include <linux/pm_runtime.h>
 
 #include <linux/mmc/host.h>
+#include <linux/mmc/slot-gpio.h>
 
 #include "sdhci-s3c-regs.h"
 #include "sdhci.h"
@@ -388,43 +389,6 @@ static void sdhci_s3c_notify_change(struct platform_device *dev, int state)
 	}
 }
 
-static irqreturn_t sdhci_s3c_gpio_card_detect_thread(int irq, void *dev_id)
-{
-	struct sdhci_s3c *sc = dev_id;
-	int status = gpio_get_value(sc->ext_cd_gpio);
-	if (sc->pdata->ext_cd_gpio_invert)
-		status = !status;
-	sdhci_s3c_notify_change(sc->pdev, status);
-	return IRQ_HANDLED;
-}
-
-static void sdhci_s3c_setup_card_detect_gpio(struct sdhci_s3c *sc)
-{
-	struct s3c_sdhci_platdata *pdata = sc->pdata;
-	struct device *dev = &sc->pdev->dev;
-	int ret = 0;
-
-	if (devm_gpio_request(dev, pdata->ext_cd_gpio, "SDHCI EXT CD") == 0) {
-		sc->ext_cd_gpio = pdata->ext_cd_gpio;
-		sc->ext_cd_irq = gpio_to_irq(pdata->ext_cd_gpio);
-		if (sc->ext_cd_irq) {
-			ret = request_threaded_irq(sc->ext_cd_irq, NULL,
-					sdhci_s3c_gpio_card_detect_thread,
-					IRQF_TRIGGER_RISING |
-					IRQF_TRIGGER_FALLING |
-					IRQF_ONESHOT,
-					dev_name(dev), sc);
-			if (ret) {
-				dev_warn(dev,
-					"cannot request irq for card detect\n");
-				sc->ext_cd_irq = 0;
-			}
-		}
-	} else {
-		dev_err(dev, "cannot request gpio for card detect\n");
-	}
-}
-
 #ifdef CONFIG_OF
 static int sdhci_s3c_parse_dt(struct device *dev,
 		struct sdhci_host *host, struct s3c_sdhci_platdata *pdata)
@@ -685,14 +649,25 @@ static int sdhci_s3c_probe(struct platform_device *pdev)
 	if (pdata->cd_type == S3C_SDHCI_CD_EXTERNAL && pdata->ext_cd_init)
 		pdata->ext_cd_init(&sdhci_s3c_notify_change);
 	if (pdata->cd_type == S3C_SDHCI_CD_GPIO &&
-	    gpio_is_valid(pdata->ext_cd_gpio))
-		sdhci_s3c_setup_card_detect_gpio(sc);
+	    gpio_is_valid(pdata->ext_cd_gpio)) {
+		ret = mmc_gpio_request_cd(host->mmc, pdata->ext_cd_gpio);
+		if (ret) {
+			dev_err(dev,
+				"failed to request card detect gpio\n");
+			goto err_req_cd;
+		}
+	}
 
 #ifdef CONFIG_PM_RUNTIME
 	if (pdata->cd_type != S3C_SDHCI_CD_INTERNAL)
 		clk_disable_unprepare(sc->clk_io);
 #endif
 	return 0;
+
+ err_req_cd:
+	mmc_gpio_free_cd(host->mmc);
+
+	return ret;
 
  err_req_regs:
 #ifndef CONFIG_PM_RUNTIME
