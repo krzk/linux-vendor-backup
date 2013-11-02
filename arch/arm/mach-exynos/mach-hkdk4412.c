@@ -544,8 +544,9 @@ static void __init hkdk4412_machine_init(void)
 	s5p_hdmi_cec_set_platdata(&hdmi_cec_data);
 #endif
 
+#ifdef CONFIG_LCD_LP101WH1
 	s5p_fimd0_set_platdata(&hkdk4412_fb_pdata);
-
+#endif
 	platform_add_devices(hkdk4412_devices, ARRAY_SIZE(hkdk4412_devices));
 
 	samsung_bl_set(&hkdk4412_bl_gpio_info, &hkdk4412_bl_data);
