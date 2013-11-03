@@ -850,7 +850,7 @@ static void smsc95xx_init_mac_address(struct usbnet *dev)
 
 	/* no eeprom, or eeprom values are invalid. generate random MAC */
 	eth_hw_addr_random(dev->net);
-#if defined(CONFIG_MACH_HKDK4412)
+#if defined(CONFIG_MACH_HKDK4412) && defined(MODULE)
 	if(smsc95xx_read_mac_addr(dev->net->dev_addr) < 0) {
 		netdev_warn(dev->net, "Failed to write /etc/smsc95xx_mac_addr file!\n");
 	}
