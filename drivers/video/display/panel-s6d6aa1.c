@@ -691,7 +691,6 @@ static void s6d6aa1_release(struct display_entity *entity)
 
 	backlight_device_unregister(panel->bd);
 	regulator_bulk_free(ARRAY_SIZE(panel->supplies), panel->supplies);
-	kfree(panel);
 }
 
 static int s6d6aa1_probe(struct platform_device *pdev)
@@ -699,7 +698,7 @@ static int s6d6aa1_probe(struct platform_device *pdev)
 	struct s6d6aa1 *lcd;
 	int ret;
 
-	lcd = kzalloc(sizeof(struct s6d6aa1), GFP_KERNEL);
+	lcd = devm_kzalloc(&pdev->dev, sizeof(struct s6d6aa1), GFP_KERNEL);
 	if (!lcd) {
 		dev_err(&pdev->dev, "failed to allocate s6d6aa1 structure.\n");
 		return -ENOMEM;
@@ -722,7 +721,7 @@ static int s6d6aa1_probe(struct platform_device *pdev)
 				ARRAY_SIZE(lcd->supplies), lcd->supplies);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to get regulators: %d\n", ret);
-		goto err_regulator_bulk_get;
+		return ret;
 	}
 
 	lcd->ld = lcd_device_register("s6d6aa1", &pdev->dev, lcd,
@@ -769,8 +768,6 @@ err_backlight_register:
 	lcd_device_unregister(lcd->ld);
 err_lcd_register:
 	regulator_bulk_free(ARRAY_SIZE(lcd->supplies), lcd->supplies);
-err_regulator_bulk_get:
-	kfree(lcd);
 
 	return ret;
 }
