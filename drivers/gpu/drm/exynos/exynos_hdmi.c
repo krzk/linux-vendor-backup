@@ -2403,7 +2403,10 @@ static struct platform_device_id hdmi_driver_types[] = {
 		.driver_data    = HDMI_TYPE13,
 	}, {
 		.name		= "exynos4-hdmi",
-		.driver_data    = HDMI_TYPE13,
+		/* FIXME: this works for now, but not all exynos4 variants support
+		 * HDMI 1.4, and renaming the odroid device to exynos4-hdmi14 causes
+		 * a clock failure. */
+		.driver_data    = HDMI_TYPE14,
 	}, {
 		.name		= "exynos4-hdmi14",
 		.driver_data	= HDMI_TYPE14,

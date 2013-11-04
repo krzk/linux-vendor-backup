@@ -16,7 +16,7 @@ struct s5p_platform_cec {
 };
 
 extern void s5p_hdmi_set_platdata(struct i2c_board_info *hdmiphy_info,
-				  struct i2c_board_info *mhl_info, int mhl_bus);
+				  struct i2c_board_info *mhl_info, int mhl_bus, int hpd_gpio);
 
 extern void s5p_hdmi_cec_set_platdata(struct s5p_platform_cec *pd);
 

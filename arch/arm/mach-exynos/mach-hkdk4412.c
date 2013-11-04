@@ -137,6 +137,14 @@ static struct i2c_board_info hkdk4412_i2c_devs1[] __initdata = {
 #endif
 };
 
+/* Odroid-O2 schematics show the DDC of the remote HDMI device connected to
+ * I2C2. HDMI specs state that DDC always sits at bus address 0x50. */
+static struct i2c_board_info hkdk4412_i2c_devs2[] __initdata = {
+	{
+		I2C_BOARD_INFO("s5p_ddc", 0x50),
+	},
+};
+
 static struct i2c_board_info hkdk4412_i2c_devs3[] __initdata = {
 	/* nothing here yet */
 };
@@ -380,6 +388,7 @@ static struct platform_device *hkdk4412_devices[] __initdata = {
 	&s3c_device_hsmmc2,
 	&s3c_device_i2c0,
 	&s3c_device_i2c1,
+	&s3c_device_i2c2,
 	&s3c_device_i2c3,
 	&s3c_device_i2c7,
 	&s3c_device_rtc,
@@ -448,17 +457,9 @@ static void __init hkdk4412_reserve(void)
 }
 
 #if defined(CONFIG_S5P_DEV_TV)
-static void s5p_tv_setup(void)
-{
-	/* Direct HPD to HDMI chip */
-	gpio_request_one(EXYNOS4_GPX3(7), GPIOF_IN, "hpd-plug");
-	s3c_gpio_cfgpin(EXYNOS4_GPX3(7), S3C_GPIO_SFN(0x3));
-	s3c_gpio_setpull(EXYNOS4_GPX3(7), S3C_GPIO_PULL_NONE);
-}
-
 /* I2C module and id for HDMIPHY */
 static struct i2c_board_info hdmiphy_info = {
-	I2C_BOARD_INFO("hdmiphy-exynos4412", 0x38),
+	I2C_BOARD_INFO("s5p_hdmiphy", 0x38),
 };
 #endif
 
@@ -520,6 +521,10 @@ static void __init hkdk4412_machine_init(void)
 	i2c_register_board_info(1, hkdk4412_i2c_devs1,
 				ARRAY_SIZE(hkdk4412_i2c_devs1));
 
+	s3c_i2c2_set_platdata(NULL);
+	i2c_register_board_info(2, hkdk4412_i2c_devs2,
+				ARRAY_SIZE(hkdk4412_i2c_devs2));
+
 	s3c_i2c3_set_platdata(NULL);
 	i2c_register_board_info(3, hkdk4412_i2c_devs3,
 				ARRAY_SIZE(hkdk4412_i2c_devs3));
@@ -538,10 +543,13 @@ static void __init hkdk4412_machine_init(void)
 	s3c_hsotg_set_platdata(&hkdk4412_hsotg_pdata);
 
 #if defined(CONFIG_S5P_DEV_TV)
-	s5p_tv_setup();
 	s5p_i2c_hdmiphy_set_platdata(NULL);
-	s5p_hdmi_set_platdata(&hdmiphy_info, NULL, 0);
+	s5p_hdmi_set_platdata(&hdmiphy_info, NULL, 0, EXYNOS4_GPX3(7));
 	s5p_hdmi_cec_set_platdata(&hdmi_cec_data);
+	/* FIXME: hdmiphy i2c adapter has dynamic ID, and setting it to 8 causes
+	 * a failure to initialize (can't find clock?). so for now we are relying
+	 * on the hdmiphy i2c adapter being dynamically assigned address 8. */
+	i2c_register_board_info(8, &hdmiphy_info, 1);
 #endif
 
 #ifdef CONFIG_LCD_LP101WH1

@@ -786,7 +786,7 @@ void __init s5p_i2c_hdmiphy_set_platdata(struct s3c2410_platform_i2c *pd)
 static struct s5p_hdmi_platform_data s5p_hdmi_def_platdata;
 
 void __init s5p_hdmi_set_platdata(struct i2c_board_info *hdmiphy_info,
-				  struct i2c_board_info *mhl_info, int mhl_bus)
+				  struct i2c_board_info *mhl_info, int mhl_bus, int hpd_gpio)
 {
 	struct s5p_hdmi_platform_data *pd = &s5p_hdmi_def_platdata;
 
@@ -801,6 +801,7 @@ void __init s5p_hdmi_set_platdata(struct i2c_board_info *hdmiphy_info,
 	pd->hdmiphy_info = hdmiphy_info;
 	pd->mhl_info = mhl_info;
 	pd->mhl_bus = mhl_bus;
+	pd->hpd_gpio = hpd_gpio;
 
 	s3c_set_platdata(pd, sizeof(struct s5p_hdmi_platform_data),
 			 &s5p_device_hdmi);
