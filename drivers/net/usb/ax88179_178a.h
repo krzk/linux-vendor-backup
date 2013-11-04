@@ -61,7 +61,7 @@
 #define AX_MEDIUM_STATUS_MODE			0x22
 	#define AX_MEDIUM_GIGAMODE	0x01
 	#define AX_MEDIUM_FULL_DUPLEX	0x02
-	#define AX_MEDIUM_ALWAYS_ONE	0x04
+//	#define AX_MEDIUM_ALWAYS_ONE	0x04
 	#define AX_MEDIUM_EN_125MHZ	0x08
 	#define AX_MEDIUM_RXFLOW_CTRLEN	0x10
 	#define AX_MEDIUM_TXFLOW_CTRLEN	0x20
@@ -280,6 +280,7 @@
 	#define GMII_PHY_PAGE_SELECT_PAGE4	0X0004
 	#define GMII_PHY_PAGE_SELECT_PAGE5	0X0005
 	#define GMII_PHY_PAGE_SELECT_PAGE6	0X0006
+
 /******************************************************************************/
 
 struct ax88179_data {
@@ -314,8 +315,9 @@ struct ax88179_int_data {
 #define AX_RXHDR_L4_TYPE_TCP			16
 #define AX_RXHDR_L3CSUM_ERR			2
 #define AX_RXHDR_L4CSUM_ERR			1
-#define AX_RXHDR_CRC_ERR			0x80000000
-#define AX_RXHDR_DROP_ERR			0x40000000
+#define AX_RXHDR_CRC_ERR			0x20000000
+#define AX_RXHDR_MII_ERR			0x40000000
+#define AX_RXHDR_DROP_ERR			0x80000000
 #if 0
 struct ax88179_rx_pkt_header {
 
