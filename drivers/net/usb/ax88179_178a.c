@@ -46,7 +46,7 @@
 #include <../drivers/usb/net/usbnet.h>
 #endif
 
-#include "asix.h"
+#include "asix_usb3.h"
 
 #define DRV_VERSION	"1.4.0"
 
