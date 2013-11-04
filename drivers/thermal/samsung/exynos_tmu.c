@@ -322,6 +322,16 @@ static void exynos_tmu_control(struct platform_device *pdev, bool on)
 		con |= pdata->reference_voltage << reg->buf_vref_sel_shift;
 	}
 
+	/*
+	 * In Exynos 4x12 and 5250,
+	 * MUX bits should be set to 0x6 for normal operation.
+	 * For ohters, it can be ignored.
+	 */
+	if (pdata->type == SOC_ARCH_EXYNOS) {
+		con &= ~(EXYNOS_TMU_MUX_ADDR_MASK << EXYNOS_TMU_MUX_ADDR_SHIFT);
+		con |= EXYNOS_TMU_MUX_ADDR_DEFAULT << EXYNOS_TMU_MUX_ADDR_SHIFT;
+	}
+
 	if (pdata->gain) {
 		con &= ~(reg->buf_slope_sel_mask << reg->buf_slope_sel_shift);
 		con |= (pdata->gain << reg->buf_slope_sel_shift);
