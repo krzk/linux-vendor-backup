@@ -375,12 +375,16 @@ setup_return(struct pt_regs *regs, struct ksignal *ksig,
 		 */
 		thumb = handler & 1;
 
+#if __LINUX_ARM_ARCH__ >= 7
+		/*
+		 * Clear the If-Then Thumb-2 execution state
+		 * ARM spec requires this to be all 000s in ARM mode
+		*/
+		cpsr &= ~PSR_IT_MASK;
+#endif
+
 		if (thumb) {
 			cpsr |= PSR_T_BIT;
-#if __LINUX_ARM_ARCH__ >= 7
-			/* clear the If-Then Thumb-2 execution state */
-			cpsr &= ~PSR_IT_MASK;
-#endif
 		} else
 			cpsr &= ~PSR_T_BIT;
 	}
