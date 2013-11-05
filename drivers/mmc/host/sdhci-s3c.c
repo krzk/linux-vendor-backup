@@ -667,8 +667,6 @@ static int sdhci_s3c_probe(struct platform_device *pdev)
  err_req_cd:
 	mmc_gpio_free_cd(host->mmc);
 
-	return ret;
-
  err_req_regs:
 #ifndef CONFIG_PM_RUNTIME
 	clk_disable_unprepare(sc->clk_bus[sc->cur_clk]);
@@ -692,8 +690,8 @@ static int sdhci_s3c_remove(struct platform_device *pdev)
 	if (pdata->cd_type == S3C_SDHCI_CD_EXTERNAL && pdata->ext_cd_cleanup)
 		pdata->ext_cd_cleanup(&sdhci_s3c_notify_change);
 
-	if (sc->ext_cd_irq)
-		free_irq(sc->ext_cd_irq, sc);
+	if (pdata->ext_cd_gpio)
+		mmc_gpio_free_cd(host->mmc);
 
 #ifdef CONFIG_PM_RUNTIME
 	if (pdata->cd_type != S3C_SDHCI_CD_INTERNAL)
