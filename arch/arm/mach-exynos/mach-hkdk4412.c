@@ -542,6 +542,11 @@ static void __init hkdk4412_machine_init(void)
 	hkdk4412_ohci_init();
 	s3c_hsotg_set_platdata(&hkdk4412_hsotg_pdata);
 
+#ifdef CONFIG_LCD_LP101WH1
+        s5p_fimd0_set_platdata(&hkdk4412_fb_pdata);
+#endif
+        
+
 #if defined(CONFIG_S5P_DEV_TV)
 	s5p_i2c_hdmiphy_set_platdata(NULL);
 	s5p_hdmi_set_platdata(&hdmiphy_info, NULL, 0, EXYNOS4_GPX3(7));
