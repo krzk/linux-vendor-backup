@@ -46,6 +46,13 @@ static int exynos_pd_power(struct generic_pm_domain *domain, bool power_on)
 	pd = container_of(domain, struct exynos_pm_domain, pd);
 	base = pd->base;
 
+	/* FIXME: the HDMI device relies on LCD0 and TV power domains, but is
+	 * only registered under TV (one device can only be in 1 domain).
+	 * Hack here to avoid powering off LCD0 to avoid a loss of TV output.
+	 */
+	if (base == S5P_PMU_LCD0_CONF && !power_on)
+		return 0;
+
 	pwr = power_on ? S5P_INT_LOCAL_PWR_EN : 0;
 	__raw_writel(pwr, base);
 
@@ -80,6 +87,7 @@ static struct exynos_pm_domain PD = {			\
 	.base = (void __iomem *)BASE,			\
 	.name = NAME,					\
 	.pd = {						\
+		.name = NAME, \
 		.power_off = exynos_pd_power_off,	\
 		.power_on = exynos_pd_power_on,	\
 	},						\
