@@ -163,6 +163,14 @@ struct cs_cpu_dbs_info_s {
 	unsigned int enable:1;
 };
 
+struct lb_cpu_dbs_info_s {
+	struct cpu_dbs_common_info cdbs;
+	u64 prev_cpu_iowait;
+	struct cpufreq_frequency_table *freq_table;
+	unsigned int rate_mult;
+	unsigned int idle_time;
+};
+
 /* Per policy Governers sysfs tunables */
 struct od_dbs_tuners {
 	unsigned int ignore_nice_load;
@@ -182,12 +190,21 @@ struct cs_dbs_tuners {
 	unsigned int freq_step;
 };
 
+struct lb_dbs_tuners {
+	unsigned int ignore_nice;
+	unsigned int sampling_rate;
+	unsigned int sampling_down_factor;
+	unsigned int up_threshold;
+	unsigned int adj_up_threshold;
+};
+
 /* Common Governer data across policies */
 struct dbs_data;
 struct common_dbs_data {
 	/* Common across governors */
 	#define GOV_ONDEMAND		0
 	#define GOV_CONSERVATIVE	1
+	#define GOV_LAB			2
 	int governor;
 	struct attribute_group *attr_group_gov_sys; /* one governor - system */
 	struct attribute_group *attr_group_gov_pol; /* one governor - policy */

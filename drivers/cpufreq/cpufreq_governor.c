@@ -148,6 +148,21 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 
 		load = 100 * (wall_time - idle_time) / wall_time;
 
+		if (dbs_data->cdata->governor == GOV_LAB) {
+			struct lb_cpu_dbs_info_s *lb_dbs_info =
+				dbs_data->cdata->get_cpu_dbs_info_s(j);
+
+			lb_dbs_info->idle_time = (100 * idle_time) / wall_time;
+		}
+
+		if (dbs_data->cdata->governor == GOV_ONDEMAND) {
+			int freq_avg = __cpufreq_driver_getavg(policy, j);
+			if (freq_avg <= 0)
+				freq_avg = policy->cur;
+
+			load *= freq_avg;
+		}
+
 		if (load > max_load)
 			max_load = load;
 	}
@@ -230,13 +245,16 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 	struct dbs_data *dbs_data;
 	struct od_cpu_dbs_info_s *od_dbs_info = NULL;
 	struct cs_cpu_dbs_info_s *cs_dbs_info = NULL;
+	struct lb_cpu_dbs_info_s *lb_dbs_info = NULL;
 	struct od_ops *od_ops = NULL;
 	struct od_dbs_tuners *od_tuners = NULL;
 	struct cs_dbs_tuners *cs_tuners = NULL;
+	struct lb_dbs_tuners *lb_tuners = NULL;
 	struct cpu_dbs_common_info *cpu_cdbs;
-	unsigned int sampling_rate, latency, ignore_nice, j, cpu = policy->cpu;
+	unsigned int sampling_rate = 0, ignore_nice = 0, latency, j, cpu = policy->cpu;
 	int io_busy = 0;
 	int rc;
+	int governor = cdata->governor;
 
 	if (have_governor_per_policy())
 		dbs_data = policy->governor_data;
@@ -294,7 +312,7 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		set_sampling_rate(dbs_data, max(dbs_data->min_sampling_rate,
 					latency * LATENCY_MULTIPLIER));
 
-		if ((cdata->governor == GOV_CONSERVATIVE) &&
+		if ((governor == GOV_CONSERVATIVE) &&
 				(!policy->governor->initialized)) {
 			struct cs_ops *cs_ops = dbs_data->cdata->gov_ops;
 
@@ -314,7 +332,7 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			if (!have_governor_per_policy())
 				cpufreq_put_global_kobject();
 
-			if ((dbs_data->cdata->governor == GOV_CONSERVATIVE) &&
+			if ((governor == GOV_CONSERVATIVE) &&
 				(policy->governor->initialized == 1)) {
 				struct cs_ops *cs_ops = dbs_data->cdata->gov_ops;
 
@@ -333,24 +351,36 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
 	cpu_cdbs = dbs_data->cdata->get_cpu_cdbs(cpu);
 
-	if (dbs_data->cdata->governor == GOV_CONSERVATIVE) {
-		cs_tuners = dbs_data->tuners;
-		cs_dbs_info = dbs_data->cdata->get_cpu_dbs_info_s(cpu);
-		sampling_rate = cs_tuners->sampling_rate;
-		ignore_nice = cs_tuners->ignore_nice_load;
-	} else {
-		od_tuners = dbs_data->tuners;
-		od_dbs_info = dbs_data->cdata->get_cpu_dbs_info_s(cpu);
-		sampling_rate = od_tuners->sampling_rate;
-		ignore_nice = od_tuners->ignore_nice_load;
-		od_ops = dbs_data->cdata->gov_ops;
-		io_busy = od_tuners->io_is_busy;
-	}
-
 	switch (event) {
 	case CPUFREQ_GOV_START:
 		if (!policy->cur)
 			return -EINVAL;
+
+		if (governor == GOV_CONSERVATIVE) {
+			cs_tuners = dbs_data->tuners;
+			cs_dbs_info = dbs_data->cdata->get_cpu_dbs_info_s(cpu);
+			cs_dbs_info->down_skip = 0;
+			cs_dbs_info->requested_freq = policy->cur;
+			sampling_rate = cs_tuners->sampling_rate;
+			ignore_nice = cs_tuners->ignore_nice_load;
+			cs_dbs_info->enable = 1;
+		} else if (governor == GOV_ONDEMAND) {
+			od_tuners = dbs_data->tuners;
+			od_dbs_info = dbs_data->cdata->get_cpu_dbs_info_s(cpu);
+			od_dbs_info->rate_mult = 1;
+			od_dbs_info->sample_type = OD_NORMAL_SAMPLE;
+			sampling_rate = od_tuners->sampling_rate;
+			ignore_nice = od_tuners->ignore_nice_load;
+			od_ops = dbs_data->cdata->gov_ops;
+			io_busy = od_tuners->io_is_busy;
+			od_ops->powersave_bias_init_cpu(cpu);
+		} else {
+			lb_tuners = dbs_data->tuners;
+			lb_dbs_info = dbs_data->cdata->get_cpu_dbs_info_s(cpu);
+			lb_dbs_info->rate_mult = 1;
+			sampling_rate = lb_tuners->sampling_rate;
+			ignore_nice = lb_tuners->ignore_nice;
+		}
 
 		mutex_lock(&dbs_data->mutex);
 
@@ -371,20 +401,6 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 					     dbs_data->cdata->gov_dbs_timer);
 		}
 
-		/*
-		 * conservative does not implement micro like ondemand
-		 * governor, thus we are bound to jiffes/HZ
-		 */
-		if (dbs_data->cdata->governor == GOV_CONSERVATIVE) {
-			cs_dbs_info->down_skip = 0;
-			cs_dbs_info->enable = 1;
-			cs_dbs_info->requested_freq = policy->cur;
-		} else {
-			od_dbs_info->rate_mult = 1;
-			od_dbs_info->sample_type = OD_NORMAL_SAMPLE;
-			od_ops->powersave_bias_init_cpu(cpu);
-		}
-
 		mutex_unlock(&dbs_data->mutex);
 
 		/* Initiate timer time stamp */
@@ -395,7 +411,7 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_STOP:
-		if (dbs_data->cdata->governor == GOV_CONSERVATIVE)
+		if (governor == GOV_CONSERVATIVE)
 			cs_dbs_info->enable = 0;
 
 		gov_cancel_work(dbs_data, policy);
