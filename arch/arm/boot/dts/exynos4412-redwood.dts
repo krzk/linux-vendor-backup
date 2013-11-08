@@ -140,7 +140,6 @@
 
 	cpufreq {
 		freq_table;
-		boost_mode = "okay";
 		status = "okay";
 	};
 

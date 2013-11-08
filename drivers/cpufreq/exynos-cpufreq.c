@@ -277,6 +277,9 @@ static struct cpufreq_driver exynos_driver = {
 	.exit		= exynos_cpufreq_cpu_exit,
 	.name		= "exynos_cpufreq",
 	.attr		= exynos_cpufreq_attr,
+#ifdef CONFIG_CPU_FREQ_BOOST_SW
+	.boost_supported = true,
+#endif
 #ifdef CONFIG_PM
 	.suspend	= exynos_cpufreq_suspend,
 	.resume		= exynos_cpufreq_resume,
@@ -405,9 +408,6 @@ static struct of_device_id exynos_cpufreq_of_match[] = {
 
 static int exynos_cpufreq_probe(struct platform_device *pdev)
 {
-#ifdef CONFIG_CPU_FREQ_BOOST_SW
-	struct device_node *node = pdev->dev.of_node;
-#endif
 	int ret = -EINVAL;
 
 	exynos_info = kzalloc(sizeof(struct exynos_dvfs_info), GFP_KERNEL);
@@ -440,10 +440,6 @@ static int exynos_cpufreq_probe(struct platform_device *pdev)
 	}
 
 	locking_frequency = exynos_getspeed(0);
-#ifdef CONFIG_CPU_FREQ_BOOST_SW
-	if (of_property_read_bool(node, "boost_mode"))
-		exynos_driver.boost_supported = true;
-#endif
 
 	register_pm_notifier(&exynos_cpufreq_nb);
 
