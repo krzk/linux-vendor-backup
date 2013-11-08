@@ -1249,11 +1249,11 @@ static void slp_multi_destroy_device(struct slp_multi_dev *smdev)
 	struct device_attribute *attr;
 
 	while ((attr = *attrs++))
-		device_destroy(slp_multi_class, smdev->dev->devt);
+		device_remove_file(smdev->dev, attr);
 
 	dev_set_drvdata(smdev->dev, NULL);
 
-	device_unregister(smdev->dev);
+	device_destroy(slp_multi_class, smdev->dev->devt);
 }
 
 static CLASS_ATTR_STRING(version, S_IRUSR | S_IRGRP | S_IROTH,
