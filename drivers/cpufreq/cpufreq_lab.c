@@ -163,7 +163,11 @@ static void lb_dbs_timer(struct work_struct *work)
 
 	mutex_lock(&core_dbs_info->cdbs.timer_mutex);
 
-	dbs_check_cpu(dbs_data, cpu);
+	/* Enable overclocking always for LAB governor */
+	if (cpufreq_boost_supported() && unlikely(!cpufreq_boost_enabled()))
+		cpufreq_boost_trigger_state(1);
+	else
+		dbs_check_cpu(dbs_data, cpu);
 
 	delay = delay_for_sampling_rate(lb_tuners->sampling_rate
 						* core_dbs_info->rate_mult);
