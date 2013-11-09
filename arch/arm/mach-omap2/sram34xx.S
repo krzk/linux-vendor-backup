@@ -183,32 +183,42 @@ return_to_sdram:
 unlock_dll:
 	ldr	r11, omap3_sdrc_dlla_ctrl
 	ldr	r12, [r11]
+ARM_BE8(rev	r12, r12)
 	bic	r12, r12, #FIXEDDELAY_MASK
 	orr	r12, r12, #FIXEDDELAY_DEFAULT
 	orr	r12, r12, #DLLIDLE_MASK
+ARM_BE8(rev	r12, r12)
 	str	r12, [r11]		@ (no OCP barrier needed)
 	bx	lr
 lock_dll:
 	ldr	r11, omap3_sdrc_dlla_ctrl
 	ldr	r12, [r11]
+ARM_BE8(rev	r12, r12)
 	bic	r12, r12, #DLLIDLE_MASK
+ARM_BE8(rev	r12, r12)
 	str	r12, [r11]		@ (no OCP barrier needed)
 	bx	lr
 sdram_in_selfrefresh:
 	ldr	r11, omap3_sdrc_power	@ read the SDRC_POWER register
 	ldr	r12, [r11]		@ read the contents of SDRC_POWER
+ARM_BE8(rev	r12, r12)
 	mov	r9, r12			@ keep a copy of SDRC_POWER bits
 	orr 	r12, r12, #SRFRONIDLEREQ_MASK	@ enable self refresh on idle
+ARM_BE8(rev	r12, r12)
 	str 	r12, [r11]		@ write back to SDRC_POWER register
 	ldr	r12, [r11]		@ posted-write barrier for SDRC
+ARM_BE8(rev	r12, r12)
 idle_sdrc:
 	ldr	r11, omap3_cm_iclken1_core	@ read the CM_ICLKEN1_CORE reg
 	ldr	r12, [r11]
+ARM_BE8(rev	r12, r12)
 	bic	r12, r12, #EN_SDRC_MASK		@ disable iclk bit for SDRC
+ARM_BE8(rev	r12, r12)
 	str 	r12, [r11]
 wait_sdrc_idle:
 	ldr 	r11, omap3_cm_idlest1_core
 	ldr 	r12, [r11]
+ARM_BE8(rev	r12, r12)
 	and 	r12, r12, #ST_SDRC_MASK		@ check for SDRC idle
 	cmp 	r12, #ST_SDRC_MASK
 	bne 	wait_sdrc_idle
@@ -216,11 +226,14 @@ wait_sdrc_idle:
 configure_core_dpll:
 	ldr 	r11, omap3_cm_clksel1_pll
 	ldr	r12, [r11]
+ARM_BE8(rev	r12, r12)
 	ldr	r10, core_m2_mask_val	@ modify m2 for core dpll
 	and	r12, r12, r10
 	orr	r12, r12, r0, lsl #CORE_DPLL_CLKOUT_DIV_SHIFT
+ARM_BE8(rev	r12, r12)
 	str	r12, [r11]
 	ldr	r12, [r11]		@ posted-write barrier for CM
+ARM_BE8(rev	r12, r12)
 	bx	lr
 wait_clk_stable:
 	subs 	r12, r12, #1
@@ -229,21 +242,26 @@ wait_clk_stable:
 enable_sdrc:
 	ldr 	r11, omap3_cm_iclken1_core
 	ldr	r12, [r11]
+ARM_BE8(rev	r12, r12)
 	orr 	r12, r12, #EN_SDRC_MASK		@ enable iclk bit for SDRC
+ARM_BE8(rev	r12, r12)
 	str 	r12, [r11]
 wait_sdrc_idle1:
 	ldr 	r11, omap3_cm_idlest1_core
 	ldr	r12, [r11]
+ARM_BE8(rev	r12, r12)
 	and 	r12, r12, #ST_SDRC_MASK
 	cmp	r12, #0
 	bne	wait_sdrc_idle1
 restore_sdrc_power_val:
 	ldr	r11, omap3_sdrc_power
+ARM_BE8(rev	r9, r9)
 	str	r9, [r11]		@ restore SDRC_POWER, no barrier needed
 	bx	lr
 wait_dll_lock:
 	ldr	r11, omap3_sdrc_dlla_status
 	ldr	r12, [r11]
+ARM_BE8(rev	r12, r12)
 	and 	r12, r12, #LOCKSTATUS_MASK
 	cmp	r12, #LOCKSTATUS_MASK
 	bne	wait_dll_lock
@@ -251,6 +269,7 @@ wait_dll_lock:
 wait_dll_unlock:
 	ldr	r11, omap3_sdrc_dlla_status
 	ldr	r12, [r11]
+ARM_BE8(rev	r12, r12)
 	and	r12, r12, #LOCKSTATUS_MASK
 	cmp	r12, #0x0
 	bne	wait_dll_unlock
@@ -258,32 +277,40 @@ wait_dll_unlock:
 configure_sdrc:
 	ldr	r12, omap_sdrc_rfr_ctrl_0_val	@ fetch value from SRAM
 	ldr	r11, omap3_sdrc_rfr_ctrl_0	@ fetch addr from SRAM
+ARM_BE8(rev	r12, r12)
 	str	r12, [r11]			@ store
 #ifdef CONFIG_OMAP3_SDRC_AC_TIMING
 	ldr	r12, omap_sdrc_actim_ctrl_a_0_val
 	ldr	r11, omap3_sdrc_actim_ctrl_a_0
+ARM_BE8(rev	r12, r12)
 	str	r12, [r11]
 	ldr	r12, omap_sdrc_actim_ctrl_b_0_val
 	ldr	r11, omap3_sdrc_actim_ctrl_b_0
+ARM_BE8(rev	r12, r12)
 	str	r12, [r11]
 	ldr	r12, omap_sdrc_mr_0_val
 	ldr	r11, omap3_sdrc_mr_0
+ARM_BE8(rev	r12, r12)
 	str	r12, [r11]
 #endif
 	ldr	r12, omap_sdrc_rfr_ctrl_1_val
 	cmp	r12, #0			@ if SDRC_RFR_CTRL_1 is 0,
 	beq	skip_cs1_prog		@  do not program cs1 params
 	ldr	r11, omap3_sdrc_rfr_ctrl_1
+ARM_BE8(rev	r12, r12)
 	str	r12, [r11]
 #ifdef CONFIG_OMAP3_SDRC_AC_TIMING
 	ldr	r12, omap_sdrc_actim_ctrl_a_1_val
 	ldr	r11, omap3_sdrc_actim_ctrl_a_1
+ARM_BE8(rev	r12, r12)
 	str	r12, [r11]
 	ldr	r12, omap_sdrc_actim_ctrl_b_1_val
 	ldr	r11, omap3_sdrc_actim_ctrl_b_1
+ARM_BE8(rev	r12, r12)
 	str	r12, [r11]
 	ldr	r12, omap_sdrc_mr_1_val
 	ldr	r11, omap3_sdrc_mr_1
+ARM_BE8(rev	r12, r12)
 	str	r12, [r11]
 #endif
 skip_cs1_prog:

@@ -243,7 +243,9 @@ kernel_flush:
 ENTRY(omap3_do_wfi)
 	ldr	r4, sdrc_power		@ read the SDRC_POWER register
 	ldr	r5, [r4]		@ read the contents of SDRC_POWER
+ARM_BE8(rev	r5, r5)
 	orr	r5, r5, #0x40		@ enable self refresh on idle req
+ARM_BE8(rev	r5, r5)
 	str	r5, [r4]		@ write back to SDRC_POWER register
 
 	/* Data memory barrier and Data sync barrier */
@@ -290,18 +292,22 @@ wait_sdrc_ok:
 	ldr	r4, cm_idlest_ckgen
 wait_dpll3_lock:
 	ldr	r5, [r4]
+ARM_BE8(rev	r5, r5)
 	tst	r5, #1
 	beq	wait_dpll3_lock
 
 	ldr	r4, cm_idlest1_core
 wait_sdrc_ready:
 	ldr	r5, [r4]
+ARM_BE8(rev	r5, r5)
 	tst	r5, #0x2
 	bne	wait_sdrc_ready
 	/* allow DLL powerdown upon hw idle req */
 	ldr	r4, sdrc_power
 	ldr	r5, [r4]
+ARM_BE8(rev	r5, r5)
 	bic	r5, r5, #0x40
+ARM_BE8(rev	r5, r5)
 	str	r5, [r4]
 
 /*
@@ -314,6 +320,7 @@ is_dll_in_lock_mode:
 	/* Is dll in lock mode? */
 	ldr	r4, sdrc_dlla_ctrl
 	ldr	r5, [r4]
+ARM_BE8(rev	r5, r5)
 	tst	r5, #0x4
 	bne	exit_nonoff_modes	@ Return if locked
 	/* wait till dll locks */
@@ -329,6 +336,7 @@ wait_dll_lock:
 	subs	r6, r6, #0x1
 	beq	kick_dll
 	ldr	r5, [r4]
+ARM_BE8(rev	r5, r5)
 	and	r5, r5, #0x4
 	cmp	r5, #0x4
 	bne	wait_dll_lock
@@ -338,11 +346,15 @@ wait_dll_lock:
 kick_dll:
 	ldr	r4, sdrc_dlla_ctrl
 	ldr	r5, [r4]
+ARM_BE8(rev	r5, r5)
 	mov	r6, r5
 	bic	r6, #(1<<3)		@ disable dll
+ARM_BE8(rev	r6, r6)
 	str	r6, [r4]
 	dsb
+ARM_BE8(rev	r6, r6)
 	orr	r6, r6, #(1<<3)		@ enable dll
+ARM_BE8(rev	r6, r6)
 	str	r6, [r4]
 	dsb
 	ldr	r4, kick_counter
@@ -413,6 +425,7 @@ ENTRY(omap3_do_wfi_sz)
 ENTRY(omap3_restore_es3)
 	ldr	r5, pm_prepwstst_core_p
 	ldr	r4, [r5]
+ARM_BE8(rev	r4, r4)
 	and	r4, r4, #0x3
 	cmp	r4, #0x0	@ Check if previous power state of CORE is OFF
 	bne	omap3_restore	@ Fall through to OMAP3 common code
@@ -433,12 +446,14 @@ ENDPROC(omap3_restore_es3)
 ENTRY(omap3_restore_3630)
 	ldr	r1, pm_prepwstst_core_p
 	ldr	r2, [r1]
+ARM_BE8(rev	r2, r2)
 	and	r2, r2, #0x3
 	cmp	r2, #0x0	@ Check if previous power state of CORE is OFF
 	bne	omap3_restore	@ Fall through to OMAP3 common code
 	/* Disable RTA before giving control */
 	ldr	r1, control_mem_rta
 	mov	r2, #OMAP36XX_RTA_DISABLE
+ARM_BE8(rev	r2, r2)
 	str	r2, [r1]
 ENDPROC(omap3_restore_3630)
 
@@ -451,6 +466,7 @@ ENTRY(omap3_restore)
 	 */
 	ldr	r1, pm_pwstctrl_mpu
 	ldr	r2, [r1]
+ARM_BE8(rev	r2, r2)
 	and	r2, r2, #0x3
 	cmp	r2, #0x0	@ Check if target power state was OFF or RET
 	bne	logic_l1_restore
@@ -464,6 +480,7 @@ ENTRY(omap3_restore)
 skipl2dis:
 	ldr	r0, control_stat
 	ldr	r1, [r0]
+ARM_BE8(rev	r1, r1)
 	and	r1, #0x700
 	cmp	r1, #0x300
 	beq	l2_inv_gp
@@ -484,6 +501,7 @@ skipl2dis:
 	mov	r6, #0xff
 	ldr	r4, scratchpad_base
 	ldr	r3, [r4, #0xBC]		@ r3 points to parameters
+ARM_BE8(rev	r3, r3)
 	dsb				@ data write barrier
 	dmb				@ data memory barrier
 	smc	#1			@ call SMI monitor (smi #1)
@@ -498,6 +516,7 @@ skipl2dis:
 	mov	r6, #0xff
 	ldr	r4, scratchpad_base
 	ldr	r3, [r4, #0xBC]
+ARM_BE8(rev	r3, r3)
 	adds	r3, r3, #8		@ r3 points to parameters
 	dsb				@ data write barrier
 	dmb				@ data memory barrier
@@ -515,12 +534,16 @@ l2_inv_gp:
 	/* Write to Aux control register to set some bits */
 	ldr	r4, scratchpad_base
 	ldr	r3, [r4,#0xBC]
+ARM_BE8(rev	r3, r3)
 	ldr	r0, [r3,#4]
+ARM_BE8(rev	r0, r0)
 	mov	r12, #0x3
 	smc	#0			@ Call SMI monitor (smieq)
 	ldr	r4, scratchpad_base
 	ldr	r3, [r4,#0xBC]
+ARM_BE8(rev	r3, r3)
 	ldr	r0, [r3,#12]
+ARM_BE8(rev	r0, r0)
 	mov	r12, #0x2
 	smc	#0			@ Call SMI monitor (smieq)
 logic_l1_restore:
@@ -569,9 +592,11 @@ l2dis_3630:
 ENTRY(es3_sdrc_fix)
 	ldr	r4, sdrc_syscfg		@ get config addr
 	ldr	r5, [r4]		@ get value
+ARM_BE8(rev	r5, r5)
 	tst	r5, #0x100		@ is part access blocked
 	it	eq
 	biceq	r5, r5, #0x100		@ clear bit if set
+ARM_BE8(rev	r5, r5)
 	str	r5, [r4]		@ write back change
 	ldr	r4, sdrc_mr_0		@ get config addr
 	ldr	r5, [r4]		@ get value
@@ -581,6 +606,7 @@ ENTRY(es3_sdrc_fix)
 	str	r5, [r4]		@ write back change
 	ldr	r4, sdrc_manual_0	@ get config addr
 	mov	r5, #0x2		@ autorefresh command
+ARM_BE8(rev	r5, r5)
 	str	r5, [r4]		@ kick off refreshes
 	ldr	r4, sdrc_mr_1		@ get config addr
 	ldr	r5, [r4]		@ get value
@@ -590,6 +616,7 @@ ENTRY(es3_sdrc_fix)
 	str	r5, [r4]		@ write back change
 	ldr	r4, sdrc_manual_1	@ get config addr
 	mov	r5, #0x2		@ autorefresh command
+ARM_BE8(rev	r5, r5)
 	str	r5, [r4]		@ kick off refreshes
 	bx	lr
 
