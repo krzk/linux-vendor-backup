@@ -161,17 +161,20 @@ static void lb_dbs_timer(struct work_struct *work)
 	struct lb_dbs_tuners *lb_tuners = dbs_data->tuners;
 	int delay;
 
-	mutex_lock(&core_dbs_info->cdbs.timer_mutex);
-
 	/* Enable overclocking always for LAB governor */
-	if (cpufreq_boost_supported() && unlikely(!cpufreq_boost_enabled()))
+	if (cpufreq_boost_supported() && unlikely(!cpufreq_boost_enabled())) {
+		/* To avoid deadlock, mutex_lock() is called
+		 * after cpufreq_boost_trigger_state().
+		 */
 		cpufreq_boost_trigger_state(1);
-	else
+		mutex_lock(&core_dbs_info->cdbs.timer_mutex);
+	} else {
+		mutex_lock(&core_dbs_info->cdbs.timer_mutex);
 		dbs_check_cpu(dbs_data, cpu);
+	}
 
 	delay = delay_for_sampling_rate(lb_tuners->sampling_rate
 						* core_dbs_info->rate_mult);
-
 	gov_queue_work(dbs_data, dbs_info->cdbs.cur_policy, delay, false);
 	mutex_unlock(&core_dbs_info->cdbs.timer_mutex);
 }
@@ -284,7 +287,7 @@ static int lb_init(struct dbs_data *dbs_data)
 	u64 idle_time;
 	int cpu;
 
-	tuners = kzalloc(sizeof(struct od_dbs_tuners), GFP_KERNEL);
+	tuners = kzalloc(sizeof(struct lb_dbs_tuners), GFP_KERNEL);
 	if (!tuners) {
 		pr_err("%s: kzalloc failed\n", __func__);
 		return -ENOMEM;
@@ -329,7 +332,7 @@ static void lb_exit(struct dbs_data *dbs_data)
 
 define_get_cpu_dbs_routines(lb_cpu_dbs_info);
 
-static struct common_dbs_data lb_dbs_data = {
+static struct common_dbs_data lb_dbs_cdata = {
 	.governor = GOV_LAB,
 	.attr_group_gov_sys = &lb_attr_group_gov_sys,
 	.attr_group_gov_pol = &lb_attr_group_gov_pol,
@@ -344,7 +347,7 @@ static struct common_dbs_data lb_dbs_data = {
 static int lb_cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		unsigned int event)
 {
-	return cpufreq_governor_dbs(policy, &lb_dbs_data, event);
+	return cpufreq_governor_dbs(policy, &lb_dbs_cdata, event);
 }
 
 #ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_LAB
