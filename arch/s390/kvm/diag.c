@@ -106,7 +106,7 @@ static int __diag_ipl_functions(struct kvm_vcpu *vcpu)
 
 int kvm_s390_handle_diag(struct kvm_vcpu *vcpu)
 {
-	int code = (vcpu->arch.sie_block->ipb & 0xfff0000) >> 16;
+	int code = kvm_s390_get_base_disp_rs(vcpu) & 0xffff;
 
 	trace_kvm_s390_handle_diag(vcpu, code);
 	switch (code) {
