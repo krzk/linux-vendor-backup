@@ -53,8 +53,6 @@ struct sdhci_s3c {
 	struct resource		*ioarea;
 	struct s3c_sdhci_platdata *pdata;
 	unsigned int		cur_clk;
-	int			ext_cd_irq;
-	int			ext_cd_gpio;
 
 	struct clk		*clk_io;
 	struct clk		*clk_bus[MAX_BUS_CLK];
@@ -394,7 +392,6 @@ static int sdhci_s3c_parse_dt(struct device *dev,
 		struct sdhci_host *host, struct s3c_sdhci_platdata *pdata)
 {
 	struct device_node *node = dev->of_node;
-	struct sdhci_s3c *ourhost = to_s3c(host);
 	u32 max_width;
 	int gpio;
 
@@ -418,7 +415,6 @@ static int sdhci_s3c_parse_dt(struct device *dev,
 	if (gpio_is_valid(gpio)) {
 		pdata->cd_type = S3C_SDHCI_CD_GPIO;
 		pdata->ext_cd_gpio = gpio;
-		ourhost->ext_cd_gpio = -1;
 		if (of_get_property(node, "cd-inverted", NULL))
 			pdata->ext_cd_gpio_invert = 1;
 		return 0;
@@ -493,10 +489,9 @@ static int sdhci_s3c_probe(struct platform_device *pdev)
 		ret = sdhci_s3c_parse_dt(&pdev->dev, host, pdata);
 		if (ret)
 			goto err_pdata_io_clk;
-	} else {
+	} else
 		memcpy(pdata, pdev->dev.platform_data, sizeof(*pdata));
-		sc->ext_cd_gpio = -1; /* invalid gpio number */
-	}
+
 
 	drv_data = sdhci_s3c_get_driver_data(pdev);
 
@@ -656,6 +651,7 @@ static int sdhci_s3c_probe(struct platform_device *pdev)
 				"failed to request card detect gpio\n");
 			goto err_req_cd;
 		}
+		irq_set_irq_wake(gpio_to_irq(pdata->ext_cd_gpio), 1);
 	}
 
 #ifdef CONFIG_PM_RUNTIME
