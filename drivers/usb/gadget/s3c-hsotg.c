@@ -1232,7 +1232,9 @@ static void s3c_hsotg_process_control(struct s3c_hsotg *hsotg,
 	/* as a fallback, try delivering it to the driver to deal with */
 
 	if (ret == 0 && hsotg->driver) {
+		spin_unlock(&hsotg->lock);
 		ret = hsotg->driver->setup(&hsotg->gadget, ctrl);
+		spin_lock(&hsotg->lock);
 		if (ret < 0)
 			dev_dbg(hsotg->dev, "driver->setup() ret %d\n", ret);
 	}
@@ -1292,10 +1294,12 @@ static void s3c_hsotg_complete_setup(struct usb_ep *ep,
 		return;
 	}
 
+	spin_lock(&hsotg->lock);
 	if (req->actual == 0)
 		s3c_hsotg_enqueue_setup(hsotg);
 	else
 		s3c_hsotg_process_control(hsotg, req->buf);
+	spin_unlock(&hsotg->lock);
 }
 
 /**
