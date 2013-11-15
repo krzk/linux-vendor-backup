@@ -18,4 +18,5 @@ struct exynos_asv_common {
 	void __iomem *base;
 };
 
+extern int exynos5250_asv_init(struct exynos_asv_common *exynos_info);
 #endif	/* __EXYNOS_ASV_D_H */
