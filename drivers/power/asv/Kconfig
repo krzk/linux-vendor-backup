@@ -1,0 +1,10 @@
+menuconfig POWER_ASV
+	bool "Adaptive Supply Voltage (ASV) support"
+	help
+	  ASV is a technique used on Samsung SoCs which provides the
+	  recommended supply voltage for some specific parts(like CPU, MIF, etc)
+	  that support DVFS. For a given operating frequency, the voltage is
+	  recommended based on SoCs ASV group. ASV group info is provided in the
+	  chip id info which depends on the chip manufacturing process.
+
+	  Say Y here to enable Adaptive Supply Voltage support.
