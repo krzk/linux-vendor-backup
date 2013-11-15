@@ -46,9 +46,17 @@ static int exynos_asv_probe(struct platform_device *pdev)
 	exynos_asv_info->base = base;
 
 	/* call SoC specific intialisation routine */
+	if (of_machine_is_compatible("samsung,exynos5250")) {
+		ret = exynos5250_asv_init(exynos_asv_info);
+		if (ret) {
+			pr_err("exynos5250_asv_init failed : %d\n", ret);
+			goto err;
+		}
+	}
 
 	register_asv_member(exynos_asv_info->asv_list, exynos_asv_info->nr_mem);
 
+err:
 	iounmap(base);
 err_map:
 	of_node_put(chip_id);
