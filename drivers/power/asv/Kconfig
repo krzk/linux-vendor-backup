@@ -8,3 +8,16 @@ menuconfig POWER_ASV
 	  chip id info which depends on the chip manufacturing process.
 
 	  Say Y here to enable Adaptive Supply Voltage support.
+
+if POWER_ASV
+
+config POWER_EXYNOS_ASV
+	bool "Adaptive Supply Voltage for Exynos"
+	help
+	  Exynos supports ASV depending upon the ASV group fused on chip.
+	  Users can request ASV specific to a frequency for a particular member
+	  from corresponding DVFS driver.
+
+	  Say Y here to enable Exynos Adaptive Supply Voltage.
+
+endif
