@@ -71,4 +71,8 @@
 	usbphy: usb-phy@3f130000 {
 		status = "okay";
 	};
+
+	pwm: pwm@3e01a000 {
+		status = "okay";
+	};
 };
