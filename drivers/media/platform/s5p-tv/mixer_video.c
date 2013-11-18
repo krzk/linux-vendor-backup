@@ -1133,6 +1133,7 @@ struct mxr_layer *mxr_base_layer_create(struct mxr_device *mdev,
 		.buf_struct_size = sizeof(struct mxr_buffer),
 		.ops = &mxr_video_qops,
 		.mem_ops = &vb2_dma_contig_memops,
+		.timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC,
 	};
 
 	return layer;
