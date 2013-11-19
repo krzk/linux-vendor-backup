@@ -130,7 +130,7 @@ void gic_dist_disable(void)
 void gic_dist_enable(void)
 {
 	if (gic_dist_base_addr)
-		__raw_writel(0x1, gic_dist_base_addr + GIC_DIST_CTRL);
+		writel_relaxed(0x1, gic_dist_base_addr + GIC_DIST_CTRL);
 }
 
 bool gic_dist_disabled(void)
