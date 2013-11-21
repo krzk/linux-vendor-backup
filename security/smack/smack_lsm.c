@@ -2726,6 +2726,15 @@ static void smack_d_instantiate(struct dentry *opt_dentry, struct inode *inode)
 	 * of the superblock.
 	 */
 	if (opt_dentry->d_parent == opt_dentry) {
+		if (sbp->s_magic == CGROUP_SUPER_MAGIC) {
+			/*
+			 * The cgroup filesystem is never mounted,
+			 * so there's no opportunity to set the mount
+			 * options.
+			 */
+			sbsp->smk_root = smack_known_star.smk_known;
+			sbsp->smk_default = smack_known_star.smk_known;
+		}
 		isp->smk_inode = sbsp->smk_root;
 		isp->smk_flags |= SMK_INODE_INSTANT;
 		goto unlockandout;
@@ -2739,16 +2748,20 @@ static void smack_d_instantiate(struct dentry *opt_dentry, struct inode *inode)
 	 */
 	switch (sbp->s_magic) {
 	case SMACK_MAGIC:
+	case PIPEFS_MAGIC:
+	case SOCKFS_MAGIC:
+	case CGROUP_SUPER_MAGIC:
 		/*
 		 * Casey says that it's a little embarrassing
 		 * that the smack file system doesn't do
 		 * extended attributes.
-		 */
-		final = smack_known_star.smk_known;
-		break;
-	case PIPEFS_MAGIC:
-		/*
+		 *
 		 * Casey says pipes are easy (?)
+		 *
+		 * Socket access is controlled by the socket
+		 * structures associated with the task involved.
+		 *
+		 * Cgroupfs is special
 		 */
 		final = smack_known_star.smk_known;
 		break;
@@ -2759,13 +2772,6 @@ static void smack_d_instantiate(struct dentry *opt_dentry, struct inode *inode)
 		 * pty with respect.
 		 */
 		final = ckp->smk_known;
-		break;
-	case SOCKFS_MAGIC:
-		/*
-		 * Socket access is controlled by the socket
-		 * structures associated with the task involved.
-		 */
-		final = smack_known_star.smk_known;
 		break;
 	case PROC_SUPER_MAGIC:
 		/*
