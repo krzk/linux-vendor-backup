@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.8.13.12 Kernel Configuration
+# Linux/arm 3.8.13.13 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -2528,6 +2528,7 @@ CONFIG_DVB_TDA665x=m
 CONFIG_DVB_IX2505V=m
 CONFIG_DVB_IT913X_FE=m
 CONFIG_DVB_M88RS2000=m
+CONFIG_DVB_TS2020=m
 CONFIG_DVB_AF9033=m
 
 #
