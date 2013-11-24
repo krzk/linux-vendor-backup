@@ -103,3 +103,4 @@ obj-$(CONFIG_DVB_RTL2832) += rtl2832.o
 obj-$(CONFIG_DVB_M88RS2000) += m88rs2000.o
 obj-$(CONFIG_DVB_AF9033) += af9033.o
 
+obj-$(CONFIG_DVB_TS2020) += ts2020.o

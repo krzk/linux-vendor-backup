@@ -728,6 +728,14 @@ config DVB_M88RS2000
 	  A DVB-S tuner module.
 	  Say Y when you want to support this frontend.
 
+config DVB_TS2020
+        tristate "Montage Tehnology TS2020 based tuners"
+        depends on DVB_CORE && I2C
+        default m if !MEDIA_SUBDRV_AUTOSELECT
+        help
+          A DVB-S/S2 silicon tuner. Say Y when you want to support this tuner.
+
+
 config DVB_AF9033
 	tristate "Afatech AF9033 DVB-T demodulator"
 	depends on DVB_CORE && I2C
