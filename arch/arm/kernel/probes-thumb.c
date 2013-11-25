@@ -859,7 +859,7 @@ static void __kprobes thumb32_singlestep(probes_opcode_t opcode,
 	regs->ARM_cpsr = it_advance(regs->ARM_cpsr);
 }
 
-enum kprobe_insn __kprobes
+enum probes_insn __kprobes
 thumb16_kprobe_decode_insn(probes_opcode_t insn, struct arch_specific_insn *asi,
 			   struct decode_header *actions)
 {
@@ -869,7 +869,7 @@ thumb16_kprobe_decode_insn(probes_opcode_t insn, struct arch_specific_insn *asi,
 				  (const union decode_item *) actions);
 }
 
-enum kprobe_insn __kprobes
+enum probes_insn __kprobes
 thumb32_kprobe_decode_insn(probes_opcode_t insn, struct arch_specific_insn *asi,
 			   struct decode_header *actions)
 {

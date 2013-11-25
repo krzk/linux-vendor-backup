@@ -65,7 +65,7 @@ t32_simulate_cond_branch(probes_opcode_t insn,
 	regs->ARM_pc = pc + (offset * 2);
 }
 
-static enum kprobe_insn __kprobes
+static enum probes_insn __kprobes
 t32_decode_cond_branch(probes_opcode_t insn, struct arch_specific_insn *asi,
 		struct decode_header *d)
 {
@@ -141,11 +141,11 @@ t32_simulate_ldr_literal(probes_opcode_t insn,
 	regs->uregs[rt] = rtv;
 }
 
-enum kprobe_insn __kprobes
+enum probes_insn __kprobes
 t32_decode_ldmstm(probes_opcode_t insn, struct arch_specific_insn *asi,
 		struct decode_header *d)
 {
-	enum kprobe_insn ret = kprobe_decode_ldmstm(insn, asi, d);
+	enum probes_insn ret = kprobe_decode_ldmstm(insn, asi, d);
 
 	/* Fixup modified instruction to have halfwords in correct order...*/
 	insn = asi->insn[0];
@@ -401,7 +401,7 @@ t16_singlestep_it(probes_opcode_t insn,
 	t16_simulate_it(insn, asi, regs);
 }
 
-static enum kprobe_insn __kprobes
+static enum probes_insn __kprobes
 t16_decode_it(probes_opcode_t insn, struct arch_specific_insn *asi,
 		struct decode_header *d)
 {
@@ -419,7 +419,7 @@ t16_simulate_cond_branch(probes_opcode_t insn,
 	regs->ARM_pc = pc + (offset * 2);
 }
 
-static enum kprobe_insn __kprobes
+static enum probes_insn __kprobes
 t16_decode_cond_branch(probes_opcode_t insn, struct arch_specific_insn *asi,
 		struct decode_header *d)
 {
@@ -509,7 +509,7 @@ t16_emulate_hiregs(probes_opcode_t insn,
 	regs->ARM_cpsr = (regs->ARM_cpsr & ~APSR_MASK) | (cpsr & APSR_MASK);
 }
 
-static enum kprobe_insn __kprobes
+static enum probes_insn __kprobes
 t16_decode_hiregs(probes_opcode_t insn, struct arch_specific_insn *asi,
 		struct decode_header *d)
 {
@@ -537,7 +537,7 @@ t16_emulate_push(probes_opcode_t insn,
 		);
 }
 
-static enum kprobe_insn __kprobes
+static enum probes_insn __kprobes
 t16_decode_push(probes_opcode_t insn, struct arch_specific_insn *asi,
 		struct decode_header *d)
 {
@@ -590,7 +590,7 @@ t16_emulate_pop_pc(probes_opcode_t insn,
 	bx_write_pc(pc, regs);
 }
 
-enum kprobe_insn __kprobes
+enum probes_insn __kprobes
 t16_decode_pop(probes_opcode_t insn, struct arch_specific_insn *asi,
 		struct decode_header *d)
 {

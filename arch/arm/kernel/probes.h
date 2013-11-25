@@ -136,7 +136,7 @@ void __kprobes probes_simulate_nop(probes_opcode_t, struct arch_specific_insn *,
 void __kprobes probes_emulate_none(probes_opcode_t, struct arch_specific_insn *,
 		struct pt_regs *regs);
 
-enum kprobe_insn __kprobes
+enum probes_insn __kprobes
 kprobe_decode_ldmstm(probes_opcode_t insn, struct arch_specific_insn *asi,
 		struct decode_header *h);
 
@@ -385,6 +385,11 @@ struct decode_reject {
 #define DECODE_REJECT(_mask, _value)				\
 	DECODE_HEADER(DECODE_TYPE_REJECT, _mask, _value, 0)
 
+enum probes_insn {
+	INSN_REJECTED,
+	INSN_GOOD,
+	INSN_GOOD_NO_SLOT
+};
 
 #ifdef CONFIG_THUMB2_KERNEL
 extern const union decode_item kprobe_decode_thumb16_table[];
