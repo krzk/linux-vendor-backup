@@ -193,7 +193,7 @@ void __kprobes probes_emulate_none(probes_opcode_t opcode,
  */
 static probes_opcode_t __kprobes
 prepare_emulated_insn(probes_opcode_t insn, struct arch_specific_insn *asi,
-								bool thumb)
+			bool thumb)
 {
 #ifdef CONFIG_THUMB2_KERNEL
 	if (thumb) {
@@ -218,7 +218,7 @@ prepare_emulated_insn(probes_opcode_t insn, struct arch_specific_insn *asi,
  */
 static void  __kprobes
 set_emulated_insn(probes_opcode_t insn, struct arch_specific_insn *asi,
-								bool thumb)
+			bool thumb)
 {
 #ifdef CONFIG_THUMB2_KERNEL
 	if (thumb) {
@@ -253,7 +253,7 @@ set_emulated_insn(probes_opcode_t insn, struct arch_specific_insn *asi,
  * non-zero value, the corresponding nibble in pinsn is validated and modified
  * according to the type.
  */
-static bool __kprobes decode_regs(probes_opcode_t *pinsn, u32 regs)
+static bool __kprobes decode_regs(probes_opcode_t *pinsn, u32 regs, bool modify)
 {
 	probes_opcode_t insn = *pinsn;
 	probes_opcode_t mask = 0xf; /* Start at least significant nibble */
@@ -317,9 +317,16 @@ static bool __kprobes decode_regs(probes_opcode_t *pinsn, u32 regs)
 		/* Replace value of nibble with new register number... */
 		insn &= ~mask;
 		insn |= new_bits & mask;
+		if (modify) {
+			/* Replace value of nibble with new register number */
+			insn &= ~mask;
+			insn |= new_bits & mask;
+		}
 	}
 
-	*pinsn = insn;
+	if (modify)
+		*pinsn = insn;
+
 	return true;
 
 reject:
@@ -380,14 +387,15 @@ static const int decode_struct_sizes[NUM_DECODE_TYPES] = {
  */
 int __kprobes
 probes_decode_insn(probes_opcode_t insn, struct arch_specific_insn *asi,
-				const union decode_item *table, bool thumb,
-				const union decode_item *actions)
+		   const union decode_item *table, bool thumb,
+		   bool emulate, const union decode_item *actions)
 {
 	struct decode_header *h = (struct decode_header *)table;
 	struct decode_header *next;
 	bool matched = false;
 
-	insn = prepare_emulated_insn(insn, asi, thumb);
+	if (emulate)
+		insn = prepare_emulated_insn(insn, asi, thumb);
 
 	for (;; h = next) {
 		enum decode_type type = h->type_regs.bits & DECODE_TYPE_MASK;
@@ -402,7 +410,7 @@ probes_decode_insn(probes_opcode_t insn, struct arch_specific_insn *asi,
 		if (!matched && (insn & h->mask.bits) != h->value.bits)
 			continue;
 
-		if (!decode_regs(&insn, regs))
+		if (!decode_regs(&insn, regs, emulate))
 			return INSN_REJECTED;
 
 		switch (type) {
@@ -415,7 +423,8 @@ probes_decode_insn(probes_opcode_t insn, struct arch_specific_insn *asi,
 
 		case DECODE_TYPE_CUSTOM: {
 			struct decode_custom *d = (struct decode_custom *)h;
-			return actions[d->decoder.bits].decoder(insn, asi, h);
+			return actions[d->decoder.bits].decoder(insn,
+					asi, h);
 		}
 
 		case DECODE_TYPE_SIMULATE: {
@@ -426,6 +435,11 @@ probes_decode_insn(probes_opcode_t insn, struct arch_specific_insn *asi,
 
 		case DECODE_TYPE_EMULATE: {
 			struct decode_emulate *d = (struct decode_emulate *)h;
+
+			if (!emulate)
+				return actions[d->handler.bits].decoder(insn,
+								asi, h);
+
 			asi->insn_handler = actions[d->handler.bits].handler;
 			set_emulated_insn(insn, asi, thumb);
 			return INSN_GOOD;

@@ -87,7 +87,8 @@ int __kprobes arch_prepare_kprobe(struct kprobe *p)
 	p->opcode = insn;
 	p->ainsn.insn = tmp_insn;
 
-	switch ((*decode_insn)(insn, &p->ainsn, actions)) {
+	switch ((*decode_insn)(insn, &p->ainsn,
+			       true, actions)) {
 	case INSN_REJECTED:	/* not supported */
 		return -EINVAL;
 
