@@ -22,6 +22,10 @@
 #include "mali_kernel_common.h"
 #include "mali_osk.h"
 
+#ifdef CONFIG_MALI400_PROFILING
+#include "mali_osk_profiling.h"
+#endif
+
 #include "exynos4.h"
 
 struct mali_exynos_variant {
@@ -118,6 +122,20 @@ const struct of_device_id mali_of_matches[] = {
 	{ /* Sentinel */ }
 };
 
+#ifdef CONFIG_MALI400_PROFILING
+static inline void _mali_osk_profiling_add_gpufreq_event(int rate, int vol)
+{
+	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
+		 MALI_PROFILING_EVENT_CHANNEL_GPU |
+		 MALI_PROFILING_EVENT_REASON_SINGLE_GPU_FREQ_VOLT_CHANGE,
+		 rate, vol, 0, 0, 0);
+}
+#else
+static inline void _mali_osk_profiling_add_gpufreq_event(int rate, int vol)
+{
+}
+#endif
+
 /*
  * DVFS control
  */
@@ -136,6 +154,8 @@ static void mali_exynos_set_dvfs_step(struct mali_exynos_drvdata *mali,
 	if (step > mali->dvfs_step)
 		clk_set_rate(mali->sclk_g3d, next->rate);
 
+	_mali_osk_profiling_add_gpufreq_event(next->rate / 1000000,
+		 regulator_get_voltage(mali->vdd_g3d) / 1000);
 	mali->dvfs_step = step;
 }
 
@@ -185,6 +205,7 @@ _mali_osk_errcode_t mali_platform_power_mode_change(mali_power_mode power_mode)
 	case MALI_POWER_MODE_LIGHT_SLEEP:
 	case MALI_POWER_MODE_DEEP_SLEEP:
 		clk_disable_unprepare(mali->sclk_g3d);
+		_mali_osk_profiling_add_gpufreq_event(0, 0);
 		break;
 	}
 
@@ -311,6 +332,8 @@ _mali_osk_errcode_t mali_platform_deinit(void)
 	pm_runtime_disable(&pdev->dev);
 
 	regulator_disable(mali->vdd_g3d);
+
+	_mali_osk_profiling_add_gpufreq_event(0, 0);
 
 	MALI_SUCCESS;
 }
