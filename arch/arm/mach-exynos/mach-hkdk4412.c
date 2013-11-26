@@ -116,6 +116,16 @@ static struct usb3503_platform_data usb3503_pdata = {
 };
 #endif
 
+#if defined(CONFIG_SND_SOC_MAX98090)
+#include <sound/max98090.h>
+static struct max98090_pdata max98090 = {
+	.digmic_left_mode	= 0,
+	.digmic_right_mode	= 0,
+	.digmic_3_mode		= 0,
+	.digmic_4_mode		= 0,
+};
+#endif
+
 static struct i2c_board_info hkdk4412_i2c_devs0[] __initdata = {
 	{
 		I2C_BOARD_INFO("max77686", (0x12 >> 1)),
@@ -133,6 +143,8 @@ static struct i2c_board_info hkdk4412_i2c_devs1[] __initdata = {
 #if defined(CONFIG_SND_SOC_MAX98090)
 	{
 		I2C_BOARD_INFO("max98090", (0x20>>1)),
+		.platform_data  = &max98090,
+		.irq		= IRQ_EINT(0),
 	},
 #endif
 };
@@ -287,7 +299,7 @@ static struct platform_device hkdk4412_gpio_keys = {
 
 #if defined(CONFIG_SND_SOC_HKDK_MAX98090)
 static struct platform_device hardkernel_audio_device = {
-	.name	= "hkdk-snd-max89090",
+	.name	= "hkdk-snd-max98090",
 	.id	= -1,
 };
 #endif
