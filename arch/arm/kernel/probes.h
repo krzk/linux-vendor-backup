@@ -394,7 +394,7 @@ extern const union decode_item kprobe_decode_arm_table[];
 extern const union decode_item kprobes_arm_actions[];
 #endif
 
-extern kprobe_check_cc * const kprobe_condition_checks[16];
+extern probes_check_cc * const probes_condition_checks[16];
 
 
 int kprobe_decode_insn(probes_opcode_t insn, struct arch_specific_insn *asi,
