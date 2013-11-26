@@ -19,10 +19,11 @@
 #ifndef _ARM_KERNEL_PROBES_H
 #define  _ARM_KERNEL_PROBES_H
 
-#include <linux/kprobes.h>
-#include "kprobes.h"
+#include <asm/probes.h>
 
 void __init arm_probes_decode_init(void);
+
+extern probes_check_cc * const probes_condition_checks[16];
 
 #if __LINUX_ARM_ARCH__ >= 7
 
@@ -38,7 +39,6 @@ void __init find_str_pc_offset(void);
 
 #endif
 
-struct decode_header;
 
 /*
  * Update ITSTATE after normal execution of an IT block instruction.
@@ -130,16 +130,6 @@ static inline void __kprobes alu_write_pc(long pcv, struct pt_regs *regs)
 		regs->ARM_pc = pcv;
 }
 
-
-void __kprobes probes_simulate_nop(probes_opcode_t, struct arch_specific_insn *,
-		struct pt_regs *regs);
-void __kprobes probes_emulate_none(probes_opcode_t, struct arch_specific_insn *,
-		struct pt_regs *regs);
-
-enum probes_insn __kprobes
-kprobe_decode_ldmstm(probes_opcode_t insn, struct arch_specific_insn *asi,
-		struct decode_header *h);
-
 /*
  * Test if load/store instructions writeback the address register.
  * if P (bit 24) == 0 or W (bit 21) == 1
@@ -148,7 +138,7 @@ kprobe_decode_ldmstm(probes_opcode_t insn, struct arch_specific_insn *asi,
 
 /*
  * The following definitions and macros are used to build instruction
- * decoding tables for use by kprobe_decode_insn.
+ * decoding tables for use by probes_decode_insn.
  *
  * These tables are a concatenation of entries each of which consist of one of
  * the decode_* structs. All of the fields in every type of decode structure
@@ -300,11 +290,14 @@ enum decode_reg_type {
 	((REG_TYPE_##r4) << 4) +	\
 	(REG_TYPE_##r0))
 
+struct decode_header;
 union decode_item {
 	u32			bits;
 	const union decode_item	*table;
-	kprobe_insn_handler_t	*handler;
-	kprobe_decode_insn_t	*decoder;
+	probes_insn_handler_t	*handler;
+	enum probes_insn (*decoder)(probes_opcode_t,
+				    struct arch_specific_insn *,
+				    struct decode_header *);
 };
 
 
@@ -391,21 +384,12 @@ enum probes_insn {
 	INSN_GOOD_NO_SLOT
 };
 
-#ifdef CONFIG_THUMB2_KERNEL
-extern const union decode_item kprobe_decode_thumb16_table[];
-extern const union decode_item kprobe_decode_thumb32_table[];
-extern const union decode_item kprobes_t32_actions[];
-extern const union decode_item kprobes_t16_actions[];
-#else
-extern const union decode_item kprobe_decode_arm_table[];
-extern const union decode_item kprobes_arm_actions[];
-#endif
+probes_insn_handler_t probes_simulate_nop;
+probes_insn_handler_t probes_emulate_none;
 
-extern probes_check_cc * const probes_condition_checks[16];
-
-
-int kprobe_decode_insn(probes_opcode_t insn, struct arch_specific_insn *asi,
-			const union decode_item *table, bool thumb16,
-			const union decode_item *actions);
+int __kprobes
+probes_decode_insn(probes_opcode_t insn, struct arch_specific_insn *asi,
+		const union decode_item *table, bool thumb,
+		const union decode_item *actions);
 
 #endif

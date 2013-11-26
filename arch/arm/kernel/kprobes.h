@@ -19,6 +19,8 @@
 #ifndef _ARM_KERNEL_KPROBES_H
 #define _ARM_KERNEL_KPROBES_H
 
+#include "probes.h"
+
 /*
  * These undefined instructions must be unique and
  * reserved solely for kprobes' use.
@@ -27,29 +29,24 @@
 #define KPROBE_THUMB16_BREAKPOINT_INSTRUCTION	0xde18
 #define KPROBE_THUMB32_BREAKPOINT_INSTRUCTION	0xf7f0a018
 
-struct decode_header;
+enum probes_insn __kprobes
+kprobe_decode_ldmstm(kprobe_opcode_t insn, struct arch_specific_insn *asi,
+		struct decode_header *h);
 
-typedef enum probes_insn (kprobe_decode_insn_t)(probes_opcode_t,
-		struct arch_specific_insn *,
-		struct decode_header *);
+typedef enum probes_insn (kprobe_decode_insn_t)(kprobe_opcode_t,
+			struct arch_specific_insn *,
+			const union decode_item *);
 
 #ifdef CONFIG_THUMB2_KERNEL
 
-enum probes_insn thumb16_kprobe_decode_insn(probes_opcode_t,
-						struct arch_specific_insn *,
-						struct decode_header *);
-enum probes_insn thumb32_kprobe_decode_insn(probes_opcode_t,
-						struct arch_specific_insn *,
-						struct decode_header *);
+extern const union decode_item kprobes_t32_actions[];
+extern const union decode_item kprobes_t16_actions[];
 
 #else /* !CONFIG_THUMB2_KERNEL */
 
-enum probes_insn arm_kprobe_decode_insn(probes_opcode_t,
-					struct arch_specific_insn *,
-					struct decode_header *);
+extern const union decode_item kprobes_arm_actions[];
 
 #endif
 
-#include "probes.h"
 
 #endif /* _ARM_KERNEL_KPROBES_H */
