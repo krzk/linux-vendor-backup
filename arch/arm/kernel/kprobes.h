@@ -37,7 +37,7 @@ enum kprobe_insn {
 
 typedef enum kprobe_insn (kprobe_decode_insn_t)(kprobe_opcode_t,
 		struct arch_specific_insn *,
-		struct decode_header *actions);
+		struct decode_header *);
 
 #ifdef CONFIG_THUMB2_KERNEL
 

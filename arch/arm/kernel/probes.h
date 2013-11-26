@@ -20,6 +20,7 @@
 #define  _ARM_KERNEL_PROBES_H
 
 #include <linux/kprobes.h>
+#include "kprobes.h"
 
 #if __LINUX_ARM_ARCH__ >= 7
 
@@ -35,6 +36,7 @@ void __init find_str_pc_offset(void);
 
 #endif
 
+struct decode_header;
 
 /*
  * Update ITSTATE after normal execution of an IT block instruction.
@@ -127,8 +129,10 @@ static inline void __kprobes alu_write_pc(long pcv, struct pt_regs *regs)
 }
 
 
-void __kprobes kprobe_simulate_nop(struct kprobe *p, struct pt_regs *regs);
-void __kprobes kprobe_emulate_none(struct kprobe *p, struct pt_regs *regs);
+void __kprobes kprobe_simulate_nop(kprobe_opcode_t, struct arch_specific_insn *,
+		struct pt_regs *regs);
+void __kprobes kprobe_emulate_none(kprobe_opcode_t, struct arch_specific_insn *,
+		struct pt_regs *regs);
 
 enum kprobe_insn __kprobes
 kprobe_decode_ldmstm(kprobe_opcode_t insn, struct arch_specific_insn *asi,
