@@ -242,7 +242,7 @@ static int hkdk_max98090_driver_remove(struct platform_device *pdev)
 
 static struct platform_driver hkdk_max98090_driver = {
 	.driver		= {
-		.name	= "hkdk-snd-max89090",
+		.name	= "hkdk-snd-max98090",
 		.owner	= THIS_MODULE,
 		.pm	= &snd_soc_pm_ops,
 	},
