@@ -52,15 +52,15 @@ enum probes_arm_action {
 	PROBES_LDMSTM
 };
 
-void __kprobes simulate_bbl(kprobe_opcode_t opcode,
+void __kprobes simulate_bbl(probes_opcode_t opcode,
 	struct arch_specific_insn *asi, struct pt_regs *regs);
-void __kprobes simulate_blx1(kprobe_opcode_t opcode,
+void __kprobes simulate_blx1(probes_opcode_t opcode,
 	struct arch_specific_insn *asi, struct pt_regs *regs);
-void __kprobes simulate_blx2bx(kprobe_opcode_t opcode,
+void __kprobes simulate_blx2bx(probes_opcode_t opcode,
 	struct arch_specific_insn *asi, struct pt_regs *regs);
-void __kprobes simulate_mrs(kprobe_opcode_t opcode,
+void __kprobes simulate_mrs(probes_opcode_t opcode,
 	struct arch_specific_insn *asi, struct pt_regs *regs);
-void __kprobes simulate_mov_ipsp(kprobe_opcode_t opcode,
+void __kprobes simulate_mov_ipsp(probes_opcode_t opcode,
 	struct arch_specific_insn *asi, struct pt_regs *regs);
 
 #endif
