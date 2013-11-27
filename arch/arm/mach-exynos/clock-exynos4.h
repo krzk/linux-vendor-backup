@@ -17,6 +17,8 @@
 extern struct clksrc_clk exynos4_clk_aclk_133;
 extern struct clksrc_clk exynos4_clk_mout_mpll;
 
+extern struct clksrc_clk clk_mout_mpll_user;
+
 extern struct clksrc_sources exynos4_clkset_mout_corebus;
 extern struct clksrc_sources exynos4_clkset_group;
 

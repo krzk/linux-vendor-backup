@@ -60,7 +60,7 @@ static struct clksrc_sources clk_src_mpll_user = {
 	.nr_sources	= ARRAY_SIZE(clk_src_mpll_user_list),
 };
 
-static struct clksrc_clk clk_mout_mpll_user = {
+struct clksrc_clk clk_mout_mpll_user = {
 	.clk = {
 		.name		= "mout_mpll_user",
 	},

@@ -347,15 +347,15 @@ static int hkdk4412_dwmci_init(u32 slot_id, irq_handler_t handler, void *data)
 }
 
 static struct dw_mci_board hkdk4412_dwmci_pdata = {
-       .num_slots              = 1,
-       .quirks                 = DW_MCI_QUIRK_BROKEN_CARD_DETECTION | DW_MCI_QUIRK_HIGHSPEED,
-       .caps		       = MMC_CAP_UHS_DDR50 | MMC_CAP_1_8V_DDR | MMC_CAP_8_BIT_DATA | MMC_CAP_CMD23,
-       .fifo_depth	       = 0x80,
-       .bus_hz                 = 100 * 1000 * 1000,
-       .detect_delay_ms        = 200,
-       .init                   = hkdk4412_dwmci_init,
-       .get_bus_wd             = hkdk4412_dwmci_get_bus_wd,
-       .cfg_gpio	       = exynos4_setup_dwmci_cfg_gpio,
+	.num_slots			= 1,
+	.quirks				= DW_MCI_QUIRK_BROKEN_CARD_DETECTION | DW_MCI_QUIRK_HIGHSPEED,
+	.caps				= MMC_CAP_UHS_DDR50 | MMC_CAP_1_8V_DDR | MMC_CAP_8_BIT_DATA | MMC_CAP_CMD23,
+	.fifo_depth			= 0x80,
+	.bus_hz				= 104 * 1000 * 1000,
+	.detect_delay_ms	= 200,
+	.init				= hkdk4412_dwmci_init,
+	.get_bus_wd			= hkdk4412_dwmci_get_bus_wd,
+	.cfg_gpio			= exynos4_setup_dwmci_cfg_gpio,
 };
 
 static struct resource tmu_resource[] = {
