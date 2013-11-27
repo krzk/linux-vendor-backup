@@ -86,7 +86,7 @@
 #define S3C_IELCD_LDICMD10		(0x02A8)
 #define S3C_IELCD_LDICMD11		(0x02AC)
 
-int s3c_ielcd_hw_init(void);
+int __init s3c_ielcd_hw_init(void);
 int s3c_ielcd_logic_start(void);
 int s3c_ielcd_logic_stop(void);
 int s3c_ielcd_start(void);

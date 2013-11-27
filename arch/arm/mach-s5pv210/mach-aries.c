@@ -5836,7 +5836,7 @@ MACHINE_START(ARIES, "aries")
 	.map_io		= aries_map_io,
 	.init_machine	= aries_machine_init,
 #if	defined(CONFIG_S5P_HIGH_RES_TIMERS)
-	.timer		= &s5p_systimer,
+	.timer		= &s5p_sys_timer,
 #else
 	.timer		= &s3c24xx_timer,
 #endif

@@ -56,7 +56,7 @@ static struct s3cfb_global *ielcd_fbdev;
 
 static char banner[] __initdata = KERN_INFO "S3C IELCD Driver, (c) 2010 Samsung Electronics\n";
 
-int s3c_ielcd_hw_init(void)
+int __init s3c_ielcd_hw_init(void)
 {
 	printk("IELCD  INIT ..........\n");
 

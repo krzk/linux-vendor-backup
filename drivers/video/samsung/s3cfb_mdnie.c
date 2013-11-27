@@ -442,7 +442,7 @@ EXPORT_SYMBOL(mDNIe_txtbuf_to_parsing_for_lightsensor);
 
 
 
-int s3c_mdnie_hw_init(void)
+int __init s3c_mdnie_hw_init(void)
 {
 	printk("MDNIE  INIT ..........\n");
 

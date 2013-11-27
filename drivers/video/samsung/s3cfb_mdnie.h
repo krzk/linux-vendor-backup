@@ -338,7 +338,7 @@
 #endif
 
 
-int s3c_mdnie_init(void);
+int __init s3c_mdnie_init(void);
 int s3c_mdnie_enable(void);
 int s3c_mdnie_disable(void);
 int s3c_mdnie_control(int cmd, void * arg);

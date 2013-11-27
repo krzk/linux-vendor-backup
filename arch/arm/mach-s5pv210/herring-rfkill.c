@@ -182,7 +182,7 @@ static const struct rfkill_ops bt_rfkill_ops = {
 	.set_block = bt_rfkill_set_block,
 };
 
-static int __init herring_rfkill_probe(struct platform_device *pdev)
+static int __devinit herring_rfkill_probe(struct platform_device *pdev)
 {
 	int irq;
 	int ret;
@@ -256,7 +256,7 @@ static int __init herring_rfkill_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static struct platform_driver herring_device_rfkill = {
+static struct platform_driver herring_rfkill_driver = {
 	.probe = herring_rfkill_probe,
 	.driver = {
 		.name = "bt_rfkill",
@@ -267,7 +267,7 @@ static struct platform_driver herring_device_rfkill = {
 static int __init herring_rfkill_init(void)
 {
 	int rc = 0;
-	rc = platform_driver_register(&herring_device_rfkill);
+	rc = platform_driver_register(&herring_rfkill_driver);
 
 	return rc;
 }
