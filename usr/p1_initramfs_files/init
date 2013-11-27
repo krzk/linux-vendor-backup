@@ -62,6 +62,7 @@ if [ "$HW" != "p1" ] ; then
 		busybox ln -s /init.recovery.p1.rc /init.recovery.$HW.rc
 	fi
 
+	busybox ln -s /fstab.p1 /fstab.$HW
 	busybox ln -s /ueventd.p1.rc /ueventd.$HW.rc
 fi
 
