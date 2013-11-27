@@ -239,4 +239,8 @@
 		pulldown-ohm = <100000> ;
 		io-channels = <&adc 2>;
 	};
+
+	rtc@10070000 {
+		status = "okay";
+	};
 };
