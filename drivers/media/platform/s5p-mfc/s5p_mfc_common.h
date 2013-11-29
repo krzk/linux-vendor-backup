@@ -729,5 +729,9 @@ void set_work_bit_irqsave(struct s5p_mfc_ctx *ctx);
 #define MFC_V7_BIT	BIT(2)
 #define MFC_V8_BIT	BIT(3)
 
+#define s5p_mfc_supported_mem_type(mem)	\
+	((mem == V4L2_MEMORY_MMAP || \
+	 mem == V4L2_MEMORY_USERPTR || \
+	 mem == V4L2_MEMORY_DMABUF) ? 1 : 0)
 
 #endif /* S5P_MFC_COMMON_H_ */

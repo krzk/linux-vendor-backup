@@ -813,9 +813,15 @@ static int s5p_mfc_open(struct file *file)
 	q->lock = &dev->mfc_mutex;
 	if (vdev == dev->vfd_dec) {
 		q->io_modes = VB2_MMAP;
+#ifdef CONFIG_EXYNOS_IOMMU
+		q->io_modes = q->io_modes | VB2_USERPTR | VB2_DMABUF;
+#endif
 		q->ops = get_dec_queue_ops();
 	} else if (vdev == dev->vfd_enc) {
 		q->io_modes = VB2_MMAP | VB2_USERPTR;
+#ifdef CONFIG_EXYNOS_IOMMU
+		q->io_modes = q->io_modes | VB2_DMABUF;
+#endif
 		q->ops = get_enc_queue_ops();
 	} else {
 		ret = -ENOENT;
@@ -836,9 +842,15 @@ static int s5p_mfc_open(struct file *file)
 	q->lock = &dev->mfc_mutex;
 	if (vdev == dev->vfd_dec) {
 		q->io_modes = VB2_MMAP;
+#ifdef CONFIG_EXYNOS_IOMMU
+		q->io_modes = q->io_modes | VB2_USERPTR | VB2_DMABUF;
+#endif
 		q->ops = get_dec_queue_ops();
 	} else if (vdev == dev->vfd_enc) {
 		q->io_modes = VB2_MMAP | VB2_USERPTR;
+#ifdef CONFIG_EXYNOS_IOMMU
+		q->io_modes = q->io_modes | VB2_DMABUF;
+#endif
 		q->ops = get_enc_queue_ops();
 	} else {
 		ret = -ENOENT;

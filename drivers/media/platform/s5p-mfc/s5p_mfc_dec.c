@@ -546,14 +546,27 @@ static int reqbufs_capture(struct s5p_mfc_dev *dev, struct s5p_mfc_ctx *ctx,
 			goto out;
 		}
 
-		WARN_ON(ctx->dst_bufs_cnt != ctx->total_dpb_count);
-		ctx->capture_state = QUEUE_BUFS_MMAPED;
+		if (reqbufs->memory == V4L2_MEMORY_MMAP) {
+			if (ctx->dst_bufs_cnt == ctx->total_dpb_count) {
+				ctx->capture_state = QUEUE_BUFS_MMAPED;
+			} else {
+				mfc_err("Not all buffers passed to buf_init\n");
+				reqbufs->count = 0;
+				ret = vb2_reqbufs(&ctx->vq_dst, reqbufs);
+				s5p_mfc_hw_call(dev->mfc_ops,
+						release_codec_buffers, ctx);
+				ret = -ENOMEM;
+				goto out;
+			}
+		}
 
 		if (s5p_mfc_ctx_ready(ctx))
 			set_work_bit_irqsave(ctx);
 		s5p_mfc_hw_call_void(dev->mfc_ops, try_run, dev);
-		s5p_mfc_wait_for_done_ctx(ctx, S5P_MFC_R2H_CMD_INIT_BUFFERS_RET,
-					  0);
+		if (reqbufs->memory == V4L2_MEMORY_MMAP) {
+			s5p_mfc_wait_for_done_ctx(ctx,
+					 S5P_MFC_R2H_CMD_INIT_BUFFERS_RET, 0);
+		}
 	} else {
 		mfc_err("Buffers have already been requested\n");
 		ret = -EINVAL;
@@ -572,11 +585,17 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 	struct s5p_mfc_dev *dev = video_drvdata(file);
 	struct s5p_mfc_ctx *ctx = fh_to_ctx(priv);
 
+#ifdef CONFIG_EXYNOS_IOMMU
+	if (!s5p_mfc_supported_mem_type(reqbufs->memory)) {
+		mfc_err("Memory type %d is not supported\n", reqbufs->memory);
+		return -EINVAL;
+	}
+#else
 	if (reqbufs->memory != V4L2_MEMORY_MMAP) {
 		mfc_err("Only V4L2_MEMORY_MAP is supported\n");
 		return -EINVAL;
 	}
-
+#endif
 	if (reqbufs->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		return reqbufs_output(dev, ctx, reqbufs);
 	} else if (reqbufs->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
@@ -994,6 +1013,28 @@ static int s5p_mfc_buf_init(struct vb2_buffer *vb)
 	return 0;
 }
 
+static int s5p_mfc_buf_prepare(struct vb2_buffer *vb)
+{
+	struct vb2_queue *vq = vb->vb2_queue;
+	struct s5p_mfc_ctx *ctx = fh_to_ctx(vq->drv_priv);
+	unsigned int index = vb->v4l2_buf.index;
+
+	if (vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		if (vb2_plane_size(vb, 0) < ctx->luma_size ||
+			vb2_plane_size(vb, 1) < ctx->chroma_size) {
+			mfc_err("Plane buffer (CAPTURE) is too small.\n");
+			return -EINVAL;
+		}
+	} else if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		if (vb2_plane_size(vb, 0) < ctx->dec_src_buf_size) {
+			mfc_err("Plane buffer (OUTPUT) is too small.\n");
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
 static int s5p_mfc_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct s5p_mfc_ctx *ctx = fh_to_ctx(q->drv_priv);
@@ -1063,6 +1104,7 @@ static void s5p_mfc_buf_queue(struct vb2_buffer *vb)
 	struct s5p_mfc_dev *dev = ctx->dev;
 	unsigned long flags;
 	struct s5p_mfc_buf *mfc_buf;
+	int wait_flag = 0;
 
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		mfc_buf = &ctx->src_bufs[vb->v4l2_buf.index];
@@ -1080,12 +1122,25 @@ static void s5p_mfc_buf_queue(struct vb2_buffer *vb)
 		list_add_tail(&mfc_buf->list, &ctx->dst_queue);
 		ctx->dst_queue_cnt++;
 		spin_unlock_irqrestore(&dev->irqlock, flags);
+		if ((vq->memory == V4L2_MEMORY_USERPTR ||
+			vq->memory == V4L2_MEMORY_DMABUF) &&
+			ctx->dst_queue_cnt == ctx->total_dpb_count)
+			ctx->capture_state = QUEUE_BUFS_MMAPED;
 	} else {
 		mfc_err("Unsupported buffer type (%d)\n", vq->type);
 	}
-	if (s5p_mfc_ctx_ready(ctx))
+	if (s5p_mfc_ctx_ready(ctx)) {
 		set_work_bit_irqsave(ctx);
+		if ((vq->memory == V4L2_MEMORY_USERPTR ||
+			vq->memory == V4L2_MEMORY_DMABUF) &&
+			ctx->state == MFCINST_HEAD_PARSED &&
+			ctx->capture_state == QUEUE_BUFS_MMAPED)
+			wait_flag = 1;
+	}
 	s5p_mfc_hw_call_void(dev->mfc_ops, try_run, dev);
+	if (wait_flag)
+		s5p_mfc_wait_for_done_ctx(ctx,
+				S5P_MFC_R2H_CMD_INIT_BUFFERS_RET, 0);
 }
 
 static struct vb2_ops s5p_mfc_dec_qops = {
@@ -1093,6 +1148,7 @@ static struct vb2_ops s5p_mfc_dec_qops = {
 	.wait_prepare		= vb2_ops_wait_prepare,
 	.wait_finish		= vb2_ops_wait_finish,
 	.buf_init		= s5p_mfc_buf_init,
+	.buf_prepare		= s5p_mfc_buf_prepare,
 	.start_streaming	= s5p_mfc_start_streaming,
 	.stop_streaming		= s5p_mfc_stop_streaming,
 	.buf_queue		= s5p_mfc_buf_queue,
