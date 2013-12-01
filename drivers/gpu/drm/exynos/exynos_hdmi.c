@@ -987,6 +987,8 @@ static struct edid *hdmi_get_edid(void *ctx, struct drm_connector *connector)
 
 	if (!hdata->ddc_port)
 		return ERR_PTR(-ENODEV);
+		
+	hdata->dvi_mode = true;
 
 	raw_edid = drm_get_edid(connector, hdata->ddc_port->adapter);
 	if (!raw_edid)
