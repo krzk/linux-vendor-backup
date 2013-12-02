@@ -983,13 +983,13 @@ static struct edid *hdmi_get_edid(void *ctx, struct drm_connector *connector)
 	struct edid *raw_edid;
 	struct hdmi_context *hdata = ctx;
 
+	hdata->dvi_mode = true;
+
 	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
 
 	if (!hdata->ddc_port)
 		return ERR_PTR(-ENODEV);
 		
-	hdata->dvi_mode = true;
-
 	raw_edid = drm_get_edid(connector, hdata->ddc_port->adapter);
 	if (!raw_edid)
 		return ERR_PTR(-ENODEV);
@@ -2286,6 +2286,9 @@ static int hdmi_probe(struct platform_device *pdev)
 	exynos_hdmi_ops_register(&hdmi_ops);
 
 	pm_runtime_enable(dev);
+
+	/* force DVI Mode as default */
+	hdata->dvi_mode = true;
 
 	return 0;
 
