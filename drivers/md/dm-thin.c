@@ -547,6 +547,7 @@ static void process_prepared_mapping_fail(struct dm_thin_new_mapping *m)
 static void process_prepared_mapping(struct dm_thin_new_mapping *m)
 {
 	struct thin_c *tc = m->tc;
+	struct pool *pool = tc->pool;
 	struct bio *bio;
 	int r;
 
@@ -566,7 +567,9 @@ static void process_prepared_mapping(struct dm_thin_new_mapping *m)
 	 */
 	r = dm_thin_insert_block(tc->td, m->virt_block, m->data_block);
 	if (r) {
-		DMERR_LIMIT("dm_thin_insert_block() failed");
+		DMERR_LIMIT("%s: dm_thin_insert_block() failed: error = %d",
+			    dm_device_name(pool->pool_md), r);
+		set_pool_mode(pool, PM_READ_ONLY);
 		dm_cell_error(m->cell);
 		goto out;
 	}
