@@ -460,10 +460,12 @@ EXPORT_SYMBOL_GPL(cpuidle_register_device);
  */
 void cpuidle_unregister_device(struct cpuidle_device *dev)
 {
-	struct cpuidle_driver *drv = cpuidle_get_cpu_driver(dev);
+	struct cpuidle_driver *drv;
 
-	if (dev->registered == 0)
+	if (!dev || dev->registered == 0)
 		return;
+
+	drv = cpuidle_get_cpu_driver(dev);
 
 	cpuidle_pause_and_lock();
 
