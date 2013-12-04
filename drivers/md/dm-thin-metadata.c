@@ -1684,3 +1684,12 @@ void dm_pool_metadata_read_only(struct dm_pool_metadata *pmd)
 	dm_bm_set_read_only(pmd->bm);
 	up_write(&pmd->root_lock);
 }
+
+void dm_pool_metadata_read_write(struct dm_pool_metadata *pmd)
+{
+	down_write(&pmd->root_lock);
+	pmd->read_only = false;
+	dm_bm_set_read_write(pmd->bm);
+	up_write(&pmd->root_lock);
+}
+

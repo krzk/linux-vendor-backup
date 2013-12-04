@@ -191,6 +191,7 @@ int dm_pool_resize_data_dev(struct dm_pool_metadata *pmd, dm_block_t new_size);
  * that nothing is changing.
  */
 void dm_pool_metadata_read_only(struct dm_pool_metadata *pmd);
+void dm_pool_metadata_read_write(struct dm_pool_metadata *pmd);
 
 /*----------------------------------------------------------------*/
 
