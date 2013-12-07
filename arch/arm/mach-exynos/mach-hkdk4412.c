@@ -29,6 +29,7 @@
 #include <linux/delay.h>
 #include <linux/lcd.h>
 #include <linux/clk.h>
+#include <linux/spi/spi.h>
 #include <linux/reboot.h>
 
 #include <asm/mach/arch.h>
@@ -49,6 +50,7 @@
 
 #include <video/platform_lcd.h>
 #include <video/samsung_fimd.h>
+#include <linux/platform_data/spi-s3c64xx.h>
 
 #include <mach/map.h>
 #include <mach/regs-pmu.h>
@@ -396,6 +398,23 @@ static struct platform_device odroid_fan = {
 };
 #endif
 
+// SPI1
+static struct s3c64xx_spi_csinfo spi1_csi = {
+		.fb_delay = 0x2,
+		.line = EXYNOS4_GPB(5),
+};
+
+static struct spi_board_info spi1_board_info[] __initdata = {
+	[0] = {
+		.modalias = "spidev",
+		.max_speed_hz = 10 * 1000 * 1000, // 10 mhz
+		.bus_num = 1,
+		.chip_select = 0,
+		.mode = SPI_MODE_3,
+		.controller_data = &spi1_csi,
+	},
+};
+
 static struct platform_device *hkdk4412_devices[] __initdata = {
 	&s3c_device_hsmmc2,
 	&s3c_device_i2c0,
@@ -446,6 +465,7 @@ static struct platform_device *hkdk4412_devices[] __initdata = {
 	&s3c_device_timer[0],
 	&odroid_fan,
 #endif
+	&s3c64xx_device_spi1,
 };
 
 #if defined(CONFIG_S5P_DEV_TV)
@@ -557,7 +577,10 @@ static void __init hkdk4412_machine_init(void)
 #ifdef CONFIG_LCD_LP101WH1
         s5p_fimd0_set_platdata(&hkdk4412_fb_pdata);
 #endif
-        
+
+	s3c64xx_spi1_set_platdata(NULL, 0, 1);
+	spi_register_board_info(spi1_board_info, ARRAY_SIZE(spi1_board_info));
+	pr_emerg("spi: num of %d\n", ARRAY_SIZE(spi1_board_info));
 
 #if defined(CONFIG_S5P_DEV_TV)
 	s5p_i2c_hdmiphy_set_platdata(NULL);

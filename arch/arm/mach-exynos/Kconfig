@@ -452,6 +452,7 @@ config MACH_HKDK4412
 	select EXYNOS4_DEV_DWMCI
 	select EXYNOS4_SETUP_DWMCI
 	select SAMSUNG_DEV_ADC
+	select EXYNOS_SETUP_SPI
 	help
 	  Machine support for ODROIDs based on Samsung EXYNOS4412 (X/X2/U2)
 

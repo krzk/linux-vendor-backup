@@ -28,6 +28,9 @@ config PLAT_S5P
 	select SAMSUNG_CLKSRC
 	select SAMSUNG_GPIOLIB_4BIT
 	select SAMSUNG_IRQ_VIC_TIMER
+	select S3C64XX_DEV_SPI0
+	select S3C64XX_DEV_SPI1
+	select S3C64XX_DEV_SPI2
 	help
 	  Base platform code for Samsung's S5P series SoC.
 
