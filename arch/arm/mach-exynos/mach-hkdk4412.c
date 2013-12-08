@@ -580,7 +580,6 @@ static void __init hkdk4412_machine_init(void)
 
 	s3c64xx_spi1_set_platdata(NULL, 0, 1);
 	spi_register_board_info(spi1_board_info, ARRAY_SIZE(spi1_board_info));
-	pr_emerg("spi: num of %d\n", ARRAY_SIZE(spi1_board_info));
 
 #if defined(CONFIG_S5P_DEV_TV)
 	s5p_i2c_hdmiphy_set_platdata(NULL);
