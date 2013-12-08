@@ -838,6 +838,29 @@ static inline struct  exynos_tmu_platform_data *exynos_get_driver_data(
 	return (struct exynos_tmu_platform_data *)
 			platform_get_device_id(pdev)->driver_data;
 }
+
+unsigned long exynos_thermal_get_value(void)
+{
+        struct exynos_tmu_data *data = th_zone->sensor_conf->private_data;
+        u8 temp_code;
+        unsigned long temp, max=0;
+
+        mutex_lock(&data->lock);
+        clk_enable(data->clk);
+
+        temp_code = readb(data->base + EXYNOS_TMU_REG_CURRENT_TEMP);
+                        
+        temp = code_to_temp(data, temp_code);
+                
+        if(max < temp) max = temp;
+
+        clk_disable(data->clk);
+        mutex_unlock(&data->lock);
+
+        return max;
+}
+EXPORT_SYMBOL(exynos_thermal_get_value);
+
 static int exynos_tmu_probe(struct platform_device *pdev)
 {
 	struct exynos_tmu_data *data;
