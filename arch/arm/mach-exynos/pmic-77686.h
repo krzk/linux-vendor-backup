@@ -250,13 +250,13 @@ static struct regulator_init_data max77686_ldo1_data = {
 static struct regulator_init_data max77686_ldo2_data = {
 	.constraints	= {
 		.name		= "LDO2 VDDQ_M1_1V8",
-		.min_uV		= 1200000,
-		.max_uV		= 1200000,
+		.min_uV		= 1800000,
+		.max_uV		= 1800000,
 		.apply_uV	= 1,
 		.always_on	= 1,
 		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
 		.state_mem	= {
-			.uV		= 1200000,
+			.uV		= 1800000,
 			.enabled = 1,
 		},
 	},
