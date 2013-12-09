@@ -214,7 +214,7 @@ static inline int phy_get_bus_width(struct phy *phy)
 	return -ENOSYS;
 }
 
-static inline void phy_set_bus_width(struct phy *phy, bus_width)
+static inline void phy_set_bus_width(struct phy *phy, int bus_width)
 {
 	return;
 }
