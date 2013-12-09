@@ -46,6 +46,7 @@ struct phy_ops {
  * @mutex: mutex to protect phy_ops
  * @init_count: used to protect when the PHY is used by multiple consumers
  * @power_count: used to protect when the PHY is used by multiple consumers
+ * @bus_width: used to specify data width of the PHY bus
  */
 struct phy {
 	struct device		dev;
@@ -55,6 +56,7 @@ struct phy {
 	struct mutex		mutex;
 	int			init_count;
 	int			power_count;
+	int			bus_width;
 };
 
 /**
@@ -127,6 +129,14 @@ int phy_init(struct phy *phy);
 int phy_exit(struct phy *phy);
 int phy_power_on(struct phy *phy);
 int phy_power_off(struct phy *phy);
+static inline int phy_get_bus_width(struct phy *phy)
+{
+	return phy->bus_width;
+}
+static inline void phy_set_bus_width(struct phy *phy, int bus_width)
+{
+	phy->bus_width = bus_width;
+}
 struct phy *phy_get(struct device *dev, const char *string);
 struct phy *devm_phy_get(struct device *dev, const char *string);
 void phy_put(struct phy *phy);
@@ -197,6 +207,16 @@ static inline int phy_power_on(struct phy *phy)
 static inline int phy_power_off(struct phy *phy)
 {
 	return -ENOSYS;
+}
+
+static inline int phy_get_bus_width(struct phy *phy)
+{
+	return -ENOSYS;
+}
+
+static inline void phy_set_bus_width(struct phy *phy, bus_width)
+{
+	return;
 }
 
 static inline struct phy *phy_get(struct device *dev, const char *string)
