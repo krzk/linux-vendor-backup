@@ -131,7 +131,8 @@ void __kprobes kprobe_simulate_nop(struct kprobe *p, struct pt_regs *regs);
 void __kprobes kprobe_emulate_none(struct kprobe *p, struct pt_regs *regs);
 
 enum kprobe_insn __kprobes
-kprobe_decode_ldmstm(kprobe_opcode_t insn, struct arch_specific_insn *asi);
+kprobe_decode_ldmstm(kprobe_opcode_t insn, struct arch_specific_insn *asi,
+		struct decode_header *h);
 
 /*
  * Test if load/store instructions writeback the address register.
@@ -334,7 +335,7 @@ struct decode_custom {
 
 #define DECODE_CUSTOM(_mask, _value, _decoder)			\
 	DECODE_HEADER(DECODE_TYPE_CUSTOM, _mask, _value, 0),	\
-	{.decoder = (_decoder)}
+	{.bits = (_decoder)}
 
 
 struct decode_simulate {
@@ -344,7 +345,7 @@ struct decode_simulate {
 
 #define DECODE_SIMULATEX(_mask, _value, _handler, _regs)		\
 	DECODE_HEADER(DECODE_TYPE_SIMULATE, _mask, _value, _regs),	\
-	{.handler = (_handler)}
+	{.bits = (_handler)}
 
 #define DECODE_SIMULATE(_mask, _value, _handler)	\
 	DECODE_SIMULATEX(_mask, _value, _handler, 0)
@@ -357,7 +358,7 @@ struct decode_emulate {
 
 #define DECODE_EMULATEX(_mask, _value, _handler, _regs)			\
 	DECODE_HEADER(DECODE_TYPE_EMULATE, _mask, _value, _regs),	\
-	{.handler = (_handler)}
+	{.bits = (_handler)}
 
 #define DECODE_EMULATE(_mask, _value, _handler)		\
 	DECODE_EMULATEX(_mask, _value, _handler, 0)
@@ -382,14 +383,18 @@ struct decode_reject {
 #ifdef CONFIG_THUMB2_KERNEL
 extern const union decode_item kprobe_decode_thumb16_table[];
 extern const union decode_item kprobe_decode_thumb32_table[];
+extern const union decode_item kprobes_t32_actions[];
+extern const union decode_item kprobes_t16_actions[];
 #else
 extern const union decode_item kprobe_decode_arm_table[];
+extern const union decode_item kprobes_arm_actions[];
 #endif
 
 extern kprobe_check_cc * const kprobe_condition_checks[16];
 
 
 int kprobe_decode_insn(kprobe_opcode_t insn, struct arch_specific_insn *asi,
-			const union decode_item *table, bool thumb16);
+			const union decode_item *table, bool thumb16,
+			const union decode_item *actions);
 
 #endif

@@ -27,6 +27,7 @@
 #define KPROBE_THUMB16_BREAKPOINT_INSTRUCTION	0xde18
 #define KPROBE_THUMB32_BREAKPOINT_INSTRUCTION	0xf7f0a018
 
+struct decode_header;
 
 enum kprobe_insn {
 	INSN_REJECTED,
@@ -35,19 +36,24 @@ enum kprobe_insn {
 };
 
 typedef enum kprobe_insn (kprobe_decode_insn_t)(kprobe_opcode_t,
-						struct arch_specific_insn *);
+		struct arch_specific_insn *,
+		struct decode_header *actions);
 
 #ifdef CONFIG_THUMB2_KERNEL
 
 enum kprobe_insn thumb16_kprobe_decode_insn(kprobe_opcode_t,
-						struct arch_specific_insn *);
+						struct arch_specific_insn *,
+						struct decode_header *);
 enum kprobe_insn thumb32_kprobe_decode_insn(kprobe_opcode_t,
-						struct arch_specific_insn *);
+						struct arch_specific_insn *,
+						struct decode_header *);
 
 #else /* !CONFIG_THUMB2_KERNEL */
 
 enum kprobe_insn arm_kprobe_decode_insn(kprobe_opcode_t,
-					struct arch_specific_insn *);
+					struct arch_specific_insn *,
+					struct decode_header *);
+
 #endif
 
 void __init arm_kprobe_decode_init(void);

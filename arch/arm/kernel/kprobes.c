@@ -54,6 +54,7 @@ int __kprobes arch_prepare_kprobe(struct kprobe *p)
 	unsigned long addr = (unsigned long)p->addr;
 	bool thumb;
 	kprobe_decode_insn_t *decode_insn;
+	const union decode_item *actions;
 	int is;
 
 	if (in_exception_text(addr))
@@ -67,20 +68,25 @@ int __kprobes arch_prepare_kprobe(struct kprobe *p)
 		insn <<= 16;
 		insn |= ((u16 *)addr)[1];
 		decode_insn = thumb32_kprobe_decode_insn;
-	} else
+		actions = kprobes_t32_actions;
+	} else {
 		decode_insn = thumb16_kprobe_decode_insn;
+		actions = kprobes_t16_actions;
+	}
 #else /* !CONFIG_THUMB2_KERNEL */
 	thumb = false;
 	if (addr & 0x3)
 		return -EINVAL;
 	insn = *p->addr;
 	decode_insn = arm_kprobe_decode_insn;
+	actions = kprobes_arm_actions;
 #endif
 
 	p->opcode = insn;
 	p->ainsn.insn = tmp_insn;
 
-	switch ((*decode_insn)(insn, &p->ainsn)) {
+	switch ((*decode_insn)
+		(insn, &p->ainsn, (struct decode_header *) actions)) {
 	case INSN_REJECTED:	/* not supported */
 		return -EINVAL;
 

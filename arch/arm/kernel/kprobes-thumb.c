@@ -15,18 +15,9 @@
 #include "kprobes.h"
 #include "probes-thumb.h"
 
-
-/*
- * True if current instruction is in an IT block.
- */
-#define in_it_block(cpsr)	((cpsr & 0x06000c00) != 0x00000000)
-
-/*
- * Return the condition code to check for the currently executing instruction.
- * This is in ITSTATE<7:4> which is in CPSR<15:12> but is only valid if
- * in_it_block returns true.
- */
-#define current_cond(cpsr)	((cpsr >> 12) & 0xf)
+/* These emulation encodings are functionally equivalent... */
+#define t32_emulate_rd8rn16rm0ra12_noflags \
+		t32_emulate_rdlo12rdhi8rn16rm0_noflags
 
 /*
  * Return the PC value for a probe in thumb code.
@@ -86,7 +77,8 @@ t32_simulate_cond_branch(struct kprobe *p, struct pt_regs *regs)
 }
 
 enum kprobe_insn __kprobes
-t32_decode_cond_branch(kprobe_opcode_t insn, struct arch_specific_insn *asi)
+t32_decode_cond_branch(kprobe_opcode_t insn, struct arch_specific_insn *asi,
+		struct decode_header *d)
 {
 	int cc = (insn >> 22) & 0xf;
 	asi->insn_check_cc = kprobe_condition_checks[cc];
@@ -161,9 +153,10 @@ t32_simulate_ldr_literal(struct kprobe *p, struct pt_regs *regs)
 }
 
 enum kprobe_insn __kprobes
-t32_decode_ldmstm(kprobe_opcode_t insn, struct arch_specific_insn *asi)
+t32_decode_ldmstm(kprobe_opcode_t insn, struct arch_specific_insn *asi,
+		struct decode_header *d)
 {
-	enum kprobe_insn ret = kprobe_decode_ldmstm(insn, asi);
+	enum kprobe_insn ret = kprobe_decode_ldmstm(insn, asi, d);
 
 	/* Fixup modified instruction to have halfwords in correct order...*/
 	insn = asi->insn[0];
@@ -418,7 +411,8 @@ t16_singlestep_it(struct kprobe *p, struct pt_regs *regs)
 }
 
 enum kprobe_insn __kprobes
-t16_decode_it(kprobe_opcode_t insn, struct arch_specific_insn *asi)
+t16_decode_it(kprobe_opcode_t insn, struct arch_specific_insn *asi,
+		struct decode_header *d)
 {
 	asi->insn_singlestep = t16_singlestep_it;
 	return INSN_GOOD_NO_SLOT;
@@ -435,7 +429,8 @@ t16_simulate_cond_branch(struct kprobe *p, struct pt_regs *regs)
 }
 
 enum kprobe_insn __kprobes
-t16_decode_cond_branch(kprobe_opcode_t insn, struct arch_specific_insn *asi)
+t16_decode_cond_branch(kprobe_opcode_t insn, struct arch_specific_insn *asi,
+		struct decode_header *d)
 {
 	int cc = (insn >> 8) & 0xf;
 	asi->insn_check_cc = kprobe_condition_checks[cc];
@@ -521,7 +516,8 @@ t16_emulate_hiregs(struct kprobe *p, struct pt_regs *regs)
 }
 
 enum kprobe_insn __kprobes
-t16_decode_hiregs(kprobe_opcode_t insn, struct arch_specific_insn *asi)
+t16_decode_hiregs(kprobe_opcode_t insn, struct arch_specific_insn *asi,
+		struct decode_header *d)
 {
 	insn &= ~0x00ff;
 	insn |= 0x001; /* Set Rdn = R1 and Rm = R0 */
@@ -547,7 +543,8 @@ t16_emulate_push(struct kprobe *p, struct pt_regs *regs)
 }
 
 enum kprobe_insn __kprobes
-t16_decode_push(kprobe_opcode_t insn, struct arch_specific_insn *asi)
+t16_decode_push(kprobe_opcode_t insn, struct arch_specific_insn *asi,
+		struct decode_header *d)
 {
 	/*
 	 * To simulate a PUSH we use a Thumb-2 "STMDB R9!, {registers}"
@@ -597,7 +594,8 @@ t16_emulate_pop_pc(struct kprobe *p, struct pt_regs *regs)
 }
 
 enum kprobe_insn __kprobes
-t16_decode_pop(kprobe_opcode_t insn, struct arch_specific_insn *asi)
+t16_decode_pop(kprobe_opcode_t insn, struct arch_specific_insn *asi,
+		struct decode_header *d)
 {
 	/*
 	 * To simulate a POP we use a Thumb-2 "LDMDB R9!, {registers}"
@@ -610,3 +608,57 @@ t16_decode_pop(kprobe_opcode_t insn, struct arch_specific_insn *asi)
 					 : t16_emulate_pop_nopc;
 	return INSN_GOOD;
 }
+
+const union decode_item kprobes_t16_actions[] = {
+	[PROBES_T16_ADD_SP] = {.handler = t16_simulate_add_sp_imm},
+	[PROBES_T16_CBZ] = {.handler = t16_simulate_cbz},
+	[PROBES_T16_SIGN_EXTEND] = {.handler = t16_emulate_loregs_rwflags},
+	[PROBES_T16_PUSH] = {.decoder = t16_decode_push},
+	[PROBES_T16_POP] = {.decoder = t16_decode_pop},
+	[PROBES_T16_SEV] = {.handler = kprobe_emulate_none},
+	[PROBES_T16_WFE] = {.handler = kprobe_simulate_nop},
+	[PROBES_T16_IT] = {.decoder = t16_decode_it},
+	[PROBES_T16_CMP] = {.handler = t16_emulate_loregs_rwflags},
+	[PROBES_T16_ADDSUB] = {.handler = t16_emulate_loregs_noitrwflags},
+	[PROBES_T16_LOGICAL] = {.handler = t16_emulate_loregs_noitrwflags},
+	[PROBES_T16_LDR_LIT] = {.handler = t16_simulate_ldr_literal},
+	[PROBES_T16_BLX] = {.handler = t16_simulate_bxblx},
+	[PROBES_T16_HIREGOPS] = {.decoder = t16_decode_hiregs},
+	[PROBES_T16_LDRHSTRH] = {.handler = t16_emulate_loregs_rwflags},
+	[PROBES_T16_LDRSTR] = {.handler = t16_simulate_ldrstr_sp_relative},
+	[PROBES_T16_ADR] = {.handler = t16_simulate_reladr},
+	[PROBES_T16_LDMSTM] = {.handler = t16_emulate_loregs_rwflags},
+	[PROBES_T16_BRANCH_COND] = {.decoder = t16_decode_cond_branch},
+	[PROBES_T16_BRANCH] = {.handler = t16_simulate_branch},
+};
+
+const union decode_item kprobes_t32_actions[] = {
+	[PROBES_T32_LDMSTM] = {.decoder = t32_decode_ldmstm},
+	[PROBES_T32_LDRDSTRD] = {.handler = t32_emulate_ldrdstrd},
+	[PROBES_T32_TABLE_BRANCH] = {.handler = t32_simulate_table_branch},
+	[PROBES_T32_TST] = {.handler = t32_emulate_rd8rn16rm0_rwflags},
+	[PROBES_T32_MOV] = {.handler = t32_emulate_rd8rn16rm0_rwflags},
+	[PROBES_T32_ADDSUB] = {.handler = t32_emulate_rd8rn16rm0_rwflags},
+	[PROBES_T32_LOGICAL] = {.handler = t32_emulate_rd8rn16rm0_rwflags},
+	[PROBES_T32_CMP] = {.handler = t32_emulate_rd8rn16rm0_rwflags},
+	[PROBES_T32_ADDWSUBW_PC] = {.handler = t32_emulate_rd8pc16_noflags,},
+	[PROBES_T32_ADDWSUBW] = {.handler = t32_emulate_rd8rn16_noflags},
+	[PROBES_T32_MOVW] = {.handler = t32_emulate_rd8rn16_noflags},
+	[PROBES_T32_SAT] = {.handler = t32_emulate_rd8rn16rm0_rwflags},
+	[PROBES_T32_BITFIELD] = {.handler = t32_emulate_rd8rn16_noflags},
+	[PROBES_T32_SEV] = {.handler = kprobe_emulate_none},
+	[PROBES_T32_WFE] = {.handler = kprobe_simulate_nop},
+	[PROBES_T32_MRS] = {.handler = t32_simulate_mrs},
+	[PROBES_T32_BRANCH_COND] = {.decoder = t32_decode_cond_branch},
+	[PROBES_T32_BRANCH] = {.handler = t32_simulate_branch},
+	[PROBES_T32_PLDI] = {.handler = kprobe_simulate_nop},
+	[PROBES_T32_LDR_LIT] = {.handler = t32_simulate_ldr_literal},
+	[PROBES_T32_LDRSTR] = {.handler = t32_emulate_ldrstr},
+	[PROBES_T32_SIGN_EXTEND] = {.handler = t32_emulate_rd8rn16rm0_rwflags},
+	[PROBES_T32_MEDIA] = {.handler = t32_emulate_rd8rn16rm0_rwflags},
+	[PROBES_T32_REVERSE] = {.handler = t32_emulate_rd8rn16_noflags},
+	[PROBES_T32_MUL_ADD] = {.handler = t32_emulate_rd8rn16rm0_rwflags},
+	[PROBES_T32_MUL_ADD2] = {.handler = t32_emulate_rd8rn16rm0ra12_noflags},
+	[PROBES_T32_MUL_ADD_LONG] =
+		{.handler = t32_emulate_rdlo12rdhi8rn16rm0_noflags},
+};

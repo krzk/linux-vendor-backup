@@ -299,3 +299,44 @@ emulate_rdlo12rdhi16rn0rm8_rwflags_nopc(struct kprobe *p, struct pt_regs *regs)
 	regs->uregs[rdhi] = rdhiv;
 	regs->ARM_cpsr = (regs->ARM_cpsr & ~APSR_MASK) | (cpsr & APSR_MASK);
 }
+
+const union decode_item kprobes_arm_actions[] = {
+	[PROBES_EMULATE_NONE] = {.handler = kprobe_emulate_none},
+	[PROBES_SIMULATE_NOP] = {.handler = kprobe_simulate_nop},
+	[PROBES_PRELOAD_IMM] = {.handler = kprobe_simulate_nop},
+	[PROBES_PRELOAD_REG] = {.handler = kprobe_simulate_nop},
+	[PROBES_BRANCH_IMM] = {.handler = simulate_blx1},
+	[PROBES_MRS] = {.handler = simulate_mrs},
+	[PROBES_BRANCH_REG] = {.handler = simulate_blx2bx},
+	[PROBES_CLZ] = {.handler = emulate_rd12rm0_noflags_nopc},
+	[PROBES_SATURATING_ARITHMETIC] = {
+		.handler = emulate_rd12rn16rm0_rwflags_nopc},
+	[PROBES_MUL1] = {.handler = emulate_rdlo12rdhi16rn0rm8_rwflags_nopc},
+	[PROBES_MUL2] = {.handler = emulate_rd16rn12rm0rs8_rwflags_nopc},
+	[PROBES_SWP] = {.handler = emulate_rd12rn16rm0_rwflags_nopc},
+	[PROBES_LDRSTRD] = {.handler = emulate_ldrdstrd},
+	[PROBES_LOAD_EXTRA] = {.handler = emulate_ldr},
+	[PROBES_LOAD] = {.handler = emulate_ldr},
+	[PROBES_STORE_EXTRA] = {.handler = emulate_str},
+	[PROBES_STORE] = {.handler = emulate_str},
+	[PROBES_MOV_IP_SP] = {.handler = simulate_mov_ipsp},
+	[PROBES_DATA_PROCESSING_REG] = {
+		.handler = emulate_rd12rn16rm0rs8_rwflags},
+	[PROBES_DATA_PROCESSING_IMM] = {
+		.handler = emulate_rd12rn16rm0rs8_rwflags},
+	[PROBES_MOV_HALFWORD] = {.handler = emulate_rd12rm0_noflags_nopc},
+	[PROBES_SEV] = {.handler = kprobe_emulate_none},
+	[PROBES_WFE] = {.handler = kprobe_simulate_nop},
+	[PROBES_SATURATE] = {.handler = emulate_rd12rn16rm0_rwflags_nopc},
+	[PROBES_REV] = {.handler = emulate_rd12rm0_noflags_nopc},
+	[PROBES_MMI] = {.handler = emulate_rd12rn16rm0_rwflags_nopc},
+	[PROBES_PACK] = {.handler = emulate_rd12rn16rm0_rwflags_nopc},
+	[PROBES_EXTEND] = {.handler = emulate_rd12rm0_noflags_nopc},
+	[PROBES_EXTEND_ADD] = {.handler = emulate_rd12rn16rm0_rwflags_nopc},
+	[PROBES_MUL_ADD_LONG] = {
+		.handler = emulate_rdlo12rdhi16rn0rm8_rwflags_nopc},
+	[PROBES_MUL_ADD] = {.handler = emulate_rd16rn12rm0rs8_rwflags_nopc},
+	[PROBES_BITFIELD] = {.handler = emulate_rd12rm0_noflags_nopc},
+	[PROBES_BRANCH] = {.handler = simulate_bbl},
+	[PROBES_LDMSTM] = {.decoder = kprobe_decode_ldmstm}
+};
