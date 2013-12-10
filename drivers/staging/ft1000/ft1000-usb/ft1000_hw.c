@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 //=====================================================
 // CopyRight (C) 2007 Qualcomm Inc. All Rights Reserved.
 //
@@ -7,6 +8,14 @@
 // $Id:
 //====================================================
 #include <linux/init.h>
+=======
+/* CopyRight (C) 2007 Qualcomm Inc. All Rights Reserved.
+*
+*
+* This file is part of Express Card USB Driver
+*/
+
+>>>>>>> 885a947e5b08... staging: delete non-required instances of include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/netdevice.h>

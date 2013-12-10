@@ -47,10 +47,13 @@ for my needs.
 
 #include <linux/kernel.h>
 #include <linux/errno.h>
+<<<<<<< HEAD
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/kref.h>
+=======
+>>>>>>> 885a947e5b08... staging: delete non-required instances of include <linux/init.h>
 #include <linux/uaccess.h>
 #include <linux/usb.h>
 

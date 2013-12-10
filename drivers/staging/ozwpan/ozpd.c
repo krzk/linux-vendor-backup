@@ -3,7 +3,11 @@
  * Released under the GNU General Public License Version 2 (GPLv2).
  * -----------------------------------------------------------------------------
  */
+<<<<<<< HEAD
 #include <linux/init.h>
+=======
+
+>>>>>>> 885a947e5b08... staging: delete non-required instances of include <linux/init.h>
 #include <linux/module.h>
 #include <linux/timer.h>
 #include <linux/sched.h>

@@ -20,8 +20,11 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
+<<<<<<< HEAD
 //#include <linux/config.h>
 #include <linux/init.h>
+=======
+>>>>>>> 885a947e5b08... staging: delete non-required instances of include <linux/init.h>
 #include <linux/ioport.h>
 #include <linux/sched.h>
 #include <linux/types.h>

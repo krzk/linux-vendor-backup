@@ -10,7 +10,11 @@
  * The implementation of this service uses ozhcd.c to implement a USB HCD.
  * -----------------------------------------------------------------------------
  */
+<<<<<<< HEAD
 #include <linux/init.h>
+=======
+
+>>>>>>> 885a947e5b08... staging: delete non-required instances of include <linux/init.h>
 #include <linux/module.h>
 #include <linux/timer.h>
 #include <linux/sched.h>

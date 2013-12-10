@@ -8,7 +8,6 @@
 //====================================================
 // 20090926; aelias; removed compiler warnings; ubuntu 9.04; 2.6.28-15-generic
 
-#include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/netdevice.h>
