@@ -842,7 +842,7 @@ static unsigned long __kprobes thumb_check_cc(unsigned long cpsr)
 }
 
 static void __kprobes thumb16_singlestep(probes_opcode_t opcode,
-		struct arch_specific_insn *asi,
+		struct arch_probes_insn *asi,
 		struct pt_regs *regs)
 {
 	regs->ARM_pc += 2;
@@ -851,7 +851,7 @@ static void __kprobes thumb16_singlestep(probes_opcode_t opcode,
 }
 
 static void __kprobes thumb32_singlestep(probes_opcode_t opcode,
-		struct arch_specific_insn *asi,
+		struct arch_probes_insn *asi,
 		struct pt_regs *regs)
 {
 	regs->ARM_pc += 4;
@@ -860,7 +860,7 @@ static void __kprobes thumb32_singlestep(probes_opcode_t opcode,
 }
 
 enum probes_insn __kprobes
-thumb16_probes_decode_insn(probes_opcode_t insn, struct arch_specific_insn *asi,
+thumb16_probes_decode_insn(probes_opcode_t insn, struct arch_probes_insn *asi,
 			   bool emulate, const union decode_item *actions)
 {
 	asi->insn_singlestep = thumb16_singlestep;
@@ -870,7 +870,7 @@ thumb16_probes_decode_insn(probes_opcode_t insn, struct arch_specific_insn *asi,
 }
 
 enum probes_insn __kprobes
-thumb32_probes_decode_insn(probes_opcode_t insn, struct arch_specific_insn *asi,
+thumb32_probes_decode_insn(probes_opcode_t insn, struct arch_probes_insn *asi,
 			   bool emulate, const union decode_item *actions)
 {
 	asi->insn_singlestep = thumb32_singlestep;
