@@ -1800,9 +1800,9 @@ static int simple_playback_build_controls(struct hda_codec *codec)
 	struct hdmi_spec *spec = codec->spec;
 	int err;
 
-	err = snd_hda_create_spdif_out_ctls(codec,
-					    spec->cvts[0].cvt_nid,
-					    spec->cvts[0].cvt_nid);
+	err = snd_hda_create_dig_out_ctls(codec, spec->cvts[0].cvt_nid,
+					  spec->cvts[0].cvt_nid,
+					  HDA_PCM_TYPE_HDMI);
 	if (err < 0)
 		return err;
 	return simple_hdmi_build_jack(codec, 0);
