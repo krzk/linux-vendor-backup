@@ -1167,11 +1167,6 @@ old_sess_out:
 
 out:
 	stop = kthread_should_stop();
-	if (!stop && signal_pending(current)) {
-		spin_lock_bh(&np->np_thread_lock);
-		stop = (np->np_thread_state == ISCSI_NP_THREAD_SHUTDOWN);
-		spin_unlock_bh(&np->np_thread_lock);
-	}
 	/* Wait for another socket.. */
 	if (!stop)
 		return 1;
