@@ -3444,6 +3444,7 @@ CONFIG_PWM_SAMSUNG=y
 #
 # Hardkernel Specific Hardware
 #
+CONFIG_VIDEO_SAMSUNG_S5P_HDMI_CEC=y
 
 #
 # Ubuntu Supplied Third-Party Device Drivers
