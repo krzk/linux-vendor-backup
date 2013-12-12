@@ -638,7 +638,7 @@ int testModule( char *f1, char *f2 )
 	{
 		destroyHashTable( curr_hashTable );
 		PRINT_ERROR( "Error read input \"%s\" file.\n", f2 );
-        return 1;
+		return 1;
 	}
 
 	/*

@@ -1,0 +1,53 @@
+%define debug_package %{nil}
+Name:       sample-module
+Summary:    Test sample kernel module 2
+Version:    0.1.0
+Release:    1
+Group:      Base/Device Management
+License:    GPL-2.0
+Source0:    %{name}-%{version}.tar.gz
+BuildRequires: linux-kernel-sources
+BuildRequires: linux-kernel-headers
+BuildRequires: linux-kernel-build
+BuildRequires: linux-kernel-abi-tools
+BuildRequires: linux-kernel-abi-devel
+
+Requires: linux-kernel-uImage
+
+%package source
+Summary: Debug sample-kernel-module-2
+Group: Base/Device Management
+
+%description source
+Debug and sources sample-kernel-module-2
+
+%description
+TIZEN simple kernel module.  
+
+%prep
+%setup -q
+
+%build
+make %{?jobs:-j%jobs}
+# Create ABI/API dump fingerprint file
+/usr/local/bin/abi-module-dumper sample_module_2.ko sample_module_2.abidump
+
+%install
+mkdir -p %{_builddir}/lib/modules/3.10.19-tizen_defconfig.1/
+make INSTALL_MOD_PATH=%{buildroot}  install
+cp sample_module_2.abidump %{buildroot}/lib/modules/3.10.19-tizen_defconfig.1/extra/
+
+%post
+# list comptible kerel ABI/API versions
+/usr/local/bin/abi-module-kernels-list /lib/modules/3.10.19-tizen_defconfig.1/extra/sample_module_2.abidump
+
+# Test module ABI/API with the kernel ABI/API
+/usr/local/bin/abi-module-checker /lib/modules/3.10.19-tizen_defconfig.1/extra/sample_module_2.abidump
+
+%files
+/lib/modules/3.10.19-tizen_defconfig.1/extra/
+%license LICENSE
+
+%files source
+/usr/src/debug/sample-kernel-module-2-0.1.0/sample_module_2.c
+/usr/src/debug/sample-kernel-module-2-0.1.0/sample_module_2.mod.c

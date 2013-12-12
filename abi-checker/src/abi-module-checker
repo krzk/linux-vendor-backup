@@ -1,0 +1,29 @@
+#!/bin/sh
+
+echo ""
+echo "Module ABI/API checker"
+echo ""
+echo ""
+
+if [ "${#}" != "1"  ]
+then
+	echo ""
+	echo "ERROR: "
+	echo "       Usage: ${0} _module_abi_fingerprint_"
+	echo ""
+	exit 1
+fi
+
+kerne_abi_file="/boot/abi/current"
+
+if [ ! -f "${1}" -o ! -f "${kerne_abi_file}" ]
+then
+	echo ""
+	echo "ERROR: Please check \"${1}\", \"${kerne_abi_file}\" files"
+	echo ""
+	exit 1
+fi
+
+/usr/local/bin/abi-checker "test-module" "${kerne_abi_file}" "${1}"
+
+exit ${?}
