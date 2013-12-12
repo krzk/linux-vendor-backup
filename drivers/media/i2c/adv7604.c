@@ -1378,6 +1378,11 @@ static int adv7604_s_dv_timings(struct v4l2_subdev *sd,
 	if (!timings)
 		return -EINVAL;
 
+	if (v4l2_match_dv_timings(&state->timings, timings, 0)) {
+		v4l2_dbg(1, debug, sd, "%s: no change\n", __func__);
+		return 0;
+	}
+
 	bt = &timings->bt;
 
 	if ((!DIGITAL_INPUT && bt->pixelclock > 170000000) ||
