@@ -252,10 +252,13 @@ struct vb2_buffer {
  *			receive buffers with @buf_queue callback before
  *			@start_streaming is called; the driver gets the number
  *			of already queued buffers in count parameter; driver
- *			can return an error if hardware fails or not enough
- *			buffers has been queued, in such case all buffers that
- *			have been already given by the @buf_queue callback are
- *			invalidated.
+ *			can return an error if hardware fails, in that case all
+ *			buffers that have been already given by the @buf_queue
+ *			callback are invalidated.
+ *			If there were not enough queued buffers to start
+ *			streaming, then this callback returns -ENOBUFS, and the
+ *			vb2 core will retry calling @start_streaming when a new
+ *			buffer is queued.
  * @stop_streaming:	called when 'streaming' state must be disabled; driver
  *			should stop any DMA transactions or wait until they
  *			finish and give back all buffers it got from buf_queue()
@@ -326,6 +329,9 @@ struct v4l2_fh;
  * @waiting_for_buffers: used in poll() to check if vb2 is still waiting for
  *		buffers. Only set for capture queues if qbuf has not yet been
  *		called since poll() needs to return POLLERR in that situation.
+ * @retry_start_streaming: start_streaming() was called, but there were not enough
+ *		buffers queued. If set, then retry calling start_streaming when
+ *		queuing a new buffer.
  * @fileio:	file io emulator internal data, used only if emulator is active
  */
 struct vb2_queue {
@@ -359,6 +365,7 @@ struct vb2_queue {
 
 	unsigned int			streaming:1;
 	unsigned int			waiting_for_buffers:1;
+	unsigned int			retry_start_streaming:1;
 
 	struct vb2_fileio_data		*fileio;
 };
