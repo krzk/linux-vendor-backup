@@ -231,8 +231,7 @@ static struct ion_heap_ops system_heap_ops = {
 	.map_user = ion_heap_map_user,
 };
 
-
-static int ion_system_heap_shrink_count(struct shrinker *shrinker,
+static unsigned long ion_system_heap_shrink_count(struct shrinker *shrinker,
 				  struct shrink_control *sc)
 {
 	struct ion_heap *heap = container_of(shrinker, struct ion_heap,
@@ -254,7 +253,7 @@ static int ion_system_heap_shrink_count(struct shrinker *shrinker,
 
 }
 
-static int ion_system_heap_shrink_scan(struct shrinker *shrinker,
+static unsigned long ion_system_heap_shrink_scan(struct shrinker *shrinker,
 				  struct shrink_control *sc)
 {
 
@@ -263,7 +262,6 @@ static int ion_system_heap_shrink_scan(struct shrinker *shrinker,
 	struct ion_system_heap *sys_heap = container_of(heap,
 							struct ion_system_heap,
 							heap);
-	int nr_total = 0;
 	int nr_freed = 0;
 	int i;
 
