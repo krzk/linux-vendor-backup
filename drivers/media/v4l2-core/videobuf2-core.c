@@ -1309,11 +1309,6 @@ static int __buf_prepare(struct vb2_buffer *vb, const struct v4l2_buffer *b)
 static int vb2_queue_or_prepare_buf(struct vb2_queue *q, struct v4l2_buffer *b,
 				    const char *opname)
 {
-	if (q->fileio) {
-		dprintk(1, "%s(): file io in progress\n", opname);
-		return -EBUSY;
-	}
-
 	if (b->type != q->type) {
 		dprintk(1, "%s(): invalid buffer type\n", opname);
 		return -EINVAL;
@@ -1355,9 +1350,15 @@ static int vb2_queue_or_prepare_buf(struct vb2_queue *q, struct v4l2_buffer *b,
  */
 int vb2_prepare_buf(struct vb2_queue *q, struct v4l2_buffer *b)
 {
-	int ret = vb2_queue_or_prepare_buf(q, b, "prepare_buf");
 	struct vb2_buffer *vb;
+	int ret;
 
+	if (q->fileio) {
+		dprintk(1, "%s(): file io in progress\n", __func__);
+		return -EBUSY;
+	}
+
+	ret = vb2_queue_or_prepare_buf(q, b, "prepare_buf");
 	if (ret)
 		return ret;
 
@@ -1379,24 +1380,7 @@ int vb2_prepare_buf(struct vb2_queue *q, struct v4l2_buffer *b)
 }
 EXPORT_SYMBOL_GPL(vb2_prepare_buf);
 
-/**
- * vb2_qbuf() - Queue a buffer from userspace
- * @q:		videobuf2 queue
- * @b:		buffer structure passed from userspace to vidioc_qbuf handler
- *		in driver
- *
- * Should be called from vidioc_qbuf ioctl handler of a driver.
- * This function:
- * 1) verifies the passed buffer,
- * 2) if necessary, calls buf_prepare callback in the driver (if provided), in
- *    which driver-specific buffer initialization can be performed,
- * 3) if streaming is on, queues the buffer in driver by the means of buf_queue
- *    callback for processing.
- *
- * The return values from this function are intended to be directly returned
- * from vidioc_qbuf handler in driver.
- */
-int vb2_qbuf(struct vb2_queue *q, struct v4l2_buffer *b)
+static int vb2_internal_qbuf(struct vb2_queue *q, struct v4l2_buffer *b)
 {
 	int ret = vb2_queue_or_prepare_buf(q, b, "qbuf");
 	struct vb2_buffer *vb;
@@ -1447,6 +1431,33 @@ int vb2_qbuf(struct vb2_queue *q, struct v4l2_buffer *b)
 
 	dprintk(1, "%s() of buffer %d succeeded\n", __func__, vb->v4l2_buf.index);
 	return 0;
+}
+
+/**
+ * vb2_qbuf() - Queue a buffer from userspace
+ * @q:		videobuf2 queue
+ * @b:		buffer structure passed from userspace to vidioc_qbuf handler
+ *		in driver
+ *
+ * Should be called from vidioc_qbuf ioctl handler of a driver.
+ * This function:
+ * 1) verifies the passed buffer,
+ * 2) if necessary, calls buf_prepare callback in the driver (if provided), in
+ *    which driver-specific buffer initialization can be performed,
+ * 3) if streaming is on, queues the buffer in driver by the means of buf_queue
+ *    callback for processing.
+ *
+ * The return values from this function are intended to be directly returned
+ * from vidioc_qbuf handler in driver.
+ */
+int vb2_qbuf(struct vb2_queue *q, struct v4l2_buffer *b)
+{
+	if (q->fileio) {
+		dprintk(1, "%s(): file io in progress\n", __func__);
+		return -EBUSY;
+	}
+
+	return vb2_internal_qbuf(q, b);
 }
 EXPORT_SYMBOL_GPL(vb2_qbuf);
 
@@ -1596,36 +1607,10 @@ static void __vb2_dqbuf(struct vb2_buffer *vb)
 		}
 }
 
-/**
- * vb2_dqbuf() - Dequeue a buffer to the userspace
- * @q:		videobuf2 queue
- * @b:		buffer structure passed from userspace to vidioc_dqbuf handler
- *		in driver
- * @nonblocking: if true, this call will not sleep waiting for a buffer if no
- *		 buffers ready for dequeuing are present. Normally the driver
- *		 would be passing (file->f_flags & O_NONBLOCK) here
- *
- * Should be called from vidioc_dqbuf ioctl handler of a driver.
- * This function:
- * 1) verifies the passed buffer,
- * 2) calls buf_finish callback in the driver (if provided), in which
- *    driver can perform any additional operations that may be required before
- *    returning the buffer to userspace, such as cache sync,
- * 3) the buffer struct members are filled with relevant information for
- *    the userspace.
- *
- * The return values from this function are intended to be directly returned
- * from vidioc_dqbuf handler in driver.
- */
-int vb2_dqbuf(struct vb2_queue *q, struct v4l2_buffer *b, bool nonblocking)
+static int vb2_internal_dqbuf(struct vb2_queue *q, struct v4l2_buffer *b, bool nonblocking)
 {
 	struct vb2_buffer *vb = NULL;
 	int ret;
-
-	if (q->fileio) {
-		dprintk(1, "dqbuf: file io in progress\n");
-		return -EBUSY;
-	}
 
 	if (b->type != q->type) {
 		dprintk(1, "dqbuf: invalid buffer type\n");
@@ -1664,6 +1649,36 @@ int vb2_dqbuf(struct vb2_queue *q, struct v4l2_buffer *b, bool nonblocking)
 			vb->v4l2_buf.index, vb->state);
 
 	return 0;
+}
+
+/**
+ * vb2_dqbuf() - Dequeue a buffer to the userspace
+ * @q:		videobuf2 queue
+ * @b:		buffer structure passed from userspace to vidioc_dqbuf handler
+ *		in driver
+ * @nonblocking: if true, this call will not sleep waiting for a buffer if no
+ *		 buffers ready for dequeuing are present. Normally the driver
+ *		 would be passing (file->f_flags & O_NONBLOCK) here
+ *
+ * Should be called from vidioc_dqbuf ioctl handler of a driver.
+ * This function:
+ * 1) verifies the passed buffer,
+ * 2) calls buf_finish callback in the driver (if provided), in which
+ *    driver can perform any additional operations that may be required before
+ *    returning the buffer to userspace, such as cache sync,
+ * 3) the buffer struct members are filled with relevant information for
+ *    the userspace.
+ *
+ * The return values from this function are intended to be directly returned
+ * from vidioc_dqbuf handler in driver.
+ */
+int vb2_dqbuf(struct vb2_queue *q, struct v4l2_buffer *b, bool nonblocking)
+{
+	if (q->fileio) {
+		dprintk(1, "dqbuf: file io in progress\n");
+		return -EBUSY;
+	}
+	return vb2_internal_dqbuf(q, b, nonblocking);
 }
 EXPORT_SYMBOL_GPL(vb2_dqbuf);
 
@@ -1704,28 +1719,10 @@ static void __vb2_queue_cancel(struct vb2_queue *q)
 		__vb2_dqbuf(q->bufs[i]);
 }
 
-/**
- * vb2_streamon - start streaming
- * @q:		videobuf2 queue
- * @type:	type argument passed from userspace to vidioc_streamon handler
- *
- * Should be called from vidioc_streamon handler of a driver.
- * This function:
- * 1) verifies current state
- * 2) passes any previously queued buffers to the driver and starts streaming
- *
- * The return values from this function are intended to be directly returned
- * from vidioc_streamon handler in the driver.
- */
-int vb2_streamon(struct vb2_queue *q, enum v4l2_buf_type type)
+static int vb2_internal_streamon(struct vb2_queue *q, enum v4l2_buf_type type)
 {
 	struct vb2_buffer *vb;
 	int ret;
-
-	if (q->fileio) {
-		dprintk(1, "streamon: file io in progress\n");
-		return -EBUSY;
-	}
 
 	if (type != q->type) {
 		dprintk(1, "streamon: invalid stream type\n");
@@ -1759,8 +1756,52 @@ int vb2_streamon(struct vb2_queue *q, enum v4l2_buf_type type)
 	dprintk(3, "Streamon successful\n");
 	return 0;
 }
+
+/**
+ * vb2_streamon - start streaming
+ * @q:		videobuf2 queue
+ * @type:	type argument passed from userspace to vidioc_streamon handler
+ *
+ * Should be called from vidioc_streamon handler of a driver.
+ * This function:
+ * 1) verifies current state
+ * 2) passes any previously queued buffers to the driver and starts streaming
+ *
+ * The return values from this function are intended to be directly returned
+ * from vidioc_streamon handler in the driver.
+ */
+int vb2_streamon(struct vb2_queue *q, enum v4l2_buf_type type)
+{
+	if (q->fileio) {
+		dprintk(1, "streamon: file io in progress\n");
+		return -EBUSY;
+	}
+	return vb2_internal_streamon(q, type);
+}
 EXPORT_SYMBOL_GPL(vb2_streamon);
 
+static int vb2_internal_streamoff(struct vb2_queue *q, enum v4l2_buf_type type)
+{
+	if (type != q->type) {
+		dprintk(1, "streamoff: invalid stream type\n");
+		return -EINVAL;
+	}
+
+	if (!q->streaming) {
+		dprintk(3, "streamoff successful: not streaming\n");
+		return 0;
+	}
+
+	/*
+	 * Cancel will pause streaming and remove all buffers from the driver
+	 * and videobuf, effectively returning control over them to userspace.
+	 */
+	__vb2_queue_cancel(q);
+	q->waiting_for_buffers = !V4L2_TYPE_IS_OUTPUT(q->type);
+
+	dprintk(3, "Streamoff successful\n");
+	return 0;
+}
 
 /**
  * vb2_streamoff - stop streaming
@@ -1783,26 +1824,7 @@ int vb2_streamoff(struct vb2_queue *q, enum v4l2_buf_type type)
 		dprintk(1, "streamoff: file io in progress\n");
 		return -EBUSY;
 	}
-
-	if (type != q->type) {
-		dprintk(1, "streamoff: invalid stream type\n");
-		return -EINVAL;
-	}
-
-	if (!q->streaming) {
-		dprintk(3, "streamoff successful: not streaming\n");
-		return 0;
-	}
-
-	/*
-	 * Cancel will pause streaming and remove all buffers from the driver
-	 * and videobuf, effectively returning control over them to userspace.
-	 */
-	__vb2_queue_cancel(q);
-	q->waiting_for_buffers = !V4L2_TYPE_IS_OUTPUT(q->type);
-
-	dprintk(3, "Streamoff successful\n");
-	return 0;
+	return vb2_internal_streamoff(q, type);
 }
 EXPORT_SYMBOL_GPL(vb2_streamoff);
 
@@ -2333,13 +2355,8 @@ static int __vb2_cleanup_fileio(struct vb2_queue *q)
 	struct vb2_fileio_data *fileio = q->fileio;
 
 	if (fileio) {
-		/*
-		 * Hack fileio context to enable direct calls to vb2 ioctl
-		 * interface.
-		 */
+		vb2_internal_streamoff(q, q->type);
 		q->fileio = NULL;
-
-		vb2_streamoff(q, q->type);
 		fileio->req.count = 0;
 		vb2_reqbufs(q, &fileio->req);
 		kfree(fileio);
@@ -2382,12 +2399,6 @@ static size_t __vb2_perform_fileio(struct vb2_queue *q, char __user *data, size_
 	}
 	fileio = q->fileio;
 
-	/*
-	 * Hack fileio context to enable direct calls to vb2 ioctl interface.
-	 * The pointer will be restored before returning from this function.
-	 */
-	q->fileio = NULL;
-
 	index = fileio->index;
 	buf = &fileio->bufs[index];
 
@@ -2404,10 +2415,10 @@ static size_t __vb2_perform_fileio(struct vb2_queue *q, char __user *data, size_
 		fileio->b.type = q->type;
 		fileio->b.memory = q->memory;
 		fileio->b.index = index;
-		ret = vb2_dqbuf(q, &fileio->b, nonblock);
+		ret = vb2_internal_dqbuf(q, &fileio->b, nonblock);
 		dprintk(5, "file io: vb2_dqbuf result: %d\n", ret);
 		if (ret)
-			goto end;
+			return ret;
 		fileio->dq_count += 1;
 
 		/*
@@ -2437,8 +2448,7 @@ static size_t __vb2_perform_fileio(struct vb2_queue *q, char __user *data, size_
 		ret = copy_from_user(buf->vaddr + buf->pos, data, count);
 	if (ret) {
 		dprintk(3, "file io: error copying data\n");
-		ret = -EFAULT;
-		goto end;
+		return -EFAULT;
 	}
 
 	/*
@@ -2458,10 +2468,6 @@ static size_t __vb2_perform_fileio(struct vb2_queue *q, char __user *data, size_
 		if (read && (fileio->flags & VB2_FILEIO_READ_ONCE) &&
 		    fileio->dq_count == 1) {
 			dprintk(3, "file io: read limit reached\n");
-			/*
-			 * Restore fileio pointer and release the context.
-			 */
-			q->fileio = fileio;
 			return __vb2_cleanup_fileio(q);
 		}
 
@@ -2473,10 +2479,10 @@ static size_t __vb2_perform_fileio(struct vb2_queue *q, char __user *data, size_
 		fileio->b.memory = q->memory;
 		fileio->b.index = index;
 		fileio->b.bytesused = buf->pos;
-		ret = vb2_qbuf(q, &fileio->b);
+		ret = vb2_internal_qbuf(q, &fileio->b);
 		dprintk(5, "file io: vb2_dbuf result: %d\n", ret);
 		if (ret)
-			goto end;
+			return ret;
 
 		/*
 		 * Buffer has been queued, update the status
@@ -2495,9 +2501,9 @@ static size_t __vb2_perform_fileio(struct vb2_queue *q, char __user *data, size_
 		 * Start streaming if required.
 		 */
 		if (!read && !q->streaming) {
-			ret = vb2_streamon(q, q->type);
+			ret = vb2_internal_streamon(q, q->type);
 			if (ret)
-				goto end;
+				return ret;
 		}
 	}
 
@@ -2506,11 +2512,6 @@ static size_t __vb2_perform_fileio(struct vb2_queue *q, char __user *data, size_
 	 */
 	if (ret == 0)
 		ret = count;
-end:
-	/*
-	 * Restore the fileio context and block vb2 ioctl interface.
-	 */
-	q->fileio = fileio;
 	return ret;
 }
 
