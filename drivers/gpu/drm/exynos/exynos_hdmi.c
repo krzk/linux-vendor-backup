@@ -1755,6 +1755,14 @@ static void hdmi_v14_mode_set(struct hdmi_context *hdata,
 {
 	struct hdmi_core_regs *core = &hdata->mode_conf.core;
 	struct hdmi_tg_regs *tg = &hdata->mode_conf.tg;
+	int hcorrect = 0;
+	int vcorrect = 0;
+
+	if ((m->vdisplay == 768 && m->hdisplay == 1024) || (m->vdisplay == 1024 && m->hdisplay == 1280)) {
+		pr_info("exynos-drm: Applying 257px timings hack\n");
+		hcorrect = 257;
+		vcorrect = 1;
+	}
 
 	hdata->mode_conf.cea_video_id = drm_match_cea_mode(m);
 
@@ -1812,8 +1820,8 @@ static void hdmi_v14_mode_set(struct hdmi_context *hdata,
 		hdmi_set_reg(core->v_sync_line_aft_1, 2, 0xffff);
 		hdmi_set_reg(core->v_sync_line_aft_pxl_2, 2, 0xffff);
 		hdmi_set_reg(core->v_sync_line_aft_pxl_1, 2, 0xffff);
-		hdmi_set_reg(tg->vact_st, 2, m->vtotal - m->vdisplay);
-		hdmi_set_reg(tg->vact_sz, 2, m->vdisplay);
+		hdmi_set_reg(tg->vact_st, 2, (m->vtotal - m->vdisplay) - vcorrect);
+		hdmi_set_reg(tg->vact_sz, 2, m->vdisplay + vcorrect);
 		hdmi_set_reg(tg->vact_st2, 2, 0x248); /* Reset value */
 		hdmi_set_reg(tg->vact_st3, 2, 0x47b); /* Reset value */
 		hdmi_set_reg(tg->vact_st4, 2, 0x6ae); /* Reset value */
@@ -1844,8 +1852,8 @@ static void hdmi_v14_mode_set(struct hdmi_context *hdata,
 	/* Timing generator registers */
 	hdmi_set_reg(tg->cmd, 1, 0x0);
 	hdmi_set_reg(tg->h_fsz, 2, m->htotal);
-	hdmi_set_reg(tg->hact_st, 2, m->htotal - m->hdisplay);
-	hdmi_set_reg(tg->hact_sz, 2, m->hdisplay);
+	hdmi_set_reg(tg->hact_st, 2, (m->htotal - m->hdisplay) - hcorrect);
+	hdmi_set_reg(tg->hact_sz, 2, m->hdisplay + hcorrect);
 	hdmi_set_reg(tg->v_fsz, 2, m->vtotal);
 	hdmi_set_reg(tg->vsync, 2, 0x1);
 	hdmi_set_reg(tg->vsync2, 2, 0x233); /* Reset value */
