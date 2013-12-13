@@ -12,6 +12,8 @@
 #include <linux/gpio.h>
 #include <linux/gpio_keys.h>
 #include <linux/i2c.h>
+#include <linux/i2c-gpio.h>
+#include <linux/i2c/pca953x.h>
 #include <linux/input.h>
 #include <linux/io.h>
 #include <linux/mfd/max77686.h>
@@ -52,6 +54,7 @@
 #include <video/samsung_fimd.h>
 #include <linux/platform_data/spi-s3c64xx.h>
 
+#include <mach/gpio.h>
 #include <mach/map.h>
 #include <mach/regs-pmu.h>
 #include <mach/dwmci.h>
@@ -166,6 +169,38 @@ static struct i2c_board_info hkdk4412_i2c_devs3[] __initdata = {
 static struct i2c_board_info hkdk4412_i2c_devs7[] __initdata = {
 	/* nothing here yet */
 };
+
+#if defined(CONFIG_ODROID_U2)
+/* for u3 I/O shield board */
+#define		GPIO_I2C4_SDA	EXYNOS4_GPX1(1)
+#define		GPIO_I2C4_SCL	EXYNOS4_GPX1(0)
+
+static struct 	i2c_gpio_platform_data 	i2c4_gpio_platdata = {
+	.sda_pin = GPIO_I2C4_SDA,
+	.scl_pin = GPIO_I2C4_SCL,
+	.udelay  = 0,
+	.sda_is_open_drain = 0,
+	.scl_is_open_drain = 0,
+	.scl_is_output_only = 0
+};
+
+static struct 	platform_device 	gpio_device_i2c4 = {
+	.name 	= "i2c-gpio",
+	.id  	= 4,    // adepter number
+	.dev.platform_data = &i2c4_gpio_platdata,
+};
+
+static struct pca953x_platform_data odroid_gpio_expander_pdata = {
+	.gpio_base	= EXYNOS4_GPIO_END,
+};
+
+static struct i2c_board_info hkdk4412_i2c_devs4[] __initdata = {
+	{
+		I2C_BOARD_INFO("tca6416", 0x20),
+		.platform_data 	= &odroid_gpio_expander_pdata,
+	},
+};
+#endif
 
 #if defined(CONFIG_ODROID_U2)
 static struct gpio_led hkdk4412_gpio_leds[] = {
@@ -421,6 +456,9 @@ static struct platform_device *hkdk4412_devices[] __initdata = {
 	&s3c_device_i2c1,
 	&s3c_device_i2c2,
 	&s3c_device_i2c3,
+#if defined(CONFIG_ODROID_U2)
+	&gpio_device_i2c4,
+#endif
 	&s3c_device_i2c7,
 	&s3c_device_rtc,
 	&s3c_device_usb_hsotg,
@@ -560,6 +598,11 @@ static void __init hkdk4412_machine_init(void)
 	s3c_i2c3_set_platdata(NULL);
 	i2c_register_board_info(3, hkdk4412_i2c_devs3,
 				ARRAY_SIZE(hkdk4412_i2c_devs3));
+
+#if defined(CONFIG_ODROID_U2)
+	i2c_register_board_info(4, hkdk4412_i2c_devs4,
+				ARRAY_SIZE(hkdk4412_i2c_devs4));
+#endif
 
 	s3c_i2c7_set_platdata(NULL);
 	i2c_register_board_info(7, hkdk4412_i2c_devs7,
