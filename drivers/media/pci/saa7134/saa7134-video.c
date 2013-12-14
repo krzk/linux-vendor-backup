@@ -1768,7 +1768,7 @@ static int saa7134_enum_input(struct file *file, void *priv,
 		if (0 != (v1 & 0x40))
 			i->status |= V4L2_IN_ST_NO_H_LOCK;
 		if (0 != (v2 & 0x40))
-			i->status |= V4L2_IN_ST_NO_SYNC;
+			i->status |= V4L2_IN_ST_NO_SIGNAL;
 		if (0 != (v2 & 0x0e))
 			i->status |= V4L2_IN_ST_MACROVISION;
 	}
