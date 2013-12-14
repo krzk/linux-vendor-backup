@@ -1513,11 +1513,9 @@ static int saa7134_s_fmt_vid_overlay(struct file *file, void *priv,
 	return 0;
 }
 
-static int saa7134_enum_input(struct file *file, void *priv,
-					struct v4l2_input *i)
+int saa7134_enum_input(struct file *file, void *priv, struct v4l2_input *i)
 {
-	struct saa7134_fh *fh = priv;
-	struct saa7134_dev *dev = fh->dev;
+	struct saa7134_dev *dev = video_drvdata(file);
 	unsigned int n;
 
 	n = i->index;
@@ -1544,20 +1542,20 @@ static int saa7134_enum_input(struct file *file, void *priv,
 	i->std = SAA7134_NORMS;
 	return 0;
 }
+EXPORT_SYMBOL_GPL(saa7134_enum_input);
 
-static int saa7134_g_input(struct file *file, void *priv, unsigned int *i)
+int saa7134_g_input(struct file *file, void *priv, unsigned int *i)
 {
-	struct saa7134_fh *fh = priv;
-	struct saa7134_dev *dev = fh->dev;
+	struct saa7134_dev *dev = video_drvdata(file);
 
 	*i = dev->ctl_input;
 	return 0;
 }
+EXPORT_SYMBOL_GPL(saa7134_g_input);
 
-static int saa7134_s_input(struct file *file, void *priv, unsigned int i)
+int saa7134_s_input(struct file *file, void *priv, unsigned int i)
 {
-	struct saa7134_fh *fh = priv;
-	struct saa7134_dev *dev = fh->dev;
+	struct saa7134_dev *dev = video_drvdata(file);
 
 	if (i >= SAA7134_INPUT_MAX)
 		return -EINVAL;
@@ -1568,12 +1566,12 @@ static int saa7134_s_input(struct file *file, void *priv, unsigned int i)
 	mutex_unlock(&dev->lock);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(saa7134_s_input);
 
-static int saa7134_querycap(struct file *file, void  *priv,
+int saa7134_querycap(struct file *file, void *priv,
 					struct v4l2_capability *cap)
 {
-	struct saa7134_fh *fh = priv;
-	struct saa7134_dev *dev = fh->dev;
+	struct saa7134_dev *dev = video_drvdata(file);
 	struct video_device *vdev = video_devdata(file);
 	u32 radio_caps, video_caps, vbi_caps;
 
@@ -1593,7 +1591,8 @@ static int saa7134_querycap(struct file *file, void  *priv,
 		radio_caps |= V4L2_CAP_RDS_CAPTURE;
 
 	video_caps = V4L2_CAP_VIDEO_CAPTURE;
-	if (saa7134_no_overlay <= 0)
+	/* For the empress video node priv == dev */
+	if (saa7134_no_overlay <= 0 && priv != dev)
 		video_caps |= V4L2_CAP_VIDEO_OVERLAY;
 
 	vbi_caps = V4L2_CAP_VBI_CAPTURE;
@@ -1619,14 +1618,18 @@ static int saa7134_querycap(struct file *file, void  *priv,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(saa7134_querycap);
 
-int saa7134_s_std_internal(struct saa7134_dev *dev, struct saa7134_fh *fh, v4l2_std_id id)
+int saa7134_s_std(struct file *file, void *priv, v4l2_std_id id)
 {
+	struct saa7134_dev *dev = video_drvdata(file);
+	/* For the empress video node priv == dev */
+	bool is_empress = priv == dev;
 	unsigned long flags;
 	unsigned int i;
 	v4l2_std_id fixup;
 
-	if (!fh && res_locked(dev, RESOURCE_OVERLAY)) {
+	if (is_empress && res_locked(dev, RESOURCE_OVERLAY)) {
 		/* Don't change the std from the mpeg device
 		   if overlay is active. */
 		return -EBUSY;
@@ -1666,7 +1669,7 @@ int saa7134_s_std_internal(struct saa7134_dev *dev, struct saa7134_fh *fh, v4l2_
 	id = tvnorms[i].id;
 
 	mutex_lock(&dev->lock);
-	if (fh && res_check(fh, RESOURCE_OVERLAY)) {
+	if (!is_empress && res_check(priv, RESOURCE_OVERLAY)) {
 		spin_lock_irqsave(&dev->slock, flags);
 		stop_preview(dev);
 		spin_unlock_irqrestore(&dev->slock, flags);
@@ -1683,23 +1686,16 @@ int saa7134_s_std_internal(struct saa7134_dev *dev, struct saa7134_fh *fh, v4l2_
 	mutex_unlock(&dev->lock);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(saa7134_s_std_internal);
+EXPORT_SYMBOL_GPL(saa7134_s_std);
 
-static int saa7134_s_std(struct file *file, void *priv, v4l2_std_id id)
+int saa7134_g_std(struct file *file, void *priv, v4l2_std_id *id)
 {
-	struct saa7134_fh *fh = priv;
-
-	return saa7134_s_std_internal(fh->dev, fh, id);
-}
-
-static int saa7134_g_std(struct file *file, void *priv, v4l2_std_id *id)
-{
-	struct saa7134_fh *fh = priv;
-	struct saa7134_dev *dev = fh->dev;
+	struct saa7134_dev *dev = video_drvdata(file);
 
 	*id = dev->tvnorm->id;
 	return 0;
 }
+EXPORT_SYMBOL_GPL(saa7134_g_std);
 
 static int saa7134_cropcap(struct file *file, void *priv,
 					struct v4l2_cropcap *cap)
@@ -1774,11 +1770,10 @@ static int saa7134_s_crop(struct file *file, void *f, const struct v4l2_crop *cr
 	return 0;
 }
 
-static int saa7134_g_tuner(struct file *file, void *priv,
+int saa7134_g_tuner(struct file *file, void *priv,
 					struct v4l2_tuner *t)
 {
-	struct saa7134_fh *fh = priv;
-	struct saa7134_dev *dev = fh->dev;
+	struct saa7134_dev *dev = video_drvdata(file);
 	int n;
 
 	if (0 != t->index)
@@ -1805,12 +1800,12 @@ static int saa7134_g_tuner(struct file *file, void *priv,
 		t->signal = 0xffff;
 	return 0;
 }
+EXPORT_SYMBOL_GPL(saa7134_g_tuner);
 
-static int saa7134_s_tuner(struct file *file, void *priv,
+int saa7134_s_tuner(struct file *file, void *priv,
 					const struct v4l2_tuner *t)
 {
-	struct saa7134_fh *fh = priv;
-	struct saa7134_dev *dev = fh->dev;
+	struct saa7134_dev *dev = video_drvdata(file);
 	int rx, mode;
 
 	if (0 != t->index)
@@ -1826,12 +1821,12 @@ static int saa7134_s_tuner(struct file *file, void *priv,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(saa7134_s_tuner);
 
-static int saa7134_g_frequency(struct file *file, void *priv,
+int saa7134_g_frequency(struct file *file, void *priv,
 					struct v4l2_frequency *f)
 {
-	struct saa7134_fh *fh = priv;
-	struct saa7134_dev *dev = fh->dev;
+	struct saa7134_dev *dev = video_drvdata(file);
 
 	if (0 != f->tuner)
 		return -EINVAL;
@@ -1840,12 +1835,12 @@ static int saa7134_g_frequency(struct file *file, void *priv,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(saa7134_g_frequency);
 
-static int saa7134_s_frequency(struct file *file, void *priv,
+int saa7134_s_frequency(struct file *file, void *priv,
 					const struct v4l2_frequency *f)
 {
-	struct saa7134_fh *fh = priv;
-	struct saa7134_dev *dev = fh->dev;
+	struct saa7134_dev *dev = video_drvdata(file);
 
 	if (0 != f->tuner)
 		return -EINVAL;
@@ -1857,6 +1852,7 @@ static int saa7134_s_frequency(struct file *file, void *priv,
 	mutex_unlock(&dev->lock);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(saa7134_s_frequency);
 
 static int saa7134_enum_fmt_vid_cap(struct file *file, void  *priv,
 					struct v4l2_fmtdesc *f)
@@ -2077,34 +2073,6 @@ static int radio_s_tuner(struct file *file, void *priv,
 	return 0;
 }
 
-static int radio_enum_input(struct file *file, void *priv,
-					struct v4l2_input *i)
-{
-	if (i->index != 0)
-		return -EINVAL;
-
-	strcpy(i->name, "Radio");
-	i->type = V4L2_INPUT_TYPE_TUNER;
-
-	return 0;
-}
-
-static int radio_g_input(struct file *filp, void *priv, unsigned int *i)
-{
-	*i = 0;
-	return 0;
-}
-
-static int radio_s_input(struct file *filp, void *priv, unsigned int i)
-{
-	return 0;
-}
-
-static int radio_s_std(struct file *file, void *fh, v4l2_std_id norm)
-{
-	return 0;
-}
-
 static const struct v4l2_file_operations video_fops =
 {
 	.owner	  = THIS_MODULE,
@@ -2168,11 +2136,7 @@ static const struct v4l2_file_operations radio_fops = {
 static const struct v4l2_ioctl_ops radio_ioctl_ops = {
 	.vidioc_querycap	= saa7134_querycap,
 	.vidioc_g_tuner		= radio_g_tuner,
-	.vidioc_enum_input	= radio_enum_input,
 	.vidioc_s_tuner		= radio_s_tuner,
-	.vidioc_s_input		= radio_s_input,
-	.vidioc_s_std		= radio_s_std,
-	.vidioc_g_input		= radio_g_input,
 	.vidioc_g_frequency	= saa7134_g_frequency,
 	.vidioc_s_frequency	= saa7134_s_frequency,
 };
