@@ -43,11 +43,13 @@
 #include <linux/clk.h>
 #include <linux/cpufreq.h>
 #include <linux/of.h>
+#include <linux/gpio.h>
 
 #include <asm/irq.h>
 
 #include <mach/hardware.h>
 #include <mach/map.h>
+#include <mach/gpio.h>
 
 #include <plat/regs-serial.h>
 #include <plat/clock.h>
@@ -407,6 +409,20 @@ static unsigned int s3c24xx_serial_get_mctrl(struct uart_port *port)
 static void s3c24xx_serial_set_mctrl(struct uart_port *port, unsigned int mctrl)
 {
 	/* todo - possibly remove AFC and do manual CTS */
+#if defined(CONFIG_ODROID_U2)
+	if(port->line == 0) {
+		if(port->mctrl & TIOCM_DTR){
+	        gpio_request(EXYNOS4_GPX1(5), "GPX1.5");
+	        gpio_direction_output(EXYNOS4_GPX1(5), 1);
+	        gpio_free(EXYNOS4_GPX1(5));
+		}
+		else {
+	        gpio_request(EXYNOS4_GPX1(5), "GPX1.5");
+	        gpio_direction_output(EXYNOS4_GPX1(5), 0);
+	        gpio_free(EXYNOS4_GPX1(5));
+		}
+	}
+#endif
 }
 
 static void s3c24xx_serial_break_ctl(struct uart_port *port, int break_state)
