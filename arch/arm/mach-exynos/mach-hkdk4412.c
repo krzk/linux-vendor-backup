@@ -172,8 +172,8 @@ static struct i2c_board_info hkdk4412_i2c_devs7[] __initdata = {
 
 #if defined(CONFIG_ODROID_U2)
 /* for u3 I/O shield board */
-#define		GPIO_I2C4_SDA	EXYNOS4_GPX1(1)
-#define		GPIO_I2C4_SCL	EXYNOS4_GPX1(0)
+#define		GPIO_I2C4_SDA	EXYNOS4_GPX1(0)
+#define		GPIO_I2C4_SCL	EXYNOS4_GPX1(1)
 
 static struct 	i2c_gpio_platform_data 	i2c4_gpio_platdata = {
 	.sda_pin = GPIO_I2C4_SDA,
@@ -190,15 +190,24 @@ static struct 	platform_device 	gpio_device_i2c4 = {
 	.dev.platform_data = &i2c4_gpio_platdata,
 };
 
+#if defined(CONFIG_GPIO_PCA953X)
 static struct pca953x_platform_data odroid_gpio_expander_pdata = {
 	.gpio_base	= EXYNOS4_GPIO_END,
 };
+#endif
 
 static struct i2c_board_info hkdk4412_i2c_devs4[] __initdata = {
+#if defined(CONFIG_SENSORS_BH1780)
+	{
+		I2C_BOARD_INFO("bh1780", 0x29),
+	},
+#endif
+#if defined(CONFIG_GPIO_PCA953X)
 	{
 		I2C_BOARD_INFO("tca6416", 0x20),
 		.platform_data 	= &odroid_gpio_expander_pdata,
 	},
+#endif
 };
 #endif
 
