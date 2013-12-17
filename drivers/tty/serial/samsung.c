@@ -413,12 +413,12 @@ static void s3c24xx_serial_set_mctrl(struct uart_port *port, unsigned int mctrl)
 	if(port->line == 0) {
 		if(port->mctrl & TIOCM_DTR){
 	        gpio_request(EXYNOS4_GPX1(5), "GPX1.5");
-	        gpio_direction_output(EXYNOS4_GPX1(5), 1);
+	        gpio_direction_output(EXYNOS4_GPX1(5), 0);
 	        gpio_free(EXYNOS4_GPX1(5));
 		}
 		else {
 	        gpio_request(EXYNOS4_GPX1(5), "GPX1.5");
-	        gpio_direction_output(EXYNOS4_GPX1(5), 0);
+	        gpio_direction_output(EXYNOS4_GPX1(5), 1);
 	        gpio_free(EXYNOS4_GPX1(5));
 		}
 	}
