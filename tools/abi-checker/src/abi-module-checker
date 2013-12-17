@@ -24,6 +24,20 @@ then
 	exit 1
 fi
 
-/usr/local/bin/abi-checker "test-module" "${kerne_abi_file}" "${1}"
+ABI_TOOL_LOCATION="/usr/local/bin"
+ABI_TOOL_NAME="abi-checker"
+ABI_TOOL="${ABI_TOOL_LOCATION}/${ABI_TOOL_NAME}"
+
+if [ -x "${ABI_TOOL}" ]
+then
+	CMD="${ABI_TOOL}"
+elif [ -x "./${ABI_TOOL_NAME}" ]
+then
+	CMD="./${ABI_TOOL_NAME}"
+else
+	CMD="${ABI_TOOL_NAME}"
+fi
+
+"${CMD}" "test-module" "${kerne_abi_file}" "${1}"
 
 exit ${?}

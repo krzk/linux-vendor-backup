@@ -13,6 +13,20 @@ then
 	exit 1
 fi
 
+ABI_TOOL_LOCATION="/usr/local/bin"
+ABI_TOOL_NAME="abi-checker"
+ABI_TOOL="${ABI_TOOL_LOCATION}/${ABI_TOOL_NAME}"
+
+if [ -x "${ABI_TOOL}" ]
+then
+        CMD="${ABI_TOOL}"
+elif [ -x "./${ABI_TOOL_NAME}" ]
+then
+        CMD="./${ABI_TOOL_NAME}"
+else
+        CMD="${ABI_TOOL_NAME}"
+fi
+
 #
 # Check all historical abi kernel files
 #
@@ -22,7 +36,7 @@ do
 	version=`echo ${filename} | awk -F _ '{ print $2 }'`
 	abi=`echo ${filename} | awk -F _ '{ print $3 }'`
 
-	/usr/local/bin/abi-checker "test-module" "${file}" "${1}" 2> /dev/null > /dev/null
+	"${CMD}" "test-module" "${file}" "${1}" 2> /dev/null > /dev/null
 	if [ "${?}" = "0" ]
 	then
 		echo "        Kernel:${version}, ABI/API:${abi} .... compatible"

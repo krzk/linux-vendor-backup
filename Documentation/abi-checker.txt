@@ -1,0 +1,132 @@
+
+                       Linux kernel ABI/API checker
+--------------------------------------------------------------------------
+
+I. Introduction
+===============
+
+   "abi-checker" is a simple set of tools to:
+- test changes in Linux kernel API/ABI.
+- test compatibility kernel module wth kernel
+- creates dump for external kernel modules with list of kernel symbols
+  used by the module.
+
+
+II. Application/scripts
+=======================
+
+1. abi-checker
+
+   The application can be run in the following modes:
+   - "test-kernel" - in the mode compares two Module.symvers files.
+                   In case if some changes have been detected the
+                   application creates report containg list of changed symbols
+                   (added/changed/removed). Additionally summary ireport with
+                   total number symbols, itotal number changed/modified/removed
+                   symbols is created.
+
+                   Usage:
+                     abi-checker test-kernel file1 file2
+
+                   Return values:
+                     0 - if Module.symvers are identical
+                     1 - if some changes have been detected.
+
+   - "build-list" - in the mode the applications creates file containing linux kernel
+                   symbols uses by the module.
+                   As input the application expect:
+                   - kernel Module.symvers file
+                   - module symbols file - each line of the file has
+                     name of the module symbol.
+
+                   As output the application creates file in format like "Modules.symvers".
+
+                   Usage:
+                     abi-checker build-list Module.symvers kernel_symbols_file output_file
+
+                   Return:
+                     0 - success
+                     1 - any error
+
+   - "dump-module" - in the mode the application directly extracts from *.ko file
+                   symbols and creates file in format like Module.symvers containing list
+                   of kernel symbols used by the module.
+
+                   Usage:
+                     abi-checker dump-module Module.symvers module_ko_file output_file
+
+                   Return:
+                     0 - success
+                     1 - any error
+
+   - "test-module" - in the mode the application compares kernel "Module.symvers" file
+                   with external module "Module.symvers" file. In case of any differences
+                   list of changed/removed symbols is reported. Additionally summary info
+                   with numer total number symbols, total number changed/modified/removed
+                   symbols is created also.
+
+                   Usage:
+                     abi-checker test-module kernel_Module.symvers module_Module.symvers
+
+                   Return:
+                     0 - if all module symbols are identical with kernel symbols
+                     1 - if some changes have been detected.
+
+2. abi-module-checker - helper script. It simplify API/API checks for kernel module. Internally
+                  the script call abi-checker in "test-module" mode. The script assumes that in
+                  /boot/abi directory is present ABI/API repository for linux kernel.
+
+                  Usage:
+                    abi-module-checker kernel_module_abi_file
+
+                  Return:
+                    0 - if module API/ABI file is compatible with current kernel
+                    1 - in case if module is not compatible with current kernel or error
+
+3. abi-module-dumper - helper script. It simplify ABI/API module dump file creation. The script
+                  assumes that in /boot/abi directory is present ABI/API repository for linux kernel.
+
+                  Usage:
+                    abi-module-dumper _module_ko_file_ _output_file_
+
+                  Return:
+                    0 - success
+                    1 - any error
+
+4. abi-module-kernels-list - helper script. The script reporst all kernel version compatible
+                  with the given kernel module. The script assumes that in /boot/abi directory
+                  is present ABI/API repository for linux kernel.
+
+                  Usage:
+                    abi-module-kernels-list _module_abi_file_
+
+                  Return:
+                    0 - success
+                    1 - any error
+
+III. Module.symvers file format
+===============================
+
+   Each line of the Module.symvers file has the folloing format:
+
+	symbol_name<tab>symbol_crc<tab>module_name<tab>additiona_info
+
+Example:
+	...
+	0x27e1a049      printk  vmlinux EXPORT_SYMBOL
+	0xf85bebf9      dev_printk_emit vmlinux EXPORT_SYMBOL
+	...
+
+IV. Kernel ABI/API repository
+=============================
+
+   The ABI/API repository is located in /boot/abi direcotry. The repository contains list of all
+ABI/API versions (also for historical kernel versions).
+   The repository contains list of files which names are in format abi_${KERNELVERSION}_${ABIVERSION}.
+ABI/API file for current kernel version is marked by current symbolic link.
+
+V. Kernel ABI/API repository
+============================
+
+   Directory tools/abi-checker/data ABI/API Module.symvers for current and older kernel version.
+Module.symvers for current kernel version is indicated by current symbolic link.
