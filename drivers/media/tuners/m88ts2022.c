@@ -13,10 +13,6 @@
  *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *    GNU General Public License for more details.
  *
- *    You should have received a copy of the GNU General Public License along
- *    with this program; if not, write to the Free Software Foundation, Inc.,
- *    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- *
  * Some calculations are taken from existing TS2020 driver.
  */
 
@@ -547,7 +543,7 @@ struct dvb_frontend *m88ts2022_attach(struct dvb_frontend *fe,
 	int ret;
 	u8 chip_id, u8tmp;
 
-	priv = kzalloc(sizeof(struct m88ts2022_priv), GFP_KERNEL);
+	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
 		ret = -ENOMEM;
 		dev_err(&i2c->dev, "%s: kzalloc() failed\n", KBUILD_MODNAME);
