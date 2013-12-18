@@ -172,8 +172,8 @@ static struct i2c_board_info hkdk4412_i2c_devs7[] __initdata = {
 
 #if defined(CONFIG_ODROID_U2)
 /* for u3 I/O shield board */
-#define		GPIO_I2C4_SDA	EXYNOS4_GPX1(0)
-#define		GPIO_I2C4_SCL	EXYNOS4_GPX1(1)
+#define		GPIO_I2C4_SDA	EXYNOS4_GPX1(1)
+#define		GPIO_I2C4_SCL	EXYNOS4_GPX1(0)
 
 static struct 	i2c_gpio_platform_data 	i2c4_gpio_platdata = {
 	.sda_pin = GPIO_I2C4_SDA,
