@@ -201,6 +201,7 @@ struct hdmi_context {
 	struct hdmi_resources		res;
 
 	int				hpd_gpio;
+	u32				max_pixel_clock;
 
 	enum hdmi_type			type;
 };
@@ -801,6 +802,8 @@ static int hdmi_check_mode(void *ctx, struct drm_display_mode *mode)
 		(mode->flags & DRM_MODE_FLAG_INTERLACE) ? true :
 		false, mode->clock * 1000);
 
+	if (mode->clock * 1000 > hdata->max_pixel_clock)
+		return -E2BIG;
 	ret = hdmi_find_phy_conf(hdata, mode->clock * 1000);
 	if (ret < 0)
 		return ret;
@@ -1868,6 +1871,8 @@ static struct s5p_hdmi_platform_data *drm_hdmi_dt_parse_pdata
 		return NULL;
 	}
 
+	of_property_read_u32(np, "max-pixel-clock", &pd->max_pixel_clock);
+
 	return pd;
 }
 #else
@@ -1934,6 +1939,11 @@ static int hdmi_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	if (!pdata->max_pixel_clock) {
+		DRM_LOG("max-pixel-clock is zero, using INF\n");
+		pdata->max_pixel_clock = ULONG_MAX;
+	}
+
 	drm_hdmi_ctx = devm_kzalloc(dev, sizeof(*drm_hdmi_ctx),
 								GFP_KERNEL);
 	if (!drm_hdmi_ctx)
@@ -1964,6 +1974,7 @@ static int hdmi_probe(struct platform_device *pdev)
 	}
 
 	hdata->hpd_gpio = pdata->hpd_gpio;
+	hdata->max_pixel_clock = pdata->max_pixel_clock;
 	hdata->dev = dev;
 
 	ret = hdmi_resources_init(hdata);

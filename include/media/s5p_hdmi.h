@@ -31,6 +31,7 @@ struct s5p_hdmi_platform_data {
 	int mhl_bus;
 	struct i2c_board_info *mhl_info;
 	int hpd_gpio;
+	u32 max_pixel_clock;
 };
 
 #endif /* S5P_HDMI_H */
