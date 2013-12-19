@@ -925,6 +925,8 @@ static struct max77686_regulator_data max77686_regulators[] = {
 };
 
 static struct max77686_platform_data exynos4_max77686_info = {
+	.irq_gpio	= 	EXYNOS4_GPX3(2),
+	.ono		=	EXYNOS4_GPX1(2),
 	.num_regulators = ARRAY_SIZE(max77686_regulators),
 	.regulators = max77686_regulators,
 //
