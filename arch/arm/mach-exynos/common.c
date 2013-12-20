@@ -61,6 +61,7 @@
 #define L2_AUX_VAL 0x7C470001
 #define L2_AUX_MASK 0xC200ffff
 
+static const char name_exynos3250[] = "EXYNOS3250";
 static const char name_exynos4210[] = "EXYNOS4210";
 static const char name_exynos4212[] = "EXYNOS4212";
 static const char name_exynos4412[] = "EXYNOS4412";
@@ -77,6 +78,11 @@ unsigned long xxti_f = 0, xusbxti_f = 0;
 
 static struct cpu_table cpu_ids[] __initdata = {
 	{
+		.idcode		= EXYNOS3250_SOC_ID,
+		.idmask		= EXYNOS3_SOC_MASK,
+		.init		= exynos_init,
+		.name		= name_exynos3250,
+	}, {
 		.idcode		= EXYNOS4210_CPU_ID,
 		.idmask		= EXYNOS4_CPU_MASK,
 		.map_io		= exynos4_map_io,
