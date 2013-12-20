@@ -433,6 +433,20 @@ endif
 
 comment "Flattened Device Tree based board for EXYNOS SoCs"
 
+config MACH_EXYNOS3_DT
+	bool "Samsung Exynos3 Machine using device tree"
+	depends on ARCH_EXYNOS3
+	select ARM_AMBA
+	select CLKSRC_OF
+	select SOC_EXYNOS3250
+	select USE_OF
+	select TIZEN_WIP
+	help
+	  Machine support for Samsung Exynos3 machine with device tree enabled.
+	  Select this if a fdt blob is available for the Exynos3 SoC based board.
+	  Note: This is under development and not all peripherals can be supported
+	  with this machine file.
+
 config MACH_EXYNOS4_DT
 	bool "Samsung Exynos4 Machine using device tree"
 	depends on ARCH_EXYNOS4

@@ -601,6 +601,13 @@ static unsigned int max_combiner_nr(void)
 		return EXYNOS4210_MAX_COMBINER_NR;
 }
 
+void __init exynos3_init_irq(void)
+{
+#ifdef CONFIG_OF
+	irqchip_init();
+#endif
+	gic_arch_extn.irq_set_wake = s3c_irq_wake;
+}
 
 void __init exynos4_init_irq(void)
 {
