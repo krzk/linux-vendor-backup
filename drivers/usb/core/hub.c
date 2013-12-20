@@ -1127,7 +1127,7 @@ static void hub_activate(struct usb_hub *hub, enum hub_activation_type type)
 		}
 		if (portchange & USB_PORT_STAT_C_RESET) {
 			need_debounce_delay = true;
-			clear_port_feature(hub->hdev, port1,
+			usb_clear_port_feature(hub->hdev, port1,
 					USB_PORT_FEAT_C_RESET);
 		}
 		if ((portchange & USB_PORT_STAT_C_BH_RESET) &&
