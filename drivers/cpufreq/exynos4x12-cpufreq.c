@@ -414,6 +414,7 @@ static const unsigned int asv_voltage_4x12[CPUFREQ_LEVEL_END] = {
       925000,
       925000,
       925000,
+};
 #endif
 static void exynos4x12_set_clkdiv(unsigned int div_index)
 {
