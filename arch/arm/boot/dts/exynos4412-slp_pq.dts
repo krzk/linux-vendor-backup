@@ -1400,6 +1400,61 @@
 		vtmu-supply = <&ldo10_reg>;
 		status = "okay";
 	};
+
+	vsil: voltage-regulator-vsil {
+	        compatible = "regulator-fixed";
+		regulator-name = "HDMI_5V";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpl0 4 0>;
+		enable-active-high;
+		vin-supply = <&buck7_reg>;
+	};
+
+	i2c-mhl {
+		compatible = "i2c-gpio";
+		gpios = <&gpf0 4 0 &gpf0 6 0>;
+		i2c-gpio,delay-us = <100>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pinctrl-0 = <&i2c_mhl_bus>;
+		pinctrl-names = "default";
+		status = "okay";
+
+		sii9234: sii9234@39 {
+			compatible = "sii,sii9234";
+			vcc-supply = <&vsil>;
+			gpio-reset = <&gpf3 4 0>;
+			gpio-int = <&gpf3 5 0>;
+			reg = <0x39>;
+			extcon = <&max_muic>;
+		};
+	};
+
+	i2c@138B0000 {
+		hdmiddc@37 {
+			compatible = "samsung,exynos5-hdmiddc";
+			reg = <0x37>;
+		};
+	};
+
+	hdmi@12D00000 {
+		hpd-gpio = <&gpx3 7 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&hdmi_hpd>;
+		/*
+		 * HDMI_EN gpio is controlled by SII9234, so hdmi-en should
+		 * be a dummy regulator. Therefore LDO3 is used instead
+		 * because it is enabled at the same time as hdmi-en
+		 */
+		hdmi-en-supply = <&ldo3_reg>;
+		vdd-supply = <&ldo3_reg>;
+		vdd_osc-supply = <&ldo4_reg>;
+		vdd_pll-supply = <&ldo3_reg>;
+		status = "okay";
+		max-pixel-clock = <75000000>;
+	};
 };
 
 &pinctrl_1 {
@@ -1415,5 +1470,23 @@
 	wlan_int: wlan-irq {
 		samsung,pins = "gpx2-5";
 		samsung,pin-pud = <1>;
+	};
+
+	hdmi_hpd: hdmi-hpd {
+		samsung,pins = "gpx3-7";
+		samsung,pin-pud = <1>;
+	};
+};
+
+&pinctrl_0 {
+	mhl_int: mhl-int {
+		samsung,pins = "gpf3-5";
+		samsung,pin-pud = <0>;
+	};
+	i2c_mhl_bus: i2c-mhl-bus {
+		samsung,pins = "gpf0-4", "gpf0-6";
+		samsung,pin-function = <2>;
+		samsung,pin-pud = <1>;
+		samsung,pin-drv = <0>;
 	};
 };
