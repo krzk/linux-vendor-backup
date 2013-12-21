@@ -23,6 +23,7 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/module.h>
+#include <linux/of_gpio.h>
 #include <linux/platform_device.h>
 #include <linux/platform_data/usb3503.h>
 
@@ -34,7 +35,10 @@
 #define USB3503_DIDM		0x05
 
 #define USB3503_CFG1		0x06
-#define USB3503_SELF_BUS_PWR	(1 << 7)
+#define USB3503_SELF_BUS_PWR		(1 << 7)
+#define USB3503_MTT_ENABLE			(1 << 4)
+#define USB3503_OCS_INDIVIDUAL		(1 << 1)
+#define USB3503_PPRTPWR_INDIVIDUAL	(1 << 0)
 
 #define USB3503_CFG2		0x07
 #define USB3503_CFG3		0x08
@@ -46,6 +50,8 @@
 #define USB3503_PORT3		(1 << 3)
 
 #define USB3503_SP_ILOCK	0xe7
+#define USB3503_OCS_PINSEL		(1 << 4)
+#define USB3503_PRTPWR_PINSEL	(1 << 4)
 #define USB3503_SPILOCK_CONNECT	(1 << 1)
 #define USB3503_SPILOCK_CONFIG	(1 << 0)
 
@@ -54,6 +60,7 @@
 
 struct usb3503 {
 	enum usb3503_mode	mode;
+	enum usb3503_ref_clk	clk;
 	struct i2c_client	*client;
 	int	gpio_intn;
 	int	gpio_reset;
@@ -115,53 +122,82 @@ static int usb3503_reset(int gpio_reset, int state)
 	return 0;
 }
 
+static int usb3503_connect(int gpio_connect, int state)
+{
+	if (gpio_is_valid(gpio_connect))
+		gpio_set_value(gpio_connect, state);
+
+	/* Wait RefClk when RESET_N is released, otherwise Hub will
+	 * not transition to Hub Communication Stage.
+	 */
+	if (state)
+		msleep(100);
+
+	return 0;
+}
+
 static int usb3503_switch_mode(struct usb3503 *hub, enum usb3503_mode mode)
 {
 	struct i2c_client *i2c = hub->client;
-	int err = 0;
+	int err = 0, val = 0;
 
 	switch (mode) {
 	case USB3503_MODE_HUB:
-		usb3503_reset(hub->gpio_reset, 1);
 
-		/* SP_ILOCK: set connect_n, config_n for config */
-		err = usb3503_write_register(i2c, USB3503_SP_ILOCK,
-				(USB3503_SPILOCK_CONNECT
-				 | USB3503_SPILOCK_CONFIG));
+		// Hub Configuration Stage
+		val = usb3503_read_register(i2c, USB3503_SP_ILOCK);
+		dev_info(&i2c->dev, "USB3503_SP_ILOCK = 0x%02x\n",val);
+
+		/* SP_ILOCK: config_n for config */
+		err = usb3503_clear_bits(i2c, USB3503_SP_ILOCK,
+				 USB3503_SPILOCK_CONFIG);
 		if (err < 0) {
-			dev_err(&i2c->dev, "SP_ILOCK failed (%d)\n", err);
+			dev_err(&i2c->dev, "USB3503_SPILOCK_CONFIG failed (%d)\n", err);
 			goto err_hubmode;
 		}
 
-		/* PDS : Port2,3 Disable For Self Powered Operation */
-/*		err = usb3503_set_bits(i2c, USB3503_PDS,
-				(USB3503_PORT2 | USB3503_PORT3));
-		if (err < 0) {
-			dev_err(&i2c->dev, "PDS failed (%d)\n", err);
-			goto err_hubmode;
-		}
-*/
 		/* CFG1 : SELF_BUS_PWR -> Self-Powerd operation */
-		err = usb3503_set_bits(i2c, USB3503_CFG1, USB3503_SELF_BUS_PWR);
+		err = usb3503_set_bits(i2c, USB3503_CFG1, 
+					( USB3503_SELF_BUS_PWR));
 		if (err < 0) {
 			dev_err(&i2c->dev, "CFG1 failed (%d)\n", err);
 			goto err_hubmode;
 		}
 
-		/* SP_LOCK: clear connect_n, config_n for hub connect */
-		err = usb3503_clear_bits(i2c, USB3503_SP_ILOCK,
-				(USB3503_SPILOCK_CONNECT
-				 | USB3503_SPILOCK_CONFIG));
+		err = usb3503_clear_bits(i2c, USB3503_CFG1, 
+					( USB3503_MTT_ENABLE
+					| USB3503_OCS_INDIVIDUAL
+					| USB3503_PPRTPWR_INDIVIDUAL));
 		if (err < 0) {
-			dev_err(&i2c->dev, "SP_ILOCK failed (%d)\n", err);
+			dev_err(&i2c->dev, "CFG1 failed (%d)\n", err);
+			goto err_hubmode;
+		}
+
+		/* SP_LOCK: clear connect_n */
+		err = usb3503_clear_bits(i2c, USB3503_SP_ILOCK,
+				 USB3503_SPILOCK_CONNECT);
+		if (err < 0) {
+			dev_err(&i2c->dev, "USB3503_SPILOCK_CONNECT failed (%d)\n", err);
+			goto err_hubmode;
+		}
+
+ 		/* USB3503_SP_ILOCK config_n lock */
+ 		err = usb3503_set_bits(i2c, USB3503_SP_ILOCK,
+				 USB3503_SPILOCK_CONFIG);
+		if (err < 0) {
+			dev_err(&i2c->dev, "USB3503_SPILOCK_CONFIG failed (%d)\n", err);
 			goto err_hubmode;
 		}
 
 		hub->mode = mode;
 		dev_info(&i2c->dev, "switched to HUB mode\n");
+		
+		usb3503_connect(hub->gpio_connect, 1);
+		
 		break;
 
 	case USB3503_MODE_STANDBY:
+		usb3503_connect(hub->gpio_connect, 0);
 		usb3503_reset(hub->gpio_reset, 0);
 
 		hub->mode = mode;
@@ -178,67 +214,80 @@ err_hubmode:
 	return err;
 }
 
-int usb3503_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
+static int usb3503_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 {
 	struct usb3503_platform_data *pdata = i2c->dev.platform_data;
+	struct device_node *np = i2c->dev.of_node;
 	struct usb3503 *hub;
-	int err;
+	int err = -ENOMEM;
+	u32 mode = USB3503_MODE_UNKNOWN;
 
 	hub = kzalloc(sizeof(struct usb3503), GFP_KERNEL);
 	if (!hub) {
 		dev_err(&i2c->dev, "private data alloc fail\n");
-		return -ENOMEM;
+		return err;
 	}
 
 	i2c_set_clientdata(i2c, hub);
 	hub->client = i2c;
 
-	if (!pdata) {
-		dev_dbg(&i2c->dev, "missing platform data\n");
-	} else {
+	if (pdata) {
 		hub->gpio_intn		= pdata->gpio_intn;
 		hub->gpio_connect	= pdata->gpio_connect;
 		hub->gpio_reset		= pdata->gpio_reset;
 		hub->mode		= pdata->initial_mode;
+		hub->clk		= pdata->ref_clk;
+	} else if (np) {
+		hub->gpio_intn	= of_get_named_gpio(np, "connect-gpios", 0);
+		if (hub->gpio_intn == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
+		hub->gpio_connect = of_get_named_gpio(np, "intn-gpios", 0);
+		if (hub->gpio_connect == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
+		hub->gpio_reset	= of_get_named_gpio(np, "reset-gpios", 0);
+		if (hub->gpio_reset == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
+		of_property_read_u32(np, "initial-mode", &mode);
+		hub->mode = mode;
+	}
+	
+	/* Start */
+	err = gpio_request(hub->gpio_intn, "irq_gpio");
+	if (err < 0) {
+		dev_err(&i2c->dev, "CFG1 failed (%d)\n", err);
+		goto err_out;
 	}
 
-	if (gpio_is_valid(hub->gpio_intn)) {
-#ifdef CONFIG_ODROID_U2
-		err = gpio_request_one(hub->gpio_intn, GPIOF_OUT_INIT_LOW, "usb3503 intn");
-#else
-                err = gpio_request_one(hub->gpio_intn, GPIOF_OUT_INIT_HIGH, "usb3503 intn");
-#endif
-		if (err) {
-			dev_err(&i2c->dev,
-					"unable to request GPIO %d as connect pin (%d)\n",
-					hub->gpio_intn, err);
-			goto err_gpio_intn;
-		}
+	err = gpio_request(hub->gpio_connect, "gpio_hub_con");
+	if (err < 0) {
+		dev_err(&i2c->dev, "CFG1 failed (%d)\n", err);
+		goto err_gpio_connect;
 	}
 
-	if (gpio_is_valid(hub->gpio_connect)) {
-		err = gpio_request_one(hub->gpio_connect,
-				GPIOF_OUT_INIT_HIGH, "usb3503 connect");
-		if (err) {
-			dev_err(&i2c->dev,
-					"unable to request GPIO %d as connect pin (%d)\n",
-					hub->gpio_connect, err);
-			goto err_gpio_connect;
-		}
+	err = gpio_request(hub->gpio_reset, "gpio_reset");
+	if (err < 0) {
+		dev_err(&i2c->dev, "CFG1 failed (%d)\n", err);
+		goto err_gpio_reset;
 	}
 
-	if (gpio_is_valid(hub->gpio_reset)) {
-		err = gpio_request_one(hub->gpio_reset,
-				GPIOF_OUT_INIT_LOW, "usb3503 reset");
-		if (err) {
-			dev_err(&i2c->dev,
-					"unable to request GPIO %d as reset pin (%d)\n",
-					hub->gpio_reset, err);
-			goto err_gpio_reset;
-		}
-	}
+	gpio_direction_output(hub->gpio_reset, 0);
 
-	usb3503_switch_mode(hub, pdata->initial_mode);
+	if(hub->clk == USB3503_REFCLK_24M)
+		gpio_direction_output(hub->gpio_intn, 0);
+	else if(hub->clk == USB3503_REFCLK_26M)
+		gpio_direction_output(hub->gpio_intn, 1);
+	else 
+		gpio_direction_output(hub->gpio_intn, 1);
+
+	gpio_direction_output(hub->gpio_connect, 0);
+	msleep(10);
+	usb3503_reset(hub->gpio_reset, 1);
+
+	/* Hub Wait RefClk stage */
+	msleep(10);
+
+	// Hub Configuration Stage
+	usb3503_switch_mode(hub, hub->mode);
 
 	dev_info(&i2c->dev, "%s: probed on  %s mode\n", __func__,
 			(hub->mode == USB3503_MODE_HUB) ? "hub" : "standby");
@@ -251,7 +300,7 @@ err_gpio_reset:
 err_gpio_connect:
 	if (gpio_is_valid(hub->gpio_intn))
 		gpio_free(hub->gpio_intn);
-err_gpio_intn:
+err_out:
 	kfree(hub);
 
 	return err;
@@ -279,9 +328,18 @@ static const struct i2c_device_id usb3503_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, usb3503_id);
 
+#ifdef CONFIG_OF
+static const struct of_device_id usb3503_of_match[] = {
+	{ .compatible = "smsc,usb3503", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, usb3503_of_match);
+#endif
+
 static struct i2c_driver usb3503_driver = {
 	.driver = {
 		.name = USB3503_I2C_NAME,
+		.of_match_table = of_match_ptr(usb3503_of_match),
 	},
 	.probe		= usb3503_probe,
 	.remove		= usb3503_remove,

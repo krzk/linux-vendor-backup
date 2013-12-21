@@ -28,6 +28,7 @@
 #include <linux/platform_data/i2c-s3c2410.h>
 #include <linux/platform_data/usb-ehci-s5p.h>
 #include <linux/platform_data/usb-exynos.h>
+#include <linux/platform_data/usb3503.h>
 #include <linux/delay.h>
 #include <linux/lcd.h>
 #include <linux/clk.h>
@@ -111,13 +112,16 @@ static struct s3c2410_uartcfg hkdk4412_uartcfgs[] __initdata = {
 
 
 #if defined(CONFIG_USB_HSIC_USB3503)
-#include <linux/platform_data/usb3503.h>
-
 static struct usb3503_platform_data usb3503_pdata = {
-	.initial_mode	= USB3503_MODE_HUB,
-	.gpio_intn	= EXYNOS4_GPX3(0),
+	.initial_mode	= 	USB3503_MODE_HUB,
+#if defined(CONFIG_ODROID_U2)
+	.ref_clk		= 	USB3503_REFCLK_24M,
+#else
+	.ref_clk		= 	USB3503_REFCLK_26M,
+#endif
+	.gpio_intn		= EXYNOS4_GPX3(0),
 	.gpio_connect	= EXYNOS4_GPX3(4),
-	.gpio_reset	= EXYNOS4_GPX3(5),
+	.gpio_reset		= EXYNOS4_GPX3(5),
 };
 #endif
 
