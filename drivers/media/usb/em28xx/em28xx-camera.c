@@ -432,3 +432,4 @@ int em28xx_init_camera(struct em28xx *dev)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(em28xx_init_camera);
