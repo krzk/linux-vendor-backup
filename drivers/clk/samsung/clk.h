@@ -20,6 +20,22 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 
+/* Context node which holds information about the clock provider. */
+/**
+ * struct samsung_clk_provider: information about clock plovider
+ * @reg_base: virtual address for the register base.
+ * @clk_data: holds clock related data like clk* and number of clocks.
+ */
+struct samsung_clk_provider {
+	void __iomem *reg_base;
+	struct clk **clk_table;
+	struct clk_onecell_data clk_data;
+	spinlock_t lock;
+	struct samsung_clk_reg_dump *reg_dump;
+	unsigned long nr_reg_dump;
+	struct list_head list;
+};
+
 /**
  * struct samsung_clock_alias: information about mux clock
  * @id: platform specific id of the clock.
@@ -258,28 +274,34 @@ struct samsung_clk_reg_dump {
 	u32	value;
 };
 
-extern void __init samsung_clk_init(struct device_node *np, void __iomem *base,
+extern struct samsung_clk_provider *__init samsung_clk_init(
+		struct device_node *np, void __iomem *base,
 		unsigned long nr_clks, unsigned long *rdump,
 		unsigned long nr_rdump, unsigned long *soc_rdump,
 		unsigned long nr_soc_rdump);
 extern void __init samsung_clk_of_register_fixed_ext(
+		struct samsung_clk_provider *ctx,
 		struct samsung_fixed_rate_clock *fixed_rate_clk,
 		unsigned int nr_fixed_rate_clk,
 		struct of_device_id *clk_matches);
 
-extern void samsung_clk_add_lookup(struct clk *clk, unsigned int id);
+extern void samsung_clk_add_lookup(struct samsung_clk_provider *ctx,
+		struct clk *clk, unsigned int id);
 
-extern void samsung_clk_register_alias(struct samsung_clock_alias *list,
+extern void samsung_clk_register_alias(struct samsung_clk_provider *ctx,
+		struct samsung_clock_alias *list,
 		unsigned int nr_clk);
 extern void __init samsung_clk_register_fixed_rate(
+		struct samsung_clk_provider *ctx,
 		struct samsung_fixed_rate_clock *clk_list, unsigned int nr_clk);
 extern void __init samsung_clk_register_fixed_factor(
+		struct samsung_clk_provider *ctx,
 		struct samsung_fixed_factor_clock *list, unsigned int nr_clk);
-extern void __init samsung_clk_register_mux(struct samsung_mux_clock *clk_list,
-		unsigned int nr_clk);
-extern void __init samsung_clk_register_div(struct samsung_div_clock *clk_list,
-		unsigned int nr_clk);
-extern void __init samsung_clk_register_gate(
+extern void __init samsung_clk_register_mux(struct samsung_clk_provider *ctx,
+		struct samsung_mux_clock *clk_list, unsigned int nr_clk);
+extern void __init samsung_clk_register_div(struct samsung_clk_provider *ctx,
+		struct samsung_div_clock *clk_list, unsigned int nr_clk);
+extern void __init samsung_clk_register_gate(struct samsung_clk_provider *ctx,
 		struct samsung_gate_clock *clk_list, unsigned int nr_clk);
 
 extern unsigned long _get_rate(const char *clk_name);

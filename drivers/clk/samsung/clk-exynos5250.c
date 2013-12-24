@@ -513,6 +513,7 @@ static __initdata struct of_device_id ext_clk_match[] = {
 void __init exynos5250_clk_init(struct device_node *np)
 {
 	void __iomem *reg_base;
+	struct samsung_clk_provider *ctx;
 	struct clk *apll, *mpll, *epll, *vpll, *bpll, *gpll, *cpll;
 
 	if (np) {
@@ -523,10 +524,13 @@ void __init exynos5250_clk_init(struct device_node *np)
 		panic("%s: unable to determine soc\n", __func__);
 	}
 
-	samsung_clk_init(np, reg_base, nr_clks,
+	ctx = samsung_clk_init(np, reg_base, nr_clks,
 			exynos5250_clk_regs, ARRAY_SIZE(exynos5250_clk_regs),
 			NULL, 0);
-	samsung_clk_of_register_fixed_ext(exynos5250_fixed_rate_ext_clks,
+	if (!ctx)
+		panic("%s: unable to allocate context.\n", __func__);
+
+	samsung_clk_of_register_fixed_ext(ctx, exynos5250_fixed_rate_ext_clks,
 			ARRAY_SIZE(exynos5250_fixed_rate_ext_clks),
 			ext_clk_match);
 
@@ -545,15 +549,15 @@ void __init exynos5250_clk_init(struct device_node *np)
 	vpll = samsung_clk_register_pll36xx("fout_vpll", "mout_vpllsrc",
 			reg_base + 0x10140);
 
-	samsung_clk_register_fixed_rate(exynos5250_fixed_rate_clks,
+	samsung_clk_register_fixed_rate(ctx, exynos5250_fixed_rate_clks,
 			ARRAY_SIZE(exynos5250_fixed_rate_clks));
-	samsung_clk_register_fixed_factor(exynos5250_fixed_factor_clks,
+	samsung_clk_register_fixed_factor(ctx, exynos5250_fixed_factor_clks,
 			ARRAY_SIZE(exynos5250_fixed_factor_clks));
-	samsung_clk_register_mux(exynos5250_mux_clks,
+	samsung_clk_register_mux(ctx, exynos5250_mux_clks,
 			ARRAY_SIZE(exynos5250_mux_clks));
-	samsung_clk_register_div(exynos5250_div_clks,
+	samsung_clk_register_div(ctx, exynos5250_div_clks,
 			ARRAY_SIZE(exynos5250_div_clks));
-	samsung_clk_register_gate(exynos5250_gate_clks,
+	samsung_clk_register_gate(ctx, exynos5250_gate_clks,
 			ARRAY_SIZE(exynos5250_gate_clks));
 
 	pr_info("Exynos5250: clock setup completed, armclk=%ld\n",
