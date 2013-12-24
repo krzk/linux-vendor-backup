@@ -580,6 +580,8 @@ struct clk * __init samsung_clk_register_pll45xx(const char *name,
 #define PLL46XX_PLL_LOCK	0x0
 #define PLL46XX_PLL_CON0	0x100
 #define PLL46XX_PLL_CON1	0x104
+#define PLL4600X_PLL_CON0	0x4
+#define PLL4600X_PLL_CON1	0x8
 
 #define PLL46XX_PLL_LOCK_CONST	3000
 #define PLL46XX_PLL_CON0_LOCKED	(1 << 29)
@@ -589,6 +591,8 @@ struct samsung_clk_pll46xx {
 	enum pll46xx_type	type;
 	void __iomem		*base;
 	struct pll_pms		*pms;
+	unsigned int		con0_offset;
+	unsigned int		con1_offset;
 };
 
 #define to_clk_pll46xx(_hw) container_of(_hw, struct samsung_clk_pll46xx, hw)
@@ -596,7 +600,7 @@ struct samsung_clk_pll46xx {
 static inline unsigned long samsung_pll46xx_calc_f_out(u64 f_in,
 			u32 p, u32 m, u32 s, u32 k, enum pll46xx_type type)
 {
-	u8 shift = (type == pll_4600) ? 16 : 10;
+	u8 shift = (type == pll_4600 || type == pll_4600x) ? 16 : 10;
 
 	f_in *= (m << shift) + k;
 	do_div(f_in, (p << s));
@@ -610,8 +614,8 @@ static unsigned long samsung_pll46xx_recalc_rate(struct clk_hw *hw,
 	struct samsung_clk_pll46xx *pll = to_clk_pll46xx(hw);
 	u32 mdiv, pdiv, sdiv, kdiv, pll_con0, pll_con1;
 
-	pll_con0 = __raw_readl(pll->base + PLL46XX_PLL_CON0);
-	pll_con1 = __raw_readl(pll->base + PLL46XX_PLL_CON1);
+	pll_con0 = __raw_readl(pll->base + pll->con0_offset);
+	pll_con1 = __raw_readl(pll->base + pll->con1_offset);
 	mdiv = (pll_con0 >> PLL46XX_MDIV_SHIFT) & PLL46XX_MDIV_MASK;
 	pdiv = (pll_con0 >> PLL46XX_PDIV_SHIFT) & PLL46XX_PDIV_MASK;
 	sdiv = (pll_con0 >> PLL46XX_SDIV_SHIFT) & PLL46XX_SDIV_MASK;
@@ -663,28 +667,28 @@ static int samsung_pll46xx_set_rate(struct clk_hw *hw, unsigned long drate,
 					pll->base + PLL46XX_PLL_LOCK);
 
 	/* Change PLL divisors */
-	tmp = __raw_readl(pll->base + PLL46XX_PLL_CON0);
+	tmp = __raw_readl(pll->base + pll->con0_offset);
 	tmp &= ~((PLL46XX_PDIV_MASK << PLL46XX_PDIV_SHIFT) |
 		(PLL46XX_MDIV_MASK << PLL46XX_MDIV_SHIFT) |
 		(PLL46XX_SDIV_MASK << PLL46XX_SDIV_SHIFT));
 	tmp |= (pms[index].p << PLL46XX_PDIV_SHIFT) |
 		(pms[index].m << PLL46XX_MDIV_SHIFT) |
 		(pms[index].s << PLL46XX_SDIV_SHIFT);
-	__raw_writel(tmp, pll->base + PLL46XX_PLL_CON0);
+	__raw_writel(tmp, pll->base + pll->con0_offset);
 
-	tmp = __raw_readl(pll->base + PLL46XX_PLL_CON1);
+	tmp = __raw_readl(pll->base + pll->con1_offset);
 	tmp &= ~((PLL46XX_KDIV_MASK << PLL46XX_KDIV_SHIFT) |
 		(PLL46XX_MFR_MASK << PLL46XX_MFR_SHIFT) |
 		(PLL46XX_MRR_MASK << PLL46XX_MRR_SHIFT));
 	tmp |= (pms[index].k << PLL46XX_KDIV_SHIFT) |
 		(pms[index].mrr << PLL46XX_MRR_SHIFT) |
 		(pms[index].mfr << PLL46XX_MFR_SHIFT);
-	__raw_writel(tmp, pll->base + PLL46XX_PLL_CON1);
+	__raw_writel(tmp, pll->base + pll->con1_offset);
 
 	/* Wait for locking */
 	do {
 		cpu_relax();
-		tmp = __raw_readl(pll->base + PLL46XX_PLL_CON0);
+		tmp = __raw_readl(pll->base + pll->con0_offset);
 	} while (!(tmp & PLL46XX_PLL_CON0_LOCKED));
 
 	return 0;
@@ -723,6 +727,14 @@ struct clk * __init samsung_clk_register_pll46xx(const char *name,
 	pll->base = base;
 	pll->type = type;
 	pll->pms = pms;
+
+	if (type == pll_4600x) {
+		pll->con0_offset = PLL4600X_PLL_CON0;
+		pll->con1_offset = PLL4600X_PLL_CON1;
+	} else {
+		pll->con0_offset = PLL46XX_PLL_CON0;
+		pll->con1_offset = PLL46XX_PLL_CON1;
+	}
 
 	clk = clk_register(NULL, &pll->hw);
 	if (IS_ERR(clk)) {

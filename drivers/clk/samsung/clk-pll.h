@@ -20,6 +20,7 @@ enum pll45xx_type {
 
 enum pll46xx_type {
 	pll_4600,
+	pll_4600x,	/* For exynos3250 EPLL */
 	pll_4650,
 	pll_4650c,
 };
