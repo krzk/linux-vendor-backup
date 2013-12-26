@@ -2222,8 +2222,7 @@ static int em28xx_v4l2_init(struct em28xx *dev)
 		return 0;
 	}
 
-	printk(KERN_INFO "%s: v4l2 driver version %s\n",
-		dev->name, EM28XX_VERSION);
+	em28xx_info("Registering V4L2 extension\n");
 
 	mutex_lock(&dev->lock);
 
@@ -2504,6 +2503,8 @@ static int em28xx_v4l2_init(struct em28xx *dev)
 
 	/* initialize videobuf2 stuff */
 	em28xx_vb2_setup(dev);
+
+	em28xx_info("V4L2 extension successfully initialized\n");
 
 	mutex_unlock(&dev->lock);
 	return 0;
