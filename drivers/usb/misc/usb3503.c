@@ -49,11 +49,26 @@
 #define USB3503_PORT2		(1 << 2)
 #define USB3503_PORT3		(1 << 3)
 
+#define USB3503_SP_MAX_CURRENT 	0x0e
+#define USB3503_MAX_2A		(0x80 << 0)
+
 #define USB3503_SP_ILOCK	0xe7
 #define USB3503_OCS_PINSEL		(1 << 4)
 #define USB3503_PRTPWR_PINSEL	(1 << 4)
 #define USB3503_SPILOCK_CONNECT	(1 << 1)
 #define USB3503_SPILOCK_CONFIG	(1 << 0)
+
+#define	USB3503_VSNSUP3		0xF4
+#define DN3_SQUELCH_120		(6 << 0)
+#define	USB3503_VSNSUP21	0xF5
+#define DN2_SQUELCH_120		(6 << 4)
+#define DN1_SQUELCH_120		(6 << 0)
+
+#define	USB3503_BSTUP3		0xF6
+#define	BOOST_IOOUT3_30		(6 << 0)
+#define	USB3503_BSTUP21		0xF8
+#define	BOOST_IOOUT2_30		(6 << 4)
+#define	BOOST_IOOUT1_30		(6 << 0)
 
 #define USB3503_CFGP		0xee
 #define USB3503_CLKSUSP		(1 << 7)
@@ -170,6 +185,21 @@ static int usb3503_switch_mode(struct usb3503 *hub, enum usb3503_mode mode)
 					| USB3503_PPRTPWR_INDIVIDUAL));
 		if (err < 0) {
 			dev_err(&i2c->dev, "CFG1 failed (%d)\n", err);
+			goto err_hubmode;
+		}
+
+		err = usb3503_set_bits(i2c, USB3503_BSTUP3, 
+					BOOST_IOOUT3_30);
+		if (err < 0) {
+			dev_err(&i2c->dev, "USB3503_BSTUP3 failed (%d)\n", err);
+			goto err_hubmode;
+		}
+
+		err = usb3503_set_bits(i2c, USB3503_BSTUP21, 
+					( BOOST_IOOUT2_30
+					| BOOST_IOOUT1_30));
+		if (err < 0) {
+			dev_err(&i2c->dev, "USB3503_BSTUP21 failed (%d)\n", err);
 			goto err_hubmode;
 		}
 
