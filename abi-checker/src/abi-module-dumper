@@ -30,22 +30,9 @@ then
 	echo "ERROR: Please check input file ${1}"
 	echo ""
 	exit 1
+	
 fi
 
-ABI_TOOL_LOCATION="/usr/local/bin"
-ABI_TOOL_NAME="abi-checker"
-ABI_TOOL="${ABI_TOOL_LOCATION}/${ABI_TOOL_NAME}"
-
-if [ -x "${ABI_TOOL}" ]
-then
-        CMD="${ABI_TOOL}"
-elif [ -x "./${ABI_TOOL_NAME}" ]
-then
-        CMD="./${ABI_TOOL_NAME}"
-else
-        CMD="${ABI_TOOL_NAME}"
-fi
-
-"${CMD}" "dump-module" "${kerne_abi_file}" "${1}" "${2}"
+/usr/local/bin/abi-checker "dump-module" "${kerne_abi_file}" "${1}" "${2}"
 
 exit ${?}

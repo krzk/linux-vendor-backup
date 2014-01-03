@@ -92,7 +92,7 @@ Linux kernel uImage
 
 %build
 # 0. Build abi checker
-make -C tools/abi-checker/src
+make -C abi-checker/src
 
 # 1. Create main build directory
 rm -rf %{kernel_build_dir}
@@ -112,7 +112,7 @@ make EXTRAVERSION="-%{build_id}" O=%{kernel_build_dir}/linux-kernel-build-%{vers
 %if %{with abidev}
 echo "No linuks kernel ABI/API checks"
 %else
-( cd tools/abi-checker/src; chmod 755 build_api_kernel_checker.sh; ./build_api_kernel_checker.sh "%{version}" "%{abiver}" )
+( cd abi-checker/src; chmod 755 build_api_kernel_checker.sh; ./build_api_kernel_checker.sh "%{version}" "%{abiver}" )
 %endif
 
 make EXTRAVERSION="-%{build_id}" O=%{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id} uImage %{?jobs:-j%jobs}
@@ -146,17 +146,17 @@ make INSTALL_PATH=%{buildroot}/boot INSTALL_MOD_PATH=%{buildroot} O=%{kernel_bui
 make INSTALL_PATH=%{buildroot} INSTALL_MOD_PATH=%{buildroot} O=%{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id} INSTALL_HDR_PATH=%{buildroot}/usr headers_install
 
 # 4.1 Install ABI/API tools
-cp tools/abi-checker/src/abi-checker %{buildroot}/usr/local/bin
-cp tools/abi-checker/src/abi-module-checker %{buildroot}/usr/local/bin
-cp tools/abi-checker/src/abi-module-dumper %{buildroot}/usr/local/bin
-cp tools/abi-checker/src/abi-module-kernels-list %{buildroot}/usr/local/bin
+cp abi-checker/src/abi-checker %{buildroot}/usr/local/bin
+cp abi-checker/src/abi-module-checker %{buildroot}/usr/local/bin
+cp abi-checker/src/abi-module-dumper %{buildroot}/usr/local/bin
+cp abi-checker/src/abi-module-kernels-list %{buildroot}/usr/local/bin
 chmod 755 %{buildroot}/usr/local/bin/*
 
 # 4.2 Install abi_%{version} file
 %if %{with abidev}
 find ../.. -name "Module.symvers" -exec cp {} %{buildroot}/boot/abi/abi_devel \;
 %else
-cp tools/abi-checker/data/abi* %{buildroot}/boot/abi/.
+cp abi-checker/data/abi* %{buildroot}/boot/abi/.
 ln -sf /boot/abi/abi_%{version}_%{abiver} %{buildroot}/boot/abi/current
 %endif
 
@@ -183,7 +183,7 @@ rm -rf %{buildroot}/usr/src/linux-kernel-sources-%{version}-%{build_id}/%{kernel
 rm -f  %{buildroot}/usr/src/linux-kernel-sources-%{version}-%{build_id}/source
 rm -f  %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}/source
 
-rm -rf %{buildroot}/usr/src/linux-kernel-sources-%{version}-%{build_id}/tools/abi-checker
+rm -rf %{buildroot}/usr/src/linux-kernel-sources-%{version}-%{build_id}/abi-checker
 
 rm -rf %{buildroot}/System.map*
 rm -rf %{buildroot}/vmlinux*
