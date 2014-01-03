@@ -52,17 +52,9 @@ glibc package.
 %package abi-tools
 Summary: Kernael ABI tools
 Group: Development/System
-Requires: libelf
 
 %description abi-tools
 The package provide set of tools to test and create ABI/API dumps.
-
-%package abi-devel
-Summary: Kernael ABI development package
-Group: Development/System
-
-%description abi-devel
-The package provide ABI/API fingerprint developemnt repository
 
 %package sources
 Summary: Full linux kernel sources for out-of-tree modules
@@ -147,10 +139,6 @@ make INSTALL_PATH=%{buildroot} INSTALL_MOD_PATH=%{buildroot} O=%{kernel_build_di
 
 # 4.1 Install ABI/API tools
 cp abi-checker/src/abi-checker %{buildroot}/usr/local/bin
-cp abi-checker/src/abi-module-checker %{buildroot}/usr/local/bin
-cp abi-checker/src/abi-module-dumper %{buildroot}/usr/local/bin
-cp abi-checker/src/abi-module-kernels-list %{buildroot}/usr/local/bin
-chmod 755 %{buildroot}/usr/local/bin/*
 
 # 4.2 Install abi_%{version} file
 %if %{with abidev}
@@ -193,8 +181,6 @@ rm -rf %{buildroot}/boot/vmlinux*
 
 # 6. Create symbolic links
 ln -sf /usr/src/linux-kernel-sources-%{version}-%{build_id} %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}/source
-ln -sf /usr/src/linux-kernel-build-%{version}-%{build_id}   %{buildroot}/usr/src/linux-kernel-build-current
-ln -sf /usr/src/linux-kernel-sources-%{version}-%{build_id} %{buildroot}/usr/src/linux-kernel-sources-current
 
 %clean
 rm -rf %{buildroot}
@@ -206,12 +192,10 @@ rm -rf %{buildroot}
 %files sources
 %defattr (-, root, root)
 /usr/src/linux-kernel-sources-%{version}-%{build_id}
-/usr/src/linux-kernel-sources-current
 
 %files build
 %defattr (-, root, root)
 /usr/src/linux-kernel-build-%{version}-%{build_id}
-/usr/src/linux-kernel-build-current
 
 %files uImage
 %if %{without abidev}
@@ -227,6 +211,3 @@ rm -rf %{buildroot}
 %files abi-dev
 /boot/abi
 %endif
-
-%files abi-devel
-/boot/abi
