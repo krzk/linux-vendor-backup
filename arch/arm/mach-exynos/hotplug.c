@@ -136,12 +136,19 @@ void __ref exynos_cpu_die(unsigned int cpu)
 
 	/*
 	 * we're ready for shutdown now, so do it.
-	 * Exynos4 is A9 based while Exynos5 is A15; check the CPU part
+	 * Exynos4 is A9 based while Exynos3/Exynos5 is A15; check the CPU part
 	 * number by reading the Main ID register and then perform the
 	 * appropriate sequence for entering low power.
 	 */
 	asm("mrc p15, 0, %0, c0, c0, 0" : "=r"(primary_part) : : "cc");
-	if ((primary_part & 0xfff0) == 0xc0f0)
+
+	/*
+	 * Main ID register of Cortex series
+	 * - Cortex-a7  : 0x410F_C07x
+	 * - Cortex-a15 : 0x410F_C0Fx
+	 */
+	primary_part = primary_part & 0xfff0;
+	if (primary_part == 0xc0f0 || primary_part == 0xc070)
 		cpu_enter_lowpower_a15();
 	else
 		cpu_enter_lowpower_a9();
