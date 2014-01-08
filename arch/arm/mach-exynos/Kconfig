@@ -85,6 +85,7 @@ config SOC_EXYNOS5250
 	default y
 	depends on ARCH_EXYNOS5
 	select ARCH_HAS_BANDGAP
+	select ARM_ERRATA_773769
 	select PINCTRL_EXYNOS
 	select PM_GENERIC_DOMAINS if PM
 	select S5P_PM if PM
