@@ -993,11 +993,13 @@ static int samsung_i2s_dai_probe(struct snd_soc_dai *dai)
 		return -ENXIO;
 	}
 
-	/* Set clock hierarchy for audio subsystem */
-	ret = clk_set_hierarchy(i2s);
-	if (ret) {
-		dev_err(&i2s->pdev->dev, "failed to set clock hierachy.\n");
-		return ret;
+	if (i2s->quirks & QUIRK_SEC_DAI) {
+		/* Set clock hierarchy for audio subsystem */
+		ret = clk_set_hierarchy(i2s);
+		if (ret) {
+			dev_err(&i2s->pdev->dev, "failed to set clock hierachy.\n");
+			return ret;
+		}
 	}
 
 	if (other) {
