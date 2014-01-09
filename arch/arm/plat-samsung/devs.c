@@ -1538,6 +1538,8 @@ void __init s3c_hsotg_set_platdata(struct s3c_hsotg_plat *pd)
 		npd->phy_init = s5p_usb_phy_init;
 	if (!npd->phy_exit)
 		npd->phy_exit = s5p_usb_phy_exit;
+	
+	npd -> phy_type = S5P_USB_PHY_DEVICE;
 }
 #endif /* CONFIG_S3C_DEV_USB_HSOTG */
 
