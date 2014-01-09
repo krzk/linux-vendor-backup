@@ -78,6 +78,8 @@ struct i2s_dai {
 	struct clk *dout_bus;
 	/* i2s clock's divider */
 	struct clk *dout_i2s;
+	/* Controller's bus clock */
+	struct clk *bus_clk;
 	/* Clock for generating I2S signals */
 	struct clk *op_clk;
 	/* Pointer to the Primary_Fifo if this is Sec_Fifo, NULL otherwise */
@@ -1245,6 +1247,10 @@ static int samsung_i2s_probe(struct platform_device *pdev)
 		}
 	}
 
+	pri_dai->bus_clk = devm_clk_get(&pdev->dev, "iis");
+	if (!IS_ERR(pri_dai->bus_clk))
+		clk_prepare_enable(pri_dai->bus_clk);
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		dev_err(&pdev->dev, "Unable to get I2S SFR address\n");
@@ -1336,6 +1342,9 @@ static int samsung_i2s_remove(struct platform_device *pdev)
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 		if (res)
 			release_mem_region(res->start, resource_size(res));
+
+		if (!IS_ERR(i2s->bus_clk))
+			clk_disable_unprepare(i2s->bus_clk);
 	}
 
 	i2s->pri_dai = NULL;
