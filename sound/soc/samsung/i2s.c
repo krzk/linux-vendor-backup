@@ -1232,6 +1232,9 @@ static int samsung_i2s_probe(struct platform_device *pdev)
 		if (of_find_property(np, "samsung,supports-rstclr", NULL))
 			quirks |= QUIRK_NEED_RSTCLR;
 
+		if (of_find_property(np, "samsung,no-muxpsr", NULL))
+			quirks |= QUIRK_NO_MUXPSR;
+
 		if (of_property_read_u32(np, "samsung,idma-addr",
 					 &idma_addr)) {
 			if (quirks & QUIRK_SEC_DAI) {

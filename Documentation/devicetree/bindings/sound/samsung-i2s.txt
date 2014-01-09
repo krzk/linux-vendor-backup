@@ -21,6 +21,7 @@ Optional SoC Specific Properties:
   then this flag is enabled.
 - samsung,idma-addr: Internal DMA register base address of the audio
   sub system(used in secondary sound source).
+- samsung,no-muxpsr: IISMOD does not have RCLK clock source selection bit.
 
 Required Board Specific Properties:
 
