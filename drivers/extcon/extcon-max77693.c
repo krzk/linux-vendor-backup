@@ -488,7 +488,7 @@ static int max77693_muic_dock_handler(struct max77693_muic_info *info,
 	char dock_name[CABLE_NAME_MAX];
 
 	dev_info(info->dev,
-		"external connector is %s (adc:0x%02x)\n",
+		"external connector (doc) is %s (adc:0x%02x)\n",
 		attached ? "attached" : "detached", cable_type);
 
 	switch (cable_type) {
@@ -651,7 +651,7 @@ static int max77693_muic_jig_handler(struct max77693_muic_info *info,
 	u8 path = CONTROL1_SW_OPEN;
 
 	dev_info(info->dev,
-		"external connector is %s (adc:0x%02x)\n",
+		"external connector (jig) is %s (adc:0x%02x)\n",
 		attached ? "attached" : "detached", cable_type);
 
 	switch (cable_type) {
@@ -697,7 +697,7 @@ static int max77693_muic_adc_handler(struct max77693_muic_info *info)
 				MAX77693_CABLE_GROUP_ADC, &attached);
 
 	dev_info(info->dev,
-		"external connector is %s (adc:0x%02x, prev_adc:0x%x)\n",
+		"external connector (adc) is %s (adc:0x%02x, prev_adc:0x%x)\n",
 		attached ? "attached" : "detached", cable_type,
 		info->prev_cable_type);
 
@@ -806,7 +806,7 @@ static int max77693_muic_chg_handler(struct max77693_muic_info *info)
 				MAX77693_CABLE_GROUP_CHG, &attached);
 
 	dev_info(info->dev,
-		"external connector is %s(chg_type:0x%x, prev_chg_type:0x%x)\n",
+		"external connector (chg) is %s(chg_type:0x%x, prev_chg_type:0x%x)\n",
 			attached ? "attached" : "detached",
 			chg_type, info->prev_chg_type);
 
