@@ -116,6 +116,8 @@ struct s6e8aa0 {
 	int power;
 	int brightness;
 	struct mutex mutex;
+
+	bool probed;
 };
 
 struct s6e8aa0_variant {
@@ -1101,10 +1103,11 @@ static int s6e8aa0_set_sequence(struct s6e8aa0 *lcd)
 {
 	int ret;
 
-	ret = s6e8aa0_check_mtp(lcd);
-	if (ret < 0)
-		return ret;
-
+	if (!lcd->probed) {
+		ret = s6e8aa0_check_mtp(lcd);
+		if (ret < 0)
+			return ret;
+	}
 	s6e8aa0_panel_init(lcd);
 	s6e8aa0_display_on(lcd);
 
@@ -1212,13 +1215,13 @@ static void s6e8aa0_power_on(struct s6e8aa0 *panel)
 
 	msleep(panel->pdata->power_on_delay);
 
+	src->ops.dsi->enable(src);
+
 	/* lcd reset */
 	if (panel->pdata->reset)
 		panel->pdata->reset(panel->dev);
 
 	msleep(panel->pdata->reset_delay);
-
-	src->ops.dsi->enable(src);
 
 	s6e8aa0_set_sequence(panel);
 }
@@ -1369,6 +1372,8 @@ static int s6e8aa0_probe(struct platform_device *pdev)
 		goto err_display_register;
 
 	display_entity_set_state(&lcd->entity, DISPLAY_ENTITY_STATE_ON);
+
+	lcd->probed = true;
 
 	dev_dbg(&pdev->dev, "probed s6e8aa0 panel driver.\n");
 
