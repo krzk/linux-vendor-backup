@@ -1230,10 +1230,10 @@ static void s6e8aa0_power_off(struct s6e8aa0 *panel)
 {
 	struct video_source *src = panel->entity.source;
 
-	s6e8aa0_sleep_in(panel);
 	s6e8aa0_display_off(panel);
-
-	src->ops.dsi->disable(src);
+	s6e8aa0_sleep_in(panel);
+	/* power off delay */
+	msleep(120);
 
 	regulator_bulk_disable(ARRAY_SIZE(panel->supplies),
 						panel->supplies);
@@ -1250,8 +1250,9 @@ static int s6e8aa0_set_state(struct display_entity *entity,
 	case DISPLAY_ENTITY_STATE_OFF:
 		if (entity->state != DISPLAY_ENTITY_STATE_ON)
 			break;
-		src->common_ops->set_stream(src, DISPLAY_ENTITY_STREAM_STOPPED);
 		s6e8aa0_power_off(panel);
+		src->common_ops->set_stream(src, DISPLAY_ENTITY_STREAM_STOPPED);
+		src->ops.dsi->disable(src);
 		break;
 
 	case DISPLAY_ENTITY_STATE_ON:
