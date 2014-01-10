@@ -2,6 +2,7 @@
 %define abiver 1
 %define build_id %{config_name}.%{abiver}
 %define defaultDtb exynos4412-m0.dtb
+%define buildarch arm
 
 Name: linux-kernel
 Summary: The Linux Kernel
@@ -18,99 +19,82 @@ BuildRequires: linux-glibc-devel
 BuildRequires: u-boot-tools
 BuildRequires: bc
 
-%define kernel_build_dir_name .%{name}-%{version}-%{build_id}
-%define kernel_build_dir %{_builddir}/%{name}-%{version}/%{kernel_build_dir_name}
-
 %description
 The Linux Kernel, the operating system core itself
 
-%package headers
+%package user-headers
 Summary: Header files for the Linux kernel for use by glibc
 Group: Development/System
 Obsoletes: kernel-headers
 Provides: kernel-headers = %{version}
 
-%description headers
+%description user-headers
 Kernel-headers includes the C header files that specify the interface
 between the Linux kernel and userspace libraries and programs.  The
 header files define structures and constants that are needed for
 building most standard programs and are also needed for rebuilding the
 glibc package.
 
-%package sources
-Summary: Full linux kernel sources for out-of-tree modules
-Group: Development/System
-Provides: kernel-sources = %{version}-%{build_id}
-
-%description sources
-Full linux kernel sources for out-of-tree modules.
-
-%package build
+%package devel
 Summary: Prebuilt linux kernel for out-of-tree modules
 Group: Development/System
-Requires: kernel-sources = %{version}-%{build_id}
 
-%description build
+%description devel
 Prebuilt linux kernel for out-of-tree modules.
 
-%package uImage
+%package image
 Summary: Linux kernel image
 Group: Development/System
 
-%description uImage
+%description image
 Linux kernel uImage
 
 %prep
 %setup -q
 
 %build
-# 1. Create main build directory
-rm -rf %{kernel_build_dir}
-mkdir -p %{kernel_build_dir}
+# 1. Compile sources
+make EXTRAVERSION="-%{build_id}" %{config_name}
+make EXTRAVERSION="-%{build_id}" %{?_smp_mflags}
 
-# 2. Create tar archive for sources
-tar cpsf %{kernel_build_dir}/linux-kernel-sources-%{version}-%{build_id}.tar . --one-file-system --exclude ".git*"
-
-# 3. Create kernel build directory
-mkdir -p %{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id}
-
-# 4. Compile sources
-make EXTRAVERSION="-%{build_id}" O=%{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id} %{config_name}
-make EXTRAVERSION="-%{build_id}" O=%{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id} %{?_smp_mflags}
-
-# 4.1 Build uImage
-make EXTRAVERSION="-%{build_id}" O=%{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id} zImage %{?_smp_mflags}
-make EXTRAVERSION="-%{build_id}" O=%{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id} dtbs %{?_smp_mflags}
-cat %{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id}/arch/arm/boot/zImage %{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id}/arch/arm/boot/dts/%{defaultDtb}  > bImage
+# 2. Build uImage
+make EXTRAVERSION="-%{build_id}" zImage %{?_smp_mflags}
+make EXTRAVERSION="-%{build_id}" dtbs %{?_smp_mflags}
+cat arch/arm/boot/zImage arch/arm/boot/dts/%{defaultDtb}  > bImage
 mkimage -A arm -C none -O linux -a 40008000 -e 40008000 -n 'Linux 3.10 Tizen kernel' -d bImage uImage
 
-# 5. Update Makefile in output build
-cat %{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id}/Makefile | sed 's/\/home\/abuild\/rpmbuild\/BUILD\/%{name}-%{version}/\/usr\/src\/linux-kernel-sources-%{version}-%{build_id}/' > %{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id}/Makefile.new
-mv %{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id}/Makefile.new %{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id}/Makefile
-rm -f %{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id}/Makefile.new
+# 3. Build modules
+#make EXTRAVERSION="-%{build_id}" modules %{?_smp_mflags}
 
-# 6. Create tar repo for build directory
-( cd %{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id} ; tar cpsf %{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id}.tar . )
+# 4. Create tar repo for build directory
+tar cpsf linux-kernel-build-%{version}-%{build_id}.tar .
 
 %install
 QA_SKIP_BUILD_ROOT="DO_NOT_WANT"; export QA_SKIP_BUILD_ROOT
 
 # 1. Destynation directories
-mkdir -p %{buildroot}/usr/src/linux-kernel-sources-%{version}-%{build_id}
 mkdir -p %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}
+mkdir -p %{buildroot}/lib/modules/%{version}-%{build_id}
 mkdir -p %{buildroot}/boot/
 
 # 2. Install uImage
 install uImage %{buildroot}/boot/
 
-# 3. Restore source and build irectory
-tar -xf %{kernel_build_dir}/linux-kernel-sources-%{version}-%{build_id}.tar -C %{buildroot}/usr/src/linux-kernel-sources-%{version}-%{build_id}
-tar -xf %{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id}.tar   -C %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}
+# 3. Install modules
+#make INSTALL_MOD_PATH=%{buildroot} modules_install
 
 # 4. Install kernel headers
-make INSTALL_PATH=%{buildroot} INSTALL_MOD_PATH=%{buildroot} O=%{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id} INSTALL_HDR_PATH=%{buildroot}/usr headers_install
+make INSTALL_PATH=%{buildroot} INSTALL_MOD_PATH=%{buildroot} INSTALL_HDR_PATH=%{buildroot}/usr headers_install
 
-# 5. Remove files
+# 5. Restore source and build irectory
+tar -xf linux-kernel-build-%{version}-%{build_id}.tar -C %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}
+mv %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}/arch/%{buildarch} .
+mv %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}/arch/Kconfig .
+rm -rf %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}/arch/*
+mv %{buildarch} %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}/arch/
+mv Kconfig      %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}/arch/
+
+# 6. Remove files
 find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name ".tmp_vmlinux1" -exec rm -f {} \;
 find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name ".tmp_vmlinux2" -exec rm -f {} \;
 find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name "vmlinux" -exec rm -f {} \;
@@ -122,46 +106,39 @@ find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name "\.*dt
 find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name "*\.*tmp" -exec rm -f {} \;
 find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name "*\.S" -exec rm -f {} \;
 find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name "*\.ko" -exec rm -f {} \;
-find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name "*\.o" -exec rm -f {} \;
-
-find %{buildroot}/usr/src/linux-kernel-sources-%{version}-%{build_id} -name "*.c" -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name "*\.c" -exec rm -f {} \;
 
 find %{buildroot}/usr -name "..install.cmd" -exec rm -f {} \;
-
 find %{buildroot}/usr/include -name "\.\.install.cmd"  -exec rm -f {} \;
 find %{buildroot}/usr/include -name "\.install"  -exec rm -f {} \;
 
-rm -rf %{buildroot}/usr/src/linux-kernel-sources-%{version}-%{build_id}/%{kernel_build_dir_name}
-rm -f %{buildroot}/usr/src/linux-kernel-sources-%{version}-%{build_id}/source
-rm -f %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}/source
-
+rm -f  %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}/source
 rm -rf %{buildroot}/System.map*
 rm -rf %{buildroot}/vmlinux*
-
 rm -rf %{buildroot}/boot/System.map*
 rm -rf %{buildroot}/boot/vmlinux*
 
-# 6. Create symbolic links
-ln -sf /usr/src/linux-kernel-sources-%{version}-%{build_id} %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}/source
-ln -sf /usr/src/linux-kernel-build-%{version}-%{build_id}   %{buildroot}/usr/src/linux-kernel-build-current
-ln -sf /usr/src/linux-kernel-sources-%{version}-%{build_id} %{buildroot}/usr/src/linux-kernel-sources-current
+# 7. Create symbolic links
+rm -f %{buildroot}/usr/src/linux-kernel-build-current
+rm -f %{buildroot}/lib/modules/%{version}-%{build_id}/build
+rm -f %{buildroot}/lib/modules/%{version}-%{build_id}/source
+ln -sf /usr/src/linux-kernel-build-%{version}-%{build_id} %{buildroot}/lib/modules/%{version}-%{build_id}/build
 
 %clean
 rm -rf %{buildroot}
 
-%files headers
+%files user-headers
 %defattr (-, root, root)
 /usr/include
 
-%files sources
-%defattr (-, root, root)
-/usr/src/linux-kernel-sources-%{version}-%{build_id}
-/usr/src/linux-kernel-sources-current
-
-%files build
+%files devel
 %defattr (-, root, root)
 /usr/src/linux-kernel-build-%{version}-%{build_id}
-/usr/src/linux-kernel-build-current
+#/lib/modules/%{version}-%{build_id}/kernel
+/lib/modules/%{version}-%{build_id}/build
+#/lib/modules/%{version}-%{build_id}/modules.*
 
-%files uImage
+%files image
 /boot/uImage
+#/lib/modules/%{version}-%{build_id}/kernel
+#/lib/modules/%{version}-%{build_id}/modules.*
