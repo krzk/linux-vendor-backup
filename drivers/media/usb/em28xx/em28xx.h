@@ -506,6 +506,8 @@ struct em28xx_audio {
 	unsigned int hwptr_done_capture;
 	struct snd_card            *sndcard;
 
+	size_t period;
+
 	int users;
 	spinlock_t slock;
 };
