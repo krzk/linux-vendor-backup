@@ -15,9 +15,14 @@ URL: http://www.kernel.org
 Source0:   %{name}-%{version}-%{build_id}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{PACKAGE_VERSION}-root
 
+%define fullVersion %{version}-%{build_id}
+
 BuildRequires: linux-glibc-devel
 BuildRequires: u-boot-tools
 BuildRequires: bc
+
+Provides: kernel = %{version}-%{release}
+Provides: kernel-uname-r = %{fullVersion}
 
 %description
 The Linux Kernel, the operating system core itself
@@ -26,7 +31,7 @@ The Linux Kernel, the operating system core itself
 Summary: Header files for the Linux kernel for use by glibc
 Group: Development/System
 Obsoletes: kernel-headers
-Provides: kernel-headers = %{version}
+Provides: kernel-headers = %{version}-%{release}
 
 %description user-headers
 Kernel-headers includes the C header files that specify the interface
@@ -38,16 +43,11 @@ glibc package.
 %package devel
 Summary: Prebuilt linux kernel for out-of-tree modules
 Group: Development/System
+Provides: kernel-devel = %{fullVersion}
+Provides: kernel-devel-uname-r = %{fullVersion}
 
 %description devel
 Prebuilt linux kernel for out-of-tree modules.
-
-%package image
-Summary: Linux kernel image
-Group: Development/System
-
-%description image
-Linux kernel uImage
 
 %prep
 %setup -q
@@ -64,65 +64,63 @@ cat arch/arm/boot/zImage arch/arm/boot/dts/%{defaultDtb}  > bImage
 mkimage -A arm -C none -O linux -a 40008000 -e 40008000 -n 'Linux 3.10 Tizen kernel' -d bImage uImage
 
 # 3. Build modules
-#make EXTRAVERSION="-%{build_id}" modules %{?_smp_mflags}
+make EXTRAVERSION="-%{build_id}" modules %{?_smp_mflags}
 
 # 4. Create tar repo for build directory
-tar cpsf linux-kernel-build-%{version}-%{build_id}.tar .
+tar cpsf linux-kernel-build-%{fullVersion}.tar .
 
 %install
 QA_SKIP_BUILD_ROOT="DO_NOT_WANT"; export QA_SKIP_BUILD_ROOT
 
 # 1. Destynation directories
-mkdir -p %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}
-mkdir -p %{buildroot}/lib/modules/%{version}-%{build_id}
+mkdir -p %{buildroot}/usr/src/linux-kernel-build-%{fullVersion}
+mkdir -p %{buildroot}/lib/modules/%{fullVersion}
 mkdir -p %{buildroot}/boot/
 
-# 2. Install uImage
-install uImage %{buildroot}/boot/
+# 2. Install uImage, System.map, ...
+install -m 755 uImage %{buildroot}/boot/
+install -m 644 System.map %{buildroot}/boot/System.map-%{fullVersion}
+install -m 644 .config %{buildroot}/boot/config-%{fullVersion}
 
 # 3. Install modules
-#make INSTALL_MOD_PATH=%{buildroot} modules_install
+make INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=%{buildroot} modules_install
 
 # 4. Install kernel headers
 make INSTALL_PATH=%{buildroot} INSTALL_MOD_PATH=%{buildroot} INSTALL_HDR_PATH=%{buildroot}/usr headers_install
 
 # 5. Restore source and build irectory
-tar -xf linux-kernel-build-%{version}-%{build_id}.tar -C %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}
-mv %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}/arch/%{buildarch} .
-mv %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}/arch/Kconfig .
-rm -rf %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}/arch/*
-mv %{buildarch} %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}/arch/
-mv Kconfig      %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}/arch/
+tar -xf linux-kernel-build-%{fullVersion}.tar -C %{buildroot}/usr/src/linux-kernel-build-%{fullVersion}
+mv %{buildroot}/usr/src/linux-kernel-build-%{fullVersion}/arch/%{buildarch} .
+mv %{buildroot}/usr/src/linux-kernel-build-%{fullVersion}/arch/Kconfig .
+rm -rf %{buildroot}/usr/src/linux-kernel-build-%{fullVersion}/arch/*
+mv %{buildarch} %{buildroot}/usr/src/linux-kernel-build-%{fullVersion}/arch/
+mv Kconfig      %{buildroot}/usr/src/linux-kernel-build-%{fullVersion}/arch/
 
 # 6. Remove files
-find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name ".tmp_vmlinux1" -exec rm -f {} \;
-find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name ".tmp_vmlinux2" -exec rm -f {} \;
-find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name "vmlinux" -exec rm -f {} \;
-find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name "uImage" -exec rm -f {} \;
-find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name "zImage" -exec rm -f {} \;
-find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name "*.cmd" -exec rm -f {} \;
-find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name "*\.o" -exec rm -f {} \;
-find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name "\.*dtb*tmp" -exec rm -f {} \;
-find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name "*\.*tmp" -exec rm -f {} \;
-find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name "*\.S" -exec rm -f {} \;
-find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name "*\.ko" -exec rm -f {} \;
-find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name "*\.c" -exec rm -f {} \;
-
-find %{buildroot}/usr -name "..install.cmd" -exec rm -f {} \;
-find %{buildroot}/usr/include -name "\.\.install.cmd"  -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name ".tmp_vmlinux*" -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "\.*dtb*tmp" -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "*\.*tmp" -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "vmlinux" -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "uImage" -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "zImage" -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "*.cmd" -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "*\.ko" -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "*\.o" -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "*\.S" -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "*\.c" -exec rm -f {} \;
 find %{buildroot}/usr/include -name "\.install"  -exec rm -f {} \;
+find %{buildroot}/usr -name "..install.cmd" -exec rm -f {} \;
 
-rm -f  %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}/source
+rm -rf %{buildroot}/boot/vmlinux*
 rm -rf %{buildroot}/System.map*
 rm -rf %{buildroot}/vmlinux*
-rm -rf %{buildroot}/boot/System.map*
-rm -rf %{buildroot}/boot/vmlinux*
 
 # 7. Create symbolic links
-rm -f %{buildroot}/usr/src/linux-kernel-build-current
-rm -f %{buildroot}/lib/modules/%{version}-%{build_id}/build
-rm -f %{buildroot}/lib/modules/%{version}-%{build_id}/source
-ln -sf /usr/src/linux-kernel-build-%{version}-%{build_id} %{buildroot}/lib/modules/%{version}-%{build_id}/build
+rm -f %{buildroot}/lib/modules/%{fullVersion}/build
+rm -f %{buildroot}/lib/modules/%{fullVersion}/source
+ln -sf /usr/src/linux-kernel-build-%{fullVersion} %{buildroot}/lib/modules/%{fullVersion}/build
+
+find %{buildroot}/lib/modules/ -name "*.ko" -type f -exec chmod 755 {} \;
 
 %clean
 rm -rf %{buildroot}
@@ -133,12 +131,14 @@ rm -rf %{buildroot}
 
 %files devel
 %defattr (-, root, root)
-/usr/src/linux-kernel-build-%{version}-%{build_id}
-#/lib/modules/%{version}-%{build_id}/kernel
-/lib/modules/%{version}-%{build_id}/build
-#/lib/modules/%{version}-%{build_id}/modules.*
+/usr/src/linux-kernel-build-%{fullVersion}
+/lib/modules/%{fullVersion}/modules.*
+/lib/modules/%{fullVersion}/build
 
-%files image
+%files
+%license COPYING
 /boot/uImage
-#/lib/modules/%{version}-%{build_id}/kernel
-#/lib/modules/%{version}-%{build_id}/modules.*
+/boot/System.map*
+/boot/config*
+/lib/modules/%{fullVersion}/kernel
+/lib/modules/%{fullVersion}/modules.*
