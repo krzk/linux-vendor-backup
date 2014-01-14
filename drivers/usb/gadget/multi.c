@@ -33,7 +33,17 @@ MODULE_AUTHOR("Michal Nazarewicz");
 MODULE_LICENSE("GPL");
 
 
-#include "f_mass_storage.h"
+/***************************** All the files... *****************************/
+
+/*
+ * kbuild is not very cooperative with respect to linking separately
+ * compiled library objects into one module.  So for now we won't use
+ * separate compilation ... ensuring init/exit sections work to shrink
+ * the runtime footprint, and giving us at least some parts of what
+ * a "gcc --combine ... part1.c part2.c part3.c ... " build would.
+ */
+#define USB_FMS_INCLUDED
+#include "f_mass_storage.c"
 
 #include "u_ecm.h"
 #ifdef USB_ETH_RNDIS
@@ -138,8 +148,9 @@ static unsigned int fsg_num_buffers = CONFIG_USB_GADGET_STORAGE_NUM_BUFFERS;
 
 FSG_MODULE_PARAMETERS(/* no prefix */, fsg_mod_data);
 
+static struct fsg_common fsg_common;
+
 static struct usb_function_instance *fi_acm;
-static struct usb_function_instance *fi_msg;
 
 /********** RNDIS **********/
 
@@ -147,11 +158,9 @@ static struct usb_function_instance *fi_msg;
 static struct usb_function_instance *fi_rndis;
 static struct usb_function *f_acm_rndis;
 static struct usb_function *f_rndis;
-static struct usb_function *f_msg_rndis;
 
 static __init int rndis_do_config(struct usb_configuration *c)
 {
-	struct fsg_opts *fsg_opts;
 	int ret;
 
 	if (gadget_is_otg(c->cdev->gadget)) {
@@ -177,24 +186,11 @@ static __init int rndis_do_config(struct usb_configuration *c)
 	if (ret)
 		goto err_conf;
 
-	f_msg_rndis = usb_get_function(fi_msg);
-	if (IS_ERR(f_msg_rndis)) {
-		ret = PTR_ERR(f_msg_rndis);
+	ret = fsg_bind_config(c->cdev, c, &fsg_common);
+	if (ret < 0)
 		goto err_fsg;
-	}
-
-	fsg_opts = container_of(fi_msg, struct fsg_opts, func_inst);
-	ret = fsg_common_run_thread(fsg_opts->common);
-	if (ret)
-		goto err_run;
-
-	ret = usb_add_function(c, f_msg_rndis);
-	if (ret)
-		goto err_run;
 
 	return 0;
-err_run:
-	usb_put_function(f_msg_rndis);
 err_fsg:
 	usb_remove_function(c, f_acm_rndis);
 err_conf:
@@ -235,11 +231,9 @@ static int rndis_config_register(struct usb_composite_dev *cdev)
 static struct usb_function_instance *fi_ecm;
 static struct usb_function *f_acm_multi;
 static struct usb_function *f_ecm;
-static struct usb_function *f_msg_multi;
 
 static __init int cdc_do_config(struct usb_configuration *c)
 {
-	struct fsg_opts *fsg_opts;
 	int ret;
 
 	if (gadget_is_otg(c->cdev->gadget)) {
@@ -266,24 +260,11 @@ static __init int cdc_do_config(struct usb_configuration *c)
 	if (ret)
 		goto err_conf;
 
-	f_msg_multi = usb_get_function(fi_msg);
-	if (IS_ERR(f_msg_multi)) {
-		ret = PTR_ERR(f_msg_multi);
+	ret = fsg_bind_config(c->cdev, c, &fsg_common);
+	if (ret < 0)
 		goto err_fsg;
-	}
-
-	fsg_opts = container_of(fi_msg, struct fsg_opts, func_inst);
-	ret = fsg_common_run_thread(fsg_opts->common);
-	if (ret)
-		goto err_run;
-
-	ret = usb_add_function(c, f_msg_multi);
-	if (ret)
-		goto err_run;
 
 	return 0;
-err_run:
-	usb_put_function(f_msg_multi);
 err_fsg:
 	usb_remove_function(c, f_acm_multi);
 err_conf:
@@ -330,8 +311,6 @@ static int __ref multi_bind(struct usb_composite_dev *cdev)
 #ifdef USB_ETH_RNDIS
 	struct f_rndis_opts *rndis_opts;
 #endif
-	struct fsg_opts *fsg_opts;
-	struct fsg_config config;
 	int status;
 
 	if (!can_support_ecm(cdev->gadget)) {
@@ -394,65 +373,41 @@ static int __ref multi_bind(struct usb_composite_dev *cdev)
 	}
 
 	/* set up mass storage function */
-	fi_msg = usb_get_function_instance("mass_storage");
-	if (IS_ERR(fi_msg)) {
-		status = PTR_ERR(fi_msg);
-		goto fail1;
+	{
+		void *retp;
+		retp = fsg_common_from_params(&fsg_common, cdev, &fsg_mod_data,
+					      fsg_num_buffers);
+		if (IS_ERR(retp)) {
+			status = PTR_ERR(retp);
+			goto fail1;
+		}
 	}
-	fsg_config_from_params(&config, &fsg_mod_data, fsg_num_buffers);
-	fsg_opts = container_of(fi_msg, struct fsg_opts, func_inst);
-
-	fsg_opts->no_configfs = true;
-	status = fsg_common_set_num_buffers(fsg_opts->common, fsg_num_buffers);
-	if (status)
-		goto fail2;
-
-	status = fsg_common_set_nluns(fsg_opts->common, config.nluns);
-	if (status)
-		goto fail_set_nluns;
-
-	status = fsg_common_set_cdev(fsg_opts->common, cdev, config.can_stall);
-	if (status)
-		goto fail_set_cdev;
-
-	fsg_common_set_sysfs(fsg_opts->common, true);
-	status = fsg_common_create_luns(fsg_opts->common, &config);
-	if (status)
-		goto fail_set_cdev;
-
-	fsg_common_set_inquiry_string(fsg_opts->common, config.vendor_name,
-				      config.product_name);
 
 	/* allocate string IDs */
 	status = usb_string_ids_tab(cdev, strings_dev);
 	if (unlikely(status < 0))
-		goto fail_string_ids;
+		goto fail2;
 	device_desc.iProduct = strings_dev[USB_GADGET_PRODUCT_IDX].id;
 
 	/* register configurations */
 	status = rndis_config_register(cdev);
 	if (unlikely(status < 0))
-		goto fail_string_ids;
+		goto fail2;
 
 	status = cdc_config_register(cdev);
 	if (unlikely(status < 0))
-		goto fail_string_ids;
+		goto fail2;
 	usb_composite_overwrite_options(cdev, &coverwrite);
 
 	/* we're done */
 	dev_info(&gadget->dev, DRIVER_DESC "\n");
+	fsg_common_put(&fsg_common);
 	return 0;
 
 
 	/* error recovery */
-fail_string_ids:
-	fsg_common_remove_luns(fsg_opts->common);
-fail_set_cdev:
-	fsg_common_free_luns(fsg_opts->common);
-fail_set_nluns:
-	fsg_common_free_buffers(fsg_opts->common);
 fail2:
-	usb_put_function_instance(fi_msg);
+	fsg_common_put(&fsg_common);
 fail1:
 	usb_put_function_instance(fi_acm);
 fail0:
@@ -468,13 +423,6 @@ fail:
 
 static int __exit multi_unbind(struct usb_composite_dev *cdev)
 {
-#ifdef CONFIG_USB_G_MULTI_CDC
-	usb_put_function(f_msg_multi);
-#endif
-#ifdef USB_ETH_RNDIS
-	usb_put_function(f_msg_rndis);
-#endif
-	usb_put_function_instance(fi_msg);
 #ifdef CONFIG_USB_G_MULTI_CDC
 	usb_put_function(f_acm_multi);
 #endif
