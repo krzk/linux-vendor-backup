@@ -3002,6 +3002,7 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
 	struct usb_gadget *gadget = cdev->gadget;
 	struct fsg_lun **curlun_it;
 	struct fsg_lun_config *lcfg;
+	struct usb_string *us;
 	int nluns, i, rc;
 	char *pathbuf;
 
@@ -3022,9 +3023,19 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
 	fsg_common_set_ops(common, cfg->ops);
 	fsg_common_set_private_data(common, cfg->private_data);
 
-	rc = fsg_common_set_cdev(common, cdev, cfg->can_stall);
-	if (rc)
+	common->gadget = gadget;
+	common->ep0 = gadget->ep0;
+	common->ep0req = cdev->req;
+	common->cdev = cdev;
+
+	us = usb_gstrings_attach(cdev, fsg_strings_array,
+				 ARRAY_SIZE(fsg_strings));
+	if (IS_ERR(us)) {
+		rc = PTR_ERR(us);
 		goto error_release;
+	}
+	fsg_intf_desc.iInterface = us[FSG_STRING_INTERFACE].id;
+
 
 	rc = fsg_common_set_nluns(common, cfg->nluns);
 	if (rc)
@@ -3105,6 +3116,14 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
 				     ? "File-CD Gadget"
 				     : "File-Stor Gadget"),
 		 i);
+
+	/*
+	 * Some peripheral controllers are known not to be able to
+	 * halt bulk endpoints correctly.  If one of them is present,
+	 * disable stalls.
+	 */
+	common->can_stall = cfg->can_stall &&
+		!(gadget_is_at91(common->gadget));
 
 
 	/* Tell the thread to start working */
