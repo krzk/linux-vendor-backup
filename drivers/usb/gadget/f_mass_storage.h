@@ -1,7 +1,6 @@
 #ifndef USB_F_MASS_STORAGE_H
 #define USB_F_MASS_STORAGE_H
 
-#include <linux/usb/composite.h>
 #include "storage_common.h"
 
 struct fsg_module_parameters {
@@ -69,12 +68,6 @@ struct fsg_operations {
 	 * set).
 	 */
 	int (*thread_exits)(struct fsg_common *common);
-};
-
-struct fsg_opts {
-	struct fsg_common *common;
-	struct usb_function_instance func_inst;
-	bool no_configfs; /* for legacy gadgets */
 };
 
 struct fsg_lun_config {
