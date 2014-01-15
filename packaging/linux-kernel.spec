@@ -58,10 +58,8 @@ make EXTRAVERSION="-%{build_id}" %{config_name}
 make EXTRAVERSION="-%{build_id}" %{?_smp_mflags}
 
 # 2. Build uImage
-make EXTRAVERSION="-%{build_id}" zImage %{?_smp_mflags}
+make EXTRAVERSION="-%{build_id}" uImage %{?_smp_mflags}
 make EXTRAVERSION="-%{build_id}" dtbs %{?_smp_mflags}
-cat arch/arm/boot/zImage arch/arm/boot/dts/%{defaultDtb}  > bImage
-mkimage -A arm -C none -O linux -a 40008000 -e 40008000 -n 'Linux 3.10 Tizen kernel' -d bImage uImage
 
 # 3. Build modules
 make EXTRAVERSION="-%{build_id}" modules %{?_smp_mflags}
@@ -78,7 +76,10 @@ mkdir -p %{buildroot}/lib/modules/%{fullVersion}
 mkdir -p %{buildroot}/boot/
 
 # 2. Install uImage, System.map, ...
-install -m 755 uImage %{buildroot}/boot/
+install -m 755 arch/arm/boot/uImage %{buildroot}/boot/
+install -m 644 arch/arm/boot/dts/*.dtb %{buildroot}/boot/
+mv %{buildroot}/boot/exynos4412-m0.dtb %{buildroot}/boot/exynos4412-trats2.dtb
+
 install -m 644 System.map %{buildroot}/boot/System.map-%{fullVersion}
 install -m 644 .config %{buildroot}/boot/config-%{fullVersion}
 
@@ -138,6 +139,7 @@ rm -rf %{buildroot}
 %files
 %license COPYING
 /boot/uImage
+/boot/*.dtb
 /boot/System.map*
 /boot/config*
 /lib/modules/%{fullVersion}/kernel
