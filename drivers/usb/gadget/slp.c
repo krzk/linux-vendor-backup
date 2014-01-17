@@ -50,6 +50,7 @@
 
 #include "f_sdb.c"
 #include "f_acm.c"
+#include "f_mtp_slp.c"
 #define USB_ETH_RNDIS y
 #define USB_FRNDIS_INCLUDED y
 #include "f_rndis.c"
@@ -154,7 +155,7 @@ struct slp_multi_dev {
 };
 
 /* TODO: only enabled 'rndis' and 'sdb'. need to verify more functions */
-static const char *default_funcs[] = {"rndis", "sdb"};
+static const char * const default_funcs[] = {"rndis", "sdb", "mtp"};
 static unsigned slp_multi_nluns;
 static struct class *slp_multi_class;
 static struct slp_multi_dev *_slp_multi_dev;
@@ -372,6 +373,100 @@ static struct slp_multi_usb_function acm_function = {
 	.bind_config	= acm_function_bind_config,
 	.unbind_config	= acm_function_unbind_config,
 	.attributes	= acm_function_attributes,
+};
+
+static int
+mtp_function_init(struct slp_multi_usb_function *f,
+		struct usb_composite_dev *cdev)
+{
+	return mtp_setup(cdev);
+}
+
+static void mtp_function_cleanup(struct slp_multi_usb_function *f)
+{
+	mtp_cleanup();
+}
+
+static int
+mtp_function_bind_config(struct slp_multi_usb_function *f,
+		struct usb_configuration *c)
+{
+	return mtp_bind_config(c);
+}
+
+static int mtp_function_ctrlrequest(struct slp_multi_usb_function *f,
+					struct usb_composite_dev *cdev,
+					const struct usb_ctrlrequest *c)
+{
+	struct usb_request *req = cdev->req;
+	struct usb_gadget *gadget = cdev->gadget;
+	int value = -EOPNOTSUPP;
+	u16 w_length = le16_to_cpu(c->wLength);
+	struct usb_string_descriptor *os_func_desc = req->buf;
+	char ms_descriptor[38] = {
+		/* Header section */
+		/* Upper 2byte of dwLength */
+		0x00, 0x00,
+		/* bcd Version */
+		0x00, 0x01,
+		/* wIndex, Extended compatID index */
+		0x04, 0x00,
+		/* bCount, we use only 1 function(MTP) */
+		0x01,
+		/* RESERVED */
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+
+		/* First Function section for MTP */
+		/* bFirstInterfaceNumber,
+		 * we always use it by 0 for MTP
+		 */
+		0x00,
+		/* RESERVED, fixed value 1 */
+		0x01,
+		/* CompatibleID for MTP */
+		0x4D, 0x54, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00,
+		/* Sub-compatibleID for MTP */
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		/* RESERVED */
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+	};
+
+	switch (c->bRequest) {
+		/* Added handler to respond to host about MS OS Descriptors.
+		 * Below handler is requirement if you use MTP.
+		 * So, If you set composite included MTP,
+		 * you have to respond to host about 0x54 or 0x64 request
+		 * refer to following site.
+		 * http://msdn.microsoft.com/en-us/windows/hardware/gg463179
+		 */
+	case 0x54:
+	case 0x6F:
+		os_func_desc->bLength = 0x28;
+		os_func_desc->bDescriptorType = 0x00;
+		value = min(w_length, (u16) (sizeof(ms_descriptor) + 2));
+		memcpy(os_func_desc->wData, &ms_descriptor, value);
+
+		if (value >= 0) {
+			req->length = value;
+			req->zero = value < w_length;
+			value = usb_ep_queue(gadget->ep0, req, GFP_ATOMIC);
+			if (value < 0) {
+				req->status = 0;
+				cdev->req->complete(gadget->ep0, req);
+			}
+		}
+		break;
+	}
+
+	return value;
+}
+
+static struct slp_multi_usb_function mtp_function = {
+	.name		= "mtp",
+	.init		= mtp_function_init,
+	.cleanup	= mtp_function_cleanup,
+	.bind_config	= mtp_function_bind_config,
+	.ctrlrequest	= mtp_function_ctrlrequest,
 };
 
 struct rndis_function_config {
@@ -640,6 +735,7 @@ static struct slp_multi_usb_function rndis_function = {
 static struct slp_multi_usb_function *supported_functions[] = {
 	&sdb_function,
 	&acm_function,
+	&mtp_function,
 	&rndis_function,
 	NULL,
 };
