@@ -45,6 +45,7 @@ Summary: Prebuilt linux kernel for out-of-tree modules
 Group: Development/System
 Provides: kernel-devel = %{fullVersion}
 Provides: kernel-devel-uname-r = %{fullVersion}
+Requires: %{name} = %{version}-%{release}
 
 %description devel
 Prebuilt linux kernel for out-of-tree modules.
