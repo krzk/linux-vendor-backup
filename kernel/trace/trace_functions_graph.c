@@ -46,6 +46,8 @@ struct fgraph_data {
 #define TRACE_GRAPH_PRINT_DURATION	0x10
 #define TRACE_GRAPH_PRINT_ABS_TIME	0x20
 #define TRACE_GRAPH_PRINT_IRQS		0x40
+#define TRACE_GRAPH_PRINT_FLAT		0x80
+
 
 static unsigned int max_depth;
 
@@ -64,6 +66,8 @@ static struct tracer_opt trace_opts[] = {
 	{ TRACER_OPT(funcgraph-abstime, TRACE_GRAPH_PRINT_ABS_TIME) },
 	/* Display interrupts */
 	{ TRACER_OPT(funcgraph-irqs, TRACE_GRAPH_PRINT_IRQS) },
+	/* Use standard trace formatting rather than hierarchical */
+	{ TRACER_OPT(funcgraph-flat, TRACE_GRAPH_PRINT_FLAT) },
 	{ } /* Empty entry */
 };
 
@@ -1284,6 +1288,9 @@ print_graph_function_flags(struct trace_iterator *iter, u32 flags)
 	int cpu = iter->cpu;
 	int ret;
 
+	if (flags & TRACE_GRAPH_PRINT_FLAT)
+		return TRACE_TYPE_UNHANDLED;
+
 	if (data && per_cpu_ptr(data->cpu_data, cpu)->ignore) {
 		per_cpu_ptr(data->cpu_data, cpu)->ignore = 0;
 		return TRACE_TYPE_HANDLED;
@@ -1413,6 +1420,11 @@ void print_graph_headers(struct seq_file *s)
 void print_graph_headers_flags(struct seq_file *s, u32 flags)
 {
 	struct trace_iterator *iter = s->private;
+
+	if (flags & TRACE_GRAPH_PRINT_FLAT) {
+		trace_default_header(s);
+		return;
+	}
 
 	if (!(trace_flags & TRACE_ITER_CONTEXT_INFO))
 		return;

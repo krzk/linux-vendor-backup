@@ -2,6 +2,7 @@
 # Makefile for physical layer USB drivers
 #
 obj-$(CONFIG_USB_PHY)			+= phy.o
+obj-$(CONFIG_USB_OTG_WAKELOCK)		+= otg-wakelock.o
 obj-$(CONFIG_OF)			+= of.o
 
 # transceiver drivers, keep the list sorted
