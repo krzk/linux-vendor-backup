@@ -122,7 +122,7 @@ static const struct pci_8255_boardinfo pci_8255_boards[] = {
 		.name		= "cb_pci-dio48h",
 		.vendor		= PCI_VENDOR_ID_CB,
 		.device		= PCI_DEVICE_ID_CB_PCIDIO48H,
-		.dio_badr	= 1,
+		.dio_badr	= 1,	/* only for older boards */
 		.n_8255		= 2,
 	}, {
 		.name		= "cb_pci-dio96h",
@@ -224,6 +224,7 @@ static int pci_8255_auto_attach(struct comedi_device *dev,
 	unsigned long len;
 	int ret;
 	int i;
+	int dio_badr;
 
 	board = pci_8255_find_boardinfo(dev, pcidev);
 	if (!board)
@@ -239,8 +240,21 @@ static int pci_8255_auto_attach(struct comedi_device *dev,
 	ret = comedi_pci_enable(pcidev, dev->board_name);
 	if (ret)
 		return ret;
-	iobase = pci_resource_start(pcidev, board->dio_badr);
-	len = pci_resource_len(pcidev, board->dio_badr);
+	dio_badr = board->dio_badr;
+	/*
+	 * For Measurement Computing / ComputerBoards PCI-DIO48H, use the
+	 * PCI BAR 2 region, if non-zero length, else use the PCI BAR 1 region
+	 * from the board entry.  This is because the board was redesigned to
+	 * use a different PCI interface chip, with the user registers in a
+	 * different PCI BAR region.
+	 */
+	if (pcidev->vendor == PCI_VENDOR_ID_CB &&
+	    pcidev->device == PCI_DEVICE_ID_CB_PCIDIO48H &&
+	    pci_resource_len(pcidev, 2))
+		dio_badr = 2;
+
+	iobase = pci_resource_start(pcidev, dio_badr);
+	len = pci_resource_len(pcidev, dio_badr);
 
 	if (board->is_mmio) {
 		devpriv->mmio_base = ioremap(iobase, len);
