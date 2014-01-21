@@ -20,6 +20,12 @@ BuildRoot: %{_tmppath}/%{name}-%{PACKAGE_VERSION}-root
 BuildRequires: linux-glibc-devel
 BuildRequires: u-boot-tools
 BuildRequires: bc
+# The below is required for building perf
+BuildRequires: libelf-devel
+BuildRequires: flex
+BuildRequires: bison
+BuildRequires: libdw-devel
+BuildRequires: python-devel
 
 Provides: kernel = %{version}-%{release}
 Provides: kernel-uname-r = %{fullVersion}
@@ -50,6 +56,15 @@ Requires: %{name} = %{version}-%{release}
 %description devel
 Prebuilt linux kernel for out-of-tree modules.
 
+%package -n perf
+Summary: The 'perf' performance counter tool
+Group: Development/System
+Provides: perf = %{kernel_full_version}
+
+%description -n perf
+This package provides the "perf" tool that can be used to monitor performance
+counter events as well as various kernel internal events.
+
 %prep
 %setup -q
 
@@ -64,6 +79,10 @@ make EXTRAVERSION="-%{build_id}" dtbs %{?_smp_mflags}
 
 # 3. Build modules
 make EXTRAVERSION="-%{build_id}" modules %{?_smp_mflags}
+
+# 3.1 Build perf
+make -s -C tools/lib/traceevent ARCH=%{buildarch} %{?_smp_mflags}
+make -s -C tools/perf WERROR=0 ARCH=%{buildarch}
 
 # 4. Create tar repo for build directory
 tar cpsf linux-kernel-build-%{fullVersion}.tar .
@@ -89,6 +108,15 @@ make INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=%{buildroot} modules_install
 
 # 4. Install kernel headers
 make INSTALL_PATH=%{buildroot} INSTALL_MOD_PATH=%{buildroot} INSTALL_HDR_PATH=%{buildroot}/usr headers_install
+
+# 4.1 Install perf
+install -d %{buildroot}
+make -s -C tools/perf DESTDIR=%{buildroot} install
+install -d  %{buildroot}/usr/bin
+install -d  %{buildroot}/usr/libexec
+mv %{buildroot}/bin/* %{buildroot}/usr/bin/
+mv %{buildroot}/libexec/* %{buildroot}/usr/libexec/
+rm %{buildroot}/etc/bash_completion.d/perf
 
 # 5. Restore source and build irectory
 tar -xf linux-kernel-build-%{fullVersion}.tar -C %{buildroot}/usr/src/linux-kernel-build-%{fullVersion}
@@ -145,3 +173,8 @@ rm -rf %{buildroot}
 /boot/config*
 /lib/modules/%{fullVersion}/kernel
 /lib/modules/%{fullVersion}/modules.*
+
+%files -n perf
+%license COPYING
+/usr/bin/perf
+/usr/libexec/perf-core
