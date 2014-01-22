@@ -154,7 +154,7 @@ struct slp_multi_dev {
 };
 
 /* TODO: only enabled 'rndis' and 'sdb'. need to verify more functions */
-static const char *default_funcs[] = {"rndis", "sdb"};
+static const char *default_funcs[] = {"sdb"};
 static unsigned slp_multi_nluns;
 static struct class *slp_multi_class;
 static struct slp_multi_dev *_slp_multi_dev;
@@ -372,6 +372,7 @@ static struct slp_multi_usb_function acm_function = {
 	.attributes	= acm_function_attributes,
 };
 
+#if 0
 struct rndis_function_config {
 	u8 ethaddr[ETH_ALEN];
 	u32 vendorID;
@@ -612,14 +613,16 @@ static struct slp_multi_usb_function rndis_function = {
 	.unbind_config = rndis_function_unbind_config,
 	.attributes = rndis_function_attributes,
 };
-
+#endif
 /*-------------------------------------------------------------------------*/
 /* Supported functions initialization */
 
 static struct slp_multi_usb_function *supported_functions[] = {
 	&sdb_function,
 	&acm_function,
+#if 0
 	&rndis_function,
+#endif
 	NULL,
 };
 
