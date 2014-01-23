@@ -282,6 +282,8 @@ err_usb_get_function_instance:
 err_usb_get_function:
 		usb_put_function_instance(config->f_acm_inst[i]);
 	}
+	kfree(f->config);
+	f->config = NULL;
 	return ret;
 }
 
