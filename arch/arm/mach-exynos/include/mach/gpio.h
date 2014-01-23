@@ -143,6 +143,12 @@ enum exynos4_gpio_number {
 
 #define EXYNOS4_GPIO_END	(EXYNOS4_GPZ(EXYNOS4_GPIO_Z_NR) + 1)
 
+/* Add controls for the external GPIO's on U3 */
+
+#if defined(CONFIG_ODROID_U2)
+#define ODROIDU3_EXT_GPIO_BASE(x) (EXYNOS4_GPIO_END + (x))
+#endif
+
 /* EXYNOS5 GPIO bank sizes */
 
 #define EXYNOS5_GPIO_A0_NR	(8)
