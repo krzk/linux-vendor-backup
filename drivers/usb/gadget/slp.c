@@ -372,14 +372,14 @@ static struct slp_multi_usb_function acm_function = {
 	.attributes	= acm_function_attributes,
 };
 
-#if 0
 struct rndis_function_config {
 	u8 ethaddr[ETH_ALEN];
 	u32 vendorID;
 	char manufacturer[256];
 	bool wceis;
 	u8 rndis_string_defs0_id;
-	struct eth_dev *edev;
+	struct usb_function *f_rndis;
+	struct usb_function_instance *fi_rndis;
 };
 static char host_addr_string[18];
 
@@ -392,6 +392,12 @@ static int rndis_function_init(struct slp_multi_usb_function *f,
 	config = kzalloc(sizeof(struct rndis_function_config), GFP_KERNEL);
 	if (!config)
 		return -ENOMEM;
+
+	config->fi_rndis = usb_get_function_instance("rndis");
+	if (IS_ERR(config->fi_rndis)) {
+		status = PTR_ERR(config->fi_rndis);
+		goto rndis_alloc_inst_error;
+	}
 
 	/* maybe allocate device-global string IDs */
 	if (rndis_string_defs[0].id == 0) {
@@ -437,13 +443,18 @@ static int rndis_function_init(struct slp_multi_usb_function *f,
 	return 0;
 
  rndis_init_error:
+	usb_put_function_instance(config->fi_rndis);
+rndis_alloc_inst_error:
 	kfree(config);
 	return status;
 }
 
 static void rndis_function_cleanup(struct slp_multi_usb_function *f)
 {
-	kfree(f->config);
+	struct rndis_function_config *rndis = f->config;
+
+	usb_put_function_instance(rndis->fi_rndis);
+	kfree(rndis);
 	f->config = NULL;
 }
 
@@ -452,19 +463,23 @@ static int rndis_function_bind_config(struct slp_multi_usb_function *f,
 {
 	int ret = -EINVAL;
 	struct rndis_function_config *rndis = f->config;
+	struct f_rndis_opts *rndis_opts;
+	struct net_device *net;
 
 	if (!rndis) {
 		dev_err(f->dev, "error rndis_pdata is null\n");
 		return ret;
 	}
 
-	rndis->edev = gether_setup(c->cdev->gadget, rndis->ethaddr,
-				   host_addr_string, rndis->ethaddr,
-				   QMULT_DEFAULT);
-	if (IS_ERR(rndis->edev)) {
-		dev_err(f->dev, "gether_setup failed\n");
-		return ret;
-	}
+	rndis_opts =
+		container_of(rndis->fi_rndis, struct f_rndis_opts, func_inst);
+	net = rndis_opts->net;
+
+	gether_set_qmult(net, QMULT_DEFAULT);
+	gether_set_host_addr(net, host_addr_string);
+	gether_set_dev_addr(net, host_addr_string);
+	rndis_opts->vendor_id = rndis->vendorID;
+	rndis_opts->manufacturer = rndis->manufacturer;
 
 	if (rndis->wceis) {
 		/* "Wireless" RNDIS; auto-detected by Windows */
@@ -489,11 +504,13 @@ static int rndis_function_bind_config(struct slp_multi_usb_function *f,
 	if (rndis_string_defs[0].id == 0)
 		rndis_string_defs[0].id = rndis->rndis_string_defs0_id;
 
-	ret = rndis_bind_config_vendor(c, rndis->ethaddr, rndis->vendorID,
-				 rndis->manufacturer, rndis->edev);
-	if (ret) {
-		rndis_exit();
-		gether_cleanup(rndis->edev);
+	rndis->f_rndis = usb_get_function(rndis->fi_rndis);
+	if (IS_ERR(rndis->f_rndis))
+		return PTR_ERR(rndis->f_rndis);
+
+	ret = usb_add_function(c, rndis->f_rndis);
+	if (ret < 0) {
+		usb_put_function(rndis->f_rndis);
 		dev_err(f->dev, "rndis_bind_config failed(ret:%d)\n", ret);
 	}
 
@@ -504,7 +521,8 @@ static void rndis_function_unbind_config(struct slp_multi_usb_function *f,
 					 struct usb_configuration *c)
 {
 	struct rndis_function_config *rndis = f->config;
-	gether_cleanup(rndis->edev);
+
+	usb_put_function(rndis->f_rndis);
 }
 
 static ssize_t rndis_manufacturer_show(struct device *dev,
@@ -613,16 +631,14 @@ static struct slp_multi_usb_function rndis_function = {
 	.unbind_config = rndis_function_unbind_config,
 	.attributes = rndis_function_attributes,
 };
-#endif
+
 /*-------------------------------------------------------------------------*/
 /* Supported functions initialization */
 
 static struct slp_multi_usb_function *supported_functions[] = {
 	&sdb_function,
 	&acm_function,
-#if 0
 	&rndis_function,
-#endif
 	NULL,
 };
 
