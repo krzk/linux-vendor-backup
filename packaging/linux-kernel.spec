@@ -18,6 +18,7 @@ BuildRoot: %{_tmppath}/%{name}-%{PACKAGE_VERSION}-root
 %define fullVersion %{version}-%{build_id}
 
 BuildRequires: linux-glibc-devel
+BuildRequires: module-init-tools
 BuildRequires: u-boot-tools
 BuildRequires: bc
 # The below is required for building perf
@@ -128,29 +129,42 @@ mv Kconfig      %{buildroot}/usr/src/linux-kernel-build-%{fullVersion}/arch/
 
 # 6. Remove files
 find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name ".tmp_vmlinux*" -exec rm -f {} \;
-find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "\.*dtb*tmp" -exec rm -f {} \;
-find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "*\.*tmp" -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name ".gitignore" -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name ".*dtb*tmp" -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "*.*tmp" -exec rm -f {} \;
 find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "vmlinux" -exec rm -f {} \;
 find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "uImage" -exec rm -f {} \;
 find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "zImage" -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "test-*" -exec rm -f {} \;
 find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "*.cmd" -exec rm -f {} \;
-find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "*\.ko" -exec rm -f {} \;
-find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "*\.o" -exec rm -f {} \;
-find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "*\.S" -exec rm -f {} \;
-find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "*\.c" -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "*.ko" -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "*.o" -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "*.S" -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "*.s" -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -name "*.c" -exec rm -f {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion} -size 0c -exec rm -f {} \;
 find %{buildroot}/usr/include -name "\.install"  -exec rm -f {} \;
 find %{buildroot}/usr -name "..install.cmd" -exec rm -f {} \;
+
+# 6.1 Clean Documentation directory
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion}/Documentation -type f ! -name "Makefile" ! -name "*.sh" ! -name "*.pl" -exec rm -f {} \;
 
 rm -rf %{buildroot}/boot/vmlinux*
 rm -rf %{buildroot}/System.map*
 rm -rf %{buildroot}/vmlinux*
 
-# 7. Create symbolic links
+# 7. Update file permisions
+%define excluded_files ! -name "*.h" ! -name "*.cocci" ! -name "*.tst" ! -name "*.y" ! -name "*.in" ! -name "*.gperf" ! -name "*.PL" ! -name "lex*" ! -name "check-perf-tracei.pl" ! -name "*.*shipped" ! -name "*asm-generic" ! -name "Makefile*" ! -name "*.lds" ! -name "mkversion" ! -name "zconf.l" ! -name "README" ! -name "*.py" ! -name "gconf.glade" ! -name "*.cc" ! -name "dbus_contexts" ! -name "*.pm" ! -name "*.xs" ! -name "*.l" ! -name "EventClass.py" ! -name "typemap" ! -name "net_dropmonitor.py"
+
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion}/tools/perf/scripts/ -type f %{excluded_files} -exec chmod 755 {} \;
+find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion}/scripts/            -type f %{excluded_files} -exec chmod 755 {} \;
+find %{buildroot}/usr                                                           -type f ! -name "check-perf-tracei.pl" -name "*.sh" -name "*.pl" -exec chmod 755 {} \;
+find %{buildroot}/lib/modules/ -name "*.ko"                                     -type f -exec chmod 755 {} \;
+
+# 8. Create symbolic links
 rm -f %{buildroot}/lib/modules/%{fullVersion}/build
 rm -f %{buildroot}/lib/modules/%{fullVersion}/source
 ln -sf /usr/src/linux-kernel-build-%{fullVersion} %{buildroot}/lib/modules/%{fullVersion}/build
-
-find %{buildroot}/lib/modules/ -name "*.ko" -type f -exec chmod 755 {} \;
 
 %clean
 rm -rf %{buildroot}
