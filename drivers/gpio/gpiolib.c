@@ -290,7 +290,7 @@ static ssize_t gpio_direction_store(struct device *dev,
 	return status ? : size;
 }
 
-static /* const */ DEVICE_ATTR(direction, 0644,
+static /* const */ DEVICE_ATTR(direction, 0666,
 		gpio_direction_show, gpio_direction_store);
 
 static ssize_t gpio_value_show(struct device *dev,
@@ -347,7 +347,7 @@ static ssize_t gpio_value_store(struct device *dev,
 	return status;
 }
 
-static const DEVICE_ATTR(value, 0644,
+static const DEVICE_ATTR(value, 0666,
 		gpio_value_show, gpio_value_store);
 
 static irqreturn_t gpio_sysfs_irq(int irq, void *priv)
@@ -570,7 +570,7 @@ static ssize_t gpio_active_low_store(struct device *dev,
 	return status ? : size;
 }
 
-static const DEVICE_ATTR(active_low, 0644,
+static const DEVICE_ATTR(active_low, 0666,
 		gpio_active_low_show, gpio_active_low_store);
 
 static const struct attribute *gpio_attrs[] = {
@@ -700,8 +700,8 @@ done:
 }
 
 static struct class_attribute gpio_class_attrs[] = {
-	__ATTR(export, 0200, NULL, export_store),
-	__ATTR(unexport, 0200, NULL, unexport_store),
+	__ATTR(export, 0222, NULL, export_store),
+	__ATTR(unexport, 0222, NULL, unexport_store),
 	__ATTR_NULL,
 };
 
