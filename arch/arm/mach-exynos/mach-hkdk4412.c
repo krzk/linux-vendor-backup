@@ -679,7 +679,7 @@ MACHINE_START(ODROIDX, "ODROIDX")
 #elif defined(CONFIG_ODROID_X2)
 MACHINE_START(ODROIDX, "ODROIDX2")
 #elif defined(CONFIG_ODROID_U2)
-MACHINE_START(ODROIDX, "ODROIDU2")
+MACHINE_START(ODROIDX, "ODROID-U2/U3")
 #endif
 	/* Maintainer: Dongjin Kim <dongjin.kim@agreeyamobiity.net> */
 	.atag_offset	= 0x100,
