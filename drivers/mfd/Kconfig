@@ -1114,9 +1114,6 @@ config MFD_AS3711
 	help
 	  Support for the AS3711 PMIC from AMS
 
-endmenu
-endif
-
 menu "Multimedia Capabilities Port drivers"
 	depends on ARCH_SA1100
 
@@ -1146,3 +1143,6 @@ config VEXPRESS_CONFIG
 	help
 	  Platform configuration infrastructure for the ARM Ltd.
 	  Versatile Express.
+
+endmenu
+endif
