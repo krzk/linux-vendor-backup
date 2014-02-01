@@ -706,9 +706,6 @@ static int m88ds3103_get_frontend(struct dvb_frontend *fe)
 		case 1:
 			c->inversion = INVERSION_ON;
 			break;
-		default:
-			dev_dbg(&priv->i2c->dev, "%s: invalid inversion\n",
-					__func__);
 		}
 
 		switch ((buf[1] >> 5) & 0x07) {
@@ -788,9 +785,6 @@ static int m88ds3103_get_frontend(struct dvb_frontend *fe)
 		case 1:
 			c->pilot = PILOT_ON;
 			break;
-		default:
-			dev_dbg(&priv->i2c->dev, "%s: invalid pilot\n",
-					__func__);
 		}
 
 		switch ((buf[0] >> 6) & 0x07) {
@@ -818,9 +812,6 @@ static int m88ds3103_get_frontend(struct dvb_frontend *fe)
 		case 1:
 			c->inversion = INVERSION_ON;
 			break;
-		default:
-			dev_dbg(&priv->i2c->dev, "%s: invalid inversion\n",
-					__func__);
 		}
 
 		switch ((buf[2] >> 0) & 0x03) {
