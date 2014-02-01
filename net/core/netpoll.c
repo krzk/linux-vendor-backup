@@ -338,8 +338,14 @@ void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
 					if (vlan_tx_tag_present(skb) &&
 					    !(netif_skb_features(skb) & NETIF_F_HW_VLAN_TX)) {
 						skb = __vlan_put_tag(skb, vlan_tx_tag_get(skb));
-						if (unlikely(!skb))
-							break;
+						if (unlikely(!skb)) {
+							/* This is actually a packet drop, but we
+							 * don't want the code at the end of this
+							 * function to try and re-queue a NULL skb.
+							 */
+							status = NETDEV_TX_OK;
+							goto unlock_txq;
+						}
 						skb->vlan_tci = 0;
 					}
 
@@ -347,6 +353,7 @@ void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
 					if (status == NETDEV_TX_OK)
 						txq_trans_update(txq);
 				}
+			unlock_txq:
 				__netif_tx_unlock(txq);
 
 				if (status == NETDEV_TX_OK)
