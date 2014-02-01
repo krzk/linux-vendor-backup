@@ -1314,6 +1314,12 @@ static int efi_pstore_close(struct pstore_info *psi)
 	return 0;
 }
 
+static inline u64 generic_id(unsigned long timestamp,
+			     unsigned int part, int count)
+{
+	return (timestamp * 100 + part) * 1000 + count;
+}
+
 static ssize_t efi_pstore_read(u64 *id, enum pstore_type_id *type,
 			       int *count, struct timespec *timespec,
 			       char **buf, struct pstore_info *psi)
@@ -1334,7 +1340,7 @@ static ssize_t efi_pstore_read(u64 *id, enum pstore_type_id *type,
 			}
 			if (sscanf(name, "dump-type%u-%u-%d-%lu",
 				   type, &part, &cnt, &time) == 4) {
-				*id = part;
+				*id = generic_id(time, part, cnt);
 				*count = cnt;
 				timespec->tv_sec = time;
 				timespec->tv_nsec = 0;
@@ -1345,7 +1351,7 @@ static ssize_t efi_pstore_read(u64 *id, enum pstore_type_id *type,
 				 * which doesn't support holding
 				 * multiple logs, remains.
 				 */
-				*id = part;
+				*id = generic_id(time, part, cnt);
 				*count = 0;
 				timespec->tv_sec = time;
 				timespec->tv_nsec = 0;
@@ -1436,9 +1442,11 @@ static int efi_pstore_erase(enum pstore_type_id type, u64 id, int count,
 	struct efivars *efivars = psi->data;
 	struct efivar_entry *entry, *found = NULL;
 	int i;
+	unsigned int part;
 
-	sprintf(name, "dump-type%u-%u-%d-%lu", type, (unsigned int)id, count,
-		time.tv_sec);
+	do_div(id, 1000);
+	part = do_div(id, 100);
+	sprintf(name, "dump-type%u-%u-%d-%lu", type, part, count, time.tv_sec);
 
 	spin_lock_irq(&efivars->lock);
 

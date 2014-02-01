@@ -3414,6 +3414,11 @@ static void rtl8168g_1_hw_phy_config(struct rtl8169_private *tp)
 	rtl_w1w0_phy_ocp(tp, 0xa438, 0x8000, 0x0000);
 
 	rtl_w1w0_phy_ocp(tp, 0xc422, 0x4000, 0x2000);
+
+	/* Check ALDPS bit, disable it if enabled */
+	rtl_writephy(tp, 0x1f, 0x0a43);
+	if (rtl_readphy(tp, 0x10) & 0x0004)
+		rtl_w1w0_phy(tp, 0x10, 0x0000, 0x0004);
 }
 
 static void rtl8102e_hw_phy_config(struct rtl8169_private *tp)

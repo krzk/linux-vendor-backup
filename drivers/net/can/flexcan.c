@@ -1010,7 +1010,6 @@ static int flexcan_probe(struct platform_device *pdev)
 			err = PTR_ERR(clk_ipg);
 			goto failed_clock;
 		}
-		clock_freq = clk_get_rate(clk_ipg);
 
 		clk_per = devm_clk_get(&pdev->dev, "per");
 		if (IS_ERR(clk_per)) {
@@ -1018,6 +1017,7 @@ static int flexcan_probe(struct platform_device *pdev)
 			err = PTR_ERR(clk_per);
 			goto failed_clock;
 		}
+		clock_freq = clk_get_rate(clk_per);
 	}
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
