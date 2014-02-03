@@ -273,10 +273,7 @@ static int exynos_pm_suspend(void)
 static void exynos_pm_resume(void)
 {
 	unsigned long tmp;
-#ifdef CONFIG_CACHE_L2X0
-	if (call_firmware_op(l2x0_resume) < 0)
-		outer_resume();
-#endif
+
 	/*
 	 * If PMU failed while entering sleep mode, WFI will be
 	 * ignored by PMU and then exiting cpu_do_idle().
@@ -292,6 +289,7 @@ static void exynos_pm_resume(void)
 		/* No need to perform below restore code */
 		goto early_wakeup;
 	}
+
 	if (!soc_is_exynos5250()
 	    && call_firmware_op(c15resume, save_arm_register) == -ENOSYS)
 	{
@@ -330,6 +328,12 @@ static void exynos_pm_resume(void)
 #ifdef CONFIG_SMP
 		scu_enable(S5P_VA_SCU);
 #endif
+
+#ifdef CONFIG_CACHE_L2X0
+	if (call_firmware_op(l2x0_resume) < 0)
+		outer_resume();
+#endif
+
 	}
 
 early_wakeup:
