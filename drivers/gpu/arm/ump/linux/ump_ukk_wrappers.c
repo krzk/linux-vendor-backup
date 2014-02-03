@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2013 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -29,23 +29,20 @@ int ump_get_api_version_wrapper(u32 __user * argument, struct ump_session_data *
 	_mali_osk_errcode_t err;
 
 	/* Sanity check input parameters */
-	if (NULL == argument || NULL == session_data)
-	{
+	if (NULL == argument || NULL == session_data) {
 		MSG_ERR(("NULL parameter in ump_ioctl_get_api_version()\n"));
 		return -ENOTTY;
 	}
 
 	/* Copy the user space memory to kernel space (so we safely can read it) */
-	if (0 != copy_from_user(&version_info, argument, sizeof(version_info)))
-	{
+	if (0 != copy_from_user(&version_info, argument, sizeof(version_info))) {
 		MSG_ERR(("copy_from_user() in ump_ioctl_get_api_version()\n"));
 		return -EFAULT;
 	}
 
 	version_info.ctx = (void*) session_data;
 	err = _ump_uku_get_api_version( &version_info );
-	if( _MALI_OSK_ERR_OK != err )
-	{
+	if( _MALI_OSK_ERR_OK != err ) {
 		MSG_ERR(("_ump_uku_get_api_version() failed in ump_ioctl_get_api_version()\n"));
 		return map_errcode(err);
 	}
@@ -53,8 +50,7 @@ int ump_get_api_version_wrapper(u32 __user * argument, struct ump_session_data *
 	version_info.ctx = NULL;
 
 	/* Copy ouput data back to user space */
-	if (0 != copy_to_user(argument, &version_info, sizeof(version_info)))
-	{
+	if (0 != copy_to_user(argument, &version_info, sizeof(version_info))) {
 		MSG_ERR(("copy_to_user() failed in ump_ioctl_get_api_version()\n"));
 		return -EFAULT;
 	}
@@ -72,23 +68,20 @@ int ump_release_wrapper(u32 __user * argument, struct ump_session_data  * sessio
 	_mali_osk_errcode_t err;
 
 	/* Sanity check input parameters */
-	if (NULL == session_data)
-	{
+	if (NULL == session_data) {
 		MSG_ERR(("NULL parameter in ump_ioctl_release()\n"));
 		return -ENOTTY;
 	}
 
 	/* Copy the user space memory to kernel space (so we safely can read it) */
-	if (0 != copy_from_user(&release_args, argument, sizeof(release_args)))
-	{
+	if (0 != copy_from_user(&release_args, argument, sizeof(release_args))) {
 		MSG_ERR(("copy_from_user() in ump_ioctl_get_api_version()\n"));
 		return -EFAULT;
 	}
 
 	release_args.ctx = (void*) session_data;
 	err = _ump_ukk_release( &release_args );
-	if( _MALI_OSK_ERR_OK != err )
-	{
+	if( _MALI_OSK_ERR_OK != err ) {
 		MSG_ERR(("_ump_ukk_release() failed in ump_ioctl_release()\n"));
 		return map_errcode(err);
 	}
@@ -106,30 +99,26 @@ int ump_size_get_wrapper(u32 __user * argument, struct ump_session_data  * sessi
 	_mali_osk_errcode_t err;
 
 	/* Sanity check input parameters */
-	if (NULL == argument || NULL == session_data)
-	{
+	if (NULL == argument || NULL == session_data) {
 		MSG_ERR(("NULL parameter in ump_ioctl_size_get()\n"));
 		return -ENOTTY;
 	}
 
-	if (0 != copy_from_user(&user_interaction, argument, sizeof(user_interaction)))
-	{
+	if (0 != copy_from_user(&user_interaction, argument, sizeof(user_interaction))) {
 		MSG_ERR(("copy_from_user() in ump_ioctl_size_get()\n"));
 		return -EFAULT;
 	}
 
 	user_interaction.ctx = (void *) session_data;
 	err = _ump_ukk_size_get( &user_interaction );
-	if( _MALI_OSK_ERR_OK != err )
-	{
+	if( _MALI_OSK_ERR_OK != err ) {
 		MSG_ERR(("_ump_ukk_size_get() failed in ump_ioctl_size_get()\n"));
 		return map_errcode(err);
 	}
 
 	user_interaction.ctx = NULL;
 
-	if (0 != copy_to_user(argument, &user_interaction, sizeof(user_interaction)))
-	{
+	if (0 != copy_to_user(argument, &user_interaction, sizeof(user_interaction))) {
 		MSG_ERR(("copy_to_user() failed in ump_ioctl_size_get()\n"));
 		return -EFAULT;
 	}
@@ -145,14 +134,12 @@ int ump_msync_wrapper(u32 __user * argument, struct ump_session_data  * session_
 	_ump_uk_msync_s user_interaction;
 
 	/* Sanity check input parameters */
-	if (NULL == argument || NULL == session_data)
-	{
+	if (NULL == argument || NULL == session_data) {
 		MSG_ERR(("NULL parameter in ump_ioctl_size_get()\n"));
 		return -ENOTTY;
 	}
 
-	if (0 != copy_from_user(&user_interaction, argument, sizeof(user_interaction)))
-	{
+	if (0 != copy_from_user(&user_interaction, argument, sizeof(user_interaction))) {
 		MSG_ERR(("copy_from_user() in ump_ioctl_msync()\n"));
 		return -EFAULT;
 	}
@@ -163,8 +150,7 @@ int ump_msync_wrapper(u32 __user * argument, struct ump_session_data  * session_
 
 	user_interaction.ctx = NULL;
 
-	if (0 != copy_to_user(argument, &user_interaction, sizeof(user_interaction)))
-	{
+	if (0 != copy_to_user(argument, &user_interaction, sizeof(user_interaction))) {
 		MSG_ERR(("copy_to_user() failed in ump_ioctl_msync()\n"));
 		return -EFAULT;
 	}
@@ -176,14 +162,12 @@ int ump_cache_operations_control_wrapper(u32 __user * argument, struct ump_sessi
 	_ump_uk_cache_operations_control_s user_interaction;
 
 	/* Sanity check input parameters */
-	if (NULL == argument || NULL == session_data)
-	{
+	if (NULL == argument || NULL == session_data) {
 		MSG_ERR(("NULL parameter in ump_ioctl_size_get()\n"));
 		return -ENOTTY;
 	}
 
-	if (0 != copy_from_user(&user_interaction, argument, sizeof(user_interaction)))
-	{
+	if (0 != copy_from_user(&user_interaction, argument, sizeof(user_interaction))) {
 		MSG_ERR(("copy_from_user() in ump_ioctl_cache_operations_control()\n"));
 		return -EFAULT;
 	}
@@ -195,8 +179,7 @@ int ump_cache_operations_control_wrapper(u32 __user * argument, struct ump_sessi
 	user_interaction.ctx = NULL;
 
 #if 0  /* No data to copy back */
-	if (0 != copy_to_user(argument, &user_interaction, sizeof(user_interaction)))
-	{
+	if (0 != copy_to_user(argument, &user_interaction, sizeof(user_interaction))) {
 		MSG_ERR(("copy_to_user() failed in ump_ioctl_cache_operations_control()\n"));
 		return -EFAULT;
 	}
@@ -209,14 +192,12 @@ int ump_switch_hw_usage_wrapper(u32 __user * argument, struct ump_session_data  
 	_ump_uk_switch_hw_usage_s user_interaction;
 
 	/* Sanity check input parameters */
-	if (NULL == argument || NULL == session_data)
-	{
+	if (NULL == argument || NULL == session_data) {
 		MSG_ERR(("NULL parameter in ump_ioctl_size_get()\n"));
 		return -ENOTTY;
 	}
 
-	if (0 != copy_from_user(&user_interaction, argument, sizeof(user_interaction)))
-	{
+	if (0 != copy_from_user(&user_interaction, argument, sizeof(user_interaction))) {
 		MSG_ERR(("copy_from_user() in ump_ioctl_switch_hw_usage()\n"));
 		return -EFAULT;
 	}
@@ -228,8 +209,7 @@ int ump_switch_hw_usage_wrapper(u32 __user * argument, struct ump_session_data  
 	user_interaction.ctx = NULL;
 
 #if 0  /* No data to copy back */
-	if (0 != copy_to_user(argument, &user_interaction, sizeof(user_interaction)))
-	{
+	if (0 != copy_to_user(argument, &user_interaction, sizeof(user_interaction))) {
 		MSG_ERR(("copy_to_user() failed in ump_ioctl_switch_hw_usage()\n"));
 		return -EFAULT;
 	}
@@ -242,14 +222,12 @@ int ump_lock_wrapper(u32 __user * argument, struct ump_session_data  * session_d
 	_ump_uk_lock_s user_interaction;
 
 	/* Sanity check input parameters */
-	if (NULL == argument || NULL == session_data)
-	{
+	if (NULL == argument || NULL == session_data) {
 		MSG_ERR(("NULL parameter in ump_ioctl_size_get()\n"));
 		return -ENOTTY;
 	}
 
-	if (0 != copy_from_user(&user_interaction, argument, sizeof(user_interaction)))
-	{
+	if (0 != copy_from_user(&user_interaction, argument, sizeof(user_interaction))) {
 		MSG_ERR(("copy_from_user() in ump_ioctl_switch_hw_usage()\n"));
 		return -EFAULT;
 	}
@@ -261,8 +239,7 @@ int ump_lock_wrapper(u32 __user * argument, struct ump_session_data  * session_d
 	user_interaction.ctx = NULL;
 
 #if 0  /* No data to copy back */
-	if (0 != copy_to_user(argument, &user_interaction, sizeof(user_interaction)))
-	{
+	if (0 != copy_to_user(argument, &user_interaction, sizeof(user_interaction))) {
 		MSG_ERR(("copy_to_user() failed in ump_ioctl_switch_hw_usage()\n"));
 		return -EFAULT;
 	}
@@ -276,14 +253,12 @@ int ump_unlock_wrapper(u32 __user * argument, struct ump_session_data  * session
 	_ump_uk_unlock_s user_interaction;
 
 	/* Sanity check input parameters */
-	if (NULL == argument || NULL == session_data)
-	{
+	if (NULL == argument || NULL == session_data) {
 		MSG_ERR(("NULL parameter in ump_ioctl_size_get()\n"));
 		return -ENOTTY;
 	}
 
-	if (0 != copy_from_user(&user_interaction, argument, sizeof(user_interaction)))
-	{
+	if (0 != copy_from_user(&user_interaction, argument, sizeof(user_interaction))) {
 		MSG_ERR(("copy_from_user() in ump_ioctl_switch_hw_usage()\n"));
 		return -EFAULT;
 	}
@@ -295,8 +270,7 @@ int ump_unlock_wrapper(u32 __user * argument, struct ump_session_data  * session
 	user_interaction.ctx = NULL;
 
 #if 0  /* No data to copy back */
-	if (0 != copy_to_user(argument, &user_interaction, sizeof(user_interaction)))
-	{
+	if (0 != copy_to_user(argument, &user_interaction, sizeof(user_interaction))) {
 		MSG_ERR(("copy_to_user() failed in ump_ioctl_switch_hw_usage()\n"));
 		return -EFAULT;
 	}

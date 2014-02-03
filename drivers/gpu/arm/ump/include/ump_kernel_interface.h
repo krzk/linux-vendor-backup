@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2012 ARM Limited. All rights reserved.
+ * Copyright (C) 2010, 2013 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -26,15 +26,14 @@
 
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 
 /**
  * External representation of a UMP handle in kernel space.
  */
-typedef void * ump_dd_handle;
+typedef void *ump_dd_handle;
 
 /**
  * Typedef for a secure ID, a system wide identificator for UMP memory buffers.
@@ -150,7 +149,7 @@ UMP_KERNEL_API_EXPORT unsigned long ump_dd_phys_block_count_get(ump_dd_handle me
  *
  * @return UMP_DD_SUCCESS indicates success, UMP_DD_INVALID indicates failure.
  */
-UMP_KERNEL_API_EXPORT ump_dd_status_code ump_dd_phys_blocks_get(ump_dd_handle mem, ump_dd_physical_block * blocks, unsigned long num_blocks);
+UMP_KERNEL_API_EXPORT ump_dd_status_code ump_dd_phys_blocks_get(ump_dd_handle mem, ump_dd_physical_block *blocks, unsigned long num_blocks);
 
 
 /**
@@ -168,7 +167,7 @@ UMP_KERNEL_API_EXPORT ump_dd_status_code ump_dd_phys_blocks_get(ump_dd_handle me
  *
  * @return UMP_DD_SUCCESS indicates success, UMP_DD_INVALID indicates failure.
  */
-UMP_KERNEL_API_EXPORT ump_dd_status_code ump_dd_phys_block_get(ump_dd_handle mem, unsigned long index, ump_dd_physical_block * block);
+UMP_KERNEL_API_EXPORT ump_dd_status_code ump_dd_phys_block_get(ump_dd_handle mem, unsigned long index, ump_dd_physical_block *block);
 
 
 /**

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 ARM Limited. All rights reserved.
+ * Copyright (C) 2012-2013 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -32,6 +32,14 @@ _mali_osk_errcode_t mali_dlbu_reset(struct mali_dlbu_core *dlbu);
 
 void mali_dlbu_add_group(struct mali_dlbu_core *dlbu, struct mali_group *group);
 void mali_dlbu_remove_group(struct mali_dlbu_core *dlbu, struct mali_group *group);
+
+/** @brief Called to update HW after DLBU state changed
+ *
+ * This function must be called after \a mali_dlbu_add_group or \a
+ * mali_dlbu_remove_group to write the updated mask to hardware, unless the
+ * same is accomplished by calling \a mali_dlbu_reset.
+ */
+void mali_dlbu_update_mask(struct mali_dlbu_core *dlbu);
 
 void mali_dlbu_config_job(struct mali_dlbu_core *dlbu, struct mali_pp_job *job);
 

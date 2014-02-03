@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2011 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2011, 2013 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -28,8 +28,7 @@
 
 
 
-typedef struct os_allocator
-{
+typedef struct os_allocator {
 	struct semaphore mutex;
 	u32 num_pages_max;       /**< Maximum number of pages to allocate from the OS */
 	u32 num_pages_allocated; /**< Number of pages allocated from the OS */
@@ -53,8 +52,7 @@ ump_memory_backend * ump_os_memory_backend_create(const int max_allocation)
 	os_allocator * info;
 
 	info = kmalloc(sizeof(os_allocator), GFP_KERNEL);
-	if (NULL == info)
-	{
+	if (NULL == info) {
 		return NULL;
 	}
 
@@ -64,8 +62,7 @@ ump_memory_backend * ump_os_memory_backend_create(const int max_allocation)
 	sema_init(&info->mutex, 1);
 
 	backend = kmalloc(sizeof(ump_memory_backend), GFP_KERNEL);
-	if (NULL == backend)
-	{
+	if (NULL == backend) {
 		kfree(info);
 		return NULL;
 	}
@@ -115,8 +112,7 @@ static int os_allocate(void* ctx, ump_dd_mem * descriptor)
 	left = descriptor->size_bytes;
 	is_cached = descriptor->is_cached;
 
-	if (down_interruptible(&info->mutex))
-	{
+	if (down_interruptible(&info->mutex)) {
 		DBG_MSG(1, ("Failed to get mutex in os_free\n"));
 		return 0; /* failure */
 	}
@@ -127,48 +123,38 @@ static int os_allocate(void* ctx, ump_dd_mem * descriptor)
 	DBG_MSG(5, ("Allocating page array. Size: %lu\n", descriptor->nr_blocks * sizeof(ump_dd_physical_block)));
 
 	descriptor->block_array = (ump_dd_physical_block *)vmalloc(sizeof(ump_dd_physical_block) * descriptor->nr_blocks);
-	if (NULL == descriptor->block_array)
-	{
+	if (NULL == descriptor->block_array) {
 		up(&info->mutex);
 		DBG_MSG(1, ("Block array could not be allocated\n"));
 		return 0; /* failure */
 	}
 
-	while (left > 0 && ((info->num_pages_allocated + pages_allocated) < info->num_pages_max))
-	{
+	while (left > 0 && ((info->num_pages_allocated + pages_allocated) < info->num_pages_max)) {
 		struct page * new_page;
 
-		if (is_cached)
-		{
+		if (is_cached) {
 			new_page = alloc_page(GFP_HIGHUSER | __GFP_ZERO | __GFP_REPEAT | __GFP_NOWARN);
-		} else
-		{
+		} else {
 			new_page = alloc_page(GFP_HIGHUSER | __GFP_ZERO | __GFP_REPEAT | __GFP_NOWARN | __GFP_COLD);
 		}
-		if (NULL == new_page)
-		{
+		if (NULL == new_page) {
 			break;
 		}
 
 		/* Ensure page caches are flushed. */
-		if ( is_cached )
-		{
+		if ( is_cached ) {
 			descriptor->block_array[pages_allocated].addr = page_to_phys(new_page);
 			descriptor->block_array[pages_allocated].size = PAGE_SIZE;
-		} else
-		{
+		} else {
 			descriptor->block_array[pages_allocated].addr = dma_map_page(NULL, new_page, 0, PAGE_SIZE, DMA_BIDIRECTIONAL );
 			descriptor->block_array[pages_allocated].size = PAGE_SIZE;
 		}
 
 		DBG_MSG(5, ("Allocated page 0x%08lx cached: %d\n", descriptor->block_array[pages_allocated].addr, is_cached));
 
-		if (left < PAGE_SIZE)
-		{
+		if (left < PAGE_SIZE) {
 			left = 0;
-		}
-		else
-		{
+		} else {
 			left -= PAGE_SIZE;
 		}
 
@@ -177,15 +163,12 @@ static int os_allocate(void* ctx, ump_dd_mem * descriptor)
 
 	DBG_MSG(5, ("Alloce for ID:%2d got %d pages, cached: %d\n", descriptor->secure_id,  pages_allocated));
 
-	if (left)
-	{
+	if (left) {
 		DBG_MSG(1, ("Failed to allocate needed pages\n"));
 
-		while(pages_allocated)
-		{
+		while(pages_allocated) {
 			pages_allocated--;
-			if ( !is_cached )
-			{
+			if ( !is_cached ) {
 				dma_unmap_page(NULL, descriptor->block_array[pages_allocated].addr, PAGE_SIZE, DMA_BIDIRECTIONAL);
 			}
 			__free_page(pfn_to_page(descriptor->block_array[pages_allocated].addr >> PAGE_SHIFT) );
@@ -221,8 +204,7 @@ static void os_free(void* ctx, ump_dd_mem * descriptor)
 
 	BUG_ON(descriptor->nr_blocks > info->num_pages_allocated);
 
-	if (down_interruptible(&info->mutex))
-	{
+	if (down_interruptible(&info->mutex)) {
 		DBG_MSG(1, ("Failed to get mutex in os_free\n"));
 		return;
 	}
@@ -233,11 +215,9 @@ static void os_free(void* ctx, ump_dd_mem * descriptor)
 
 	up(&info->mutex);
 
-	for ( i = 0; i < descriptor->nr_blocks; i++)
-	{
+	for ( i = 0; i < descriptor->nr_blocks; i++) {
 		DBG_MSG(6, ("Freeing physical page. Address: 0x%08lx\n", descriptor->block_array[i].addr));
-		if ( ! descriptor->is_cached)
-		{
+		if ( ! descriptor->is_cached) {
 			dma_unmap_page(NULL, descriptor->block_array[i].addr, PAGE_SIZE, DMA_BIDIRECTIONAL);
 		}
 		__free_page(pfn_to_page(descriptor->block_array[i].addr>>PAGE_SHIFT) );
