@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2012 ARM Limited. All rights reserved.
+ * Copyright (C) 2011-2013 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -22,12 +22,9 @@ struct mali_group;
  * Definition of the GP core struct
  * Used to track a GP core in the system.
  */
-struct mali_gp_core
-{
+struct mali_gp_core {
 	struct mali_hw_core  hw_core;           /**< Common for all HW cores */
 	_mali_osk_irq_t     *irq;               /**< IRQ handler */
-	u32                  counter_src0_used; /**< The selected performance counter 0 when a job is running */
-	u32                  counter_src1_used; /**< The selected performance counter 1 when a job is running */
 };
 
 _mali_osk_errcode_t mali_gp_initialize(void);

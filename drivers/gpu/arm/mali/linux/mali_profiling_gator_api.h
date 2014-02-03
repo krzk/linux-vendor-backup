@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 ARM Limited. All rights reserved.
+ * Copyright (C) 2012-2013 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -8,16 +8,10 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef __ARCH_CONFIG_H__
-#define __ARCH_CONFIG_H__
+#ifndef __MALI_PROFILING_GATOR_API_H__
+#define __MALI_PROFILING_GATOR_API_H__
 
-#define USING_MEMORY 1
-#define UMP_MEM_SIZE 256
+/* Simple wrapper in order to find the OS specific location of this file */
+#include <linux/mali/mali_utgard_profiling_gator_api.h>
 
-#define ARCH_UMP_BACKEND_DEFAULT                USING_MEMORY
-#define ARCH_UMP_MEMORY_ADDRESS_DEFAULT         0
-
-
-#define ARCH_UMP_MEMORY_SIZE_DEFAULT            UMP_MEM_SIZE*1024*1024
-
-#endif /* __ARCH_CONFIG_H__ */
+#endif /* __MALI_PROFILING_GATOR_API_H__ */

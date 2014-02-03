@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2011 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2011, 2013 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -15,12 +15,11 @@
 #ifndef __UMP_KERNEL_MEMORY_BACKEND_H__
 #define __UMP_KERNEL_MEMORY_BACKEND_H__
 
-#include <ump/ump_kernel_interface.h>
+#include "ump_kernel_interface.h"
 #include "ump_kernel_types.h"
 
 
-typedef struct ump_memory_allocation
-{
+typedef struct ump_memory_allocation {
 	void                    * phys_addr;
 	void                    * mapping;
 	unsigned long             size;
@@ -32,8 +31,7 @@ typedef struct ump_memory_allocation
 	u32 is_cached;
 } ump_memory_allocation;
 
-typedef struct ump_memory_backend
-{
+typedef struct ump_memory_backend {
 	int  (*allocate)(void* ctx, ump_dd_mem * descriptor);
 	void (*release)(void* ctx, ump_dd_mem * descriptor);
 	void (*shutdown)(struct ump_memory_backend * backend);

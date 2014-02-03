@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2011 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2011, 2013 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -19,7 +19,7 @@ MALI_STATIC_INLINE _mali_osk_errcode_t _mali_timestamp_reset(void)
 	 * reset counters and overflow flags
 	 */
 
-    u32 mask = (1 << 0) | /* enable all three counters */
+	u32 mask = (1 << 0) | /* enable all three counters */
 	           (0 << 1) | /* reset both Count Registers to 0x0 */
 	           (1 << 2) | /* reset the Cycle Counter Register to 0x0 */
 	           (0 << 3) | /* 1 = Cycle Counter Register counts every 64th processor clock cycle */

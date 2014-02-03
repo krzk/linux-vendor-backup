@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2013 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -8,11 +8,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef __MALI_BLOCK_ALLOCATOR_H__
-#define __MALI_BLOCK_ALLOCATOR_H__
+#ifndef __ARCH_CONFIG_H__
+#define __ARCH_CONFIG_H__
 
-#include "mali_kernel_memory_engine.h"
+#define ARCH_UMP_BACKEND_DEFAULT          0
+#define ARCH_UMP_MEMORY_ADDRESS_DEFAULT   0xE1000000
+#define ARCH_UMP_MEMORY_SIZE_DEFAULT 16UL * 1024UL * 1024UL
 
-mali_physical_memory_allocator * mali_block_allocator_create(u32 base_address, u32 cpu_usage_adjust, u32 size, const char *name);
-
-#endif /* __MALI_BLOCK_ALLOCATOR_H__ */
+#endif /* __ARCH_CONFIG_H__ */

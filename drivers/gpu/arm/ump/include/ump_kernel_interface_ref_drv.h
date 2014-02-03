@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2012 ARM Limited. All rights reserved.
+ * Copyright (C) 2010, 2013 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -22,7 +22,7 @@ extern "C" {
 #endif
 
 /** Turn specified physical memory into UMP memory. */
-UMP_KERNEL_API_EXPORT ump_dd_handle ump_dd_handle_create_from_phys_blocks(ump_dd_physical_block * blocks, unsigned long num_blocks);
+UMP_KERNEL_API_EXPORT ump_dd_handle ump_dd_handle_create_from_phys_blocks(ump_dd_physical_block *blocks, unsigned long num_blocks);
 
 #ifdef __cplusplus
 }

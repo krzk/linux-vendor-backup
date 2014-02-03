@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 ARM Limited. All rights reserved.
+ * Copyright (C) 2010, 2013 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -22,8 +22,7 @@
 /* is called from ump_kernel_constructor in common code */
 _mali_osk_errcode_t _ump_osk_init( void )
 {
-	if (0 != ump_kernel_device_initialize())
-	{
+	if (0 != ump_kernel_device_initialize()) {
 		return _MALI_OSK_ERR_FAULT;
 	}
 

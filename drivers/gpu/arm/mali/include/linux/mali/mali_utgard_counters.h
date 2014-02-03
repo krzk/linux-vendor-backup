@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2013 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -11,13 +11,11 @@
 #ifndef _MALI_UTGARD_COUNTERS_H_
 #define _MALI_UTGARD_COUNTERS_H_
 
-typedef struct
-{
+typedef struct {
 	void *unused;
 } mali_cinstr_counter_info;
 
-typedef enum
-{
+typedef enum {
 	MALI_CINSTR_COUNTER_SOURCE_EGL      =     0,
 	MALI_CINSTR_COUNTER_SOURCE_OPENGLES =  1000,
 	MALI_CINSTR_COUNTER_SOURCE_OPENVG   =  2000,
@@ -41,8 +39,7 @@ typedef enum
 #define MALI_CINSTR_PP_LAST_COUNTER (MALI_CINSTR_COUNTER_SOURCE_PP + 999)
 
 
-typedef enum
-{
+typedef enum {
 	/* EGL counters */
 
 	MALI_CINSTR_EGL_BLIT_TIME                                            = MALI_CINSTR_COUNTER_SOURCE_EGL + 0,

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2013 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -26,12 +26,12 @@
 
 static _mali_osk_atomic_t mali_pm_ref_count;
 
-void _mali_osk_pm_dev_enable(void) /* @@@@ todo: change to init of some kind.. or change the way or where atomics are initialized? */
+void _mali_osk_pm_dev_enable(void)
 {
 	_mali_osk_atomic_init(&mali_pm_ref_count, 0);
 }
 
-void _mali_osk_pm_dev_disable(void) /* @@@@ todo: change to term of some kind */
+void _mali_osk_pm_dev_disable(void)
 {
 	_mali_osk_atomic_term(&mali_pm_ref_count);
 }
@@ -46,8 +46,7 @@ _mali_osk_errcode_t _mali_osk_pm_dev_ref_add(void)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37))
 	pm_runtime_mark_last_busy(&(mali_platform_device->dev));
 #endif
-	if (0 > err)
-	{
+	if (0 > err) {
 		MALI_PRINT_ERROR(("Mali OSK PM: pm_runtime_get_sync() returned error code %d\n", err));
 		return _MALI_OSK_ERR_FAULT;
 	}
@@ -99,5 +98,12 @@ void _mali_osk_pm_dev_ref_dec_no_power_on(void)
 	pm_runtime_put(&(mali_platform_device->dev));
 #endif
 	MALI_DEBUG_PRINT(4, ("Mali OSK PM: No-power ref released (%u)\n", _mali_osk_atomic_read(&mali_pm_ref_count)));
+#endif
+}
+
+void _mali_osk_pm_dev_barrier(void)
+{
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_barrier(&(mali_platform_device->dev));
 #endif
 }
