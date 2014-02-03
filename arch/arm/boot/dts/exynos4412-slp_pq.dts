@@ -806,7 +806,7 @@
 					regulator-max-microvolt = <1500000>;
 					regulator-always-on;
 					regulator-boot-on;
-					regulator-mem-on;
+					regulator-mem-off;
 				};
 
 				buck3_reg: buck@3 {
