@@ -332,7 +332,11 @@ struct platform_device mali_gpu_device = {
         .id             = 0,
         .num_resources  = ARRAY_SIZE(mali_gpu_resource),
         .resource       = mali_gpu_resource,
-        .dev.platform_data = &mali_gpu_data,
+        .dev            = {
+            .dma_mask = &samsung_device_dma_mask,
+            .coherent_dma_mask = DMA_BIT_MASK(32),
+            .platform_data = &mali_gpu_data,
+        }
 };
 
 #ifdef CONFIG_S5P_DEV_FIMD0
