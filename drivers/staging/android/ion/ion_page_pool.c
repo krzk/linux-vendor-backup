@@ -1,5 +1,5 @@
 /*
- * drivers/gpu/ion/ion_mem_pool.c
+ * drivers/staging/android/ion/ion_mem_pool.c
  *
  * Copyright (C) 2011 Google, Inc.
  *
@@ -130,12 +130,15 @@ static int ion_page_pool_total(struct ion_page_pool *pool, bool high)
 int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
 				int nr_to_scan)
 {
-	int i;
+	int freed;
 	bool high;
 
 	high = !!(gfp_mask & __GFP_HIGHMEM);
 
-	for (i = 0; i < nr_to_scan; i++) {
+	if (nr_to_scan == 0)
+		return ion_page_pool_total(pool, high);
+
+	for (freed = 0; freed < nr_to_scan; freed++) {
 		struct page *page;
 
 		mutex_lock(&pool->mutex);
@@ -151,7 +154,7 @@ int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
 		ion_page_pool_free_pages(pool, page);
 	}
 
-	return ion_page_pool_total(pool, high);
+	return freed;
 }
 
 struct ion_page_pool *ion_page_pool_create(gfp_t gfp_mask, unsigned int order)

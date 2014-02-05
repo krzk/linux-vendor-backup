@@ -1,5 +1,5 @@
 /*
- * drivers/gpu/ion/ion_heap.c
+ * drivers/staging/android/ion/ion_heap.c
  *
  * Copyright (C) 2011 Google, Inc.
  *
@@ -265,7 +265,8 @@ int ion_heap_init_deferred_free(struct ion_heap *heap)
 	return 0;
 }
 
-static unsigned long ion_heap_shrink_count(struct shrinker *shrinker, struct shrink_control *sc)
+static unsigned long ion_heap_shrink_count(struct shrinker *shrinker,
+						struct shrink_control *sc)
 {
 	struct ion_heap *heap = container_of(shrinker, struct ion_heap,
 					     shrinker);
@@ -277,7 +278,8 @@ static unsigned long ion_heap_shrink_count(struct shrinker *shrinker, struct shr
 	return total;
 }
 
-static unsigned long ion_heap_shrink_scan(struct shrinker *shrinker, struct shrink_control *sc)
+static unsigned long ion_heap_shrink_scan(struct shrinker *shrinker,
+						struct shrink_control *sc)
 {
 	struct ion_heap *heap = container_of(shrinker, struct ion_heap,
 					     shrinker);
@@ -285,7 +287,7 @@ static unsigned long ion_heap_shrink_scan(struct shrinker *shrinker, struct shri
 	int to_scan = sc->nr_to_scan;
 
 	if (to_scan == 0)
-		goto out;
+		return 0;
 
 	/*
 	 * shrink the free list first, no point in zeroing the memory if we're
@@ -296,13 +298,11 @@ static unsigned long ion_heap_shrink_scan(struct shrinker *shrinker, struct shri
 				PAGE_SIZE;
 
 	to_scan -= freed;
-	if (to_scan < 0)
-		to_scan = 0;
+	if (to_scan <= 0)
+		return freed;
 
 	if (heap->ops->shrink)
 		freed += heap->ops->shrink(heap, sc->gfp_mask, to_scan);
-
-out:
 	return freed;
 }
 

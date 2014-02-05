@@ -1,5 +1,5 @@
 /*
- * drivers/gpu/ion/ion_priv.h
+ * drivers/staging/android/ion/ion_priv.h
  *
  * Copyright (C) 2011 Google, Inc.
  *
@@ -26,7 +26,6 @@
 #include <linux/sched.h>
 #include <linux/shrinker.h>
 #include <linux/types.h>
-#include <linux/device.h>
 
 #include "ion.h"
 
