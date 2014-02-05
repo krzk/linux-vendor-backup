@@ -400,7 +400,7 @@ static struct s3c_sdhci_platdata hkdk4412_hsmmc2_pdata __initdata = {
 	.max_width	= 4,
 	.host_caps	= MMC_CAP_4_BIT_DATA |
 			MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED,
-	.cd_type	= S3C_SDHCI_CD_INTERNAL,
+	.cd_type	= S3C_SDHCI_CD_NONE,
 };
 
 /* DWMMC */
