@@ -87,6 +87,7 @@ struct exynos_adc {
 	void __iomem		*regs;
 	void __iomem		*enable_reg;
 	struct clk		*clk;
+	struct clk		*sclk;
 	unsigned int		irq;
 	struct regulator	*vdd;
 
@@ -99,6 +100,7 @@ struct exynos_adc {
 static const struct of_device_id exynos_adc_match[] = {
 	{ .compatible = "samsung,exynos-adc-v1", .data = (void *)ADC_V1 },
 	{ .compatible = "samsung,exynos-adc-v2", .data = (void *)ADC_V2 },
+	{ .compatible = "samsung,exynos3250-adc-v2", .data = (void *)ADC_V2 },
 	{},
 };
 MODULE_DEVICE_TABLE(of, exynos_adc_match);
@@ -312,6 +314,13 @@ static int exynos_adc_probe(struct platform_device *pdev)
 		goto err_irq;
 	}
 
+	info->sclk = devm_clk_get(&pdev->dev, "sclk_adc");
+	if (IS_ERR(info->sclk)) {
+		dev_warn(&pdev->dev, "failed getting sclk clock, err = %ld\n",
+							PTR_ERR(info->sclk));
+		info->sclk = NULL;
+	}
+
 	info->vdd = devm_regulator_get(&pdev->dev, "vdd");
 	if (IS_ERR(info->vdd)) {
 		dev_err(&pdev->dev, "failed getting regulator, err = %ld\n",
@@ -345,6 +354,7 @@ static int exynos_adc_probe(struct platform_device *pdev)
 		goto err_iio_dev;
 
 	clk_prepare_enable(info->clk);
+	clk_prepare_enable(info->sclk);
 
 	exynos_adc_hw_init(info);
 
@@ -361,6 +371,7 @@ err_of_populate:
 				exynos_adc_remove_devices);
 	regulator_disable(info->vdd);
 	clk_disable_unprepare(info->clk);
+	clk_disable_unprepare(info->sclk);
 err_iio_dev:
 	iio_device_unregister(indio_dev);
 err_irq:
@@ -379,6 +390,7 @@ static int exynos_adc_remove(struct platform_device *pdev)
 				exynos_adc_remove_devices);
 	regulator_disable(info->vdd);
 	clk_disable_unprepare(info->clk);
+	clk_disable_unprepare(info->sclk);
 	writel(0, info->enable_reg);
 	iio_device_unregister(indio_dev);
 	free_irq(info->irq, info);
@@ -405,6 +417,7 @@ static int exynos_adc_suspend(struct device *dev)
 	}
 
 	clk_disable_unprepare(info->clk);
+	clk_disable_unprepare(info->sclk);
 	writel(0, info->enable_reg);
 	regulator_disable(info->vdd);
 
@@ -423,6 +436,7 @@ static int exynos_adc_resume(struct device *dev)
 
 	writel(1, info->enable_reg);
 	clk_prepare_enable(info->clk);
+	clk_prepare_enable(info->sclk);
 
 	exynos_adc_hw_init(info);
 
