@@ -23,16 +23,24 @@ static const struct sensor_drv_data s5k4e5_drvdata = {
 	.setfile_name	= "exynos5_s5k4e5_setfile.bin",
 };
 
+static const struct sensor_drv_data s5k8b1_drvdata = {
+	.id		= FIMC_IS_SENSOR_ID_S5K8B1,
+	.open_timeout	= S5K8B1_OPEN_TIMEOUT,
+	.setfile_name	= "exynos5_s5k8b1_setfile.bin",
+};
+
 static const struct of_device_id fimc_is_sensor_of_ids[] = {
 	{
 		.compatible	= "samsung,s5k6a3",
 		.data		= &s5k6a3_drvdata,
-	},
-	{
+	}, {
 		.compatible	= "samsung,s5k4e5",
 		.data		= &s5k4e5_drvdata,
+	}, {
+		.compatible	= "samsung,s5k8b1",
+		.data		= &s5k8b1_drvdata,
 	},
-	{  }
+	{ /* sentinel */ }
 };
 
 const struct sensor_drv_data *exynos5_is_sensor_get_drvdata(
