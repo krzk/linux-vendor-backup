@@ -53,7 +53,6 @@
 #define USB3503_MAX_2A		(0x80 << 0)
 
 #define USB3503_SP_ILOCK	0xe7
-#define USB3503_OCS_PINSEL		(1 << 5)
 #define USB3503_PRTPWR_PINSEL	(1 << 4)
 #define USB3503_SPILOCK_CONNECT	(1 << 1)
 #define USB3503_SPILOCK_CONFIG	(1 << 0)
@@ -167,7 +166,7 @@ static int usb3503_switch_mode(struct usb3503 *hub, enum usb3503_mode mode)
 		err = usb3503_clear_bits(i2c, USB3503_SP_ILOCK,
 				 USB3503_SPILOCK_CONFIG);
 		if (err < 0) {
-			dev_err(&i2c->dev, "USB3503_SPILOCK_CONFIG failed (%d)\n", err);
+			dev_err(&i2c->dev, "USB3503_SPILOCK_CONFIG failed (%d) 1\n", err);
 			goto err_hubmode;
 		}
 
@@ -191,7 +190,7 @@ static int usb3503_switch_mode(struct usb3503 *hub, enum usb3503_mode mode)
  		err = usb3503_set_bits(i2c, USB3503_SP_ILOCK,
 				 USB3503_SPILOCK_CONFIG);
 		if (err < 0) {
-			dev_err(&i2c->dev, "USB3503_SPILOCK_CONFIG failed (%d)\n", err);
+			dev_err(&i2c->dev, "USB3503_SPILOCK_CONFIG failed (%d) 2\n", err);
 			goto err_hubmode;
 		}
 
@@ -275,7 +274,9 @@ static int usb3503_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 		goto err_gpio_reset;
 	}
 
+	gpio_direction_output(hub->gpio_reset, 0);
 	usb3503_reset(hub->gpio_reset, 0);
+	
 	if(hub->clk == USB3503_REFCLK_24M)
 		gpio_direction_output(hub->gpio_intn, 0);
 	else if(hub->clk == USB3503_REFCLK_26M)
@@ -283,6 +284,8 @@ static int usb3503_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 	else 
 		gpio_direction_output(hub->gpio_intn, 1);
 
+	gpio_direction_output(hub->gpio_connect, 0);
+	msleep(30);
 	usb3503_connect(hub->gpio_connect, 0);
 	usb3503_reset(hub->gpio_reset, 1);
 
