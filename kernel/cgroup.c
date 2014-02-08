@@ -2826,8 +2826,6 @@ static void cgroup_cfts_commit(struct cgroup_subsys *ss,
 		sb = NULL;
 	}
 
-	mutex_unlock(&cgroup_mutex);
-
 	/*
 	 * All new cgroups will see @cfts update on @ss->cftsets.  Add/rm
 	 * files for all cgroups which were created before.
@@ -2835,16 +2833,17 @@ static void cgroup_cfts_commit(struct cgroup_subsys *ss,
 	list_for_each_entry_safe(cgrp, n, &pending, cft_q_node) {
 		struct inode *inode = cgrp->dentry->d_inode;
 
+		mutex_unlock(&cgroup_mutex);
 		mutex_lock(&inode->i_mutex);
 		mutex_lock(&cgroup_mutex);
 		if (!cgroup_is_removed(cgrp))
 			cgroup_addrm_files(cgrp, ss, cfts, is_add);
-		mutex_unlock(&cgroup_mutex);
 		mutex_unlock(&inode->i_mutex);
 
 		list_del_init(&cgrp->cft_q_node);
 		dput(cgrp->dentry);
 	}
+	mutex_unlock(&cgroup_mutex);
 
 	if (sb)
 		deactivate_super(sb);
