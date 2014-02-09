@@ -257,6 +257,21 @@ static int mt9p031_clk_setup(struct mt9p031 *mt9p031)
 		return 0;
 	}
 
+	/* If the external clock frequency is out of bounds for the PLL use the
+	 * pixel clock divider only and disable the PLL.
+	 */
+	if (pdata->ext_freq > limits.ext_clock_max) {
+		unsigned int div;
+
+		div = DIV_ROUND_UP(pdata->ext_freq, pdata->target_freq);
+		div = roundup_pow_of_two(div) / 2;
+
+		mt9p031->clk_div = max_t(unsigned int, div, 64);
+		mt9p031->use_pll = false;
+
+		return 0;
+	}
+
 	mt9p031->pll.ext_clock = pdata->ext_freq;
 	mt9p031->pll.pix_clock = pdata->target_freq;
 	mt9p031->use_pll = true;
