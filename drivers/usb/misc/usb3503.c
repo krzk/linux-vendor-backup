@@ -38,13 +38,14 @@
 #define USB3503_SELF_BUS_PWR		(1 << 7)
 #define USB3503_MTT_ENABLE			(1 << 4)
 #define USB3503_OCS_INDIVIDUAL		(1 << 1)
+#define USB3503_OCS_DISABLE			(3 << 1)
 #define USB3503_PPRTPWR_INDIVIDUAL	(1 << 0)
 
 #define USB3503_CFG2		0x07
 #define USB3503_CFG3		0x08
-#define USB3503_NRD		0x09
+#define USB3503_NRD			0x09
 
-#define USB3503_PDS		0x0a
+#define USB3503_PDS			0x0a
 #define USB3503_PORT1		(1 << 1)
 #define USB3503_PORT2		(1 << 2)
 #define USB3503_PORT3		(1 << 3)
@@ -52,7 +53,13 @@
 #define USB3503_SP_MAX_CURRENT 	0x0e
 #define USB3503_MAX_2A		(0x80 << 0)
 
+#define	USB3503_OCS			0xE6
+#define USB3503_OCS1		(1 << 1)
+#define USB3503_OCS2		(1 << 2)
+#define USB3503_OCS3		(1 << 3)
+
 #define USB3503_SP_ILOCK	0xe7
+#define USB3503_OCS_PINSEL		(1 << 5)
 #define USB3503_PRTPWR_PINSEL	(1 << 4)
 #define USB3503_SPILOCK_CONNECT	(1 << 1)
 #define USB3503_SPILOCK_CONFIG	(1 << 0)
@@ -125,7 +132,7 @@ static int usb3503_clear_bits(struct i2c_client *client, char reg, char req)
 static int usb3503_reset(int gpio_reset, int state)
 {
 	if (gpio_is_valid(gpio_reset))
-		gpio_set_value(gpio_reset, state);
+		gpio_direction_output(gpio_reset, state);
 
 	/* Wait RefClk when RESET_N is released, otherwise Hub will
 	 * not transition to Hub Communication Stage.
@@ -139,7 +146,7 @@ static int usb3503_reset(int gpio_reset, int state)
 static int usb3503_connect(int gpio_connect, int state)
 {
 	if (gpio_is_valid(gpio_connect))
-		gpio_set_value(gpio_connect, state);
+		gpio_direction_output(gpio_connect, state);
 
 	/* Wait RefClk when RESET_N is released, otherwise Hub will
 	 * not transition to Hub Communication Stage.
@@ -154,6 +161,7 @@ static int usb3503_switch_mode(struct usb3503 *hub, enum usb3503_mode mode)
 {
 	struct i2c_client *i2c = hub->client;
 	int err = 0, val = 0;
+	char reg_data=0;
 
 	switch (mode) {
 	case USB3503_MODE_HUB:
@@ -170,19 +178,26 @@ static int usb3503_switch_mode(struct usb3503 *hub, enum usb3503_mode mode)
 			goto err_hubmode;
 		}
 
+		reg_data = (USB3503_SELF_BUS_PWR | USB3503_OCS_DISABLE);
 		/* CFG1 : SELF_BUS_PWR -> Self-Powerd operation */
-		err = usb3503_set_bits(i2c, USB3503_CFG1, 
-					( USB3503_SELF_BUS_PWR ));
+		err = usb3503_write_register(i2c, USB3503_CFG1, reg_data);
 		if (err < 0) {
 			dev_err(&i2c->dev, "CFG1 failed (%d)\n", err);
 			goto err_hubmode;
 		}
-		err = usb3503_clear_bits(i2c, USB3503_CFG1, 
-					( USB3503_MTT_ENABLE
-					| USB3503_OCS_INDIVIDUAL
-					| USB3503_PPRTPWR_INDIVIDUAL));
+		
+		reg_data = 0x00; // No Over Current Condition.
+		/* CFG1 : SELF_BUS_PWR -> Self-Powerd operation */
+		err = usb3503_write_register(i2c, USB3503_OCS, reg_data);
 		if (err < 0) {
-			dev_err(&i2c->dev, "CFG1 failed (%d)\n", err);
+			dev_err(&i2c->dev, "OCS failed (%d)\n", err);
+			goto err_hubmode;
+		}
+
+		err = usb3503_clear_bits(i2c, USB3503_SP_ILOCK,
+					(USB3503_OCS_PINSEL | USB3503_PRTPWR_PINSEL));
+		if (err < 0) {
+			dev_err(&i2c->dev, "USB3503_SPILOCK_CONFIG failed (%d) 2\n", err);
 			goto err_hubmode;
 		}
 
@@ -190,7 +205,7 @@ static int usb3503_switch_mode(struct usb3503 *hub, enum usb3503_mode mode)
  		err = usb3503_set_bits(i2c, USB3503_SP_ILOCK,
 				 USB3503_SPILOCK_CONFIG);
 		if (err < 0) {
-			dev_err(&i2c->dev, "USB3503_SPILOCK_CONFIG failed (%d) 2\n", err);
+			dev_err(&i2c->dev, "USB3503_SPILOCK_CONFIG failed (%d) 3\n", err);
 			goto err_hubmode;
 		}
 
@@ -274,7 +289,6 @@ static int usb3503_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 		goto err_gpio_reset;
 	}
 
-	gpio_direction_output(hub->gpio_reset, 0);
 	usb3503_reset(hub->gpio_reset, 0);
 	
 	if(hub->clk == USB3503_REFCLK_24M)
@@ -284,8 +298,6 @@ static int usb3503_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 	else 
 		gpio_direction_output(hub->gpio_intn, 1);
 
-	gpio_direction_output(hub->gpio_connect, 0);
-	msleep(30);
 	usb3503_connect(hub->gpio_connect, 0);
 	usb3503_reset(hub->gpio_reset, 1);
 
