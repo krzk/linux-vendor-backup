@@ -203,6 +203,10 @@ int exynos4x12_cpufreq_init(struct exynos_dvfs_info *info)
 	info->freq_table = exynos_of_parse_freq_table(info, "freq_table");
 	if (!info->freq_table)
 		info->freq_table = exynos4x12_freq_table;
+#ifdef CONFIG_CPU_FREQ_BOOST_SW
+	else
+		exynos_of_parse_boost(info, "boost_freq");
+#endif
 
 	info->set_freq = exynos4x12_set_frequency;
 

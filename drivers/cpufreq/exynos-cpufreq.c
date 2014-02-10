@@ -288,6 +288,36 @@ static struct cpufreq_driver exynos_driver = {
 
 /* Device Tree Support for CPU freq */
 
+int exynos_of_parse_boost(struct exynos_dvfs_info *info,
+			  const char *property_name)
+{
+	struct cpufreq_frequency_table *ft = info->freq_table;
+	struct device_node *node = info->dev->of_node;
+	unsigned int boost_freq;
+
+	if (of_property_read_u32(node, property_name, &boost_freq)) {
+		pr_err("%s: Property: %s not found\n", __func__,
+		       property_name);
+		return -ENODEV;
+	}
+
+	/*
+	 * Adjust the BOOST setting code to the current cpufreq code
+	 * Now we have static table definitions for frequencies, dividers
+	 * and PLL parameters (like P M S)
+	 *
+	 * In the current cpufreq code base only the change of one entry at
+	 * frequency table is required.
+	 */
+
+	ft[0].index = CPUFREQ_BOOST_FREQ;
+	ft[0].frequency = boost_freq;
+
+	pr_debug("%s: BOOST frequency: %d\n", __func__, ft[0].frequency);
+
+	return 0;
+}
+
 struct cpufreq_frequency_table *exynos_of_parse_freq_table(
 		struct exynos_dvfs_info *info, const char *property_name)
 {
@@ -326,8 +356,12 @@ struct cpufreq_frequency_table *exynos_of_parse_freq_table(
 		goto err_of_f_tab;
 	}
 
-	/* Here + 2 is required for CPUFREQ_ENTRY_INVALID and
-	   CPUFREQ_TABLE_END  */
+	/*
+	 * Here + 2 is required for CPUFREQ_ENTRY_INVALID  and
+	 * CPUFREQ_TABLE_END
+	 *
+	 * Number of those entries must correspond to the apll_freq_4412 table
+	 */
 	ft = kzalloc(sizeof(struct cpufreq_frequency_table) * (num + 2),
 		     GFP_KERNEL);
 	if (!ft) {

@@ -51,3 +51,5 @@ struct cpufreq_frequency_table *exynos_of_parse_freq_table(
        struct exynos_dvfs_info *info, const char *property_name);
 unsigned int *exynos_of_parse_volt_table(struct exynos_dvfs_info *info,
 					 const char *property_name);
+int exynos_of_parse_boost(struct exynos_dvfs_info *info,
+			  const char *property_name);
