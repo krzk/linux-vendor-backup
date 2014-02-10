@@ -1669,6 +1669,17 @@ static const struct dev_pm_ops fimc_lite_pm_ops = {
 			   NULL)
 };
 
+/* EXYNOS3250 */
+static struct flite_drvdata fimc_lite_drvdata_exynos3250 = {
+	.max_width		= 8192,
+	.max_height		= 8192,
+	.out_width_align	= 8,
+	.win_hor_offs_align	= 2,
+	.out_hor_offs_align	= 8,
+	.max_dma_bufs		= 32,
+	.num_instances		= 2,
+};
+
 /* EXYNOS4212, EXYNOS4412 */
 static struct flite_drvdata fimc_lite_drvdata_exynos4 = {
 	.max_width		= 8192,
@@ -1693,10 +1704,12 @@ static struct flite_drvdata fimc_lite_drvdata_exynos5 = {
 
 static const struct of_device_id flite_of_match[] = {
 	{
+		.compatible = "samsung,exynos3250-fimc-lite",
+		.data = &fimc_lite_drvdata_exynos3250,
+	}, {
 		.compatible = "samsung,exynos4212-fimc-lite",
 		.data = &fimc_lite_drvdata_exynos4,
-	},
-	{
+	}, {
 		.compatible = "samsung,exynos5250-fimc-lite",
 		.data = &fimc_lite_drvdata_exynos5,
 	},
