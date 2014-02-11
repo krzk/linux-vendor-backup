@@ -336,7 +336,6 @@ config USB_ISP1760_HCD
 
 config USB_ISP1362_HCD
 	tristate "ISP1362 HCD support"
-	default N
 	---help---
 	  Supports the Philips ISP1362 chip as a host controller
 
