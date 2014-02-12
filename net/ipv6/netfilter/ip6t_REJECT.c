@@ -35,7 +35,6 @@ MODULE_AUTHOR("Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>");
 MODULE_DESCRIPTION("Xtables: packet \"rejection\" target for IPv6");
 MODULE_LICENSE("GPL");
 
-
 static unsigned int
 reject_tg6(struct sk_buff *skb, const struct xt_action_param *par)
 {

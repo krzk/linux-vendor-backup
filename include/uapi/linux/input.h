@@ -152,7 +152,17 @@ struct input_keymap_entry {
 #define EVIOCGEFFECTS		_IOR('E', 0x84, int)			/* Report number of effects playable at the same time */
 
 #define EVIOCGRAB		_IOW('E', 0x90, int)			/* Grab/Release device */
-#define EVIOCREVOKE		_IOW('E', 0x91, int)			/* Revoke device access */
+
+#ifdef CONFIG_ANDROID
+# define EVIOCREVOKE		_IOW('E', 0x95, int)			/* Revoke device access (renumbered to avoid */
+									/* collision w/ Android's EVIOCSSUSPENDBLOCK */
+# define EVIOCGSUSPENDBLOCK	_IOR('E', 0x91, int)			/* get suspend block enable */
+# define EVIOCSSUSPENDBLOCK	_IOW('E', 0x91, int)			/* set suspend block enable */
+#else /* CONFIG_ANDROID */
+# define EVIOCREVOKE		_IOW('E', 0x91, int)			/* Revoke device access */
+# define EVIOCGSUSPENDBLOCK	_IOR('E', 0x95, int)			/* get suspend block enable */
+# define EVIOCSSUSPENDBLOCK	_IOW('E', 0x95, int)			/* set suspend block enable */
+#endif /* CONFIG_ANDROID */
 
 #define EVIOCSCLOCKID		_IOW('E', 0xa0, int)			/* Set clockid to be used for timestamps */
 

@@ -345,7 +345,6 @@ int alarm_start_relative(struct alarm *alarm, ktime_t start)
 	start = ktime_add(start, base->gettime());
 	return alarm_start(alarm, start);
 }
-EXPORT_SYMBOL_GPL(alarm_start_relative);
 
 void alarm_restart(struct alarm *alarm)
 {
@@ -358,7 +357,6 @@ void alarm_restart(struct alarm *alarm)
 	alarmtimer_enqueue(base, alarm);
 	spin_unlock_irqrestore(&base->lock, flags);
 }
-EXPORT_SYMBOL_GPL(alarm_restart);
 
 /**
  * alarm_try_to_cancel - Tries to cancel an alarm timer
