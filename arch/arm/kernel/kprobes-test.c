@@ -205,6 +205,8 @@
 #include <asm/opcodes.h>
 
 #include "kprobes.h"
+#include "probes-arm.h"
+#include "probes-thumb.h"
 #include "kprobes-test.h"
 
 
@@ -221,6 +223,7 @@ static int pre_handler_called;
 static int post_handler_called;
 static int jprobe_func_called;
 static int kretprobe_handler_called;
+static int tests_failed;
 
 #define FUNC_ARG1 0x12345678
 #define FUNC_ARG2 0xabcdef
@@ -457,6 +460,13 @@ static int run_api_tests(long (*func)(long, long))
 
 	pr_info("    jprobe\n");
 	ret = test_jprobe(func);
+#if defined(CONFIG_THUMB2_KERNEL) && !defined(MODULE)
+	if (ret == -EINVAL) {
+		pr_err("FAIL: Known longtime bug with jprobe on Thumb kernels");
+		tests_failed = ret;
+		ret = 0;
+	}
+#endif
 	if (ret < 0)
 		return ret;
 
@@ -1608,7 +1618,7 @@ static int __init run_all_tests(void)
 		goto out;
 
 	pr_info("ARM instruction simulation\n");
-	ret = run_test_cases(kprobe_arm_test_cases, kprobe_decode_arm_table);
+	ret = run_test_cases(kprobe_arm_test_cases, probes_decode_arm_table);
 	if (ret)
 		goto out;
 
@@ -1631,13 +1641,13 @@ static int __init run_all_tests(void)
 
 	pr_info("16-bit Thumb instruction simulation\n");
 	ret = run_test_cases(kprobe_thumb16_test_cases,
-				kprobe_decode_thumb16_table);
+				probes_decode_thumb16_table);
 	if (ret)
 		goto out;
 
 	pr_info("32-bit Thumb instruction simulation\n");
 	ret = run_test_cases(kprobe_thumb32_test_cases,
-				kprobe_decode_thumb32_table);
+				probes_decode_thumb32_table);
 	if (ret)
 		goto out;
 #endif
@@ -1666,6 +1676,8 @@ static int __init run_all_tests(void)
 #endif
 
 out:
+	if (ret == 0)
+		ret = tests_failed;
 	if (ret == 0)
 		pr_info("Finished kprobe tests OK\n");
 	else
