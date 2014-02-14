@@ -51,6 +51,17 @@ config ARM_EXYNOS5250_CPUFREQ
 
 	  If in doubt, say N.
 
+config ARM_EXYNOS5410_CPUFREQ
+	bool "SAMSUNG EXYNOS5410"
+	depends on SOC_EXYNOS5410
+	default y
+	select ARM_EXYNOS_CPUFREQ
+	help
+	  This adds the CPUFreq driver for Samsung EXYNOS5410
+	  SoC.
+
+	  If in doubt, say N.
+
 config ARM_EXYNOS5440_CPUFREQ
 	bool "SAMSUNG EXYNOS5440"
 	depends on SOC_EXYNOS5440
