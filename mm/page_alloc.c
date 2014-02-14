@@ -1140,7 +1140,7 @@ static int rmqueue_bulk(struct zone *zone, unsigned int order,
 			unsigned long count, struct list_head *list,
 			int migratetype, int cold)
 {
-	int mt = migratetype, i;
+	int mt, i;
 
 	spin_lock(&zone->lock);
 	for (i = 0; i < count; ++i) {
@@ -1161,9 +1161,13 @@ static int rmqueue_bulk(struct zone *zone, unsigned int order,
 			list_add(&page->lru, list);
 		else
 			list_add_tail(&page->lru, list);
+		mt = get_pageblock_migratetype(page);
 		if (IS_ENABLED(CONFIG_CMA)) {
-			mt = get_pageblock_migratetype(page);
-			if (!is_migrate_cma(mt) && !is_migrate_isolate(mt))
+			if (!is_migrate_cma(mt) && !is_migrate_isolate(mt) &&
+			    !is_migrate_reserve(mt))
+				mt = migratetype;
+		} else {
+			if (!is_migrate_reserve(mt))
 				mt = migratetype;
 		}
 		set_freepage_migratetype(page, mt);

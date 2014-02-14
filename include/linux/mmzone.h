@@ -63,6 +63,11 @@ enum {
 	MIGRATE_TYPES
 };
 
+static inline bool is_migrate_reserve(int migratetype)
+{
+	return unlikely(migratetype == MIGRATE_RESERVE);
+}
+
 #ifdef CONFIG_CMA
 #  define is_migrate_cma(migratetype) unlikely((migratetype) == MIGRATE_CMA)
 #else
