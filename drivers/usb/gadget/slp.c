@@ -154,7 +154,7 @@ struct slp_multi_dev {
 };
 
 /* TODO: only enabled 'rndis' and 'sdb'. need to verify more functions */
-static const char *default_funcs[] = {"sdb"};
+static const char *default_funcs[] = {"rndis", "sdb"};
 static unsigned slp_multi_nluns;
 static struct class *slp_multi_class;
 static struct slp_multi_dev *_slp_multi_dev;
