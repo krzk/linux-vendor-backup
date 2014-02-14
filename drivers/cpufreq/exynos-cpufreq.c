@@ -274,6 +274,8 @@ static int __init exynos_cpufreq_init(void)
 		ret = exynos4x12_cpufreq_init(exynos_info);
 	else if (soc_is_exynos5250())
 		ret = exynos5250_cpufreq_init(exynos_info);
+	else if (soc_is_exynos5410())
+		ret = exynos5410_cpufreq_init(exynos_info);
 	else
 		return 0;
 

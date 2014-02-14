@@ -36,9 +36,16 @@ struct apll_freq {
 struct exynos_dvfs_info {
 	unsigned long	mpll_freq_khz;
 	unsigned int	pll_safe_idx;
+	unsigned int	pm_lock_idx;
+	unsigned int	max_support_idx;
+	unsigned int	min_support_idx;
+	unsigned int	boot_freq;
 	struct clk	*cpu_clk;
 	unsigned int	*volt_table;
+	bool		blocked;
 	struct cpufreq_frequency_table	*freq_table;
+	const unsigned int	*max_op_freqs;
+	struct regulator	*regulator;
 	void (*set_freq)(unsigned int, unsigned int);
 	bool (*need_apll_change)(unsigned int, unsigned int);
 };
@@ -63,6 +70,14 @@ static inline int exynos4x12_cpufreq_init(struct exynos_dvfs_info *info)
 extern int exynos5250_cpufreq_init(struct exynos_dvfs_info *);
 #else
 static inline int exynos5250_cpufreq_init(struct exynos_dvfs_info *info)
+{
+	return -EOPNOTSUPP;
+}
+#endif
+#ifdef CONFIG_ARM_EXYNOS5410_CPUFREQ
+extern int exynos5410_cpufreq_init(struct exynos_dvfs_info *);
+#else
+static inline int exynos5410_cpufreq_init(struct exynos_dvfs_info *info)
 {
 	return -EOPNOTSUPP;
 }
