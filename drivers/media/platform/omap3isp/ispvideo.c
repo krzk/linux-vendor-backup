@@ -889,7 +889,7 @@ static int isp_video_check_external_subdevs(struct isp_video *video,
 	struct v4l2_ext_controls ctrls;
 	struct v4l2_ext_control ctrl;
 	unsigned int i;
-	int ret = 0;
+	int ret;
 
 	for (i = 0; i < ARRAY_SIZE(ents); i++) {
 		/* Is the entity part of the pipeline? */
@@ -908,7 +908,7 @@ static int isp_video_check_external_subdevs(struct isp_video *video,
 
 	if (!source) {
 		dev_warn(isp->dev, "can't find source, failing now\n");
-		return ret;
+		return -EINVAL;
 	}
 
 	if (media_entity_type(source) != MEDIA_ENT_T_V4L2_SUBDEV)
