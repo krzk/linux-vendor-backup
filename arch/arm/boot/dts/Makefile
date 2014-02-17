@@ -50,12 +50,9 @@ dtb-$(CONFIG_ARCH_EXYNOS) += exynos4210-origen.dtb \
 	exynos4210-smdkv310.dtb \
 	exynos4210-trats.dtb \
 	exynos4210-universal_c210.dtb \
-	exynos4212-slp_pd.dtb \
-	exynos4412-m0.dtb \
+	exynos4412-trats2.dtb \
 	exynos4412-odroidx.dtb \
 	exynos4412-odroidx2.dtb \
-	exynos4412-redwood.dtb \
-	exynos4412-redwoodlte.dtb \
 	exynos4412-smdk4412.dtb \
 	exynos4412-slp_pq.dtb \
 	exynos4412-origen.dtb \
