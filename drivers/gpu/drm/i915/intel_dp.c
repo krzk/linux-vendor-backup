@@ -2247,18 +2247,34 @@ g4x_dp_detect(struct intel_dp *intel_dp)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	uint32_t bit;
 
-	switch (intel_dp->output_reg) {
-	case DP_B:
-		bit = DPB_HOTPLUG_LIVE_STATUS;
-		break;
-	case DP_C:
-		bit = DPC_HOTPLUG_LIVE_STATUS;
-		break;
-	case DP_D:
-		bit = DPD_HOTPLUG_LIVE_STATUS;
-		break;
-	default:
-		return connector_status_unknown;
+	if (IS_VALLEYVIEW(dev)) {
+		switch (intel_dp->output_reg) {
+		case DP_B:
+			bit = DPB_HOTPLUG_LIVE_STATUS_VLV;
+			break;
+		case DP_C:
+			bit = DPC_HOTPLUG_LIVE_STATUS_VLV;
+			break;
+		case DP_D:
+			bit = DPD_HOTPLUG_LIVE_STATUS_VLV;
+			break;
+		default:
+			return connector_status_unknown;
+		}
+	} else {
+		switch (intel_dp->output_reg) {
+		case DP_B:
+			bit = DPB_HOTPLUG_LIVE_STATUS_G4X;
+			break;
+		case DP_C:
+			bit = DPC_HOTPLUG_LIVE_STATUS_G4X;
+			break;
+		case DP_D:
+			bit = DPD_HOTPLUG_LIVE_STATUS_G4X;
+			break;
+		default:
+			return connector_status_unknown;
+		}
 	}
 
 	if ((I915_READ(PORT_HOTPLUG_STAT) & bit) == 0)
