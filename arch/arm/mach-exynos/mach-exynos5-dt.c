@@ -25,6 +25,7 @@ static void __init exynos5_dt_machine_init(void)
 	const char *i2c_compat = "samsung,s3c2440-i2c";
 	unsigned int tmp;
 
+	struct platform_device_info devinfo = { .name = "exynos-asv", };
 	/*
 	 * Exynos5's legacy i2c controller and new high speed i2c
 	 * controller have muxed interrupt sources. By default the
@@ -46,6 +47,7 @@ static void __init exynos5_dt_machine_init(void)
 	exynos_cpuidle_init();
 
 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
+	platform_device_register_full(&devinfo);
 }
 
 static char const *exynos5_dt_compat[] __initdata = {
