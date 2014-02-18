@@ -527,8 +527,6 @@
 		status = "okay";
 		vusb_d-supply = <&vusb_reg>;
 		vusb_a-supply = <&vusbdac_reg>;
-		phys = <&exynos_usbphy 0>;
-		phy-names = "device";
 		status = "okay";
 	};
 
@@ -703,13 +701,7 @@
 		vusb_a-supply = <&vusbdac_reg>;
 	};
 
-	exynos_usbphy: exynos-usbphy@125B0000 {
-		compatible = "samsung,exynos4210-usbphy";
-		reg = <0x125B0000 0x100 0x10020704 0x0c 0x1001021c 0x4>;
-		clocks = <&clock 305>, <&clock 2>, <&clock 2>, <&clock 2>,
-								<&clock 2>;
-		clock-names = "phy", "device", "host", "hsic0", "hsic1";
+	exynos-usbphy@125B0000 {
 		status = "okay";
-		#phy-cells = <1>;
 	};
 };

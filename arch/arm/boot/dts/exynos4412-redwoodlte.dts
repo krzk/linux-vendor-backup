@@ -647,7 +647,7 @@
 		mmu-master = <&g2d>;
 	};
 
-	usbphy@125B0000 {
+	exynos-usbphy@125B0000 {
 		status = "okay";
 	};
 

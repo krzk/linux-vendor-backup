@@ -518,6 +518,8 @@
 		interrupts = <0 71 0>;
 		clocks = <&clock 305>;
 		clock-names = "otg";
+		phys = <&exynos_usbphy 0>;
+		phy-names = "device";
 		status = "disabled";
 	};
 
