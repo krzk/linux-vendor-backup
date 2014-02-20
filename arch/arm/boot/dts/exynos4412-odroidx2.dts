@@ -507,4 +507,64 @@
 			memory-region = <&mfc_r_mem>;
 		};
 	};
+
+	i2c@13880000 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&i2c2_bus>;
+		status = "okay";
+		hdmiddc@37 {
+			compatible = "samsung,exynos5-hdmiddc";
+			reg = <0x37>;
+		};
+	};
+
+	hdmi@12D00000 {
+		hpd-gpio = <&gpx3 7 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&hdmi_hpd>;
+		/*
+		 * HDMI_EN is a dummy regulator on Origen.
+		 * Therefore LDO8 is used instead because
+		 * it is enabled at the same time as hdmi-en
+		 */
+		hdmi-en-supply = <&ldo8_reg>;
+		vdd-supply = <&ldo8_reg>;
+		vdd_osc-supply = <&ldo10_reg>;
+		vdd_pll-supply = <&ldo8_reg>;
+		status = "okay";
+	};
+
+	/*
+	 * FIMD node is required for DRM subsystem to initialize framebuffer
+	 * It should be considered as hack until DRM/HDMI subsystem is fixed
+	 */
+	fimd@11c00000 {
+		samsung,fimd-vidout-rgb;
+		samsung,fimd-inv-vclk;
+		samsung,fimd-frame-rate = <60>;
+		samsung,default-window = <3>;
+		samsung,fimd-win-bpp = <32>;
+		status = "okay";
+		display-timings {
+			native-mode = <&timing0>;
+			timing0: timing {
+				clock-frequency = <0>;
+				hfront-porch = <0>;
+				hback-porch = <0>;
+				hactive = <1920>;
+				vactive = <1080>;
+				hsync-len = <0>;
+				vback-porch = <0>;
+				vfront-porch = <0>;
+				vsync-len = <0>;
+			};
+		};
+	};
+};
+
+&pinctrl_1 {
+	hdmi_hpd: hdmi-hpd {
+		samsung,pins = "gpx3-7";
+		samsung,pin-pud = <1>;
+	};
 };
