@@ -812,6 +812,7 @@ int security_file_receive(struct file *file)
 {
 	return security_ops->file_receive(file);
 }
+EXPORT_SYMBOL(security_file_receive);
 
 int security_file_open(struct file *file, const struct cred *cred)
 {
