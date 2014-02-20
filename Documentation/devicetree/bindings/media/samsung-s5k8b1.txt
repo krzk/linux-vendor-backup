@@ -1,0 +1,30 @@
+Samsung S5K8B1YX raw image sensor
+---------------------------------
+
+S5K8B1YX is a raw image sensor with MIPI CSI-2 image data interfaces and CCI
+(I2C compatible) control bus.
+
+Required properties:
+
+- compatible	  : "samsung,s5k8b1";
+- reg		  : I2C slave address of the sensor;
+- vdda-supply	  : analogue power supply (typically 2.8 V);
+- vddio-supply	  : digital I/O power supply (typically 1.8 V);
+- vddd-supply	  : digital core power supply (typically 1.2 V);
+- xshutdown-gpios : specifier of a GPIO connected to the XSHUTDOWN pin;
+- clocks	  : should contain the sensor's EXTCLK clock specifier, from
+		    the common clock bindings.
+- clock-names	  : should contain "extclk" entry;
+- data-lanes	  : specifies MIPI CSI-2 data lanes as covered in
+		    video-interfaces.txt. The sensor supports up to 2 data
+		    lanes.
+
+Optional properties:
+
+- clock-frequency : the frequency at which the "extclk" clock should be
+		    configured to operate, in Hz; if this property is not
+		    specified default 24 MHz value will be used.
+
+The common video interfaces bindings (see video-interfaces.txt) should be
+used to specify link to the image data receiver. The S5K8B1YX device node
+should contain one 'port' child node with an 'endpoint' subnode.
