@@ -234,6 +234,17 @@
 
 #define EXYNOS5_SYS_WDTRESET					(1 << 20)
 
+#define EXYNOS5_ABB_INT                 S5P_PMUREG(0x0780)
+#define EXYNOS5_ABB_ARM                 S5P_PMUREG(0x0784)
+#define EXYNOS5_ABB_G3D                 S5P_PMUREG(0x0788)
+#define EXYNOS5_ABB_MIF                 S5P_PMUREG(0x078C)
+#define EXYNOS5_ABB_MEMBER(_member)     EXYNOS_##_member
+
+#define EXYNOS5410_BB_CON0              S5P_PMUREG(0x0780)
+#define EXYNOS5410_BB_CON1              S5P_PMUREG(0x0784)
+#define EXYNOS5410_BB_SEL_EN                (1 << 31)
+#define EXYNOS5410_BB_PMOS_EN               (1 << 7)
+
 #define EXYNOS5_ARM_CORE0_SYS_PWR_REG				S5P_PMUREG(0x1000)
 #define EXYNOS5_DIS_IRQ_ARM_CORE0_LOCAL_SYS_PWR_REG		S5P_PMUREG(0x1004)
 #define EXYNOS5_DIS_IRQ_ARM_CORE0_CENTRAL_SYS_PWR_REG		S5P_PMUREG(0x1008)

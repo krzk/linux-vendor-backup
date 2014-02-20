@@ -12,11 +12,16 @@
 #ifndef __EXYNOS_ASV_D_H
 #define __EXYNOS_ASV_D_H __FILE__
 
-struct exynos_asv_common {
-	struct asv_info *asv_list;
-	unsigned int nr_mem;
-	void __iomem *base;
+#define LOT_ID_LEN  5
+
+struct exynos_asv_common
+{
+  char lot_name[LOT_ID_LEN];
+  struct asv_info *asv_list;
+  unsigned int nr_mem;
+  void __iomem *base;
 };
 
-extern int exynos5250_asv_init(struct exynos_asv_common *exynos_info);
-#endif	/* __EXYNOS_ASV_D_H */
+extern int exynos5250_asv_init (struct exynos_asv_common *exynos_info);
+extern int exynos5410_asv_init (struct exynos_asv_common *exynos_info);
+#endif /* __EXYNOS_ASV_D_H */

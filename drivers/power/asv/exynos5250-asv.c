@@ -22,6 +22,8 @@
 
 #define ARM_LEVEL_NR		16
 #define ARM_GRP_NR		12
+#define KFC_LEVEL_NR		16
+#define KFC_GRP_NR		12
 
 #define CHIP_ID_OFFSET		0x4
 
