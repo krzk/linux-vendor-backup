@@ -48,6 +48,11 @@ MODULE_AUTHOR("Tomasz Stanislawski, <t.stanislaws@samsung.com>");
 MODULE_DESCRIPTION("Samsung HDMI");
 MODULE_LICENSE("GPL");
 
+struct hdmi_drv_data {
+	enum hdmi_type	type;
+	bool		i2c_hdmiphy;
+};
+
 enum hdmi_type {
 	HDMI_TYPE13,
 	HDMI_TYPE14,
@@ -121,22 +126,29 @@ static struct platform_device_id hdmi_driver_types[] = {
 };
 
 #ifdef CONFIG_OF
+static struct hdmi_drv_data exynos5250_hdmi_drv_data = {
+	.type = HDMI_TYPE14,
+	.i2c_hdmiphy = 1,
+};
+
+static struct hdmi_drv_data exynos5420_hdmi_drv_data = {
+	.type = HDMI_TYPE14,
+	.i2c_hdmiphy = 0,
+};
+
 static struct of_device_id hdmi_dt_match[] = {
 	{
-		.compatible = "samsung,s5pv210-hdmi",
-		.data	= (void	*)HDMI_TYPE13,
-	}, {
-		.compatible = "samsung,exynos4-hdmi",
-		.data   = (void *)HDMI_TYPE13,
-	}, {
 		.compatible = "samsung,exynos5-hdmi",
-		.data	= (void	*)HDMI_TYPE14,
+		.data	= &exynos5250_hdmi_drv_data,
 	}, {
 		.compatible = "samsung,exynos4212-hdmi",
-		.data	= (void	*)HDMI_TYPE14,
+		.data	= &exynos5250_hdmi_drv_data,
+	}, {
+		.compatible = "samsung,exynos5420-hdmi",
+		.data	= &exynos5420_hdmi_drv_data,
 	}, {
 		/* end node */
-	},
+	}
 };
 #endif
 
@@ -1208,11 +1220,11 @@ struct v4l2_subdev *hdmi_of_get_i2c_subdev(struct v4l2_device *v4l2_dev,
 		goto err;
 	}
 
-	if (client == NULL || client->driver == NULL)
+	if (client == NULL || client->dev.driver == NULL)
 		goto err;
 
 	/* Lock the module so we can safely get the v4l2_subdev pointer */
-	if (!try_module_get(client->driver->driver.owner))
+	if (!try_module_get(client->dev.driver->owner))
 		goto err;
 	sd = i2c_get_clientdata(client);
 
@@ -1223,7 +1235,7 @@ struct v4l2_subdev *hdmi_of_get_i2c_subdev(struct v4l2_device *v4l2_dev,
 		sd = NULL;
 	}
 	/* Decrease the module use count to match the first try_module_get. */
-	module_put(client->driver->driver.owner);
+	module_put(client->dev.driver->owner);
 err:
 	of_node_put(cnp);
 

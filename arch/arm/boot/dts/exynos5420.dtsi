@@ -660,7 +660,9 @@
 	mixer@14450000 {
 		compatible = "samsung,exynos5420-mixer";
 		reg = <0x14450000 0x10000>;
+		reg-names = "mxr";
 		interrupts = <0 94 0>;
+		interrupt-names = "irq";
 		clocks = <&clock 431>, <&clock 143>;
 		clock-names = "mixer", "sclk_hdmi";
 	};
