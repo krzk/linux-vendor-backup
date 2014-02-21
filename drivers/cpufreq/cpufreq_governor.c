@@ -412,9 +412,10 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_STOP:
-		if (governor == GOV_CONSERVATIVE)
+		if (governor == GOV_CONSERVATIVE) {
+			cs_dbs_info = dbs_data->cdata->get_cpu_dbs_info_s(cpu);
 			cs_dbs_info->enable = 0;
-
+		}
 		gov_cancel_work(dbs_data, policy);
 
 		mutex_lock(&dbs_data->mutex);
