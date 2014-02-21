@@ -57,6 +57,7 @@ struct fimc_pipeline_isp {
 
 struct fimc_csis_info {
 	struct v4l2_subdev *sd;
+	struct device_node *of_node;
 	int id;
 };
 
@@ -86,7 +87,7 @@ struct fimc_sensor_info {
  * @is: fimc-is data structure
  * @media_dev: top level media device
  * @v4l2_dev: top level v4l2_device holding up the subdevs
- * @pdev: platform device this media device is hooked up into
+ * @dev: struct device associated with this media device
  * @slock: spinlock protecting @sensor array
  * @pipelines: list holding pipeline0 (sensor-mipi-flite) instances
  * @isp_pipelines: list holding pipeline1 (isp-scc-scp) instances
@@ -100,7 +101,7 @@ struct fimc_md {
 	struct fimc_is *is;
 	struct media_device media_dev;
 	struct v4l2_device v4l2_dev;
-	struct platform_device *pdev;
+	struct device *dev;
 	struct v4l2_async_notifier subdev_notifier;
 	struct v4l2_async_subdev *async_subdevs[FIMC_MAX_SENSORS];
 
@@ -123,4 +124,7 @@ static inline struct fimc_md *notifier_to_fimc_md(struct v4l2_async_notifier *n)
 {
 	return container_of(n, struct fimc_md, subdev_notifier);
 }
+
+int exynos_camera_register(struct device *dev, struct fimc_md **md);
+int exynos_camera_unregister(struct fimc_md *fmd);
 #endif

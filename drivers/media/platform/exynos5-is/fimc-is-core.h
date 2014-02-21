@@ -98,6 +98,7 @@ struct fimc_is_meminfo {
 struct fimc_is_drvdata {
 	unsigned int	num_instances;
 	char		*fw_name;
+	unsigned int	master_node:1;
 };
 
 /**
@@ -113,5 +114,13 @@ struct fimc_is_fmt {
 	unsigned int	depth[FIMC_IS_MAX_PLANES];
 	unsigned int	num_planes;
 };
+
+#ifdef CONFIG_VIDEO_SAMSUNG_EXYNOS5_FIMC_IS
+int fimc_is_init(void);
+void fimc_is_cleanup(void);
+#else
+int fimc_is_init(void) { return 0; }
+void fimc_is_cleanup(void) { };
+#endif
 
 #endif

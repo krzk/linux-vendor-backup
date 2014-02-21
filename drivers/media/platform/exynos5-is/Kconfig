@@ -1,20 +1,23 @@
 config VIDEO_SAMSUNG_EXYNOS5_CAMERA
 	bool "Samsung Exynos5 SoC series Camera Subsystem driver"
-	depends on VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API && PM_RUNTIME
+	depends on VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
 	depends on VIDEO_SAMSUNG_EXYNOS4_IS
 	help
-	  This is a V4L2 media device driver for Exynos5 SoC series
-	  camera subsystem.
+	  This is a V4L2 driver for Exynos5xxx, Exynos3250 SoC series camera
+	  subsystem.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called exynos-iss.
 
 if VIDEO_SAMSUNG_EXYNOS5_CAMERA
 
 config VIDEO_SAMSUNG_EXYNOS5_FIMC_IS
-	tristate "Samsung Exynos5 SoC FIMC-IS driver"
+	bool "Samsung Exynos5/Exynos3250 SoC Imaging Subsystem (FIMC-IS) driver"
 	depends on I2C && OF
 	depends on VIDEO_EXYNOS4_FIMC_IS
 	select VIDEOBUF2_DMA_CONTIG
 	help
-	  This is a V4L2 driver for Samsung Exynos5 SoC series Imaging
-	  Subsystem known as FIMC-IS.
+	  This is a V4L2 driver for Samsung Exynos5xxx, Exynos3250 SoC series
+	  Imaging Subsystem (FIMC-IS).
 
-endif #VIDEO_SAMSUNG_EXYNOS5_MDEV
+endif #VIDEO_SAMSUNG_EXYNOS5_CAMERA

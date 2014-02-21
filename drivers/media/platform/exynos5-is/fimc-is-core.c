@@ -24,6 +24,7 @@
 
 #include "fimc-is.h"
 #include "fimc-is-i2c.h"
+#include "exynos5-mdev.h"
 
 #define CLK_MCU_ISP_DIV0_FREQ	(200 * 1000000)
 #define CLK_MCU_ISP_DIV1_FREQ	(100 * 1000000)
@@ -173,30 +174,28 @@ static struct fimc_is_drvdata exynos5250_drvdata = {
 	.fw_name	= "exynos5_fimc_is_fw.bin",
 };
 
-static const struct of_device_id exynos5_fimc_is_match[] = {
-	{
-		.compatible = "samsung,exynos5250-fimc-is",
-		.data = &exynos5250_drvdata,
-	},
-	{},
+static struct fimc_is_drvdata exynos3250_drvdata = {
+	.num_instances	= 1,
+	.fw_name	= "exynos3_fimc_is_fw.bin",
+	.master_node	= 1,
 };
-MODULE_DEVICE_TABLE(of, exynos5_fimc_is_match);
 
-static void *fimc_is_get_drvdata(struct platform_device *pdev)
-{
-	struct fimc_is_drvdata *driver_data = NULL;
-	const struct of_device_id *match;
-
-	match = of_match_node(exynos5_fimc_is_match,
-			pdev->dev.of_node);
-	if (match)
-		driver_data = (struct fimc_is_drvdata *)match->data;
-	return driver_data;
-}
+static const struct of_device_id fimc_is_of_match[] = {
+	{
+		.compatible	= "samsung,exynos5250-fimc-is",
+		.data		= &exynos5250_drvdata,
+	}, {
+		.compatible	= "samsung,exynos3250-fimc-is",
+		.data		= &exynos3250_drvdata,
+	},
+	{/* sentinel */},
+};
+MODULE_DEVICE_TABLE(of, fimc_is_of_match);
 
 static int fimc_is_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	const struct of_device_id *match;
 	struct resource *res;
 	struct fimc_is *is;
 	void __iomem *regs;
@@ -213,9 +212,12 @@ static int fimc_is_probe(struct platform_device *pdev)
 	if (!is)
 		return -ENOMEM;
 
-	is->pdev = pdev;
+	match = of_match_node(fimc_is_of_match, dev->of_node);
+	if (WARN_ON(!match))
+		return -EINVAL;
 
-	is->drvdata = fimc_is_get_drvdata(pdev);
+	is->drvdata	= match->data;
+	is->pdev	= pdev;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	regs = devm_ioremap_resource(dev, res);
@@ -226,6 +228,7 @@ static int fimc_is_probe(struct platform_device *pdev)
 	node = of_parse_phandle(dev->of_node, "samsung,pmu", 0);
 	if (!node)
 		return -ENODEV;
+
 	is->pmu_regs = of_iomap(node, 0);
 	if (!is->pmu_regs)
 		return -ENOMEM;
@@ -273,10 +276,17 @@ static int fimc_is_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_sd;
 
+	if (is->drvdata->master_node) {
+		ret = exynos_camera_register(dev, &is->md);
+		if (ret < 0)
+			goto err_cam;
+	}
+
 	dev_dbg(dev, "FIMC-IS registered successfully\n");
 
 	return 0;
-
+err_cam:
+	exynos_camera_unregister(is->md);
 err_sd:
 	fimc_is_pipelines_destroy(is);
 err_vb:
@@ -356,11 +366,14 @@ static int fimc_is_remove(struct platform_device *pdev)
 	struct fimc_is *is = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
 
+	exynos_camera_unregister(is->md);
+
 	pm_runtime_disable(dev);
 	pm_runtime_set_suspended(dev);
 	fimc_is_pipelines_destroy(is);
 	vb2_dma_contig_cleanup_ctx(is->alloc_ctx);
 	fimc_is_put_clocks(is);
+
 	return 0;
 }
 
@@ -377,11 +390,16 @@ static struct platform_driver fimc_is_driver = {
 		.name	= FIMC_IS_DRV_NAME,
 		.owner	= THIS_MODULE,
 		.pm	= &fimc_is_pm_ops,
-		.of_match_table = exynos5_fimc_is_match,
+		.of_match_table = fimc_is_of_match,
 	}
 };
-module_platform_driver(fimc_is_driver);
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Arun Kumar K <arun.kk@samsung.com>");
-MODULE_DESCRIPTION("Samsung Exynos5 (FIMC-IS) Imaging Subsystem driver");
+int __init fimc_is_init(void)
+{
+	return platform_driver_register(&fimc_is_driver);
+}
+
+void __exit fimc_is_cleanup(void)
+{
+	platform_driver_unregister(&fimc_is_driver);
+}

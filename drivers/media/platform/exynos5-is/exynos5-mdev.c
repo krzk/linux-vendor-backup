@@ -408,24 +408,24 @@ static int fimc_md_parse_port_node(struct fimc_md *fmd,
 static int fimc_md_of_sensors_register(struct fimc_md *fmd,
 				       struct device_node *np)
 {
-	struct device_node *parent = fmd->pdev->dev.of_node;
+	struct device_node *parent = fmd->dev->of_node;
 	struct device_node *node, *ports;
-	int index;
+	int index, sensor_index = 0;
 	int ret;
 
 	/* Attach sensors linked to MIPI CSI-2 receivers */
 	for (index = 0; index < FIMC_NUM_MIPI_CSIS; index++) {
 		struct device_node *port;
 
-		node = of_parse_phandle(parent, "samsung,csis", index);
-		if (!node || !of_device_is_available(node))
+		if (fmd->csis[index].of_node == NULL)
 			continue;
+
 		/* The csis node can have only port subnode. */
-		port = of_get_next_child(node, NULL);
+		port = of_get_next_child(fmd->csis[index].of_node, NULL);
 		if (!port)
 			continue;
 
-		ret = fimc_md_parse_port_node(fmd, port, index);
+		ret = fimc_md_parse_port_node(fmd, port, sensor_index++);
 		if (ret < 0)
 			return ret;
 	}
@@ -506,11 +506,14 @@ static int register_csis_entity(struct fimc_md *fmd,
 
 	sd->grp_id = GRP_ID_CSIS;
 	ret = v4l2_device_register_subdev(&fmd->v4l2_dev, sd);
-	if (!ret)
-		fmd->csis[id].sd = sd;
-	else
+	if (ret < 0) {
 		v4l2_err(&fmd->v4l2_dev,
 			 "Failed to register MIPI-CSIS.%d (%d)\n", id, ret);
+		return ret;
+	}
+
+	fmd->csis[id].sd = sd;
+	fmd->csis[id].of_node = node;
 	return ret;
 }
 
@@ -614,12 +617,20 @@ static int register_fimc_is_entity(struct fimc_md *fmd,
 }
 
 static int fimc_md_register_platform_entity(struct fimc_md *fmd,
-					    struct platform_device *pdev,
+					    struct device_node *node,
 					    int plat_entity)
 {
-	struct device *dev = &pdev->dev;
+	struct platform_device *pdev = NULL;
+	struct device *dev;
 	int ret = -EPROBE_DEFER;
 	void *drvdata;
+
+	if (node) {
+		pdev = of_find_device_by_node(node);
+		if (!pdev)
+			return -ENOENT;
+	}
+	dev = &pdev->dev;
 
 	/* Lock to ensure dev->driver won't change. */
 	device_lock(dev);
@@ -649,71 +660,97 @@ static int fimc_md_register_platform_entity(struct fimc_md *fmd,
 dev_unlock:
 	device_unlock(dev);
 	if (ret == -EPROBE_DEFER)
-		dev_info(&fmd->pdev->dev, "deferring %s device registration\n",
+		dev_info(fmd->dev, "deferring %s device registration\n",
 			dev_name(dev));
 	else if (ret < 0)
-		dev_err(&fmd->pdev->dev, "%s device registration failed (%d)\n",
+		dev_err(fmd->dev, "%s device registration failed (%d)\n",
 			dev_name(dev), ret);
+	if (pdev)
+		put_device(&pdev->dev);
+
+	return ret;
+}
+
+/* Register Exynos3250 FIMC-LITE and CSIS platform sub-devices */
+static int __register_fimc_is_sub_entities(struct fimc_md *fmd)
+{
+	struct device_node *node;
+	int ret = 0;
+
+	for_each_available_child_of_node(fmd->dev->of_node, node) {
+		int plat_entity = -1;
+
+		if (!strcmp(node->name, "csis"))
+			plat_entity = IDX_CSIS;
+		else if (!strcmp(node->name, "fimc-lite"))
+			plat_entity = IDX_FLITE;
+
+		if (plat_entity < 0)
+			continue;
+
+		ret = fimc_md_register_platform_entity(fmd, node,
+						       plat_entity);
+		if (ret < 0)
+			break;
+	}
+
 	return ret;
 }
 
 /* Register FIMC-LITE, CSIS and FIMC-IS media entities */
-static int fimc_md_register_of_platform_entities(struct fimc_md *fmd,
-						struct device_node *camera)
+static int fimc_md_register_platform_entities(struct fimc_md *fmd)
 {
+	struct device_node *master = fmd->dev->of_node;
 	struct device_node *node;
-	struct platform_device *pdev;
 	int ret = 0;
 	int i;
 
-	/* Register MIPI-CSIS entities */
-	for (i = 0; i < FIMC_NUM_MIPI_CSIS; i++) {
+	if (of_device_is_compatible(master, "samsung,exynos3250-fimc-is")) {
+		void *drvdata;
 
-		node = of_parse_phandle(camera, "samsung,csis", i);
-		if (!node || !of_device_is_available(node))
-			continue;
-
-		pdev = of_find_device_by_node(node);
-		if (!pdev)
-			continue;
-
-		ret = fimc_md_register_platform_entity(fmd, pdev, IDX_CSIS);
-		put_device(&pdev->dev);
+		ret = __register_fimc_is_sub_entities(fmd);
 		if (ret < 0)
-			break;
-	}
+			return ret;
 
-	/* Register FIMC-LITE entities */
-	for (i = 0; i < FIMC_NUM_FIMC_LITE; i++) {
+		drvdata = dev_get_drvdata(fmd->dev);
+		if (!drvdata)
+			return -EINVAL; /* this shouldn't happen */
 
-		node = of_parse_phandle(camera, "samsung,fimc-lite", i);
+		return register_fimc_is_entity(fmd, drvdata);
+	} else {
+		/* Register MIPI-CSIS entities */
+		for (i = 0; i < FIMC_NUM_MIPI_CSIS; i++) {
+
+			node = of_parse_phandle(master, "samsung,csis", i);
+			if (!node || !of_device_is_available(node))
+				continue;
+
+			ret = fimc_md_register_platform_entity(fmd, node,
+							       IDX_CSIS);
+			if (ret < 0)
+				break;
+		}
+
+		/* Register FIMC-LITE entities */
+		for (i = 0; i < FIMC_NUM_FIMC_LITE; i++) {
+
+			node = of_parse_phandle(master, "samsung,fimc-lite", i);
+			if (!node || !of_device_is_available(node))
+				continue;
+
+			ret = fimc_md_register_platform_entity(fmd, node,
+							       IDX_FLITE);
+			if (ret < 0)
+				break;
+		}
+
+		/* Register fimc-is entity */
+		node = of_parse_phandle(master, "samsung,fimc-is", 0);
 		if (!node || !of_device_is_available(node))
-			continue;
+			return 0;
 
-		pdev = of_find_device_by_node(node);
-		if (!pdev)
-			continue;
-
-		ret = fimc_md_register_platform_entity(fmd, pdev, IDX_FLITE);
-		put_device(&pdev->dev);
-		if (ret < 0)
-			break;
+		return fimc_md_register_platform_entity(fmd, node, IDX_FIMC_IS);
 	}
-
-	/* Register fimc-is entity */
-	node = of_parse_phandle(camera, "samsung,fimc-is", 0);
-	if (!node || !of_device_is_available(node))
-		goto exit;
-
-	pdev = of_find_device_by_node(node);
-	if (!pdev)
-		goto exit;
-
-	ret = fimc_md_register_platform_entity(fmd, pdev, IDX_FIMC_IS);
-
-	put_device(&pdev->dev);
-exit:
-	return ret;
 }
 
 static void fimc_md_unregister_entities(struct fimc_md *fmd)
@@ -1078,9 +1115,8 @@ unlock:
 	return ret;
 }
 
-static int fimc_md_probe(struct platform_device *pdev)
+int exynos_camera_register(struct device *dev, struct fimc_md **md)
 {
-	struct device *dev = &pdev->dev;
 	struct v4l2_device *v4l2_dev;
 	struct fimc_md *fmd;
 	int ret;
@@ -1090,12 +1126,13 @@ static int fimc_md_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	spin_lock_init(&fmd->slock);
-	fmd->pdev = pdev;
+	fmd->dev = dev;
 	INIT_LIST_HEAD(&fmd->pipelines);
 	INIT_LIST_HEAD(&fmd->isp_pipelines);
 
 	strlcpy(fmd->media_dev.model, "SAMSUNG EXYNOS5 IS",
 		sizeof(fmd->media_dev.model));
+
 	fmd->media_dev.link_notify = fimc_md_link_notify;
 	fmd->media_dev.dev = dev;
 
@@ -1103,7 +1140,7 @@ static int fimc_md_probe(struct platform_device *pdev)
 	v4l2_dev->mdev = &fmd->media_dev;
 	strlcpy(v4l2_dev->name, "exynos5-fimc-md", sizeof(v4l2_dev->name));
 
-	ret = v4l2_device_register(dev, &fmd->v4l2_dev);
+	ret = v4l2_device_register(dev, v4l2_dev);
 	if (ret < 0) {
 		v4l2_err(v4l2_dev, "Failed to register v4l2_device: %d\n", ret);
 		return ret;
@@ -1121,12 +1158,11 @@ static int fimc_md_probe(struct platform_device *pdev)
 		goto err_md;
 	}
 
-	platform_set_drvdata(pdev, fmd);
 
 	/* Protect the media graph while we're registering entities */
 	mutex_lock(&fmd->media_dev.graph_mutex);
 
-	ret = fimc_md_register_of_platform_entities(fmd, dev->of_node);
+	ret = fimc_md_register_platform_entities(fmd);
 	if (ret)
 		goto err_unlock;
 
@@ -1143,11 +1179,11 @@ static int fimc_md_probe(struct platform_device *pdev)
 	fmd->subdev_notifier.complete = subdev_notifier_complete;
 	fmd->num_sensors = 0;
 
-	ret = v4l2_async_notifier_register(&fmd->v4l2_dev,
-					   &fmd->subdev_notifier);
+	ret = v4l2_async_notifier_register(v4l2_dev, &fmd->subdev_notifier);
 	if (ret)
 		goto err_clk;
 
+	*md = fmd;
 	return 0;
 
 err_unlock:
@@ -1161,9 +1197,10 @@ err_md:
 	return ret;
 }
 
-static int fimc_md_remove(struct platform_device *pdev)
+int exynos_camera_unregister(struct fimc_md *fmd)
 {
-	struct fimc_md *fmd = platform_get_drvdata(pdev);
+	if (!fmd)
+		return 0;
 
 	v4l2_async_notifier_unregister(&fmd->subdev_notifier);
 
@@ -1175,36 +1212,70 @@ static int fimc_md_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id fimc_md_of_match[] = {
+static int exynos_camera_probe(struct platform_device *pdev)
+{
+	struct fimc_md *fmd = NULL;
+	int ret;
+
+	ret = exynos_camera_register(&pdev->dev, &fmd);
+	if (ret < 0)
+		return ret;
+
+	platform_set_drvdata(pdev, fmd);
+	return 0;
+}
+
+static int exynos_camera_remove(struct platform_device *pdev)
+{
+	struct fimc_md *fmd = platform_get_drvdata(pdev);
+
+	return exynos_camera_unregister(fmd);
+}
+
+static const struct of_device_id exynos_camera_of_match[] = {
 	{ .compatible = "samsung,exynos5250-fimc" },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, fimc_md_of_match);
 
-static struct platform_driver fimc_md_driver = {
-	.probe		= fimc_md_probe,
-	.remove		= fimc_md_remove,
+struct platform_driver exynos_camera_driver = {
+	.probe		= exynos_camera_probe,
+	.remove		= exynos_camera_remove,
 	.driver = {
-		.of_match_table = fimc_md_of_match,
-		.name		= "exynos5-fimc-md",
+		.of_match_table = exynos_camera_of_match,
+		.name		= "exynos-camera",
 		.owner		= THIS_MODULE,
 	}
 };
 
-static int __init fimc_md_init(void)
+static int __init exynos_camera_init(void)
 {
+	int ret;
+
 	request_module("s5p-csis");
-	return platform_driver_register(&fimc_md_driver);
+
+	ret = fimc_is_init();
+	if (ret < 0)
+		return ret;
+
+	ret = platform_driver_register(&exynos_camera_driver);
+
+	if (ret < 0)
+		fimc_is_cleanup();
+
+	return ret;
 }
 
-static void __exit fimc_md_exit(void)
+static void __exit exynos_camera_exit(void)
 {
-	platform_driver_unregister(&fimc_md_driver);
+	platform_driver_unregister(&exynos_camera_driver);
+	fimc_is_cleanup();
 }
 
-module_init(fimc_md_init);
-module_exit(fimc_md_exit);
+module_init(exynos_camera_init);
+module_exit(exynos_camera_exit);
 
+MODULE_AUTHOR("Arun Kumar K <arun.kk@samsung.com>");
 MODULE_AUTHOR("Shaik Ameer Basha <shaik.ameer@samsung.com>");
-MODULE_DESCRIPTION("EXYNOS5 camera subsystem media device driver");
+MODULE_DESCRIPTION("Samsung Exynos5/3 SoC series camera subsystem driver");
 MODULE_LICENSE("GPL v2");
