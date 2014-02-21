@@ -207,9 +207,12 @@ static int __fimc_pipeline_open(struct exynos_media_pipeline *ep,
 
 	si = v4l2_get_subdev_hostdata(sd);
 	fmd = entity_to_fimc_mdev(&sd->entity);
-	ret = clk_prepare_enable(fmd->clk_bayer);
-	if (ret < 0)
-		return ret;
+
+	if (!IS_ERR(fmd->clk_bayer)) {
+		ret = clk_prepare_enable(fmd->clk_bayer);
+		if (ret < 0)
+			return ret;
+	}
 
 	ret = fimc_pipeline_s_power(p, 1);
 	if (!ret)
@@ -240,7 +243,9 @@ static int __fimc_pipeline_close(struct exynos_media_pipeline *ep)
 
 	si = v4l2_get_subdev_hostdata(sd);
 	fmd = entity_to_fimc_mdev(&sd->entity);
-	clk_disable_unprepare(fmd->clk_bayer);
+
+	if (!IS_ERR(fmd->clk_bayer))
+		clk_disable_unprepare(fmd->clk_bayer);
 
 	if (p->subdevs[IDX_SENSOR]->grp_id == GRP_ID_FIMC_IS_SENSOR) {
 		struct fimc_pipeline_isp *p_isp;
@@ -1153,11 +1158,8 @@ int exynos_camera_register(struct device *dev, struct fimc_md **md)
 	}
 
 	fmd->clk_bayer = clk_get(dev, BAYER_CLK_NAME);
-	if (IS_ERR(fmd->clk_bayer)) {
-		v4l2_err(v4l2_dev, "Failed to get clk: %s\n", BAYER_CLK_NAME);
-		goto err_md;
-	}
-
+	if (IS_ERR(fmd->clk_bayer))
+		v4l2_info(v4l2_dev, "Couldn't get clk: " BAYER_CLK_NAME "\n");
 
 	/* Protect the media graph while we're registering entities */
 	mutex_lock(&fmd->media_dev.graph_mutex);
@@ -1189,7 +1191,8 @@ int exynos_camera_register(struct device *dev, struct fimc_md **md)
 err_unlock:
 	mutex_unlock(&fmd->media_dev.graph_mutex);
 err_clk:
-	clk_put(fmd->clk_bayer);
+	if (!IS_ERR(fmd->clk_bayer))
+		clk_put(fmd->clk_bayer);
 	fimc_md_unregister_entities(fmd);
 	media_device_unregister(&fmd->media_dev);
 err_md:
@@ -1207,7 +1210,9 @@ int exynos_camera_unregister(struct fimc_md *fmd)
 	fimc_md_unregister_entities(fmd);
 	fimc_md_pipelines_free(fmd);
 	media_device_unregister(&fmd->media_dev);
-	clk_put(fmd->clk_bayer);
+
+	if (!IS_ERR(fmd->clk_bayer))
+		clk_put(fmd->clk_bayer);
 
 	return 0;
 }
