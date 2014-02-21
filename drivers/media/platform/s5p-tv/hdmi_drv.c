@@ -48,14 +48,14 @@ MODULE_AUTHOR("Tomasz Stanislawski, <t.stanislaws@samsung.com>");
 MODULE_DESCRIPTION("Samsung HDMI");
 MODULE_LICENSE("GPL");
 
-struct hdmi_drv_data {
-	enum hdmi_type	type;
-	bool		i2c_hdmiphy;
-};
-
 enum hdmi_type {
 	HDMI_TYPE13,
 	HDMI_TYPE14,
+};
+
+struct hdmi_drv_data {
+	enum hdmi_type	type;
+	bool		i2c_hdmiphy;
 };
 
 struct hdmi_pulse {
@@ -759,6 +759,7 @@ static int hdmi_conf_apply(struct hdmi_device *hdmi_dev)
 	hdmi_write_mask(hdmi_dev, HDMI_PHY_RSTOUT,  0, HDMI_PHY_SW_RSTOUT);
 	mdelay(10);
 
+#if 0
 	/* configure timings */
 	ret = v4l2_subdev_call(hdmi_dev->phy_sd, video, s_dv_timings,
 				&hdmi_dev->cur_timings);
@@ -766,6 +767,7 @@ static int hdmi_conf_apply(struct hdmi_device *hdmi_dev)
 		dev_err(dev, "failed to set timings\n");
 		return ret;
 	}
+#endif
 
 	/* resetting HDMI core */
 	hdmi_write_mask(hdmi_dev, HDMI_CORE_RSTOUT,  0, HDMI_CORE_SW_RSTOUT);
@@ -1002,6 +1004,7 @@ static int hdmi_streamon(struct hdmi_device *hdev)
 	if (ret)
 		return ret;
 
+#if 0
 	ret = v4l2_subdev_call(hdev->phy_sd, video, s_stream, 1);
 	if (ret)
 		return ret;
@@ -1028,6 +1031,7 @@ static int hdmi_streamon(struct hdmi_device *hdev)
 		hdmi_dumpregs(hdev, "mhl - s_stream");
 		return -EIO;
 	}
+#endif
 
 	/* hdmiphy clock is used for HDMI in streaming mode */
 	clk_disable_unprepare(res->sclk_hdmi);
@@ -1180,8 +1184,10 @@ static int hdmi_dv_timings_cap(struct v4l2_subdev *sd,
 {
 	struct hdmi_device *hdev = sd_to_hdmi_dev(sd);
 
+#if 0
 	/* Let the phy fill in the pixelclock range */
 	v4l2_subdev_call(hdev->phy_sd, video, dv_timings_cap, cap);
+#endif
 	cap->type = V4L2_DV_BT_656_1120;
 	cap->bt.min_width = 720;
 	cap->bt.max_width = 1920;
@@ -1273,11 +1279,12 @@ static int hdmi_runtime_suspend(struct device *dev)
 	/* flag that device context is lost */
 	hdev->cur_conf_dirty = 1;
 
+#if 0
 	/* powering off PHY */
 	ret = v4l2_subdev_call(hdev->phy_sd, core, s_power, 0);
 	if (hdev->phy_sd && ret)
 		return ret;
-	
+#endif	
 
 	return 0;
 }
@@ -1290,10 +1297,12 @@ static int hdmi_runtime_resume(struct device *dev)
 
 	dev_dbg(dev, "%s\n", __func__);
 
+#if 0
 	/* starting PHY */
 	ret = v4l2_subdev_call(hdev->phy_sd, core, s_power, 1);
 	if (hdev->phy_sd && ret)
 		goto fail;
+#endif
 
 	ret = hdmi_resource_poweron(&hdev->res);
 	if (ret < 0)
@@ -1516,11 +1525,13 @@ static int hdmi_probe(struct platform_device *pdev)
 		goto fail_init;
 	}
 
+#if 0
  	hdmi_dev->phy_sd = hdmi_get_subdev(hdmi_dev, NULL, -1, "phy");
 	if (IS_ERR_OR_NULL(hdmi_dev->phy_sd)) {
 		ret = PTR_ERR(hdmi_dev->phy_sd);
 		goto fail_vdev;
 	}
+#endif
 
 	hdmi_dev->mhl_sd = hdmi_get_subdev(hdmi_dev, NULL, -1, "mhl");
 	if (IS_ERR_OR_NULL(hdmi_dev->mhl_sd)) {

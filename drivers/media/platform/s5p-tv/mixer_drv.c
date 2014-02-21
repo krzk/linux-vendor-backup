@@ -474,6 +474,9 @@ static struct of_device_id mxr_dt_match[] = {
 		.compatible = "samsung,exynos5250-mixer",
 		.data	= &exynos5_mxr_drv_data,
 	}, {
+		.compatible = "samsung,exynos5420-mixer",
+		.data	= &exynos5_mxr_drv_data,
+	}, {
 		/* end node */
 	}
 };
