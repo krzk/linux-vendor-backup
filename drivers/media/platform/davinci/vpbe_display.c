@@ -343,11 +343,6 @@ static int vpbe_start_streaming(struct vb2_queue *vq, unsigned int count)
 	struct vpbe_layer *layer = fh->layer;
 	int ret;
 
-	/* If buffer queue is empty, return error */
-	if (list_empty(&layer->dma_queue)) {
-		v4l2_err(&vpbe_dev->v4l2_dev, "buffer queue is empty\n");
-		return -ENOBUFS;
-	}
 	/* Get the next frame from the buffer queue */
 	layer->next_frm = layer->cur_frm = list_entry(layer->dma_queue.next,
 				struct vpbe_disp_buffer, list);
@@ -1406,6 +1401,7 @@ static int vpbe_display_reqbufs(struct file *file, void *priv,
 	q->mem_ops = &vb2_dma_contig_memops;
 	q->buf_struct_size = sizeof(struct vpbe_disp_buffer);
 	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
+	q->min_buffers_needed = 1;
 
 	ret = vb2_queue_init(q);
 	if (ret) {
