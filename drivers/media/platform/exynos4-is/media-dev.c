@@ -1661,16 +1661,20 @@ static int fimc_md_probe(struct platform_device *pdev)
 		goto err_attr;
 	}
 
-	fmd->subdev_notifier.subdevs = fmd->async_subdevs;
-	fmd->subdev_notifier.num_subdevs = fmd->num_sensors;
-	fmd->subdev_notifier.bound = subdev_notifier_bound;
-	fmd->subdev_notifier.complete = subdev_notifier_complete;
-	fmd->num_sensors = 0;
 
-	ret = v4l2_async_notifier_register(&fmd->v4l2_dev,
-					   &fmd->subdev_notifier);
-	if (ret)
-		goto err_clk_p;
+	if (fmd->num_sensors > 0) {
+		fmd->subdev_notifier.subdevs = fmd->async_subdevs;
+		fmd->subdev_notifier.num_subdevs = fmd->num_sensors;
+		fmd->subdev_notifier.bound = subdev_notifier_bound;
+		fmd->subdev_notifier.complete = subdev_notifier_complete;
+		fmd->num_sensors = 0;
+
+		ret = v4l2_async_notifier_register(&fmd->v4l2_dev,
+						   &fmd->subdev_notifier);
+
+		if (ret)
+			goto err_clk_p;
+	}
 
 	return 0;
 
