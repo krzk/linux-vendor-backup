@@ -1,7 +1,7 @@
 %define config_name tizen_defconfig
 %define abiver 1
 %define build_id %{config_name}.%{abiver}
-%define defaultDtb exynos4412-m0.dtb
+%define defaultDtb exynos4412-trats2.dtb
 %define buildarch arm
 
 Name: linux-kernel
@@ -86,7 +86,7 @@ make -s -C tools/lib/traceevent ARCH=%{buildarch} %{?_smp_mflags}
 make -s -C tools/perf WERROR=0 ARCH=%{buildarch}
 
 # 4. Create tar repo for build directory
-tar cpsf linux-kernel-build-%{fullVersion}.tar .
+tar cpf linux-kernel-build-%{fullVersion}.tar .
 
 %install
 QA_SKIP_BUILD_ROOT="DO_NOT_WANT"; export QA_SKIP_BUILD_ROOT
@@ -99,7 +99,6 @@ mkdir -p %{buildroot}/boot/
 # 2. Install uImage, System.map, ...
 install -m 755 arch/arm/boot/uImage %{buildroot}/boot/
 install -m 644 arch/arm/boot/dts/*.dtb %{buildroot}/boot/
-mv %{buildroot}/boot/exynos4412-m0.dtb %{buildroot}/boot/exynos4412-trats2.dtb
 
 install -m 644 System.map %{buildroot}/boot/System.map-%{fullVersion}
 install -m 644 .config %{buildroot}/boot/config-%{fullVersion}
