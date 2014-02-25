@@ -599,7 +599,7 @@ int fimc_isp_video_device_register(struct fimc_isp *isp,
 	q->mem_ops = &vb2_dma_contig_memops;
 	q->buf_struct_size = sizeof(struct isp_video_buf);
 	q->drv_priv = isp;
-	q->timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
+	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 	q->lock = &isp->video_lock;
 
 	ret = vb2_queue_init(q);
