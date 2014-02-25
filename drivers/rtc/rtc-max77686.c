@@ -477,7 +477,7 @@ static int max77686_rtc_init_reg(struct max77686_rtc_info *info)
 
 	/* Set RTC control register : Binary mode, 24hour mdoe */
 	data[0] = (1 << BCD_EN_SHIFT) | (1 << MODEL24_SHIFT);
-	data[1] = 0;
+	data[1] = (0 << BCD_EN_SHIFT) | (1 << MODEL24_SHIFT);
 
 	info->rtc_24hr_mode = 1;
 
