@@ -164,14 +164,6 @@ struct cs_cpu_dbs_info_s {
 	unsigned int enable:1;
 };
 
-struct lb_cpu_dbs_info_s {
-	struct cpu_dbs_common_info cdbs;
-	u64 prev_cpu_iowait;
-	struct cpufreq_frequency_table *freq_table;
-	unsigned int rate_mult;
-	unsigned int idle_time;
-};
-
 /* Per policy Governers sysfs tunables */
 struct od_dbs_tuners {
 	unsigned int ignore_nice_load;
@@ -189,14 +181,6 @@ struct cs_dbs_tuners {
 	unsigned int up_threshold;
 	unsigned int down_threshold;
 	unsigned int freq_step;
-};
-
-struct lb_dbs_tuners {
-	unsigned int ignore_nice;
-	unsigned int sampling_rate;
-	unsigned int sampling_down_factor;
-	unsigned int up_threshold;
-	unsigned int adj_up_threshold;
 };
 
 /* Common Governer data across policies */
