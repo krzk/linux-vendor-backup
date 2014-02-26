@@ -39,7 +39,7 @@
 
 static DEFINE_PER_CPU(struct od_cpu_dbs_info_s, od_cpu_dbs_info);
 
-static struct od_ops od_ops;
+struct od_ops od_ops;
 
 #ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND
 static struct cpufreq_governor cpufreq_gov_ondemand;
@@ -202,7 +202,7 @@ static void od_check_cpu(int cpu, unsigned int load)
 	}
 }
 
-static void od_dbs_timer(struct work_struct *work)
+void od_dbs_timer(struct work_struct *work)
 {
 	struct od_cpu_dbs_info_s *dbs_info =
 		container_of(work, struct od_cpu_dbs_info_s, cdbs.work.work);
@@ -486,7 +486,7 @@ static struct attribute_group od_attr_group_gov_pol = {
 
 /************************** sysfs end ************************/
 
-static int od_init(struct dbs_data *dbs_data)
+int od_init(struct dbs_data *dbs_data)
 {
 	struct od_dbs_tuners *tuners;
 	u64 idle_time;
@@ -528,14 +528,14 @@ static int od_init(struct dbs_data *dbs_data)
 	return 0;
 }
 
-static void od_exit(struct dbs_data *dbs_data)
+void od_exit(struct dbs_data *dbs_data)
 {
 	kfree(dbs_data->tuners);
 }
 
 define_get_cpu_dbs_routines(od_cpu_dbs_info);
 
-static struct od_ops od_ops = {
+struct od_ops od_ops = {
 	.powersave_bias_init_cpu = ondemand_powersave_bias_init_cpu,
 	.powersave_bias_target = generic_powersave_bias_target,
 	.freq_increase = dbs_freq_increase,

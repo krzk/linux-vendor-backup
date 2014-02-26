@@ -284,4 +284,12 @@ void od_register_powersave_bias_handler(unsigned int (*f)
 		(struct cpufreq_policy *, unsigned int, unsigned int),
 		unsigned int powersave_bias);
 void od_unregister_powersave_bias_handler(void);
+
+/* COMMON CODE FOR DEMAND BASED SWITCHING */
+void od_dbs_timer(struct work_struct *work);
+int od_init(struct dbs_data *dbs_data);
+void od_exit(struct dbs_data *dbs_data);
+
+extern struct od_ops od_ops;
+
 #endif /* _CPUFREQ_GOVERNOR_H */

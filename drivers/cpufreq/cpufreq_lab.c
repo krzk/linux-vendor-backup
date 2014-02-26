@@ -150,35 +150,6 @@ static void lb_check_cpu(int cpu, unsigned int load_freq)
 	dbs_freq_increase(policy, freq);
 }
 
-static void lb_dbs_timer(struct work_struct *work)
-{
-	struct lb_cpu_dbs_info_s *dbs_info =
-		container_of(work, struct lb_cpu_dbs_info_s, cdbs.work.work);
-	unsigned int cpu = dbs_info->cdbs.cur_policy->cpu;
-	struct lb_cpu_dbs_info_s *core_dbs_info = &per_cpu(lb_cpu_dbs_info,
-			cpu);
-	struct dbs_data *dbs_data = dbs_info->cdbs.cur_policy->governor_data;
-	struct lb_dbs_tuners *lb_tuners = dbs_data->tuners;
-	int delay;
-
-	/* Enable overclocking always for LAB governor */
-	if (cpufreq_boost_supported() && unlikely(!cpufreq_boost_enabled())) {
-		/* To avoid deadlock, mutex_lock() is called
-		 * after cpufreq_boost_trigger_state().
-		 */
-		cpufreq_boost_trigger_state(1);
-		mutex_lock(&core_dbs_info->cdbs.timer_mutex);
-	} else {
-		mutex_lock(&core_dbs_info->cdbs.timer_mutex);
-		dbs_check_cpu(dbs_data, cpu);
-	}
-
-	delay = delay_for_sampling_rate(lb_tuners->sampling_rate
-						* core_dbs_info->rate_mult);
-	gov_queue_work(dbs_data, dbs_info->cdbs.cur_policy, delay, false);
-	mutex_unlock(&core_dbs_info->cdbs.timer_mutex);
-}
-
 /************************** sysfs interface ************************/
 static struct common_dbs_data lb_dbs_cdata;
 
@@ -283,51 +254,10 @@ static struct attribute_group lb_attr_group_gov_pol = {
 
 static int lb_init(struct dbs_data *dbs_data)
 {
-	struct lb_dbs_tuners *tuners;
-	u64 idle_time;
-	int cpu;
 
-	tuners = kzalloc(sizeof(struct lb_dbs_tuners), GFP_KERNEL);
-	if (!tuners) {
-		pr_err("%s: kzalloc failed\n", __func__);
-		return -ENOMEM;
-	}
+	od_init(dbs_data);
 
-	cpu = get_cpu();
-	idle_time = get_cpu_idle_time_us(cpu, NULL);
-	put_cpu();
-	if (idle_time != -1ULL) {
-		/* Idle micro accounting is supported. Use finer thresholds */
-		tuners->up_threshold = MICRO_FREQUENCY_UP_THRESHOLD;
-		tuners->adj_up_threshold = MICRO_FREQUENCY_UP_THRESHOLD -
-			MICRO_FREQUENCY_DOWN_DIFFERENTIAL;
-		/*
-		 * In nohz/micro accounting case we set the minimum frequency
-		 * not depending on HZ, but fixed (very low). The deferred
-		 * timer might skip some samples if idle/sleeping as needed.
-		*/
-		dbs_data->min_sampling_rate = MICRO_FREQUENCY_MIN_SAMPLE_RATE;
-	} else {
-		tuners->up_threshold = DEF_FREQUENCY_UP_THRESHOLD;
-		tuners->adj_up_threshold = DEF_FREQUENCY_UP_THRESHOLD -
-			DEF_FREQUENCY_DOWN_DIFFERENTIAL;
-
-		/* For correct statistics, we need 10 ticks for each measure */
-		dbs_data->min_sampling_rate = MIN_SAMPLING_RATE_RATIO *
-			jiffies_to_usecs(10);
-	}
-
-	tuners->sampling_down_factor = DEF_SAMPLING_DOWN_FACTOR;
-	tuners->ignore_nice = 0;
-
-	dbs_data->tuners = tuners;
-	mutex_init(&dbs_data->mutex);
 	return 0;
-}
-
-static void lb_exit(struct dbs_data *dbs_data)
-{
-	kfree(dbs_data->tuners);
 }
 
 define_get_cpu_dbs_routines(lb_cpu_dbs_info);
@@ -338,10 +268,11 @@ static struct common_dbs_data lb_dbs_cdata = {
 	.attr_group_gov_pol = &lb_attr_group_gov_pol,
 	.get_cpu_cdbs = get_cpu_cdbs,
 	.get_cpu_dbs_info_s = get_cpu_dbs_info_s,
-	.gov_dbs_timer = lb_dbs_timer,
+	.gov_dbs_timer = od_dbs_timer,
 	.gov_check_cpu = lb_check_cpu,
+	.gov_ops = &od_ops,
 	.init = lb_init,
-	.exit = lb_exit,
+	.exit = od_exit,
 };
 
 static int lb_cpufreq_governor_dbs(struct cpufreq_policy *policy,
