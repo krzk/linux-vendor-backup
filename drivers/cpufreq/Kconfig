@@ -214,13 +214,15 @@ config CPU_FREQ_GOV_LAB
 	tristate "'lab' cpufreq policy governor"
 	select CPU_FREQ_TABLE
 	select CPU_FREQ_GOV_COMMON
+	select CPU_FREQ_GOV_ONDEMAND
 	help
 	  'lab' - This driver adds a dynamic cpufreq policy governor.
 
 	  To compile this driver as a module, choose M here: the
-	  module will be called cpufreq_ondemand.
+	  module will be called cpufreq_lab.
 
-	  For details, take a look at linux/Documentation/cpu-freq.
+	  LAB governor shall be regarded as an extension of the ONDEMAND on
+	  platforms with very weak HW support for power management.
 
 	  If in doubt, say N.
 
