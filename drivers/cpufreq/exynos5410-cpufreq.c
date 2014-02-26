@@ -49,6 +49,8 @@ struct cpufreq_clkdiv {
 	unsigned int	clkdiv1;
 };
 
+extern bool get_asv_is_bin2(void);
+
 static unsigned int exynos5410_volt_table[CPUFREQ_NUM_LEVELS];
 static struct cpufreq_frequency_table exynos5410_freq_table[] = {
 	{L0,  2100 * 1000},
@@ -393,14 +395,13 @@ static void __init set_volt_table(void)
 				exynos5410_volt_table[i]);
 	}
 
-	if (soc_is_exynos5410()) {
-		exynos5410_rev_num = samsung_rev();
+	min_support_idx = L13;
+	exynos5410_rev_num = samsung_rev();
+
+	if (get_asv_is_bin2()) 
+		max_support_idx = L7;
+	else 
 		max_support_idx = L5;
-		min_support_idx = L19;
-	} else {
-		max_support_idx = L3;
-		min_support_idx = L13;
-	}
 
 	for (i = L0; i < max_support_idx; i++)
 		exynos5410_freq_table[i].frequency = CPUFREQ_ENTRY_INVALID;

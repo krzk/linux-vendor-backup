@@ -248,7 +248,7 @@ enum table_version {
     ASV_TABLE_VER0,
     ASV_TABLE_VER1,
     ASV_TABLE_VER2,
-    ASV_TABLE_VER3,
+    ASV_TABLE_BIN2,
 };
 
 enum volt_offset {
