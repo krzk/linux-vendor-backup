@@ -16,6 +16,7 @@
 #include <linux/power/asv-driver.h>
 #include "exynos-asv.h"
 #include "exynos5410-asv.h"
+#include "exynos5410-bin2-asv.h"
 #include <mach/regs-pmu.h>
 
 static unsigned special_lot_group;
@@ -29,6 +30,12 @@ static const char * const special_lot_list[] = {
 	"NZXKR",
 	"NZXT6",
 };
+
+bool get_asv_is_bin2(void)
+{
+    return asv_table_version == ASV_TABLE_BIN2;
+}
+EXPORT_SYMBOL_GPL(get_asv_is_bin2);
 
 static unsigned int exynos5410_add_volt_offset(unsigned int voltage, enum volt_offset offset)
 {
@@ -141,10 +148,10 @@ static int __init exynos5410_init_asv_table(struct asv_info *asv_info)
 
 	switch (asv_info->type) {
 	case ASV_ARM:
-		asv_voltage = arm_asv_voltage;
+		asv_voltage = get_asv_is_bin2() ? arm_asv_voltage_bin2 : arm_asv_voltage;
 		break;
 	case ASV_KFC:
-		asv_voltage = kfc_asv_voltage;
+		asv_voltage = get_asv_is_bin2() ? kfc_asv_voltage_bin2 : kfc_asv_voltage;
 		break;
 	default:
 		return -EINVAL;
@@ -252,6 +259,12 @@ int __init exynos5410_asv_init(struct exynos_asv_common *exynos_info)
 		asv_group.ids, asv_group.hpm);
 
 	asv_table_version = (asv_group.package_id >> EXYNOS5410_TABLE_OFFSET) & EXYNOS5410_TABLE_MASK;
+
+	if (get_asv_is_bin2()) {
+		exynos5410_asv_member[0].nr_dvfs_level = ARM_BIN2_LEVEL_NR;
+		exynos5410_asv_member[1].nr_dvfs_level = KFC_BIN2_LEVEL_NR;
+	}
+
 	asv_volt_offset[ASV_ARM][0] = (asv_group.aux_info >> EXYNOS5410_EGLLOCK_UP_OFFSET) & EXYNOS5410_EGLLOCK_UP_MASK;
 	asv_volt_offset[ASV_ARM][1] = (asv_group.aux_info >> EXYNOS5410_KFCLOCK_DN_OFFSET) & EXYNOS5410_EGLLOCK_DN_MASK;
 	asv_volt_offset[ASV_KFC][0] = (asv_group.aux_info >> EXYNOS5410_KFCLOCK_UP_OFFSET) & EXYNOS5410_KFCLOCK_UP_MASK;
