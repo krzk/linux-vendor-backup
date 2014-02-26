@@ -290,6 +290,9 @@ void od_unregister_powersave_bias_handler(void);
 void od_dbs_timer(struct work_struct *work);
 int od_init(struct dbs_data *dbs_data);
 void od_exit(struct dbs_data *dbs_data);
+void od_check_cpu(int cpu, unsigned int load_freq);
+void update_sampling_rate(struct dbs_data *dbs_data,
+			  unsigned int new_rate);
 
 extern struct od_ops od_ops;
 

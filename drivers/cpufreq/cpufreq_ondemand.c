@@ -37,7 +37,7 @@
 #define MIN_FREQUENCY_UP_THRESHOLD		(11)
 #define MAX_FREQUENCY_UP_THRESHOLD		(100)
 
-static DEFINE_PER_CPU(struct od_cpu_dbs_info_s, od_cpu_dbs_info);
+DEFINE_PER_CPU(struct od_cpu_dbs_info_s, od_cpu_dbs_info);
 
 struct od_ops od_ops;
 
@@ -162,7 +162,7 @@ static void dbs_freq_increase(struct cpufreq_policy *p, unsigned int freq)
  * (default), then we try to increase frequency. Else, we adjust the frequency
  * proportional to load.
  */
-static void od_check_cpu(int cpu, unsigned int load)
+void od_check_cpu(int cpu, unsigned int load)
 {
 	struct od_cpu_dbs_info_s *dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
 	struct cpufreq_policy *policy = dbs_info->cdbs.cur_policy;
@@ -247,6 +247,9 @@ max_delay:
 /************************** sysfs interface ************************/
 static struct common_dbs_data od_dbs_cdata;
 
+#ifdef CONFIG_CPU_FREQ_GOV_LAB
+extern struct cpufreq_governor cpufreq_gov_lab;
+#endif
 /**
  * update_sampling_rate - update sampling rate effective immediately if needed.
  * @new_rate: new sampling rate
@@ -260,7 +263,7 @@ static struct common_dbs_data od_dbs_cdata;
  * reducing the sampling rate, we need to make the new value effective
  * immediately.
  */
-static void update_sampling_rate(struct dbs_data *dbs_data,
+void update_sampling_rate(struct dbs_data *dbs_data,
 		unsigned int new_rate)
 {
 	struct od_dbs_tuners *od_tuners = dbs_data->tuners;
@@ -277,7 +280,12 @@ static void update_sampling_rate(struct dbs_data *dbs_data,
 		policy = cpufreq_cpu_get(cpu);
 		if (!policy)
 			continue;
+#ifdef CONFIG_CPU_FREQ_GOV_LAB
+		if (policy->governor != &cpufreq_gov_ondemand &&
+		    policy->governor != &cpufreq_gov_lab) {
+#else
 		if (policy->governor != &cpufreq_gov_ondemand) {
+#endif
 			cpufreq_cpu_put(policy);
 			continue;
 		}
