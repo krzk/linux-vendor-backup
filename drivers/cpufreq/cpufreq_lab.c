@@ -365,11 +365,6 @@ static int __init cpufreq_gov_dbs_init(void)
 	return cpufreq_register_governor(&cpufreq_gov_lab);
 }
 
-static void __exit cpufreq_gov_dbs_exit(void)
-{
-	cpufreq_unregister_governor(&cpufreq_gov_lab);
-}
-
 MODULE_AUTHOR("Jonghwa Lee <jonghwa3.lee@samsung.com>");
 MODULE_AUTHOR("Lukasz Majewski <l.majewski@samsung.com>");
 MODULE_DESCRIPTION("'cpufreq_lab' - A dynamic cpufreq governor for "
@@ -381,4 +376,3 @@ fs_initcall(cpufreq_gov_dbs_init);
 #else
 module_init(cpufreq_gov_dbs_init);
 #endif
-module_exit(cpufreq_gov_dbs_exit);
