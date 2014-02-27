@@ -51,7 +51,7 @@ static int lb_ctrl_table_size, lb_num_of_states;
 static bool boost_init_state;
 
 static DECLARE_BITMAP(boost_hist, MAX_HIST);
-static DEFINE_PER_CPU(struct od_cpu_dbs_info_s, od_cpu_dbs_info);
+DECLARE_PER_CPU(struct od_cpu_dbs_info_s, od_cpu_dbs_info);
 
 struct cpufreq_governor cpufreq_gov_lab;
 
@@ -178,6 +178,10 @@ static void lb_check_cpu(int cpu, unsigned int load)
 		freq = policy->min;
 		break;
 
+	case LB_ONDEMAND:
+		od_check_cpu(cpu, load);
+		return;
+
 	default:
 		freq = op;
 	}
@@ -244,10 +248,44 @@ static ssize_t store_idle_threshold(struct kobject *a, struct attribute *b,
 }
 define_one_global_rw(idle_threshold);
 
+ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	struct dbs_data *dbs_data = lb_dbs_cdata.gdbs_data;
+	unsigned int input;
+	int ret;
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+
+	update_sampling_rate(dbs_data, input);
+	return count;
+}
+
+static ssize_t show_sampling_rate(struct kobject *kobj, struct attribute *attr,
+				  char *buf)
+{
+	struct od_dbs_tuners *tuners = lb_dbs_cdata.gdbs_data->tuners;
+
+	return sprintf(buf, "%u\n", tuners->sampling_rate);
+}
+define_one_global_rw(sampling_rate);
+
+static ssize_t show_sampling_rate_min(struct kobject *kobj,
+				      struct attribute *attr, char *buf)
+{
+	struct dbs_data *dbs_data = lb_dbs_cdata.gdbs_data;
+
+	return sprintf(buf, "%u\n", dbs_data->min_sampling_rate);
+}
+define_one_global_ro(sampling_rate_min);
+
 static struct attribute *dbs_attributes_gov_sys[] = {
+	&sampling_rate_min.attr,
 	&idle_avg_cpus_val.attr,
 	&idle_threshold.attr,
 	&idle_cpus_num.attr,
+	&sampling_rate.attr,
 	&load.attr,
 	NULL
 };
