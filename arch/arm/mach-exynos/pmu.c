@@ -12,6 +12,8 @@
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/bug.h>
+#include <linux/delay.h>
+#include <linux/pm.h>
 
 #include <mach/regs-clock.h>
 #include <mach/regs-pmu.h>
@@ -697,6 +699,23 @@ void exynos_set_dummy_state(bool on)
 	}
 }
 
+static void exynos5_power_off(void)
+{
+	unsigned int tmp;
+
+	pr_info("Power down.\n");
+	tmp = readl_relaxed(EXYNOS_PS_HOLD_CONTROL);
+	tmp &= ~(1 << 8);
+	writel_relaxed(tmp, EXYNOS_PS_HOLD_CONTROL);
+
+	/* Wait a little so we don't give a false warning below */
+	mdelay(100);
+
+	pr_err("Power down failed, please power off system manually.\n");
+	while (1)
+	;
+}
+
 static int __init exynos_pmu_init(void)
 {
 	unsigned int value, i, j;
@@ -810,6 +829,7 @@ static int __init exynos_pmu_init(void)
 			writel_relaxed(0x0, exynos5_list_diable_wfi_wfe[i]);
 
 		exynos_pmu_config = exynos5410_pmu_config;
+		pm_power_off = exynos5_power_off;
 		pr_info("EXYNOS5410 PMU Initialize\n");
 	} else {
 		pr_info("EXYNOS: PMU not supported\n");
