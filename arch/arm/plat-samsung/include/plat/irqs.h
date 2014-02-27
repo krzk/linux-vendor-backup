@@ -69,4 +69,7 @@
 #define S5P_IRQ_TYPE_EDGE_RISING	(0x03)
 #define S5P_IRQ_TYPE_EDGE_BOTH		(0x04)
 
+/* SGI: Software Generated Interrupt */
+#define IRQ_SGI(x)          (x)
+
 #endif /* __PLAT_SAMSUNG_IRQS_H */

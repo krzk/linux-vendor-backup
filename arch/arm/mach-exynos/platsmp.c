@@ -29,6 +29,7 @@
 #include <mach/hardware.h>
 #include <mach/regs-clock.h>
 #include <mach/regs-pmu.h>
+#include <mach/smc.h>
 
 #include <plat/cpu.h>
 
@@ -145,6 +146,15 @@ static int exynos_boot_secondary(unsigned int cpu, struct task_struct *idle)
 		unsigned long boot_addr;
 
 		smp_rmb();
+
+#ifdef CONFIG_ARM_TRUSTZONE
+		if (!soc_is_exynos5410()) {
+			if (soc_is_exynos4412())
+				exynos_smc(SMC_CMD_CPU1BOOT, cpu, 0, 0);
+			else
+				exynos_smc(SMC_CMD_CPU1BOOT, 0, 0, 0);
+		}
+#endif
 
 		boot_addr = virt_to_phys(exynos4_secondary_startup);
 
