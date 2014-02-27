@@ -43,6 +43,7 @@
 #define CLK_I2C7 268
 #define CLK_I2C_HDMI 269
 #define CLK_MCT 315
+#define CLK_TMU_APBIF 318
 #define CLK_MMC0 351
 #define CLK_MMC1 352
 #define CLK_MMC2 353
