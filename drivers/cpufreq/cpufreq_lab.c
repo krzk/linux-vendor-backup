@@ -1,18 +1,15 @@
 /*
- *  drivers/cpufreq/cpufreq_lab.c
- *
- *  LAB(Legacy Application Boost) cpufreq governor
- *
- *  Copyright (C) SAMSUNG Electronics. CO.
+ * Copyright (c) 2013-2014 Samsung Electronics Co., Ltd.
+ *		http://www.samsung.com
  *		Jonghwa Lee <jonghw3.lee@samusng.com>
  *		Lukasz Majewski <l.majewski@samsung.com>
+ *
+ * LAB (Legacy Application Boost) cpufreq governor
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/cpufreq.h>
 #include <linux/init.h>
@@ -27,19 +24,15 @@
 #include <linux/types.h>
 #include <linux/cpuidle.h>
 #include <linux/slab.h>
+#include <linux/of.h>
 
 #include "cpufreq_governor.h"
 
-#define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(10)
-#define DEF_FREQUENCY_UP_THRESHOLD		(80)
-#define DEF_SAMPLING_DOWN_FACTOR		(1)
-#define MICRO_FREQUENCY_DOWN_DIFFERENTIAL	(3)
-#define MICRO_FREQUENCY_UP_THRESHOLD		(95)
-#define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(10000)
-
 #define MAX_HIST		5
-#define FREQ_STEP		50000
-#define IDLE_THRESHOLD		90
+
+#define LB_BOOST_ENABLE        ~0UL
+#define LB_MIN_FREQ            ~1UL
+#define LB_ONDEMAND             0
 
 /* Pre-calculated summation of weight, 0.5
  * 1
@@ -52,29 +45,21 @@ static int history_weight_sum[] = { 100, 150, 175, 187, 193 };
 
 static unsigned int idle_avg[NR_CPUS];
 static unsigned int idle_hist[NR_CPUS][MAX_HIST];
+static int idle_cpus, lb_threshold = 90;
+static unsigned int *lb_ctrl_table, lb_load;
+static int lb_ctrl_table_size, lb_num_of_states;
+static bool boost_init_state;
 
-static DEFINE_PER_CPU(struct lb_cpu_dbs_info_s, lb_cpu_dbs_info);
+static DECLARE_BITMAP(boost_hist, MAX_HIST);
+static DEFINE_PER_CPU(struct od_cpu_dbs_info_s, od_cpu_dbs_info);
 
-#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_LAB
-static struct cpufreq_governor cpufreq_gov_lab;
-#endif
+struct cpufreq_governor cpufreq_gov_lab;
 
-/* Single polynomial approx -> all CPUs busy */
-static int a_all = -6, b_all = 1331;
-/* Single polynomial approx -> one CPUs busy */
-static int a_one = 10, b_one = 205;
-/* Single polynomial approx -> 2,3... CPUs busy */
-static int a_rest = 4, b_rest1 = 100, b_rest2 = 300;
-/* Polynomial divider */
-static int poly_div = 1024;
 
-static void dbs_freq_increase(struct cpufreq_policy *p, unsigned int freq)
-{
-	if (p->cur == freq)
-		return;
-
-	__cpufreq_driver_target(p, freq, CPUFREQ_RELATION_L);
-}
+static struct lb_wq_boost_data {
+	bool state;
+	struct work_struct work;
+} lb_boost_data;
 
 /* Calculate average of idle time with weighting 50% less to older one.
  * With weight, average can be affected by current phase more rapidly than
@@ -96,142 +81,174 @@ static inline int cpu_idle_calc_avg(unsigned int *p, int size)
 	return (int) (sum / history_weight_sum[size - 1]);
 }
 
+static unsigned int lb_chose_freq(unsigned int load, int idle_cpus)
+{
+	unsigned int p, q = 100 / lb_num_of_states;
+	int idx;
+
+	for (idx = 0, p = q; idx < lb_num_of_states; idx++, p += q)
+		if (load <= p)
+			break;
+
+	return *(lb_ctrl_table + (lb_num_of_states * idle_cpus) + idx);
+}
+
+static void lb_cpufreq_boost_work(struct work_struct *work)
+{
+	struct lb_wq_boost_data *d = container_of(work,
+						  struct lb_wq_boost_data,
+						  work);
+	cpufreq_boost_trigger_state(d->state);
+}
+
+static struct common_dbs_data lb_dbs_cdata;
 /*
  * LAB governor policy adjustement
  */
-static void lb_check_cpu(int cpu, unsigned int load_freq)
+static void lb_check_cpu(int cpu, unsigned int load)
 {
-	struct lb_cpu_dbs_info_s *dbs_info = &per_cpu(lb_cpu_dbs_info, cpu);
+	struct od_cpu_dbs_info_s *dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
 	struct cpufreq_policy *policy = dbs_info->cdbs.cur_policy;
-	int i, idx, idle_cpus = 0, b = 0;
+	unsigned int freq = 0, op;
 	static int cnt = 0;
-	unsigned int freq = 0;
+	int i, idx, bs;
 
+	idle_cpus = 0;
+	lb_load = load;
 	idx = cnt++ % MAX_HIST;
 
 	for_each_possible_cpu(i) {
-		struct lb_cpu_dbs_info_s *dbs_cpu_info =
-			&per_cpu(lb_cpu_dbs_info, i);
+		struct od_cpu_dbs_info_s *dbs_cpu_info =
+			&per_cpu(od_cpu_dbs_info, i);
 
 		idle_hist[i][idx] = dbs_cpu_info->idle_time;
 		idle_avg[i] = cpu_idle_calc_avg(idle_hist[i],
 					cnt < MAX_HIST ? cnt : MAX_HIST);
 
-		if (idle_avg[i] > IDLE_THRESHOLD)
+		if (idle_avg[i] > lb_threshold)
 			idle_cpus++;
 	}
 
 	if (idle_cpus < 0 || idle_cpus > NR_CPUS) {
-		pr_warn("idle_cpus: %d out of range\n", idle_cpus);
+		pr_warn("%s: idle_cpus: %d out of range\n", __func__,
+			idle_cpus);
 		return;
 	}
 
-	if (idle_cpus == 0) {
-		/* Full load -> reduce freq */
-		freq = policy->max * (a_all * load_freq + b_all) / poly_div;
-	} else if (idle_cpus == NR_CPUS) {
-		/* Idle cpus */
+	if (!lb_ctrl_table)
+		return;
+
+	op = lb_chose_freq(load, idle_cpus);
+	if (op == LB_BOOST_ENABLE)
+		set_bit(idx, boost_hist);
+	else
+		clear_bit(idx, boost_hist);
+
+	bs = cpufreq_boost_enabled();
+	/*
+	 * - To disable boost -
+	 *
+	 * Operation different than LB_BOOST_ENABLE is
+	 * required for at least MAX_HIST previous operations
+	 */
+	if (bs && bitmap_empty(boost_hist, MAX_HIST)) {
+		lb_boost_data.state = false;
+		schedule_work_on(cpu, &lb_boost_data.work);
+	}
+
+	/*
+	 * - To enable boost -
+	 *
+	 * Only (MAX_HIST - 1) bits are required. This allows entering
+	 * BOOST mode earlier, since we skip one "round" of LAB operation
+	 * before work is executed.
+	 */
+	if (!bs &&
+	    (bitmap_weight(boost_hist, MAX_HIST) == (MAX_HIST - 1))) {
+		lb_boost_data.state = true;
+		schedule_work_on(cpu, &lb_boost_data.work);
+	}
+
+	switch (op) {
+	case LB_BOOST_ENABLE:
+		freq = policy->max;
+		break;
+
+	case LB_MIN_FREQ:
 		freq = policy->min;
-	} else if (idle_cpus == (NR_CPUS - 1)) {
-		freq = policy->max * (a_one * load_freq + b_one) / poly_div;
-	} else {
-		/* Adjust frequency with number of available CPUS */
-		/* smaller idle_cpus -> smaller frequency */
-		b = ((idle_cpus - 1) * b_rest1) + b_rest2;
-		freq = policy->max * (a_rest * load_freq + b) / poly_div;
-	}
-#if 0 
-	if (!idx)
-		pr_info("p->max:%d,freq: %d,idle_cpus: %d,avg : %d %d %d %d load_f: %d\n",
-		       policy->max, freq, idle_cpus, idle_avg[0], idle_avg[1],
-			idle_avg[2], idle_avg[3], load_freq);
-#endif
+		break;
 
-	dbs_freq_increase(policy, freq);
+	default:
+		freq = op;
+	}
+
+	if (policy->cur == freq)
+		return;
+
+	__cpufreq_driver_target(policy, freq, CPUFREQ_RELATION_L);
 }
 
-/************************** sysfs interface ************************/
-static struct common_dbs_data lb_dbs_cdata;
-
-/**
- * update_sampling_rate - update sampling rate effective immediately if needed.
- * @new_rate: new sampling rate
- *
- * If new rate is smaller than the old, simply updating
- * dbs_tuners_int.sampling_rate might not be appropriate. For example, if the
- * original sampling_rate was 1 second and the requested new sampling rate is 10
- * ms because the user needs immediate reaction from lab governor, but not
- * sure if higher frequency will be required or not, then, the governor may
- * change the sampling rate too late; up to 1 second later. Thus, if we are
- * reducing the sampling rate, we need to make the new value effective
- * immediately.
- */
-static void update_sampling_rate(struct dbs_data *dbs_data,
-			unsigned int new_rate)
+static ssize_t show_load(struct kobject *kobj,
+			 struct attribute *attr, char *buf)
 {
-	struct lb_dbs_tuners *lb_tuners = dbs_data->tuners;
-	int cpu;
+	return sprintf(buf, "%u\n", lb_load);
+}
+define_one_global_ro(load);
 
-	lb_tuners->sampling_rate = new_rate = max(new_rate,
-			dbs_data->min_sampling_rate);
+static ssize_t show_idle_cpus_num(struct kobject *kobj,
+				  struct attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", idle_cpus);
+}
+define_one_global_ro(idle_cpus_num);
 
-	for_each_online_cpu(cpu) {
-		struct cpufreq_policy *policy;
-		struct lb_cpu_dbs_info_s *dbs_info;
-		unsigned long next_sampling, appointed_at;
+static ssize_t show_idle_avg_cpus_val(struct kobject *kobj,
+				      struct attribute *attr, char *buf)
+{
+	char off;
+	int i;
 
-		policy = cpufreq_cpu_get(cpu);
-		if (!policy)
-			continue;
-		if (policy->governor != &cpufreq_gov_lab) {
-			cpufreq_cpu_put(policy);
-			continue;
-		}
-		dbs_info = &per_cpu(lb_cpu_dbs_info, cpu);
-		cpufreq_cpu_put(policy);
+	for (i = 0, off = 0; i < NR_CPUS; i++)
+		off += sprintf(buf + off, "%u ", idle_avg[i]);
 
-		mutex_lock(&dbs_info->cdbs.timer_mutex);
+	*(buf + off - 1) = '\n';
 
-		if (!delayed_work_pending(&dbs_info->cdbs.work)) {
-			mutex_unlock(&dbs_info->cdbs.timer_mutex);
-			continue;
-		}
+	return off;
+}
+define_one_global_ro(idle_avg_cpus_val);
 
-		next_sampling = jiffies + usecs_to_jiffies(new_rate);
-		appointed_at = dbs_info->cdbs.work.timer.expires;
-
-		if (time_before(next_sampling, appointed_at)) {
-
-			mutex_unlock(&dbs_info->cdbs.timer_mutex);
-			cancel_delayed_work_sync(&dbs_info->cdbs.work);
-			mutex_lock(&dbs_info->cdbs.timer_mutex);
-
-			schedule_delayed_work_on(cpu, &dbs_info->cdbs.work,
-					usecs_to_jiffies(new_rate));
-
-		}
-		mutex_unlock(&dbs_info->cdbs.timer_mutex);
-	}
+static ssize_t show_idle_threshold(struct kobject *kobj,
+				   struct attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", lb_threshold);
 }
 
-static ssize_t store_sampling_rate(struct dbs_data *dbs_data, const char *buf,
-				size_t count)
+static ssize_t store_idle_threshold(struct kobject *a, struct attribute *b,
+				    const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned int val;
 	int ret;
-	ret = sscanf(buf, "%u", &input);
+
+	ret = sscanf(buf, "%u", &val);
 	if (ret != 1)
 		return -EINVAL;
 
-	update_sampling_rate(dbs_data, input);
+	if (val < 0 || val > 100) {
+		pr_err("%s: Only value in a range 0 to 100 accepted\n",
+		       __func__);
+		return -EINVAL;
+	}
+
+	lb_threshold = val;
 	return count;
 }
-
-show_store_one(lb, sampling_rate);
-gov_sys_pol_attr_rw(sampling_rate);
+define_one_global_rw(idle_threshold);
 
 static struct attribute *dbs_attributes_gov_sys[] = {
-	&sampling_rate_gov_sys.attr,
+	&idle_avg_cpus_val.attr,
+	&idle_threshold.attr,
+	&idle_cpus_num.attr,
+	&load.attr,
 	NULL
 };
 
@@ -240,39 +257,115 @@ static struct attribute_group lb_attr_group_gov_sys = {
 	.name = "lab",
 };
 
-static struct attribute *dbs_attributes_gov_pol[] = {
-	&sampling_rate_gov_pol.attr,
-	NULL
-};
-
-static struct attribute_group lb_attr_group_gov_pol = {
-	.attrs = dbs_attributes_gov_pol,
-	.name = "lab",
-};
-
-/************************** sysfs end ************************/
-
-static int lb_init(struct dbs_data *dbs_data)
+static int lb_ctrl_table_of_init(struct device_node *dn,
+				 unsigned int **ctrl_tab, int size)
 {
+	struct property *pp;
+	int len;
 
-	od_init(dbs_data);
+	pp = of_find_property(dn, "lab-ctrl-freq", &len);
+	if (!pp) {
+		pr_err("%s: Property: 'lab-ctrl-freq'  not found\n", __func__);
+		return -ENODEV;
+	}
+
+	if (len != (size * sizeof(**ctrl_tab))) {
+		pr_err("%s: Wrong 'lab-ctrl-freq' size\n", __func__);
+		return -EINVAL;
+	}
+
+	*ctrl_tab = kzalloc(len, GFP_KERNEL);
+	if (!*ctrl_tab) {
+		pr_err("%s: Not enough memory for LAB control structure\n",
+		       __func__);
+		return -ENOMEM;
+	}
+
+	if (of_property_read_u32_array(dn, pp->name, *ctrl_tab, size)) {
+		pr_err("Property: %s cannot be read!\n", pp->name);
+		return -ENODEV;
+	}
 
 	return 0;
 }
 
-define_get_cpu_dbs_routines(lb_cpu_dbs_info);
+static int lb_of_init(void)
+{
+	struct device_node *dn;
+	struct property *pp;
+	int ret;
+
+	dn = of_find_node_by_path("/cpufreq");
+	if (!dn) {
+		pr_err("%s: Node: '/cpufreq/' not found\n", __func__);
+		return -ENODEV;
+	}
+
+	pp = of_find_property(dn, "lab-num-of-states", NULL);
+	if (!pp) {
+		pr_err("%s: Property: 'lab-num-of-states'  not found\n",
+		       __func__);
+		ret = -ENODEV;
+		goto dn_err;
+	}
+	lb_num_of_states = be32_to_cpup(pp->value);
+
+	lb_ctrl_table_size = lb_num_of_states * (NR_CPUS + 1);
+	ret = lb_ctrl_table_of_init(dn, &lb_ctrl_table, lb_ctrl_table_size);
+	if (ret) {
+		kfree(lb_ctrl_table);
+		lb_ctrl_table = NULL;
+		pr_err("%s: Cannot parse LAB control structure from OF\n",
+		       __func__);
+		return ret;
+	}
+
+dn_err:
+	of_node_put(dn);
+	return ret;
+}
+
+static int lb_init(struct dbs_data *dbs_data)
+{
+	int ret;
+
+	ret = lb_of_init();
+	if (ret)
+		return ret;
+
+	boost_init_state = cpufreq_boost_enabled();
+	if (boost_init_state)
+		cpufreq_boost_trigger_state(false);
+
+	od_init(dbs_data);
+
+	INIT_WORK(&lb_boost_data.work, lb_cpufreq_boost_work);
+
+	return 0;
+}
+
+void lb_exit(struct dbs_data *dbs_data)
+{
+	od_exit(dbs_data);
+
+	kfree(lb_ctrl_table);
+	lb_ctrl_table = NULL;
+
+	cpufreq_boost_trigger_state(boost_init_state);
+}
+
+define_get_cpu_dbs_routines(od_cpu_dbs_info);
 
 static struct common_dbs_data lb_dbs_cdata = {
 	.governor = GOV_LAB,
 	.attr_group_gov_sys = &lb_attr_group_gov_sys,
-	.attr_group_gov_pol = &lb_attr_group_gov_pol,
 	.get_cpu_cdbs = get_cpu_cdbs,
 	.get_cpu_dbs_info_s = get_cpu_dbs_info_s,
 	.gov_dbs_timer = od_dbs_timer,
 	.gov_check_cpu = lb_check_cpu,
 	.gov_ops = &od_ops,
 	.init = lb_init,
-	.exit = od_exit,
+	.exit = lb_exit,
 };
 
 static int lb_cpufreq_governor_dbs(struct cpufreq_policy *policy,
@@ -281,13 +374,10 @@ static int lb_cpufreq_governor_dbs(struct cpufreq_policy *policy,
 	return cpufreq_governor_dbs(policy, &lb_dbs_cdata, event);
 }
 
-#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_LAB
-static
-#endif
 struct cpufreq_governor cpufreq_gov_lab = {
 	.name			= "lab",
 	.governor		= lb_cpufreq_governor_dbs,
-	.max_transition_latency	= TRANSITION_LATENCY_LIMIT,
+	.max_transition_latency = TRANSITION_LATENCY_LIMIT,
 	.owner			= THIS_MODULE,
 };
 

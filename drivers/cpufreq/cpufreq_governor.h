@@ -153,6 +153,7 @@ struct od_cpu_dbs_info_s {
 	unsigned int freq_lo_jiffies;
 	unsigned int freq_hi_jiffies;
 	unsigned int rate_mult;
+	unsigned int idle_time;
 	unsigned int sample_type:1;
 };
 
