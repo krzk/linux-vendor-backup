@@ -211,18 +211,18 @@ config CPU_FREQ_GOV_CONSERVATIVE
 	  If in doubt, say N.
 
 config CPU_FREQ_GOV_LAB
-	tristate "'lab' cpufreq policy governor"
+	bool "'lab' cpufreq policy governor - ONDEMAND extension"
 	select CPU_FREQ_TABLE
 	select CPU_FREQ_GOV_COMMON
 	select CPU_FREQ_GOV_ONDEMAND
 	help
 	  'lab' - This driver adds a dynamic cpufreq policy governor.
 
-	  To compile this driver as a module, choose M here: the
-	  module will be called cpufreq_lab.
-
 	  LAB governor shall be regarded as an extension of the ONDEMAND on
 	  platforms with very weak HW support for power management.
+
+	  LAB governor can be either compiled in or not. It is not possible to
+	  compile it as module because of explicit ONDEMAND dependency.
 
 	  If in doubt, say N.
 
