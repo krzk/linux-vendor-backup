@@ -63,6 +63,8 @@
 #include "common.h"
 #include "pmic-77686.h"
 
+#include <linux/w1-gpio.h>
+
 extern void exynos4_setup_dwmci_cfg_gpio(struct platform_device *dev, int width);
 
 /* Following are default values for UCON, ULCON and UFCON UART registers */
@@ -211,6 +213,23 @@ static struct 	platform_device 	gpio_device_i2c4 = {
 	.id  	= 4,    // adepter number
 	.dev.platform_data = &i2c4_gpio_platdata,
 };
+
+#if defined(CONFIG_W1_MASTER_GPIO) || defined(CONFIG_W1_MASTER_GPIO_MODULE)
+/* Enables W1 on Pin 6 of the I/-Header of U3 */
+/* Breaks support for I/O shield board */
+#define               GPIO_W1         EXYNOS4_GPX1(5) /* GPIO-PIN 204 */
+
+static struct w1_gpio_platform_data w1_gpio_pdata = {
+       .pin = GPIO_W1,
+       .is_open_drain = 0,
+};
+
+static struct platform_device odroidu3_w1_device = {
+   .name  = "w1-gpio",
+   .id    = -1,
+   .dev.platform_data      = &w1_gpio_pdata,
+};
+#endif
 
 #if defined(CONFIG_GPIO_PCA953X)
 static struct pca953x_platform_data odroid_gpio_expander_pdata = {
@@ -489,6 +508,9 @@ static struct platform_device *hkdk4412_devices[] __initdata = {
 	&s3c_device_i2c3,
 #if defined(CONFIG_ODROID_U2)
 	&gpio_device_i2c4,
+#if defined(CONFIG_W1_MASTER_GPIO) || defined(CONFIG_W1_MASTER_GPIO_MODULE)
+        &odroidu3_w1_device,
+#endif
 #endif
 	&s3c_device_i2c7,
 	&s3c_device_rtc,
