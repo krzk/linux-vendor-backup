@@ -39,12 +39,24 @@ extern void exynos_cpu_die(unsigned int cpu);
 /* PMU(Power Management Unit) support */
 
 #define PMU_TABLE_END	NULL
+#define CLUSTER_NUM     2
 
 enum sys_powerdown {
 	SYS_AFTR,
 	SYS_LPA,
 	SYS_SLEEP,
 	NUM_SYS_POWERDOWN,
+};
+
+enum c2c_pwr_mode {
+    MIN_LATENCY,
+    SHORT_LATENCY,
+    MAX_LATENCY,
+};
+
+enum running_cpu {
+    KFC,
+    ARM,
 };
 
 extern unsigned long l2x0_regs_phys;
