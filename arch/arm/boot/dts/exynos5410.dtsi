@@ -555,4 +555,9 @@
 		clock-names = "tmu_apbif";
 	};
 
+    pmu_syscon: syscon@10040000 {
+        compatible = "samsung,exynos5410-pmu", "syscon";
+        reg = <0x10040000 0x5000>;
+    };
+
 };
