@@ -98,6 +98,7 @@
 		regulator-max-microvolt = <3300000>;
 		gpio = <&gpa1 1 1>;
 		enable-active-high;
+		regulator-always-on;
 		regulator-boot-on;
 	};
 
@@ -105,7 +106,6 @@
 		bus-width = <4>;
 		pinctrl-0 = <&sd2_clk &sd2_cmd &sd2_cd &sd2_bus4>;
 		pinctrl-names = "default";
-		vmmc-supply = <&regulator_p3v3>;
 		status = "okay";
 	};
 
