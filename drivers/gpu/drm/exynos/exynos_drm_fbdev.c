@@ -16,7 +16,6 @@
 #include <drm/drm_crtc.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_crtc_helper.h>
-#include <ump/ump_kernel_interface_ref_drv.h>
 
 #include "exynos_drm_drv.h"
 #include "exynos_drm_fb.h"
@@ -25,8 +24,6 @@
 
 #define MAX_CONNECTOR		4
 #define PREFERRED_BPP		32
-#define GET_UMP_SECURE_ID_BUF1   _IOWR('m', 311, unsigned int)
-#define GET_UMP_SECURE_ID_BUF2   _IOWR('m', 312, unsigned int)
 
 #define to_exynos_fbdev(x)	container_of(x, struct exynos_drm_fbdev,\
 				drm_fb_helper)
@@ -65,57 +62,6 @@ static int exynos_drm_fb_mmap(struct fb_info *info,
 	return 0;
 }
 
-static int _disp_get_ump_secure_id(struct fb_info *info, unsigned long arg, int buf) {
-
-        int buf_len = info->fix.smem_len;
-
-        u32 __user *psecureid = (u32 __user *) arg;
-        ump_secure_id secure_id;
-        ump_dd_physical_block ump_memory_description;
-        ump_dd_handle ump_wrapped_buffer;
-
-        ump_memory_description.addr = info->fix.smem_start + (buf_len * buf);
-        ump_memory_description.size = info->fix.smem_len;
-                                        
-        if(buf > 0) { 
-                ump_memory_description.addr += (buf_len * (buf - 1));
-                ump_memory_description.size = buf_len;
-        } 
-        
-        ump_wrapped_buffer = ump_dd_handle_create_from_phys_blocks(&ump_memory_description, 1);
-
-        secure_id = ump_dd_secure_id_get(ump_wrapped_buffer);
-        
-        return put_user((unsigned int)secure_id, psecureid);
-}
-
-static int do_hkdk_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg) 
-{
-        int ret = 0;
-
-        switch (cmd) {
-        case GET_UMP_SECURE_ID_BUF1: {
-                pr_emerg("exynos_drm: GET_UMP_SECURE_ID_BUF1 called\n");
-		return _disp_get_ump_secure_id(info, arg, 0);
-                break;
-        }
-
-        case GET_UMP_SECURE_ID_BUF2: {
-                pr_emerg("exynos_drm: GET_UMP_SECURE_ID_BUF2 called\n");
-		return _disp_get_ump_secure_id(info, arg, 1);
-                break;
-        }
-
-        default:
-                printk(KERN_ERR "exynos_drm: unknown ioctl command: %x\n", cmd);
-                ret =  -EINVAL;
-                break;
-        }
-        return ret;
-}
-
-
-
 static struct fb_ops exynos_drm_fb_ops = {
 	.owner		= THIS_MODULE,
 	.fb_mmap        = exynos_drm_fb_mmap,
@@ -127,7 +73,6 @@ static struct fb_ops exynos_drm_fb_ops = {
 	.fb_blank	= drm_fb_helper_blank,
 	.fb_pan_display	= drm_fb_helper_pan_display,
 	.fb_setcmap	= drm_fb_helper_setcmap,
-	.fb_ioctl = do_hkdk_ioctl,
 };
 
 static int exynos_drm_fbdev_update(struct drm_fb_helper *helper,
