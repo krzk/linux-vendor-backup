@@ -468,11 +468,6 @@
 		status = "okay";
 	};
 
-	register-debug {
-		compatible = "generic,register-debug";
-		status = "okay";
-	};
-
 	camera {
 		status = "okay";
 
