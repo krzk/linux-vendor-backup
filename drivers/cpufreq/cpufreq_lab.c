@@ -44,8 +44,8 @@
  */
 static int history_weight_sum[] = { 100, 150, 175, 187, 193 };
 
-static unsigned int idle_avg[NR_CPUS];
-static unsigned int idle_hist[NR_CPUS][MAX_HIST];
+static unsigned int *idle_avg;
+static unsigned int *idle_hist;
 static int idle_cpus, lb_threshold = 90;
 static unsigned int *lb_ctrl_table, lb_load;
 static int lb_ctrl_table_size, lb_num_of_states;
@@ -123,15 +123,15 @@ static void lb_check_cpu(int cpu, unsigned int load)
 		struct od_cpu_dbs_info_s *dbs_cpu_info =
 			&per_cpu(od_cpu_dbs_info, i);
 
-		idle_hist[i][idx] = dbs_cpu_info->idle_time;
-		idle_avg[i] = cpu_idle_calc_avg(idle_hist[i],
+		idle_hist[i * MAX_HIST + idx] = dbs_cpu_info->idle_time;
+		idle_avg[i] = cpu_idle_calc_avg(&idle_hist[i * MAX_HIST],
 					cnt < MAX_HIST ? cnt : MAX_HIST);
 
 		if (idle_avg[i] > lb_threshold)
 			idle_cpus++;
 	}
 
-	if (idle_cpus < 0 || idle_cpus > NR_CPUS) {
+	if (idle_cpus < 0 || idle_cpus > num_possible_cpus()) {
 		pr_warn("%s: idle_cpus: %d out of range\n", __func__,
 			idle_cpus);
 		return;
@@ -214,7 +214,7 @@ static ssize_t show_idle_avg_cpus_val(struct kobject *kobj,
 	char off;
 	int i;
 
-	for (i = 0, off = 0; i < NR_CPUS; i++)
+	for (i = 0, off = 0; i < num_possible_cpus(); i++)
 		off += sprintf(buf + off, "%u ", idle_avg[i]);
 
 	*(buf + off - 1) = '\n';
@@ -350,7 +350,7 @@ static int lb_of_init(void)
 	}
 	lb_num_of_states = be32_to_cpup(pp->value);
 
-	lb_ctrl_table_size = lb_num_of_states * (NR_CPUS + 1);
+	lb_ctrl_table_size = lb_num_of_states * (num_possible_cpus() + 1);
 	ret = lb_ctrl_table_of_init(dn, &lb_ctrl_table, lb_ctrl_table_size);
 	if (ret) {
 		kfree(lb_ctrl_table);
@@ -369,9 +369,23 @@ static int lb_init(struct dbs_data *dbs_data)
 {
 	int ret;
 
+	idle_avg = kzalloc(num_possible_cpus() * sizeof(*idle_avg), GFP_KERNEL);
+	if (!idle_avg) {
+		pr_err("%s: Not enough memory", __func__);
+		return -ENOMEM;
+	}
+
+	idle_hist = kzalloc(num_possible_cpus() * MAX_HIST * sizeof(*idle_hist),
+			    GFP_KERNEL);
+	if (!idle_hist) {
+		pr_err("%s: Not enough memory", __func__);
+		ret = -ENOMEM;
+		goto err_idle_avg;
+	}
+
 	ret = lb_of_init();
 	if (ret)
-		return ret;
+		goto err_idle_hist;
 
 	boost_init_state = cpufreq_boost_enabled();
 	if (boost_init_state)
@@ -382,6 +396,13 @@ static int lb_init(struct dbs_data *dbs_data)
 	INIT_WORK(&lb_boost_data.work, lb_cpufreq_boost_work);
 
 	return 0;
+
+err_idle_hist:
+	kfree(idle_hist);
+err_idle_avg:
+	kfree(idle_avg);
+
+	return ret;
 }
 
 void lb_exit(struct dbs_data *dbs_data)
@@ -392,6 +413,9 @@ void lb_exit(struct dbs_data *dbs_data)
 	lb_ctrl_table = NULL;
 
 	cpufreq_boost_trigger_state(boost_init_state);
+
+	kfree(idle_avg);
+	kfree(idle_hist);
 }
 
 define_get_cpu_dbs_routines(od_cpu_dbs_info);
