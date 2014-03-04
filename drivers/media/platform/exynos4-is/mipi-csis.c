@@ -115,8 +115,13 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define S5PCSIS_INTSRC_ERR_ECC		(1 << 2)
 #define S5PCSIS_INTSRC_ERR_CRC		(1 << 1)
 #define S5PCSIS_INTSRC_ERR_UNKNOWN	(1 << 0)
-#define S5PCSIS_INTSRC_ERRORS		0xf03f
+/*
+ * The values below specify interrupt source
+ * mask for each possible event/error.
+ */
+#define S5PCSIS_INTSRC_ALL		0xfc00103f
 #define EXYNOS3250_INTSRC_ALL		0xf1111117
+#define S5PCSIS_INTSRC_ERRORS		0xfffff
 
 /* Pixel resolution */
 #define S5PCSIS_RESOL			0x2c
@@ -768,18 +773,19 @@ static struct v4l2_subdev_ops s5pcsis_subdev_ops = {
 	.video = &s5pcsis_video_ops,
 };
 
-static void s5pcsis_track_events(struct csis_state *state, u32 events_status)
+static void s5pcsis_track_events(struct csis_state *state, u32 intsrc)
 {
 	int i;
 	u32 intsrc_mask = state->drv_data->interrupt_src_mask;
 
-	if (!(events_status & intsrc_mask) || debug)
+	if (!(intsrc & intsrc_mask & S5PCSIS_INTSRC_ERRORS) && !debug)
 		return;
 
+	v4l2_dbg(2, debug, &state->sd, "status: %08x\n", intsrc);
 	/* Update the event/error counters. */
 	for (i = 0; i < S5PCSIS_NUM_EVENTS; i++) {
 
-		u32 event_mask = state->events[i].mask;
+		u32 precise_intsrc_mask = state->events[i].mask;
 		u32 num_channels = state->drv_data->num_virt_channels;
 		unsigned int index;
 
@@ -789,17 +795,18 @@ static void s5pcsis_track_events(struct csis_state *state, u32 events_status)
 		 * channels.
 		 */
 
-		if (S5PCSIS_INTSRC_MASK_VC == event_mask)
-			event_mask = S5PCSIS_INTSRC_VC(num_channels);
+		if (S5PCSIS_INTSRC_MASK_VC == precise_intsrc_mask)
+			precise_intsrc_mask = S5PCSIS_INTSRC_VC(num_channels);
 
-		if (events_status & event_mask) {
+		if (intsrc & precise_intsrc_mask) {
 			state->events[i].counter++;
 			v4l2_dbg(2, debug, &state->sd, "%s: %d\n",
 				state->events[i].name,
 				state->events[i].counter);
 		}
-		intsrc_mask &=~event_mask;
+		intsrc_mask &=~precise_intsrc_mask;
 		index = ffs(intsrc_mask);
+
 		/*
 		 * If there are no bits set - there are no more
 		 * supported events.
@@ -808,11 +815,8 @@ static void s5pcsis_track_events(struct csis_state *state, u32 events_status)
 			break;
 
 		/* Shift the event status to move to next event. */
-		events_status >>= --index;
+		intsrc >>= --index;
 		intsrc_mask >>= index;
-
-		v4l2_dbg(2, debug, &state->sd,
-			 "status: %08x\n", events_status);
 	}
 }
 
@@ -925,14 +929,14 @@ static const struct csis_drvdata s5pcsis_drvdata[] = {
 	},
 	[S5PCSIS_EXYNOS4] = {
 		.interrupt_mask     = EXYNOS4_INTMSK_EN_ALL,
-		.interrupt_src_mask = S5PCSIS_INTSRC_ERRORS,
+		.interrupt_src_mask = S5PCSIS_INTSRC_ALL,
 		.hss_mask           = S5PCSIS_DPHYCTRL_HSS_MASK,
 		.num_dlanes_reg     = S5PCSIS_CONFIG,
 		.num_virt_channels  = 1,
 	},
 	[S5PCSIS_EXYNOS5] = {
 		.interrupt_mask     = EXYNOS5_INTMSK_EN_ALL,
-		.interrupt_src_mask = S5PCSIS_INTSRC_ERRORS,
+		.interrupt_src_mask = S5PCSIS_INTSRC_ALL,
 		.hss_mask           = S5PCSIS_DPHYCTRL_HSS_MASK,
 		.num_dlanes_reg     = S5PCSIS_CONFIG,
 		.num_virt_channels  = 1,
