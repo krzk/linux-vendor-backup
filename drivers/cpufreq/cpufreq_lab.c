@@ -450,12 +450,6 @@ static int __init cpufreq_gov_dbs_init(void)
 	return cpufreq_register_governor(&cpufreq_gov_lab);
 }
 
-MODULE_AUTHOR("Jonghwa Lee <jonghwa3.lee@samsung.com>");
-MODULE_AUTHOR("Lukasz Majewski <l.majewski@samsung.com>");
-MODULE_DESCRIPTION("'cpufreq_lab' - A dynamic cpufreq governor for "
-		"Legacy Application Boosting");
-MODULE_LICENSE("GPL");
-
 #ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_LAB
 fs_initcall(cpufreq_gov_dbs_init);
 #else
