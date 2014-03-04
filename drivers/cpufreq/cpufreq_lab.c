@@ -34,7 +34,8 @@
 #define LB_MIN_FREQ            ~1UL
 #define LB_ONDEMAND             0
 
-/* Pre-calculated summation of weight, 0.5
+/*
+ * Pre-calculated summation of weight, 0.5
  * 1
  * 1 + 0.5^1 = 1.5
  * 1 + 0.5^1 + 0.5^2 = 1.75
@@ -61,7 +62,8 @@ static struct lb_wq_boost_data {
 	struct work_struct work;
 } lb_boost_data;
 
-/* Calculate average of idle time with weighting 50% less to older one.
+/*
+ * Calculate average of idle time with weighting 50% less to older one.
  * With weight, average can be affected by current phase more rapidly than
  * normal average. And it also has tolerance for temporary fluctuation of
  * idle time as normal average has.
@@ -110,7 +112,7 @@ static void lb_check_cpu(int cpu, unsigned int load)
 	struct od_cpu_dbs_info_s *dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
 	struct cpufreq_policy *policy = dbs_info->cdbs.cur_policy;
 	unsigned int freq = 0, op;
-	static int cnt = 0;
+	static int cnt;
 	int i, idx, bs;
 
 	idle_cpus = 0;
