@@ -71,6 +71,32 @@
 		};
 	};
 
+	gpio_keys {
+		compatible = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&gpio_power_key &gpio_home_key>;
+
+		power_key {
+			interrupt-parent = <&gpx1>;
+			interrupts = <3 0>;
+			gpios = <&gpx1 3 1>;
+			linux,code = <116>;
+			label = "power key";
+			debounce-interval = <10>;
+			gpio-key,wakeup;
+		};
+
+		home_key {
+			interrupt-parent = <&gpx2>;
+			interrupts = <2 0>;
+			gpios = <&gpx2 2 0>;
+			linux,code = <139>;
+			label = "home key";
+			debounce-interval = <10>;
+			gpio-key,wakeup;
+		};
+	};
+
 	mshc@12550000 {
 		pinctrl-0 = <&sd4_clk &sd4_cmd &sd4_bus4 &sd4_bus8>;
 		pinctrl-names = "default";
@@ -572,8 +598,19 @@
 };
 
 &pinctrl_1 {
+	gpio_power_key: power_key {
+		samsung,pins = "gpx1-3";
+		samsung,pin-pud = <0>;
+	};
+
+	gpio_home_key: home_key {
+		samsung,pins = "gpx2-2";
+		samsung,pin-pud = <1>;
+	};
+
 	hdmi_hpd: hdmi-hpd {
 		samsung,pins = "gpx3-7";
 		samsung,pin-pud = <1>;
 	};
 };
+
