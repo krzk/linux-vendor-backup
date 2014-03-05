@@ -1025,7 +1025,6 @@ static int em28xx_dvb_init(struct em28xx *dev)
 	em28xx_info("Binding DVB extension\n");
 
 	dvb = kzalloc(sizeof(struct em28xx_dvb), GFP_KERNEL);
-
 	if (dvb == NULL) {
 		em28xx_info("em28xx_dvb: memory allocation failed\n");
 		return -ENOMEM;
@@ -1486,6 +1485,9 @@ static int em28xx_dvb_init(struct em28xx *dev)
 	dvb->adapter.mfe_shared = mfe_shared;
 
 	em28xx_info("DVB extension successfully initialized\n");
+
+	kref_get(&dev->ref);
+
 ret:
 	em28xx_set_mode(dev, EM28XX_SUSPEND);
 	mutex_unlock(&dev->lock);
@@ -1542,6 +1544,7 @@ static int em28xx_dvb_fini(struct em28xx *dev)
 		em28xx_unregister_dvb(dvb);
 		kfree(dvb);
 		dev->dvb = NULL;
+		kref_put(&dev->ref, em28xx_free_device);
 	}
 
 	return 0;
