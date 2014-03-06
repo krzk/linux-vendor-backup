@@ -188,7 +188,6 @@
 		i2c9 = &i2c_lps331ap;
 		i2c10 = &i2c_if_pmic;
 		i2c11 = &i2c_fuel;
-		i2c12 = &i2c_gp2ap020a00f;
 		/* 15...16 reserved for i2c0_isp, i2c1_isp */
 		i2c16 = &i2c1_isp;
 		i2c20 = &i2c_touch_key;
@@ -488,23 +487,6 @@
 				#size-cells = <0>;
 				interrupt-map = <1 &gpf0 5 0>;
 			};
-		};
-	};
-
-	i2c_gp2ap020a00f: i2c-gpio-2 {
-		compatible = "i2c-gpio";
-		gpios = <&gpk1 1 0>, <&gpk2 2 0>;
-		i2c-gpio,delay-us = <2>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-		status = "okay";
-
-		gp2ap002a00f@39 {
-			compatible = "gp2ap002a00f";
-			reg = <0x39>;
-			interrupt-parent = <&gpx0>;
-			interrupts = <2 0>;
-			vled-supply = <&ps_als_reg>;
 		};
 	};
 
