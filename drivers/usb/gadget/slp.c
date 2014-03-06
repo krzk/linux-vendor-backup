@@ -155,7 +155,7 @@ struct slp_multi_dev {
 };
 
 /* TODO: only enabled 'rndis' and 'sdb'. need to verify more functions */
-static const char * const default_funcs[] = {"rndis", "sdb", "mtp"};
+static const char * const default_funcs[] = {"rndis", "sdb", "mtp", "acm"};
 static unsigned slp_multi_nluns;
 static struct class *slp_multi_class;
 static struct slp_multi_dev *_slp_multi_dev;
@@ -263,6 +263,7 @@ acm_function_init(struct slp_multi_usb_function *f,
 	if (!config)
 		return -ENOMEM;
 	f->config = config;
+	config->instances = 1;
 
 	for (i = 0; i < MAX_ACM_INSTANCES; i++) {
 		config->f_acm_inst[i] = usb_get_function_instance("acm");
