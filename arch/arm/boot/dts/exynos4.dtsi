@@ -647,9 +647,9 @@
 		status = "ok";
 	};
 
-	sysmmu_tv: sysmmu@13E20000 {
+	sysmmu_tv: sysmmu@12E20000 {
 		compatible = "samsung,exynos4210-sysmmu";
-		reg = <0x13E20000 0x1000>;
+		reg = <0x12E20000 0x1000>;
 		interrupt-parent = <&combiner>;
 		interrupt-names = "sysmmu-tv";
 		interrupts = <5 4>;
