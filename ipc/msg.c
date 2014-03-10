@@ -825,6 +825,8 @@ long do_msgrcv(int msqid, void __user *buf, size_t bufsz, long msgtyp,
 	if (msqid < 0 || (long) bufsz < 0)
 		return -EINVAL;
 	if (msgflg & MSG_COPY) {
+		if ((msgflg & MSG_EXCEPT) || !(msgflg & IPC_NOWAIT))
+			return -EINVAL;
 		copy = prepare_copy(buf, min_t(size_t, bufsz, ns->msg_ctlmax),
 				    msgflg, &msgtyp, &copy_number);
 		if (IS_ERR(copy))
