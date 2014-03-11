@@ -86,4 +86,8 @@
 		phy-names = "hdmiphy";
 		compatible = "samsung,exynos5-hdmi";
 	};
+
+	mixer: mixer@12C10000 {
+		samsung,power-domain-master = <&pd_lcd0>;
+	};
 };
