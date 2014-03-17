@@ -36,6 +36,7 @@ config ARCH_EXYNOS5
 	select HAVE_ARM_SCU if SMP
 	select HAVE_SMP
 	select PINCTRL
+	select ARM_DMA_USE_IOMMU
 	help
 	  Samsung EXYNOS5 (Cortex-A15) SoC based systems
 
