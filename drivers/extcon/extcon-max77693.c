@@ -293,18 +293,10 @@ static int max77693_muic_set_path(struct max77693_muic_info *info,
 		return ret;
 	}
 
-	if (attached) {
-		if (info->prev_cable_type ==
-		    MAX77693_MUIC_ADC_FACTORY_MODE_UART_OFF) {
-			/* if cable_type is jig, then force UART */
-			dev_info(info->dev, "For jig force using UART path\n");
-			ctrl1 = CONTROL1_SW_UART;
-		} else {
-			ctrl1 = val;
-		}
-	} else {
+	if (attached)
+		ctrl1 = val;
+	else
 		ctrl1 = CONTROL1_SW_OPEN;
-	}
 
 	ret = max77693_update_reg(info->max77693->regmap_muic,
 			MAX77693_MUIC_REG_CTRL1, ctrl1, COMP_SW_MASK);
