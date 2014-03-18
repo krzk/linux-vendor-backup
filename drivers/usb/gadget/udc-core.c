@@ -29,7 +29,6 @@
 
 #include <linux/of.h>
 #include <linux/extcon.h>
-#include <linux/extcon/of_extcon.h>
 #include <linux/workqueue.h>
 
 /**
@@ -379,7 +378,7 @@ static int udc_bind_to_driver(struct usb_udc *udc, struct usb_gadget_driver *dri
 	node = udc->gadget->dev.of_node;
 	/* Check if we have an extcon associated with the UDC driver */
 	if (node && of_property_read_bool(node, "extcon")) {
-		edev = of_extcon_get_extcon_dev(&udc->gadget->dev, 0);
+		edev = extcon_get_edev_by_phandle(&udc->gadget->dev, 0);
 
 		if(IS_ERR(edev)) {
 			dev_dbg(&udc->dev, "couldn't get extcon device\n");

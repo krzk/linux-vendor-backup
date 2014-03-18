@@ -43,7 +43,6 @@
 #include <linux/extcon.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
-#include <linux/extcon/of_extcon.h>
 #include <linux/regulator/machine.h>
 
 /* MHL Tx registers and bits */
@@ -872,7 +871,7 @@ static int sii9234_extcon_init(struct sii9234 *sii9234)
 	int ret;
 
 	if (of_property_read_bool(dev->of_node, "extcon")) {
-		edev = of_extcon_get_extcon_dev(dev, 0);
+		edev = extcon_get_edev_by_phandle(dev, 0);
 		if (IS_ERR(edev)) {
 			dev_err(dev, "failed to acquire extcon device\n");
 			return PTR_ERR(edev);
