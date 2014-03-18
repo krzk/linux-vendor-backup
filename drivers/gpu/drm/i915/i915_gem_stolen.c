@@ -174,6 +174,13 @@ int i915_gem_init_stolen(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	unsigned long prealloc_size = dev_priv->mm.gtt->stolen_size;
 
+#ifdef CONFIG_INTEL_IOMMU
+	if (intel_iommu_gfx_mapped) {
+		DRM_INFO("DMAR active, disabling use of stolen memory\n");
+		return 0;
+	}
+#endif
+
 	dev_priv->mm.stolen_base = i915_stolen_to_physical(dev);
 	if (dev_priv->mm.stolen_base == 0)
 		return 0;
