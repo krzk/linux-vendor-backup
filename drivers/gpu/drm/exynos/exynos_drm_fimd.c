@@ -727,16 +727,6 @@ static void fimd_clear_channel(struct device *dev)
 static int fimd_subdrv_probe(struct drm_device *drm_dev, struct device *dev)
 {
 	/*
-	 * enable drm irq mode.
-	 * - with irq_enabled = 1, we can use the vblank feature.
-	 *
-	 * P.S. note that we wouldn't use drm irq handler but
-	 *	just specific driver own one instead because
-	 *	drm framework supports only one irq handler.
-	 */
-	drm_dev->irq_enabled = 1;
-
-	/*
 	 * with vblank_disable_allowed = 1, vblank interrupt will be disabled
 	 * by drm timer once a current process gives up ownership of
 	 * vblank event.(after drm_vblank_put function is called)
