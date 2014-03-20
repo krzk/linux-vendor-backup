@@ -897,8 +897,32 @@ static int io_dev_recv_data_from_link_dev(struct io_device *iod,
 		err = rx_rfs_packet(iod, ld, data, len);
 		return err;
 #endif
-
 	case IPC_FMT:
+		/* alloc 3.5K a page.. in case of BYPASS,RFS */
+		/* should be smaller than user alloc size */
+		if (len >= MAX_RXDATA_SIZE)
+			mif_info("(%d)more than 3.5K, alloc 3.5K pages\n", len);
+		rest_len = len;
+		cur = (char *)data;
+		while (rest_len) {
+			alloc_size = min_t(unsigned int, MAX_RXDATA_SIZE,
+				rest_len);
+			skb = rx_alloc_skb(alloc_size, iod, ld);
+			if (!skb) {
+				mif_err("fail alloc skb (%d)\n", __LINE__);
+				return -ENOMEM;
+			}
+			mif_debug("bypass/rfs len : %d\n", alloc_size);
+
+			memcpy(skb_put(skb, alloc_size), cur, alloc_size);
+			skb_queue_tail(&iod->sk_rx_q, skb);
+			mif_debug("skb len : %d\n", skb->len);
+
+			rest_len -= alloc_size;
+			cur += alloc_size;
+		}
+		wake_up(&iod->wq);
+		return len;
 	case IPC_RAW:
 	case IPC_MULTI_RAW:
 		if (iod->waketime)
