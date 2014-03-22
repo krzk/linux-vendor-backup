@@ -685,29 +685,6 @@ static int vpbe_try_format(struct vpbe_display *disp_dev,
 	return 0;
 }
 
-static int vpbe_display_g_priority(struct file *file, void *priv,
-				enum v4l2_priority *p)
-{
-	struct vpbe_fh *fh = file->private_data;
-	struct vpbe_layer *layer = fh->layer;
-
-	*p = v4l2_prio_max(&layer->prio);
-
-	return 0;
-}
-
-static int vpbe_display_s_priority(struct file *file, void *priv,
-				enum v4l2_priority p)
-{
-	struct vpbe_fh *fh = file->private_data;
-	struct vpbe_layer *layer = fh->layer;
-	int ret;
-
-	ret = v4l2_prio_change(&layer->prio, &fh->prio, p);
-
-	return ret;
-}
-
 static int vpbe_display_querycap(struct file *file, void  *priv,
 			       struct v4l2_capability *cap)
 {
@@ -1496,6 +1473,7 @@ static int vpbe_display_open(struct file *file)
 {
 	struct vpbe_fh *fh = NULL;
 	struct vpbe_layer *layer = video_drvdata(file);
+	struct video_device *vdev = video_devdata(file);
 	struct vpbe_display *disp_dev = layer->disp_dev;
 	struct vpbe_device *vpbe_dev = disp_dev->vpbe_dev;
 	struct osd_state *osd_device = disp_dev->osd_device;
@@ -1508,6 +1486,7 @@ static int vpbe_display_open(struct file *file)
 			"unable to allocate memory for file handle object\n");
 		return -ENOMEM;
 	}
+	v4l2_fh_init(&fh->fh, vdev);
 	v4l2_dbg(1, debug, &vpbe_dev->v4l2_dev,
 			"vpbe display open plane = %d\n",
 			layer->device_id);
@@ -1536,9 +1515,7 @@ static int vpbe_display_open(struct file *file)
 	layer->usrs++;
 	/* Set io_allowed member to false */
 	fh->io_allowed = 0;
-	/* Initialize priority of this instance to default priority */
-	fh->prio = V4L2_PRIORITY_UNSET;
-	v4l2_prio_open(&layer->prio, &fh->prio);
+	v4l2_fh_add(&fh->fh);
 	v4l2_dbg(1, debug, &vpbe_dev->v4l2_dev,
 			"vpbe display device opened successfully\n");
 	return 0;
@@ -1593,8 +1570,9 @@ static int vpbe_display_release(struct file *file)
 		osd_device->ops.release_layer(osd_device,
 				layer->layer_info.id);
 	}
-	/* Close the priority */
-	v4l2_prio_close(&layer->prio, fh->prio);
+
+	v4l2_fh_del(&fh->fh);
+	v4l2_fh_exit(&fh->fh);
 	file->private_data = NULL;
 	mutex_unlock(&layer->opslock);
 
@@ -1622,8 +1600,6 @@ static const struct v4l2_ioctl_ops vpbe_ioctl_ops = {
 	.vidioc_cropcap		 = vpbe_display_cropcap,
 	.vidioc_g_crop		 = vpbe_display_g_crop,
 	.vidioc_s_crop		 = vpbe_display_s_crop,
-	.vidioc_g_priority	 = vpbe_display_g_priority,
-	.vidioc_s_priority	 = vpbe_display_s_priority,
 	.vidioc_s_std		 = vpbe_display_s_std,
 	.vidioc_g_std		 = vpbe_display_g_std,
 	.vidioc_enum_output	 = vpbe_display_enum_output,
@@ -1703,8 +1679,6 @@ static int init_vpbe_layer(int i, struct vpbe_display *disp_dev,
 	vpbe_display_layer->layer_info.id =
 		((i == VPBE_DISPLAY_DEVICE_0) ? WIN_VID0 : WIN_VID1);
 
-	/* Initialize prio member of layer object */
-	v4l2_prio_init(&vpbe_display_layer->prio);
 
 	return 0;
 }
@@ -1731,6 +1705,7 @@ static int register_device(struct vpbe_layer *vpbe_display_layer,
 	vpbe_display_layer->disp_dev = disp_dev;
 	/* set the driver data in platform device */
 	platform_set_drvdata(pdev, disp_dev);
+	set_bit(V4L2_FL_USE_FH_PRIO, &vpbe_display_layer->video_dev.flags);
 	video_set_drvdata(&vpbe_display_layer->video_dev,
 			  vpbe_display_layer);
 
