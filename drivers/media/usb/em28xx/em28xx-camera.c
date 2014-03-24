@@ -364,7 +364,7 @@ int em28xx_init_camera(struct em28xx *dev)
 		dev->sensor_xtal = 4300000;
 		pdata.xtal = dev->sensor_xtal;
 		if (NULL ==
-		    v4l2_i2c_new_subdev_board(&dev->v4l2_dev, adap,
+		    v4l2_i2c_new_subdev_board(&dev->v4l2->v4l2_dev, adap,
 					      &mt9v011_info, NULL)) {
 			ret = -ENODEV;
 			break;
@@ -421,7 +421,7 @@ int em28xx_init_camera(struct em28xx *dev)
 		dev->sensor_yres = 480;
 
 		subdev =
-		     v4l2_i2c_new_subdev_board(&dev->v4l2_dev, adap,
+		     v4l2_i2c_new_subdev_board(&dev->v4l2->v4l2_dev, adap,
 					       &ov2640_info, NULL);
 		if (NULL == subdev) {
 			ret = -ENODEV;
