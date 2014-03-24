@@ -93,8 +93,8 @@ QA_SKIP_BUILD_ROOT="DO_NOT_WANT"; export QA_SKIP_BUILD_ROOT
 
 # 1. Destynation directories
 mkdir -p %{buildroot}/usr/src/linux-kernel-build-%{fullVersion}
-mkdir -p %{buildroot}/lib/modules/%{fullVersion}
 mkdir -p %{buildroot}/boot/
+mkdir -p %{buildroot}/boot/lib/modules/%{fullVersion}
 
 # 2. Install uImage, System.map, ...
 install -m 755 arch/arm/boot/uImage %{buildroot}/boot/
@@ -104,7 +104,7 @@ install -m 644 System.map %{buildroot}/boot/System.map-%{fullVersion}
 install -m 644 .config %{buildroot}/boot/config-%{fullVersion}
 
 # 3. Install modules
-make INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=%{buildroot} modules_install
+make INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=%{buildroot}/boot/ modules_install
 
 # 4. Install kernel headers
 make INSTALL_PATH=%{buildroot} INSTALL_MOD_PATH=%{buildroot} INSTALL_HDR_PATH=%{buildroot}/usr headers_install
@@ -158,12 +158,12 @@ rm -rf %{buildroot}/vmlinux*
 find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion}/tools/perf/scripts/ -type f %{excluded_files} -exec chmod 755 {} \;
 find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion}/scripts/            -type f %{excluded_files} -exec chmod 755 {} \;
 find %{buildroot}/usr                                                           -type f ! -name "check-perf-tracei.pl" -name "*.sh" -name "*.pl" -exec chmod 755 {} \;
-find %{buildroot}/lib/modules/ -name "*.ko"                                     -type f -exec chmod 755 {} \;
+find %{buildroot}/boot/lib/modules/ -name "*.ko"                                     -type f -exec chmod 755 {} \;
 
 # 8. Create symbolic links
-rm -f %{buildroot}/lib/modules/%{fullVersion}/build
-rm -f %{buildroot}/lib/modules/%{fullVersion}/source
-ln -sf /usr/src/linux-kernel-build-%{fullVersion} %{buildroot}/lib/modules/%{fullVersion}/build
+rm -f %{buildroot}/boot/lib/modules/%{fullVersion}/build
+rm -f %{buildroot}/boot/lib/modules/%{fullVersion}/source
+ln -sf /usr/src/linux-kernel-build-%{fullVersion} %{buildroot}/boot/lib/modules/%{fullVersion}/build
 
 %clean
 rm -rf %{buildroot}
@@ -175,8 +175,8 @@ rm -rf %{buildroot}
 %files devel
 %defattr (-, root, root)
 /usr/src/linux-kernel-build-%{fullVersion}
-/lib/modules/%{fullVersion}/modules.*
-/lib/modules/%{fullVersion}/build
+/boot/lib/modules/%{fullVersion}/modules.*
+/boot/lib/modules/%{fullVersion}/build
 
 %files
 %license COPYING
@@ -184,8 +184,8 @@ rm -rf %{buildroot}
 /boot/*.dtb
 /boot/System.map*
 /boot/config*
-/lib/modules/%{fullVersion}/kernel
-/lib/modules/%{fullVersion}/modules.*
+/boot/lib/modules/%{fullVersion}/kernel
+/boot/lib/modules/%{fullVersion}/modules.*
 
 %files -n perf
 %license COPYING
