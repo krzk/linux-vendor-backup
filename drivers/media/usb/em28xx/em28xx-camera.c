@@ -348,8 +348,8 @@ int em28xx_init_camera(struct em28xx *dev)
 			.platform_data = &pdata,
 		};
 
-		dev->sensor_xres = 640;
-		dev->sensor_yres = 480;
+		v4l2->sensor_xres = 640;
+		v4l2->sensor_yres = 480;
 
 		/*
 		 * FIXME: mt9v011 uses I2S speed as xtal clk - at least with
@@ -362,8 +362,8 @@ int em28xx_init_camera(struct em28xx *dev)
 		 */
 		dev->board.xclk = EM28XX_XCLK_FREQUENCY_4_3MHZ;
 		em28xx_write_reg(dev, EM28XX_R0F_XCLK, dev->board.xclk);
-		dev->sensor_xtal = 4300000;
-		pdata.xtal = dev->sensor_xtal;
+		v4l2->sensor_xtal = 4300000;
+		pdata.xtal = v4l2->sensor_xtal;
 		if (NULL ==
 		    v4l2_i2c_new_subdev_board(&dev->v4l2->v4l2_dev, adap,
 					      &mt9v011_info, NULL)) {
@@ -377,8 +377,8 @@ int em28xx_init_camera(struct em28xx *dev)
 		break;
 	}
 	case EM28XX_MT9M001:
-		dev->sensor_xres = 1280;
-		dev->sensor_yres = 1024;
+		v4l2->sensor_xres = 1280;
+		v4l2->sensor_yres = 1024;
 
 		em28xx_initialize_mt9m001(dev);
 
@@ -388,8 +388,8 @@ int em28xx_init_camera(struct em28xx *dev)
 
 		break;
 	case EM28XX_MT9M111:
-		dev->sensor_xres = 640;
-		dev->sensor_yres = 512;
+		v4l2->sensor_xres = 640;
+		v4l2->sensor_yres = 512;
 
 		dev->board.xclk = EM28XX_XCLK_FREQUENCY_48MHZ;
 		em28xx_write_reg(dev, EM28XX_R0F_XCLK, dev->board.xclk);
@@ -418,8 +418,8 @@ int em28xx_init_camera(struct em28xx *dev)
 		 * - adjust bridge xclk
 		 * - disable 16 bit (12 bit) output formats on high resolutions
 		 */
-		dev->sensor_xres = 640;
-		dev->sensor_yres = 480;
+		v4l2->sensor_xres = 640;
+		v4l2->sensor_yres = 480;
 
 		subdev =
 		     v4l2_i2c_new_subdev_board(&dev->v4l2->v4l2_dev, adap,
