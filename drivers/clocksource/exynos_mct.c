@@ -345,7 +345,14 @@ static void exynos4_mct_tick_start(unsigned long cycles,
 static int exynos4_tick_set_next_event(unsigned long cycles,
 				       struct clock_event_device *evt)
 {
-	struct mct_clock_event_device *mevt = this_cpu_ptr(&percpu_mct_tick);
+	/*
+	 * In case of hotplugging non-boot CPU, the set_next_event could be
+	 * called on CPU0 by ISR before IRQ affinity is set to proper CPU.
+	 * Thus for accessing proper MCT Lx timer, 'per_cpu' for cpumask
+	 * in event must be used instead of 'this_cpu_ptr'.
+	 */
+	struct mct_clock_event_device *mevt = &per_cpu(percpu_mct_tick,
+			cpumask_first(evt->cpumask));
 
 	exynos4_mct_tick_start(cycles, mevt);
 
@@ -377,6 +384,18 @@ static inline void exynos4_tick_set_mode(enum clock_event_mode mode,
 
 static int exynos4_mct_tick_clear(struct mct_clock_event_device *mevt)
 {
+	/* Clear the MCT tick interrupt */
+	if (__raw_readl(reg_base + mevt->base + MCT_L_INT_CSTAT_OFFSET) & 1) {
+		exynos4_mct_write(0x1, mevt->base + MCT_L_INT_CSTAT_OFFSET);
+		return 1;
+	}
+
+	return 0;
+}
+
+static irqreturn_t exynos4_mct_tick_isr(int irq, void *dev_id)
+{
+	struct mct_clock_event_device *mevt = dev_id;
 	struct clock_event_device *evt = mevt->evt;
 
 	/*
@@ -386,21 +405,6 @@ static int exynos4_mct_tick_clear(struct mct_clock_event_device *mevt)
 	 */
 	if (evt->mode != CLOCK_EVT_MODE_PERIODIC)
 		exynos4_mct_tick_stop(mevt);
-
-	/* Clear the MCT tick interrupt */
-	if (__raw_readl(reg_base + mevt->base + MCT_L_INT_CSTAT_OFFSET) & 1) {
-		exynos4_mct_write(0x1, mevt->base + MCT_L_INT_CSTAT_OFFSET);
-		return 1;
-	} else {
-		return 0;
-	}
-}
-
-static irqreturn_t exynos4_mct_tick_isr(int irq, void *dev_id)
-{
-	struct mct_clock_event_device *mevt = dev_id;
-	struct clock_event_device *evt = mevt->evt;
-
 	exynos4_mct_tick_clear(mevt);
 
 	evt->event_handler(evt);
@@ -463,7 +467,10 @@ static int __cpuinit exynos4_local_timer_setup(struct clock_event_device *evt)
 static void exynos4_local_timer_stop(struct clock_event_device *evt)
 {
 	unsigned int cpu = smp_processor_id();
+	struct mct_clock_event_device *mevt = this_cpu_ptr(&percpu_mct_tick);
+
 	evt->set_mode(CLOCK_EVT_MODE_UNUSED, evt);
+	exynos4_mct_tick_clear(mevt);
 	if (mct_int_type == MCT_INT_SPI)
 		if (cpu == 0)
 			remove_irq(evt->irq, &mct_tick0_event_irq);
