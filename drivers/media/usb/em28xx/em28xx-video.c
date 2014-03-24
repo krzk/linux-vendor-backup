@@ -1051,9 +1051,10 @@ static int em28xx_vb2_setup(struct em28xx *dev)
 {
 	int rc;
 	struct vb2_queue *q;
+	struct em28xx_v4l2 *v4l2 = dev->v4l2;
 
 	/* Setup Videobuf2 for Video capture */
-	q = &dev->vb_vidq;
+	q = &v4l2->vb_vidq;
 	q->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	q->io_modes = VB2_READ | VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
 	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
@@ -1067,7 +1068,7 @@ static int em28xx_vb2_setup(struct em28xx *dev)
 		return rc;
 
 	/* Setup Videobuf2 for VBI capture */
-	q = &dev->vb_vbiq;
+	q = &v4l2->vb_vbiq;
 	q->type = V4L2_BUF_TYPE_VBI_CAPTURE;
 	q->io_modes = VB2_READ | VB2_MMAP | VB2_USERPTR;
 	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
@@ -2485,8 +2486,10 @@ static int em28xx_v4l2_init(struct em28xx *dev)
 		ret = -ENODEV;
 		goto unregister_dev;
 	}
-	v4l2->vdev->queue = &dev->vb_vidq;
-	v4l2->vdev->queue->lock = &dev->vb_queue_lock;
+	mutex_init(&v4l2->vb_queue_lock);
+	mutex_init(&v4l2->vb_vbi_queue_lock);
+	v4l2->vdev->queue = &v4l2->vb_vidq;
+	v4l2->vdev->queue->lock = &v4l2->vb_queue_lock;
 
 	/* disable inapplicable ioctls */
 	if (dev->board.is_webcam) {
@@ -2521,8 +2524,8 @@ static int em28xx_v4l2_init(struct em28xx *dev)
 		v4l2->vbi_dev = em28xx_vdev_init(dev, &em28xx_video_template,
 						"vbi");
 
-		v4l2->vbi_dev->queue = &dev->vb_vbiq;
-		v4l2->vbi_dev->queue->lock = &dev->vb_vbi_queue_lock;
+		v4l2->vbi_dev->queue = &v4l2->vb_vbiq;
+		v4l2->vbi_dev->queue->lock = &v4l2->vb_vbi_queue_lock;
 
 		/* disable inapplicable ioctls */
 		v4l2_disable_ioctl(v4l2->vdev, VIDIOC_S_PARM);
