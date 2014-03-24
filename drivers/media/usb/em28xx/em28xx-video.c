@@ -1140,7 +1140,9 @@ static void em28xx_ctrl_notify(struct v4l2_ctrl *ctrl, void *priv)
 
 static int em28xx_s_ctrl(struct v4l2_ctrl *ctrl)
 {
-	struct em28xx *dev = container_of(ctrl->handler, struct em28xx, ctrl_handler);
+	struct em28xx_v4l2 *v4l2 =
+		  container_of(ctrl->handler, struct em28xx_v4l2, ctrl_handler);
+	struct em28xx *dev = v4l2->dev;
 	int ret = -EINVAL;
 
 	switch (ctrl->id) {
@@ -1851,6 +1853,7 @@ void em28xx_free_v4l2(struct kref *ref)
 {
 	struct em28xx_v4l2 *v4l2 = container_of(ref, struct em28xx_v4l2, ref);
 
+	v4l2->dev->v4l2 = NULL;
 	kfree(v4l2);
 }
 
@@ -1970,7 +1973,7 @@ static int em28xx_v4l2_fini(struct em28xx *dev)
 		video_unregister_device(dev->vdev);
 	}
 
-	v4l2_ctrl_handler_free(&dev->ctrl_handler);
+	v4l2_ctrl_handler_free(&v4l2->ctrl_handler);
 	v4l2_device_unregister(&v4l2->v4l2_dev);
 
 	if (dev->clk) {
@@ -2278,7 +2281,7 @@ static int em28xx_v4l2_init(struct em28xx *dev)
 	u8 val;
 	int ret;
 	unsigned int maxw;
-	struct v4l2_ctrl_handler *hdl = &dev->ctrl_handler;
+	struct v4l2_ctrl_handler *hdl;
 	struct em28xx_v4l2 *v4l2;
 
 	if (dev->is_audio_only) {
@@ -2302,6 +2305,7 @@ static int em28xx_v4l2_init(struct em28xx *dev)
 		return -ENOMEM;
 	}
 	kref_init(&v4l2->ref);
+	v4l2->dev = dev;
 	dev->v4l2 = v4l2;
 
 	ret = v4l2_device_register(&dev->udev->dev, &v4l2->v4l2_dev);
@@ -2310,6 +2314,7 @@ static int em28xx_v4l2_init(struct em28xx *dev)
 		goto err;
 	}
 
+	hdl = &v4l2->ctrl_handler;
 	v4l2_ctrl_handler_init(hdl, 8);
 	v4l2->v4l2_dev.ctrl_handler = hdl;
 
@@ -2596,7 +2601,7 @@ static int em28xx_v4l2_init(struct em28xx *dev)
 	return 0;
 
 unregister_dev:
-	v4l2_ctrl_handler_free(&dev->ctrl_handler);
+	v4l2_ctrl_handler_free(&v4l2->ctrl_handler);
 	v4l2_device_unregister(&v4l2->v4l2_dev);
 err:
 	dev->v4l2 = NULL;
