@@ -89,7 +89,7 @@ static int exynos_drm_fbdev_update(struct drm_fb_helper *helper,
 	/* RGB formats use only one buffer */
 	buffer = exynos_drm_fb_buffer(fb, 0);
 	if (!buffer) {
-		DRM_LOG_KMS("buffer is null.\n");
+		DRM_DEBUG_KMS("buffer is null.\n");
 		return -EFAULT;
 	}
 
