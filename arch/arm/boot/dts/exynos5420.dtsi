@@ -110,6 +110,18 @@
 		};
 	};
 
+	pmu@0 {
+		compatible = "arm,cortex-a15-pmu";
+		interrupt-parent = <&combiner>;
+		interrupts = <2 2>, <7 0>, <16 6>, <19 2>;
+	};
+
+	pmu@1 {
+		compatible = "arm,cortex-a7-pmu";
+		interrupt-parent = <&gic>;
+		interrupts = <0 160 0>, <0 161 0>, <0 162 0>, <0 163 0>;
+	};
+
 	clock: clock-controller@10010000 {
 		compatible = "samsung,exynos5420-clock";
 		reg = <0x10010000 0x30000>;

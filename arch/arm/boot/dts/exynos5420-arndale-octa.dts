@@ -31,6 +31,10 @@
 		reg = <0x0203F000 0x1000>;
 	};
 
+	pmu@1 {
+		status = "disabled";
+	};
+
 	fixed-rate-clocks {
 		oscclk {
 			compatible = "samsung,exynos5420-oscclk";
