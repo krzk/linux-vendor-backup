@@ -657,7 +657,7 @@ static int uio_mmap_physical(struct vm_area_struct *vma)
 
 	if (mem->addr & ~PAGE_MASK)
 		return -ENODEV;
-	if (vma->vm_end - vma->vm_start > mem->size)
+	if (vma->vm_end - vma->vm_start > PAGE_ALIGN(mem->size))
 		return -EINVAL;
 
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
