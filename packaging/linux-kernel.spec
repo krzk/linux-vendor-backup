@@ -9,6 +9,7 @@ Summary: The Linux Kernel
 Version: 3.10.33
 Release: 1
 License: GPL-2.0
+ExclusiveArch: %{arm} aarch64
 Group: System Environment/Kernel
 Vendor: The Linux Community
 URL: http://www.kernel.org
