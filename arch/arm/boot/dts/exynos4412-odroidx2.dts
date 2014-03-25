@@ -529,6 +529,18 @@
 		};
 	};
 
+	i2c@13870000 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&i2c1_bus>;
+		status = "okay";
+		max98090: max98090@10 {
+			compatible = "maxim,max98090";
+			reg = <0x10>;
+			interrupt-parent = <&gpx0>;
+			interrupts = <1 0>;
+		};
+	};
+
 	i2c@13880000 {
 		pinctrl-names = "default";
 		pinctrl-0 = <&i2c2_bus>;
