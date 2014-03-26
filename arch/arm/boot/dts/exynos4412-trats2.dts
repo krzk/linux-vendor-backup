@@ -299,10 +299,6 @@
 		io-channels = <&adc 2>;
 	};
 
-	rtc@10070000 {
-		status = "okay";
-	};
-
 	memory {
 		reg =  <0x40000000 0x10000000
 			0x50000000 0x10000000
