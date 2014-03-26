@@ -1707,6 +1707,7 @@ CONFIG_DEVKMEM=y
 # Serial drivers
 #
 # CONFIG_SERIAL_8250 is not set
+
 #
 # Non-8250 serial port support
 #
@@ -1897,7 +1898,6 @@ CONFIG_POWER_SUPPLY=y
 # CONFIG_CHARGER_MANAGER is not set
 # CONFIG_CHARGER_BQ2415X is not set
 # CONFIG_CHARGER_SMB347 is not set
-# CONFIG_BATTERY_SAMSUNG is not set
 # CONFIG_POWER_RESET is not set
 # CONFIG_POWER_AVS is not set
 # CONFIG_HWMON is not set
@@ -2806,7 +2806,7 @@ CONFIG_HID_ZYDACRON=m
 #
 CONFIG_USB_HID=y
 # CONFIG_HID_PID is not set
-# CONFIG_USB_HIDDEV is not set
+CONFIG_USB_HIDDEV=y
 
 #
 # I2C HID support
