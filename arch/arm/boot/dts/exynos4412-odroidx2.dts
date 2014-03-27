@@ -55,6 +55,18 @@
 		reg = <0x0204F000 0x1000>;
 	};
 
+	i2s0: i2s@03830000 {
+		pinctrl-0 = <&i2s0_bus>;
+		pinctrl-names = "default";
+		status = "okay";
+	};
+
+	sound {
+		compatible = "samsung,odroidx2-audio";
+		samsung,i2s-controller = <&i2s0>;
+		samsung,audio-codec = <&max98090>;
+	};
+
 	leds {
 		compatible = "gpio-leds";
 		led1 {
