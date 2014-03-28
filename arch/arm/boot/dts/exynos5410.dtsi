@@ -382,34 +382,7 @@
 		clock-names = "gscl";
 		samsung,power-domain = <&gsc_pd>;
 	};
-/*
-	gsc_2: video-scaler@13e20000 {
-		compatible = "samsung,exynos5-gsc";
-		reg = <0x13e20000 0x1000>;
-		interrupts = <0 87 0>;
-		clocks = <&clock CLK_GSCL2>;
-		clock-names = "gscl";
-		samsung,power-domain = <&gsc_pd>;
-	};
 
-	gsc_3: video-scaler@13e30000 {
-		compatible = "samsung,exynos5-gsc";
-		reg = <0x13e30000 0x1000>;
-		interrupts = <0 88 0>;
-		clocks = <&clock CLK_GSCL3>;
-		clock-names = "gscl";
-		samsung,power-domain = <&gsc_pd>;
-	};
-
-	gsc_4: video-scaler@13e40000 {
-		compatible = "samsung,exynos5-gsc";
-		reg = <0x13e40000 0x1000>;
-		interrupts = <0 90 0>;
-		clocks = <&clock CLK_GSCL4>;
-		clock-names = "gscl";
-		samsung,power-domain = <&gsc_pd>;
-	};
-*/
 	usb@12000000 {
 		compatible = "samsung,exynos5250-dwusb3";
 		clocks = <&clock CLK_USBD300>;
