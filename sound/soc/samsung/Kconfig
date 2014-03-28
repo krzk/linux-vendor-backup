@@ -240,3 +240,11 @@ config SND_SOC_SAMSUNG_EXYNOS4_WM1811
 	select SND_SAMSUNG_I2S
 	help
 	  Say Y if you want to add support for SoC audio on the Tizen Exynos4 board.
+
+config SND_SOC_ODROIDX2
+	tristate "Audio support for Odroidx2"
+	depends on SND_SOC_SAMSUNG
+	select SND_SOC_MAX98090
+	select SND_SAMSUNG_I2S
+	help
+	  Say Y here to enable audio support for the Odroidx2.
