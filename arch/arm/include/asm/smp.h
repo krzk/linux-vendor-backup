@@ -115,15 +115,21 @@ struct smp_operations {
 #endif
 };
 
+struct device_node;
 struct of_cpu_method {
 	const char *method;
+	int (*setup)(struct device_node *node);
 	struct smp_operations *ops;
 };
 
-#define CPU_METHOD_OF_DECLARE(name, _method, _ops)			\
+#define CPU_METHOD_OF_DECLARE_SETUP(name, _method, _setup, _ops)	\
 	static const struct of_cpu_method __cpu_method_of_table_##name	\
 		__used __section(__cpu_method_of_table)			\
-		= { .method = _method, .ops = _ops }
+		= { .method = _method, .setup = _setup, .ops = _ops }
+
+#define CPU_METHOD_OF_DECLARE(name, _method, _ops)			\
+	CPU_METHOD_OF_DECLARE_SETUP(name, _method, NULL, _ops)
+
 /*
  * set platform specific SMP operations
  */
