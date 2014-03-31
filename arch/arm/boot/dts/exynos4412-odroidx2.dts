@@ -107,6 +107,7 @@
 		broken-cd;
 		fifo-depth = <0x80>;
 		card-detect-delay = <200>;
+		clock-frequency = <400000000>;
 		samsung,dw-mshc-ciu-div = <3>;
 		samsung,dw-mshc-sdr-timing = <2 3 3>;
 		samsung,dw-mshc-ddr-timing = <1 2 3>;
