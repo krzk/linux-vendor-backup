@@ -80,19 +80,19 @@ static int s5p_mfc_alloc_codec_buffers_v6(struct s5p_mfc_ctx *ctx)
 		ctx->tmv_buffer_size = S5P_FIMV_NUM_TMV_BUFFERS_V6 *
 			ALIGN(S5P_FIMV_TMV_BUFFER_SIZE_V6(mb_width, mb_height),
 			S5P_FIMV_TMV_BUFFER_ALIGN_V6);
-		ctx->luma_dpb_size = ALIGN((mb_width * mb_height) *
+		ctx->luma_size = ALIGN((mb_width * mb_height) *
 				S5P_FIMV_LUMA_MB_TO_PIXEL_V6,
 				S5P_FIMV_LUMA_DPB_BUFFER_ALIGN_V6);
-		ctx->chroma_dpb_size = ALIGN((mb_width * mb_height) *
+		ctx->chroma_size = ALIGN((mb_width * mb_height) *
 				S5P_FIMV_CHROMA_MB_TO_PIXEL_V6,
 				S5P_FIMV_CHROMA_DPB_BUFFER_ALIGN_V6);
-		ctx->me_buffer_size = ALIGN(S5P_FIMV_ME_BUFFER_SIZE_V6(
+		ctx->mv_size = ALIGN(S5P_FIMV_ME_BUFFER_SIZE_V6(
 					ctx->img_width, ctx->img_height,
 					mb_width, mb_height),
 					S5P_FIMV_ME_BUFFER_ALIGN_V6);
 
 		mfc_debug(2, "recon luma size: %d chroma size: %d\n",
-			  ctx->luma_dpb_size, ctx->chroma_dpb_size);
+			  ctx->luma_size, ctx->chroma_size);
 	} else {
 		return -EINVAL;
 	}
@@ -161,8 +161,8 @@ static int s5p_mfc_alloc_codec_buffers_v6(struct s5p_mfc_ctx *ctx)
 				S5P_FIMV_SCRATCH_BUFFER_ALIGN_V6);
 		ctx->bank1.size =
 			ctx->scratch_buf_size + ctx->tmv_buffer_size +
-			(ctx->pb_count * (ctx->luma_dpb_size +
-			ctx->chroma_dpb_size + ctx->me_buffer_size));
+			(ctx->pb_count * (ctx->luma_size +
+			ctx->chroma_size + ctx->mv_size));
 		ctx->bank2.size = 0;
 		break;
 	case S5P_MFC_CODEC_MPEG4_ENC:
@@ -175,8 +175,8 @@ static int s5p_mfc_alloc_codec_buffers_v6(struct s5p_mfc_ctx *ctx)
 				S5P_FIMV_SCRATCH_BUFFER_ALIGN_V6);
 		ctx->bank1.size =
 			ctx->scratch_buf_size + ctx->tmv_buffer_size +
-			(ctx->pb_count * (ctx->luma_dpb_size +
-			ctx->chroma_dpb_size + ctx->me_buffer_size));
+			(ctx->pb_count * (ctx->luma_size +
+			ctx->chroma_size + ctx->mv_size));
 		ctx->bank2.size = 0;
 		break;
 	default:
@@ -492,13 +492,13 @@ static int s5p_mfc_set_enc_ref_buffer_v6(struct s5p_mfc_ctx *ctx)
 
 	for (i = 0; i < ctx->pb_count; i++) {
 		WRITEL(buf_addr1, S5P_FIMV_E_LUMA_DPB_V6 + (4 * i));
-		buf_addr1 += ctx->luma_dpb_size;
+		buf_addr1 += ctx->luma_size;
 		WRITEL(buf_addr1, S5P_FIMV_E_CHROMA_DPB_V6 + (4 * i));
-		buf_addr1 += ctx->chroma_dpb_size;
+		buf_addr1 += ctx->chroma_size;
 		WRITEL(buf_addr1, S5P_FIMV_E_ME_BUFFER_V6 + (4 * i));
-		buf_addr1 += ctx->me_buffer_size;
-		buf_size1 -= (ctx->luma_dpb_size + ctx->chroma_dpb_size +
-			ctx->me_buffer_size);
+		buf_addr1 += ctx->mv_size;
+		buf_size1 -= (ctx->luma_size + ctx->chroma_size +
+			ctx->mv_size);
 	}
 
 	WRITEL(buf_addr1, S5P_FIMV_E_SCRATCH_BUFFER_ADDR_V6);

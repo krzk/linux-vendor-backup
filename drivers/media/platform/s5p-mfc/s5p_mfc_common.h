@@ -604,9 +604,6 @@ struct s5p_mfc_ctx {
 	struct s5p_mfc_enc_params enc_params;
 
 	size_t enc_dst_buf_size;
-	size_t luma_dpb_size;
-	size_t chroma_dpb_size;
-	size_t me_buffer_size;
 	size_t tmv_buffer_size;
 
 	enum v4l2_mpeg_mfc51_video_force_frame_type force_frame_type;
