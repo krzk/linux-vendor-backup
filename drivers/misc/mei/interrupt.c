@@ -906,8 +906,7 @@ static int mei_irq_thread_write_handler(struct mei_device *dev,
 
 		cl->status = 0;
 		list_del(&pos->list);
-		if (MEI_WRITING == cl->writing_state &&
-		    pos->fop_type == MEI_FOP_WRITE &&
+		if (pos->fop_type == MEI_FOP_WRITE &&
 		    cl != &dev->iamthif_cl) {
 			dev_dbg(&dev->pdev->dev, "MEI WRITE COMPLETE\n");
 			cl->writing_state = MEI_WRITE_COMPLETE;
