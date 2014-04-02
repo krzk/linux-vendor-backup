@@ -388,8 +388,6 @@ static int lb_init(struct dbs_data *dbs_data)
 		goto err_idle_hist;
 
 	boost_init_state = cpufreq_boost_enabled();
-	if (boost_init_state)
-		cpufreq_boost_trigger_state(false);
 
 	od_init(dbs_data);
 
@@ -412,10 +410,13 @@ void lb_exit(struct dbs_data *dbs_data)
 	kfree(lb_ctrl_table);
 	lb_ctrl_table = NULL;
 
-	cpufreq_boost_trigger_state(boost_init_state);
-
 	kfree(idle_avg);
 	kfree(idle_hist);
+
+	if (cpufreq_boost_enabled() != boost_init_state) {
+		lb_boost_data.state = boost_init_state;
+		schedule_work(&lb_boost_data.work);
+	}
 }
 
 define_get_cpu_dbs_routines(od_cpu_dbs_info);
