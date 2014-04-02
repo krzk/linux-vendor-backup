@@ -1038,11 +1038,6 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	spin_lock_init(&dev->irqlock);
 	spin_lock_init(&dev->condlock);
 	dev->plat_dev = pdev;
-	if (!dev->plat_dev) {
-		dev_err(&pdev->dev, "No platform data specified\n");
-		return -ENODEV;
-	}
-
 	dev->variant = mfc_get_drv_data(pdev);
 
 	ret = s5p_mfc_init_pm(dev);
