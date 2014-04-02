@@ -448,6 +448,7 @@ static void s5p_mfc_handle_error(struct s5p_mfc_dev *dev,
 static void s5p_mfc_handle_seq_done(struct s5p_mfc_ctx *ctx,
 				 unsigned int reason, unsigned int err)
 {
+	unsigned int status;
 	struct s5p_mfc_dev *dev;
 
 	if (ctx == NULL)
@@ -461,6 +462,10 @@ static void s5p_mfc_handle_seq_done(struct s5p_mfc_ctx *ctx,
 				dev);
 		ctx->img_height = s5p_mfc_hw_call(dev->mfc_ops, get_img_height,
 				dev);
+
+		status = s5p_mfc_hw_call(dev->mfc_ops, get_dspl_status, dev)
+					& S5P_FIMV_DEC_STATUS_INTERLACE_MASK;
+		ctx->interlace = status == S5P_FIMV_DEC_STATUS_INTERLACE;
 
 		s5p_mfc_hw_call(dev->mfc_ops, dec_calc_dpb_size, ctx);
 

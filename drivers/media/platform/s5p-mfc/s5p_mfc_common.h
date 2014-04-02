@@ -559,6 +559,7 @@ struct s5p_mfc_ctx {
 	int img_height;
 	int buf_width;
 	int buf_height;
+	int interlace;
 
 	int luma_size;
 	int chroma_size;
@@ -677,5 +678,29 @@ void set_work_bit_irqsave(struct s5p_mfc_ctx *ctx);
 	((mem == V4L2_MEMORY_MMAP || \
 	 mem == V4L2_MEMORY_USERPTR || \
 	 mem == V4L2_MEMORY_DMABUF) ? 1 : 0)
+
+#define INITIAL_MAPPING_VAL  ERR_PTR(-EAGAIN)
+
+static inline bool mfc_is_iommu_used(struct s5p_mfc_ctx *ctx)
+{
+#ifdef CONFIG_ARM_DMA_USE_IOMMU
+	struct device *dev_iommu1 = ctx->dev->mem_dev_l;
+	struct device *dev_iommu2 = ctx->dev->mem_dev_r;
+	int iommu1_mapped, iommu2_mapped;
+
+	iommu1_mapped = dev_iommu1->archdata.mapping &&
+			dev_iommu1->archdata.mapping != INITIAL_MAPPING_VAL;
+	iommu2_mapped = dev_iommu2->archdata.mapping &&
+			dev_iommu2->archdata.mapping != INITIAL_MAPPING_VAL;
+
+	if (iommu1_mapped) {
+		/* Warn when one iommu is mapped and the second is not.
+		 * This is a strange case. */
+		WARN_ON(!iommu2_mapped);
+		return true;
+	}
+#endif
+	return false;
+}
 
 #endif /* S5P_MFC_COMMON_H_ */
