@@ -28,6 +28,7 @@
 #include <linux/workqueue.h>
 
 #include "cpufreq_governor.h"
+static DEFINE_MUTEX(cpufreq_governor_lock);
 
 static struct kobject *get_governor_parent_kobj(struct cpufreq_policy *policy)
 {
@@ -250,6 +251,7 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 	int rc;
 	int governor = cdata->governor;
 
+	mutex_lock(&cpufreq_governor_lock);
 	if (have_governor_per_policy())
 		dbs_data = policy->governor_data;
 	else
@@ -264,12 +266,14 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		} else if (dbs_data) {
 			dbs_data->usage_count++;
 			policy->governor_data = dbs_data;
+			mutex_unlock(&cpufreq_governor_lock);
 			return 0;
 		}
 
 		dbs_data = kzalloc(sizeof(*dbs_data), GFP_KERNEL);
 		if (!dbs_data) {
 			pr_err("%s: POLICY_INIT: kzalloc failed\n", __func__);
+			mutex_unlock(&cpufreq_governor_lock);
 			return -ENOMEM;
 		}
 
@@ -279,6 +283,7 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		if (rc) {
 			pr_err("%s: POLICY_INIT: init() failed\n", __func__);
 			kfree(dbs_data);
+			mutex_unlock(&cpufreq_governor_lock);
 			return rc;
 		}
 
@@ -290,6 +295,7 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		if (rc) {
 			cdata->exit(dbs_data);
 			kfree(dbs_data);
+			mutex_unlock(&cpufreq_governor_lock);
 			return rc;
 		}
 
@@ -317,6 +323,7 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		if (!have_governor_per_policy())
 			cdata->gdbs_data = dbs_data;
 
+		mutex_unlock(&cpufreq_governor_lock);
 		return 0;
 	case CPUFREQ_GOV_POLICY_EXIT:
 		if (!--dbs_data->usage_count) {
@@ -340,6 +347,7 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		}
 
 		policy->governor_data = NULL;
+		mutex_unlock(&cpufreq_governor_lock);
 		return 0;
 	}
 
@@ -347,9 +355,10 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
-		if (!policy->cur)
+		if (!policy->cur) {
+			mutex_unlock(&cpufreq_governor_lock);
 			return -EINVAL;
-
+		}
 		if (governor == GOV_CONSERVATIVE) {
 			cs_tuners = dbs_data->tuners;
 			cs_dbs_info = dbs_data->cdata->get_cpu_dbs_info_s(cpu);
@@ -423,6 +432,7 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		mutex_unlock(&cpu_cdbs->timer_mutex);
 		break;
 	}
+	mutex_unlock(&cpufreq_governor_lock);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(cpufreq_governor_dbs);
