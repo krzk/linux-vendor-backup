@@ -1127,7 +1127,7 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	if (ret) {
 		v4l2_err(&dev->v4l2_dev, "Failed to register video device\n");
 		video_device_release(vfd);
-		goto err_dec_reg;
+		goto err_dec_alloc;
 	}
 	v4l2_info(&dev->v4l2_dev,
 		  "decoder registered as /dev/video%d\n", vfd->num);
@@ -1152,7 +1152,7 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	if (ret) {
 		v4l2_err(&dev->v4l2_dev, "Failed to register video device\n");
 		video_device_release(vfd);
-		goto err_enc_reg;
+		goto err_enc_alloc;
 	}
 	v4l2_info(&dev->v4l2_dev,
 		  "encoder registered as /dev/video%d\n", vfd->num);
@@ -1175,12 +1175,8 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	return 0;
 
 /* Deinit MFC if probe had failed */
-err_enc_reg:
-	video_device_release(dev->vfd_enc);
 err_enc_alloc:
 	video_unregister_device(dev->vfd_dec);
-err_dec_reg:
-	video_device_release(dev->vfd_dec);
 err_dec_alloc:
 	v4l2_device_unregister(&dev->v4l2_dev);
 err_v4l2_dev_reg:
