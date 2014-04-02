@@ -288,7 +288,7 @@ static void s5p_mfc_dec_calc_dpb_size_v5(struct s5p_mfc_ctx *ctx)
 		ctx->luma_size = ALIGN(ctx->buf_width * ctx->buf_height,
 				S5P_FIMV_DEC_BUF_ALIGN);
 		ctx->chroma_size = ALIGN(ctx->buf_width *
-				ALIGN((ctx->img_height >> 1),
+				ALIGN((ctx->buf_height >> 1),
 					S5P_FIMV_NV12MT_VALIGN),
 				S5P_FIMV_DEC_BUF_ALIGN);
 		ctx->mv_size = ALIGN(ctx->buf_width *
@@ -297,16 +297,16 @@ static void s5p_mfc_dec_calc_dpb_size_v5(struct s5p_mfc_ctx *ctx)
 				S5P_FIMV_DEC_BUF_ALIGN);
 	} else {
 		guard_width =
-			ALIGN(ctx->img_width + 24, S5P_FIMV_NV12MT_HALIGN);
+			ALIGN(ctx->buf_width + 24, S5P_FIMV_NV12MT_HALIGN);
 		guard_height =
-			ALIGN(ctx->img_height + 16, S5P_FIMV_NV12MT_VALIGN);
+			ALIGN(ctx->buf_height + 16, S5P_FIMV_NV12MT_VALIGN);
 		ctx->luma_size = ALIGN(guard_width * guard_height,
 				S5P_FIMV_DEC_BUF_ALIGN);
 
 		guard_width =
-			ALIGN(ctx->img_width + 16, S5P_FIMV_NV12MT_HALIGN);
+			ALIGN(ctx->buf_width + 16, S5P_FIMV_NV12MT_HALIGN);
 		guard_height =
-			ALIGN((ctx->img_height >> 1) + 4,
+			ALIGN((ctx->buf_height >> 1) + 4,
 					S5P_FIMV_NV12MT_VALIGN);
 		ctx->chroma_size = ALIGN(guard_width * guard_height,
 				S5P_FIMV_DEC_BUF_ALIGN);
