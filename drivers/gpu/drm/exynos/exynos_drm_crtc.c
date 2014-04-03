@@ -147,7 +147,7 @@ exynos_drm_crtc_mode_set(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	}
 
 	ret = exynos_plane_mode_set(plane, crtc, crtc->fb,
-		crtc_uh, crtc_uv, crtc_w - (2 * crtc_uh), crtc_h - (2 *crtc_uv),
+		crtc_uh, crtc_uv, crtc_w, crtc_h,
 		x, y, crtc_w, crtc_h);
 	if (ret)
 		return ret;
@@ -188,7 +188,7 @@ static int exynos_drm_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
 	}
 
 	ret = exynos_plane_mode_set(plane, crtc, crtc->fb,
-		crtc_uh, crtc_uv, crtc_w - (2 * crtc_uh), crtc_h - (2 *crtc_uv),
+		crtc_uh, crtc_uv, crtc_w, crtc_h,
 		x, y, crtc_w, crtc_h);
 	if (ret)
 		return ret;
