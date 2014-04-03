@@ -1953,6 +1953,7 @@ int drm_mode_setcrtc(struct drm_device *dev, void *data,
 		if (crtc->invert_dimensions)
 			swap(hdisplay, vdisplay);
 
+#if 0
 		if (hdisplay > fb->width ||
 		    vdisplay > fb->height ||
 		    crtc_req->x > fb->width - hdisplay ||
@@ -1964,6 +1965,7 @@ int drm_mode_setcrtc(struct drm_device *dev, void *data,
 			ret = -ENOSPC;
 			goto out;
 		}
+#endif
 	}
 
 	if (crtc_req->count_connectors == 0 && mode) {
@@ -3600,6 +3602,7 @@ int drm_mode_page_flip_ioctl(struct drm_device *dev,
 	if (crtc->invert_dimensions)
 		swap(hdisplay, vdisplay);
 
+#if 0
 	if (hdisplay > fb->width ||
 	    vdisplay > fb->height ||
 	    crtc->x > fb->width - hdisplay ||
@@ -3610,6 +3613,7 @@ int drm_mode_page_flip_ioctl(struct drm_device *dev,
 		ret = -ENOSPC;
 		goto out;
 	}
+#endif
 
 	if (page_flip->flags & DRM_MODE_PAGE_FLIP_EVENT) {
 		ret = -ENOMEM;
