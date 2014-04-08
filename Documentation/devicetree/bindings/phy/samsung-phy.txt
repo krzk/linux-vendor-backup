@@ -114,3 +114,27 @@ Example:
 		compatible = "samsung,exynos-sataphy-i2c";
 		reg = <0x38>;
 	};
+
+Samsung S5P/EXYNOS SoC series SIMPLE PHY
+-------------------------------------------------
+
+Required properties:
+- compatible : should be one of the listed compatibles:
+	- "samsung,exynos4210-simple-phy"
+	- "samsung,exynos4412-simple-phy"
+- reg : offset and length of the register set;
+- #phy-cells : from the generic phy bindings, must be 1;
+
+For "samsung,exynos4210-simple-phy" compatible PHYs the second cell in
+the PHY specifier identifies the PHY and its meaning is as follows:
+  0 - HDMI PHY,
+  1 - DAC PHY,
+  2 - ADC PHY,
+  3 - PCIE PHY.
+  4 - SATA PHY.
+
+For "samsung,exynos4412-simple-phy" compatible PHYs the second cell in
+the PHY specifier identifies the PHY and its meaning is as follows:
+  0 - HDMI PHY,
+  1 - ADC PHY,
+

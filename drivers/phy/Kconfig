@@ -167,4 +167,9 @@ config PHY_XGENE
 	help
 	  This option enables support for APM X-Gene SoC multi-purpose PHY.
 
+config EXYNOS_SIMPLE_PHY
+	tristate "Exynos Simple PHY driver"
+	help
+	  Support for 1-bit PHY controllers on SoCs from Exynos family.
+
 endmenu
