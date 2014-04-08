@@ -4592,8 +4592,10 @@ void igb_update_stats(struct igb_adapter *adapter,
 	bytes = 0;
 	packets = 0;
 	for (i = 0; i < adapter->num_rx_queues; i++) {
-		u32 rqdpc = rd32(E1000_RQDPC(i));
 		struct igb_ring *ring = adapter->rx_ring[i];
+		u32 rqdpc = rd32(E1000_RQDPC(i));
+		if (hw->mac.type >= e1000_i210)
+			wr32(E1000_RQDPC(i), 0);
 
 		if (rqdpc) {
 			ring->rx_stats.drops += rqdpc;
