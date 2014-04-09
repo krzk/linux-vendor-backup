@@ -24,7 +24,6 @@
 
 #include "rtl2830.h"
 #include "rtl2832.h"
-#include "rtl2832_sdr.h"
 
 #include "qt1010.h"
 #include "mt2060.h"
