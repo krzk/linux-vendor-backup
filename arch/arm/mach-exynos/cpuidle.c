@@ -167,7 +167,7 @@ static int exynos4_enter_lowpower(struct cpuidle_device *dev,
 		return exynos4_enter_core0_aftr(dev, drv, new_index);
 }
 
-static void __init exynos5_core_down_clk(void)
+static void __init exynos_core_down_clk(void)
 {
 	unsigned int tmp;
 
@@ -183,7 +183,15 @@ static void __init exynos5_core_down_clk(void)
 	      PWR_CTRL1_USE_CORE0_WFE	 | \
 	      PWR_CTRL1_USE_CORE1_WFI	 | \
 	      PWR_CTRL1_USE_CORE0_WFI;
-	__raw_writel(tmp, EXYNOS5_PWR_CTRL1);
+
+	if (soc_is_exynos4412())
+		tmp |= PWR_CTRL1_USE_CORE3_WFE | \
+		       PWR_CTRL1_USE_CORE2_WFE | \
+		       PWR_CTRL1_USE_CORE3_WFI | \
+		       PWR_CTRL1_USE_CORE2_WFI;
+
+	__raw_writel(tmp, soc_is_exynos5250() ? EXYNOS5_PWR_CTRL1
+		     : EXYNOS4_PWR_CTRL1);
 
 	/*
 	 * Enable arm clock up (on exiting idle). Set arm divider
@@ -196,7 +204,9 @@ static void __init exynos5_core_down_clk(void)
 	      PWR_CTRL2_DUR_STANDBY1_VAL | \
 	      PWR_CTRL2_CORE2_UP_RATIO	 | \
 	      PWR_CTRL2_CORE1_UP_RATIO;
-	__raw_writel(tmp, EXYNOS5_PWR_CTRL2);
+
+	__raw_writel(tmp, soc_is_exynos5250() ? EXYNOS5_PWR_CTRL2
+		     : EXYNOS4_PWR_CTRL2);
 }
 
 static int __init exynos4_init_cpuidle(void)
@@ -204,8 +214,8 @@ static int __init exynos4_init_cpuidle(void)
 	int cpu_id, ret;
 	struct cpuidle_device *device;
 
-	if (soc_is_exynos5250())
-		exynos5_core_down_clk();
+	if (soc_is_exynos4412() || soc_is_exynos5250())
+		exynos_core_down_clk();
 
 	ret = cpuidle_register_driver(&exynos4_idle_driver);
 	if (ret) {
