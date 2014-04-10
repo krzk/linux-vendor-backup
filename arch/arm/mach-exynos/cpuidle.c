@@ -21,12 +21,14 @@
 #include <asm/suspend.h>
 #include <asm/unified.h>
 #include <asm/cpuidle.h>
+#include <asm/firmware.h>
 #include <mach/regs-clock.h>
 #include <mach/regs-pmu.h>
 
 #include <plat/cpu.h>
 
 #include "common.h"
+#include "smc.h"
 
 #define REG_DIRECTGO_ADDR	(samsung_rev() == EXYNOS4210_REV_1_1 ? \
 			S5P_INFORM7 : (samsung_rev() == EXYNOS4210_REV_1_0 ? \
@@ -67,28 +69,34 @@ static void exynos4_set_wakeupmask(void)
 	__raw_writel(0x0000ff3e, S5P_WAKEUP_MASK);
 }
 
-static unsigned int g_pwr_ctrl, g_diag_reg;
+static unsigned int cp15_regs[2];
 
 static void save_cpu_arch_register(void)
 {
 	/*read power control register*/
-	asm("mrc p15, 0, %0, c15, c0, 0" : "=r"(g_pwr_ctrl) : : "cc");
+	asm("mrc p15, 0, %0, c15, c0, 0" : "=r"(cp15_regs[0]) : : "cc");
 	/*read diagnostic register*/
-	asm("mrc p15, 0, %0, c15, c0, 1" : "=r"(g_diag_reg) : : "cc");
+	asm("mrc p15, 0, %0, c15, c0, 1" : "=r"(cp15_regs[1]) : : "cc");
 	return;
 }
 
 static void restore_cpu_arch_register(void)
 {
+	if (call_firmware_op(c15resume, cp15_regs) == 0)
+		return;
+
 	/*write power control register*/
-	asm("mcr p15, 0, %0, c15, c0, 0" : : "r"(g_pwr_ctrl) : "cc");
+	asm("mcr p15, 0, %0, c15, c0, 0" : : "r"(cp15_regs[0]) : "cc");
 	/*write diagnostic register*/
-	asm("mcr p15, 0, %0, c15, c0, 1" : : "r"(g_diag_reg) : "cc");
+	asm("mcr p15, 0, %0, c15, c0, 1" : : "r"(cp15_regs[1]) : "cc");
 	return;
 }
 
 static int idle_finisher(unsigned long flags)
 {
+	if (call_firmware_op(do_idle, EXYNOS_DO_IDLE_AFTR) == 0)
+		return 1;
+
 	cpu_do_idle();
 	return 1;
 }

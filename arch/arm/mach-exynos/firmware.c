@@ -19,13 +19,26 @@
 
 #include <mach/map.h>
 
+#include "common.h"
 #include "smc.h"
 
 #define EXYNOS_SLEEP_MAGIC	0x00000BAD
+#define EXYNOS_AFTR_MAGIC	0xFCBA0D10
 
-static int exynos_do_idle(void)
+static int exynos_do_idle(int mode)
 {
-	exynos_smc(SMC_CMD_SLEEP, 0, 0, 0);
+	switch (mode) {
+	case EXYNOS_DO_IDLE_AFTR:
+		__raw_writel(virt_to_phys(s3c_cpu_resume), S5P_VA_SYSRAM_NS +
+			     0x24);
+		__raw_writel(EXYNOS_AFTR_MAGIC, S5P_VA_SYSRAM_NS + 0x20);
+		exynos_smc(SMC_CMD_CPU0AFTR, 0, 0, 0);
+
+		break;
+	case EXYNOS_DO_IDLE_NORMAL:
+		exynos_smc(SMC_CMD_SLEEP, 0, 0, 0);
+	}
+
 	return 0;
 }
 

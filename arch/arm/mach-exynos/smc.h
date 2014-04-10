@@ -28,4 +28,9 @@
 
 extern void exynos_smc(u32 cmd, u32 arg1, u32 arg2, u32 arg3);
 
+enum {
+	EXYNOS_DO_IDLE_NORMAL,
+	EXYNOS_DO_IDLE_AFTR,
+};
+
 #endif
