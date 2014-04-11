@@ -190,6 +190,7 @@
 		i2c11 = &i2c_fuel;
 		/* 15...16 reserved for i2c0_isp, i2c1_isp */
 		i2c16 = &i2c1_isp;
+		i2c17 = &i2c_mhl;
 		i2c20 = &i2c_touch_key;
 		i2c21 = &i2c_cm36651;
 	};
@@ -1500,7 +1501,7 @@
 		vin-supply = <&buck7_reg>;
 	};
 
-	i2c-mhl {
+	i2c_mhl: i2c-mhl {
 		compatible = "i2c-gpio";
 		gpios = <&gpf0 4 0 &gpf0 6 0>;
 		i2c-gpio,delay-us = <100>;
