@@ -472,8 +472,6 @@ static int exynos_dsi_init_link(struct exynos_dsi *dsi)
 
 		if (!(dsi->mode_flags & MIPI_DSI_MODE_VSYNC_FLUSH))
 			reg |= DSIM_MFLUSH_VS;
-		if (!(dsi->mode_flags & MIPI_DSI_MODE_EOT_PACKET))
-			reg |= DSIM_EOT_DISABLE;
 		if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE)
 			reg |= DSIM_SYNC_INFORM;
 		if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST)
@@ -489,6 +487,9 @@ static int exynos_dsi_init_link(struct exynos_dsi *dsi)
 		if (!(dsi->mode_flags & MIPI_DSI_MODE_VIDEO_HSA))
 			reg |= DSIM_HSA_MODE;
 	}
+
+	if (!(dsi->mode_flags & MIPI_DSI_MODE_EOT_PACKET))
+		reg |= DSIM_EOT_DISABLE;
 
 	switch (dsi->format) {
 	case MIPI_DSI_FMT_RGB888:
