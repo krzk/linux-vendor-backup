@@ -107,6 +107,10 @@ static int exynos4_enter_core0_aftr(struct cpuidle_device *dev,
 {
 	unsigned long tmp;
 
+	if (soc_is_exynos4412())
+		__raw_writel(S5P_USE_STANDBY_WFI0 | S5P_USE_STANDBY_WFE0,
+			     S5P_CENTRAL_SEQ_OPTION);
+
 	exynos4_set_wakeupmask();
 
 	/* Set value of power down register for aftr mode */
