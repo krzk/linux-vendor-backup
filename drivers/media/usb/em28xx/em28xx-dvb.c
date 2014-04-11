@@ -1729,6 +1729,13 @@ static int em28xx_dvb_resume(struct em28xx *dev)
 			i2c_unregister_device(client);
 		}
 
+		/* remove I2C demod */
+		client = dvb->i2c_client_demod;
+		if (client) {
+			module_put(client->dev.driver->owner);
+			i2c_unregister_device(client);
+		}
+
 		em28xx_unregister_dvb(dvb);
 		kfree(dvb);
 		dev->dvb = NULL;
