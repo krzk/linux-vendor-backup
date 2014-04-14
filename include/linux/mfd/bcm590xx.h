@@ -19,12 +19,15 @@
 #include <linux/regmap.h>
 
 /* max register address */
-#define BCM590XX_MAX_REGISTER	0xe7
+#define BCM590XX_MAX_REGISTER_0	0xe7
+#define BCM590XX_MAX_REGISTER_1	0xf0
 
 struct bcm590xx {
 	struct device *dev;
-	struct i2c_client *i2c_client;
-	struct regmap *regmap;
+	struct i2c_client *addmap0;
+	struct i2c_client *addmap1;
+	struct regmap *regmap0;
+	struct regmap *regmap1;
 	unsigned int id;
 };
 
