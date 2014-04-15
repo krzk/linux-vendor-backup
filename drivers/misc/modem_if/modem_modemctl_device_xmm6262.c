@@ -24,7 +24,7 @@
 #include <linux/platform_device.h>
 #include <plat/devs.h>
 #include <plat/gpio-cfg.h>
-#include <linux/platform_data/modem.h>
+#include "modem_tizen.h"
 #include "modem_prj.h"
 
 static void xmm_gpio_revers_bias_clear(struct modem_ctl *mc)
@@ -54,7 +54,6 @@ static void xmm_gpio_revers_bias_restore(struct modem_ctl *mc)
 /*
 	unsigned gpio_sim_detect = umts_modem_data.gpio_sim_detect;
 */
-
 	if (!IS_ERR(mc->pinctrl_active))
 		pinctrl_select_state(mc->pinctrl, mc->pinctrl_active);
 
@@ -152,7 +151,6 @@ static int xmm6262_reset(struct modem_ctl *mc)
 
 	xmm_gpio_revers_bias_restore(mc);
 
-/* vvv added by Kamil */
 	gpio_direction_input(mc->gpio_cp_dump_int);
 
 	gpio_set_value(mc->gpio_pda_active, 1);
@@ -161,7 +159,8 @@ static int xmm6262_reset(struct modem_ctl *mc)
 
 	gpio_set_value(mc->mdm_data->link_pm_data->gpio_link_active, 1);
 	gpio_set_value(mc->mdm_data->link_pm_data->gpio_link_slavewake, 1);
-/* ^^^ added by Kamil */
+
+	xmm_gpio_revers_bias_restore(mc);
 
 	mc->phone_state = STATE_BOOTING;
 
@@ -291,6 +290,7 @@ int xmm6262_init_modemctl_device(struct modem_ctl *mc,
 		goto err_phone_active_set_wake_irq;
 	}
 */
+
 	/* initialize sim_state if gpio_sim_detect exists */
 	mc->sim_state.online = false;
 	mc->sim_state.changed = false;

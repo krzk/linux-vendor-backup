@@ -33,11 +33,10 @@
 #ifdef CONFIG_HAS_WAKELOCK
 #include <linux/wakelock.h>
 #endif
-#include <linux/rbtree.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 
-#include <linux/platform_data/modem.h>
+#include "modem_tizen.h"
 #include "modem_prj.h"
 #include "modem_variation.h"
 #include "modem_utils.h"
@@ -46,85 +45,47 @@
 #define RFS_WAKE_TIME   (HZ*3)
 #define RAW_WAKE_TIME   (HZ*6)
 
-/* pdp for SLP, rmnet for others */
-#define NET_DEVICE_NAME(n) "pdp"#n
-
 /* umts target platform data */
 static struct modem_io_t umts_io_devices[] = {
 	[0] = {
 		.name = "umts_ipc0",
 		.id = 0x1,
-		.format = IPC_FMT,
+		.format = IPC_BYPASS,
 		.io_type = IODEV_MISC,
 		.links = LINKTYPE(LINKDEV_HSIC),
 	},
 	[1] = {
-		.name = "umts_rfs0",
-		.id = 0x41,
-		.format = IPC_RFS,
-		.io_type = IODEV_MISC,
-		.links = LINKTYPE(LINKDEV_HSIC),
-	},
-	[2] = {
 		.name = "umts_boot0",
 		.id = 0x0,
 		.format = IPC_BOOT,
 		.io_type = IODEV_MISC,
 		.links = LINKTYPE(LINKDEV_HSIC),
 	},
+	[2] = {
+		.name = "pdp0",
+		.id = 0x2A,
+		.format = IPC_PDP0,
+		.io_type = IODEV_NET,
+		.links = LINKTYPE(LINKDEV_HSIC),
+	},
 	[3] = {
-		.name = "multipdp",
-		.id = 0x1,
-		.format = IPC_MULTI_RAW,
-		.io_type = IODEV_DUMMY,
+		.name = "pdp1",
+		.id = 0x2B,
+		.format = IPC_PDP1,
+		.io_type = IODEV_NET,
 		.links = LINKTYPE(LINKDEV_HSIC),
 	},
 	[4] = {
-		.name = NET_DEVICE_NAME(0),
-		.id = 0x2A,
-		.format = IPC_RAW,
-		.io_type = IODEV_NET,
+		.name = "umts_rfs0",
+		.id = 0x41,
+		.format = IPC_RFS,
+		.io_type = IODEV_MISC,
 		.links = LINKTYPE(LINKDEV_HSIC),
 	},
 	[5] = {
-		.name = NET_DEVICE_NAME(1) ,
-		.id = 0x2B,
-		.format = IPC_RAW,
-		.io_type = IODEV_NET,
-		.links = LINKTYPE(LINKDEV_HSIC),
-	},
-	[6] = {
-		.name = NET_DEVICE_NAME(2),
-		.id = 0x2C,
-		.format = IPC_RAW,
-		.io_type = IODEV_NET,
-		.links = LINKTYPE(LINKDEV_HSIC),
-	},
-	[7] = {
-		.name = "umts_router",
-		.id = 0x39,
-		.format = IPC_RAW,
-		.io_type = IODEV_MISC,
-		.links = LINKTYPE(LINKDEV_HSIC),
-	},
-	[8] = {
-		.name = "umts_csd",
-		.id = 0x21,
-		.format = IPC_RAW,
-		.io_type = IODEV_MISC,
-		.links = LINKTYPE(LINKDEV_HSIC),
-	},
-	[9] = {
 		.name = "umts_ramdump0",
 		.id = 0x0,
 		.format = IPC_RAMDUMP,
-		.io_type = IODEV_MISC,
-		.links = LINKTYPE(LINKDEV_HSIC),
-	},
-	[10] = {
-		.name = "umts_loopback0",
-		.id = 0x3f,
-		.format = IPC_RAW,
 		.io_type = IODEV_MISC,
 		.links = LINKTYPE(LINKDEV_HSIC),
 	},
@@ -168,6 +129,8 @@ static struct modem_ctl *create_modemctl_device(struct platform_device *pdev,
 	struct modem_ctl *modemctl;
 	struct device *dev = &pdev->dev;
 
+	mif_info("START!\n");
+
 	/* create modem control device */
 	modemctl = kzalloc(sizeof(struct modem_ctl), GFP_KERNEL);
 	if (!modemctl)
@@ -200,6 +163,7 @@ static struct io_device *create_io_device(struct modem_io_t *io_t,
 	int ret = 0;
 	struct io_device *iod = NULL;
 
+	mif_info("start!\n");
 	iod = kzalloc(sizeof(struct io_device), GFP_KERNEL);
 	if (!iod) {
 		mif_err("iod == NULL\n");
@@ -220,8 +184,10 @@ static struct io_device *create_io_device(struct modem_io_t *io_t,
 	atomic_set(&iod->opened, 0);
 
 	/* link between io device and modem control */
+	mif_info("name : %s, format : %d, type : %d\n",
+				iod->name, iod->format, iod->io_typ);
 	iod->mc = modemctl;
-	if (iod->format == IPC_FMT)
+	if (iod->format == IPC_BYPASS)
 		modemctl->iod = iod;
 	if (iod->format == IPC_BOOT) {
 		modemctl->bootd = iod;
@@ -232,7 +198,7 @@ static struct io_device *create_io_device(struct modem_io_t *io_t,
 	iod->msd = msd;
 
 	/* add iod to rb_tree */
-	if (iod->format != IPC_RAW)
+	if (iod->format != IPC_PDP0 && iod->format != IPC_PDP1)
 		insert_iod_with_format(msd, iod->format, iod);
 
 	if (sipc4_is_not_reserved_channel(iod->id))
@@ -255,6 +221,7 @@ static int attach_devices(struct io_device *iod, enum modem_link tx_link)
 	struct modem_shared *msd = iod->msd;
 	struct link_device *ld;
 
+	mif_info("start!\n");
 	/* find link type for this io device */
 	list_for_each_entry(ld, &msd->link_dev_list, list) {
 		if (IS_CONNECTED(iod, ld)) {
@@ -266,12 +233,12 @@ static int attach_devices(struct io_device *iod, enum modem_link tx_link)
 			 */
 			if ((countbits(iod->link_types) <= 1) ||
 					(tx_link == ld->link_type)) {
-				mif_debug("set %s->%s\n", iod->name, ld->name);
+				mif_info("set %s->%s\n", iod->name, ld->name);
 
 				set_current_link(iod, ld);
 
 				if (iod->ipc_version == SIPC_VER_42) {
-					if (iod->format == IPC_FMT) {
+					if (iod->format == IPC_BYPASS) {
 						int ch = iod->id & 0x03;
 						ld->fmt_iods[ch] = iod;
 					}
@@ -289,13 +256,28 @@ static int attach_devices(struct io_device *iod, enum modem_link tx_link)
 	}
 
 	switch (iod->format) {
-	case IPC_FMT:
+	case IPC_BYPASS:
 #ifdef CONFIG_HAS_WAKELOCK
 		wake_lock_init(&iod->wakelock, WAKE_LOCK_SUSPEND, iod->name);
 #else
 		device_init_wakeup(iod->miscdev.this_device, true);
 #endif
-		iod->waketime = FMT_WAKE_TIME;
+		iod->waketime = 3 * HZ;
+		break;
+
+	case IPC_PDP0:
+#ifdef CONFIG_HAS_WAKELOCK
+		wake_lock_init(&iod->wakelock, WAKE_LOCK_SUSPEND, iod->name);
+#endif
+		iod->waketime = RAW_WAKE_TIME;
+
+		break;
+
+	case IPC_PDP1:
+#ifdef CONFIG_HAS_WAKELOCK
+		wake_lock_init(&iod->wakelock, WAKE_LOCK_SUSPEND, iod->name);
+#endif
+		iod->waketime = RAW_WAKE_TIME;
 		break;
 
 	case IPC_RFS:
@@ -307,14 +289,6 @@ static int attach_devices(struct io_device *iod, enum modem_link tx_link)
 		iod->waketime = RFS_WAKE_TIME;
 		break;
 
-	case IPC_MULTI_RAW:
-#ifdef CONFIG_HAS_WAKELOCK
-		wake_lock_init(&iod->wakelock, WAKE_LOCK_SUSPEND, iod->name);
-#else
-		device_init_wakeup(iod->miscdev.this_device, true);
-#endif
-		iod->waketime = RAW_WAKE_TIME;
-		break;
 	case IPC_BOOT:
 #ifdef CONFIG_HAS_WAKELOCK
 		wake_lock_init(&iod->wakelock, WAKE_LOCK_SUSPEND, iod->name);
@@ -445,7 +419,7 @@ dt_parse_err:
 	return ERR_PTR(err);
 }
 
-static int modem_probe(struct platform_device *pdev)
+static int __init modem_probe(struct platform_device *pdev)
 {
 	int i;
 	struct modem_data *pdata = pdev->dev.platform_data;
@@ -462,7 +436,6 @@ static int modem_probe(struct platform_device *pdev)
 		mif_err("msd == NULL\n");
 		goto err_free_modemctl;
 	}
-
 
 	pdata = modem_parse_dt(pdev, pdev->dev.of_node);
 	if (IS_ERR(pdata)) {

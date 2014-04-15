@@ -59,6 +59,8 @@
 #define IOCTL_MODEM_CP_UPLOAD		_IO('o', 0x35)
 #define IOCTL_MODEM_DUMP_RESET		_IO('o', 0x36)
 
+#define IOCTL_CG_DATA_SEND		_IO('o', 0x37)
+
 #define IOCTL_DPRAM_SEND_BOOT		_IO('o', 0x40)
 #define IOCTL_DPRAM_INIT_STATUS		_IO('o', 0x43)
 
@@ -90,23 +92,88 @@
 #define PSD_DATA_CHID_BEGIN	0x2A
 #define PSD_DATA_CHID_END	0x38
 
-#define PS_DATA_CH_0		10
-#define PS_DATA_CH_LAST		24
-#define RMNET0_CH_ID		PS_DATA_CH_0
+#define PS_DATA_CH_0	10
+#define PS_DATA_CH_LAST	24
 
 #define IP6VERSION		6
 
 #define SOURCE_MAC_ADDR		{0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC}
 
-/* IP loopback */
-#define CP2AP_LOOPBACK_CHANNEL	30	/* CP -> AP -> CP */
-#define DATA_LOOPBACK_CHANNEL	31	/* AP -> CP -> AP */
+/* loopback: CP -> AP -> CP */
+#define CP2AP_LOOPBACK_CHANNEL	30
+
+/* ip loopback */
+#define RMNET0_CH_ID		10
+#define DATA_LOOPBACK_CHANNEL	31
+
+/*send cg data*/
+#define CG_LEN	23
+#define CG_AT_CMD	"AT+CGDATA=\"M-RAW_IP\","
+#define CG_AT_TAIL	"\r"
 
 /* Debugging features */
-#define MIF_LOG_DIR		"/sdcard/log"
-#define MIF_MAX_PATH_LEN	256
-#define MIF_MAX_NAME_LEN	64
-#define MIF_MAX_STR_LEN		32
+#define MAX_MIF_LOG_PATH_LEN	128
+#define MAX_MIF_LOG_FILE_SIZE	0x800000	/* 8 MB */
+
+#define MAX_MIF_EVT_BUFF_SIZE	256
+#define MAX_MIF_TIME_LEN	32
+#define MAX_MIF_NAME_LEN	16
+#define MAX_MIF_STR_LEN		127
+#define MAX_MIF_LOG_LEN		128
+
+enum mif_event_id {
+	MIF_IRQ_EVT = 0,
+	MIF_LNK_RX_EVT,
+	MIF_MUX_RX_EVT,
+	MIF_IOD_RX_EVT,
+	MIF_IOD_TX_EVT,
+	MIF_MUX_TX_EVT,
+	MIF_LNK_TX_EVT,
+	MAX_MIF_EVT
+};
+
+struct dpram_queue_status {
+	unsigned in;
+	unsigned out;
+};
+
+struct dpram_queue_status_pair {
+	struct dpram_queue_status txq;
+	struct dpram_queue_status rxq;
+};
+
+struct dpram_irq_buff {
+	unsigned magic;
+	unsigned access;
+	struct dpram_queue_status_pair qsp[MAX_IPC_DEV];
+	unsigned int2ap;
+	unsigned int2cp;
+};
+
+/* Not use */
+struct mif_event_buff {
+	char time[MAX_MIF_TIME_LEN];
+
+	struct timeval tv;
+	enum mif_event_id evt;
+
+	char mc[MAX_MIF_NAME_LEN];
+
+	char iod[MAX_MIF_NAME_LEN];
+
+	char ld[MAX_MIF_NAME_LEN];
+	enum modem_link link_type;
+
+	unsigned rcvd;
+	unsigned len;
+	union {
+		u8 data[MAX_MIF_LOG_LEN];
+		struct dpram_irq_buff dpram_irqb;
+	};
+};
+
+#define MIF_LOG_DIR	"/sdcard"
+#define MIF_LOG_LV_FILE	"/data/.mif_log_level"
 
 /* Does modem ctl structure will use state ? or status defined below ?*/
 enum modem_state {
@@ -380,9 +447,6 @@ struct link_device {
 	enum modem_link link_type;
 	unsigned aligned;
 
-	/* Maximum IPC device = the last IPC device (e.g. IPC_RFS) + 1 */
-	int max_ipc_dev;
-
 	/* SIPC version */
 	enum sipc_ver ipc_version;
 
@@ -413,11 +477,7 @@ struct link_device {
 	struct workqueue_struct *tx_wq;
 	struct work_struct tx_work;
 	struct delayed_work tx_delayed_work;
-
-	struct delayed_work *tx_dwork[MAX_IPC_DEV];
-	struct delayed_work fmt_tx_dwork;
-	struct delayed_work raw_tx_dwork;
-	struct delayed_work rfs_tx_dwork;
+	struct delayed_work tx_dwork;
 
 	struct workqueue_struct *rx_wq;
 	struct work_struct rx_work;
@@ -466,7 +526,7 @@ static inline struct sk_buff *rx_alloc_skb(unsigned int length,
 {
 	struct sk_buff *skb;
 
-	if (iod->format == IPC_MULTI_RAW || iod->format == IPC_RAW)
+	if (iod->format == IPC_PDP0 || iod->format == IPC_PDP1)
 		skb = dev_alloc_skb(length);
 	else
 		skb = alloc_skb(length, GFP_ATOMIC);
@@ -560,11 +620,7 @@ struct modem_ctl {
 
 	struct delayed_work dwork;
 #endif /*CONFIG_LTE_MODEM_CMC221*/
-#if defined(CONFIG_MACH_GRANDE)
-	struct delayed_work sim_det_dwork;
-#ifdef CONFIG_HAS_WAKELOCK
-#endif
-#endif /* For checking sim detect pin */
+
 	struct work_struct work;
 
 #if defined(CONFIG_MACH_U1_KOR_LGT)
@@ -579,8 +635,8 @@ struct modem_ctl {
 	struct io_device *iod;
 	struct io_device *bootd;
 
-	/* Wakelock for modem_ctl */
 #ifdef CONFIG_HAS_WAKELOCK
+	/* Wakelock for modem_ctl */
 	struct wake_lock mc_wake_lock;
 #endif
 
@@ -593,30 +649,8 @@ struct modem_ctl {
 
 int sipc4_init_io_device(struct io_device *iod);
 int sipc5_init_io_device(struct io_device *iod);
-
-/**
- * get_dev_name
- * @dev: IPC device (enum dev_format)
- *
- * Returns IPC device name as a string.
- *
- */
-static const inline char *get_dev_name(int dev)
-{
-	if (dev == IPC_FMT)
-		return "FMT";
-	else if (dev == IPC_RAW)
-		return "RAW";
-	else if (dev == IPC_RFS)
-		return "RFS";
-	else if (dev == IPC_BOOT)
-		return "BOOT";
-	else if (dev == IPC_RAMDUMP)
-		return "DUMP";
-	else
-		return "NONE";
-}
-
+int send_cg_data(struct link_device *ld,
+				struct io_device *iod, unsigned long arg);
 /**
  * sipc5_start_valid
  * @cfg: configuration field of an SIPC5 link frame
@@ -696,40 +730,6 @@ static inline unsigned sipc5_calc_padding_size(unsigned len)
 {
 	unsigned residue = len & 0x3;
 	return residue ? (4 - residue) : 0;
-}
-
-/**
- * sipc5_check_frame_in_dev
- * @ld: pointer to the link device structure
- * @dev: IPC device (enum dev_format)
- * @frm: pointer to the start of an SIPC5 frame
- * @rest: size of the rest data in the device buffer including this frame
- *
- * Returns
- *  < 0  : error
- *  == 0 : no data
- *  > 0  : valid data
- *
- */
-static inline int sipc5_check_frame_in_dev(struct link_device *ld, int dev,
-			u8 *frm, int rest)
-{
-	unsigned int len;
-
-	if (unlikely(!sipc5_start_valid(frm[0]))) {
-		mif_err("%s: ERR! %s invalid start 0x%02X\n",
-			ld->name, get_dev_name(dev), frm[0]);
-		return -EBADMSG;
-	}
-
-	len = sipc5_get_frame_sz16(frm);
-	if (unlikely(len > rest)) {
-		mif_err("%s: ERR! %s len %d > rest %d\n",
-			ld->name, get_dev_name(dev), len, rest);
-		return -EBADMSG;
-	}
-
-	return len;
 }
 
 extern void set_sromc_access(bool access);

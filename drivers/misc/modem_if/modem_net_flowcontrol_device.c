@@ -15,6 +15,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/errno.h>
 #include <linux/types.h>
@@ -22,11 +23,9 @@
 #include <linux/sched.h>
 #include <linux/netdevice.h>
 #include <linux/if_arp.h>
-#include <linux/platform_data/modem.h>
-#include <linux/module.h>
 
+#include "modem_tizen.h"
 #include "modem_prj.h"
-
 
 #define NET_FLOWCONTROL_DEV_NAME_LEN 8
 
@@ -113,5 +112,5 @@ static int __init modem_net_flowcontrol_device_init(void)
 
 module_init(modem_net_flowcontrol_device_init);
 
-//MODULE_LICENSE("GPL");
-//MODULE_DESCRIPTION("Samsung Modem IF Net Flowcontrol Driver");
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("Samsung Modem IF Net Flowcontrol Driver");

@@ -22,7 +22,7 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 
-#include <linux/platform_data/modem.h>
+#include "modem_tizen.h"
 #include "modem_prj.h"
 
 static int xmm6260_on(struct modem_ctl *mc)
@@ -180,7 +180,7 @@ static irqreturn_t phone_active_irq_handler(int irq, void *_mc)
 		if (cp_dump_value)
 			phone_state = STATE_CRASH_EXIT;
 		else
-			phone_state = STATE_CRASH_RESET;
+			phone_state = STATE_CRASH_EXIT;
 		if (mc->iod) {
 			ld = get_current_link(mc->iod);
 			if (ld->terminate_comm)

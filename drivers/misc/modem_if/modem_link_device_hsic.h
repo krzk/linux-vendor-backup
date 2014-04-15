@@ -19,10 +19,10 @@
 
 enum {
 	IF_USB_BOOT_EP = 0,
-	IF_USB_FMT_EP = 0,
-	IF_USB_RAW_EP,
+	IF_USB_BYPASS_EP = 0,
+	IF_USB_PDP0_EP,
+	IF_USB_PDP1_EP,
 	IF_USB_RFS_EP,
-	IF_USB_CMD_EP,
 	IF_USB_DEVNUM_MAX,
 };
 
@@ -105,8 +105,6 @@ struct link_pm_data {
 	unsigned ipc_debug_cnt;
 	unsigned long tx_cnt;
 	unsigned long rx_cnt;
-
-	void (*ehci_reg_dump)(struct device *);
 };
 
 struct if_usb_devdata {
@@ -120,6 +118,7 @@ struct if_usb_devdata {
 	int format;
 	struct urb *urb;
 	void *rx_buf;
+	struct sk_buff *rx_skb;
 	unsigned int rx_buf_size;
 	enum ch_state state;
 };

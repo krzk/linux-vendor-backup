@@ -16,7 +16,7 @@
 #ifndef __MODEM_VARIATION_H__
 #define __MODEM_VARIATION_H__
 
-#include <linux/platform_data/modem.h>
+#include "modem_tizen.h"
 
 #define DECLARE_MODEM_INIT(type)	\
 	int type ## _init_modemctl_device(struct modem_ctl *mc,	\
@@ -94,12 +94,6 @@ DECLARE_LINK_INIT(dpram);
 DECLARE_LINK_INIT_DUMMY(dpram)
 #endif
 
-#ifdef CONFIG_LINK_DEVICE_PLD
-DECLARE_LINK_INIT(pld);
-#else
-DECLARE_LINK_INIT_DUMMY(pld)
-#endif
-
 #ifdef CONFIG_LINK_DEVICE_SPI
 DECLARE_LINK_INIT(spi);
 #else
@@ -145,7 +139,6 @@ static link_init_call link_init_func[] = {
 	LINK_INIT_CALL(usb),
 	LINK_INIT_CALL(hsic),
 	LINK_INIT_CALL(c2c),
-	LINK_INIT_CALL(pld),
 };
 
 static int call_modem_init_func(struct modem_ctl *mc, struct modem_data *pdata)
