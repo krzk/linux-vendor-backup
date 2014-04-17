@@ -1042,7 +1042,6 @@ static int s5p_mfc_buf_prepare(struct vb2_buffer *vb)
 {
 	struct vb2_queue *vq = vb->vb2_queue;
 	struct s5p_mfc_ctx *ctx = fh_to_ctx(vq->drv_priv);
-	unsigned int index = vb->v4l2_buf.index;
 
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		if (vb2_plane_size(vb, 0) < ctx->luma_size ||
