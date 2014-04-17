@@ -55,7 +55,7 @@ static int gsc_m2m_start_streaming(struct vb2_queue *q, unsigned int count)
 	return ret > 0 ? 0 : ret;
 }
 
-static int gsc_m2m_stop_streaming(struct vb2_queue *q)
+static void gsc_m2m_stop_streaming(struct vb2_queue *q)
 {
 	struct gsc_ctx *ctx = q->drv_priv;
 	int ret;
@@ -65,8 +65,6 @@ static int gsc_m2m_stop_streaming(struct vb2_queue *q)
 		gsc_m2m_job_finish(ctx, VB2_BUF_STATE_ERROR);
 
 	pm_runtime_put(&ctx->gsc_dev->pdev->dev);
-
-	return 0;
 }
 
 void gsc_m2m_job_finish(struct gsc_ctx *ctx, int vb_state)

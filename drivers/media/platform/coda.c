@@ -2223,7 +2223,7 @@ out:
 	return ret;
 }
 
-static int coda_stop_streaming(struct vb2_queue *q)
+static void coda_stop_streaming(struct vb2_queue *q)
 {
 	struct coda_ctx *ctx = vb2_get_drv_priv(q);
 	struct coda_dev *dev = ctx->dev;
@@ -2249,8 +2249,6 @@ static int coda_stop_streaming(struct vb2_queue *q)
 			ctx->bitstream.vaddr, ctx->bitstream.size);
 		ctx->runcounter = 0;
 	}
-
-	return 0;
 }
 
 static struct vb2_ops coda_qops = {
