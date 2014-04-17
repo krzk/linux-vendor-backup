@@ -17,7 +17,6 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
-#include <linux/pinctrl/consumer.h>
 #include <linux/pm_runtime.h>
 
 #include <sound/soc.h>
@@ -1325,10 +1324,7 @@ static int samsung_i2s_probe(struct platform_device *pdev)
 	}
 
 	if (np) {
-		struct pinctrl *pctrl;
-		pctrl = devm_pinctrl_get_select_default(&pdev->dev);
-
-		if (IS_ERR(pctrl) && samsung_i2s_parse_dt_gpio(pri_dai)) {
+		if (samsung_i2s_parse_dt_gpio(pri_dai)) {
 			dev_err(&pdev->dev, "Unable to configure gpio\n");
 			ret = -EINVAL;
 			goto err;
