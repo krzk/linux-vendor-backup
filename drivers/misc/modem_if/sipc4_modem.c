@@ -416,12 +416,10 @@ static struct modem_data *modem_parse_dt(struct platform_device *pdev, struct de
 	mc->link_pm_data->gpio_link_enable = of_get_named_gpio(np, "link-enable-gpio", 0);
 
 	/* link enable is optional */
-/*	if (!gpio_is_valid(mc->link_pm_data->gpio_link_enable)) {
-		mif_err("failed to get link-enable gpio\n");
-		return ERR_PTR(-EINVAL);
-	}*/
+	if (gpio_is_valid(mc->link_pm_data->gpio_link_enable))
+		devm_gpio_request(&pdev->dev, mc->link_pm_data->gpio_link_enable,
+				"gpio_link_enable");
 
-	mc->link_pm_data->gpio_link_enable = 0;
 
 	devm_gpio_request(&pdev->dev, mc->gpio_reset_req_n, "gpio_reset_req_n");
 	devm_gpio_request(&pdev->dev, mc->gpio_cp_on, "gpio_cp_on");
@@ -432,7 +430,6 @@ static struct modem_data *modem_parse_dt(struct platform_device *pdev, struct de
 	devm_gpio_request(&pdev->dev, mc->link_pm_data->gpio_link_slavewake, "gpio_link_slavewake");
 	devm_gpio_request(&pdev->dev, mc->link_pm_data->gpio_link_hostwake, "gpio_link_hostwake");
 	devm_gpio_request(&pdev->dev, mc->link_pm_data->gpio_link_active, "gpio_link_active");
-	devm_gpio_request(&pdev->dev, mc->link_pm_data->gpio_link_enable, "gpio_link_enable");
 
 	platform_set_drvdata(pdev, mc);
 
@@ -449,7 +446,7 @@ dt_parse_err:
 
 static int modem_probe(struct platform_device *pdev)
 {
-	int i, ret;
+	int i;
 	struct modem_data *pdata = pdev->dev.platform_data;
 	struct modem_shared *msd = NULL;
 	struct modem_ctl *modemctl = NULL;
