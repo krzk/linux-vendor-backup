@@ -415,38 +415,6 @@
 		status = "okay";
 	};
 
-	gpio-keys@0 {
-		compatible = "gpio-keys";
-
-		key@114 {
-			interrupt-parent = <&gpj1>;
-			interrupts = <2 0>;
-			gpios = <&gpj1 2 1>;
-			linux,code = <114>;
-			label = "volume down";
-			debounce-interval = <10>;
-		};
-
-		key@115 {
-			interrupt-parent = <&gpj1>;
-			interrupts = <1 0>;
-			gpios = <&gpj1 1 1>;
-			linux,code = <115>;
-			label = "volume up";
-			debounce-interval = <10>;
-		};
-
-		key@116 {
-			interrupt-parent = <&gpx2>;
-			interrupts = <7 0>;
-			gpios = <&gpx2 7 1>;
-			linux,code = <116>;
-			label = "power";
-			debounce-interval = <10>;
-			gpio-key,wakeup;
-		};
-	};
-
 	i2c_ak8975: i2c-gpio-0 {
 		compatible = "i2c-gpio";
 		gpios = <&gpy2 4 0>, <&gpy2 5 0>;
