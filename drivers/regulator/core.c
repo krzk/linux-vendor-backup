@@ -953,6 +953,8 @@ static int machine_constraints_current(struct regulator_dev *rdev,
 	return 0;
 }
 
+static int _regulator_do_enable(struct regulator_dev *rdev);
+
 /**
  * set_machine_constraints - sets regulator constraints
  * @rdev: regulator source
@@ -1013,10 +1015,9 @@ static int set_machine_constraints(struct regulator_dev *rdev,
 	/* If the constraints say the regulator should be on at this point
 	 * and we have control then make sure it is enabled.
 	 */
-	if ((rdev->constraints->always_on || rdev->constraints->boot_on) &&
-	    ops->enable) {
-		ret = ops->enable(rdev);
-		if (ret < 0) {
+	if (rdev->constraints->always_on || rdev->constraints->boot_on) {
+		ret = _regulator_do_enable(rdev);
+		if (ret < 0 && ret != -EINVAL) {
 			rdev_err(rdev, "failed to enable\n");
 			goto out;
 		}
@@ -1272,6 +1273,8 @@ static struct regulator_dev *regulator_dev_lookup(struct device *dev,
 				if (r->dev.parent &&
 					node == r->dev.of_node)
 					return r;
+			*ret = -EPROBE_DEFER;
+			return NULL;
 		} else {
 			/*
 			 * If we couldn't even get the node then it's
@@ -1312,7 +1315,7 @@ static struct regulator *_regulator_get(struct device *dev, const char *id,
 	struct regulator_dev *rdev;
 	struct regulator *regulator = ERR_PTR(-EPROBE_DEFER);
 	const char *devname = NULL;
-	int ret = -EPROBE_DEFER;
+	int ret;
 
 	if (id == NULL) {
 		pr_err("get() with no identifier\n");
@@ -1321,6 +1324,11 @@ static struct regulator *_regulator_get(struct device *dev, const char *id,
 
 	if (dev)
 		devname = dev_name(dev);
+
+	if (have_full_constraints())
+		ret = -ENODEV;
+	else
+		ret = -EPROBE_DEFER;
 
 	mutex_lock(&regulator_list_mutex);
 
@@ -1352,7 +1360,7 @@ static struct regulator *_regulator_get(struct device *dev, const char *id,
 		rdev = dummy_regulator_rdev;
 		goto found;
 	} else {
-		dev_err(dev, "dummy supplies not allowed\n");
+		dev_warn(dev, "dummy supplies not allowed\n");
 	}
 
 	mutex_unlock(&regulator_list_mutex);
@@ -3626,9 +3634,8 @@ int regulator_suspend_finish(void)
 		struct regulator_ops *ops = rdev->desc->ops;
 
 		mutex_lock(&rdev->mutex);
-		if ((rdev->use_count > 0  || rdev->constraints->always_on) &&
-				ops->enable) {
-			error = ops->enable(rdev);
+		if (rdev->use_count > 0  || rdev->constraints->always_on) {
+			error = _regulator_do_enable(rdev);
 			if (error)
 				ret = error;
 		} else {
