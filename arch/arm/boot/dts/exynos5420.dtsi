@@ -739,4 +739,10 @@
 		clock-names = "secss";
 		samsung,power-domain = <&g2d_pd>;
 	};
+
+	simple_phys: simple-phys@10040000 {
+		compatible = "samsung,exynos5420-simple-phy";
+		reg = <0x10040000 0x10000>;
+		#phy-cells = <1>;
+	};
 };
