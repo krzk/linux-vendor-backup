@@ -649,8 +649,13 @@
 		clock-names = "hdmi", "sclk_hdmi", "sclk_pixel",
 			"sclk_hdmiphy", "mout_hdmi";
 		status = "disabled";
+		phy = <&hdmiphy>;
 		phys = <&simple_phys 0>;
 		phy-names = "hdmiphy";
+	};
+
+	hdmiphy: hdmiphy@145D0000 {
+		reg = <0x145D0000 0x20>;
 	};
 
 	mixer@14450000 {
