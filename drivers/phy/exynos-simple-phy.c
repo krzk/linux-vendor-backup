@@ -71,6 +71,12 @@ static const u32 exynos5250_offsets[] = {
 	~0, /* end mark */
 };
 
+static const u32 exynos5420_offsets[] = {
+	0x0700, /* HDMI_PHY */
+	0x0720, /* ADC_PHY */
+	~0, /* end mark */
+};
+
 static const struct of_device_id exynos_phy_of_match[] = {
 	{ .compatible = "samsung,exynos4210-simple-phy",
 	  .data = exynos4210_offsets},
@@ -78,6 +84,8 @@ static const struct of_device_id exynos_phy_of_match[] = {
 	  .data = exynos4412_offsets},
 	{ .compatible = "samsung,exynos5250-simple-phy",
 	  .data = exynos5250_offsets},
+	{ .compatible = "samsung,exynos5420-simple-phy",
+	  .data = exynos5420_offsets},
 	{ },
 };
 MODULE_DEVICE_TABLE(of, exynos_phy_of_match);
