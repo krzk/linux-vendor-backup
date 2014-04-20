@@ -196,7 +196,42 @@
 			reg = <0x50>;
 		};
 	};
+	
+	/* hsi2c4 */
+	hsi2c@12CA0000 {
+		status = "okay";
+		clock-frequency = <400000>; // is 400kHz fine here?
+		
+		/* A15's Block Sensor */
+		ina220@40 {
+			compatible = "ti,ina230";
+			reg = <0x40>;
+			shunt-resistor = <10000>; // This is in micro-Ohm
+		};
+		
+		/* A7's Block Sensor */
+		ina220@45 {
+			compatible = "ti,ina230";
+			reg = <0x45>;
+			shunt-resistor = <10000>; // This is in micro-Ohm
+		};
 
+		/* DRAM Sensor */
+		ina220@41 {
+			compatible = "ti,ina230";
+			reg = <0x41>;
+			shunt-resistor = <10000>; // This is in micro-Ohm
+		};
+		
+		/* GPU Sensor */
+		ina220@44 {
+			compatible = "ti,ina230";
+			reg = <0x44>;
+			shunt-resistor = <10000>; // This is in micro-Ohm
+		};
+	};
+	
+	
 	hdmi {
 		hpd-gpio = <&gpx3 7 0>;
         pinctrl-names = "default";
