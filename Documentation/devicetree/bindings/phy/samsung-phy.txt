@@ -122,6 +122,7 @@ Required properties:
 - compatible : should be one of the listed compatibles:
 	- "samsung,exynos4210-simple-phy"
 	- "samsung,exynos4412-simple-phy"
+	- "samsung,exynos5250-simple-phy"
 - reg : offset and length of the register set;
 - #phy-cells : from the generic phy bindings, must be 1;
 
@@ -138,3 +139,24 @@ the PHY specifier identifies the PHY and its meaning is as follows:
   0 - HDMI PHY,
   1 - ADC PHY,
 
+For "samsung,exynos5250-simple-phy" compatible PHYs the second cell in
+the PHY specifier identifies the PHY and its meaning is as follows:
+  0 - HDMI PHY,
+  1 - ADC PHY,
+  2 - ADC PHY,
+
+Example:
+Simple PHY provider node:
+
+	simplephys: simple-phys@10040000 {
+		compatible = "samsung,exynos5250-simple-phy";
+		reg = <0x10040000 0x10000>;
+		#phy-cells = <1>;
+	};
+
+Other nodes accessing simple PHYs:
+
+	hdmi {
+		phys = <&simplephys 0>;
+		phy-names = "hdmiphy";
+	};
