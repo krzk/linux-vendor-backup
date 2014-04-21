@@ -419,7 +419,8 @@ static struct modem_data *modem_parse_dt(struct platform_device *pdev, struct de
 	if (gpio_is_valid(mc->link_pm_data->gpio_link_enable))
 		devm_gpio_request(&pdev->dev, mc->link_pm_data->gpio_link_enable,
 				"gpio_link_enable");
-
+	else
+		mc->link_pm_data->gpio_link_enable = 0;
 
 	devm_gpio_request(&pdev->dev, mc->gpio_reset_req_n, "gpio_reset_req_n");
 	devm_gpio_request(&pdev->dev, mc->gpio_cp_on, "gpio_cp_on");
