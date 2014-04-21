@@ -23,22 +23,22 @@
 #define REVISION 3
 
 /* Display */
-#define CLOCK 27027 /* kHz */
+#define CLOCK 74250 /* kHz */
 #define XPIX 1280
 #define YPIX 720
 #define XY_RATIO XY_RATIO_16_9
-#define XBLANK 280
-#define YBLANK 45
-#define XOFFSET 88
-#define XPULSE 44
-#define YOFFSET (63+4)
-#define YPULSE (63+5)
+#define XBLANK 384
+#define YBLANK 28
+#define XOFFSET 64
+#define XPULSE 128
+#define YOFFSET 66
+#define YPULSE 68
 #define DPI 96
 #define VFREQ 60 /* Hz */
 #define TIMING_NAME "Linux HD"
 #define ESTABLISHED_TIMINGS_BITS 0x00 /* none */
 #define HSYNC_POL 1
 #define VSYNC_POL 1
-#define CRC 0xd8
+#define CRC 0x94
 
 #include "edid.S"
