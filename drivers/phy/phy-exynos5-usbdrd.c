@@ -23,6 +23,7 @@
 #include <linux/mutex.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
+#include <linux/regulator/consumer.h>
 
 /* Exynos USB PHY registers */
 #define EXYNOS5_FSEL_9MHZ6		0x0
@@ -171,6 +172,7 @@ struct exynos5_usbdrd_phy {
 	unsigned int extrefclk;
 	struct clk *ref_clk;
 	unsigned long ref_rate;
+	struct regulator *vbus;
 };
 
 #define to_usbdrd_phy(inst) \
@@ -441,6 +443,7 @@ static int exynos5_usbdrd_phy_exit(struct phy *phy)
 
 static int exynos5_usbdrd_phy_power_on(struct phy *phy)
 {
+	int ret;
 	struct phy_usb_instance *inst = phy_get_drvdata(phy);
 	struct exynos5_usbdrd_phy *phy_drd = to_usbdrd_phy(inst);
 
@@ -448,10 +451,24 @@ static int exynos5_usbdrd_phy_power_on(struct phy *phy)
 
 	clk_prepare_enable(phy_drd->ref_clk);
 
+	/* Enable VBUS supply */
+	if (phy_drd->vbus) {
+		ret = regulator_enable(phy_drd->vbus);
+		if (ret) {
+			dev_err(phy_drd->dev, "Failed to enable VBUS supply\n");
+			goto fail_vbus;
+		}
+	}
+
 	/* Power-on PHY*/
 	inst->phy_cfg->phy_isol(inst, 0);
 
 	return 0;
+
+fail_vbus:
+	clk_disable_unprepare(phy_drd->ref_clk);
+
+	return ret;
 }
 
 static int exynos5_usbdrd_phy_power_off(struct phy *phy)
@@ -463,6 +480,10 @@ static int exynos5_usbdrd_phy_power_off(struct phy *phy)
 
 	/* Power-off the PHY */
 	inst->phy_cfg->phy_isol(inst, 1);
+
+	/* Disable VBUS supply */
+	if (phy_drd->vbus)
+		regulator_disable(phy_drd->vbus);
 
 	clk_disable_unprepare(phy_drd->ref_clk);
 
@@ -534,7 +555,7 @@ static int exynos5_usbdrd_phy_probe(struct platform_device *pdev)
 	const struct exynos5_usbdrd_phy_drvdata *drv_data;
 	struct regmap *reg_pmu;
 	u32 pmu_offset;
-	int i;
+	int i, ret;
 
 	phy_drd = devm_kzalloc(dev, sizeof(*phy_drd), GFP_KERNEL);
 	if (!phy_drd)
@@ -575,6 +596,17 @@ static int exynos5_usbdrd_phy_probe(struct platform_device *pdev)
 	if (IS_ERR(reg_pmu)) {
 		dev_err(dev, "Failed to map PMU register (via syscon)\n");
 		return PTR_ERR(reg_pmu);
+	}
+
+	/* Get required GPIO for vbus */
+	phy_drd->vbus = devm_regulator_get(dev, "vbus");
+	if (IS_ERR(phy_drd->vbus)) {
+		ret = PTR_ERR(phy_drd->vbus);
+		if (ret == -EPROBE_DEFER)
+			return ret;
+
+		dev_warn(dev, "Failed to get VBUS supply regulator\n");
+		phy_drd->vbus = NULL;
 	}
 
 	if (of_property_read_u32(node, "samsung,pmu-offset", &pmu_offset)) {
