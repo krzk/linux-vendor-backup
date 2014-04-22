@@ -40,6 +40,7 @@ struct vb2_dc_buf {
 
 	/* USERPTR related */
 	struct vm_area_struct		*vma;
+	bool				coherent;
 
 	/* DMABUF related */
 	struct dma_buf_attachment	*db_attach;
@@ -114,7 +115,7 @@ static void vb2_dc_prepare(void *buf_priv)
 	struct sg_table *sgt = buf->dma_sgt;
 
 	/* DMABUF exporter will flush the cache for us */
-	if (!sgt || buf->db_attach)
+	if (!sgt || buf->db_attach || buf->coherent)
 		return;
 
 	dma_sync_sg_for_device(buf->dev, sgt->sgl, sgt->nents, buf->dma_dir);
@@ -126,7 +127,7 @@ static void vb2_dc_finish(void *buf_priv)
 	struct sg_table *sgt = buf->dma_sgt;
 
 	/* DMABUF exporter will flush the cache for us */
-	if (!sgt || buf->db_attach)
+	if (!sgt || buf->db_attach || buf->coherent)
 		return;
 
 	dma_sync_sg_for_cpu(buf->dev, sgt->sgl, sgt->nents, buf->dma_dir);
@@ -423,6 +424,28 @@ static inline int vma_is_io(struct vm_area_struct *vma)
 	return !!(vma->vm_flags & (VM_IO | VM_PFNMAP));
 }
 
+#ifdef __arm__
+static inline int vma_is_coherent(struct vm_area_struct *vma)
+{
+	pgprot_t prot = vma->vm_page_prot;
+	/*
+	 * this is a hack to speed up cache management on coherent arm mappings,
+	 * other architectures rely on dma-mapping internal optimisations.
+	 */
+	if (vma_is_io(vma) || prot == pgprot_noncached(prot) ||
+	    prot == pgprot_writecombine(prot) ||
+	    prot == pgprot_dmacoherent(prot))
+		return true;
+
+	return false;
+}
+#else
+static inline int vma_is_coherent(struct vm_area_struct *vma)
+{
+	return false;
+}
+#endif
+
 static int vb2_dc_get_user_pfn(unsigned long start, int n_pages,
 	struct vm_area_struct *vma, unsigned long *res)
 {
@@ -613,6 +636,8 @@ static void *vb2_dc_get_userptr(void *alloc_ctx, unsigned long vaddr,
 		ret = -ENOMEM;
 		goto fail_pages;
 	}
+
+	buf->coherent = vma_is_coherent(vma);
 
 	/* extract page list from userspace mapping */
 	ret = vb2_dc_get_user_pages(start, pages, n_pages, vma, write);
