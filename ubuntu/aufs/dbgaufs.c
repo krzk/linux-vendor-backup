@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 Junjiro R. Okajima
+ * Copyright (C) 2005-2013 Junjiro R. Okajima
  *
  * This program, aufs is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -96,6 +96,101 @@ static ssize_t dbgaufs_xi_read(struct file *file, char __user *buf,
 
 /* ---------------------------------------------------------------------- */
 
+struct dbgaufs_plink_arg {
+	int n;
+	char a[];
+};
+
+static int dbgaufs_plink_release(struct inode *inode __maybe_unused,
+				 struct file *file)
+{
+	free_page((unsigned long)file->private_data);
+	return 0;
+}
+
+static int dbgaufs_plink_open(struct inode *inode, struct file *file)
+{
+	int err, i, limit;
+	unsigned long n, sum;
+	struct dbgaufs_plink_arg *p;
+	struct au_sbinfo *sbinfo;
+	struct super_block *sb;
+	struct au_sphlhead *sphl;
+
+	err = -ENOMEM;
+	p = (void *)get_zeroed_page(GFP_NOFS);
+	if (unlikely(!p))
+		goto out;
+
+	err = -EFBIG;
+	sbinfo = inode->i_private;
+	sb = sbinfo->si_sb;
+	si_noflush_read_lock(sb);
+	if (au_opt_test(au_mntflags(sb), PLINK)) {
+		limit = PAGE_SIZE - sizeof(p->n);
+
+		/* the number of buckets */
+		n = snprintf(p->a + p->n, limit, "%d\n", AuPlink_NHASH);
+		p->n += n;
+		limit -= n;
+
+		sum = 0;
+		for (i = 0, sphl = sbinfo->si_plink;
+		     i < AuPlink_NHASH;
+		     i++, sphl++) {
+			n = au_sphl_count(sphl);
+			sum += n;
+
+			n = snprintf(p->a + p->n, limit, "%lu ", n);
+			p->n += n;
+			limit -= n;
+			if (unlikely(limit <= 0))
+				goto out_free;
+		}
+		p->a[p->n - 1] = '\n';
+
+		/* the sum of plinks */
+		n = snprintf(p->a + p->n, limit, "%lu\n", sum);
+		p->n += n;
+		limit -= n;
+		if (unlikely(limit <= 0))
+			goto out_free;
+	} else {
+#define str "1\n0\n0\n"
+		p->n = sizeof(str) - 1;
+		strcpy(p->a, str);
+#undef str
+	}
+	si_read_unlock(sb);
+
+	err = 0;
+	file->private_data = p;
+	goto out; /* success */
+
+out_free:
+	free_page((unsigned long)p);
+out:
+	return err;
+}
+
+static ssize_t dbgaufs_plink_read(struct file *file, char __user *buf,
+				  size_t count, loff_t *ppos)
+{
+	struct dbgaufs_plink_arg *p;
+
+	p = file->private_data;
+	return simple_read_from_buffer(buf, count, ppos, p->a, p->n);
+}
+
+static const struct file_operations dbgaufs_plink_fop = {
+	.owner		= THIS_MODULE,
+	.open		= dbgaufs_plink_open,
+	.release	= dbgaufs_plink_release,
+	.read		= dbgaufs_plink_read
+};
+
+/* ---------------------------------------------------------------------- */
+
 static int dbgaufs_xib_open(struct inode *inode, struct file *file)
 {
 	int err;
@@ -175,10 +270,8 @@ void dbgaufs_brs_del(struct super_block *sb, aufs_bindex_t bindex)
 	for (; bindex <= bend; bindex++) {
 		br = au_sbr(sb, bindex);
 		xi = &br->br_xino;
-		if (xi->xi_dbgaufs) {
-			debugfs_remove(xi->xi_dbgaufs);
-			xi->xi_dbgaufs = NULL;
-		}
+		debugfs_remove(xi->xi_dbgaufs);
+		xi->xi_dbgaufs = NULL;
 	}
 }
 
@@ -303,6 +396,12 @@ int dbgaufs_si_init(struct au_sbinfo *sbinfo)
 		("xib", dbgaufs_mode, sbinfo->si_dbgaufs, sbinfo,
 		 &dbgaufs_xib_fop);
 	if (unlikely(!sbinfo->si_dbgaufs_xib))
+		goto out_dir;
+
+	sbinfo->si_dbgaufs_plink = debugfs_create_file
+		("plink", dbgaufs_mode, sbinfo->si_dbgaufs, sbinfo,
+		 &dbgaufs_plink_fop);
+	if (unlikely(!sbinfo->si_dbgaufs_plink))
 		goto out_dir;
 
 	err = dbgaufs_xigen_init(sbinfo);

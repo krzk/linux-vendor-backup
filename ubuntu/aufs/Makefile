@@ -10,9 +10,9 @@ endif
 ccflags-y += -DDEBUG
 # sparse requires the full pathname
 ifdef M
-ccflags-y += -include ${M}/../../ubuntu/include/linux/aufs_type.h
+ccflags-y += -include ${M}/../../include/uapi/linux/aufs_type.h
 else
-ccflags-y += -include ${srctree}/ubuntu/include/linux/aufs_type.h
+ccflags-y += -include ${srctree}/include/uapi/linux/aufs_type.h
 endif
 
 obj-$(CONFIG_AUFS_FS) += aufs.o

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 Junjiro R. Okajima
+ * Copyright (C) 2005-2013 Junjiro R. Okajima
  *
  * This program, aufs is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -208,32 +208,9 @@ static int au_ren_or_cpup(struct au_ren_args *a)
 		AuDebugOn(au_dbstart(d) != a->btgt);
 		err = vfsub_rename(a->src_h_dir, au_h_dptr(d, a->btgt),
 				   a->dst_h_dir, &a->h_path);
-	} else {
-		struct mutex *h_mtx = &a->src_h_dentry->d_inode->i_mutex;
-		struct file *h_file;
+	} else
+		BUG();
 
-		au_fset_ren(a->flags, CPUP);
-		mutex_lock_nested(h_mtx, AuLsc_I_CHILD);
-		au_set_dbstart(d, a->btgt);
-		au_set_h_dptr(d, a->btgt, dget(a->dst_h_dentry));
-		h_file = au_h_open_pre(d, a->src_bstart);
-		if (IS_ERR(h_file)) {
-			err = PTR_ERR(h_file);
-			h_file = NULL;
-		} else
-			err = au_sio_cpup_single(d, a->btgt, a->src_bstart, -1,
-						 !AuCpup_DTIME, a->dst_parent);
-		mutex_unlock(h_mtx);
-		au_h_open_post(d, a->src_bstart, h_file);
-		if (!err) {
-			d = a->dst_dentry;
-			au_set_h_dptr(d, a->btgt, NULL);
-			au_update_dbstart(d);
-		} else {
-			au_set_h_dptr(d, a->btgt, NULL);
-			au_set_dbstart(d, a->src_bstart);
-		}
-	}
 	if (!err && a->h_dst)
 		/* it will be set to dinfo later */
 		dget(a->h_dst);
@@ -334,31 +311,13 @@ static int do_rename(struct au_ren_args *a)
 
 		d = a->dst_dentry;
 		au_set_h_dptr(d, a->btgt, NULL);
-		err = au_lkup_neg(d, a->btgt);
+		err = au_lkup_neg(d, a->btgt, /*wh*/0);
 		if (unlikely(err))
 			goto out_whtmp;
 		a->dst_h_dentry = au_h_dptr(d, a->btgt);
 	}
 
-	/* cpup src */
-	if (a->dst_h_dentry->d_inode && a->src_bstart != a->btgt) {
-		struct mutex *h_mtx = &a->src_h_dentry->d_inode->i_mutex;
-		struct file *h_file;
-
-		mutex_lock_nested(h_mtx, AuLsc_I_CHILD);
-		AuDebugOn(au_dbstart(a->src_dentry) != a->src_bstart);
-		h_file = au_h_open_pre(a->src_dentry, a->src_bstart);
-		if (IS_ERR(h_file)) {
-			err = PTR_ERR(h_file);
-			h_file = NULL;
-		} else
-			err = au_sio_cpup_simple(a->src_dentry, a->btgt, -1,
-						 !AuCpup_DTIME);
-		mutex_unlock(h_mtx);
-		au_h_open_post(a->src_dentry, a->src_bstart, h_file);
-		if (unlikely(err))
-			goto out_whtmp;
-	}
+	BUG_ON(a->dst_h_dentry->d_inode && a->src_bstart != a->btgt);
 
 	/* rename by vfs_rename or cpup */
 	d = a->dst_dentry;
@@ -610,13 +569,10 @@ out:
  */
 static void au_ren_unlock(struct au_ren_args *a)
 {
-	struct super_block *sb;
-
-	sb = a->dst_dentry->d_sb;
-	if (au_ftest_ren(a->flags, MNT_WRITE))
-		vfsub_mnt_drop_write(a->br->br_mnt);
 	vfsub_unlock_rename(a->src_h_parent, a->src_hdir,
 			    a->dst_h_parent, a->dst_hdir);
+	if (au_ftest_ren(a->flags, MNT_WRITE))
+		vfsub_mnt_drop_write(au_br_mnt(a->br));
 }
 
 static int au_ren_lock(struct au_ren_args *a)
@@ -629,6 +585,11 @@ static int au_ren_lock(struct au_ren_args *a)
 	a->src_hdir = au_hi(a->src_dir, a->btgt);
 	a->dst_h_parent = au_h_dptr(a->dst_parent, a->btgt);
 	a->dst_hdir = au_hi(a->dst_dir, a->btgt);
+
+	err = vfsub_mnt_want_write(au_br_mnt(a->br));
+	if (unlikely(err))
+		goto out;
+	au_fset_ren(a->flags, MNT_WRITE);
 	a->h_trap = vfsub_lock_rename(a->src_h_parent, a->src_hdir,
 				      a->dst_h_parent, a->dst_hdir);
 	udba = au_opt_udba(a->src_dentry->d_sb);
@@ -643,18 +604,12 @@ static int au_ren_lock(struct au_ren_args *a)
 		err = au_h_verify(a->dst_h_dentry, udba,
 				  a->dst_h_parent->d_inode, a->dst_h_parent,
 				  a->br);
-	if (!err) {
-		err = vfsub_mnt_want_write(a->br->br_mnt);
-		if (unlikely(err))
-			goto out_unlock;
-		au_fset_ren(a->flags, MNT_WRITE);
+	if (!err)
 		goto out; /* success */
-	}
 
 	err = au_busy_or_stale();
-
-out_unlock:
 	au_ren_unlock(a);
+
 out:
 	return err;
 }
@@ -924,7 +879,7 @@ int aufs_rename(struct inode *_src_dir, struct dentry *_src_dentry,
 	if (unlikely(err < 0))
 		goto out_parent;
 	a->br = au_sbr(a->dst_dentry->d_sb, a->btgt);
-	a->h_path.mnt = a->br->br_mnt;
+	a->h_path.mnt = au_br_mnt(a->br);
 
 	/* are they available to be renamed */
 	err = au_ren_may_dir(a);
@@ -962,9 +917,37 @@ int aufs_rename(struct inode *_src_dir, struct dentry *_src_dentry,
 	if (err)
 		au_fset_ren(a->flags, WHSRC);
 
+	/* cpup src */
+	if (a->src_bstart != a->btgt) {
+		struct au_pin pin;
+
+		err = au_pin(&pin, a->src_dentry, a->btgt,
+			     au_opt_udba(a->src_dentry->d_sb),
+			     AuPin_DI_LOCKED | AuPin_MNT_WRITE);
+		if (!err) {
+			struct au_cp_generic cpg = {
+				.dentry	= a->src_dentry,
+				.bdst	= a->btgt,
+				.bsrc	= a->src_bstart,
+				.len	= -1,
+				.pin	= &pin,
+				.flags	= AuCpup_DTIME | AuCpup_HOPEN
+			};
+			AuDebugOn(au_dbstart(a->src_dentry) != a->src_bstart);
+			err = au_sio_cpup_simple(&cpg);
+			au_unpin(&pin);
+		}
+		if (unlikely(err))
+			goto out_children;
+		a->src_bstart = a->btgt;
+		a->src_h_dentry = au_h_dptr(a->src_dentry, a->btgt);
+		au_fset_ren(a->flags, WHSRC);
+	}
+
 	/* lock them all */
 	err = au_ren_lock(a);
 	if (unlikely(err))
+		/* leave the copied-up one */
 		goto out_children;
 
 	if (!au_opt_test(au_mntflags(a->dst_dir->i_sb), UDBA_NONE))

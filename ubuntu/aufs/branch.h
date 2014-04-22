@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 Junjiro R. Okajima
+ * Copyright (C) 2005-2013 Junjiro R. Okajima
  *
  * This program, aufs is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -61,6 +61,25 @@ struct au_wbr {
 /* ext2 has 3 types of operations at least, ext3 has 4 */
 #define AuBrDynOp (AuDyLast * 4)
 
+#ifdef CONFIG_AUFS_HFSNOTIFY
+/* support for asynchronous destruction */
+struct au_br_hfsnotify {
+	struct fsnotify_group	*hfsn_group;
+};
+#endif
+
+/* sysfs entries */
+struct au_brsysfs {
+	char			name[16];
+	struct attribute	attr;
+};
+
+enum {
+	AuBrSysfs_BR,
+	AuBrSysfs_BRID,
+	AuBrSysfs_Last
+};
+
 /* protected by superblock rwsem */
 struct au_branch {
 	struct au_xino_file	br_xino;
@@ -68,7 +87,8 @@ struct au_branch {
 	aufs_bindex_t		br_id;
 
 	int			br_perm;
-	struct vfsmount		*br_mnt;
+	unsigned int		br_dflags;
+	struct path		br_path;
 	spinlock_t		br_dykey_lock;
 	struct au_dykey		*br_dykey[AuBrDynOp];
 	atomic_t		br_count;
@@ -76,22 +96,34 @@ struct au_branch {
 	struct au_wbr		*br_wbr;
 
 	/* xino truncation */
-	blkcnt_t		br_xino_upper;	/* watermark in blocks */
 	atomic_t		br_xino_running;
 
 #ifdef CONFIG_AUFS_HFSNOTIFY
-	struct fsnotify_group	*br_hfsn_group;
-	struct fsnotify_ops	br_hfsn_ops;
+	struct au_br_hfsnotify	*br_hfsn;
 #endif
 
 #ifdef CONFIG_SYSFS
-	/* an entry under sysfs per mount-point */
-	char			br_name[8];
-	struct attribute	br_attr;
+	/* entries under sysfs per mount-point */
+	struct au_brsysfs	br_sysfs[AuBrSysfs_Last];
 #endif
 };
 
 /* ---------------------------------------------------------------------- */
+
+static inline struct vfsmount *au_br_mnt(struct au_branch *br)
+{
+	return br->br_path.mnt;
+}
+
+static inline struct dentry *au_br_dentry(struct au_branch *br)
+{
+	return br->br_path.dentry;
+}
+
+static inline struct super_block *au_br_sb(struct au_branch *br)
+{
+	return au_br_mnt(br)->mnt_sb;
+}
 
 /* branch permissions and attributes */
 #define AuBrPerm_RW		1		/* writable, hardlinkable wh */
@@ -102,6 +134,9 @@ struct au_branch {
 #define AuBrRAttr_WH		(1 << 3)	/* whiteout-able */
 
 #define AuBrWAttr_NoLinkWH	(1 << 4)	/* un-hardlinkable whiteouts */
+
+#define AuBrAttr_UNPIN		(1 << 5)	/* rename-able top dir of
+						   branch */
 
 static inline int au_br_writable(int brperm)
 {
@@ -120,7 +155,7 @@ static inline int au_br_wh_linkable(int brperm)
 
 static inline int au_br_rdonly(struct au_branch *br)
 {
-	return ((br->br_mnt->mnt_sb->s_flags & MS_RDONLY)
+	return ((au_br_sb(br)->s_flags & MS_RDONLY)
 		|| !au_br_writable(br->br_perm))
 		? -EROFS : 0;
 }
@@ -190,13 +225,13 @@ aufs_bindex_t au_sbr_id(struct super_block *sb, aufs_bindex_t bindex)
 static inline
 struct vfsmount *au_sbr_mnt(struct super_block *sb, aufs_bindex_t bindex)
 {
-	return au_sbr(sb, bindex)->br_mnt;
+	return au_br_mnt(au_sbr(sb, bindex));
 }
 
 static inline
 struct super_block *au_sbr_sb(struct super_block *sb, aufs_bindex_t bindex)
 {
-	return au_sbr_mnt(sb, bindex)->mnt_sb;
+	return au_br_sb(au_sbr(sb, bindex));
 }
 
 static inline void au_sbr_put(struct super_block *sb, aufs_bindex_t bindex)

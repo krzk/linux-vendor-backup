@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 Junjiro R. Okajima
+ * Copyright (C) 2005-2013 Junjiro R. Okajima
  *
  * This program, aufs is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -190,7 +190,7 @@ lock_hdir_lkup_wh(struct dentry *dentry, struct au_dtime *dt,
 	if (dt) {
 		struct path tmp = {
 			.dentry	= h_parent,
-			.mnt	= br->br_mnt
+			.mnt	= au_br_mnt(br)
 		};
 		au_dtime_store(dt, au_pinned_parent(pin), &tmp);
 	}
@@ -234,47 +234,55 @@ static int add_simple(struct inode *dir, struct dentry *dentry,
 	int err;
 	aufs_bindex_t bstart;
 	unsigned char created;
-	struct au_dtime dt;
-	struct au_pin pin;
-	struct path h_path;
 	struct dentry *wh_dentry, *parent;
 	struct inode *h_dir;
-	struct au_wr_dir_args wr_dir_args = {
-		.force_btgt	= -1,
-		.flags		= AuWrDir_ADD_ENTRY
-	};
+	/* to reuduce stack size */
+	struct {
+		struct au_dtime dt;
+		struct au_pin pin;
+		struct path h_path;
+		struct au_wr_dir_args wr_dir_args;
+	} *a;
 
 	AuDbg("%.*s\n", AuDLNPair(dentry));
 	IMustLock(dir);
 
+	err = -ENOMEM;
+	a = kmalloc(sizeof(*a), GFP_NOFS);
+	if (unlikely(!a))
+		goto out;
+	a->wr_dir_args.force_btgt = -1;
+	a->wr_dir_args.flags = AuWrDir_ADD_ENTRY;
+
 	parent = dentry->d_parent; /* dir inode is locked */
 	err = aufs_read_lock(dentry, AuLock_DW | AuLock_GEN);
 	if (unlikely(err))
-		goto out;
+		goto out_free;
 	err = au_d_may_add(dentry);
 	if (unlikely(err))
 		goto out_unlock;
 	di_write_lock_parent(parent);
-	wh_dentry = lock_hdir_lkup_wh(dentry, &dt, /*src_dentry*/NULL, &pin,
-				      &wr_dir_args);
+	wh_dentry = lock_hdir_lkup_wh(dentry, &a->dt, /*src_dentry*/NULL,
+				      &a->pin, &a->wr_dir_args);
 	err = PTR_ERR(wh_dentry);
 	if (IS_ERR(wh_dentry))
 		goto out_parent;
 
 	bstart = au_dbstart(dentry);
-	h_path.dentry = au_h_dptr(dentry, bstart);
-	h_path.mnt = au_sbr_mnt(dentry->d_sb, bstart);
-	h_dir = au_pinned_h_dir(&pin);
+	a->h_path.dentry = au_h_dptr(dentry, bstart);
+	a->h_path.mnt = au_sbr_mnt(dentry->d_sb, bstart);
+	h_dir = au_pinned_h_dir(&a->pin);
 	switch (arg->type) {
 	case Creat:
-		err = vfsub_create(h_dir, &h_path, arg->u.c.mode,
+		err = vfsub_create(h_dir, &a->h_path, arg->u.c.mode,
 				   arg->u.c.want_excl);
 		break;
 	case Symlink:
-		err = vfsub_symlink(h_dir, &h_path, arg->u.s.symname);
+		err = vfsub_symlink(h_dir, &a->h_path, arg->u.s.symname);
 		break;
 	case Mknod:
-		err = vfsub_mknod(h_dir, &h_path, arg->u.m.mode, arg->u.m.dev);
+		err = vfsub_mknod(h_dir, &a->h_path, arg->u.m.mode,
+				  arg->u.m.dev);
 		break;
 	default:
 		BUG();
@@ -284,18 +292,18 @@ static int add_simple(struct inode *dir, struct dentry *dentry,
 		err = epilog(dir, bstart, wh_dentry, dentry);
 
 	/* revert */
-	if (unlikely(created && err && h_path.dentry->d_inode)) {
+	if (unlikely(created && err && a->h_path.dentry->d_inode)) {
 		int rerr;
-		rerr = vfsub_unlink(h_dir, &h_path, /*force*/0);
+		rerr = vfsub_unlink(h_dir, &a->h_path, /*force*/0);
 		if (rerr) {
 			AuIOErr("%.*s revert failure(%d, %d)\n",
 				AuDLNPair(dentry), err, rerr);
 			err = -EIO;
 		}
-		au_dtime_revert(&dt);
+		au_dtime_revert(&a->dt);
 	}
 
-	au_unpin(&pin);
+	au_unpin(&a->pin);
 	dput(wh_dentry);
 
 out_parent:
@@ -306,6 +314,8 @@ out_unlock:
 		d_drop(dentry);
 	}
 	aufs_read_unlock(dentry, AuLock_DW);
+out_free:
+	kfree(a);
 out:
 	return err;
 }
@@ -359,8 +369,14 @@ static int au_cpup_before_link(struct dentry *src_dentry,
 {
 	int err;
 	struct dentry *h_src_dentry;
-	struct mutex *h_mtx;
-	struct file *h_file;
+	struct au_cp_generic cpg = {
+		.dentry	= src_dentry,
+		.bdst	= a->bdst,
+		.bsrc	= a->bsrc,
+		.len	= -1,
+		.pin	= &a->pin,
+		.flags	= AuCpup_DTIME | AuCpup_HOPEN /* | AuCpup_KEEPLINO */
+	};
 
 	di_read_lock_parent(a->src_parent, AuLock_IR);
 	err = au_test_and_cpup_dirs(src_dentry, a->bdst);
@@ -368,22 +384,13 @@ static int au_cpup_before_link(struct dentry *src_dentry,
 		goto out;
 
 	h_src_dentry = au_h_dptr(src_dentry, a->bsrc);
-	h_mtx = &h_src_dentry->d_inode->i_mutex;
 	err = au_pin(&a->pin, src_dentry, a->bdst,
 		     au_opt_udba(src_dentry->d_sb),
 		     AuPin_DI_LOCKED | AuPin_MNT_WRITE);
 	if (unlikely(err))
 		goto out;
-	mutex_lock_nested(h_mtx, AuLsc_I_CHILD);
-	h_file = au_h_open_pre(src_dentry, a->bsrc);
-	if (IS_ERR(h_file)) {
-		err = PTR_ERR(h_file);
-		h_file = NULL;
-	} else
-		err = au_sio_cpup_simple(src_dentry, a->bdst, -1,
-					 AuCpup_DTIME /* | AuCpup_KEEPLINO */);
-	mutex_unlock(h_mtx);
-	au_h_open_post(src_dentry, a->bsrc, h_file);
+
+	err = au_sio_cpup_simple(&cpg);
 	au_unpin(&a->pin);
 
 out:
@@ -391,12 +398,14 @@ out:
 	return err;
 }
 
-static int au_cpup_or_link(struct dentry *src_dentry, struct au_link_args *a)
+static int au_cpup_or_link(struct dentry *src_dentry, struct dentry *dentry,
+			   struct au_link_args *a)
 {
 	int err;
 	unsigned char plink;
-	struct inode *h_inode, *inode;
+	aufs_bindex_t bend;
 	struct dentry *h_src_dentry;
+	struct inode *h_inode, *inode;
 	struct super_block *sb;
 	struct file *h_file;
 
@@ -408,22 +417,38 @@ static int au_cpup_or_link(struct dentry *src_dentry, struct au_link_args *a)
 		h_inode = au_h_iptr(inode, a->bdst);
 	if (!h_inode || !h_inode->i_nlink) {
 		/* copyup src_dentry as the name of dentry. */
-		au_set_dbstart(src_dentry, a->bdst);
-		au_set_h_dptr(src_dentry, a->bdst, dget(a->h_path.dentry));
-		h_inode = au_h_dptr(src_dentry, a->bsrc)->d_inode;
-		mutex_lock_nested(&h_inode->i_mutex, AuLsc_I_CHILD);
-		h_file = au_h_open_pre(src_dentry, a->bsrc);
-		if (IS_ERR(h_file)) {
+		bend = au_dbend(dentry);
+		if (bend < a->bsrc)
+			au_set_dbend(dentry, a->bsrc);
+		au_set_h_dptr(dentry, a->bsrc,
+			      dget(au_h_dptr(src_dentry, a->bsrc)));
+		dget(a->h_path.dentry);
+		au_set_h_dptr(dentry, a->bdst, NULL);
+		dentry->d_inode = src_dentry->d_inode; /* tmp */
+		h_file = au_h_open_pre(dentry, a->bsrc);
+		if (IS_ERR(h_file))
 			err = PTR_ERR(h_file);
-			h_file = NULL;
-		} else
-			err = au_sio_cpup_single(src_dentry, a->bdst, a->bsrc,
-						 -1, AuCpup_KEEPLINO,
-						 a->parent);
-		mutex_unlock(&h_inode->i_mutex);
-		au_h_open_post(src_dentry, a->bsrc, h_file);
-		au_set_h_dptr(src_dentry, a->bdst, NULL);
-		au_set_dbstart(src_dentry, a->bsrc);
+		else {
+			struct au_cp_generic cpg = {
+				.dentry	= dentry,
+				.bdst	= a->bdst,
+				.bsrc	= -1,
+				.len	= -1,
+				.pin	= &a->pin,
+				.flags	= AuCpup_KEEPLINO
+			};
+			err = au_sio_cpup_simple(&cpg);
+			au_h_open_post(dentry, a->bsrc, h_file);
+			if (!err) {
+				dput(a->h_path.dentry);
+				a->h_path.dentry = au_h_dptr(dentry, a->bdst);
+			} else
+				au_set_h_dptr(dentry, a->bdst,
+					      a->h_path.dentry);
+		}
+		dentry->d_inode = NULL; /* restore */
+		au_set_h_dptr(dentry, a->bsrc, NULL);
+		au_set_dbend(dentry, bend);
 	} else {
 		/* the inode of src_dentry already exists on a.bdst branch */
 		h_src_dentry = d_find_alias(h_inode);
@@ -522,7 +547,7 @@ int aufs_link(struct dentry *src_dentry, struct inode *dir,
 	if (au_opt_test(au_mntflags(sb), PLINK)) {
 		if (a->bdst < a->bsrc
 		    /* && h_src_dentry->d_sb != a->h_path.dentry->d_sb */)
-			err = au_cpup_or_link(src_dentry, a);
+			err = au_cpup_or_link(src_dentry, dentry, a);
 		else
 			err = vfsub_link(h_src_dentry, au_pinned_h_dir(&a->pin),
 					 &a->h_path);
@@ -601,6 +626,7 @@ out_unlock:
 out_kfree:
 	kfree(a);
 out:
+	AuTraceErr(err);
 	return err;
 }
 

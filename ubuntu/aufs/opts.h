@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 Junjiro R. Okajima
+ * Copyright (C) 2005-2013 Junjiro R. Okajima
  *
  * This program, aufs is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -102,6 +102,8 @@ enum {
 	AuWbrCreate_MFSRRV,	/* mfs then rr with seconds */
 	AuWbrCreate_PMFS,	/* parent and mfs */
 	AuWbrCreate_PMFSV,	/* parent and mfs with seconds */
+	AuWbrCreate_PMFSRR,	/* parent, mfs and round-robin */
+	AuWbrCreate_PMFSRRV,	/* plus seconds */
 
 	AuWbrCreate_Def = AuWbrCreate_TDP
 };

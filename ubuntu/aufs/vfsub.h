@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 Junjiro R. Okajima
+ * Copyright (C) 2005-2013 Junjiro R. Okajima
  *
  * This program, aufs is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,6 +33,7 @@
 /* copied from linux/fs/internal.h */
 /* todo: BAD approach!! */
 extern struct lglock vfsmount_lock;
+extern void __mnt_drop_write(struct vfsmount *);
 extern spinlock_t inode_sb_list_lock;
 
 /* copied from linux/fs/file_table.c */
@@ -102,19 +103,6 @@ static inline void vfsub_dead_dir(struct inode *inode)
 
 /* ---------------------------------------------------------------------- */
 
-/* cf. i_[ug]id_read() in linux/include/fs.h */
-static inline uid_t vfsub_ia_uid(struct iattr *ia)
-{
-	return from_kuid(&init_user_ns, ia->ia_uid);
-}
-
-static inline gid_t vfsub_ia_gid(struct iattr *ia)
-{
-	return from_kgid(&init_user_ns, ia->ia_gid);
-}
-
-/* ---------------------------------------------------------------------- */
-
 int vfsub_update_h_iattr(struct path *h_path, int *did);
 struct file *vfsub_dentry_open(struct path *path, int flags);
 struct file *vfsub_filp_open(const char *path, int oflags, int mode);
@@ -152,6 +140,13 @@ static inline void vfsub_mnt_drop_write(struct vfsmount *mnt)
 {
 	lockdep_off();
 	mnt_drop_write(mnt);
+	lockdep_on();
+}
+
+static inline void vfsub_mnt_drop_write_file(struct file *file)
+{
+	lockdep_off();
+	mnt_drop_write_file(file);
 	lockdep_on();
 }
 
@@ -228,6 +223,16 @@ long vfsub_splice_to(struct file *in, loff_t *ppos,
 		     unsigned int flags);
 long vfsub_splice_from(struct pipe_inode_info *pipe, struct file *out,
 		       loff_t *ppos, size_t len, unsigned int flags);
+
+static inline long vfsub_truncate(struct path *path, loff_t length)
+{
+	long err;
+	lockdep_off();
+	err = vfs_truncate(path, length);
+	lockdep_on();
+	return err;
+}
+
 int vfsub_trunc(struct path *h_path, loff_t length, unsigned int attr,
 		struct file *h_file);
 int vfsub_fsync(struct file *file, struct path *path, int datasync);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 Junjiro R. Okajima
+ * Copyright (C) 2005-2013 Junjiro R. Okajima
  *
  * This program, aufs is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -68,8 +68,7 @@ int au_wr_dir_need_wh(struct dentry *dentry, int isdir, aufs_bindex_t *bcpup)
 			au_di_cp(tmp, dinfo);
 			au_di_swap(tmp, dinfo);
 			/* returns the number of positive dentries */
-			need_wh = au_lkup_dentry(dentry, bstart + 1, /*type*/0,
-						 /*flags*/0);
+			need_wh = au_lkup_dentry(dentry, bstart + 1, /*type*/0);
 			au_di_swap(tmp, dinfo);
 			au_rw_write_unlock(&tmp->di_rwsem);
 			au_di_free(tmp);
@@ -300,17 +299,25 @@ int aufs_unlink(struct inode *dir, struct dentry *dentry)
 {
 	int err;
 	aufs_bindex_t bwh, bindex, bstart;
-	struct au_dtime dt;
-	struct au_pin pin;
-	struct path h_path;
 	struct inode *inode, *h_dir;
 	struct dentry *parent, *wh_dentry;
+	/* to reuduce stack size */
+	struct {
+		struct au_dtime dt;
+		struct au_pin pin;
+		struct path h_path;
+	} *a;
 
 	IMustLock(dir);
 
+	err = -ENOMEM;
+	a = kmalloc(sizeof(*a), GFP_NOFS);
+	if (unlikely(!a))
+		goto out;
+
 	err = aufs_read_lock(dentry, AuLock_DW | AuLock_GEN);
 	if (unlikely(err))
-		goto out;
+		goto out_free;
 	err = au_d_hashed_positive(dentry);
 	if (unlikely(err))
 		goto out_unlock;
@@ -325,17 +332,18 @@ int aufs_unlink(struct inode *dir, struct dentry *dentry)
 	bindex = -1;
 	parent = dentry->d_parent; /* dir inode is locked */
 	di_write_lock_parent(parent);
-	wh_dentry = lock_hdir_create_wh(dentry, /*isdir*/0, &bindex, &dt, &pin);
+	wh_dentry = lock_hdir_create_wh(dentry, /*isdir*/0, &bindex, &a->dt,
+					&a->pin);
 	err = PTR_ERR(wh_dentry);
 	if (IS_ERR(wh_dentry))
 		goto out_parent;
 
-	h_path.mnt = au_sbr_mnt(dentry->d_sb, bstart);
-	h_path.dentry = au_h_dptr(dentry, bstart);
-	dget(h_path.dentry);
+	a->h_path.mnt = au_sbr_mnt(dentry->d_sb, bstart);
+	a->h_path.dentry = au_h_dptr(dentry, bstart);
+	dget(a->h_path.dentry);
 	if (bindex == bstart) {
-		h_dir = au_pinned_h_dir(&pin);
-		err = vfsub_unlink(h_dir, &h_path, /*force*/0);
+		h_dir = au_pinned_h_dir(&a->pin);
+		err = vfsub_unlink(h_dir, &a->h_path, /*force*/0);
 	} else {
 		/* dir inode is locked */
 		h_dir = wh_dentry->d_parent->d_inode;
@@ -349,8 +357,9 @@ int aufs_unlink(struct inode *dir, struct dentry *dentry)
 
 		/* update target timestamps */
 		if (bindex == bstart) {
-			vfsub_update_h_iattr(&h_path, /*did*/NULL); /*ignore*/
-			inode->i_ctime = h_path.dentry->d_inode->i_ctime;
+			vfsub_update_h_iattr(&a->h_path, /*did*/NULL);
+			/*ignore*/
+			inode->i_ctime = a->h_path.dentry->d_inode->i_ctime;
 		} else
 			/* todo: this timestamp may be reverted later */
 			inode->i_ctime = h_dir->i_ctime;
@@ -361,19 +370,22 @@ int aufs_unlink(struct inode *dir, struct dentry *dentry)
 	if (wh_dentry) {
 		int rerr;
 
-		rerr = do_revert(err, dir, bindex, bwh, wh_dentry, dentry, &dt);
+		rerr = do_revert(err, dir, bindex, bwh, wh_dentry, dentry,
+				 &a->dt);
 		if (rerr)
 			err = rerr;
 	}
 
 out_unpin:
-	au_unpin(&pin);
+	au_unpin(&a->pin);
 	dput(wh_dentry);
-	dput(h_path.dentry);
+	dput(a->h_path.dentry);
 out_parent:
 	di_write_unlock(parent);
 out_unlock:
 	aufs_read_unlock(dentry, AuLock_DW);
+out_free:
+	kfree(a);
 out:
 	return err;
 }
@@ -382,17 +394,25 @@ int aufs_rmdir(struct inode *dir, struct dentry *dentry)
 {
 	int err, rmdir_later;
 	aufs_bindex_t bwh, bindex, bstart;
-	struct au_dtime dt;
-	struct au_pin pin;
 	struct inode *inode;
 	struct dentry *parent, *wh_dentry, *h_dentry;
 	struct au_whtmp_rmdir *args;
+	/* to reuduce stack size */
+	struct {
+		struct au_dtime dt;
+		struct au_pin pin;
+	} *a;
 
 	IMustLock(dir);
 
+	err = -ENOMEM;
+	a = kmalloc(sizeof(*a), GFP_NOFS);
+	if (unlikely(!a))
+		goto out;
+
 	err = aufs_read_lock(dentry, AuLock_DW | AuLock_FLUSH | AuLock_GEN);
 	if (unlikely(err))
-		goto out;
+		goto out_free;
 	err = au_alive_dir(dentry);
 	if (unlikely(err))
 		goto out_unlock;
@@ -416,7 +436,8 @@ int aufs_rmdir(struct inode *dir, struct dentry *dentry)
 	bstart = au_dbstart(dentry);
 	bwh = au_dbwh(dentry);
 	bindex = -1;
-	wh_dentry = lock_hdir_create_wh(dentry, /*isdir*/1, &bindex, &dt, &pin);
+	wh_dentry = lock_hdir_create_wh(dentry, /*isdir*/1, &bindex, &a->dt,
+					&a->pin);
 	err = PTR_ERR(wh_dentry);
 	if (IS_ERR(wh_dentry))
 		goto out_parent;
@@ -457,13 +478,14 @@ int aufs_rmdir(struct inode *dir, struct dentry *dentry)
 	if (wh_dentry) {
 		int rerr;
 
-		rerr = do_revert(err, dir, bindex, bwh, wh_dentry, dentry, &dt);
+		rerr = do_revert(err, dir, bindex, bwh, wh_dentry, dentry,
+				 &a->dt);
 		if (rerr)
 			err = rerr;
 	}
 
 out_unpin:
-	au_unpin(&pin);
+	au_unpin(&a->pin);
 	dput(wh_dentry);
 	dput(h_dentry);
 out_parent:
@@ -472,6 +494,8 @@ out_parent:
 		au_whtmp_rmdir_free(args);
 out_unlock:
 	aufs_read_unlock(dentry, AuLock_DW);
+out_free:
+	kfree(a);
 out:
 	AuTraceErr(err);
 	return err;
