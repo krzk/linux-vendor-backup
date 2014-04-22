@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 Junjiro R. Okajima
+ * Copyright (C) 2005-2013 Junjiro R. Okajima
  *
  * This program, aufs is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@ int au_cpdown_attr(struct path *h_path, struct dentry *h_src)
 	ia.ia_uid = h_isrc->i_uid;
 	ia.ia_gid = h_isrc->i_gid;
 	sbits = !!(ia.ia_mode & (S_ISUID | S_ISGID));
-	au_cpup_attr_flags(h_path->dentry->d_inode, h_isrc);
+	au_cpup_attr_flags(h_path->dentry->d_inode, h_isrc->i_flags);
 	err = vfsub_sio_notify_change(h_path, &ia);
 
 	/* is this nfs only? */
@@ -60,13 +60,8 @@ int au_cpdown_attr(struct path *h_path, struct dentry *h_src)
 #define au_fclr_cpdown(flags, name) \
 	do { (flags) &= ~AuCpdown_##name; } while (0)
 
-struct au_cpdown_dir_args {
-	struct dentry *parent;
-	unsigned int flags;
-};
-
 static int au_cpdown_dir_opq(struct dentry *dentry, aufs_bindex_t bdst,
-			     struct au_cpdown_dir_args *a)
+			     unsigned int *flags)
 {
 	int err;
 	struct dentry *opq_dentry;
@@ -76,7 +71,7 @@ static int au_cpdown_dir_opq(struct dentry *dentry, aufs_bindex_t bdst,
 	if (IS_ERR(opq_dentry))
 		goto out;
 	dput(opq_dentry);
-	au_fset_cpdown(a->flags, DIROPQ);
+	au_fset_cpdown(*flags, DIROPQ);
 
 out:
 	return err;
@@ -97,7 +92,7 @@ static int au_cpdown_dir_wh(struct dentry *dentry, struct dentry *h_parent,
 
 	err = 0;
 	if (h_path.dentry->d_inode) {
-		h_path.mnt = br->br_mnt;
+		h_path.mnt = au_br_mnt(br);
 		err = au_wh_unlink_dentry(au_h_iptr(dir, bdst), &h_path,
 					  dentry);
 	}
@@ -108,6 +103,7 @@ out:
 }
 
 static int au_cpdown_dir(struct dentry *dentry, aufs_bindex_t bdst,
+			 struct au_pin *pin,
 			 struct dentry *h_parent, void *arg)
 {
 	int err, rerr;
@@ -115,7 +111,7 @@ static int au_cpdown_dir(struct dentry *dentry, aufs_bindex_t bdst,
 	struct path h_path;
 	struct dentry *parent;
 	struct inode *h_dir, *h_inode, *inode, *dir;
-	struct au_cpdown_dir_args *args = arg;
+	unsigned int *flags = arg;
 
 	bstart = au_dbstart(dentry);
 	/* dentry is di-locked */
@@ -125,7 +121,7 @@ static int au_cpdown_dir(struct dentry *dentry, aufs_bindex_t bdst,
 	AuDebugOn(h_dir != au_h_iptr(dir, bdst));
 	IMustLock(h_dir);
 
-	err = au_lkup_neg(dentry, bdst);
+	err = au_lkup_neg(dentry, bdst, /*wh*/0);
 	if (unlikely(err < 0))
 		goto out;
 	h_path.dentry = au_h_dptr(dentry, bdst);
@@ -134,19 +130,19 @@ static int au_cpdown_dir(struct dentry *dentry, aufs_bindex_t bdst,
 			      S_IRWXU | S_IRUGO | S_IXUGO);
 	if (unlikely(err))
 		goto out_put;
-	au_fset_cpdown(args->flags, MADE_DIR);
+	au_fset_cpdown(*flags, MADE_DIR);
 
 	bopq = au_dbdiropq(dentry);
-	au_fclr_cpdown(args->flags, WHED);
-	au_fclr_cpdown(args->flags, DIROPQ);
+	au_fclr_cpdown(*flags, WHED);
+	au_fclr_cpdown(*flags, DIROPQ);
 	if (au_dbwh(dentry) == bdst)
-		au_fset_cpdown(args->flags, WHED);
-	if (!au_ftest_cpdown(args->flags, PARENT_OPQ) && bopq <= bdst)
-		au_fset_cpdown(args->flags, PARENT_OPQ);
+		au_fset_cpdown(*flags, WHED);
+	if (!au_ftest_cpdown(*flags, PARENT_OPQ) && bopq <= bdst)
+		au_fset_cpdown(*flags, PARENT_OPQ);
 	h_inode = h_path.dentry->d_inode;
 	mutex_lock_nested(&h_inode->i_mutex, AuLsc_I_CHILD);
-	if (au_ftest_cpdown(args->flags, WHED)) {
-		err = au_cpdown_dir_opq(dentry, bdst, args);
+	if (au_ftest_cpdown(*flags, WHED)) {
+		err = au_cpdown_dir_opq(dentry, bdst, flags);
 		if (unlikely(err)) {
 			mutex_unlock(&h_inode->i_mutex);
 			goto out_dir;
@@ -158,7 +154,7 @@ static int au_cpdown_dir(struct dentry *dentry, aufs_bindex_t bdst,
 	if (unlikely(err))
 		goto out_opq;
 
-	if (au_ftest_cpdown(args->flags, WHED)) {
+	if (au_ftest_cpdown(*flags, WHED)) {
 		err = au_cpdown_dir_wh(dentry, h_parent, dir, bdst);
 		if (unlikely(err))
 			goto out_opq;
@@ -173,7 +169,7 @@ static int au_cpdown_dir(struct dentry *dentry, aufs_bindex_t bdst,
 
 	/* revert */
 out_opq:
-	if (au_ftest_cpdown(args->flags, DIROPQ)) {
+	if (au_ftest_cpdown(*flags, DIROPQ)) {
 		mutex_lock_nested(&h_inode->i_mutex, AuLsc_I_CHILD);
 		rerr = au_diropq_remove(dentry, bdst);
 		mutex_unlock(&h_inode->i_mutex);
@@ -185,7 +181,7 @@ out_opq:
 		}
 	}
 out_dir:
-	if (au_ftest_cpdown(args->flags, MADE_DIR)) {
+	if (au_ftest_cpdown(*flags, MADE_DIR)) {
 		rerr = vfsub_sio_rmdir(au_h_iptr(dir, bdst), &h_path);
 		if (unlikely(rerr)) {
 			AuIOErr("failed removing %.*s b%d (%d)\n",
@@ -205,13 +201,10 @@ out:
 int au_cpdown_dirs(struct dentry *dentry, aufs_bindex_t bdst)
 {
 	int err;
-	struct au_cpdown_dir_args args = {
-		.parent	= dget_parent(dentry),
-		.flags	= 0
-	};
+	unsigned int flags;
 
-	err = au_cp_dirs(dentry, bdst, au_cpdown_dir, &args);
-	dput(args.parent);
+	flags = 0;
+	err = au_cp_dirs(dentry, bdst, au_cpdown_dir, &flags);
 
 	return err;
 }
@@ -267,7 +260,8 @@ static int au_wbr_bu(struct super_block *sb, aufs_bindex_t bindex)
 }
 
 /* top down parent */
-static int au_wbr_create_tdp(struct dentry *dentry, int isdir __maybe_unused)
+static int au_wbr_create_tdp(struct dentry *dentry,
+			     unsigned int flags __maybe_unused)
 {
 	int err;
 	aufs_bindex_t bstart, bindex;
@@ -356,7 +350,7 @@ static int au_wbr_create_init_rr(struct super_block *sb)
 	return err;
 }
 
-static int au_wbr_create_rr(struct dentry *dentry, int isdir)
+static int au_wbr_create_rr(struct dentry *dentry, unsigned int flags)
 {
 	int err, nbr;
 	unsigned int u;
@@ -373,7 +367,7 @@ static int au_wbr_create_rr(struct dentry *dentry, int isdir)
 	bend = au_sbend(sb);
 	nbr = bend + 1;
 	for (bindex = 0; bindex <= bend; bindex++) {
-		if (!isdir) {
+		if (!au_ftest_wbr(flags, DIR)) {
 			err = atomic_dec_return(next) + 1;
 			/* modulo for 0 is meaningless */
 			if (unlikely(!err))
@@ -400,11 +394,12 @@ out:
 /* ---------------------------------------------------------------------- */
 
 /* most free space */
-static void au_mfs(struct dentry *dentry)
+static void au_mfs(struct dentry *dentry, struct dentry *parent)
 {
 	struct super_block *sb;
 	struct au_branch *br;
 	struct au_wbr_mfs *mfs;
+	struct dentry *h_parent;
 	aufs_bindex_t bindex, bend;
 	int err;
 	unsigned long long b, bavail;
@@ -424,14 +419,26 @@ static void au_mfs(struct dentry *dentry)
 	MtxMustLock(&mfs->mfs_lock);
 	mfs->mfs_bindex = -EROFS;
 	mfs->mfsrr_bytes = 0;
-	bend = au_sbend(sb);
-	for (bindex = 0; bindex <= bend; bindex++) {
+	if (!parent) {
+		bindex = 0;
+		bend = au_sbend(sb);
+	} else {
+		bindex = au_dbstart(parent);
+		bend = au_dbtaildir(parent);
+	}
+
+	for (; bindex <= bend; bindex++) {
+		if (parent) {
+			h_parent = au_h_dptr(parent, bindex);
+			if (!h_parent || !h_parent->d_inode)
+				continue;
+		}
 		br = au_sbr(sb, bindex);
 		if (au_br_rdonly(br))
 			continue;
 
 		/* sb->s_root for NFS is unreliable */
-		h_path.mnt = br->br_mnt;
+		h_path.mnt = au_br_mnt(br);
 		h_path.dentry = h_path.mnt->mnt_root;
 		err = vfs_statfs(&h_path, st);
 		if (unlikely(err)) {
@@ -456,9 +463,10 @@ static void au_mfs(struct dentry *dentry)
 	kfree(st);
 }
 
-static int au_wbr_create_mfs(struct dentry *dentry, int isdir __maybe_unused)
+static int au_wbr_create_mfs(struct dentry *dentry, unsigned int flags)
 {
 	int err;
+	struct dentry *parent;
 	struct super_block *sb;
 	struct au_wbr_mfs *mfs;
 
@@ -467,14 +475,18 @@ static int au_wbr_create_mfs(struct dentry *dentry, int isdir __maybe_unused)
 		goto out;
 
 	sb = dentry->d_sb;
+	parent = NULL;
+	if (au_ftest_wbr(flags, PARENT))
+		parent = dget_parent(dentry);
 	mfs = &au_sbi(sb)->si_wbr_mfs;
 	mutex_lock(&mfs->mfs_lock);
 	if (time_after(jiffies, mfs->mfs_jiffy + mfs->mfs_expire)
 	    || mfs->mfs_bindex < 0
 	    || au_br_rdonly(au_sbr(sb, mfs->mfs_bindex)))
-		au_mfs(dentry);
+		au_mfs(dentry, parent);
 	mutex_unlock(&mfs->mfs_lock);
 	err = mfs->mfs_bindex;
+	dput(parent);
 
 	if (err >= 0)
 		err = au_wbr_nonopq(dentry, err);
@@ -505,17 +517,17 @@ static int au_wbr_create_fin_mfs(struct super_block *sb __maybe_unused)
 /* ---------------------------------------------------------------------- */
 
 /* most free space and then round robin */
-static int au_wbr_create_mfsrr(struct dentry *dentry, int isdir)
+static int au_wbr_create_mfsrr(struct dentry *dentry, unsigned int flags)
 {
 	int err;
 	struct au_wbr_mfs *mfs;
 
-	err = au_wbr_create_mfs(dentry, isdir);
+	err = au_wbr_create_mfs(dentry, flags);
 	if (err >= 0) {
 		mfs = &au_sbi(dentry->d_sb)->si_wbr_mfs;
 		mutex_lock(&mfs->mfs_lock);
 		if (mfs->mfsrr_bytes < mfs->mfsrr_watermark)
-			err = au_wbr_create_rr(dentry, isdir);
+			err = au_wbr_create_rr(dentry, flags);
 		mutex_unlock(&mfs->mfs_lock);
 	}
 
@@ -536,7 +548,7 @@ static int au_wbr_create_init_mfsrr(struct super_block *sb)
 /* ---------------------------------------------------------------------- */
 
 /* top down parent and most free space */
-static int au_wbr_create_pmfs(struct dentry *dentry, int isdir)
+static int au_wbr_create_pmfs(struct dentry *dentry, unsigned int flags)
 {
 	int err, e2;
 	unsigned long long b;
@@ -545,7 +557,7 @@ static int au_wbr_create_pmfs(struct dentry *dentry, int isdir)
 	struct dentry *parent, *h_parent;
 	struct au_branch *br;
 
-	err = au_wbr_create_tdp(dentry, isdir);
+	err = au_wbr_create_tdp(dentry, flags);
 	if (unlikely(err < 0))
 		goto out;
 	parent = dget_parent(dentry);
@@ -554,7 +566,7 @@ static int au_wbr_create_pmfs(struct dentry *dentry, int isdir)
 	if (bstart == bend)
 		goto out_parent; /* success */
 
-	e2 = au_wbr_create_mfs(dentry, isdir);
+	e2 = au_wbr_create_mfs(dentry, flags);
 	if (e2 < 0)
 		goto out_parent; /* success */
 
@@ -589,12 +601,46 @@ out:
 
 /* ---------------------------------------------------------------------- */
 
+/*
+ * - top down parent
+ * - most free space with parent
+ * - most free space round-robin regardless parent
+ */
+static int au_wbr_create_pmfsrr(struct dentry *dentry, unsigned int flags)
+{
+	int err;
+	unsigned long long watermark;
+	struct super_block *sb;
+	struct au_branch *br;
+	struct au_wbr_mfs *mfs;
+
+	err = au_wbr_create_pmfs(dentry, flags | AuWbr_PARENT);
+	if (unlikely(err < 0))
+		goto out;
+
+	sb = dentry->d_sb;
+	br = au_sbr(sb, err);
+	mfs = &au_sbi(sb)->si_wbr_mfs;
+	mutex_lock(&mfs->mfs_lock);
+	watermark = mfs->mfsrr_watermark;
+	mutex_unlock(&mfs->mfs_lock);
+	if (br->br_wbr->wbr_bytes < watermark)
+		/* regardless the parent dir */
+		err = au_wbr_create_mfsrr(dentry, flags);
+
+out:
+	AuDbg("b%d\n", err);
+	return err;
+}
+
+/* ---------------------------------------------------------------------- */
+
 /* policies for copyup */
 
 /* top down parent */
 static int au_wbr_copyup_tdp(struct dentry *dentry)
 {
-	return au_wbr_create_tdp(dentry, /*isdir, anything is ok*/0);
+	return au_wbr_create_tdp(dentry, /*flags, anything is ok*/0);
 }
 
 /* bottom up parent */
@@ -695,6 +741,16 @@ struct au_wbr_create_operations au_wbr_create_ops[] = {
 	[AuWbrCreate_PMFSV] = {
 		.create	= au_wbr_create_pmfs,
 		.init	= au_wbr_create_init_mfs,
+		.fin	= au_wbr_create_fin_mfs
+	},
+	[AuWbrCreate_PMFSRR] = {
+		.create	= au_wbr_create_pmfsrr,
+		.init	= au_wbr_create_init_mfsrr,
+		.fin	= au_wbr_create_fin_mfs
+	},
+	[AuWbrCreate_PMFSRRV] = {
+		.create	= au_wbr_create_pmfsrr,
+		.init	= au_wbr_create_init_mfsrr,
 		.fin	= au_wbr_create_fin_mfs
 	}
 };

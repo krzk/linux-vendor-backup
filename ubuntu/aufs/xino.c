@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 Junjiro R. Okajima
+ * Copyright (C) 2005-2013 Junjiro R. Okajima
  *
  * This program, aufs is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
  */
 
 #include <linux/seq_file.h>
+#include <linux/statfs.h>
 #include "aufs.h"
 
 /* todo: unnecessary to support mmap_sem since kernel-space? */
@@ -243,38 +244,56 @@ static void au_xino_unlock_dir(struct au_xino_lock_dir *ldir)
 int au_xino_trunc(struct super_block *sb, aufs_bindex_t bindex)
 {
 	int err;
+	unsigned long jiffy;
+	blkcnt_t blocks;
 	aufs_bindex_t bi, bend;
+	struct kstatfs *st;
 	struct au_branch *br;
 	struct file *new_xino, *file;
 	struct super_block *h_sb;
 	struct au_xino_lock_dir ldir;
 
+	err = -ENOMEM;
+	st = kzalloc(sizeof(*st), GFP_NOFS);
+	if (unlikely(!st))
+		goto out;
+
 	err = -EINVAL;
 	bend = au_sbend(sb);
 	if (unlikely(bindex < 0 || bend < bindex))
-		goto out;
+		goto out_st;
 	br = au_sbr(sb, bindex);
 	file = br->br_xino.xi_file;
 	if (!file)
-		goto out;
+		goto out_st;
+
+	err = vfs_statfs(&file->f_path, st);
+	if (unlikely(err))
+		AuErr1("statfs err %d, ignored\n", err);
+	jiffy = jiffies;
+	blocks = file->f_dentry->d_inode->i_blocks;
+	pr_info("begin truncating xino(b%d), ib%llu, %llu/%llu free blks\n",
+		bindex, (u64)blocks, st->f_bfree, st->f_blocks);
 
 	au_xino_lock_dir(sb, file, &ldir);
 	/* mnt_want_write() is unnecessary here */
 	new_xino = au_xino_create2(file, file);
 	au_xino_unlock_dir(&ldir);
 	err = PTR_ERR(new_xino);
-	if (IS_ERR(new_xino))
-		goto out;
+	if (IS_ERR(new_xino)) {
+		pr_err("err %d, ignored\n", err);
+		goto out_st;
+	}
 	err = 0;
 	fput(file);
 	br->br_xino.xi_file = new_xino;
 
-	h_sb = br->br_mnt->mnt_sb;
+	h_sb = au_br_sb(br);
 	for (bi = 0; bi <= bend; bi++) {
 		if (unlikely(bi == bindex))
 			continue;
 		br = au_sbr(sb, bi);
-		if (br->br_mnt->mnt_sb != h_sb)
+		if (au_br_sb(br) != h_sb)
 			continue;
 
 		fput(br->br_xino.xi_file);
@@ -282,6 +301,18 @@ int au_xino_trunc(struct super_block *sb, aufs_bindex_t bindex)
 		get_file(new_xino);
 	}
 
+	err = vfs_statfs(&new_xino->f_path, st);
+	if (!err) {
+		pr_info("end truncating xino(b%d), ib%llu, %llu/%llu free blks\n",
+			bindex, (u64)new_xino->f_dentry->d_inode->i_blocks,
+			st->f_bfree, st->f_blocks);
+		if (new_xino->f_dentry->d_inode->i_blocks < blocks)
+			au_sbi(sb)->si_xino_jiffy = jiffy;
+	} else
+		AuErr1("statfs err %d, ignored\n", err);
+
+out_st:
+	kfree(st);
 out:
 	return err;
 }
@@ -309,11 +340,6 @@ static void xino_do_trunc(void *_args)
 	ii_read_lock_parent(dir);
 	bindex = au_br_index(sb, br->br_id);
 	err = au_xino_trunc(sb, bindex);
-	if (!err
-	    && br->br_xino.xi_file->f_dentry->d_inode->i_blocks
-	    >= br->br_xino_upper)
-		br->br_xino_upper += AUFS_XINO_TRUNC_STEP;
-
 	ii_read_unlock(dir);
 	if (unlikely(err))
 		pr_warn("err b%d, (%d)\n", bindex, err);
@@ -324,13 +350,36 @@ static void xino_do_trunc(void *_args)
 	kfree(args);
 }
 
+static int xino_trunc_test(struct super_block *sb, struct au_branch *br)
+{
+	int err;
+	struct kstatfs st;
+	struct au_sbinfo *sbinfo;
+
+	/* todo: si_xino_expire and the ratio should be customizable */
+	sbinfo = au_sbi(sb);
+	if (time_before(jiffies,
+			sbinfo->si_xino_jiffy + sbinfo->si_xino_expire))
+		return 0;
+
+	/* truncation border */
+	err = vfs_statfs(&br->br_xino.xi_file->f_path, &st);
+	if (unlikely(err)) {
+		AuErr1("statfs err %d, ignored\n", err);
+		return 0;
+	}
+	if (div64_u64(st.f_bfree * 100, st.f_blocks) >= AUFS_XINO_DEF_TRUNC)
+		return 0;
+
+	return 1;
+}
+
 static void xino_try_trunc(struct super_block *sb, struct au_branch *br)
 {
 	struct xino_do_trunc_args *args;
 	int wkq_err;
 
-	if (br->br_xino.xi_file->f_dentry->d_inode->i_blocks
-	    < br->br_xino_upper)
+	if (!xino_trunc_test(sb, br))
 		return;
 
 	if (atomic_inc_return(&br->br_xino_running) > 1)
@@ -408,7 +457,7 @@ int au_xino_write(struct super_block *sb, aufs_bindex_t bindex, ino_t h_ino,
 			       h_ino, ino);
 	if (!err) {
 		if (au_opt_test(mnt_flags, TRUNC_XINO)
-		    && au_test_fs_trunc_xino(br->br_mnt->mnt_sb))
+		    && au_test_fs_trunc_xino(au_br_sb(br)))
 			xino_try_trunc(sb, br);
 		return 0; /* success */
 	}
@@ -561,7 +610,7 @@ void au_xino_delete_inode(struct inode *inode, const int unlinked)
 		err = au_xino_do_write(xwrite, br->br_xino.xi_file,
 				       h_inode->i_ino, /*ino*/0);
 		if (!err && try_trunc
-		    && au_test_fs_trunc_xino(br->br_mnt->mnt_sb))
+		    && au_test_fs_trunc_xino(au_br_sb(br)))
 			xino_try_trunc(sb, br);
 	}
 }
@@ -768,10 +817,10 @@ int au_xino_br(struct super_block *sb, struct au_branch *br, ino_t h_ino,
 	shared_br = NULL;
 	bend = au_sbend(sb);
 	if (do_test) {
-		tgt_sb = br->br_mnt->mnt_sb;
+		tgt_sb = au_br_sb(br);
 		for (bindex = 0; bindex <= bend; bindex++) {
 			b = au_sbr(sb, bindex);
-			if (tgt_sb == b->br_mnt->mnt_sb) {
+			if (tgt_sb == au_br_sb(b)) {
 				shared_br = b;
 				break;
 			}
@@ -1200,7 +1249,7 @@ struct file *au_xino_def(struct super_block *sb)
 	for (bindex = 0; bindex <= bend; bindex++) {
 		br = au_sbr(sb, bindex);
 		if (au_br_writable(br->br_perm)
-		    && !au_test_fs_bad_xino(br->br_mnt->mnt_sb)) {
+		    && !au_test_fs_bad_xino(au_br_sb(br))) {
 			bwr = bindex;
 			break;
 		}
@@ -1211,7 +1260,7 @@ struct file *au_xino_def(struct super_block *sb)
 		page = (void *)__get_free_page(GFP_NOFS);
 		if (unlikely(!page))
 			goto out;
-		path.mnt = br->br_mnt;
+		path.mnt = au_br_mnt(br);
 		path.dentry = au_h_dptr(sb->s_root, bwr);
 		p = d_path(&path, page, PATH_MAX - sizeof(AUFS_XINO_FNAME));
 		file = (void *)p;

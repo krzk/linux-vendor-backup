@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 Junjiro R. Okajima
+ * Copyright (C) 2005-2013 Junjiro R. Okajima
  *
  * This program, aufs is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -284,13 +284,11 @@ static inline void au_vm_file_reset(struct vm_area_struct *vma,
 static inline void au_vm_prfile_set(struct vm_area_struct *vma,
 				    struct file *file)
 {
-#ifdef CONFIG_AUFS_PROC_MAP
 	get_file(file);
 	vma->vm_prfile = file;
 #ifndef CONFIG_MMU
 	get_file(file);
 	vma->vm_region->vm_prfile = file;
-#endif
 #endif
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 Junjiro R. Okajima
+ * Copyright (C) 2005-2013 Junjiro R. Okajima
  *
  * This program, aufs is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,8 +29,9 @@
 
 struct inode;
 struct file;
+struct au_pin;
 
-void au_cpup_attr_flags(struct inode *dst, struct inode *src);
+void au_cpup_attr_flags(struct inode *dst, unsigned int iflags);
 void au_cpup_attr_timesizes(struct inode *inode);
 void au_cpup_attr_nlink(struct inode *inode, int force);
 void au_cpup_attr_changeable(struct inode *inode);
@@ -39,10 +40,21 @@ void au_cpup_attr_all(struct inode *inode, int force);
 
 /* ---------------------------------------------------------------------- */
 
+struct au_cp_generic {
+	struct dentry	*dentry;
+	aufs_bindex_t	bdst, bsrc;
+	loff_t		len;
+	struct au_pin	*pin;
+	unsigned int	flags;
+};
+
 /* cpup flags */
 #define AuCpup_DTIME	1		/* do dtime_store/revert */
 #define AuCpup_KEEPLINO	(1 << 1)	/* do not clear the lower xino,
 					   for link(2) */
+#define AuCpup_RENAME	(1 << 2)	/* rename after cpup */
+#define AuCpup_HOPEN	(1 << 3)	/* call h_open_pre/post() in cpup */
+
 #define au_ftest_cpup(flags, name)	((flags) & AuCpup_##name)
 #define au_fset_cpup(flags, name) \
 	do { (flags) |= AuCpup_##name; } while (0)
@@ -50,16 +62,12 @@ void au_cpup_attr_all(struct inode *inode, int force);
 	do { (flags) &= ~AuCpup_##name; } while (0)
 
 int au_copy_file(struct file *dst, struct file *src, loff_t len);
-int au_sio_cpup_single(struct dentry *dentry, aufs_bindex_t bdst,
-		       aufs_bindex_t bsrc, loff_t len, unsigned int flags,
-		       struct dentry *dst_parent);
-int au_sio_cpup_simple(struct dentry *dentry, aufs_bindex_t bdst, loff_t len,
-		       unsigned int flags);
-int au_sio_cpup_wh(struct dentry *dentry, aufs_bindex_t bdst, loff_t len,
-		   struct file *file);
+int au_sio_cpup_simple(struct au_cp_generic *cpg);
+int au_sio_cpup_wh(struct au_cp_generic *cpg, struct file *file);
 
 int au_cp_dirs(struct dentry *dentry, aufs_bindex_t bdst,
 	       int (*cp)(struct dentry *dentry, aufs_bindex_t bdst,
+			 struct au_pin *pin,
 			 struct dentry *h_parent, void *arg),
 	       void *arg);
 int au_cpup_dirs(struct dentry *dentry, aufs_bindex_t bdst);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2012 Junjiro R. Okajima
+ * Copyright (C) 2010-2013 Junjiro R. Okajima
  *
  * This program, aufs is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,7 +36,6 @@ struct file *au_h_open_pre(struct dentry *dentry, aufs_bindex_t bindex)
 	h_dentry = au_h_dptr(dentry, bindex);
 	AuDebugOn(!h_dentry);
 	AuDebugOn(!h_dentry->d_inode);
-	IMustLock(h_dentry->d_inode);
 
 	h_file = NULL;
 	if (au_test_hfsplus(h_dentry->d_sb)

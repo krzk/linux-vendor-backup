@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 Junjiro R. Okajima
+ * Copyright (C) 2005-2013 Junjiro R. Okajima
  *
  * This program, aufs is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -87,6 +87,21 @@ static int au_test_anon(struct dentry *dentry)
 {
 	/* note: read d_flags without d_lock */
 	return !!(dentry->d_flags & DCACHE_DISCONNECTED);
+}
+
+int au_test_nfsd(void)
+{
+	int ret;
+	struct task_struct *tsk = current;
+	char comm[sizeof(tsk->comm)];
+
+	ret = 0;
+	if (tsk->flags & PF_KTHREAD) {
+		get_task_comm(comm, tsk);
+		ret = !strcmp(comm, "nfsd");
+	}
+
+	return ret;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -222,7 +237,7 @@ static struct dentry *decode_by_ino(struct super_block *sb, ino_t ino,
 	sigen = au_sigen(sb);
 	if (unlikely(is_bad_inode(inode)
 		     || IS_DEADDIR(inode)
-		     || sigen != au_iigen(inode)))
+		     || sigen != au_iigen(inode, NULL)))
 		goto out_iput;
 
 	dentry = NULL;
@@ -380,7 +395,8 @@ static struct dentry *au_lkup_by_ino(struct path *path, ino_t ino,
 	dentry = ERR_PTR(err);
 	if (unlikely(err))
 		goto out_name;
-	dentry = ERR_PTR(-ENOENT);
+	/* instead of ENOENT */
+	dentry = ERR_PTR(-ESTALE);
 	if (!arg.found)
 		goto out_name;
 
@@ -492,7 +508,7 @@ struct dentry *decode_by_path(struct super_block *sb, ino_t ino, __u32 *fh,
 	struct path path;
 
 	br = au_sbr(sb, nsi_lock->bindex);
-	h_mnt = br->br_mnt;
+	h_mnt = au_br_mnt(br);
 	h_sb = h_mnt->mnt_sb;
 	/* todo: call lower fh_to_dentry()? fh_to_parent()? */
 	h_parent = exportfs_decode_fh(h_mnt, (void *)(fh + Fh_tail),
@@ -716,7 +732,7 @@ static int aufs_encode_fh(struct inode *inode, __u32 *fh, int *max_len,
 
 	err = -EPERM;
 	br = au_sbr(sb, bindex);
-	h_sb = br->br_mnt->mnt_sb;
+	h_sb = au_br_sb(br);
 	if (unlikely(!h_sb->s_export_op)) {
 		AuErr1("%s branch is not exportable\n", au_sbtype(h_sb));
 		goto out_hparent;
@@ -735,7 +751,7 @@ static int aufs_encode_fh(struct inode *inode, __u32 *fh, int *max_len,
 	err = fh[Fh_h_type];
 	*max_len += Fh_tail;
 	/* todo: macros? */
-	if (err != 255)
+	if (err != FILEID_INVALID)
 		err = 99;
 	else
 		AuWarn1("%s encode_fh failed\n", au_sbtype(h_sb));
@@ -749,7 +765,7 @@ out_unlock:
 	si_read_unlock(sb);
 out:
 	if (unlikely(err < 0))
-		err = 255;
+		err = FILEID_INVALID;
 	return err;
 }
 

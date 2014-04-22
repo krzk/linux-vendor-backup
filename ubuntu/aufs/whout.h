@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 Junjiro R. Okajima
+ * Copyright (C) 2005-2013 Junjiro R. Okajima
  *
  * This program, aufs is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,8 +38,7 @@ struct dentry *au_whtmp_lkup(struct dentry *h_parent, struct au_branch *br,
 int au_whtmp_ren(struct dentry *h_dentry, struct au_branch *br);
 int au_wh_unlink_dentry(struct inode *h_dir, struct path *h_path,
 			struct dentry *dentry);
-int au_wh_init(struct dentry *h_parent, struct au_branch *br,
-	       struct super_block *sb);
+int au_wh_init(struct au_branch *br, struct super_block *sb);
 
 /* diropq flags */
 #define AuDiropq_CREATE	1

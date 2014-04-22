@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 Junjiro R. Okajima
+ * Copyright (C) 2005-2013 Junjiro R. Okajima
  *
  * This program, aufs is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -56,6 +56,56 @@ static inline void au_spl_del_rcu(struct list_head *list,
 	spin_lock(&spl->spin);
 	list_del_rcu(list);
 	spin_unlock(&spl->spin);
+}
+
+/* ---------------------------------------------------------------------- */
+
+struct au_sphlhead {
+	spinlock_t		spin;
+	struct hlist_head	head;
+};
+
+static inline void au_sphl_init(struct au_sphlhead *sphl)
+{
+	spin_lock_init(&sphl->spin);
+	INIT_HLIST_HEAD(&sphl->head);
+}
+
+static inline void au_sphl_add(struct hlist_node *hlist,
+			       struct au_sphlhead *sphl)
+{
+	spin_lock(&sphl->spin);
+	hlist_add_head(hlist, &sphl->head);
+	spin_unlock(&sphl->spin);
+}
+
+static inline void au_sphl_del(struct hlist_node *hlist,
+			       struct au_sphlhead *sphl)
+{
+	spin_lock(&sphl->spin);
+	hlist_del(hlist);
+	spin_unlock(&sphl->spin);
+}
+
+static inline void au_sphl_del_rcu(struct hlist_node *hlist,
+				   struct au_sphlhead *sphl)
+{
+	spin_lock(&sphl->spin);
+	hlist_del_rcu(hlist);
+	spin_unlock(&sphl->spin);
+}
+
+static inline unsigned long au_sphl_count(struct au_sphlhead *sphl)
+{
+	unsigned long cnt;
+	struct hlist_node *pos;
+
+	cnt = 0;
+	spin_lock(&sphl->spin);
+	hlist_for_each(pos, &sphl->head)
+		cnt++;
+	spin_unlock(&sphl->spin);
+	return cnt;
 }
 
 #endif /* __KERNEL__ */

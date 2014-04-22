@@ -283,6 +283,7 @@ err:
 
 	return ret;
 }
+EXPORT_SYMBOL(fsnotify_add_mark);
 
 int fsnotify_add_mark(struct fsnotify_mark *mark, struct fsnotify_group *group,
 		      struct inode *inode, struct vfsmount *mnt, int allow_dups)
@@ -293,7 +294,6 @@ int fsnotify_add_mark(struct fsnotify_mark *mark, struct fsnotify_group *group,
 	mutex_unlock(&group->mark_mutex);
 	return ret;
 }
-EXPORT_SYMBOL(fsnotify_add_mark);
 
 /*
  * clear any marks in a group in which mark->flags & flags is true

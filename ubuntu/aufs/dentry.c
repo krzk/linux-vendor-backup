@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 Junjiro R. Okajima
+ * Copyright (C) 2005-2013 Junjiro R. Okajima
  *
  * This program, aufs is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,7 +33,6 @@
 struct au_do_lookup_args {
 	unsigned int		flags;
 	mode_t			type;
-	unsigned int		nd_flags;
 };
 
 /*
@@ -124,8 +123,7 @@ static int au_test_shwh(struct super_block *sb, const struct qstr *name)
  * otherwise an error.
  * can be called at unlinking with @type is zero.
  */
-int au_lkup_dentry(struct dentry *dentry, aufs_bindex_t bstart, mode_t type,
-		   unsigned int flags)
+int au_lkup_dentry(struct dentry *dentry, aufs_bindex_t bstart, mode_t type)
 {
 	int npositive, err;
 	aufs_bindex_t bindex, btail, bdiropq;
@@ -133,8 +131,7 @@ int au_lkup_dentry(struct dentry *dentry, aufs_bindex_t bstart, mode_t type,
 	struct qstr whname;
 	struct au_do_lookup_args args = {
 		.flags		= 0,
-		.type		= type,
-		.nd_flags	= flags
+		.type		= type
 	};
 	const struct qstr *name = &dentry->d_name;
 	struct dentry *parent;
@@ -249,15 +246,19 @@ struct dentry *au_sio_lkup_one(struct qstr *name, struct dentry *parent,
 /*
  * lookup @dentry on @bindex which should be negative.
  */
-int au_lkup_neg(struct dentry *dentry, aufs_bindex_t bindex)
+int au_lkup_neg(struct dentry *dentry, aufs_bindex_t bindex, int wh)
 {
 	int err;
 	struct dentry *parent, *h_parent, *h_dentry;
+	struct au_branch *br;
 
 	parent = dget_parent(dentry);
 	h_parent = au_h_dptr(parent, bindex);
-	h_dentry = au_sio_lkup_one(&dentry->d_name, h_parent,
-				   au_sbr(dentry->d_sb, bindex));
+	br = au_sbr(dentry->d_sb, bindex);
+	if (wh)
+		h_dentry = au_whtmp_lkup(h_parent, br, &dentry->d_name);
+	else
+		h_dentry = au_sio_lkup_one(&dentry->d_name, h_parent, br);
 	err = PTR_ERR(h_dentry);
 	if (IS_ERR(h_dentry))
 		goto out;
@@ -732,7 +733,7 @@ int au_refresh_dentry(struct dentry *dentry, struct dentry *parent)
 	 * if current working dir is removed, it returns an error.
 	 * but the dentry is legal.
 	 */
-	err = au_lkup_dentry(dentry, /*bstart*/0, /*type*/0, /*flags*/0);
+	err = au_lkup_dentry(dentry, /*bstart*/0, /*type*/0);
 	AuDbgDentry(dentry);
 	au_di_swap(tmp, dinfo);
 	if (err == -ENOENT)

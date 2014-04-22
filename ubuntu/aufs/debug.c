@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 Junjiro R. Okajima
+ * Copyright (C) 2005-2013 Junjiro R. Okajima
  *
  * This program, aufs is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,9 +23,39 @@
 #include <linux/vt_kern.h>
 #include "aufs.h"
 
-int aufs_debug;
+/* Returns 0, or -errno.  arg is in kp->arg. */
+static int param_atomic_t_set(const char *val, const struct kernel_param *kp)
+{
+	int err, n;
+
+	err = kstrtoint(val, 0, &n);
+	if (!err) {
+		if (n > 0)
+			au_debug_on();
+		else
+			au_debug_off();
+	}
+	return err;
+}
+
+/* Returns length written or -errno.  Buffer is 4k (ie. be short!) */
+static int param_atomic_t_get(char *buffer, const struct kernel_param *kp)
+{
+	atomic_t *a;
+
+	a = kp->arg;
+	return sprintf(buffer, "%d", atomic_read(a));
+}
+
+static struct kernel_param_ops param_ops_atomic_t = {
+	.set = param_atomic_t_set,
+	.get = param_atomic_t_get
+	/* void (*free)(void *arg) */
+};
+
+atomic_t aufs_debug = ATOMIC_INIT(0);
 MODULE_PARM_DESC(debug, "debug print");
-module_param_named(debug, aufs_debug, int, S_IRUGO | S_IWUSR | S_IWGRP);
+module_param_named(debug, aufs_debug, atomic_t, S_IRUGO | S_IWUSR | S_IWGRP);
 
 char *au_plevel = KERN_DEBUG;
 #define dpri(fmt, ...) do {					\
@@ -88,7 +118,7 @@ static int do_pri_inode(aufs_bindex_t bindex, struct inode *inode, int hn,
 		return -1;
 	}
 
-	/* the type of i_blocks depends upon CONFIG_LSF */
+	/* the type of i_blocks depends upon CONFIG_LBDAF */
 	BUILD_BUG_ON(sizeof(inode->i_blocks) != sizeof(unsigned long)
 		     && sizeof(inode->i_blocks) != sizeof(u64));
 	if (wh) {
@@ -124,7 +154,7 @@ void au_dpri_inode(struct inode *inode)
 	if (!iinfo)
 		return;
 	dpri("i-1: bstart %d, bend %d, gen %d\n",
-	     iinfo->ii_bstart, iinfo->ii_bend, au_iigen(inode));
+	     iinfo->ii_bstart, iinfo->ii_bend, au_iigen(inode, NULL));
 	if (iinfo->ii_bstart < 0)
 		return;
 	hn = 0;
@@ -257,7 +287,7 @@ static int do_pri_br(aufs_bindex_t bindex, struct au_branch *br)
 
 	if (!br || IS_ERR(br))
 		goto out;
-	mnt = br->br_mnt;
+	mnt = au_br_mnt(br);
 	if (!mnt || IS_ERR(mnt))
 		goto out;
 	sb = mnt->mnt_sb;
@@ -298,7 +328,7 @@ void au_dpri_sb(struct super_block *sb)
 
 	a->mnt.mnt_sb = sb;
 	a->fake.br_perm = 0;
-	a->fake.br_mnt = &a->mnt;
+	a->fake.br_path.mnt = &a->mnt;
 	a->fake.br_xino.xi_file = NULL;
 	atomic_set(&a->fake.br_count, 0);
 	smp_mb(); /* atomic_set */
@@ -328,8 +358,11 @@ void au_dbg_sleep_jiffy(int jiffy)
 
 void au_dbg_iattr(struct iattr *ia)
 {
-#define AuBit(name)	if (ia->ia_valid & ATTR_ ## name) \
-				dpri(#name "\n")
+#define AuBit(name)					\
+	do {						\
+		if (ia->ia_valid & ATTR_ ## name)	\
+			dpri(#name "\n");		\
+	} while (0)
 	AuBit(MODE);
 	AuBit(UID);
 	AuBit(GID);
@@ -377,14 +410,11 @@ void __au_dbg_verify_dinode(struct dentry *dentry, const char *func, int line)
 			continue;
 		h_inode = au_h_iptr(inode, bindex);
 		if (unlikely(h_inode != h_dentry->d_inode)) {
-			int old = au_debug_test();
-			if (!old)
-				au_debug(1);
+			au_debug_on();
 			AuDbg("b%d, %s:%d\n", bindex, func, line);
 			AuDbgDentry(dentry);
 			AuDbgInode(inode);
-			if (!old)
-				au_debug(0);
+			au_debug_off();
 			BUG();
 		}
 	}

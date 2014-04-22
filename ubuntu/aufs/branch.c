@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 Junjiro R. Okajima
+ * Copyright (C) 2005-2013 Junjiro R. Okajima
  *
  * This program, aufs is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,6 +27,34 @@
 /*
  * free a single branch
  */
+
+/* prohibit rmdir to the root of the branch */
+/* todo: another new flag? */
+static void au_br_dflags_force(struct au_branch *br)
+{
+	struct dentry *h_dentry;
+
+	h_dentry = au_br_dentry(br);
+	spin_lock(&h_dentry->d_lock);
+	br->br_dflags = h_dentry->d_flags & DCACHE_MOUNTED;
+	h_dentry->d_flags |= DCACHE_MOUNTED;
+	spin_unlock(&h_dentry->d_lock);
+}
+
+/* restore its d_flags */
+static void au_br_dflags_restore(struct au_branch *br)
+{
+	struct dentry *h_dentry;
+
+	if (br->br_dflags)
+		return;
+
+	h_dentry = au_br_dentry(br);
+	spin_lock(&h_dentry->d_lock);
+	h_dentry->d_flags &= ~DCACHE_MOUNTED;
+	spin_unlock(&h_dentry->d_lock);
+}
+
 static void au_br_do_free(struct au_branch *br)
 {
 	int i;
@@ -56,7 +84,12 @@ static void au_br_do_free(struct au_branch *br)
 		else
 			break;
 
-	mntput(br->br_mnt);
+	au_br_dflags_restore(br);
+
+	/* recursive lock, s_umount of branch's */
+	lockdep_off();
+	path_put(&br->br_path);
+	lockdep_on();
 	kfree(wbr);
 	kfree(br);
 }
@@ -269,13 +302,17 @@ out:
  * initialize or clean the whiteouts for an adding branch
  */
 static int au_br_init_wh(struct super_block *sb, struct au_branch *br,
-			 int new_perm, struct dentry *h_root)
+			 int new_perm)
 {
 	int err, old_perm;
 	aufs_bindex_t bindex;
 	struct mutex *h_mtx;
 	struct au_wbr *wbr;
 	struct au_hinode *hdir;
+
+	err = vfsub_mnt_want_write(au_br_mnt(br));
+	if (unlikely(err))
+		goto out;
 
 	wbr = br->br_wbr;
 	old_perm = br->br_perm;
@@ -287,20 +324,21 @@ static int au_br_init_wh(struct super_block *sb, struct au_branch *br,
 		hdir = au_hi(sb->s_root->d_inode, bindex);
 		au_hn_imtx_lock_nested(hdir, AuLsc_I_PARENT);
 	} else {
-		h_mtx = &h_root->d_inode->i_mutex;
+		h_mtx = &au_br_dentry(br)->d_inode->i_mutex;
 		mutex_lock_nested(h_mtx, AuLsc_I_PARENT);
 	}
 	if (!wbr)
-		err = au_wh_init(h_root, br, sb);
+		err = au_wh_init(br, sb);
 	else {
 		wbr_wh_write_lock(wbr);
-		err = au_wh_init(h_root, br, sb);
+		err = au_wh_init(br, sb);
 		wbr_wh_write_unlock(wbr);
 	}
 	if (hdir)
 		au_hn_imtx_unlock(hdir);
 	else
 		mutex_unlock(h_mtx);
+	vfsub_mnt_drop_write(au_br_mnt(br));
 	br->br_perm = old_perm;
 
 	if (!err && wbr && !au_br_writable(new_perm)) {
@@ -308,16 +346,16 @@ static int au_br_init_wh(struct super_block *sb, struct au_branch *br,
 		br->br_wbr = NULL;
 	}
 
+out:
 	return err;
 }
 
 static int au_wbr_init(struct au_branch *br, struct super_block *sb,
-		       int perm, struct path *path)
+		       int perm)
 {
 	int err;
 	struct kstatfs kst;
 	struct au_wbr *wbr;
-	struct dentry *h_dentry;
 
 	wbr = br->br_wbr;
 	au_rw_init(&wbr->wbr_wh_rwsem);
@@ -327,19 +365,18 @@ static int au_wbr_init(struct au_branch *br, struct super_block *sb,
 
 	/*
 	 * a limit for rmdir/rename a dir
-	 * cf. AUFS_MAX_NAMELEN in include/linux/aufs_type.h
+	 * cf. AUFS_MAX_NAMELEN in include/uapi/linux/aufs_type.h
 	 */
-	err = vfs_statfs(path, &kst);
+	err = vfs_statfs(&br->br_path, &kst);
 	if (unlikely(err))
 		goto out;
 	err = -EINVAL;
-	h_dentry = path->dentry;
 	if (kst.f_namelen >= NAME_MAX)
-		err = au_br_init_wh(sb, br, perm, h_dentry);
+		err = au_br_init_wh(sb, br, perm);
 	else
 		pr_err("%.*s(%s), unsupported namelen %ld\n",
-		       AuDLNPair(h_dentry), au_sbtype(h_dentry->d_sb),
-		       kst.f_namelen);
+		       AuDLNPair(au_br_dentry(br)),
+		       au_sbtype(au_br_dentry(br)->d_sb), kst.f_namelen);
 
 out:
 	return err;
@@ -355,17 +392,19 @@ static int au_br_init(struct au_branch *br, struct super_block *sb,
 	memset(&br->br_xino, 0, sizeof(br->br_xino));
 	mutex_init(&br->br_xino.xi_nondir_mtx);
 	br->br_perm = add->perm;
-	br->br_mnt = add->path.mnt; /* set first, mntget() later */
+	BUILD_BUG_ON(sizeof(br->br_dflags)
+		     != sizeof(br->br_path.dentry->d_flags));
+	br->br_dflags = DCACHE_MOUNTED;
+	br->br_path = add->path; /* set first, path_get() later */
 	spin_lock_init(&br->br_dykey_lock);
 	memset(br->br_dykey, 0, sizeof(br->br_dykey));
 	atomic_set(&br->br_count, 0);
-	br->br_xino_upper = AUFS_XINO_TRUNC_INIT;
 	atomic_set(&br->br_xino_running, 0);
 	br->br_id = au_new_br_id(sb);
 	AuDebugOn(br->br_id < 0);
 
 	if (au_br_writable(add->perm)) {
-		err = au_wbr_init(br, sb, add->perm, &add->path);
+		err = au_wbr_init(br, sb, add->perm);
 		if (unlikely(err))
 			goto out_err;
 	}
@@ -380,11 +419,11 @@ static int au_br_init(struct au_branch *br, struct super_block *sb,
 	}
 
 	sysaufs_br_init(br);
-	mntget(add->path.mnt);
+	path_get(&br->br_path);
 	goto out; /* success */
 
 out_err:
-	br->br_mnt = NULL;
+	memset(&br->br_path, 0, sizeof(br->br_path));
 out:
 	return err;
 }
@@ -436,17 +475,20 @@ static void au_br_do_add_hip(struct au_iinfo *iinfo, aufs_bindex_t bindex,
 		iinfo->ii_bstart = 0;
 }
 
-static void au_br_do_add(struct super_block *sb, struct dentry *h_dentry,
-			 struct au_branch *br, aufs_bindex_t bindex)
+static void au_br_do_add(struct super_block *sb, struct au_branch *br,
+			 aufs_bindex_t bindex)
 {
-	struct dentry *root;
+	struct dentry *root, *h_dentry;
 	struct inode *root_inode;
 	aufs_bindex_t bend, amount;
+
+	au_br_dflags_force(br);
 
 	root = sb->s_root;
 	root_inode = root->d_inode;
 	bend = au_sbend(sb);
 	amount = bend + 1 - bindex;
+	h_dentry = au_br_dentry(br);
 	au_sbilist_lock();
 	au_br_do_add_brp(au_sbi(sb), bindex, br, bend, amount);
 	au_br_do_add_hdp(au_di(root), bindex, bend, amount);
@@ -489,15 +531,15 @@ int au_br_add(struct super_block *sb, struct au_opt_add *add, int remount)
 	}
 
 	add_bindex = add->bindex;
-	h_dentry = add->path.dentry;
 	if (!remount)
-		au_br_do_add(sb, h_dentry, add_branch, add_bindex);
+		au_br_do_add(sb, add_branch, add_bindex);
 	else {
 		sysaufs_brs_del(sb, add_bindex);
-		au_br_do_add(sb, h_dentry, add_branch, add_bindex);
+		au_br_do_add(sb, add_branch, add_bindex);
 		sysaufs_brs_add(sb, add_bindex);
 	}
 
+	h_dentry = add->path.dentry;
 	if (!add_bindex) {
 		au_cpup_attr_all(root_inode, /*force*/1);
 		sb->s_maxbytes = h_dentry->d_sb->s_maxbytes;
@@ -632,7 +674,7 @@ static int test_inode_busy(struct super_block *sb, aufs_bindex_t bindex,
 			continue;
 
 		/* AuDbgInode(i); */
-		if (au_iigen(i) == sigen)
+		if (au_iigen(i, NULL) == sigen)
 			ii_read_lock_child(i);
 		else {
 			ii_write_lock_child(i);
@@ -803,6 +845,7 @@ int au_br_del(struct super_block *sb, struct au_opt_del *del, int remount)
 		goto out;
 	}
 	br = au_sbr(sb, bindex);
+	AuDebugOn(!path_equal(&br->br_path, &del->h_path));
 	i = atomic_read(&br->br_count);
 	if (unlikely(i)) {
 		AuVerbose(verbose, "%d file(s) opened\n", i);
@@ -851,7 +894,7 @@ int au_br_del(struct super_block *sb, struct au_opt_del *del, int remount)
 
 out_wh:
 	/* revert */
-	rerr = au_br_init_wh(sb, br, br->br_perm, del->h_path.dentry);
+	rerr = au_br_init_wh(sb, br, br->br_perm);
 	if (rerr)
 		pr_warn("failed re-creating base whiteout, %s. (%d)\n",
 			del->pathname, rerr);
@@ -1071,8 +1114,8 @@ static int au_br_mod_files_ro(struct super_block *sb, aufs_bindex_t bindex)
 		hf->f_mode &= ~FMODE_WRITE;
 		spin_unlock(&hf->f_lock);
 		if (!file_check_writeable(hf)) {
+			__mnt_drop_write(hf->f_path.mnt);
 			file_release_write(hf);
-			vfsub_mnt_drop_write(hf->f_vfsmnt);
 		}
 	}
 
@@ -1088,7 +1131,6 @@ int au_br_mod(struct super_block *sb, struct au_opt_mod *mod, int remount,
 {
 	int err, rerr;
 	aufs_bindex_t bindex;
-	struct path path;
 	struct dentry *root;
 	struct au_branch *br;
 
@@ -1108,12 +1150,13 @@ int au_br_mod(struct super_block *sb, struct au_opt_mod *mod, int remount,
 		goto out;
 
 	br = au_sbr(sb, bindex);
+	AuDebugOn(mod->h_root != au_br_dentry(br));
 	if (br->br_perm == mod->perm)
 		return 0; /* success */
 
 	if (au_br_writable(br->br_perm)) {
 		/* remove whiteout base */
-		err = au_br_init_wh(sb, br, mod->perm, mod->h_root);
+		err = au_br_init_wh(sb, br, mod->perm);
 		if (unlikely(err))
 			goto out;
 
@@ -1130,12 +1173,8 @@ int au_br_mod(struct super_block *sb, struct au_opt_mod *mod, int remount,
 				rerr = -ENOMEM;
 				br->br_wbr = kmalloc(sizeof(*br->br_wbr),
 						     GFP_NOFS);
-				if (br->br_wbr) {
-					path.mnt = br->br_mnt;
-					path.dentry = mod->h_root;
-					rerr = au_wbr_init(br, sb, br->br_perm,
-							   &path);
-				}
+				if (br->br_wbr)
+					rerr = au_wbr_init(br, sb, br->br_perm);
 				if (unlikely(rerr)) {
 					AuIOErr("nested error %d (%d)\n",
 						rerr, err);
@@ -1148,9 +1187,7 @@ int au_br_mod(struct super_block *sb, struct au_opt_mod *mod, int remount,
 		err = -ENOMEM;
 		br->br_wbr = kmalloc(sizeof(*br->br_wbr), GFP_NOFS);
 		if (br->br_wbr) {
-			path.mnt = br->br_mnt;
-			path.dentry = mod->h_root;
-			err = au_wbr_init(br, sb, mod->perm, &path);
+			err = au_wbr_init(br, sb, mod->perm);
 			if (unlikely(err)) {
 				kfree(br->br_wbr);
 				br->br_wbr = NULL;
@@ -1159,6 +1196,12 @@ int au_br_mod(struct super_block *sb, struct au_opt_mod *mod, int remount,
 	}
 
 	if (!err) {
+		if ((br->br_perm & AuBrAttr_UNPIN)
+		    && !(mod->perm & AuBrAttr_UNPIN))
+			au_br_dflags_force(br);
+		else if (!(br->br_perm & AuBrAttr_UNPIN)
+			 && (mod->perm & AuBrAttr_UNPIN))
+			au_br_dflags_restore(br);
 		*do_refresh |= need_sigen_inc(br->br_perm, mod->perm);
 		br->br_perm = mod->perm;
 	}

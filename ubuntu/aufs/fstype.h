@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 Junjiro R. Okajima
+ * Copyright (C) 2005-2013 Junjiro R. Okajima
  *
  * This program, aufs is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -110,15 +110,6 @@ static inline int au_test_ecryptfs(struct super_block *sb __maybe_unused)
 #endif
 }
 
-static inline int au_test_smbfs(struct super_block *sb __maybe_unused)
-{
-#if defined(CONFIG_SMB_FS) || defined(CONFIG_SMB_FS_MODULE)
-	return sb->s_magic == SMB_SUPER_MAGIC;
-#else
-	return 0;
-#endif
-}
-
 static inline int au_test_ocfs2(struct super_block *sb __maybe_unused)
 {
 #if defined(CONFIG_OCFS2_FS) || defined(CONFIG_OCFS2_FS_MODULE)
@@ -157,7 +148,7 @@ static inline int au_test_v9fs(struct super_block *sb __maybe_unused)
 
 static inline int au_test_ext4(struct super_block *sb __maybe_unused)
 {
-#if defined(CONFIG_EXT4DEV_FS) || defined(CONFIG_EXT4DEV_FS_MODULE)
+#if defined(CONFIG_EXT4_FS) || defined(CONFIG_EXT4_FS_MODULE)
 	return sb->s_magic == EXT4_SUPER_MAGIC;
 #else
 	return 0;
@@ -365,7 +356,6 @@ static inline int au_test_fs_refresh_iattr(struct super_block *sb)
 {
 	return au_test_nfs(sb)
 		|| au_test_fuse(sb)
-		/* || au_test_smbfs(sb) */	/* untested */
 		/* || au_test_ocfs2(sb) */	/* untested */
 		/* || au_test_btrfs(sb) */	/* untested */
 		/* || au_test_coda(sb) */	/* untested */
@@ -411,7 +401,6 @@ static inline int au_test_fs_no_limit_nlink(struct super_block *sb)
 		|| au_test_ramfs(sb)
 #endif
 		|| au_test_ubifs(sb)
-		|| au_test_btrfs(sb)
 		|| au_test_hfsplus(sb);
 }
 

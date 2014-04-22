@@ -426,6 +426,7 @@ void __mnt_drop_write(struct vfsmount *mnt)
 	mnt_dec_writers(real_mount(mnt));
 	preempt_enable();
 }
+EXPORT_SYMBOL_GPL(__mnt_drop_write);
 
 /**
  * mnt_drop_write - give up write access to a mount
@@ -446,6 +447,7 @@ void __mnt_drop_write_file(struct file *file)
 {
 	__mnt_drop_write(file->f_path.mnt);
 }
+EXPORT_SYMBOL_GPL(__mnt_drop_write_file);
 
 void mnt_drop_write_file(struct file *file)
 {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 Junjiro R. Okajima
+ * Copyright (C) 2005-2013 Junjiro R. Okajima
  *
  * This program, aufs is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -62,7 +62,7 @@ static void wkq_func(struct work_struct *wk)
 /*
  * Since struct completion is large, try allocating it dynamically.
  */
-#if defined(CONFIG_4KSTACKS) || defined(AuTest4KSTACKS)
+#if 1 /* defined(CONFIG_4KSTACKS) || defined(AuTest4KSTACKS) */
 #define AuWkqCompDeclare(name)	struct completion *comp = NULL
 
 static int au_wkq_comp_alloc(struct au_wkinfo *wkinfo, struct completion **comp)
