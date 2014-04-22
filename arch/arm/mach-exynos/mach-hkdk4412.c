@@ -535,7 +535,7 @@ static struct platform_device *hkdk4412_devices[] __initdata = {
 	&exynos4_device_ohci,
 	&exynos_device_dwmci,
 	&hkdk4412_leds_gpio,
-#if defined(CONFIG_LCD_LP101WH1)
+#if defined(CONFIG_LCD_LP101WH1) && !defined(CONFIG_ODROID_U2)
 	&hkdk4412_lcd_lp101wh1,
 #endif
 	&hkdk4412_gpio_keys,
@@ -663,10 +663,6 @@ static void __init hkdk4412_machine_init(void)
 	hkdk4412_ohci_init();
 	s3c_hsotg_set_platdata(&hkdk4412_hsotg_pdata);
 
-#ifdef CONFIG_LCD_LP101WH1
-//        s5p_fimd0_set_platdata(&hkdk4412_fb_pdata);
-#endif
-
 	s3c64xx_spi1_set_platdata(NULL, 0, 1);
 	spi_register_board_info(spi1_board_info, ARRAY_SIZE(spi1_board_info));
 
@@ -680,7 +676,7 @@ static void __init hkdk4412_machine_init(void)
 	i2c_register_board_info(8, &hdmiphy_info, 1);
 #endif
 
-#ifdef CONFIG_LCD_LP101WH1
+#if defined(CONFIG_LCD_LP101WH1) && !defined(CONFIG_ODROID_U2)
 	s5p_device_fimd0.dev.platform_data = &drm_fimd_pdata;
 	exynos4_fimd0_gpio_setup_24bpp();
 #endif
