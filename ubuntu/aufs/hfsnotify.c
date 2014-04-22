@@ -66,13 +66,18 @@ static int au_hfsn_free(struct au_hinode *hinode, struct au_hnotify *hn)
 {
 	struct fsnotify_mark *mark;
 	unsigned long long ull;
+	struct fsnotify_group *group;
 
 	ull = atomic64_inc_return(&au_hfsn_ifree);
 	BUG_ON(!ull);
 
 	mark = &hn->hn_mark;
-	fsnotify_destroy_mark(mark);
-	fsnotify_put_mark(mark);
+	spin_lock(&mark->lock);
+	group = mark->group;
+	fsnotify_get_group(group);
+	spin_unlock(&mark->lock);
+	fsnotify_destroy_mark(mark, group);
+	fsnotify_put_group(group);
 
 	/* free hn by myself */
 	return 0;
