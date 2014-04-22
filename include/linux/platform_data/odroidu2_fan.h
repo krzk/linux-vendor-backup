@@ -13,6 +13,8 @@
 #define ISA1200_PWM_GEN_MODE		(2<<3)
 #define ISA1200_WAVE_GEN_MODE		(3<<3)
 
+#define FAN_TEMP_THROTTLE 80
+
 struct odroid_fan_platform_data {
 	int pwm_gpio;
 	int pwm_func;
@@ -20,6 +22,7 @@ struct odroid_fan_platform_data {
 	int pwm_id;
 	unsigned short pwm_periode_ns;
 	unsigned short pwm_duty;
+	unsigned short pwm_start_temp;
 };
 
 #endif /* __LINUX_ODROID_FAN_H */
