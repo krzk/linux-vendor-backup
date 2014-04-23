@@ -233,6 +233,7 @@ static void marshal_event_single(int core, int key, int value)
 }
 #endif
 
+#if defined(MALI_SUPPORT)
 static void marshal_sched_gpu_start(int unit, int core, int tgid, int pid)
 {
 	unsigned long cpu = get_physical_cpu(), flags;
@@ -276,6 +277,7 @@ static void marshal_sched_gpu_stop(int unit, int core)
 	// Check and commit; commit is set to occur once buffer is 3/4 full
 	buffer_check(cpu, GPU_TRACE_BUF, time);
 }
+#endif
 
 static void marshal_sched_trace_start(int tgid, int pid, int cookie)
 {

@@ -23,8 +23,6 @@
 #endif
 #endif
 
-#include "gator_trace_gpu.h"
-
 /*
  * Taken from MALI_PROFILING_EVENT_TYPE_* items in Mali DDK.
  */
@@ -37,7 +35,6 @@
 /* Note whether tracepoints have been registered */
 static int mali_timeline_trace_registered;
 static int mali_job_slots_trace_registered;
-static int gpu_trace_registered;
 
 enum {
 	GPU_UNIT_NONE = 0,
@@ -49,6 +46,8 @@ enum {
 
 #define MALI_4xx     (0x0b07)
 #define MALI_T6xx    (0x0056)
+
+#if defined(MALI_SUPPORT)
 
 struct mali_gpu_job {
 	int count;
@@ -113,6 +112,7 @@ static void mali_gpu_stop(int unit, int core)
 		marshal_sched_gpu_start(unit, core, last_tgid, last_pid/*, last_job_id*/);
 	}
 }
+#endif
 
 #if defined(MALI_SUPPORT) && (MALI_SUPPORT != MALI_T6xx)
 #include "gator_events_mali_4xx.h"
@@ -232,16 +232,6 @@ GATOR_DEFINE_PROBE(mali_job_slots_event, TP_PROTO(unsigned int event_id, unsigne
 }
 #endif
 
-GATOR_DEFINE_PROBE(gpu_activity_start, TP_PROTO(int gpu_unit, int gpu_core, struct task_struct *p))
-{
-	mali_gpu_enqueue(gpu_unit, gpu_core, (int)p->tgid, (int)p->pid, 0);
-}
-
-GATOR_DEFINE_PROBE(gpu_activity_stop, TP_PROTO(int gpu_unit, int gpu_core))
-{
-	mali_gpu_stop(gpu_unit, gpu_core);
-}
-
 static int gator_trace_gpu_start(void)
 {
 	/*
@@ -249,8 +239,10 @@ static int gator_trace_gpu_start(void)
 	 * Absence of gpu trace points is not an error
 	 */
 
+#if defined(MALI_SUPPORT)
 	memset(&mali_gpu_jobs, 0, sizeof(mali_gpu_jobs));
-	gpu_trace_registered = mali_timeline_trace_registered = mali_job_slots_trace_registered = 0;
+#endif
+	mali_timeline_trace_registered = mali_job_slots_trace_registered = 0;
 
 #if defined(MALI_SUPPORT) && (MALI_SUPPORT != MALI_T6xx)
 	if (!GATOR_REGISTER_TRACE(mali_timeline_event)) {
@@ -263,17 +255,6 @@ static int gator_trace_gpu_start(void)
 		mali_job_slots_trace_registered = 1;
 	}
 #endif
-
-	if (!mali_timeline_trace_registered) {
-		if (GATOR_REGISTER_TRACE(gpu_activity_start)) {
-			return 0;
-		}
-		if (GATOR_REGISTER_TRACE(gpu_activity_stop)) {
-			GATOR_UNREGISTER_TRACE(gpu_activity_start);
-			return 0;
-		}
-		gpu_trace_registered = 1;
-	}
 
 	return 0;
 }
@@ -292,10 +273,5 @@ static void gator_trace_gpu_stop(void)
 	}
 #endif
 
-	if (gpu_trace_registered) {
-		GATOR_UNREGISTER_TRACE(gpu_activity_stop);
-		GATOR_UNREGISTER_TRACE(gpu_activity_start);
-	}
-
-	gpu_trace_registered = mali_timeline_trace_registered = mali_job_slots_trace_registered = 0;
+	mali_timeline_trace_registered = mali_job_slots_trace_registered = 0;
 }
