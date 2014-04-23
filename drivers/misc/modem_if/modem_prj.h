@@ -528,6 +528,10 @@ struct modem_ctl {
 	enum modem_state phone_state;
 	struct sim_state sim_state;
 
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *pinctrl_active;
+	struct pinctrl_state *pinctrl_off;
+
 	unsigned gpio_cp_on;
 	unsigned gpio_reset_req_n;
 	unsigned gpio_cp_reset;

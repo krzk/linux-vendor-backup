@@ -30,15 +30,16 @@
 static void xmm_gpio_revers_bias_clear(struct modem_ctl *mc)
 {
 	gpio_direction_output(mc->gpio_pda_active, 0);
-	gpio_direction_output(mc->gpio_phone_active, 0);
 	gpio_direction_output(mc->gpio_cp_dump_int, 0);
 	gpio_direction_output(mc->mdm_data->link_pm_data->gpio_link_active, 0);
-	gpio_direction_output(mc->mdm_data->link_pm_data->gpio_link_hostwake, 0);
 	gpio_direction_output(mc->mdm_data->link_pm_data->gpio_link_slavewake, 0);
 
 	gpio_direction_output(mc->gpio_reset_req_n, 0); /* added by K */
 	gpio_direction_output(mc->gpio_cp_on, 0); /* added by K */
 	gpio_direction_output(mc->gpio_cp_reset, 0); /* added by K */
+
+	if (!IS_ERR(mc->pinctrl_off))
+		pinctrl_select_state(mc->pinctrl, mc->pinctrl_off);
 
 /*
 	if (umts_modem_data.gpio_sim_detect)
@@ -54,9 +55,9 @@ static void xmm_gpio_revers_bias_restore(struct modem_ctl *mc)
 	unsigned gpio_sim_detect = umts_modem_data.gpio_sim_detect;
 */
 
-	s3c_gpio_cfgpin(mc->gpio_phone_active, S3C_GPIO_SFN(0xF));
-	s3c_gpio_cfgpin(mc->mdm_data->link_pm_data->gpio_link_hostwake,
-		S3C_GPIO_SFN(0xF));
+	if (!IS_ERR(mc->pinctrl_active))
+		pinctrl_select_state(mc->pinctrl, mc->pinctrl_active);
+
 	gpio_direction_input(mc->gpio_cp_dump_int);
 
 /*	if (gpio_sim_detect) {
@@ -116,6 +117,8 @@ static int xmm6262_off(struct modem_ctl *mc)
 	gpio_set_value(mc->gpio_cp_on, 0);
 	gpio_set_value(mc->gpio_cp_reset, 0);
 
+	xmm_gpio_revers_bias_clear(mc);
+
 	return 0;
 }
 
@@ -150,8 +153,6 @@ static int xmm6262_reset(struct modem_ctl *mc)
 	xmm_gpio_revers_bias_restore(mc);
 
 /* vvv added by Kamil */
-	gpio_direction_input(mc->mdm_data->link_pm_data->gpio_link_hostwake);
-	gpio_direction_input(mc->gpio_phone_active);
 	gpio_direction_input(mc->gpio_cp_dump_int);
 
 	gpio_set_value(mc->gpio_pda_active, 1);
@@ -256,6 +257,18 @@ int xmm6262_init_modemctl_device(struct modem_ctl *mc,
 	mc->gpio_revers_bias_restore = pdata->gpio_revers_bias_restore;
 
 	pdev = to_platform_device(mc->dev);
+
+	mc->pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (!IS_ERR(mc->pinctrl)) {
+		mc->pinctrl_off = pinctrl_lookup_state(mc->pinctrl,
+							PINCTRL_STATE_DEFAULT);
+		mc->pinctrl_active = pinctrl_lookup_state(mc->pinctrl,
+							"active");
+	} else {
+		mc->pinctrl_off = ERR_PTR(-EINVAL);
+		mc->pinctrl_active = ERR_PTR(-EINVAL);
+	}
+
 	mc->irq_phone_active = gpio_to_irq(mc->gpio_phone_active);
 
 	if (mc->gpio_sim_detect)
