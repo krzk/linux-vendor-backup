@@ -313,7 +313,7 @@ static struct exynos_drm_fimd_pdata drm_fimd_pdata = {
 			.lower_margin 	= 3,
 			.hsync_len 	= 32,
 			.vsync_len 	= 5,
-			.xres 		= 1366,
+			.xres 		= 1360,
 			.yres 		= 768,
 		},
 	},
