@@ -184,33 +184,11 @@ static int fimd_check_mode(struct device *dev, struct drm_display_mode *mode)
 	return 0;
 }
 
-static int fimd_display_power_on(struct device *dev, int mode)
-{
-	DRM_INFO("%s:mode[%d]\n", __func__, mode);
-
-	switch (mode) {
-	case DRM_MODE_DPMS_ON:
-		drm_bl_dpms(mode);
-		break;
-	case DRM_MODE_DPMS_STANDBY:
-	case DRM_MODE_DPMS_SUSPEND:
-	case DRM_MODE_DPMS_OFF:
-		drm_bl_dpms(mode);
-		break;
-	default:
-		DRM_DEBUG_KMS("unspecified mode %d\n", mode);
-		break;
-	}
-
-	return 0;
-}
-
 static struct exynos_drm_display_ops fimd_display_ops = {
 	.type = EXYNOS_DISPLAY_TYPE_LCD,
 	.is_connected = fimd_display_is_connected,
 	.get_panel = fimd_get_panel,
 	.check_mode = fimd_check_mode,
-	.power_on = fimd_display_power_on,
 };
 
 static void fimd_apply(struct exynos_drm_manager *mgr)
