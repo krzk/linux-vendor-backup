@@ -1394,7 +1394,7 @@ static int s5p_jpeg_probe(struct platform_device *pdev)
 	jpeg->vfd_encoder->v4l2_dev	= &jpeg->v4l2_dev;
 	jpeg->vfd_encoder->vfl_dir	= VFL_DIR_M2M;
 
-	ret = video_register_device(jpeg->vfd_encoder, VFL_TYPE_GRABBER, -1);
+	ret = video_register_device(jpeg->vfd_encoder, VFL_TYPE_GRABBER, 20); // JPEG encoder as /dev/video20
 	if (ret) {
 		v4l2_err(&jpeg->v4l2_dev, "Failed to register video device\n");
 		goto enc_vdev_alloc_rollback;
@@ -1421,7 +1421,7 @@ static int s5p_jpeg_probe(struct platform_device *pdev)
 	jpeg->vfd_decoder->lock		= &jpeg->lock;
 	jpeg->vfd_decoder->v4l2_dev	= &jpeg->v4l2_dev;
 
-	ret = video_register_device(jpeg->vfd_decoder, VFL_TYPE_GRABBER, -1);
+	ret = video_register_device(jpeg->vfd_decoder, VFL_TYPE_GRABBER, 21); // JPEG decoder as /dev/video21
 	if (ret) {
 		v4l2_err(&jpeg->v4l2_dev, "Failed to register video device\n");
 		goto dec_vdev_alloc_rollback;
