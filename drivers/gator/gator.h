@@ -82,13 +82,21 @@ int gatorfs_create_ro_ulong(struct super_block *sb, struct dentry *root,
 		register_trace_##probe_name(probe_##probe_name)
 #	define GATOR_UNREGISTER_TRACE(probe_name) \
 		unregister_trace_##probe_name(probe_##probe_name)
-#else
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(3, 15, 0)
 #	define GATOR_DEFINE_PROBE(probe_name, proto) \
 		static void probe_##probe_name(void *data, PARAMS(proto))
 #	define GATOR_REGISTER_TRACE(probe_name) \
 		register_trace_##probe_name(probe_##probe_name, NULL)
 #	define GATOR_UNREGISTER_TRACE(probe_name) \
 		unregister_trace_##probe_name(probe_##probe_name, NULL)
+#else
+#	define GATOR_DEFINE_PROBE(probe_name, proto) \
+		extern struct tracepoint *gator_tracepoint_##probe_name; \
+		static void probe_##probe_name(void *data, PARAMS(proto))
+#	define GATOR_REGISTER_TRACE(probe_name) \
+		tracepoint_probe_register(gator_tracepoint_##probe_name, probe_##probe_name, NULL)
+#	define GATOR_UNREGISTER_TRACE(probe_name) \
+		tracepoint_probe_unregister(gator_tracepoint_##probe_name, probe_##probe_name, NULL)
 #endif
 
 /******************************************************************************

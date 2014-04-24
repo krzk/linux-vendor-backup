@@ -1349,8 +1349,61 @@ static void gator_op_create_files(struct super_block *sb, struct dentry *root)
 /******************************************************************************
  * Module
  ******************************************************************************/
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 15, 0)
+
+#define GATOR_TRACEPOINTS \
+	GATOR_HANDLE_TRACEPOINT(block_rq_complete); \
+	GATOR_HANDLE_TRACEPOINT(cpu_frequency); \
+	GATOR_HANDLE_TRACEPOINT(cpu_idle); \
+	GATOR_HANDLE_TRACEPOINT(cpu_migrate_begin); \
+	GATOR_HANDLE_TRACEPOINT(cpu_migrate_current); \
+	GATOR_HANDLE_TRACEPOINT(cpu_migrate_finish); \
+	GATOR_HANDLE_TRACEPOINT(irq_handler_exit); \
+	GATOR_HANDLE_TRACEPOINT(mali_hw_counter); \
+	GATOR_HANDLE_TRACEPOINT(mali_job_slots_event); \
+	GATOR_HANDLE_TRACEPOINT(mali_mmu_as_in_use); \
+	GATOR_HANDLE_TRACEPOINT(mali_mmu_as_released); \
+	GATOR_HANDLE_TRACEPOINT(mali_page_fault_insert_pages); \
+	GATOR_HANDLE_TRACEPOINT(mali_pm_status); \
+	GATOR_HANDLE_TRACEPOINT(mali_sw_counter); \
+	GATOR_HANDLE_TRACEPOINT(mali_sw_counters); \
+	GATOR_HANDLE_TRACEPOINT(mali_timeline_event); \
+	GATOR_HANDLE_TRACEPOINT(mali_total_alloc_pages_change); \
+	GATOR_HANDLE_TRACEPOINT(mm_page_alloc); \
+	GATOR_HANDLE_TRACEPOINT(mm_page_free); \
+	GATOR_HANDLE_TRACEPOINT(mm_page_free_batched); \
+	GATOR_HANDLE_TRACEPOINT(sched_process_fork); \
+	GATOR_HANDLE_TRACEPOINT(sched_process_free); \
+	GATOR_HANDLE_TRACEPOINT(sched_switch); \
+	GATOR_HANDLE_TRACEPOINT(softirq_exit); \
+
+#define GATOR_HANDLE_TRACEPOINT(probe_name) \
+	struct tracepoint *gator_tracepoint_##probe_name
+GATOR_TRACEPOINTS;
+#undef GATOR_HANDLE_TRACEPOINT
+
+static void gator_fct(struct tracepoint *tp, void *priv)
+{
+#define GATOR_HANDLE_TRACEPOINT(probe_name) \
+	if (strcmp(tp->name, #probe_name) == 0) { \
+		gator_tracepoint_##probe_name = tp; \
+		return; \
+	}
+GATOR_TRACEPOINTS;
+#undef GATOR_HANDLE_TRACEPOINT
+}
+
+#else
+
+#define for_each_kernel_tracepoint(fct, priv)
+
+#endif
+
 static int __init gator_module_init(void)
 {
+	for_each_kernel_tracepoint(gator_fct, NULL);
+
 	if (gatorfs_register()) {
 		return -1;
 	}
