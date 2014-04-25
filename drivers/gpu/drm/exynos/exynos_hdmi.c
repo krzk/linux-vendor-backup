@@ -24,6 +24,7 @@
 #include <linux/spinlock.h>
 #include <linux/wait.h>
 #include <linux/i2c.h>
+#include <linux/of_i2c.h>
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
@@ -196,7 +197,7 @@ struct hdmi_context {
 	void __iomem			*regs;
 	int				irq;
 
-	struct i2c_client		*ddc_port;
+	struct i2c_adapter		*ddc_adpt;
 	struct i2c_client		*hdmiphy_port;
 
 	/* current hdmiphy conf regs */
@@ -829,10 +830,10 @@ static int hdmi_get_modes(struct drm_connector *connector)
 	struct hdmi_context *hdata = ctx_from_connector(connector);
 	struct edid *edid;
 
-	if (!hdata->ddc_port)
+	if (!hdata->ddc_adpt)
 		return -ENODEV;
 
-	edid = drm_get_edid(connector, hdata->ddc_port->adapter);
+	edid = drm_get_edid(connector, hdata->ddc_adpt);
 	if (!edid)
 		return -ENODEV;
 
@@ -2111,11 +2112,10 @@ static int hdmi_probe(struct platform_device *pdev)
 		DRM_ERROR("Failed to find ddc node in device tree\n");
 		return -ENODEV;
 	}
-#if 0 /* FIXME */
-	hdata->ddc_port = of_find_i2c_device_by_node(ddc_node);
-#endif
-	if (!hdata->ddc_port) {
-		DRM_ERROR("Failed to get ddc i2c client by node\n");
+
+	hdata->ddc_adpt = of_find_i2c_adapter_by_node(ddc_node);
+	if (!hdata->ddc_adpt) {
+		DRM_ERROR("Failed to get ddc i2c adapter by node\n");
 		return -ENODEV;
 	}
 
@@ -2130,9 +2130,8 @@ static int hdmi_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto err_ddc;
 	}
-#if 0 /* FIXME */
+
 	hdata->hdmiphy_port = of_find_i2c_device_by_node(phy_node);
-#endif
 	if (!hdata->hdmiphy_port) {
 		DRM_ERROR("Failed to get hdmi phy i2c client from node\n");
 		ret = -ENODEV;
@@ -2167,7 +2166,7 @@ static int hdmi_probe(struct platform_device *pdev)
 err_hdmiphy:
 	put_device(&hdata->hdmiphy_port->dev);
 err_ddc:
-	put_device(&hdata->ddc_port->dev);
+	put_device(&hdata->ddc_adpt->dev);
 	return ret;
 }
 
@@ -2178,7 +2177,7 @@ static int hdmi_remove(struct platform_device *pdev)
 	struct hdmi_context *hdata = display->ctx;
 
 	put_device(&hdata->hdmiphy_port->dev);
-	put_device(&hdata->ddc_port->dev);
+	put_device(&hdata->ddc_adpt->dev);
 	pm_runtime_disable(&pdev->dev);
 
 	return 0;
