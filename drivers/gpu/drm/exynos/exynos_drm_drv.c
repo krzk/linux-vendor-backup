@@ -313,7 +313,6 @@ static struct platform_driver *exynos_drm_subdrivers[] = {
 #ifdef CONFIG_DRM_EXYNOS_HDMI
 	&hdmi_driver,
 	&mixer_driver,
-	&exynos_drm_common_hdmi_driver,
 #endif
 #ifdef CONFIG_DRM_EXYNOS_VIDI
 	&vidi_driver,
@@ -345,12 +344,6 @@ static int __init exynos_drm_init(void)
 	if (ret < 0)
 		return ret;
 
-#ifdef CONFIG_DRM_EXYNOS_HDMI
-	ret = exynos_platform_device_hdmi_register();
-	if (ret < 0)
-		goto out_hdmi;
-#endif
-
 #ifdef CONFIG_DRM_EXYNOS_IPP
 	ret = exynos_platform_device_ipp_register();
 	if (ret < 0)
@@ -381,10 +374,6 @@ out_ipp:
 	exynos_platform_device_ipp_unregister();
 #endif
 
-#ifdef CONFIG_DRM_EXYNOS_HDMI
-out_hdmi:
-	exynos_platform_device_hdmi_unregister();
-#endif
 	exynos_drm_iommu_unregister();
 	return ret;
 }
@@ -398,9 +387,6 @@ static void __exit exynos_drm_exit(void)
 
 #ifdef CONFIG_DRM_EXYNOS_IPP
 	exynos_platform_device_ipp_unregister();
-#endif
-#ifdef CONFIG_DRM_EXYNOS_HDMI
-	exynos_platform_device_hdmi_unregister();
 #endif
 	exynos_drm_iommu_unregister();
 }
