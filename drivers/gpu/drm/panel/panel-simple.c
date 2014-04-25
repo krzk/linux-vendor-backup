@@ -22,11 +22,14 @@
  */
 
 #include <linux/backlight.h>
-#include <linux/gpio/consumer.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
+#include <linux/of_gpio.h>
+#include <linux/gpio.h>
+#include <linux/of_i2c.h>
 
 #include <drm/drmP.h>
 #include <drm/drm_crtc.h>
@@ -53,7 +56,8 @@ struct panel_simple {
 	struct regulator *supply;
 	struct i2c_adapter *ddc;
 
-	struct gpio_desc *enable_gpio;
+	int enable_gpio;
+
 };
 
 static inline struct panel_simple *to_panel_simple(struct drm_panel *panel)
@@ -105,8 +109,10 @@ static int panel_simple_disable(struct drm_panel *panel)
 		backlight_update_status(p->backlight);
 	}
 
+#if 0
 	if (p->enable_gpio)
 		gpiod_set_value_cansleep(p->enable_gpio, 0);
+#endif
 
 	regulator_disable(p->supply);
 	p->enabled = false;
@@ -128,8 +134,10 @@ static int panel_simple_enable(struct drm_panel *panel)
 		return err;
 	}
 
+#if 0
 	if (p->enable_gpio)
 		gpiod_set_value_cansleep(p->enable_gpio, 1);
+#endif
 
 	if (p->backlight) {
 		p->backlight->props.power = FB_BLANK_UNBLANK;
@@ -185,21 +193,15 @@ static int panel_simple_probe(struct device *dev, const struct panel_desc *desc)
 	if (IS_ERR(panel->supply))
 		return PTR_ERR(panel->supply);
 
-	panel->enable_gpio = devm_gpiod_get(dev, "enable");
-	if (IS_ERR(panel->enable_gpio)) {
-		err = PTR_ERR(panel->enable_gpio);
+	panel->enable_gpio = of_get_named_gpio(dev->of_node, "enable", 0);
+	if (panel->enable_gpio < 0) {
+		err = panel->enable_gpio;
 		if (err != -ENOENT) {
 			dev_err(dev, "failed to request GPIO: %d\n", err);
 			return err;
 		}
-
-		panel->enable_gpio = NULL;
 	} else {
-		err = gpiod_direction_output(panel->enable_gpio, 0);
-		if (err < 0) {
-			dev_err(dev, "failed to setup GPIO: %d\n", err);
-			return err;
-		}
+		gpio_set_value(panel->enable_gpio, 0);
 	}
 
 	backlight = of_parse_phandle(dev->of_node, "backlight", 0);
