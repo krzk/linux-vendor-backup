@@ -153,39 +153,6 @@ static inline struct fimd_driver_data *drm_fimd_get_driver_data(
 	return (struct fimd_driver_data *)of_id->data;
 }
 
-static bool fimd_display_is_connected(struct exynos_drm_display *display)
-{
-	/* TODO. */
-
-	return true;
-}
-
-static void *fimd_get_panel(struct exynos_drm_display *display)
-{
-	struct fimd_context *ctx = display->ctx;
-
-	return &ctx->panel;
-}
-
-static int fimd_check_mode(struct exynos_drm_display *display,
-			struct drm_display_mode *mode)
-{
-	/* TODO. */
-
-	return 0;
-}
-
-static struct exynos_drm_display_ops fimd_display_ops = {
-	.is_connected = fimd_display_is_connected,
-	.get_panel = fimd_get_panel,
-	.check_mode = fimd_check_mode,
-};
-
-static struct exynos_drm_display fimd_display = {
-	.type = EXYNOS_DISPLAY_TYPE_LCD,
-	.ops = &fimd_display_ops,
-};
-
 static int fimd_mgr_initialize(struct exynos_drm_manager *mgr,
 			struct drm_device *drm_dev, int pipe)
 {
@@ -1009,9 +976,6 @@ static int fimd_probe(struct platform_device *pdev)
 	fimd_manager.ctx = ctx;
 	exynos_drm_manager_register(&fimd_manager);
 
-	fimd_display.ctx = ctx;
-	exynos_drm_display_register(&fimd_display);
-
 	pm_runtime_enable(dev);
 
 	for (win = 0; win < WINDOWS_NR; win++)
@@ -1024,7 +988,6 @@ static int fimd_remove(struct platform_device *pdev)
 {
 	struct exynos_drm_manager *mgr = platform_get_drvdata(pdev);
 
-	exynos_drm_display_unregister(&fimd_display);
 	exynos_drm_manager_unregister(&fimd_manager);
 
 	fimd_dpms(mgr, DRM_MODE_DPMS_OFF);
