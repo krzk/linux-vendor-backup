@@ -396,6 +396,9 @@ static struct platform_driver exynos_drm_platform_driver = {
 
 
 static struct platform_driver *exynos_drm_subdrivers[] = {
+#ifdef CONFIG_DRM_EXYNOS_DSI
+	&dsi_driver,
+#endif
 #ifdef CONFIG_DRM_EXYNOS_FIMD
 	&fimd_driver,
 #endif
