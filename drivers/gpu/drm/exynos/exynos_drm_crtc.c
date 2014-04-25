@@ -170,6 +170,7 @@ static int exynos_drm_crtc_mode_set_commit(struct drm_crtc *crtc, int x, int y,
 					  struct drm_framebuffer *old_fb)
 {
 	struct exynos_drm_crtc *exynos_crtc = to_exynos_crtc(crtc);
+	struct exynos_drm_manager *manager = exynos_crtc->manager;
 	struct drm_plane *plane = exynos_crtc->plane;
 	unsigned int crtc_w;
 	unsigned int crtc_h;
@@ -183,6 +184,9 @@ static int exynos_drm_crtc_mode_set_commit(struct drm_crtc *crtc, int x, int y,
 
 	crtc_w = crtc->fb->width - x;
 	crtc_h = crtc->fb->height - y;
+
+	if (manager->ops->mode_set)
+		manager->ops->mode_set(manager, &crtc->mode);
 
 	ret = exynos_plane_mode_set(plane, crtc, crtc->fb, 0, 0, crtc_w, crtc_h,
 				    x, y, crtc_w, crtc_h);
