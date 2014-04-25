@@ -1746,6 +1746,7 @@ static void hdmi_poweron(struct hdmi_context *hdata)
 	clk_prepare_enable(res->sclk_hdmi);
 
 	hdmiphy_poweron(hdata);
+	hdmi_commit(hdata);
 }
 
 static void hdmi_poweroff(struct hdmi_context *hdata)

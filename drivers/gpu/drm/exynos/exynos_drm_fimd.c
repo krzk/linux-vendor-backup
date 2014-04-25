@@ -868,6 +868,8 @@ static int fimd_activate(struct exynos_drm_manager *mgr, bool enable)
 			fimd_enable_vblank(mgr);
 
 		fimd_window_resume(dev);
+
+		fimd_apply(mgr);
 	} else {
 		fimd_window_suspend(dev);
 
@@ -926,7 +928,6 @@ static void fimd_dpms(struct exynos_drm_manager *mgr, int mode)
 static struct exynos_drm_manager_ops fimd_manager_ops = {
 	.initialize = fimd_mgr_initialize,
 	.dpms = fimd_dpms,
-	.apply = fimd_apply,
 	.commit = fimd_commit,
 	.enable_vblank = fimd_enable_vblank,
 	.disable_vblank = fimd_disable_vblank,
@@ -1115,23 +1116,10 @@ static int fimd_resume(struct device *dev)
 	 * of pm runtime would still be 1 so in this case, fimd driver
 	 * should be on directly not drawing on pm runtime interface.
 	 */
-	if (!pm_runtime_suspended(dev)) {
-		int ret;
+	if (pm_runtime_suspended(dev))
+		return 0;
 
-		ret = fimd_activate(mgr, true);
-		if (ret < 0)
-			return ret;
-
-		/*
-		 * in case of dpms on(standby), fimd_apply function will
-		 * be called by encoder's dpms callback to update fimd's
-		 * registers but in case of sleep wakeup, it's not.
-		 * so fimd_apply function should be called at here.
-		 */
-		fimd_apply(mgr);
-	}
-
-	return 0;
+	return fimd_activate(mgr, true);
 }
 #endif
 
