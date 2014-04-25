@@ -22,7 +22,7 @@
 #include "exynos_drm_fb.h"
 #include "exynos_drm_gem.h"
 #include "exynos_drm_iommu.h"
-#include "exynos_drm_encoder.h"
+#include "exynos_drm_crtc.h"
 
 #include <linux/dmabuf-sync.h>
 
@@ -58,7 +58,7 @@ static void exynos_drm_fb_destroy(struct drm_framebuffer *fb)
 	unsigned int i;
 
 	/* make sure that overlay data are updated before relesing fb. */
-	exynos_drm_encoder_complete_scanout(fb);
+	exynos_drm_crtc_complete_scanout(fb);
 
 	drm_framebuffer_cleanup(fb);
 
