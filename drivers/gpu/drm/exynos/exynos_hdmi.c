@@ -41,8 +41,6 @@
 #include "exynos_drm_drv.h"
 #include "exynos_drm_hdmi.h"
 
-#include "exynos_hdmi.h"
-
 #include <linux/gpio.h>
 #include <media/s5p_hdmi.h>
 
@@ -84,6 +82,7 @@ struct hdmi_resources {
 	struct clk			*sclk_pixel;
 	struct clk			*sclk_hdmiphy;
 	struct phy			*hdmiphy;
+	struct clk			*mout_hdmi;
 	struct regulator_bulk_data	*regul_bulk;
 	int				regul_count;
 };
@@ -1692,8 +1691,8 @@ static void hdmi_mode_set(void *ctx, struct drm_display_mode *mode)
 	struct hdmi_context *hdata = ctx;
 	struct drm_display_mode *m = mode;
 
-	DRM_DEBUG_KMS("[%s]: xres=%d, yres=%d, refresh=%d, intl=%s\n",
-		__func__, m->hdisplay, m->vdisplay,
+	DRM_DEBUG_KMS("xres=%d, yres=%d, refresh=%d, intl=%s\n",
+		m->hdisplay, m->vdisplay,
 		m->vrefresh, (m->flags & DRM_MODE_FLAG_INTERLACE) ?
 		"INTERLACED" : "PROGERESSIVE");
 
@@ -1782,7 +1781,7 @@ static void hdmi_dpms(void *ctx, int mode)
 {
 	struct hdmi_context *hdata = ctx;
 
-	DRM_DEBUG_KMS("[%d] %s mode %d\n", __LINE__, __func__, mode);
+	DRM_DEBUG_KMS("mode %d\n", mode);
 
 	switch (mode) {
 	case DRM_MODE_DPMS_ON:
@@ -1872,8 +1871,13 @@ static int hdmi_resources_init(struct hdmi_context *hdata)
 		DRM_ERROR("failed to get phy 'hdmiphy'\n");
 		goto fail;
 	}
+	res->mout_hdmi = devm_clk_get(dev, "mout_hdmi");
+	if (IS_ERR(res->mout_hdmi)) {
+		DRM_ERROR("failed to get clock 'mout_hdmi'\n");
+		goto fail;
+	}
 
-	clk_set_parent(res->sclk_hdmi, res->sclk_pixel);
+	clk_set_parent(res->mout_hdmi, res->sclk_pixel);
 
 	res->regul_bulk = devm_kzalloc(dev, ARRAY_SIZE(supply) *
 		sizeof(res->regul_bulk[0]), GFP_KERNEL);
@@ -1896,21 +1900,6 @@ fail:
 	return -ENODEV;
 }
 
-static struct i2c_client *hdmi_ddc, *hdmi_hdmiphy;
-
-void hdmi_attach_ddc_client(struct i2c_client *ddc)
-{
-	if (ddc)
-		hdmi_ddc = ddc;
-}
-
-void hdmi_attach_hdmiphy_client(struct i2c_client *hdmiphy)
-{
-	if (hdmiphy)
-		hdmi_hdmiphy = hdmiphy;
-}
-
-#ifdef CONFIG_OF
 static struct s5p_hdmi_platform_data *drm_hdmi_dt_parse_pdata
 					(struct device *dev)
 {
@@ -1921,7 +1910,7 @@ static struct s5p_hdmi_platform_data *drm_hdmi_dt_parse_pdata
 	if (!pd)
 		return NULL;
 
-	pd->hpd_gpio = of_get_named_gpio_flags(np, "hpd-gpio", 0, NULL);
+	pd->hpd_gpio = of_get_named_gpio(np, "hpd-gpio", 0);
 	if (pd->hpd_gpio < 0) {
 		DRM_ERROR("no hpd gpio property found\n");
 		return NULL;
@@ -1931,37 +1920,14 @@ static struct s5p_hdmi_platform_data *drm_hdmi_dt_parse_pdata
 
 	return pd;
 }
-#else
-static struct s5p_hdmi_platform_data *drm_hdmi_dt_parse_pdata
-					(struct device *dev)
-{
-	return NULL;
-}
-#endif
 
-static struct platform_device_id hdmi_driver_types[] = {
-	{
-		.name		= "s5pv210-hdmi",
-		.driver_data    = HDMI_TYPE13,
-	}, {
-		.name		= "exynos4-hdmi",
-		.driver_data    = HDMI_TYPE13,
-	}, {
-		.name		= "exynos4-hdmi14",
-		.driver_data	= HDMI_TYPE14,
-	}, {
-		.name		= "exynos5-hdmi",
-		.driver_data	= HDMI_TYPE14,
-	}, {
-		/* end node */
-	}
-};
-
-#ifdef CONFIG_OF
 static struct of_device_id hdmi_match_types[] = {
 	{
 		.compatible = "samsung,exynos4210-hdmi",
 		.data	= (void	*)HDMI_TYPE13,
+	}, {
+		.compatible = "samsung,exynos4212-hdmi",
+		.data	= (void	*)HDMI_TYPE14,
 	}, {
 		.compatible = "samsung,exynos5-hdmi",
 		.data	= (void	*)HDMI_TYPE14,
@@ -1969,7 +1935,6 @@ static struct of_device_id hdmi_match_types[] = {
 		/* end node */
 	}
 };
-#endif
 
 static int hdmi_probe(struct platform_device *pdev)
 {
@@ -1978,35 +1943,27 @@ static int hdmi_probe(struct platform_device *pdev)
 	struct hdmi_context *hdata;
 	struct s5p_hdmi_platform_data *pdata;
 	struct resource *res;
+	const struct of_device_id *match;
+	struct device_node *ddc_node, *phy_node;
 	int ret;
 
-	if (dev->of_node) {
-		pdata = drm_hdmi_dt_parse_pdata(dev);
-		if (IS_ERR(pdata)) {
-			DRM_ERROR("failed to parse dt\n");
-			return PTR_ERR(pdata);
-		}
-	} else {
-		pdata = dev->platform_data;
-	}
+	if (!dev->of_node)
+		return -ENODEV;
 
-	if (!pdata) {
-		DRM_ERROR("no platform data specified\n");
+	pdata = drm_hdmi_dt_parse_pdata(dev);
+	if (!pdata)
 		return -EINVAL;
-	}
 
 	if (!pdata->max_pixel_clock) {
 		DRM_LOG("max-pixel-clock is zero, using INF\n");
 		pdata->max_pixel_clock = ULONG_MAX;
 	}
 
-	drm_hdmi_ctx = devm_kzalloc(dev, sizeof(*drm_hdmi_ctx),
-								GFP_KERNEL);
+	drm_hdmi_ctx = devm_kzalloc(dev, sizeof(*drm_hdmi_ctx), GFP_KERNEL);
 	if (!drm_hdmi_ctx)
 		return -ENOMEM;
 
-	hdata = devm_kzalloc(dev, sizeof(struct hdmi_context),
-								GFP_KERNEL);
+	hdata = devm_kzalloc(dev, sizeof(struct hdmi_context), GFP_KERNEL);
 	if (!hdata)
 		return -ENOMEM;
 
@@ -2017,24 +1974,16 @@ static int hdmi_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, drm_hdmi_ctx);
 
-	if (dev->of_node) {
-		const struct of_device_id *match;
-		match = of_match_node(of_match_ptr(hdmi_match_types),
-					dev->of_node);
-		if (match == NULL)
-			return -ENODEV;
-		hdata->type = (enum hdmi_type)match->data;
-	} else {
-		hdata->type = (enum hdmi_type)platform_get_device_id
-					(pdev)->driver_data;
-	}
+	match = of_match_node(hdmi_match_types, dev->of_node);
+	if (!match)
+		return -ENODEV;
+	hdata->type = (enum hdmi_type)match->data;
 
 	hdata->hpd_gpio = pdata->hpd_gpio;
 	hdata->max_pixel_clock = pdata->max_pixel_clock;
 	hdata->dev = dev;
 
 	ret = hdmi_resources_init(hdata);
-
 	if (ret) {
 		DRM_ERROR("hdmi_resources_init failed\n");
 		return -EINVAL;
@@ -2052,21 +2001,34 @@ static int hdmi_probe(struct platform_device *pdev)
 	}
 
 	/* DDC i2c driver */
-	if (i2c_add_driver(&ddc_driver)) {
-		DRM_ERROR("failed to register ddc i2c driver\n");
-		return -ENOENT;
+	ddc_node = of_parse_phandle(dev->of_node, "ddc", 0);
+	if (!ddc_node) {
+		DRM_ERROR("Failed to find ddc node in device tree\n");
+		return -ENODEV;
 	}
-
-	hdata->ddc_port = hdmi_ddc;
+#if 0 /* FIXME */
+	hdata->ddc_port = of_find_i2c_device_by_node(ddc_node);
+#endif
+	if (!hdata->ddc_port) {
+		DRM_ERROR("Failed to get ddc i2c client by node\n");
+		return -ENODEV;
+	}
 
 	/* hdmiphy i2c driver */
-	if (i2c_add_driver(&hdmiphy_driver)) {
-		DRM_ERROR("failed to register hdmiphy i2c driver\n");
-		ret = -ENOENT;
+	phy_node = of_parse_phandle(dev->of_node, "phy", 0);
+	if (!phy_node) {
+		DRM_ERROR("Failed to find hdmiphy node in device tree\n");
+		ret = -ENODEV;
 		goto err_ddc;
 	}
-
-	hdata->hdmiphy_port = hdmi_hdmiphy;
+#if 0 /* FIXME */
+	hdata->hdmiphy_port = of_find_i2c_device_by_node(phy_node);
+#endif
+	if (!hdata->hdmiphy_port) {
+		DRM_ERROR("Failed to get hdmi phy i2c client from node\n");
+		ret = -ENODEV;
+		goto err_ddc;
+	}
 
 	hdata->irq = gpio_to_irq(hdata->hpd_gpio);
 	if (hdata->irq < 0) {
@@ -2097,22 +2059,22 @@ static int hdmi_probe(struct platform_device *pdev)
 	return 0;
 
 err_hdmiphy:
-	i2c_del_driver(&hdmiphy_driver);
+	put_device(&hdata->hdmiphy_port->dev);
 err_ddc:
-	i2c_del_driver(&ddc_driver);
+	put_device(&hdata->ddc_port->dev);
 	return ret;
 }
 
 static int hdmi_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct exynos_drm_hdmi_context *ctx = get_hdmi_context(dev);
+	struct hdmi_context *hdata = ctx->ctx;
 
 	pm_runtime_disable(dev);
 
-	/* hdmiphy i2c driver */
-	i2c_del_driver(&hdmiphy_driver);
-	/* DDC i2c driver */
-	i2c_del_driver(&ddc_driver);
+	put_device(&hdata->hdmiphy_port->dev);
+	put_device(&hdata->ddc_port->dev);
 
 	return 0;
 }
@@ -2130,7 +2092,7 @@ static int hdmi_suspend(struct device *dev)
 		drm_helper_hpd_irq_event(hdata->drm_dev);
 
 	if (pm_runtime_suspended(dev)) {
-		DRM_DEBUG_KMS("%s : Already suspended\n", __func__);
+		DRM_DEBUG_KMS("Already suspended\n");
 		return 0;
 	}
 
@@ -2149,7 +2111,7 @@ static int hdmi_resume(struct device *dev)
 	enable_irq(hdata->irq);
 
 	if (!pm_runtime_suspended(dev)) {
-		DRM_DEBUG_KMS("%s : Already resumed\n", __func__);
+		DRM_DEBUG_KMS("Already resumed\n");
 		return 0;
 	}
 
@@ -2189,11 +2151,10 @@ static const struct dev_pm_ops hdmi_pm_ops = {
 struct platform_driver hdmi_driver = {
 	.probe		= hdmi_probe,
 	.remove		= hdmi_remove,
-	.id_table = hdmi_driver_types,
 	.driver		= {
 		.name	= "exynos-hdmi",
 		.owner	= THIS_MODULE,
 		.pm	= &hdmi_pm_ops,
-		.of_match_table = of_match_ptr(hdmi_match_types),
+		.of_match_table = hdmi_match_types,
 	},
 };
