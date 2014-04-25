@@ -75,6 +75,11 @@ enum hdmi_type {
 	HDMI_TYPE14,
 };
 
+struct hdmi_driver_data {
+	unsigned int type;
+	unsigned int is_apb_phy:1;
+};
+
 struct hdmi_resources {
 	struct clk			*hdmi;
 	struct clk			*sclk_hdmi;
@@ -208,6 +213,18 @@ struct hdmi_context {
 struct hdmiphy_config {
 	int pixel_clock;
 	u8 conf[32];
+};
+
+struct hdmi_driver_data exynos4210_hdmi_driver_data = {
+	.type	= HDMI_TYPE13,
+};
+
+struct hdmi_driver_data exynos4212_hdmi_driver_data = {
+	.type	= HDMI_TYPE14,
+};
+
+struct hdmi_driver_data exynos5_hdmi_driver_data = {
+	.type	= HDMI_TYPE14,
 };
 
 /* list of phy config settings */
@@ -2017,13 +2034,13 @@ static struct s5p_hdmi_platform_data *drm_hdmi_dt_parse_pdata
 static struct of_device_id hdmi_match_types[] = {
 	{
 		.compatible = "samsung,exynos4210-hdmi",
-		.data	= (void	*)HDMI_TYPE13,
+		.data = &exynos4210_hdmi_driver_data,
 	}, {
 		.compatible = "samsung,exynos4212-hdmi",
-		.data	= (void	*)HDMI_TYPE14,
+		.data = &exynos4212_hdmi_driver_data,
 	}, {
 		.compatible = "samsung,exynos5-hdmi",
-		.data	= (void	*)HDMI_TYPE14,
+		.data = &exynos5_hdmi_driver_data,
 	}, {
 		/* end node */
 	}
@@ -2037,6 +2054,7 @@ static int hdmi_probe(struct platform_device *pdev)
 	struct resource *res;
 	const struct of_device_id *match;
 	struct device_node *ddc_node, *phy_node;
+	struct hdmi_driver_data *drv_data;
 	int ret;
 
 	if (!dev->of_node)
@@ -2062,7 +2080,9 @@ static int hdmi_probe(struct platform_device *pdev)
 	match = of_match_node(hdmi_match_types, dev->of_node);
 	if (!match)
 		return -ENODEV;
-	hdata->type = (enum hdmi_type)match->data;
+
+	drv_data = (struct hdmi_driver_data *)match->data;
+	hdata->type = drv_data->type;
 
 	hdata->hpd_gpio = pdata->hpd_gpio;
 	hdata->max_pixel_clock = pdata->max_pixel_clock;
@@ -2098,6 +2118,10 @@ static int hdmi_probe(struct platform_device *pdev)
 		DRM_ERROR("Failed to get ddc i2c client by node\n");
 		return -ENODEV;
 	}
+
+	/* Not support APB PHY yet. */
+	if (drv_data->is_apb_phy)
+		return -EPERM;
 
 	/* hdmiphy i2c driver */
 	phy_node = of_parse_phandle(dev->of_node, "phy", 0);
