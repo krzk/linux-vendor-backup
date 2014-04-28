@@ -207,10 +207,12 @@
 		};
 	};
 
+/*
 	hdmi {
 		hdmi-en-supply = <&tps65090_fet7>;
 		vdd-supply = <&ldo8_reg>;
 		vdd_osc-supply = <&ldo10_reg>;
 		vdd_pll-supply = <&ldo8_reg>;
 	};
+*/
 };
