@@ -863,35 +863,10 @@ out:
 	return IRQ_HANDLED;
 }
 
-static int fimd_get_platform_data(struct fimd_context *ctx, struct device *dev)
-{
-	struct videomode *vm;
-	int ret;
-
-	vm = &ctx->panel.vm;
-	ret = of_get_videomode(dev->of_node, vm, OF_USE_NATIVE_MODE);
-	if (ret) {
-		DRM_ERROR("failed: of_get_videomode() : %d\n", ret);
-		return ret;
-	}
-
-	if (vm->flags & DISPLAY_FLAGS_VSYNC_LOW)
-		ctx->vidcon1 |= VIDCON1_INV_VSYNC;
-	if (vm->flags & DISPLAY_FLAGS_HSYNC_LOW)
-		ctx->vidcon1 |= VIDCON1_INV_HSYNC;
-	if (vm->flags & DISPLAY_FLAGS_DE_LOW)
-		ctx->vidcon1 |= VIDCON1_INV_VDEN;
-	if (vm->flags & DISPLAY_FLAGS_PIXDATA_NEGEDGE)
-		ctx->vidcon1 |= VIDCON1_INV_VCLK;
-
-	return 0;
-}
-
 static int fimd_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct fimd_context *ctx;
-	struct device_node *display_np;
 	struct resource *res;
 	int win;
 	int ret = -EINVAL;
@@ -906,20 +881,10 @@ static int fimd_probe(struct platform_device *pdev)
 	ctx->dev = dev;
 	ctx->suspended = true;
 
-	ret = fimd_get_platform_data(ctx, dev);
-	if (ret)
-		return ret;
-
-	display_np = of_parse_phandle(dev->of_node,
-					"samsung,fimd-display", 0);
-	if (!display_np)
-		display_np = dev->of_node;
-
-	/* FIXME */
-	of_property_read_u32(display_np, "samsung,panel-width-mm",
-					&ctx->panel.width_mm);
-	of_property_read_u32(display_np, "samsung,panel-height-mm",
-					&ctx->panel.height_mm);
+	if (of_property_read_bool(dev->of_node, "samsung,invert-vden"))
+		ctx->vidcon1 |= VIDCON1_INV_VDEN;
+	if (of_property_read_bool(dev->of_node, "samsung,invert-vclk"))
+		ctx->vidcon1 |= VIDCON1_INV_VCLK;
 
 	ctx->bus_clk = devm_clk_get(dev, "fimd");
 	if (IS_ERR(ctx->bus_clk)) {
