@@ -419,7 +419,7 @@ dt_parse_err:
 	return ERR_PTR(err);
 }
 
-static int __init modem_probe(struct platform_device *pdev)
+static int modem_probe(struct platform_device *pdev)
 {
 	int i;
 	struct modem_data *pdata = pdev->dev.platform_data;
