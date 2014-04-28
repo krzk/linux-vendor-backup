@@ -909,6 +909,7 @@
 		clocks = <&clock CLK_SMMU_FIMD1M0>, <&clock CLK_FIMD1>;
 		samsung,power-domain = <&disp_pd>;
 		mmu-masters = <&fimd>;
+		status = "disabled";
 	};
 
 	sysmmu_fimd0w123: sysmmu@14680000 {
@@ -920,6 +921,7 @@
 		clocks = <&clock CLK_SMMU_FIMD1M1>, <&clock CLK_FIMD1>;
 		samsung,power-domain = <&disp_pd>;
 		mmu-masters = <&fimd>;
+		status = "disabled";
 	};
 
 	sysmmu_tv: sysmmu@14650000 {
