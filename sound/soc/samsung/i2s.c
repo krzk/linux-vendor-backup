@@ -17,6 +17,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
+#include <linux/of_irq.h>
 #include <linux/pm_runtime.h>
 
 #include <sound/soc.h>
@@ -994,7 +995,8 @@ static int samsung_i2s_dai_probe(struct snd_soc_dai *dai)
 
 	if (i2s->quirks & QUIRK_SEC_DAI)
 		idma_reg_addr_init(i2s->addr,
-					i2s->sec_dai->idma_playback.dma_addr);
+					i2s->sec_dai->idma_playback.dma_addr,
+					i2s->sec_dai->idma_playback.irq);
 
 probe_exit:
 	/* Reset any constraint on RFS and BFS */
@@ -1145,7 +1147,7 @@ static int samsung_i2s_probe(struct platform_device *pdev)
 	struct s3c_audio_pdata *i2s_pdata = pdev->dev.platform_data;
 	struct samsung_i2s *i2s_cfg = NULL;
 	struct resource *res;
-	u32 regs_base, quirks = 0, idma_addr = 0;
+	u32 regs_base, quirks = 0, idma_addr = 0, idma_irq = 0;
 	struct device_node *np = pdev->dev.of_node;
 	enum samsung_dai_type samsung_dai_type;
 	int ret = 0;
@@ -1159,10 +1161,12 @@ static int samsung_i2s_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Unable to get drvdata\n");
 			return -EFAULT;
 		}
+
 		snd_soc_register_component(&sec_dai->pdev->dev,
 					   &samsung_i2s_component,
 					   &sec_dai->i2s_dai_drv, 1);
-		asoc_dma_platform_register(&pdev->dev);
+		asoc_idma_platform_register(&pdev->dev);
+
 		return 0;
 	}
 
@@ -1216,6 +1220,14 @@ static int samsung_i2s_probe(struct platform_device *pdev)
 			if (quirks & QUIRK_SEC_DAI) {
 				dev_err(&pdev->dev, "idma address is not"\
 						"specified");
+				return -EINVAL;
+			}
+		}
+
+		idma_irq = irq_of_parse_and_map(np, 0);
+		if (idma_irq == NO_IRQ) {
+			if (quirks & QUIRK_SEC_DAI) {
+				dev_err(&pdev->dev, "idma irq is not specified");
 				return -EINVAL;
 			}
 		}
@@ -1273,6 +1285,7 @@ static int samsung_i2s_probe(struct platform_device *pdev)
 		sec_dai->base = regs_base;
 		sec_dai->quirks = quirks;
 		sec_dai->idma_playback.dma_addr = idma_addr;
+		sec_dai->idma_playback.irq = idma_irq;
 		sec_dai->pri_dai = pri_dai;
 		pri_dai->sec_dai = sec_dai;
 	}
@@ -1318,7 +1331,11 @@ static int samsung_i2s_remove(struct platform_device *pdev)
 	i2s->pri_dai = NULL;
 	i2s->sec_dai = NULL;
 
-	asoc_dma_platform_unregister(&pdev->dev);
+	if (other)
+		asoc_idma_platform_unregister(&pdev->dev);
+	else
+		asoc_dma_platform_unregister(&pdev->dev);
+
 	snd_soc_unregister_component(&pdev->dev);
 
 	return 0;
