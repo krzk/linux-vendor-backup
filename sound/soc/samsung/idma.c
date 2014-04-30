@@ -405,11 +405,12 @@ static int idma_new(struct snd_soc_pcm_runtime *rtd)
 	return ret;
 }
 
-void idma_reg_addr_init(void __iomem *regs, dma_addr_t addr)
+void idma_reg_addr_init(void __iomem *regs, dma_addr_t addr, int irq)
 {
 	spin_lock_init(&idma.lock);
 	idma.regs = regs;
 	idma.lp_tx_addr = addr;
+	idma_irq = irq;
 }
 EXPORT_SYMBOL_GPL(idma_reg_addr_init);
 
@@ -419,32 +420,17 @@ static struct snd_soc_platform_driver asoc_idma_platform = {
 	.pcm_free = idma_free,
 };
 
-static int asoc_idma_platform_probe(struct platform_device *pdev)
+int asoc_idma_platform_register(struct device *dev)
 {
-	idma_irq = platform_get_irq(pdev, 0);
-	if (idma_irq < 0)
-		return idma_irq;
-
-	return snd_soc_register_platform(&pdev->dev, &asoc_idma_platform);
+	return snd_soc_register_platform(dev, &asoc_idma_platform);
 }
+EXPORT_SYMBOL_GPL(asoc_idma_platform_register);
 
-static int asoc_idma_platform_remove(struct platform_device *pdev)
+void asoc_idma_platform_unregister(struct device *dev)
 {
-	snd_soc_unregister_platform(&pdev->dev);
-	return 0;
+	snd_soc_unregister_platform(dev);
 }
-
-static struct platform_driver asoc_idma_driver = {
-	.driver = {
-		.name = "samsung-idma",
-		.owner = THIS_MODULE,
-	},
-
-	.probe = asoc_idma_platform_probe,
-	.remove = asoc_idma_platform_remove,
-};
-
-module_platform_driver(asoc_idma_driver);
+EXPORT_SYMBOL_GPL(asoc_idma_platform_unregister);
 
 MODULE_AUTHOR("Jaswinder Singh, <jassisinghbrar@gmail.com>");
 MODULE_DESCRIPTION("Samsung ASoC IDMA Driver");
