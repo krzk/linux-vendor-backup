@@ -28,39 +28,71 @@ static const struct mfd_cell bcm590xx_devs[] = {
 	},
 };
 
-static const struct regmap_config bcm590xx_regmap_config = {
+static const struct regmap_config bcm590xx_regmap_config_0 = {
 	.reg_bits	= 8,
 	.val_bits	= 8,
-	.max_register	= BCM590XX_MAX_REGISTER,
+	.max_register	= BCM590XX_MAX_REGISTER_0,
 	.cache_type	= REGCACHE_RBTREE,
 };
 
-static int bcm590xx_i2c_probe(struct i2c_client *i2c,
+static const struct regmap_config bcm590xx_regmap_config_1 = {
+	.reg_bits	= 8,
+	.val_bits	= 8,
+	.max_register	= BCM590XX_MAX_REGISTER_1,
+	.cache_type	= REGCACHE_RBTREE,
+};
+
+static int bcm590xx_i2c_probe(struct i2c_client *addmap0,
 			      const struct i2c_device_id *id)
 {
 	struct bcm590xx *bcm590xx;
 	int ret;
 
-	bcm590xx = devm_kzalloc(&i2c->dev, sizeof(*bcm590xx), GFP_KERNEL);
+	bcm590xx = devm_kzalloc(&addmap0->dev, sizeof(*bcm590xx), GFP_KERNEL);
 	if (!bcm590xx)
 		return -ENOMEM;
 
-	i2c_set_clientdata(i2c, bcm590xx);
-	bcm590xx->dev = &i2c->dev;
-	bcm590xx->i2c_client = i2c;
+	i2c_set_clientdata(addmap0, bcm590xx);
+	bcm590xx->dev = &addmap0->dev;
+	bcm590xx->addmap0 = addmap0;
 
-	bcm590xx->regmap = devm_regmap_init_i2c(i2c, &bcm590xx_regmap_config);
-	if (IS_ERR(bcm590xx->regmap)) {
-		ret = PTR_ERR(bcm590xx->regmap);
-		dev_err(&i2c->dev, "regmap initialization failed: %d\n", ret);
+	bcm590xx->regmap0 = devm_regmap_init_i2c(addmap0,
+						 &bcm590xx_regmap_config_0);
+	if (IS_ERR(bcm590xx->regmap0)) {
+		ret = PTR_ERR(bcm590xx->regmap0);
+		dev_err(&addmap0->dev, "regmap 0 init failed: %d\n", ret);
 		return ret;
 	}
 
-	ret = mfd_add_devices(&i2c->dev, -1, bcm590xx_devs,
-			      ARRAY_SIZE(bcm590xx_devs), NULL, 0, NULL);
-	if (ret < 0)
-		dev_err(&i2c->dev, "failed to add sub-devices: %d\n", ret);
+	/* Second I2C slave address is the base address with A(2) asserted */
+	bcm590xx->addmap1 = i2c_new_dummy(addmap0->adapter,
+					  addmap0->addr | BIT(2));
+	if (IS_ERR_OR_NULL(bcm590xx->addmap1)) {
+		dev_err(&addmap0->dev, "failed to add address map 1 device\n");
+		return -ENODEV;
+	}
+	i2c_set_clientdata(bcm590xx->addmap1, bcm590xx);
 
+	bcm590xx->regmap1 = devm_regmap_init_i2c(bcm590xx->addmap1,
+						&bcm590xx_regmap_config_1);
+	if (IS_ERR(bcm590xx->regmap1)) {
+		ret = PTR_ERR(bcm590xx->regmap1);
+		dev_err(&bcm590xx->addmap1->dev,
+			"regmap 1 init failed: %d\n", ret);
+		goto err;
+	}
+
+	ret = mfd_add_devices(&addmap0->dev, -1, bcm590xx_devs,
+			      ARRAY_SIZE(bcm590xx_devs), NULL, 0, NULL);
+	if (ret < 0) {
+		dev_err(&addmap0->dev, "failed to add sub-devices: %d\n", ret);
+		goto err;
+	}
+
+	return 0;
+
+err:
+	i2c_unregister_device(bcm590xx->addmap1);
 	return ret;
 }
 

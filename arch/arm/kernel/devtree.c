@@ -76,11 +76,18 @@ static int __init set_smp_ops_by_method(struct device_node *node)
 	if (of_property_read_string(node, "enable-method", &method))
 		return 0;
 
-	for (; m < __cpu_method_of_table_end; m++)
+	for (; m < __cpu_method_of_table_end; m++) {
 		if (!strcmp(m->method, method)) {
-			smp_set_ops(m->ops);
-			return 1;
+			int ret = 0;
+
+			if (m->setup)
+				ret = m->setup(node);
+			if (!ret)
+				smp_set_ops(m->ops);
+
+			return ret ? ret : 1;
 		}
+	}
 
 	return 0;
 }
@@ -181,16 +188,28 @@ void __init arm_dt_init_cpu_maps(void)
 
 		tmp_map[i] = hwid;
 
-		if (!found_method)
+		if (!found_method) {
 			found_method = set_smp_ops_by_method(cpu);
+			if (WARN(found_method < 0,
+					"error %d getting enable-method for "
+					"DT /cpu %u\n", found_method, cpuidx)) {
+				return;
+			}
+		}
 	}
 
 	/*
 	 * Fallback to an enable-method in the cpus node if nothing found in
 	 * a cpu node.
 	 */
-	if (!found_method)
-		set_smp_ops_by_method(cpus);
+	if (!found_method) {
+		found_method = set_smp_ops_by_method(cpus);
+		if (WARN(found_method < 0,
+				"error %d getting enable-method for "
+				"DT /cpus node\n", found_method)) {
+			return;
+		}
+	}
 
 	if (!bootcpu_valid) {
 		pr_warn("DT missing boot CPU MPIDR[23:0], fall back to default cpu_logical_map\n");

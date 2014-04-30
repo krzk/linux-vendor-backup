@@ -20,6 +20,7 @@
 #include <linux/module.h>
 #include <linux/irqdomain.h>
 #include <linux/irqchip/chained_irq.h>
+#include <linux/interrupt.h>
 
 #define BCM_GPIO_PASSWD				0x00a5a501
 #define GPIO_PER_BANK				32
@@ -340,6 +341,23 @@ static void bcm_kona_gpio_irq_ack(struct irq_data *d)
 	spin_unlock_irqrestore(&kona_gpio->lock, flags);
 }
 
+#ifdef CONFIG_SUSPEND
+static int bcm_kona_gpio_irq_set_wake(struct irq_data *d, unsigned int on)
+{
+
+	struct irq_desc *desc = container_of(d, struct irq_desc, irq_data);
+
+	if (on)
+		desc->action->flags |= IRQF_NO_SUSPEND;
+	else
+		desc->action->flags &= ~IRQF_NO_SUSPEND;
+
+	return 0;
+}
+#else
+#define bcm_kona_gpio_irq_set_wake NULL
+#endif
+
 static void bcm_kona_gpio_irq_mask(struct irq_data *d)
 {
 	struct bcm_kona_gpio *kona_gpio;
@@ -494,6 +512,7 @@ static struct irq_chip bcm_gpio_irq_chip = {
 	.irq_set_type = bcm_kona_gpio_irq_set_type,
 	.irq_request_resources = bcm_kona_gpio_irq_reqres,
 	.irq_release_resources = bcm_kona_gpio_irq_relres,
+	.irq_set_wake = bcm_kona_gpio_irq_set_wake,
 };
 
 static struct __initconst of_device_id bcm_kona_gpio_of_match[] = {
