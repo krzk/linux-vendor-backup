@@ -20,6 +20,9 @@ Required properties:
 	"qcom,krait-pmu"
 - interrupts : 1 combined interrupt or 1 per core. If the interrupt is a per-cpu
                interrupt (PPI) then 1 interrupt should be specified.
+- cluster : a phandle to the cluster to which it belongs
+	If there are more than one cluster with same CPU type
+	then there should be separate PMU nodes per cluster.
 
 Optional properties:
 
