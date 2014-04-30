@@ -572,6 +572,7 @@
 	i2s0: i2s@03830000 {
 		compatible = "samsung,i2s-v5";
 		reg = <0x03830000 0x100>;
+		interrupts = <0 97 0>;
 		clocks = <&clock_audss 0>, <&clock_audss 3>, <&clock_audss 1>,
 			<&clock_audss 2>, <&clock_audss 4>, <&clock_audss 2>;
 		clock-names = "mout_audss", "mout_i2s", "dout_srp",
