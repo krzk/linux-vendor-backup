@@ -76,9 +76,15 @@ enum hdmi_type {
 	HDMI_TYPE14,
 };
 
+enum hdmi_soc_ver {
+	EXYNOS4,
+	EXYNOS5,
+};
+
 struct hdmi_driver_data {
 	unsigned int type;
 	unsigned int is_apb_phy:1;
+	unsigned int soc_ver;
 };
 
 struct hdmi_resources {
@@ -207,7 +213,7 @@ struct hdmi_context {
 	int				hpd_gpio;
 	u32				max_pixel_clock;
 
-	enum hdmi_type			type;
+	struct hdmi_driver_data		*drv_data;
 };
 
 struct hdmiphy_config {
@@ -217,14 +223,17 @@ struct hdmiphy_config {
 
 struct hdmi_driver_data exynos4210_hdmi_driver_data = {
 	.type	= HDMI_TYPE13,
+	.soc_ver = EXYNOS4,
 };
 
 struct hdmi_driver_data exynos4212_hdmi_driver_data = {
 	.type	= HDMI_TYPE14,
+	.soc_ver = EXYNOS4,
 };
 
 struct hdmi_driver_data exynos5_hdmi_driver_data = {
 	.type	= HDMI_TYPE14,
+	.soc_ver = EXYNOS5,
 };
 
 /* list of phy config settings */
@@ -722,7 +731,7 @@ static void hdmi_v14_regs_dump(struct hdmi_context *hdata, char *prefix)
 
 static void hdmi_regs_dump(struct hdmi_context *hdata, char *prefix)
 {
-	if (hdata->type == HDMI_TYPE13)
+	if (hdata->drv_data->type == HDMI_TYPE13)
 		hdmi_v13_regs_dump(hdata, prefix);
 	else
 		hdmi_v14_regs_dump(hdata, prefix);
@@ -851,10 +860,10 @@ static int hdmi_find_phy_conf(struct hdmi_context *hdata, u32 pixel_clock)
 	const struct hdmiphy_config *confs;
 	int count, i;
 
-	if (hdata->type == HDMI_TYPE13) {
+	if (hdata->drv_data->type == HDMI_TYPE13) {
 		confs = hdmiphy_v13_configs;
 		count = ARRAY_SIZE(hdmiphy_v13_configs);
-	} else if (hdata->type == HDMI_TYPE14) {
+	} else if (hdata->drv_data->type == HDMI_TYPE14) {
 		confs = hdmiphy_v14_configs;
 		count = ARRAY_SIZE(hdmiphy_v14_configs);
 	} else
@@ -1039,7 +1048,7 @@ static void hdmi_reg_acr(struct hdmi_context *hdata, u8 *acr)
 	hdmi_reg_writeb(hdata, HDMI_ACR_CTS1, acr[2]);
 	hdmi_reg_writeb(hdata, HDMI_ACR_CTS2, acr[1]);
 
-	if (hdata->type == HDMI_TYPE13)
+	if (hdata->drv_data->type == HDMI_TYPE13)
 		hdmi_reg_writeb(hdata, HDMI_V13_ACR_CON, 4);
 	else
 		hdmi_reg_writeb(hdata, HDMI_ACR_CON, 4);
@@ -1143,7 +1152,7 @@ static void hdmi_conf_reset(struct hdmi_context *hdata)
 {
 	u32 reg;
 
-	if (hdata->type == HDMI_TYPE13)
+	if (hdata->drv_data->type == HDMI_TYPE13)
 		reg = HDMI_V13_CORE_RSTOUT;
 	else
 		reg = HDMI_CORE_RSTOUT;
@@ -1177,7 +1186,7 @@ static void hdmi_conf_init(struct hdmi_context *hdata)
 				HDMI_VID_PREAMBLE_DIS | HDMI_GUARD_BAND_DIS);
 	}
 
-	if (hdata->type == HDMI_TYPE13) {
+	if (hdata->drv_data->type == HDMI_TYPE13) {
 		/* choose bluescreen (fecal) color */
 		hdmi_reg_writeb(hdata, HDMI_V13_BLUE_SCREEN_0, 0x12);
 		hdmi_reg_writeb(hdata, HDMI_V13_BLUE_SCREEN_1, 0x34);
@@ -1466,7 +1475,7 @@ static void hdmi_v14_mode_apply(struct hdmi_context *hdata)
 
 static void hdmi_mode_apply(struct hdmi_context *hdata)
 {
-	if (hdata->type == HDMI_TYPE13)
+	if (hdata->drv_data->type == HDMI_TYPE13)
 		hdmi_v13_mode_apply(hdata);
 	else
 		hdmi_v14_mode_apply(hdata);
@@ -1488,7 +1497,7 @@ static void hdmiphy_conf_reset(struct hdmi_context *hdata)
 	if (hdata->hdmiphy_port)
 		i2c_master_send(hdata->hdmiphy_port, buffer, 2);
 
-	if (hdata->type == HDMI_TYPE13)
+	if (hdata->drv_data->type == HDMI_TYPE13)
 		reg = HDMI_V13_PHY_RSTOUT;
 	else
 		reg = HDMI_PHY_RSTOUT;
@@ -1502,14 +1511,14 @@ static void hdmiphy_conf_reset(struct hdmi_context *hdata)
 
 static void hdmiphy_poweron(struct hdmi_context *hdata)
 {
-	if (hdata->type == HDMI_TYPE14)
+	if (hdata->drv_data->type == HDMI_TYPE14)
 		hdmi_reg_writemask(hdata, HDMI_PHY_CON_0, 0,
 			HDMI_PHY_POWER_OFF_EN);
 }
 
 static void hdmiphy_poweroff(struct hdmi_context *hdata)
 {
-	if (hdata->type == HDMI_TYPE14)
+	if (hdata->drv_data->type == HDMI_TYPE14)
 		hdmi_reg_writemask(hdata, HDMI_PHY_CON_0, ~0,
 			HDMI_PHY_POWER_OFF_EN);
 }
@@ -1535,7 +1544,7 @@ static void hdmiphy_conf_apply(struct hdmi_context *hdata)
 		return;
 	}
 
-	if (hdata->type == HDMI_TYPE13)
+	if (hdata->drv_data->type == HDMI_TYPE13)
 		hdmiphy_data = hdmiphy_v13_configs[i].conf;
 	else
 		hdmiphy_data = hdmiphy_v14_configs[i].conf;
@@ -1813,7 +1822,7 @@ static void hdmi_mode_set(struct exynos_drm_display *display,
 		m->vrefresh, (m->flags & DRM_MODE_FLAG_INTERLACE) ?
 		"INTERLACED" : "PROGERESSIVE");
 
-	if (hdata->type == HDMI_TYPE13)
+	if (hdata->drv_data->type == HDMI_TYPE13)
 		hdmi_v13_mode_set(hdata, mode);
 	else
 		hdmi_v14_mode_set(hdata, mode);
@@ -2041,6 +2050,41 @@ static struct of_device_id hdmi_match_types[] = {
 	}
 };
 
+static struct device_node *hdmi_legacy_ddc_dt_binding(struct device *dev)
+{
+	struct hdmi_context *ctx = hdmi_display.ctx;
+	const char *exynos4_compatible_str = "samsung,exynos4210-hdmiddc";
+	const char *exynos5_compatible_str = "samsung,exynos5-hdmiddc";
+	const char *compatible_str = NULL;
+	struct device_node *np;
+
+	if (ctx->drv_data->soc_ver == EXYNOS4)
+		compatible_str = exynos4_compatible_str;
+	else
+		compatible_str = exynos5_compatible_str;
+
+	np = of_find_compatible_node(NULL, NULL, compatible_str);
+	if (np)
+		return of_get_next_parent(np);
+
+	return NULL;
+}
+
+static struct device_node *hdmi_legacy_phy_dt_binding(struct device *dev)
+{
+	struct hdmi_context *ctx = hdmi_display.ctx;
+	const char *exynos4_compatible_str = "samsung,exynos4212-hdmiphy";
+	const char *exynos5_compatible_str = "samsung,exynos5-hdmiphy";
+	const char *compatible_str = NULL;
+
+	if (ctx->drv_data->soc_ver == EXYNOS4)
+		compatible_str = exynos4_compatible_str;
+	else
+		compatible_str = exynos5_compatible_str;
+
+	return of_find_compatible_node(NULL, NULL, compatible_str);
+}
+
 static int hdmi_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -2049,7 +2093,6 @@ static int hdmi_probe(struct platform_device *pdev)
 	struct resource *res;
 	const struct of_device_id *match;
 	struct device_node *ddc_node, *phy_node;
-	struct hdmi_driver_data *drv_data;
 	int ret;
 
 	if (!dev->of_node)
@@ -2076,12 +2119,12 @@ static int hdmi_probe(struct platform_device *pdev)
 	if (!match)
 		return -ENODEV;
 
-	drv_data = (struct hdmi_driver_data *)match->data;
-	hdata->type = drv_data->type;
+	hdata->drv_data = (struct hdmi_driver_data *)match->data;
 
 	hdata->hpd_gpio = pdata->hpd_gpio;
 	hdata->max_pixel_clock = pdata->max_pixel_clock;
 	hdata->dev = dev;
+	hdmi_display.ctx = hdata;
 
 	ret = hdmi_resources_init(hdata);
 	if (ret) {
@@ -2100,6 +2143,10 @@ static int hdmi_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	ddc_node = hdmi_legacy_ddc_dt_binding(dev);
+	if (ddc_node)
+		goto out_get_ddc_adpt;
+
 	/* DDC i2c driver */
 	ddc_node = of_parse_phandle(dev->of_node, "ddc", 0);
 	if (!ddc_node) {
@@ -2107,6 +2154,7 @@ static int hdmi_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+out_get_ddc_adpt:
 	hdata->ddc_adpt = of_find_i2c_adapter_by_node(ddc_node);
 	if (!hdata->ddc_adpt) {
 		DRM_ERROR("Failed to get ddc i2c adapter by node\n");
@@ -2114,8 +2162,12 @@ static int hdmi_probe(struct platform_device *pdev)
 	}
 
 	/* Not support APB PHY yet. */
-	if (drv_data->is_apb_phy)
+	if (hdata->drv_data->is_apb_phy)
 		return -EPERM;
+
+	phy_node = hdmi_legacy_phy_dt_binding(dev);
+	if (phy_node)
+		goto out_get_phy_port;
 
 	/* hdmiphy i2c driver */
 	phy_node = of_parse_phandle(dev->of_node, "phy", 0);
@@ -2125,6 +2177,7 @@ static int hdmi_probe(struct platform_device *pdev)
 		goto err_ddc;
 	}
 
+out_get_phy_port:
 	hdata->hdmiphy_port = of_find_i2c_device_by_node(phy_node);
 	if (!hdata->hdmiphy_port) {
 		DRM_ERROR("Failed to get hdmi phy i2c client from node\n");
@@ -2152,7 +2205,6 @@ static int hdmi_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(dev);
 
-	hdmi_display.ctx = hdata;
 	exynos_drm_display_register(&hdmi_display);
 
 	return 0;
