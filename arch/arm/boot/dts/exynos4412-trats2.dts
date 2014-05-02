@@ -1281,7 +1281,7 @@
 	};
 
 	sound {
-		compatible = "samsung,exynos4-wm1811";
+		compatible = "samsung,trats2-wm1811";
 		clocks = <&clock 2>, <&clock 396>, <&clock 21>, <&clock 6>;
 		clock-names = "parent", "out-mux", "out", "pll" /* EPLL */;
 		samsung,i2s-controller = <&i2s0>;
