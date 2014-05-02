@@ -95,7 +95,7 @@ enum {
 	MIC_MAX
 };
 
-enum exynos4_wm1811_gpios {
+enum trats2_wm1811_gpios {
 	GPIO_VPS_SOUND,
 	GPIO_MIC_BIAS,
 	GPIO_MIC_SUB_BIAS,
@@ -107,7 +107,7 @@ static struct class *audio_class;
 static struct device *jack_dev;
 static struct device *caps_dev;
 
-struct exynos_wm1811 {
+struct trats2_wm1811 {
 	struct snd_soc_jack jack;
 	struct snd_soc_codec *codec;
 	struct clk *codec_mclk;
@@ -154,7 +154,7 @@ static int exynos_snd_micbias(struct snd_soc_dapm_widget *w,
 			     struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-	struct exynos_wm1811 *machine = snd_soc_card_get_drvdata(codec->card);
+	struct trats2_wm1811 *machine = snd_soc_card_get_drvdata(codec->card);
 	unsigned int mic;
 
 	dev_info(codec->dev, "Mic Bias: %s event is %02X", w->name, event);
@@ -236,7 +236,7 @@ static int exynos_snd_vps_switch(struct snd_soc_dapm_widget *w,
 			     struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-	struct exynos_wm1811 *machine = snd_soc_card_get_drvdata(codec->card);
+	struct trats2_wm1811 *machine = snd_soc_card_get_drvdata(codec->card);
 
 	if (!gpio_is_valid(machine->gpio_vps_en))
 		return 0;
@@ -300,7 +300,7 @@ static void codec_micd_set_rate(struct snd_soc_codec *codec)
 
 static void codec_micdet(u16 status, void *data)
 {
-	struct exynos_wm1811 *machine = data;
+	struct trats2_wm1811 *machine = data;
 	struct wm8994_priv *wm8994 = snd_soc_codec_get_drvdata(machine->codec);
 	int report;
 	static int check_report;
@@ -461,7 +461,7 @@ static int machine_aif1_hw_params(struct snd_pcm_substream *substream,
 
 	dev_info(codec_dai->dev,
 		"AIF1 DAI %s params ch %d, rate %d as i2s slave\n",
-		((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? \
+		((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ?
 						"playback" : "capture"),
 						params_channels(params),
 						params_rate(params));
@@ -548,7 +548,7 @@ static int machine_aif1_hw_params(struct snd_pcm_substream *substream,
 		psr = 1;
 		break;
 	default:
-		printk(KERN_INFO "Not yet supported!\n");
+		dev_info(codec_dai->dev, "Not yet supported!\n");
 		return -EINVAL;
 	}
 
@@ -665,7 +665,7 @@ static int machine_aif2_hw_params(struct snd_pcm_substream *substream,
 
 	dev_info(codec_dai->dev,
 		"AIF2 DAI %s params ch %d, rate %d as Clock %s\n",
-		((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? \
+		((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ?
 						"playback" : "capture"),
 						params_channels(params),
 						params_rate(params),
@@ -684,7 +684,7 @@ static int machine_aif3_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 
 	dev_info(codec_dai->dev, "AIF3 DAI %s params ch %d, rate %d\n",
-		((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? \
+		((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ?
 						"playback" : "capture"),
 						params_channels(params),
 						params_rate(params));
@@ -827,7 +827,7 @@ static DEVICE_ATTR(select_jack, S_IRUGO | S_IWUSR | S_IWGRP,
 static ssize_t audio_caps_cp_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
-	struct exynos_wm1811 *machine = dev_get_drvdata(dev);
+	struct trats2_wm1811 *machine = dev_get_drvdata(dev);
 
 	if (machine->cp_wb_support == true)
 		return sprintf(buf, "wb\n") + 1;
@@ -839,7 +839,7 @@ static DEVICE_ATTR(cp_caps, S_IRUGO, audio_caps_cp_show, NULL);
 static ssize_t audio_caps_mic_count_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct exynos_wm1811 *machine = dev_get_drvdata(dev);
+	struct trats2_wm1811 *machine = dev_get_drvdata(dev);
 	int i, cnt = 0;
 
 	if (!machine)
@@ -858,7 +858,7 @@ static int machine_init_paiftx(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_card *card = rtd->card;
-	struct exynos_wm1811 *machine = snd_soc_card_get_drvdata(card);
+	struct trats2_wm1811 *machine = snd_soc_card_get_drvdata(card);
 	struct snd_soc_dai *aif1_dai = rtd->codec_dai;
 	struct wm8994 *wm8994 = dev_get_drvdata(codec->dev->parent);
 	int ret;
@@ -1072,7 +1072,7 @@ static struct snd_soc_dai_link machine_dai[] = {
 
 static int machine_card_suspend_post(struct snd_soc_card *card)
 {
-	struct exynos_wm1811 *machine = snd_soc_card_get_drvdata(card);
+	struct trats2_wm1811 *machine = snd_soc_card_get_drvdata(card);
 	struct snd_soc_codec *codec = card->rtd->codec;
 	struct snd_soc_dai *aif1_dai = card->rtd[0].codec_dai;
 	struct snd_soc_dai *aif2_dai = card->rtd[1].codec_dai;
@@ -1124,7 +1124,7 @@ static int machine_card_suspend_post(struct snd_soc_card *card)
 
 static int machine_card_resume_pre(struct snd_soc_card *card)
 {
-	struct exynos_wm1811 *machine = snd_soc_card_get_drvdata(card);
+	struct trats2_wm1811 *machine = snd_soc_card_get_drvdata(card);
 	struct snd_soc_codec *codec = card->rtd->codec;
 	struct snd_soc_dai *aif1_dai = card->rtd[0].codec_dai;
 	int reg = 0;
@@ -1163,7 +1163,7 @@ static int machine_card_resume_pre(struct snd_soc_card *card)
 	return 0;
 }
 
-static int exynos4_wm1811_parse_dt(struct exynos_wm1811 *machine,
+static int trats2_wm1811_parse_dt(struct trats2_wm1811 *machine,
 				   struct device *dev)
 {
 	struct device_node *node = dev->of_node;
@@ -1190,7 +1190,7 @@ static int exynos4_wm1811_parse_dt(struct exynos_wm1811 *machine,
 			continue;
 		}
 		ret = devm_gpio_request_one(dev, gpio, GPIOF_OUT_INIT_LOW,
-					    		mic_names[i]);
+							mic_names[i]);
 		if (ret) {
 			dev_err(dev, "%s gpio request failed\n", mic_names[i]);
 			continue;
@@ -1210,10 +1210,10 @@ static int exynos4_wm1811_parse_dt(struct exynos_wm1811 *machine,
 	return ret;
 }
 
-static int exynos4_wm1811_probe(struct platform_device *pdev)
+static int trats2_wm1811_probe(struct platform_device *pdev)
 {
 	struct snd_soc_dai_link *dai_link = &machine_dai[0];
-	struct exynos_wm1811 *machine;
+	struct trats2_wm1811 *machine;
 	struct snd_soc_card *card;
 	struct clk *parent, *out_mux;
 	int ret;
@@ -1236,7 +1236,7 @@ static int exynos4_wm1811_probe(struct platform_device *pdev)
 	if (!machine)
 		return -ENOMEM;
 
-	ret = exynos4_wm1811_parse_dt(machine, &pdev->dev);
+	ret = trats2_wm1811_parse_dt(machine, &pdev->dev);
 	if (ret < 0)
 		return ret;
 
@@ -1288,10 +1288,10 @@ static int exynos4_wm1811_probe(struct platform_device *pdev)
 	return snd_soc_register_card(card);
 }
 
-static int exynos4_wm1811_remove(struct platform_device *pdev)
+static int trats2_wm1811_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
-	struct exynos_wm1811 *machine = snd_soc_card_get_drvdata(card);
+	struct trats2_wm1811 *machine = snd_soc_card_get_drvdata(card);
 
 	snd_soc_unregister_card(card);
 	clk_put(machine->codec_mclk);
@@ -1299,28 +1299,28 @@ static int exynos4_wm1811_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id exynos4_wm1811_of_match[] = {
+static const struct of_device_id trats2_wm1811_of_match[] = {
 	{
-		.compatible = "samsung,exynos4-wm1811",
+		.compatible = "samsung,trats2-wm1811",
 	},
 	{ /* sentinel */ },
 };
-MODULE_DEVICE_TABLE(of, exynos4_wm1811_of_match);
+MODULE_DEVICE_TABLE(of, trats2_wm1811_of_match);
 
-static struct platform_driver exynos4_wm1811_driver = {
+static struct platform_driver trats2_wm1811_driver = {
 	.driver = {
-		.name = "exynos4-wm1811",
-		.of_match_table = exynos4_wm1811_of_match,
+		.name = "trats2-wm1811",
+		.of_match_table = trats2_wm1811_of_match,
 		.owner = THIS_MODULE,
 		.pm = &snd_soc_pm_ops,
 	},
-	.probe = exynos4_wm1811_probe,
-	.remove = exynos4_wm1811_remove,
+	.probe = trats2_wm1811_probe,
+	.remove = trats2_wm1811_remove,
 };
 
-module_platform_driver(exynos4_wm1811_driver);
+module_platform_driver(trats2_wm1811_driver);
 
 MODULE_AUTHOR("KwangHui Cho <kwanghui.cho@samsung.com>");
 MODULE_AUTHOR("Sylwester Nawrocki <s.nawrocki@samsung.com>");
-MODULE_DESCRIPTION("Exynos4+WM1811 machine ASoC driver");
+MODULE_DESCRIPTION("trats2 machine ASoC driver");
 MODULE_LICENSE("GPL");
