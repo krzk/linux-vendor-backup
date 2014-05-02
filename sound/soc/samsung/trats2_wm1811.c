@@ -1023,6 +1023,51 @@ static int machine_init_paiftx(struct snd_soc_pcm_runtime *rtd)
 	return snd_soc_dapm_sync(&codec->dapm);
 }
 
+static struct snd_soc_dai_driver voice_dai[] = {
+	{
+		.name = "voice-modem",
+		.playback = {
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min = 8000,
+			.rate_max = 16000,
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		},
+		.capture = {
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min = 8000,
+			.rate_max = 16000,
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		},
+	},
+	{
+		.name = "voice-bluetooth",
+		.playback = {
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min = 8000,
+			.rate_max = 16000,
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		},
+		.capture = {
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min = 8000,
+			.rate_max = 16000,
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		},
+	},
+};
+
+static const struct snd_soc_component_driver voice_component = {
+	.name		= "trats2-voice",
+};
+
 static struct snd_soc_dai_link machine_dai[] = {
 	{
 		/* Primary DAI i/f */
@@ -1039,7 +1084,6 @@ static struct snd_soc_dai_link machine_dai[] = {
 		.stream_name = "Voice Tx/Rx",
 		.cpu_dai_name = "voice-modem",
 		.codec_dai_name = "wm8994-aif2",
-		.platform_name = "snd-soc-dummy",
 		.codec_name = "wm8994-codec",
 		.ops = &machine_aif2_ops,
 		.ignore_suspend = 1,
@@ -1048,23 +1092,16 @@ static struct snd_soc_dai_link machine_dai[] = {
 		.stream_name = "BT Tx/Rx",
 		.cpu_dai_name = "voice-bluetooth",
 		.codec_dai_name = "wm8994-aif3",
-		.platform_name = "snd-soc-dummy",
 		.codec_name = "wm8994-codec",
 		.ops = &machine_aif3_ops,
 		.ignore_suspend = 1,
 	}, {
 		/* Sec_Fifo DAI i/f */
-		.cpu_dai_name = "samsung-i2s.4",
-		.codec_dai_name = "wm8994-aif1",
-#ifdef CONFIG_SND_SAMSUNG_USE_IDMA
 		.name = "Sec_FIFO TX",
 		.stream_name = "Sec_Dai",
-		.platform_name = "samsung-idma",
-#else
-		.name = "WM1811 AIF1 Playback",
-		.stream_name = "Pri_Dai Playback",
-		.platform_name = "samsung-audio",
-#endif
+		.cpu_dai_name = "samsung-i2s-sec",
+		.codec_dai_name = "wm8994-aif1",
+		.platform_name = "samsung-i2s-sec",
 		.codec_name = "wm8994-codec",
 		.ops = &machine_aif1_ops,
 	},
@@ -1084,8 +1121,6 @@ static int machine_card_suspend_post(struct snd_soc_card *card)
 		   to disable mclk1 from AP */
 		dev_info(codec->dev, "use mclk2 and disable fll");
 
-/* Disable this code until support for AIF2 interface is added. */
-#if 0
 		ret = snd_soc_dai_set_sysclk(aif2_dai,
 				WM8994_SYSCLK_MCLK2,
 				CODEC_CLK32K,
@@ -1098,7 +1133,7 @@ static int machine_card_suspend_post(struct snd_soc_card *card)
 		if (ret < 0)
 			dev_err(codec->dev,
 				"Unable to stop FLL2: %d\n", ret);
-#endif
+
 		ret = snd_soc_dai_set_sysclk(aif1_dai,
 				WM8994_SYSCLK_MCLK2,
 				CODEC_CLK32K,
@@ -1226,8 +1261,7 @@ static int trats2_wm1811_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	card->dai_link = machine_dai;
-	/* FIXME: Enable all audio interfaces */
-	card->num_links = 1; /* ARRAY_SIZE(machine_dai); */
+	card->num_links = ARRAY_SIZE(machine_dai);
 	card->suspend_post = machine_card_suspend_post;
 	card->resume_pre = machine_card_resume_pre;
 	card->dev = &pdev->dev;
@@ -1284,6 +1318,12 @@ static int trats2_wm1811_probe(struct platform_device *pdev)
 	/* FIXME: Clean up on error path */
 
 	snd_soc_card_set_drvdata(card, machine);
+
+	/* register voice DAI */
+	ret = snd_soc_register_component(&pdev->dev, &voice_component,
+					voice_dai, ARRAY_SIZE(voice_dai));
+	if (ret)
+		return ret;
 
 	return snd_soc_register_card(card);
 }
