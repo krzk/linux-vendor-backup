@@ -597,11 +597,11 @@ static struct edid *hdmi_get_edid(void *ctx, struct drm_connector *connector)
 	struct edid *raw_edid;
 	struct hdmi_context *hdata = ctx;
 
+	hdata->dvi_mode = true;
+
 	if (!hdata->ddc_port)
 		return ERR_PTR(-ENODEV);
 		
-	hdata->dvi_mode = true;
-
 	raw_edid = drm_get_edid(connector, hdata->ddc_port->adapter);
 	if (!raw_edid)
 		return ERR_PTR(-ENODEV);
@@ -1882,6 +1882,9 @@ static int hdmi_probe(struct platform_device *pdev)
 	exynos_hdmi_ops_register(&hdmi_ops);
 
 	pm_runtime_enable(dev);
+	
+	/* Here we force the initialization as DVI just as a fallback option */
+	hdata->dvi_mode = true;
 
 	return 0;
 
