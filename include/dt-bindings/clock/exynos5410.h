@@ -64,6 +64,7 @@
 #define CLK_MFC 401
 #define CLK_SMMU_MFCL 402
 #define CLK_SMMU_MFCR 403
+#define CLK_PWM 404
 
 /* mux clocks */
 #define CLK_MOUT_HDMI 500

@@ -366,6 +366,7 @@ static struct samsung_gate_clock exynos5410_gate_clks[] __initdata = {
 	GATE(CLK_MFC, "mfc", "mout_aclk333_sub", GATE_IP_MFC, 0, 0, 0),
 	GATE(CLK_SMMU_MFCL, "smmu_mfcl", "mout_aclk333_sub", GATE_IP_MFC, 1, 0, 0),
 	GATE(CLK_SMMU_MFCR, "smmu_mfcr", "mout_aclk333_sub", GATE_IP_MFC, 2, 0, 0),
+	GATE(CLK_PWM, "pwm", "aclk66", GATE_IP_PERIC, 24, 0, 0),
 };
 
 static struct samsung_pll_clock exynos5410_plls[nr_plls] __initdata = {
