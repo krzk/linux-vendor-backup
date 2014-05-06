@@ -535,5 +535,9 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&usb3_vbus1_en>, <&usb3_overcur1_u3>, <&usb3_overcur1_u2>;
 	};
+	
+	pwm@12dd0000 {
+		status = "okay";
+	};
 
 };
