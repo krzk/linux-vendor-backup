@@ -117,36 +117,36 @@ static inline void *phy_get_drvdata(struct phy *phy)
 }
 
 #if IS_ENABLED(CONFIG_GENERIC_PHY)
-extern int phy_pm_runtime_get(struct phy *phy);
-extern int phy_pm_runtime_get_sync(struct phy *phy);
-extern int phy_pm_runtime_put(struct phy *phy);
-extern int phy_pm_runtime_put_sync(struct phy *phy);
-extern void phy_pm_runtime_allow(struct phy *phy);
-extern void phy_pm_runtime_forbid(struct phy *phy);
-extern int phy_init(struct phy *phy);
-extern int phy_exit(struct phy *phy);
-extern int phy_power_on(struct phy *phy);
-extern int phy_power_off(struct phy *phy);
-extern struct phy *phy_get(struct device *dev, const char *string);
-extern struct phy *devm_phy_get(struct device *dev, const char *string);
-extern void phy_put(struct phy *phy);
-extern void devm_phy_put(struct device *dev, struct phy *phy);
-extern struct phy *of_phy_simple_xlate(struct device *dev,
+int phy_pm_runtime_get(struct phy *phy);
+int phy_pm_runtime_get_sync(struct phy *phy);
+int phy_pm_runtime_put(struct phy *phy);
+int phy_pm_runtime_put_sync(struct phy *phy);
+void phy_pm_runtime_allow(struct phy *phy);
+void phy_pm_runtime_forbid(struct phy *phy);
+int phy_init(struct phy *phy);
+int phy_exit(struct phy *phy);
+int phy_power_on(struct phy *phy);
+int phy_power_off(struct phy *phy);
+struct phy *phy_get(struct device *dev, const char *string);
+struct phy *devm_phy_get(struct device *dev, const char *string);
+void phy_put(struct phy *phy);
+void devm_phy_put(struct device *dev, struct phy *phy);
+struct phy *of_phy_simple_xlate(struct device *dev,
 	struct of_phandle_args *args);
-extern struct phy *phy_create(struct device *dev, const struct phy_ops *ops,
+struct phy *phy_create(struct device *dev, const struct phy_ops *ops,
 	struct phy_init_data *init_data);
-extern struct phy *devm_phy_create(struct device *dev,
+struct phy *devm_phy_create(struct device *dev,
 	const struct phy_ops *ops, struct phy_init_data *init_data);
-extern void phy_destroy(struct phy *phy);
-extern void devm_phy_destroy(struct device *dev, struct phy *phy);
-extern struct phy_provider *__of_phy_provider_register(struct device *dev,
+void phy_destroy(struct phy *phy);
+void devm_phy_destroy(struct device *dev, struct phy *phy);
+struct phy_provider *__of_phy_provider_register(struct device *dev,
 	struct module *owner, struct phy * (*of_xlate)(struct device *dev,
 	struct of_phandle_args *args));
-extern struct phy_provider *__devm_of_phy_provider_register(struct device *dev,
+struct phy_provider *__devm_of_phy_provider_register(struct device *dev,
 	struct module *owner, struct phy * (*of_xlate)(struct device *dev,
 	struct of_phandle_args *args));
-extern void of_phy_provider_unregister(struct phy_provider *phy_provider);
-extern void devm_of_phy_provider_unregister(struct device *dev,
+void of_phy_provider_unregister(struct phy_provider *phy_provider);
+void devm_of_phy_provider_unregister(struct device *dev,
 	struct phy_provider *phy_provider);
 #else
 static inline int phy_pm_runtime_get(struct phy *phy)
