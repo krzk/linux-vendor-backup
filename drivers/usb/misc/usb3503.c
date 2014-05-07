@@ -18,6 +18,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#include <linux/clk.h>
 #include <linux/i2c.h>
 #include <linux/gpio.h>
 #include <linux/delay.h>
@@ -57,10 +58,12 @@ struct usb3503 {
 	enum usb3503_mode	mode;
 	struct regmap		*regmap;
 	struct device		*dev;
+	struct clk		*clk;
 	u8	port_off_mask;
 	int	gpio_intn;
 	int	gpio_reset;
 	int	gpio_connect;
+	bool	secondary_ref_clk;
 };
 
 static int usb3503_reset(struct usb3503 *hub, int state)
@@ -186,6 +189,25 @@ static int usb3503_probe(struct usb3503 *hub)
 	} else if (np) {
 		hub->port_off_mask = 0;
 
+		hub->clk = devm_clk_get(dev, "refclk");
+		if (!IS_ERR(hub->clk)) {
+			unsigned long rate;
+
+			clk_prepare_enable(hub->clk);
+			rate = clk_get_rate(hub->clk);
+
+			if (rate == 38400000 || rate == 26000000 ||
+			    rate == 19200000 || rate == 12000000)
+				hub->secondary_ref_clk = 0;
+			else if (rate == 24000000 || rate == 27000000 ||
+			    rate == 25000000 || rate == 50000000)
+				hub->secondary_ref_clk = 1;
+			else
+				dev_err(dev,
+					"unsupported reference clock rate (%d)\n",
+					rate);
+		}
+
 		property = of_get_property(np, "disabled-ports", &len);
 		if (property && (len / sizeof(u32)) > 0) {
 			int i;
@@ -213,8 +235,10 @@ static int usb3503_probe(struct usb3503 *hub)
 		dev_err(dev, "Ports disabled with no control interface\n");
 
 	if (gpio_is_valid(hub->gpio_intn)) {
-		err = devm_gpio_request_one(dev, hub->gpio_intn,
-				GPIOF_OUT_INIT_HIGH, "usb3503 intn");
+		int val = hub->secondary_ref_clk ? GPIOF_OUT_INIT_LOW :
+						   GPIOF_OUT_INIT_HIGH;
+		err = devm_gpio_request_one(dev, hub->gpio_intn, val,
+					    "usb3503 intn");
 		if (err) {
 			dev_err(dev,
 				"unable to request GPIO %d as connect pin (%d)\n",
