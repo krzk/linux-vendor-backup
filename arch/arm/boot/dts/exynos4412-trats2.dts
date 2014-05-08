@@ -1134,8 +1134,9 @@
 		status = "okay";
 		vusb_d-supply = <&ldo15_reg>;
 		vusb_a-supply = <&ldo12_reg>;
-		phys = <&exynos_usbphy 2>;
-		phy-names = "hsic0";
+		port@1 {
+			status = "okay";
+		};
 	};
 
 	spi_1: spi@13930000 {
@@ -1437,7 +1438,6 @@
 		pinctrl-names = "default";
 		status = "okay";
 	};
-
 
 	exynos-usbphy@125B0000 {
 		status = "okay";

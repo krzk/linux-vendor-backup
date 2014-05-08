@@ -527,7 +527,6 @@
 		status = "okay";
 		vusb_d-supply = <&vusb_reg>;
 		vusb_a-supply = <&vusbdac_reg>;
-		status = "okay";
 	};
 
 	fixed-rate-clocks {
@@ -703,10 +702,11 @@
 
 	ehci@12580000 {
 		status = "okay";
-		phys = <&exynos_usbphy 1>;
-		phy-names = "host";
 		vusb_d-supply = <&vusb_reg>;
 		vusb_a-supply = <&vusbdac_reg>;
+		port@0 {
+			status = "okay";
+		};
 	};
 
 	exynos-usbphy@125B0000 {

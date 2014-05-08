@@ -105,9 +105,14 @@
 		reg = <0x10440000 0x1000>;
 	};
 
-	sys_reg: sysreg {
+	sys_reg: syscon@10010000 {
 		compatible = "samsung,exynos4-sysreg", "syscon";
 		reg = <0x10010000 0x400>;
+	};
+
+	pmu_system_controller: system-controller@10020000 {
+		compatible = "samsung,exynos4210-pmu", "syscon";
+		reg = <0x10020000 0x4000>;
 	};
 
 	cache-controller@0x10502000 {
@@ -275,6 +280,16 @@
 		interrupts = <0 76 0>;
 		clocks = <&clock 300>, <&clock 148>;
 		clock-names = "hsmmc", "mmc_busclk.2";
+		status = "disabled";
+	};
+
+	exynos_usbphy: exynos-usbphy@125B0000 {
+		compatible = "samsung,exynos4210-usb2-phy";
+		reg = <0x125B0000 0x100>;
+		samsung,pmureg-phandle = <&pmu_system_controller>;
+		clocks = <&clock 305>, <&clock 2>;
+		clock-names = "phy", "ref";
+		#phy-cells = <1>;
 		status = "disabled";
 	};
 
@@ -530,6 +545,28 @@
 		clocks = <&clock 304>, <&clock 305>;
 		clock-names = "usbhost", "otg";
 		status = "disabled";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+		    reg = <0>;
+		    phys = <&exynos_usbphy 1>;
+		    phy-names = "host";
+		    status = "disabled";
+		};
+		port@1 {
+		    reg = <1>;
+		    phys = <&exynos_usbphy 2>;
+		    phy-names = "hsic0";
+		    status = "disabled";
+		};
+		port@2 {
+		    reg = <2>;
+		    phys = <&exynos_usbphy 3>;
+		    phy-names = "hsic1";
+		    status = "disabled";
+		};
 	};
 
 	i2s0: i2s@03830000 {
