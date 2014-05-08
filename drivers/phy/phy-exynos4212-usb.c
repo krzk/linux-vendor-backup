@@ -233,7 +233,6 @@ static void exynos4212_phy_pwr(struct uphy_instance *inst, bool on)
 		udelay(10);
 		rst &= ~rstbits;
 		writel(rst, drv->reg_phy + EXYNOS_4212_UPHYRST);
-		udelay(80);
 	} else {
 		pwr = readl(drv->reg_phy + EXYNOS_4212_UPHYPWR);
 		pwr |= phypwr;
