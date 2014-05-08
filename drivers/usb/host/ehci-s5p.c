@@ -53,35 +53,45 @@ static const char * const s5p_ehci_supply_names[] = {
 	"vusb_a",		/* analog USB supply */
 };
 
+#define PHY_NUMBER 3
 struct s5p_ehci_hcd {
 	struct clk *clk1;
 	struct clk *clk2;
 	int power_on;
-	struct phy *phy;
-	struct usb_otg *otg;
-	struct usb_bus *host;
-	struct s5p_ehci_platdata *pdata;
+	struct phy *phy[PHY_NUMBER];
 	struct regulator_bulk_data supplies[ARRAY_SIZE(s5p_ehci_supply_names)];
 };
 
 #define to_s5p_ehci(hcd)      (struct s5p_ehci_hcd *)(hcd_to_ehci(hcd)->priv)
 
-static void s5p_ehci_phy_enable(struct s5p_ehci_hcd *s5p_ehci,
-						struct platform_device *pdev)
+static int s5p_ehci_phy_enable(struct s5p_ehci_hcd *s5p_ehci)
 {
-	if (s5p_ehci->phy)
-		phy_power_on(s5p_ehci->phy);
-	else if (s5p_ehci->pdata->phy_init)
-		s5p_ehci->pdata->phy_init(pdev, USB_PHY_TYPE_HOST);
+	struct phy **p = s5p_ehci->phy;
+	int i;
+	int ret = 0;
+
+	for (i = 0; ret == 0 && i < PHY_NUMBER; i++)
+		if (p[i])
+			ret = phy_power_on(p[i]);
+	if (ret)
+		for (i--; i > 0; i--)
+			if (p[i])
+				phy_power_off(p[i]);
+
+	return ret;
 }
 
-static void s5p_ehci_phy_disable(struct s5p_ehci_hcd *s5p_ehci,
-						 struct platform_device *pdev)
+static int s5p_ehci_phy_disable(struct s5p_ehci_hcd *s5p_ehci)
 {
-	if (s5p_ehci->phy)
-		phy_power_off(s5p_ehci->phy);
-	else if (s5p_ehci->pdata->phy_exit)
-		s5p_ehci->pdata->phy_exit(pdev, USB_PHY_TYPE_HOST);
+	struct phy **p = s5p_ehci->phy;
+	int i;
+	int ret = 0;
+
+	for (i = 0; ret == 0 && i < PHY_NUMBER; i++)
+		if (p[i])
+			ret = phy_power_off(p[i]);
+
+	return ret;
 }
 
 static ssize_t show_ehci_power(struct device *dev,
@@ -137,14 +147,14 @@ static ssize_t store_ehci_power(struct device *dev,
 		s5p_ehci->power_on = 0;
 		usb_remove_hcd(hcd);
 
-		s5p_ehci_phy_disable(s5p_ehci, pdev);
+		s5p_ehci_phy_disable(s5p_ehci);
 	} else if (power_on) {
 		printk(KERN_DEBUG "%s: EHCI turns on\n", __func__);
 		if (s5p_ehci->power_on) {
 			usb_remove_hcd(hcd);
 		}
 
-		s5p_ehci_phy_enable(s5p_ehci, pdev);
+		s5p_ehci_phy_enable(s5p_ehci);
 
 		s5p_ehci_configurate(hcd);
 
@@ -197,13 +207,13 @@ static void s5p_setup_vbus_gpio(struct platform_device *pdev)
 
 static int s5p_ehci_probe(struct platform_device *pdev)
 {
-	struct s5p_ehci_platdata *pdata = pdev->dev.platform_data;
 	struct s5p_ehci_hcd *s5p_ehci;
 	struct phy *phy;
+	struct device_node *child;
 	struct usb_hcd *hcd;
 	struct ehci_hcd *ehci;
 	struct resource *res;
-	const char *phy_name;
+	int phy_number;
 	int irq;
 	int err;
 	int i;
@@ -227,20 +237,27 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	s5p_ehci = to_s5p_ehci(hcd);
-	phy_name = of_get_property(pdev->dev.of_node, "phy-names", NULL);
-	phy =  devm_phy_get(&pdev->dev, phy_name);
-	if (IS_ERR(phy)) {
-		/* Fallback to pdata */
-		if (!pdata) {
-			usb_put_hcd(hcd);
-			dev_warn(&pdev->dev, "no platform data or transceiver defined\n");
-			return -EPROBE_DEFER;
-		} else {
-			s5p_ehci->pdata = pdata;
+
+	for_each_available_child_of_node(pdev->dev.of_node, child) {
+		err = of_property_read_u32(child, "reg", &phy_number);
+		if (err) {
+			dev_err(&pdev->dev, "Failed to parse device tree\n");
+			of_node_put(child);
+			return err;
 		}
-	} else {
-		s5p_ehci->phy = phy;
-/*		s5p_ehci->otg = phy->otg;*/
+		if (phy_number >= PHY_NUMBER) {
+			dev_err(&pdev->dev, "Failed to parse device tree - number out of range\n");
+			of_node_put(child);
+			return -EINVAL;
+		}
+		phy = devm_of_phy_get(&pdev->dev, child, 0);
+		of_node_put(child);
+		if (IS_ERR(phy)) {
+			dev_err(&pdev->dev, "Failed to get phy number %d",
+								phy_number);
+			return PTR_ERR(phy);
+		}
+		s5p_ehci->phy[phy_number] = phy;
 	}
 
 	s5p_ehci->clk1 = devm_clk_get(&pdev->dev, "usbhost");
@@ -290,7 +307,6 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 		goto fail_io;
 	}
 
-	s5p_ehci->host = &hcd->self;
 	/* regulators */
 	for (i = 0; i < ARRAY_SIZE(s5p_ehci->supplies); i++)
 		s5p_ehci->supplies[i].supply = s5p_ehci_supply_names[i];
@@ -311,7 +327,7 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 	}
 
 
-	s5p_ehci_phy_enable(s5p_ehci, pdev);
+	s5p_ehci_phy_enable(s5p_ehci);
 
 	ehci = hcd_to_ehci(hcd);
 	ehci->caps = hcd->regs;
@@ -333,7 +349,7 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 	return 0;
 
 fail_add_hcd:
-	s5p_ehci_phy_disable(s5p_ehci, pdev);
+	s5p_ehci_phy_disable(s5p_ehci);
 	regulator_bulk_disable(ARRAY_SIZE(s5p_ehci->supplies),
 				    s5p_ehci->supplies);
 fail_enable_reg:
@@ -356,10 +372,7 @@ static int s5p_ehci_remove(struct platform_device *pdev)
 	remove_ehci_sys_file(hcd_to_ehci(hcd));
 	usb_remove_hcd(hcd);
 
-	if (s5p_ehci->otg)
-		s5p_ehci->otg->set_host(s5p_ehci->otg, &hcd->self);
-
-	s5p_ehci_phy_disable(s5p_ehci, pdev);
+	s5p_ehci_phy_disable(s5p_ehci);
 
 	clk_disable_unprepare(s5p_ehci->clk1);
 	clk_disable_unprepare(s5p_ehci->clk2);
@@ -384,17 +397,13 @@ static int s5p_ehci_suspend(struct device *dev)
 {
 	struct usb_hcd *hcd = dev_get_drvdata(dev);
 	struct s5p_ehci_hcd *s5p_ehci = to_s5p_ehci(hcd);
-	struct platform_device *pdev = to_platform_device(dev);
 
 	bool do_wakeup = device_may_wakeup(dev);
 	int rc;
 
 	rc = ehci_suspend(hcd, do_wakeup);
 
-	if (s5p_ehci->otg)
-		s5p_ehci->otg->set_host(s5p_ehci->otg, &hcd->self);
-
-	s5p_ehci_phy_disable(s5p_ehci, pdev);
+	s5p_ehci_phy_disable(s5p_ehci);
 
 	clk_disable_unprepare(s5p_ehci->clk1);
 	clk_disable_unprepare(s5p_ehci->clk2);
@@ -406,15 +415,11 @@ static int s5p_ehci_resume(struct device *dev)
 {
 	struct usb_hcd *hcd = dev_get_drvdata(dev);
 	struct  s5p_ehci_hcd *s5p_ehci = to_s5p_ehci(hcd);
-	struct platform_device *pdev = to_platform_device(dev);
 
 	clk_prepare_enable(s5p_ehci->clk1);
 	clk_prepare_enable(s5p_ehci->clk2);
 
-	if (s5p_ehci->otg)
-		s5p_ehci->otg->set_host(s5p_ehci->otg, &hcd->self);
-
-	s5p_ehci_phy_enable(s5p_ehci, pdev);
+	s5p_ehci_phy_enable(s5p_ehci);
 
 	/* DMA burst Enable */
 	writel(EHCI_INSNREG00_ENABLE_DMA_BURST, EHCI_INSNREG00(hcd->regs));
