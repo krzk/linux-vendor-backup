@@ -1001,8 +1001,6 @@ static int sii9234_mhl_tx_i2c_probe(struct i2c_client *client,
 		dev_err(&client->dev, "failed to initialize sii9234 resources\n");
 		return ret;
 	}
-	sii9234_hw_on(sii9234);
-	sii9234_hw_reset(sii9234);
 
 	i2c_set_clientdata(client, sii9234);
 
