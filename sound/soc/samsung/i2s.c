@@ -37,8 +37,8 @@
 #define MHZ (1000*1000)
 #endif
 
-#define TARGET_SRPCLK_RATE	(200 * MHZ)
-#define TARGET_BUSCLK_RATE	(100 * MHZ)
+#define TARGET_SRPCLK_RATE	(192 * MHZ)
+#define TARGET_BUSCLK_RATE	(19200000)
 
 enum samsung_dai_type {
 	TYPE_PRI,
