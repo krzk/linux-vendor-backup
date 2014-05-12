@@ -12,84 +12,59 @@
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
 #include "i2s.h"
+#include "i2s-regs.h"
+
+/* Config I2S CDCLK output 19.2MHZ clock to Max98090 */
+#define MAX98090_MCLK 19200000
 
 static int odroidx2_hw_params(struct snd_pcm_substream *substream,
-				struct snd_pcm_hw_params *params)
+	struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	int bfs, rfs, ret;
-	unsigned long rclk;
-
-	switch (params_format(params)) {
-	case SNDRV_PCM_FORMAT_U24:
-	case SNDRV_PCM_FORMAT_S24:
-		bfs = 48;
-		break;
-	case SNDRV_PCM_FORMAT_U16_LE:
-	case SNDRV_PCM_FORMAT_S16_LE:
-		bfs = 32;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	switch (params_rate(params)) {
-	case 16000:
-	case 22050:
-	case 24000:
-	case 32000:
-	case 44100:
-	case 48000:
-	case 88200:
-	case 96000:
-		if (bfs == 48)
-			rfs = 384;
-		else
-			rfs = 256;
-		break;
-	case 64000:
-		rfs = 384;
-		break;
-	case 8000:
-	case 11025:
-	case 12000:
-		if (bfs == 48)
-			rfs = 768;
-		else
-			rfs = 512;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	rclk = params_rate(params) * rfs;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	int ret;
 
 	ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_I2S
 					| SND_SOC_DAIFMT_NB_NF
-					| SND_SOC_DAIFMT_CBS_CFS);
+					| SND_SOC_DAIFMT_CBM_CFM);
 	if (ret < 0)
 		return ret;
 
 	ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_I2S
 					| SND_SOC_DAIFMT_NB_NF
-					| SND_SOC_DAIFMT_CBS_CFS);
+					| SND_SOC_DAIFMT_CBM_CFM);
 	if (ret < 0)
 		return ret;
 
-	ret = snd_soc_dai_set_sysclk(codec_dai, 0, rclk, SND_SOC_CLOCK_IN);
-	if (ret < 0)
+	ret = snd_soc_dai_set_sysclk(codec_dai, 3,
+				     MAX98090_MCLK, SND_SOC_CLOCK_IN);
+	if (ret < 0) {
+		dev_err(codec_dai->dev,
+			"Unable to switch to FLL1: %d\n", ret);
 		return ret;
+	}
 
+	ret = snd_soc_dai_set_sysclk(cpu_dai, SAMSUNG_I2S_OPCLK,
+					0, MOD_OPCLK_PCLK);
+	if (ret < 0) {
+		dev_err(cpu_dai->dev,
+			"Unable to set i2s opclk: 0x%x\n", ret);
+		return ret;
+	}
+
+	/* Set the cpu DAI configuration in order to use CDCLK */
 	ret = snd_soc_dai_set_sysclk(cpu_dai, SAMSUNG_I2S_CDCLK,
 					0, SND_SOC_CLOCK_OUT);
 	if (ret < 0)
 		return ret;
 
-	ret = snd_soc_dai_set_clkdiv(cpu_dai, SAMSUNG_I2S_DIV_BCLK, bfs);
-	if (ret < 0)
-		return ret;
+	dev_info(codec_dai->dev,
+		"HiFi DAI %s params ch %d, rate %d as i2s slave\n",
+		((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? \
+						"playback" : "capture"),
+						params_channels(params),
+						params_rate(params));
 
 	return 0;
 }
