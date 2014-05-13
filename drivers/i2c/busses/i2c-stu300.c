@@ -870,10 +870,8 @@ stu300_probe(struct platform_device *pdev)
 	char clk_name[] = "I2C0";
 
 	dev = devm_kzalloc(&pdev->dev, sizeof(struct stu300_dev), GFP_KERNEL);
-	if (!dev) {
-		dev_err(&pdev->dev, "could not allocate device struct\n");
+	if (!dev)
 		return -ENOMEM;
-	}
 
 	bus_nr = pdev->id;
 	clk_name[3] += (char)bus_nr;

@@ -636,10 +636,8 @@ static int rcar_i2c_probe(struct platform_device *pdev)
 	}
 
 	priv = devm_kzalloc(dev, sizeof(struct rcar_i2c_priv), GFP_KERNEL);
-	if (!priv) {
-		dev_err(dev, "no mem for private data\n");
+	if (!priv)
 		return -ENOMEM;
-	}
 
 	bus_speed = 100000; /* default 100 kHz */
 	if (pdata && pdata->bus_speed)

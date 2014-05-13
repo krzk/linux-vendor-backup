@@ -517,10 +517,8 @@ static int __init i2c_imx_probe(struct platform_device *pdev)
 
 	i2c_imx = devm_kzalloc(&pdev->dev, sizeof(struct imx_i2c_struct),
 				GFP_KERNEL);
-	if (!i2c_imx) {
-		dev_err(&pdev->dev, "can't allocate interface\n");
+	if (!i2c_imx)
 		return -ENOMEM;
-	}
 
 	if (of_id)
 		pdev->id_entry = of_id->data;
