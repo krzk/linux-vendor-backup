@@ -3938,32 +3938,6 @@ static const struct file_operations supply_map_fops = {
 #endif
 };
 
-static int regulator_pm_notify(struct notifier_block *nb,
-						unsigned long event, void *ptr)
-{
-	int ret;
-
-	switch (event) {
-	case PM_SUSPEND_PREPARE:
-		ret = regulator_suspend_prepare(PM_SUSPEND_MEM);
-		break;
-	case PM_HIBERNATION_PREPARE:
-		ret = regulator_suspend_prepare(PM_SUSPEND_MAX);
-		break;
-	case PM_POST_SUSPEND:
-	case PM_POST_HIBERNATION:
-		ret = regulator_suspend_finish();
-		break;
-	default:
-		return NOTIFY_DONE;
-	}
-
-	if (ret)
-		return NOTIFY_BAD;
-
-	return NOTIFY_OK;
-}
-
 static int __init regulator_init(void)
 {
 	int ret;
@@ -3978,8 +3952,6 @@ static int __init regulator_init(void)
 			    &supply_map_fops);
 
 	regulator_dummy_init();
-
-	pm_notifier(regulator_pm_notify, 0);
 
 	return ret;
 }
