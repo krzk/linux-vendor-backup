@@ -179,6 +179,11 @@ enum exynos4_clks {
 	mout_cam1, mout_csis0, mout_csis1, mout_g3d0, mout_g3d1, mout_g3d,
 	aclk400_mcuisp, mout_clkout,
 
+	/* additional gate clocks */
+	ppmuleft = 400, ppmuright, ppmug3d, ppmucamif, ppmutv, ppmumfc_l, ppmumfc_r,
+	ppmulcd0, ppmufile, ppmucpu, ppmuacp, ppmuimage, ppmulcd1, ppmugps,
+	ppmudmc0, ppmudmc1,
+
 	/* div clocks */
 	div_isp0 = 450, div_isp1, div_mcuisp0, div_mcuisp1, div_aclk200,
 	div_aclk400_mcuisp,
@@ -608,6 +613,8 @@ struct samsung_gate_clock exynos4_gate_clks[] __initdata = {
 	 * the device name and clock alias names specified below for some
 	 * of the clocks can be removed.
 	 */
+	GATE(ppmuleft, "ppmuleft", "aclk200", GATE_IP_LEFTBUS, 1, 0, 0),
+	GATE(ppmuright, "ppmuright", "aclk200", GATE_IP_RIGHTBUS, 1, 0, 0),
 	GATE(sclk_hdmi, "sclk_hdmi", "mout_hdmi", SRC_MASK_TV, 0,
 			CLK_SET_PARENT_PARENT, 0),
 	GATE(sclk_spdif, "sclk_spdif", "mout_spdif", SRC_MASK_PERIL1, 8, 0, 0),
@@ -622,6 +629,7 @@ struct samsung_gate_clock exynos4_gate_clks[] __initdata = {
 	GATE(sromc, "sromc", "aclk133", GATE_IP_FSYS, 11, 0, 0),
 	GATE(sclk_g3d, "sclk_g3d", "div_g3d", GATE_IP_G3D, 0,
 			CLK_SET_RATE_PARENT, 0),
+	GATE(ppmug3d, "ppmug3d", "aclk200", GATE_IP_G3D, 1, 0, 0),
 	GATE(usb_device, "usb_device", "aclk133", GATE_IP_FSYS, 13, 0, 0),
 	GATE(onenand, "onenand", "aclk133", GATE_IP_FSYS, 15, 0, 0),
 	GATE(nfcon, "nfcon", "aclk133", GATE_IP_FSYS, 16, 0, 0),
@@ -721,19 +729,24 @@ struct samsung_gate_clock exynos4_gate_clks[] __initdata = {
 			GATE_IP_CAM, 10, 0, 0, "sysmmu"),
 	GATE_DA(smmu_jpeg, "exynos-sysmmu.3", "smmu_jpeg", "aclk160",
 			GATE_IP_CAM, 11, 0, 0, "sysmmu"),
+	GATE(ppmucamif, "ppmucamif", "aclk160", GATE_IP_CAM, 16, 0, 0),
 	GATE(pixelasyncm0, "pxl_async0", "aclk160", GATE_IP_CAM, 17, 0, 0),
 	GATE(pixelasyncm1, "pxl_async1", "aclk160", GATE_IP_CAM, 18, 0, 0),
 	GATE_DA(smmu_tv, "exynos-sysmmu.2", "smmu_tv", "aclk160",
 			GATE_IP_TV, 4, 0, 0, "sysmmu"),
+	GATE(ppmutv, "ppmutv", "aclk160", GATE_IP_TV, 5, 0, 0),
 	GATE_DA(mfc, "s5p-mfc", "mfc", "aclk100", GATE_IP_MFC, 0, 0, 0, "mfc"),
 	GATE_DA(smmu_mfcl, "exynos-sysmmu.0", "smmu_mfcl", "aclk100",
 			GATE_IP_MFC, 1, 0, 0, "sysmmu"),
 	GATE_DA(smmu_mfcr, "exynos-sysmmu.1", "smmu_mfcr", "aclk100",
 			GATE_IP_MFC, 2, 0, 0, "sysmmu"),
+	GATE(ppmumfc_l, "ppmumfc_l", "aclk100", GATE_IP_MFC, 3, 0, 0),
+	GATE(ppmumfc_r, "ppmumfc_r", "aclk100", GATE_IP_MFC, 4, 0, 0),
 	GATE_DA(fimd0, "exynos4-fb.0", "fimd0", "aclk160",
 			GATE_IP_LCD0, 0, 0, 0, "fimd"),
 	GATE_DA(smmu_fimd0, "exynos-sysmmu.10", "smmu_fimd0", "aclk160",
 			GATE_IP_LCD0, 4, 0, 0, "sysmmu"),
+	GATE(ppmulcd0, "ppmulcd0", "aclk160", GATE_IP_LCD0, 5, 0, 0),
 	GATE_DA(pdma0, "dma-pl330.0", "pdma0", "aclk133",
 			GATE_IP_FSYS, 0, 0, 0, "dma"),
 	GATE_DA(pdma1, "dma-pl330.1", "pdma1", "aclk133",
@@ -746,6 +759,7 @@ struct samsung_gate_clock exynos4_gate_clks[] __initdata = {
 			GATE_IP_FSYS, 7, 0, 0, "hsmmc"),
 	GATE_DA(sdmmc3, "exynos4-sdhci.3", "sdmmc3", "aclk133",
 			GATE_IP_FSYS, 8, 0, 0, "hsmmc"),
+	GATE(ppmufile, "ppmufile", "aclk133", GATE_IP_FSYS, 17, 0, 0),
 	GATE_DA(uart0, "exynos4210-uart.0", "uart0", "aclk100",
 			GATE_IP_PERIL, 0, 0, 0, "uart"),
 	GATE_DA(uart1, "exynos4210-uart.1", "uart1", "aclk100",
@@ -792,6 +806,8 @@ struct samsung_gate_clock exynos4_gate_clks[] __initdata = {
 			GATE_IP_PERIL, 26, 0, 0, "spdif"),
 	GATE_DA(ac97, "samsung-ac97", "ac97", "aclk100",
 			GATE_IP_PERIL, 27, 0, 0, "ac97"),
+	GATE(ppmucpu, "ppmucpu", "aclk133", GATE_IP_DMC, 10, 0, 0),
+	GATE(ppmuacp, "ppmuacp", "aclk133", GATE_IP_DMC, 16, 0, 0),
 };
 
 /* list of gate clocks supported in exynos4210 soc */
@@ -802,6 +818,7 @@ struct samsung_gate_clock exynos4210_gate_clks[] __initdata = {
 	GATE(mdma, "mdma", "aclk200", E4210_GATE_IP_IMAGE, 2, 0, 0),
 	GATE(smmu_g2d, "smmu_g2d", "aclk200", E4210_GATE_IP_IMAGE, 3, 0, 0),
 	GATE(smmu_mdma, "smmu_mdma", "aclk200", E4210_GATE_IP_IMAGE, 5, 0, 0),
+	GATE(ppmuimage, "ppmuimage", "aclk200", E4210_GATE_IP_IMAGE, 9, 0, 0),
 	GATE(pcie_phy, "pcie_phy", "aclk133", GATE_IP_FSYS, 2, 0, 0),
 	GATE(sata_phy, "sata_phy", "aclk133", GATE_IP_FSYS, 3, 0, 0),
 	GATE(sata, "sata", "aclk133", GATE_IP_FSYS, 10, 0, 0),
@@ -830,6 +847,7 @@ struct samsung_gate_clock exynos4210_gate_clks[] __initdata = {
 	GATE_DA(sclk_fimd1, "exynos4-fb.1", "sclk_fimd1", "div_fimd1",
 			E4210_SRC_MASK_LCD1, 0, CLK_SET_RATE_PARENT, 0, "sclk_fimd"),
 	GATE(tmu_apbif, "tmu_apbif", "aclk100", E4210_GATE_IP_PERIR, 17, 0, 0),
+	GATE(ppmulcd1, "ppmulcd1", "aclk160", E4210_GATE_IP_LCD1, 5, 0, 0),
 };
 
 /* list of gate clocks supported in exynos4x12 soc */
@@ -839,6 +857,7 @@ struct samsung_gate_clock exynos4x12_gate_clks[] __initdata = {
 	GATE(rotator, "rotator", "aclk200", E4X12_GATE_IP_IMAGE, 1, 0, 0),
 	GATE(mdma2, "mdma2", "aclk200", E4X12_GATE_IP_IMAGE, 2, 0, 0),
 	GATE(smmu_mdma, "smmu_mdma", "aclk200", E4X12_GATE_IP_IMAGE, 5, 0, 0),
+	GATE(ppmuimage, "ppmuimage", "aclk200", E4X12_GATE_IP_IMAGE, 9, 0, 0),
 	GATE(mipi_hsi, "mipi_hsi", "aclk133", GATE_IP_FSYS, 10, 0, 0),
 	GATE(chipid, "chipid", "aclk100", E4X12_GATE_IP_PERIR, 0,
 			CLK_IGNORE_UNUSED, 0),
@@ -851,6 +870,7 @@ struct samsung_gate_clock exynos4x12_gate_clks[] __initdata = {
 			SRC_MASK_LCD0, 8, CLK_SET_RATE_PARENT, 0),
 	GATE(sclk_mipihsi, "sclk_mipihsi", "div_mipihsi",
 			SRC_MASK_FSYS, 24, CLK_SET_RATE_PARENT, 0),
+	GATE(ppmugps, "ppmugps", "aclk200", GATE_IP_FSYS, 2, 0, 0),
 	GATE(smmu_rotator, "smmu_rotator", "aclk200",
 			E4X12_GATE_IP_IMAGE, 4, 0, 0),
 	GATE_A(mct, "mct", "aclk100", E4X12_GATE_IP_PERIR, 13, 0, 0, "mct"),
@@ -929,6 +949,8 @@ struct samsung_gate_clock exynos4x12_gate_clks[] __initdata = {
 	GATE(spi1_isp, "spi1_isp", "aclk200", E4X12_GATE_ISP1, 13,
 			CLK_IGNORE_UNUSED | CLK_GET_RATE_NOCACHE, 0),
 	GATE(g2d, "g2d", "aclk200", GATE_IP_DMC, 23, 0, 0),
+	GATE(ppmudmc0, "ppmudmc0", "aclk133", GATE_IP_DMC, 8, 0, 0),
+	GATE(ppmudmc1, "ppmudmc1", "aclk133", GATE_IP_DMC, 9, 0, 0),
 };
 
 static struct of_device_id exynos4_clkout_ids[] __initdata = {
