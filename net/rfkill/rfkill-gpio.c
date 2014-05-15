@@ -30,6 +30,18 @@
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 
+#include <linux/notifier.h>
+#include <linux/hrtimer.h>
+#include <net/bluetooth/bluetooth.h>
+#include <net/bluetooth/hci_core.h>
+
+struct bt_lpm_timer {
+	struct hrtimer htimer;
+	ktime_t sleep_delay;
+};
+
+#define BT_PM_WAKE_DELAY	(3)	/* 3 sec */
+
 struct rfkill_gpio_data {
 	const char		*name;
 	enum rfkill_type	type;
@@ -47,6 +59,77 @@ struct rfkill_gpio_data {
 
 	bool			clk_enabled;
 	int			irq;
+	struct device				*dev;
+	struct bt_lpm_timer			timer;
+};
+
+static struct rfkill_gpio_data *bt_data;
+
+static enum hrtimer_restart bt_lpm_sleep(struct hrtimer *htimer)
+{
+	struct bt_lpm_timer *timer = container_of(htimer, struct bt_lpm_timer,
+				htimer);
+	struct rfkill_gpio_data *rfkill = container_of(timer,
+				struct rfkill_gpio_data, timer);
+
+	gpio_set_value(rfkill->wake_gpio, 0);
+	pm_wakeup_event(rfkill->dev, HZ / 2);
+	dev_dbg(rfkill->dev, "HCI Tx may be finished\n");
+
+	return HRTIMER_NORESTART;
+}
+
+static void bt_lpm_wake(struct rfkill_gpio_data *rfkill)
+{
+	struct hrtimer *htimer = &rfkill->timer.htimer;
+
+	hrtimer_try_to_cancel(htimer);
+	pm_stay_awake(rfkill->dev);
+	if (rfkill->clk_enabled)
+		gpio_set_value(rfkill->wake_gpio, 1);
+	hrtimer_start(htimer, rfkill->timer.sleep_delay, HRTIMER_MODE_REL);
+}
+
+static int bt_lpm_init(struct rfkill_gpio_data *rfkill)
+{
+	struct hrtimer *timer = &rfkill->timer.htimer;
+
+	hrtimer_init(timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	timer->function = bt_lpm_sleep;
+	rfkill->timer.sleep_delay = ktime_set(BT_PM_WAKE_DELAY, 0);
+
+	return 0;
+}
+
+static int rfkill_gpio_hci_event(struct notifier_block *this,
+			unsigned long event, void *data)
+{
+	struct hci_dev *hdev = (struct hci_dev *)data;
+	struct rfkill_gpio_data *rfkill = bt_data;
+
+	if (!hdev)
+		return NOTIFY_DONE;
+
+	switch (event) {
+	case HCI_DEV_REG:
+		dev_dbg(rfkill->dev, "HCI device is registered\n");
+		break;
+	case HCI_DEV_UNREG:
+		dev_dbg(rfkill->dev, "HCI device is unregistered\n");
+		break;
+	case HCI_DEV_WRITE:
+		dev_dbg(rfkill->dev, "HCI Tx is on going\n");
+		bt_lpm_wake(rfkill);
+		break;
+	default:
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block hci_event_nblock = {
+	.notifier_call = rfkill_gpio_hci_event,
 };
 
 static int rfkill_gpio_set_power(void *data, bool blocked)
@@ -106,6 +189,18 @@ static irqreturn_t rfkill_gpio_irq_handler(int irq, void *data)
 	unsigned int type;
 
 	host_wake = gpio_get_value(rfkill->host_wake_gpio);
+	if (host_wake) {
+		/* host is waked until Rx is finished */
+		pm_stay_awake(rfkill->dev);
+		dev_dbg(rfkill->dev, "HCI Rx is started\n");
+	} else {
+		struct hrtimer *htimer = &rfkill->timer.htimer;
+		/* host is sleeped after guard time if there is no Tx*/
+		if (!hrtimer_active(htimer))
+			pm_wakeup_event(rfkill->dev, HZ / 2);
+		dev_dbg(rfkill->dev, "HCI Rx is finished\n");
+	}
+
 	type = (host_wake ? IRQF_TRIGGER_LOW : IRQF_TRIGGER_HIGH) |
 			IRQF_NO_SUSPEND;
 	irq_set_irq_type(rfkill->irq, type);
@@ -154,6 +249,8 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
+
+	rfkill->dev = &pdev->dev;
 
 	len = strlen(rfkill->name);
 	rfkill->reset_name = devm_kzalloc(&pdev->dev, len + 7, GFP_KERNEL);
@@ -234,6 +331,13 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, rfkill);
 
+	/* bluetooth hci event registration */
+	if (rfkill->type == 2) {
+		bt_data = rfkill;
+		bt_lpm_init(rfkill);
+		hci_register_notifier(&hci_event_nblock);
+	}
+
 	rfkill_set_sw_state(rfkill->rfkill_dev, true);
 
 	device_init_wakeup(&pdev->dev, true);
@@ -247,6 +351,12 @@ static int rfkill_gpio_remove(struct platform_device *pdev)
 {
 	struct rfkill_gpio_data *rfkill = platform_get_drvdata(pdev);
 	struct rfkill_gpio_platform_data *pdata = pdev->dev.platform_data;
+
+	/* bluetooth hci event unregistration */
+	if (rfkill->type == 2) {
+		hci_unregister_notifier(&hci_event_nblock);
+		bt_data = NULL;
+	}
 
 	if (pdata && pdata->gpio_runtime_close)
 		pdata->gpio_runtime_close(pdev);
