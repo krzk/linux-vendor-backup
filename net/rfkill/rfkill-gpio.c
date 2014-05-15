@@ -61,7 +61,7 @@ static int rfkill_gpio_set_power(void *data, bool blocked)
 			gpio_set_value(rfkill->shutdown_gpio, 1);
 	}
 
-	rfkill->clk_enabled = blocked;
+	rfkill->clk_enabled = !blocked;
 
 	return 0;
 }
