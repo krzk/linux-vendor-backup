@@ -46,10 +46,16 @@
 
 enum ppmu_counter {
 	PPMU_PMNCNT0,
-	PPMU_PMCCNT1,
+	PPMU_PMNCNT1,
 	PPMU_PMNCNT2,
 	PPMU_PMNCNT3,
 	PPMU_PMNCNT_MAX,
+};
+
+enum ppmu_type {
+	PPMU_DMC0,
+	PPMU_DMC1,
+	PPMU_CNT,
 };
 
 struct bus_opp_table {

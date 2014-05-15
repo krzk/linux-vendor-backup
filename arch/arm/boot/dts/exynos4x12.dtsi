@@ -359,6 +359,9 @@
 
 	busfreq@0 {
 		compatible = "samsung,exynos4x12-busfreq";
+		reg = <0x106A0000 0x2000>, <0x106B0000 0x2000>;
+		clocks = <&clock 414>, <&clock 415>;
+		clock-names = "ppmudmc0", "ppmudmc1";
 		status = "disabled";
 	};
 };
