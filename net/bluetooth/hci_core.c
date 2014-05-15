@@ -49,10 +49,25 @@ DEFINE_RWLOCK(hci_cb_list_lock);
 static DEFINE_IDA(hci_index_ida);
 
 /* ---- HCI notifications ---- */
+static ATOMIC_NOTIFIER_HEAD(hci_notifier);
+
+int hci_register_notifier(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_register(&hci_notifier, nb);
+}
+
+int hci_unregister_notifier(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_unregister(&hci_notifier, nb);
+}
 
 static void hci_notify(struct hci_dev *hdev, int event)
 {
 	hci_sock_dev_event(hdev, event);
+
+	if (event == HCI_DEV_REG || event == HCI_DEV_UNREG
+			|| event == HCI_DEV_WRITE)
+		atomic_notifier_call_chain(&hci_notifier, event, hdev);
 }
 
 /* ---- HCI requests ---- */
@@ -2591,6 +2606,8 @@ static int hci_send_frame(struct sk_buff *skb)
 
 	/* Get rid of skb owner, prior to sending to the driver. */
 	skb_orphan(skb);
+
+	hci_notify(hdev, HCI_DEV_WRITE);
 
 	return hdev->send(skb);
 }
