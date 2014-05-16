@@ -757,6 +757,7 @@ int v4l2_m2m_ioctl_reqbufs(struct file *file, void *priv,
 				struct v4l2_requestbuffers *rb)
 {
 	struct v4l2_fh *fh = file->private_data;
+
 	return v4l2_m2m_reqbufs(file, fh->m2m_ctx, rb);
 }
 EXPORT_SYMBOL_GPL(v4l2_m2m_ioctl_reqbufs);
@@ -765,6 +766,7 @@ int v4l2_m2m_ioctl_create_bufs(struct file *file, void *priv,
 				struct v4l2_create_buffers *create)
 {
 	struct v4l2_fh *fh = file->private_data;
+
 	return v4l2_m2m_create_bufs(file, fh->m2m_ctx, create);
 }
 EXPORT_SYMBOL_GPL(v4l2_m2m_ioctl_create_bufs);
@@ -773,6 +775,7 @@ int v4l2_m2m_ioctl_querybuf(struct file *file, void *priv,
 				struct v4l2_buffer *buf)
 {
 	struct v4l2_fh *fh = file->private_data;
+
 	return v4l2_m2m_querybuf(file, fh->m2m_ctx, buf);
 }
 EXPORT_SYMBOL_GPL(v4l2_m2m_ioctl_querybuf);
@@ -781,6 +784,7 @@ int v4l2_m2m_ioctl_qbuf(struct file *file, void *priv,
 				struct v4l2_buffer *buf)
 {
 	struct v4l2_fh *fh = file->private_data;
+
 	return v4l2_m2m_qbuf(file, fh->m2m_ctx, buf);
 }
 EXPORT_SYMBOL_GPL(v4l2_m2m_ioctl_qbuf);
@@ -789,6 +793,7 @@ int v4l2_m2m_ioctl_dqbuf(struct file *file, void *priv,
 				struct v4l2_buffer *buf)
 {
 	struct v4l2_fh *fh = file->private_data;
+
 	return v4l2_m2m_dqbuf(file, fh->m2m_ctx, buf);
 }
 EXPORT_SYMBOL_GPL(v4l2_m2m_ioctl_dqbuf);
@@ -797,6 +802,7 @@ int v4l2_m2m_ioctl_expbuf(struct file *file, void *priv,
 				struct v4l2_exportbuffer *eb)
 {
 	struct v4l2_fh *fh = file->private_data;
+
 	return v4l2_m2m_expbuf(file, fh->m2m_ctx, eb);
 }
 EXPORT_SYMBOL_GPL(v4l2_m2m_ioctl_expbuf);
@@ -805,6 +811,7 @@ int v4l2_m2m_ioctl_streamon(struct file *file, void *priv,
 				enum v4l2_buf_type type)
 {
 	struct v4l2_fh *fh = file->private_data;
+
 	return v4l2_m2m_streamon(file, fh->m2m_ctx, type);
 }
 EXPORT_SYMBOL_GPL(v4l2_m2m_ioctl_streamon);
@@ -813,6 +820,7 @@ int v4l2_m2m_ioctl_streamoff(struct file *file, void *priv,
 				enum v4l2_buf_type type)
 {
 	struct v4l2_fh *fh = file->private_data;
+
 	return v4l2_m2m_streamoff(file, fh->m2m_ctx, type);
 }
 EXPORT_SYMBOL_GPL(v4l2_m2m_ioctl_streamoff);
