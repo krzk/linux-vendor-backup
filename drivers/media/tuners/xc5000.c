@@ -37,7 +37,7 @@ static int debug;
 module_param(debug, int, 0644);
 MODULE_PARM_DESC(debug, "Turn on/off debugging (default:off).");
 
-static int no_poweroff;
+static int no_poweroff = 1;
 module_param(no_poweroff, int, 0644);
 MODULE_PARM_DESC(no_poweroff, "0 (default) powers device off when not used.\n"
 	"\t\t1 keep device energized and with tuner ready all the times.\n"
