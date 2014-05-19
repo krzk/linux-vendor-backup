@@ -486,13 +486,20 @@ static struct s3c64xx_spi_csinfo spi1_csi = {
 static struct spi_board_info spi1_board_info[] __initdata = {
 	[0] = {
 		.modalias = "spidev",
-		.max_speed_hz = 10 * 1000 * 1000, // 10 mhz
+		.max_speed_hz = 40 * 1000 * 1000, // 10 mhz
 		.bus_num = 1,
 		.chip_select = 0,
 		.mode = SPI_MODE_3,
 		.controller_data = &spi1_csi,
 	},
 };
+
+#if defined(CONFIG_ODROID_IOBOARD)
+static struct platform_device odroid_ioboard_spi = {
+	.name			= "spidev",
+	.id 			= -1,
+};
+#endif
 
 static struct platform_device *hkdk4412_devices[] __initdata = {
 	&s3c_device_hsmmc2,
@@ -549,6 +556,9 @@ static struct platform_device *hkdk4412_devices[] __initdata = {
 	&odroid_fan,
 #endif
 	&s3c64xx_device_spi1,
+#if defined(CONFIG_ODROID_IOBOARD)
+	&odroid_ioboard_spi,
+#endif
 };
 
 #if defined(CONFIG_S5P_DEV_TV)
