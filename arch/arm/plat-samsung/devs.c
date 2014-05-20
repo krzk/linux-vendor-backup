@@ -308,11 +308,10 @@ struct platform_device s5p_device_jpeg = {
 /* FIMD0 */
 static struct mali_gpu_device_data mali_gpu_data = {
         .shared_mem_size = 256*1024*1024,
-#ifdef CONFIG_MALI_DVFS
         .utilization_interval = 1000,
         .utilization_handler = mali_gpu_utilization_handler,
-#endif
 };
+
 static struct resource mali_gpu_resource[] = {
 		MALI_GPU_RESOURCES_MALI400_MP4(MALI_BASE_ADDR,
 			IRQ_GP_3D,

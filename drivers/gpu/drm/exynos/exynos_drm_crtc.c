@@ -517,6 +517,7 @@ void exynos_drm_crtc_finish_pageflip(struct drm_device *dev, int crtc)
 {
 	struct exynos_drm_private *dev_priv = dev->dev_private;
 	struct drm_pending_vblank_event *e, *t;
+	struct timeval now;
 	struct drm_crtc *drm_crtc = dev_priv->crtc[crtc];
 	struct exynos_drm_crtc *exynos_crtc = to_exynos_crtc(drm_crtc);
 	unsigned long flags;
