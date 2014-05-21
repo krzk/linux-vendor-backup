@@ -1046,6 +1046,9 @@
 		vddcore-supply = <&ldo8_reg>;
 		vddio-supply = <&ldo10_reg>;
 		samsung,pll-clock-frequency = <24000000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
 		status = "okay";
 
 		ports {
