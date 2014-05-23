@@ -25,8 +25,8 @@ static int odroidx2_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	int ret;
 
-	ret = snd_soc_dai_set_sysclk(codec_dai, 3,
-				     MAX98090_MCLK, SND_SOC_CLOCK_IN);
+	ret = snd_soc_dai_set_sysclk(codec_dai, 0, MAX98090_MCLK,
+						SND_SOC_CLOCK_IN);
 	if (ret < 0) {
 		dev_err(codec_dai->dev,
 			"Unable to switch to FLL1: %d\n", ret);
