@@ -505,6 +505,11 @@ config EXYNOS4_SDHCI_CH2_8BIT
 	  If selected, Channel 3 is disabled.
 endif
 
+config SOC_EXYNOS5800
+	bool "SAMSUNG EXYNOS5800"
+	default y
+	depends on SOC_EXYNOS5420
+
 endmenu
 
 endif
