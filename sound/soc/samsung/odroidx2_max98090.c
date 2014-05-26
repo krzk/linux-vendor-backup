@@ -123,6 +123,7 @@ static int odroidx2_audio_remove(struct platform_device *pdev)
 
 static const struct of_device_id odroidx2_audio_of_match[] = {
 	{ .compatible = "samsung,odroidx2-audio", },
+	{ .compatible = "samsung,odroidu3-audio", },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, odroid_audio_of_match);
