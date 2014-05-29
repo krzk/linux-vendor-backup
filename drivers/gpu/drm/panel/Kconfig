@@ -29,5 +29,7 @@ config DRM_PANEL_S6E8AA0
 	depends on OF
 	select DRM_MIPI_DSI
 	select VIDEOMODE_HELPERS
+	select BACKLIGHT_LCD_SUPPORT
+	select BACKLIGHT_CLASS_DEVICE
 
 endmenu
