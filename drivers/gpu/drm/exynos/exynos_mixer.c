@@ -1107,6 +1107,12 @@ static void mixer_dpms(struct exynos_drm_manager *mgr, int mode)
 		DRM_DEBUG_KMS("unknown dpms mode: %d\n", mode);
 		break;
 	}
+
+	/*
+	 * The hdmi should turn off after mixer turns off by H/W limitation.
+	 * Otherwise, the TV power domain is not disabled.
+	 */
+	hdmi_dpms_from_mixer(mode);
 }
 
 /* Only valid for Mixer version 16.0.33.0 */

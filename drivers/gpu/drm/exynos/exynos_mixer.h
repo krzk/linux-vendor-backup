@@ -16,5 +16,6 @@
 
 /* This function returns 0 if the given timing is valid for the mixer */
 int mixer_check_mode(struct drm_display_mode *mode);
+extern void hdmi_dpms_from_mixer(int mode);
 
 #endif
