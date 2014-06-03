@@ -276,6 +276,14 @@ extern struct smack_known *smack_net_ambient;
 #ifdef CONFIG_SECURITY_SMACK_BRINGUP
 extern struct smack_known *smack_unconfined;
 #endif
+#ifdef CONFIG_SECURITY_SMACK_PERMISSIVE_MODE
+/*
+ * permissive mode
+ */
+#define SMACK_PERMISSIVE_DENIED 0x0
+#define SMACK_PERMISSIVE_ALLOWED 0x1
+extern int permissive_mode;
+#endif
 extern const char *smack_cipso_option;
 extern int smack_ptrace_rule;
 

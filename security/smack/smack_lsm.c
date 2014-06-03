@@ -4326,6 +4326,17 @@ static __init int smack_init(void)
 	return 0;
 }
 
+#ifdef CONFIG_SECURITY_SMACK_PERMISSIVE_MODE
+static int __init mode_setup(char *str)
+{
+	unsigned long mode;
+	if (!kstrtoul(str, 10, &mode))
+		permissive_mode = mode ? 1 : 0;
+	return 1;
+}
+__setup("permissive=", mode_setup);
+#endif
+
 /*
  * Smack requires early initialization in order to label
  * all processes and objects when they are created.

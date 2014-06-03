@@ -55,6 +55,14 @@ LIST_HEAD(smack_known_list);
 static u32 smack_next_secid = 10;
 
 /*
+ * are we running in permissive mode?
+ * can be overwritten at run-time by /smack/permissive
+ */
+#ifdef CONFIG_SECURITY_SMACK_PERMISSIVE_MODE
+int permissive_mode = SMACK_PERMISSIVE_ALLOWED;
+#endif
+
+/*
  * what events do we log
  * can be overwritten at run-time by /smack/logging
  */
@@ -211,6 +219,10 @@ out_audit:
 	if (a)
 		smack_log(subject_known->smk_known, object_label, request,
 				rc, a);
+#endif
+#ifdef CONFIG_SECURITY_SMACK_PERMISSIVE_MODE
+	if (permissive_mode == SMACK_PERMISSIVE_ALLOWED)
+		return 0;
 #endif
 
 	return rc;
