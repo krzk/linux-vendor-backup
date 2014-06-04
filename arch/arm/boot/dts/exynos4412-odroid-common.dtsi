@@ -516,6 +516,11 @@
 		vdd_pll-supply = <&ldo8_reg>;
 		status = "okay";
 	};
+
+	odroid_reboot {
+		compatible = "hardkernel,odroid-reboot";
+		reset-gpio = <&gpk1 2 0>;
+	};
 };
 
 &pinctrl_1 {

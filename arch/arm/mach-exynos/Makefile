@@ -47,6 +47,7 @@ obj-$(CONFIG_MACH_EXYNOS4_DT)		+= mach-exynos4-dt.o
 obj-$(CONFIG_MACH_EXYNOS5_DT)		+= mach-exynos5-dt.o
 
 obj-$(CONFIG_ARCH_EXYNOS4)		+= sec-reboot.o
+obj-$(CONFIG_ARCH_EXYNOS4)		+= odroid-reboot.o
 
 # device support
 
