@@ -376,6 +376,8 @@ static int udc_bind_to_driver(struct usb_udc *udc, struct usb_gadget_driver *dri
 	udc->gadget->dev.driver = &driver->driver;
 
 	node = udc->gadget->dev.of_node;
+
+	edev = 0;
 	/* Check if we have an extcon associated with the UDC driver */
 	if (node && of_property_read_bool(node, "extcon")) {
 		edev = extcon_get_edev_by_phandle(&udc->gadget->dev, 0);
@@ -402,20 +404,25 @@ static int udc_bind_to_driver(struct usb_udc *udc, struct usb_gadget_driver *dri
 	ret = driver->bind(udc->gadget, driver);
 	if (ret)
 		goto err2;
-	ret = usb_gadget_udc_start(udc->gadget, driver);
-	if (ret) {
-		driver->unbind(udc->gadget);
-		goto err2;
-	}
-
-	usb_gadget_connect(udc->gadget);
 
 	if (udc->extcon_usb_dev.edev) {
-		udc->enabled = 1;
+		udc->enabled = 0;
 		udc->cable_state = extcon_get_cable_state_(
 					udc->extcon_usb_dev.edev,
 					udc->extcon_usb_dev.cable_index);
-		queue_work(udc->pwr_workqueue, &udc->pwr_work);
+	} else {
+		udc->cable_state = 1;
+	}
+
+	if (udc->cable_state) {
+		ret = usb_gadget_udc_start(udc->gadget, driver);
+		if (ret) {
+			driver->unbind(udc->gadget);
+			goto err2;
+		}
+
+		usb_gadget_connect(udc->gadget);
+		udc->enabled = 1;
 	}
 
 	kobject_uevent(&udc->dev.kobj, KOBJ_CHANGE);
