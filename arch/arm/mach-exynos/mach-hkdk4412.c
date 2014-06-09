@@ -408,6 +408,54 @@ static void __init hkdk4412_ohci_init(void)
 /* USB OTG */
 static struct s3c_hsotg_plat hkdk4412_hsotg_pdata;
 
+#ifdef CONFIG_USB_EXYNOS_SWITCH
+static struct s5p_usbswitch_platdata hkdk4412_usbswitch_pdata;
+
+static void __init hkdk4412_usbswitch_init(void)
+{
+	struct s5p_usbswitch_platdata *pdata = &hkdk4412_usbswitch_pdata;
+	int err;
+
+	pdata->gpio_host_detect = EXYNOS4_GPX3(1); /* low active */
+	err = gpio_request_one(pdata->gpio_host_detect, GPIOF_IN, "HOST_DETECT");
+	if (err) {
+		printk(KERN_ERR "failed to request gpio_host_detect\n");
+		return;
+	}
+
+	s3c_gpio_cfgpin(pdata->gpio_host_detect, S3C_GPIO_SFN(0xF));
+	s3c_gpio_setpull(pdata->gpio_host_detect, S3C_GPIO_PULL_NONE);
+	gpio_free(pdata->gpio_host_detect);
+
+	pdata->gpio_device_detect = EXYNOS4_GPX1(6); /* high active */
+	err = gpio_request_one(pdata->gpio_device_detect, GPIOF_IN, "DEVICE_DETECT");
+	if (err) {
+		printk(KERN_ERR "failed to request gpio_host_detect for\n");
+		return;
+	}
+
+	s3c_gpio_cfgpin(pdata->gpio_device_detect, S3C_GPIO_SFN(0xF));
+	s3c_gpio_setpull(pdata->gpio_device_detect, S3C_GPIO_PULL_NONE);
+	gpio_free(pdata->gpio_device_detect);
+
+	pdata->gpio_host_vbus = EXYNOS4_GPL2(0);
+	err = gpio_request_one(pdata->gpio_host_vbus, GPIOF_OUT_INIT_LOW, "HOST_VBUS_CONTROL");
+	if (err) {
+		printk(KERN_ERR "failed to request gpio_host_vbus\n");
+		return;
+	}
+
+	s3c_gpio_setpull(pdata->gpio_host_vbus, S3C_GPIO_PULL_NONE);
+	gpio_free(pdata->gpio_host_vbus);
+
+	pdata->ohci_dev = &exynos4_device_ohci.dev;
+	pdata->ehci_dev = &s5p_device_ehci.dev;
+	pdata->s3c_hsotg_dev = &s3c_device_usb_hsotg.dev;
+
+	s5p_usbswitch_set_platdata(pdata);
+}
+#endif
+
 /* SDCARD */
 static struct s3c_sdhci_platdata hkdk4412_hsmmc2_pdata __initdata = {
 	.max_width	= 4,
@@ -560,6 +608,9 @@ static struct platform_device *hkdk4412_devices[] __initdata = {
 #if defined(CONFIG_ODROID_IOBOARD)
 	&odroid_ioboard_spi,
 #endif
+#if defined(CONFIG_USB_EXYNOS_SWITCH)
+	&s5p_device_usbswitch,
+#endif
 };
 
 #if defined(CONFIG_S5P_DEV_TV)
@@ -671,6 +722,9 @@ static void __init hkdk4412_machine_init(void)
 	hkdk4412_ehci_init();
 	hkdk4412_ohci_init();
 	s3c_hsotg_set_platdata(&hkdk4412_hsotg_pdata);
+#ifdef CONFIG_USB_EXYNOS_SWITCH
+	hkdk4412_usbswitch_init();
+#endif
 
 	s3c64xx_spi1_set_platdata(NULL, 0, 1);
 	spi_register_board_info(spi1_board_info, ARRAY_SIZE(spi1_board_info));

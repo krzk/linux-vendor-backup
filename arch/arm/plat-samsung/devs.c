@@ -19,6 +19,7 @@
 #include <linux/serial_core.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
+#include <linux/gpio.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/dma-mapping.h>
@@ -1508,6 +1509,10 @@ void __init s5p_ehci_set_platdata(struct s5p_ehci_platdata *pd)
 		npd->phy_init = s5p_usb_phy_init;
 	if (!npd->phy_exit)
 		npd->phy_exit = s5p_usb_phy_exit;
+	if (!npd->phy_suspend)
+		npd->phy_suspend = s5p_usb_phy_suspend;
+	if (!npd->phy_resume)
+		npd->phy_resume = s5p_usb_phy_resume;
 }
 #endif /* CONFIG_S5P_DEV_USB_EHCI */
 
@@ -1541,10 +1546,50 @@ void __init s3c_hsotg_set_platdata(struct s3c_hsotg_plat *pd)
 		npd->phy_init = s5p_usb_phy_init;
 	if (!npd->phy_exit)
 		npd->phy_exit = s5p_usb_phy_exit;
+	if (!npd->phy_suspend)
+		npd->phy_suspend = s5p_usb_phy_suspend;
+	if (!npd->phy_resume)
+		npd->phy_resume = s5p_usb_phy_resume;
 	
 	npd -> phy_type = S5P_USB_PHY_DEVICE;
 }
 #endif /* CONFIG_S3C_DEV_USB_HSOTG */
+
+#ifdef CONFIG_USB_EXYNOS_SWITCH
+/* USB Switch */
+static struct resource s5p_usbswitch_resource[] = {
+	[0] = {
+		.start = IRQ_EINT(25),
+		.end   = IRQ_EINT(25),
+		.flags = IORESOURCE_IRQ,
+	},
+	[1] = {
+		.start = IRQ_EINT(14),
+		.end   = IRQ_EINT(14),
+		.flags = IORESOURCE_IRQ,
+	}
+};
+
+struct platform_device s5p_device_usbswitch = {
+	.name		= "exynos-usb-switch",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(s5p_usbswitch_resource),
+	.resource	= s5p_usbswitch_resource,
+};
+
+void __init s5p_usbswitch_set_platdata(struct s5p_usbswitch_platdata *pd)
+{
+	struct s5p_usbswitch_platdata *npd;
+
+	npd = s3c_set_platdata(pd, sizeof(struct s5p_usbswitch_platdata),
+			&s5p_device_usbswitch);
+
+	s5p_usbswitch_resource[0].start = gpio_to_irq(npd->gpio_host_detect);
+	s5p_usbswitch_resource[0].end = gpio_to_irq(npd->gpio_host_detect);
+	s5p_usbswitch_resource[1].start = gpio_to_irq(npd->gpio_device_detect);
+	s5p_usbswitch_resource[1].end = gpio_to_irq(npd->gpio_device_detect);
+}
+#endif /* CONFIG_USB_EXYNOS_SWITCH */
 
 /* USB High Spped 2.0 Device (Gadget) */
 

@@ -260,9 +260,78 @@ static int exynos_ohci_resume(struct device *dev)
 #define exynos_ohci_resume	NULL
 #endif
 
+#ifdef CONFIG_USB_SUSPEND
+static int exynos_ohci_runtime_suspend(struct device *dev)
+{
+	struct exynos_ohci_hcd *exynos_ohci = dev_get_drvdata(dev);
+	struct usb_hcd *hcd = exynos_ohci->hcd;
+	struct ohci_hcd *ohci = hcd_to_ohci(hcd);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct exynos4_ohci_platdata *pdata = pdev->dev.platform_data;
+
+	unsigned long flags;
+	int rc = 0;
+
+	/* Root hub was already suspended. Disable irq emission and
+	 * mark HW unaccessible, bail out if RH has been resumed. Use
+	 * the spinlock to properly synchronize with possible pending
+	 * RH suspend or resume activity.
+	 *
+	 * This is still racy as hcd->state is manipulated outside of
+	 * any locks =P But that will be a different fix.
+	 */
+	spin_lock_irqsave(&ohci->lock, flags);
+	if (hcd->state != HC_STATE_SUSPENDED && hcd->state != HC_STATE_HALT) {
+		spin_unlock_irqrestore(&ohci->lock, flags);
+		dev_err(&pdev->dev, "Not ready %s", hcd->self.bus_name);
+		return rc;
+	}
+
+	ohci_writel(ohci, OHCI_INTR_MIE, &ohci->regs->intrdisable);
+	(void)ohci_readl(ohci, &ohci->regs->intrdisable);
+
+	clear_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
+	spin_unlock_irqrestore(&ohci->lock, flags);
+
+	if (pdata->phy_suspend)
+		pdata->phy_suspend(pdev, S5P_USB_PHY_HOST);
+
+	return rc;
+}
+
+static int exynos_ohci_runtime_resume(struct device *dev)
+{
+	struct exynos_ohci_hcd *exynos_ohci = dev_get_drvdata(dev);
+	struct usb_hcd *hcd = exynos_ohci->hcd;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct exynos4_ohci_platdata *pdata = pdev->dev.platform_data;
+	int ret = 0;
+
+	if (dev->power.is_suspended)
+		return 0;
+
+	if (pdata->phy_resume)
+		ret = pdata->phy_resume(pdev, S5P_USB_PHY_HOST);
+
+	if (!ret) {
+		if (hcd) {
+			set_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
+			ohci_finish_controller_resume(hcd);
+		}
+	}
+
+	return 0;
+}
+#else
+#define exynos_ohci_runtime_suspend	NULL
+#define exynos_ohci_runtime_resume		NULL
+#endif
+
 static const struct dev_pm_ops exynos_ohci_pm_ops = {
 	.suspend	= exynos_ohci_suspend,
 	.resume		= exynos_ohci_resume,
+	.runtime_suspend	= exynos_ohci_runtime_suspend,
+	.runtime_resume		= exynos_ohci_runtime_resume,
 };
 
 #ifdef CONFIG_OF
