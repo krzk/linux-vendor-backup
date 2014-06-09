@@ -53,6 +53,10 @@ static int exynos_pd_power(struct generic_pm_domain *domain, bool power_on)
 	if (base == S5P_PMU_LCD0_CONF && !power_on)
 		return 0;
 
+	/* HACK: don't reset the vp */
+	if (base == S5P_PMU_TV_CONF && !power_on)
+		return 0;
+
 	pwr = power_on ? S5P_INT_LOCAL_PWR_EN : 0;
 	__raw_writel(pwr, base);
 
