@@ -34,6 +34,140 @@ struct s5p_ehci_hcd {
 	struct clk *clk;
 };
 
+
+#ifdef CONFIG_USB_SUSPEND
+static int s5p_ehci_configurate(struct usb_hcd *hcd)
+{
+	int delay_count = 0;
+
+	/* This is for waiting phy before ehci configuration */
+	do {
+		if (readl(hcd->regs))
+			break;
+		udelay(1);
+		++delay_count;
+	} while (delay_count < 200);
+	if (delay_count)
+		dev_info(hcd->self.controller, "phy delay count = %d\n",
+			delay_count);
+
+	/* DMA burst Enable, set utmi suspend_on_n */
+	writel(readl(EHCI_INSNREG00(hcd->regs)) | EHCI_INSNREG00_ENABLE_DMA_BURST,
+			EHCI_INSNREG00(hcd->regs));
+	return 0;
+}
+#endif 
+#ifdef CONFIG_PM
+static int s5p_ehci_suspend(struct device *dev)
+{
+	struct s5p_ehci_hcd *s5p_ehci = dev_get_drvdata(dev);
+	struct usb_hcd *hcd = s5p_ehci->hcd;
+	bool do_wakeup = device_may_wakeup(dev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct s5p_ehci_platdata *pdata = pdev->dev.platform_data;
+	int rc;
+
+	rc = ehci_suspend(hcd, do_wakeup);
+
+	if (pdata && pdata->phy_exit)
+		pdata->phy_exit(pdev, S5P_USB_PHY_HOST);
+
+	clk_disable_unprepare(s5p_ehci->clk);
+
+	return rc;
+}
+
+static int s5p_ehci_resume(struct device *dev)
+{
+	struct s5p_ehci_hcd *s5p_ehci = dev_get_drvdata(dev);
+	struct usb_hcd *hcd = s5p_ehci->hcd;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct s5p_ehci_platdata *pdata = pdev->dev.platform_data;
+
+	clk_prepare_enable(s5p_ehci->clk);
+
+	if (pdata && pdata->phy_init)
+		pdata->phy_init(pdev, S5P_USB_PHY_HOST);
+
+	/* DMA burst Enable */
+	writel(EHCI_INSNREG00_ENABLE_DMA_BURST, EHCI_INSNREG00(hcd->regs));
+
+	ehci_resume(hcd, false);
+	return 0;
+}
+
+int s5p_ehci_bus_resume(struct usb_hcd *hcd)
+{
+	/* When suspend is failed, re-enable clocks & PHY */
+	pm_runtime_resume(hcd->self.controller);
+
+	return ehci_bus_resume(hcd);
+}
+#else
+#define s5p_ehci_suspend	NULL
+#define s5p_ehci_resume		NULL
+#define s5p_ehci_bus_resume	NULL
+#endif
+#ifdef CONFIG_USB_SUSPEND
+static int s5p_ehci_runtime_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct s5p_ehci_platdata *pdata = pdev->dev.platform_data;
+
+	if (pdata && pdata->phy_suspend)
+		pdata->phy_suspend(pdev, S5P_USB_PHY_HOST);
+
+	pr_info("%s: usage=%d, child=%d\n", __func__,
+					atomic_read(&dev->power.usage_count),
+					atomic_read(&dev->power.child_count));
+
+	return 0;
+}
+
+static int s5p_ehci_runtime_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct s5p_ehci_platdata *pdata = pdev->dev.platform_data;
+	struct s5p_ehci_hcd *s5p_ehci = platform_get_drvdata(pdev);
+	struct usb_hcd *hcd = s5p_ehci->hcd;
+	struct ehci_hcd *ehci = hcd_to_ehci(hcd);
+	int rc = 0;
+
+	if (dev->power.is_suspended)
+		return 0;
+
+	/* platform device isn't suspended */
+	if (pdata && pdata->phy_resume)
+		rc = pdata->phy_resume(pdev, S5P_USB_PHY_HOST);
+
+	if (rc) {
+		s5p_ehci_configurate(hcd);
+
+		/* emptying the schedule aborts any urbs */
+		spin_lock_irq(&ehci->lock);
+//		if (ehci->reclaim)
+			end_unlink_async(ehci);
+		ehci_work(ehci);
+		spin_unlock_irq(&ehci->lock);
+
+		usb_root_hub_lost_power(hcd->self.root_hub);
+
+		ehci_writel(ehci, FLAG_CF, &ehci->regs->configured_flag);
+		ehci_writel(ehci, INTR_MASK, &ehci->regs->intr_enable);
+		(void)ehci_readl(ehci, &ehci->regs->intr_enable);
+
+		/* here we "know" root ports should always stay powered */
+		ehci_port_power(ehci, 1);
+
+		hcd->state = HC_STATE_SUSPENDED;
+	}
+
+	return 0;
+}
+#else
+#define s5p_ehci_runtime_suspend	NULL
+#define s5p_ehci_runtime_resume		NULL
+#endif
 static const struct hc_driver s5p_ehci_hc_driver = {
 	.description		= hcd_name,
 	.product_desc		= "S5P EHCI Host Controller",
@@ -56,14 +190,15 @@ static const struct hc_driver s5p_ehci_hc_driver = {
 
 	.hub_status_data	= ehci_hub_status_data,
 	.hub_control		= ehci_hub_control,
+	.bus_resume		= s5p_ehci_bus_resume,
 	.bus_suspend		= ehci_bus_suspend,
-	.bus_resume		= ehci_bus_resume,
 
 	.relinquish_port	= ehci_relinquish_port,
 	.port_handed_over	= ehci_port_handed_over,
 
 	.clear_tt_buffer_complete	= ehci_clear_tt_buffer_complete,
 };
+
 
 static void s5p_setup_vbus_gpio(struct platform_device *pdev)
 {
@@ -216,52 +351,11 @@ static void s5p_ehci_shutdown(struct platform_device *pdev)
 		hcd->driver->shutdown(hcd);
 }
 
-#ifdef CONFIG_PM
-static int s5p_ehci_suspend(struct device *dev)
-{
-	struct s5p_ehci_hcd *s5p_ehci = dev_get_drvdata(dev);
-	struct usb_hcd *hcd = s5p_ehci->hcd;
-	bool do_wakeup = device_may_wakeup(dev);
-	struct platform_device *pdev = to_platform_device(dev);
-	struct s5p_ehci_platdata *pdata = pdev->dev.platform_data;
-	int rc;
-
-	rc = ehci_suspend(hcd, do_wakeup);
-
-	if (pdata && pdata->phy_exit)
-		pdata->phy_exit(pdev, S5P_USB_PHY_HOST);
-
-	clk_disable_unprepare(s5p_ehci->clk);
-
-	return rc;
-}
-
-static int s5p_ehci_resume(struct device *dev)
-{
-	struct s5p_ehci_hcd *s5p_ehci = dev_get_drvdata(dev);
-	struct usb_hcd *hcd = s5p_ehci->hcd;
-	struct platform_device *pdev = to_platform_device(dev);
-	struct s5p_ehci_platdata *pdata = pdev->dev.platform_data;
-
-	clk_prepare_enable(s5p_ehci->clk);
-
-	if (pdata && pdata->phy_init)
-		pdata->phy_init(pdev, S5P_USB_PHY_HOST);
-
-	/* DMA burst Enable */
-	writel(EHCI_INSNREG00_ENABLE_DMA_BURST, EHCI_INSNREG00(hcd->regs));
-
-	ehci_resume(hcd, false);
-	return 0;
-}
-#else
-#define s5p_ehci_suspend	NULL
-#define s5p_ehci_resume		NULL
-#endif
-
 static const struct dev_pm_ops s5p_ehci_pm_ops = {
 	.suspend	= s5p_ehci_suspend,
 	.resume		= s5p_ehci_resume,
+	.runtime_suspend	= s5p_ehci_runtime_suspend,
+	.runtime_resume		= s5p_ehci_runtime_resume,
 };
 
 #ifdef CONFIG_OF

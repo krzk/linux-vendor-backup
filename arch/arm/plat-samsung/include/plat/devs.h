@@ -139,6 +139,10 @@ extern struct platform_device exynos4_device_spdif;
 extern struct platform_device samsung_asoc_idma;
 extern struct platform_device samsung_device_keypad;
 
+#ifdef CONFIG_USB_EXYNOS_SWITCH
+extern struct platform_device s5p_device_usbswitch;
+#endif
+
 /* s3c2440 specific devices */
 
 #ifdef CONFIG_CPU_S3C2440

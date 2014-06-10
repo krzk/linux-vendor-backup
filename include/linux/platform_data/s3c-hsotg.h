@@ -33,6 +33,8 @@ struct s3c_hsotg_plat {
 
 	int (*phy_init)(struct platform_device *pdev, int type);
 	int (*phy_exit)(struct platform_device *pdev, int type);
+	int (*phy_suspend)(struct platform_device *pdev, int type);
+	int (*phy_resume)(struct platform_device *pdev, int type);
 };
 
 extern void s3c_hsotg_set_platdata(struct s3c_hsotg_plat *pd);

@@ -2909,7 +2909,7 @@ static void s3c_hsotg_init(struct s3c_hsotg *hsotg)
 	s3c_hsotg_init_fifo(hsotg);
 
 	/* set the PLL on, remove the HNP/SRP and set the PHY */
-	writel(GUSBCFG_PHYIf8 | GUSBCFG_TOutCal(7) | (0x9 << 10),
+	writel(GUSBCFG_PHYIf16 | GUSBCFG_TOutCal(7) | (0x5 << 10),
 	       hsotg->regs + GUSBCFG);
 
 	writel(using_dma(hsotg) ? GAHBCFG_DMAEn : 0x0,
@@ -3525,10 +3525,9 @@ static int s3c_hsotg_probe(struct platform_device *pdev)
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
-	hsotg->regs = devm_request_and_ioremap(&pdev->dev, res);
-	if (!hsotg->regs) {
-		dev_err(dev, "cannot map registers\n");
-		ret = -ENXIO;
+	hsotg->regs = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(hsotg->regs)) {
+		ret = PTR_ERR(hsotg->regs);
 		goto err_clk;
 	}
 
@@ -3572,7 +3571,7 @@ static int s3c_hsotg_probe(struct platform_device *pdev)
 	for (i = 0; i < ARRAY_SIZE(hsotg->supplies); i++)
 		hsotg->supplies[i].supply = s3c_hsotg_supply_names[i];
 
-	ret = regulator_bulk_get(dev, ARRAY_SIZE(hsotg->supplies),
+	ret = devm_regulator_bulk_get(dev, ARRAY_SIZE(hsotg->supplies),
 				 hsotg->supplies);
 	if (ret) {
 		dev_err(dev, "failed to request supplies: %d\n", ret);
@@ -3662,8 +3661,6 @@ err_ep_mem:
 	kfree(eps);
 err_supplies:
 	s3c_hsotg_phy_disable(hsotg);
-	regulator_bulk_free(ARRAY_SIZE(hsotg->supplies), hsotg->supplies);
-
 err_clk:
 	clk_disable_unprepare(hsotg->clk);
 
@@ -3688,7 +3685,6 @@ static int s3c_hsotg_remove(struct platform_device *pdev)
 	}
 
 	s3c_hsotg_phy_disable(hsotg);
-	regulator_bulk_free(ARRAY_SIZE(hsotg->supplies), hsotg->supplies);
 
 	clk_disable_unprepare(hsotg->clk);
 

@@ -387,6 +387,10 @@ err:
 //[*]--------------------------------------------------------------------------------------------------[*]
 static int ioboard_spi_remove   (struct spi_device *spi)
 {
+	struct ioboard_spi  *ioboard_spi = dev_get_drvdata(&spi->dev);
+
+	ioboard_spi_misc_remove(&spi->dev);
+	kfree(ioboard_spi);
 	return 0;
 }
 
