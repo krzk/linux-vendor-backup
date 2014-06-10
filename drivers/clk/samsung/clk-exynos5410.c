@@ -173,6 +173,26 @@ static const struct samsung_pll_rate_table apll_tbl[] = {
 	PLL_35XX_RATE(200000000, 200, 3, 3),
 };
 
+/* The next 2 tables for CPLL and DPLL were copies from
+ * the "clock-exynos5410.c" file in the "3.4.y" branch
+ */
+static const struct samsung_pll_rate_table cpll_tbl[] = {
+	/* sorted in descending order */
+	/* PLL_35XX_RATE(rate, m, p, s) */
+	PLL_35XX_RATE(666000000, 222, 4, 1),
+	PLL_35XX_RATE(640000000, 160, 3, 1),
+	PLL_35XX_RATE(320000000, 160, 3, 2)
+};
+
+
+static const struct samsung_pll_rate_table dpll_tbl[] = {
+	/* sorted in descending order */
+	/* PLL_35XX_RATE(rate, m, p, s) */
+	PLL_35XX_RATE(600000000, 200, 4, 1)
+};
+
+
+
 static const struct samsung_pll_rate_table kpll_tbl[] = {
 	/* sorted in descending order */
 	/* PLL_35XX_RATE(rate, m, p, s) */
@@ -192,6 +212,32 @@ static const struct samsung_pll_rate_table kpll_tbl[] = {
 	PLL_35XX_RATE(200000000, 200, 3, 3),
 };
 
+
+/*
+ * The Exynos 5410 VPLL Clock is actually an  PLL_2650,
+ * which is very similar to the PLL_36XX, except for the size
+ * of MDIV field. This field should have 10 bits and not 9.
+ * However, since the parameter MDIV for the table below
+ * is never above 2^9 - 1 = 511, we are in good shape.
+ */
+static const struct samsung_pll_rate_table vpll_tbl[] = {
+	/* sorted in descending order */
+	/* PLL_36XX_RATE(rate, m, p, s, k) */
+	PLL_36XX_RATE(880000000, 220, 3, 1, 0),
+	PLL_36XX_RATE(640000000, 160, 3, 1, 0),
+	PLL_36XX_RATE(532000000, 133, 3, 1, 0),
+	PLL_36XX_RATE(480000000, 240, 3, 2, 0),
+	PLL_36XX_RATE(440000000, 220, 3, 2, 0),
+	PLL_36XX_RATE(350000000, 175, 3, 2, 0),
+	PLL_36XX_RATE(333000000, 111, 2, 2, 0),
+	PLL_36XX_RATE(266000000, 133, 3, 2, 0),
+	PLL_36XX_RATE(177000000, 118, 2, 3, 0),
+	PLL_36XX_RATE(123500000, 330, 4, 4, 0),
+	PLL_36XX_RATE( 89000000, 178, 3, 4, 0)
+};
+
+
+
 /* fixed rate clocks generated inside the soc */
 static struct samsung_fixed_rate_clock exynos5410_fixed_rate_clks[] __initdata = {
 	FRATE(CLK_SCLK_HDMIPHY, "sclk_hdmiphy", NULL, CLK_IS_ROOT, 24000000),
@@ -201,7 +247,7 @@ static struct samsung_fixed_rate_clock exynos5410_fixed_rate_clks[] __initdata =
 };
 
 static struct samsung_mux_clock exynos5410_pll_pmux_clks[] __initdata = {
-	MUX(0, "mout_vpllsrc", mout_vpllsrc_p, SRC_TOP2, 0, 1),
+	MUX_A(0, "mout_vpllsrc", mout_vpllsrc_p, SRC_TOP2, 0, 1, "mout_vpllsrc"),
 };
 
 static struct samsung_mux_clock exynos5410_mux_clks[] __initdata = {
@@ -216,10 +262,10 @@ static struct samsung_mux_clock exynos5410_mux_clks[] __initdata = {
 
 	MUX(0, "sclk_bpll", bpll_p, SRC_CDREX, 0, 1),
 	MUX(0, "sclk_bpll_muxed", bpll_user_p, SRC_TOP2, 24, 1),
-	MUX(0, "sclk_vpll", mout_vpll_p, SRC_TOP2, 16, 1),
+	MUX_A(0, "sclk_vpll", mout_vpll_p, SRC_TOP2, 16, 1, "sclk_vpll"),
 
 	MUX(0, "sclk_cpll", cpll_p, SRC_TOP2, 8, 1),
-	MUX(0, "sclk_dpll", dpll_p, SRC_TOP2, 10, 1),
+	MUX_A(0, "sclk_dpll", dpll_p, SRC_TOP2, 10, 1, "sclk_dpll"),
 
 	MUX(0, "sclk_mpll_bpll", mpll_bpll_p, SRC_TOP1, 20, 1),
 
@@ -247,7 +293,8 @@ static struct samsung_mux_clock exynos5410_mux_clks[] __initdata = {
 	MUX(0, "mout_fimd1", group2_p, SRC_DISP1_0, 0, 4),
 	MUX(0, "mout_aclk300_gscl", aclk300_gscl_p, SRC_TOP3, 17, 1),
 	MUX(0, "mout_aclk300_disp0", aclk300_disp0_p, SRC_TOP3, 18, 1),
-	MUX(0, "mout_aclk300_disp1", aclk300_disp1_p, SRC_TOP3, 19, 1),
+	MUX_A(0, "mout_aclk300_disp1", aclk300_disp1_p, SRC_TOP3, 19, 1,
+		"aclk300_disp1"),
 	MUX(0, "mout_aclk400_isp", mpll_bpll_p, SRC_TOP3, 20, 1),
 	MUX(0, "mout_aclk333_sub", aclk333_sub_p, SRC_TOP3, 24, 1),
 	MUX(0, "mout_aclk300_jpeg", aclk300_jpeg_p, SRC_TOP3, 28, 1),
@@ -292,13 +339,14 @@ static struct samsung_div_clock exynos5410_div_clks[] __initdata = {
 	DIV(0, "div_uart3", "mout_uart3", DIV_PERIC0, 12, 4),
 
 	DIV(0, "aclk166", "mout_aclk166", DIV_TOP0, 8, 3),
-	DIV(0, "aclk200", "mout_aclk200", DIV_TOP0, 12, 3),
+	DIV_A(0, "aclk200", "mout_aclk200", DIV_TOP0, 12, 3, "aclk200"),
 	DIV(0, "aclk266", "sclk_mpll_muxed", DIV_TOP0, 16, 3),
 	DIV(0, "div_aclk333", "mout_aclk333", DIV_TOP0, 20, 3),
 	DIV(0, "aclk400", "mout_aclk400", DIV_TOP0, 24, 3),
 	DIV(0, "div_aclk300_gscl", "sclk_dpll", DIV_TOP2, 8, 3),
 	DIV(0, "div_aclk300_disp0", "sclk_dpll", DIV_TOP2, 12, 3),
-	DIV(0, "div_aclk300_disp1", "sclk_dpll", DIV_TOP2, 16, 3),
+	DIV_A(0, "div_aclk300_disp1", "sclk_dpll", DIV_TOP2, 16, 3,
+		"daclk300disp1"),
 	DIV(0, "div_aclk300_jpeg", "sclk_dpll", DIV_TOP2, 17, 3),
 	DIV(0, "div_hdmi_pixel", "sclk_vpll", DIV_DISP1_0, 28, 4),
 	DIV(0, "div_fimd1", "mout_fimd1", DIV_DISP1_0, 0, 4),
@@ -369,22 +417,106 @@ static struct samsung_gate_clock exynos5410_gate_clks[] __initdata = {
 	GATE(CLK_PWM, "pwm", "aclk66", GATE_IP_PERIC, 24, 0, 0),
 };
 
+/* Added the rate tables, and changed PLL to 'pll_36xx' instead of
+ * 'pll_35xx'.
+ */
 static struct samsung_pll_clock exynos5410_plls[nr_plls] __initdata = {
 	[apll] = PLL(pll_35xx, CLK_FOUT_APLL, "fout_apll", "fin_pll", APLL_LOCK,
 		APLL_CON0, apll_tbl),
 	[cpll] = PLL(pll_35xx, CLK_FOUT_CPLL, "fout_cpll", "fin_pll", CPLL_LOCK,
-		CPLL_CON0, NULL),
+		CPLL_CON0, cpll_tbl),
 	[mpll] = PLL(pll_35xx, CLK_FOUT_MPLL, "fout_mpll", "fin_pll", MPLL_LOCK,
 		MPLL_CON0, NULL),
 	[bpll] = PLL(pll_35xx, CLK_FOUT_BPLL, "fout_bpll", "fin_pll", BPLL_LOCK,
 		BPLL_CON0, NULL),
 	[kpll] = PLL(pll_35xx, CLK_FOUT_KPLL, "fout_kpll", "fin_pll", KPLL_LOCK,
 		KPLL_CON0, kpll_tbl),
-	[vpll] = PLL(pll_35xx, CLK_FOUT_VPLL, "fout_vpll", "mout_vpllsrc",
-		VPLL_LOCK, VPLL_CON0,  NULL),
+	[vpll] = PLL(pll_36xx, CLK_FOUT_VPLL, "fout_vpll", "mout_vpllsrc",
+		VPLL_LOCK, VPLL_CON0, vpll_tbl),
 	[dpll] = PLL(pll_35xx, CLK_FOUT_DPLL, "fout_dpll", "fin_pll", DPLL_LOCK,
-		DPLL_CON0, NULL),
+		DPLL_CON0, dpll_tbl),
 };
+
+
+
+
+/* Auxiliary function to set the parent of a clock */
+static __init int set_parent_by_name(const char *cname, const char *pname)
+{
+	struct clk *child_p = NULL;
+	struct clk *parent_p = NULL;
+	int ret = -1;
+
+	child_p = clk_get(NULL, cname);
+	parent_p = clk_get(NULL, pname);
+
+	if (!IS_ERR(child_p) && !IS_ERR(parent_p)) {
+		ret = clk_prepare(child_p);
+		if (ret == 0) {
+			pr_debug ("setting parent of `%s' to `%s'\n",
+				cname, pname);
+
+			ret = clk_set_parent(child_p, parent_p);
+			if (ret < 0) {
+				pr_err("could not set parent `%s' -> `%s'\n",
+					cname, pname);
+			}
+			clk_unprepare(child_p);
+		} else {
+			pr_err("could not prepare child `%s': %d\n",
+				cname, ret);
+		}
+		clk_put(child_p);
+		clk_put(parent_p);
+	} else {
+		if (IS_ERR(child_p)) {
+			pr_err("child lookup `%s' failed: %d\n",
+				cname, (int) child_p);
+		} else {
+			clk_put(child_p);
+		}
+		if (IS_ERR(parent_p)) {
+			pr_err("parent lookup `%s' failed: %d\n",
+				pname, (int) parent_p);
+		} else {
+			clk_put(parent_p);
+		}
+	}
+	return ret;
+}
+
+/* Auxiliary function to set the clock rate */
+static __init int set_rate_by_name(const char *name, unsigned long rate)
+{
+	struct clk *clock_p = NULL;
+	int ret = -1;
+
+	clock_p = clk_get(NULL, name);
+
+	if (!IS_ERR(clock_p)) {
+		ret = clk_prepare(clock_p);
+		if (ret == 0) {
+			pr_debug ("setting rate of `%s' to %lu\n",
+				name, rate);
+
+			ret = clk_set_rate(clock_p, rate);
+			if (ret < 0) {
+				pr_err("could not set rate `%s' to %lu\n",
+					name, rate);
+			}
+			clk_unprepare(clock_p);
+		} else {
+			pr_err("could not prepare clock `%s': %d\n",
+				name, ret);
+		}
+		clk_put(clock_p);
+	} else {
+		pr_err("clock lookup `%s' failed: %d\n",
+			name, (int) clock_p);
+	}
+	return ret;
+}
+
 
 /* register exynos5410 clocks */
 static void __init exynos5410_clk_init(struct device_node *np)
@@ -411,6 +543,21 @@ static void __init exynos5410_clk_init(struct device_node *np)
 			ARRAY_SIZE(exynos5410_div_clks));
 	samsung_clk_register_gate(exynos5410_gate_clks,
 			ARRAY_SIZE(exynos5410_gate_clks));
+
+
+	/* Initialize VPLL, DPLL and some other associated clocks
+	 * I've added this initialization code here because I do not
+	 * know where else to put it.
+	 */
+	set_parent_by_name("sclk_vpll", "mout_vpllsrc");
+	set_rate_by_name("fout_vpll", 350000000);
+	set_parent_by_name("sclk_vpll", "fout_vpll");
+
+	set_rate_by_name("fout_dpll", 600000000);
+	set_parent_by_name("aclk200_disp1", "aclk200");
+	set_parent_by_name("sclk_dpll", "fout_dpll");
+	set_parent_by_name("aclk300_disp1", "daclk300disp1");
+
 
 	pr_debug("Exynos5410: clock setup completed.\n");
 }
