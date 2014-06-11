@@ -82,27 +82,27 @@
 		};
 	};
 
-    leds {
-        compatible = "gpio-leds";
-        hearbeat {
-            label = "red:heartbeart";
-            gpios = <&gpb2 2 GPIO_ACTIVE_HIGH>;
-            default-state = "off";
-            linux,default-trigger = "heartbeat";
-        };
-        eMMC {
-            label = "green:activity";
-            gpios = <&gpb2 1 GPIO_ACTIVE_HIGH>;
-            default-state = "off";
-            linux,default-trigger = "mmc0";
-        };
-        microSD {
-            label = "blue:activity";
-            gpios = <&gpx2 3 GPIO_ACTIVE_HIGH>;
-            default-state = "off";
-            linux,default-trigger = "mmc1";
-        };
-    };
+	leds {
+		compatible = "gpio-leds";
+		hearbeat {
+			label = "red:heartbeart";
+			gpios = <&gpx2 3 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+			linux,default-trigger = "heartbeat";
+		};
+		eMMC {
+			label = "green:activity";
+			gpios = <&gpb2 1 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+			linux,default-trigger = "mmc0";
+		};
+		microSD {
+			label = "blue:activity";
+			gpios = <&gpb2 2 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+			linux,default-trigger = "mmc1";
+		};
+	};
 
 	pinctrl@13400000 {
 		max77802_irq: max77802-irq {
@@ -125,7 +125,7 @@
 		};
 	};
 
-    pinctrl@14000000 {
+	pinctrl@14000000 {
 		usb3_overcur0_u2: usb3-overcur0-u2 {
 			samsung,pins = "gpk3-0";
 			samsung,pin-function = <2>;
@@ -234,8 +234,8 @@
 	
 	hdmi {
 		hpd-gpio = <&gpx3 7 0>;
-        pinctrl-names = "default";
-        pinctrl-0 = <&hdmi_hpd_irq>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&hdmi_hpd_irq>;
 		hdmi-en-supply = <&fixed_regulator>;
 		vdd_osc-supply = <&ldo10_reg>;
 		vdd_pll-supply = <&ldo8_reg>;
@@ -243,18 +243,18 @@
 		phy = <&hdmiphy>;
 	};
 
-    fixed_regulator: fixed_regulator@0 {
-        compatible = "regulator-fixed";
-        regulator-name = "hdmi-en";
-        regulator-min-microvolt = <5000000>;
-        regulator-max-microvolt = <5000000>;
-    };
+	fixed_regulator: fixed_regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "hdmi-en";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+	};
 
 	/* hsic24 */
 	hsi2c@12CA0000 {
 		status = "okay";
 		samsung,hs-mode;
-        clock-frequency = <1000000>;
+		clock-frequency = <1000000>;
 
 		max77802-pmic@9 {
 			compatible = "maxim,max77802";
