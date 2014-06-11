@@ -107,7 +107,7 @@
 		};
 	};
 
-    gsc_pd: power-domain@10044000 {
+	gsc_pd: power-domain@10044000 {
 		compatible = "samsung,exynos4210-pd";
 		reg = <0x10044000 0x20>;
 	};
@@ -246,7 +246,7 @@
 		status = "disabled";
 	};
 
-    i2c_8: i2c@12CE0000 {
+	i2c_8: i2c@12CE0000 {
 		compatible = "samsung,s3c2440-hdmiphy-i2c";
 		reg = <0x12CE0000 0x1000>;
 		interrupts = <0 64 0>;
@@ -485,7 +485,7 @@
 			reset-gpios = <&gpx1 4 1>;
 			connect-gpios = <&gpx0 6 1>;
 			intn-gpios = <&gpx0 7 1>;
-            secondary-refclk;
+			secondary-refclk;
 		};
 	};
 
@@ -494,7 +494,7 @@
 		compatible = "samsung,exynos5410-tmu";
 		reg = <0x10060000 0x100>;
 		interrupts = <0 65 0>;
-		clocks = <&clock 318>;
+		clocks = <&clock CLK_TMU_APBIF>;
 		clock-names = "tmu_apbif";
 	};
 
@@ -503,7 +503,7 @@
 		compatible = "samsung,exynos5410-tmu";
 		reg = <0x10064000 0x100>;
 		interrupts = <0 183 0>;
-		clocks = <&clock 318>;
+		clocks = <&clock CLK_TMU_APBIF>;
 		clock-names = "tmu_apbif";
 	};
 
@@ -512,16 +512,16 @@
 		compatible = "samsung,exynos5410-tmu";
 		reg = <0x10068000 0x100>;
 		interrupts = <0 184 0>;
-		clocks = <&clock 318>;
+		clocks = <&clock CLK_TMU_APBIF>;
 		clock-names = "tmu_apbif";
 	};
 
 	/* tmu for CPU3 */
 	tmu@1006c000 {
-		compatible = "samsung,exynos5420-tmu";
+		compatible = "samsung,exynos5410-tmu";
 		reg = <0x1006c000 0x100>;
 		interrupts = <0 185 0>;
-		clocks = <&clock 318>;
+		clocks = <&clock CLK_TMU_APBIF>;
 		clock-names = "tmu_apbif";
 	};
 
@@ -542,28 +542,32 @@
 		interrupts = <0 192 4>, <0 193 4>, <0 194 4>, <0 195 4>;
 	};
 
-        pwm@12dd0000 {
-                compatible = "samsung,exynos4210-pwm";
-                reg = <0x139D0000 0x1000>;
-                interrupts = <0 37 0>, <0 38 0>, <0 39 0>, <0 40 0>, <0 41 0>;
-                clocks = <&clock 336>;
-                clock-names = "timers";
-                #pwm-cells = <2>;
-                status = "disabled";
-        };
-        
-        timer {
-                compatible = "arm,armv7-timer";
-                interrupts = <1 13 0xf08>,
-                             <1 14 0xf08>,
-                             <1 11 0xf08>,
-                             <1 10 0xf08>;
-                /* Unfortunately we need this since some versions of U-Boot
-                 * on Exynos don't set the CNTFRQ register, so we need the
-                 * value from DT.
-                 */
-                clock-frequency = <24000000>;
-        };
+	pwm@12dd0000 {
+		compatible = "samsung,exynos4210-pwm";
+		reg = <0x12dd0000 0x100>;
+		/* interrupts = <0 37 0>, <0 38 0>, <0 39 0>, <0 40 0>, <0 41 0>; */
+		samsung,pwm-outputs = <0>, <1>, <2>, <3>, <4>;
+		#pwm-cells = <4>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pwm0_out>;
+		clocks = <&clock CLK_PWM>;
+		clock-names = "timers";
+		status = "disabled";
+	};
+
+
+	timer {
+		compatible = "arm,armv7-timer";
+		interrupts = <1 13 0xf08>,
+		             <1 14 0xf08>,
+		             <1 11 0xf08>,
+		             <1 10 0xf08>;
+		/* Unfortunately we need this since some versions of U-Boot
+		 * on Exynos don't set the CNTFRQ register, so we need the
+		 * value from DT.
+		 */
+		clock-frequency = <24000000>;
+	};
 
 
 };
