@@ -271,19 +271,12 @@ acm_function_init(struct slp_multi_usb_function *f,
 			ret = PTR_ERR(config->f_acm_inst[i]);
 			goto err_usb_get_function_instance;
 		}
-		config->f_acm[i] = usb_get_function(config->f_acm_inst[i]);
-		if (IS_ERR(config->f_acm[i])) {
-			ret = PTR_ERR(config->f_acm[i]);
-			goto err_usb_get_function;
-		}
 	}
 	return 0;
+
 err_usb_get_function_instance:
-	while (i-- > 0) {
-		usb_put_function(config->f_acm[i]);
-err_usb_get_function:
+	while (i-- > 0)
 		usb_put_function_instance(config->f_acm_inst[i]);
-	}
 	kfree(f->config);
 	f->config = NULL;
 	return ret;
@@ -294,10 +287,8 @@ static void acm_function_cleanup(struct slp_multi_usb_function *f)
 	int i;
 	struct acm_function_config *config = f->config;
 
-	for (i = 0; i < MAX_ACM_INSTANCES; i++) {
-		usb_put_function(config->f_acm[i]);
+	for (i = 0; i < MAX_ACM_INSTANCES; i++)
 		usb_put_function_instance(config->f_acm_inst[i]);
-	}
 	kfree(f->config);
 	f->config = NULL;
 }
@@ -309,6 +300,14 @@ acm_function_bind_config(struct slp_multi_usb_function *f,
 	int i;
 	int ret = 0;
 	struct acm_function_config *config = f->config;
+
+	for (i = 0; i < MAX_ACM_INSTANCES; i++) {
+		config->f_acm[i] = usb_get_function(config->f_acm_inst[i]);
+		if (IS_ERR(config->f_acm[i])) {
+			ret = PTR_ERR(config->f_acm[i]);
+			goto err_usb_get_function;
+		}
+	}
 
 	config->instances_on = config->instances;
 	for (i = 0; i < config->instances_on; i++) {
@@ -324,6 +323,10 @@ acm_function_bind_config(struct slp_multi_usb_function *f,
 err_usb_add_function:
 	while (i-- > 0)
 		usb_remove_function(c, config->f_acm[i]);
+	i = MAX_ACM_INSTANCES;
+err_usb_get_function:
+	while (i-- > 0)
+		usb_put_function(config->f_acm[i]);
 	return ret;
 }
 
@@ -333,8 +336,8 @@ static void acm_function_unbind_config(struct slp_multi_usb_function *f,
 	int i;
 	struct acm_function_config *config = f->config;
 
-	for (i = 0; i < config->instances_on; i++)
-		usb_remove_function(c, config->f_acm[i]);
+	for (i = 0; i < MAX_ACM_INSTANCES; i++)
+		usb_put_function(config->f_acm[i]);
 }
 
 static ssize_t acm_instances_show(struct device *dev,
