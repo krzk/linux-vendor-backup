@@ -1,4 +1,4 @@
-/* drivers/gpu/mali400/mali/platform/exynos3470/exynos4_pmm.h
+/* drivers/gpu/mali400/mali/platform/exynos/exynos.h
  *
  * Copyright 2011 by S.LSI. Samsung Electronics Inc.
  * San#24, Nongseo-Dong, Giheung-Gu, Yongin, Korea
@@ -11,14 +11,15 @@
  */
 
 /**
- * @file exynos4_pmm.h
- * Platform specific Mali driver functions for the exynos 4XXX based platforms
+ * @file exynos.h
+ * Platform specific Mali driver functions for the exynos platforms
  */
 
-#ifndef __EXYNOS4_PMM_H__
-#define __EXYNOS4_PMM_H__
+#ifndef __EXYNOS_H__
+#define __EXYNOS_H__
 
-#include "mali_utgard.h"
+#include <linux/of_device.h>
+
 #include "mali_osk.h"
 
 #ifdef __cplusplus
@@ -40,7 +41,7 @@ typedef enum mali_power_mode_tag
  *
  * @return _MALI_OSK_ERR_OK on success otherwise, a suitable _mali_osk_errcode_t error.
  */
-_mali_osk_errcode_t mali_platform_init(struct device *dev);
+_mali_osk_errcode_t mali_platform_init(void);
 
 /** @brief Platform specific deinitialisation of MALI
  *
@@ -48,7 +49,7 @@ _mali_osk_errcode_t mali_platform_init(struct device *dev);
  *
  * @return _MALI_OSK_ERR_OK on success otherwise, a suitable _mali_osk_errcode_t error.
  */
-_mali_osk_errcode_t mali_platform_deinit(struct device *dev);
+_mali_osk_errcode_t mali_platform_deinit(void);
 
 /** @brief Platform specific powerdown sequence of MALI
  *
@@ -71,24 +72,10 @@ _mali_osk_errcode_t mali_platform_deinit(struct device *dev);
  * @param power_mode defines the power modes
  * @return _MALI_OSK_ERR_OK on success otherwise, a suitable _mali_osk_errcode_t error.
  */
-_mali_osk_errcode_t mali_platform_power_mode_change(struct device *dev, mali_power_mode power_mode);
+_mali_osk_errcode_t mali_platform_power_mode_change(mali_power_mode power_mode);
 
+extern const struct of_device_id mali_of_matches[];
 
-/** @brief Platform specific handling of GPU utilization data
- *
- * When GPU utilization data is enabled, this function will be
- * periodically called.
- *
- * @param utilization The workload utilization of the Mali GPU. 0 = no utilization, 256 = full utilization.
- */
-void mali_gpu_utilization_handler(struct mali_gpu_utilization_data *data);
-
-#ifdef CONFIG_MALI_DVFS
-ssize_t show_time_in_state(struct device *dev, struct device_attribute *attr, char *buf);
-ssize_t set_time_in_state(struct device *dev, struct device_attribute *attr, const char *buf, size_t count);
-extern int mali_dvfs_level_lock(void);
-extern int mali_dvfs_level_unlock(void);
-#endif
 #ifdef __cplusplus
 }
 #endif

@@ -17,7 +17,9 @@
 #include <linux/wait.h>
 #include <linux/sched.h>
 #include <linux/mutex.h>
+#if defined (CONFIG_ION_EXYNOS)
 #include <linux/exynos_ion.h>
+#endif
 
 #include "mali_ukk.h"
 #include "mali_osk.h"
@@ -105,8 +107,10 @@ static int mali_dma_buf_map(struct mali_dma_buf_attachment *mem, struct mali_ses
 			return -EFAULT;
 		}
 
+#if defined (CONFIG_ION_EXYNOS)
 		exynos_ion_sync_dmabuf_for_device(&mali_platform_device->dev, mem->buf,
 				mem->buf->size, DMA_BIDIRECTIONAL);
+#endif
 
 		for_each_sg(mem->sgt->sgl, sg, mem->sgt->nents, i) {
 			u32 size = sg_dma_len(sg);
@@ -155,8 +159,10 @@ static void mali_dma_buf_unmap(struct mali_dma_buf_attachment *mem)
 
 	if (0 == mem->map_ref) {
 		dma_buf_unmap_attachment(mem->attachment, mem->sgt, DMA_BIDIRECTIONAL);
+#if defined (CONFIG_ION_EXYNOS)
 		exynos_ion_sync_dmabuf_for_cpu(&mali_platform_device->dev, mem->buf,
 				mem->buf->size, DMA_BIDIRECTIONAL);
+#endif
 		mem->is_mapped = MALI_FALSE;
 	}
 

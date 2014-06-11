@@ -56,7 +56,9 @@ static struct mali_mem_os_allocator {
 	.allocated_pages = ATOMIC_INIT(0),
 	.allocation_limit = 0,
 
+#if 0
 	.shrinker.shrink = mali_mem_os_shrink,
+#endif
 	.shrinker.seeks = DEFAULT_SEEKS,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
 	.timed_shrinker = __DELAYED_WORK_INITIALIZER(mali_mem_os_allocator.timed_shrinker, mali_mem_os_trim_pool, TIMER_DEFERRABLE),

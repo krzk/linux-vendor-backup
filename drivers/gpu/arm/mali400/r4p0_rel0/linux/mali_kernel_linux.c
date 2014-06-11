@@ -39,7 +39,7 @@
 #include "mali_profiling_internal.h"
 #endif
 /* MALI_SEC */
-#include <exynos4_pmm.h>
+#include <exynos.h>
 
 /* Streamline support for the Mali driver */
 #if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_MALI400_PROFILING)
@@ -191,6 +191,9 @@ static struct platform_driver mali_platform_driver = {
 		.bus = &platform_bus_type,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,29))
 		.pm = &mali_dev_pm_ops,
+#endif
+#if !defined(MALI_FAKE_PLATFORM_DEVICE)
+		.of_match_table = of_match_ptr(mali_of_matches),
 #endif
 	},
 };
@@ -409,6 +412,14 @@ static int mali_probe(struct platform_device *pdev)
 
 	mali_platform_device = pdev;
 
+#if !defined(MALI_FAKE_PLATFORM_DEVICE)
+	if (mali_platform_init() != _MALI_OSK_ERR_OK)
+	{
+		MALI_PRINT_ERROR(("mali_probe(): mali_platform_init() failed."));
+		return -ENODEV;
+	}
+#endif
+
 	if (_MALI_OSK_ERR_OK == _mali_osk_wq_init()) {
 		/* Initialize the Mali GPU HW specified by pdev */
 		if (_MALI_OSK_ERR_OK == mali_initialize_subsystems()) {
@@ -445,6 +456,9 @@ static int mali_remove(struct platform_device *pdev)
 	mali_miscdevice_unregister();
 	mali_terminate_subsystems();
 	_mali_osk_wq_term();
+#if !defined(MALI_FAKE_PLATFORM_DEVICE)
+	mali_platform_deinit();
+#endif
 	mali_platform_device = NULL;
 	return 0;
 }
@@ -475,14 +489,14 @@ static int mali_driver_suspend_scheduler(struct device *dev)
 {
 	mali_pm_os_suspend();
 	/* MALI_SEC */
-	mali_platform_power_mode_change(dev, MALI_POWER_MODE_DEEP_SLEEP);
+	mali_platform_power_mode_change(MALI_POWER_MODE_DEEP_SLEEP);
 	return 0;
 }
 
 static int mali_driver_resume_scheduler(struct device *dev)
 {
 	/* MALI_SEC */
-	mali_platform_power_mode_change(dev, MALI_POWER_MODE_ON);
+	mali_platform_power_mode_change(MALI_POWER_MODE_ON);
 	mali_pm_os_resume();
 	return 0;
 }
@@ -492,14 +506,14 @@ static int mali_driver_runtime_suspend(struct device *dev)
 {
 	mali_pm_runtime_suspend();
 	/* MALI_SEC */
-	mali_platform_power_mode_change(dev, MALI_POWER_MODE_LIGHT_SLEEP);
+	mali_platform_power_mode_change(MALI_POWER_MODE_LIGHT_SLEEP);
 	return 0;
 }
 
 static int mali_driver_runtime_resume(struct device *dev)
 {
 	/* MALI_SEC */
-	mali_platform_power_mode_change(dev, MALI_POWER_MODE_ON);
+	mali_platform_power_mode_change(MALI_POWER_MODE_ON);
 	mali_pm_runtime_resume();
 	return 0;
 }
