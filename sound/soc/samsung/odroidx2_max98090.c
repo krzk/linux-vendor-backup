@@ -12,7 +12,6 @@
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
 #include "i2s.h"
-#include "i2s-regs.h"
 
 /* Config I2S CDCLK output 19.2MHZ clock to Max98090 */
 #define MAX98090_MCLK 19200000
@@ -30,14 +29,6 @@ static int odroidx2_hw_params(struct snd_pcm_substream *substream,
 	if (ret < 0) {
 		dev_err(codec_dai->dev,
 			"Unable to switch to FLL1: %d\n", ret);
-		return ret;
-	}
-
-	ret = snd_soc_dai_set_sysclk(cpu_dai, SAMSUNG_I2S_OPCLK,
-					0, MOD_OPCLK_PCLK);
-	if (ret < 0) {
-		dev_err(cpu_dai->dev,
-			"Unable to set i2s opclk: 0x%x\n", ret);
 		return ret;
 	}
 
