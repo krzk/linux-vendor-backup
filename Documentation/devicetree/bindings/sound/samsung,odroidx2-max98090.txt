@@ -6,6 +6,19 @@ Required properties:
  - samsung,model : the user-visible name of this sound complex.
  - samsung,i2s-controller : the phandle of the I2S controller
  - samsung,audio-codec : the phandle of the MAX98090 audio codec
+ - samsung,audio-routing : a list of the connections between audio
+   components;  each entry is a pair of strings, the first being the
+   connection's sink, the second being the connection's source;
+   valid names for sources and sinks are the MAX98090's pins (as
+   documented in its binding), and the jacks on the board;
+   For Odroid X2:
+     * Headphone Jack
+     * Mic Jack
+     * DMIC
+
+   For Odroid U3:
+     * Headphone Jack
+     * Speakers
 
 Example:
 

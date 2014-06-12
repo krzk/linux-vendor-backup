@@ -13,6 +13,11 @@
 #include <sound/pcm_params.h>
 #include "i2s.h"
 
+struct odroidx2_drv_data {
+	const struct snd_soc_dapm_widget *dapm_widgets;
+	unsigned int num_dapm_widgets;
+};
+
 /* Config I2S CDCLK output 19.2MHZ clock to Max98090 */
 #define MAX98090_MCLK 19200000
 
@@ -49,6 +54,17 @@ static struct snd_soc_ops odroidx2_ops = {
 	.hw_params	= odroidx2_hw_params,
 };
 
+static const struct snd_soc_dapm_widget odroidx2_dapm_widgets[] = {
+	SND_SOC_DAPM_HP("Headphone Jack", NULL),
+	SND_SOC_DAPM_MIC("Mic Jack", NULL),
+	SND_SOC_DAPM_MIC("DMIC", NULL),
+};
+
+static const struct snd_soc_dapm_widget odroidu3_dapm_widgets[] = {
+	SND_SOC_DAPM_HP("Headphone Jack", NULL),
+	SND_SOC_DAPM_SPK("Speakers", NULL),
+};
+
 static struct snd_soc_dai_link odroidx2_dai[] = {
 	{
 		.name		= "MAX98090",
@@ -73,17 +89,52 @@ static struct snd_soc_card odroidx2 = {
 	.owner		= THIS_MODULE,
 	.dai_link	= odroidx2_dai,
 	.num_links	= ARRAY_SIZE(odroidx2_dai),
+	.fully_routed	= true,
 };
+
+struct odroidx2_drv_data odroidx2_drvdata = {
+	.dapm_widgets		= odroidx2_dapm_widgets,
+	.num_dapm_widgets	= ARRAY_SIZE(odroidx2_dapm_widgets),
+};
+
+struct odroidx2_drv_data odroidu3_drvdata = {
+	.dapm_widgets		= odroidu3_dapm_widgets,
+	.num_dapm_widgets	= ARRAY_SIZE(odroidu3_dapm_widgets),
+};
+
+static const struct of_device_id odroidx2_audio_of_match[] = {
+	{
+		.compatible	= "samsung,odroidx2-audio",
+		.data		= &odroidx2_drvdata,
+	}, {
+		.compatible	= "samsung,odroidu3-audio",
+		.data		= &odroidu3_drvdata,
+	},
+	{ },
+};
+MODULE_DEVICE_TABLE(of, odroid_audio_of_match);
 
 static int odroidx2_audio_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
 	struct snd_soc_card *card = &odroidx2;
+	struct odroidx2_drv_data *dd;
+	const struct of_device_id *of_id;
 	int ret;
 
 	card->dev = &pdev->dev;
 
+	of_id = of_match_node(odroidx2_audio_of_match, np);
+	dd = (struct odroidx2_drv_data *)of_id->data;
+
+	card->dapm_widgets = dd->dapm_widgets;
+	card->num_dapm_widgets = dd->num_dapm_widgets;
+
 	ret = snd_soc_of_parse_card_name(card, "samsung,model");
+	if (ret < 0)
+		return ret;
+
+	ret = snd_soc_of_parse_audio_routing(card, "samsung,audio-routing");
 	if (ret < 0)
 		return ret;
 
@@ -135,13 +186,6 @@ static int odroidx2_audio_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-static const struct of_device_id odroidx2_audio_of_match[] = {
-	{ .compatible = "samsung,odroidx2-audio", },
-	{ .compatible = "samsung,odroidu3-audio", },
-	{ },
-};
-MODULE_DEVICE_TABLE(of, odroid_audio_of_match);
 
 static struct platform_driver odroidx2_audio_driver = {
 	.driver = {
