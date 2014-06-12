@@ -81,9 +81,6 @@ static int odroidx2_audio_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	struct snd_soc_card *card = &odroidx2;
 
-	if (!np)
-		return -ENODEV;
-
 	card->dev = &pdev->dev;
 
 	odroidx2_dai[0].codec_of_node = of_parse_phandle(np,
