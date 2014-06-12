@@ -86,7 +86,6 @@ static int odroidx2_audio_probe(struct platform_device *pdev)
 
 	card->dev = &pdev->dev;
 
-	odroidx2_dai[0].codec_name = NULL;
 	odroidx2_dai[0].codec_of_node = of_parse_phandle(np,
 						"samsung,audio-codec", 0);
 	if (!odroidx2_dai[0].codec_of_node) {
@@ -95,7 +94,6 @@ static int odroidx2_audio_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	odroidx2_dai[0].cpu_name = NULL;
 	odroidx2_dai[0].cpu_of_node = of_parse_phandle(np,
 						"samsung,i2s-controller", 0);
 	if (!odroidx2_dai[0].cpu_of_node) {
@@ -107,7 +105,6 @@ static int odroidx2_audio_probe(struct platform_device *pdev)
 	odroidx2_dai[0].platform_of_node = odroidx2_dai[0].cpu_of_node;
 
 	/* Configure the secondary audio interface with the same codec dai */
-	odroidx2_dai[1].codec_name = NULL;
 	odroidx2_dai[1].codec_of_node = odroidx2_dai[0].codec_of_node;
 
 	return snd_soc_register_card(card);
