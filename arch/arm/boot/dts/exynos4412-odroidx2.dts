@@ -81,3 +81,12 @@
 		status = "okay";
 	};
 };
+
+&sound {
+	samsung,model = "Odroid-X2";
+	samsung,audio-routing =
+		"Headphone Jack", "HPL",
+		"Headphone Jack", "HPR",
+		"IN1", "Mic Jack",
+		"Mic Jack", "MICBIAS";
+};
