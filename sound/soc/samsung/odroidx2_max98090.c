@@ -38,12 +38,9 @@ static int odroidx2_hw_params(struct snd_pcm_substream *substream,
 	if (ret < 0)
 		return ret;
 
-	dev_info(codec_dai->dev,
-		"HiFi DAI %s params ch %d, rate %d as i2s slave\n",
-		((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ?
-						"playback" : "capture"),
-						params_channels(params),
-						params_rate(params));
+	dev_dbg(codec_dai->dev, "HiFi DAI %s params: channels: %d, rate: %d\n",
+		snd_pcm_stream_str(substream), params_channels(params),
+		params_rate(params));
 
 	return 0;
 }
