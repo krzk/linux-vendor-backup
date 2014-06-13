@@ -1925,6 +1925,7 @@ static struct exynos_drm_display_ops hdmi_display_ops = {
 	.create_connector = hdmi_create_connector,
 	.mode_fixup	= hdmi_mode_fixup,
 	.mode_set	= hdmi_mode_set,
+	.dpms		= hdmi_dpms,
 	.commit		= hdmi_commit,
 };
 
@@ -1932,11 +1933,6 @@ static struct exynos_drm_display hdmi_display = {
 	.type = EXYNOS_DISPLAY_TYPE_HDMI,
 	.ops = &hdmi_display_ops,
 };
-
-void hdmi_dpms_from_mixer(int mode)
-{
-	hdmi_dpms(&hdmi_display, mode);
-}
 
 static irqreturn_t hdmi_irq_thread(int irq, void *arg)
 {
