@@ -122,6 +122,16 @@ static inline int samsung_dmadev_flush(unsigned ch)
 	return dmaengine_terminate_all((struct dma_chan *)ch);
 }
 
+static inline int samsung_dmadev_pause(unsigned ch)
+{
+	return dmaengine_pause((struct dma_chan *)ch);
+}
+
+static inline int samsung_dmadev_resume(unsigned ch)
+{
+	return dmaengine_resume((struct dma_chan *)ch);
+}
+
 static struct samsung_dma_ops dmadev_ops = {
 	.request	= samsung_dmadev_request,
 	.release	= samsung_dmadev_release,
@@ -131,6 +141,8 @@ static struct samsung_dma_ops dmadev_ops = {
 	.started	= NULL,
 	.flush		= samsung_dmadev_flush,
 	.stop		= samsung_dmadev_flush,
+	.pause		= samsung_dmadev_pause,
+	.resume		= samsung_dmadev_resume,
 };
 
 void *samsung_dmadev_get_ops(void)
