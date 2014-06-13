@@ -2416,6 +2416,12 @@ static int pl330_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd, unsigned 
 				pch->burst_len = slave_config->src_maxburst;
 		}
 		break;
+	case DMA_PAUSE:
+		/* TODO: set up dma channel and config register if any */
+		break;
+	case DMA_RESUME:
+		/* TODO: set up dma channel and config register if any */
+		break;
 	default:
 		dev_err(pch->dmac->pif.dev, "Not supported command.\n");
 		return -ENXIO;
