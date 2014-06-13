@@ -36,6 +36,10 @@
 #define VPLL_CON0		0x10140
 #define DPLL_LOCK		0x10030
 #define DPLL_CON0		0x10128
+#define EPLL_LOCK		0x10040
+#define EPLL_CON0		0x10130
+#define IPLL_LOCK		0x10060
+#define IPLL_CON0		0x10150
 
 #define SRC_CPU			0x200
 #define DIV_CPU0		0x500
@@ -77,7 +81,7 @@
 enum exynos5410_plls {
 	apll, cpll, mpll,
 	bpll, kpll, vpll,
-	dpll,
+	dpll, epll, ipll,
 	nr_plls			/* number of PLLs */
 };
 
@@ -125,6 +129,8 @@ PNAME(cpll_p)		= { "fin_pll", "fout_cpll" };
 PNAME(mpll_p)		= { "fin_pll", "fout_mpll", };
 PNAME(kpll_p)		= { "fin_pll", "fout_kpll", };
 PNAME(dpll_p)		= { "fin_pll", "fout_dpll", };
+PNAME(epll_p)		= { "fin_pll", "fout_epll", };
+PNAME(ipll_p)		= { "fin_pll", "fout_ipll", };
 
 PNAME(mout_cpu_p)	= { "mout_apll", "sclk_mpll", };
 PNAME(mout_kfc_p)	= { "mout_kpll", "sclk_mpll", };
@@ -214,7 +220,7 @@ static const struct samsung_pll_rate_table kpll_tbl[] = {
 
 
 /*
- * The Exynos 5410 VPLL Clock is actually an  PLL_2650,
+ * The Exynos 5410 VPLL Clock is actually an PLL_2650,
  * which is very similar to the PLL_36XX, except for the size
  * of MDIV field. This field should have 10 bits and not 9.
  * However, since the parameter MDIV for the table below
@@ -234,6 +240,29 @@ static const struct samsung_pll_rate_table vpll_tbl[] = {
 	PLL_36XX_RATE(177000000, 118, 2, 3, 0),
 	PLL_36XX_RATE(123500000, 330, 4, 4, 0),
 	PLL_36XX_RATE( 89000000, 178, 3, 4, 0)
+};
+
+
+
+static const struct samsung_pll_rate_table epll_tbl[] = {
+	/* sorted in descending order */
+	/* PLL_36XX_RATE(rate, m, p, s, k) */
+	PLL_36XX_RATE(600000000, 100, 2, 1,     0),
+	PLL_36XX_RATE(400000000, 200, 3, 2,     0),
+	PLL_36XX_RATE(200000000, 200, 3, 3,     0),
+	PLL_36XX_RATE(180633600, 301, 5, 3,  3670),
+	PLL_36XX_RATE( 67737600, 452, 5, 5, 27263),
+	PLL_36XX_RATE( 49152000, 197, 3, 5, 25690),
+	PLL_36XX_RATE( 45158400, 181, 3, 5, 24012),
+};
+
+
+static const struct samsung_pll_rate_table ipll_tbl[] = {
+	/* sorted in descending order */
+	/* PLL_35XX_RATE(rate, m, p, s, k) */
+	PLL_35XX_RATE(864000000, 288, 4, 1),
+	PLL_35XX_RATE(666000000, 222, 4, 1),
+	PLL_35XX_RATE(432000000, 288, 4, 2),
 };
 
 
@@ -263,6 +292,9 @@ static struct samsung_mux_clock exynos5410_mux_clks[] __initdata = {
 	MUX(0, "sclk_bpll", bpll_p, SRC_CDREX, 0, 1),
 	MUX(0, "sclk_bpll_muxed", bpll_user_p, SRC_TOP2, 24, 1),
 	MUX_A(0, "sclk_vpll", mout_vpll_p, SRC_TOP2, 16, 1, "sclk_vpll"),
+
+        MUX(0, "sclk_epll", epll_p, SRC_TOP2, 12, 1),
+        MUX(0, "sclk_ipll", ipll_p, SRC_TOP2, 14, 1),
 
 	MUX(0, "sclk_cpll", cpll_p, SRC_TOP2, 8, 1),
 	MUX_A(0, "sclk_dpll", dpll_p, SRC_TOP2, 10, 1, "sclk_dpll"),
@@ -417,9 +449,6 @@ static struct samsung_gate_clock exynos5410_gate_clks[] __initdata = {
 	GATE(CLK_PWM, "pwm", "aclk66", GATE_IP_PERIC, 24, 0, 0),
 };
 
-/* Added the rate tables, and changed PLL to 'pll_36xx' instead of
- * 'pll_35xx'.
- */
 static struct samsung_pll_clock exynos5410_plls[nr_plls] __initdata = {
 	[apll] = PLL(pll_35xx, CLK_FOUT_APLL, "fout_apll", "fin_pll", APLL_LOCK,
 		APLL_CON0, apll_tbl),
@@ -435,6 +464,10 @@ static struct samsung_pll_clock exynos5410_plls[nr_plls] __initdata = {
 		VPLL_LOCK, VPLL_CON0, vpll_tbl),
 	[dpll] = PLL(pll_35xx, CLK_FOUT_DPLL, "fout_dpll", "fin_pll", DPLL_LOCK,
 		DPLL_CON0, dpll_tbl),
+	[epll] = PLL(pll_36xx, CLK_FOUT_EPLL, "fout_epll", "fin_pll", EPLL_LOCK,
+		EPLL_CON0, epll_tbl),
+	[ipll] = PLL(pll_35xx, CLK_FOUT_IPLL, "fout_ipll", "fin_pll", IPLL_LOCK,
+		IPLL_CON0, ipll_tbl),
 };
 
 
