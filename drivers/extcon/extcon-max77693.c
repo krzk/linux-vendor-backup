@@ -28,6 +28,7 @@
 #include <linux/extcon.h>
 #include <linux/regmap.h>
 #include <linux/irqdomain.h>
+#include <linux/delay.h>
 
 #define	DEV_NAME			"max77693-muic"
 #define	DELAY_MS_DEFAULT		20000		/* unit: millisecond */
@@ -600,6 +601,75 @@ static int max77693_muic_dock_button_handler(struct max77693_muic_info *info,
 	return 0;
 }
 
+void max77693_otg_control(struct max77693_muic_info *info, int enable)
+{
+	static u8 chg_int_state;
+	u8 int_mask, cdetctrl1, chg_cnfg_00;
+	dev_dbg(info->dev, "%s: enable(%d)\n", __func__, enable);
+
+	if (enable) {
+		/* disable charger interrupt */
+		max77693_read_reg(info->max77693->regmap,
+			MAX77693_CHG_REG_CHG_INT_MASK, &int_mask);
+		chg_int_state = int_mask;
+		int_mask |= (1 << 4);	/* disable chgin intr */
+		int_mask |= (1 << 6);	/* disable chg */
+		int_mask &= ~(1 << 0);	/* enable byp intr */
+		max77693_write_reg(info->max77693->regmap,
+			MAX77693_CHG_REG_CHG_INT_MASK, int_mask);
+
+		/* disable charger detection */
+		max77693_read_reg(info->max77693->regmap_muic,
+			MAX77693_MUIC_REG_CDETCTRL1, &cdetctrl1);
+		cdetctrl1 &= ~(1 << 0);
+		max77693_write_reg(info->max77693->regmap_muic,
+			MAX77693_MUIC_REG_CDETCTRL1, cdetctrl1);
+
+		/* OTG on, boost on, DIS_MUIC_CTRL=1 */
+		max77693_read_reg(info->max77693->regmap,
+			MAX77693_CHG_REG_CHG_CNFG_00, &chg_cnfg_00);
+		chg_cnfg_00 &= ~(CHG_CNFG_00_CHG_MASK
+				| CHG_CNFG_00_OTG_MASK
+				| CHG_CNFG_00_BUCK_MASK
+				| CHG_CNFG_00_BOOST_MASK
+				| CHG_CNFG_00_DIS_MUIC_CTRL_MASK);
+		chg_cnfg_00 |= (CHG_CNFG_00_OTG_MASK
+				| CHG_CNFG_00_BOOST_MASK
+				| CHG_CNFG_00_DIS_MUIC_CTRL_MASK);
+		max77693_write_reg(info->max77693->regmap,
+			MAX77693_CHG_REG_CHG_CNFG_00, chg_cnfg_00);
+	} else {
+		/* OTG off, boost off, (buck on),
+		   DIS_MUIC_CTRL = 0 unless CHG_ENA = 1 */
+		max77693_read_reg(info->max77693->regmap,
+			MAX77693_CHG_REG_CHG_CNFG_00, &chg_cnfg_00);
+		chg_cnfg_00 &= ~(CHG_CNFG_00_OTG_MASK
+				| CHG_CNFG_00_BOOST_MASK
+				| CHG_CNFG_00_DIS_MUIC_CTRL_MASK);
+		chg_cnfg_00 |= CHG_CNFG_00_BUCK_MASK;
+		max77693_write_reg(info->max77693->regmap,
+			MAX77693_CHG_REG_CHG_CNFG_00, chg_cnfg_00);
+
+		msleep(50);
+
+		/* enable charger detection */
+		max77693_read_reg(info->max77693->regmap_muic,
+			MAX77693_MUIC_REG_CDETCTRL1, &cdetctrl1);
+		cdetctrl1 |= (1 << 0);
+		max77693_write_reg(info->max77693->regmap_muic,
+			MAX77693_MUIC_REG_CDETCTRL1, cdetctrl1);
+
+		/* enable charger interrupt */
+		max77693_write_reg(info->max77693->regmap,
+			MAX77693_CHG_REG_CHG_INT_MASK, chg_int_state);
+		max77693_read_reg(info->max77693->regmap,
+			MAX77693_CHG_REG_CHG_INT_MASK, &int_mask);
+	}
+
+	dev_dbg(info->dev, "%s: INT_MASK(0x%x), CDETCTRL1(0x%x), CHG_CNFG_00(0x%x)\n",
+				__func__, int_mask, cdetctrl1, chg_cnfg_00);
+}
+
 static int max77693_muic_adc_ground_handler(struct max77693_muic_info *info)
 {
 	int cable_type_gnd;
@@ -617,6 +687,7 @@ static int max77693_muic_adc_ground_handler(struct max77693_muic_info *info)
 		if (ret < 0)
 			return ret;
 		extcon_set_cable_state(info->edev, "USB-Host", attached);
+		max77693_otg_control(info, attached);
 		break;
 	case MAX77693_MUIC_GND_AV_CABLE_LOAD:
 		/* Audio Video Cable with load, PATH:AUDIO */
