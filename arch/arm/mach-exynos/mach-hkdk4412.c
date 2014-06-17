@@ -424,7 +424,7 @@ static void __init hkdk4412_usbswitch_init(void)
 	}
 
 	s3c_gpio_cfgpin(pdata->gpio_host_detect, S3C_GPIO_SFN(0xF));
-	s3c_gpio_setpull(pdata->gpio_host_detect, S3C_GPIO_PULL_NONE);
+	s3c_gpio_setpull(pdata->gpio_host_detect, S3C_GPIO_PULL_UP);
 	gpio_free(pdata->gpio_host_detect);
 
 	pdata->gpio_device_detect = EXYNOS4_GPX1(6); /* high active */
@@ -435,7 +435,7 @@ static void __init hkdk4412_usbswitch_init(void)
 	}
 
 	s3c_gpio_cfgpin(pdata->gpio_device_detect, S3C_GPIO_SFN(0xF));
-	s3c_gpio_setpull(pdata->gpio_device_detect, S3C_GPIO_PULL_NONE);
+	s3c_gpio_setpull(pdata->gpio_device_detect, S3C_GPIO_PULL_DOWN);
 	gpio_free(pdata->gpio_device_detect);
 
 	pdata->gpio_host_vbus = EXYNOS4_GPL2(0);
