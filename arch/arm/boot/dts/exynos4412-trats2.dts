@@ -1133,6 +1133,13 @@
 		extcon = <&max_muic>;
 	};
 
+	ohci@12590000 {
+		status = "okay";
+		port@0 {
+			status = "okay";
+		};
+	};
+
 	ehci@12580000 {
 		status = "okay";
 		vusb_d-supply = <&ldo15_reg>;
