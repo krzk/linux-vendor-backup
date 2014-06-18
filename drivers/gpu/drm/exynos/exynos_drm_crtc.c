@@ -614,3 +614,14 @@ void exynos_drm_crtc_complete_scanout(struct drm_framebuffer *fb)
 			manager->ops->wait_for_vblank(manager);
 	}
 }
+
+int exynos_drm_crtc_te_handler(struct drm_crtc *crtc)
+{
+	struct exynos_drm_manager *manager = to_exynos_crtc(crtc)->manager;
+	int ret = 0;
+
+	if (manager->ops->te_handler)
+		ret = manager->ops->te_handler(manager);
+
+	return ret;
+}
