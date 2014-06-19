@@ -380,7 +380,8 @@ static struct samsung_div_clock exynos5410_div_clks[] __initdata = {
 	DIV_A(0, "div_aclk300_disp1", "sclk_dpll", DIV_TOP2, 16, 3,
 		"daclk300disp1"),
 	DIV(0, "div_aclk300_jpeg", "sclk_dpll", DIV_TOP2, 17, 3),
-	DIV(0, "div_hdmi_pixel", "sclk_vpll", DIV_DISP1_0, 28, 4),
+	DIV(CLK_DIV_HDMI_PIXEL, "div_hdmi_pixel", "sclk_vpll",
+		DIV_DISP1_0, 28, 4),
 	DIV(0, "div_fimd1", "mout_fimd1", DIV_DISP1_0, 0, 4),
 };
 

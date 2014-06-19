@@ -540,4 +540,9 @@
 		status = "okay";
 	};
 
+	hdmiphy@145D0000 {
+		compatible = "samsung,exynos5410-odroidxu-hdmiphy";
+	};
+
+
 };

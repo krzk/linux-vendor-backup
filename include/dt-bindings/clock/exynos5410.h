@@ -68,6 +68,9 @@
 #define CLK_SMMU_MFCR 403
 #define CLK_PWM 404
 
+/* Div clocks */
+#define CLK_DIV_HDMI_PIXEL 450
+
 /* mux clocks */
 #define CLK_MOUT_HDMI 500
 #define CLK_NR_CLKS 512

@@ -83,7 +83,7 @@ enum hdmi_type {
 struct hdmi_resources {
 	struct clk			*hdmi;
 	struct clk			*sclk_hdmi;
-	struct clk			*sclk_pixel;
+	struct clk			*div_hdmi_pixel;
 	struct clk			*sclk_hdmiphy;
 	struct clk			*mout_hdmi;
 	struct regulator_bulk_data	*regul_bulk;
@@ -1128,7 +1128,7 @@ static void hdmiphy_conf_reset(struct hdmi_context *hdata)
 	u32 reg;
 
 	clk_disable_unprepare(hdata->res.sclk_hdmi);
-	clk_set_parent(hdata->res.mout_hdmi, hdata->res.sclk_pixel);
+	clk_set_parent(hdata->res.mout_hdmi, hdata->res.div_hdmi_pixel);
 	clk_prepare_enable(hdata->res.sclk_hdmi);
 
 	hdata->phy_ops->enable(hdata->phy_dev, 0);
@@ -1576,9 +1576,9 @@ static int hdmi_resources_init(struct hdmi_context *hdata)
 		DRM_ERROR("failed to get clock 'sclk_hdmi'\n");
 		goto fail;
 	}
-	res->sclk_pixel = devm_clk_get(dev, "sclk_pixel");
-	if (IS_ERR(res->sclk_pixel)) {
-		DRM_ERROR("failed to get clock 'sclk_pixel'\n");
+	res->div_hdmi_pixel = devm_clk_get(dev, "div_hdmi_pixel");
+	if (IS_ERR(res->div_hdmi_pixel)) {
+		DRM_ERROR("failed to get clock 'div_hdmi_pixel'\n");
 		goto fail;
 	}
 	res->sclk_hdmiphy = devm_clk_get(dev, "sclk_hdmiphy");
@@ -1592,7 +1592,7 @@ static int hdmi_resources_init(struct hdmi_context *hdata)
 		goto fail;
 	}
 
-	clk_set_parent(res->mout_hdmi, res->sclk_pixel);
+	clk_set_parent(res->mout_hdmi, res->div_hdmi_pixel);
 #if 0
 	res->regul_bulk = devm_kzalloc(dev, ARRAY_SIZE(supply) *
 		sizeof(res->regul_bulk[0]), GFP_KERNEL);
@@ -1898,7 +1898,7 @@ err_ddc:
 err_clk_res:
 	clk_unprepare(hdata->res.hdmi);
 	clk_unprepare(hdata->res.sclk_hdmi);
-	clk_unprepare(hdata->res.sclk_pixel);
+	clk_unprepare(hdata->res.div_hdmi_pixel);
 	clk_unprepare(hdata->res.sclk_hdmiphy);
 	return ret;
 }
@@ -1922,7 +1922,7 @@ static int hdmi_remove(struct platform_device *pdev)
 
 	clk_unprepare(hdata->res.hdmi);
 	clk_unprepare(hdata->res.sclk_hdmi);
-	clk_unprepare(hdata->res.sclk_pixel);
+	clk_unprepare(hdata->res.div_hdmi_pixel);
 	clk_unprepare(hdata->res.sclk_hdmiphy);
 	return 0;
 }
