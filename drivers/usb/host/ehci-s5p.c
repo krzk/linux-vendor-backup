@@ -424,7 +424,7 @@ static int s5p_ehci_resume(struct device *dev)
 	/* DMA burst Enable */
 	writel(EHCI_INSNREG00_ENABLE_DMA_BURST, EHCI_INSNREG00(hcd->regs));
 
-	ehci_resume(hcd, false);
+	ehci_resume(hcd, true);
 	return 0;
 }
 #else
