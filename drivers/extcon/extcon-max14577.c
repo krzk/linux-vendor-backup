@@ -228,7 +228,7 @@ static int max14577_muic_set_path(struct max14577_muic_info *info,
 	/* Set open state to path before changing hw path */
 	ret = max14577_update_reg(info->max14577->regmap,
 				MAX14577_MUIC_REG_CONTROL1,
-				CLEAR_IDBEN_MICEN_MASK, CTRL1_SW_OPEN);
+				CLEAR_IDBEN_MICEN_MASK, CTRL1_SW_UART);
 	if (ret < 0) {
 		dev_err(info->dev, "failed to update MUIC register\n");
 		return ret;
@@ -237,7 +237,7 @@ static int max14577_muic_set_path(struct max14577_muic_info *info,
 	if (attached)
 		ctrl1 = val;
 	else
-		ctrl1 = CTRL1_SW_OPEN;
+		ctrl1 = CTRL1_SW_UART;
 
 	ret = max14577_update_reg(info->max14577->regmap,
 				MAX14577_MUIC_REG_CONTROL1,
@@ -350,7 +350,7 @@ static int max14577_muic_jig_handler(struct max14577_muic_info *info,
 {
 	char cable_name[32];
 	int ret = 0;
-	u8 path = CTRL1_SW_OPEN;
+	u8 path = CTRL1_SW_UART;
 
 	dev_dbg(info->dev,
 		"external connector is %s (adc:0x%02x)\n",
