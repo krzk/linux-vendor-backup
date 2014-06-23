@@ -80,6 +80,7 @@ static int odroidx2_audio_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
 	struct snd_soc_card *card = &odroidx2;
+	int ret;
 
 	card->dev = &pdev->dev;
 
@@ -96,7 +97,8 @@ static int odroidx2_audio_probe(struct platform_device *pdev)
 	if (!odroidx2_dai[0].cpu_of_node) {
 		dev_err(&pdev->dev,
 			"Property 'samsung,i2s-controller' missing or invalid\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto err_put_cod_n;
 	}
 
 	odroidx2_dai[0].platform_of_node = odroidx2_dai[0].cpu_of_node;
@@ -104,7 +106,19 @@ static int odroidx2_audio_probe(struct platform_device *pdev)
 	/* Configure the secondary audio interface with the same codec dai */
 	odroidx2_dai[1].codec_of_node = odroidx2_dai[0].codec_of_node;
 
-	return snd_soc_register_card(card);
+	ret = snd_soc_register_card(card);
+	if (ret) {
+		dev_err(&pdev->dev, "snd_soc_register_card failed: %d\n", ret);
+		goto err_put_cpu_n;
+	}
+
+	return 0;
+
+err_put_cpu_n:
+	of_node_put((struct device_node *)odroidx2_dai[0].cpu_of_node);
+err_put_cod_n:
+	of_node_put((struct device_node *)odroidx2_dai[0].codec_of_node);
+	return ret;
 }
 
 static int odroidx2_audio_remove(struct platform_device *pdev)
@@ -112,6 +126,9 @@ static int odroidx2_audio_remove(struct platform_device *pdev)
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 
 	snd_soc_unregister_card(card);
+
+	of_node_put((struct device_node *)odroidx2_dai[0].cpu_of_node);
+	of_node_put((struct device_node *)odroidx2_dai[0].codec_of_node);
 
 	return 0;
 }
