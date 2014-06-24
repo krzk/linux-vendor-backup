@@ -429,6 +429,10 @@ enum pl330_chan_op {
 	PL330_OP_ABORT,
 	/* Stop xfer and flush queue */
 	PL330_OP_FLUSH,
+	/* Pause xfer and halt channel */
+	PL330_OP_PAUSE,
+	/* Resume xfer and restart channel */
+	PL330_OP_RESUME,
 };
 
 struct _xfer_spec {
