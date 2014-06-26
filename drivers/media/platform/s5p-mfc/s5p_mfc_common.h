@@ -563,6 +563,8 @@ struct s5p_mfc_ctx {
 
 	int luma_size;
 	int chroma_size;
+	int luma_size_to_report;
+	int chroma_size_to_report;
 	int mv_size;
 
 	unsigned long consumed_stream;
