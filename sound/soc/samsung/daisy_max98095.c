@@ -49,9 +49,9 @@
 
 /* Audio clock settings are belonged to board specific part. Every
  * board can set audio source clock setting which is matched with H/W
- * like this function-'set_audio_clock_heirachy'.
+ * like this function-'set_audio_clock_hierarchy'.
  */
-static int set_audio_clock_heirachy(struct platform_device *pdev)
+static int set_audio_clock_hierarchy(struct platform_device *pdev)
 {
 	struct clk *fout_epll, *sclk_epll, *mout_audio0, *sclk_audio0;
 	struct clk *mout_audss, *mout_i2s;
@@ -678,7 +678,7 @@ static int daisy_max98095_driver_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = set_audio_clock_heirachy(pdev);
+	ret = set_audio_clock_hierarchy(pdev);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to set up clock hierarchy (%d)\n",
 			ret);
