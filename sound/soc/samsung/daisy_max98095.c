@@ -33,8 +33,6 @@
 #include <sound/jack.h>
 #include <sound/max98095.h>
 
-#include <mach/gpio.h>
-
 #include "i2s.h"
 #include "s3c-i2s-v2.h"
 #include "../codecs/max98095.h"
