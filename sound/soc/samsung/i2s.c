@@ -22,6 +22,7 @@
 
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
+#include <sound/dmaengine_pcm.h>
 
 #include <mach/dma.h>
 
@@ -88,6 +89,8 @@ struct i2s_dai {
 	/* Driver for this DAI */
 	struct snd_soc_dai_driver i2s_dai_drv;
 	/* DMA parameters */
+	struct snd_dmaengine_dai_dma_data snd_dma_playback;
+	struct snd_dmaengine_dai_dma_data snd_dma_capture;
 	struct s3c_dma_params dma_playback;
 	struct s3c_dma_params dma_capture;
 	struct s3c_dma_params idma_playback;
