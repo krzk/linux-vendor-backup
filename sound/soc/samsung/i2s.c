@@ -603,16 +603,19 @@ static int i2s_hw_params(struct snd_pcm_substream *substream,
 		break;
 	case 2:
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-			i2s->dma_playback.dma_size = 4;
+			i2s->snd_dma_playback.addr_width =
+					DMA_SLAVE_BUSWIDTH_4_BYTES;
 		else
-			i2s->dma_capture.dma_size = 4;
+			i2s->snd_dma_capture.addr_width =
+					DMA_SLAVE_BUSWIDTH_4_BYTES;
 		break;
 	case 1:
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-			i2s->dma_playback.dma_size = 2;
+			i2s->snd_dma_playback.addr_width =
+					DMA_SLAVE_BUSWIDTH_2_BYTES;
 		else
-			i2s->dma_capture.dma_size = 2;
-
+			i2s->snd_dma_capture.addr_width =
+					DMA_SLAVE_BUSWIDTH_2_BYTES;
 		break;
 	default:
 		dev_err(&i2s->pdev->dev, "%d channels not supported\n",
@@ -662,10 +665,10 @@ static int i2s_hw_params(struct snd_pcm_substream *substream,
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		snd_soc_dai_set_dma_data(dai, substream,
-			(void *)&i2s->dma_playback);
+			(void *)&i2s->snd_dma_playback);
 	else
 		snd_soc_dai_set_dma_data(dai, substream,
-			(void *)&i2s->dma_capture);
+			(void *)&i2s->snd_dma_capture);
 
 	i2s->frmclk = params_rate(params);
 
@@ -1248,16 +1251,14 @@ static int samsung_i2s_probe(struct platform_device *pdev)
 	}
 	regs_base = res->start;
 
-	pri_dai->dma_playback.dma_addr = regs_base + I2STXD;
-	pri_dai->dma_capture.dma_addr = regs_base + I2SRXD;
-	pri_dai->dma_playback.client =
-		(struct s3c2410_dma_client *)&pri_dai->dma_playback;
-	pri_dai->dma_playback.ch_name = "tx";
-	pri_dai->dma_capture.client =
-		(struct s3c2410_dma_client *)&pri_dai->dma_capture;
-	pri_dai->dma_capture.ch_name = "rx";
-	pri_dai->dma_playback.dma_size = 4;
-	pri_dai->dma_capture.dma_size = 4;
+	pri_dai->snd_dma_playback.addr = regs_base + I2STXD;
+	pri_dai->snd_dma_playback.addr_width =
+			DMA_SLAVE_BUSWIDTH_4_BYTES; /* Default address width */
+	pri_dai->snd_dma_playback.maxburst = 1;
+	pri_dai->snd_dma_capture.addr = regs_base + I2SRXD;
+	pri_dai->snd_dma_capture.addr_width =
+			DMA_SLAVE_BUSWIDTH_4_BYTES; /* Default address width */
+	pri_dai->snd_dma_capture.maxburst = 1;
 	pri_dai->base = regs_base;
 	pri_dai->quirks = quirks;
 	pri_dai->op_clk = ERR_PTR(-EINVAL);
