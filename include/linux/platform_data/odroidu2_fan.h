@@ -23,6 +23,7 @@ struct odroid_fan_platform_data {
 	unsigned short pwm_periode_ns;
 	unsigned short pwm_duty;
 	unsigned short pwm_start_temp;
+	unsigned short pwm_start_duty;
 };
 
 #endif /* __LINUX_ODROID_FAN_H */

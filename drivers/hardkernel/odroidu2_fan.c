@@ -47,6 +47,7 @@ struct odroid_fan {
 	int period;
 	int duty;
 	int start_temp;
+	int start_duty;
 	int pwm_id;
 };
 
@@ -67,6 +68,10 @@ static	ssize_t set_start_temp	(struct device *dev, struct device_attribute *attr
 static	ssize_t show_start_temp	(struct device *dev, struct device_attribute *attr, char *buf);
 static	DEVICE_ATTR(start_temp, S_IRWXUGO, show_start_temp, set_start_temp);
 
+static	ssize_t set_start_duty	(struct device *dev, struct device_attribute *attr, const char *buf, size_t count);
+static	ssize_t show_start_duty	(struct device *dev, struct device_attribute *attr, char *buf);
+static	DEVICE_ATTR(start_duty, S_IRWXUGO, show_start_duty, set_start_duty);
+
 static	ssize_t set_fan_mode	(struct device *dev, struct device_attribute *attr, const char *buf, size_t count);
 static	ssize_t show_fan_mode	(struct device *dev, struct device_attribute *attr, char *buf);
 static	DEVICE_ATTR(fan_mode, S_IRWXUGO, show_fan_mode, set_fan_mode);
@@ -76,6 +81,7 @@ static struct attribute *odroid_fan_sysfs_entries[] = {
 	&dev_attr_pwm_enable.attr,
 	&dev_attr_pwm_duty.attr,
 	&dev_attr_start_temp.attr,
+	&dev_attr_start_duty.attr,
 	&dev_attr_fan_mode.attr,
 	NULL
 };
@@ -236,6 +242,33 @@ static	ssize_t show_start_temp	(struct device *dev, struct device_attribute *att
 }
 
 
+//[*]------------------------------------------------------------------------------------------------------------------
+//[*]------------------------------------------------------------------------------------------------------------------
+static	ssize_t set_start_duty	(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct odroid_fan *fan = dev_get_drvdata(dev);
+	unsigned int	val;
+
+	if(!(sscanf(buf, "%u\n", &val)))
+		return	-EINVAL;
+	
+	if((val > 256)||(val < 0)){
+		printk("PWM_0 : Invalid param. Starting duty range is 0 to 255 \n");
+		return count;
+	}
+
+	fan->start_duty = val;
+	return count;
+}
+
+static	ssize_t show_start_duty	(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct odroid_fan *fan = dev_get_drvdata(dev);
+
+	return	sprintf(buf, "PWM_0 : Fan starting duty -> %d \n", fan->start_duty);
+}
+
+
 //[*]--------------------------------------------------------------------------------------------------[*]
 //[*]--------------------------------------------------------------------------------------------------[*]
 static int	odroid_fan_resume(struct platform_device *dev)
@@ -271,6 +304,10 @@ void odroid_work(struct work_struct *work)
 		pwm_disable(fan->pwm);
 		pwm_config(fan->pwm, 1, fan->period);
 		pwm_enable(fan->pwm);
+		/* Set duty to zero.
+		 * Otherwise it will stay at the last set entry.
+		 */
+		fan->duty = 0;
 		mutex_unlock(&fan->mutex);
 		queue_delayed_work_on(0, fan->wq, &fan->work, usecs_to_jiffies(1500 * 1000));
 		return;
@@ -281,7 +318,14 @@ void odroid_work(struct work_struct *work)
 	 */
 	fan->duty = 255 * (temperature - fan->start_temp) / (FAN_TEMP_THROTTLE - fan->start_temp);
 	
-	
+	/* Check if duty is lower than start_duty.
+	 * If yes, set it to start_duty.
+	 * Lets the user set an at least value for duty.
+	 */
+	if(fan->duty < fan->start_duty) {
+		fan->duty = fan->start_duty;
+	}
+
 	if(fan->pwm_status) {
 		pwm_disable(fan->pwm);
 		pwm_config(fan->pwm, fan->duty * fan->period / 255, fan->period);
