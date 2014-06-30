@@ -1026,7 +1026,7 @@ static int samsung_i2s_dai_remove(struct snd_soc_dai *dai)
 		if (i2s->quirks & QUIRK_NEED_RSTCLR)
 			writel(0, i2s->addr + I2SCON);
 
-		if (!IS_ERR(i2s->op_clk)){
+		if (!IS_ERR(i2s->op_clk)) {
 			clk_disable_unprepare(i2s->op_clk);
 			clk_put(i2s->op_clk);
 		}
@@ -1218,8 +1218,7 @@ static int samsung_i2s_probe(struct platform_device *pdev)
 		if (of_property_read_u32(np, "samsung,idma-addr",
 					 &idma_addr)) {
 			if (quirks & QUIRK_SEC_DAI) {
-				dev_err(&pdev->dev, "idma address is not"\
-						"specified");
+				dev_err(&pdev->dev, "idma address is not specified");
 				return -EINVAL;
 			}
 		}
