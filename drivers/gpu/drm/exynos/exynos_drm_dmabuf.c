@@ -238,8 +238,8 @@ struct dma_buf *exynos_dmabuf_prime_export(struct drm_device *drm_dev,
 
 	flags |= O_RDWR;
 
-	return dma_buf_export(exynos_gem_obj, &exynos_dmabuf_ops,
-				exynos_gem_obj->base.size, flags);
+	return dma_buf_export(obj, &exynos_dmabuf_ops,
+				exynos_gem_obj->base.size, flags, NULL);
 }
 
 struct drm_gem_object *exynos_dmabuf_prime_import(struct drm_device *drm_dev,
