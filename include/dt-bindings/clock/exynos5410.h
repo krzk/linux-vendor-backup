@@ -36,6 +36,7 @@
 #define CLK_SCLK_USBD301 151
 #define CLK_SCLK_USBPHY300 152
 #define CLK_SCLK_USBPHY301 153
+#define CLK_SCLK_EPLL 154
 
 /* gate clocks */
 #define CLK_UART0 257
@@ -51,6 +52,8 @@
 #define CLK_I2C6 267
 #define CLK_I2C7 268
 #define CLK_I2C_HDMI 269
+#define CLK_I2S1 270
+#define CLK_I2S2 271
 
 #define CLK_PDMA0 275
 #define CLK_PDMA1 276
@@ -88,6 +91,7 @@
 
 /* mux clocks */
 #define CLK_MOUT_HDMI 500
+#define CLK_MOUT_AUDIO0 501
 #define CLK_NR_CLKS 512
 
 #endif /* _DT_BINDINGS_CLOCK_EXYNOS_5410_H */

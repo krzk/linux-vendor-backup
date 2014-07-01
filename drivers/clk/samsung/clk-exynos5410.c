@@ -335,7 +335,7 @@ static struct samsung_mux_clock exynos5410_mux_clks[] __initdata = {
 	MUX(0, "sclk_bpll_muxed", bpll_user_p, SRC_TOP2, 24, 1),
 	MUX_A(0, "sclk_vpll", mout_vpll_p, SRC_TOP2, 16, 1, "sclk_vpll"),
 
-        MUX(0, "sclk_epll", epll_p, SRC_TOP2, 12, 1),
+        MUX(CLK_SCLK_EPLL, "sclk_epll", epll_p, SRC_TOP2, 12, 1),
         MUX(0, "sclk_ipll", ipll_p, SRC_TOP2, 14, 1),
 
 	MUX(0, "sclk_cpll", cpll_p, SRC_TOP2, 8, 1),
@@ -358,7 +358,7 @@ static struct samsung_mux_clock exynos5410_mux_clks[] __initdata = {
 	MUX(0, "mout_uart2", group2_p, SRC_PERIC0, 8, 4),
 
 	MUX(0, "mout_spdif", spdif_p, SRC_PERIC0, 8, 2),
-	MUX(0, "mout_audio0", audio0_p, SRC_PERIC1, 12, 4),
+	MUX(CLK_MOUT_AUDIO0, "mout_audio0", audio0_p, SRC_PERIC1, 12, 4),
 	MUX(0, "mout_audio1", audio1_p, SRC_PERIC1, 0, 4),
 	MUX(0, "mout_audio2", audio2_p, SRC_PERIC1, 4, 4),
 
@@ -396,7 +396,7 @@ static struct samsung_div_clock exynos5410_div_clks[] __initdata = {
 	DIV(0, "sclk_kpll", "mout_kpll", DIV_KFC0, 24, 3),
 
 	DIV(0, "aclk66_pre", "sclk_mpll_muxed", DIV_TOP1, 24, 3),
-	DIV(0, "aclk66", "aclk66_pre", DIV_TOP0, 0, 3),
+	DIV(0, "div_aclk66", "aclk66_pre", DIV_TOP0, 0, 3),
 
 	/* Audio Block */
 	DIV(0, "dout_maudio0", "mout_maudio0", DIV_MAU, 0, 4),
@@ -453,8 +453,8 @@ static struct samsung_div_clock exynos5410_div_clks[] __initdata = {
 };
 
 static struct samsung_gate_clock exynos5410_gate_clks[] __initdata = {
-	GATE(CLK_MCT, "mct", "aclk66", GATE_IP_PERIS, 18, 0, 0),
-	GATE(CLK_TMU_APBIF, "tmu_apbif", "aclk66",
+	GATE(CLK_MCT, "mct", "div_aclk66", GATE_IP_PERIS, 18, 0, 0),
+	GATE(CLK_TMU_APBIF, "tmu_apbif", "div_aclk66",
 		GATE_IP_PERIS, 21, CLK_IGNORE_UNUSED, 0),
 
 	GATE(CLK_SCLK_MMC0, "sclk_mmc0", "div_mmc_pre0",
@@ -486,19 +486,19 @@ static struct samsung_gate_clock exynos5410_gate_clks[] __initdata = {
 	GATE(CLK_MMC1, "sdmmc1", "div_aclk200", GATE_BUS_FSYS0, 13, 0, 0),
 	GATE(CLK_MMC2, "sdmmc2", "div_aclk200", GATE_BUS_FSYS0, 14, 0, 0),
 
-	GATE(CLK_UART0, "uart0", "aclk66", GATE_IP_PERIC, 0, 0, 0),
-	GATE(CLK_UART1, "uart1", "aclk66", GATE_IP_PERIC, 1, 0, 0),
-	GATE(CLK_UART2, "uart2", "aclk66", GATE_IP_PERIC, 2, 0, 0),
+	GATE(CLK_UART0, "uart0", "div_aclk66", GATE_IP_PERIC, 0, 0, 0),
+	GATE(CLK_UART1, "uart1", "div_aclk66", GATE_IP_PERIC, 1, 0, 0),
+	GATE(CLK_UART2, "uart2", "div_aclk66", GATE_IP_PERIC, 2, 0, 0),
 
-	GATE(CLK_I2C0, "i2c0", "aclk66", GATE_IP_PERIC, 6, 0, 0),
-	GATE(CLK_I2C1, "i2c1", "aclk66", GATE_IP_PERIC, 7, 0, 0),
-	GATE(CLK_I2C2, "i2c2", "aclk66", GATE_IP_PERIC, 8, 0, 0),
-	GATE(CLK_I2C3, "i2c3", "aclk66", GATE_IP_PERIC, 9, 0, 0),
-	GATE(CLK_I2C4, "i2c4", "aclk66", GATE_IP_PERIC, 10, 0, 0),
-	GATE(CLK_I2C5, "i2c5", "aclk66", GATE_IP_PERIC, 11, 0, 0),
-	GATE(CLK_I2C6, "i2c6", "aclk66", GATE_IP_PERIC, 12, 0, 0),
-	GATE(CLK_I2C7, "i2c7", "aclk66", GATE_IP_PERIC, 13, 0, 0),
-	GATE(CLK_I2C_HDMI, "i2c_hdmi", "aclk66", GATE_IP_PERIC, 14, 0, 0),
+	GATE(CLK_I2C0, "i2c0", "div_aclk66", GATE_IP_PERIC, 6, 0, 0),
+	GATE(CLK_I2C1, "i2c1", "div_aclk66", GATE_IP_PERIC, 7, 0, 0),
+	GATE(CLK_I2C2, "i2c2", "div_aclk66", GATE_IP_PERIC, 8, 0, 0),
+	GATE(CLK_I2C3, "i2c3", "div_aclk66", GATE_IP_PERIC, 9, 0, 0),
+	GATE(CLK_I2C4, "i2c4", "div_aclk66", GATE_IP_PERIC, 10, 0, 0),
+	GATE(CLK_I2C5, "i2c5", "div_aclk66", GATE_IP_PERIC, 11, 0, 0),
+	GATE(CLK_I2C6, "i2c6", "div_aclk66", GATE_IP_PERIC, 12, 0, 0),
+	GATE(CLK_I2C7, "i2c7", "div_aclk66", GATE_IP_PERIC, 13, 0, 0),
+	GATE(CLK_I2C_HDMI, "i2c_hdmi", "div_aclk66", GATE_IP_PERIC, 14, 0, 0),
 
 	/* Maudio Block */
 	/* Not even sure if this is correct for exynos5410. */
@@ -506,6 +506,9 @@ static struct samsung_gate_clock exynos5410_gate_clks[] __initdata = {
 		GATE_TOP_SCLK_MAU, 0, CLK_SET_RATE_PARENT, 0),
 	GATE(CLK_SCLK_MAUPCM0, "sclk_maupcm0", "dout_maupcm0",
 		GATE_TOP_SCLK_MAU, 1, CLK_SET_RATE_PARENT, 0),
+
+	GATE(CLK_I2S1, "i2s1", "div_aclk66", GATE_IP_PERIC, 20, 0, 0),
+	GATE(CLK_I2S2, "i2s2", "div_aclk66", GATE_IP_PERIC, 21, 0, 0),
 
 	/* Copied from exynos5420, but again this might also
 	 * be wrong.
@@ -533,7 +536,7 @@ static struct samsung_gate_clock exynos5410_gate_clks[] __initdata = {
 	GATE(CLK_DSIM1, "dsim1", "mout_aclk300_disp1", GATE_IP_DISP1, 3, 0, 0),
 	GATE(CLK_DP, "dp", "div_aclk200", GATE_IP_DISP1, 4, 0, 0),
 	GATE(CLK_MIXER, "mixer", "mout_aclk200_disp1", GATE_IP_DISP1, 5, 0, 0),
-	GATE(CLK_HDMI, "hdmi", "aclk66", GATE_IP_DISP1, 6, 0, 0),
+	GATE(CLK_HDMI, "hdmi", "div_aclk66", GATE_IP_DISP1, 6, 0, 0),
 	GATE(CLK_GSCL0, "gscl0", "mout_aclk300_disp1", GATE_IP_GSCL0, 0, 0, 0),
 	GATE(CLK_GSCL1, "gscl1", "mout_aclk300_disp1", GATE_IP_GSCL0, 1, 0, 0),
 	GATE(CLK_GSCL2, "gscl2", "mout_aclk300_disp1", GATE_IP_GSCL0, 1, 0, 0),
@@ -542,7 +545,7 @@ static struct samsung_gate_clock exynos5410_gate_clks[] __initdata = {
 	GATE(CLK_MFC, "mfc", "mout_aclk333_sub", GATE_IP_MFC, 0, 0, 0),
 	GATE(CLK_SMMU_MFCL, "smmu_mfcl", "mout_aclk333_sub", GATE_IP_MFC, 1, 0, 0),
 	GATE(CLK_SMMU_MFCR, "smmu_mfcr", "mout_aclk333_sub", GATE_IP_MFC, 2, 0, 0),
-	GATE(CLK_PWM, "pwm", "aclk66", GATE_IP_PERIC, 24, 0, 0),
+	GATE(CLK_PWM, "pwm", "div_aclk66", GATE_IP_PERIC, 24, 0, 0),
 };
 
 static struct samsung_pll_clock exynos5410_plls[nr_plls] __initdata = {

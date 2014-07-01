@@ -169,11 +169,11 @@
 		};
 	};
 
-	/* ic21 */
+	/* i2c1 */
 	i2c@12C70000 {
 		status = "okay";
 		clock-frequency = <400000>;
-		codec@10 {
+		max98090: codec@10 {
 			compatible = "maxim,max98090";
 			reg = <0x10>;
 			interrupts = <2 0>;
@@ -184,7 +184,7 @@
 		};
 	};
 
-	/* ic22 */
+	/* i2c2 */
 	i2c@12C80000 {
 		samsung,i2c-sda-delay = <100>;
 		samsung,i2c-max-bus-freq = <66000>;
@@ -542,6 +542,24 @@
 
 	hdmiphy@145D0000 {
 		compatible = "samsung,exynos5410-odroidxu-hdmiphy";
+	};
+
+
+	i2s@03830000 {
+		     status = "okay";
+	};
+
+	sound {
+		compatible = "google,daisy-audio-max98090";
+
+		samsung,i2s-controller = <&i2s0>;
+		samsung,audio-codec = <&max98090>;
+		card-name = "ODROID-I2S-98090";
+		clocks = <&clock CLK_FOUT_EPLL>, <&clock CLK_SCLK_EPLL>, <&clock CLK_MOUT_AUDIO0>,
+			<&clock CLK_SCLK_MAUDIO0>, <&clock_audss EXYNOS_MOUT_AUDSS>,
+			<&clock_audss EXYNOS_MOUT_I2S>;
+		clock-names = "fout_epll", "sclk_epll", "mout_audio0",
+			"sclk_audio0", "mout_audss", "mout_i2s";
 	};
 
 
