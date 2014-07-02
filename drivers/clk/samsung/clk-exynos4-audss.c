@@ -51,22 +51,36 @@ static struct clk_onecell_data clk_data;
 static void __iomem *io_base;
 static struct clk *clks[AUDSS_CLK_MAX];
 
+#ifdef CONFIG_PM_SLEEP
+static unsigned long reg_save[][2] = {
+	{ AUDSS_CLKSRC,  0 },
+	{ AUDSS_CLKDIV,  0 },
+	{ AUDSS_CLKGATE, 0 },
+};
+
 static int samsung_audss_clk_suspend(void)
 {
-	/* TODO: */
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(reg_save); i++)
+		reg_save[i][1] = readl(io_base + reg_save[i][0]);
+
 	return 0;
 }
 
 static void samsung_audss_clk_resume(void)
 {
-	/* TODO: */
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(reg_save); i++)
+		writel(reg_save[i][1], io_base + reg_save[i][0]);
 }
 
 static struct syscore_ops samsung_audss_clk_syscore_ops = {
 	.suspend = samsung_audss_clk_suspend,
 	.resume	 = samsung_audss_clk_resume,
 };
-
+#endif /* CONFIG_PM_SLEEP */
 
 #ifdef CONFIG_OF
 static struct of_device_id audss_of_match[] __initdata = {
