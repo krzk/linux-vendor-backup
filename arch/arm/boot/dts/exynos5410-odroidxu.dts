@@ -556,5 +556,10 @@
 			"sclk_audio0", "mout_audss", "mout_i2s";
 	};
 
+	firmware@02073000 {
+		compatible = "samsung,secure-firmware";
+		reg = <0x02073000 0x1000>;
+	};
+
 
 };
