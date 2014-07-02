@@ -32,19 +32,13 @@
 		samsung,mfc-l = <0x51000000 0x800000>;
 	};
 
-	clocks {
-		compatible = "simple-bus";
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		fin_pll: clock-fin-pll {
-			compatible = "fixed-clock";
-			reg = <0>;
-			#clock-cells = <0>;
+	fixed-rate-clocks {
+		xxti {
+			compatible = "samsung,clock-xxti";
 			clock-frequency = <24000000>;
-			clock-output-names = "fin_pll";
 		};
 	};
+
 
 	mmc@12200000 {
 		status = "okay";

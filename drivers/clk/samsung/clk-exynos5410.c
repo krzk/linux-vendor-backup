@@ -308,6 +308,10 @@ static const struct samsung_pll_rate_table ipll_tbl[] = {
 };
 
 
+/* fixed rate clocks generated outside the soc */
+static struct samsung_fixed_rate_clock exynos5410_fixed_rate_ext_clks[] __initdata = {
+	FRATE(CLK_FIN_PLL, "fin_pll", NULL, CLK_IS_ROOT, 0),
+};
 
 /* fixed rate clocks generated inside the soc */
 static struct samsung_fixed_rate_clock exynos5410_fixed_rate_clks[] __initdata = {
@@ -649,6 +653,10 @@ static __init int set_rate_by_name(const char *name, unsigned long rate)
 	return ret;
 }
 
+static struct of_device_id ext_clk_match[] __initdata = {
+	{ .compatible = "samsung,clock-xxti", .data = (void *)0, },
+	{ },
+};
 
 /* register exynos5410 clocks */
 static void __init exynos5410_clk_init(struct device_node *np)
@@ -662,6 +670,9 @@ static void __init exynos5410_clk_init(struct device_node *np)
 	samsung_clk_init(np, reg_base, CLK_NR_CLKS,
 			exynos5410_clk_regs, ARRAY_SIZE(exynos5410_clk_regs),
 			NULL, 0);
+	samsung_clk_of_register_fixed_ext(exynos5410_fixed_rate_ext_clks,
+			ARRAY_SIZE(exynos5410_fixed_rate_ext_clks),
+			ext_clk_match);
 	samsung_clk_register_mux(exynos5410_pll_pmux_clks,
 				ARRAY_SIZE(exynos5410_pll_pmux_clks));
 	samsung_clk_register_pll(exynos5410_plls, ARRAY_SIZE(exynos5410_plls),
