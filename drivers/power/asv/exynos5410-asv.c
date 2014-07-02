@@ -231,7 +231,7 @@ int __init exynos5410_asv_init(struct exynos_asv_common *exynos_info)
 		pr_info("EXYNOS5410 ASV : cannot find chipid clock!\n");
 		return -EINVAL;
 	}
-	clk_enable(clk_chipid);
+	clk_prepare_enable(clk_chipid);
 
 	special_lot_group = 0;
 	is_speedgroup = false;
@@ -288,7 +288,7 @@ int __init exynos5410_asv_init(struct exynos_asv_common *exynos_info)
 	asv_volt_offset[ASV_MIF][1] = (asv_group.aux_info >> EXYNOS5410_MIFLOCK_DN_OFFSET) & EXYNOS5410_MIFLOCK_DN_MASK;
 
 set_asv_member:
-	clk_disable(clk_chipid);
+	clk_disable_unprepare(clk_chipid);
 
 	exynos_info->asv_list = exynos5410_asv_member;
 	exynos_info->nr_mem = ARRAY_SIZE(exynos5410_asv_member);
