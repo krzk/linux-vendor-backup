@@ -381,20 +381,6 @@
 		samsung,power-domain = <&gsc_pd>;
 	};
 
-	usb3_phy0: usbphy@12100000 {
-		compatible = "samsung,exynos5250-usb3phy";
-		reg = <0x12100000 0x100>;
-		clocks = <&clock CLK_FIN_PLL>, <&clock CLK_USBD300>;
-		clock-names = "ext_xtal", "usbdrd30";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges;
-
-		usbphy-sys {
-			reg = <0x10040704 0xc>;
-		};
-	};
-
 	usb@12110000 {
 		compatible = "samsung,exynos4210-ehci";
 		reg = <0x12110000 0x100>;
@@ -428,6 +414,21 @@
 		};
 	};
 
+	usb3_phy0: usbphy@12100000 {
+		compatible = "samsung,exynos5250-usb3phy";
+		reg = <0x12100000 0x100>;
+		clocks = <&clock CLK_FIN_PLL>, <&clock CLK_USBD300>;
+		clock-names = "ext_xtal", "usbdrd30";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		usbphy-sys {
+			reg = <0x10040704 0xc>,
+			      <0x10050230 0x4>;
+		};
+	};
+
 	usb3_phy1: usbphy@12500000 {
 		compatible = "samsung,exynos5250-usb3phy";
 		reg = <0x12500000 0x100>;
@@ -438,7 +439,8 @@
 		ranges;
 
 		usbphy-sys {
-			reg = <0x10040704 0xc>;
+			reg = <0x10040704 0xc>,
+			      <0x10050230 0x4>;
 		};
 	};
 
@@ -450,7 +452,7 @@
 		#size-cells = <1>;
 		ranges;
 
-		dwc3 {
+		dwc3@12000000 {
 			compatible = "snps,dwc3";
 			reg = <0x12000000 0x10000>;
 			interrupts = <0 72 0>;
@@ -466,7 +468,7 @@
 		#size-cells = <1>;
 		ranges;
 
-		dwc3 {
+		dwc3@12400000 {
 			compatible = "snps,dwc3";
 			reg = <0x12400000 0x10000>;
 			interrupts = <0 200 0>;
