@@ -55,6 +55,7 @@
 #define CLK_I2C_HDMI 269
 #define CLK_I2S1 270
 #define CLK_I2S2 271
+#define CLK_CHIPID 272
 
 #define CLK_PDMA0 275
 #define CLK_PDMA1 276

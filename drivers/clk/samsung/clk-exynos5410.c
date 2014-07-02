@@ -517,6 +517,9 @@ static struct samsung_gate_clock exynos5410_gate_clks[] __initdata = {
 	GATE(CLK_I2S1, "i2s1", "div_aclk66", GATE_IP_PERIC, 20, 0, 0),
 	GATE(CLK_I2S2, "i2s2", "div_aclk66", GATE_IP_PERIC, 21, 0, 0),
 
+	GATE_A(CLK_CHIPID, "chipid", "div_aclk66", GATE_IP_PERIS, 0, 0, 0,
+		"chipid"),
+
 	/* Copied from exynos5420, but again this might also
 	 * be wrong.
 	 */
@@ -530,7 +533,6 @@ static struct samsung_gate_clock exynos5410_gate_clks[] __initdata = {
 		GATE_TOP_SCLK_PERIC, 17, CLK_SET_RATE_PARENT, 0),
 	GATE(CLK_SCLK_I2S2, "sclk_i2s2", "dout_i2s2",
 		GATE_TOP_SCLK_PERIC, 18, CLK_SET_RATE_PARENT, 0),
-
 
 	GATE(CLK_SCLK_UART0, "sclk_uart0", "div_uart0",
 			SRC_MASK_PERIC0, 0, CLK_SET_RATE_PARENT, 0),

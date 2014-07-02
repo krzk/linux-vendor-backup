@@ -12,6 +12,7 @@
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/slab.h>
+#include <linux/clk.h>
 #include <linux/bitrev.h>
 #include <linux/power/asv-driver.h>
 #include "exynos-asv.h"
@@ -33,7 +34,7 @@ static const char * const special_lot_list[] = {
 
 bool get_asv_is_bin2(void)
 {
-    return asv_table_version == ASV_TABLE_BIN2;
+	return asv_table_version == ASV_TABLE_BIN2;
 }
 EXPORT_SYMBOL_GPL(get_asv_is_bin2);
 
@@ -71,28 +72,28 @@ static unsigned int exynos5410_apply_volt_offset(unsigned int voltage, enum asv_
 
 void exynos5410_set_abb(struct asv_info *asv_info)
 {
-        void __iomem *target_reg;
-        unsigned int target_value;
+	void __iomem *target_reg;
+	unsigned int target_value;
 
-        switch (asv_info->type) {
-        case ASV_ARM:
-        case ASV_KFC:
-                target_reg = EXYNOS5410_BB_CON0;
-                target_value = arm_asv_abb_info[asv_info->asv_grp];
-                break;
-        case ASV_INT_MIF_L0:
-        case ASV_INT_MIF_L1:
-        case ASV_INT_MIF_L2:
-        case ASV_INT_MIF_L3:
-        case ASV_MIF:
-                target_reg = EXYNOS5410_BB_CON1;
-                target_value = int_asv_abb_info[asv_info->asv_grp];
-                break;
-        default:
-                return;
-        }
+	switch (asv_info->type) {
+	case ASV_ARM:
+	case ASV_KFC:
+		target_reg = EXYNOS5410_BB_CON0;
+		target_value = arm_asv_abb_info[asv_info->asv_grp];
+		break;
+	case ASV_INT_MIF_L0:
+	case ASV_INT_MIF_L1:
+	case ASV_INT_MIF_L2:
+	case ASV_INT_MIF_L3:
+	case ASV_MIF:
+		target_reg = EXYNOS5410_BB_CON1;
+		target_value = int_asv_abb_info[asv_info->asv_grp];
+		break;
+	default:
+		return;
+	}
 
-        set_abb(target_reg, target_value);
+	set_abb(target_reg, target_value);
 }
 
 static int __init exynos5410_get_asv_group(struct asv_info *asv_info)
@@ -184,9 +185,9 @@ static bool exynos5410_check_lot_id(struct exynos_asv_common *asv_info)
 		lot_id /= 36;
 		asv_info->lot_name[i] =
 				(tmp < 10) ? (tmp + '0') : ((tmp - 10) + 'A');
-         }
+	}
 
-         for (i = 0; i < ARRAY_SIZE(special_lot_list); i++) {
+	for (i = 0; i < ARRAY_SIZE(special_lot_list); i++) {
 		if (!strncmp(asv_info->lot_name, special_lot_list[i],
 								LOT_ID_LEN)) {
 			is_special_lot = true;
@@ -222,6 +223,16 @@ static struct asv_info exynos5410_asv_member[] __initdata = {
 
 int __init exynos5410_asv_init(struct exynos_asv_common *exynos_info)
 {
+	struct clk *clk_chipid;
+
+	/* lot ID Check */
+	clk_chipid = clk_get(NULL, "chipid");
+	if (IS_ERR(clk_chipid)) {
+		pr_info("EXYNOS5410 ASV : cannot find chipid clock!\n");
+		return -EINVAL;
+	}
+	clk_enable(clk_chipid);
+
 	special_lot_group = 0;
 	is_speedgroup = false;
 
@@ -229,7 +240,7 @@ int __init exynos5410_asv_init(struct exynos_asv_common *exynos_info)
 	asv_group.package_id = readl(exynos_info->base + CHIP_ID_OFFSET);
 	asv_group.aux_info = readl(exynos_info->base + CHIP_AUXINFO_OFFSET);
 	asv_group.lot_id = readl(exynos_info->base + CHIP_ID0_OFFSET);
-	pr_info("pro_id: 0x%x, lot_id: 0x%x\n",readl(exynos_info->base), asv_group.lot_id);
+	pr_info("pro_id: 0x%x, lot_id: 0x%x\n", readl(exynos_info->base), asv_group.lot_id);
 
 	is_special_lot = exynos5410_check_lot_id(exynos_info);
 	if(is_special_lot)
@@ -239,11 +250,11 @@ int __init exynos5410_asv_init(struct exynos_asv_common *exynos_info)
 		if (!((asv_group.package_id >> EXYNOS5410_SG_BSIGN_OFFSET) &
 					EXYNOS5410_SG_BSIGN_MASK))
 			special_lot_group = ((asv_group.package_id >> EXYNOS5410_SG_A_OFFSET) & EXYNOS5410_SG_A_MASK)
-				-((asv_group.package_id >> EXYNOS5410_SG_B_OFFSET) & EXYNOS5410_SG_B_MASK);			
+				-((asv_group.package_id >> EXYNOS5410_SG_B_OFFSET) & EXYNOS5410_SG_B_MASK);
 		else
 			special_lot_group = ((asv_group.package_id >> EXYNOS5410_SG_A_OFFSET) & EXYNOS5410_SG_A_MASK)
-				+((asv_group.package_id >> EXYNOS5410_SG_B_OFFSET) & EXYNOS5410_SG_B_MASK);			
-		is_speedgroup = true;	
+				+((asv_group.package_id >> EXYNOS5410_SG_B_OFFSET) & EXYNOS5410_SG_B_MASK);
+		is_speedgroup = true;
 		pr_info("EXYNOS5410 ASV : Use Fusing Speed Group %d\n", special_lot_group);
 	} else {
 		asv_group.hpm = (asv_group.aux_info >> EXYNOS5410_TMCB_OFFSET) & 
@@ -277,6 +288,8 @@ int __init exynos5410_asv_init(struct exynos_asv_common *exynos_info)
 	asv_volt_offset[ASV_MIF][1] = (asv_group.aux_info >> EXYNOS5410_MIFLOCK_DN_OFFSET) & EXYNOS5410_MIFLOCK_DN_MASK;
 
 set_asv_member:
+	clk_disable(clk_chipid);
+
 	exynos_info->asv_list = exynos5410_asv_member;
 	exynos_info->nr_mem = ARRAY_SIZE(exynos5410_asv_member);
 
