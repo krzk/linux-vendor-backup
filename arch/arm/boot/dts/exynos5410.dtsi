@@ -600,6 +600,7 @@
 			#dma-requests = <32>;
 		};
 
+		/*
 		pdma1: pdma@121B0000 {
 			compatible = "arm,pl330", "arm,primecell";
 			reg = <0x121B0000 0x1000>;
@@ -631,7 +632,7 @@
 			#dma-cells = <1>;
 			#dma-channels = <8>;
 			#dma-requests = <1>;
-		};
+		};*/
 	};
 
 
@@ -655,6 +656,7 @@
 		status = "disabled";
 	};
 
+	/*
 	i2s1: i2s@12D60000 {
 		compatible = "samsung,s5pv210-i2s";
 		reg = <0x12D60000 0x100>;
@@ -679,5 +681,5 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&i2s2_bus>;
 		status = "disabled";
-	};
+	};*/
 };
