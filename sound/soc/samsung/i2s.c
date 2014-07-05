@@ -1224,7 +1224,7 @@ static int samsung_i2s_probe(struct platform_device *pdev)
 		if (of_property_read_u32(np, "samsung,idma-addr",
 					 &idma_addr)) {
 			if (quirks & QUIRK_SEC_DAI) {
-				dev_err(&pdev->dev, "idma address is not specified");
+				dev_err(&pdev->dev, "idma address is not specified\n");
 				return -EINVAL;
 			}
 		}
@@ -1232,7 +1232,7 @@ static int samsung_i2s_probe(struct platform_device *pdev)
 		idma_irq = irq_of_parse_and_map(np, 0);
 		if (idma_irq == NO_IRQ) {
 			if (quirks & QUIRK_SEC_DAI) {
-				dev_err(&pdev->dev, "idma irq is not specified");
+				dev_err(&pdev->dev, "idma irq is not specified\n");
 				return -EINVAL;
 			}
 		}
