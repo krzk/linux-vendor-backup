@@ -120,11 +120,6 @@ static int dma_open(struct snd_pcm_substream *substream)
 	else
 		chan = dma_request_slave_channel(rtd->cpu_dai->dev,
 						dma_chan_names[1]);
-	if (!chan) {
-		pr_err("%s: failed to request dma chan\n", __func__);
-		kfree(chan);
-		return -EFAULT;
-	}
 
 	return snd_dmaengine_pcm_open(substream, chan);
 }
