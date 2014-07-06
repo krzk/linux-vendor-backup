@@ -9,6 +9,9 @@
 #define CLK_FOUT_KPLL 5
 #define CLK_FOUT_VPLL 6
 #define CLK_FOUT_DPLL 7
+#define CLK_FOUT_EPLL 8
+#define CLK_FOUT_IPLL 9
+#define CLK_FIN_PLL 10
 
 /* gate for special clocks (sclk) */
 #define CLK_SCLK_UART0 128
@@ -23,10 +26,18 @@
 #define CLK_SCLK_HDMI 137
 #define CLK_SCLK_FIMD1 138
 #define CLK_SCLK_DP1 139
+#define CLK_SCLK_I2S1 140
+#define CLK_SCLK_I2S2 141
+#define CLK_SCLK_PCM1 142
+#define CLK_SCLK_PCM2 143
+#define CLK_SCLK_SPDIF 144
+#define CLK_SCLK_MAUDIO0 148
+#define CLK_SCLK_MAUPCM0 149
 #define CLK_SCLK_USBD300 150
 #define CLK_SCLK_USBD301 151
 #define CLK_SCLK_USBPHY300 152
 #define CLK_SCLK_USBPHY301 153
+#define CLK_SCLK_EPLL 154
 
 /* gate clocks */
 #define CLK_UART0 257
@@ -42,8 +53,19 @@
 #define CLK_I2C6 267
 #define CLK_I2C7 268
 #define CLK_I2C_HDMI 269
+#define CLK_I2S1 270
+#define CLK_I2S2 271
+#define CLK_CHIPID 272
+
+#define CLK_PDMA0 275
+#define CLK_PDMA1 276
+
 #define CLK_MCT 315
 #define CLK_TMU_APBIF 318
+
+#define CLK_MDMA0 346
+#define CLK_MDMA1 347
+
 #define CLK_MMC0 351
 #define CLK_MMC1 352
 #define CLK_MMC2 353
@@ -66,8 +88,12 @@
 #define CLK_SMMU_MFCR 403
 #define CLK_PWM 404
 
+/* Div clocks */
+#define CLK_DIV_HDMI_PIXEL 450
+
 /* mux clocks */
 #define CLK_MOUT_HDMI 500
+#define CLK_MOUT_AUDIO0 501
 #define CLK_NR_CLKS 512
 
 #endif /* _DT_BINDINGS_CLOCK_EXYNOS_5410_H */

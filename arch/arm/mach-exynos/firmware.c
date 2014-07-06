@@ -37,7 +37,12 @@ static int exynos_set_cpu_boot_addr(int cpu, unsigned long boot_addr)
 {
 	void __iomem *boot_reg = S5P_VA_SYSRAM_NS + 0x1c;
 
-	if (!soc_is_exynos5420())
+	/*
+	 * Almost all Exynos-series of SoCs that run in secure mode don't need
+	 * additional offset for every CPU, with Exynos4412 being the only
+	 * exception.
+	 */
+	if (soc_is_exynos4412())
 		boot_reg += 4 * cpu;
 
 	writel_relaxed(boot_addr, boot_reg);

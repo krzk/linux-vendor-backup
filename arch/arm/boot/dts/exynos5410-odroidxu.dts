@@ -32,19 +32,13 @@
 		samsung,mfc-l = <0x51000000 0x800000>;
 	};
 
-	clocks {
-		compatible = "simple-bus";
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		fin_pll: clock-fin-pll {
-			compatible = "fixed-clock";
-			reg = <0>;
-			#clock-cells = <0>;
+	fixed-rate-clocks {
+		xxti {
+			compatible = "samsung,clock-xxti";
 			clock-frequency = <24000000>;
-			clock-output-names = "fin_pll";
 		};
 	};
+
 
 	mmc@12200000 {
 		status = "okay";
@@ -82,27 +76,27 @@
 		};
 	};
 
-    leds {
-        compatible = "gpio-leds";
-        hearbeat {
-            label = "red:heartbeart";
-            gpios = <&gpb2 2 GPIO_ACTIVE_HIGH>;
-            default-state = "off";
-            linux,default-trigger = "heartbeat";
-        };
-        eMMC {
-            label = "green:activity";
-            gpios = <&gpb2 1 GPIO_ACTIVE_HIGH>;
-            default-state = "off";
-            linux,default-trigger = "mmc0";
-        };
-        microSD {
-            label = "blue:activity";
-            gpios = <&gpx2 3 GPIO_ACTIVE_HIGH>;
-            default-state = "off";
-            linux,default-trigger = "mmc1";
-        };
-    };
+	leds {
+		compatible = "gpio-leds";
+		hearbeat {
+			label = "red:heartbeart";
+			gpios = <&gpx2 3 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+			linux,default-trigger = "heartbeat";
+		};
+		eMMC {
+			label = "green:activity";
+			gpios = <&gpb2 1 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+			linux,default-trigger = "mmc0";
+		};
+		microSD {
+			label = "blue:activity";
+			gpios = <&gpb2 2 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+			linux,default-trigger = "mmc1";
+		};
+	};
 
 	pinctrl@13400000 {
 		max77802_irq: max77802-irq {
@@ -125,7 +119,7 @@
 		};
 	};
 
-    pinctrl@14000000 {
+	pinctrl@14000000 {
 		usb3_overcur0_u2: usb3-overcur0-u2 {
 			samsung,pins = "gpk3-0";
 			samsung,pin-function = <2>;
@@ -169,11 +163,11 @@
 		};
 	};
 
-	/* ic21 */
+	/* i2c1 */
 	i2c@12C70000 {
 		status = "okay";
 		clock-frequency = <400000>;
-		codec@10 {
+		max98090: codec@10 {
 			compatible = "maxim,max98090";
 			reg = <0x10>;
 			interrupts = <2 0>;
@@ -184,7 +178,7 @@
 		};
 	};
 
-	/* ic22 */
+	/* i2c2 */
 	i2c@12C80000 {
 		samsung,i2c-sda-delay = <100>;
 		samsung,i2c-max-bus-freq = <66000>;
@@ -234,8 +228,8 @@
 	
 	hdmi {
 		hpd-gpio = <&gpx3 7 0>;
-        pinctrl-names = "default";
-        pinctrl-0 = <&hdmi_hpd_irq>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&hdmi_hpd_irq>;
 		hdmi-en-supply = <&fixed_regulator>;
 		vdd_osc-supply = <&ldo10_reg>;
 		vdd_pll-supply = <&ldo8_reg>;
@@ -243,18 +237,18 @@
 		phy = <&hdmiphy>;
 	};
 
-    fixed_regulator: fixed_regulator@0 {
-        compatible = "regulator-fixed";
-        regulator-name = "hdmi-en";
-        regulator-min-microvolt = <5000000>;
-        regulator-max-microvolt = <5000000>;
-    };
+	fixed_regulator: fixed_regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "hdmi-en";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+	};
 
 	/* hsic24 */
 	hsi2c@12CA0000 {
 		status = "okay";
 		samsung,hs-mode;
-        clock-frequency = <1000000>;
+		clock-frequency = <1000000>;
 
 		max77802-pmic@9 {
 			compatible = "maxim,max77802";
@@ -539,5 +533,33 @@
 	pwm@12dd0000 {
 		status = "okay";
 	};
+
+	hdmiphy@145D0000 {
+		compatible = "samsung,exynos5410-odroidxu-hdmiphy";
+	};
+
+
+	i2s@03830000 {
+		     status = "okay";
+	};
+
+	sound {
+		compatible = "google,daisy-audio-max98090";
+
+		samsung,i2s-controller = <&i2s0>;
+		samsung,audio-codec = <&max98090>;
+		card-name = "ODROID-I2S-98090";
+		clocks = <&clock CLK_FOUT_EPLL>, <&clock CLK_SCLK_EPLL>, <&clock CLK_MOUT_AUDIO0>,
+			<&clock CLK_SCLK_MAUDIO0>, <&clock_audss EXYNOS_MOUT_AUDSS>,
+			<&clock_audss EXYNOS_MOUT_I2S>;
+		clock-names = "fout_epll", "sclk_epll", "mout_audio0",
+			"sclk_audio0", "mout_audss", "mout_i2s";
+	};
+
+	firmware@02073000 {
+		compatible = "samsung,secure-firmware";
+		reg = <0x02073000 0x1000>;
+	};
+
 
 };
