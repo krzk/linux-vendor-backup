@@ -24,38 +24,21 @@ struct odroidx2_drv_data {
 /* Config I2S CDCLK output 19.2MHZ clock to Max98090 */
 #define MAX98090_MCLK 19200000
 
-static int odroidx2_hw_params(struct snd_pcm_substream *substream,
-	struct snd_pcm_hw_params *params)
+static int odroidx2_late_probe(struct snd_soc_card *card)
 {
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_dai *codec_dai = card->rtd[0].codec_dai;
+	struct snd_soc_dai *cpu_dai = card->rtd[0].cpu_dai;
 	int ret;
 
 	ret = snd_soc_dai_set_sysclk(codec_dai, 0, MAX98090_MCLK,
 						SND_SOC_CLOCK_IN);
-	if (ret < 0) {
-		dev_err(codec_dai->dev,
-			"Unable to switch to FLL1: %d\n", ret);
-		return ret;
-	}
-
-	/* Set the cpu DAI configuration in order to use CDCLK */
-	ret = snd_soc_dai_set_sysclk(cpu_dai, SAMSUNG_I2S_CDCLK,
-					0, SND_SOC_CLOCK_OUT);
 	if (ret < 0)
 		return ret;
 
-	dev_dbg(codec_dai->dev, "HiFi DAI %s params: channels: %d, rate: %d\n",
-		snd_pcm_stream_str(substream), params_channels(params),
-		params_rate(params));
-
-	return 0;
+	/* Set the cpu DAI configuration in order to use CDCLK */
+	return snd_soc_dai_set_sysclk(cpu_dai, SAMSUNG_I2S_CDCLK,
+					0, SND_SOC_CLOCK_OUT);
 }
-
-static struct snd_soc_ops odroidx2_ops = {
-	.hw_params	= odroidx2_hw_params,
-};
 
 static const struct snd_soc_dapm_widget odroidx2_dapm_widgets[] = {
 	SND_SOC_DAPM_HP("Headphone Jack", NULL),
@@ -86,7 +69,6 @@ static struct snd_soc_dai_link odroidx2_dai[] = {
 		.codec_dai_name	= "HiFi",
 		.dai_fmt	= SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
 				  SND_SOC_DAIFMT_CBM_CFM,
-		.ops		= &odroidx2_ops,
 	}, {
 		.name		= "MAX98090 SEC",
 		.stream_name	= "MAX98090 PCM SEC",
@@ -95,15 +77,15 @@ static struct snd_soc_dai_link odroidx2_dai[] = {
 		.platform_name	= "samsung-i2s-sec",
 		.dai_fmt	= SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
 				  SND_SOC_DAIFMT_CBM_CFM,
-		.ops		= &odroidx2_ops,
 	},
 };
 
 static struct snd_soc_card odroidx2 = {
-	.owner		= THIS_MODULE,
-	.dai_link	= odroidx2_dai,
-	.num_links	= ARRAY_SIZE(odroidx2_dai),
+	.owner			= THIS_MODULE,
+	.dai_link		= odroidx2_dai,
+	.num_links		= ARRAY_SIZE(odroidx2_dai),
 	.fully_routed	= true,
+	.late_probe		= odroidx2_late_probe,
 };
 
 struct odroidx2_drv_data odroidx2_drvdata = {
