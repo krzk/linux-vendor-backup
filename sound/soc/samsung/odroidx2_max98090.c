@@ -16,6 +16,9 @@
 struct odroidx2_drv_data {
 	const struct snd_soc_dapm_widget *dapm_widgets;
 	unsigned int num_dapm_widgets;
+
+	const struct snd_kcontrol_new *controls;
+	unsigned int num_controls;
 };
 
 /* Config I2S CDCLK output 19.2MHZ clock to Max98090 */
@@ -60,9 +63,20 @@ static const struct snd_soc_dapm_widget odroidx2_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("DMIC", NULL),
 };
 
+static const struct snd_kcontrol_new odroidx2_max98090_controls[] = {
+	SOC_DAPM_PIN_SWITCH("Headphone Jack"),
+	SOC_DAPM_PIN_SWITCH("Mic Jack"),
+	SOC_DAPM_PIN_SWITCH("DMIC"),
+};
+
 static const struct snd_soc_dapm_widget odroidu3_dapm_widgets[] = {
 	SND_SOC_DAPM_HP("Headphone Jack", NULL),
 	SND_SOC_DAPM_SPK("Speakers", NULL),
+};
+
+static const struct snd_kcontrol_new odroidu3_max98090_controls[] = {
+	SOC_DAPM_PIN_SWITCH("Headphone Jack"),
+	SOC_DAPM_PIN_SWITCH("Speakers"),
 };
 
 static struct snd_soc_dai_link odroidx2_dai[] = {
@@ -95,11 +109,15 @@ static struct snd_soc_card odroidx2 = {
 struct odroidx2_drv_data odroidx2_drvdata = {
 	.dapm_widgets		= odroidx2_dapm_widgets,
 	.num_dapm_widgets	= ARRAY_SIZE(odroidx2_dapm_widgets),
+	.controls		= odroidx2_max98090_controls,
+	.num_controls		= ARRAY_SIZE(odroidx2_max98090_controls),
 };
 
 struct odroidx2_drv_data odroidu3_drvdata = {
 	.dapm_widgets		= odroidu3_dapm_widgets,
 	.num_dapm_widgets	= ARRAY_SIZE(odroidu3_dapm_widgets),
+	.controls		= odroidu3_max98090_controls,
+	.num_controls		= ARRAY_SIZE(odroidu3_max98090_controls),
 };
 
 static const struct of_device_id odroidx2_audio_of_match[] = {
@@ -129,6 +147,8 @@ static int odroidx2_audio_probe(struct platform_device *pdev)
 
 	card->dapm_widgets = dd->dapm_widgets;
 	card->num_dapm_widgets = dd->num_dapm_widgets;
+	card->controls = dd->controls;
+	card->num_controls = dd->num_controls;
 
 	ret = snd_soc_of_parse_card_name(card, "samsung,model");
 	if (ret < 0)
