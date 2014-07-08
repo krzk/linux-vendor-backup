@@ -31,6 +31,19 @@
 			linux,default-trigger = "heartbeat";
 		};
 	};
+
+	pwm: pwm@139D0000 {
+		pinctrl-0 = <&pwm0_out>;
+		pinctrl-names = "default";
+		samsung,pwm-outputs = <0>;
+		status = "okay";
+	};
+
+	pwm-fan {
+		compatible = "pwm-fan";
+		status = "okay";
+		pwms = <&pwm 0 10000 0>;
+	};
 };
 
 &usb3503 {
