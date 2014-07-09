@@ -2,7 +2,7 @@
 
 Required SoC Specific Properties:
 
-- compatible : "samsung,i2s-v5"
+- compatible: "samsung,i2s-v5"
 - reg: physical base address of the controller and length of memory mapped
   region.
 - dmas: list of DMA controller phandle and DMA request line ordered pairs.
@@ -16,7 +16,7 @@ Optional SoC Specific Properties:
 - samsung,supports-rstclr: This flag should be set if I2S software reset bit
   control is required. When this flag is set I2S software reset bit will be
   enabled or disabled based on need.
-- samsung,supports-secdai:If I2S block has a secondary FIFO and internal DMA,
+- samsung,supports-secdai: If I2S block has a secondary FIFO and internal DMA,
   then this flag is enabled.
 - samsung,idma-addr: Internal DMA register base address of the audio
   sub system(used in secondary sound source).
