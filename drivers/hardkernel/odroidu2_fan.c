@@ -375,7 +375,8 @@ static	int		odroid_fan_probe		(struct platform_device *pdev)
 	
 	fan->pwm_status = 1;
 	fan->auto_mode = true;
-	
+        fan->start_duty = 127;
+        	
 	mutex_init(&fan->mutex);
 
 	fan->wq = create_freezable_workqueue("odroidu_fan_work");
