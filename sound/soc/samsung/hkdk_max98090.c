@@ -54,7 +54,7 @@ static int odroid_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	int bfs, psr, rfs, ret;
+	int bfs, psr, ret;
 	unsigned long rclk;
 	switch (params_format(params)) {
 	case SNDRV_PCM_FORMAT_U24:
@@ -69,43 +69,33 @@ static int odroid_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 	switch (params_rate(params)) {
+	case 8000:
+	case 12000:
 	case 16000:
-	case 22050:
 	case 24000:
 	case 32000:
-	case 44100:
 	case 48000:
-	case 88200:
+	case 64000:
 	case 96000:
 		if (bfs == 48)
-			rfs = 384;
+			rclk = 18432000;
 		else
-			rfs = 256;
+			rclk = 12288000;
 		break;
-	case 64000:
-		rfs = 384;
-		break;
-	case 8000:
 	case 11025:
-	case 12000:
+	case 22050:
+	case 44100:
+	case 88200:
 		if (bfs == 48)
-			rfs = 768;
+			rclk = 16934400;
 		else
-			rfs = 512;
+			rclk = 11289600;
 		break;
 	default:
 		return -EINVAL;
 	}
-	rclk = params_rate(params) * rfs;
+
 	switch (rclk) {
-	case 4096000:
-	case 5644800:
-	case 6144000:
-	case 8467200:
-	case 9216000:
-		psr = 8;
-		break;
-	case 8192000:
 	case 11289600:
 	case 12288000:
 	case 16934400:
