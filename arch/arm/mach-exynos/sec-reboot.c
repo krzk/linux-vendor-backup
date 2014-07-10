@@ -1,4 +1,5 @@
 #include <linux/delay.h>
+#include <linux/err.h>
 #include <linux/pm.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
