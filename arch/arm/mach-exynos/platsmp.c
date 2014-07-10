@@ -201,7 +201,7 @@ static void __init exynos_smp_prepare_cpus(unsigned int max_cpus)
 {
 	int i;
 
-	if (!(soc_is_exynos5250() || soc_is_exynos5440()))
+	if (!(soc_is_exynos3250() || soc_is_exynos5250() || soc_is_exynos5440()))
 		scu_enable(scu_base_addr());
 
 	/*
