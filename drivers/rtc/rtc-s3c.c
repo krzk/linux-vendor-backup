@@ -47,6 +47,7 @@ struct s3c_rtc_drv_data {
  * of these rtc blocks in */
 
 static struct clk *rtc_clk;
+static struct clk *rtc_src_clk;
 static void __iomem *s3c_rtc_base;
 static int s3c_rtc_alarmno = NO_IRQ;
 static int s3c_rtc_tickno  = NO_IRQ;
@@ -425,6 +426,7 @@ static int s3c_rtc_remove(struct platform_device *dev)
 
 	s3c_rtc_setaie(&dev->dev, 0);
 
+	clk_disable_unprepare(rtc_src_clk);
 	clk_unprepare(rtc_clk);
 	rtc_clk = NULL;
 
@@ -483,13 +485,21 @@ static int s3c_rtc_probe(struct platform_device *pdev)
 
 	rtc_clk = devm_clk_get(&pdev->dev, "rtc");
 	if (IS_ERR(rtc_clk)) {
-		dev_err(&pdev->dev, "failed to find rtc clock source\n");
+		dev_err(&pdev->dev, "failed to find rtc gate clock\n");
 		ret = PTR_ERR(rtc_clk);
 		rtc_clk = NULL;
 		return ret;
 	}
 
 	clk_prepare_enable(rtc_clk);
+
+	rtc_src_clk = devm_clk_get(&pdev->dev, "rtc_src_clk");
+	if (IS_ERR(rtc_src_clk)) {
+		dev_warn(&pdev->dev, "failed to find rtc source clock\n");
+		rtc_src_clk = NULL;
+	}
+
+	clk_prepare_enable(rtc_src_clk);
 
 	/* check to see if everything is setup correctly */
 
@@ -568,6 +578,7 @@ static int s3c_rtc_probe(struct platform_device *pdev)
 
  err_nortc:
 	s3c_rtc_enable(pdev, 0);
+	clk_disable_unprepare(rtc_src_clk);
 	clk_disable_unprepare(rtc_clk);
 
 	return ret;
