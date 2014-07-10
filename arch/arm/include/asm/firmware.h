@@ -50,6 +50,11 @@ struct firmware_ops {
 	 */
 	int (*resume)(void);
 	/*
+	 * Read/write SFRs
+	 */
+	int (*readsfr)(unsigned int addr, unsigned int *value);
+	int (*writesfr)(unsigned int addr, unsigned int value);
+	/*
 	 * Restores coprocessor 15 registers
 	 */
 	int (*c15resume)(u32 *regs);

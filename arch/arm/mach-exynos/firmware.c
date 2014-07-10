@@ -119,6 +119,18 @@ static int exynos_c15resume(u32 *regs)
 	return 0;
 }
 
+static int exynos_readsfr(unsigned int addr, unsigned int *value)
+{
+	*value = exynos_smc2(SMC_CMD_REG, SMC_REG_SFR_R(addr), 0, 0);
+	return 0;
+}
+
+static int exynos_writesfr(unsigned int addr, unsigned int value)
+{
+	exynos_smc(SMC_CMD_REG, SMC_REG_SFR_W(addr), value, 0);
+	return 0;
+}
+
 static const struct firmware_ops exynos_firmware_ops = {
 	.do_idle		= exynos_do_idle,
 	.set_cpu_boot_addr	= exynos_set_cpu_boot_addr,
@@ -129,6 +141,8 @@ static const struct firmware_ops exynos_firmware_ops = {
 #endif
 	.suspend	= exynos_suspend,
 	.resume		= exynos_resume,
+	.readsfr	= exynos_readsfr,
+	.writesfr	= exynos_writesfr,
 	.c15resume	= exynos_c15resume,
 };
 
