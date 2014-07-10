@@ -26,6 +26,15 @@ enum cpufreq_level_index {
 		.mps = ((m) << 16 | (p) << 8 | (s)), \
 	}
 
+#define APLL_FREQ_EXYNOS3(f, a0, a1, a2, a3, a4, a5, b0, b1, b2, m, p, s) \
+	{ \
+		.freq = (f) * 1000, \
+		.clk_div_cpu0 = ((a0) | (a1) << 4 |  (a2) << 16 | (a3) << 20 | \
+			(a4) << 24 | (a5) << 28), \
+		.clk_div_cpu1 = (b0 << 0 | b1 << 4 | b2 << 8), \
+		.mps = ((m) << 16 | (p) << 8 | (s)), \
+	}
+
 struct apll_freq {
 	unsigned int freq;
 	u32 clk_div_cpu0;
@@ -45,6 +54,7 @@ struct exynos_dvfs_info {
 	bool (*need_apll_change)(unsigned int, unsigned int);
 };
 
+extern int exynos3250_cpufreq_init(struct exynos_dvfs_info *);
 extern int exynos4210_cpufreq_init(struct exynos_dvfs_info *);
 extern int exynos4x12_cpufreq_init(struct exynos_dvfs_info *);
 extern int exynos5250_cpufreq_init(struct exynos_dvfs_info *);

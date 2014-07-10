@@ -459,7 +459,9 @@ static int exynos_cpufreq_probe(struct platform_device *pdev)
 
 	exynos_info->dev = &pdev->dev;
 
-	if (soc_is_exynos4210())
+	if (soc_is_exynos3250())
+		ret = exynos3250_cpufreq_init(exynos_info);
+	else if (soc_is_exynos4210())
 		ret = exynos4210_cpufreq_init(exynos_info);
 	else if (soc_is_exynos4212() || soc_is_exynos4412())
 		ret = exynos4x12_cpufreq_init(exynos_info);
