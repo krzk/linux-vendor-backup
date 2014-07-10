@@ -20,56 +20,15 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/slab.h>
+#include <linux/of.h>
 #include <linux/workqueue.h>
 #include <linux/platform_device.h>
 #include <linux/extcon.h>
 #include <linux/extcon/extcon-port.h>
 #include <linux/mfd/max77693.h>
 
-/************************************************************/
-/************* extcon-port platform device ******************/
-/************************************************************/
-/*
- * FIXME: extcon-port driver maintain compatibility of preivous jack device
- * driver. extcon-port driver have to support DT instead of platform_data way.
- * Temporarily, add below jack_platform_data to update uevent when cable is
- * attached or detached.
- */
-
-/*
- * extcon-port device
- */
-#define EXTCON_DEV_MUIC_NAME	"max77693-muic"
-#define EXTCON_DEV_JACK_NAME	"Headset Jack"
-#define EXTCON_DEV_HDMI_NAME	"hdmi"
-
-struct jack_platform_data jack_data = {
-	.usb_online     = 0,
-	.charger_online = 0,
-	.hdmi_online    = 0,
-	.earjack_online = 0,
-	.earkey_online  = 0,
-	.ums_online     = -1,
-	.cdrom_online   = -1,
-	.jig_online     = -1,
-	.host_online    = 0,
-	.cradle_online  = 0,
-
-#ifdef CONFIG_EXTCON_PORT
-	.extcon_name_muic	= EXTCON_DEV_MUIC_NAME,
-	/* .extcon_name_jack	= EXTCON_DEV_JACK_NAME, */
-	/* .extcon_name_hdmi	= EXTCON_DEV_HDMI_NAME, */
-#endif
-};
-
-static struct platform_device extcon_port_device = {
-	.name	= "jack",
-	.id	= -1,
-	.dev	= {
-		.platform_data = &jack_data,
-	},
-};
-
+/* Name of legacy symlink in /sys/devices/platform */
+#define SYSFS_LEGACY_PLATFORM_DEVICE_NAME	"jack"
 /************************************************************/
 /************* extcon-port platform driver ******************/
 /************************************************************/
@@ -146,6 +105,10 @@ static ssize_t extcon_port_show_##name(struct device *dev,		\
 		struct device_attribute *attr, char *buf)		\
 {									\
 	struct extcon_port *extcon_port = dev_get_drvdata(dev);		\
+									\
+	if (!extcon_port || !extcon_port->pdata)			\
+		return 0;						\
+									\
 	return sprintf(buf, "%d\n", extcon_port->pdata->name);		\
 }									\
 static DEVICE_ATTR(name, S_IRUGO, extcon_port_show_##name, NULL);
@@ -222,7 +185,6 @@ static int extcon_port_event_handler(char *name, int value)
 	struct extcon_port *extcon_port;
 	char env_str[16];
 	char *envp[] = { env_str, NULL };
-	int ret = 0;
 
 	if (!extcon_port_pdev) {
 		printk(KERN_ERR "jack device is not allocated\n");
@@ -232,13 +194,11 @@ static int extcon_port_event_handler(char *name, int value)
 	extcon_port = platform_get_drvdata(extcon_port_pdev);
 	extcon_port_set_data(extcon_port->pdata, name, value);
 	sprintf(env_str, "CHGDET=%s", name);
-	dev_info(&extcon_port_pdev->dev, "jack event %s\n", env_str);
-	ret = kobject_uevent_env(&extcon_port_pdev->dev.kobj,
-			KOBJ_CHANGE, envp);
-	if (ret < 0)
-		pr_err("Failed to send uevent to user-space : extcon-port\n");
 
-	return ret;
+	dev_info(&extcon_port_pdev->dev, "jack event %s\n", env_str);
+	kobject_uevent_env(&extcon_port_pdev->dev.kobj, KOBJ_CHANGE, envp);
+
+	return 0;
 }
 
 static void extcon_muic_function(struct extcon_cable_block *cable)
@@ -476,11 +436,92 @@ int extcon_port_unregister(struct extcon_dev *edev,
 	return ret;
 }
 
+#ifdef CONFIG_OF
+static struct jack_platform_data *extcon_port_dt_parse(struct platform_device *pdev)
+{
+	struct device_node *np = pdev->dev.of_node;
+	struct jack_platform_data *pdata;
+	const struct extcon_dev *edev;
+
+	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(&pdev->dev, "Failed to allocate memory\n");
+		return NULL;
+	}
+
+	edev = extcon_get_edev_by_phandle(&pdev->dev, 0);
+	if (IS_ERR(edev))
+		dev_warn(&pdev->dev, "Failed to get extcon dev for muic from DT\n");
+	else {
+		dev_info(&pdev->dev, "Using extcon for muic device: %s\n",
+				edev->name);
+		pdata->extcon_name_muic = edev->name;
+	}
+
+	edev = extcon_get_edev_by_phandle(&pdev->dev, 1);
+	if (IS_ERR(edev))
+		dev_warn(&pdev->dev, "Failed to get extcon dev for jack from DT\n");
+	else {
+		dev_info(&pdev->dev, "Using extcon for jack device: %s\n",
+				edev->name);
+		pdata->extcon_name_jack = edev->name;
+	}
+
+	edev = extcon_get_edev_by_phandle(&pdev->dev, 2);
+	if (IS_ERR(edev))
+		dev_warn(&pdev->dev, "Failed to get extcon dev for hdmi from DT\n");
+	else {
+		dev_info(&pdev->dev, "Using extcon for hdmi device: %s\n",
+				edev->name);
+		pdata->extcon_name_hdmi = edev->name;
+	}
+
+	if (!of_property_read_bool(np, "samsung,extcon-online-usb"))
+		pdata->usb_online = -1;
+	if (!of_property_read_bool(np, "samsung,extcon-online-charger"))
+		pdata->charger_online = -1;
+	if (!of_property_read_bool(np, "samsung,extcon-online-hdmi"))
+		pdata->hdmi_online = -1;
+	if (!of_property_read_bool(np, "samsung,extcon-online-earjack"))
+		pdata->earjack_online = -1;
+	if (!of_property_read_bool(np, "samsung,extcon-online-earkey"))
+		pdata->earkey_online = -1;
+	if (!of_property_read_bool(np, "samsung,extcon-online-ums"))
+		pdata->ums_online = -1;
+	if (!of_property_read_bool(np, "samsung,extcon-online-cdrom"))
+		pdata->cdrom_online = -1;
+	if (!of_property_read_bool(np, "samsung,extcon-online-jig"))
+		pdata->jig_online = -1;
+	if (!of_property_read_bool(np, "samsung,extcon-online-host"))
+		pdata->host_online = -1;
+	if (!of_property_read_bool(np, "samsung,extcon-online-cradle"))
+		pdata->cradle_online = -1;
+
+	return pdata;
+}
+#else
+#define extcon_port_dt_parse	NULL
+#endif /* CONFIG_OF */
+
 static int extcon_port_probe(struct platform_device *pdev)
 {
-	struct jack_platform_data *pdata = pdev->dev.platform_data;
+	struct jack_platform_data *pdata;
+	struct device_node *np = pdev->dev.of_node;
 	struct extcon_port *extcon_port;
 	int ret;
+
+	if (!np) {
+		dev_err(&pdev->dev, "Driver requires platform data from DT\n");
+		return -EINVAL;
+	}
+
+	pdata = extcon_port_dt_parse(pdev);
+
+	if (!pdata) {
+		dev_err(&pdev->dev, "Failed to parse jack platform data from DT\n");
+		return -EINVAL;
+	}
+	pdev->dev.platform_data = pdata;
 
 	extcon_port = kzalloc(sizeof(struct extcon_port), GFP_KERNEL);
 	if (!extcon_port) {
@@ -549,6 +590,13 @@ static int extcon_port_probe(struct platform_device *pdev)
 		}
 	}
 
+	ret = sysfs_create_link(&platform_bus.kobj, &pdev->dev.kobj,
+			SYSFS_LEGACY_PLATFORM_DEVICE_NAME);
+	if (ret)
+		dev_err(&pdev->dev,
+			"Failed to create legacy symlink to platform/jack: %d\n",
+			ret);
+
 	return ret;
 
 err_extcon_hdmi:
@@ -610,25 +658,25 @@ static int extcon_port_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static const struct of_device_id extcon_port_dt_match[] = {
+	{ .compatible = "samsung,extcon-port" },
+	{},
+};
+#endif
+
 static struct platform_driver extcon_port_driver = {
 	.probe		= extcon_port_probe,
 	.remove		= extcon_port_remove,
 	.driver		= {
-		.name	= "jack",
+		.name	= "extcon-port",
 		.owner	= THIS_MODULE,
+		.of_match_table = of_match_ptr(extcon_port_dt_match),
 	},
 };
 
 static int __init extcon_port_init(void)
 {
-	int ret;
-
-	ret = platform_device_register(&extcon_port_device);
-	if (ret < 0) {
-		pr_err("Failed to register extcon-port device\n");
-		return ret;
-	}
-
 	return platform_driver_register(&extcon_port_driver);
 }
 late_initcall(extcon_port_init);
