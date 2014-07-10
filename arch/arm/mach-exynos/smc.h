@@ -25,8 +25,13 @@
 #define SMC_CMD_L2X0SETUP2	(-23)
 #define SMC_CMD_L2X0INVALL	(-24)
 #define SMC_CMD_L2X0DEBUG	(-25)
+/* For Register Access */
+#define SMC_CMD_REG		(-101)
+#define SMC_REG_SFR_W(a)	((0x1 << 30) | ((a) >> 2))
+#define SMC_REG_SFR_R(a)	((0x3 << 30) | ((a) >> 2))
 
 extern void exynos_smc(u32 cmd, u32 arg1, u32 arg2, u32 arg3);
+extern u32 exynos_smc2(u32 cmd, u32 arg1, u32 arg2, u32 arg3);
 
 enum {
 	EXYNOS_DO_IDLE_NORMAL,

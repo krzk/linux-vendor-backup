@@ -20,3 +20,16 @@ ENTRY(exynos_smc)
 	smc	#0
 	ldmfd	sp!, {r4-r11, pc}
 ENDPROC(exynos_smc)
+
+/*
+ * Function signature: u32 exynos_smc2(u32 cmd, u32 arg1, u32 arg2, u32 arg3)
+ * return r2
+ */
+
+ENTRY(exynos_smc2)
+	stmfd	sp!, {r4-r11, lr}
+	dsb
+	smc	#0
+	mov	r0, r2
+	ldmfd	sp!, {r4-r11, pc}
+ENDPROC(exynos_smc2)
