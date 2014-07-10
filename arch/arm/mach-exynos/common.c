@@ -68,6 +68,7 @@ static const char name_exynos4412[] = "EXYNOS4412";
 static const char name_exynos5250[] = "EXYNOS5250";
 static const char name_exynos5440[] = "EXYNOS5440";
 
+static void exynos3_map_io(void);
 static void exynos4_map_io(void);
 static void exynos5_map_io(void);
 static void exynos5440_map_io(void);
@@ -80,6 +81,7 @@ static struct cpu_table cpu_ids[] __initdata = {
 	{
 		.idcode		= EXYNOS3250_SOC_ID,
 		.idmask		= EXYNOS3_SOC_MASK,
+		.map_io		= exynos3_map_io,
 		.init		= exynos_init,
 		.name		= name_exynos3250,
 	}, {
@@ -124,6 +126,75 @@ static struct map_desc exynos_iodesc[] __initdata = {
 	{
 		.virtual	= (unsigned long)S5P_VA_CHIPID,
 		.pfn		= __phys_to_pfn(EXYNOS_PA_CHIPID),
+		.length		= SZ_4K,
+		.type		= MT_DEVICE,
+	},
+};
+
+static struct map_desc exynos3_iodesc[] __initdata = {
+	{
+		.virtual        = (unsigned long)S3C_VA_TIMER,
+		.pfn            = __phys_to_pfn(EXYNOS3_PA_TIMER),
+		.length         = SZ_16K,
+		.type           = MT_DEVICE,
+	}, {
+		.virtual        = (unsigned long)S3C_VA_WATCHDOG,
+		.pfn            = __phys_to_pfn(S3C_PA_WDT),
+		.length         = SZ_4K,
+		.type           = MT_DEVICE,
+	}, {
+		.virtual        = (unsigned long)S3C_VA_SYS,
+		.pfn            = __phys_to_pfn(EXYNOS3_PA_SYSCON),
+		.length         = SZ_64K,
+		.type           = MT_DEVICE,
+	}, {
+		.virtual        = (unsigned long)S5P_VA_SYSTIMER,
+		.pfn            = __phys_to_pfn(EXYNOS3_PA_SYSTIMER),
+		.length         = SZ_4K,
+		.type           = MT_DEVICE,
+	}, {
+		.virtual        = (unsigned long)S5P_VA_SYSRAM,
+		.pfn            = __phys_to_pfn(EXYNOS3_PA_SYSRAM),
+		.length         = SZ_4K,
+		.type           = MT_DEVICE,
+	}, {
+		.virtual	= (unsigned long)S5P_VA_SYSRAM_NS,
+		.pfn		= __phys_to_pfn(EXYNOS3_PA_SYSRAM_NS),
+		.length		= SZ_4K,
+		.type		= MT_DEVICE,
+	}, {
+		.virtual        = (unsigned long)S5P_VA_CMU,
+		.pfn            = __phys_to_pfn(EXYNOS3_PA_CMU_BUS_TOP),
+		.length         = SZ_128K,
+		.type           = MT_DEVICE,
+	}, {
+		.virtual        = (unsigned long)S5P_VA_PMU,
+		.pfn            = __phys_to_pfn(EXYNOS3_PA_PMU),
+		.length         = SZ_64K,
+		.type           = MT_DEVICE,
+	}, {
+		.virtual        = (unsigned long)S3C_VA_UART,
+		.pfn            = __phys_to_pfn(EXYNOS3_PA_UART),
+		.length         = SZ_512K,
+		.type           = MT_DEVICE,
+	}, {
+		.virtual        = (unsigned long)S5P_VA_GIC_CPU,
+		.pfn            = __phys_to_pfn(EXYNOS3_PA_GIC_CPU),
+		.length         = SZ_8K,
+		.type           = MT_DEVICE,
+	}, {
+		.virtual        = (unsigned long)S5P_VA_GIC_DIST,
+		.pfn            = __phys_to_pfn(EXYNOS3_PA_GIC_DIST),
+		.length         = SZ_4K,
+		.type           = MT_DEVICE,
+	}, {
+		.virtual        = (unsigned long)S5P_VA_GPIO2,
+		.pfn            = __phys_to_pfn(EXYNOS3_PA_GPIO2),
+		.length         = SZ_4K,
+		.type           = MT_DEVICE,
+	},{
+		.virtual	= (unsigned long)S3C_VA_USB_HSPHY,
+		.pfn		= __phys_to_pfn(EXYNOS4_PA_HSPHY),
 		.length		= SZ_4K,
 		.type		= MT_DEVICE,
 	},
@@ -419,6 +490,11 @@ void __init exynos_init_io(struct map_desc *mach_desc, int size)
 	s5p_init_cpu(S5P_VA_CHIPID);
 
 	s3c_init_cpu(samsung_cpu_id, cpu_ids, ARRAY_SIZE(cpu_ids));
+}
+
+static void __init exynos3_map_io(void)
+{
+	iotable_init(exynos3_iodesc, ARRAY_SIZE(exynos3_iodesc));
 }
 
 static void __init exynos4_map_io(void)
