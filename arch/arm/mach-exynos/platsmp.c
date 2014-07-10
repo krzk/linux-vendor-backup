@@ -181,7 +181,7 @@ static void __init exynos_smp_init_cpus(void)
 	void __iomem *scu_base = scu_base_addr();
 	unsigned int i, ncores;
 
-	if (soc_is_exynos5250())
+	if (soc_is_exynos3250() || soc_is_exynos5250())
 		ncores = 2;
 	else
 		ncores = scu_base ? scu_get_core_count(scu_base) : 1;
