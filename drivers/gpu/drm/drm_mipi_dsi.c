@@ -28,6 +28,7 @@
 #include <drm/drm_mipi_dsi.h>
 
 #include <linux/device.h>
+#include <linux/err.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/pm_runtime.h>
