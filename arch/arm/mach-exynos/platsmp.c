@@ -111,8 +111,12 @@ static int __cpuinit exynos_boot_secondary(unsigned int cpu, struct task_struct 
 
 	if (!(__raw_readl(S5P_ARM_CORE_STATUS(phys_cpu))
 		& S5P_CORE_LOCAL_PWR_EN)) {
-		__raw_writel(S5P_CORE_LOCAL_PWR_EN,
-			     S5P_ARM_CORE_CONFIGURATION(phys_cpu));
+		u32 core_conf = 0;
+
+		core_conf |= S5P_CORE_LOCAL_PWR_EN;
+		if (soc_is_exynos3250())
+			core_conf |= S5P_CORE_AUTOWAKEUP_EN;
+		__raw_writel(core_conf, S5P_ARM_CORE_CONFIGURATION(phys_cpu));
 
 		timeout = 10;
 
@@ -131,6 +135,24 @@ static int __cpuinit exynos_boot_secondary(unsigned int cpu, struct task_struct 
 			return -ETIMEDOUT;
 		}
 	}
+
+	/* HACK: Turn on secondary CPUs */
+	if (soc_is_exynos3250()) {
+		unsigned int tmp;
+
+		/* FIXME: 0x0908 is hidden register */
+		while(!__raw_readl(S5P_PMUREG(0x0908)))
+			udelay(10);
+		udelay(10);
+
+		tmp = __raw_readl(S5P_ARM_CORE_STATUS(phys_cpu));
+		tmp |= (S5P_CORE_LOCAL_PWR_EN << 8);
+		__raw_writel(tmp, S5P_ARM_CORE_STATUS(phys_cpu));
+	}
+
+	if (soc_is_exynos3250())
+		__raw_writel(EXYNOS3_COREPORESET(phys_cpu), EXYNOS_SWRESET);
+
 	/*
 	 * Send the secondary CPU a soft interrupt, thereby causing
 	 * the boot monitor to read the system wide flags register,
@@ -154,7 +176,10 @@ static int __cpuinit exynos_boot_secondary(unsigned int cpu, struct task_struct 
 
 		call_firmware_op(cpu_boot, phys_cpu);
 
-		arch_send_wakeup_ipi_mask(cpumask_of(cpu));
+		if (soc_is_exynos3250())
+			dsb_sev();
+		else
+			arch_send_wakeup_ipi_mask(cpumask_of(cpu));
 
 		if (pen_release == -1)
 			break;
