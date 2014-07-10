@@ -21,6 +21,7 @@ enum sec_device_type {
 	S5M8763X,
 	S5M8767X,
 	S2MPS11X,
+	S2MPS14X,
 };
 
 /**
@@ -41,7 +42,8 @@ enum sec_device_type {
 struct sec_pmic_dev {
 	struct device *dev;
 	struct sec_platform_data *pdata;
-	struct regmap *regmap;
+	struct regmap *regmap_pmic;
+	struct regmap *regmap_rtc;
 	struct i2c_client *i2c;
 	struct i2c_client *rtc;
 	struct mutex iolock;
@@ -51,6 +53,7 @@ struct sec_pmic_dev {
 	int irq_base;
 	int irq;
 	struct regmap_irq_chip_data *irq_data;
+	struct irq_domain *domain;
 
 	int ono;
 	u8 irq_masks_cur[NUM_IRQ_REGS];
@@ -63,11 +66,18 @@ int sec_irq_init(struct sec_pmic_dev *sec_pmic);
 void sec_irq_exit(struct sec_pmic_dev *sec_pmic);
 int sec_irq_resume(struct sec_pmic_dev *sec_pmic);
 
-extern int sec_reg_read(struct sec_pmic_dev *sec_pmic, u8 reg, void *dest);
-extern int sec_bulk_read(struct sec_pmic_dev *sec_pmic, u8 reg, int count, u8 *buf);
-extern int sec_reg_write(struct sec_pmic_dev *sec_pmic, u8 reg, u8 value);
-extern int sec_bulk_write(struct sec_pmic_dev *sec_pmic, u8 reg, int count, u8 *buf);
-extern int sec_reg_update(struct sec_pmic_dev *sec_pmic, u8 reg, u8 val, u8 mask);
+extern int sec_reg_read(struct regmap *map, u8 reg, u8 *dest);
+extern int sec_bulk_read(struct regmap *map, u8 reg, u8 *buf, int count);
+extern int sec_reg_write(struct regmap *map, u8 reg, u8 value);
+extern int sec_bulk_write(struct regmap *map, u8 reg, u8 *buf, int count);
+extern int sec_reg_update(struct regmap *map, u8 reg, u8 mask, u8 val);
+
+struct sec_wtsr_smpl {
+	bool wtsr_en;
+	bool smpl_en;
+	int wtsr_time;
+	int smpl_time;
+};
 
 struct sec_platform_data {
 	struct sec_regulator_data	*regulators;
@@ -77,6 +87,7 @@ struct sec_platform_data {
 
 	int				irq_base;
 	int				(*cfg_pmic_irq)(void);
+	unsigned int			irqflags;
 
 	int				ono;
 	bool				wakeup;
@@ -90,6 +101,8 @@ struct sec_platform_data {
 	bool				buck3_gpiodvs;
 	unsigned int			buck4_voltage[8];
 	bool				buck4_gpiodvs;
+	int				buck9_gpio;
+	bool				buck9_uses_gpio;
 
 	int				buck_set1;
 	int				buck_set2;
@@ -115,6 +128,8 @@ struct sec_platform_data {
 	bool                            buck3_ramp_enable;
 	bool                            buck4_ramp_enable;
 	bool				buck6_ramp_enable;
+
+	struct sec_wtsr_smpl		*wtsr_smpl;
 
 	int				buck2_init;
 	int				buck3_init;
