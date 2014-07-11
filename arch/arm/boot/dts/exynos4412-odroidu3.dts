@@ -36,6 +36,7 @@
 &usb3503 {
 	clock-names = "refclk";
 	clocks = <&clock 21>;
+	refclk-frequency = <24000000>;
 };
 
 &ehci {

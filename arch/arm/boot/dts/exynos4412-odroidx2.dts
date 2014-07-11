@@ -74,6 +74,7 @@
 &usb3503 {
 	clock-names = "refclk";
 	clocks = <&usbhubxti>;
+	refclk-frequency = <26000000>;
 };
 
 &ehci {
