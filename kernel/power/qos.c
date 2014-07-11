@@ -113,12 +113,26 @@ static struct pm_qos_object bus_frequency_pm_qos = {
 	.name = "bus_frequency",
 };
 
+static BLOCKING_NOTIFIER_HEAD(cpu_frequency_notifier);
+static struct pm_qos_constraints cpu_frequency_constraints = {
+	.list = PLIST_HEAD_INIT(cpu_frequency_constraints.list),
+	.target_value = PM_QOS_CPU_FREQUENCY_DEFAULT_VALUE,
+	.default_value = PM_QOS_CPU_FREQUENCY_DEFAULT_VALUE,
+	.type = PM_QOS_MAX,
+	.notifiers = &cpu_frequency_notifier,
+};
+static struct pm_qos_object cpu_frequency_pm_qos = {
+	.constraints = &cpu_frequency_constraints,
+	.name = "cpu_frequency",
+};
+
 static struct pm_qos_object *pm_qos_array[] = {
 	&null_pm_qos,
 	&cpu_dma_pm_qos,
 	&network_lat_pm_qos,
 	&network_throughput_pm_qos,
 	&bus_frequency_pm_qos,
+	&cpu_frequency_pm_qos,
 };
 
 static ssize_t pm_qos_power_write(struct file *filp, const char __user *buf,
