@@ -55,7 +55,7 @@
 static int set_audio_clock_hierarchy(struct platform_device *pdev)
 {
 	struct clk *fout_epll, *sclk_epll, *mout_audio0, *sclk_audio0;
-	struct clk *mout_audss, *mout_i2s, *dout_srp, *dout_bus;
+	struct clk *mout_audss, *mout_i2s;
 	int ret = 0;
 
 	fout_epll = clk_get(&pdev->dev, "fout_epll");
@@ -102,22 +102,6 @@ static int set_audio_clock_hierarchy(struct platform_device *pdev)
 		goto out5;
 	}
 
-	dout_srp = clk_get(&pdev->dev, "dout_srp");
-	if (IS_ERR(dout_srp)) {
-		printk(KERN_WARNING
-			"%s: Cannot find dout_srp clocks.\n", __func__);
-		ret = -EINVAL;
-		goto out6;
-	}
-
-	dout_bus = clk_get(&pdev->dev, "dout_bus");
-	if (IS_ERR(dout_bus)) {
-		printk(KERN_WARNING
-			"%s: Cannot find dout_bus clocks.\n", __func__);
-		ret = -EINVAL;
-		goto out7;
-	}
-
 	/*
 	 * fout_epll may have been initialized to operate at a frequency higher
 	 * than the audio block's maximum (192Mhz on 5250, 200Mhz on 5420),
@@ -129,29 +113,29 @@ static int set_audio_clock_hierarchy(struct platform_device *pdev)
 	ret = clk_set_rate(fout_epll, DEFAULT_EPLL_RATE);
 	if (ret < 0) {
 		printk(KERN_WARNING "Failed to set epll rate.\n");
-		goto out8;
+		goto out6;
 	}
 
 	/* Set audio clock hierarchy for S/PDIF */
 	ret = clk_set_parent(sclk_epll, fout_epll);
 	if (ret < 0) {
 		printk(KERN_WARNING "Failed to set parent of epll.\n");
-		goto out8;
+		goto out6;
 	}
 	ret = clk_set_parent(mout_audio0, sclk_epll);
 	if (ret < 0) {
 		printk(KERN_WARNING "Failed to set parent of mout audio0.\n");
-		goto out8;
+		goto out6;
 	}
 	ret = clk_set_parent(mout_audss, fout_epll);
 	if (ret < 0) {
 		printk(KERN_WARNING "Failed to set parent of audss.\n");
-		goto out8;
+		goto out6;
 	}
 	ret = clk_set_parent(mout_i2s, sclk_audio0);
 	if (ret < 0) {
 		printk(KERN_WARNING "Failed to set parent of mout i2s.\n");
-		goto out8;
+		goto out6;
 	}
 
 	/* Ensure that the divider between mout_audio0 and sclk_audio0 is 1. */
@@ -160,10 +144,6 @@ static int set_audio_clock_hierarchy(struct platform_device *pdev)
 		printk(KERN_WARNING "Failed to set audio bus rate (%d).\n",
 			ret);
 
-out8:
-	clk_put(dout_bus);
-out7:
-	clk_put(dout_srp);
 out6:
 	clk_put(mout_i2s);
 out5:
@@ -306,8 +286,8 @@ static int daisy_hw_params(struct snd_pcm_substream *substream,
 	if (ret < 0)
 		return ret;
 
-	ret = snd_soc_dai_set_sysclk(codec_dai, SAMSUNG_I2S_RCLKSRC_0,
-					rclk, SND_SOC_CLOCK_IN);
+	ret = snd_soc_dai_set_sysclk(codec_dai, 0, rclk, SND_SOC_CLOCK_IN);
+
 	if (ret < 0)
 		return ret;
 
@@ -329,6 +309,7 @@ static int daisy_hw_params(struct snd_pcm_substream *substream,
 					rclk, SND_SOC_CLOCK_OUT);
 	if (ret < 0)
 		return ret;
+
 
 	return 0;
 }
