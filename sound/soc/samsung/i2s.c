@@ -512,6 +512,10 @@ static int i2s_set_sysclk(struct snd_soc_dai *dai,
 	u32 mod = readl(i2s->addr + I2SMOD);
 
 	switch (clk_id) {
+	case SAMSUNG_I2S_OPCLK:
+		mod &= ~MOD_OPCLK_MASK;
+		mod |= dir;
+		break;
 	case SAMSUNG_I2S_CDCLK:
 		/* Shouldn't matter in GATING(CLOCK_IN) mode */
 		if (dir == SND_SOC_CLOCK_IN)
@@ -564,6 +568,7 @@ static int i2s_set_sysclk(struct snd_soc_dai *dai,
 				i2s->op_clk = clk_get(&i2s->pdev->dev,
 						"i2s_opclk0");
 			clk_prepare_enable(i2s->op_clk);
+			clk_set_rate(i2s->op_clk, rfs);
 			i2s->rclk_srcrate = clk_get_rate(i2s->op_clk);
 
 			/* Over-ride the other's */
@@ -659,10 +664,11 @@ static int i2s_set_fmt(struct snd_soc_dai *dai,
 		tmp |= MOD_SLAVE;
 		break;
 	case SND_SOC_DAIFMT_CBS_CFS:
+		tmp &= ~MOD_SLAVE;
 		/* Set default source clock in Master mode */
-		if (i2s->rclk_srcrate == 0)
+		/* if (i2s->rclk_srcrate == 0)
 			i2s_set_sysclk(dai, SAMSUNG_I2S_RCLKSRC_0,
-							0, SND_SOC_CLOCK_IN);
+							0, SND_SOC_CLOCK_IN); */
 		break;
 	default:
 		dev_err(&i2s->pdev->dev, "master/slave format not supported\n");
