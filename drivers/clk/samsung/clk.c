@@ -24,6 +24,9 @@ static struct clk_onecell_data clk_data;
 #ifdef CONFIG_PM_SLEEP
 static struct samsung_clk_reg_dump *reg_dump;
 static unsigned long nr_reg_dump;
+static clk_pm_suspend_callback suspend_cb;
+static clk_pm_resume_callback resume_cb;
+static void *cb_data;
 
 static int samsung_clk_suspend(void)
 {
@@ -32,6 +35,10 @@ static int samsung_clk_suspend(void)
 
 	for (i = 0; i < nr_reg_dump; i++, rd++)
 		rd->value = readl_relaxed(reg_base + rd->offset);
+
+	if (suspend_cb != NULL) {
+		return (*suspend_cb)(cb_data);
+	}
 
 	return 0;
 }
@@ -43,6 +50,10 @@ static void samsung_clk_resume(void)
 
 	for (i = 0; i < nr_reg_dump; i++, rd++)
 		writel_relaxed(rd->value, reg_base + rd->offset);
+
+	if (resume_cb != NULL) {
+		(*resume_cb)(cb_data);
+	}
 }
 
 static struct syscore_ops samsung_clk_syscore_ops = {
@@ -55,11 +66,15 @@ static struct syscore_ops samsung_clk_syscore_ops = {
 void __init samsung_clk_init(struct device_node *np, void __iomem *base,
 		unsigned long nr_clks, unsigned long *rdump,
 		unsigned long nr_rdump, unsigned long *soc_rdump,
-		unsigned long nr_soc_rdump)
+		unsigned long nr_soc_rdump, clk_pm_suspend_callback suspend,
+		clk_pm_resume_callback resume, void *callback_data)
 {
 	reg_base = base;
 
 #ifdef CONFIG_PM_SLEEP
+	suspend_cb = suspend;
+	resume_cb = resume;
+	cb_data = callback_data;
 	if (rdump && nr_rdump) {
 		unsigned int idx;
 		reg_dump = kzalloc(sizeof(struct samsung_clk_reg_dump)
