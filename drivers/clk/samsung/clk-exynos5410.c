@@ -21,6 +21,7 @@
 #include <linux/of_address.h>
 
 #include "clk.h"
+#include "clk-pll.h"
 
 #define APLL_LOCK		0x0
 #define APLL_CON0		0x100
@@ -281,7 +282,7 @@ PNAME(mout_usbd3_p)	= { "sclk_mpll_bpll", "fin_pll" };
 PNAME(mpll_user_p)	= { "fin_pll", "sclk_mpll", };
 PNAME(bpll_user_p)	= { "fin_pll", "sclk_bpll", };
 PNAME(mpll_bpll_p)	= { "sclk_mpll_muxed", "sclk_bpll_muxed", };
-PNAME(cpll_mpll_p)	= { "sclk_cpll", "sclk_mpll_muxed", };
+PNAME(cpll_mpll_p)	= { "mout_cpll", "sclk_mpll_muxed", };
 PNAME(aclk200_disp1_p) = { "fin_pll", "div_aclk200", };
 PNAME(aclk300_disp0_p) = { "fin_pll", "div_aclk300_disp0", };
 PNAME(aclk300_disp1_p) = { "fin_pll", "div_aclk300_disp1", };
@@ -291,22 +292,22 @@ PNAME(aclk333_sub_p) = { "fin_pll", "div_aclk333", };
 
 PNAME(group2_p)		= { "fin_pll", "fin_pll", "sclk_hdmi27m", "sclk_dptxphy",
 			"sclk_uhostphy", "sclk_hdmiphy", "sclk_mpll_bpll",
-			 "sclk_dpll", "sclk_vpll", "sclk_cpll" };
+			 "mout_dpll", "mout_vpll", "mout_cpll" };
 
 PNAME(audio0_p)	= { "cdclk0", "fin_pll", "sclk_hdmi27m",
 		  "sclk_dptxphy", "sclk_uhostphy", "sclk_hdmiphy",
-		  "sclk_mpll_bpll", "mout_epll", "sclk_vpll", "sclk_cpll" };
+		  "sclk_mpll_bpll", "mout_epll", "mout_vpll", "mout_cpll" };
 PNAME(audio1_p)	= { "cdclk1", "fin_pll", "sclk_hdmi27m",
 		  "sclk_dptxphy", "sclk_uhostphy", "sclk_hdmiphy",
-		  "sclk_mpll_bpll", "mout_epll", "sclk_vpll", "sclk_cpll" };
+		  "sclk_mpll_bpll", "mout_epll", "mout_vpll", "mout_cpll" };
 PNAME(audio2_p)	= { "cdclk2", "fin_pll", "sclk_hdmi27m",
 		  "sclk_dptxphy", "sclk_uhostphy", "sclk_hdmiphy",
-		  "sclk_mpll_bpll", "mout_epll", "sclk_vpll", "sclk_cpll" };
+		  "sclk_mpll_bpll", "mout_epll", "mout_vpll", "mout_cpll" };
 PNAME(spdif_p)	= { "dout_audio0", "dout_audio1", "dout_audio2",
-		  "spdif_extclk" };
+		  "spdifcdclk" };
 PNAME(mau_audio0_p)	= { "cdclk0", "fin_pll", "sclk_hdmi27m",
 		  "sclk_dptxphy", "sclk_uhostphy", "sclk_hdmiphy",
-		  "sclk_mpll_bpll", "mout_epll", "sclk_vpll", "sclk_cpll" };
+		  "sclk_mpll_bpll", "mout_epll", "mout_vpll", "mout_cpll" };
 
 
 static const struct samsung_pll_rate_table apll_tbl[] = {
@@ -353,6 +354,34 @@ static const struct samsung_pll_rate_table dpll_tbl[] = {
 };
 
 
+/*
+ * The Exynos 5410 EPLL Clock is actually an PLL_2650,
+ * which is very similar to the PLL_36XX, except for the size
+ * of MDIV field. This field should have 10 bits and not 9.
+ * However, since the parameter MDIV for the table below
+ * is never above 2^9 - 1 = 511, we are in good shape.
+ */
+static const struct samsung_pll_rate_table epll_tbl[] = {
+	/* sorted in descending order */
+	/* PLL_36XX_RATE(rate, m, p, s, k) */
+	PLL_36XX_RATE(600000000, 100, 2, 1,      0),
+	PLL_36XX_RATE(400000000, 200, 3, 2,      0),
+	PLL_36XX_RATE(200000000, 200, 3, 3,      0),
+	PLL_36XX_RATE(180633600, 301, 5, 3,  -3670),
+	PLL_36XX_RATE( 67737600, 452, 5, 5, -27263),
+	PLL_36XX_RATE( 49152000, 197, 3, 5, -25690),
+	PLL_36XX_RATE( 45158400, 181, 3, 5, -24012),
+};
+
+
+static const struct samsung_pll_rate_table ipll_tbl[] = {
+	/* sorted in descending order */
+	/* PLL_35XX_RATE(rate, m, p, s, k) */
+	PLL_35XX_RATE(864000000, 288, 4, 1),
+	PLL_35XX_RATE(666000000, 222, 4, 1),
+	PLL_35XX_RATE(432000000, 288, 4, 2),
+};
+
 
 static const struct samsung_pll_rate_table kpll_tbl[] = {
 	/* sorted in descending order */
@@ -374,13 +403,6 @@ static const struct samsung_pll_rate_table kpll_tbl[] = {
 };
 
 
-/*
- * The Exynos 5410 VPLL Clock is actually an PLL_2650,
- * which is very similar to the PLL_36XX, except for the size
- * of MDIV field. This field should have 10 bits and not 9.
- * However, since the parameter MDIV for the table below
- * is never above 2^9 - 1 = 511, we are in good shape.
- */
 static const struct samsung_pll_rate_table vpll_tbl[] = {
 	/* sorted in descending order */
 	/* PLL_36XX_RATE(rate, m, p, s, k) */
@@ -399,26 +421,6 @@ static const struct samsung_pll_rate_table vpll_tbl[] = {
 
 
 
-static const struct samsung_pll_rate_table epll_tbl[] = {
-	/* sorted in descending order */
-	/* PLL_36XX_RATE(rate, m, p, s, k) */
-	PLL_36XX_RATE(600000000, 100, 2, 1,     0),
-	PLL_36XX_RATE(400000000, 200, 3, 2,     0),
-	PLL_36XX_RATE(200000000, 200, 3, 3,     0),
-	PLL_36XX_RATE(180633600, 301, 5, 3,  3670),
-	PLL_36XX_RATE( 67737600, 452, 5, 5, 27263),
-	PLL_36XX_RATE( 49152000, 197, 3, 5, 25690),
-	PLL_36XX_RATE( 45158400, 181, 3, 5, 24012),
-};
-
-
-static const struct samsung_pll_rate_table ipll_tbl[] = {
-	/* sorted in descending order */
-	/* PLL_35XX_RATE(rate, m, p, s, k) */
-	PLL_35XX_RATE(864000000, 288, 4, 1),
-	PLL_35XX_RATE(666000000, 222, 4, 1),
-	PLL_35XX_RATE(432000000, 288, 4, 2),
-};
 
 
 /* fixed rate clocks generated outside the soc */
@@ -429,9 +431,16 @@ static struct samsung_fixed_rate_clock exynos5410_fixed_rate_ext_clks[] __initda
 /* fixed rate clocks generated inside the soc */
 static struct samsung_fixed_rate_clock exynos5410_fixed_rate_clks[] __initdata = {
 	FRATE(CLK_SCLK_HDMIPHY, "sclk_hdmiphy", NULL, CLK_IS_ROOT, 24000000),
+	FRATE(0, "sclk_hdmi24m", NULL, CLK_IS_ROOT, 24000000),
 	FRATE(0, "sclk_hdmi27m", NULL, CLK_IS_ROOT, 24000000),
 	FRATE(0, "sclk_dptxphy", NULL, CLK_IS_ROOT, 24000000),
 	FRATE(0, "sclk_uhostphy", NULL, CLK_IS_ROOT, 48000000),
+	FRATE(0, "cdclk0", NULL, CLK_IS_ROOT, 16934400),
+	/* Do not trust the value of the frequencies below */
+	FRATE(0, "cdclk1", NULL, CLK_IS_ROOT, 16934400),
+	FRATE(0, "cdclk2", NULL, CLK_IS_ROOT, 16934400),
+	FRATE(0, "spdifcdclk", NULL, CLK_IS_ROOT, 16934400),
+
 };
 
 static struct samsung_mux_clock exynos5410_pll_pmux_clks[] __initdata = {
@@ -450,13 +459,13 @@ static struct samsung_mux_clock exynos5410_mux_clks[] __initdata = {
 
 	MUX(0, "sclk_bpll", bpll_p, SRC_CDREX, 0, 1),
 	MUX(0, "sclk_bpll_muxed", bpll_user_p, SRC_TOP2, 24, 1),
-	MUX(0, "sclk_vpll", mout_vpll_p, SRC_TOP2, 16, 1),
+	MUX(0, "mout_vpll", mout_vpll_p, SRC_TOP2, 16, 1),
 
         MUX(CLK_MOUT_EPLL, "mout_epll", epll_p, SRC_TOP2, 12, 1),
         MUX(0, "sclk_ipll", ipll_p, SRC_TOP2, 14, 1),
 
-	MUX(0, "sclk_cpll", cpll_p, SRC_TOP2, 8, 1),
-	MUX(0, "sclk_dpll", dpll_p, SRC_TOP2, 10, 1),
+	MUX(0, "mout_cpll", cpll_p, SRC_TOP2, 8, 1),
+	MUX(0, "mout_dpll", dpll_p, SRC_TOP2, 10, 1),
 
 	MUX(0, "sclk_mpll_bpll", mpll_bpll_p, SRC_TOP1, 20, 1),
 
@@ -559,11 +568,11 @@ static struct samsung_div_clock exynos5410_div_clks[] __initdata = {
 	DIV(0, "div_aclk266", "sclk_mpll_muxed", DIV_TOP0, 16, 3),
 	DIV(0, "div_aclk333", "mout_aclk333", DIV_TOP0, 20, 3),
 	DIV(0, "div_aclk400", "mout_aclk400", DIV_TOP0, 24, 3),
-	DIV(0, "div_aclk300_gscl", "sclk_dpll", DIV_TOP2, 8, 3),
-	DIV(0, "div_aclk300_disp0", "sclk_dpll", DIV_TOP2, 12, 3),
-	DIV(0, "div_aclk300_disp1", "sclk_dpll", DIV_TOP2, 16, 3),
-	DIV(0, "div_aclk300_jpeg", "sclk_dpll", DIV_TOP2, 17, 3),
-	DIV(CLK_DIV_HDMI_PIXEL, "div_hdmi_pixel", "sclk_vpll",
+	DIV(0, "div_aclk300_gscl", "mout_dpll", DIV_TOP2, 8, 3),
+	DIV(0, "div_aclk300_disp0", "mout_dpll", DIV_TOP2, 12, 3),
+	DIV(0, "div_aclk300_disp1", "mout_dpll", DIV_TOP2, 16, 3),
+	DIV(0, "div_aclk300_jpeg", "mout_dpll", DIV_TOP2, 17, 3),
+	DIV(CLK_DIV_HDMI_PIXEL, "div_hdmi_pixel", "mout_vpll",
 		DIV_DISP1_0, 28, 4),
 	DIV(0, "div_fimd1", "mout_fimd1", DIV_DISP1_0, 0, 4),
 };
@@ -795,15 +804,15 @@ static void __init exynos5410_clk_init(struct device_node *np)
 	 * I've added this initialization code here because I do not
 	 * know where else to put it.
 	 */
-	_set_parent("sclk_vpll", "mout_vpllsrc");
+	_set_parent("mout_vpll", "mout_vpllsrc");
 	_set_rate("fout_vpll", 350000000);
-	_set_parent("sclk_vpll", "fout_vpll");
+	_set_parent("mout_vpll", "fout_vpll");
 
 	_set_rate("fout_cpll", 640000000);
-	_set_parent("sclk_cpll", "fout_cpll");
+	_set_parent("mout_cpll", "fout_cpll");
 
 	_set_rate("fout_dpll", 600000000);
-	_set_parent("sclk_dpll", "fout_dpll");
+	_set_parent("mout_dpll", "fout_dpll");
 
 	_set_rate("fout_epll", 400000000);
 	_set_parent("mout_epll", "fout_epll");
