@@ -380,7 +380,7 @@ static const struct samsung_pll_rate_table epll_tbl[] = {
 	PLL_36XX_RATE(180633600, 301, 5, 3,  -3670),
 	PLL_36XX_RATE( 67737600, 452, 5, 5, -27263),
 	PLL_36XX_RATE( 49152000, 197, 3, 5, -25690),
-	PLL_36XX_RATE( 45158400, 181, 3, 5, -24013),
+	PLL_36XX_RATE( 45158401, 181, 3, 5, -24012),
 	PLL_36XX_RATE(0, 0, 0, 0, 0),
 };
 
