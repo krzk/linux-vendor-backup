@@ -340,6 +340,7 @@ static const struct samsung_pll_rate_table apll_tbl[] = {
 	PLL_35XX_RATE(400000000, 200, 3, 2),
 	PLL_35XX_RATE(300000000, 100, 2, 2),
 	PLL_35XX_RATE(200000000, 200, 3, 3),
+	PLL_35XX_RATE(0, 0, 0, 0),
 };
 
 /* The next 2 tables for CPLL and DPLL were copies from
@@ -350,14 +351,16 @@ static const struct samsung_pll_rate_table cpll_tbl[] = {
 	/* PLL_35XX_RATE(rate, m, p, s) */
 	PLL_35XX_RATE(666000000, 222, 4, 1),
 	PLL_35XX_RATE(640000000, 160, 3, 1),
-	PLL_35XX_RATE(320000000, 160, 3, 2)
+	PLL_35XX_RATE(320000000, 160, 3, 2),
+	PLL_35XX_RATE(0, 0, 0, 0),
 };
 
 
 static const struct samsung_pll_rate_table dpll_tbl[] = {
 	/* sorted in descending order */
 	/* PLL_35XX_RATE(rate, m, p, s) */
-	PLL_35XX_RATE(600000000, 200, 4, 1)
+	PLL_35XX_RATE(600000000, 200, 4, 1),
+	PLL_35XX_RATE(0, 0, 0, 0),
 };
 
 
@@ -377,7 +380,8 @@ static const struct samsung_pll_rate_table epll_tbl[] = {
 	PLL_36XX_RATE(180633600, 301, 5, 3,  -3670),
 	PLL_36XX_RATE( 67737600, 452, 5, 5, -27263),
 	PLL_36XX_RATE( 49152000, 197, 3, 5, -25690),
-	PLL_36XX_RATE( 45158400, 181, 3, 5, -24012),
+	PLL_36XX_RATE( 45158400, 181, 3, 5, -24013),
+	PLL_36XX_RATE(0, 0, 0, 0, 0),
 };
 
 
@@ -387,6 +391,7 @@ static const struct samsung_pll_rate_table ipll_tbl[] = {
 	PLL_35XX_RATE(864000000, 288, 4, 1),
 	PLL_35XX_RATE(666000000, 222, 4, 1),
 	PLL_35XX_RATE(432000000, 288, 4, 2),
+	PLL_35XX_RATE(0, 0, 0, 0),
 };
 
 
@@ -407,6 +412,7 @@ static const struct samsung_pll_rate_table kpll_tbl[] = {
 	PLL_35XX_RATE(400000000, 200, 3, 2),
 	PLL_35XX_RATE(300000000, 100, 2, 2),
 	PLL_35XX_RATE(200000000, 200, 3, 3),
+	PLL_35XX_RATE(0, 0, 0, 0),
 };
 
 
@@ -423,7 +429,8 @@ static const struct samsung_pll_rate_table vpll_tbl[] = {
 	PLL_36XX_RATE(266000000, 133, 3, 2, 0),
 	PLL_36XX_RATE(177000000, 118, 2, 3, 0),
 	PLL_36XX_RATE(123500000, 330, 4, 4, 0),
-	PLL_36XX_RATE( 89000000, 178, 3, 4, 0)
+	PLL_36XX_RATE( 89000000, 178, 3, 4, 0),
+	PLL_36XX_RATE(0, 0, 0, 0, 0),
 };
 
 
