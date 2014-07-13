@@ -1100,11 +1100,13 @@ static void __init exynos4_clk_init(struct device_node *np,
 	if (exynos4_soc == EXYNOS4210)
 		samsung_clk_init(np, reg_base, nr_clks,
 			exynos4_clk_regs, ARRAY_SIZE(exynos4_clk_regs),
-			exynos4210_clk_save, ARRAY_SIZE(exynos4210_clk_save));
+			exynos4210_clk_save, ARRAY_SIZE(exynos4210_clk_save),
+			NULL, NULL, NULL);
 	else
 		samsung_clk_init(np, reg_base, nr_clks,
 			exynos4_clk_regs, ARRAY_SIZE(exynos4_clk_regs),
-			exynos4x12_clk_save, ARRAY_SIZE(exynos4x12_clk_save));
+			exynos4x12_clk_save, ARRAY_SIZE(exynos4x12_clk_save),
+			NULL, NULL, NULL);
 
 	samsung_clk_of_register_fixed_ext(exynos4_fixed_rate_ext_clks,
 			ARRAY_SIZE(exynos4_fixed_rate_ext_clks),
