@@ -584,78 +584,52 @@ static struct samsung_pll_clock exynos5410_plls[nr_plls] __initdata = {
 
 
 /* Auxiliary function to set the parent of a clock */
-static __init int set_parent_by_name(const char *cname, const char *pname)
+static __init int _set_parent(const char *child_name, const char *parent_name)
 {
-	struct clk *child_p = NULL;
-	struct clk *parent_p = NULL;
+	struct clk *child = NULL;
+	struct clk *parent = NULL;
 	int ret = -1;
 
-	child_p = clk_get(NULL, cname);
-	parent_p = clk_get(NULL, pname);
+	child = __clk_lookup(child_name);
+	parent = __clk_lookup(parent_name);
 
-	if (!IS_ERR(child_p) && !IS_ERR(parent_p)) {
-		ret = clk_prepare(child_p);
-		if (ret == 0) {
-			pr_debug ("setting parent of `%s' to `%s'\n",
-				cname, pname);
+	if (child && parent) {
+		pr_debug ("setting parent of `%s' to `%s'\n",
+				child_name, parent_name);
 
-			ret = clk_set_parent(child_p, parent_p);
-			if (ret < 0) {
-				pr_err("could not set parent `%s' -> `%s'\n",
-					cname, pname);
-			}
-			clk_unprepare(child_p);
-		} else {
-			pr_err("could not prepare child `%s': %d\n",
-				cname, ret);
+		ret = clk_set_parent(child, parent);
+		if (ret < 0) {
+			pr_err("could not set parent `%s' -> `%s'\n",
+				child_name, parent_name);
 		}
-		clk_put(child_p);
-		clk_put(parent_p);
 	} else {
-		if (IS_ERR(child_p)) {
-			pr_err("child lookup `%s' failed: %d\n",
-				cname, (int) child_p);
-		} else {
-			clk_put(child_p);
+		if (!child) {
+			pr_err("child lookup `%s' failed\n", child_name);
 		}
-		if (IS_ERR(parent_p)) {
-			pr_err("parent lookup `%s' failed: %d\n",
-				pname, (int) parent_p);
-		} else {
-			clk_put(parent_p);
+		if (!parent) {
+			pr_err("parent lookup `%s' failed\n", parent_name);
 		}
 	}
 	return ret;
 }
 
 /* Auxiliary function to set the clock rate */
-static __init int set_rate_by_name(const char *name, unsigned long rate)
+static __init int _set_rate(const char *clk_name, unsigned long rate)
 {
-	struct clk *clock_p = NULL;
+	struct clk *clk;
 	int ret = -1;
 
-	clock_p = clk_get(NULL, name);
+	clk = __clk_lookup(clk_name);
 
-	if (!IS_ERR(clock_p)) {
-		ret = clk_prepare(clock_p);
-		if (ret == 0) {
-			pr_debug ("setting rate of `%s' to %lu\n",
-				name, rate);
-
-			ret = clk_set_rate(clock_p, rate);
-			if (ret < 0) {
-				pr_err("could not set rate `%s' to %lu\n",
-					name, rate);
-			}
-			clk_unprepare(clock_p);
-		} else {
-			pr_err("could not prepare clock `%s': %d\n",
-				name, ret);
+	if (clk) {
+		pr_debug ("setting rate of `%s' to %lu\n", clk_name, rate);
+		ret = clk_set_rate(clk, rate);
+		if (ret < 0) {
+			pr_err("could not set rate `%s' to %lu\n",
+				clk_name, rate);
 		}
-		clk_put(clock_p);
 	} else {
-		pr_err("clock lookup `%s' failed: %d\n",
-			name, (int) clock_p);
+		pr_err("clock lookup `%s' failed\n", clk_name);
 	}
 	return ret;
 }
@@ -706,14 +680,22 @@ static void __init exynos5410_clk_init(struct device_node *np)
 	 * I've added this initialization code here because I do not
 	 * know where else to put it.
 	 */
-	set_parent_by_name("sclk_vpll", "mout_vpllsrc");
-	set_rate_by_name("fout_vpll", 350000000);
-	set_parent_by_name("sclk_vpll", "fout_vpll");
+	_set_parent("sclk_vpll", "mout_vpllsrc");
+	_set_rate("fout_vpll", 350000000);
+	_set_parent("sclk_vpll", "fout_vpll");
 
-	set_rate_by_name("fout_dpll", 600000000);
-	set_parent_by_name("aclk200_disp1", "aclk200");
-	set_parent_by_name("sclk_dpll", "fout_dpll");
-	set_parent_by_name("aclk300_disp1", "daclk300disp1");
+	_set_rate("fout_cpll", 640000000);
+	_set_parent("sclk_cpll", "fout_cpll");
+
+	_set_rate("fout_dpll", 600000000);
+	_set_parent("sclk_dpll", "fout_dpll");
+
+	_set_rate("fout_epll", 400000000);
+	_set_parent("mout_epll", "fout_epll");
+
+	_set_rate("div_aclk200", 200000000);
+	_set_parent("mout_aclk200_disp1", "div_aclk200");
+	_set_parent("mout_aclk300_disp1", "div_aclk300_disp1");
 
 
 	pr_debug("Exynos5410: clock setup completed.\n");
