@@ -93,4 +93,6 @@ extern struct clk * __init samsung_clk_register_pll2550x(const char *name,
 			const char *pname, const void __iomem *reg_base,
 			const unsigned long offset);
 
+extern int samsung_clk_pll_wait_locktime(struct clk *clk);
+
 #endif /* __SAMSUNG_CLK_PLL_H */
