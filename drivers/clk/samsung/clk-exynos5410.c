@@ -246,6 +246,19 @@ static unsigned long exynos5410_clk_regs[] __initdata = {
 	SRC_MASK_PERIC0,
 	SRC_MASK_PERIC1,
 	SRC_MASK_MAU,
+
+	CPLL_LOCK,
+	CPLL_CON0,
+	DPLL_LOCK,
+	DPLL_CON0,
+	IPLL_LOCK,
+	IPLL_CON0,
+	EPLL_LOCK,
+	EPLL_CON0,
+	EPLL_CON1,
+	VPLL_LOCK,
+	VPLL_CON0,
+	VPLL_CON1,
 };
 
 /* list of all parent clocks */
@@ -734,6 +747,11 @@ static __init int _set_rate(const char *clk_name, unsigned long rate)
 /* Callback for PM Resume. */
 static void exynos5410_clk_pm_resume_callback(void *data)
 {
+	samsung_clk_pll_wait_locktime(__clk_lookup("fout_cpll"));
+	samsung_clk_pll_wait_locktime(__clk_lookup("fout_dpll"));
+	samsung_clk_pll_wait_locktime(__clk_lookup("fout_epll"));
+	samsung_clk_pll_wait_locktime(__clk_lookup("fout_ipll"));
+	samsung_clk_pll_wait_locktime(__clk_lookup("fout_vpll"));
 }
 
 
