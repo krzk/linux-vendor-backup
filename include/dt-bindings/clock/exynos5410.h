@@ -2,16 +2,16 @@
 #define _DT_BINDINGS_CLOCK_EXYNOS_5410_H
 
 /* core clocks */
-#define CLK_FOUT_APLL 1
-#define CLK_FOUT_CPLL 2
-#define CLK_FOUT_MPLL 3
-#define CLK_FOUT_BPLL 4
-#define CLK_FOUT_KPLL 5
-#define CLK_FOUT_VPLL 6
-#define CLK_FOUT_DPLL 7
-#define CLK_FOUT_EPLL 8
-#define CLK_FOUT_IPLL 9
-#define CLK_FIN_PLL 10
+#define CLK_FIN_PLL 1
+#define CLK_FOUT_APLL 2
+#define CLK_FOUT_BPLL 3
+#define CLK_FOUT_CPLL 4
+#define CLK_FOUT_DPLL 5
+#define CLK_FOUT_EPLL 6
+#define CLK_FOUT_IPLL 7
+#define CLK_FOUT_KPLL 8
+#define CLK_FOUT_MPLL 9
+#define CLK_FOUT_VPLL 10
 
 /* gate for special clocks (sclk) */
 #define CLK_SCLK_UART0 128

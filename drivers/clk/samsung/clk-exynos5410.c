@@ -156,11 +156,12 @@
 #define SRC_KFC			0x28200
 #define DIV_KFC0		0x28500
 
+
 /* list of PLLs */
 enum exynos5410_plls {
-	apll, cpll, mpll,
-	bpll, kpll, vpll,
+	apll, bpll, cpll,
 	dpll, epll, ipll,
+	kpll, mpll, vpll,
 	nr_plls			/* number of PLLs */
 };
 
@@ -272,17 +273,17 @@ PNAME(dpll_p)		= { "fin_pll", "fout_dpll", };
 PNAME(epll_p)		= { "fin_pll", "fout_epll", };
 PNAME(ipll_p)		= { "fin_pll", "fout_ipll", };
 
-PNAME(mout_cpu_p)	= { "mout_apll", "sclk_mpll", };
-PNAME(mout_kfc_p)	= { "mout_kpll", "sclk_mpll", };
+PNAME(mout_cpu_p)	= { "mout_apll", "mout_mpll", };
+PNAME(mout_kfc_p)	= { "mout_kpll", "mout_mpll", };
 PNAME(mout_vpllsrc_p)	= { "fin_pll", "sclk_hdmi27m" };
 PNAME(mout_vpll_p)	= { "mout_vpllsrc", "fout_vpll" };
 PNAME(mout_hdmi_p)	= { "div_hdmi_pixel", "sclk_hdmiphy" };
-PNAME(mout_usbd3_p)	= { "sclk_mpll_bpll", "fin_pll" };
+PNAME(mout_usbd3_p)	= { "mout_mpll_bpll", "fin_pll" };
 
-PNAME(mpll_user_p)	= { "fin_pll", "sclk_mpll", };
-PNAME(bpll_user_p)	= { "fin_pll", "sclk_bpll", };
-PNAME(mpll_bpll_p)	= { "sclk_mpll_muxed", "sclk_bpll_muxed", };
-PNAME(cpll_mpll_p)	= { "mout_cpll", "sclk_mpll_muxed", };
+PNAME(mpll_user_p)	= { "fin_pll", "mout_mpll", };
+PNAME(bpll_user_p)	= { "fin_pll", "mout_bpll", };
+PNAME(mpll_bpll_p)	= { "mout_mpll_user", "mout_bpll_user", };
+PNAME(cpll_mpll_p)	= { "mout_cpll", "mout_mpll_user", };
 PNAME(aclk200_disp1_p) = { "fin_pll", "div_aclk200", };
 PNAME(aclk300_disp0_p) = { "fin_pll", "div_aclk300_disp0", };
 PNAME(aclk300_disp1_p) = { "fin_pll", "div_aclk300_disp1", };
@@ -291,23 +292,23 @@ PNAME(aclk300_jpeg_p) = { "fin_pll", "div_aclk300_jpeg", };
 PNAME(aclk333_sub_p) = { "fin_pll", "div_aclk333", };
 
 PNAME(group2_p)		= { "fin_pll", "fin_pll", "sclk_hdmi27m", "sclk_dptxphy",
-			"sclk_uhostphy", "sclk_hdmiphy", "sclk_mpll_bpll",
+			"sclk_uhostphy", "sclk_hdmiphy", "mout_mpll_bpll",
 			 "mout_dpll", "mout_vpll", "mout_cpll" };
 
 PNAME(audio0_p)	= { "cdclk0", "fin_pll", "sclk_hdmi27m",
 		  "sclk_dptxphy", "sclk_uhostphy", "sclk_hdmiphy",
-		  "sclk_mpll_bpll", "mout_epll", "mout_vpll", "mout_cpll" };
+		  "mout_mpll_bpll", "mout_epll", "mout_vpll", "mout_cpll" };
 PNAME(audio1_p)	= { "cdclk1", "fin_pll", "sclk_hdmi27m",
 		  "sclk_dptxphy", "sclk_uhostphy", "sclk_hdmiphy",
-		  "sclk_mpll_bpll", "mout_epll", "mout_vpll", "mout_cpll" };
+		  "mout_mpll_bpll", "mout_epll", "mout_vpll", "mout_cpll" };
 PNAME(audio2_p)	= { "cdclk2", "fin_pll", "sclk_hdmi27m",
 		  "sclk_dptxphy", "sclk_uhostphy", "sclk_hdmiphy",
-		  "sclk_mpll_bpll", "mout_epll", "mout_vpll", "mout_cpll" };
-PNAME(spdif_p)	= { "dout_audio0", "dout_audio1", "dout_audio2",
+		  "mout_mpll_bpll", "mout_epll", "mout_vpll", "mout_cpll" };
+PNAME(spdif_p)	= { "div_audio0", "div_audio1", "div_audio2",
 		  "spdifcdclk" };
 PNAME(mau_audio0_p)	= { "cdclk0", "fin_pll", "sclk_hdmi27m",
 		  "sclk_dptxphy", "sclk_uhostphy", "sclk_hdmiphy",
-		  "sclk_mpll_bpll", "mout_epll", "mout_vpll", "mout_cpll" };
+		  "mout_mpll_bpll", "mout_epll", "mout_vpll", "mout_cpll" };
 
 
 static const struct samsung_pll_rate_table apll_tbl[] = {
@@ -440,7 +441,6 @@ static struct samsung_fixed_rate_clock exynos5410_fixed_rate_clks[] __initdata =
 	FRATE(0, "cdclk1", NULL, CLK_IS_ROOT, 16934400),
 	FRATE(0, "cdclk2", NULL, CLK_IS_ROOT, 16934400),
 	FRATE(0, "spdifcdclk", NULL, CLK_IS_ROOT, 16934400),
-
 };
 
 static struct samsung_mux_clock exynos5410_pll_pmux_clks[] __initdata = {
@@ -454,11 +454,11 @@ static struct samsung_mux_clock exynos5410_mux_clks[] __initdata = {
 	MUX_A(0, "mout_kpll", kpll_p, SRC_KFC, 0, 1, "mout_kpll"),
 	MUX_A(0, "mout_kfc", mout_kfc_p, SRC_KFC, 16, 1, "mout_kfc"),
 
-	MUX_A(0, "sclk_mpll", mpll_p, SRC_CPERI1, 8, 1, "mout_mpll"),
-	MUX(0, "sclk_mpll_muxed", mpll_user_p, SRC_TOP2, 20, 1),
+	MUX_A(0, "mout_mpll", mpll_p, SRC_CPERI1, 8, 1, "mout_mpll"),
+	MUX(0, "mout_mpll_user", mpll_user_p, SRC_TOP2, 20, 1),
 
-	MUX(0, "sclk_bpll", bpll_p, SRC_CDREX, 0, 1),
-	MUX(0, "sclk_bpll_muxed", bpll_user_p, SRC_TOP2, 24, 1),
+	MUX(0, "mout_bpll", bpll_p, SRC_CDREX, 0, 1),
+	MUX(0, "mout_bpll_user", bpll_user_p, SRC_TOP2, 24, 1),
 	MUX(0, "mout_vpll", mout_vpll_p, SRC_TOP2, 16, 1),
 
         MUX(CLK_MOUT_EPLL, "mout_epll", epll_p, SRC_TOP2, 12, 1),
@@ -467,7 +467,7 @@ static struct samsung_mux_clock exynos5410_mux_clks[] __initdata = {
 	MUX(0, "mout_cpll", cpll_p, SRC_TOP2, 8, 1),
 	MUX(0, "mout_dpll", dpll_p, SRC_TOP2, 10, 1),
 
-	MUX(0, "sclk_mpll_bpll", mpll_bpll_p, SRC_TOP1, 20, 1),
+	MUX(0, "mout_mpll_bpll", mpll_bpll_p, SRC_TOP1, 20, 1),
 
 	/* MAU Block */
 	MUX(0, "mout_mau_audio0", mau_audio0_p, SRC_MAU, 0, 4),
@@ -521,7 +521,7 @@ static struct samsung_div_clock exynos5410_div_clks[] __initdata = {
 	DIV(0, "div_pclk", "div_kfc", DIV_KFC0, 20, 3),
 	DIV(0, "sclk_kpll", "mout_kpll", DIV_KFC0, 24, 3),
 
-	DIV(0, "aclk66_pre", "sclk_mpll_muxed", DIV_TOP1, 24, 3),
+	DIV(0, "aclk66_pre", "mout_mpll_user", DIV_TOP1, 24, 3),
 	DIV(0, "div_aclk66", "aclk66_pre", DIV_TOP0, 0, 3),
 
 	/* Audio Block */
@@ -550,22 +550,21 @@ static struct samsung_div_clock exynos5410_div_clks[] __initdata = {
 	DIV(0, "div_uart3", "mout_uart3", DIV_PERIC0, 12, 4),
 
 	/* PCM */
-	DIV(0, "dout_pcm", "dout_audio0", DIV_MAU, 4, 8),
-	DIV(0, "dout_pcm0", "dout_audio2", DIV_PERIC4, 20, 8),
-	DIV(0, "dout_pcm1", "dout_audio1", DIV_PERIC4, 4, 8),
-	DIV(0, "dout_pcm2", "dout_audio2", DIV_PERIC4, 12, 8),
-	/* this seems to overlap with "dout_audio2", which is strange */
+	DIV(0, "div_pcm0", "div_audio0", DIV_PERIC4, 20, 8),
+	DIV(0, "div_pcm1", "div_audio1", DIV_PERIC4, 4, 8),
+	DIV(0, "div_pcm2", "div_audio2", DIV_PERIC4, 12, 8),
+	/* this seems to overlap with "div_audio2", which is strange */
 
 	/* Audio - I2S */
-	DIV(0, "dout_i2s1", "dout_audio1", DIV_PERIC5, 0, 6),
-	DIV(0, "dout_i2s2", "dout_audio2", DIV_PERIC5, 8, 6),
-	DIV(0, "dout_audio0", "mout_audio0", DIV_PERIC5, 24, 4),
-	DIV(0, "dout_audio1", "mout_audio1", DIV_PERIC4, 0, 4),
-	DIV(0, "dout_audio2", "mout_audio2", DIV_PERIC4, 16, 4),
+	DIV(0, "div_i2s1", "div_audio1", DIV_PERIC5, 0, 6),
+	DIV(0, "div_i2s2", "div_audio2", DIV_PERIC5, 8, 6),
+	DIV(0, "div_audio0", "mout_audio0", DIV_PERIC5, 24, 4),
+	DIV(0, "div_audio1", "mout_audio1", DIV_PERIC4, 0, 4),
+	DIV(0, "div_audio2", "mout_audio2", DIV_PERIC4, 16, 4),
 
 	DIV(0, "div_aclk166", "mout_aclk166", DIV_TOP0, 8, 3),
 	DIV(0, "div_aclk200", "mout_aclk200", DIV_TOP0, 12, 3),
-	DIV(0, "div_aclk266", "sclk_mpll_muxed", DIV_TOP0, 16, 3),
+	DIV(0, "div_aclk266", "mout_mpll_user", DIV_TOP0, 16, 3),
 	DIV(0, "div_aclk333", "mout_aclk333", DIV_TOP0, 20, 3),
 	DIV(0, "div_aclk400", "mout_aclk400", DIV_TOP0, 24, 3),
 	DIV(0, "div_aclk300_gscl", "mout_dpll", DIV_TOP2, 8, 3),
@@ -644,13 +643,13 @@ static struct samsung_gate_clock exynos5410_gate_clks[] __initdata = {
 	 */
 	GATE(CLK_SCLK_SPDIF, "sclk_spdif", "mout_spdif",
 		GATE_TOP_SCLK_PERIC, 9, CLK_SET_RATE_PARENT, 0),
-	GATE(CLK_SCLK_PCM1, "sclk_pcm1", "dout_pcm1",
+	GATE(CLK_SCLK_PCM1, "sclk_pcm1", "div_pcm1",
 		GATE_TOP_SCLK_PERIC, 15, CLK_SET_RATE_PARENT, 0),
-	GATE(CLK_SCLK_PCM2, "sclk_pcm2", "dout_pcm2",
+	GATE(CLK_SCLK_PCM2, "sclk_pcm2", "div_pcm2",
 		GATE_TOP_SCLK_PERIC, 16, CLK_SET_RATE_PARENT, 0),
-	GATE(CLK_SCLK_I2S1, "sclk_i2s1", "dout_i2s1",
+	GATE(CLK_SCLK_I2S1, "sclk_i2s1", "div_i2s1",
 		GATE_TOP_SCLK_PERIC, 17, CLK_SET_RATE_PARENT, 0),
-	GATE(CLK_SCLK_I2S2, "sclk_i2s2", "dout_i2s2",
+	GATE(CLK_SCLK_I2S2, "sclk_i2s2", "div_i2s2",
 		GATE_TOP_SCLK_PERIC, 18, CLK_SET_RATE_PARENT, 0),
 
 	GATE(CLK_SCLK_UART0, "sclk_uart0", "div_uart0",
@@ -681,25 +680,23 @@ static struct samsung_gate_clock exynos5410_gate_clks[] __initdata = {
 static struct samsung_pll_clock exynos5410_plls[nr_plls] __initdata = {
 	[apll] = PLL(pll_35xx, CLK_FOUT_APLL, "fout_apll", "fin_pll", APLL_LOCK,
 		APLL_CON0, apll_tbl),
-	[cpll] = PLL(pll_35xx, CLK_FOUT_CPLL, "fout_cpll", "fin_pll", CPLL_LOCK,
-		CPLL_CON0, cpll_tbl),
-	[mpll] = PLL(pll_35xx, CLK_FOUT_MPLL, "fout_mpll", "fin_pll", MPLL_LOCK,
-		MPLL_CON0, NULL),
 	[bpll] = PLL(pll_35xx, CLK_FOUT_BPLL, "fout_bpll", "fin_pll", BPLL_LOCK,
 		BPLL_CON0, NULL),
-	[kpll] = PLL(pll_35xx, CLK_FOUT_KPLL, "fout_kpll", "fin_pll", KPLL_LOCK,
-		KPLL_CON0, kpll_tbl),
-	[vpll] = PLL(pll_36xx, CLK_FOUT_VPLL, "fout_vpll", "mout_vpllsrc",
-		VPLL_LOCK, VPLL_CON0, vpll_tbl),
+	[cpll] = PLL(pll_35xx, CLK_FOUT_CPLL, "fout_cpll", "fin_pll", CPLL_LOCK,
+		CPLL_CON0, cpll_tbl),
 	[dpll] = PLL(pll_35xx, CLK_FOUT_DPLL, "fout_dpll", "fin_pll", DPLL_LOCK,
 		DPLL_CON0, dpll_tbl),
 	[epll] = PLL(pll_36xx, CLK_FOUT_EPLL, "fout_epll", "fin_pll", EPLL_LOCK,
 		EPLL_CON0, epll_tbl),
 	[ipll] = PLL(pll_35xx, CLK_FOUT_IPLL, "fout_ipll", "fin_pll", IPLL_LOCK,
 		IPLL_CON0, ipll_tbl),
+	[kpll] = PLL(pll_35xx, CLK_FOUT_KPLL, "fout_kpll", "fin_pll", KPLL_LOCK,
+		KPLL_CON0, kpll_tbl),
+	[mpll] = PLL(pll_35xx, CLK_FOUT_MPLL, "fout_mpll", "fin_pll", MPLL_LOCK,
+		MPLL_CON0, NULL),
+	[vpll] = PLL(pll_36xx, CLK_FOUT_VPLL, "fout_vpll", "mout_vpllsrc",
+		VPLL_LOCK, VPLL_CON0, vpll_tbl),
 };
-
-
 
 
 /* Auxiliary function to set the parent of a clock */
