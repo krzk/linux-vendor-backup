@@ -540,7 +540,7 @@
 
 
 	i2s@03830000 {
-		     status = "okay";
+		status = "okay";
 	};
 
 	sound {
@@ -549,11 +549,12 @@
 		samsung,i2s-controller = <&i2s0>;
 		samsung,audio-codec = <&max98090>;
 		card-name = "ODROID-I2S-98090";
-		clocks = <&clock CLK_FOUT_EPLL>, <&clock CLK_SCLK_EPLL>, <&clock CLK_MOUT_AUDIO0>,
-			<&clock CLK_SCLK_MAUDIO0>, <&clock_audss EXYNOS_MOUT_AUDSS>,
-			<&clock_audss EXYNOS_MOUT_I2S>;
+		clocks = <&clock CLK_FOUT_EPLL>, <&clock CLK_MOUT_EPLL>, <&clock CLK_MOUT_MAU_AUDIO0>,
+			<&clock CLK_SCLK_MAU_AUDIO0>, <&clock_audss EXYNOS_MOUT_AUDSS>,
+			<&clock_audss EXYNOS_MOUT_I2S>, <&clock_audss EXYNOS_DOUT_I2S>,
+			<&clock_audss EXYNOS_DOUT_AUD_BUS>, <&clock_audss EXYNOS_DOUT_SRP>;
 		clock-names = "fout_epll", "sclk_epll", "mout_audio0",
-			"sclk_audio0", "mout_audss", "mout_i2s";
+			"sclk_audio0", "mout_audss", "mout_i2s", "dout_i2s", "dout_bus", "dout_srp";
 	};
 
 	firmware@02073000 {

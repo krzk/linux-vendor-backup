@@ -182,18 +182,18 @@ PNAME(group2_p)		= { "fin_pll", "fin_pll", "sclk_hdmi27m", "sclk_dptxphy",
 
 PNAME(audio0_p)	= { "cdclk0", "fin_pll", "sclk_hdmi27m",
 		  "sclk_dptxphy", "sclk_uhostphy", "sclk_hdmiphy",
-		  "sclk_mpll_bpll", "sclk_epll", "sclk_vpll", "sclk_cpll" };
+		  "sclk_mpll_bpll", "mout_epll", "sclk_vpll", "sclk_cpll" };
 PNAME(audio1_p)	= { "cdclk1", "fin_pll", "sclk_hdmi27m",
 		  "sclk_dptxphy", "sclk_uhostphy", "sclk_hdmiphy",
-		  "sclk_mpll_bpll", "sclk_epll", "sclk_vpll", "sclk_cpll" };
+		  "sclk_mpll_bpll", "mout_epll", "sclk_vpll", "sclk_cpll" };
 PNAME(audio2_p)	= { "cdclk2", "fin_pll", "sclk_hdmi27m",
 		  "sclk_dptxphy", "sclk_uhostphy", "sclk_hdmiphy",
-		  "sclk_mpll_bpll", "sclk_epll", "sclk_vpll", "sclk_cpll" };
+		  "sclk_mpll_bpll", "mout_epll", "sclk_vpll", "sclk_cpll" };
 PNAME(spdif_p)	= { "dout_audio0", "dout_audio1", "dout_audio2",
 		  "spdif_extclk" };
-PNAME(maudio0_p)	= { "cdclk0", "fin_pll", "sclk_hdmi27m",
+PNAME(mau_audio0_p)	= { "cdclk0", "fin_pll", "sclk_hdmi27m",
 		  "sclk_dptxphy", "sclk_uhostphy", "sclk_hdmiphy",
-		  "sclk_mpll_bpll", "sclk_epll", "sclk_vpll", "sclk_cpll" };
+		  "sclk_mpll_bpll", "mout_epll", "sclk_vpll", "sclk_cpll" };
 
 
 static const struct samsung_pll_rate_table apll_tbl[] = {
@@ -339,7 +339,7 @@ static struct samsung_mux_clock exynos5410_mux_clks[] __initdata = {
 	MUX(0, "sclk_bpll_muxed", bpll_user_p, SRC_TOP2, 24, 1),
 	MUX_A(0, "sclk_vpll", mout_vpll_p, SRC_TOP2, 16, 1, "sclk_vpll"),
 
-        MUX(CLK_SCLK_EPLL, "sclk_epll", epll_p, SRC_TOP2, 12, 1),
+        MUX(CLK_MOUT_EPLL, "mout_epll", epll_p, SRC_TOP2, 12, 1),
         MUX(0, "sclk_ipll", ipll_p, SRC_TOP2, 14, 1),
 
 	MUX(0, "sclk_cpll", cpll_p, SRC_TOP2, 8, 1),
@@ -348,7 +348,7 @@ static struct samsung_mux_clock exynos5410_mux_clks[] __initdata = {
 	MUX(0, "sclk_mpll_bpll", mpll_bpll_p, SRC_TOP1, 20, 1),
 
 	/* MAU Block */
-	MUX(0, "mout_maudio0", maudio0_p, SRC_MAU, 0, 4),
+	MUX(0, "mout_mau_audio0", mau_audio0_p, SRC_MAU, 0, 4),
 
 	MUX(0, "mout_mmc0", group2_p, SRC_FSYS, 0, 4),
 	MUX(0, "mout_mmc1", group2_p, SRC_FSYS, 4, 4),
@@ -405,8 +405,8 @@ static struct samsung_div_clock exynos5410_div_clks[] __initdata = {
 	DIV(0, "div_aclk66", "aclk66_pre", DIV_TOP0, 0, 3),
 
 	/* Audio Block */
-	DIV(0, "dout_maudio0", "mout_maudio0", DIV_MAU, 0, 4),
-	DIV(0, "dout_maupcm0", "dout_maudio0", DIV_MAU, 4, 8),
+	DIV(0, "div_mau_audio0", "mout_mau_audio0", DIV_MAU, 0, 4),
+	DIV(0, "div_mau_pcm0", "div_mau_audio0", DIV_MAU, 4, 8),
 
 	DIV(CLK_SCLK_USBPHY300, "sclk_usbphy300", "mout_usbd300", DIV_FSYS0, 16, 4),
 	DIV(CLK_SCLK_USBPHY301, "sclk_usbphy301", "mout_usbd301", DIV_FSYS0, 20, 4),
@@ -507,11 +507,11 @@ static struct samsung_gate_clock exynos5410_gate_clks[] __initdata = {
 	GATE(CLK_I2C7, "i2c7", "div_aclk66", GATE_IP_PERIC, 13, 0, 0),
 	GATE(CLK_I2C_HDMI, "i2c_hdmi", "div_aclk66", GATE_IP_PERIC, 14, 0, 0),
 
-	/* Maudio Block */
+	/* MAU audio Block */
 	/* Not even sure if this is correct for exynos5410. */
-	GATE(CLK_SCLK_MAUDIO0, "sclk_maudio0", "dout_maudio0",
+	GATE(CLK_SCLK_MAU_AUDIO0, "sclk_mau_audio0", "div_mau_audio0",
 		GATE_TOP_SCLK_MAU, 0, CLK_SET_RATE_PARENT, 0),
-	GATE(CLK_SCLK_MAUPCM0, "sclk_maupcm0", "dout_maupcm0",
+	GATE(CLK_SCLK_MAU_PCM0, "sclk_mau_pcm0", "div_mau_pcm0",
 		GATE_TOP_SCLK_MAU, 1, CLK_SET_RATE_PARENT, 0),
 
 	GATE(CLK_I2S1, "i2s1", "div_aclk66", GATE_IP_PERIC, 20, 0, 0),
@@ -660,6 +660,12 @@ static __init int set_rate_by_name(const char *name, unsigned long rate)
 	return ret;
 }
 
+/* Callback for PM Resume. */
+static void exynos5410_clk_pm_resume_callback(void *data)
+{
+}
+
+
 static struct of_device_id ext_clk_match[] __initdata = {
 	{ .compatible = "samsung,clock-xxti", .data = (void *)0, },
 	{ },
@@ -676,7 +682,8 @@ static void __init exynos5410_clk_init(struct device_node *np)
 
 	samsung_clk_init(np, reg_base, CLK_NR_CLKS,
 			exynos5410_clk_regs, ARRAY_SIZE(exynos5410_clk_regs),
-			NULL, 0);
+			NULL, 0, NULL, &exynos5410_clk_pm_resume_callback,
+			NULL);
 	samsung_clk_of_register_fixed_ext(exynos5410_fixed_rate_ext_clks,
 			ARRAY_SIZE(exynos5410_fixed_rate_ext_clks),
 			ext_clk_match);

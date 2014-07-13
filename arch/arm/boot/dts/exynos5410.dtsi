@@ -322,6 +322,10 @@
 		clock-names = "hdmi", "sclk_hdmi", "div_hdmi_pixel",
 				"sclk_hdmiphy", "mout_hdmi";
 		phy = <&hdmiphy>;
+
+		hdmi-audio {
+			compatible = "samsung,exynos-hdmi-audio";
+		};
 	};
 
 	hdmiphy: hdmiphy@145D0000 {
@@ -576,7 +580,7 @@
 		compatible = "samsung,exynos5250-audss-clock"; /* Is it compatible with exynos5420 or exynos5250? */
 		reg = <0x03810000 0x0C>;
 		#clock-cells = <1>;
-		clocks = <&clock CLK_FIN_PLL>, <&clock CLK_FOUT_EPLL>, <&clock CLK_SCLK_MAUDIO0>, <&clock CLK_SCLK_MAUPCM0>;
+		clocks = <&clock CLK_FIN_PLL>, <&clock CLK_FOUT_EPLL>, <&clock CLK_SCLK_MAU_AUDIO0>, <&clock CLK_SCLK_MAU_PCM0>;
 		clock-names = "pll_ref", "pll_in", "sclk_audio", "sclk_pcm_in";
 	};
 
@@ -647,9 +651,6 @@
 			<&clock_audss EXYNOS_I2S_BUS>,
 			<&clock_audss EXYNOS_SCLK_I2S>;
 		clock-names = "iis", "i2s_opclk0", "i2s_opclk1";
-		samsung,supports-6ch;
-		samsung,supports-rstclr;
-		samsung,supports-secdai;
 		samsung,idma-addr = <0x03000000>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&i2s0_bus>;
