@@ -1866,6 +1866,8 @@ static int hdmi_probe(struct platform_device *pdev)
 	hdata->dev = dev;
 	hdata->is_soc_exynos5 = of_device_is_compatible(dev->of_node,
 		"samsung,exynos5-hdmi");
+	hdata->is_soc_exynos5 |= of_device_is_compatible(dev->of_node,
+		"samsung,exynos5410-hdmi");
 
 	ret = hdmi_resources_init(hdata);
 	if (ret) {
@@ -1933,8 +1935,8 @@ static int hdmi_probe(struct platform_device *pdev)
 	/* register specific callbacks to common hdmi. */
 	exynos_hdmi_ops_register(&hdmi_ops);
 
-	if (of_device_is_compatible(dev->of_node,
-		"samsung,exynos5-hdmi")) {
+	if (hdata->is_soc_exynos5) {
+		printk(KERN_INFO "exynos_hdmi: registering hdmi-audio\n");
 		ret = hdmi_register_audio_device(pdev);
 		if (ret) {
 			DRM_ERROR("hdmi-audio device registering failed.\n");
@@ -1943,9 +1945,9 @@ static int hdmi_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_enable(dev);
-	
+
 	/* Here we force the initialization as DVI just as a fallback option */
-	hdata->dvi_mode = true;
+	/* hdata->dvi_mode = true; */
 
 	return 0;
 
