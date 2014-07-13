@@ -543,6 +543,10 @@
 		status = "okay";
 	};
 
+	i2s@12D70000 {
+		status = "okay";
+	};
+
 	sound {
 		compatible = "google,daisy-audio-max98090";
 
