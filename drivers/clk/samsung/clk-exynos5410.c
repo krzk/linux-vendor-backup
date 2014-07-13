@@ -337,13 +337,13 @@ static struct samsung_mux_clock exynos5410_mux_clks[] __initdata = {
 
 	MUX(0, "sclk_bpll", bpll_p, SRC_CDREX, 0, 1),
 	MUX(0, "sclk_bpll_muxed", bpll_user_p, SRC_TOP2, 24, 1),
-	MUX_A(0, "sclk_vpll", mout_vpll_p, SRC_TOP2, 16, 1, "sclk_vpll"),
+	MUX(0, "sclk_vpll", mout_vpll_p, SRC_TOP2, 16, 1),
 
         MUX(CLK_MOUT_EPLL, "mout_epll", epll_p, SRC_TOP2, 12, 1),
         MUX(0, "sclk_ipll", ipll_p, SRC_TOP2, 14, 1),
 
 	MUX(0, "sclk_cpll", cpll_p, SRC_TOP2, 8, 1),
-	MUX_A(0, "sclk_dpll", dpll_p, SRC_TOP2, 10, 1, "sclk_dpll"),
+	MUX(0, "sclk_dpll", dpll_p, SRC_TOP2, 10, 1),
 
 	MUX(0, "sclk_mpll_bpll", mpll_bpll_p, SRC_TOP1, 20, 1),
 
@@ -374,14 +374,12 @@ static struct samsung_mux_clock exynos5410_mux_clks[] __initdata = {
 	MUX(0, "mout_aclk400", mpll_bpll_p, SRC_TOP0, 20, 1),
 	MUX(0, "mout_aclk266_gscl", mpll_bpll_p, SRC_TOP1, 28, 1),
 
-	MUX_A(0, "mout_aclk200_disp1", aclk200_disp1_p,
-			SRC_TOP3, 4, 1, "aclk200_disp1"),
+	MUX(0, "mout_aclk200_disp1", aclk200_disp1_p, SRC_TOP3, 4, 1),
 	MUX(CLK_MOUT_HDMI, "mout_hdmi", mout_hdmi_p, SRC_DISP1_0, 20, 1),
 	MUX(0, "mout_fimd1", group2_p, SRC_DISP1_0, 0, 4),
 	MUX(0, "mout_aclk300_gscl", aclk300_gscl_p, SRC_TOP3, 17, 1),
 	MUX(0, "mout_aclk300_disp0", aclk300_disp0_p, SRC_TOP3, 18, 1),
-	MUX_A(0, "mout_aclk300_disp1", aclk300_disp1_p, SRC_TOP3, 19, 1,
-		"aclk300_disp1"),
+	MUX(0, "mout_aclk300_disp1", aclk300_disp1_p, SRC_TOP3, 19, 1),
 	MUX(0, "mout_aclk400_isp", mpll_bpll_p, SRC_TOP3, 20, 1),
 	MUX(0, "mout_aclk333_sub", aclk333_sub_p, SRC_TOP3, 24, 1),
 	MUX(0, "mout_aclk300_jpeg", aclk300_jpeg_p, SRC_TOP3, 28, 1),
@@ -444,14 +442,13 @@ static struct samsung_div_clock exynos5410_div_clks[] __initdata = {
 	DIV(0, "dout_audio2", "mout_audio2", DIV_PERIC4, 16, 4),
 
 	DIV(0, "div_aclk166", "mout_aclk166", DIV_TOP0, 8, 3),
-	DIV_A(0, "div_aclk200", "mout_aclk200", DIV_TOP0, 12, 3, "aclk200"),
+	DIV(0, "div_aclk200", "mout_aclk200", DIV_TOP0, 12, 3),
 	DIV(0, "div_aclk266", "sclk_mpll_muxed", DIV_TOP0, 16, 3),
 	DIV(0, "div_aclk333", "mout_aclk333", DIV_TOP0, 20, 3),
 	DIV(0, "div_aclk400", "mout_aclk400", DIV_TOP0, 24, 3),
 	DIV(0, "div_aclk300_gscl", "sclk_dpll", DIV_TOP2, 8, 3),
 	DIV(0, "div_aclk300_disp0", "sclk_dpll", DIV_TOP2, 12, 3),
-	DIV_A(0, "div_aclk300_disp1", "sclk_dpll", DIV_TOP2, 16, 3,
-		"daclk300disp1"),
+	DIV(0, "div_aclk300_disp1", "sclk_dpll", DIV_TOP2, 16, 3),
 	DIV(0, "div_aclk300_jpeg", "sclk_dpll", DIV_TOP2, 17, 3),
 	DIV(CLK_DIV_HDMI_PIXEL, "div_hdmi_pixel", "sclk_vpll",
 		DIV_DISP1_0, 28, 4),
