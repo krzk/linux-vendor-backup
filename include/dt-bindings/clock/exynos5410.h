@@ -54,13 +54,28 @@
 #define CLK_I2C_HDMI 269
 #define CLK_I2S1 270
 #define CLK_I2S2 271
-#define CLK_CHIPID 272
+#define CLK_PDMA0 272
+#define CLK_PDMA1 273
 
-#define CLK_PDMA0 275
-#define CLK_PDMA1 276
+#define CLK_MCT 280
+#define CLK_CHIPID 281
+#define CLK_SYSREG 282
+#define CLK_PMU_APBIF 283
+#define CLK_CMU_TOPPART 284
+#define CLK_TZPC0 285
+#define CLK_TZPC1 286
+#define CLK_TZPC2 287
+#define CLK_TZPC3 288
+#define CLK_TZPC4 289
+#define CLK_TZPC5 290
+#define CLK_TZPC6 291
+#define CLK_TZPC7 292
+#define CLK_TZPC8 293
+#define CLK_TZPC9 294
+#define CLK_SECKEY_APBIF 295
+#define CLK_ST 296
+#define CLK_TMU_APBIF 297
 
-#define CLK_MCT 315
-#define CLK_TMU_APBIF 318
 
 #define CLK_MDMA0 346
 #define CLK_MDMA1 347
@@ -86,6 +101,7 @@
 #define CLK_SMMU_MFCL 402
 #define CLK_SMMU_MFCR 403
 #define CLK_PWM 404
+
 
 /* Div clocks */
 #define CLK_DIV_HDMI_PIXEL 450

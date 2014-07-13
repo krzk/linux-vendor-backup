@@ -578,8 +578,6 @@ static struct samsung_div_clock exynos5410_div_clks[] __initdata = {
 
 static struct samsung_gate_clock exynos5410_gate_clks[] __initdata = {
 	GATE(CLK_MCT, "mct", "div_aclk66", GATE_IP_PERIS, 18, 0, 0),
-	GATE(CLK_TMU_APBIF, "tmu_apbif", "div_aclk66",
-		GATE_IP_PERIS, 21, CLK_IGNORE_UNUSED, 0),
 
 	GATE(CLK_SCLK_MMC0, "sclk_mmc0", "div_mmc_pre0",
 			SRC_MASK_FSYS, 0, CLK_SET_RATE_PARENT, 0),
@@ -637,6 +635,26 @@ static struct samsung_gate_clock exynos5410_gate_clks[] __initdata = {
 
 	GATE_A(CLK_CHIPID, "chipid", "div_aclk66", GATE_IP_PERIS, 0, 0, 0,
 		"chipid"),
+	/*
+	GATE(CLK_SYSREG, "sysreg", "div_aclk66", GATE_IP_PERIS, 1, 0, 0),
+	GATE(CLK_PMU_APBIF, "pmu_apbif", "div_aclk66", GATE_IP_PERIS, 2, 0, 0),
+	GATE(CLK_CMU_TOPPART, "cmu_toppart", "div_aclk66", GATE_IP_PERIS, 3, 0, 0),
+	GATE(CLK_TZPC0, "tzpc0", "div_aclk66", GATE_IP_PERIS, 6, 0, 0),
+	GATE(CLK_TZPC1, "tzpc1", "div_aclk66", GATE_IP_PERIS, 7, 0, 0),
+	GATE(CLK_TZPC2, "tzpc2", "div_aclk66", GATE_IP_PERIS, 8, 0, 0),
+	GATE(CLK_TZPC3, "tzpc3", "div_aclk66", GATE_IP_PERIS, 9, 0, 0),
+	GATE(CLK_TZPC4, "tzpc4", "div_aclk66", GATE_IP_PERIS, 10, 0, 0),
+	GATE(CLK_TZPC5, "tzpc5", "div_aclk66", GATE_IP_PERIS, 11, 0, 0),
+	GATE(CLK_TZPC6, "tzpc6", "div_aclk66", GATE_IP_PERIS, 12, 0, 0),
+	GATE(CLK_TZPC7, "tzpc7", "div_aclk66", GATE_IP_PERIS, 13, 0, 0),
+	GATE(CLK_TZPC8, "tzpc8", "div_aclk66", GATE_IP_PERIS, 14, 0, 0),
+	GATE(CLK_TZPC9, "tzpc9", "div_aclk66", GATE_IP_PERIS, 15, 0, 0),
+	GATE(CLK_SECKEY_APBIF, "seckey_apbif", "div_aclk66", GATE_IP_PERIS, 17, 0, 0),
+	GATE(CLK_ST, "st", "div_aclk66", GATE_IP_PERIS, 18, 0, 0),
+	*/
+	GATE(CLK_TMU_APBIF, "tmu_apbif", "div_aclk66",
+		GATE_IP_PERIS, 21, CLK_IGNORE_UNUSED, 0),
+
 
 	/* Copied from exynos5420, but again this might also
 	 * be wrong.
