@@ -249,6 +249,7 @@ static void hdmi_audio_i2s_init(struct hdmi_audio_context *ctx)
 
 	hdmi_reg_writeb(ctx, HDMI_I2S_CH_ST_CON, HDMI_I2S_CH_STATUS_RELOAD);
 
+#if 0
 	hdmi_reg_write(ctx, HDMI_I2S_MUX_CON,
 		HDMI_I2S_IN_ENABLE | HDMI_I2S_AUD_I2S
 		| HDMI_I2S_CUV_I2S_ENABLE | HDMI_I2S_MUX_ENABLE);
@@ -261,6 +262,7 @@ static void hdmi_audio_i2s_init(struct hdmi_audio_context *ctx)
 
 	hdmi_reg_write(ctx, HDMI_I2S_MUX_CUV, HDMI_I2S_CUV_L_EN
 		| HDMI_I2S_CUV_R_EN);
+#endif
 }
 
 static void hdmi_audio_init(struct hdmi_audio_context *ctx)
