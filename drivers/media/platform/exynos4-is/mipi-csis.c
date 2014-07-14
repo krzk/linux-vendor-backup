@@ -134,16 +134,16 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define S5PCSIS_PKTDATA_SIZE		SZ_4K
 
 enum {
-	CSIS_CLK_BUS,
 	CSIS_CLK_GATE,
+	CSIS_CLK_BUS,
 	CSIS_CLK_MUX,
 	CSIS_CLK_PARENT,
 };
 
 static char *csi_clock_name[] = {
-	[CSIS_CLK_BUS]  = "sclk_csis",
-	[CSIS_CLK_GATE] = "csis",
-	[CSIS_CLK_MUX] = "mux",
+	[CSIS_CLK_GATE]   = "csis",
+	[CSIS_CLK_BUS]    = "sclk_csis",
+	[CSIS_CLK_MUX]    = "mux",
 	[CSIS_CLK_PARENT] = "parent",
 };
 #define NUM_CSIS_CLOCKS	ARRAY_SIZE(csi_clock_name)
@@ -214,6 +214,7 @@ struct csis_pktbuf {
  * @hss_mask:            HS-RX settle time mask
  * @num_virt_channels:   number of available virtual channels
  * @num_dlanes_reg:      register for data lanes configuration
+ * @sclk_csis            IP support for SCLK_CSIS clock
  */
 struct csis_drvdata {
 	u32		interrupt_mask;
@@ -221,6 +222,7 @@ struct csis_drvdata {
 	u32		hss_mask;
 	unsigned short	num_virt_channels;
 	unsigned short	num_dlanes_reg;
+	unsigned int	sclk_csis:1;
 };
 
 /**
@@ -461,8 +463,14 @@ static int s5pcsis_get_clocks(struct csis_state *state)
 	int i, ret;
 
 	/* Skip parent and mux clocks for non-dt platforms */
-	if (!dev->of_node)
+	if (!dev->of_node) {
 		num_clocks -= 2;
+	}
+	else {
+		/* Exynos3250 requires only CSIS_CLK_GATE */
+		if (!state->drv_data->sclk_csis)
+			num_clocks = 1;
+	}
 
 	for (i = 0; i < NUM_CSIS_CLOCKS; i++)
 		state->clock[i] = ERR_PTR(-EINVAL);
@@ -489,7 +497,7 @@ err:
 
 static int s5pcsis_setup_clocks(struct csis_state *state)
 {
-	int ret;
+	int ret = 0;
 
 	if (!IS_ERR(state->clock[CSIS_CLK_PARENT])) {
 		ret = clk_set_parent(state->clock[CSIS_CLK_MUX],
@@ -501,11 +509,14 @@ static int s5pcsis_setup_clocks(struct csis_state *state)
 			return ret;
 		}
 	}
-	ret = clk_set_rate(state->clock[CSIS_CLK_BUS],
+	if (state->drv_data->sclk_csis) {
+		ret = clk_set_rate(state->clock[CSIS_CLK_BUS],
 					state->clk_frequency);
-	if (ret < 0)
-		return ret;
-	return clk_enable(state->clock[CSIS_CLK_BUS]);
+		if (ret < 0)
+			return ret;
+		ret = clk_enable(state->clock[CSIS_CLK_BUS]);
+	}
+	return ret;
 }
 
 static void dump_regs(struct csis_state *state, const char *label)
@@ -926,6 +937,7 @@ static const struct csis_drvdata s5pcsis_drvdata[] = {
 		.hss_mask           = EXYNOS3250_DPHYCTRL_HSS_MASK,
 		.num_dlanes_reg     = S5PCSIS_CTRL,
 		.num_virt_channels  = 4,
+		.sclk_csis          = 0,
 	},
 	[S5PCSIS_EXYNOS4] = {
 		.interrupt_mask     = EXYNOS4_INTMSK_EN_ALL,
@@ -933,6 +945,7 @@ static const struct csis_drvdata s5pcsis_drvdata[] = {
 		.hss_mask           = S5PCSIS_DPHYCTRL_HSS_MASK,
 		.num_dlanes_reg     = S5PCSIS_CONFIG,
 		.num_virt_channels  = 1,
+		.sclk_csis          = 1,
 	},
 	[S5PCSIS_EXYNOS5] = {
 		.interrupt_mask     = EXYNOS5_INTMSK_EN_ALL,
@@ -940,6 +953,7 @@ static const struct csis_drvdata s5pcsis_drvdata[] = {
 		.hss_mask           = S5PCSIS_DPHYCTRL_HSS_MASK,
 		.num_dlanes_reg     = S5PCSIS_CONFIG,
 		.num_virt_channels  = 1,
+		.sclk_csis          = 1,
 	}
 };
 
@@ -1053,7 +1067,8 @@ static int s5pcsis_probe(struct platform_device *pdev)
 	return 0;
 
 e_clkdis:
-	clk_disable(state->clock[CSIS_CLK_BUS]);
+	if (state->drv_data->sclk_csis)
+		clk_disable(state->clock[CSIS_CLK_BUS]);
 e_clkput:
 	s5pcsis_put_clocks(state);
 	return ret;
@@ -1157,8 +1172,9 @@ static int s5pcsis_remove(struct platform_device *pdev)
 	struct csis_state *state = sd_to_csis_state(sd);
 
 	pm_runtime_disable(&pdev->dev);
-	s5pcsis_pm_suspend(&pdev->dev, false);
-	clk_disable(state->clock[CSIS_CLK_BUS]);
+	s5pcsis_pm_suspend(&pdev->dev, true);
+	if (state->drv_data->sclk_csis)
+		clk_disable(state->clock[CSIS_CLK_BUS]);
 	pm_runtime_set_suspended(&pdev->dev);
 	s5pcsis_put_clocks(state);
 
