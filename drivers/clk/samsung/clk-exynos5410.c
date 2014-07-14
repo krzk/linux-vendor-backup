@@ -699,8 +699,6 @@ static struct samsung_gate_clock exynos5410_gate_clks[] __initdata = {
 	GATE(CLK_TMU_APBIF, "tmu_apbif", "div_aclk66", GATE_IP_PERIS, 21, 0, 0),
 
 
-	GATE(CLK_SCLK_PWM, "sclk_pwm", "div_pwm",
-			SRC_MASK_PERIC0, 24, CLK_SET_RATE_PARENT, 0),
 	/* MAU audio Block */
 	/* Not even sure if this is correct for exynos5410. */
 	GATE(CLK_SCLK_MAU_AUDIO0, "sclk_mau_audio0", "div_mau_audio0",
