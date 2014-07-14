@@ -1,7 +1,7 @@
 /*
- * Samsung EXYNOS4x12 FIMC-IS (Imaging Subsystem) driver
+ * Samsung EXYNOS5/EXYNOS3 FIMC-IS (Imaging Subsystem) driver
  *
- * Copyright (C) 2012 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2012-2014 Samsung Electronics Co., Ltd.
  *  Arun Kumar K <arun.kk@samsung.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -23,9 +23,8 @@
 
 #define ISP_DEF_WIDTH		1296
 #define ISP_DEF_HEIGHT		732
-
-#define ISP_MAX_WIDTH		4808
-#define ISP_MAX_HEIGHT		3356
+#define ISP_MAX_WIDTH		4208
+#define ISP_MAX_HEIGHT		3120
 #define ISP_MIN_WIDTH		32
 #define ISP_MIN_HEIGHT		32
 
@@ -65,7 +64,6 @@ struct fimc_is_isp {
 	struct media_pad		subdev_pads[ISP_SD_PADS_NUM];
 	struct v4l2_ctrl_handler	ctrl_handler;
 	struct mutex			video_lock;
-
 	struct v4l2_subdev		*sensor_sd;
 	struct fimc_is_pipeline		*pipeline;
 

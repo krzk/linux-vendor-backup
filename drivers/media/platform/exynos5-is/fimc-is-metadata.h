@@ -18,8 +18,20 @@ struct rational {
 	uint32_t den;
 };
 
+/**
+ * @brief Metadata type: basic/ extended
+ */
+#define CAMERA2_SHOT_BASE_MODE	1
+#define CAMERA2_SHOT_EXT_MODE	2
+
 #define CAMERA2_MAX_AVAILABLE_MODE	21
 #define CAMERA2_MAX_FACES		16
+
+#define CAMERA2_MAX_VENDER_LENGTH		400
+#define CAPTURE_NODE_MAX			2
+#define CAMERA2_MAX_PDAF_MULTIROI_COLUMN	9
+#define CAMERA2_MAX_PDAF_MULTIROI_ROW		5
+
 
 /*
  * Controls/dynamic metadata
@@ -30,19 +42,41 @@ enum metadata_mode {
 	METADATA_MODE_FULL
 };
 
-struct camera2_request_ctl {
-	uint32_t		id;
-	enum metadata_mode	metadatamode;
-	uint8_t			outputstreams[16];
-	uint32_t		framecount;
+struct camera2_request_ctl{
+        struct camera2_request_ctl_base {
+                uint32_t		id;
+                enum metadata_mode	metadatamode;
+                uint8_t			outputstreams[16];
+                uint32_t		framecount;
+        }base;
+        uint32_t requestCount; /* metadata v2 */
 };
 
 struct camera2_request_dm {
-	uint32_t		id;
-	enum metadata_mode	metadatamode;
-	uint32_t		framecount;
+        struct camera2_request_dm_base {
+                uint32_t		id;
+                enum metadata_mode	metadatamode;
+                uint32_t		framecount;
+        }base;
+        uint32_t requestcount; /* metadata v2 */
 };
 
+/**
+ * struct camera2_entry_ctl	per-frame control for entry control
+ * @lowIndexParam:		parameters flag - low 32-bits
+ * @highIndexParam:		parameters flag - high 32-bits
+ * @parameter			set of parameters
+ */
+struct camera2_entry_ctl {
+        uint32_t		lowIndexParam;
+        uint32_t		highIndexParam;
+        uint32_t		parameter[2048];
+};
+
+struct camera2_entry_dm {
+        uint32_t		lowIndexParam;
+        uint32_t		highIndexParam;
+};
 
 
 enum optical_stabilization_mode {
@@ -130,10 +164,14 @@ struct camera2_sensor_ctl {
 };
 
 struct camera2_sensor_dm {
-	uint64_t	exposure_time;
-	uint64_t	frame_duration;
-	uint32_t	sensitivity;
-	uint64_t	timestamp;
+        struct camera2_sensor_dm_base {
+                uint64_t		exposure_time;
+                uint64_t		frame_duration;
+                uint32_t		sensitivity;
+                uint64_t		timestamp;
+        }base;
+        uint32_t analog_gain;  /* metadata v2 */
+        uint32_t digital_gain; /* metadata v2 */
 };
 
 struct camera2_sensor_sm {
@@ -177,15 +215,22 @@ struct camera2_flash_ctl {
 };
 
 struct camera2_flash_dm {
-	enum flash_mode		flash_mode;
-	/* 10 is max power */
-	uint32_t		firing_power;
-	/* unit : microseconds */
-	uint64_t		firing_time;
-	/* 1 : stable, 0 : unstable */
-	uint32_t		firing_stable;
-	/* 1 : success, 0 : fail */
-	uint32_t		decision;
+        struct camera2_flash_dm_base {
+                enum flash_mode		flash_mode;
+                /* 10 is max power */
+                uint32_t		firing_power;
+                /* unit : microseconds */
+                uint64_t		firing_time;
+                /* 1 : stable, 0 : unstable */
+                uint32_t		firing_stable;
+                /* 1 : success, 0 : fail */
+                uint32_t		decision;
+        }base;
+        /* 0: None, 1 : pre, 2 : main flash ready */
+        uint32_t flashReady;    /* metadata v2 */
+
+        /* 0: None, 1 : pre, 2 : main flash off ready */
+        uint32_t flashOffReady; /* metadata v2 */
 };
 
 struct camera2_flash_sm {
@@ -253,32 +298,52 @@ enum color_correction_mode {
 	COLOR_CORRECTION_MODE_EFFECT_POSTERIZE,
 	COLOR_CORRECTION_MODE_EFFECT_WHITEBOARD,
 	COLOR_CORRECTION_MODE_EFFECT_BLACKBOARD,
-	COLOR_CORRECTION_MODE_EFFECT_AQUA
+        COLOR_CORRECTION_MODE_EFFECT_AQUA,
+
+        COLORCORRECTION_MODE_EFFECT_EMBOSS,
+        COLORCORRECTION_MODE_EFFECT_EMBOSS_MONO,
+        COLORCORRECTION_MODE_EFFECT_SKETCH,
+        COLORCORRECTION_MODE_EFFECT_RED_YELLOW_POINT,
+        COLORCORRECTION_MODE_EFFECT_GREEN_POINT,
+        COLORCORRECTION_MODE_EFFECT_BLUE_POINT,
+        COLORCORRECTION_MODE_EFFECT_MAGENTA_POINT,
+        COLORCORRECTION_MODE_EFFECT_WARM_VINTAGE,
+        COLORCORRECTION_MODE_EFFECT_COLD_VINTAGE,
+        COLORCORRECTION_MODE_EFFECT_WASHED,
+        TOTAOCOUNT_COLORCORRECTION_MODE_EFFECT
 };
 
-
 struct camera2_color_correction_ctl {
-	enum color_correction_mode	mode;
-	float				transform[9];
-	uint32_t			hue;
-	uint32_t			saturation;
-	uint32_t			brightness;
+        struct camera2_color_correction_ctl_base {
+                enum color_correction_mode	mode;
+                float				transform[9];
+                uint32_t			hue;
+                uint32_t			saturation;
+                uint32_t			brightness;
+        }base;
+        uint32_t contrast; /* metadata v2 */
 };
 
 struct camera2_color_correction_dm {
-	enum color_correction_mode	mode;
-	float				transform[9];
-	uint32_t			hue;
-	uint32_t			saturation;
-	uint32_t			brightness;
+        struct camera2_color_correction_dm_base {
+                enum color_correction_mode	mode;
+                float				transform[9];
+                uint32_t			hue;
+                uint32_t			saturation;
+                uint32_t			brightness;
+        }base;
+        uint32_t contrast; /* metadata v2 */
 };
 
 struct camera2_color_correction_sm {
-	/* assuming 10 supported modes */
-	uint8_t			available_modes[CAMERA2_MAX_AVAILABLE_MODE];
-	uint32_t		hue_range[2];
-	uint32_t		saturation_range[2];
-	uint32_t		brightness_range[2];
+        struct camera2_color_correction_sm_base {
+                /* assuming 10 supported modes */
+                uint8_t			available_modes[CAMERA2_MAX_AVAILABLE_MODE];
+                uint32_t		hue_range[2];
+                uint32_t		saturation_range[2];
+                uint32_t		brightness_range[2];
+        }base;
+        uint32_t contrastRange[2]; /* metadata v2 */
 };
 
 enum tonemap_mode {
@@ -326,11 +391,17 @@ enum scaler_formats {
 };
 
 struct camera2_scaler_ctl {
-	uint32_t	crop_region[3];
+        struct camera2_scaler_ctl_base {
+                uint32_t		crop_region[4];
+        }base;
+        uint32_t orientation; /* metadata v2 */
 };
 
 struct camera2_scaler_dm {
-	uint32_t	crop_region[3];
+        struct camera2_scaler_dm_base {
+                uint32_t		crop_region[4];
+        }base;
+        uint32_t orientation; /* metadata v2 */
 };
 
 struct camera2_scaler_sm {
@@ -383,22 +454,31 @@ enum stats_mode {
 	STATS_MODE_ON
 };
 
+enum stats_lowlightmode {
+        STATE_LLS_REQUIRED = 1
+};
+
 struct camera2_stats_ctl {
 	enum face_detect_mode	face_detect_mode;
 	enum stats_mode		histogram_mode;
 	enum stats_mode		sharpness_map_mode;
 };
 
-
 struct camera2_stats_dm {
-	enum face_detect_mode	face_detect_mode;
-	uint32_t		face_rectangles[CAMERA2_MAX_FACES][4];
-	uint8_t			face_scores[CAMERA2_MAX_FACES];
-	uint32_t		face_landmarks[CAMERA2_MAX_FACES][6];
-	uint32_t		face_ids[CAMERA2_MAX_FACES];
-	enum stats_mode		histogram_mode;
-	uint32_t		histogram[3 * 256];
-	enum stats_mode		sharpness_map_mode;
+        struct camera2_stats_dm_base {
+                enum face_detect_mode	face_detect_mode;
+                uint32_t		face_rectangles[CAMERA2_MAX_FACES][4];
+                uint8_t			face_scores[CAMERA2_MAX_FACES];
+                uint32_t		face_landmarks[CAMERA2_MAX_FACES][6];
+                uint32_t		face_ids[CAMERA2_MAX_FACES];
+                enum stats_mode		histogram_mode;
+                uint32_t		histogram[3 * 256];
+                enum stats_mode		sharpness_map_mode;
+        }base;
+        /* sharpnessMap */
+        enum stats_lowlightmode LowLightMode;         /* metadata v2 */
+        uint32_t 		lls_tuning_set_index; /* metadata v2 */
+        uint32_t 		lls_brightness_index; /* metadata v2 */
 };
 
 
@@ -445,7 +525,25 @@ enum aa_scene_mode {
 	AA_SCENE_MODE_PARTY,
 	AA_SCENE_MODE_CANDLELIGHT,
 	AA_SCENE_MODE_BARCODE,
-	AA_SCENE_MODE_NIGHT_CAPTURE
+        AA_SCENE_MODE_NIGHT_CAPTURE,
+
+        AA_SCENE_MODE_ANTISHAKE,
+        AA_SCENE_MODE_HDR,
+        AA_SCENE_MODE_LLS,
+        AA_SCENE_MODE_FDAE,
+	AA_SCENE_MODE_DUAL,
+        AA_SCENE_MODE_DRAMA,
+        AA_SCENE_MODE_ANIMATED,
+        AA_SCENE_MODE_PANORAMA,
+        AA_SCENE_MODE_GOLF,
+        AA_SCENE_MODE_PREVIEW,
+        AA_SCENE_MODE_VIDEO,
+        AA_SCENE_MODE_SLOWMOTION_2,
+        AA_SCENE_MODE_SLOWMOTION_4_8,
+        AA_SCENE_MODE_DUAL_PREVIEW,
+        AA_SCENE_MODE_DUAL_VIDEO,
+        AA_SCENE_MODE_120_PREVIEW,
+        AA_SCENE_MODE_LIGHT_TRACE
 };
 
 enum aa_effect_mode {
@@ -487,7 +585,9 @@ enum aa_ae_antibanding_mode {
 	AA_AE_ANTIBANDING_OFF = 1,
 	AA_AE_ANTIBANDING_50HZ,
 	AA_AE_ANTIBANDING_60HZ,
-	AA_AE_ANTIBANDING_AUTO
+        AA_AE_ANTIBANDING_AUTO,
+        AA_AE_ANTIBANDING_AUTO_50HZ,   /* 50Hz + Auto NEW */
+        AA_AE_ANTIBANDING_AUTO_60HZ    /* 60Hz + Auto NEW */
 };
 
 enum aa_awbmode {
@@ -588,23 +688,23 @@ struct camera2_aa_dm {
 };
 
 struct camera2_aa_sm {
-	uint8_t	available_scene_modes[CAMERA2_MAX_AVAILABLE_MODE];
-	uint8_t	available_effects[CAMERA2_MAX_AVAILABLE_MODE];
+        uint8_t		available_scene_modes[CAMERA2_MAX_AVAILABLE_MODE];
+        uint8_t		available_effects[CAMERA2_MAX_AVAILABLE_MODE];
 	/* Assuming # of available scene modes = 10 */
-	uint32_t max_regions;
-	uint8_t ae_available_modes[CAMERA2_MAX_AVAILABLE_MODE];
+        uint32_t	max_regions;
+        uint8_t		ae_available_modes[CAMERA2_MAX_AVAILABLE_MODE];
 	/* Assuming # of available ae modes = 8 */
 	struct rational	ae_compensation_step;
-	int32_t	ae_compensation_range[2];
-	uint32_t ae_available_target_fps_ranges[CAMERA2_MAX_AVAILABLE_MODE][2];
-	uint8_t	 ae_available_antibanding_modes[CAMERA2_MAX_AVAILABLE_MODE];
-	uint8_t	awb_available_modes[CAMERA2_MAX_AVAILABLE_MODE];
+        int32_t		ae_compensation_range[2];
+        uint32_t	ae_available_target_fps_ranges[CAMERA2_MAX_AVAILABLE_MODE][2];
+        uint8_t		ae_available_antibanding_modes[CAMERA2_MAX_AVAILABLE_MODE];
+        uint8_t		awb_available_modes[CAMERA2_MAX_AVAILABLE_MODE];
 	/* Assuming # of awbAvailableModes = 10 */
-	uint8_t	af_available_modes[CAMERA2_MAX_AVAILABLE_MODE];
+        uint8_t		af_available_modes[CAMERA2_MAX_AVAILABLE_MODE];
 	/* Assuming # of afAvailableModes = 4 */
-	uint8_t	available_video_stabilization_modes[4];
+        uint8_t		available_video_stabilization_modes[4];
 	/* Assuming # of availableVideoStabilizationModes = 4 */
-	uint32_t iso_range[2];
+        uint32_t	iso_range[2];
 };
 
 struct camera2_lens_usm {
@@ -626,6 +726,25 @@ struct camera2_flash_usm {
 	uint64_t	firing_time_frame_delay;
 };
 
+struct camera2_ctl_base {
+        struct camera2_request_ctl_base		request;
+        struct camera2_lens_ctl			lens;
+        struct camera2_sensor_ctl		sensor;
+        struct camera2_flash_ctl		flash;
+        struct camera2_hotpixel_ctl		hotpixel;
+        struct camera2_demosaic_ctl		demosaic;
+        struct camera2_noise_reduction_ctl	noise;
+        struct camera2_shading_ctl		shading;
+        struct camera2_geometric_ctl		geometric;
+        struct camera2_color_correction_ctl_base color;
+        struct camera2_tonemap_ctl		tonemap;
+        struct camera2_edge_ctl			edge;
+        struct camera2_scaler_ctl_base		scaler;
+        struct camera2_jpeg_ctl			jpeg;
+        struct camera2_stats_ctl		stats;
+        struct camera2_aa_ctl			aa;
+};
+
 struct camera2_ctl {
 	struct camera2_request_ctl		request;
 	struct camera2_lens_ctl			lens;
@@ -643,6 +762,26 @@ struct camera2_ctl {
 	struct camera2_jpeg_ctl			jpeg;
 	struct camera2_stats_ctl		stats;
 	struct camera2_aa_ctl			aa;
+        struct camera2_entry_ctl 		entry; /* metadata v2 */
+};
+
+struct camera2_dm_base {
+        struct camera2_request_dm_base		request;
+        struct camera2_lens_dm			lens;
+        struct camera2_sensor_dm_base		sensor;
+        struct camera2_flash_dm_base		flash;
+        struct camera2_hotpixel_dm		hotpixel;
+        struct camera2_demosaic_dm		demosaic;
+        struct camera2_noise_reduction_dm	noise;
+        struct camera2_shading_dm		shading;
+        struct camera2_geometric_dm		geometric;
+        struct camera2_color_correction_dm_base	color;
+        struct camera2_tonemap_dm		tonemap;
+        struct camera2_edge_dm			edge;
+        struct camera2_scaler_dm_base		scaler;
+        struct camera2_jpeg_dm			jpeg;
+        struct camera2_stats_dm_base		stats;
+        struct camera2_aa_dm			aa;
 };
 
 struct camera2_dm {
@@ -662,6 +801,24 @@ struct camera2_dm {
 	struct camera2_jpeg_dm			jpeg;
 	struct camera2_stats_dm			stats;
 	struct camera2_aa_dm			aa;
+        struct camera2_entry_dm			entry; /* metadata v2 */
+};
+
+struct camera2_sm_base {
+        struct camera2_lens_sm			lens;
+        struct camera2_sensor_sm		sensor;
+        struct camera2_flash_sm			flash;
+        struct camera2_color_correction_sm_base	color;
+        struct camera2_tonemap_sm		tonemap;
+        struct camera2_scaler_sm		scaler;
+        struct camera2_jpeg_sm			jpeg;
+        struct camera2_stats_sm			stats;
+        struct camera2_aa_sm			aa;
+
+        /* User-defined(ispfw specific) static metadata. */
+        struct camera2_lens_usm			lensud;
+        struct camera2_sensor_usm		sensor_ud;
+        struct camera2_flash_usm		flash_ud;
 };
 
 struct camera2_sm {
@@ -684,48 +841,213 @@ struct camera2_sm {
 /*
  * User-defined control for lens.
  */
-struct camera2_lens_uctl {
-	struct camera2_lens_ctl ctl;
+struct camera2_lens_uctl_base {
 
-	/* It depends by af algorithm(normally 255 or 1023) */
-	uint32_t        max_pos;
-	/* Some actuator support slew rate control. */
-	uint32_t        slew_rate;
+	struct camera2_lens_ctl ctl;
+        /* It depends on the af algorithm(normally 255 or 1023) or normally 8, 9 or 10 */
+        uint32_t		max_pos;
+        /* It depends on the af algorithm.
+           Some actuator support slew rate control. */
+        uint32_t		slew_rate;
+};
+
+struct camera2_lens_uctl {
+        struct camera2_lens_ctl ctl;
+        /* It depends on max_pos */
+        uint32_t pos; /* metadata v2 */
+        /* It depends on the af algorithm(normally 255 or 1023) or normally 8, 9 or 10 */
+        uint32_t		max_pos;
+        /* It depends on the af algorithm */
+        uint32_t direction; /* metadata v2 */
+	/* Some actuators support slew rate control. */
+        uint32_t		slew_rate;
 };
 
 /*
  * User-defined metadata for lens.
  */
 struct camera2_lens_udm {
-	/* It depends by af algorithm(normally 255 or 1023) */
-	uint32_t        max_pos;
-	/* Some actuator support slew rate control. */
-	uint32_t        slew_rate;
+        /* It depends by posSize */
+        uint32_t        pos;
+        /* It depends by af algorithm(AF pos bit. normally 8 or 9 or 10) */
+        uint32_t        posSize;
+        /* It depends by af algorithm */
+        uint32_t        direction;
+        /* Some actuators support slew rate control. */
+        uint32_t        slewRate;
+};
+
+/**
+ * User-defined metadata for ae
+ */
+struct camera2_ae_udm {
+        /* Vendor specific length */
+        uint32_t	vs_length;
+        /* vendor specific data array */
+        uint32_t	vs_data[CAMERA2_MAX_VENDER_LENGTH];
+};
+
+/**
+ * User-defined metadata for AWB
+ */
+struct camera2_awb_udm {
+        uint32_t	vs_length;
+        uint32_t	vd_data[CAMERA2_MAX_VENDER_LENGTH];
+};
+
+/**
+ * User-defined metadata for AF
+ */
+struct camera2_af_udm {
+        uint32_t	vs_length;
+        uint32_t	vs_data[CAMERA2_MAX_VENDER_LENGTH];
+        uint32_t	lens_pos_infinity;
+        uint32_t	lens_pos_macro;
+        uint32_t	lens_pos_current;
+};
+
+/**
+ * User-defined metadata for AS (anti-shading)
+ */
+struct camera2_as_udm {
+        uint32_t	vs_length;
+        uint32_t 	vs_data[CAMERA2_MAX_VENDER_LENGTH];
+};
+
+/**
+ * User-defined metadata for ipc
+ */
+struct camera2_ipc_udm {
+        uint32_t	vs_length;
+        uint32_t 	vs_data[CAMERA2_MAX_VENDER_LENGTH];
+};
+
+/**
+ *
+ */
+struct camera2_internal_udm {
+        uint32_t 	vs_data1[CAMERA2_MAX_VENDER_LENGTH];
+        uint32_t 	vs_data2[CAMERA2_MAX_VENDER_LENGTH];
+};
+
+struct camera2_bayer_udm {
+        uint32_t	width;
+        uint32_t	height;
+};
+
+
+enum companion_drc_mode {
+        COMPANION_DRC_OFF = 1,
+        COMPANION_DRC_ON,
+};
+
+enum companion_wdr_mode {
+        COMPANION_WDR_OFF = 1,
+        COMPANION_WDR_ON,
+};
+
+enum companion_paf_mode {
+        COMPANION_PAF_OFF = 1,
+        COMPANION_PAF_ON,
+};
+
+struct camera2_pdaf_single_result {
+        uint16_t	mode;
+        uint16_t	goal_pos;
+        uint16_t	reliability;
+        uint16_t	current_pos;
+};
+
+struct camera2_pdaf_multi_result {
+        uint16_t	mode;
+        uint16_t	goal_pos;
+        uint16_t	reliability;
+};
+
+struct camera2_pdaf_udm {
+        uint16_t		num_column;
+        uint16_t		num_row;
+        struct camera2_pdaf_multi_result multi_result[CAMERA2_MAX_PDAF_MULTIROI_COLUMN][CAMERA2_MAX_PDAF_MULTIROI_ROW];
+        struct camera2_pdaf_single_result	single_result;
+        uint16_t		lens_pos_resolution;
+};
+
+struct camera2_companion_udm {
+        enum companion_drc_mode		drc_mode;
+        enum companion_wdr_mode		wdr_mode;
+        enum companion_paf_mode		paf_mode;
+        struct camera2_pdaf_udm		pdaf;
 };
 
 /*
  * User-defined control for sensor.
  */
 struct camera2_sensor_uctl {
-	struct camera2_sensor_ctl ctl;
-	/* Dynamic frame duration.
-	 * This feature is decided to max. value between
-	 * 'sensor.exposureTime'+alpha and 'sensor.frameDuration'.
-	 */
-	uint64_t        dynamic_frame_duration;
+        struct camera2_sensor_uctl_base {
+                struct camera2_sensor_ctl ctl;
+                /* Dynamic frame duration.
+                 * This feature is set to max. value between
+                 * 'sensor.exposureTime'+ alpha and 'sensor.frameDuration'.
+                 */
+                uint64_t        dynamic_frame_duration;
+        }base;
+        uint32_t analogGain; /* metadata v2 */
+        uint32_t digitalGain; /* metadata v2 */
+        uint64_t longExposureTime; /* For supporting WDR */ /* metadata v2 */
+        uint64_t shortExposureTime; /* metadata v2 */
+        uint32_t longAnalogGain; /* metadata v2 */
+        uint32_t shortAnalogGain; /* metadata v2 */
+        uint32_t longDigitalGain; /* metadata v2 */
+        uint32_t shortDigitalGain; /* metadata v2 */
 };
 
 struct camera2_scaler_uctl {
-	/* Target address for next frame.
-	 * [0] invalid address, stop
-	 * [others] valid address
-	 */
-	uint32_t scc_target_address[4];
-	uint32_t scp_target_address[4];
+        struct camera2_scaler_uctl_base {
+                /* Next frame target address, where '0' denotes invalid one. */
+                uint32_t scc_target_address[4];
+                uint32_t scp_target_address[4];
+        }base;
+        uint32_t dis_target_address[4]; /* metadata v2 */
+        uint32_t taap_target_address[4]; /* 3AA preview DMA */ /* metadata v2 */
+        uint32_t taac_target_address[4]; /* 3AA capture DMA */ /* metadata v2 */
+        uint32_t orientation; /* metadata v2 */
 };
 
 struct camera2_flash_uctl {
 	struct camera2_flash_ctl ctl;
+};
+
+struct camera2_bayer_uctl {
+        struct camera2_scaler_ctl ctl;
+};
+
+struct camera2_companion_uctl {
+        enum companion_drc_mode	drc_mode;
+        enum companion_wdr_mode	wdr_mode;
+        enum companion_paf_mode	paf_mode;
+};
+
+struct camera2_uctl_base {
+        /* Set sensor, lens, flash control for next frame.
+         * This flag can be combined.
+         * [0 bit] lens
+         * [1 bit] sensor
+         * [2 bit] flash
+         */
+        uint32_t u_update_bitmap;
+
+        /* For debugging */
+        uint32_t u_frame_number;
+
+        /* isp fw specific control (user-defined) of lens. */
+        struct camera2_lens_uctl_base	lens_ud;
+        /* isp fw specific control (user-defined) of sensor. */
+        struct camera2_sensor_uctl_base	sensor_ud;
+        /* isp fw specific control (user-defined) of flash. */
+        struct camera2_flash_uctl	flash_ud;
+
+        struct camera2_scaler_uctl_base	scaler_ud;
+
 };
 
 struct camera2_uctl {
@@ -748,10 +1070,33 @@ struct camera2_uctl {
 	struct camera2_flash_uctl	flash_ud;
 
 	struct camera2_scaler_uctl	scaler_ud;
+
+        struct camera2_bayer_uctl	bayer_ud;
+
+        struct camera2_companion_uctl	companion_ud;
 };
 
 struct camera2_udm {
 	struct camera2_lens_udm		lens;
+        struct camera2_ae_udm		ae;
+        struct camera2_awb_udm		awb;
+        struct camera2_af_udm           af;
+        struct camera2_as_udm		as;
+        struct camera2_ipc_udm		ipc;
+        struct camera2_internal_udm	internal;
+        struct camera2_bayer_udm	bayer;
+        struct camera2_companion_udm	companion;
+};
+
+struct camera2_shot_base {
+        /* standard area */
+        struct camera2_ctl_base		ctl;
+        struct camera2_dm_base		dm;
+        /* user defined area */
+        struct camera2_uctl_base	uctl;
+        struct camera2_udm		udm;
+        /* magic : 23456789 */
+        uint32_t			magicnumber;
 };
 
 struct camera2_shot {
@@ -764,4 +1109,6 @@ struct camera2_shot {
 	/* magic : 23456789 */
 	uint32_t		magicnumber;
 };
+
+
 #endif

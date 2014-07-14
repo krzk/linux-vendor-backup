@@ -16,7 +16,8 @@
 
 enum is_cmd {
 	/* HOST -> IS */
-	HIC_PREVIEW_STILL = 0x1,
+        HIC_COMMAND_BEGIN = 0x1,
+        HIC_PREVIEW_STILL = HIC_COMMAND_BEGIN,
 	HIC_PREVIEW_VIDEO,
 	HIC_CAPTURE_STILL,
 	HIC_CAPTURE_VIDEO,
@@ -31,10 +32,13 @@ enum is_cmd {
 	HIC_SET_PARAMETER,
 	HIC_GET_PARAMETER,
 	HIC_SET_A5_MEM_ACCESS,
+        HIC_SET_A5_MAP = HIC_SET_A5_MEM_ACCESS,
 	RESERVED2,
+        /* HIC_SET_A5_UNMAP supported by FW v.130 nad higher */
+        HIC_SET_A5_UNMAP = RESERVED2,
 	HIC_GET_STATUS,
 	/* SENSOR PART*/
-	HIC_OPEN_SENSOR,
+        HIC_OPEN_SENSOR ,
 	HIC_CLOSE_SENSOR,
 	HIC_SIMMIAN_INIT,
 	HIC_SIMMIAN_WRITE,
@@ -45,7 +49,17 @@ enum is_cmd {
 	HIC_MSG_CONFIG,
 	HIC_MSG_TEST,
 	/* IS -> HOST */
-	IHC_GET_SENSOR_NUMBER = 0x1000,
+        HIC_ISP_I2C_CONTROL,
+        HIC_CALIBRATE_ACTUATOR,
+        HIC_GET_IP_STATUS, /* 30 */
+        HIC_I2C_CONTROL_LOCK,
+        HIC_SYSTEM_CONTROL,
+        HIC_SENSOR_MODE_CHANGE,
+        HIC_MSG_SENSOR_END,
+        HIC_COMMAND_END = HIC_MSG_SENSOR_END,
+        /* IS -> HOST */
+        IHC_COMMAND_BEGIN = 0x1000,
+        IHC_GET_SENSOR_NUMBER = IHC_COMMAND_BEGIN,
 	/* Parameter1 : Address of space to copy a setfile */
 	/* Parameter2 : Space szie */
 	IHC_SET_SHOT_MARK,
@@ -60,7 +74,10 @@ enum is_cmd {
 	/* PARAM2 : frame count */
 	IHC_AA_DONE,
 	IHC_NOT_READY,
-	IHC_FLASH_READY
+        IHC_FLASH_READY,
+        /* F/W version >= 1.32 */
+        IHC_REPORT_ERR,
+        IHC_COMMAND_END
 };
 
 enum is_reply {
@@ -80,9 +97,28 @@ enum is_subscenario_id {
 	ISS_SUB_SCENARIO_STILL,
 	ISS_SUB_SCENARIO_VIDEO,
 	ISS_SUB_SCENARIO_SCENE1,
+        /* 2: dual still preview */
+        ISS_SUB_SCENARIO_DUAL_STILL       = ISS_SUB_SCENARIO_SCENE1,
 	ISS_SUB_SCENARIO_SCENE2,
+        /* 3: dual video */
+        ISS_SUB_SCENARIO_DUAL_VIDEO       = ISS_SUB_SCENARIO_SCENE2,
 	ISS_SUB_SCENARIO_SCENE3,
-	ISS_SUB_END
+        /* 4: video high speed */
+        ISS_SUB_SCENARIO_VIDEO_HIGH_SPEED = ISS_SUB_SCENARIO_SCENE3,
+        /* 5: still capture */
+        ISS_SUB_SCENARIO_STILL_CAPTURE    = 5,
+
+        ISS_SUB_END,
+};
+
+enum is_system_control_id {
+        IS_SYS_CLOCK_GATE = 0,
+        IS_SYS_END,
+};
+
+enum is_system_control_cmd {
+        SYS_CONTROL_DISABLE = 0,
+        SYS_CONTROL_ENABLE  = 1,
 };
 
 struct is_setfile_header_element {
@@ -96,92 +132,4 @@ struct is_setfile_header {
 	struct is_setfile_header_element fd[ISS_END];
 };
 
-struct is_common_reg {
-	u32 hicmd;
-	u32 hic_sensorid;
-	u32 hic_param[4];
-
-	u32 reserved1[3];
-
-	u32 ihcmd_iflag;
-	u32 ihcmd;
-	u32 ihc_sensorid;
-	u32 ihc_param[4];
-
-	u32 reserved2[3];
-
-	u32 isp_bayer_iflag;
-	u32 isp_bayer_sensor_id;
-	u32 isp_bayer_param[2];
-
-	u32 reserved3[4];
-
-	u32 scc_iflag;
-	u32 scc_sensor_id;
-	u32 scc_param[3];
-
-	u32 reserved4[3];
-
-	u32 dnr_iflag;
-	u32 dnr_sensor_id;
-	u32 dnr_param[2];
-
-	u32 reserved5[4];
-
-	u32 scp_iflag;
-	u32 scp_sensor_id;
-	u32 scp_param[3];
-
-	u32 reserved6[1];
-
-	u32 isp_yuv_iflag;
-	u32 isp_yuv_sensor_id;
-	u32 isp_yuv_param[2];
-
-	u32 reserved7[1];
-
-	u32 shot_iflag;
-	u32 shot_sensor_id;
-	u32 shot_param[2];
-
-	u32 reserved8[1];
-
-	u32 meta_iflag;
-	u32 meta_sensor_id;
-	u32 meta_param1;
-
-	u32 reserved9[1];
-
-	u32 fcount;
-};
-
-struct is_mcuctl_reg {
-	u32 mcuctl;
-	u32 bboar;
-
-	u32 intgr0;
-	u32 intcr0;
-	u32 intmr0;
-	u32 intsr0;
-	u32 intmsr0;
-
-	u32 intgr1;
-	u32 intcr1;
-	u32 intmr1;
-	u32 intsr1;
-	u32 intmsr1;
-
-	u32 intcr2;
-	u32 intmr2;
-	u32 intsr2;
-	u32 intmsr2;
-
-	u32 gpoctrl;
-	u32 cpoenctlr;
-	u32 gpictlr;
-
-	u32 pad[0xD];
-
-	struct is_common_reg common_reg;
-};
 #endif

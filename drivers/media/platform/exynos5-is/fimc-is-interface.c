@@ -1,7 +1,7 @@
 /*
  * Samsung EXYNOS5 FIMC-IS (Imaging Subsystem) driver
 *
- * Copyright (C) 2013 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2013-2014 Samsung Electronics Co., Ltd.
  * Kil-yeon Lim <kilyeon.im@samsung.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -14,65 +14,183 @@
 #include "fimc-is.h"
 #include "fimc-is-cmd.h"
 #include "fimc-is-regs.h"
+#include "fimc-is-backend.h"
+#include "fimc-is-fw.h"
+
+#define FIMC_IS_GROUP_ID_3A0	0 /* hardware: CH0 */
+#define FIMC_IS_GROUP_ID_3A1	1 /* hardware: 3AA */
+#define FIMC_IS_GROUP_ID_ISP	2 /* hardware: CH1 */
+#define FIMC_IS_GROUP_ID_DIS	3
+#define FIMC_IS_GROUP_ID_SHIFT	16
+#define FIMC_IS_GROUP_ID 					\
+        ((FIMC_IS_GROUP_ID_3A1  | (1 <<FIMC_IS_GROUP_ID_ISP)) 	\
+         << FIMC_IS_GROUP_ID_SHIFT)
 
 #define init_request_barrier(itf) mutex_init(&itf->request_barrier)
 #define enter_request_barrier(itf) mutex_lock(&itf->request_barrier)
 #define exit_request_barrier(itf) mutex_unlock(&itf->request_barrier)
 
-static inline void itf_get_cmd(struct fimc_is_interface *itf,
-	struct fimc_is_msg *msg, unsigned int index)
-{
-	struct is_common_reg __iomem *com_regs = itf->com_regs;
+struct workqueue_struct *fimc_is_workqueue;
 
-	memset(msg, 0, sizeof(*msg));
+#ifdef FIMC_IS_DEBUG
+#define read_shared_reg(__r, __offset) ({			\
+        pr_info("[FIMC IS ITF] Reading shared reg: base: 0x%08X"\
+                " offset: 0x%08X\n",				\
+                (unsigned int)(__r), (unsigned int)(__offset)); \
+                readl((__r) + (__offset));			\
+})
+
+#define write_shared_reg(__r, __offset, __v) ({				\
+        pr_info("[FIMC IS ITF]  Writting shared reg: 0x%08x"		\
+                " offset:0x%08x (%d)\n",					\
+                (unsigned int)(__r), (unsigned int)(__offset), __v);	\
+                writel((__v), (__r) + (__offset));			\
+})
+
+#define dump_message(msg) 							\
+do{										\
+        struct fimc_is_msg* __m =(struct fimc_is_msg*) msg;			\
+        printk("[FIMC IS MSG] >> %s: \n", __func__);				\
+        printk("[FIMC IS MSG] ID [%d] COMMAND [%d] INSTANCE [%d]\n", 		\
+                __m->id, __m->command, __m->instance);				\
+        printk("[FIMC IS MSG] PARAMS: {%d, %d, %d, %d}\n", 			\
+                __m->param[0], __m->param[1], __m->param[2], __m->param[3]); 	\
+}while(0)
+
+#else
+#define read_shared_reg(__r, __offset) \
+        readl((__r) +(__offset))
+#define write_shared_reg(__r, __offset, __v) \
+        writel(__v, (__r) + (__offset))
+
+#define dump_message(msg)
+
+#endif
+
+
+static inline void setup_cmd(struct fimc_is_msg *msg,
+                             void __iomem *base_reg,
+                             u32 offset,
+                             u32 param_count)
+{
+        /*
+         * Base command layout ( consecutive 32 bits registers )
+         * | REG_0 | -> | command ID          |
+         * | REG_1 | -> | sesnor ID (instance)|
+         * | REG_2 | -> | commads params      |
+         */
+        memset(msg, 0, sizeof(msg));
+        msg->command  = read_shared_reg(base_reg, offset);
+        msg->instance = read_shared_reg(base_reg, offset + MCUCTL_SREG_SIZE);
+        memcpy(msg->param, base_reg + offset + 2*MCUCTL_SREG_SIZE,
+               param_count * sizeof(msg->param[0]));
+}
+
+static inline void write_hic_shared_reg(struct fimc_is_interface *itf,
+                                        struct fimc_is_msg *msg)
+{
+        struct mcuctl_sreg_desc shared_reg_desc;
+        void __iomem *base_reg = itf->shared_regs;
+        /* It is safe to assume that the calls to get the
+         * MCUCTL_HIC_REG data will always succeede despite the
+         * actual firmware version
+         */
+        mcuctl_sreg_get_desc(itf->fw_data, MCUCTL_HIC_REG,
+                             &shared_reg_desc);
+        write_shared_reg(base_reg, shared_reg_desc.base_offset, msg->command);
+        write_shared_reg(base_reg,
+                         shared_reg_desc.base_offset + MCUCTL_SREG_SIZE,
+                         msg->instance);
+        memcpy(base_reg + shared_reg_desc.base_offset + 2*MCUCTL_SREG_SIZE,
+               msg->param, shared_reg_desc.data_range * sizeof(u32));
+
+}
+
+static inline int itf_get_cmd(struct fimc_is_interface *itf,
+        struct fimc_is_msg *msg, unsigned int index)
+{
+        void __iomem *regs = itf->shared_regs;
+        unsigned int reg_range_id;
+        struct mcuctl_sreg_desc shared_reg_desc;
 
 	switch (index) {
 	case INTR_GENERAL:
-		msg->command = com_regs->ihcmd;
-		msg->instance = com_regs->ihc_sensorid;
-		memcpy(msg->param, com_regs->ihc_param,
-				4 * sizeof(msg->param[0]));
+                reg_range_id = MCUCTL_IHC_REG;
+                break;
+        case INTR_3A0C_DONE:
+                reg_range_id = MCUCTL_3AA0C_REG;
 		break;
-	case INTR_SCC_FDONE:
-		msg->command = IHC_FRAME_DONE;
-		msg->instance = com_regs->scc_sensor_id;
-		memcpy(msg->param, com_regs->scc_param,
-				3 * sizeof(msg->param[0]));
+        case INTR_SCC_DONE:
+                reg_range_id = MCUCTL_SCC_REG;
 		break;
-	case INTR_SCP_FDONE:
-		msg->command = IHC_FRAME_DONE;
-		msg->instance = com_regs->scp_sensor_id;
-		memcpy(msg->param, com_regs->scp_param,
-				3 * sizeof(msg->param[0]));
+        case INTR_SCP_DONE:
+                reg_range_id = MCUCTL_SCP_REG;
 		break;
 	case INTR_META_DONE:
-		msg->command = IHC_FRAME_DONE;
-		msg->instance = com_regs->meta_sensor_id;
-		msg->param[0] = com_regs->meta_param1;
+                reg_range_id = MCUCTL_META_REG;
 		break;
 	case INTR_SHOT_DONE:
-		msg->command = IHC_FRAME_DONE;
-		msg->instance = com_regs->shot_sensor_id;
-		memcpy(msg->param, com_regs->shot_param,
-				2 * sizeof(msg->param[0]));
+                reg_range_id = MCUCTL_SHOT_REG;
 		break;
 	default:
+                reg_range_id = MCUCTL_END_REG;
 		dev_err(itf->dev, "%s Unknown command\n", __func__);
 		break;
 	}
+
+        if (!mcuctl_sreg_get_desc(itf->fw_data, reg_range_id,
+                                  &shared_reg_desc)) {
+                if (index == INTR_GENERAL) {
+                /*
+                 * Move to the very next register
+                 * @see generic MCUCTL shared reg layout
+                 */
+                shared_reg_desc.base_offset += MCUCTL_SREG_SIZE;
+                }
+                setup_cmd(msg, regs, shared_reg_desc.base_offset,
+                          shared_reg_desc.data_range);
+                switch(index) {
+                        case INTR_3A0C_DONE:
+                        case INTR_SCC_DONE:
+                        case INTR_SCP_DONE:
+                        case INTR_SHOT_DONE:
+                                msg->command  = IHC_FRAME_DONE;
+                        default:
+                                break;
+                }
+                return 0;
+        }
+        return -EINVAL;
 }
 
 static inline unsigned int itf_get_intr(struct fimc_is_interface *itf)
 {
 	unsigned int status;
-	struct is_common_reg __iomem *com_regs = itf->com_regs;
+        void __iomem *shared_regs = itf->shared_regs;
+        unsigned long offset;
+        struct fimc_is_fw_data *fw_data = itf->fw_data;
 
-	status = readl(itf->regs + INTMSR1) | com_regs->ihcmd_iflag |
-		com_regs->scc_iflag |
-		com_regs->scp_iflag |
-		com_regs->meta_iflag |
-		com_regs->shot_iflag;
+        status = read_shared_reg(itf->regs, INTMSR1);
+        /*
+         * Again it is safe to assume that the following registers
+         * are always valid despite the actual firmware version
+         */
+        mcuctl_sreg_get_offset(fw_data, MCUCTL_IHC_REG, &offset);
+        status |= read_shared_reg(shared_regs, offset);
 
+        mcuctl_sreg_get_offset(fw_data, MCUCTL_SHOT_REG, &offset);
+        status |= read_shared_reg(shared_regs, offset);
+
+        mcuctl_sreg_get_offset(fw_data, MCUCTL_SCC_REG, &offset);
+        status |= read_shared_reg(shared_regs, offset);
+
+        mcuctl_sreg_get_offset(fw_data, MCUCTL_SCP_REG, &offset);
+        status |= read_shared_reg(shared_regs, offset);
+
+        if (mcuctl_sreg_is_valid(fw_data, MCUCTL_META_REG)) {
+                mcuctl_sreg_get_offset(fw_data, MCUCTL_META_REG, &offset);
+                status |= read_shared_reg(shared_regs, offset);
+        }
 	return status;
 }
 
@@ -125,6 +243,7 @@ static int itf_wait_hw_ready(struct fimc_is_interface *itf)
 		unsigned int cfg = readl(itf->regs + INTMSR0);
 		if (INTMSR0_GET_INTMSD(0, cfg) == 0)
 			return 0;
+
 	}
 	dev_err(itf->dev, "INTMSR0's 0 bit is not cleared.\n");
 	return -EINVAL;
@@ -174,10 +293,7 @@ static int itf_send_sensor_number(struct fimc_is_interface *itf)
 	unsigned long flags;
 
 	spin_lock_irqsave(&itf->slock, flags);
-	itf->com_regs->hicmd = msg.command;
-	itf->com_regs->hic_sensorid = msg.instance;
-	memcpy(itf->com_regs->hic_param, msg.param,
-		4 * sizeof(itf->com_regs->hic_param[0]));
+        write_hic_shared_reg(itf, &msg);
 	itf_hic_interrupt(itf);
 	spin_unlock_irqrestore(&itf->slock, flags);
 
@@ -229,10 +345,7 @@ static int fimc_is_itf_set_cmd(struct fimc_is_interface *itf,
 
 	spin_lock_irqsave(&itf->slock, flags);
 	itf_set_state(itf, IS_IF_STATE_BUSY);
-	itf->com_regs->hicmd = msg->command;
-	itf->com_regs->hic_sensorid = msg->instance;
-	memcpy(itf->com_regs->hic_param, msg->param,
-			4 * sizeof(itf->com_regs->hic_param[0]));
+        write_hic_shared_reg(itf, msg);
 	itf_hic_interrupt(itf);
 	spin_unlock_irqrestore(&itf->slock, flags);
 
@@ -241,13 +354,15 @@ static int fimc_is_itf_set_cmd(struct fimc_is_interface *itf,
 
 	ret = itf_wait_idlestate(itf);
 	if (ret) {
-		dev_err(itf->dev, "%d command is timeout\n", msg->command);
+                dev_err(itf->dev, "Timeout on command id: %d\n", msg->command);
 		itf_clr_state(itf, IS_IF_STATE_BUSY);
 		ret = -ETIME;
 		goto exit;
 	}
 
 	if (itf->reply.command == ISR_DONE) {
+
+                /* @TODO : locking ? */
 		switch (msg->command) {
 		case HIC_STREAM_ON:
 			itf->streaming = IS_IF_STREAMING_ON;
@@ -270,8 +385,12 @@ static int fimc_is_itf_set_cmd(struct fimc_is_interface *itf,
 				itf->pdown_ready = IS_IF_POWER_DOWN_READY;
 				ret = -ECANCELED;
 				goto exit;
-			} else
+                        } else {
+                                /* Fix possible state-machine inconsistency */
+                                itf->streaming   = IS_IF_STREAMING_OFF;
+                                itf->processing  = IS_IF_PROCESSING_OFF;
 				itf->pdown_ready = IS_IF_POWER_DOWN_NREADY;
+                        }
 			break;
 		default:
 			break;
@@ -293,17 +412,35 @@ static int fimc_is_itf_set_cmd_shot(struct fimc_is_interface *itf,
 		struct fimc_is_msg *msg)
 {
 	unsigned long flags;
-
+        struct mcuctl_sreg_desc shared_reg_desc;
 	spin_lock_irqsave(&itf->slock, flags);
-	itf->com_regs->hicmd = msg->command;
-	itf->com_regs->hic_sensorid = msg->instance;
-	memcpy(itf->com_regs->hic_param, msg->param,
-			4 * sizeof(itf->com_regs->hic_param[0]));
-	itf->com_regs->fcount = msg->param[2];
+        write_hic_shared_reg(itf, msg);
+
+        if (!mcuctl_sreg_get_desc(itf->fw_data, MCUCTL_FRAME_COUNT_REG,
+                                  &shared_reg_desc)) {
+                unsigned long offset = shared_reg_desc.base_offset;
+                /* Frame count for sensor:0 */
+                offset += (--shared_reg_desc.data_range) * MCUCTL_SREG_SIZE;
+                write_shared_reg(itf->shared_regs, offset, msg->param[2]);
+        }
+
 	itf_hic_interrupt(itf);
 	spin_unlock_irqrestore(&itf->slock, flags);
-
 	return 0;
+}
+
+static int itf_init_workqueue(void)
+{
+        fimc_is_workqueue = alloc_workqueue("fimc-is", WQ_FREEZABLE,0);
+        return fimc_is_workqueue ? 0 : -ENOMEM;
+}
+
+static void shot_done_work_fn(struct work_struct* work)
+{
+        struct fimc_is_interface *itf = container_of(work,
+                         struct fimc_is_interface, shot_done_work);
+        struct fimc_is *is = fimc_interface_to_is(itf);
+        fimc_is_pipeline_shot(&is->pipeline[0]);
 }
 
 static void itf_handle_general(struct fimc_is_interface *itf,
@@ -315,7 +452,10 @@ static void itf_handle_general(struct fimc_is_interface *itf,
 
 	case IHC_GET_SENSOR_NUMBER:
 		pr_debug("IS version : %d.%d\n",
-			ISDRV_VERSION, msg->param[0]);
+                        itf->drv_version, msg->param[0]);
+                if (fimc_is_fw_config(&itf->fw_data, msg->param[0]))
+                        dev_err(itf->dev,
+			"Failed to initialize fw data. Using default settings");
 		/* Respond with sensor number */
 		itf_send_sensor_number(itf);
 		itf_init_wakeup(itf);
@@ -325,6 +465,9 @@ static void itf_handle_general(struct fimc_is_interface *itf,
 		case HIC_OPEN_SENSOR:
 			pr_debug("open done\n");
 			break;
+                case HIC_CLOSE_SENSOR:
+                        pr_debug("close done\n");
+                        break;
 		case HIC_GET_SET_FILE_ADDR:
 			pr_debug("saddr(%p) done\n",
 				(void *)msg->param[1]);
@@ -369,6 +512,11 @@ static void itf_handle_general(struct fimc_is_interface *itf,
 			is_blocking = false;
 			dev_err(itf->dev, "camctrl is not acceptable\n");
 			break;
+                case HIC_SENSOR_MODE_CHANGE:
+                        pr_debug("Sensor mode changed\n");
+                        break;
+                case HIC_GET_IP_STATUS:
+                        break;
 		default:
 			is_blocking = false;
 			dev_err(itf->dev, "unknown done is invokded\n");
@@ -391,6 +539,8 @@ static void itf_handle_general(struct fimc_is_interface *itf,
 			dev_err(itf->dev, "param3 : 0x%08X\n", msg->param[2]);
 			dev_err(itf->dev, "param4 : 0x%08X\n", msg->param[3]);
 			break;
+                case HIC_GET_IP_STATUS:
+                        break;
 		default:
 			dev_err(itf->dev, "command(%d) not done",
 					msg->param[0]);
@@ -413,8 +563,11 @@ static void itf_handle_general(struct fimc_is_interface *itf,
 		break;
 	case IHC_NOT_READY:
 		is_blocking = false;
-		dev_err(itf->dev, "IHC_NOT_READY is occured, need reset");
+                dev_err(itf->dev, "IHC_NOT_READY has been reported: reset required\n");
 		break;
+        case IHC_REPORT_ERR:
+                is_blocking = false;
+                dev_err(itf->dev, "IHC_REPORT_ERR has occured");
 	default:
 		is_blocking = false;
 		dev_err(itf->dev, "%s: unknown (#%08X) command\n",
@@ -440,14 +593,21 @@ static void itf_handle_scaler_done(struct fimc_is_interface *itf,
 	struct timespec ts;
 	unsigned int wh, i;
 	unsigned int fcount = msg->param[0];
-	unsigned long *comp_state;
+        unsigned long *subip_state;
 
+        /*
+         * Scaler done message layout
+         * 1: frame count
+         * 2: status != 0 -> frame not done
+         * 3: requested frame count
+         */
 	if (msg->param[3] == SCALER_SCC) {
 		scl = &pipeline->scaler[SCALER_SCC];
-		comp_state = &pipeline->comp_state[IS_SCC];
+                subip_state = &pipeline->subip_state[IS_SCC];
+
 	} else {
 		scl = &pipeline->scaler[SCALER_SCP];
-		comp_state = &pipeline->comp_state[IS_SCP];
+                subip_state = &pipeline->subip_state[IS_SCP];
 	}
 
 	fmt = scl->fmt;
@@ -470,10 +630,13 @@ static void itf_handle_scaler_done(struct fimc_is_interface *itf,
 
 		pr_debug("SCP buffer done %d/%d\n",
 				msg->param[0], msg->param[2]);
-		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_DONE);
+                if (msg->param[1])
+                        vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
+                else
+                        vb2_buffer_done(&buf->vb, VB2_BUF_STATE_DONE);
 	}
 	fimc_is_pipeline_buf_unlock(pipeline);
-	clear_bit(COMP_RUN, comp_state);
+        clear_bit(COMP_RUN, subip_state);
 	wake_up(&scl->event_q);
 }
 
@@ -481,29 +644,85 @@ static void itf_handle_shot_done(struct fimc_is_interface *itf,
 		struct fimc_is_msg *msg)
 {
 	struct fimc_is *is = fimc_interface_to_is(itf);
-	struct fimc_is_pipeline *pipeline = &is->pipeline[msg->instance];
+        struct fimc_is_pipeline *pipeline =
+                        &is->pipeline[msg->instance &~FIMC_IS_GROUP_ID];
 	unsigned int status = msg->param[1];
 	struct fimc_is_buf *bayer_buf;
-	int ret;
 
-	if (status != ISR_DONE)
-		dev_err(itf->dev, "Shot done is invalid(0x%08X)\n", status);
+        /*
+         * Shot done message layout:
+         * 1: frame count
+         * 2: status
+         * 3: status for shot: 0 - success
+         */
 
 	/* DQ the bayer input buffer */
 	fimc_is_pipeline_buf_lock(pipeline);
 	bayer_buf = fimc_is_isp_run_queue_get(&pipeline->isp);
 	if (bayer_buf) {
-		vb2_buffer_done(&bayer_buf->vb, VB2_BUF_STATE_DONE);
+                if (msg->param[2])
+                        vb2_buffer_done(&bayer_buf->vb, VB2_BUF_STATE_ERROR);
+                else
+                        vb2_buffer_done(&bayer_buf->vb, VB2_BUF_STATE_DONE);
 		pr_debug("Bayer buffer done.\n");
 	}
 	fimc_is_pipeline_buf_unlock(pipeline);
 
 	/* Clear state & call shot again */
 	clear_bit(PIPELINE_RUN, &pipeline->state);
+        clear_bit(COMP_RUN, &pipeline->subip_state[IS_ISP]);
+        queue_work(fimc_is_workqueue, &itf->shot_done_work);
+        if (status != ISR_DONE) {
+                fimc_is_pipeline_reset(pipeline);
+                dev_err(itf->dev, "Shot failure (0x%08X : 0x%08X) \n",
+                        status,  msg->param[2]);
 
-	ret = fimc_is_pipeline_shot(pipeline);
-	if (ret)
-		dev_err(itf->dev, "Shot failed\n");
+        }
+}
+
+static inline void fimc_is_handle_irq(struct fimc_is_interface *itf,
+                               struct fimc_is_msg *msg,
+                               u32 intsrc)
+{
+        void __iomem *shared_regs = itf->shared_regs;
+        unsigned long offset;
+        unsigned int reg_range_id = MCUCTL_END_REG;
+
+        switch(intsrc) {
+        case INTR_GENERAL:
+                itf_handle_general(itf, msg);
+                reg_range_id = MCUCTL_IHC_REG;
+                break;
+        case INTR_ISP_DONE:
+                reg_range_id = MCUCTL_ISP_REG;
+                break;
+        case INTR_3A0C_DONE:
+                reg_range_id = MCUCTL_3AA0C_REG;
+                break;
+        case INTR_3A1C_DONE:
+                reg_range_id = MCUCTL_3AA1C_REG;
+                break;
+        case INTR_SHOT_DONE:
+                itf_handle_shot_done(itf, msg);
+                reg_range_id = MCUCTL_SHOT_REG;
+                break;
+        case INTR_SCC_DONE:
+                msg->param[3] = SCALER_SCC;
+		itf_handle_scaler_done(itf, msg);
+                reg_range_id = MCUCTL_SCC_REG;
+                break;
+        case INTR_SCP_DONE:
+                msg->param[3] = SCALER_SCP;
+                itf_handle_scaler_done(itf, msg);
+                reg_range_id = MCUCTL_SCP_REG;
+                break;
+        case INTR_META_DONE:
+                reg_range_id = MCUCTL_META_REG;
+                break;
+        }
+        if (!(mcuctl_sreg_get_offset(itf->fw_data, reg_range_id, &offset))){
+                write_shared_reg(shared_regs, offset, 0);
+        }
 }
 
 /* Main FIMC-IS interrupt handler */
@@ -512,44 +731,20 @@ static irqreturn_t itf_irq_handler(int irq, void *data)
 	struct fimc_is_interface *itf = data;
 	struct fimc_is_msg msg;
 	unsigned int status, intr;
-	struct is_common_reg __iomem *com_regs;
-
-	com_regs = itf->com_regs;
+        unsigned int intr_src;
 	status = itf_get_intr(itf);
 
 	for (intr = INTR_GENERAL; intr < INTR_MAX_MAP; intr++) {
 
 		if (status & BIT(intr)) {
-			itf_get_cmd(itf, &msg, intr);
-
-			switch (intr) {
-			case INTR_GENERAL:
-				itf_handle_general(itf, &msg);
-				com_regs->ihcmd_iflag = 0;
-				break;
-			case INTR_SHOT_DONE:
-				itf_handle_shot_done(itf, &msg);
-				com_regs->shot_iflag = 0;
-				break;
-			case INTR_SCC_FDONE:
-				msg.param[3] = SCALER_SCC;
-				itf_handle_scaler_done(itf, &msg);
-				com_regs->scc_iflag = 0;
-				break;
-			case INTR_SCP_FDONE:
-				msg.param[3] = SCALER_SCP;
-				itf_handle_scaler_done(itf, &msg);
-				com_regs->scp_iflag = 0;
-				break;
-			case INTR_META_DONE:
-				com_regs->meta_iflag = 0;
-				break;
-			}
+                        intr_src = FIMC_IS_FW_GET_INTR_SRC(itf->fw_data, intr);
+                        itf_get_cmd(itf, &msg, intr_src);
+                        fimc_is_handle_irq(itf, &msg, intr_src);
 			status &= ~BIT(intr);
 			writel(BIT(intr), itf->regs + INTCR1);
-		}
-	}
+                 }
 
+        }
 	if (status != 0)
 		dev_err(itf->dev, "status is NOT all clear(0x%08X)", status);
 
@@ -565,10 +760,47 @@ int fimc_is_itf_open_sensor(struct fimc_is_interface *itf,
 	struct fimc_is_msg msg = {
 		.command = HIC_OPEN_SENSOR,
 		.instance = instance,
-		.param = { sensor_id, i2c_channel, sensor_ext },
+                .param = {sensor_id, i2c_channel, sensor_ext },
+        };
+
+        return fimc_is_itf_set_cmd(itf, &msg);
+}
+
+int fimc_is_itf_open_sensor_ext(struct fimc_is_interface *itf,
+                                unsigned int instance,
+                                unsigned int sensor_id,
+                                unsigned int sensor_ext)
+{
+        struct fimc_is_msg msg = {
+                .command = HIC_OPEN_SENSOR,
+                .instance = instance,
+                .param = { sensor_id, sensor_ext, FIMC_IS_GROUP_ID >> 16 },
 	};
 
 	return fimc_is_itf_set_cmd(itf, &msg);
+}
+
+int fimc_is_itf_sensor_close(struct fimc_is_interface *itf,
+                             unsigned int instance)
+{
+        struct fimc_is_msg msg = {
+                .command = HIC_CLOSE_SENSOR,
+                .instance = instance,
+                .param = { 0,},
+        };
+        return fimc_is_itf_set_cmd(itf, &msg);
+}
+
+int fimc_is_itf_sensor_mode(struct fimc_is_interface *itf,
+                            unsigned int instance,
+                            unsigned int mode)
+{
+        struct fimc_is_msg msg = {
+                .command  = HIC_SENSOR_MODE_CHANGE,
+                .instance = instance,
+                .param = { mode },
+        };
+        return fimc_is_itf_set_cmd(itf, &msg);
 }
 
 int fimc_is_itf_get_setfile_addr(struct fimc_is_interface *itf,
@@ -624,7 +856,7 @@ int fimc_is_itf_process_on(struct fimc_is_interface *itf,
 {
 	struct fimc_is_msg msg = {
 		.command = HIC_PROCESS_START,
-		.instance = instance,
+                .instance = instance | FIMC_IS_GROUP_ID,
 	};
 
 	return fimc_is_itf_set_cmd(itf, &msg);
@@ -635,7 +867,7 @@ int fimc_is_itf_process_off(struct fimc_is_interface *itf,
 {
 	struct fimc_is_msg msg = {
 		.command = HIC_PROCESS_STOP,
-		.instance = instance,
+                .instance = instance |  FIMC_IS_GROUP_ID,
 	};
 
 	return fimc_is_itf_set_cmd(itf, &msg);
@@ -643,15 +875,18 @@ int fimc_is_itf_process_off(struct fimc_is_interface *itf,
 
 int fimc_is_itf_set_param(struct fimc_is_interface *itf,
 		unsigned int instance,
+                unsigned int scenario,
 		unsigned int lindex,
 		unsigned int hindex)
 {
 	struct fimc_is_msg msg = {
 		.command = HIC_SET_PARAMETER,
-		.instance = instance,
-		.param = { ISS_PREVIEW_STILL, 0, lindex, hindex },
+                .instance = instance ,
+                .param = { scenario, 0, lindex, hindex },
 	};
-
+        unsigned int param_count = hweight32(lindex);
+        param_count += hweight32(hindex);
+        msg.param[1] = param_count;
 	return fimc_is_itf_set_cmd(itf, &msg);
 }
 
@@ -660,10 +895,22 @@ int fimc_is_itf_preview_still(struct fimc_is_interface *itf,
 {
 	struct fimc_is_msg msg = {
 		.command = HIC_PREVIEW_STILL,
-		.instance = instance,
+                .instance = instance | FIMC_IS_GROUP_ID,
 	};
 
 	return fimc_is_itf_set_cmd(itf, &msg);
+}
+
+int fimc_is_itf_change_sensor_mode(struct fimc_is_interface *itf,
+                                   unsigned int instance,
+                                   unsigned int mode)
+{
+        struct fimc_is_msg msg = {
+                .command = HIC_SENSOR_MODE_CHANGE,
+                .instance = instance,
+                .param = { mode, },
+        };
+        return fimc_is_itf_set_cmd(itf, &msg);
 }
 
 int fimc_is_itf_get_capability(struct fimc_is_interface *itf,
@@ -678,17 +925,32 @@ int fimc_is_itf_get_capability(struct fimc_is_interface *itf,
 	return fimc_is_itf_set_cmd(itf, &msg);
 }
 
-int fimc_is_itf_cfg_mem(struct fimc_is_interface *itf,
+int fimc_is_itf_map_mem(struct fimc_is_interface *itf,
 		unsigned int instance, unsigned int address,
 		unsigned int size)
 {
 	struct fimc_is_msg msg = {
-		.command = HIC_SET_A5_MEM_ACCESS,
-		.instance = instance,
+                .command = HIC_SET_A5_MEM_ACCESS, /* HIC_SET_A5_MMAP */
+                .instance = instance | FIMC_IS_GROUP_ID,
 		.param = { address, size },
 	};
 
 	return fimc_is_itf_set_cmd(itf, &msg);
+}
+
+int fimc_is_itf_unmap_mem(struct fimc_is_interface *itf,
+                          unsigned int instance)
+{
+        if (FIMC_IS_FW_CMD_SUPPORT(itf->fw_data, HIC_SET_A5_UNMAP)) {
+
+                struct fimc_is_msg msg = {
+                        .command  = HIC_SET_A5_UNMAP,
+                        .instance = instance | FIMC_IS_GROUP_ID,
+                };
+
+                return fimc_is_itf_set_cmd(itf, &msg);
+        }
+        return 0;
 }
 
 int fimc_is_itf_shot_nblk(struct fimc_is_interface *itf,
@@ -697,10 +959,10 @@ int fimc_is_itf_shot_nblk(struct fimc_is_interface *itf,
 {
 	struct fimc_is_msg msg = {
 		.command = HIC_SHOT,
-		.instance = instance,
+                .instance = instance  | FIMC_IS_GROUP_ID,
 		.param = { bayer, shot, fcount, rcount },
 	};
-
+        dump_message(&msg);
 	return fimc_is_itf_set_cmd_shot(itf, &msg);
 }
 
@@ -719,19 +981,85 @@ int fimc_is_itf_power_down(struct fimc_is_interface *itf,
 	return ret;
 }
 
+int fimc_is_itf_hw_running(struct fimc_is_interface *itf)
+{
+        if (FIMC_IS_FW_CMD_SUPPORT(itf->fw_data, HIC_GET_IP_STATUS)){
+                struct fimc_is_msg msg = {
+                        .command = HIC_GET_IP_STATUS,
+                };
+                return (-ETIME !=  fimc_is_itf_set_cmd(itf, &msg)) ? 1 : 0;
+        }
+        return 0;
+}
+
+int fimc_is_itf_i2c_lock(struct fimc_is_interface *itf,
+                         unsigned int instance,
+                         int i2c_clk, bool lock)
+{
+        if (FIMC_IS_FW_CMD_SUPPORT(itf->fw_data, HIC_I2C_CONTROL_LOCK)) {
+
+                struct fimc_is_msg msg = {
+                        .command  = HIC_I2C_CONTROL_LOCK,
+                        .instance = instance,
+                        .param    = {lock, i2c_clk},
+                };
+
+                return fimc_is_itf_set_cmd_shot(itf, &msg);
+
+        }
+        return 0;
+}
+
+int fimc_is_itf_sys_ctrl(struct fimc_is_interface *itf,
+                         unsigned int instance,
+                         int cmd, int val)
+{
+        if (FIMC_IS_FW_CMD_SUPPORT(itf->fw_data, HIC_SYSTEM_CONTROL)) {
+
+                struct fimc_is_msg msg = {
+                        .command  = HIC_SYSTEM_CONTROL,
+                        .instance = instance,
+                        .param    =  {cmd, val},
+                };
+
+                return fimc_is_itf_set_cmd_shot(itf, &msg);
+        }
+        return 0;
+}
+
+void fimc_is_itf_notify_frame_done(struct fimc_is_interface *itf)
+{
+        struct mcuctl_sreg_desc  shared_reg_desc;
+
+        if (!(mcuctl_sreg_get_desc(itf->fw_data, MCUCTL_FRAME_COUNT_REG,
+                                         &shared_reg_desc))) {
+                unsigned int frame_count;
+                unsigned long offset = shared_reg_desc.base_offset;
+                /* Frame count for sensor:0*/
+                offset += (--shared_reg_desc.data_range) * MCUCTL_SREG_SIZE;
+                frame_count = read_shared_reg(itf->shared_regs, offset);
+                write_shared_reg(itf->shared_regs, offset, ++frame_count);
+
+        }
+}
+
 /* Debugfs for showing FW debug messages */
 static int fimc_is_log_show(struct seq_file *s, void *data)
 {
 	struct fimc_is_interface *itf = s->private;
 	struct fimc_is *is = fimc_interface_to_is(itf);
+        struct fimc_is_fw_mem fw_minfo;
+        u8 *buf;
 
-	const u8 *buf = (u8 *) (is->minfo.fw.vaddr + DEBUG_OFFSET);
+        if (FIMC_IS_FW_CALL_OP(mem_config, &fw_minfo))
+                return -ENODEV;
+
+        buf = (u8 *)(is->minfo.fw.vaddr + fw_minfo.dbg_offset);
 
 	if (is->minfo.fw.vaddr == 0) {
 		dev_err(itf->dev, "Firmware memory is not initialized\n");
 		return -EIO;
 	}
-
 	seq_printf(s, "%s\n", buf);
 	return 0;
 }
@@ -781,13 +1109,16 @@ int fimc_is_interface_init(struct fimc_is_interface *itf,
 	}
 
 	itf->regs = regs;
-	itf->com_regs = (struct is_common_reg *)(regs + ISSR(0));
+        itf->shared_regs = (void __iomem*)(regs + ISSR(0));
 	itf->dev = &is->pdev->dev;
-
+        fimc_is_fw_set_default(&itf->fw_data);
 	init_waitqueue_head(&itf->irq_queue);
 	spin_lock_init(&itf->slock_state);
 	spin_lock_init(&itf->slock);
 
+        /* Init the work queue */
+        itf_init_workqueue();
+        INIT_WORK(&itf->shot_done_work, shot_done_work_fn);
 	/* Register interrupt handler */
 	ret = devm_request_irq(dev, irq, itf_irq_handler,
 			       0, dev_name(dev), itf);

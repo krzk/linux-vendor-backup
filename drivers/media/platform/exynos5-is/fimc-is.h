@@ -42,6 +42,10 @@
  */
 #define fimc_is_sensor_get_sd(is, sid) (&is->sensor[sid].subdev)
 
+/*
+ * Macro to retrieve FIMC IS sub IP data
+ */
+#define fimc_is_get_subip(is, subip) (&(is->drvdata->subip_data->_##subip))
 
 /**
  * struct fimc_is - fimc-is driver private data
@@ -62,7 +66,7 @@ struct fimc_is {
 	struct fimc_md			*md;
 
 	struct vb2_alloc_ctx		*alloc_ctx;
-	struct clk			*clock[IS_CLK_MAX_NUM];
+        struct clk			*clocks[IS_CLKS_MAX];
 	void __iomem			*pmu_regs;
 	unsigned int			num_pipelines;
 
@@ -72,6 +76,9 @@ struct fimc_is {
 	struct fimc_is_sensor		sensor[FIMC_IS_NUM_SENSORS];
 	struct fimc_is_pipeline		pipeline[FIMC_IS_NUM_PIPELINES];
 	struct fimc_is_interface	interface;
+        /* To protect the listeners list */
+        spinlock_t			events_lock;
+        struct list_head		event_listeners;
 };
 
 /* Queue operations for ISP */
@@ -146,6 +153,45 @@ static inline struct fimc_is_buf *fimc_is_scaler_run_queue_get(
 	list_del(&buf->list);
 	scp->run_queue_cnt--;
 	return buf;
+}
+
+/*
+ * Simplified events handling scheme: allows any of the FIMC-IS
+ * sub-devices/components to register as an event listener.
+ * Once registration has been performed the custom event handler
+ * will get triggered whenever FIMC-IS gets notified on a particular event.
+ * This notification is handled through FIMC IS media device driver.
+ */
+static inline void fimc_is_register_listener(struct fimc_is* is,
+                                struct fimc_is_event_listener *listener)
+{
+        unsigned long flags;
+
+        spin_lock_irqsave(&is->events_lock, flags);
+        list_add_tail(&listener->link, &is->event_listeners);
+        spin_unlock_irqrestore(&is->events_lock, flags);
+}
+
+static inline void fimc_is_unregister_listener(struct fimc_is *is,
+                                        struct fimc_is_event_listener *listener)
+{
+        unsigned long flags;
+
+        spin_lock_irqsave(&is->events_lock, flags);
+        list_del(&listener->link);
+        spin_unlock_irqrestore(&is->events_lock, flags);
+}
+
+static inline void fimc_is_dispatch_events(struct fimc_is *is, unsigned int event_id,
+                                           void *arg)
+{
+        unsigned long flags;
+        struct fimc_is_event_listener *listener;
+
+        spin_lock_irqsave(&is->events_lock, flags);
+        list_for_each_entry(listener, &is->event_listeners, link)
+		listener->event_handler(listener, event_id, arg);
+        spin_unlock_irqrestore(&is->events_lock, flags);
 }
 
 static inline void pmu_is_write(u32 v, struct fimc_is *is, unsigned int offset)

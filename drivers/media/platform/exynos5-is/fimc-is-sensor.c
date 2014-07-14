@@ -13,20 +13,23 @@
 
 static const struct sensor_drv_data s5k6a3_drvdata = {
 	.id		= FIMC_IS_SENSOR_ID_S5K6A3,
-	.open_timeout	= S5K6A3_OPEN_TIMEOUT,
 	.setfile_name	= "exynos5_s5k6a3_setfile.bin",
+        .pixel_width	= S5K6A3_SENSOR_WIDTH,
+        .pixel_height	= S5K6A3_SENSOR_HEIGHT,
 };
 
 static const struct sensor_drv_data s5k4e5_drvdata = {
 	.id		= FIMC_IS_SENSOR_ID_S5K4E5,
-	.open_timeout	= S5K4E5_OPEN_TIMEOUT,
 	.setfile_name	= "exynos5_s5k4e5_setfile.bin",
+        .pixel_width	= S5K4E5_SENSOR_WIDTH,
+        .pixel_height	= S5K4E5_SENSOR_HEIGHT,
 };
 
 static const struct sensor_drv_data s5k8b1_drvdata = {
 	.id		= FIMC_IS_SENSOR_ID_S5K8B1,
-	.open_timeout	= S5K8B1_OPEN_TIMEOUT,
-	.setfile_name	= "exynos5_s5k8b1_setfile.bin",
+        .setfile_name	= "exynos3_s5k8b1_setfile.bin",
+        .pixel_width	= S5K8B1_SENSOR_WIDTH,
+        .pixel_height	= S5K8B1_SENSOR_HEIGHT,
 };
 
 static const struct of_device_id fimc_is_sensor_of_ids[] = {

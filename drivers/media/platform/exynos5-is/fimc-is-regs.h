@@ -13,10 +13,8 @@
 #ifndef FIMC_IS_REGS_H
 #define FIMC_IS_REGS_H
 
-/* WDT_ISP register */
-#define WDT			0x00170000
 /* MCUCTL register */
-#define MCUCTL			0x00180000
+#define MCUCTL				0x00
 /* MCU Controller Register */
 #define MCUCTLR				(MCUCTL+0x00)
 #define MCUCTLR_AXI_ISPX_AWCACHE(x)	((x) << 16)
@@ -91,15 +89,23 @@
 #define GPICTLR				(MCUCTL+0x48)
 
 /* IS Shared Registers between ISP CPU and HOST CPU */
-#define ISSR(n)			(MCUCTL + 0x80 + (n))
+#define ISSR(n)			(MCUCTL + 0x80 + 4*(n))
 
 /* PMU for FIMC-IS*/
-#define PMUREG_CMU_RESET_ISP_SYS_PWR_REG	0x1584
+#define EXYNOS5_PMUREG_CMU_RESET_ISP		0x1584
 #define PMUREG_ISP_ARM_CONFIGURATION		0x2280
 #define PMUREG_ISP_ARM_STATUS			0x2284
 #define PMUREG_ISP_ARM_OPTION			0x2288
+/* Low Power Interface settings */
 #define PMUREG_ISP_LOW_POWER_OFF		0x0004
-#define PMUREG_ISP_CONFIGURATION		0x4020
-#define PMUREG_ISP_STATUS			0x4024
 
+/* EXYNOS3 (EXYNOS3250)*/
+#define EXYNOS3250_PMUREG_CMU_RESET_ISP		0x1174
+#define PMUREG_ISP_CONFIGURATION		0x3ca0
+#define PMUREG_ISP_STATUS			0x3ca4
+#define PMUREG_ISP_ARM_SYS_PWR_REG		0x1050
+#define PMUREG_CMU_SYSCLK_ISP_SYS_PWR_REG	0x13b8
+
+#define PA_FIMC_IS_GIC_C			0x121E0000
+#define PA_FIMC_IS_GIC_D			0x121F0000
 #endif

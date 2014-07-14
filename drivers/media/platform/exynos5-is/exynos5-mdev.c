@@ -613,33 +613,35 @@ static int register_fimc_is_entity(struct fimc_md *fmd,
 			return ret;
 
 		/* FIMC SCP */
-		subdev = fimc_is_scp_get_sd(is, i);
-		subdev->grp_id = GRP_ID_FIMC_IS;
-		v4l2_set_subdev_hostdata(subdev, ep);
-		ret = v4l2_device_register_subdev(&fmd->v4l2_dev, subdev);
-		if (ret)
-			v4l2_err(&fmd->v4l2_dev,
-				 "Failed to register SCP subdev\n");
-		p->subdevs[IDX_SCP] = subdev;
-		/* Create default links: SCP -> vdev */
-		vdev = fimc_is_scp_get_vfd(is, i);
-		ret = media_entity_create_link(&subdev->entity,
-					SCALER_SD_PAD_SRC_DMA,
-					&vdev->entity, 0,
-					MEDIA_LNK_FL_IMMUTABLE |
-					MEDIA_LNK_FL_ENABLED);
-		if (ret)
-			return ret;
+                if (is->pipeline[i].subip_state[IS_SCP] != COMP_INVALID) {
+                        subdev = fimc_is_scp_get_sd(is, i);
+                        subdev->grp_id = GRP_ID_FIMC_IS;
+                        v4l2_set_subdev_hostdata(subdev, ep);
+                        ret = v4l2_device_register_subdev(&fmd->v4l2_dev, subdev);
+                        if (ret)
+                                v4l2_err(&fmd->v4l2_dev,
+                                         "Failed to register SCP subdev\n");
+                        p->subdevs[IDX_SCP] = subdev;
+                        /* Create default links: SCP -> vdev */
+                        vdev = fimc_is_scp_get_vfd(is, i);
+                                ret = media_entity_create_link(&subdev->entity,
+                                                SCALER_SD_PAD_SRC_DMA,
+                                                &vdev->entity, 0,
+                                                MEDIA_LNK_FL_IMMUTABLE |
+                                                MEDIA_LNK_FL_ENABLED);
+                                if (ret)
+                                        return ret;
 
-		/* Link SCC -> SCP */
-		ret = media_entity_create_link(&p->subdevs[IDX_SCC]->entity,
+                        /* Link SCC -> SCP */
+                        ret = media_entity_create_link(&p->subdevs[IDX_SCC]->entity,
 					SCALER_SD_PAD_SRC_FIFO,
 					&subdev->entity, SCALER_SD_PAD_SINK,
 					MEDIA_LNK_FL_IMMUTABLE |
 					MEDIA_LNK_FL_ENABLED);
-		if (ret)
-			return ret;
+                        if (ret)
+                                return ret;
 
+                }
 	}
 	fmd->is = is;
 
@@ -817,8 +819,10 @@ static void fimc_md_unregister_entities(struct fimc_md *fmd)
 		subdev = fimc_is_scc_get_sd(is, i);
 		v4l2_device_unregister_subdev(subdev);
 
-		subdev = fimc_is_scp_get_sd(is, i);
-		v4l2_device_unregister_subdev(subdev);
+                if (is->pipeline[i].subip_state[IS_SCP] != COMP_INVALID){
+                        subdev = fimc_is_scp_get_sd(is, i);
+                        v4l2_device_unregister_subdev(subdev);
+                }
 	}
 
 	v4l2_info(&fmd->v4l2_dev, "Unregistered all entities\n");
@@ -1159,6 +1163,15 @@ unlock:
 	return ret;
 }
 
+void fimc_md_capture_event_handler(struct v4l2_subdev *subdev, unsigned int event_id,
+                                   void *arg)
+{
+        struct fimc_md *fmd;
+
+        fmd = entity_to_fimc_mdev(&subdev->entity);
+        fimc_is_dispatch_events(fmd->is, event_id, arg);
+}
+
 int exynos_camera_register(struct device *dev, struct fimc_md **md)
 {
 	struct v4l2_device *v4l2_dev;
@@ -1182,6 +1195,7 @@ int exynos_camera_register(struct device *dev, struct fimc_md **md)
 
 	v4l2_dev = &fmd->v4l2_dev;
 	v4l2_dev->mdev = &fmd->media_dev;
+        v4l2_dev->notify = fimc_md_capture_event_handler;
 	strlcpy(v4l2_dev->name, "exynos5-fimc-md", sizeof(v4l2_dev->name));
 
 	ret = v4l2_device_register(dev, v4l2_dev);

@@ -1,5 +1,5 @@
 /*
- * Samsung Exynos5 SoC series FIMC-IS driver
+ * Samsung Exynos5/Exynos3 SoC series FIMC-IS driver
  *
  * Copyright (c) 2013 Samsung Electronics Co., Ltd
  * Kil-yeon Lim <kilyeon.im@samsung.com>
@@ -18,54 +18,66 @@
 #define PARAMETER_MAX_SIZE    128  /* in bytes */
 #define PARAMETER_MAX_MEMBER  (PARAMETER_MAX_SIZE / 4)
 
+/* Tagging extended parameter fields */
+#define __param_extended
+#define __param_unused
+
 enum is_param_set_bit {
 	PARAM_GLOBAL_SHOTMODE = 0,
-	PARAM_SENSOR_CONTROL,
+        PARAM_SENSOR_CONTROL,
 	PARAM_SENSOR_OTF_INPUT,
 	PARAM_SENSOR_OTF_OUTPUT,
 	PARAM_SENSOR_FRAME_RATE,
 	PARAM_SENSOR_DMA_OUTPUT,
-	PARAM_BUFFER_CONTROL,
+        PARAM_BUFFER_CONTROL,
 	PARAM_BUFFER_OTF_INPUT,
 	PARAM_BUFFER_OTF_OUTPUT,
-	PARAM_ISP_CONTROL,
-	PARAM_ISP_OTF_INPUT = 10,
+        PARAM_3AA_CONTROL,
+	PARAM_3AA_OTF_INPUT,
+        PARAM_3AA_VDMA1_INPUT,
+        PARAM_3AA_DDMA_INPUT,
+        PARAM_3AA_OTF_OUTPUT,
+        PARAM_ISP_AA = PARAM_3AA_OTF_OUTPUT,
+        PARAM_3AA_VDMA4_OUTPUT,
+        PARAM_ISP_FLASH = PARAM_3AA_VDMA4_OUTPUT,
+        PARAM_3AA_VDMA2_OUTPUT,
+        PARAM_ISP_AWB =	PARAM_3AA_VDMA2_OUTPUT,
+        PARAM_3AA_DDMA_OUTPUT,
+        PARAM_ISP_IMAGE_EFFECT = PARAM_3AA_DDMA_OUTPUT,
+        PARAM_ISP_CONTROL,
+        PARAM_ISP_ISO =	PARAM_ISP_CONTROL,
+        PARAM_ISP_OTF_INPUT,
+        PARAM_ISP_ADJUST = PARAM_ISP_OTF_INPUT,
 	PARAM_ISP_DMA1_INPUT,
+        PARAM_ISP_METERING = PARAM_ISP_DMA1_INPUT,
 	PARAM_ISP_DMA2_INPUT,
-	PARAM_ISP_AA,
-	PARAM_ISP_FLASH,
-	PARAM_ISP_AWB,
-	PARAM_ISP_IMAGE_EFFECT,
-	PARAM_ISP_ISO,
-	PARAM_ISP_ADJUST,
-	PARAM_ISP_METERING,
-	PARAM_ISP_AFC = 20,
+        PARAM_ISP_AFC =	PARAM_ISP_DMA2_INPUT,
 	PARAM_ISP_OTF_OUTPUT,
 	PARAM_ISP_DMA1_OUTPUT,
 	PARAM_ISP_DMA2_OUTPUT,
-	PARAM_DRC_CONTROL,
+        PARAM_DRC_CONTROL,
 	PARAM_DRC_OTF_INPUT,
 	PARAM_DRC_DMA_INPUT,
 	PARAM_DRC_OTF_OUTPUT,
-	PARAM_SCALERC_CONTROL,
+        PARAM_SCALERC_CONTROL,
 	PARAM_SCALERC_OTF_INPUT,
 	PARAM_SCALERC_IMAGE_EFFECT = 30,
 	PARAM_SCALERC_INPUT_CROP,
 	PARAM_SCALERC_OUTPUT_CROP,
 	PARAM_SCALERC_OTF_OUTPUT,
 	PARAM_SCALERC_DMA_OUTPUT = 34,
-	PARAM_ODC_CONTROL,
+        PARAM_ODC_CONTROL,
 	PARAM_ODC_OTF_INPUT,
 	PARAM_ODC_OTF_OUTPUT,
-	PARAM_DIS_CONTROL,
+        PARAM_DIS_CONTROL,
 	PARAM_DIS_OTF_INPUT,
 	PARAM_DIS_OTF_OUTPUT = 40,
-	PARAM_TDNR_CONTROL,
+        PARAM_TDNR_CONTROL,
 	PARAM_TDNR_OTF_INPUT,
 	PARAM_TDNR_1ST_FRAME,
 	PARAM_TDNR_OTF_OUTPUT,
 	PARAM_TDNR_DMA_OUTPUT,
-	PARAM_SCALERP_CONTROL,
+        PARAM_SCALERP_CONTROL,
 	PARAM_SCALERP_OTF_INPUT,
 	PARAM_SCALERP_IMAGE_EFFECT,
 	PARAM_SCALERP_INPUT_CROP,
@@ -74,7 +86,7 @@ enum is_param_set_bit {
 	PARAM_SCALERP_FLIP,
 	PARAM_SCALERP_OTF_OUTPUT,
 	PARAM_SCALERP_DMA_OUTPUT,
-	PARAM_FD_CONTROL,
+        PARAM_FD_CONTROL,
 	PARAM_FD_OTF_INPUT,
 	PARAM_FD_DMA_INPUT,
 	PARAM_FD_CONFIG = 58,
@@ -182,7 +194,7 @@ enum otf_output_command {
 	OTF_OUTPUT_COMMAND_ENABLE	= 1
 };
 
-enum orf_output_format {
+enum otf_output_format {
 	OTF_OUTPUT_FORMAT_YUV444	= 1,
 	OTF_OUTPUT_FORMAT_YUV422	= 2,
 	OTF_OUTPUT_FORMAT_YUV420	= 3,
@@ -214,11 +226,12 @@ enum dma_output_command {
 };
 
 enum dma_output_format {
-	DMA_OUTPUT_FORMAT_BAYER		= 0,
-	DMA_OUTPUT_FORMAT_YUV444	= 1,
-	DMA_OUTPUT_FORMAT_YUV422	= 2,
-	DMA_OUTPUT_FORMAT_YUV420	= 3,
-	DMA_OUTPUT_FORMAT_RGB		= 4
+	DMA_OUTPUT_FORMAT_BAYER			= 0,
+	DMA_OUTPUT_FORMAT_YUV444		= 1,
+	DMA_OUTPUT_FORMAT_YUV422		= 2,
+	DMA_OUTPUT_FORMAT_YUV420		= 3,
+	DMA_OUTPUT_FORMAT_RGB			= 4,
+	DMA_OUTPUT_FORMAT_BAYER_PACKED12	= 5
 };
 
 enum dma_output_bitwidth {
@@ -465,8 +478,8 @@ enum isp_afc_error {
 enum isp_scene_command {
 	ISP_SCENE_NONE		= 0,
 	ISP_SCENE_PORTRAIT	= 1,
-	ISP_SCENE_LANDSCAPE     = 2,
-	ISP_SCENE_SPORTS        = 3,
+	ISP_SCENE_LANDSCAPE	= 2,
+	ISP_SCENE_SPORTS	= 3,
 	ISP_SCENE_PARTYINDOOR	= 4,
 	ISP_SCENE_BEACHSNOW	= 5,
 	ISP_SCENE_SUNSET	= 6,
@@ -532,6 +545,12 @@ enum scaler_flip_command {
 
 enum scaler_flip_error {
 	SCALER_FLIP_ERROR_NONE			= 0 /* flip setting is done */
+};
+
+enum scaler_dma_out_sel {
+        SCALER_DMA_OUT_IMAGE_EFFECT	= 0,
+        SCALER_DMA_OUT_SCALED		= 1,
+        SCALER_DMA_OUT_UNSCALED		= 2
 };
 
 /* --------------------------  3DNR  ----------------------------------- */
@@ -616,13 +635,7 @@ struct param_otf_input {
 	u32 format;
 	u32 bitwidth;
 	u32 order;
-	u32 crop_offset_x;
-	u32 crop_offset_y;
-	u32 crop_width;
-	u32 crop_height;
-	u32 frametime_min;
-	u32 frametime_max;
-	u32 reserved[PARAMETER_MAX_MEMBER - 13];
+	u32 reserved[PARAMETER_MAX_MEMBER - 7];
 	u32 err;
 };
 
@@ -636,20 +649,7 @@ struct param_dma_input {
 	u32 order;
 	u32 buffer_number;
 	u32 buffer_address;
-	u32 bayer_crop_offset_x;
-	u32 bayer_crop_offset_y;
-	u32 bayer_crop_width;
-	u32 bayer_crop_height;
-	u32 dma_crop_offset_x;
-	u32 dma_crop_offset_y;
-	u32 dma_crop_width;
-	u32 dma_crop_height;
-	u32 user_min_frametime;
-	u32 user_max_frametime;
-	u32 wide_frame_gap;
-	u32 frame_gap;
-	u32 line_gap;
-	u32 reserved[PARAMETER_MAX_MEMBER - 23];
+	u32 reserved[PARAMETER_MAX_MEMBER - 10];
 	u32 err;
 };
 
@@ -796,7 +796,10 @@ struct param_isp_afc {
 
 struct param_scaler_imageeffect {
 	u32 cmd;
-	u32 reserved[PARAMETER_MAX_MEMBER - 2];
+	u32 arbitrary_cb;
+	u32 arbitrary_cr;
+	u32 yuv_range;
+	u32 reserved[PARAMETER_MAX_MEMBER - 5];
 	u32 err;
 };
 
@@ -876,22 +879,28 @@ struct buffer_param {
 	struct param_otf_output	otf_output;
 };
 
+
+struct taa_param {
+	struct param_control			control;
+	struct param_otf_input			otf_input;
+	struct param_dma_input			dma_input;
+	struct param_dma_input	__param_unused	__dma_input;
+	struct param_otf_output	__param_unused	__otf_output;
+	struct param_dma_output			dma_output;	/* Before BDS */
+	struct param_dma_output			dma_bds_output; /* After BDS */
+	struct param_dma_output	__param_unused	__dma_output;
+
+};
+
 struct isp_param {
-	struct param_control		control;
-	struct param_otf_input		otf_input;
-	struct param_dma_input		dma1_input;
-	struct param_dma_input		dma2_input;
-	struct param_isp_aa		aa;
-	struct param_isp_flash		flash;
-	struct param_isp_awb		awb;
-	struct param_isp_imageeffect	effect;
-	struct param_isp_iso		iso;
-	struct param_isp_adjust		adjust;
-	struct param_isp_metering	metering;
-	struct param_isp_afc		afc;
-	struct param_otf_output		otf_output;
-	struct param_dma_output		dma1_output;
-	struct param_dma_output		dma2_output;
+	struct param_control			control;
+	struct param_otf_input			otf_input;
+	struct param_dma_input			dma_input;
+	struct param_dma_input	__param_unused	__dma_input;
+	struct param_otf_output	__param_unused	otf_output;
+	struct param_dma_output	__param_unused	__dma_output;
+	struct param_dma_output			dma_output; /* VDMA5_OUTPUT */
+
 };
 
 struct drc_param {
@@ -906,7 +915,7 @@ struct scalerc_param {
 	struct param_otf_input		otf_input;
 	struct param_scaler_imageeffect	effect;
 	struct param_scaler_input_crop	input_crop;
-	struct param_scaler_output_crop	 output_crop;
+	struct param_scaler_output_crop	output_crop;
 	struct param_otf_output		otf_output;
 	struct param_dma_output		dma_output;
 };
@@ -954,6 +963,7 @@ struct is_param_region {
 	struct global_param	global;
 	struct sensor_param	sensor;
 	struct buffer_param	buf;
+	struct taa_param	taa;
 	struct isp_param	isp;
 	struct drc_param	drc;
 	struct scalerc_param	scalerc;

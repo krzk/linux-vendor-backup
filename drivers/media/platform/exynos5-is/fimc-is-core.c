@@ -1,7 +1,7 @@
 /*
  * Samsung EXYNOS5 FIMC-IS (Imaging Subsystem) driver
 *
- * Copyright (C) 2013 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2013-2014 Samsung Electronics Co., Ltd.
  * Arun Kumar K <arun.kk@samsung.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -26,11 +26,17 @@
 #include "fimc-is-i2c.h"
 #include "exynos5-mdev.h"
 
-#define CLK_MCU_ISP_DIV0_FREQ	(200 * 1000000)
-#define CLK_MCU_ISP_DIV1_FREQ	(100 * 1000000)
-#define CLK_ISP_DIV0_FREQ	(134 * 1000000)
-#define CLK_ISP_DIV1_FREQ	(68 * 1000000)
-#define CLK_ISP_DIVMPWM_FREQ	(34 * 1000000)
+#define CLK_MCU_ISP_DIV0_FREQ		(200 * 1000000)
+#define CLK_MCU_ISP_DIV1_FREQ		(100 * 1000000)
+#define CLK_ISP_DIV0_FREQ		(150 * 1000000)
+#define CLK_ISP_DIV1_FREQ		(50  * 1000000)
+#define CLK_ISP_DIVMPWM_FREQ		(50 /*75*/  * 1000000)
+#define CLK_MCU_ISP_ACLK_400_FREQ	(400 * 1000000)
+#define CLK_DIV_ACLK_266_FREQ		(/*300*/ 100 * 1000000)
+#define EXYNOS3250_CLK_ISP_DIV_FREQ	(50 * 1000000)
+
+#define FIMC_IS_EXYNOS5_CLK_MASK	0x7f
+#define FIMC_IS_EXYNOS3250_CLK_MASK	0xff
 
 static const char * const fimc_is_clock_name[] = {
 	[IS_CLK_ISP]		= "isp",
@@ -40,72 +46,231 @@ static const char * const fimc_is_clock_name[] = {
 	[IS_CLK_ISP_DIVMPWM]	= "isp_divmpwm",
 	[IS_CLK_MCU_ISP_DIV0]	= "mcu_isp_div0",
 	[IS_CLK_MCU_ISP_DIV1]	= "mcu_isp_div1",
+        /* Exynos 3250 */
+        [IS_CLK_CAM1]		= "cam1",
+        /* ACLK 400 MCUISP */
+        [IS_CLK_MOUT_ACLK400_MCUISP_SUB] = "mout_aclk400_mcuisp_sub",
+        [IS_CLK_DIV_ACLK400_MCUISP]      = "div_aclk400_mcuisp",
+        [IS_CLK_MOUT_ACLK400_MCUISP]     = "mout_aclk400_mcuisp",
+        /* ACLK 266 */
+        [IS_CLK_MOUT_ACLK266_0]          = "mout_aclk266_0",
+        [IS_CLK_MOUT_ACLK266]            = "mout_aclk266",
+        [IS_CLK_DIV_ACLK266]             = "div_aclk266",
+        [IS_CLK_MOUT_ACLK266_SUB]        = "mout_aclk266_sub",
+        [IS_CLK_DIV_MPLL_PRE]            =  "div_mpll_pre",
+        [IS_CLK_FIN_PLL]                 = "fin_pll",
 };
+
+#define FIMC_IS_CLK_ERR(dev, i , action) \
+        dev_err(dev, "Failed to "#action" for %s clock\n", \
+                fimc_is_clock_name[i]);
+
+static int fimc_is_exyno3250_clk_cfg(struct fimc_is *is)
+{
+        int ret;
+
+        /* DIV 400 MCUISP -> MUX ACLK 400 MCUISP SUB */
+        ret = clk_set_parent(is->clocks[IS_CLK_MOUT_ACLK400_MCUISP_SUB],
+                             is->clocks[IS_CLK_DIV_ACLK400_MCUISP]);
+        if (ret) {
+                FIMC_IS_CLK_ERR(&is->pdev->dev, IS_CLK_MOUT_ACLK400_MCUISP_SUB,
+                                set parentness);
+                return ret;
+	}
+
+        ret = clk_set_rate(is->clocks[IS_CLK_DIV_ACLK400_MCUISP],
+                           CLK_MCU_ISP_ACLK_400_FREQ);
+        if (ret) {
+                FIMC_IS_CLK_ERR(&is->pdev->dev, IS_CLK_DIV_ACLK400_MCUISP,
+                                set rate);
+                return ret;
+        }
+
+        ret = clk_set_rate(is->clocks[IS_CLK_MCU_ISP_DIV0],
+                           CLK_MCU_ISP_DIV0_FREQ);
+        if (ret) {
+                FIMC_IS_CLK_ERR(&is->pdev->dev, IS_CLK_MCU_ISP_DIV0,
+                                set rate);
+                return ret;
+	}
+
+        ret = clk_set_rate(is->clocks[IS_CLK_MCU_ISP_DIV1],
+                           CLK_MCU_ISP_DIV1_FREQ);
+        if (ret) {
+                FIMC_IS_CLK_ERR(&is->pdev->dev, IS_CLK_MCU_ISP_DIV1,
+                                set rate);
+                return ret;
+        }
+
+        /* ACLK 266 */
+        clk_set_parent( is->clocks[IS_CLK_MOUT_ACLK266_0],
+                         is->clocks[IS_CLK_DIV_MPLL_PRE]);
+
+        if (ret) {
+                 FIMC_IS_CLK_ERR(&is->pdev->dev, IS_CLK_MOUT_ACLK266_0,
+				 ser rate);
+                 return ret;
+        }
+
+        ret = clk_set_parent(is->clocks[IS_CLK_MOUT_ACLK266],
+                             is->clocks[IS_CLK_MOUT_ACLK266_0]);
+        if (ret) {
+                FIMC_IS_CLK_ERR(&is->pdev->dev, IS_CLK_MOUT_ACLK266,
+                                set parentness);
+		return ret;
+        }
+
+        ret = clk_set_parent(is->clocks[IS_CLK_MOUT_ACLK266_SUB],
+                             is->clocks[IS_CLK_DIV_ACLK266]);
+        if (ret) {
+                FIMC_IS_CLK_ERR(&is->pdev->dev, IS_CLK_MOUT_ACLK266_SUB,
+                                set parentness);
+                return ret;
+        }
+
+        ret = clk_set_rate(is->clocks[IS_CLK_DIV_ACLK266],
+                           CLK_DIV_ACLK_266_FREQ);
+        if (ret) {
+                FIMC_IS_CLK_ERR(&is->pdev->dev, IS_CLK_DIV_ACLK266,
+                                set rate);
+                return ret;
+        }
+
+        ret = clk_set_rate(is->clocks[IS_CLK_ISP_DIV0],
+                           EXYNOS3250_CLK_ISP_DIV_FREQ);
+        if (ret) {
+                FIMC_IS_CLK_ERR(&is->pdev->dev,  IS_CLK_ISP_DIV0,
+                                set rate);
+                return ret;
+        }
+
+        ret = clk_set_rate(is->clocks[IS_CLK_ISP_DIV1],
+                        EXYNOS3250_CLK_ISP_DIV_FREQ);
+        if (ret) {
+                FIMC_IS_CLK_ERR(&is->pdev->dev, IS_CLK_ISP_DIV1,
+                                set rate);
+                return ret;
+        }
+
+        ret = clk_set_rate(is->clocks[IS_CLK_ISP_DIVMPWM], CLK_ISP_DIVMPWM_FREQ);
+        if (ret) {
+                FIMC_IS_CLK_ERR(&is->pdev->dev, IS_CLK_ISP_DIVMPWM,
+                                set rate);
+                return ret;
+        }
+
+        return ret;
+
+}
+
+static int fimc_is_exynos5_clk_cfg(struct fimc_is *is)
+{
+        int ret;
+
+	/* Set rates */
+        ret = clk_set_rate(is->clocks[IS_CLK_MCU_ISP_DIV0],
+			CLK_MCU_ISP_DIV0_FREQ);
+	if (ret)
+		return ret;
+        ret = clk_set_rate(is->clocks[IS_CLK_MCU_ISP_DIV1],
+			CLK_MCU_ISP_DIV1_FREQ);
+	if (ret)
+		return ret;
+        ret = clk_set_rate(is->clocks[IS_CLK_ISP_DIV0], CLK_ISP_DIV0_FREQ);
+	if (ret)
+		return ret;
+        ret = clk_set_rate(is->clocks[IS_CLK_ISP_DIV1], CLK_ISP_DIV1_FREQ);
+	if (ret)
+		return ret;
+        return clk_set_rate(is->clocks[IS_CLK_ISP_DIVMPWM],
+			CLK_ISP_DIVMPWM_FREQ);
+}
 
 static void fimc_is_put_clocks(struct fimc_is *is)
 {
-	int i;
+        int i;
 
-	for (i = 0; i < IS_CLK_MAX_NUM; i++) {
-		if (IS_ERR(is->clock[i]))
-			continue;
-		clk_unprepare(is->clock[i]);
-		clk_put(is->clock[i]);
-		is->clock[i] = ERR_PTR(-EINVAL);
-	}
+        for (i = IS_CLK_GATE_MAX; i < IS_CLKS_MAX; ++i) {
+                if (!IS_ERR(is->clocks[i]))
+                        clk_unprepare(is->clocks[i]);
+
+        }
+        for (i = 0; i < IS_CLKS_MAX; ++i) {
+                if(!IS_ERR(is->clocks[i])) {
+                        clk_put(is->clocks[i]);
+                        is->clocks[i] = ERR_PTR(-EINVAL);
+                }
+        }
 }
 
 static int fimc_is_get_clocks(struct fimc_is *is)
 {
-	struct device *dev = &is->pdev->dev;
-	int i, ret;
+        int i, ret;
 
-	for (i = 0; i < IS_CLK_MAX_NUM; i++) {
-		is->clock[i] = clk_get(dev, fimc_is_clock_name[i]);
-		if (IS_ERR(is->clock[i]))
-			goto err;
-		ret = clk_prepare(is->clock[i]);
-		if (ret < 0) {
-			clk_put(is->clock[i]);
-			is->clock[i] = ERR_PTR(-EINVAL);
-			goto err;
-		}
-	}
-	return 0;
-err:
-	fimc_is_put_clocks(is);
-	dev_err(dev, "Failed to get clock: %s\n", fimc_is_clock_name[i]);
-	return -ENXIO;
+        for (i = 0; i < IS_CLKS_MAX; ++i)
+                is->clocks[i] = ERR_PTR(-EINVAL);
+
+        for (i = 0; i < IS_CLK_GATE_MAX; ++i) {
+                if (!(is->drvdata->clk_mask & (0x1 << i)))
+                        continue;
+                is->clocks[i] = clk_get(&is->pdev->dev,
+                                fimc_is_clock_name[i]);
+                if (IS_ERR(is->clocks[i])) {
+                        dev_err(&is->pdev->dev,
+                                "Failed to acquire clock : %s\n",
+                                fimc_is_clock_name[i]);
+                        ret = PTR_ERR(is->clocks[i]);
+                        goto rollback;
+                }
+        }
+
+        if (is->drvdata->variant == FIMC_IS_EXYNOS3250) {
+                for (i = IS_CLK_GATE_MAX; i < IS_CLKS_MAX ; ++i) {
+                        is->clocks[i] = clk_get(&is->pdev->dev,
+                                fimc_is_clock_name[i]);
+
+                        if (IS_ERR(is->clocks[i])) {
+                                dev_err(&is->pdev->dev,
+                                        "Failed to acquire clock: %s\n",
+                                         fimc_is_clock_name[i]);
+                                ret = PTR_ERR(is->clocks[i]);
+                                goto rollback;
+                        }
+
+                        ret =  clk_prepare(is->clocks[i]);
+
+                        if (ret) {
+                                dev_err(&is->pdev->dev,
+                                        "Failed to prepare clock %s\n",
+                                        fimc_is_clock_name[i]);
+                                goto rollback;
+                        }
+                }
+        }
+
+        return 0;
+
+rollback:
+        fimc_is_put_clocks(is);
+        return ret;
 }
 
-static int fimc_is_configure_clocks(struct fimc_is *is)
+static int fimc_is_configure_clocks(struct fimc_is* is)
 {
-	int i, ret;
+        int ret = 0;
 
-	for (i = 0; i < IS_CLK_MAX_NUM; i++)
-		is->clock[i] = ERR_PTR(-EINVAL);
-
-	ret = fimc_is_get_clocks(is);
-	if (ret)
-		return ret;
-
-	/* Set rates */
-	ret = clk_set_rate(is->clock[IS_CLK_MCU_ISP_DIV0],
-			CLK_MCU_ISP_DIV0_FREQ);
-	if (ret)
-		return ret;
-	ret = clk_set_rate(is->clock[IS_CLK_MCU_ISP_DIV1],
-			CLK_MCU_ISP_DIV1_FREQ);
-	if (ret)
-		return ret;
-	ret = clk_set_rate(is->clock[IS_CLK_ISP_DIV0], CLK_ISP_DIV0_FREQ);
-	if (ret)
-		return ret;
-	ret = clk_set_rate(is->clock[IS_CLK_ISP_DIV1], CLK_ISP_DIV1_FREQ);
-	if (ret)
-		return ret;
-	return clk_set_rate(is->clock[IS_CLK_ISP_DIVMPWM],
-			CLK_ISP_DIVMPWM_FREQ);
+        switch(is->drvdata->variant){
+        case FIMC_IS_EXYNOS5:
+                ret = fimc_is_exynos5_clk_cfg(is);
+                break;
+        case FIMC_IS_EXYNOS3250:
+                ret = fimc_is_exyno3250_clk_cfg(is);
+                break;
+        default:
+                ret = -EINVAL;
+                break;
+        }
+        return ret;
 }
 
 static void fimc_is_pipelines_destroy(struct fimc_is *is)
@@ -129,6 +294,13 @@ static int fimc_is_parse_sensor_config(struct fimc_is *is, unsigned int index,
 							 node->full_name);
 		return -EINVAL;
 	}
+        ret  = of_property_read_u32(node, "reg", &tmp);
+        if (ret < 0) {
+                dev_err(&is->pdev->dev, "reg property not found at: %s\n",
+                                        node->full_name);
+                return ret;
+        }
+        sensor->i2c_slave_addr = tmp;
 
 	node = v4l2_of_get_next_endpoint(node, NULL);
 	if (!node)
@@ -142,7 +314,7 @@ static int fimc_is_parse_sensor_config(struct fimc_is *is, unsigned int index,
 	ret = of_property_read_u32(node, "reg", &tmp);
 	if (ret < 0) {
 		dev_err(&is->pdev->dev, "reg property not found at: %s\n",
-							 node->full_name);
+                                                        node->full_name);
 		return ret;
 	}
 
@@ -169,15 +341,23 @@ static int fimc_is_parse_sensor(struct fimc_is *is)
 	return 0;
 }
 
-static struct fimc_is_drvdata exynos5250_drvdata = {
-	.num_instances	= 1,
-	.fw_name	= "exynos5_fimc_is_fw.bin",
-};
-
 static struct fimc_is_drvdata exynos3250_drvdata = {
 	.num_instances	= 1,
 	.fw_name	= "exynos3_fimc_is_fw.bin",
+        .fw_version	= FIMC_IS_FW_V130,
+        .clk_mask	= FIMC_IS_EXYNOS3250_CLK_MASK,
+        .subip_mask	= FIMC_IS_EXYNOS3250_SUBBLOCKS,
+        .variant	= FIMC_IS_EXYNOS3250,
 	.master_node	= 1,
+};
+
+static struct fimc_is_drvdata exynos5250_drvdata = {
+        .num_instances	= 1,
+        .fw_name	= "exynos5_fimc_is_fw.bin",
+        .fw_version	= FIMC_IS_FW_V120,
+        .clk_mask	= FIMC_IS_EXYNOS5_CLK_MASK,
+        .subip_mask	= FIMC_IS_EXYNOS5_SUBBLOCKS,
+        .variant	= FIMC_IS_EXYNOS5,
 };
 
 static const struct of_device_id fimc_is_of_match[] = {
@@ -191,6 +371,92 @@ static const struct of_device_id fimc_is_of_match[] = {
 	{/* sentinel */},
 };
 MODULE_DEVICE_TABLE(of, fimc_is_of_match);
+
+int fimc_is_clk_enable(struct fimc_is *is)
+{
+        int i, ret = 0;
+
+        for (i = 0; i < IS_CLK_GATE_MAX; ++i){
+                if (IS_ERR(is->clocks[i]))
+                        continue;
+
+                ret = clk_prepare_enable(is->clocks[i]);
+                if (ret) {
+                        dev_err(&is->pdev->dev,
+                                "Failed to prepare and enable %s clock\n",
+                                fimc_is_clock_name[i]);
+                        for (; i >= 0; --i)
+                                clk_disable_unprepare(is->clocks[i]);
+
+                }
+        }
+        return ret;
+}
+
+void fimc_is_clk_disable(struct fimc_is *is)
+{
+        int i;
+        for (i = 0; i < IS_CLK_GATE_MAX; ++i)
+                if (!IS_ERR(is->clocks[i]))
+                        clk_disable_unprepare(is->clocks[i]);
+        if (is->drvdata->variant == FIMC_IS_EXYNOS3250) {
+                if (clk_set_parent(is->clocks[IS_CLK_MOUT_ACLK400_MCUISP_SUB],
+                                   is->clocks[IS_CLK_FIN_PLL]))
+                        FIMC_IS_CLK_ERR(&is->pdev->dev,
+                                        IS_CLK_MOUT_ACLK400_MCUISP_SUB,
+                                        change parentness);
+                if (clk_set_parent(is->clocks[IS_CLK_MOUT_ACLK266_SUB],
+                                   is->clocks[IS_CLK_FIN_PLL]))
+                        FIMC_IS_CLK_ERR(&is->pdev->dev,
+                                        IS_CLK_MOUT_ACLK266_SUB,
+                                        change parentness);
+        }
+}
+
+static int fimc_is_pm_resume(struct device *dev)
+{
+        struct fimc_is *is = dev_get_drvdata(dev);
+        int ret;
+
+        fimc_is_configure_clocks(is);
+        ret = fimc_is_clk_enable(is);
+        if (ret < 0) {
+                dev_err(dev, "Could not enable clocks\n");
+                return ret;
+        }
+        return 0;
+}
+
+static int fimc_is_pm_suspend(struct device *dev)
+{
+        struct fimc_is *is = dev_get_drvdata(dev);
+        fimc_is_clk_disable(is);
+        return 0;
+}
+
+static int fimc_is_runtime_resume(struct device *dev)
+{
+        return fimc_is_pm_resume(dev);
+}
+
+static int fimc_is_runtime_suspend(struct device *dev)
+{
+        return fimc_is_pm_suspend(dev);
+}
+
+#ifdef CONFIG_PM_SLEEP
+static int fimc_is_resume(struct device *dev)
+{
+        /* TODO */
+        return 0;
+}
+
+static int fimc_is_suspend(struct device *dev)
+{
+        /* TODO */
+        return 0;
+}
+#endif /* CONFIG_PM_SLEEP */
 
 static int fimc_is_probe(struct platform_device *pdev)
 {
@@ -239,7 +505,7 @@ static int fimc_is_probe(struct platform_device *pdev)
 		return irq;
 	}
 
-	ret = fimc_is_configure_clocks(is);
+        ret = fimc_is_get_clocks(is);
 	if (ret < 0) {
 		dev_err(dev, "clocks configuration failed\n");
 		goto err_clk;
@@ -247,6 +513,14 @@ static int fimc_is_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, is);
 	pm_runtime_enable(dev);
+        if (!pm_runtime_enabled(dev)) {
+                ret = fimc_is_runtime_resume(dev);
+                if (ret) {
+                        dev_err(dev, "Runtime resume failed\n");
+                        goto err_clk;
+                }
+
+        }
 
 	is->alloc_ctx = vb2_dma_contig_init_ctx(dev);
 	if (IS_ERR(is->alloc_ctx)) {
@@ -282,6 +556,9 @@ static int fimc_is_probe(struct platform_device *pdev)
 			goto err_cam;
 	}
 
+        INIT_LIST_HEAD(&is->event_listeners);
+        spin_lock_init(&is->events_lock);
+
 	dev_dbg(dev, "FIMC-IS registered successfully\n");
 
 	return 0;
@@ -296,70 +573,6 @@ err_clk:
 
 	return ret;
 }
-
-int fimc_is_clk_enable(struct fimc_is *is)
-{
-	int ret;
-
-	ret = clk_enable(is->clock[IS_CLK_ISP]);
-	if (ret)
-		return ret;
-	ret = clk_enable(is->clock[IS_CLK_MCU_ISP]);
-	if (ret)
-		clk_disable(is->clock[IS_CLK_ISP]);
-	return ret;
-}
-
-void fimc_is_clk_disable(struct fimc_is *is)
-{
-	clk_disable(is->clock[IS_CLK_ISP]);
-	clk_disable(is->clock[IS_CLK_MCU_ISP]);
-}
-
-static int fimc_is_pm_resume(struct device *dev)
-{
-	struct fimc_is *is = dev_get_drvdata(dev);
-	int ret;
-
-	ret = fimc_is_clk_enable(is);
-	if (ret < 0) {
-		dev_err(dev, "Could not enable clocks\n");
-		return ret;
-	}
-	return 0;
-}
-
-static int fimc_is_pm_suspend(struct device *dev)
-{
-	struct fimc_is *is = dev_get_drvdata(dev);
-
-	fimc_is_clk_disable(is);
-	return 0;
-}
-
-static int fimc_is_runtime_resume(struct device *dev)
-{
-	return fimc_is_pm_resume(dev);
-}
-
-static int fimc_is_runtime_suspend(struct device *dev)
-{
-	return fimc_is_pm_suspend(dev);
-}
-
-#ifdef CONFIG_PM_SLEEP
-static int fimc_is_resume(struct device *dev)
-{
-	/* TODO */
-	return 0;
-}
-
-static int fimc_is_suspend(struct device *dev)
-{
-	/* TODO */
-	return 0;
-}
-#endif /* CONFIG_PM_SLEEP */
 
 static int fimc_is_remove(struct platform_device *pdev)
 {
