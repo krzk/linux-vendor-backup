@@ -117,6 +117,31 @@ static void fimc_pipeline_prepare(struct fimc_pipeline *p,
 }
 
 /**
+ * fimc_pipeline_cleanup - update pipeline information with regard to
+ * 			   associated subdevs upon pipeline being closed
+ * 			   explicitly or as a result of an unexpected
+ * 			   failure while processing
+ * @p: the pipeline object
+ *
+ * Caller holds the graph mutex.
+ */
+static void fimc_pipeline_cleanup(struct fimc_pipeline *p)
+{
+	if (p->subdevs[IDX_SENSOR]->grp_id == GRP_ID_FIMC_IS_SENSOR) {
+		struct fimc_pipeline_isp *p_isp;
+
+		list_for_each_entry(p_isp, p->isp_pipelines, list) {
+			if (p_isp->subdevs[IDX_ISP] ==
+					p->subdevs[IDX_FIMC_IS]) {
+				p->subdevs[IDX_FIMC_IS] = NULL;
+				p_isp->in_use = false;
+				break;
+			}
+		}
+	}
+}
+
+/**
  * __subdev_set_power - change power state of a single subdev
  * @sd: subdevice to change power state for
  * @on: 1 to enable power or 0 to disable
@@ -151,7 +176,7 @@ static int __subdev_set_power(struct v4l2_subdev *sd, int on)
  */
 static int fimc_pipeline_s_power(struct fimc_pipeline *p, bool state)
 {
-	unsigned int i;
+	int i;
 	int ret;
 	struct fimc_is_isp *isp_dev;
 
@@ -172,10 +197,15 @@ static int fimc_pipeline_s_power(struct fimc_pipeline *p, bool state)
 
 		ret = __subdev_set_power(p->subdevs[idx], state);
 		if (ret < 0 && ret != -ENXIO)
-			return ret;
+			goto rollback;
 	}
-
 	return 0;
+rollback:
+	for (; state && i >= 0; --i) {
+		unsigned int idx = state ? i : (IDX_MAX - 1) - i;
+		 __subdev_set_power(p->subdevs[idx], !state);
+	}
+	return ret;
 }
 
 /**
@@ -215,9 +245,11 @@ static int __fimc_pipeline_open(struct exynos_media_pipeline *ep,
 	}
 
 	ret = fimc_pipeline_s_power(p, 1);
-	if (!ret)
-		return 0;
-
+	if (ret) {
+		if (!IS_ERR(fmd->clk_bayer))
+			clk_disable_unprepare(fmd->clk_bayer);
+		fimc_pipeline_cleanup(p);
+	}
 	return ret;
 }
 
@@ -238,8 +270,11 @@ static int __fimc_pipeline_close(struct exynos_media_pipeline *ep)
 	if (WARN_ON(sd == NULL))
 		return -EINVAL;
 
-	if (p->subdevs[IDX_SENSOR])
+	if (p->subdevs[IDX_SENSOR]) {
 		ret = fimc_pipeline_s_power(p, 0);
+		if(ret)
+			goto leave;
+	}
 
 	si = v4l2_get_subdev_hostdata(sd);
 	fmd = entity_to_fimc_mdev(&sd->entity);
@@ -247,18 +282,8 @@ static int __fimc_pipeline_close(struct exynos_media_pipeline *ep)
 	if (!IS_ERR(fmd->clk_bayer))
 		clk_disable_unprepare(fmd->clk_bayer);
 
-	if (p->subdevs[IDX_SENSOR]->grp_id == GRP_ID_FIMC_IS_SENSOR) {
-		struct fimc_pipeline_isp *p_isp;
-
-		list_for_each_entry(p_isp, p->isp_pipelines, list) {
-			if (p_isp->subdevs[IDX_ISP] ==
-					p->subdevs[IDX_FIMC_IS]) {
-				p->subdevs[IDX_FIMC_IS] = NULL;
-				p_isp->in_use = false;
-				break;
-			}
-		}
-	}
+	fimc_pipeline_cleanup(p);
+leave:
 	return ret == -ENXIO ? 0 : ret;
 }
 
@@ -525,52 +550,33 @@ static int register_csis_entity(struct fimc_md *fmd,
 static int register_fimc_is_entity(struct fimc_md *fmd,
 				     struct fimc_is *is)
 {
-	struct v4l2_subdev *isp, *scc, *scp;
+	struct v4l2_subdev *subdev;
 	struct exynos_media_pipeline *ep;
 	struct fimc_pipeline_isp *p;
 	struct video_device *vdev;
 	int ret, i;
 
 	for (i = 0; i < is->drvdata->num_instances; i++) {
-		isp = fimc_is_isp_get_sd(is, i);
-		scc = fimc_is_scc_get_sd(is, i);
-		scp = fimc_is_scp_get_sd(is, i);
-		isp->grp_id = GRP_ID_FIMC_IS;
-		scc->grp_id = GRP_ID_FIMC_IS;
-		scp->grp_id = GRP_ID_FIMC_IS;
 
 		ep = fimc_md_isp_pipeline_create(fmd);
 		if (!ep)
 			return -ENOMEM;
-
-		v4l2_set_subdev_hostdata(isp, ep);
-		v4l2_set_subdev_hostdata(scc, ep);
-		v4l2_set_subdev_hostdata(scp, ep);
-
-		ret = v4l2_device_register_subdev(&fmd->v4l2_dev, isp);
-		if (ret)
-			v4l2_err(&fmd->v4l2_dev,
-					"Failed to register ISP subdev\n");
-
-		ret = v4l2_device_register_subdev(&fmd->v4l2_dev, scc);
-		if (ret)
-			v4l2_err(&fmd->v4l2_dev,
-					"Failed to register SCC subdev\n");
-
-		ret = v4l2_device_register_subdev(&fmd->v4l2_dev, scp);
-		if (ret)
-			v4l2_err(&fmd->v4l2_dev,
-					"Failed to register SCP subdev\n");
-
 		p = to_fimc_isp_pipeline(ep);
-		p->subdevs[IDX_ISP] = isp;
-		p->subdevs[IDX_SCC] = scc;
-		p->subdevs[IDX_SCP] = scp;
 
-		/* Create default links */
-		/* vdev -> ISP */
+		/* FIMC ISP */
+		subdev = fimc_is_isp_get_sd(is, i);
+		subdev->grp_id = GRP_ID_FIMC_IS;
+
+		v4l2_set_subdev_hostdata(subdev, ep);
+		ret = v4l2_device_register_subdev(&fmd->v4l2_dev, subdev);
+		if (ret)
+			v4l2_err(&fmd->v4l2_dev,
+				"Failed to register ISP subdev\n");
+		p->subdevs[IDX_ISP] = subdev;
+
+		/* Create default links: vdev -> ISP */
 		vdev = fimc_is_isp_get_vfd(is, i);
-		ret = media_entity_create_link(&isp->entity,
+		ret = media_entity_create_link(&subdev->entity,
 					ISP_SD_PAD_SINK_DMA,
 					&vdev->entity, 0,
 					MEDIA_LNK_FL_IMMUTABLE |
@@ -578,27 +584,18 @@ static int register_fimc_is_entity(struct fimc_md *fmd,
 		if (ret)
 			return ret;
 
-		/* ISP -> SCC */
-		ret = media_entity_create_link(&isp->entity,
-					ISP_SD_PAD_SRC,
-					&scc->entity, SCALER_SD_PAD_SINK,
-					MEDIA_LNK_FL_IMMUTABLE |
-					MEDIA_LNK_FL_ENABLED);
+		/* FIMC SCC */
+		subdev = fimc_is_scc_get_sd(is, i);
+		subdev->grp_id = GRP_ID_FIMC_IS;
+		v4l2_set_subdev_hostdata(subdev, ep);
+		ret = v4l2_device_register_subdev(&fmd->v4l2_dev, subdev);
 		if (ret)
-			return ret;
-
-		/* SCC -> SCP */
-		ret = media_entity_create_link(&scc->entity,
-					SCALER_SD_PAD_SRC_FIFO,
-					&scp->entity, SCALER_SD_PAD_SINK,
-					MEDIA_LNK_FL_IMMUTABLE |
-					MEDIA_LNK_FL_ENABLED);
-		if (ret)
-			return ret;
-
-		/* SCC -> vdev */
+			v4l2_err(&fmd->v4l2_dev,
+					"Failed to register SCC subdev\n");
+		p->subdevs[IDX_SCC] = subdev;
+		/* Create default links: SCC -> vdev */
 		vdev = fimc_is_scc_get_vfd(is, i);
-		ret = media_entity_create_link(&scc->entity,
+		ret = media_entity_create_link(&subdev->entity,
 					SCALER_SD_PAD_SRC_DMA,
 					&vdev->entity, 0,
 					MEDIA_LNK_FL_IMMUTABLE |
@@ -606,15 +603,43 @@ static int register_fimc_is_entity(struct fimc_md *fmd,
 		if (ret)
 			return ret;
 
-		/* SCP -> vdev */
+		/* Link: ISP -> SCC */
+		ret = media_entity_create_link(&p->subdevs[IDX_ISP]->entity,
+					ISP_SD_PAD_SRC,
+					&subdev->entity, SCALER_SD_PAD_SINK,
+					MEDIA_LNK_FL_IMMUTABLE |
+					MEDIA_LNK_FL_ENABLED);
+		if (ret)
+			return ret;
+
+		/* FIMC SCP */
+		subdev = fimc_is_scp_get_sd(is, i);
+		subdev->grp_id = GRP_ID_FIMC_IS;
+		v4l2_set_subdev_hostdata(subdev, ep);
+		ret = v4l2_device_register_subdev(&fmd->v4l2_dev, subdev);
+		if (ret)
+			v4l2_err(&fmd->v4l2_dev,
+				 "Failed to register SCP subdev\n");
+		p->subdevs[IDX_SCP] = subdev;
+		/* Create default links: SCP -> vdev */
 		vdev = fimc_is_scp_get_vfd(is, i);
-		ret = media_entity_create_link(&scp->entity,
+		ret = media_entity_create_link(&subdev->entity,
 					SCALER_SD_PAD_SRC_DMA,
 					&vdev->entity, 0,
 					MEDIA_LNK_FL_IMMUTABLE |
 					MEDIA_LNK_FL_ENABLED);
 		if (ret)
 			return ret;
+
+		/* Link SCC -> SCP */
+		ret = media_entity_create_link(&p->subdevs[IDX_SCC]->entity,
+					SCALER_SD_PAD_SRC_FIFO,
+					&subdev->entity, SCALER_SD_PAD_SINK,
+					MEDIA_LNK_FL_IMMUTABLE |
+					MEDIA_LNK_FL_ENABLED);
+		if (ret)
+			return ret;
+
 	}
 	fmd->is = is;
 
@@ -784,14 +809,16 @@ static void fimc_md_unregister_entities(struct fimc_md *fmd)
 	/* Unregistering FIMC-IS entities */
 	is = fmd->is;
 	for (i = 0; i < is->drvdata->num_instances; i++) {
-		struct v4l2_subdev *isp, *scc, *scp;
+		struct v4l2_subdev *subdev;
 
-		isp = fimc_is_isp_get_sd(is, i);
-		scc = fimc_is_scc_get_sd(is, i);
-		scp = fimc_is_scp_get_sd(is, i);
-		v4l2_device_unregister_subdev(isp);
-		v4l2_device_unregister_subdev(scc);
-		v4l2_device_unregister_subdev(scp);
+		subdev = fimc_is_isp_get_sd(is, i);
+		v4l2_device_unregister_subdev(subdev);
+
+		subdev = fimc_is_scc_get_sd(is, i);
+		v4l2_device_unregister_subdev(subdev);
+
+		subdev = fimc_is_scp_get_sd(is, i);
+		v4l2_device_unregister_subdev(subdev);
 	}
 
 	v4l2_info(&fmd->v4l2_dev, "Unregistered all entities\n");
@@ -854,6 +881,7 @@ static int __fimc_md_create_flite_source_links(struct fimc_md *fmd)
 
 	for (i = 0; i < FIMC_LITE_MAX_DEVS; i++) {
 		struct fimc_lite *fimc = fmd->fimc_lite[i];
+		struct v4l2_subdev *isp_subdev;
 
 		if (fimc == NULL)
 			continue;
@@ -864,6 +892,17 @@ static int __fimc_md_create_flite_source_links(struct fimc_md *fmd)
 		ret = media_entity_create_link(source, FLITE_SD_PAD_SOURCE_DMA,
 					       sink, 0,
 					       MEDIA_LNK_FL_IMMUTABLE |
+					       MEDIA_LNK_FL_ENABLED);
+		if (ret)
+			break;
+		/* FIMC-LITE's subdev and FIMC ISP's */
+		if (i >= fmd->is->drvdata->num_instances)
+			continue;
+
+		isp_subdev = fimc_is_isp_get_sd(fmd->is, i);
+		sink = &isp_subdev->entity;
+		ret = media_entity_create_link(source, FLITE_SD_PAD_SOURCE_ISP,
+					       sink, ISP_SD_PAD_SINK_OTF,
 					       MEDIA_LNK_FL_ENABLED);
 		if (ret)
 			break;

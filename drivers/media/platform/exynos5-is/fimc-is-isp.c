@@ -251,6 +251,9 @@ static int isp_s_fmt_mplane(struct file *file, void *priv,
 	struct v4l2_pix_format_mplane *pixm = &f->fmt.pix_mp;
 	int ret;
 
+	if (test_bit(STATE_RUNNING, &isp->output_state))
+		return -EBUSY;
+
 	ret = isp_try_fmt_mplane(file, priv, f);
 	if (ret)
 		return ret;
@@ -277,8 +280,19 @@ static int isp_reqbufs(struct file *file, void *priv,
 	struct fimc_is_isp *isp = video_drvdata(file);
 	int ret;
 
+	if (test_bit(STATE_RUNNING, &isp->output_state))
+		return -EBUSY;
+
+	if (test_bit(STATE_BUFS_ALLOCATED, &isp->output_state)
+	&& !(reqbufs->count)){
+		ret = vb2_reqbufs(&isp->vbq, reqbufs);
+		if (!ret)
+			clear_bit(STATE_BUFS_ALLOCATED, &isp->output_state);
+		return ret;
+	}
+
 	reqbufs->count = max_t(u32, FIMC_IS_ISP_REQ_BUFS_MIN, reqbufs->count);
-	ret = vb2_reqbufs(&isp->vbq, reqbufs);
+	ret = vb2_ioctl_reqbufs(file, priv, reqbufs);
 	if (ret) {
 		v4l2_err(&isp->subdev, "vb2 req buffers failed\n");
 		return ret;
@@ -336,7 +350,7 @@ static int isp_subdev_registered(struct v4l2_subdev *sd)
 	q->mem_ops = &vb2_dma_contig_memops;
 	q->buf_struct_size = sizeof(struct fimc_is_buf);
 	q->drv_priv = isp;
-
+	q->lock = &isp->video_lock;
 	ret = vb2_queue_init(q);
 	if (ret < 0)
 		return ret;
