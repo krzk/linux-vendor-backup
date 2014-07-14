@@ -105,6 +105,15 @@ struct s5p_platform_fimc {
  * at begining of the frame transmission.
  */
 #define S5P_FIMC_TX_END_NOTIFY _IO('e', 0)
+/**
+ * v4l2_device notification id - provided for internal use only.
+ * Sensors subdevs might issue S5P_FIMC_FRAME_DONE notification
+ * whenever frame has been succesfully captured despite current
+ * capturing mode.
+ * Note: Invoramtive puspose only.
+ */
+#define EXYNOS_FIMC_IS_FRAME_DONE _IO('e', 1)
+
 
 #define FIMC_MAX_PLANES	3
 
