@@ -168,4 +168,6 @@ source "drivers/reset/Kconfig"
 
 source "drivers/phy/Kconfig"
 
+source "drivers/sensorhub/Kconfig"
+
 endmenu
