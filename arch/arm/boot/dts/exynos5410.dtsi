@@ -322,6 +322,10 @@
 		clock-names = "hdmi", "sclk_hdmi", "div_hdmi_pixel",
 				"sclk_hdmiphy", "mout_hdmi";
 		phy = <&hdmiphy>;
+
+		hdmi-audio {
+			compatible = "samsung,exynos-hdmi-audio";
+		};
 	};
 
 	hdmiphy: hdmiphy@145D0000 {
@@ -386,7 +390,7 @@
 		reg = <0x12110000 0x100>;
 		interrupts = <0 71 0>;
 
-		clocks = <&clock CLK_USBH20>;
+		clocks = <&clock CLK_USB2>;
 		clock-names = "usbhost";
 	};
 
@@ -395,14 +399,14 @@
 		reg = <0x12120000 0x100>;
 		interrupts = <0 71 0>;
 
-		clocks = <&clock CLK_USBH20>;
+		clocks = <&clock CLK_USB2>;
 		clock-names = "usbhost";
 	};
 
 	usb2_phy: usbphy@12130000 {
 		compatible = "samsung,exynos5250-usb2phy";
 		reg = <0x12130000 0x100>;
-		clocks = <&clock CLK_FIN_PLL>, <&clock CLK_USBH20>;
+		clocks = <&clock CLK_FIN_PLL>, <&clock CLK_USB2>;
 		clock-names = "ext_xtal", "usbhost";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -417,7 +421,7 @@
 	usb3_phy0: usbphy@12100000 {
 		compatible = "samsung,exynos5250-usb3phy";
 		reg = <0x12100000 0x100>;
-		clocks = <&clock CLK_FIN_PLL>, <&clock CLK_USBD300>;
+		clocks = <&clock CLK_FIN_PLL>, <&clock CLK_USBPHY300>;
 		clock-names = "ext_xtal", "usbdrd30";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -432,7 +436,7 @@
 	usb3_phy1: usbphy@12500000 {
 		compatible = "samsung,exynos5250-usb3phy";
 		reg = <0x12500000 0x100>;
-		clocks = <&clock CLK_FIN_PLL>, <&clock CLK_USBD301>;
+		clocks = <&clock CLK_FIN_PLL>, <&clock CLK_USBPHY301>;
 		clock-names = "ext_xtal", "usbdrd30";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -446,7 +450,7 @@
 
 	usb@12000000 {
 		compatible = "samsung,exynos5250-dwusb3";
-		clocks = <&clock CLK_USBD300>;
+		clocks = <&clock CLK_USBPHY300>;
 		clock-names = "usbdrd30";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -462,7 +466,7 @@
 
 	usb@12400000 {
 		compatible = "samsung,exynos5250-dwusb3";
-		clocks = <&clock CLK_USBD301>;
+		clocks = <&clock CLK_USBPHY301>;
 		clock-names = "usbdrd30";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -573,10 +577,10 @@
 	};
 
 	clock_audss: audss-clock-controller@3810000 {
-		compatible = "samsung,exynos5250-audss-clock"; /* Is it compatible with exynos5420 or exynos5250? */
+		compatible = "samsung,exynos5250-audss-clock";
 		reg = <0x03810000 0x0C>;
 		#clock-cells = <1>;
-		clocks = <&clock CLK_FIN_PLL>, <&clock CLK_FOUT_EPLL>, <&clock CLK_SCLK_MAUDIO0>, <&clock CLK_SCLK_MAUPCM0>;
+		clocks = <&clock CLK_FIN_PLL>, <&clock CLK_FOUT_EPLL>, <&clock CLK_SCLK_MAU_AUDIO0>, <&clock CLK_SCLK_MAU_PCM0>;
 		clock-names = "pll_ref", "pll_in", "sclk_audio", "sclk_pcm_in";
 	};
 
@@ -611,6 +615,7 @@
 			#dma-channels = <8>;
 			#dma-requests = <32>;
 		};
+		*/
 
 		mdma0: mdma@10800000 {
 			compatible = "arm,pl330", "arm,primecell";
@@ -623,6 +628,7 @@
 			#dma-requests = <1>;
 		};
 
+		/*
 		mdma1: mdma@11C10000 {
 			compatible = "arm,pl330", "arm,primecell";
 			reg = <0x11C10000 0x1000>;
@@ -647,9 +653,6 @@
 			<&clock_audss EXYNOS_I2S_BUS>,
 			<&clock_audss EXYNOS_SCLK_I2S>;
 		clock-names = "iis", "i2s_opclk0", "i2s_opclk1";
-		samsung,supports-6ch;
-		samsung,supports-rstclr;
-		samsung,supports-secdai;
 		samsung,idma-addr = <0x03000000>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&i2s0_bus>;
@@ -669,6 +672,7 @@
 		pinctrl-0 = <&i2s1_bus>;
 		status = "disabled";
 	};
+	*/
 
 	i2s2: i2s@12D70000 {
 		compatible = "samsung,s5pv210-i2s";
@@ -681,5 +685,5 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&i2s2_bus>;
 		status = "disabled";
-	};*/
+	};
 };

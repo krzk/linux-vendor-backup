@@ -33,6 +33,14 @@ config COMMON_CLK_DEBUG
 	  clk_flags, clk_prepare_count, clk_enable_count &
 	  clk_notifier_count.
 
+config COMMON_CLK_DEBUG_EXTRA
+	bool "Extra features for the clock tree DebugFS"
+	depends on COMMON_CLK_DEBUG
+	---help---
+	  Adds one write-one file named change_rate to each
+	  directory, allowing the function clk_set_rate to
+	  be called.
+
 config COMMON_CLK_WM831X
 	tristate "Clock driver for WM831x/2x PMICs"
 	depends on MFD_WM831X

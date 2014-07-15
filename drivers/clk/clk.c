@@ -226,6 +226,16 @@ static const struct file_operations clk_dump_fops = {
 	.release	= single_release,
 };
 
+#if CONFIG_COMMON_CLK_DEBUG_EXTRA
+static int debugfs_clk_set_rate(void *data, u64 val)
+{
+	struct clk *clk = (struct clk *) data;
+	return clk_set_rate(clk, (u32) val);
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(fops_clk_rate_wo, NULL, debugfs_clk_set_rate, "%llu\n");
+#endif /* CONFIG_COMMON_CLK_DEBUG_EXTRA */
+
 /* caller must hold prepare_lock */
 static int clk_debug_create_one(struct clk *clk, struct dentry *pdentry)
 {
@@ -247,6 +257,12 @@ static int clk_debug_create_one(struct clk *clk, struct dentry *pdentry)
 			(u32 *)&clk->rate);
 	if (!d)
 		goto err_out;
+
+#if CONFIG_COMMON_CLK_DEBUG_EXTRA
+	d = debugfs_create_file("change_rate", S_IWUGO, clk->dentry, clk, &fops_clk_rate_wo);
+	if (!d)
+		goto err_out;
+#endif
 
 	d = debugfs_create_x32("clk_flags", S_IRUGO, clk->dentry,
 			(u32 *)&clk->flags);

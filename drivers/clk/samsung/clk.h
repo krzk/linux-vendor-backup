@@ -265,6 +265,16 @@ struct samsung_clk_reg_dump {
 };
 
 /**
+ * Callbacks for PM suspend and resume.
+ * These functions should be registered using
+ * "samsung_clk_init"
+ * @data: callback parameter to be passed to the callbacks.
+ */
+typedef int (*clk_pm_suspend_callback)(void *data);
+typedef void (*clk_pm_resume_callback)(void *data);
+
+
+/**
  * struct samsung_pll_clock: information about pll clock
  * @id: platform specific id of the clock.
  * @dev_name: name of the device to which this clock belongs.
@@ -286,7 +296,7 @@ struct samsung_pll_clock {
 	int			lock_offset;
 	enum samsung_pll_type	type;
 	const struct samsung_pll_rate_table *rate_table;
-	const char              *alias;
+	const char		*alias;
 };
 
 #define __PLL(_typ, _id, _dname, _name, _pname, _flags, _lock, _con,	\
@@ -315,7 +325,8 @@ struct samsung_pll_clock {
 extern void __init samsung_clk_init(struct device_node *np, void __iomem *base,
 		unsigned long nr_clks, unsigned long *rdump,
 		unsigned long nr_rdump, unsigned long *soc_rdump,
-		unsigned long nr_soc_rdump);
+		unsigned long nr_soc_rdump, clk_pm_suspend_callback suspend,
+		clk_pm_resume_callback resume, void *callback_data);
 extern void __init samsung_clk_of_register_fixed_ext(
 		struct samsung_fixed_rate_clock *fixed_rate_clk,
 		unsigned int nr_fixed_rate_clk,

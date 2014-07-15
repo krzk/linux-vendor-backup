@@ -114,7 +114,8 @@ static void __init exynos5440_clk_init(struct device_node *np)
 		return;
 	}
 
-	samsung_clk_init(np, reg_base, nr_clks, NULL, 0, NULL, 0);
+	samsung_clk_init(np, reg_base, nr_clks, NULL, 0, NULL, 0,
+			NULL, NULL, NULL);
 	samsung_clk_of_register_fixed_ext(exynos5440_fixed_rate_ext_clks,
 		ARRAY_SIZE(exynos5440_fixed_rate_ext_clks), ext_clk_match);
 

@@ -34,6 +34,7 @@
 #include <sound/max98095.h>
 
 #include "i2s.h"
+#include "i2s-regs.h"
 #include "s3c-i2s-v2.h"
 #include "../codecs/max98095.h"
 #include "codec_plugin.h"
@@ -193,8 +194,6 @@ static int daisy_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	int bfs, psr, rfs, ret;
 	unsigned long rclk;
-	unsigned long fin_rate;
-	struct clk *fin_pll;
 	struct device *card_dev = substream->pcm->card->dev;
 
 	switch (params_format(params)) {
@@ -287,27 +286,30 @@ static int daisy_hw_params(struct snd_pcm_substream *substream,
 	if (ret < 0)
 		return ret;
 
-	fin_pll = clk_get(NULL, "fin_pll");
-	if (IS_ERR(fin_pll)) {
-		printk(KERN_ERR "%s: failed to get fin_pll clock\n", __func__);
-		return PTR_ERR(fin_pll);
-	}
+	ret = snd_soc_dai_set_sysclk(codec_dai, 0, rclk, SND_SOC_CLOCK_IN);
 
-	fin_rate = clk_get_rate(fin_pll);
-	clk_put(fin_pll);
-
-	ret = snd_soc_dai_set_sysclk(codec_dai, 0, fin_rate, SND_SOC_CLOCK_IN);
 	if (ret < 0)
 		return ret;
 
 	ret = snd_soc_dai_set_sysclk(cpu_dai, SAMSUNG_I2S_CDCLK,
-					0, SND_SOC_CLOCK_OUT);
+					rfs, SND_SOC_CLOCK_OUT);
 	if (ret < 0)
 		return ret;
 
 	ret = snd_soc_dai_set_clkdiv(cpu_dai, SAMSUNG_I2S_DIV_BCLK, bfs);
 	if (ret < 0)
 		return ret;
+
+	ret = snd_soc_dai_set_sysclk(cpu_dai, SAMSUNG_I2S_OPCLK,
+					0, MOD_OPCLK_PCLK);
+	if (ret < 0)
+		return ret;
+
+	ret = snd_soc_dai_set_sysclk(cpu_dai, SAMSUNG_I2S_RCLKSRC_1,
+					rclk, SND_SOC_CLOCK_OUT);
+	if (ret < 0)
+		return ret;
+
 
 	return 0;
 }

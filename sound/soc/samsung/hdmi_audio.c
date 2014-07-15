@@ -40,18 +40,25 @@ struct hdmi_audio_params {
 };
 
 struct hdmi_audio_params audio_params[] = {
-		{ 32000, 27000, 4096, 0x3 },
-		{ 44100, 30000, 6272, 0x0 },
-		{ 88200, 30000, 12544, 0x8 },
-		{ 176400, 30000, 25088, 0xc },
-		{ 48000, 27000, 6144, 0x2 },
-		{ 96000, 27000, 12288, 0xa },
-		{ 192000, 27000, 24576, 0xe },
+	{ 32000, 27000, 4096, 0x3 },
+	{ 44100, 30000, 6272, 0x0 },
+	{ 48000, 27000, 6144, 0x2 },
+	{ 96000, 27000, 12288, 0xa },
+	/* Not supported in 5410? */
+	/* { 88200, 30000, 12544, 0x8 },
+	{ 176400, 30000, 25088, 0xc },
+	{ 192000, 27000, 24576, 0xe }, */
 };
 
 static inline u32 hdmi_reg_read(struct hdmi_audio_context *ctx, u32 reg_id)
 {
 	return readl(ctx->regs + reg_id);
+}
+
+static inline void hdmi_reg_write(struct hdmi_audio_context *ctx,
+					u32 reg_id, u32 value)
+{
+        writel(value, ctx->regs + reg_id);
 }
 
 static inline void hdmi_reg_writeb(struct hdmi_audio_context *ctx,
@@ -166,8 +173,12 @@ static void hdmi_audio_i2s_init(struct hdmi_audio_context *ctx)
 	/* Configuration I2S input ports. Configure I2S_PIN_SEL_0~4 */
 	hdmi_reg_writeb(ctx, HDMI_I2S_PIN_SEL_0, HDMI_I2S_SEL_SCLK(5)
 			| HDMI_I2S_SEL_LRCK(6));
-	hdmi_reg_writeb(ctx, HDMI_I2S_PIN_SEL_1, HDMI_I2S_SEL_SDATA1(1)
-			| HDMI_I2S_SEL_SDATA2(4));
+	if (ctx->params.chan_count == 6 || ctx->params.chan_count == 8)
+		val = HDMI_I2S_SEL_SDATA1(3) | HDMI_I2S_SEL_SDATA0(4);
+	else
+		val = HDMI_I2S_SEL_SDATA1(1) | HDMI_I2S_SEL_SDATA0(4);
+
+	hdmi_reg_writeb(ctx, HDMI_I2S_PIN_SEL_1, val);
 	hdmi_reg_writeb(ctx, HDMI_I2S_PIN_SEL_2, HDMI_I2S_SEL_SDATA3(1)
 			| HDMI_I2S_SEL_SDATA2(2));
 	hdmi_reg_writeb(ctx, HDMI_I2S_PIN_SEL_3, HDMI_I2S_SEL_DSD(0));
@@ -187,15 +198,71 @@ static void hdmi_audio_i2s_init(struct hdmi_audio_context *ctx)
 			| HDMI_I2S_LINEAR_PCM
 			| HDMI_I2S_CONSUMER_FORMAT);
 	hdmi_reg_writeb(ctx, HDMI_I2S_CH_ST_1, HDMI_I2S_CD_PLAYER);
-	hdmi_reg_writeb(ctx, HDMI_I2S_CH_ST_2, HDMI_I2S_SET_SOURCE_NUM(0));
+
+	if (ctx->params.chan_count == 6 || ctx->params.chan_count == 8) {
+		hdmi_reg_writeb(ctx, HDMI_I2S_CH_ST_2,
+			HDMI_I2S_SET_SOURCE_NUM(0) | HDMI_I2S_SET_CHANNEL_NUM(0x6));
+		hdmi_reg_writeb(ctx, HDMI_ASP_CON,
+			HDMI_AUD_MODE_MULTI_CH | HDMI_AUD_SP_AUD2_EN |
+			HDMI_AUD_SP_AUD1_EN | HDMI_AUD_SP_AUD0_EN);
+		hdmi_reg_writeb(ctx, HDMI_ASP_CHCFG0,
+			HDMI_SPK0R_SEL_I_PCM0R | HDMI_SPK0L_SEL_I_PCM0L);
+		hdmi_reg_writeb(ctx, HDMI_ASP_CHCFG1,
+			HDMI_SPK0L_SEL_I_PCM1R | HDMI_SPK0R_SEL_I_PCM1L);
+		hdmi_reg_writeb(ctx, HDMI_ASP_CHCFG2,
+			HDMI_SPK0R_SEL_I_PCM2R | HDMI_SPK0L_SEL_I_PCM2L);
+		hdmi_reg_writeb(ctx, HDMI_ASP_CHCFG3,
+			HDMI_SPK0R_SEL_I_PCM3R | HDMI_SPK0L_SEL_I_PCM3L);
+	} else {
+		hdmi_reg_writeb(ctx, HDMI_I2S_CH_ST_2, HDMI_I2S_SET_SOURCE_NUM(0));
+		hdmi_reg_writeb(ctx, HDMI_ASP_CON,
+			HDMI_AUD_NO_DST_DOUBLE | HDMI_AUD_TYPE_SAMPLE |
+			HDMI_AUD_MODE_TWO_CH | HDMI_AUD_SP_ALL_DIS);
+		hdmi_reg_writeb(ctx, HDMI_ASP_CHCFG0,
+			HDMI_SPK0R_SEL_I_PCM0R | HDMI_SPK0L_SEL_I_PCM0L);
+		hdmi_reg_writeb(ctx, HDMI_ASP_CHCFG1,
+			HDMI_SPK0R_SEL_I_PCM0R | HDMI_SPK0L_SEL_I_PCM0L);
+		hdmi_reg_writeb(ctx, HDMI_ASP_CHCFG2,
+			HDMI_SPK0R_SEL_I_PCM0R | HDMI_SPK0L_SEL_I_PCM0L);
+		hdmi_reg_writeb(ctx, HDMI_ASP_CHCFG3,
+			HDMI_SPK0R_SEL_I_PCM0R | HDMI_SPK0L_SEL_I_PCM0L);
+	}
+	hdmi_reg_writeb(ctx, HDMI_ASP_SP_FLAT, HDMI_ASP_SP_FLAT_AUD_SAMPLE);
+
+
 	hdmi_reg_writeb(ctx, HDMI_I2S_CH_ST_3, HDMI_I2S_CLK_ACCUR_LEVEL_2
 			| HDMI_I2S_SET_SMP_FREQ(sample_frq));
-	hdmi_reg_writeb(ctx, HDMI_I2S_CH_ST_4,
-			HDMI_I2S_ORG_SMP_FREQ_44_1
-			| HDMI_I2S_WORD_LEN_MAX24_24BITS
-			| HDMI_I2S_WORD_LEN_MAX_24BITS);
+
+	if (bits_per_sample == 16)
+		val = HDMI_I2S_ORG_SMP_FREQ_44_1 |
+			HDMI_I2S_WORD_LEN_MAX20_16BITS |
+			HDMI_I2S_WORD_LEN_MAX_20BITS;
+	else if (bits_per_sample == 20)
+		val = HDMI_I2S_ORG_SMP_FREQ_44_1 |
+			HDMI_I2S_WORD_LEN_MAX24_20BITS |
+			HDMI_I2S_WORD_LEN_MAX_24BITS;
+	else
+		val = HDMI_I2S_ORG_SMP_FREQ_44_1 |
+			HDMI_I2S_WORD_LEN_MAX24_24BITS |
+			HDMI_I2S_WORD_LEN_MAX_24BITS;
+	hdmi_reg_write(ctx, HDMI_I2S_CH_ST_4, val);
 
 	hdmi_reg_writeb(ctx, HDMI_I2S_CH_ST_CON, HDMI_I2S_CH_STATUS_RELOAD);
+
+#if 0
+	hdmi_reg_write(ctx, HDMI_I2S_MUX_CON,
+		HDMI_I2S_IN_ENABLE | HDMI_I2S_AUD_I2S
+		| HDMI_I2S_CUV_I2S_ENABLE | HDMI_I2S_MUX_ENABLE);
+
+	hdmi_reg_write(ctx, HDMI_I2S_MUX_CH, HDMI_I2S_CH0_L_EN
+		| HDMI_I2S_CH0_R_EN | HDMI_I2S_CH1_L_EN
+		| HDMI_I2S_CH1_R_EN | HDMI_I2S_CH2_L_EN
+		| HDMI_I2S_CH2_R_EN | HDMI_I2S_CH3_L_EN
+		| HDMI_I2S_CH3_R_EN);
+
+	hdmi_reg_write(ctx, HDMI_I2S_MUX_CUV, HDMI_I2S_CUV_L_EN
+		| HDMI_I2S_CUV_R_EN);
+#endif
 }
 
 static void hdmi_audio_init(struct hdmi_audio_context *ctx)
@@ -231,6 +298,7 @@ static int hdmi_audio_control(struct hdmi_audio_context *ctx,
 			HDMI_AUI_CON_TRANS_EVERY_VSYNC : HDMI_AUI_CON_NO_TRAN);
 	hdmi_reg_writemask(ctx, HDMI_CON_0, onoff ?
 			HDMI_ASP_EN : HDMI_ASP_DIS, HDMI_ASP_MASK);
+	hdmi_reg_writemask(ctx, HDMI_CON_0, 0, HDMI_CON_0_MASK);
 	return 0;
 }
 
@@ -256,6 +324,44 @@ static void hdmi_reg_infoframe(struct hdmi_audio_context *ctx,
 	hdmi_reg_writeb(ctx, HDMI_AUI_HEADER1, infoframe->ver);
 	hdmi_reg_writeb(ctx, HDMI_AUI_HEADER2, infoframe->len);
 	hdr_sum = infoframe->type + infoframe->ver + infoframe->len;
+
+
+	/*
+	 * AUI_BYTE(1)[2:0] : Audio Channel Count
+	 * AUI_BYTE(4)[7:0] : Speaker Placement
+	 */
+	if (ctx->params.chan_count == 6) {
+		hdmi_reg_writeb(ctx, HDMI_AUI_BYTE(1), HDMI_AUI_DATA_CC_6CH);
+		hdmi_reg_writeb(ctx, HDMI_AUI_BYTE(4), HDMI_AUI_DATA_CA_6CH);
+	} else if (ctx->params.chan_count == 8) {
+		hdmi_reg_writeb(ctx, HDMI_AUI_BYTE(1), HDMI_AUI_DATA_CC_8CH);
+		hdmi_reg_writeb(ctx, HDMI_AUI_BYTE(4), HDMI_AUI_DATA_CA_8CH);
+	} else {
+		hdmi_reg_writeb(ctx, HDMI_AUI_BYTE(1), HDMI_AUI_DATA_CC_2CH);
+		hdmi_reg_writeb(ctx, HDMI_AUI_BYTE(4), HDMI_AUI_DATA_CA_2CH);
+	}
+
+	/* AUI_BYTE(3)[7:0] : Should Be Zero */
+	hdmi_reg_writeb(ctx, HDMI_AUI_BYTE(3), 0x00);
+
+	/* AUI_BYTE(2)[4:2] : Sampling Frequency */
+	if (ctx->params.sample_rate == 32000)
+		hdmi_reg_writeb(ctx, HDMI_AUI_BYTE(2), HDMI_AUI_DATA_SF_32);
+	else if (ctx->params.sample_rate == 48000)
+		hdmi_reg_writeb(ctx, HDMI_AUI_BYTE(2), HDMI_AUI_DATA_SF_48);
+	else if (ctx->params.sample_rate == 96000)
+		hdmi_reg_writeb(ctx, HDMI_AUI_BYTE(2), HDMI_AUI_DATA_SF_96);
+	else
+		hdmi_reg_writeb(ctx, HDMI_AUI_BYTE(2), HDMI_AUI_DATA_SF_44_1);
+
+	/* AUI_BYTE(2)[1:0] : Sample Size */
+	if (ctx->params.bits_per_sample == 16)
+		hdmi_reg_writeb(ctx, HDMI_AUI_BYTE(2), HDMI_AUI_DATA_SS_16BIT);
+	else if (ctx->params.bits_per_sample == 20)
+		hdmi_reg_writeb(ctx, HDMI_AUI_BYTE(2), HDMI_AUI_DATA_SS_20BIT);
+	else
+		hdmi_reg_writeb(ctx, HDMI_AUI_BYTE(2), HDMI_AUI_DATA_SS_24BIT);
+
 	chksum = hdmi_chksum(ctx, HDMI_AUI_BYTE(1),
 				infoframe->len, hdr_sum);
 	hdmi_reg_writeb(ctx, HDMI_AUI_CHECK_SUM, chksum);
@@ -300,8 +406,8 @@ static int hdmi_audio_hw_params(struct device *dev,
 	ctx = container_of(plugin, struct hdmi_audio_context, plugin);
 
 	switch (params_channels(params)) {
+	case 8:
 	case 6:
-	case 4:
 	case 2:
 	case 1:
 		ctx->params.chan_count = params_channels(params);

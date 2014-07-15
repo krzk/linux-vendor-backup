@@ -186,6 +186,7 @@ struct hdmi_context {
 	struct device			*dev;
 	struct drm_device		*drm_dev;
 	bool				hpd;
+	bool				is_soc_exynos5;
 	bool				powered;
 	bool				dvi_mode;
 	struct mutex			hdmi_mutex;
@@ -1172,12 +1173,13 @@ static void hdmi_conf_apply(struct hdmi_context *hdata)
 	hdmi_conf_reset(hdata);
 	hdmi_conf_init(hdata);
 	mutex_unlock(&hdata->hdmi_mutex);
-
-	hdmi_audio_init(hdata);
+	if (!hdata->is_soc_exynos5)
+		hdmi_audio_init(hdata);
 
 	/* setting core registers */
 	hdmi_mode_apply(hdata);
-	hdmi_audio_control(hdata, true);
+	if (!hdata->is_soc_exynos5)
+		hdmi_audio_control(hdata, true);
 
 	hdmi_regs_dump(hdata, "start");
 }
@@ -1773,6 +1775,54 @@ static struct of_device_id hdmi_match_types[] = {
 	}
 };
 
+struct platform_device *hdmi_audio_device;
+
+int hdmi_register_audio_device(struct platform_device *pdev)
+{
+	struct exynos_drm_hdmi_context *ctx = platform_get_drvdata(pdev);
+	struct hdmi_context *hdata = ctx->ctx;
+	struct platform_device *audio_dev;
+	int ret;
+
+	audio_dev = platform_device_alloc("exynos-hdmi-audio", -1);
+	if (!audio_dev) {
+		DRM_ERROR("hdmi audio device allocation failed.\n");
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	ret = platform_device_add_resources(audio_dev, pdev->resource,
+			pdev->num_resources);
+	if (ret) {
+		ret = -ENOMEM;
+		goto err_device;
+	}
+
+	audio_dev->dev.of_node = of_get_next_child(pdev->dev.of_node, NULL);
+	audio_dev->dev.platform_data = (void *)hdata->hpd_gpio;
+
+	ret = platform_device_add(audio_dev);
+	if (ret) {
+		DRM_ERROR("hdmi audio device add failed.\n");
+		goto err_device;
+	}
+
+	hdmi_audio_device = audio_dev;
+	return 0;
+
+err_device:
+	platform_device_put(audio_dev);
+
+err:
+	return ret;
+}
+
+void hdmi_unregister_audio_device(void)
+{
+	platform_device_unregister(hdmi_audio_device);
+}
+
+
 static int hdmi_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1814,6 +1864,10 @@ static int hdmi_probe(struct platform_device *pdev)
 	hdata->type = drv->type;
 	hdata->hpd_gpio = pdata->hpd_gpio;
 	hdata->dev = dev;
+	hdata->is_soc_exynos5 = of_device_is_compatible(dev->of_node,
+		"samsung,exynos5-hdmi");
+	hdata->is_soc_exynos5 |= of_device_is_compatible(dev->of_node,
+		"samsung,exynos5410-hdmi");
 
 	ret = hdmi_resources_init(hdata);
 	if (ret) {
@@ -1868,7 +1922,7 @@ static int hdmi_probe(struct platform_device *pdev)
 
 	ret = devm_request_threaded_irq(dev, hdata->irq, NULL,
 			hdmi_irq_thread, IRQF_TRIGGER_RISING |
-			IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+			IRQF_TRIGGER_FALLING | IRQF_ONESHOT | IRQF_SHARED,
 			"hdmi", drm_hdmi_ctx);
 	if (ret) {
 		DRM_ERROR("failed to register hdmi interrupt\n");
@@ -1881,10 +1935,19 @@ static int hdmi_probe(struct platform_device *pdev)
 	/* register specific callbacks to common hdmi. */
 	exynos_hdmi_ops_register(&hdmi_ops);
 
+	if (hdata->is_soc_exynos5) {
+		printk(KERN_INFO "exynos_hdmi: registering hdmi-audio\n");
+		ret = hdmi_register_audio_device(pdev);
+		if (ret) {
+			DRM_ERROR("hdmi-audio device registering failed.\n");
+			goto err_hdmiphy;
+		}
+	}
+
 	pm_runtime_enable(dev);
-	
+
 	/* Here we force the initialization as DVI just as a fallback option */
-	hdata->dvi_mode = true;
+	/* hdata->dvi_mode = true; */
 
 	return 0;
 
@@ -1909,6 +1972,9 @@ static int hdmi_remove(struct platform_device *pdev)
 	struct exynos_drm_hdmi_context *ctx = get_hdmi_context(dev);
 	struct hdmi_context *hdata = ctx->ctx;
 
+	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+
+	hdmi_unregister_audio_device();
 	pm_runtime_disable(dev);
 
 	/* hdmiphy driver */
