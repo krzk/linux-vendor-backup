@@ -122,6 +122,14 @@ config IBM_ASM
 	  for information on the specific driver level and support statement
 	  for your IBM server.
 
+config IR_REMOCON_FPGA
+	tristate "FPGA chip for IR LED control"
+	help
+	  This is a driver for IR LED driver based on Lattice chip.
+	  Lattice FPGA can support IR LED.
+	  To compile this driver as a module, choose M here.
+	  If unsure, say N.
+
 config PHANTOM
 	tristate "Sensable PHANToM (PCI)"
 	depends on PCI

@@ -56,3 +56,4 @@ obj-$(CONFIG_SLP_GLOBAL_LOCK)	+= slp_global_lock.o
 obj-$(CONFIG_SRAM)		+= sram.o
 obj-$(CONFIG_SEC_MODEM)		+= modem_if/
 obj-$(CONFIG_SII9234)		+= sii9234.o
+obj-$(CONFIG_IR_REMOCON_FPGA)   += ice4_irda.o
