@@ -112,7 +112,7 @@ static const struct of_device_id odroidx2_audio_of_match[] = {
 	},
 	{ },
 };
-MODULE_DEVICE_TABLE(of, odroid_audio_of_match);
+MODULE_DEVICE_TABLE(of, odroidx2_audio_of_match);
 
 static int odroidx2_audio_probe(struct platform_device *pdev)
 {
