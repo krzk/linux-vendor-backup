@@ -451,13 +451,13 @@
 		};
 
 		hsotg: hsotg@12480000 {
-			compatible = "samsung,s3c6400-hsotg";
+			compatible = "samsung,s3c-hsotg";
 			reg = <0x12480000 0x20000>;
 			interrupts = <0 141 0>;
 			clocks = <&cmu CLK_USBOTG>;
 			clock-names = "otg";
 			phys = <&exynos_usbphy 0>;
-			phy-names = "usb2-phy";
+			phy-names = "device";
 			status = "disabled";
 		};
 
