@@ -92,11 +92,12 @@ static inline void cpu_leave_lowpower(void)
 
 static inline void platform_do_lowpower(unsigned int cpu, int *spurious)
 {
-	for (;;) {
-		void __iomem *reg_base;
+	u32 mpidr = cpu_logical_map(cpu);
+	u32 core_id = MPIDR_AFFINITY_LEVEL(mpidr, 0);
 
-		reg_base = S5P_ARM_CORE_CONFIGURATION(cpu_logical_map(cpu));
-		__raw_writel(0, reg_base);
+	for (;;) {
+		/* Turn the CPU off on next WFI instruction. */
+		exynos_cpu_power_down(core_id);
 
 		/*
 		 * here's the WFI
@@ -106,7 +107,7 @@ static inline void platform_do_lowpower(unsigned int cpu, int *spurious)
 		    :
 		    : "memory", "cc");
 
-		if (pen_release == cpu_logical_map(cpu)) {
+		if (pen_release == core_id) {
 			/*
 			 * OK, proper wakeup, we're done
 			 */

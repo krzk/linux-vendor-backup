@@ -91,7 +91,8 @@ static void __cpuinit exynos_secondary_init(unsigned int cpu)
 static int __cpuinit exynos_boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	unsigned long timeout;
-	unsigned long phys_cpu = cpu_logical_map(cpu);
+	u32 mpidr = cpu_logical_map(cpu);
+	u32 core_id = MPIDR_AFFINITY_LEVEL(mpidr, 0);
 
 	/*
 	 * Set synchronisation state between this boot processor
@@ -104,24 +105,24 @@ static int __cpuinit exynos_boot_secondary(unsigned int cpu, struct task_struct 
 	 * the holding pen - release it, then wait for it to flag
 	 * that it has been released by resetting pen_release.
 	 *
-	 * Note that "pen_release" is the hardware CPU ID, whereas
+	 * Note that "pen_release" is the hardware CPU core ID, whereas
 	 * "cpu" is Linux's internal ID.
 	 */
-	write_pen_release(phys_cpu);
+	write_pen_release(core_id);
 
-	if (!(__raw_readl(S5P_ARM_CORE_STATUS(phys_cpu))
+	if (!(__raw_readl(S5P_ARM_CORE_STATUS(core_id))
 		& S5P_CORE_LOCAL_PWR_EN)) {
 		u32 core_conf = 0;
 
 		core_conf |= S5P_CORE_LOCAL_PWR_EN;
 		if (soc_is_exynos3250())
 			core_conf |= S5P_CORE_AUTOWAKEUP_EN;
-		__raw_writel(core_conf, S5P_ARM_CORE_CONFIGURATION(phys_cpu));
+		__raw_writel(core_conf, S5P_ARM_CORE_CONFIGURATION(core_id));
 
 		timeout = 10;
 
 		/* wait max 10 ms until cpu1 is on */
-		while ((__raw_readl(S5P_ARM_CORE_STATUS(phys_cpu))
+		while ((__raw_readl(S5P_ARM_CORE_STATUS(core_id))
 			& S5P_CORE_LOCAL_PWR_EN) != S5P_CORE_LOCAL_PWR_EN) {
 			if (timeout-- == 0)
 				break;
@@ -145,13 +146,13 @@ static int __cpuinit exynos_boot_secondary(unsigned int cpu, struct task_struct 
 			udelay(10);
 		udelay(10);
 
-		tmp = __raw_readl(S5P_ARM_CORE_STATUS(phys_cpu));
+		tmp = __raw_readl(S5P_ARM_CORE_STATUS(core_id));
 		tmp |= (S5P_CORE_LOCAL_PWR_EN << 8);
-		__raw_writel(tmp, S5P_ARM_CORE_STATUS(phys_cpu));
+		__raw_writel(tmp, S5P_ARM_CORE_STATUS(core_id));
 	}
 
 	if (soc_is_exynos3250())
-		__raw_writel(EXYNOS3_COREPORESET(phys_cpu), EXYNOS_SWRESET);
+		__raw_writel(EXYNOS3_COREPORESET(core_id), EXYNOS_SWRESET);
 
 	/*
 	 * Send the secondary CPU a soft interrupt, thereby causing
@@ -171,10 +172,10 @@ static int __cpuinit exynos_boot_secondary(unsigned int cpu, struct task_struct 
 		 * Try to set boot address using firmware first
 		 * and fall back to boot register if it fails.
 		 */
-		if (call_firmware_op(set_cpu_boot_addr, phys_cpu, boot_addr))
-			__raw_writel(boot_addr, cpu_boot_reg(phys_cpu));
+		if (call_firmware_op(set_cpu_boot_addr, core_id, boot_addr))
+			__raw_writel(boot_addr, cpu_boot_reg(core_id));
 
-		call_firmware_op(cpu_boot, phys_cpu);
+		call_firmware_op(cpu_boot, core_id);
 
 		if (soc_is_exynos3250())
 			dsb_sev();
@@ -239,14 +240,16 @@ static void __init exynos_smp_prepare_cpus(unsigned int max_cpus)
 	 * boot register if it fails.
 	 */
 	for (i = 1; i < max_cpus; ++i) {
-		unsigned long phys_cpu;
 		unsigned long boot_addr;
+		u32 mpidr;
+		u32 core_id;
 
-		phys_cpu = cpu_logical_map(i);
+		mpidr = cpu_logical_map(i);
+		core_id = MPIDR_AFFINITY_LEVEL(mpidr, 0);
 		boot_addr = virt_to_phys(exynos4_secondary_startup);
 
-		if (call_firmware_op(set_cpu_boot_addr, phys_cpu, boot_addr))
-			__raw_writel(boot_addr, cpu_boot_reg(phys_cpu));
+		if (call_firmware_op(set_cpu_boot_addr, core_id, boot_addr))
+			__raw_writel(boot_addr, cpu_boot_reg(core_id));
 	}
 }
 
