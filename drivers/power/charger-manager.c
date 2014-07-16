@@ -1176,7 +1176,9 @@ static void charger_extcon_work(struct work_struct *work)
 					cable->min_uA, cable->max_uA);
 	}
 
-	try_charger_enable(cable->cm, cable->attached);
+	if (!try_charger_enable(cable->cm, cable->attached))
+		uevent_notify(cable->cm,
+			cable->attached ? "CHARGING" : "DISCHARGING");
 }
 
 /**
