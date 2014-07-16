@@ -1574,11 +1574,19 @@ static struct platform_driver s3c64xx_spi_driver = {
 };
 MODULE_ALIAS("platform:s3c64xx-spi");
 
+#ifdef MODULE
+static int __init s3c64xx_spi_init(void)
+{
+	return platform_driver_probe(&s3c64xx_spi_driver, s3c64xx_spi_probe);
+}
+module_init(s3c64xx_spi_init);
+#else
 static int __init s3c64xx_spi_init(void)
 {
 	return platform_driver_probe(&s3c64xx_spi_driver, s3c64xx_spi_probe);
 }
 subsys_initcall(s3c64xx_spi_init);
+#endif
 
 static void __exit s3c64xx_spi_exit(void)
 {
