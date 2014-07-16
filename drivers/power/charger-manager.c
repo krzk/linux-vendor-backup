@@ -554,6 +554,19 @@ static bool _cm_monitor(struct charger_manager *cm)
 	struct charger_desc *desc = cm->desc;
 	int temp = desc->temperature_out_of_range(cm);
 
+	if (cm->desc->polling_battery_soc) {
+		union power_supply_propval val;
+		int ret;
+		ret = cm->charger_psy.get_property(&cm->charger_psy,
+				POWER_SUPPLY_PROP_CAPACITY, &val);
+		if (!ret && (cm->last_batt_soc != val.intval)) {
+			power_supply_changed(&cm->charger_psy);
+			cm->last_batt_soc = val.intval;
+		}
+		if (!is_polling_required(cm))
+			return true;
+	}
+
 	dev_dbg(cm->dev, "monitoring (%2.2d.%3.3dC)\n",
 		cm->last_temp_mC / 1000, cm->last_temp_mC % 1000);
 
@@ -650,11 +663,16 @@ static void _setup_polling(struct work_struct *work)
 	mutex_lock(&cm_list_mtx);
 
 	list_for_each_entry(cm, &cm_list, entry) {
-		if (is_polling_required(cm) && cm->desc->polling_interval_ms) {
-			keep_polling = true;
+		if (!cm->desc->polling_interval_ms)
+			continue;
 
+		if (is_polling_required(cm)) {
+			keep_polling = true;
 			if (min > cm->desc->polling_interval_ms)
 				min = cm->desc->polling_interval_ms;
+		} else if (cm->desc->polling_battery_soc) {
+			keep_polling = true;
+			min = cm->desc->polling_interval_ms;
 		}
 	}
 
@@ -1553,6 +1571,8 @@ struct charger_desc *of_cm_parse_desc(struct device *dev)
 
 	of_property_read_u32(np, "cm-poll-interval",
 				&desc->polling_interval_ms);
+	desc->polling_battery_soc =
+				of_property_read_bool(np, "cm-poll-batt-soc");
 
 	of_property_read_u32(np, "cm-fullbatt-vchkdrop-ms",
 					&desc->fullbatt_vchkdrop_ms);

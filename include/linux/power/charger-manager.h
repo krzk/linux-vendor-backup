@@ -169,6 +169,8 @@ struct charger_manager;
  *	it is assumed to be full.
  * @polling_interval_ms: interval in millisecond at which
  *	charger manager will monitor battery health
+ * @polling_battery_soc: if TRUE, charger-manager reads battery soc and
+ *			triggers uevent periodcally.
  * @battery_present:
  *	Specify where information for existance of battery can be obtained
  * @psy_charger_stat: the names of power-supply for chargers
@@ -199,6 +201,8 @@ struct charger_desc {
 
 	enum polling_modes polling_mode;
 	unsigned int polling_interval_ms;
+	/* For checking battery soc */
+	bool polling_battery_soc;
 
 	unsigned int fullbatt_vchkdrop_ms;
 	unsigned int fullbatt_vchkdrop_uV;
@@ -250,6 +254,7 @@ struct charger_desc {
  *	saved status of battery before entering suspend-to-RAM
  * @charging_start_time: saved start time of enabling charging
  * @charging_end_time: saved end time of disabling charging
+ * @last_batt_soc: Last battery soc.
  */
 struct charger_manager {
 	struct list_head entry;
@@ -275,6 +280,8 @@ struct charger_manager {
 
 	u64 charging_start_time;
 	u64 charging_end_time;
+
+	unsigned int last_batt_soc;
 };
 
 #ifdef CONFIG_CHARGER_MANAGER
