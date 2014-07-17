@@ -293,7 +293,7 @@ int exynos_of_parse_boost(struct exynos_dvfs_info *info,
 {
 	struct cpufreq_frequency_table *ft = info->freq_table;
 	struct device_node *node = info->dev->of_node;
-	unsigned int boost_freq;
+	unsigned int boost_freq, i;
 
 	if (of_property_read_u32(node, property_name, &boost_freq)) {
 		pr_err("%s: Property: %s not found\n", __func__,
@@ -310,10 +310,19 @@ int exynos_of_parse_boost(struct exynos_dvfs_info *info,
 	 * frequency table is required.
 	 */
 
-	ft[0].index = CPUFREQ_BOOST_FREQ;
-	ft[0].frequency = boost_freq;
+	for (i = 0; ft[i].frequency != CPUFREQ_TABLE_END; i++)
+		if (ft[i].frequency != CPUFREQ_ENTRY_INVALID)
+			break;
 
-	pr_debug("%s: BOOST frequency: %d\n", __func__, ft[0].frequency);
+	if (--i >= 0) {
+		ft[i].index = CPUFREQ_BOOST_FREQ;
+		ft[i].frequency = boost_freq;
+	} else {
+		pr_err("%s: BOOST index: %d out of range\n", __func__, i);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: BOOST frequency: %d\n", __func__, ft[i].frequency);
 
 	return 0;
 }
