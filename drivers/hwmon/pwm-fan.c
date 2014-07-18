@@ -152,7 +152,7 @@ static int pwm_fan_remove(struct platform_device *pdev)
 
 	if (ctx->pwm_value)
 		pwm_disable(ctx->pwm);
-	mutex_destroy(&ctx->mutex);
+	mutex_destroy(&ctx->lock);
 	return 0;
 }
 
