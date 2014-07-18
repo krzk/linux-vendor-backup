@@ -93,8 +93,6 @@ static int s5p_mfc_open_inst_cmd_v5(struct s5p_mfc_ctx *ctx)
 		break;
 	case S5P_MFC_CODEC_MPEG2_DEC:
 		h2r_args.arg[0] = S5P_FIMV_CODEC_MPEG2_DEC;
-		if (mfc_is_iommu_used(ctx))
-			h2r_args.arg[0] |= S5P_FIMV_H2R_MPEG2_PADDING;
 		break;
 	case S5P_MFC_CODEC_H263_DEC:
 		h2r_args.arg[0] = S5P_FIMV_CODEC_H263_DEC;
