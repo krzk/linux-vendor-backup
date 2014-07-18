@@ -27,6 +27,7 @@
 #include <linux/mutex.h>
 #include <linux/bitops.h>
 #include <linux/regulator/consumer.h>
+#include <linux/clk.h>
 #include "ice4_irda.h"
 
 
@@ -45,6 +46,7 @@ struct ice4_fpga_data {
 	struct device		*sys_dev;
 	struct regulator	*ir_regulator;
 	struct mutex		mutex;
+	struct clk		*mclk;
 	struct {
 		unsigned char addr;
 		unsigned char data[MAX_SIZE];
@@ -399,6 +401,8 @@ static int ice4_irda_parse_dt(struct device *dev)
 {
 	struct ice4_fpga_data *data = dev_get_drvdata(dev);
 	struct device_node *node = dev->of_node;
+	struct clk *parent, *out_mux;
+	int ret;
 
 	data->gpio_irda_irq = of_get_named_gpio(node, "irda-gpio", 0);
 	if (!gpio_is_valid(data->gpio_irda_irq)) {
@@ -436,10 +440,40 @@ static int ice4_irda_parse_dt(struct device *dev)
 		return -EINVAL;
 	}
 
-	data->ir_regulator = devm_regulator_get(data->dev, "ir");
+	data->ir_regulator = devm_regulator_get(dev, "ir");
 	if (IS_ERR(data->ir_regulator)) {
 		dev_err(dev, "Cannot get ir regulator\n");
 		return PTR_ERR(data->ir_regulator);
+	}
+
+	parent = clk_get(dev, "parent")	;
+	if (IS_ERR(parent)) {
+		dev_err(dev, "Cannot get parent clk\n");
+		return PTR_ERR(parent);
+	}
+
+	out_mux = devm_clk_get(dev, "out-mux");
+	if (IS_ERR(out_mux)) {
+		dev_err(dev, "Cannot get out-mux clk\n");
+		return PTR_ERR(out_mux);
+	}
+
+	data->mclk = devm_clk_get(data->dev, "out");
+	if (IS_ERR(data->mclk)) {
+		dev_err(dev, "Cannot get out clk\n");
+		return PTR_ERR(data->mclk);
+	}
+
+	ret = clk_set_parent(out_mux, parent);
+	if (ret) {
+		dev_err(dev, "Cannot clk set parent: mout_mux\n");
+		return ret;
+	}
+
+	ret = clk_prepare_enable(data->mclk);
+	if (ret) {
+		dev_err(dev, "Cannot clk enalbe : out");
+		return ret;
 	}
 
 	return 0;
@@ -612,6 +646,7 @@ static int ice4_irda_remove(struct i2c_client *client)
 	struct ice4_fpga_data *data = i2c_get_clientdata(client);
 
 	sysfs_remove_group(&data->sys_dev->kobj, &sec_ir_attr_group);
+	clk_disable_unprepare(data->mclk);
 	device_unregister(data->sys_dev);
 	class_destroy(data->sec_class);
 	kfree(data);
