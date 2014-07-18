@@ -332,8 +332,8 @@ struct cpufreq_frequency_table *exynos_of_parse_freq_table(
 {
 	struct device_node *node = info->dev->of_node;
 	struct cpufreq_frequency_table *ft, *ret = NULL;
+	int len, num, i = 0, k;
 	struct property *pp;
-	int len, num, i = 0;
 	u32 *of_f_tab;
 
 	if (!node)
@@ -366,28 +366,28 @@ struct cpufreq_frequency_table *exynos_of_parse_freq_table(
 	}
 
 	/*
-	 * Here + 2 is required for CPUFREQ_ENTRY_INVALID  and
-	 * CPUFREQ_TABLE_END
+	 * Here + 1 is required for CPUFREQ_TABLE_END
 	 *
 	 * Number of those entries must correspond to the apll_freq_4412 table
 	 */
-	ft = kzalloc(sizeof(struct cpufreq_frequency_table) * (num + 2),
-		     GFP_KERNEL);
+	ft = kzalloc(sizeof(struct cpufreq_frequency_table) *
+		     (info->freq_levels + 1), GFP_KERNEL);
 	if (!ft) {
 		pr_err("%s: Allocation failed\n", __func__);
 		goto err_of_f_tab;
 	}
 
-	ft[0].index = L0;
-	ft[0].frequency = CPUFREQ_ENTRY_INVALID;
-
-	for (i = 1; i <= num; i++) {
-		ft[i].index = i;
-		ft[i].frequency = of_f_tab[i-1];
-	}
-
+	i = info->freq_levels;
 	ft[i].index = 0;
 	ft[i].frequency = CPUFREQ_TABLE_END;
+
+	for (i--, k = num - 1; i >= 0; i--, k--) {
+		ft[i].index = i;
+		if (k < 0)
+			ft[i].frequency = CPUFREQ_ENTRY_INVALID;
+		else
+			ft[i].frequency = of_f_tab[k];
+	}
 
 	ret = ft;
 

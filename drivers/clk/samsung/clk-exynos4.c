@@ -1034,6 +1034,9 @@ static DEFINE_SPINLOCK(clkout_lock);
 
 /* PLLs PMS values */
 struct pll_pms pll35xx_exynos4412_pms[] = {
+	{.p = 4, .m = 300, .s = 0},
+	{.p = 3, .m = 213, .s = 0},
+	{.p = 3, .m = 200, .s = 0},
 	{.p = 4, .m = 250, .s = 0},
 	{.p = 3, .m = 175, .s = 0},
 	{.p = 6, .m = 325, .s = 0},
