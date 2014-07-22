@@ -32,4 +32,13 @@ config DRM_PANEL_S6E8AA0
 	select BACKLIGHT_LCD_SUPPORT
 	select BACKLIGHT_CLASS_DEVICE
 
+config DRM_PANEL_S6E63J0x03
+	tristate "S6E63J0x03 DSI command mode panel"
+	depends on DRM && DRM_PANEL
+	depends on OF
+	select DRM_MIPI_DSI
+	select VIDEOMODE_HELPERS
+	select BACKLIGHT_LCD_SUPPORT
+	select BACKLIGHT_CLASS_DEVICE
+
 endmenu
