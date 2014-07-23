@@ -1535,12 +1535,14 @@ static void fimc_is_pipeline_shot_cancel(struct fimc_is_pipeline *pipeline)
         /* Release ISP buffers */
         while (!list_empty(&isp->wait_queue)) {
                 buffer = fimc_is_isp_wait_queue_get(isp);
+		buffer->state = FIMC_IS_BUF_INVALID;
                 vb2_buffer_done(&buffer->vb, VB2_BUF_STATE_ERROR);
         }
 
         if(!list_empty(&isp->run_queue)) {
                 while (!list_empty(&isp->run_queue)) {
                         buffer = fimc_is_isp_run_queue_get(isp);
+			buffer->state = FIMC_IS_BUF_INVALID;
                         vb2_buffer_done(&buffer->vb, VB2_BUF_STATE_ERROR);
                 }
         }
@@ -1549,10 +1551,12 @@ static void fimc_is_pipeline_shot_cancel(struct fimc_is_pipeline *pipeline)
         if (test_bit(COMP_START, &pipeline->subip_state[IS_SCC])) {
                 while (!list_empty(&scaler->wait_queue)) {
                         buffer = fimc_is_scaler_wait_queue_get(scaler);
+			buffer->state = FIMC_IS_BUF_INVALID;
                         vb2_buffer_done(&buffer->vb, VB2_BUF_STATE_ERROR);
                 }
                 while (!list_empty(&scaler->run_queue)) {
                         buffer = fimc_is_scaler_run_queue_get(scaler);
+			buffer->state = FIMC_IS_BUF_INVALID;
                         vb2_buffer_done(&buffer->vb, VB2_BUF_STATE_ERROR);
                 }
         }
@@ -1560,10 +1564,12 @@ static void fimc_is_pipeline_shot_cancel(struct fimc_is_pipeline *pipeline)
         if (test_bit(COMP_START, &pipeline->subip_state[IS_SCP])) {
                 while (!list_empty(&scaler->wait_queue)) {
                         buffer = fimc_is_scaler_wait_queue_get(scaler);
+			buffer->state = FIMC_IS_BUF_INVALID;
                         vb2_buffer_done(&buffer->vb, VB2_BUF_STATE_ERROR);
                 }
                 while (!list_empty(&scaler->run_queue)) {
                         buffer = fimc_is_scaler_run_queue_get(scaler);
+			buffer->state = FIMC_IS_BUF_INVALID;
                         vb2_buffer_done(&buffer->vb, VB2_BUF_STATE_ERROR);
                 }
         }

@@ -63,15 +63,18 @@ static void isp_video_output_stop_streaming(struct vb2_queue *vq)
 	struct fimc_is_buf *buf;
 
 	/* Release unused buffers */
+	fimc_is_pipeline_buf_lock(isp->pipeline);
 	while (!list_empty(&isp->wait_queue)) {
 		buf = fimc_is_isp_wait_queue_get(isp);
+		buf->state = FIMC_IS_BUF_INVALID;
 		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
 	}
 	while (!list_empty(&isp->run_queue)) {
 		buf = fimc_is_isp_run_queue_get(isp);
+		buf->state = FIMC_IS_BUF_INVALID;
 		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
 	}
-
+	fimc_is_pipeline_buf_unlock(isp->pipeline);
 	clear_bit(STATE_RUNNING, &isp->output_state);
 	return;
 }
@@ -103,6 +106,7 @@ static int isp_video_output_buffer_init(struct vb2_buffer *vb)
 	struct fimc_is_buf *buf = container_of(vb, struct fimc_is_buf, vb);
 
 	buf->paddr[0] = vb2_dma_contig_plane_dma_addr(vb, 0);
+	buf->state = FIMC_IS_BUF_IDLE;
 	return 0;
 }
 
@@ -136,6 +140,33 @@ static void isp_video_output_buffer_queue(struct vb2_buffer *vb)
 	fimc_is_pipeline_shot_safe(isp->pipeline);
 }
 
+static void isp_video_output_buffer_cleanup(struct vb2_buffer *vb)
+{
+	struct vb2_queue *vq = vb->vb2_queue;
+	struct fimc_is_isp *isp = vb2_get_drv_priv(vq);
+	struct fimc_is_buf *fbuf = container_of(vb, struct fimc_is_buf, vb);
+
+	/*
+	 * Skip the cleanup case the buffer
+	 * is no longer accessible through any of the queues
+	 * or has not been queued at all.
+	 */
+	if (fbuf->state == FIMC_IS_BUF_IDLE ||
+	    fbuf->state == FIMC_IS_BUF_INVALID ||
+	    fbuf->state == FIMC_IS_BUF_DONE)
+		return;
+
+	fimc_is_pipeline_buf_lock(isp->pipeline);
+	list_del(&fbuf->list);
+	if (fbuf->state == FIMC_IS_BUF_QUEUED)
+		--isp->wait_queue_cnt;
+	else /* FIMC_IS_BUF_ACTIVE */
+		--isp->run_queue_cnt;
+	fbuf->state = FIMC_IS_BUF_INVALID;
+	fimc_is_pipeline_buf_unlock(isp->pipeline);
+
+}
+
 static const struct vb2_ops isp_video_output_qops = {
 	.queue_setup	 = isp_video_output_queue_setup,
 	.buf_init	 = isp_video_output_buffer_init,
@@ -143,6 +174,7 @@ static const struct vb2_ops isp_video_output_qops = {
 	.buf_queue	 = isp_video_output_buffer_queue,
 	.wait_prepare	 = vb2_ops_wait_prepare,
 	.wait_finish	 = vb2_ops_wait_finish,
+	.buf_cleanup	 = isp_video_output_buffer_cleanup,
 	.start_streaming = isp_video_output_start_streaming,
 	.stop_streaming	 = isp_video_output_stop_streaming,
 };

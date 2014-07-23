@@ -90,8 +90,17 @@ enum fimc_is_sensor_pos {
 	SENSOR_CAM1
 };
 
+enum fimc_is_buf_state {
+	FIMC_IS_BUF_IDLE,
+	FIMC_IS_BUF_QUEUED,
+	FIMC_IS_BUF_ACTIVE,
+	FIMC_IS_BUF_DONE,
+	FIMC_IS_BUF_INVALID,
+};
+
 struct fimc_is_buf {
 	struct vb2_buffer vb;
+	unsigned int state;
 	struct list_head list;
 	unsigned int paddr[FIMC_IS_MAX_PLANES];
 };
