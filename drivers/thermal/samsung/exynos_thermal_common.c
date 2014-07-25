@@ -272,10 +272,12 @@ static int exynos_get_trend(struct thermal_zone_device *thermal,
 	if (ret < 0)
 		return ret;
 
-	if (thermal->temperature >= trip_temp)
-		*trend = THERMAL_TREND_RAISE_FULL;
+	if (thermal->temperature > trip_temp)
+		*trend = THERMAL_TREND_RAISING;
+	else if (thermal->temperature < trip_temp)
+		*trend = THERMAL_TREND_DROPPING;
 	else
-		*trend = THERMAL_TREND_DROP_FULL;
+		*trend = THERMAL_TREND_STABLE;
 
 	return 0;
 }
