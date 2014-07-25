@@ -31,6 +31,32 @@
 #define ISP_MAX_BUFS		2
 
 /**
+ * struct fimc_is_isp_ctrls - FIMC ISP controls
+ */
+struct fimc_is_isp_ctrls {
+	struct v4l2_ctrl_handler handler;
+
+	/* Color controls cluster */
+	struct v4l2_ctrl *brightness;
+	struct v4l2_ctrl *contrast;
+	struct v4l2_ctrl *saturation;
+	struct v4l2_ctrl *hue;
+	/* White balance controls cluster */
+	struct v4l2_ctrl *awb;
+	struct v4l2_ctrl *awb_mode;
+	/* Sensitivity controls cluster */
+	struct v4l2_ctrl *iso;
+	struct v4l2_ctrl *iso_mode;
+	/* Exposure time control */
+	struct v4l2_ctrl *exposure;
+	/* Focus control */
+	struct v4l2_ctrl *focus;
+	struct v4l2_ctrl *focus_range;
+	/* Scene mode control */
+	struct v4l2_ctrl *scene_mode;
+};
+
+/**
  * struct fimc_is_isp - ISP context
  * @vfd: video device node
  * @fh: v4l2 file handle
@@ -62,8 +88,9 @@ struct fimc_is_isp {
 	struct v4l2_subdev		subdev;
 	struct media_pad		vd_pad;
 	struct media_pad		subdev_pads[ISP_SD_PADS_NUM];
-	struct v4l2_ctrl_handler	ctrl_handler;
+	struct fimc_is_isp_ctrls	ctrls;
 	struct mutex			video_lock;
+	struct mutex			lock;
 	struct v4l2_subdev		*sensor_sd;
 	struct fimc_is_pipeline		*pipeline;
 

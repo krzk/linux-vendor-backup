@@ -13,6 +13,7 @@
 #include <media/videobuf2-dma-contig.h>
 
 #include "fimc-is.h"
+#include "fimc-is-metadata.h"
 
 #define ISP_DRV_NAME "fimc-is-isp"
 
@@ -37,6 +38,8 @@ static const struct fimc_is_fmt formats[] = {
 	},
 };
 #define NUM_FORMATS ARRAY_SIZE(formats)
+
+#define ISP_VIDEO_NUM_CTRL	FIMC_IS_CID_MAX
 
 static const struct fimc_is_fmt *find_format(struct v4l2_format *f)
 {
@@ -356,6 +359,7 @@ static int isp_subdev_registered(struct v4l2_subdev *sd)
 	int ret;
 
 	mutex_init(&isp->video_lock);
+	mutex_init(&isp->lock);
 
 	memset(vfd, 0, sizeof(*vfd));
 	snprintf(vfd->name, sizeof(vfd->name), "fimc-is-isp.output");
@@ -394,7 +398,6 @@ static int isp_subdev_registered(struct v4l2_subdev *sd)
 		media_entity_cleanup(&vfd->entity);
 		return ret;
 	}
-
 	v4l2_info(sd->v4l2_dev, "Registered %s as /dev/%s\n",
 		  vfd->name, video_device_node_name(vfd));
 	return 0;
@@ -446,8 +449,14 @@ static int isp_s_power(struct v4l2_subdev *sd, int on)
 		sensor = fimc_is_get_sensor(is, sdata->id);
 
 		ret = fimc_is_pipeline_open(isp->pipeline, sensor);
-		if (ret)
+		if (ret) {
 			v4l2_err(&isp->subdev, "Pipeline open failed\n");
+		} else {
+			ret = v4l2_ctrl_handler_setup(&isp->ctrls.handler);
+			if (ret)
+				v4l2_err(&isp->subdev, "Failed to setup controls\n");
+		}
+
 	} else {
 		ret = fimc_is_pipeline_close(isp->pipeline);
 		if (ret)
@@ -523,6 +532,257 @@ static const struct v4l2_subdev_video_ops isp_video_ops = {
 	.s_stream       = isp_s_stream,
 };
 
+static const s64 isp_video_iso_qmenu[] = {
+	80, 100, 200, 400, 800,
+};
+
+static inline int isp_video_set_color_ctrl(struct fimc_is_isp *isp,
+				    unsigned int id,
+				    unsigned long val)
+{
+	/*
+	 * @TODO: Change it to queueing the requestes and setting in at one go
+	 * instead of making function call per each control
+	 */
+	return fimc_is_pipeline_update_shot_ctrl(isp->pipeline,
+				  id, val);
+}
+
+static inline int isp_video_set_sensor_ctrl(struct fimc_is_isp *isp,
+					    unsigned int id,
+					    unsigned long val)
+{
+	/* @TODO: Make some reasonable adjustment between the settings */
+	switch (id) {
+	case FIMC_IS_CID_EXPOSURE:
+		val *= 1000000;
+		break;
+	case FIMC_IS_CID_ISO:
+		val = isp_video_iso_qmenu[val];
+		break;
+	case FIMC_IS_CID_ISO_MODE:
+		val = val ? AA_ISOMODE_AUTO : AA_ISOMODE_MANUAL;
+		break;
+	}
+	return fimc_is_pipeline_update_shot_ctrl(isp->pipeline,
+				  id, val);
+}
+
+static const unsigned int awb_mode_map[] = {
+	[V4L2_WHITE_BALANCE_MANUAL]        = AA_AWBMODE_OFF,
+	[V4L2_WHITE_BALANCE_AUTO]          = AA_AWBMODE_WB_AUTO,
+	[V4L2_WHITE_BALANCE_INCANDESCENT]  = AA_AWBMODE_WB_INCANDESCENT,
+	[V4L2_WHITE_BALANCE_FLUORESCENT]   = AA_AWBMODE_WB_FLUORESCENT,
+	[V4L2_WHITE_BALANCE_FLUORESCENT_H] = AA_AWBMODE_WB_WARM_FLUORESCENT,
+	[V4L2_WHITE_BALANCE_DAYLIGHT]      = AA_AWBMODE_WB_DAYLIGHT,
+	[V4L2_WHITE_BALANCE_CLOUDY]        = AA_AWBMODE_WB_CLOUDY_DAYLIGHT,
+	[V4L2_WHITE_BALANCE_SHADE]         = AA_AWBMODE_WB_SHADE,
+};
+
+static inline int isp_video_set_awb_ctrl(struct fimc_is_isp *isp,
+					 unsigned int id,
+					 unsigned long val)
+{
+	if (id == FIMC_IS_CID_AWB)
+		val = val  ? AA_AWBMODE_WB_AUTO : AA_AWBMODE_OFF;
+	else {
+		/* Boundary check should be performed by v4l2 */
+		if (val >= ARRAY_SIZE(awb_mode_map))
+			return -EINVAL;
+		val = awb_mode_map[val];
+		if (!val)
+			val = AA_AWBMODE_WB_AUTO;
+	}
+
+	return fimc_is_pipeline_update_shot_ctrl(isp->pipeline,
+				  id, val);
+}
+
+static inline int isp_video_set_focus_ctrl(struct fimc_is_isp *isp,
+					  unsigned int id,
+					  unsigned long val)
+{
+	if (id == FIMC_IS_CID_FOCUS_MODE)
+		val = val ? AA_AFMODE_AUTO : AA_AFMODE_OFF;
+
+	else
+		val = (val == V4L2_AUTO_FOCUS_RANGE_NORMAL)
+		      ? AA_AFMODE_CONTINUOUS_PICTURE
+		      : AA_AFMODE_MACRO;
+
+	return fimc_is_pipeline_update_shot_ctrl(isp->pipeline,
+				  id, val);
+
+}
+
+static const unsigned int scene_map[] = {
+	[V4L2_SCENE_MODE_NONE]		= AA_SCENE_MODE_UNSUPPORTED,
+	[V4L2_SCENE_MODE_BEACH_SNOW]	= AA_SCENE_MODE_BEACH,
+	[V4L2_SCENE_MODE_CANDLE_LIGHT]	= AA_SCENE_MODE_CANDLELIGHT,
+	[V4L2_SCENE_MODE_FIREWORKS]	= AA_SCENE_MODE_FIREWORKS,
+	[V4L2_SCENE_MODE_LANDSCAPE]	= AA_SCENE_MODE_LANDSCAPE,
+	[V4L2_SCENE_MODE_NIGHT]		= AA_SCENE_MODE_NIGHT,
+	[V4L2_SCENE_MODE_PARTY_INDOOR]	= AA_SCENE_MODE_PARTY,
+	[V4L2_SCENE_MODE_PORTRAIT]	= AA_SCENE_MODE_PORTRAIT,
+	[V4L2_SCENE_MODE_SPORTS]	= AA_SCENE_MODE_SPORTS,
+	[V4L2_SCENE_MODE_SUNSET]	= AA_SCENE_MODE_SUNSET,
+};
+
+#define ISP_SCENE_MODE_SKIP_MASK	     \
+	(1 << (V4L2_SCENE_MODE_BACKLIGHT)  | \
+	1 << (V4L2_SCENE_MODE_DAWN_DUSK)   | \
+	1 << (V4L2_SCENE_MODE_FALL_COLORS) | \
+	1 << (V4L2_SCENE_MODE_TEXT ))
+
+static inline int isp_video_set_scene_ctrl(struct fimc_is_isp *isp,
+					   unsigned long val)
+{
+	/* Boundary check should be performed by v4l2 */
+	if (val >= ARRAY_SIZE(scene_map))
+		return -EINVAL;
+
+	val = scene_map[val];
+	if (!val)
+		val = AA_SCENE_MODE_UNSUPPORTED;
+	/* @TODO: Set remaining controls based on scene chosen*/
+	return fimc_is_pipeline_update_shot_ctrl(isp->pipeline,
+				  FIMC_IS_CID_SCENE, val);
+
+}
+
+static int isp_video_s_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct fimc_is_isp *isp = container_of(ctrl->handler,
+					       struct fimc_is_isp,
+					       ctrls.handler);
+	int ret = 0;
+
+	mutex_lock(&isp->lock);
+
+	switch (ctrl->id) {
+	case V4L2_CID_BRIGHTNESS:
+		isp_video_set_color_ctrl(isp, FIMC_IS_CID_BRIGHTNESS,
+					       ctrl->val);
+		break;
+	case V4L2_CID_CONTRAST:
+		isp_video_set_color_ctrl(isp, FIMC_IS_CID_CONTRAST,
+					      ctrl->val);
+		break;
+	case V4L2_CID_SATURATION:
+		isp_video_set_color_ctrl(isp, FIMC_IS_CID_SATURATION,
+					       ctrl->val);
+		break;
+	case V4L2_CID_HUE:
+		isp_video_set_color_ctrl(isp, FIMC_IS_CID_HUE,
+					       ctrl->val);
+		break;
+	case V4L2_CID_AUTO_WHITE_BALANCE:
+		isp_video_set_awb_ctrl(isp, FIMC_IS_CID_AWB,
+					     ctrl->val);
+		break;
+	case V4L2_CID_EXPOSURE_ABSOLUTE:
+		isp_video_set_sensor_ctrl(isp, FIMC_IS_CID_EXPOSURE,
+						ctrl->val);
+		break;
+	case V4L2_CID_FOCUS_AUTO:
+		isp_video_set_focus_ctrl(isp, FIMC_IS_CID_FOCUS_MODE,
+					       ctrl->val);
+		break;
+	case V4L2_CID_AUTO_FOCUS_RANGE:
+		isp_video_set_focus_ctrl(isp, FIMC_IS_CID_FOCUS_RANGE,
+					       ctrl->val);
+		break;
+	case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
+		isp_video_set_awb_ctrl(isp, FIMC_IS_CID_AWB_MODE,
+					     ctrl->val);
+		break;
+	case V4L2_CID_ISO_SENSITIVITY:
+		isp_video_set_sensor_ctrl(isp, FIMC_IS_CID_ISO,
+						ctrl->val);
+		break;
+	case V4L2_CID_ISO_SENSITIVITY_AUTO:
+		isp_video_set_sensor_ctrl(isp, FIMC_IS_CID_ISO_MODE,
+						ctrl->val);
+		break;
+	case V4L2_CID_SCENE_MODE:
+		isp_video_set_scene_ctrl(isp, ctrl->val);
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	mutex_unlock(&isp->lock);
+
+	return ret;
+}
+
+static const struct v4l2_ctrl_ops isp_video_ctrl_ops = {
+	.s_ctrl = isp_video_s_ctrl,
+};
+
+static int isp_video_create_controls(struct fimc_is_isp *isp)
+{
+
+	struct v4l2_ctrl_handler   *handler = &isp->ctrls.handler;
+	const struct v4l2_ctrl_ops *ops     = &isp_video_ctrl_ops;
+	struct fimc_is_isp_ctrls   *ctrls   = &isp->ctrls;
+
+	/* Color controls cluster: brightness */
+	ctrls->brightness = v4l2_ctrl_new_std(handler, ops,
+				V4L2_CID_BRIGHTNESS, 0, 5, 1, 0);
+	/* Color controls cluster: contrast */
+	ctrls->contrast = v4l2_ctrl_new_std(handler, ops,
+				V4L2_CID_CONTRAST, 0, 5, 1, 3);
+	/* Color controls cluster : saturation */
+	ctrls->saturation = v4l2_ctrl_new_std(handler, ops,
+				V4L2_CID_SATURATION, 0, 5, 1, 1);
+	/* Color controls cluster: hue */
+	ctrls->hue = v4l2_ctrl_new_std(handler, ops,
+			V4L2_CID_HUE, 0, 5, 1, 0);
+	/* White balance control cluster: state */
+	ctrls->awb = v4l2_ctrl_new_std(handler, ops,
+			V4L2_CID_AUTO_WHITE_BALANCE, 0, 1, 1, 1);
+	/* Exposure absolute time control */
+	ctrls->exposure = v4l2_ctrl_new_std(handler, ops,
+				V4L2_CID_EXPOSURE_ABSOLUTE, 4, 1800, 1, 200);
+	/* Focus controls cluster: focus mode */
+	ctrls->focus = v4l2_ctrl_new_std(handler, ops,
+				V4L2_CID_FOCUS_AUTO, 0, 1, 1, 0);
+	/* Focus controls cluster: focus range */
+	ctrls->focus_range = v4l2_ctrl_new_std_menu(handler, ops,
+				V4L2_CID_AUTO_FOCUS_RANGE,
+				V4L2_AUTO_FOCUS_RANGE_MACRO,
+				~(1 << V4L2_AUTO_FOCUS_RANGE_NORMAL |
+				1 << V4L2_AUTO_FOCUS_RANGE_MACRO),
+				V4L2_AUTO_FOCUS_RANGE_NORMAL);
+	/* White balance control cluster : mode */
+	ctrls->awb_mode = v4l2_ctrl_new_std_menu(handler, ops,
+				V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE,
+				V4L2_WHITE_BALANCE_SHADE,
+				1 << V4L2_WHITE_BALANCE_HORIZON |
+				1 << V4L2_WHITE_BALANCE_FLASH,
+				V4L2_WHITE_BALANCE_AUTO);
+	/* ISO controls cluster: value */
+	ctrls->iso = v4l2_ctrl_new_int_menu(handler, ops,
+				V4L2_CID_ISO_SENSITIVITY,
+				ARRAY_SIZE(isp_video_iso_qmenu) - 1,
+				ARRAY_SIZE(isp_video_iso_qmenu)/2 - 1,
+				isp_video_iso_qmenu);
+	/* ISO controls cluster: mode */
+	ctrls->iso_mode = v4l2_ctrl_new_std_menu(handler, ops,
+				V4L2_CID_ISO_SENSITIVITY_AUTO,
+				0, 0, 0);
+
+	/* Scene mode control */
+	ctrls->scene_mode = v4l2_ctrl_new_std_menu(handler, ops,
+				V4L2_CID_SCENE_MODE,
+				V4L2_SCENE_MODE_SUNSET,
+				ISP_SCENE_MODE_SKIP_MASK,
+				V4L2_SCENE_MODE_NONE);
+	return handler->error;
+}
+
 static struct v4l2_subdev_ops isp_subdev_ops = {
 	.core = &isp_core_ops,
 	.video = &isp_video_ops,
@@ -532,7 +792,7 @@ int fimc_is_isp_subdev_create(struct fimc_is_isp *isp,
 		struct vb2_alloc_ctx *alloc_ctx,
 		struct fimc_is_pipeline *pipeline)
 {
-	struct v4l2_ctrl_handler *handler = &isp->ctrl_handler;
+	struct v4l2_ctrl_handler *handler = &isp->ctrls.handler;
 	struct v4l2_subdev *sd = &isp->subdev;
 	int ret;
 
@@ -557,8 +817,11 @@ int fimc_is_isp_subdev_create(struct fimc_is_isp *isp,
 	if (ret < 0)
 		return ret;
 
-	ret = v4l2_ctrl_handler_init(handler, 1);
+	ret = v4l2_ctrl_handler_init(handler, ISP_VIDEO_NUM_CTRL);
 	if (handler->error)
+		goto err_ctrl;
+	ret = isp_video_create_controls(isp);
+	if (ret)
 		goto err_ctrl;
 
 	sd->ctrl_handler = handler;
@@ -579,6 +842,6 @@ void fimc_is_isp_subdev_destroy(struct fimc_is_isp *isp)
 
 	v4l2_device_unregister_subdev(sd);
 	media_entity_cleanup(&sd->entity);
-	v4l2_ctrl_handler_free(&isp->ctrl_handler);
+	v4l2_ctrl_handler_free(&isp->ctrls.handler);
 	v4l2_set_subdevdata(sd, NULL);
 }

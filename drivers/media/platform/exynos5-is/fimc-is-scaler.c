@@ -13,8 +13,19 @@
 #include <media/videobuf2-dma-contig.h>
 
 #include "fimc-is.h"
+#include "fimc-is-metadata.h"
 
 #define IS_SCALER_DRV_NAME "fimc-is-scaler"
+
+#define FLIP_X_AXIS			0
+#define FLIP_Y_AXIS			1
+
+
+#define SCALER_ROTATE_90_CW		90
+#define SCALER_ROTATE_180_CW		180
+#define SCALER_ROTATE_270_CW		270
+
+#define SCALER_CTRL_NUM			4
 
 static const struct fimc_is_fmt formats[] = {
 	{
@@ -61,6 +72,12 @@ static int scaler_video_capture_start_streaming(struct vb2_queue *vq,
 			ctx->fmt->num_planes);
 	if (ret) {
 		v4l2_err(&ctx->subdev, "Scaler start failed.\n");
+		return -EINVAL;
+	}
+
+	ret = v4l2_ctrl_handler_setup(&ctx->ctrls.handler);
+	if (ret) {
+		v4l2_err(&ctx->subdev, "Failed to setup scaler controls.\n");
 		return -EINVAL;
 	}
 
@@ -175,6 +192,7 @@ static void scaler_video_capture_buffer_cleanup(struct vb2_buffer *vb)
 	struct vb2_queue *vq = vb->vb2_queue;
 	struct fimc_is_scaler *ctx = vb2_get_drv_priv(vq);
 	struct fimc_is_buf *fbuf = container_of(vb, struct fimc_is_buf, vb);
+
 
 	/*
 	 * Skip the cleanup case the buffer
@@ -392,6 +410,164 @@ static const struct v4l2_ioctl_ops scaler_video_capture_ioctl_ops = {
 	.vidioc_streamoff		= vb2_ioctl_streamoff,
 };
 
+static int scaler_video_set_flip(struct fimc_is_scaler *ctx,
+				 unsigned int val,
+				 unsigned int axis)
+{
+	if (ctx->scaler_id != SCALER_SCP)
+		return -EINVAL;
+
+	if (axis == FLIP_X_AXIS) {
+		if (val)
+			ctx->ctrls.rotation |= SCALER_FLIP_X;
+		else
+			ctx->ctrls.rotation &= ~SCALER_FLIP_X;
+	} else {
+		if (val)
+			ctx->ctrls.rotation |= SCALER_FLIP_Y;
+		else
+			ctx->ctrls.rotation &= ~SCALER_FLIP_Y;
+	}
+
+	return fimc_is_pipeline_set_scaler_effect(ctx->pipeline,
+					ctx->ctrls.rotation);
+	return 0;
+}
+
+static int scler_video_set_rotate(struct fimc_is_scaler *ctx,
+				  unsigned int val)
+{
+	int ret = 0;
+
+	if (ctx->scaler_id != SCALER_SCP)
+		return -EINVAL;
+
+	if (!val) {
+		ctx->ctrls.rotation &= ~SCALER_ROTATE;
+	} else {
+		switch (val) {
+		case SCALER_ROTATE_90_CW:
+			ctx->ctrls.rotation |= SCALER_ROTATE;
+			break;
+
+		case SCALER_ROTATE_180_CW:
+			ctx->ctrls.rotation |= SCALER_FLIP_X | SCALER_FLIP_Y;
+			break;
+
+		case SCALER_ROTATE_270_CW:
+			ctx->ctrls.rotation = SCALER_ROTATE |
+					     SCALER_FLIP_X | SCALER_FLIP_Y;
+			break;
+		}
+	}
+	ret = fimc_is_pipeline_set_scaler_effect(ctx->pipeline,
+						ctx->ctrls.rotation);
+	return ret;
+}
+
+static const unsigned int color_mode_map[] = {
+	[V4L2_COLORFX_NONE] = V4L2_COLORFX_NONE,
+	[V4L2_COLORFX_BW] = COLOR_CORRECTION_MODE_EFFECT_MONO,
+	[V4L2_COLORFX_SEPIA] = COLOR_CORRECTION_MODE_EFFECT_SEPIA,
+	[V4L2_COLORFX_NEGATIVE] = COLOR_CORRECTION_MODE_EFFECT_NEGATIVE,
+	[V4L2_COLORFX_EMBOSS] = COLORCORRECTION_MODE_EFFECT_EMBOSS,
+	[V4L2_COLORFX_SKETCH] = COLORCORRECTION_MODE_EFFECT_SKETCH,
+	[V4L2_COLORFX_AQUA] = COLOR_CORRECTION_MODE_EFFECT_AQUA,
+	[V4L2_COLORFX_ART_FREEZE] = COLOR_CORRECTION_MODE_EFFECT_POSTERIZE,
+	[V4L2_COLORFX_SOLARIZATION] = COLOR_CORRECTION_MODE_EFFECT_SOLARIZE,
+	[V4L2_COLORFX_ANTIQUE] = COLORCORRECTION_MODE_EFFECT_WARM_VINTAGE,
+};
+
+/* Unsupported color modes  */
+#define SCALER_COLOR_MODE_SKIP_MASK	(1 << (V4L2_COLORFX_GRASS_GREEN) | \
+		1 << (V4L2_COLORFX_SKIN_WHITEN)	| \
+		1 << (V4L2_COLORFX_SKY_BLUE)	| \
+		1 << (V4L2_COLORFX_SILHOUETTE)	| \
+		1 << (V4L2_COLORFX_VIVID)	| \
+		1 << (V4L2_COLORFX_SET_CBCR))
+
+static int scaler_video_set_color_mode(struct fimc_is_scaler *ctx,
+				       unsigned int val)
+{
+	unsigned int mode;
+	int ret = 0;
+
+	if (val >= ARRAY_SIZE(color_mode_map) ||
+	    ctx->scaler_id != SCALER_SCC)
+		return -EINVAL;
+
+	mode = color_mode_map[val];
+
+	if (!mode && val != V4L2_COLORFX_NONE)
+		return -EINVAL;
+
+	if (!ret)
+		ret = fimc_is_pipeline_update_shot_ctrl(ctx->pipeline,
+			FIMC_IS_CID_COLOR_MODE, mode);
+	return ret;
+}
+
+static int scaler_video_s_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct fimc_is_scaler *ctx = container_of(ctrl->handler,
+					struct fimc_is_scaler,
+					ctrls.handler);
+	int ret = 0;
+
+	mutex_lock(&ctx->lock);
+	switch (ctrl->id) {
+	case V4L2_CID_HFLIP:
+		scaler_video_set_flip(ctx, ctrl->val, FLIP_X_AXIS);
+		break;
+	case V4L2_CID_VFLIP:
+		scaler_video_set_flip(ctx, ctrl->val, FLIP_Y_AXIS);
+		break;
+	case V4L2_CID_COLORFX:
+		scaler_video_set_color_mode(ctx, ctrl->val);
+		break;
+	case V4L2_CID_ROTATE:
+		scler_video_set_rotate(ctx, ctrl->val);
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+	mutex_unlock(&ctx->lock);
+	return ret;
+}
+
+static const struct v4l2_ctrl_ops scaler_video_ctrl_ops = {
+	.s_ctrl = scaler_video_s_ctrl,
+};
+
+static int scaler_video_capture_create_controls(struct fimc_is_scaler *ctx)
+{
+	struct v4l2_ctrl_handler   *handler = &ctx->ctrls.handler;
+	const struct v4l2_ctrl_ops *ops     = &scaler_video_ctrl_ops;
+
+	/* Flip */
+	if (ctx->scaler_id == SCALER_SCP) {
+		v4l2_ctrl_new_std(handler, ops,
+				 V4L2_CID_HFLIP, 0, 1, 1, 0);
+
+		v4l2_ctrl_new_std(handler, ops,
+				 V4L2_CID_VFLIP, 0, 1, 1, 0);
+		/* Rotate */
+		v4l2_ctrl_new_std(handler, ops,
+				V4L2_CID_ROTATE,
+				0, 270, 90, 0);
+	}
+	/* Color effect */
+	if (ctx->scaler_id == SCALER_SCC)
+		v4l2_ctrl_new_std_menu(handler, ops,
+			V4L2_CID_COLORFX,
+			V4L2_COLORFX_ANTIQUE,
+			SCALER_COLOR_MODE_SKIP_MASK,
+			V4L2_COLORFX_NONE);
+
+	return handler->error;
+}
+
 static int scaler_subdev_registered(struct v4l2_subdev *sd)
 {
 	struct fimc_is_scaler *ctx = v4l2_get_subdevdata(sd);
@@ -469,9 +645,11 @@ int fimc_is_scaler_subdev_create(struct fimc_is_scaler *ctx,
 		struct vb2_alloc_ctx *alloc_ctx,
 		struct fimc_is_pipeline *pipeline)
 {
-	struct v4l2_ctrl_handler *handler = &ctx->ctrl_handler;
+	struct v4l2_ctrl_handler *handler = &ctx->ctrls.handler;
 	struct v4l2_subdev *sd = &ctx->subdev;
 	int ret;
+
+	mutex_init(&ctx->lock);
 
 	ctx->scaler_id = scaler_id;
 	ctx->alloc_ctx = alloc_ctx;
@@ -500,8 +678,11 @@ int fimc_is_scaler_subdev_create(struct fimc_is_scaler *ctx,
 	if (ret < 0)
 		return ret;
 
-	ret = v4l2_ctrl_handler_init(handler, 1);
+	ret = v4l2_ctrl_handler_init(handler, SCALER_CTRL_NUM);
 	if (handler->error)
+		goto err_ctrl;
+	ret = scaler_video_capture_create_controls(ctx);
+	if (ret)
 		goto err_ctrl;
 
 	sd->ctrl_handler = handler;
@@ -521,6 +702,6 @@ void fimc_is_scaler_subdev_destroy(struct fimc_is_scaler *ctx)
 
 	v4l2_device_unregister_subdev(sd);
 	media_entity_cleanup(&sd->entity);
-	v4l2_ctrl_handler_free(&ctx->ctrl_handler);
+	v4l2_ctrl_handler_free(&ctx->ctrls.handler);
 	v4l2_set_subdevdata(sd, NULL);
 }

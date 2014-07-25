@@ -45,6 +45,16 @@
 #define SCALER_MIN_WIDTH	32
 #define SCALER_MIN_HEIGHT	32
 
+#define SCALER_ROTATE			(1 << 2)
+#define SCALER_FLIP_X			(1 << 0)
+#define SCALER_FLIP_Y			(1 << 1)
+
+struct fimc_is_scaler_ctrl {
+	struct v4l2_ctrl_handler handler;
+	unsigned int rotation;
+	unsigned int color_mode;
+	unsigned int status;
+};
 /**
  * struct fimc_is_scaler - fimc-is scaler structure
  * @vfd: video device node
@@ -55,6 +65,7 @@
  * @subdev_pads: the subdev media pads
  * @ctrl_handler: v4l2 control handler
  * @video_lock: video lock mutex
+ * @lock: internal locking
  * @event_q: notifies scaler events
  * @pipeline: pipeline instance for this scaler context
  * @scaler_id: distinguishes scaler preview or scaler codec
@@ -77,9 +88,10 @@ struct fimc_is_scaler {
 	struct media_pad		vd_pad;
 	struct media_pad		subdev_pads[SCALER_SD_PADS_NUM];
 	struct v4l2_mbus_framefmt	subdev_fmt;
-	struct v4l2_ctrl_handler	ctrl_handler;
+	struct fimc_is_scaler_ctrl	ctrls;
 
 	struct mutex		video_lock;
+	struct mutex		lock;
 	wait_queue_head_t	event_q;
 
 	struct fimc_is_pipeline	*pipeline;

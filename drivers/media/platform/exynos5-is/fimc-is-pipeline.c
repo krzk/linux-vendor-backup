@@ -1311,6 +1311,60 @@ static void fimc_is_pipeline_scalerc_validate(struct fimc_is_pipeline* pipeline,
         }
 }
 
+int fimc_is_pipeline_set_scaler_effect(struct fimc_is_pipeline *pipeline,
+				   unsigned int rotation)
+{
+	struct fimc_is *is = pipeline->is;
+	struct scalerp_param *scaler_param =
+		&pipeline->is_region->parameter.scalerp;
+	unsigned long index[2] = {0};
+	unsigned int paused = 0;
+	int ret = 0;
+
+	if (!test_bit(PIPELINE_OPEN, &pipeline->state)
+	|| !test_bit(PIPELINE_PREPARE, &pipeline->state)) {
+		dev_err(pipeline->dev, "Pipeline not opened.\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&pipeline->pipe_scl_lock);
+
+	if (test_bit(PIPELINE_START, &pipeline->state)) {
+		ret = fimc_is_pipeline_stop(pipeline, 0);
+		if (ret) {
+			dev_err(pipeline->dev, "Not able to stop pipeline\n");
+			goto leave;
+		}
+		paused = 1;
+	}
+
+	if (SCALER_ROTATE &rotation ) {
+		scaler_param->rotation.cmd = SCALER_ROTATION_CMD_CLOCKWISE90;
+		__set_bit(PARAM_SCALERP_ROTATION, index);
+	}
+
+	if ((SCALER_FLIP_X | SCALER_FLIP_Y) & rotation)
+		 __set_bit(PARAM_SCALERP_FLIP, index);
+
+	if (SCALER_FLIP_X & rotation )
+		scaler_param->flip.cmd = SCALER_FLIP_COMMAND_X_MIRROR;
+	if (SCALER_FLIP_Y & rotation )
+		 scaler_param->flip.cmd |= SCALER_FLIP_COMMAND_Y_MIRROR;
+
+	ret = fimc_is_itf_set_param(&is->interface, pipeline->instance,
+				ISS_PREVIEW_STILL, index[0], index[1]);
+
+	if (paused) {
+		ret = fimc_is_pipeline_start(pipeline, 0);
+		if (ret)
+			dev_err(pipeline->dev,
+				"Failed to restart the pipeline.\n");
+	}
+leave:
+	mutex_unlock(&pipeline->pipe_scl_lock);
+	return ret;
+}
+
 int fimc_is_pipeline_scaler_start(struct fimc_is_pipeline *pipeline,
 		enum fimc_is_scaler_id scaler_id,
 		unsigned int num_bufs,
@@ -1516,6 +1570,19 @@ void fimc_is_pipeline_config_shot(struct fimc_is_pipeline *pipeline)
         FIMC_IS_FW_CALL_OP(config_shot, pipeline->minfo->shot.vaddr);
 }
 
+int fimc_is_pipeline_update_shot_ctrl(struct fimc_is_pipeline *pipeline,
+                                     unsigned int config_id,
+                                     unsigned long val)
+{
+       /* @TODO: Exynos5 support (ISP configuration)*/
+       if (!test_bit(PIPELINE_OPEN, &pipeline->state))
+	       return -EAGAIN;
+
+       return FIMC_IS_FW_CALL_OP(set_control,
+                                 pipeline->minfo->shot.vaddr,
+                                 config_id, val);
+}
+
 int fimc_is_pipeline_shot_safe(struct fimc_is_pipeline *pipeline)
 {
 	int ret;
@@ -1690,7 +1757,6 @@ int fimc_is_pipeline_shot(struct fimc_is_pipeline *pipeline)
                         scaler_ud->scp_target_address[i] = 0;
 	}
 	fimc_is_pipeline_buf_unlock(pipeline);
-
 	/* Send shot command */
 	pipeline->fcount++;
 	rcount = pipeline->fcount;

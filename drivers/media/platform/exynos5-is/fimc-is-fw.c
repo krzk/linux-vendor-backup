@@ -297,6 +297,25 @@ static const struct fimc_is_fw_mem fimc_is_fw_130_mem = {
 };
 
 /**
+ * @brief FIMC-IS FW supported cam controls
+ */
+static const unsigned long metadata2_ctrl[] = {
+	/* FIMC_IS_CID_BRIGHTNESS	*/ 0x00a8,
+	/* FIMC_IS_CID_CONTRAST		*/ 0x00ac,
+	/* FIMC_IS_CID_SATURATION	*/ 0x00a4,
+	/* FIMC_IS_CID_HUE		*/ 0x00a0,
+	/* FIMC_IS_CID_AWB		*/ 0x0458,
+	/* FIMC_IS_CID_EXPOSURE]	*/ 0x0038,
+	/* FIMC_IS_CID_FOCUS_MODE	*/ 0x0470,
+	/* FIMC_IS_CID_FOCUS_RANGE	*/ 0x0020,
+	/* FIMC_IS_CID_AWB_MODE		*/ 0x0458,
+	/* FIMC_IS_CID_ISO		*/ 0x0048,
+	/* FIMC_IS_CID_ISO_MODE		*/ 0x3818,
+	/* FIMC_IS_CID_SCENE		*/ 0x0424,
+	/* FIMC_IS_CID_COLOR_MODE	*/ 0x0078,
+};
+
+/**
  * @brief Get the memory layout for given FIMC-IS firmware version
  */
 static int fimc_is_fw_130_mem_cfg(struct fimc_is_fw_mem *memcfg)
@@ -388,65 +407,67 @@ static int fimc_is_fw_130_tweak_params(unsigned int type, void* base_addr, void 
  */
 static int fimc_is_fw_130_config_shot(void * addr)
 {
-        struct camera2_shot *shot = (struct camera2_shot*)addr;
-        if (!addr)
-                return -EINVAL;
-        /* CAM CONTROL */
-        /* REQUEST */
-        shot->ctl.request.base.id = 1;
-        shot->ctl.request.base.metadatamode = METADATA_MODE_FULL;
-        shot->ctl.request.base.framecount   = 0;
-        /* LENS */
-        shot->ctl.lens.optical_stabilization_mode = OPTICAL_STABILIZATION_MODE_ON;
-        shot->ctl.lens.aperture = 1;
-        /* SENSOR */
-        shot->ctl.sensor.exposure_time = 150000000;
-        shot->ctl.sensor.sensitivity = 100;
-        /* FLASH */
-        /* HOTPIXEL */
-        shot->ctl.hotpixel.mode = PROCESSING_MODE_HIGH_QUALITY;
-        /* DEMOSAIC*/
-        shot->ctl.demosaic.mode = PROCESSING_MODE_HIGH_QUALITY;
-        /* NOISE */
-        shot->ctl.noise.mode = PROCESSING_MODE_HIGH_QUALITY;
-        shot->ctl.noise.strength = 1;
+	struct camera2_shot *shot = (struct camera2_shot *)addr;
+
+	if (!addr)
+		return -EINVAL;
+	/* REQUEST */
+	shot->ctl.request.base.id = 1;
+	shot->ctl.request.base.metadatamode = METADATA_MODE_FULL;
+	shot->ctl.request.base.framecount   = 0;
+	/* LENS */
+	shot->ctl.lens.optical_stabilization_mode = OPTICAL_STABILIZATION_MODE_ON;
+	shot->ctl.lens.aperture = 1;
+	/* HOTPIXEL */
+	shot->ctl.hotpixel.mode = PROCESSING_MODE_HIGH_QUALITY;
+	/* DEMOSAIC*/
+	shot->ctl.demosaic.mode = PROCESSING_MODE_HIGH_QUALITY;
+	/* NOISE */
+	shot->ctl.noise.mode = PROCESSING_MODE_HIGH_QUALITY;
+	shot->ctl.noise.strength = 1;
 	/* SHADING */
-        shot->ctl.shading.mode = PROCESSING_MODE_HIGH_QUALITY;
-        /* GEOMETRIC */
-        /* COLOR */
-        shot->ctl.color.base.mode = COLOR_CORRECTION_MODE_HIGH_QUALITY;
-        shot->ctl.color.base.saturation = 1;
-        /* TONEMAP */
-        /* EDGE */
-        /* SCALER */
-        /* JPEG */
-        /* STATS */
-        /* AA */
-        shot->ctl.aa.capture_intent = AA_CAPTURE_INTENT_PREVIEW;
-        shot->ctl.aa.mode     = AA_CONTROL_AUTO;
-        shot->ctl.aa.ae_mode  = AA_AEMODE_ON;
+	shot->ctl.shading.mode = PROCESSING_MODE_HIGH_QUALITY;
+	/* GEOMETRIC */
+	/* COLOR */
+	shot->ctl.color.base.mode = COLOR_CORRECTION_MODE_HIGH_QUALITY;
+	shot->ctl.color.base.saturation = 1;
+	/* AA */
+	shot->ctl.aa.capture_intent = AA_CAPTURE_INTENT_PREVIEW;
+	shot->ctl.aa.mode     = AA_CONTROL_AUTO;
+	shot->ctl.aa.ae_mode  = AA_AEMODE_ON;
 
-        shot->dm.aa.iso_mode = AA_ISOMODE_MANUAL;
-        shot->dm.aa.iso_value = 100;
-        shot->ctl.aa.ae_anti_banding_mode = AA_AE_ANTIBANDING_AUTO;
-        shot->ctl.aa.ae_flash_mode = AA_FLASHMODE_ON;
-        shot->ctl.aa.awb_mode = AA_AWBMODE_WB_AUTO;
-        shot->ctl.aa.af_mode = AA_AFMODE_OFF;
-        shot->ctl.aa.ae_target_fps_range[0] = 15;
-        shot->ctl.aa.ae_target_fps_range[1] = 30;
-        /* USER CONTROL */
-        shot->uctl.u_update_bitmap = 1 /* SENSOR */ | (1<<1) /* FLASH*/;
-        shot->uctl.flash_ud.ctl.flash_mode   = CAM2_FLASH_MODE_SINGLE;
+	shot->ctl.aa.ae_anti_banding_mode = AA_AE_ANTIBANDING_AUTO;
 
-        shot->magicnumber    = FIMC_IS_MAGIC_NUMBER;
+	shot->ctl.aa.ae_flash_mode = AA_FLASHMODE_ON;
+	shot->ctl.aa.ae_target_fps_range[0] = 15;
+	shot->ctl.aa.ae_target_fps_range[1] = 30;
+	/* USER CONTROL */
+	shot->uctl.u_update_bitmap = 1 /* SENSOR */ | (1<<1) /* FLASH*/;
+	shot->uctl.flash_ud.ctl.flash_mode   = CAM2_FLASH_MODE_SINGLE;
 
-        return 0;
+	shot->magicnumber = FIMC_IS_MAGIC_NUMBER;
+
+	return 0;
+}
+
+static int fimc_is_fw_130_set_control(void *base_addr, unsigned int id,
+				      unsigned long val)
+{
+	unsigned long *ctrl;
+
+	if (!base_addr || id >= FIMC_IS_CID_MAX)
+		return -EINVAL;
+
+	ctrl  = (unsigned long *)((char *)base_addr + metadata2_ctrl[id]);
+	*ctrl = val;
+	return 0;
 }
 
 static const struct fimc_is_fw_ops fimc_is_fw_130_ops = {
-        .mem_config  = fimc_is_fw_130_mem_cfg,
-        .tweak_param = fimc_is_fw_130_tweak_params,
-        .config_shot = fimc_is_fw_130_config_shot,
+	.mem_config  = fimc_is_fw_130_mem_cfg,
+	.tweak_param = fimc_is_fw_130_tweak_params,
+	.config_shot = fimc_is_fw_130_config_shot,
+	.set_control = fimc_is_fw_130_set_control,
 };
 /** @} */ /* End of FIMC_IS_FW_V130_SUPPORT */
 

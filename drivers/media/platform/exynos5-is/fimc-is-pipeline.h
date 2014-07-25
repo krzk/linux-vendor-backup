@@ -132,7 +132,12 @@ int fimc_is_pipeline_scaler_start(struct fimc_is_pipeline *pipeline,
 		unsigned int num_planes);
 int fimc_is_pipeline_scaler_stop(struct fimc_is_pipeline *pipeline,
 		enum fimc_is_scaler_id scaler_id);
+int fimc_is_pipeline_set_scaler_effect(struct fimc_is_pipeline *pipeline,
+				   unsigned int rotation);
 void fimc_is_pipeline_config_shot(struct fimc_is_pipeline *pipeline);
+int fimc_is_pipeline_update_shot_ctrl(struct fimc_is_pipeline *pipeline,
+                                     unsigned int id,
+                                     unsigned long val);
 int fimc_is_pipeline_shot_safe(struct fimc_is_pipeline *pipeline);
 int fimc_is_pipeline_shot(struct fimc_is_pipeline *pipeline);
 int fimc_is_pipeline_start(struct fimc_is_pipeline *pipeline, int streamon);

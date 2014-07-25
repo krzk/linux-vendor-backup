@@ -528,8 +528,8 @@ enum scaler_scaling_error {
 };
 
 enum scaler_rotation_command {
-	SCALER_ROTATION_COMMAND_DISABLE		= 0,
-	SCALER_ROTATION_COMMAND_CLOCKWISE90	= 1
+	SCALER_ROTATION_CMD_DISABLE		= 0,
+	SCALER_ROTATION_CMD_CLOCKWISE90		= 1
 };
 
 enum scaler_rotation_error {

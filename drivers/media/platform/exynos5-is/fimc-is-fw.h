@@ -43,16 +43,38 @@ struct fimc_is_fw_mem {
         unsigned int  meta_type;
 };
 
+/*
+ * Set of supported controls
+ */
+enum {
+	FIMC_IS_CID_BRIGHTNESS,	/* [0..5] */
+	FIMC_IS_CID_CONTRAST,	/* [0..5] */
+	FIMC_IS_CID_SATURATION,	/* [0..5] */
+	FIMC_IS_CID_HUE,	/* [0..5] */
+	FIMC_IS_CID_AWB,	/* [ON/OFF] */
+	FIMC_IS_CID_EXPOSURE,	/* Absolute value */
+	FIMC_IS_CID_FOCUS_MODE,	/* Auto [ON/OFF] */
+	FIMC_IS_CID_FOCUS_RANGE,/* [MACRO/NORMAL] */
+	FIMC_IS_CID_AWB_MODE,	/* @see: V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE */
+	FIMC_IS_CID_ISO,	/* [80/100/200/400/800] */
+	FIMC_IS_CID_ISO_MODE,	/* [AUTO/MANUAL */
+	FIMC_IS_CID_SCENE,	/* @see: V4L2_CID_SCENE_MODE */
+	FIMC_IS_CID_COLOR_MODE,
+	FIMC_IS_CID_MAX
+};
+
 /**
  * @brief FIMC-IS supported firmware-specific operations
  */
 struct fimc_is_fw_ops {
-        /* Get firmware specific memory layout information */
-        int (*mem_config) (struct fimc_is_fw_mem*);
-        /* Tweak FIMC-IS subblock parameters specific for given firmware */
-        int (*tweak_param) (unsigned int, void *, void*);
-        /* Setup initial shot configuration */
-        int (*config_shot) (void*);
+	/* Get firmware specific memory layout information */
+	int (*mem_config)(struct fimc_is_fw_mem *);
+	/* Tweak FIMC-IS subblock parameters specific for given firmware */
+	int (*tweak_param)(unsigned int, void *, void *);
+	/* Setup initial shot configuration */
+	int (*config_shot)(void *);
+	/* Set individual controls for camera shot */
+	int (*set_control)(void *, unsigned int, unsigned long);
 };
 
 extern const struct fimc_is_fw_ops *fimc_is_fw_ops;
