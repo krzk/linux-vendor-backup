@@ -564,6 +564,11 @@
 			gpio-key,wakeup;
 		};
 	};
+
+	tmu@100C0000 {
+		vtmu-supply = <&ldo10_reg>;
+		status = "okay";
+	};
 };
 
 &pinctrl_1 {
