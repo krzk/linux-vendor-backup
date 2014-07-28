@@ -1534,6 +1534,14 @@
 		power-gpio = <&gpx2 7 1>;
 		extcon = <&max_muic>;
 	};
+
+	jack {
+		compatible = "samsung,extcon-port";
+		extcon = <&max_muic>;
+
+		samsung,extcon-online-usb;
+		samsung,extcon-online-charger;
+	};
 };
 
 &pinctrl_1 {
