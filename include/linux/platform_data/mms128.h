@@ -23,14 +23,7 @@ struct melfas_tsi_platform_data {
 	int	invert_x;
 	int	invert_y;
 
-	int	gpio_int;
-	int	gpio_sda;
-	int	gpio_scl;
 	int	(*mux_fw_flash)(bool to_gpios);
-	const char	*tsp_vendor;
-	const char	*tsp_ic;
-	int	tsp_tx;
-	int	tsp_rx;
 	int	fw_bin_ver[3];
 	const char	*config_fw_version;
 	void	(*input_event)(void *data);
