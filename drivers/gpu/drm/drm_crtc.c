@@ -2292,6 +2292,7 @@ static int format_check(const struct drm_mode_fb_cmd2 *r)
 	case DRM_FORMAT_NV61:
 	case DRM_FORMAT_NV24:
 	case DRM_FORMAT_NV42:
+	case DRM_FORMAT_NV12MT:
 	case DRM_FORMAT_YUV410:
 	case DRM_FORMAT_YVU410:
 	case DRM_FORMAT_YUV411:
@@ -3682,6 +3683,7 @@ int drm_format_num_planes(uint32_t format)
 	case DRM_FORMAT_NV61:
 	case DRM_FORMAT_NV24:
 	case DRM_FORMAT_NV42:
+	case DRM_FORMAT_NV12MT:
 		return 2;
 	default:
 		return 1;
@@ -3717,6 +3719,7 @@ int drm_format_plane_cpp(uint32_t format, int plane)
 	case DRM_FORMAT_NV61:
 	case DRM_FORMAT_NV24:
 	case DRM_FORMAT_NV42:
+	case DRM_FORMAT_NV12MT:
 		return plane ? 2 : 1;
 	case DRM_FORMAT_YUV410:
 	case DRM_FORMAT_YVU410:
@@ -3760,6 +3763,7 @@ int drm_format_horz_chroma_subsampling(uint32_t format)
 	case DRM_FORMAT_NV21:
 	case DRM_FORMAT_NV16:
 	case DRM_FORMAT_NV61:
+	case DRM_FORMAT_NV12MT:
 	case DRM_FORMAT_YUV422:
 	case DRM_FORMAT_YVU422:
 	case DRM_FORMAT_YUV420:
@@ -3789,6 +3793,7 @@ int drm_format_vert_chroma_subsampling(uint32_t format)
 	case DRM_FORMAT_YVU420:
 	case DRM_FORMAT_NV12:
 	case DRM_FORMAT_NV21:
+	case DRM_FORMAT_NV12MT:
 		return 2;
 	default:
 		return 1;
