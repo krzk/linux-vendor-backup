@@ -725,7 +725,9 @@ static void i2s_shutdown(struct snd_pcm_substream *substream,
 	} else {
 		u32 mod = readl(i2s->addr + I2SMOD);
 		i2s->cdclk_out = !(mod & MOD_CDCLKCON);
-		other->cdclk_out = i2s->cdclk_out;
+
+		if (other)
+			other->cdclk_out = i2s->cdclk_out;
 	}
 	/* Reset any constraint on RFS and BFS */
 	i2s->rfs = 0;
