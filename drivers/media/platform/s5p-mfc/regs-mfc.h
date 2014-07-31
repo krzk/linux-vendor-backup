@@ -396,6 +396,7 @@
 #define S5P_FIMV_REG_CLEAR_COUNT		0
 
 /* Error handling defines */
+#define S5P_FIMV_ERR_INCOMPLETE_FRAME		124
 #define S5P_FIMV_ERR_WARNINGS_START		145
 #define S5P_FIMV_ERR_DEC_MASK			0xFFFF
 #define S5P_FIMV_ERR_DEC_SHIFT			0
