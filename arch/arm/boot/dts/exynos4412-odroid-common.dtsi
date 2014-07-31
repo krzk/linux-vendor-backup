@@ -486,6 +486,10 @@
 	i2c@138E0000 {
 		status = "okay";
 	};
+
+	codec@13400000 {
+		status = "okay";
+	};
 };
 
 /* RSTN signal for eMMC */
