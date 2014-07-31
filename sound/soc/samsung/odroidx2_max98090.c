@@ -116,21 +116,21 @@ MODULE_DEVICE_TABLE(of, odroidx2_audio_of_match);
 
 static int odroidx2_audio_probe(struct platform_device *pdev)
 {
-	struct device_node *np = pdev->dev.of_node;
+	struct device_node *snd_node = pdev->dev.of_node;
 	struct snd_soc_card *card = &odroidx2;
+	struct device_node *i2s_node, *codec_node;
 	struct odroidx2_drv_data *dd;
 	const struct of_device_id *of_id;
 	int ret;
 
-	card->dev = &pdev->dev;
-
-	of_id = of_match_node(odroidx2_audio_of_match, np);
+	of_id = of_match_node(odroidx2_audio_of_match, snd_node);
 	dd = (struct odroidx2_drv_data *)of_id->data;
 
 	card->dapm_widgets = dd->dapm_widgets;
 	card->num_dapm_widgets = dd->num_dapm_widgets;
 	card->controls = dd->controls;
 	card->num_controls = dd->num_controls;
+	card->dev = &pdev->dev;
 
 	ret = snd_soc_of_parse_card_name(card, "samsung,model");
 	if (ret < 0)
@@ -140,40 +140,37 @@ static int odroidx2_audio_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
-	odroidx2_dai[0].codec_of_node = of_parse_phandle(np,
-						"samsung,audio-codec", 0);
-	if (!odroidx2_dai[0].codec_of_node) {
+	codec_node = of_parse_phandle(snd_node, "samsung,audio-codec", 0);
+	if (!codec_node) {
 		dev_err(&pdev->dev,
-			"Property 'samsung,audio-codec' missing or invalid\n");
+			"Failed parsing samsung,audio-codec property\n");
 		return -EINVAL;
 	}
 
-	odroidx2_dai[0].cpu_of_node = of_parse_phandle(np,
-						"samsung,i2s-controller", 0);
-	if (!odroidx2_dai[0].cpu_of_node) {
+	i2s_node = of_parse_phandle(snd_node, "samsung,i2s-controller", 0);
+	if (!i2s_node) {
 		dev_err(&pdev->dev,
-			"Property 'samsung,i2s-controller' missing or invalid\n");
+			"Failed parsing samsung,i2s-controller property\n");
 		ret = -EINVAL;
-		goto err_put_cod_n;
+		goto err_put_codec_n;
 	}
 
-	odroidx2_dai[0].platform_of_node = odroidx2_dai[0].cpu_of_node;
-
-	/* Configure the secondary audio interface with the same codec dai */
-	odroidx2_dai[1].codec_of_node = odroidx2_dai[0].codec_of_node;
+	odroidx2_dai[0].codec_of_node = codec_node;
+	odroidx2_dai[0].cpu_of_node = i2s_node;
+	odroidx2_dai[0].platform_of_node = i2s_node;
+	odroidx2_dai[1].codec_of_node = codec_node;
 
 	ret = snd_soc_register_card(card);
 	if (ret) {
 		dev_err(&pdev->dev, "snd_soc_register_card failed: %d\n", ret);
-		goto err_put_cpu_n;
+		goto err_put_i2s_n;
 	}
-
 	return 0;
 
-err_put_cpu_n:
-	of_node_put((struct device_node *)odroidx2_dai[0].cpu_of_node);
-err_put_cod_n:
-	of_node_put((struct device_node *)odroidx2_dai[0].codec_of_node);
+err_put_i2s_n:
+	of_node_put(i2s_node);
+err_put_codec_n:
+	of_node_put(codec_node);
 	return ret;
 }
 
@@ -185,6 +182,7 @@ static int odroidx2_audio_remove(struct platform_device *pdev)
 
 	of_node_put((struct device_node *)odroidx2_dai[0].cpu_of_node);
 	of_node_put((struct device_node *)odroidx2_dai[0].codec_of_node);
+	of_node_put((struct device_node *)odroidx2_dai[1].codec_of_node);
 
 	return 0;
 }
