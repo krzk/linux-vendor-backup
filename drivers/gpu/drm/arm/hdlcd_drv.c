@@ -43,11 +43,7 @@ static int hdlcd_unload(struct drm_device *dev)
 
 	platform_set_drvdata(dev->platformdev, NULL);
 
-	if (hdlcd->mmio)
-		iounmap(hdlcd->mmio);
-
 	dev->dev_private = NULL;
-	kfree(hdlcd);
 
 	return 0;
 }
@@ -61,7 +57,7 @@ static int hdlcd_load(struct drm_device *dev, unsigned long flags)
 	u32 version;
 	int ret;
 
-	hdlcd = kzalloc(sizeof(*hdlcd), GFP_KERNEL);
+	hdlcd = devm_kzalloc(&pdev->dev, sizeof(*hdlcd), GFP_KERNEL);
 	if (!hdlcd) {
 		dev_err(dev->dev, "failed to allocate driver data\n");
 		return -ENOMEM;
@@ -83,18 +79,19 @@ static int hdlcd_load(struct drm_device *dev, unsigned long flags)
 		goto fail;
 	}
 
-	hdlcd->mmio = ioremap_nocache(res->start, resource_size(res));
+	hdlcd->mmio = devm_ioremap_nocache(&pdev->dev, res->start,
+			resource_size(res));
 	if (!hdlcd->mmio) {
 		dev_err(dev->dev, "failed to map control registers area\n");
 		ret = -ENOMEM;
 		goto fail;
 	}
 
-	hdlcd->clk = clk_get(dev->dev, "pxlclk");
+	hdlcd->clk = devm_clk_get(dev->dev, "pxlclk");
 	if (IS_ERR(hdlcd->clk)) {
 		dev_err(dev->dev, "unable to get an usable clock\n");
 		ret = PTR_ERR(hdlcd->clk);
-		goto fail;
+		return ret;
 	}
 
 	if (of_property_read_u32(pdev->dev.of_node, "i2c-slave", &slave_phandle)) {
