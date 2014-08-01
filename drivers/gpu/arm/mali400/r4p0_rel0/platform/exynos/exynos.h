@@ -1,18 +1,12 @@
-/* drivers/gpu/mali400/mali/platform/exynos/exynos.h
+/*
+ * Mali400 platform glue for Samsung Exynos SoCs
  *
- * Copyright 2011 by S.LSI. Samsung Electronics Inc.
- * San#24, Nongseo-Dong, Giheung-Gu, Yongin, Korea
- *
- * Samsung SoC Mali400 DVFS driver
+ * Copyright 2013 by Samsung Electronics Co., Ltd.
+ * Author: Tomasz Figa <t.figa@samsung.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software FoundatIon.
- */
-
-/**
- * @file exynos.h
- * Platform specific Mali driver functions for the exynos platforms
  */
 
 #ifndef __EXYNOS_H__
@@ -21,10 +15,6 @@
 #include <linux/of_device.h>
 
 #include "mali_osk.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /** @brief description of power change reasons
  */
@@ -76,7 +66,4 @@ _mali_osk_errcode_t mali_platform_power_mode_change(mali_power_mode power_mode);
 
 extern const struct of_device_id mali_of_matches[];
 
-#ifdef __cplusplus
-}
-#endif
 #endif
