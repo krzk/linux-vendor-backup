@@ -123,7 +123,7 @@ struct mali_mmu_core *mali_mmu_create(_mali_osk_resource_t *resource, struct mal
 					                              mali_mmu_probe_trigger,
 					                              mali_mmu_probe_ack,
 					                              mmu,
-					                              resource->description);
+					                              "mali_mmu_irq_handlers");
 					if (NULL != mmu->irq) {
 						return mmu;
 					} else {

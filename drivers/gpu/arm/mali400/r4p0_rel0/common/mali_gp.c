@@ -49,7 +49,7 @@ struct mali_gp_core *mali_gp_create(const _mali_osk_resource_t * resource, struc
 					                               mali_gp_irq_probe_trigger,
 					                               mali_gp_irq_probe_ack,
 					                               core,
-					                               resource->description);
+					                               "mali_gp_irq_handlers");
 					if (NULL != core->irq) {
 						MALI_DEBUG_PRINT(4, ("Mali GP: set global gp core from 0x%08X to 0x%08X\n", mali_global_gp_core, core));
 						mali_global_gp_core = core;

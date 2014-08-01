@@ -70,7 +70,7 @@ struct mali_pp_core *mali_pp_create(const _mali_osk_resource_t *resource, struct
 					                               mali_pp_irq_probe_trigger,
 					                               mali_pp_irq_probe_ack,
 					                               core,
-					                               resource->description);
+					                               "mali_pp_irq_handlers");
 					if (NULL != core->irq) {
 						mali_global_pp_cores[mali_global_num_pp_cores] = core;
 						mali_global_num_pp_cores++;
