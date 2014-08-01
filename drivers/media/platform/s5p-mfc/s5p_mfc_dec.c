@@ -687,10 +687,18 @@ static int vidioc_streamon(struct file *file, void *priv,
 			ctx->src_bufs_cnt = 0;
 			ctx->capture_state = QUEUE_FREE;
 			ctx->output_state = QUEUE_FREE;
-			s5p_mfc_hw_call(dev->mfc_ops, alloc_instance_buffer,
+			ret = s5p_mfc_hw_call(dev->mfc_ops, alloc_instance_buffer,
 					ctx);
-			s5p_mfc_hw_call(dev->mfc_ops, alloc_dec_temp_buffers,
+			if(ret)
+				return ret;
+
+			ret = s5p_mfc_hw_call(dev->mfc_ops, alloc_dec_temp_buffers,
 					ctx);
+			if(ret) {
+				s5p_mfc_hw_call(dev->mfc_ops, release_instance_buffer, ctx);
+				return ret;
+			}
+
 			set_work_bit_irqsave(ctx);
 			s5p_mfc_clean_ctx_int_flags(ctx);
 			s5p_mfc_hw_call(dev->mfc_ops, try_run, dev);
