@@ -37,6 +37,16 @@
 		pwms = <&pwm 0 10000 0>;
 		status = "okay";
 	};
+
+	usb_extcon: odroid-usbotg {
+		compatible = "extcon-odroid-usbotg";
+		otg-id-gpio = <&gpx3 1 0>;
+		vbus-det-gpio = <&gpx1 6 0>;
+	};
+
+	hsotg@12480000 {
+		extcon = <&usb_extcon>;
+	};
 };
 
 &pwm {
@@ -73,4 +83,16 @@
 		"IN1", "Headphone Jack",
 		"Speakers", "SPKL",
 		"Speakers", "SPKR";
+};
+
+&pinctrl_1 {
+	otg_id: otg_id {
+		samsung,pins = "gpx3-1";
+		samsung,pin-pud = <3>;
+	};
+
+	vbus_det: vbus_det {
+		samsung,pins = "gpx1-6";
+		samsung,pin-pud = <0>;
+	};
 };

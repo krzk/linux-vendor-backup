@@ -69,6 +69,15 @@
 		enable-active-high;
 		regulator-always-on;
 	};
+
+	usb_extcon: odroid-usbotg {
+		compatible = "extcon-odroid-usbotg";
+		vbus-det-gpio = <&gpx1 6 0>;
+	};
+
+	hsotg@12480000 {
+		extcon = <&usb_extcon>;
+	};
 };
 
 &ehci {
@@ -81,5 +90,15 @@
 	gpio_home_key: home_key {
 		samsung,pins = "gpx2-2";
 		samsung,pin-pud = <0>;
+	};
+
+	otg_id: otg_id {
+		samsung,pins = "gpx3-1";
+		samsung,pin-pud = <3>;
+	};
+
+	vbus_det: vbus_det {
+		  samsung,pins = "gpx1-6";
+		  samsung,pin-pud = <0>;
 	};
 };
