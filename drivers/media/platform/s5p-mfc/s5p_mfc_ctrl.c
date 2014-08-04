@@ -277,6 +277,7 @@ int s5p_mfc_init_hw(struct s5p_mfc_dev *dev)
 	}
 	s5p_mfc_clean_dev_int_flags(dev);
 	/* 4. Initialize firmware */
+	mfc_debug(2, "Ok, now will write a command to init the system\n");
 	ret = s5p_mfc_hw_call(dev->mfc_cmds, sys_init_cmd, dev);
 	if (ret) {
 		mfc_err("Failed to send command to MFC - timeout\n");
@@ -284,9 +285,8 @@ int s5p_mfc_init_hw(struct s5p_mfc_dev *dev)
 		s5p_mfc_clock_off();
 		return ret;
 	}
-	mfc_debug(2, "Ok, now will wait for completion of hardware init\n");
 	if (s5p_mfc_wait_for_done_dev(dev, S5P_MFC_R2H_CMD_SYS_INIT_RET)) {
-		mfc_err("Failed to init hardware\n");
+		mfc_err("Failed to init MFC firmware - timeout\n");
 		s5p_mfc_reset(dev);
 		s5p_mfc_clock_off();
 		return -EIO;
