@@ -48,10 +48,28 @@
 		status = "okay";
 	};
 
+	clock-controller@10030000 {
+		assigned-clocks = <&clock 6>; /* fout_epll */
+		assigned-clock-rates = <192000000>;
+	};
+
 	sound: sound {
 		compatible = "samsung,odroidx2-audio";
 		samsung,i2s-controller = <&i2s0>;
 		samsung,audio-codec = <&max98090>;
+
+		assigned-clocks = <&clock_audss 0>, /* mout_audss */
+				<&clock_audss 3>, /* mout_i2s */
+				<&clock_audss 1>, /* dout_rp */
+				<&clock_audss 2>; /* dout_aud_bus */
+
+		assigned-clock-parents = <&clock 6>, /* fout_epll */
+				<&clock_audss 0>; /* mout_audss */
+
+		assigned-clock-rates = <0>,
+				<0>,
+				<192000000>,
+				<19200000>;
 	};
 
 	mshc@12550000 {
