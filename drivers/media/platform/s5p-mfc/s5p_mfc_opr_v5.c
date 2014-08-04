@@ -323,10 +323,9 @@ static void s5p_mfc_dec_calc_dpb_size_v5(struct s5p_mfc_ctx *ctx)
 		}
 
 		/* If interlace is deteced for MPEG2 decoding the size of the
-		 * luma an chroma buffers should be doubled */
+		 * luma and chroma buffers should be doubled */
 		if (mfc_is_iommu_used(ctx) && ctx->interlace && ctx->codec_mode
-						== S5P_MFC_CODEC_MPEG2_DEC)
-		{
+		    == S5P_MFC_CODEC_MPEG2_DEC) {
 			ctx->luma_size *= 2;
 			ctx->chroma_size *= 2;
 		}
