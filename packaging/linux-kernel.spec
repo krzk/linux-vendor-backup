@@ -28,6 +28,7 @@ BuildRequires: flex
 BuildRequires: bison
 BuildRequires: libdw-devel
 BuildRequires: python-devel
+BuildRequires: e2fsprogs >= 1.42.11
 
 Provides: kernel = %{version}-%{release}
 Provides: kernel-uname-r = %{fullVersion}
@@ -47,6 +48,15 @@ between the Linux kernel and userspace libraries and programs.  The
 header files define structures and constants that are needed for
 building most standard programs and are also needed for rebuilding the
 glibc package.
+
+%package modules
+Summary: Kernel modules
+Group: System/Kernel
+Provides: kernel-modules = %{fullVersion}
+Provides: kernel-modules-uname-r = %{fullVersion}
+
+%description modules
+Kernel-modules includes the loadable kernel modules(.ko files).
 
 %package devel
 Summary: Prebuilt linux kernel for out-of-tree modules
@@ -95,7 +105,7 @@ QA_SKIP_BUILD_ROOT="DO_NOT_WANT"; export QA_SKIP_BUILD_ROOT
 # 1. Destynation directories
 mkdir -p %{buildroot}/usr/src/linux-kernel-build-%{fullVersion}
 mkdir -p %{buildroot}/boot/
-mkdir -p %{buildroot}/boot/lib/modules/%{fullVersion}
+mkdir -p %{buildroot}/lib/modules/%{fullVersion}
 
 # 2. Install uImage, System.map, ...
 install -m 755 arch/arm/boot/uImage %{buildroot}/boot/
@@ -105,7 +115,7 @@ install -m 644 System.map %{buildroot}/boot/System.map-%{fullVersion}
 install -m 644 .config %{buildroot}/boot/config-%{fullVersion}
 
 # 3. Install modules
-make INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=%{buildroot}/boot/ modules_install
+make INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=%{buildroot} modules_install
 
 # 4. Install kernel headers
 make INSTALL_PATH=%{buildroot} INSTALL_MOD_PATH=%{buildroot} INSTALL_HDR_PATH=%{buildroot}/usr headers_install
@@ -159,12 +169,21 @@ rm -rf %{buildroot}/vmlinux*
 find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion}/tools/perf/scripts/ -type f %{excluded_files} -exec chmod 755 {} \;
 find %{buildroot}/usr/src/linux-kernel-build-%{fullVersion}/scripts/            -type f %{excluded_files} -exec chmod 755 {} \;
 find %{buildroot}/usr                                                           -type f ! -name "check-perf-tracei.pl" -name "*.sh" -name "*.pl" -exec chmod 755 {} \;
-find %{buildroot}/boot/lib/modules/ -name "*.ko"                                     -type f -exec chmod 755 {} \;
+find %{buildroot}/lib/modules/ -name "*.ko"                                     -type f -exec chmod 755 {} \;
 
 # 8. Create symbolic links
-rm -f %{buildroot}/boot/lib/modules/%{fullVersion}/build
-rm -f %{buildroot}/boot/lib/modules/%{fullVersion}/source
-ln -sf /usr/src/linux-kernel-build-%{fullVersion} %{buildroot}/boot/lib/modules/%{fullVersion}/build
+rm -f %{buildroot}/lib/modules/%{fullVersion}/build
+rm -f %{buildroot}/lib/modules/%{fullVersion}/source
+ln -sf /usr/src/linux-kernel-build-%{fullVersion} %{buildroot}/lib/modules/%{fullVersion}/build
+
+# 9. Calculate modules.img size
+BIN_SIZE=`du -s %{buildroot}/lib/modules | awk {'printf $1;'}`
+let BIN_SIZE=${BIN_SIZE}+1024+512
+
+dd if=/dev/zero of=%{buildroot}/boot/modules.img count=${BIN_SIZE} bs=1024
+/usr/sbin/mke2fs -t ext4 -F -d %{buildroot}/lib/modules/ %{buildroot}/boot/modules.img
+
+rm -rf %{buildroot}/lib/modules/%{fullVersion}/kernel
 
 %clean
 rm -rf %{buildroot}
@@ -173,11 +192,14 @@ rm -rf %{buildroot}
 %defattr (-, root, root)
 /usr/include
 
+%files modules
+/boot/modules.img
+
 %files devel
 %defattr (-, root, root)
 /usr/src/linux-kernel-build-%{fullVersion}
-/boot/lib/modules/%{fullVersion}/modules.*
-/boot/lib/modules/%{fullVersion}/build
+/lib/modules/%{fullVersion}/modules.*
+/lib/modules/%{fullVersion}/build
 
 %files
 %license COPYING
@@ -185,8 +207,6 @@ rm -rf %{buildroot}
 /boot/*.dtb
 /boot/System.map*
 /boot/config*
-/boot/lib/modules/%{fullVersion}/kernel
-/boot/lib/modules/%{fullVersion}/modules.*
 
 %files -n perf
 %license COPYING
