@@ -1083,7 +1083,7 @@ static void hdmi_audio_init(struct hdmi_context *hdata)
 	hdmi_set_acr(sample_rate, acr);
 	hdmi_reg_acr(hdata, acr);
 
-	hdmi_reg_writeb(hdata, HDMI_I2S_MUX_CON, HDMI_I2S_IN_DISABLE
+	hdmi_reg_writeb(hdata, HDMI_I2S_MUX_CON, HDMI_I2S_IN_ENABLE
 				| HDMI_I2S_AUD_I2S | HDMI_I2S_CUV_I2S_ENABLE
 				| HDMI_I2S_MUX_ENABLE);
 
@@ -1107,7 +1107,7 @@ static void hdmi_audio_init(struct hdmi_context *hdata)
 	hdmi_reg_writeb(hdata, HDMI_I2S_PIN_SEL_0, HDMI_I2S_SEL_SCLK(5)
 			| HDMI_I2S_SEL_LRCK(6));
 	hdmi_reg_writeb(hdata, HDMI_I2S_PIN_SEL_1, HDMI_I2S_SEL_SDATA1(1)
-			| HDMI_I2S_SEL_SDATA2(4));
+			| HDMI_I2S_SEL_SDATA0(4));
 	hdmi_reg_writeb(hdata, HDMI_I2S_PIN_SEL_2, HDMI_I2S_SEL_SDATA3(1)
 			| HDMI_I2S_SEL_SDATA2(2));
 	hdmi_reg_writeb(hdata, HDMI_I2S_PIN_SEL_3, HDMI_I2S_SEL_DSD(0));
