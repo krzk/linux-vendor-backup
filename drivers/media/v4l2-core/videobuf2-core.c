@@ -437,14 +437,21 @@ static int __vb2_queue_free(struct vb2_queue *q, unsigned int buffers)
 {
 	unsigned int buffer;
 
-	/* Call driver-provided cleanup function for each buffer, if provided */
-	if (q->ops->buf_cleanup) {
-		for (buffer = q->num_buffers - buffers; buffer < q->num_buffers;
-		     ++buffer) {
-			struct vb2_buffer *vb = q->bufs[buffer];
-
-			if (vb && vb->planes[0].mem_priv)
-				q->ops->buf_cleanup(vb);
+	/*
+	 * Sanity check: when preparing a buffer the queue lock is released for
+	 * a short while (see __buf_prepare for the details), which would allow
+	 * a race with a reqbufs which can call this function. Removing the
+	 * buffers from underneath __buf_prepare is obviously a bad idea, so we
+	 * check if any of the buffers is in the state PREPARING, and if so we
+	 * just return -EAGAIN.
+	 */
+	for (buffer = q->num_buffers - buffers; buffer < q->num_buffers;
+	     ++buffer) {
+		if (q->bufs[buffer] == NULL)
+			continue;
+		if (q->bufs[buffer]->state == VB2_BUF_STATE_PREPARING) {
+			dprintk(1, "preparing buffers, cannot free\n");
+			return -EAGAIN;
 		}
 	}
 
@@ -1354,9 +1361,9 @@ static int __qbuf_userptr(struct vb2_buffer *vb, const struct v4l2_buffer *b)
 		if (vb->planes[plane].mem_priv) {
 			if (!reacquired) {
 				reacquired = true;
-				q->ops->buf_cleanup(vb);
+				call_void_vb_qop(vb, buf_cleanup, vb);
 			}
-			call_memop(q, put_userptr, vb->planes[plane].mem_priv);
+			call_void_memop(vb, put_userptr, vb->planes[plane].mem_priv);
 		}
 
 		vb->planes[plane].mem_priv = NULL;
@@ -1388,17 +1395,17 @@ static int __qbuf_userptr(struct vb2_buffer *vb, const struct v4l2_buffer *b)
 		 * the driver-specific initialization on the newly acquired
 		 * buffer, if provided.
 		 */
-		ret = call_qop(q, buf_init, vb);
+		ret = call_vb_qop(vb, buf_init, vb);
 		if (ret) {
-			dprintk(1, "qbuf: buffer initialization failed\n");
+			dprintk(1, "buffer initialization failed\n");
 			goto err;
 		}
 	}
 
-	ret = call_qop(q, buf_prepare, vb);
+	ret = call_vb_qop(vb, buf_prepare, vb);
 	if (ret) {
-		dprintk(1, "qbuf: buffer preparation failed\n");
-		call_qop(q, buf_cleanup, vb);
+		dprintk(1, "buffer preparation failed\n");
+		call_void_vb_qop(vb, buf_cleanup, vb);
 		goto err;
 	}
 
@@ -1413,19 +1420,6 @@ err:
 		vb->v4l2_planes[plane].length = 0;
 	}
 
-	return ret;
-}
-
-/**
- * __qbuf_mmap() - handle qbuf of an MMAP buffer
- */
-static int __qbuf_mmap(struct vb2_buffer *vb, const struct v4l2_buffer *b)
-{
-	int ret;
-	struct vb2_queue *q = vb->vb2_queue;
-
-	__fill_vb2_buffer(vb, b, vb->v4l2_planes);
-	ret = call_qop(q, buf_prepare, vb);
 	return ret;
 }
 
@@ -1481,11 +1475,6 @@ static int __qbuf_dmabuf(struct vb2_buffer *vb, const struct v4l2_buffer *b)
 			call_void_vb_qop(vb, buf_cleanup, vb);
 		}
 
-		if (!reacquired) {
-			reacquired = true;
-			call_qop(q, buf_cleanup, vb);
-		}
-
 		/* Release previously acquired memory if present */
 		__vb2_plane_dmabuf_put(vb, &vb->planes[plane]);
 		memset(&vb->v4l2_planes[plane], 0, sizeof(struct v4l2_plane));
@@ -1530,17 +1519,17 @@ static int __qbuf_dmabuf(struct vb2_buffer *vb, const struct v4l2_buffer *b)
 		 * Call driver-specific initialization on the newly acquired buffer,
 		 * if provided.
 		 */
-		ret = call_qop(q, buf_init, vb);
+		ret = call_vb_qop(vb, buf_init, vb);
 		if (ret) {
-			dprintk(1, "qbuf: buffer initialization failed\n");
+			dprintk(1, "buffer initialization failed\n");
 			goto err;
 		}
 	}
 
-	ret = call_qop(q, buf_prepare, vb);
+	ret = call_vb_qop(vb, buf_prepare, vb);
 	if (ret) {
-		dprintk(1, "qbuf: buffer preparation failed\n");
-		call_qop(q, buf_cleanup, vb);
+		dprintk(1, "buffer preparation failed\n");
+		call_void_vb_qop(vb, buf_cleanup, vb);
 		goto err;
 	}
 
