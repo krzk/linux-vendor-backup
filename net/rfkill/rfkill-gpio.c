@@ -27,19 +27,26 @@
 #include <linux/of_gpio.h>
 
 #include <linux/rfkill-gpio.h>
+#include <linux/irq.h>
+#include <linux/interrupt.h>
 
 struct rfkill_gpio_data {
 	const char		*name;
 	enum rfkill_type	type;
 	int			reset_gpio;
 	int			shutdown_gpio;
+	int			wake_gpio;
+	int			host_wake_gpio;
 
 	struct rfkill		*rfkill_dev;
 	char			*reset_name;
 	char			*shutdown_name;
+	char			*wake_name;
+	char			*host_wake_name;
 	struct clk		*clk;
 
 	bool			clk_enabled;
+	int			irq;
 };
 
 static int rfkill_gpio_set_power(void *data, bool blocked)
@@ -51,11 +58,15 @@ static int rfkill_gpio_set_power(void *data, bool blocked)
 			gpio_set_value(rfkill->shutdown_gpio, 0);
 		if (gpio_is_valid(rfkill->reset_gpio))
 			gpio_set_value(rfkill->reset_gpio, 0);
+		if (gpio_is_valid(rfkill->wake_gpio))
+			gpio_set_value(rfkill->wake_gpio, 0);
 		if (!IS_ERR(rfkill->clk) && rfkill->clk_enabled)
 			clk_disable_unprepare(rfkill->clk);
 	} else {
 		if (!IS_ERR(rfkill->clk) && !rfkill->clk_enabled)
 			clk_prepare_enable(rfkill->clk);
+		if (gpio_is_valid(rfkill->wake_gpio))
+			gpio_set_value(rfkill->wake_gpio, 1);
 		if (gpio_is_valid(rfkill->reset_gpio))
 			gpio_set_value(rfkill->reset_gpio, 1);
 		if (gpio_is_valid(rfkill->shutdown_gpio))
@@ -80,8 +91,26 @@ static int rfkill_gpio_dt_probe(struct device *dev,
 	of_property_read_string(np, "rfkill-name", &rfkill->name);
 	of_property_read_u32(np, "rfkill-type", &rfkill->type);
 	rfkill->shutdown_gpio = of_get_named_gpio(np, "shutdown-gpio", 0);
+	rfkill->wake_gpio = of_get_named_gpio(np, "wake-gpio", 0);
+	rfkill->host_wake_gpio = of_get_named_gpio(np, "host-wake-gpio", 0);
+	rfkill->reset_gpio = of_get_named_gpio(np, "reset-gpio", 0);
+
 
 	return 0;
+}
+
+static irqreturn_t rfkill_gpio_irq_handler(int irq, void *data)
+{
+	struct rfkill_gpio_data *rfkill = data;
+	int host_wake;
+	unsigned int type;
+
+	host_wake = gpio_get_value(rfkill->host_wake_gpio);
+	type = (host_wake ? IRQF_TRIGGER_LOW : IRQF_TRIGGER_HIGH) |
+			IRQF_NO_SUSPEND;
+	irq_set_irq_type(rfkill->irq, type);
+
+	return IRQ_HANDLED;
 }
 
 static int rfkill_gpio_probe(struct platform_device *pdev)
@@ -158,6 +187,39 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
 		}
 	}
 
+	if (gpio_is_valid(rfkill->wake_gpio)) {
+		ret = devm_gpio_request_one(&pdev->dev, rfkill->wake_gpio,
+				0, rfkill->wake_name);
+		if (ret) {
+			pr_warn("%s: failed to get wake gpio.\n", __func__);
+			return ret;
+		}
+	}
+
+	if (gpio_is_valid(rfkill->host_wake_gpio)) {
+		ret = devm_gpio_request_one(&pdev->dev, rfkill->host_wake_gpio,
+				1, rfkill->host_wake_name);
+		if (ret) {
+			pr_warn("%s: failed to get host wake gpio.\n",
+					__func__);
+			return ret;
+		}
+
+		rfkill->irq = gpio_to_irq(rfkill->host_wake_gpio);
+		ret = devm_request_irq(&pdev->dev, rfkill->irq,
+				rfkill_gpio_irq_handler,
+				IRQF_TRIGGER_HIGH | IRQF_NO_SUSPEND,
+				"rfkill-gpio-irq", rfkill);
+		if (ret) {
+			pr_warn("%s: failed to request IRQ(%d) ret(%d)\n",
+					__func__, rfkill->irq, ret);
+			return ret;
+		}
+		ret = irq_set_irq_wake(rfkill->irq, 1);
+		if (ret)
+			return ret;
+	}
+
 	rfkill->rfkill_dev = rfkill_alloc(rfkill->name, &pdev->dev,
 					  rfkill->type, &rfkill_gpio_ops,
 					  rfkill);
@@ -173,6 +235,8 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, rfkill);
 
 	rfkill_set_sw_state(rfkill->rfkill_dev, true);
+
+	device_init_wakeup(&pdev->dev, true);
 
 	dev_info(&pdev->dev, "%s device registered.\n", rfkill->name);
 
@@ -192,6 +256,40 @@ static int rfkill_gpio_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int rfkill_gpio_suspend(struct device *dev)
+{
+	struct platform_device *pdev = container_of(dev,
+						struct platform_device,	dev);
+	struct rfkill_gpio_data *rfkill = platform_get_drvdata(pdev);
+
+	if (device_may_wakeup(dev))
+		enable_irq_wake(rfkill->irq);
+
+	return 0;
+}
+
+static int rfkill_gpio_resume(struct device *dev)
+{
+	struct platform_device *pdev = container_of(dev,
+						struct platform_device,	dev);
+	struct rfkill_gpio_data *rfkill = platform_get_drvdata(pdev);
+
+	if (device_may_wakeup(dev))
+		disable_irq_wake(rfkill->irq);
+
+	return 0;
+}
+#else
+#define rfkill_gpio_suspend	NULL
+#define rfkill_gpio_resume		NULL
+#endif /* CONFIG_PM */
+
+const struct dev_pm_ops rfkill_gpio_pm = {
+	.suspend = rfkill_gpio_suspend,
+	.resume = rfkill_gpio_resume,
+};
+
 static const struct of_device_id rfkill_of_match[] = {
 	{ .compatible = "rfkill-gpio", },
 	{},
@@ -203,6 +301,7 @@ static struct platform_driver rfkill_gpio_driver = {
 	.driver = {
 		.name = "rfkill_gpio",
 		.owner = THIS_MODULE,
+		.pm = &rfkill_gpio_pm,
 		.of_match_table = of_match_ptr(rfkill_of_match),
 	},
 };
