@@ -44,6 +44,7 @@ struct bt_lpm_timer {
 
 struct rfkill_gpio_data {
 	const char		*name;
+	const char		*clk_name;
 	enum rfkill_type	type;
 	int			reset_gpio;
 	int			shutdown_gpio;
@@ -172,6 +173,7 @@ static int rfkill_gpio_dt_probe(struct device *dev,
 
 	rfkill->name = np->name;
 	of_property_read_string(np, "rfkill-name", &rfkill->name);
+	of_property_read_string(np, "clock-names", &rfkill->clk_name);
 	of_property_read_u32(np, "rfkill-type", &rfkill->type);
 	rfkill->shutdown_gpio = of_get_named_gpio(np, "shutdown-gpio", 0);
 	rfkill->wake_gpio = of_get_named_gpio(np, "wake-gpio", 0);
@@ -212,7 +214,6 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
 {
 	struct rfkill_gpio_platform_data *pdata = pdev->dev.platform_data;
 	struct rfkill_gpio_data *rfkill;
-	const char *clk_name = NULL;
 	int ret = 0;
 	int len = 0;
 
@@ -225,7 +226,7 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
 		if (ret)
 			return ret;
 	} else if (pdata) {
-		clk_name = pdata->power_clk_name;
+		rfkill->clk_name = pdata->power_clk_name;
 		rfkill->name = pdata->name;
 		rfkill->type = pdata->type;
 		rfkill->reset_gpio = pdata->reset_gpio;
@@ -264,7 +265,7 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
 	snprintf(rfkill->reset_name, len + 6 , "%s_reset", rfkill->name);
 	snprintf(rfkill->shutdown_name, len + 9, "%s_shutdown", rfkill->name);
 
-	rfkill->clk = devm_clk_get(&pdev->dev, clk_name);
+	rfkill->clk = devm_clk_get(&pdev->dev, rfkill->clk_name);
 
 	if (gpio_is_valid(rfkill->reset_gpio)) {
 		ret = devm_gpio_request_one(&pdev->dev, rfkill->reset_gpio,
