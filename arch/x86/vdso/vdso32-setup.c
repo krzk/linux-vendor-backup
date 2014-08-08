@@ -398,38 +398,6 @@ static __init int ia32_binfmt_init(void)
 	return 0;
 }
 __initcall(ia32_binfmt_init);
-#endif
-
-#else  /* CONFIG_X86_32 */
-
-const char *arch_vma_name(struct vm_area_struct *vma)
-{
-	if (vma->vm_mm && vma->vm_start == (long)vma->vm_mm->context.vdso)
-		return "[vdso]";
-	return NULL;
-}
-
-struct vm_area_struct *get_gate_vma(struct mm_struct *mm)
-{
-	/*
-	 * Check to see if the corresponding task was created in compat vdso
-	 * mode.
-	 */
-	if (mm && mm->context.vdso == (void *)VDSO_HIGH_BASE)
-		return &gate_vma;
-	return NULL;
-}
-
-int in_gate_area(struct mm_struct *mm, unsigned long addr)
-{
-	const struct vm_area_struct *vma = get_gate_vma(mm);
-
-	return vma && addr >= vma->vm_start && addr < vma->vm_end;
-}
-
-int in_gate_area_no_mm(unsigned long addr)
-{
-	return 0;
-}
+#endif /* CONFIG_SYSCTL */
 
 #endif	/* CONFIG_X86_64 */
