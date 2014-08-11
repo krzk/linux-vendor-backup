@@ -400,8 +400,15 @@ __SYSCALL(375, sys_setns)
 __SYSCALL(376, compat_sys_process_vm_readv)
 __SYSCALL(377, compat_sys_process_vm_writev)
 __SYSCALL(378, sys_ni_syscall)			/* 378 for kcmp */
+__SYSCALL(379, sys_ni_syscall)			/* 379 for finit_module */
+__SYSCALL(380, sys_ni_syscall)			/* 380 for sched_setattr */
+__SYSCALL(381, sys_ni_syscall)			/* 381 for sched_getattr */
+__SYSCALL(382, sys_ni_syscall)			/* 382 for renameat2 */
+__SYSCALL(383, sys_ni_syscall)			/* 383 for seccomp */
+__SYSCALL(384, sys_ni_syscall)			/* 384 for getrandom */
+__SYSCALL(385, sys_memfd_create)
 
-#define __NR_compat_syscalls		379
+#define __NR_compat_syscalls		386
 
 /*
  * Compat syscall numbers used by the AArch64 kernel.
