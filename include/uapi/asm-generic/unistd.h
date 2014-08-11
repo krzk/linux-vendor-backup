@@ -692,9 +692,16 @@ __SC_COMP(__NR_process_vm_writev, sys_process_vm_writev, \
 __SYSCALL(__NR_kcmp, sys_kcmp)
 #define __NR_finit_module 273
 __SYSCALL(__NR_finit_module, sys_finit_module)
+__SYSCALL(274, sys_ni_syscall) /* 274 for sched_setattr */
+__SYSCALL(274, sys_ni_syscall) /* 275 for sched_getattr */
+__SYSCALL(274, sys_ni_syscall) /* 276 for renameat2 */
+__SYSCALL(274, sys_ni_syscall) /* 277 for seccomp */
+__SYSCALL(274, sys_ni_syscall) /* 278 for getrandom */
+#define _NR_memfd_create 279
+__SYSCALL(__NR_memfd_create, sys_memfd_create)
 
 #undef __NR_syscalls
-#define __NR_syscalls 274
+#define __NR_syscalls 280
 
 /*
  * All syscalls below here should go away really,
