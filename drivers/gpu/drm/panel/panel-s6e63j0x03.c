@@ -131,7 +131,7 @@ static void s6e63j0x03_porch_adjustment(struct s6e63j0x03 *ctx)
 
 static void s6e63j0x03_frame_freq(struct s6e63j0x03 *ctx)
 {
-	s6e63j0x03_dcs_write_seq_static(ctx, 0xb5, 0x00, 0x01, 0x00);
+	s6e63j0x03_dcs_write_seq_static(ctx, 0xb5, 0x00, 0x02, 0x00);
 }
 
 static void s6e63j0x03_mem_addr_set_0(struct s6e63j0x03 *ctx)
