@@ -329,8 +329,9 @@
 		interrupts = <0 127 0>, <0 122 0>, <0 123 0>, <0 118 0>,
 				<0 124 0>, <0 119 0>, <0 125 0>, <0 120 0>,
 				<0 126 0>, <0 121 0>;
-		clock-names = "sclk_vpll", "mout_g3d1", "mout_g3d", "sclk_g3d";
-		clocks = <&clock 11>, <&clock 393>, <&clock 394>, <&clock 172>;
+		clock-names = "pll", "mux1", "mux2", "sclk", "g3d";
+		clocks = <&clock 11>, <&clock 393>, <&clock 394>, <&clock 172>,
+		       <&clock 276>;
 		samsung,power-domain = <&pd_g3d>;
 		status = "disabled";
 	};
