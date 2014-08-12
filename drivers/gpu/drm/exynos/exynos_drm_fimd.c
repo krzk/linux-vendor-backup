@@ -102,6 +102,14 @@ static struct fimd_driver_data s3c64xx_fimd_driver_data = {
 	.has_limited_fmt = 1,
 };
 
+static struct fimd_driver_data exynos3_fimd_driver_data = {
+	.timing_base = 0x20000,
+	.lcdblk_off = 0x210,
+	.lcdblk_bypass_shift = 1,
+	.has_shadowcon = 1,
+	.has_vidoutcon = 1,
+};
+
 static struct fimd_driver_data exynos4_fimd_driver_data = {
 	.timing_base = 0x0,
 	.lcdblk_off = 0x210,
@@ -166,6 +174,8 @@ struct fimd_context {
 static const struct of_device_id fimd_driver_dt_match[] = {
 	{ .compatible = "samsung,s3c6400-fimd",
 	  .data = &s3c64xx_fimd_driver_data },
+	{ .compatible = "samsung,exynos3250-fimd",
+	  .data = &exynos3_fimd_driver_data },
 	{ .compatible = "samsung,exynos4210-fimd",
 	  .data = &exynos4_fimd_driver_data },
 	{ .compatible = "samsung,exynos5250-fimd",
@@ -332,9 +342,6 @@ static void fimd_commit(struct exynos_drm_manager *mgr)
 		/* disable auto frame rate */
 		writel(0, timing_base + I80IFCONFBx(0));
 
-		if (ctx->vidout_con)
-			writel(ctx->vidout_con, timing_base + VIDOUT_CON);
-
 		/* set video type selection to I80 interface */
 		if (ctx->sysreg && regmap_update_bits(ctx->sysreg,
 					driver_data->lcdblk_off,
@@ -375,6 +382,9 @@ static void fimd_commit(struct exynos_drm_manager *mgr)
 			VIDTCON1_HSPW(hsync_len - 1);
 		writel(val, ctx->regs + driver_data->timing_base + VIDTCON1);
 	}
+
+	if (ctx->driver_data->has_vidoutcon)
+		writel(ctx->vidout_con, timing_base + VIDOUT_CON);
 
 	/* set bypass selection */
 	if (ctx->sysreg && regmap_update_bits(ctx->sysreg,
@@ -1135,11 +1145,6 @@ static int fimd_probe(struct platform_device *pdev)
 		dev_err(dev, "irq request failed.\n");
 		return ret;
 	}
-
-	ctx->sysreg = syscon_regmap_lookup_by_phandle(dev->of_node,
-			"lcdblk-cfg");
-	if (IS_ERR(ctx->sysreg))
-		return PTR_ERR(ctx->sysreg);
 
 	init_waitqueue_head(&ctx->wait_vsync_queue);
 	atomic_set(&ctx->wait_vsync_event, 0);
