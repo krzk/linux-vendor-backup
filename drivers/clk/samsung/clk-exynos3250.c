@@ -622,10 +622,6 @@ static struct samsung_gate_clock gate_clks[] __initdata = {
 	GATE(CLK_I2C0, "i2c0", "div_aclk_100", GATE_IP_PERIL, 6, 0, 0),
 	GATE(CLK_UART1, "uart1", "div_aclk_100", GATE_IP_PERIL, 1, 0, 0),
 	GATE(CLK_UART0, "uart0", "div_aclk_100", GATE_IP_PERIL, 0, 0, 0),
-
-	/* GATE_BLOCK */
-	GATE(CLK_BLOCK_LCD, "block_lcd", "div_aclk_160", GATE_BLOCK, 4, 0, 0),
-	GATE(CLK_BLOCK_G3D, "block_g3d", "div_aclk_200", GATE_BLOCK, 3, 0, 0),
 };
 
 /* APLL & MPLL & BPLL & UPLL */
