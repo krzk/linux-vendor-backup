@@ -297,6 +297,11 @@ struct exynos_dsi {
 #define host_to_dsi(host) container_of(host, struct exynos_dsi, dsi_host)
 #define connector_to_dsi(c) container_of(c, struct exynos_dsi, connector)
 
+static struct exynos_dsi_driver_data exynos3_dsi_driver_data = {
+	.plltmr_reg = 0x50,
+	.has_freqband = 1,
+};
+
 static struct exynos_dsi_driver_data exynos4_dsi_driver_data = {
 	.plltmr_reg = 0x50,
 	.has_freqband = 1,
@@ -307,6 +312,8 @@ static struct exynos_dsi_driver_data exynos5_dsi_driver_data = {
 };
 
 static struct of_device_id exynos_dsi_of_match[] = {
+	{ .compatible = "samsung,exynos3250-mipi-dsi",
+	  .data = &exynos3_dsi_driver_data },
 	{ .compatible = "samsung,exynos4210-mipi-dsi",
 	  .data = &exynos4_dsi_driver_data },
 	{ .compatible = "samsung,exynos5420-mipi-dsi",
@@ -1241,6 +1248,8 @@ static int exynos_dsi_enable(struct exynos_dsi *dsi)
 	if (dsi->state & DSIM_STATE_ENABLED)
 		return 0;
 
+	pm_runtime_get_sync(dsi->dev);
+
 	ret = exynos_dsi_poweron(dsi);
 	if (ret < 0)
 		return ret;
@@ -1267,6 +1276,8 @@ static void exynos_dsi_disable(struct exynos_dsi *dsi)
 	exynos_dsi_set_display_enable(dsi, false);
 	drm_panel_disable(dsi->panel);
 	exynos_dsi_poweroff(dsi);
+
+	pm_runtime_put_sync(dsi->dev);
 
 	dsi->state &= ~DSIM_STATE_ENABLED;
 }
@@ -1585,6 +1596,9 @@ static int exynos_dsi_probe(struct platform_device *pdev)
 	}
 
 	exynos_dsi_display.ctx = dsi;
+
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
 
 	platform_set_drvdata(pdev, &exynos_dsi_display);
 	exynos_drm_display_register(&exynos_dsi_display);
