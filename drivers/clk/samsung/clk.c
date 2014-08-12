@@ -73,6 +73,7 @@ struct samsung_clk_provider *__init samsung_clk_init(struct device_node *np,
 		return NULL;
 
 	ctx->reg_base = base;
+	spin_lock_init(&ctx->lock);
 
 #ifdef CONFIG_PM_SLEEP
 	if (rdump && nr_rdump) {
