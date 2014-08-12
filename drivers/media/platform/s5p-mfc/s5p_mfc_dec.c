@@ -428,7 +428,7 @@ static int vidioc_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		fmt = find_format(f, MFC_FMT_RAW);
 		if (!fmt) {
-			mfc_err("Unsupported format for source.\n");
+			mfc_err("Unsupported format for destination.\n");
 			return -EINVAL;
 		}
 		if (!IS_MFCV6(dev) && (fmt->fourcc != V4L2_PIX_FMT_NV12MT)) {
