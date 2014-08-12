@@ -480,12 +480,11 @@
 			    <0x1300a000 0x1100>, <0x13005000 0x100>;
 			interrupts = <0 187 0>, <0 182 0>, <0 183 0>, <0 178 0>,
 				   <0 184 0>, <0 179 0>;
-			clock-names = "pll", "mux1", "mux2", "sclk", "block", "smmu",
-					"g3d";
+			clock-names = "pll", "mux1", "mux2", "sclk", "smmu",
+				"g3d";
 			clocks = <&cmu CLK_DIV_MPLL_PRE>, <&cmu CLK_MOUT_G3D_0>,
 					<&cmu CLK_MOUT_G3D>, <&cmu CLK_SCLK_G3D>,
-					<&cmu CLK_BLOCK_G3D>, <&cmu CLK_SMMUG3D>,
-					<&cmu CLK_G3D>;
+					<&cmu CLK_SMMUG3D>, <&cmu CLK_G3D>;
 			samsung,power-domain = <&pd_g3d>;
 			status = "disabled";
 	       };
