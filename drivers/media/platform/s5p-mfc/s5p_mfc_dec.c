@@ -452,12 +452,7 @@ static int vidioc_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		ret = -EINVAL;
 		goto out;
 	}
-	if (fmt->type != MFC_FMT_DEC) {
-		mfc_err("Wrong format selected, you should choose "
-					"format for decoding\n");
-		ret = -EINVAL;
-		goto out;
-	}
+
 	if (!IS_MFCV6(dev) && (fmt->fourcc == V4L2_PIX_FMT_VP8)) {
 		mfc_err("Not supported format.\n");
 		return -EINVAL;
