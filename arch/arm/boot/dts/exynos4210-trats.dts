@@ -546,6 +546,8 @@
 		vddio-supply = <&vmipi_reg>;
 		samsung,pll-clock-frequency = <24000000>;
 		status = "okay";
+		#address-cells = <1>;
+		#size-cells = <0>;
 
 		ports {
 			#address-cells = <1>;
