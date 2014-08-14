@@ -14,10 +14,14 @@ Required properties:
   is the rtc tick interrupt. The number of cells representing a interrupt
   depends on the parent interrupt controller.
 
+Optional Properties:
+- s3c-rtc-tick-en : flag for enabling tick timer
+
 Example:
 
 	rtc@10070000 {
 		compatible = "samsung,s3c6410-rtc";
 		reg = <0x10070000 0x100>;
 		interrupts = <44 0 45 0>;
+		s3c-rtc-tick-en;
 	};

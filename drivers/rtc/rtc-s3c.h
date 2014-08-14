@@ -23,6 +23,13 @@
 #define S3C2410_RTCCON_CLKRST	(1 << 3)
 #define S3C2443_RTCCON_TICSEL	(1 << 4)
 #define S3C64XX_RTCCON_TICEN	(1 << 8)
+#define S3C64XX_CLKSEL_MASK	(0xf << S3C64XX_CLKSEL_SHIFT)
+#define S3C64XX_CLKSEL_SHIFT	(4)
+
+/* S3C rtc's Minimum tick count */
+#define S3C_TCNT_MIN		3
+/* S3C rtc's source clock rate is 32KHZ */
+#define S3C_TICK_HZ_MAX		32786
 
 #define S3C2410_TICNT		S3C2410_RTCREG(0x44)
 #define S3C2410_TICNT_ENABLE	(1 << 7)

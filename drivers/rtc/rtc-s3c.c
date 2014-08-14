@@ -56,10 +56,11 @@ struct s3c_rtc {
 struct s3c_rtc_data {
 	int max_user_freq;
 	bool needs_src_clk;
+	bool tick_en;
 
 	void (*irq_handler) (struct s3c_rtc *info, int mask);
 	void (*set_freq) (struct s3c_rtc *info, int freq);
-	void (*enable_tick) (struct s3c_rtc *info, struct seq_file *seq);
+	void (*enable_tick) (struct s3c_rtc *info, bool en);
 	void (*select_tick_clk) (struct s3c_rtc *info);
 	void (*save_tick_cnt) (struct s3c_rtc *info);
 	void (*restore_tick_cnt) (struct s3c_rtc *info);
@@ -345,13 +346,8 @@ static int s3c_rtc_proc(struct device *dev, struct seq_file *seq)
 {
 	struct s3c_rtc *info = dev_get_drvdata(dev);
 
-	s3c_rtc_enable_clk(info);
-
-	if (info->data->enable_tick)
-		info->data->enable_tick(info, seq);
-
-	s3c_rtc_disable_clk(info);
-
+	seq_printf(seq, "periodic_IRQ\t: %s\n",
+			info->data->tick_en ? "yes" : "no");
 	return 0;
 }
 
@@ -435,9 +431,15 @@ static const struct of_device_id s3c_rtc_dt_match[];
 static struct s3c_rtc_data *s3c_rtc_get_data(struct platform_device *pdev)
 {
 	const struct of_device_id *match;
+	struct s3c_rtc_data *rtc_data;
 
 	match = of_match_node(s3c_rtc_dt_match, pdev->dev.of_node);
-	return (struct s3c_rtc_data *)match->data;
+	rtc_data = (struct s3c_rtc_data *)match->data;
+
+	if (of_get_property(pdev->dev.of_node, "s3c-rtc-tick-en", NULL))
+		rtc_data->tick_en = true;
+
+	return rtc_data;
 }
 
 static int s3c_rtc_probe(struct platform_device *pdev)
@@ -540,17 +542,23 @@ static int s3c_rtc_probe(struct platform_device *pdev)
 		goto err_nortc;
 	}
 
-	ret = devm_request_irq(&pdev->dev, info->irq_tick, s3c_rtc_tickirq,
-			  0,  "s3c2410-rtc tick", info);
-	if (ret) {
-		dev_err(&pdev->dev, "IRQ%d error %d\n", info->irq_tick, ret);
-		goto err_nortc;
+	if (info->data->tick_en) {
+		ret = devm_request_irq(&pdev->dev, info->irq_tick,
+				s3c_rtc_tickirq, 0,"s3c2410-rtc tick", info);
+		if (ret) {
+			dev_err(&pdev->dev, "IRQ%d error %d\n",
+						info->irq_tick, ret);
+			goto err_nortc;
+		}
+		info->data->enable_tick(info, true);
+
+		if (info->data->select_tick_clk)
+			info->data->select_tick_clk(info);
+
+		s3c_rtc_setfreq(info, info->rtc->max_user_freq);
+	} else {
+		info->data->enable_tick(info, false);
 	}
-
-	if (info->data->select_tick_clk)
-		info->data->select_tick_clk(info);
-
-	s3c_rtc_setfreq(info, 1);
 
 	s3c_rtc_disable_clk(info);
 
@@ -625,15 +633,25 @@ static void s3c6410_rtc_irq(struct s3c_rtc *info, int mask)
 	writeb(mask, info->base + S3C2410_INTP);
 }
 
+static inline int s3c_rtc_get_tcnt(struct s3c_rtc *info, int freq)
+{
+	/*
+	 * If requested frequency is larger than supported,
+	 * it sets tick time count to minimum.
+	 */
+	if (freq > info->data->max_user_freq)
+		return S3C_TCNT_MIN;
+
+	return info->data->max_user_freq / freq;
+}
+
 static void s3c2410_rtc_setfreq(struct s3c_rtc *info, int freq)
 {
 	unsigned int tmp = 0;
 	int val;
 
 	tmp = readb(info->base + S3C2410_TICNT);
-	tmp &= S3C2410_TICNT_ENABLE;
-
-	val = (info->rtc->max_user_freq / freq) - 1;
+	val = s3c_rtc_get_tcnt(info, freq);
 	tmp |= val;
 
 	writel(tmp, info->base + S3C2410_TICNT);
@@ -645,9 +663,7 @@ static void s3c2416_rtc_setfreq(struct s3c_rtc *info, int freq)
 	int val;
 
 	tmp = readb(info->base + S3C2410_TICNT);
-	tmp &= S3C2410_TICNT_ENABLE;
-
-	val = (info->rtc->max_user_freq / freq) - 1;
+	val = s3c_rtc_get_tcnt(info, freq);
 
 	tmp |= S3C2443_TICNT_PART(val);
 	writel(S3C2443_TICNT1_PART(val), info->base + S3C2443_TICNT1);
@@ -665,7 +681,7 @@ static void s3c2443_rtc_setfreq(struct s3c_rtc *info, int freq)
 	tmp = readb(info->base + S3C2410_TICNT);
 	tmp &= S3C2410_TICNT_ENABLE;
 
-	val = (info->rtc->max_user_freq / freq) - 1;
+	val = s3c_rtc_get_tcnt(info, freq);
 
 	tmp |= S3C2443_TICNT_PART(val);
 	writel(S3C2443_TICNT1_PART(val), info->base + S3C2443_TICNT1);
@@ -677,18 +693,21 @@ static void s3c6410_rtc_setfreq(struct s3c_rtc *info, int freq)
 {
 	int val;
 
-	val = (info->rtc->max_user_freq / freq) - 1;
+	val = s3c_rtc_get_tcnt(info, freq);
 	writel(val, info->base + S3C2410_TICNT);
 }
 
-static void s3c24xx_rtc_enable_tick(struct s3c_rtc *info, struct seq_file *seq)
+static void s3c24xx_rtc_enable_tick(struct s3c_rtc *info, bool en)
 {
 	unsigned int ticnt;
 
 	ticnt = readb(info->base + S3C2410_TICNT);
-	ticnt &= S3C2410_TICNT_ENABLE;
-
-	seq_printf(seq, "periodic_IRQ\t: %s\n", ticnt  ? "yes" : "no");
+	if (en)
+		ticnt |= S3C2410_TICNT_ENABLE;
+	else
+		ticnt &= ~S3C2410_TICNT_ENABLE;
+	writeb(ticnt, info->base + S3C2410_TICNT);
+	info->data->tick_en = en;
 }
 
 static void s3c2416_rtc_select_tick_clk(struct s3c_rtc *info)
@@ -700,14 +719,31 @@ static void s3c2416_rtc_select_tick_clk(struct s3c_rtc *info)
 	writew(con, info->base + S3C2410_RTCCON);
 }
 
-static void s3c6410_rtc_enable_tick(struct s3c_rtc *info, struct seq_file *seq)
+static void s3c6410_rtc_enable_tick(struct s3c_rtc *info, bool en)
 {
 	unsigned int ticnt;
 
 	ticnt = readw(info->base + S3C2410_RTCCON);
-	ticnt &= S3C64XX_RTCCON_TICEN;
+	if (en)
+		ticnt |= S3C64XX_RTCCON_TICEN;
+	else
+		ticnt &= ~S3C64XX_RTCCON_TICEN;
+	writeb(ticnt, info->base + S3C2410_RTCCON);
+	info->data->tick_en = en;
+}
 
-	seq_printf(seq, "periodic_IRQ\t: %s\n", ticnt  ? "yes" : "no");
+static void s3c6410_rtc_select_tick_clk(struct s3c_rtc *info)
+{
+	unsigned int tmp;
+	int val;
+
+	tmp = readl(info->base + S3C2410_RTCCON);
+	tmp &= ~S3C64XX_CLKSEL_MASK;
+	val = (S3C_TICK_HZ_MAX / info->data->max_user_freq) - 1;
+	val <<= S3C64XX_CLKSEL_SHIFT;
+	val &= S3C64XX_CLKSEL_MASK;
+	tmp |= val;
+	writel(tmp, info->base + S3C2410_RTCCON);
 }
 
 static void s3c24xx_rtc_save_tick_cnt(struct s3c_rtc *info)
@@ -780,6 +816,7 @@ static struct s3c_rtc_data const s3c6410_rtc_data = {
 	.irq_handler		= s3c6410_rtc_irq,
 	.set_freq		= s3c6410_rtc_setfreq,
 	.enable_tick		= s3c6410_rtc_enable_tick,
+	.select_tick_clk	= s3c6410_rtc_select_tick_clk,
 	.save_tick_cnt		= s3c6410_rtc_save_tick_cnt,
 	.restore_tick_cnt	= s3c6410_rtc_restore_tick_cnt,
 	.enable			= s3c24xx_rtc_enable,
@@ -792,6 +829,7 @@ static struct s3c_rtc_data const exynos3250_rtc_data = {
 	.irq_handler		= s3c6410_rtc_irq,
 	.set_freq		= s3c6410_rtc_setfreq,
 	.enable_tick		= s3c6410_rtc_enable_tick,
+	.select_tick_clk	= s3c6410_rtc_select_tick_clk,
 	.save_tick_cnt		= s3c6410_rtc_save_tick_cnt,
 	.restore_tick_cnt	= s3c6410_rtc_restore_tick_cnt,
 	.enable			= s3c24xx_rtc_enable,
