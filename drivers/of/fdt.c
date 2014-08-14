@@ -622,6 +622,66 @@ int __init of_scan_flat_dt_by_path(const char *path,
 		return ret;
 }
 
+char * __init of_flat_dt_get_machine_name(void)
+{
+	char *name;
+	unsigned long dt_root = of_get_flat_dt_root();
+
+	name = of_get_flat_dt_prop(dt_root, "model", NULL);
+	if (!name)
+		name = of_get_flat_dt_prop(dt_root, "compatible", NULL);
+	return name;
+}
+
+/**
+ * of_flat_dt_match_machine - Iterate match tables to find matching machine.
+ *
+ * @default_match: A machine specific ptr to return in case of no match.
+ * @get_next_compat: callback function to return next compatible match table.
+ *
+ * Iterate through machine match tables to find the best match for the machine
+ * compatible string in the FDT.
+ */
+void * __init of_flat_dt_match_machine(void *default_match,
+		void * (*get_next_compat)(const char * const**))
+{
+	void *data = NULL;
+	void *best_data = default_match;
+	const char *const *compat;
+	unsigned long dt_root;
+	unsigned int best_score = ~1, score = 0;
+
+	dt_root = of_get_flat_dt_root();
+	while ((data = get_next_compat(&compat))) {
+		score = of_flat_dt_match(dt_root, compat);
+		if (score > 0 && score < best_score) {
+			best_data = data;
+			best_score = score;
+		}
+	}
+	if (!best_data) {
+		const char *prop;
+		long size;
+
+		pr_err("\n unrecognized device tree list:\n[ ");
+
+		prop = of_get_flat_dt_prop(dt_root, "compatible", &size);
+		if (prop) {
+			while (size > 0) {
+				printk("'%s' ", prop);
+				size -= strlen(prop) + 1;
+				prop += strlen(prop) + 1;
+			}
+		}
+		printk("]\n\n");
+		return NULL;
+	}
+
+	pr_info("Machine model: %s\n", of_flat_dt_get_machine_name());
+
+	return best_data;
+}
+
 #ifdef CONFIG_BLK_DEV_INITRD
 /**
  * early_init_dt_check_for_initrd - Decode initrd location from flat tree
