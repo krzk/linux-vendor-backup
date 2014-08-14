@@ -25,8 +25,16 @@
 
 #define MAX_CONNECTOR		4
 #define PREFERRED_BPP		32
-#define IOCTL_GET_FB_DMA_BUF _IOWR('m',0xF9, __u32 )
-#define NUM_BUFFERS 1
+
+struct fb_dmabuf_export
+{
+        __u32 fd;
+        __u32 flags;
+};
+#define FBIOGET_DMABUF       _IOR('F', 0x21, struct fb_dmabuf_export)
+
+
+#define NUM_BUFFERS 3
 
 #define to_exynos_fbdev(x)	container_of(x, struct exynos_drm_fbdev,\
 				drm_fb_helper)
@@ -89,19 +97,20 @@ static int fb_ioctl(struct fb_info *info, unsigned int cmd,
 {
     int ret;
 
-    switch (cmd) {
-    case IOCTL_GET_FB_DMA_BUF:
-    {
-        u32 __user *out_ptr = (u32 __user *)arg;
-        u32 buf_fd = exynos_fb_get_dma_buf(info);
-        if(buf_fd == -1)
-        {
-            ret = -ENOMEM;
-            break;
-        }
-        ret = put_user(buf_fd, out_ptr);
-        break;
-    }
+   switch (cmd) {
+      case FBIOGET_DMABUF:
+      {
+              struct fb_dmabuf_export __user *out_ptr = (struct fb_dmabuf_export *)arg;
+              u32 buf_fd = exynos_fb_get_dma_buf(info);
+              if(buf_fd == -1)
+              {
+                      ret = -ENOMEM;
+                      break;
+              }
+               ret = put_user(buf_fd, &out_ptr->fd);
+               break;
+       }
+
     default:
         ret = -ENOTTY;
     }
@@ -129,13 +138,13 @@ static int exynos_drm_fbdev_update(struct drm_fb_helper *helper,
 	struct fb_info *fbi = helper->fbdev;
 	struct drm_device *dev = helper->dev;
 	struct exynos_drm_gem_buf *buffer;
-	unsigned int size = fb->width * fb->height * (fb->bits_per_pixel >> 3);
+	unsigned int size = fb->width * fb->height * (fb->bits_per_pixel >> 3) * NUM_BUFFERS;
 	unsigned long offset;
 
 	DRM_DEBUG_KMS("%s\n", __FILE__);
 
 	drm_fb_helper_fill_fix(fbi, fb->pitches[0], fb->depth);
-	drm_fb_helper_fill_var(fbi, helper, fb->width, fb->height);
+	drm_fb_helper_fill_var(fbi, helper, fb->width, fb->height / NUM_BUFFERS);
 
 	/* RGB formats use only one buffer */
 	buffer = exynos_drm_fb_buffer(fb, 0);
