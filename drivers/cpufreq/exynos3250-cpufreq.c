@@ -185,9 +185,7 @@ int exynos3250_cpufreq_init(struct exynos_dvfs_info *info)
 	info->cpu_clk = cpu_clk;
 
 	info->volt_table = exynos3250_volt_table;
-	info->freq_table = exynos_of_parse_freq_table(info, "freq_table");
-	if (!info->freq_table)
-		info->freq_table = exynos3250_freq_table;
+	info->freq_table = exynos3250_freq_table;
 	info->set_freq = exynos3250_set_frequency;
 
 	return 0;
