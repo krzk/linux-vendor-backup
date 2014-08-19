@@ -353,6 +353,44 @@
 			interrupts = <0 240 0>;
 		};
 
+		exynos_drm_gsc1: gsc@11850000 {
+			compatible = "samsung,exynos3250-drm-gsc";
+			reg = <0x11850000 0x1000>;
+			clocks = <&cmu CLK_GSCALER0>;
+			clock-names = "gscl";
+			interrupts = <0 167 0>;
+			iommu = <&smmu_gsc0>;
+			samsung,power-domain = <&pd_cam>;
+		};
+
+		exynos_drm_gsc2: gsc@11860000 {
+			compatible = "samsung,exynos3250-drm-gsc";
+			reg = <0x11860000 0x1000>;
+			clocks = <&cmu CLK_GSCALER1>;
+			clock-names = "gscl";
+			interrupts = <0 168 0>;
+			iommu = <&smmu_gsc1>;
+			samsung,power-domain = <&pd_cam>;
+		};
+
+		smmu_gsc0: sysmmu@11a20000 {
+			compatible = "samsung,exynos4210-sysmmu";
+			reg = <0x11a20000 0x1000>;
+			interrupts = <0 152 0>, <0 157 0>;
+			clocks = <&cmu CLK_SMMUGSCALER0>, <&cmu CLK_GSCALER0>;
+			clock-names = "sysmmu", "master";
+			samsung,power-domain = <&pd_cam>;
+		};
+
+		smmu_gsc1: sysmmu@11a30000 {
+			compatible = "samsung,exynos4210-sysmmu";
+			reg = <0x11a30000 0x1000>;
+			interrupts = <0 153 0>, <0 158 0>;
+			clocks = <&cmu CLK_SMMUGSCALER1>, <&cmu CLK_GSCALER1>;
+			clock-names = "sysmmu", "master";
+			samsung,power-domain = <&pd_cam>;
+		};
+
 		mshc_0: mshc@12510000 {
 			compatible = "samsung,exynos5250-dw-mshc";
 			reg = <0x12510000 0x1000>;
@@ -696,5 +734,6 @@
 		};
 	};
 };
+
 
 #include "exynos3250-pinctrl.dtsi"
