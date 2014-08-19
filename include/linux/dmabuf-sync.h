@@ -43,10 +43,6 @@ struct dmabuf_sync_object {
 	unsigned int			access_type;
 };
 
-struct dmabuf_sync_priv_ops {
-	void (*free)(void *priv);
-};
-
 /*
  * A structure for dmabuf_sync.
  *
@@ -61,16 +57,15 @@ struct dmabuf_sync_priv_ops {
  * @status: Indicate current status (DMABUF_SYNC_GOT or DMABUF_SYNC_LOCKED).
  */
 struct dmabuf_sync {
-	struct list_head		syncs;
-	struct list_head		list;
-	struct mutex			lock;
-	struct ww_acquire_ctx		ctx;
-	struct work_struct		work;
-	void				*priv;
-	struct dmabuf_sync_priv_ops	*ops;
-	char				name[64];
-	struct timer_list		timer;
-	unsigned int			status;
+	struct list_head	syncs;
+	struct list_head	list;
+	struct mutex		lock;
+	struct ww_acquire_ctx	ctx;
+	struct work_struct	work;
+	void			*priv;
+	char			name[64];
+	struct timer_list	timer;
+	unsigned int		status;
 };
 
 #ifdef CONFIG_DMABUF_SYNC
@@ -109,9 +104,7 @@ static inline void dmabuf_sync_reservation_fini(struct dma_buf *dmabuf)
 
 extern bool is_dmabuf_sync_supported(void);
 
-extern struct dmabuf_sync *dmabuf_sync_init(const char *name,
-					struct dmabuf_sync_priv_ops *ops,
-					void *priv);
+extern struct dmabuf_sync *dmabuf_sync_init(void *priv, const char *name);
 
 extern void dmabuf_sync_fini(struct dmabuf_sync *sync);
 
@@ -139,9 +132,8 @@ static inline void dmabuf_sync_reservation_fini(struct dma_buf *dmabuf) { }
 
 static inline bool is_dmabuf_sync_supported(void) { return false; }
 
-static inline  struct dmabuf_sync *dmabuf_sync_init(const char *name,
-					struct dmabuf_sync_priv_ops *ops,
-					void *priv)
+static inline struct dmabuf_sync *dmabuf_sync_init(void *priv,
+					const char *names)
 {
 	return ERR_PTR(0);
 }
