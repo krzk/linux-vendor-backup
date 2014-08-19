@@ -138,6 +138,22 @@
 			reg = <0x10000000 0x100>;
 		};
 
+		busfreq_mif: busfreq@106A0000 {
+			compatible = "samsung,exynos3250-busfreq-mif";
+			reg = <0x106A0000 0x2000>, <0x106B0000 0x2000>;
+			regs-name = "PPMU_DMC0", "PPMU_DMC1";
+			status = "disabled";
+		};
+
+		busfreq_int: busfreq@0x116A0000 {
+			compatible = "samsung,exynos3250-busfreq-int";
+			reg = <0x116A0000 0x2000>, <0x112A0000 0x2000>;
+			regs-name = "PPMU_LEFT", "PPMU_RIGHT";
+			clocks = <&cmu CLK_PPMULEFT>, <&cmu CLK_PPMURIGHT>;
+			clock-names = "ppmuleft", "ppmuright";
+			status = "disabled";
+		};
+
 		sys_reg: syscon@10010000 {
 			compatible = "samsung,exynos3-sysreg", "syscon";
 			reg = <0x10010000 0x400>;
