@@ -115,7 +115,6 @@ struct dma_buf_ops {
  * @exp_name: name of the exporter; useful for debugging.
  * @list_node: node for dma_buf accounting and debugging.
  * @priv: exporter specific private data for this buffer object.
- * @sync: sync object linked to this dma-buf
  */
 struct dma_buf {
 	size_t size;
@@ -129,7 +128,6 @@ struct dma_buf {
 	const char *exp_name;
 	struct list_head list_node;
 	void *priv;
-	void *sync;
 };
 
 /**
@@ -149,20 +147,6 @@ struct dma_buf_attachment {
 	struct list_head node;
 	void *priv;
 };
-
-#define	DMA_BUF_ACCESS_R	0x1
-#define DMA_BUF_ACCESS_W	0x2
-#define DMA_BUF_ACCESS_DMA	0x4
-#define DMA_BUF_ACCESS_RW	(DMA_BUF_ACCESS_R | DMA_BUF_ACCESS_W)
-#define DMA_BUF_ACCESS_DMA_R	(DMA_BUF_ACCESS_R | DMA_BUF_ACCESS_DMA)
-#define DMA_BUF_ACCESS_DMA_W	(DMA_BUF_ACCESS_W | DMA_BUF_ACCESS_DMA)
-#define DMA_BUF_ACCESS_DMA_RW	(DMA_BUF_ACCESS_DMA_R | DMA_BUF_ACCESS_DMA_W)
-#define IS_VALID_DMA_BUF_ACCESS_TYPE(t)	(t == DMA_BUF_ACCESS_R || \
-					 t == DMA_BUF_ACCESS_W || \
-					 t == DMA_BUF_ACCESS_DMA_R || \
-					 t == DMA_BUF_ACCESS_DMA_W || \
-					 t == DMA_BUF_ACCESS_RW || \
-					 t == DMA_BUF_ACCESS_DMA_RW)
 
 /**
  * get_dma_buf - convenience wrapper for get_file.
