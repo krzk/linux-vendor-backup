@@ -1295,7 +1295,6 @@ static int mms_ts_fw_load(struct mms_ts_info *info)
 	return ret;
 }
 
-#ifdef CONFIG_TIZEN_WIP
 static int mms_ts_suspend(struct device *dev);
 static int mms_ts_resume(struct device *dev);
 
@@ -1342,7 +1341,6 @@ static struct attribute *mms_ts_attributes[] = {
 static struct attribute_group mms_ts_attr_group = {
 	.attrs = mms_ts_attributes,
 };
-#endif
 
 #ifdef CONFIG_OF
 static struct melfas_tsi_platform_data *mms_ts_parse_dt(struct device *dev)
@@ -1697,13 +1695,11 @@ static int mms_ts_probe(struct i2c_client *client,
 		goto err_reg_input_dev;
 	}
 
-#ifdef CONFIG_TIZEN_WIP
 	ret = sysfs_create_group(&input_dev->dev.kobj, &mms_ts_attr_group);
 	if (ret) {
 		dev_err(&client->dev, "Failed to create sysfs group\n");
 		goto err_regulator;
 	}
-#endif
 	disable_irq(info->irq);
 	info->enabled = false;
 	mms_ts_power(info, false);
