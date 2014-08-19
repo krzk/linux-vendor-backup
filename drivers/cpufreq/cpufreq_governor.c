@@ -87,6 +87,9 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 	struct od_dbs_tuners *od_tuners = dbs_data->tuners;
 	struct cs_dbs_tuners *cs_tuners = dbs_data->tuners;
 	struct cpufreq_policy *policy;
+#ifdef CONFIG_CPU_FREQ_STAT
+	struct cpufreq_freqs freq = {0};
+#endif
 	unsigned int max_load = 0;
 	unsigned int ignore_nice;
 	unsigned int j;
@@ -151,6 +154,9 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 			idle_time = wall_time;
 
 		load = 100 * (wall_time - idle_time) / wall_time;
+#ifdef CONFIG_CPU_FREQ_STAT
+		freq.load[j] = load;
+#endif
 
 		if (dbs_data->cdata->governor == GOV_LAB) {
 			struct od_cpu_dbs_info_s *od_dbs_info =
@@ -162,6 +168,14 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 		if (load > max_load)
 			max_load = load;
 	}
+
+#ifdef CONFIG_CPU_FREQ_STAT
+	freq.time = ktime_to_ms(ktime_get());
+	freq.old = policy->cur;
+	freq.cpu = policy->cpu;
+
+	cpufreq_notify_transition(policy, &freq, CPUFREQ_LOADCHECK);
+#endif
 
 	dbs_data->cdata->gov_check_cpu(cpu, max_load);
 }

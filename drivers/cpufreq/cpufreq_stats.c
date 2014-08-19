@@ -12,6 +12,7 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/cpu.h>
+#include <linux/debugfs.h>
 #include <linux/sysfs.h>
 #include <linux/cpufreq.h>
 #include <linux/module.h>
@@ -36,6 +37,12 @@ struct cpufreq_stats {
 #ifdef CONFIG_CPU_FREQ_STAT_DETAILS
 	unsigned int *trans_table;
 #endif
+
+	/* Debugfs file for load_table */
+	struct cpufreq_freqs *load_table;
+	unsigned int load_last_index;
+	unsigned int load_max_index;
+	struct dentry *debugfs_load_table;
 };
 
 static DEFINE_PER_CPU(struct cpufreq_stats *, cpufreq_stats_table);
@@ -149,6 +156,186 @@ static struct attribute_group stats_attr_group = {
 	.name = "stats"
 };
 
+#define MAX_LINE_SIZE		255
+static ssize_t load_table_read(struct file *file, char __user *user_buf,
+					size_t count, loff_t *ppos)
+{
+	struct cpufreq_policy *policy = file->private_data;
+	struct cpufreq_stats *stat = per_cpu(cpufreq_stats_table, policy->cpu);
+	struct cpufreq_freqs *load_table = stat->load_table;
+	ssize_t len = 0;
+	char *buf;
+	int i, cpu, ret;
+
+	buf = kzalloc(MAX_LINE_SIZE * stat->load_max_index, GFP_KERNEL);
+	if (!buf)
+		return 0;
+
+	spin_lock(&cpufreq_stats_lock);
+	len += sprintf(buf + len, "%-10s %-12s %-12s ", "Time(ms)",
+						    "Old Freq(Hz)",
+						    "New Freq(Hz)");
+	for_each_cpu(cpu, policy->cpus)
+		len += sprintf(buf + len, "%3s%d ", "CPU", cpu);
+	len += sprintf(buf + len, "\n");
+
+	i = stat->load_last_index;
+	do {
+		len += sprintf(buf + len, "%-10lld %-12d %-12d ",
+				load_table[i].time,
+				load_table[i].old,
+				load_table[i].new);
+
+		for_each_cpu(cpu, policy->cpus)
+			len += sprintf(buf + len, "%-4d ",
+					load_table[i].load[cpu]);
+		len += sprintf(buf + len, "\n");
+
+		if (++i == stat->load_max_index)
+			i = 0;
+	} while (i != stat->load_last_index);
+	spin_unlock(&cpufreq_stats_lock);
+
+	ret = simple_read_from_buffer(user_buf, count, ppos, buf, len);
+	kfree(buf);
+
+	return ret;
+}
+
+static const struct file_operations load_table_fops = {
+	.read		= load_table_read,
+	.open		= simple_open,
+	.llseek		= no_llseek,
+};
+
+static int cpufreq_stats_reset_debugfs(struct cpufreq_policy *policy)
+{
+	struct cpufreq_stats *stat = per_cpu(cpufreq_stats_table, policy->cpu);
+	int i;
+
+	if (!stat->load_table)
+		return -EINVAL;
+
+	/* Reset previous data of load_table debugfs file */
+	stat->load_last_index = 0;
+	for (i = 0; i < stat->load_max_index; i++)
+		memset(&stat->load_table[i], 0, sizeof(*stat->load_table));
+
+	return 0;
+}
+
+static int cpufreq_stats_create_debugfs(struct cpufreq_policy *policy)
+{
+	struct cpufreq_stats *stat = per_cpu(cpufreq_stats_table, policy->cpu);
+	unsigned int j, size, idx;
+	int ret = 0;
+
+	if (!stat)
+		return -EINVAL;
+
+	if (!policy->cpu_debugfs)
+		return -EINVAL;
+
+	stat->load_last_index = 0;
+	stat->load_max_index = CONFIG_NR_CPU_LOAD_STORAGE;
+
+	/* Allocate memory for storage of CPUs load */
+	size = sizeof(*stat->load_table) * stat->load_max_index;
+	stat->load_table = kzalloc(size, GFP_KERNEL);
+	if (!stat->load_table)
+		return -ENOMEM;
+
+	/* Find proper index of cpu_debugfs array for cpu */
+	idx = 0;
+	for_each_cpu(j, policy->related_cpus) {
+		if (j == policy->cpu)
+			break;
+		idx++;
+	}
+
+	/* Create debugfs directory and file for cpufreq */
+	stat->debugfs_load_table = debugfs_create_file("load_table", S_IWUSR,
+					policy->cpu_debugfs[idx],
+					policy, &load_table_fops);
+	if (!stat->debugfs_load_table) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	pr_debug("Created debugfs file for CPU%d \n", policy->cpu);
+
+	return 0;
+err:
+	kfree(stat->load_table);
+	return ret;
+}
+
+/*
+ * This function should be called late in the CPU removal sequence so that
+ * the stats memory is still available in case someone tries to use it.
+ */
+static void cpufreq_stats_free_load_table(unsigned int cpu)
+{
+	struct cpufreq_stats *stat = per_cpu(cpufreq_stats_table, cpu);
+
+	if (stat) {
+		pr_debug("Free memory of load_table\n");
+		kfree(stat->load_table);
+	}
+}
+
+/*
+ * This function must be called early in the CPU removal sequence
+ * (before cpufreq_remove_dev) so that policy is still valid.
+ */
+static void cpufreq_stats_free_debugfs(unsigned int cpu)
+{
+	struct cpufreq_stats *stat = per_cpu(cpufreq_stats_table, cpu);
+
+	if (stat) {
+		pr_debug("Remove load_table debugfs file\n");
+		debugfs_remove(stat->debugfs_load_table);
+	}
+}
+
+static void cpufreq_stats_store_load_table(struct cpufreq_freqs *freq,
+					   unsigned long val)
+{
+	struct cpufreq_stats *stat;
+	int cpu, last_idx;
+
+	stat = per_cpu(cpufreq_stats_table, freq->cpu);
+	if (!stat)
+		return;
+
+	spin_lock(&cpufreq_stats_lock);
+
+	switch (val) {
+	case CPUFREQ_POSTCHANGE:
+		if (!stat->load_last_index)
+			last_idx = stat->load_max_index;
+		else
+			last_idx = stat->load_last_index - 1;
+
+		stat->load_table[last_idx].new = freq->new;
+		break;
+	case CPUFREQ_LOADCHECK:
+		last_idx = stat->load_last_index;
+
+		stat->load_table[last_idx].time = freq->time;
+		stat->load_table[last_idx].old = freq->old;
+		stat->load_table[last_idx].new = freq->old;
+		for_each_present_cpu(cpu)
+			stat->load_table[last_idx].load[cpu] = freq->load[cpu];
+
+		if (++stat->load_last_index == stat->load_max_index)
+			stat->load_last_index = 0;
+		break;
+	}
+
+	spin_unlock(&cpufreq_stats_lock);
+}
+
 static int freq_table_get_index(struct cpufreq_stats *stat, unsigned int freq)
 {
 	int index;
@@ -203,8 +390,23 @@ static int cpufreq_stats_create_table(struct cpufreq_policy *policy,
 	struct cpufreq_policy *data;
 	unsigned int alloc_size;
 	unsigned int cpu = policy->cpu;
-	if (per_cpu(cpufreq_stats_table, cpu))
+
+	if (per_cpu(cpufreq_stats_table, cpu)) {
+		/*
+		 * Reset previous data of load_table when updating and changing
+		 * cpufreq governor. If specific governor which haven't sent
+		 * CPUFREQ_LOADCHECK notification is active, should reset
+		 * load_table data as zero(0).
+		 */
+		ret = cpufreq_stats_reset_debugfs(policy);
+		if (ret) {
+			pr_err("Failed to reset load_table data of debugfs\n");
+			return ret;
+		}
+
 		return -EBUSY;
+	}
+
 	stat = kzalloc(sizeof(struct cpufreq_stats), GFP_KERNEL);
 	if ((stat) == NULL)
 		return -ENOMEM;
@@ -257,6 +459,14 @@ static int cpufreq_stats_create_table(struct cpufreq_policy *policy,
 	spin_lock(&cpufreq_stats_lock);
 	stat->last_time = get_jiffies_64();
 	stat->last_index = freq_table_get_index(stat, policy->cur);
+
+	ret = cpufreq_stats_create_debugfs(data);
+	if (ret < 0) {
+		spin_unlock(&cpufreq_stats_lock);
+		ret = -EINVAL;
+		goto error_out;
+	}
+
 	spin_unlock(&cpufreq_stats_lock);
 	cpufreq_cpu_put(data);
 	return 0;
@@ -297,11 +507,12 @@ static int cpufreq_stat_notifier_policy(struct notifier_block *nb,
 	if (val != CPUFREQ_NOTIFY)
 		return 0;
 	table = cpufreq_frequency_get_table(cpu);
-	if (!table)
-		return 0;
-	ret = cpufreq_stats_create_table(policy, table);
-	if (ret)
-		return ret;
+	if (table) {
+		ret = cpufreq_stats_create_table(policy, table);
+		if (ret)
+			return ret;
+	}
+
 	return 0;
 }
 
@@ -312,32 +523,40 @@ static int cpufreq_stat_notifier_trans(struct notifier_block *nb,
 	struct cpufreq_stats *stat;
 	int old_index, new_index;
 
-	if (val != CPUFREQ_POSTCHANGE)
-		return 0;
+	switch (val) {
+	case CPUFREQ_POSTCHANGE:
+		stat = per_cpu(cpufreq_stats_table, freq->cpu);
+		if (!stat)
+			return 0;
 
-	stat = per_cpu(cpufreq_stats_table, freq->cpu);
-	if (!stat)
-		return 0;
+		old_index = stat->last_index;
+		new_index = freq_table_get_index(stat, freq->new);
 
-	old_index = stat->last_index;
-	new_index = freq_table_get_index(stat, freq->new);
+		/* We can't do stat->time_in_state[-1]= .. */
+		if (old_index == -1 || new_index == -1)
+			return 0;
 
-	/* We can't do stat->time_in_state[-1]= .. */
-	if (old_index == -1 || new_index == -1)
-		return 0;
+		cpufreq_stats_update(freq->cpu);
 
-	cpufreq_stats_update(freq->cpu);
+		if (old_index == new_index)
+			return 0;
 
-	if (old_index == new_index)
-		return 0;
-
-	spin_lock(&cpufreq_stats_lock);
-	stat->last_index = new_index;
+		spin_lock(&cpufreq_stats_lock);
+		stat->last_index = new_index;
 #ifdef CONFIG_CPU_FREQ_STAT_DETAILS
-	stat->trans_table[old_index * stat->max_state + new_index]++;
+		stat->trans_table[old_index * stat->max_state + new_index]++;
 #endif
-	stat->total_trans++;
-	spin_unlock(&cpufreq_stats_lock);
+		stat->total_trans++;
+		spin_unlock(&cpufreq_stats_lock);
+
+		cpufreq_stats_store_load_table(freq, CPUFREQ_POSTCHANGE);
+
+		break;
+	case CPUFREQ_LOADCHECK:
+		cpufreq_stats_store_load_table(freq, CPUFREQ_LOADCHECK);
+		break;
+	}
+
 	return 0;
 }
 
@@ -354,10 +573,12 @@ static int __cpuinit cpufreq_stat_cpu_callback(struct notifier_block *nfb,
 		break;
 	case CPU_DOWN_PREPARE:
 	case CPU_DOWN_PREPARE_FROZEN:
+		cpufreq_stats_free_debugfs(cpu);
 		cpufreq_stats_free_sysfs(cpu);
 		break;
 	case CPU_DEAD:
 	case CPU_DEAD_FROZEN:
+		cpufreq_stats_free_load_table(cpu);
 		cpufreq_stats_free_table(cpu);
 		break;
 	}
@@ -417,6 +638,7 @@ static void __exit cpufreq_stats_exit(void)
 	unregister_hotcpu_notifier(&cpufreq_stat_cpu_notifier);
 	for_each_online_cpu(cpu) {
 		cpufreq_stats_free_table(cpu);
+		cpufreq_stats_free_debugfs(cpu);
 		cpufreq_stats_free_sysfs(cpu);
 	}
 }
