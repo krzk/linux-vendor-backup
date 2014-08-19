@@ -65,6 +65,17 @@ config DEVFREQ_GOV_USERSPACE
 
 comment "DEVFREQ Drivers"
 
+config ARM_EXYNOS3_BUS_DEVFREQ
+	bool "ARM ARM Exynos3250 Bus DEVFREQ Driver"
+	depends on SOC_EXYNOS3250
+	select ARCH_HAS_OPP
+	select DEVFREQ_GOV_SIMPLE_ONDEMAND
+	select PM_OPP
+	help
+	  This adds the DEVFREQ driver for Exynos3250 meomry interface and
+	  bus (vdd_mif + vdd_int). It reads PPMU counters of memory controllers
+	  and adjusts the operating frequencies and voltages with OPP support.
+
 config ARM_EXYNOS4_BUS_DEVFREQ
 	bool "ARM Exynos4210/4212/4412 Memory Bus DEVFREQ Driver"
 	depends on CPU_EXYNOS4210 || SOC_EXYNOS4212 || SOC_EXYNOS4412
