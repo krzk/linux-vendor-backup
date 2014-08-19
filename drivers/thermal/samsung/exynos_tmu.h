@@ -149,7 +149,7 @@ struct exynos_tmu_registers {
 	u32	triminfo_25_shift;
 	u32	triminfo_85_shift;
 
-	u32	triminfo_ctrl;
+	u32	triminfo_ctrl[2];
 	u32	triminfo_reload_shift;
 
 	u32	tmu_ctrl;
@@ -292,6 +292,8 @@ struct exynos_tmu_platform_data {
 	u8 second_point_trim;
 	u8 default_temp_offset;
 	u8 test_mux;
+	u8 triminfo_reload[2];
+	u8 triminfo_reload_count;
 
 	enum calibration_type cal_type;
 	enum calibration_mode cal_mode;

@@ -161,8 +161,11 @@ static int exynos_tmu_initialize(struct platform_device *pdev)
 		}
 	}
 
-	if (TMU_SUPPORTS(pdata, TRIM_RELOAD))
-		__raw_writel(1, data->base + reg->triminfo_ctrl);
+	if (TMU_SUPPORTS(pdata, TRIM_RELOAD)) {
+		for (i = 0; i < pdata->triminfo_reload_count; i++)
+			__raw_writel(pdata->triminfo_reload[i],
+					data->base + reg->triminfo_ctrl[i]);
+	}
 
 	if (pdata->cal_mode == HW_MODE)
 		goto skip_calib_data;
