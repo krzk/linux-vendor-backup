@@ -23,6 +23,7 @@
 #include <linux/notifier.h>
 #include <linux/cpufreq.h>
 #include <linux/delay.h>
+#include <linux/debugfs.h>
 #include <linux/interrupt.h>
 #include <linux/spinlock.h>
 #include <linux/device.h>
@@ -784,6 +785,170 @@ void cpufreq_sysfs_remove_file(const struct attribute *attr)
 }
 EXPORT_SYMBOL(cpufreq_sysfs_remove_file);
 
+#ifdef CONFIG_CPU_FREQ_STAT
+/* The cpufreq_debugfs is used to create debugfs root directory for CPUFreq */
+static struct dentry *cpufreq_debugfs;
+
+static unsigned int cpufreq_get_index(unsigned int cpu,
+				      struct cpufreq_policy *policy)
+{
+	unsigned int j, idx = 0;
+
+	for_each_cpu(j, policy->related_cpus) {
+		if (j == cpu)
+			break;
+		idx++;
+	}
+
+	return idx;
+}
+
+static int cpufreq_create_debugfs_dir(unsigned int cpu,
+				  struct cpufreq_policy *policy)
+{
+	struct device *cpu_dev;
+	unsigned int cpus, size, idx = 0;
+	char name[CPUFREQ_NAME_LEN];
+
+	if (!cpufreq_debugfs)
+		return -EINVAL;
+
+	cpus = cpumask_weight(policy->related_cpus);
+
+	size = sizeof(struct dentry*) * cpus;
+	cpu_dev = get_cpu_device(cpu);
+	policy->cpu_debugfs = devm_kzalloc(cpu_dev, size, GFP_KERNEL);
+	if (!policy->cpu_debugfs) {
+		pr_err("allocating debugfs memory failed\n");
+		return -ENOMEM;
+	}
+
+	idx = cpufreq_get_index(policy->cpu, policy);
+
+	sprintf(name, "cpu%d", policy->cpu);
+	policy->cpu_debugfs[idx] = debugfs_create_dir(name, cpufreq_debugfs);
+	if (!policy->cpu_debugfs[idx]) {
+		pr_err("creating debugfs directory failed\n");
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
+static int cpufreq_create_debugfs_symlink(unsigned int cpu,
+					  struct cpufreq_policy *policy)
+{
+	char symlink_name[CPUFREQ_NAME_LEN];
+	char target_name[CPUFREQ_NAME_LEN];
+	unsigned int idx;
+
+	if (!cpufreq_debugfs)
+		return -EINVAL;
+
+	idx = cpufreq_get_index(cpu, policy);
+	if (policy->cpu_debugfs[idx])
+		return -EINVAL;
+
+	sprintf(target_name, "./cpu%d", policy->cpu);
+	sprintf(symlink_name, "cpu%d", cpu);
+	policy->cpu_debugfs[idx] = debugfs_create_symlink(symlink_name,
+							  cpufreq_debugfs,
+							  target_name);
+	if (!policy->cpu_debugfs[idx]) {
+		pr_err("creating debugfs symlink failed\n");
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
+static void cpufreq_remove_debugfs(unsigned int cpu,
+				   struct cpufreq_policy *policy)
+{
+	unsigned int idx = cpufreq_get_index(cpu, policy);
+
+	if (!policy->cpu_debugfs[idx])
+		return;
+
+	if (cpu == policy->cpu)
+		debugfs_remove_recursive(policy->cpu_debugfs[idx]);
+	else
+		debugfs_remove(policy->cpu_debugfs[idx]);
+
+	policy->cpu_debugfs[idx] = NULL;
+}
+
+static int cpufreq_move_debugfs_dir(unsigned int cpu,
+				     struct cpufreq_policy *policy)
+{
+	struct dentry *new_entry;
+	char new_dir_name[CPUFREQ_NAME_LEN];
+	unsigned int new_cpu_idx, old_cpu_idx, sibling;
+
+	new_cpu_idx = cpufreq_get_index(cpu, policy);
+	if (!policy->cpu_debugfs[new_cpu_idx])
+		return -EINVAL;
+
+	/*
+	 * Delete previous symbolic link of debugfs directory for new cpu.
+	 * The target of debugfs_rename() must not exist for rename to succedd.
+	 */
+	cpufreq_remove_debugfs(cpu, policy);
+
+	/* Change debugfs directory name from old_cpu to new_cpu */
+	old_cpu_idx = cpufreq_get_index(policy->cpu, policy);
+	sprintf(new_dir_name, "cpu%d", cpu);
+	new_entry = debugfs_rename(cpufreq_debugfs,
+				   policy->cpu_debugfs[old_cpu_idx],
+				   cpufreq_debugfs,
+				   new_dir_name);
+	if (!policy->cpu_debugfs[new_cpu_idx]) {
+		pr_err("changing debugfs directory name failed\n");
+		return -EINVAL;
+	}
+	policy->cpu_debugfs[new_cpu_idx] = new_entry;
+	policy->cpu_debugfs[old_cpu_idx] = NULL;
+
+	/* Create again symbolic link of debugfs directory for online CPUs */
+	for_each_cpu(sibling, policy->cpus) {
+		if (cpu == sibling || policy->cpu == sibling)
+			continue;
+
+		cpufreq_remove_debugfs(sibling, policy);
+		cpufreq_create_debugfs_symlink(sibling, policy);
+	}
+
+	return 0;
+}
+
+static void cpufreq_init_debugfs(void)
+{
+	cpufreq_debugfs = debugfs_create_dir("cpufreq", NULL);
+	if (!cpufreq_debugfs) {
+		pr_err("creating debugfs root failed\n");
+	}
+}
+#else
+static inline int cpufreq_create_debugfs_dir(unsigned int cpu,
+					     struct cpufreq_policy *policy)
+{
+	return 0;
+}
+static inline int cpufreq_create_debugfs_symlink(unsigned int cpu,
+						 struct cpufreq_policy *policy)
+{
+	return 0;
+}
+static inline int cpufreq_move_debugfs_dir(unsigned int cpu,
+					    struct cpufreq_policy *policy)
+{
+	return 0;
+}
+static inline void cpufreq_remove_debugfs(unsigned int cpu,
+					  struct cpufreq_policy *policy) { }
+static inline void cpufreq_init_debugfs(void) { }
+#endif /* CONFIG_CPU_FREQ_STAT */
+
 /* symlink affected CPUs */
 static int cpufreq_add_dev_symlink(unsigned int cpu,
 				   struct cpufreq_policy *policy)
@@ -807,6 +972,8 @@ static int cpufreq_add_dev_symlink(unsigned int cpu,
 			cpufreq_cpu_put(managed_policy);
 			return ret;
 		}
+
+		cpufreq_create_debugfs_symlink(j, policy);
 	}
 	return ret;
 }
@@ -857,6 +1024,9 @@ static int cpufreq_add_dev_interface(unsigned int cpu,
 		per_cpu(cpufreq_policy_cpu, j) = policy->cpu;
 	}
 	write_unlock_irqrestore(&cpufreq_driver_lock, flags);
+
+	/* prepare interface data for debugfs */
+	cpufreq_create_debugfs_dir(cpu, policy);
 
 	ret = cpufreq_add_dev_symlink(cpu, policy);
 	if (ret)
@@ -913,6 +1083,8 @@ static int cpufreq_add_policy_cpu(unsigned int cpu, unsigned int sibling,
 		__cpufreq_governor(policy, CPUFREQ_GOV_START);
 		__cpufreq_governor(policy, CPUFREQ_GOV_LIMITS);
 	}
+
+	cpufreq_create_debugfs_symlink(cpu, policy);
 
 	ret = sysfs_create_link(&dev->kobj, &policy->kobj, "cpufreq");
 	if (ret) {
@@ -1128,6 +1300,7 @@ static int __cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif
 
 	if (cpu != data->cpu) {
 		sysfs_remove_link(&dev->kobj, "cpufreq");
+		cpufreq_remove_debugfs(cpu, data);
 	} else if (cpus > 1) {
 		/* first sibling now owns the new sysfs dir */
 		cpu_dev = get_cpu_device(cpumask_first(data->cpus));
@@ -1152,6 +1325,7 @@ static int __cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif
 
 		WARN_ON(lock_policy_rwsem_write(cpu));
 		update_policy_cpu(data, cpu_dev->id);
+		cpufreq_move_debugfs_dir(cpu_dev->id, data);
 		unlock_policy_rwsem_write(cpu);
 		pr_debug("%s: policy Kobject moved to cpu: %d from: %d\n",
 				__func__, cpu_dev->id, cpu);
@@ -1167,6 +1341,8 @@ static int __cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif
 		cmp = &data->kobj_unregister;
 		unlock_policy_rwsem_read(cpu);
 		kobject_put(kobj);
+
+		cpufreq_remove_debugfs(cpu, data);
 
 		/* we need to make sure that the underlying kobj is actually
 		 * not referenced anymore by anybody before we proceed with
@@ -2103,6 +2279,7 @@ int cpufreq_register_driver(struct cpufreq_driver *driver_data)
 	}
 
 	register_hotcpu_notifier(&cpufreq_cpu_notifier);
+
 	pr_debug("driver %s up and running\n", driver_data->name);
 
 	return 0;
@@ -2165,6 +2342,7 @@ static int __init cpufreq_core_init(void)
 
 	cpufreq_global_kobject = kobject_create();
 	BUG_ON(!cpufreq_global_kobject);
+	cpufreq_init_debugfs();
 	register_syscore_ops(&cpufreq_syscore_ops);
 
 	return 0;
