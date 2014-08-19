@@ -52,12 +52,6 @@ enum ppmu_counter {
 	PPMU_PMNCNT_MAX,
 };
 
-enum ppmu_type {
-	PPMU_DMC0,
-	PPMU_DMC1,
-	PPMU_CNT,
-};
-
 struct bus_opp_table {
 	unsigned int idx;
 	unsigned long clk;

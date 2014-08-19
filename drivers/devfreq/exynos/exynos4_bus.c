@@ -29,6 +29,12 @@
 
 #include "exynos_ppmu.h"
 
+enum ppmu_type {
+	PPMU_DMC0,
+	PPMU_DMC1,
+	PPMU_CNT,
+};
+
 /* Exynos4 ASV has been in the mailing list, but not upstreamed, yet. */
 #ifdef CONFIG_EXYNOS_ASV
 extern unsigned int exynos_result_of_asv;
