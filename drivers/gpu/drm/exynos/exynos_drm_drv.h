@@ -53,6 +53,22 @@ enum exynos_drm_output_type {
 	EXYNOS_DISPLAY_TYPE_VIDI,
 };
 
+enum exynos_drm_display_mode {
+	EXYNOS_DISPLAY_OUTPUT_NONE,
+	EXYNOS_DISPLAY_OUTPUT_WB,
+};
+
+/*
+ * A structure of wb setting infomation.
+ *
+ * @enable: enable flag for wb.
+ * @refresh: HZ of the refresh rate.
+ */
+struct drm_exynos_display_set_wb {
+	__u32	enable;
+	__u32	refresh;
+};
+
 /*
  * Exynos drm common overlay structure.
  *
@@ -363,6 +379,9 @@ int exynos_platform_device_ipp_register(void);
  * this function unregisters exynos drm ipp platform device if it exists.
  */
 void exynos_platform_device_ipp_unregister(void);
+
+extern int exynos_drm_ippnb_register(struct notifier_block *nb);
+extern int exynos_drm_ippnb_unregister(struct notifier_block *nb);
 
 #ifdef CONFIG_DRM_EXYNOS_DPI
 int exynos_dpi_probe(struct device *dev);

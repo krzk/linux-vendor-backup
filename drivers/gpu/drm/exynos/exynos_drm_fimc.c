@@ -1640,7 +1640,7 @@ static int fimc_ippdrv_start(struct device *dev, enum drm_exynos_ipp_cmd cmd)
 	struct drm_exynos_ipp_property *property;
 	struct drm_exynos_ipp_config *config;
 	struct drm_exynos_pos	img_pos[EXYNOS_DRM_OPS_MAX];
-	struct drm_exynos_ipp_set_wb set_wb;
+	struct drm_exynos_display_set_wb set_wb;
 	int ret, i;
 	u32 cfg0, cfg1;
 
@@ -1697,7 +1697,7 @@ static int fimc_ippdrv_start(struct device *dev, enum drm_exynos_ipp_cmd cmd)
 
 		set_wb.enable = 1;
 		set_wb.refresh = property->refresh_rate;
-		exynos_drm_ippnb_send_event(IPP_SET_WRITEBACK, (void *)&set_wb);
+		exynos_drm_ippnb_send_event(EXYNOS_DISPLAY_OUTPUT_WB, (void *)&set_wb);
 		break;
 	case IPP_CMD_OUTPUT:
 	default:
@@ -1742,7 +1742,7 @@ static int fimc_ippdrv_start(struct device *dev, enum drm_exynos_ipp_cmd cmd)
 static void fimc_ippdrv_stop(struct device *dev, enum drm_exynos_ipp_cmd cmd)
 {
 	struct fimc_context *ctx = get_fimc_context(dev);
-	struct drm_exynos_ipp_set_wb set_wb = {0, 0};
+	struct drm_exynos_display_set_wb set_wb = {0, 0};
 	u32 cfg;
 
 	DRM_DEBUG_KMS("%s:cmd[%d]\n", __func__, cmd);
@@ -1756,7 +1756,7 @@ static void fimc_ippdrv_stop(struct device *dev, enum drm_exynos_ipp_cmd cmd)
 		fimc_write(ctx, cfg, EXYNOS_MSCTRL);
 		break;
 	case IPP_CMD_WB:
-		exynos_drm_ippnb_send_event(IPP_SET_WRITEBACK, (void *)&set_wb);
+		exynos_drm_ippnb_send_event(EXYNOS_DISPLAY_OUTPUT_WB, (void *)&set_wb);
 		break;
 	case IPP_CMD_OUTPUT:
 	default:
