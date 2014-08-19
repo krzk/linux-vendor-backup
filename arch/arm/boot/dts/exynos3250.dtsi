@@ -53,21 +53,6 @@
 			compatible = "arm,cortex-a7";
 			reg = <0>;
 			clock-frequency = <1000000000>;
-			clocks = <&cmu CLK_DIV_CORE2>;
-			clock-names = "cpu";
-
-			operating-points = <
-				1000000 1150000
-				900000  1112500
-				800000  1075000
-				700000  1037500
-				600000  1000000
-				500000  962500
-				400000  925000
-				300000  887500
-				200000  850000
-				100000  850000
-			>;
 		};
 
 		cpu1: cpu@1 {
@@ -691,6 +676,17 @@
 			interrupts = <0 104 0>, <0 105 0>, <0 106 0>,
 				     <0 107 0>, <0 108 0>;
 			#pwm-cells = <3>;
+			status = "disabled";
+		};
+
+		cpufreq: cpufreq {
+			compatible = "samsung,exynos-cpufreq";
+			clocks = <&cmu CLK_DIV_CORE2>,
+				 <&cmu CLK_MOUT_CORE>,
+			         <&cmu CLK_MOUT_MPLL_USER_C>,
+				 <&cmu CLK_MOUT_APLL>;
+			clock-names = "div_core2", "mout_core",
+				      "mout_mpll_user_c", "mout_apll";
 			status = "disabled";
 		};
 
