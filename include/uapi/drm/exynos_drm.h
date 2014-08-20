@@ -254,6 +254,12 @@ enum drm_exynos_ipp_cmd {
 	IPP_CMD_MAX,
 };
 
+/* define of color range */
+enum drm_exynos_color_range {
+	COLOR_RANGE_LIMITED,	/* Narrow: Y(16 to 235), Cb/Cr(16 to 240) */
+	COLOR_RANGE_FULL,	/* Wide: Y/Cb/Cr(0 to 255), Wide default */
+};
+
 /**
  * A structure for ipp property.
  *
@@ -262,6 +268,8 @@ enum drm_exynos_ipp_cmd {
  * @ipp_id: id of ipp driver.
  * @prop_id: id of property.
  * @refresh_rate: refresh rate.
+ * @range: dynamic range for csc.
+ * @pad: just padding to be 64-bit aligned.
  */
 struct drm_exynos_ipp_property {
 	struct drm_exynos_ipp_config config[EXYNOS_DRM_OPS_MAX];
@@ -269,6 +277,8 @@ struct drm_exynos_ipp_property {
 	__u32	ipp_id;
 	__u32	prop_id;
 	__u32	refresh_rate;
+	__u32	range;
+	__u32	pad;
 };
 
 enum drm_exynos_ipp_buf_type {
