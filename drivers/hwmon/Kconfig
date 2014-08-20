@@ -945,6 +945,7 @@ config SENSORS_NCT6775
 config SENSORS_NTC_THERMISTOR
 	tristate "NTC thermistor support"
 	depends on !OF || IIO=n || IIO
+	depends on THERMAL || !THERMAL_OF
 	help
 	  This driver supports NTC thermistors sensor reading and its
 	  interpretation. The driver can also monitor the temperature and
