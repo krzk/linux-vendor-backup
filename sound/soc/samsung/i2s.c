@@ -1005,6 +1005,14 @@ static int samsung_i2s_dai_probe(struct snd_soc_dai *dai)
 			dev_err(&i2s->pdev->dev, "failed to set clock hierachy.\n");
 			return ret;
 		}
+	} else {
+		i2s->bus_clk = devm_clk_get(&i2s->pdev->dev, "iis");
+		if (IS_ERR(i2s->bus_clk)) {
+			dev_err(&i2s->pdev->dev, "failed to get i2s0_bus gate\n");
+			return PTR_ERR(i2s->bus_clk);
+		}
+
+		clk_prepare_enable(i2s->bus_clk);
 	}
 
 	if (other) {
@@ -1053,10 +1061,16 @@ static int samsung_i2s_dai_remove(struct snd_soc_dai *dai)
 			clk_put(i2s->op_clk);
 		}
 
+		if (!IS_ERR(i2s->bus_clk)) {
+			clk_disable_unprepare(i2s->bus_clk);
+			clk_put(i2s->bus_clk);
+		}
+
 		iounmap(i2s->addr);
 	}
 
 	i2s->op_clk = ERR_PTR(-EINVAL);
+	i2s->bus_clk = ERR_PTR(-EINVAL);
 
 	return 0;
 }
@@ -1149,6 +1163,9 @@ static int i2s_runtime_suspend(struct device *dev)
 	if (!IS_ERR(i2s->op_clk))
 		clk_disable_unprepare(i2s->op_clk);
 
+	if (!IS_ERR(i2s->bus_clk))
+		clk_disable_unprepare(i2s->bus_clk);
+
 	return 0;
 }
 
@@ -1158,6 +1175,9 @@ static int i2s_runtime_resume(struct device *dev)
 
 	if (!IS_ERR(i2s->op_clk))
 		clk_prepare_enable(i2s->op_clk);
+
+	if (!IS_ERR(i2s->bus_clk))
+		clk_prepare_enable(i2s->bus_clk);
 
 	return 0;
 }
@@ -1246,10 +1266,6 @@ static int samsung_i2s_probe(struct platform_device *pdev)
 			}
 		}
 	}
-
-	pri_dai->bus_clk = devm_clk_get(&pdev->dev, "iis");
-	if (!IS_ERR(pri_dai->bus_clk))
-		clk_prepare_enable(pri_dai->bus_clk);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -1342,9 +1358,6 @@ static int samsung_i2s_remove(struct platform_device *pdev)
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 		if (res)
 			release_mem_region(res->start, resource_size(res));
-
-		if (!IS_ERR(i2s->bus_clk))
-			clk_disable_unprepare(i2s->bus_clk);
 	}
 
 	i2s->pri_dai = NULL;
