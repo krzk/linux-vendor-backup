@@ -395,7 +395,7 @@ static int s5p_mfc_set_dec_stream_buffer_v5(struct s5p_mfc_ctx *ctx,
 /* Set decoding frame buffer */
 static int s5p_mfc_set_dec_frame_buffer_v5(struct s5p_mfc_ctx *ctx)
 {
-	unsigned int frame_size, i;
+	unsigned int frame_size_lu, i;
 	unsigned int frame_size_ch, frame_size_mv;
 	struct s5p_mfc_dev *dev = ctx->dev;
 	unsigned int dpb;
@@ -483,10 +483,10 @@ static int s5p_mfc_set_dec_frame_buffer_v5(struct s5p_mfc_ctx *ctx)
 			ctx->codec_mode);
 		return -EINVAL;
 	}
-	frame_size = ctx->luma_size;
+	frame_size_lu = ctx->luma_size;
 	frame_size_ch = ctx->chroma_size;
 	frame_size_mv = ctx->mv_size;
-	mfc_debug(2, "Frm size: %d ch: %d mv: %d\n", frame_size, frame_size_ch,
+	mfc_debug(2, "Frm size: %d ch: %d mv: %d\n", frame_size_lu, frame_size_ch,
 								frame_size_mv);
 	for (i = 0; i < ctx->total_dpb_count; i++) {
 		/* Bank2 */
