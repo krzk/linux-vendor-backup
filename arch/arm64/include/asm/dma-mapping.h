@@ -23,8 +23,6 @@
 
 #include <asm-generic/dma-coherent.h>
 
-#define ARCH_HAS_DMA_GET_REQUIRED_MASK
-
 extern struct dma_map_ops *dma_ops;
 
 static inline struct dma_map_ops *get_dma_ops(struct device *dev)
