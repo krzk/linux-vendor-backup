@@ -1278,13 +1278,8 @@ static int mms_ts_fw_load(struct mms_ts_info *info)
 		ret = mms_flash_fw(info->fw_data, info, COMPARE_UPDATE);
 	} while (ret && --retries);
 
-	if (!retries) {
+	if (!retries)
 		dev_err(&info->client->dev, "failed to flash firmware after retires\n");
-	} else {
-		/* Runtime config setting*/
-		mms_config_get(info, REQ_FW);
-		mms_config_set(info);
-	}
 
 	return ret;
 }
@@ -1474,6 +1469,8 @@ static int mms_ts_input_open(struct input_dev *dev)
 			"%s already power on\n", __func__);
 		return 0;
 	}
+
+	mms_config_get(info, REQ_FW);
 
 	info->resume_done = false;
 	mms_ts_power(info, true);
