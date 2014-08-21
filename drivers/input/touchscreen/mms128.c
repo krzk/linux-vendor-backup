@@ -294,13 +294,11 @@ struct mms_ts_info {
 	struct pm_qos_request		cpufreq_pm_qos_req;
 };
 
-static int enabled = 0;
-
 static int mms_ts_power(struct mms_ts_info *info, int on)
 {
 	int ret = 0;
 
-	if (enabled == on) {
+	if (info->enabled == on) {
 		pr_err("melfas-ts : %s same state!", __func__);
 		return 0;
 	}
@@ -333,7 +331,7 @@ static int mms_ts_power(struct mms_ts_info *info, int on)
 
 	if (regulator_is_enabled(info->regulator_pwr) == !!on &&
 		regulator_is_enabled(info->regulator_vdd) == !!on) {
-		enabled = on;
+		info->enabled = on;
 	} else {
 		pr_err("melfas-ts : regulator_is_enabled value error!");
 		ret = -1;
@@ -935,7 +933,6 @@ static void work_mms_config_set(struct work_struct *work)
 #endif
 
 	enable_irq(info->irq);
-	info->enabled = true;
 	info->resume_done = true;
 
 }
@@ -1000,7 +997,6 @@ static void reset_mms_ts(struct mms_ts_info *info)
 	if (info->enabled == false)
 		return;
 
-	info->enabled = false;
 	release_all_fingers(info);
 
 	while(retries_off--) {
@@ -1010,7 +1006,6 @@ static void reset_mms_ts(struct mms_ts_info *info)
 
 	if (retries_off < 0) {
 		dev_err(&info->client->dev, "%s : power off error!\n", __func__);
-		info->enabled = true;
 		return;
 	}
 
@@ -1038,7 +1033,6 @@ static void reset_mms_ts(struct mms_ts_info *info)
 	} else
 		info->noise_mode = false;
 #endif
-	info->enabled = true;
 }
 
 static void melfas_ta_cb(struct tsp_callbacks *cb, bool ta_status)
@@ -1483,7 +1477,6 @@ static int mms_ts_input_open(struct input_dev *dev)
 
 	info->resume_done = false;
 	mms_ts_power(info, true);
-	info->enabled = true;
 	schedule_delayed_work(&info->work_config_set,
 					msecs_to_jiffies(10));
 
@@ -1511,7 +1504,6 @@ static void mms_ts_input_close(struct input_dev *dev)
 			"%s already power off\n", __func__);
 		return;
 	}
-	info->enabled = false;
 
 	while (!info->resume_done) {
 		if (!retries--)
@@ -1631,7 +1623,6 @@ static int mms_ts_probe(struct i2c_client *client,
 		goto err_fw_init;
 	}
 
-	info->enabled = true;
 	info->resume_done= true;
 
 	snprintf(info->phys, sizeof(info->phys),
@@ -1701,7 +1692,6 @@ static int mms_ts_probe(struct i2c_client *client,
 		goto err_regulator;
 	}
 	disable_irq(info->irq);
-	info->enabled = false;
 	mms_ts_power(info, false);
 
 	dev_info(&client->dev,
@@ -1770,7 +1760,6 @@ static int mms_ts_suspend(struct device *dev)
 		return 0;
 
 	disable_irq(info->irq);
-	info->enabled = false;
 	release_all_fingers(info);
 
 	mms_ts_power(info, 0);
