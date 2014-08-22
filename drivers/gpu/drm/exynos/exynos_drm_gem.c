@@ -333,7 +333,7 @@ void *exynos_drm_gem_get_dmabuf(struct drm_device *dev,
 
 	drm_gem_object_unreference_unlocked(obj);
 
-	return obj->export_dma_buf;
+	return obj->dma_buf;
 }
 
 int exynos_drm_gem_map_offset_ioctl(struct drm_device *dev, void *data,

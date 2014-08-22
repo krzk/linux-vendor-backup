@@ -170,8 +170,8 @@ static void exynos_dmabuf_release(struct dma_buf *dmabuf)
 	 * to drop the references that these values had been increased
 	 * at drm_prime_handle_to_fd()
 	 */
-	if (exynos_gem_obj->base.export_dma_buf == dmabuf) {
-		exynos_gem_obj->base.export_dma_buf = NULL;
+	if (exynos_gem_obj->base.dma_buf == dmabuf) {
+		exynos_gem_obj->base.dma_buf = NULL;
 
 		/*
 		 * drop this gem object refcount to release allocated buffer
