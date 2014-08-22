@@ -1302,7 +1302,7 @@ static int ipp_start_property(struct exynos_drm_ippdrv *ippdrv,
 			/* source/destination memory list */
 			head = &c_node->mem_list[i];
 
-			m_node = list_first_entry(head,
+			m_node = list_first_entry_or_null(head,
 				struct drm_exynos_ipp_mem_node, list);
 			if (!m_node) {
 				DRM_ERROR("failed to get node.\n");
@@ -1566,7 +1566,7 @@ static int ipp_send_event(struct exynos_drm_ippdrv *ippdrv,
 			/* source/destination memory list */
 			head = &c_node->mem_list[i];
 
-			m_node = list_first_entry(head,
+			m_node = list_first_entry_or_null(head,
 				struct drm_exynos_ipp_mem_node, list);
 			if (!m_node) {
 				DRM_ERROR("empty memory node.\n");
@@ -1605,7 +1605,7 @@ static int ipp_send_event(struct exynos_drm_ippdrv *ippdrv,
 		/* source memory list */
 		head = &c_node->mem_list[EXYNOS_DRM_OPS_SRC];
 
-		m_node = list_first_entry(head,
+		m_node = list_first_entry_or_null(head,
 			struct drm_exynos_ipp_mem_node, list);
 		if (!m_node) {
 			DRM_ERROR("empty memory node.\n");
@@ -1633,7 +1633,7 @@ static int ipp_send_event(struct exynos_drm_ippdrv *ippdrv,
 	 * then we make event and link to event list tail.
 	 * so, we get first event for first enqueued buffer.
 	 */
-	e = list_first_entry(&c_node->event_list,
+	e = list_first_entry_or_null(&c_node->event_list,
 		struct drm_exynos_ipp_send_event, base.link);
 
 	if (!e) {
