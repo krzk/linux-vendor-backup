@@ -117,6 +117,7 @@ extern void early_init_dt_setup_initrd_arch(unsigned long start,
 extern int early_init_dt_scan_root(unsigned long node, const char *uname,
 				   int depth, void *data);
 
+extern unsigned int of_flat_dt_get_machine_rev(void);
 extern char *of_flat_dt_get_machine_name(void);
 extern void *of_flat_dt_match_machine(void *default_match,
 	void * (*get_next_compat)(const char * const**));

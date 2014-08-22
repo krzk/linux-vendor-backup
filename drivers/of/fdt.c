@@ -622,6 +622,19 @@ int __init of_scan_flat_dt_by_path(const char *path,
 		return ret;
 }
 
+unsigned int __init of_flat_dt_get_machine_rev(void)
+{
+	const __be32 *revision;
+	unsigned long dt_root = of_get_flat_dt_root();
+	unsigned int machine_rev = 0;
+
+	revision = of_get_flat_dt_prop(dt_root, "revision", NULL);
+	if (revision != NULL)
+		machine_rev = be32_to_cpu(*revision);
+
+	return machine_rev;
+}
+
 char * __init of_flat_dt_get_machine_name(void)
 {
 	char *name;
@@ -677,7 +690,9 @@ void * __init of_flat_dt_match_machine(void *default_match,
 		return NULL;
 	}
 
-	pr_info("Machine model: %s\n", of_flat_dt_get_machine_name());
+	pr_info("Machine model: %s, Machine revision: %04x\n",
+					of_flat_dt_get_machine_name(),
+					of_flat_dt_get_machine_rev());
 
 	return best_data;
 }
