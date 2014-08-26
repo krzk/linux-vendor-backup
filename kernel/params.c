@@ -83,6 +83,15 @@ bool parameq(const char *a, const char *b)
 	return parameqn(a, b, strlen(a)+1);
 }
 
+static void param_check_unsafe(const struct kernel_param *kp)
+{
+	if (kp->flags & KERNEL_PARAM_FL_UNSAFE) {
+		pr_warn("Setting dangerous option %s - tainting kernel\n",
+			kp->name);
+		add_taint(TAINT_USER, LOCKDEP_STILL_OK);
+	}
+}
+
 static int parse_one(char *param,
 		     char *val,
 		     const char *doing,
@@ -109,6 +118,7 @@ static int parse_one(char *param,
 			pr_debug("handling %s with %p\n", param,
 				params[i].ops->set);
 			mutex_lock(&param_lock);
+			param_check_unsafe(&params[i]);
 			err = params[i].ops->set(val, &params[i]);
 			mutex_unlock(&param_lock);
 			return err;
@@ -230,7 +240,6 @@ int parse_args(const char *doing,
 #define STANDARD_PARAM_DEF(name, type, format, strtolfn)      		\
 	int param_set_##name(const char *val, const struct kernel_param *kp) \
 	{								\
-		param_check_unsafe(kp);					\
 		return strtolfn(val, 0, (type *)kp->arg);		\
 	}								\
 	int param_get_##name(char *buffer, const struct kernel_param *kp) \
@@ -260,8 +269,6 @@ int param_set_charp(const char *val, const struct kernel_param *kp)
 		pr_err("%s: string parameter too long\n", kp->name);
 		return -ENOSPC;
 	}
-
-	param_check_unsafe(kp);
 
 	maybe_kfree_parameter(*(char **)kp->arg);
 
@@ -300,8 +307,6 @@ EXPORT_SYMBOL(param_ops_charp);
 /* Actually could be a bool or an int, for historical reasons. */
 int param_set_bool(const char *val, const struct kernel_param *kp)
 {
-	param_check_unsafe(kp);
-
 	/* No equals means "set"... */
 	if (!val) val = "1";
 
@@ -331,8 +336,6 @@ int param_set_invbool(const char *val, const struct kernel_param *kp)
 	bool boolval;
 	struct kernel_param dummy;
 
-	param_check_unsafe(kp);
-
 	dummy.arg = &boolval;
 	ret = param_set_bool(val, &dummy);
 	if (ret == 0)
@@ -358,8 +361,6 @@ int param_set_bint(const char *val, const struct kernel_param *kp)
 	struct kernel_param boolkp;
 	bool v;
 	int ret;
-
-	param_check_unsafe(kp);
 
 	/* Match bool exactly, by re-using it. */
 	boolkp = *kp;
@@ -480,8 +481,6 @@ int param_set_copystring(const char *val, const struct kernel_param *kp)
 {
 	const struct kparam_string *kps = kp->str;
 
-	param_check_unsafe(kp);
-
 	if (strlen(val)+1 > kps->maxlen) {
 		pr_err("%s: string doesn't fit in %u chars.\n",
 		       kp->name, kps->maxlen-1);
@@ -558,6 +557,7 @@ static ssize_t param_attr_store(struct module_attribute *mattr,
 		return -EPERM;
 
 	mutex_lock(&param_lock);
+	param_check_unsafe(attribute->param);
 	err = attribute->param->ops->set(buf, attribute->param);
 	mutex_unlock(&param_lock);
 	if (!err)
