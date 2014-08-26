@@ -17,8 +17,9 @@ Required properties:
      * DMIC
 
    For Odroid U3:
-     * Headphone Jack
+     * Headset Stereophone
      * Speakers
+     * Headset Mic
 
 Example:
 
