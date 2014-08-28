@@ -682,6 +682,35 @@ err_unlock:
 	return ret;
 }
 
+static int ipp_put_mem_node(struct drm_device *drm_dev,
+		struct drm_exynos_ipp_cmd_node *c_node,
+		struct drm_exynos_ipp_mem_node *m_node)
+{
+	int i;
+
+	DRM_DEBUG_KMS("node[0x%x]\n", (int)m_node);
+
+	if (!m_node) {
+		DRM_ERROR("invalid dequeue node.\n");
+		return -EFAULT;
+	}
+
+	DRM_DEBUG_KMS("ops_id[%d]\n", m_node->ops_id);
+
+	/* put gem buffer */
+	for_each_ipp_planar(i) {
+		unsigned long handle = m_node->buf_info.handles[i];
+		if (handle)
+			exynos_drm_gem_put_dma_addr(drm_dev, handle,
+							c_node->filp);
+	}
+
+	list_del(&m_node->list);
+	kfree(m_node);
+
+	return 0;
+}
+
 static struct drm_exynos_ipp_mem_node
 		*ipp_get_mem_node(struct drm_device *drm_dev,
 		struct drm_file *file,
@@ -707,6 +736,7 @@ static struct drm_exynos_ipp_mem_node
 	m_node->ops_id = qbuf->ops_id;
 	m_node->prop_id = qbuf->prop_id;
 	m_node->buf_id = qbuf->buf_id;
+	INIT_LIST_HEAD(&m_node->list);
 
 	DRM_DEBUG_KMS("%s:m_node[0x%x]ops_id[%d]\n", __func__,
 		(int)m_node, qbuf->ops_id);
@@ -750,50 +780,12 @@ static struct drm_exynos_ipp_mem_node
 	return m_node;
 
 err_clear:
-	kfree(m_node);
+	ipp_put_mem_node(drm_dev, c_node, m_node);
 err_unlock:
 	mutex_unlock(&c_node->mem_lock);
 	return ERR_PTR(-EFAULT);
 }
 
-static int ipp_put_mem_node(struct drm_device *drm_dev,
-		struct drm_exynos_ipp_cmd_node *c_node,
-		struct drm_exynos_ipp_mem_node *m_node)
-{
-	int i;
-
-	DRM_DEBUG_KMS("%s:node[0x%x]\n", __func__, (int)m_node);
-
-	if (!m_node) {
-		DRM_ERROR("invalid dequeue node.\n");
-		return -EFAULT;
-	}
-
-	if (list_empty(&m_node->list)) {
-		DRM_ERROR("empty memory node.\n");
-		return -ENOMEM;
-	}
-
-	mutex_lock(&c_node->mem_lock);
-
-	DRM_DEBUG_KMS("%s:ops_id[%d]\n", __func__, m_node->ops_id);
-
-	/* put gem buffer */
-	for_each_ipp_planar(i) {
-		unsigned long handle = m_node->buf_info.handles[i];
-		if (handle)
-			exynos_drm_gem_put_dma_addr(drm_dev, handle,
-							c_node->filp);
-	}
-
-	/* delete list in queue */
-	list_del(&m_node->list);
-	kfree(m_node);
-
-	mutex_unlock(&c_node->mem_lock);
-
-	return 0;
-}
 
 static void ipp_free_event(struct drm_pending_event *event)
 {
