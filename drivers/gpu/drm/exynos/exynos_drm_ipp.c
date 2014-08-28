@@ -668,6 +668,81 @@ static void ipp_clean_mem_nodes(struct drm_device *drm_dev,
 	mutex_unlock(&c_node->mem_lock);
 }
 
+static void ipp_free_event(struct drm_pending_event *event)
+{
+	kfree(event);
+}
+
+static int ipp_get_event(struct drm_device *drm_dev,
+		struct drm_file *file,
+		struct drm_exynos_ipp_cmd_node *c_node,
+		struct drm_exynos_ipp_queue_buf *qbuf)
+{
+	struct drm_exynos_ipp_send_event *e;
+	unsigned long flags;
+
+	DRM_DEBUG_KMS("%s:ops_id[%d]buf_id[%d]\n", __func__,
+		qbuf->ops_id, qbuf->buf_id);
+
+	e = kzalloc(sizeof(*e), GFP_KERNEL);
+	if (!e) {
+		spin_lock_irqsave(&drm_dev->event_lock, flags);
+		file->event_space += sizeof(e->event);
+		spin_unlock_irqrestore(&drm_dev->event_lock, flags);
+		return -ENOMEM;
+	}
+
+	/* make event */
+	e->event.base.type = DRM_EXYNOS_IPP_EVENT;
+	e->event.base.length = sizeof(e->event);
+	e->event.user_data = qbuf->user_data;
+	e->event.prop_id = qbuf->prop_id;
+	e->event.buf_id[EXYNOS_DRM_OPS_DST] = qbuf->buf_id;
+	e->base.event = &e->event.base;
+	e->base.file_priv = file;
+	e->base.destroy = ipp_free_event;
+	list_add_tail(&e->base.link, &c_node->event_list);
+
+	return 0;
+}
+
+static void ipp_put_event(struct drm_exynos_ipp_cmd_node *c_node,
+		struct drm_exynos_ipp_queue_buf *qbuf)
+{
+	struct drm_exynos_ipp_send_event *e, *te;
+	int count = 0;
+
+	if (list_empty(&c_node->event_list)) {
+		DRM_DEBUG_KMS("%s:event_list is empty.\n", __func__);
+		return;
+	}
+
+	list_for_each_entry_safe(e, te, &c_node->event_list, base.link) {
+		DRM_DEBUG_KMS("%s:count[%d]e[0x%x]\n",
+			__func__, count++, (int)e);
+
+		/*
+		 * quf == NULL condition means all event deletion.
+		 * stop operations want to delete all event list.
+		 * another case delete only same buf id.
+		 */
+		if (!qbuf) {
+			/* delete list */
+			list_del(&e->base.link);
+			kfree(e);
+		}
+
+		/* compare buffer id */
+		if (qbuf && (qbuf->buf_id ==
+		    e->event.buf_id[EXYNOS_DRM_OPS_DST])) {
+			/* delete list */
+			list_del(&e->base.link);
+			kfree(e);
+			return;
+		}
+	}
+}
+
 static void ipp_clean_cmd_node(struct drm_device *drm_dev,
 		struct drm_exynos_ipp_cmd_node *c_node)
 {
@@ -677,6 +752,9 @@ static void ipp_clean_cmd_node(struct drm_device *drm_dev,
 	cancel_work_sync(&c_node->start_work->work);
 	cancel_work_sync(&c_node->stop_work->work);
 	cancel_work_sync(&c_node->event_work->work);
+
+	/* put event */
+	ipp_put_event(c_node, NULL);
 
 	for_each_ipp_ops(i)
 		ipp_clean_mem_nodes(drm_dev, c_node, i);
@@ -809,81 +887,6 @@ static int ipp_set_mem_node(struct exynos_drm_ippdrv *ippdrv,
 err_unlock:
 	mutex_unlock(&c_node->mem_lock);
 	return ret;
-}
-
-static void ipp_free_event(struct drm_pending_event *event)
-{
-	kfree(event);
-}
-
-static int ipp_get_event(struct drm_device *drm_dev,
-		struct drm_file *file,
-		struct drm_exynos_ipp_cmd_node *c_node,
-		struct drm_exynos_ipp_queue_buf *qbuf)
-{
-	struct drm_exynos_ipp_send_event *e;
-	unsigned long flags;
-
-	DRM_DEBUG_KMS("%s:ops_id[%d]buf_id[%d]\n", __func__,
-		qbuf->ops_id, qbuf->buf_id);
-
-	e = kzalloc(sizeof(*e), GFP_KERNEL);
-	if (!e) {
-		spin_lock_irqsave(&drm_dev->event_lock, flags);
-		file->event_space += sizeof(e->event);
-		spin_unlock_irqrestore(&drm_dev->event_lock, flags);
-		return -ENOMEM;
-	}
-
-	/* make event */
-	e->event.base.type = DRM_EXYNOS_IPP_EVENT;
-	e->event.base.length = sizeof(e->event);
-	e->event.user_data = qbuf->user_data;
-	e->event.prop_id = qbuf->prop_id;
-	e->event.buf_id[EXYNOS_DRM_OPS_DST] = qbuf->buf_id;
-	e->base.event = &e->event.base;
-	e->base.file_priv = file;
-	e->base.destroy = ipp_free_event;
-	list_add_tail(&e->base.link, &c_node->event_list);
-
-	return 0;
-}
-
-static void ipp_put_event(struct drm_exynos_ipp_cmd_node *c_node,
-		struct drm_exynos_ipp_queue_buf *qbuf)
-{
-	struct drm_exynos_ipp_send_event *e, *te;
-	int count = 0;
-
-	if (list_empty(&c_node->event_list)) {
-		DRM_DEBUG_KMS("%s:event_list is empty.\n", __func__);
-		return;
-	}
-
-	list_for_each_entry_safe(e, te, &c_node->event_list, base.link) {
-		DRM_DEBUG_KMS("%s:count[%d]e[0x%x]\n",
-			__func__, count++, (int)e);
-
-		/*
-		 * quf == NULL condition means all event deletion.
-		 * stop operations want to delete all event list.
-		 * another case delete only same buf id.
-		 */
-		if (!qbuf) {
-			/* delete list */
-			list_del(&e->base.link);
-			kfree(e);
-		}
-
-		/* compare buffer id */
-		if (qbuf && (qbuf->buf_id ==
-		    e->event.buf_id[EXYNOS_DRM_OPS_DST])) {
-			/* delete list */
-			list_del(&e->base.link);
-			kfree(e);
-			return;
-		}
-	}
 }
 
 static void ipp_handle_cmd_work(struct device *dev,
@@ -1390,9 +1393,6 @@ static int ipp_stop_property(struct drm_device *drm_dev,
 	int i;
 
 	DRM_DEBUG_KMS("%s:prop_id[%d]\n", __func__, property->prop_id);
-
-	/* put event */
-	ipp_put_event(c_node, NULL);
 
 	/* stop operations */
 	if (ippdrv->stop)
