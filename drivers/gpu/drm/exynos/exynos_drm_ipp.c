@@ -1815,17 +1815,13 @@ static int ipp_subdrv_open(struct drm_device *drm_dev, struct device *dev,
 static void ipp_subdrv_close(struct drm_device *drm_dev, struct device *dev,
 		struct drm_file *file)
 {
-	struct drm_exynos_file_private *file_priv = file->driver_priv;
-	struct exynos_drm_ipp_private *priv = file_priv->ipp_priv;
 	struct exynos_drm_ippdrv *ippdrv = NULL;
 	struct drm_exynos_ipp_cmd_node *c_node, *tc_node;
 	int count = 0;
 
-	DRM_DEBUG_KMS("%s:for priv[0x%x]\n", __func__, (int)priv);
-
 	if (list_empty(&exynos_drm_ippdrv_list)) {
 		DRM_DEBUG_KMS("%s:ippdrv_list is empty.\n", __func__);
-		goto err_clear;
+		return;
 	}
 
 	list_for_each_entry(ippdrv, &exynos_drm_ippdrv_list, drv_list) {
@@ -1837,7 +1833,7 @@ static void ipp_subdrv_close(struct drm_device *drm_dev, struct device *dev,
 			DRM_DEBUG_KMS("%s:count[%d]ippdrv[0x%x]\n",
 				__func__, count++, (int)ippdrv);
 
-			if (c_node->priv == priv) {
+			if (c_node->filp == file) {
 				/*
 				 * userland goto unnormal state. process killed.
 				 * and close the file.
@@ -1858,8 +1854,6 @@ static void ipp_subdrv_close(struct drm_device *drm_dev, struct device *dev,
 		}
 	}
 
-err_clear:
-	kfree(priv);
 	return;
 }
 
