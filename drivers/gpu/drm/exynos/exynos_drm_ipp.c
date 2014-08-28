@@ -494,7 +494,6 @@ int exynos_drm_ipp_set_property(struct drm_device *drm_dev, void *data,
 		__func__, property->prop_id, property->cmd, (int)ippdrv);
 
 	/* stored property information and ippdrv in private data */
-	c_node->priv = priv;
 	c_node->property = *property;
 	c_node->state = IPP_STATE_IDLE;
 	c_node->filp = file;
