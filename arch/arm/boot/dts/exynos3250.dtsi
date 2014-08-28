@@ -373,6 +373,16 @@
 			samsung,power-domain = <&pd_cam>;
 		};
 
+		msc: msc@11870000 {
+			compatible = "samsung,exynos3250-sc";
+			reg = <0x11870000 0x2000>;
+			clocks = <&cmu CLK_M2MSCALER>;
+			clock-names = "mscl";
+			interrupts = <0 169 0>;
+			iommu = <&smmu_msc>;
+			samsung,power-domain = <&pd_cam>;
+		};
+
 		smmu_gsc0: sysmmu@11a20000 {
 			compatible = "samsung,exynos4210-sysmmu";
 			reg = <0x11a20000 0x1000>;
@@ -387,6 +397,15 @@
 			reg = <0x11a30000 0x1000>;
 			interrupts = <0 153 0>, <0 158 0>;
 			clocks = <&cmu CLK_SMMUGSCALER1>, <&cmu CLK_GSCALER1>;
+			clock-names = "sysmmu", "master";
+			samsung,power-domain = <&pd_cam>;
+		};
+
+		smmu_msc: sysmmu@11a40000 {
+			compatible = "samsung,exynos4210-sysmmu";
+			reg = <0x11a40000 0x1000>;
+			interrupts = <0 154 0>, <0 159 0>;
+			clocks = <&cmu CLK_SMMUM2M2SCALER>, <&cmu CLK_M2MSCALER>;
 			clock-names = "sysmmu", "master";
 			samsung,power-domain = <&pd_cam>;
 		};
