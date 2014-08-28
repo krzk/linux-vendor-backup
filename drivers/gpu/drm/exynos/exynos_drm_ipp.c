@@ -668,12 +668,18 @@ static void ipp_clean_mem_nodes(struct drm_device *drm_dev,
 	mutex_unlock(&c_node->mem_lock);
 }
 
-static void ipp_clean_cmd_node(struct drm_exynos_ipp_cmd_node *c_node)
+static void ipp_clean_cmd_node(struct drm_device *drm_dev,
+		struct drm_exynos_ipp_cmd_node *c_node)
 {
+	int i;
+
 	/* cancel works */
 	cancel_work_sync(&c_node->start_work->work);
 	cancel_work_sync(&c_node->stop_work->work);
 	cancel_work_sync(&c_node->event_work->work);
+
+	for_each_ipp_ops(i)
+		ipp_clean_mem_nodes(drm_dev, c_node, i);
 
 	/* delete list */
 	list_del(&c_node->list);
@@ -1164,7 +1170,7 @@ int exynos_drm_ipp_cmd_ctrl(struct drm_device *drm_dev, void *data,
 
 		c_node->state = IPP_STATE_STOP;
 		ippdrv->dedicated = false;
-		ipp_clean_cmd_node(c_node);
+		ipp_clean_cmd_node(drm_dev, c_node);
 
 		if (list_empty(&ippdrv->cmd_list))
 			pm_runtime_put_sync(ippdrv->dev);
@@ -1808,7 +1814,7 @@ static void ipp_subdrv_close(struct drm_device *drm_dev, struct device *dev,
 				}
 
 				ippdrv->dedicated = false;
-				ipp_clean_cmd_node(c_node);
+				ipp_clean_cmd_node(drm_dev, c_node);
 				if (list_empty(&ippdrv->cmd_list))
 					pm_runtime_put_sync(ippdrv->dev);
 			}
