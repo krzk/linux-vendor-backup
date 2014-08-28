@@ -548,6 +548,11 @@ err_clear:
 
 static void ipp_clean_cmd_node(struct drm_exynos_ipp_cmd_node *c_node)
 {
+	/* cancel works */
+	cancel_work_sync(&c_node->start_work->work);
+	cancel_work_sync(&c_node->stop_work->work);
+	cancel_work_sync(&c_node->event_work->work);
+
 	/* delete list */
 	list_del(&c_node->list);
 
