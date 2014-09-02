@@ -436,7 +436,14 @@
 				regulator-max-microvolt = <1800000>;
 				regulator-always-on;
 
-				op_mode = <3>; /* Standby Mode */
+				/*
+				 * FIXME: Change to Normal mode from Standby-
+				 * mode, because when trying to play sound,
+				 * board power is turned off suddenly.
+				 * After resolved this issue, this workaround
+				 * will be deleted.
+				 */
+				op_mode = <1>; /* Normal Mode */
 			};
 
 			ldo4_reg: LDO4 {
