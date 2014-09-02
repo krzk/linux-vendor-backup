@@ -718,7 +718,7 @@
 		};
 
 		i2s2: i2s@13970000 {
-			compatible = "samsung,i2s-v5";
+			compatible = "samsung,s3c6410-i2s";
 			reg = <0x13970000 0x100>;
 			interrupts = <0 126 0>;
 			clocks = <&cmu CLK_I2S>, <&cmu CLK_SCLK_I2S>;
