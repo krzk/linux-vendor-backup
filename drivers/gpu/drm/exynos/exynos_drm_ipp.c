@@ -369,41 +369,6 @@ static void ipp_print_property(struct drm_exynos_ipp_property *property,
 		sz->hsize, sz->vsize, config->flip, config->degree);
 }
 
-static int ipp_find_and_set_property(struct drm_exynos_ipp_property *property)
-{
-	struct exynos_drm_ippdrv *ippdrv;
-	struct drm_exynos_ipp_cmd_node *c_node;
-	u32 prop_id = property->prop_id;
-
-	DRM_DEBUG_KMS("%s:prop_id[%d]\n", __func__, prop_id);
-
-	ippdrv = ipp_find_drv_by_handle(prop_id);
-	if (IS_ERR(ippdrv)) {
-		DRM_ERROR("failed to get ipp driver.\n");
-		return -EINVAL;
-	}
-
-	/*
-	 * Find command node using command list in ippdrv.
-	 * when we find this command no using prop_id.
-	 * return property information set in this command node.
-	 */
-	list_for_each_entry(c_node, &ippdrv->cmd_list, list) {
-		if ((c_node->property.prop_id == prop_id) &&
-		    (c_node->state == IPP_STATE_STOP)) {
-			DRM_DEBUG_KMS("%s:found cmd[%d]ippdrv[0x%x]\n",
-				__func__, property->cmd, (int)ippdrv);
-
-			c_node->property = *property;
-			return 0;
-		}
-	}
-
-	DRM_ERROR("failed to search property.\n");
-
-	return -EINVAL;
-}
-
 static struct drm_exynos_ipp_cmd_work *ipp_create_cmd_work(void)
 {
 	struct drm_exynos_ipp_cmd_work *cmd_work;
@@ -440,6 +405,7 @@ int exynos_drm_ipp_set_property(struct drm_device *drm_dev, void *data,
 	struct drm_exynos_ipp_property *property = data;
 	struct exynos_drm_ippdrv *ippdrv;
 	struct drm_exynos_ipp_cmd_node *c_node;
+	u32 prop_id;
 	int ret, i;
 
 	if (!ctx) {
@@ -452,6 +418,8 @@ int exynos_drm_ipp_set_property(struct drm_device *drm_dev, void *data,
 		return -EINVAL;
 	}
 
+	prop_id = property->prop_id;
+
 	/*
 	 * This is log print for user application property.
 	 * user application set various property.
@@ -460,14 +428,24 @@ int exynos_drm_ipp_set_property(struct drm_device *drm_dev, void *data,
 		ipp_print_property(property, i);
 
 	/*
-	 * set property ioctl generated new prop_id.
-	 * but in this case already asigned prop_id using old set property.
-	 * e.g PAUSE state. this case supports find current prop_id and use it
-	 * instead of allocation.
+	 * In case prop_id is not zero try to set existing property.
 	 */
-	if (property->prop_id) {
-		DRM_DEBUG_KMS("%s:prop_id[%d]\n", __func__, property->prop_id);
-		return ipp_find_and_set_property(property);
+	if (prop_id) {
+		c_node = ipp_find_obj(&ctx->prop_idr, &ctx->prop_lock, prop_id);
+
+		if (!c_node || c_node->filp != file) {
+			DRM_DEBUG_KMS("prop_id[%d] not found\n", prop_id);
+			return -EINVAL;
+		}
+
+		if (c_node->state != IPP_STATE_STOP) {
+			DRM_DEBUG_KMS("prop_id[%d] not stopped\n", prop_id);
+			return -EINVAL;
+		}
+
+		c_node->property = *property;
+
+		return 0;
 	}
 
 	/* find ipp driver using ipp id */
@@ -999,7 +977,7 @@ int exynos_drm_ipp_queue_buf(struct drm_device *drm_dev, void *data,
 	/* find command node */
 	c_node = ipp_find_obj(&ctx->prop_idr, &ctx->prop_lock,
 		qbuf->prop_id);
-	if (!c_node) {
+	if (!c_node || c_node->filp != file) {
 		DRM_ERROR("failed to get command node.\n");
 		return -EFAULT;
 	}
@@ -1136,7 +1114,7 @@ int exynos_drm_ipp_cmd_ctrl(struct drm_device *drm_dev, void *data,
 
 	c_node = ipp_find_obj(&ctx->prop_idr, &ctx->prop_lock,
 		cmd_ctrl->prop_id);
-	if (!c_node) {
+	if (!c_node || c_node->filp != file) {
 		DRM_ERROR("invalid command node list.\n");
 		return -EINVAL;
 	}
