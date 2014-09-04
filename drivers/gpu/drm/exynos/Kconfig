@@ -90,3 +90,9 @@ config DRM_EXYNOS_GSC
 	depends on DRM_EXYNOS_IPP && (ARCH_EXYNOS3 || ARCH_EXYNOS5)
 	help
 	  Choose this option if you want to use Exynos GSC for DRM.
+
+config DRM_EXYNOS_SC
+	bool "EXYNOS DRM SC"
+	depends on DRM_EXYNOS_IPP && (ARCH_EXYNOS3 || ARCH_EXYNOS5)
+	help
+	  Choose this option if you want to use Exynos SC for DRM.

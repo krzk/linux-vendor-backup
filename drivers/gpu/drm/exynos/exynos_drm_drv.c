@@ -464,6 +464,9 @@ static struct platform_driver *exynos_drm_subdrivers[] = {
 #ifdef CONFIG_DRM_EXYNOS_GSC
 	&gsc_driver,
 #endif
+#ifdef CONFIG_DRM_EXYNOS_SC
+	&sc_driver,
+#endif
 #ifdef CONFIG_DRM_EXYNOS_IPP
 	&ipp_driver,
 #endif

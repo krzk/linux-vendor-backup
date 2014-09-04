@@ -201,6 +201,9 @@ enum drm_exynos_planer {
  * @csc: flag of csc supporting.
  * @crop: flag of crop supporting.
  * @scale: flag of scale supporting.
+ * @blending: flag of blending supporting.
+ * @dithering: flag of dithering supporting.
+ * @colorfill: flag of colorfill supporting.
  * @refresh_min: min hz of refresh.
  * @refresh_max: max hz of refresh.
  * @crop_min: crop min resolution.
@@ -218,9 +221,11 @@ struct drm_exynos_ipp_prop_list {
 	__u32	csc;
 	__u32	crop;
 	__u32	scale;
+	__u32	blending;
+	__u32	dithering;
+	__u32	colorfill;
 	__u32	refresh_min;
 	__u32	refresh_max;
-	__u32	reserved;
 	struct drm_exynos_sz	crop_min;
 	struct drm_exynos_sz	crop_max;
 	struct drm_exynos_sz	scale_min;
@@ -260,6 +265,61 @@ enum drm_exynos_color_range {
 	COLOR_RANGE_FULL,	/* Wide: Y/Cb/Cr(0 to 255), Wide default */
 };
 
+/* define of blending operation */
+enum drm_exynos_ipp_blending {
+	IPP_BLENDING_NO,
+	/* [0, 0] */
+	IPP_BLENDING_CLR,
+	/* [Sa, Sc] */
+	IPP_BLENDING_SRC,
+	/* [Da, Dc] */
+	IPP_BLENDING_DST,
+	/* [Sa + (1 - Sa)*Da, Rc = Sc + (1 - Sa)*Dc] */
+	IPP_BLENDING_SRC_OVER,
+	/* [Sa + (1 - Sa)*Da, Rc = Dc + (1 - Da)*Sc] */
+	IPP_BLENDING_DST_OVER,
+	/* [Sa * Da, Sc * Da] */
+	IPP_BLENDING_SRC_IN,
+	/* [Sa * Da, Sa * Dc] */
+	IPP_BLENDING_DST_IN,
+	/* [Sa * (1 - Da), Sc * (1 - Da)] */
+	IPP_BLENDING_SRC_OUT,
+	/* [Da * (1 - Sa), Dc * (1 - Sa)] */
+	IPP_BLENDING_DST_OUT,
+	/* [Da, Sc * Da + (1 - Sa) * Dc] */
+	IPP_BLENDING_SRC_ATOP,
+	/* [Sa, Sc * (1 - Da) + Sa * Dc ] */
+	IPP_BLENDING_DST_ATOP,
+	/* [-(Sa * Da), Sc * (1 - Da) + (1 - Sa) * Dc] */
+	IPP_BLENDING_XOR,
+	/* [Sa + Da - Sa*Da, Sc*(1 - Da) + Dc*(1 - Sa) + min(Sc, Dc)] */
+	IPP_BLENDING_DARKEN,
+	/* [Sa + Da - Sa*Da, Sc*(1 - Da) + Dc*(1 - Sa) + max(Sc, Dc)] */
+	IPP_BLENDING_LIGHTEN,
+	/* [Sa * Da, Sc * Dc] */
+	IPP_BLENDING_MULTIPLY,
+	/* [Sa + Da - Sa * Da, Sc + Dc - Sc * Dc] */
+	IPP_BLENDING_SCREEN,
+	/* Saturate(S + D) */
+	IPP_BLENDING_ADD,
+	/* Max */
+	IPP_BLENDING_MAX,
+};
+
+/*
+ * FIXME: H/W cannot distinguish the number of bits used for dithering.
+ * So, these useless options must be removed after co-working with upper layer.
+ */
+/* define of dithering operation */
+enum drm_exynos_ipp_dithering {
+	IPP_DITHERING_NO,
+	IPP_DITHERING_8BIT,
+	IPP_DITHERING_6BIT,
+	IPP_DITHERING_5BIT,
+	IPP_DITHERING_4BIT,
+	IPP_DITHERING_MAX,
+};
+
 /**
  * A structure for ipp property.
  *
@@ -269,7 +329,9 @@ enum drm_exynos_color_range {
  * @prop_id: id of property.
  * @refresh_rate: refresh rate.
  * @range: dynamic range for csc.
- * @pad: just padding to be 64-bit aligned.
+ * @blending: blending opeation config.
+ * @dithering: dithering opeation config.
+ * @color_fill: color fill value.
  */
 struct drm_exynos_ipp_property {
 	struct drm_exynos_ipp_config config[EXYNOS_DRM_OPS_MAX];
@@ -278,7 +340,9 @@ struct drm_exynos_ipp_property {
 	__u32	prop_id;
 	__u32	refresh_rate;
 	__u32	range;
-	__u32	pad;
+	__u32	blending;
+	__u32	dithering;
+	__u32	color_fill;
 };
 
 enum drm_exynos_ipp_buf_type {

@@ -401,5 +401,6 @@ extern struct platform_driver g2d_driver;
 extern struct platform_driver fimc_driver;
 extern struct platform_driver rotator_driver;
 extern struct platform_driver gsc_driver;
+extern struct platform_driver sc_driver;
 extern struct platform_driver ipp_driver;
 #endif
