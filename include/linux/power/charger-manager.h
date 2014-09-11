@@ -234,9 +234,8 @@ struct charger_manager {
 	struct power_supply *fuel_gauge;
 	struct power_supply **charger_stat;
 
-#ifdef CONFIG_THERMAL
 	struct thermal_zone_device *tzd_batt;
-#endif
+
 	bool charger_enabled;
 
 	unsigned long fullbatt_vchk_jiffies_at;

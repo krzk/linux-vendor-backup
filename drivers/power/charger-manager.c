@@ -548,19 +548,11 @@ static int cm_get_battery_temperature(struct charger_manager *cm,
 {
 	int ret;
 
-	if (!cm->desc->measure_battery_temp)
-		return -ENODEV;
-
-#ifdef CONFIG_THERMAL
 	ret = thermal_zone_get_temp(cm->tzd_batt, (unsigned long *)temp);
 	if (!ret)
 		/* Calibrate temperature unit */
 		*temp /= 100;
-#else
-	ret = cm->fuel_gauge->get_property(cm->fuel_gauge,
-				POWER_SUPPLY_PROP_TEMP,
-				(union power_supply_propval *)temp);
-#endif
+
 	return ret;
 }
 
@@ -947,12 +939,11 @@ static enum power_supply_property default_charger_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
+	POWER_SUPPLY_PROP_TEMP,
 	/*
 	 * Optional properties are:
 	 * POWER_SUPPLY_PROP_CHARGE_NOW,
 	 * POWER_SUPPLY_PROP_CURRENT_NOW,
-	 * POWER_SUPPLY_PROP_TEMP, and
-	 * POWER_SUPPLY_PROP_TEMP_AMBIENT,
 	 */
 };
 
@@ -1355,50 +1346,6 @@ err:
 	return ret;
 }
 
-static int cm_init_thermal_data(struct charger_manager *cm)
-{
-	struct charger_desc *desc = cm->desc;
-	union power_supply_propval val;
-	int ret;
-
-	/* Verify whether fuel gauge provides battery temperature */
-	ret = cm->fuel_gauge->get_property(cm->fuel_gauge,
-					POWER_SUPPLY_PROP_TEMP, &val);
-
-	if (!ret) {
-		cm->charger_psy.properties[cm->charger_psy.num_properties] =
-				POWER_SUPPLY_PROP_TEMP;
-		cm->charger_psy.num_properties++;
-		cm->desc->measure_battery_temp = true;
-	}
-#ifdef CONFIG_THERMAL
-	cm->tzd_batt = cm->fuel_gauge->tzd;
-
-	if (ret && desc->thermal_zone) {
-		cm->tzd_batt =
-			thermal_zone_get_zone_by_name(desc->thermal_zone);
-		if (IS_ERR(cm->tzd_batt))
-			return PTR_ERR(cm->tzd_batt);
-
-		/* Use external thermometer */
-		cm->charger_psy.properties[cm->charger_psy.num_properties] =
-				POWER_SUPPLY_PROP_TEMP_AMBIENT;
-		cm->charger_psy.num_properties++;
-		cm->desc->measure_battery_temp = true;
-		ret = 0;
-	}
-#endif
-	if (cm->desc->measure_battery_temp) {
-		/* NOTICE : Default allowable minimum charge temperature is 0 */
-		if (!desc->temp_max)
-			desc->temp_max = CM_DEFAULT_CHARGE_TEMP_MAX;
-		if (!desc->temp_diff)
-			desc->temp_diff = CM_DEFAULT_RECHARGE_TEMP_DIFF;
-	}
-
-	return ret;
-}
-
 static struct of_device_id charger_manager_match[] = {
 	{
 		.compatible = "charger-manager",
@@ -1458,11 +1405,16 @@ static struct charger_desc *of_cm_parse_desc(struct device *dev)
 
 	of_property_read_string(np, "cm-thermal-zone", &desc->thermal_zone);
 
+	/* NOTICE : Default allowable minimum charge temperature is 0 */
 	of_property_read_u32(np, "cm-battery-cold", &desc->temp_min);
 	if (of_get_property(np, "cm-battery-cold-in-minus", NULL))
 		desc->temp_min *= -1;
 	of_property_read_u32(np, "cm-battery-hot", &desc->temp_max);
+	if (!desc->temp_max)
+		desc->temp_max = CM_DEFAULT_CHARGE_TEMP_MAX;
 	of_property_read_u32(np, "cm-battery-temp-diff", &desc->temp_diff);
+	if (!desc->temp_diff)
+		desc->temp_diff = CM_DEFAULT_RECHARGE_TEMP_DIFF;
 
 	of_property_read_u32(np, "cm-charging-max",
 				&desc->charging_max_duration_ms);
@@ -1669,10 +1621,15 @@ static int charger_manager_probe(struct platform_device *pdev)
 		cm->charger_psy.num_properties++;
 	}
 
-	ret = cm_init_thermal_data(cm);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to initialize thermal data\n");
-		cm->desc->measure_battery_temp = false;
+	if (desc->thermal_zone)
+		cm->tzd_batt =
+			thermal_zone_get_zone_by_name(desc->thermal_zone);
+	else
+		cm->tzd_batt = cm->fuel_gauge->tzd;
+
+	if (!cm->tzd_batt) {
+		pr_err("No way to monitor battery temperature.\n");
+		return -ENODEV;
 	}
 
 	INIT_DELAYED_WORK(&cm->fullbatt_vchk_work, fullbatt_vchk);
