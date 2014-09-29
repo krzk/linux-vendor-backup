@@ -565,6 +565,8 @@
 			interrupts = <0 109 0>;
 			clocks = <&cmu CLK_UART0>, <&cmu CLK_SCLK_UART0>;
 			clock-names = "uart", "clk_uart_baud0";
+			pinctrl-0 = <&uart0_data &uart0_fctl>;
+			pinctrl-names = "default";
 			status = "disabled";
 		};
 
@@ -574,6 +576,8 @@
 			interrupts = <0 110 0>;
 			clocks = <&cmu CLK_UART1>, <&cmu CLK_SCLK_UART1>;
 			clock-names = "uart", "clk_uart_baud0";
+			pinctrl-0 = <&uart1_data>;
+			pinctrl-names = "default";
 			status = "disabled";
 		};
 
