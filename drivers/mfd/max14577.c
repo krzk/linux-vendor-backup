@@ -46,7 +46,9 @@ static struct mfd_cell max77836_devs[] = {
 		.name = "max77836-regulator",
 		.of_compatible = "maxim,max77836-regulator",
 	},
-	{ .name = "max77836-charger", },
+	{	 .name = "max77836-charger",
+		.of_compatible = "maxim,max77836-charger",
+	},
 	{
 		.name = "max77836-battery",
 		.of_compatible = "maxim,max77836-battery",
