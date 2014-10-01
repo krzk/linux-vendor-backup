@@ -244,6 +244,14 @@
 		gpio = <&gpk0 2 0>;
 		enable-active-high;
 	};
+
+	thermal-zones {
+		battery {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&thermistor_battery>;
+		};
+	};
 };
 
 &adc {
@@ -260,12 +268,13 @@
 		io-channels = <&adc 0>;
 	};
 
-	thermistor-battery@1 {
+	thermistor_battery: thermistor-battery@1 {
 		compatible = "ntc,ncp15wb473";
 		pullup-uv = <1800000>;
 		pullup-ohm = <100000>;
 		pulldown-ohm = <100000>;
 		io-channels = <&adc 1>;
+		#thermal-sensor-cells = <0>;
 	};
 };
 
