@@ -153,7 +153,7 @@
 				};
 			};
 
-			charger {
+			charger: max77836-charger {
 				compatible = "maxim,max77836-charger";
 
 				maxim,fast-charge-timer = <6>;
@@ -667,7 +667,7 @@
 	samsung,i2c-max-bus-freq = <400000>;
 	status = "okay";
 
-	fuel-gauge@36 {
+	fuelgauge: max77836-battery@36 {
 		compatible = "maxim,max77836-battery";
 		reg = <0x36>;
 		interrupt-parent = <&gpx1>;
