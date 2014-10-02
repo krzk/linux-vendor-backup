@@ -741,6 +741,8 @@
 		mcu-ap-int1 = <&gpx0 2 0>;
 		mcu-ap-int2 = <&gpx0 4 0>;
 		mcu-reset = <&gpx0 5 0>;
+		ssp,acc-position = <7>;
+		ssp,mag-position = <0>;
 		reg = <0>;
 		controller-data {
 			cs-gpio = <&gpb 1 0>;
