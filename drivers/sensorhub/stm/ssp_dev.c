@@ -234,14 +234,6 @@ static int ssp_check_lpmode(void)
 	return false;
 }
 
-static void ssp_get_positions(int *acc, int *mag)
-{
-	*acc = 7;
-	*mag = 0;
-
-	ssp_dbg("position acc : %d, mag = %d\n", *acc, *mag);
-}
-
 static int initialize_gpio(struct device *dev, struct ssp_data *pdata)
 {
 	int ret;
@@ -280,6 +272,7 @@ static int initialize_gpio(struct device *dev, struct ssp_data *pdata)
 static int ssp_parse_dt(struct device *dev, struct ssp_data *pdata)
 {
 	struct device_node *node = dev->of_node;
+	int iRet;
 
 	pdata->mcu_int1 = of_get_named_gpio(node, "mcu-ap-int1", 0);
 	if (pdata->mcu_int1 < 0) {
@@ -304,6 +297,19 @@ static int ssp_parse_dt(struct device *dev, struct ssp_data *pdata)
 		ssp_err("Cannot get mcu-reset gpio\n");
 		return -EINVAL;
 	}
+
+	iRet = of_property_read_u32(node, "ssp,acc-position",
+				&pdata->accel_position);
+	if (iRet)
+		pdata->accel_position = 0;
+
+	iRet = of_property_read_u32(node, "ssp,mag-position",
+				&pdata->mag_position);
+	if (iRet)
+		pdata->mag_position = 0;
+
+	ssp_info("position : accel = %d, mag = %d\n",
+		pdata->accel_position, pdata->mag_position);
 
 	return 0;
 }
@@ -340,7 +346,6 @@ static int ssp_probe(struct spi_device *spi)
 		ssp_info("ap_rev = %d", data->ap_rev);
 
 		/* Get sensor positon */
-		ssp_get_positions(&data->accel_position, &data->mag_position);
 		data->mag_matrix_size = ARRAY_SIZE(ssp_magnetic_pdc);
 		data->mag_matrix = ssp_magnetic_pdc;
 
