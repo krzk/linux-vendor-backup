@@ -6,13 +6,13 @@
 Name: linux-kernel-odroid
 Summary: The Linux Kernel for ODROID U3
 Version: 3.10.52
-Release: 1
+Release: 0
 License: GPL-2.0
 ExclusiveArch: %{arm}
 Group: System Environment/Kernel
 Vendor: The Linux Community
 URL: http://www.kernel.org
-Source0:   %{name}-%{version}-%{build_id}.tar.gz
+Source0:   %{name}-%{version}.tar.xz
 BuildRoot: %{_tmppath}/%{name}-%{PACKAGE_VERSION}-root
 
 %define fullVersion %{version}-%{build_id}
