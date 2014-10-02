@@ -130,6 +130,7 @@
 				compatible = "maxim,max77836-regulator";
 				safeout_reg: SAFEOUT {
 					regulator-name = "SAFEOUT";
+					regulator-always-on;
 				};
 
 				charger_reg: CHARGER {
@@ -371,7 +372,6 @@
 
 &hsotg {
 	status = "okay";
-	vusb_core-supply = <&safeout_reg>;
 	vusb_d-supply = <&ldo6_reg>;
 	vusb_a-supply = <&ldo8_reg>;
 };
