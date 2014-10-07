@@ -36,6 +36,7 @@
 #define I2C_ADDR_RTC	(0x0C >> 1)
 
 static struct mfd_cell max77686_devs[] = {
+	{ .name = "max77686-clk", },
 	{ .name = "max77686-pmic", },
 	{ .name = "max77686-rtc", },
 };
