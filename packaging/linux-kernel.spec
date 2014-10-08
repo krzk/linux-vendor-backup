@@ -1,22 +1,21 @@
 %define config_name tizen_defconfig
-%define abiver 1
-%define build_id %{config_name}.%{abiver}
-%define defaultDtb exynos4412-trats2.dtb
 %define buildarch arm
+%define target_board trats2
+%define variant %{buildarch}-%{target_board}
 
 Name: linux-kernel
-Summary: The Linux Kernel
+Summary: The Linux Kernel for Samsung Exynos
 Version: 3.10.52
 Release: 0
 License: GPL-2.0
-ExclusiveArch: %{arm} aarch64
-Group: System Environment/Kernel
+ExclusiveArch: %{arm}
+Group: System/Kernel
 Vendor: The Linux Community
 URL: http://www.kernel.org
 Source0:   %{name}-%{version}.tar.xz
 BuildRoot: %{_tmppath}/%{name}-%{PACKAGE_VERSION}-root
 
-%define fullVersion %{version}-%{build_id}
+%define fullVersion %{version}-%{variant}
 
 BuildRequires: linux-glibc-devel
 BuildRequires: module-init-tools
@@ -30,50 +29,66 @@ BuildRequires: libdw-devel
 BuildRequires: python-devel
 BuildRequires: e2fsprogs >= 1.42.11
 
-Provides: kernel = %{version}-%{release}
-Provides: kernel-uname-r = %{fullVersion}
-
 %description
 The Linux Kernel, the operating system core itself
 
-%package user-headers
+%package -n %{variant}-linux-kernel
+Summary: Tizen kernel
+Group: System/Kernel
+%if %{profile} == "mobile"
+Provides: kernel-profile-%{profile} = %{version}-%{release}
+Provides: kernel-uname-r = %{fullVersion}
+%endif
+
+%description -n %{variant}-linux-kernel
+This package contains the Linux kernel for Tizen (%{profile} profile, arch %{buildarch}, target board %{target_board})
+
+%package -n %{variant}-linux-kernel-headers
 Summary: Header files for the Linux kernel for use by glibc
 Group: Development/System
+%if %{profile} == "mobile"
 Obsoletes: kernel-headers
 Provides: kernel-headers = %{version}-%{release}
+%endif
 
-%description user-headers
+%description -n %{variant}-linux-kernel-headers
 Kernel-headers includes the C header files that specify the interface
 between the Linux kernel and userspace libraries and programs.  The
 header files define structures and constants that are needed for
 building most standard programs and are also needed for rebuilding the
 glibc package.
 
-%package modules
-Summary: Kernel modules
+%package -n %{variant}-linux-kernel-modules
+Summary: Kernel modules for %{target_board}
 Group: System/Kernel
+%if %{profile} == "mobile"
 Provides: kernel-modules = %{fullVersion}
 Provides: kernel-modules-uname-r = %{fullVersion}
+%endif
 
-%description modules
-Kernel-modules includes the loadable kernel modules(.ko files).
+%description -n %{variant}-linux-kernel-modules
+Kernel-modules includes the loadable kernel modules(.ko files) for %{target_board}
 
-%package devel
+%package -n %{variant}-linux-kernel-devel
 Summary: Prebuilt linux kernel for out-of-tree modules
 Group: Development/System
+%if %{profile} == "mobile"
 Provides: kernel-devel = %{fullVersion}
 Provides: kernel-devel-uname-r = %{fullVersion}
+%endif
 Requires: %{name} = %{version}-%{release}
 
-%description devel
+%description -n %{variant}-linux-kernel-devel
 Prebuilt linux kernel for out-of-tree modules.
 
-%package -n perf
+%package -n %{variant}-linux-kernel-perf
 Summary: The 'perf' performance counter tool
 Group: Development/System
-Provides: perf = %{kernel_full_version}
+%if %{profile} == "mobile"
+Provides: perf = %{fullVersion}
+%endif
 
-%description -n perf
+%description -n %{variant}-linux-kernel-perf
 This package provides the "perf" tool that can be used to monitor performance
 counter events as well as various kernel internal events.
 
@@ -81,16 +96,19 @@ counter events as well as various kernel internal events.
 %setup -q
 
 %build
-# 1. Compile sources
-make EXTRAVERSION="-%{build_id}" %{config_name}
-make EXTRAVERSION="-%{build_id}" %{?_smp_mflags}
+# Make sure EXTRAVERSION says what we want it to say
+sed -i "s/^EXTRAVERSION.*/EXTRAVERSION = -%{release}-%{variant}/" Makefile
 
-# 2. Build uImage
-make EXTRAVERSION="-%{build_id}" uImage %{?_smp_mflags}
-make EXTRAVERSION="-%{build_id}" dtbs %{?_smp_mflags}
+# 1. Compile sources
+make %{config_name}
+make %{?_smp_mflags}
+
+# 2. Build zImage
+make zImage %{?_smp_mflags}
+make dtbs %{?_smp_mflags}
 
 # 3. Build modules
-make EXTRAVERSION="-%{build_id}" modules %{?_smp_mflags}
+make modules %{?_smp_mflags}
 
 # 3.1 Build perf
 make -s -C tools/lib/traceevent ARCH=%{buildarch} %{?_smp_mflags}
@@ -107,18 +125,18 @@ mkdir -p %{buildroot}/usr/src/linux-kernel-build-%{fullVersion}
 mkdir -p %{buildroot}/boot/
 mkdir -p %{buildroot}/lib/modules/%{fullVersion}
 
-# 2. Install uImage, System.map, ...
-install -m 755 arch/arm/boot/uImage %{buildroot}/boot/
+# 2. Install zImage, System.map, ...
+install -m 755 arch/arm/boot/zImage %{buildroot}/boot/
 install -m 644 arch/arm/boot/dts/*.dtb %{buildroot}/boot/
 
 install -m 644 System.map %{buildroot}/boot/System.map-%{fullVersion}
 install -m 644 .config %{buildroot}/boot/config-%{fullVersion}
 
 # 3. Install modules
-make INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=%{buildroot} modules_install
+make INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=%{buildroot} modules_install KERNELRELEASE=%{fullVersion}
 
 # 4. Install kernel headers
-make INSTALL_PATH=%{buildroot} INSTALL_MOD_PATH=%{buildroot} INSTALL_HDR_PATH=%{buildroot}/usr headers_install
+make INSTALL_PATH=%{buildroot} INSTALL_MOD_PATH=%{buildroot} INSTALL_HDR_PATH=%{buildroot}/usr headers_install KERNELRELEASE=%{fullVersion}
 
 # 4.1 Install perf
 install -d %{buildroot}
@@ -188,27 +206,27 @@ rm -rf %{buildroot}/lib/modules/%{fullVersion}/kernel
 %clean
 rm -rf %{buildroot}
 
-%files user-headers
+%files -n %{variant}-linux-kernel-headers
 %defattr (-, root, root)
 /usr/include
 
-%files modules
+%files -n %{variant}-linux-kernel-modules
 /boot/modules.img
 
-%files devel
+%files -n %{variant}-linux-kernel-devel
 %defattr (-, root, root)
 /usr/src/linux-kernel-build-%{fullVersion}
 /lib/modules/%{fullVersion}/modules.*
 /lib/modules/%{fullVersion}/build
 
-%files
+%files -n %{variant}-linux-kernel
 %license COPYING
-/boot/uImage
+/boot/zImage
 /boot/*.dtb
 /boot/System.map*
 /boot/config*
 
-%files -n perf
+%files -n %{variant}-linux-kernel-perf
 %license COPYING
 /usr/bin/perf
 /usr/libexec/perf-core
