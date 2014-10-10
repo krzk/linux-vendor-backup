@@ -3102,7 +3102,7 @@ static void rt2800_config_txpower(struct rt2x00_dev *rt2x00dev,
 		rt2x00_set_field32(&reg, TX_PWR_CFG_RATE2, txpower);
 
 		/*
-		 * TX_PWR_CFG_0: 11MBS, TX_PWR_CFG_1: 54MBS,
+		 * TX_PWR_CFG_0: 1MBS, TX_PWR_CFG_1: 54MBS,
 		 * TX_PWR_CFG_2: MCS7,  TX_PWR_CFG_3: MCS15,
 		 * TX_PWR_CFG_4: unknown
 		 */
@@ -3170,7 +3170,7 @@ static void rt2800_config_txpower(struct rt2x00_dev *rt2x00dev,
 
 void rt2800_gain_calibration(struct rt2x00_dev *rt2x00dev)
 {
-	rt2800_config_txpower(rt2x00dev, rt2x00dev->hw->conf.chandef.chan,
+	rt2800_config_txpower(rt2x00dev, rt2x00dev->hw->conf.channel,
 			      rt2x00dev->tx_power);
 }
 EXPORT_SYMBOL_GPL(rt2800_gain_calibration);
@@ -3305,11 +3305,11 @@ void rt2800_config(struct rt2x00_dev *rt2x00dev,
 	if (flags & IEEE80211_CONF_CHANGE_CHANNEL) {
 		rt2800_config_channel(rt2x00dev, libconf->conf,
 				      &libconf->rf, &libconf->channel);
-		rt2800_config_txpower(rt2x00dev, libconf->conf->chandef.chan,
+		rt2800_config_txpower(rt2x00dev, libconf->conf->channel,
 				      libconf->conf->power_level);
 	}
 	if (flags & IEEE80211_CONF_CHANGE_POWER)
-		rt2800_config_txpower(rt2x00dev, libconf->conf->chandef.chan,
+		rt2800_config_txpower(rt2x00dev, libconf->conf->channel,
 				      libconf->conf->power_level);
 	if (flags & IEEE80211_CONF_CHANGE_RETRY_LIMITS)
 		rt2800_config_retry_limit(rt2x00dev, libconf);
@@ -6373,9 +6373,7 @@ int rt2800_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	case IEEE80211_AMPDU_TX_START:
 		ieee80211_start_tx_ba_cb_irqsafe(vif, sta->addr, tid);
 		break;
-	case IEEE80211_AMPDU_TX_STOP_CONT:
-	case IEEE80211_AMPDU_TX_STOP_FLUSH:
-	case IEEE80211_AMPDU_TX_STOP_FLUSH_CONT:
+	case IEEE80211_AMPDU_TX_STOP:
 		ieee80211_stop_tx_ba_cb_irqsafe(vif, sta->addr, tid);
 		break;
 	case IEEE80211_AMPDU_TX_OPERATIONAL:
@@ -6399,7 +6397,7 @@ int rt2800_get_survey(struct ieee80211_hw *hw, int idx,
 	if (idx != 0)
 		return -ENOENT;
 
-	survey->channel = conf->chandef.chan;
+	survey->channel = conf->channel;
 
 	rt2800_register_read(rt2x00dev, CH_IDLE_STA, &idle);
 	rt2800_register_read(rt2x00dev, CH_BUSY_STA, &busy);
