@@ -455,6 +455,7 @@ struct ssp_data {
 #endif
 	struct delayed_work work_firmware;
 	struct delayed_work work_refresh;
+	struct delayed_work work_mcu_state;
 	struct miscdevice shtc1_device;
 
 /*snamy.jeong@samsung.com temporary code for voice data sending to mcu*/

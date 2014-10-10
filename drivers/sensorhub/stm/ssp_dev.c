@@ -214,6 +214,41 @@ static void work_function_firmware_update(struct work_struct *work)
 	ssp_info("firmware update done!\n");
 }
 
+static void work_function_mcu_state(struct work_struct *work)
+{
+	struct ssp_data *data = container_of((struct delayed_work*)work,
+				struct ssp_data, work_mcu_state);
+	int iRet;
+
+	ssp_info("MCU state check!\n");
+
+	/* check boot loader binary */
+	data->fw_dl_state = check_fwbl(data);
+	switch (data->fw_dl_state) {
+	case FW_DL_STATE_FAIL:
+		data->bSspShutdown = true;
+		break;
+	case FW_DL_STATE_NONE:
+		iRet = initialize_mcu(data);
+		if (iRet < SUCCESS) {
+			ssp_err("initialize_mcu retry\n");
+			data->uResetCnt++;
+			toggle_mcu_reset(data);
+			msleep(SSP_SW_RESET_TIME);
+			initialize_mcu(data);
+		}
+		break;
+	case FW_DL_STATE_NEED_TO_SCHEDULE:
+		ssp_info("Firmware update is scheduled\n");
+		schedule_delayed_work(&data->work_firmware,
+			msecs_to_jiffies(1000));
+		data->fw_dl_state = FW_DL_STATE_SCHEDULED;
+		break;
+	default:
+		break;
+	}
+}
+
 static int check_ap_rev(void)
 {
 	return system_rev;
@@ -410,6 +445,7 @@ static int ssp_probe(struct spi_device *spi)
 
 	initialize_variable(data);
 	INIT_DELAYED_WORK(&data->work_firmware, work_function_firmware_update);
+	INIT_DELAYED_WORK(&data->work_mcu_state, work_function_mcu_state);
 
 	iRet = initialize_input_dev(data);
 	if (iRet < 0) {
@@ -455,42 +491,19 @@ static int ssp_probe(struct spi_device *spi)
 		ssp_sensorhub_remove(data);
 	}
 #endif
-
 	ssp_enable(data, true);
-	/* check boot loader binary */
-	data->fw_dl_state = check_fwbl(data);
-
-	if (data->fw_dl_state == FW_DL_STATE_NONE) {
-		iRet = initialize_mcu(data);
-		if (iRet == ERROR) {
-			toggle_mcu_reset(data);
-		} else if (iRet < ERROR) {
-			ssp_err("initialize_mcu failed\n");
-			goto err_read_reg;
-		}
-	}
+	schedule_delayed_work(&data->work_mcu_state,
+			msecs_to_jiffies(200));
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	data->early_suspend.suspend = ssp_early_suspend;
 	data->early_suspend.resume = ssp_late_resume;
 	register_early_suspend(&data->early_suspend);
 #endif
-
 	ssp_info("probe success!\n");
 
 	enable_debug_timer(data);
-
-	if (data->fw_dl_state == FW_DL_STATE_NEED_TO_SCHEDULE) {
-		ssp_info("Firmware update is scheduled\n");
-		schedule_delayed_work(&data->work_firmware,
-				msecs_to_jiffies(1000));
-		data->fw_dl_state = FW_DL_STATE_SCHEDULED;
-	} else if (data->fw_dl_state == FW_DL_STATE_FAIL) {
-		data->bSspShutdown = true;
-	}
-
 	data->bProbeIsDone = true;
-	iRet = 0;
 
 	if (data->check_lpmode() == true) {
 		ssp_charging_motion(data, 1);
@@ -501,9 +514,8 @@ static int ssp_probe(struct spi_device *spi)
 		ssp_dbg("Normal Booting OK\n");
 	}
 
-	goto exit;
+	return 0;
 
-err_read_reg:
 err_symlink_create:
 	remove_sysfs(data);
 err_sysfs_create:
@@ -522,7 +534,6 @@ err_input_register_device:
 
 err_setup:
 	ssp_err("probe failed!\n");
-exit:
 	return iRet;
 }
 
