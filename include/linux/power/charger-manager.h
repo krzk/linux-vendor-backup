@@ -148,6 +148,7 @@ struct charger_regulator {
  *	charger manager will monitor battery health
  * @battery_present:
  *	Specify where information for existance of battery can be obtained
+ * @num_chargers: number of chargers associated with the battery
  * @psy_charger_stat: the names of power-supply for chargers
  * @num_charger_regulator: the number of entries in charger_regulators
  * @charger_regulators: array of charger regulators
@@ -180,6 +181,7 @@ struct charger_desc {
 
 	enum data_source battery_present;
 
+	int num_chargers;
 	const char **psy_charger_stat;
 
 	int num_charger_regulators;

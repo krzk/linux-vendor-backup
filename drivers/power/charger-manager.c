@@ -91,7 +91,7 @@ static bool is_batt_present(struct charger_manager *cm)
 			present = true;
 		break;
 	case CM_CHARGER_STAT:
-		for (i = 0; cm->charger_stat[i]; i++) {
+		for (i = 0; i < cm->desc->num_chargers; i++) {
 			ret = cm->charger_stat[i]->get_property(
 					cm->charger_stat[i],
 					POWER_SUPPLY_PROP_PRESENT, &val);
@@ -121,7 +121,7 @@ static bool is_ext_pwr_online(struct charger_manager *cm)
 	int i, ret;
 
 	/* If at least one of them has one, it's yes. */
-	for (i = 0; cm->charger_stat[i]; i++) {
+	for (i = 0; i < cm->desc->num_chargers; i++) {
 		ret = cm->charger_stat[i]->get_property(
 				cm->charger_stat[i],
 				POWER_SUPPLY_PROP_ONLINE, &val);
@@ -174,7 +174,7 @@ static bool is_charging(struct charger_manager *cm)
 		return false;
 
 	/* If at least one of the charger is charging, return yes */
-	for (i = 0; cm->charger_stat[i]; i++) {
+	for (i = 0; i < cm->desc->num_chargers; i++) {
 		/* 1. The charger sholuld not be DISABLED */
 		if (cm->emergency_stop)
 			continue;
@@ -1221,7 +1221,7 @@ static struct charger_desc *of_cm_parse_desc(struct device *dev)
 	if (num_chgs) {
 		/* Allocate empty bin at the tail of array */
 		desc->psy_charger_stat = devm_kzalloc(dev, sizeof(char *)
-						* (num_chgs + 1), GFP_KERNEL);
+						* num_chgs, GFP_KERNEL);
 		if (desc->psy_charger_stat) {
 			int i;
 			for (i = 0; i < num_chgs; i++)
@@ -1230,6 +1230,8 @@ static struct charger_desc *of_cm_parse_desc(struct device *dev)
 		} else {
 			return ERR_PTR(-ENOMEM);
 		}
+
+		desc->num_chargers = num_chgs;
 	}
 
 	of_property_read_string(np, "cm-fuel-gauge", &desc->psy_fuel_gauge);
@@ -1380,21 +1382,18 @@ static int charger_manager_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	if (!desc->psy_charger_stat || !desc->psy_charger_stat[0]) {
+	if (!desc->num_chargers || !desc->psy_charger_stat[0]) {
 		dev_err(&pdev->dev, "No power supply defined\n");
 		return -EINVAL;
 	}
 
-	/* Counting index only */
-	while (desc->psy_charger_stat[i])
-		i++;
-
 	cm->charger_stat = devm_kzalloc(&pdev->dev,
-				sizeof(struct power_supply *) * i, GFP_KERNEL);
+				sizeof(struct power_supply *) *
+				desc->num_chargers, GFP_KERNEL);
 	if (!cm->charger_stat)
 		return -ENOMEM;
 
-	for (i = 0; desc->psy_charger_stat[i]; i++) {
+	for (i = 0; i < desc->num_chargers; i++) {
 		cm->charger_stat[i] = power_supply_get_by_name(
 					desc->psy_charger_stat[i]);
 		if (!cm->charger_stat[i]) {
