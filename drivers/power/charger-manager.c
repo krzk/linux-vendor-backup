@@ -849,7 +849,8 @@ static bool cm_setup_timer(void)
 		pr_info("Charger Manager wakeup timer: %u ms\n", wakeup_ms);
 
 		now = ktime_get_boottime();
-		add = ktime_set(0, wakeup_ms * NSEC_PER_MSEC);
+		add = ktime_set(wakeup_ms / MSEC_PER_SEC,
+				(wakeup_ms % MSEC_PER_SEC) * NSEC_PER_MSEC);
 		alarm_start(cm_timer, ktime_add(now, add));
 
 		cm_suspend_duration_ms = wakeup_ms;
