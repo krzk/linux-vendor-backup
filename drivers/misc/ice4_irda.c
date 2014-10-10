@@ -47,6 +47,7 @@ struct ice4_fpga_data {
 	struct regulator	*ir_regulator;
 	struct mutex		mutex;
 	struct clk		*mclk;
+	struct work_struct	work_download;
 	struct {
 		unsigned char addr;
 		unsigned char data[MAX_SIZE];
@@ -561,6 +562,20 @@ static void ice4_irda_firmware_download(struct device *dev,
 	dev_info(dev, "firmware download done!\n");
 }
 
+static void work_function_firmware_download(struct work_struct *work)
+{
+	struct ice4_fpga_data *data = container_of((struct work_struct *)work,
+					struct ice4_fpga_data, work_download);
+
+	ice4_irda_firmware_download(&data->client->dev, fpga_irda_fw,
+						ARRAY_SIZE(fpga_irda_fw));
+
+	if (ice4_irda_check_cdone(data))
+		dev_err(&data->client->dev, "FPGA FW is loaded!\n");
+	else
+		dev_err(&data->client->dev, "FPGA FW is NOT loaded!\n");
+}
+
 static int ice4_irda_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
@@ -571,11 +586,12 @@ static int ice4_irda_probe(struct i2c_client *client,
 	dev_info(&client->dev, "probe start!\n");
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_I2C)) {
-		dev_err(&client->dev, "Failed to i2c functionality check err\n");
+		dev_err(&client->dev,
+			"Failed to i2c functionality check err\n");
 		return -EIO;
 	}
 
-	data = kzalloc(sizeof(struct ice4_fpga_data), GFP_KERNEL);
+	data = devm_kzalloc(&client->dev, sizeof(*data), GFP_KERNEL);
 	if (NULL == data) {
 		dev_err(&client->dev, "Failed to data allocate\n");
 		return -ENOMEM;
@@ -599,15 +615,8 @@ static int ice4_irda_probe(struct i2c_client *client,
 		goto err_parse;
 	}
 
-	ice4_irda_firmware_download(&client->dev, fpga_irda_fw,
-						ARRAY_SIZE(fpga_irda_fw));
-
-	if (ice4_irda_check_cdone(data))
-		dev_err(&client->dev, "FPGA FW is loaded!\n");
-	else {
-		dev_err(&client->dev, "FPGA FW is NOT loaded!\n");
-		goto err_parse;
-	}
+	INIT_WORK(&data->work_download, work_function_firmware_download);
+	schedule_work(&data->work_download);
 
 	data->sec_class = class_create(THIS_MODULE, "sec");
 	if (IS_ERR(data->sec_class)) {
