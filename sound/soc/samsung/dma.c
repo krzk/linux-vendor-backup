@@ -44,10 +44,11 @@ static const struct snd_pcm_hardware dma_hardware = {
 	.channels_min		= 2,
 	.channels_max		= 2,
 	.buffer_bytes_max	= 128*1024,
-	.period_bytes_min	= PAGE_SIZE,
 #ifdef CONFIG_SND_SOC_RINATO_YMU831
-	.period_bytes_max	= 20*1024,
+	.period_bytes_min	= 128,
+	.period_bytes_max	= 1024,
 #else
+	.period_bytes_min	= PAGE_SIZE,
 	.period_bytes_max	= PAGE_SIZE*2,
 #endif
 	.periods_min		= 2,
