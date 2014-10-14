@@ -17,6 +17,7 @@
 
 / {
 	model = "B2";
+	revision = <6>;
 	compatible = "samsung,rinato-rev05", "samsung,exynos3250",
 			"samsung,exynos3";
 
