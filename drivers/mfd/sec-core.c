@@ -414,6 +414,9 @@ static int sec_pmic_suspend(struct device *dev)
 	if (device_may_wakeup(dev))
 		enable_irq_wake(sec_pmic->irq);
 
+	/* Postpone handling of IRQ until I2C bus is enabled. */
+	disable_irq(sec_pmic->irq);
+
 	return 0;
 }
 
@@ -424,6 +427,8 @@ static int sec_pmic_resume(struct device *dev)
 
 	if (device_may_wakeup(dev))
 		disable_irq_wake(sec_pmic->irq);
+
+	enable_irq(sec_pmic->irq);
 
 	return 0;
 }
