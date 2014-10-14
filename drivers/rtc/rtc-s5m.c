@@ -402,7 +402,7 @@ static int s5m_rtc_read_time(struct device *dev, struct rtc_time *tm)
 		goto out;
 	}
 
-	printk(KERN_INFO "%s: %d/%d/%d %d:%d:%d(%d)\n", __func__,
+	pr_debug("%s: %d/%d/%d %d:%d:%d(%d)\n", __func__,
 		1900 + tm->tm_year, 1 + tm->tm_mon, tm->tm_mday,
 		tm->tm_hour, tm->tm_min, tm->tm_sec, tm->tm_wday);
 
@@ -434,7 +434,7 @@ static int s5m_rtc_set_time(struct device *dev, struct rtc_time *tm)
 		return -EINVAL;
 	}
 
-	printk(KERN_INFO "%s: %d/%d/%d %d:%d:%d(%d)\n", __func__,
+	pr_debug( "%s: %d/%d/%d %d:%d:%d(%d)\n", __func__,
 		1900 + tm->tm_year, 1 + tm->tm_mon, tm->tm_mday,
 		tm->tm_hour, tm->tm_min, tm->tm_sec, tm->tm_wday);
 
@@ -511,7 +511,7 @@ static int s5m_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 		goto out;
 	}
 
-	printk(KERN_INFO "%s: %d/%d/%d %d:%d:%d(%d)\n", __func__,
+	pr_debug( "%s: %d/%d/%d %d:%d:%d(%d)\n", __func__,
 		1900 + alrm->time.tm_year, 1 + alrm->time.tm_mon,
 		alrm->time.tm_mday, alrm->time.tm_hour,
 		alrm->time.tm_min, alrm->time.tm_sec,
@@ -547,7 +547,7 @@ static int s5m_rtc_stop_alarm(struct s5m_rtc_info *info)
 		return -EINVAL;
 	}
 
-	printk(KERN_INFO "%s: %d/%d/%d %d:%d:%d(%d)\n", __func__,
+	pr_debug( "%s: %d/%d/%d %d:%d:%d(%d)\n", __func__,
 		1900 + tm.tm_year, 1 + tm.tm_mon, tm.tm_mday,
 		tm.tm_hour, tm.tm_min, tm.tm_sec, tm.tm_wday);
 
@@ -604,7 +604,7 @@ static int s5m_rtc_start_alarm(struct s5m_rtc_info *info)
 		return -EINVAL;
 	}
 
-	printk(KERN_INFO "%s: %d/%d/%d %d:%d:%d(%d)\n", __func__,
+	pr_debug( "%s: %d/%d/%d %d:%d:%d(%d)\n", __func__,
 		1900 + tm.tm_year, 1 + tm.tm_mon, tm.tm_mday,
 		tm.tm_hour, tm.tm_min, tm.tm_sec, tm.tm_wday);
 
@@ -667,7 +667,7 @@ static int s5m_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 		return -EINVAL;
 	}
 
-	printk(KERN_INFO "%s: %d/%d/%d %d:%d:%d(%d)\n", __func__,
+	pr_debug( "%s: %d/%d/%d %d:%d:%d(%d)\n", __func__,
 		1900 + alrm->time.tm_year, 1 + alrm->time.tm_mon,
 		alrm->time.tm_mday, alrm->time.tm_hour, alrm->time.tm_min,
 		alrm->time.tm_sec, alrm->time.tm_wday);
