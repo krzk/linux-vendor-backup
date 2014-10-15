@@ -727,12 +727,6 @@
 	status = "okay";
 };
 
-&rtc {
-	clocks = <&cmu CLK_RTC>, <&s2mps14_osc 0>;
-	clock-names = "rtc", "rtc_src_clk";
-	status = "okay";
-};
-
 &serial_0 {
 	assigned-clocks = <&cmu CLK_SCLK_UART0>;
 	assigned-clock-rates = <100000000>;
