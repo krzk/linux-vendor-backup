@@ -360,9 +360,6 @@ static int exynos_drm_platform_probe(struct platform_device *pdev)
 	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
 	exynos_drm_driver.num_ioctls = DRM_ARRAY_SIZE(exynos_ioctls);
 
-	pm_runtime_enable(&pdev->dev);
-	pm_runtime_get_sync(&pdev->dev);
-
 	return drm_platform_init(&exynos_drm_driver, pdev);
 }
 
@@ -397,34 +394,8 @@ static int exynos_drm_sys_resume(struct device *dev)
 }
 #endif
 
-#ifdef CONFIG_PM_RUNTIME
-static int exynos_drm_runtime_suspend(struct device *dev)
-{
-	struct drm_device *drm_dev = dev_get_drvdata(dev);
-	pm_message_t message;
-
-	if (pm_runtime_suspended(dev))
-		return 0;
-
-	message.event = PM_EVENT_SUSPEND;
-	return exynos_drm_suspend(drm_dev, message);
-}
-
-static int exynos_drm_runtime_resume(struct device *dev)
-{
-	struct drm_device *drm_dev = dev_get_drvdata(dev);
-
-	if (!pm_runtime_suspended(dev))
-		return 0;
-
-	return exynos_drm_resume(drm_dev);
-}
-#endif
-
 static const struct dev_pm_ops exynos_drm_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(exynos_drm_sys_suspend, exynos_drm_sys_resume)
-	SET_RUNTIME_PM_OPS(exynos_drm_runtime_suspend,
-			exynos_drm_runtime_resume, NULL)
 };
 
 static struct platform_driver exynos_drm_platform_driver = {
