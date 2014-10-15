@@ -1632,7 +1632,13 @@ static void cm_suspend_complete(struct device *dev)
 		schedule_work(&setup_polling);
 	}
 
-	_cm_monitor(cm);
+	if (_cm_monitor(cm)) {
+		/* FIXME:
+		 * To notify charger manager's uevent to userspace,
+		 * it holds wakeup event for few seconds.
+		 */
+		pm_wakeup_event(cm->dev, 3 * HZ);
+	}
 
 	device_set_wakeup_capable(cm->dev, false);
 }
