@@ -788,11 +788,6 @@
 	status = "okay";
 };
 
-&tmu {
-	vtmu-supply = <&ldo7_reg>;
-	status = "okay";
-};
-
 &mshc_0 {
 	#address-cells = <1>;
 	#size-cells = <0>;
