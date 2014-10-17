@@ -453,7 +453,7 @@
 				regulator-max-microvolt = <1800000>;
 				regulator-always-on;
 
-				op_mode = <1>; /* Standby Mode */
+				op_mode = <3>; /* Standby Mode */
 			};
 
 			ldo5_reg: LDO5 {
@@ -479,7 +479,7 @@
 				regulator-max-microvolt = <1800000>;
 				regulator-always-on;
 
-				op_mode = <3>; /* Standby Mode */
+				op_mode = <1>; /* Normal Mode */
 			};
 
 			ldo8_reg: LDO8 {
@@ -488,7 +488,7 @@
 				regulator-max-microvolt = <3000000>;
 				regulator-always-on;
 
-				op_mode = <1>; /* Standby Mode */
+				op_mode = <3>; /* Standby Mode */
 			};
 
 			ldo9_reg: LDO9 {
@@ -504,6 +504,7 @@
 				regulator-name = "UNUSED_LDO10";
 				regulator-min-microvolt = <1000000>;
 				regulator-max-microvolt = <1000000>;
+				regulator-always-off;
 
 				op_mode = <3>; /* Standby Mode */
 			};
@@ -536,7 +537,7 @@
 				regulator-name = "UNUSED_LDO14";
 				regulator-min-microvolt = <2700000>;
 				regulator-max-microvolt = <2700000>;
-				regulator-boot-on;
+				regulator-always-off;
 
 				op_mode = <3>; /* Standby Mode */
 			};
@@ -626,6 +627,7 @@
 				regulator-name = "UNUSED_LDO25";
 				regulator-min-microvolt = <3000000>;
 				regulator-max-microvolt = <3000000>;
+				regulator-always-off;
 
 				op_mode = <3>; /* Standby Mode */
 			};
