@@ -733,6 +733,10 @@
 	status = "okay";
 };
 
+&jpeg {
+	status = "okay";
+};
+
 &serial_0 {
 	assigned-clocks = <&cmu CLK_SCLK_UART0>;
 	assigned-clock-rates = <100000000>;
