@@ -12,7 +12,7 @@ ExclusiveArch: %{arm}
 Group: System/Kernel
 Vendor: The Linux Community
 URL: http://www.kernel.org
-Source0:   %{name}-%{version}.tar.xz
+Source0:   linux-kernel-%{version}.tar.xz
 BuildRoot: %{_tmppath}/%{name}-%{PACKAGE_VERSION}-root
 
 %define fullVersion %{version}-%{variant}
