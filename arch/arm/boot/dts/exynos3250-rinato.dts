@@ -845,7 +845,7 @@
 		PIN_SLP(gpa0-0, INPUT, DOWN);	/* BT_UART_RXD */
 		PIN_SLP(gpa0-1, INPUT, DOWN);	/* BT_UART_TXD */
 		PIN_SLP(gpa0-2, INPUT, DOWN);	/* BT_UART_CTS */
-		PIN_SLP(gpa0-3, INPUT, DOWN);	/* BT_UART_RTS */
+		PIN_SLP(gpa0-3, INPUT, UP);	/* BT_UART_RTS */
 		PIN_SLP(gpa0-4, INPUT, DOWN);	/* AP_RXD */
 		PIN_SLP(gpa0-5, INPUT, DOWN);	/* AP_TXD */
 		PIN_SLP(gpa0-6, INPUT, DOWN);	/* TSP_SDA */
