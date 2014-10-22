@@ -203,17 +203,34 @@ struct charger_desc {
 
 #define PSY_NAME_MAX	30
 
+/* struct battery_entity
+ * @fuelgauge: power_supply for fuel gauge
+ * @tzd : thermal zone device for battery
+ * @status: Current battery status
+ * @health: Current battery health
+ * @soc: Current battery soc
+ * @voltage: Current battery voltage
+ * @temperature: Current battery temperature
+ */
+struct battery_entity {
+	struct power_supply *fuelgauge;
+	struct thermal_zone_device *tzd;
+
+	int status;
+	int health;
+
+	int soc;
+	int voltage;
+	int temperature;
+};
+
 /**
  * struct charger_manager
  * @entry: entry for list
  * @dev: device pointer
  * @desc: instance of charger_desc
- * @fuel_gauge: power_supply for fuel gauge
  * @charger_stat: array of power_supply for chargers
- * @tzd_batt : thermal zone device for battery
  * @charger_enabled: the state of charger
- * @emergency_stop:
- *	When setting true, stop charging
  * @psy_name_buf: the name of power-supply-class for charger manager
  * @charger_psy: power_supply for charger manager
  * @status_save_ext_pwr_inserted:
@@ -228,16 +245,11 @@ struct charger_manager {
 	struct device *dev;
 	struct charger_desc *desc;
 
-	int battery_status;
+	struct battery_entity battery;
 
-	struct power_supply *fuel_gauge;
 	struct power_supply **charger_stat;
 
-	struct thermal_zone_device *tzd_batt;
-
 	bool charger_enabled;
-
-	int emergency_stop;
 
 	char psy_name_buf[PSY_NAME_MAX + 1];
 	struct power_supply charger_psy;

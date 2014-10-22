@@ -75,6 +75,7 @@ static struct delayed_work cm_monitor_work; /* init at driver add */
 static bool is_batt_present(struct charger_manager *cm)
 {
 	union power_supply_propval val;
+	struct power_supply *fuelgauge = cm->battery.fuelgauge;
 	bool present = false;
 	int i, ret;
 
@@ -85,7 +86,7 @@ static bool is_batt_present(struct charger_manager *cm)
 	case CM_NO_BATTERY:
 		break;
 	case CM_FUEL_GAUGE:
-		ret = cm->fuel_gauge->get_property(cm->fuel_gauge,
+		ret = fuelgauge->get_property(fuelgauge,
 				POWER_SUPPLY_PROP_PRESENT, &val);
 		if (ret == 0 && val.intval)
 			present = true;
@@ -134,87 +135,18 @@ static bool is_ext_pwr_online(struct charger_manager *cm)
 }
 
 /**
- * get_batt_uV - Get the voltage level of the battery
- * @cm: the Charger Manager representing the battery.
- * @uV: the voltage level returned.
- *
- * Returns 0 if there is no error.
- * Returns a negative value on error.
- */
-static int get_batt_uV(struct charger_manager *cm, int *uV)
-{
-	union power_supply_propval val;
-	int ret;
-
-	if (!cm->fuel_gauge)
-		return -ENODEV;
-
-	ret = cm->fuel_gauge->get_property(cm->fuel_gauge,
-				POWER_SUPPLY_PROP_VOLTAGE_NOW, &val);
-	if (ret)
-		return ret;
-
-	*uV = val.intval;
-	return 0;
-}
-
-/**
  * is_charging - Returns true if the battery is being charged.
  * @cm: the Charger Manager representing the battery.
  */
 static bool is_charging(struct charger_manager *cm)
 {
-	int i, ret;
-	bool charging = false;
-	union power_supply_propval val;
+	struct battery_entity *battery = &cm->battery;
 
 	/* If there is no battery, it cannot be charged */
 	if (!is_batt_present(cm))
 		return false;
 
-	/* If at least one of the charger is charging, return yes */
-	for (i = 0; i < cm->desc->num_chargers; i++) {
-		/* 1. The charger sholuld not be DISABLED */
-		if (cm->emergency_stop)
-			continue;
-		if (!cm->charger_enabled)
-			continue;
-
-		/* 2. The charger should be online (ext-power) */
-		ret = cm->charger_stat[i]->get_property(
-				cm->charger_stat[i],
-				POWER_SUPPLY_PROP_ONLINE, &val);
-		if (ret) {
-			dev_warn(cm->dev, "Cannot read ONLINE value from %s\n",
-				 cm->desc->psy_charger_stat[i]);
-			continue;
-		}
-		if (val.intval == 0)
-			continue;
-
-		/*
-		 * 3. The charger should not be FULL, DISCHARGING,
-		 * or NOT_CHARGING.
-		 */
-		ret = cm->charger_stat[i]->get_property(
-				cm->charger_stat[i],
-				POWER_SUPPLY_PROP_STATUS, &val);
-		if (ret) {
-			dev_warn(cm->dev, "Cannot read STATUS value from %s\n",
-				 cm->desc->psy_charger_stat[i]);
-			continue;
-		}
-		if (val.intval == POWER_SUPPLY_STATUS_FULL ||
-				val.intval == POWER_SUPPLY_STATUS_DISCHARGING ||
-				val.intval == POWER_SUPPLY_STATUS_NOT_CHARGING)
-			continue;
-
-		/* Then, this is charging. */
-		charging = true;
-		break;
-	}
-
-	return charging;
+	return battery->status == POWER_SUPPLY_STATUS_CHARGING;
 }
 
 /**
@@ -224,6 +156,8 @@ static bool is_charging(struct charger_manager *cm)
 static bool is_full_charged(struct charger_manager *cm)
 {
 	struct charger_desc *desc = cm->desc;
+	struct battery_entity *battery = &cm->battery;
+	struct power_supply *fuelgauge = battery->fuelgauge;
 	union power_supply_propval val;
 	int ret = 0;
 	int uV = 0;
@@ -234,34 +168,28 @@ static bool is_full_charged(struct charger_manager *cm)
 
 	/* Full, if it's over the fullbatt voltage */
 	if (desc->fullbatt_uV > 0) {
-		ret = get_batt_uV(cm, &uV);
-		if (!ret) {
-			/* Battery is already full, checks voltage drop. */
-			if (cm->battery_status == POWER_SUPPLY_STATUS_FULL
-					&& desc->fullbatt_vchkdrop_uV)
-				uV += desc->fullbatt_vchkdrop_uV;
-			if (uV >= desc->fullbatt_uV)
-				return true;
-		}
+		uV = battery->voltage;
+		/* Battery is already full, checks voltage drop. */
+		if (battery->status == POWER_SUPPLY_STATUS_FULL
+				&& desc->fullbatt_vchkdrop_uV)
+			uV += desc->fullbatt_vchkdrop_uV;
+		if (uV >= desc->fullbatt_uV)
+			return true;
 	}
 
-	if (cm->fuel_gauge && desc->fullbatt_full_capacity > 0) {
+	if (desc->fullbatt_full_capacity > 0) {
 		val.intval = 0;
 
 		/* Not full if capacity of fuel gauge isn't full */
-		ret = cm->fuel_gauge->get_property(cm->fuel_gauge,
+		ret = fuelgauge->get_property(fuelgauge,
 				POWER_SUPPLY_PROP_CHARGE_FULL, &val);
 		if (!ret && val.intval > desc->fullbatt_full_capacity)
 			return true;
 	}
 
 	/* Full, if the capacity is more than fullbatt_soc */
-	if (cm->fuel_gauge && desc->fullbatt_soc > 0) {
-		val.intval = 0;
-
-		ret = cm->fuel_gauge->get_property(cm->fuel_gauge,
-				POWER_SUPPLY_PROP_CAPACITY, &val);
-		if (!ret && val.intval >= desc->fullbatt_soc)
+	if (desc->fullbatt_soc > 0) {
+		if (battery->soc >= desc->fullbatt_soc)
 			return true;
 	}
 
@@ -311,9 +239,6 @@ static int try_charger_enable(struct charger_manager *cm, bool enable)
 		return 0;
 
 	if (enable) {
-		if (cm->emergency_stop)
-			return -EAGAIN;
-
 		/*
 		 * Save start time of charging to limit
 		 * maximum possible charging time.
@@ -384,6 +309,7 @@ static int try_charger_enable(struct charger_manager *cm, bool enable)
 static int check_charging_duration(struct charger_manager *cm)
 {
 	struct charger_desc *desc = cm->desc;
+	struct battery_entity *battery = &cm->battery;
 	u64 curr = ktime_to_ms(ktime_get());
 	u64 duration;
 	int ret = false;
@@ -400,7 +326,7 @@ static int check_charging_duration(struct charger_manager *cm)
 				 desc->charging_max_duration_ms);
 			ret = true;
 		}
-	} else if (cm->battery_status == POWER_SUPPLY_STATUS_NOT_CHARGING) {
+	} else if (battery->status == POWER_SUPPLY_STATUS_NOT_CHARGING) {
 		duration = curr - cm->charging_end_time;
 
 		if (duration > desc->charging_max_duration_ms) {
@@ -413,52 +339,31 @@ static int check_charging_duration(struct charger_manager *cm)
 	return ret;
 }
 
-static int cm_get_battery_temperature(struct charger_manager *cm,
-					int *temp)
-{
-	int ret;
-
-	ret = thermal_zone_get_temp(cm->tzd_batt, (unsigned long *)temp);
-	if (!ret)
-		/* Calibrate temperature unit */
-		*temp /= 100;
-
-	return ret;
-}
-
-static int cm_check_thermal_status(struct charger_manager *cm)
+static void cm_check_thermal_status(struct charger_manager *cm)
 {
 	struct charger_desc *desc = cm->desc;
-	int temp, upper_limit, lower_limit;
-	int ret = 0;
-
-	ret = cm_get_battery_temperature(cm, &temp);
-	if (ret) {
-		/* FIXME:
-		 * No information of battery temperature might
-		 * occur hazadous result. We have to handle it
-		 * depending on battery type.
-		 */
-		dev_err(cm->dev, "Failed to get battery temperature\n");
-		return 0;
-	}
+	struct battery_entity *battery = &cm->battery;
+	int upper_limit, lower_limit;
 
 	upper_limit = desc->temp_max;
 	lower_limit = desc->temp_min;
 
-	if (cm->emergency_stop) {
+	if (battery->status == POWER_SUPPLY_STATUS_NOT_CHARGING) {
 		upper_limit -= desc->temp_diff;
 		lower_limit += desc->temp_diff;
 	}
 
-	if (temp > upper_limit)
-		ret = CM_EVENT_BATT_OVERHEAT;
-	else if (temp < lower_limit)
-		ret = CM_EVENT_BATT_COLD;
+	if (battery->temperature > upper_limit) {
+		battery->health = POWER_SUPPLY_HEALTH_OVERHEAT;
+		return;
+	}
 
-	cm->emergency_stop = ret;
+	if (battery->temperature < lower_limit) {
+		battery->health = POWER_SUPPLY_HEALTH_COLD;
+		return;
+	}
 
-	return ret;
+	battery->health = POWER_SUPPLY_HEALTH_GOOD;
 }
 
 /**
@@ -467,17 +372,19 @@ static int cm_check_thermal_status(struct charger_manager *cm)
  */
 static int cm_get_target_status(struct charger_manager *cm)
 {
+	struct battery_entity *battery = &cm->battery;
+
 	if (!is_ext_pwr_online(cm))
 		return POWER_SUPPLY_STATUS_DISCHARGING;
 
-	if (cm_check_thermal_status(cm)) {
+	if (battery->health != POWER_SUPPLY_HEALTH_GOOD) {
 		/* Check if discharging duration exeeds limit. */
 		if (check_charging_duration(cm))
 			goto charging_ok;
 		return POWER_SUPPLY_STATUS_NOT_CHARGING;
 	}
 
-	switch (cm->battery_status) {
+	switch (battery->status) {
 	case POWER_SUPPLY_STATUS_CHARGING:
 		/* Check if charging duration exeeds limit. */
 		if (check_charging_duration(cm))
@@ -495,26 +402,76 @@ charging_ok:
 }
 
 /**
+ * update_battery_state - Update current battery state.
+ * @battery: battery_entity instance
+ *
+ * Return true if battery state is varied from last checking.
+ */
+static bool update_battery_state(struct battery_entity *battery)
+{
+	struct power_supply *fuelgauge = battery->fuelgauge;
+	union power_supply_propval val;
+	bool updated = false;
+	unsigned long temp;
+	int ret;
+
+	ret = fuelgauge->get_property(fuelgauge,
+			POWER_SUPPLY_PROP_CAPACITY, &val);
+	if (!ret && battery->soc != val.intval) {
+		battery->soc = val.intval;
+		updated = true;
+	}
+
+	ret = fuelgauge->get_property(fuelgauge,
+			POWER_SUPPLY_PROP_VOLTAGE_NOW, &val);
+	if (!ret && battery->voltage != val.intval) {
+		battery->voltage = val.intval;
+		updated = true;
+	}
+
+	ret = thermal_zone_get_temp(battery->tzd, &temp);
+	if (!ret) {
+		/* Change unit to decidegree Celcius */
+		temp /= 100;
+		if (battery->temperature != temp) {
+			battery->temperature = temp;
+			updated = true;
+		}
+	}
+
+	return updated;
+}
+
+/**
  * _cm_monitor - Monitor the temperature and return true for exceptions.
  * @cm: the Charger Manager representing the battery.
  *
  * Returns true if there is an event to notify for the battery.
- * (True if the status of "emergency_stop" changes)
+ * (True if the battery status changes)
  */
 static bool _cm_monitor(struct charger_manager *cm)
 {
+	struct battery_entity *battery = &cm->battery;
 	int target;
+	bool updated = false;
+
+	updated = update_battery_state(battery);
+
+	cm_check_thermal_status(cm);
 
 	target = cm_get_target_status(cm);
 
 	try_charger_enable(cm, (target == POWER_SUPPLY_STATUS_CHARGING));
 
-	if (cm->battery_status != target) {
-		cm->battery_status = target;
-		power_supply_changed(&cm->charger_psy);
+	if (battery->status != target) {
+		battery->status = target;
+		updated = true;
 	}
 
-	return (cm->battery_status == POWER_SUPPLY_STATUS_NOT_CHARGING);
+	if (updated)
+		power_supply_changed(&cm->charger_psy);
+
+	return updated;
 }
 
 /**
@@ -614,20 +571,18 @@ static int charger_get_property(struct power_supply *psy,
 	struct charger_manager *cm = container_of(psy,
 			struct charger_manager, charger_psy);
 	struct charger_desc *desc = cm->desc;
+	struct battery_entity *battery = &cm->battery;
+	struct power_supply *fuelgauge = battery->fuelgauge;
 	int ret = 0;
-	int uV;
+
+	update_battery_state(battery);
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
-		val->intval = cm->battery_status;
+		val->intval = battery->status;
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
-		if (cm->emergency_stop > 0)
-			val->intval = POWER_SUPPLY_HEALTH_OVERHEAT;
-		else if (cm->emergency_stop < 0)
-			val->intval = POWER_SUPPLY_HEALTH_COLD;
-		else
-			val->intval = POWER_SUPPLY_HEALTH_GOOD;
+		val->intval = battery->health;
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
 		if (is_batt_present(cm))
@@ -636,56 +591,35 @@ static int charger_get_property(struct power_supply *psy,
 			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		ret = get_batt_uV(cm, &val->intval);
+		val->intval = battery->voltage;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		ret = cm->fuel_gauge->get_property(cm->fuel_gauge,
+		ret = fuelgauge->get_property(fuelgauge,
 				POWER_SUPPLY_PROP_CURRENT_NOW, val);
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-	case POWER_SUPPLY_PROP_TEMP_AMBIENT:
-		return cm_get_battery_temperature(cm, &val->intval);
+		val->intval = battery->temperature;
+		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
-		if (!cm->fuel_gauge) {
-			ret = -ENODEV;
-			break;
-		}
-
 		if (!is_batt_present(cm)) {
 			/* There is no battery. Assume 100% */
 			val->intval = 100;
 			break;
 		}
 
-		ret = cm->fuel_gauge->get_property(cm->fuel_gauge,
-					POWER_SUPPLY_PROP_CAPACITY, val);
-		if (ret)
-			break;
+		val->intval = battery->soc;
 
 		if (val->intval > 100) {
 			val->intval = 100;
 			break;
 		}
-		if (val->intval < 0)
-			val->intval = 0;
 
 		/* Do not adjust SOC when charging: voltage is overrated */
 		if (is_charging(cm))
 			break;
 
-		/*
-		 * If the capacity value is inconsistent, calibrate it base on
-		 * the battery voltage values and the thresholds given as desc
-		 */
-		ret = get_batt_uV(cm, &uV);
-		if (ret) {
-			/* Voltage information not available. No calibration */
-			ret = 0;
-			break;
-		}
-
-		if (desc->fullbatt_uV > 0 && uV >= desc->fullbatt_uV &&
-		    !is_charging(cm)) {
+		if (desc->fullbatt_uV > 0
+			&& battery->voltage >= desc->fullbatt_uV) {
 			val->intval = 100;
 			break;
 		}
@@ -698,11 +632,11 @@ static int charger_get_property(struct power_supply *psy,
 			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
-		ret = cm->fuel_gauge->get_property(cm->fuel_gauge,
+		ret = fuelgauge->get_property(fuelgauge,
 				POWER_SUPPLY_PROP_CHARGE_FULL, val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_NOW:
-		ret = cm->fuel_gauge->get_property(cm->fuel_gauge,
+		ret = fuelgauge->get_property(fuelgauge,
 				POWER_SUPPLY_PROP_CHARGE_NOW, val);
 		break;
 	default:
@@ -760,7 +694,7 @@ static bool cm_setup_timer(void)
 	mutex_lock(&cm_list_mtx);
 	list_for_each_entry(cm, &cm_list, entry) {
 		/* Skip if polling is not required for this CM */
-		if (!is_polling_required(cm) && !cm->emergency_stop)
+		if (!is_polling_required(cm))
 			continue;
 		timer_req++;
 		if (cm->desc->polling_interval_ms == 0)
@@ -1245,8 +1179,9 @@ static void cm_add_optional_property(struct charger_manager *cm,
 					enum power_supply_property psp)
 {
 	union power_supply_propval val;
+	struct power_supply *fuelgauge = cm->battery.fuelgauge;
 
-	if (cm->fuel_gauge->get_property(cm->fuel_gauge, psp, &val))
+	if (fuelgauge->get_property(fuelgauge, psp, &val))
 		return;
 
 	cm->charger_psy.properties[cm->charger_psy.num_properties] = psp;
@@ -1330,8 +1265,8 @@ static int charger_manager_probe(struct platform_device *pdev)
 		}
 	}
 
-	cm->fuel_gauge = power_supply_get_by_name(desc->psy_fuel_gauge);
-	if (!cm->fuel_gauge) {
+	cm->battery.fuelgauge = power_supply_get_by_name(desc->psy_fuel_gauge);
+	if (!cm->battery.fuelgauge) {
 		dev_err(&pdev->dev, "Cannot find power supply \"%s\"\n",
 			desc->psy_fuel_gauge);
 		return -ENODEV;
@@ -1376,12 +1311,12 @@ static int charger_manager_probe(struct platform_device *pdev)
 		cm_add_optional_property(cm, cm_optional_props[i]);
 
 	if (desc->thermal_zone)
-		cm->tzd_batt =
+		cm->battery.tzd =
 			thermal_zone_get_zone_by_name(desc->thermal_zone);
 	else
-		cm->tzd_batt = cm->fuel_gauge->tzd;
+		cm->battery.tzd = cm->battery.fuelgauge->tzd;
 
-	if (!cm->tzd_batt) {
+	if (!cm->battery.tzd) {
 		pr_err("No way to monitor battery temperature.\n");
 		return -ENODEV;
 	}
@@ -1419,6 +1354,9 @@ static int charger_manager_probe(struct platform_device *pdev)
 	 */
 	device_init_wakeup(&pdev->dev, true);
 	device_set_wakeup_capable(&pdev->dev, false);
+
+	/* Update initial battery state */
+	_cm_monitor(cm);
 
 	schedule_work(&setup_polling);
 
