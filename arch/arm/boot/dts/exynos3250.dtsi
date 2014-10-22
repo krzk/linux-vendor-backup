@@ -572,6 +572,33 @@
 			status = "disabled";
 	       };
 
+		mfc: codec@13400000 {
+			compatible = "samsung,mfc-v7";
+			reg = <0x13400000 0x10000>;
+			interrupts = <0 102 0>;
+			clock-names = "mfc", "sclk_mfc";
+			clocks = <&cmu CLK_MFC>, <&cmu CLK_SCLK_MFC>;
+			samsung,power-domain = <&pd_mfc>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			mfc_l: memport@0 {
+				compatible = "samsung,memport";
+				samsung,power-domain = <&pd_mfc>;
+				iommu = <&smmu_mfc>;
+				reg = <0>;
+			};
+		};
+
+		smmu_mfc: sysmmu@13620000 {
+			compatible = "samsung,exynos4210-sysmmu";
+			reg = <0x13620000 0x1000>;
+			interrupts = <0 96 0>, <0 98 0>;
+			clock-names = "sysmmu", "master";
+			clocks = <&cmu CLK_SMMUMFC_L>, <&cmu CLK_MFC>;
+		};
+
 		serial_0: serial@13800000 {
 			compatible = "samsung,exynos4210-uart";
 			reg = <0x13800000 0x100>;
