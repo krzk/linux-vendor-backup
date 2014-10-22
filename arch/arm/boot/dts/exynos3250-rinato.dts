@@ -59,8 +59,8 @@
 		status = "okay";
 
 		cm-name = "battery";
-		/* Polling only for external power source */
-		cm-poll-mode = <2>;
+		/* Enable polling always to monitor battery capcity */
+		cm-poll-mode = <1>;
 		cm-poll-interval = <30000>;
 
 		cm-fullbatt-vchkdrop-ms = <30000>;
