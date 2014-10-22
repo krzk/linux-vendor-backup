@@ -228,6 +228,8 @@ struct charger_manager {
 	struct device *dev;
 	struct charger_desc *desc;
 
+	int battery_status;
+
 	struct power_supply *fuel_gauge;
 	struct power_supply **charger_stat;
 
