@@ -33,7 +33,7 @@ Provides: %{variant}-kernel-uname-r = %{fullVersion}
 This package contains the Linux kernel for Tizen (%{profile} profile, arch %{buildarch}, target board %{target_board})
 
 %prep
-%setup -q
+%setup -q -n linux-kernel-%{version}
 
 %build
 # Make sure EXTRAVERSION says what we want it to say

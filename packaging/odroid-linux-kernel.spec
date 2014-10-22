@@ -44,7 +44,7 @@ Provides: %{variant}-kernel-modules-uname-r = %{fullVersion}
 Kernel-modules includes the loadable kernel modules(.ko files) for %{target_board}
 
 %prep
-%setup -q
+%setup -q -n linux-kernel-%{version}
 
 %build
 # Make sure EXTRAVERSION says what we want it to say
