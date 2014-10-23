@@ -51,6 +51,9 @@ struct max17040_chip {
 	int soc;
 	/* State Of Charge */
 	int status;
+
+	/* If true, SoC's shown in double */
+	bool using_19_bits;
 };
 
 static void max17040_reset(struct i2c_client *client)
@@ -100,6 +103,15 @@ static void max17040_get_soc(struct i2c_client *client)
 
 	soc = (msb * 100) + (lsb * 100 / 256);
 	soc /= 10;
+
+	/* FIXME:
+	 * No information about actual meaning of using 19 bits,
+	 * it's just copied from vendor's code.
+	 * However, It is clear that it represents doubled SoC
+	 * if the chip is marked with 'using 19 bits'.
+	 */
+	if (chip->using_19_bits)
+		soc /= 2;
 
 	max17040_get_scaled_capacity(&soc);
 	/* capacity should be between 0% and 100%
@@ -206,6 +218,11 @@ static int max17040_probe(struct i2c_client *client,
 		dev_err(&client->dev, "Failed to initialize regmap\n");
 		return -EINVAL;
 	}
+
+	/* A flag for value of SoC in double or not */
+	if (client->dev.of_node)
+		chip->using_19_bits = of_property_read_bool(client->dev.of_node,
+							"using-19-bits");
 
 	chip->pdata = client->dev.platform_data;
 
