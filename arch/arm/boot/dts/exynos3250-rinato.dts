@@ -693,6 +693,7 @@
 		reg = <0x36>;
 		interrupt-parent = <&gpx1>;
 		interrupts = <2 8>;
+		using-19-bits;
 	};
 };
 
