@@ -225,6 +225,7 @@
 
 	sound {
 		compatible = "rinato,ymu831";
+		samsung,pmureg-phandle = <&pmu_system_controller>;
 		clocks = <&xusbxti>, <&clkout CLK_MOUT_CLKOUT>,
 			<&clkout CLK_CLKOUT>,
 			<&s2mps14_osc 2 /* S2MPS11_CLK_BT */>;
