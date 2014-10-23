@@ -12,6 +12,7 @@
 #define pr_fmt(fmt) "%s:%d " fmt, __func__, __LINE__
 
 #include <linux/clk.h>
+#include <linux/mfd/syscon.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
 #include <linux/input.h>
@@ -32,15 +33,13 @@
 #include <sound/pcm_params.h>
 #include "../codecs/ymu831/ymu831.h"
 
-#ifdef CONFIG_TIZEN_WIP
-/*
- * FIXME: This function maintain power-on state of XUSBXTI clock
- * to operate sound codec for BT call when sleep state .
- */
-extern void exynos_sys_powerdown_xusbxti_control(bool enable);
-#else
-static void exynos_sys_powerdown_xusbxti_control(bool enable) {}
-#endif
+#define EXYNOS3_XUSBXTI_SYS_PWR_REG_OFFSET	0x1280
+#define EXYNOS3_XUSBXTI_SYS_PWR_CFG_MASK	(1 << 0)
+
+enum {
+	DISABLE,
+	ENABLE
+};
 
 #define SND_SOC_DAPM_SPKMODE(wname, wevent) \
 {       .id = snd_soc_dapm_spk, .name = wname, .kcontrol_news = NULL, \
@@ -56,6 +55,8 @@ enum {
 struct rinato_ymu831 {
 	struct snd_soc_jack jack;
 	struct snd_soc_codec *codec;
+	struct regmap *reg_pmu;
+
 	struct clk *codec_mclk;
 	struct clk *clk_32kHz;
 	int gpio_mic_bias[MIC_MAX];
@@ -63,6 +64,18 @@ struct rinato_ymu831 {
 
 	u32 mic_avail[MIC_MAX];
 };
+
+/*
+ * This function maintain power-on state of XUSBXTI clock to operate
+ * sound codec for BT call when sleep state.
+ */
+static void exynos_sys_powerdown_xusbxti_control(struct rinato_ymu831 *machine,
+						 bool enable)
+{
+	regmap_update_bits(machine->reg_pmu, EXYNOS3_XUSBXTI_SYS_PWR_REG_OFFSET,
+			   EXYNOS3_XUSBXTI_SYS_PWR_CFG_MASK,
+			   enable ? ENABLE : DISABLE);
+}
 
 static int rinato_hifi_hw_params(struct snd_pcm_substream *substream,
 			      struct snd_pcm_hw_params *params)
@@ -120,11 +133,12 @@ static struct snd_soc_dai_link machine_dai[] = {
 static int machine_card_suspend_post(struct snd_soc_card *card)
 {
 	struct snd_soc_codec *codec = card->rtd->codec;
+	struct rinato_ymu831 *machine = snd_soc_card_get_drvdata(card);
 	int suspended;
 
 	suspended = ymu831_get_codec_suspended(codec);
 	if (!suspended)
-		exynos_sys_powerdown_xusbxti_control(true);
+		exynos_sys_powerdown_xusbxti_control(machine, true);
 
 	return 0;
 }
@@ -132,11 +146,12 @@ static int machine_card_suspend_post(struct snd_soc_card *card)
 static int machine_card_resume_pre(struct snd_soc_card *card)
 {
 	struct snd_soc_codec *codec = card->rtd->codec;
+	struct rinato_ymu831 *machine = snd_soc_card_get_drvdata(card);
 	int suspended;
 
 	suspended = ymu831_get_codec_suspended(codec);
 	if (!suspended)
-		exynos_sys_powerdown_xusbxti_control(false);
+		exynos_sys_powerdown_xusbxti_control(machine, false);
 
 	return 0;
 }
@@ -200,6 +215,13 @@ static int rinato_ymu831_probe(struct platform_device *pdev)
 	if (!dai_link->codec_of_node) {
 		dev_err(&pdev->dev, "audio-codec property parse error\n");
 		return -EINVAL;
+	}
+
+	machine->reg_pmu = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
+						"samsung,pmureg-phandle");
+	if (IS_ERR(machine->reg_pmu)) {
+		dev_err(&pdev->dev, "failed to map PMU registers\n");
+		return PTR_ERR(machine->reg_pmu);
 	}
 
 	machine->clk_32kHz = clk_get(&pdev->dev, "clk_32k");
