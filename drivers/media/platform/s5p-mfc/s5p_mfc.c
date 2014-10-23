@@ -1089,12 +1089,16 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 		goto err_res;
 	}
 
-	dev->mem_dev_r = device_find_child(&dev->plat_dev->dev,
+	if (IS_MFCV7(dev)) {
+		dev->mem_dev_r = dev->mem_dev_l;
+	} else {
+		dev->mem_dev_r = device_find_child(&dev->plat_dev->dev,
 					   (void *)MFC_PORT_R, match_child);
-	if (!dev->mem_dev_r) {
-		mfc_err("Mem child (R) device get failed\n");
-		ret = -ENODEV;
-		goto err_res;
+		if (!dev->mem_dev_r) {
+			mfc_err("Mem child (R) device get failed\n");
+			ret = -ENODEV;
+			goto err_res;
+		}
 	}
 
 	dev->alloc_ctx[0] = vb2_dma_contig_init_ctx(dev->mem_dev_l);
