@@ -647,6 +647,8 @@ static int s6e63j0x03_probe(struct mipi_dsi_device *dsi)
 		return ret;
 	}
 
+	ctx->power = FB_BLANK_POWERDOWN;
+
 	drm_panel_init(&ctx->panel);
 	ctx->panel.dev = dev;
 	ctx->panel.funcs = &s6e63j0x03_drm_funcs;
@@ -660,6 +662,11 @@ static int s6e63j0x03_probe(struct mipi_dsi_device *dsi)
 
 	ctx->bl_dev->props.max_brightness = MAX_BRIGHTNESS;
 	ctx->bl_dev->props.brightness = DEFAULT_BRIGHTNESS;
+
+	/*
+	 * FIXME: probably we should also initialize backlight power:
+	 * ctx->bl_dev->props.power = FB_BLANK_POWERDOWN;
+	 */
 
 	ret = drm_panel_add(&ctx->panel);
 	if (ret < 0)
