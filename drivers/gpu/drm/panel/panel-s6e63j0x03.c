@@ -478,10 +478,12 @@ static const struct backlight_ops s6e63j0x03_bl_ops = {
 	.update_status = s6e63j0x03_set_brightness,
 };
 
+static int s6e63j0x03_enable(struct drm_panel *panel);
 
 static int s6e63j0x03_disable(struct drm_panel *panel)
 {
 	struct s6e63j0x03 *ctx = panel_to_s6e63j0x03(panel);
+	int ret;
 
 	s6e63j0x03_dcs_write_seq_static(ctx, MIPI_DCS_SET_DISPLAY_OFF);
 	s6e63j0x03_dcs_write_seq_static(ctx, MIPI_DCS_ENTER_SLEEP_MODE);
@@ -491,7 +493,13 @@ static int s6e63j0x03_disable(struct drm_panel *panel)
 	usleep_range(ctx->power_off_delay * 1000,
 			(ctx->power_off_delay + 1) * 1000);
 
-	return s6e63j0x03_power_off(ctx);
+	ret = s6e63j0x03_power_off(ctx);
+	if (ret < 0)
+		return s6e63j0x03_enable(panel);
+
+	ctx->power = FB_BLANK_POWERDOWN;
+
+	return ret;
 }
 
 static int s6e63j0x03_enable(struct drm_panel *panel)
@@ -509,7 +517,9 @@ static int s6e63j0x03_enable(struct drm_panel *panel)
 	ret = ctx->error;
 
 	if (ret < 0)
-		s6e63j0x03_disable(panel);
+		return s6e63j0x03_disable(panel);
+
+	ctx->power = FB_BLANK_UNBLANK;
 
 	return ret;
 }
