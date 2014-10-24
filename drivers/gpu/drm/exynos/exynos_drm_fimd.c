@@ -1002,12 +1002,6 @@ static int fimd_te_handler(struct exynos_drm_manager *mgr)
 
 	spin_unlock_irqrestore(&ctx->win_updated_lock, flags);
 
-	/* Wakes up vsync event queue */
-	if (atomic_read(&ctx->wait_vsync_event)) {
-		atomic_set(&ctx->wait_vsync_event, 0);
-		wake_up(&ctx->wait_vsync_queue);
-	}
-
 	if (!atomic_read(&ctx->triggering))
 		drm_handle_vblank(ctx->drm_dev, ctx->pipe);
 
@@ -1064,12 +1058,12 @@ static irqreturn_t fimd_irq_handler(int irq, void *dev_id)
 	} else {
 		drm_handle_vblank(ctx->drm_dev, ctx->pipe);
 		exynos_drm_crtc_finish_pageflip(ctx->drm_dev, ctx->pipe);
+	}
 
-		/* set wait vsync event to zero and wake up queue. */
-		if (atomic_read(&ctx->wait_vsync_event)) {
-			atomic_set(&ctx->wait_vsync_event, 0);
-			wake_up(&ctx->wait_vsync_queue);
-		}
+	/* set wait vsync event to zero and wake up queue. */
+	if (atomic_read(&ctx->wait_vsync_event)) {
+		atomic_set(&ctx->wait_vsync_event, 0);
+		wake_up(&ctx->wait_vsync_queue);
 	}
 
 out:
