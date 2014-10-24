@@ -202,7 +202,15 @@ static bool is_full_charged(struct charger_manager *cm)
  */
 static bool is_polling_required(struct charger_manager *cm)
 {
-	switch (cm->desc->polling_mode) {
+	enum polling_modes polling_mode;
+
+	if (cm_suspended
+		&& cm->desc->poll_mode_sleep >= 0)
+		polling_mode = cm->desc->poll_mode_sleep;
+	else
+		polling_mode = cm->desc->poll_mode_normal;
+
+	switch (polling_mode) {
 	case CM_POLL_DISABLE:
 		return false;
 	case CM_POLL_ALWAYS:
@@ -213,7 +221,7 @@ static bool is_polling_required(struct charger_manager *cm)
 		return is_charging(cm);
 	default:
 		dev_warn(cm->dev, "Incorrect polling_mode (%d)\n",
-			 cm->desc->polling_mode);
+			 polling_mode);
 	}
 
 	return false;
@@ -1054,6 +1062,7 @@ static struct charger_desc *of_cm_parse_desc(struct device *dev)
 	u32 poll_mode = CM_POLL_DISABLE;
 	u32 battery_stat = CM_NO_BATTERY;
 	int num_chgs = 0;
+	int ret;
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
@@ -1062,7 +1071,11 @@ static struct charger_desc *of_cm_parse_desc(struct device *dev)
 	of_property_read_string(np, "cm-name", &desc->psy_name);
 
 	of_property_read_u32(np, "cm-poll-mode", &poll_mode);
-	desc->polling_mode = poll_mode;
+	desc->poll_mode_normal = poll_mode;
+
+	/* Polling mode in sleep state */
+	ret = of_property_read_u32(np, "cm-poll-mode-sleep", &poll_mode);
+	desc->poll_mode_sleep = (!ret) ? poll_mode : -EINVAL;
 
 	of_property_read_u32(np, "cm-poll-interval",
 				&desc->polling_interval_ms);
