@@ -993,8 +993,11 @@ static int fimd_te_handler(struct exynos_drm_manager *mgr)
 	 */
 	if (atomic_read(&ctx->win_updated)) {
 		atomic_set(&ctx->win_updated, 0);
+		spin_unlock_irqrestore(&ctx->win_updated_lock, flags);
 
 		fimd_trigger(ctx->dev);
+
+		spin_lock_irqsave(&ctx->win_updated_lock, flags);
 	}
 
 	spin_unlock_irqrestore(&ctx->win_updated_lock, flags);
