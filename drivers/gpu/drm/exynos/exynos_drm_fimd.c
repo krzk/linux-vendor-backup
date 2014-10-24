@@ -165,6 +165,7 @@ struct fimd_context {
 	atomic_t			wait_vsync_event;
 	atomic_t			win_updated;
 	atomic_t			triggering;
+	atomic_t			triggerred;
 	spinlock_t			win_updated_lock;
 
 	struct exynos_drm_panel_info panel;
@@ -985,6 +986,13 @@ static int fimd_te_handler(struct exynos_drm_manager *mgr)
 	if (atomic_read(&ctx->triggering))
 		return 0;
 
+
+	/* Handle wait for vblank request in case of in-trigger. */
+	if (atomic_read(&ctx->triggerred)) {
+		atomic_set(&ctx->triggerred, 0);
+		drm_handle_vblank(ctx->drm_dev, ctx->pipe);
+	}
+
 	spin_lock_irqsave(&ctx->win_updated_lock, flags);
 
 	/*
@@ -995,6 +1003,7 @@ static int fimd_te_handler(struct exynos_drm_manager *mgr)
 		atomic_set(&ctx->win_updated, 0);
 		spin_unlock_irqrestore(&ctx->win_updated_lock, flags);
 
+		atomic_set(&ctx->triggerred, 1);
 		fimd_trigger(ctx->dev);
 
 		spin_lock_irqsave(&ctx->win_updated_lock, flags);
