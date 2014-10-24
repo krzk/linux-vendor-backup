@@ -17,6 +17,7 @@
 #include <linux/of_gpio.h>
 #include <linux/gpio.h>
 #include <linux/regulator/consumer.h>
+#include <linux/backlight.h>
 
 #include <video/mipi_display.h>
 #include <video/of_videomode.h>
@@ -27,9 +28,20 @@
 /* Manufacturer Command Set */
 #define MCS_MTP_ID		0xD3
 
+#define MCS_MTP_SET3		0xd4
+#define MCS_MTP_KEY		0xf1
+
+#define MIN_BRIGHTNESS		0
+#define MAX_BRIGHTNESS		100
+#define DEFAULT_BRIGHTNESS	80
+
+#define GAMMA_CMD_CNT	28
+#define MAX_GAMMA_CNT	11
+
 struct s6e63j0x03 {
 	struct device *dev;
 	struct drm_panel panel;
+	struct backlight_device *bl_dev;
 
 	struct regulator_bulk_data supplies[2];
 	int reset_gpio;
@@ -44,7 +56,7 @@ struct s6e63j0x03 {
 	u32 width_mm;
 	u32 height_mm;
 
-	int brightness;
+	int power;
 
 	/* This field is tested by functions directly accessing DSI bus before
 	 * transfer, transfer is skipped if it is set. In case of transfer
@@ -53,6 +65,83 @@ struct s6e63j0x03 {
 	 * functions.
 	 */
 	int error;
+};
+
+static const unsigned char GAMMA_10[] = {
+	MCS_MTP_SET3,
+	0x00, 0x00, 0x00, 0x7f, 0x7f, 0x7f, 0x52, 0x6b, 0x6f, 0x26, 0x28, 0x2d,
+	0x28, 0x26, 0x27, 0x33, 0x34, 0x32, 0x36, 0x36, 0x35, 0x00, 0xab, 0x00,
+	0xae, 0x00, 0xbf
+};
+
+static const unsigned char GAMMA_30[] = {
+	MCS_MTP_SET3,
+	0x00, 0x00, 0x00, 0x70, 0x7f, 0x7f, 0x4e, 0x64, 0x69, 0x26, 0x27, 0x2a,
+	0x28, 0x29, 0x27, 0x31, 0x32, 0x31, 0x35, 0x34, 0x35, 0x00, 0xc4, 0x00,
+	0xca, 0x00, 0xdc
+};
+
+static const unsigned char GAMMA_60[] = {
+	MCS_MTP_SET3,
+	0x00, 0x00, 0x00, 0x65, 0x7b, 0x7d, 0x5f, 0x67, 0x68, 0x2a, 0x28, 0x29,
+	0x28, 0x2a, 0x27, 0x31, 0x2f, 0x30, 0x34, 0x33, 0x34, 0x00, 0xd9, 0x00,
+	0xe4, 0x00, 0xf5
+};
+
+static const unsigned char GAMMA_90[] = {
+	MCS_MTP_SET3,
+	0x00, 0x00, 0x00, 0x4d, 0x6f, 0x71, 0x67, 0x6a, 0x6c, 0x29, 0x28, 0x28,
+	0x28, 0x29, 0x27, 0x30, 0x2e, 0x30, 0x32, 0x31, 0x31, 0x00, 0xea, 0x00,
+	0xf6, 0x01, 0x09
+};
+
+static const unsigned char GAMMA_120[] = {
+	MCS_MTP_SET3,
+	0x00, 0x00, 0x00, 0x3d, 0x66, 0x68, 0x69, 0x69, 0x69, 0x28, 0x28, 0x27,
+	0x28, 0x28, 0x27, 0x30, 0x2e, 0x2f, 0x31, 0x31, 0x30, 0x00, 0xf9, 0x01,
+	0x05, 0x01, 0x1b
+};
+
+static const unsigned char GAMMA_150[] = {
+	MCS_MTP_SET3,
+	0x00, 0x00, 0x00, 0x31, 0x51, 0x53, 0x66, 0x66, 0x67, 0x28, 0x29, 0x27,
+	0x28, 0x27, 0x27, 0x2e, 0x2d, 0x2e, 0x31, 0x31, 0x30, 0x01, 0x04, 0x01,
+	0x11, 0x01, 0x29
+};
+
+static const unsigned char GAMMA_200[] = {
+	MCS_MTP_SET3,
+	0x00, 0x00, 0x00, 0x2f, 0x4f, 0x51, 0x67, 0x65, 0x65, 0x29, 0x2a, 0x28,
+	0x27, 0x25, 0x26, 0x2d, 0x2c, 0x2c, 0x30, 0x30, 0x30, 0x01, 0x14, 0x01,
+	0x23, 0x01, 0x3b
+};
+
+static const unsigned char GAMMA_240[] = {
+	MCS_MTP_SET3,
+	0x00, 0x00, 0x00, 0x2c, 0x4d, 0x50, 0x65, 0x63, 0x64, 0x2a, 0x2c, 0x29,
+	0x26, 0x24, 0x25, 0x2c, 0x2b, 0x2b, 0x30, 0x30, 0x30, 0x01, 0x1e, 0x01,
+	0x2f, 0x01, 0x47
+};
+
+static const unsigned char GAMMA_300[] = {
+	MCS_MTP_SET3,
+	0x00, 0x00, 0x00, 0x38, 0x61, 0x64, 0x65, 0x63, 0x64, 0x28, 0x2a, 0x27,
+	0x26, 0x23, 0x25, 0x2b, 0x2b, 0x2a, 0x30, 0x2f, 0x30, 0x01, 0x2d, 0x01,
+	0x3f, 0x01, 0x57
+};
+
+static const unsigned char *gamma_tbl[MAX_GAMMA_CNT] = {
+	GAMMA_10,
+	GAMMA_30,
+	GAMMA_60,
+	GAMMA_90,
+	GAMMA_120,
+	GAMMA_150,
+	GAMMA_200,
+	GAMMA_200,
+	GAMMA_240,
+	GAMMA_300,
+	GAMMA_300
 };
 
 static inline struct s6e63j0x03 *panel_to_s6e63j0x03(struct drm_panel *panel)
@@ -201,6 +290,14 @@ static void s6e63j0x03_test_level_2_key_off(struct s6e63j0x03 *ctx)
 	s6e63j0x03_dcs_write_seq_static(ctx, 0xf1, 0xa5, 0xa5);
 }
 
+static void s6e63j0x03_apply_mtp_key(struct s6e63j0x03 *ctx, bool on)
+{
+	if (on)
+		s6e63j0x03_dcs_write_seq(ctx, MCS_MTP_KEY, 0x5a, 0x5a);
+	else
+		s6e63j0x03_dcs_write_seq(ctx, MCS_MTP_KEY, 0xa5, 0xa5);
+}
+
 static void s6e63j0x03_set_maximum_return_packet_size(struct s6e63j0x03 *ctx,
 							unsigned int size)
 {
@@ -311,6 +408,76 @@ static int s6e63j0x03_power_off(struct s6e63j0x03 *ctx)
 
 	return 0;
 }
+
+static int s6e63j0x03_get_brightness(struct backlight_device *bl_dev)
+{
+	return bl_dev->props.brightness;
+}
+
+static int s6e63j0x03_get_brightness_index(unsigned int brightness)
+{
+	int index;
+
+	switch (brightness) {
+	case 0 ... 20:
+		index = 0;
+		break;
+	case 21 ... 40:
+		index = 2;
+		break;
+	case 41 ... 60:
+		index = 4;
+		break;
+	case 61 ... 80:
+		index = 6;
+		break;
+	default:
+		index = 10;
+		break;
+	}
+
+	return index;
+}
+
+static void s6e63j0x03_update_gamma(struct s6e63j0x03 *ctx,
+					unsigned int brightness)
+{
+	int index = s6e63j0x03_get_brightness_index(brightness);
+
+	s6e63j0x03_apply_mtp_key(ctx, true);
+
+	s6e63j0x03_dcs_write(ctx, gamma_tbl[index], GAMMA_CMD_CNT);
+
+	s6e63j0x03_apply_mtp_key(ctx, false);
+}
+
+static int s6e63j0x03_set_brightness(struct backlight_device *bl_dev)
+{
+	struct s6e63j0x03 *ctx = (struct s6e63j0x03 *)bl_get_data(bl_dev);
+	unsigned int brightness = bl_dev->props.brightness;
+
+	if (brightness < MIN_BRIGHTNESS ||
+		brightness > bl_dev->props.max_brightness) {
+		dev_err(ctx->dev, "brightness[%u] is invalid value\n",
+			brightness);
+		return -EINVAL;
+	}
+
+	if (ctx->power > FB_BLANK_UNBLANK) {
+		dev_err(ctx->dev, "panel is not in fb unblank state\n");
+		return -EPERM;
+	}
+
+	s6e63j0x03_update_gamma(ctx, brightness);
+
+	return 0;
+}
+
+static const struct backlight_ops s6e63j0x03_bl_ops = {
+	.get_brightness = s6e63j0x03_get_brightness,
+	.update_status = s6e63j0x03_set_brightness,
+};
+
 
 static int s6e63j0x03_disable(struct drm_panel *panel)
 {
@@ -480,19 +647,35 @@ static int s6e63j0x03_probe(struct mipi_dsi_device *dsi)
 		return ret;
 	}
 
-	ctx->brightness = GAMMA_LEVEL_NUM - 1;
-
 	drm_panel_init(&ctx->panel);
 	ctx->panel.dev = dev;
 	ctx->panel.funcs = &s6e63j0x03_drm_funcs;
 
+	ctx->bl_dev = backlight_device_register("s6e63j0x03", dev, ctx,
+						&s6e63j0x03_bl_ops, NULL);
+	if (IS_ERR(ctx->bl_dev)) {
+		dev_err(dev, "failed to register backlight device\n");
+		return PTR_ERR(ctx->bl_dev);
+	}
+
+	ctx->bl_dev->props.max_brightness = MAX_BRIGHTNESS;
+	ctx->bl_dev->props.brightness = DEFAULT_BRIGHTNESS;
+
 	ret = drm_panel_add(&ctx->panel);
 	if (ret < 0)
-		return ret;
+		goto err_unregister_backlight;
 
 	ret = mipi_dsi_attach(dsi);
 	if (ret < 0)
+		goto err_remove_panel;
+
+	return ret;
+
+err_remove_panel:
 		drm_panel_remove(&ctx->panel);
+
+err_unregister_backlight:
+	backlight_device_unregister(ctx->bl_dev);
 
 	return ret;
 }
@@ -503,6 +686,8 @@ static int s6e63j0x03_remove(struct mipi_dsi_device *dsi)
 
 	mipi_dsi_detach(dsi);
 	drm_panel_remove(&ctx->panel);
+
+	backlight_device_unregister(ctx->bl_dev);
 
 	return 0;
 }
