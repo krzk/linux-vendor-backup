@@ -94,8 +94,8 @@
 			cable@1 {
 				cm-cable-name = "TA";
 				cm-cable-extcon = "max77836-muic";
-				cm-cable-min = <2000000>;
-				cm-cable-max = <2000000>;
+				cm-cable-min = <450000>;
+				cm-cable-max = <450000>;
 			};
 		};
 	};
