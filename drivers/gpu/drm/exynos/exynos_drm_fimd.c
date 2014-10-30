@@ -957,6 +957,13 @@ static void fimd_trigger(struct device *dev)
 	void *timing_base = ctx->regs + driver_data->timing_base;
 	u32 reg;
 
+	 /*
+	 * Skips to trigger if in triggering state, because multiple triggering
+	 * requests can cause panel reset.
+	 */
+	if (atomic_read(&ctx->triggering))
+		return;
+
 	atomic_set(&ctx->triggering, 1);
 
 	reg = readl(ctx->regs + VIDINTCON0);
@@ -977,13 +984,6 @@ static int fimd_te_handler(struct exynos_drm_manager *mgr)
 	/* Checks the crtc is detached already from encoder */
 	if (ctx->pipe < 0 || !ctx->drm_dev)
 		return -EINVAL;
-
-	 /*
-	 * Skips to trigger if in triggering state, because multiple triggering
-	 * requests can cause panel reset.
-	 */
-	if (atomic_read(&ctx->triggering))
-		return 0;
 
 	spin_lock_irqsave(&ctx->win_updated_lock, flags);
 
