@@ -1006,7 +1006,7 @@ static int fimd_te_handler(struct exynos_drm_manager *mgr)
 
 	spin_unlock_irqrestore(&ctx->win_updated_lock, flags);
 
-	if (!atomic_read(&ctx->triggering))
+	if (test_bit(0, &ctx->irq_flags))
 		drm_handle_vblank(ctx->drm_dev, ctx->pipe);
 
 	return 0;
