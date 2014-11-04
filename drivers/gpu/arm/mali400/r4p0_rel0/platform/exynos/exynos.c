@@ -31,6 +31,7 @@
 struct mali_exynos_variant {
 	const struct mali_exynos_dvfs_step *steps;
 	unsigned int nr_steps;
+	unsigned int has_smmuclk;
 };
 
 struct mali_exynos_dvfs_step {
@@ -46,11 +47,14 @@ struct mali_exynos_drvdata {
 
 	const struct mali_exynos_dvfs_step *steps;
 	unsigned int nr_steps;
+	unsigned int has_smmuclk;
 
-	struct clk *sclk_vpll;
-	struct clk *mout_g3d1;
-	struct clk *mout_g3d;
-	struct clk *sclk_g3d;
+	struct clk *pll;
+	struct clk *mux1;
+	struct clk *mux2;
+	struct clk *sclk;
+	struct clk *smmu;
+	struct clk *g3d;
 
 	struct regulator *vdd_g3d;
 
@@ -146,13 +150,13 @@ static void mali_exynos_set_dvfs_step(struct mali_exynos_drvdata *mali,
 	const struct mali_exynos_dvfs_step *next = &mali->steps[step];
 
 	if (step <= mali->dvfs_step)
-		clk_set_rate(mali->sclk_g3d, next->rate);
+		clk_set_rate(mali->sclk, next->rate);
 
 	regulator_set_voltage(mali->vdd_g3d,
 					next->min_uv, next->max_uv);
 
 	if (step > mali->dvfs_step)
-		clk_set_rate(mali->sclk_g3d, next->rate);
+		clk_set_rate(mali->sclk, next->rate);
 
 	_mali_osk_profiling_add_gpufreq_event(next->rate / 1000000,
 		 regulator_get_voltage(mali->vdd_g3d) / 1000);
@@ -199,12 +203,18 @@ _mali_osk_errcode_t mali_platform_power_mode_change(mali_power_mode power_mode)
 	switch (power_mode) {
 	case MALI_POWER_MODE_ON:
 		mali_exynos_set_dvfs_step(mali, 0);
-		clk_prepare_enable(mali->sclk_g3d);
+		clk_prepare_enable(mali->g3d);
+		clk_prepare_enable(mali->sclk);
+		if (mali->has_smmuclk)
+			clk_prepare_enable(mali->smmu);
 		break;
 
 	case MALI_POWER_MODE_LIGHT_SLEEP:
 	case MALI_POWER_MODE_DEEP_SLEEP:
-		clk_disable_unprepare(mali->sclk_g3d);
+		if (mali->has_smmuclk)
+			clk_disable_unprepare(mali->smmu);
+		clk_disable_unprepare(mali->sclk);
+		clk_disable_unprepare(mali->g3d);
 		_mali_osk_profiling_add_gpufreq_event(0, 0);
 		break;
 	}
@@ -283,22 +293,33 @@ _mali_osk_errcode_t mali_platform_init(void)
 	mali->dev = &pdev->dev;
 	mali->steps = variant->steps;
 	mali->nr_steps = variant->nr_steps;
+	mali->has_smmuclk = variant->has_smmuclk;
 
-	mali->sclk_vpll = devm_clk_get(mali->dev, "sclk_vpll");
-	if (WARN_ON(IS_ERR(mali->sclk_vpll)))
-		return PTR_ERR(mali->sclk_vpll);
+	mali->pll = devm_clk_get(mali->dev, "pll");
+	if (WARN_ON(IS_ERR(mali->pll)))
+		return PTR_ERR(mali->pll);
 
-	mali->mout_g3d1 = devm_clk_get(mali->dev, "mout_g3d1");
-	if (WARN_ON(IS_ERR(mali->mout_g3d1)))
-		return PTR_ERR(mali->mout_g3d1);
+	mali->mux1 = devm_clk_get(mali->dev, "mux1");
+	if (WARN_ON(IS_ERR(mali->mux1)))
+		return PTR_ERR(mali->mux1);
 
-	mali->mout_g3d = devm_clk_get(mali->dev, "mout_g3d");
-	if (WARN_ON(IS_ERR(mali->mout_g3d)))
-		return PTR_ERR(mali->mout_g3d);
+	mali->mux2 = devm_clk_get(mali->dev, "mux2");
+	if (WARN_ON(IS_ERR(mali->mux2)))
+		return PTR_ERR(mali->mux2);
 
-	mali->sclk_g3d = devm_clk_get(mali->dev, "sclk_g3d");
-	if (WARN_ON(IS_ERR(mali->sclk_g3d)))
-		return PTR_ERR(mali->sclk_g3d);
+	mali->sclk = devm_clk_get(mali->dev, "sclk");
+	if (WARN_ON(IS_ERR(mali->sclk)))
+		return PTR_ERR(mali->sclk);
+
+	if (mali->has_smmuclk) {
+		mali->smmu = devm_clk_get(mali->dev, "smmu");
+		if (WARN_ON(IS_ERR(mali->smmu)))
+			return PTR_ERR(mali->smmu);
+	}
+
+	mali->g3d = devm_clk_get(mali->dev, "g3d");
+	if (WARN_ON(IS_ERR(mali->g3d)))
+		return PTR_ERR(mali->g3d);
 
 	mali->vdd_g3d = devm_regulator_get(mali->dev, "vdd_g3d");
 	if (WARN_ON(IS_ERR(mali->vdd_g3d)))
@@ -318,8 +339,8 @@ _mali_osk_errcode_t mali_platform_init(void)
 		MALI_ERROR(_MALI_OSK_ERR_FAULT);
 	}
 
-	clk_set_parent(mali->mout_g3d1, mali->sclk_vpll);
-	clk_set_parent(mali->mout_g3d, mali->mout_g3d1);
+	clk_set_parent(mali->mux1, mali->pll);
+	clk_set_parent(mali->mux2, mali->mux1);
 	mali_exynos_set_dvfs_step(mali, 0);
 
 	pm_runtime_set_autosuspend_delay(&pdev->dev, 300);
