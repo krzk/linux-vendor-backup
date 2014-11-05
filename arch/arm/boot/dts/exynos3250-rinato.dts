@@ -31,20 +31,24 @@
 			0x48000000 0x08000000
 			0x50000000 0x08000000
 			0x58000000 0x07F00000>;
-	};
 
-	reserved-memory {
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges;
+		reserved-memory {
+			#address-cells = <1>;
+			#size-cells = <1>;
 
-		contig_mem: region@51000000 {
-			compatible = "linux,contiguous-memory-region";
-			reg = <0x51000000 0x1000000>;
-			linux,default-contiguous-region;
+			contig_mem: region@51000000 {
+				compatible = "linux,contiguous-memory-region";
+				reg = <0x51000000 0x1000000>;
+				linux,default-contiguous-region;
+			};
+
+			fimc_is_mem: region@58000000 {
+				compatible = "linux,contiguous-memory-region",
+					     "reserved-memory-region";
+				reg = <0x58000000 0x4000000>;
+			};
 		};
 	};
-
 	chosen {
 		bootargs = "console=ttySAC1,115200N8 root=/dev/mmcblk0p15 rootwait earlyprintk panic=5";
 	};
@@ -379,6 +383,58 @@
 		wr-act = <1>;
 		wr-hold = <0>;
 	};
+};
+
+&fimc_is {
+	pinctrl-names = "default";
+	pinctrl-0 = <&cam_port_b_clk_active>;
+	status = "okay";
+	memory-region = <&fimc_is_mem>;
+};
+
+&fimc_lite_0 {
+	status = "okay";
+};
+
+&csis_0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	/* Only one voltage is used on Exynos3250 */
+	vddcore-supply = <&ldo6_reg>;
+	vddio-supply = <&ldo6_reg>;
+	port@3 {
+		reg = <3>;
+		csis0_ep: endpoint {
+			remote-endpoint = <&s5k8b1_ep>;
+			data-lanes = <1 2>;
+			samsung,csis-hs-settle = <18>;
+			samsung,csis-wclk;
+		};
+	};
+};
+
+&i2c0_isp {
+        pinctrl-0 = <&fimc_is_i2c0>;
+        pinctrl-names = "default";
+
+	s5k8b1@6a {
+		compatible = "samsung,s5k8b1";
+		reg = <0x6a>;
+		vdda-supply = <&ldo13_reg>;
+		vddio-supply = <&ldo21_reg>;
+		vddd-supply = <&ldo22_reg>;
+		xshutdown-gpios = <&gpm2 3 0>;
+		clocks = <&cmu CLK_SCLK_CAM1>; /* CAM_B_CLKOUT */
+		clock-names = "extclk";
+		clock-frequency = <24000000>;
+		port {
+			s5k8b1_ep: endpoint {
+				remote-endpoint = <&csis0_ep>;
+				data-lanes = <2>;
+			};
+		};
+        };
 };
 
 &gpu {
