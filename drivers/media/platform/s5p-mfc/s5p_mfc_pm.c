@@ -21,8 +21,6 @@
 #include "s5p_mfc_pm.h"
 
 #define MFC_GATE_CLK_NAME	"mfc"
-#define MFC_CLK_NAME		"sclk_mfc"
-#define MFC_CLK_RATE		(200 * 1000000)
 
 #define CLK_DEBUG
 
@@ -52,14 +50,6 @@ int s5p_mfc_init_pm(struct s5p_mfc_dev *dev)
 		goto err_p_ip_clk;
 	}
 
-	pm->clock = clk_get(&dev->plat_dev->dev, MFC_CLK_NAME);
-	if (IS_ERR(pm->clock)) {
-		mfc_err("Failed to get gating clock control\n");
-		ret = PTR_ERR(pm->clock);
-		goto err_g_clk;
-	}
-	clk_set_rate(pm->clock, MFC_CLK_RATE);
-
 	atomic_set(&pm->power, 0);
 #ifdef CONFIG_PM_RUNTIME
 	pm->device = &dev->plat_dev->dev;
@@ -69,8 +59,6 @@ int s5p_mfc_init_pm(struct s5p_mfc_dev *dev)
 	atomic_set(&clk_ref, 0);
 #endif
 	return 0;
-err_g_clk:
-	clk_disable_unprepare(pm->clock_gate);
 err_p_ip_clk:
 	clk_put(pm->clock_gate);
 err_g_ip_clk:
@@ -79,7 +67,6 @@ err_g_ip_clk:
 
 void s5p_mfc_final_pm(struct s5p_mfc_dev *dev)
 {
-	clk_put(pm->clock);
 	clk_unprepare(pm->clock_gate);
 	clk_put(pm->clock_gate);
 #ifdef CONFIG_PM_RUNTIME
