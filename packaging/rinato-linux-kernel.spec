@@ -18,7 +18,6 @@ BuildRoot: %{_tmppath}/%{name}-%{PACKAGE_VERSION}-root
 %define fullVersion %{version}-%{variant}
 
 BuildRequires: bc
-BuildRequires: e2fsprogs >= 1.42.11
 
 %description
 The Linux Kernel, the operating system core itself
@@ -46,9 +45,6 @@ make %{?_smp_mflags}
 # 2. Build zImage
 make zImage %{?_smp_mflags}
 make dtbs %{?_smp_mflags}
-
-# 3. Build modules
-make modules %{?_smp_mflags}
 
 %install
 QA_SKIP_BUILD_ROOT="DO_NOT_WANT"; export QA_SKIP_BUILD_ROOT

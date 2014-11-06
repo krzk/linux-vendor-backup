@@ -20,7 +20,6 @@ BuildRoot: %{_tmppath}/%{name}-%{PACKAGE_VERSION}-root
 BuildRequires: module-init-tools
 BuildRequires: u-boot-tools
 BuildRequires: bc
-BuildRequires: e2fsprogs >= 1.42.11
 
 %description
 The Linux Kernel, the operating system core itself
@@ -88,23 +87,12 @@ find %{buildroot}/lib/modules/ -name "*.ko"                                     
 # 8. Create symbolic links
 rm -f %{buildroot}/lib/modules/%{fullVersion}/build
 rm -f %{buildroot}/lib/modules/%{fullVersion}/source
-rm -rf %{buildroot}/lib/modules/%{fullVersion}/modules.*
-rm -rf %{buildroot}/lib/modules/%{fullVersion}/build
-
-# 9. Calculate modules.img size
-BIN_SIZE=`du -s %{buildroot}/lib/modules | awk {'printf $1;'}`
-let BIN_SIZE=${BIN_SIZE}+1024+512
-
-dd if=/dev/zero of=%{buildroot}/boot/modules.img count=${BIN_SIZE} bs=1024
-/usr/sbin/mke2fs -t ext4 -F -d %{buildroot}/lib/modules/ %{buildroot}/boot/modules.img
-
-rm -rf %{buildroot}/lib/modules/%{fullVersion}/kernel
 
 %clean
 rm -rf %{buildroot}
 
 %files -n %{variant}-linux-kernel-modules
-/boot/modules.img
+/lib/modules/
 
 %files -n %{variant}-linux-kernel
 %license COPYING
