@@ -255,6 +255,7 @@ _mali_osk_errcode_t mali_platform_init(void)
 	struct resource *old_res, *new_res;
 	unsigned int i, irq_res, mem_res;
 	struct device_node *np;
+	int ret;
 
 	if (WARN_ON(!pdev))
 		return -ENODEV;
@@ -343,7 +344,11 @@ _mali_osk_errcode_t mali_platform_init(void)
 
 	INIT_WORK(&mali->dvfs_work, exynos_dvfs_work);
 
-	regulator_enable(mali->vdd_g3d);
+	ret = regulator_enable(mali->vdd_g3d);
+	if (WARN_ON(ret)) {
+		destroy_workqueue(mali->dvfs_workqueue);
+		MALI_ERROR(_MALI_OSK_ERR_FAULT);
+	}
 
 	clk_set_parent(mali->mux1, mali->pll);
 	clk_set_parent(mali->mux2, mali->mux1);
