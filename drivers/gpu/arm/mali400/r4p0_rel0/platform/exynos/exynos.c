@@ -36,8 +36,7 @@ struct mali_exynos_variant {
 
 struct mali_exynos_dvfs_step {
 	unsigned int rate;
-	unsigned int min_uv;
-	unsigned int max_uv;
+	unsigned int voltage;
 	unsigned int downthreshold;
 	unsigned int upthreshold;
 };
@@ -74,27 +73,27 @@ static struct mali_exynos_drvdata *mali;
  * DVFS tables
  */
 
-#define MALI_DVFS_STEP(freq, min_uv, max_uv, down, up) \
-	{freq * 1000000, min_uv, max_uv, (255 * down) / 100, (255 * up) / 100}
+#define MALI_DVFS_STEP(freq, voltage, down, up) \
+	{freq, voltage, (256 * down) / 100, (256 * up) / 100}
 
 static const struct mali_exynos_dvfs_step mali_exynos_dvfs_step_4210[] = {
-	MALI_DVFS_STEP(160,  950000,  975000,  0,  85),
-	MALI_DVFS_STEP(266, 1000000, 1025000, 75, 100),
+	MALI_DVFS_STEP(160,  950000,  0,  90),
+	MALI_DVFS_STEP(266, 1050000, 85, 100)
 };
 
 static const struct mali_exynos_dvfs_step mali_exynos_dvfs_step_4x12[] = {
-	MALI_DVFS_STEP(160,  875000,  900000,  0,  70),
-	MALI_DVFS_STEP(266,  900000,  925000, 62,  90),
-	MALI_DVFS_STEP(350,  950000,  975000, 85,  90),
-	MALI_DVFS_STEP(440, 1025000, 1050000, 85, 100),
+	MALI_DVFS_STEP(160,  875000,  0,  70),
+	MALI_DVFS_STEP(266,  900000, 62,  90),
+	MALI_DVFS_STEP(350,  950000, 85,  90),
+	MALI_DVFS_STEP(440, 1025000, 85, 100)
 };
 
 static const struct mali_exynos_dvfs_step mali_exynos_dvfs_step_4x12_prime[] = {
-	MALI_DVFS_STEP(160,  875000,  900000,  0,  70),
-	MALI_DVFS_STEP(266,  900000,  925000, 62,  90),
-	MALI_DVFS_STEP(350,  950000,  975000, 85,  90),
-	MALI_DVFS_STEP(440, 1025000, 1050000, 85,  90),
-	MALI_DVFS_STEP(533, 1075000, 1100000, 85, 100),
+	MALI_DVFS_STEP(160,  875000,  0,  70),
+	MALI_DVFS_STEP(266,  900000, 62,  90),
+	MALI_DVFS_STEP(350,  950000, 85,  90),
+	MALI_DVFS_STEP(440, 1025000, 85,  90),
+	MALI_DVFS_STEP(533, 1075000, 95, 100)
 };
 
 /*
@@ -150,15 +149,15 @@ static void mali_exynos_set_dvfs_step(struct mali_exynos_drvdata *mali,
 	const struct mali_exynos_dvfs_step *next = &mali->steps[step];
 
 	if (step <= mali->dvfs_step)
-		clk_set_rate(mali->sclk, next->rate);
+		clk_set_rate(mali->sclk, next->rate * 1000000);
 
 	regulator_set_voltage(mali->vdd_g3d,
-					next->min_uv, next->max_uv);
+					next->voltage, next->voltage);
 
 	if (step > mali->dvfs_step)
-		clk_set_rate(mali->sclk, next->rate);
+		clk_set_rate(mali->sclk, next->rate * 1000000);
 
-	_mali_osk_profiling_add_gpufreq_event(next->rate / 1000000,
+	_mali_osk_profiling_add_gpufreq_event(next->rate * 1000000,
 		 regulator_get_voltage(mali->vdd_g3d) / 1000);
 	mali->dvfs_step = step;
 }
