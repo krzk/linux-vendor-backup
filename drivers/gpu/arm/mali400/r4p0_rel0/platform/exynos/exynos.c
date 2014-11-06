@@ -76,6 +76,10 @@ static struct mali_exynos_drvdata *mali;
 #define MALI_DVFS_STEP(freq, voltage, down, up) \
 	{freq, voltage, (256 * down) / 100, (256 * up) / 100}
 
+static const struct mali_exynos_dvfs_step mali_exynos_dvfs_step_3250[] = {
+	MALI_DVFS_STEP(134,       0,  0, 100)
+};
+
 static const struct mali_exynos_dvfs_step mali_exynos_dvfs_step_4210[] = {
 	MALI_DVFS_STEP(160,  950000,  0,  90),
 	MALI_DVFS_STEP(266, 1050000, 85, 100)
@@ -100,6 +104,12 @@ static const struct mali_exynos_dvfs_step mali_exynos_dvfs_step_4x12_prime[] = {
  * Variants
  */
 
+static const struct mali_exynos_variant mali_variant_3250 = {
+	.steps = mali_exynos_dvfs_step_3250,
+	.nr_steps = ARRAY_SIZE(mali_exynos_dvfs_step_3250),
+	.has_smmuclk = true,
+};
+
 static const struct mali_exynos_variant mali_variant_4210 = {
 	.steps = mali_exynos_dvfs_step_4210,
 	.nr_steps = ARRAY_SIZE(mali_exynos_dvfs_step_4210),
@@ -116,6 +126,8 @@ static const struct mali_exynos_variant mali_variant_4x12_prime = {
 };
 
 const struct of_device_id mali_of_matches[] = {
+	{ .compatible = "samsung,exynos3250-g3d",
+					.data = &mali_variant_3250, },
 	{ .compatible = "samsung,exynos4210-g3d",
 					.data = &mali_variant_4210, },
 	{ .compatible = "samsung,exynos4x12-g3d",

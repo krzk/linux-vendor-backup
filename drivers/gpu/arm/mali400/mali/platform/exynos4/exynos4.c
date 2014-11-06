@@ -104,7 +104,7 @@ static const struct mali_exynos_dvfs_step mali_exynos_dvfs_step_4x12_prime[] = {
  * Variants
  */
 
-static const struct mali_exynos_variant mali_variant_3250= {
+static const struct mali_exynos_variant mali_variant_3250 = {
 	.steps = mali_exynos_dvfs_step_3250,
 	.nr_steps = ARRAY_SIZE(mali_exynos_dvfs_step_3250),
 	.has_smmuclk = true,
