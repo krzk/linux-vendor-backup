@@ -161,7 +161,10 @@ static int fimc_lite_hw_init(struct fimc_lite *fimc, bool isp_output)
 	flite_hw_set_source_format(fimc, &fimc->inp_frame);
 	flite_hw_set_window_offset(fimc, &fimc->inp_frame);
 	flite_hw_set_dma_buf_mask(fimc, 0);
-	flite_hw_set_output_dma(fimc, &fimc->out_frame, !isp_output);
+	flite_hw_set_output_path(fimc, !isp_output, isp_output);
+	if (!isp_output)
+		flite_hw_configure_output_dma(fimc, &fimc->out_frame);
+	flite_hw_clear_last_capture_end(fimc);
 	flite_hw_set_interrupt_mask(fimc);
 	flite_hw_set_test_pattern(fimc, fimc->test_pattern->val);
 
@@ -1259,6 +1262,9 @@ static int fimc_lite_subdev_s_stream(struct v4l2_subdev *sd, int on)
 		set_bit(ST_FLITE_OFF, &fimc->state);
 
 		spin_lock_irqsave(&fimc->slock, flags);
+		/* Make sure both output DMA and local FIFO are disabled */
+		flite_hw_set_output_path(fimc, false, false);
+		flite_hw_set_dma_buf_mask(fimc, 0);
 		flite_hw_capture_stop(fimc);
 		spin_unlock_irqrestore(&fimc->slock, flags);
 
@@ -1268,6 +1274,7 @@ static int fimc_lite_subdev_s_stream(struct v4l2_subdev *sd, int on)
 		if (ret == 0)
 			v4l2_err(sd, "s_stream(0) timeout\n");
 		clear_bit(ST_FLITE_RUN, &fimc->state);
+		flite_hw_clear_interrupt_mask(fimc);
 	}
 
 	mutex_unlock(&fimc->lock);
@@ -1678,6 +1685,7 @@ static struct flite_drvdata fimc_lite_drvdata_exynos3250 = {
 	.out_hor_offs_align	= 8,
 	.max_dma_bufs		= 32,
 	.num_instances		= 2,
+	.has_out_local_enable	= 1,
 };
 
 /* EXYNOS4212, EXYNOS4412 */
@@ -1700,6 +1708,7 @@ static struct flite_drvdata fimc_lite_drvdata_exynos5 = {
 	.out_hor_offs_align	= 8,
 	.max_dma_bufs		= 32,
 	.num_instances		= 3,
+	.has_out_local_enable	= 1,
 };
 
 static const struct of_device_id flite_of_match[] = {

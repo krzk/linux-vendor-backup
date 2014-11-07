@@ -30,6 +30,7 @@
 /* User defined formats. x = 0...15 */
 #define FLITE_REG_CIGCTRL_USER(x)		((0x30 + x - 1) << 24)
 #define FLITE_REG_CIGCTRL_FMT_MASK		(0x3f << 24)
+#define FLITE_REG_CIGCTRL_OUT_LOCAL_DISABLE	(1 << 22)
 #define FLITE_REG_CIGCTRL_SHADOWMASK_DISABLE	(1 << 21)
 #define FLITE_REG_CIGCTRL_ODMA_DISABLE		(1 << 20)
 #define FLITE_REG_CIGCTRL_SWRST_REQ		(1 << 19)
@@ -111,6 +112,10 @@
 #define FLITE_REG_CISTATUS2_LASTCAPEND		(1 << 1)
 #define FLITE_REG_CISTATUS2_FRMEND		(1 << 0)
 
+/* Camera Status3 */
+#define FLITE_REG_CISTATUS3                     0x48
+#define FLITE_REG_CISTATUS3_PRESENT_MASK        0x3f
+
 /* Qos Threshold */
 #define FLITE_REG_CITHOLD			0xf0
 #define FLITE_REG_CITHOLD_W_QOS_EN		(1 << 30)
@@ -131,6 +136,7 @@ void flite_hw_clear_pending_irq(struct fimc_lite *dev);
 u32 flite_hw_get_interrupt_source(struct fimc_lite *dev);
 void flite_hw_clear_last_capture_end(struct fimc_lite *dev);
 void flite_hw_set_interrupt_mask(struct fimc_lite *dev);
+void flite_hw_clear_interrupt_mask(struct fimc_lite *dev);
 void flite_hw_capture_start(struct fimc_lite *dev);
 void flite_hw_capture_stop(struct fimc_lite *dev);
 void flite_hw_set_camera_bus(struct fimc_lite *dev,
@@ -140,8 +146,8 @@ void flite_hw_set_camera_polarity(struct fimc_lite *dev,
 void flite_hw_set_window_offset(struct fimc_lite *dev, struct flite_frame *f);
 void flite_hw_set_source_format(struct fimc_lite *dev, struct flite_frame *f);
 
-void flite_hw_set_output_dma(struct fimc_lite *dev, struct flite_frame *f,
-			     bool enable);
+void flite_hw_configure_output_dma(struct fimc_lite *dev, struct flite_frame *f);
+void flite_hw_set_output_path(struct fimc_lite *dev, bool dma, bool local);
 void flite_hw_set_dma_window(struct fimc_lite *dev, struct flite_frame *f);
 void flite_hw_set_test_pattern(struct fimc_lite *dev, bool on);
 void flite_hw_dump_regs(struct fimc_lite *dev, const char *label);

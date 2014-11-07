@@ -61,6 +61,8 @@ enum {
  * 			offset alignment in pixels
  * @max_dma_bufs: number of output DMA buffer start address registers
  * @num_instances: total number of FIMC-LITE IP instances available
+ * @has_out_local_enable: set to 1 if this IP block supports
+ * 			  OutLocalEnable bit in CIGCTRL register
  */
 struct flite_drvdata {
 	unsigned short max_width;
@@ -70,6 +72,7 @@ struct flite_drvdata {
 	unsigned short out_hor_offs_align;
 	unsigned short max_dma_bufs;
 	unsigned short num_instances;
+	unsigned int   has_out_local_enable:1;
 };
 
 struct fimc_lite_events {
