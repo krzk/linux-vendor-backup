@@ -114,10 +114,6 @@ static int dma_open(struct snd_pcm_substream *substream)
 
 	snd_soc_set_runtime_hwparams(substream, &dma_hardware);
 
-	chan = kzalloc(sizeof(struct dma_chan), GFP_KERNEL);
-	if (!chan)
-		return -ENOMEM;
-
 	/* Request slave dma channel according to playback/capture stream */
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		chan = dma_request_slave_channel(rtd->cpu_dai->dev,
