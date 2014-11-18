@@ -5,7 +5,7 @@
 
 Name: linux-kernel
 Summary: The Linux Kernel for Samsung Exynos
-Version: 3.10.52
+Version: 3.10.60
 Release: 0
 License: GPL-2.0
 ExclusiveArch: %{arm}
