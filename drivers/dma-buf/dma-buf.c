@@ -33,6 +33,8 @@
 #include <linux/poll.h>
 #include <linux/reservation.h>
 
+#include <linux/dmabuf-sync.h>
+
 static inline int is_dma_buf_file(struct file *);
 
 struct dma_buf_list {
@@ -249,11 +251,38 @@ out:
 	return events;
 }
 
+static int dma_buf_lock(struct file *file, int cmd, struct file_lock *fl)
+{
+	struct dma_buf *dmabuf;
+	unsigned int type;
+
+	if (!is_dma_buf_file(file) || !(fl->fl_flags & FL_SLEEP))
+		return -EPERM;
+
+	dmabuf = file->private_data;
+
+	if ((fl->fl_type & F_UNLCK) == F_UNLCK) {
+		dmabuf_sync_signal(dmabuf);
+		return 0;
+	}
+
+	/* convert flock type to dmabuf sync type. */
+	if ((fl->fl_type & F_WRLCK) == F_WRLCK)
+		type = DMA_BUF_ACCESS_W;
+	else if ((fl->fl_type & F_RDLCK) == F_RDLCK)
+		type = DMA_BUF_ACCESS_R;
+	else
+		return -EINVAL;
+
+	return dmabuf_sync_wait(dmabuf, (unsigned int)current, type);
+}
+
 static const struct file_operations dma_buf_fops = {
 	.release	= dma_buf_release,
 	.mmap		= dma_buf_mmap_internal,
 	.llseek		= dma_buf_llseek,
 	.poll		= dma_buf_poll,
+	.lock		= dma_buf_lock,
 };
 
 /*
