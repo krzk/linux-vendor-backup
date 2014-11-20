@@ -979,6 +979,7 @@ static const struct of_device_id exynos4_busfreq_match[] = {
 		.compatible = "samsung,exynos4x12-busfreq",
 		.data = (void *)TYPE_BUSF_EXYNOS4x12,
 	},
+	{ },
 };
 MODULE_DEVICE_TABLE(of, exynos4_busfreq_match[]);
 #else
