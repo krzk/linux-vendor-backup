@@ -944,6 +944,7 @@ static void s5m_rtc_shutdown(struct platform_device *pdev)
 static const struct platform_device_id s5m_rtc_id[] = {
 	{ "s5m-rtc",		S5M8767X },
 	{ "s2mps14-rtc",	S2MPS14X },
+	{ },
 };
 
 #ifdef CONFIG_PM_SLEEP
