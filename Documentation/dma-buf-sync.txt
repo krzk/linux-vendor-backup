@@ -1,0 +1,258 @@
+                    DMA Buffer Synchronization Framework
+                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+                                  Inki Dae
+                      <inki dot dae at samsung dot com>
+                          <daeinki at gmail dot com>
+
+This document is a guide for device-driver writers describing the DMA buffer
+synchronization API. This document also describes how to use the API to
+use buffer synchronization mechanism between DMA and DMA, CPU and DMA, and
+CPU and CPU.
+
+The DMA Buffer synchronization API provides buffer synchronization mechanism
+based on DMA buffer sharing machanism[1], dmafence and reservation
+frameworks[2]; i.e., buffer access control to CPU and DMA, and easy-to-use
+interfaces for device drivers and user application. And this API can be used
+for all dma devices using system memory as dma buffer, especially for most
+ARM based SoCs.
+
+
+Motivation
+----------
+
+There are some cases userspace process needs this buffer synchronization
+framework. One of which is to primarily enhance GPU rendering performance
+in case that 3D app draws somthing in a buffer using CPU, and other process
+composes the buffer with its own backbuffer using GPU.
+
+In case of 3D app, the app calls glFlush to submit 3d commands to GPU driver
+instead of glFinish for more performance. The reason, we call glFlush, is
+that glFinish blocks caller's task until the execution of the 3d commands is
+completed. So that makes GPU and CPU more idle. As a result, 3d rendering
+performance with glFinish is quite lower than glFlush.
+
+However, the use of glFlush has one issue that the the buffer shared with
+GPU could be broken when CPU accesses the buffer just after glFlush because
+CPU cannot be aware of the completion of GPU access to the buffer.
+Of course, an applications can be aware of that time using eglWaitGL
+but this function is valid only in case that all application use the same
+3d context. However, for the gpu performance, applications could use different
+3d contexts.
+
+The below summarizes how app's window is displayed on screen with X server:
+1. X client requests a window buffer to X server.
+2. X client draws something in the window buffer using CPU.
+3. X client requests SWAP to X server.
+4. X server notifies a damage event to Composite Manager.
+5. Composite Manager gets the window buffer (front buffer) through
+   DRI2GetBuffers.
+6. Composite Manager composes the window buffer and its own back buffer
+   using GPU. At this time, eglSwapBuffers is called: internally, 3d
+   commands are flushed to gpu driver.
+7. Composite Manager requests SWAP to X server.
+8. X server performs drm page flip. At this time, the window buffer is
+   displayed on screen.
+
+HTML5-based web applications also have the same issue. Web browser and
+web application are different process. The Web application can draw something
+in its own buffer using CPU, and then the Web Browser can compose the buffer
+with its own back buffer.
+
+Thus, in such cases, a shared buffer could be broken as one process draws
+something in a buffer using CPU if other process composes the buffer with
+its own buffer using GPU without any sync mechanism. That is why we need
+userspace sync interface, fcntl system call.
+
+And last one is a deferred page flip issue. This issue is that a window
+buffer rendered can be displayed on screen in about 32ms in worst case:
+assume that the gpu rendering would be completed within 16ms.
+That could be incurred when compositing a pixmap buffer with a window buffer
+using GPU and when vsync is just started. At this time, X server waits for
+a vblank event to get a window buffer so 3d rendering will be delayed
+up to about 16ms. As a result, the window buffer will be displayed in
+two vsyncs (about 32ms), which in turn, that would incur slow responsiveness.
+
+The below shows the deferred page flip issue in worst case:
+
+	|------------ <- vsync signal
+	|<------ DRI2GetBuffers
+        |
+        |
+        |
+        |------------ <- vsync signal
+        |<------ Request gpu rendering
+   time |
+        |
+        |<------ Request page flip (deferred)
+        |------------ <- vsync signal
+        |<------ Displayed on screen
+        |
+        |
+        |
+        |------------ <- vsync signal
+
+We could enhance the responsiveness by doing that X server skips to wait
+for vsync with sync mechanism: X server will be a new buffer back to X client
+without waiting for vsync so X client can use more cpu than waiting for vsync
+and the buffer will be synchronized in kernel driver implicitly, which is
+transparent to userspace.
+
+
+Access types
+------------
+
+DMA_BUF_ACCESS_R - CPU will access a buffer for read.
+DMA_BUF_ACCESS_W - CPU will access a buffer for read or write.
+DMA_BUF_ACCESS_DMA_R - DMA will access a buffer for read
+DMA_BUF_ACCESS_DMA_W - DMA will access a buffer for read or write.
+
+
+Generic userspace interfaces
+-----------------------
+
+This framework includes fcntl system call[3] as interfaces exported
+to userspace. As you know, a process can see a buffer object as a file
+descriptor. So fcntl() call with the file descriptor means that processes
+cannot access the buffer being managed by a dma buf object according to fcntl
+request command until fcntl call with unlock will be requested.
+
+
+API set
+-------
+
+bool is_dmabuf_sync_supported(void);
+	- Check if dmabuf sync is supported or not.
+
+struct dmabuf_sync *dmabuf_sync_init(const char *name,
+					struct dmabuf_sync_priv_ops *ops,
+					void *priv);
+	- Allocate and initialize a new dmabuf_sync.
+
+	This function should be called by DMA driver after device context
+	is created. The created dmabuf_sync object should be set to the
+	context of driver. Each DMA driver and task should have one
+	dmabuf_sync object.
+
+
+void dmabuf_sync_fini(struct dmabuf_sync *sync)
+	- Release a given dmabuf_sync object and things relevant to it.
+
+	This function should be called if some operation failed after
+	dmabuf_sync_init call to release relevant resources, and after
+	dmabuf_sync_signal or dmabuf_sync_signal_all function is called.
+
+
+int dmabuf_sync_get(struct dmabuf_sync *sync, void *sync_buf,
+			unsigned int ctx, unsigned int type)
+	- Add a given dmabuf object to dmabuf_sync object.
+
+	This function should be called after dmabuf_sync_init function is
+	called. The caller can tie up multiple dmabufs into its own
+	dmabuf_sync object by calling this function several times.
+
+
+void dmabuf_sync_put(struct dmabuf_sync *sync, struct dma_buf *dmabuf)
+	- Delete a dmabuf_sync_object object to a given dmabuf.
+
+	This function should be called if some operation failed after
+	dmabuf_sync_get function is called to release the dmabuf or
+	after DMA driver or task completes the use of the dmabuf.
+
+
+void dmabuf_sync_put_all(struct dmabuf_sync *sync)
+	- Release all dmabuf_sync_object objects to a given dmabuf_sync object.
+
+	This function should be called if some operation failed after
+	dmabuf_sync_get function is called to release all dmabuf_sync_object
+	objects, or after DMA driver or task completes the use of all
+	dmabufs.
+
+long dmabuf_sync_wait_all(struct dmabuf_sync *sync)
+	- Wait for the completion of DMA or CPU access to all dmabufs.
+
+	The caller should call this function prior to CPU or DMA access to
+	dmabufs so that other CPU or DMA cannot access the dmabufs.
+
+int dmabuf_sync_wait(struct dma_buf *dmabuf, unsigned int ctx,
+			unsigned int access_type)
+	- Wait for the completion of DMA or CPU access to a dmabuf.
+
+	The caller should call this function prior to CPU or DMA access to
+	a dmabuf so that other CPU and DMA device cannot access the dmabuf.
+
+int dmabuf_sync_signal_all(struct dmabuf_sync *sync)
+	- Wake up all threads blocked when they tried to access dmabufs
+	  registered to a given dmabuf_sync object.
+
+	The caller should call this function after CPU or DMA access to
+	the dmabufs is completed so that other CPU and DMA device can access
+	the dmabufs.
+
+void dmabuf_sync_signal(struct dma_buf *dmabuf)
+	- Wake up all threads blocked when they tried to access a given dmabuf.
+
+	The caller should call this function after CPU or DMA access to
+	the dmabuf is completed so that other CPU and DMA device can access
+	the dmabuf.
+
+
+Tutorial for device driver
+--------------------------
+
+1. Allocate and Initialize a dmabuf_sync object:
+	struct dmabuf_sync *sync;
+
+	sync = dmabuf_sync_init("test sync", &xxx_sync_ops, context);
+	...
+
+2. Add a dmabuf to the dmabuf_sync object when setting up dma buffer
+   relevant registers:
+	dmabuf_sync_get(sync, dmabuf, context, DMA_BUF_ACCESS_READ);
+	...
+
+3. Add a fence of this driver to all dmabufs added to the dmabuf_sync
+   object before DMA or CPU accesses the dmabufs:
+	dmabuf_sync_wait_all(sync);
+	...
+
+4. Now the DMA of this device can access all dmabufs.
+
+5. Signal all dmabufs added to a dmabuf_sync object after DMA or CPU access
+   to these dmabufs is completed:
+	dmabuf_sync_signal_all(sync);
+
+   And call the following functions to release all resources,
+	dmabuf_sync_put_all(sync);
+	dmabuf_sync_fini(sync);
+
+
+Tutorial for user application
+-----------------------------
+	struct flock filelock;
+
+1. Lock a dmabuf:
+	filelock.l_type = F_WRLCK or F_RDLCK;
+
+	/* lock entire region to the dma buf. */
+	filelock.lwhence = SEEK_CUR;
+	filelock.l_start = 0;
+	filelock.l_len = 0;
+
+	fcntl(dmabuf fd, F_SETLKW or F_SETLK, &filelock);
+	...
+	CPU can access to the dmabuf
+
+2. Unlock a dmabuf:
+	filelock.l_type = F_UNLCK;
+
+	fcntl(dmabuf fd, F_SETLKW or F_SETLK, &filelock);
+
+	close(dmabuf fd) call would also unlock the dma buf. And for more
+	detail, please refer to [3]
+
+
+References:
+[1] http://lwn.net/Articles/470339/
+[2] https://lkml.org/lkml/2014/2/24/824
+[3] http://linux.die.net/man/2/fcntl

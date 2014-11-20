@@ -315,21 +315,17 @@ static int exynos_drm_crtc_page_flip(struct drm_crtc *crtc,
 			}
 
 			obj = &exynos_fb->exynos_gem_obj[i]->base;
-			if (!obj->export_dma_buf)
+			if (!obj->dma_buf)
 				continue;
 
-			/*
-			 * set dmabuf to fence and registers reservation
-			 * object to reservation entry.
-			 */
 			ret = dmabuf_sync_get(sync,
-					obj->export_dma_buf,
+					obj->dma_buf, (unsigned int)crtc,
 					DMA_BUF_ACCESS_DMA_R);
 			if (WARN_ON(ret < 0))
 				continue;
 		}
 
-		ret = dmabuf_sync_lock(sync);
+		ret = dmabuf_sync_wait_all(sync);
 		if (ret < 0) {
 			dmabuf_sync_put_all(sync);
 			dmabuf_sync_fini(sync);
@@ -525,7 +521,7 @@ void exynos_drm_crtc_finish_pageflip(struct drm_device *dev, int pipe)
 
 		sync = list_first_entry(&exynos_crtc->sync_committed,
 					struct dmabuf_sync, list);
-		if (!dmabuf_sync_unlock(sync)) {
+		if (!dmabuf_sync_signal_all(sync)) {
 			list_del_init(&sync->list);
 			dmabuf_sync_put_all(sync);
 			dmabuf_sync_fini(sync);

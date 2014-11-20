@@ -62,6 +62,7 @@ struct reservation_object {
 	struct fence __rcu *fence_excl;
 	struct reservation_object_list __rcu *fence;
 	struct reservation_object_list *staged;
+	unsigned int accessed_type;
 };
 
 #define reservation_object_held(obj) lockdep_is_held(&(obj)->lock.base)

@@ -198,7 +198,7 @@ void *exynos_drm_dmabuf_sync_work(struct drm_framebuffer *fb)
 
 	}
 
-	ret = dmabuf_sync_lock(sync);
+	ret = dmabuf_sync_wait_all(sync);
 	if (ret < 0) {
 		dmabuf_sync_put_all(sync);
 		dmabuf_sync_fini(sync);
@@ -207,7 +207,7 @@ void *exynos_drm_dmabuf_sync_work(struct drm_framebuffer *fb)
 	}
 
 	/* buffer synchronization is done by wait_for_vblank so just signal. */
-	dmabuf_sync_unlock(sync);
+	dmabuf_sync_signal_all(sync);
 
 	dmabuf_sync_put_all(sync);
 	dmabuf_sync_fini(sync);
