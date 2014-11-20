@@ -670,6 +670,7 @@ static const struct dev_pm_ops ssp_pm_ops = {
 
 static struct of_device_id ssp_of_match[] = {
 	{ .compatible = "samsung,ssp-spi", },
+	{ },
 };
 
 static struct spi_driver ssp_driver = {
