@@ -76,6 +76,7 @@ static struct of_device_id st_gyro_dt_match[] = {
 	{ .compatible = "st,l3gd20h" },
 	{ .compatible = "st,l3g4is-ui" },
 	{ .compatible = "st,lsm330-gyro" },
+	{ },
 };
 #endif
 
