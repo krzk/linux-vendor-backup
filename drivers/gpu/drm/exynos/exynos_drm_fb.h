@@ -47,13 +47,4 @@ void exynos_drm_fb_set_buf_cnt(struct drm_framebuffer *fb,
 /* get a buffer count to drm framebuffer. */
 unsigned int exynos_drm_fb_get_buf_cnt(struct drm_framebuffer *fb);
 
-#ifdef CONFIG_DMABUF_SYNC
-void *exynos_drm_dmabuf_sync_work(struct drm_framebuffer *fb);
-#else
-static inline void *exynos_drm_dmabuf_sync_work(struct drm_framebuffer *fb)
-{
-	return ERR_PTR(0);
-}
-#endif
-
 #endif

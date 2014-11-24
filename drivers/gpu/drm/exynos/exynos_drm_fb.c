@@ -25,8 +25,6 @@
 #include "exynos_drm_iommu.h"
 #include "exynos_drm_crtc.h"
 
-#include <linux/dmabuf-sync.h>
-
 static int check_fb_gem_memory_type(struct drm_device *drm_dev,
 				struct exynos_drm_gem_obj *exynos_gem_obj)
 {
@@ -158,64 +156,6 @@ exynos_drm_framebuffer_init(struct drm_device *dev,
 
 	return &exynos_fb->fb;
 }
-
-#ifdef CONFIG_DMABUF_SYNC
-void *exynos_drm_dmabuf_sync_work(struct drm_framebuffer *fb)
-{
-	struct exynos_drm_fb *exynos_fb;
-	struct drm_gem_object *obj;
-	struct dmabuf_sync *sync;
-	unsigned int i;
-	int ret = 0;
-
-	sync = dmabuf_sync_init("DRM", NULL, NULL);
-	if (IS_ERR(sync)) {
-		WARN_ON(1);
-		goto out_dmabuf_sync;
-	}
-
-	exynos_fb = to_exynos_fb(fb);
-
-	for (i = 0; i < exynos_fb->buf_cnt; i++) {
-		if (!exynos_fb->exynos_gem_obj[i]) {
-			WARN_ON(1);
-			continue;
-		}
-
-		obj = &exynos_fb->exynos_gem_obj[i]->base;
-		if (!obj->export_dma_buf)
-			continue;
-
-		/*
-		 * set dmabuf to fence and registers reservation
-		 * object to reservation entry.
-		 */
-		ret = dmabuf_sync_get(sync,
-				obj->export_dma_buf,
-				DMA_BUF_ACCESS_DMA_R);
-		if (WARN_ON(ret < 0))
-			continue;
-
-	}
-
-	ret = dmabuf_sync_wait_all(sync);
-	if (ret < 0) {
-		dmabuf_sync_put_all(sync);
-		dmabuf_sync_fini(sync);
-		sync = ERR_PTR(ret);
-		goto out_dmabuf_sync;
-	}
-
-	/* buffer synchronization is done by wait_for_vblank so just signal. */
-	dmabuf_sync_signal_all(sync);
-
-	dmabuf_sync_put_all(sync);
-	dmabuf_sync_fini(sync);
-
-out_dmabuf_sync:
-	return sync;
-}
-#endif
 
 static u32 exynos_drm_format_num_buffers(struct drm_mode_fb_cmd2 *mode_cmd)
 {
