@@ -313,7 +313,7 @@ static void cpufreq_stats_store_load_table(struct cpufreq_freqs *freq,
 	switch (val) {
 	case CPUFREQ_POSTCHANGE:
 		if (!stat->load_last_index)
-			last_idx = stat->load_max_index;
+			last_idx = stat->load_max_index - 1;
 		else
 			last_idx = stat->load_last_index - 1;
 
