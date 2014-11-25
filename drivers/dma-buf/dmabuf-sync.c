@@ -630,14 +630,21 @@ static bool is_higher_priority_than_current(struct dma_buf *dmabuf,
 	bool ret = false;
 
 	spin_lock_irqsave(&orders_lock, o_flags);
-	if (list_empty(&orders)) {
+	if (unlikely(list_empty(&orders))) {
 		/* There should be no such case. */
 		WARN_ON(1);
 		goto out;
 	}
 
 	list_for_each_entry(sobj, &orders, g_head) {
-		if (sobj != csobj)
+		struct seqno_fence *old_sf, *cur_sf;
+
+		old_sf = sobj->sfence;
+		cur_sf = csobj->sfence;
+		WARN_ON(!old_sf || !cur_sf);
+
+		if (old_sf->base.context != cur_sf->base.context &&
+		    sobj != csobj)
 			ret = true;
 		break;
 	}
