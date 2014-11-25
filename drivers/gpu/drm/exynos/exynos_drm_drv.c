@@ -588,6 +588,7 @@ static const char * const strings[] = {
 	"samsung,exynos3",
 	"samsung,exynos4",
 	"samsung,exynos5",
+	"samsung,exynos5433",
 	"samsung,exynos7",
 };
 
