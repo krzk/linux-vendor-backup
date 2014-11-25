@@ -608,6 +608,47 @@ out:
 	spin_unlock_irqrestore(&orders_lock, o_flags);
 }
 
+static void dmabuf_sync_reference_reservation(struct dma_buf *dmabuf,
+						bool reference)
+{
+	struct reservation_object *obj = dmabuf->resv;
+	struct reservation_object_list *fobj;
+	struct fence *fence;
+
+	rcu_read_lock();
+
+	fobj = rcu_dereference(obj->fence);
+	if (fobj) {
+		int i;
+
+		for (i = 0; i < fobj->shared_count; i++) {
+			fence = rcu_dereference(fobj->shared[i]);
+			if (!fence) {
+				WARN_ON(1);
+				continue;
+			}
+
+			if (reference)
+				fence_get_rcu(fence);
+			else
+				fence_put(fence);
+		}
+	}
+
+	fence = rcu_dereference(obj->fence_excl);
+	if (!fence) {
+		rcu_read_unlock();
+		return;
+	}
+
+	if (reference)
+		fence_get_rcu(fence);
+	else
+		fence_put(fence);
+
+	rcu_read_unlock();
+}
+
 /*
  * is_higher_priority_than_current - check if a given sobj was requested
  *				the first.
@@ -690,6 +731,7 @@ long dmabuf_sync_wait_all(struct dmabuf_sync *sync)
 
 		sf = sobj->sfence;
 		dmabuf = sobj->dmabuf;
+		dmabuf_sync_reference_reservation(dmabuf, true);
 
 		/*
 		 * It doesn't need to wait for other thread or threads
@@ -730,6 +772,7 @@ go_back_to_wait:
 out_enable_signal:
 		fence_enable_sw_signaling(&sf->base);
 		dmabuf_sync_update(sobj);
+		dmabuf_sync_reference_reservation(dmabuf, false);
 		dmabuf_sync_cache_ops(sobj);
 
 		spin_lock_irqsave(&sync->lock, s_flags);
@@ -788,6 +831,8 @@ long dmabuf_sync_wait(struct dma_buf *dmabuf, unsigned int ctx,
 	sobj_get(sobj);
 	spin_unlock_irqrestore(&orders_lock, o_flags);
 
+	dmabuf_sync_reference_reservation(dmabuf, true);
+
 	/*
 	 * It doesn't need to wait for other thread or threads
 	 * if there is no any sync object which has higher priority
@@ -827,6 +872,7 @@ go_back_to_wait:
 out_enable_signal:
 	fence_enable_sw_signaling(&sync->sfence.base);
 	dmabuf_sync_update(sobj);
+	dmabuf_sync_reference_reservation(dmabuf, false);
 	dmabuf_sync_cache_ops(sobj);
 
 	return timeout;
