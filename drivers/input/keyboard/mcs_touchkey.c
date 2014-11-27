@@ -53,6 +53,7 @@ struct mcs_touchkey_data {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
 	struct mcs_touchkey_chip chip;
+	char name[64];
 	unsigned int key_code;
 	unsigned int key_val;
 	unsigned short keycodes[];
@@ -208,7 +209,9 @@ static int mcs_touchkey_probe(struct i2c_client *client,
 	}
 	dev_info(&client->dev, "Firmware version: %d\n", fw_ver);
 
-	input_dev->name = "MELFAS MCS Touchkey";
+	strlcpy(data->name, "MELFAS MCS Touchkey", sizeof(data->name));
+
+	input_dev->name = data->name;
 	input_dev->id.bustype = BUS_I2C;
 	input_dev->dev.parent = &client->dev;
 	input_dev->evbit[0] = BIT_MASK(EV_KEY);
