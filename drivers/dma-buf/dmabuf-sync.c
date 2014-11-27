@@ -497,8 +497,6 @@ static void fence_free_worker_handler(unsigned long data)
 		if (atomic_read(&fence_excl->refcount.refcount) > 0)
 			fence_put(fence_excl);
 	}
-
-	dma_buf_put(dmabuf);
 }
 
 static void setup_fence_free_worker(struct dmabuf_sync_object *sobj)
@@ -917,8 +915,11 @@ int dmabuf_sync_signal_all(struct dmabuf_sync *sync)
 		 * if any task then a reference of this fence will be dropped
 		 * by that the task calls dmabuf_sync_update() after waked up.
 		 */
-		if (list_empty(&fence->cb_list))
+		if (list_empty(&fence->cb_list)) {
 			fence_put(fence);
+			/* Cancel fence free worker if no any task. */
+			cancel_fence_free_worker(sobj);
+		}
 
 		ret = fence_signal_locked(fence);
 		if (ret) {
@@ -970,8 +971,11 @@ static int dmabuf_sync_signal_fence(struct fence *fence)
 	 * if any task then a reference of this fence will be dropped
 	 * by that the task calls dmabuf_sync_update() after waked up.
 	 */
-	if (list_empty(&fence->cb_list))
+	if (list_empty(&fence->cb_list)) {
 		fence_put(fence);
+		/* Cancel fence free worker if no any task. */
+		cancel_fence_free_worker(sync->single_sobj);
+	}
 
 	ret = fence_signal_locked(fence);
 	if (ret)
