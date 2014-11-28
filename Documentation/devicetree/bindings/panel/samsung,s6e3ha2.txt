@@ -1,0 +1,49 @@
+Samsung S6E3HA2 5.7" 1440x2560 AMOLED panel
+
+Required properties:
+  - compatible: "samsung,s6e3ha2"
+  - reg: the virtual channel number of a DSI peripheral
+  - vdd3-supply: core voltage supply
+  - vci-supply: voltage supply for analog circuits
+  - reset-gpios: a GPIO spec for the reset pin
+  - panel-en-gpios: a GPIO spec for the panel enable pin
+  - te-gpios: a GPIO spec for the tearing effect synchronization signal gpio pin
+
+Optional properties:
+  - display-timings: timings for the connected panel as described by [1]
+  - panel-width-mm: physical panel width [mm]
+  - panel-height-mm: physical panel height [mm]
+
+The device node can contain one 'port' child node with one child
+'endpoint' node, according to the bindings defined in [2]. This
+node should describe panel's video bus.
+
+[1]: Documentation/devicetree/bindings/video/display-timing.txt
+[2]: Documentation/devicetree/bindings/media/video-interfaces.txt
+
+Example:
+
+panel@0 {
+	compatible = "samsung,s6e3ha2";
+	reg = <0>;
+	vdd3-supply = <&ldo27_reg>;
+	vci-supply = <&ldo28_reg>;
+	reset-gpios = <&gpg0 0 0>;
+	panel-en-gpios = <&gpf1 5 0>;
+	te-gpios = <&gpf1 3 1>;
+	panel-width-mm = <71>;
+	panel-height-mm = <125>;
+
+	display-timings {
+		timing-0 {
+			clock-frequency = <0>;
+			hactive = <1440>;
+			vactive = <2560>;
+			hfront-porch = <1>;
+			hback-porch = <1>;
+			hsync-len = <1>;
+			vfront-porch = <1>;
+			vback-porch = <15>;
+			vsync-len = <1>;
+		};
+	};
