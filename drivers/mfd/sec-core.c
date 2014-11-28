@@ -385,7 +385,7 @@ static int sec_pmic_probe(struct i2c_client *i2c,
 	if (ret)
 		goto err;
 
-	device_init_wakeup(sec_pmic->dev, pdata->wakeup);
+	device_init_wakeup(sec_pmic->dev, sec_pdata->wakeup);
 
 	return ret;
 
