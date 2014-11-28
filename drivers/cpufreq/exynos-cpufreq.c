@@ -293,7 +293,8 @@ int exynos_of_parse_boost(struct exynos_dvfs_info *info,
 {
 	struct cpufreq_frequency_table *ft = info->freq_table;
 	struct device_node *node = info->dev->of_node;
-	unsigned int boost_freq, i;
+	unsigned int boost_freq;
+	int i;
 
 	if (of_property_read_u32(node, property_name, &boost_freq)) {
 		pr_err("%s: Property: %s not found\n", __func__,
