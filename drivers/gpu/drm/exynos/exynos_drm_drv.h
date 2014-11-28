@@ -334,6 +334,7 @@ void exynos_drm_component_del(struct device *dev,
 				enum exynos_drm_device_type dev_type);
 
 extern struct platform_driver fimd_driver;
+extern struct platform_driver exynos5433_decon_driver;
 extern struct platform_driver decon_driver;
 extern struct platform_driver dp_driver;
 extern struct platform_driver dsi_driver;

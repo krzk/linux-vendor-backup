@@ -529,6 +529,9 @@ static struct platform_driver *const exynos_drm_kms_drivers[] = {
 #ifdef CONFIG_DRM_EXYNOS_FIMD
 	&fimd_driver,
 #endif
+#ifdef CONFIG_DRM_EXYNOS5433_DECON
+	&exynos5433_decon_driver,
+#endif
 #ifdef CONFIG_DRM_EXYNOS7_DECON
 	&decon_driver,
 #endif
