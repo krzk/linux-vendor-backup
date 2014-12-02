@@ -342,7 +342,7 @@ int send_instruction(struct ssp_data *data, u8 uInst,
 
 	msg->buffer[0] = uSensorType;
 	memcpy(&msg->buffer[1], uSendBuf, uLength);
-	if (uSensorType == BIO_HRM_RAW_FAC)
+	if (uSensorType == BIO_HRM_RAW_FAC && (uLength > 8))
 		msg->buffer[10] = 1;
 
 	ssp_dbg("Inst = 0x%x, Sensor Type = 0x%x, data = %u\n",
