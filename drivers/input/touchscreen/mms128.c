@@ -474,7 +474,8 @@ static void mms_config_set(void *context)
 	}
 
 	offset = conf_hdr->data_offset;
-	conf_item = kzalloc(sizeof(*conf_item)*conf_hdr->data_count,GFP_KERNEL);
+	conf_item = kzalloc(sizeof(*conf_item) * (conf_hdr->data_count + 1),
+			GFP_KERNEL);
 
 	for (i=0 ;; i++ , offset += MMS_MFSP_OFFSET)
 	{
