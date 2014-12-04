@@ -324,6 +324,7 @@ MODULE_DEVICE_TABLE(i2c, mcs_touchkey_id);
 static struct of_device_id mcs_touchkey_dt_match[] = {
 	{ .compatible = "mcs5000_touchkey", },
 	{ .compatible = "mcs5080_touchkey", },
+	{ },
 };
 
 static struct i2c_driver mcs_touchkey_driver = {
