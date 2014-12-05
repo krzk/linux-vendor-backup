@@ -33,7 +33,7 @@
 			 (old->accessed_type == DMA_BUF_ACCESS_RW)) && \
 			 new_type & DMA_BUF_ACCESS_DMA)
 
-static int dmabuf_sync_enabled = 1;
+static int dmabuf_sync_enabled = 0;
 static unsigned long seqno;
 static LIST_HEAD(orders);
 static DEFINE_SPINLOCK(orders_lock);
