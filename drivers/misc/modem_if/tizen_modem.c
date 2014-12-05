@@ -114,7 +114,7 @@ static struct modem_shared *create_modem_shared_data(void)
 		return NULL;
 	}
 	memset(msd->storage.addr, 0, MAX_MIF_BUFF_SIZE);
-	memcpy(msd->storage.addr, MIF_SEPARATOR, MAX_MIF_SEPA_SIZE);
+	strncpy(msd->storage.addr, MIF_SEPARATOR, MAX_MIF_SEPA_SIZE - 1);
 	msd->storage.addr += MAX_MIF_SEPA_SIZE;
 	spin_lock_init(&msd->lock);
 
