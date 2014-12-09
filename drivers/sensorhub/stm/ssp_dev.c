@@ -543,7 +543,7 @@ static void ssp_shutdown(struct spi_device *spi)
 
 	func_dbg();
 	if (data->bProbeIsDone == false)
-		goto exit;
+		return;
 
 	if (data->fw_dl_state >= FW_DL_STATE_SCHEDULED &&
 		data->fw_dl_state < FW_DL_STATE_DONE) {
@@ -586,8 +586,6 @@ static void ssp_shutdown(struct spi_device *spi)
 #endif
 	toggle_mcu_reset(data);
 	ssp_info(" done\n");
-exit:
-	kfree(data);
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
