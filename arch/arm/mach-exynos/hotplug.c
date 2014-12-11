@@ -94,10 +94,13 @@ static inline void platform_do_lowpower(unsigned int cpu, int *spurious)
 {
 	u32 mpidr = cpu_logical_map(cpu);
 	u32 core_id = MPIDR_AFFINITY_LEVEL(mpidr, 0);
+	u32 cluster_id = MPIDR_AFFINITY_LEVEL(mpidr, 1);
+	cluster_id = cluster_id > 1 ? 0 : cluster_id;
+	u32 cpu_idx = (cluster_id * 4) + core_id;
 
 	for (;;) {
 		/* Turn the CPU off on next WFI instruction. */
-		exynos_cpu_power_down(core_id);
+		exynos_cpu_power_down(cpu_idx);
 
 		/*
 		 * here's the WFI
@@ -107,7 +110,7 @@ static inline void platform_do_lowpower(unsigned int cpu, int *spurious)
 		    :
 		    : "memory", "cc");
 
-		if (pen_release == core_id) {
+		if (pen_release == cpu_idx) {
 			/*
 			 * OK, proper wakeup, we're done
 			 */
