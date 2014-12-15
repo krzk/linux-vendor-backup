@@ -1447,6 +1447,7 @@ static struct samsung_gate_clock mif_gate_clks[] __initdata = {
 	GATE(CLK_PCLK_ASYNCAXI_NOC_P_CCI, "pclk_asyncaxi_noc_p_cci",
 			"div_aclk_mif_133", ENABLE_PCLK_MIF, 21,
 			CLK_IGNORE_UNUSED, 0),
+
 	GATE(CLK_PCLK_ASYNCAXI_CP1, "pclk_asyncaxi_cp1", "div_aclk_mif_133",
 			ENABLE_PCLK_MIF, 19, 0, 0),
 	GATE(CLK_PCLK_ASYNCAXI_CP0, "pclk_asyncaxi_cp0", "div_aclk_mif_133",
@@ -1486,11 +1487,11 @@ static struct samsung_gate_clock mif_gate_clks[] __initdata = {
 
 	/* ENABLE_PCLK_MIF_SECURE_DREX0_TZ */
 	GATE(CLK_PCLK_DREX0_TZ, "pclk_drex0_tz", "div_aclk_mif_133",
-			ENABLE_PCLK_MIF_SECURE_DREX0_TZ, 0, 0, 0),
+		ENABLE_PCLK_MIF_SECURE_DREX0_TZ, 0, CLK_IGNORE_UNUSED, 0),
 
 	/* ENABLE_PCLK_MIF_SECURE_DREX1_TZ */
 	GATE(CLK_PCLK_DREX1_TZ, "pclk_drex1_tz", "div_aclk_mif_133",
-			ENABLE_PCLK_MIF_SECURE_DREX1_TZ, 0, 0, 0),
+		ENABLE_PCLK_MIF_SECURE_DREX1_TZ, 0, CLK_IGNORE_UNUSED, 0),
 
 	/* ENABLE_PCLK_MIF_SECURE_MONOTONIC_CNT */
 	GATE(CLK_PCLK_MONOTONIC_CNT, "pclk_monotonic_cnt", "div_aclk_mif_133",
@@ -3031,7 +3032,7 @@ static struct samsung_gate_clock aud_gate_clks[] __initdata = {
 
 	/* ENABLE_SCLK_AUD0 */
 	GATE(CLK_ATCLK_AUD, "atclk_aud", "div_atclk_aud", ENABLE_SCLK_AUD0,
-			2, 0, 0),
+			2, CLK_IGNORE_UNUSED, 0),
 	GATE(CLK_PCLK_DBG_AUD, "pclk_dbg_aud", "div_pclk_dbg_aud",
 			ENABLE_SCLK_AUD0, 1, 0, 0),
 	GATE(CLK_SCLK_AUD_CA5, "sclk_aud_ca5", "div_aud_ca5", ENABLE_SCLK_AUD0,
