@@ -73,6 +73,10 @@ static int pmu_restart_notify(struct notifier_block *this,
  * PMU platform driver and devicetree bindings.
  */
 static const struct of_device_id exynos_pmu_of_device_ids[] = {
+	{
+		.compatible = "samsung,exynos5433-pmu",
+		.data = &exynos5433_pmu_data,
+	},
 	{ /*sentinel*/ },
 };
 

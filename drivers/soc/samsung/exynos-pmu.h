@@ -47,4 +47,9 @@ static inline u32 pmu_raw_readl(u32 offset)
 {
 	return readl_relaxed(pmu_base_addr + offset);
 }
+
+extern u32 exynos_get_eint_wake_mask(void);
+
+/* list of all exported SoC specific data */
+extern const struct exynos_pmu_data exynos5433_pmu_data;
 #endif /* __EXYNOS_PMU_PRIV_H */

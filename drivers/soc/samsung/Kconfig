@@ -16,4 +16,16 @@ config EXYNOS_PMU
 	  provides implementation of PMU driver and provides various
 	  functionality like initialisation and transition to various low power
 	  states.
+
+config EXYNOS5433_PMU
+	bool "Support Exynos5433 pmu driver"
+	depends on EXYNOS_PMU
+	select EXYNOS_EXTRA_PWR_MODES
+	help
+	  Say Y here to support pmu driver for Exynos5433.
+
+config EXYNOS_EXTRA_PWR_MODES
+	bool
+	help
+	  Some Exynos series has extra power mode for specific application.
 endmenu
