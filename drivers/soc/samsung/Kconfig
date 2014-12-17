@@ -24,6 +24,13 @@ config EXYNOS5433_PMU
 	help
 	  Say Y here to support pmu driver for Exynos5433.
 
+config EXYNOS_PM
+	bool "Support Exynos Low Power Management"
+	depends on ARCH_EXYNOS
+	help
+	  This option supports Exynos to enter suspend with doing some SoC
+	  specific requirements.
+
 config EXYNOS_EXTRA_PWR_MODES
 	bool
 	help
