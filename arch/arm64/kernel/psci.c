@@ -37,6 +37,13 @@
 #define PSCI_POWER_STATE_TYPE_STANDBY		0
 #define PSCI_POWER_STATE_TYPE_POWER_DOWN	1
 
+enum psci_affinity_level {
+	PSCI_AFFINITY_LEVEL_0,
+	PSCI_AFFINITY_LEVEL_1,
+	PSCI_AFFINITY_LEVEL_2,
+	PSCI_AFFINITY_LEVEL_3,
+};
+
 struct psci_power_state {
 	u16	id;
 	u8	type;
@@ -528,27 +535,36 @@ static int psci_suspend_finisher(unsigned long index)
 {
 	struct psci_power_state *state = __this_cpu_read(psci_power_state);
 
+	/* Generic PM suspend without CPUIDLE functionality */
+	if (!state) {
+		struct psci_power_state s = {
+			.affinity_level = PSCI_AFFINITY_LEVEL_3,
+			.type = PSCI_POWER_STATE_TYPE_POWER_DOWN,
+		};
+		return psci_ops.cpu_suspend(s, virt_to_phys(cpu_resume));
+	}
+
 	return psci_ops.cpu_suspend(state[index - 1],
 				    virt_to_phys(cpu_resume));
 }
 
 static int __maybe_unused cpu_psci_cpu_suspend(unsigned long index)
 {
-	int ret;
 	struct psci_power_state *state = __this_cpu_read(psci_power_state);
-	/*
-	 * idle state index 0 corresponds to wfi, should never be called
-	 * from the cpu_suspend operations
-	 */
-	if (WARN_ON_ONCE(!index))
-		return -EINVAL;
 
-	if (state[index - 1].type == PSCI_POWER_STATE_TYPE_STANDBY)
-		ret = psci_ops.cpu_suspend(state[index - 1], 0);
-	else
-		ret = cpu_suspend(index, psci_suspend_finisher);
+	if (state) {
+		if (WARN_ON_ONCE(!index))
+			return -EINVAL;
 
-	return ret;
+		/*
+		 * If idle state initialization is successfully done,
+		 * idle state index 0 corresponds to wfi, should never be
+		 * called from the cpu_suspend operations
+		 */
+		if (state[index - 1].type == PSCI_POWER_STATE_TYPE_STANDBY)
+			return psci_ops.cpu_suspend(state[index - 1], 0);
+	}
+	return cpu_suspend(index, psci_suspend_finisher);
 }
 
 const struct cpu_operations cpu_psci_ops = {
