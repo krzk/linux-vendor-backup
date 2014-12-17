@@ -31,6 +31,14 @@ config EXYNOS_PM
 	  This option supports Exynos to enter suspend with doing some SoC
 	  specific requirements.
 
+config EXYNOS5433_PM
+	bool "Support Exynos5433 Power Management driver"
+	depends on EXYNOS_PM
+	select EXYNOS_EXTRA_PWR_MODES
+	help
+	  Say Y here to support pm driver for Exynos5433.
+
+
 config EXYNOS_EXTRA_PWR_MODES
 	bool
 	help
