@@ -512,7 +512,7 @@
 		status = "okay";
 
 		hdmiddc@72 {
-			compatible = "samsung,exynos5-hdmiddc";
+			compatible = "samsung,exynos4210-hdmiddc";
 			reg = <0x72>;
 		};
 	};

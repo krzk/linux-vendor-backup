@@ -466,7 +466,7 @@
 		clock-names = "i2c";
 
 		hdmiphy@38 {
-			compatible = "samsung,exynos5-hdmiphy";
+			compatible = "samsung,exynos4212-hdmiphy";
 			reg = <0x38>;
 		};
 	};

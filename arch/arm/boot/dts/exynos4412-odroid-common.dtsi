@@ -507,7 +507,7 @@
 		pinctrl-0 = <&i2c2_bus>;
 		status = "okay";
 		hdmiddc@37 {
-			compatible = "samsung,exynos5-hdmiddc";
+			compatible = "samsung,exynos4210-hdmiddc";
 			reg = <0x37>;
 		};
 	};

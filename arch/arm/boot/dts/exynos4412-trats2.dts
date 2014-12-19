@@ -1507,7 +1507,7 @@
 
 	i2c@138B0000 {
 		hdmiddc@37 {
-			compatible = "samsung,exynos5-hdmiddc";
+			compatible = "samsung,exynos4210-hdmiddc";
 			reg = <0x37>;
 		};
 	};

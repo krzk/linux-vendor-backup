@@ -76,7 +76,7 @@
 	hdmi: hdmi@12D00000 {
 		phys = <&exynos_phy 0>;
 		phy-names = "hdmiphy";
-		compatible = "samsung,exynos5-hdmi";
+		compatible = "samsung,exynos4212-hdmi";
 	};
 
 	mixer: mixer@12C10000 {
