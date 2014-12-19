@@ -131,8 +131,10 @@ struct charger_regulator {
 /**
  * struct charger_desc
  * @psy_name: the name of power-supply-class for charger manager
- * @polling_mode:
- *	Determine which polling mode will be used
+ * @poll_mode_normal:
+ *	Determine which polling mode will be used in normal state.
+ * @poll_mode_sleep:
+ *	Determine which polling mode will be used in sleep state.
  * @fullbatt_vchkdrop_uV:
  *	Check voltage drop after the battery is fully charged.
  *	If it has dropped more than fullbatt_vchkdrop_uV
@@ -170,7 +172,8 @@ struct charger_regulator {
 struct charger_desc {
 	const char *psy_name;
 
-	enum polling_modes polling_mode;
+	enum polling_modes poll_mode_normal;
+	enum polling_modes poll_mode_sleep;
 	unsigned int polling_interval_ms;
 
 	unsigned int fullbatt_vchkdrop_uV;
