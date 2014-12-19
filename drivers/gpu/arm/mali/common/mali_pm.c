@@ -20,6 +20,10 @@
 #include "mali_executor.h"
 #include "mali_control_timer.h"
 
+#include <linux/pm_runtime.h>
+
+extern struct platform_device *mali_platform_device;
+
 #if defined(DEBUG)
 u32 num_pm_runtime_resume = 0;
 u32 num_pm_updates = 0;
@@ -96,6 +100,12 @@ _mali_osk_errcode_t mali_pm_initialize(void)
 	_mali_osk_errcode_t err;
 	struct mali_pmu_core *pmu;
 
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_set_autosuspend_delay(&(mali_platform_device->dev), 1000);
+	pm_runtime_use_autosuspend(&(mali_platform_device->dev));
+	pm_runtime_enable(&(mali_platform_device->dev));
+#endif
+
 	pm_lock_state = _mali_osk_spinlock_irq_init(_MALI_OSK_LOCKFLAG_ORDERED,
 			_MALI_OSK_LOCK_ORDER_PM_STATE);
 	if (NULL == pm_lock_state) {
@@ -145,6 +155,10 @@ _mali_osk_errcode_t mali_pm_initialize(void)
 
 void mali_pm_terminate(void)
 {
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_disable(&(mali_platform_device->dev));
+#endif
+
 	if (NULL != pm_work) {
 		_mali_osk_wq_delete_work(pm_work);
 		pm_work = NULL;
