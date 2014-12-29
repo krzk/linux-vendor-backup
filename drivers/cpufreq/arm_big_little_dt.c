@@ -103,9 +103,16 @@ static int generic_bL_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id generic_bL_of_match[] = {
+	{ .compatible = "arm-bL-cpufreq-dt", },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, generic_bL_of_match);
+
 static struct platform_driver generic_bL_platdrv = {
 	.driver = {
 		.name	= "arm-bL-cpufreq-dt",
+		.of_match_table = of_match_ptr(generic_bL_of_match),
 	},
 	.probe		= generic_bL_probe,
 	.remove		= generic_bL_remove,
