@@ -7,6 +7,10 @@ Required properties:
 - reg: should contain G-Scaler physical address location and length.
 - interrupts: should contain G-Scaler interrupt number
 
+Optional properties:
+- samsung,lcd-wb: this property must be present if the IP block has the LCD
+  writeback input.
+
 Example:
 
 gsc_0:  gsc@0x13e00000 {

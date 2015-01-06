@@ -1112,9 +1112,11 @@ static int gsc_probe(struct platform_device *pdev)
 	if (!gsc)
 		return -ENOMEM;
 
-	if (dev->of_node)
+	if (dev->of_node) {
 		gsc->id = of_alias_get_id(pdev->dev.of_node, "gsc");
-	else
+		if (of_property_read_bool(dev->of_node, "samsung,lcd-wb"))
+			return -ENODEV;
+	} else
 		gsc->id = pdev->id;
 
 	if (gsc->id >= drv_data->num_entities) {
