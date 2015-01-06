@@ -100,7 +100,7 @@ config DRM_EXYNOS_ROTATOR
 
 config DRM_EXYNOS_GSC
 	bool "Exynos DRM GSC"
-	depends on DRM_EXYNOS_IPP && ARCH_EXYNOS5 && !ARCH_MULTIPLATFORM
+	depends on DRM_EXYNOS_IPP && ARCH_EXYNOS5
 	help
 	  Choose this option if you want to use Exynos GSC for DRM.
 
