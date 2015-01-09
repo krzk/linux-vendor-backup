@@ -707,4 +707,11 @@ config KEYBOARD_BCM
 	  To compile this driver as a module, choose M here: the
 	  module will be called bcm-keypad.
 
+config KEYBOARD_CYPRESS_TOUCH_MBR31X5
+	tristate "Cypress touchkey support"
+	help
+	  Say Y here to enable the cypress touchkey.
+
+	  To compile this driver as a module, choose M here.
+
 endif
