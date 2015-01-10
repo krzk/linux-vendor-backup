@@ -612,13 +612,8 @@ pca953x_get_alt_pdata(struct i2c_client *client, int *gpio_base, u32 *invert)
 static void
 pca953x_get_alt_pdata(struct i2c_client *client, int *gpio_base, u32 *invert)
 {
-#if defined(CONFIG_MACH_HKDK4412)
-	*gpio_base = EXYNOS4_GPIO_END;
-#else
 	*gpio_base = -1;
-#endif
 }
-#endif
 
 static int device_pca953x_init(struct pca953x_chip *chip, u32 invert)
 {
