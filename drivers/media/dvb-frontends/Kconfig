@@ -200,6 +200,20 @@ config DVB_CX24116
 	help
 	  A DVB-S/S2 tuner module. Say Y when you want to support this frontend.
 
+config DVB_M88DS3103
+	tristate "Montage M88DS3103 based"
+	depends on DVB_CORE && I2C
+	default m if !MEDIA_SUBDRV_AUTOSELECT
+	help
+	  A DVB-S/S2 tuner module. Say Y when you want to support this frontend.
+
+config DVB_M88DC2800
+	tristate "Montage M88DC2800 based"
+	depends on DVB_CORE && I2C
+	default m if !MEDIA_SUBDRV_AUTOSELECT
+	help
+	  A DVB-C tuner module. Say Y when you want to support this frontend.
+	  	  
 config DVB_SI21XX
 	tristate "Silicon Labs SI21XX based"
 	depends on DVB_CORE && I2C

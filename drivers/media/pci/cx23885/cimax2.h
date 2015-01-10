@@ -41,7 +41,9 @@ extern int netup_ci_slot_ts_ctl(struct dvb_ca_en50221 *en50221, int slot);
 extern int netup_ci_slot_status(struct cx23885_dev *dev, u32 pci_status);
 extern int netup_poll_ci_slot_status(struct dvb_ca_en50221 *en50221,
 						int slot, int open);
-extern int netup_ci_init(struct cx23885_tsport *port);
+extern int netup_ci_init(struct cx23885_tsport *port, bool isDVBSky);
 extern void netup_ci_exit(struct cx23885_tsport *port);
+
+extern int dvbsky_ci_slot_status(struct cx23885_dev *dev);
 
 #endif

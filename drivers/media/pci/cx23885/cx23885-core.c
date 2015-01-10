@@ -1909,6 +1909,10 @@ static irqreturn_t cx23885_irq(int irq, void *dev_id)
 			(pci_status & PCI_MSK_GPIO0))
 		handled += altera_ci_irq(dev);
 
+	if (cx23885_boards[dev->board].ci_type == 3 &&
+			(pci_status & PCI_MSK_GPIO0))
+		handled += dvbsky_ci_slot_status(dev);
+		
 	if (ts1_status) {
 		if (cx23885_boards[dev->board].portb == CX23885_MPEG_DVB)
 			handled += cx23885_irq_ts(ts1, ts1_status);
@@ -2144,6 +2148,8 @@ static int cx23885_initdev(struct pci_dev *pci_dev,
 		cx23885_irq_add_enable(dev, PCI_MSK_GPIO1 | PCI_MSK_GPIO0);
 		break;
 	case CX23885_BOARD_NETUP_DUAL_DVB_T_C_CI_RF:
+	case CX23885_BOARD_DVBSKY_S950_CI:
+	case CX23885_BOARD_DVBSKY_C2800E_CI:
 		cx23885_irq_add_enable(dev, PCI_MSK_GPIO0);
 		break;
 	}

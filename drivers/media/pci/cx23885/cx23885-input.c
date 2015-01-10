@@ -89,6 +89,12 @@ void cx23885_input_rx_work_handler(struct cx23885_dev *dev, u32 events)
 	case CX23885_BOARD_TERRATEC_CINERGY_T_PCIE_DUAL:
 	case CX23885_BOARD_TEVII_S470:
 	case CX23885_BOARD_HAUPPAUGE_HVR1250:
+	case CX23885_BOARD_BST_PS8512:
+	case CX23885_BOARD_DVBSKY_S950:
+	case CX23885_BOARD_DVBSKY_S952:
+	case CX23885_BOARD_DVBSKY_S950_CI:
+	case CX23885_BOARD_DVBSKY_C2800E_CI:
+	case CX23885_BOARD_DVBSKY_T9580:
 		/*
 		 * The only boards we handle right now.  However other boards
 		 * using the CX2388x integrated IR controller should be similar
@@ -140,6 +146,12 @@ static int cx23885_input_ir_start(struct cx23885_dev *dev)
 	case CX23885_BOARD_HAUPPAUGE_HVR1850:
 	case CX23885_BOARD_HAUPPAUGE_HVR1290:
 	case CX23885_BOARD_HAUPPAUGE_HVR1250:
+	case CX23885_BOARD_BST_PS8512:
+	case CX23885_BOARD_DVBSKY_S950:
+	case CX23885_BOARD_DVBSKY_S952:
+	case CX23885_BOARD_DVBSKY_S950_CI:
+	case CX23885_BOARD_DVBSKY_C2800E_CI:
+	case CX23885_BOARD_DVBSKY_T9580:
 		/*
 		 * The IR controller on this board only returns pulse widths.
 		 * Any other mode setting will fail to set up the device.
@@ -269,6 +281,18 @@ int cx23885_input_init(struct cx23885_dev *dev)
 	case CX23885_BOARD_HAUPPAUGE_HVR1850:
 	case CX23885_BOARD_HAUPPAUGE_HVR1290:
 	case CX23885_BOARD_HAUPPAUGE_HVR1250:
+	case CX23885_BOARD_BST_PS8512:
+	case CX23885_BOARD_DVBSKY_S950:
+	case CX23885_BOARD_DVBSKY_S952:
+	case CX23885_BOARD_DVBSKY_S950_CI:
+	case CX23885_BOARD_DVBSKY_C2800E_CI:
+	case CX23885_BOARD_DVBSKY_T9580:
+		/* Integrated CX2388[58] IR controller */
+		driver_type = RC_DRIVER_IR_RAW;
+		allowed_protos = RC_BIT_ALL;
+		/* A guess at the remote */
+		rc_map = RC_MAP_DVBSKY;
+		break;
 		/* Integrated CX2388[58] IR controller */
 		driver_type = RC_DRIVER_IR_RAW;
 		allowed_protos = RC_BIT_ALL;

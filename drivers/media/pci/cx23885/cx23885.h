@@ -92,6 +92,14 @@
 #define CX23885_BOARD_HAUPPAUGE_HVR1255_22111  36
 #define CX23885_BOARD_PROF_8000                37
 
+#define CX23885_BOARD_BASE_INDEX	       40
+#define CX23885_BOARD_BST_PS8512	       (CX23885_BOARD_BASE_INDEX)
+#define CX23885_BOARD_DVBSKY_S952	       (CX23885_BOARD_BASE_INDEX+1)
+#define CX23885_BOARD_DVBSKY_S950	       (CX23885_BOARD_BASE_INDEX+2)
+#define CX23885_BOARD_DVBSKY_S950_CI	       (CX23885_BOARD_BASE_INDEX+3)
+#define CX23885_BOARD_DVBSKY_C2800E_CI	       (CX23885_BOARD_BASE_INDEX+4)
+#define CX23885_BOARD_DVBSKY_T9580	       (CX23885_BOARD_BASE_INDEX+5)
+
 #define GPIO_0 0x00000001
 #define GPIO_1 0x00000002
 #define GPIO_2 0x00000004
@@ -229,7 +237,7 @@ struct cx23885_board {
 	 */
 	u32			clk_freq;
 	struct cx23885_input    input[MAX_CX23885_INPUT];
-	int			ci_type; /* for NetUP */
+	int			ci_type; /* 1 and 2 for NetUP, 3 for DVBSky. */
 	/* Force bottom field first during DMA (888 workaround) */
 	u32                     force_bff;
 };
