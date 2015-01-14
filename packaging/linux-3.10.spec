@@ -139,7 +139,7 @@ make INSTALL_PATH=%{buildroot} INSTALL_MOD_PATH=%{buildroot} INSTALL_HDR_PATH=%{
 
 # 4.1 Install perf
 install -d %{buildroot}
-make -s -C tools/perf DESTDIR=%{buildroot} install
+make -s -C tools/perf WERROR=0 DESTDIR=%{buildroot} install
 install -d  %{buildroot}/usr/bin
 install -d  %{buildroot}/usr/libexec
 mv %{buildroot}/bin/* %{buildroot}/usr/bin/
