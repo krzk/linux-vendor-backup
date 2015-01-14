@@ -33,6 +33,9 @@ config SND_SAMSUNG_SPDIF
 config SND_SAMSUNG_I2S
 	tristate
 
+config SND_SAMSUNG_AUDSS
+	tristate
+
 config SND_SOC_SAMSUNG_NEO1973_WM8753
 	tristate "Audio support for Openmoko Neo1973 Smartphones (GTA02)"
 	depends on SND_SOC_SAMSUNG && MACH_NEO1973_GTA02
@@ -241,5 +244,6 @@ config SND_SOC_SAMSUNG_TM2_WM5110
 	select SND_SOC_MAX98504A
 	select SND_SOC_WM5110
 	select SND_SAMSUNG_I2S
+	select SND_SAMSUNG_AUDSS
 	help
 	  Say Y if you want to add support for SoC audio on the TM2 board.
