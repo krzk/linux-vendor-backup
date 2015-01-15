@@ -916,6 +916,49 @@
 			io-channel-ranges;
 			status = "disabled";
 		};
+
+		ehci: usb@15510000 {
+			compatible = "samsung,exynos4210-ehci";
+			reg = <0x15510000 0x1000>;
+			interrupts = <0 230 0>;
+			clocks = <&cmu_fsys CLK_ACLK_USBHOST20>;
+			clock-names = "usbhost";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			port@0 {
+				reg = <0>;
+				phys = <&usb2_phy 0>;
+				status = "disabled";
+			};
+			port@1 {
+				reg = <1>;
+				phys = <&usb2_phy 1>;
+				status = "disabled";
+			};
+		};
+
+		ohci: usb@15520000 {
+			compatible = "samsung,exynos4210-ohci";
+			reg = <0x15520000 0x1000>;
+			interrupts = <0 230 0>;
+			clocks = <&cmu_fsys CLK_ACLK_USBHOST20>;
+			clock-names = "usbhost";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		usb2_phy: usb2phy@15530000 {
+			compatible = "samsung,exynos5433-usb2-phy";
+			reg = <0x15530000 0x100>;
+			samsung,pmureg-phandle = <&pmu_system_controller>;
+			clocks = <&cmu_fsys CLK_ACLK_USBHOST20>, <&xxti>;
+			clock-names = "phy", "ref";
+			#phy-cells = <1>;
+			status = "disabled";
+		};
 	};
 
 	timer {
