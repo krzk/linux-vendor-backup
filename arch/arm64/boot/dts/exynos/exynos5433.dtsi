@@ -506,7 +506,7 @@
 
 		pinctrl_alive: pinctrl@10580000 {
 			compatible = "samsung,exynos5433-pinctrl";
-			reg = <0x10580000 0x1000>;
+			reg = <0x10580000 0x1A20>, <0x11090000 0x100>;
 
 			wakeup-interrupt-controller {
 				compatible = "samsung,exynos7-wakeup-eint";
