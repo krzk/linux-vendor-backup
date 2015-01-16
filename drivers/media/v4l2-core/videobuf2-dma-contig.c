@@ -862,6 +862,23 @@ EXPORT_SYMBOL_GPL(vb2_dma_contig_memops);
 void *vb2_dma_contig_init_ctx(struct device *dev)
 {
 	struct vb2_dc_conf *conf;
+	int err;
+
+	/*
+	 * if device has no max_seg_size set, we assume that there is no limit
+	 * and force it to DMA_BIT_MASK(32) to always use contiguous mappings
+	 * in DMA address space
+	 */
+	if (!dev->dma_parms) {
+		dev->dma_parms = kzalloc(sizeof(*dev->dma_parms), GFP_KERNEL);
+		if (!dev->dma_parms)
+			return ERR_PTR(-ENOMEM);
+	}
+	if (dma_get_max_seg_size(dev) < DMA_BIT_MASK(32)) {
+		err = dma_set_max_seg_size(dev, DMA_BIT_MASK(32));
+		if (err)
+			return ERR_PTR(err);
+	}
 
 	conf = kzalloc(sizeof *conf, GFP_KERNEL);
 	if (!conf)
