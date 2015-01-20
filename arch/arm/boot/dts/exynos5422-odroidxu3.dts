@@ -348,6 +348,11 @@
 	};
 };
 
+&mali {
+	status = "okay";
+	vdd_g3d-supply = <&buck4_reg>;
+};
+
 &usbdrd_dwc3_0 {
 	dr_mode = "host";
 };
