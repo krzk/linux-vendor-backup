@@ -3157,7 +3157,6 @@ static int kbase_device_resume(struct device *dev)
  *
  * @return A standard Linux error code
  */
-#ifdef CONFIG_PM_RUNTIME
 static int kbase_device_runtime_suspend(struct device *dev)
 {
 	struct kbase_device *kbdev = to_kbase_device(dev);
@@ -3176,7 +3175,6 @@ static int kbase_device_runtime_suspend(struct device *dev)
 	}
 	return 0;
 }
-#endif /* CONFIG_PM_RUNTIME */
 
 /** Runtime resume callback from the OS.
  *
@@ -3187,7 +3185,6 @@ static int kbase_device_runtime_suspend(struct device *dev)
  * @return A standard Linux error code
  */
 
-#ifdef CONFIG_PM_RUNTIME
 int kbase_device_runtime_resume(struct device *dev)
 {
 	int ret = 0;
@@ -3208,7 +3205,6 @@ int kbase_device_runtime_resume(struct device *dev)
 
 	return ret;
 }
-#endif /* CONFIG_PM_RUNTIME */
 
 /** Runtime idle callback from the OS.
  *
@@ -3220,24 +3216,22 @@ int kbase_device_runtime_resume(struct device *dev)
  * @return A standard Linux error code
  */
 
-#ifdef CONFIG_PM_RUNTIME
 static int kbase_device_runtime_idle(struct device *dev)
 {
 	/* Avoid pm_runtime_suspend being called */
 	return 1;
 }
-#endif /* CONFIG_PM_RUNTIME */
 
 /** The power management operations for the platform driver.
  */
 static const struct dev_pm_ops kbase_pm_ops = {
 	.suspend = kbase_device_suspend,
 	.resume = kbase_device_resume,
-#ifdef CONFIG_PM_RUNTIME
+#ifdef CONFIG_PM
 	.runtime_suspend = kbase_device_runtime_suspend,
 	.runtime_resume = kbase_device_runtime_resume,
 	.runtime_idle = kbase_device_runtime_idle,
-#endif /* CONFIG_PM_RUNTIME */
+#endif /* CONFIG_PM */
 };
 
 #ifdef CONFIG_OF
