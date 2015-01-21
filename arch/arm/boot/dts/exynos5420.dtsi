@@ -172,15 +172,23 @@
 		clock-names = "pll_ref", "pll_in", "sclk_audio", "sclk_pcm_in";
 	};
 
-	mfc: codec@11000000 {
-		compatible = "samsung,mfc-v7";
-		reg = <0x11000000 0x10000>;
-		interrupts = <0 96 0>;
-		clocks = <&clock CLK_MFC>;
-		clock-names = "mfc";
-		power-domains = <&mfc_pd>;
-		iommus = <&sysmmu_mfc_l>, <&sysmmu_mfc_r>;
-		iommu-names = "left", "right";
+	mfc-bus {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		dma-ranges = <0x10000000 0x0 0x10000000>;
+
+		mfc: codec@11000000 {
+			compatible = "samsung,mfc-v7";
+			reg = <0x11000000 0x10000>;
+			interrupts = <0 96 0>;
+			clocks = <&clock CLK_MFC>;
+			clock-names = "mfc";
+			power-domains = <&mfc_pd>;
+			iommus = <&sysmmu_mfc_l>, <&sysmmu_mfc_r>;
+			iommu-names = "left", "right";
+		};
 	};
 
 	mmc_0: mmc@12200000 {
