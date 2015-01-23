@@ -1082,6 +1082,13 @@ out:
 	return ret;
 }
 
+static void s2mps11_pmic_shutdown(struct platform_device *pdev)
+{
+	struct sec_pmic_dev *iodev = dev_get_drvdata(pdev->dev.parent);
+
+	regmap_update_bits(iodev->regmap_pmic, S2MPS11_REG_CTRL1, 0xff, 0x00);
+}
+
 static const struct platform_device_id s2mps11_pmic_id[] = {
 	{ "s2mps11-pmic", S2MPS11X},
 	{ "s2mps13-pmic", S2MPS13X},
@@ -1096,6 +1103,7 @@ static struct platform_driver s2mps11_pmic_driver = {
 		.name = "s2mps11-pmic",
 	},
 	.probe = s2mps11_pmic_probe,
+	.shutdown = s2mps11_pmic_shutdown,
 	.id_table = s2mps11_pmic_id,
 };
 
