@@ -286,6 +286,12 @@
 	rtc@101E0000 {
 		status = "okay";
 	};
+
+	pwm-fan {
+		compatible = "pwm-fan";
+		status = "okay";
+		pwms = <&pwm 0 10000 0>;
+	};
 };
 
 &hdmi {
@@ -391,4 +397,10 @@
 		reg = <0x45>;
 		shunt-resistor = <10000>;
 	};
+};
+
+&pwm {
+	status = "okay";
+	pinctrl-0 = <&pwm0_out>;
+	pinctrl-names = "default";
 };
