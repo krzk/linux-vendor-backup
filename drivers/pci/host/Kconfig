@@ -24,6 +24,12 @@ config PCI_EXYNOS
 	select PCIEPORTBUS
 	select PCIE_DW
 
+config PCI_EXYNOS5433
+	bool "Samsung Exynos5433 PCIe controller"
+	depends on ARCH_EXYNOS
+	select PCIEPORTBUS
+	select PCIE_DW
+
 config PCI_IMX6
 	bool "Freescale i.MX6 PCIe controller"
 	depends on SOC_IMX6Q
