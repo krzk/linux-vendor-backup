@@ -96,6 +96,7 @@ static void print_cfs_group_stats(struct seq_file *m, int cpu, struct task_group
 	P(se->avg.runnable_avg_sum);
 	P(se->avg.running_avg_sum);
 	P(se->avg.avg_period);
+	P(se->avg.usage_avg_sum);
 	P(se->avg.load_avg_contrib);
 	P(se->avg.utilization_avg_contrib);
 	P(se->avg.decay_count);
@@ -227,6 +228,8 @@ void print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 			atomic_long_read(&cfs_rq->tg->load_avg));
 	SEQ_printf(m, "  .%-30s: %d\n", "tg->runnable_avg",
 			atomic_read(&cfs_rq->tg->runnable_avg));
+	SEQ_printf(m, "  .%-30s: %d\n", "tg->usage_avg",
+			atomic_read(&cfs_rq->tg->usage_avg));
 #endif
 #endif
 #ifdef CONFIG_CFS_BANDWIDTH

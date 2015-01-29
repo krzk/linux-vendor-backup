@@ -2562,6 +2562,8 @@ static __always_inline int __update_entity_runnable_avg(u64 now, int cpu,
 		if (runnable)
 			sa->runnable_avg_sum += delta_w;
 		if (running)
+			sa->usage_avg_sum += delta_w;
+		if (running)
 			sa->running_avg_sum += delta_w * scale_freq
 				>> SCHED_CAPACITY_SHIFT;
 		sa->avg_period += delta_w;
@@ -2578,11 +2580,14 @@ static __always_inline int __update_entity_runnable_avg(u64 now, int cpu,
 						  periods + 1);
 		sa->avg_period = decay_load(sa->avg_period,
 						     periods + 1);
+		sa->usage_avg_sum = decay_load(sa->usage_avg_sum, periods + 1);
 
 		/* Efficiently calculate \sum (1..n_period) 1024*y^i */
 		runnable_contrib = __compute_runnable_contrib(periods);
 		if (runnable)
 			sa->runnable_avg_sum += runnable_contrib;
+		if (running)
+			sa->usage_avg_sum += runnable_contrib;
 		if (running)
 			sa->running_avg_sum += runnable_contrib * scale_freq
 				>> SCHED_CAPACITY_SHIFT;
@@ -2592,6 +2597,8 @@ static __always_inline int __update_entity_runnable_avg(u64 now, int cpu,
 	/* Remainder of delta accrued against u_0` */
 	if (runnable)
 		sa->runnable_avg_sum += delta;
+	if (running)
+		sa->usage_avg_sum += delta;
 	if (running)
 		sa->running_avg_sum += delta * scale_freq
 			>> SCHED_CAPACITY_SHIFT;
@@ -2645,16 +2652,29 @@ static inline void __update_tg_runnable_avg(struct sched_avg *sa,
 						  struct cfs_rq *cfs_rq)
 {
 	struct task_group *tg = cfs_rq->tg;
-	long contrib;
+	long contrib, usage_contrib;
 
 	/* The fraction of a cpu used by this cfs_rq */
 	contrib = div_u64((u64)sa->runnable_avg_sum << NICE_0_SHIFT,
 			  sa->avg_period + 1);
 	contrib -= cfs_rq->tg_runnable_contrib;
 
-	if (abs(contrib) > cfs_rq->tg_runnable_contrib / 64) {
+	usage_contrib = div_u64(sa->usage_avg_sum << NICE_0_SHIFT,
+			        sa->avg_period + 1);
+	usage_contrib -= cfs_rq->tg_usage_contrib;
+
+	/*
+	 * contrib/usage at this point represent deltas, only update if they
+	 * are substantive.
+	 */
+	if ((abs(contrib) > cfs_rq->tg_runnable_contrib / 64) ||
+	    (abs(usage_contrib) > cfs_rq->tg_usage_contrib / 64)) {
+
 		atomic_add(contrib, &tg->runnable_avg);
 		cfs_rq->tg_runnable_contrib += contrib;
+
+		atomic_add(usage_contrib, &tg->usage_avg);
+		cfs_rq->tg_usage_contrib += usage_contrib;
 	}
 }
 
