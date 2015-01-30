@@ -278,6 +278,7 @@ topology_populated:
 
 static const char * const little_cores[] = {
 	"arm,cortex-a7",
+	"arm,cortex-a53",
 	NULL,
 };
 
