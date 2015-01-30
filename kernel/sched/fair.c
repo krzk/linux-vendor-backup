@@ -5094,6 +5094,8 @@ unsigned int hmp_next_down_threshold = 4096;
 
 static unsigned int hmp_up_migration(int cpu, struct sched_entity *se);
 static unsigned int hmp_down_migration(int cpu, struct sched_entity *se);
+static inline unsigned int hmp_domain_min_load(struct hmp_domain *hmpd,
+						int *min_cpu);
 
 /* Check if cpu is in fastest hmp_domain */
 static inline unsigned int hmp_cpu_is_fastest(int cpu)
@@ -5138,7 +5140,16 @@ static inline struct hmp_domain *hmp_faster_domain(int cpu)
 static inline unsigned int hmp_select_faster_cpu(struct task_struct *tsk,
 							int cpu)
 {
-	return cpumask_any_and(&hmp_faster_domain(cpu)->cpus,
+	int lowest_cpu=NR_CPUS;
+	__always_unused int lowest_ratio = hmp_domain_min_load(hmp_faster_domain(cpu), &lowest_cpu);
+	/*
+	 * If the lowest-loaded CPU in the domain is allowed by the task affinity
+	 * select that one, otherwise select one which is allowed
+	 */
+	if(lowest_cpu != NR_CPUS && cpumask_test_cpu(lowest_cpu,tsk_cpus_allowed(tsk)))
+		return lowest_cpu;
+	else
+		return cpumask_any_and(&hmp_faster_domain(cpu)->cpus,
 				tsk_cpus_allowed(tsk));
 }
 
@@ -5149,7 +5160,16 @@ static inline unsigned int hmp_select_faster_cpu(struct task_struct *tsk,
 static inline unsigned int hmp_select_slower_cpu(struct task_struct *tsk,
 							int cpu)
 {
-	return cpumask_any_and(&hmp_slower_domain(cpu)->cpus,
+	int lowest_cpu=NR_CPUS;
+	__always_unused int lowest_ratio = hmp_domain_min_load(hmp_slower_domain(cpu), &lowest_cpu);
+	/*
+	 * If the lowest-loaded CPU in the domain is allowed by the task affinity
+	 * select that one, otherwise select one which is allowed
+	 */
+	if(lowest_cpu != NR_CPUS && cpumask_test_cpu(lowest_cpu,tsk_cpus_allowed(tsk)))
+		return lowest_cpu;
+	else
+		return cpumask_any_and(&hmp_slower_domain(cpu)->cpus,
 				tsk_cpus_allowed(tsk));
 }
 
