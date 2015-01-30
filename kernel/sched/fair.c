@@ -2870,8 +2870,13 @@ static inline void __update_group_entity_contrib(struct sched_entity *se)
 static inline void update_rq_runnable_avg(struct rq *rq, int runnable)
 {
 	u32 contrib;
-	__update_entity_runnable_avg(rq_clock_task(rq), cpu_of(rq), &rq->avg,
-			runnable, runnable);
+	int cpu = -1;	/* not used in normal case */
+
+#ifdef CONFIG_HMP_FREQUENCY_INVARIANT_SCALE
+	cpu = cpu_of(rq);
+#endif
+	__update_entity_runnable_avg(rq_clock_task(rq), cpu, &rq->avg, runnable,
+				     runnable);
 	__update_tg_runnable_avg(&rq->avg, &rq->cfs);
 	contrib = rq->avg.runnable_avg_sum * scale_load_down(1024);
 	contrib /= (rq->avg.avg_period + 1);
@@ -2958,9 +2963,12 @@ static inline void update_entity_load_avg(struct sched_entity *se,
 {
 	struct cfs_rq *cfs_rq = cfs_rq_of(se);
 	long contrib_delta, utilization_delta;
-	int cpu = cpu_of(rq_of(cfs_rq));
 	u64 now;
+	int cpu = -1;   /* not used in normal case */
 
+#ifdef CONFIG_HMP_FREQUENCY_INVARIANT_SCALE
+	cpu = cpu_of(rq_of(cfs_rq));
+#endif
 	/*
 	 * For a group entity we need to use their owned cfs_rq_clock_task() in
 	 * case they are the parent of a throttled hierarchy.
