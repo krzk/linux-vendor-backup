@@ -809,7 +809,7 @@ out_dmabuf_sync:
 			dmabuf_sync_fini(node->sync);
 	}
 
-	return ret;
+	return 0;
 
 err:
 	if (node->sync) {
