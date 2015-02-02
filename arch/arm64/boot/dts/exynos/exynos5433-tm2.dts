@@ -807,6 +807,82 @@
 	};
 };
 
+&ppmu_d0_cpu {
+	status = "okay";
+
+	events {
+		ppmu_d0_cpu_3: ppmu-event3-d0-cpu {
+			event-name = "ppmu-event3-d0-cpu";
+		};
+	};
+};
+
+&ppmu_d0_general {
+	status = "okay";
+
+	events {
+		ppmu_d0_general_0: ppmu-event0-d0-general {
+			event-name = "ppmu-event0-d0-general";
+		};
+	};
+};
+
+&ppmu_d0_rt {
+	status = "okay";
+
+	events {
+		ppmu_d0_rt_3: ppmu-event3-d0-rt {
+			event-name = "ppmu-event3-d0-rt";
+		};
+	};
+};
+
+&ppmu_d1_cpu {
+	status = "okay";
+
+	events {
+		ppmu_d1_cpu_3: ppmu-event3-d1-cpu {
+			event-name = "ppmu-event3-d1-cpu";
+		};
+	};
+};
+
+&ppmu_d1_general {
+	status = "okay";
+
+	events {
+		ppmu_d1_general_0: ppmu-event0-d1-general {
+			event-name = "ppmu-event0-d1-general";
+		};
+	};
+};
+
+&ppmu_d1_rt {
+	status = "okay";
+
+	events {
+		ppmu_d1_rt_3: ppmu-event3-d1-rt {
+			event-name = "ppmu-event3-d1-rt";
+		};
+	};
+};
+
+&memory_bus_int {
+	devfreq-events = <&ppmu_d0_general_0>,
+			 <&ppmu_d1_general_0>;
+	vdd-mem-supply = <&buck4_reg>;
+	exynos,saturation-ratio = <10>;
+	status = "okay";
+};
+
+&memory_bus_mif {
+	devfreq-events = <&ppmu_d0_cpu_3>,
+			 <&ppmu_d1_cpu_3>;
+	vdd-mem-supply = <&buck1_reg>;
+	exynos,saturation-ratio = <10>;
+	status = "okay";
+};
+
 &xxti {
 	clock-frequency = <24000000>;
 };
