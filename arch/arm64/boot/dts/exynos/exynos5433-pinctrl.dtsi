@@ -344,7 +344,7 @@
 	};
 
 	pcie_bus: pcie_bus {
-		samsung,pins = "gpr3-4", "gpr3-5", "gpr3-6", "gpr3-7";
+		samsung,pins = "gpr3-4", "gpr3-5", "gpr3-6";
 		samsung,pin-function = <3>;
 		samsung,pin-pud = <3>;
 	};
