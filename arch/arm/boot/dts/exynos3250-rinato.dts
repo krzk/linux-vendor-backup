@@ -67,6 +67,7 @@
 				compatible = "maxim,max77836-regulator";
 				safeout_reg: SAFEOUT {
 					regulator-name = "SAFEOUT";
+					regulator-always-on;
 				};
 
 				charger_reg: CHARGER {
