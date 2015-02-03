@@ -1838,7 +1838,7 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 		p->se.avg.load_avg_ratio = 1023;
 		p->se.avg.load_avg_contrib =
 				(1023 * scale_load_down(p->se.load.weight));
-		p->se.avg.runnable_avg_period = LOAD_AVG_MAX;
+		p->se.avg.avg_period = LOAD_AVG_MAX;
 		p->se.avg.runnable_avg_sum = LOAD_AVG_MAX;
 		p->se.avg.usage_avg_sum = LOAD_AVG_MAX;
 	}
