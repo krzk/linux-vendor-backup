@@ -1530,6 +1530,41 @@
 			clocks = <&cmu_mscl CLK_PCLK_SMMU_JPEG>, <&cmu_mscl CLK_ACLK_SMMU_JPEG>;
 			#iommu-cells = <0>;
 		};
+
+		pcie: pcie@15700000 {
+			compatible = "samsung,exynos5433-pcie";
+			#address-cells = <3>;
+			#size-cells = <2>;
+			device_type = "pci";
+			clock-names = "pcie", "pcie_bus";
+			clocks = <&cmu_fsys CLK_PCIE>,
+				 <&cmu_fsys CLK_PCIE_PHY>;
+			assigned-clocks = <&cmu_fsys CLK_MOUT_SCLK_PCIE_100_USER>,
+				<&cmu_top CLK_MOUT_SCLK_PCIE_100>;
+			assigned-clock-parents = <&cmu_top CLK_SCLK_PCIE_100_FSYS>,
+				<&cmu_top CLK_MOUT_BUS_PLL_USER>;
+			assigned-clock-rates = <0>, <100000000>;
+			interrupts = <0 245 0>;
+			num-lanes = <1>;
+			reg = <0x156b0000 0x1000>, <0x15680000 0x1000>, <0x156f0000 0x2000>;
+			reg-names = "elbi", "phy", "block";
+			reset-gpio = <&gpr3 5 1>;
+			wlanen-gpio = <&gpj2 0 1>;
+			samsung,pmureg-phandle = <&pmu_system_controller>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&pcie_bus &pcie_clkreq &pcie_wake>;
+			ranges = <0x00000800 0 0x0c000000 0x0c000000 0 0x00001000   /* configuration space */
+				  0x81000000 0 0          0x0c001000 0 0x00010000   /* downstream I/O */
+				  0x82000000 0 0x0c011000 0x0c011000 0 0x3feefff>; /* non-prefetchable memory */
+		};
+
+		wlan {
+			compatible = "samsung,brcm-wlan";
+			gpios = <&gpj2 0 0x1 &gpf3 1 0x1>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&cfg_wlanen &wlan_host_wake>;
+			status = "okay";
+		};
 	};
 
 	timer {
