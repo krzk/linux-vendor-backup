@@ -1349,3 +1349,11 @@
 		samsung,pin-function = <0xf>;
 	};
 };
+
+&gsc_1 {
+	samsung,lcd-wb;
+};
+
+&gsc_2 {
+	samsung,lcd-wb;
+};
