@@ -1052,6 +1052,18 @@
 				phy-names = "usb2-phy", "usb3-phy";
 			};
 		};
+
+		pwm: pwm@14dd0000 {
+			compatible = "samsung,exynos4210-pwm";
+			reg = <0x14dd0000 0x100>;
+			interrupts = <0 416 0>, <0 417 0>,
+				     <0 418 0>, <0 419 0>, <0 420 0>;
+			samsung,pwm-outputs = <0>, <1>, <2>, <3>;
+			clocks = <&cmu_peric CLK_PCLK_PWM>;
+			clock-names = "timers";
+			#pwm-cells = <3>;
+			status = "disabled";
+		};
 	};
 
 	timer {
