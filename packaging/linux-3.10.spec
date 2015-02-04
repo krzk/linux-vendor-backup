@@ -75,7 +75,7 @@ Group: Development/System
 Provides: kernel-devel = %{fullVersion}
 Provides: kernel-devel-uname-r = %{fullVersion}
 %endif
-Requires: %{name} = %{version}-%{release}
+Requires: %{variant}-linux-kernel = %{version}-%{release}
 
 %description -n %{variant}-linux-kernel-devel
 Prebuilt linux kernel for out-of-tree modules.
