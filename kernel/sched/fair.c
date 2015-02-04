@@ -8003,7 +8003,8 @@ static int move_specific_task(struct lb_env *env, struct task_struct *pm)
 		if (p != pm)
 			continue;
 
-		move_task(p, env);
+		detach_task(p, env);
+		attach_task(env->dst_rq, p);
 
 		/*
 		 * Right now, this is only the third place move_task()
