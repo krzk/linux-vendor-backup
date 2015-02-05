@@ -457,6 +457,11 @@
 		};
 	};
 
+	gpu@13000000 {
+		status = "okay";
+		vdd_g3d-supply = <&buck4_reg>;
+	};
+
 	mixer: mixer@12C10000 {
 		status = "okay";
 	};
