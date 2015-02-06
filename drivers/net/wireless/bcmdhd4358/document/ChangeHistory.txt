@@ -1,0 +1,300 @@
+BCM4358 DHD 1.201.39.54 for Android Kitkat
+
+Notes: 
+- Must sync up DHD and FW for 8 bytes padding.
+ . 8 bytes padding for D2H control item is enabled from DHD 1.201.39.33 and FW 7.35.105.38/7.36.105.4(Oxygen) 
+ . 8 bytes padding for H2D control item is enabled from DHD 1.201.39.38 and FW 7.35.105.42 
+ . All 8 bytes paddings are removed from DHD 1.201.39.46 and FW 7.35.105.47
+
+2014.9.18 - DHD 1.201.39.54
+Kernel Panic
+   - CSP:832553 Added Interface setup complete check when sending TX management packet
+   - CSP:837306 Added prevent P2P creation during SoftAP init sequence
+   - CSP:837596 Cleaned up sta_list of interface when WiFi Off
+   - CSP:838848 Enhanced list empty check routine in wl_deq_event() function
+   - CSP:839297, 839367 Enhancement PCIe recovery routine for APQ8084 platform
+   - CSP:839792 Added recovery logic for livelock problem
+   - Enhanced FIFO based DHD PktIdMap Allocator
+
+Others
+   - Added CTRL Ring logging for memory corruption debugging (This feature DISABLED currently)
+   - Changed Resumed on timeout trigger value and timeout reset location
+
+2014.9.8 - DHD 1.201.39.48
+Kernel Panic
+	- CSP:837343 Added NULL check routine to prevent kernel panic in wl_cfg80211_event()
+
+2014.9.8 - DHD 1.201.39.47
+Others
+	- Improved Dongle to Host DMA Sync Mechanism
+
+2014.9.7 - DHD 1.201.39.46
+Others
+	- CSP:835352 Add terminate condition to prevent kernel panic
+	- Disabled roaming offload explicitly
+	- Disabled all debugging code for memory dump
+	- Reverted a code for 8 bytes padding to avoid cache mis-alignment 
+	- Reverted a code for cache memory invalidation logic for socket buffer
+	- Disable single core beacon rx feature
+
+2014.9.6 - DHD 1.201.39.41
+Others
+	- Fix for build error in Arogos API
+	- Fix for incorrect address when fail to get phy addr by DMA_MAP
+
+2014.9.5 - DHD 1.201.39.40
+Others
+   - CSP:827633 Added memory dump feature for further debugging
+   - CSP:834701 Added DHCP dump log for further debugging
+   - CSP:834915, 830339, 833545 Fixed Rx data stuck on Helsinki platform
+   - CSP:835332 Added rps_cpus setting by private command
+   - CSP:835436 Fixed resumed on timeout by PCIe D3 ack not received case
+   - CSP:837025 Stop an escan routine if channel information is invalid
+   - Add 8 bytes padding for H2D control item to avoid cache mis-alignment 
+   - Added a packet filter which can prevent an unnecessary flow-ring creation
+   - Added Cache memory invalidation logic for socket buffer
+   - Added transmit packet prevent routine when Station was not associated with AP
+   - Fixed current consumption issue - wake lock holding issue
+
+
+2014.9.3 - DHD 1.201.39.36
+Others
+   - CSP:831592, 833054 Supported Rx Thread instead of tasklet for further debugging
+     . It's DISABLED currently.
+   - Fixed spin_lock API for ARGOS_CPU_SCHEDULER 
+
+
+2014.9.2 - DHD 1.201.39.33
+Others
+   - Add 8bytes padding to avoid cache mis-alignment
+
+
+2014.9.1 - DHD 1.201.39.32
+Kernel Panic
+   - CSP:832553 Added NULL check routine in wl_cfg80211_mgmt_tx() function
+
+Others
+   - CSP:830339 Added rps_cpus value setting code according to Firmware or Interface
+
+
+2014.8.30 - DHD 1.201.39.31
+Others
+   - CSP:826092 Remove L1 substate control in DHD
+   - CSP:834499 Fixed Resumed on timeout issue during iperf UDP RX traffic 
+   - CSP:834701 Enhanced Roaming failure issue
+   - Reverted DMA ring sequence reset routine
+   - Added Null check for _dhd_set_multicast_list() function
+
+
+2014.8.29 - DHD 1.201.39.28
+Others
+   - CSP:813631 Added Interrupt handling on system suspend for Helsinki platform
+   - CSP:830971 Fixed as Do not retry send GAS action frame even if it failed case
+   - CSP:832772 Added error handing for P2P interface adding failed case
+   - Changed TUN(Tunisia) country code(TN/1->TV/0)
+   - Disabled PME_L IRQ for host wakeup when WLAN_HOST_WAKE is used
+   - Fixed DMA ring sequence reset routine
+
+
+2014.8.27 - DHD 1.201.39.23
+Others
+   - CSP:816131 Fixed GTK update failure with CCKM after a roaming
+
+2014.8.26 - DHD 1.201.39.21
+Kernel Panic
+   - CSP:832295 Added return value check for dhd_get_ifp() funciton 
+   - Reverted irregular memory access prevention routine
+
+Others
+   - CSP:828568 Added Roam Offload mode 2 feature
+   - CSP:832839 Fixed WiFi On failed issue by OOB IRQ register failed case
+   - Enhanced code stability
+   - Use Coherent DMA memory
+
+
+2014.8.25 - DHD 1.201.39.19
+Kernel Panic
+   - Improvement of irregular memory access prevention routine
+
+Others
+   - CSP:826092 Added PCIe L1 substate control
+   - CSP:827729 Added Event Buffer allocation from static area
+   - CSP:831049 Fixed prevent issue - Memory illegal access
+   - Fixed flow ring's race buffer condition issue
+
+
+2014.8.21 - DHD 1.201.39.17
+Kernel Panic
+   - CSP:831076 Fixed IRQ not cleared issue
+   - Changed log message level for avoid watchdog bark issue
+
+Others
+   - CSP:812965 Added CPU Affinity for Helsinki platform
+   - CSP:823774 Fixed private command for MISO status
+   - CSP:824424 Fixed wrong macro name
+   - CSP:827214 Enabled memory preallocation for flowring buffer
+   - CSP:827729 Fixed memory leakage issue on Ioctl/event processing
+   - CSP:828189 Fixed prevent issue -  return without memory free
+
+
+2014.8.19 - DHD 1.201.39.15
+Kernel Panic
+   - CSP:827214 Added memory preallocation for flowring buffer
+   - Added defense code for watchdog bark issue
+   - Enhanced handling of resumed on timeout error
+   - Enhanced memory corruption issue
+
+Others
+   - CSP:821757 Added NAN related code as open source
+   - CSP:823774 Added private command for getting MIMO and VHT status
+   - CSP:824424 Added avoidance code for old revision of Helsinki Prime
+   - CSP:827729 Disabled synchronous suspend for Helsinki Prime
+   - CSP:827921 Added error handling code for message buffer get failed case
+   - CSP:830339 Disabled rps_cpus feature for Helsinki Prime
+   - Fixed wrong type variable  use case
+
+
+2014.8.14 - DHD 1.201.39.12
+Kernel Panic
+   - CSP:822528 Added interface check code in dhd_net2idx()
+
+Others
+   - CSP:806428 Fixed traffic statistics was not updated issue
+   - CSP:826256, 826412 Added pre memory allocation
+   - Added a private command for 'SETROAMOFFLAPLIST'
+   - Added clearing the additional PCIE related data for built-in type driver
+   - Added on/off sequence & link recovery API for Helsinki Prime PCIe host controller
+   - Applied rps_cpus optimization for throughput enhancement
+
+
+2014.8.10 - DHD 1.201.39.7
+Kernel Panic
+   - CSP:825368 Fixed PCIe IRQ flooding Kernel panic issue
+   - CSP:826309, 826468 Fixed kernel panic during WiFi off for old rev. Helsinki Prime platform
+
+New Feature
+   - CSP:803125 Added private command of DFS channel scan On/Off
+   - CSP:813631 Supported Host Wake up feature for Helsinki Prime platform
+   - CSP:823774 Added private command of VHT and MIMO get status
+
+Others
+   - CSP:821757 Fixed Proprietary issue
+   - CSP:823575 Disabled U-APSD feature for SoftAP mode
+   - CSP:823948 Disabled asynchronous suspend in PCIE driver
+   - CSP:824084 increased message buffer ID number for multi connection big file transfer
+   - CSP:825550 Fixed the P2P discovery failure in specific power save case
+   - Added scan start log for further debugging
+   - Fixed mismatch issue for remain on channel expired case
+
+
+2014.8.6 - DHD 1.201.39.1
+Kernel Panic
+   - CSP:823023 Disabled PCIe IRQs during Wi-Fi off to fix the Kernel panic
+   - CSP:822649 Fixed the P2P wdev data removal sequence to fix the Kernel panic
+   - CSP:823948 Fixed error handling routine for PCIe D3 INFORM/ACK handshake
+   - Added NULL check routines for avoid kernel panic issues
+
+Others
+   - CSP:745564 Enhanced escan buffer overflow management
+   - CSP:748979, 810109 Minimized the beacon timeout
+   - CSP:818237 Supported selectable NVRAM by HW revision
+   - CSP:822597 Apply KR/70 for BCM4358
+   - Added old HW revision support for Helsinki Prime platform
+   - Changed ADSMU subframe number as 4 for Throughput enhancement
+   - Enhanced SoftAP PMK ID count check routine
+   - Fix to block code when PCIe bus already down
+   - Fix to disable IRQ before dhd detached
+   - Fixed Compatibility issue with kernel version > 3.12
+   - Fixed the roaming event update failure
+
+
+2014.7.26 - DHD 1.201.35.4
+Kernel Panic
+   - CSP:821374 Fixed the watchdog bark Kernel panic issue due to unbalanced connection event
+
+Others
+   - CSP:821040 Fixed AP connection failed case after suspend/resume
+   - CSP:821466 Fixed P2P listen/find failure during scanning with long remain_on_channel duration
+
+
+2014.7.23 - DHD 1.201.35.2
+Kernel Panic
+   - CSP:817232 Added prevent code of PCIe suspend/resume function should not called in power off state
+   - CSP:817775 Fixed the DPM Timeout Kernel panic
+   - CSP:818778 Fixed the Kernel panic issue when static buffer initialization was failed
+   - CSP:819696, 819951, 820134, 820166 Fixed kernel panic when memory alloc failed case of packet flow init sequence
+   - CSP:819696, 819951, 820134, 820166 Fixed to call correct API for PCI memory allocation
+
+Others
+   - CSP:815159 Skipped forward broadcom internal event packet to stack
+   - CSP:817193 Improved recovery logic for handling of Wi-Fi on failure case
+   - CSP:817581 Fixed Prevent issue 
+   - CSP:817775 Added PCIe suspend/resume debug logs for further usage
+   - CSP:818219 Fixed prevent issue
+   - CSP:818756 Enabled USE_CID_CHECK macro
+   - CSP:820741 Added missing brace in prot_ring_attach()
+   - Added link down recovery feature for MSM PCIe
+   - Added WiFi on delay for Exynos SDIO
+   - Disabled frameburst for VSDB case for throughput stall issue
+   - Enhanced packet flow control logic
+   - Enhanced PM restore logic for P2P
+   - Enhanced SoftAP PMF feature
+   - Removed Exynos PCIe WAR codes
+
+
+2014.7.16 - DHD 1.201.30.2
+Kernel Panic
+   - Fixed kernel panic issue (watchdog bark) during p2p connection iteration
+Others
+   - CSP:817232 Added Helsinki-Prime(EXYNOS5433) PCIE WAR  
+   - Added BCM4358 murata ES2.3 & ES2.5 modules detect code  
+   - Added Implement of AIBSS_PS mode
+
+2014.7.13 - DHD 1.201.30
+Kernel Panic
+   - CSP:817193 Added recovery logic for handling of Wi-Fi on failure
+   - CSP:817348 Fixed kernel panic issue(watchdog bark) during WiFi On/Off test
+
+Others
+   - CSP:817223 Added missing skip code for  PM disable by "psm.info" file
+   - Added NAN initial code
+   - Added static buffer initialization logic for further usage
+   - Enhanced Interface status event logic
+   - Enhanced TDLS logic for PCIe
+   - Enhanced PCIe Message buffer management
+   - Fixed WiFi Direct Certification - 5.1.20 
+
+
+2014. 7.11 - DHD 1.201.27
+Kernel Panic
+   - Fixed kernel panic issue during suspend/resume
+   
+Others
+   - Fixed GC to GC ping issue
+
+
+2014. 7. 10 - DHD 1.201.25
+
+- Initial PCIe DHD release for Android KitKat
+
+Kernel Panic
+   - CSP:809543, 809553, 810859, 812289 Fixed kernel panic by packet tx during system wake up process.
+   - CSP:809987 Fixed kernel panic during PCIe memory
+   - CSP:811766 Fixed kernel panic not to set beacon parameters when GO is deleting
+   - CSP:811938, 812865, 813446 Fixed kernel panic after system suspend/resume.
+   - CSP:814099 Deleted the dhdpcie_mem_dump function for prevent kernel panic.
+   - CSP:815090, 815082, 814926, 814570, 814823, 815311, 815154 Fixed host memory corruption issue
+
+Others
+   - CSP:808538 Added BCM4358 chip id to set MIMO ANT correctly
+   - CSP:810283 Added support code of built-in type driver for TR(APQ8084) and TRE(Helsinki-Prime) Project
+   - CSP:810350, 811753 Updated translate_custom_table[], EG/0 -> EG/13, TN/0 -> TN/1, CA/31 -> US/0
+   - CSP:810606 Changed initial RMC data rate to 24Mbps
+   - CSP:811002 Fixed P2P GO Keepalive timeout issue
+   - CSP:811659, 814330, 814970 Enabled Hang event report to supplicant
+   - CSP:812665, 815818, 815754  Fixed WIFI turn on fail issue
+   - CSP:812665, 816370 Added delay(200ms) to avoid PCIe L1.2 entering fail issue for S.SLI Exynos platform
+   - CSP:812672 Added check of interface up when entering dhd cmds for built-in driver
+   - CSP:815116 Fixed the initialization routines to enhance built-in type driver
+   - CSP:815336 Fixed P2P scan failure after system suspend/resume.
+
