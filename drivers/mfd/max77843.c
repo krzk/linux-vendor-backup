@@ -37,6 +37,9 @@ static const struct mfd_cell max77843_devs[] = {
 	}, {
 		.name = "max77843-haptic",
 		.of_compatible = "maxim,max77843-haptic",
+	}, {
+		.name = "max77843-led",
+		.of_compatible = "maxim,max77843-led",
 	},
 };
 
