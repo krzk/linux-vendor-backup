@@ -202,6 +202,39 @@ enum max77843_irq_muic {
 #define MAX77843_MCONFIG_MEN_MASK		BIT(MCONFIG_MEN_SHIFT)
 #define MAX77843_MCONFIG_PDIV_MASK		(0x3 << MCONFIG_PDIV_SHIFT)
 
+#define LED0EN_SHIFT                    0
+#define LED1EN_SHIFT                    2
+#define LED2EN_SHIFT                    4
+#define LED3EN_SHIFT                    6
+
+#define MAX77843_LED_LED0EN_MASK        (0x3 << LED0EN_SHIFT)
+#define MAX77843_LED_LED1EN_MASK        (0x3 << LED1EN_SHIFT)
+#define MAX77843_LED_LED2EN_MASK        (0x3 << LED2EN_SHIFT)
+#define MAX77843_LED_LED3EN_MASK        (0x3 << LED3EN_SHIFT)
+
+#define OFF                             0x0
+#define CONSTANT                        0x1
+#define BLINK                           0x2
+
+#define MAX77843_LED_LED0EN_CONSTANT    (CONSTANT << LED0EN_SHIFT)
+#define MAX77843_LED_LED1EN_CONSTANT    (CONSTANT << LED1EN_SHIFT)
+#define MAX77843_LED_LED2EN_CONSTANT    (CONSTANT << LED2EN_SHIFT)
+#define MAX77843_LED_LED3EN_CONSTANT    (CONSTANT << LED3EN_SHIFT)
+
+/* MAX77843 LEDBLNK register */
+#define LEDTON1_SHIFT				4
+#define LEDTOFF1_SHIFT				0
+
+#define MAX77843_LEDBLNK_LEDTON1_MASK		(0xF << LEDTON1_SHIFT)
+#define MAX77843_LEDBLNK_LEDTOFF1_MASK		(0xF << LEDTOFF1_SHIFT)
+
+/* MAX77843 LEDRAMP register */
+#define RMPUP1_SHIFT				4
+#define RMPDN1_SHIFT				0
+
+#define MAX77843_LEDRAMP_RAMPUP1_MASK		(0xF << RMPUP1_SHIFT)
+#define MAX77843_LEDRAMP_RAMPDN1_MASK		(0xF << RMPDN1_SHIFT)
+
 /* Max77843 charger insterrupts */
 #define MAX77843_CHG_BYP_I			BIT(0)
 #define MAX77843_CHG_BATP_I			BIT(2)

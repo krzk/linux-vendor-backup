@@ -467,6 +467,13 @@ config LEDS_TCA6507
 	  LED driver chips accessed via the I2C bus.
 	  Driver support brightness control and hardware-assisted blinking.
 
+config LEDS_MAX77843
+	tristate "LED support for MAX77843 PMIC"
+	depends on LEDS_CLASS && MFD_MAX77843
+	help
+	  This option enables support for on-chip 4-channel LED driver
+	  on MAXIM MAX77843 PMIC.
+
 config LEDS_MAX8997
 	tristate "LED support for MAX8997 PMIC"
 	depends on LEDS_CLASS && MFD_MAX8997
