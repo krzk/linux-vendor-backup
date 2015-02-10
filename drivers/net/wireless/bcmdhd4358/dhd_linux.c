@@ -8627,7 +8627,7 @@ static void dhd_hang_process(void *dhd_info, void *event_info, u8 event)
 }
 
 #ifdef CUSTOMER_HW4
-#if defined(CONFIG_MACH_UNIVERSAL5433) || defined(CONFIG_MACH_UNIVERSAL7420)
+#if defined(CONFIG_MACH_UNIVERSAL5433) || defined(CONFIG_MACH_UNIVERSAL7420) || defined(CONFIG_ARCH_EXYNOS)
 extern dhd_pub_t *link_recovery;
 void dhd_host_recover_link(void)
 {

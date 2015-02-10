@@ -520,6 +520,7 @@ typedef struct wl_if_event_info {
 
 /* private data of cfg80211 interface */
 struct bcm_cfg80211 {
+	struct wiphy *wiphy;
 	struct wireless_dev *wdev;	/* representing cfg cfg80211 device */
 
 	struct wireless_dev *p2p_wdev;	/* representing cfg cfg80211 device for P2P */

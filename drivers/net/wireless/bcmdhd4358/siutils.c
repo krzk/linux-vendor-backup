@@ -90,7 +90,7 @@ static void si_config_gcigpio(si_t *sih, uint32 gci_pos, uint8 gcigpio,
 #endif /* BCMLTECOEX */
 
 #ifdef CUSTOMER_HW4
-#if defined(CONFIG_MACH_UNIVERSAL5433) || defined(CONFIG_MACH_UNIVERSAL7420)
+#if defined(CONFIG_MACH_UNIVERSAL5433) || defined(CONFIG_MACH_UNIVERSAL7420) || defined(CONFIG_ARCH_EXYNOS)
 extern int check_pcie_link_status(void);
 #endif /* CONFIG_MACH_UNIVERSAL5433 || defined(CONFIG_MACH_UNIVERSAL7420) */
 #endif /* CUSTOMER_HW4 */

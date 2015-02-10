@@ -1175,7 +1175,7 @@ extern void *dhd_pub_wlinfo(dhd_pub_t *dhd_pub);
 int dhd_rps_cpus_enable(struct net_device *net, int enable);
 int custom_rps_map_set(struct netdev_rx_queue *queue, char *buf, size_t len);
 void custom_rps_map_clear(struct netdev_rx_queue *queue);
-#if defined(CONFIG_MACH_UNIVERSAL5433) || defined(CONFIG_MACH_UNIVERSAL7420) 
+#if defined(CONFIG_MACH_UNIVERSAL5433) || defined(CONFIG_MACH_UNIVERSAL7420) || defined(CONFIG_ARCH_EXYNOS)
 #define RPS_CPUS_MASK "10"
 #define RPS_CPUS_MASK_P2P "10"
 #define RPS_CPUS_MASK_IBSS "10"

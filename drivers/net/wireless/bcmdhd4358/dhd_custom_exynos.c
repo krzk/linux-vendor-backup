@@ -47,14 +47,14 @@
 #include <linux/wlan_plat.h>
 
 #if defined(CONFIG_64BIT)
-#include <asm/gpio.h>
+#include <linux/gpio.h>
 #else
 #include <mach/gpio.h>
 #endif
-#include <mach/irqs.h>
+//#include <mach/irqs.h>
 #include <linux/sec_sysfs.h>
 
-#include <plat/gpio-cfg.h>
+//#include <plat/gpio-cfg.h>
 
 #ifdef CONFIG_BROADCOM_WIFI_RESERVED_MEM
 
@@ -373,7 +373,8 @@ static int wlan_pwr_on = -1;
 int wlan_host_wake_irq = 0;
 EXPORT_SYMBOL(wlan_host_wake_irq);
 
-#if defined(CONFIG_MACH_UNIVERSAL5433) || defined(CONFIG_MACH_UNIVERSAL7420) 
+#if defined(CONFIG_MACH_UNIVERSAL5433) || defined(CONFIG_MACH_UNIVERSAL7420) || defined(CONFIG_ARCH_EXYNOS)
+
 extern void exynos_pcie_poweron(void);
 extern void exynos_pcie_poweroff(void);
 #endif /* CONFIG_MACH_UNIVERSAL5433 || CONFIG_MACH_UNIVERSAL7420 */
@@ -384,7 +385,7 @@ static int dhd_wlan_power(int onoff)
 	printk(KERN_INFO"------------------------------------------------\n");
 	printk(KERN_INFO"%s Enter: power %s\n", __FUNCTION__, onoff ? "on" : "off");
 
-#if defined(CONFIG_MACH_UNIVERSAL5433) || defined(CONFIG_MACH_UNIVERSAL7420) 
+#if defined(CONFIG_MACH_UNIVERSAL5433) || defined(CONFIG_MACH_UNIVERSAL7420) || defined(CONFIG_ARCH_EXYNOS)
 	if (!onoff)
 		exynos_pcie_poweroff();
 
@@ -457,7 +458,7 @@ int __init dhd_wlan_init_gpio(void)
 	}
 #ifdef CONFIG_BCMDHD_PCIE
 	gpio_direction_output(wlan_pwr_on, 1);
-#if defined(CONFIG_MACH_UNIVERSAL5433) || defined(CONFIG_MACH_UNIVERSAL7420)
+#if defined(CONFIG_MACH_UNIVERSAL5433) || defined(CONFIG_MACH_UNIVERSAL7420) || defined(CONFIG_ARCH_EXYNOS)
 	exynos_pcie_poweron(); //Dean
 #endif /* CONFIG_MACH_UNIVERSAL5433 || CONFIG_MACH_UNIVERSAL7420 */
 #else
@@ -490,7 +491,7 @@ int __init dhd_wlan_init_gpio(void)
 #if defined(CONFIG_ARGOS)
 void set_cpucore_for_interrupt(cpumask_var_t default_cpu_mask,
 	cpumask_var_t affinity_cpu_mask) {
-#if defined(CONFIG_MACH_UNIVERSAL5433) || defined(CONFIG_MACH_UNIVERSAL7420)
+#if defined(CONFIG_MACH_UNIVERSAL5433) || defined(CONFIG_MACH_UNIVERSAL7420) || defined(CONFIG_ARCH_EXYNOS)
 	argos_irq_affinity_setup_label(277, "WIFI", affinity_cpu_mask, default_cpu_mask);
 #endif /* CONFIG_MACH_UNIVERSAL5433 || CONFIG_MACH_UNIVERSAL7420 */
 }

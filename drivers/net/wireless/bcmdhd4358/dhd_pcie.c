@@ -435,7 +435,7 @@ dhdpcie_bus_isr(dhd_bus_t *bus)
 }
 
 #ifdef CUSTOMER_HW4
-#if defined(CONFIG_MACH_UNIVERSAL5433) || defined(CONFIG_MACH_UNIVERSAL7420)
+#if defined(CONFIG_MACH_UNIVERSAL5433) || defined(CONFIG_MACH_UNIVERSAL7420) || defined(CONFIG_ARCH_EXYNOS)
 dhd_pub_t *link_recovery = NULL;
 #endif /* CONFIG_MACH_UNIVERSAL5433 || CONFIG_MACH_UNIVERSAL7420*/
 #endif /* CUSTOMER_HW4 */
@@ -453,7 +453,7 @@ dhdpcie_dongle_attach(dhd_bus_t *bus)
 		__FUNCTION__));
 
 #ifdef CUSTOMER_HW4
-#if defined(CONFIG_MACH_UNIVERSAL5433) || defined(CONFIG_MACH_UNIVERSAL7420)
+#if defined(CONFIG_MACH_UNIVERSAL5433) || defined(CONFIG_MACH_UNIVERSAL7420) || defined(CONFIG_ARCH_EXYNOS)
 	link_recovery = bus->dhd;
 #endif /* CONFIG_MACH_UNIVERSAL5433 || CONFIG_MACH_UNIVERSAL7420 */
 #endif /* CUSTOMER_HW4 */
