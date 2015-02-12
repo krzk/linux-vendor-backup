@@ -31,6 +31,7 @@
 #include "exynos_drm_g2d.h"
 #include "exynos_drm_ipp.h"
 #include "exynos_drm_iommu.h"
+#include "exynos_drm_debugfs.h"
 
 #define DRIVER_NAME	"exynos"
 #define DRIVER_DESC	"Samsung SoC DRM"
@@ -200,6 +201,10 @@ static int exynos_drm_open(struct drm_device *dev, struct drm_file *file)
 	if (!file_priv)
 		return -ENOMEM;
 
+#if defined(CONFIG_DEBUG_FS)
+	file_priv->tgid = task_tgid_nr(current);
+#endif
+
 	file->driver_priv = file_priv;
 
 	ret = exynos_drm_subdrv_open(dev, file);
@@ -301,6 +306,10 @@ static struct drm_driver exynos_drm_driver = {
 	.get_vblank_counter	= drm_vblank_count,
 	.enable_vblank		= exynos_drm_crtc_enable_vblank,
 	.disable_vblank		= exynos_drm_crtc_disable_vblank,
+#if defined(CONFIG_DEBUG_FS)
+	.debugfs_init		= exynos_drm_debugfs_init,
+	.debugfs_cleanup	= exynos_drm_debugfs_cleanup,
+#endif
 	.gem_free_object	= exynos_drm_gem_free_object,
 	.gem_vm_ops		= &exynos_drm_gem_vm_ops,
 	.dumb_create		= exynos_drm_gem_dumb_create,
