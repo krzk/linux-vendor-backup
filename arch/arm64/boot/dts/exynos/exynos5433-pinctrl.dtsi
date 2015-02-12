@@ -123,7 +123,39 @@
 
 		interrupt-controller;
 		#interrupt-cells = <2>;
-      };
+	};
+
+	pcie_clkreq: pcie-clkreq {
+		samsung,pins = "gpf4-2";
+		smausng,pin-function = <0>;
+		sansung,pin-pud = <0>;
+	};
+
+	pcie_wake: pcie-wake {
+		samsung,pins = "gpf1-0";
+		smausng,pin-function = <0>;
+		sansung,pin-pud = <0>;
+	};
+
+	wlan_apstatus: wlan_apstatus {
+		samsung,pins = "gpa0-2";
+		samsung,pin-function = <0>;
+		samsung,pin-pud = <1>;
+	};
+
+	wlan_wake: wlan-wake {
+		samsung,pins = "gpf3-2";
+		samsung,pin-function = <0>;
+		samsung,pin-pud = <0>;
+	};
+
+	wlan_host_wake: wlan-host-wake {
+		samsung,pins = "gpf3-1";
+		samsung,pin-function = <0xf>;
+		samsung,pin-pud = <1>;
+		samsung,pin-con-pdn = <3>;
+		samsung,pin-pud-pdn = <1>;
+	};
 };
 
 &pinctrl_aud {
@@ -347,6 +379,7 @@
 		samsung,pins = "gpr3-4", "gpr3-5", "gpr3-6";
 		samsung,pin-function = <3>;
 		samsung,pin-pud = <3>;
+		samsung,pin-con-pud = <3>;
 	};
 
 	sd2_clk: sd2-clk {
