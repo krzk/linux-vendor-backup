@@ -475,6 +475,18 @@
 			status = "disabled";
 		};
 
+		serial_3: serial@11460000 {
+			compatible = "samsung,exynos5433-uart";
+			reg = <0x11460000 0x100>;
+			interrupts = <0 67 0>;
+			clocks = <&cmu_aud CLK_PCLK_AUD_UART>,
+				 <&cmu_aud CLK_SCLK_AUD_UART>;
+			clock-names = "uart", "clk_uart_baud0";
+			pinctrl-names = "default";
+			pinctrl-0 = <&uart_aud_bus>;
+			status = "disabled";
+		};
+
 		i2s0: i2s0@11440000 {
 			compatible = "samsung,exynos7-i2s";
 			reg = <0x11440000 0x100>;
