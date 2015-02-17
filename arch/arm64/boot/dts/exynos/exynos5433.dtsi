@@ -1174,6 +1174,12 @@
 				};
 			};
 		};
+
+		lpass {
+			compatible = "samsung,exynos5433-lpass";
+			reg = <0x11400000 0x100>;
+			samsung,pmu-syscon = <&pmu_system_controller>;
+		};
 	};
 
 	timer {
