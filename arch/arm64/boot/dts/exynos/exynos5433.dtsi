@@ -1076,6 +1076,35 @@
 			#pwm-cells = <3>;
 			status = "disabled";
 		};
+
+		decon: decon@13800000 {
+			compatible = "samsung,exynos5433-decon";
+			reg = <0x13800000 0x2104>;
+			clocks = <&cmu_disp CLK_ACLK_DECON>,
+				 <&cmu_disp CLK_ACLK_SMMU_DECON0X>,
+				 <&cmu_disp CLK_ACLK_XIU_DECON0X>,
+				 <&cmu_disp CLK_PCLK_SMMU_DECON0X>,
+				 <&cmu_disp CLK_SCLK_DECON_VCLK>,
+				 <&cmu_disp CLK_SCLK_DECON_ECLK>;
+			clock-names = "aclk_decon", "aclk_smmu_decon0x",
+				      "aclk_xiu_decon0x", "pclk_smmu_decon0x",
+				      "sclk_decon_vclk", "sclk_decon_eclk";
+			interrupt-names = "fifo", "vsync", "lcd_sys";
+			interrupts = <0 201 0>, <0 202 0>, <0 203 0>;
+			status = "disabled";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					decon_to_mic: endpoint {
+						remote-endpoint = <&mic_to_decon>;
+					};
+				};
+			};
+		};
 	};
 
 	timer {
