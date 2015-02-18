@@ -4832,9 +4832,9 @@ PNAME(mout_sclk_pixelasync_lite_c_init_a_p) = {
 
 static struct samsung_fixed_rate_clock cam0_fixed_clks[] __initdata = {
 	FRATE(CLK_PHYCLK_RXBYTEECLKHS0_S4_PHY, "phyclk_rxbyteclkhs0_s4_phy",
-			NULL, CLK_IS_ROOT, 100000000),
+			NULL, CLK_IS_ROOT, 188000000),
 	FRATE(CLK_PHYCLK_RXBYTEECLKHS0_S2A_PHY, "phyclk_rxbyteclkhs0_s2a_phy",
-			NULL, CLK_IS_ROOT, 100000000),
+			NULL, CLK_IS_ROOT, 188000000),
 };
 
 static struct samsung_mux_clock cam0_mux_clks[] __initdata = {
@@ -5265,7 +5265,7 @@ PNAME(mout_aclk_lite_c_a_p)		= { "mout_aclk_cam1_552_user",
 
 static struct samsung_fixed_rate_clock cam1_fixed_clks[] __initdata = {
 	FRATE(CLK_PHYCLK_RXBYTEECLKHS0_S2B, "phyclk_rxbyteclkhs0_s2b_phy", NULL,
-			CLK_IS_ROOT, 100000000),
+			CLK_IS_ROOT, 188000000),
 };
 
 static struct samsung_mux_clock cam1_mux_clks[] __initdata = {
