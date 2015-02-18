@@ -4562,6 +4562,20 @@ static const struct samsung_gate_clock isp_gate_clks[] __initconst = {
 	GATE(CLK_SCLK_PIXELASYNCM_ISPC, "sclk_pixelasyncm_ispc",
 			"mout_aclk_isp_400_user", ENABLE_SCLK_ISP,
 			0, CLK_IGNORE_UNUSED, 0),
+
+	/* ENABLE_IP_ISP2 */
+	GATE(CLK_BTS_3DNR, "clk_bts_3dnr", "",
+			ENABLE_IP_ISP2, 5, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_BTS_DIS1, "clk_bts_dis1", "",
+			ENABLE_IP_ISP2, 4, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_BTS_DIS0, "clk_bts_dis0", "",
+			ENABLE_IP_ISP2, 3, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_BTS_SCALERC, "clk_bts_scalerc", "",
+			ENABLE_IP_ISP2, 2, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_BTS_DRC, "clk_bts_drc", "",
+			ENABLE_IP_ISP2, 1, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_BTS_ISP, "clk_bts_isp", "",
+			ENABLE_IP_ISP2, 0, CLK_IGNORE_UNUSED, 0),
 };
 
 static const struct samsung_cmu_info isp_cmu_info __initconst = {
@@ -5042,6 +5056,64 @@ static const struct samsung_gate_clock cam0_gate_clks[] __initconst = {
 	GATE(CLK_SCLK_PIXELASYNCS_LITE_C_INIT, "sclk_pixelasyncs_lite_c_init",
 			"div_sclk_pixelasync_lite_c",
 			ENABLE_SCLK_CAM0, 0, 0, 0),
+
+	/* ENABLE_IP_CAM03 */
+	GATE(CLK_LITE_FREECNT, "clk_lite_freecnt", "",
+			ENABLE_IP_CAM03, 4, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_PIXELASYNC_3AA1, "clk_pixelasync_3aa1", "",
+			ENABLE_IP_CAM03, 3, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_PIXELASYNC_3AA0, "clk_pixelasync_3aa0", "",
+			ENABLE_IP_CAM03, 2, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_PIXELASYNC_LITE_C, "clk_pixelasync_lite_c", "",
+			ENABLE_IP_CAM03, 1, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_PIXELASYNC_LITE_C_INIT, "clk_pixelasync_lite_c_init", "",
+			ENABLE_IP_CAM03, 0, CLK_IGNORE_UNUSED, 0),
+	/* ENABLE_IP_CAM02 */
+	GATE(CLK_BTS_3AA1, "clk_bts_3aa1", "",
+			ENABLE_IP_CAM02, 4, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_BTS_3AA0, "clk_bts_3aa0", "",
+			ENABLE_IP_CAM02, 3, CLK_IGNORE_UNUSED, 0),
+
+	/* ENABLE_IP_CAM01 */
+	GATE(CLK_AXIUS_LITE_D, "clk_axius_lite_d", "",
+			ENABLE_IP_CAM01, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_AXIUS_LITE_B, "clk_axius_lite_b", "",
+			ENABLE_IP_CAM01, 20, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_AXIUS_LITE_A, "clk_axius_lite_a", "",
+			ENABLE_IP_CAM01, 19, CLK_IGNORE_UNUSED, 0),
+
+	GATE(CLK_ASYNCAXI_3AA1, "clk_asyncaxi_3aa1", "",
+			ENABLE_IP_CAM01, 11, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_ASYNCAXI_3AA0, "clk_asyncaxi_3aa0", "",
+			ENABLE_IP_CAM01, 10, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_ASYNCAXI_LITE_D, "clk_asyncaxi_lite_d", "",
+			ENABLE_IP_CAM01, 9, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_ASYNCAXI_LITE_B, "clk_asyncaxi_lite_b", "",
+			ENABLE_IP_CAM01, 8, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_ASYNCAXI_LITE_A, "clk_asyncaxi_lite_a", "",
+			ENABLE_IP_CAM01, 7, CLK_IGNORE_UNUSED, 0),
+
+	/* ENABLE_IP_CAM00 */
+	GATE(CLK_PMU_CAM0, "clk_pmu_cam0", "",
+			ENABLE_IP_CAM00, 9, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_SYSREG_CAM0, "clk_sysreg_cam0", "",
+			ENABLE_IP_CAM00, 8, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_CMU_CAM0_LOCAL, "clk_cmu_cam0_local", "",
+			ENABLE_IP_CAM00, 7, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_CSIS1, "clk_csis1", "",
+			ENABLE_IP_CAM00, 6, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_CSIS0, "clk_csis0", "",
+			ENABLE_IP_CAM00, 5, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_3AA1, "clk_3aa1", "",
+			ENABLE_IP_CAM00, 4, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_3AA0, "clk_3aa0", "",
+			ENABLE_IP_CAM00, 3, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_LITE_D, "clk_lite_d", "",
+			ENABLE_IP_CAM00, 2, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_LITE_B, "clk_lite_b", "",
+			ENABLE_IP_CAM00, 1, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_LITE_A, "clk_lite_a", "",
+			ENABLE_IP_CAM00, 0, CLK_IGNORE_UNUSED, 0),
 };
 
 static const struct samsung_cmu_info cam0_cmu_info __initconst = {
@@ -5417,6 +5489,26 @@ static const struct samsung_gate_clock cam1_gate_clks[] __initconst = {
 			ENABLE_SCLK_CAM1, 1, 0, 0),
 	GATE(CLK_SCLK_ISP_CA5, "sclk_isp_ca5", "mout_aclk_cam1_552_user",
 			ENABLE_SCLK_CAM1, 0, 0, 0),
+
+	/* IP_CAM12 */
+	GATE(CLK_BTS_FD, "clk_bts_fd", "",
+			ENABLE_IP_CAM12, 6, CLK_IGNORE_UNUSED, 0),
+
+	/* IP_CAM10 */
+	GATE(CLK_RXBYTECLKHS0_S2B, "clk_rxbyteclkhs0_s2b", "",
+			ENABLE_IP_CAM10, 23, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_LITE_C_FREECNT, "clk_lite_c_freecnt", "",
+			ENABLE_IP_CAM10, 22, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_PIXELASYNCS_LITE_C, "clk_pixelasyncs_lite_c", "",
+			ENABLE_IP_CAM10, 20, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_ISP_SPI1, "clk_isp_spi1", "",
+			ENABLE_IP_CAM10, 10, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_ISP_SPI0, "clk_isp_spi0", "",
+			ENABLE_IP_CAM10, 9, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_LITE_C, "clk_lite_c", "",
+			ENABLE_IP_CAM10, 2, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_CSIS2, "clk_csis2", "",
+			ENABLE_IP_CAM10, 1, CLK_IGNORE_UNUSED, 0),
 };
 
 static const struct samsung_cmu_info cam1_cmu_info __initconst = {

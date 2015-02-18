@@ -1150,7 +1150,15 @@
 #define CLK_SCLK_PIXELASYNCS_ISPC			76
 #define CLK_SCLK_PIXELASYNCM_ISPC			77
 
-#define ISP_NR_CLK					78
+/* IP_ISP2 */
+#define CLK_BTS_3DNR					78
+#define CLK_BTS_DIS1					79
+#define CLK_BTS_DIS0					80
+#define CLK_BTS_SCALERC					81
+#define CLK_BTS_DRC					82
+#define CLK_BTS_ISP					83
+
+#define ISP_NR_CLK					84
 
 /* CMU_CAM0 */
 #define CLK_PHYCLK_RXBYTEECLKHS0_S4_PHY			1
@@ -1288,7 +1296,48 @@
 #define CLK_SCLK_PIXELASYNCM_LITE_C_INIT		132
 #define CLK_SCLK_PIXELASYNCS_LITE_C_INIT		133
 
-#define CAM0_NR_CLK					134
+/* IP_CAM00 */
+#define	CLK_PMU_CAM0					134
+#define CLK_SYSREG_CAM0					135
+#define CLK_CMU_CAM0_LOCAL				136
+#define CLK_CSIS1					137
+#define CLK_CSIS0					138
+#define CLK_3AA1					139
+#define CLK_3AA0					140
+#define CLK_LITE_D					141
+#define CLK_LITE_B					142
+#define CLK_LITE_A					143
+
+/* IP_CAM01 */
+#define CLK_AXIUS_LITE_D				144
+#define CLK_AXIUS_LITE_B				145
+#define CLK_AXIUS_LITE_A				146
+
+#define CLK_ASYNCAPB_3AA1				147
+#define CLK_ASYNCAPB_3AA0				148
+#define CLK_ASYNCAPB_LITE_D				149
+#define CLK_ASYNCAPB_LITE_B				150
+#define CLK_ASYNCAPB_LITE_A				151
+#define CLK_ASYNCAXI_CAM1				152
+
+#define CLK_ASYNCAXI_3AA1				153
+#define CLK_ASYNCAXI_3AA0				154
+#define CLK_ASYNCAXI_LITE_D				155
+#define CLK_ASYNCAXI_LITE_B				156
+#define CLK_ASYNCAXI_LITE_A				157
+
+/* IP_CAM02 */
+#define CLK_BTS_3AA1					158
+#define CLK_BTS_3AA0					159
+
+/* IP_CAM03 */
+#define CLK_LITE_FREECNT				160
+#define CLK_PIXELASYNC_3AA1				161
+#define CLK_PIXELASYNC_3AA0				162
+#define CLK_PIXELASYNC_LITE_C				163
+#define CLK_PIXELASYNC_LITE_C_INIT			164
+
+#define CAM0_NR_CLK					165
 
 /* CMU_CAM1 */
 #define CLK_PHYCLK_RXBYTEECLKHS0_S2B			1
@@ -1407,6 +1456,18 @@
 #define CLK_ATCLK_ISP					111
 #define CLK_SCLK_ISP_CA5				112
 
-#define CAM1_NR_CLK					113
+/* IP_CAM10 */
+#define CLK_RXBYTECLKHS0_S2B				113
+#define CLK_LITE_C_FREECNT				114
+#define CLK_PIXELASYNCS_LITE_C				115
+#define CLK_ISP_SPI1					116
+#define CLK_ISP_SPI0					117
+#define CLK_LITE_C					118
+#define CLK_CSIS2					119
+
+/* IP_CAM12 */
+#define CLK_BTS_FD					120
+
+#define CAM1_NR_CLK					121
 
 #endif /* _DT_BINDINGS_CLOCK_EXYNOS5433_H */
