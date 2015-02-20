@@ -1264,6 +1264,8 @@
 			interrupt-names = "fifo", "vsync", "lcd_sys";
 			interrupts = <0 201 0>, <0 202 0>, <0 203 0>;
 			status = "disabled";
+			iommus = <&sysmmu_decon0x>, <&sysmmu_decon1x>;
+			iommu-names = "m0", "m1";
 
 			ports {
 				#address-cells = <1>;
@@ -1344,6 +1346,24 @@
 			compatible = "samsung,exynos5433-lpass";
 			reg = <0x11400000 0x100>;
 			samsung,pmu-syscon = <&pmu_system_controller>;
+		};
+
+		sysmmu_decon0x: sysmmu@0x13A00000 {
+			compatible = "samsung,exynos-sysmmu";
+			reg = <0x13A00000 0x1000>;
+			interrupts = <0 192 0>;
+			clock-names = "pclk", "aclk";
+			clocks = <&cmu_disp CLK_PCLK_SMMU_DECON0X>, <&cmu_disp CLK_ACLK_SMMU_DECON0X>;
+			#iommu-cells = <0>;
+		};
+
+		sysmmu_decon1x: sysmmu@0x13A10000 {
+			compatible = "samsung,exynos-sysmmu";
+			reg = <0x13A10000 0x1000>;
+			interrupts = <0 194 0>;
+			clock-names = "pclk", "aclk";
+			clocks = <&cmu_disp CLK_PCLK_SMMU_DECON1X>, <&cmu_disp CLK_ACLK_SMMU_DECON1X>;
+			#iommu-cells = <0>;
 		};
 	};
 
