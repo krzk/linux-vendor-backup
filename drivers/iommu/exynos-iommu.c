@@ -26,9 +26,11 @@
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
 
+#ifndef CONFIG_ARM64
 #include <asm/cacheflush.h>
 #include <asm/dma-iommu.h>
 #include <asm/pgtable.h>
+#endif
 
 typedef u32 sysmmu_iova_t;
 typedef u32 sysmmu_pte_t;
@@ -58,6 +60,7 @@ typedef u32 sysmmu_pte_t;
 #define lv2ent_small(pent) ((*(pent) & 2) == 2)
 #define lv2ent_large(pent) ((*(pent) & 3) == 1)
 
+#ifndef CONFIG_ARM64
 static u32 sysmmu_page_offset(sysmmu_iova_t iova, u32 size)
 {
 	return iova & (size - 1);
@@ -69,6 +72,20 @@ static u32 sysmmu_page_offset(sysmmu_iova_t iova, u32 size)
 #define lpage_offs(iova) sysmmu_page_offset((iova), LPAGE_SIZE)
 #define spage_phys(pent) (*(pent) & SPAGE_MASK)
 #define spage_offs(iova) sysmmu_page_offset((iova), SPAGE_SIZE)
+
+#else
+
+#define PG_ENT_SHIFT 4 /* 36bit PA, 32bit VA */
+
+#define sect_to_phys(ent) (((phys_addr_t) ent) << PG_ENT_SHIFT)
+
+#define section_phys(sent) (sect_to_phys(*(sent)) & SECT_MASK)
+#define section_offs(iova) (iova & (SECT_SIZE - 1))
+#define lpage_phys(pent) (sect_to_phys(*(pent)) & LPAGE_MASK)
+#define lpage_offs(iova) (iova & (LPAGE_SIZE - 1))
+#define spage_phys(pent) (sect_to_phys(*(pent)) & SPAGE_MASK)
+#define spage_offs(iova) (iova & (SPAGE_SIZE - 1))
+#endif
 
 #define NUM_LV1ENTRIES 4096
 #define NUM_LV2ENTRIES (SECT_SIZE / SPAGE_SIZE)
@@ -87,12 +104,21 @@ static u32 lv2ent_offset(sysmmu_iova_t iova)
 
 #define SPAGES_PER_LPAGE (LPAGE_SIZE / SPAGE_SIZE)
 
+#ifndef CONFIG_ARM64
 #define lv2table_base(sent) (*(sent) & 0xFFFFFC00)
 
 #define mk_lv1ent_sect(pa) ((pa) | 2)
 #define mk_lv1ent_page(pa) ((pa) | 1)
 #define mk_lv2ent_lpage(pa) ((pa) | 1)
 #define mk_lv2ent_spage(pa) ((pa) | 2)
+#else
+#define lv2table_base(sent) (sect_to_phys(*(sent) & 0xFFFFFFFC0LLU))
+
+#define mk_lv1ent_sect(pa) ((pa >> PG_ENT_SHIFT) | 2)
+#define mk_lv1ent_page(pa) ((pa >> PG_ENT_SHIFT) | 1)
+#define mk_lv2ent_lpage(pa) ((pa >> PG_ENT_SHIFT) | 1)
+#define mk_lv2ent_spage(pa) ((pa >> PG_ENT_SHIFT) | 2)
+#endif
 
 #define CTRL_ENABLE	0x5
 #define CTRL_BLOCK	0x7
@@ -104,6 +130,8 @@ static u32 lv2ent_offset(sysmmu_iova_t iova)
 #define CFG_ACGEN	(1 << 24) /* System MMU 3.3 only */
 #define CFG_SYSSEL	(1 << 22) /* System MMU 3.2 only */
 #define CFG_FLPDCACHE	(1 << 20) /* System MMU 3.2+ only */
+
+#ifndef CONFIG_ARM64
 
 #define REG_MMU_CTRL		0x000
 #define REG_MMU_CFG		0x004
@@ -121,16 +149,34 @@ static u32 lv2ent_offset(sysmmu_iova_t iova)
 
 #define REG_MMU_VERSION		0x034
 
+#define REG_PB0_SADDR		0x04C
+#define REG_PB0_EADDR		0x050
+#define REG_PB1_SADDR		0x054
+#define REG_PB1_EADDR		0x058
+
+#else
+
+#define REG_MMU_CTRL		0x000
+#define REG_MMU_CFG		0x004
+#define REG_MMU_STATUS		0x008
+#define REG_PT_BASE_PFN		0x00C
+#define REG_MMU_FLUSH_ALL	0x010
+#define REG_MMU_FLUSH_ENTRY	0x014
+#define REG_MMU_FLUSH_RANGE	0x018
+#define REG_PAGE_FAULT_ADDR	0x024
+#define REG_MMU_VERSION		0x034
+
+#define REG_INT_STATUS		0x060
+#define REG_INT_CLEAR		0x064
+#define REG_AW_FAULT_ADDR	0x080
+
+#endif
+
 #define MMU_MAJ_VER(val)	((val) >> 7)
 #define MMU_MIN_VER(val)	((val) & 0x7F)
 #define MMU_RAW_VER(reg)	(((reg) >> 21) & ((1 << 11) - 1)) /* 11 bits */
 
 #define MAKE_MMU_VER(maj, min)	((((maj) & 0xF) << 7) | ((min) & 0x7F))
-
-#define REG_PB0_SADDR		0x04C
-#define REG_PB0_EADDR		0x050
-#define REG_PB1_SADDR		0x054
-#define REG_PB1_EADDR		0x058
 
 #define has_sysmmu(dev)		(dev->archdata.iommu != NULL)
 
@@ -162,6 +208,7 @@ enum exynos_sysmmu_inttype {
 	SYSMMU_FAULTS_NUM
 };
 
+#ifndef CONFIG_ARM64
 static unsigned short fault_reg_offset[SYSMMU_FAULTS_NUM] = {
 	REG_PAGE_FAULT_ADDR,
 	REG_AR_FAULT_ADDR,
@@ -184,6 +231,7 @@ static char *sysmmu_fault_name[SYSMMU_FAULTS_NUM] = {
 	"AW ACCESS PROTECTION FAULT",
 	"UNKNOWN FAULT"
 };
+#endif
 
 /*
  * This structure is attached to dev.archdata.iommu of the master device
@@ -278,7 +326,11 @@ static bool sysmmu_block(void __iomem *sfrbase)
 
 static void __sysmmu_tlb_invalidate(void __iomem *sfrbase)
 {
+#ifndef CONFIG_ARM64
 	__raw_writel(0x1, sfrbase + REG_MMU_FLUSH);
+#else
+	__raw_writel(0x1, sfrbase + REG_MMU_FLUSH_ALL);
+#endif
 }
 
 static void __sysmmu_tlb_invalidate_entry(void __iomem *sfrbase,
@@ -296,11 +348,16 @@ static void __sysmmu_tlb_invalidate_entry(void __iomem *sfrbase,
 static void __sysmmu_set_ptbase(void __iomem *sfrbase,
 				       phys_addr_t pgd)
 {
+#ifndef CONFIG_ARM64
 	__raw_writel(pgd, sfrbase + REG_PT_BASE_ADDR);
+#else
+	__raw_writel(pgd >> PAGE_SHIFT, sfrbase + REG_PT_BASE_PFN);
+#endif
 
 	__sysmmu_tlb_invalidate(sfrbase);
 }
 
+#ifndef CONFIG_ARM64
 static void show_fault_information(const char *name,
 		enum exynos_sysmmu_inttype itype,
 		phys_addr_t pgtable_base, sysmmu_iova_t fault_addr)
@@ -321,6 +378,7 @@ static void show_fault_information(const char *name,
 		pr_err("\t Lv2 entry: %#x\n", *ent);
 	}
 }
+#endif
 
 static irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 {
@@ -339,6 +397,7 @@ static irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 
 	itype = (enum exynos_sysmmu_inttype)
 		__ffs(__raw_readl(data->sfrbase + REG_INT_STATUS));
+#ifndef CONFIG_ARM64
 	if (WARN_ON(!((itype >= 0) && (itype < SYSMMU_FAULT_UNKNOWN))))
 		itype = SYSMMU_FAULT_UNKNOWN;
 	else
@@ -359,7 +418,7 @@ static irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 			ret = report_iommu_fault(data->domain,
 					data->master, addr, itype);
 	}
-
+#endif
 	/* fault is not recovered by fault handler */
 	BUG_ON(ret != 0);
 
@@ -416,10 +475,16 @@ static bool __sysmmu_disable(struct sysmmu_drvdata *data)
 
 static void __sysmmu_init_config(struct sysmmu_drvdata *data)
 {
+#ifndef CONFIG_ARM64
 	unsigned int cfg = CFG_LRU | CFG_QOS(15);
+#else
+	unsigned int cfg = 0;
+#endif
 	unsigned int ver;
 
 	ver = MMU_RAW_VER(__raw_readl(data->sfrbase + REG_MMU_VERSION));
+
+#ifndef CONFIG_ARM64
 	if (MMU_MAJ_VER(ver) == 3) {
 		if (MMU_MIN_VER(ver) >= 2) {
 			cfg |= CFG_FLPDCACHE;
@@ -431,6 +496,7 @@ static void __sysmmu_init_config(struct sysmmu_drvdata *data)
 			}
 		}
 	}
+#endif
 
 	__raw_writel(cfg, data->sfrbase + REG_MMU_CFG);
 	data->version = ver;
@@ -621,9 +687,14 @@ static struct platform_driver exynos_sysmmu_driver __refdata = {
 
 static inline void pgtable_flush(void *vastart, void *vaend)
 {
+#ifndef CONFIG_ARM64
 	dmac_flush_range(vastart, vaend);
 	outer_flush_range(virt_to_phys(vastart),
 				virt_to_phys(vaend));
+#else
+	dma_sync_single_for_device(NULL, virt_to_phys(vastart),
+				   vaend - vastart, DMA_TO_DEVICE);
+#endif
 }
 
 static struct iommu_domain *exynos_iommu_domain_alloc(unsigned type)
@@ -789,7 +860,7 @@ static sysmmu_pte_t *alloc_lv2entry(struct exynos_iommu_domain *domain,
 		bool need_flush_flpd_cache = lv1ent_zero(sent);
 
 		pent = kmem_cache_zalloc(lv2table_kmem_cache, GFP_ATOMIC);
-		BUG_ON((unsigned int)pent & (LV2TABLE_SIZE - 1));
+		BUG_ON((phys_addr_t)pent & (LV2TABLE_SIZE - 1));
 		if (!pent)
 			return ERR_PTR(-ENOMEM);
 
