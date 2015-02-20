@@ -71,6 +71,7 @@ int iommu_dma_coherent_map_sg(struct device *dev, struct scatterlist *sg,
 void iommu_dma_unmap_sg(struct device *dev, struct scatterlist *sgl, int nents,
 		enum dma_data_direction dir, struct dma_attrs *attrs);
 
+int iommu_dma_init_reserved(struct device *dev, struct iommu_dma_domain *dma_domain);
 int iommu_dma_supported(struct device *dev, u64 mask);
 int iommu_dma_mapping_error(struct device *dev, dma_addr_t dma_addr);
 

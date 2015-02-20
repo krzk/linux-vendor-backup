@@ -738,6 +738,9 @@ static void __iommu_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 		return;
 	}
 
+	if (iommu_dma_init_reserved(dev, dma_domain))
+		return;
+
 	if (iommu_dma_attach_device(dev, dma_domain))
 		pr_warn("Failed to attach device %s to IOMMU mapping\n",
 				dev_name(dev));

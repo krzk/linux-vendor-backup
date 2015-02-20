@@ -550,3 +550,62 @@ int iommu_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
 {
 	return dma_addr == DMA_ERROR_CODE;
 }
+
+int iommu_add_reserved_mapping(struct device *dev, struct iommu_dma_domain *dma_domain,
+				phys_addr_t phys, dma_addr_t dma, size_t size)
+{
+	struct iova *res;
+	int ret;
+
+	res = reserve_iova(dma_domain->iovad, PFN_DOWN(dma), PFN_DOWN(dma + size));
+	if (!res) {
+		dev_err(dev, "failed to reserve mapping\n");
+		return -EINVAL;
+	}
+
+	ret = iommu_map(dma_domain->domain, dma, phys, size, IOMMU_READ);
+	if (ret != 0) {
+		dev_err(dev, "create IOMMU mapping\n");
+		return ret;
+	}
+
+	dev_info(dev, "created reserved DMA mapping (%pa -> %pad, %zd bytes)\n",
+		 &phys, &dma, size);
+
+	return 0;
+}
+
+int iommu_dma_init_reserved(struct device *dev, struct iommu_dma_domain *dma_domain)
+{
+	const char *name = "iommu-reserved-mapping";
+	const __be32 *prop = NULL;
+	int len, naddr, nsize;
+	struct device_node *node = dev->of_node;
+	phys_addr_t phys;
+	dma_addr_t dma;
+	size_t size;
+
+	if (!node)
+		return 0;
+
+	naddr = of_n_addr_cells(node);
+	nsize = of_n_size_cells(node);
+
+	prop = of_get_property(node, name, &len);
+	if (!prop)
+		return 0;
+
+	len /= sizeof(u32);
+
+	if (len < 2 * naddr + nsize) {
+		dev_err(dev, "invalid length (%d cells) of %s property\n",
+			len, name);
+		return -EINVAL;
+	}
+
+	phys = of_read_number(prop, naddr);
+	dma = of_read_number(prop + naddr, naddr);
+	size = of_read_number(prop + 2*naddr, nsize);
+
+	return iommu_add_reserved_mapping(dev, dma_domain, phys, dma, size);
+}
