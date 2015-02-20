@@ -1,9 +1,5 @@
 /*
-<<<<<<< HEAD:drivers/gpu/arm/ump/linux/ump_kernel_linux.h:drivers/gpu/arm/ump/linux/ump_kernel_linux.h
- * Copyright (C) 2010-2013 ARM Limited. All rights reserved.
-=======
- * Copyright (C) 2012-2013 ARM Limited. All rights reserved.
->>>>>>> hk/odroid-3.8.y-mali_r4p0:drivers/gpu/arm/mali/linux/mali_profiling_gator_api.h:drivers/gpu/arm/mali/linux/mali_profiling_gator_api.h
+ * Copyright (C) 2012-2014 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
