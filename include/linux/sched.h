@@ -1148,6 +1148,10 @@ struct sched_avg {
 	 */
 	u32 runnable_avg_sum, avg_period, running_avg_sum;
 	unsigned long load_avg_ratio;
+#ifdef CONFIG_SCHED_HMP
+	u64 hmp_last_up_migration;
+	u64 hmp_last_down_migration;
+#endif
 	u32 usage_avg_sum;
 };
 
