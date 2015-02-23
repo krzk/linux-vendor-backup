@@ -436,6 +436,14 @@
 	vdd_g3d-supply = <&buck4_reg>;
 };
 
+&usbdrd3_0 {
+	extcon = <&usb_extcon_b>;
+};
+
+&usbdrd3_1 {
+	extcon = <&usb_extcon_a>;
+};
+
 &usbdrd_dwc3_0 {
 	dr_mode = "host";
 };
