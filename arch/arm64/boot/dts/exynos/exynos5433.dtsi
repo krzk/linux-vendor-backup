@@ -154,6 +154,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x0 0x0 0x0 0x18000000>;
+		dma-ranges;
 
 		chipid@10000000 {
 			compatible = "samsung,exynos4210-chipid";
@@ -1411,6 +1412,30 @@
 			iommus = <&sysmmu_gscl2>;
 		};
 
+		mfc-bus {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+			dma-ranges = <0x10000000 0x10000000 0x20000000>;
+
+			mfc_0: mfc@152E0000 {
+				compatible = "samsung,exynos5433-mfc";
+				reg = <0x152E0000 0x10000>;
+				interrupts = <0 358 0>;
+				clocks = <&cmu_mfc CLK_PCLK_MFC>,
+					 <&cmu_mfc CLK_ACLK_MFC>,
+					 <&cmu_mfc CLK_ACLK_XIU_MFCX>;
+				clock-names = "pclk",
+					      "aclk",
+					      "aclk_xiu";
+				assigned-clocks = <&cmu_mfc CLK_MOUT_ACLK_MFC_400_USER>;
+				assigned-clock-parents = <&cmu_top CLK_ACLK_MFC_400>;
+				iommus = <&sysmmu_mfc_0>, <&sysmmu_mfc_1>;
+				iommu-names = "left", "right";
+			};
+		};
+
 		sysmmu_gscl0: sysmmu@0x13C80000 {
 			compatible = "samsung,exynos-sysmmu";
 			reg = <0x13C80000 0x1000>;
@@ -1453,6 +1478,24 @@
 			interrupts = <0 194 0>;
 			clock-names = "pclk", "aclk";
 			clocks = <&cmu_disp CLK_PCLK_SMMU_DECON1X>, <&cmu_disp CLK_ACLK_SMMU_DECON1X>;
+			#iommu-cells = <0>;
+		};
+
+		sysmmu_mfc_0: sysmmu@0x15200000 {
+			compatible = "samsung,exynos-sysmmu";
+			reg = <0x15200000 0x1000>;
+			interrupts = <0 352 0>;
+			clock-names = "pclk", "aclk";
+			clocks = <&cmu_mfc CLK_PCLK_SMMU_MFC_0>, <&cmu_mfc CLK_ACLK_SMMU_MFC_0>;
+			#iommu-cells = <0>;
+		};
+
+		sysmmu_mfc_1: sysmmu@0x15210000 {
+			compatible = "samsung,exynos-sysmmu";
+			reg = <0x15210000 0x1000>;
+			interrupts = <0 354 0>;
+			clock-names = "pclk", "aclk";
+			clocks = <&cmu_mfc CLK_PCLK_SMMU_MFC_1>, <&cmu_mfc CLK_ACLK_SMMU_MFC_1>;
 			#iommu-cells = <0>;
 		};
 	};
