@@ -686,17 +686,37 @@ static int dwc3_core_init_mode(struct dwc3 *dwc)
 		break;
 	case USB_DR_MODE_OTG:
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_OTG);
+		ret = dwc3_otg_init(dwc);
+		if (ret) {
+			dev_err(dev, "failed to initialize otg\n");
+			return ret;
+		}
+
 		ret = dwc3_host_init(dwc);
 		if (ret) {
 			dev_err(dev, "failed to initialize host\n");
+			dwc3_otg_exit(dwc);
 			return ret;
 		}
 
 		ret = dwc3_gadget_init(dwc);
 		if (ret) {
 			dev_err(dev, "failed to initialize gadget\n");
+			dwc3_host_exit(dwc);
+			dwc3_otg_exit(dwc);
 			return ret;
 		}
+
+		/* Now we are ready to start OTG */
+		ret = dwc3_otg_start(dwc);
+		if (ret) {
+			dev_err(dev, "failed to start otg\n");
+			dwc3_host_exit(dwc);
+			dwc3_gadget_exit(dwc);
+			dwc3_otg_exit(dwc);
+			return ret;
+		}
+
 		break;
 	default:
 		dev_err(dev, "Unsupported mode of operation %d\n", dwc->dr_mode);
@@ -716,8 +736,10 @@ static void dwc3_core_exit_mode(struct dwc3 *dwc)
 		dwc3_host_exit(dwc);
 		break;
 	case USB_DR_MODE_OTG:
+		dwc3_otg_stop(dwc);
 		dwc3_host_exit(dwc);
 		dwc3_gadget_exit(dwc);
+		dwc3_otg_exit(dwc);
 		break;
 	default:
 		/* do nothing */
@@ -937,6 +959,12 @@ static int dwc3_probe(struct platform_device *pdev)
 		goto err4;
 	}
 
+	if (dwc->dr_mode == USB_DR_MODE_OTG) {
+		dwc3_core_exit(dwc);
+		dwc->needs_reinit = 1;
+		pm_runtime_put_sync(dev);
+	}
+
 	ret = dwc3_core_init_mode(dwc);
 	if (ret)
 		goto err5;
@@ -1018,6 +1046,9 @@ static int dwc3_suspend(struct device *dev)
 	struct dwc3	*dwc = dev_get_drvdata(dev);
 	unsigned long	flags;
 
+	if (dwc->dr_mode == USB_DR_MODE_OTG)
+		dwc3_otg_stop(dwc);
+
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	switch (dwc->dr_mode) {
@@ -1030,7 +1061,10 @@ static int dwc3_suspend(struct device *dev)
 
 	dwc3_event_buffers_cleanup(dwc);
 
-	dwc->gctl = dwc3_readl(dwc->regs, DWC3_GCTL);
+	/* backup GCTL only in non-OTG modes */
+	if (dwc->dr_mode != USB_DR_MODE_OTG)
+		dwc->gctl = dwc3_readl(dwc->regs, DWC3_GCTL);
+
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	usb_phy_shutdown(dwc->usb3_phy);
@@ -1060,7 +1094,10 @@ static int dwc3_resume(struct device *dev)
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	dwc3_event_buffers_setup(dwc);
-	dwc3_writel(dwc->regs, DWC3_GCTL, dwc->gctl);
+
+	/* backup GCTL only in non-OTG modes */
+	if (dwc->dr_mode != USB_DR_MODE_OTG)
+		dwc3_writel(dwc->regs, DWC3_GCTL, dwc->gctl);
 
 	switch (dwc->dr_mode) {
 	case USB_DR_MODE_PERIPHERAL:
@@ -1075,6 +1112,9 @@ static int dwc3_resume(struct device *dev)
 	pm_runtime_disable(dev);
 	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
+
+	if (dwc->dr_mode == USB_DR_MODE_OTG)
+		dwc3_otg_start(dwc);
 
 	return 0;
 
