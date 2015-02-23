@@ -62,10 +62,12 @@ int dwc3_host_init(struct dwc3 *dwc)
 	phy_create_lookup(dwc->usb3_generic_phy, "usb3-phy",
 			  dev_name(&xhci->dev));
 
-	ret = platform_device_add(xhci);
-	if (ret) {
-		dev_err(dwc->dev, "failed to register xHCI device\n");
-		goto err2;
+	if (!dwc->dotg) {
+		ret = platform_device_add(xhci);
+		if (ret) {
+			dev_err(dwc->dev, "failed to register xHCI device\n");
+			goto err2;
+		}
 	}
 
 	return 0;
