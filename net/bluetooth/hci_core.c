@@ -66,10 +66,25 @@ static DEFINE_IDA(hci_index_ida);
 #define hci_req_unlock(d)	mutex_unlock(&d->req_lock)
 
 /* ---- HCI notifications ---- */
+static ATOMIC_NOTIFIER_HEAD(hci_notifier);
+
+int hci_register_notifier(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_register(&hci_notifier, nb);
+}
+
+int hci_unregister_notifier(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_unregister(&hci_notifier, nb);
+}
 
 static void hci_notify(struct hci_dev *hdev, int event)
 {
 	hci_sock_dev_event(hdev, event);
+
+	if (event == HCI_DEV_REG || event == HCI_DEV_UNREG
+			|| event == HCI_DEV_WRITE)
+		atomic_notifier_call_chain(&hci_notifier, event, hdev);
 }
 
 /* ---- HCI debugfs entries ---- */
@@ -3365,6 +3380,8 @@ static void hci_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 
 	/* Get rid of skb owner, prior to sending to the driver. */
 	skb_orphan(skb);
+
+	hci_notify(hdev, HCI_DEV_WRITE);
 
 	err = hdev->send(hdev, skb);
 	if (err < 0) {
