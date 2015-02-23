@@ -233,6 +233,15 @@ config BATTERY_MAX17042
 	  with MAX17042. This driver also supports max17047/50 chips which are
 	  improved version of max17042.
 
+config BATTERY_MAX77843
+	tristate "Maxim MAX77843 Fuel Gauge"
+	depends on MFD_MAX77843
+	help
+	  This adds support for battery fuel gauge in Maxim MAX77843. It is
+	  fuel-gauge for a lithium-ion batteries with a single cell and can be
+	  found in portable devices. The MAX17040 is configured to operate with
+	  a single lithium cell.
+
 config BATTERY_Z2
 	tristate "Z2 battery driver"
 	depends on I2C && MACH_ZIPIT2
