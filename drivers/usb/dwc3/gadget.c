@@ -32,6 +32,7 @@
 
 #include "debug.h"
 #include "core.h"
+#include "otg.h"
 #include "gadget.h"
 #include "io.h"
 
@@ -2821,8 +2822,18 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 		goto err4;
 	}
 
+	if (dwc->dotg) {
+		ret = otg_set_peripheral(&dwc->dotg->otg, &dwc->gadget);
+		if (ret) {
+			dev_err(dwc->dev, "failed to set otg peripheral\n");
+			goto err5;
+		}
+	}
+
 	return 0;
 
+err5:
+	usb_del_gadget_udc(&dwc->gadget);
 err4:
 	dwc3_gadget_free_endpoints(dwc);
 	dma_free_coherent(dwc->dev, DWC3_EP0_BOUNCE_SIZE,
@@ -2847,6 +2858,9 @@ err0:
 
 void dwc3_gadget_exit(struct dwc3 *dwc)
 {
+	if (dwc->dotg)
+		otg_set_peripheral(&dwc->dotg->otg, NULL);
+
 	usb_del_gadget_udc(&dwc->gadget);
 
 	dwc3_gadget_free_endpoints(dwc);
