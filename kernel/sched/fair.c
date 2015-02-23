@@ -2756,10 +2756,8 @@ static inline u64 __synchronize_entity_decay(struct sched_entity *se)
 
 	decays -= se->avg.decay_count;
 	se->avg.decay_count = 0;
-	if (!decays)
-		return 0;
-
-	se->avg.load_avg_contrib = decay_load(se->avg.load_avg_contrib, decays);
+	if (decays)
+		se->avg.load_avg_contrib = decay_load(se->avg.load_avg_contrib, decays);
 	se->avg.utilization_avg_contrib =
 		decay_load(se->avg.utilization_avg_contrib, decays);
 
@@ -5435,7 +5433,7 @@ static ssize_t hmp_print_domains(char *outbuf, int outbufsize)
 	int outpos = 0;
 	list_for_each(pos, &hmp_domains) {
 		domain = list_entry(pos, struct hmp_domain, hmp_domains);
-		if (cpumask_scnprintf(buf, 64, &domain->possible_cpus)) {
+		if (scnprintf(buf, 64, "%*pb", cpumask_pr_args(&domain->possible_cpus))) {
 			outpos += sprintf(outbuf+outpos, fmt, buf);
 			fmt = space;
 		}
