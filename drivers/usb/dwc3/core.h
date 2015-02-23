@@ -226,6 +226,7 @@
 
 /* Global HWPARAMS6 Register */
 #define DWC3_GHWPARAMS6_EN_FPGA			(1 << 7)
+#define DWC3_GHWPARAMS6_SRP_SUPPORT		(1 << 10)
 
 /* Device Configuration Register */
 #define DWC3_DCFG_DEVADDR(addr)	((addr) << 3)
@@ -383,6 +384,20 @@
 #define DWC3_DEPCMD_TYPE_ISOC		1
 #define DWC3_DEPCMD_TYPE_BULK		2
 #define DWC3_DEPCMD_TYPE_INTR		3
+
+/* OTG Control Register */
+#define DWC3_OTG_OCTL_PERIMODE		(1 << 6)
+#define DWC3_OTG_OCTL_PORTPWR		(1 << 5)
+
+/* OTG Events Register */
+#define DWC3_OEVT_DEVICEMODE			(1 << 31)
+#define DWC3_OEVT_CLEAR_ALL			(~DWC3_OEVT_DEVICEMODE)
+#define DWC3_OEVTEN_OTGCONIDSTSCHNGEVNT		(1 << 24)
+#define DWC3_OEVTEN_OTGBDEVVBUSCHNGEVNT		(1 << 8)
+
+/* OTG Status Register */
+#define DWC3_OTG_OSTS_BSESVALID		(1 << 2)
+#define DWC3_OTG_OSTS_CONIDSTS		(1 << 0)
 
 /* Structures */
 
@@ -733,6 +748,8 @@ struct dwc3 {
 	struct dwc3_event_buffer **ev_buffs;
 	struct dwc3_ep		*eps[DWC3_ENDPOINTS_NUM];
 
+	struct dwc3_otg		*dotg;
+
 	struct usb_gadget	gadget;
 	struct usb_gadget_driver *gadget_driver;
 
@@ -845,6 +862,8 @@ struct dwc3 {
 
 	unsigned		tx_de_emphasis_quirk:1;
 	unsigned		tx_de_emphasis:2;
+
+	unsigned		needs_reinit:1;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -995,6 +1014,13 @@ struct dwc3_gadget_ep_cmd_params {
 /* prototypes */
 void dwc3_set_mode(struct dwc3 *dwc, u32 mode);
 int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc);
+int dwc3_otg_start(struct dwc3 *dwc);
+void dwc3_otg_stop(struct dwc3 *dwc);
+int dwc3_otg_init(struct dwc3 *dwc);
+void dwc3_otg_exit(struct dwc3 *dwc);
+int dwc3_core_init(struct dwc3 *dwc);
+void dwc3_core_exit(struct dwc3 *dwc);
+int dwc3_event_buffers_setup(struct dwc3 *dwc);
 
 #if IS_ENABLED(CONFIG_USB_DWC3_HOST) || IS_ENABLED(CONFIG_USB_DWC3_DUAL_ROLE)
 int dwc3_host_init(struct dwc3 *dwc);

@@ -15,6 +15,10 @@ ifneq ($(filter y,$(CONFIG_USB_DWC3_GADGET) $(CONFIG_USB_DWC3_DUAL_ROLE)),)
 	dwc3-y				+= gadget.o ep0.o
 endif
 
+ifneq ($(filter y,$(CONFIG_USB_DWC3_DUAL_ROLE)),)
+	dwc3-y				+= otg.o
+endif
+
 ifneq ($(CONFIG_DEBUG_FS),)
 	dwc3-y				+= debugfs.o
 endif
