@@ -375,6 +375,23 @@
 			status = "disabled";
 		};
 
+		gpu: gpu@13000000 {
+			compatible = "samsung,exynos3250-g3d";
+			reg = <0x13001000 0x200>,
+			    <0x13000000 0x100>, <0x13003000 0x100>,
+			    <0x13008000 0x1100>, <0x13004000 0x100>,
+			    <0x1300a000 0x1100>, <0x13005000 0x100>;
+			interrupts = <0 187 0>, <0 182 0>, <0 183 0>, <0 178 0>,
+				   <0 184 0>, <0 179 0>;
+			clock-names = "pll", "mux1", "mux2", "sclk", "smmu",
+				"g3d";
+			clocks = <&cmu CLK_DIV_MPLL_PRE>, <&cmu CLK_MOUT_G3D_0>,
+					<&cmu CLK_MOUT_G3D>, <&cmu CLK_SCLK_G3D>,
+					<&cmu CLK_SMMUG3D>, <&cmu CLK_G3D>;
+			samsung,power-domain = <&pd_g3d>;
+			status = "disabled";
+	       };
+
 		mfc: codec@13400000 {
 			compatible = "samsung,mfc-v7";
 			reg = <0x13400000 0x10000>;
