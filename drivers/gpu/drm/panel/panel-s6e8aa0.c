@@ -932,6 +932,7 @@ static int s6e8aa0_get_modes(struct drm_panel *panel)
 	}
 
 	drm_display_mode_from_videomode(&ctx->vm, mode);
+	mode->vrefresh = 60;
 	mode->width_mm = ctx->width_mm;
 	mode->height_mm = ctx->height_mm;
 	connector->display_info.width_mm = mode->width_mm;
