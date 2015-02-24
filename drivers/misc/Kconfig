@@ -372,6 +372,15 @@ config SEC_SYSFS
 	  Say Y here if you want to create/destroy SEC class.
 	  This driver workaround driver to support TIZEN platform.
 
+config IR_REMOCON_FPGA
+	tristate "FPGA chip for IR LED control"
+	select SEC_SYSFS
+	help
+	  This is a driver for IR LED driver based on Lattice chip.
+	  Lattice FPGA can support IR LED.
+	  To compile this driver as a module, choose M here.
+	  If unsure, say N.
+
 config HMC6352
 	tristate "Honeywell HMC6352 compass"
 	depends on I2C
