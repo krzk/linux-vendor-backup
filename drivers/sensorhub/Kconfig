@@ -1,0 +1,11 @@
+menu "Sensor HUB Drivers"
+
+config SENSORS_SSP_STM_RINATO
+	bool "Sensorhub for rinato"
+	help
+	  this is enables Sensorhub for rinato
+if SENSORS_SSP_STM_RINATO
+source "drivers/sensorhub/stm_rinato/Kconfig"
+endif
+
+endmenu

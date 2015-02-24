@@ -167,3 +167,4 @@ obj-$(CONFIG_CORESIGHT)		+= hwtracing/coresight/
 obj-$(CONFIG_ANDROID)		+= android/
 
 obj-$(CONFIG_GATOR)		+= gator/
+obj-$(CONFIG_SENSORS_SSP)      += sensorhub/
