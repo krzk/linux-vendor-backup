@@ -1,0 +1,109 @@
+#
+# sensor drivers configuration
+#
+config SENSORS_SSP_BBD
+	tristate "Sensors ssp brcm"
+	default n
+	depends on SPI
+	help
+	  ssp driver for sensor hub.
+	  If you say yes here you get ssp support for
+	  sensor hub.
+	  To compile this driver as a module, choose M here: the
+	  module will be called ssp.
+
+choice
+	depends on SENSORS_SSP_BBD
+	prompt "Choose BBDPL Version"
+	default SENSORS_SSP_BBD_VER2
+
+config SENSORS_SSP_BBD_VER1
+	bool "bbdpl1"
+	depends on SPI
+	help
+	  Sensorhub bbdpl version 1 for TM2(e).
+
+config SENSORS_SSP_BBD_VER2
+	bool "bbdpl2"
+	depends on SPI
+	help
+	  Sensorhub bbdpl version 2 for TM2(e).
+endchoice
+
+if SENSORS_SSP_BBD_VER2
+source "drivers/sensors/brcm/bbdpl2/Kconfig"
+endif
+
+choice
+    depends on SENSORS_SSP_BBD
+    prompt "Choose target patch"
+    default SENSORHUB_TM2
+
+config SENSORHUB_S333
+	bool "BROADCOM_SENSORHUB_S333"
+	help
+	  Support for BRCM S333
+
+config SENSORHUB_TM2
+	bool "BROADCOM_SENSORHUB_TM2"
+	help
+	  Support for BRCM TM2
+endchoice
+
+config SENSORS_SSP_ICM20610
+	tristate "Sensors ssp icm20610"
+	default n
+	depends on SPI
+	help
+	  icm20610 file for factory test in ssp driver.
+	  If you say yes here you get icm20610 support for
+	  factory test.
+	  To compile this driver as a module, choose M here: the
+	  module will be called ssp.
+
+config SENSORS_SSP_YAS532
+	tristate "Sensors ssp yas532"
+	default n
+	depends on SPI
+	help
+	  yas532 file for factory test in ssp driver.
+	  If you say yes here you get yas532 support for
+	  factory test.
+	  To compile this driver as a module, choose M here: the
+	  module will be called ssp.
+
+config SENSORS_SSP_BMP182
+	tristate "Sensor ssp bmp182"
+	default n
+	depends on SPI
+	help
+	  bmp182 file for factory test in ssp driver.
+	  If you say yes here you get lps25h support for
+	  factory test.
+	  To compile this driver as a module, choose M here: the
+	  module will be called ssp.
+
+config SENSORS_SSP_TMG399X
+	tristate "Sensors ssp tmg399x"
+	default n
+	depends on SPI
+	help
+	  max88005 file for factory test in ssp driver.
+	  If you say yes here you get tmg399x support for
+	  factory test.
+	  To compile this driver as a module, choose M here: the
+	  module will be called ssp.
+
+config SENSORS_SSP_MOBEAM
+	tristate "Sensors ssp mobeam"
+	default n
+	depends on I2C
+	help
+	  mobeam file for ssp driver.
+	  If you say yes here you get mobeam support using TMG399x.
+	  To compile this driver as a module, choose M here: the
+	  module will be called ssp.
+
+config GPS_BCM47531
+	bool "BROADCOM_GPS_CHIPSET_47531"
+	default n
