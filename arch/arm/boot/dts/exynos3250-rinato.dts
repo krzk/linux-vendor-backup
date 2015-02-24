@@ -23,6 +23,7 @@
 
 	aliases {
 		i2c7 = &i2c_max77836;
+		i2c8 = &i2c_ice4_irda;
 	};
 
 	memory {
@@ -98,6 +99,37 @@
 				maxim,eoc-uamp = <7500>;
 				maxim,ovp-uvolt = <6500000>;
 			};
+		};
+	};
+
+	i2c_ice4_irda: i2c-gpio-1 {
+		compatible = "i2c-gpio";
+		gpios = <&gpa1 2 0
+			&gpa1 3 0>;
+			i2c-gpio,sda-open-drain;
+			i2c-gpio,scl-open-drain;
+			i2c-gpio,delay-us = <2>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ice4-irda@50 {
+			compatible = "samsung,ice4-irda";
+			reg = <0x50>;
+			interrupt-parent = <&gpx1>;
+			interrupts = <0 0>;
+
+			clocks = <&pmu_system_controller 0>;
+			clock-names = "out";
+			assigned-clocks = <&pmu_system_controller 0>;
+			assigned-clock-parents = <&xusbxti>;
+
+			ir-supply = <&ldo17_reg>;
+			irda-gpio = <&gpx1 0 0>;
+			creset-gpio = <&gpx2 5 0>;
+			cdone-gpio = <&gpx2 4 0>;
+			fpga-reset-gpio = <&gpe0 6 0>;
+			irda-sda-gpio = <&gpa1 2 0>;
+			irda-scl-gpio = <&gpa1 3 0>;
 		};
 	};
 
@@ -599,6 +631,31 @@
 
 &i2s2 {
 	status = "okay";
+};
+
+&spi_0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	spi-cpha;
+
+	shub_spi: shub {
+		compatible = "samsung,ssp-spi";
+		spi-max-frequency = <5000000>;
+		interrupt-parent = <&gpx0>;
+		interrupts = <2 0>;
+		ap-mcu-int = <&gpx0 0 0>;
+		mcu-ap-int1 = <&gpx0 2 0>;
+		mcu-ap-int2 = <&gpx0 4 0>;
+		mcu-reset = <&gpx0 5 0>;
+		ssp,acc-position = <7>;
+		ssp,mag-position = <0>;
+		reg = <0>;
+		controller-data {
+			cs-gpio = <&gpb 1 0>;
+			samsung,spi-feedback-dealy = <0>;
+		};
+	};
 };
 
 &mfc {
