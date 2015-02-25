@@ -22,3 +22,14 @@ config DRM_PS8622
 	select BACKLIGHT_CLASS_DEVICE
 	---help---
 	  parade eDP-LVDS bridge chip driver.
+
+config DRM_SII8620
+	tristate "Silicon Image SII8620 HDMI/MHL bridge"
+	depends on DRM
+	depends on OF
+	select DRM_KMS_HELPER
+	depends on I2C
+	help
+	  Say Y here if you want support for the MHL interface.
+	  It is an I2C driver, that detects connection of MHL bridge
+	  and starts encapsulation of HDMI signal.
