@@ -700,7 +700,7 @@ static void exynos_drm_exit(void)
 	exynos_platform_device_ipp_unregister();
 #endif
 
-	for (i = ARRAY_SIZE(exynos_drm_non_kms_drivers) - 1; i >= 0; --i)
+	for (i = (int)ARRAY_SIZE(exynos_drm_non_kms_drivers) - 1; i >= 0; --i)
 		platform_driver_unregister(exynos_drm_non_kms_drivers[i]);
 
 	for (i = ARRAY_SIZE(exynos_drm_kms_drivers) - 1; i >= 0; --i)
