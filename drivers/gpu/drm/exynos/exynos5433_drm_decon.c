@@ -19,6 +19,7 @@
 
 #include "exynos_drm_drv.h"
 #include "exynos_drm_crtc.h"
+#include "exynos_drm_iommu.h"
 
 #define WINDOWS_NR	3
 #define MIN_FB_WIDTH_FOR_16WORD_BURST	128
@@ -497,6 +498,48 @@ static struct exynos_drm_crtc_ops decon_crtc_ops = {
 	.te_handler		= decon_te_irq_handler,
 };
 
+static void decon_clear_channel(struct decon_context *ctx)
+{
+	int win, i, ret;
+	u32 val;
+
+	DRM_DEBUG_KMS("%s\n", __FILE__);
+
+	for (i = 0; i < ARRAY_SIZE(decon_clks_name); i++) {
+		ret = clk_prepare_enable(ctx->clks[i]);
+		if (ret < 0)
+			goto err;
+	}
+
+	for (win = 0; win < WINDOWS_NR; win++) {
+		/* shadow update disable */
+		val = readl(ctx->addr + DECON_SHADOWCON);
+		val |= SHADOWCON_Wx_PROTECT(win);
+		writel(val, ctx->addr + DECON_SHADOWCON);
+
+		/* window disable */
+		val = readl(ctx->addr + DECON_WINCONx(win));
+		val &= ~WINCONx_ENWIN_F;
+		writel(val, ctx->addr + DECON_WINCONx(win));
+
+		/* shadow update enable */
+		val = readl(ctx->addr + DECON_SHADOWCON);
+		val &= ~SHADOWCON_Wx_PROTECT(win);
+		writel(val, ctx->addr + DECON_SHADOWCON);
+
+		/* standalone update */
+		val = readl(ctx->addr + DECON_UPDATE);
+		val |= STANDALONE_UPDATE_F;
+		writel(val, ctx->addr + DECON_UPDATE);
+	}
+	/* TODO: wait for possible vsync */
+	msleep(50);
+
+err:
+	while (--i >= 0)
+		clk_disable_unprepare(ctx->clks[i]);
+}
+
 static int decon_bind(struct device *dev, struct device *master, void *data)
 {
 	struct decon_context *ctx = dev_get_drvdata(dev);
@@ -505,6 +548,16 @@ static int decon_bind(struct device *dev, struct device *master, void *data)
 
 	ctx->drm_dev = drm_dev;
 	ctx->pipe = priv->pipe++;
+
+	/* attach this sub driver to iommu mapping if supported. */
+	if (is_drm_iommu_supported(drm_dev)) {
+		/*
+		 * If any channel is already active, iommu will throw
+		 * a PAGE FAULT when enabled. So clear any channel if enabled.
+		 */
+		decon_clear_channel(ctx);
+		drm_iommu_attach_device(drm_dev, ctx->dev);
+	}
 
 	ctx->crtc = exynos_drm_crtc_create(drm_dev, ctx->pipe,
 			EXYNOS_DISPLAY_TYPE_LCD, &decon_crtc_ops, ctx);
@@ -521,6 +574,10 @@ static void decon_unbind(struct device *dev, struct device *master, void *data)
 	struct decon_context *ctx = dev_get_drvdata(dev);
 
 	decon_dpms(ctx->crtc, DRM_MODE_DPMS_OFF);
+
+	/* detach this sub driver from iommu mapping if supported. */
+	if (is_drm_iommu_supported(ctx->drm_dev))
+		drm_iommu_detach_device(ctx->drm_dev, ctx->dev);
 }
 
 static const struct component_ops decon_component_ops = {
