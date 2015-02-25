@@ -1406,3 +1406,20 @@
 &gsc_2 {
 	samsung,lcd-wb;
 };
+
+&hsi2c_7 {
+	status = "okay";
+
+	sii8620@39 {
+		reg = <0x39>;
+		compatible = "sil,sii8620";
+		cvcc10-supply = <&ldo36_reg>;
+		iovcc18-supply = <&ldo34_reg>;
+		int-gpio = <&gpf0 2 0>;
+		reset-gpio = <&gpv7 0 0>;
+		clocks = <&pmu_system_controller 0>;
+		clock-names = "xtal";
+		assigned-clocks = <&pmu_system_controller 0>;
+		assigned-clock-parents = <&xxti>;
+	};
+};
