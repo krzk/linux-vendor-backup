@@ -458,6 +458,9 @@ static struct page **__iommu_get_pages(void *cpu_addr, struct dma_attrs *attrs)
 	if (__in_atomic_pool(cpu_addr, PAGE_SIZE))
 		return __atomic_get_pages(cpu_addr);
 
+	if (dma_get_attr(DMA_ATTR_NO_KERNEL_MAPPING, attrs))
+		return cpu_addr;
+
 	area = find_vm_area(cpu_addr);
 	if (!area)
 		return NULL;
@@ -534,6 +537,9 @@ static void *__iommu_alloc_attrs(struct device *dev, size_t size,
 	if (*handle == DMA_ERROR_CODE)
 		goto err_mapping;
 
+	if (dma_get_attr(DMA_ATTR_NO_KERNEL_MAPPING, attrs))
+		return pages;
+
 	addr = dma_common_pages_remap(pages, size, VM_USERMAP,
 				      __get_dma_pgprot(attrs, prot, coherent),
 				      __builtin_return_address(0));
@@ -563,7 +569,8 @@ static void __iommu_free_attrs(struct device *dev, size_t size, void *cpu_addr,
 		return;
 	}
 
-	dma_common_free_remap(cpu_addr, size, VM_USERMAP);
+	if (!dma_get_attr(DMA_ATTR_NO_KERNEL_MAPPING, attrs))
+		dma_common_free_remap(cpu_addr, size, VM_USERMAP);
 
 	iommu_dma_release_iova_mapping(dev, handle, size);
 	iommu_dma_free_buffer(dev, pages, size, attrs);
