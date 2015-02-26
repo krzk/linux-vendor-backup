@@ -20,6 +20,7 @@
 /* VIDOUTCON0 */
 #define VIDOUTCON0				0x4
 
+#define VIDOUTCON0_TV_MODE			(0x1 << 26)
 #define VIDOUTCON0_DUAL_MASK			(0x3 << 24)
 #define VIDOUTCON0_DUAL_ON			(0x3 << 24)
 #define VIDOUTCON0_DISP_IF_1_ON			(0x2 << 24)
@@ -51,6 +52,9 @@
 #define SHADOWCON				0x30
 
 #define SHADOWCON_WINx_PROTECT(_win)		(1 << (10 + (_win)))
+
+/* WINCHMAP0 */
+#define WINCHMAP0				0x40
 
 /* WINCONx */
 #define WINCON(_win)				(0x50 + ((_win) * 4))
@@ -327,6 +331,15 @@
 
 /* LINECNT OP THRSHOLD*/
 #define LINECNT_OP_THRESHOLD			0x630
+
+/* TRIGCON */
+#define TRIGCON					0x06B0
+#define TRIGCON_HWTRIG_AUTO_MASK		(1 << 6)
+#define TRIGCON_HWTRIGMASK_DISPIF1		(1 << 5)
+#define TRIGCON_HWTRIGMASK_DISPIF0		(1 << 4)
+#define TRIGCON_HWTRIGEN_I80_RGB		(1 << 3)
+#define TRIGCON_SWTRIGCMD_I80_RGB		(1 << 1)
+#define TRIGCON_SWTRIGEN_I80_RGB		(1 << 0)
 
 /* CRCCTRL */
 #define CRCCTRL					0x6C8

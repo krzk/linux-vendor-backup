@@ -2,10 +2,14 @@ Device-Tree bindings for Samsung Exynos7 SoC display controller (DECON)
 
 DECON (Display and Enhancement Controller) is the Display Controller for the
 Exynos7 series of SoCs which transfers the image data from a video memory
-buffer to an external LCD interface.
+buffer to an external LCD/HDMI interface.
+
+Exynos7 supports DECON-INT for generating video signals for LCD.
+Exynos7 supports DECON-EXT for generating video signals for HDMI.
 
 Required properties:
-- compatible: value should be "samsung,exynos7-decon";
+- compatible: value should be "samsung,exynos7-decon-int" for DECON-INT;
+	      value should be "samsung,exynos7-decon-ext" for DECON-EXT;
 
 - reg: physical base address and length of the DECON registers set.
 
