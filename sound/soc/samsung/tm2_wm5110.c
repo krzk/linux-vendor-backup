@@ -25,6 +25,7 @@
 struct tm2_machine_priv {
 	struct snd_soc_codec *codec;
 	struct clk *codec_mclk1;
+	struct clk *codec_mclk2;
 	int mic_bias;
 };
 
@@ -189,6 +190,9 @@ static int tm2_late_probe(struct snd_soc_card *card)
 		return ret;
 	}
 
+	/* 32khz must be enabled for jack detect */
+	if (!IS_ERR(priv->codec_mclk2))
+		clk_prepare_enable(priv->codec_mclk2);
 	gpio_direction_output(priv->mic_bias, 0);
 
 	return 0;
@@ -278,6 +282,11 @@ static int tm2_wm5110_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to get out clock\n");
 		return PTR_ERR(priv->codec_mclk1);
 	}
+
+	/* mclk2 is optional */
+	priv->codec_mclk2 = devm_clk_get(&pdev->dev, "mclk2");
+	if (IS_ERR(priv->codec_mclk2))
+		dev_err(&pdev->dev, "Failed to get mclk2 clock\n");
 
 	priv->mic_bias = of_get_named_gpio(np, "mic_bias_gpio", 0);
 	if (!gpio_is_valid(priv->mic_bias)) {
