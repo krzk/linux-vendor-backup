@@ -175,14 +175,14 @@ static void slp_multi_enable(struct slp_multi_dev *dev)
 		return;
 
 	if (--dev->disable_depth == 0) {
+		usb_gadget_connect(cdev->gadget);
+
 		if (!dev->dual_config)
 			usb_add_config(cdev, &first_config_driver,
 					slp_multi_bind_config);
 		else
 			usb_add_config(cdev, &second_config_driver,
 					slp_multi_bind_config);
-
-		usb_gadget_connect(cdev->gadget);
 	}
 }
 
