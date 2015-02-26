@@ -24,7 +24,7 @@
 
 struct tm2_machine_priv {
 	struct snd_soc_codec *codec;
-	struct clk *codec_mclk;
+	struct clk *codec_mclk1;
 	int mic_bias;
 };
 
@@ -40,7 +40,7 @@ static int tm2_aif1_hw_params(struct snd_pcm_substream *substream,
 				snd_soc_card_get_drvdata(rtd->card);
 	unsigned int sysclk_rate;
 	unsigned int mclk_rate =
-			(unsigned int)clk_get_rate(priv->codec_mclk);
+			(unsigned int)clk_get_rate(priv->codec_mclk1);
 	int ret;
 
 	dev_dbg(codec->dev, "params_rate: %d\n", params_rate(params));
@@ -120,7 +120,7 @@ static int tm2_aif1_startup(struct snd_pcm_substream *substream)
 	struct tm2_machine_priv *priv = snd_soc_card_get_drvdata(rtd->card);
 	int ret;
 
-	ret = clk_prepare_enable(priv->codec_mclk);
+	ret = clk_prepare_enable(priv->codec_mclk1);
 	if (ret) {
 		dev_err(rtd->card->dev, "Failed to enable mclk: %d\n", ret);
 		return ret;
@@ -134,7 +134,7 @@ static void tm2_aif1_shutdown(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct tm2_machine_priv *priv = snd_soc_card_get_drvdata(rtd->card);
 
-	clk_disable_unprepare(priv->codec_mclk);
+	clk_disable_unprepare(priv->codec_mclk1);
 }
 
 static struct snd_soc_ops tm2_aif1_ops = {
@@ -273,10 +273,10 @@ static int tm2_wm5110_probe(struct platform_device *pdev)
 		dai_link[i].platform_of_node = dai_link[i].cpu_of_node;
 	}
 
-	priv->codec_mclk = devm_clk_get(&pdev->dev, "mclk");
-	if (IS_ERR(priv->codec_mclk)) {
+	priv->codec_mclk1 = devm_clk_get(&pdev->dev, "mclk1");
+	if (IS_ERR(priv->codec_mclk1)) {
 		dev_err(&pdev->dev, "Failed to get out clock\n");
-		return PTR_ERR(priv->codec_mclk);
+		return PTR_ERR(priv->codec_mclk1);
 	}
 
 	priv->mic_bias = of_get_named_gpio(np, "mic_bias_gpio", 0);
