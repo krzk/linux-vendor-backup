@@ -37,7 +37,8 @@ static void lpass_enable(struct lpass_info *lpass)
 	writel(LPASS_INTR_SFR | LPASS_INTR_DMA | LPASS_INTR_I2S,
 	       lpass->reg_sfr + SFR_LPASS_INTR_CA5_MASK);
 
-	writel(LPASS_INTR_DMA | LPASS_INTR_I2S | LPASS_INTR_SFR,
+	writel(LPASS_INTR_DMA | LPASS_INTR_I2S | LPASS_INTR_SFR
+			| LPASS_INTR_UART,
 	       lpass->reg_sfr + SFR_LPASS_INTR_CPU_MASK);
 
 	/* Active related PADs from retention state */
