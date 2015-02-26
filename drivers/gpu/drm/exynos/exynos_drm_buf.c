@@ -84,6 +84,26 @@ static int lowlevel_buffer_allocate(struct drm_device *dev,
 		buf->pages = dma_alloc_attrs(dev->dev, buf->size,
 					&buf->dma_addr, GFP_KERNEL,
 					&buf->dma_attrs);
+
+		if (!buf->pages && dma_get_attr(DMA_ATTR_FORCE_CONTIGUOUS,
+                                         &buf->dma_attrs)) {
+			/* retry without DMA_ATTR_FORCE_CONTIGUOUS */
+			DRM_DEBUG_KMS("failed to allocate physically contiguous buffer.\n");
+
+			init_dma_attrs(&buf->dma_attrs);
+
+			if (flags & EXYNOS_BO_WC || !(flags & EXYNOS_BO_CACHABLE))
+				attr = DMA_ATTR_WRITE_COMBINE;
+			else
+				attr = DMA_ATTR_NON_CONSISTENT;
+			dma_set_attr(attr, &buf->dma_attrs);
+			dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, &buf->dma_attrs);
+
+			buf->pages = dma_alloc_attrs(dev->dev, buf->size,
+						&buf->dma_addr, GFP_KERNEL,
+						&buf->dma_attrs);
+		}
+
 		if (!buf->pages) {
 			DRM_ERROR("failed to allocate buffer.\n");
 			return -ENOMEM;
