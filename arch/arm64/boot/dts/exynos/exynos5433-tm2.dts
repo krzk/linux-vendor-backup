@@ -169,8 +169,8 @@
 
 	sound {
 		compatible = "samsung,tm2-audio";
-		clocks = <&pmu_system_controller 0>;
-		clock-names = "mclk";
+		clocks = <&pmu_system_controller 0>, <&s2mps13_osc 2>;
+		clock-names = "mclk1", "mclk2";
 		assigned-clocks = <&pmu_system_controller 0>;
 		assigned-clock-parents = <&xxti>;
 		samsung,i2s-controller = <&i2s0>;
