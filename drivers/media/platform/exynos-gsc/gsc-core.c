@@ -38,7 +38,7 @@ static const struct gsc_fmt gsc_formats[] = {
 		.num_comp	= 1,
 	}, {
 		.name		= "XRGB-8-8-8-8, 32 bpp",
-		.pixelformat	= V4L2_PIX_FMT_RGB32,
+		.pixelformat	= V4L2_PIX_FMT_BGR32,
 		.depth		= { 32 },
 		.color		= GSC_RGB,
 		.num_planes	= 1,
