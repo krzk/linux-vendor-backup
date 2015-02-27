@@ -2522,9 +2522,10 @@ int vb2_mmap(struct vb2_queue *q, struct vm_area_struct *vma)
 	 * Find the plane corresponding to the offset passed by userspace.
 	 */
 	ret = __find_plane_by_offset(q, off, &buffer, &plane);
-	if (ret)
+	if (ret) {
+		dprintk(1, "plane not found, offset %lx\n", off);
 		return ret;
-
+	}
 	vb = q->bufs[buffer];
 
 	/*
@@ -2542,8 +2543,10 @@ int vb2_mmap(struct vb2_queue *q, struct vm_area_struct *vma)
 	mutex_lock(&q->mmap_lock);
 	ret = call_memop(vb, mmap, vb->planes[plane].mem_priv, vma);
 	mutex_unlock(&q->mmap_lock);
-	if (ret)
+	if (ret) {
+		dprintk(1, "memory op failed\n");
 		return ret;
+	}
 
 	dprintk(3, "buffer %d, plane %d successfully mapped\n", buffer, plane);
 	return 0;
