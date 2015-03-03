@@ -529,6 +529,12 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_JPGL	v4l2_fourcc('J', 'P', 'G', 'L') /* JPEG-Lite */
 #define V4L2_PIX_FMT_SE401      v4l2_fourcc('S', '4', '0', '1') /* se401 janggu compressed rgb */
 #define V4L2_PIX_FMT_S5C_UYVY_JPG v4l2_fourcc('S', '5', 'C', 'I') /* S5C73M3 interleaved UYVY/JPEG */
+#define V4L2_PIX_FMT_INVZ v4l2_fourcc('I',  'N',  'V',  'Z') /* 16 Depth */
+#define V4L2_PIX_FMT_INZI v4l2_fourcc('I',  'N',  'Z',  'I') /* 24 Depth/IR 16:8 */
+#define V4L2_PIX_FMT_INVR v4l2_fourcc('I',  'N',  'V',  'R') /* 16 Depth */
+#define V4L2_PIX_FMT_INRI v4l2_fourcc('I',  'N',  'R',  'I') /* 24 Depth/IR 16:8 */
+#define V4L2_PIX_FMT_INVI v4l2_fourcc('I',  'N',  'V',  'I') /* 8 IR */
+#define V4L2_PIX_FMT_RELI v4l2_fourcc('R',  'E',  'L',  'I') /* 8 IR alternating on off illumination */
 
 /* SDR formats - used only for Software Defined Radio devices */
 #define V4L2_SDR_FMT_CU8          v4l2_fourcc('C', 'U', '0', '8') /* IQ u8 */

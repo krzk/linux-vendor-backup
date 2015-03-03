@@ -147,6 +147,36 @@ static struct uvc_format_desc uvc_fmts[] = {
 		.guid		= UVC_GUID_FORMAT_H264,
 		.fcc		= V4L2_PIX_FMT_H264,
 	},
+	{
+		.name		= "Depth 16-bit (INVZ)",
+		.guid		= UVC_GUID_FORMAT_INVZ,
+		.fcc		= V4L2_PIX_FMT_INVZ,
+	},
+	{
+		.name		= "Depth:IR 16:8 24-bit (INZI)",
+		.guid		= UVC_GUID_FORMAT_INZI,
+		.fcc		= V4L2_PIX_FMT_INZI,
+	},
+	{
+		.name		= "Depth 16-bit (INVR)",
+		.guid		= UVC_GUID_FORMAT_INVR,
+		.fcc		= V4L2_PIX_FMT_INVR,
+	},
+	{
+		.name		= "Depth:IR 16:8 24-bit (INRI)",
+		.guid		= UVC_GUID_FORMAT_INRI,
+		.fcc		= V4L2_PIX_FMT_INRI,
+	},
+	{
+		.name		= "Infrared 8-bit (INVI)",
+		.guid		= UVC_GUID_FORMAT_INVI,
+		.fcc		= V4L2_PIX_FMT_INVI,
+	},
+	{
+		.name		= "FlickerIR 8-bit (RELI)",
+		.guid		= UVC_GUID_FORMAT_RELI,
+		.fcc		= V4L2_PIX_FMT_RELI,
+	},
 };
 
 /* ------------------------------------------------------------------------
