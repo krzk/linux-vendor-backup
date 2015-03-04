@@ -403,6 +403,97 @@ static void fimc_handle_lastend(struct fimc_context *ctx, bool enable)
 	fimc_write(ctx, cfg, EXYNOS_CIOCTRL);
 }
 
+static int fimc_set_planar_addr(struct drm_exynos_ipp_buf_info *buf_info,
+				u32 fmt, struct drm_exynos_sz *sz)
+{
+	dma_addr_t *base[EXYNOS_DRM_PLANAR_MAX];
+	uint64_t size[EXYNOS_DRM_PLANAR_MAX];
+	uint64_t ofs[EXYNOS_DRM_PLANAR_MAX];
+	bool bypass = false;
+	uint64_t tsize = 0;
+	int i;
+
+	for_each_ipp_planar(i) {
+		base[i] = &buf_info->base[i];
+		size[i] = buf_info->size[i];
+		ofs[i] = 0;
+		tsize += size[i];
+	}
+
+	if (!tsize) {
+		DRM_INFO("%s:failed to get buffer size.\n", __func__);
+		return 0;
+	}
+
+	switch (fmt) {
+	case DRM_FORMAT_NV12:
+	case DRM_FORMAT_NV21:
+	case DRM_FORMAT_NV16:
+	case DRM_FORMAT_NV61:
+		ofs[0] = sz->hsize * sz->vsize;
+		ofs[1] = ofs[0] >> 1;
+		if (*base[0] && *base[1]) {
+			if (size[0] + size[1] < ofs[0] + ofs[1])
+				goto err_info;
+			bypass = true;
+		}
+		break;
+	case DRM_FORMAT_YUV410:
+	case DRM_FORMAT_YVU410:
+	case DRM_FORMAT_YUV411:
+	case DRM_FORMAT_YVU411:
+	case DRM_FORMAT_YUV420:
+	case DRM_FORMAT_YVU420:
+	case DRM_FORMAT_YUV422:
+	case DRM_FORMAT_YVU422:
+	case DRM_FORMAT_YUV444:
+	case DRM_FORMAT_YVU444:
+		ofs[0] = sz->hsize * sz->vsize;
+		ofs[1] = ofs[2] = ofs[0] >> 2;
+		if (*base[0] && *base[1] && *base[2]) {
+			if (size[0]+size[1]+size[2] < ofs[0]+ofs[1]+ofs[2])
+				goto err_info;
+			bypass = true;
+		}
+		break;
+	case DRM_FORMAT_XRGB8888:
+	case DRM_FORMAT_ARGB8888:
+		ofs[0] = sz->hsize * sz->vsize << 2;
+		if (*base[0]) {
+			if (size[0] < ofs[0])
+				goto err_info;
+		}
+		bypass = true;
+		break;
+	default:
+		bypass = true;
+		break;
+	}
+
+	if (!bypass) {
+		*base[1] = *base[0] + ofs[0];
+		if (ofs[1] && ofs[2])
+			*base[2] = *base[1] + ofs[1];
+	}
+
+	DRM_DEBUG_KMS("%s:y[0x%x],cb[0x%x],cr[0x%x]\n", __func__,
+		*base[0], *base[1], *base[2]);
+
+	return 0;
+
+err_info:
+	DRM_ERROR("invalid size for fmt[0x%x]\n", fmt);
+
+	for_each_ipp_planar(i) {
+		base[i] = &buf_info->base[i];
+		size[i] = buf_info->size[i];
+
+		DRM_ERROR("buf[%d] - base[0x%x] sz[%llu] ofs[%llu]\n",
+			i, *base[i], size[i], ofs[i]);
+	}
+
+	return -EINVAL;
+}
 
 static int fimc_src_set_fmt_order(struct fimc_context *ctx, u32 fmt)
 {
@@ -691,6 +782,7 @@ static int fimc_src_set_addr(struct device *dev,
 	struct drm_exynos_ipp_cmd_node *c_node = ippdrv->c_node;
 	struct drm_exynos_ipp_property *property;
 	struct drm_exynos_ipp_config *config;
+	int ret;
 
 	if (!c_node) {
 		DRM_ERROR("failed to get c_node.\n");
@@ -711,6 +803,12 @@ static int fimc_src_set_addr(struct device *dev,
 	switch (buf_type) {
 	case IPP_BUF_ENQUEUE:
 		config = &property->config[EXYNOS_DRM_OPS_SRC];
+		ret = fimc_set_planar_addr(buf_info, config->fmt, &config->sz);
+		if (ret) {
+			dev_err(dev, "failed to set plane src addr.\n");
+			return ret;
+		}
+
 		fimc_write(ctx, buf_info->base[EXYNOS_DRM_PLANAR_Y],
 			EXYNOS_CIIYSA0);
 
@@ -1153,6 +1251,7 @@ static int fimc_dst_set_addr(struct device *dev,
 	struct drm_exynos_ipp_cmd_node *c_node = ippdrv->c_node;
 	struct drm_exynos_ipp_property *property;
 	struct drm_exynos_ipp_config *config;
+	int ret;
 
 	if (!c_node) {
 		DRM_ERROR("failed to get c_node.\n");
@@ -1173,6 +1272,11 @@ static int fimc_dst_set_addr(struct device *dev,
 	switch (buf_type) {
 	case IPP_BUF_ENQUEUE:
 		config = &property->config[EXYNOS_DRM_OPS_DST];
+		ret = fimc_set_planar_addr(buf_info, config->fmt, &config->sz);
+		if (ret) {
+			dev_err(dev, "failed to set plane dst addr.\n");
+			return ret;
+		}
 
 		fimc_write(ctx, buf_info->base[EXYNOS_DRM_PLANAR_Y],
 			EXYNOS_CIOYSA(buf_id));
@@ -1583,6 +1687,8 @@ static void fimc_ippdrv_stop(struct device *dev, enum drm_exynos_ipp_cmd cmd)
 
 	/* reset sequence */
 	fimc_write(ctx, 0x0, EXYNOS_CIFCNTSEQ);
+
+	fimc_clear_addr(ctx);
 
 	/* Scaler disable */
 	fimc_clear_bits(ctx, EXYNOS_CISCCTRL, EXYNOS_CISCCTRL_SCALERSTART);

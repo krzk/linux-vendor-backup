@@ -85,10 +85,12 @@ struct drm_exynos_ipp_cmd_node {
  *
  * @handles: Y, Cb, Cr each gem object handle.
  * @base: Y, Cb, Cr each planar address.
+ * @size: Y, Cb, Cr each planar size.
  */
 struct drm_exynos_ipp_buf_info {
 	unsigned long	handles[EXYNOS_DRM_PLANAR_MAX];
 	dma_addr_t	base[EXYNOS_DRM_PLANAR_MAX];
+	uint64_t	size[EXYNOS_DRM_PLANAR_MAX];
 };
 
 /*

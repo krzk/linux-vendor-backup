@@ -574,6 +574,7 @@ static struct drm_exynos_ipp_mem_node
 		/* get dma address by handle */
 		if (qbuf->handle[i]) {
 			dma_addr_t *addr;
+			unsigned long size;
 
 			addr = exynos_drm_gem_get_dma_addr(drm_dev,
 					qbuf->handle[i], c_node->filp);
@@ -583,10 +584,20 @@ static struct drm_exynos_ipp_mem_node
 				return ERR_PTR(-EFAULT);
 			}
 
+			size = exynos_drm_gem_get_size(drm_dev,
+					qbuf->handle[i], c_node->filp);
+			if (!size) {
+				DRM_ERROR("failed to get size.\n");
+				ipp_put_mem_node(drm_dev, c_node, m_node);
+				return ERR_PTR(-EFAULT);
+			}
+
 			buf_info->handles[i] = qbuf->handle[i];
 			buf_info->base[i] = *addr;
-			DRM_DEBUG_KMS("i[%d]base[%pad]hd[0x%lx]\n", i,
-				      &buf_info->base[i], buf_info->handles[i]);
+			buf_info->size[i] = (uint64_t)size;
+			DRM_DEBUG_KMS("i[%d]base[%pad]hd[0x%lx]sz[%llx]\n", i,
+				      &buf_info->base[i], buf_info->handles[i],
+				      buf_info->size[i]);
 		}
 	}
 
