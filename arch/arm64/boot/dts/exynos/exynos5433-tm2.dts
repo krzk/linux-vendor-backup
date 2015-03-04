@@ -177,10 +177,32 @@
 		samsung,model = "wm5110";
 		mic_bias_gpio = <&gpr3 2 0>;
 		samsung,audio-routing =
+			"HP", "HPOUT1L",
+			"HP", "HPOUT1R",
+
 			"SPK", "HPOUT2L",
 			"SPK", "HPOUT2R",
-			"IN1L", "Main Mic",
-			"IN1R", "Main Mic";
+
+			"RCV", "HPOUT3L",
+			"RCV", "HPOUT3R",
+
+			"VPS", "HPOUT2L",
+			"VPS", "HPOUT2R",
+
+			"HDMI", "SPKOUTL",
+
+			"Main Mic", "MICBIAS2",
+			"IN1R", "Main Mic",
+
+			"Sub Mic", "MICBIAS3",
+			"IN3L", "Sub Mic",
+
+			"Third Mic", "MICBIAS2",
+			"Third Mic", "MICBIAS3",
+			"IN3R", "Third Mic",
+
+			"Headset Mic", "MICBIAS1",
+			"IN2R", "Headset Mic";
 	};
 
 	flash-led {
@@ -232,9 +254,29 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 
+		wlf,micd-detect-debounce = <300>;
+		wlf,micd-bias-start-time = <0x1>;
+		wlf,micd-rate = <0x7>;
+		wlf,micd-dbtime = <0x1>;
+		wlf,micd-force-micbias;
+
+		wlf,micd-ranges = <
+			139 0x101
+			295 0x102
+			752 0x103
+			1257 0x104
+		>;
+		wlf,micd-configs = <
+			0x0 1 0
+		>;
+
 		wlf,reset = <&gpc0 7 0>;	/* CODEC_RESET_N */
 		wlf,ldoena = <&gpf0 0 0>;	/* CODEC_LDO_EN */
-		wlf,inmode = <2 0 0 0>;         /* INn_MODE */
+		wlf,inmode = <2 0 2 0>;         /* INn_MODE */
+
+		wlf,hpdet-channel = <1>;	/* HPDETR */
+
+		wlf,gpsw = <0x1>;
 
 		/* core supplies */
 		AVDD-supply = <&ldo18_reg>;
