@@ -941,6 +941,8 @@
 			phys = <&usbdrd_phy0 0>, <&usbdrd_phy0 1>;
 			phy-names = "usb2-phy", "usb3-phy";
 			snps,usb3_lpm_capable;
+			snps,dis_u3_susphy_quirk;
+			snps,dis_u2_susphy_quirk;
 		};
 	};
 
@@ -968,6 +970,8 @@
 			phys = <&usbdrd_phy1 0>, <&usbdrd_phy1 1>;
 			phy-names = "usb2-phy", "usb3-phy";
 			snps,usb3_lpm_capable;
+			snps,dis_u3_susphy_quirk;
+			snps,dis_u2_susphy_quirk;
 		};
 	};
 
