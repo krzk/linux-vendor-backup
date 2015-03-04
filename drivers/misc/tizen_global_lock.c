@@ -51,7 +51,7 @@ struct tgl_lock {
 	struct list_head	waiting_list;	/* waiting list */
 	struct mutex		waiting_list_mutex;
 	unsigned int		locked;		/* flag if is locked */
-	unsigned int		owner;		/* session data */
+	struct tgl_session_data	*owner;		/* session data */
 
 	struct mutex		data_mutex;
 	unsigned int		user_data1;
@@ -324,7 +324,7 @@ static int tgl_lock_lock(struct tgl_session_data *session_data,
 	TGL_LOG();
 
 	mutex_lock(&lock->data_mutex);
-	lock->owner = (unsigned int)session_data;
+	lock->owner = session_data;
 	lock->locked = 1;
 	lock->owner_pid = current->tgid;
 	lock->owner_tid = current->pid;
@@ -358,7 +358,7 @@ static int _tgl_unlock_lock(struct tgl_lock *lock)
 		return -EBADRQC;
 	}
 
-	lock->owner = 0;
+	lock->owner = NULL;
 	lock->locked = 0;
 	lock->owner_pid = 0;
 	lock->owner_tid = 0;
@@ -404,7 +404,7 @@ static int tgl_unlock_lock(struct tgl_session_data *session_data,
 	mutex_unlock(&tgl_global.mutex);
 
 	mutex_lock(&lock->data_mutex);
-	if (lock->owner != (unsigned int)session_data) {
+	if (lock->owner != session_data) {
 		mutex_unlock(&lock->data_mutex);
 		TGL_WARN("tried to unlock not-owned lock by calling session");
 		return -EBADRQC;
@@ -647,6 +647,9 @@ static long tgl_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
 	case TGL_IOC_INIT_LOCK:
+#ifdef CONFIG_COMPAT
+	case TGL_IOC_INIT_LOCK_COMPAT:
+#endif
 		/* destroy lock with attribute */
 		err = tgl_init_lock(session_data, (struct tgl_attribute *)arg);
 		break;
@@ -663,12 +666,21 @@ static long tgl_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		err = tgl_unlock_lock(session_data, (unsigned int)arg);
 		break;
 	case TGL_IOC_SET_DATA:
+#ifdef CONFIG_COMPAT
+	case TGL_IOC_SET_DATA_COMPAT:
+#endif
 		err = tgl_set_data(session_data, (struct tgl_user_data *)arg);
 		break;
 	case TGL_IOC_GET_DATA:
+#ifdef CONFIG_COMPAT
+	case TGL_IOC_GET_DATA_COMPAT:
+#endif
 		err = tgl_get_data(session_data, (struct tgl_user_data *)arg);
 		break;
 	case TGL_IOC_DUMP_LOCKS:
+#ifdef CONFIG_COMPAT
+	case TGL_IOC_DUMP_LOCKS_COMPAT:
+#endif
 		tgl_dump_locks();
 		break;
 	default:
@@ -762,6 +774,9 @@ static const struct file_operations tgl_ops = {
 	.open = tgl_open,
 	.release = tgl_release,
 	.unlocked_ioctl = tgl_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = tgl_ioctl,
+#endif
 };
 
 static int __init tgl_init(void)

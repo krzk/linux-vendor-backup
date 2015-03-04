@@ -38,6 +38,9 @@ enum tgl_ioctls {
 
 #define TGL_IOC_INIT_LOCK	_IOW(TGL_IOC_BASE, TGL_INIT_LOCK,	\
 					struct tgl_attribute *)
+#define TGL_IOC_INIT_LOCK_COMPAT					\
+				_IOW(TGL_IOC_BASE, TGL_INIT_LOCK,	\
+					unsigned int)
 #define TGL_IOC_DESTROY_LOCK	_IOW(TGL_IOC_BASE, TGL_DESTROY_LOCK,	\
 					unsigned int)
 #define TGL_IOC_LOCK_LOCK	_IOW(TGL_IOC_BASE, TGL_LOCK_LOCK,	\
@@ -46,8 +49,14 @@ enum tgl_ioctls {
 					unsigned int)
 #define TGL_IOC_SET_DATA	_IOW(TGL_IOC_BASE, TGL_SET_DATA,	\
 					struct tgl_user_data *)
+#define TGL_IOC_SET_DATA_COMPAT	_IOW(TGL_IOC_BASE, TGL_SET_DATA,	\
+					unsigned int)
 #define TGL_IOC_GET_DATA	_IOW(TGL_IOC_BASE, TGL_GET_DATA,	\
 					struct tgl_user_data *)
+#define TGL_IOC_GET_DATA_COMPAT	_IOW(TGL_IOC_BASE, TGL_GET_DATA,	\
+					unsigned int)
 #define TGL_IOC_DUMP_LOCKS	_IOW(TGL_IOC_BASE, TGL_DUMP_LOCKS, void *)
+#define TGL_IOC_DUMP_LOCKS_COMPAT					\
+				_IOW(TGL_IOC_BASE, TGL_DUMP_LOCKS, unsigned int)
 
 #endif /* __TIZEN_GLOBAL_LOCK_H__ */
