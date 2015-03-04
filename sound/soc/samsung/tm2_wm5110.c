@@ -115,33 +115,123 @@ static int tm2_aif1_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static int tm2_aif1_startup(struct snd_pcm_substream *substream)
+static int tm2_start_sysclk(struct snd_soc_card *card)
 {
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct tm2_machine_priv *priv = snd_soc_card_get_drvdata(rtd->card);
+	struct tm2_machine_priv *priv = snd_soc_card_get_drvdata(card);
 	int ret;
 
 	ret = clk_prepare_enable(priv->codec_mclk1);
 	if (ret) {
-		dev_err(rtd->card->dev, "Failed to enable mclk: %d\n", ret);
+		dev_err(card->dev, "Failed to enable mclk: %d\n", ret);
 		return ret;
 	}
 
 	return 0;
 }
 
-static void tm2_aif1_shutdown(struct snd_pcm_substream *substream)
+static void tm2_stop_sysclk(struct snd_soc_card *card)
 {
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct tm2_machine_priv *priv = snd_soc_card_get_drvdata(rtd->card);
+	struct tm2_machine_priv *priv = snd_soc_card_get_drvdata(card);
 
 	clk_disable_unprepare(priv->codec_mclk1);
 }
 
 static struct snd_soc_ops tm2_aif1_ops = {
-	.startup = tm2_aif1_startup,
-	.shutdown = tm2_aif1_shutdown,
 	.hw_params = tm2_aif1_hw_params,
+};
+
+static int tm2_aif2_hw_params(struct snd_pcm_substream *substream,
+				struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_codec *codec = rtd->codec;
+	struct tm2_machine_priv *priv =
+				snd_soc_card_get_drvdata(rtd->card);
+	unsigned int asyncclk_rate;
+	unsigned int mclk_rate =
+			(unsigned int)clk_get_rate(priv->codec_mclk1);
+	int ret;
+
+	dev_dbg(codec->dev, "params_rate: %d\n", params_rate(params));
+
+	/*
+	 * ASYNC Frequency is dependent on the Sample Rate. According to
+	 * the sample rate, valid ASYNC frequency is defined in manual.
+	 * The manual recommand to select the highest possible ASYNC
+	 * frequency.
+	 */
+	switch (params_rate(params)) {
+	case 8000:
+	case 12000:
+	case 16000:
+		/* highest possible ASYNCCLK frequency: 49.152MHz */
+		asyncclk_rate = 49152000;
+		break;
+	case 11025:
+		/* highest possible ASYNCCLK frequency: 45.1584 MHz */
+		asyncclk_rate = 45158400;
+		break;
+	default:
+		dev_err(codec->dev, "Not supported sample rate: %d\n",
+			params_rate(params));
+		return -EINVAL;
+	}
+
+	ret = snd_soc_codec_set_pll(codec, WM5110_FLL2,
+				    ARIZONA_FLL_SRC_MCLK1,
+				    mclk_rate,
+				    asyncclk_rate);
+	if (ret < 0) {
+		dev_err(codec->dev, "Failed to start FLL: %d\n", ret);
+		return ret;
+	}
+
+	ret = snd_soc_codec_set_pll(codec, WM5110_FLL2_REFCLK,
+				    ARIZONA_FLL_SRC_MCLK1,
+				    mclk_rate,
+				    asyncclk_rate);
+	if (ret < 0) {
+		dev_err(codec->dev, "Failed to set FLL1 Source: %d\n", ret);
+		return ret;
+	}
+
+	ret = snd_soc_dai_set_sysclk(codec_dai, ARIZONA_CLK_ASYNCCLK, 0, 0);
+
+	if (ret < 0) {
+		dev_err(codec_dai->dev, "Failed to set ASYNCCLK: %d\n", ret);
+		return ret;
+	}
+
+	ret = snd_soc_codec_set_sysclk(codec, ARIZONA_CLK_ASYNCCLK,
+				       ARIZONA_CLK_SRC_FLL2,
+				       asyncclk_rate,
+				       SND_SOC_CLOCK_IN);
+	if (ret < 0) {
+		dev_err(codec->dev, "Failed to set ASYNCCLK Source: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static struct snd_soc_ops tm2_aif2_ops = {
+	.hw_params = tm2_aif2_hw_params,
+};
+
+static int tm2_aif3_hw_params(struct snd_pcm_substream *substream,
+				struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_codec *codec = rtd->codec;
+
+	dev_dbg(codec->dev, "params_rate: %d\n", params_rate(params));
+
+	return 0;
+}
+
+static struct snd_soc_ops tm2_aif3_ops = {
+	.hw_params = tm2_aif3_hw_params,
 };
 
 static int tm2_spk_power(struct snd_soc_dapm_widget *w,
@@ -177,10 +267,43 @@ static int tm2_mic_bias(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int tm2_set_bias_level(struct snd_soc_card *card,
+				struct snd_soc_dapm_context *dapm,
+				enum snd_soc_bias_level level)
+{
+	struct tm2_machine_priv *priv = snd_soc_card_get_drvdata(card);
+
+	if (!priv->codec || dapm != &priv->codec->dapm)
+		return 0;
+
+	switch (level) {
+	case SND_SOC_BIAS_STANDBY:
+		if (card->dapm.bias_level == SND_SOC_BIAS_OFF)
+			tm2_start_sysclk(card);
+		break;
+	case SND_SOC_BIAS_OFF:
+		tm2_stop_sysclk(card);
+		break;
+	case SND_SOC_BIAS_PREPARE:
+		break;
+	default:
+	break;
+	}
+
+	card->dapm.bias_level = level;
+
+	dev_dbg(card->dev, "%s: %d\n", __func__, level);
+
+	return 0;
+}
+
 static int tm2_late_probe(struct snd_soc_card *card)
 {
 	struct tm2_machine_priv *priv = snd_soc_card_get_drvdata(card);
+	struct snd_soc_codec *codec = card->rtd[0].codec;
 	int ret;
+
+	priv->codec = codec;
 
 	ret = devm_gpio_request_one(card->dev, priv->mic_bias,
 				    GPIOF_OUT_INIT_LOW, "MICBIAS_EN_AP");
@@ -199,25 +322,110 @@ static int tm2_late_probe(struct snd_soc_card *card)
 }
 
 static const struct snd_kcontrol_new card_controls[] = {
+	SOC_DAPM_PIN_SWITCH("HP"),
 	SOC_DAPM_PIN_SWITCH("SPK"),
+	SOC_DAPM_PIN_SWITCH("RCV"),
+	SOC_DAPM_PIN_SWITCH("VPS"),
+	SOC_DAPM_PIN_SWITCH("HDMI"),
+
 	SOC_DAPM_PIN_SWITCH("Main Mic"),
+	SOC_DAPM_PIN_SWITCH("Sub Mic"),
+	SOC_DAPM_PIN_SWITCH("Third Mic"),
+
+	SOC_DAPM_PIN_SWITCH("Headset Mic"),
 };
 
 const struct snd_soc_dapm_widget machine_dapm_widgets[] = {
+	SND_SOC_DAPM_HP("HP", NULL),
 	SND_SOC_DAPM_SPK("SPK", tm2_spk_power),
+	SND_SOC_DAPM_SPK("RCV", NULL),
+	SND_SOC_DAPM_LINE("VPS", NULL),
+	SND_SOC_DAPM_LINE("HDMI", NULL),
+
 	SND_SOC_DAPM_MIC("Main Mic", tm2_mic_bias),
+	SND_SOC_DAPM_MIC("Sub Mic", NULL),
+	SND_SOC_DAPM_MIC("Third Mic", NULL),
+
+	SND_SOC_DAPM_MIC("Headset Mic", NULL),
+};
+
+static const struct snd_soc_component_driver tm2_component = {
+	.name	= "tm2-audio",
+};
+
+static struct snd_soc_dai_driver tm2_ext_dai[] = {
+	{
+		.name = "Voice call",
+		.playback = {
+			.channels_min = 1,
+			.channels_max = 4,
+			.rate_min = 8000,
+			.rate_max = 48000,
+			.rates = (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |
+					SNDRV_PCM_RATE_48000),
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		},
+		.capture = {
+			.channels_min = 1,
+			.channels_max = 4,
+			.rate_min = 8000,
+			.rate_max = 48000,
+			.rates = (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |
+					SNDRV_PCM_RATE_48000),
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		},
+	},
+	{
+		.name = "Bluetooth",
+		.playback = {
+			.channels_min = 1,
+			.channels_max = 4,
+			.rate_min = 8000,
+			.rate_max = 16000,
+			.rates = (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000),
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		},
+		.capture = {
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min = 8000,
+			.rate_max = 16000,
+			.rates = (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000),
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		},
+	},
 };
 
 static struct snd_soc_dai_link machine_dai[] = {
 	{
 		.name		= "WM5110 AIF1",
-		.stream_name	= "Pri_Dai",
+		.stream_name	= "HiFi Primary",
 		.codec_dai_name = "wm5110-aif1",
 		.codec_name	= "wm5110-codec",
 		.ops		= &tm2_aif1_ops,
 		.dai_fmt	= SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
 				  SND_SOC_DAIFMT_CBM_CFM,
 	},
+	{
+		.name		= "WM5110 Voice",
+		.stream_name	= "Voice call",
+		.codec_dai_name = "wm5110-aif2",
+		.codec_name	= "wm5110-codec",
+		.ops		= &tm2_aif2_ops,
+		.dai_fmt	= SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
+				  SND_SOC_DAIFMT_CBM_CFM,
+		.ignore_suspend = 1,
+	},
+	{
+		.name		= "WM5110 BT",
+		.stream_name	= "Bluetooth",
+		.codec_dai_name = "wm5110-aif3",
+		.codec_name	= "wm5110-codec",
+		.ops		= &tm2_aif3_ops,
+		.dai_fmt	= SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
+				  SND_SOC_DAIFMT_CBM_CFM,
+		.ignore_suspend = 1,
+	}
 };
 
 static struct snd_soc_card tm2_card = {
@@ -231,6 +439,8 @@ static struct snd_soc_card tm2_card = {
 	.num_dapm_widgets	= ARRAY_SIZE(machine_dapm_widgets),
 
 	.late_probe		= tm2_late_probe,
+
+	.set_bias_level		= tm2_set_bias_level,
 
 	.drvdata		= &tm2_machine_priv,
 };
@@ -292,6 +502,13 @@ static int tm2_wm5110_probe(struct platform_device *pdev)
 	if (!gpio_is_valid(priv->mic_bias)) {
 		dev_err(&pdev->dev, "Failed to get mic_bias_gpio\n");
 		return -EINVAL;
+	}
+
+	ret = devm_snd_soc_register_component(&pdev->dev, &tm2_component,
+				tm2_ext_dai, ARRAY_SIZE(tm2_ext_dai));
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to register component: %d\n", ret);
+		return ret;
 	}
 
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
