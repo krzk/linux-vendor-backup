@@ -1436,6 +1436,29 @@
 			};
 		};
 
+		jpeg: jpeg@15020000 {
+			compatible = "samsung,exynos5433-jpeg";
+			reg = <0x15020000 0x10000>;
+			interrupts = <0 411 0>;
+			clock-names = "pclk",
+				      "aclk",
+				      "aclk_xiu",
+				      "sclk";
+			clocks = <&cmu_mscl CLK_PCLK_JPEG>,
+				 <&cmu_mscl CLK_ACLK_JPEG>,
+				 <&cmu_mscl CLK_ACLK_XIU_MSCLX>,
+				 <&cmu_mscl CLK_SCLK_JPEG>;
+			assigned-clocks = <&cmu_mscl CLK_MOUT_ACLK_MSCL_400_USER>,
+					  <&cmu_mscl CLK_MOUT_SCLK_JPEG_USER>,
+					  <&cmu_mscl CLK_MOUT_SCLK_JPEG>,
+					  <&cmu_top CLK_MOUT_SCLK_JPEG_A>;
+			assigned-clock-parents = <&cmu_top CLK_ACLK_MSCL_400>,
+						 <&cmu_top CLK_SCLK_JPEG_MSCL>,
+						 <&cmu_mscl CLK_MOUT_SCLK_JPEG_USER>,
+						 <&cmu_top CLK_MOUT_BUS_PLL_USER>;
+			iommus = <&sysmmu_jpeg>;
+		};
+
 		sysmmu_gscl0: sysmmu@0x13C80000 {
 			compatible = "samsung,exynos-sysmmu";
 			reg = <0x13C80000 0x1000>;
@@ -1496,6 +1519,15 @@
 			interrupts = <0 354 0>;
 			clock-names = "pclk", "aclk";
 			clocks = <&cmu_mfc CLK_PCLK_SMMU_MFC_1>, <&cmu_mfc CLK_ACLK_SMMU_MFC_1>;
+			#iommu-cells = <0>;
+		};
+
+		sysmmu_jpeg: sysmmu@0x15060000 {
+			compatible = "samsung,exynos-sysmmu";
+			reg = <0x15060000 0x1000>;
+			interrupts = <0 408 0>;
+			clock-names = "pclk", "aclk";
+			clocks = <&cmu_mscl CLK_PCLK_SMMU_JPEG>, <&cmu_mscl CLK_ACLK_SMMU_JPEG>;
 			#iommu-cells = <0>;
 		};
 	};
