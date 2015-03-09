@@ -28,10 +28,37 @@
 #include "otg.h"
 #include "io.h"
 
+#if IS_ENABLED(CONFIG_USB_DWC3_EXYNOS)
+static struct dwc3_ext_otg_ops *dwc3_otg_rsw_probe(struct dwc3 *dwc)
+{
+	struct dwc3_ext_otg_ops *ops;
+	bool                    ext_otg;
+
+	ext_otg = dwc3_exynos_rsw_available(dwc->dev->parent);
+	if (!ext_otg)
+		return NULL;
+
+	/* Allocate and init otg instance */
+	ops = devm_kzalloc(dwc->dev, sizeof(struct dwc3_ext_otg_ops),
+			GFP_KERNEL);
+	if (!ops) {
+		dev_err(dwc->dev, "unable to allocate dwc3_ext_otg_ops\n");
+		return NULL;
+	}
+
+	ops->setup = dwc3_exynos_rsw_setup;
+	ops->exit = dwc3_exynos_rsw_exit;
+	ops->start = dwc3_exynos_rsw_start;
+	ops->stop = dwc3_exynos_rsw_stop;
+
+	return ops;
+}
+#else
 static struct dwc3_ext_otg_ops *dwc3_otg_rsw_probe(struct dwc3 *dwc)
 {
 	return NULL;
 }
+#endif
 
 static int dwc3_otg_statemachine(struct otg_fsm *fsm, bool reset)
 {

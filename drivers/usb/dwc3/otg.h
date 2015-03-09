@@ -96,4 +96,13 @@ static inline int dwc3_ext_otg_stop(struct dwc3_otg *dotg)
 
 void dwc3_otg_run_sm(struct otg_fsm *fsm);
 
+/* prototypes */
+#if IS_ENABLED(CONFIG_USB_DWC3_EXYNOS)
+bool dwc3_exynos_rsw_available(struct device *dev);
+int dwc3_exynos_rsw_setup(struct device *dev, struct otg_fsm *fsm);
+void dwc3_exynos_rsw_exit(struct device *dev);
+int dwc3_exynos_rsw_start(struct device *dev);
+void dwc3_exynos_rsw_stop(struct device *dev);
+#endif
+
 #endif /* __LINUX_USB_DWC3_OTG_H */

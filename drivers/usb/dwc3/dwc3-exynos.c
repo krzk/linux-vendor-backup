@@ -27,6 +27,10 @@
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/regulator/consumer.h>
+#include <linux/extcon.h>
+#include <linux/workqueue.h>
+
+#include "otg.h"
 
 struct dwc3_exynos {
 	struct platform_device	*usb2_phy;
@@ -39,7 +43,106 @@ struct dwc3_exynos {
 
 	struct regulator	*vdd33;
 	struct regulator	*vdd10;
+
+	struct otg_fsm          *fsm;
+
+	struct extcon_dev       *extcon;
+	struct extcon_specific_cable_nb extcon_usb_dev;
+	struct extcon_specific_cable_nb extcon_usb_host_dev;
+	struct notifier_block   usb_nb;
+	struct notifier_block   usb_host_nb;
+	struct work_struct	work;
 };
+
+static int dwc3_exynos_usb_notifier(struct notifier_block *nb,
+		unsigned long event, void *ptr);
+
+static int dwc3_exynos_usb_host_notifier(struct notifier_block *nb,
+		unsigned long event, void *ptr);
+
+int dwc3_exynos_rsw_start(struct device *dev)
+{
+	struct dwc3_exynos *exynos = dev_get_drvdata(dev);
+	int ret;
+
+	dev_dbg(dev, "%s\n", __func__);
+
+	if (!exynos->extcon)
+		return -ENODEV;
+
+	exynos->usb_nb.notifier_call = dwc3_exynos_usb_notifier;
+	exynos->usb_host_nb.notifier_call = dwc3_exynos_usb_host_notifier;
+
+	ret = extcon_register_interest(&exynos->extcon_usb_dev,
+			exynos->extcon->name, "USB", &exynos->usb_nb);
+	if (ret < 0) {
+		dev_dbg(dev, "failed to register notifier for USB");
+		return -ENODEV;
+	}
+
+	ret = extcon_register_interest(&exynos->extcon_usb_host_dev,
+			exynos->extcon->name, "USB-HOST", &exynos->usb_host_nb);
+	if (ret < 0) {
+		dev_dbg(dev, "failed to register notifier for USB HOST");
+		extcon_unregister_interest(&exynos->extcon_usb_dev);
+		return -ENODEV;
+	}
+
+	if (extcon_get_cable_state(exynos->extcon, "USB")) {
+		exynos->fsm->b_sess_vld = 1;
+		exynos->fsm->id = 1;
+	} else if (extcon_get_cable_state(exynos->extcon, "USB-HOST")) {
+		exynos->fsm->b_sess_vld = 0;
+		exynos->fsm->id = 0;
+	} else {
+		exynos->fsm->b_sess_vld = 0;
+		exynos->fsm->id = 1;
+	}
+
+	dwc3_otg_run_sm(exynos->fsm);
+
+	return 0;
+}
+
+void dwc3_exynos_rsw_stop(struct device *dev)
+{
+	struct dwc3_exynos *exynos = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+
+	if (exynos->extcon_usb_dev.edev)
+		extcon_unregister_interest(&exynos->extcon_usb_dev);
+	if (exynos->extcon_usb_host_dev.edev)
+		extcon_unregister_interest(&exynos->extcon_usb_host_dev);
+}
+
+int dwc3_exynos_rsw_setup(struct device *dev, struct otg_fsm *fsm)
+{
+	struct dwc3_exynos *exynos = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+
+	exynos->fsm = fsm;
+
+	return 0;
+}
+
+void dwc3_exynos_rsw_exit(struct device *dev)
+{
+	struct dwc3_exynos	*exynos = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+
+	exynos->fsm = NULL;
+}
+
+bool dwc3_exynos_rsw_available(struct device *dev)
+{
+	if (of_property_read_bool(dev->of_node, "extcon"))
+		return true;
+
+	return false;
+}
 
 static int dwc3_exynos_register_phys(struct dwc3_exynos *exynos)
 {
@@ -105,17 +208,76 @@ static int dwc3_exynos_remove_child(struct device *dev, void *unused)
 	return 0;
 }
 
+static void dwc3_exynos_worker(struct work_struct *work)
+{
+	struct dwc3_exynos *exynos =
+		container_of(work, struct dwc3_exynos, work);
+
+	dwc3_otg_run_sm(exynos->fsm);
+}
+
+static int dwc3_exynos_usb_notifier(struct notifier_block *nb,
+		unsigned long event, void *ptr)
+{
+	struct dwc3_exynos *exynos =
+		container_of(nb, struct dwc3_exynos, usb_nb);
+
+	if (event) {
+		exynos->fsm->b_sess_vld = 1;
+		exynos->fsm->id = 1;
+	} else {
+		exynos->fsm->b_sess_vld = 0;
+		exynos->fsm->id = 1;
+	}
+
+	schedule_work(&exynos->work);
+
+	return 0;
+}
+
+static int dwc3_exynos_usb_host_notifier(struct notifier_block *nb,
+		unsigned long event, void *ptr)
+{
+	struct dwc3_exynos *exynos =
+		container_of(nb, struct dwc3_exynos, usb_host_nb);
+
+	if (event) {
+		exynos->fsm->b_sess_vld = 0;
+		exynos->fsm->id = 0;
+	} else {
+		exynos->fsm->b_sess_vld = 0;
+		exynos->fsm->id = 1;
+	}
+
+	schedule_work(&exynos->work);
+
+	return 0;
+}
+
 static int dwc3_exynos_probe(struct platform_device *pdev)
 {
 	struct dwc3_exynos	*exynos;
 	struct device		*dev = &pdev->dev;
 	struct device_node	*node = dev->of_node;
+	struct extcon_dev       *extcon = NULL;
 
 	int			ret;
+
+	if (of_property_read_bool(node, "extcon")) {
+		extcon = extcon_get_edev_by_phandle(dev, 0);
+		if (IS_ERR(extcon)) {
+			dev_vdbg(dev, "couldn't get extcon device\n");
+			return -EPROBE_DEFER;
+		}
+	}
 
 	exynos = devm_kzalloc(dev, sizeof(*exynos), GFP_KERNEL);
 	if (!exynos)
 		return -ENOMEM;
+
+	exynos->extcon = extcon;
+
+	INIT_WORK(&exynos->work, dwc3_exynos_worker);
 
 	/*
 	 * Right now device-tree probed devices don't get dma_mask set.
