@@ -10,6 +10,26 @@ config SENSORS_CORE
           If unsure, say Y.
 
 if SENSORS_CORE
+
+config SENSORS_MAX86902
+	tristate "MAXIM MAX86902 HRM & UV Sensor"
+	depends on I2C && OF
+	select SENSORS_MAX_NOTCHFILTER
+	help
+	  If you say yes here you get support for the MAX86902
+	  HRM & UV sensor.
+	  This driver can also be built as a module.    If so, the module
+	  will be called max86902.
+
+config SENSORS_MAX_NOTCHFILTER
+	bool "Sensors Maxim Notch Filter"
+	help
+	  Max Notch filter file for HR test in sensor driver.
+	  If you say yes here you get Notch Filter support for
+	  HR test.
+	  To compile this driver as a module, choose M here: the
+	  module will be called Max86902.
+
 config SENSORS_SSP_STM_RINATO
 	bool "Sensorhub for rinato"
 	help
