@@ -110,4 +110,8 @@ config EXTCON_USB_GPIO
 	  Say Y here to enable GPIO based USB cable detection extcon support.
 	  Used typically if GPIO is used for USB ID pin detection.
 
+config EXTCON_ODROID_USBOTG
+	tristate "Extcon Odroid U3, U3+, X and XU USB OTG port"
+	depends on OF_GPIO
+
 endif # MULTISTATE_SWITCH
