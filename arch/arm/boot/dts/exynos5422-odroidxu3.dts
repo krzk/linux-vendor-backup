@@ -332,6 +332,20 @@
 			clocks = <&i2s0 CLK_I2S_CDCLK>;
 		};
 	};
+
+	usb_extcon_a: odroid-usbotg-a {
+		compatible = "extcon-odroid-usbotg";
+		pinctrl-names = "default";
+		pinctrl-0 = <&otg_ida &vbus_deta>;
+		otg-id-gpio = <&gpx1 1 0>;
+		vbus-det-gpio = <&gpx3 4 0>;
+	};
+
+	usb_extcon_b: odroid-usbotg-b {
+		compatible = "extcon-odroid-usbotg";
+		pinctrl-0 = <&vbus_detb>;
+		vbus-det-gpio = <&gpx3 5 0>;
+	};
 };
 
 &hsi2c_5 {
@@ -466,4 +480,21 @@
 	status = "okay";
 	pinctrl-0 = <&pwm0_out>;
 	pinctrl-names = "default";
+};
+
+&pinctrl_0 {
+	otg_ida: otg-ida {
+		samsung,pins = "gpx1-1";
+		samsung,pin-pud = <0>;
+	};
+
+	vbus_deta: vbus-deta {
+		samsung,pins = "gpx3-4";
+		samsung,pin-pud = <0>;
+	};
+
+	vbus_detb: vbus-detb {
+		samsung,pins = "gpx3-5";
+		samsung,pin-pud = <0>;
+	};
 };
