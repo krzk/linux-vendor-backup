@@ -10,11 +10,20 @@
 #include <linux/syscore_ops.h>
 #include <linux/soc/samsung/exynos-pmu.h>
 #include <linux/soc/samsung/exynos-pm.h>
+#include <linux/regulator/machine.h>
 
 static struct exynos_pm_ops *pm_ops;
 
 static int exynos_suspend_prepare(void)
 {
+	int ret;
+
+	ret = regulator_suspend_prepare(PM_SUSPEND_MEM);
+	if (ret) {
+		pr_err("Failed to prepare regulators for suspend.\n");
+		return ret;
+	}
+
 	if (pm_ops->prepare)
 		return pm_ops->prepare();
 
@@ -36,10 +45,20 @@ static int exynos_suspend_enter(suspend_state_t state)
 	return 0;
 }
 
+static void exynos_suspend_finish(void)
+{
+	int ret;
+
+	ret = regulator_suspend_finish();
+	if (ret)
+		pr_warn("Failed to resume regulators from suspend.\n");
+}
+
 static struct platform_suspend_ops exynos_suspend_ops = {
 	.valid = suspend_valid_only_mem,
 	.prepare = exynos_suspend_prepare,
 	.enter	= exynos_suspend_enter,
+	.finish = exynos_suspend_finish,
 };
 
 static int exynos_pm_syscore_suspend(void)
