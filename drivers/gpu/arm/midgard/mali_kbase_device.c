@@ -97,10 +97,6 @@ int kbase_device_init(struct kbase_device * const kbdev)
 	/* Set the list of features available on the current HW (identified by the GPU_ID register) */
 	kbase_hw_set_features_mask(kbdev);
 
-#if defined(CONFIG_ARM64)
-	set_dma_ops(kbdev->dev, &noncoherent_swiotlb_dma_ops);
-#endif
-
 	/* Workaround a pre-3.13 Linux issue, where dma_mask is NULL when our
 	 * device structure was created by device-tree
 	 */
