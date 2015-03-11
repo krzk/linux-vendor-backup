@@ -52,6 +52,17 @@
 		};
 	};
 
+	usb_extcon: odroid-usbotg {
+		compatible = "extcon-odroid-usbotg";
+		pinctrl-names = "default";
+		pinctrl-0 = <&vbus_det>;
+		gpio-vbus-det = <&gpx1 6 0>;
+	};
+
+	hsotg@12480000 {
+		extcon = <&usb_extcon>;
+	};
+
 	regulator_p3v3 {
 		compatible = "regulator-fixed";
 		regulator-name = "p3v3_en";
@@ -80,6 +91,13 @@
 &ehci {
 	port@1 {
 		status = "okay";
+	};
+};
+
+&pinctrl_1 {
+	vbus_det: vbus-det {
+		  samsung,pins = "gpx1-6";
+		  samsung,pin-pud = <0>;
 	};
 };
 

@@ -32,6 +32,18 @@
 		};
 	};
 
+	usb_extcon: odroid-usbotg {
+		compatible = "extcon-odroid-usbotg";
+		pinctrl-names = "default";
+		pinctrl-0 = <&otg_id &vbus_det>;
+		gpio-otg-id = <&gpx3 1 0>;
+		gpio-vbus-det = <&gpx1 6 0>;
+	};
+
+	hsotg@12480000 {
+		extcon = <&usb_extcon>;
+	};
+
 	pwm: pwm@139D0000 {
 		pinctrl-0 = <&pwm0_out>;
 		pinctrl-names = "default";
@@ -71,4 +83,16 @@
 		"Speakers", "SPKR",
 		"Headset Mic", "MICBIAS",
 		"IN1", "Headset Mic";
+};
+
+&pinctrl_1 {
+	otg_id: otg-id {
+		samsung,pins = "gpx3-1";
+		samsung,pin-pud = <3>;
+	};
+
+	vbus_det: vbus-det {
+		samsung,pins = "gpx1-6";
+		samsung,pin-pud = <0>;
+	};
 };
