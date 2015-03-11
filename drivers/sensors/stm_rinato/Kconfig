@@ -1,15 +1,6 @@
 #
 # sensor drivers configuration
 #
-config SENSORS_SYSFS
-	tristate "Sensors sysfs"
-	help
-	  Support sysfs for sensors.
-          If you say yes here you get sysfs support for
-	  sensor factory test.
-	  To compile this driver as a module, choose M here: the
-	  module will be called sensors_core.
-
 config SENSORS_SSP
 	tristate "Sensors ssp"
 	default n

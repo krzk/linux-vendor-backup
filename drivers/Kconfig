@@ -184,6 +184,6 @@ source "drivers/android/Kconfig"
 
 source "drivers/gator/Kconfig"
 
-source "drivers/sensorhub/Kconfig"
+source "drivers/sensors/Kconfig"
 
 endmenu
