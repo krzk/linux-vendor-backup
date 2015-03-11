@@ -86,7 +86,9 @@ static inline struct iommu_dma_domain *get_dma_domain(struct device *dev)
 	return NULL;
 }
 
-void set_dma_domain(struct device *dev, struct iommu_dma_domain *dma_domain) { }
+static inline void set_dma_domain(struct device *dev,
+		struct iommu_dma_domain *dma_domain)
+{ }
 
 #endif  /* CONFIG_IOMMU_DMA */
 
