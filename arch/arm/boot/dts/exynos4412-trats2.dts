@@ -1293,8 +1293,10 @@
 
 	sound {
 		compatible = "samsung,trats2-wm1811";
-		clocks = <&clock 2>, <&clock 396>, <&clock 21>, <&clock 6>;
-		clock-names = "parent", "out-mux", "out", "pll" /* EPLL */;
+		clocks = <&clock 2>, <&clock 396>, <&clock 21>, <&clock 6>,
+			 <&max77686 2>;
+		clock-names = "parent", "out-mux", "out", "pll" /* EPLL */,
+			 "32khz";
 		samsung,i2s-controller = <&i2s0>;
 		samsung,audio-codec = <&wm1811>;
 		samsung,model = "wm1811";
