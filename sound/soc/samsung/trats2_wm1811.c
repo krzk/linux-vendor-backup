@@ -111,6 +111,7 @@ struct trats2_wm1811 {
 	struct snd_soc_jack jack;
 	struct snd_soc_codec *codec;
 	struct clk *codec_mclk;
+	struct clk *codec_32khz;
 
 	int gpio_mic_bias[MIC_MAX];
 	int gpio_vps_en;
@@ -867,6 +868,12 @@ static int machine_init_paiftx(struct snd_soc_pcm_runtime *rtd)
 	if (ret < 0)
 		return ret;
 
+	ret = clk_prepare_enable(machine->codec_32khz);
+	if (ret < 0) {
+		clk_disable_unprepare(machine->codec_mclk);
+		return ret;
+	}
+
 	ret = snd_soc_add_card_controls(card, card_controls,
 					ARRAY_SIZE(card_controls));
 	if (ret != 0)
@@ -1151,6 +1158,7 @@ static int machine_card_suspend_post(struct snd_soc_card *card)
 		codec_micd_set_rate(codec);
 
 		clk_disable_unprepare(machine->codec_mclk);
+		clk_disable_unprepare(machine->codec_32khz);
 	}
 
 	snd_soc_dapm_sync(&codec->dapm);
@@ -1165,8 +1173,10 @@ static int machine_card_resume_pre(struct snd_soc_card *card)
 	int reg = 0;
 	int ret;
 
-	if (!codec->active)
+	if (!codec->active) {
 		clk_prepare_enable(machine->codec_mclk);
+		clk_prepare_enable(machine->codec_32khz);
+	}
 
 	/* change sysclk from mclk2 to pll out of mclk1 */
 	ret = snd_soc_dai_set_pll(aif1_dai, WM8994_FLL1,
@@ -1290,6 +1300,12 @@ static int trats2_wm1811_probe(struct platform_device *pdev)
 		return PTR_ERR(machine->codec_mclk);
 	}
 
+	machine->codec_32khz = clk_get(&pdev->dev, "32khz");
+	if (IS_ERR(machine->codec_32khz)) {
+		dev_err(&pdev->dev, "failed to get 32khz clock\n");
+		return PTR_ERR(machine->codec_32khz);
+	}
+
 	out_mux = clk_get(&pdev->dev, "out-mux");
 	if (IS_ERR(out_mux)) {
 		dev_err(&pdev->dev, "failed to get out mux clock\n");
@@ -1335,6 +1351,7 @@ static int trats2_wm1811_remove(struct platform_device *pdev)
 
 	snd_soc_unregister_card(card);
 	clk_put(machine->codec_mclk);
+	clk_put(machine->codec_32khz);
 	clk_put(machine->clk_pll);
 	return 0;
 }
