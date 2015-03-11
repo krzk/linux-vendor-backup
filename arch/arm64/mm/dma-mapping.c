@@ -600,6 +600,20 @@ static int __iommu_mmap_attrs(struct device *dev, struct vm_area_struct *vma,
 	return 0;
 }
 
+static int __iommu_get_sgtable(struct device *dev, struct sg_table *sgt,
+			       void *cpu_addr, dma_addr_t dma_addr,
+			       size_t size, struct dma_attrs *attrs)
+{
+	unsigned int count = PAGE_ALIGN(size) >> PAGE_SHIFT;
+	struct page **pages = __iommu_get_pages(cpu_addr, attrs);
+
+	if (!pages)
+		return -ENXIO;
+
+	return sg_alloc_table_from_pages(sgt, pages, count, 0, size,
+					 GFP_KERNEL);
+}
+
 static void __iommu_sync_single_for_cpu(struct device *dev,
 					dma_addr_t dev_addr, size_t size,
 					enum dma_data_direction dir)
@@ -711,6 +725,7 @@ static struct dma_map_ops iommu_dma_ops = {
 	.alloc = __iommu_alloc_attrs,
 	.free = __iommu_free_attrs,
 	.mmap = __iommu_mmap_attrs,
+	.get_sgtable = __iommu_get_sgtable,
 	.map_page = __iommu_map_page,
 	.unmap_page = __iommu_unmap_page,
 	.map_sg = __iommu_map_sg_attrs,
