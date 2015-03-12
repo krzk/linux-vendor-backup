@@ -69,7 +69,7 @@ static struct iova *__alloc_iova(struct device *dev, size_t size, bool coherent)
 
 	limit_pfn = min(limit_pfn, (unsigned long)(dma_limit >> shift));
 	/* Alignment should probably come from a domain/device attribute... */
-	return alloc_iova(iovad, length, limit_pfn, false);
+	return alloc_iova(iovad, length, limit_pfn, true);
 }
 
 /*
