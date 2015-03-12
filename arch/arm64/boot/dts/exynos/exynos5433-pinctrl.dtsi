@@ -216,6 +216,13 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 	};
+
+	cfg_wlanen: cfg-wlanen {
+		samsung,pins = "gpj2-0";
+		samsung,pin-function = <1>;
+		samsung,pin-drv = <3>;
+		samsung,pin-con-pdn = <3>;
+	};
 };
 
 &pinctrl_finger {
