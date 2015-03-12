@@ -5029,8 +5029,9 @@ static int __init hmp_cpu_mask_setup(void)
 	dc = 0;
 	list_for_each(pos, &hmp_domains) {
 		domain = list_entry(pos, struct hmp_domain, hmp_domains);
+		scnprintf(buf, 64, "%*pbl", cpumask_pr_args(&domain->cpus));
 		scnprintf(buf, 64, "%*pbl", cpumask_pr_args(&domain->possible_cpus));
-		pr_debug("  HMP domain %d: %s\n", dc, buf);
+		pr_info("  HMP domain %d: %s\n", dc, buf);
 
 		for_each_cpu(cpu, &domain->possible_cpus) {
 			per_cpu(hmp_cpu_domain, cpu) = domain;
