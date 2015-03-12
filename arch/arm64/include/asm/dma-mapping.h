@@ -61,6 +61,8 @@ static inline bool is_device_dma_coherent(struct device *dev)
 
 #ifdef CONFIG_IOMMU_DMA
 
+extern struct dma_map_ops iommu_dma_ops;
+
 void arch_teardown_dma_ops(struct device *dev);
 #define arch_teardown_dma_ops	arch_teardown_dma_ops
 
