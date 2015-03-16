@@ -1252,12 +1252,18 @@ static int s3c64xx_spi_resume(struct device *dev)
 	if (sci->cfg_gpio)
 		sci->cfg_gpio();
 
-	if (!pm_runtime_suspended(dev)) {
-		clk_prepare_enable(sdd->src_clk);
-		clk_prepare_enable(sdd->clk);
-	}
+	/* Exynos 5 needs to enable both of src_clk and clk
+	 * to access sfr registers in s3c64xx_spi_hwinit()
+	 */
+	clk_prepare_enable(sdd->src_clk);
+	clk_prepare_enable(sdd->clk);
 
 	s3c64xx_spi_hwinit(sdd, sdd->port_id);
+
+	if (pm_runtime_suspended(dev)) {
+		clk_disable_unprepare(sdd->clk);
+		clk_disable_unprepare(sdd->src_clk);
+	}
 
 	return spi_master_resume(master);
 }
