@@ -3125,7 +3125,16 @@ CONFIG_EXYNOS_IOMMU=y
 # Rpmsg drivers
 #
 # CONFIG_PM_DEVFREQ is not set
-# CONFIG_EXTCON is not set
+CONFIG_EXTCON=y
+
+#
+# Extcon Device Drivers
+#
+# CONFIG_EXTCON_GPIO is not set
+# CONFIG_EXTCON_MAX77693 is not set
+# CONFIG_EXTCON_MAX8997 is not set
+# CONFIG_EXTCON_PORT is not set
+CONFIG_EXTCON_ODROID_USBOTG=y
 # CONFIG_MEMORY is not set
 # CONFIG_IIO is not set
 CONFIG_PWM=y
