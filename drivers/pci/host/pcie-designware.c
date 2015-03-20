@@ -68,9 +68,11 @@
 #define PCIE_ATU_FUNC(x)		(((x) & 0x7) << 16)
 #define PCIE_ATU_UPPER_TARGET		0x91C
 
-static struct hw_pci dw_pci;
 
 static unsigned long global_io_offset;
+
+#ifdef CONFIG_ARM
+static struct hw_pci dw_pci;
 
 static inline struct pcie_port *sys_to_pcie(struct pci_sys_data *sys)
 {
@@ -78,6 +80,12 @@ static inline struct pcie_port *sys_to_pcie(struct pci_sys_data *sys)
 
 	return sys->private_data;
 }
+#else
+static inline struct pcie_port *sys_to_pcie(struct pcie_port *pp)
+{
+	return pp;
+}
+#endif
 
 int dw_pcie_cfg_read(void __iomem *addr, int where, int size, u32 *val)
 {
@@ -503,6 +511,7 @@ int dw_pcie_host_init(struct pcie_port *pp)
 	val |= PORT_LOGIC_SPEED_CHANGE;
 	dw_pcie_wr_own_conf(pp, PCIE_LINK_WIDTH_SPEED_CONTROL, 4, val);
 
+#ifdef CONFIG_ARM
 #ifdef CONFIG_PCI_MSI
 	dw_pcie_msi_chip.dev = pp->dev;
 	dw_pci.msi_ctrl = &dw_pcie_msi_chip;
@@ -512,6 +521,7 @@ int dw_pcie_host_init(struct pcie_port *pp)
 	dw_pci.private_data = (void **)&pp;
 
 	pci_common_init_dev(pp->dev, &dw_pci);
+#endif
 
 	return 0;
 }
@@ -702,6 +712,7 @@ static struct pci_ops dw_pcie_ops = {
 	.write = dw_pcie_wr_conf,
 };
 
+#ifdef CONFIG_ARM
 static int dw_pcie_setup(int nr, struct pci_sys_data *sys)
 {
 	struct pcie_port *pp;
@@ -759,6 +770,7 @@ static struct hw_pci dw_pci = {
 	.scan		= dw_pcie_scan_bus,
 	.map_irq	= dw_pcie_map_irq,
 };
+#endif
 
 void dw_pcie_setup_rc(struct pcie_port *pp)
 {
