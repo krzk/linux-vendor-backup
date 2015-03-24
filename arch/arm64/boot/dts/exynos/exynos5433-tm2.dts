@@ -1169,7 +1169,7 @@
 		PIN(IN, gpa0-4, NONE, LV1);	/* CODEC_IRQ_N */
 		PIN(IN, gpa0-5, DOWN, LV1);	/* PCD_INT */
 		PIN(IN, gpa0-6, NONE, LV1);	/* HRM_INT */
-		PIN(IN, gpa0-7, DOWN, LV1);	/* AP_PMIC_IRQ */
+		PIN(IN, gpa0-7, NONE, LV1);	/* AP_PMIC_IRQ */
 
 		PIN(IN, gpa1-0, UP, LV1);	/* MCU_HOST_WAKE */
 		PIN(IN, gpa1-1, NONE, LV1);	/* TSP_INT */
