@@ -1167,7 +1167,7 @@
 				      "phyclk_mipidphy0_bitclkdiv8",
 				      "phyclk_mipidphy0_rxclkesc0",
 				      "sclk_rgb_vclk_to_dsim0",
-				      "pll_clk";
+				      "sclk_mipi";
 			status = "disabled";
 			#address-cells = <1>;
 			#size-cells = <0>;
