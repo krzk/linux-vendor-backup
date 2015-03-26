@@ -966,6 +966,11 @@
 			status = "disabled";
 		};
 
+		syscon_disp: syscon@13B80000 {
+			compatible = "samsung,exynos5433-sysreg", "syscon";
+			reg = <0x13B80000 0x1010>;
+		};
+
 		adc: adc@14d10000 {
 			compatible = "samsung,exynos7-adc";
 			reg = <0x14d10000 0x100>;
@@ -1187,10 +1192,11 @@
 
 		mic: mic@13930000 {
 			compatible = "samsung,exynos5433-mic";
-			reg = <0x13930000 0x48 0x13B80000 0x1010>;
+			reg = <0x13930000 0x48>;
 			clocks = <&cmu_disp CLK_PCLK_MIC0>,
 				 <&cmu_disp CLK_SCLK_RGB_VCLK_TO_MIC0>;
 			clock-names = "pclk_mic0", "sclk_rgb_vclk_to_mic0";
+			samsung,disp-syscon = <&syscon_disp>;
 			status = "disabled";
 
 			ports {
