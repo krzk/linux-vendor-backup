@@ -131,6 +131,7 @@
 #define DSIM_INT_PLL_STABLE		(1 << 31)
 #define DSIM_INT_SW_RST_RELEASE		(1 << 30)
 #define DSIM_INT_SFR_FIFO_EMPTY		(1 << 29)
+#define DSIM_INT_SFR_HDR_FIFO_EMPTY	(1 << 28)
 #define DSIM_INT_BTA			(1 << 25)
 #define DSIM_INT_FRAME_DONE		(1 << 24)
 #define DSIM_INT_RX_TIMEOUT		(1 << 21)
@@ -179,6 +180,8 @@
 
 /* DSIM_PHYCTRL */
 #define DSIM_PHYCTRL_ULPS_EXIT(x)	(((x) & 0x1ff) << 0)
+#define DSIM_PHYCTRL_B_DPHYCTL_VREG_LP	(1 << 30)
+#define DSIM_PHYCTRL_B_DPHYCTL_SLEW_UP	(1 << 14)
 
 /* DSIM_PHYTIMING */
 #define DSIM_PHYTIMING_LPX(x)		((x) << 8)
@@ -206,7 +209,9 @@
 #define DSI_WRITE(dsi, reg, val)	writel((val), REG((dsi), (reg)));
 #define DSI_READ(dsi, reg)		readl(REG((dsi), (reg)));
 
-static char *clk_names[2] = { "bus_clk", "sclk_mipi" };
+static char *clk_names[5] = { "bus_clk", "sclk_mipi",
+	"phyclk_mipidphy0_bitclkdiv8", "phyclk_mipidphy0_rxclkesc0",
+	"sclk_rgb_vclk_to_dsim0" };
 
 enum exynos_dsi_transfer_type {
 	EXYNOS_DSI_TX,
@@ -335,6 +340,30 @@ static unsigned int regs[] = {
 	[DSIM_PHYTIMING2_REG] =  0x6c,
 };
 
+static unsigned int exynos5433_regs[] = {
+	[DSIM_STATUS_REG] = 0x04,
+	[DSIM_SWRST_REG] = 0x0C,
+	[DSIM_CLKCTRL_REG] = 0x10,
+	[DSIM_TIMEOUT_REG] = 0x14,
+	[DSIM_CONFIG_REG] = 0x18,
+	[DSIM_ESCMODE_REG] = 0x1C,
+	[DSIM_MDRESOL_REG] = 0x20,
+	[DSIM_MVPORCH_REG] = 0x24,
+	[DSIM_MHPORCH_REG] = 0x28,
+	[DSIM_MSYNC_REG] = 0x2C,
+	[DSIM_INTSRC_REG] = 0x34,
+	[DSIM_INTMSK_REG] = 0x38,
+	[DSIM_PKTHDR_REG] = 0x3C,
+	[DSIM_PAYLOAD_REG] = 0x40,
+	[DSIM_RXFIFO_REG] = 0x44,
+	[DSIM_FIFOCTRL_REG] = 0x4C,
+	[DSIM_PLLCTRL_REG] = 0x94,
+	[DSIM_PHYCTRL_REG] = 0xA4,
+	[DSIM_PHYTIMING_REG] = 0xB4,
+	[DSIM_PHYTIMING1_REG] = 0xB8,
+	[DSIM_PHYTIMING2_REG] = 0xBC,
+};
+
 enum values {
 	RESET_TYPE,
 	PLL_TIMER,
@@ -369,6 +398,24 @@ static unsigned int values[] = {
 	[PHYTIMING_HS_PREPARE] = DSIM_PHYTIMING2_HS_PREPARE(0x09),
 	[PHYTIMING_HS_ZERO] = DSIM_PHYTIMING2_HS_ZERO(0x0d),
 	[PHYTIMING_HS_TRAIL] = DSIM_PHYTIMING2_HS_TRAIL(0x0b),
+};
+
+static unsigned int exynos5433_values[] = {
+	[RESET_TYPE] = DSIM_FUNCRST,
+	[PLL_TIMER] = 22200,
+	[STOP_STATE_CNT] = 0xa,
+	[PHYCTRL_ULPS_EXIT] = DSIM_PHYCTRL_ULPS_EXIT(0x190),
+	[PHYCTRL_VREG_LP] = DSIM_PHYCTRL_B_DPHYCTL_VREG_LP,
+	[PHYCTRL_SLEW_UP] = DSIM_PHYCTRL_B_DPHYCTL_SLEW_UP,
+	[PHYTIMING_LPX] = DSIM_PHYTIMING_LPX(0x07),
+	[PHYTIMING_HS_EXIT] = DSIM_PHYTIMING_HS_EXIT(0x0c),
+	[PHYTIMING_CLK_PREPARE] = DSIM_PHYTIMING1_CLK_PREPARE(0x09),
+	[PHYTIMING_CLK_ZERO] = DSIM_PHYTIMING1_CLK_ZERO(0x2d),
+	[PHYTIMING_CLK_POST] = DSIM_PHYTIMING1_CLK_POST(0x0e),
+	[PHYTIMING_CLK_TRAIL] = DSIM_PHYTIMING1_CLK_TRAIL(0x09),
+	[PHYTIMING_HS_PREPARE] = DSIM_PHYTIMING2_HS_PREPARE(0x0b),
+	[PHYTIMING_HS_ZERO] = DSIM_PHYTIMING2_HS_ZERO(0x10),
+	[PHYTIMING_HS_TRAIL] = DSIM_PHYTIMING2_HS_TRAIL(0x0c),
 };
 
 static struct exynos_dsi_driver_data exynos3_dsi_driver_data = {
@@ -416,6 +463,17 @@ static struct exynos_dsi_driver_data exynos5_dsi_driver_data = {
 	.values = values,
 };
 
+static struct exynos_dsi_driver_data exynos5433_dsi_driver_data = {
+	.regs = exynos5433_regs,
+	.plltmr_reg = 0xa0,
+	.has_clklane_stop = 1,
+	.num_clks = 5,
+	.max_freq = 1500,
+	.wait_for_reset = 0,
+	.num_bits_resol = 12,
+	.values = exynos5433_values,
+};
+
 static struct of_device_id exynos_dsi_of_match[] = {
 	{ .compatible = "samsung,exynos3250-mipi-dsi",
 	  .data = &exynos3_dsi_driver_data },
@@ -425,6 +483,8 @@ static struct of_device_id exynos_dsi_of_match[] = {
 	  .data = &exynos4415_dsi_driver_data },
 	{ .compatible = "samsung,exynos5410-mipi-dsi",
 	  .data = &exynos5_dsi_driver_data },
+	{ .compatible = "samsung,exynos5433-mipi-dsi",
+	  .data = &exynos5433_dsi_driver_data },
 	{ }
 };
 
@@ -1182,13 +1242,16 @@ static irqreturn_t exynos_dsi_irq(int irq, void *dev_id)
 	DSI_WRITE(dsi, DSIM_INTSRC_REG, status);
 
 	if (status & DSIM_INT_SW_RST_RELEASE) {
-		u32 mask = ~(DSIM_INT_RX_DONE | DSIM_INT_SFR_FIFO_EMPTY);
+		u32 mask = ~(DSIM_INT_RX_DONE | DSIM_INT_SFR_FIFO_EMPTY |
+			DSIM_INT_SFR_HDR_FIFO_EMPTY | DSIM_INT_FRAME_DONE |
+			DSIM_INT_RX_ECC_ERR | DSIM_INT_SW_RST_RELEASE);
 		DSI_WRITE(dsi, DSIM_INTMSK_REG, mask);
 		complete(&dsi->completed);
 		return IRQ_HANDLED;
 	}
 
-	if (!(status & (DSIM_INT_RX_DONE | DSIM_INT_SFR_FIFO_EMPTY)))
+	if (!(status & (DSIM_INT_RX_DONE | DSIM_INT_SFR_FIFO_EMPTY |
+			DSIM_INT_FRAME_DONE | DSIM_INT_PLL_STABLE)))
 		return IRQ_HANDLED;
 
 	if (exynos_dsi_transfer_finish(dsi))
