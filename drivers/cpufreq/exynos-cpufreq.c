@@ -45,11 +45,9 @@ static int exynos_cpufreq_get_index(unsigned int freq)
 
 static int exynos_cpufreq_scale(unsigned int target_freq)
 {
-	struct cpufreq_frequency_table *freq_table = exynos_info->freq_table;
 	unsigned int *volt_table = exynos_info->volt_table;
 	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
-	unsigned int arm_volt, safe_arm_volt = 0;
-	unsigned int mpll_freq_khz = exynos_info->mpll_freq_khz;
+	unsigned int arm_volt;
 	struct device *dev = exynos_info->dev;
 	unsigned int old_freq;
 	int index, old_index;
@@ -74,21 +72,10 @@ static int exynos_cpufreq_scale(unsigned int target_freq)
 		goto out;
 	}
 
-	/*
-	 * ARM clock source will be changed APLL to MPLL temporary
-	 * To support this level, need to control regulator for
-	 * required voltage level
-	 */
-	if (exynos_info->need_apll_change != NULL) {
-		if (exynos_info->need_apll_change(old_index, index) &&
-		   (freq_table[index].frequency < mpll_freq_khz) &&
-		   (freq_table[old_index].frequency < mpll_freq_khz))
-			safe_arm_volt = volt_table[exynos_info->pll_safe_idx];
-	}
 	arm_volt = volt_table[index];
 
 	/* When the new frequency is higher than current frequency */
-	if ((target_freq > old_freq) && !safe_arm_volt) {
+	if (target_freq > old_freq) {
 		/* Firstly, voltage up to increase frequency */
 		ret = regulator_set_voltage(arm_regulator, arm_volt, arm_volt);
 		if (ret) {
@@ -98,21 +85,10 @@ static int exynos_cpufreq_scale(unsigned int target_freq)
 		}
 	}
 
-	if (safe_arm_volt) {
-		ret = regulator_set_voltage(arm_regulator, safe_arm_volt,
-				      safe_arm_volt);
-		if (ret) {
-			dev_err(dev, "failed to set cpu voltage to %d\n",
-				safe_arm_volt);
-			return ret;
-		}
-	}
-
 	exynos_info->set_freq(old_index, index);
 
 	/* When the new frequency is lower than current frequency */
-	if ((target_freq < old_freq) ||
-	   ((target_freq > old_freq) && safe_arm_volt)) {
+	if (target_freq < old_freq) {
 		/* down the voltage after frequency change */
 		ret = regulator_set_voltage(arm_regulator, arm_volt,
 				arm_volt);
