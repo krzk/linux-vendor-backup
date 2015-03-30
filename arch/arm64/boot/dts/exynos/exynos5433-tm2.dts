@@ -1423,3 +1423,19 @@
 		assigned-clock-parents = <&xxti>;
 	};
 };
+
+&decon_tv {
+	status = "okay";
+};
+
+&hdmi {
+	hpd-gpio = <&gpa3 0 0>;
+	status = "okay";
+	vdd-supply = <&ldo6_reg>;
+	vdd_osc-supply = <&ldo7_reg>;
+	vdd_pll-supply = <&ldo6_reg>;
+};
+
+&hsi2c_11 {
+	status = "okay";
+};

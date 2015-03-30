@@ -1430,6 +1430,67 @@
 			};
 		};
 
+		decon_tv: decon@13880000 {
+			compatible = "samsung,exynos5433-decon-tv";
+			reg = <0x13880000 0x20B8>;
+			clocks = <&cmu_disp CLK_ACLK_DECON_TV>,
+				 <&cmu_disp CLK_ACLK_SMMU_TV0X>,
+				 <&cmu_disp CLK_ACLK_XIU_TV0X>,
+				 <&cmu_disp CLK_PCLK_SMMU_TV0X>,
+				 <&cmu_disp CLK_SCLK_DECON_TV_VCLK>,
+				 <&cmu_disp CLK_SCLK_DECON_TV_ECLK>;
+			clock-names = "aclk_decon", "aclk_smmu_decon0x",
+				      "aclk_xiu_decon0x", "pclk_smmu_decon0x",
+				      "sclk_decon_vclk", "sclk_decon_eclk";
+			assigned-clocks = <&cmu_mif CLK_MOUT_SCLK_DECON_TV_ECLK_A>, <&cmu_mif CLK_DIV_SCLK_DECON_TV_ECLK>, <&cmu_disp CLK_MOUT_SCLK_DECON_TV_ECLK_USER>, <&cmu_disp CLK_MOUT_SCLK_DECON_TV_ECLK>, <&cmu_disp CLK_SCLK_RGB_TV_VCLK>;
+			assigned-clock-parents = <&cmu_mif CLK_MOUT_BUS_PLL_DIV2>, <0>, <&cmu_mif CLK_SCLK_DECON_TV_ECLK_DISP>, <&cmu_disp CLK_MOUT_SCLK_DECON_TV_ECLK_USER>;
+			assigned-clock-rates = <0>, <417000000>, <0>, <0>, <0>, <24000000>;
+			interrupt-names = "fifo", "vsync", "lcd_sys";
+			interrupts = <0 210 0>, <0 211 0>, <0 212 0>;
+			status = "disabled";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					tv_to_hdmi: endpoint {
+						remote-endpoint = <&hdmi_to_tv>;
+					};
+				};
+			};
+		};
+
+		hdmi: hdmi@13970000 {
+			compatible = "samsung,exynos5430-hdmi";
+			reg = <0x13970000 0x70000>;
+			interrupts = <0 208 0>;
+			clocks = <&cmu_disp CLK_PCLK_HDMI>, <&cmu_disp CLK_PCLK_HDMIPHY>;
+			clock-names = "hdmi", "sclk_hdmi";
+			phy = <&hdmiphy>;
+			ddc = <&hsi2c_11>;
+			samsung,syscon-phandle = <&pmu_system_controller>;
+			samsung,sysreg-phandle = <&syscon_disp>;
+			status = "disabled";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					hdmi_to_tv: endpoint {
+						remote-endpoint = <&tv_to_hdmi>;
+					};
+				};
+			};
+		};
+
+		hdmiphy: hdmiphy@13af0000 {
+			reg = <0x13af0000 0x80>;
+		};
+
 		mic: mic@13930000 {
 			compatible = "samsung,exynos5433-mic";
 			reg = <0x13930000 0x48>;
