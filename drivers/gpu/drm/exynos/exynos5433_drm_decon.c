@@ -14,6 +14,7 @@
 #include <linux/clk.h>
 #include <linux/component.h>
 #include <linux/of_gpio.h>
+#include <linux/of_device.h>
 
 #include <video/exynos5433_decon.h>
 
@@ -23,6 +24,19 @@
 
 #define WINDOWS_NR	3
 #define MIN_FB_WIDTH_FOR_16WORD_BURST	128
+
+struct decon_tv_mode {
+	u32 xres;
+	u32 yres;
+	u32 vbp;
+	u32 vfp;
+	u32 vsa;
+	u32 hbp;
+	u32 hfp;
+	u32 hsa;
+	u32 fps;
+	u32 interlace_bit;
+};
 
 struct decon_win_data {
 	unsigned int 	offset_x;
@@ -41,6 +55,12 @@ struct decon_win_data {
 	bool		resume;
 };
 
+struct exynos5433_decon_driver_data {
+	enum exynos_drm_output_type type;
+	unsigned int nr_window;
+	unsigned int first_win;
+};
+
 struct decon_context {
 	struct device			*dev;
 	struct drm_device		*drm_dev;
@@ -48,7 +68,6 @@ struct decon_context {
 	void __iomem			*addr;
 	struct clk			*clks[6];
 	struct decon_win_data		win_data[WINDOWS_NR];
-	unsigned int			default_win;
 	int				pipe;
 	bool				suspended;
 
@@ -57,6 +76,7 @@ struct decon_context {
 	unsigned long			enabled;
 	bool				i80_if;
 	atomic_t			win_updated;
+	struct exynos5433_decon_driver_data *drv_data;
 };
 
 static const char * const decon_clks_name[] = {
@@ -66,6 +86,25 @@ static const char * const decon_clks_name[] = {
 	"pclk_smmu_decon0x",
 	"sclk_decon_vclk",
 	"sclk_decon_eclk",
+};
+
+static const struct of_device_id exynos5433_decon_driver_dt_match[];
+
+static struct decon_tv_mode decon_tv_modes[] = {
+	{ 720, 480, 43, 1, 1, 92, 10, 36, 0 },
+	{ 720, 576, 47, 1, 1, 92, 10, 42, 0 },
+	{ 1280, 720, 28, 1, 1, 192, 10, 168, 0 },
+	{ 1280, 720, 28, 1, 1, 92, 10, 598, 0 },
+	{ 1920, 1080, 43, 1, 1, 92, 10, 178, 0 },
+	{ 1920, 1080, 43, 1, 1, 92, 10, 618, 0 },
+	{ 1920, 1080, 43, 1, 1, 92, 10, 178, 0 },
+	{ 1920, 1080, 43, 1, 1, 92, 10, 618, 0 },
+	{ 1920, 1080, 43, 1, 1, 92, 10, 728, 0 },
+	{ 1920, 540, 20, 1, 1, 92, 10, 178, 1 },
+	{ 3840, 2160, 88, 1, 1, 458, 10, 92, 0 },
+	{ 3840, 2160, 88, 1, 1, 1338, 10, 92, 0 },
+	{ 3840, 2160, 88, 1, 1, 1558, 10, 92, 0 },
+	{ 4096, 2160, 88, 1, 1, 1302, 10, 92, 0 },
 };
 
 static int decon_enable_vblank(struct exynos_drm_crtc *crtc)
@@ -111,14 +150,44 @@ static void decon_commit(struct exynos_drm_crtc *crtc)
 {
 	struct decon_context *ctx = crtc->ctx;
 	struct drm_display_mode *mode = &crtc->base.mode;
+	struct decon_tv_mode *decon_tv_mode = NULL;
 	u32 val;
+	int i;
 
 	/* enable clock gate */
 	val = CMU_CLKGAGE_MODE_SFR_F | CMU_CLKGAGE_MODE_MEM_F;
 	writel(val, ctx->addr + DECON_CMU);
 
+	if (ctx->drv_data->type == EXYNOS_DISPLAY_TYPE_HDMI) {
+		for (i = 0; i < ARRAY_SIZE(decon_tv_modes); ++i) {
+			decon_tv_mode = &decon_tv_modes[i];
+			if (mode->hdisplay != decon_tv_mode->xres ||
+				mode->vdisplay != decon_tv_mode->yres)
+				continue;
+
+			mode->crtc_hdisplay = decon_tv_mode->xres;
+			mode->crtc_hsync_start = mode->crtc_hdisplay +
+						decon_tv_mode->hfp;
+			mode->crtc_hsync_end = mode->crtc_hsync_start +
+						decon_tv_mode->hsa;
+			mode->crtc_htotal = mode->crtc_hsync_end +
+						decon_tv_mode->hbp;
+
+			mode->crtc_vdisplay = decon_tv_mode->yres;
+			mode->crtc_vsync_start = mode->crtc_vdisplay +
+						decon_tv_mode->vfp;
+			mode->crtc_vsync_end = mode->crtc_vsync_start +
+						decon_tv_mode->vsa;
+			mode->crtc_vtotal = mode->crtc_vsync_end +
+						decon_tv_mode->vbp;
+			break;
+		}
+	}
+
 	/* lcd on and use command if */
 	val = VIDOUT_LCD_ON;
+	//	if (!decon_tv_mode)
+	//		val |= (decon_tv_mode->interlace_bit << 28);
 	if (ctx->i80_if)
 		val |= VIDOUT_COMMAND_IF;
 	else
@@ -167,6 +236,7 @@ static void decon_win_mode_set(struct exynos_drm_crtc *crtc,
 			       struct exynos_drm_plane *plane)
 {
 	struct decon_context *ctx = crtc->ctx;
+	struct exynos5433_decon_driver_data *drv_data = ctx->drv_data;
 	struct decon_win_data *win_data;
 	unsigned int win;
 
@@ -177,9 +247,9 @@ static void decon_win_mode_set(struct exynos_drm_crtc *crtc,
 
 	win = plane->zpos;
 	if (win == DEFAULT_ZPOS)
-		win = ctx->default_win;
+		win = drv_data->first_win;
 
-	if (win < 0 || win >= WINDOWS_NR)
+	if (win < drv_data->first_win || win >= WINDOWS_NR)
 		return;
 
 	win_data = &ctx->win_data[win];
@@ -268,14 +338,15 @@ static void decon_shadow_protect_win(struct decon_context *ctx, int win,
 static void decon_win_commit(struct exynos_drm_crtc *crtc, int zpos)
 {
 	struct decon_context *ctx = crtc->ctx;
+	struct exynos5433_decon_driver_data *drv_data = ctx->drv_data;
 	struct decon_win_data *win_data;
 	unsigned int win = zpos;
 	u32 val;
 
 	if (win == DEFAULT_ZPOS)
-		win = ctx->default_win;
+		win = drv_data->first_win;
 
-	if (win < 0 || win >= WINDOWS_NR)
+	if (win < drv_data->first_win || win >= WINDOWS_NR)
 		return;
 
 	win_data = &ctx->win_data[win];
@@ -336,14 +407,15 @@ static void decon_win_commit(struct exynos_drm_crtc *crtc, int zpos)
 static void decon_win_disable(struct exynos_drm_crtc *crtc, int zpos)
 {
 	struct decon_context *ctx = crtc->ctx;
+	struct exynos5433_decon_driver_data *drv_data = ctx->drv_data;
 	struct decon_win_data *win_data;
 	unsigned int win = zpos;
 	u32 val;
 
 	if (win == DEFAULT_ZPOS)
-		win = ctx->default_win;
+		win = drv_data->first_win;
 
-	if (win < 0 || win >= WINDOWS_NR)
+	if (win < drv_data->first_win || win >= WINDOWS_NR)
 		return;
 
 	win_data = &ctx->win_data[win];
@@ -372,10 +444,11 @@ static void decon_win_disable(struct exynos_drm_crtc *crtc, int zpos)
 
 static void decon_window_suspend(struct decon_context *ctx)
 {
+	struct exynos5433_decon_driver_data *drv_data = ctx->drv_data;
 	struct decon_win_data *win_data;
 	int i;
 
-	for (i = 0; i < WINDOWS_NR; i++) {
+	for (i = drv_data->first_win; i < WINDOWS_NR; i++) {
 		win_data = &ctx->win_data[i];
 		win_data->resume = win_data->enabled;
 		if (win_data->enabled)
@@ -385,10 +458,11 @@ static void decon_window_suspend(struct decon_context *ctx)
 
 static void decon_window_resume(struct decon_context *ctx)
 {
+	struct exynos5433_decon_driver_data *drv_data = ctx->drv_data;
 	struct decon_win_data *win_data;
 	int i;
 
-	for (i = 0; i < WINDOWS_NR; i++) {
+	for (i = drv_data->first_win; i < WINDOWS_NR; i++) {
 		win_data = &ctx->win_data[i];
 		win_data->enabled = win_data->resume;
 		win_data->resume = false;
@@ -397,6 +471,7 @@ static void decon_window_resume(struct decon_context *ctx)
 
 static void decon_apply(struct decon_context *ctx)
 {
+	struct exynos5433_decon_driver_data *drv_data = ctx->drv_data;
 	struct decon_win_data *win_data;
 	int i;
 
@@ -592,7 +667,7 @@ static int decon_bind(struct device *dev, struct device *master, void *data)
 	}
 
 	ctx->crtc = exynos_drm_crtc_create(drm_dev, ctx->pipe,
-			EXYNOS_DISPLAY_TYPE_LCD, &decon_crtc_ops, ctx);
+			ctx->drv_data->type, &decon_crtc_ops, ctx);
 	if (IS_ERR(ctx->crtc)) {
 		priv->pipe--;
 		return PTR_ERR(ctx->crtc);
@@ -658,8 +733,18 @@ out:
 	return IRQ_HANDLED;
 }
 
+static inline struct exynos5433_decon_driver_data *get_driver_data(
+		struct platform_device *pdev)
+{
+	const struct of_device_id *of_id =
+		of_match_device(exynos5433_decon_driver_dt_match, &pdev->dev);
+
+	return (struct exynos5433_decon_driver_data *)of_id->data;
+}
+
 static int exynos5433_decon_probe(struct platform_device *pdev)
 {
+	struct exynos5433_decon_driver_data *drv_data;
 	struct device *dev = &pdev->dev;
 	struct decon_context *ctx;
 	struct resource *res;
@@ -670,9 +755,12 @@ static int exynos5433_decon_probe(struct platform_device *pdev)
 	if (!ctx)
 		return -ENOMEM;
 
-	ctx->default_win = 0;
 	ctx->suspended = true;
 	ctx->dev = dev;
+
+	drv_data = get_driver_data(pdev);
+	ctx->drv_data = drv_data;
+
 	if (of_get_child_by_name(dev->of_node, "i80-if-timings"))
 		ctx->i80_if = true;
 
@@ -714,7 +802,7 @@ static int exynos5433_decon_probe(struct platform_device *pdev)
 	}
 
 	ret = exynos_drm_component_add(dev, EXYNOS_DEVICE_TYPE_CRTC,
-				       EXYNOS_DISPLAY_TYPE_LCD);
+				       drv_data->type);
 	if (ret < 0)
 		return ret;
 
@@ -737,8 +825,21 @@ static int exynos5433_decon_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct exynos5433_decon_driver_data exynos5433_decon_int_driver_data = {
+	.type = EXYNOS_DISPLAY_TYPE_LCD,
+	.first_win = 0,
+};
+
+static const struct exynos5433_decon_driver_data exynos5433_decon_ext_driver_data = {
+	.type = EXYNOS_DISPLAY_TYPE_HDMI,
+	.first_win = 1,
+};
+
 static const struct of_device_id exynos5433_decon_driver_dt_match[] = {
-	{ .compatible = "samsung,exynos5433-decon" },
+	{ .compatible = "samsung,exynos5433-decon",
+	  .data = &exynos5433_decon_int_driver_data },
+	{ .compatible = "samsung,exynos5433-decon-tv",
+	  .data = &exynos5433_decon_ext_driver_data },
 	{},
 };
 MODULE_DEVICE_TABLE(of, exynos5433_decon_driver_dt_match);
