@@ -1140,6 +1140,42 @@
 			status = "disabled";
 		};
 
+		ppmu_d0_cpu: ppmu_d0_cpu@10480000 {
+			compatible = "samsung,exynos-ppmu-v2";
+			reg = <0x10480000 0x2000>;
+			status = "disabled";
+		};
+
+		ppmu_d0_general: ppmu_d0_general@10490000 {
+			compatible = "samsung,exynos-ppmu-v2";
+			reg = <0x10490000 0x2000>;
+			status = "disabled";
+		};
+
+		ppmu_d0_rt: ppmu_d0_rt@104a0000 {
+			compatible = "samsung,exynos-ppmu-v2";
+			reg = <0x104a0000 0x2000>;
+			status = "disabled";
+		};
+
+		ppmu_d1_cpu: ppmu_d1_cpu@104b0000 {
+			compatible = "samsung,exynos-ppmu-v2";
+			reg = <0x104b0000 0x2000>;
+			status = "disabled";
+		};
+
+		ppmu_d1_general: ppmu_d1_general@104c0000 {
+			compatible = "samsung,exynos-ppmu-v2";
+			reg = <0x104c0000 0x2000>;
+			status = "disabled";
+		};
+
+		ppmu_d1_rt: ppmu_d1_rt@104d0000 {
+			compatible = "samsung,exynos-ppmu-v2";
+			reg = <0x104d0000 0x2000>;
+			status = "disabled";
+		};
+
 		decon: decon@13800000 {
 			compatible = "samsung,exynos5433-decon";
 			reg = <0x13800000 0x2104>;
