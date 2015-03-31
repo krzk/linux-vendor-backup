@@ -1050,6 +1050,7 @@
 				interrupts = <0 231 0>;
 				phys = <&usbdrd30_phy 0>, <&usbdrd30_phy 1>;
 				phy-names = "usb2-phy", "usb3-phy";
+				snps,usb3_lpm_capable;
 			};
 
 		};
@@ -1116,6 +1117,7 @@
 				interrupts = <0 244 0>;
 				phys = <&usbhost30_phy 0>, <&usbhost30_phy 1>;
 				phy-names = "usb2-phy", "usb3-phy";
+				snps,usb3_lpm_capable;
 			};
 		};
 
