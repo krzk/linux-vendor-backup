@@ -1,0 +1,296 @@
+/*
+ * Samsung's Exynos5433 SoC memory buses
+ *
+ * Copyright (c) 2015 Samsung Electronics Co., Ltd.
+ *		http://www.samsung.com
+ *
+ * Samsung's Exynos5433 SoC memory buses are listed as device tree nodes
+ * are listed in this file.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+*/
+
+&memory_bus_mif {
+	blocks {
+		mif_400_block: memory_bus_block0 {
+			clocks = <&cmu_mif CLK_DIV_ACLK_MIF_400>;
+			clock-names = "memory-bus";
+			frequency = <
+				413000
+				275000
+				275000
+				207000
+				207000
+				207000
+				165000
+                                165000
+                                138000
+                                138000>;
+		};
+
+		mif_266_block: memory_bus_block1 {
+			clocks = <&cmu_mif CLK_DIV_ACLK_MIF_266>;
+			clock-names = "memory-bus";
+			frequency = <
+				267000
+				200000
+				200000
+				160000
+				134000
+				134000
+				100000
+                                100000
+                                100000
+                                100000>;
+		};
+
+		mif_200_block: memory_bus_block2 {
+			clocks = <&cmu_mif CLK_DIV_ACLK_MIF_200>;
+			clock-names = "memory-bus";
+			frequency = <
+				207000
+				138000
+				138000
+				104000
+				104000
+				104000
+				83000
+                                83000
+                                69000
+                                69000>;
+		};
+
+		mif_pre_block: memory_bus_block3 {
+			clocks = <&cmu_mif CLK_DIV_MIF_PRE>;
+			clock-names = "memory-bus";
+			frequency = <
+				400000
+				400000
+				400000
+				400000
+				400000
+				400000
+				400000
+				400000
+                                400000
+                                400000>;
+		};
+
+		mifnm_200_block: memory_bus_block4 {
+			clocks = <&cmu_mif CLK_DIV_ACLK_MIFNM_200>;
+			clock-names = "memory-bus";
+			frequency = <
+				200000
+				200000
+				200000
+				200000
+				200000
+				200000
+				100000
+				100000
+                                100000
+                                100000>;
+		};
+
+		mifnd_133_block: memory_bus_block5 {
+			clocks = <&cmu_mif CLK_DIV_ACLK_MIFND_133>;
+			clock-names = "memory-bus";
+			frequency = <
+				80000
+				80000
+				80000
+				67000
+				67000
+				67000
+				67000
+				67000
+                                67000
+                                67000>;
+		};
+
+		mif_133_block: memory_bus_block6 {
+			clocks = <&cmu_mif CLK_DIV_ACLK_MIF_133>;
+			clock-names = "memory-bus";
+			frequency = <
+				80000
+				67000
+				67000
+				67000
+				67000
+				50000
+				50000
+				50000
+                                50000
+                                50000>;
+		};
+
+		cpif_200_block: memory_bus_block7 {
+			clocks = <&cmu_mif CLK_DIV_ACLK_CPIF_200>;
+			clock-names = "memory-bus";
+			frequency = <
+				100000
+				100000
+				100000
+				100000
+				100000
+				100000
+				100000
+				100000
+                                100000
+                                100000>;
+		};
+
+		hpm_mif_block: memory_bus_block8 {
+			clocks = <&cmu_mif CLK_SCLK_HPM_MIF>;
+			clock-names = "memory-bus";
+			frequency = <
+				207000
+				167000
+				136000
+				104000
+				69000
+				56000
+				42000
+				35000
+                                27000
+                                19000>;
+		};
+	};
+};
+
+&memory_bus_int {
+	blocks {
+		bus0_block: memory_bus_block0 {
+			clocks = <&cmu_top CLK_ACLK_BUS0_400>;
+			clock-names = "memory-bus";
+			frequency = <
+				400000
+				267000
+				267000
+				200000
+				160000
+				134000
+				100000>;
+		};
+
+		bus1_block: memory_bus_block1 {
+			clocks = <&cmu_top CLK_ACLK_BUS1_400>;
+			clock-names = "memory-bus";
+			frequency = <
+				400000
+				267000
+				267000
+				200000
+				160000
+				134000
+				100000>;
+		};
+
+		bus2_block: memory_bus_block2 {
+			clocks = <&cmu_mif CLK_ACLK_BUS2_400>;
+			clock-names = "memory-bus";
+			frequency = <
+				400000
+				200000
+				200000
+				200000
+				200000
+				134000
+				100000>;
+		};
+
+		g2d_400_block: memory_bus_block3 {
+			clocks = <&cmu_top CLK_ACLK_G2D_400>;
+			clock-names = "memory-bus";
+			frequency = <
+				400000
+				334000
+				267000
+				200000
+				160000
+				134000
+				100000>;
+		};
+
+		g2d_266_block: memory_bus_block4 {
+			clocks = <&cmu_top CLK_ACLK_G2D_266>;
+			clock-names = "memory-bus";
+			frequency = <
+				267000
+				267000
+				200000
+				160000
+				134000
+				100000
+				100000>;
+		};
+
+
+		gscl_block: memory_bus_block5 {
+			clocks = <&cmu_top CLK_ACLK_GSCL_333>;
+			clock-names = "memory-bus";
+			frequency = <
+				334000
+				334000
+				334000
+				222000
+				222000
+				167000
+				167000>;
+		};
+
+		mscl_block: memory_bus_block6 {
+			clocks = <&cmu_top CLK_ACLK_MSCL_400>;
+			clock-names = "memory-bus";
+			frequency = <
+				400000
+				334000
+				267000
+				200000
+				160000
+				134000
+				100000>;
+		};
+
+		jpeg_block: memory_bus_block7 {
+			clocks = <&cmu_mscl CLK_SCLK_JPEG>;
+			clock-names = "memory-bus";
+			frequency = <
+				400000
+				334000
+				267000
+				200000
+				160000
+				134000
+				100000>;
+		};
+
+		mfc_block: memory_bus_block8 {
+			clocks = <&cmu_top CLK_ACLK_MFC_400>;
+			clock-names = "memory-bus";
+			frequency = <
+				400000
+				334000
+				267000
+				200000
+				200000
+				160000
+				100000>;
+		};
+
+		hevc_block: memory_bus_block9 {
+			clocks = <&cmu_top CLK_ACLK_HEVC_400>;
+			clock-names = "memory-bus";
+			frequency = <
+				400000
+				267000
+				267000
+				200000
+				160000
+				134000
+				100000>;
+		};
+	};
+};

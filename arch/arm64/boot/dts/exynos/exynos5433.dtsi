@@ -150,6 +150,35 @@
 			#clock-cells = <0>;
 		};
 
+		memory_bus_int: memory_bus@0 {
+			compatible = "samsung,exynos-memory-bus";
+			operating-points = <
+				400000 975000
+				334000 912500
+				267000 900000
+				200000 887500
+				160000 837500
+				133000 837500
+				100000 837500>;
+			status = "disabled";
+		};
+
+		memory_bus_mif: memory_bus@1 {
+			compatible = "samsung,exynos-memory-bus";
+			operating-points = <
+				825000 987500
+				667000 937500
+				543000 875000
+				413000 825000
+				272000 812500
+				222000 812500
+				167000 812500
+				136000 812500
+				109000 812500
+				78000  812500>;
+			status = "disabled";
+		};
+
 		cmu_top: clock-controller@10030000 {
 			compatible = "samsung,exynos5433-cmu-top";
 			reg = <0x10030000 0x1000>;
@@ -1284,3 +1313,4 @@
 
 #include "exynos5433-pinctrl.dtsi"
 #include "exynos5433-tmu.dtsi"
+#include "exynos5433-memory-bus.dtsi"
