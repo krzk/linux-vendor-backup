@@ -59,8 +59,7 @@
 		spi2 = &spi_2;
 		spi3 = &spi_3;
 		spi4 = &spi_4;
-		usbdrdphy0 = &usbdrd_phy0;
-		usbdrdphy1 = &usbdrd_phy1;
+		usbdrdphy0 = &usbdrd30_phy;
 	};
 
 	chosen {
@@ -812,13 +811,13 @@
 	clock-frequency = <24000000>;
 };
 
-&usbdrd3_0 {
+&usbdrd30 {
 	vdd33-supply = <&ldo10_reg>;
 	vdd10-supply = <&ldo6_reg>;
 	status = "okay";
 };
 
-&usbdrd_phy0 {
+&usbdrd30_phy {
 	vbus-supply = <&safeout1_reg>;
 	status = "okay";
 };
