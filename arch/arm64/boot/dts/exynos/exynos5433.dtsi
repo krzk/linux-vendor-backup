@@ -1026,7 +1026,7 @@
 			status = "disabled";
 		};
 
-		usbdrd3_0: usb@15400000 {
+		usbdrd30: usb@15400000 {
 			compatible = "samsung,exynos5250-dwusb3";
 			clocks = <&cmu_fsys CLK_ACLK_USBDRD30>,
 				<&cmu_fsys CLK_SCLK_USBDRD30>;
@@ -1048,13 +1048,13 @@
 				compatible = "snps,dwc3";
 				reg = <0x15400000 0x10000>;
 				interrupts = <0 231 0>;
-				phys = <&usbdrd_phy0 0>, <&usbdrd_phy0 1>;
+				phys = <&usbdrd30_phy 0>, <&usbdrd30_phy 1>;
 				phy-names = "usb2-phy", "usb3-phy";
 			};
 
 		};
 
-		usbdrd_phy0: phy@15500000 {
+		usbdrd30_phy: phy@15500000 {
 			compatible = "samsung,exynos5433-usbdrd-phy";
 			reg = <0x15500000 0x100>;
 			clocks = <&cmu_fsys CLK_ACLK_USBDRD30>, <&xxti>,
