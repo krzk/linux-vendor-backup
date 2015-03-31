@@ -818,6 +818,10 @@
 	status = "okay";
 };
 
+&usbdrd_dwc3_0 {
+	dr_mode = "otg";
+};
+
 &usbdrd30_phy {
 	vbus-supply = <&safeout1_reg>;
 	status = "okay";
