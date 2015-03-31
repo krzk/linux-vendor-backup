@@ -814,6 +814,7 @@
 &usbdrd30 {
 	vdd33-supply = <&ldo10_reg>;
 	vdd10-supply = <&ldo6_reg>;
+	extcon = <&muic>;
 	status = "okay";
 };
 
