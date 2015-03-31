@@ -918,6 +918,16 @@
 			status = "disabled";
 		};
 
+		mali: mali@14AC0000 {
+			compatible = "arm,mali-midgard";
+			reg = <0x14AC0000 0x5000>;
+			interrupts = <0 282 0>, <0 283 0>, <0 281 0>;
+			interrupt-names = "JOB", "MMU", "GPU";
+			clocks = <&cmu_g3d CLK_ACLK_G3D>;
+			clock-names = "aclk_g3d";
+			status = "disabled";
+		};
+
 		adc: adc@14d10000 {
 			compatible = "samsung,exynos7-adc";
 			reg = <0x14d10000 0x100>;
