@@ -989,7 +989,7 @@
 		PIN(IN, gpf5-1, DOWN, LV1);	/* PEN_FWE_1.8V */
 		PIN(IN, gpf5-2, DOWN, LV1);	/* FPS_RST_N */
 		PIN(IN, gpf5-3, DOWN, LV1);	/* NC */
-		PIN(IN, gpf5-4, DOWN, LV1);	/* WRSTB_IN */
+		PIN(OUT, gpf5-4, NONE, LV1);	/* WRSTB_IN */
 		PIN(IN, gpf5-5, DOWN, LV1);	/* NC */
 		PIN(IN, gpf5-6, DOWN, LV1);	/* NC */
 		PIN(IN, gpf5-7, DOWN, LV1);	/* COMPANION_RSTN */
