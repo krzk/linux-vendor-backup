@@ -76,6 +76,7 @@ struct hdmi_driver_data {
 	unsigned int is_apb_phy:1;
 	unsigned int is_mux_present:1;
 	unsigned int has_sysreg:1;
+	u32 sysreg_clksel;
 };
 
 struct hdmi_resources {
@@ -645,6 +646,7 @@ static struct hdmi_driver_data exynos5430_hdmi_driver_data = {
 	.phy_conf_count	= ARRAY_SIZE(hdmiphy_5430_configs),
 	.is_apb_phy	= 1,
 	.has_sysreg	= 1,
+	.sysreg_clksel	= EXYNOS5433_SYSREG_DISP_HDMI_PHY,
 };
 
 static struct hdmi_driver_data exynos5420_hdmi_driver_data = {
@@ -2111,7 +2113,7 @@ static void hdmi_set_sysreg(struct hdmi_context *hdata, u32 enable)
 	if (!hdata->sysreg)
 		return;
 
-	regmap_update_bits(hdata->sysreg, SYSREG_DISP_HDMI_PHY,
+	regmap_update_bits(hdata->sysreg, hdata->drv_data->sysreg_clksel,
 					SYSREG_HDMI_REFCLK_SEL, enable);
 }
 
