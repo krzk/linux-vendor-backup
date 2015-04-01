@@ -965,6 +965,9 @@
 			clocks = <&cmu_g3d CLK_ACLK_G3D>;
 			clock-names = "aclk_g3d";
 			status = "disabled";
+
+			assigned-clocks = <&cmu_g3d CLK_FOUT_G3D_PLL>;
+			assigned-clock-rates = <550000000>;
 		};
 
 		syscon_disp: syscon@13B80000 {
