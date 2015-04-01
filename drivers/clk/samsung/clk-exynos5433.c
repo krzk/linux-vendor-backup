@@ -3319,7 +3319,7 @@ static struct samsung_gate_clock g3d_gate_clks[] __initdata = {
 	GATE(CLK_ACLK_G3DND_600, "aclk_g3dnd_600", "div_aclk_g3d",
 			ENABLE_ACLK_G3D, 1, CLK_IGNORE_UNUSED, 0),
 	GATE(CLK_ACLK_G3D, "aclk_g3d", "div_aclk_g3d",
-			ENABLE_ACLK_G3D, 0, 0, 0),
+			ENABLE_ACLK_G3D, 0, CLK_SET_RATE_PARENT, 0),
 
 	/* ENABLE_PCLK_G3D */
 	GATE(CLK_PCLK_BTS_G3D1, "pclk_bts_g3d1", "div_pclk_g3d",
