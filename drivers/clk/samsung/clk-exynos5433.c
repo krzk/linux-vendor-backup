@@ -3582,7 +3582,8 @@ static struct samsung_pll_clock apollo_pll_clks[] __initdata = {
 static struct samsung_mux_clock apollo_mux_clks[] __initdata = {
 	/* MUX_SEL_APOLLO0 */
 	MUX_F(CLK_MOUT_APOLLO_PLL, "mout_apollo_pll", mout_apollo_pll_p,
-			MUX_SEL_APOLLO0, 0, 1, 0, CLK_MUX_READ_ONLY),
+			MUX_SEL_APOLLO0, 0, 1,
+			CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT, 0),
 
 	/* MUX_SEL_APOLLO1 */
 	MUX(CLK_MOUT_BUS_PLL_APOLLO_USER, "mout_bus_pll_apollo_user",
@@ -3590,7 +3591,7 @@ static struct samsung_mux_clock apollo_mux_clks[] __initdata = {
 
 	/* MUX_SEL_APOLLO2 */
 	MUX_F(CLK_MOUT_APOLLO, "mout_apollo", mout_apollo_p, MUX_SEL_APOLLO2,
-			0, 1, 0, CLK_MUX_READ_ONLY),
+			0, 1, CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT, 0),
 };
 
 static struct samsung_div_clock apollo_div_clks[] __initdata = {
@@ -3611,11 +3612,11 @@ static struct samsung_div_clock apollo_div_clks[] __initdata = {
 			DIV_APOLLO0, 8, 3, CLK_GET_RATE_NOCACHE,
 			CLK_DIVIDER_READ_ONLY),
 	DIV_F(CLK_DIV_APOLLO2, "div_apollo2", "div_apollo1",
-			DIV_APOLLO0, 4, 3, CLK_GET_RATE_NOCACHE,
-			CLK_DIVIDER_READ_ONLY),
+			DIV_APOLLO0, 4, 3,
+			CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT, 0),
 	DIV_F(CLK_DIV_APOLLO1, "div_apollo1", "mout_apollo",
-			DIV_APOLLO0, 0, 3, CLK_GET_RATE_NOCACHE,
-			CLK_DIVIDER_READ_ONLY),
+			DIV_APOLLO0, 0, 3,
+			CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT, 0),
 
 	/* DIV_APOLLO1 */
 	DIV_F(CLK_DIV_SCLK_HPM_APOLLO, "div_sclk_hpm_apollo", "mout_apollo",
@@ -3666,7 +3667,8 @@ static struct samsung_gate_clock apollo_gate_clks[] __initdata = {
 	GATE(CLK_SCLK_HPM_APOLLO, "sclk_hpm_apollo", "div_sclk_hpm_apollo",
 			ENABLE_SCLK_APOLLO, 1, CLK_IGNORE_UNUSED, 0),
 	GATE(CLK_SCLK_APOLLO, "sclk_apollo", "div_apollo2",
-			ENABLE_SCLK_APOLLO, 0, CLK_IGNORE_UNUSED, 0),
+			ENABLE_SCLK_APOLLO, 0,
+			CLK_IGNORE_UNUSED | CLK_SET_RATE_PARENT, 0),
 };
 
 static struct samsung_cmu_info apollo_cmu_info __initdata = {
