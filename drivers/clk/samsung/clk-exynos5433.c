@@ -3777,7 +3777,7 @@ static struct samsung_pll_clock atlas_pll_clks[] __initdata = {
 static struct samsung_mux_clock atlas_mux_clks[] __initdata = {
 	/* MUX_SEL_ATLAS0 */
 	MUX_F(CLK_MOUT_ATLAS_PLL, "mout_atlas_pll", mout_atlas_pll_p,
-			MUX_SEL_ATLAS0, 0, 1, 0, CLK_MUX_READ_ONLY),
+			MUX_SEL_ATLAS0, 0, 1, CLK_SET_RATE_PARENT, 0),
 
 	/* MUX_SEL_ATLAS1 */
 	MUX(CLK_MOUT_BUS_PLL_ATLAS_USER, "mout_bus_pll_atlas_user",
@@ -3785,7 +3785,7 @@ static struct samsung_mux_clock atlas_mux_clks[] __initdata = {
 
 	/* MUX_SEL_ATLAS2 */
 	MUX_F(CLK_MOUT_ATLAS, "mout_atlas", mout_atlas_p, MUX_SEL_ATLAS2,
-			0, 1, 0, CLK_MUX_READ_ONLY),
+			0, 1, CLK_SET_RATE_PARENT, 0),
 };
 
 static struct samsung_div_clock atlas_div_clks[] __initdata = {
@@ -3806,11 +3806,9 @@ static struct samsung_div_clock atlas_div_clks[] __initdata = {
 			DIV_ATLAS0, 8, 3, CLK_GET_RATE_NOCACHE,
 			CLK_DIVIDER_READ_ONLY),
 	DIV_F(CLK_DIV_ATLAS2, "div_atlas2", "div_atlas1",
-			DIV_ATLAS0, 4, 3, CLK_GET_RATE_NOCACHE,
-			CLK_DIVIDER_READ_ONLY),
+			DIV_ATLAS0, 4, 3, CLK_SET_RATE_PARENT, 0),
 	DIV_F(CLK_DIV_ATLAS1, "div_atlas1", "mout_atlas",
-			DIV_ATLAS0, 0, 3, CLK_GET_RATE_NOCACHE,
-			CLK_DIVIDER_READ_ONLY),
+			DIV_ATLAS0, 0, 3, CLK_SET_RATE_PARENT, 0),
 
 	/* DIV_ATLAS1 */
 	DIV_F(CLK_DIV_SCLK_HPM_ATLAS, "div_sclk_hpm_atlas", "mout_atlas",
@@ -3887,7 +3885,8 @@ static struct samsung_gate_clock atlas_gate_clks[] __initdata = {
 	GATE(CLK_ATCLK, "atclk", "div_atclk_atlas",
 			ENABLE_SCLK_ATLAS, 1, CLK_IGNORE_UNUSED, 0),
 	GATE(CLK_SCLK_ATLAS, "sclk_atlas", "div_atlas2",
-			ENABLE_SCLK_ATLAS, 0, CLK_IGNORE_UNUSED, 0),
+			ENABLE_SCLK_ATLAS, 0,
+			CLK_IGNORE_UNUSED | CLK_SET_RATE_PARENT, 0),
 };
 
 static struct samsung_cmu_info atlas_cmu_info __initdata = {
