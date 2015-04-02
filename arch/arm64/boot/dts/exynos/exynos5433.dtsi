@@ -36,7 +36,7 @@
 			enable-method = "psci";
 			reg = <0x100>;
 
-			clocks = <&cmu_apollo CLK_FOUT_APOLLO_PLL>;
+			clocks = <&cmu_apollo CLK_SCLK_APOLLO>;
 			clock-names = "cpu-cluster.1";
 			clock-latency = <1000000>;
 
@@ -80,7 +80,7 @@
 			enable-method = "psci";
 			reg = <0x0>;
 
-			clocks = <&cmu_atlas CLK_FOUT_ATLAS_PLL>;
+			clocks = <&cmu_atlas CLK_SCLK_ATLAS>;
 			clock-names = "cpu-cluster.0";
 			clock-latency = <1000000>;
 
