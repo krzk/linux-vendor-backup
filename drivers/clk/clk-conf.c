@@ -106,8 +106,8 @@ static int __set_clk_rates(struct device_node *node, bool clk_supplier)
 
 			rc = clk_set_rate(clk, rate);
 			if (rc < 0)
-				pr_err("clk: couldn't set %s clock rate: %d\n",
-				       __clk_get_name(clk), rc);
+				pr_err("clk: couldn't set %s clock rate: %ld\n",
+				       __clk_get_name(clk), clk_get_rate(clk));
 			clk_put(clk);
 		}
 		index++;
