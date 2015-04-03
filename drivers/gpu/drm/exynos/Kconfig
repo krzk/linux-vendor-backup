@@ -13,7 +13,7 @@ config DRM_EXYNOS
 
 config DRM_EXYNOS_IOMMU
 	bool
-	depends on DRM_EXYNOS && EXYNOS_IOMMU && ARM_DMA_USE_IOMMU
+	depends on DRM_EXYNOS && EXYNOS_IOMMU
 	default y
 
 config DRM_EXYNOS_FIMD

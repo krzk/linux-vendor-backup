@@ -33,6 +33,9 @@ static inline bool is_drm_iommu_supported(struct drm_device *drm_dev)
 	struct device *dev = drm_dev->dev;
 
 	return dev->archdata.mapping ? true : false;
+#elif defined(CONFIG_IOMMU_DMA)
+	struct device *dev = drm_dev->dev;
+	return dev->archdata.dma_domain;
 #else
 	return false;
 #endif

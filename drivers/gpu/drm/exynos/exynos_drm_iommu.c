@@ -16,7 +16,11 @@
 #include <linux/iommu.h>
 #include <linux/kref.h>
 
+#ifdef CONFIG_ARM_DMA_USE_IOMMU
 #include <asm/dma-iommu.h>
+#else
+#include <linux/dma-iommu.h>
+#endif
 
 #include "exynos_drm_drv.h"
 #include "exynos_drm_iommu.h"
@@ -28,7 +32,7 @@
  */
 int drm_create_iommu_mapping(struct drm_device *drm_dev)
 {
-	struct dma_iommu_mapping *mapping = NULL;
+	void *mapping = NULL;
 	struct exynos_drm_private *priv = drm_dev->dev_private;
 	struct device *dev = drm_dev->dev;
 
@@ -37,8 +41,12 @@ int drm_create_iommu_mapping(struct drm_device *drm_dev)
 	if (!priv->da_space_size)
 		priv->da_space_size = EXYNOS_DEV_ADDR_SIZE;
 
+#ifdef CONFIG_ARM_DMA_USE_IOMMU
 	mapping = arm_iommu_create_mapping(&platform_bus_type, priv->da_start,
 						priv->da_space_size);
+#else
+	mapping = iommu_dma_create_domain((struct iommu_ops *)platform_bus_type.iommu_ops, priv->da_start, priv->da_space_size);
+#endif
 
 	if (IS_ERR(mapping))
 		return PTR_ERR(mapping);
@@ -49,11 +57,23 @@ int drm_create_iommu_mapping(struct drm_device *drm_dev)
 		goto error;
 
 	dma_set_max_seg_size(dev, 0xffffffffu);
+	dev->coherent_dma_mask = DMA_BIT_MASK(32);
+	if (!dev->dma_mask)
+		dev->dma_mask = &dev->coherent_dma_mask;
+#ifdef CONFIG_ARM_DMA_USE_IOMMU
 	dev->archdata.mapping = mapping;
+#else
+	set_dma_domain(dev, mapping);
+	dev->archdata.dma_ops = &iommu_dma_ops;
+#endif
 
 	return 0;
 error:
+#ifdef CONFIG_ARM_DMA_USE_IOMMU
 	arm_iommu_release_mapping(mapping);
+#else
+	iommu_dma_release_domain(mapping);
+#endif
 	return -ENOMEM;
 }
 
@@ -69,7 +89,11 @@ void drm_release_iommu_mapping(struct drm_device *drm_dev)
 {
 	struct device *dev = drm_dev->dev;
 
+#ifdef CONFIG_ARM_DMA_USE_IOMMU
 	arm_iommu_release_mapping(dev->archdata.mapping);
+#else
+	iommu_dma_release_domain(dev->archdata.dma_domain);
+#endif
 }
 
 /*
@@ -87,7 +111,11 @@ int drm_iommu_attach_device(struct drm_device *drm_dev,
 	struct device *dev = drm_dev->dev;
 	int ret;
 
+#ifdef CONFIG_ARM_DMA_USE_IOMMU
 	if (!dev->archdata.mapping) {
+#else
+	if (!dev->archdata.dma_domain) {
+#endif
 		DRM_ERROR("iommu_mapping is null.\n");
 		return -EFAULT;
 	}
@@ -100,15 +128,23 @@ int drm_iommu_attach_device(struct drm_device *drm_dev,
 
 	dma_set_max_seg_size(subdrv_dev, 0xffffffffu);
 
+#ifdef CONFIG_ARM_DMA_USE_IOMMU
 	if (subdrv_dev->archdata.mapping)
 		arm_iommu_detach_device(subdrv_dev);
 
 	ret = arm_iommu_attach_device(subdrv_dev, dev->archdata.mapping);
+#else
+	if (subdrv_dev->archdata.dma_domain)
+		iommu_dma_detach_device(subdrv_dev);
+
+	ret = iommu_dma_attach_device(subdrv_dev, dev->archdata.dma_domain);
+#endif
 	if (ret < 0) {
 		DRM_DEBUG_KMS("failed iommu attach.\n");
 		return ret;
 	}
 
+#ifdef CONFIG_ARM_DMA_USE_IOMMU
 	/*
 	 * Set dma_ops to drm_device just one time.
 	 *
@@ -119,6 +155,7 @@ int drm_iommu_attach_device(struct drm_device *drm_dev,
 	 */
 	if (!dev->archdata.dma_ops)
 		dev->archdata.dma_ops = subdrv_dev->archdata.dma_ops;
+#endif
 
 	return 0;
 }
@@ -136,11 +173,20 @@ void drm_iommu_detach_device(struct drm_device *drm_dev,
 				struct device *subdrv_dev)
 {
 	struct device *dev = drm_dev->dev;
+#ifdef CONFIG_ARM_DMA_USE_IOMMU
 	struct dma_iommu_mapping *mapping = dev->archdata.mapping;
 
 	if (!mapping || !mapping->domain)
 		return;
 
 	iommu_detach_device(mapping->domain, subdrv_dev);
+#else
+	void *mapping = get_dma_domain(dev);
+
+	if (!mapping)
+		return;
+
+	iommu_dma_detach_device(subdrv_dev);
+#endif
 	drm_release_iommu_mapping(drm_dev);
 }
