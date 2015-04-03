@@ -32,7 +32,7 @@ static inline bool is_drm_iommu_supported(struct drm_device *drm_dev)
 #ifdef CONFIG_ARM_DMA_USE_IOMMU
 	struct device *dev = drm_dev->dev;
 
-	return dev->archdata.mapping && dev->archdata.iommu;
+	return dev->archdata.mapping ? true : false;
 #else
 	return false;
 #endif
