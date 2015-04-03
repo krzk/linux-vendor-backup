@@ -250,8 +250,8 @@ static void vidi_fake_vblank_handler(struct work_struct *work)
 	exynos_drm_crtc_finish_pageflip(ctx->drm_dev, ctx->pipe);
 }
 
-static int vidi_show_connection(struct device *dev,
-				struct device_attribute *attr, char *buf)
+static ssize_t vidi_show_connection(struct device *dev,
+				   struct device_attribute *attr, char *buf)
 {
 	struct vidi_context *ctx = dev_get_drvdata(dev);
 	int rc;
@@ -265,9 +265,9 @@ static int vidi_show_connection(struct device *dev,
 	return rc;
 }
 
-static int vidi_store_connection(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t len)
+static ssize_t vidi_store_connection(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t len)
 {
 	struct vidi_context *ctx = dev_get_drvdata(dev);
 	int ret;
@@ -338,7 +338,7 @@ int vidi_connection_ioctl(struct drm_device *drm_dev, void *data,
 	}
 
 	if (vidi->connection) {
-		struct edid *raw_edid  = (struct edid *)(uint32_t)vidi->edid;
+		struct edid *raw_edid  = (struct edid *)vidi->edid;
 		if (!drm_edid_is_valid(raw_edid)) {
 			DRM_DEBUG_KMS("edid data is invalid.\n");
 			return -EINVAL;

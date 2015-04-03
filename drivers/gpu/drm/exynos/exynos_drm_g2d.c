@@ -1175,7 +1175,7 @@ int exynos_g2d_set_cmdlist_ioctl(struct drm_device *drm_dev, void *data,
 		goto err_free_event;
 	}
 
-	cmd = (struct drm_exynos_g2d_cmd *)(uint32_t)req->cmd;
+	cmd = (struct drm_exynos_g2d_cmd *)req->cmd;
 
 	if (copy_from_user(cmdlist->data + cmdlist->last,
 				(void __user *)cmd,
@@ -1193,7 +1193,7 @@ int exynos_g2d_set_cmdlist_ioctl(struct drm_device *drm_dev, void *data,
 	if (req->cmd_buf_nr) {
 		struct drm_exynos_g2d_cmd *cmd_buf;
 
-		cmd_buf = (struct drm_exynos_g2d_cmd *)(uint32_t)req->cmd_buf;
+		cmd_buf = (struct drm_exynos_g2d_cmd *)req->cmd_buf;
 
 		if (copy_from_user(cmdlist->data + cmdlist->last,
 					(void __user *)cmd_buf,
