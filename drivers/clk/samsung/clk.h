@@ -408,4 +408,11 @@ extern struct samsung_clk_reg_dump *samsung_clk_alloc_reg_dump(
 			const unsigned long *rdump,
 			unsigned long nr_rdump);
 
+struct samsung_clk_suspend_ops {
+	int (*suspend_prepare)(void);
+	int (*suspend_unprepare)(void);
+};
+
+extern int samsung_clk_register_suspend_ops(
+			struct samsung_clk_suspend_ops *ops);
 #endif /* __SAMSUNG_CLK_H */

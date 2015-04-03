@@ -18,6 +18,29 @@
 
 static LIST_HEAD(clock_reg_cache_list);
 
+static struct samsung_clk_suspend_ops *suspend_ops;
+
+int samsung_clk_register_suspend_ops(
+			struct samsung_clk_suspend_ops *ops)
+{
+	suspend_ops = ops;
+	return 0;
+}
+
+static int samsung_clk_suspend_prepare(void)
+{
+	if (suspend_ops && suspend_ops->suspend_prepare)
+		return suspend_ops->suspend_prepare();
+	return 0;
+}
+
+static int samsung_clk_suspend_unprepare(void)
+{
+	if (suspend_ops && suspend_ops->suspend_unprepare)
+		return suspend_ops->suspend_unprepare();
+	return 0;
+}
+
 void samsung_clk_save(void __iomem *base,
 				    struct samsung_clk_reg_dump *rd,
 				    unsigned int num_regs)
@@ -320,6 +343,11 @@ unsigned long _get_rate(const char *clk_name)
 static int samsung_clk_suspend(void)
 {
 	struct samsung_clock_reg_cache *reg_cache;
+	int ret;
+
+	ret = samsung_clk_suspend_prepare();
+	if (ret)
+		return ret;
 
 	list_for_each_entry(reg_cache, &clock_reg_cache_list, node)
 		samsung_clk_save(reg_cache->reg_base, reg_cache->rdump,
@@ -334,6 +362,8 @@ static void samsung_clk_resume(void)
 	list_for_each_entry(reg_cache, &clock_reg_cache_list, node)
 		samsung_clk_restore(reg_cache->reg_base, reg_cache->rdump,
 				reg_cache->rd_num);
+
+	samsung_clk_suspend_unprepare();
 }
 
 static struct syscore_ops samsung_clk_syscore_ops = {
