@@ -263,10 +263,6 @@
 			reg = <0x10000000 0x100>;
 		};
 
-		sysmmu {
-			compatible = "samsung,exynos-sysmmu";
-		};
-
 		sys_reg: syscon@10010000 {
 			compatible = "samsung,exynos3-sysreg", "syscon";
 			reg = <0x10010000 0x400>;
