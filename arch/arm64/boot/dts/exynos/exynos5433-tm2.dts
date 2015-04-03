@@ -555,15 +555,15 @@
 
 			buck2_reg: BUCK2 {
 				regulator-name = "VDD_EGL_1.0V_AP";
-				regulator-min-microvolt = <600000>;
-				regulator-max-microvolt = <1500000>;
+				regulator-min-microvolt = <1300000>;
+				regulator-max-microvolt = <1300000>;
 				regulator-always-on;
 			};
 
 			buck3_reg: BUCK3 {
 				regulator-name = "VDD_KFC_1.0V_AP";
-				regulator-min-microvolt = <600000>;
-				regulator-max-microvolt = <1500000>;
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <1200000>;
 				regulator-always-on;
 			};
 
