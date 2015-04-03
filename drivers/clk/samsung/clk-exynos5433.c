@@ -5432,3 +5432,141 @@ static void __init exynos5433_cmu_cam1_init(struct device_node *np)
 }
 CLK_OF_DECLARE(exynos5433_cmu_cam1, "samsung,exynos5433-cmu-cam1",
 		exynos5433_cmu_cam1_init);
+
+static struct clk **suspend_enable_clks;
+static int nr_suspend_on;
+static struct clk ***suspend_reparent_clks;
+static int nr_suspend_reparent;
+
+static int exynos5433_clk_suspend_prepare(void)
+{
+	int i;
+
+	for (i = 0; i < nr_suspend_on; i++) {
+		if (!suspend_enable_clks[i])
+			continue;
+		clk_prepare_enable(suspend_enable_clks[i]);
+	}
+
+	for (i = 0; i < nr_suspend_reparent; i++) {
+		if (!suspend_reparent_clks[i][0])
+			continue;
+
+		suspend_reparent_clks[i][2] =
+			clk_get_parent(suspend_reparent_clks[i][0]);
+		clk_set_parent(suspend_reparent_clks[i][0],
+				suspend_reparent_clks[i][1]);
+	}
+
+	return 0;
+}
+
+static int exynos5433_clk_suspend_unprepare(void)
+{
+	int i;
+
+	for (i = 0; i < nr_suspend_on; i++) {
+		if (!suspend_enable_clks[i])
+			continue;
+		clk_disable_unprepare(suspend_enable_clks[i]);
+	}
+
+	for (i = 0; i < nr_suspend_reparent; i++) {
+		if (!suspend_reparent_clks[i][0])
+			continue;
+
+		clk_set_parent(suspend_reparent_clks[i][0],
+				suspend_reparent_clks[i][2]);
+	}
+
+	return 0;
+}
+
+static struct samsung_clk_suspend_ops exynos5433_clk_suspend_ops = {
+	.suspend_prepare = exynos5433_clk_suspend_prepare,
+	.suspend_unprepare = exynos5433_clk_suspend_unprepare,
+};
+
+static int __init exynos5433_suspend_init(void)
+{
+	struct clk *clk, *parent;
+	int i, ret;
+	struct device_node *np;
+	struct of_phandle_args clkspec;
+
+
+	np = of_find_compatible_node(NULL, NULL, "exynos5433-cmu-suspend");
+	if (!np)
+		return -ENOENT;
+
+	nr_suspend_on = of_count_phandle_with_args(np,
+			"suspend-on-clks","#clock-cells");
+	if (nr_suspend_on > 0) {
+		suspend_enable_clks = kcalloc(sizeof(struct clk *),
+					nr_suspend_on, GFP_KERNEL);
+
+		for (i = 0; i < nr_suspend_on; i++) {
+			ret = of_parse_phandle_with_args(np,
+				"suspend-on-clks","#clock-cells", i, &clkspec);
+			if (ret < 0)
+				continue;
+
+			clk = of_clk_get_from_provider(&clkspec);
+			if (IS_ERR(clk))
+				continue;
+
+			suspend_enable_clks[i] = clk;
+		}
+	} else {
+		nr_suspend_on = 0;
+	}
+
+	nr_suspend_reparent = of_count_phandle_with_args(np,
+			"suspend-reparent-clks","#clock-cells");
+	if (nr_suspend_reparent > 0) {
+		nr_suspend_reparent /= 2;
+
+		suspend_reparent_clks = kcalloc(sizeof(struct clk **),
+					nr_suspend_reparent, GFP_KERNEL);
+
+		for (i = 0; i < nr_suspend_reparent; i++) {
+			ret = of_parse_phandle_with_args(np,
+				"suspend-reparent-clks","#clock-cells",
+				(2 * i), &clkspec);
+			if (ret < 0)
+				continue;
+
+			clk = of_clk_get_from_provider(&clkspec);
+			if (IS_ERR(clk))
+				continue;
+
+			ret = of_parse_phandle_with_args(np,
+				"suspend-reparent-clks","#clock-cells",
+				(2 * i) + 1, &clkspec);
+			if (ret < 0)
+				continue;
+
+			parent = of_clk_get_from_provider(&clkspec);
+			if (IS_ERR(parent))
+				continue;
+
+			/*
+			 * suspend_reparent_clks[0] = target clock
+			 * suspend_reparent_clks[1] = new parent
+			 * suspend_reparent_clks[2] = old parent
+			 */
+			suspend_reparent_clks[i] = kcalloc(sizeof(struct clk *),
+						3, GFP_KERNEL);
+
+			suspend_reparent_clks[i][0] = clk;
+			suspend_reparent_clks[i][1] = parent;
+		}
+	} else {
+		nr_suspend_reparent = 0;
+	}
+
+	of_node_put(np);
+
+	return samsung_clk_register_suspend_ops(&exynos5433_clk_suspend_ops);
+}
+late_initcall(exynos5433_suspend_init);
