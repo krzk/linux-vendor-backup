@@ -51,10 +51,6 @@
 		serial3 = &serial_3;
 	};
 
-	sysmmu {
-		compatible = "samsung,exynos-sysmmu";
-	};
-
 	clock_audss: clock-controller@03810000 {
 		compatible = "samsung,exynos4210-audss-clock";
 		reg = <0x03810000 0x0C>;
