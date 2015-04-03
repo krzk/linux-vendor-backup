@@ -78,6 +78,14 @@
 			<&cmu_aud CLK_PCLK_AUD_UART>;
 	};
 
+	cmu_suspend {
+		compatible = "exynos5433-cmu-suspend";
+		suspend-on-clks = <&cmu_mif CLK_SCLK_DSIM0_DISP>,
+				<&cmu_mif CLK_ACLK_DISP_333>,
+				<&cmu_mif CLK_SCLK_DECON_ECLK_DISP>;
+		suspend-reparent-clks = <&cmu_aud CLK_MOUT_AUD_PLL_USER &xxti>;
+	};
+
 	charger-manager {
 		compatible = "charger-manager";
 
