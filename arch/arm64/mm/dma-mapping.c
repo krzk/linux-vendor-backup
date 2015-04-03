@@ -466,12 +466,13 @@ static struct page **__iommu_get_pages(void *cpu_addr, struct dma_attrs *attrs)
 }
 
 static void *__iommu_alloc_atomic(struct device *dev, size_t size,
-				  dma_addr_t *handle, bool coherent)
+				  dma_addr_t *handle, gfp_t flags,
+				  bool coherent)
 {
 	struct page *page;
 	void *addr;
 
-	addr = __alloc_from_pool(size, &page);
+	addr = __alloc_from_pool(size, &page, flags);
 	if (!addr)
 		return NULL;
 
@@ -512,7 +513,7 @@ static void *__iommu_alloc_attrs(struct device *dev, size_t size,
 	size = PAGE_ALIGN(size);
 
 	if (!(gfp & __GFP_WAIT))
-		return __iommu_alloc_atomic(dev, size, handle, coherent);
+		return __iommu_alloc_atomic(dev, size, handle, gfp, coherent);
 	/*
 	 * FIXME: This isn't even true any more!
 	 *
