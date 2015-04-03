@@ -568,3 +568,7 @@
 &mdma1 {
 	reg = <0x12840000 0x1000>;
 };
+
+&cpu0 {
+	cpu0-supply = <&vdd_arm_reg>;
+};
