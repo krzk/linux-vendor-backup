@@ -384,6 +384,9 @@ static int clk_divider_set_rate(struct clk_hw *hw, unsigned long rate,
 	unsigned long flags = 0;
 	u32 val;
 
+	if (divider->flags & CLK_DIVIDER_READ_ONLY)
+		return 0;
+
 	value = divider_get_val(rate, parent_rate, divider->table,
 				divider->width, divider->flags);
 
