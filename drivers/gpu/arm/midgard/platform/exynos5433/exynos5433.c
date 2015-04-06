@@ -6,15 +6,13 @@
  * published by the Free Software Foundation.
  */
 
-#include <linux/clk.h>
 #include <linux/regulator/consumer.h>
 #include <mali_kbase.h>
 
 /* TODO: support DVFS */
 
 struct mali_data {
-	struct device	*dev;
-	struct clk	*aclk_g3d;
+	struct device		*dev;
 	struct regulator	*vdd_g3d;
 };
 
@@ -32,30 +30,16 @@ static int exynos5433_platform_init(struct kbase_device *kbdev)
 
 	/* TODO: check g3d power domain */
 
-	/* TODO: check clock hierarchy & clock rate */
-	mali->aclk_g3d = devm_clk_get(dev, "aclk_g3d");
-	if (IS_ERR(mali->aclk_g3d)) {
-		dev_err(dev, "Failed to get aclk_g3d clk\n");
-		return PTR_ERR(mali->aclk_g3d);
-	}
-
 	mali->vdd_g3d = devm_regulator_get(dev, "vdd_g3d");
 	if (IS_ERR(mali->vdd_g3d)) {
 		dev_err(dev, "Failed to get vdd_g3d regulator\n");
 		return PTR_ERR(mali->vdd_g3d);
 	}
 
-	ret = clk_prepare_enable(mali->aclk_g3d);
-	if (ret < 0) {
-		dev_err(dev, "Failed to enable aclk_g3d clk\n");
-		return ret;
-	}
-
 	/* TODO: check regulator voltage */
 	ret = regulator_enable(mali->vdd_g3d);
 	if (ret < 0) {
 		dev_err(dev, "Failed to enable vdd_g3d regulator\n");
-		clk_disable_unprepare(mali->aclk_g3d);
 		return ret;
 	}
 
@@ -69,7 +53,6 @@ static void exynos5433_platform_term(struct kbase_device *kbdev)
 	struct mali_data *mali = kbdev->platform_context;
 
 	regulator_disable(mali->vdd_g3d);
-	clk_disable_unprepare(mali->aclk_g3d);
 
 	kbdev->platform_context = NULL;
 }
