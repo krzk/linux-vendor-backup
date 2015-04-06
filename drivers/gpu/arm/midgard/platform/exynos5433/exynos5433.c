@@ -7,9 +7,8 @@
  */
 
 #include <linux/regulator/consumer.h>
+#include <linux/pm_opp.h>
 #include <mali_kbase.h>
-
-/* TODO: support DVFS */
 
 struct mali_data {
 	struct device		*dev;
@@ -30,29 +29,42 @@ static int exynos5433_platform_init(struct kbase_device *kbdev)
 
 	/* TODO: check g3d power domain */
 
+	ret = of_init_opp_table(dev);
+	if (ret < 0) {
+		dev_err(dev, "failed to get OPP table\n");
+		return ret;
+	}
+
 	mali->vdd_g3d = devm_regulator_get(dev, "vdd_g3d");
 	if (IS_ERR(mali->vdd_g3d)) {
 		dev_err(dev, "Failed to get vdd_g3d regulator\n");
-		return PTR_ERR(mali->vdd_g3d);
+		ret = PTR_ERR(mali->vdd_g3d);
+		goto err;
 	}
 
 	/* TODO: check regulator voltage */
 	ret = regulator_enable(mali->vdd_g3d);
 	if (ret < 0) {
 		dev_err(dev, "Failed to enable vdd_g3d regulator\n");
-		return ret;
+		goto err;
 	}
 
 	kbdev->platform_context = mali;
 
 	return 0;
+
+err:
+	of_free_opp_table(dev);
+	return ret;
 }
 
 static void exynos5433_platform_term(struct kbase_device *kbdev)
 {
+	struct device *dev = kbdev->dev;
 	struct mali_data *mali = kbdev->platform_context;
 
 	regulator_disable(mali->vdd_g3d);
+	of_free_opp_table(dev);
 
 	kbdev->platform_context = NULL;
 }
