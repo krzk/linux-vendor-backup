@@ -121,6 +121,12 @@ struct arizona_pdata {
 	/** GPIO used for mic isolation with HPDET */
 	int hpdet_id_gpio;
 
+	/**
+	 * Channel to use for headphone detection, valid values are 0 for
+	 * left and 1 for right
+	 */
+	int hpdet_channel;
+
 	/** Extra debounce timeout used during initial mic detection (ms) */
 	int micd_detect_debounce;
 

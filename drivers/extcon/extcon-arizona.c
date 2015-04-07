@@ -261,6 +261,16 @@ static void arizona_extcon_pulse_micbias(struct arizona_extcon_info *info)
 	}
 }
 
+static int arizona_hpdet_get_mode(struct arizona_extcon_info *info)
+{
+	struct arizona *arizona = info->arizona;
+
+	if (arizona->pdata.hpdet_channel)
+		return ARIZONA_ACCDET_MODE_HPR;
+	else
+		return ARIZONA_ACCDET_MODE_HPL;
+}
+
 static void arizona_start_mic(struct arizona_extcon_info *info)
 {
 	struct arizona *arizona = info->arizona;
@@ -650,6 +660,7 @@ out:
 static void arizona_identify_headphone(struct arizona_extcon_info *info)
 {
 	struct arizona *arizona = info->arizona;
+	int mode;
 	int ret;
 
 	if (info->hpdet_done)
@@ -667,12 +678,12 @@ static void arizona_identify_headphone(struct arizona_extcon_info *info)
 
 	arizona_extcon_hp_clamp(info, true);
 
+	mode = arizona_hpdet_get_mode(info);
 	ret = regmap_update_bits(arizona->regmap,
 				 ARIZONA_ACCESSORY_DETECT_MODE_1,
-				 ARIZONA_ACCDET_MODE_MASK,
-				 ARIZONA_ACCDET_MODE_HPL);
+				 ARIZONA_ACCDET_MODE_MASK, mode);
 	if (ret != 0) {
-		dev_err(arizona->dev, "Failed to set HPDETL mode: %d\n", ret);
+		dev_err(arizona->dev, "Failed to set HPDET mode: %d\n", ret);
 		goto err;
 	}
 
@@ -707,6 +718,7 @@ static void arizona_start_hpdet_acc_id(struct arizona_extcon_info *info)
 	struct arizona *arizona = info->arizona;
 	int hp_reading = 32;
 	bool mic;
+	int mode;
 	int ret;
 
 	dev_dbg(arizona->dev, "Starting identification via HPDET\n");
@@ -718,13 +730,13 @@ static void arizona_start_hpdet_acc_id(struct arizona_extcon_info *info)
 
 	arizona_extcon_hp_clamp(info, true);
 
+	mode = arizona_hpdet_get_mode(info);
 	ret = regmap_update_bits(arizona->regmap,
 				 ARIZONA_ACCESSORY_DETECT_MODE_1,
 				 ARIZONA_ACCDET_SRC | ARIZONA_ACCDET_MODE_MASK,
-				 info->micd_modes[0].src |
-				 ARIZONA_ACCDET_MODE_HPL);
+				 info->micd_modes[0].src | mode);
 	if (ret != 0) {
-		dev_err(arizona->dev, "Failed to set HPDETL mode: %d\n", ret);
+		dev_err(arizona->dev, "Failed to set HPDET mode: %d\n", ret);
 		goto err;
 	}
 
@@ -1147,6 +1159,9 @@ static int arizona_extcon_of_get_pdata(struct arizona *arizona)
 	pdata->micd_force_micbias =
 			of_property_read_bool(arizona->dev->of_node,
 					      "wlf,micd-force-micbias");
+
+	of_property_read_u32(arizona->dev->of_node, "wlf,hpdet-channel",
+			     &pdata->hpdet_channel);
 
 	return 0;
 }
