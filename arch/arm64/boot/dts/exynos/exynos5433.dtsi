@@ -997,11 +997,20 @@
 			interrupts = <0 282 0>, <0 283 0>, <0 281 0>;
 			interrupt-names = "JOB", "MMU", "GPU";
 			clocks = <&cmu_g3d CLK_ACLK_G3D>;
-			clock-names = "aclk_g3d";
+			clock-names = "clk_mali";
 			status = "disabled";
 
 			assigned-clocks = <&cmu_g3d CLK_FOUT_G3D_PLL>;
-			assigned-clock-rates = <550000000>;
+			assigned-clock-rates = <160000000>;
+
+			operating-points = <
+				550000 1125000
+				500000 1075000
+				420000 1025000
+				350000 1025000
+				266000 1000000
+				160000 1000000
+			>;
 		};
 
 		syscon_disp: syscon@13B80000 {
