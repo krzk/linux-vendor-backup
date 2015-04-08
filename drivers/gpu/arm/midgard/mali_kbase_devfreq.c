@@ -23,8 +23,65 @@
 #ifdef CONFIG_DEVFREQ_THERMAL
 #include <linux/devfreq_cooling.h>
 #endif
+#include <linux/regulator/consumer.h>
 
 #include "mali_kbase_power_actor.h"
+
+static int kbase_devfreq_target_up(struct kbase_device *kbdev,
+				   unsigned long freq, unsigned long volt)
+{
+	unsigned int old_volt;
+	int err;
+
+	old_volt = regulator_get_voltage(kbdev->vdd);
+	if (old_volt < 0) {
+		dev_err(kbdev->dev, "failed to get voltage\n");
+		return old_volt;
+	}
+
+	err = regulator_set_voltage(kbdev->vdd, volt, volt);
+	if (err < 0) {
+		dev_err(kbdev->dev, "failed to set voltage\n");
+		return err;
+	}
+
+	err = clk_set_rate(kbdev->clock, freq);
+	if (err < 0) {
+		dev_err(kbdev->dev, "failed to set clock %lu\n", freq);
+		regulator_set_voltage(kbdev->vdd, old_volt, old_volt);
+		return err;
+	}
+
+	return 0;
+}
+
+static int kbase_devfreq_target_down(struct kbase_device *kbdev,
+				     unsigned long freq, unsigned long volt)
+{
+	unsigned int old_freq;
+	int err;
+
+	old_freq = clk_get_rate(kbdev->clock);
+	if (old_freq < 0) {
+		dev_err(kbdev->dev, "failed to get clock rate\n");
+		return old_freq;
+	}
+
+	err = clk_set_rate(kbdev->clock, freq);
+	if (err < 0) {
+		dev_err(kbdev->dev, "failed to set clock %lu\n", freq);
+		return err;
+	}
+
+	err = regulator_set_voltage(kbdev->vdd, volt, volt);
+	if (err < 0) {
+		dev_err(kbdev->dev, "failed to set voltage\n");
+		clk_set_rate(kbdev->clock, old_freq);
+		return err;
+	}
+
+	return 0;
+}
 
 static int
 kbase_devfreq_target(struct device *dev, unsigned long *target_freq, u32 flags)
@@ -32,12 +89,14 @@ kbase_devfreq_target(struct device *dev, unsigned long *target_freq, u32 flags)
 	struct kbase_device *kbdev = dev_get_drvdata(dev);
 	struct dev_pm_opp *opp;
 	unsigned long freq = 0;
+	unsigned long volt;
 	int err;
 
 	freq = *target_freq;
 
 	rcu_read_lock();
 	opp = devfreq_recommended_opp(dev, &freq, flags);
+	volt = dev_pm_opp_get_voltage(opp);
 	rcu_read_unlock();
 	if (IS_ERR_OR_NULL(opp)) {
 		dev_err(dev, "Failed to get opp (%ld)\n", PTR_ERR(opp));
@@ -52,12 +111,13 @@ kbase_devfreq_target(struct device *dev, unsigned long *target_freq, u32 flags)
 		return 0;
 	}
 
-	err = clk_set_rate(kbdev->clock, freq);
-	if (err) {
-		dev_err(dev, "Failed to set clock %lu (target %lu)\n",
-				freq, *target_freq);
+	if (kbdev->freq < freq)
+		err = kbase_devfreq_target_up(kbdev, freq, volt);
+	else
+		err = kbase_devfreq_target_down(kbdev, freq, volt);
+
+	if (err < 0)
 		return err;
-	}
 
 	kbdev->freq = freq;
 	*target_freq = freq;
