@@ -23,16 +23,24 @@
 
 #include <linux/dma-contiguous.h>
 #include <linux/dma-iommu.h>
-#include <linux/iova.h>
 
 int iommu_dma_init(void)
 {
-	return iommu_iova_cache_init();
+	return 0;
 }
 
 struct iommu_dma_domain {
 	struct iommu_domain *domain;
-	struct iova_domain *iovad;
+
+	unsigned long		**bitmaps;	/* array of bitmaps */
+	unsigned int		nr_bitmaps;	/* nr of elements in array */
+	unsigned int		extensions;
+	size_t			bitmap_size;	/* size of a single bitmap */
+	size_t			bits;		/* per bitmap */
+	dma_addr_t		base;
+
+	spinlock_t		lock;
+
 	struct kref kref;
 };
 
@@ -58,19 +66,155 @@ static int __dma_direction_to_prot(enum dma_data_direction dir, bool coherent)
 	}
 }
 
-static struct iova *__alloc_iova(struct device *dev, size_t size, bool coherent)
-{
-	struct iommu_dma_domain *dom = get_dma_domain(dev);
-	struct iova_domain *iovad = dom->iovad;
-	unsigned long shift = iova_shift(iovad);
-	unsigned long length = iova_align(iovad, size) >> shift;
-	unsigned long limit_pfn = iovad->dma_32bit_pfn;
-	u64 dma_limit = coherent ? dev->coherent_dma_mask : *dev->dma_mask;
+static int extend_iommu_mapping(struct iommu_dma_domain *mapping);
 
-	limit_pfn = min(limit_pfn, (unsigned long)(dma_limit >> shift));
-	/* Alignment should probably come from a domain/device attribute... */
-	return alloc_iova(iovad, length, limit_pfn, true);
+static inline int __reserve_iova(struct iommu_dma_domain *mapping,
+				 dma_addr_t iova, size_t size)
+{
+	unsigned long count, start;
+	unsigned long flags;
+	int i, sbitmap, ebitmap;
+
+	if (iova < mapping->base)
+		return -EINVAL;
+
+	start = (iova - mapping->base) >> PAGE_SHIFT;
+	count = PAGE_ALIGN(size) >> PAGE_SHIFT;
+
+	sbitmap = start / mapping->bits;
+	ebitmap = (start + count) / mapping->bits;
+	start = start % mapping->bits;
+
+	if (ebitmap > mapping->extensions)
+		return -EINVAL;
+
+	spin_lock_irqsave(&mapping->lock, flags);
+
+	for (i = mapping->nr_bitmaps; i <= ebitmap; i++) {
+		if (extend_iommu_mapping(mapping)) {
+			spin_unlock_irqrestore(&mapping->lock, flags);
+			return -ENOMEM;
+		}
+	}
+
+	for (i = sbitmap; count && i < mapping->nr_bitmaps; i++) {
+		int bits = count;
+
+		if (bits + start > mapping->bits)
+			bits = mapping->bits - start;
+		bitmap_set(mapping->bitmaps[i], start, bits);
+		start = 0;
+		count -= bits;
+	}
+
+	spin_unlock_irqrestore(&mapping->lock, flags);
+
+	return 0;
 }
+
+static inline dma_addr_t __alloc_iova(struct iommu_dma_domain *mapping,
+				      size_t size, bool coherent)
+{
+	unsigned int order = get_order(size);
+	unsigned int align = 0;
+	unsigned int count, start;
+	size_t mapping_size = mapping->bits << PAGE_SHIFT;
+	unsigned long flags;
+	dma_addr_t iova;
+	int i;
+
+	if (order > 8)
+		order = 8;
+
+	count = PAGE_ALIGN(size) >> PAGE_SHIFT;
+	align = (1 << order) - 1;
+
+	spin_lock_irqsave(&mapping->lock, flags);
+	for (i = 0; i < mapping->nr_bitmaps; i++) {
+		start = bitmap_find_next_zero_area(mapping->bitmaps[i],
+				mapping->bits, 0, count, align);
+
+		if (start > mapping->bits)
+			continue;
+
+		bitmap_set(mapping->bitmaps[i], start, count);
+		break;
+	}
+
+	/*
+	 * No unused range found. Try to extend the existing mapping
+	 * and perform a second attempt to reserve an IO virtual
+	 * address range of size bytes.
+	 */
+	if (i == mapping->nr_bitmaps) {
+		if (extend_iommu_mapping(mapping)) {
+			spin_unlock_irqrestore(&mapping->lock, flags);
+			return DMA_ERROR_CODE;
+		}
+
+		start = bitmap_find_next_zero_area(mapping->bitmaps[i],
+				mapping->bits, 0, count, align);
+
+		if (start > mapping->bits) {
+			spin_unlock_irqrestore(&mapping->lock, flags);
+			return DMA_ERROR_CODE;
+		}
+
+		bitmap_set(mapping->bitmaps[i], start, count);
+	}
+	spin_unlock_irqrestore(&mapping->lock, flags);
+
+	iova = mapping->base + (mapping_size * i);
+	iova += start << PAGE_SHIFT;
+
+	return iova;
+}
+
+static inline void __free_iova(struct iommu_dma_domain *mapping,
+			       dma_addr_t addr, size_t size)
+{
+	unsigned int start, count;
+	size_t mapping_size = mapping->bits << PAGE_SHIFT;
+	unsigned long flags;
+	dma_addr_t bitmap_base;
+	u32 bitmap_index;
+
+	if (!size)
+		return;
+
+	bitmap_index = (u32) (addr - mapping->base) / (u32) mapping_size;
+	BUG_ON(addr < mapping->base || bitmap_index > mapping->extensions);
+
+	bitmap_base = mapping->base + mapping_size * bitmap_index;
+
+	start = (addr - bitmap_base) >>	PAGE_SHIFT;
+
+	if (addr + size > bitmap_base + mapping_size) {
+		/*
+		 * The address range to be freed reaches into the iova
+		 * range of the next bitmap. This should not happen as
+		 * we don't allow this in __alloc_iova (at the
+		 * moment).
+		 */
+		BUG();
+	} else
+		count = size >> PAGE_SHIFT;
+
+	spin_lock_irqsave(&mapping->lock, flags);
+	bitmap_clear(mapping->bitmaps[bitmap_index], start, count);
+	spin_unlock_irqrestore(&mapping->lock, flags);
+}
+
+static inline size_t iova_offset(dma_addr_t iova)
+{
+	return iova & ~PAGE_MASK;
+}
+
+static inline size_t iova_align(size_t size)
+{
+	return PAGE_ALIGN(size);
+}
+
 
 /*
  * Create a mapping in device IO address space for specified pages
@@ -79,18 +223,16 @@ dma_addr_t iommu_dma_create_iova_mapping(struct device *dev,
 		struct page **pages, size_t size, bool coherent)
 {
 	struct iommu_dma_domain *dom = get_dma_domain(dev);
-	struct iova_domain *iovad = dom->iovad;
 	struct iommu_domain *domain = dom->domain;
-	struct iova *iova;
 	unsigned int count = PAGE_ALIGN(size) >> PAGE_SHIFT;
 	dma_addr_t addr_lo, addr_hi;
 	int i, prot = __dma_direction_to_prot(DMA_BIDIRECTIONAL, coherent);
 
-	iova = __alloc_iova(dev, size, coherent);
-	if (!iova)
+	addr_lo = __alloc_iova(dom, size, coherent);
+	if (addr_lo == DMA_ERROR_CODE)
 		return DMA_ERROR_CODE;
 
-	addr_hi = addr_lo = iova_dma_addr(iovad, iova);
+	addr_hi = addr_lo;
 	for (i = 0; i < count; ) {
 		unsigned int next_pfn = page_to_pfn(pages[i]) + 1;
 		phys_addr_t phys = page_to_phys(pages[i]);
@@ -109,7 +251,7 @@ dma_addr_t iommu_dma_create_iova_mapping(struct device *dev,
 	return dev_dma_addr(dev, addr_lo);
 fail:
 	iommu_unmap(domain, addr_lo, addr_hi - addr_lo);
-	__free_iova(iovad, iova);
+	__free_iova(dom, addr_lo, size);
 	return DMA_ERROR_CODE;
 }
 
@@ -117,12 +259,12 @@ int iommu_dma_release_iova_mapping(struct device *dev, dma_addr_t iova,
 		size_t size)
 {
 	struct iommu_dma_domain *dom = get_dma_domain(dev);
-	struct iova_domain *iovad = dom->iovad;
-	size_t offset = iova_offset(iovad, iova);
-	size_t len = iova_align(iovad, size + offset);
+	size_t offset = iova_offset(iova);
+	size_t len = iova_align(size + offset);
 
 	iommu_unmap(dom->domain, iova - offset, len);
-	free_iova(iovad, iova_pfn(iovad, iova));
+	__free_iova(dom, iova, len);
+
 	return 0;
 }
 
@@ -226,23 +368,20 @@ static dma_addr_t __iommu_dma_map_page(struct device *dev, struct page *page,
 {
 	dma_addr_t dma_addr;
 	struct iommu_dma_domain *dom = get_dma_domain(dev);
-	struct iova_domain *iovad = dom->iovad;
-	phys_addr_t phys = page_to_phys(page) + offset;
-	size_t iova_off = iova_offset(iovad, phys);
-	size_t len = iova_align(iovad, size + iova_off);
+	phys_addr_t phys = page_to_phys(page);
 	int prot = __dma_direction_to_prot(dir, coherent);
-	struct iova *iova = __alloc_iova(dev, len, coherent);
+	int len = PAGE_ALIGN(size + offset);
 
-	if (!iova)
-		return DMA_ERROR_CODE;
+	dma_addr = __alloc_iova(dom, len, coherent);
+	if (dma_addr == DMA_ERROR_CODE)
+		return dma_addr;
 
-	dma_addr = iova_dma_addr(iovad, iova);
-	if (iommu_map(dom->domain, dma_addr, phys - iova_off, len, prot)) {
-		__free_iova(iovad, iova);
+	if (iommu_map(dom->domain, dma_addr, phys, len, prot)) {
+		__free_iova(dom, dma_addr, len);
 		return DMA_ERROR_CODE;
 	}
 
-	return dev_dma_addr(dev, dma_addr + iova_off);
+	return dev_dma_addr(dev, dma_addr + offset);
 }
 
 dma_addr_t iommu_dma_map_page(struct device *dev, struct page *page,
@@ -263,16 +402,12 @@ void iommu_dma_unmap_page(struct device *dev, dma_addr_t handle, size_t size,
 		enum dma_data_direction dir, struct dma_attrs *attrs)
 {
 	struct iommu_dma_domain *dom = get_dma_domain(dev);
-	struct iova_domain *iovad = dom->iovad;
-	size_t offset = iova_offset(iovad, handle);
-	size_t len = iova_align(iovad, size + offset);
-	dma_addr_t iova = handle - offset;
-
-	if (!iova)
-		return;
+	dma_addr_t iova = handle & PAGE_MASK;
+	int offset = handle & ~PAGE_MASK;
+	int len = PAGE_ALIGN(size + offset);
 
 	iommu_unmap(dom->domain, iova, len);
-	free_iova(iovad, iova_pfn(iovad, iova));
+	__free_iova(dom, iova, len);
 }
 
 static int finalise_sg(struct device *dev, struct scatterlist *sg, int nents,
@@ -337,8 +472,7 @@ static int __iommu_dma_map_sg(struct device *dev, struct scatterlist *sg,
 		bool coherent)
 {
 	struct iommu_dma_domain *dom = get_dma_domain(dev);
-	struct iova_domain *iovad = dom->iovad;
-	struct iova *iova;
+	dma_addr_t iova;
 	struct scatterlist *s;
 	dma_addr_t dma_addr;
 	size_t iova_len = 0;
@@ -350,34 +484,34 @@ static int __iommu_dma_map_sg(struct device *dev, struct scatterlist *sg,
 	 * trickery we can modify the list in a reversible manner.
 	 */
 	for_each_sg(sg, s, nents, i) {
-		size_t s_offset = iova_offset(iovad, s->offset);
+		size_t s_offset = iova_offset(s->offset);
 		size_t s_length = s->length;
 
 		sg_dma_address(s) = s->offset;
 		sg_dma_len(s) = s_length;
 		s->offset -= s_offset;
-		s_length = iova_align(iovad, s_length + s_offset);
+		s_length = iova_align(s_length + s_offset);
 		s->length = s_length;
 
 		iova_len += s_length;
 	}
 
-	iova = __alloc_iova(dev, iova_len, coherent);
-	if (!iova)
+	iova = __alloc_iova(dom, iova_len, coherent);
+	if (iova == DMA_ERROR_CODE)
 		goto out_restore_sg;
 
 	/*
 	 * We'll leave any physical concatenation to the IOMMU driver's
 	 * implementation - it knows better than we do.
 	 */
-	dma_addr = iova_dma_addr(iovad, iova);
+	dma_addr = iova;
 	if (iommu_map_sg(dom->domain, dma_addr, sg, nents, prot) < iova_len)
 		goto out_free_iova;
 
 	return finalise_sg(dev, sg, nents, dev_dma_addr(dev, dma_addr));
 
 out_free_iova:
-	__free_iova(iovad, iova);
+	__free_iova(dom, iova, iova_len);
 out_restore_sg:
 	invalidate_sg(sg, nents);
 	return 0;
@@ -399,10 +533,9 @@ void iommu_dma_unmap_sg(struct device *dev, struct scatterlist *sg, int nents,
 		enum dma_data_direction dir, struct dma_attrs *attrs)
 {
 	struct iommu_dma_domain *dom = get_dma_domain(dev);
-	struct iova_domain *iovad = dom->iovad;
 	struct scatterlist *s;
 	int i;
-	dma_addr_t iova = sg_dma_address(sg) & ~iova_mask(iovad);
+	dma_addr_t iova = sg_dma_address(sg) & PAGE_MASK;
 	size_t len = 0;
 
 	/*
@@ -413,7 +546,7 @@ void iommu_dma_unmap_sg(struct device *dev, struct scatterlist *sg, int nents,
 		len += sg_dma_len(s);
 
 	iommu_unmap(dom->domain, iova, len);
-	free_iova(iovad, iova_pfn(iovad, iova));
+	__free_iova(dom, iova, len);
 }
 
 struct iommu_dma_domain *iommu_dma_create_domain(const struct iommu_ops *ops,
@@ -421,14 +554,36 @@ struct iommu_dma_domain *iommu_dma_create_domain(const struct iommu_ops *ops,
 {
 	struct iommu_dma_domain *dom;
 	struct iommu_domain *domain;
-	struct iova_domain *iovad;
 	struct iommu_domain_geometry *dg;
 	unsigned long order, base_pfn, end_pfn;
+	unsigned int bits = size >> PAGE_SHIFT;
+	unsigned int bitmap_size = BITS_TO_LONGS(bits) * sizeof(long);
+	int extensions = 1;
 
+	if (bitmap_size > PAGE_SIZE) {
+		extensions = bitmap_size / PAGE_SIZE;
+		bitmap_size = PAGE_SIZE;
+	}
 	pr_debug("base=%pad\tsize=0x%zx\n", &base, size);
 	dom = kzalloc(sizeof(*dom), GFP_KERNEL);
 	if (!dom)
 		return NULL;
+
+	dom->bitmap_size = bitmap_size;
+	dom->bitmaps = kcalloc(extensions, sizeof(unsigned long *),
+				GFP_KERNEL);
+	if (!dom->bitmaps)
+		goto out_free_dma_domain;
+
+	dom->bitmaps[0] = kzalloc(bitmap_size, GFP_KERNEL);
+	if (!dom->bitmaps[0])
+		goto out_free_dma_domain;
+
+	dom->nr_bitmaps = 1;
+	dom->extensions = extensions;
+	dom->base = base;
+	dom->bits = BITS_PER_BYTE * bitmap_size;
+	spin_lock_init(&dom->lock);
 
 	/*
 	 * HACK: We'd like to ask the relevant IOMMU in ops for a suitable
@@ -463,18 +618,12 @@ struct iommu_dma_domain *iommu_dma_create_domain(const struct iommu_ops *ops,
 	 * the IOMMU driver and a complete view of the bus.
 	 */
 
-	iovad = kzalloc(sizeof(*iovad), GFP_KERNEL);
-	if (!iovad)
-		goto out_free_iommu_domain;
-
 	/* Use the smallest supported page size for IOVA granularity */
 	order = __ffs(ops->pgsize_bitmap);
 	base_pfn = max(dg->aperture_start >> order, (dma_addr_t)1);
 	end_pfn = dg->aperture_end >> order;
-	init_iova_domain(iovad, 1UL << order, base_pfn, end_pfn);
 
 	dom->domain = domain;
-	dom->iovad = iovad;
 	kref_init(&dom->kref);
 	pr_debug("domain %p created\n", dom);
 	return dom;
@@ -486,12 +635,35 @@ out_free_dma_domain:
 	return NULL;
 }
 
+static int extend_iommu_mapping(struct iommu_dma_domain *mapping)
+{
+	int next_bitmap;
+
+	if (mapping->nr_bitmaps > mapping->extensions)
+		return -EINVAL;
+
+	next_bitmap = mapping->nr_bitmaps;
+	mapping->bitmaps[next_bitmap] = kzalloc(mapping->bitmap_size,
+						GFP_ATOMIC);
+	if (!mapping->bitmaps[next_bitmap])
+		return -ENOMEM;
+
+	mapping->nr_bitmaps++;
+
+	return 0;
+}
+
 static void iommu_dma_free_domain(struct kref *kref)
 {
 	struct iommu_dma_domain *dom;
+	int i;
 
 	dom = container_of(kref, struct iommu_dma_domain, kref);
-	put_iova_domain(dom->iovad);
+
+	for (i = 0; i < dom->nr_bitmaps; i++)
+		kfree(dom->bitmaps[i]);
+	kfree(dom->bitmaps);
+
 	iommu_domain_free(dom->domain);
 	kfree(dom);
 	pr_debug("domain %p freed\n", dom);
@@ -554,13 +726,12 @@ int iommu_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
 int iommu_add_reserved_mapping(struct device *dev, struct iommu_dma_domain *dma_domain,
 				phys_addr_t phys, dma_addr_t dma, size_t size)
 {
-	struct iova *res;
 	int ret;
 
-	res = reserve_iova(dma_domain->iovad, PFN_DOWN(dma), PFN_DOWN(dma + size));
-	if (!res) {
+	ret = __reserve_iova(dma_domain, dma, size);
+	if (ret != 0) {
 		dev_err(dev, "failed to reserve mapping\n");
-		return -EINVAL;
+		return ret;
 	}
 
 	ret = iommu_map(dma_domain->domain, dma, phys, size, IOMMU_READ);
