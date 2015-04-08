@@ -46,6 +46,9 @@
 #define PCIE_MSI_INTR0_MASK		0x82C
 #define PCIE_MSI_INTR0_STATUS		0x830
 
+#define PCIE_MISC_CONTROL_1_OFF		0x8BC
+#define DBI_RO_WR_EN			0x1
+
 #define PCIE_ATU_VIEWPORT		0x900
 #define PCIE_ATU_REGION_INBOUND		(0x1 << 31)
 #define PCIE_ATU_REGION_OUTBOUND	(0x0 << 31)
@@ -67,7 +70,6 @@
 #define PCIE_ATU_DEV(x)			(((x) & 0x1f) << 19)
 #define PCIE_ATU_FUNC(x)		(((x) & 0x7) << 16)
 #define PCIE_ATU_UPPER_TARGET		0x91C
-
 
 static unsigned long global_io_offset;
 static struct pci_ops dw_pcie_ops;
@@ -810,6 +812,13 @@ void dw_pcie_setup_rc(struct pcie_port *pp)
 	u32 val;
 	u32 membase;
 	u32 memlimit;
+
+	/*
+	 * Enable DBI_RO_WR_EN bit.
+	 * - When set to 1, some RO and Hwinit bits are writable
+	 *   from the local application through the DBI.
+	 */
+	dw_pcie_writel_rc(pp, DBI_RO_WR_EN, PCIE_MISC_CONTROL_1_OFF);
 
 	/* set the number of lanes */
 	dw_pcie_readl_rc(pp, PCIE_PORT_LINK_CONTROL, &val);
