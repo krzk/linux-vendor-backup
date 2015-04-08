@@ -69,6 +69,7 @@
 #include <linux/devfreq.h>
 #endif /* CONFIG_PM_DEVFREQ */
 #include <linux/clk.h>
+#include <linux/regulator/consumer.h>
 
 /*
  * This file is included since when we support device tree we don't
@@ -2970,6 +2971,18 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	}
 #endif /* CONFIG_DEBUG_FS */
 
+	kbdev->vdd = devm_regulator_get(kbdev->dev, "vdd_g3d");
+	if (IS_ERR(kbdev->vdd)) {
+		dev_err(kbdev->dev, "Failed to get vdd_g3d regulator\n");
+		err = PTR_ERR(kbdev->vdd);
+		goto out_debugfs_remove;
+	}
+
+	err = regulator_enable(kbdev->vdd);
+	if (err < 0) {
+		dev_err(kbdev->dev, "Failed to enable vdd_g3d regulator\n");
+		goto out_debugfs_remove;
+	}
 
 	err = kbase_device_init(kbdev);
 	if (err < 0 || MALI_ERROR_NONE != err) {
@@ -2977,7 +2990,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 
 		if (err > MALI_ERROR_NONE)
 			err = -ENOMEM;
-		goto out_debugfs_remove;
+		goto out_regulator_disable;
 	}
 
 	/* obtain min/max configured gpu frequencies */
@@ -2995,6 +3008,8 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 
 out_term_dev:
 	kbase_device_term(kbdev);
+out_regulator_disable:
+	regulator_disable(kbdev->vdd);
 out_debugfs_remove:
 #ifdef CONFIG_DEBUG_FS
 	kbasep_jd_debugfs_term(kbdev);
@@ -3072,6 +3087,7 @@ static int kbase_common_device_remove(struct kbase_device *kbdev)
 	put_device(kbdev->dev);
 	kbase_common_reg_unmap(kbdev);
 	kbase_device_term(kbdev);
+	regulator_disable(kbdev->vdd);
 #ifdef CONFIG_DEBUG_FS
 	kbasep_jd_debugfs_term(kbdev);
 	debugfs_remove(kbdev->memory_profile_directory);
