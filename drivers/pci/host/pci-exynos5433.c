@@ -109,6 +109,9 @@ struct exynos_pcie {
  */
 #define PCIE_PHY_OFFSET(x)		((x) * 0x4)
 
+/* Workaround code to use broadcom device driver */
+static struct exynos_pcie *g_pcie;
+
 void exynos_pcie_register_dump(struct pcie_port *pp)
 {
 	struct exynos_pcie *g_pcie = to_exynos_pcie(pp);
@@ -307,6 +310,7 @@ static int exynos_pcie_reset(struct pcie_port *pp)
 
 	val = exynos_pcie_readl(ep->elbi_base, PCIE_IRQ_LEVEL);
 	if (val & 0x10) {
+		/* EP BAR(Base Address Register) Setting 64 bit */
 		writel(0x0c200004, ep->pp.va_cfg0_base + 0x10);
 		writel(0x0c400004, ep->pp.va_cfg0_base + 0x18);
 		return 0;
@@ -342,7 +346,7 @@ static int exynos_pcie_establish_link(struct pcie_port *pp)
 
 	exynos_pcie_assert_phy_reset(pp);
 
-	/* Setup root complext */
+	/* Setup root complex */
 	dw_pcie_setup_rc(pp);
 
 	/* assert LTSSM enable */
@@ -374,7 +378,9 @@ static int exynos_pcie_link_up(struct pcie_port *pp)
 	u32 val;
 
 	val = exynos_pcie_readl(ep->elbi_base, PCIE_ELBI_RDLH_LINKUP);
-	if (val == PCIE_ELBI_LTSSM_ENABLE)
+	val &= 0x1f;
+
+	if (val >= 0x0d && val <= 0x15)
 		return 1;
 
 	return 0;
@@ -435,7 +441,7 @@ static struct pcie_host_ops exynos_pcie_host_ops = {
 	.link_up = exynos_pcie_link_up,
 };
 
-static int exynos_pcie_probe(struct platform_device *pdev)
+static int __init exynos_pcie_probe(struct platform_device *pdev)
 {
 	struct exynos_pcie *exynos_pcie;
 	struct device_node *np = pdev->dev.of_node;
@@ -502,6 +508,9 @@ static int exynos_pcie_probe(struct platform_device *pdev)
 		exynos_pcie->pmureg = NULL;
 	}
 
+	/* Workaround code to use broadcom device driver */
+	g_pcie = exynos_pcie;
+
 	pp->irq = platform_get_irq(pdev, 0);
 	if (!pp->irq) {
 		dev_err(&pdev->dev, "failed to get irq\n");
@@ -533,7 +542,63 @@ fail_bus_clk:
 fail_clk:
 	clk_disable_unprepare(exynos_pcie->clk);
 	return ret;
+}
 
+/*
+ * Workaround : To enable the broadcom device.
+ */
+void exynos_pcie_poweron(void)
+{
+	u32 val;
+
+	if (g_pcie) {
+		clk_prepare_enable(g_pcie->clk);
+		clk_prepare_enable(g_pcie->bus_clk);
+
+		val = exynos_pcie_readl(g_pcie->phy_base, PCIE_PHY_OFFSET(0x55));
+		val &= ~(0x1 << 3);
+		exynos_pcie_writel(g_pcie->phy_base, val, PCIE_PHY_OFFSET(0x55));
+
+		udelay(100);
+
+		val = exynos_pcie_readl(g_pcie->phy_base, PCIE_PHY_OFFSET(0x21));
+		val &= ~(0x1 << 4);
+		exynos_pcie_writel(g_pcie->phy_base, val, PCIE_PHY_OFFSET(0x21));
+
+		exynos_pcie_establish_link(&g_pcie->pp);
+
+		val = exynos_pcie_readl(g_pcie->elbi_base, PCIE_IRQ_SPECIAL);
+		exynos_pcie_writel(g_pcie->elbi_base, val, PCIE_IRQ_SPECIAL);
+	}
+}
+
+/*
+ * Workaround : To enable the broadcom device.
+ */
+void exynos_pcie_poweroff(void)
+{
+	u32 val;
+
+	if (g_pcie) {
+
+		if (g_pcie->reset_gpio)
+			gpio_set_value(g_pcie->reset_gpio, 0);
+
+		exynos_pcie_writel(g_pcie->elbi_base, PCIE_ELBI_LTSSM_DISABLE,
+				PCIE_APP_LTSSM_ENABLE);
+
+		val = exynos_pcie_readl(g_pcie->phy_base, PCIE_PHY_OFFSET(0x55));
+		val |= (0x1 << 3);
+		exynos_pcie_writel(g_pcie->phy_base, val, PCIE_PHY_OFFSET(0x55));
+
+		val = exynos_pcie_readl(g_pcie->phy_base, PCIE_PHY_OFFSET(0x21));
+		val |= (0x1 << 4);
+		exynos_pcie_writel(g_pcie->phy_base, val, PCIE_PHY_OFFSET(0x21));
+
+		clk_disable_unprepare(g_pcie->bus_clk);
+		clk_disable_unprepare(g_pcie->clk);
+
+	}
 }
 
 static int exynos_pcie_remove(struct platform_device *pdev)
