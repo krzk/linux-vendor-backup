@@ -70,6 +70,7 @@
 
 
 static unsigned long global_io_offset;
+static struct pci_ops dw_pcie_ops;
 
 #ifdef CONFIG_ARM
 static struct hw_pci dw_pci;
@@ -351,6 +352,16 @@ static const struct irq_domain_ops msi_domain_ops = {
 	.map = dw_pcie_msi_map,
 };
 
+#ifndef CONFIG_ARM
+/* Workaround - For ARM64*/
+static int dw_pcie_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
+{
+	struct pcie_port *pp = sys_to_pcie(dev->bus->sysdata);
+
+	return  pp->irq;
+}
+#endif
+
 int dw_pcie_host_init(struct pcie_port *pp)
 {
 	struct device_node *np = pp->dev->of_node;
@@ -361,6 +372,8 @@ int dw_pcie_host_init(struct pcie_port *pp)
 	u32 val, na, ns;
 	const __be32 *addrp;
 	int i, index, ret;
+	struct pci_bus *bus;
+	INIT_LIST_HEAD(&pp->resources);
 
 	/* Find the address cell size and the number of cells in order to get
 	 * the untranslated address.
@@ -457,6 +470,11 @@ int dw_pcie_host_init(struct pcie_port *pp)
 
 	pp->mem_base = pp->mem.start;
 
+	ret = of_pci_get_host_bridge_resources(np, 0, 0xff, &pp->resources,
+			&pp->io_base);
+	if (ret)
+		return -ENOMEM;
+
 	if (!pp->va_cfg0_base) {
 		pp->va_cfg0_base = devm_ioremap(pp->dev, pp->cfg0_base,
 						pp->cfg0_size);
@@ -525,6 +543,18 @@ int dw_pcie_host_init(struct pcie_port *pp)
 
 	pci_common_init_dev(pp->dev, &dw_pci);
 #endif
+
+	/* Workaround - For ARM64 */
+	pci_add_flags(PCI_REASSIGN_ALL_RSRC);
+
+	pp->root_bus_nr = 0;
+
+	bus = pci_scan_root_bus(pp->dev, 0, &dw_pcie_ops, (void *)pp, &pp->resources);
+	if (!bus)
+		return -ENOMEM;
+
+	pci_fixup_irqs(pci_common_swizzle, dw_pcie_map_irq);
+	pci_assign_unassigned_bus_resources(bus);
 
 	return 0;
 }

@@ -53,6 +53,7 @@ struct pcie_port {
 	struct irq_domain	*irq_domain;
 	unsigned long		msi_data;
 	DECLARE_BITMAP(msi_irq_in_use, MAX_MSI_IRQS);
+	struct list_head	resources;
 };
 
 struct pcie_host_ops {
