@@ -1112,6 +1112,10 @@
 	status = "okay";
 };
 
+&rtc {
+	status = "okay";
+};
+
 &mali {
 	status = "okay";
 	vdd_g3d-supply = <&buck6_reg>;
