@@ -754,6 +754,30 @@
 		max86900,hrm_en-gpio = <&gpr3 3 0>;
 		max86900,dual-hrm = <1>;
 	};
+
+	sec-nfc@27 {
+		compatible = "sec-nfc";
+		reg = <0x27>;
+
+		interrupts = <3 0 0>;
+		interrupt-parent = <&gpa1>;
+
+		sec-nfc,ven-gpio = <&gpf1 4 0>;
+		sec-nfc,irq-gpio = <&gpa1 3 0>;
+		sec-nfc,firm-gpio = <&gpj0 2 0>;
+		sec-nfc,clk_req-gpio = <&gpa0 0 0xf>;
+		sec-nfc,clk_use = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&fimc_is_ch1_mclk &nfc_n5_en>;
+		clock-names = "sclk_isp_sensor1",
+				"mout_sclk_isp_sensor1",
+				"dout_sclk_isp_sensor1_a",
+				"dout_sclk_isp_sensor1_b";
+		clocks = <&cmu_top CLK_SCLK_ISP_SENSOR1>,
+				<&cmu_top CLK_MOUT_SCLK_ISP_SENSOR1>,
+				<&cmu_top CLK_DIV_SCLK_ISP_SENSOR1_A>,
+				<&cmu_top CLK_DIV_SCLK_ISP_SENSOR1_B>;
+	};
 };
 
 &hsi2c_8 {
@@ -1209,6 +1233,13 @@
 		PIN(IN, gpf5-5, DOWN, LV1);	/* NC */
 		PIN(IN, gpf5-6, DOWN, LV1);	/* NC */
 		PIN(IN, gpf5-7, DOWN, LV1);	/* COMPANION_RSTN */
+	};
+
+	nfc_n5_en: nfc-n5-en {
+		samsung,pins = "gpf1-4";
+		samsung,pin-function = <1>;
+		samsung,pin-pud = <3>;
+		samsung,pin-val = <1>;
 	};
 };
 
