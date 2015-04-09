@@ -68,6 +68,55 @@ config NFC_PORT100
 
 	  If unsure, say N.
 
+config SEC_NFC
+	bool "Samsung NFC driver"
+	default n
+	help
+	  SAMSUNG NFC Driver.
+	  This driver provides support for SAMSUNG NFC products.
+	  You should select your NFC product and interface.
+
+	  Say Y here to compile support for SAMSUNG NFC driver into the
+	  kernel.
+
+choice
+	prompt "SEC NFC Products"
+	depends on SEC_NFC
+	default SEC_NFC_PRODUCT_N5
+config SEC_NFC_PRODUCT_N3
+	bool "N3"
+config SEC_NFC_PRODUCT_N5
+	bool "N5"
+endchoice
+
+choice
+	prompt "SEC NFC Interface"
+	depends on SEC_NFC
+	default SEC_NFC_IF_I2C
+config SEC_NFC_IF_UART
+	bool "UART"
+config SEC_NFC_IF_I2C
+	bool "I2C"
+config SEC_NFC_IF_I2C_GPIO
+	bool "I2C-GPIO (S/W-I2C)"
+	select I2C_ALGOBIT
+endchoice
+
+config SEC_NFC_CLK_REQ
+	bool "SEC NFC CLK REQ"
+	depends on SEC_NFC
+	default n
+	help
+	  SAMSUNG NFC CLR REQ feature.
+
+config SEC_NFC_MARGINTIME
+	bool "SEC NFC MARGINTIME"
+	depends on SEC_NFC
+	default n
+	help
+	  SAMSUNG SEC NFC MARGINTIME feature.
+	  You should select this feature if your NFC product uses AVDD Cap 10uF.
+
 source "drivers/nfc/pn544/Kconfig"
 source "drivers/nfc/microread/Kconfig"
 source "drivers/nfc/nfcmrvl/Kconfig"
