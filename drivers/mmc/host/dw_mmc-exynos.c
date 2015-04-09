@@ -367,6 +367,37 @@ static int dw_mci_exynos_parse_dt(struct dw_mci *host)
 	return 0;
 }
 
+static inline u8 dw_mci_exynos_get_clkdrv(struct dw_mci *host)
+{
+	struct dw_mci_exynos_priv_data *priv = host->priv;
+
+	if (priv->ctrl_type == DW_MCI_TYPE_EXYNOS7 ||
+		priv->ctrl_type == DW_MCI_TYPE_EXYNOS7_SMU)
+		return SDMMC_CLKSEL_GET_DRV_WD3(mci_readl(host, CLKSEL64));
+	else
+		return SDMMC_CLKSEL_GET_DRV_WD3(mci_readl(host, CLKSEL));
+}
+
+static inline void dw_mci_exynos_set_clkdrv(struct dw_mci *host, u8 sample)
+{
+	u32 clksel;
+	struct dw_mci_exynos_priv_data *priv = host->priv;
+
+	if (priv->ctrl_type == DW_MCI_TYPE_EXYNOS7 ||
+		priv->ctrl_type == DW_MCI_TYPE_EXYNOS7_SMU)
+		clksel = mci_readl(host, CLKSEL64);
+	else
+		clksel = mci_readl(host, CLKSEL);
+
+	clksel = SDMMC_CLKSEL_UP_DRIVE(clksel, sample);
+
+	if (priv->ctrl_type == DW_MCI_TYPE_EXYNOS7 ||
+		priv->ctrl_type == DW_MCI_TYPE_EXYNOS7_SMU)
+		mci_writel(host, CLKSEL64, clksel);
+	else
+		mci_writel(host, CLKSEL, clksel);
+}
+
 static inline u8 dw_mci_exynos_get_clksmpl(struct dw_mci *host)
 {
 	struct dw_mci_exynos_priv_data *priv = host->priv;
@@ -451,10 +482,13 @@ static int dw_mci_exynos_execute_tuning(struct dw_mci_slot *slot)
 	struct dw_mci *host = slot->host;
 	struct dw_mci_exynos_priv_data *priv = host->priv;
 	struct mmc_host *mmc = slot->mmc;
-	u8 start_smpl, smpl, candiates = 0;
+	u8 start_smpl, start_drv, smpl, smpl_drv,  candiates = 0;
 	s8 found = -1;
 	int ret = 0;
 
+	start_drv = dw_mci_exynos_get_clkdrv(host);
+	smpl_drv = start_drv;
+retry:
 	start_smpl = dw_mci_exynos_get_clksmpl(host);
 
 	do {
@@ -471,6 +505,11 @@ static int dw_mci_exynos_execute_tuning(struct dw_mci_slot *slot)
 		dw_mci_exynos_set_clksmpl(host, found);
 		priv->tuned_sample = found;
 	} else {
+		smpl_drv =  (smpl_drv + 1) & 0x7;
+		if (start_drv != smpl_drv) {
+			dw_mci_exynos_set_clkdrv(host, smpl_drv);
+			goto retry;
+		}
 		ret = -EIO;
 	}
 

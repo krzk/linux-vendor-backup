@@ -26,6 +26,8 @@
 #define SDMMC_CLKSEL_CCLK_DIVIDER(x)	(((x) & 7) << 24)
 #define SDMMC_CLKSEL_GET_DRV_WD3(x)	(((x) >> 16) & 0x7)
 #define SDMMC_CLKSEL_GET_DIV(x)		(((x) >> 24) & 0x7)
+#define SDMMC_CLKSEL_UP_DRIVE(x, y)	(((x) & ~SDMMC_CLKSEL_CCLK_DRIVE(7)) |\
+					 SDMMC_CLKSEL_CCLK_DRIVE(y))
 #define SDMMC_CLKSEL_UP_SAMPLE(x, y)	(((x) & ~SDMMC_CLKSEL_CCLK_SAMPLE(7)) |\
 					 SDMMC_CLKSEL_CCLK_SAMPLE(y))
 #define SDMMC_CLKSEL_TIMING(x, y, z)	(SDMMC_CLKSEL_CCLK_SAMPLE(x) |	\
