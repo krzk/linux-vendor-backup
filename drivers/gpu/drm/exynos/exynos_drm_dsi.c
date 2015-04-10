@@ -210,6 +210,8 @@
 #define DSI_WRITE(dsi, reg, val)	writel((val), REG((dsi), (reg)))
 #define DSI_READ(dsi, reg)		readl(REG((dsi), (reg)))
 
+#define OLD_SCLK_MIPI_CLK_NAME	"pll_clk"
+
 static char *clk_names[5] = { "bus_clk", "sclk_mipi",
 	"phyclk_mipidphy0_bitclkdiv8", "phyclk_mipidphy0_rxclkesc0",
 	"sclk_rgb_vclk_to_dsim0" };
@@ -1878,6 +1880,12 @@ static int exynos_dsi_probe(struct platform_device *pdev)
 	for (i = 0; i < dsi->driver_data->num_clks; i++) {
 		dsi->clks[i] = devm_clk_get(dev, clk_names[i]);
 		if (IS_ERR(dsi->clks[i])) {
+			if (strcmp(clk_names[i], "sclk_mipi") == 0) {
+				strcpy(clk_names[i], OLD_SCLK_MIPI_CLK_NAME);
+				i--;
+				continue;
+			}
+
 			dev_info(dev, "failed to get the clock: %s\n",
 								clk_names[i]);
 			ret = PTR_ERR(dsi->clks[i]);
