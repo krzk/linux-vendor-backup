@@ -75,7 +75,8 @@
 		compatible = "clk-always-on";
 		clocks = <&cmu_peric CLK_PCLK_UART1>,
 			<&cmu_peric CLK_SCLK_UART1>,
-			<&cmu_aud CLK_PCLK_AUD_UART>;
+			<&cmu_aud CLK_PCLK_AUD_UART>,
+			<&cmu_aud CLK_SCLK_AUD_UART>;
 	};
 
 	cmu_suspend {
