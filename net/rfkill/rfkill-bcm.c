@@ -196,7 +196,7 @@ static irqreturn_t rfkill_bcm_irq_handler(int irq, void *data)
 		dev_dbg(rfkill->dev, "HCI Rx is finished\n");
 	}
 
-	type = (host_wake ? IRQF_TRIGGER_FALLING : IRQF_TRIGGER_RISING) |
+	type = (host_wake ? IRQF_TRIGGER_LOW : IRQF_TRIGGER_HIGH) |
 			IRQF_NO_SUSPEND;
 	irq_set_irq_type(rfkill->irq, type);
 
