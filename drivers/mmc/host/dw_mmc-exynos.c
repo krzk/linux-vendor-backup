@@ -454,11 +454,11 @@ static inline u8 dw_mci_exynos_move_next_clksmpl(struct dw_mci *host)
 static s8 dw_mci_exynos_get_best_clksmpl(u8 candiates)
 {
 	const u8 iter = 8;
-	u8 __c;
+	u16 __c;
 	s8 i, loc = -1;
 
 	for (i = 0; i < iter; i++) {
-		__c = ror8(candiates, i);
+		__c = (candiates >>  i) | (candiates << (iter - i));
 		if ((__c & 0xc7) == 0xc7) {
 			loc = i;
 			goto out;
@@ -466,7 +466,7 @@ static s8 dw_mci_exynos_get_best_clksmpl(u8 candiates)
 	}
 
 	for (i = 0; i < iter; i++) {
-		__c = ror8(candiates, i);
+		__c = (candiates >>  i) | (candiates << (iter - i));
 		if ((__c & 0x83) == 0x83) {
 			loc = i;
 			goto out;
