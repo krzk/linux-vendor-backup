@@ -17,6 +17,7 @@ struct cpufreq_dt_platform_data {
 	 * clock.
 	 */
 	bool independent_clocks;
+	bool boost_supported;
 };
 
 #endif /* __CPUFREQ_DT_H__ */

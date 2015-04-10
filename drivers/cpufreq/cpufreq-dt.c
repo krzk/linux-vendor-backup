@@ -60,17 +60,22 @@ static int set_target(struct cpufreq_policy *policy, unsigned int index)
 	if (!IS_ERR(cpu_reg)) {
 		unsigned long opp_freq;
 
-		rcu_read_lock();
-		opp = dev_pm_opp_find_freq_ceil(cpu_dev, &freq_Hz);
-		if (IS_ERR(opp)) {
+		if (freq_table[index].flags & CPUFREQ_BOOST_FREQ) {
+			volt = freq_table[index].driver_data;
+			opp_freq = freq_table[index].frequency * 1000;
+		} else {
+			rcu_read_lock();
+			opp = dev_pm_opp_find_freq_ceil(cpu_dev, &freq_Hz);
+			if (IS_ERR(opp)) {
+				rcu_read_unlock();
+				dev_err(cpu_dev, "failed to find OPP for %ld\n",
+					freq_Hz);
+				return PTR_ERR(opp);
+			}
+			volt = dev_pm_opp_get_voltage(opp);
+			opp_freq = dev_pm_opp_get_freq(opp);
 			rcu_read_unlock();
-			dev_err(cpu_dev, "failed to find OPP for %ld\n",
-				freq_Hz);
-			return PTR_ERR(opp);
 		}
-		volt = dev_pm_opp_get_voltage(opp);
-		opp_freq = dev_pm_opp_get_freq(opp);
-		rcu_read_unlock();
 		tol = volt * priv->voltage_tolerance / 100;
 		volt_old = regulator_get_voltage(cpu_reg);
 		dev_dbg(cpu_dev, "Found OPP: %ld kHz, %ld uV\n",
@@ -182,6 +187,11 @@ try_again:
 	return ret;
 }
 
+struct boost_opp {
+	unsigned long rate;
+	unsigned long u_volt;
+};
+
 static int cpufreq_init(struct cpufreq_policy *policy)
 {
 	struct cpufreq_dt_platform_data *pd;
@@ -191,9 +201,11 @@ static int cpufreq_init(struct cpufreq_policy *policy)
 	struct device *cpu_dev;
 	struct regulator *cpu_reg;
 	struct clk *cpu_clk;
+	struct boost_opp *boost_opps = NULL;
 	unsigned long min_uV = ~0, max_uV = 0;
+	unsigned int extra_opps = 0;
 	unsigned int transition_latency;
-	int ret;
+	int nr, i, ret;
 
 	ret = allocate_resources(policy->cpu, &cpu_dev, &cpu_reg, &cpu_clk);
 	if (ret) {
@@ -234,7 +246,10 @@ static int cpufreq_init(struct cpufreq_policy *policy)
 		transition_latency = CPUFREQ_ETERNAL;
 
 	if (!IS_ERR(cpu_reg)) {
+		const struct property *prop;
+		unsigned long opp_uV, tol_uV;
 		unsigned long opp_freq = 0;
+		const __be32 *val;
 
 		/*
 		 * Disable any OPPs where the connected regulator isn't able to
@@ -243,7 +258,6 @@ static int cpufreq_init(struct cpufreq_policy *policy)
 		 */
 		while (1) {
 			struct dev_pm_opp *opp;
-			unsigned long opp_uV, tol_uV;
 
 			rcu_read_lock();
 			opp = dev_pm_opp_find_freq_ceil(cpu_dev, &opp_freq);
@@ -269,16 +283,85 @@ static int cpufreq_init(struct cpufreq_policy *policy)
 			opp_freq++;
 		}
 
+		prop = of_find_property(np, "boost-opps", NULL);
+		if (!prop || !prop->value)
+			goto set_cpu_reg;
+
+		nr = prop->length / sizeof(u32);
+		if (nr % 2) {
+			dev_err(cpu_dev, "%s: Invalid boost-opps list\n",
+				__func__);
+			goto set_cpu_reg;
+		}
+
+		boost_opps = kzalloc(nr / 2 * sizeof(*boost_opps),
+				      GFP_KERNEL);
+		if (!boost_opps)
+			goto set_cpu_reg;
+
+		val = prop->value;
+		while (nr) {
+			unsigned long rate = be32_to_cpup(val++) * 1000;
+			unsigned long u_volt = be32_to_cpup(val++);
+
+			if (rate < opp_freq) {
+				nr -= 2;
+				continue;
+			} else {
+				opp_freq = rate + 1;
+				opp_uV = u_volt;
+			}
+
+			tol_uV = opp_uV * priv->voltage_tolerance / 100;
+			if (regulator_is_supported_voltage(cpu_reg, opp_uV,
+							   opp_uV + tol_uV)) {
+				if (opp_uV < min_uV)
+					min_uV = opp_uV;
+				if (opp_uV > max_uV)
+					max_uV = opp_uV;
+			} else {
+				nr -= 2;
+				continue;
+			}
+
+			boost_opps[extra_opps].rate = rate;
+			boost_opps[extra_opps].u_volt = u_volt;
+			extra_opps++;
+			nr -= 2;
+		}
+set_cpu_reg:
 		ret = regulator_set_voltage_time(cpu_reg, min_uV, max_uV);
 		if (ret > 0)
 			transition_latency += ret * 1000;
 	}
 
-	ret = dev_pm_opp_init_cpufreq_table(cpu_dev, &freq_table);
+	ret = __dev_pm_opp_init_cpufreq_table(cpu_dev, &freq_table,
+					      extra_opps);
 	if (ret) {
 		pr_err("failed to init cpufreq table: %d\n", ret);
+		kfree(boost_opps);
 		goto out_free_priv;
 	}
+
+	if (extra_opps) {
+		nr = 0;
+		while (1) {
+			if (freq_table[nr].frequency == CPUFREQ_TABLE_END)
+				break;
+			nr++;
+		}
+
+		for (i = 0; i < extra_opps; i++) {
+			freq_table[nr + i].flags |= CPUFREQ_BOOST_FREQ;
+			freq_table[nr + i].driver_data = boost_opps[i].u_volt;
+			freq_table[nr + i].frequency =
+						boost_opps[i].rate / 1000;
+		}
+
+		freq_table[nr + i].frequency = CPUFREQ_TABLE_END;
+	}
+
+	kfree(boost_opps);
 
 	priv->cpu_dev = cpu_dev;
 	priv->cpu_reg = cpu_reg;
@@ -373,6 +456,7 @@ static struct cpufreq_driver dt_cpufreq_driver = {
 
 static int dt_cpufreq_probe(struct platform_device *pdev)
 {
+	struct cpufreq_dt_platform_data *pd;
 	struct device *cpu_dev;
 	struct regulator *cpu_reg;
 	struct clk *cpu_clk;
@@ -393,7 +477,11 @@ static int dt_cpufreq_probe(struct platform_device *pdev)
 	if (!IS_ERR(cpu_reg))
 		regulator_put(cpu_reg);
 
-	dt_cpufreq_driver.driver_data = dev_get_platdata(&pdev->dev);
+	pd = dev_get_platdata(&pdev->dev);
+	dt_cpufreq_driver.driver_data = pd;
+
+	if (pd)
+		dt_cpufreq_driver.boost_supported = pd->boost_supported;
 
 	ret = cpufreq_register_driver(&dt_cpufreq_driver);
 	if (ret)

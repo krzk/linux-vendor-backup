@@ -14,6 +14,16 @@ Optional properties:
 - operating-points: Refer to Documentation/devicetree/bindings/power/opp.txt for
   details. OPPs *must* be supplied either via DT, i.e. this property, or
   populated at runtime.
+- boost-opps: Certain CPUs can be operated in optional 'boost' mode (sometimes
+  also referred as overclocking) in which the CPU can operate at frequencies
+  which are not specified by the manufacturer as CPU's operating frequency.
+  CPU usually can operate in 'boost' mode for limited amount of time which
+  depends on thermal conditions.  This makes the boost operating points
+  separate from normal ones which can be used at any time.  This property
+  consists of an array of 2-tuples items, and each item consists of frequency
+  and voltage like <freq-kHz vol-uV>.
+	freq: clock frequency in kHz
+	vol: voltage in microvolt
 - clock-latency: Specify the possible maximum transition latency for clock,
   in unit of nanoseconds.
 - voltage-tolerance: Specify the CPU voltage tolerance in percentage.
@@ -37,6 +47,10 @@ cpus {
 			792000  1100000
 			396000  950000
 			198000  850000
+		>;
+		boost-opps = <
+			/* kHz    uV */
+			891000  1150000
 		>;
 		clock-latency = <61036>; /* two CLK32 periods */
 		#cooling-cells = <2>;
