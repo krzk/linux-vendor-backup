@@ -62,7 +62,7 @@ config ARM_EXYNOS5250_CPUFREQ
 
 config ARM_EXYNOS_CPU_FREQ_BOOST_SW
 	bool "EXYNOS Frequency Overclocking - Software"
-	depends on ARM_EXYNOS_CPUFREQ && THERMAL
+	depends on CPUFREQ_DT && THERMAL
 	select CPU_FREQ_BOOST_SW
 	select EXYNOS_THERMAL
 	help

@@ -125,9 +125,6 @@ static struct cpufreq_driver exynos_driver = {
 	.init		= exynos_cpufreq_cpu_init,
 	.name		= "exynos_cpufreq",
 	.attr		= cpufreq_generic_attr,
-#ifdef CONFIG_ARM_EXYNOS_CPU_FREQ_BOOST_SW
-	.boost_supported = true,
-#endif
 #ifdef CONFIG_PM
 	.suspend	= cpufreq_generic_suspend,
 #endif

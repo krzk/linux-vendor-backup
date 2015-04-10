@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_domain.h>
 #include <linux/irqchip.h>
+#include <linux/cpufreq-dt.h>
 
 #include <asm/cacheflush.h>
 #include <asm/hardware/cache-l2x0.h>
@@ -224,6 +225,12 @@ static void __init exynos_init_irq(void)
 	exynos_map_pmu();
 }
 
+struct cpufreq_dt_platform_data cpufreq_dt_pd = {
+#ifdef CONFIG_ARM_EXYNOS_CPU_FREQ_BOOST_SW
+	.boost_supported = true,
+#endif
+};
+
 static const struct of_device_id exynos_cpufreq_matches[] = {
 	{ .compatible = "samsung,exynos4210", .data = "cpufreq-dt" },
 	{ /* sentinel */ }
@@ -233,6 +240,13 @@ static void __init exynos_cpufreq_init(void)
 {
 	struct device_node *root = of_find_node_by_path("/");
 	const struct of_device_id *match;
+
+	if (of_machine_is_compatible("samsung,exynos4212") ||
+	    of_machine_is_compatible("samsung,exynos4412")) {
+		platform_device_register_data(NULL, "cpufreq-dt", -1,
+					&cpufreq_dt_pd, sizeof(cpufreq_dt_pd));
+		return;
+	}
 
 	match = of_match_node(exynos_cpufreq_matches, root);
 	if (!match) {
