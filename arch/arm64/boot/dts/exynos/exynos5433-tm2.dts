@@ -205,11 +205,16 @@
 			"IN2R", "Headset Mic";
 	};
 
-	flash-led {
+	ktd2692 {
 		compatible = "kinetic,ktd2692";
-		strobe-gpio = <&gpc0 1 0>;
-		torch-gpio = <&gpc0 2 0>;
-		status = "okay";
+		ctrl-gpio = <&gpc0 1 0>;
+		aux-gpio = <&gpc0 2 0>;
+
+		flash-led {
+			label = "ktd2692-flash";
+			flash-max-microamp = <1050000>;
+			flash-max-timeout-us = <1835000>;
+		};
 	};
 
 	rfkill-gpio {
