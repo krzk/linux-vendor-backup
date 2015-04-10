@@ -517,6 +517,9 @@ struct cpufreq_frequency_table {
 };
 
 #if defined(CONFIG_CPU_FREQ) && defined(CONFIG_PM_OPP)
+int __dev_pm_opp_init_cpufreq_table(struct device *dev,
+				    struct cpufreq_frequency_table **table,
+				    unsigned int extra_opps);
 int dev_pm_opp_init_cpufreq_table(struct device *dev,
 				  struct cpufreq_frequency_table **table);
 void dev_pm_opp_free_cpufreq_table(struct device *dev,
