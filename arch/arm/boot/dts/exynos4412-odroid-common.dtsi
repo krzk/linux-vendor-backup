@@ -516,3 +516,7 @@
 		samsung,pin-pud = <1>;
 	};
 };
+
+&cpu0 {
+	cpu0-supply = <&buck2_reg>;
+};

@@ -30,6 +30,28 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a9";
 			reg = <0xA00>;
+			clocks = <&clock CLK_ARM_CLK>;
+			clock-names = "cpu";
+
+			operating-points = <
+				1400000 1287500
+				1300000 1250000
+				1200000 1187500
+				1100000 1137500
+				1000000 1087500
+				 900000 1037500
+				 800000 1000000
+				 700000  987500
+				 600000  975000
+				 500000  950000
+				 400000  925000
+				 300000  900000
+				 200000  900000
+			>;
+			boost-opps = <
+				1500000 1350000
+			>;
+			clock-latency = <200000>;
 			cooling-min-level = <13>;
 			cooling-max-level = <7>;
 			#cooling-cells = <2>; /* min followed by max */

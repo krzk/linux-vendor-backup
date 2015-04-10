@@ -1322,3 +1322,8 @@
 		PIN_SLP(gpv4-0, INPUT, DOWN);
 	};
 };
+
+
+&cpu0 {
+	cpu0-supply = <&buck2_reg>;
+};
