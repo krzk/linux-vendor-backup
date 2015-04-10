@@ -715,6 +715,7 @@
 			maxim,fast-charge-uamp = <450000>;
 			maxim,top-off-uamp = <200000>;
 			maxim,input-uamp-limit = <3200000>;
+			extcon = <&muic>;
 		};
 
 		fuelgauge: max77843-fuelgauge {
