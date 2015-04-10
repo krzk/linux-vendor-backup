@@ -38,17 +38,6 @@ config ARM_EXYNOS_CPUFREQ
 
 	  If in doubt, say N.
 
-config ARM_EXYNOS4X12_CPUFREQ
-	bool "SAMSUNG EXYNOS4x12"
-	depends on SOC_EXYNOS4212 || SOC_EXYNOS4412
-	depends on ARM_EXYNOS_CPUFREQ
-	default y
-	help
-	  This adds the CPUFreq driver for Samsung EXYNOS4X12
-	  SoC (EXYNOS4212 or EXYNOS4412).
-
-	  If in doubt, say N.
-
 config ARM_EXYNOS5250_CPUFREQ
 	bool "SAMSUNG EXYNOS5250"
 	depends on SOC_EXYNOS5250
