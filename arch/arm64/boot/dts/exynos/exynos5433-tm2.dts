@@ -1223,7 +1223,7 @@
 
 &pinctrl_fsys {
 	pinctrl-names = "default";
-	pinctrl-0 = <&initial_fsys>;
+	pinctrl-0 = <&initial_fsys &sleep0>;
 
 	initial_fsys: initial-state {
 		PIN(IN, gpr3-0, NONE, LV1);	/* BUCK6_DVS */
@@ -1231,6 +1231,10 @@
 		PIN(IN, gpr3-2, DOWN, LV1);	/* MICBIAS_EN_AP */
 		PIN(IN, gpr3-3, DOWN, LV1);	/* IRLED_EN */
 		PIN(IN, gpr3-7, NONE, LV1);	/* BT_WAKE */
+	};
+
+	sleep0: sleep-state {
+		PIN_SLP(gpr3-7, OUT0, DOWN);  /* BT_WAKE */
 	};
 };
 
@@ -1261,7 +1265,7 @@
 
 &pinctrl_peric {
 	pinctrl-names = "default";
-	pinctrl-0 = <&initial_peric>;
+	pinctrl-0 = <&initial_peric &sleep1>;
 
 	initial_peric: initial-state {
 		PIN(IN, gpv7-0, DOWN, LV1);	/* MHL_RST */
@@ -1321,6 +1325,10 @@
 		PIN(IN, gpg3-1, DOWN, LV1);	/* NC */
 		PIN(IN, gpg3-5, DOWN, LV1);	/* NC */
 		PIN(IN, gpg3-7, DOWN, LV1);	/* IRDA_CONTROL */
+	};
+
+	sleep1: sleep-state {
+		PIN_SLP(gpd4-0, PREV, DOWN);	/* BT_EN */
 	};
 };
 
