@@ -27,28 +27,6 @@ config ARM_VEXPRESS_SPC_CPUFREQ
 	  big.LITTLE platforms using SPC for power management.
 
 
-config ARM_EXYNOS_CPUFREQ
-	tristate "SAMSUNG EXYNOS CPUfreq Driver"
-	depends on CPU_EXYNOS4210 || SOC_EXYNOS4212 || SOC_EXYNOS4412 || SOC_EXYNOS5250
-	depends on THERMAL
-	help
-	  This adds the CPUFreq driver for Samsung EXYNOS platforms.
-	  Supported SoC versions are:
-	     Exynos4210, Exynos4212, Exynos4412, and Exynos5250.
-
-	  If in doubt, say N.
-
-config ARM_EXYNOS5250_CPUFREQ
-	bool "SAMSUNG EXYNOS5250"
-	depends on SOC_EXYNOS5250
-	depends on ARM_EXYNOS_CPUFREQ
-	default y
-	help
-	  This adds the CPUFreq driver for Samsung EXYNOS5250
-	  SoC.
-
-	  If in doubt, say N.
-
 config ARM_EXYNOS_CPU_FREQ_BOOST_SW
 	bool "EXYNOS Frequency Overclocking - Software"
 	depends on CPUFREQ_DT && THERMAL
