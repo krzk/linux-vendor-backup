@@ -242,11 +242,20 @@ static void fimd_enable_shadow_channel_path(struct fimd_context *ctx,
 	writel(val, ctx->regs + SHADOWCON);
 }
 
-static void fimd_clear_channel(struct fimd_context *ctx)
+static int fimd_poweron(struct fimd_context *ctx);
+static int fimd_poweroff(struct fimd_context *ctx);
+
+static int fimd_clear_channel(struct fimd_context *ctx)
 {
 	unsigned int win, ch_enabled = 0;
+	int ret;
 
 	DRM_DEBUG_KMS("%s\n", __FILE__);
+
+	/* Hardware is in unknown state, so ensure it get enabled properly */
+	ret = fimd_poweron(ctx);
+	if (ret)
+		return ret;
 
 	/* Check if any channel is enabled. */
 	for (win = 0; win < WINDOWS_NR; win++) {
@@ -258,19 +267,15 @@ static void fimd_clear_channel(struct fimd_context *ctx)
 			if (ctx->driver_data->has_shadowcon)
 				fimd_enable_shadow_channel_path(ctx, win,
 								false);
-
 			ch_enabled = 1;
 		}
 	}
 
 	/* Wait for vsync, as disable channel takes effect at next vsync */
-	if (ch_enabled) {
-		unsigned int state = ctx->suspended;
-
-		ctx->suspended = 0;
+	if (ch_enabled)
 		fimd_wait_for_vblank(ctx->crtc);
-		ctx->suspended = state;
-	}
+
+	return fimd_poweroff(ctx);
 }
 
 static int fimd_iommu_attach_devices(struct fimd_context *ctx,
@@ -285,7 +290,10 @@ static int fimd_iommu_attach_devices(struct fimd_context *ctx,
 		 * If any channel is already active, iommu will throw
 		 * a PAGE FAULT when enabled. So clear any channel if enabled.
 		 */
-		fimd_clear_channel(ctx);
+		ret = fimd_clear_channel(ctx);
+		if (ret)
+			return ret;
+
 		ret = drm_iommu_attach_device(ctx->drm_dev, ctx->dev);
 		if (ret) {
 			DRM_ERROR("drm_iommu_attach failed.\n");
