@@ -60,6 +60,12 @@ static int s2mps11_clk_prepare(struct clk_hw *hw)
 	struct s2mps11_clk *s2mps11 = to_s2mps11_clk(hw);
 	int ret;
 
+	/*
+	 * FIXME: There is deadlock issue between regmap frameowrk and CCF
+	 * framework. It is workaroud solution to avoid the deadlock.
+	 */
+	return 0;
+
 	ret = regmap_update_bits(s2mps11->iodev->regmap_pmic,
 				 s2mps11->reg,
 				 s2mps11->mask, s2mps11->mask);
@@ -72,6 +78,12 @@ static void s2mps11_clk_unprepare(struct clk_hw *hw)
 	struct s2mps11_clk *s2mps11 = to_s2mps11_clk(hw);
 	int ret;
 
+	/*
+	 * FIXME: There is deadlock issue between regmap frameowrk and CCF
+	 * framework. It is workaroud solution to avoid the deadlock.
+	 */
+	return;
+
 	ret = regmap_update_bits(s2mps11->iodev->regmap_pmic, s2mps11->reg,
 			   s2mps11->mask, ~s2mps11->mask);
 }
@@ -81,6 +93,12 @@ static int s2mps11_clk_is_prepared(struct clk_hw *hw)
 	int ret;
 	u32 val;
 	struct s2mps11_clk *s2mps11 = to_s2mps11_clk(hw);
+
+	/*
+	 * FIXME: There is deadlock issue between regmap frameowrk and CCF
+	 * framework. It is workaroud solution to avoid the deadlock.
+	 */
+	return 1;
 
 	ret = regmap_read(s2mps11->iodev->regmap_pmic,
 				s2mps11->reg, &val);
@@ -250,6 +268,14 @@ static int s2mps11_clk_probe(struct platform_device *pdev)
 		}
 
 		clkdev_add(s2mps11_clk->lookup);
+
+		/*
+		 * FIXME: There is deadlock issue between regmap frameowrk and CCF
+		 * framework. It is workaroud solution to avoid the deadlock.
+		 */
+		ret = regmap_update_bits(s2mps11_clk->iodev->regmap_pmic,
+					s2mps11_clk->reg,
+					s2mps11_clk->mask, s2mps11_clk->mask);
 	}
 
 	for (i = 0; i < S2MPS11_CLKS_NUM; i++) {
