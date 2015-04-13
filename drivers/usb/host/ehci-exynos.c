@@ -244,9 +244,9 @@ static int exynos_ehci_remove(struct platform_device *pdev)
 
 	exynos_ehci_phy_disable(&pdev->dev);
 
-	clk_disable_unprepare(exynos_ehci->clk);
-
 	usb_put_hcd(hcd);
+
+	clk_disable_unprepare(exynos_ehci->clk);
 
 	return 0;
 }
