@@ -231,8 +231,7 @@ static void decon_commit(struct exynos_drm_crtc *crtc)
 	decon_setup_trigger(ctx);
 
 	/* enable output and display signal */
-	val = VIDCON0_ENVID | VIDCON0_ENVID_F;
-	writel(val, ctx->addr + DECON_VIDCON0);
+	decon_set_bits(ctx, DECON_VIDCON0, VIDCON0_ENVID | VIDCON0_ENVID_F, ~0);
 }
 
 #define COORDINATE_X(x)		(((x) & 0xfff) << 12)
