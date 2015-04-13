@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm64 4.0.0-rc7 Kernel Configuration
+# Linux/arm64 4.0.0 Kernel Configuration
 #
 CONFIG_ARM64=y
 CONFIG_64BIT=y
@@ -3091,7 +3091,7 @@ CONFIG_MMC_DW_EXYNOS=y
 # CONFIG_MEMSTICK is not set
 CONFIG_NEW_LEDS=y
 CONFIG_LEDS_CLASS=y
-# CONFIG_LEDS_CLASS_FLASH is not set
+CONFIG_LEDS_CLASS_FLASH=y
 
 #
 # LED drivers
@@ -3117,6 +3117,7 @@ CONFIG_LEDS_GPIO=y
 # CONFIG_LEDS_TCA6507 is not set
 CONFIG_LEDS_MAX77843=y
 # CONFIG_LEDS_LM355x is not set
+CONFIG_LEDS_KTD2692=y
 
 #
 # LED driver for blink(1) USB RGB LED is under Special HID drivers (HID_THINGM)
