@@ -946,6 +946,17 @@
 	status = "okay";
 };
 
+&ehci {
+	status = "okay";
+	port@1 {
+		status = "okay";
+	};
+};
+
+&usb2_phy {
+	status = "okay";
+};
+
 &pwm {
 	pinctrl-0 = <&pwm0_out>;
 	pinctrl-names = "default";
