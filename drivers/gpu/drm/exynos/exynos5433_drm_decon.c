@@ -107,6 +107,14 @@ static struct decon_tv_mode decon_tv_modes[] = {
 	{ 4096, 2160, 88, 1, 1, 1302, 10, 92, 0 },
 };
 
+static inline void decon_set_bits(struct decon_context *ctx, u32 reg, u32 mask,
+				  u32 val)
+{
+	val &= mask;
+	val |= readl(ctx->addr + reg) & ~mask;
+	writel(val, ctx->addr + reg);
+}
+
 static int decon_enable_vblank(struct exynos_drm_crtc *crtc)
 {
 	struct decon_context *ctx = crtc->ctx;
@@ -488,6 +496,24 @@ static void decon_apply(struct decon_context *ctx)
 	decon_commit(ctx->crtc);
 }
 
+static void decon_reset(struct decon_context *ctx)
+{
+	writel(VIDCON0_SWRESET, ctx->addr + DECON_VIDCON0);
+
+	decon_set_bits(ctx, DECON_VIDCON0, VIDCON0_CLKVALUP | VIDCON0_VLCKFREE,
+		       ~0);
+	decon_set_bits(ctx, DECON_CMU, CMU_CLKGATE_MASK,
+		       CMU_CLKGAGE_MODE_SFR_F | CMU_CLKGAGE_MODE_MEM_F);
+	decon_set_bits(ctx, DECON_BLENDCON, BLENDCON_NEW_8BIT_ALPHA_VALUE, ~0);
+	decon_set_bits(ctx, DECON_VIDOUTCON0, VIDOUT_LCD_ON, ~0);
+	decon_set_bits(ctx, DECON_VIDCON1, VIDCON1_VCLK_RUN, VIDCON1_VCLK_MASK);
+	decon_set_bits(ctx, DECON_CRCCTRL, CRCCTRL_MASK,
+		       CRCCTRL_CRCEN | CRCCTRL_CRCSTART_F | CRCCTRL_CRCCLKEN);
+	decon_set_bits(ctx, DECON_TRIGCON, TRIGCON_MASK,
+		       TRIGCON_TRIGEN_PER_I80_RGB_F | TRIGCON_TRIGEN_I80_RGB_F
+		       | TRIGCON_HWTRIGMASK_I80_RGB | TRIGCON_HWTRIGEN_I80_RGB);
+}
+
 static void decon_dpms_on(struct decon_context *ctx)
 {
 	int ret;
@@ -506,6 +532,7 @@ static void decon_dpms_on(struct decon_context *ctx)
 
 	set_bit(BIT_CLKS_ENABLED, &ctx->enabled);
 
+	decon_reset(ctx);
 	decon_window_resume(ctx);
 	decon_apply(ctx);
 
