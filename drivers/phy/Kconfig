@@ -220,17 +220,17 @@ config PHY_S5PV210_USB2
 	  are available - device and host.
 
 config PHY_EXYNOS4210_USB2
-	bool
+	bool "Support for Exynos 4210"
 	depends on PHY_SAMSUNG_USB2
 	default CPU_EXYNOS4210
 
 config PHY_EXYNOS4X12_USB2
-	bool
+	bool "Support for Exynos 3250/4x12"
 	depends on PHY_SAMSUNG_USB2
 	default SOC_EXYNOS3250 || SOC_EXYNOS4212 || SOC_EXYNOS4412
 
 config PHY_EXYNOS5250_USB2
-	bool
+	bool "Support for Exynos 5250/5433"
 	depends on PHY_SAMSUNG_USB2
 	default SOC_EXYNOS5250 || SOC_EXYNOS5420
 
