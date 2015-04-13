@@ -560,3 +560,7 @@
 	status = "okay";
 	samsung,exynos-sataphy-i2c-phandle = <&sata_phy_i2c>;
 };
+
+&cpu0 {
+	cpu0-supply = <&buck2_reg>;
+};
