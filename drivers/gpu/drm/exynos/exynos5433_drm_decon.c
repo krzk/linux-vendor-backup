@@ -200,23 +200,23 @@ static void decon_commit(struct exynos_drm_crtc *crtc)
 
 	if (!ctx->i80_if) {
 		val = VIDTCON00_VBPD_F(
-				mode->crtc_vtotal - mode->crtc_vsync_end) |
+				mode->crtc_vtotal - mode->crtc_vsync_end - 1) |
 			VIDTCON00_VFPD_F(
-				mode->crtc_vsync_start - mode->crtc_vdisplay);
+				mode->crtc_vsync_start - mode->crtc_vdisplay - 1);
 		writel(val, ctx->addr + DECON_VIDTCON00);
 
 		val = VIDTCON01_VSPW_F(
-				mode->crtc_vsync_end - mode->crtc_vsync_start);
+				mode->crtc_vsync_end - mode->crtc_vsync_start - 1);
 		writel(val, ctx->addr + DECON_VIDTCON01);
 
 		val = VIDTCON10_HBPD_F(
-				mode->crtc_htotal - mode->crtc_hsync_end) |
+				mode->crtc_htotal - mode->crtc_hsync_end - 1) |
 			VIDTCON10_HFPD_F(
-				mode->crtc_hsync_start - mode->crtc_hdisplay);
+				mode->crtc_hsync_start - mode->crtc_hdisplay - 1);
 		writel(val, ctx->addr + DECON_VIDTCON10);
 
 		val = VIDTCON11_HSPW_F(
-				mode->crtc_hsync_end - mode->crtc_hsync_start);
+				mode->crtc_hsync_end - mode->crtc_hsync_start - 1);
 		writel(val, ctx->addr + DECON_VIDTCON11);
 	}
 
