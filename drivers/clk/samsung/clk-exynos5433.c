@@ -3028,7 +3028,7 @@ static struct samsung_gate_clock aud_gate_clks[] __initdata = {
 	GATE(CLK_PCLK_TIMER, "pclk_timer", "div_aclk_aud", ENABLE_PCLK_AUD,
 			2, 0, 0),
 	GATE(CLK_PCLK_SFR0_CTRL, "pclk_sfr0_ctrl", "div_aclk_aud",
-			ENABLE_PCLK_AUD, 0, 0, 0),
+			ENABLE_PCLK_AUD, 0, CLK_IGNORE_UNUSED, 0),
 
 	/* ENABLE_SCLK_AUD0 */
 	GATE(CLK_ATCLK_AUD, "atclk_aud", "div_atclk_aud", ENABLE_SCLK_AUD0,
