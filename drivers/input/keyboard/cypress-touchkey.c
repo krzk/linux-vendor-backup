@@ -273,6 +273,8 @@ void touchkey_shutdown(struct i2c_client *client)
 {
 	struct touchkey_i2c *tkey_i2c = i2c_get_clientdata(client);
 
+	disable_irq(client->irq);
+
 	cypress_touchkey_power(tkey_i2c, false);
 }
 
