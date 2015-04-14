@@ -25,6 +25,7 @@
 enum {
 	TEST_CREATE_BUS		= 1 << 0,
 	TEST_CREATE_CONN	= 1 << 1,
+	TEST_CREATE_CAN_FAIL	= 1 << 2,
 };
 
 struct kdbus_test {
@@ -147,6 +148,12 @@ static const struct kdbus_test tests[] = {
 		.desc	= "timeout",
 		.func	= kdbus_test_timeout,
 		.flags	= TEST_CREATE_BUS,
+	},
+	{
+		.name	= "send",
+		.desc	= "send",
+		.func	= kdbus_test_send,
+		.flags	= TEST_CREATE_CONN | TEST_CREATE_CAN_FAIL,
 	},
 	{
 		.name	= "sync-byebye",
@@ -310,7 +317,7 @@ static int test_prepare_env(const struct kdbus_test *t,
 				       _KDBUS_ATTACH_ALL,
 				       _KDBUS_ATTACH_ALL, &s);
 		free(n);
-		ASSERT_RETURN(ret == 0);
+		ASSERT_RETURN((ret == 0) || (t->flags & TEST_CREATE_CAN_FAIL));
 
 		asprintf(&env->buspath, "%s/%s/bus", args->root, s);
 		free(s);
@@ -339,7 +346,7 @@ static int test_prepare_env(const struct kdbus_test *t,
 		}
 		ASSERT_RETURN(env->buspath);
 		env->conn = kdbus_hello(env->buspath, 0, NULL, 0);
-		ASSERT_RETURN(env->conn);
+		ASSERT_RETURN(env->conn || (t->flags & TEST_CREATE_CAN_FAIL));
 	}
 
 	env->root = args->root;

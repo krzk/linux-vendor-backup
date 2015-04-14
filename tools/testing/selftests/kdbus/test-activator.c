@@ -84,13 +84,13 @@ static int kdbus_priv_activator(struct kdbus_test_env *env)
 	ret = RUN_UNPRIVILEGED_CONN(unpriv, env->buspath, ({
 		/* Try to talk using the ID */
 		ret = kdbus_msg_send(unpriv, NULL, 0xdeadbeef, 0, 0,
-				     0, activator->id);
+				     0, activator->id, 0, NULL);
 		ASSERT_EXIT(ret == -ENXIO);
 
 		/* Try to talk to the name */
 		ret = kdbus_msg_send(unpriv, "foo.priv.activator",
 				     0xdeadbeef, 0, 0, 0,
-				     KDBUS_DST_ID_NAME);
+				     KDBUS_DST_ID_NAME, 0, NULL);
 		ASSERT_EXIT(ret == -EPERM);
 	}));
 	ASSERT_RETURN(ret >= 0);
@@ -110,7 +110,7 @@ static int kdbus_priv_activator(struct kdbus_test_env *env)
 
 	cookie++;
 	ret = kdbus_msg_send(service, "foo.priv.activator", cookie,
-			     0, 0, 0, KDBUS_DST_ID_NAME);
+			     0, 0, 0, KDBUS_DST_ID_NAME, 0, NULL);
 	ASSERT_RETURN(ret == 0);
 
 	ret = kdbus_starter_poll(activator);
@@ -141,7 +141,7 @@ static int kdbus_priv_activator(struct kdbus_test_env *env)
 		/* Try to talk to the name */
 		ret = kdbus_msg_send(unpriv, "foo.priv.activator",
 				     cookie, 0, 0, 0,
-				     KDBUS_DST_ID_NAME);
+				     KDBUS_DST_ID_NAME, 0, NULL);
 		ASSERT_EXIT(ret == -EPERM);
 	}));
 	ASSERT_RETURN(ret >= 0);
@@ -155,7 +155,7 @@ static int kdbus_priv_activator(struct kdbus_test_env *env)
 
 	cookie++;
 	ret = kdbus_msg_send(client, "foo.priv.activator", cookie,
-			     0, 0, 0, KDBUS_DST_ID_NAME);
+			     0, 0, 0, KDBUS_DST_ID_NAME, 0, NULL);
 	ASSERT_RETURN(ret == 0);
 	ret = kdbus_msg_recv_poll(service, 100, &msg, NULL);
 	ASSERT_RETURN(ret == 0 && msg->cookie == cookie);
@@ -170,7 +170,8 @@ static int kdbus_priv_activator(struct kdbus_test_env *env)
 		/* Try to talk to the name */
 		ret = kdbus_msg_send(unpriv, "foo.priv.activator",
 				     cookie, 0, 0, 0,
-				     KDBUS_DST_ID_NAME);
+				     KDBUS_DST_ID_NAME,
+				     0, NULL);
 		ASSERT_EXIT(ret == -EPERM);
 	}));
 	ASSERT_RETURN(ret >= 0);
@@ -181,7 +182,7 @@ static int kdbus_priv_activator(struct kdbus_test_env *env)
 	/* Same user is able to TALK */
 	cookie++;
 	ret = kdbus_msg_send(client, "foo.priv.activator", cookie,
-			     0, 0, 0, KDBUS_DST_ID_NAME);
+			     0, 0, 0, KDBUS_DST_ID_NAME, 0, NULL);
 	ASSERT_RETURN(ret == 0);
 	ret = kdbus_msg_recv_poll(service, 100, &msg, NULL);
 	ASSERT_RETURN(ret == 0 && msg->cookie == cookie);
@@ -207,7 +208,8 @@ static int kdbus_priv_activator(struct kdbus_test_env *env)
 		/* Try to talk to the name */
 		ret = kdbus_msg_send(unpriv, "foo.priv.activator",
 				     cookie, 0, 0, 0,
-				     KDBUS_DST_ID_NAME);
+				     KDBUS_DST_ID_NAME,
+				     0, NULL);
 		ASSERT_EXIT(ret == 0);
 	}));
 	ASSERT_RETURN(ret >= 0);
@@ -258,7 +260,7 @@ int kdbus_test_activator(struct kdbus_test_env *env)
 	ASSERT_RETURN(ret == 0);
 
 	ret = kdbus_msg_send(env->conn, "foo.test.activator", 0xdeafbeef,
-			     0, 0, 0, KDBUS_DST_ID_NAME);
+			     0, 0, 0, KDBUS_DST_ID_NAME, 0, NULL);
 	ASSERT_RETURN(ret == 0);
 
 	fds[0].fd = activator->fd;

@@ -64,7 +64,7 @@ int kdbus_test_chat(struct kdbus_test_env *env)
 
 	cookie = 0;
 	ret = kdbus_msg_send(conn_b, NULL, 0xc0000000 | cookie, 0, 0, 0,
-			     KDBUS_DST_ID_BROADCAST);
+			     KDBUS_DST_ID_BROADCAST, 0, NULL);
 	ASSERT_RETURN(ret == 0);
 
 	fds[0].fd = conn_a->fd;
@@ -91,7 +91,7 @@ int kdbus_test_chat(struct kdbus_test_env *env)
 			ASSERT_RETURN(ret == 0);
 			ret = kdbus_msg_send(conn_a, NULL,
 					     0xc0000000 | cookie++,
-					     0, 0, 0, conn_b->id);
+					     0, 0, 0, conn_b->id, 0, NULL);
 			ASSERT_RETURN(ret == 0);
 		}
 
@@ -100,7 +100,7 @@ int kdbus_test_chat(struct kdbus_test_env *env)
 			ASSERT_RETURN(ret == 0);
 			ret = kdbus_msg_send(conn_b, NULL,
 					     0xc0000000 | cookie++,
-					     0, 0, 0, conn_a->id);
+					     0, 0, 0, conn_a->id, 0, NULL);
 			ASSERT_RETURN(ret == 0);
 		}
 

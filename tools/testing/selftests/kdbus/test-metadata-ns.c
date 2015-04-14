@@ -115,7 +115,7 @@ static int __kdbus_clone_userns_test(const char *bus,
 	 */
 
 	ret = kdbus_msg_send(unpriv_conn, NULL, cookie, 0, 0,
-			     0, conn->id);
+			     0, conn->id, 0, NULL);
 	ASSERT_EXIT(ret == 0);
 
 	/*
@@ -151,7 +151,7 @@ static int __kdbus_clone_userns_test(const char *bus,
 
 		cookie++;
 		ret = kdbus_msg_send(userns_conn, NULL, cookie,
-				     0, 0, 0, conn->id);
+				     0, 0, 0, conn->id, 0, NULL);
 		ASSERT_EXIT(ret == 0);
 
 		/* Parent did send */
@@ -397,7 +397,7 @@ static int kdbus_clone_userns_test(const char *bus,
 	 * Sending to unprivileged connections a unicast
 	 */
 	ret = kdbus_msg_send(conn, NULL, 0xdeadbeef, 0, 0,
-			     0, unpriv_conn_id);
+			     0, unpriv_conn_id, 0, NULL);
 	ASSERT_RETURN(ret == 0);
 
 	/* signal to child that is in its userns */
@@ -409,14 +409,14 @@ static int kdbus_clone_userns_test(const char *bus,
 	 * connections a unicast
 	 */
 	ret = kdbus_msg_send(conn, NULL, 0xdeadbeef, 0, 0,
-			     0, userns_conn_id);
+			     0, userns_conn_id, 0, NULL);
 	ASSERT_RETURN(ret == 0);
 
 	/*
 	 * Sending to unprivileged connections a broadcast
 	 */
 	ret = kdbus_msg_send(conn, NULL, 0xdeadbeef, 0, 0,
-			     0, KDBUS_DST_ID_BROADCAST);
+			     0, KDBUS_DST_ID_BROADCAST, 0, NULL);
 	ASSERT_RETURN(ret == 0);
 
 

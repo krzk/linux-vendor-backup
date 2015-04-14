@@ -56,7 +56,8 @@ int kdbus_test_monitor(struct kdbus_test_env *env)
 	ret = kdbus_name_acquire(monitor, "foo.bar.baz", NULL);
 	ASSERT_RETURN(ret == -EOPNOTSUPP);
 
-	ret = kdbus_msg_send(env->conn, NULL, cookie, 0, 0,  0, conn->id);
+	ret = kdbus_msg_send(env->conn, NULL, cookie, 0, 0,  0, conn->id,
+			     0, NULL);
 	ASSERT_RETURN(ret == 0);
 
 	/* the recipient should have gotten the message */
@@ -80,7 +81,7 @@ int kdbus_test_monitor(struct kdbus_test_env *env)
 
 	cookie++;
 	ret = kdbus_msg_send(env->conn, NULL, cookie, 0, 0, 0,
-			     KDBUS_DST_ID_BROADCAST);
+			     KDBUS_DST_ID_BROADCAST, 0, NULL);
 	ASSERT_RETURN(ret == 0);
 
 	/* The monitor should get the message. */
@@ -103,7 +104,7 @@ int kdbus_test_monitor(struct kdbus_test_env *env)
 
 	cookie++;
 	ret = kdbus_msg_send(env->conn, NULL, cookie, 0, 0, 0,
-			     KDBUS_DST_ID_BROADCAST);
+			     KDBUS_DST_ID_BROADCAST, 0, NULL);
 	ASSERT_RETURN(ret == 0);
 
 	ret = kdbus_msg_recv_poll(monitor, 100, &msg, &offset);
@@ -128,7 +129,7 @@ int kdbus_test_monitor(struct kdbus_test_env *env)
 
 	cookie++;
 	ret = kdbus_msg_send(env->conn, NULL, cookie, 0, 0, 0,
-			     KDBUS_DST_ID_BROADCAST);
+			     KDBUS_DST_ID_BROADCAST, 0, NULL);
 	ASSERT_RETURN(ret == 0);
 
 	ret = kdbus_msg_recv_poll(monitor, 100, &msg, &offset);

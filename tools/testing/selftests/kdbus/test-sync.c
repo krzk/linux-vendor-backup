@@ -113,7 +113,7 @@ static int close_epipe_sync(const char *bus)
 	}
 
 	ret = kdbus_msg_send(conn_dst, NULL, cookie, 0, 0, 0,
-			     KDBUS_DST_ID_BROADCAST);
+			     KDBUS_DST_ID_BROADCAST, 0, NULL);
 	ASSERT_RETURN(ret == 0);
 
 	cookie++;

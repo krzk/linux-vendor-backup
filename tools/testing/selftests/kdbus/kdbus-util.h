@@ -173,7 +173,7 @@ int kdbus_create_bus(int control_fd, const char *name,
 		     char **path);
 int kdbus_msg_send(const struct kdbus_conn *conn, const char *name,
 		   uint64_t cookie, uint64_t flags, uint64_t timeout,
-		   int64_t priority, uint64_t dst_id);
+		   int64_t priority, uint64_t dst_id, int fds_count, int fds[]);
 int kdbus_msg_send_sync(const struct kdbus_conn *conn, const char *name,
 			uint64_t cookie, uint64_t flags, uint64_t timeout,
 			int64_t priority, uint64_t dst_id, int cancel_fd);

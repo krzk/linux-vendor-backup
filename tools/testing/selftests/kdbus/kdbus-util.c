@@ -456,7 +456,9 @@ static int __kdbus_msg_send(const struct kdbus_conn *conn,
 			    int64_t priority,
 			    uint64_t dst_id,
 			    uint64_t cmd_flags,
-			    int cancel_fd)
+			    int cancel_fd,
+			    int fds_count,
+			    int fds[])
 {
 	struct kdbus_cmd_send *cmd;
 	struct kdbus_msg *msg;
@@ -472,6 +474,7 @@ static int __kdbus_msg_send(const struct kdbus_conn *conn,
 	size += KDBUS_ITEM_SIZE(sizeof(struct kdbus_vec));
 	size += KDBUS_ITEM_SIZE(sizeof(struct kdbus_vec));
 	size += KDBUS_ITEM_SIZE(sizeof(struct kdbus_vec));
+	size += fds_count > 0 ? KDBUS_ITEM_SIZE(sizeof(int) * fds_count) : 0;
 
 	if (dst_id == KDBUS_DST_ID_BROADCAST)
 		size += KDBUS_ITEM_SIZE(sizeof(struct kdbus_bloom_filter)) + 64;
@@ -569,11 +572,23 @@ static int __kdbus_msg_send(const struct kdbus_conn *conn,
 	}
 	item = KDBUS_ITEM_NEXT(item);
 
+	if (fds_count > 0) {
+		item->type = KDBUS_ITEM_FDS;
+		item->size = KDBUS_ITEM_HEADER_SIZE + sizeof(int) * fds_count;
+		memcpy(&item->fds, fds, sizeof(int) * fds_count);
+		item = KDBUS_ITEM_NEXT(item);
+	}
+
 	size = sizeof(*cmd);
 	if (cancel_fd != -1)
 		size += KDBUS_ITEM_SIZE(sizeof(cancel_fd));
 
 	cmd = malloc(size);
+	if (!cmd) {
+		ret = -errno;
+		kdbus_printf("unable to malloc(%ld)!?\n", (long)size);
+		return ret;
+	}
 	cmd->size = size;
 	cmd->flags = cmd_flags;
 	cmd->msg_address = (uintptr_t)msg;
@@ -586,6 +601,7 @@ static int __kdbus_msg_send(const struct kdbus_conn *conn,
 		item->fds[0] = cancel_fd;
 		item = KDBUS_ITEM_NEXT(item);
 	}
+
 
 	ret = kdbus_cmd_send(conn->fd, cmd);
 	if (memfd >= 0)
@@ -618,10 +634,10 @@ static int __kdbus_msg_send(const struct kdbus_conn *conn,
 
 int kdbus_msg_send(const struct kdbus_conn *conn, const char *name,
 		   uint64_t cookie, uint64_t flags, uint64_t timeout,
-		   int64_t priority, uint64_t dst_id)
+		   int64_t priority, uint64_t dst_id, int fds_count, int fds[])
 {
 	return __kdbus_msg_send(conn, name, cookie, flags, timeout, priority,
-				dst_id, 0, -1);
+				dst_id, 0, -1, fds_count, fds);
 }
 
 int kdbus_msg_send_sync(const struct kdbus_conn *conn, const char *name,
@@ -629,7 +645,8 @@ int kdbus_msg_send_sync(const struct kdbus_conn *conn, const char *name,
 			int64_t priority, uint64_t dst_id, int cancel_fd)
 {
 	return __kdbus_msg_send(conn, name, cookie, flags, timeout, priority,
-				dst_id, KDBUS_SEND_SYNC_REPLY, cancel_fd);
+				dst_id, KDBUS_SEND_SYNC_REPLY, cancel_fd,
+				0, NULL);
 }
 
 int kdbus_msg_send_reply(const struct kdbus_conn *conn,

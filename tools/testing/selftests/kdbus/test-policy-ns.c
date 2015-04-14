@@ -180,7 +180,7 @@ static int kdbus_recv_in_threads(const char *bus, const char *name,
 			break;
 
 		ret = kdbus_msg_send(conn_db[i], name, cookie++,
-				     0, 0, 0, dst_id);
+				     0, 0, 0, dst_id, 0, NULL);
 		if (ret < 0) {
 			/*
 			 * Receivers are not reading their messages,
@@ -295,7 +295,7 @@ static int kdbus_fork_test_by_id(const char *bus,
 		 * EXIT_FAILURE.
 		 */
 		ret = kdbus_msg_send(conn_src, NULL, cookie,
-				     0, 0, 0, conn_db[0]->id);
+				     0, 0, 0, conn_db[0]->id, 0, NULL);
 		ASSERT_EXIT(ret == child_status);
 
 		ret = kdbus_msg_recv_poll(conn_src, 100, NULL, NULL);
@@ -331,7 +331,7 @@ static int kdbus_fork_test_by_id(const char *bus,
 	}
 
 	ret = kdbus_msg_send(conn_db[0], NULL, ++cookie,
-			     0, 0, 0, msg->src_id);
+			     0, 0, 0, msg->src_id, 0, NULL);
 	/*
 	 * parent_status is checked against send operations,
 	 * on failures always return TEST_ERR.
@@ -454,7 +454,7 @@ static int __kdbus_clone_userns_test(const char *bus,
 		ASSERT_EXIT(ret == 0);
 
 		ret = kdbus_msg_send(conn_src, name, 0xabcd1234,
-				     0, 0, 0, KDBUS_DST_ID_NAME);
+				     0, 0, 0, KDBUS_DST_ID_NAME, 0, NULL);
 		kdbus_conn_free(conn_src);
 
 		_exit(ret == expected_status ? EXIT_SUCCESS : EXIT_FAILURE);

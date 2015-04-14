@@ -51,7 +51,7 @@ int kdbus_test_message_basic(struct kdbus_test_env *env)
 
 	/* send over 1st connection */
 	ret = kdbus_msg_send(sender, NULL, cookie, 0, 0, 0,
-			     KDBUS_DST_ID_BROADCAST);
+			     KDBUS_DST_ID_BROADCAST, 0, NULL);
 	ASSERT_RETURN(ret == 0);
 
 	/* Make sure that we do not get our own broadcasts */
@@ -67,7 +67,7 @@ int kdbus_test_message_basic(struct kdbus_test_env *env)
 
 	/* Msgs that expect a reply must have timeout and cookie */
 	ret = kdbus_msg_send(sender, NULL, 0, KDBUS_MSG_EXPECT_REPLY,
-			     0, 0, conn->id);
+			     0, 0, conn->id, 0, NULL);
 	ASSERT_RETURN(ret == -EINVAL);
 
 	/* Faked replies with a valid reply cookie are rejected */
@@ -123,23 +123,36 @@ int kdbus_test_message_prio(struct kdbus_test_env *env)
 {
 	struct kdbus_conn *a, *b;
 	uint64_t cookie = 0;
+	int ret;
 
 	a = kdbus_hello(env->buspath, 0, NULL, 0);
 	b = kdbus_hello(env->buspath, 0, NULL, 0);
 	ASSERT_RETURN(a && b);
 
-	ASSERT_RETURN(kdbus_msg_send(b, NULL, ++cookie, 0, 0,   25, a->id) == 0);
-	ASSERT_RETURN(kdbus_msg_send(b, NULL, ++cookie, 0, 0, -600, a->id) == 0);
-	ASSERT_RETURN(kdbus_msg_send(b, NULL, ++cookie, 0, 0,   10, a->id) == 0);
-	ASSERT_RETURN(kdbus_msg_send(b, NULL, ++cookie, 0, 0,  -35, a->id) == 0);
-	ASSERT_RETURN(kdbus_msg_send(b, NULL, ++cookie, 0, 0, -100, a->id) == 0);
-	ASSERT_RETURN(kdbus_msg_send(b, NULL, ++cookie, 0, 0,   20, a->id) == 0);
-	ASSERT_RETURN(kdbus_msg_send(b, NULL, ++cookie, 0, 0,  -15, a->id) == 0);
-	ASSERT_RETURN(kdbus_msg_send(b, NULL, ++cookie, 0, 0, -800, a->id) == 0);
-	ASSERT_RETURN(kdbus_msg_send(b, NULL, ++cookie, 0, 0, -150, a->id) == 0);
-	ASSERT_RETURN(kdbus_msg_send(b, NULL, ++cookie, 0, 0,   10, a->id) == 0);
-	ASSERT_RETURN(kdbus_msg_send(b, NULL, ++cookie, 0, 0, -800, a->id) == 0);
-	ASSERT_RETURN(kdbus_msg_send(b, NULL, ++cookie, 0, 0,  -10, a->id) == 0);
+	ret = kdbus_msg_send(b, NULL, ++cookie, 0, 0,   25, a->id, 0, NULL);
+	ASSERT_RETURN(ret == 0);
+	ret = kdbus_msg_send(b, NULL, ++cookie, 0, 0, -600, a->id, 0, NULL);
+	ASSERT_RETURN(ret == 0);
+	ret = kdbus_msg_send(b, NULL, ++cookie, 0, 0,   10, a->id, 0, NULL);
+	ASSERT_RETURN(ret == 0);
+	ret = kdbus_msg_send(b, NULL, ++cookie, 0, 0,  -35, a->id, 0, NULL);
+	ASSERT_RETURN(ret == 0);
+	ret = kdbus_msg_send(b, NULL, ++cookie, 0, 0, -100, a->id, 0, NULL);
+	ASSERT_RETURN(ret == 0);
+	ret = kdbus_msg_send(b, NULL, ++cookie, 0, 0,   20, a->id, 0, NULL);
+	ASSERT_RETURN(ret == 0);
+	ret = kdbus_msg_send(b, NULL, ++cookie, 0, 0,  -15, a->id, 0, NULL);
+	ASSERT_RETURN(ret == 0);
+	ret = kdbus_msg_send(b, NULL, ++cookie, 0, 0, -800, a->id, 0, NULL);
+	ASSERT_RETURN(ret == 0);
+	ret = kdbus_msg_send(b, NULL, ++cookie, 0, 0, -150, a->id, 0, NULL);
+	ASSERT_RETURN(ret == 0);
+	ret = kdbus_msg_send(b, NULL, ++cookie, 0, 0,   10, a->id, 0, NULL);
+	ASSERT_RETURN(ret == 0);
+	ret = kdbus_msg_send(b, NULL, ++cookie, 0, 0, -800, a->id, 0, NULL);
+	ASSERT_RETURN(ret == 0);
+	ret = kdbus_msg_send(b, NULL, ++cookie, 0, 0,  -10, a->id, 0, NULL);
+	ASSERT_RETURN(ret == 0);
 
 	ASSERT_RETURN(msg_recv_prio(a, -200, -800) == 0);
 	ASSERT_RETURN(msg_recv_prio(a, -100, -800) == 0);
@@ -195,7 +208,8 @@ static int kdbus_test_notify_kernel_quota(struct kdbus_test_env *env)
 	 * Now the reader queue is full with kernel notfications,
 	 * but as a user we still have room to push our messages.
 	 */
-	ret = kdbus_msg_send(conn, NULL, 0xdeadbeef, 0, 0, 0, reader->id);
+	ret = kdbus_msg_send(conn, NULL, 0xdeadbeef, 0, 0, 0, reader->id,
+			     0, NULL);
 	ASSERT_RETURN(ret == 0);
 
 	/* More ID kernel notifications that will be lost */
@@ -315,7 +329,8 @@ static int kdbus_test_activator_quota(struct kdbus_test_env *env)
 	for (i = 0; i < KDBUS_CONN_MAX_MSGS; i++) {
 		ret = kdbus_msg_send(sender, "foo.test.activator",
 				     cookie++, 0, 0, 0,
-				     KDBUS_DST_ID_NAME);
+				     KDBUS_DST_ID_NAME,
+				     0, NULL);
 		if (ret < 0)
 			break;
 		activator_msgs_count++;
@@ -328,17 +343,18 @@ static int kdbus_test_activator_quota(struct kdbus_test_env *env)
 	/* Good, activator queue is full now */
 
 	/* ENXIO on direct send (activators can never be addressed by ID) */
-	ret = kdbus_msg_send(conn, NULL, cookie++, 0, 0, 0, activator->id);
+	ret = kdbus_msg_send(conn, NULL, cookie++, 0, 0, 0, activator->id,
+			     0, NULL);
 	ASSERT_RETURN(ret == -ENXIO);
 
 	/* can't queue more */
 	ret = kdbus_msg_send(conn, "foo.test.activator", cookie++,
-			     0, 0, 0, KDBUS_DST_ID_NAME);
+			     0, 0, 0, KDBUS_DST_ID_NAME, 0, NULL);
 	ASSERT_RETURN(ret == -ENOBUFS);
 
 	/* no match installed, so the broadcast will not inc dropped_msgs */
 	ret = kdbus_msg_send(sender, NULL, cookie++, 0, 0, 0,
-			     KDBUS_DST_ID_BROADCAST);
+			     KDBUS_DST_ID_BROADCAST, 0, NULL);
 	ASSERT_RETURN(ret == 0);
 
 	/* Check activator queue */
@@ -357,7 +373,7 @@ static int kdbus_test_activator_quota(struct kdbus_test_env *env)
 	/* Consume the connection pool memory */
 	for (i = 0; i < KDBUS_CONN_MAX_MSGS; i++) {
 		ret = kdbus_msg_send(sender, NULL,
-				     cookie++, 0, 0, 0, conn->id);
+				     cookie++, 0, 0, 0, conn->id, 0, NULL);
 		if (ret < 0)
 			break;
 	}
@@ -424,7 +440,7 @@ static int kdbus_test_activator_quota(struct kdbus_test_env *env)
 
 	/* This one is lost but it is not accounted */
 	ret = kdbus_msg_send(sender, NULL,
-			     cookie++, 0, 0, 0, conn->id);
+			     cookie++, 0, 0, 0, conn->id, 0, NULL);
 	ASSERT_RETURN(ret == -ENOBUFS);
 
 	/* Acquire the name again */
@@ -477,7 +493,8 @@ static int kdbus_test_expected_reply_quota(struct kdbus_test_env *env)
 			ret = kdbus_msg_send(conn, NULL, cookie++,
 					     KDBUS_MSG_EXPECT_REPLY,
 					     100000000ULL, 0,
-					     connections[i]->id);
+					     connections[i]->id,
+					     0, NULL);
 			if (ret < 0)
 				break;
 
@@ -497,7 +514,7 @@ static int kdbus_test_expected_reply_quota(struct kdbus_test_env *env)
 	 * no further requests are allowed
 	 */
 	ret = kdbus_msg_send(conn, NULL, cookie++, KDBUS_MSG_EXPECT_REPLY,
-			     1000000000ULL, 0, connections[8]->id);
+			     1000000000ULL, 0, connections[8]->id, 0, NULL);
 	ASSERT_RETURN(ret == -EMLINK);
 
 	for (i = 0; i < 9; i++)
@@ -575,7 +592,7 @@ int kdbus_test_pool_quota(struct kdbus_test_env *env)
 	ASSERT_RETURN(ret == -ENOBUFS);
 
 	/* We still can pass small messages */
-	ret = kdbus_msg_send(b, NULL, cookie++, 0, 0, 0, c->id);
+	ret = kdbus_msg_send(b, NULL, cookie++, 0, 0, 0, c->id, 0, NULL);
 	ASSERT_RETURN(ret == 0);
 
 	for (i = size; i < (POOL_SIZE / 2 / 3); i += size) {
@@ -630,7 +647,7 @@ int kdbus_test_message_quota(struct kdbus_test_env *env)
 	ret = kdbus_fill_conn_queue(b, a->id, KDBUS_CONN_MAX_MSGS);
 	ASSERT_RETURN(ret == KDBUS_CONN_MAX_MSGS);
 
-	ret = kdbus_msg_send(b, NULL, ++cookie, 0, 0, 0, a->id);
+	ret = kdbus_msg_send(b, NULL, ++cookie, 0, 0, 0, a->id, 0, NULL);
 	ASSERT_RETURN(ret == -ENOBUFS);
 
 	for (i = 0; i < KDBUS_CONN_MAX_MSGS; ++i) {
@@ -644,7 +661,7 @@ int kdbus_test_message_quota(struct kdbus_test_env *env)
 	ret = kdbus_fill_conn_queue(b, a->id, KDBUS_CONN_MAX_MSGS + 1);
 	ASSERT_RETURN(ret == KDBUS_CONN_MAX_MSGS);
 
-	ret = kdbus_msg_send(b, NULL, ++cookie, 0, 0, 0, a->id);
+	ret = kdbus_msg_send(b, NULL, ++cookie, 0, 0, 0, a->id, 0, NULL);
 	ASSERT_RETURN(ret == -ENOBUFS);
 
 	kdbus_conn_free(a);

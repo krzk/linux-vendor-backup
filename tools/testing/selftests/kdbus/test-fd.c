@@ -466,7 +466,7 @@ static int kdbus_test_no_fds(struct kdbus_test_env *env,
 	 */
 	cookie++;
 	ret = kdbus_msg_send(conn_src, NULL, cookie, 0, 0, 0,
-			     conn_dst->id);
+			     conn_dst->id, 0, NULL);
 	ASSERT_RETURN(ret == 0);
 
 	ret = waitpid(pid, &status, 0);

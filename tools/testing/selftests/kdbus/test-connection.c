@@ -127,7 +127,7 @@ int kdbus_test_byebye(struct kdbus_test_env *env)
 
 	/* send over 1st connection */
 	ret = kdbus_msg_send(env->conn, NULL, 0, 0, 0, 0,
-			     KDBUS_DST_ID_BROADCAST);
+			     KDBUS_DST_ID_BROADCAST, 0, NULL);
 	ASSERT_RETURN(ret == 0);
 
 	/* say byebye on the 2nd, which must fail */
@@ -523,7 +523,8 @@ int kdbus_test_conn_update(struct kdbus_test_env *env)
 	conn = kdbus_hello(env->buspath, 0, NULL, 0);
 	ASSERT_RETURN(conn);
 
-	ret = kdbus_msg_send(env->conn, NULL, 0x12345678, 0, 0, 0, conn->id);
+	ret = kdbus_msg_send(env->conn, NULL, 0x12345678, 0, 0, 0, conn->id,
+			     0, NULL);
 	ASSERT_RETURN(ret == 0);
 
 	ret = kdbus_msg_recv(conn, &msg, NULL);
@@ -546,7 +547,8 @@ int kdbus_test_conn_update(struct kdbus_test_env *env)
 					     ~KDBUS_ATTACH_TIMESTAMP);
 	ASSERT_RETURN(ret == 0);
 
-	ret = kdbus_msg_send(env->conn, NULL, 0x12345678, 0, 0, 0, conn->id);
+	ret = kdbus_msg_send(env->conn, NULL, 0x12345678, 0, 0, 0, conn->id,
+			     0, NULL);
 	ASSERT_RETURN(ret == 0);
 
 	ret = kdbus_msg_recv(conn, &msg, NULL);

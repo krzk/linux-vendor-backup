@@ -29,7 +29,7 @@ static int test_policy_priv_by_id(const char *bus,
 	ret = RUN_UNPRIVILEGED_CONN(unpriv, bus, ({
 		ret = kdbus_msg_send(unpriv, NULL,
 				     expected_cookie, 0, 0, 0,
-				     conn_dst->id);
+				     conn_dst->id, 0, NULL);
 		ASSERT_EXIT(ret == child_status);
 	}));
 	ASSERT_RETURN(ret >= 0);
@@ -92,7 +92,8 @@ static int test_policy_priv_by_broadcast(const char *bus,
 
 		/* Use expected_cookie since 'msg' might be NULL */
 		ret = kdbus_msg_send(child, NULL, expected_cookie + 1,
-				     0, 0, 0, KDBUS_DST_ID_BROADCAST);
+				     0, 0, 0, KDBUS_DST_ID_BROADCAST,
+				     0, NULL);
 		ASSERT_EXIT(ret == 0);
 
 		kdbus_msg_free(msg);
@@ -107,7 +108,8 @@ static int test_policy_priv_by_broadcast(const char *bus,
 
 			ret = kdbus_msg_send(child_2, NULL,
 					     expected_cookie, 0, 0, 0,
-					     KDBUS_DST_ID_BROADCAST);
+					     KDBUS_DST_ID_BROADCAST,
+					     0, NULL);
 			ASSERT_RETURN(ret == 0);
 
 			/* Use a little bit high time */
@@ -142,7 +144,8 @@ static int test_policy_priv_by_broadcast(const char *bus,
 
 				ret = kdbus_msg_send(child_2, NULL,
 						expected_cookie, 0, 0, 0,
-						KDBUS_DST_ID_BROADCAST);
+						KDBUS_DST_ID_BROADCAST,
+						0, NULL);
 				ASSERT_EXIT(ret == 0);
 
 				/* Use a little bit high time */
@@ -218,7 +221,8 @@ static int test_priv_before_policy_upload(struct kdbus_test_env *env)
 		ret = kdbus_msg_send(unpriv, NULL, 0xdeadbeef,
 				     KDBUS_MSG_EXPECT_REPLY,
 				     5000000000ULL, 0,
-				     KDBUS_DST_ID_BROADCAST);
+				     KDBUS_DST_ID_BROADCAST,
+				     0, NULL);
 		ASSERT_EXIT(ret == -ENOTUNIQ);
 	}));
 	ASSERT_RETURN(ret == 0);
@@ -405,7 +409,7 @@ static int test_broadcast_after_policy_upload(struct kdbus_test_env *env)
 
 	++expected_cookie;
 	ret = kdbus_msg_send(owner_a, NULL, expected_cookie, 0,
-			     0, 0, KDBUS_DST_ID_BROADCAST);
+			     0, 0, KDBUS_DST_ID_BROADCAST, 0, NULL);
 	ASSERT_RETURN(ret == 0);
 
 	ret = kdbus_msg_recv_poll(owner_b, 100, &msg, NULL);
@@ -499,7 +503,8 @@ static int test_broadcast_after_policy_upload(struct kdbus_test_env *env)
 		ret = kdbus_msg_send(unpriv_owner, NULL,
 				     expected_cookie,
 				     0, 0, 0,
-				     KDBUS_DST_ID_BROADCAST);
+				     KDBUS_DST_ID_BROADCAST,
+				     0, NULL);
 		ASSERT_EXIT(ret == 0);
 
 		/*
@@ -609,7 +614,7 @@ static int test_broadcast_after_policy_upload(struct kdbus_test_env *env)
 					 NULL);
 		ASSERT_EXIT(ret >= 0);
 		ret = kdbus_msg_send(unpriv, NULL, expected_cookie,
-				     0, 0, 0, KDBUS_DST_ID_BROADCAST);
+				     0, 0, 0, KDBUS_DST_ID_BROADCAST, 0, NULL);
 		ASSERT_EXIT(ret == 0);
 	}));
 	ASSERT_RETURN(ret == 0);
@@ -641,7 +646,7 @@ static int test_broadcast_after_policy_upload(struct kdbus_test_env *env)
 					 NULL);
 		ASSERT_EXIT(ret >= 0);
 		ret = kdbus_msg_send(unpriv, NULL, expected_cookie,
-				     0, 0, 0, KDBUS_DST_ID_BROADCAST);
+				     0, 0, 0, KDBUS_DST_ID_BROADCAST, 0, NULL);
 		ASSERT_EXIT(ret == 0);
 	}));
 	ASSERT_RETURN(ret == 0);
@@ -953,7 +958,8 @@ static int test_policy_priv(struct kdbus_test_env *env)
 	conn = kdbus_hello(env->buspath, 0, NULL, 0);
 	ASSERT_RETURN(conn);
 
-	ret = kdbus_msg_send(conn, "com.example.b", 0xdeadbeef, 0, 0, 0, 0);
+	ret = kdbus_msg_send(conn, "com.example.b", 0xdeadbeef, 0, 0, 0, 0,
+			     0, NULL);
 	ASSERT_EXIT(ret >= 0);
 
 	ret = kdbus_msg_recv_poll(conn_b, 300, NULL, NULL);
@@ -967,7 +973,7 @@ static int test_policy_priv(struct kdbus_test_env *env)
 
 	ret = RUN_UNPRIVILEGED_CONN(unpriv, env->buspath, ({
 		ret = kdbus_msg_send(unpriv, "com.example.b", 0xdeadbeef, 0, 0,
-				     0, 0);
+				     0, 0, 0, NULL);
 		ASSERT_EXIT(ret == -EPERM);
 	}));
 	ASSERT_RETURN(ret >= 0);
@@ -996,7 +1002,7 @@ static int test_policy_priv(struct kdbus_test_env *env)
 		ASSERT_EXIT(ret >= 0);
 
 		ret = kdbus_msg_send(unpriv, "com.example.c", 0xdeadbeef, 0, 0,
-				     0, 0);
+				     0, 0, 0, NULL);
 		ASSERT_EXIT(ret >= 0);
 		ret = kdbus_msg_recv_poll(owner, 100, NULL, NULL);
 		ASSERT_EXIT(ret >= 0);
@@ -1021,7 +1027,7 @@ static int test_policy_priv(struct kdbus_test_env *env)
 
 	ret = RUN_UNPRIVILEGED_CONN(unpriv, env->buspath, ({
 		ret = kdbus_msg_send(unpriv, "com.example.b", 0xdeadbeef, 0, 0,
-				     0, 0);
+				     0, 0, 0, NULL);
 		ASSERT_EXIT(ret >= 0);
 	}));
 	ASSERT_RETURN(ret >= 0);
@@ -1045,7 +1051,7 @@ static int test_policy_priv(struct kdbus_test_env *env)
 
 	ret = RUN_UNPRIVILEGED_CONN(unpriv, env->buspath, ({
 		ret = kdbus_msg_send(unpriv, "com.example.b", 0xdeadbeef, 0, 0,
-				     0, 0);
+				     0, 0, 0, NULL);
 		ASSERT_EXIT(ret >= 0);
 	}));
 	ASSERT_RETURN(ret >= 0);
@@ -1069,7 +1075,7 @@ static int test_policy_priv(struct kdbus_test_env *env)
 
 	ret = RUN_UNPRIVILEGED_CONN(unpriv, env->buspath, ({
 		ret = kdbus_msg_send(unpriv, "com.example.b", 0xdeadbeef, 0, 0,
-				     0, 0);
+				     0, 0, 0, NULL);
 		ASSERT_EXIT(ret >= 0);
 	}));
 	ASSERT_RETURN(ret >= 0);
@@ -1116,7 +1122,7 @@ static int test_policy_priv(struct kdbus_test_env *env)
 
 	ret = RUN_UNPRIVILEGED_CONN(unpriv, env->buspath, ({
 		ret = kdbus_msg_send(unpriv, "com.example.b", 0xdeadbeef, 0, 0,
-				     0, 0);
+				     0, 0, 0, NULL);
 		ASSERT_EXIT(ret == -EPERM);
 	}));
 	ASSERT_RETURN(ret >= 0);
@@ -1137,7 +1143,7 @@ static int test_policy_priv(struct kdbus_test_env *env)
 
 	ret = RUN_UNPRIVILEGED_CONN(unpriv, env->buspath, ({
 		ret = kdbus_msg_send(unpriv, "com.example.b", 0xdeadbeef, 0, 0,
-				     0, 0);
+				     0, 0, 0, NULL);
 		ASSERT_EXIT(ret >= 0);
 	}));
 	ASSERT_RETURN(ret >= 0);
@@ -1161,7 +1167,7 @@ static int test_policy_priv(struct kdbus_test_env *env)
 
 	ret = RUN_UNPRIVILEGED_CONN(unpriv, env->buspath, ({
 		ret = kdbus_msg_send(unpriv, "com.example.b", 0xdeadbeef, 0, 0,
-				     0, 0);
+				     0, 0, 0, NULL);
 		ASSERT_EXIT(ret >= 0);
 
 		ret = kdbus_msg_recv_poll(conn_b, 100, NULL, NULL);
@@ -1172,7 +1178,7 @@ static int test_policy_priv(struct kdbus_test_env *env)
 		ASSERT_RETURN(ret == 0);
 
 		ret = kdbus_msg_send(unpriv, "com.example.b", 0xdeadbeef, 0, 0,
-				     0, 0);
+				     0, 0, 0, NULL);
 		ASSERT_EXIT(ret == -EPERM);
 	}));
 	ASSERT_RETURN(ret >= 0);
@@ -1213,7 +1219,7 @@ static int test_policy_priv(struct kdbus_test_env *env)
 		ASSERT_RETURN(unpriv);
 
 		ret = kdbus_msg_send(unpriv, "com.example.c", 0xdeadbeef, 0, 0,
-				     0, 0);
+				     0, 0, 0, NULL);
 		ASSERT_EXIT(ret >= 0);
 
 		ret = kdbus_msg_recv_poll(owner, 100, NULL, NULL);
@@ -1223,7 +1229,7 @@ static int test_policy_priv(struct kdbus_test_env *env)
 		kdbus_conn_free(conn);
 
 		ret = kdbus_msg_send(unpriv, "com.example.c", 0xdeadbeef, 0, 0,
-				     0, 0);
+				     0, 0, 0, NULL);
 		ASSERT_EXIT(ret == -EPERM);
 
 		kdbus_conn_free(unpriv);

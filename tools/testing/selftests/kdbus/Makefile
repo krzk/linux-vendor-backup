@@ -28,6 +28,7 @@ OBJS= \
 	test-policy.o		\
 	test-policy-ns.o	\
 	test-policy-priv.o	\
+	test-send.o		\
 	test-sync.o		\
 	test-timeout.o
 
