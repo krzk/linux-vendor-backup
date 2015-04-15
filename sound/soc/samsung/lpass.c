@@ -67,6 +67,21 @@ static void lpass_enable(struct lpass_info *lpass)
 	lpass_core_sw_reset(lpass, SW_RESET_MEM);
 }
 
+static void lpass_disable(struct lpass_info *lpass)
+{
+	if (!lpass->reg_pmu)
+		return;
+
+	/* Masks SFR, DMA, I2S Interrupt */
+	writel(0, lpass->reg_sfr + SFR_LPASS_INTR_CA5_MASK);
+
+	writel(0, lpass->reg_sfr + SFR_LPASS_INTR_CPU_MASK);
+
+	/* Inactive related PADs from retention state */
+	regmap_write(lpass->reg_pmu,
+		     EXYNOS5433_PAD_RETENTION_AUD_OPTION_OFFSET, 0);
+}
+
 static int lpass_probe(struct platform_device *pdev)
 {
 	struct lpass_info *lpass;
@@ -108,16 +123,40 @@ static int lpass_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static int lpass_suspend(struct device *dev)
+{
+	struct lpass_info *lpass = dev_get_drvdata(dev);
+
+	lpass_disable(lpass);
+
+	return 0;
+}
+
+static int lpass_resume(struct device *dev)
+{
+	struct lpass_info *lpass = dev_get_drvdata(dev);
+
+	lpass_enable(lpass);
+
+	return 0;
+}
+
 static const struct of_device_id lpass_of_match[] = {
 	{ .compatible	= "samsung,exynos5433-lpass", },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, lpass_of_match);
 
+static const struct dev_pm_ops lpass_pm_ops = {
+	.suspend = lpass_suspend,
+	.resume	= lpass_resume,
+};
+
 static struct platform_driver lpass_driver = {
 	.driver = {
 		.name		= "samsung-lpass",
 		.owner		= THIS_MODULE,
+		.pm		= &lpass_pm_ops,
 		.of_match_table	= lpass_of_match,
 	},
 	.probe	= lpass_probe,
