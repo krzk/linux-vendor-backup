@@ -23,7 +23,7 @@
 #define EXYNOS5433_PAD_RETENTION_AUD_OPTION_OFFSET	0x3028
 #define EXYNOS5433_INITIATE_WAKEUP_FROM_LOWPWR_MASK	BIT(28)
 
-static struct lpass_info {
+struct lpass_info {
 	struct platform_device	*pdev;
 	void __iomem		*reg_sfr;
 	struct regmap		*reg_pmu;
