@@ -10,6 +10,7 @@
  * option) any later version.
  */
 
+#include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -28,6 +29,21 @@ static struct lpass_info {
 	struct regmap		*reg_pmu;
 };
 
+static void lpass_core_sw_reset(struct lpass_info *lpass, int bit)
+{
+	unsigned int val;
+
+	val = readl(lpass->reg_sfr + SFR_LPASS_CORE_SW_RESET);
+
+	val &= ~(1 << bit);
+	writel(val, lpass->reg_sfr + SFR_LPASS_CORE_SW_RESET);
+
+	udelay(100);
+
+	val |= 1 << bit;
+	writel(val, lpass->reg_sfr + SFR_LPASS_CORE_SW_RESET);
+}
+
 static void lpass_enable(struct lpass_info *lpass)
 {
 	if (!lpass->reg_pmu)
@@ -45,6 +61,10 @@ static void lpass_enable(struct lpass_info *lpass)
 	regmap_write(lpass->reg_pmu,
 		     EXYNOS5433_PAD_RETENTION_AUD_OPTION_OFFSET,
 		     EXYNOS5433_INITIATE_WAKEUP_FROM_LOWPWR_MASK);
+
+	lpass_core_sw_reset(lpass, SW_RESET_I2S);
+	lpass_core_sw_reset(lpass, SW_RESET_DMA);
+	lpass_core_sw_reset(lpass, SW_RESET_MEM);
 }
 
 static int lpass_probe(struct platform_device *pdev)

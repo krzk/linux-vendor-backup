@@ -13,6 +13,7 @@
 #define __SND_SOC_SAMSUNG_LPASS_H
 
 /* SFR */
+#define SFR_LPASS_CORE_SW_RESET	(0x08)
 #define SFR_LPASS_INTR_CA5_MASK	(0x48)
 #define SFR_LPASS_INTR_CPU_MASK	(0x58)
 
@@ -31,5 +32,16 @@
 #define LPASS_INTR_SB		(1 << 2)
 #define LPASS_INTR_UART		(1 << 1)
 #define LPASS_INTR_SFR		(1 << 0)
+
+/* SW Reset bit */
+enum {
+	SW_RESET_DMA = 0,
+	SW_RESET_MEM,
+	SW_RESET_TIMER,
+	SW_RESET_I2S = 8,
+	SW_RESET_PCM,
+	SW_RESET_UART,
+	SW_RESET_SLIMBUS,
+};
 
 #endif /* __SND_SOC_SAMSUNG_LPASS_H */
