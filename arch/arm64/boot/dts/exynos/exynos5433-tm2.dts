@@ -138,7 +138,7 @@
 
 		homepage_key {
 			gpios = <&gpa0 3 1>;
-			linux,code = <KEY_HOMEPAGE>;
+			linux,code = <KEY_MENU>;
 			label = "homepage key";
 			debounce-interval = <10>;
 		};
@@ -777,7 +777,7 @@
 		cypress,ic-stabilizing-time = <150>;
 		cypress,i2c-gpio = <1>;
 		cypress,boot-on-ldo = "false";
-		linux,code = <KEY_MENU KEY_BACK>;
+		linux,code = <KEY_PHONE KEY_BACK>;
 	};
 };
 
