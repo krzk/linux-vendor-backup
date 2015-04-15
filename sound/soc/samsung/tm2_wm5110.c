@@ -132,6 +132,11 @@ static int tm2_start_sysclk(struct snd_soc_card *card)
 static void tm2_stop_sysclk(struct snd_soc_card *card)
 {
 	struct tm2_machine_priv *priv = snd_soc_card_get_drvdata(card);
+	int ret;
+
+	ret = snd_soc_codec_set_pll(priv->codec, WM5110_FLL1, 0, 0, 0);
+	if (ret < 0)
+		dev_err(priv->codec->dev, "Failed to stop FLL: %d\n", ret);
 
 	clk_disable_unprepare(priv->codec_mclk1);
 }
