@@ -1557,7 +1557,8 @@ static int exynos4_jpeg_get_output_buffer_size(struct s5p_jpeg_ctx *ctx,
 	    pix_fmt == V4L2_PIX_FMT_NV42 ||
 	    pix_fmt == V4L2_PIX_FMT_NV12 ||
 	    pix_fmt == V4L2_PIX_FMT_NV21 ||
-	    pix_fmt == V4L2_PIX_FMT_YUV420)
+	    pix_fmt == V4L2_PIX_FMT_YUV420 ||
+	    pix_fmt == V4L2_PIX_FMT_RGB565)
 		wh_align = 4;
 	else
 		wh_align = 1;
