@@ -5,7 +5,7 @@
 
 Name: odroid-linux-kernel
 Summary: The Linux Kernel for ODROID XU3
-Version: 4.0.0
+Version: 4.1
 Release: 0
 License: GPL-2.0
 ExclusiveArch: %{arm}
