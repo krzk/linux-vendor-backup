@@ -676,6 +676,13 @@ static int dw_pcie_wr_other_conf(struct pcie_port *pp, struct pci_bus *bus,
 static int dw_pcie_valid_config(struct pcie_port *pp,
 				struct pci_bus *bus, int dev)
 {
+
+	/* Workaround */
+	if (pp->ops->power_enabled) {
+		if (!pp->ops->power_enabled(pp))
+			return 0;
+	}
+
 	/* If there is no link, then there is no device */
 	if (bus->number != pp->root_bus_nr) {
 		if (!dw_pcie_link_up(pp))
