@@ -53,6 +53,8 @@ struct exynos_pcie {
 	struct clk		*bus_clk;
 	struct pcie_port	pp;
 	struct regmap		*pmureg;
+	/* workaround */
+	int			power_on;
 };
 
 /* PCIe ELBI registers */
@@ -432,6 +434,11 @@ static int exynos_pcie_wr_own_conf(struct pcie_port *pp, int where, int size,
 	return ret;
 }
 
+static int exynos_pcie_power_enabled(struct pcie_port *pp)
+{
+	return g_pcie->power_on;
+}
+
 static struct pcie_host_ops exynos_pcie_host_ops = {
 	.readl_rc = exynos_pcie_readl_rc,
 	.writel_rc = exynos_pcie_writel_rc,
@@ -439,6 +446,7 @@ static struct pcie_host_ops exynos_pcie_host_ops = {
 	.wr_own_conf = exynos_pcie_wr_own_conf,
 	.host_init = exynos_pcie_host_init,
 	.link_up = exynos_pcie_link_up,
+	.power_enabled = exynos_pcie_power_enabled,
 };
 
 static int __init exynos_pcie_probe(struct platform_device *pdev)
@@ -510,6 +518,7 @@ static int __init exynos_pcie_probe(struct platform_device *pdev)
 
 	/* Workaround code to use broadcom device driver */
 	g_pcie = exynos_pcie;
+	g_pcie->power_on = 1;
 
 	pp->irq = platform_get_irq(pdev, 0);
 	if (!pp->irq) {
@@ -569,6 +578,7 @@ void exynos_pcie_poweron(void)
 
 		val = exynos_pcie_readl(g_pcie->elbi_base, PCIE_IRQ_SPECIAL);
 		exynos_pcie_writel(g_pcie->elbi_base, val, PCIE_IRQ_SPECIAL);
+		g_pcie->power_on = 1;
 	}
 }
 
@@ -598,6 +608,7 @@ void exynos_pcie_poweroff(void)
 		clk_disable_unprepare(g_pcie->bus_clk);
 		clk_disable_unprepare(g_pcie->clk);
 
+		g_pcie->power_on = 0;
 	}
 }
 
