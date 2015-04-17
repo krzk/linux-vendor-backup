@@ -964,7 +964,6 @@ static struct gsc_driverdata gsc_v_100_drvdata = {
 		[3] = &gsc_v_100_variant,
 	},
 	.num_entities = 4,
-	.lclk_frequency = 266000000UL,
 };
 
 static struct platform_device_id gsc_driver_ids[] = {
