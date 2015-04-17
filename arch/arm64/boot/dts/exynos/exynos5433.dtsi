@@ -1370,6 +1370,7 @@
 					  <&cmu_gscl CLK_MOUT_ACLK_GSCL_333_USER>;
 			assigned-clock-parents = <&cmu_top CLK_ACLK_GSCL_111>,
 						 <&cmu_top CLK_ACLK_GSCL_333>;
+			iommus = <&sysmmu_gscl0>;
 		};
 
 		gsc_1: video-scaler@13C10000 {
@@ -1388,6 +1389,7 @@
 					  <&cmu_gscl CLK_MOUT_ACLK_GSCL_333_USER>;
 			assigned-clock-parents = <&cmu_top CLK_ACLK_GSCL_111>,
 						 <&cmu_top CLK_ACLK_GSCL_333>;
+			iommus = <&sysmmu_gscl1>;
 		};
 
 		gsc_2: video-scaler@13C20000 {
@@ -1406,6 +1408,34 @@
 					  <&cmu_gscl CLK_MOUT_ACLK_GSCL_333_USER>;
 			assigned-clock-parents = <&cmu_top CLK_ACLK_GSCL_111>,
 						 <&cmu_top CLK_ACLK_GSCL_333>;
+			iommus = <&sysmmu_gscl2>;
+		};
+
+		sysmmu_gscl0: sysmmu@0x13C80000 {
+			compatible = "samsung,exynos-sysmmu";
+			reg = <0x13C80000 0x1000>;
+			interrupts = <0 288 0>;
+			clock-names = "aclk", "pclk";
+			clocks = <&cmu_gscl CLK_ACLK_SMMU_GSCL0>, <&cmu_gscl CLK_PCLK_SMMU_GSCL0>;
+			#iommu-cells = <0>;
+		};
+
+		sysmmu_gscl1: sysmmu@0x13C90000 {
+			compatible = "samsung,exynos-sysmmu";
+			reg = <0x13C90000 0x1000>;
+			interrupts = <0 290 0>;
+			clock-names = "aclk", "pclk";
+			clocks = <&cmu_gscl CLK_ACLK_SMMU_GSCL1>, <&cmu_gscl CLK_PCLK_SMMU_GSCL1>;
+			#iommu-cells = <0>;
+		};
+
+		sysmmu_gscl2: sysmmu@0x13CA0000 {
+			compatible = "samsung,exynos-sysmmu";
+			reg = <0x13CA0000 0x1000>;
+			interrupts = <0 292 0>;
+			clock-names = "aclk", "pclk";
+			clocks = <&cmu_gscl CLK_ACLK_SMMU_GSCL2>, <&cmu_gscl CLK_PCLK_SMMU_GSCL2>;
+			#iommu-cells = <0>;
 		};
 
 		sysmmu_decon0x: sysmmu@0x13A00000 {
