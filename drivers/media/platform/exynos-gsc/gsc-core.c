@@ -28,8 +28,6 @@
 
 #include "gsc-core.h"
 
-#define GSC_CLOCK_GATE_NAME	"gscl"
-
 static const struct gsc_fmt gsc_formats[] = {
 	{
 		.name		= "RGB565",
@@ -964,6 +962,19 @@ static struct gsc_driverdata gsc_v_100_drvdata = {
 		[3] = &gsc_v_100_variant,
 	},
 	.num_entities = 4,
+	.clk_names = {"gscl"},
+	.num_clocks = 1,
+};
+
+static struct gsc_driverdata gsc_5433_drvdata = {
+	.variant = {
+		[0] = &gsc_v_100_variant,
+		[1] = &gsc_v_100_variant,
+		[2] = &gsc_v_100_variant,
+	},
+	.num_entities = 3,
+	.clk_names = {"pclk", "aclk", "aclk_xiu", "aclk_gsclbend"},
+	.num_clocks = 4,
 };
 
 static struct platform_device_id gsc_driver_ids[] = {
@@ -979,6 +990,10 @@ static const struct of_device_id exynos_gsc_match[] = {
 	{
 		.compatible = "samsung,exynos5-gsc",
 		.data = &gsc_v_100_drvdata,
+	},
+	{
+		.compatible = "samsung,exynos5433-gsc",
+		.data = &gsc_5433_drvdata,
 	},
 	{},
 };
@@ -1004,32 +1019,46 @@ static void *gsc_get_drv_data(struct platform_device *pdev)
 
 static void gsc_clk_put(struct gsc_dev *gsc)
 {
-	if (!IS_ERR(gsc->clock))
-		clk_unprepare(gsc->clock);
+	int i;
+	for (i = 0; i < gsc->num_clocks; i++)
+		clk_unprepare(gsc->clock[i]);
 }
 
 static int gsc_clk_get(struct gsc_dev *gsc)
 {
-	int ret;
+	int i;
+	int ret = 0;
 
 	dev_dbg(&gsc->pdev->dev, "gsc_clk_get Called\n");
 
-	gsc->clock = devm_clk_get(&gsc->pdev->dev, GSC_CLOCK_GATE_NAME);
-	if (IS_ERR(gsc->clock)) {
-		dev_err(&gsc->pdev->dev, "failed to get clock~~~: %s\n",
-			GSC_CLOCK_GATE_NAME);
-		return PTR_ERR(gsc->clock);
+	for (i = 0; i < gsc->num_clocks; i++) {
+		gsc->clock[i] = devm_clk_get(&gsc->pdev->dev,
+					     gsc->clk_names[i]);
+		if (IS_ERR(gsc->clock[i])) {
+			dev_err(&gsc->pdev->dev, "failed to get clock: %s\n",
+				gsc->clk_names[i]);
+			ret = PTR_ERR(gsc->clock[i]);
+			goto err;
+		}
+		ret = clk_prepare(gsc->clock[i]);
+		if (ret < 0) {
+			dev_err(&gsc->pdev->dev, "clock prepare failed for clock: %s\n",
+				gsc->clk_names[i]);
+			i++;
+			goto err;
+		}
 	}
 
-	ret = clk_prepare(gsc->clock);
-	if (ret < 0) {
-		dev_err(&gsc->pdev->dev, "clock prepare failed for clock: %s\n",
-			GSC_CLOCK_GATE_NAME);
-		gsc->clock = ERR_PTR(-EINVAL);
-		return ret;
-	}
+	/* WORKAROUND: force enable pclk to avoid system freeze */
+	if (i > 1)
+		clk_enable(gsc->clock[0]);
 
 	return 0;
+err:
+	while (--i > 0)
+		clk_unprepare(gsc->clock[i]);
+
+	return ret;
 }
 
 static int gsc_m2m_suspend(struct gsc_dev *gsc)
@@ -1093,6 +1122,8 @@ static int gsc_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	gsc->num_clocks = drv_data->num_clocks;
+	gsc->clk_names = drv_data->clk_names;
 	gsc->variant = drv_data->variant[gsc->id];
 	gsc->pdev = pdev;
 	gsc->pdata = dev->platform_data;
@@ -1100,7 +1131,6 @@ static int gsc_probe(struct platform_device *pdev)
 	init_waitqueue_head(&gsc->irq_queue);
 	spin_lock_init(&gsc->slock);
 	mutex_init(&gsc->lock);
-	gsc->clock = ERR_PTR(-EINVAL);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	gsc->regs = devm_ioremap_resource(dev, res);
@@ -1178,13 +1208,18 @@ static int gsc_remove(struct platform_device *pdev)
 static int gsc_runtime_resume(struct device *dev)
 {
 	struct gsc_dev *gsc = dev_get_drvdata(dev);
-	int ret = 0;
+	int i;
 
 	pr_debug("gsc%d: state: 0x%lx\n", gsc->id, gsc->state);
 
-	ret = clk_enable(gsc->clock);
-	if (ret)
-		return ret;
+	for (i = 0; i < gsc->num_clocks; i++) {
+		int ret = clk_enable(gsc->clock[i]);
+		if (ret) {
+			while (--i > 0)
+				clk_disable(gsc->clock[i]);
+			return ret;
+		}
+	}
 
 	gsc_hw_set_sw_reset(gsc);
 	gsc_wait_reset(gsc);
@@ -1195,14 +1230,17 @@ static int gsc_runtime_resume(struct device *dev)
 static int gsc_runtime_suspend(struct device *dev)
 {
 	struct gsc_dev *gsc = dev_get_drvdata(dev);
-	int ret = 0;
+	int i, ret;
 
 	ret = gsc_m2m_suspend(gsc);
-	if (!ret)
-		clk_disable(gsc->clock);
+	if (ret)
+		return ret;
+
+	for (i = gsc->num_clocks - 1; i >= 0; i--)
+		clk_disable(gsc->clock[i]);
 
 	pr_debug("gsc%d: state: 0x%lx\n", gsc->id, gsc->state);
-	return ret;
+	return 0;
 }
 
 static int gsc_resume(struct device *dev)
