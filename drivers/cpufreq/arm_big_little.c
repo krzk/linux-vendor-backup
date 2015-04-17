@@ -520,6 +520,13 @@ static void bL_cpufreq_ready(struct cpufreq_policy *policy)
 	of_node_put(np);
 }
 
+static int bL_cpufreq_suspend(struct cpufreq_policy *policy)
+{
+	if (arm_bL_ops->suspend)
+		return arm_bL_ops->suspend(policy);
+	return 0;
+}
+
 static struct cpufreq_driver bL_cpufreq_driver = {
 	.name			= "arm-big-little",
 	.flags			= CPUFREQ_STICKY |
@@ -531,8 +538,10 @@ static struct cpufreq_driver bL_cpufreq_driver = {
 	.init			= bL_cpufreq_init,
 	.exit			= bL_cpufreq_exit,
 	.ready			= bL_cpufreq_ready,
+	.suspend		= bL_cpufreq_suspend,
 	.attr			= cpufreq_generic_attr,
 };
+
 
 static int bL_cpufreq_switcher_notifier(struct notifier_block *nfb,
 					unsigned long action, void *_arg)

@@ -41,6 +41,7 @@ struct cpufreq_arm_bL_ops {
 	/* Optional */
 	int (*get_transition_latency)(struct device *cpu_dev);
 	void (*free_opp_table)(struct device *cpu_dev);
+	int (*suspend)(struct cpufreq_policy *policy);
 };
 
 int bL_cpufreq_register(struct cpufreq_arm_bL_ops *ops);
