@@ -78,11 +78,32 @@ static int dt_get_transition_latency(struct device *cpu_dev)
 	return transition_latency;
 }
 
+static void dt_free_opp_table(struct device *cpu_dev)
+{
+	struct cpumask *sibling = topology_core_cpumask(cpu_dev->id);
+	int cpu;
+
+	if (of_get_property(cpu_dev->of_node, "operating-points", NULL)) {
+		of_free_opp_table(cpu_dev);
+		return;
+	}
+
+	for (cpu = cpumask_first(sibling); cpu < nr_cpu_ids;
+			cpu = cpumask_next(cpu, sibling)) {
+		struct device *d = get_cpu_device(cpu);
+
+		if (of_get_property(d->of_node, "operating-points", NULL)) {
+			of_free_opp_table(d);
+			return;
+		}
+	}
+}
+
 static struct cpufreq_arm_bL_ops dt_bL_ops = {
 	.name	= "dt-bl",
 	.get_transition_latency = dt_get_transition_latency,
 	.init_opp_table = dt_init_opp_table,
-	.free_opp_table = of_free_opp_table,
+	.free_opp_table = dt_free_opp_table,
 };
 
 static int bL_cpufreq_add_dev(struct device *dev, struct subsys_interface *sif)
