@@ -48,13 +48,12 @@ struct exynos_pcie {
 	void __iomem		*phy_base;
 	void __iomem		*block_base;
 	int			reset_gpio;
-	int			perst_gpio;
 	struct clk		*clk;
 	struct clk		*bus_clk;
 	struct pcie_port	pp;
 	struct regmap		*pmureg;
 	/* workaround */
-	int			power_on;
+	int			wlanen_gpio;
 };
 
 /* PCIe ELBI registers */
@@ -65,6 +64,7 @@ struct exynos_pcie {
 #define IRQ_INTD_ASSERT			BIT(6)
 #define IRQ_RADM_PM_TO_ACK		BIT(18)
 #define PCIE_IRQ_LEVEL			0x004
+#define IRQ_RDLH_LINK_UP_INIT		BIT(4)
 #define PCIE_IRQ_SPECIAL		0x008
 #define PCIE_IRQ_EN_PULSE		0x00c
 #define PCIE_IRQ_EN_LEVEL		0x010
@@ -110,6 +110,8 @@ struct exynos_pcie {
  * So it makes the offset naming with offset's number.
  */
 #define PCIE_PHY_OFFSET(x)		((x) * 0x4)
+#define PCIE_PHY_ALL_CMN_PWR_DOWN		BIT(4)
+#define PCIE_PHY_ALL_TRSV_PWR_DOWN		BIT(3)
 
 /* Workaround code to use broadcom device driver */
 static struct exynos_pcie *g_pcie;
@@ -289,13 +291,6 @@ static int exynos_pcie_reset(struct pcie_port *pp)
 	struct exynos_pcie *ep = to_exynos_pcie(pp);
 	u32 val;
 
-	if (ep->perst_gpio) {
-		gpio_set_value(ep->perst_gpio, 0);
-		udelay(20);
-		gpio_set_value(ep->perst_gpio, 1);
-	}
-
-
 	exynos_pcie_assert_phy_reset(pp);
 
 	/* Setup root complext */
@@ -311,12 +306,8 @@ static int exynos_pcie_reset(struct pcie_port *pp)
 			PCIE_APP_LTSSM_ENABLE);
 
 	val = exynos_pcie_readl(ep->elbi_base, PCIE_IRQ_LEVEL);
-	if (val & 0x10) {
-		/* EP BAR(Base Address Register) Setting 64 bit */
-		writel(0x0c200004, ep->pp.va_cfg0_base + 0x10);
-		writel(0x0c400004, ep->pp.va_cfg0_base + 0x18);
+	if (val & IRQ_RDLH_LINK_UP_INIT)
 		return 0;
-	}
 
 	return -EPIPE;
 }
@@ -436,7 +427,13 @@ static int exynos_pcie_wr_own_conf(struct pcie_port *pp, int where, int size,
 
 static int exynos_pcie_power_enabled(struct pcie_port *pp)
 {
-	return g_pcie->power_on;
+	struct exynos_pcie *ep = to_exynos_pcie(pp);
+	int ret = 1;
+
+	if (ep->wlanen_gpio)
+		ret = gpio_get_value(ep->wlanen_gpio);
+
+	return ret;
 }
 
 static struct pcie_host_ops exynos_pcie_host_ops = {
@@ -466,7 +463,7 @@ static int __init exynos_pcie_probe(struct platform_device *pdev)
 	pp->dev = &pdev->dev;
 
 	exynos_pcie->reset_gpio = of_get_named_gpio(np, "reset-gpio", 0);
-	exynos_pcie->perst_gpio = of_get_named_gpio(np, "perst-gpio", 0);
+	exynos_pcie->wlanen_gpio = of_get_named_gpio(np, "wlanen-gpio", 0);
 
 	exynos_pcie->clk = devm_clk_get(&pdev->dev, "pcie");
 	if (IS_ERR(exynos_pcie->clk)) {
@@ -518,7 +515,6 @@ static int __init exynos_pcie_probe(struct platform_device *pdev)
 
 	/* Workaround code to use broadcom device driver */
 	g_pcie = exynos_pcie;
-	g_pcie->power_on = 1;
 
 	pp->irq = platform_get_irq(pdev, 0);
 	if (!pp->irq) {
@@ -565,20 +561,19 @@ void exynos_pcie_poweron(void)
 		clk_prepare_enable(g_pcie->bus_clk);
 
 		val = exynos_pcie_readl(g_pcie->phy_base, PCIE_PHY_OFFSET(0x55));
-		val &= ~(0x1 << 3);
+		val &= ~PCIE_PHY_ALL_TRSV_PWR_DOWN;
 		exynos_pcie_writel(g_pcie->phy_base, val, PCIE_PHY_OFFSET(0x55));
 
 		udelay(100);
 
 		val = exynos_pcie_readl(g_pcie->phy_base, PCIE_PHY_OFFSET(0x21));
-		val &= ~(0x1 << 4);
+		val &= ~PCIE_PHY_ALL_CMN_PWR_DOWN;
 		exynos_pcie_writel(g_pcie->phy_base, val, PCIE_PHY_OFFSET(0x21));
 
 		exynos_pcie_establish_link(&g_pcie->pp);
 
 		val = exynos_pcie_readl(g_pcie->elbi_base, PCIE_IRQ_SPECIAL);
 		exynos_pcie_writel(g_pcie->elbi_base, val, PCIE_IRQ_SPECIAL);
-		g_pcie->power_on = 1;
 	}
 }
 
@@ -590,25 +585,19 @@ void exynos_pcie_poweroff(void)
 	u32 val;
 
 	if (g_pcie) {
-
-		if (g_pcie->reset_gpio)
-			gpio_set_value(g_pcie->reset_gpio, 0);
-
 		exynos_pcie_writel(g_pcie->elbi_base, PCIE_ELBI_LTSSM_DISABLE,
 				PCIE_APP_LTSSM_ENABLE);
 
 		val = exynos_pcie_readl(g_pcie->phy_base, PCIE_PHY_OFFSET(0x55));
-		val |= (0x1 << 3);
+		val |= PCIE_PHY_ALL_TRSV_PWR_DOWN;
 		exynos_pcie_writel(g_pcie->phy_base, val, PCIE_PHY_OFFSET(0x55));
 
 		val = exynos_pcie_readl(g_pcie->phy_base, PCIE_PHY_OFFSET(0x21));
-		val |= (0x1 << 4);
+		val |= PCIE_PHY_ALL_CMN_PWR_DOWN;
 		exynos_pcie_writel(g_pcie->phy_base, val, PCIE_PHY_OFFSET(0x21));
 
 		clk_disable_unprepare(g_pcie->bus_clk);
 		clk_disable_unprepare(g_pcie->clk);
-
-		g_pcie->power_on = 0;
 	}
 }
 
