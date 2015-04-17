@@ -269,6 +269,8 @@ struct sysmmu_drvdata {
 	struct device *master; /* master device (owner of given SYSMMU) */
 	void __iomem *sfrbase; /* our registers */
 	struct clk *clk; /* SYSMMU's clock */
+	struct clk *aclk; /* SYSMMU's clock */
+	struct clk *pclk; /* SYSMMU's clock */
 	struct clk *clk_master; /* master's device clock */
 	int activations; /* number of calls to sysmmu_enable */
 	spinlock_t lock; /* lock for modyfying enable/disable state */
@@ -439,6 +441,8 @@ static void __sysmmu_disable_nocount(struct sysmmu_drvdata *data)
 	__raw_writel(CTRL_DISABLE, data->sfrbase + REG_MMU_CTRL);
 	__raw_writel(0, data->sfrbase + REG_MMU_CFG);
 
+	clk_disable(data->aclk);
+	clk_disable(data->pclk);
 	clk_disable(data->clk);
 	clk_disable(data->clk_master);
 }
@@ -502,6 +506,8 @@ static void __sysmmu_enable_nocount(struct sysmmu_drvdata *data)
 {
 	clk_enable(data->clk_master);
 	clk_enable(data->clk);
+	clk_enable(data->pclk);
+	clk_enable(data->aclk);
 
 	__raw_writel(CTRL_BLOCK, data->sfrbase + REG_MMU_CTRL);
 
@@ -631,22 +637,47 @@ static int __init exynos_sysmmu_probe(struct platform_device *pdev)
 	}
 
 	data->clk = devm_clk_get(dev, "sysmmu");
-	if (IS_ERR(data->clk)) {
-		dev_err(dev, "Failed to get clock!\n");
-		return PTR_ERR(data->clk);
-	} else  {
+	if (!IS_ERR(data->clk)) {
 		ret = clk_prepare(data->clk);
 		if (ret) {
 			dev_err(dev, "Failed to prepare clk\n");
 			return ret;
 		}
+	} else {
+		data->clk = NULL;
+	}
+
+	data->aclk = devm_clk_get(dev, "aclk");
+	if (!IS_ERR(data->aclk)) {
+		ret = clk_prepare(data->aclk);
+		if (ret) {
+			dev_err(dev, "Failed to prepare aclk\n");
+			return ret;
+		}
+	} else {
+		data->aclk = NULL;
+	}
+
+	data->pclk = devm_clk_get(dev, "pclk");
+	if (!IS_ERR(data->pclk)) {
+		ret = clk_prepare(data->pclk);
+		if (ret) {
+			dev_err(dev, "Failed to prepare pclk\n");
+			return ret;
+		}
+	} else {
+		data->pclk = NULL;
+	}
+
+	if (!data->clk && (!data->aclk || !data->pclk)) {
+		dev_err(dev, "Failed to get clock!\n");
+		return -ENOSYS;
 	}
 
 	data->clk_master = devm_clk_get(dev, "master");
 	if (!IS_ERR(data->clk_master)) {
 		ret = clk_prepare(data->clk_master);
 		if (ret) {
-			clk_unprepare(data->clk);
 			dev_err(dev, "Failed to prepare master's clk\n");
 			return ret;
 		}
