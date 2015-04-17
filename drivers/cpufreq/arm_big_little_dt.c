@@ -85,16 +85,56 @@ static struct cpufreq_arm_bL_ops dt_bL_ops = {
 	.free_opp_table = of_free_opp_table,
 };
 
+static int bL_cpufreq_add_dev(struct device *dev, struct subsys_interface *sif)
+{
+	int cpu = dev->id;
+	u32 freq;
+
+	if (!dev->of_node)
+		return -ENODEV;
+
+	if (!of_property_read_u32(dev->of_node, "suspend-freq", &freq)) {
+		struct cpufreq_policy *policy;
+
+		policy = cpufreq_cpu_get(cpu);
+		if (!policy)
+			goto out;
+
+		policy->suspend_freq = freq;
+
+		cpufreq_cpu_put(policy);
+
+		if (!dt_bL_ops.suspend)
+			dt_bL_ops.suspend = cpufreq_generic_suspend;
+	}
+out:
+	return 0;
+}
+
+static struct subsys_interface bL_cpufreq_interface = {
+	.name		= "arm-bL-cpufreq",
+	.subsys		= &cpu_subsys,
+	.add_dev	= bL_cpufreq_add_dev,
+};
+
 static int generic_bL_probe(struct platform_device *pdev)
 {
 	struct device_node *np;
+	int ret;
 
 	np = get_cpu_node_with_valid_op(0);
 	if (!np)
 		return -ENODEV;
 
 	of_node_put(np);
-	return bL_cpufreq_register(&dt_bL_ops);
+
+	ret = bL_cpufreq_register(&dt_bL_ops);
+	if (ret)
+		return ret;
+
+	subsys_interface_register(&bL_cpufreq_interface);
+
+	return 0;
 }
 
 static int generic_bL_remove(struct platform_device *pdev)
