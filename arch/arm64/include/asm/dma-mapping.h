@@ -73,7 +73,6 @@ static inline void set_dma_domain(struct device *dev,
 {
 	dev->archdata.dma_domain = dma_domain;
 }
-#endif
 
 static inline dma_addr_t phys_to_dma(struct device *dev, phys_addr_t paddr)
 {
@@ -88,6 +87,19 @@ static inline phys_addr_t dma_to_phys(struct device *dev, dma_addr_t dev_addr)
 		return 0;
 	return (phys_addr_t)dev_addr;
 }
+
+#else
+
+static inline dma_addr_t phys_to_dma(struct device *dev, phys_addr_t paddr)
+{
+	return (dma_addr_t)paddr;
+}
+
+static inline phys_addr_t dma_to_phys(struct device *dev, dma_addr_t dev_addr)
+{
+	return (phys_addr_t)dev_addr;
+}
+#endif
 
 static inline int dma_mapping_error(struct device *dev, dma_addr_t dev_addr)
 {
