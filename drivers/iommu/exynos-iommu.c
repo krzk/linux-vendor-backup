@@ -392,8 +392,7 @@ static irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 
 	spin_lock(&data->lock);
 
-	if (!IS_ERR(data->clk_master))
-		clk_enable(data->clk_master);
+	clk_enable(data->clk_master);
 
 	itype = (enum exynos_sysmmu_inttype)
 		__ffs(__raw_readl(data->sfrbase + REG_INT_STATUS));
@@ -426,8 +425,7 @@ static irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 
 	sysmmu_unblock(data->sfrbase);
 
-	if (!IS_ERR(data->clk_master))
-		clk_disable(data->clk_master);
+	clk_disable(data->clk_master);
 
 	spin_unlock(&data->lock);
 
@@ -436,15 +434,13 @@ static irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 
 static void __sysmmu_disable_nocount(struct sysmmu_drvdata *data)
 {
-	if (!IS_ERR(data->clk_master))
-		clk_enable(data->clk_master);
+	clk_enable(data->clk_master);
 
 	__raw_writel(CTRL_DISABLE, data->sfrbase + REG_MMU_CTRL);
 	__raw_writel(0, data->sfrbase + REG_MMU_CFG);
 
 	clk_disable(data->clk);
-	if (!IS_ERR(data->clk_master))
-		clk_disable(data->clk_master);
+	clk_disable(data->clk_master);
 }
 
 static bool __sysmmu_disable(struct sysmmu_drvdata *data)
@@ -504,8 +500,7 @@ static void __sysmmu_init_config(struct sysmmu_drvdata *data)
 
 static void __sysmmu_enable_nocount(struct sysmmu_drvdata *data)
 {
-	if (!IS_ERR(data->clk_master))
-		clk_enable(data->clk_master);
+	clk_enable(data->clk_master);
 	clk_enable(data->clk);
 
 	__raw_writel(CTRL_BLOCK, data->sfrbase + REG_MMU_CTRL);
@@ -516,8 +511,7 @@ static void __sysmmu_enable_nocount(struct sysmmu_drvdata *data)
 
 	__raw_writel(CTRL_ENABLE, data->sfrbase + REG_MMU_CTRL);
 
-	if (!IS_ERR(data->clk_master))
-		clk_disable(data->clk_master);
+	clk_disable(data->clk_master);
 }
 
 static int __sysmmu_enable(struct sysmmu_drvdata *data, phys_addr_t pgtable,
@@ -560,16 +554,14 @@ static void sysmmu_tlb_invalidate_flpdcache(struct sysmmu_drvdata *data,
 {
 	unsigned long flags;
 
-	if (!IS_ERR(data->clk_master))
-		clk_enable(data->clk_master);
+	clk_enable(data->clk_master);
 
 	spin_lock_irqsave(&data->lock, flags);
 	if (is_sysmmu_active(data))
 		__sysmmu_tlb_invalidate_flpdcache(data, iova);
 	spin_unlock_irqrestore(&data->lock, flags);
 
-	if (!IS_ERR(data->clk_master))
-		clk_disable(data->clk_master);
+	clk_disable(data->clk_master);
 }
 
 static void sysmmu_tlb_invalidate_entry(struct sysmmu_drvdata *data,
@@ -581,8 +573,7 @@ static void sysmmu_tlb_invalidate_entry(struct sysmmu_drvdata *data,
 	if (is_sysmmu_active(data)) {
 		unsigned int num_inv = 1;
 
-		if (!IS_ERR(data->clk_master))
-			clk_enable(data->clk_master);
+		clk_enable(data->clk_master);
 
 		/*
 		 * L2TLB invalidation required
@@ -602,8 +593,7 @@ static void sysmmu_tlb_invalidate_entry(struct sysmmu_drvdata *data,
 				data->sfrbase, iova, num_inv);
 			sysmmu_unblock(data->sfrbase);
 		}
-		if (!IS_ERR(data->clk_master))
-			clk_disable(data->clk_master);
+		clk_disable(data->clk_master);
 	} else {
 		dev_dbg(data->master,
 			"disabled. Skipping TLB invalidation @ %#x\n", iova);
@@ -660,6 +650,8 @@ static int __init exynos_sysmmu_probe(struct platform_device *pdev)
 			dev_err(dev, "Failed to prepare master's clk\n");
 			return ret;
 		}
+	} else {
+		data->clk_master = NULL;
 	}
 
 	data->sysmmu = dev;
