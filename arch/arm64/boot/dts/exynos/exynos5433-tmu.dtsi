@@ -53,6 +53,44 @@ thermal-zones {
 				type = "active";
 			};
 		};
+
+		cooling-maps {
+			map0 {
+				/* Set maximum frequency as 1800MHz  */
+				trip = <&atlas0_alert_0>;
+				cooling-device = <&cpu4 1 1>;
+			};
+			map1 {
+				/* Set maximum frequency as 1600MHz  */
+				trip = <&atlas0_alert_1>;
+				cooling-device = <&cpu4 3 3>;
+			};
+			map2 {
+				/* Set maximum frequency as 1400MHz  */
+				trip = <&atlas0_alert_2>;
+				cooling-device = <&cpu4 5 5>;
+			};
+			map3 {
+				/* Set maximum frequency as 1200MHz  */
+				trip = <&atlas0_alert_3>;
+				cooling-device = <&cpu4 7 7>;
+			};
+			map4 {
+				/* Set maximum frequency as 1000MHz  */
+				trip = <&atlas0_alert_4>;
+				cooling-device = <&cpu4 9 9>;
+			};
+			map5 {
+				/* Set maximum frequency as 800MHz  */
+				trip = <&atlas0_alert_5>;
+				cooling-device = <&cpu4 11 11>;
+			};
+			map6 {
+				/* Set maximum frequency as 700MHz  */
+				trip = <&atlas0_alert_6>;
+				cooling-device = <&cpu4 12 12>;
+			};
+		};
 	};
 
 	atlas1_thermal: atlas1-thermal {
@@ -181,6 +219,44 @@ thermal-zones {
 				temperature = <110000>;	/* millicelsius */
 				hysteresis = <10000>;	/* millicelsius */
 				type = "active";
+			};
+		};
+
+		cooling-maps {
+			map0 {
+				/* Set maximum frequency as 1200MHz  */
+				trip = <&apollo_alert_0>;
+				cooling-device = <&cpu0 1 1>;
+			};
+			map1 {
+				/* Set maximum frequency as 1000MHz  */
+				trip = <&apollo_alert_1>;
+				cooling-device = <&cpu0 3 3>;
+			};
+			map2 {
+				/* Set maximum frequency as 800MHz  */
+				trip = <&apollo_alert_2>;
+				cooling-device = <&cpu0 5 5>;
+			};
+			map3 {
+				/* Set maximum frequency as 700MHz  */
+				trip = <&apollo_alert_3>;
+				cooling-device = <&cpu0 6 6>;
+			};
+			map4 {
+				/* Set maximum frequency as 600MHz  */
+				trip = <&apollo_alert_4>;
+				cooling-device = <&cpu0 7 7>;
+			};
+			map5 {
+				/* Set maximum frequency as 500MHz  */
+				trip = <&apollo_alert_5>;
+				cooling-device = <&cpu0 8 8>;
+			};
+			map6 {
+				/* Set maximum frequency as 400MHz  */
+				trip = <&apollo_alert_6>;
+				cooling-device = <&cpu0 9 9>;
 			};
 		};
 	};
