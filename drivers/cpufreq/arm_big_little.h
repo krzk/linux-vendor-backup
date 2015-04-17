@@ -22,6 +22,12 @@
 #include <linux/cpufreq.h>
 #include <linux/device.h>
 #include <linux/types.h>
+#include <linux/thermal.h>
+
+struct private_data {
+	struct device *cpu_dev;
+	struct thermal_cooling_device *cdev;
+};
 
 struct cpufreq_arm_bL_ops {
 	char name[CPUFREQ_NAME_LEN];

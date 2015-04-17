@@ -31,6 +31,7 @@
 #include <linux/slab.h>
 #include <linux/topology.h>
 #include <linux/types.h>
+#include <linux/cpu_cooling.h>
 #include <asm/bL_switcher.h>
 
 #include "arm_big_little.h"
@@ -430,6 +431,7 @@ static int bL_cpufreq_init(struct cpufreq_policy *policy)
 {
 	u32 cur_cluster = cpu_to_cluster(policy->cpu);
 	struct device *cpu_dev;
+	struct private_data *priv;
 	int ret;
 
 	cpu_dev = get_cpu_device(policy->cpu);
@@ -438,6 +440,12 @@ static int bL_cpufreq_init(struct cpufreq_policy *policy)
 				policy->cpu);
 		return -ENODEV;
 	}
+
+	priv = devm_kzalloc(cpu_dev, sizeof(*priv), GFP_KERNEL);
+	if (!priv)
+		return -ENOMEM;
+	priv->cpu_dev = cpu_dev;
+	policy->driver_data = priv;
 
 	ret = get_cluster_clk_and_freq_table(cpu_dev);
 	if (ret)
@@ -493,6 +501,25 @@ static int bL_cpufreq_exit(struct cpufreq_policy *policy)
 	return 0;
 }
 
+static void bL_cpufreq_ready(struct cpufreq_policy *policy)
+{
+	struct private_data *priv = policy->driver_data;
+	struct device_node *np = of_node_get(priv->cpu_dev->of_node);
+
+	if (of_find_property(np, "#cooling-cells", NULL)) {
+		priv->cdev = of_cpufreq_cooling_register(np,
+							 policy->related_cpus);
+		if (IS_ERR(priv->cdev)) {
+			dev_err(priv->cpu_dev,
+				"running cpufreq without cooling device: %ld\n",
+				PTR_ERR(priv->cdev));
+
+			priv->cdev = NULL;
+		}
+	}
+	of_node_put(np);
+}
+
 static struct cpufreq_driver bL_cpufreq_driver = {
 	.name			= "arm-big-little",
 	.flags			= CPUFREQ_STICKY |
@@ -503,6 +530,7 @@ static struct cpufreq_driver bL_cpufreq_driver = {
 	.get			= bL_cpufreq_get_rate,
 	.init			= bL_cpufreq_init,
 	.exit			= bL_cpufreq_exit,
+	.ready			= bL_cpufreq_ready,
 	.attr			= cpufreq_generic_attr,
 };
 
