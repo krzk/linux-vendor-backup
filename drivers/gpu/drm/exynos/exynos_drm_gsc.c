@@ -51,6 +51,7 @@
  */
 
 #define GSC_MAX_DEVS	4
+#define GSC_MAX_CLOCKS	8
 #define GSC_MAX_SRC		4
 #define GSC_MAX_DST		16
 #define GSC_RESET_TIMEOUT	50
@@ -142,12 +143,25 @@ struct gsc_context {
 	void __iomem	*regs;
 	struct regmap	*sysreg;
 	struct mutex	lock;
-	struct clk	*gsc_clk;
+	const char	**clk_names;
+	struct clk	*clocks[GSC_MAX_CLOCKS];
+	int		num_clocks;
 	struct gsc_scaler	sc;
 	int	id;
 	int	irq;
 	bool	rotation;
 	bool	suspended;
+};
+
+/**
+ * struct gsc_driverdata - per device type driver data for init time.
+ *
+ * @clk_names: names of clocks needed by this variant
+ * @num_clocks: the number of clocks needed by this variant
+ */
+struct gsc_driverdata {
+	const char	*clk_names[GSC_MAX_CLOCKS];
+	int		num_clocks;
 };
 
 /* 8-tap Filter Coefficient */
@@ -1314,13 +1328,24 @@ static struct exynos_drm_ipp_ops gsc_dst_ops = {
 
 static int gsc_clk_ctrl(struct gsc_context *ctx, bool enable)
 {
+	int i;
 	DRM_DEBUG_KMS("enable[%d]\n", enable);
 
 	if (enable) {
-		clk_prepare_enable(ctx->gsc_clk);
+		for (i = 0; i < ctx->num_clocks; i++) {
+			int ret = clk_prepare_enable(ctx->clocks[i]);
+			if (ret) {
+				while (--i > 0)
+					clk_disable_unprepare(ctx->clocks[i]);
+				return ret;
+			}
+		}
+
 		ctx->suspended = false;
 	} else {
-		clk_disable_unprepare(ctx->gsc_clk);
+		for (i = ctx->num_clocks - 1; i >= 0; i--)
+			clk_disable_unprepare(ctx->clocks[i]);
+
 		ctx->suspended = true;
 	}
 
@@ -1759,19 +1784,45 @@ static void gsc_ippdrv_stop(struct device *dev, enum drm_exynos_ipp_cmd cmd)
 	gsc_write(cfg, GSC_ENABLE);
 }
 
+static struct gsc_driverdata gsc_exynos5_drvdata = {
+	.clk_names = {"gscl"},
+	.num_clocks = 1,
+};
+
+static struct gsc_driverdata gsc_exynos5433_drvdata = {
+	.clk_names = {"pclk", "aclk", "aclk_xiu", "aclk_gsclbend"},
+	.num_clocks = 4,
+};
+
+static const struct of_device_id exynos_drm_gsc_of_match[] = {
+	{
+		.compatible = "samsung,exynos5-gsc",
+		.data = &gsc_exynos5_drvdata,
+	},
+	{
+		.compatible = "samsung,exynos5433-gsc",
+		.data = &gsc_exynos5433_drvdata,
+	},
+	{ },
+};
+MODULE_DEVICE_TABLE(of, exynos_drm_gsc_of_match);
+
 static int gsc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct gsc_context *ctx;
 	struct resource *res;
 	struct exynos_drm_ippdrv *ippdrv;
-	int ret;
+	int ret, i;
 
 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
 
 	if (dev->of_node) {
+		const struct of_device_id *match;
+		struct gsc_driverdata *driver_data;
+
 		/* Handle only devices that support the LCD Writeback path */
 		if (!of_property_read_bool(dev->of_node, "samsung,lcd-wb"))
 			return -ENODEV;
@@ -1782,14 +1833,32 @@ static int gsc_probe(struct platform_device *pdev)
 			dev_warn(dev, "failed to get system register.\n");
 			ctx->sysreg = NULL;
 		}
+
+		match = of_match_node(exynos_drm_gsc_of_match, dev->of_node);
+		if (!match)
+			return -ENODEV;
+
+		driver_data = (struct gsc_driverdata *)match->data;
+
+		ctx->num_clocks = driver_data->num_clocks;
+		ctx->clk_names = driver_data->clk_names;
+	} else {
+		return -ENODEV;
 	}
 
 	/* clock control */
-	ctx->gsc_clk = devm_clk_get(dev, "gscl");
-	if (IS_ERR(ctx->gsc_clk)) {
-		dev_err(dev, "failed to get gsc clock.\n");
-		return PTR_ERR(ctx->gsc_clk);
+	for (i = 0; i < ctx->num_clocks; i++) {
+		ctx->clocks[i] = devm_clk_get(dev, ctx->clk_names[i]);
+		if (IS_ERR(ctx->clocks[i])) {
+			dev_err(dev, "failed to get clock: %s\n",
+				ctx->clk_names[i]);
+			return PTR_ERR(ctx->clocks[i]);
+		}
 	}
+
+	/* WORKAROUND: force enable pclk to avoid system freeze */
+	if (ctx->num_clocks > 1)
+		clk_prepare_enable(ctx->clocks[0]);
 
 	/* resource memory */
 	ctx->regs_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -1857,6 +1926,10 @@ static int gsc_remove(struct platform_device *pdev)
 	struct gsc_context *ctx = get_gsc_context(dev);
 	struct exynos_drm_ippdrv *ippdrv = &ctx->ippdrv;
 
+	/* WORKAROUND: disable pclk enabled in the probe() */
+	if (ctx->num_clocks > 1)
+		clk_disable_unprepare(ctx->clocks[0]);
+
 	exynos_drm_ippdrv_unregister(ippdrv);
 	mutex_destroy(&ctx->lock);
 
@@ -1916,12 +1989,6 @@ static const struct dev_pm_ops gsc_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(gsc_suspend, gsc_resume)
 	SET_RUNTIME_PM_OPS(gsc_runtime_suspend, gsc_runtime_resume, NULL)
 };
-
-static const struct of_device_id exynos_drm_gsc_of_match[] = {
-	{ .compatible = "samsung,exynos5-gsc" },
-	{ },
-};
-MODULE_DEVICE_TABLE(of, exynos_drm_gsc_of_match);
 
 struct platform_driver gsc_driver = {
 	.probe		= gsc_probe,
