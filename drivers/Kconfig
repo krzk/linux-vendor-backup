@@ -186,4 +186,5 @@ source "drivers/gator/Kconfig"
 
 source "drivers/sensors/Kconfig"
 
+source "drivers/trace/Kconfig"
 endmenu

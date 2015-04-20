@@ -1,0 +1,19 @@
+#
+# Trace(debugging) driver configuration
+#
+
+config EXYNOS_SNAPSHOT
+	bool "Exynos SnapShot(ESS) support for debugging"
+	default n
+	depends on ARCH_EXYNOS
+	help
+	  Say Y here if you want to enable Exynos SnapShot (ESS)
+	  support for debuuging.
+
+config EXYNOS_SNAPSHOT_CALLSTACK
+	int "shown callstack level"
+	depends on EXYNOS_SNAPSHOT
+	default 4
+	help
+	  If you are using ESS and want to set level of callstack
+	  shown in ESS, then set the level.
