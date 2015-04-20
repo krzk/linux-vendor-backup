@@ -83,8 +83,6 @@ static int touchkey_stop(struct touchkey_i2c *tkey_i2c)
 	}
 	input_sync(tkey_i2c->input_dev);
 
-	tkey_i2c->status_update = false;
-
 	if (touchkey_led_status == TK_CMD_LED_ON)
 		touchled_cmd_reversed = 1;
 
@@ -98,7 +96,12 @@ static int touchkey_start(struct touchkey_i2c *tkey_i2c)
 {
 	struct i2c_client *client = tkey_i2c->client;
 
-	tkey_i2c->enabled = true;
+	if (tkey_i2c->enabled) {
+		dev_err(&tkey_i2c->client->dev, "Touch key already enabled\n");
+		goto err_start_out;
+	}
+
+	cypress_touchkey_power(tkey_i2c, true);
 
 	if (touchled_cmd_reversed) {
 		touchled_cmd_reversed = 0;
@@ -108,6 +111,9 @@ static int touchkey_start(struct touchkey_i2c *tkey_i2c)
 		msleep(30);
 	}
 
+	enable_irq(client->irq);
+
+err_start_out:
 	return 0;
 }
 static irqreturn_t touchkey_interrupt(int irq, void *dev_id)
@@ -218,7 +224,6 @@ static int i2c_touchkey_probe(struct i2c_client *client,
 	tkey_i2c->input_dev = input_dev;
 	tkey_i2c->client = client;
 	tkey_i2c->name = "sec_touchkey";
-	tkey_i2c->status_update = false;
 	tkey_i2c->mc_data.cur_mode = MODE_NORMAL;
 
 	__set_bit(EV_KEY, input_dev->evbit);

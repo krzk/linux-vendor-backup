@@ -174,7 +174,6 @@ struct touchkey_i2c {
 	bool enabled;
 	int	src_fw_ver;
 	int	src_md_ver;
-	bool status_update;
 	struct work_struct update_work;
 	struct workqueue_struct *fw_wq;
 	u8 fw_path;
