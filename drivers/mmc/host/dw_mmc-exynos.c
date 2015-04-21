@@ -46,6 +46,7 @@ struct dw_mci_exynos_priv_data {
 	u32				dqs_delay;
 	u32				saved_dqs_en;
 	u32				saved_strobe_ctrl;
+	int				is_tuned_sample;
 };
 
 static struct dw_mci_exynos_compatible {
@@ -486,6 +487,12 @@ static int dw_mci_exynos_execute_tuning(struct dw_mci_slot *slot)
 	s8 found = -1;
 	int ret = 0;
 
+	/* If clksmp has been already tuned, need not to send tuning command */
+	if (priv->is_tuned_sample) {
+		dw_mci_exynos_set_clksmpl(host, priv->tuned_sample);
+		return ret;
+	}
+
 	start_drv = dw_mci_exynos_get_clkdrv(host);
 	smpl_drv = start_drv;
 retry:
@@ -504,6 +511,7 @@ retry:
 	if (found >= 0) {
 		dw_mci_exynos_set_clksmpl(host, found);
 		priv->tuned_sample = found;
+		priv->is_tuned_sample = true;
 	} else {
 		smpl_drv =  (smpl_drv + 1) & 0x7;
 		if (start_drv != smpl_drv) {
