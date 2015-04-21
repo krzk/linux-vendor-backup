@@ -237,6 +237,13 @@
 			       <&cmu_cpif CLK_SCLK_MPHY_PLL>;
 		};
 
+		mipi_phy: video-phy@10020710 {
+			compatible = "samsung,s5pv210-mipi-video-phy";
+			reg = <0x10020710 8>;
+			#phy-cells = <1>;
+			syscon = <&pmu_system_controller>;
+		};
+
 		cmu_peric: clock-controller@14c80000 {
 			compatible = "samsung,exynos5433-cmu-peric";
 			reg = <0x14c80000 0x1000>;
@@ -1275,6 +1282,8 @@
 			compatible = "samsung,exynos5433-mipi-dsi";
 			reg = <0x13900000 0xC0>;
 			interrupts = <0 205 0>;
+			phys = <&mipi_phy 1>;
+			phy-names = "dsim";
 			clocks = <&cmu_disp CLK_PCLK_DSIM0>,
 				 <&cmu_disp CLK_PHYCLK_MIPIDPHY0_BITCLKDIV8>,
 				 <&cmu_disp CLK_PHYCLK_MIPIDPHY0_RXCLKESC0>,
