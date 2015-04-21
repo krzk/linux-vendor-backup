@@ -207,8 +207,8 @@
 #define DSI_RX_FIFO_EMPTY		0x30800002
 
 #define REG(dsi, reg)	((dsi)->reg_base + dsi->driver_data->regs[(reg)])
-#define DSI_WRITE(dsi, reg, val)	writel((val), REG((dsi), (reg)));
-#define DSI_READ(dsi, reg)		readl(REG((dsi), (reg)));
+#define DSI_WRITE(dsi, reg, val)	writel((val), REG((dsi), (reg)))
+#define DSI_READ(dsi, reg)		readl(REG((dsi), (reg)))
 
 static char *clk_names[5] = { "bus_clk", "sclk_mipi",
 	"phyclk_mipidphy0_bitclkdiv8", "phyclk_mipidphy0_rxclkesc0",
@@ -592,7 +592,8 @@ static unsigned long exynos_dsi_set_pll(struct exynos_dsi *dsi,
 	}
 	dev_dbg(dsi->dev, "PLL freq %lu, (p %d, m %d, s %d)\n", fout, p, m, s);
 
-	DSI_WRITE(dsi, driver_data->plltmr_reg, driver_data->values[PLL_TIMER]);
+	writel(driver_data->values[PLL_TIMER],
+			dsi->reg_base + driver_data->plltmr_reg);
 
 	reg = DSIM_PLL_EN | DSIM_PLL_P(p) | DSIM_PLL_M(m) | DSIM_PLL_S(s);
 
@@ -633,8 +634,6 @@ static int exynos_dsi_enable_clock(struct exynos_dsi *dsi)
 	unsigned long hs_clk, byte_clk, esc_clk;
 	unsigned long esc_div;
 	u32 reg;
-
-	reg = DSI_READ(dsi, DSIM_STATUS_REG);
 
 	hs_clk = exynos_dsi_set_pll(dsi, dsi->burst_clk_rate);
 	if (!hs_clk) {
@@ -1078,7 +1077,7 @@ static void exynos_dsi_read_from_fifo(struct exynos_dsi *dsi,
 clear_fifo:
 	length = DSI_RX_FIFO_SIZE / 4;
 	do {
-		reg = readl(dsi->reg_base + DSIM_RXFIFO_REG);
+		reg = DSI_READ(dsi, DSIM_RXFIFO_REG);
 		if (reg == DSI_RX_FIFO_EMPTY)
 			break;
 	} while (--length);
