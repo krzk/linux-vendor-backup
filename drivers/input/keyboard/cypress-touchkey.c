@@ -18,10 +18,55 @@
 #include <linux/regulator/driver.h>
 #include <linux/firmware.h>
 #include <linux/of.h>
+#include <linux/leds.h>
 #include <linux/i2c/cypress-touchkey.h>
 
 static int touchkey_led_status;
 static int touchled_cmd_reversed;
+
+static void cypress_led_brightness_set(struct led_classdev *cdev,
+		enum led_brightness value)
+{
+	struct touchkey_i2c *tkey_i2c = container_of(cdev,
+			struct touchkey_i2c, cdev);
+	struct i2c_client *client = tkey_i2c->client;
+	int uvolt;
+	u8 data;
+
+	if (value == LED_OFF) {
+		uvolt = TK_LED_VOLTAGE_MIN;
+		data = TK_CMD_LED_OFF;
+	} else if (value <= LED_HALF) {
+		uvolt = TK_LED_VOLTAGE_MID;
+		data = TK_CMD_LED_ON;
+	} else {
+		uvolt = TK_LED_VOLTAGE_MAX;
+		data = TK_CMD_LED_ON;
+	}
+
+	regulator_set_voltage(tkey_i2c->regulator_led, uvolt, uvolt);
+	i2c_smbus_write_i2c_block_data(client, BASE_REG, 1, &data);
+}
+
+static int cypress_touchkey_led_init(struct touchkey_i2c *tkey_i2c)
+{
+	struct led_classdev *cdev = &tkey_i2c->cdev;
+	int ret;
+
+	cdev->name = tkey_i2c->name;
+	cdev->brightness = LED_OFF;
+	cdev->max_brightness = LED_FULL;
+	cdev->brightness_set = cypress_led_brightness_set;
+
+	ret = led_classdev_register(tkey_i2c->dev, cdev);
+	if (ret < 0) {
+		dev_err(tkey_i2c->dev, "Failed to register touchkey led\n");
+		return ret;
+	}
+
+	return 0;
+
+}
 
 static int cypress_touchkey_power(struct touchkey_i2c *tkey_i2c, int on)
 {
@@ -63,6 +108,7 @@ static int cypress_touchkey_power(struct touchkey_i2c *tkey_i2c, int on)
 
 	return ret;
 }
+
 static int touchkey_stop(struct touchkey_i2c *tkey_i2c)
 {
 	struct i2c_client *client = tkey_i2c->client;
@@ -268,6 +314,12 @@ static int i2c_touchkey_probe(struct i2c_client *client,
 		return ret;
 	}
 
+	ret = cypress_touchkey_led_init(tkey_i2c);
+	if (ret < 0) {
+		dev_err(&client->dev, "Failed to initialize touchkey led\n");
+		return ret;
+	}
+
 	if (!tkey_i2c->pdata->boot_on_ldo)
 		msleep(pdata->stabilizing_time);
 
@@ -312,7 +364,7 @@ static const struct i2c_device_id sec_touchkey_id[] = {
 
 MODULE_DEVICE_TABLE(i2c, sec_touchkey_id);
 
-static struct of_device_id cypress_touchkey_dt_ids[] = {
+static const struct of_device_id cypress_touchkey_dt_ids[] = {
 	{ .compatible = "cypress,cypress_touchkey" },
 	{ }
 };

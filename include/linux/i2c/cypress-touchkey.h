@@ -77,6 +77,10 @@
 
 #define TK_CMD_LED_ON			0x10
 #define TK_CMD_LED_OFF			0x20
+#define TK_LED_VOLTAGE_MIN		2500000
+#define TK_LED_VOLTAGE_MID		2900000
+#define TK_LED_VOLTAGE_MAX		3300000
+
 
 #define TK_UPDATE_DOWN			1
 #define TK_UPDATE_FAIL			-1
@@ -157,6 +161,7 @@ struct touchkey_i2c {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
 	struct completion init_done;
+	struct led_classdev cdev;
 	struct mutex lock;
 	struct mutex i2c_lock;
 	struct device	*dev;
