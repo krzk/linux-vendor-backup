@@ -1462,6 +1462,12 @@ static int exynos_dsi_poweron(struct exynos_dsi *dsi)
 			goto err_clk;
 	}
 
+	ret = phy_power_on(dsi->phy);
+	if (ret < 0) {
+		dev_err(dsi->dev, "cannot enable phy %d\n", ret);
+		goto err_clk;
+	}
+
 	return 0;
 
 err_clk:
@@ -1488,6 +1494,8 @@ static void exynos_dsi_poweroff(struct exynos_dsi *dsi)
 	}
 
 	dsi->state &= ~DSIM_STATE_CMD_LPM;
+
+	phy_power_off(dsi->phy);
 
 	for (i = driver_data->num_clks - 1; i > -1; i--)
 		clk_disable_unprepare(dsi->clks[i]);
@@ -1898,6 +1906,13 @@ static int exynos_dsi_probe(struct platform_device *pdev)
 	if (IS_ERR(dsi->reg_base)) {
 		dev_err(dev, "failed to remap io region\n");
 		ret = PTR_ERR(dsi->reg_base);
+		goto err_del_component;
+	}
+
+	dsi->phy = devm_phy_get(dev, "dsim");
+	if (IS_ERR(dsi->phy)) {
+		dev_info(dev, "failed to get dsim phy\n");
+		ret = PTR_ERR(dsi->phy);
 		goto err_del_component;
 	}
 
