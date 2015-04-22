@@ -167,6 +167,7 @@ menu "Platform selection"
 
 config ARCH_EXYNOS
 	bool
+	select PM_GENERIC_DOMAINS if PM
 	help
 	  This enables support for Samsung Exynos SoC family
 
