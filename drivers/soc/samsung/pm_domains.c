@@ -23,21 +23,22 @@
 #include <linux/of_platform.h>
 #include <linux/sched.h>
 
-#define INT_LOCAL_PWR_EN	0x7
-#define MAX_CLK_PER_DOMAIN	4
+#define INT_LOCAL_PWR_EN	0xF
 
 /*
  * Exynos specific wrapper around the generic power domain
  */
 struct exynos_pm_domain {
+	struct generic_pm_domain pd;
 	void __iomem *base;
 	char const *name;
 	bool is_off;
-	struct generic_pm_domain pd;
+	int nr_reparent_clks;
 	struct clk *oscclk;
-	struct clk *clk[MAX_CLK_PER_DOMAIN];
-	struct clk *pclk[MAX_CLK_PER_DOMAIN];
-	struct clk *asb_clk[MAX_CLK_PER_DOMAIN];
+	struct clk **clk;
+	struct clk **pclk;
+	int nr_asb_clks;
+	struct clk **asb_clk;
 };
 
 static int exynos_pd_power(struct generic_pm_domain *domain, bool power_on)
@@ -51,7 +52,7 @@ static int exynos_pd_power(struct generic_pm_domain *domain, bool power_on)
 	pd = container_of(domain, struct exynos_pm_domain, pd);
 	base = pd->base;
 
-	for (i = 0; i < MAX_CLK_PER_DOMAIN; i++) {
+	for (i = 0; i < pd->nr_asb_clks; i++) {
 		if (IS_ERR(pd->asb_clk[i]))
 			break;
 		clk_prepare_enable(pd->asb_clk[i]);
@@ -59,7 +60,7 @@ static int exynos_pd_power(struct generic_pm_domain *domain, bool power_on)
 
 	/* Set oscclk before powering off a domain*/
 	if (!power_on) {
-		for (i = 0; i < MAX_CLK_PER_DOMAIN; i++) {
+		for (i = 0; i < pd->nr_reparent_clks; i++) {
 			if (IS_ERR(pd->clk[i]))
 				break;
 			if (clk_set_parent(pd->clk[i], pd->oscclk))
@@ -72,7 +73,7 @@ static int exynos_pd_power(struct generic_pm_domain *domain, bool power_on)
 	__raw_writel(pwr, base);
 
 	/* Wait max 1ms */
-	timeout = 10;
+	timeout = 100;
 
 	while ((__raw_readl(base + 0x4) & INT_LOCAL_PWR_EN) != pwr) {
 		if (!timeout) {
@@ -87,7 +88,7 @@ static int exynos_pd_power(struct generic_pm_domain *domain, bool power_on)
 
 	/* Restore clocks after powering on a domain*/
 	if (power_on) {
-		for (i = 0; i < MAX_CLK_PER_DOMAIN; i++) {
+		for (i = 0; i < pd->nr_reparent_clks; i++) {
 			if (IS_ERR(pd->clk[i]))
 				break;
 			if (clk_set_parent(pd->clk[i], pd->pclk[i]))
@@ -96,7 +97,7 @@ static int exynos_pd_power(struct generic_pm_domain *domain, bool power_on)
 		}
 	}
 
-	for (i = 0; i < MAX_CLK_PER_DOMAIN; i++) {
+	for (i = 0; i < pd->nr_asb_clks; i++) {
 		if (IS_ERR(pd->asb_clk[i]))
 			break;
 		clk_disable_unprepare(pd->asb_clk[i]);
@@ -118,6 +119,7 @@ static int exynos_pd_power_off(struct generic_pm_domain *domain)
 static __init int exynos4_pm_init_power_domain(void)
 {
 	struct device_node *np;
+	int nr_clks;
 
 	for_each_compatible_node(np, NULL, "samsung,exynos4210-pd") {
 		struct exynos_pm_domain *pd;
@@ -130,46 +132,39 @@ static __init int exynos4_pm_init_power_domain(void)
 			return -ENOMEM;
 		}
 
-		pd->pd.name = kstrdup_const(strrchr(np->full_name, '/') + 1,
-					    GFP_KERNEL);
+		pd->pd.name = kstrdup(np->name, GFP_KERNEL);
 		pd->name = pd->pd.name;
 		pd->base = of_iomap(np, 0);
 		pd->pd.power_off = exynos_pd_power_off;
 		pd->pd.power_on = exynos_pd_power_on;
 
-		for (i = 0; i < MAX_CLK_PER_DOMAIN; i++) {
-			char clk_name[8];
+		nr_clks = of_count_phandle_with_args(np, "clocks","#clock-cells");
+		if (nr_clks > 0 && !(nr_clks % 2)) {
+			nr_clks /= 2;
 
-			snprintf(clk_name, sizeof(clk_name), "asb%d", i);
-			pd->asb_clk[i] = of_clk_get_by_name(np, clk_name);
-			if (IS_ERR(pd->asb_clk[i]))
+			pd->oscclk = clk_get(NULL, "xxti");
+			if (IS_ERR(pd->oscclk))
 				break;
-		}
 
-		pd->oscclk = of_clk_get_by_name(np, "oscclk");
-		if (IS_ERR(pd->oscclk))
-			goto no_clk;
-
-		for (i = 0; i < MAX_CLK_PER_DOMAIN; i++) {
-			char clk_name[8];
-
-			snprintf(clk_name, sizeof(clk_name), "clk%d", i);
-			pd->clk[i] = of_clk_get_by_name(np, clk_name);
-			if (IS_ERR(pd->clk[i]))
-				break;
-			snprintf(clk_name, sizeof(clk_name), "pclk%d", i);
-			pd->pclk[i] = of_clk_get_by_name(np, clk_name);
-			if (IS_ERR(pd->pclk[i])) {
-				clk_put(pd->clk[i]);
-				pd->clk[i] = ERR_PTR(-EINVAL);
-				break;
+			pd->clk = kcalloc(sizeof(struct clk *),
+						nr_clks, GFP_KERNEL);
+			pd->pclk = kcalloc(sizeof(struct clk *),
+						nr_clks, GFP_KERNEL);
+			for (i = 0; i < nr_clks; i++) {
+				pd->clk[i] = of_clk_get(np, i);
+				if (IS_ERR(pd->clk[i]))
+					break;
+				pd->pclk[i] = of_clk_get(np, i + 1);
+				if (IS_ERR(pd->pclk[i])) {
+					clk_put(pd->clk[i]);
+					pd->clk[i] = ERR_PTR(-EINVAL);
+					break;
+				}
 			}
+
+			pd->nr_reparent_clks = nr_clks;
 		}
 
-		if (IS_ERR(pd->clk[0]))
-			clk_put(pd->oscclk);
-
-no_clk:
 		on = __raw_readl(pd->base + 0x4) & INT_LOCAL_PWR_EN;
 
 		pm_genpd_init(&pd->pd, NULL, !on);
