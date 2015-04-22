@@ -544,6 +544,12 @@
 			};
 		};
 
+		pd_disp: disp-power-domain@105c4080 {
+			compatible = "samsung,exynos4210-pd";
+			reg = <0x105c4080 0x20>;
+			#power-domain-cells = <0>;
+		};
+
 		serial_0: serial@14c10000 {
 			compatible = "samsung,exynos5433-uart";
 			reg = <0x14c10000 0x100>;
@@ -1270,6 +1276,7 @@
 				      "sclk_decon_vclk", "sclk_decon_eclk";
 			interrupt-names = "fifo", "vsync", "lcd_sys";
 			interrupts = <0 201 0>, <0 202 0>, <0 203 0>;
+			power-domains = <&pd_disp>;
 			status = "disabled";
 			iommus = <&sysmmu_decon0x>, <&sysmmu_decon1x>;
 			iommu-names = "m0", "m1";
@@ -1303,6 +1310,7 @@
 				      "phyclk_mipidphy0_rxclkesc0",
 				      "sclk_rgb_vclk_to_dsim0",
 				      "sclk_mipi";
+			power-domains = <&pd_disp>;
 			status = "disabled";
 			#address-cells = <1>;
 			#size-cells = <0>;
