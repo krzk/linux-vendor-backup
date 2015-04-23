@@ -20,6 +20,11 @@
 #include <linux/regulator/consumer.h>
 #include <linux/workqueue.h>
 
+/* Value related the movie mode */
+#define KTD2692_MOVIE_MODE_CURRENT_LEVELS	16
+#define KTD2692_MM_TO_FL_RATIO(x)		((x) / 3)
+#define KTD2962_MM_MIN_CURR_THRESHOLD_SCALE	8
+
 /* Value related the flash mode */
 #define KTD2692_FLASH_MODE_TIMEOUT_LEVELS	8
 #define KTD2692_FLASH_MODE_TIMEOUT_DISABLE	0
@@ -28,15 +33,10 @@
 /* Macro for getting offset of flash timeout */
 #define GET_TIMEOUT_OFFSET(timeout, step)	((timeout) / (step))
 
-/* Adjust a multiple of brightness */
-#define KTD2692_BRIGHTNESS_RANGE_255_TO_16(x)	(((x) >> 4) & 0x0F)
-#define KTD2692_BRIGHTNESS_RANGE_255_TO_8(x)	(((x) >> 5) & 0x0F)
-#define KTD2692_BRIGHTNESS_RANGE_255_TO_4(x)	(((x) >> 6) & 0x0F)
-
 /* Base register address */
 #define KTD2692_REG_LVP_BASE			0x00
 #define KTD2692_REG_FLASH_TIMEOUT_BASE		0x20
-#define KTD2692_REG_MIN_CURRENT_SET_BASE	0x40
+#define KTD2692_REG_MM_MIN_CURR_THRESHOLD_BASE	0x40
 #define KTD2692_REG_MOVIE_CURRENT_BASE		0x60
 #define KTD2692_REG_FLASH_CURRENT_BASE		0x80
 #define KTD2692_REG_MODE_BASE			0xA0
@@ -64,6 +64,17 @@ enum ktd2692_led_mode {
 	KTD2692_MODE_FLASH,
 };
 
+struct ktd2692_led_config_data {
+	/* maximum LED current in movie mode */
+	u32 movie_max_microamp;
+	/* maximum LED current in flash mode */
+	u32 flash_max_microamp;
+	/* maximum flash timeout */
+	u32 flash_max_timeout;
+	/* max LED brightness level */
+	enum led_brightness max_brightness;
+};
+
 struct ktd2692_context {
 	/* Related LED Flash class device */
 	struct led_classdev_flash fled_cdev;
@@ -75,8 +86,6 @@ struct ktd2692_context {
 
 	struct gpio_desc *aux_gpio;
 	struct gpio_desc *ctrl_gpio;
-
-	u32 flash_max_microamp;
 
 	enum ktd2692_led_mode mode;
 	enum led_brightness torch_brightness;
@@ -158,8 +167,8 @@ static void ktd2692_brightness_set(struct ktd2692_context *led,
 		led->mode = KTD2692_MODE_DISABLE;
 		gpiod_direction_output(led->aux_gpio, KTD2692_LOW);
 	} else {
-		ktd2692_expresswire_write(led, KTD2692_REG_MOVIE_CURRENT_BASE |
-				KTD2692_BRIGHTNESS_RANGE_255_TO_8(brightness));
+		ktd2692_expresswire_write(led, brightness |
+					KTD2692_REG_MOVIE_CURRENT_BASE);
 		led->mode = KTD2692_MODE_MOVIE;
 	}
 
@@ -233,14 +242,35 @@ static int ktd2692_led_flash_timeout_set(struct led_classdev_flash *fled_cdev,
 	return 0;
 }
 
-static void ktd2692_init_flash_timeout(u32 flash_max_timeout_us,
-				       struct led_flash_setting *setting)
+static void ktd2692_init_movie_current_max(struct ktd2692_led_config_data *cfg)
 {
+	u32 offset, step;
+	u32 movie_current_microamp;
+
+	offset = KTD2692_MOVIE_MODE_CURRENT_LEVELS;
+	step = KTD2692_MM_TO_FL_RATIO(cfg->flash_max_microamp)
+		/ KTD2692_MOVIE_MODE_CURRENT_LEVELS;
+
+	do {
+		movie_current_microamp = step * offset;
+		offset--;
+	} while ((movie_current_microamp > cfg->movie_max_microamp) &&
+		(offset > 0));
+
+	cfg->max_brightness = offset;
+}
+
+static void ktd2692_init_flash_timeout(struct led_classdev_flash *fled_cdev,
+				       struct ktd2692_led_config_data *cfg)
+{
+	struct led_flash_setting *setting;
+
+	setting = &fled_cdev->timeout;
 	setting->min = KTD2692_FLASH_MODE_TIMEOUT_DISABLE;
-	setting->max = flash_max_timeout_us;
-	setting->step = flash_max_timeout_us
+	setting->max = cfg->flash_max_timeout;
+	setting->step = cfg->flash_max_timeout
 			/ (KTD2692_FLASH_MODE_TIMEOUT_LEVELS - 1);
-	setting->val = flash_max_timeout_us;
+	setting->val = cfg->flash_max_timeout;
 }
 
 static void ktd2692_setup(struct ktd2692_context *led)
@@ -249,12 +279,14 @@ static void ktd2692_setup(struct ktd2692_context *led)
 	ktd2692_expresswire_reset(led);
 	gpiod_direction_output(led->aux_gpio, KTD2692_LOW);
 
+	ktd2692_expresswire_write(led, (KTD2962_MM_MIN_CURR_THRESHOLD_SCALE - 1)
+				 | KTD2692_REG_MM_MIN_CURR_THRESHOLD_BASE);
 	ktd2692_expresswire_write(led, KTD2692_FLASH_MODE_CURR_PERCENT(45)
 				 | KTD2692_REG_FLASH_CURRENT_BASE);
 }
 
 static int ktd2692_parse_dt(struct ktd2692_context *led, struct device *dev,
-			    u32 *flash_max_timeout_us)
+			    struct ktd2692_led_config_data *cfg)
 {
 	struct device_node *np = dev->of_node;
 	struct device_node *child_node;
@@ -263,14 +295,14 @@ static int ktd2692_parse_dt(struct ktd2692_context *led, struct device *dev,
 	if (!dev->of_node)
 		return -ENXIO;
 
-	led->ctrl_gpio = devm_gpiod_get(dev, "ctrl", GPIOD_OUT_HIGH);
+	led->ctrl_gpio = devm_gpiod_get(dev, "ctrl");
 	if (IS_ERR(led->ctrl_gpio)) {
 		ret = PTR_ERR(led->ctrl_gpio);
 		dev_err(dev, "cannot get ctrl-gpio %d\n", ret);
 		return ret;
 	}
 
-	led->aux_gpio = devm_gpiod_get(dev, "aux", GPIOD_OUT_HIGH);
+	led->aux_gpio = devm_gpiod_get(dev, "aux");
 	if (IS_ERR(led->aux_gpio)) {
 		ret = PTR_ERR(led->aux_gpio);
 		dev_err(dev, "cannot get aux-gpio %d\n", ret);
@@ -296,16 +328,22 @@ static int ktd2692_parse_dt(struct ktd2692_context *led, struct device *dev,
 	led->fled_cdev.led_cdev.name =
 		of_get_property(child_node, "label", NULL) ? : child_node->name;
 
+	ret = of_property_read_u32(child_node, "led-max-microamp",
+				   &cfg->movie_max_microamp);
+	if (ret) {
+		dev_err(dev, "failed to parse led-max-microamp\n");
+		return ret;
+	}
+
 	ret = of_property_read_u32(child_node, "flash-max-microamp",
-				   &led->flash_max_microamp);
+				   &cfg->flash_max_microamp);
 	if (ret) {
 		dev_err(dev, "failed to parse flash-max-microamp\n");
-		of_node_put(child_node);
 		return ret;
 	}
 
 	ret = of_property_read_u32(child_node, "flash-max-timeout-us",
-				   flash_max_timeout_us);
+				   &cfg->flash_max_timeout);
 	if (ret)
 		dev_err(dev, "failed to parse flash-max-timeout-us\n");
 
@@ -323,8 +361,7 @@ static int ktd2692_probe(struct platform_device *pdev)
 	struct ktd2692_context *led;
 	struct led_classdev *led_cdev;
 	struct led_classdev_flash *fled_cdev;
-	struct led_flash_setting flash_timeout;
-	u32 flash_max_timeout_us;
+	struct ktd2692_led_config_data led_cfg;
 	int ret;
 
 	led = devm_kzalloc(&pdev->dev, sizeof(*led), GFP_KERNEL);
@@ -334,15 +371,16 @@ static int ktd2692_probe(struct platform_device *pdev)
 	fled_cdev = &led->fled_cdev;
 	led_cdev = &fled_cdev->led_cdev;
 
-	ret = ktd2692_parse_dt(led, &pdev->dev, &flash_max_timeout_us);
+	ret = ktd2692_parse_dt(led, &pdev->dev, &led_cfg);
 	if (ret)
 		return ret;
 
-	ktd2692_init_flash_timeout(flash_max_timeout_us, &flash_timeout);
+	ktd2692_init_flash_timeout(fled_cdev, &led_cfg);
+	ktd2692_init_movie_current_max(&led_cfg);
 
-	fled_cdev->timeout = flash_timeout;
 	fled_cdev->ops = &flash_ops;
 
+	led_cdev->max_brightness = led_cfg.max_brightness;
 	led_cdev->brightness_set = ktd2692_led_brightness_set;
 	led_cdev->brightness_set_sync = ktd2692_led_brightness_set_sync;
 	led_cdev->flags |= LED_CORE_SUSPENDRESUME | LED_DEV_CAP_FLASH;
