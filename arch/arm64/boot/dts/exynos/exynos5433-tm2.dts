@@ -228,7 +228,8 @@
 
 		flash-led {
 			label = "ktd2692-flash";
-			flash-max-microamp = <1050000>;
+			led-max-microamp = <300000>;
+			flash-max-microamp = <1500000>;
 			flash-max-timeout-us = <1835000>;
 		};
 	};
