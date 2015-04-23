@@ -142,13 +142,21 @@ void fpsimd_thread_switch(struct task_struct *next)
 		 * the TIF_FOREIGN_FPSTATE flag so the state will be loaded
 		 * upon the next return to userland.
 		 */
-		struct fpsimd_state *st = &next->thread.fpsimd_state;
-
-		if (__this_cpu_read(fpsimd_last_state) == st
-		    && st->cpu == smp_processor_id())
-			clear_ti_thread_flag(task_thread_info(next),
-					     TIF_FOREIGN_FPSTATE);
-		else
+		/**
+		 * FIXME:
+		 * FPSIMD state should be restored when CPU wakes up from sleep.
+		 * currently, following conditional restoring results abnormal
+		 * behavior of userland because of loosing last context.
+		 * Until this issue is resolved, restores FPSIMD state always.
+		 *
+		 * struct fpsimd_state *st = &next->thread.fpsimd_state;
+		 *
+		 * if (__this_cpu_read(fpsimd_last_state) == st
+		 *   && st->cpu == smp_processor_id())
+		 *	clear_ti_thread_flag(task_thread_info(next),
+		 *			     TIF_FOREIGN_FPSTATE);
+		 *  else
+		 */
 			set_ti_thread_flag(task_thread_info(next),
 					   TIF_FOREIGN_FPSTATE);
 	}
