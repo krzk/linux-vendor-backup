@@ -349,7 +349,7 @@ const struct dev_pm_ops rfkill_bcm_pm = {
 };
 
 static const struct of_device_id rfkill_of_match[] = {
-	{ .compatible = "rfkill-gpio", },
+	{ .compatible = "brcm,bcm4358", },
 	{},
 };
 
