@@ -233,9 +233,9 @@
 		};
 	};
 
-	rfkill-gpio {
-		compatible = "rfkill-gpio";
-		rfkill-name = "rfkill-gpio";
+	rfkill-bcm {
+		compatible = "brcm,bcm4358";
+		rfkill-name = "bcm4358-bt";
 		rfkill-type = <2>;
 		shutdown-gpios = <&gpd4 0 0>;
 		wake-gpios = <&gpr3 7 0>;
