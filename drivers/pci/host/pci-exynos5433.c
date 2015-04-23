@@ -611,6 +611,73 @@ static int exynos_pcie_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int exynos_pcie_suspend_noirq(struct device *dev)
+{
+	struct exynos_pcie *ep = dev_get_drvdata(dev);
+
+	if (ep->wlanen_gpio && !gpio_get_value(ep->wlanen_gpio))
+		return 0;
+
+	return 0;
+}
+
+static int exynos_pcie_resume_noirq(struct device *dev)
+{
+	struct exynos_pcie *ep = dev_get_drvdata(dev);
+	struct pcie_port *pp = &ep->pp;
+	u32 val;
+
+	if (ep->wlanen_gpio && !gpio_get_value(ep->wlanen_gpio)) {
+		clk_prepare_enable(ep->clk);
+		clk_prepare_enable(ep->bus_clk);
+
+		exynos_pcie_enable_irq_pulse(&ep->pp);
+
+		/* PMU control at here */
+		if (ep->pmureg) {
+			if (regmap_update_bits(ep->pmureg, PCIE_PMU_PHY_OFFSET, BIT(0), 1))
+				dev_warn(pp->dev, "Failed to update regmap bit.\n");
+		}
+
+		val = exynos_pcie_readl(ep->block_base, PCIE_PHY_GLOBAL_RESET);
+		val &= ~PCIE_APP_REQ_EXIT_L1_MODE;
+		exynos_pcie_writel(ep->block_base, val, PCIE_PHY_GLOBAL_RESET);
+
+		val = exynos_pcie_readl(ep->block_base, PCIE_L1SUB_CM_CON);
+		val &= ~PCIE_REFCLK_GATING_EN;
+		exynos_pcie_writel(ep->block_base, val, PCIE_L1SUB_CM_CON);
+
+		exynos_pcie_assert_phy_reset(pp);
+
+		val = exynos_pcie_readl(ep->phy_base, PCIE_PHY_OFFSET(0x55));
+		val |= PCIE_PHY_ALL_TRSV_PWR_DOWN;
+		exynos_pcie_writel(ep->phy_base, val, PCIE_PHY_OFFSET(0x55));
+
+		val = exynos_pcie_readl(ep->phy_base, PCIE_PHY_OFFSET(0x21));
+		val |= PCIE_PHY_ALL_CMN_PWR_DOWN;
+		exynos_pcie_writel(ep->phy_base, val, PCIE_PHY_OFFSET(0x21));
+
+		clk_disable_unprepare(ep->bus_clk);
+		clk_disable_unprepare(ep->clk);
+
+		return 0;
+	}
+
+	exynos_pcie_host_init(pp);
+
+	return 0;
+}
+#else
+#define exynos_pcie_suspend_noirq	NULL
+#define exynos_pcie_resume_noirq	NULL
+#endif /* CONFIG_PM */
+
+static const struct dev_pm_ops exynos_pcie_pm_ops = {
+	.suspend_noirq  = exynos_pcie_suspend_noirq,
+	.resume_noirq = exynos_pcie_resume_noirq,
+};
+
 static const struct of_device_id exynos_pcie_of_match[] = {
 	{ .compatible = "samsung,exynos5433-pcie", },
 	{},
@@ -622,6 +689,7 @@ static struct platform_driver exynos_pcie_driver = {
 	.driver		= {
 		.name		= "exynos-pcie",
 		.of_match_table = exynos_pcie_of_match,
+		.pm		= &exynos_pcie_pm_ops,
 	},
 };
 
