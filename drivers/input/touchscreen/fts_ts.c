@@ -236,57 +236,69 @@ static unsigned char fts_event_handler_type_b(struct fts_ts_info *info,
 		unsigned char data[], unsigned char left_event)
 {
 	struct i2c_client *client = info->client;
-	unsigned char id = 0, event_id = 0;
+	unsigned char touch_id = 0, event_id = 0;
 	unsigned char last_left_event = 0;
+	unsigned char event_num = 0;
 	int x = 0, y = 0;
-	int bw = 0, bh = 0, palm = 0, sumsize = 0;
+	int bw = 0, bh = 0, palm = 0, msize = 0;
 
-	event_id = data[0] & 0x0F;
+	for (event_num = 0; event_num < left_event; event_num++) {
+		event_id = data[event_num * FTS_EVENT_SIZE] & 0x0F;
+		touch_id = (data[event_num * FTS_EVENT_SIZE] >> 4) & 0x0F;
+		last_left_event = 0;
 
-	switch (event_id) {
-	case EVENTID_MOTION_POINTER:
-		x = data[1] + ((data[2] & 0x0f) << 8);
-		y = ((data[2] & 0xf0) >> 4) + (data[3] << 4);
-		bw = data[4];
-		bh = data[5];
-		palm = (data[6] >> 7) & 0x01;
-		sumsize = (data[6] & 0x7f) << 1;
+		switch (event_id) {
+		case EVENTID_ENTER_POINTER:
+		case EVENTID_MOTION_POINTER:
+			msize = event_num * FTS_EVENT_SIZE;
+			x = data[1 + msize] + ((data[2 + msize] & 0x0f) << 8);
+			y = ((data[2 + msize] & 0xf0) >> 4) +
+				(data[3 + msize] << 4);
+			bw = data[4 + msize];
+			bh = data[5 + msize];
+			palm = (data[6 + msize] >> 7) & 0x01;
 
-		input_mt_slot(info->input_dev, id);
-		input_mt_report_slot_state(info->input_dev,
-				MT_TOOL_FINGER, 1 + (palm << 1));
-		input_report_key(info->input_dev, BTN_TOUCH, 1);
-		input_report_abs(info->input_dev, ABS_MT_POSITION_X, x);
-		input_report_abs(info->input_dev, ABS_MT_POSITION_Y, y);
+			input_mt_slot(info->input_dev, touch_id);
+			input_mt_report_slot_state(info->input_dev,
+					MT_TOOL_FINGER, 1 + (palm << 1));
+			input_report_key(info->input_dev, BTN_TOUCH, 1);
+			input_report_key(info->input_dev, BTN_TOOL_FINGER, 1);
+			input_report_abs(info->input_dev, ABS_MT_POSITION_X, x);
+			input_report_abs(info->input_dev, ABS_MT_POSITION_Y, y);
+			input_report_abs(info->input_dev, ABS_MT_TOUCH_MAJOR,
+					max(bw, bh));
+			input_report_abs(info->input_dev, ABS_MT_TOUCH_MINOR,
+					min(bw, bh));
 
-		input_report_abs(info->input_dev, ABS_MT_TOUCH_MAJOR,
-								max(bw, bh));
-		input_report_abs(info->input_dev, ABS_MT_TOUCH_MINOR,
-								min(bw, bh));
+			info->finger[touch_id].lx = x;
+			info->finger[touch_id].ly = y;
 
-		dev_dbg(&client->dev, "Pressed x: %d, y: %d\n", x, y);
-		break;
-	case EVENTID_LEAVE_POINTER:
-		input_mt_slot(info->input_dev, id);
-		input_mt_report_slot_state(info->input_dev, MT_TOOL_FINGER, 0);
-		input_report_key(info->input_dev, BTN_TOUCH, 0);
+			break;
 
-		dev_dbg(&client->dev, "Released\n");
-		break;
-	default:
-		break;
+		case EVENTID_LEAVE_POINTER:
+			input_mt_slot(info->input_dev, touch_id);
+			input_mt_report_slot_state(info->input_dev,
+					MT_TOOL_FINGER, 0);
+			input_report_key(info->input_dev, BTN_TOUCH, 0);
+			input_report_key(info->input_dev, BTN_TOOL_FINGER, 0);
+
+			break;
+		default:
+			break;
+		}
+
+		if (event_id == EVENTID_ENTER_POINTER)
+			dev_dbg(&client->dev, "[P] id: %d\n", touch_id);
+		else if (event_id == EVENTID_LEAVE_POINTER) {
+			dev_dbg(&client->dev, "[R] id: %d mc: %d\n",
+				touch_id, info->finger[touch_id].mcount);
+			info->finger[touch_id].mcount = 0;
+		} else if (event_id == EVENTID_MOTION_POINTER)
+			info->finger[touch_id].mcount++;
+
+		info->finger[touch_id].state = event_id;
 	}
 
-	if (event_id == EVENTID_ENTER_POINTER)
-		dev_dbg(&client->dev, "[P] id: %d\n", id);
-	else if (event_id == EVENTID_LEAVE_POINTER) {
-		dev_dbg(&client->dev, "[R] id: %d mc: %d\n",
-				id, info->finger[id].mcount);
-		info->finger[id].mcount = 0;
-	} else if (event_id == EVENTID_MOTION_POINTER)
-		info->finger[id].mcount++;
-
-	info->finger[id].state = event_id;
 	input_sync(info->input_dev);
 
 	return last_left_event;
