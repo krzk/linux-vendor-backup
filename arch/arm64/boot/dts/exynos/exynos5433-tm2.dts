@@ -594,8 +594,9 @@
 
 			ldo33_reg: LDO33 {
 				regulator-name = "VTOUCH_LED_3.3V";
-				regulator-min-microvolt = <3300000>;
+				regulator-min-microvolt = <2500000>;
 				regulator-max-microvolt = <3300000>;
+				regulator-ramp-delay = <12500>;
 			};
 
 			ldo34_reg: LDO34 {
