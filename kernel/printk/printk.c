@@ -786,7 +786,34 @@ void log_buf_release(struct kref *ref)
 	kfree(log_b);
 }
 
-static int kmsg_sys_write(int minor, int level, const char *fmt, ...)
+#define MAX_PID_LEN	20
+#define MAX_TID_LEN	20
+/*
+ * Fromat below describes dict appended to message written from userspace:
+ * "_PID=<pid>\0_TID=<tid>\0_COMM=<comm>"
+ * KMSG_DICT_MAX_LEN definition represents maximal length of this dict.
+ */
+#define KMSG_DICT_MAX_LEN	(5 + MAX_PID_LEN + 1 + \
+				 5 + MAX_TID_LEN + 1 + \
+				 6 + TASK_COMM_LEN)
+
+static size_t set_kmsg_dict(char *buf)
+{
+	size_t len;
+
+	len = sprintf(buf, "_PID=%d", task_tgid_nr(current)) + 1;
+	len += sprintf(buf + len, "_TID=%d", task_pid_nr(current)) + 1;
+	memcpy(buf + len, "_COMM=", 6);
+	len += 6;
+	get_task_comm(buf + len, current);
+	while (buf[len] != '\0')
+		len++;
+	return len;
+}
+
+static int kmsg_sys_write(int minor, int level,
+			  const char *dict, size_t dictlen,
+			  const char *fmt, ...)
 {
 	va_list args;
 	int ret = -ENXIO;
@@ -801,7 +828,7 @@ static int kmsg_sys_write(int minor, int level, const char *fmt, ...)
 
 		va_start(args, fmt);
 		log_format_and_store(log_b, 1 /* LOG_USER */, level,
-				     NULL, 0, fmt, args);
+				     dict, dictlen, fmt, args);
 		va_end(args);
 		wake_up_interruptible(&log_b->wait);
 
@@ -821,6 +848,8 @@ static ssize_t devkmsg_write(struct kiocb *iocb, struct iov_iter *from)
 	int level = default_message_loglevel;
 	int facility = 1;	/* LOG_USER */
 	size_t len = iov_iter_count(from);
+	char dict[KMSG_DICT_MAX_LEN];
+	size_t dictlen;
 	ssize_t ret = len;
 	int minor = iminor(iocb->ki_filp->f_inode);
 
@@ -860,10 +889,13 @@ static ssize_t devkmsg_write(struct kiocb *iocb, struct iov_iter *from)
 		}
 	}
 
+	dictlen = set_kmsg_dict(dict);
+
 	if (minor == log_buf.minor) {
-		printk_emit(facility, level, NULL, 0, "%s", line);
+		printk_emit(facility, level, dict, dictlen, "%s", line);
 	} else {
-		int error = kmsg_sys_write(minor, level, "%s", line);
+		int error = kmsg_sys_write(minor, level, dict, dictlen,
+					   "%s", line);
 
 		if (error)
 			ret = error;
