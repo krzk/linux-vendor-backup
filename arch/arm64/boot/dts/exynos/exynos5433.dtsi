@@ -326,6 +326,7 @@
 			       <&cmu_mif CLK_SCLK_DECON_ECLK_DISP>,
 			       <&cmu_mif CLK_SCLK_DECON_TV_VCLK_DISP>,
 			       <&cmu_mif CLK_ACLK_DISP_333>;
+			power-domains = <&pd_disp>;
 		};
 
 		cmu_aud: clock-controller@114c0000 {
