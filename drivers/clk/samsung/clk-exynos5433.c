@@ -13,11 +13,121 @@
 #include <linux/clkdev.h>
 #include <linux/clk-provider.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/soc/samsung/pm_domain.h>
 
 #include <dt-bindings/clock/exynos5433.h>
 
 #include "clk.h"
 #include "clk-pll.h"
+
+static __initdata LIST_HEAD(exynos5433_cmu_pd_list);
+
+struct exynos5433_cmu_pd_handler {
+	struct list_head entry;
+	struct notifier_block nb;
+	struct of_phandle_args pd_args;
+	struct samsung_clock_reg_cache *regcache;
+	struct clk **reqd_clks;
+	unsigned int nr_reqd_clks;
+} typedef CMU_PD_H;
+
+static int exynos5433_cmu_pd_notifier(struct notifier_block *nb, unsigned long val,
+					void *data)
+{
+	CMU_PD_H *handler = container_of(nb, CMU_PD_H, nb);
+	struct samsung_clock_reg_cache *regcache = handler->regcache;
+	int i;
+
+	switch (val) {
+	case EXYNOS_PD_PRE_ON:
+		if (handler->nr_reqd_clks)
+			for (i = 0; i < handler->nr_reqd_clks; i++)
+				clk_prepare_enable(handler->reqd_clks[i]);
+		break;
+	case EXYNOS_PD_POST_ON:
+		if (regcache)
+			samsung_clk_restore(regcache->reg_base, regcache->rdump,
+					regcache->rd_num);
+		if (handler->nr_reqd_clks)
+			for (i = 0; i < handler->nr_reqd_clks; i++)
+				clk_disable_unprepare(handler->reqd_clks[i]);
+		break;
+	case EXYNOS_PD_PRE_OFF:
+		if (handler->nr_reqd_clks)
+			for (i = 0; i < handler->nr_reqd_clks; i++)
+				clk_prepare_enable(handler->reqd_clks[i]);
+		if (regcache)
+			samsung_clk_save(regcache->reg_base, regcache->rdump,
+				regcache->rd_num);
+		break;
+	case EXYNOS_PD_POST_OFF:
+		if (handler->nr_reqd_clks)
+			for (i = 0; i < handler->nr_reqd_clks; i++)
+				clk_disable_unprepare(handler->reqd_clks[i]);
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static void __init exynos5433_cmu_pd_handler_init(struct device_node *np,
+					unsigned long *regs, int nr_regs)
+{
+	CMU_PD_H *handler;
+	int ret, nr_clks;
+
+	handler = kzalloc(sizeof(*handler), GFP_KERNEL);
+	if (!handler)
+		return;
+
+	ret = of_parse_phandle_with_args(np, "power-domains",
+					"#power-domain-cells", 0,
+					&handler->pd_args);
+	if (ret < 0)
+		goto err;
+
+	handler->nb.notifier_call = exynos5433_cmu_pd_notifier;
+
+	if (nr_regs) {
+		struct samsung_clock_reg_cache *regcache;
+
+		regcache = kzalloc(sizeof(*regcache), GFP_KERNEL);
+		if (!regcache)
+			goto err;
+
+		regcache->reg_base = of_iomap(np, 0);
+		regcache->rdump = samsung_clk_alloc_reg_dump(regs, nr_regs);
+		regcache->rd_num = nr_regs;
+		handler->regcache = regcache;
+	}
+
+	nr_clks = of_count_phandle_with_args(np, "clocks","#clock-cells");
+	if (nr_clks > 0) {
+		struct clk *clk;
+		int i;
+
+		handler->reqd_clks = kcalloc(sizeof(struct clk *),
+						nr_clks, GFP_KERNEL);
+
+		for (i = 0; i < nr_clks; i++) {
+			clk = of_clk_get(np, i);
+			if (IS_ERR(clk))
+				goto err;
+
+			handler->reqd_clks[i] = clk;
+		}
+
+		handler->nr_reqd_clks = nr_clks;
+	}
+
+	list_add(&handler->entry, &exynos5433_cmu_pd_list);
+
+	return;
+err:
+	kfree(handler);
+	return;
+}
 
 /*
  * Register offset definitions for CMU_TOP
@@ -5495,7 +5605,11 @@ static int __init exynos5433_suspend_init(void)
 	int i, ret;
 	struct device_node *np;
 	struct of_phandle_args clkspec;
+	CMU_PD_H *handler;
 
+	list_for_each_entry(handler, &exynos5433_cmu_pd_list, entry)
+		exynos_pd_notifier_register(
+		of_genpd_get_from_provider(&handler->pd_args), &handler->nb);
 
 	np = of_find_compatible_node(NULL, NULL, "exynos5433-cmu-suspend");
 	if (!np)
