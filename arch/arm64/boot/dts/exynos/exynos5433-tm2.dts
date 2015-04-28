@@ -898,7 +898,7 @@
 	status = "okay";
 
 	thermistor-ap {
-		compatible = "ntc,ncp15wb473";
+		compatible = "ntc,ncp03wf104";
 		pullup-uv = <1800000>;
 		pullup-ohm = <100000>;
 		pulldown-ohm = <0>;
@@ -906,7 +906,7 @@
 	};
 
 	thermistor-battery {
-		compatible = "ntc,ncp15wb473";
+		compatible = "ntc,ncp03wf104";
 		pullup-uv = <1800000>;
 		pullup-ohm = <100000>;
 		pulldown-ohm = <0>;
@@ -914,7 +914,7 @@
 	};
 
 	thermistor-charger {
-		compatible = "ntc,ncp15wb473";
+		compatible = "ntc,ncp03wf104";
 		pullup-uv = <1800000>;
 		pullup-ohm = <100000>;
 		pulldown-ohm = <0>;
