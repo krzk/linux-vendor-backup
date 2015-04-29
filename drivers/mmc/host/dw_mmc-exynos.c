@@ -139,7 +139,8 @@ static void dw_mci_exynos_set_clksel_timing(struct dw_mci *host, u32 timing)
 	else
 		clksel = mci_readl(host, CLKSEL);
 
-	clksel = (clksel & ~SDMMC_CLKSEL_TIMING_MASK) | timing;
+	clksel = (clksel & ~(SDMMC_CLKSEL_TIMING_MASK |
+				SDMMC_CLKSEL_TUNING_MASK)) | timing;
 
 	if (priv->ctrl_type == DW_MCI_TYPE_EXYNOS7 ||
 		priv->ctrl_type == DW_MCI_TYPE_EXYNOS7_SMU)
@@ -420,6 +421,7 @@ static inline void dw_mci_exynos_set_clksmpl(struct dw_mci *host, u8 sample)
 		clksel = mci_readl(host, CLKSEL64);
 	else
 		clksel = mci_readl(host, CLKSEL);
+	clksel &= ~SDMMC_CLKSEL_TUNING_MASK;
 	clksel = SDMMC_CLKSEL_UP_SAMPLE(clksel, sample);
 	if (priv->ctrl_type == DW_MCI_TYPE_EXYNOS7 ||
 		priv->ctrl_type == DW_MCI_TYPE_EXYNOS7_SMU)
@@ -442,7 +444,8 @@ static inline u8 dw_mci_exynos_move_next_clksmpl(struct dw_mci *host)
 
 	sample = (clksel + 1) & 0x7;
 	clksel = SDMMC_CLKSEL_UP_SAMPLE(clksel, sample) |
-		SDMMC_CLKSEL_SAMPLE_CLK_TUNING(0x3);
+		SDMMC_CLKSEL_SAMPLE_CLK_TUNING(0x3) |
+		SDMMC_CLKSEL_CORE_CLK_TUNING(0x1);
 
 	if (priv->ctrl_type == DW_MCI_TYPE_EXYNOS7 ||
 		priv->ctrl_type == DW_MCI_TYPE_EXYNOS7_SMU)
