@@ -44,7 +44,7 @@
 
 			clocks = <&cmu_apollo CLK_SCLK_APOLLO>;
 			clock-names = "cpu-cluster.1";
-			clock-latency = <1000000>;
+			clock-latency = <100000>;
 			#cooling-cells = <2>;
 
 			operating-points = <
@@ -91,7 +91,7 @@
 
 			clocks = <&cmu_atlas CLK_SCLK_ATLAS>;
 			clock-names = "cpu-cluster.0";
-			clock-latency = <1000000>;
+			clock-latency = <100000>;
 			#cooling-cells = <2>;
 
 			operating-points = <
