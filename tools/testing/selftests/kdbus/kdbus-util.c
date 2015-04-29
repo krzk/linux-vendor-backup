@@ -141,7 +141,7 @@ int kdbus_create_bus(int control_fd, const char *name,
 			char str[64];
 		} name;
 	} bus_make;
-	int ret;
+	int ret = 0;
 
 	memset(&bus_make, 0, sizeof(bus_make));
 	bus_make.bp.size = sizeof(bus_make.bp);
@@ -171,13 +171,17 @@ int kdbus_create_bus(int control_fd, const char *name,
 			     bus_make.attach[1].size +
 			     bus_make.name.size;
 
-	kdbus_printf("Creating bus with name >%s< on control fd %d ...\n",
-		     name, control_fd);
+	if (control_fd != -1) {
+		kdbus_printf(
+			"Creating bus with name >%s< on control fd %d ...\n",
+			name, control_fd);
 
-	ret = kdbus_cmd_bus_make(control_fd, &bus_make.cmd);
-	if (ret < 0) {
-		kdbus_printf("--- error when making bus: %d (%m)\n", ret);
-		return ret;
+		ret = kdbus_cmd_bus_make(control_fd, &bus_make.cmd);
+		if (ret < 0) {
+			kdbus_printf("--- error when making bus: %d (%m)\n",
+				     ret);
+			return ret;
+		}
 	}
 
 	if (ret == 0 && path)

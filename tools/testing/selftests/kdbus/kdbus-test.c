@@ -317,6 +317,27 @@ static int test_prepare_env(const struct kdbus_test *t,
 	}
 
 	if (t->flags & TEST_CREATE_CONN) {
+		if (!env->buspath) {
+			char *s = NULL;
+			char *n = NULL;
+			int ret;
+
+			if (!args->busname) {
+				n = unique_name("test-bus");
+				ASSERT_RETURN(n);
+			}
+
+			ret = kdbus_create_bus(-1,
+					       args->busname ?: n,
+					       0,
+					       0, &s);
+			free(n);
+			ASSERT_RETURN(ret == 0);
+
+			asprintf(&env->buspath, "%s/%s/bus", args->root, s);
+			free(s);
+		}
+		ASSERT_RETURN(env->buspath);
 		env->conn = kdbus_hello(env->buspath, 0, NULL, 0);
 		ASSERT_RETURN(env->conn);
 	}
