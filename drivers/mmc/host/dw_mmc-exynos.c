@@ -442,7 +442,7 @@ static inline u8 dw_mci_exynos_move_next_clksmpl(struct dw_mci *host)
 
 	sample = (clksel + 1) & 0x7;
 	clksel = SDMMC_CLKSEL_UP_SAMPLE(clksel, sample) |
-		SDMMC_CLKSEL_SAMPLE_CLK_TUNING;
+		SDMMC_CLKSEL_SAMPLE_CLK_TUNING(0x3);
 
 	if (priv->ctrl_type == DW_MCI_TYPE_EXYNOS7 ||
 		priv->ctrl_type == DW_MCI_TYPE_EXYNOS7_SMU)
