@@ -852,6 +852,7 @@ int main(int argc, char *argv[])
 		ARG_UIDMAP,
 		ARG_GIDMAP,
 	};
+	char *exec = basename(argv[0]);
 
 	kdbus_args = malloc(sizeof(*kdbus_args));
 	if (!kdbus_args) {
@@ -880,6 +881,10 @@ int main(int argc, char *argv[])
 	};
 
 	srand(time(NULL));
+
+	if (strcmp(exec, "kdbus-test") != 0) {
+		kdbus_args->test = exec;
+	}
 
 	while ((t = getopt_long(argc, argv, "hxfm:r:t:b:w:a", options, NULL)) >= 0) {
 		switch (t) {
