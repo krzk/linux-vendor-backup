@@ -241,6 +241,14 @@
 		wake-gpios = <&gpr3 7 0>;
 		host-wake-gpios = <&gpa2 2 0>;
 	};
+
+	thermal-zones {
+		battery {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&thermistor_battery>;
+		};
+	};
 };
 
 &cpu0 {
@@ -905,12 +913,13 @@
 		io-channels = <&adc 0>;
 	};
 
-	thermistor-battery {
+	thermistor_battery: thermistor-battery {
 		compatible = "ntc,ncp03wf104";
 		pullup-uv = <1800000>;
 		pullup-ohm = <100000>;
 		pulldown-ohm = <0>;
 		io-channels = <&adc 1>;
+		#thermal-sensor-cells = <0>;
 	};
 
 	thermistor-charger {
