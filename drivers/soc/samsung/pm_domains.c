@@ -16,12 +16,12 @@
 #include <linux/io.h>
 #include <linux/err.h>
 #include <linux/slab.h>
-#include <linux/pm_domain.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/sched.h>
+#include <linux/soc/samsung/pm_domain.h>
 
 #define INT_LOCAL_PWR_EN	0xF
 
@@ -34,12 +34,53 @@ struct exynos_pm_domain {
 	char const *name;
 	bool is_off;
 	int nr_reparent_clks;
+	struct atomic_notifier_head nh;
 	struct clk *oscclk;
 	struct clk **clk;
 	struct clk **pclk;
 	int nr_asb_clks;
 	struct clk **asb_clk;
 };
+
+int exynos_pd_notifier_register(struct generic_pm_domain *domain,
+					struct notifier_block *nb)
+{
+	struct exynos_pm_domain *pd;
+
+	if (!domain || !nb)
+		return -EINVAL;
+
+	pd = container_of(domain, struct exynos_pm_domain, pd);
+	return atomic_notifier_chain_register(&pd->nh, nb);
+}
+
+void exynos_pd_notifier_unregister(struct generic_pm_domain *domain,
+					struct notifier_block *nb)
+{
+	struct exynos_pm_domain *pd;
+
+	if (!domain || !nb)
+		return;
+
+	pd = container_of(domain, struct exynos_pm_domain, pd);
+	atomic_notifier_chain_unregister(&pd->nh, nb);
+}
+
+static void exynos_pd_notify_pre(struct exynos_pm_domain *pd, bool power_on)
+{
+	if (power_on)
+		atomic_notifier_call_chain(&pd->nh, EXYNOS_PD_PRE_ON, NULL);
+	else
+		atomic_notifier_call_chain(&pd->nh, EXYNOS_PD_PRE_OFF, NULL);
+}
+
+static void exynos_pd_notify_post(struct exynos_pm_domain *pd, bool power_on)
+{
+	if (power_on)
+		atomic_notifier_call_chain(&pd->nh, EXYNOS_PD_POST_ON, NULL);
+	else
+		atomic_notifier_call_chain(&pd->nh, EXYNOS_PD_POST_OFF, NULL);
+}
 
 static int exynos_pd_power(struct generic_pm_domain *domain, bool power_on)
 {
@@ -51,6 +92,8 @@ static int exynos_pd_power(struct generic_pm_domain *domain, bool power_on)
 
 	pd = container_of(domain, struct exynos_pm_domain, pd);
 	base = pd->base;
+
+	exynos_pd_notify_pre(pd, power_on);
 
 	for (i = 0; i < pd->nr_asb_clks; i++) {
 		if (IS_ERR(pd->asb_clk[i]))
@@ -103,6 +146,8 @@ static int exynos_pd_power(struct generic_pm_domain *domain, bool power_on)
 		clk_disable_unprepare(pd->asb_clk[i]);
 	}
 
+	exynos_pd_notify_post(pd, power_on);
+
 	return 0;
 }
 
@@ -138,9 +183,12 @@ static __init int exynos4_pm_init_power_domain(void)
 		pd->pd.power_off = exynos_pd_power_off;
 		pd->pd.power_on = exynos_pd_power_on;
 
+		ATOMIC_INIT_NOTIFIER_HEAD(&pd->nh);
+
 		nr_clks = of_count_phandle_with_args(np, "clocks","#clock-cells");
 		if (nr_clks > 0 && !(nr_clks % 2)) {
 			nr_clks /= 2;
+
 
 			pd->oscclk = clk_get(NULL, "xxti");
 			if (IS_ERR(pd->oscclk))
