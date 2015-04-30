@@ -433,8 +433,9 @@ static inline void dw_mci_exynos_set_clksmpl(struct dw_mci *host, u8 sample)
 static inline u8 dw_mci_exynos_move_next_clksmpl(struct dw_mci *host)
 {
 	struct dw_mci_exynos_priv_data *priv = host->priv;
+	const u8 clk_tuning[] = {3, 0};
 	u32 clksel;
-	u8 sample;
+	u8 sample, idx;
 
 	if (priv->ctrl_type == DW_MCI_TYPE_EXYNOS7 ||
 		priv->ctrl_type == DW_MCI_TYPE_EXYNOS7_SMU)
@@ -443,14 +444,21 @@ static inline u8 dw_mci_exynos_move_next_clksmpl(struct dw_mci *host)
 		clksel = mci_readl(host, CLKSEL);
 
 	sample = (clksel + 1) & 0x7;
-	clksel = SDMMC_CLKSEL_UP_SAMPLE(clksel, sample) |
-		SDMMC_CLKSEL_SAMPLE_CLK_TUNING(0x3) |
-		SDMMC_CLKSEL_CORE_CLK_TUNING(0x1);
+	clksel = SDMMC_CLKSEL_UP_SAMPLE(clksel, sample);
 
 	if (priv->ctrl_type == DW_MCI_TYPE_EXYNOS7 ||
-		priv->ctrl_type == DW_MCI_TYPE_EXYNOS7_SMU)
+		priv->ctrl_type == DW_MCI_TYPE_EXYNOS7_SMU) {
+		/*
+		 * Workaround for Exynos5433 TM2 board.
+		 * If other Exynos variants are not working,
+		 * needs to set other value.
+		 */
+		idx = sample / 7;
+		clksel |= SDMMC_CLKSEL_SAMPLE_CLK_TUNING(clk_tuning[idx]) |
+		SDMMC_CLKSEL_CORE_CLK_TUNING(0x1);
+
 		mci_writel(host, CLKSEL64, clksel);
-	else
+	} else
 		mci_writel(host, CLKSEL, clksel);
 
 	return sample;
