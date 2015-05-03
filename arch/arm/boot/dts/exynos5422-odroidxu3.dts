@@ -11,6 +11,7 @@
 */
 
 /dts-v1/;
+#include <dt-bindings/clock/samsung,s2mps11.h>
 #include <dt-bindings/sound/samsung-i2s.h>
 #include "exynos5800.dtsi"
 
@@ -327,10 +328,6 @@
 		};
 	};
 
-	rtc@101E0000 {
-		status = "okay";
-	};
-
 	pwm-fan {
 		compatible = "pwm-fan";
 		status = "okay";
@@ -569,4 +566,10 @@
 		samsung,pins = "gpx3-5";
 		samsung,pin-pud = <0>;
 	};
+};
+
+&rtc {
+	status = "okay";
+	clocks = <&clock CLK_RTC>, <&s2mps11_osc S2MPS11_CLK_AP>;
+	clock-names = "rtc", "rtc_src";
 };
