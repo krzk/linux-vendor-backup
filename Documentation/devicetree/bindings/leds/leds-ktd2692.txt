@@ -24,6 +24,8 @@ node - see Documentation/devicetree/bindings/leds/common.txt.
 
 Required properties for flash LED child nodes:
   See Documentation/devicetree/bindings/leds/common.txt
+- led-max-microamp : Minimum Threshold for Timer protection
+  is defined internally (Maximum 300mA)
 - flash-max-microamp : Flash LED maximum current
   Formula : I(mA) = 15000 / Rset
 - flash-max-timeout-us : Flash LED maximum timeout
@@ -41,6 +43,7 @@ ktd2692 {
 
 	flash-led {
 		label = "ktd2692-flash";
+		led-max-microamp = <300000>;
 		flash-max-microamp = <1500000>;
 		flash-max-timeout-us = <1835000>;
 	};
