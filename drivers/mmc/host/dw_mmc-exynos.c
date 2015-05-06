@@ -456,6 +456,10 @@ static int dw_mci_exynos_execute_tuning(struct dw_mci_slot *slot, u32 opcode)
 		mci_writel(host, TMOUT, ~0);
 		smpl = dw_mci_exynos_move_next_clksmpl(host);
 
+		/* Workaround */
+		if (smpl == 4)
+			continue;
+
 		if (!mmc_send_tuning(mmc, opcode, NULL))
 			candiates |= (1 << smpl);
 
