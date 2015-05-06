@@ -502,6 +502,10 @@ retry:
 		mci_writel(host, TMOUT, ~0);
 		smpl = dw_mci_exynos_move_next_clksmpl(host);
 
+		/* Workaround */
+		if (smpl == 4)
+			continue;
+
 		if (!mmc_send_tuning(mmc))
 			candiates |= (1 << smpl);
 
