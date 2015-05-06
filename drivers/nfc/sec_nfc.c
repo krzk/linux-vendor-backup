@@ -594,6 +594,9 @@ static const struct file_operations sec_nfc_fops = {
 	.open		= sec_nfc_open,
 	.release	= sec_nfc_close,
 	.unlocked_ioctl	= sec_nfc_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl	= sec_nfc_ioctl,
+#endif
 };
 
 #ifdef CONFIG_PM
