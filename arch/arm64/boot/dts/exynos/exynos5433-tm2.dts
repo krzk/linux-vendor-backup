@@ -101,6 +101,9 @@
 
 		cm-fuel-gauge = "max77843-fuelgauge";
 
+		cm-thermal-zone = "battery";
+		cm-battery-hot = <400>;
+
 		cm-charging-max = <21600000>;	/* 60 hours */
 		cm-discharging-max = <300000>;	/* 5 minutes */
 
