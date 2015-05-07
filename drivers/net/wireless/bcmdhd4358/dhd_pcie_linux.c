@@ -255,7 +255,14 @@ static int dhdpcie_suspend_dev(struct pci_dev *dev)
 static int dhdpcie_resume_dev(struct pci_dev *dev)
 {
 	int err = 0;
+
 	DHD_TRACE_HW4(("%s: Enter\n", __FUNCTION__));
+
+	err = pci_set_power_state(dev, PCI_D0);
+	if (err) {
+		printf("%s:pci_set_power_state error %d \n", __FUNCTION__, err);
+		return err;
+	}
 	pci_restore_state(dev);
 	err = pci_enable_device(dev);
 	if (err) {
@@ -263,11 +270,7 @@ static int dhdpcie_resume_dev(struct pci_dev *dev)
 		return err;
 	}
 	pci_set_master(dev);
-	err = pci_set_power_state(dev, PCI_D0);
-	if (err) {
-		printf("%s:pci_set_power_state error %d \n", __FUNCTION__, err);
-		return err;
-	}
+
 #ifndef BCMPCIE_OOB_HOST_WAKE
 	dhdpcie_pme_active(dev, FALSE);
 #endif /* BCMPCIE_OOB_HOST_WAKE */
