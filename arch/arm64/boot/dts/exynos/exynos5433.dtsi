@@ -545,10 +545,94 @@
 			};
 		};
 
+		pd_gscl: gscl-power-domain@105c4000 {
+			compatible = "samsung,exynos4210-pd";
+			reg = <0x105c4000 0x20>;
+			#power-domain-cells = <0>;
+			status = "disabled";
+		};
+
+		pd_cam0: cam0-power-domain@105c4020 {
+			compatible = "samsung,exynos4210-pd";
+			reg = <0x105c4020 0x20>;
+			#power-domain-cells = <0>;
+			status = "disabled";
+		};
+
+		pd_mscl: mscl-power-domain@105c4040 {
+			compatible = "samsung,exynos4210-pd";
+			reg = <0x105c4040 0x20>;
+			#power-domain-cells = <0>;
+			status = "disabled";
+		};
+
+		pd_g3d: g3d-power-domain@105c4060 {
+			compatible = "samsung,exynos4210-pd";
+			reg = <0x105c4060 0x20>;
+			#power-domain-cells = <0>;
+			status = "disabled";
+		};
+
 		pd_disp: disp-power-domain@105c4080 {
 			compatible = "samsung,exynos4210-pd";
 			reg = <0x105c4080 0x20>;
 			#power-domain-cells = <0>;
+		};
+
+		pd_cam1: cam1-power-domain@105c40a0 {
+			compatible = "samsung,exynos4210-pd";
+			reg = <0x105c40a0 0x20>;
+			#power-domain-cells = <0>;
+			status = "disabled";
+		};
+
+		pd_aud: aud-power-domain@105c40c0 {
+			compatible = "samsung,exynos4210-pd";
+			reg = <0x105c40c0 0x20>;
+			#power-domain-cells = <0>;
+			status = "disabled";
+		};
+
+		pd_fsys: fsys-power-domain@105c40e0 {
+			compatible = "samsung,exynos4210-pd";
+			reg = <0x105c40e0 0x20>;
+			#power-domain-cells = <0>;
+			status = "disabled";
+		};
+
+		pd_bus2: bus2-power-domain@105c4100 {
+			compatible = "samsung,exynos4210-pd";
+			reg = <0x105c4100 0x20>;
+			#power-domain-cells = <0>;
+			status = "disabled";
+		};
+
+		pd_g2d: g2d-power-domain@105c4120 {
+			compatible = "samsung,exynos4210-pd";
+			reg = <0x105c4120 0x20>;
+			#power-domain-cells = <0>;
+			status = "disabled";
+		};
+
+		pd_isp: isp-power-domain@105c4140 {
+			compatible = "samsung,exynos4210-pd";
+			reg = <0x105c4140 0x20>;
+			#power-domain-cells = <0>;
+			status = "disabled";
+		};
+
+		pd_mfc: mfc-power-domain@105c4180 {
+			compatible = "samsung,exynos4210-pd";
+			reg = <0x105c4180 0x20>;
+			#power-domain-cells = <0>;
+			status = "disabled";
+		};
+
+		pd_hevc: hevc-power-domain@105c41c0 {
+			compatible = "samsung,exynos4210-pd";
+			reg = <0x105c41c0 0x20>;
+			#power-domain-cells = <0>;
+			status = "disabled";
 		};
 
 		serial_0: serial@14c10000 {
