@@ -369,6 +369,7 @@
 
 			clock-names = "oscclk", "aclk_g3d_400";
 			clocks = <&xxti>, <&cmu_top CLK_ACLK_G3D_400>;
+			power-domains = <&pd_g3d>;
 		};
 
 		cmu_gscl: clock-controller@13cf0000 {
@@ -570,7 +571,6 @@
 			compatible = "samsung,exynos4210-pd";
 			reg = <0x105c4060 0x20>;
 			#power-domain-cells = <0>;
-			status = "disabled";
 		};
 
 		pd_disp: disp-power-domain@105c4080 {
@@ -1124,6 +1124,7 @@
 			interrupt-names = "JOB", "MMU", "GPU";
 			clocks = <&cmu_g3d CLK_ACLK_G3D>;
 			clock-names = "clk_mali";
+			power-domains = <&pd_g3d>;
 			status = "disabled";
 
 			assigned-clocks = <&cmu_g3d CLK_FOUT_G3D_PLL>;
