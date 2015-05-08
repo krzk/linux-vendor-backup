@@ -28,20 +28,6 @@
 
 #define to_exynos_pcie(x)	container_of(x, struct exynos_pcie, pp)
 
-enum pcie_exynos_type {
-	PCIE_TYPE_EXYNOS5433,
-};
-
-static struct pcie_exynos_compatible {
-	char			*compatible;
-	enum pcie_exynos_type	ctrl_type;
-} exynos_compat[] = {
-	{
-		.compatible	= "samsung,exynos5433-pcie",
-		.ctrl_type	= PCIE_TYPE_EXYNOS5433,
-	},
-};
-
 /* Pcie structure for Exynos specific data */
 struct exynos_pcie {
 	void __iomem		*elbi_base;
