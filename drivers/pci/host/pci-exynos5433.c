@@ -420,12 +420,8 @@ static int exynos_pcie_wr_own_conf(struct pcie_port *pp, int where, int size,
 static int exynos_pcie_power_enabled(struct pcie_port *pp)
 {
 	struct exynos_pcie *ep = to_exynos_pcie(pp);
-	int ret = 1;
 
-	if (ep->wlanen_gpio)
-		ret = gpio_get_value(ep->wlanen_gpio);
-
-	return ret;
+	return gpio_get_value(ep->wlanen_gpio);
 }
 
 static struct pcie_host_ops exynos_pcie_host_ops = {
@@ -455,7 +451,12 @@ static int __init exynos_pcie_probe(struct platform_device *pdev)
 	pp->dev = &pdev->dev;
 
 	exynos_pcie->reset_gpio = of_get_named_gpio(np, "reset-gpio", 0);
+	if (exynos_pcie->reset_gpio < 0)
+		return exynos_pcie->reset_gpio;
+
 	exynos_pcie->wlanen_gpio = of_get_named_gpio(np, "wlanen-gpio", 0);
+	if (exynos_pcie->wlanen_gpio < 0)
+		return exynos_pcie->wlanen_gpio;
 
 	exynos_pcie->clk = devm_clk_get(&pdev->dev, "pcie");
 	if (IS_ERR(exynos_pcie->clk)) {
@@ -609,7 +610,7 @@ static int exynos_pcie_suspend_noirq(struct device *dev)
 	struct exynos_pcie *ep = dev_get_drvdata(dev);
 	u32 val, count = 0;
 
-	if (ep->wlanen_gpio && !gpio_get_value(ep->wlanen_gpio))
+	if (!gpio_get_value(ep->wlanen_gpio))
 		return 0;
 
 	exynos_pcie_writel(ep->elbi_base, VEN_MSG_REQ_DISABLE,
@@ -657,7 +658,7 @@ static int exynos_pcie_resume_noirq(struct device *dev)
 	struct pcie_port *pp = &ep->pp;
 	u32 val;
 
-	if (ep->wlanen_gpio && !gpio_get_value(ep->wlanen_gpio)) {
+	if (!gpio_get_value(ep->wlanen_gpio)) {
 		clk_prepare_enable(ep->clk);
 		clk_prepare_enable(ep->bus_clk);
 
