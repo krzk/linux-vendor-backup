@@ -82,6 +82,12 @@ struct exynos_pcie {
 #define PCIE_AUX_PM_EN			0x0A4
 #define AUX_PM_DISABLE			0x0
 #define AUX_PM_ENABLE			0x1
+#define PCIE_VEN_MSG_REQ		0x0A8
+#define VEN_MSG_REQ_DISABLE		0x0
+#define VEN_MSG_REQ_ENABLE		0x1
+#define PCIE_VEN_MSG_FMT		0x0AC
+#define PCIE_VEN_MSG_TYPE		0x0B0
+#define PCIE_VEN_MSG_CODE		0x0D0
 #define PCIE_ELBI_SLV_AWMISC		0x11c
 #define PCIE_ELBI_SLV_ARMISC		0x120
 #define PCIE_ELBI_SLV_DBI_ENABLE	BIT(21)
@@ -615,9 +621,46 @@ static int exynos_pcie_remove(struct platform_device *pdev)
 static int exynos_pcie_suspend_noirq(struct device *dev)
 {
 	struct exynos_pcie *ep = dev_get_drvdata(dev);
+	u32 val, count = 0;
 
 	if (ep->wlanen_gpio && !gpio_get_value(ep->wlanen_gpio))
 		return 0;
+
+	exynos_pcie_writel(ep->elbi_base, VEN_MSG_REQ_DISABLE,
+			PCIE_VEN_MSG_REQ);
+
+	val = exynos_pcie_readl(ep->block_base, PCIE_PHY_GLOBAL_RESET);
+	val |= PCIE_APP_REQ_EXIT_L1_MODE;
+	exynos_pcie_writel(ep->block_base, val, PCIE_PHY_GLOBAL_RESET);
+
+	exynos_pcie_writel(ep->elbi_base, 0x1, PCIE_APP_REQ_EXIT_L1);
+	exynos_pcie_writel(ep->elbi_base, 0x1, PCIE_VEN_MSG_FMT);
+	exynos_pcie_writel(ep->elbi_base, 0x13, PCIE_VEN_MSG_TYPE);
+	exynos_pcie_writel(ep->elbi_base, 0x19, PCIE_VEN_MSG_CODE);
+	exynos_pcie_writel(ep->elbi_base, VEN_MSG_REQ_ENABLE,
+			PCIE_VEN_MSG_REQ);
+
+	while (count < 1000) {
+		if (exynos_pcie_readl(ep->elbi_base, PCIE_IRQ_PULSE) & IRQ_RADM_PM_TO_ACK) {
+			printk("ack message is ok\n");
+			break;
+		}
+		udelay(10);
+		count++;
+	}
+	exynos_pcie_writel(ep->elbi_base, 0x0, PCIE_APP_REQ_EXIT_L1);
+
+	count = 0;
+	do {
+		val = exynos_pcie_readl(ep->elbi_base, PCIE_ELBI_RDLH_LINKUP);
+		val = val & 0x1f;
+		if (val == 0x15) {
+			printk("Recevied enter_l23 LLLP packet\n");
+			break;
+		}
+		udelay(10);
+		count++;
+	} while (count < 1000);
 
 	return 0;
 }
@@ -674,8 +717,8 @@ static int exynos_pcie_resume_noirq(struct device *dev)
 #endif /* CONFIG_PM */
 
 static const struct dev_pm_ops exynos_pcie_pm_ops = {
-	.suspend_noirq  = exynos_pcie_suspend_noirq,
-	.resume_noirq = exynos_pcie_resume_noirq,
+	.suspend_noirq	= exynos_pcie_suspend_noirq,
+	.resume_noirq	= exynos_pcie_resume_noirq,
 };
 
 static const struct of_device_id exynos_pcie_of_match[] = {
