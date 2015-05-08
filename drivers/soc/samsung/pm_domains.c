@@ -170,6 +170,9 @@ static __init int exynos4_pm_init_power_domain(void)
 		struct exynos_pm_domain *pd;
 		int on, i;
 
+		if (!of_device_is_available(np))
+			continue;
+
 		pd = kzalloc(sizeof(*pd), GFP_KERNEL);
 		if (!pd) {
 			pr_err("%s: failed to allocate memory for domain\n",
