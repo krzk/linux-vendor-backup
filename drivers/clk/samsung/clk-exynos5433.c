@@ -3468,13 +3468,15 @@ static struct samsung_cmu_info g3d_cmu_info __initdata = {
 	.gate_clks		= g3d_gate_clks,
 	.nr_gate_clks		= ARRAY_SIZE(g3d_gate_clks),
 	.nr_clk_ids		= G3D_NR_CLK,
-	.clk_regs		= g3d_clk_regs,
-	.nr_clk_regs		= ARRAY_SIZE(g3d_clk_regs),
 };
 
 static void __init exynos5433_cmu_g3d_init(struct device_node *np)
 {
 	samsung_cmu_register_one(np, &g3d_cmu_info);
+
+	if (of_get_property(np, "power-domains", NULL))
+		exynos5433_cmu_pd_handler_init(np, g3d_clk_regs,
+				ARRAY_SIZE(g3d_clk_regs));
 }
 CLK_OF_DECLARE(exynos5433_cmu_g3d, "samsung,exynos5433-cmu-g3d",
 		exynos5433_cmu_g3d_init);
