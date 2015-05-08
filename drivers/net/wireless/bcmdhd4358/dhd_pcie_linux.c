@@ -172,6 +172,9 @@ static struct pci_driver dhdpcie_driver = {
 	resume:		dhdpcie_pci_resume,
 };
 
+/* IRQ from wlan_host_wake GPIO in dhd_custom_exynos.c */
+extern int wlan_host_wake_irq;
+
 int dhdpcie_init_succeeded = FALSE;
 
 #ifndef BCMPCIE_OOB_HOST_WAKE
@@ -231,6 +234,10 @@ static int dhdpcie_suspend_dev(struct pci_dev *dev)
 {
 	int ret;
 	DHD_TRACE_HW4(("%s: Enter\n", __FUNCTION__));
+
+	if (wlan_host_wake_irq)
+		disable_irq_wake(wlan_host_wake_irq);
+
 #ifndef BCMPCIE_OOB_HOST_WAKE
 	dhdpcie_pme_active(dev, TRUE);
 #endif /* BCMPCIE_OOB_HOST_WAKE */
@@ -264,6 +271,10 @@ static int dhdpcie_resume_dev(struct pci_dev *dev)
 #ifndef BCMPCIE_OOB_HOST_WAKE
 	dhdpcie_pme_active(dev, FALSE);
 #endif /* BCMPCIE_OOB_HOST_WAKE */
+
+	if (wlan_host_wake_irq)
+		enable_irq_wake(wlan_host_wake_irq);
+
 	return err;
 }
 
