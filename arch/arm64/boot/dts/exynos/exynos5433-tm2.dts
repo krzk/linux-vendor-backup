@@ -1255,12 +1255,16 @@
 
 &pinctrl_ese {
 	pinctrl-names = "default";
-	pinctrl-0 = <&initial_ese>;
+	pinctrl-0 = <&initial_ese &sleep2>;
 
 	initial_ese: initial-state {
 		PIN(IN, gpj2-0, DOWN, LV1);	/* WLAN_EN */
 		PIN(IN, gpj2-1, DOWN, LV1);	/* NC */
 		PIN(IN, gpj2-2, DOWN, LV1);	/* NC */
+	};
+
+	sleep2: sleep-state {
+		PIN_SLP(gpj2-0, PREV, DOWN);	/* WLAN_EN */
 	};
 };
 
