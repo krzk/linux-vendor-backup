@@ -214,16 +214,16 @@ static int ktd2692_led_flash_strobe_set(struct led_classdev_flash *fled_cdev,
 
 	mutex_lock(&led->lock);
 
-	if (state == 0) {
-		led->mode = KTD2692_MODE_DISABLE;
-		gpiod_direction_output(led->aux_gpio, KTD2692_LOW);
-	} else {
+	if (state) {
 		flash_tm_reg = GET_TIMEOUT_OFFSET(timeout->val, timeout->step);
 		ktd2692_expresswire_write(led, flash_tm_reg
 				| KTD2692_REG_FLASH_TIMEOUT_BASE);
 
 		led->mode = KTD2692_MODE_FLASH;
 		gpiod_direction_output(led->aux_gpio, KTD2692_HIGH);
+	} else {
+		led->mode = KTD2692_MODE_DISABLE;
+		gpiod_direction_output(led->aux_gpio, KTD2692_LOW);
 	}
 
 	ktd2692_expresswire_write(led, led->mode | KTD2692_REG_MODE_BASE);
@@ -298,14 +298,14 @@ static int ktd2692_parse_dt(struct ktd2692_context *led, struct device *dev,
 	led->ctrl_gpio = devm_gpiod_get(dev, "ctrl");
 	if (IS_ERR(led->ctrl_gpio)) {
 		ret = PTR_ERR(led->ctrl_gpio);
-		dev_err(dev, "cannot get ctrl-gpio %d\n", ret);
+		dev_err(dev, "cannot get ctrl-gpios %d\n", ret);
 		return ret;
 	}
 
 	led->aux_gpio = devm_gpiod_get(dev, "aux");
 	if (IS_ERR(led->aux_gpio)) {
 		ret = PTR_ERR(led->aux_gpio);
-		dev_err(dev, "cannot get aux-gpio %d\n", ret);
+		dev_err(dev, "cannot get aux-gpios %d\n", ret);
 		return ret;
 	}
 
