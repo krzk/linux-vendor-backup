@@ -337,13 +337,21 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 	struct input_dev *input = bdata->input;
 	unsigned int type = button->type ?: EV_KEY;
 	int state = (gpio_get_value_cansleep(button->gpio) ? 1 : 0) ^ button->active_low;
+	struct irq_desc *desc = irq_to_desc(bdata->irq);
 
 	if (type == EV_ABS) {
 		if (state)
 			input_event(input, type, button->code, button->value);
 	} else {
-		input_event(input, type, button->code, !!state);
+		/* FIXME:
+		 * When wakeup by power key, gpio state is
+		 * always zero on exynos5433 based board.
+		 * We have to fix abnormal gpio state.
+		 */
+		input_event(input, type, button->code,
+			irqd_is_wakeup_set(&desc->irq_data) ? 1 : !!state);
 	}
+
 	input_sync(input);
 }
 
