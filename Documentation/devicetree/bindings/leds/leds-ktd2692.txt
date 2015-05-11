@@ -11,34 +11,34 @@ Also, When the AUX pin is pulled high while CTRL pin is high,
 LED current will be ramped up to the flash-mode current level.
 
 Required properties:
-- compatible: "kinetic,ktd2692"
-- ctrl-gpio : gpio pin in order control CTRL pin
-- aux-gpio : gpio pin in order control AUX pin
+- compatible : Should be "kinetic,ktd2692".
+- ctrl-gpios : Specifier of the GPIO connected to CTRL pin.
+- aux-gpios : Specifier of the GPIO connected to AUX pin.
 
 Optional properties:
-- vin-supply : "vin" LED supply (2.7V to 5.5V)
+- vin-supply : "vin" LED supply (2.7V to 5.5V).
   See Documentation/devicetree/bindings/regulator/regulator.txt
 
 A discrete LED element connected to the device must be represented by a child
-node - see Documentation/devicetree/bindings/leds/common.txt.
+node - See Documentation/devicetree/bindings/leds/common.txt
 
 Required properties for flash LED child nodes:
   See Documentation/devicetree/bindings/leds/common.txt
 - led-max-microamp : Minimum Threshold for Timer protection
-  is defined internally (Maximum 300mA)
+  is defined internally (Maximum 300mA).
 - flash-max-microamp : Flash LED maximum current
-  Formula : I(mA) = 15000 / Rset
-- flash-max-timeout-us : Flash LED maximum timeout
+  Formula : I(mA) = 15000 / Rset.
+- flash-max-timeout-us : Flash LED maximum timeout.
 
 Optional properties for flash LED child nodes:
-- label : see Documentation/devicetree/bindings/leds/common.txt
+- label : See Documentation/devicetree/bindings/leds/common.txt
 
 Example:
 
 ktd2692 {
 	compatible = "kinetic,ktd2692";
-	ctrl-gpio = <&gpc0 1 0>;
-	aux-gpio = <&gpc0 2 0>;
+	ctrl-gpios = <&gpc0 1 0>;
+	aux-gpios = <&gpc0 2 0>;
 	vin-supply = <&vbat>;
 
 	flash-led {
