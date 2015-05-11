@@ -85,6 +85,9 @@ int drm_gem_prime_handle_to_fd(struct drm_device *dev,
 
 	if (obj->export_dma_buf) {
 		dmabuf = obj->export_dma_buf;
+
+		ret = drm_prime_add_buf_handle(&file_priv->prime,
+					       dmabuf, handle);
 		goto out_have_obj;
 	}
 
