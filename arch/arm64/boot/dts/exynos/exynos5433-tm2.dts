@@ -223,8 +223,8 @@
 
 	ktd2692 {
 		compatible = "kinetic,ktd2692";
-		ctrl-gpio = <&gpc0 1 0>;
-		aux-gpio = <&gpc0 2 0>;
+		ctrl-gpios = <&gpc0 1 0>;
+		aux-gpios = <&gpc0 2 0>;
 
 		flash-led {
 			label = "ktd2692-flash";
