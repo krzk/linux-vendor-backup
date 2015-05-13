@@ -5611,9 +5611,15 @@ static int __init exynos5433_suspend_init(void)
 	struct of_phandle_args clkspec;
 	CMU_PD_H *handler;
 
-	list_for_each_entry(handler, &exynos5433_cmu_pd_list, entry)
-		exynos_pd_notifier_register(
-		of_genpd_get_from_provider(&handler->pd_args), &handler->nb);
+	list_for_each_entry(handler, &exynos5433_cmu_pd_list, entry) {
+		struct generic_pm_domain *domain;
+
+		domain = of_genpd_get_from_provider(&handler->pd_args);
+		if (IS_ERR(domain))
+			continue;
+
+		exynos_pd_notifier_register(domain, &handler->nb);
+	}
 
 	np = of_find_compatible_node(NULL, NULL, "exynos5433-cmu-suspend");
 	if (!np)
