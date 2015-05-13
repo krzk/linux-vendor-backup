@@ -192,10 +192,11 @@ static __init int exynos4_pm_init_power_domain(void)
 		if (nr_clks > 0 && !(nr_clks % 2)) {
 			nr_clks /= 2;
 
-
 			pd->oscclk = clk_get(NULL, "xxti");
-			if (IS_ERR(pd->oscclk))
-				break;
+			if (IS_ERR(pd->oscclk)) {
+				pr_err("Could not get oscclk for %s domain\n", pd->pd.name);
+				continue;
+			}
 
 			pd->clk = kcalloc(sizeof(struct clk *),
 						nr_clks, GFP_KERNEL);
