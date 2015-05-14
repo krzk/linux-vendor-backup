@@ -106,6 +106,7 @@ static int exynos_pd_power(struct generic_pm_domain *domain, bool power_on)
 		for (i = 0; i < pd->nr_reparent_clks; i++) {
 			if (IS_ERR(pd->clk[i]))
 				break;
+			pd->pclk[i] = clk_get_parent(pd->clk[i]);
 			if (clk_set_parent(pd->clk[i], pd->oscclk))
 				pr_err("%s: error setting oscclk as parent to clock %d\n",
 						pd->name, i);
@@ -134,6 +135,8 @@ static int exynos_pd_power(struct generic_pm_domain *domain, bool power_on)
 		for (i = 0; i < pd->nr_reparent_clks; i++) {
 			if (IS_ERR(pd->clk[i]))
 				break;
+			if (IS_ERR(pd->pclk[i]))
+				continue; /* Skip on first power up */
 			if (clk_set_parent(pd->clk[i], pd->pclk[i]))
 				pr_err("%s: error setting parent to clock%d\n",
 						pd->name, i);
@@ -189,10 +192,10 @@ static __init int exynos4_pm_init_power_domain(void)
 		ATOMIC_INIT_NOTIFIER_HEAD(&pd->nh);
 
 		nr_clks = of_count_phandle_with_args(np, "clocks","#clock-cells");
-		if (nr_clks > 0 && !(nr_clks % 2)) {
-			nr_clks /= 2;
+		if (nr_clks > 1) {
+			/* oscclk is the last phandle */
+			pd->oscclk = of_clk_get(np, --nr_clks);
 
-			pd->oscclk = clk_get(NULL, "xxti");
 			if (IS_ERR(pd->oscclk)) {
 				pr_err("Could not get oscclk for %s domain\n", pd->pd.name);
 				continue;
@@ -206,12 +209,11 @@ static __init int exynos4_pm_init_power_domain(void)
 				pd->clk[i] = of_clk_get(np, i);
 				if (IS_ERR(pd->clk[i]))
 					break;
-				pd->pclk[i] = of_clk_get(np, i + 1);
-				if (IS_ERR(pd->pclk[i])) {
-					clk_put(pd->clk[i]);
-					pd->clk[i] = ERR_PTR(-EINVAL);
-					break;
-				}
+				/*
+				 * Skip setting parent on first power up.
+				 * The parent at this time may not be useful at all.
+				 */
+				pd->pclk[i] = ERR_PTR(-EINVAL);
 			}
 
 			pd->nr_reparent_clks = nr_clks;
