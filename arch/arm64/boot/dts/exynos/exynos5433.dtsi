@@ -1448,6 +1448,8 @@
 			interrupt-names = "fifo", "vsync", "lcd_sys";
 			interrupts = <0 210 0>, <0 211 0>, <0 212 0>;
 			status = "disabled";
+			iommus = <&sysmmu_tv0x>, <&sysmmu_tv1x>;
+			iommu-names = "m0", "m1";
 
 			ports {
 				#address-cells = <1>;
@@ -1673,6 +1675,26 @@
 			clock-names = "pclk", "aclk";
 			clocks = <&cmu_disp CLK_PCLK_SMMU_DECON1X>, <&cmu_disp CLK_ACLK_SMMU_DECON1X>;
 			#iommu-cells = <0>;
+		};
+
+		sysmmu_tv0x: sysmmu@0x13A20000 {
+			compatible = "samsung,exynos-sysmmu";
+			reg = <0x13A20000 0x1000>;
+			interrupts = <0 214 0>;
+			clock-names = "pclk", "aclk";
+			clocks = <&cmu_disp CLK_PCLK_SMMU_TV0X>, <&cmu_disp CLK_ACLK_SMMU_TV0X>;
+			#iommu-cells = <0>;
+			power-domains = <&pd_disp>;
+		};
+
+		sysmmu_tv1x: sysmmu@0x13A30000 {
+			compatible = "samsung,exynos-sysmmu";
+			reg = <0x13A30000 0x1000>;
+			interrupts = <0 216 0>;
+			clock-names = "pclk", "aclk";
+			clocks = <&cmu_disp CLK_PCLK_SMMU_TV1X>, <&cmu_disp CLK_ACLK_SMMU_TV1X>;
+			#iommu-cells = <0>;
+			power-domains = <&pd_disp>;
 		};
 
 		sysmmu_mfc_0: sysmmu@0x15200000 {
