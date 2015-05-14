@@ -577,6 +577,22 @@
 			compatible = "samsung,exynos4210-pd";
 			reg = <0x105c4080 0x20>;
 			#power-domain-cells = <0>;
+
+			clocks = <&cmu_disp CLK_MOUT_ACLK_DISP_333_USER>,
+				<&cmu_disp CLK_MOUT_SCLK_DECON_ECLK_USER>,
+				<&cmu_disp CLK_MOUT_DISP_PLL>,
+				<&cmu_disp CLK_MOUT_SCLK_DECON_VCLK_USER>,
+				<&cmu_disp CLK_MOUT_SCLK_DECON_TV_ECLK_USER>,
+				<&cmu_disp CLK_MOUT_PHYCLK_HDMIPHY_PIXEL_CLKO_USER>,
+				<&cmu_disp CLK_MOUT_SCLK_DECON_TV_VCLK_USER>,
+				<&cmu_disp CLK_MOUT_SCLK_DSD_USER>,
+				<&cmu_disp CLK_MOUT_SCLK_DSIM0_USER>,
+				<&cmu_disp CLK_MOUT_PHYCLK_HDMIPHY_TMDS_CLKO_USER>,
+				<&cmu_disp CLK_MOUT_PHYCLK_MIPIDPHY0_RXCLKESC0_USER>,
+				<&cmu_disp CLK_MOUT_PHYCLK_MIPIDPHY0_BITCLKDIV8_USER>,
+				<&cmu_disp CLK_MOUT_PHYCLK_MIPIDPHY1_RXCLKESC0_USER>,
+				<&cmu_disp CLK_MOUT_PHYCLK_MIPIDPHY1_BITCLKDIV8_USER>,
+				<&xxti>;
 		};
 
 		pd_cam1: cam1-power-domain@105c40a0 {
