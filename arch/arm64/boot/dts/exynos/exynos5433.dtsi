@@ -1447,6 +1447,7 @@
 			assigned-clock-rates = <0>, <417000000>, <0>, <0>, <0>, <24000000>;
 			interrupt-names = "fifo", "vsync", "lcd_sys";
 			interrupts = <0 210 0>, <0 211 0>, <0 212 0>;
+			power-domains = <&pd_disp>;
 			status = "disabled";
 			iommus = <&sysmmu_tv0x>, <&sysmmu_tv1x>;
 			iommu-names = "m0", "m1";
@@ -1474,6 +1475,7 @@
 			ddc = <&hsi2c_11>;
 			samsung,syscon-phandle = <&pmu_system_controller>;
 			samsung,sysreg-phandle = <&syscon_disp>;
+			power-domains = <&pd_disp>;
 			status = "disabled";
 
 			ports {
