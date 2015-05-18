@@ -81,6 +81,8 @@
 #define DECON_VIDINTCON3		0x022C
 
 /* VIDCON0 */
+#define VIDCON0_SWRESET			(1 << 28)
+#define VIDCON0_STOP_STATUS		(1 << 2)
 #define VIDCON0_ENVID			(1 << 1)
 #define VIDCON0_ENVID_F			(1 << 0)
 

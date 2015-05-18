@@ -436,6 +436,29 @@ err:
 	ctx->suspended = true;
 }
 
+static void decon_swreset(struct decon_context *ctx)
+{
+	unsigned int tries;
+
+	writel(0, ctx->addr + DECON_VIDCON0);
+	for (tries = 2000; tries; --tries) {
+		if (~readl(ctx->addr + DECON_VIDCON0) & VIDCON0_STOP_STATUS)
+			break;
+		udelay(10);
+	}
+
+	WARN(tries == 0, "failed to disable DECON\n");
+
+	writel(VIDCON0_SWRESET, ctx->addr + DECON_VIDCON0);
+	for (tries = 2000; tries; --tries) {
+		if (~readl(ctx->addr + DECON_VIDCON0) & VIDCON0_SWRESET)
+			break;
+		udelay(10);
+	}
+
+	WARN(tries == 0, "failed to software reset DECON\n");
+}
+
 static void decon_dpms_off(struct decon_context *ctx)
 {
 	int i;
@@ -445,6 +468,7 @@ static void decon_dpms_off(struct decon_context *ctx)
 
 	clear_bit(BIT_CLKS_ENABLED, &ctx->enabled);
 	decon_window_suspend(ctx);
+	decon_swreset(ctx);
 
 	for (i = ARRAY_SIZE(decon_clks_name) - 1; i >= 0; i--)
 		clk_disable_unprepare(ctx->clks[i]);
