@@ -1885,6 +1885,9 @@ static int exynos_dsi_probe(struct platform_device *pdev)
 	dsi->clks = devm_kzalloc(dev,
 			sizeof(*dsi->clks) * dsi->driver_data->num_clks,
 			GFP_KERNEL);
+	if (!dsi->clks)
+		goto err_del_component;
+
 	for (i = 0; i < dsi->driver_data->num_clks; i++) {
 		dsi->clks[i] = devm_clk_get(dev, clk_names[i]);
 		if (IS_ERR(dsi->clks[i])) {
