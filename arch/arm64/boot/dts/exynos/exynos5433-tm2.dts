@@ -1177,7 +1177,7 @@
 		PIN(IN, gpa1-2, NONE, LV1);	/* IPC_HOST_WAKE */
 		PIN(IN, gpa1-3, DOWN, LV1);	/* NFC_IRQ */
 		PIN(IN, gpa1-4, DOWN, LV1);	/* TP603 */
-		PIN(IN, gpa1-5, UP, LV1);	/* CHG_INTB */
+		PIN(IN, gpa1-5, NONE, LV1);	/* CHG_INTB */
 		PIN(IN, gpa1-6, NONE, LV1);	/* WACOM_SENSE */
 		PIN(IN, gpa1-7, NONE, LV1);	/* FPS_IRQ */
 
