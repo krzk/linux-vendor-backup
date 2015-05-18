@@ -21,6 +21,7 @@
 #include <linux/workqueue.h>
 
 #define DELAY_MS_DEFAULT		15000	/* unit: millisecond */
+#define MAX77843_MUIC_IRQ_NUM		3
 
 enum max77843_muic_status {
 	MAX77843_MUIC_STATUS1 = 0,
@@ -749,6 +750,7 @@ static int max77843_muic_probe(struct platform_device *pdev)
 	struct max77843_muic_info *info;
 	unsigned int id;
 	int i, ret;
+	u8 temp_reg[MAX77843_MUIC_IRQ_NUM];
 
 	info = devm_kzalloc(&pdev->dev, sizeof(*info), GFP_KERNEL);
 	if (!info)
@@ -805,6 +807,15 @@ static int max77843_muic_probe(struct platform_device *pdev)
 
 	/* Support virtual irq domain for max77843 MUIC device */
 	INIT_WORK(&info->irq_work, max77843_muic_irq_work);
+
+	/* Clear IRQ bits before request IRQs */
+	ret = regmap_bulk_read(max77843->regmap_muic,
+			MAX77843_MUIC_REG_INT1, temp_reg,
+			MAX77843_MUIC_IRQ_NUM);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to Clear IRQ bits\n");
+		goto err_muic_irq;
+	}
 
 	for (i = 0; i < ARRAY_SIZE(max77843_muic_irqs); i++) {
 		struct max77843_muic_irq *muic_irq = &max77843_muic_irqs[i];
