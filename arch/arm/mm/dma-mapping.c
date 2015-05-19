@@ -2128,7 +2128,7 @@ static int arm_iommu_init_reserved(struct device *dev,
 {
 	const char *name = "iommu-reserved-mapping";
 	const __be32 *prop = NULL;
-	int len, naddr, nsize;
+	int ret = 0, len, naddr, nsize, regions, cells;
 	struct device_node *node = dev->of_node;
 	phys_addr_t phys;
 	dma_addr_t dma;
@@ -2145,18 +2145,27 @@ static int arm_iommu_init_reserved(struct device *dev,
 		return 0;
 
 	len /= sizeof(u32);
+	cells = 2 * naddr + nsize;
+	regions = len / cells;
 
-	if (len < 2 * naddr + nsize) {
+	if (len % cells) {
 		dev_err(dev, "invalid length (%d cells) of %s property\n",
 			len, name);
 		return -EINVAL;
 	}
 
-	phys = of_read_number(prop, naddr);
-	dma = of_read_number(prop + naddr, naddr);
-	size = of_read_number(prop + 2*naddr, nsize);
+	while (regions--) {
+		phys = of_read_number(prop, naddr);
+		dma = of_read_number(prop + naddr, naddr);
+		size = of_read_number(prop + 2*naddr, nsize);
+		prop += cells;
 
-	return arm_iommu_add_reserved(dev, domain, phys, dma, size);
+		ret = arm_iommu_add_reserved(dev, domain, phys, dma, size);
+		if (ret)
+			break;
+	}
+
+	return ret;
 }
 
 static struct dma_map_ops *arm_get_iommu_dma_map_ops(bool coherent)
@@ -2176,6 +2185,14 @@ static bool arm_setup_iommu_dma_ops(struct device *dev, u64 dma_base, u64 size,
 	if (IS_ERR(mapping)) {
 		pr_warn("Failed to create %llu-byte IOMMU mapping for device %s\n",
 				size, dev_name(dev));
+		return false;
+	}
+
+	if (arm_iommu_init_reserved(dev, mapping) != 0) {
+		pr_warn("Failed to initialize reserved mapping for device %s\n",
+			dev_name(dev));
+		__arm_iommu_detach_device(dev);
+		arm_iommu_release_mapping(mapping);
 		return false;
 	}
 
