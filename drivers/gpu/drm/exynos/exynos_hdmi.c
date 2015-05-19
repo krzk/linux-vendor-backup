@@ -69,6 +69,13 @@ enum hdmi_type {
 	HDMI_TYPE14,
 };
 
+struct str_array_spec {
+	int count;
+	const char **ptr;
+};
+
+#define INIT_ARRAY_SPEC(a) { .count = ARRAY_SIZE(a), .ptr = a }
+
 struct hdmi_driver_data {
 	unsigned int type;
 	const struct hdmiphy_config *phy_confs;
@@ -77,17 +84,13 @@ struct hdmi_driver_data {
 	unsigned int is_mux_present:1;
 	unsigned int has_sysreg:1;
 	u32 sysreg_clksel;
+	struct str_array_spec clk_gates;
+	struct str_array_spec clk_muxes;
 };
 
 struct hdmi_resources {
-	struct clk			*hdmi;
-	struct clk			*sclk_hdmi;
-	struct clk			*sclk_pixel;
-	struct clk			*sclk_hdmiphy;
-	struct clk			*mout_hdmi;
-	struct clk			*hdmi_pixel;
-	struct clk			*pclk_hdmiphy;
-	struct clk			*hdmi_tmds;
+	struct clk			**clk_gates;
+	struct clk			**clk_muxes;
 	struct regulator_bulk_data	*regul_bulk;
 	struct regulator		*reg_hdmi_en;
 	int				regul_count;
@@ -640,6 +643,23 @@ static const struct hdmiphy_config hdmiphy_5430_configs[] = {
 	},
 };
 
+static const char *hdmi_clk_gates4[] = {
+	"hdmi", "sclk_hdmi"
+};
+
+static const char *hdmi_clk_muxes4[] = {
+	"sclk_pixel", "sclk_hdmiphy", "mout_hdmi"
+};
+
+static const char *hdmi_clk_gates5430[] = {
+	"hdmi_pclk", "hdmi_i_pclk", "i_tmds_clk", "i_pixel_clk"
+};
+
+static const char *hdmi_clk_muxes5430[] = {
+	"oscclk", "tmds_clko", "tmds_clko_user",
+	"oscclk", "pixel_clko", "pixel_clko_user"
+};
+
 static struct hdmi_driver_data exynos5430_hdmi_driver_data = {
 	.type		= HDMI_TYPE14,
 	.phy_confs	= hdmiphy_5430_configs,
@@ -647,6 +667,8 @@ static struct hdmi_driver_data exynos5430_hdmi_driver_data = {
 	.is_apb_phy	= 1,
 	.has_sysreg	= 1,
 	.sysreg_clksel	= EXYNOS5433_SYSREG_DISP_HDMI_PHY,
+	.clk_gates	= INIT_ARRAY_SPEC(hdmi_clk_gates5430),
+	.clk_muxes	= INIT_ARRAY_SPEC(hdmi_clk_muxes5430),
 };
 
 static struct hdmi_driver_data exynos5420_hdmi_driver_data = {
@@ -655,6 +677,8 @@ static struct hdmi_driver_data exynos5420_hdmi_driver_data = {
 	.phy_conf_count	= ARRAY_SIZE(hdmiphy_5420_configs),
 	.is_apb_phy	= 1,
 	.is_mux_present	= 1,
+	.clk_gates	= INIT_ARRAY_SPEC(hdmi_clk_gates4),
+	.clk_muxes	= INIT_ARRAY_SPEC(hdmi_clk_muxes4),
 };
 
 static struct hdmi_driver_data exynos4212_hdmi_driver_data = {
@@ -663,6 +687,8 @@ static struct hdmi_driver_data exynos4212_hdmi_driver_data = {
 	.phy_conf_count	= ARRAY_SIZE(hdmiphy_v14_configs),
 	.is_apb_phy	= 0,
 	.is_mux_present	= 1,
+	.clk_gates	= INIT_ARRAY_SPEC(hdmi_clk_gates4),
+	.clk_muxes	= INIT_ARRAY_SPEC(hdmi_clk_muxes4),
 };
 
 static struct hdmi_driver_data exynos4210_hdmi_driver_data = {
@@ -671,6 +697,8 @@ static struct hdmi_driver_data exynos4210_hdmi_driver_data = {
 	.phy_conf_count	= ARRAY_SIZE(hdmiphy_v13_configs),
 	.is_apb_phy	= 0,
 	.is_mux_present	= 1,
+	.clk_gates	= INIT_ARRAY_SPEC(hdmi_clk_gates4),
+	.clk_muxes	= INIT_ARRAY_SPEC(hdmi_clk_muxes4),
 };
 
 static struct hdmi_driver_data exynos5_hdmi_driver_data = {
@@ -679,6 +707,8 @@ static struct hdmi_driver_data exynos5_hdmi_driver_data = {
 	.phy_conf_count	= ARRAY_SIZE(hdmiphy_v13_configs),
 	.is_apb_phy	= 0,
 	.is_mux_present	= 1,
+	.clk_gates	= INIT_ARRAY_SPEC(hdmi_clk_gates4),
+	.clk_muxes	= INIT_ARRAY_SPEC(hdmi_clk_muxes4),
 };
 
 static inline u32 hdmi_reg_read(struct hdmi_context *hdata, u32 reg_id)
@@ -1482,17 +1512,49 @@ static void hdmi_conf_init(struct hdmi_context *hdata)
 	}
 }
 
-static void hdmi_mount_set_parent(struct hdmi_context *hdata, bool to_phy)
+static int hdmi_clk_enable_gates(struct hdmi_context *hdata)
 {
-	struct clk *parent = to_phy ? hdata->res.sclk_hdmiphy
-				    : hdata->res.sclk_pixel;
+	int ret = 0;
+	int i;
 
-	if (!hdata->drv_data->is_mux_present)
-		return;
+	for (i = 0; i < hdata->drv_data->clk_gates.count; ++i) {
+		ret = clk_prepare_enable(hdata->res.clk_gates[i]);
+		if (ret)
+			dev_err(hdata->dev, "Cannot enable clock '%s', %d\n",
+				hdata->drv_data->clk_gates.ptr[i], ret);
+	}
 
-	clk_disable_unprepare(hdata->res.sclk_hdmi);
-	clk_set_parent(hdata->res.mout_hdmi, parent);
-	clk_prepare_enable(hdata->res.sclk_hdmi);
+	return ret;
+}
+
+static void hdmi_clk_disable_gates(struct hdmi_context *hdata)
+{
+	int i;
+
+	i = hdata->drv_data->clk_gates.count;
+
+	while (i--)
+		clk_disable_unprepare(hdata->res.clk_gates[i]);
+}
+
+static int hdmi_clk_set_parents(struct hdmi_context *hdata, bool to_phy)
+{
+	struct device *dev = hdata->dev;
+	int ret = 0;
+	int i;
+
+	for (i = 0; i < hdata->drv_data->clk_muxes.count; i += 3) {
+		struct clk **c = &hdata->res.clk_muxes[i];
+
+		ret = clk_set_parent(c[2], c[to_phy]);
+		if (ret)
+			dev_err(dev, "Cannot set clock parent of '%s' to '%s', %d\n",
+				hdata->drv_data->clk_muxes.ptr[i + 2],
+				hdata->drv_data->clk_muxes.ptr[i + to_phy],
+				ret);
+	}
+
+	return ret;
 }
 
 static void hdmi_v13_mode_apply(struct hdmi_context *hdata)
@@ -1571,7 +1633,7 @@ static void hdmi_v13_mode_apply(struct hdmi_context *hdata)
 		hdmi_regs_dump(hdata, "timing apply");
 	}
 
-	hdmi_mount_set_parent(hdata, true);
+	hdmi_clk_set_parents(hdata, true);
 
 	/* enable HDMI and timing generator */
 	hdmi_start(hdata, true);
@@ -1731,7 +1793,7 @@ static void hdmi_v14_mode_apply(struct hdmi_context *hdata)
 		hdmi_regs_dump(hdata, "timing apply");
 	}
 
-	hdmi_mount_set_parent(hdata, true);
+	hdmi_clk_set_parents(hdata, true);
 
 	/* enable HDMI and timing generator */
 	hdmi_start(hdata, true);
@@ -1749,7 +1811,7 @@ static void hdmiphy_conf_reset(struct hdmi_context *hdata)
 {
 	u32 reg;
 
-	hdmi_mount_set_parent(hdata, false);
+	hdmi_clk_set_parents(hdata, false);
 
 	/* operation mode */
 	hdmiphy_reg_writeb(hdata, HDMIPHY_MODE_SET_DONE,
@@ -2127,8 +2189,6 @@ static void hdmi_poweron(struct hdmi_context *hdata)
 		return;
 	}
 
-	hdmi_set_sysreg(hdata, 1);
-
 	hdata->powered = true;
 
 	mutex_unlock(&hdata->hdmi_mutex);
@@ -2142,11 +2202,10 @@ static void hdmi_poweron(struct hdmi_context *hdata)
 	regmap_update_bits(hdata->pmureg, PMU_HDMI_PHY_CONTROL,
 			PMU_HDMI_PHY_ENABLE_BIT, 1);
 
-	clk_prepare_enable(res->hdmi);
-	clk_prepare_enable(res->sclk_hdmi);
-
+	hdmi_clk_enable_gates(hdata);
 	hdmiphy_poweron(hdata);
 	hdmi_commit(&hdata->display);
+	hdmi_set_sysreg(hdata, 1);
 }
 
 static void hdmi_poweroff(struct hdmi_context *hdata)
@@ -2158,6 +2217,8 @@ static void hdmi_poweroff(struct hdmi_context *hdata)
 		goto out;
 	mutex_unlock(&hdata->hdmi_mutex);
 
+	hdmi_set_sysreg(hdata, 0);
+
 	/* HDMI System Disable */
 	hdmi_reg_writemask(hdata, HDMI_CON_0, 0, HDMI_EN);
 
@@ -2165,10 +2226,7 @@ static void hdmi_poweroff(struct hdmi_context *hdata)
 
 	cancel_delayed_work(&hdata->hotplug_work);
 
-	clk_disable_unprepare(res->sclk_hdmi);
-	clk_disable_unprepare(res->hdmi);
-
-	hdmi_set_sysreg(hdata, 0);
+	hdmi_clk_disable_gates(hdata);
 
 	/* reset pmu hdmiphy control bit to disable hdmiphy */
 	regmap_update_bits(hdata->pmureg, PMU_HDMI_PHY_CONTROL,
@@ -2255,6 +2313,58 @@ static irqreturn_t hdmi_irq_thread(int irq, void *arg)
 	return IRQ_HANDLED;
 }
 
+static int hdmi_clks_get(struct hdmi_context *hdata,
+	struct str_array_spec *names, struct clk **clks)
+{
+	struct device *dev = hdata->dev;
+	int i;
+
+	for (i = 0; i < names->count; ++i) {
+		struct clk *clk = devm_clk_get(dev, names->ptr[i]);
+
+		if (IS_ERR(clk)) {
+			int ret = PTR_ERR(clk);
+
+			dev_err(dev, "Cannot get clock %s, %d\n", names->ptr[i],
+				ret);
+
+			return ret;
+		}
+
+		clks[i] = clk;
+	}
+
+	return 0;
+}
+
+static int hdmi_clk_init(struct hdmi_context *hdata)
+{
+	struct hdmi_driver_data *drv_data = hdata->drv_data;
+	struct hdmi_resources *res = &hdata->res;
+	int count = drv_data->clk_gates.count + drv_data->clk_muxes.count;
+	struct device *dev = hdata->dev;
+	struct clk **clks;
+	int ret;
+
+	if (!count)
+		return 0;
+
+	clks = devm_kzalloc(dev, sizeof(*clks) * count, GFP_KERNEL);
+	if (!clks)
+		return -ENOMEM;
+
+	res->clk_gates = clks;
+	res->clk_muxes = clks + drv_data->clk_gates.count;
+
+	ret = hdmi_clks_get(hdata, &drv_data->clk_gates, res->clk_gates);
+	if (ret)
+		return ret;
+
+	ret = hdmi_clks_get(hdata, &drv_data->clk_muxes, res->clk_muxes);
+
+	return ret;
+}
+
 static int hdmi_resources_init(struct hdmi_context *hdata)
 {
 	struct device *dev = hdata->dev;
@@ -2268,42 +2378,9 @@ static int hdmi_resources_init(struct hdmi_context *hdata)
 
 	DRM_DEBUG_KMS("HDMI resource init\n");
 
-	/* get clocks, power */
-	res->hdmi = devm_clk_get(dev, "hdmi");
-	if (IS_ERR(res->hdmi)) {
-		DRM_ERROR("failed to get clock 'hdmi'\n");
-		ret = PTR_ERR(res->hdmi);
-		goto fail;
-	}
-
-	res->sclk_hdmi = devm_clk_get(dev, "sclk_hdmi");
-	if (IS_ERR(res->sclk_hdmi)) {
-		DRM_ERROR("failed to get clock 'sclk_hdmi'\n");
-		ret = PTR_ERR(res->sclk_hdmi);
-		goto fail;
-	}
-
-	if (hdata->drv_data->is_mux_present) {
-		res->sclk_pixel = devm_clk_get(dev, "sclk_pixel");
-		if (IS_ERR(res->sclk_pixel)) {
-			DRM_ERROR("failed to get clock 'sclk_pixel'\n");
-			ret = PTR_ERR(res->sclk_pixel);
-			goto fail;
-		}
-		res->sclk_hdmiphy = devm_clk_get(dev, "sclk_hdmiphy");
-		if (IS_ERR(res->sclk_hdmiphy)) {
-			DRM_ERROR("failed to get clock 'sclk_hdmiphy'\n");
-			ret = PTR_ERR(res->sclk_hdmiphy);
-			goto fail;
-		}
-		res->mout_hdmi = devm_clk_get(dev, "mout_hdmi");
-		if (IS_ERR(res->mout_hdmi)) {
-			DRM_ERROR("failed to get clock 'mout_hdmi'\n");
-			ret = PTR_ERR(res->mout_hdmi);
-			goto fail;
-		}
-		clk_set_parent(res->mout_hdmi, res->sclk_pixel);
-	}
+	ret = hdmi_clk_init(hdata);
+	if (ret)
+		return ret;
 
 	res->regul_bulk = devm_kzalloc(dev, ARRAY_SIZE(supply) *
 		sizeof(res->regul_bulk[0]), GFP_KERNEL);
