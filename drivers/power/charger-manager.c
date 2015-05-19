@@ -538,6 +538,45 @@ charging_ok:
 }
 
 /**
+ * update_battery_state - Update current battery state.
+ *
+ * Return true if battery state is varied from last checking.
+ */
+static bool update_battery_state(struct charger_manager *cm)
+{
+	struct power_supply *charger_psy = &cm->charger_psy;
+	union power_supply_propval val;
+	int ret;
+	bool updated = false;
+
+	/* FIXME: use wrapper */
+	ret = charger_psy->get_property(charger_psy,
+			POWER_SUPPLY_PROP_CAPACITY, &val);
+	if (!ret && cm->battery_soc != val.intval) {
+		cm->battery_soc = val.intval;
+		updated = true;
+	}
+
+	/* FIXME: use wrapper */
+	ret = charger_psy->get_property(charger_psy,
+			POWER_SUPPLY_PROP_VOLTAGE_NOW, &val);
+	if (!ret && cm->battery_voltage != val.intval) {
+		cm->battery_voltage = val.intval;
+		updated = true;
+	}
+
+	/* FIXME: use wrapper */
+	ret = charger_psy->get_property(charger_psy,
+			POWER_SUPPLY_PROP_TEMP, &val);
+	if (!ret && cm->battery_temperature != val.intval) {
+		cm->battery_temperature = val.intval;
+		updated = true;
+	}
+
+	return updated;
+}
+
+/**
  * _cm_monitor - Monitor the temperature and return true for exceptions.
  * @cm: the Charger Manager representing the battery.
  *
@@ -547,6 +586,9 @@ charging_ok:
 static bool _cm_monitor(struct charger_manager *cm)
 {
 	int target;
+	bool updated = false;
+
+	updated = update_battery_state(cm);
 
 	target = cm_get_target_status(cm);
 
@@ -554,8 +596,11 @@ static bool _cm_monitor(struct charger_manager *cm)
 
 	if (cm->battery_status != target) {
 		cm->battery_status = target;
-		power_supply_changed(cm->charger_psy);
+		updated = true;
 	}
+
+	if (updated)
+		power_supply_changed(cm->charger_psy);
 
 	return (cm->battery_status == POWER_SUPPLY_STATUS_NOT_CHARGING);
 }

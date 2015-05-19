@@ -244,6 +244,9 @@ struct charger_manager {
 	u64 charging_end_time;
 
 	int battery_status;
+	int battery_soc;
+	int battery_voltage;
+	int battery_temperature;
 };
 
 #endif /* _CHARGER_MANAGER_H */
