@@ -509,6 +509,8 @@ void decon_te_irq_handler(struct exynos_drm_crtc *crtc)
 		val |= TRIGCON_SWTRIGCMD;
 		writel(val, ctx->addr + DECON_TRIGCON);
 	}
+
+	drm_handle_vblank(ctx->drm_dev, ctx->pipe);
 }
 
 static struct exynos_drm_crtc_ops decon_crtc_ops = {
