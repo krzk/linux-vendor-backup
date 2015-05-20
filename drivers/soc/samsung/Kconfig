@@ -8,7 +8,7 @@ config SOC_SAMSUNG
 
 config EXYNOS_PMU
 	bool "Support Exynos Power Management Unit"
-	depends on ARCH_EXYNOS
+	depends on ARCH_EXYNOS && ARM64
 	default y
 	help
 	  Exynos SoC have Power Management Unit (PMU) which controls power and
@@ -26,7 +26,7 @@ config EXYNOS5433_PMU
 
 config EXYNOS_PM
 	bool "Support Exynos Low Power Management"
-	depends on ARCH_EXYNOS
+	depends on ARCH_EXYNOS && ARM64
 	help
 	  This option supports Exynos to enter suspend with doing some SoC
 	  specific requirements.
