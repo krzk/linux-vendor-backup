@@ -250,6 +250,10 @@ struct log_buffer {
 	u64 next_seq;
 #ifdef CONFIG_PRINTK
 	u32 next_idx;		/* index of the next record to store */
+/* sequence number of the next record to read after last 'clear' command */
+	u64 clear_seq;
+/* index of the next record to read after last 'clear' command */
+	u32 clear_idx;
 	int mode;		/* mode of device */
 	int minor;		/* minor representing buffer device */
 #endif
@@ -266,10 +270,6 @@ static size_t syslog_partial;
 static u64 console_seq;
 static u32 console_idx;
 static enum log_flags console_prev;
-
-/* the next printk record to read after the last 'clear' command */
-static u64 clear_seq;
-static u32 clear_idx;
 
 #define PREFIX_MAX		32
 #define LOG_LINE_MAX		(1024 - PREFIX_MAX)
@@ -294,6 +294,8 @@ static struct log_buffer log_buf = {
 	.first_idx	= 0,
 	.next_seq	= 0,
 	.next_idx	= 0,
+	.clear_seq	= 0,
+	.clear_idx	= 0,
 	.mode		= 0,
 	.minor		= 0,
 };
@@ -1086,18 +1088,14 @@ static loff_t kmsg_llseek(struct log_buffer *log_b, struct file *file,
 		user->seq = log_b->first_seq;
 		break;
 	case SEEK_DATA:
-		/* no clear index for kmsg_sys buffers */
-		if (log_b != &log_buf) {
-			ret = -EINVAL;
-			break;
-		}
 		/*
 		 * The first record after the last SYSLOG_ACTION_CLEAR,
-		 * like issued by 'dmesg -c'. Reading /dev/kmsg itself
-		 * changes no global state, and does not clear anything.
+		 * like issued by 'dmesg -c' or KMSG_CMD_CLEAR ioctl
+		 * command. Reading /dev/kmsg itself changes no global
+		 * state, and does not clear anything.
 		 */
-		user->idx = clear_idx;
-		user->seq = clear_seq;
+		user->idx = log_b->clear_idx;
+		user->seq = log_b->clear_seq;
 		break;
 	case SEEK_END:
 		/* after the last record */
@@ -1237,6 +1235,56 @@ static int devkmsg_open(struct inode *inode, struct file *file)
 	return ret;
 }
 
+static long kmsg_ioctl(struct log_buffer *log_b, unsigned int cmd,
+		       unsigned long arg)
+{
+	void __user *argp = (void __user *)arg;
+	static const u32 read_size_max = CONSOLE_EXT_LOG_MAX;
+
+	switch (cmd) {
+	case KMSG_CMD_GET_BUF_SIZE:
+		if (copy_to_user(argp, &log_b->len, sizeof(u32)))
+			return -EFAULT;
+		break;
+	case KMSG_CMD_GET_READ_SIZE_MAX:
+		if (copy_to_user(argp, &read_size_max, sizeof(u32)))
+			return -EFAULT;
+		break;
+	case KMSG_CMD_CLEAR:
+		if (!capable(CAP_SYSLOG))
+			return -EPERM;
+		raw_spin_lock_irq(&log_b->lock);
+		log_b->clear_seq = log_b->next_seq;
+		log_b->clear_idx = log_b->next_idx;
+		raw_spin_unlock_irq(&log_b->lock);
+		break;
+	default:
+		return -ENOTTY;
+	}
+	return 0;
+}
+
+static long devkmsg_ioctl(struct file *file, unsigned int cmd,
+			  unsigned long arg)
+{
+	long ret = -ENXIO;
+	int minor = iminor(file->f_inode);
+	struct log_buffer *log_b;
+
+	if (minor == log_buf.minor)
+		return kmsg_ioctl(&log_buf, cmd, arg);
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(log_b, &log_buf.list, list) {
+		if (log_b->minor == minor) {
+			ret = kmsg_ioctl(log_b, cmd, arg);
+			break;
+		}
+	}
+	rcu_read_unlock();
+	return ret;
+}
+
 static int devkmsg_release(struct inode *inode, struct file *file)
 {
 	struct devkmsg_user *user = file->private_data;
@@ -1255,6 +1303,8 @@ const struct file_operations kmsg_fops = {
 	.write_iter = devkmsg_write,
 	.llseek = devkmsg_llseek,
 	.poll = devkmsg_poll,
+	.unlocked_ioctl = devkmsg_ioctl,
+	.compat_ioctl = devkmsg_ioctl,
 	.release = devkmsg_release,
 };
 
@@ -1859,18 +1909,18 @@ static int syslog_print_all(char __user *buf, int size, bool clear)
 		u32 idx;
 		enum log_flags prev;
 
-		if (clear_seq < log_buf.first_seq) {
+		if (log_buf.clear_seq < log_buf.first_seq) {
 			/* messages are gone, move to first available one */
-			clear_seq = log_buf.first_seq;
-			clear_idx = log_buf.first_idx;
+			log_buf.clear_seq = log_buf.first_seq;
+			log_buf.clear_idx = log_buf.first_idx;
 		}
 
 		/*
 		 * Find first record that fits, including all following records,
 		 * into the user-provided buffer for this dump.
 		 */
-		seq = clear_seq;
-		idx = clear_idx;
+		seq = log_buf.clear_seq;
+		idx = log_buf.clear_idx;
 		prev = 0;
 		while (seq < log_buf.next_seq) {
 			struct printk_log *msg = log_from_idx(&log_buf, idx);
@@ -1882,8 +1932,8 @@ static int syslog_print_all(char __user *buf, int size, bool clear)
 		}
 
 		/* move first record forward until length fits into the buffer */
-		seq = clear_seq;
-		idx = clear_idx;
+		seq = log_buf.clear_seq;
+		idx = log_buf.clear_idx;
 		prev = 0;
 		while (len > size && seq < log_buf.next_seq) {
 			struct printk_log *msg = log_from_idx(&log_buf, idx);
@@ -1929,8 +1979,8 @@ static int syslog_print_all(char __user *buf, int size, bool clear)
 	}
 
 	if (clear) {
-		clear_seq = log_buf.next_seq;
-		clear_idx = log_buf.next_idx;
+		log_buf.clear_seq = log_buf.next_seq;
+		log_buf.clear_idx = log_buf.next_idx;
 	}
 	raw_spin_unlock_irq(&log_buf.lock);
 
@@ -3310,8 +3360,8 @@ void kmsg_dump(enum kmsg_dump_reason reason)
 		dumper->active = true;
 
 		raw_spin_lock_irqsave(&log_buf.lock, flags);
-		dumper->cur_seq = clear_seq;
-		dumper->cur_idx = clear_idx;
+		dumper->cur_seq = log_buf.clear_seq;
+		dumper->cur_idx = log_buf.clear_idx;
 		dumper->next_seq = log_buf.next_seq;
 		dumper->next_idx = log_buf.next_idx;
 		raw_spin_unlock_irqrestore(&log_buf.lock, flags);
@@ -3517,8 +3567,8 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_buffer);
  */
 void kmsg_dump_rewind_nolock(struct kmsg_dumper *dumper)
 {
-	dumper->cur_seq = clear_seq;
-	dumper->cur_idx = clear_idx;
+	dumper->cur_seq = log_buf.clear_seq;
+	dumper->cur_idx = log_buf.clear_idx;
 	dumper->next_seq = log_buf.next_seq;
 	dumper->next_idx = log_buf.next_idx;
 }
