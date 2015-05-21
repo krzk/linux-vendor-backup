@@ -1027,7 +1027,6 @@ static int fimd_bind(struct device *dev, struct device *master, void *data)
 	struct exynos_drm_plane *exynos_plane;
 	enum drm_plane_type type;
 	unsigned int zpos;
-	int ret;
 
 	ctx->drm_dev = drm_dev;
 	ctx->pipe = priv->pipe++;
