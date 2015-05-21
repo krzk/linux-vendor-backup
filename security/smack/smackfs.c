@@ -569,23 +569,17 @@ static void *smk_seq_start(struct seq_file *s, loff_t *pos,
 				struct list_head *head)
 {
 	struct list_head *list;
+	int i = *pos;
 
-	/*
-	 * This is 0 the first time through.
-	 */
-	if (s->index == 0)
-		s->private = head;
+	rcu_read_lock();
+	for (list = rcu_dereference(list_next_rcu(head));
+		list != head;
+		list = rcu_dereference(list_next_rcu(list))) {
+		if (i-- == 0)
+			return list;
+	}
 
-	if (s->private == NULL)
-		return NULL;
-
-	list = s->private;
-	if (list_empty(list))
-		return NULL;
-
-	if (s->index == 0)
-		return list->next;
-	return list;
+	return NULL;
 }
 
 static void *smk_seq_next(struct seq_file *s, void *v, loff_t *pos,
@@ -593,17 +587,15 @@ static void *smk_seq_next(struct seq_file *s, void *v, loff_t *pos,
 {
 	struct list_head *list = v;
 
-	if (list_is_last(list, head)) {
-		s->private = NULL;
-		return NULL;
-	}
-	s->private = list->next;
-	return list->next;
+	++*pos;
+	list = rcu_dereference(list_next_rcu(list));
+
+	return (list == head) ? NULL : list;
 }
 
 static void smk_seq_stop(struct seq_file *s, void *v)
 {
-	/* No-op */
+	rcu_read_unlock();
 }
 
 static void smk_rule_show(struct seq_file *s, struct smack_rule *srp, int max)
@@ -663,7 +655,7 @@ static int load_seq_show(struct seq_file *s, void *v)
 {
 	struct list_head *list = v;
 	struct smack_master_list *smlp =
-		 list_entry(list, struct smack_master_list, list);
+		list_entry_rcu(list, struct smack_master_list, list);
 
 	smk_rule_show(s, smlp->smk_rule, SMK_LABELLEN);
 
@@ -876,7 +868,7 @@ static int cipso_seq_show(struct seq_file *s, void *v)
 {
 	struct list_head  *list = v;
 	struct smack_known *skp =
-		 list_entry(list, struct smack_known, list);
+		list_entry_rcu(list, struct smack_known, list);
 	struct netlbl_lsm_catmap *cmp = skp->smk_netlabel.attr.mls.cat;
 	char sep = '/';
 	int i;
@@ -1067,7 +1059,7 @@ static int cipso2_seq_show(struct seq_file *s, void *v)
 {
 	struct list_head  *list = v;
 	struct smack_known *skp =
-		 list_entry(list, struct smack_known, list);
+		list_entry_rcu(list, struct smack_known, list);
 	struct netlbl_lsm_catmap *cmp = skp->smk_netlabel.attr.mls.cat;
 	char sep = '/';
 	int i;
@@ -1151,7 +1143,7 @@ static int netlbladdr_seq_show(struct seq_file *s, void *v)
 {
 	struct list_head *list = v;
 	struct smk_netlbladdr *skp =
-			 list_entry(list, struct smk_netlbladdr, list);
+			list_entry_rcu(list, struct smk_netlbladdr, list);
 	unsigned char *hp = (char *) &skp->smk_host.sin_addr.s_addr;
 	int maskn;
 	u32 temp_mask = be32_to_cpu(skp->smk_mask.s_addr);
@@ -1985,7 +1977,7 @@ static int load_self_seq_show(struct seq_file *s, void *v)
 {
 	struct list_head *list = v;
 	struct smack_rule *srp =
-		 list_entry(list, struct smack_rule, list);
+		list_entry_rcu(list, struct smack_rule, list);
 
 	smk_rule_show(s, srp, SMK_LABELLEN);
 
@@ -2114,7 +2106,7 @@ static int load2_seq_show(struct seq_file *s, void *v)
 {
 	struct list_head *list = v;
 	struct smack_master_list *smlp =
-		 list_entry(list, struct smack_master_list, list);
+		list_entry_rcu(list, struct smack_master_list, list);
 
 	smk_rule_show(s, smlp->smk_rule, SMK_LONGLABEL);
 
@@ -2191,7 +2183,7 @@ static int load_self2_seq_show(struct seq_file *s, void *v)
 {
 	struct list_head *list = v;
 	struct smack_rule *srp =
-		 list_entry(list, struct smack_rule, list);
+		list_entry_rcu(list, struct smack_rule, list);
 
 	smk_rule_show(s, srp, SMK_LONGLABEL);
 
