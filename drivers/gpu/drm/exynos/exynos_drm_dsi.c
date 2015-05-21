@@ -738,6 +738,14 @@ static void exynos_dsi_disable_clock(struct exynos_dsi *dsi)
 	DSI_WRITE(dsi, DSIM_PLLCTRL_REG, reg);
 }
 
+static void exynos_dsi_enable_lane(struct exynos_dsi *dsi, u32 lane)
+{
+	u32 reg = DSI_READ(dsi, DSIM_CONFIG_REG);
+	reg |= (DSIM_NUM_OF_DATA_LANE(dsi->lanes - 1) | DSIM_LANE_EN_CLK |
+			DSIM_LANE_EN(lane));
+	DSI_WRITE(dsi, DSIM_CONFIG_REG, reg);
+}
+
 static int exynos_dsi_init_link(struct exynos_dsi *dsi)
 {
 	struct exynos_dsi_driver_data *driver_data = dsi->driver_data;
@@ -810,17 +818,6 @@ static int exynos_dsi_init_link(struct exynos_dsi *dsi)
 		return -EINVAL;
 	}
 
-	reg |= DSIM_NUM_OF_DATA_LANE(dsi->lanes - 1);
-
-	DSI_WRITE(dsi, DSIM_CONFIG_REG, reg);
-
-	reg |= DSIM_LANE_EN_CLK;
-	DSI_WRITE(dsi, DSIM_CONFIG_REG, reg);
-
-	lanes_mask = BIT(dsi->lanes) - 1;
-	reg |= DSIM_LANE_EN(lanes_mask);
-	DSI_WRITE(dsi, DSIM_CONFIG_REG, reg);
-
 	/*
 	 * Use non-continuous clock mode if the periparal wants and
 	 * host controller supports
@@ -832,8 +829,11 @@ static int exynos_dsi_init_link(struct exynos_dsi *dsi)
 	if (driver_data->has_clklane_stop &&
 			dsi->mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS) {
 		reg |= DSIM_CLKLANE_STOP;
-		DSI_WRITE(dsi, DSIM_CONFIG_REG, reg);
 	}
+	DSI_WRITE(dsi, DSIM_CONFIG_REG, reg);
+
+	lanes_mask = BIT(dsi->lanes) - 1;
+	exynos_dsi_enable_lane(dsi, lanes_mask);
 
 	/* Check clock and data lane state are stop state */
 	timeout = 100;
@@ -1296,6 +1296,10 @@ static int exynos_dsi_init(struct exynos_dsi *dsi)
 
 	exynos_dsi_reset(dsi);
 	exynos_dsi_enable_irq(dsi);
+
+	if (driver_data->values[RESET_TYPE] == DSIM_FUNCRST)
+		exynos_dsi_enable_lane(dsi, BIT(dsi->lanes) - 1);
+
 	exynos_dsi_enable_clock(dsi);
 	if (driver_data->wait_for_reset)
 		exynos_dsi_wait_for_reset(dsi);
