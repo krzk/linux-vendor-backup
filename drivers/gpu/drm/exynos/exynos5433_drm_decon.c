@@ -100,6 +100,13 @@ static void decon_disable_vblank(struct exynos_drm_crtc *crtc)
 		writel(0, ctx->addr + DECON_VIDINTCON0);
 }
 
+static void decon_setup_trigger(struct decon_context *ctx)
+{
+	u32 val = TRIGCON_TRIGEN_PER_F | TRIGCON_TRIGEN_F |
+			TRIGCON_TE_AUTO_MASK | TRIGCON_SWTRIGEN;
+	writel(val, ctx->addr + DECON_TRIGCON);
+}
+
 static void decon_commit(struct exynos_drm_crtc *crtc)
 {
 	struct decon_context *ctx = crtc->ctx;
@@ -144,10 +151,7 @@ static void decon_commit(struct exynos_drm_crtc *crtc)
 		writel(val, ctx->addr + DECON_VIDTCON11);
 	}
 
-	/* sw trigger enable */
-	val = TRIGCON_TRIGEN_PER_F | TRIGCON_TRIGEN_F | TRIGCON_TE_AUTO_MASK |
-		TRIGCON_SWTRIGEN;
-	writel(val, ctx->addr + DECON_TRIGCON);
+	decon_setup_trigger(ctx);
 
 	/* enable output and display signal */
 	val = VIDCON0_ENVID | VIDCON0_ENVID_F;
@@ -395,6 +399,8 @@ static void decon_apply(struct decon_context *ctx)
 {
 	struct decon_win_data *win_data;
 	int i;
+
+	decon_setup_trigger(ctx);
 
 	for (i = 0; i < WINDOWS_NR; i++) {
 		win_data = &ctx->win_data[i];
