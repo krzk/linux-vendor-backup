@@ -2196,14 +2196,6 @@ static bool arm_setup_iommu_dma_ops(struct device *dev, u64 dma_base, u64 size,
 		return false;
 	}
 
-	if (arm_iommu_init_reserved(dev, mapping) != 0) {
-		pr_warn("Failed to initialize reserved mapping for device %s\n",
-			dev_name(dev));
-		__arm_iommu_detach_device(dev);
-		arm_iommu_release_mapping(mapping);
-		return false;
-	}
-
 	if (__arm_iommu_attach_device(dev, mapping)) {
 		pr_warn("Failed to attached device %s to IOMMU_mapping\n",
 				dev_name(dev));
