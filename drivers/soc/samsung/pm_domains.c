@@ -23,7 +23,10 @@
 #include <linux/sched.h>
 #include <linux/soc/samsung/pm_domain.h>
 
-#define INT_LOCAL_PWR_EN	0xF
+struct exynos_pm_domain_config {
+	/* Value for LOCAL_PWR_CFG and STATUS fields for each domain */
+	u32	local_pwr_cfg;
+};
 
 /*
  * Exynos specific wrapper around the generic power domain
@@ -40,6 +43,7 @@ struct exynos_pm_domain {
 	struct clk **pclk;
 	int nr_asb_clks;
 	struct clk **asb_clk;
+	u32 local_pwr_cfg;
 };
 
 int exynos_pd_notifier_register(struct generic_pm_domain *domain,
@@ -113,13 +117,13 @@ static int exynos_pd_power(struct generic_pm_domain *domain, bool power_on)
 		}
 	}
 
-	pwr = power_on ? INT_LOCAL_PWR_EN : 0;
+	pwr = power_on ? pd->local_pwr_cfg : 0;
 	__raw_writel(pwr, base);
 
 	/* Wait max 1ms */
 	timeout = 100;
 
-	while ((__raw_readl(base + 0x4) & INT_LOCAL_PWR_EN) != pwr) {
+	while ((__raw_readl(base + 0x4) & pd->local_pwr_cfg) != pwr) {
 		if (!timeout) {
 			op = (power_on) ? "enable" : "disable";
 			pr_err("Power domain %s %s failed\n", domain->name, op);
@@ -164,17 +168,33 @@ static int exynos_pd_power_off(struct generic_pm_domain *domain)
 	return exynos_pd_power(domain, false);
 }
 
+static const struct exynos_pm_domain_config exynos5433_cfg __initconst = {
+	.local_pwr_cfg		= 0xf,
+};
+
+static const struct of_device_id exynos_pm_domain_of_match[] __initconst = {
+	{
+		.compatible = "samsung,exynos4210-pd",
+		.data = &exynos5433_cfg,
+	},
+	{ },
+};
+
 static __init int exynos4_pm_init_power_domain(void)
 {
 	struct device_node *np;
+	const struct of_device_id *match;
 	int nr_clks;
 
-	for_each_compatible_node(np, NULL, "samsung,exynos4210-pd") {
+	for_each_matching_node_and_match(np, exynos_pm_domain_of_match, &match) {
+		const struct exynos_pm_domain_config *pm_domain_cfg;
 		struct exynos_pm_domain *pd;
 		int on, i;
 
 		if (!of_device_is_available(np))
 			continue;
+
+		pm_domain_cfg = match->data;
 
 		pd = kzalloc(sizeof(*pd), GFP_KERNEL);
 		if (!pd) {
@@ -189,6 +209,7 @@ static __init int exynos4_pm_init_power_domain(void)
 		pd->base = of_iomap(np, 0);
 		pd->pd.power_off = exynos_pd_power_off;
 		pd->pd.power_on = exynos_pd_power_on;
+		pd->local_pwr_cfg = pm_domain_cfg->local_pwr_cfg;
 
 		ATOMIC_INIT_NOTIFIER_HEAD(&pd->nh);
 
@@ -220,14 +241,14 @@ static __init int exynos4_pm_init_power_domain(void)
 			pd->nr_reparent_clks = nr_clks;
 		}
 
-		on = __raw_readl(pd->base + 0x4) & INT_LOCAL_PWR_EN;
+		on = __raw_readl(pd->base + 0x4) & pd->local_pwr_cfg;
 
 		pm_genpd_init(&pd->pd, NULL, !on);
 		of_genpd_add_provider_simple(np, &pd->pd);
 	}
 
 	/* Assign the child power domains to their parents */
-	for_each_compatible_node(np, NULL, "samsung,exynos4210-pd") {
+	for_each_matching_node(np, exynos_pm_domain_of_match) {
 		struct generic_pm_domain *child_domain, *parent_domain;
 		struct of_phandle_args args;
 
