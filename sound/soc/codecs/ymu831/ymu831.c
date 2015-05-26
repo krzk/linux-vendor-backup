@@ -5265,7 +5265,7 @@ static int mc_asoc_hw_params(
 	struct snd_soc_codec	*codec	= NULL;
 	struct mc_asoc_data	*mc_asoc	= NULL;
 	struct mc_asoc_port_params	*port	= NULL;
-	int	dir	= substream->stream;
+	int	dir;
 	int	rate;
 	int	err	= 0;
 	int	id;
@@ -5284,6 +5284,8 @@ static int mc_asoc_hw_params(
 		dbg_info("dai->id=%d\n", id);
 		return -EINVAL;
 	}
+
+	dir	= substream->stream;
 
 	dbg_info("hw_params: [%d] name=%s, dir=%d, rate=%d, bits=%d, ch=%d\n",
 		id,
@@ -5467,7 +5469,7 @@ static int mc_asoc_hw_free(
 	struct snd_soc_codec	*codec	= NULL;
 	struct mc_asoc_data	*mc_asoc	= NULL;
 	struct mc_asoc_port_params	*port	= NULL;
-	int	dir	= substream->stream;
+	int	dir;
 	int	err	= 0;
 
 	/* TRACE_FUNC(); */
@@ -5476,6 +5478,7 @@ static int mc_asoc_hw_free(
 	|| (dai == NULL))
 		return -EINVAL;
 
+	dir	= substream->stream;
 	codec	= dai->codec;
 	mc_asoc	= mc_asoc_get_mc_asoc(codec);
 	if ((codec == NULL)
