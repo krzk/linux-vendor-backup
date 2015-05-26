@@ -28,6 +28,7 @@
 #include <linux/slab.h>
 #include <linux/syscalls.h>
 #include <linux/uio.h>
+#include <linux/security.h>
 
 #include "util.h"
 #include "domain.h"
@@ -514,12 +515,17 @@ int kdbus_queue_entry_install(struct kdbus_queue_entry *entry,
 
 		for (i = 0; i < res->fds_count; i++) {
 			if (install_fds) {
-				fds[i] = get_unused_fd_flags(O_CLOEXEC);
-				if (fds[i] >= 0)
-					fd_install(fds[i],
-						   get_file(res->fds[i]));
-				else
+				if (security_file_receive(res->fds[i])) {
+					fds[i] = -1;
 					incomplete_fds = true;
+				} else {
+					fds[i] = get_unused_fd_flags(O_CLOEXEC);
+					if (fds[i] >= 0)
+						fd_install(fds[i],
+							get_file(res->fds[i]));
+					else
+						incomplete_fds = true;
+				}
 			} else {
 				fds[i] = -1;
 			}
@@ -557,13 +563,17 @@ int kdbus_queue_entry_install(struct kdbus_queue_entry *entry,
 		m.fd = -1;
 
 		if (install_fds) {
-			m.fd = get_unused_fd_flags(O_CLOEXEC);
-			if (m.fd < 0) {
-				m.fd = -1;
+			if (security_file_receive(d->memfd.file)) {
 				incomplete_fds = true;
 			} else {
-				fd_install(m.fd,
-					   get_file(d->memfd.file));
+				m.fd = get_unused_fd_flags(O_CLOEXEC);
+				if (m.fd < 0) {
+					m.fd = -1;
+					incomplete_fds = true;
+				} else {
+					fd_install(m.fd,
+						get_file(d->memfd.file));
+				}
 			}
 		}
 

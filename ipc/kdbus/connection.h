@@ -73,6 +73,7 @@ struct kdbus_kmsg;
  * @names_queue_list:	Well-known names this connection waits for
  * @privileged:		Whether this connection is privileged on the bus
  * @faked_meta:		Whether the metadata was faked on HELLO
+ * @security:		LSM security blob
  */
 struct kdbus_conn {
 	struct kref kref;
@@ -113,6 +114,10 @@ struct kdbus_conn {
 
 	bool privileged:1;
 	bool faked_meta:1;
+
+#ifdef CONFIG_SECURITY
+	void *security;
+#endif
 };
 
 struct kdbus_conn *kdbus_conn_ref(struct kdbus_conn *conn);
