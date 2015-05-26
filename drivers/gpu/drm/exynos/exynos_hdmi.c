@@ -726,7 +726,7 @@ static inline u32 hdmi_reg_read(struct hdmi_context *hdata, u32 reg_id)
 static inline void hdmi_reg_writeb(struct hdmi_context *hdata,
 				 u32 reg_id, u8 value)
 {
-	writeb(value, hdata->regs + reg_id);
+	writel(value, hdata->regs + reg_id);
 }
 
 static inline void hdmi_reg_writemask(struct hdmi_context *hdata,
@@ -752,7 +752,7 @@ static int hdmiphy_reg_writeb(struct hdmi_context *hdata,
 			return 0;
 		return ret;
 	} else {
-		writeb(value, hdata->regs_hdmiphy + (reg_offset<<2));
+		writel(value, hdata->regs_hdmiphy + (reg_offset << 2));
 		return 0;
 	}
 }
@@ -773,8 +773,8 @@ static int hdmiphy_reg_write_buf(struct hdmi_context *hdata,
 	} else {
 		int i;
 		for (i = 0; i < len; i++)
-			writeb(buf[i], hdata->regs_hdmiphy +
-				((reg_offset + i)<<2));
+			writel(buf[i], hdata->regs_hdmiphy +
+				((reg_offset + i) << 2));
 		return 0;
 	}
 }
