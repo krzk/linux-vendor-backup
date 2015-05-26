@@ -85,6 +85,9 @@
 #define VIDCON0_STOP_STATUS		(1 << 2)
 #define VIDCON0_ENVID			(1 << 1)
 #define VIDCON0_ENVID_F			(1 << 0)
+#define VIDCON0_VLCKFREE		(1 << 5)
+#define VIDCON0_CLKVALUP		(1 << 14)
+#define VIDCON0_SWRESET			(1 << 28)
 
 /* VIDOUTCON0 */
 #define VIDOUT_LCD_ON			(1 << 24)
@@ -133,9 +136,15 @@
 /* DECON_CMU */
 #define CMU_CLKGAGE_MODE_SFR_F		(1 << 1)
 #define CMU_CLKGAGE_MODE_MEM_F		(1 << 0)
+#define CMU_CLKGATE_MASK		(0x3)
 
 /* DECON_UPDATE */
 #define STANDALONE_UPDATE_F		(1 << 0)
+
+/* DECON_VIDCON1 */
+#define VIDCON1_VCLK_MASK			(0x3 << 9)
+#define VIDCON1_VCLK_HOLD			(0x0 << 9)
+#define VIDCON1_VCLK_RUN			(0x1 << 9)
 
 /* DECON_VIDTCON00 */
 #define VIDTCON00_VBPD_F(x)		(((x) & 0xfff) << 16)
@@ -156,10 +165,34 @@
 #define VIDTCON2_HOZVAL(x)		((x) & 0xfff)
 
 /* TRIGCON */
-#define TRIGCON_TRIGEN_PER_F		(1 << 31)
-#define TRIGCON_TRIGEN_F		(1 << 30)
-#define TRIGCON_TE_AUTO_MASK		(1 << 29)
-#define TRIGCON_SWTRIGCMD		(1 << 1)
-#define TRIGCON_SWTRIGEN		(1 << 0)
+#define BLENDCON_NEW_MASK			(1 << 0)
+#define BLENDCON_NEW_8BIT_ALPHA_VALUE		(1 << 0)
+#define BLENDCON_NEW_4BIT_ALPHA_VALUE		(0 << 0)
+
+#define TRIGCON_TRIGEN_PER_F			(1 << 31)
+#define TRIGCON_TRIGEN_F			(1 << 30)
+#define TRIGCON_TE_AUTO_MASK			(1 << 29)
+#define TRIGCON_WB_SWTRIGCMD			(1 << 28)
+#define TRIGCON_SWTRIGCMD_W4BUF			(1 << 26)
+#define TRIGCON_TRIGMODE_W4BUF			(1 << 25)
+#define TRIGCON_SWTRIGCMD_W3BUF			(1 << 21)
+#define TRIGCON_TRIGMODE_W3BUF			(1 << 20)
+#define TRIGCON_SWTRIGCMD_W2BUF			(1 << 16)
+#define TRIGCON_TRIGMODE_W2BUF			(1 << 15)
+#define TRIGCON_SWTRIGCMD_W1BUF			(1 << 11)
+#define TRIGCON_TRIGMODE_W1BUF			(1 << 10)
+#define TRIGCON_SWTRIGCMD_W0BUF			(1 << 6)
+#define TRIGCON_TRIGMODE_W0BUF			(1 << 5)
+#define TRIGCON_HWTRIGMASK_I80_RGB		(1 << 4)
+#define TRIGCON_HWTRIGEN_I80_RGB		(1 << 3)
+#define TRIGCON_HWTRIG_INV_I80_RGB		(1 << 2)
+#define TRIGCON_SWTRIGCMD			(1 << 1)
+#define TRIGCON_SWTRIGEN			(1 << 0)
+#define TRIGCON_MASK				(0xC0000018)
+
+#define CRCCTRL_CRCCLKEN			(0x1 << 2)
+#define CRCCTRL_CRCSTART_F			(0x1 << 1)
+#define CRCCTRL_CRCEN				(0x1 << 0)
+#define CRCCTRL_MASK				(0x7)
 
 #endif /* EXYNOS_REGS_DECON_H */
