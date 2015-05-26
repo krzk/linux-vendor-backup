@@ -53,6 +53,7 @@ struct msg_queue;
 struct xattr;
 struct xfrm_sec_ctx;
 struct mm_struct;
+struct kdbus_conn;
 
 /* Maximum number of letters for an LSM name string */
 #define SECURITY_NAME_MAX	10
@@ -1455,6 +1456,20 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
  * 	@inode we wish to get the security context of.
  *	@ctx is a pointer in which to place the allocated security context.
  *	@ctxlen points to the place to put the length of @ctx.
+ *
+ * Security hooks for kdbus
+ *
+ * @kdbus_conn_alloc:
+ *	Allocate and initialize security related part of kdbus connection.
+ *	Return 0 on success.
+ *
+ * @kdbus_conn_free:
+ *	Deallocate security related part of kdbus connection.
+ *
+ * @kdbus_talk:
+ *	Check if peers can talk to each other.
+ *	Return 0 if permission is granted.
+ *
  * This is the main security structure.
  */
 struct security_operations {
@@ -1671,6 +1686,13 @@ struct security_operations {
 	int (*inode_notifysecctx)(struct inode *inode, void *ctx, u32 ctxlen);
 	int (*inode_setsecctx)(struct dentry *dentry, void *ctx, u32 ctxlen);
 	int (*inode_getsecctx)(struct inode *inode, void **ctx, u32 *ctxlen);
+
+#ifdef CONFIG_KDBUS
+	int (*kdbus_conn_alloc)(struct kdbus_conn *conn);
+	void (*kdbus_conn_free)(struct kdbus_conn *conn);
+	int (*kdbus_talk)(const struct kdbus_conn *src,
+			  const struct kdbus_conn *dst);
+#endif /* CONFIG_KDBUS */
 
 #ifdef CONFIG_SECURITY_NETWORK
 	int (*unix_stream_connect) (struct sock *sock, struct sock *other, struct sock *newsk);
@@ -3093,6 +3115,34 @@ static inline int security_path_chroot(struct path *path)
 	return 0;
 }
 #endif	/* CONFIG_SECURITY_PATH */
+
+#ifdef CONFIG_KDBUS
+#ifdef CONFIG_SECURITY
+
+int security_kdbus_conn_alloc(struct kdbus_conn *conn);
+void security_kdbus_conn_free(struct kdbus_conn *conn);
+int security_kdbus_talk(const struct kdbus_conn *src,
+			const struct kdbus_conn *dst);
+
+#else /* CONFIG_SECURITY */
+
+static inline int security_kdbus_conn_alloc(struct kdbus_conn *conn)
+{
+	return 0;
+}
+
+static inline void security_kdbus_conn_free(struct kdbus_conn *conn)
+{
+}
+
+static inline int security_kdbus_talk(const struct kdbus_conn *src,
+				      const struct kdbus_conn *dst)
+{
+	return 0;
+}
+
+#endif /* CONFIG_SECURITY */
+#endif /* CONFIG_KDBUS */
 
 #ifdef CONFIG_KEYS
 #ifdef CONFIG_SECURITY
