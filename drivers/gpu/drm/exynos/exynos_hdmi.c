@@ -55,14 +55,26 @@
 
 /* AVI header and aspect ratio */
 #define HDMI_AVI_VERSION		0x02
-#define HDMI_AVI_LENGTH		0x0D
+#define HDMI_AVI_LENGTH			0x0D
+#define AVI_PICTURE_AR_NO_DATA		(0 << 4)
+#define AVI_PICTURE_AR_4_3		(1 << 4)
+#define AVI_PICTURE_AR_16_9		(2 << 4)
+#define AVI_PICTURE_AR_FUTURE		(3 << 4)
+#define AVI_ACTIVE_AR_SAME_AS_PIC	0x8
+#define AVI_ACTIVE_AR_4_3_CENTER	0x9
+#define AVI_ACTIVE_AR_16_9_CENTER	0xa
+#define AVI_ACTIVE_AR_14_9_CENTER	0xb
 
 /* AUI header info */
-#define HDMI_AUI_VERSION	0x01
-#define HDMI_AUI_LENGTH	0x0A
-#define AVI_SAME_AS_PIC_ASPECT_RATIO 0x8
-#define AVI_4_3_CENTER_RATIO	0x9
-#define AVI_16_9_CENTER_RATIO	0xa
+#define HDMI_AUI_VERSION		0x01
+#define HDMI_AUI_LENGTH			0x0A
+#define HDMI_AUI_DATA_CC_2CH		(0x1 << 0)
+#define HDMI_AUI_DATA_CC_6CH		(0x5 << 0)
+#define HDMI_AUI_DATA_CC_8CH		(0x7 << 0)
+#define HDMI_AUI_DATA_CA_2CH		(0x0 << 0)
+#define HDMI_AUI_DATA_CA_6CH		(0xb << 0)
+#define HDMI_AUI_DATA_CA_8CH		(0x13 << 0)
+
 
 enum hdmi_type {
 	HDMI_TYPE13,
@@ -1063,6 +1075,7 @@ static void hdmi_reg_infoframe(struct hdmi_context *hdata,
 	u8 chksum;
 	u32 mod;
 	u32 vic;
+	u8 ar;
 
 	mod = hdmi_reg_read(hdata, HDMI_MODE_SEL);
 	if (hdata->dvi_mode) {
@@ -1086,31 +1099,26 @@ static void hdmi_reg_infoframe(struct hdmi_context *hdata,
 
 		/* Output format zero hardcoded ,RGB YBCR selection */
 		hdmi_reg_writeb(hdata, HDMI_AVI_BYTE(1), 0 << 5 |
-			AVI_ACTIVE_FORMAT_VALID |
-			AVI_UNDERSCANNED_DISPLAY_VALID);
+			AVI_ACTIVE_FORMAT_VALID);
 
 		/*
 		 * Set the aspect ratio as per the mode, mentioned in
 		 * Table 9 AVI InfoFrame Data Byte 2 of CEA-861-D Standard
 		 */
+		ar = AVI_ACTIVE_AR_SAME_AS_PIC;
 		switch (hdata->mode_conf.aspect_ratio) {
 		case HDMI_PICTURE_ASPECT_4_3:
-			hdmi_reg_writeb(hdata, HDMI_AVI_BYTE(2),
-					hdata->mode_conf.aspect_ratio |
-					AVI_4_3_CENTER_RATIO);
+			ar |= AVI_PICTURE_AR_4_3;
 			break;
 		case HDMI_PICTURE_ASPECT_16_9:
-			hdmi_reg_writeb(hdata, HDMI_AVI_BYTE(2),
-					hdata->mode_conf.aspect_ratio |
-					AVI_16_9_CENTER_RATIO);
+			ar |= AVI_PICTURE_AR_16_9;
 			break;
 		case HDMI_PICTURE_ASPECT_NONE:
 		default:
-			hdmi_reg_writeb(hdata, HDMI_AVI_BYTE(2),
-					hdata->mode_conf.aspect_ratio |
-					AVI_SAME_AS_PIC_ASPECT_RATIO);
+			ar |= AVI_PICTURE_AR_NO_DATA;
 			break;
 		}
+		hdmi_reg_writeb(hdata, HDMI_AVI_BYTE(2), ar);
 
 		vic = hdata->mode_conf.cea_video_id;
 		hdmi_reg_writeb(hdata, HDMI_AVI_BYTE(4), vic);
@@ -1128,6 +1136,9 @@ static void hdmi_reg_infoframe(struct hdmi_context *hdata,
 		hdmi_reg_writeb(hdata, HDMI_AUI_HEADER2, infoframe->any.length);
 		hdr_sum = infoframe->any.type + infoframe->any.version +
 			  infoframe->any.length;
+		hdmi_reg_writeb(hdata, HDMI_AUI_BYTE(1), HDMI_AUI_DATA_CC_2CH);
+		hdmi_reg_writeb(hdata, HDMI_AUI_BYTE(4), HDMI_AUI_DATA_CA_2CH);
+
 		chksum = hdmi_chksum(hdata, HDMI_AUI_BYTE(1),
 					infoframe->any.length, hdr_sum);
 		DRM_DEBUG_KMS("AUI checksum = 0x%x\n", chksum);
