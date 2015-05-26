@@ -149,8 +149,16 @@ static void decon_disable_vblank(struct exynos_drm_crtc *crtc)
 
 static void decon_setup_trigger(struct decon_context *ctx)
 {
-	u32 val = TRIGCON_TRIGEN_PER_F | TRIGCON_TRIGEN_F |
-			TRIGCON_TE_AUTO_MASK | TRIGCON_SWTRIGEN;
+	enum exynos_drm_output_type type = ctx->drv_data->type;
+	u32 val;
+
+	if (type == EXYNOS_DISPLAY_TYPE_HDMI)
+		val = TRIGCON_TRIGEN_PER_F | TRIGCON_TRIGEN_F
+			| TRIGCON_HWTRIGMASK_I80_RGB | TRIGCON_HWTRIGEN_I80_RGB;
+	else
+		val = TRIGCON_TRIGEN_PER_F | TRIGCON_TRIGEN_F
+			| TRIGCON_TE_AUTO_MASK | TRIGCON_SWTRIGEN;
+
 	writel(val, ctx->addr + DECON_TRIGCON);
 }
 
@@ -508,9 +516,8 @@ static void decon_reset(struct decon_context *ctx)
 	decon_set_bits(ctx, DECON_VIDCON1, VIDCON1_VCLK_RUN, VIDCON1_VCLK_MASK);
 	decon_set_bits(ctx, DECON_CRCCTRL, CRCCTRL_MASK,
 		       CRCCTRL_CRCEN | CRCCTRL_CRCSTART_F | CRCCTRL_CRCCLKEN);
-	decon_set_bits(ctx, DECON_TRIGCON, TRIGCON_MASK,
-		       TRIGCON_TRIGEN_PER_I80_RGB_F | TRIGCON_TRIGEN_I80_RGB_F
-		       | TRIGCON_HWTRIGMASK_I80_RGB | TRIGCON_HWTRIGEN_I80_RGB);
+
+	decon_setup_trigger(ctx);
 }
 
 /* this function will be replaced by clk API call */
