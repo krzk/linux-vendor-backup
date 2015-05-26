@@ -630,6 +630,30 @@
 	};
 };
 
+&i2c_2 {
+	samsung,i2c-sda-delay = <100>;
+	samsung,i2c-slave-addr = <0x10>;
+	samsung,i2c-max-bus-freq = <400000>;
+	status = "okay";
+
+	/*
+	 * Although the device is MMS128, try to use mms114 driver
+	 *
+	 * TODO: Add pinctrl default for gpx3-2 (sleep: input, down?)
+	 * TODO: gpa0-6/7 pinctrl, should be pull up/down disabled but other boards set as up
+	 */
+	touchscreen-mms128@48 {
+		compatible = "melfas,mms114";
+		reg = <0x48>;
+		interrupt-parent = <&gpx3>;
+		interrupts = <5 2>;
+		x-size = <320>;
+		y-size = <320>;
+		avdd-supply = <&ldo15_reg>;
+		vdd-supply = <&ldo19_reg>;
+	};
+};
+
 &i2s2 {
 	status = "okay";
 };
