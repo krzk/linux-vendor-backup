@@ -7343,7 +7343,7 @@ static int mc_asoc_write_reg(
 		case	MC_ASOC_DSP_PARAM:
 			{
 			char	*param	= NULL;
-			UINT32	size;
+			SINT32	size;
 			UINT16	option;
 
 			if (value >= ARRAY_SIZE(firmware_name)) {
