@@ -546,7 +546,10 @@ static void decon_dpms_on(struct decon_context *ctx)
 	set_bit(BIT_CLKS_ENABLED, &ctx->enabled);
 
 	decon_reset(ctx);
-	exynos_hdmiphy_enable(ctx->crtc);
+
+	if (ctx->drv_data->type == EXYNOS_DISPLAY_TYPE_HDMI)
+		exynos_hdmiphy_enable(ctx->crtc);
+
 	decon_window_resume(ctx);
 	decon_apply(ctx);
 
