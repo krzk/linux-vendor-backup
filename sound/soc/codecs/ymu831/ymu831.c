@@ -1609,7 +1609,7 @@ static int get_unused_mic_block_on(void)
 }
 
 
-static UINT8 get_incall_mic(
+static int get_incall_mic(
 	struct snd_soc_codec *codec,
 	int	output_path
 )
