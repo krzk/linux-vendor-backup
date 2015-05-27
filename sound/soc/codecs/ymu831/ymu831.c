@@ -8543,10 +8543,6 @@ static int term_irq(void)
 
 	free_irq(mc_asoc->pdata->irq, NULL);
 	destroy_workqueue(my_wq);
-	if (workq_mb4)
-		destroy_workqueue(workq_mb4);
-	if (workq_mkdeten)
-		destroy_workqueue(workq_mkdeten);
 
 	return 0;
 }
