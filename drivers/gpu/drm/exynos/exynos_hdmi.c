@@ -95,6 +95,7 @@ struct hdmi_driver_data {
 	unsigned int is_apb_phy:1;
 	unsigned int is_mux_present:1;
 	unsigned int has_sysreg:1;
+	unsigned int has_phy_power:1;
 	u8 phy_mode_set_done;
 	u32 phy_status;
 	u32 sysreg_clksel;
@@ -687,6 +688,7 @@ static struct hdmi_driver_data exynos5430_hdmi_driver_data = {
 	.phy_conf_count	= ARRAY_SIZE(hdmiphy_5430_configs),
 	.is_apb_phy	= 1,
 	.has_sysreg	= 1,
+	.has_phy_power	= 1,
 	.sysreg_clksel	= EXYNOS5433_SYSREG_DISP_HDMI_PHY,
 	.clk_gates	= INIT_ARRAY_SPEC(hdmi_clk_gates5430),
 	.clk_muxes	= INIT_ARRAY_SPEC(hdmi_clk_muxes5430),
@@ -2141,6 +2143,15 @@ static void hdmi_set_refclk(struct hdmi_context *hdata, u32 val)
 			   SYSREG_HDMI_REFCLK_SEL, val);
 }
 
+static void hdmi_phy_power(struct hdmi_context *hdata, bool enable)
+{
+	if (!hdata->drv_data->has_phy_power)
+		return;
+
+	hdmi_reg_writemask(hdata, HDMI_PHY_CON_0, enable ? 0 : ~0,
+			   HDMI_PHY_POWER_OFF_EN);
+}
+
 static void hdmiphy_wait_for_pll(struct hdmi_context *hdata)
 {
 	int tries;
@@ -2216,7 +2227,7 @@ static void hdmi_poweron(struct hdmi_context *hdata)
 			PMU_HDMI_PHY_ENABLE_BIT, 1);
 
 	hdmi_clk_enable_gates(hdata);
-	hdmiphy_poweron(hdata);
+
 	hdmi_commit(&hdata->display);
 }
 
@@ -2233,6 +2244,8 @@ static void hdmi_poweroff(struct hdmi_context *hdata)
 
 	/* HDMI System Disable */
 	hdmi_reg_writemask(hdata, HDMI_CON_0, 0, HDMI_EN);
+
+	hdmi_phy_power(hdata, false);
 
 	hdmiphy_poweroff(hdata);
 
