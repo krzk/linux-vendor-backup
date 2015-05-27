@@ -1791,6 +1791,8 @@ static void hdmi_v14_mode_apply(struct hdmi_context *hdata)
 	hdmi_reg_writeb(hdata, HDMI_TG_FIELD_BOT_HDMI_H, tg->field_bot_hdmi[1]);
 	hdmi_reg_writeb(hdata, HDMI_TG_3D, tg->tg_3d[0]);
 
+	if (hdata->drv_data == &exynos5430_hdmi_driver_data)
+		hdmi_reg_writeb(hdata, HDMI_TG_DECON_EN, 1);
 
 	/* enable HDMI and timing generator */
 	hdmi_start(hdata, true);
