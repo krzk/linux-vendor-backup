@@ -1791,7 +1791,6 @@ static void hdmi_v14_mode_apply(struct hdmi_context *hdata)
 	hdmi_reg_writeb(hdata, HDMI_TG_FIELD_BOT_HDMI_H, tg->field_bot_hdmi[1]);
 	hdmi_reg_writeb(hdata, HDMI_TG_3D, tg->tg_3d[0]);
 
-	hdmi_clk_set_parents(hdata, true);
 
 	/* enable HDMI and timing generator */
 	hdmi_start(hdata, true);
@@ -1895,9 +1894,6 @@ static void hdmiphy_conf_apply(struct hdmi_context *hdata)
 
 static void hdmi_conf_apply(struct hdmi_context *hdata)
 {
-	hdmiphy_conf_reset(hdata);
-	hdmiphy_conf_apply(hdata);
-
 	mutex_lock(&hdata->hdmi_mutex);
 	hdmi_start(hdata, false);
 	hdmi_conf_init(hdata);
@@ -2164,6 +2160,69 @@ static void hdmiphy_wait_for_pll(struct hdmi_context *hdata)
 	DRM_ERROR("hdmiphy's pll could not reach steady state.\n");
 }
 
+static void hdmiphy_enable(struct hdmi_context *hdata)
+{
+	struct hdmi_resources *res = &hdata->res;
+
+	pm_runtime_get_sync(hdata->dev);
+
+	hdmi_clk_set_parents(hdata, false);
+
+	if (regulator_bulk_enable(res->regul_count, res->regul_bulk))
+		DRM_DEBUG_KMS("failed to enable regulator bulk\n");
+
+	regmap_update_bits(hdata->pmureg, PMU_HDMI_PHY_CONTROL,
+			   PMU_HDMI_PHY_ENABLE_BIT, 1);
+
+	hdmi_set_refclk(hdata, SYSREG_HDMI_REFCLK_INT_CLK);
+
+	hdmi_clk_enable_gates(hdata);
+
+	hdmi_phy_power(hdata, true);
+
+	hdmi_clk_set_parents(hdata, true);
+
+	hdmi_reg_writemask(hdata, HDMI_CORE_RSTOUT, 0, 1);
+	mdelay(10);
+	hdmi_reg_writemask(hdata, HDMI_CORE_RSTOUT, ~0, 1);
+
+	hdmi_reg_writemask(hdata, HDMI_PHY_RSTOUT, ~0, 1);
+	mdelay(10);
+	hdmi_reg_writemask(hdata, HDMI_PHY_RSTOUT, 0, 1);
+
+	hdmiphy_conf_apply(hdata);
+
+	hdmiphy_wait_for_pll(hdata);
+
+	hdmi_reg_writemask(hdata, HDMI_INTC_CON, 0, HDMI_INTC_EN_GLOBAL);
+	hdmi_reg_writemask(hdata, HDMI_MODE_SEL, HDMI_MODE_HDMI_EN,
+			   HDMI_MODE_MASK);
+
+	hdmi_reg_writemask(hdata, HDMI_CON_0, 0, HDMI_BLUE_SCR_EN);
+	hdmi_reg_writeb(hdata, HDMI_AVI_CON, HDMI_AVI_CON_EVERY_VSYNC);
+	hdmi_reg_writeb(hdata, HDMI_AVI_BYTE(1), 0 << 5);
+}
+
+/* This function should be replaced with clk API */
+void exynos_hdmiphy_enable(struct exynos_drm_crtc *crtc)
+{
+	struct hdmi_context *hdata = NULL;
+	struct drm_device *dev = crtc->base.dev;
+	struct drm_connector *connector;
+
+	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
+		if (!connector->encoder || connector->encoder->crtc != &crtc->base)
+			continue;
+
+		hdata = ctx_from_connector(connector);
+	}
+
+	if (!hdata)
+		return;
+
+	hdmiphy_enable(hdata);
+}
+
 static void hdmi_mode_set(struct exynos_drm_display *display,
 			struct drm_display_mode *mode)
 {
@@ -2184,24 +2243,8 @@ static void hdmi_mode_set(struct exynos_drm_display *display,
 		hdmi_v14_mode_set(hdata, mode);
 }
 
-static void hdmi_commit(struct exynos_drm_display *display)
-{
-	struct hdmi_context *hdata = display_to_hdmi(display);
-
-	mutex_lock(&hdata->hdmi_mutex);
-	if (!hdata->powered) {
-		mutex_unlock(&hdata->hdmi_mutex);
-		return;
-	}
-	mutex_unlock(&hdata->hdmi_mutex);
-
-	hdmi_conf_apply(hdata);
-}
-
 static void hdmi_poweron(struct hdmi_context *hdata)
 {
-	struct hdmi_resources *res = &hdata->res;
-
 	mutex_lock(&hdata->hdmi_mutex);
 	if (hdata->powered) {
 		mutex_unlock(&hdata->hdmi_mutex);
@@ -2209,21 +2252,8 @@ static void hdmi_poweron(struct hdmi_context *hdata)
 	}
 
 	hdata->powered = true;
-
 	mutex_unlock(&hdata->hdmi_mutex);
-
-	pm_runtime_get_sync(hdata->dev);
-
-	if (regulator_bulk_enable(res->regul_count, res->regul_bulk))
-		DRM_DEBUG_KMS("failed to enable regulator bulk\n");
-
-	/* set pmu hdmiphy control bit to enable hdmiphy */
-	regmap_update_bits(hdata->pmureg, PMU_HDMI_PHY_CONTROL,
-			PMU_HDMI_PHY_ENABLE_BIT, 1);
-
-	hdmi_clk_enable_gates(hdata);
-
-	hdmi_commit(&hdata->display);
+	hdmi_conf_apply(hdata);
 }
 
 static void hdmi_poweroff(struct hdmi_context *hdata)
@@ -2306,7 +2336,6 @@ static struct exynos_drm_display_ops hdmi_display_ops = {
 	.mode_fixup	= hdmi_mode_fixup,
 	.mode_set	= hdmi_mode_set,
 	.dpms		= hdmi_dpms,
-	.commit		= hdmi_commit,
 };
 
 static void hdmi_hotplug_work_func(struct work_struct *work)
