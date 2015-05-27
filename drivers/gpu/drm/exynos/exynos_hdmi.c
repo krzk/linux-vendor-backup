@@ -95,6 +95,8 @@ struct hdmi_driver_data {
 	unsigned int is_apb_phy:1;
 	unsigned int is_mux_present:1;
 	unsigned int has_sysreg:1;
+	u8 phy_mode_set_done;
+	u32 phy_status;
 	u32 sysreg_clksel;
 	struct str_array_spec clk_gates;
 	struct str_array_spec clk_muxes;
@@ -688,6 +690,8 @@ static struct hdmi_driver_data exynos5430_hdmi_driver_data = {
 	.sysreg_clksel	= EXYNOS5433_SYSREG_DISP_HDMI_PHY,
 	.clk_gates	= INIT_ARRAY_SPEC(hdmi_clk_gates5430),
 	.clk_muxes	= INIT_ARRAY_SPEC(hdmi_clk_muxes5430),
+	.phy_mode_set_done = HDMIPHY5433_MODE_SET_DONE,
+	.phy_status	= HDMI_V14_PHY_STATUS_0,
 };
 
 static struct hdmi_driver_data exynos5420_hdmi_driver_data = {
@@ -698,6 +702,8 @@ static struct hdmi_driver_data exynos5420_hdmi_driver_data = {
 	.is_mux_present	= 1,
 	.clk_gates	= INIT_ARRAY_SPEC(hdmi_clk_gates4),
 	.clk_muxes	= INIT_ARRAY_SPEC(hdmi_clk_muxes4),
+	.phy_mode_set_done = HDMIPHY_MODE_SET_DONE,
+	.phy_status	= HDMI_V14_PHY_STATUS_0,
 };
 
 static struct hdmi_driver_data exynos4212_hdmi_driver_data = {
@@ -708,6 +714,8 @@ static struct hdmi_driver_data exynos4212_hdmi_driver_data = {
 	.is_mux_present	= 1,
 	.clk_gates	= INIT_ARRAY_SPEC(hdmi_clk_gates4),
 	.clk_muxes	= INIT_ARRAY_SPEC(hdmi_clk_muxes4),
+	.phy_mode_set_done = HDMIPHY_MODE_SET_DONE,
+	.phy_status	= HDMI_V14_PHY_STATUS_0,
 };
 
 static struct hdmi_driver_data exynos4210_hdmi_driver_data = {
@@ -718,6 +726,8 @@ static struct hdmi_driver_data exynos4210_hdmi_driver_data = {
 	.is_mux_present	= 1,
 	.clk_gates	= INIT_ARRAY_SPEC(hdmi_clk_gates4),
 	.clk_muxes	= INIT_ARRAY_SPEC(hdmi_clk_muxes4),
+	.phy_mode_set_done = HDMIPHY_MODE_SET_DONE,
+	.phy_status	= HDMI_V13_PHY_STATUS,
 };
 
 static struct hdmi_driver_data exynos5_hdmi_driver_data = {
@@ -728,6 +738,8 @@ static struct hdmi_driver_data exynos5_hdmi_driver_data = {
 	.is_mux_present	= 1,
 	.clk_gates	= INIT_ARRAY_SPEC(hdmi_clk_gates4),
 	.clk_muxes	= INIT_ARRAY_SPEC(hdmi_clk_muxes4),
+	.phy_mode_set_done = HDMIPHY_MODE_SET_DONE,
+	.phy_status	= HDMI_V14_PHY_STATUS_0,
 };
 
 static inline u32 hdmi_reg_read(struct hdmi_context *hdata, u32 reg_id)
@@ -1893,6 +1905,7 @@ static void hdmiphy_conf_apply(struct hdmi_context *hdata)
 {
 	int ret;
 	int i;
+	u8 mode_set_done = hdata->drv_data->phy_mode_set_done;
 
 	/* pixel clock */
 	i = hdmi_find_phy_conf(hdata, hdata->mode_conf.pixel_clock);
@@ -1901,21 +1914,15 @@ static void hdmiphy_conf_apply(struct hdmi_context *hdata)
 		return;
 	}
 
+	hdmiphy_reg_writeb(hdata, mode_set_done, HDMI_PHY_ENABLE_MODE_SET);
+
 	ret = hdmiphy_reg_write_buf(hdata, 0, hdata->phy_confs[i].conf, 32);
 	if (ret) {
 		DRM_ERROR("failed to configure hdmiphy\n");
 		return;
 	}
 
-	usleep_range(10000, 12000);
-
-	ret = hdmiphy_reg_writeb(hdata, HDMIPHY_MODE_SET_DONE,
-				HDMI_PHY_DISABLE_MODE_SET);
-	if (ret) {
-		DRM_ERROR("failed to enable hdmiphy\n");
-		return;
-	}
-
+	hdmiphy_reg_writeb(hdata, mode_set_done, HDMI_PHY_DISABLE_MODE_SET);
 }
 
 static void hdmi_conf_apply(struct hdmi_context *hdata)
