@@ -93,7 +93,6 @@ struct hdmi_driver_data {
 	const struct hdmiphy_config *phy_confs;
 	unsigned int phy_conf_count;
 	unsigned int is_apb_phy:1;
-	unsigned int is_mux_present:1;
 	unsigned int has_sysreg:1;
 	unsigned int has_phy_power:1;
 	u8 phy_mode_set_done;
@@ -701,7 +700,6 @@ static struct hdmi_driver_data exynos5420_hdmi_driver_data = {
 	.phy_confs	= hdmiphy_5420_configs,
 	.phy_conf_count	= ARRAY_SIZE(hdmiphy_5420_configs),
 	.is_apb_phy	= 1,
-	.is_mux_present	= 1,
 	.clk_gates	= INIT_ARRAY_SPEC(hdmi_clk_gates4),
 	.clk_muxes	= INIT_ARRAY_SPEC(hdmi_clk_muxes4),
 	.phy_mode_set_done = HDMIPHY_MODE_SET_DONE,
@@ -713,7 +711,6 @@ static struct hdmi_driver_data exynos4212_hdmi_driver_data = {
 	.phy_confs	= hdmiphy_v14_configs,
 	.phy_conf_count	= ARRAY_SIZE(hdmiphy_v14_configs),
 	.is_apb_phy	= 0,
-	.is_mux_present	= 1,
 	.clk_gates	= INIT_ARRAY_SPEC(hdmi_clk_gates4),
 	.clk_muxes	= INIT_ARRAY_SPEC(hdmi_clk_muxes4),
 	.phy_mode_set_done = HDMIPHY_MODE_SET_DONE,
@@ -725,7 +722,6 @@ static struct hdmi_driver_data exynos4210_hdmi_driver_data = {
 	.phy_confs	= hdmiphy_v13_configs,
 	.phy_conf_count	= ARRAY_SIZE(hdmiphy_v13_configs),
 	.is_apb_phy	= 0,
-	.is_mux_present	= 1,
 	.clk_gates	= INIT_ARRAY_SPEC(hdmi_clk_gates4),
 	.clk_muxes	= INIT_ARRAY_SPEC(hdmi_clk_muxes4),
 	.phy_mode_set_done = HDMIPHY_MODE_SET_DONE,
@@ -737,7 +733,6 @@ static struct hdmi_driver_data exynos5_hdmi_driver_data = {
 	.phy_confs	= hdmiphy_v13_configs,
 	.phy_conf_count	= ARRAY_SIZE(hdmiphy_v13_configs),
 	.is_apb_phy	= 0,
-	.is_mux_present	= 1,
 	.clk_gates	= INIT_ARRAY_SPEC(hdmi_clk_gates4),
 	.clk_muxes	= INIT_ARRAY_SPEC(hdmi_clk_muxes4),
 	.phy_mode_set_done = HDMIPHY_MODE_SET_DONE,
