@@ -1592,7 +1592,6 @@ static void hdmi_v13_mode_apply(struct hdmi_context *hdata)
 	const struct hdmi_tg_regs *tg = &hdata->mode_conf.conf.v13_conf.tg;
 	const struct hdmi_v13_core_regs *core =
 		&hdata->mode_conf.conf.v13_conf.core;
-	int tries;
 
 	/* setting core registers */
 	hdmi_reg_writeb(hdata, HDMI_H_BLANK_0, core->h_blank[0]);
@@ -1650,20 +1649,6 @@ static void hdmi_v13_mode_apply(struct hdmi_context *hdata)
 	hdmi_reg_writeb(hdata, HDMI_TG_FIELD_BOT_HDMI_L, tg->field_bot_hdmi[0]);
 	hdmi_reg_writeb(hdata, HDMI_TG_FIELD_BOT_HDMI_H, tg->field_bot_hdmi[1]);
 
-	/* waiting for HDMIPHY's PLL to get to steady state */
-	for (tries = 100; tries; --tries) {
-		u32 val = hdmi_reg_read(hdata, HDMI_V13_PHY_STATUS);
-		if (val & HDMI_PHY_STATUS_READY)
-			break;
-		usleep_range(1000, 2000);
-	}
-	/* steady state not achieved */
-	if (tries == 0) {
-		DRM_ERROR("hdmiphy's pll could not reach steady state.\n");
-		hdmi_regs_dump(hdata, "timing apply");
-	}
-
-	hdmi_clk_set_parents(hdata, true);
 
 	/* enable HDMI and timing generator */
 	hdmi_start(hdata, true);
@@ -1674,7 +1659,6 @@ static void hdmi_v14_mode_apply(struct hdmi_context *hdata)
 	const struct hdmi_tg_regs *tg = &hdata->mode_conf.conf.v14_conf.tg;
 	const struct hdmi_v14_core_regs *core =
 		&hdata->mode_conf.conf.v14_conf.core;
-	int tries;
 
 	/* setting core registers */
 	hdmi_reg_writeb(hdata, HDMI_H_BLANK_0, core->h_blank[0]);
@@ -1809,19 +1793,6 @@ static void hdmi_v14_mode_apply(struct hdmi_context *hdata)
 	hdmi_reg_writeb(hdata, HDMI_TG_FIELD_BOT_HDMI_L, tg->field_bot_hdmi[0]);
 	hdmi_reg_writeb(hdata, HDMI_TG_FIELD_BOT_HDMI_H, tg->field_bot_hdmi[1]);
 	hdmi_reg_writeb(hdata, HDMI_TG_3D, tg->tg_3d[0]);
-
-	/* waiting for HDMIPHY's PLL to get to steady state */
-	for (tries = 100; tries; --tries) {
-		u32 val = hdmi_reg_read(hdata, HDMI_PHY_STATUS_0);
-		if (val & HDMI_PHY_STATUS_READY)
-			break;
-		usleep_range(1000, 2000);
-	}
-	/* steady state not achieved */
-	if (tries == 0) {
-		DRM_ERROR("hdmiphy's pll could not reach steady state.\n");
-		hdmi_regs_dump(hdata, "timing apply");
-	}
 
 	hdmi_clk_set_parents(hdata, true);
 
@@ -2159,6 +2130,23 @@ static void hdmi_v14_mode_set(struct hdmi_context *hdata,
 	hdmi_set_reg(tg->vsync_top_hdmi, 2, 0x1); /* Reset value */
 	hdmi_set_reg(tg->field_top_hdmi, 2, 0x1); /* Reset value */
 	hdmi_set_reg(tg->tg_3d, 1, 0x0);
+}
+
+static void hdmiphy_wait_for_pll(struct hdmi_context *hdata)
+{
+	int tries;
+
+	for (tries = 0; tries < 100; ++tries) {
+		u32 val = hdmi_reg_read(hdata, hdata->drv_data->phy_status);
+
+		if (val & HDMI_PHY_STATUS_READY) {
+			DRM_INFO("PLL stabilized after %d tries", tries);
+			return;
+		}
+		usleep_range(1000, 2000);
+	}
+
+	DRM_ERROR("hdmiphy's pll could not reach steady state.\n");
 }
 
 static void hdmi_mode_set(struct exynos_drm_display *display,
