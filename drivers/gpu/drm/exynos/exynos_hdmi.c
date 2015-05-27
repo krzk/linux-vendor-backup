@@ -2132,6 +2132,15 @@ static void hdmi_v14_mode_set(struct hdmi_context *hdata,
 	hdmi_set_reg(tg->tg_3d, 1, 0x0);
 }
 
+static void hdmi_set_refclk(struct hdmi_context *hdata, u32 val)
+{
+	if (!hdata->sysreg)
+		return;
+
+	regmap_update_bits(hdata->sysreg, hdata->drv_data->sysreg_clksel,
+			   SYSREG_HDMI_REFCLK_SEL, val);
+}
+
 static void hdmiphy_wait_for_pll(struct hdmi_context *hdata)
 {
 	int tries;
@@ -2183,15 +2192,6 @@ static void hdmi_commit(struct exynos_drm_display *display)
 	hdmi_conf_apply(hdata);
 }
 
-static void hdmi_set_sysreg(struct hdmi_context *hdata, u32 enable)
-{
-	if (!hdata->sysreg)
-		return;
-
-	regmap_update_bits(hdata->sysreg, hdata->drv_data->sysreg_clksel,
-					SYSREG_HDMI_REFCLK_SEL, enable);
-}
-
 static void hdmi_poweron(struct hdmi_context *hdata)
 {
 	struct hdmi_resources *res = &hdata->res;
@@ -2218,7 +2218,6 @@ static void hdmi_poweron(struct hdmi_context *hdata)
 	hdmi_clk_enable_gates(hdata);
 	hdmiphy_poweron(hdata);
 	hdmi_commit(&hdata->display);
-	hdmi_set_sysreg(hdata, 1);
 }
 
 static void hdmi_poweroff(struct hdmi_context *hdata)
@@ -2230,7 +2229,7 @@ static void hdmi_poweroff(struct hdmi_context *hdata)
 		goto out;
 	mutex_unlock(&hdata->hdmi_mutex);
 
-	hdmi_set_sysreg(hdata, 0);
+	hdmi_set_refclk(hdata, SYSREG_HDMI_REFCLK_CLKI);
 
 	/* HDMI System Disable */
 	hdmi_reg_writemask(hdata, HDMI_CON_0, 0, HDMI_EN);
