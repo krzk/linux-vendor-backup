@@ -8473,7 +8473,7 @@ static void irq_func(struct work_struct *work)
 		;
 		enable_irq(mc_asoc->pdata->irq);
 	}
-	kfree((void *)work);
+	kfree(work);
 }
 irqreturn_t irq_handler(int irq, void *data)
 {
@@ -8496,8 +8496,8 @@ irqreturn_t irq_handler(int irq, void *data)
 			;
 			disable_irq_nosync(mc_asoc->pdata->irq);
 		}
-		INIT_WORK((struct work_struct *)work, irq_func);
-		ret	= queue_work(my_wq, (struct work_struct *)work);
+		INIT_WORK(work, irq_func);
+		ret	= queue_work(my_wq, work);
 	}
 	return IRQ_HANDLED;
 }
