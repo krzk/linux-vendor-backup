@@ -35,6 +35,44 @@
 		reg = <0x0205F000 0x1000>;
 	};
 
+	charger-manager@0 {
+		compatible = "charger-manager";
+		status = "okay";
+		chg-reg-supply = <&charger_reg>;
+
+		cm-name = "cm-battery";
+		/* Polling only for external power source */
+		cm-poll-mode = <2>;
+		cm-poll-interval = <30000>;
+
+		cm-fullbatt-vchkdrop-ms = <30000>;
+		cm-fullbatt-vchkdrop-volt = <150000>;
+		cm-fullbatt-soc = <100>;
+
+		cm-battery-stat = <0>;
+		cm-fuel-gauge = "battery";
+
+		/* Allow charging for 5hr */
+		cm-charging-max = <18000000>;
+		/* Allow discharging for 2hr */
+		cm-discharging-max = <7200000>;
+
+		cm-num-chargers = <1>;
+		cm-chargers = "max14577-charger";
+
+		charger@0 {
+			cm-regulator-name = "chg-reg";
+			cable@0 {
+				cm-cable-name = "USB";
+				cm-cable-extcon = "max77836-muic";
+			};
+			cable@1 {
+				cm-cable-name = "TA";
+				cm-cable-extcon = "max77836-muic";
+			};
+		};
+	};
+
 	gpio_keys {
 		compatible = "gpio-keys";
 
