@@ -888,7 +888,7 @@ static int gsc_dst_set_fmt(struct device *dev, u32 fmt)
 		cfg |= GSC_OUT_RGB565;
 		break;
 	case DRM_FORMAT_XRGB8888:
-		cfg |= GSC_OUT_XRGB8888;
+		cfg |= (GSC_OUT_XRGB8888 | GSC_OUT_GLOBAL_ALPHA(0xff));
 		break;
 	case DRM_FORMAT_BGRX8888:
 		cfg |= (GSC_OUT_XRGB8888 | GSC_OUT_RB_SWAP);
