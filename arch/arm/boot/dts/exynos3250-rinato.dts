@@ -26,6 +26,10 @@
 		i2c8 = &i2c_ice4_irda;
 	};
 
+	chosen {
+		revision = <5>;
+	};
+
 	memory {
 		reg =  <0x40000000 0x1ff00000>;
 	};
