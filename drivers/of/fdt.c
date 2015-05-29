@@ -28,6 +28,10 @@
 #include <asm/setup.h>  /* for COMMAND_LINE_SIZE */
 #include <asm/page.h>
 
+#ifdef CONFIG_ARM
+#include <asm/system_info.h> /* for system_rev */
+#endif
+
 /*
  * of_fdt_limit_memory - limit the number of regions in the /memory node
  * @limit: maximum entries
@@ -917,6 +921,22 @@ int __init early_init_dt_scan_memory(unsigned long node, const char *uname,
 	return 0;
 }
 
+#ifdef CONFIG_ARM
+static void __init early_init_dt_scan_system_rev(unsigned long node)
+{
+	const __be32 *prop;
+	int l;
+
+	/* Retrieve model revision because ATAGS are ignored */
+	prop = of_get_flat_dt_prop(node, "revision", &l);
+	if (prop != NULL && l > 0)
+		system_rev = of_read_ulong(prop, l/4);
+}
+#else
+static inline void __init
+early_init_dt_scan_system_rev(unsigned long node) {};
+#endif
+
 int __init early_init_dt_scan_chosen(unsigned long node, const char *uname,
 				     int depth, void *data)
 {
@@ -949,6 +969,8 @@ int __init early_init_dt_scan_chosen(unsigned long node, const char *uname,
 #endif /* CONFIG_CMDLINE */
 
 	pr_debug("Command line is: %s\n", (char*)data);
+
+	early_init_dt_scan_system_rev(node);
 
 	/* break now */
 	return 1;
