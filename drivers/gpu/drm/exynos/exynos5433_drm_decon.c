@@ -846,26 +846,14 @@ static int exynos5433_decon_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = exynos_drm_component_add(dev, EXYNOS_DEVICE_TYPE_CRTC,
-				       drv_data->type);
-	if (ret < 0)
-		return ret;
-
 	platform_set_drvdata(pdev, ctx);
 
-	ret = component_add(dev, &decon_component_ops);
-	if (ret < 0) {
-		exynos_drm_component_del(dev, EXYNOS_DEVICE_TYPE_CRTC);
-		return ret;
-	}
-
-	return 0;
+	return component_add(dev, &decon_component_ops);
 }
 
 static int exynos5433_decon_remove(struct platform_device *pdev)
 {
 	component_del(&pdev->dev, &decon_component_ops);
-	exynos_drm_component_del(&pdev->dev, EXYNOS_DEVICE_TYPE_CRTC);
 
 	return 0;
 }
