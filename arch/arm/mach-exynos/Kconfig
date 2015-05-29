@@ -30,6 +30,14 @@ menuconfig ARCH_EXYNOS
 
 if ARCH_EXYNOS
 
+config EXYNOS_MACHINE_NAME
+	string "Default machine name"
+	default "SAMSUNG EXYNOS (Flattened Device Tree)"
+	help
+	  Set custom machine name displayed also in /proc/cpuinfo under
+	  "Hardware". Tizen user-space may expect certain machine name
+	  for hardware auto-detection.
+
 config ARCH_EXYNOS3
 	bool "SAMSUNG EXYNOS3"
 	select ARM_CPU_SUSPEND if PM
