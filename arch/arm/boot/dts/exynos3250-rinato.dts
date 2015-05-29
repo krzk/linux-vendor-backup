@@ -698,12 +698,21 @@
 	 * TODO: gpa0-6/7 pinctrl, should be pull up/down disabled but other boards set as up
 	 */
 	touchscreen-mms128@48 {
-		compatible = "melfas,mms114";
+		compatible = "melfas,mms128";
 		reg = <0x48>;
 		interrupt-parent = <&gpx3>;
 		interrupts = <5 2>;
-		x-size = <320>;
-		y-size = <320>;
+		max_x = <320>;
+		max_y = <320>;
+		invert_x = <0>;
+		invert_y = <0>;
+		gpios = <&gpx3 5 2>,
+			<&gpa0 6 0>,
+			<&gpa0 7 0>;
+		tsp_vendor = "MELFAS";
+		tsp_ic = "MMS128S";
+		tsp_tx = <7>;
+		tsp_rx = <7>;
 		avdd-supply = <&ldo15_reg>;
 		vdd-supply = <&ldo19_reg>;
 	};
