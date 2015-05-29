@@ -178,6 +178,19 @@
 		max-microvolt = <2700000>;
 	};
 
+	rfkill-bcm {
+		compatible = "brcm,bcm4358";
+		rfkill-name = "bcm4334-bt";
+		rfkill-type = <2>;
+		shutdown-gpios = <&gpe0 0 0>;
+		wake-gpios = <&gpx3 1 0>;
+		host-wake-gpios = <&gpx2 6 0>;
+
+		clocks = <&s2mps14_osc 2 /* S2MPS11_CLK_BT */>;
+		clock-names = "bt_clk32k";
+		status = "okay";
+	};
+
 	sound {
 		compatible = "rinato,ymu831";
 		samsung,i2s-controller = <&i2s2>;
