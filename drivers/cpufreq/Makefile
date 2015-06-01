@@ -3,7 +3,7 @@ obj-$(CONFIG_CPU_FREQ)			+= cpufreq.o freq_table.o
 obj-$(CONFIG_PM_OPP)			+= cpufreq_opp.o
 
 # CPUfreq stats
-obj-$(CONFIG_CPU_FREQ_STAT)             += cpufreq_stats.o
+obj-$(CONFIG_CPU_FREQ_STAT)             += cpufreq_stats.o cpufreq_stats_pass.o
 
 # CPUfreq governors 
 obj-$(CONFIG_CPU_FREQ_GOV_PERFORMANCE)	+= cpufreq_performance.o
