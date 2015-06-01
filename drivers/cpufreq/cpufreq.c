@@ -323,6 +323,10 @@ static void __cpufreq_notify_transition(struct cpufreq_policy *policy,
 		if (likely(policy) && likely(policy->cpu == freqs->cpu))
 			policy->cur = freqs->new;
 		break;
+	case CPUFREQ_LOADCHECK:
+		srcu_notifier_call_chain(&cpufreq_transition_notifier_list,
+				CPUFREQ_LOADCHECK, freqs);
+		break;
 	}
 }
 
@@ -334,12 +338,13 @@ static void __cpufreq_notify_transition(struct cpufreq_policy *policy,
  * function. It is called twice on all CPU frequency changes that have
  * external effects.
  */
-static void cpufreq_notify_transition(struct cpufreq_policy *policy,
+void cpufreq_notify_transition(struct cpufreq_policy *policy,
 		struct cpufreq_freqs *freqs, unsigned int state)
 {
 	for_each_cpu(freqs->cpu, policy->cpus)
 		__cpufreq_notify_transition(policy, freqs, state);
 }
+EXPORT_SYMBOL_GPL(cpufreq_notify_transition);
 
 /* Do post notifications when there are chances that transition has failed */
 static void cpufreq_notify_post_transition(struct cpufreq_policy *policy,

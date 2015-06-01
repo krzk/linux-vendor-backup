@@ -40,6 +40,9 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 	unsigned int max_load = 0;
 	unsigned int ignore_nice;
 	unsigned int j;
+#ifdef CONFIG_CPU_FREQ_STAT
+	struct cpufreq_freqs freq = {0};
+#endif
 
 	if (dbs_data->cdata->governor == GOV_ONDEMAND) {
 		struct od_cpu_dbs_info_s *od_dbs_info =
@@ -140,6 +143,9 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 		if (unlikely(wall_time > (2 * sampling_rate) &&
 			     j_cdbs->prev_load)) {
 			load = j_cdbs->prev_load;
+#ifdef CONFIG_CPU_FREQ_STAT
+			freq.load[j] = load;
+#endif
 
 			/*
 			 * Perform a destructive copy, to ensure that we copy
@@ -150,11 +156,22 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 		} else {
 			load = 100 * (wall_time - idle_time) / wall_time;
 			j_cdbs->prev_load = load;
+#ifdef CONFIG_CPU_FREQ_STAT
+			freq.load[j] = load;
+#endif
 		}
 
 		if (load > max_load)
 			max_load = load;
 	}
+
+#ifdef CONFIG_CPU_FREQ_STAT
+	freq.time = ktime_to_ms(ktime_get());
+	freq.old = policy->cur;
+	freq.cpu = policy->cpu;
+
+	cpufreq_notify_transition(policy, &freq, CPUFREQ_LOADCHECK);
+#endif
 
 	dbs_data->cdata->gov_check_cpu(cpu, max_load);
 }

@@ -41,6 +41,11 @@ struct cpufreq_freqs {
 	unsigned int old;
 	unsigned int new;
 	u8 flags;		/* flags of cpufreq_driver, see below. */
+
+#ifdef CONFIG_CPU_FREQ_STAT
+	int64_t time;
+	unsigned int load[NR_CPUS];
+#endif
 };
 
 struct cpufreq_cpuinfo {
@@ -319,6 +324,9 @@ struct cpufreq_driver {
 int cpufreq_register_driver(struct cpufreq_driver *driver_data);
 int cpufreq_unregister_driver(struct cpufreq_driver *driver_data);
 
+void cpufreq_notify_transition(struct cpufreq_policy *policy,
+		struct cpufreq_freqs *freqs, unsigned int state);
+
 const char *cpufreq_get_current_driver(void);
 void *cpufreq_get_driver_data(void);
 
@@ -364,6 +372,7 @@ static inline void cpufreq_resume(void) {}
 /* Transition notifiers */
 #define CPUFREQ_PRECHANGE		(0)
 #define CPUFREQ_POSTCHANGE		(1)
+#define CPUFREQ_LOADCHECK		(2)
 
 /* Policy Notifiers  */
 #define CPUFREQ_ADJUST			(0)
