@@ -15,9 +15,9 @@
 
 #include <linux/sched.h>
 
-#ifdef CONFIG_PM_RUNTIME
+#ifdef CONFIG_PM
 #include <linux/pm_runtime.h>
-#endif /* CONFIG_PM_RUNTIME */
+#endif /* CONFIG_PM */
 #include <linux/platform_device.h>
 #include <linux/version.h>
 #include "mali_osk.h"
@@ -39,7 +39,7 @@ void _mali_osk_pm_dev_disable(void)
 /* Can NOT run in atomic context */
 _mali_osk_errcode_t _mali_osk_pm_dev_ref_add(void)
 {
-#ifdef CONFIG_PM_RUNTIME
+#ifdef CONFIG_PM
 	int err;
 	MALI_DEBUG_ASSERT_POINTER(mali_platform_device);
 	err = pm_runtime_get_sync(&(mali_platform_device->dev));
@@ -59,7 +59,7 @@ _mali_osk_errcode_t _mali_osk_pm_dev_ref_add(void)
 /* Can run in atomic context */
 void _mali_osk_pm_dev_ref_dec(void)
 {
-#ifdef CONFIG_PM_RUNTIME
+#ifdef CONFIG_PM
 	MALI_DEBUG_ASSERT_POINTER(mali_platform_device);
 	_mali_osk_atomic_dec(&mali_pm_ref_count);
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37))
@@ -75,7 +75,7 @@ void _mali_osk_pm_dev_ref_dec(void)
 /* Can run in atomic context */
 mali_bool _mali_osk_pm_dev_ref_add_no_power_on(void)
 {
-#ifdef CONFIG_PM_RUNTIME
+#ifdef CONFIG_PM
 	u32 ref;
 	MALI_DEBUG_ASSERT_POINTER(mali_platform_device);
 	pm_runtime_get_noresume(&(mali_platform_device->dev));
@@ -90,7 +90,7 @@ mali_bool _mali_osk_pm_dev_ref_add_no_power_on(void)
 /* Can run in atomic context */
 void _mali_osk_pm_dev_ref_dec_no_power_on(void)
 {
-#ifdef CONFIG_PM_RUNTIME
+#ifdef CONFIG_PM
 	MALI_DEBUG_ASSERT_POINTER(mali_platform_device);
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37))
 	pm_runtime_put_autosuspend(&(mali_platform_device->dev));
@@ -103,7 +103,7 @@ void _mali_osk_pm_dev_ref_dec_no_power_on(void)
 
 void _mali_osk_pm_dev_barrier(void)
 {
-#ifdef CONFIG_PM_RUNTIME
+#ifdef CONFIG_PM
 	pm_runtime_barrier(&(mali_platform_device->dev));
 #endif
 }

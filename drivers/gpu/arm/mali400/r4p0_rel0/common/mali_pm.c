@@ -50,7 +50,7 @@ void mali_pm_os_suspend(void)
 	mali_pp_scheduler_suspend();
 	mali_utilization_suspend();
 /* MALI_SEC */
-#if !defined(CONFIG_PM_RUNTIME)
+#if !defined(CONFIG_PM)
 	mali_group_power_off(MALI_TRUE);
 	mali_power_on = MALI_FALSE;
 #endif
@@ -58,7 +58,7 @@ void mali_pm_os_suspend(void)
 
 void mali_pm_os_resume(void)
 {
-#if !defined(CONFIG_PM_RUNTIME)
+#if !defined(CONFIG_PM)
 	struct mali_pmu_core *pmu = mali_pmu_get_global_pmu_core();
 	mali_bool do_reset = MALI_FALSE;
 #endif
@@ -75,7 +75,7 @@ void mali_pm_os_resume(void)
  * Therefore code is commented like below.
  *
  *****************************************************************/
-#if !defined(CONFIG_PM_RUNTIME)
+#if !defined(CONFIG_PM)
 	if (MALI_TRUE != mali_power_on)
 	{
 		do_reset = MALI_TRUE;

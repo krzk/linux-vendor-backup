@@ -140,7 +140,7 @@ static int mali_remove(struct platform_device *pdev);
 static int mali_driver_suspend_scheduler(struct device *dev);
 static int mali_driver_resume_scheduler(struct device *dev);
 
-#ifdef CONFIG_PM_RUNTIME
+#ifdef CONFIG_PM
 static int mali_driver_runtime_suspend(struct device *dev);
 static int mali_driver_runtime_resume(struct device *dev);
 static int mali_driver_runtime_idle(struct device *dev);
@@ -164,7 +164,7 @@ struct pm_ext_ops mali_dev_ext_pm_ops = {
 };
 #else
 static const struct dev_pm_ops mali_dev_pm_ops = {
-#ifdef CONFIG_PM_RUNTIME
+#ifdef CONFIG_PM
 	.runtime_suspend = mali_driver_runtime_suspend,
 	.runtime_resume = mali_driver_runtime_resume,
 	.runtime_idle = mali_driver_runtime_idle,
@@ -501,7 +501,7 @@ static int mali_driver_resume_scheduler(struct device *dev)
 	return 0;
 }
 
-#ifdef CONFIG_PM_RUNTIME
+#ifdef CONFIG_PM
 static int mali_driver_runtime_suspend(struct device *dev)
 {
 	mali_pm_runtime_suspend();
