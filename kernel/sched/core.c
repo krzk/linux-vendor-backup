@@ -2403,6 +2403,16 @@ unsigned long nr_running(void)
 	return sum;
 }
 
+unsigned long nr_running_cpumask(cpumask_var_t cpus)
+{
+	unsigned long i, sum = 0;
+
+	for_each_cpu(i, cpus)
+		sum += cpu_rq(i)->nr_running;
+
+	return sum;
+}
+
 /*
  * Check if only the current task is running on the cpu.
  *
