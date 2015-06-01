@@ -16,6 +16,8 @@
 #include <linux/slab.h>
 #include <linux/cputime.h>
 
+#include "cpufreq_stats_pass.h"
+
 static spinlock_t cpufreq_stats_lock;
 
 struct cpufreq_stats {
@@ -144,21 +146,23 @@ static ssize_t load_table_read(struct file *file, char __user *user_buf,
 		return 0;
 
 	spin_lock(&cpufreq_stats_lock);
-	len += sprintf(buf + len, "%-10s %-12s %-12s ", "Time(ms)",
+	len += sprintf(buf + len, "%-10s %-12s %-12s %-10s ", "Time(ms)",
 						    "Old Freq(Hz)",
-						    "New Freq(Hz)");
-	for_each_cpu(cpu, policy->cpus)
+						    "New Freq(Hz)",
+						    "NR_running");
+	for_each_cpu(cpu, policy->related_cpus)
 		len += sprintf(buf + len, "%3s%d ", "CPU", cpu);
 	len += sprintf(buf + len, "\n");
 
 	i = stat->load_last_index;
 	do {
-		len += sprintf(buf + len, "%-10lld %-12d %-12d ",
+		len += sprintf(buf + len, "%-10lld %-12d %-12d %-10d ",
 				load_table[i].time,
 				load_table[i].old,
-				load_table[i].new);
+				load_table[i].new,
+				load_table[i].avg_nr_runnings);
 
-		for_each_cpu(cpu, policy->cpus)
+		for_each_cpu(cpu, policy->related_cpus)
 			len += sprintf(buf + len, "%-4d ",
 					load_table[i].load[cpu]);
 		len += sprintf(buf + len, "\n");
@@ -310,6 +314,9 @@ static void cpufreq_stats_store_load_table(struct cpufreq_freqs *freq,
 		stat->load_table[last_idx].new = freq->old;
 		for_each_cpu(cpu, policy->related_cpus)
 			stat->load_table[last_idx].load[cpu] = freq->load[cpu];
+
+		stat->load_table[last_idx].avg_nr_runnings =
+					get_avg_nr_runnings(freq->cpu);
 
 		if (++stat->load_last_index == stat->load_max_index)
 			stat->load_last_index = 0;

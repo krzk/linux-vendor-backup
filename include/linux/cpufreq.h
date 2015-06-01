@@ -45,6 +45,7 @@ struct cpufreq_freqs {
 #ifdef CONFIG_CPU_FREQ_STAT
 	int64_t time;
 	unsigned int load[NR_CPUS];
+	unsigned int avg_nr_runnings;
 #endif
 };
 
