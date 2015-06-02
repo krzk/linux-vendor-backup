@@ -692,8 +692,6 @@
 	status = "okay";
 
 	/*
-	 * Although the device is MMS128, try to use mms114 driver
-	 *
 	 * TODO: Add pinctrl default for gpx3-2 (sleep: input, down?)
 	 * TODO: gpa0-6/7 pinctrl, should be pull up/down disabled but other boards set as up
 	 */
