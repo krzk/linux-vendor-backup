@@ -492,7 +492,7 @@ static void decon_apply(struct decon_context *ctx)
 
 	decon_setup_trigger(ctx);
 
-	for (i = 0; i < WINDOWS_NR; i++) {
+	for (i = drv_data->first_win; i < WINDOWS_NR; i++) {
 		win_data = &ctx->win_data[i];
 		if (win_data->enabled)
 			decon_win_commit(ctx->crtc, i);
