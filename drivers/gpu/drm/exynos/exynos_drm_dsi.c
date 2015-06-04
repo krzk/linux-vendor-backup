@@ -1408,9 +1408,6 @@ static ssize_t exynos_dsi_host_transfer(struct mipi_dsi_host *host,
 	struct exynos_dsi_transfer xfer;
 	int ret;
 
-	if (!(dsi->state & DSIM_STATE_ENABLED))
-		return -EINVAL;
-
 	if (!(dsi->state & DSIM_STATE_INITIALIZED)) {
 		ret = exynos_dsi_init(dsi);
 		if (ret)
@@ -1554,10 +1551,9 @@ static void exynos_dsi_disable(struct exynos_dsi *dsi)
 	drm_panel_disable(dsi->panel);
 	exynos_dsi_set_display_enable(dsi, false);
 	drm_panel_unprepare(dsi->panel);
+	exynos_dsi_poweroff(dsi);
 
 	dsi->state &= ~DSIM_STATE_ENABLED;
-
-	exynos_dsi_poweroff(dsi);
 }
 
 static void exynos_dsi_dpms(struct exynos_drm_display *display, int mode)
