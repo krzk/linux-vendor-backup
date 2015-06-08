@@ -987,6 +987,7 @@ static void mixer_win_disable(struct exynos_drm_crtc *crtc, unsigned int win)
 	mixer_vsync_set_update(mixer_ctx, false);
 
 	mixer_cfg_layer(mixer_ctx, win, false);
+	mixer_reg_write(res, MXR_GRAPHIC_WH(win), 0);
 
 	mixer_vsync_set_update(mixer_ctx, true);
 	spin_unlock_irqrestore(&res->reg_slock, flags);
