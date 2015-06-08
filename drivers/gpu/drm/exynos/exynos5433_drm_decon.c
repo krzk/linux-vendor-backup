@@ -25,19 +25,6 @@
 #define WINDOWS_NR	3
 #define MIN_FB_WIDTH_FOR_16WORD_BURST	128
 
-struct decon_tv_mode {
-	u32 xres;
-	u32 yres;
-	u32 vbp;
-	u32 vfp;
-	u32 vsa;
-	u32 hbp;
-	u32 hfp;
-	u32 hsa;
-	u32 fps;
-	u32 interlace_bit;
-};
-
 struct decon_win_data {
 	unsigned int 	offset_x;
 	unsigned int 	offset_y;
@@ -89,23 +76,6 @@ static const char * const decon_clks_name[] = {
 };
 
 static const struct of_device_id exynos5433_decon_driver_dt_match[];
-
-static struct decon_tv_mode decon_tv_modes[] = {
-	{ 720, 480, 43, 1, 1, 92, 10, 36, 0 },
-	{ 720, 576, 47, 1, 1, 92, 10, 42, 0 },
-	{ 1280, 720, 28, 1, 1, 192, 10, 168, 0 },
-	{ 1280, 720, 28, 1, 1, 92, 10, 598, 0 },
-	{ 1920, 1080, 43, 1, 1, 92, 10, 178, 0 },
-	{ 1920, 1080, 43, 1, 1, 92, 10, 618, 0 },
-	{ 1920, 1080, 43, 1, 1, 92, 10, 178, 0 },
-	{ 1920, 1080, 43, 1, 1, 92, 10, 618, 0 },
-	{ 1920, 1080, 43, 1, 1, 92, 10, 728, 0 },
-	{ 1920, 540, 20, 1, 1, 92, 10, 178, 1 },
-	{ 3840, 2160, 88, 1, 1, 458, 10, 92, 0 },
-	{ 3840, 2160, 88, 1, 1, 1338, 10, 92, 0 },
-	{ 3840, 2160, 88, 1, 1, 1558, 10, 92, 0 },
-	{ 4096, 2160, 88, 1, 1, 1302, 10, 92, 0 },
-};
 
 static inline void decon_set_bits(struct decon_context *ctx, u32 reg, u32 mask,
 				  u32 val)
@@ -166,38 +136,17 @@ static void decon_commit(struct exynos_drm_crtc *crtc)
 {
 	struct decon_context *ctx = crtc->ctx;
 	struct drm_display_mode *mode = &crtc->base.mode;
-	struct decon_tv_mode *decon_tv_mode = NULL;
 	u32 val;
-	int i;
 
 	/* enable clock gate */
 	val = CMU_CLKGAGE_MODE_SFR_F | CMU_CLKGAGE_MODE_MEM_F;
 	writel(val, ctx->addr + DECON_CMU);
 
 	if (ctx->drv_data->type == EXYNOS_DISPLAY_TYPE_HDMI) {
-		for (i = 0; i < ARRAY_SIZE(decon_tv_modes); ++i) {
-			decon_tv_mode = &decon_tv_modes[i];
-			if (mode->hdisplay != decon_tv_mode->xres ||
-				mode->vdisplay != decon_tv_mode->yres)
-				continue;
-
-			mode->crtc_hdisplay = decon_tv_mode->xres;
-			mode->crtc_hsync_start = mode->crtc_hdisplay +
-						decon_tv_mode->hfp;
-			mode->crtc_hsync_end = mode->crtc_hsync_start +
-						decon_tv_mode->hsa;
-			mode->crtc_htotal = mode->crtc_hsync_end +
-						decon_tv_mode->hbp;
-
-			mode->crtc_vdisplay = decon_tv_mode->yres;
-			mode->crtc_vsync_start = mode->crtc_vdisplay +
-						decon_tv_mode->vfp;
-			mode->crtc_vsync_end = mode->crtc_vsync_start +
-						decon_tv_mode->vsa;
-			mode->crtc_vtotal = mode->crtc_vsync_end +
-						decon_tv_mode->vbp;
-			break;
-		}
+		mode->crtc_hsync_start = mode->crtc_hdisplay + 10;
+		mode->crtc_hsync_end = mode->crtc_htotal - 92;
+		mode->crtc_vsync_start = mode->crtc_vdisplay + 1;
+		mode->crtc_vsync_end = mode->crtc_vsync_start + 1;
 	}
 
 	/* lcd on and use command if */
