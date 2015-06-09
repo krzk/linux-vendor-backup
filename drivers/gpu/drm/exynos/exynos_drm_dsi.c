@@ -241,6 +241,7 @@ struct exynos_dsi_transfer {
 #define DSIM_STATE_ENABLED		BIT(0)
 #define DSIM_STATE_INITIALIZED		BIT(1)
 #define DSIM_STATE_CMD_LPM		BIT(2)
+#define DSIM_STATE_VIDOUT_AVAILABLE	BIT(3)
 
 struct exynos_dsi_driver_data {
 	unsigned int *regs;
@@ -1268,8 +1269,7 @@ static irqreturn_t exynos_dsi_te_irq_handler(int irq, void *dev_id)
 	struct exynos_dsi *dsi = (struct exynos_dsi *)dev_id;
 	struct drm_encoder *encoder = dsi->display.encoder;
 
-	if ((dsi->state & DSIM_STATE_ENABLED) &&
-			(dsi->state & DSIM_STATE_INITIALIZED))
+	if (dsi->state & DSIM_STATE_VIDOUT_AVAILABLE)
 		exynos_drm_crtc_te_handler(encoder->crtc);
 
 	return IRQ_HANDLED;
@@ -1545,6 +1545,8 @@ static int exynos_dsi_enable(struct exynos_dsi *dsi)
 		return ret;
 	}
 
+	dsi->state |= DSIM_STATE_VIDOUT_AVAILABLE;
+
 	return 0;
 }
 
@@ -1552,6 +1554,8 @@ static void exynos_dsi_disable(struct exynos_dsi *dsi)
 {
 	if (!(dsi->state & DSIM_STATE_ENABLED))
 		return;
+
+	dsi->state &= ~DSIM_STATE_VIDOUT_AVAILABLE;
 
 	drm_panel_disable(dsi->panel);
 	exynos_dsi_set_display_enable(dsi, false);
