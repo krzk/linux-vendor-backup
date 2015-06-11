@@ -1928,11 +1928,6 @@ static void hdmi_v13_mode_set(struct hdmi_context *hdata,
 	struct hdmi_tg_regs *tg = &hdata->mode_conf.conf.v13_conf.tg;
 	unsigned int val;
 
-	hdata->mode_conf.cea_video_id =
-		drm_match_cea_mode((struct drm_display_mode *)m);
-	hdata->mode_conf.pixel_clock = m->clock * 1000;
-	hdata->mode_conf.aspect_ratio = m->picture_aspect_ratio;
-
 	hdmi_set_reg(core->h_blank, 2, m->htotal - m->hdisplay);
 	hdmi_set_reg(core->h_v_line, 3, (m->htotal << 12) | m->vtotal);
 
@@ -2024,11 +2019,6 @@ static void hdmi_v14_mode_set(struct hdmi_context *hdata,
 	struct hdmi_tg_regs *tg = &hdata->mode_conf.conf.v14_conf.tg;
 	struct hdmi_v14_core_regs *core =
 		&hdata->mode_conf.conf.v14_conf.core;
-
-	hdata->mode_conf.cea_video_id =
-		drm_match_cea_mode((struct drm_display_mode *)m);
-	hdata->mode_conf.pixel_clock = m->clock * 1000;
-	hdata->mode_conf.aspect_ratio = m->picture_aspect_ratio;
 
 	hdmi_set_reg(core->h_blank, 2, m->htotal - m->hdisplay);
 	hdmi_set_reg(core->v_line, 2, m->vtotal);
@@ -2241,6 +2231,10 @@ static void hdmi_mode_set(struct exynos_drm_display *display,
 
 	/* preserve mode information for later use. */
 	drm_mode_copy(&hdata->current_mode, mode);
+
+	hdata->mode_conf.cea_video_id = drm_match_cea_mode(m);
+	hdata->mode_conf.pixel_clock = m->clock * 1000;
+	hdata->mode_conf.aspect_ratio = m->picture_aspect_ratio;
 
 	if (hdata->type == HDMI_TYPE13)
 		hdmi_v13_mode_set(hdata, mode);
