@@ -211,6 +211,7 @@ struct hdmi_context {
 	bool				hpd;
 	bool				powered;
 	bool				dvi_mode;
+	bool				applied;
 
 	void __iomem			*regs;
 	int				irq;
@@ -1902,6 +1903,9 @@ static void hdmiphy_conf_apply(struct hdmi_context *hdata)
 
 static void hdmi_conf_apply(struct hdmi_context *hdata)
 {
+	if (hdata->applied)
+		return;
+
 	hdmi_start(hdata, false);
 	hdmi_conf_init(hdata);
 	hdmi_audio_init(hdata);
@@ -1911,6 +1915,8 @@ static void hdmi_conf_apply(struct hdmi_context *hdata)
 	hdmi_audio_control(hdata, true);
 
 	hdmi_regs_dump(hdata, "start");
+
+	hdata->applied = true;
 }
 
 static void hdmi_set_reg(u8 *reg_pair, int num_bytes, u32 value)
@@ -2229,6 +2235,7 @@ static void hdmi_mode_set(struct exynos_drm_display *display,
 		m->vrefresh, (m->flags & DRM_MODE_FLAG_INTERLACE) ?
 		"INTERLACED" : "PROGRESSIVE");
 
+	hdata->applied = false;
 	/* preserve mode information for later use. */
 	drm_mode_copy(&hdata->current_mode, mode);
 
@@ -2317,11 +2324,19 @@ static void hdmi_dpms(struct exynos_drm_display *display, int mode)
 	}
 }
 
+void hdmi_commit(struct exynos_drm_display *display)
+{
+	struct hdmi_context *hdata = display_to_hdmi(display);
+
+	hdmi_conf_apply(hdata);
+}
+
 static struct exynos_drm_display_ops hdmi_display_ops = {
 	.create_connector = hdmi_create_connector,
 	.mode_fixup	= hdmi_mode_fixup,
 	.mode_set	= hdmi_mode_set,
 	.dpms		= hdmi_dpms,
+	.commit		= hdmi_commit,
 };
 
 static void hdmi_hotplug_work_func(struct work_struct *work)
