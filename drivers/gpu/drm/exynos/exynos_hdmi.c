@@ -21,7 +21,6 @@
 #include "regs-hdmi.h"
 
 #include <linux/kernel.h>
-#include <linux/spinlock.h>
 #include <linux/wait.h>
 #include <linux/i2c.h>
 #include <linux/platform_device.h>
@@ -212,7 +211,6 @@ struct hdmi_context {
 	bool				hpd;
 	bool				powered;
 	bool				dvi_mode;
-	struct mutex			hdmi_mutex;
 
 	void __iomem			*regs;
 	int				irq;
@@ -1904,11 +1902,8 @@ static void hdmiphy_conf_apply(struct hdmi_context *hdata)
 
 static void hdmi_conf_apply(struct hdmi_context *hdata)
 {
-	mutex_lock(&hdata->hdmi_mutex);
 	hdmi_start(hdata, false);
 	hdmi_conf_init(hdata);
-	mutex_unlock(&hdata->hdmi_mutex);
-
 	hdmi_audio_init(hdata);
 
 	/* setting core registers */
@@ -2255,14 +2250,7 @@ static void hdmi_mode_set(struct exynos_drm_display *display,
 
 static void hdmi_poweron(struct hdmi_context *hdata)
 {
-	mutex_lock(&hdata->hdmi_mutex);
-	if (hdata->powered) {
-		mutex_unlock(&hdata->hdmi_mutex);
-		return;
-	}
-
 	hdata->powered = true;
-	mutex_unlock(&hdata->hdmi_mutex);
 	hdmi_conf_apply(hdata);
 }
 
@@ -2270,10 +2258,8 @@ static void hdmi_poweroff(struct hdmi_context *hdata)
 {
 	struct hdmi_resources *res = &hdata->res;
 
-	mutex_lock(&hdata->hdmi_mutex);
 	if (!hdata->powered)
-		goto out;
-	mutex_unlock(&hdata->hdmi_mutex);
+		return;
 
 	hdmi_set_refclk(hdata, SYSREG_HDMI_REFCLK_CLKI);
 
@@ -2296,11 +2282,7 @@ static void hdmi_poweroff(struct hdmi_context *hdata)
 
 	pm_runtime_put_sync(hdata->dev);
 
-	mutex_lock(&hdata->hdmi_mutex);
 	hdata->powered = false;
-
-out:
-	mutex_unlock(&hdata->hdmi_mutex);
 }
 
 static void hdmi_dpms(struct exynos_drm_display *display, int mode)
@@ -2582,8 +2564,6 @@ static int hdmi_probe(struct platform_device *pdev)
 
 	hdata->display.type = EXYNOS_DISPLAY_TYPE_HDMI;
 	hdata->display.ops = &hdmi_display_ops;
-
-	mutex_init(&hdata->hdmi_mutex);
 
 	platform_set_drvdata(pdev, hdata);
 
