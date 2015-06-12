@@ -2152,10 +2152,10 @@ static void hdmiphy_wait_for_pll(struct hdmi_context *hdata)
 		u32 val = hdmi_reg_read(hdata, hdata->drv_data->phy_status);
 
 		if (val & HDMI_PHY_STATUS_READY) {
-			DRM_INFO("PLL stabilized after %d tries", tries);
+			DRM_DEBUG_KMS("PLL stabilized after %d tries", tries);
 			return;
 		}
-		usleep_range(1000, 2000);
+		usleep_range(10, 20);
 	}
 
 	DRM_ERROR("hdmiphy's pll could not reach steady state.\n");
