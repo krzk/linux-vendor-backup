@@ -872,6 +872,8 @@ static int fimd_poweroff(struct fimd_context *ctx)
 	 */
 	fimd_window_suspend(ctx);
 
+	writel(0, ctx->regs + VIDCON0);
+
 	clk_disable_unprepare(ctx->lcd_clk);
 	clk_disable_unprepare(ctx->bus_clk);
 
