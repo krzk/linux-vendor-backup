@@ -200,10 +200,9 @@ static void decon_commit(struct exynos_drm_crtc *crtc)
 	decon_set_bits(ctx, DECON_VIDCON0, VIDCON0_ENVID | VIDCON0_ENVID_F, ~0);
 }
 
-#define COORDINATE_X(x)		(((x) & 0xfff) << 12)
-#define COORDINATE_Y(x)		((x) & 0xfff)
-#define OFFSIZE(x)		(((x) & 0x3fff) << 14)
-#define PAGEWIDTH(x)		((x) & 0x3fff)
+#define BIT_VAL(x, e, s)	(((x) & ((1 << ((e) - (s) + 1)) - 1)) << (s))
+#define COORDINATE_X(x)		BIT_VAL((x), 23, 12)
+#define COORDINATE_Y(x)		BIT_VAL((x), 11, 0)
 
 static void decon_win_mode_set(struct exynos_drm_crtc *crtc,
 			       struct exynos_drm_plane *plane)
@@ -361,9 +360,14 @@ static void decon_win_commit(struct exynos_drm_crtc *crtc, int zpos)
 	val = win_data->dma_addr + win_data->fb_pitch * win_data->ovl_height;
 	writel(val, ctx->addr + DECON_VIDW0xADD1B0(win));
 
-	val = OFFSIZE(win_data->fb_pitch -
-			win_data->ovl_width * (win_data->bpp >> 3))
-		| PAGEWIDTH(win_data->ovl_width * (win_data->bpp >> 3));
+	if (ctx->drv_data->type == EXYNOS_DISPLAY_TYPE_HDMI)
+		val = BIT_VAL(win_data->fb_pitch -
+			win_data->ovl_width * (win_data->bpp >> 3), 29, 15)
+			| BIT_VAL(win_data->ovl_width * (win_data->bpp >> 3), 14, 0);
+	else
+		val = BIT_VAL(win_data->fb_pitch -
+			win_data->ovl_width * (win_data->bpp >> 3), 27, 14)
+			| BIT_VAL(win_data->ovl_width * (win_data->bpp >> 3), 13, 0);
 	writel(val, ctx->addr + DECON_VIDW0xADD2(win));
 
 	decon_win_set_pixfmt(ctx, win);
