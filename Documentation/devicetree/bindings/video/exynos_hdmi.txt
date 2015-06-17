@@ -6,6 +6,7 @@ Required properties:
 	2) "samsung,exynos4210-hdmi"
 	3) "samsung,exynos4212-hdmi"
 	4) "samsung,exynos5420-hdmi"
+	5) "samsung,exynos5430-hdmi"
 - reg: physical base address of the hdmi and length of memory mapped
 	region.
 - interrupts: interrupt number to the cpu.
@@ -13,22 +14,19 @@ Required properties:
 	a) phandle of the gpio controller node.
 	b) pin number within the gpio controller.
 	c) optional flags and pull up/down.
-- clocks: list of clock IDs from SoC clock driver.
-	a) hdmi: Gate of HDMI IP bus clock.
-	b) sclk_hdmi: Gate of HDMI special clock.
-	c) sclk_pixel: Pixel special clock, one of the two possible inputs of
-		HDMI clock mux.
-	d) sclk_hdmiphy: HDMI PHY clock output, one of two possible inputs of
-		HDMI clock mux.
-	e) mout_hdmi: It is required by the driver to switch between the 2
-		parents i.e. sclk_pixel and sclk_hdmiphy. If hdmiphy is stable
-		after configuration, parent is set to sclk_hdmiphy else
-		sclk_pixel.
-- clock-names: aliases as per driver requirements for above clock IDs:
-	"hdmi", "sclk_hdmi", "sclk_pixel", "sclk_hdmiphy" and "mout_hdmi".
+- clocks: list of clock specifiers for the clocks described in clock-names.
+- clock-names: names of clocks used by device, varies per compatible string:
+	Exynos 4210, 4212, 5420:
+		hdmi, sclk_hdmi, sclk_pixel, sclk_hdmiphy, mout_hdmi,
+	Exynos 5430:
+		hdmi_pclk, hdmi_i_pclk, i_tmds_clk, i_pixel_clk, oscclk,
+		tmds_clko, tmds_clko_user, pixel_clko, pixel_clko_user
 - ddc: phandle to the hdmi ddc node
 - phy: phandle to the hdmi phy node
 - samsung,syscon-phandle: phandle for system controller node for PMU.
+
+Required for Exynos 5430:
+- samsung,sysreg-phandle: phandle for system controller node for SYSREG block.
 
 Example:
 

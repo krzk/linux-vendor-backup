@@ -133,6 +133,7 @@
 
 /* HDMI_CON_0 */
 #define HDMI_BLUE_SCR_EN		(1 << 5)
+#define HDMI_ENCODING_RETAIN		(1 << 4)
 #define HDMI_ASP_EN			(1 << 2)
 #define HDMI_ASP_DIS			(0 << 2)
 #define HDMI_ASP_MASK			(1 << 2)
@@ -593,5 +594,8 @@
 /* PMU Registers for PHY */
 #define PMU_HDMI_PHY_CONTROL		0x700
 #define PMU_HDMI_PHY_ENABLE_BIT		BIT(0)
+
+#define SYSREG_DISP_HDMI_PHY		0x838
+#define SYSREG_HDMI_REFCLK_SEL		BIT(0)
 
 #endif /* SAMSUNG_REGS_HDMI_H */
