@@ -353,10 +353,24 @@ int kdbus_name_acquire(struct kdbus_name_registry *reg,
 	} else if (flags & KDBUS_NAME_QUEUE) {
 		/* add to waiting-queue of the name */
 
-		ret = kdbus_name_pending_new(e, conn, flags);
-		if (ret >= 0)
-			/* tell the caller that we queued it */
-			rflags |= KDBUS_NAME_IN_QUEUE;
+		struct kdbus_name_pending *p;
+		bool in_queue = false;
+
+		list_for_each_entry(p, &e->queue, name_entry) {
+			if (p->conn == conn) {
+				/* connection is already queued */
+				rflags |= KDBUS_NAME_IN_QUEUE;
+				in_queue = true;
+				break;
+			}
+		}
+
+		if (!in_queue) {
+			ret = kdbus_name_pending_new(e, conn, flags);
+			if (ret >= 0)
+				/* tell the caller that we queued it */
+				rflags |= KDBUS_NAME_IN_QUEUE;
+		}
 	} else {
 		/* the name is busy, return a failure */
 		ret = -EEXIST;
