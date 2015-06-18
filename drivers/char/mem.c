@@ -808,7 +808,7 @@ static int memory_open(struct inode *inode, struct file *filp)
 
 	minor = iminor(inode);
 	if (minor >= ARRAY_SIZE(devlist))
-		return kmsg_memory_open(inode, filp);
+		return kmsg_memory_open_ext(inode, filp);
 
 	dev = &devlist[minor];
 	if (!dev->fops)

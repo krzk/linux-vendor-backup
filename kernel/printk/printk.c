@@ -56,6 +56,10 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/printk.h>
 
+#ifdef CONFIG_PRINTK
+#include <uapi/linux/kmsg_ioctl.h>
+#endif
+
 #include "console_cmdline.h"
 #include "braille.h"
 
@@ -1254,6 +1258,120 @@ const struct file_operations kmsg_fops = {
 	.release = devkmsg_release,
 };
 
+#define MAX_MINOR_LEN	20
+
+static int kmsg_open_ext(struct inode *inode, struct file *file)
+{
+	return kmsg_fops.open(inode, file);
+}
+
+static ssize_t kmsg_write_iter_ext(struct kiocb *iocb, struct iov_iter *from)
+{
+	return kmsg_fops.write_iter(iocb, from);
+}
+
+static ssize_t kmsg_read_ext(struct file *file, char __user *buf,
+			     size_t count, loff_t *ppos)
+{
+	return kmsg_fops.read(file, buf, count, ppos);
+}
+
+static loff_t kmsg_llseek_ext(struct file *file, loff_t offset, int whence)
+{
+	return kmsg_fops.llseek(file, offset, whence);
+}
+
+static unsigned int kmsg_poll_ext(struct file *file,
+				  struct poll_table_struct *wait)
+{
+	return kmsg_fops.poll(file, wait);
+}
+
+static long kmsg_ioctl_buffers(struct file *file, unsigned int cmd,
+			       unsigned long arg)
+{
+	void __user *argp = (void __user *)arg;
+	size_t size;
+	umode_t mode;
+	char name[4 + MAX_MINOR_LEN + 1];
+	struct device *dev;
+	int minor;
+
+	if (iminor(file->f_inode) != log_buf.minor)
+		return -ENOTTY;
+
+	switch (cmd) {
+	case KMSG_CMD_BUFFER_ADD:
+		if (copy_from_user(&size, argp, sizeof(size)))
+			return -EFAULT;
+		argp += sizeof(size);
+		if (copy_from_user(&mode, argp, sizeof(mode)))
+			return -EFAULT;
+		argp += sizeof(mode);
+		minor = kmsg_sys_buffer_add(size, mode);
+		if (minor < 0)
+			return minor;
+		sprintf(name, "kmsg%d", minor);
+		dev = device_create(mem_class, NULL, MKDEV(MEM_MAJOR, minor),
+				    NULL, name);
+		if (IS_ERR(dev)) {
+			kmsg_sys_buffer_del(minor);
+			return PTR_ERR(dev);
+		}
+		if (copy_to_user(argp, &minor, sizeof(minor))) {
+			device_destroy(mem_class, MKDEV(MEM_MAJOR, minor));
+			kmsg_sys_buffer_del(minor);
+			return -EFAULT;
+		}
+		return 0;
+	case KMSG_CMD_BUFFER_DEL:
+		if (copy_from_user(&minor, argp, sizeof(minor)))
+			return -EFAULT;
+		if (minor <= log_buf.minor)
+			return -EINVAL;
+		device_destroy(mem_class, MKDEV(MEM_MAJOR, minor));
+		kmsg_sys_buffer_del(minor);
+		return 0;
+	}
+	return -ENOTTY;
+}
+
+static long kmsg_unlocked_ioctl_ext(struct file *file, unsigned int cmd,
+				    unsigned long arg)
+{
+	long ret = kmsg_ioctl_buffers(file, cmd, arg);
+
+	if (ret == -ENOTTY)
+		return kmsg_fops.unlocked_ioctl(file, cmd, arg);
+	return ret;
+}
+
+static long kmsg_compat_ioctl_ext(struct file *file, unsigned int cmd,
+				  unsigned long arg)
+{
+	long ret = kmsg_ioctl_buffers(file, cmd, arg);
+
+	if (ret == -ENOTTY)
+		return kmsg_fops.compat_ioctl(file, cmd, arg);
+	return ret;
+}
+
+static int kmsg_release_ext(struct inode *inode, struct file *file)
+{
+	return kmsg_fops.release(inode, file);
+}
+
+const struct file_operations kmsg_fops_ext = {
+	.open		= kmsg_open_ext,
+	.read		= kmsg_read_ext,
+	.write_iter	= kmsg_write_iter_ext,
+	.llseek		= kmsg_llseek_ext,
+	.poll		= kmsg_poll_ext,
+	.unlocked_ioctl	= kmsg_unlocked_ioctl_ext,
+	.compat_ioctl	= kmsg_compat_ioctl_ext,
+	.release	= kmsg_release_ext,
+};
+
 /* Should be used for device registration */
 struct device *init_kmsg(int minor, umode_t mode)
 {
@@ -1268,6 +1386,13 @@ int kmsg_memory_open(struct inode *inode, struct file *filp)
 	filp->f_op = &kmsg_fops;
 
 	return kmsg_fops.open(inode, filp);
+}
+
+int kmsg_memory_open_ext(struct inode *inode, struct file *filp)
+{
+	filp->f_op = &kmsg_fops_ext;
+
+	return kmsg_fops_ext.open(inode, filp);
 }
 
 int kmsg_mode(int minor, umode_t *mode)
