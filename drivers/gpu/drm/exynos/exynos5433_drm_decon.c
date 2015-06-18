@@ -355,9 +355,11 @@ static void decon_win_commit(struct exynos_drm_crtc *crtc, int zpos)
 		VIDOSD_Wx_ALPHA_B_F(0x0);
 	writel(val, ctx->addr + DECON_VIDOSDxD(win));
 
-	writel(win_data->dma_addr, ctx->addr + DECON_VIDW0xADD0B0(win));
+	val = win_data->dma_addr + win_data->offset_x * (win_data->bpp >> 3) +
+	      win_data->fb_pitch * win_data->offset_y;
+	writel(val, ctx->addr + DECON_VIDW0xADD0B0(win));
 
-	val = win_data->dma_addr + win_data->fb_pitch * win_data->ovl_height;
+	val += win_data->fb_pitch * win_data->ovl_height;
 	writel(val, ctx->addr + DECON_VIDW0xADD1B0(win));
 
 	if (ctx->drv_data->type == EXYNOS_DISPLAY_TYPE_HDMI)
