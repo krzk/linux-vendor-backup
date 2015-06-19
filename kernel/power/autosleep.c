@@ -82,9 +82,11 @@ static void try_to_suspend(struct work_struct *work)
 		sleep_history_marker(SLEEP_HISTORY_AUTOSLEEP_EXIT,
 			&ts, last_ws[0]);
 
-		for (i = 1;  last_ws[i] && i < sizeof(last_ws)/sizeof(struct wakeup_source *); i++)
-			sleep_history_marker(SLEEP_HISTORY_AUTOSLEEP_EXIT,
-				NULL, last_ws[i]);
+		for (i = 1;  i < sizeof(last_ws)/sizeof(struct wakeup_source *); i++) {
+			if (last_ws[i])
+				sleep_history_marker(SLEEP_HISTORY_AUTOSLEEP_EXIT,
+					NULL, last_ws[i]);
+		}
 		memset(last_ws, 0, sizeof(last_ws));
 		pm_del_prevent_sleep_time();
 	} else
@@ -136,9 +138,11 @@ static void try_to_suspend(struct work_struct *work)
 			sleep_history_marker(SLEEP_HISTORY_AUTOSLEEP_EXIT,
 				&ts, last_ws[0]);
 
-			for (i = 1; last_ws[i] && i < sizeof(last_ws)/sizeof(struct wakeup_source *); i++)
-				sleep_history_marker(SLEEP_HISTORY_AUTOSLEEP_EXIT,
-					NULL, last_ws[i]);
+			for (i = 1; i < sizeof(last_ws)/sizeof(struct wakeup_source *); i++) {
+				if (last_ws[i])
+					sleep_history_marker(SLEEP_HISTORY_AUTOSLEEP_EXIT,
+						NULL, last_ws[i]);
+			}
 			memset(last_ws, 0, sizeof(last_ws));
 			pm_del_prevent_sleep_time();
 		} else
