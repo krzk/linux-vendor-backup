@@ -210,6 +210,7 @@ struct hdmi_context {
 	struct drm_encoder		*encoder;
 	bool				hpd;
 	bool				powered;
+	bool				phy_enabled;
 	bool				dvi_mode;
 	bool				applied;
 
@@ -1853,6 +1854,11 @@ static void hdmiphy_poweron(struct hdmi_context *hdata)
 
 static void hdmiphy_poweroff(struct hdmi_context *hdata)
 {
+	if (!hdata->phy_enabled)
+		return;
+
+	hdata->phy_enabled = false;
+
 	if (hdata->type == HDMI_TYPE13)
 		return;
 
@@ -1871,6 +1877,23 @@ static void hdmiphy_poweroff(struct hdmi_context *hdata)
 	/* For PHY Mode Setting */
 	hdmiphy_reg_writeb(hdata, HDMIPHY_MODE_SET_DONE,
 				HDMI_PHY_DISABLE_MODE_SET);
+}
+
+static void hdmiphy_wait_for_pll(struct hdmi_context *hdata)
+{
+	int tries;
+
+	for (tries = 0; tries < 100; ++tries) {
+		u32 val = hdmi_reg_read(hdata, hdata->drv_data->phy_status);
+
+		if (val & HDMI_PHY_STATUS_READY) {
+			DRM_DEBUG_KMS("PLL stabilized after %d tries", tries);
+			return;
+		}
+		usleep_range(10, 20);
+	}
+
+	DRM_ERROR("hdmiphy's pll could not reach steady state.\n");
 }
 
 static void hdmiphy_conf_apply(struct hdmi_context *hdata)
@@ -1895,6 +1918,8 @@ static void hdmiphy_conf_apply(struct hdmi_context *hdata)
 	}
 
 	hdmiphy_reg_writeb(hdata, mode_set_done, HDMI_PHY_DISABLE_MODE_SET);
+
+	hdmiphy_wait_for_pll(hdata);
 }
 
 static void hdmi_conf_apply(struct hdmi_context *hdata)
@@ -2140,26 +2165,12 @@ static void hdmi_phy_power(struct hdmi_context *hdata, bool enable)
 			   HDMI_PHY_POWER_OFF_EN);
 }
 
-static void hdmiphy_wait_for_pll(struct hdmi_context *hdata)
-{
-	int tries;
-
-	for (tries = 0; tries < 100; ++tries) {
-		u32 val = hdmi_reg_read(hdata, hdata->drv_data->phy_status);
-
-		if (val & HDMI_PHY_STATUS_READY) {
-			DRM_DEBUG_KMS("PLL stabilized after %d tries", tries);
-			return;
-		}
-		usleep_range(10, 20);
-	}
-
-	DRM_ERROR("hdmiphy's pll could not reach steady state.\n");
-}
-
 static void hdmiphy_enable(struct hdmi_context *hdata)
 {
 	struct hdmi_resources *res = &hdata->res;
+
+	if (hdata->phy_enabled)
+		return;
 
 	pm_runtime_get_sync(hdata->dev);
 
@@ -2189,8 +2200,6 @@ static void hdmiphy_enable(struct hdmi_context *hdata)
 
 	hdmiphy_conf_apply(hdata);
 
-	hdmiphy_wait_for_pll(hdata);
-
 	hdmi_reg_writemask(hdata, HDMI_INTC_CON, 0, HDMI_INTC_EN_GLOBAL);
 	hdmi_reg_writemask(hdata, HDMI_MODE_SEL, HDMI_MODE_HDMI_EN,
 			   HDMI_MODE_MASK);
@@ -2198,6 +2207,8 @@ static void hdmiphy_enable(struct hdmi_context *hdata)
 	hdmi_reg_writemask(hdata, HDMI_CON_0, 0, HDMI_BLUE_SCR_EN);
 	hdmi_reg_writeb(hdata, HDMI_AVI_CON, HDMI_AVI_CON_EVERY_VSYNC);
 	hdmi_reg_writeb(hdata, HDMI_AVI_BYTE(1), 0 << 5);
+
+	hdata->phy_enabled = true;
 }
 
 /* This function should be replaced with clk API */
@@ -2243,6 +2254,9 @@ static void hdmi_mode_set(struct exynos_drm_display *display,
 		hdmi_v13_mode_set(hdata, mode);
 	else
 		hdmi_v14_mode_set(hdata, mode);
+
+	hdmiphy_enable(hdata);
+	hdmiphy_conf_apply(hdata);
 }
 
 static void hdmi_poweron(struct hdmi_context *hdata)
