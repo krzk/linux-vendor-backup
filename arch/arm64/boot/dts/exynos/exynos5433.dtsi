@@ -1367,13 +1367,14 @@
 		decon: decon@13800000 {
 			compatible = "samsung,exynos5433-decon";
 			reg = <0x13800000 0x2104>;
-			clocks = <&cmu_disp CLK_ACLK_DECON>,
+			clocks = <&cmu_disp CLK_PCLK_DECON>,
+				 <&cmu_disp CLK_ACLK_DECON>,
 				 <&cmu_disp CLK_ACLK_SMMU_DECON0X>,
 				 <&cmu_disp CLK_ACLK_XIU_DECON0X>,
 				 <&cmu_disp CLK_PCLK_SMMU_DECON0X>,
 				 <&cmu_disp CLK_SCLK_DECON_VCLK>,
 				 <&cmu_disp CLK_SCLK_DECON_ECLK>;
-			clock-names = "aclk_decon", "aclk_smmu_decon0x",
+			clock-names = "pclk", "aclk_decon", "aclk_smmu_decon0x",
 				      "aclk_xiu_decon0x", "pclk_smmu_decon0x",
 				      "sclk_decon_vclk", "sclk_decon_eclk";
 			interrupt-names = "fifo", "vsync", "lcd_sys";
@@ -1433,13 +1434,14 @@
 		decon_tv: decon@13880000 {
 			compatible = "samsung,exynos5433-decon-tv";
 			reg = <0x13880000 0x20B8>;
-			clocks = <&cmu_disp CLK_ACLK_DECON_TV>,
+			clocks = <&cmu_disp CLK_PCLK_DECON_TV>,
+				 <&cmu_disp CLK_ACLK_DECON_TV>,
 				 <&cmu_disp CLK_ACLK_SMMU_TV0X>,
 				 <&cmu_disp CLK_ACLK_XIU_TV0X>,
 				 <&cmu_disp CLK_PCLK_SMMU_TV0X>,
 				 <&cmu_disp CLK_SCLK_DECON_TV_VCLK>,
 				 <&cmu_disp CLK_SCLK_DECON_TV_ECLK>;
-			clock-names = "aclk_decon", "aclk_smmu_decon0x",
+			clock-names = "pclk", "aclk_decon", "aclk_smmu_decon0x",
 				      "aclk_xiu_decon0x", "pclk_smmu_decon0x",
 				      "sclk_decon_vclk", "sclk_decon_eclk";
 			assigned-clocks = <&cmu_mif CLK_MOUT_SCLK_DECON_TV_ECLK_A>, <&cmu_mif CLK_DIV_SCLK_DECON_TV_ECLK>, <&cmu_disp CLK_MOUT_SCLK_DECON_TV_ECLK_USER>, <&cmu_disp CLK_MOUT_SCLK_DECON_TV_ECLK>, <&cmu_disp CLK_SCLK_RGB_TV_VCLK>;
