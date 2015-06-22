@@ -25,6 +25,16 @@
 #define WINDOWS_NR	3
 #define MIN_FB_WIDTH_FOR_16WORD_BURST	128
 
+static const char * const decon_clks_name[] = {
+	"pclk",
+	"aclk_decon",
+	"aclk_smmu_decon0x",
+	"aclk_xiu_decon0x",
+	"pclk_smmu_decon0x",
+	"sclk_decon_vclk",
+	"sclk_decon_eclk",
+};
+
 struct decon_win_data {
 	unsigned int 	offset_x;
 	unsigned int 	offset_y;
@@ -53,7 +63,7 @@ struct decon_context {
 	struct drm_device		*drm_dev;
 	struct exynos_drm_crtc          *crtc;
 	void __iomem			*addr;
-	struct clk			*clks[6];
+	struct clk			*clks[ARRAY_SIZE(decon_clks_name)];
 	struct decon_win_data		win_data[WINDOWS_NR];
 	int				pipe;
 	bool				suspended;
@@ -64,15 +74,6 @@ struct decon_context {
 	bool				i80_if;
 	atomic_t			win_updated;
 	struct exynos5433_decon_driver_data *drv_data;
-};
-
-static const char * const decon_clks_name[] = {
-	"aclk_decon",
-	"aclk_smmu_decon0x",
-	"aclk_xiu_decon0x",
-	"pclk_smmu_decon0x",
-	"sclk_decon_vclk",
-	"sclk_decon_eclk",
 };
 
 static const struct of_device_id exynos5433_decon_driver_dt_match[];
