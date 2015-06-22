@@ -673,7 +673,7 @@ static const char *hdmi_clk_muxes4[] = {
 };
 
 static const char *hdmi_clk_gates5430[] = {
-	"hdmi_pclk", "hdmi_i_pclk", "i_tmds_clk", "i_pixel_clk"
+	"hdmi_pclk", "hdmi_i_pclk", "i_tmds_clk", "i_pixel_clk", "i_spdif_clk"
 };
 
 static const char *hdmi_clk_muxes5430[] = {
