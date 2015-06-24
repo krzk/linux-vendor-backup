@@ -573,14 +573,6 @@ static void sii8620_cbus_reset(struct sii8620 *ctx)
 			| BIT_PWD_SRST_CBUS_RST_SW_EN,
 		REG_PWD_SRST, BIT_PWD_SRST_CBUS_RST_SW_EN
 	);
-
-	/* TODO: android do not use it
-	sii8620_setbits(ctx, REG_COC_MISC_CTL0, BIT_COC_MISC_CTL0_FSM_MON, ~0);
-	sii8620_setbits(ctx, REG_GPIO_CTRL1,
-		BIT_CTRL1_GPIO_I_7 | BIT_CTRL1_GPIO_OEN_7 |
-		BIT_CTRL1_GPIO_I_6 | BIT_CTRL1_GPIO_OEN_6,
-		0);
-	*/
 }
 
 static void sii8620_set_auto_zone(struct sii8620 *ctx)
