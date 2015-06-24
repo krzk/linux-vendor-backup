@@ -903,19 +903,31 @@ static void sii8620_set_mode(struct sii8620 *ctx, enum sii8620_mode mode)
 
 	ctx->mode = mode;
 
-	if (mode != CM_MHL1) {
-		sii8620_set_auto_zone(ctx);
-		return;
-	}
-
-	sii8620_write_seq(ctx,
-		REG_CBUS_MSC_COMPATIBILITY_CONTROL, 0x02,
-		REG_M3_CTRL, VAL_M3_CTRL_MHL1_2_VALUE,
-		REG_DPD, BIT_DPD_PWRON_PLL | BIT_DPD_PDNTX12 | BIT_DPD_OSC_EN,
-		REG_COC_INTR_MASK, 0
-	);
+	switch (mode) {
+	case CM_MHL1:
+		sii8620_write_seq(ctx,
+			REG_CBUS_MSC_COMPATIBILITY_CONTROL, 0x02,
+			REG_M3_CTRL, VAL_M3_CTRL_MHL1_2_VALUE,
+			REG_DPD, BIT_DPD_PWRON_PLL | BIT_DPD_PDNTX12
+				| BIT_DPD_OSC_EN,
+			REG_COC_INTR_MASK, 0
+		);
+		break;
+	case CM_MHL3:
+		sii8620_write_seq(ctx,
+			REG_M3_CTRL, VAL_M3_CTRL_MHL3_VALUE,
+			REG_COC_CTL0, 0x40,
+			REG_MHL_COC_CTL1, 0x07
+		);
+		break;
+	default:
+		break;
+	};
 
 	sii8620_set_auto_zone(ctx);
+
+	if (mode != CM_MHL1)
+		return;
 
 	sii8620_write_seq(ctx,
 		REG_MHL_DP_CTL0, 0xBC,
@@ -1058,8 +1070,9 @@ static void sii8620_irq_g2wb(struct sii8620 *ctx)
 static void sii8620_status_changed_dcap(struct sii8620 *ctx)
 {
 	if (ctx->stat[MHL_ST_CONNECTED_RDY] & MHL_STATUS_DCAP_RDY) {
-		/* TODO: add MHL3 support */
-		sii8620_set_mode(ctx, CM_MHL1);
+		int mode = (ctx->stat[MHL_ST_VERSION] >= 0x30)
+				? CM_MHL3 : CM_MHL1;
+		sii8620_set_mode(ctx, mode);
 		sii8620_peer_specific_init(ctx);
 		sii8620_write(ctx, REG_INTR9_MASK, BIT_INTR9_DEVCAP_DONE
 			       | BIT_INTR9_EDID_DONE | BIT_INTR9_EDID_ERROR);
