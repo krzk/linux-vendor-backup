@@ -72,6 +72,7 @@ struct sii8620 {
 	u8 cbus_status;
 	u8 stat[MHL_ST_LENGTH];
 	u8 devcap[MHL_DEVCAP_SIZE];
+	u8 xdevcap[MHL_XDC_SIZE];
 	u8 avif[19];
 	struct edid *edid;
 	unsigned int gen2_write_burst:1;
@@ -85,6 +86,11 @@ struct sii8620_msc_msg;
 
 typedef void (*sii8620_msc_msg_cb)(struct sii8620 *ctx,
 				   struct sii8620_msc_msg *msg);
+
+enum sii8620_msc_msg_cmd {
+	cmd_read_devcap,
+	cmd_read_xdevcap,
+};
 
 struct sii8620_msc_msg {
 	struct list_head node;
@@ -329,12 +335,17 @@ static inline void sii8620_mt_set_int(struct sii8620 *ctx, u8 irq, u8 mask)
 static void sii8620_mt_read_devcap_send(struct sii8620 *ctx,
 					struct sii8620_msc_msg *msg)
 {
-	sii8620_write_seq(ctx,
-		REG_INTR9_MASK, BIT_INTR9_DEVCAP_DONE,
-		REG_EDID_CTRL, VAL_EDID_CTRL_EDID_PRIME_VALID_DISABLE
+	u8 ctrl = VAL_EDID_CTRL_EDID_PRIME_VALID_DISABLE
 			| VAL_EDID_CTRL_DEVCAP_SELECT_DEVCAP
 			| VAL_EDID_CTRL_EDID_FIFO_ADDR_AUTO_ENABLE
-			| VAL_EDID_CTRL_EDID_MODE_EN_ENABLE,
+			| VAL_EDID_CTRL_EDID_MODE_EN_ENABLE;
+
+	if (msg->cmd == cmd_read_xdevcap)
+		ctrl |= BIT_EDID_CTRL_XDEVCAP_EN;
+
+	sii8620_write_seq(ctx,
+		REG_INTR9_MASK, BIT_INTR9_DEVCAP_DONE,
+		REG_EDID_CTRL, ctrl,
 		REG_TPI_CBUS_START, BIT_TPI_CBUS_START_GET_DEVCAP_START
 	);
 }
@@ -343,20 +354,10 @@ static void sii8620_fetch_edid(struct sii8620 *ctx);
 static void sii8620_set_upstream_edid(struct sii8620 *ctx);
 static void sii8620_enable_hpd(struct sii8620 *ctx);
 
-static void sii8620_mt_read_devcap_recv(struct sii8620 *ctx,
-					struct sii8620_msc_msg *msg)
+static void sii8620_mr_devcap(struct sii8620 *ctx)
 {
-	sii8620_write_seq(ctx,
-		REG_INTR9_MASK, BIT_INTR9_DEVCAP_DONE | BIT_INTR9_EDID_DONE
-			| BIT_INTR9_EDID_ERROR,
-		REG_EDID_CTRL, VAL_EDID_CTRL_EDID_PRIME_VALID_DISABLE
-			| VAL_EDID_CTRL_DEVCAP_SELECT_DEVCAP
-			| VAL_EDID_CTRL_EDID_FIFO_ADDR_AUTO_ENABLE
-			| VAL_EDID_CTRL_EDID_MODE_EN_ENABLE,
-		REG_EDID_FIFO_ADDR, 0
-	);
-
-	sii8620_read_buf(ctx, REG_EDID_FIFO_RD_DATA, ctx->devcap, MHL_DEVCAP_SIZE);
+	sii8620_read_buf(ctx, REG_EDID_FIFO_RD_DATA, ctx->devcap,
+			 MHL_DEVCAP_SIZE);
 
 	sii8620_fetch_edid(ctx);
 	sii8620_parse_edid(ctx);
@@ -366,7 +367,41 @@ static void sii8620_mt_read_devcap_recv(struct sii8620 *ctx,
 	sii8620_enable_hpd(ctx);
 }
 
-static void sii8620_mt_read_devcap(struct sii8620 *ctx)
+static void sii8620_mr_xdevcap(struct sii8620 *ctx)
+{
+	sii8620_read_buf(ctx, REG_EDID_FIFO_RD_DATA, ctx->xdevcap,
+			 MHL_XDC_SIZE);
+
+	sii8620_mt_write_stat(ctx, MHL_XDS_REG(CURR_ECBUS_MODE),
+			      MHL_XDS_ECBUS_S | MHL_XDS_SLOT_MODE_8BIT);
+	sii8620_mt_msc(ctx, MHL_MSC_MSG_RAP, MHL_RAP_CBUS_MODE_UP);
+}
+
+static void sii8620_mt_read_devcap_recv(struct sii8620 *ctx,
+					struct sii8620_msc_msg *msg)
+{
+	u8 ctrl = VAL_EDID_CTRL_EDID_PRIME_VALID_DISABLE
+			| VAL_EDID_CTRL_DEVCAP_SELECT_DEVCAP
+			| VAL_EDID_CTRL_EDID_FIFO_ADDR_AUTO_ENABLE
+			| VAL_EDID_CTRL_EDID_MODE_EN_ENABLE;
+
+	if (msg->cmd == cmd_read_xdevcap)
+		ctrl |= BIT_EDID_CTRL_XDEVCAP_EN;
+
+	sii8620_write_seq(ctx,
+		REG_INTR9_MASK, BIT_INTR9_DEVCAP_DONE | BIT_INTR9_EDID_DONE
+			| BIT_INTR9_EDID_ERROR,
+		REG_EDID_CTRL, ctrl,
+		REG_EDID_FIFO_ADDR, 0
+	);
+
+	if (msg->cmd == cmd_read_xdevcap)
+		sii8620_mr_xdevcap(ctx);
+	else
+		sii8620_mr_devcap(ctx);
+}
+
+static void sii8620_mt_read_devcap(struct sii8620 *ctx, bool xdevcap)
 {
 	struct sii8620_msc_msg *msg = kzalloc(sizeof(*msg), GFP_KERNEL);
 
@@ -375,6 +410,7 @@ static void sii8620_mt_read_devcap(struct sii8620 *ctx)
 		return;
 	}
 
+	msg->cmd = xdevcap ? cmd_read_xdevcap : cmd_read_devcap;
 	msg->send = sii8620_mt_read_devcap_send;
 	msg->recv = sii8620_mt_read_devcap_recv;
 	list_add_tail(&msg->node, &ctx->mt_queue);
@@ -1072,6 +1108,9 @@ static void sii8620_status_changed_dcap(struct sii8620 *ctx)
 	if (ctx->stat[MHL_ST_CONNECTED_RDY] & MHL_STATUS_DCAP_RDY) {
 		int mode = (ctx->stat[MHL_ST_VERSION] >= 0x30)
 				? CM_MHL3 : CM_MHL1;
+
+		if (ctx->stat[MHL_ST_CONNECTED_RDY] & MHL_STATUS_XDEVCAPP_SUPP)
+			sii8620_mt_read_devcap(ctx, true);
 		sii8620_set_mode(ctx, mode);
 		sii8620_peer_specific_init(ctx);
 		sii8620_write(ctx, REG_INTR9_MASK, BIT_INTR9_DEVCAP_DONE
@@ -1087,8 +1126,7 @@ static void sii8620_status_changed_path(struct sii8620 *ctx)
 		sii8620_mt_write_stat(ctx, MHL_STATUS_REG_LINK_MODE,
 				      MHL_STATUS_CLK_MODE_NORMAL
 				      | MHL_STATUS_PATH_ENABLED);
-		// TODO: read devcap should be after receiving SET_INT
-		sii8620_mt_read_devcap(ctx);
+		sii8620_mt_read_devcap(ctx, false);
 	} else {
 		sii8620_mt_write_stat(ctx, MHL_STATUS_REG_LINK_MODE,
 				      MHL_STATUS_CLK_MODE_NORMAL);
