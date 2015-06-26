@@ -818,6 +818,18 @@
 &hsi2c_4 {
 	status = "okay";
 
+	s3fwrn5@27 {
+		compatible = "samsung,s3fwrn5-i2c";
+
+		reg = <0x27>;
+
+		interrupt-parent = <&gpa1>;
+		interrupts = <3 0 0>;
+
+		s3fwrn5,en-gpios = <&gpf1 4 0>;
+		s3fwrn5,fw-gpios = <&gpj0 2 0>;
+	};
+
 	fimc_is_fan53555@60 {
 		compatible = "samsung,fimc_is_fan53555";
 		reg = <0x60>;
