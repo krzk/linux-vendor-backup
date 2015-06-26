@@ -1149,6 +1149,11 @@
 	status = "okay";
 };
 
+&tmu_g3d {
+	vtmu-supply = <&ldo3_reg>;
+	status = "okay";
+};
+
 &rtc {
 	status = "okay";
 };
