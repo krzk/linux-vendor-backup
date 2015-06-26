@@ -87,15 +87,9 @@ struct sii8620_msc_msg;
 typedef void (*sii8620_msc_msg_cb)(struct sii8620 *ctx,
 				   struct sii8620_msc_msg *msg);
 
-enum sii8620_msc_msg_cmd {
-	cmd_read_devcap,
-	cmd_read_xdevcap,
-};
-
 struct sii8620_msc_msg {
 	struct list_head node;
-	u8 cmd;
-	u8 reg[2];
+	u8 reg[4];
 	u8 ret;
 	sii8620_msc_msg_cb send;
 	sii8620_msc_msg_cb recv;
@@ -302,34 +296,88 @@ static void sii8620_msc_work(struct sii8620 *ctx)
 	ctx->mt_ready = 0;
 }
 
-static void sii8620_mt_write_stat_send(struct sii8620 *ctx,
+static void sii8620_mt_msc_cmd_send(struct sii8620 *ctx,
 				       struct sii8620_msc_msg *msg)
 {
-	sii8620_write_seq(ctx,
-		REG_MSC_CMD_OR_OFFSET, msg->reg[0],
-		REG_MSC_1ST_TRANSMIT_DATA, msg->reg[1],
-		REG_MSC_COMMAND_START, BIT_MSC_COMMAND_START_WRITE_STAT
-	);
+	static const struct {
+		u8 cmd, beg, cnt;
+	} v[] = {
+		{ BIT_MSC_COMMAND_START_WRITE_STAT, 1, 2 },
+		{ BIT_MSC_COMMAND_START_MSC_MSG, 0, 3 },
+	}, *p;
+
+	switch (msg->reg[0]) {
+	case MHL_WRITE_STAT:
+	case MHL_SET_INT:
+		p = &v[0];
+		break;
+	case MHL_MSC_MSG:
+		p = &v[1];
+		break;
+	default:
+		dev_err(ctx->dev, "%s: command %d not supported\n", __func__,
+			msg->reg[0]);
+		return;
+	}
+
+	sii8620_write_buf(ctx, REG_MSC_CMD_OR_OFFSET, msg->reg + p->beg, p->cnt);
+	sii8620_write(ctx, REG_MSC_COMMAND_START, p->cmd);
+}
+
+static struct sii8620_msc_msg *sii8620_msg_new(struct sii8620 *ctx)
+{
+	struct sii8620_msc_msg *msg = kzalloc(sizeof(*msg), GFP_KERNEL);
+
+	if (!msg)
+		ctx->i2c_error = -ENOMEM;
+	else
+		list_add_tail(&msg->node, &ctx->mt_queue);
+
+	return msg;
 }
 
 static void sii8620_mt_write_stat(struct sii8620 *ctx, u8 reg, u8 val)
 {
-	struct sii8620_msc_msg *msg = kzalloc(sizeof(*msg), GFP_KERNEL);
+	struct sii8620_msc_msg *msg = sii8620_msg_new(ctx);
 
-	if (!msg) {
-		ctx->i2c_error = -ENOMEM;
+	if (!msg)
 		return;
-	}
 
-	msg->reg[0] = reg;
-	msg->reg[1] = val;
-	msg->send = sii8620_mt_write_stat_send;
-	list_add_tail(&msg->node, &ctx->mt_queue);
+	msg->reg[0] = MHL_WRITE_STAT;
+	msg->reg[1] = reg;
+	msg->reg[2] = val;
+	msg->send = sii8620_mt_msc_cmd_send;
 }
 
 static inline void sii8620_mt_set_int(struct sii8620 *ctx, u8 irq, u8 mask)
 {
-	sii8620_mt_write_stat(ctx, irq, mask);
+	struct sii8620_msc_msg *msg = sii8620_msg_new(ctx);
+
+	if (!msg)
+		return;
+
+	msg->reg[0] = MHL_SET_INT;
+	msg->reg[1] = irq;
+	msg->reg[2] = mask;
+	msg->send = sii8620_mt_msc_cmd_send;
+}
+
+static void sii8620_write_msc_msg(struct sii8620 *ctx, u8 cmd, u8 data)
+{
+	struct sii8620_msc_msg *msg = sii8620_msg_new(ctx);
+
+	if (!msg)
+		return;
+
+	msg->reg[0] = MHL_MSC_MSG;
+	msg->reg[1] = cmd;
+	msg->reg[2] = data;
+	msg->send = sii8620_mt_msc_cmd_send;
+}
+
+static void sii8620_write_rap(struct sii8620 *ctx, u8 code)
+{
+	sii8620_write_msc_msg(ctx, MHL_MSC_MSG_RAP, code);
 }
 
 static void sii8620_mt_read_devcap_send(struct sii8620 *ctx,
@@ -340,7 +388,7 @@ static void sii8620_mt_read_devcap_send(struct sii8620 *ctx,
 			| VAL_EDID_CTRL_EDID_FIFO_ADDR_AUTO_ENABLE
 			| VAL_EDID_CTRL_EDID_MODE_EN_ENABLE;
 
-	if (msg->cmd == cmd_read_xdevcap)
+	if (msg->reg[0] == MHL_READ_XDEVCAP)
 		ctrl |= BIT_EDID_CTRL_XDEVCAP_EN;
 
 	sii8620_write_seq(ctx,
@@ -374,7 +422,7 @@ static void sii8620_mr_xdevcap(struct sii8620 *ctx)
 
 	sii8620_mt_write_stat(ctx, MHL_XDS_REG(CURR_ECBUS_MODE),
 			      MHL_XDS_ECBUS_S | MHL_XDS_SLOT_MODE_8BIT);
-	sii8620_mt_msc(ctx, MHL_MSC_MSG_RAP, MHL_RAP_CBUS_MODE_UP);
+	sii8620_write_rap(ctx, MHL_RAP_CBUS_MODE_UP);
 }
 
 static void sii8620_mt_read_devcap_recv(struct sii8620 *ctx,
@@ -385,7 +433,7 @@ static void sii8620_mt_read_devcap_recv(struct sii8620 *ctx,
 			| VAL_EDID_CTRL_EDID_FIFO_ADDR_AUTO_ENABLE
 			| VAL_EDID_CTRL_EDID_MODE_EN_ENABLE;
 
-	if (msg->cmd == cmd_read_xdevcap)
+	if (msg->reg[0] == MHL_READ_XDEVCAP)
 		ctrl |= BIT_EDID_CTRL_XDEVCAP_EN;
 
 	sii8620_write_seq(ctx,
@@ -395,7 +443,7 @@ static void sii8620_mt_read_devcap_recv(struct sii8620 *ctx,
 		REG_EDID_FIFO_ADDR, 0
 	);
 
-	if (msg->cmd == cmd_read_xdevcap)
+	if (msg->reg[0] == MHL_READ_XDEVCAP)
 		sii8620_mr_xdevcap(ctx);
 	else
 		sii8620_mr_devcap(ctx);
@@ -410,7 +458,7 @@ static void sii8620_mt_read_devcap(struct sii8620 *ctx, bool xdevcap)
 		return;
 	}
 
-	msg->cmd = xdevcap ? cmd_read_xdevcap : cmd_read_devcap;
+	msg->reg[0] = xdevcap ? MHL_READ_XDEVCAP : MHL_READ_DEVCAP;
 	msg->send = sii8620_mt_read_devcap_send;
 	msg->recv = sii8620_mt_read_devcap_recv;
 	list_add_tail(&msg->node, &ctx->mt_queue);
@@ -1162,20 +1210,50 @@ static void sii8620_msc_mr_set_int(struct sii8620 *ctx)
 	// TODO: add handling of MHL interrupts
 }
 
-static void sii8620_msc_mt_done(struct sii8620 *ctx)
+static struct sii8620_msc_msg *sii8620_msc_msg_first(struct sii8620 *ctx)
 {
 	struct device *dev = ctx->dev;
-	struct sii8620_msc_msg *msg;
 
 	if (list_empty(&ctx->mt_queue)) {
 		dev_err(dev, "unexpected MSC MT response\n");
-		return;
+		return NULL;
 	}
 
-	msg = list_first_entry(&ctx->mt_queue, struct sii8620_msc_msg, node);
+	return list_first_entry(&ctx->mt_queue, struct sii8620_msc_msg, node);
+}
+
+static void sii8620_msc_mt_done(struct sii8620 *ctx)
+{
+	struct sii8620_msc_msg *msg = sii8620_msc_msg_first(ctx);
+
+	if (!msg)
+		return;
+
 	msg->ret = sii8620_readb(ctx, REG_MSC_MT_RCVD_DATA0);
 	ctx->mt_done = 1;
 	ctx->mt_ready = 1;
+}
+
+static void sii8620_msc_mr_msc_msg(struct sii8620 *ctx)
+{
+	struct sii8620_msc_msg *msg = sii8620_msc_msg_first(ctx);
+	u8 buf[2];
+
+	if (!msg)
+		return;
+
+	sii8620_read_buf(ctx, REG_MSC_MR_MSC_MSG_RCVD_1ST_DATA, buf, 2);
+
+	switch (buf[0]) {
+	case MHL_MSC_MSG_RAPK:
+		msg->ret = buf[1];
+		ctx->mt_done = 1;
+		ctx->mt_ready = 1;
+		break;
+	default:
+		dev_err(ctx->dev, "%s message type %d,%d not supported",
+			__func__, buf[0], buf[1]);
+	}
 }
 
 static void sii8620_irq_msc(struct sii8620 *ctx)
@@ -1205,6 +1283,9 @@ static void sii8620_irq_msc(struct sii8620 *ctx)
 
 	if (stat & BIT_CBUS_MSC_MT_DONE)
 		sii8620_msc_mt_done(ctx);
+
+	if (stat & BIT_CBUS_MSC_MR_MSC_MSG)
+		sii8620_msc_mr_msc_msg(ctx);
 }
 
 static void sii8620_irq_coc(struct sii8620 *ctx)

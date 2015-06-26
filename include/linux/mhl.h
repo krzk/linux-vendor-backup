@@ -139,6 +139,31 @@ enum {
 	MHL_READ_XDEVCAP
 };
 
+/* MSC message types */
+enum {
+	MHL_MSC_MSG_RCP = 0x10,  /* RCP sub-command */
+	MHL_MSC_MSG_RCPK = 0x11, /* RCP Acknowledge sub-command */
+	MHL_MSC_MSG_RCPE = 0x12, /* RCP Error sub-command */
+	MHL_MSC_MSG_RAP = 0x20,  /* Mode Change Warning sub-command */
+	MHL_MSC_MSG_RAPK = 0x21, /* MCW Acknowledge sub-command */
+	MHL_MSC_MSG_RBP = 0x22,  /* Remote Button Protocol sub-command */
+	MHL_MSC_MSG_RBPK = 0x23, /* RBP Acknowledge sub-command */
+	MHL_MSC_MSG_RBPE = 0x24, /* RBP Error sub-command */
+	MHL_MSC_MSG_UCP = 0x30,  /* UCP sub-command */
+	MHL_MSC_MSG_UCPK = 0x31, /* UCP Acknowledge sub-command */
+	MHL_MSC_MSG_UCPE = 0x32, /* UCP Error sub-command */
+	MHL_MSC_MSG_RUSB = 0x40, /* Request USB host role */
+	MHL_MSC_MSG_RUSBK = 0x41, /* Acknowledge request for USB host role */
+	MHL_MSC_MSG_RHID = 0x42, /* Request HID host role */
+	MHL_MSC_MSG_RHIDK = 0x43, /* Acknowledge request for HID host role */
+	MHL_MSC_MSG_ATT = 0x50,	/* Request attention sub-command */
+	MHL_MSC_MSG_ATTK = 0x51, /* ATT Acknowledge sub-command */
+	MHL_MSC_MSG_BIST_TRIGGER = 0x60,
+	MHL_MSC_MSG_BIST_REQUEST_STAT = 0x61,
+	MHL_MSC_MSG_BIST_READY = 0x62,
+	MHL_MSC_MSG_BIST_STOP = 0x63,
+};
+
 /* RAP action codes */
 #define MHL_RAP_POLL		0x00	/* Just do an ack */
 #define MHL_RAP_CONTENT_ON	0x10	/* Turn content stream ON */
@@ -247,7 +272,7 @@ enum {
 #define MHL_XDS_LINK_RATE_6_0_GBPS		0x02
 #define MHL_XDS_ATT_CAPABLE			0x08
 
-/* MHL_XDS_REG_MULTI_SINK_STATUS */
+/* MHL_XDS_REG_MULTI_SINK_STATUS flags */
 #define MHL_XDS_SINK_STATUS_1_HPD_LOW		0x00
 #define MHL_XDS_SINK_STATUS_1_HPD_HIGH		0x01
 #define MHL_XDS_SINK_STATUS_2_HPD_LOW		0x00
