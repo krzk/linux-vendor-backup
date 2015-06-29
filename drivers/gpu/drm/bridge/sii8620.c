@@ -393,17 +393,31 @@ static void sii8620_fetch_edid(struct sii8620 *ctx);
 static void sii8620_set_upstream_edid(struct sii8620 *ctx);
 static void sii8620_enable_hpd(struct sii8620 *ctx);
 
+/* copy src to dst and set changed bits in src */
+static void sii8620_update_array(u8 *dst, u8 *src, int count)
+{
+	while (--count >= 0) {
+		*src ^= *dst;
+		*dst++ ^= *src++;
+	}
+}
+
 static void sii8620_mr_devcap(struct sii8620 *ctx)
 {
+	u8 dcap[MHL_DCAP_SIZE];
+
 	sii8620_read_buf(ctx, REG_EDID_FIFO_RD_DATA, ctx->devcap,
 			 MHL_DCAP_SIZE);
+	sii8620_update_array(ctx->devcap, dcap, MHL_DCAP_SIZE);
 
-	sii8620_fetch_edid(ctx);
-	sii8620_parse_edid(ctx);
-	dev_info(ctx->dev, "detected sink type: %s\n",
-		sii8620_sink_type_str[ctx->sink_type]);
-	sii8620_set_upstream_edid(ctx);
-	sii8620_enable_hpd(ctx);
+	if (dcap[MHL_DCAP_DEV_CAT] & MHL_DCAP_CAT_SINK) {
+		sii8620_fetch_edid(ctx);
+		sii8620_parse_edid(ctx);
+		dev_info(ctx->dev, "detected sink type: %s\n",
+			 sii8620_sink_type_str[ctx->sink_type]);
+		sii8620_set_upstream_edid(ctx);
+		sii8620_enable_hpd(ctx);
+	}
 }
 
 static void sii8620_mr_xdevcap(struct sii8620 *ctx)
@@ -1175,14 +1189,6 @@ static void sii8620_status_changed_path(struct sii8620 *ctx)
 	} else {
 		sii8620_mt_write_stat(ctx, MHL_DST_REG(LINK_MODE),
 				      MHL_DST_LM_CLK_MODE_NORMAL);
-	}
-}
-
-static void sii8620_update_array(u8 *arr, u8 *chg, int count)
-{
-	while (--count >= 0) {
-		*chg ^= *arr;
-		*arr++ ^= *chg++;
 	}
 }
 
