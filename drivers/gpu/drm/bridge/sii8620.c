@@ -976,8 +976,8 @@ static void sii8620_mhl_init(struct sii8620 *ctx)
 	);
 	sii8620_disable_gen2_write_burst(ctx);
 
-	sii8620_mt_write_stat(ctx, MHL_DST_REG(VERSION),
-			      SII8620_MHL_VERSION);
+	/* currently MHL3 is not supported, so we force version to 0 */
+	sii8620_mt_write_stat(ctx, MHL_DST_REG(VERSION), 0);
 	sii8620_mt_write_stat(ctx, MHL_DST_REG(CONNECTED_RDY),
 			      MHL_DST_CONN_DCAP_RDY | MHL_DST_CONN_XDEVCAPP_SUPP
 			      | MHL_DST_CONN_POW_STAT);
@@ -1165,12 +1165,7 @@ static void sii8620_irq_g2wb(struct sii8620 *ctx)
 static void sii8620_status_changed_dcap(struct sii8620 *ctx)
 {
 	if (ctx->stat[MHL_DST_CONNECTED_RDY] & MHL_DST_CONN_DCAP_RDY) {
-		int mode = (ctx->stat[MHL_DST_VERSION] >= 0x30)
-				? CM_MHL1 : CM_MHL1;
-
-		//if (ctx->stat[MHL_ST_CONNECTED_RDY] & MHL_STATUS_XDEVCAPP_SUPP)
-		//	sii8620_mt_read_devcap(ctx, true);
-		sii8620_set_mode(ctx, mode);
+		sii8620_set_mode(ctx, CM_MHL1);
 		sii8620_peer_specific_init(ctx);
 		sii8620_write(ctx, REG_INTR9_MASK, BIT_INTR9_DEVCAP_DONE
 			       | BIT_INTR9_EDID_DONE | BIT_INTR9_EDID_ERROR);
