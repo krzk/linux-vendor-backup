@@ -1211,11 +1211,10 @@ static void sii8620_msc_mr_write_stat(struct sii8620 *ctx)
 
 static void sii8620_msc_mr_set_int(struct sii8620 *ctx)
 {
-	u8 int_0[2];
+	u8 ints[MHL_INT_SIZE];
 
-	sii8620_read_buf(ctx, REG_MHL_INT_0, int_0, ARRAY_SIZE(int_0));
-	sii8620_write_buf(ctx, REG_MHL_INT_0, int_0, ARRAY_SIZE(int_0));
-	// TODO: add handling of MHL interrupts
+	sii8620_read_buf(ctx, REG_MHL_INT_0, ints, MHL_INT_SIZE);
+	sii8620_write_buf(ctx, REG_MHL_INT_0, ints, MHL_INT_SIZE);
 }
 
 static struct sii8620_msc_msg *sii8620_msc_msg_first(struct sii8620 *ctx)
