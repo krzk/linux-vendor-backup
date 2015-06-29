@@ -730,9 +730,6 @@ static void sii8620_start_hdmi(struct sii8620 *ctx)
 
 	sii8620_set_auto_zone(ctx);
 
-	// TODO: add HDCP
-	//sii8620_stop_video(ctx);
-
 	sii8620_write(ctx, REG_TPI_SC, VAL_TPI_SC_TPI_OUTPUT_MODE_0_HDMI);
 
 	sii8620_write_buf(ctx, REG_TPI_AVI_CHSUM, ctx->avif, ARRAY_SIZE(ctx->avif));
@@ -742,7 +739,7 @@ static void sii8620_start_hdmi(struct sii8620 *ctx)
 
 static void sii8620_start_dvi(struct sii8620 *ctx)
 {
-	// TODO
+	/* TODO */
 }
 
 static void sii8620_start_video(struct sii8620 *ctx)
@@ -789,8 +786,6 @@ static void sii8620_enable_gen2_write_burst(struct sii8620 *ctx)
 
 	sii8620_write_seq(ctx,
 		REG_MDT_RCV_TIMEOUT, 100,
-//		REG_MDT_XMIT_CONTROL, BIT_MDT_XMIT_CONTROL_MDT_XMIT_EN
-//			| BIT_MDT_XMIT_CONTROL_MDT_XMIT_FIXED_BURST_LEN,
 		REG_MDT_RCV_CONTROL, BIT_MDT_RCV_CONTROL_MDT_RCV_EN
 	);
 	ctx->gen2_write_burst = 1;
@@ -1169,8 +1164,6 @@ static void sii8620_status_changed_dcap(struct sii8620 *ctx)
 		sii8620_peer_specific_init(ctx);
 		sii8620_write(ctx, REG_INTR9_MASK, BIT_INTR9_DEVCAP_DONE
 			       | BIT_INTR9_EDID_DONE | BIT_INTR9_EDID_ERROR);
-	} else {
-		// TODO
 	}
 }
 
@@ -1517,8 +1510,6 @@ static int sii8620_probe(struct i2c_client *client,
 
 static int sii8620_remove(struct i2c_client *client)
 {
-	//struct sii8620 *ctx = i2c_get_clientdata(client);
-
 	return 0;
 }
 
