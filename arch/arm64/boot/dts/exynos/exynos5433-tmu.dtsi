@@ -33,22 +33,22 @@ thermal-zones {
 				type = "active";
 			};
 			atlas0_alert_3: atlas0-alert-3 {
-				temperature = <62000>;	/* millicelsius */
+				temperature = <65000>;	/* millicelsius */
 				hysteresis = <10000>;	/* millicelsius */
 				type = "active";
 			};
 			atlas0_alert_4: atlas0-alert-4 {
-				temperature = <64000>;	/* millicelsius */
+				temperature = <70000>;	/* millicelsius */
 				hysteresis = <10000>;	/* millicelsius */
 				type = "active";
 			};
 			atlas0_alert_5: atlas0-alert-5 {
-				temperature = <66000>;	/* millicelsius */
+				temperature = <75000>;	/* millicelsius */
 				hysteresis = <10000>;	/* millicelsius */
 				type = "active";
 			};
 			atlas0_alert_6: atlas0-alert-6 {
-				temperature = <70000>;	/* millicelsius */
+				temperature = <80000>;	/* millicelsius */
 				hysteresis = <10000>;	/* millicelsius */
 				type = "active";
 			};
@@ -56,39 +56,39 @@ thermal-zones {
 
 		cooling-maps {
 			map0 {
-				/* Set maximum frequency as 1800MHz  */
-				trip = <&atlas0_alert_0>;
-				cooling-device = <&cpu4 1 1>;
-			};
-			map1 {
 				/* Set maximum frequency as 1600MHz  */
-				trip = <&atlas0_alert_1>;
+				trip = <&atlas0_alert_0>;
 				cooling-device = <&cpu4 3 3>;
 			};
-			map2 {
+			map1 {
 				/* Set maximum frequency as 1400MHz  */
-				trip = <&atlas0_alert_2>;
+				trip = <&atlas0_alert_1>;
 				cooling-device = <&cpu4 5 5>;
 			};
-			map3 {
+			map2 {
 				/* Set maximum frequency as 1200MHz  */
-				trip = <&atlas0_alert_3>;
+				trip = <&atlas0_alert_2>;
 				cooling-device = <&cpu4 7 7>;
 			};
-			map4 {
+			map3 {
 				/* Set maximum frequency as 1000MHz  */
-				trip = <&atlas0_alert_4>;
+				trip = <&atlas0_alert_3>;
 				cooling-device = <&cpu4 9 9>;
 			};
-			map5 {
+			map4 {
 				/* Set maximum frequency as 800MHz  */
-				trip = <&atlas0_alert_5>;
+				trip = <&atlas0_alert_4>;
 				cooling-device = <&cpu4 11 11>;
 			};
+			map5 {
+				/* Set maximum frequencyas 600MHz  */
+				trip = <&atlas0_alert_5>;
+				cooling-device = <&cpu4 13 13>;
+			};
 			map6 {
-				/* Set maximum frequency as 700MHz  */
+				/* Set maximum frequency as 500MHz  */
 				trip = <&atlas0_alert_6>;
-				cooling-device = <&cpu4 12 12>;
+				cooling-device = <&cpu4 14 14>;
 			};
 		};
 	};
@@ -186,37 +186,37 @@ thermal-zones {
 		polling-delay = <0>;
 		trips {
 			apollo_alert_0: apollo-alert-0 {
-				temperature = <60000>;	/* millicelsius */
+				temperature = <50000>;	/* millicelsius */
 				hysteresis = <10000>;	/* millicelsius */
 				type = "active";
 			};
 			apollo_alert_1: apollo-alert-1 {
-				temperature = <65000>;	/* millicelsius */
+				temperature = <55000>;	/* millicelsius */
 				hysteresis = <10000>;	/* millicelsius */
 				type = "active";
 			};
 			apollo_alert_2: apollo-alert-2 {
-				temperature = <70000>;	/* millicelsius */
+				temperature = <60000>;	/* millicelsius */
 				hysteresis = <10000>;	/* millicelsius */
 				type = "active";
 			};
 			apollo_alert_3: apollo-alert-3 {
-				temperature = <75000>;	/* millicelsius */
+				temperature = <65000>;	/* millicelsius */
 				hysteresis = <10000>;	/* millicelsius */
 				type = "active";
 			};
 			apollo_alert_4: apollo-alert-4 {
-				temperature = <80000>;	/* millicelsius */
+				temperature = <70000>;	/* millicelsius */
 				hysteresis = <10000>;	/* millicelsius */
 				type = "active";
 			};
 			apollo_alert_5: apollo-alert-5 {
-				temperature = <85000>;	/* millicelsius */
+				temperature = <75000>;	/* millicelsius */
 				hysteresis = <10000>;	/* millicelsius */
 				type = "active";
 			};
 			apollo_alert_6: apollo-alert-6 {
-				temperature = <90000>;	/* millicelsius */
+				temperature = <80000>;	/* millicelsius */
 				hysteresis = <10000>;	/* millicelsius */
 				type = "active";
 			};
