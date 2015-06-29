@@ -33,18 +33,8 @@ enum sii8620_mode {
 	CM_DISCONNECTED,
 	CM_DISCOVERY,
 	CM_MHL1,
-	CM_MHL3
-};
-
-enum sii8620_status_indices {
-	MHL_ST_CONNECTED_RDY,
-	MHL_ST_LINK_MODE,
-	MHL_ST_VERSION,
-	MHL_XST_CBUS_MODE,
-	MHL_XST_LINK_STATUS,
-	MHL_XST_AV_LINK_MODE_CONTROL,
-	MHL_XST_SINK_STATUS,
-	MHL_ST_LENGTH
+	CM_MHL3,
+	CM_ECBUS_S
 };
 
 enum sii8620_sink_type {
@@ -70,8 +60,9 @@ struct sii8620 {
 	enum sii8620_mode mode;
 	enum sii8620_sink_type sink_type;
 	u8 cbus_status;
-	u8 stat[MHL_ST_LENGTH];
-	u8 devcap[MHL_DEVCAP_SIZE];
+	u8 stat[MHL_DST_SIZE];
+	u8 xstat[MHL_XDS_SIZE];
+	u8 devcap[MHL_DCAP_SIZE];
 	u8 xdevcap[MHL_XDC_SIZE];
 	u8 avif[19];
 	struct edid *edid;
@@ -405,7 +396,7 @@ static void sii8620_enable_hpd(struct sii8620 *ctx);
 static void sii8620_mr_devcap(struct sii8620 *ctx)
 {
 	sii8620_read_buf(ctx, REG_EDID_FIFO_RD_DATA, ctx->devcap,
-			 MHL_DEVCAP_SIZE);
+			 MHL_DCAP_SIZE);
 
 	sii8620_fetch_edid(ctx);
 	sii8620_parse_edid(ctx);
@@ -720,8 +711,8 @@ static void sii8620_start_hdmi(struct sii8620 *ctx)
 		REG_TPI_OUTPUT, VAL_TPI_FORMAT(RGB, FULL),
 	);
 
-	sii8620_mt_write_stat(ctx, MHL_STATUS_REG_LINK_MODE,
-			MHL_STATUS_CLK_MODE_NORMAL | MHL_STATUS_PATH_ENABLED);
+	sii8620_mt_write_stat(ctx, MHL_DST_REG(LINK_MODE),
+			MHL_DST_LM_CLK_MODE_NORMAL | MHL_DST_LM_PATH_ENABLED);
 
 	sii8620_set_auto_zone(ctx);
 
@@ -883,22 +874,23 @@ static void sii8620_peer_specific_init(struct sii8620 *ctx)
 
 static void sii8620_set_dev_cap(struct sii8620 *ctx)
 {
-	static const u8 dev_cap[MHL_DEVCAP_SIZE] = {
-		[MHL_DEVCAP_MHL_VERSION] = 0x32,
-		[MHL_DEVCAP_DEV_CAT] = MHL_DEV_CAT_SOURCE | MHL_DEV_CAT_POWER,
-		[MHL_DEVCAP_ADOPTER_ID_H] = 0x01,
-		[MHL_DEVCAP_ADOPTER_ID_L] = 0x41,
-		[MHL_DEVCAP_VID_LINK_MODE] = MHL_DEV_VID_LINK_SUPP_RGB444
-			| MHL_DEV_VID_LINK_SUPP_PPIXEL
-			| MHL_DEV_VID_LINK_SUPP_16BPP,
-		[MHL_DEVCAP_AUD_LINK_MODE] = MHL_DEV_AUD_LINK_2CH,
-		[MHL_DEVCAP_VIDEO_TYPE] = MHL_VT_GRAPHICS,
-		[MHL_DEVCAP_LOG_DEV_MAP] = MHL_DEV_LD_GUI,
-		[MHL_DEVCAP_BANDWIDTH] = 0x0f,
-		[MHL_DEVCAP_FEATURE_FLAG] = MHL_FEATURE_RCP_SUPPORT
-			| MHL_FEATURE_RAP_SUPPORT | MHL_FEATURE_SP_SUPPORT,
-		[MHL_DEVCAP_SCRATCHPAD_SIZE] = SII8620_SCRATCHPAD_SIZE,
-		[MHL_DEVCAP_INT_STAT_SIZE] = SII8620_INT_STAT_SIZE,
+	static const u8 dev_cap[MHL_DCAP_SIZE] = {
+		[MHL_DCAP_MHL_VERSION] = SII8620_MHL_VERSION,
+		[MHL_DCAP_DEV_CAT] = MHL_DCAP_CAT_SOURCE | MHL_DCAP_CAT_POWER,
+		[MHL_DCAP_ADOPTER_ID_H] = 0x01,
+		[MHL_DCAP_ADOPTER_ID_L] = 0x41,
+		[MHL_DCAP_VID_LINK_MODE] = MHL_DCAP_VID_LINK_RGB444
+			| MHL_DCAP_VID_LINK_PPIXEL
+			| MHL_DCAP_VID_LINK_16BPP,
+		[MHL_DCAP_AUD_LINK_MODE] = MHL_DCAP_AUD_LINK_2CH,
+		[MHL_DCAP_VIDEO_TYPE] = MHL_DCAP_VT_GRAPHICS,
+		[MHL_DCAP_LOG_DEV_MAP] = MHL_DCAP_LD_GUI,
+		[MHL_DCAP_BANDWIDTH] = 0x0f,
+		[MHL_DCAP_FEATURE_FLAG] = MHL_DCAP_FEATURE_RCP_SUPPORT
+			| MHL_DCAP_FEATURE_RAP_SUPPORT
+			| MHL_DCAP_FEATURE_SP_SUPPORT,
+		[MHL_DCAP_SCRATCHPAD_SIZE] = SII8620_SCRATCHPAD_SIZE,
+		[MHL_DCAP_INT_STAT_SIZE] = SII8620_INT_STAT_SIZE,
 	};
 	static const u8 xdev_cap[MHL_XDC_SIZE] = {
 		[MHL_XDC_ECBUS_SPEEDS] = MHL_XDC_ECBUS_S_075
@@ -970,12 +962,12 @@ static void sii8620_mhl_init(struct sii8620 *ctx)
 	);
 	sii8620_disable_gen2_write_burst(ctx);
 
-	sii8620_mt_write_stat(ctx, MHL_STATUS_REG_VERSION_STAT,
-			       SII8620_MHL_VERSION);
-	sii8620_mt_write_stat(ctx, MHL_STATUS_REG_CONNECTED_RDY,
-			       MHL_STATUS_DCAP_RDY | MHL_STATUS_XDEVCAPP_SUPP
-			       | MHL_STATUS_POW_STAT);
-	sii8620_mt_set_int(ctx, MHL_RCHANGE_INT, MHL_INT_DCAP_CHG);
+	sii8620_mt_write_stat(ctx, MHL_DST_REG(VERSION),
+			      SII8620_MHL_VERSION);
+	sii8620_mt_write_stat(ctx, MHL_DST_REG(CONNECTED_RDY),
+			      MHL_DST_CONN_DCAP_RDY | MHL_DST_CONN_XDEVCAPP_SUPP
+			      | MHL_DST_CONN_POW_STAT);
+	sii8620_mt_set_int(ctx, MHL_INT_REG(RCHANGE), MHL_INT_RC_DCAP_CHG);
 
 	ctx->mt_ready = 1;
 }
@@ -1004,7 +996,10 @@ static void sii8620_set_mode(struct sii8620 *ctx, enum sii8620_mode mode)
 			REG_MHL_COC_CTL1, 0x07
 		);
 		break;
+	case CM_DISCONNECTED:
+		break;
 	default:
+		dev_err(ctx->dev, "%s mode %d not supported\n", __func__, mode);
 		break;
 	};
 
@@ -1094,7 +1089,9 @@ static void sii8620_disconnect(struct sii8620 *ctx)
 		REG_INTR2_MASK, 0x00,
 	);
 	memset(ctx->stat, 0, sizeof(ctx->stat));
+	memset(ctx->xstat, 0, sizeof(ctx->xstat));
 	memset(ctx->devcap, 0, sizeof(ctx->devcap));
+	memset(ctx->xdevcap, 0, sizeof(ctx->xdevcap));
 	ctx->cbus_status = 0;
 	ctx->sink_type = SINK_NONE;
 	kfree(ctx->edid);
@@ -1153,12 +1150,12 @@ static void sii8620_irq_g2wb(struct sii8620 *ctx)
 
 static void sii8620_status_changed_dcap(struct sii8620 *ctx)
 {
-	if (ctx->stat[MHL_ST_CONNECTED_RDY] & MHL_STATUS_DCAP_RDY) {
-		int mode = (ctx->stat[MHL_ST_VERSION] >= 0x30)
-				? CM_MHL3 : CM_MHL1;
+	if (ctx->stat[MHL_DST_CONNECTED_RDY] & MHL_DST_CONN_DCAP_RDY) {
+		int mode = (ctx->stat[MHL_DST_VERSION] >= 0x30)
+				? CM_MHL1 : CM_MHL1;
 
-		if (ctx->stat[MHL_ST_CONNECTED_RDY] & MHL_STATUS_XDEVCAPP_SUPP)
-			sii8620_mt_read_devcap(ctx, true);
+		//if (ctx->stat[MHL_ST_CONNECTED_RDY] & MHL_STATUS_XDEVCAPP_SUPP)
+		//	sii8620_mt_read_devcap(ctx, true);
 		sii8620_set_mode(ctx, mode);
 		sii8620_peer_specific_init(ctx);
 		sii8620_write(ctx, REG_INTR9_MASK, BIT_INTR9_DEVCAP_DONE
@@ -1170,34 +1167,39 @@ static void sii8620_status_changed_dcap(struct sii8620 *ctx)
 
 static void sii8620_status_changed_path(struct sii8620 *ctx)
 {
-	if (ctx->stat[MHL_ST_LINK_MODE] & MHL_STATUS_PATH_ENABLED) {
-		sii8620_mt_write_stat(ctx, MHL_STATUS_REG_LINK_MODE,
-				      MHL_STATUS_CLK_MODE_NORMAL
-				      | MHL_STATUS_PATH_ENABLED);
+	if (ctx->stat[MHL_DST_LINK_MODE] & MHL_DST_LM_PATH_ENABLED) {
+		sii8620_mt_write_stat(ctx, MHL_DST_REG(LINK_MODE),
+				      MHL_DST_LM_CLK_MODE_NORMAL
+				      | MHL_DST_LM_PATH_ENABLED);
 		sii8620_mt_read_devcap(ctx, false);
 	} else {
-		sii8620_mt_write_stat(ctx, MHL_STATUS_REG_LINK_MODE,
-				      MHL_STATUS_CLK_MODE_NORMAL);
+		sii8620_mt_write_stat(ctx, MHL_DST_REG(LINK_MODE),
+				      MHL_DST_LM_CLK_MODE_NORMAL);
+	}
+}
+
+static void sii8620_update_array(u8 *arr, u8 *chg, int count)
+{
+	while (--count >= 0) {
+		*chg ^= *arr;
+		*arr++ ^= *chg++;
 	}
 }
 
 static void sii8620_msc_mr_write_stat(struct sii8620 *ctx)
 {
-	u8 st[MHL_ST_LENGTH];
-	int i;
+	u8 st[MHL_DST_SIZE], xst[MHL_XDS_SIZE];
 
-	sii8620_read_buf(ctx, REG_MHL_STAT_0, st, 3);
-	sii8620_read_buf(ctx, REG_MHL_EXTSTAT_0, st + 3, 4);
+	sii8620_read_buf(ctx, REG_MHL_STAT_0, st, MHL_DST_SIZE);
+	sii8620_read_buf(ctx, REG_MHL_EXTSTAT_0, xst, MHL_XDS_SIZE);
 
-	for (i = 0; i < ARRAY_SIZE(st); ++i) {
-		st[i] ^= ctx->stat[i];
-		ctx->stat[i] ^= st[i];
-	}
+	sii8620_update_array(ctx->stat, st, MHL_DST_SIZE);
+	sii8620_update_array(ctx->xstat, xst, MHL_XDS_SIZE);
 
-	if (st[MHL_ST_CONNECTED_RDY] & MHL_STATUS_DCAP_RDY)
+	if (st[MHL_DST_CONNECTED_RDY] & MHL_DST_CONN_DCAP_RDY)
 		sii8620_status_changed_dcap(ctx);
 
-	if (st[MHL_ST_LINK_MODE] & MHL_STATUS_PATH_ENABLED)
+	if (st[MHL_DST_LINK_MODE] & MHL_DST_LM_PATH_ENABLED)
 		sii8620_status_changed_path(ctx);
 }
 
