@@ -27,7 +27,7 @@ config DRM_SII8620
 	tristate "Silicon Image SII8620 HDMI/MHL bridge"
 	depends on DRM
 	depends on OF
-	select DRM_KMS_HELPER
+	depends on DRM_KMS_HELPER
 	depends on I2C
 	help
 	  Say Y here if you want support for the MHL interface.
