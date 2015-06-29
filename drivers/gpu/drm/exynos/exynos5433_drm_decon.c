@@ -339,7 +339,7 @@ static void decon_win_commit(struct exynos_drm_crtc *crtc, int zpos)
 		val = COORDINATE_X(win_data->ovl_x + win_data->ovl_width - 1) |
 			COORDINATE_Y((win_data->ovl_y + win_data->ovl_height) / 2 - 1);
 		writel(val, ctx->addr + DECON_VIDOSDxB(win));
-	} {
+	} else {
 		val = COORDINATE_X(win_data->ovl_x) | COORDINATE_Y(win_data->ovl_y);
 		writel(val, ctx->addr + DECON_VIDOSDxA(win));
 
