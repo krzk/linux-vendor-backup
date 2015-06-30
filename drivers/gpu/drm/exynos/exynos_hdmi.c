@@ -1251,11 +1251,6 @@ static int hdmi_mode_valid(struct drm_connector *connector,
 	struct hdmi_context *hdata = ctx_from_connector(connector);
 	int ret;
 
-	/* This check prevents setting modes not supported due to drivers
-	 * limitation. */
-	if (mode->clock > 74250 || (mode->flags & DRM_MODE_FLAG_INTERLACE))
-		return MODE_BAD;
-
 	DRM_DEBUG_KMS("xres=%d, yres=%d, refresh=%d, intl=%d clock=%d\n",
 		mode->hdisplay, mode->vdisplay, mode->vrefresh,
 		(mode->flags & DRM_MODE_FLAG_INTERLACE) ? true :
