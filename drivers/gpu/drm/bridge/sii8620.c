@@ -9,6 +9,7 @@
  * published by the Free Software Foundation.
  */
 
+#include <drm/drm_crtc.h>
 #include <drm/drm_edid.h>
 
 #include <linux/clk.h>
@@ -219,46 +220,6 @@ static void sii8620_setbits(struct sii8620 *ctx, u16 addr, u8 mask, u8 val)
 	sii8620_write(ctx, addr, val);
 }
 
-enum edid_cae_data_block_type_tag {
-	EDID_CAE_DBT_AUDIO = 1,
-	EDID_CAE_DBT_VIDEO = 2,
-	EDID_CAE_DBT_VENDOR = 3,
-	EDID_CAE_DBT_SPEAKER = 4,
-};
-
-static void sii8620_parse_edid_cea(struct sii8620 *ctx, u8 *cea)
-{
-	int i;
-
-	for (i = 4; i < cea[2]; i += (cea[i] & 0x1f) + 1) {
-		switch (cea[i] >> 5) {
-		case EDID_CAE_DBT_VENDOR:
-			if (!memcmp(&cea[i + 1], "\x03\x0c\x00", 3))
-				ctx->sink_type = SINK_HDMI;
-		}
-	}
-}
-
-static void sii8620_parse_edid(struct sii8620 *ctx)
-{
-	struct edid *edid = ctx->edid;
-	int extn;
-	u8 *ext;
-
-	if (!edid)
-		return;
-
-	ctx->sink_type = SINK_DVI;
-
-	for (extn = 0; extn < edid->extensions; ++extn) {
-		ext = (void *)&edid[extn + 1];
-		switch (ext[0]) {
-		case CEA_EXT:
-			sii8620_parse_edid_cea(ctx, ext);
-		}
-	}
-}
-
 static void sii8620_msc_work(struct sii8620 *ctx)
 {
 	struct sii8620_msc_msg *msg;
@@ -412,7 +373,11 @@ static void sii8620_mr_devcap(struct sii8620 *ctx)
 
 	if (dcap[MHL_DCAP_DEV_CAT] & MHL_DCAP_CAT_SINK) {
 		sii8620_fetch_edid(ctx);
-		sii8620_parse_edid(ctx);
+		if (drm_detect_hdmi_monitor(ctx->edid))
+			ctx->sink_type = SINK_HDMI;
+		else
+			ctx->sink_type = SINK_DVI;
+		//sii8620_parse_edid(ctx);
 		dev_info(ctx->dev, "detected sink type: %s\n",
 			 sii8620_sink_type_str[ctx->sink_type]);
 		sii8620_set_upstream_edid(ctx);
