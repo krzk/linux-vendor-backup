@@ -10,6 +10,8 @@ Required properties:
 Optional properties:
 - samsung,lcd-wb: this property must be present if the IP block has the LCD
   writeback input.
+- samsung,sysreg: handle to syscon used to control the system registers to
+  set writeback input and destination
 
 Example:
 
