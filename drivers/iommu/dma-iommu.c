@@ -639,7 +639,7 @@ static int extend_iommu_mapping(struct iommu_dma_domain *mapping)
 {
 	int next_bitmap;
 
-	if (mapping->nr_bitmaps > mapping->extensions)
+	if (mapping->nr_bitmaps >= mapping->extensions)
 		return -EINVAL;
 
 	next_bitmap = mapping->nr_bitmaps;
