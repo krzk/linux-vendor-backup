@@ -487,7 +487,8 @@ static void decon_reset(struct decon_context *ctx)
 		       CMU_CLKGAGE_MODE_SFR_F | CMU_CLKGAGE_MODE_MEM_F);
 	decon_set_bits(ctx, DECON_BLENDCON, BLENDCON_NEW_8BIT_ALPHA_VALUE, ~0);
 	decon_set_bits(ctx, DECON_VIDOUTCON0, VIDOUT_LCD_ON, ~0);
-	decon_set_bits(ctx, DECON_VIDCON1, VIDCON1_VCLK_RUN, VIDCON1_VCLK_MASK);
+	decon_set_bits(ctx, DECON_VIDCON1, VIDCON1_VCLK_RUN_VDEN_DISABLE,
+							VIDCON1_VCLK_MASK);
 	decon_set_bits(ctx, DECON_CRCCTRL, CRCCTRL_MASK,
 		       CRCCTRL_CRCEN | CRCCTRL_CRCSTART_F | CRCCTRL_CRCCLKEN);
 
