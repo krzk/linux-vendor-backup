@@ -138,6 +138,11 @@ static void tm2_stop_sysclk(struct snd_soc_card *card)
 	if (ret < 0)
 		dev_err(priv->codec->dev, "Failed to stop FLL: %d\n", ret);
 
+	ret = snd_soc_codec_set_sysclk(priv->codec, ARIZONA_CLK_SYSCLK,
+				       ARIZONA_CLK_SRC_FLL1, 0, 0);
+	if (ret < 0)
+		dev_err(priv->codec->dev, "Failed to stop SYSCLK: %d\n", ret);
+
 	clk_disable_unprepare(priv->codec_mclk1);
 }
 
