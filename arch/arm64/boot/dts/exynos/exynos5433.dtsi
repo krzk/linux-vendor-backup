@@ -1121,6 +1121,7 @@
 			#clock-cells = <1>;
 			clock-names = "clkout16";
 			clocks = <&xxti>;
+			power-key-gpio = <&gpa2 7 1>;
 		};
 
 		rtc: rtc@10590000 {
