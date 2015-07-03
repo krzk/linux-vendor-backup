@@ -46,6 +46,8 @@
 
 #define S5P_INFORM0				0x0800
 #define S5P_INFORM1				0x0804
+#define S5P_INFORM2				0x0808
+#define S5P_INFORM3				0x080C
 #define S5P_INFORM5				0x0814
 #define S5P_INFORM6				0x0818
 #define S5P_INFORM7				0x081C

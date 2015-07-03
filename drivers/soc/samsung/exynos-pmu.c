@@ -20,6 +20,7 @@
 #include <linux/soc/samsung/exynos-regs-pmu.h>
 #include <linux/soc/samsung/exynos-pmu.h>
 
+#include <asm/system_misc.h>
 #include "exynos-pmu.h"
 
 void __iomem *pmu_base_addr;
@@ -31,6 +32,70 @@ struct exynos_pmu_context {
 };
 
 static struct exynos_pmu_context *pmu_context;
+
+/********************************************************
+ *		Reset, Power off control		*
+ ********************************************************/
+static inline void exynos_sw_reset(void)
+{
+	pmu_raw_writel(0x1, EXYNOS_SWRESET);
+	pr_emerg("%s: waiting for reboot\n", __func__);
+	while (1);
+}
+
+static void exynos_reboot(enum reboot_mode mode, const char *cmd)
+{
+	local_irq_disable();
+
+	pr_debug("%s (%d, %s)\n", __func__, mode, cmd ? cmd : "(null)");
+
+	/* Don't enter lpm mode */
+	pmu_raw_writel(0x12345678, S5P_INFORM2);
+
+	if (!cmd) {
+		pmu_raw_writel(REBOOT_MODE_PREFIX |
+				REBOOT_MODE_NONE, S5P_INFORM3);
+	} else {
+		unsigned long value;
+		if (!strcmp(cmd, "fota"))
+			pmu_raw_writel(REBOOT_MODE_PREFIX | REBOOT_MODE_FOTA,
+			       S5P_INFORM3);
+		else if (!strcmp(cmd, "fota_bl"))
+			pmu_raw_writel(REBOOT_MODE_PREFIX |
+					REBOOT_MODE_FOTA_BL, S5P_INFORM3);
+		else if (!strcmp(cmd, "recovery"))
+			pmu_raw_writel(REBOOT_MODE_PREFIX |
+					REBOOT_MODE_RECOVERY, S5P_INFORM3);
+		else if (!strcmp(cmd, "download"))
+			pmu_raw_writel(REBOOT_MODE_PREFIX |
+					REBOOT_MODE_DOWNLOAD, S5P_INFORM3);
+		else if (!strcmp(cmd, "upload"))
+			pmu_raw_writel(REBOOT_MODE_PREFIX |
+					REBOOT_MODE_UPLOAD, S5P_INFORM3);
+		else if (!strcmp(cmd, "secure"))
+			pmu_raw_writel(REBOOT_MODE_PREFIX |
+					REBOOT_MODE_SECURE, S5P_INFORM3);
+		else if (!strncmp(cmd, "debug", 5)
+			 && !kstrtoul(cmd + 5, 0, &value))
+			pmu_raw_writel(REBOOT_SET_PREFIX |
+					REBOOT_SET_DEBUG | value, S5P_INFORM3);
+		else if (!strncmp(cmd, "swsel", 5)
+			 && !kstrtoul(cmd + 5, 0, &value))
+			pmu_raw_writel(REBOOT_SET_PREFIX |
+					REBOOT_SET_SWSEL | value, S5P_INFORM3);
+		else if (!strncmp(cmd, "sud", 3)
+			 && !kstrtoul(cmd + 3, 0, &value))
+			pmu_raw_writel(REBOOT_SET_PREFIX |
+					REBOOT_SET_SUD | value, S5P_INFORM3);
+		else if (!strncmp(cmd, "emergency", 9))
+			pmu_raw_writel(0, S5P_INFORM3);
+		else
+			pmu_raw_writel(REBOOT_MODE_PREFIX |
+					REBOOT_MODE_NONE, S5P_INFORM3);
+	}
+
+	exynos_sw_reset();
+}
 
 static void exynos_power_off(void)
 {
@@ -57,9 +122,7 @@ static void exynos_power_off(void)
 		mdelay(1000);
 	}
 
-	pmu_raw_writel(0x1, EXYNOS_SWRESET);
-	pr_emerg("%s: waiting for reboot\n", __func__);
-	while (1);
+	exynos_sw_reset();
 }
 
 void exynos_sys_powerdown_conf(enum sys_powerdown mode)
@@ -95,14 +158,6 @@ void exynos_sys_powerup_conf(enum sys_powerdown mode)
 		pmu_data->powerup_conf(mode);
 }
 
-static int pmu_restart_notify(struct notifier_block *this,
-		unsigned long code, void *unused)
-{
-	pmu_raw_writel(0x1, EXYNOS_SWRESET);
-
-	return NOTIFY_DONE;
-}
-
 /*
  * PMU platform driver and devicetree bindings.
  */
@@ -114,20 +169,11 @@ static const struct of_device_id exynos_pmu_of_device_ids[] = {
 	{ /*sentinel*/ },
 };
 
-/*
- * Exynos PMU restart notifier, handles restart functionality
- */
-static struct notifier_block pmu_restart_handler = {
-	.notifier_call = pmu_restart_notify,
-	.priority = 128,
-};
-
 static int exynos_pmu_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *match;
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-	int ret;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	pmu_base_addr = devm_ioremap_resource(dev, res);
@@ -152,9 +198,7 @@ static int exynos_pmu_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, pmu_context);
 
-	ret = register_restart_handler(&pmu_restart_handler);
-	if (ret)
-		dev_warn(dev, "can't register restart handler err=%d\n", ret);
+	arm_pm_restart = exynos_reboot;
 
 	pm_power_off = exynos_power_off;
 
