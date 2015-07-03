@@ -14,6 +14,9 @@
 #include <linux/platform_device.h>
 #include <linux/notifier.h>
 #include <linux/reboot.h>
+#include <linux/pm.h>
+#include <linux/of_gpio.h>
+#include <linux/delay.h>
 #include <linux/soc/samsung/exynos-regs-pmu.h>
 #include <linux/soc/samsung/exynos-pmu.h>
 
@@ -23,10 +26,41 @@ void __iomem *pmu_base_addr;
 
 struct exynos_pmu_context {
 	struct device *dev;
+	int pwr_key;
 	const struct exynos_pmu_data *pmu_data;
 };
 
 static struct exynos_pmu_context *pmu_context;
+
+static void exynos_power_off(void)
+{
+	int poweroff_try = 0;
+	int pwr_key = of_get_named_gpio(pmu_context->dev->of_node,
+					"power-key-gpio", 0);
+
+	while (poweroff_try < 5) {
+		/* Check power button and try to power off 5 times */
+		if (!pwr_key ||	(pwr_key && gpio_get_value(pwr_key))) {
+			pr_emerg("%s: Try to power off\n", __func__);
+
+			/* Power off :
+			 * Set PS_HOLD to low (BIT(9) of PS_HOLD_CONTROL)
+			 */
+			pmu_raw_writel((pmu_raw_readl(S5P_PS_HOLD_CONTROL) &
+					0xFFFFFEFF), S5P_PS_HOLD_CONTROL);
+
+			pr_emerg("%s: Failed to power off, retry it. (%d)\n",
+				__func__, poweroff_try++);
+		} else {
+			pr_info("%s: PowerButton is not released.\n", __func__);
+		}
+		mdelay(1000);
+	}
+
+	pmu_raw_writel(0x1, EXYNOS_SWRESET);
+	pr_emerg("%s: waiting for reboot\n", __func__);
+	while (1);
+}
 
 void exynos_sys_powerdown_conf(enum sys_powerdown mode)
 {
@@ -121,6 +155,8 @@ static int exynos_pmu_probe(struct platform_device *pdev)
 	ret = register_restart_handler(&pmu_restart_handler);
 	if (ret)
 		dev_warn(dev, "can't register restart handler err=%d\n", ret);
+
+	pm_power_off = exynos_power_off;
 
 	dev_dbg(dev, "Exynos PMU Driver probe done\n");
 	return 0;
