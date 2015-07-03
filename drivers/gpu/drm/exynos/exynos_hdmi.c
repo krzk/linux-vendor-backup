@@ -1232,10 +1232,6 @@ static int hdmi_mode_valid(struct drm_connector *connector,
 		(mode->flags & DRM_MODE_FLAG_INTERLACE) ? true :
 		false, mode->clock * 1000);
 
-	ret = mixer_check_mode(mode);
-	if (ret)
-		return MODE_BAD;
-
 	ret = hdmi_find_phy_conf(hdata, mode->clock * 1000);
 	if (ret < 0)
 		return MODE_BAD;
