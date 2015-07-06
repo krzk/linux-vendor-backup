@@ -38,9 +38,9 @@
 static int nbufs;
 static struct sysmmu_prefbuf prefbuf[MAX_PREFBUFS];
 
+#ifndef CONFIG_EXYNOS7_IOMMU
 #define G2D_MAX_VMA_MAPPING	12
 
-#if 0
 static int mapping_can_locked(unsigned long mapping, unsigned long mappings[], int cnt)
 {
 	int i;
@@ -96,7 +96,7 @@ static int vma_lock_mapping_one(struct mm_struct *mm, unsigned long addr,
 			if (mapping_can_locked(
 					(unsigned long)anon | PAGE_MAPPING_ANON,
 					mappings, cnt)) {
-				page_lock_anon_vma(page);
+				anon_vma_lock_write(anon);
 				mappings[cnt++] = (unsigned long)page->mapping;
 			}
 			put_anon_vma(anon);
@@ -151,7 +151,7 @@ static void vma_unlock_mapping(void *__mappings)
 	for (i = 0; i < G2D_MAX_VMA_MAPPING; i++) {
 		if (mappings[i]) {
 			if (mappings[i] & PAGE_MAPPING_ANON) {
-				page_unlock_anon_vma(
+				anon_vma_unlock_write(
 					(struct anon_vma *)(mappings[i] &
 							~PAGE_MAPPING_FLAGS));
 			} else {
@@ -163,6 +163,14 @@ static void vma_unlock_mapping(void *__mappings)
 
 	kfree(mappings);
 }
+#else
+static void *vma_lock_mapping(struct mm_struct *mm,
+	       struct sysmmu_prefbuf area[], int num_area)
+{
+	return NULL;
+}
+
+#define vma_unlock_mapping(mapping) do { } while (0)
 #endif
 
 #ifdef CONFIG_PM_RUNTIME
@@ -205,6 +213,7 @@ static void fimg2d4x_pre_bitblt(struct fimg2d_control *ctrl,
 		break;
 
 	case IP_VER_G2D_5H:
+	case IP_VER_G2D_5HP:
 #ifndef CCI_SNOOP
 		/* disable cci path */
 		g2d_cci_snoop_control(ctrl->pdata->ip_ver,
@@ -241,15 +250,26 @@ int fimg2d4x_bitblt(struct fimg2d_control *ctrl)
 			break;
 
 		ctx = cmd->ctx;
+		ctx->state = CTX_READY;
 
 #ifdef CONFIG_PM_RUNTIME
 		if (fimg2d4x_get_clk_cnt(ctrl->clock) == false)
 			fimg2d_err("2D clock is not set\n");
 #endif
 
+		atomic_set(&ctrl->busy, 1);
+		perf_start(cmd, PERF_SFR);
+		ret = ctrl->configure(ctrl, cmd);
+		perf_end(cmd, PERF_SFR);
+		if (IS_ERR_VALUE(ret)) {
+			fimg2d_err("failed to configure\n");
+			ctx->state = CTX_ERROR;
+			goto fail_n_del;
+		}
+
 		addr_type = cmd->image[IDST].addr.type;
 
-		//ctx->vma_lock = vma_lock_mapping(ctx->mm, prefbuf, MAX_IMAGES - 1);
+		ctx->vma_lock = vma_lock_mapping(ctx->mm, prefbuf, MAX_IMAGES - 1);
 
 		if (fimg2d_check_pgd(ctx->mm, cmd)) {
 			ret = -EFAULT;
@@ -259,6 +279,9 @@ int fimg2d4x_bitblt(struct fimg2d_control *ctrl)
 		if (addr_type == ADDR_USER || addr_type == ADDR_USER_CONTIG) {
 			if (!ctx->mm || !ctx->mm->pgd) {
 				atomic_set(&ctrl->busy, 0);
+				fimg2d_err("ctx->mm:0x%p or ctx->mm->pgd:0x%p\n",
+					       ctx->mm, ctx->mm->pgd);
+				ret = -EPERM;
 				goto fail_n_del;
 			}
 			pgd = (unsigned long *)ctx->mm->pgd;
@@ -281,21 +304,6 @@ int fimg2d4x_bitblt(struct fimg2d_control *ctrl)
 
 			//exynos_sysmmu_set_pbuf(ctrl->dev, nbufs, prefbuf);
 			fimg2d_debug("%s : set smmu prefbuf\n", __func__);
-		}
-
-		atomic_set(&ctrl->busy, 1);
-		perf_start(cmd, PERF_SFR);
-		ret = ctrl->configure(ctrl, cmd);
-		perf_end(cmd, PERF_SFR);
-
-		if (IS_ERR_VALUE(ret)) {
-			fimg2d_err("failed to configure\n");
-#ifdef CONFIG_EXYNOS7_IOMMU
-			iovmm_deactivate(ctrl->dev);
-#else
-			exynos_sysmmu_disable(ctrl->dev);
-#endif
-			goto fail_n_del;
 		}
 
 		fimg2d4x_pre_bitblt(ctrl, cmd);
@@ -336,7 +344,7 @@ int fimg2d4x_bitblt(struct fimg2d_control *ctrl)
 		}
 		perf_end(cmd, PERF_UNMAP);
 fail_n_del:
-		//vma_unlock_mapping(ctx->vma_lock);
+		vma_unlock_mapping(ctx->vma_lock);
 		fimg2d_del_command(ctrl, cmd);
 	}
 
@@ -522,7 +530,7 @@ static int fimg2d4x_configure(struct fimg2d_control *ctrl,
 				cmd->dma[ISRC].base.addr,
 				cmd->dma[ISRC].base.size, 0);
 		if (IS_ERR_VALUE(ret)) {
-			fimg2d_err("failed to map src buffer for sysmmu\n");
+			fimg2d_err("failed to map src buffer in plane2 for sysmmu\n");
 			return ret;
 		}
 
@@ -594,7 +602,7 @@ static int fimg2d4x_configure(struct fimg2d_control *ctrl,
 				cmd->dma[IDST].base.addr,
 				cmd->dma[IDST].base.size, 0);
 		if (IS_ERR_VALUE(ret)) {
-			fimg2d_err("failed to map src buffer for sysmmu\n");
+			fimg2d_err("failed to map dst buffer for sysmmu\n");
 			return ret;
 		}
 
@@ -604,7 +612,7 @@ static int fimg2d4x_configure(struct fimg2d_control *ctrl,
 					cmd->dma[IDST].plane2.addr,
 					cmd->dma[IDST].plane2.size, 0);
 			if (IS_ERR_VALUE(ret)) {
-				fimg2d_err("failed to map src buffer for sysmmu\n");
+				fimg2d_err("failed to map dst buffer in plane2 for sysmmu\n");
 				return ret;
 			}
 		}

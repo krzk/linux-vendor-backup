@@ -29,4 +29,5 @@
 
 struct exynos_platform_fimc_is *fimc_is_parse_dt(struct device *dev);
 int fimc_is_sensor_parse_dt(struct platform_device *pdev);
+int fimc_is_companion_parse_dt(struct platform_device *pdev);
 #endif

@@ -54,6 +54,7 @@ struct exynos_pm_domain;
 
 struct exynos_pd_callback {
 	const char *name;
+	int (*init)(struct exynos_pm_domain *pd);
 	int (*on_pre)(struct exynos_pm_domain *pd);
 	int (*on)(struct exynos_pm_domain *pd, int power_flags);
 	int (*on_post)(struct exynos_pm_domain *pd);
@@ -78,6 +79,7 @@ struct exynos_pm_domain {
 #endif
 
 	struct mutex access_lock;
+	void *priv;
 };
 
 struct exynos_pd_callback * exynos_pd_find_callback(struct exynos_pm_domain *pd);

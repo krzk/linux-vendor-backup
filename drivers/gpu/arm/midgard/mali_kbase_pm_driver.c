@@ -289,6 +289,9 @@ STATIC mali_bool kbase_pm_transition_core_type(kbase_device *kbdev, kbase_pm_cor
 	trans = kbase_pm_get_trans_cores(kbdev, type);
 	ready = kbase_pm_get_ready_cores(kbdev, type);
 
+	/* mask off ready from trans in case transitions finished between the register reads */
+	trans &= ~ready;
+
 	powering_on_trans = trans & *powering_on;
 	*powering_on = powering_on_trans;
 

@@ -142,6 +142,28 @@
 /* Bit fields */
 
 /* Global Configuration Register */
+#define DWC3_GSBUSCFG0_INCRBRSTEN	(1 << 0)
+#define DWC3_GSBUSCFG0_INCR4BRSTEN	(1 << 1)
+#define DWC3_GSBUSCFG0_INCR8BRSTEN	(1 << 2)
+#define DWC3_GSBUSCFG0_INCR16BRSTEN	(1 << 3)
+#define DWC3_GSBUSCFG0_INCR32BRSTEN	(1 << 4)
+#define DWC3_GSBUSCFG0_INCR64BRSTEN	(1 << 5)
+#define DWC3_GSBUSCFG0_INCR128BRSTEN	(1 << 6)
+#define DWC3_GSBUSCFG0_INCR256BRSTEN	(1 << 7)
+
+#define DWC3_GSBUSCFG1_BREQLIMIT(n)	((n) << 8)
+#define DWC3_GSBUSCFG1_BREQLIMIT_SHIFT	8
+#define DWC3_GSBUSCFG1_BREQLIMIT_MASK	(0xf << 8)
+#define DWC3_GSBUSCFG1_EN1KPAGE		(1 << 12)
+
+#define DWC3_GRXTHRCFG_USBRXPKTCNTSEL		(1 << 29)
+#define DWC3_GRXTHRCFG_USBRXPKTCNT_MASK		(0xf << 24)
+#define DWC3_GRXTHRCFG_USBRXPKTCNT_SHIFT	24
+#define DWC3_GRXTHRCFG_USBRXPKTCNT(n)		((n) << 24)
+#define DWC3_GRXTHRCFG_USBMAXRXBURSTSIZE_MASK	(0x1f << 19)
+#define DWC3_GRXTHRCFG_USBMAXRXBURSTSIZE_SHIFT	19
+#define DWC3_GRXTHRCFG_USBMAXRXBURSTSIZE(n)	((n) << 19)
+
 #define DWC3_GCTL_PWRDNSCALE(n)	((n) << 19)
 #define DWC3_GCTL_U2RSTECN	(1 << 16)
 #define DWC3_GCTL_RAMCLKSEL(x)	(((x) & DWC3_GCTL_CLK_MASK) << 6)
@@ -163,12 +185,18 @@
 #define DWC3_GCTL_GBLHIBERNATIONEN	(1 << 1)
 #define DWC3_GCTL_DSBLCLKGTNG		(1 << 0)
 
+#define DWC3_GUCTL_USBHSTINAUTORETRYEN	(1 << 14)
+
 /* Global USB2 PHY Configuration Register */
 #define DWC3_GUSB2PHYCFG_PHYSOFTRST	(1 << 31)
 #define DWC3_GUSB2PHYCFG_SUSPHY		(1 << 6)
+#define DWC3_GUSB2PHYCFG_PHYIF		(1 << 3)
 
 /* Global USB3 PIPE Control Register */
 #define DWC3_GUSB3PIPECTL_PHYSOFTRST	(1 << 31)
+#define DWC3_GUSB3PIPECTL_DELAY_P1P2P3_MASK	(0x7 << 19)
+#define DWC3_GUSB3PIPECTL_DELAY_P1P2P3_SHIFT	19
+#define DWC3_GUSB3PIPECTL_DELAY_P1P2P3(n)	((n) << 19)
 #define DWC3_GUSB3PIPECTL_SUSPHY	(1 << 17)
 
 /* Global TX Fifo Size Register */
@@ -362,6 +390,10 @@
 #define DWC3_OTG_OSTS_BSESVALID		(1 << 2)
 #define DWC3_OTG_OSTS_CONIDSTS		(1 << 0)
 
+#define DWC3_DEPEVT_CmdTyp_SHIFT		24
+#define DWC3_DEPCMDx_CmdTyp_MASK		(0xf << 0)
+#define DWC3_DEPEVT_EventStatus_BusTimeExp	(2 << 12)
+
 /* Structures */
 
 struct dwc3_trb;
@@ -416,6 +448,7 @@ struct dwc3_event_buffer {
  * @type: set to bmAttributes & USB_ENDPOINT_XFERTYPE_MASK
  * @resource_index: Resource transfer index
  * @interval: the interval on which the ISOC transfer is started
+ * @current_uf: uframe number on which the ISOC transfer is started
  * @name: a human readable name e.g. ep1out-bulk
  * @direction: true for TX, false for RX
  * @stream_capable: true when streams are enabled
@@ -449,6 +482,7 @@ struct dwc3_ep {
 	u8			type;
 	u8			resource_index;
 	u32			interval;
+	u32			current_uf;
 
 	char			name[20];
 
@@ -642,7 +676,6 @@ struct dwc3_scratchpad_array {
  * @setup_packet_pending: true when there's a Setup Packet in FIFO. Workaround
  * @needs_fifo_resize: not all users might want fifo resizing, flag it
  * @resize_fifos: tells us it's ok to reconfigure our TxFIFO sizes.
- * @needs_reinit: signals that the core should be reinitialized.
  * @isoch_delay: wValue from Set Isochronous Delay request;
  * @u2sel: parameter from Set SEL request.
  * @u2pel: parameter from Set SEL request.
@@ -731,7 +764,6 @@ struct dwc3 {
 	unsigned		needs_fifo_resize:1;
 	unsigned		resize_fifos:1;
 	unsigned		pullups_connected:1;
-	unsigned		needs_reinit:1;
 
 	enum dwc3_ep0_next	ep0_next_event;
 	enum dwc3_ep0_state	ep0state;
@@ -900,9 +932,11 @@ int dwc3_otg_start(struct dwc3 *dwc);
 void dwc3_otg_stop(struct dwc3 *dwc);
 int dwc3_otg_init(struct dwc3 *dwc);
 void dwc3_otg_exit(struct dwc3 *dwc);
+int dwc3_udc_reset(struct dwc3 *dwc);
 int dwc3_core_init(struct dwc3 *dwc);
 void dwc3_core_exit(struct dwc3 *dwc);
 int dwc3_event_buffers_setup(struct dwc3 *dwc);
+void dwc3_event_buffers_cleanup(struct dwc3 *dwc);
 
 #if IS_ENABLED(CONFIG_USB_DWC3_HOST) || IS_ENABLED(CONFIG_USB_DWC3_DUAL_ROLE)
 int dwc3_host_init(struct dwc3 *dwc);

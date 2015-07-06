@@ -49,6 +49,10 @@ static bool sleep_ready(void)
 	if (!(ctx->mcp->flags.sleep_mode.ready_to_sleep & READY_TO_SLEEP))
 		return false;
 
+	//if(!system_idle)...
+	if (ctx->mcp->flags.schedule)
+		return false;
+
 	return true;
 }
 

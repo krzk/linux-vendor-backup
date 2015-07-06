@@ -59,7 +59,9 @@ dtb-$(CONFIG_ARCH_EXYNOS) += exynos4210-origen.dtb \
 	exynos5250-snow.dtb \
 	exynos5422-smdk5422.dtb \
 	exynos5430-xyref5430.dtb \
-	exynos5440-ssdk5440.dtb
+	exynos5440-ssdk5440.dtb \
+	exynos3250-espresso3250.dtb
+
 dtb-$(CONFIG_ARCH_HIGHBANK) += highbank.dtb \
 	ecx-2000.dtb
 dtb-$(CONFIG_ARCH_INTEGRATOR) += integratorap.dtb \

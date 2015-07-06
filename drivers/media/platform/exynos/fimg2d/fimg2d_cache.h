@@ -47,7 +47,7 @@ enum pt_status {
 static inline bool is_inner_flushall(size_t size)
 {
 	if (ip_is_g2d_5g() || ip_is_g2d_5h() ||
-		ip_is_g2d_5ar2())
+		ip_is_g2d_5hp() || ip_is_g2d_5ar2())
 		return (size >= SZ_1M * 25) ? true : false;
 	else if (ip_is_g2d_5a() || ip_is_g2d_5ar() ||
 		 ip_is_g2d_5r())

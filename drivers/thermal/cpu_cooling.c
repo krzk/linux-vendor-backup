@@ -294,7 +294,9 @@ static int cpufreq_apply_cooling(struct cpufreq_cooling_device *cpufreq_device,
 			cpufreq_update_policy(cpuid);
 	}
 
-	notify_device = NOTIFY_INVALID;
+	/* HACK: Let notify_device be there always to update the cpufreq
+	policy with thermal constraints for all notifiers.
+	notify_device = NOTIFY_INVALID; */
 
 	return 0;
 }

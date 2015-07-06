@@ -32,7 +32,6 @@
 #define EXYNOS5430_G2DX_SHARED_SEL_MASK         (1 << 0)
 #define EXYNOS5430_G2DX_SHARED_SEL_SHIFT        (0)
 
-#define EXYNOS5430_G2D_NOC_DCG_EN		0x0200
 #define EXYNOS5430_G2D_XIU_TOP_DCG_EN		0x0204
 #define EXYNOS5430_G2D_AXI_US_DCG_EN		0x0208
 #define EXYNOS5430_G2D_XIU_ASYNC_DCG_EN		0x020C
@@ -54,6 +53,7 @@ enum fimg2d_ip_version {
 	IP_VER_G2D_5V,
 	IP_VER_G2D_5H,
 	IP_VER_G2D_5AR2,
+	IP_VER_G2D_5HP,
 };
 
 enum g2d_shared_val {

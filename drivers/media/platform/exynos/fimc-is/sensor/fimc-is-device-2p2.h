@@ -14,7 +14,6 @@
 
 #define SENSOR_2P2_INSTANCE	0
 #define SENSOR_2P2_NAME		SENSOR_NAME_S5K2P2
-/* #define SENSOR_S5K2P2_DRIVING */
 
 int sensor_2p2_probe(struct i2c_client *client,
 	const struct i2c_device_id *id);

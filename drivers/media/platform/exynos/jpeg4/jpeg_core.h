@@ -32,7 +32,12 @@
 #include "jpeg_mem.h"
 
 #define INT_TIMEOUT		1000
-
+#define DCTSIZE			64
+#define NUM_QUANT_TBLS		2
+#define NUM_HUFF_TBLS		2
+#define MAX_COMPS		3
+#define LEN_BIT			17
+#define LEN_HUFF_TBL		256
 #define JPEG_NUM_INST		4
 #define JPEG_MAX_PLANE		3
 #define is_ver_5a (pdata->ip_ver == IP_VER_JPEG_5A)
@@ -175,6 +180,29 @@ struct jpeg_fmt {
 	enum jpeg_interface	types;
 };
 
+struct jpeg_tables_info {
+	unsigned short	*quantval[4];
+	unsigned char	*dc_bits[4];
+	unsigned char	*dc_huffval[4];
+	unsigned char	*ac_bits[4];
+	unsigned char	*ac_huffval[4];
+	unsigned char	quant_tbl_no[3];
+	unsigned char	dc_tbl_no[3];
+	unsigned char	ac_tbl_no[3];
+	unsigned int	current_sos_position;
+};
+
+struct huff_tbl {
+	unsigned char bit[LEN_BIT];
+	unsigned char huf_tbl[LEN_HUFF_TBL];
+};
+
+struct jpeg_tables {
+	unsigned short q_tbl[NUM_QUANT_TBLS][DCTSIZE];
+	struct huff_tbl dc_huf_tbl[NUM_HUFF_TBLS];
+	struct huff_tbl ac_huf_tbl[NUM_HUFF_TBLS];
+};
+
 struct jpeg_param {
 	unsigned int in_width;
 	unsigned int in_height;
@@ -195,6 +223,9 @@ struct jpeg_param {
 	enum jpeg_frame_format in_fmt;
 	enum jpeg_frame_format out_fmt;
 	enum jpeg_img_quality_level quality;
+
+	struct jpeg_tables *tables;
+	struct jpeg_tables_info *tinfo;
 };
 
 struct jpeg_frame {

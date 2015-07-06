@@ -42,9 +42,12 @@ struct exynos_dvfs_info {
 	unsigned int	max_support_idx;
 	unsigned int	min_support_idx;
 	unsigned int	cluster_num;
+	unsigned int	boost_freq;	/* use only KFC when enable HMP */
 	unsigned int	boot_freq;
 	unsigned int	boot_cpu_min_qos;
 	unsigned int	boot_cpu_max_qos;
+	unsigned int	boot_cpu_min_qos_timeout;
+	unsigned int	boot_cpu_max_qos_timeout;
 	int		boot_freq_idx;
 	int		*bus_table;
 	bool		blocked;
@@ -111,6 +114,33 @@ static inline int exynos4x12_cpufreq_init(struct exynos_dvfs_info *info)
 extern int exynos5250_cpufreq_init(struct exynos_dvfs_info *);
 extern int exynos5_cpufreq_CA7_init(struct exynos_dvfs_info *);
 extern int exynos5_cpufreq_CA15_init(struct exynos_dvfs_info *);
+#elif defined(CONFIG_ARCH_EXYNOS3)
+extern int exynos3250_cpufreq_init(struct exynos_dvfs_info *);
+static inline int exynos4210_cpufreq_init(struct exynos_dvfs_info *info)
+{
+	return 0;
+}
+
+static inline int exynos4x12_cpufreq_init(struct exynos_dvfs_info *info)
+{
+	return 0;
+}
+
+static inline int exynos5250_cpufreq_init(struct exynos_dvfs_info *info)
+{
+	return 0;
+}
+
+static inline int exynos5410_cpufreq_CA7_init(struct exynos_dvfs_info *info)
+{
+	return 0;
+}
+
+static inline int exynos5410_cpufreq_CA15_init(struct exynos_dvfs_info *info)
+{
+	return 0;
+}
+
 #else
 	#warning "Should define CONFIG_ARCH_EXYNOS4(5)\n"
 #endif
@@ -142,10 +172,17 @@ typedef enum {
 	CA_END,
 } cluster_type;
 
-#if defined(CONFIG_ARM_EXYNOS5430_CPUFREQ) || defined(CONFIG_ARM_EXYNOS5422_CPUFREQ)
+#if defined(CONFIG_ARM_EXYNOS5430_CPUFREQ)
+#define COLD_VOLT_OFFSET	37500
+#define ENABLE_MIN_COLD		0
+#define LIMIT_COLD_VOLTAGE	1350000
+#define MIN_COLD_VOLTAGE	950000
+#define NR_CA7			4
+#define NR_CA15			4
+#elif defined(CONFIG_ARM_EXYNOS5422_CPUFREQ)
 #define COLD_VOLT_OFFSET	37500
 #define ENABLE_MIN_COLD		1
-#define LIMIT_COLD_VOLTAGE	1250000
+#define LIMIT_COLD_VOLTAGE	1350000
 #define MIN_COLD_VOLTAGE	950000
 #define NR_CA7			4
 #define NR_CA15			4
@@ -176,13 +213,20 @@ extern cluster_type exynos_boot_cluster;
 extern void (*disable_c3_idle)(bool disable);
 #endif
 #ifdef CONFIG_EXYNOS5_DYNAMIC_CPU_HOTPLUG
-extern void force_dynamic_hotplug(bool out_flag);
+extern void force_dynamic_hotplug(bool out_flag, int delay_msec);
 #endif
 #if defined(CONFIG_SCHED_HMP) && defined(CONFIG_EXYNOS5_DYNAMIC_CPU_HOTPLUG)
 int big_cores_hotplug(bool out_flag);
+int little_core1_hotplug_in(bool in_flag);
 void event_hotplug_in(void);
+bool is_big_hotpluged(void);
 #else
 static inline int big_cores_hotplug(bool out_flag)
+{
+	return 0;
+}
+
+static inline int little_core1_hotplug_in(bool in_flag)
 {
 	return 0;
 }
@@ -190,6 +234,11 @@ static inline int big_cores_hotplug(bool out_flag)
 static inline void event_hotplug_in(void)
 {
 	return;
+}
+
+static inline bool is_big_hotpluged(void)
+{
+	return 0;
 }
 #endif
 
@@ -200,7 +249,7 @@ static inline void event_hotplug_in(void)
 void exynos_set_max_freq(int max_freq, unsigned int cpu);
 void ipa_set_clamp(int cpu, unsigned int clamp_freq, unsigned int gov_target);
 #else
-void exynos_set_max_freq(int max_freq, unsigned int cpu) {}
-void ipa_set_clamp(int cpu, unsigned int clamp_freq, unsigned int gov_target) {}
+static inline void exynos_set_max_freq(int max_freq, unsigned int cpu) {}
+static inline void ipa_set_clamp(int cpu, unsigned int clamp_freq, unsigned int gov_target) {}
 #endif
 #endif

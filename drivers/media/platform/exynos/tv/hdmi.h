@@ -53,7 +53,7 @@
 #define AVI_ITU709			(2 << 6)
 
 /* HDMI audio configuration value */
-#define DEFAULT_SAMPLE_RATE		44100
+#define DEFAULT_SAMPLE_RATE		48000
 #define DEFAULT_BITS_PER_SAMPLE		16
 #define AUDIO_CHANNEL_MASK		(0xFF)
 #define AUDIO_BIT_RATE_MASK		(0x7 << 16)
@@ -327,8 +327,8 @@ struct hdmi_device {
 	int sample_rate;
 	/** audio bits per sample */
 	int bits_per_sample;
-	/** audio sample size */
-	int sample_size;
+	/** audio bit clock support or not */
+	int audio_master_clk;
 	/** RGB Quantization range and Colorimetry */
 	enum HDMI_COLOR_RANGE color_range;
 	/** HDMI is streaming or not */

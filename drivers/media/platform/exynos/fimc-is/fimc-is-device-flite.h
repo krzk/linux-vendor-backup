@@ -12,6 +12,7 @@
 #ifndef FIMC_IS_DEVICE_FLITE_H
 #define FIMC_IS_DEVICE_FLITE_H
 
+#include <linux/interrupt.h>
 #include "fimc-is-type.h"
 
 #define EXPECT_FRAME_START	0
@@ -28,7 +29,7 @@
 #define FLITE_NOWAIT_MASK	0xFFFF0000
 #define FLITE_NOWAIT_SHIFT	16
 
-#define FLITE_OVERFLOW_COUNT	300
+#define FLITE_OVERFLOW_COUNT	10
 
 #define FLITE_VVALID_TIME_BASE 32 /* ms */
 
@@ -41,6 +42,8 @@ enum fimc_is_flite_state {
 	FLITE_B_SLOT_VALID,
 	/* finish state */
 	FLITE_LAST_CAPTURE,
+	/* flite join ischain */
+	FLITE_JOIN_ISCHAIN,
 	/* one the fly output */
 	FLITE_OTF_WITH_3AA,
 };
@@ -76,8 +79,9 @@ struct fimc_is_device_flite {
 
 	u32				overflow_cnt;
 
-	/* which 3aa gorup is connected when otf is enable */
-	u32				group;
+	u32				csi; /* which csi channel is connceted */
+	u32				group; /* which 3aa gorup is connected when otf is enable */
+
 	u32				sw_checker;
 	u32				sw_trigger;
 	atomic_t			bcount;

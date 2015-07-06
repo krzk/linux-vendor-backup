@@ -491,7 +491,7 @@ static int i2s_set_sysclk(struct snd_soc_dai *dai,
 		if (dir == SND_SOC_CLOCK_IN)
 			rfs = 0;
 
-		if ((rfs && other->rfs && (other->rfs != rfs)) ||
+		if ((rfs && other && other->rfs && (other->rfs != rfs)) ||
 				(any_active(i2s) &&
 				(((dir == SND_SOC_CLOCK_IN)
 					&& !(mod & i2s->cdclk_b)) ||
@@ -652,14 +652,26 @@ static int i2s_hw_params(struct snd_pcm_substream *substream,
 	struct i2s_dai *i2s = to_info(dai);
 	u32 mod = readl(i2s->addr + I2SMOD);
 
-	if (!is_secondary(i2s))
+	if (!is_secondary(i2s) &&
+		(substream->stream == SNDRV_PCM_STREAM_PLAYBACK))
 		mod &= ~(MOD_DC2_EN | MOD_DC1_EN);
 
 	switch (params_channels(params)) {
 	case 6:
-		mod |= MOD_DC2_EN;
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			i2s->dma_playback.dma_size = 4;
+			mod |= MOD_DC2_EN | MOD_DC1_EN;
+		} else {
+			i2s->dma_capture.dma_size = 4;
+		}
+		break;
 	case 4:
-		mod |= MOD_DC1_EN;
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			i2s->dma_playback.dma_size = 4;
+			mod |= MOD_DC1_EN;
+		} else {
+			i2s->dma_capture.dma_size = 4;
+		}
 		break;
 	case 2:
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
@@ -729,6 +741,14 @@ static int i2s_hw_params(struct snd_pcm_substream *substream,
 
 	i2s->frmclk = params_rate(params);
 
+#ifdef USE_EXYNOS_AUD_SCHED
+	if ((mod & MOD_BLC_MASK) == MOD_BLC_24BIT)
+		lpass_set_sched(pid_nr(substream->pid), AUD_MODE_UHQA);
+	else if (mod & (MOD_DC2_EN | MOD_DC1_EN))
+		lpass_set_sched(pid_nr(substream->pid), AUD_MODE_UHQA);
+	else
+		lpass_set_sched(pid_nr(substream->pid), AUD_MODE_NORM);
+#endif
 	return 0;
 }
 
@@ -785,6 +805,18 @@ static int i2s_startup(struct snd_pcm_substream *substream,
 	struct platform_device *pdev = NULL;
 	unsigned long flags;
 
+	pr_debug("%s : %s ++\n", __func__, is_secondary(i2s)? "sec" : "pri");
+
+#ifdef USE_EXYNOS_AUD_SCHED
+	lpass_set_sched(pid_nr(substream->pid), AUD_MODE_DEFAULT);
+#endif
+#ifdef USE_EXYNOS_AUD_CPU_HOTPLUG
+	if (!is_secondary(i2s))
+		lpass_get_cpu_hotplug();
+#endif
+#ifdef CONFIG_SND_SAMSUNG_AUDSS
+	lpass_add_stream();
+#endif
 	pdev = is_secondary(i2s) ? i2s->pri_dai->pdev : i2s->pdev;
 #ifdef CONFIG_PM_RUNTIME
 	pm_runtime_get_sync(&pdev->dev);
@@ -809,6 +841,7 @@ static int i2s_startup(struct snd_pcm_substream *substream,
 
 	spin_unlock_irqrestore(&lock, flags);
 
+	pr_debug("%s : %s --\n", __func__, is_secondary(i2s)? "sec" : "pri");
 	return 0;
 }
 
@@ -820,6 +853,7 @@ static void i2s_shutdown(struct snd_pcm_substream *substream,
 	struct platform_device *pdev = NULL;
 	unsigned long flags;
 
+	pr_debug("%s : %s ++\n", __func__, is_secondary(i2s)? "sec" : "pri");
 	spin_lock_irqsave(&lock, flags);
 
 	i2s->mode &= ~DAI_OPENED;
@@ -845,6 +879,14 @@ static void i2s_shutdown(struct snd_pcm_substream *substream,
 #else
 	i2s_disable(&pdev->dev);
 #endif
+#ifdef CONFIG_SND_SAMSUNG_AUDSS
+	lpass_remove_stream();
+#endif
+#ifdef USE_EXYNOS_AUD_CPU_HOTPLUG
+	if (!is_secondary(i2s))
+		lpass_put_cpu_hotplug();
+#endif
+	pr_debug("%s : %s --\n", __func__, is_secondary(i2s)? "sec" : "pri");
 }
 
 static int config_setup(struct i2s_dai *i2s)
@@ -1148,23 +1190,25 @@ static int samsung_i2s_dai_probe(struct snd_soc_dai *dai)
 		iounmap(i2s->addr);
 		return -ENOENT;
 	}
-	clk_prepare_enable(i2s->clk);
 
 	if (other) {
 		other->addr = i2s->addr;
 		other->clk = i2s->clk;
 	}
 
-	if (i2s->quirks & QUIRK_NEED_RSTCLR)
-		writel(CON_RSTCLR, i2s->addr + I2SCON);
 #ifdef CONFIG_SND_SAMSUNG_IDMA
 	if (i2s->quirks & QUIRK_IDMA)
 		idma_reg_addr_init(i2s->addr,
 					i2s->sec_dai->idma_playback.dma_addr);
 #endif
 probe_exit:
+	clk_prepare_enable(i2s->clk);
+
 	/* Initialize bit slice as I2S HW version */
 	i2s_init_bit_slice(i2s);
+
+	if (i2s->quirks & QUIRK_NEED_RSTCLR)
+		writel(CON_RSTCLR, i2s->addr + I2SCON);
 
 	/* Reset any constraint on RFS and BFS */
 	i2s->rfs = 0;
@@ -1180,6 +1224,7 @@ probe_exit:
 		i2s_set_sysclk(dai, SAMSUNG_I2S_CDCLK,
 				0, SND_SOC_CLOCK_IN);
 
+	clk_disable_unprepare(i2s->clk);
 	return 0;
 }
 
@@ -1193,7 +1238,6 @@ static int samsung_i2s_dai_remove(struct snd_soc_dai *dai)
 		if (i2s->quirks & QUIRK_NEED_RSTCLR)
 			writel(0, i2s->addr + I2SCON);
 
-		clk_disable_unprepare(i2s->clk);
 		clk_put(i2s->clk);
 
 		iounmap(i2s->addr);
@@ -1294,8 +1338,9 @@ static int i2s_runtime_suspend(struct device *dev)
 	i2s_cfg_gpio(i2s, "idle");
 	i2s_reg_save(i2s);
 	clk_disable_unprepare(i2s->clk);
+#ifdef CONFIG_SND_SAMSUNG_AUDSS
 	lpass_put_sync(dev);
-
+#endif
 	return 0;
 }
 
@@ -1305,7 +1350,9 @@ static int i2s_runtime_resume(struct device *dev)
 
 	pr_debug("%s entered\n", __func__);
 
+#ifdef CONFIG_SND_SAMSUNG_AUDSS
 	lpass_get_sync(dev);
+#endif
 	clk_prepare_enable(i2s->clk);
 	i2s_reg_restore(i2s);
 	i2s_cfg_gpio(i2s, "default");
@@ -1328,8 +1375,9 @@ static int i2s_disable(struct device *dev)
 	i2s_cfg_gpio(i2s, "idle");
 	i2s_reg_save(i2s);
 	clk_disable_unprepare(i2s->clk);
+#ifdef CONFIG_SND_SAMSUNG_AUDSS
 	lpass_put_sync(dev);
-
+#endif
 	return 0;
 }
 
@@ -1344,8 +1392,9 @@ static int i2s_enable(struct device *dev)
 		return 1;
 	}
 	spin_unlock(&lock);
-
+#ifdef CONFIG_SND_SAMSUNG_AUDSS
 	lpass_get_sync(dev);
+#endif
 	clk_prepare_enable(i2s->clk);
 	i2s_reg_restore(i2s);
 	i2s_cfg_gpio(i2s, "default");
@@ -1455,8 +1504,10 @@ static int samsung_i2s_probe(struct platform_device *pdev)
 			}
 		}
 #endif
+#ifdef CONFIG_SND_SAMSUNG_AUDSS
 		if (of_find_property(np, "samsung,lpass-subip", NULL))
 			lpass_register_subip(&pdev->dev, "i2s");
+#endif
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);

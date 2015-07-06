@@ -118,11 +118,14 @@ typedef struct kbasep_pm_metrics_data {
 	spinlock_t lock;
 
 	struct hrtimer timer;
+#if defined(SLSI_SUBSTITUTE)
+	struct timer_list tlist;
+#endif
 	mali_bool timer_active;
 
 	void *platform_data;
 	struct kbase_device *kbdev;
-#if defined(SLSI_INTEGRATION) && defined(CL_UTILIZATION_BOOST_BY_TIME_WEIGHT)
+#if defined(CL_UTILIZATION_BOOST_BY_TIME_WEIGHT)
 	atomic_t time_compute_jobs, time_vertex_jobs, time_fragment_jobs;
 #endif
 } kbasep_pm_metrics_data;
@@ -289,11 +292,8 @@ typedef struct kbase_pm_device_data {
 
 	kbasep_pm_metrics_data metrics;
 
-	/** Set to the number of poweroff timer ticks until the GPU is powered off */
-	int gpu_poweroff_pending;
-
-	/** Set to the number of poweroff timer ticks until shaders are powered off */
-	int shader_poweroff_pending_time;
+	/** Set to true when PM is requesting the GPU to be powered off */
+	mali_bool gpu_poweroff_pending;
 
 	/** Timer for powering off GPU */
 	struct hrtimer gpu_poweroff_timer;
@@ -302,18 +302,17 @@ typedef struct kbase_pm_device_data {
 
 	struct work_struct gpu_poweroff_work;
 
-	/** Period of GPU poweroff timer */
+	/** Time between PM core requesting that GPU is powered off, and GPU actually being powered off */
 	ktime_t gpu_poweroff_time;
+
+	/** Timer for powering off shaders */
+	struct hrtimer shader_poweroff_timer;
 
 	/** Bit mask of shaders to be powered off on next timer callback */
 	u64 shader_poweroff_pending;
 
-	/** Set to MALI_TRUE if the poweroff timer is currently running, MALI_FALSE otherwise */
-	mali_bool poweroff_timer_running;
-
-	int poweroff_shader_ticks;
-
-	int poweroff_gpu_ticks;
+	/** Time between PM core requesting that shaders are powered off, and shaders actually being powered off */
+	ktime_t shader_poweroff_time;
 
 	/** Callback when the GPU needs to be turned on. See @ref kbase_pm_callback_conf
 	 *

@@ -14,7 +14,6 @@
 
 #define SENSOR_S5K6A3_INSTANCE	1
 #define SENSOR_S5K6A3_NAME	SENSOR_NAME_S5K6A3
-/* #define SENSOR_S5K6A3_DRIVING */
 
 int sensor_6a3_probe(struct i2c_client *client,
 	const struct i2c_device_id *id);

@@ -1,33 +1,14 @@
 
 #ifndef __FIMD_FB_H__
 #define __FIMD_FB_H__
-
+#include <linux/types.h>
+#include <linux/regulator/consumer.h>
 /* S3C_FB_MAX_WIN
  * Set to the maximum number of windows that any of the supported hardware
  * can use. Since the platform data uses this for an array size, having it
  * set to the maximum of any version of the hardware can do is safe.
  */
 #define S3C_FB_MAX_WIN	(5)
-
-#ifdef CONFIG_FB_EXYNOS_FIMD_MC
-#define SYSREG_MIXER0_VALID	(1 << 7)
-#define SYSREG_MIXER1_VALID	(1 << 4)
-#define FIMD_PAD_SINK_FROM_GSCALER_SRC		0
-#define FIMD_PADS_NUM				1
-
-/* SYSREG for local path between Gscaler and Mixer */
-#define SYSREG_DISP1BLK_CFG	(S3C_VA_SYS + 0x0214)
-#endif
-
-#ifdef CONFIG_FB_EXYNOS_FIMD_MC_WB
-#define SYSREG_DISP1WB_DEST(_x)			((_x) << 10)
-#define SYSREG_DISP1WB_DEST_MASK		(0x3 << 10)
-#define FIMD_WB_PAD_SRC_TO_GSCALER_SINK		0
-#define FIMD_WB_PADS_NUM			1
-
-/* SYSREG for local path between Gscaler and Mixer */
-#define SYSREG_GSCLBLK_CFG	(S3C_VA_SYS + 0x0224)
-#endif
 
 #define VALID_BPP(x) (1 << ((x) - 1))
 
@@ -41,6 +22,13 @@ enum s3c_fb_pm_status {
 	POWER_ON = 0,
 	POWER_DOWN = 1,
 	POWER_HIBER_DOWN = 2,
+	POWER_HIBER_ON = 3,
+};
+
+enum s3c_fb_psr_mode {
+	S3C_FB_VIDEO_MODE = 0,
+	S3C_FB_DP_PSR_MODE = 1,
+	S3C_FB_MIPI_COMMAND_MODE = 2,
 };
 
 #ifdef CONFIG_FB_I80_COMMAND_MODE
@@ -243,6 +231,11 @@ struct s3c_reg_data {
 };
 #endif
 
+static const char * const lcd_supply_names[] = {
+	"lcd-3.0",
+	"lcd-1.8",
+};
+
 /**
  * struct s3c_fb_win - per window private data for each framebuffer.
  * @windata: The platform data supplied for the window configuration.
@@ -272,11 +265,6 @@ struct s3c_fb_win {
 
 	int			fps;
 
-#ifdef CONFIG_FB_EXYNOS_FIMD_MC
-	int use; /* use of widnow subdev in fimd */
-	struct media_pad pads[FIMD_PADS_NUM]; /* window's pad : 1 sink */
-	struct v4l2_subdev sd; /* Take a window as a v4l2_subdevice */
-#endif
 	int local; /* use of local path gscaler to window in fimd */
 };
 
@@ -295,6 +283,7 @@ struct s3c_fb_vsync {
 	bool			active;
 	int			irq_refcount;
 	struct mutex		irq_lock;
+	atomic_t		eint_refcount;
 	struct task_struct	*thread;
 };
 
@@ -332,6 +321,7 @@ struct s3c_fb {
 	struct clk              *lcd_clk;
 	struct clk              *axi_disp1;
 	void __iomem		*regs;
+	struct regulator_bulk_data supplies[ARRAY_SIZE(lcd_supply_names)];
 	struct s3c_fb_variant	 variant;
 
 	bool			output_on;
@@ -349,30 +339,22 @@ struct s3c_fb {
 
 	struct list_head	update_regs_list;
 	struct mutex		update_regs_list_lock;
-	struct work_struct	update_regs_work;
-	struct workqueue_struct *update_regs_wq;
+	struct kthread_worker	update_regs_worker;
+	struct task_struct	*update_regs_thread;
+	struct kthread_work	update_regs_work;
 
 	struct sw_sync_timeline *timeline;
 	int			timeline_max;
-#endif
-
-#ifdef CONFIG_FB_EXYNOS_FIMD_MC
-	struct exynos_md *md;
-#endif
-#ifdef CONFIG_FB_EXYNOS_FIMD_MC_WB
-	struct exynos_md *md_wb;
-	int use_wb;	/* use of fimd subdev for writeback */
-	int local_wb;	/* use of writeback path to gscaler in fimd */
-	struct media_pad pads_wb;	/* FIMD1's pad */
-	struct v4l2_subdev sd_wb;	/* Take a FIMD1 as a v4l2_subdevice */
 #endif
 
 #ifdef CONFIG_DEBUG_FS
 	struct dentry		*debug_dentry;
 	struct s3c_fb_debug	debug_data;
 #endif
-	struct exynos5_bus_mif_handle *fb_mif_handle;
-	struct exynos5_bus_int_handle *fb_int_handle;
+	enum s3c_fb_psr_mode psr_mode;
+#if defined(CONFIG_FB_SMIES)
+	struct s5p_smies_device *smies;
+#endif
 };
 
 struct s3c_fb_rect {

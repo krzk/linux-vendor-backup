@@ -116,8 +116,7 @@ static int jpeg_queue_setup(struct vb2_queue *vq,
 			sizes[i] = (frame->width * frame->height *
 					frame->jpeg_fmt->depth[i] * 2) >> 3;
 		} else if (dev->mode == DECODING && vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-			sizes[i] = (frame->width * frame->height *
-					frame->jpeg_fmt->depth[i] * 2) >> 3;
+			sizes[i] = ctx->param.size;
 		} else {
 			sizes[i] = (frame->width * frame->height *
 					frame->jpeg_fmt->depth[i]) >> 3;
@@ -367,8 +366,22 @@ static int jpeg_m2m_open(struct file *file)
 	int ret = 0;
 
 	ctx = kzalloc(sizeof *ctx, GFP_KERNEL);
-	if (!ctx)
+	if (!ctx) {
+		printk(KERN_ERR "ctx is null\n");
+	}
+
+	ctx->param.tables = kzalloc(sizeof(struct jpeg_tables), GFP_KERNEL);
+	if (!ctx->param.tables) {
+		printk(KERN_ERR "jpeg_tables is null\n");
 		return -ENOMEM;
+	}
+	memset(ctx->param.tables, 0, sizeof(struct jpeg_tables));
+
+	ctx->param.tinfo = kzalloc(sizeof(struct jpeg_tables_info), GFP_KERNEL);
+	if (!ctx->param.tinfo) {
+		printk(KERN_ERR "jpeg_tables_info is null\n");
+		return -ENOMEM;
+	}
 
 	file->private_data = ctx;
 	ctx->jpeg_dev = jpeg;
@@ -398,6 +411,8 @@ static int jpeg_m2m_release(struct file *file)
 	v4l2_m2m_ctx_release(ctx->m2m_ctx);
 
 	pm_runtime_put_sync(&ctx->jpeg_dev->plat_dev->dev);
+	kfree(ctx->param.tinfo);
+	kfree(ctx->param.tables);
 	kfree(ctx);
 
 	return 0;
@@ -439,41 +454,47 @@ static void jpeg_device_run(void *priv)
 {
 	struct jpeg_ctx *ctx = priv;
 	struct jpeg_dev *jpeg = ctx->jpeg_dev;
-	struct exynos_platform_jpeg *pdata = jpeg->pdata;
+	struct exynos_platform_jpeg *pdata;
 	struct jpeg_param param;
 	struct vb2_buffer *vb = NULL;
 	unsigned long flags;
 	unsigned int component;
 	unsigned int ret = 0;
 
+	spin_lock_irqsave(&ctx->slock, flags);
+	if (!jpeg) {
+		printk("jpeg is null\n");
+		goto err_device_run;
+	}
+
 	if (test_bit(DEV_RUN, &jpeg->state)) {
 		dev_err(&jpeg->plat_dev->dev, "JPEG is already in progress\n");
-		return;
+		goto err_device_run;
 	}
 
 	if (test_bit(DEV_SUSPEND, &jpeg->state)) {
 		dev_err(&jpeg->plat_dev->dev, "JPEG is in suspend state\n");
-		return;
+		goto err_device_run;
 	}
 
 	if (test_bit(CTX_ABORT, &ctx->flags)) {
 		dev_err(&jpeg->plat_dev->dev, "aborted JPEG device run\n");
-		return;
+		goto err_device_run;
 	}
 
-	spin_lock_irqsave(&ctx->slock, flags);
-
+	pdata = jpeg->pdata;
 	param = ctx->param;
 	jpeg_sw_reset(jpeg->reg_base);
 	jpeg_set_interrupt(jpeg->reg_base);
 
 	jpeg_set_huf_table_enable(jpeg->reg_base, true);
-	jpeg_set_enc_tbl(jpeg->reg_base, param.quality);
-	jpeg_set_encode_tbl_select(jpeg->reg_base, param.quality);
 	jpeg_set_stream_size(jpeg->reg_base,
 			param.in_width, param.in_height);
 
 	if (jpeg->mode == ENCODING) {
+		jpeg_set_enc_tbl(jpeg->reg_base, param.quality);
+		jpeg_set_encode_tbl_select(jpeg->reg_base, param.quality);
+
 		jpeg_set_enc_out_fmt(jpeg->reg_base, param.out_fmt);
 		jpeg_set_enc_in_fmt(jpeg->reg_base, param.in_fmt);
 		vb = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
@@ -484,12 +505,15 @@ static void jpeg_device_run(void *priv)
 				param.in_fmt, jpeg->vb2->plane_addr(vb, 0), param.in_width, param.in_height);
 		jpeg_set_encode_hoff_cnt(jpeg->reg_base, param.out_fmt);
 	} else if (jpeg->mode == DECODING) {
+		jpeg_set_dec_tbl(jpeg->reg_base, ctx->param.tables);
+		jpeg_set_decode_tbl_select(jpeg->reg_base, ctx->param.tinfo);
+
 		jpeg_set_dec_in_fmt(jpeg->reg_base, param.in_fmt);
 		jpeg_set_dec_out_fmt(jpeg->reg_base, param.out_fmt);
 		jpeg_alpha_value_set(jpeg->reg_base, 0xff);
 
 		vb = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
-		jpeg_set_stream_buf_address(jpeg->reg_base, jpeg->vb2->plane_addr(vb, 0));
+		jpeg_set_stream_buf_address(jpeg->reg_base, jpeg->vb2->plane_addr(vb, 0) + param.tinfo->current_sos_position);
 
 		vb = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
 		jpeg_set_frame_buf_address(jpeg->reg_base,
@@ -522,7 +546,7 @@ static void jpeg_device_run(void *priv)
 		if ((ret = jpeg_set_number_of_component(jpeg->reg_base, component)))
 			printk(KERN_ERR "component is incorrect\n");
 
-		if (((jpeg->vb2->plane_addr(vb, 0) + 0x23f) + param.size) % 16 == 0) {
+		if ((jpeg->vb2->plane_addr(vb, 0) + param.tinfo->current_sos_position + param.size) % 16 == 0) {
 			jpeg_set_dec_bitstream_size(jpeg->reg_base, param.size / 16);
 		} else {
 			jpeg_set_dec_bitstream_size(jpeg->reg_base, (param.size / 16) + 1);
@@ -536,6 +560,7 @@ static void jpeg_device_run(void *priv)
 #ifdef JPEG_PERF
 	jpeg->start_time = sched_clock();
 #endif
+err_device_run:
 	spin_unlock_irqrestore(&ctx->slock, flags);
 }
 

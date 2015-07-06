@@ -60,14 +60,6 @@
 #define SDMMC_UHS_DDR_MODE		0x1
 #define SDMMC_BMOD		0x080
 #define SDMMC_PLDMND		0x084
-#define SDMMC_DBADDR		0x088
-#define SDMMC_IDSTS		0x08c
-#define SDMMC_IDINTEN		0x090
-#define SDMMC_DSCADDR		0x094
-#define SDMMC_BUFADDR		0x098
-#define SDMMC_CLKSEL		0x09C /* specific to Samsung Exynos */
-#define SDMMC_CDTHRCTL		0x100
-#define SDMMC_DATA(x)		(x)
 
 #define SDMMC_SHA_CMD_IE	0x190
 #define SDMMC_SHA_CMD_IS	0x194
@@ -131,6 +123,7 @@
 #define SDMMC_INT_ERROR			0xbfc2
 /* Command register defines */
 #define SDMMC_CMD_START			BIT(31)
+#define SDMMC_CMD_USE_HOLD_REG		BIT(29)
 #define SDMMC_VOLT_SWITCH		BIT(28)
 #define SDMMC_CMD_CCS_EXP		BIT(23)
 #define SDMMC_CMD_CEATA_RD		BIT(22)
@@ -224,6 +217,8 @@ enum dw_mci_misc_control {
 
 extern int dw_mci_probe(struct dw_mci *host);
 extern void dw_mci_remove(struct dw_mci *host);
+extern void dw_mci_cmd_reg_summary(struct dw_mci *host);
+extern void dw_mci_status_reg_summary(struct dw_mci *host);
 #ifdef CONFIG_PM
 extern int dw_mci_suspend(struct dw_mci *host);
 extern int dw_mci_resume(struct dw_mci *host);

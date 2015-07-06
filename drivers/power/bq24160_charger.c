@@ -24,7 +24,9 @@
 #include <linux/platform_device.h>
 #include <linux/i2c.h>
 #include <linux/timer.h>
+#ifdef CONFIG_CHARGER_BQ24160_ENABLE_WAKELOCK
 #include <linux/wakelock.h>
+#endif
 #include <linux/workqueue.h>
 #include <linux/slab.h>
 
@@ -34,6 +36,7 @@
 #include <linux/gpio.h>
 #endif
 #include <asm/mach-types.h>
+#include <plat/gpio-cfg.h>
 
 #define REG_STATUS	      0x00
 #define REG_BR_STATUS	   0x01
@@ -86,17 +89,18 @@
 #define REG_NTC_LOW_CHG_BIT	     0
 
 /* Values in mV */
-#define MIN_CHARGE_VOLTAGE      3500
-#define MAX_CHARGE_VOLTAGE      4440
+#define MIN_CHARGE_VOLTAGE      3600
+#define MAX_CHARGE_VOLTAGE      4300	//4440
 #define MIN_MAX_CHARGE_VOLTAGE  4200
 #define MAX_MAX_CHARGE_VOLTAGE  MAX_CHARGE_VOLTAGE
 #define CHARGE_VOLTAGE_STEP     20
-#define XYREF5430_MAX_CHG_VOLT	4100
+#define SHIRI_MAX_CHG_VOLT  4400
+#define ESPRESSO5430_MAX_CHG_VOLT	4200
 
 /* Values in mA */
-#define MIN_CHARGE_CURRENT 275
-#define LOW_CHARGE_CURRENT 550
-#define MAX_CHARGE_CURRENT 2500
+#define MIN_CHARGE_CURRENT 100
+#define LOW_CHARGE_CURRENT 150
+#define MAX_CHARGE_CURRENT 1500
 #define CHARGE_CURRENT_STEP 75
 
 /* Values in mA */
@@ -107,7 +111,8 @@
 /* Values in mA */
 #define MIN_CHARGE_CURRENT_LIMIT_USB 100
 #define MIN_CHARGE_CURRENT_LIMIT_IN 1500
-#define XYREF5430_CURRENT_LIMIT_USB	900
+#define SHIRI_CURRENT_LIMIT_USB	500
+#define ESPRESSO5430_CURRENT_LIMIT_USB	900
 
 /* Vender Part Revision  */
 #define VENDOR_REV_23 0x05
@@ -115,11 +120,11 @@
 #define STOP_CHARGE_VOLTAGE_REV_23 4000
 #define START_CHARGE_VOLTAGE_REV_23 3900
 
-
 #define CURRENT_DEPEND_ON_PRODUCT USHRT_MAX
 
 /* Value in hour */
-#define XYREF5430_SAFETY_TIME	360
+#define SHIRI_SAFETY_TIME	360
+#define ESPRESSO5430_SAFETY_TIME	360
 
 /*
  * Delay time until enabling charge to prevent back boost.
@@ -146,9 +151,8 @@
 #define CHK_MASK(mask, data) ((data) & (mask))
 #define DATA_MASK(mask, data) ((data) << (ffs(mask) - 1))
 
-#define DEBUG
+//#define DEBUG
 #define DEBUGFS
-
 
 #ifdef DEBUG
 #define MUTEX_LOCK(x) do {					      \
@@ -172,7 +176,6 @@
 #define SAMSUNG_BAT_NUM		0
 #define SAMSUNG_USB_NUM		1
 #define SAMSUNG_AC_NUM		2
-
 
 enum bq24160_status {
 	STAT_NO_VALID_SOURCE,
@@ -283,12 +286,18 @@ struct bq24160_data {
 	struct power_supply usb_ps;
 	struct power_supply ac_ps;
 	struct i2c_client *clientp;
-	struct delayed_work work;
+	struct delayed_work watchdog_work;
 	struct delayed_work enable_work;
+	 struct delayed_work irq_work;
+#if defined(CONFIG_MACH_ESPRESSO5433) && defined(CONFIG_FUELGAUGE_S2MG001)
+	struct delayed_work polling_work;
+#endif
 	struct workqueue_struct *wq;
 	struct bq24160_status_data cached_status;
 	struct mutex lock;
+#ifdef CONFIG_CHARGER_BQ24160_ENABLE_WAKELOCK
 	struct wake_lock wake_lock;
+#endif
 	struct bq24160_platform_data *control;
 
 	int ext_status;
@@ -306,20 +315,29 @@ struct bq24160_data {
 	u8 chg_disabled_by_input_current;
 	u8 restricted_enable_charger;
 	u8 status_update_disregard;
+#if defined(CONFIG_MACH_ESPRESSO5433) && defined(CONFIG_FUELGAUGE_S2MG001)
+	int voltage_now;
+	int voltage_avg;
+	int voltage_ocv;
+	unsigned int capacity;
+#endif
 };
+
+#if defined(CONFIG_BATTERY_MODELGAUGE)
+static struct bq24160_data *g_bq_data;
+extern int modelgauge_set_battery_status (int batt_stat);
+#endif
 
 static void bq24160_hz_enable(struct bq24160_data *bd, int enable);
 static void bq24160_start_delayed_enable(struct bq24160_data *bd,
 					unsigned long delay);
 static void bq24160_start_watchdog_reset(struct bq24160_data *bd);
 static void bq24160_stop_watchdog_reset(struct bq24160_data *bd);
-static int xyref5430_set_values(struct bq24160_data *bd);
+static int set_board_values(struct bq24160_data *bd);
 static int bq24160_set_input_current_limit_usb(struct bq24160_data *bd, u16 ma);
 static int bq24160_set_input_current_limit_in(struct bq24160_data *bd, u16 ma);
 
 #ifdef DEBUG_FS
-
-
 static int read_sysfs_interface(const char *pbuf, s32 *pvalue, u8 base)
 {
 	long long val;
@@ -379,6 +397,7 @@ static ssize_t store_chg_volt(struct device *pdev,
 
 	return rc;
 }
+
 static ssize_t store_chg_curr(struct device *pdev,
 			      struct device_attribute *attr,
 			      const char *pbuf,
@@ -399,6 +418,7 @@ static ssize_t store_chg_curr(struct device *pdev,
 
 	return rc;
 }
+
 static ssize_t store_chg_curr_term(struct device *pdev,
 				   struct device_attribute *attr,
 				   const char *pbuf,
@@ -420,6 +440,7 @@ static ssize_t store_chg_curr_term(struct device *pdev,
 
 	return rc;
 }
+
 static ssize_t store_input_curr_lim_usb(struct device *pdev,
 				    struct device_attribute *attr,
 				    const char *pbuf,
@@ -444,6 +465,7 @@ static ssize_t store_input_curr_lim_usb(struct device *pdev,
 
 	return rc;
 }
+
 static ssize_t store_input_curr_lim_in(struct device *pdev,
 				    struct device_attribute *attr,
 				    const char *pbuf,
@@ -678,6 +700,48 @@ static int bq24160_check_status(struct bq24160_data *bd)
 	return 0;
 }
 
+#if defined(CONFIG_BATTERY_MODELGAUGE)
+static int bq24160_check_batt_status(struct bq24160_data *bd)
+{
+	s32 status;
+
+	status = bq24160_i2c_read_byte(bd->clientp, REG_STATUS);
+	if (status < 0)
+		return status;
+
+	bd->cached_status.fault = (status & REG_STATUS_FAULT_MASK) >>
+		(ffs(REG_STATUS_FAULT_MASK) - 1);
+
+	if (bd->cached_status.fault == FAULT_BATTERY_FAULT)
+		modelgauge_set_battery_status (0);
+	else
+		modelgauge_set_battery_status (1);
+
+	return 0;
+}
+
+int bq24160_get_batt_status(void)
+{
+	s32 status;
+
+	status = bq24160_i2c_read_byte(g_bq_data->clientp, REG_STATUS);
+	if (status < 0)
+		return status;
+
+	g_bq_data->cached_status.fault = (status & REG_STATUS_FAULT_MASK) >>
+		(ffs(REG_STATUS_FAULT_MASK) - 1);
+
+	if (g_bq_data->cached_status.fault == FAULT_BATTERY_FAULT)
+		return 0;
+	else
+		return 1;
+
+	return 0;
+}
+EXPORT_SYMBOL(bq24160_get_batt_status);
+
+#endif
+
 static void bq24160_update_power_supply(struct bq24160_data *bd)
 {
 	MUTEX_LOCK(&bd->lock);
@@ -720,6 +784,18 @@ static void bq24160_update_power_supply(struct bq24160_data *bd)
 static irqreturn_t bq24160_thread_irq(int irq, void *data)
 {
 	struct bq24160_data *bd = (struct bq24160_data *)data;
+	if (delayed_work_pending(&bd->irq_work))
+		cancel_delayed_work(&bd->irq_work);
+	schedule_delayed_work(&bd->irq_work, msecs_to_jiffies(90));
+	return IRQ_HANDLED;
+}
+
+static void	bq24160_irq_delay_work_func(struct work_struct *work)
+{
+	struct delayed_work *dwork =
+		container_of(work, struct delayed_work, work);
+	struct bq24160_data *bd =
+		container_of(dwork, struct bq24160_data, irq_work);
 	struct bq24160_status_data old_status = bd->cached_status;
 
 	dev_dbg(&bd->clientp->dev, "Receiving threaded interrupt\n");
@@ -727,7 +803,10 @@ static irqreturn_t bq24160_thread_irq(int irq, void *data)
 	 * always updated when receiving this.
 	 * 300 ms according to TI.
 	 */
-	msleep(300);
+#ifdef CONFIG_CHARGER_BQ24160_ENABLE_WAKELOCK
+	wake_lock_timeout(&bd->wake_lock, HZ*5);
+#endif
+	mdelay(300);
 
 	if (!bq24160_check_status(bd) &&
 	    memcmp(&bd->cached_status, &old_status, sizeof(bd->cached_status))) {
@@ -737,32 +816,42 @@ static irqreturn_t bq24160_thread_irq(int irq, void *data)
 		if (bd->cached_status.stat != old_status.stat) {
 			if (bd->cached_status.stat == STAT_NO_VALID_SOURCE) {
 				if (old_status.stat == STAT_CHARGING_FROM_IN || old_status.stat == STAT_CHARGING_FROM_USB
-						|| old_status.stat == STAT_IN_READY || old_status.stat == STAT_USB_READY) {
+					|| old_status.stat == STAT_IN_READY || old_status.stat == STAT_USB_READY
+					|| old_status.stat == STAT_CHARGE_DONE || old_status.stat == STAT_NA
+					|| old_status.stat == STAT_FAULT) {
+					if(bd->watchdog_enable_vote >= 1)
+							bq24160_stop_watchdog_reset(bd);
 					bq24160_hz_enable(bd, 1);
 					bq24160_set_ce(bd, 1);
-					bq24160_stop_watchdog_reset(bd);
+
 				}
 			} else if (bd->cached_status.stat == STAT_IN_READY || bd->cached_status.stat == STAT_USB_READY) {
-				if (old_status.stat == STAT_NO_VALID_SOURCE) {
-					xyref5430_set_values(bd);
+				if (old_status.stat == STAT_NO_VALID_SOURCE || old_status.stat == STAT_CHARGE_DONE) {
+					set_board_values(bd);
 					bq24160_start_watchdog_reset(bd);
 					bq24160_hz_enable(bd, 0);
 					bq24160_set_ce(bd, 0);
+					if(bd->watchdog_enable_vote == 0)
+						bq24160_start_watchdog_reset(bd);
 				}
 			} else if (bd->cached_status.stat == STAT_CHARGING_FROM_IN || bd->cached_status.stat == STAT_CHARGING_FROM_USB) {
 				if (old_status.stat == STAT_NO_VALID_SOURCE) {
-					xyref5430_set_values(bd);
-					bq24160_start_watchdog_reset(bd);
+					set_board_values(bd);
+					if(bd->watchdog_enable_vote == 0)
+						bq24160_start_watchdog_reset(bd);
 					bq24160_hz_enable(bd, 0);
 					bq24160_set_ce(bd, 0);
 				}
 			}
+#ifdef DEBUG
 			bq24160_dump_registers(bd);
+#endif
 		}
 		bq24160_update_power_supply(bd);
 	}
-
-	return IRQ_HANDLED;
+#if defined(CONFIG_BATTERY_MODELGAUGE)
+	bq24160_check_batt_status(bd);
+#endif
 }
 
 static void bq24160_hz_enable(struct bq24160_data *bd, int enable)
@@ -822,10 +911,12 @@ static void bq24160_start_watchdog_reset(struct bq24160_data *bd)
 	}
 	MUTEX_UNLOCK(&bd->lock);
 
-	wake_lock(&bd->wake_lock);
+#ifdef CONFIG_CHARGER_BQ24160_ENABLE_WAKELOCK
+	wake_lock_timeout(&bd->wake_lock, HZ);
 	dev_info(&bd->clientp->dev, "wake locked\n");
+#endif
 
-	(void)queue_delayed_work(bd->wq, &bd->work, 0);
+	(void)queue_delayed_work(bd->wq, &bd->watchdog_work, 0);
 }
 
 static void bq24160_stop_watchdog_reset(struct bq24160_data *bd)
@@ -849,10 +940,11 @@ static void bq24160_stop_watchdog_reset(struct bq24160_data *bd)
 	bd->chg_disabled_by_input_current = 0;
 	MUTEX_UNLOCK(&bd->lock);
 
-	cancel_delayed_work(&bd->work);
+	cancel_delayed_work(&bd->watchdog_work);
 
-	wake_unlock(&bd->wake_lock);
+#ifdef CONFIG_CHARGER_BQ24160_ENABLE_WAKELOCK
 	dev_info(&bd->clientp->dev, "wake unlocked\n");
+#endif
 }
 
 static void bq24160_reset_watchdog_worker(struct work_struct *work)
@@ -860,7 +952,7 @@ static void bq24160_reset_watchdog_worker(struct work_struct *work)
 	struct delayed_work *dwork =
 		container_of(work, struct delayed_work, work);
 	struct bq24160_data *bd =
-		container_of(dwork, struct bq24160_data, work);
+		container_of(dwork, struct bq24160_data, watchdog_work);
 	s32 data = bq24160_i2c_read_byte(bd->clientp, REG_STATUS);
 
 	if (data >= 0) {
@@ -869,10 +961,10 @@ static void bq24160_reset_watchdog_worker(struct work_struct *work)
 	}
 	/*bq24160_check_status(bd);*/
 #ifdef DEBUG
-	/*bq24160_dump_registers(bd);*/
+	bq24160_dump_registers(bd);
 #endif
 
-	(void)queue_delayed_work(bd->wq, &bd->work, HZ * WATCHDOG_TIMER);
+	(void)queue_delayed_work(bd->wq, &bd->watchdog_work, HZ * WATCHDOG_TIMER);
 }
 
 static bool bq24160_is_disabled_charger(struct bq24160_data *bd)
@@ -970,12 +1062,54 @@ static void bq24160_delayed_enable_worker(struct work_struct *work)
 		bq24160_update_power_supply(bd);
 }
 
+#if defined(CONFIG_MACH_ESPRESSO5433) && defined(CONFIG_FUELGAUGE_S2MG001)
+static void sec_bat_get_battery_info(
+				struct work_struct *work)
+{
+	struct bq24160_data *bd =
+		container_of(work, struct bq24160_data, polling_work.work);
+
+	union power_supply_propval value;
+
+	psy_do_property(bd->control->fuelgauge_name, get,
+		POWER_SUPPLY_PROP_VOLTAGE_NOW, value);
+	bd->voltage_now = value.intval;
+
+	value.intval = SEC_BATTERY_VOLTAGE_AVERAGE;
+	psy_do_property(bd->control->fuelgauge_name, get,
+		POWER_SUPPLY_PROP_VOLTAGE_AVG, value);
+	bd->voltage_avg = value.intval;
+
+	value.intval = SEC_BATTERY_VOLTAGE_OCV;
+	psy_do_property(bd->control->fuelgauge_name, get,
+		POWER_SUPPLY_PROP_VOLTAGE_AVG, value);
+	bd->voltage_ocv = value.intval;
+
+	/* To get SOC value (NOT raw SOC), need to reset value */
+	value.intval = 0;
+	psy_do_property(bd->control->fuelgauge_name, get,
+		POWER_SUPPLY_PROP_CAPACITY, value);
+	bd->capacity = value.intval;
+
+	dev_info(&bd->clientp->dev,
+		"%s:Vnow(%dmV), Vavg(%dmV), Vocv(%dmV), SOC(%d%%)\n",
+		__func__,
+		bd->voltage_now, bd->voltage_avg, bd->voltage_ocv,
+							bd->capacity);
+
+	schedule_delayed_work(&bd->polling_work, HZ * 10);
+}
+#endif
+
 static int bq24160_bat_get_property(struct power_supply *bat_ps,
 				    enum power_supply_property psp,
 				    union power_supply_propval *val)
 {
 	struct bq24160_data *bd =
 		container_of(bat_ps, struct bq24160_data, bat_ps);
+#if defined(CONFIG_MACH_ESPRESSO5433) && defined(CONFIG_FUELGAUGE_S2MG001)
+	union power_supply_propval value;
+#endif
 
 	MUTEX_LOCK(&bd->lock);
 	switch (psp) {
@@ -991,8 +1125,33 @@ static int bq24160_bat_get_property(struct power_supply *bat_ps,
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
 		break;
+#if defined(CONFIG_MACH_ESPRESSO5433) && defined(CONFIG_FUELGAUGE_S2MG001)
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		psy_do_property(bd->control->fuelgauge_name, get,
+				POWER_SUPPLY_PROP_VOLTAGE_NOW, value);
+		bd->voltage_now = value.intval;
+		dev_err(&bd->clientp->dev,
+			"%s: voltage now(%d)\n", __func__, bd->voltage_now);
+		val->intval = bd->voltage_now * 1000;
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_AVG:
+		value.intval = SEC_BATTERY_VOLTAGE_AVERAGE;
+		psy_do_property(bd->control->fuelgauge_name, get,
+				POWER_SUPPLY_PROP_VOLTAGE_AVG, value);
+		bd->voltage_avg = value.intval;
+		dev_err(&bd->clientp->dev,
+			"%s: voltage avg(%d)\n", __func__, bd->voltage_avg);
+		val->intval = bd->voltage_now * 1000;
+		break;
+#endif
 	case POWER_SUPPLY_PROP_CAPACITY:
-		val->intval = (bd->chg_status == POWER_SUPPLY_STATUS_FULL) ? 100 : FAKE_BAT_LEVEL;
+#if defined(CONFIG_MACH_ESPRESSO5433) && defined(CONFIG_FUELGAUGE_S2MG001)
+		val->intval = (bd->chg_status == POWER_SUPPLY_STATUS_FULL) ?
+							100 : bd->capacity;
+#else
+		val->intval = (bd->chg_status == POWER_SUPPLY_STATUS_FULL) ?
+							100 : FAKE_BAT_LEVEL;
+#endif
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = FAKE_BAT_TEMP;
@@ -1178,7 +1337,7 @@ static int bq24160_set_init_values(struct bq24160_data *bd)
 	if (data < 0)
 		return data;
 
-	data = SET_BIT(REG_CONTROL_EN_STAT_BIT, 1, data);
+	data = SET_BIT(REG_CONTROL_EN_STAT_BIT, 0, data);
 	rc = bq24160_i2c_write_byte(bd->clientp, REG_CONTROL, data);
 	if (rc < 0)
 		return rc;
@@ -1194,31 +1353,51 @@ static int bq24160_set_init_values(struct bq24160_data *bd)
 	return 0;
 }
 
-static int xyref5430_set_values(struct bq24160_data *bd)
+static int set_board_values(struct bq24160_data *bd)
 {
 	s32 data;
 	s32 rc;
 
-	dev_info(&bd->clientp->dev, "Set xyref5430 values\n");
+	if (of_machine_is_compatible("samsung,exynos3250")){
+		dev_info(&bd->clientp->dev, "Set shiri values\n");
+		data = bq24160_i2c_read_byte(bd->clientp, REG_NTC);
+		if (data < 0)
+			return data;
 
-	data = bq24160_i2c_read_byte(bd->clientp, REG_NTC);
-	if (data < 0)
-		return data;
+		data = SET_BIT(REG_NTC_TS_EN_BIT, 0, data);
+		rc = bq24160_i2c_write_byte(bd->clientp, REG_NTC, data);
+		if (rc < 0)
+			return rc;
 
-	data = SET_BIT(REG_NTC_TS_EN_BIT, 0, data);
-	rc = bq24160_i2c_write_byte(bd->clientp, REG_NTC, data);
-	if (rc < 0)
-		return rc;
+		/* Sets any charging relates registers */
+		(void)bq24160_set_charger_voltage(SHIRI_MAX_CHG_VOLT);
+		(void)bq24160_set_charger_current(MAX_CHARGE_CURRENT);
+		(void)bq24160_set_input_current_limit_usb(bd, SHIRI_CURRENT_LIMIT_USB);
+		(void)bq24160_set_input_current_limit_in(bd, MAX_CHARGE_CURRENT);
+		(void)bq24160_set_charger_safety_timer(SHIRI_SAFETY_TIME);
 
-	/* Sets any charging relates registers */
-	(void)bq24160_set_charger_voltage(XYREF5430_MAX_CHG_VOLT);
-	(void)bq24160_set_charger_current(MAX_CHARGE_CURRENT);
-	(void)bq24160_set_input_current_limit_usb(bd, XYREF5430_CURRENT_LIMIT_USB);
-	(void)bq24160_set_input_current_limit_in(bd, MAX_CHARGE_CURRENT);
-	(void)bq24160_set_charger_safety_timer(XYREF5430_SAFETY_TIME);
+	} else {
+		dev_info(&bd->clientp->dev, "Set espresso5430 values\n");
+
+		data = bq24160_i2c_read_byte(bd->clientp, REG_NTC);
+		if (data < 0)
+			return data;
+
+		data = SET_BIT(REG_NTC_TS_EN_BIT, 0, data);
+		rc = bq24160_i2c_write_byte(bd->clientp, REG_NTC, data);
+		if (rc < 0)
+			return rc;
+
+		/* Sets any charging relates registers */
+		(void)bq24160_set_charger_voltage(ESPRESSO5430_MAX_CHG_VOLT);
+		(void)bq24160_set_charger_current(MAX_CHARGE_CURRENT);
+		(void)bq24160_set_input_current_limit_usb(bd, ESPRESSO5430_CURRENT_LIMIT_USB);
+		(void)bq24160_set_input_current_limit_in(bd, MAX_CHARGE_CURRENT);
+		(void)bq24160_set_charger_safety_timer(ESPRESSO5430_SAFETY_TIME);
+
+	}
 
 	return 0;
-
 }
 
 int bq24160_turn_on_charger(u8 usb_compliant)
@@ -1720,6 +1899,32 @@ int bq24160_set_ext_charging_status(int status)
 }
 EXPORT_SYMBOL_GPL(bq24160_set_ext_charging_status);
 
+int bq24160_get_ext_charging_status(void)
+{
+	struct power_supply *psy = power_supply_get_by_name(BQ24160_NAME);
+	struct bq24160_data *bd;
+	int ret=0;
+
+	if (!psy)
+		return -EINVAL;
+	bd = container_of(psy, struct bq24160_data, bat_ps);
+
+	if( STAT_CHARGING_FROM_USB == bd->cached_status.stat ||
+		STAT_CHARGING_FROM_IN == bd->cached_status.stat ||
+		STAT_USB_READY == bd->cached_status.stat ||
+		STAT_IN_READY == bd->cached_status.stat ||
+		STAT_CHARGE_DONE == bd->cached_status.stat){
+			ret = EXT_CHG_STAT_VALID_CHARGER_CONNECTED;
+			printk("CHARGER_CONNECTED: %d\n",bd->cached_status.stat);
+	}else{
+			ret = EXT_CHG_STAT_VALID_CHARGER_NOT_CONNECTED;
+			printk("CHARGER_NOT_CONNECTED: %d\n",bd->cached_status.stat);
+	}
+	return ret;
+}
+EXPORT_SYMBOL_GPL(bq24160_get_ext_charging_status);
+
+
 bool bq24160_is_restricted_by_charger_revision(int batt_voltage,
 				u16 chg_voltage_now, u16 chg_current_now)
 {
@@ -1779,15 +1984,20 @@ static int __exit bq24160_remove(struct i2c_client *client)
 
 	free_irq(client->irq, bd);
 
-	if (delayed_work_pending(&bd->work))
-		cancel_delayed_work_sync(&bd->work);
+	if (delayed_work_pending(&bd->watchdog_work))
+		cancel_delayed_work_sync(&bd->watchdog_work);
 
 	if (delayed_work_pending(&bd->enable_work))
 		cancel_delayed_work_sync(&bd->enable_work);
-
+#if defined(CONFIG_MACH_ESPRESSO5433) && defined(CONFIG_FUELGAUGE_S2MG001)
+	if (delayed_work_pending(&bd->polling_work))
+		cancel_delayed_work_sync(&bd->polling_work);
+#endif
 	destroy_workqueue(bd->wq);
 
+#ifdef CONFIG_CHARGER_BQ24160_ENABLE_WAKELOCK
 	wake_lock_destroy(&bd->wake_lock);
+#endif
 
 #ifdef DEBUG_FS
 	debug_remove_attrs(bd->bat_ps.dev);
@@ -1811,6 +2021,10 @@ static enum power_supply_property bq24160_bat_main_props[] = {
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_TECHNOLOGY,
+#if defined(CONFIG_MACH_ESPRESSO5433) && defined(CONFIG_FUELGAUGE_S2MG001)
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_VOLTAGE_AVG,
+#endif
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_TEMP,
 };
@@ -1852,7 +2066,6 @@ static struct power_supply samsung_power_supplies[] = {
 #ifdef CONFIG_OF
 static struct bq24160_platform_data *bq24160_parse_dt(struct device *dev)
 {
-	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
 	struct bq24160_platform_data *pdata;
 	struct device_node *np = dev->of_node;
 	int gpio;
@@ -1869,15 +2082,21 @@ static struct bq24160_platform_data *bq24160_parse_dt(struct device *dev)
 
 	gpio = of_get_gpio(np, 0);
 	if (!gpio_is_valid(gpio)) {
-		dev_err(dev, "failed to get interrupt gpio\n");
+		dev_err(dev, "failed to get gpio_chg_stat gpio\n");
 		return ERR_PTR(-EINVAL);
 	}
-	client->irq = gpio_to_irq(gpio);
+	pdata->gpio_chg_stat = gpio;
 
 	if (of_property_read_string(np, "dev_name", &pdata->name)) {
 		dev_err(dev, "failed to get name\n");
 		return ERR_PTR(-EINVAL);
 	}
+#if defined(CONFIG_MACH_ESPRESSO5433) && defined(CONFIG_FUELGAUGE_S2MG001)
+	if (of_property_read_string(np, "battery,fuelgauge_name", (char const **)&pdata->fuelgauge_name)) {
+		dev_err(dev, "failed to get fuelgauge_name\n");
+		return ERR_PTR(-EINVAL);
+	}
+#endif
 
 	if (of_property_read_u8(np, "support_boot_charging", &pdata->support_boot_charging)) {
 		dev_err(dev, "failed to get support_boot_charging\n");
@@ -1887,6 +2106,52 @@ static struct bq24160_platform_data *bq24160_parse_dt(struct device *dev)
 	return pdata;
 }
 #endif
+
+void bq24160_charger_set_gpio(struct bq24160_data *bd)
+{
+	int gpio = 0;
+	struct bq24160_platform_data *pdata = bd->control;
+
+	gpio = pdata->gpio_chg_stat;
+	if (gpio_request(gpio, "CHG_STAT")) {
+		pr_err("%s : CHG_INT request port erron", __func__);
+	} else {
+		gpio_direction_input(gpio);
+		gpio_free(gpio);
+	}
+}
+
+#ifdef CONFIG_PM
+static int bq24160_charger_suspend(struct device *dev);
+static int bq24160_charger_resume(struct device *dev);
+
+static int bq24160_charger_suspend(struct device *dev)
+{
+	return 0;
+}
+
+static int bq24160_charger_resume(struct device *dev)
+{
+	struct bq24160_data *bd = dev_get_drvdata(dev);
+	bq24160_check_status(bd);
+	if(bd->cached_status.stat == STAT_IN_READY || bd->cached_status.stat == STAT_USB_READY \
+			|| bd->cached_status.stat == STAT_CHARGING_FROM_IN || bd->cached_status.stat == STAT_CHARGING_FROM_USB) {
+					bq24160_hz_enable(bd, 0);
+					bq24160_set_ce(bd, 0);
+					set_board_values(bd);
+					if(bd->watchdog_enable_vote == 0)
+						bq24160_start_watchdog_reset(bd);
+	}
+	dev_info(&bd->clientp->dev, "resume status:%d\n",bd->cached_status.stat);
+	return 0;
+}
+
+static const struct dev_pm_ops bq24160_charger_pm_ops = {
+	.suspend = bq24160_charger_suspend,
+	.resume  = bq24160_charger_resume,
+};
+#endif
+
 
 static int bq24160_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
@@ -1898,7 +2163,7 @@ static int bq24160_probe(struct i2c_client *client,
 	int rc = 0;
 
 	dev_info(&client->dev, "probe\n");
-	if (!pdata) {
+	if (pdata == ERR_PTR(-EINVAL) || pdata == ERR_PTR(-ENOMEM) || pdata == ERR_PTR(-ENOENT)) {
 		dev_err(&client->dev, "No platform data found\n");
 		return -EINVAL;
 	}
@@ -1952,8 +2217,10 @@ static int bq24160_probe(struct i2c_client *client,
 	}
 
 	mutex_init(&bd->lock);
+#ifdef CONFIG_CHARGER_BQ24160_ENABLE_WAKELOCK
 	wake_lock_init(&bd->wake_lock, WAKE_LOCK_SUSPEND,
 		       "bq24160_watchdog_lock");
+#endif
 
 	bd->wq = create_singlethread_workqueue("bq24160worker");
 	if (!bd->wq) {
@@ -1962,9 +2229,16 @@ static int bq24160_probe(struct i2c_client *client,
 		goto probe_exit_free;
 	}
 
-	INIT_DELAYED_WORK(&bd->work, bq24160_reset_watchdog_worker);
-	INIT_DELAYED_WORK(&bd->enable_work,
-				bq24160_delayed_enable_worker);
+	INIT_DELAYED_WORK(&bd->watchdog_work, bq24160_reset_watchdog_worker);
+	INIT_DELAYED_WORK(&bd->enable_work, 	bq24160_delayed_enable_worker);
+
+#if defined(CONFIG_MACH_ESPRESSO5433) && defined(CONFIG_FUELGAUGE_S2MG001)
+	INIT_DELAYED_WORK(&bd->polling_work,
+				sec_bat_get_battery_info);
+	schedule_delayed_work(&bd->polling_work, HZ * 10);
+#else
+	INIT_DELAYED_WORK(&bd->irq_work, bq24160_irq_delay_work_func);
+#endif
 
 	rc = power_supply_register(&client->dev, &bd->bat_ps);
 	if (rc) {
@@ -1987,6 +2261,7 @@ static int bq24160_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, bd);
 
+	bq24160_charger_set_gpio(bd);
 	bq24160_check_status(bd);
 	bq24160_update_power_supply(bd);
 	pdata->support_boot_charging = 1;
@@ -1995,21 +2270,24 @@ static int bq24160_probe(struct i2c_client *client,
 	    (STAT_CHARGING_FROM_USB == bd->cached_status.stat ||
 	     STAT_CHARGING_FROM_IN == bd->cached_status.stat ||
 	     STAT_USB_READY == bd->cached_status.stat ||
-	     STAT_IN_READY == bd->cached_status.stat)) {
+	     STAT_IN_READY == bd->cached_status.stat ||
+	     STAT_CHARGE_DONE == bd->cached_status.stat)) {
 		dev_info(&client->dev, "Charging started by boot\n");
 		bd->boot_initiated_charging = 1;
-		xyref5430_set_values(bd);
+		set_board_values(bd);
 		bq24160_check_status(bd);
 		bq24160_update_power_supply(bd);
 		bq24160_start_watchdog_reset(bd);
 	} else {
 		dev_info(&client->dev, "Not initialized by boot\n");
 		rc = bq24160_reset_charger(bd);
-		if (rc)
-			goto probe_exit_unregister;
-
+		bq24160_start_watchdog_reset(bd);
 	}
+
+#ifdef DEBUG
 	bq24160_dump_registers(bd);
+#endif
+
 
 	rc = request_threaded_irq(client->irq, NULL, bq24160_thread_irq,
 				  IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING |
@@ -2019,7 +2297,6 @@ static int bq24160_probe(struct i2c_client *client,
 		dev_err(&client->dev, "Failed requesting IRQ\n");
 		goto probe_exit_unregister;
 	}
-
 	device_init_wakeup(&client->dev, 1);
 
 	rc = enable_irq_wake(client->irq);
@@ -2036,6 +2313,11 @@ static int bq24160_probe(struct i2c_client *client,
 		dev_info(&client->dev, "Debug support failed\n");
 #endif
 
+#if defined(CONFIG_BATTERY_MODELGAUGE)
+	g_bq_data = bd;
+	bq24160_check_batt_status(bd);
+#endif
+
 	atomic_set(&bq24160_init_ok, 1);
 	return 0;
 
@@ -2044,7 +2326,9 @@ probe_exit_unregister:
 probe_exit_work_queue:
 	destroy_workqueue(bd->wq);
 probe_exit_free:
+#ifdef CONFIG_CHARGER_BQ24160_ENABLE_WAKELOCK
 	wake_lock_destroy(&bd->wake_lock);
+#endif
 	kfree(bd);
 probe_exit_hw_deinit:
 	if (pdata && pdata->gpio_configure)
@@ -2062,6 +2346,9 @@ static struct of_device_id ti_bq24160_dt_ids[] = {
 static struct i2c_driver bq24160_driver = {
 	.driver = {
 		   .name = BQ24160_NAME,
+#ifdef CONFIG_PM
+		.pm	= &bq24160_charger_pm_ops,
+#endif
 		   .owner = THIS_MODULE,
 #ifdef CONFIG_OF
 		   .of_match_table = of_match_ptr(ti_bq24160_dt_ids),

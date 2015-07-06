@@ -96,6 +96,29 @@ enum {
 /* return value of ion_exynos_contig_region_mask() that indicates error */
 #define EXYNOS_CONTIG_REGION_NOMASK ~0
 
+/****** Exynos custom IOCTL ******/
+#define ION_EXYNOS_SYNC_BY_HANDLE	0x01 /* otherwise, by fd */
+#define ION_EXYNOS_SYNC_INV		0x10 /* otherwise, clean */
+
+struct ion_exynos_sync_data {
+	int flags;
+	union { /* for validation of the given buffer */
+		int dmabuf_fd;
+		ion_user_handle_t handle;
+	};
+#ifdef __KERNEL__
+	unsigned long addr;
+#else
+	void *addr;
+#endif
+	size_t size;
+};
+
+#define ION_IOC_EXYNOS_MAGIC 'E'
+
+#define ION_IOC_EXYNOS_SYNC		\
+	_IOW(ION_IOC_EXYNOS_MAGIC, 0, struct ion_exynos_sync_data)
+
 #ifdef __KERNEL__
 
 #ifdef CONFIG_ION_EXYNOS
@@ -108,7 +131,7 @@ void exynos_ion_sync_vaddr_for_device(struct device *dev,
 					size_t size,
 					off_t offset,
 					enum dma_data_direction dir);
-void exynos_ion_sync_sg_for_device(struct device *dev,
+void exynos_ion_sync_sg_for_device(struct device *dev, size_t size,
 					struct sg_table *sgt,
 					enum dma_data_direction dir);
 void exynos_ion_sync_dmabuf_for_cpu(struct device *dev,
@@ -120,28 +143,18 @@ void exynos_ion_sync_vaddr_for_cpu(struct device *dev,
 					size_t size,
 					off_t offset,
 					enum dma_data_direction dir);
-void exynos_ion_sync_sg_for_cpu(struct device *dev,
+void exynos_ion_sync_sg_for_cpu(struct device *dev, size_t size,
 					struct sg_table *sgt,
 					enum dma_data_direction dir);
 unsigned int ion_exynos_contig_region_mask(char *region_name);
 int ion_exynos_contig_heap_info(int region_id, phys_addr_t *phys, size_t *size);
 int ion_exynos_contig_heap_isolate(int region_id);
 void ion_exynos_contig_heap_deisolate(int region_id);
+int init_exynos_ion_contig_heap(void);
 #else
-void exynos_ion_sync_for_device(struct device *dev,
-					struct dma_buf *dbuf,
-					void *vaddr, size_t size,
-					off_t offset, struct sg_table *sgt,
-					enum dma_data_direction dir)
+static inline int init_exynos_ion_contig_heap(void)
 {
-}
-
-void exynos_ion_sync_for_cpu(struct device *dev,
-					struct dma_buf *dbuf,
-					void *vaddr, size_t size,
-					off_t offset, struct sg_table *sgt,
-					enum dma_data_direction dir)
-{
+	return 0;
 }
 
 static inline int ion_exynos_contig_region_mask(char *region_name)
@@ -149,7 +162,7 @@ static inline int ion_exynos_contig_region_mask(char *region_name)
 	return 0;
 }
 
-static int ion_exynos_contig_heap_info(int region_id, phys_addr_t *phys,
+static inline int ion_exynos_contig_heap_info(int region_id, phys_addr_t *phys,
 					size_t *size)
 {
 	return -ENODEV;
@@ -160,18 +173,14 @@ static inline int ion_exynos_contig_heap_isolate(int region_id)
 	return -ENOSYS;
 }
 
-#define ion_exynos_contig_heap_deisolate(region_id) do { } while (0);
-
-#endif
-
-#if defined(CONFIG_ION_EXYNOS)
-int init_exynos_ion_contig_heap(void);
-#else
 static inline int fdt_init_exynos_ion(void)
 {
 	return 0;
 }
+#define ion_exynos_contig_heap_deisolate(region_id) do { } while (0);
+
 #endif
+
 
 #endif /* __KERNEL */
 

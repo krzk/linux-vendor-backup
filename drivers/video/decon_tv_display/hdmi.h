@@ -53,7 +53,7 @@
 #define AVI_ITU709			(2 << 6)
 
 /* HDMI audio configuration value */
-#define DEFAULT_SAMPLE_RATE		44100
+#define DEFAULT_SAMPLE_RATE		48000
 #define DEFAULT_BITS_PER_SAMPLE		16
 #define AUDIO_CHANNEL_MASK		(0xFF)
 #define AUDIO_BIT_RATE_MASK		(0x7 << 16)
@@ -67,9 +67,21 @@
 #define HPD_LOW		0
 #define HPD_HIGH	1
 
+/*
+ * HDMI timing distinguish definition
+ * If timings has the same widh and height,
+ * it is low definition as it is low pixelclock.
+ */
+#define HDMI_TIMINGS_1		0x10
+#define HDMI_TIMINGS_2		0x20
+#define HDMI_TIMINGS_3		0x30
+#define HDMI_TIMINGS_4		0x40
+#define HDMI_TIMINGS_5		0x50
+
 enum HDMI_VIDEO_FORMAT {
 	HDMI_VIDEO_FORMAT_2D = 0x0,
 	/** refer to Table 8-12 HDMI_Video_Format in HDMI specification v1.4a */
+	HDMI_VIDEO_FORMAT_UD = 0x1,
 	HDMI_VIDEO_FORMAT_3D = 0x2
 };
 
@@ -332,8 +344,8 @@ struct hdmi_device {
 	int sample_rate;
 	/** audio bits per sample */
 	int bits_per_sample;
-	/** audio sample size */
-	int sample_size;
+	/** audio bit clock support or not */
+	int audio_master_clk;
 	/** RGB Quantization range and Colorimetry */
 	enum HDMI_COLOR_RANGE color_range;
 	/** HDMI is streaming or not */

@@ -980,6 +980,7 @@ static void hevc_handle_frame(struct hevc_ctx *ctx,
 
 			hevc_debug(2, "HEVC needs next buffer.\n");
 			dec->consumed = 0;
+			dec->src_offset = 0;
 			list_del(&src_buf->list);
 			ctx->src_queue_cnt--;
 
@@ -1212,7 +1213,10 @@ static irqreturn_t hevc_irq(int irq, void *priv)
 						src_buf->vb.v4l2_planes[0].bytesused);
 				if (hevc_get_consumed_stream() <
 						src_buf->vb.v4l2_planes[0].bytesused)
+				{
+					dec->src_offset = hevc_get_consumed_stream();
 					dec->remained = 1;
+				}
 			}
 		}
 
@@ -1472,7 +1476,10 @@ static int hevc_open(struct file *file)
 		}
 #else
 		/* Load the FW */
-		ret = hevc_alloc_firmware(dev);
+		if (!dev->fw_status) {
+			ret = hevc_alloc_firmware(dev);
+			dev->fw_status = 1;
+		}
 		if (ret)
 			goto err_fw_alloc;
 		ret = hevc_load_firmware(dev);
@@ -1513,7 +1520,7 @@ static int hevc_open(struct file *file)
 
 	/* Deinit when failure occured */
 err_hw_init:
-	hevc_power_off();
+	hevc_power_off(dev);
 
 err_pwr_enable:
 	hevc_release_dev_context_buffer(dev);
@@ -1661,12 +1668,11 @@ static int hevc_release(struct file *file)
 		flush_workqueue(dev->sched_wq);
 
 		hevc_info("power off\n");
-		hevc_power_off();
+		hevc_power_off(dev);
 
 		/* reset <-> F/W release */
-		hevc_release_firmware(dev);
+
 		hevc_release_dev_context_buffer(dev);
-		dev->fw_status = 0;
 
 
 	}

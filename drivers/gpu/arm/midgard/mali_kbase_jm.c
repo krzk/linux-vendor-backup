@@ -30,6 +30,9 @@
 
 #include "mali_kbase_jm.h"
 
+/* S.LSI intergration */
+extern int gpu_register_dump(void);
+
 #define beenthere(f, a...)  KBASE_DEBUG_PRINT_INFO(KBASE_JM, "%s:" f, __func__, ##a)
 
 #ifdef CONFIG_MALI_DEBUG_SHADER_SPLIT_FS
@@ -1104,6 +1107,10 @@ void kbasep_reset_timeout_worker(struct work_struct *data)
 	/* Output the state of some interesting registers to help in the
 	 * debugging of GPU resets */
 	kbase_debug_dump_registers(kbdev);
+
+	/* S.LSI intergration */
+	gpu_register_dump();
+	KBASE_TRACE_DUMP(kbdev);
 
 	bckp_state = kbdev->hwcnt.state;
 	kbdev->hwcnt.state = KBASE_INSTR_STATE_RESETTING;

@@ -46,6 +46,12 @@
 #define ABB_INIT		(0x80000080)
 #define ABB_INIT_BYPASS		(0x80000000)
 
+#define ABB_ENABLE_SEL_OFFSET	(31)
+#define ABB_ENABLE_SET_MASK	(0x1 << ABB_ENABLE_SEL_OFFSET)
+#define ABB_ENABLE_PMOS_OFFSET	(7)
+#define ABB_ENABLE_PMOS_MASK	(0x1 << ABB_ENABLE_PMOS_OFFSET)
+#define ABB_CODE_PMOS_OFFSET	(0)
+#define ABB_CODE_PMOS_MASK	(0x1F << ABB_CODE_PMOS_OFFSET)
 static inline void set_abb(void __iomem *target_reg, unsigned int target_value)
 {
 	unsigned int tmp;
@@ -79,7 +85,28 @@ struct asv_common {
 	unsigned int	hpm_value;
 	unsigned int	(*init)(void);
 	unsigned int	(*regist_asv_member)(void);
+	struct asv_common_ops_cal	*ops_cal;
 };
+
+/* operation for CAL */
+struct asv_ops_cal {
+	s32		(*get_max_lv)(u32 id);
+	s32 		(*get_min_lv)(u32 id);
+	u32		(*get_vol)(u32, s32 eLvl);
+	u32		(*get_freq)(u32 id, s32 eLvl);
+	u32 		(*get_abb)(u32 id, s32 eLvl);
+	bool		(*get_use_abb)(u32 id);
+	void		(*set_abb)(u32 id, u32 eAbb);
+};
+
+struct asv_common_ops_cal {
+	void	(*init)(void);
+	u32	(*get_table_ver)(void);
+	bool	(*is_fused_sp_gr)(void);
+	u32	(*get_asv_gr)(void);
+	u32	(*get_ids)(void);
+};
+
 
 struct asv_freq_table {
 	unsigned int	asv_freq;
@@ -99,6 +126,7 @@ struct asv_info {
 	struct asv_freq_table	*asv_volt;
 	struct asv_freq_table	*asv_abb;
 	struct abb_common	*abb_info;
+	struct asv_ops_cal	*ops_cal;
 };
 
 /* Struct for ABB function */
@@ -122,7 +150,8 @@ extern void exynos5430_get_egl_speed_option(unsigned int *opt_flag, unsigned int
 #define EGL_SPD_SEL_1500_MHZ		(0x0)
 #define EGL_SPD_SEL_1700_MHZ		(0x1)
 #define EGL_SPD_SEL_1900_MHZ		(0x2)
-#define EGL_SPD_SEL_2100_MHZ		(0x3)
+#define EGL_SPD_SEL_2000_MHZ		(0x3)
+#define EGL_SPD_SEL_2100_MHZ		(0x7)
 #endif
 
 /* define function for common asv */
@@ -132,9 +161,12 @@ extern unsigned int get_match_volt(enum asv_type_id target_type, unsigned int ta
 extern unsigned int get_match_abb(enum asv_type_id target_type, unsigned int target_freq);
 extern unsigned int set_match_abb(enum asv_type_id target_type, unsigned int target_abb);
 extern bool is_set_abb_first(enum asv_type_id target_type, unsigned int old_freq, unsigned int target_freq);
+extern unsigned int exynos_set_abb(enum asv_type_id type, unsigned int target_val);
 
 /* define function for initialize of SoC */
+extern int exynos3250_init_asv(struct asv_common *asv_info);
 extern int exynos5410_init_asv(struct asv_common *asv_info);
 extern int exynos5422_init_asv(struct asv_common *asv_info);
 extern int exynos5430_init_asv(struct asv_common *asv_info);
+extern int exynos5_init_asv(struct asv_common *asv_info);
 #endif /* __ASM_ARCH_NEW_ASV_H */

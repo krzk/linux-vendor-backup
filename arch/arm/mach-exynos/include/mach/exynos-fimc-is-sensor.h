@@ -17,6 +17,7 @@
 
 #define FIMC_IS_SENSOR_DEV_NAME "exynos-fimc-is-sensor"
 #define FIMC_IS_PINNAME_LEN 32
+#define FIMC_IS_MAX_NAME_LEN 32
 
 enum exynos_csi_id {
 	CSI_ID_A = 0,
@@ -60,9 +61,13 @@ enum exynos_sensor_id {
 	SENSOR_NAME_S5K8B1		 = 11,
 	SENSOR_NAME_S5K1P2		 = 12,
 	SENSOR_NAME_S5K4H5		 = 13,
+	SENSOR_NAME_S5K4EC		 = 57,
+	SENSOR_NAME_SR352		 = 57,
+	SENSOR_NAME_SR030		 = 57,
 
 	SENSOR_NAME_IMX135		 = 101, /* 101 ~ 200 Sony sensors */
-	SENSOR_NAME_IMX175		 = 102,
+	SENSOR_NAME_IMX134		 = 102,
+	SENSOR_NAME_IMX175		 = 103,
 
 	SENSOR_NAME_SR261		 = 201, /* 201 ~ 300 Other vendor sensors */
 
@@ -194,32 +199,48 @@ struct sensor_open_extended {
 
 #define SENSOR_SCENARIO_NORMAL		0
 #define SENSOR_SCENARIO_VISION		1
-#define SENSOR_SCENARIO_MAX 		10
+#define SENSOR_SCENARIO_EXTERNAL	2
+#define SENSOR_SCENARIO_MAX		10
 
 enum pin_act {
 	PIN_PULL_NONE = 0,
 	PIN_OUTPUT_HIGH,
 	PIN_OUTPUT_LOW,
+	PIN_OUTPUT,
 	PIN_INPUT,
 	PIN_RESET,
 	PIN_FUNCTION,
 	PIN_REGULATOR_ON,
 	PIN_REGULATOR_OFF,
+	PIN_REGULATOR,
+	PIN_DELAY,
 	PIN_END
 };
 
 struct exynos_sensor_pin {
 	int pin;
+	int delay;
 	u32 value;
 	char *name;
 	enum pin_act act;
+	int voltage;
 };
 
-#define SET_PIN(d, s, c, i, p, v, n, a)		\
-	(d)->pin_ctrls[s][c][i].pin	= p;	\
-	(d)->pin_ctrls[s][c][i].value	= v;	\
-	(d)->pin_ctrls[s][c][i].name	= n;	\
-	(d)->pin_ctrls[s][c][i].act	= a;
+#ifdef CONFIG_USE_VENDER_FEATURE
+#define SET_PIN(p, id1, id2, n, _pin, _value, _name, _time, _act) \
+		(p)->pin_ctrls[id1][id2][n].pin = _pin; \
+		(p)->pin_ctrls[id1][id2][n].delay = _time; \
+		(p)->pin_ctrls[id1][id2][n].value = _value; \
+		(p)->pin_ctrls[id1][id2][n].name = _name; \
+		(p)->pin_ctrls[id1][id2][n].act = _act; \
+		(p)->pin_ctrls[id1][id2][n].voltage = 0;
+#else
+#define SET_PIN(d, s, c, i, p , v, n, a) \
+		(d)->pin_ctrls[s][c][i].pin     = p; \
+		(d)->pin_ctrls[s][c][i].value   = v; \
+		(d)->pin_ctrls[s][c][i].name    = n; \
+		(d)->pin_ctrls[s][c][i].act     = a;
+#endif
 
 /*
  * struct exynos_platform_fimc_is_sensor - platform data for exynos_sensor driver
@@ -239,6 +260,7 @@ struct exynos_platform_fimc_is_sensor {
 	int (*mclk_on)(struct platform_device *pdev, u32 scenario, u32 channel);
 	int (*mclk_off)(struct platform_device *pdev, u32 scenario, u32 channel);
 	struct exynos_sensor_pin pin_ctrls[SENSOR_SCENARIO_MAX][GPIO_SCENARIO_MAX][GPIO_CTRL_MAX];
+	char sensor_name[FIMC_IS_MAX_NAME_LEN];
 	u32 scenario;
 	u32 mclk_ch;
 	u32 csi_ch;
@@ -248,6 +270,8 @@ struct exynos_platform_fimc_is_sensor {
 	u32 is_bns;
 	u32 flash_first_gpio;
 	u32 flash_second_gpio;
+	u32 is_softlanding;
+	u32 sensor_id;
 };
 
 extern int exynos_fimc_is_sensor_pins_cfg(struct platform_device *pdev,
@@ -266,6 +290,22 @@ extern int exynos_fimc_is_sensor_mclk_on(struct platform_device *pdev,
 	u32 scenario,
 	u32 channel);
 extern int exynos_fimc_is_sensor_mclk_off(struct platform_device *pdev,
+	u32 scenario,
+	u32 channel);
+
+extern int exynos_fimc_is_companion_iclk_cfg(struct platform_device *pdev,
+	u32 scenario,
+	u32 channel);
+extern int exynos_fimc_is_companion_iclk_on(struct platform_device *pdev,
+	u32 scenario,
+	u32 channel);
+extern int exynos_fimc_is_companion_iclk_off(struct platform_device *pdev,
+	u32 scenario,
+	u32 channel);
+extern int exynos_fimc_is_companion_mclk_on(struct platform_device *pdev,
+	u32 scenario,
+	u32 channel);
+extern int exynos_fimc_is_companion_mclk_off(struct platform_device *pdev,
 	u32 scenario,
 	u32 channel);
 

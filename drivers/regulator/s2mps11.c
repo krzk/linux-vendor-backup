@@ -39,9 +39,6 @@ static int s2m_set_mode(struct regulator_dev *rdev,
 	int ret, id = rdev_get_id(rdev);
 
 	switch (mode) {
-	case SEC_OPMODE_OFF:			/* ON in Standby Mode */
-		val = 0x0 << S2MPS11_ENABLE_SHIFT;
-		break;
 	case SEC_OPMODE_SUSPEND:			/* ON in Standby Mode */
 		val = 0x1 << S2MPS11_ENABLE_SHIFT;
 		break;

@@ -63,8 +63,12 @@ static int thread_err;
 
 static void log_eol(uint16_t source)
 {
-	if (!strnlen(log_line, LOG_LINE_SIZE))
+	if (!strnlen(log_line, LOG_LINE_SIZE)) {
+		/* In case a TZ tries to print a 0x0 */
+		log_line_len = 0;
 		return;
+	}
+
 	prev_eol = true;
 	/* MobiCore Userspace */
 	if (prev_source)

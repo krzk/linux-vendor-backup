@@ -327,44 +327,42 @@ int fimc_is_gframe_flush(struct fimc_is_groupmgr *groupmgr,
 	return ret;
 }
 
-static void fimc_is_group_3a0_cancel(struct fimc_is_framemgr *ldr_framemgr,
-	struct fimc_is_frame *ldr_frame,
+static void fimc_is_group_3a0_cancel(struct fimc_is_framemgr *framemgr,
+	struct fimc_is_frame *frame,
+	struct fimc_is_queue *queue,
 	struct fimc_is_video_ctx *vctx,
 	u32 instance)
 {
-	struct fimc_is_queue *queue;
-
 	BUG_ON(!vctx);
-	BUG_ON(!ldr_framemgr);
-	BUG_ON(!ldr_frame);
+	BUG_ON(!framemgr);
+	BUG_ON(!frame);
+	BUG_ON(!queue);
 
-	pr_err("[3A0:D:%d] GRP0 CANCEL(%d, %d)\n", instance,
-		ldr_frame->fcount, ldr_frame->index);
+	pr_err("[3A0:D:%d:%d] GRP0 CANCEL(%d, %d)\n", instance,
+		V4L2_TYPE_IS_OUTPUT(queue->vbq->type),
+		frame->fcount, frame->index);
 
-	queue = GET_SRC_QUEUE(vctx);
-
-	fimc_is_frame_trans_req_to_com(ldr_framemgr, ldr_frame);
-	queue_done(vctx, queue, ldr_frame->index, VB2_BUF_STATE_ERROR);
+	fimc_is_frame_trans_req_to_com(framemgr, frame);
+	queue_done(vctx, queue, frame->index, VB2_BUF_STATE_ERROR);
 }
 
-static void fimc_is_group_3a1_cancel(struct fimc_is_framemgr *ldr_framemgr,
-	struct fimc_is_frame *ldr_frame,
+static void fimc_is_group_3a1_cancel(struct fimc_is_framemgr *framemgr,
+	struct fimc_is_frame *frame,
+	struct fimc_is_queue *queue,
 	struct fimc_is_video_ctx *vctx,
 	u32 instance)
 {
-	struct fimc_is_queue *queue;
-
 	BUG_ON(!vctx);
-	BUG_ON(!ldr_framemgr);
-	BUG_ON(!ldr_frame);
+	BUG_ON(!framemgr);
+	BUG_ON(!frame);
+	BUG_ON(!queue);
 
-	pr_err("[3A1:D:%d] GRP1 CANCEL(%d, %d)\n", instance,
-		ldr_frame->fcount, ldr_frame->index);
+	pr_err("[3A1:D:%d:%d] GRP1 CANCEL(%d, %d)\n", instance,
+		V4L2_TYPE_IS_OUTPUT(queue->vbq->type),
+		frame->fcount, frame->index);
 
-	queue = GET_SRC_QUEUE(vctx);
-
-	fimc_is_frame_trans_req_to_com(ldr_framemgr, ldr_frame);
-	queue_done(vctx, queue, ldr_frame->index, VB2_BUF_STATE_ERROR);
+	fimc_is_frame_trans_req_to_com(framemgr, frame);
+	queue_done(vctx, queue, frame->index, VB2_BUF_STATE_ERROR);
 }
 
 static void fimc_is_group_isp_cancel(struct fimc_is_framemgr *framemgr,
@@ -411,6 +409,10 @@ static void fimc_is_group_cancel(struct fimc_is_group *group,
 	unsigned long flags;
 	struct fimc_is_video_ctx *vctx;
 	struct fimc_is_framemgr *ldr_framemgr;
+	/* for M2M device */
+	struct fimc_is_framemgr *sub_framemgr = NULL;
+	struct fimc_is_queue *ldr_queue, *sub_queue;
+	struct fimc_is_frame *sub_frame;
 
 	BUG_ON(!group);
 	BUG_ON(!ldr_frame);
@@ -431,12 +433,18 @@ static void fimc_is_group_cancel(struct fimc_is_group *group,
 
 	switch (group->id) {
 	case GROUP_ID_3A0:
+		ldr_queue = GET_SRC_QUEUE(vctx);
 		fimc_is_group_3a0_cancel(ldr_framemgr, ldr_frame,
-			vctx, group->instance);
+			ldr_queue, vctx, group->instance);
+		/* for M2M device */
+		sub_framemgr = GET_DST_FRAMEMGR(vctx);
 		break;
 	case GROUP_ID_3A1:
+		ldr_queue = GET_SRC_QUEUE(vctx);
 		fimc_is_group_3a1_cancel(ldr_framemgr, ldr_frame,
-			vctx, group->instance);
+			ldr_queue, vctx, group->instance);
+		/* for M2M device */
+		sub_framemgr = GET_DST_FRAMEMGR(vctx);
 		break;
 	case GROUP_ID_ISP:
 		fimc_is_group_isp_cancel(ldr_framemgr, ldr_frame,
@@ -452,7 +460,79 @@ static void fimc_is_group_cancel(struct fimc_is_group *group,
 	}
 
 	framemgr_x_barrier_irqr(ldr_framemgr, 0, flags);
+
+	if (sub_framemgr) {
+		framemgr_e_barrier_irqs(sub_framemgr, 0, flags);
+
+		switch (group->id) {
+			case GROUP_ID_3A0:
+				sub_queue = GET_DST_QUEUE(vctx);
+				fimc_is_frame_request_head(sub_framemgr, &sub_frame);
+				if (sub_frame)
+					fimc_is_group_3a0_cancel(sub_framemgr, sub_frame,
+							sub_queue, vctx, group->instance);
+				break;
+			case GROUP_ID_3A1:
+				sub_queue = GET_DST_QUEUE(vctx);
+				fimc_is_frame_request_head(sub_framemgr, &sub_frame);
+				if (sub_frame)
+					fimc_is_group_3a1_cancel(sub_framemgr, sub_frame,
+							sub_queue, vctx, group->instance);
+				break;
+			default:
+				err("unresolved group id %d", group->id);
+				break;
+		}
+
+		framemgr_x_barrier_irqr(sub_framemgr, 0, flags);
+	}
 }
+#ifdef CONFIG_USE_VENDER_FEATURE
+/* Flash Mode Control */
+#ifdef CONFIG_LEDS_LM3560
+extern int lm3560_reg_update_export(u8 reg, u8 mask, u8 data);
+#endif
+#ifdef CONFIG_LEDS_SKY81296
+extern int sky81296_torch_ctrl(int state);
+#endif
+
+static void fimc_is_group_set_torch(struct fimc_is_group *group,
+	struct fimc_is_frame *ldr_frame)
+{
+	if (group->prev)
+		return;
+
+	if (group->aeflashMode != ldr_frame->shot->ctl.aa.aeflashMode) {
+		group->aeflashMode = ldr_frame->shot->ctl.aa.aeflashMode;
+		switch (group->aeflashMode) {
+		case AA_FLASHMODE_ON_ALWAYS: /*TORCH mode*/
+#ifdef CONFIG_LEDS_LM3560
+			lm3560_reg_update_export(0xE0, 0xFF, 0xEF);
+#elif defined(CONFIG_LEDS_SKY81296)
+			sky81296_torch_ctrl(1);
+#endif
+			break;
+		case AA_FLASHMODE_START: /*Pre flash mode*/
+#ifdef CONFIG_LEDS_LM3560
+			lm3560_reg_update_export(0xE0, 0xFF, 0xEF);
+#elif defined(CONFIG_LEDS_SKY81296)
+			sky81296_torch_ctrl(1);
+#endif
+			break;
+		case AA_FLASHMODE_CAPTURE: /*Main flash mode*/
+			break;
+		case AA_FLASHMODE_OFF: /*OFF mode*/
+#ifdef CONFIG_LEDS_SKY81296
+			sky81296_torch_ctrl(0);
+#endif
+			break;
+		default:
+			break;
+		}
+	}
+	return;
+}
+#endif
 
 #ifdef DEBUG_AA
 static void fimc_is_group_debug_aa_shot(struct fimc_is_group *group,
@@ -642,6 +722,7 @@ int fimc_is_group_open(struct fimc_is_groupmgr *groupmgr,
 	group->source_vid = 0;
 	group->fcount = 0;
 	group->pcount = 0;
+	group->aeflashMode = 0; /* Flash Mode Control */
 	atomic_set(&group->scount, 0);
 	atomic_set(&group->rcount, 0);
 	atomic_set(&group->backup_fcount, 0);
@@ -787,6 +868,19 @@ int fimc_is_group_close(struct fimc_is_groupmgr *groupmgr,
 		merr("group%d already close", group, group->id);
 		ret = -EMFILE;
 		goto p_err;
+	}
+
+	/*
+	 * Maybe there are some waiting smp_shot semaphores when finishing kthread
+	 * in group close. This situation caused waiting kthread_stop to finish it
+	 * We should check if there are smp_shot in waiting list.
+	 */
+	if (test_bit(FIMC_IS_GROUP_INIT, &group->state)) {
+		while (!list_empty(&group->smp_shot.wait_list)) {
+			warn("group%d frame reqs are waiting in semaphore[%d] when closing",
+					group->id, group->smp_shot.count);
+			up(&group->smp_shot);
+		}
 	}
 
 	if ((refcount == 1) &&
@@ -1091,6 +1185,7 @@ int fimc_is_group_process_stop(struct fimc_is_groupmgr *groupmgr,
 	struct fimc_is_framemgr *framemgr;
 	struct fimc_is_device_ischain *device;
 	struct fimc_is_device_sensor *sensor;
+	u32 group_id;
 
 	BUG_ON(!groupmgr);
 	BUG_ON(!group);
@@ -1130,6 +1225,12 @@ int fimc_is_group_process_stop(struct fimc_is_groupmgr *groupmgr,
 				goto check_completion;
 			}
 
+			if (!test_bit(FIMC_IS_SENSOR_OPEN, &sensor->state)) {
+				warn("sensor is closed, forcely trigger");
+				up(&group->smp_trigger);
+				goto check_completion;
+			}
+
 			if (!test_bit(FIMC_IS_SENSOR_FRONT_START, &sensor->state)) {
 				warn("front sensor is stopped, forcely trigger");
 				up(&group->smp_trigger);
@@ -1138,12 +1239,6 @@ int fimc_is_group_process_stop(struct fimc_is_groupmgr *groupmgr,
 
 			if (!test_bit(FIMC_IS_SENSOR_BACK_START, &sensor->state)) {
 				warn("back sensor is stopped, forcely trigger");
-				up(&group->smp_trigger);
-				goto check_completion;
-			}
-
-			if (!test_bit(FIMC_IS_SENSOR_OPEN, &sensor->state)) {
-				warn("sensor is closed, forcely trigger");
 				up(&group->smp_trigger);
 				goto check_completion;
 			}
@@ -1182,14 +1277,14 @@ check_completion:
 			ret = -EINVAL;
 		}
 	} else {
-		u32 group_id = group->id;
 		/* if there's only one group of isp, send group id by 3a0 */
-		if ((group_id == GROUP_ID_ISP) &&
+		if ((group->id == GROUP_ID_ISP) &&
 				GET_FIMC_IS_NUM_OF_SUBIP2(device, 3a0) == 0 &&
 				GET_FIMC_IS_NUM_OF_SUBIP2(device, 3a1) == 0)
 			group_id = GROUP_ID(GROUP_ID_3A0);
 		else
 			group_id = GROUP_ID(group->id);
+
 		ret = fimc_is_itf_process_stop(device, group_id);
 		if (ret) {
 			merr("fimc_is_itf_process_stop is fail", group);
@@ -1441,7 +1536,7 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 	}
 
 	if (test_bit(FIMC_IS_GGROUP_REQUEST_STOP, &groupmgr->group_state[group->id])) {
-		merr("cancel by group stop1", group);
+		merr("cancel by group stop #1", group);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -1454,6 +1549,13 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 	}
 	atomic_dec(&group->smp_shot_count);
 	try_sdown = true;
+
+	/* skip left operation, if group is closing */
+	if (!test_bit(FIMC_IS_GROUP_READY, &group->state)) {
+		mwarn("this group%d was already process stoped", group, group->id);
+		ret = -EINVAL;
+		goto p_err;
+	}
 
 	PROGRAM_COUNT(2);
 	ret = down_interruptible(&groupmgr->group_smp_res[group->id]);
@@ -1497,6 +1599,12 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 			}
 		}
 
+		if (test_bit(FIMC_IS_GGROUP_REQUEST_STOP, &groupmgr->group_state[group->id])) {
+			err("cancel by group stop #2");
+			ret = -EINVAL;
+			goto p_err;
+		}
+
 		ldr_frame->fcount = atomic_read(&group->sensor_fcount);
 		atomic_set(&group->backup_fcount, ldr_frame->fcount);
 		ldr_frame->shot->dm.request.frameCount = ldr_frame->fcount;
@@ -1508,7 +1616,7 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 	}
 
 	if (test_bit(FIMC_IS_GGROUP_REQUEST_STOP, &groupmgr->group_state[group->id])) {
-		err("cancel by group stop2");
+		err("cancel by group stop #3");
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -1540,7 +1648,6 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 		spin_lock_irq(&gframemgr->frame_slock);
 		fimc_is_gframe_group_head(group, &gframe);
 		if (!gframe) {
-			spin_unlock_irq(&gframemgr->frame_slock);
 			merr("g%dframe is NULL1", group, group->id);
 			warn("GRP%d(res %d, rcnt %d), GRP2(res %d, rcnt %d)",
 				device->group_3aa.id,
@@ -1550,6 +1657,7 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 				atomic_read(&device->group_isp.rcount));
 			fimc_is_gframe_print_group(group_prev);
 			fimc_is_gframe_print_free(gframemgr);
+			spin_unlock_irq(&gframemgr->frame_slock);
 			ret = -EINVAL;
 			goto p_err;
 		}
@@ -1575,7 +1683,6 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 		spin_lock_irq(&gframemgr->frame_slock);
 		fimc_is_gframe_free_head(gframemgr, &gframe);
 		if (!gframe) {
-			spin_unlock_irq(&gframemgr->frame_slock);
 			merr("g%dframe is NULL2", group, group->id);
 			warn("GRP%d(res %d, rcnt %d), GRP2(res %d, rcnt %d)",
 				device->group_3aa.id,
@@ -1585,6 +1692,7 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 				atomic_read(&device->group_isp.rcount));
 			fimc_is_gframe_print_free(gframemgr);
 			fimc_is_gframe_print_group(group_next);
+			spin_unlock_irq(&gframemgr->frame_slock);
 			ret = -EINVAL;
 			goto p_err;
 		}
@@ -1613,7 +1721,6 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 		spin_lock_irq(&gframemgr->frame_slock);
 		fimc_is_gframe_group_head(group, &gframe);
 		if (!gframe) {
-			spin_unlock_irq(&gframemgr->frame_slock);
 			merr("g%dframe is NULL3", group, group->id);
 			warn("GRP%d(res %d, rcnt %d), GRP2(res %d, rcnt %d)",
 				device->group_3aa.id,
@@ -1623,6 +1730,7 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 				atomic_read(&device->group_isp.rcount));
 			fimc_is_gframe_print_group(group_prev);
 			fimc_is_gframe_print_group(group_next);
+			spin_unlock_irq(&gframemgr->frame_slock);
 			ret = -EINVAL;
 			goto p_err;
 		}
@@ -1643,13 +1751,12 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 		fimc_is_gframe_trans_grp_to_grp(group, group_next, gframe);
 		spin_unlock_irq(&gframemgr->frame_slock);
 	} else {
-#if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5422)
+#if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5422) || defined(CONFIG_SOC_EXYNOS4415)
 		/* single */
 		group->fcount++;
 		spin_lock_irq(&gframemgr->frame_slock);
 		fimc_is_gframe_free_head(gframemgr, &gframe);
 		if (!gframe) {
-			spin_unlock_irq(&gframemgr->frame_slock);
 			merr("g%dframe is NULL4", group, group->id);
 			warn("GRP%d(res %d, rcnt %d), GRP2(res %d, rcnt %d)",
 				device->group_3aa.id,
@@ -1658,6 +1765,7 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 				groupmgr->group_smp_res[device->group_isp.id].count,
 				atomic_read(&device->group_isp.rcount));
 			fimc_is_gframe_print_free(gframemgr);
+			spin_unlock_irq(&gframemgr->frame_slock);
 			ret = -EINVAL;
 			goto p_err;
 		}
@@ -1690,6 +1798,10 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 #ifdef DEBUG_AA
 	fimc_is_group_debug_aa_shot(group, ldr_frame);
 #endif
+#ifdef CONFIG_USE_VENDER_FEATURE
+	/* Flash Mode Control */
+	fimc_is_group_set_torch(group, ldr_frame);
+#endif
 
 #ifdef ENABLE_DVFS
 	mutex_lock(&resourcemgr->dvfs_ctrl.lock);
@@ -1699,15 +1811,18 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 		scenario_id = fimc_is_dvfs_sel_scenario(FIMC_IS_DYNAMIC_SN, device);
 
 		if (scenario_id > 0) {
-			info("GRP:%d dynamic scenario(%d)\n",
-					group->id, scenario_id);
+			struct fimc_is_dvfs_scenario_ctrl *dynamic_ctrl = resourcemgr->dvfs_ctrl.dynamic_ctrl;
+			info("GRP:%d dynamic scenario(%d)-[%s]\n",
+					group->id, scenario_id,
+					dynamic_ctrl->scenarios[dynamic_ctrl->cur_scenario_idx].scenario_nm);
 			fimc_is_set_dvfs(device, scenario_id);
 		}
 
 		if ((scenario_id < 0) && (resourcemgr->dvfs_ctrl.dynamic_ctrl->cur_frame_tick == 0)) {
 			struct fimc_is_dvfs_scenario_ctrl *static_ctrl = resourcemgr->dvfs_ctrl.static_ctrl;
-			info("GRP:%d restore scenario(%d)\n",
-					group->id, static_ctrl->cur_scenario_id);
+			info("GRP:%d restore scenario(%d)-[%s]\n",
+					group->id, static_ctrl->cur_scenario_id,
+					static_ctrl->scenarios[static_ctrl->cur_scenario_idx].scenario_nm);
 			fimc_is_set_dvfs(device, static_ctrl->cur_scenario_id);
 		}
 	}
@@ -1728,7 +1843,9 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 	return ret;
 
 p_err:
-	fimc_is_group_cancel(group, ldr_frame);
+	if (!test_bit(FIMC_IS_GGROUP_REQUEST_STOP, &groupmgr->group_state[group->id]))
+		fimc_is_group_cancel(group, ldr_frame);
+
 	if (try_sdown) {
 		atomic_inc(&group->smp_shot_count);
 		up(&group->smp_shot);

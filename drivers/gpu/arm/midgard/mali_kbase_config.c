@@ -143,12 +143,12 @@
 /**
  * Default poweroff tick granuality, in nanoseconds
  */
-#define DEFAULT_PM_GPU_POWEROFF_TICK_NS 400000 /* 400us */
+#define DEFAULT_PM_SHADER_POWEROFF_TIME 400 /* 400us */
 
 /**
  * Default number of poweroff ticks before shader cores are powered off
  */
-#define DEFAULT_PM_POWEROFF_TICK_SHADER 2      /* 400-800us */
+#define DEFAULT_PM_GPU_POWEROFF_TIME 2         /* 400-800us */
 
 /**
  * Default number of poweroff ticks before GPU is powered off
@@ -263,13 +263,8 @@ uintptr_t kbasep_get_config_value(struct kbase_device *kbdev, const kbase_attrib
 		return DEFAULT_ALTERNATIVE_HWC;
 	case KBASE_CONFIG_ATTR_POWER_MANAGEMENT_DVFS_FREQ:
 		return DEFAULT_PM_DVFS_FREQ;
-	case KBASE_CONFIG_ATTR_PM_GPU_POWEROFF_TICK_NS:
-		return DEFAULT_PM_GPU_POWEROFF_TICK_NS;
-	case KBASE_CONFIG_ATTR_PM_POWEROFF_TICK_SHADER:
-		return DEFAULT_PM_POWEROFF_TICK_SHADER;
-	case KBASE_CONFIG_ATTR_PM_POWEROFF_TICK_GPU:
-		return DEFAULT_PM_POWEROFF_TICK_GPU;
-
+	case KBASE_CONFIG_ATTR_PM_SHADER_POWEROFF_TIME:
+		return DEFAULT_PM_SHADER_POWEROFF_TIME;
 	default:
 		KBASE_DEBUG_PRINT_ERROR(KBASE_CORE, "kbasep_get_config_value. Cannot get value of attribute with id=%d and no default value defined", attribute_id);
 		return 0;
@@ -569,22 +564,10 @@ mali_bool kbasep_validate_configuration_attributes(kbase_device *kbdev, const kb
 #endif
 			break;
 
-		case KBASE_CONFIG_ATTR_PM_GPU_POWEROFF_TICK_NS:
-#if CSTD_CPU_64BIT
-			if (attributes[i].data == 0u || (u64) attributes[i].data > (u64) U32_MAX) {
-#else
-			if (attributes[i].data == 0u) {
-#endif
-				KBASE_DEBUG_PRINT_WARN(KBASE_CORE, "Invalid Power Manager Configuration attribute for " "KBASE_CONFIG_ATTR_PM_GPU_POWEROFF_TICK_NS: %d", (int)attributes[i].data);
-				return MALI_FALSE;
-			}
-			break;
-
-	case KBASE_CONFIG_ATTR_PM_POWEROFF_TICK_SHADER:
-	case KBASE_CONFIG_ATTR_PM_POWEROFF_TICK_GPU:
+		case KBASE_CONFIG_ATTR_PM_SHADER_POWEROFF_TIME:
 #if CSTD_CPU_64BIT
 			if ((u64) attributes[i].data > (u64) U32_MAX) {
-				KBASE_DEBUG_PRINT_WARN(KBASE_CORE, "Power Manager Configuration attribute exceeds 32-bits: " "id==%d val==%d", attributes[i].id, (int)attributes[i].data);
+				KBASE_DEBUG_PRINT_WARN(KBASE_CORE, "PM shader poweroff time exceeds 32-bits: " "id==%d val==%d", attributes[i].id, (int)attributes[i].data);
 				return MALI_FALSE;
 			}
 #endif

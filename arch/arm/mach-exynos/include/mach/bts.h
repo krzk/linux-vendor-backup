@@ -17,6 +17,21 @@ void bts_initialize(const char *pd_name, bool on);
 #define bts_initialize(a, b) do {} while (0)
 #endif
 
+#if defined(CONFIG_EXYNOS5430_BTS)
+void bts_otf_initialize(unsigned int id, bool on);
+#else
+#define bts_otf_initialize(a, b) do {} while (0)
+#endif
+
+#ifdef CONFIG_EXYNOS5410_BTS
+#include <mach/devfreq.h>
+void bts_change_bustraffic(struct devfreq_info *info, unsigned long event);
+void bts_set_bw(unsigned int bw);
+#else
+#define bts_change_bustraffic(a, b) do {} while (0)
+#define bts_set_bw(a) do {} while (0)
+#endif
+
 #if defined(CONFIG_EXYNOS5422_BTS)
 enum bts_scen_type {
 	TYPE_MFC_UD_DECODING = 0,

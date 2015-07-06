@@ -302,6 +302,14 @@ struct dw_mci_dma_ops {
 #define DW_MMC_QUIRK_FIXED_VOLTAGE		BIT(7)
 /* Use S/W data timeout */
 #define DW_MMC_QUIRK_SW_DATA_TIMEOUT		BIT(8)
+/* Retry CRC error */
+#define DW_MMC_QUIRK_RETRY_ERROR		BIT(9)
+/* Use CPU mode for tuning */
+#define DW_MMC_QUIRK_USE_CPU_MODE_TUNING	BIT(10)
+/* W/A to fix AXI hang-up for mismatch of sector size*/
+#define DW_MMC_QUIRK_FMP_SIZE_MISMATCH		BIT(11)
+/* Not allow DMA single transfer */
+#define DW_MMC_QUIRK_NOT_ALLOW_SINGLE_DMA	BIT(12)
 
 /* Slot level quirks */
 /* This slot has no write protect */
@@ -377,6 +385,7 @@ struct dw_mci_board {
 	/* INT QOS khz */
 	unsigned int qos_int_level;
 
+	u32 error_retry_cnt;
 	/* cd_type: Type of Card Detection method (see cd_types enum above) */
 	enum dw_mci_cd_types cd_type;
 
@@ -411,6 +420,9 @@ struct dw_mci_board {
 	struct dw_mci_mon_table *tp_mon_tbl;
 	unsigned int sw_timeout;
 	bool use_gate_clock;
+	bool enable_cclk_on_suspend;
+	bool on_suspend;
+	unsigned int dev_drv_str;
 };
 
 #endif /* LINUX_MMC_DW_MMC_H */

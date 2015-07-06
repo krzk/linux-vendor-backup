@@ -1,44 +1,23 @@
-/*
- * drivers/media/video/exynos/fimc-is-mc2/fimc-is-metadata.h
- *
- * Copyright (c) 2011 Samsung Electronics Co., Ltd.
- *		http://www.samsung.com
- *
- * The header file related to camera
+/* Copyright (c) 2011 Samsung Electronics Co, Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
- */
 
-/*
- * Copyright (c) 2012, Samsung Electronics Co. LTD
- * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+
+ * Alternatively, Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT(INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * The views and conclusions contained in the software and documentation are
- * those of the authors and should not be interpreted as representing official
- * policies, either expressed or implied, of the FreeBSD Project.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+
  */
 
 #ifndef FIMC_IS_METADATA_H_
@@ -62,8 +41,8 @@ struct rational {
 #define CAMERA2_MAX_FACES		16
 #define CAMERA2_MAX_VENDER_LENGTH	400
 #define CAPTURE_NODE_MAX		2
-#define CAMERA2_PDAF_RESULT_COL_MAX	7
-#define CAMERA2_PDAF_RESULT_ROW_MAX	3
+#define CAMERA2_MAX_PDAF_MULTIROI_COLUMN 9
+#define CAMERA2_MAX_PDAF_MULTIROI_ROW 5
 
 #define OPEN_MAGIC_NUMBER		0x01020304
 #define SHOT_MAGIC_NUMBER		0x23456789
@@ -516,9 +495,10 @@ enum stats_mode {
 };
 
 enum stats_lowlightmode {
-	STATE_LLS_NONE = 0,
-	STATE_LLS_LEVEL_LOW,
-	STATE_LLS_LEVEL_HIGH
+    STATE_LLS_NONE = 0,
+    STATE_LLS_LEVEL_LOW,
+    STATE_LLS_LEVEL_HIGH,
+    STATE_LLS_LEVEL_SIS
 };
 
 struct camera2_stats_ctl {
@@ -542,6 +522,8 @@ struct camera2_stats_dm {
 	enum stats_mode		sharpnessMapMode;
 	/*sharpnessMap*/
 	enum stats_lowlightmode LowLightMode;
+	uint32_t lls_tuning_set_index;
+	uint32_t lls_brightness_index;
 };
 
 
@@ -606,7 +588,8 @@ enum aa_scene_mode {
 	AA_SCENE_MODE_SLOWMOTION_4_8,
 	AA_SCENE_MODE_DUAL_PREVIEW,
 	AA_SCENE_MODE_DUAL_VIDEO,
-	AA_SCENE_MODE_120_PREVIEW
+	AA_SCENE_MODE_120_PREVIEW,
+	AA_SCENE_MODE_LIGHT_TRACE
 };
 
 enum aa_effect_mode {
@@ -652,8 +635,8 @@ enum aa_ae_antibanding_mode {
 	AA_AE_ANTIBANDING_50HZ,
 	AA_AE_ANTIBANDING_60HZ,
 	AA_AE_ANTIBANDING_AUTO,
-	AA_AE_ANTIBANDING_AUTO_50HZ,   // 50Hz + Auto
-	AA_AE_ANTIBANDING_AUTO_60HZ    // 60Hz + Auto
+	AA_AE_ANTIBANDING_AUTO_50HZ,   /*50Hz + Auto*/
+	AA_AE_ANTIBANDING_AUTO_60HZ    /*60Hz + Auto*/
 };
 
 enum aa_awbmode {
@@ -674,10 +657,12 @@ enum aa_afmode {
 	AA_AFMODE_OFF = 1,
 	AA_AFMODE_SLEEP,
 	AA_AFMODE_INFINITY,
+	AA_AFMODE_MACRO,
+	AA_AFMODE_DELAYED_OFF,
 
 	/* Single AF. These modes are adjusted when afTrigger is changed from 0 to 1 */
 	AA_AFMODE_AUTO = 11,
-	AA_AFMODE_MACRO,
+	AA_AFMODE_AUTO_MACRO,
 	AA_AFMODE_AUTO_VIDEO,
 	AA_AFMODE_AUTO_FACE,
 
@@ -689,9 +674,20 @@ enum aa_afmode {
 	/* Special modes for PDAF */
 	AA_AFMODE_PDAF_OUTFOCUSING = 31,
 	AA_AFMODE_PDAF_OUTFOCUSING_FACE,
+	AA_AFMODE_PDAF_OUTFOCUSING_CONTINUOUS_PICTURE,
+	AA_AFMODE_PDAF_OUTFOCUSING_CONTINUOUS_PICTURE_FACE,
 
 	/* Not supported yet */
 	AA_AFMODE_EDOF = 41,
+};
+
+/* camera2_aa_ctl.afRegions[4] */
+enum aa_afmode_ext {
+	AA_AFMODE_EXT_OFF = 1000,
+	/* Increase macro range for special app */
+	AA_AFMODE_EXT_ADVANCED_MACRO_FOCUS = 1001,
+	/* Set AF region for OCR */
+	AA_AFMODE_EXT_FOCUS_LOCATION = 1002,
 };
 
 enum aa_afstate {
@@ -925,6 +921,9 @@ struct camera2_af_udm {
 	uint32_t	vsLength;
 	/** vendor specific data array */
 	uint32_t	vendorSpecific[CAMERA2_MAX_VENDER_LENGTH];
+	int32_t         lensPositionInfinity;
+	int32_t         lensPositionMacro;
+	int32_t         lensPositionCurrent;
 };
 
 /** \brief
@@ -951,16 +950,16 @@ struct camera2_ipc_udm {
  User-defined metadata for aa.
 */
 struct camera2_internal_udm {
- /** vendor specific data array */
- uint32_t vendorSpecific1[CAMERA2_MAX_VENDER_LENGTH];
- uint32_t vendorSpecific2[CAMERA2_MAX_VENDER_LENGTH];
- /*
-  * vendorSpecific2[0] : info
-  * vendorSpecific2[100] : 0:sirc 1:cml
-  * vendorSpecific2[101] : cml exposure
-  * vendorSpecific2[102] : cml iso(gain)
-  * vendorSpecific2[103] : cml Bv
-  */
+	/** vendor specific data array */
+	uint32_t vendorSpecific1[CAMERA2_MAX_VENDER_LENGTH];
+	uint32_t vendorSpecific2[CAMERA2_MAX_VENDER_LENGTH];
+	/*
+	 * vendorSpecific2[0] : info
+	 * vendorSpecific2[100] : 0:sirc 1:cml
+	 * vendorSpecific2[101] : cml exposure
+	 * vendorSpecific2[102] : cml iso(gain)
+	 * vendorSpecific2[103] : cml Bv
+	 */
 };
 
 /** \brief
@@ -1006,16 +1005,68 @@ struct camera2_bayer_uctl {
 	struct camera2_scaler_ctl ctl;
 };
 
+enum companion_drc_mode {
+	COMPANION_DRC_OFF = 1,
+	COMPANION_DRC_ON,
+};
+
+enum companion_wdr_mode {
+	COMPANION_WDR_OFF = 1,
+	COMPANION_WDR_ON,
+};
+
+enum companion_paf_mode {
+	COMPANION_PAF_OFF = 1,
+	COMPANION_PAF_ON,
+};
+
+enum companion_bypass_mode {
+	COMPANION_FULL_BYPASS_OFF = 1,
+	COMPANION_FULL_BYPASS_ON,
+};
+
+enum companion_lsc_mode {
+	COMPANION_LSC_OFF = 1,
+	COMPANION_LSC_ON,
+};
+
+struct camera2_companion_uctl {
+	enum companion_drc_mode drc_mode;
+	enum companion_wdr_mode wdr_mode;
+	enum companion_paf_mode paf_mode;
+};
+
 struct camera2_bayer_udm {
 	uint32_t	width;
 	uint32_t	height;
 };
 
+struct camera2_pdaf_single_result {
+	uint16_t        mode;
+	uint16_t        goalPos;
+	uint16_t        reliability;
+	uint16_t        currentPos;
+};
+
+struct camera2_pdaf_multi_result {
+	uint16_t        mode;
+	uint16_t        goalPos;
+	uint16_t        reliability;
+};
+
 struct camera2_pdaf_udm {
-	uint32_t	pdafColSize; /* width of PDAF map, 0 means no PDAF data */
-	uint32_t	pdafRowSize; /* height of PDAF map, 0 means no PDAF data */
-	uint32_t	pdafData[CAMERA2_PDAF_RESULT_COL_MAX][CAMERA2_PDAF_RESULT_ROW_MAX];
-	uint32_t	reliability[CAMERA2_PDAF_RESULT_COL_MAX][CAMERA2_PDAF_RESULT_ROW_MAX];
+	uint16_t				numCol;	/* width of PDAF map, 0 means no multi PDAF data */
+	uint16_t				numRow;	/* height of PDAF map, 0 means no multi PDAF data */
+	struct camera2_pdaf_multi_result	multiResult[CAMERA2_MAX_PDAF_MULTIROI_COLUMN][CAMERA2_MAX_PDAF_MULTIROI_ROW];
+	struct camera2_pdaf_single_result	singleResult;
+	uint16_t				lensPosResolution;	/* 1023(unsigned 10bit) */
+};
+
+struct camera2_companion_udm {
+	enum companion_drc_mode drc_mode;
+	enum companion_wdr_mode wdr_mode;
+	enum companion_paf_mode paf_mode;
+	struct camera2_pdaf_udm pdaf;
 };
 
 /** \brief
@@ -1049,6 +1100,7 @@ struct camera2_uctl {
 	struct camera2_scaler_uctl	scalerUd;
 	/** ispfw specific control(user-defined) of Bcrop1. */
 	struct camera2_bayer_uctl	bayerUd;
+	struct camera2_companion_uctl   companionUd;
 };
 
 struct camera2_udm {
@@ -1062,7 +1114,7 @@ struct camera2_udm {
 	struct camera2_internal_udm	internal;
 	/* Add udm for bayer down size. */
 	struct camera2_bayer_udm	bayer;
-	struct camera2_pdaf_udm	 	pdaf;
+	struct camera2_companion_udm	companion;
 };
 
 struct camera2_shot {
@@ -1381,6 +1433,7 @@ typedef struct camera2_ae_udm camera2_ae_udm_t;
 typedef struct camera2_awb_udm camera2_awb_udm_t;
 typedef struct camera2_af_udm camera2_af_udm_t;
 typedef struct camera2_as_udm camera2_as_udm_t;
+typedef struct camera2_ipc_udm camera2_ipc_udm_t;
 typedef struct camera2_internal_udm camera2_internal_udm_t;
 
 typedef struct camera2_flash_uctl camera2_flash_uctl_t;

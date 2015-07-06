@@ -21,6 +21,7 @@
 #include <plat/cpu.h>
 
 #include <mach/cpufreq.h>
+#include <mach/asv-exynos.h>
 
 static struct exynos_dvfs_info *exynos_info;
 
@@ -30,6 +31,30 @@ static struct cpufreq_freqs freqs;
 static unsigned int locking_frequency;
 static bool frequency_locked;
 static DEFINE_MUTEX(cpufreq_lock);
+
+/*
+ * CPUFREQ init notifier
+ */
+static BLOCKING_NOTIFIER_HEAD(exynos_cpufreq_init_notifier_list);
+
+int exynos_cpufreq_init_register_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&exynos_cpufreq_init_notifier_list, nb);
+}
+EXPORT_SYMBOL(exynos_cpufreq_init_register_notifier);
+
+int exynos_cpufreq_init_unregister_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&exynos_cpufreq_init_notifier_list, nb);
+}
+EXPORT_SYMBOL(exynos_cpufreq_init_unregister_notifier);
+
+static int exynos_cpufreq_init_notify_call_chain(unsigned long val)
+{
+	int ret = blocking_notifier_call_chain(&exynos_cpufreq_init_notifier_list, val, NULL);
+
+	return notifier_to_errno(ret);
+}
 
 static int exynos_verify_speed(struct cpufreq_policy *policy)
 {
@@ -115,6 +140,9 @@ static int exynos_cpufreq_scale(unsigned int target_freq)
 				__func__, arm_volt);
 			goto out;
 		}
+#if defined(CONFIG_SOC_EXYNOS3250) && defined(CONFIG_EXYNOS_ASV)
+		exynos_set_abb(ID_ARM, exynos_info->abb_table[index]);
+#endif
 	}
 
 	if (safe_arm_volt) {
@@ -142,6 +170,9 @@ static int exynos_cpufreq_scale(unsigned int target_freq)
 				__func__, arm_volt);
 			goto out;
 		}
+#if defined(CONFIG_SOC_EXYNOS3250) && defined(CONFIG_EXYNOS_ASV)
+		exynos_set_abb(ID_ARM, exynos_info->abb_table[index]);
+#endif
 	}
 
 out:
@@ -250,6 +281,7 @@ static int exynos_cpufreq_cpu_init(struct cpufreq_policy *policy)
 
 	cpumask_setall(policy->cpus);
 
+	exynos_cpufreq_init_notify_call_chain(CPUFREQ_INIT_COMPLETE);
 	return cpufreq_frequency_table_cpuinfo(policy, exynos_info->freq_table);
 }
 
@@ -293,6 +325,8 @@ static int __init exynos_cpufreq_init(void)
 		ret = exynos4x12_cpufreq_init(exynos_info);
 	else if (soc_is_exynos5250())
 		ret = exynos5250_cpufreq_init(exynos_info);
+	else if (soc_is_exynos3250())
+		ret = exynos3250_cpufreq_init(exynos_info);
 	else
 		return 0;
 

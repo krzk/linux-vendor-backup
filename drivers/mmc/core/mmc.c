@@ -565,6 +565,10 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		}
 	}
 
+	if (card->ext_csd.rev >= 7) {
+		card->ext_csd.enhanced_strobe_support =
+				ext_csd[EXT_CSD_STORBE_SUPPORT];
+	}
 out:
 	return err;
 }
@@ -772,10 +776,9 @@ static int mmc_select_powerclass(struct mmc_card *card,
 }
 
 /*
- * Selects the desired buswidth and switch to the HS200 mode
- * if bus width set without error
+ * Selects bus width
  */
-static int mmc_select_hs200(struct mmc_card *card, u8 driver_type)
+static int mmc_select_bus_width(struct mmc_card *card)
 {
 	int idx, err = -EINVAL;
 	struct mmc_host *host;
@@ -806,7 +809,7 @@ static int mmc_select_hs200(struct mmc_card *card, u8 driver_type)
 
 	/* If fails try again during next card power cycle */
 	if (err)
-		goto err;
+		return err;
 
 	idx = (host->caps & MMC_CAP_8_BIT_DATA) ? 1 : 0;
 
@@ -842,12 +845,43 @@ static int mmc_select_hs200(struct mmc_card *card, u8 driver_type)
 			break;
 	}
 
+	return err;
+}
+
+/*
+ * Selects the desired buswidth and switch to the HS200 mode
+ * if bus width set without error
+ */
+static int mmc_select_hs200(struct mmc_card *card, u8 driver_type)
+{
+	int err = -EINVAL;
+
+	err = mmc_select_bus_width(card);
+
 	/* switch to HS200 mode if bus width set successfully */
 	if (!err)
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
-				EXT_CSD_HS_TIMING,
-				driver_type | MMC_HS_TIMING_HS200, 0);
-err:
+				driver_type | EXT_CSD_HS_TIMING, 2, 0);
+
+	return err;
+}
+
+/*
+ * Selects the desired buswidth and switch to the HS mode
+ * if bus width set without error
+ */
+static int mmc_select_hs(struct mmc_card *card)
+{
+	int err = -EINVAL;
+
+	err = mmc_select_bus_width(card);
+
+	/* switch to HS mode if bus width set successfully */
+	if (!err)
+		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+				EXT_CSD_HS_TIMING, 1,
+				card->ext_csd.generic_cmd6_time);
+
 	return err;
 }
 
@@ -867,6 +901,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	u32 rocr;
 	u8 *ext_csd = NULL;
 	u8 driver_type = MMC_DRIVER_TYPE_0 << 4;
+	bool en_strobe_enhanced = false;
 
 	BUG_ON(!host);
 	WARN_ON(!host->claimed);
@@ -959,10 +994,6 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		if (err)
 			goto free_card;
 	}
-
-	if (card->cid.manfid == CID_MANFID_SAMSUNG &&
-			host->caps2 & MMC_CAP2_DEVICE_DRIVER)
-		driver_type = MMC_DRIVER_TYPE_5 << 4;
 
 	/*
 	 * Select card, as all following commands rely on that.
@@ -1064,15 +1095,44 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	}
 
 	/*
+	 * Sequence for Enhanced Strobe
+	 *
+	 * 1. CMD6(BUS_WIDTH) with 8 bit SDR bus
+	 * 2. CMD6(HS_TIMING) with HS mode
+	 * 3. Set timing and clock as HS mode
+	 * 4. CMD6(BUS_WIDTH) with 8 bit DDR bus and enhanced strobe
+	 * 5. CMD6(HS_TIMING) with HS400 mode
+	 * 6. Set timing and clock as HS400 mode and enhanced strobe
+	 * 7. CMD6(POWER_CLASS) with 8 bit DDR bus and MMC_HS200_MAX_DTR
+	 */
+	if (card->ext_csd.enhanced_strobe_support &
+			MMC_STROBE_ENHANCED_SUPPORT) {
+		if (host->caps2 & MMC_CAP2_STROBE_ENHANCED &&
+				host->caps2 & MMC_CAP2_HS200_DDR) {
+			en_strobe_enhanced = true;
+			pr_warning("%s: STROBE ENHANCED enable\n",
+					mmc_hostname(card->host));
+		}
+	}
+
+	/*
 	 * Activate high speed (if supported)
 	 */
 	if (card->ext_csd.hs_max_dtr != 0) {
 		err = 0;
 		if (card->ext_csd.hs_max_dtr > 52000000 &&
 			(host->caps2 & MMC_CAP2_HS200 ||
-			 host->caps2 & MMC_CAP2_HS200_DDR))
-			err = mmc_select_hs200(card, driver_type);
-		else if	(host->caps & MMC_CAP_MMC_HIGHSPEED)
+			 host->caps2 & MMC_CAP2_HS200_DDR)) {
+			if (en_strobe_enhanced) {
+				err = mmc_select_hs(card);
+			} else {
+				/*
+				 * Device output driver strength
+				 */
+				driver_type = host->dev_drv_str << 4;
+				err = mmc_select_hs200(card, driver_type);
+			}
+		} else if (host->caps & MMC_CAP_MMC_HIGHSPEED)
 			err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 					 EXT_CSD_HS_TIMING, 1,
 					 card->ext_csd.generic_cmd6_time);
@@ -1085,7 +1145,8 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 			       mmc_hostname(card->host));
 			err = 0;
 		} else {
-			if (card->ext_csd.hs_max_dtr > 52000000) {
+			if (card->ext_csd.hs_max_dtr > 52000000 &&
+					!en_strobe_enhanced) {
 				if (host->caps2 & MMC_CAP2_HS200 ||
 					host->caps2 & MMC_CAP2_HS200_DDR) {
 					mmc_card_set_hs200(card);
@@ -1106,7 +1167,9 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 
 	if (mmc_card_highspeed(card) ||
 			mmc_card_hs200(card)) {
-		if (max_dtr > card->ext_csd.hs_max_dtr)
+		if (en_strobe_enhanced)
+			max_dtr = MMC_HIGH_52_MAX_DTR;
+		else if (max_dtr > card->ext_csd.hs_max_dtr)
 			max_dtr = card->ext_csd.hs_max_dtr;
 		if (mmc_card_highspeed(card) && (max_dtr > 52000000))
 			max_dtr = 52000000;
@@ -1135,10 +1198,11 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	/*
 	 * Indicate HS200 SDR mode (if supported).
 	 */
-	if (mmc_card_hs200(card)) {
+	if (mmc_card_hs200(card) || en_strobe_enhanced) {
 		u32 ext_csd_bits;
 		u32 bus_width = card->host->ios.bus_width;
 		int ddr;
+		unsigned int timing;
 
 		/*
 		 * For devices supporting HS200 mode, the bus width has
@@ -1157,7 +1221,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 			(card->ext_csd.card_type & EXT_CSD_CARD_TYPE_DDR_200_1_8V &&
 				 host->caps2 & MMC_CAP2_HS200_1_8V_DDR)) ? 1 : 0;
 
-		if (card->host->ops->execute_tuning) {
+		if (card->host->ops->execute_tuning && !en_strobe_enhanced) {
 			host->tuning_progress |= MMC_HS200_TUNING;
 			mmc_host_clk_hold(card->host);
 			if (ddr) {
@@ -1185,22 +1249,27 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 				   1 << bus_width);
 
 		if (ddr) {
-			err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
-					EXT_CSD_HS_TIMING,
-					driver_type | MMC_HS_TIMING_HS,
-					card->ext_csd.generic_cmd6_time);
-			if (err) {
-				pr_warning("%s: switch to high-speed "
-					"from hs200 failed\n",
-					mmc_hostname(card->host));
-				goto err;
-			}
+			if (!en_strobe_enhanced) {
+				err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+						EXT_CSD_HS_TIMING, 1,
+						card->ext_csd.generic_cmd6_time);
+				if (err) {
+					pr_warning("%s: switch to high-speed "
+							"from hs200 failed\n",
+							mmc_hostname(card->host));
+					goto err;
+				}
 
-			mmc_set_timing(card->host, MMC_TIMING_MMC_HS);
-			mmc_set_clock(host, MMC_HIGH_52_MAX_DTR);
+				mmc_set_timing(card->host, MMC_TIMING_MMC_HS);
+				mmc_set_clock(host, MMC_HIGH_52_MAX_DTR);
+			}
 
 			ext_csd_bits = (bus_width == MMC_BUS_WIDTH_8) ?
 				EXT_CSD_DDR_BUS_WIDTH_8 : EXT_CSD_DDR_BUS_WIDTH_4;
+
+			if (en_strobe_enhanced) {
+				ext_csd_bits |= EXT_CSD_STROBE_ENHANCED_EN;
+			}
 
 			err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 					EXT_CSD_BUS_WIDTH,
@@ -1224,7 +1293,11 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 
 			mmc_card_clr_hs200(card);
 			mmc_card_set_hs200_ddr(card);
-			mmc_set_timing(card->host, MMC_TIMING_MMC_HS200_DDR);
+			if (en_strobe_enhanced)
+				timing = MMC_TIMING_MMC_HS200_DDR_ES;
+			else
+				timing = MMC_TIMING_MMC_HS200_DDR;
+			mmc_set_timing(card->host, timing);
 			mmc_set_clock(host, MMC_HS200_MAX_DTR);
 		}
 	}
@@ -1469,7 +1542,7 @@ static void mmc_remove(struct mmc_host *host)
  */
 static int mmc_alive(struct mmc_host *host)
 {
-	return mmc_send_status(host->card, NULL);
+	return mmc_send_status(host->card, NULL, 0);
 }
 
 /*

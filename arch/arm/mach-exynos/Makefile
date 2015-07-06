@@ -18,6 +18,9 @@ obj-$(CONFIG_SOC_EXYNOS5422)	+= asv-exynos.o asv-exynos5422.o pm_domains-exynos5
 
 obj-$(CONFIG_EXYNOS5430_BTS)	+= bts-exynos5430.o
 obj-$(CONFIG_EXYNOS5422_BTS)	+= bts-exynos5422.o
+ifeq ($(CONFIG_SOC_EXYNOS3250),y)
+obj-$(CONFIG_EXYNOS_ASV)	+= asv-exynos.o asv-exynos3250.o
+endif
 ifeq ($(CONFIG_SOC_EXYNOS5430),y)
 obj-$(CONFIG_SUSPEND)		+= pm-exynos5430.o
 obj-$(CONFIG_CPU_IDLE)		+= cpuidle.o
@@ -28,9 +31,17 @@ ifeq ($(CONFIG_SOC_EXYNOS5422),y)
 obj-$(CONFIG_SUSPEND)		+= pm-exynos5422.o
 obj-$(CONFIG_CPU_IDLE)		+= cpuidle-exynos5422.o
 endif
+ifeq ($(CONFIG_SOC_EXYNOS3250),y)
+obj-$(CONFIG_CPU_IDLE)		+= cpuidle-exynos3250.o
+endif
 obj-$(CONFIG_CPU_IDLE)		+= exynos-pm.o
 obj-$(CONFIG_PM_RUNTIME)	+= pm_domains.o
 obj-$(CONFIG_PM_RUNTIME_TEST_SYSFS)	+= pm_domains_sysfs.o
+
+ifeq ($(CONFIG_SOC_EXYNOS3250),y)
+obj-$(CONFIG_SUSPEND)		+= pm-exynos3250.o
+obj-$(CONFIG_PM_RUNTIME)	+= pm_domains-exynos3250.o
+endif
 
 obj-$(CONFIG_SMP)		+= platsmp.o headsmp.o
 
@@ -40,8 +51,13 @@ obj-$(CONFIG_ARCH_EXYNOS)	+= exynos-smc.o
 obj-$(CONFIG_ARCH_EXYNOS)	+= firmware.o
 obj-$(CONFIG_SOC_EXYNOS5430)	+= pmu-exynos5430.o
 obj-$(CONFIG_SOC_EXYNOS5422)	+= pmu-exynos5422.o
+obj-$(CONFIG_SOC_EXYNOS3250)	+= pmu-exynos3250.o
+
+obj-$(CONFIG_CAL_SYS_PWRDOWN)	+= pmu_cal_sys.o
 
 obj-$(CONFIG_EXYNOS_SNAPSHOT)	+= exynos-ss.o
+obj-$(CONFIG_EXYNOS54XX_DEBUG)	+= debug_exynos54XX.o
+obj-$(CONFIG_EXYNOS_CORESIGHT)	+= coresight.o
 
 plus_sec := $(call as-instr,.arch_extension sec,+sec)
 AFLAGS_exynos-smc.o		:=-Wa,-march=armv7-a$(plus_sec)
@@ -58,6 +74,7 @@ obj-$(CONFIG_MACH_ORIGEN)		+= mach-origen.o
 obj-$(CONFIG_MACH_SMDK4212)		+= mach-smdk4x12.o
 obj-$(CONFIG_MACH_SMDK4412)		+= mach-smdk4x12.o
 
+obj-$(CONFIG_MACH_EXYNOS3_DT)		+= mach-exynos3-dt.o
 obj-$(CONFIG_MACH_EXYNOS4_DT)		+= mach-exynos4-dt.o
 obj-$(CONFIG_MACH_EXYNOS5_DT)		+= mach-exynos5-dt.o
 
@@ -66,8 +83,9 @@ obj-$(CONFIG_MACH_XYREF5422)		+= mach-xyref5422.o
 
 obj-$(CONFIG_MACH_XYREF5430)		+= mach-xyref5430.o
 
-obj-$(CONFIG_VIDEO_EXYNOS_FIMC_IS)    += setup-fimc-is.o
-obj-$(CONFIG_VIDEO_EXYNOS_FIMC_IS)    += setup-fimc-is-sensor.o
+obj-$(CONFIG_VIDEO_EXYNOS_FIMC_IS)	+= setup-fimc-is.o
+obj-$(CONFIG_VIDEO_EXYNOS_FIMC_IS)	+= setup-fimc-is-sensor.o
+obj-$(CONFIG_COMPANION_USE)		+= setup-fimc-is-companion.o
 
 # device support
 
@@ -93,6 +111,7 @@ obj-$(CONFIG_EXYNOS4_SETUP_SDHCI_GPIO)	+= setup-sdhci-gpio.o
 obj-$(CONFIG_EXYNOS4_SETUP_USB_PHY)	+= setup-usb-phy.o
 obj-$(CONFIG_EXYNOS_SETUP_SPI)		+= setup-spi.o
 obj-$(CONFIG_EXYNOS5_SETUP_MIPIPHY)	+= setup-exynos5-mipiphy.o
+obj-$(CONFIG_EXYNOS_SETUP_MIPIPHY)      += setup-exynos-mipiphy.o
 obj-$(CONFIG_EXYNOS_CONTENT_PATH_PROTECTION) += secmem.o
 
 # HMP

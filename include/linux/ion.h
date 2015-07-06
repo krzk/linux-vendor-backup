@@ -19,7 +19,8 @@
 
 #include <linux/types.h>
 
-typedef int ion_user_handle_t;
+struct ion_handle;
+typedef struct ion_handle *ion_user_handle_t;
 
 /**
  * enum ion_heap_types - list of all possible types of heaps
@@ -69,7 +70,6 @@ enum ion_heap_type {
 					 */
 
 #ifdef __KERNEL__
-struct ion_handle;
 struct ion_device;
 struct ion_heap;
 struct ion_mapper;
@@ -322,6 +322,27 @@ struct ion_custom_data {
 	unsigned long arg;
 };
 
+/**
+ * struct ion_preload_data - metadata for preload buffers
+ * @heap_id_mask:	mask of heap ids to allocate from
+ * @len:		size of the allocation
+ * @flags:		flags passed to heap
+ * @count:		number of buffers of the allocation
+ *
+ * Provided by userspace as an argument to the ioctl
+ */
+struct ion_preload_object {
+	size_t len;
+	unsigned int count;
+};
+
+struct ion_preload_data {
+	unsigned int heap_id_mask;
+	unsigned int flags;
+	unsigned int count;
+	struct ion_preload_object *obj;
+};
+
 #define ION_IOC_MAGIC		'I'
 
 /**
@@ -379,6 +400,11 @@ struct ion_custom_data {
  * this will make the buffer in memory coherent.
  */
 #define ION_IOC_SYNC		_IOWR(ION_IOC_MAGIC, 7, struct ion_fd_data)
+
+/**
+ * DOC: ION_IOC_PRELOAD_ALLOC - prefetches pages to page pool
+ */
+#define ION_IOC_PRELOAD_ALLOC	_IOW(ION_IOC_MAGIC, 8, struct ion_preload_data)
 
 /**
  * DOC: ION_IOC_CUSTOM - call architecture specific ion ioctl

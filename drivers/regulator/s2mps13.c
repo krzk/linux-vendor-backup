@@ -151,8 +151,7 @@ static int s2m_set_voltage_sel_regmap_rev0(struct regulator_dev *rdev, unsigned 
 			goto out;
 	}
 
-	ret = regmap_update_bits(rdev->regmap, rdev->desc->vsel_reg,
-				  rdev->desc->vsel_mask, sel);
+	ret = regmap_write(rdev->regmap, rdev->desc->vsel_reg, sel);
 	if (ret < 0)
 		goto out;
 
@@ -177,8 +176,7 @@ static int s2m_set_voltage_sel_regmap_rev1(struct regulator_dev *rdev, unsigned 
 {
 	int ret;
 
-	ret = regmap_update_bits(rdev->regmap, rdev->desc->vsel_reg,
-				  rdev->desc->vsel_mask, sel);
+	ret = regmap_write(rdev->regmap, rdev->desc->vsel_reg, sel);
 	if (ret < 0)
 		goto out;
 
@@ -272,7 +270,8 @@ static struct regulator_ops s2mps13_buck_ops_rev1 = {
 	.vsel_reg	= S2MPS13_REG_L1CTRL + num - 1,	\
 	.vsel_mask	= S2MPS13_LDO_VSEL_MASK,	\
 	.enable_reg	= S2MPS13_REG_L1CTRL + num - 1,	\
-	.enable_mask	= S2MPS13_ENABLE_MASK		\
+	.enable_mask	= S2MPS13_ENABLE_MASK,		\
+	.enable_time	= S2MPS13_ENABLE_TIME_LDO	\
 }
 #define regulator_desc_ldo2(num)	{		\
 	.name		= "LDO"#num,			\
@@ -286,7 +285,8 @@ static struct regulator_ops s2mps13_buck_ops_rev1 = {
 	.vsel_reg	= S2MPS13_REG_L1CTRL + num - 1,	\
 	.vsel_mask	= S2MPS13_LDO_VSEL_MASK,	\
 	.enable_reg	= S2MPS13_REG_L1CTRL + num - 1,	\
-	.enable_mask	= S2MPS13_ENABLE_MASK		\
+	.enable_mask	= S2MPS13_ENABLE_MASK,		\
+	.enable_time	= S2MPS13_ENABLE_TIME_LDO	\
 }
 #define regulator_desc_ldo3(num)	{		\
 	.name		= "LDO"#num,			\
@@ -300,7 +300,8 @@ static struct regulator_ops s2mps13_buck_ops_rev1 = {
 	.vsel_reg	= S2MPS13_REG_L1CTRL + num - 1,	\
 	.vsel_mask	= S2MPS13_LDO_VSEL_MASK,	\
 	.enable_reg	= S2MPS13_REG_L1CTRL + num - 1,	\
-	.enable_mask	= S2MPS13_ENABLE_MASK		\
+	.enable_mask	= S2MPS13_ENABLE_MASK,		\
+	.enable_time	= S2MPS13_ENABLE_TIME_LDO	\
 }
 #define regulator_desc_ldo4(num)	{		\
 	.name		= "LDO"#num,			\
@@ -314,7 +315,8 @@ static struct regulator_ops s2mps13_buck_ops_rev1 = {
 	.vsel_reg	= S2MPS13_REG_L1CTRL + num - 1,	\
 	.vsel_mask	= S2MPS13_LDO_VSEL_MASK,	\
 	.enable_reg	= S2MPS13_REG_L1CTRL + num - 1,	\
-	.enable_mask	= S2MPS13_ENABLE_MASK		\
+	.enable_mask	= S2MPS13_ENABLE_MASK,		\
+	.enable_time	= S2MPS13_ENABLE_TIME_LDO	\
 }
 
 #define regulator_desc_buck1_6(num, rev)	{		\
@@ -329,7 +331,8 @@ static struct regulator_ops s2mps13_buck_ops_rev1 = {
 	.vsel_reg	= S2MPS13_REG_B1CTRL2 + (num - 1) * 2,	\
 	.vsel_mask	= S2MPS13_BUCK_VSEL_MASK,		\
 	.enable_reg	= S2MPS13_REG_B1CTRL1 + (num - 1) * 2,	\
-	.enable_mask	= S2MPS13_ENABLE_MASK			\
+	.enable_mask	= S2MPS13_ENABLE_MASK,			\
+	.enable_time	= S2MPS13_ENABLE_TIME_BUCK##num		\
 }
 
 #define regulator_desc_buck7(num, rev) {			\
@@ -344,7 +347,8 @@ static struct regulator_ops s2mps13_buck_ops_rev1 = {
 	.vsel_reg	= S2MPS13_REG_B7CTRL2,			\
 	.vsel_mask	= S2MPS13_BUCK_VSEL_MASK,		\
 	.enable_reg	= S2MPS13_REG_B7CTRL1,			\
-	.enable_mask	= S2MPS13_ENABLE_MASK			\
+	.enable_mask	= S2MPS13_ENABLE_MASK,			\
+	.enable_time	= S2MPS13_ENABLE_TIME_BUCK7		\
 }
 
 #define regulator_desc_buck7_sw(num, rev)	{		\
@@ -374,7 +378,8 @@ static struct regulator_ops s2mps13_buck_ops_rev1 = {
 	.vsel_reg	= S2MPS13_REG_B10CTRL2,			\
 	.vsel_mask	= S2MPS13_BUCK_VSEL_MASK,		\
 	.enable_reg	= S2MPS13_REG_B10CTRL1,			\
-	.enable_mask	= S2MPS13_ENABLE_MASK			\
+	.enable_mask	= S2MPS13_ENABLE_MASK,			\
+	.enable_time	= S2MPS13_ENABLE_TIME_BUCK10		\
 }
 
 #define regulator_desc_buck89(num)	{			\
@@ -389,7 +394,8 @@ static struct regulator_ops s2mps13_buck_ops_rev1 = {
 	.vsel_reg	= S2MPS13_REG_B8CTRL2 + (num - 8) * 2,	\
 	.vsel_mask	= S2MPS13_BUCK_VSEL_MASK,		\
 	.enable_reg	= S2MPS13_REG_B8CTRL1 + (num - 8) * 2,	\
-	.enable_mask	= S2MPS13_ENABLE_MASK			\
+	.enable_mask	= S2MPS13_ENABLE_MASK,			\
+	.enable_time	= S2MPS13_ENABLE_TIME_BUCK##num		\
 }
 
 #define regulator_desc_bb1	{				\
@@ -404,7 +410,8 @@ static struct regulator_ops s2mps13_buck_ops_rev1 = {
 	.vsel_reg	= S2MPS13_REG_BB1CTRL2,			\
 	.vsel_mask	= S2MPS13_BUCK_VSEL_MASK,		\
 	.enable_reg	= S2MPS13_REG_BB1CTRL1,			\
-	.enable_mask	= S2MPS13_ENABLE_MASK			\
+	.enable_mask	= S2MPS13_ENABLE_MASK,			\
+	.enable_time	= S2MPS13_ENABLE_TIME_BB		\
 }
 
 enum regulator_desc_type {

@@ -40,13 +40,13 @@
 #include "fimc-is-video.h"
 #include "fimc-is-metadata.h"
 
-const struct v4l2_file_operations fimc_is_isp_video_fops;
-const struct v4l2_ioctl_ops fimc_is_isp_video_ioctl_ops;
-const struct vb2_ops fimc_is_isp_qops;
-
 extern struct fimc_is_from_info		*sysfs_finfo;
 extern struct fimc_is_from_info		*sysfs_pinfo;
 extern bool is_dumped_fw_loading_needed;
+
+const struct v4l2_file_operations fimc_is_isp_video_fops;
+const struct v4l2_ioctl_ops fimc_is_isp_video_ioctl_ops;
+const struct vb2_ops fimc_is_isp_qops;
 
 int fimc_is_isp_video_probe(void *data)
 {
@@ -78,7 +78,6 @@ int fimc_is_isp_video_probe(void *data)
 		dev_err(&core->pdev->dev, "%s is fail(%d)\n", __func__, ret);
 
 p_err:
-	info("[ISP:V:X] %s(%d)\n", __func__, ret);
 	return ret;
 }
 

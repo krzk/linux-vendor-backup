@@ -39,6 +39,8 @@ struct decon_lcd {
 enum{
 	DISP_STATUS_PM0 = 0,	/* initial status */
 	DISP_STATUS_PM1,	/* platform started */
+	DISP_STATUS_PM2,	/* platform suspended */
+	DISP_STATUS_PM_MAX,
 };
 
 extern struct decon_lcd *decon_get_lcd_info(void);
@@ -69,8 +71,6 @@ struct display_controller_ops {
 	int (*disable_display_decon_clocks)(struct device *dev);
 	int (*enable_display_decon_runtimepm)(struct device *dev);
 	int (*disable_display_decon_runtimepm)(struct device *dev);
-	int (*enable_display_dsd_clocks)(struct device *dev);
-	int (*disable_display_dsd_clocks)(struct device *dev);
 };
 
 /* display_driverr_ops - operations for controlling power of
@@ -81,6 +81,8 @@ struct display_driver_ops {
 	int (*enable_display_driver_power)(struct device *dev);
 	int (*disable_display_driver_power)(struct device *dev);
 };
+
+struct platform_device;
 
 /* display_dt_ops - operations for parsing device tree */
 struct display_dt_ops {
@@ -137,7 +139,6 @@ struct display_pm_status {
 	spinlock_t slock;
 	struct mutex pm_lock;
 	struct mutex clk_lock;
-	int trigger_masked;
 	int clock_enabled;
 	atomic_t lock_count;
 	struct kthread_worker	control_clock_gating;
@@ -152,22 +153,21 @@ struct display_pm_status {
 	bool hotplug_gating_on;
 	int clk_idle_count;
 	int pwr_idle_count;
+	int hotplug_delay_msec;
 };
 
-#define USE_ONLY_POWER_GATING_MODE
-#ifdef USE_ONLY_POWER_GATING_MODE
 #define MAX_CLK_GATING_COUNT 0
 #define MAX_PWR_GATING_COUNT 5
-#else
-#define MAX_CLK_GATING_COUNT 2
-#define MAX_PWR_GATING_COUNT 10
-#endif
+#define MAX_HOTPLUG_DELAY_MSEC 100
 
 /* display_driver - Abstraction for display driver controlling
  * all display system in the system */
 struct display_driver {
 	/* platform driver for display system */
 	struct device *display_driver;
+#if defined(CONFIG_FB_SMIES)
+	struct platform_device *smies_pdev;
+#endif
 	struct display_component_decon decon_driver;
 	struct display_component_dsi dsi_driver;
 	struct display_component_mic mic_driver;
@@ -178,8 +178,6 @@ struct display_driver {
 
 #define GET_DISPDRV_OPS(p) (p)->dsi_driver.dsi_ops
 #define GET_DISPCTL_OPS(p) (p)->decon_driver.decon_ops
-
-struct platform_device;
 
 struct display_driver *get_display_driver(void);
 int create_decon_display_controller(struct platform_device *pdev);

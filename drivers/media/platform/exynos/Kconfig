@@ -3,7 +3,7 @@
 #
 config VIDEO_EXYNOS
 	bool "Exynos Multimedia Devices"
-	depends on ARCH_EXYNOS4 || ARCH_EXYNOS5
+	depends on ARCH_EXYNOS3 || ARCH_EXYNOS4 || ARCH_EXYNOS5
 	default y
 	help
 	  This is a representative exynos multimedia device.

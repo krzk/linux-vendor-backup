@@ -24,8 +24,10 @@
 #include <linux/ipa.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/sysfs.h>
 #include <linux/workqueue.h>
 #include <linux/math64.h>
+#include <linux/of.h>
 
 #include <mach/cpufreq.h>
 
@@ -35,10 +37,8 @@
 #define MHZ_TO_KHZ(freq) ((freq) * 1000)
 #define KHZ_TO_MHZ(freq) ((freq) / 1000)
 
-#define NUM_CLUSTERS 2
+#define NUM_CLUSTERS CA_END
 #define MAX_GPU_FREQ 533
-#define MAX_A15_FREQ 1900000
-#define MAX_A7_FREQ 1400000
 
 struct mali_utilisation_stats {
 	int utilisation;
@@ -90,10 +90,16 @@ struct ipa_config {
 	u32 a15_max_power;
 	u32 gpu_max_power;
 	u32 soc_max_power;
+	int hotplug_out_threshold;
+	int hotplug_in_threshold;
+	u32 cores_out;
 	u32 enable_ctlr;
 	struct ctlr ctlr;
 };
 
+#ifdef CONFIG_OF
+static struct ipa_config default_config;
+#else
 static struct ipa_config default_config = {
 	.control_temp = 81,
 	.temp_threshold = 30,
@@ -108,6 +114,8 @@ static struct ipa_config default_config = {
 	.a15_max_power = 1638 * 4,
 	.gpu_max_power = 3110,
 	.enable_ctlr = 1,
+	.hotplug_out_threshold = 10,
+	.hotplug_in_threshold = 2,
 	.ctlr = {
 		.mult = 2,
 		.k_i = 1,
@@ -118,6 +126,7 @@ static struct ipa_config default_config = {
 		.integral_reset_threshold = 10,
 	},
 };
+#endif
 
 static BLOCKING_NOTIFIER_HEAD(thermal_notifier_list);
 
@@ -128,6 +137,7 @@ int kbase_platform_dvfs_freq_to_power(int freq);
 int kbase_platform_dvfs_power_to_freq(int power);
 unsigned int get_power_value(struct cpu_power_info *power_info);
 int get_ipa_dvfs_max_freq(void);
+int get_real_max_freq(cluster_type cluster);
 
 #define ARBITER_PERIOD_MSEC 100
 
@@ -136,6 +146,8 @@ static struct arbiter_data
 	struct ipa_config config;
 	struct ipa_sensor_conf *sensor;
 	struct dentry *debugfs_root;
+	struct kobject *kobj;
+
 	bool active;
 	bool initialised;
 
@@ -262,7 +274,10 @@ static int thermal_call_chain(int freq, int idx)
 
 static void arbiter_set_cpu_freq_limit(int freq, int idx)
 {
-	int i, cpu, max_freq;
+	int i, cpu, max_freq, currT;
+	int a7_limit_temp = 0, allowed_diff_temp = 10;
+	struct ipa_config *config = &arbiter_data.config;
+
 	/* if (arbiter_data.cpu_freq_limits[idx] == freq) */
 	/*	return; */
 
@@ -276,6 +291,16 @@ static void arbiter_set_cpu_freq_limit(int freq, int idx)
 
 		i++;
 	}
+
+	/* To ensure the minimum performance, */
+	/* a7's freq is not limited until a7_limit_temp. */
+
+	currT = arbiter_data.skin_temperature / 10;
+	a7_limit_temp = config->control_temp + config->hotplug_out_threshold + allowed_diff_temp;
+
+	if (is_big_hotpluged() && (idx == CA7) && (currT < a7_limit_temp))
+		freq = get_real_max_freq(CA7);
+
 	ipa_set_clamp(cpumask_any(arbiter_data.cl_stats[idx].mask), freq, max_freq);
 
 	thermal_call_chain(freq, idx);
@@ -337,6 +362,7 @@ static void release_power_caps(void)
 		arbiter_set_cpu_freq_limit(freq, cl_idx);
 	}
 
+	arbiter_data.gpu_freq_limit = 0;
 	gpu_ipa_dvfs_max_unlock();
 }
 
@@ -387,6 +413,8 @@ struct trace_data {
 	int Pcpu_req;
 	int Ptot_req;
 	int extra;
+	int online_cores;
+	int hotplug_cores_out;
 };
 #ifdef CONFIG_CPU_THERMAL_IPA_DEBUG
 static void print_trace(struct trace_data *td)
@@ -407,7 +435,8 @@ static void print_trace(struct trace_data *td)
 		"a7_1_freq_in=%d "
 		"a7_2_freq_in=%d "
 		"a7_3_freq_in=%d "
-		"Pgpu_req=%d Pa15_req=%d Pa7_req=%d Pcpu_req=%d Ptot_req=%d extra=%d\n",
+		"Pgpu_req=%d Pa15_req=%d Pa7_req=%d Pcpu_req=%d Ptot_req=%d extra=%d "
+                "online_cores=%d hotplug_cores_out=%d\n",
 		td->gpu_freq_in, td->gpu_util, td->gpu_nutil,
 		td->a15_freq_in, td->a15_util, td->a15_nutil,
 		td->a7_freq_in, td->a7_util, td->a7_nutil,
@@ -424,7 +453,8 @@ static void print_trace(struct trace_data *td)
 		td->a7_1_freq_in,
 		td->a7_2_freq_in,
 		td->a7_3_freq_in,
-		td->Pgpu_req, td->Pa15_req, td->Pa7_req, td->Pcpu_req, td->Ptot_req, td->extra);
+		td->Pgpu_req, td->Pa15_req, td->Pa7_req, td->Pcpu_req, td->Ptot_req, td->extra,
+		td->online_cores, td->hotplug_cores_out);
 }
 
 static void print_only_temp_trace(int skin_temp)
@@ -619,6 +649,12 @@ static int debugfs_u32_get(void *data, u64 *val)
 	return 0;
 }
 
+static int debugfs_s32_get(void *data, u64 *val)
+{
+	*val = *(s32 *)data;
+	return 0;
+}
+
 static void setup_debugfs_ctlr(struct ipa_config *config, struct dentry *parent)
 {
 	struct dentry *ctlr_d, *dentry_f;
@@ -684,7 +720,14 @@ static int debugfs_power_set(void *data, u64 val)
 	return 0;
 }
 
+static int debugfs_s32_set(void *data, u64 val)
+{
+	*(s32 *)data = val;
+	return 0;
+}
+
 DEFINE_SIMPLE_ATTRIBUTE(power_fops, debugfs_u32_get, debugfs_power_set, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(signed_fops, debugfs_s32_get, debugfs_s32_set, "%lld\n");
 
 /* Shamelessly ripped from fs/debugfs/file.c */
 static ssize_t read_file_bool(struct file *file, char __user *user_buf,
@@ -719,6 +762,107 @@ static ssize_t __write_file_bool(struct file *file, const char __user *user_buf,
 		*val = bv;
 
 	return count;
+}
+
+static ssize_t control_temp_show(struct kobject *kobj,
+				   struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", arbiter_data.config.control_temp);
+}
+
+static ssize_t control_temp_store(struct kobject *kobj,
+				    struct kobj_attribute *attr,
+				    const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (kstrtoul(buf, 10, &val))
+		return -EINVAL;
+
+	arbiter_data.config.control_temp = val;
+	return n;
+}
+
+static ssize_t tdp_show(struct kobject *kobj,
+				   struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", arbiter_data.config.tdp);
+}
+
+static ssize_t tdp_store(struct kobject *kobj,
+				    struct kobj_attribute *attr,
+				    const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (kstrtoul(buf, 10, &val))
+		return -EINVAL;
+
+	arbiter_data.config.tdp = val;
+	return n;
+}
+
+static ssize_t enabled_show(struct kobject *kobj,
+				   struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%c\n", arbiter_data.config.enabled?'Y':'N');
+}
+
+static ssize_t enabled_store(struct kobject *kobj,
+				    struct kobj_attribute *attr,
+				    const char *buf, size_t n)
+{
+    if (!buf)
+        return -EINVAL;
+
+    if ((buf[0]) == 'Y') {
+        arbiter_data.config.enabled = true;
+        return n;
+    } else  if ((buf[0]) == 'N') {
+        arbiter_data.config.enabled = false;
+		release_power_caps();
+        return n;
+    }
+
+    return -EINVAL;
+}
+
+static ssize_t hotplug_out_threshold_show(struct kobject *kobj,
+				   struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", arbiter_data.config.hotplug_out_threshold);
+}
+
+static ssize_t hotplug_out_threshold_store(struct kobject *kobj,
+				    struct kobj_attribute *attr,
+				    const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (kstrtoul(buf, 10, &val))
+		return -EINVAL;
+
+	arbiter_data.config.hotplug_out_threshold = val;
+	return n;
+}
+
+static ssize_t hotplug_in_threshold_show(struct kobject *kobj,
+				   struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", arbiter_data.config.hotplug_in_threshold);
+}
+
+static ssize_t hotplug_in_threshold_store(struct kobject *kobj,
+				    struct kobj_attribute *attr,
+				    const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (kstrtol(buf, 10, &val))
+		return -EINVAL;
+
+	arbiter_data.config.hotplug_in_threshold = val;
+	return n;
 }
 
 static ssize_t debugfs_enabled_set(struct file *file, const char __user *user_buf,
@@ -806,6 +950,16 @@ static struct dentry * setup_debugfs(struct ipa_config *config)
 	if (!dentry_f)
 		pr_warn("unable to create the debugfs file: gpu_max_power\n");
 
+	dentry_f = debugfs_create_u32("hotplug_out_threshold", 0644, ipa_d,
+				      &config->hotplug_out_threshold);
+	if (!dentry_f)
+		pr_warn("unable to create the debugfs file: hotplug_out_threshold\n");
+
+	dentry_f = debugfs_create_file("hotplug_in_threshold", 0644, ipa_d,
+				      &config->hotplug_in_threshold, &signed_fops);
+	if (!dentry_f)
+		pr_warn("unable to create the debugfs file: hotplug_in_threshold\n");
+
 	dentry_f = debugfs_create_bool("enable_ctlr", 0644, ipa_d,
 				       &config->enable_ctlr);
 	if (!dentry_f)
@@ -813,6 +967,42 @@ static struct dentry * setup_debugfs(struct ipa_config *config)
 
 	setup_debugfs_ctlr(config, ipa_d);
 	return ipa_d;
+}
+
+define_ipa_attr(enabled);
+define_ipa_attr(control_temp);
+define_ipa_attr(tdp);
+define_ipa_attr(hotplug_out_threshold);
+define_ipa_attr(hotplug_in_threshold);
+
+static struct attribute *ipa_attrs[] = {
+	&enabled.attr,
+	&control_temp.attr,
+	&tdp.attr,
+	&hotplug_out_threshold.attr,
+	&hotplug_in_threshold.attr,
+	NULL
+};
+
+struct attribute_group ipa_attr_group = {
+	.attrs = ipa_attrs,
+};
+
+static void setup_sysfs(struct arbiter_data *arb)
+{
+	int rc;
+
+	arb->kobj = kobject_create_and_add("ipa", power_kobj);
+	if (!arb->kobj) {
+		pr_info("Unable to create ipa kobject\n");
+		return;
+	}
+
+	rc = sysfs_create_group(arb->kobj, &ipa_attr_group);
+	if (rc) {
+		pr_info("Unable to create ipa group\n");
+		return;
+	}
 }
 
 static void setup_power_tables(void)
@@ -836,7 +1026,7 @@ static void setup_power_tables(void)
 	}
 }
 
-static int read_soc_temperature(void)
+static int __maybe_unused read_soc_temperature(void)
 {
 	void *pdata = arbiter_data.sensor->private_data;
 
@@ -850,10 +1040,11 @@ static int get_cpu_power_req(int cl_idx, struct coefficients *coeffs, int nr_coe
 	power = 0;
 	i = 0;
 	for_each_cpu(cpu, arbiter_data.cl_stats[cl_idx].mask) {
-		int util = arbiter_data.cl_stats[cl_idx].utils[i];
-		int freq = KHZ_TO_MHZ(arbiter_data.cpu_freqs[cl_idx][i]);
-
-		power += freq_to_power(freq, nr_coeffs, coeffs) * util;
+		if (cpu_online(cpu)) {
+			int util = arbiter_data.cl_stats[cl_idx].utils[i];
+			int freq = KHZ_TO_MHZ(arbiter_data.cpu_freqs[cl_idx][i]);
+			power += freq_to_power(freq, nr_coeffs, coeffs) * util;
+		}
 
 		i++;
 	}
@@ -876,6 +1067,7 @@ static void arbiter_calc(int currT)
 	int extra;
 	int a15_util, a7_util;
 	int gpu_freq_limit, cpu_freq_limits[NUM_CLUSTERS];
+	int cpu, online_cores;
 	struct trace_data trace_data;
 
 	struct ipa_config *config = &arbiter_data.config;
@@ -1039,15 +1231,46 @@ static void arbiter_calc(int currT)
 
 	gpu_freq_limit = kbase_platform_dvfs_power_to_freq(Pgpu_out);
 
+#ifdef CONFIG_CPU_THERMAL_IPA_CONTROL
+	if (config->enabled) {
+		arbiter_set_cpu_freq_limit(cpu_freq_limits[CA15], CA15);
+		arbiter_set_cpu_freq_limit(cpu_freq_limits[CA7], CA7);
+		arbiter_set_gpu_freq_limit(gpu_freq_limit);
+
+		/*
+		 * If we have reached critical thresholds then also
+		 * hotplug cores as approprpiate
+		 */
+		if (deltaT <= -config->hotplug_out_threshold && !config->cores_out) {
+			if (ipa_hotplug(true))
+				pr_err("%s: failed ipa hotplug out\n", __func__);
+			else
+				config->cores_out = 1;
+		}
+		if (deltaT >= -config->hotplug_in_threshold && config->cores_out) {
+			if (ipa_hotplug(false))
+				pr_err("%s: failed ipa hotplug in\n", __func__);
+			else
+				config->cores_out = 0;
+		}
+	}
+#else
+#error "Turn on CONFIG_CPU_THERMAL_IPA_CONTROL to enable IPA control"
+#endif
+
+	online_cores = 0;
+	for_each_online_cpu(cpu)
+		online_cores++;
+
 	trace_data.gpu_freq_in = arbiter_data.mali_stats.s.freq_for_norm;
 	trace_data.gpu_util = arbiter_data.mali_stats.s.utilisation;
 	trace_data.gpu_nutil = arbiter_data.mali_stats.s.norm_utilisation;
 	trace_data.a15_freq_in = KHZ_TO_MHZ(arbiter_data.cl_stats[CA15].freq);
 	trace_data.a15_util = arbiter_data.cl_stats[CA15].util;
-	trace_data.a15_nutil = (arbiter_data.cl_stats[CA15].util * arbiter_data.cl_stats[CA15].freq) / MAX_A15_FREQ;
+	trace_data.a15_nutil = (arbiter_data.cl_stats[CA15].util * arbiter_data.cl_stats[CA15].freq) / get_real_max_freq(CA15);
 	trace_data.a7_freq_in = KHZ_TO_MHZ(arbiter_data.cl_stats[CA7].freq);
 	trace_data.a7_util = arbiter_data.cl_stats[CA7].util;
-	trace_data.a7_nutil = (arbiter_data.cl_stats[CA7].util * arbiter_data.cl_stats[CA7].freq) / MAX_A7_FREQ;
+	trace_data.a7_nutil = (arbiter_data.cl_stats[CA7].util * arbiter_data.cl_stats[CA7].freq) / get_real_max_freq(CA7);;
 	trace_data.Pgpu_in = Pgpu_in / 100;
 	trace_data.Pa15_in =  Pa15_in / 100;
 	trace_data.Pa7_in = Pa7_in / 100;
@@ -1085,16 +1308,8 @@ static void arbiter_calc(int currT)
 	trace_data.Pcpu_req = Pcpu_req;
 	trace_data.Ptot_req = Ptot_req;
 	trace_data.extra = extra;
-
-#ifdef CONFIG_CPU_THERMAL_IPA_CONTROL
-	if (config->enabled) {
-		arbiter_set_cpu_freq_limit(cpu_freq_limits[CA15], CA15);
-		arbiter_set_cpu_freq_limit(cpu_freq_limits[CA7], CA7);
-		arbiter_set_gpu_freq_limit(gpu_freq_limit);
-	}
-#else
-#error "Turn on CONFIG_CPU_THERMAL_IPA_CONTROL to enable IPA control"
-#endif
+	trace_data.online_cores = online_cores;
+	trace_data.hotplug_cores_out = arbiter_data.config.cores_out;
 
 	print_trace(&trace_data);
 }
@@ -1107,7 +1322,9 @@ static void arbiter_poll(struct work_struct *work)
 
 	get_cluster_stats(arbiter_data.cl_stats);
 
+#ifndef CONFIG_SENSORS_SEC_THERMISTOR
 	arbiter_data.max_sensor_temp = read_soc_temperature();
+#endif
 	arbiter_data.skin_temperature = arbiter_data.sensor->read_skin_temperature();
 	arbiter_data.cp_temperature = get_humidity_sensor_temp();
 
@@ -1125,7 +1342,7 @@ static int get_cluster_from_cpufreq_policy(struct cpufreq_policy *policy)
 	return policy->cpu > 3 ? CA15 : CA7;
 }
 
-void ipa_cpufreq_requested(struct cpufreq_policy *policy, unsigned int *freqs)
+void ipa_cpufreq_requested(struct cpufreq_policy *policy, unsigned int freq)
 {
 	int cl_idx, i;
 	unsigned int cpu;
@@ -1134,7 +1351,7 @@ void ipa_cpufreq_requested(struct cpufreq_policy *policy, unsigned int *freqs)
 
 	i = 0;
 	for_each_cpu(cpu, arbiter_data.cl_stats[cl_idx].mask) {
-		arbiter_data.cpu_freqs[cl_idx][i] = freqs[i];
+		arbiter_data.cpu_freqs[cl_idx][i] = freq;
 
 		i++;
 	}
@@ -1184,18 +1401,19 @@ static void arbiter_init(struct work_struct *work)
 		return;
 	}
 
-	arbiter_data.gpu_freq_limit = MAX_GPU_FREQ;
-	arbiter_data.cpu_freq_limits[CA15] = MAX_A15_FREQ;
-	arbiter_data.cpu_freq_limits[CA7] = MAX_A7_FREQ;
+	arbiter_data.gpu_freq_limit = get_ipa_dvfs_max_freq();
+	arbiter_data.cpu_freq_limits[CA15] = get_real_max_freq(CA15);
+	arbiter_data.cpu_freq_limits[CA7] = get_real_max_freq(CA7);
 	for (i = 0; i < NR_CPUS; i++) {
-		arbiter_data.cpu_freqs[CA15][i] = 1900000;
-		arbiter_data.cpu_freqs[CA7][i] = 1400000;
+		arbiter_data.cpu_freqs[CA15][i] = get_real_max_freq(CA15);
+		arbiter_data.cpu_freqs[CA7][i] = get_real_max_freq(CA7);
 	}
 
 	setup_cpusmasks(arbiter_data.cl_stats);
 
 	reset_arbiter_configuration(&arbiter_data.config);
 	arbiter_data.debugfs_root = setup_debugfs(&arbiter_data.config);
+	setup_sysfs(&arbiter_data);
 	setup_power_tables();
 
 	/* reconfigure max */
@@ -1222,8 +1440,251 @@ static void arbiter_init(struct work_struct *work)
 	pr_info("Intelligent Power Allocation initialised.\n");
 }
 
-static int ipa_init(void)
+#ifdef CONFIG_OF
+static int __init get_dt_inform_ipa(void)
 {
+	u32 proper_val;
+	int ret = 0;
+
+	struct device_node *ipa_np;
+
+	ipa_np = of_find_compatible_node(NULL, NULL, "samsung,exynos-ipa");
+
+	if (!ipa_np)
+		return -EINVAL;
+
+	/* read control_temp */
+	ret = of_property_read_u32(ipa_np, "control_temp", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of control_temp\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.control_temp = proper_val;
+		pr_info("[IPA] control_temp : %d\n", (u32)proper_val);
+	}
+
+	/* read temp_threshold */
+	ret = of_property_read_u32(ipa_np, "temp_threshold", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of temp_threshold\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.temp_threshold = proper_val;
+		pr_info("[IPA] temp_threshold : %d\n", (u32)proper_val);
+	}
+
+	/* read enabled */
+	ret = of_property_read_u32(ipa_np, "enabled", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of enabled\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.enabled = proper_val;
+		pr_info("[IPA] enabled : %d\n", (u32)proper_val);
+	}
+
+	/* read tdp */
+	ret = of_property_read_u32(ipa_np, "tdp", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of tdp\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.tdp = proper_val;
+		pr_info("[IPA] tdp : %d\n", (u32)proper_val);
+	}
+
+	/* read boost */
+	ret = of_property_read_u32(ipa_np, "boost", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of boost\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.boost = proper_val;
+		pr_info("[IPA] boost : %d\n", (u32)proper_val);
+	}
+
+	/* read ros_power */
+	ret = of_property_read_u32(ipa_np, "ros_power", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of ros_power\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.ros_power = proper_val;
+		pr_info("[IPA] ros_power : %d\n", (u32)proper_val);
+	}
+
+	/* read a7_weight */
+	ret = of_property_read_u32(ipa_np, "a7_weight", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of a7_weight\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.a7_weight = proper_val;
+		pr_info("[IPA] a7_weight : %d\n", (u32)proper_val);
+	}
+
+	/* read a15_weight */
+	ret = of_property_read_u32(ipa_np, "a15_weight", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of a15_weight\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.a15_weight = proper_val;
+		pr_info("[IPA] a15_weight : %d\n", (u32)proper_val);
+	}
+
+	/* read gpu_weight */
+	ret = of_property_read_u32(ipa_np, "gpu_weight", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of gpu_weight\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.gpu_weight = proper_val;
+		pr_info("[IPA] gpu_weight : %d\n", (u32)proper_val);
+	}
+
+	/* read a7_max_power */
+	ret = of_property_read_u32(ipa_np, "a7_max_power", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of a7_max_power\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.a7_max_power = proper_val;
+		pr_info("[IPA] a7_max_power : %d\n", (u32)proper_val);
+	}
+
+	/* read a15_max_power */
+	ret = of_property_read_u32(ipa_np, "a15_max_power", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of a15_max_power\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.a15_max_power = proper_val;
+		pr_info("[IPA] a15_max_power : %d\n", (u32)proper_val);
+	}
+
+	/* read gpu_max_power */
+	ret = of_property_read_u32(ipa_np, "gpu_max_power", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of gpu_max_power\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.gpu_max_power = proper_val;
+		pr_info("[IPA] gpu_max_power : %d\n", (u32)proper_val);
+	}
+
+	/* read hotplug_in_threshold */
+	ret = of_property_read_u32(ipa_np, "hotplug_in_threshold", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of hotplug_in_threshold\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.hotplug_in_threshold = (int) proper_val;
+		pr_info("[IPA] hotplug_in_threshold : %d\n", (int)proper_val);
+	}
+
+	/* read hotplug_out_threshold */
+	ret = of_property_read_u32(ipa_np, "hotplug_out_threshold", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of hotplug_out_threshold\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.hotplug_out_threshold = proper_val;
+		pr_info("[IPA] hotplug_out_threshold : %d\n", (u32)proper_val);
+	}
+
+	/* read enable_ctlr */
+	ret = of_property_read_u32(ipa_np, "enable_ctlr", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of enable_ctlr\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.enable_ctlr = proper_val;
+		pr_info("[IPA] enable_ctlr : %d\n", (u32)proper_val);
+	}
+
+	/* read ctlr.mult */
+	ret = of_property_read_u32(ipa_np, "ctlr.mult", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of enabled\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.ctlr.mult = proper_val;
+		pr_info("[IPA] ctlr.mult : %d\n", (u32)proper_val);
+	}
+
+	/* read ctlr.k_i */
+	ret = of_property_read_u32(ipa_np, "ctlr.k_i", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of ctlr.k_i\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.ctlr.k_i = proper_val;
+		pr_info("[IPA] ctlr.k_i : %d\n", (u32)proper_val);
+	}
+
+	/* read ctlr.k_d */
+	ret = of_property_read_u32(ipa_np, "ctlr.k_d", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of ctlr.k_d\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.ctlr.k_d = proper_val;
+		pr_info("[IPA] ctlr.k_d : %d\n", (u32)proper_val);
+	}
+
+	/* read ctlr.feed_forward */
+	ret = of_property_read_u32(ipa_np, "ctlr.feed_forward", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of ctlr.feed_forward\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.ctlr.feed_forward = proper_val;
+		pr_info("[IPA] ctlr.feed_forward : %d\n", (u32)proper_val);
+	}
+
+	/* read ctlr.integral_reset_value */
+	ret = of_property_read_u32(ipa_np, "ctlr.integral_reset_value", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of ctlr.integral_reset_value\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.ctlr.integral_reset_value = proper_val;
+		pr_info("[IPA] ctlr.integral_reset_value : %d\n", (u32)proper_val);
+	}
+
+	/* read ctlr.integral_cutoff */
+	ret = of_property_read_u32(ipa_np, "ctlr.integral_cutoff", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of ctlr.integral_cutoff\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.ctlr.integral_cutoff = proper_val;
+		pr_info("[IPA] ctlr.integral_cutoff : %d\n", (u32)proper_val);
+	}
+
+	/* read ctlr.integral_reset_threshold */
+	ret = of_property_read_u32(ipa_np, "ctlr.integral_reset_threshold", &proper_val);
+	if (ret) {
+		pr_err("[%s] There is no Property of ctlr.integral_reset_threshold\n", __func__);
+		return -EINVAL;
+	} else {
+		default_config.ctlr.integral_reset_threshold = proper_val;
+		pr_info("[IPA] ctlr.integral_reset_threshold : %d\n", (u32)proper_val);
+	}
+
+	return 0;
+}
+#endif
+
+static int __init ipa_init(void)
+{
+#ifdef CONFIG_OF
+	if (get_dt_inform_ipa()) {
+		pr_err("[%s] ERROR there are no DT inform\n", __func__);
+		return -EINVAL;
+	}
+#endif
 	INIT_DELAYED_WORK(&init_work, arbiter_init);
 	queue_delayed_work(system_freezable_wq, &init_work, msecs_to_jiffies(500));
 

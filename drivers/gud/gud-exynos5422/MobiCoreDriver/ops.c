@@ -299,12 +299,10 @@ static int mobicore_cpu_callback(struct notifier_block *nfb,
 	switch (action) {
 	case CPU_DOWN_PREPARE:
 	case CPU_DOWN_PREPARE_FROZEN:
-		dev_info(mcd, "Cpu %u is going to die\n", cpu);
 		mc_cpu_offfline(cpu);
 		break;
 	case CPU_DEAD:
 	case CPU_DEAD_FROZEN:
-		dev_info(mcd, "Cpu %u is dead\n", cpu);
 		break;
 	}
 	return NOTIFY_OK;

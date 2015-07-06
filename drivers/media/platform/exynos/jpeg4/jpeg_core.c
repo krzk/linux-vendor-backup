@@ -640,6 +640,7 @@ static int jpeg_vidioc_s_fmt_cap(struct file *file, void *priv,
 			pix->plane_fmt[i].bytesperline * pix->height;
 		ctx->param.out_depth[i] = fmt->depth[i];
 	}
+
 	frame->width = pix->width;
 	frame->height = pix->height;
 	frame->pixelformat = pix->pixelformat;
@@ -817,11 +818,68 @@ static int jpeg_vidioc_s_ctrl(struct file *file, void *priv,
 			struct v4l2_control *ctrl)
 {
 	struct jpeg_ctx *ctx = priv;
+	int i, j;
+
 	switch (ctrl->id) {
 	case V4L2_CID_CACHEABLE:
 		v4l2_err(&ctx->jpeg_dev->v4l2_dev,
 		"Invalid control : 'cacheable' set is not available\n");
 		break;
+	case V4L2_CID_JPEG_TABLE:
+	{
+		struct jpeg_tables_info *tinfo = ctx->param.tinfo;
+		int huff_size[NUM_HUFF_TBLS] = {0,};
+
+		if (copy_from_user(tinfo, (struct jpeg_tables_info *)ctrl->value,
+				sizeof(struct jpeg_tables_info)))
+			return -EINVAL;
+
+		for (i = 0; i < NUM_QUANT_TBLS; i++) {
+			if (!tinfo->quantval[i]) continue;
+			if (copy_from_user(ctx->param.tables->q_tbl[i], tinfo->quantval[i],
+					sizeof(ctx->param.tables->q_tbl[i])))
+				return -EINVAL;
+		}
+
+		for (i = 0; i < NUM_HUFF_TBLS; i++) {
+			if (!tinfo->dc_bits[i]) continue;
+			if (copy_from_user(ctx->param.tables->dc_huf_tbl[i].bit, tinfo->dc_bits[i],
+					sizeof(ctx->param.tables->dc_huf_tbl[i].bit)))
+				return -EINVAL;
+		}
+
+		for (j = 0; j < NUM_HUFF_TBLS; j++)
+			for(i = 1; i < LEN_BIT; i++)
+				huff_size[j] += ctx->param.tables->dc_huf_tbl[j].bit[i];
+
+		for (i = 0; i < NUM_HUFF_TBLS; i++) {
+			if (!tinfo->dc_huffval[i]) continue;
+			if (copy_from_user(ctx->param.tables->dc_huf_tbl[i].huf_tbl, tinfo->dc_huffval[i],
+					huff_size[i]))
+				return -EINVAL;
+		}
+
+		for (i = 0; i < NUM_HUFF_TBLS; i++) {
+			if (!tinfo->ac_bits[i]) continue;
+			if (copy_from_user(ctx->param.tables->ac_huf_tbl[i].bit, tinfo->ac_bits[i],
+					sizeof(ctx->param.tables->ac_huf_tbl[i].bit)))
+				return -EINVAL;
+		}
+
+		memset(huff_size, 0, sizeof(huff_size));
+		for(j = 0; j < NUM_HUFF_TBLS; j++)
+			for(i = 1; i < LEN_BIT; i++)
+				huff_size[j] += ctx->param.tables->ac_huf_tbl[j].bit[i];
+
+		for (i = 0; i < NUM_HUFF_TBLS; i++) {
+			if (!tinfo->ac_huffval[i]) continue;
+			if (copy_from_user(ctx->param.tables->ac_huf_tbl[i].huf_tbl, tinfo->ac_huffval[i],
+					huff_size[i]))
+				return -EINVAL;
+		}
+
+		break;
+	}
 	default:
 		v4l2_err(&ctx->jpeg_dev->v4l2_dev, "Invalid control\n");
 		break;

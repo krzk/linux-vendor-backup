@@ -30,50 +30,6 @@
 
 extern struct mipi_dsim_config g_dsim_config;
 
-#ifdef CONFIG_DECON_MIC
-unsigned int s5p_mipi_dsi_calc_bs_size(struct mipi_dsim_device *dsim)
-{
-	struct decon_lcd *lcd_info;
-	u32 temp1, temp2, bs_size;
-
-	lcd_info = dsim->lcd_info;
-
-	temp1 = (lcd_info->xres / 4) * 2;
-	temp2 = (lcd_info->xres % 4);
-
-	bs_size = temp1 + temp2;
-
-	return bs_size;
-}
-
-void s5p_mipi_dsi_enable_mic(struct mipi_dsim_device *dsim, bool enable)
-{
-	void __iomem *regs = dsim->reg_base + S5P_DSIM_MIC;
-	u32 data = readl(regs);
-
-	if (enable)
-		data |= DSIM_MIC_EN;
-	else
-		data &= ~DSIM_MIC_EN;
-
-	writel(data, regs);
-}
-
-void s5p_mipi_dsi_set_3d_off_mic_on_h_size(struct mipi_dsim_device *dsim)
-{
-	void __iomem *regs = dsim->reg_base + S5P_DSIM_PRO_OFF_MIC_ON_H;
-	u32 bs_size;
-
-	bs_size = s5p_mipi_dsi_calc_bs_size(dsim);
-
-	writel(bs_size, regs);
-#ifdef CONFIG_SOC_EXYNOS5422
-	bs_size += dsim->lcd_info->hfp;
-	writel(bs_size, dsim->reg_base + S5P_DSIM_PRO_OFF_MIC_ON_HFP);
-#endif
-}
-#endif
-
 void s5p_mipi_dsi_func_reset(struct mipi_dsim_device *dsim)
 {
 	unsigned int reg;
@@ -117,7 +73,7 @@ void s5p_mipi_dsi_init_fifo_pointer(struct mipi_dsim_device *dsim,
 	reg = readl(dsim->reg_base + S5P_DSIM_FIFOCTRL);
 
 	writel(reg & ~(cfg), dsim->reg_base + S5P_DSIM_FIFOCTRL);
-	usleep_range(10000, 12000);
+	/* usleep_range(10000, 12000); */
 	reg |= cfg;
 
 	writel(reg, dsim->reg_base + S5P_DSIM_FIFOCTRL);
@@ -183,27 +139,6 @@ void s5p_mipi_dsi_set_main_disp_sync_area(struct mipi_dsim_device *dsim,
 	writel(reg, dsim->reg_base + S5P_DSIM_MSYNC);
 }
 
-#if 0
-void s5p_mipi_dsi_set_sub_disp_resol(struct mipi_dsim_device *dsim,
-	unsigned int vert, unsigned int hori)
-{
-	unsigned int reg;
-
-	reg = (readl(dsim->reg_base + S5P_DSIM_SDRESOL)) &
-		~(DSIM_SUB_STANDY_MASK);
-
-	writel(reg, dsim->reg_base + S5P_DSIM_SDRESOL);
-
-	reg &= ~(DSIM_SUB_VRESOL_MASK) | ~(DSIM_SUB_HRESOL_MASK);
-	reg |= ((vert & 0x7ff) << DSIM_SUB_VRESOL_SHIFT) |
-		((hori & 0x7ff) << DSIM_SUB_HRESOL_SHIFT);
-	writel(reg, dsim->reg_base + S5P_DSIM_SDRESOL);
-
-	reg |= (1 << DSIM_SUB_STANDY_SHIFT);
-	writel(reg, dsim->reg_base + S5P_DSIM_SDRESOL);
-}
-#endif
-
 void s5p_mipi_dsi_init_config(struct mipi_dsim_device *dsim)
 {
 	struct mipi_dsim_config *dsim_config = dsim->dsim_config;
@@ -231,9 +166,10 @@ void s5p_mipi_dsi_display_config(struct mipi_dsim_device *dsim)
 
 	if (dsim->lcd_info->mode == VIDEO_MODE)
 		reg |= (1 << 25);
-	else if (dsim->lcd_info->mode == COMMAND_MODE)
+	else if (dsim->lcd_info->mode == COMMAND_MODE) {
 		reg &= ~(1 << 25);
-	else {
+		reg |= (1 << 30);
+	} else {
 		dev_err(dsim->dev, "this ddi is not MIPI interface.\n");
 		return;
 	}
@@ -276,18 +212,7 @@ void s5p_mipi_dsi_set_data_lane_number(struct mipi_dsim_device *dsim,
 void s5p_mipi_dsi_enable_afc(struct mipi_dsim_device *dsim, unsigned int enable,
 	unsigned int afc_code)
 {
-#if 0
-	unsigned int reg = readl(dsim->reg_base + S5P_DSIM_PHYACCHR);
-
-	if (enable) {
-		reg |= (1 << 14);
-		reg &= ~(0x7 << 5);
-		reg |= (afc_code & 0x7) << 5;
-	} else
-		reg &= ~(1 << 14);
-
-	writel(reg, dsim->reg_base + S5P_DSIM_PHYACCHR);
-#endif
+	return;
 }
 
 void s5p_mipi_dsi_enable_pll_bypass(struct mipi_dsim_device *dsim,

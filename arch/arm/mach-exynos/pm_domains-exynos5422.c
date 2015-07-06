@@ -18,6 +18,7 @@
 
 #define SHIFT_GSCL_BLK_300_DIV      4
 #define SHIFT_GSCL_BLK_333_432_DIV  6
+#define SHIFT_DISP1_BLK_DIV	16
 #define SHIFT_MSCL_BLK_DIV      28
 #define SHIFT_MFC_BLK_DIV       0
 static DEFINE_SPINLOCK(clk_div2_ratio0_lock);
@@ -54,8 +55,18 @@ static void exynos5_enable_clk(struct exynos5422_pd_state *ptr, int count)
 {
 	spin_lock(&clk_save_restore_lock);
 	for (; count > 0; count--, ptr++) {
-		DEBUG_PRINT_INFO("set %p (change %08lx, was %08x) for power on/off\n", ptr->reg, ptr->set_val, __raw_readl(ptr->reg));
+		DEBUG_PRINT_INFO("set %p (change %08lx, was %08x) for power on/off\n", ptr->reg, __raw_readl(ptr->reg) | ptr->set_val, __raw_readl(ptr->reg));
 		__raw_writel(__raw_readl(ptr->reg) | ptr->set_val, ptr->reg);
+	}
+	spin_unlock(&clk_save_restore_lock);
+}
+
+static void exynos5_disable_clk(struct exynos5422_pd_state *ptr, int count)
+{
+	spin_lock(&clk_save_restore_lock);
+	for (; count > 0; count--, ptr++) {
+		DEBUG_PRINT_INFO("set %p (change %08lx, was %08x) for power on/off\n", ptr->reg, __raw_readl(ptr->reg) & ~(ptr->set_val), __raw_readl(ptr->reg));
+		__raw_writel(__raw_readl(ptr->reg) & ~(ptr->set_val), ptr->reg);
 	}
 	spin_unlock(&clk_save_restore_lock);
 }
@@ -305,6 +316,10 @@ static int exynos5_pd_disp1_power_on_post(struct exynos_pm_domain *pd)
 	DEBUG_PRINT_INFO("%s: %08x %08x\n", __func__, __raw_readl(pd->base), __raw_readl(pd->base+4));
 	exynos5_pd_restore_reg(exynos5422_disp1_clk, ARRAY_SIZE(exynos5422_disp1_clk));
 
+	spin_lock(&clk_div2_ratio0_lock);
+	exynos5_pd_set_fake_rate(EXYNOS5_CLK_DIV2_RATIO0, SHIFT_DISP1_BLK_DIV);
+	spin_unlock(&clk_div2_ratio0_lock);
+
 	reg = __raw_readl(EXYNOS5_CLK_SRC_TOP5);
 	reg |= (1 << 24 | 1 << 5);
 	__raw_writel(reg, EXYNOS5_CLK_SRC_TOP5);
@@ -369,7 +384,6 @@ struct exynos5422_pd_state exynos54xx_pwr_reg_gscl[] = {
 static int exynos5_pd_scl_power_on_pre(struct exynos_pm_domain *pd)
 {
 	DEBUG_PRINT_INFO("%s: %08x %08x\n", __func__, __raw_readl(pd->base), __raw_readl(pd->base+4));
-	exynos5_pd_save_reg(exynos5422_scl_clk, ARRAY_SIZE(exynos5422_scl_clk));
 	exynos5_enable_clk(exynos5422_scl_clk, ARRAY_SIZE(exynos5422_scl_clk));
 	exynos5_pwr_reg_set(exynos54xx_pwr_reg_gscl, ARRAY_SIZE(exynos54xx_pwr_reg_gscl));
 
@@ -381,7 +395,6 @@ static int exynos5_pd_scl_power_on_post(struct exynos_pm_domain *pd)
 	unsigned int reg;
 
 	DEBUG_PRINT_INFO("%s: %08x %08x\n", __func__, __raw_readl(pd->base), __raw_readl(pd->base+4));
-	exynos5_pd_restore_reg(exynos5422_scl_clk, ARRAY_SIZE(exynos5422_scl_clk));
 
 	reg = __raw_readl(EXYNOS5_CLK_SRC_TOP9);
 	reg |= (1 << 28);
@@ -396,7 +409,6 @@ static int exynos5_pd_scl_power_on_post(struct exynos_pm_domain *pd)
 static int exynos5_pd_scl_power_off_pre(struct exynos_pm_domain *pd)
 {
 	DEBUG_PRINT_INFO("%s: %08x %08x\n", __func__, __raw_readl(pd->base), __raw_readl(pd->base+4));
-	exynos5_pd_save_reg(exynos5422_scl_clk, ARRAY_SIZE(exynos5422_scl_clk));
 	exynos5_enable_clk(exynos5422_scl_clk, ARRAY_SIZE(exynos5422_scl_clk));
 	exynos5_pwr_reg_set(exynos54xx_pwr_reg_gscl, ARRAY_SIZE(exynos54xx_pwr_reg_gscl));
 
@@ -406,10 +418,11 @@ static int exynos5_pd_scl_power_off_pre(struct exynos_pm_domain *pd)
 static int exynos5_pd_scl_power_off_post(struct exynos_pm_domain *pd)
 {
 	DEBUG_PRINT_INFO("%s: %08x %08x\n", __func__, __raw_readl(pd->base), __raw_readl(pd->base+4));
-	exynos5_pd_restore_reg(exynos5422_scl_clk, ARRAY_SIZE(exynos5422_scl_clk));
+	exynos5_disable_clk(exynos5422_scl_clk, ARRAY_SIZE(exynos5422_scl_clk));
 
 	return 0;
 }
+
 struct exynos5422_pd_state exynos5422_cam_clk[] = {
 
 	{ .reg = EXYNOS5_CLK_GATE_IP_GSCL0,			.val = 0,
@@ -738,8 +751,29 @@ static int exynos5_pd_fimc_is_power_on_pre(struct exynos_pm_domain *pd)
 
 static int exynos5_pd_fimc_is_power_on_post(struct exynos_pm_domain *pd)
 {
+	u32 cfg;
+
 	DEBUG_PRINT_INFO("%s: %08x %08x\n", __func__, __raw_readl(pd->base), __raw_readl(pd->base+4));
 	exynos5_pd_restore_reg(exynos5422_fimc_is_clk, ARRAY_SIZE(exynos5422_fimc_is_clk));
+
+	/* dynamic clock gating enabled */
+	cfg = __raw_readl(S5P_VA_SYSREG + 0x2004);
+	cfg |= (0x7 << 7);
+	__raw_writel(cfg, S5P_VA_SYSREG + 0x2004);
+
+	cfg = __raw_readl(S5P_VA_SYSREG + 0x2008);
+	cfg |= (0x1f << 0);
+	__raw_writel(cfg, S5P_VA_SYSREG + 0x2008);
+
+	/* static clock gating(DIS) */
+	cfg = __raw_readl(EXYNOS5_CLK_GATE_IP_ISP1);
+	cfg &= ~(0x1 << 1); /* DIS */
+	cfg &= ~(0x1 << 9); /* DIS0_BTS */
+	cfg &= ~(0x1 << 10); /* DIS1_BTS */
+	cfg &= ~(0x1 << 11); /* 3DNR_BTS */
+	cfg &= ~(0x1 << 20); /* DIS0_asyncaxi */
+	cfg &= ~(0x1 << 21); /* DIS1_asyncaxi */
+	__raw_writel(cfg, EXYNOS5_CLK_GATE_IP_ISP1);
 
 	return 0;
 }
@@ -762,6 +796,166 @@ static int exynos5_pd_fimc_is_power_off_post(struct exynos_pm_domain *pd)
 	return 0;
 }
 #endif
+
+/* helpers for special power-off sequence with LPI control */
+#define __set_mask(name) __raw_writel(name##_ALL, name)
+#define __clr_mask(name) __raw_writel(~(name##_ALL), name)
+
+static int force_down_pre(const char *name, int step)
+{
+	int reg;
+
+	if (strncmp(name, "pd-isp", 6) == 0) {
+		if (step == 1) {	/* disable WFI waiting */
+			reg = __raw_readl(EXYNOS5422_ISP_ARM_OPTION);
+			reg &= ~(1 << 16);
+			__raw_writel(reg, EXYNOS5422_ISP_ARM_OPTION);
+		} else if (step == 2) {	/* LPI bus masking */
+			reg = __raw_readl(EXYNOS5422_LPI_BUS_MASK0);
+			reg |= EXYNOS5422_LPI_BUS_MASK0_IS_ALL;
+			__raw_writel(reg, EXYNOS5422_LPI_BUS_MASK0);
+		} else if (step == 3) {	/* LPI (FD) masking */
+			reg = __raw_readl(EXYNOS5422_LPI_MASK0);
+			reg |= EXYNOS5422_LPI_MASK0_FIMC_FD;
+			__raw_writel(reg, EXYNOS5422_LPI_MASK0);
+		} else if (step == 4) {	/* LPI (OTHERS) masking */
+			reg = __raw_readl(EXYNOS5422_LPI_MASK0);
+			reg |= EXYNOS5422_LPI_MASK0_IS_OHTERS;
+			__raw_writel(reg, EXYNOS5422_LPI_MASK0);
+		}
+	} else {
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int force_down_post(const char *name, int step)
+{
+	int reg;
+
+	if (strncmp(name, "pd-isp", 6) == 0) {
+		if (step >= 1) {	/* enable WFI waiting */
+			reg = __raw_readl(EXYNOS5422_ISP_ARM_OPTION);
+			reg |= (1 << 16);
+			__raw_writel(reg, EXYNOS5422_ISP_ARM_OPTION);
+		}
+
+		if (step >= 2) {	/* LPI bus unmasking */
+			reg = __raw_readl(EXYNOS5422_LPI_BUS_MASK0);
+			reg &= ~(EXYNOS5422_LPI_BUS_MASK0_IS_ALL);
+			__raw_writel(reg, EXYNOS5422_LPI_BUS_MASK0);
+		}
+
+		if (step >= 3) {	/* LPI (FD) unmasking */
+			reg = __raw_readl(EXYNOS5422_LPI_MASK0);
+			reg &= ~(EXYNOS5422_LPI_MASK0_FIMC_FD);
+			__raw_writel(reg, EXYNOS5422_LPI_MASK0);
+		}
+
+		if (step >= 4) {	/* LPI (OTHERS) unmasking */
+			reg = __raw_readl(EXYNOS5422_LPI_MASK0);
+			reg &= ~(EXYNOS5422_LPI_MASK0_IS_OHTERS);
+			__raw_writel(reg, EXYNOS5422_LPI_MASK0);
+		}
+	} else {
+		return -EINVAL;
+	}
+
+    return 0;
+}
+
+static unsigned int check_power_status(struct exynos_pm_domain *pd, int power_flags,
+                    unsigned int timeout)
+{
+    /* check STATUS register */
+    while ((__raw_readl(pd->base+0x4) & EXYNOS_INT_LOCAL_PWR_EN) != power_flags) {
+        if (timeout == 0) {
+            pr_err("%s@%p: %08x, %08x, %08x\n",
+                    pd->genpd.name,
+                    pd->base,
+                    __raw_readl(pd->base),
+                    __raw_readl(pd->base+4),
+                    __raw_readl(pd->base+8));
+            return 0;
+        }
+        --timeout;
+        cpu_relax();
+        usleep_range(8, 10);
+    }
+
+    return timeout;
+}
+
+#define TIMEOUT_COUNT   100 /* about 1ms, based on 10us */
+#define MAX_STEP	4
+static int exynos_pd_power_off_custom(struct exynos_pm_domain *pd, int power_flags)
+{
+	unsigned long timeout;
+	int step = 0;
+
+	if (unlikely(!pd))
+		return -EINVAL;
+
+	mutex_lock(&pd->access_lock);
+	if (likely(pd->base)) {
+		/* sc_feedback to OPTION register */
+		__raw_writel(pd->pd_option, pd->base+0x8);
+
+		/* on/off value to CONFIGURATION register */
+		__raw_writel(power_flags, pd->base);
+
+		timeout = check_power_status(pd, power_flags, TIMEOUT_COUNT);
+
+		if (unlikely(!timeout)) {
+			while ((!timeout) && (step <= MAX_STEP)) {
+				step++;
+				pr_err(PM_DOMAIN_PREFIX "%s can't control power, try again: step(%d)\n",
+						pd->name, step);
+
+				if (force_down_pre(pd->name, step))
+					pr_warn("%s: failed to make force down state\n", pd->name);
+
+				timeout = check_power_status(pd, power_flags, TIMEOUT_COUNT);
+
+				if (likely(timeout))
+					pr_warn(PM_DOMAIN_PREFIX "%s force power down success at step%d\n",
+							pd->name, step);
+			}
+
+			if (force_down_post(pd->name, step))
+				pr_warn("%s: failed to restore normal state\n", pd->name);
+
+			if (unlikely(!timeout)) {
+				pr_err(PM_DOMAIN_PREFIX "%s can't control power forcedly, timeout\n",
+						pd->name);
+				mutex_unlock(&pd->access_lock);
+				return -ETIMEDOUT;
+			}
+		}
+
+		if (unlikely(timeout < (TIMEOUT_COUNT >> 1))) {
+			pr_warn("%s@%p: %08x, %08x, %08x\n",
+				pd->name,
+					pd->base,
+					__raw_readl(pd->base),
+					__raw_readl(pd->base+4),
+					__raw_readl(pd->base+8));
+			pr_warn(PM_DOMAIN_PREFIX "long delay found during %s is %s\n",
+					pd->name, power_flags ? "on":"off");
+		}
+	}
+	pd->status = power_flags;
+	mutex_unlock(&pd->access_lock);
+
+	DEBUG_PRINT_INFO("%s@%p: %08x, %08x, %08x\n",
+			pd->genpd.name, pd->base,
+			__raw_readl(pd->base),
+			__raw_readl(pd->base+4),
+			__raw_readl(pd->base+8));
+
+	return 0;
+}
 
 static struct exynos_pd_callback pd_callback_list[] = {
 	{
@@ -827,6 +1021,7 @@ static struct exynos_pd_callback pd_callback_list[] = {
 		.on_pre = exynos5_pd_fimc_is_power_on_pre,
 			.on_post = exynos5_pd_fimc_is_power_on_post,
 			.name = "pd-isp",
+			.off = exynos_pd_power_off_custom,
 			.off_pre = exynos5_pd_fimc_is_power_off_pre,
 			.off_post = exynos5_pd_fimc_is_power_off_post,
 	} , {

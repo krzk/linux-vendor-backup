@@ -79,7 +79,6 @@ int fimc_is_3a0_video_probe(void *data)
 		dev_err(&core->pdev->dev, "%s is fail(%d)\n", __func__, ret);
 
 p_err:
-	info("[3A0:V:X] %s(%d)\n", __func__, ret);
 	return ret;
 }
 
@@ -113,7 +112,6 @@ int fimc_is_3a1_video_probe(void *data)
 		dev_err(&core->pdev->dev, "%s is fail(%d)\n", __func__, ret);
 
 p_err:
-	info("[3A1:V:X] %s(%d)\n", __func__, ret);
 	return ret;
 }
 

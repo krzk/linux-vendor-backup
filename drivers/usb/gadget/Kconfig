@@ -271,10 +271,26 @@ config USB_PXA27X
 
 config USB_S3C_HSOTG
 	tristate "S3C HS/OtG USB Device controller"
-	depends on S3C_DEV_USB_HSOTG
+	depends on S3C_DEV_USB_HSOTG || SOC_EXYNOS3250
 	help
 	  The Samsung S3C64XX USB2.0 high-speed gadget controller
 	  integrated into the S3C64XX series SoC.
+
+config USB_S3C_HSOTG_ENABLE_WAKELOCK
+	tristate "S3C HS/OtG USB Device controller driver can take wake_lock"
+	depends on USB_S3C_HSOTG
+	help
+	  Say "y" if USB gadget controller can hold wake_lock.
+
+config USB_S3C_OTGD
+	tristate "S3C HS USB OTG Device"
+	help
+	  Samsung's S3C64XX processors include high speed USB OTG2.0
+	  controller. It has 15 configurable endpoints, as well as
+	  endpoint zero (for control transfers).
+
+	  This driver has been tested on the S3C6410, S5P6440, S5PC100, S5PV210,
+	  EXYNOS3250, EXYNOS4210, EXYNOS4x12, EXYNOS5250 processor.
 
 config USB_IMX
 	tristate "Freescale i.MX1 USB Peripheral Controller"

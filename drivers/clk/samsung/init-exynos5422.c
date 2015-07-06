@@ -68,6 +68,7 @@ static void top_clk_enable(void)
 	add_enabler("clk_xiu_mi_gscl_cam");
 	add_enabler("gscl_fimc_lite3");
 	add_enabler("clk_3aa");
+	add_enabler("clk_3aa_2");
 	add_enabler("clk_camif_top_csis0");
 
 	/* SPI  */
@@ -131,6 +132,7 @@ static void top_clk_enable(void)
 	add_enabler("sclk_isp1_isp");
 	add_enabler("sclk_pwm_isp");
 	add_enabler("aclk_333");
+
 #else
 	add_enabler("pclk_66_gpio");
 	add_enabler("aclk_66_peric");
@@ -261,7 +263,7 @@ static void aud_init_clock(void)
 #endif
 	exynos_set_rate("dout_ass_srp", 100 * 1000000);
 	exynos_set_rate("dout_ass_bus", 50 * 1000000);
-	exynos_set_rate("dout_ass_i2s", 12 * 1000000);
+	exynos_set_rate("dout_ass_i2s", 38 * 1000000);
 }
 
 static void uart_clock_init(void)
@@ -285,6 +287,18 @@ static void mscl_init_clock(void)
 	pr_info("scaler: dout_aclk_400_mscl %d aclk_400_mscl %d\n",
 			exynos_get_rate("dout_aclk_400_mscl"),
 			exynos_get_rate("aclk_400_mscl"));
+}
+
+static void spi_clock_init(void)
+{
+	exynos_set_parent("mout_spi0", "mout_dpll_ctrl");
+	exynos_set_parent("mout_spi1", "mout_dpll_ctrl");
+	exynos_set_parent("mout_spi2", "mout_dpll_ctrl");
+
+	/* dout_spix_pre should be 100Mhz */
+	exynos_set_rate("dout_spi0", 100000000);
+	exynos_set_rate("dout_spi1", 100000000);
+	exynos_set_rate("dout_spi2", 100000000);
 }
 
 void g2d_init_clock(void)
@@ -337,10 +351,7 @@ void gsc_clock_init(void)
 void pwm_init_clock(void)
 {
 	clk_register_fixed_factor(NULL, "pwm-clock",
-			"sclk_pwm",CLK_SET_RATE_PARENT, 1, 1);
-	if (exynos_set_parent("mout_pwm", "mout_cpll_ctrl"))
-		pr_err("failed clock mout_pwm to mout_cpll_ctrl\n");
-	exynos_set_rate("dout_pwm", 66600000);
+			"clk_pwm",CLK_SET_RATE_PARENT, 1, 1);
 }
 
 void jpeg_clock_init(void)
@@ -412,13 +423,15 @@ void mmc_clock_init(void)
 	pr_info("mmc2: dout_mmc2 %d\n", exynos_get_rate("dout_mmc2"));
 }
 
+void isp_init_clock(void)
+{
+    exynos_set_parent("mout_isp_sensor", "fin_pll");
+}
+
 void __init exynos5422_clock_init(void)
 {
-#ifndef CONFIG_L2_AUTO_CLOCK_DISABLE
 /* EXYNOS5422 C2 enable support */
-	__raw_writel(__raw_readl(EXYNOS5422_CMU_CPU_SPARE1) | (1<<1 | 1<<3),
-			EXYNOS5422_CMU_CPU_SPARE1);
-#endif
+	__raw_writel(__raw_readl(EXYNOS5422_CMU_CPU_SPARE1) | (1<<1 | 1<<3), EXYNOS5422_CMU_CPU_SPARE1);
 
 	top_clk_enable();
 	clkout_init_clock();
@@ -426,10 +439,12 @@ void __init exynos5422_clock_init(void)
 	uart_clock_init();
 	mmc_clock_init();
 	mscl_init_clock();
+	spi_clock_init();
 	g2d_init_clock();
 	pwm_init_clock();
 	gsc_clock_init();
 	jpeg_clock_init();
 	mfc_clock_init();
 	crypto_init_clock();
+	isp_init_clock();
 }

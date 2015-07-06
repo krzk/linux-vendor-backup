@@ -73,11 +73,12 @@
 
 enum decon_ioctl_for_sync {
 	S3CFB_FLUSH_WORKQUEUE,
-	S3CFB_READY_TO_SETBUF,
+	S3CFB_DUMP_REGISTER,
 };
 
 enum gsc_ioctl_for_sync {
-	GSC_SET_BUF,
+	GSC_SFR_UPDATE,
+	GSC_WAIT_STOP,
 };
 
 enum mdev_node {

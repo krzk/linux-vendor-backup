@@ -490,8 +490,12 @@ EXPORT_SYMBOL(mmc_start_bkops);
  */
 static void mmc_wait_data_done(struct mmc_request *mrq)
 {
+	unsigned long flags;
+
+	spin_lock_irqsave(&mrq->host->context_info.lock, flags);
 	mrq->host->context_info.is_done_rcv = true;
 	wake_up_interruptible(&mrq->host->context_info.wait);
+	spin_unlock_irqrestore(&mrq->host->context_info.lock, flags);
 }
 
 static void mmc_wait_done(struct mmc_request *mrq)
@@ -681,13 +685,19 @@ static int mmc_wait_for_data_req_done(struct mmc_host *host,
 				 context_info->is_new_req));
 		spin_lock_irqsave(&context_info->lock, flags);
 		context_info->is_waiting_last_req = false;
-		spin_unlock_irqrestore(&context_info->lock, flags);
 		if (context_info->is_done_rcv) {
 			context_info->is_done_rcv = false;
 			context_info->is_new_req = false;
+			spin_unlock_irqrestore(&context_info->lock, flags);
 			cmd = mrq->cmd;
-			if (!cmd->error || !cmd->retries ||
-			    mmc_card_removed(host->card)) {
+			if (mrq->sbc && (mrq->sbc->error == -ETIMEDOUT) && mrq->sbc->retries) {
+				mrq->sbc->retries--;
+				mrq->sbc->error = 0;
+				mmc_host_clk_hold(host);
+				host->ops->request(host, mrq);
+				continue;
+			} else if (!cmd->error || !cmd->retries ||
+				mmc_card_removed(host->card)) {
 				err = host->areq->err_check(host->card,
 							    host->areq);
 				break; /* return err */
@@ -703,11 +713,14 @@ static int mmc_wait_for_data_req_done(struct mmc_host *host,
 		} else if (context_info->is_new_req) {
 			context_info->is_new_req = false;
 			if (!next_req) {
+				spin_unlock_irqrestore(&context_info->lock,
+							flags);
 				err = MMC_BLK_NEW_REQUEST;
 				break; /* return err */
 			}
 		}
-	}
+		spin_unlock_irqrestore(&context_info->lock, flags);
+	} /* while */
 	return err;
 }
 
@@ -909,7 +922,7 @@ int mmc_interrupt_hpi(struct mmc_card *card)
 	}
 
 	mmc_claim_host(card->host);
-	err = mmc_send_status(card, &status);
+	err = mmc_send_status(card, &status, 0);
 	if (err) {
 		pr_err("%s: Get card status fail\n", mmc_hostname(card->host));
 		goto out;
@@ -941,7 +954,7 @@ int mmc_interrupt_hpi(struct mmc_card *card)
 
 	prg_wait = jiffies + msecs_to_jiffies(card->ext_csd.out_of_int_time);
 	do {
-		err = mmc_send_status(card, &status);
+		err = mmc_send_status(card, &status, 0);
 
 		if (!err && R1_CURRENT_STATE(status) == R1_STATE_TRAN)
 			break;
@@ -3174,14 +3187,14 @@ static int mmc_wait_trans_state(struct mmc_card *card, unsigned int wait_ms)
 	int waited = 0;
 	int status = 0;
 
-	mmc_send_status(card, &status);
+	mmc_send_status(card, &status, 0);
 
 	while (R1_CURRENT_STATE(status) != R1_STATE_TRAN) {
 		if (waited > wait_ms)
 			return 0;
 		mdelay(MIN_WAIT_MS);
 		waited += MIN_WAIT_MS;
-		mmc_send_status(card, &status);
+		mmc_send_status(card, &status, 0);
 	}
 	return waited;
 }

@@ -487,40 +487,31 @@ enum {
 	 * Attached value: u32 value
 	 * Default value: 500 Milliseconds
 	 */
+
 	KBASE_CONFIG_ATTR_POWER_MANAGEMENT_DVFS_FREQ,
 
 	/**
-	 * Power Management poweroff tick granuality. This is in nanoseconds to
-	 * allow HR timer support.
+	 * Number of microseconds between the PM core requesting that a shader
+	 * is powered off, and the shader actually being powered off.
 	 *
-	 * On each scheduling tick, the power manager core may decide to:
-	 * -# Power off one or more shader cores
-	 * -# Power off the entire GPU
-	 *
-	 * Attached value: number in nanoseconds
-	 * Default value: @ref DEFAULT_PM_GPU_POWEROFF_TICK_NS,
+	 * If a shader poweroff is scheduled to occur and at some time prior to
+	 * the poweroff the GPU goes idle, then the shader poweroff is cancelled.
+	 * This usually lengthens the shader poweroff delay to that of the gpu
+	 * poweroff delay when the GPU goes idle.
+
+	 * Attached value: number in microseconds
+	 * Default value: @ref DEFAULT_PM_SHADER_POWEROFF_TIME
 	 */
-	KBASE_CONFIG_ATTR_PM_GPU_POWEROFF_TICK_NS,
+	KBASE_CONFIG_ATTR_PM_SHADER_POWEROFF_TIME,
 
 	/**
-	 * Power Manager number of ticks before shader cores are powered off
+	 * Number of microseconds between the PM core requesting that the GPU
+	 * is powered off, and the GPU actually being powered off.
 	 *
-	 * Attached value: unsigned 32-bit kbasep_pm_device_data::poweroff_shader_ticks<br>
-	 * Default value: @ref DEFAULT_PM_POWEROFF_TICK_SHADER
-	 *
-	 * @see KBASE_CONFIG_ATTR_PM_GPU_POWEROFF_TICK_NS
+	 * Attached value: number in microseconds
+	 * Default value: @ref DEFAULT_PM_GPU_POWEROFF_TIME
 	 */
-	KBASE_CONFIG_ATTR_PM_POWEROFF_TICK_SHADER,
-
-	/**
-	 * Power Manager number of ticks before GPU is powered off
-	 *
-	 * Attached value: unsigned 32-bit kbasep_pm_device_data::poweroff_gpu_ticks<br>
-	 * Default value: @ref DEFAULT_PM_POWEROFF_TICK_GPU
-	 *
-	 * @see KBASE_CONFIG_ATTR_PM_GPU_POWEROFF_TICK_NS
-	 */
-	KBASE_CONFIG_ATTR_PM_POWEROFF_TICK_GPU,
+	KBASE_CONFIG_ATTR_PM_GPU_POWEROFF_TIME,
 
 	/**
 	 * End of attribute list indicator.

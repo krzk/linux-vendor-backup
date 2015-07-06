@@ -32,7 +32,7 @@ enum calibration_type {
 enum soc_type {
 	SOC_ARCH_EXYNOS4210 = 1,
 	SOC_ARCH_EXYNOS,
-	SOC_ARCH_EXYNOS5430,
+	SOC_ARCH_EXYNOS543X,
 };
 /**
  * struct freq_clip_table
@@ -117,8 +117,6 @@ struct exynos_tmu_platform_data {
 	bool trigger_level6_en;
 	bool trigger_level7_en;
 
-	char clk_name[2][100];
-
 	u8 gain;
 	u8 reference_voltage;
 	u8 noise_cancel_mode;
@@ -129,6 +127,8 @@ struct exynos_tmu_platform_data {
 	struct freq_clip_table freq_tab[8];
 	int size[THERMAL_TRIP_CRITICAL + 1];
 	unsigned int freq_tab_count;
-	unsigned int clock_count;
+
+	int hotplug_out_threshold;
+	int hotplug_in_threshold;
 };
 #endif /* _LINUX_EXYNOS_THERMAL_H */

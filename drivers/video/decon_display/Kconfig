@@ -63,6 +63,11 @@ config DECON_MIPI_DSI
 	depends on DECON
 	default n
 
+config FB_SMIES
+	bool "Samsung SMIES driver"
+	depends on DECON
+	default n
+
 config DECON_LCD
 	depends on DECON
 	bool "Select LCD panel driver"
@@ -73,7 +78,27 @@ config DECON_LCD_S6E8AA0
 
 config DECON_LCD_S6E3FA0
 	depends on DECON_LCD && DECON_MIPI_DSI
-	tristate "S6E8FA0 AMOLED FULL HD LCD driver(1080 x 1920)"
+	tristate "S6E3FA0 AMOLED FULL HD LCD driver(1080 x 1920)"
+
+config DECON_LCD_S6E3HA0
+	depends on DECON_LCD && DECON_MIPI_DSI
+	tristate "S6E3HA0 AMOLED FULL HD LCD driver(1440 x 2560)"
+
+config DECON_LCD_S6E3FA2
+	depends on DECON_LCD && DECON_MIPI_DSI
+	tristate "S6E3FA2 AMOLED FULL HD LCD driver(1080 x 1920)"
+
+config LCD_MIPI_SHIRI
+	depends on DECON_LCD && DECON_MIPI_DSI
+	tristate "SHIRI LCD driver(240 x 240)"
+
+config LCD_MIPI_NT35510
+	depends on DECON_LCD && DECON_MIPI_DSI
+	tristate "NT35510 LCD driver(480 x 800)"
+
+config DECON_LCD_S6E63J0X03
+	depends on DECON_LCD && DECON_MIPI_DSI
+	tristate "S6E63J0X03 LCD driver(320 x 320)"
 
 config DECON_LCD_PARALLEL_RGB
 	depends on DECON_LCD && !DECON_MIPI_DSI

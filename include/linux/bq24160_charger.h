@@ -1,7 +1,14 @@
 #ifndef _BQ24160_CHARGER_H_
 #define _BQ24160_CHARGER_H_
 
+#if defined(CONFIG_MACH_ESPRESSO5433) && defined(CONFIG_FUELGAUGE_S2MG001)
+#include <linux/power/sec_charging_common.h>
+#endif
+
 #define BQ24160_NAME "bq24160"
+
+#define EXT_CHG_STAT_VALID_CHARGER_CONNECTED 1
+#define EXT_CHG_STAT_VALID_CHARGER_NOT_CONNECTED 0
 
 struct bq24160_platform_data {
 	const char *name;
@@ -9,8 +16,13 @@ struct bq24160_platform_data {
 	size_t num_supplicants;
 
 	unsigned char support_boot_charging;
+	unsigned int gpio_led_red;
+	unsigned int gpio_chg_stat;
 	void (*notify_vbus_drop)(void);
 	int (*gpio_configure)(int);
+#if defined(CONFIG_MACH_ESPRESSO5433) && defined(CONFIG_FUELGAUGE_S2MG001)
+	char *fuelgauge_name;
+#endif
 };
 
 /**
@@ -106,11 +118,18 @@ int bq24160_set_input_voltage_dpm_usb(u8 usb_compliant);
 int bq24160_set_input_voltage_dpm_in(void);
 
 /**
- * bq24160_set_external_charging_status() - Sets the status of charging
+ * bq24160_set_ext_charging_status() - Sets the status of charging
  * @status: The POWER_SUPPLY_STATUS_* or -1 to release external value
  *
  */
 int bq24160_set_ext_charging_status(int status);
+
+/**
+ * bq24160_get_external_charging_status() - Gets the status of charging
+ * @status: charger status
+ *
+ */
+int bq24160_get_ext_charging_status(void);
 
 /**
  * bq24160_charger_initialized() - Gets whether chrger was initilized or not.

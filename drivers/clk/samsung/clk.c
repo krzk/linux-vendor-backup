@@ -156,16 +156,10 @@ void __init samsung_clk_register_mux(struct samsung_mux_clock *list,
 	unsigned int idx, ret;
 
 	for (idx = 0; idx < nr_clk; idx++, list++) {
-		#if defined (CONFIG_SOC_EXYNOS5430_REV_1)
 		clk = clk_register_mux(NULL, list->name, list->parent_names,
 			list->num_parents, list->flags, reg_base + list->offset,
 			list->shift, list->width, list->mux_flags, &lock,
 			reg_base + list -> stat_offset, list->stat_shift, list->stat_width);
-		#else
-		clk = clk_register_mux(NULL, list->name, list->parent_names,
-			list->num_parents, list->flags, reg_base + list->offset,
-			list->shift, list->width, list->mux_flags, &lock);
-		#endif
 		if (IS_ERR(clk)) {
 			pr_err("%s: failed to register clock %s\n", __func__,
 				list->name);
@@ -323,6 +317,7 @@ struct clk *exynos_clk_register_gate(struct device *dev, const char *name,
 
 	return clk;
 }
+
 
 /* register a list of gate clocks */
 void __init samsung_clk_register_gate(struct samsung_gate_clock *list,

@@ -520,6 +520,9 @@ bool check_trace_code(kbase_trace_code code)
 		case KBASE_TRACE_CODE(LSI_CLOCK_VALUE):
 		case KBASE_TRACE_CODE(LSI_TMU_VALUE):
 		case KBASE_TRACE_CODE(LSI_VOL_VALUE):
+		case KBASE_TRACE_CODE(LSI_REGISTER_DUMP):
+		case KBASE_TRACE_CODE(LSI_CLOCK_ON):
+		case KBASE_TRACE_CODE(LSI_CLOCK_OFF):
 			return true;
 		default:
 			return false;
@@ -528,6 +531,7 @@ bool check_trace_code(kbase_trace_code code)
 }
 #endif
 
+extern void kbase_debug_dump_registers(kbase_device *kbdev);
 void kbasep_trace_add(kbase_device *kbdev, kbase_trace_code code, void *ctx, kbase_jd_atom *katom, u64 gpu_addr, u8 flags, int refcount, int jobslot, unsigned long info_val)
 {
 	unsigned long irqflags;
@@ -540,6 +544,9 @@ void kbasep_trace_add(kbase_device *kbdev, kbase_trace_code code, void *ctx, kba
 
 	if (!check_trace_code(code))
 		return;
+
+	if (code == KBASE_TRACE_CODE(JM_SOFTSTOP) || code == KBASE_TRACE_CODE(JM_HARDSTOP))
+		kbase_debug_dump_registers(kbdev);
 #endif
 
 	spin_lock_irqsave(&kbdev->trace_lock, irqflags);
@@ -622,6 +629,7 @@ void kbasep_trace_dump(kbase_device *kbdev)
 STATIC void kbasep_trace_hook_wrapper(void *param)
 {
 	kbase_device *kbdev = (kbase_device *) param;
+
 	kbasep_trace_dump(kbdev);
 }
 

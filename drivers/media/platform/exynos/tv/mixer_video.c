@@ -681,8 +681,6 @@ static int mxr_video_open(struct file *file)
 	int ret = 0;
 
 	mxr_dbg(mdev, "%s:%d\n", __func__, __LINE__);
-	/* assure device probe is finished */
-	wait_for_device_probe();
 	/* creating context for file descriptor */
 	ret = v4l2_fh_open(file);
 	if (ret) {

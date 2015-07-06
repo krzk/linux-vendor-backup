@@ -1299,6 +1299,9 @@ err:
 	return -ENXIO;
 }
 
+#ifdef CONFIG_SOC_EXYNOS5422
+#define gsc_clock_gating(gsc, status) do { } while (0)
+#else
 void gsc_clock_gating(struct gsc_dev *gsc, enum gsc_clk_status status)
 {
 	int clk_cnt;
@@ -1321,6 +1324,7 @@ void gsc_clock_gating(struct gsc_dev *gsc, enum gsc_clk_status status)
 		}
 	}
 }
+#endif
 
 int gsc_set_protected_content(struct gsc_dev *gsc, bool enable)
 {
@@ -1644,6 +1648,7 @@ static int gsc_probe(struct platform_device *pdev)
 
 	return 0;
 err_out:
+	destroy_workqueue(gsc->irq_workqueue);
 	gsc_unregister_output_device(gsc);
 err_m2m:
 	gsc_unregister_m2m_device(gsc);

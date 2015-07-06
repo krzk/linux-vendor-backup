@@ -62,11 +62,11 @@
 #define DEC_IBUF_SIZE		(4096)
 #define DEC_OBUF_SIZE		(36864)
 
-#define DEC_AAC_IBUF_SIZE       (4096)
-#define DEC_AAC_OBUF_SIZE       (73728)
+#define DEC_AAC_IBUF_SIZE       (0x10000)
+#define DEC_AAC_OBUF_SIZE       (0x18000)
 
-#define DEC_FLAC_IBUF_SIZE	(0x5000)
-#define DEC_FLAC_OBUF_SIZE	(0x20000)
+#define DEC_FLAC_IBUF_SIZE	(0x10000)
+#define DEC_FLAC_OBUF_SIZE	(0x18000)
 #define DEC_IBUF_NUM		(0x2)
 #define DEC_OBUF_NUM		(0x2)
 
@@ -107,6 +107,8 @@
 #else
 #define esa_debug(x...)
 #endif
+
+#define SEIREN_DBG_BLK_CNT	32
 
 enum SEIREN_CMDTYPE {
 	CMD_CREATE = 0x01,
@@ -283,6 +285,7 @@ struct esa_rtd {
 	struct audio_mem_info_t	ibuf_info;
 	struct audio_mem_info_t	obuf_info;
 	struct audio_pcm_config_info_t	pcm_info;
+	unsigned char   block_num;
 	unsigned long	buf_maxsize;	/* IBUF + OBUF */
 	bool		use_sram;
 

@@ -30,6 +30,8 @@ void jpeg_set_enc_in_fmt(void __iomem *base, enum jpeg_frame_format in_fmt);
 void jpeg_set_enc_out_fmt(void __iomem *base, enum jpeg_frame_format out_fmt);
 void jpeg_set_enc_tbl(void __iomem *base,
 		enum jpeg_img_quality_level level);
+void jpeg_set_dec_tbl(void __iomem *base,
+		struct jpeg_tables *tables);
 void jpeg_set_interrupt(void __iomem *base);
 void jpeg_clean_interrupt(void __iomem *base);
 unsigned int jpeg_get_int_status(void __iomem *base);
@@ -42,6 +44,8 @@ void jpeg_set_stream_size(void __iomem *base,
 void jpeg_set_frame_buf_address(void __iomem *base, enum jpeg_frame_format fmt, unsigned int address, unsigned int width, unsigned int height);
 void jpeg_set_encode_tbl_select(void __iomem *base,
 		enum jpeg_img_quality_level level);
+void jpeg_set_decode_tbl_select(void __iomem *base,
+		struct jpeg_tables_info *tinfo);
 void jpeg_set_encode_hoff_cnt(void __iomem *base, enum jpeg_frame_format fmt);
 void jpeg_set_dec_bitstream_size(void __iomem *base, unsigned int size);
 void jpeg_set_timer_count(void __iomem *base, unsigned int size);
@@ -56,4 +60,5 @@ void jpeg_set_window_margin(void __iomem *base, unsigned int top, unsigned int b
 					unsigned int left, unsigned int right);
 void jpeg_get_window_margin(void __iomem *base, unsigned int *top, unsigned int *bottom,
 					unsigned int *left, unsigned int *right);
+void jpeg_set_decode_huff_cnt(void __iomem *base, unsigned int cnt);
 #endif /* __JPEG_REGS_H__ */

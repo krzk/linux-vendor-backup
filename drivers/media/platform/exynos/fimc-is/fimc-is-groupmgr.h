@@ -117,6 +117,7 @@ struct fimc_is_group {
 	struct fimc_is_time		time;
 #endif
 #endif
+	u32				aeflashMode; /* Flash Mode Control */
 };
 
 struct fimc_is_groupmgr {

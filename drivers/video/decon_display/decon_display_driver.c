@@ -18,23 +18,20 @@
 #include <linux/pm_runtime.h>
 #include <linux/lcd.h>
 #include <linux/gpio.h>
+#ifdef CONFIG_EXYNOS_IOVMM
 #include <linux/exynos_iovmm.h>
+#endif
 
 #include "decon_display_driver.h"
 #include "decon_dt.h"
 #include "decon_pm.h"
 
-#ifdef CONFIG_SOC_EXYNOS5430
-#include "decon_fb.h"
-#else
 #include "fimd_fb.h"
-#endif
-
-#include "decon_debug.h"
 
 #ifdef CONFIG_OF
 static const struct of_device_id decon_disp_device_table[] = {
 	{ .compatible = "samsung,exynos5-disp_driver" },
+	{ .compatible = "samsung,exynos3-disp_driver" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, decon_disp_device_table);
@@ -80,7 +77,6 @@ static int init_display_operations(void)
 #endif
 
 	DSI_OPS.init_display_driver_clocks = init_display_driver_clocks;
-	DSI_OPS.enable_display_driver_clocks = enable_display_driver_clocks;
 	DSI_OPS.enable_display_driver_power = enable_display_driver_power;
 	DSI_OPS.disable_display_driver_power = disable_display_driver_power;
 
@@ -89,10 +85,6 @@ static int init_display_operations(void)
 	DECON_OPS.disable_display_decon_clocks = disable_display_decon_clocks;
 	DECON_OPS.enable_display_decon_runtimepm = enable_display_decon_runtimepm;
 	DECON_OPS.disable_display_decon_runtimepm = disable_display_decon_runtimepm;
-#ifdef CONFIG_SOC_EXYNOS5430
-	DECON_OPS.enable_display_dsd_clocks = enable_display_dsd_clocks;
-	DECON_OPS.disable_display_dsd_clocks = disable_display_dsd_clocks;
-#endif
 #undef DT_OPS
 #undef DSI_OPS
 #undef DECON_OPS
@@ -130,28 +122,6 @@ static int create_disp_components(struct platform_device *pdev)
 	return ret;
 }
 
-/* disp_driver_fault_handler - fault handler for display device driver */
-int disp_driver_fault_handler(struct iommu_domain *iodmn, struct device *dev,
-	unsigned long addr, int id, void *param)
-{
-	struct display_driver *dispdrv;
-
-	dispdrv = (struct display_driver*)param;
-	decon_dump_registers(dispdrv);
-	return 0;
-}
-
-/* register_debug_features - for registering debug features.
- * currently registered features are like as follows...
- * - iovmm falult handler
- * - ... */
-static void register_debug_features(void)
-{
-	/* 1. fault handler registration */
-	iovmm_set_fault_handler(g_display_driver.display_driver,
-		disp_driver_fault_handler, &g_display_driver);
-}
-
 /* s5p_decon_disp_probe - probe function of the display driver */
 static int s5p_decon_disp_probe(struct platform_device *pdev)
 {
@@ -171,8 +141,6 @@ static int s5p_decon_disp_probe(struct platform_device *pdev)
 	GET_DISPCTL_OPS(&g_display_driver).init_display_decon_clocks(&pdev->dev);
 
 	create_disp_components(pdev);
-
-	register_debug_features();
 
 	return ret;
 }
@@ -200,21 +168,12 @@ static int display_driver_runtime_resume(struct device *dev)
 #endif
 }
 
-#ifdef CONFIG_PM_SLEEP
-static int display_driver_resume(struct device *dev)
-{
-	return s3c_fb_resume(dev);
-}
-
-static int display_driver_suspend(struct device *dev)
-{
-	return s3c_fb_suspend(dev);
-}
-#endif
-
 static void display_driver_shutdown(struct platform_device *pdev)
 {
 #ifdef CONFIG_FB_HIBERNATION_DISPLAY
+	struct display_driver *dispdrv = get_display_driver();
+	disp_set_pm_status(DISP_STATUS_PM2);
+	disp_pm_gate_lock(dispdrv, true);
 	disp_pm_add_refcount(get_display_driver());
 #endif
 	s5p_mipi_dsi_disable(g_display_driver.dsi_driver.dsim);
@@ -223,8 +182,8 @@ static void display_driver_shutdown(struct platform_device *pdev)
 static const struct dev_pm_ops s5p_decon_disp_ops = {
 #ifdef CONFIG_PM_SLEEP
 #ifndef CONFIG_HAS_EARLYSUSPEND
-	.suspend = display_driver_suspend,
-	.resume = display_driver_resume,
+	.suspend = NULL,
+	.resume = NULL,
 #endif
 #endif
 	.runtime_suspend	= display_driver_runtime_suspend,

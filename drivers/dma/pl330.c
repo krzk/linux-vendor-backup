@@ -32,6 +32,19 @@
 #include <plat/cpu.h>
 
 #include "dmaengine.h"
+
+#include <linux/exynos_ion.h>
+#include <mach/smc.h>
+#define MC_FC_SECURE_DMA	((uint32_t)(0x81000010))
+
+struct ion_info {
+	uint32_t base;
+	size_t size;
+};
+
+static bool secure_dma_mode;
+static struct ion_info secdma_mem_info;
+
 #define PL330_MAX_CHAN		8
 #define PL330_MAX_IRQS		32
 #define PL330_MAX_PERI		32
@@ -294,6 +307,9 @@ static unsigned cmd_line;
 #define PL330_DBGMC_START(addr)		do {} while (0)
 #endif
 
+#define AUDSS_SRAM		0x03000000
+#define AUDSS_SRAM_SIZE		0x00028000
+
 /* The number of default descriptors */
 
 #define NR_DEFAULT_DESC	16
@@ -405,6 +421,7 @@ struct pl330_req {
 	/* Hook to attach to DMAC's list of reqs with due callback */
 	struct list_head rqd;
 	unsigned int infiniteloop;
+	bool sram;
 };
 
 /*
@@ -518,6 +535,10 @@ struct pl330_dmac {
 	u32			mcode_bus;
 	/* CPU address of MicroCode buffer */
 	void			*mcode_cpu;
+	/* BUS address of MicroCode buffer in sram */
+	u32			mcode_bus_sram;
+	/* CPU address of MicroCode buffer in sram */
+	void			*mcode_cpu_sram;
 	/* List of all Channel threads */
 	struct pl330_thread	*channels;
 	/* Pointer to the MANAGER thread */
@@ -1023,39 +1044,62 @@ static inline u32 _emit_GO(unsigned dry_run, u8 buf[],
 	return SZ_DMAGO;
 }
 
-#define msecs_to_loops(t) (loops_per_jiffy / 1000 * HZ * t)
-
 /* Returns Time-Out */
 static bool _until_dmac_idle(struct pl330_thread *thrd)
 {
 	void __iomem *regs = thrd->dmac->pinfo->base;
-	unsigned long loops = msecs_to_loops(5);
+	unsigned long timeout = jiffies + msecs_to_jiffies(5);
 
 	do {
 		/* Until Manager is Idle */
 		if (!(readl(regs + DBGSTATUS) & DBG_BUSY))
-			break;
+			return false;
 
 		cpu_relax();
-	} while (--loops);
+	} while (time_before(jiffies, timeout));
 
-	if (!loops)
-		return true;
+	return true;
+}
 
-	return false;
+void set_secure_dma(void)
+{
+	int ret;
+
+	ret = ion_exynos_contig_heap_info(ION_EXYNOS_ID_SECDMA,
+				&secdma_mem_info.base, &secdma_mem_info.size);
+	if (ret) {
+		pr_err("get ion exynos info failed\n");
+		return;
+	}
+	pr_err("[%s] ion base: 0x%x, size:0x%x \n", __func__,
+				secdma_mem_info.base, secdma_mem_info.size);
+
+	secure_dma_mode = true;
 }
 
 static inline void _execute_DBGINSN(struct pl330_thread *thrd,
 		u8 insn[], bool as_manager)
 {
 	void __iomem *regs = thrd->dmac->pinfo->base;
+	struct device_node *np = thrd->dmac->pinfo->dev->of_node;
 	u32 val;
+	int ret;
 
 	val = (insn[0] << 16) | (insn[1] << 24);
 	if (!as_manager) {
 		val |= (1 << 0);
 		val |= (thrd->id << 8); /* Channel Number */
 	}
+
+	if (soc_is_exynos5430() && secure_dma_mode)
+		if (np && of_dma_secure_mode(np)) {
+			ret = exynos_smc(MC_FC_SECURE_DMA, val,
+					*((u32 *)&insn[2]), secdma_mem_info.base);
+			if (ret)
+				 dev_err(thrd->dmac->pinfo->dev, "dma smc failed\n");
+			return;
+		}
+
 	writel(val, regs + DBGINST0);
 
 	val = *((u32 *)&insn[2]);
@@ -1545,9 +1589,27 @@ static int _setup_req(unsigned dry_run, struct pl330_thread *thrd,
 		unsigned index, struct _xfer_spec *pxs)
 {
 	struct _pl330_req *req = &thrd->req[index];
+	struct pl330_dmac *pl330 = thrd->dmac;
 	struct pl330_xfer *x;
-	u8 *buf = req->mc_cpu;
+	u8 *buf;
 	int off = 0;
+	unsigned mcbufsize = thrd->dmac->pinfo->mcbufsz;
+
+	if (soc_is_exynos5422()) {
+		if (pxs->r->sram) {
+			req->mc_cpu = pl330->mcode_cpu_sram + thrd->id * mcbufsize +
+					(mcbufsize / 2) * index;
+			req->mc_bus = pl330->mcode_bus_sram + thrd->id * mcbufsize +
+					(mcbufsize / 2) * index;
+		} else {
+			req->mc_cpu = pl330->mcode_cpu + thrd->id * mcbufsize +
+					(mcbufsize / 2) * index;
+			req->mc_bus = pl330->mcode_bus + thrd->id * mcbufsize +
+					(mcbufsize / 2) * index;
+		}
+	}
+
+	buf = req->mc_cpu;
 
 	PL330_DBGMC_START(req->mc_bus);
 
@@ -1929,6 +1991,11 @@ static int pl330_chan_ctrl(void *ch_id, enum pl330_chan_op op)
 		/* Make sure the channel is stopped */
 		_stop(thrd);
 
+		if (soc_is_exynos5422() && pl330->pinfo->dev->of_node
+			&& of_dma_get_mcode_addr(pl330->pinfo->dev->of_node)) {
+			udelay(10);
+		}
+
 		thrd->req[0].r = NULL;
 		thrd->req[1].r = NULL;
 		mark_free(thrd, 0);
@@ -2031,11 +2098,21 @@ static inline void _free_event(struct pl330_thread *thrd, int ev)
 {
 	struct pl330_dmac *pl330 = thrd->dmac;
 	struct pl330_info *pi = pl330->pinfo;
+	void __iomem *regs = pi->base;
+	u32 inten = readl(regs + INTEN);
 
 	/* If the event is valid and was held by the thread */
 	if (ev >= 0 && ev < pi->pcfg.num_events
-			&& pl330->events[ev] == thrd->id)
+			&& pl330->events[ev] == thrd->id) {
 		pl330->events[ev] = -1;
+
+		if (readl(regs + ES) & (1 << ev)) {
+			if (!(inten & (1 << ev)))
+				writel(inten | (1 << ev), regs + INTEN);
+			writel(1 << ev, regs + INTCLR);
+			writel(inten & ~(1 << ev) , regs + INTEN);
+		}
+	}
 }
 
 static void pl330_release_channel(void *ch_id)
@@ -2147,7 +2224,14 @@ static int dmac_alloc_threads(struct pl330_dmac *pl330)
 		thrd->id = i;
 		thrd->dmac = pl330;
 		_reset_thread(thrd);
-		thrd->free = true;
+
+		/* Secure Channel */
+		if (i == 0 && soc_is_exynos5430() &&
+			pi->dev->of_node && of_dma_secure_mode(pi->dev->of_node)) {
+			thrd->free = false;
+		} else {
+			thrd->free = true;
+		}
 	}
 
 	/* MANAGER is indexed at the end */
@@ -2170,8 +2254,13 @@ static int dmac_alloc_resources(struct pl330_dmac *pl330)
 	if (pi->dev->of_node) {
 		addr = of_dma_get_mcode_addr(pi->dev->of_node);
 		if (addr) {
-			set_dma_ops(pi->dev, &arm_exynos_dma_mcode_ops);
-			pl330->mcode_bus = addr;
+			if (soc_is_exynos5430()) {
+				set_dma_ops(pi->dev, &arm_exynos_dma_mcode_ops);
+				pl330->mcode_bus = addr;
+			} else if(soc_is_exynos5422()){
+				pl330->mcode_bus_sram = addr;
+				pl330->mcode_cpu_sram = ioremap(addr, chans * pi->mcbufsz);
+			}
 		}
 	}
 
@@ -2182,6 +2271,7 @@ static int dmac_alloc_resources(struct pl330_dmac *pl330)
 	pl330->mcode_cpu = dma_alloc_coherent(pi->dev,
 				chans * pi->mcbufsz,
 				&pl330->mcode_bus, GFP_KERNEL);
+
 	if (!pl330->mcode_cpu) {
 		dev_err(pi->dev, "%s:%d Can't allocate memory!\n",
 			__func__, __LINE__);
@@ -2472,17 +2562,18 @@ static void dma_pl330_rqcb(void *token, enum pl330_op_err err)
 {
 	struct dma_pl330_desc *desc = token;
 	struct dma_pl330_chan *pch = desc->pchan;
+	struct dma_pl330_dmac *pdmac = pch->dmac;
 	unsigned long flags;
 
 	/* If desc aborted */
 	if (!pch)
 		return;
 
-	spin_lock_irqsave(&pch->lock, flags);
+	spin_lock_irqsave(&pdmac->pool_lock, flags);
 
 	desc->status = DONE;
 
-	spin_unlock_irqrestore(&pch->lock, flags);
+	spin_unlock_irqrestore(&pdmac->pool_lock, flags);
 
 	tasklet_schedule(&pch->task);
 }
@@ -2708,7 +2799,7 @@ static int add_desc(struct dma_pl330_dmac *pdmac, gfp_t flg, int count)
 	if (!pdmac)
 		return 0;
 
-	desc = kmalloc(count * sizeof(*desc), flg);
+	desc = kzalloc(count * sizeof(*desc), flg);
 	if (!desc)
 		return 0;
 
@@ -2917,6 +3008,15 @@ static struct dma_async_tx_descriptor *pl330_prep_dma_cyclic(
 		desc->rqcfg.brst_size = pch->burst_sz;
 		desc->rqcfg.brst_len = 1;
 		desc->req.infiniteloop = *infinite;
+
+		if (soc_is_exynos5422()) {
+			if (dma_addr >= AUDSS_SRAM &&
+				dma_addr < (AUDSS_SRAM + AUDSS_SRAM_SIZE))
+				desc->req.sram = true;
+			else
+				desc->req.sram = false;
+		}
+
 		fill_px(&desc->px, dst, src, period_len);
 
 		if (!first)

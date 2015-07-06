@@ -215,6 +215,13 @@ config SERIAL_SAMSUNG_DMA
 	help
 	  Support UART DMA Mode
 
+config SERIAL_SAMSUNG_LOOPBACK_MODE
+	bool "Support Loop Back Mode"
+	depends on SERIAL_SAMSUNG
+	default n
+	help
+	  Support UART LOOPBACK Mode on UART_0
+
 config SERIAL_SAMSUNG_UARTS_4
 	bool
 	depends on PLAT_SAMSUNG

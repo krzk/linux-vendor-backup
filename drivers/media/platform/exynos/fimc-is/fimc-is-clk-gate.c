@@ -30,8 +30,9 @@ int fimc_is_clk_gate_init(struct fimc_is_core *core)
 	spin_lock_init(&gate_ctrl->lock);
 	core->resourcemgr.clk_gate_ctrl.gate_info = core->pdata->gate_info;
 
-	/* init clock gating region for debug */
-	writel(0x0, core->ischain[0].interface->regs + ISSR53);
+	/* Do not initialize clock gating region for debug(ISSR53).
+	 * Because this region is initialize by A5.
+	 */
 	return 0;
 }
 
@@ -72,14 +73,41 @@ int fimc_is_wrap_clk_gate_set(struct fimc_is_core *core,
 
 	for (i = 0; i < FIMC_IS_GRP_MAX; i++) {
 		if (msk_group_id & (1 << i))
-			fimc_is_clk_gate_set(core, i, is_on, true);
+			fimc_is_clk_gate_set(core, i, is_on, true, false);
 	}
 
 	return 0;
 }
 
+inline bool fimc_is_group_otf(struct fimc_is_device_ischain *device, int group_id)
+{
+	struct fimc_is_group *group;
+
+	switch (group_id) {
+	case GROUP_ID_3A0:
+	case GROUP_ID_3A1:
+		group = &device->group_3aa;
+		break;
+	case GROUP_ID_ISP:
+		group = &device->group_isp;
+		break;
+	case GROUP_ID_DIS:
+		group = &device->group_dis;
+		break;
+	default:
+		group = NULL;
+		pr_err("%s unresolved group id %d", __func__,  group_id);
+		return false;
+	}
+
+	if (test_bit(FIMC_IS_GROUP_OTF_INPUT, &group->state))
+		return true;
+	else
+		return false;
+}
+
 int fimc_is_clk_gate_set(struct fimc_is_core *core,
-			int group_id, bool is_on, bool skip_set_state)
+			int group_id, bool is_on, bool skip_set_state, bool user_scenario)
 {
 	int ret = 0;
 	int cfg = 0;
@@ -107,7 +135,7 @@ int fimc_is_clk_gate_set(struct fimc_is_core *core,
 		(gate_ctrl->chk_on_off_cnt[group_id])--; /* for debuging */
 		(gate_ctrl->msk_cnt[group_id])--;
 		if ((gate_ctrl->msk_cnt[group_id]) < 0) {
-			pr_warn("%s msk_cnt[%d] is lower than jero !!\n", __func__, group_id);
+			pr_warn("%s msk_cnt[%d] is lower than zero !!\n", __func__, group_id);
 			(gate_ctrl->msk_cnt[group_id]) = 0;
 		}
 		if ((gate_ctrl->msk_cnt[group_id]) == 0)
@@ -127,11 +155,17 @@ int fimc_is_clk_gate_set(struct fimc_is_core *core,
 				pr_info("%s lock(on) due to instance(%d)\n", __func__, i);
 				goto exit;
 			}
+			/* don't off! if there is at least this group that is OTF */
+			if (fimc_is_group_otf(&core->ischain[i], group_id)) {
+				pr_debug("%s don't off!! this instance(%d) group(%d) is OTF\n",
+					__func__, i, group_id);
+				goto exit;
+			}
 		}
 	}
 
 	/* Check user scenario */
-	if (gate_info->user_clk_gate) {
+	if (user_scenario && gate_info->user_clk_gate) {
 		if (fimc_is_set_user_clk_gate(group_id,
 					core,
 					is_on,
@@ -199,12 +233,16 @@ int fimc_is_set_user_clk_gate(u32 group_id,
 	u32 user_scenario_id = 0;
 
 	/* deside what user scenario is */
-#if !defined(ENABLE_FULL_BYPASS)
+#if defined(ENABLE_FULL_BYPASS)
+	if (group_id == GROUP_ID_ISP)
+		user_scenario_id = CLK_GATE_FULL_BYPASS_SN;
+#else
 	if (group_id == GROUP_ID_ISP)
 		user_scenario_id = CLK_GATE_NOT_FULL_BYPASS_SN;
+
 #endif
 	if (group_id == GROUP_ID_ISP &&
-		!test_bit(FIMC_IS_SUBDEV_START,
+		test_bit(FIMC_IS_SUBDEV_START,
 			&core->ischain[0].dis.state))
 		user_scenario_id = CLK_GATE_DIS_SN;
 

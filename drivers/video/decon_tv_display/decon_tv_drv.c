@@ -57,14 +57,21 @@ static int dex_runtime_resume(struct device *dev);
 
 static const struct decon_tv_porch decon_tv_porchs[] =
 {
-	{"DECONTV_640x480P60", 640, 480, 43, 1, 1, 58, 10, 92, V4L2_FIELD_NONE},
 	{"DECONTV_720x480P60", 720, 480, 43, 1, 1, 92, 10, 36, V4L2_FIELD_NONE},
 	{"DECONTV_720x576P50", 720, 576, 47, 1, 1, 92, 10, 42, V4L2_FIELD_NONE},
-	{"DECONTV_1280x720P60", 1280, 720, 28, 1, 1, 192, 10, 168, V4L2_FIELD_NONE},
-	{"DECONTV_1280x720P50", 1280, 720, 28, 1, 1, 92, 10, 598, V4L2_FIELD_NONE},
-	{"DECONTV_1920x1080P60", 1920, 1080, 43, 1, 1, 92, 10, 178, V4L2_FIELD_NONE},
+	{"DECONTV_1280x720P60", 1280, 720, 28, 1, 1, 192, 10, 168, V4L2_FIELD_NONE | HDMI_TIMINGS_2},
+	{"DECONTV_1280x720P50", 1280, 720, 28, 1, 1, 92, 10, 598, V4L2_FIELD_NONE | HDMI_TIMINGS_1},
+	{"DECONTV_1920x1080P60", 1920, 1080, 43, 1, 1, 92, 10, 178, V4L2_FIELD_NONE | HDMI_TIMINGS_5},
+	{"DECONTV_1920x1080P50", 1920, 1080, 43, 1, 1, 92, 10, 618, V4L2_FIELD_NONE | HDMI_TIMINGS_4},
+	{"DECONTV_1920x1080P30", 1920, 1080, 43, 1, 1, 92, 10, 178, V4L2_FIELD_NONE | HDMI_TIMINGS_3},
+	{"DECONTV_1920x1080P25", 1920, 1080, 43, 1, 1, 92, 10, 618, V4L2_FIELD_NONE | HDMI_TIMINGS_2},
+	{"DECONTV_1920x1080P24", 1920, 1080, 43, 1, 1, 92, 10, 728, V4L2_FIELD_NONE | HDMI_TIMINGS_1},
 	{"DECONTV_1920x1080I60", 1920, 540, 20, 1, 1, 92, 10, 178, V4L2_FIELD_INTERLACED},
 	{"DECONTV_3840x2160P24", 3840, 2160, 88, 1, 1, 1558, 10, 92, V4L2_FIELD_NONE},
+	{"DECONTV_4096x2160P24", 4096, 2160, 88, 1, 1, 1302, 10, 92, V4L2_FIELD_NONE},
+	{"DECONTV_3840x2160P30", 3840, 2160, 88, 1, 1, 458, 10, 92, V4L2_FIELD_NONE | HDMI_TIMINGS_3},
+	{"DECONTV_3840x2160P25", 3840, 2160, 88, 1, 1, 1338, 10, 92, V4L2_FIELD_NONE | HDMI_TIMINGS_2},
+	{"DECONTV_3840x2160P24", 3840, 2160, 88, 1, 1, 1558, 10, 92, V4L2_FIELD_NONE | HDMI_TIMINGS_1},
 	{"DECONTV_4096x2160P24", 4096, 2160, 88, 1, 1, 1302, 10, 92, V4L2_FIELD_NONE},
 };
 
@@ -77,7 +84,8 @@ const struct decon_tv_porch *find_porch(u32 xres, u32 yres, u32 mode)
 		porch = &decon_tv_porchs[i];
 		if ((mode == V4L2_FIELD_INTERLACED) && (mode == porch->vmode))
 			return porch;
-		if ((xres == porch->xres) && (yres == porch->yres))
+		if ((xres == porch->xres) && (yres == porch->yres)
+				&& (mode == porch->vmode))
 			return porch;
 	}
 
@@ -106,6 +114,7 @@ static int dex_set_output(struct dex_device *dex)
 	WARN(ret, "failed to get mbus_fmt for output %s\n", hdmi_sd->name);
 
 	dex->porch = find_porch(mbus_fmt.width, mbus_fmt.height, mbus_fmt.field);
+	dex_dbg("find porch for %s\n", dex->porch->name);
 	if (!dex->porch)
 		return -EINVAL;
 
@@ -836,7 +845,6 @@ static int dex_set_win_buffer(struct dex_device *dex, struct dex_win *win,
 		ret = -EINVAL;
 		goto fail;
 	}
-
 
 	handle = ion_import_dma_buf(dex->ion_client, win_config->fd);
 	if (IS_ERR(handle)) {

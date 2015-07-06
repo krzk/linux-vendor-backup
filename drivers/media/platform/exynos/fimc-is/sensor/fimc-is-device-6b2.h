@@ -14,7 +14,6 @@
 
 #define SENSOR_S5K6B2_INSTANCE	1
 #define SENSOR_S5K6B2_NAME	SENSOR_NAME_S5K6B2
-#define SENSOR_S5K6B2_DRIVING
 
 struct fimc_is_module_6b2 {
 	u16		vis_duration;

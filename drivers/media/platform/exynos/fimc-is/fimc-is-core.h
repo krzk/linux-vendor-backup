@@ -34,6 +34,16 @@
 #elif defined(CONFIG_VIDEOBUF2_ION)
 #include <media/videobuf2-ion.h>
 #endif
+#ifdef CONFIG_COMPANION_USE
+#include <linux/i2c.h>
+#include <linux/module.h>
+#include <linux/slab.h>
+#include "fimc-is-companion.h"
+#ifdef CONFIG_SOC_EXYNOS5422
+#include <linux/regulator/consumer.h>
+#include <linux/delay.h>
+#endif
+#endif
 
 #include "fimc-is-param.h"
 #include "fimc-is-interface.h"
@@ -41,6 +51,7 @@
 #include "fimc-is-resourcemgr.h"
 #include "fimc-is-device-sensor.h"
 #include "fimc-is-device-ischain.h"
+#include "fimc-is-device-companion.h"
 
 #include "fimc-is-video.h"
 #include "fimc-is-mem.h"
@@ -49,6 +60,7 @@
 
 #define FIMC_IS_COMMAND_TIMEOUT			(3*HZ)
 #define FIMC_IS_STARTUP_TIMEOUT			(3*HZ)
+#define FIMC_IS_COMPANION_TIMEOUT		(1*HZ)
 
 #define FIMC_IS_SHUTDOWN_TIMEOUT		(10*HZ)
 #define FIMC_IS_FLITE_STOP_TIMEOUT		(3*HZ)
@@ -150,7 +162,7 @@
 #define I2C_L1_1			(54000000)
 #define I2C_L2				(21600000)
 #define DVFS_SKIP_FRAME_NUM		(5)
-#elif defined(CONFIG_SOC_EXYNOS3470) || defined(CONFIG_SOC_EXYNOS5260)
+#elif defined(CONFIG_SOC_EXYNOS3470) || defined(CONFIG_SOC_EXYNOS3472) ||defined(CONFIG_SOC_EXYNOS5260) || defined(CONFIG_SOC_EXYNOS4415)
 #define DVFS_L0				(266000)
 #define DVFS_MIF_L0			(400000)
 #define I2C_L0				(108000000)
@@ -233,6 +245,15 @@ struct fimc_is_sysfs_debug {
 	unsigned int clk_gate_mode;
 };
 
+#ifdef CONFIG_COMPANION_USE
+struct fimc_is_spi_gpio {
+        char *spi_sclk;
+        char *spi_ssn;
+        char *spi_miso;
+        char *spi_mois;
+};
+#endif
+
 struct fimc_is_core {
 	struct platform_device			*pdev;
 	struct resource				*regs_res;
@@ -255,6 +276,7 @@ struct fimc_is_core {
 
 	struct fimc_is_device_sensor		sensor[FIMC_IS_MAX_NODES];
 	struct fimc_is_device_ischain		ischain[FIMC_IS_MAX_NODES];
+	struct fimc_is_device_companion		*companion;
 
 	struct v4l2_device			v4l2_dev;
 
@@ -272,7 +294,18 @@ struct fimc_is_core {
 	/* spi */
 	struct spi_device			*spi0;
 	struct spi_device			*spi1;
-	struct spi_device			*t_spi;
+
+#if defined(CONFIG_COMPANION_USE) || defined(CONFIG_CAMERA_EEPROM_SUPPORT)
+	struct i2c_client			*client0;
+#endif
+
+#ifdef CONFIG_COMPANION_USE
+	struct i2c_client			*fan53555_client;
+	struct fimc_is_spi_gpio			spi_gpio;
+	u32					companion_spi_channel;
+	bool					use_two_spi_line;
+#endif
+	u32					use_sensor_dynamic_voltage_mode;
 };
 
 #if defined(CONFIG_VIDEOBUF2_CMA_PHYS)

@@ -50,8 +50,8 @@ static enum hrtimer_restart dvfs_callback(struct hrtimer *timer)
 
 	if (metrics->timer_active)
 		hrtimer_start(timer,
-					  HR_TIMER_DELAY_MSEC(metrics->kbdev->pm.platform_dvfs_frequency),
-					  HRTIMER_MODE_REL);
+				HR_TIMER_DELAY_MSEC(metrics->kbdev->pm.platform_dvfs_frequency),
+				HRTIMER_MODE_REL);
 
 	spin_unlock_irqrestore(&metrics->lock, flags);
 

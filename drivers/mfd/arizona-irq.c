@@ -78,19 +78,6 @@ static irqreturn_t arizona_boot_done(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t arizona_ctrlif_err(int irq, void *data)
-{
-	struct arizona *arizona = data;
-
-	/*
-	 * For pretty much all potential sources a register cache sync
-	 * won't help, we've just got a software bug somewhere.
-	 */
-	dev_err(arizona->dev, "Control interface error\n");
-
-	return IRQ_HANDLED;
-}
-
 static irqreturn_t arizona_irq_thread(int irq, void *data)
 {
 	struct arizona *arizona = data;
@@ -188,7 +175,6 @@ int arizona_irq_init(struct arizona *arizona)
 	int flags = IRQF_ONESHOT;
 	int ret, i;
 	const struct regmap_irq_chip *aod, *irq;
-	bool ctrlif_error = true;
 	struct irq_data *irq_data;
 
 	switch (arizona->type) {
@@ -196,8 +182,6 @@ int arizona_irq_init(struct arizona *arizona)
 	case WM5102:
 		aod = &wm5102_aod;
 		irq = &wm5102_irq;
-
-		ctrlif_error = false;
 		break;
 #endif
 #ifdef CONFIG_MFD_FLORIDA
@@ -205,8 +189,6 @@ int arizona_irq_init(struct arizona *arizona)
 	case WM5110:
 		aod = &florida_aod;
 		irq = &florida_irq;
-
-		ctrlif_error = false;
 		break;
 #endif
 	default:
@@ -292,20 +274,6 @@ int arizona_irq_init(struct arizona *arizona)
 		goto err_boot_done;
 	}
 
-	/* Handle control interface errors in the core */
-	if (ctrlif_error) {
-		i = arizona_map_irq(arizona, ARIZONA_IRQ_CTRLIF_ERR);
-		ret = request_threaded_irq(i, NULL, arizona_ctrlif_err,
-					   IRQF_ONESHOT,
-					   "Control interface error", arizona);
-		if (ret != 0) {
-			dev_err(arizona->dev,
-				"Failed to request CTRLIF_ERR %d: %d\n",
-				arizona->irq, ret);
-			goto err_ctrlif;
-		}
-	}
-
 	/* Used to emulate edge trigger and to work around broken pinmux */
 	if (arizona->pdata.irq_gpio) {
 		if (gpio_to_irq(arizona->pdata.irq_gpio) != arizona->irq) {
@@ -339,8 +307,6 @@ int arizona_irq_init(struct arizona *arizona)
 
 err_main_irq:
 	free_irq(arizona_map_irq(arizona, ARIZONA_IRQ_CTRLIF_ERR), arizona);
-err_ctrlif:
-	free_irq(arizona_map_irq(arizona, ARIZONA_IRQ_BOOT_DONE), arizona);
 err_boot_done:
 	regmap_del_irq_chip(irq_create_mapping(arizona->virq, 1),
 			    arizona->irq_chip);

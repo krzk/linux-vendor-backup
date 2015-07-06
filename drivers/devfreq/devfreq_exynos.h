@@ -72,4 +72,5 @@ struct devfreq_dynamic_clkgate {
 	unsigned long	freq;
 };
 
+
 #endif /* __DEVFREQ_EXYNOS_H */

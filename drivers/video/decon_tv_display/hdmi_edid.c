@@ -84,6 +84,9 @@ static struct edid_preset {
 	{ V4L2_DV_BT_CEA_1920X1080P50,	1920, 1080, 50, FB_VMODE_NONINTERLACED, "1080p@50" },
 	{ V4L2_DV_BT_CEA_1920X1080P60,	1920, 1080, 60, FB_VMODE_NONINTERLACED, "1080p@60" },
 	{ V4L2_DV_BT_CEA_3840X2160P24,  3840, 2160, 24, FB_VMODE_NONINTERLACED, "2160p@24" },
+	{ V4L2_DV_BT_CEA_3840X2160P25,	3840, 2160, 25, FB_VMODE_NONINTERLACED, "2160p@25" },
+	{ V4L2_DV_BT_CEA_3840X2160P30,	3840, 2160, 30, FB_VMODE_NONINTERLACED, "2160p@30" },
+	{ V4L2_DV_BT_CEA_4096X2160P24,	4096, 2160, 24, FB_VMODE_NONINTERLACED, "(4096x)2160p@24" },
 	{ V4L2_DV_BT_CEA_1920X1080I50,	1920, 1080, 50, FB_VMODE_INTERLACED, "1080i@50" },
 	{ V4L2_DV_BT_CEA_1920X1080I60,	1920, 1080, 60, FB_VMODE_INTERLACED, "1080i@60" },
 };
@@ -245,7 +248,31 @@ static int edid_read(struct hdmi_device *hdev, u8 **data)
 	return block_cnt;
 }
 
-static struct edid_preset *edid_find_preset(struct fb_videomode *mode)
+static unsigned int get_ud_timing(struct fb_vendor *vsdb, unsigned int vic_idx)
+{
+	unsigned char val = 0;
+	unsigned int idx = 0;
+
+	val = vsdb->vic_data[vic_idx];
+	switch (val) {
+	case 0x01:
+		idx = 0;
+		break;
+	case 0x02:
+		idx = 1;
+		break;
+	case 0x03:
+		idx = 2;
+		break;
+	case 0x04:
+		idx = 3;
+		break;
+	}
+
+	return idx;
+}
+
+static struct edid_preset *edid_find_preset(const struct fb_videomode *mode)
 {
 	struct edid_preset *preset = edid_presets;
 	int i;
@@ -367,8 +394,11 @@ static void edid_use_default_preset(void)
 void edid_extension_update(struct fb_monspecs *specs)
 {
 	struct edid_3d_preset *s3d_preset;
+	struct edid_preset *ud_preset;
 	const struct edid_3d_mandatory_preset *s3d_mandatory
 					= edid_3d_mandatory_presets;
+	unsigned int udmode_idx, vic_idx;
+	bool first = true;
 	int i;
 
 	if (!specs->vsdb)
@@ -388,6 +418,9 @@ void edid_extension_update(struct fb_monspecs *specs)
 			}
 		}
 	}
+
+	if (!specs->videodb)
+		return;
 
 	/* find 3D multi preset */
 	if (specs->vsdb->s3d_multi_present == EDID_3D_STRUCTURE_ALL)
@@ -409,6 +442,22 @@ void edid_extension_update(struct fb_monspecs *specs)
 				i++;
 		}
 	}
+
+	/* find UHD preset */
+	if (specs->vsdb->vic_len) {
+		for (vic_idx = 0; vic_idx < specs->vsdb->vic_len; vic_idx++) {
+			udmode_idx = get_ud_timing(specs->vsdb, vic_idx);
+			ud_preset =  edid_find_preset(&ud_modes[udmode_idx]);
+			if (ud_preset) {
+				pr_info("EDID: found %s", ud_preset->name);
+				ud_preset->supported = true;
+				if (first) {
+					preferred_preset = ud_preset->dv_timings;
+					first = false;
+				}
+			}
+		}
+	}
 }
 
 int edid_update(struct hdmi_device *hdev)
@@ -428,12 +477,11 @@ int edid_update(struct hdmi_device *hdev)
 	if (block_cnt < 0)
 		goto out;
 
-	fb_edid_to_monspecs(edid, &specs);
-	for (i = 1; i < block_cnt; i++) {
+	ret = fb_edid_to_monspecs(edid, &specs);
+	if (ret < 0)
+		goto out;
+	for (i = 1; i < block_cnt; i++)
 		ret = fb_edid_add_monspecs(edid + i * EDID_BLOCK_SIZE, &specs);
-		if (ret < 0)
-			goto out;
-	}
 
 	preferred_preset = hdmi_conf[HDMI_DEFAULT_TIMINGS_IDX].dv_timings;
 	for (i = 0; i < ARRAY_SIZE(edid_presets); i++)
@@ -457,8 +505,10 @@ int edid_update(struct hdmi_device *hdev)
 	}
 
 	/* number of 128bytes blocks to follow */
-	if (block_cnt > 1)
+	if (ret > 0 && block_cnt > 1)
 		edid_extension_update(&specs);
+	else
+		goto out;
 
 	if (!edid_misc)
 		edid_misc = specs.misc;

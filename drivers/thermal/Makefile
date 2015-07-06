@@ -17,7 +17,11 @@ thermal_sys-$(CONFIG_CPU_THERMAL)	+= cpu_cooling.o
 obj-$(CONFIG_SPEAR_THERMAL)	+= spear_thermal.o
 obj-$(CONFIG_RCAR_THERMAL)	+= rcar_thermal.o
 obj-$(CONFIG_KIRKWOOD_THERMAL)  += kirkwood_thermal.o
-obj-$(CONFIG_EXYNOS_THERMAL)	+= exynos_thermal.o
+ifeq ($(CONFIG_SOC_EXYNOS3250),y)
+obj-$(CONFIG_EXYNOS_THERMAL)            += exynos3250_thermal.o cal_tmu.o
+else
+obj-$(CONFIG_EXYNOS_THERMAL)            += exynos_thermal.o cal_tmu.o
+endif
 obj-$(CONFIG_DOVE_THERMAL)  	+= dove_thermal.o
 obj-$(CONFIG_DB8500_THERMAL)	+= db8500_thermal.o
 obj-$(CONFIG_ARMADA_THERMAL)	+= armada_thermal.o

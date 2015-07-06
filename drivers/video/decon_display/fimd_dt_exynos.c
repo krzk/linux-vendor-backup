@@ -11,6 +11,7 @@
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/of.h>
+#include <linux/of_platform.h>
 #include <linux/fb.h>
 #include <linux/of_gpio.h>
 #include <linux/platform_device.h>
@@ -20,16 +21,9 @@
 #include "decon_mipi_dsi.h"
 #include "decon_dt.h"
 
-#ifdef CONFIG_DECON_MIC
-#include "decon_mic.h"
-#endif
-
 #define DISP_CTRL_NAME	"fimd_ctrl"
 #define MIPI_DSI_NAME	"mipi_dsi"
 #define MIPI_LCD_NAME	"mipi_lcd_info"
-#ifdef CONFIG_DECON_MIC
-#define MIC_NAME	"decon_mic"
-#endif
 
 #define DT_LCD_CONF_IGNORE
 
@@ -71,19 +65,21 @@ struct mipi_dsim_config g_dsim_config = {
 	.dsim_ddi_pd = &s6e8aa0_mipi_lcd_driver,
 #elif defined(CONFIG_DECON_LCD_S6E3FA0)
 	.dsim_ddi_pd = &s6e3fa0_mipi_lcd_driver,
+#elif defined(CONFIG_DECON_LCD_S6E3HA0)
+	.dsim_ddi_pd = &s6e3ha0_mipi_lcd_driver,
+#elif defined(CONFIG_DECON_LCD_S6E3FA2)
+	.dsim_ddi_pd = &s6e3fa2_mipi_lcd_driver,
+#elif defined(CONFIG_DECON_LCD_S6E63J0X03)
+	.dsim_ddi_pd = &s6e63j0x03_mipi_lcd_driver,
+#elif defined(CONFIG_LCD_MIPI_NT35510)
+	.dsim_ddi_pd = &nt35510_mipi_lcd_driver,
+#elif defined(CONFIG_LCD_MIPI_SHIRI)
+	.dsim_ddi_pd = &shiri_mipi_lcd_driver,
 #endif
 };
 
-#ifdef CONFIG_DECON_MIC
-struct mic_config g_mic_config;
-#endif
-
 #define FIMD_CONT_REG_INDEX	0
 #define MIPI_DSI_REG_INDEX	1
-
-#ifdef CONFIG_DECON_MIC
-#define DISPLAY_MIC_REG_INDEX		2
-#endif
 
 static struct display_gpio g_disp_gpios;
 
@@ -270,6 +266,19 @@ static int parse_display_dt_exynos(struct device_node *np)
 	return ret;
 }
 
+#if defined(CONFIG_FB_SMIES)
+static int parse_smies_dt_node(struct platform_device *pdev,
+	struct display_driver *ddp)
+{
+	struct device_node *smies_node;
+	smies_node = of_find_node_by_name(NULL,"smies");
+	if(!smies_node)
+		return -EINVAL;
+	ddp->smies_pdev = of_find_device_by_node(smies_node);
+	return 0;
+}
+#endif
+
 static int parse_interrupt_dt_exynos(struct platform_device *pdev,
 	struct display_driver *ddp)
 {
@@ -332,13 +341,6 @@ struct mipi_dsim_lcd_config *get_display_lcd_drvdata(void)
 	return &g_lcd_config;
 }
 
-#ifdef CONFIG_DECON_MIC
-struct mic_config *get_display_mic_config(void)
-{
-	return &g_mic_config;
-}
-#endif
-
 static int parse_dsi_drvdata(struct device_node *np)
 {
 	u32 temp;
@@ -372,11 +374,12 @@ static int parse_dsi_drvdata(struct device_node *np)
 	/* for power1 */
 	g_disp_gpios.num++;
 	g_disp_gpios.id[0] = of_get_gpio(np, 0);
-#ifdef CONFIG_S5P_DP
-	g_disp_gpios.id[0] = of_get_gpio(np, 0);
-#endif
 	g_disp_gpios.num++;
 	g_disp_gpios.id[1] = of_get_gpio(np, 1);
+#if defined(CONFIG_MACH_UNIVERSAL3250)
+	g_disp_gpios.num++;
+	g_disp_gpios.id[2] = of_get_gpio(np, 2);
+#endif
 	return 0;
 }
 
@@ -396,16 +399,6 @@ int parse_display_dsi_dt_exynos(struct device_node *np)
 end:
 	return 0;
 }
-
-#ifdef CONFIG_DECON_MIC
-int parse_decon_mic_dt_exynos(struct device_node *np)
-{
-	u32 temp;
-
-	DT_READ_U32_OPTIONAL(np, "sysreg1", g_mic_config.sysreg1);
-	return 0;
-}
-#endif
 
 /* parse_all_dt_exynos -
  * parses TOP device tree for display subsystem */
@@ -437,18 +430,6 @@ static int parse_all_dt_exynos(struct device_node *parent)
 		return ret;
 	}
 
-#ifdef CONFIG_DECON_MIC
-	node = of_get_child_by_name(parent, MIC_NAME);
-	if (!node) {
-		pr_err("device tree errror : empty mic dt\n");
-		return -EINVAL;
-	}
-	ret = parse_decon_mic_dt_exynos(node);
-	if (ret < 0) {
-		pr_err("parsing for MIC failed.\n");
-		return ret;
-	}
-#endif
 	return ret;
 }
 /* parse_display_driver_dt_exynos
@@ -478,15 +459,14 @@ int parse_display_driver_dt(struct platform_device *pdev,
 	pr_info("%s: decon_driver.regs %x dsi_driver.regs %x\n", __func__,
 		*(unsigned int *)ddp->decon_driver.regs, *(unsigned int *)ddp->dsi_driver.regs);
 
-#ifdef CONFIG_DECON_MIC
-	ddp->mic_driver.regs = platform_get_resource(pdev,
-		IORESOURCE_MEM, DISPLAY_MIC_REG_INDEX);
-	if (!ddp->mic_driver.regs) {
-		pr_err("failed to find registers for MIC\n");
-		return -ENOENT;
+	/* starts to parse device tree */
+#if defined(CONFIG_FB_SMIES)
+	ret = parse_smies_dt_node(pdev, ddp);
+	if (ret < 0) {
+		pr_err("smies dt node parse error\n");
+		return -EINVAL;
 	}
 #endif
-	/* starts to parse device tree */
 	ret = parse_interrupt_dt_exynos(pdev, ddp);
 	if (ret < 0) {
 		pr_err("interrupt parse error system\n");

@@ -42,6 +42,23 @@ static int __exynos5_mipi_phy_control(int id, bool on, u32 reset)
 	return 0;
 }
 #else
+static __inline__ u32 exynos5_phy0_is_running(u32 reset)
+{
+	u32 ret = 0;
+
+	/* When you try to disable DSI, CHECK CAM0 PD STATUS */
+	if (reset == S5P_MIPI_DPHY_MRESETN) {
+		if (readl(EXYNOS5430_CAM0_STATUS) & 0x1)
+			ret = __raw_readl(S5P_VA_SYSREG_CAM0 + 0x1014) & MIPI_PHY_BIT0;
+	/* When you try to disable CSI, CHECK DISP PD STATUS */
+	} else if (reset == S5P_MIPI_DPHY_SRESETN) {
+		if (readl(EXYNOS5430_DISP_STATUS) & 0x1)
+			ret = __raw_readl(S5P_VA_SYSREG_DISP + 0x000C) & MIPI_PHY_BIT0;
+	}
+
+	return ret;
+}
+
 static int __exynos5_mipi_phy_control(int id, bool on, u32 reset)
 {
 	static DEFINE_SPINLOCK(lock);
@@ -49,8 +66,6 @@ static int __exynos5_mipi_phy_control(int id, bool on, u32 reset)
 	void __iomem *addr_reset;
 	unsigned long flags;
 	u32 cfg;
-	u32 csi_reset = 0;
-	u32 dsi_reset = 0;
 
 	addr_phy = S5P_MIPI_DPHY_CONTROL(id);
 
@@ -60,14 +75,14 @@ static int __exynos5_mipi_phy_control(int id, bool on, u32 reset)
 	switch(id) {
 	case 0:
 		if (reset == S5P_MIPI_DPHY_SRESETN) {
-			if (readl(S5P_VA_PMU + 0x4024) & 0x1) {
-				addr_reset = S5P_VA_SYSREG_CAM0 + 0x0014;
+			if (readl(EXYNOS5430_CAM0_STATUS) & 0x1) {
+				addr_reset = S5P_VA_SYSREG_CAM0 + 0x1014;
 				cfg = __raw_readl(addr_reset);
 				cfg = on ? (cfg | MIPI_PHY_BIT0) : (cfg & ~MIPI_PHY_BIT0);
 				__raw_writel(cfg, addr_reset);
 			}
 		} else {
-			if (readl(S5P_VA_PMU + 0x4084) & 0x1) {
+			if (readl(EXYNOS5430_DISP_STATUS) & 0x1) {
 				addr_reset = S5P_VA_SYSREG_DISP + 0x000c;
 				cfg = __raw_readl(addr_reset);
 				cfg = on ? (cfg | MIPI_PHY_BIT0) : (cfg & ~MIPI_PHY_BIT0);
@@ -76,16 +91,16 @@ static int __exynos5_mipi_phy_control(int id, bool on, u32 reset)
 		}
 		break;
 	case 1:
-		if (readl(S5P_VA_PMU + 0x4024) & 0x1) {
-			addr_reset = S5P_VA_SYSREG_CAM0 + 0x0014;
+		if (readl(EXYNOS5430_CAM0_STATUS) & 0x1) {
+			addr_reset = S5P_VA_SYSREG_CAM0 + 0x1014;
 			cfg = __raw_readl(addr_reset);
 			cfg = on ? (cfg | MIPI_PHY_BIT1) : (cfg & ~MIPI_PHY_BIT1);
 			__raw_writel(cfg, addr_reset);
 		}
 		break;
 	case 2:
-		if (readl(S5P_VA_PMU + 0x40A4) & 0x1) {
-			addr_reset = S5P_VA_SYSREG_CAM1 + 0x0020;
+		if (readl(EXYNOS5430_CAM1_STATUS) & 0x1) {
+			addr_reset = S5P_VA_SYSREG_CAM1 + 0x1020;
 			cfg = __raw_readl(addr_reset);
 			cfg = on ? (cfg | MIPI_PHY_BIT0) : (cfg & ~MIPI_PHY_BIT0);
 			__raw_writel(cfg, addr_reset);
@@ -93,19 +108,8 @@ static int __exynos5_mipi_phy_control(int id, bool on, u32 reset)
 		break;
 	default:
 		pr_err("id(%d) is invalid", id);
+		spin_unlock_irqrestore(&lock, flags);
 		return -EINVAL;
-	}
-
-	/* CHECK CMA0 PD STATUS */
-	if (readl(S5P_VA_PMU + 0x4024) & 0x1) {
-		addr_reset = S5P_VA_SYSREG_CAM0 + 0x0014;
-		csi_reset = __raw_readl(addr_reset);
-	}
-
-	/* CHECK DISP PD STATUS */
-	if (readl(S5P_VA_PMU + 0x4084) & 0x1) {
-		addr_reset = S5P_VA_SYSREG_DISP + 0x000c;
-		dsi_reset = __raw_readl(addr_reset);
 	}
 
 	/* PHY PMU enable */
@@ -115,7 +119,7 @@ static int __exynos5_mipi_phy_control(int id, bool on, u32 reset)
 		cfg |= S5P_MIPI_DPHY_ENABLE;
 	else {
 		if (id == 0) {
-			if(!((csi_reset | dsi_reset) & MIPI_PHY_BIT0))
+			if (!exynos5_phy0_is_running(reset))
 				cfg &= ~S5P_MIPI_DPHY_ENABLE;
 		} else {
 			cfg &= ~S5P_MIPI_DPHY_ENABLE;

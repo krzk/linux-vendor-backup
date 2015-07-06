@@ -142,6 +142,9 @@
 #define VIDCON2_ORGYCbCr			(1 << 8)
 #define VIDCON2_YUVORDCrCb			(1 << 7)
 
+/* VIDTCON3 */          
+#define VIDTCON3_VSYNCEN                        (1 << 31)
+
 /* PRTCON (S3C6410, S5PC100)
  * Might not be present in the S3C6410 documentation,
  * but tests prove it's there almost for sure; shouldn't hurt in any case.

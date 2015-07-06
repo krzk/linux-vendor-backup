@@ -28,12 +28,19 @@
 #include <linux/v4l2-mediabus.h>
 #include <linux/exynos_iovmm.h>
 #include <media/v4l2-ioctl.h>
-
 #include "gsc-core.h"
+
+#if defined(CONFIG_SOC_EXYNOS3250)
+static char *gsc_clocks[GSC_MAX_CLOCKS] = {
+	"gscl", "sclk_cam_blk", "cam_blk_320"
+};
+#else
 static char *gsc_clocks[GSC_MAX_CLOCKS] = {
 	"gate_gscl", "mout_aclk_gscl_333_user", "aclk_gscl_333",
 	"mout_aclk_gscl_111_user", "aclk_gscl_111"
 };
+#endif
+
 int gsc_dbg = 6;
 module_param(gsc_dbg, int, 0644);
 
@@ -354,7 +361,8 @@ void gsc_set_prefbuf(struct gsc_dev *gsc, struct gsc_frame frm)
 		s_chk_addr = frm.addr.cb;
 		s_chk_len = frm.payload[1];
 	} else if (frm.fmt->num_planes == 3) {
-		u32 low_addr, low_plane, mid_addr, mid_plane, high_addr, high_plane;
+		u32 low_addr, low_plane = 0, mid_addr, mid_plane, high_addr,
+		    high_plane = 0;
 		u32 t_min, t_max;
 
 		t_min = min3(frm.addr.y, frm.addr.cb, frm.addr.cr);
@@ -1249,6 +1257,9 @@ static irqreturn_t gsc_irq_handler(int irq, void *priv)
 	struct gsc_dev *gsc = priv;
 	int gsc_irq;
 
+	if (!test_bit(ST_M2M_RUN, &gsc->state) &&
+		!test_bit(ST_OUTPUT_STREAMON, &gsc->state))
+		return IRQ_HANDLED;
 #ifdef GSC_PERF
 	gsc->end_time = sched_clock();
 	gsc_dbg("OPERATION-TIME: %llu\n", gsc->end_time - gsc->start_time);
@@ -1270,10 +1281,14 @@ static irqreturn_t gsc_irq_handler(int irq, void *priv)
 		struct gsc_ctx *ctx =
 			v4l2_m2m_get_curr_priv(gsc->m2m.m2m_dev);
 
-		if (!ctx || !ctx->m2m_ctx)
-			goto isr_unlock;
+		if (timer_pending(&gsc->op_timer))
+			del_timer(&gsc->op_timer);
 
-		del_timer(&ctx->op_timer);
+		if (!ctx || !ctx->m2m_ctx) {
+			gsc_err("ctx : 0x%p", ctx);
+			goto isr_unlock;
+		}
+
 		src_vb = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 		dst_vb = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
 		if (src_vb && dst_vb) {
@@ -1294,20 +1309,16 @@ static irqreturn_t gsc_irq_handler(int irq, void *priv)
 			spin_unlock(&ctx->slock);
 		}
 		pm_runtime_put(&gsc->pdev->dev);
-	} else if (test_bit(ST_OUTPUT_STREAMON, &gsc->state)) {
+	} else if (test_bit(ST_OUTPUT_STREAMON, &gsc->state) &&
+			gsc->out.vbq.streaming) {
 		if (!list_empty(&gsc->out.active_buf_q) &&
 		    !list_is_singular(&gsc->out.active_buf_q)) {
 			struct gsc_input_buf *done_buf;
 			done_buf = active_queue_pop(&gsc->out, gsc);
-			if (done_buf->idx != gsc_hw_get_curr_in_buf_idx(gsc)) {
-				gsc_hw_set_input_buf_masking(gsc, done_buf->idx, true);
-				gsc_out_set_pp_pending_bit(gsc, done_buf->idx, true);
-				vb2_buffer_done(&done_buf->vb, VB2_BUF_STATE_DONE);
-				list_del(&done_buf->list);
-			}
+			vb2_buffer_done(&done_buf->vb, VB2_BUF_STATE_DONE);
+			list_del(&done_buf->list);
 		}
-	} else if (test_bit(ST_CAPT_PEND, &gsc->state)) {
-		gsc_cap_irq_handler(gsc);
+		gsc->isr_cnt++;
 	}
 
 isr_unlock:
@@ -1376,7 +1387,8 @@ static int gsc_clk_get(struct gsc_dev *gsc)
 		gsc->clock[i] = ERR_PTR(-EINVAL);
 
 	for (i = 0; i < GSC_MAX_CLOCKS; i++) {
-		gsc->clock[i] = __clk_lookup(gsc_clocks[i]);
+		gsc->clock[i] = devm_clk_get(&gsc->pdev->dev,
+				gsc_clocks[i]);
 		if (IS_ERR(gsc->clock[i])) {
 			ret = PTR_ERR(gsc->clock[i]);
 			goto err;
@@ -1439,7 +1451,7 @@ int gsc_set_protected_content(struct gsc_dev *gsc, bool enable)
 
 void gsc_dump_registers(struct gsc_dev *gsc)
 {
-	pr_err("dumping registers\n");
+	pr_err("GSC dumping registers\n");
 	print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4, gsc->regs,
 			0x0280, false);
 	pr_err("End of GSC_SFR DUMP\n");
@@ -1462,7 +1474,9 @@ static int gsc_runtime_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct gsc_dev *gsc = (struct gsc_dev *)platform_get_drvdata(pdev);
 
+#if !defined(CONFIG_SOC_EXYNOS3250)
 	gsc_hw_set_dynamic_clock_gating(gsc);
+#endif
 
 	if (clk_set_parent(gsc->clock[CLK_CHILD],
 			gsc->clock[CLK_PARENT])) {
@@ -1470,7 +1484,7 @@ static int gsc_runtime_resume(struct device *dev)
 			gsc_clocks[CLK_CHILD], gsc_clocks[CLK_PARENT]);
 		return -EINVAL;
 	}
-
+#if !defined (CONFIG_SOC_EXYNOS3250)
 	if (clk_set_parent(gsc->clock[CLK_S_CHILD],
 			gsc->clock[CLK_S_PARENT])) {
 		dev_err(dev, "Unable to set parent %s of clock %s.\n",
@@ -1478,7 +1492,7 @@ static int gsc_runtime_resume(struct device *dev)
 			gsc_clocks[CLK_S_PARENT]);
 		return -EINVAL;
 	}
-
+#endif
 	gsc_clock_gating(gsc, GSC_CLK_ON);
 
 	return 0;
@@ -1557,7 +1571,7 @@ struct gsc_variant gsc_variant = {
 	.pix_max		= &gsc_v_max,
 	.pix_min		= &gsc_v_min,
 	.pix_align		= &gsc_v_align,
-	.in_buf_cnt		= 4,
+	.in_buf_cnt		= 10,
 	.out_buf_cnt		= 16,
 	.sc_up_max		= 8,
 	.sc_down_max		= 16,
@@ -1740,7 +1754,9 @@ static int gsc_probe(struct platform_device *pdev)
 	exynos_create_iovmm(&pdev->dev, 3, 3);
 	gsc->vb2->resume(gsc->alloc_ctx);
 
+#if !defined(CONFIG_SOC_EXYNOS3250)
 	gsc_hw_set_dynamic_clock_gating(gsc);
+#endif
 
 	gsc_pm_runtime_enable(&pdev->dev);
 

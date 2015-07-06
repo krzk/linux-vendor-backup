@@ -349,19 +349,6 @@ __v7_setup:
 
 	stmia	r12, {r0-r3}
 	mov	r3, #0
-
-/* Prevent the clock generator from stopping the L2 logic clock */
-	mrc	p15, 1, r10, c15, c0, 0		@ read l2aux control register
-#ifdef CONFIG_L2_AUTO_CLOCK_DISABLE
-	orr	r10, r10, #1 << 27		@ set bit #27
-#else
-	bic	r10, r10, #1 << 27		@ clear bit #27
-#endif
-	ldr	r0, =SMC_CMD_REG
-	ldr	r1, =SMC_REG_ID_CP15(15, 1, 0, 0)
-	mov	r2, r10
-	smc	0
-
 /* Enable Non-cacheable streaming enhancement */
 	mrc	p15, 0, r10, c1, c0, 1		@ read aux control register
 	orr	r10, r10, #1 << 24		@ set bit #24
@@ -391,7 +378,6 @@ __v7_setup:
 
 4:	mov	r10, #0
 	mcr	p15, 0, r10, c7, c5, 0		@ I+BTB cache invalidate
-	dsb
 #ifdef CONFIG_MMU
 	mcr	p15, 0, r10, c8, c7, 0		@ invalidate I + D TLBs
 	v7_ttb_setup r10, r4, r8, r5		@ TTBCR, TTBRx setup
@@ -400,6 +386,7 @@ __v7_setup:
 	mcr	p15, 0, r5, c10, c2, 0		@ write PRRR
 	mcr	p15, 0, r6, c10, c2, 1		@ write NMRR
 #endif
+	dsb					@ Complete invalidations
 #ifndef CONFIG_ARM_THUMBEE
 	mrc	p15, 0, r0, c0, c1, 0		@ read ID_PFR0 for ThumbEE
 	and	r0, r0, #(0xf << 12)		@ ThumbEE enabled field

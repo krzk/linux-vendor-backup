@@ -43,45 +43,48 @@ enum s2m_rtc_reg {
 
 #define RTC_I2C_ADDR		(0x0C >> 1)
 
-#define HOUR_12			(1 << 7)
-#define HOUR_AMPM		(1 << 6)
-#define HOUR_PM			(1 << 5)
-#define ALARM0_STATUS		(1 << 1)
-#define ALARM1_STATUS		(1 << 2)
-#define UPDATE_AD		(1 << 0)
-
 /* RTC Control Register */
-#define BCD_EN_SHIFT		0
-#define BCD_EN_MASK		(1 << BCD_EN_SHIFT)
-#define MODEL24_SHIFT		1
-#define MODEL24_MASK		(1 << MODEL24_SHIFT)
-/* RTC Update Register1 */
-#define RTC_UDR_SHIFT		0
-#define RTC_UDR_MASK		(1 << RTC_UDR_SHIFT)
-
-#define RTC_WUDR_SHIFT		4
-#define RTC_WUDR_MASK		(1 << RTC_WUDR_SHIFT)
-#define RTC_TCON_SHIFT		2
-#define RTC_TCON_MASK		(1 << RTC_TCON_SHIFT)
-#define RTC_RUDR_SHIFT		0
-#define RTC_RUDR_MASK		(1 << RTC_RUDR_SHIFT)
-#define RTC_TIME_EN_SHIFT	0
-#define RTC_TIME_EN_MASK	(1 << RTC_TIME_EN_SHIFT)
-/* RTC Hour register */
-#define HOUR_PM_SHIFT		6
-#define HOUR_PM_MASK		(1 << HOUR_PM_SHIFT)
+#define BCD_EN_SHIFT			0
+#define BCD_EN_MASK			(1 << BCD_EN_SHIFT)
+#define MODEL24_SHIFT			1
+#define MODEL24_MASK			(1 << MODEL24_SHIFT)
+/* WTSR and SMPL Register */
+#if defined(CONFIG_REGULATOR_S2MPS13)
+#define WTSRT_SHIFT			0
+#define SMPLT_SHIFT			3
+#define WTSRT_MASK			(7 << WTSRT_SHIFT)
+#define SMPLT_MASK			(7 << SMPLT_SHIFT)
+#else
+#define WTSRT_SHIFT			0
+#define SMPLT_SHIFT			2
+#define WTSRT_MASK			(3 << WTSRT_SHIFT)
+#define SMPLT_MASK			(3 << SMPLT_SHIFT)
+#endif
+#define WTSR_EN_SHIFT			6
+#define SMPL_EN_SHIFT			7
+#define WTSR_EN_MASK			(1 << WTSR_EN_SHIFT)
+#define SMPL_EN_MASK			(1 << SMPL_EN_SHIFT)
+/* RTC Update Register */
+#define RTC_RUDR_SHIFT			0
+#define RTC_RUDR_MASK			(1 << RTC_RUDR_SHIFT)
+#define RTC_FREEZE_SHIFT		2
+#define RTC_FREEZE_MASK			(1 << RTC_FREEZE_SHIFT)
+#define RTC_WUDR_SHIFT			4
+#define RTC_WUDR_MASK			(1 << RTC_WUDR_SHIFT)
+/* RTC HOUR Register */
+#define HOUR_PM_SHIFT			6
+#define HOUR_PM_MASK			(1 << HOUR_PM_SHIFT)
 /* RTC Alarm Enable */
-#define ALARM_ENABLE_SHIFT	7
-#define ALARM_ENABLE_MASK	(1 << ALARM_ENABLE_SHIFT)
+#define ALARM_ENABLE_SHIFT		7
+#define ALARM_ENABLE_MASK		(1 << ALARM_ENABLE_SHIFT)
+/* PMIC STATUS2 Register */
+#define RTCA0E				(1<<2)
+#define RTCA1E				(1<<1)
 
-#define SMPL_ENABLE_SHIFT	7
-#define SMPL_ENABLE_MASK	(1 << SMPL_ENABLE_SHIFT)
+#define WTSR_TIMER_BITS(v)		(((v) << WTSRT_SHIFT) & WTSRT_MASK)
+#define SMPL_TIMER_BITS(v)		(((v) << SMPLT_SHIFT) & SMPLT_MASK)
 
-#define WTSR_ENABLE_SHIFT	6
-#define WTSR_ENABLE_MASK	(1 << WTSR_ENABLE_SHIFT)
-#define RTCA0E			(1<<2)
-#define RTCA1E			(1<<1)
-
+/* RTC Counter Register offsets */
 enum {
 	RTC_SEC = 0,
 	RTC_MIN,
@@ -89,8 +92,8 @@ enum {
 	RTC_WEEKDAY,
 	RTC_DATE,
 	RTC_MONTH,
-	RTC_YEAR1,
-	RTC_YEAR2,
+	RTC_YEAR,
+	NR_RTC_CNT_REGS,
 };
 
 #endif /*  __LINUX_MFD_SEC_RTC_H */

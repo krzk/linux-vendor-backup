@@ -20,8 +20,10 @@ extern unsigned long xxti_f, xusbxti_f;
 
 struct map_desc;
 void exynos_init_io(struct map_desc *mach_desc, int size);
+void exynos3_init_irq(void);
 void exynos4_init_irq(void);
 void exynos5_init_irq(void);
+void exynos3_restart(char mode, const char *cmd);
 void exynos4_restart(char mode, const char *cmd);
 void exynos5_restart(char mode, const char *cmd);
 void exynos_init_late(void);
@@ -72,7 +74,7 @@ void exynos4212_register_clocks(void);
 #define exynos4212_register_clocks()
 #endif
 
-#ifdef CONFIG_SOC_EXYNOS5430
+#if defined(CONFIG_SOC_EXYNOS5430)
 int exynos5430_pmu_init(void);
 #else
 #define exynos5430_pmu_init()
@@ -82,6 +84,12 @@ int exynos5430_pmu_init(void);
 int exynos5422_pmu_init(void);
 #else
 #define exynos5422_pmu_init()
+#endif
+
+#ifdef CONFIG_SOC_EXYNOS3250
+int exynos3250_pmu_init(void);
+#else
+#define exynos3250_pmu_init()
 #endif
 
 struct device_node;

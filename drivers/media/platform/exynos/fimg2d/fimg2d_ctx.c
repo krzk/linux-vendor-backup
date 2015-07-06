@@ -20,6 +20,8 @@
 #include "fimg2d_cache.h"
 #include "fimg2d_helper.h"
 
+int qos_id;
+
 static inline bool is_yuvfmt(enum color_format fmt)
 {
 	switch (fmt) {
@@ -98,6 +100,7 @@ static inline int image_stride(struct fimg2d_image *img, int plane)
 static int fimg2d_check_address_range(unsigned long addr, size_t size)
 {
 	struct vm_area_struct *vma;
+	struct vm_area_struct *nvma;
 	int ret = 0;
 
 	if (addr + size <= addr) {
@@ -109,14 +112,47 @@ static int fimg2d_check_address_range(unsigned long addr, size_t size)
 	down_read(&current->mm->mmap_sem);
 	vma = find_vma(current->mm, addr);
 
-	if ((vma == NULL) || (vma->vm_end < (addr + size))) {
-		if (vma)
-			fimg2d_err("%#lx, %#x = vma[%#lx, %#lx]\n",
-				addr, size, vma->vm_start, vma->vm_end);
+	if (vma == NULL) {
+		fimg2d_err("vma is NULL\n");
 		ret = -EINVAL;
+	} else {
+		nvma = vma->vm_next;
+
+		while ((vma->vm_end < (addr + size)) &&
+				(nvma != NULL) &&
+				(vma->vm_end == nvma->vm_start)) {
+			vma = vma->vm_next;
+			nvma = nvma->vm_next;
+		}
+
+		if ((vma == NULL) || (vma->vm_end < (addr + size))) {
+			if (vma == NULL)
+				fimg2d_err("vma is invalid, addr : %#lx, size : %#x\n",
+						addr, size);
+			else
+				fimg2d_err("addr : %#lx, size : %#x - out of vma[%#lx, %#lx] range\n",
+				addr, size, vma->vm_start, vma->vm_end);
+			ret =  -EFAULT;
+		}
 	}
 
 	up_read(&current->mm->mmap_sem);
+
+	if (!ret) {
+		/*
+		 * Invoking COW gainst the first and last page if they can be
+		 * accessed by CPU and G2D concurrently.
+		 * checking the return value of get_user_pages_fast() is not
+		 * required because the calls to get_user_pages_fast() are to
+		 * invoke COW so that COW is not invoked against the first and
+		 * the last pages while G2D is working.
+		 */
+		if (!IS_ALIGNED(addr, PAGE_SIZE))
+			get_user_pages_fast(addr, 1, 1, NULL);
+
+		if (!IS_ALIGNED(addr + size, PAGE_SIZE))
+			get_user_pages_fast(addr + size, 1, 1, NULL);
+	}
 
 	return ret;
 }
@@ -566,29 +602,18 @@ static void outer_flush_clip_range(struct fimg2d_bltcmd *cmd)
 static int fimg2d_check_dma_sync(struct fimg2d_bltcmd *cmd)
 {
 	struct mm_struct *mm = cmd->ctx->mm;
-	struct fimg2d_dma *c;
-	enum pt_status pt;
-	int i;
 
 	fimg2d_calc_dma_size(cmd);
 
 	if (fimg2d_check_address(cmd))
 		return -EINVAL;
 
-	for (i = 0; i < MAX_IMAGES; i++) {
-		c = &cmd->dma[i].base;
-		if (!c->size)
-			continue;
-
-		pt = fimg2d_check_pagetable(mm, c->addr, c->size);
-		if (pt == PT_FAULT)
-			return -EFAULT;
-	}
+	if (fimg2d_check_pgd(mm, cmd))
+		return -EFAULT;
 
 #ifndef CCI_SNOOP
 	fimg2d_debug("cache flush\n");
 	perf_start(cmd, PERF_CACHE);
-
 	if (is_inner_flushall(cmd->dma_all)) {
 		inner_touch_range(cmd);
 		flush_all_cpu_caches();
@@ -610,11 +635,34 @@ static int fimg2d_check_dma_sync(struct fimg2d_bltcmd *cmd)
 int fimg2d_check_pgd(struct mm_struct *mm, struct fimg2d_bltcmd *cmd)
 {
 	struct fimg2d_dma *c;
+	struct fimg2d_image *img;
 	enum pt_status pt;
 	int i, ret;
 
+
 	for (i = 0; i < MAX_IMAGES; i++) {
+		img = &cmd->image[i];
+		if (!img->addr.type)
+			continue;
+
 		c = &cmd->dma[i].base;
+		if (!c->size)
+			continue;
+
+		pt = fimg2d_check_pagetable(mm, c->addr, c->size);
+		if (pt == PT_FAULT) {
+			ret = -EFAULT;
+			goto err_pgtable;
+		}
+
+		/* 2nd plane */
+		if (!is_yuvfmt(img->fmt))
+			continue;
+
+		if (img->order != P2_CRCB && img->order != P2_CBCR)
+			continue;
+
+		c = &cmd->dma[i].plane2;
 		if (!c->size)
 			continue;
 
@@ -633,7 +681,7 @@ err_pgtable:
 int fimg2d_add_command(struct fimg2d_control *ctrl,
 		struct fimg2d_context *ctx, struct fimg2d_blit __user *buf)
 {
-	unsigned long flags;
+	unsigned long flags, qflags;
 	struct fimg2d_blit *blt;
 	struct fimg2d_bltcmd *cmd;
 	int len = sizeof(struct fimg2d_image);
@@ -700,6 +748,20 @@ int fimg2d_add_command(struct fimg2d_control *ctrl,
 		goto err;
 	}
 
+	g2d_spin_lock(&ctrl->qoslock, qflags);
+	if ((blt->qos_lv >= G2D_LV0) && (blt->qos_lv < G2D_LV_END)) {
+		ctrl->pre_qos_lv = ctrl->qos_lv;
+		ctrl->qos_lv = blt->qos_lv;
+		fimg2d_debug("pre_qos_lv:%d, qos_lv:%d qos_id:%d\n",
+				ctrl->pre_qos_lv, ctrl->qos_lv, blt->qos_lv);
+	} else {
+		fimg2d_err("invalid qos_lv:0x%x\n", blt->qos_lv);
+		g2d_spin_unlock(&ctrl->qoslock, qflags);
+		ret = -EINVAL;
+		goto err;
+	}
+	g2d_spin_unlock(&ctrl->qoslock, qflags);
+
 	/* add command node and increase ncmd */
 	g2d_spin_lock(&ctrl->bltlock, flags);
 	if (atomic_read(&ctrl->drvact) || atomic_read(&ctrl->suspended)) {
@@ -714,6 +776,7 @@ int fimg2d_add_command(struct fimg2d_control *ctrl,
 			cmd->ctx, (unsigned long *)cmd->ctx->mm->pgd,
 			atomic_read(&ctx->ncmd), cmd->blt.seq_no);
 	g2d_spin_unlock(&ctrl->bltlock, flags);
+
 	return 0;
 
 err:

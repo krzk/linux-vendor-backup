@@ -14,7 +14,6 @@
 
 #define SENSOR_S5K4H5_INSTANCE	0
 #define SENSOR_S5K4H5_NAME	SENSOR_NAME_S5K4H5
-/* #define SENSOR_S5K4H5_DRIVING */
 
 int sensor_4h5_probe(struct i2c_client *client,
 	const struct i2c_device_id *id);

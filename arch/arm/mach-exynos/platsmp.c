@@ -146,7 +146,16 @@ static int exynos_power_up_cpu(unsigned int phys_cpu)
 
 			val = ((1 << 20) | (1 << 8)) << phys_cpu;
 			__raw_writel(val, EXYNOS_SWRESET);
+		} else if (soc_is_exynos3250()) {
+
+			val = __raw_readl(EXYNOS_ARM_CORE1_STATUS);
+			val |= (0x3 << 8);
+			__raw_writel(val, EXYNOS_ARM_CORE1_STATUS);
+
+			pr_debug("cpu%d: SWRESET\n", phys_cpu);
+			__raw_writel(((1 << 4) << phys_cpu), EXYNOS_SWRESET);
 		}
+
 	}
 
 	return 0;
@@ -201,7 +210,8 @@ static int __cpuinit exynos_boot_secondary(unsigned int cpu, struct task_struct 
 		if (call_firmware_op(set_cpu_boot_addr, phys_cpu, boot_addr))
 			__raw_writel(boot_addr, cpu_boot_reg(phys_cpu));
 
-		if (soc_is_exynos5430() || soc_is_exynos5422()) {
+		if ( soc_is_exynos5430() ||
+			soc_is_exynos5422() || soc_is_exynos3250()) {
 			dsb_sev();
 		} else {
 			call_firmware_op(cpu_boot, phys_cpu);

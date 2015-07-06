@@ -22,6 +22,78 @@
 #include <linux/mfd/samsung/s2mps11.h>
 #include <linux/mfd/samsung/s5m8763.h>
 #include <linux/mfd/samsung/s5m8767.h>
+#include <linux/mfd/samsung/s2mps14.h>
+
+static struct regmap_irq s2mps14_irqs[] = {
+	[S2MPS14_IRQ_PWRONF] = {
+		.reg_offset = 0,
+		.mask = S2MPS14_IRQ_PWRONF_MASK,
+	},
+	[S2MPS14_IRQ_PWRONR] = {
+		.reg_offset = 0,
+		.mask = S2MPS14_IRQ_PWRONR_MASK,
+	},
+	[S2MPS14_IRQ_JIGONBF] = {
+		.reg_offset = 0,
+		.mask = S2MPS14_IRQ_JIGONBF_MASK,
+	},
+	[S2MPS14_IRQ_JIGONBR] = {
+		.reg_offset = 0,
+		.mask = S2MPS14_IRQ_JIGONBR_MASK,
+	},
+	[S2MPS14_IRQ_ACOKBF] = {
+		.reg_offset = 0,
+		.mask = S2MPS14_IRQ_ACOKBF_MASK,
+	},
+	[S2MPS14_IRQ_ACOKBR] = {
+		.reg_offset = 0,
+		.mask = S2MPS14_IRQ_ACOKBR_MASK,
+	},
+	[S2MPS14_IRQ_PWRON1S] = {
+		.reg_offset = 0,
+		.mask = S2MPS14_IRQ_PWRON1S_MASK,
+	},
+	[S2MPS14_IRQ_MRB] = {
+		.reg_offset = 0,
+		.mask = S2MPS14_IRQ_MRB_MASK,
+	},
+	[S2MPS14_IRQ_RTC60S] = {
+		.reg_offset = 1,
+		.mask = S2MPS14_IRQ_RTC60S_MASK,
+	},
+	[S2MPS14_IRQ_RTCA1] = {
+		.reg_offset = 1,
+		.mask = S2MPS14_IRQ_RTCA1_MASK,
+	},
+	[S2MPS14_IRQ_RTCA0] = {
+		.reg_offset = 1,
+		.mask = S2MPS14_IRQ_RTCA0_MASK,
+	},
+	[S2MPS14_IRQ_SMPL] = {
+		.reg_offset = 1,
+		.mask = S2MPS14_IRQ_SMPL_MASK,
+	},
+	[S2MPS14_IRQ_RTC1S] = {
+		.reg_offset = 1,
+		.mask = S2MPS14_IRQ_RTC1S_MASK,
+	},
+	[S2MPS14_IRQ_WTSR] = {
+		.reg_offset = 1,
+		.mask = S2MPS14_IRQ_WTSR_MASK,
+	},
+	[S2MPS14_IRQ_INT120C] = {
+		.reg_offset = 2,
+		.mask = S2MPS14_IRQ_INT120C_MASK,
+	},
+	[S2MPS14_IRQ_INT140C] = {
+		.reg_offset = 2,
+		.mask = S2MPS14_IRQ_INT140C_MASK,
+	},
+	[S2MPS14_IRQ_TSD] = {
+		.reg_offset = 2,
+		.mask = S2MPS14_IRQ_TSD_MASK,
+	},
+};
 
 static struct regmap_irq s2mps13_irqs[] = {
 	[S2MPS13_IRQ_PWRONF] = {
@@ -134,9 +206,9 @@ static struct regmap_irq s2mps11_irqs[] = {
 		.reg_offset = 1,
 		.mask = S2MPS11_IRQ_RTCA1_MASK,
 	},
-	[S2MPS11_IRQ_RTCA2] = {
+	[S2MPS11_IRQ_RTCA0] = {
 		.reg_offset = 1,
-		.mask = S2MPS11_IRQ_RTCA2_MASK,
+		.mask = S2MPS11_IRQ_RTCA0_MASK,
 	},
 	[S2MPS11_IRQ_SMPL] = {
 		.reg_offset = 1,
@@ -306,6 +378,16 @@ static struct regmap_irq s5m8763_irqs[] = {
 	},
 };
 
+static struct regmap_irq_chip s2mps14_irq_chip = {
+	.name = "s2mps14",
+	.irqs = s2mps14_irqs,
+	.num_irqs = ARRAY_SIZE(s2mps14_irqs),
+	.num_regs = 3,
+	.status_base = S2MPS14_REG_INT1,
+	.mask_base = S2MPS14_REG_INT1M,
+	.ack_base = S2MPS14_REG_INT1,
+};
+
 static struct regmap_irq_chip s2mps13_irq_chip = {
 	.name = "s2mps13",
 	.irqs = s2mps13_irqs,
@@ -381,6 +463,12 @@ int sec_irq_init(struct sec_pmic_dev *sec_pmic)
 		ret = regmap_add_irq_chip(sec_pmic->regmap, sec_pmic->irq,
 				  IRQF_TRIGGER_LOW | IRQF_ONESHOT,
 				  sec_pmic->irq_base, &s2mps13_irq_chip,
+				  &sec_pmic->irq_data);
+		break;
+	case S2MPS14X:
+		ret = regmap_add_irq_chip(sec_pmic->regmap, sec_pmic->irq,
+				  IRQF_TRIGGER_LOW | IRQF_ONESHOT,
+				  sec_pmic->irq_base, &s2mps14_irq_chip,
 				  &sec_pmic->irq_data);
 		break;
 	default:

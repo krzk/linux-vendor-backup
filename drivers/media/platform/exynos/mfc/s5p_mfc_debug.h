@@ -53,12 +53,6 @@ extern int debug;
 		       __func__, __LINE__, ##args);		\
 	} while (0)
 
-#define mfc_info(fmt, args...)			\
-	do {						\
-		printk(KERN_INFO "%s:%d: " fmt,	\
-			__func__, __LINE__, ##args);	\
-	} while (0)
-
 #define mfc_info_dev(fmt, args...)			\
 	do {						\
 		printk(KERN_INFO "[d:%d] %s:%d: " fmt,	\

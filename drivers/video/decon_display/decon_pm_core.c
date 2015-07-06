@@ -24,20 +24,16 @@
 #include "decon_mipi_dsi.h"
 #include "decon_dt.h"
 #include "decon_pm_exynos.h"
+#include "decon_pm.h"
 
-#ifdef CONFIG_SOC_EXYNOS5430
-#include "regs-decon.h"
-#include "decon_fb.h"
-#else
 #include "regs-fimd.h"
 #include "fimd_fb.h"
-#endif
 
 #include <mach/cpufreq.h>
 
 #include <../drivers/clk/samsung/clk.h>
 
-#define GATE_LOCK_CNT 1
+#define GATE_LOCK_CNT 2
 
 int decon_dbg = 5;
 module_param(decon_dbg, int, 0644);
@@ -66,8 +62,6 @@ module_param(decon_dbg, int, 0644);
 unsigned int frame_done_count;
 unsigned int te_count;
 
-static void enable_mask(struct display_driver *dispdrv);
-static void disable_mask(struct display_driver *dispdrv);
 void display_block_clock_on(struct display_driver *dispdrv);
 void display_block_clock_off(struct display_driver *dispdrv);
 int display_hibernation_power_on(struct display_driver *dispdrv);
@@ -92,13 +86,23 @@ extern struct pm_ops dsi_pm_ops;
 
 extern struct mipi_dsim_device *dsim_for_decon;
 
+int disp_pm_set_plat_status(struct display_driver *dispdrv, bool platform_on)
+{
+	if (platform_on)
+		dispdrv->platform_status = DISP_STATUS_PM1;
+	else
+		dispdrv->platform_status = DISP_STATUS_PM0;
+
+	return 0;
+}
+
 int init_display_pm_status(struct display_driver *dispdrv) {
-	dispdrv->pm_status.trigger_masked = 1;
 	dispdrv->pm_status.clock_enabled = 0;
 	atomic_set(&dispdrv->pm_status.lock_count, 0);
 	dispdrv->pm_status.clk_idle_count = 0;
 	dispdrv->pm_status.pwr_idle_count = 0;
 	dispdrv->platform_status = DISP_STATUS_PM0;
+	disp_pm_set_plat_status(dispdrv, false);
 
 	te_count = 0;
 	frame_done_count = 0;
@@ -114,6 +118,7 @@ int init_display_pm(struct display_driver *dispdrv)
 	mutex_init(&dispdrv->pm_status.clk_lock);
 #ifdef CONFIG_FB_HIBERNATION_DISPLAY
 	set_default_hibernation_mode(dispdrv);
+	dispdrv->pm_status.hotplug_delay_msec = MAX_HOTPLUG_DELAY_MSEC;
 #else
 	dispdrv->pm_status.clock_gating_on = false;
 	dispdrv->pm_status.power_gating_on = false;
@@ -165,10 +170,9 @@ void disp_debug_power_info(void)
 {
 	struct display_driver *dispdrv = get_display_driver();
 
-	pm_info("mask: %d, clk: %d,  \
+	pm_info("clk: %d,  \
 		lock: %d, clk_idle: %d, pwr_idle: %d\n,	\
 		output_on: %d, pwr_state: %d, vsync: %lld, frame_cnt: %d, te_cnt: %d",
-		dispdrv->pm_status.trigger_masked,
 		dispdrv->pm_status.clock_enabled,
 		atomic_read(&dispdrv->pm_status.lock_count),
 		dispdrv->pm_status.clk_idle_count,
@@ -180,43 +184,12 @@ void disp_debug_power_info(void)
 		te_count);
 }
 
-int disp_pm_init_status(struct display_driver *dispdrv)
-{
-	dispdrv->platform_status = DISP_STATUS_PM1;
-	return 0;
-}
-
 void disp_pm_gate_lock(struct display_driver *dispdrv, bool increase)
 {
 	if (increase)
 		atomic_inc(&dispdrv->pm_status.lock_count);
-	else
+	else if(atomic_read(&dispdrv->pm_status.lock_count) > 0)
 		atomic_dec(&dispdrv->pm_status.lock_count);
-}
-
-static void enable_mask(struct display_driver *dispdrv)
-{
-	if(dispdrv->pm_status.trigger_masked)
-		return;
-
-	dispdrv->pm_status.trigger_masked = 1;
-	/* MASK */
-	set_hw_trigger_mask(dispdrv->decon_driver.sfb, true);
-
-	pm_debug("Enable mask");
-}
-
-static void disable_mask(struct display_driver *dispdrv)
-{
-	if(!dispdrv->pm_status.trigger_masked)
-		return;
-
-	dispdrv->pm_status.trigger_masked = 0;
-
-	/* UNMASK */
-	set_hw_trigger_mask(dispdrv->decon_driver.sfb, false);
-
-	pm_debug("Disable mask");
 }
 
 static void init_gating_idle_count(struct display_driver *dispdrv)
@@ -232,13 +205,36 @@ static void init_gating_idle_count(struct display_driver *dispdrv)
 	}
 }
 
+static void request_dynamic_hotplug(bool hotplug)
+{
+	return;
+}
+
 void debug_function(struct display_driver *dispdrv, const char *buf)
 {
+	long input_time;
 #ifndef CONFIG_FB_HIBERNATION_DISPLAY
 	pm_info("%s: does not support", __func__);
 	return;
 #endif
 	pm_info("calls [%s] to control gating function\n", buf);
+
+	if (!kstrtol(buf, 10, &input_time)) {
+		if (input_time == 0) {
+			request_dynamic_hotplug(false);
+			dispdrv->pm_status.hotplug_gating_on = false;
+		} else {
+			dispdrv->pm_status.hotplug_delay_msec = input_time;
+			dispdrv->pm_status.hotplug_gating_on = true;
+			if (dispdrv->decon_driver.sfb->power_state == POWER_HIBER_DOWN) {
+				request_dynamic_hotplug(true);
+			}
+		}
+		pm_info("Hotplug delay time is : %ld ms\n", input_time);
+		pm_info("HOTPLUG GATING MODE: %s\n",
+				dispdrv->pm_status.hotplug_gating_on == true? "TRUE":"FALSE");
+		return;
+	}
 	if (!strcmp(buf, "clk-gate-on")) {
 		dispdrv->pm_status.clock_gating_on = true;
 	} else if (!strcmp(buf, "clk-gate-off")) {
@@ -250,6 +246,7 @@ void debug_function(struct display_driver *dispdrv, const char *buf)
 	} else if (!strcmp(buf, "hotplug-gate-on")) {
 		dispdrv->pm_status.hotplug_gating_on = true;
 	} else if (!strcmp(buf, "hotplug-gate-off")) {
+		request_dynamic_hotplug(false);
 		dispdrv->pm_status.hotplug_gating_on = false;
 	} else {
 		pr_err("INVALID parameter: '%s'\n", buf);
@@ -312,17 +309,8 @@ void disp_pm_te_triggered(struct display_driver *dispdrv)
 	spin_lock(&dispdrv->pm_status.slock);
 	if (dispdrv->platform_status > DISP_STATUS_PM0 &&
 		atomic_read(&dispdrv->pm_status.lock_count) == 0) {
-		if (dispdrv->pm_status.clock_enabled) {
-			if (!dispdrv->pm_status.trigger_masked)
-				enable_mask(dispdrv);
-		}
-
 		if (dispdrv->pm_status.clock_enabled &&
 			MAX_CLK_GATING_COUNT > 0) {
-			if (!dispdrv->pm_status.trigger_masked) {
-				enable_mask(dispdrv);
-			}
-
 			++dispdrv->pm_status.clk_idle_count;
 			if (dispdrv->pm_status.clk_idle_count > MAX_CLK_GATING_COUNT) {
 				disp_pm_gate_lock(dispdrv, true);
@@ -334,6 +322,7 @@ void disp_pm_te_triggered(struct display_driver *dispdrv)
 			++dispdrv->pm_status.pwr_idle_count;
 			if (dispdrv->pm_status.power_gating_on &&
 				dispdrv->pm_status.pwr_idle_count > MAX_PWR_GATING_COUNT) {
+				disp_pm_gate_lock(dispdrv, true);
 				queue_kthread_work(&dispdrv->pm_status.control_power_gating,
 						&dispdrv->pm_status.control_power_gating_work);
 			}
@@ -351,33 +340,55 @@ int disp_pm_sched_power_on(struct display_driver *dispdrv, unsigned int cmd)
 
 	init_gating_idle_count(dispdrv);
 
+	/* First WIN_CONFIG should be on clock and power-gating */
 	if (dispdrv->platform_status < DISP_STATUS_PM1) {
 		if (cmd == S3CFB_WIN_CONFIG)
-			disp_pm_init_status(dispdrv);
+			disp_pm_set_plat_status(dispdrv, true);
 	}
 
 	flush_kthread_worker(&dispdrv->pm_status.control_power_gating);
 	if (sfb->power_state == POWER_HIBER_DOWN) {
 		switch (cmd) {
+		case S3CFB_PLATFORM_RESET:
+			disp_pm_gate_lock(dispdrv, true);
+			queue_kthread_work(&dispdrv->pm_status.control_power_gating,
+				&dispdrv->pm_status.control_power_gating_work);
+			/* Prevent next clock and power-gating */
+			disp_pm_set_plat_status(dispdrv, false);
+			break;
 		case S3CFB_WIN_PSR_EXIT:
 		case S3CFB_WIN_CONFIG:
+			request_dynamic_hotplug(false);
+			disp_pm_gate_lock(dispdrv, true);
 			queue_kthread_work(&dispdrv->pm_status.control_power_gating,
 				&dispdrv->pm_status.control_power_gating_work);
 			break;
 		default:
 			return -EBUSY;
 		}
+	} else {
+		switch (cmd) {
+		case S3CFB_PLATFORM_RESET:
+			/* Prevent next clock and power-gating */
+			disp_pm_set_plat_status(dispdrv, false);
+			break;
+		}
 	}
 
 	return 0;
+}
+
+void disp_set_pm_status(int flag)
+{
+	struct display_driver *dispdrv = get_display_driver();
+	if ((flag >= DISP_STATUS_PM0) || (flag < DISP_STATUS_PM_MAX))
+		dispdrv->platform_status = flag;
 }
 
 /* disp_pm_add_refcount - it is called in the early start of the
  * update_reg_handler */
 int disp_pm_add_refcount(struct display_driver *dispdrv)
 {
-	unsigned long flags;
-
 	if (dispdrv->platform_status == DISP_STATUS_PM0) return 0;
 
 	if (!dispdrv->pm_status.clock_gating_on) return 0;
@@ -389,16 +400,13 @@ int disp_pm_add_refcount(struct display_driver *dispdrv)
 
 	flush_kthread_worker(&dispdrv->pm_status.control_clock_gating);
 	flush_kthread_worker(&dispdrv->pm_status.control_power_gating);
-	if (dispdrv->decon_driver.sfb->power_state == POWER_HIBER_DOWN)
+	if (dispdrv->decon_driver.sfb->power_state == POWER_HIBER_DOWN) {
+		request_dynamic_hotplug(false);
 		display_hibernation_power_on(dispdrv);
+	}
 
 	display_block_clock_on(dispdrv);
 
-	spin_lock_irqsave(&dispdrv->pm_status.slock, flags);
-	if (dispdrv->pm_status.trigger_masked) {
-		disable_mask(dispdrv);
-	}
-	spin_unlock_irqrestore(&dispdrv->pm_status.slock, flags);
 	return 0;
 }
 
@@ -436,6 +444,7 @@ static void decon_power_gating_handler(struct kthread_work *work)
 	} else if (dispdrv->decon_driver.sfb->power_state == POWER_HIBER_DOWN) {
 		display_hibernation_power_on(dispdrv);
 	}
+	disp_pm_gate_lock(dispdrv, false);
 }
 
 static int __display_hibernation_power_on(struct display_driver *dispdrv)
@@ -468,19 +477,12 @@ static int __display_hibernation_power_off(struct display_driver *dispdrv)
 
 static void __display_block_clock_on(struct display_driver *dispdrv)
 {
-	/* DSIM -> MIC -> DECON -> SMMU */
+	/* DSIM -> MIC -> DECON */
 	call_pm_ops(dispdrv, dsi_driver, clk_on, dispdrv);
 #ifdef CONFIG_DECON_MIC
 	call_pm_ops(dispdrv, mic_driver, clk_on, dispdrv);
 #endif
 	call_pm_ops(dispdrv, decon_driver, clk_on, dispdrv);
-
-#ifdef CONFIG_ION_EXYNOS
-	if (dispdrv->platform_status > DISP_STATUS_PM0) {
-		if (iovmm_activate(dispdrv->decon_driver.sfb->dev) < 0)
-			pr_err("%s: failed to reactivate vmm\n", __func__);
-	}
-#endif
 }
 
 static int __display_block_clock_off(struct display_driver *dispdrv)
@@ -491,11 +493,7 @@ static int __display_block_clock_off(struct display_driver *dispdrv)
 		return -EBUSY;
 	}
 
-	/* SMMU -> DECON -> MIC -> DSIM */
-#ifdef CONFIG_ION_EXYNOS
-	if (dispdrv->platform_status > DISP_STATUS_PM0)
-		iovmm_deactivate(dispdrv->decon_driver.sfb->dev);
-#endif
+	/* SMMU -> DECON -> MIC*/
 	call_pm_ops(dispdrv, decon_driver, clk_off, dispdrv);
 #ifdef CONFIG_DECON_MIC
 	call_pm_ops(dispdrv, mic_driver, clk_off, dispdrv);
@@ -504,21 +502,12 @@ static int __display_block_clock_off(struct display_driver *dispdrv)
 	return 0;
 }
 
-static void request_dynamic_hotplug(bool hotplug)
-{
-#ifdef CONFIG_EXYNOS5_DYNAMIC_CPU_HOTPLUG
-	struct display_driver *dispdrv = get_display_driver();
-	if (dispdrv->pm_status.hotplug_gating_on)
-		force_dynamic_hotplug(hotplug);
-#endif
-}
-
 int display_hibernation_power_on(struct display_driver *dispdrv)
 {
 	int ret = 0;
 	struct s3c_fb *sfb = dispdrv->decon_driver.sfb;
 
-	pm_info("##### +");
+	pm_debug("##### +");
 	disp_pm_gate_lock(dispdrv, true);
 	mutex_lock(&dispdrv->pm_status.pm_lock);
 	if (sfb->power_state == POWER_ON) {
@@ -526,16 +515,15 @@ int display_hibernation_power_on(struct display_driver *dispdrv)
 		goto done;
 	}
 
-	request_dynamic_hotplug(false);
-
 	pm_runtime_get_sync(dispdrv->display_driver);
+	sfb->power_state = POWER_HIBER_ON;
 	__display_hibernation_power_on(dispdrv);
 	sfb->power_state = POWER_ON;
 
 done:
 	mutex_unlock(&dispdrv->pm_status.pm_lock);
 	disp_pm_gate_lock(dispdrv, false);
-	pm_info("##### -\n");
+	pm_debug("##### -\n");
 	return ret;
 }
 
@@ -555,19 +543,22 @@ int display_hibernation_power_off(struct display_driver *dispdrv)
 		pr_info("%s, DECON does not need power-off\n", __func__);
 		goto done;
 	}
+
+	/* Should be clock on before check a H/W LINECNT */
+	display_block_clock_on(dispdrv);
 	if (get_display_line_count(dispdrv)) {
 		pm_debug("wait until last frame is totally transferred %d:",
 				get_display_line_count(dispdrv));
 		goto done;
 	}
 
-	pm_info("##### +");
+	pm_debug("##### +");
 	sfb->power_state = POWER_HIBER_DOWN;
 	__display_hibernation_power_off(dispdrv);
 	disp_pm_runtime_put_sync(dispdrv);
 
 	request_dynamic_hotplug(true);
-	pm_info("##### -\n");
+	pm_debug("##### -\n");
 done:
 	mutex_unlock(&dispdrv->pm_status.pm_lock);
 	disp_pm_gate_lock(dispdrv, false);

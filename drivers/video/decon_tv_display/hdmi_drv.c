@@ -139,7 +139,7 @@ static int hdmi_set_infoframe(struct hdmi_device *hdev)
 
 	info = hdmi_timing2info(&hdev->cur_timings);
 
-	if (info->is_3d == HDMI_VIDEO_FORMAT_3D) {
+	if (info->is_3d) {
 		infoframe.type = HDMI_PACKET_TYPE_VSI;
 		infoframe.ver = HDMI_VSI_VERSION;
 		infoframe.len = HDMI_VSI_LENGTH;
@@ -372,8 +372,10 @@ int hdmi_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 		mutex_lock(&hdev->mutex);
 		hdmi_audio_information(hdev, ctrl->value);
 		if (is_hdmi_streaming(hdev)) {
+			hdmi_audio_enable(hdev, 0);
 			hdmi_set_infoframe(hdev);
 			hdmi_reg_i2s_audio_init(hdev);
+			hdmi_audio_enable(hdev, 1);
 		}
 		mutex_unlock(&hdev->mutex);
 		break;
@@ -801,6 +803,23 @@ static void hdmi_hpd_work(struct work_struct *work)
 	hdmi_hpd_changed(hdev, 0);
 }
 
+static int hdmi_get_audio_master(struct hdmi_device *hdev)
+{
+	struct device *dev = hdev->dev;
+	int ret = 0;
+
+	ret = of_property_read_u32(dev->of_node, "audio_master_clk",
+			&hdev->audio_master_clk);
+	if (ret) {
+		dev_err(dev, "failed to get hdmi audio master dt\n");
+		return -ENODEV;
+	}
+	dev_info(dev, "hdmi audio master 48fs support: %s\n",
+			hdev->audio_master_clk ? "yes" : "no");
+
+	return ret;
+}
+
 int hdmi_set_gpio(struct hdmi_device *hdev)
 {
 	struct device *dev = hdev->dev;
@@ -1022,6 +1041,13 @@ static int hdmi_probe(struct platform_device *pdev)
 	hdmi_dev->color_range = HDMI_RGB709_0_255;
 	hdmi_dev->bits_per_sample = DEFAULT_BITS_PER_SAMPLE;
 	hdmi_dev->audio_codec = DEFAULT_AUDIO_CODEC;
+
+	/* hdmi audio master clock */
+	ret = hdmi_get_audio_master(hdmi_dev);
+	if (ret) {
+		hdmi_dev->audio_master_clk = 0;
+		dev_warn(dev, "failed to get audio master information\n");
+	}
 
 	/* default aspect ratio is 16:9 */
 	hdmi_dev->aspect = HDMI_ASPECT_RATIO_16_9;

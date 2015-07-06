@@ -139,6 +139,7 @@ struct samsung_pin_bank {
 	enum eint_type	eint_type;
 	u32		eint_mask;
 	u32		eint_offset;
+	u32		eint_ext_offset;
 	u32		dat_mask;
 	char		*name;
 	void		*soc_priv;
@@ -220,6 +221,7 @@ struct samsung_pin_ctrl {
 struct samsung_pinctrl_drv_data {
 	struct list_head		node;
 	void __iomem			*virt_base;
+	void __iomem			*virt_ext_base;
 	struct device			*dev;
 	int				irq;
 
@@ -229,7 +231,7 @@ struct samsung_pinctrl_drv_data {
 
 	const struct samsung_pin_group	*pin_groups;
 	unsigned int			nr_groups;
-	const struct samsung_pmx_func	*pmx_functions;
+	struct samsung_pmx_func	*pmx_functions;
 	unsigned int			nr_functions;
 	bool				eint_flt_config;
 };
@@ -262,6 +264,7 @@ struct samsung_pmx_func {
 };
 
 /* list of all exported SoC specific data */
+extern struct samsung_pin_ctrl exynos3250_pin_ctrl[];
 extern struct samsung_pin_ctrl exynos4210_pin_ctrl[];
 extern struct samsung_pin_ctrl exynos4x12_pin_ctrl[];
 extern struct samsung_pin_ctrl exynos5250_pin_ctrl[];

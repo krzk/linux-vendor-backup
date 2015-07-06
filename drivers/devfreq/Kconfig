@@ -43,6 +43,11 @@ config DEVFREQ_GOV_SIMPLE_USAGE
 	help
 	  Chooses frequency based on the percentage of target device.
 
+config DEVFREQ_GOV_SIMPLE_EXYNOS
+	tristate "Simple Exynos"
+	help
+	  Chooses frequency based on the threshold of target device.
+
 config DEVFREQ_GOV_PERFORMANCE
 	tristate "Performance"
 	help
@@ -83,6 +88,20 @@ config ARM_EXYNOS4_BUS_DEVFREQ
 	  To operate with optimal voltages, ASV support is required
 	  (CONFIG_EXYNOS_ASV).
 
+config ARM_EXYNOS3250_BUS_DEVFREQ
+	bool "ARM Exynos3250 Memory Bus DEVFREQ Driver"
+	depends on SOC_EXYNOS3250
+	select ARCH_HAS_OPP
+	select PM_OPP
+	select DEVFREQ_GOV_SIMPLE_ONDEMAND
+	help
+          This adds the DEVFREQ driver for Exynos3250 memory bus (vdd_int)
+          and Exynos3250 memory interface and bus (vdd_mif + vdd_int).
+          It reads PPMU counters of memory controllers and adjusts
+          the operating frequencies and voltages with OPP support.
+          To operate with optimal voltages, ASV support is required
+          (CONFIG_EXYNOS_ASV).
+
 config ARM_EXYNOS5422_BUS_DEVFREQ
 	bool "ARM Exynos5422 Memory Bus DEVFREQ Driver"
 	depends on SOC_EXYNOS5422
@@ -103,6 +122,7 @@ config ARM_EXYNOS5430_BUS_DEVFREQ
 
 choice
 	prompt "ARM Exynos5430 DEVFREQ Driver for CAM"
+	depends on ARM_EXYNOS5430_BUS_DEVFREQ
 	default ARM_EXYNOS5430_BUS_DEVFREQ_CAM_16M
 
 config ARM_EXYNOS5430_BUS_DEVFREQ_CAM_16M

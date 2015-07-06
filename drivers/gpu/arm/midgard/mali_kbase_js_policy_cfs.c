@@ -722,7 +722,6 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 					 * Soft stop the slot so we can run other jobs.
 					 */
 					KBASE_DEBUG_PRINT_INFO(KBASE_JM, "Soft-stop");
-
 #if KBASE_DISABLE_SCHEDULING_SOFT_STOPS == 0
 					kbase_job_slot_softstop(kbdev, s, atom);
 #endif

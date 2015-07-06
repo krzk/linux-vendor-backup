@@ -25,13 +25,17 @@ STATIC base_jd_udata kbase_event_process(kbase_context *kctx, kbase_jd_atom *kat
 {
 	base_jd_udata data;
 
+#ifdef SLSI_INTEGRATION
+	pgd_t *pgd;
+	struct mm_struct *mm = katom->kctx->process_mm;
+#endif
+
 	KBASE_DEBUG_ASSERT(kctx != NULL);
 	KBASE_DEBUG_ASSERT(katom != NULL);
 	KBASE_DEBUG_ASSERT(katom->status == KBASE_JD_ATOM_STATE_COMPLETED);
 
 #ifdef SLSI_INTEGRATION
-	pgd_t *pgd;
-	struct mm_struct *mm = katom->kctx->process_mm;
+	mm = katom->kctx->process_mm;
 
 	if (!kctx || !katom || (katom->status != KBASE_JD_ATOM_STATE_COMPLETED)) {
 		printk("Abnormal situation\n");

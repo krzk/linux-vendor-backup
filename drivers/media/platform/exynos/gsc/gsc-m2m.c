@@ -112,8 +112,8 @@ int gsc_fill_addr(struct gsc_ctx *ctx)
 
 void gsc_op_timer_handler(unsigned long arg)
 {
-	struct gsc_ctx *ctx = (struct gsc_ctx *)arg;
-	struct gsc_dev *gsc = ctx->gsc_dev;
+	struct gsc_dev *gsc = (struct gsc_dev *)arg;
+	struct gsc_ctx *ctx = v4l2_m2m_get_curr_priv(gsc->m2m.m2m_dev);
 	struct vb2_buffer *src_vb, *dst_vb;
 
 	gsc_dump_registers(gsc);
@@ -156,9 +156,14 @@ static void gsc_m2m_device_run(void *priv)
 	gsc = ctx->gsc_dev;
 
 	if (in_irq())
-		pm_runtime_get(&gsc->pdev->dev);
+		ret = pm_runtime_get(&gsc->pdev->dev);
 	else
-		pm_runtime_get_sync(&gsc->pdev->dev);
+		ret = pm_runtime_get_sync(&gsc->pdev->dev);
+
+	if (ret < 0) {
+		gsc_err("fail to pm_runtime_get");
+		return;
+	}
 
 	spin_lock_irqsave(&ctx->slock, flags);
 	/* Reconfigure hardware if the context has changed. */
@@ -246,9 +251,9 @@ static void gsc_m2m_device_run(void *priv)
 			gsc_err("gscaler wait operating timeout");
 			goto put_device;
 		}
+		gsc->op_timer.expires = (jiffies + 2 * HZ);
+		add_timer(&gsc->op_timer);
 	}
-	ctx->op_timer.expires = (jiffies + 2 * HZ);
-	add_timer(&ctx->op_timer);
 
 	spin_unlock_irqrestore(&ctx->slock, flags);
 
@@ -739,10 +744,6 @@ static int gsc_m2m_open(struct file *file)
 	ctx->out_path = GSC_DMA;
 	spin_lock_init(&ctx->slock);
 
-	init_timer(&ctx->op_timer);
-	ctx->op_timer.data = (unsigned long)ctx;
-	ctx->op_timer.function = gsc_op_timer_handler;
-
 	INIT_LIST_HEAD(&ctx->fence_wait_list);
 	INIT_WORK(&ctx->fence_work, gsc_m2m_fence_work);
 
@@ -865,6 +866,8 @@ int gsc_register_m2m_device(struct gsc_dev *gsc)
 		goto err_m2m_r2;
 	}
 
+	setup_timer(&gsc->op_timer, gsc_op_timer_handler,
+			(unsigned long)gsc);
 	gsc_dbg("gsc m2m driver registered as /dev/video%d", vfd->num);
 
 	return 0;

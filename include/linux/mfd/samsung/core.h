@@ -24,6 +24,7 @@ enum sec_device_type {
 	S5M8767X,
 	S2MPS11X,
 	S2MPS13X,
+	S2MPS14X,
 };
 
 /**
@@ -62,7 +63,23 @@ struct sec_pmic_dev {
 	u8 irq_masks_cache[NUM_IRQ_REGS];
 	int type;
 	bool wakeup;
-	bool wtsr_smpl;
+};
+
+/**
+ * struct sec_wtsr_smpl - settings for WTSR/SMPL
+ * @wtsr_en:		WTSR Function Enable Control
+ * @smpl_en:		SMPL Function Enable Control
+ * @wtsr_timer_val:	Set the WTSR timer Threshold
+ * @smpl_timer_val:	Set the SMPL timer Threshold
+ * @check_jigon:	if this value is true, do not enable SMPL function when
+ *			JIGONB is low(JIG cable is attached)
+ */
+struct sec_wtsr_smpl {
+	bool wtsr_en;
+	bool smpl_en;
+	int wtsr_timer_val;
+	int smpl_timer_val;
+	bool check_jigon;
 };
 
 struct sec_platform_data {
@@ -119,11 +136,13 @@ struct sec_platform_data {
 	bool                            buck4_ramp_enable;
 	bool				buck6_ramp_enable;
 
-	bool wtsr_smpl;
-
 	int				buck2_init;
 	int				buck3_init;
 	int				buck4_init;
+
+	/* ---- RTC ---- */
+	struct sec_wtsr_smpl *wtsr_smpl;
+	struct rtc_time *init_time;
 };
 
 int sec_irq_init(struct sec_pmic_dev *sec_pmic);
@@ -135,6 +154,7 @@ extern int sec_bulk_read(struct sec_pmic_dev *sec_pmic, u32 reg, int count, u8 *
 extern int sec_reg_write(struct sec_pmic_dev *sec_pmic, u32 reg, u32 value);
 extern int sec_bulk_write(struct sec_pmic_dev *sec_pmic, u32 reg, int count, u8 *buf);
 extern int sec_reg_update(struct sec_pmic_dev *sec_pmic, u32 reg, u32 val, u32 mask);
+
 
 extern int sec_rtc_read(struct sec_pmic_dev *sec_pmic, u32 reg, void *dest);
 extern int sec_rtc_bulk_read(struct sec_pmic_dev *sec_pmic, u32 reg, int count,

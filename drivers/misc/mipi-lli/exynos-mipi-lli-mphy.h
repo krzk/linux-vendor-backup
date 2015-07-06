@@ -76,13 +76,128 @@
 #define PHY_RX_FSM_STATE(LANE)				(1024*LANE + 0xC1*4)
 #define PHY_RX_FILLER_INSERTION_ENABLE(LANE)		(1024*LANE + 0x16*4)
 
+static const int phy_std_debug_info[] = {
+	PHY_TX_MODE(0),
+	PHY_TX_HSRATE_SERIES(0),
+	PHY_TX_HSGEAR(0),
+	PHY_TX_PWMGEAR(0),
+	PHY_TX_HIBERN8_CONTROL(0),
+	PHY_TX_LCC_ENABLE(0),
+	PHY_TX_BYPASS_8B10B_ENABLE(0),
+	PHY_TX_LCC_SEQUENCER(0),
+	PHY_TX_FSM_STATE(0),
+	PHY_RX_MODE(0),
+	PHY_RX_HSRATE_SERIES(0),
+	PHY_RX_HSGEAR(0),
+	PHY_RX_PWMGEAR(0),
+	PHY_RX_ENTER_HIBERN8(0),
+	PHY_RX_BYPASS_8B10B_ENABLE(0),
+	PHY_RX_FSM_STATE(0),
+};
+
+static const int phy_cmn_debug_info[] = {
+	0x00*4, /* [7] r_read_l_lane
+		   [6] r_cfg_ov_tm
+		   [5:3] r_ln_num
+		   [2:0] r_txrx_lane */
+	0x06*4, /* [6:4] r_freq_mode[2:0]
+		   [3:0] o_pdiv [3:0] */
+	0x07*4, /* [7:0] r_mdiv [7:0] */
+	0x08*4, /* [4] r_mdiv_ctrl_by_i2c
+		   [3:0] o_abt_sel[11:8] */
+	0x0A*4, /* [3:2] o_irext_sel[1:0]
+		   [1:0] o_irpoly_sel[1:0] */
+	0x10*4, /* [7] r_vco_band_reuse
+		   [6] r_cmn_afc_state_en
+		   [5] r_afc_state_en
+		   [4] r_ov_en_afc
+		   [3:0] o_force_vco_band */
+	0x11*4, /* [2:0] o_kvco_tune[2:0] */
+	0x12*4, /* [1:0] o_ireg_ctrl[1:0](regulator_current) */
+	0x13*4, /* [1:0] o_icpi_ctrl[1:0] */
+	0x14*4, /* [2:0] o_icpp_ctrl[2:0] */
+	0x16*4, /* [2:0] o_lpf_rsel[2:0] */
+	0x17*4, /* [0] o_pd_bgr_clk  00(on)*4, 01(off) */
+	0x19*4, /* [7:4] o_vci_ctrl[3:0]
+		   [3:0] o_lpf_cpsel[3:0] */
+	0x1A*4,
+	0x1C*4, /* [3:1] o_vcm_boost_en[2:0] : 000 -> 101
+		   [0] o_vcm_short_en 1->0 */
+	0x21*4, /* [6] r_cmn_block_en */
+	0x26*4, /* Lock Read */
+	0x31*4, /* [4:0] r_pd_mask_reg [4:0] */
+	0x44*4, /* [5] o_afc_clk_div_en 1'b0
+		   [4] o_afc_vforce 1'b0
+		   [3:0] o_afc_code_start 4'b0111 -> 4'b0000 */
+	0x4E*4, /* [1] pd_refclk_out */
+	0x4D*4, /* refclk_out strength */
+};
+
+static const int phy_ovtm_debug_info[] = {
+	0x75*4, /* [5:0]r_tx_amplitude_ctrl */
+	0x76*4,
+	0x78*4, /* [5] o_use_internal_clk
+		   [4] o_line_lb_sel_1
+		   [3] o_line_lb_sel_0
+		   [2] o_ser_lb_en_pwm
+		   [1] o_line_lb_en
+		   [0] o_ser_lb_en */
+	0x79*4, /* [3] o_protocol_lb
+		   [2:0] o_lb_pattern */
+	0x84*4, /* [0] o_pin_rsv_tx[8] */
+	0x85*4, /* [7:4] up    4'b0000 -> 4'b1000
+		   [3:0] down  4'b0000 -> 4'b1000 */
+	0x86*4, /* [7]: Enable RES_TUNE[1:0],
+		   [3:2] : HS_sync option default on
+		   [1:0] : RES_TUNE[1:0] */
+	0x0A*4, /* [7:5] o_lc_sw[2:0]
+		   [4] o_pulse_rej_en
+		   [3] o_ser_lb_sel_0
+		   [2] o_sel_lb_sel_0_pwm
+		   [1] o_line_lb_en
+		   [0] o_ser_lb_en */
+	0x0B*4, /* [3] o_protocol_lb
+		   [2:0] o_lb_pattern */
+	0x16*4, /* [5] o_ov_align_ctl_en
+		   [4:2] o_ov_align_ctl_cnt[2:0]
+		   [1] o_rx_filler_en
+		   [0] o_rx_align */
+	0x1A*4, /* [7] r_rcal_inv_code */
+	0x29*4, /* [4] r_ov_pwm_burst_end_wa2
+		   [3] r_ov_pwm_gear_minus_1
+		   [2] r_ov_pwm_gear_plus_1
+		   [1] r_ov_pwm_closure_sel
+		   [0] o_pwm_align_en */
+	0x2E*4, /* [7:6] o_pwm_cur_ctrl[1:0]
+		   [5] o_hs_data_inv
+		   [4] o_hs_data_pol
+		   [3] o_pwm_data_inv
+		   [2] o_pwm_data_pol
+		   [1] o_sys_data_inv
+		   [0] o_sys_data_pol */
+	0x2F*4, /* [7:6] o_pwm_clk_dly2[1:0]
+		   [5:0] o_pwm_clk_dly1[5] [4:3] [2] [1:0] */
+	0x30*4, /* [7:4] o_pwm_clk_dly2[5:2]
+		   [3] o_hs_pol
+		   [2:0] o_sq_time_ctrl[2:0] */
+};
+
 enum phy_sfr_type {
 	LOCAL_SFR, REMOTE_SFR,
 };
 
 enum phy_mode_type {
-	PWM_G1, PWM_G2, PWM_G3, PWM_G4, PWM_G5, PWM_G6, PWM_G7,
-	HS_G1, HS_G2, HS_G3,
+	GEAR_1 = 0x1,
+	GEAR_2 = 0x2,
+	GEAR_3 = 0x3,
+	GEAR_4 = 0x4,
+	GEAR_5 = 0x5,
+	GEAR_6 = 0x6,
+	GEAR_7 = 0x7,
+	OPMODE_PWM = 0x10,
+	OPMODE_HS = 0x20,
+	HS_RATE_A = 0x100,
+	HS_RATE_B = 0x200,
 };
 
 struct exynos_mphy {
@@ -95,6 +210,7 @@ struct exynos_mphy {
 
 	enum phy_mode_type default_mode;
 	bool is_shared_clk;
+	int afc_val;
 
 	int (*init)(struct exynos_mphy *phy);
 	int (*cmn_init)(struct exynos_mphy *phy);

@@ -68,6 +68,8 @@ struct s3c64xx_spi_csinfo {
  * @cfg_gpio: Configure pins for this SPI controller.
  */
 struct s3c64xx_spi_info {
+	struct list_head node;
+	unsigned int need_hw_init;
 	int src_clk_nr;
 	int num_cs;
 	int dma_mode;

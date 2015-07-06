@@ -222,8 +222,10 @@ static void samsung_usb3phy_crport_ctrl(struct samsung_usbphy *sphy,
 static void samsung_usb3phy_tune(struct usb_phy *phy)
 {
 	struct samsung_usbphy *sphy;
+	u32 refclk;
 
 	sphy = phy_to_sphy(phy);
+	refclk = sphy->ref_clk_freq;
 
 	if (sphy->drv_data->need_crport_tuning) {
 		u32 temp;
@@ -237,6 +239,22 @@ static void samsung_usb3phy_tune(struct usb_phy *phy)
 		temp = TX_VBOOSTLEVEL_OVRD_IN_VBOOST_5420;
 		samsung_usb3phy_crport_ctrl(sphy,
 			EXYNOS5_DRD_PHYSS_TX_VBOOSTLEVEL_OVRD_IN, temp);
+
+		switch (refclk) {
+		case FSEL_CLKSEL_50M:
+			temp = RXDET_MEAS_TIME_50M;
+			break;
+		case FSEL_CLKSEL_20M:
+		case FSEL_CLKSEL_19200K:
+			temp = RXDET_MEAS_TIME_20M;
+			break;
+		case FSEL_CLKSEL_24M:
+		default:
+			temp = RXDET_MEAS_TIME_24M;
+			break;
+		}
+		samsung_usb3phy_crport_ctrl(sphy,
+			EXYNOS5_DRD_PHYSS_RXDET_MEAS_TIME, temp);
 	}
 }
 
@@ -248,7 +266,7 @@ static int samsung_usb3phy_init(struct usb_phy *phy)
 
 	sphy = phy_to_sphy(phy);
 
-	dev_dbg(sphy->dev, "%s\n", __func__);
+	dev_vdbg(sphy->dev, "%s\n", __func__);
 
 	/* Enable the phy clock */
 	ret = clk_enable(sphy->clk);
@@ -262,7 +280,7 @@ static int samsung_usb3phy_init(struct usb_phy *phy)
 	sphy->usage_count++;
 
 	if (sphy->usage_count - 1) {
-		dev_dbg(sphy->dev, "PHY is already initialized\n");
+		dev_vdbg(sphy->dev, "PHY is already initialized\n");
 		goto exit;
 	}
 
@@ -280,6 +298,8 @@ exit:
 
 	/* Disable the phy clock */
 	clk_disable(sphy->clk);
+
+	dev_dbg(sphy->dev, "end of %s\n", __func__);
 
 	return ret;
 }
@@ -304,7 +324,7 @@ static void samsung_usb3phy_idle(struct samsung_usbphy *sphy)
 	unsigned long flags;
 	int ret;
 
-	dev_dbg(sphy->dev, "%s\n", __func__);
+	dev_vdbg(sphy->dev, "%s\n", __func__);
 
 	ret = clk_enable(sphy->clk);
 	if (ret < 0) {
@@ -317,7 +337,7 @@ static void samsung_usb3phy_idle(struct samsung_usbphy *sphy)
 	if (!sphy->usage_count)
 		__samsung_usb3phy_shutdown(sphy);
 	else
-		dev_dbg(sphy->dev, "%s: PHY is currently in use\n", __func__);
+		dev_vdbg(sphy->dev, "%s: PHY is currently in use\n", __func__);
 
 	spin_unlock_irqrestore(&sphy->lock, flags);
 
@@ -334,7 +354,7 @@ static void samsung_usb3phy_shutdown(struct usb_phy *phy)
 
 	sphy = phy_to_sphy(phy);
 
-	dev_dbg(sphy->dev, "%s\n", __func__);
+	dev_vdbg(sphy->dev, "%s\n", __func__);
 
 	if (clk_enable(sphy->clk)) {
 		dev_err(sphy->dev, "%s: clk_enable failed\n", __func__);
@@ -344,20 +364,22 @@ static void samsung_usb3phy_shutdown(struct usb_phy *phy)
 	spin_lock_irqsave(&sphy->lock, flags);
 
 	if (!sphy->usage_count) {
-		dev_dbg(sphy->dev, "PHY is already shutdown\n");
+		dev_vdbg(sphy->dev, "PHY is already shutdown\n");
 		goto exit;
 	}
 
 	sphy->usage_count--;
 
 	if (sphy->usage_count) {
-		dev_dbg(sphy->dev, "PHY is still in use\n");
+		dev_vdbg(sphy->dev, "PHY is still in use\n");
 		goto exit;
 	}
 
 	__samsung_usb3phy_shutdown(sphy);
 exit:
 	spin_unlock_irqrestore(&sphy->lock, flags);
+
+	dev_dbg(sphy->dev, "end of %s\n", __func__);
 
 	clk_disable(sphy->clk);
 }
@@ -368,6 +390,36 @@ static bool samsung_usb3phy_is_active(struct usb_phy *phy)
 
 	return !!sphy->usage_count;
 }
+
+static int samsung_usb3phy_read(struct usb_phy *phy, u32 reg)
+{
+	struct samsung_usbphy *sphy = phy_to_sphy(phy);
+	unsigned long flags;
+	u32 val;
+
+	spin_lock_irqsave(&sphy->lock, flags);
+	val = readl(sphy->regs + reg);
+	spin_unlock_irqrestore(&sphy->lock, flags);
+
+	return val;
+}
+
+static int samsung_usb3phy_write(struct usb_phy *phy, u32 val, u32 reg)
+{
+	struct samsung_usbphy *sphy = phy_to_sphy(phy);
+	unsigned long flags;
+
+	spin_lock_irqsave(&sphy->lock, flags);
+	writel(val, sphy->regs + reg);
+	spin_unlock_irqrestore(&sphy->lock, flags);
+
+	return 0;
+}
+
+static struct usb_phy_io_ops samsung_usb3phy_io_ops = {
+	.read		= samsung_usb3phy_read,
+	.write		= samsung_usb3phy_write,
+};
 
 static int
 samsung_usb3phy_lpa_event(struct notifier_block *nb,
@@ -446,6 +498,7 @@ static int samsung_usb3phy_probe(struct platform_device *pdev)
 	sphy->phy.shutdown	= samsung_usb3phy_shutdown;
 	sphy->phy.is_active	= samsung_usb3phy_is_active;
 	sphy->phy.tune		= samsung_usb3phy_tune;
+	sphy->phy.io_ops	= &samsung_usb3phy_io_ops;
 	sphy->drv_data		= samsung_usbphy_get_driver_data(pdev);
 	sphy->ref_clk_freq	= samsung_usbphy_get_refclk_freq(sphy);
 
@@ -514,7 +567,15 @@ static int samsung_usb3phy_resume(struct device *dev)
 
 	return 0;
 }
-#endif
+
+static const struct dev_pm_ops samsung_usb3phy_dev_pm_ops = {
+	.resume		= samsung_usb3phy_resume,
+};
+
+#define DEV_PM_OPS     (&samsung_usb3phy_dev_pm_ops)
+#else
+#define DEV_PM_OPS     NULL
+#endif /* CONFIG_PM_SLEEP */
 
 static struct samsung_usbphy_drvdata usb3phy_exynos5250 = {
 	.cpu_type		= TYPE_EXYNOS5250,
@@ -532,10 +593,6 @@ static struct samsung_usbphy_drvdata usb3phy_exynos5 = {
 	.cpu_type		= TYPE_EXYNOS5,
 	.devphy_en_mask		= EXYNOS_USBPHY_ENABLE,
 	.need_crport_tuning	= false,
-};
-
-static const struct dev_pm_ops samsung_usb3phy_dev_pm_ops = {
-	.resume		= samsung_usb3phy_resume,
 };
 
 #ifdef CONFIG_OF
@@ -579,7 +636,7 @@ static struct platform_driver samsung_usb3phy_driver = {
 		.name	= "samsung-usb3phy",
 		.owner	= THIS_MODULE,
 		.of_match_table = of_match_ptr(samsung_usbphy_dt_match),
-		.pm	= &samsung_usb3phy_dev_pm_ops,
+		.pm	= DEV_PM_OPS,
 	},
 };
 

@@ -35,6 +35,7 @@
 #include "../fimc-is-core.h"
 #include "../fimc-is-device-sensor.h"
 #include "../fimc-is-resourcemgr.h"
+#include "../fimc-is-hw.h"
 #include "fimc-is-device-imx175.h"
 
 #define SENSOR_NAME "IMX175"
@@ -44,8 +45,6 @@ static struct fimc_is_sensor_cfg config_imx175[] = {
 	FIMC_IS_SENSOR_CFG(3280, 2458, 30, 14, 0),
 	/* 3280X1846@30fps */
 	FIMC_IS_SENSOR_CFG(3280, 1846, 30, 11, 1),
-	/* 3280X1846@15fps, Busrt Panorama */
-	FIMC_IS_SENSOR_CFG(3280, 1846, 15, 11, 1),
 	/* 3280X2458@24fps */
 	FIMC_IS_SENSOR_CFG(3280, 2458, 24, 11, 2),
 	/* 3280X1846@24fps */
@@ -117,6 +116,8 @@ int sensor_imx175_probe(struct i2c_client *client,
 	module->pixel_width = module->active_width + 16;
 	module->pixel_height = module->active_height + 10;
 	module->max_framerate = 120;
+	module->mode = CSI_MODE_CH0_ONLY;
+	module->lanes = CSI_DATA_LANES_4;
 	module->setfile_name = "setfile_imx175.bin";
 	module->cfgs = ARRAY_SIZE(config_imx175);
 	module->cfg = config_imx175;
@@ -155,11 +156,11 @@ int sensor_imx175_probe(struct i2c_client *client,
 
 	ext->companion_con.product_name = COMPANION_NAME_NOTHING;
 
-#ifdef DEFAULT_IMX175_DRIVING
-	v4l2_i2c_subdev_init(subdev_module, client, &subdev_ops);
-#else
-	v4l2_subdev_init(subdev_module, &subdev_ops);
-#endif
+	if (client)
+		v4l2_i2c_subdev_init(subdev_module, client, &subdev_ops);
+	else
+		v4l2_subdev_init(subdev_module, &subdev_ops);
+
 	v4l2_set_subdevdata(subdev_module, module);
 	v4l2_set_subdev_hostdata(subdev_module, device);
 	snprintf(subdev_module->name, V4L2_SUBDEV_NAME_SIZE, "sensor-subdev.%d", module->id);

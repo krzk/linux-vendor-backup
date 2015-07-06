@@ -16,5 +16,6 @@ obj-$(CONFIG_EXYNOS_IOVMM) += exynos-iovmm.o
 obj-$(CONFIG_EXYNOS_IOMMU) += exynos-iommu.o
 obj-$(CONFIG_EXYNOS5_IOMMU) += exynos5-iommu.o
 obj-$(CONFIG_EXYNOS7_IOMMU) += exynos7-iommu.o
+obj-$(CONFIG_EXYNOS_IOMMU_EVENT_LOG) += exynos-iommu-log.o
 obj-$(CONFIG_SHMOBILE_IOMMU) += shmobile-iommu.o
 obj-$(CONFIG_SHMOBILE_IPMMU) += shmobile-ipmmu.o

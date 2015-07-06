@@ -511,6 +511,13 @@ config USB_SWITCH_FSA9480
 	  stereo and mono audio, video, microphone and UART data to use
 	  a common connector port.
 
+config SHIRI_VIBRATOR
+	tristate "Shiri vibrator support"
+	depends on I2C
+	default y
+	help
+	  The SHIRI_VIBRATOR is the vibrator driver for Shiri.
+
 config LATTICE_ECP3_CONFIG
 	tristate "Lattice ECP3 FPGA bitstream configuration via SPI"
 	depends on SPI && SYSFS
@@ -530,6 +537,10 @@ config SRAM
 	  This driver allows you to declare a memory region to be managed by
 	  the genalloc API. It is supposed to be used for small on-chip SRAM
 	  areas found on many SoCs.
+
+config AUTO_SLEEP_WAKEUP_TEST
+	bool "The dummy driver for auto sleep wakeup test"
+	default n
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"

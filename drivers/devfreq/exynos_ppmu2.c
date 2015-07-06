@@ -186,9 +186,16 @@ int ppmu_set_mode(struct ppmu_info *ppmu,
 		((mode->start_mode & PMNC_MODE_START_MASK) << PMNC_MODE_START_SHIFT) |
 		((mode->dividing_enable & PMNC_MASK) << PMNC_CCNT_DIVIDING_SHIFT) |
 		((mode->ccnt_reset & PMNC_MASK) << PMNC_CCNT_RESET_SHIFT) |
-		((mode->pmcnt_reset & PMNC_MASK) << PMNC_CCNT_RESET_PMCNT_SHIFT) |
-		((mode->count_enable & PMNC_MASK) << PMNC_GLB_CNT_EN_SHIFT));
+		((mode->pmcnt_reset & PMNC_MASK) << PMNC_CCNT_RESET_PMCNT_SHIFT));
+	__raw_writel(tmp, ppmu->base + REG_PMNC);
 
+	tmp = __raw_readl(ppmu->base + REG_PMNC);
+	tmp &= ~((PMNC_MASK << PMNC_CCNT_RESET_SHIFT) |
+		(PMNC_MASK << PMNC_CCNT_RESET_PMCNT_SHIFT));
+	__raw_writel(tmp, ppmu->base + REG_PMNC);
+
+	tmp = __raw_readl(ppmu->base + REG_PMNC);
+	tmp |= ((mode->count_enable & PMNC_MASK) << PMNC_GLB_CNT_EN_SHIFT);
 	__raw_writel(tmp, ppmu->base + REG_PMNC);
 
 	return 0;
@@ -594,18 +601,6 @@ int ppmu_reset(struct ppmu_info *ppmu)
 	if (ppmu_get_check_null(ppmu))
 		return -EINVAL;
 
-	ret = ppmu_get_mode(ppmu, &mode);
-	if (ret)
-		return ret;
-
-	mode.ccnt_reset		= CNT_ENABLE;
-	mode.pmcnt_reset	= CNT_ENABLE;
-	mode.count_enable	= CNT_ENABLE;
-
-	ret = ppmu_set_mode(ppmu, &mode);
-	if (ret)
-		return ret;
-
 	ret = ppmu_set_event0(ppmu, EV_RD_DATA_HS);
 	if (ret)
 		return ret;
@@ -619,15 +614,27 @@ int ppmu_reset(struct ppmu_info *ppmu)
 		return ret;
 
 	status.ccnt		= CNT_ENABLE;
-	status.pmcnt3		= CNT_ENABLE;
-	status.pmcnt1		= CNT_ENABLE;
 	status.pmcnt0		= CNT_ENABLE;
+	status.pmcnt1		= CNT_ENABLE;
+	status.pmcnt3		= CNT_ENABLE;
 
 	ret = ppmu_counter_enable(ppmu, &status);
 	if (ret)
 		return ret;
 
-	return ppmu_set_interrupt_flag(ppmu, &status);
+	ret = ppmu_set_interrupt_flag(ppmu, &status);
+	if (ret)
+		return ret;
+
+	ret = ppmu_get_mode(ppmu, &mode);
+	if (ret)
+		return ret;
+
+	mode.ccnt_reset		= CNT_ENABLE;
+	mode.pmcnt_reset	= CNT_ENABLE;
+	mode.count_enable	= CNT_ENABLE;
+
+	return ppmu_set_mode(ppmu, &mode);
 }
 
 int ppmu_disable(struct ppmu_info *ppmu)
@@ -657,11 +664,14 @@ int ppmu_reset_total(struct ppmu_info *ppmu,
 }
 
 int ppmu_count(struct ppmu_info *ppmu,
-		unsigned long *ccnt,
-		unsigned long *pmcnt)
+		unsigned long long *ccnt,
+		unsigned long long *pmcnt0,
+		unsigned long long *pmcnt1,
+		unsigned long long *pmcnt3)
 {
-	unsigned int val_ccnt, val_pmcnt0, val_pmcnt1;
-	unsigned long long val_pmcnt3;
+	unsigned int val_ccnt;
+	unsigned int val_pmcnt0;
+	unsigned int val_pmcnt1;
 
 	if (ppmu_get_check_null(ppmu))
 		return -EINVAL;
@@ -675,23 +685,27 @@ int ppmu_count(struct ppmu_info *ppmu,
 	if (ppmu_get_pmcnt1(ppmu, &val_pmcnt1))
 		return -EINVAL;
 
-	if (ppmu_get_pmcnt3(ppmu, &val_pmcnt3))
+	if (ppmu_get_pmcnt3(ppmu, pmcnt3))
 		return -EINVAL;
 
 	*ccnt = val_ccnt;
-	*pmcnt = val_pmcnt0 + val_pmcnt1 + val_pmcnt3;
+	*pmcnt0 = val_pmcnt0;
+	*pmcnt1 = val_pmcnt1;
 
 	return 0;
 }
 
 int ppmu_count_total(struct ppmu_info *ppmu,
 			unsigned int size,
-			unsigned long *ccnt,
-			unsigned long *pmcnt)
+			pfn_ppmu_count pfn_count,
+			unsigned long long *ccnt,
+			unsigned long long *pmcnt)
 {
 	unsigned int i;
-	unsigned long val_ccnt = 0;
-	unsigned long val_pmcnt = 0;
+	unsigned long long val_ccnt = 0;
+	unsigned long long val_pmcnt0 = 0;
+	unsigned long long val_pmcnt1 = 0;
+	unsigned long long val_pmcnt3 = 0;
 
 	if (ccnt == NULL ||
 		pmcnt == NULL) {
@@ -705,16 +719,29 @@ int ppmu_count_total(struct ppmu_info *ppmu,
 	for (i = 0; i < size; ++i)
 		ppmu_disable(ppmu + i);
 
-	for (i = 0; i < size; ++i) {
-		if (ppmu_count(ppmu + i, &val_ccnt, &val_pmcnt))
-			return -EINVAL;
+	if (pfn_count != NULL) {
+		return pfn_count(ppmu, size, ccnt, pmcnt);
+	} else {
+		for (i = 0; i < size; ++i) {
+			if (ppmu_count(ppmu + i, &val_ccnt, &val_pmcnt0, &val_pmcnt1, &val_pmcnt3))
+				return -EINVAL;
 
-		if (*ccnt < val_ccnt)
-			*ccnt = val_ccnt;
+			if (*ccnt < val_ccnt)
+				*ccnt = val_ccnt;
 
-		if (*pmcnt < val_pmcnt)
-			*pmcnt = val_pmcnt;
+			*pmcnt += val_pmcnt3;
+		}
 	}
+
+	return 0;
+}
+
+int ppmu_count_stop(struct ppmu_info *ppmu, unsigned int size)
+{
+	unsigned int i;
+
+	for (i = 0; i < size; ++i)
+		__raw_writel(0x0, ppmu->base + REG_PMNC);
 
 	return 0;
 }

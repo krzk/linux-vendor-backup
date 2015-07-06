@@ -16,10 +16,18 @@
 #include <linux/miscdevice.h>
 #include <linux/clk.h>
 
+#ifdef CONFIG_LTE_MODEM_XMM7260
+#define MIPI_LLI_RESERVE_SIZE SZ_8M
+#else
+#define MIPI_LLI_RESERVE_SIZE SZ_4M
+#endif
+
+extern phys_addr_t lli_phys_addr;
+
 enum mipi_lli_link_status {
-	LLI_RESET,
-	LLI_MOUNTED,
 	LLI_UNMOUNTED,
+	LLI_MOUNTED,
+	LLI_WAITFORMOUNT,
 };
 
 struct mipi_lli_ipc_handler {
@@ -53,6 +61,20 @@ struct mipi_lli_clks {
 	struct clk	*fout_mphy_pll;
 };
 
+struct mipi_lli_dump {
+	u32	clk[32];
+	u32	lli[1024];
+	u32	mphy_std[1024];
+	u32	mphy_cmn[1024];
+	u32	mphy_ovtm[1024];
+};
+
+struct mipi_lli_modem {
+	char	*name;
+	bool	scrambler;
+	bool	automode;
+};
+
 struct mipi_lli {
 	const struct lli_driver *driver;	/* hw-specific hooks */
 
@@ -64,7 +86,10 @@ struct mipi_lli {
 	 */
 	unsigned long		flags;
 
+	struct mipi_lli_modem	modem_info;
 	struct mipi_lli_clks	clks;
+	struct mipi_lli_dump	dump;
+	struct work_struct	wq_print_dump;
 
 	unsigned int		irq;		/* irq allocated */
 	unsigned int		irq_sig;	/* irq_sig allocated */
@@ -81,7 +106,7 @@ struct mipi_lli {
 	void __iomem		*shdmem_addr;
 	u32			shdmem_size;
 	dma_addr_t		phy_addr;
-	int			state;
+	atomic_t		state;
 	bool			is_master;
 	bool			is_suspended;
 	bool			is_runtime_suspended;
@@ -101,6 +126,10 @@ struct lli_driver {
 	int	(*send_signal)(struct mipi_lli *lli, u32 cmd);
 	int	(*reset_signal)(struct mipi_lli *lli);
 	int	(*read_signal)(struct mipi_lli *lli);
+	int	(*loopback_test)(struct mipi_lli *lli);
+	int	(*debug_info)(struct mipi_lli *lli);
+
+	int	(*intr_enable)(struct mipi_lli *lli);
 
 	int	(*suspend)(struct mipi_lli *lli);
 	int	(*resume)(struct mipi_lli *lli);
@@ -111,16 +140,21 @@ extern int mipi_lli_add_driver(struct device *dev,
 			       int irq);
 extern void mipi_lli_remove_driver(struct mipi_lli *lli);
 
-extern void __iomem *mipi_lli_request_sh_region(u32 sh_addr, u32 size);
+extern void __iomem *mipi_lli_request_sh_region(unsigned long sh_addr,
+						unsigned long size);
 extern void mipi_lli_release_sh_region(void *rgn);
 extern unsigned long mipi_lli_get_phys_base(void);
 extern unsigned long mipi_lli_get_phys_size(void);
 extern int mipi_lli_get_link_status(void);
+extern int mipi_lli_set_link_status(int status);
+extern int mipi_lli_suspended(void);
 extern int mipi_lli_register_handler(void (*handler)(void *, u32), void *data);
 extern int mipi_lli_unregister_handler(void (*handler)(void *, u32));
 extern void mipi_lli_send_interrupt(u32 cmd);
 extern void mipi_lli_reset_interrupt(void);
 extern u32 mipi_lli_read_interrupt(void);
+extern void mipi_lli_debug_info(void);
+extern void mipi_lli_intr_enable(void);
 extern void mipi_lli_reload(void);
 extern void mipi_lli_suspend(void);
 extern void mipi_lli_resume(void);

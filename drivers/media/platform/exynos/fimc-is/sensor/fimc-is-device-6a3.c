@@ -35,13 +35,14 @@
 #include "../fimc-is-core.h"
 #include "../fimc-is-device-sensor.h"
 #include "../fimc-is-resourcemgr.h"
+#include "../fimc-is-hw.h"
 #include "fimc-is-device-6a3.h"
 
 #define SENSOR_NAME "S5K6A3"
 
 static struct fimc_is_sensor_cfg config_6a3[] = {
-	/* 1936x1090@30fps */
-	FIMC_IS_SENSOR_CFG(1936, 1090, 30, 16, 0),
+	/* 1412x796@30fps */
+	FIMC_IS_SENSOR_CFG(1412, 796, 30, 16, 0),
 };
 
 static int sensor_6a3_init(struct v4l2_subdev *subdev, u32 val)
@@ -107,6 +108,8 @@ int sensor_6a3_probe(struct i2c_client *client,
 	module->pixel_height = module->active_height + 10;
 	module->max_framerate = 30;
 	module->position = SENSOR_POSITION_FRONT;
+	module->mode = CSI_MODE_CH0_ONLY;
+	module->lanes = CSI_DATA_LANES_1;
 	module->setfile_name = "setfile_6a3.bin";
 	module->cfgs = ARRAY_SIZE(config_6a3);
 	module->cfg = config_6a3;
@@ -114,9 +117,9 @@ int sensor_6a3_probe(struct i2c_client *client,
 	module->private_data = NULL;
 
 	ext = &module->ext;
+	ext->mipi_lane_num = module->lanes;
 	ext->I2CSclk = I2C_L0;
 	ext->mipi_settle_line = 18;
-	ext->mipi_lane_num = 1;
 
 	ext->sensor_con.product_name = SENSOR_S5K6A3_NAME;
 	ext->sensor_con.peri_type = SE_I2C;
@@ -128,11 +131,11 @@ int sensor_6a3_probe(struct i2c_client *client,
 
 	ext->companion_con.product_name = COMPANION_NAME_NOTHING;
 
-#ifdef DEFAULT_S5K6A3_DRIVING
-	v4l2_i2c_subdev_init(subdev_module, client, &subdev_ops);
-#else
-	v4l2_subdev_init(subdev_module, &subdev_ops);
-#endif
+	if (client)
+		v4l2_i2c_subdev_init(subdev_module, client, &subdev_ops);
+	else
+		v4l2_subdev_init(subdev_module, &subdev_ops);
+
 	v4l2_set_subdevdata(subdev_module, module);
 	v4l2_set_subdev_hostdata(subdev_module, device);
 	snprintf(subdev_module->name, V4L2_SUBDEV_NAME_SIZE, "sensor-subdev.%d", module->id);

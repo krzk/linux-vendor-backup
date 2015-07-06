@@ -22,12 +22,23 @@
 
 #undef MUX
 #define MUX(_id, cname, pnames, o, s, w, f)                       \
-	__MUX(_id, NULL, cname, pnames, o, s, w, f, 0, NULL)
+	__MUX(_id, NULL, cname, pnames, o, s, w, f, 0, NULL, 0, 0, 0)
 
 #undef DIV
 #define DIV(_id, cname, pname, o, s, w)                                \
 	__DIV(_id, NULL, cname, pname, o, s, w, CLK_GET_RATE_NOCACHE, 0, NULL)
 
+#undef MUX_STAT
+#define MUX_STAT(_id, cname, pnames, o, s, w, so, ss, sw)			\
+	__MUX(_id, NULL, cname, pnames, o, s, w, 0, 0, NULL, 0, 0, 0)
+
+#undef CMX_S_A
+#define CMX_S_A(_id, o, s, w, a, so, ss, sw) \
+		MUX_S_A(_id, #_id, _id##_p, (unsigned long)o, s, w, a, 0, 0, 0)
+
+#undef MUX_S_A
+#define MUX_S_A(_id, cname, pnames, o, s, w, a, so, ss, sw)			\
+	__MUX(_id, NULL, cname, pnames, o, s, w, 0, 0, a, 0, 0, 0)
 
 
 enum exynos5422_clks {
@@ -333,6 +344,7 @@ enum exynos5422_clks {
 	clk_jpeg2,
 	clk_jpeg,
 	clk_rotator,
+	clk_top_rtc = 1420,
 
 /* CLK_GATE_IP_FSYS */
 	clk_ahb2apb_fsys2 = 1440,
@@ -388,7 +400,7 @@ enum exynos5422_clks {
 	clk_abb_apbif = 1504,
 	clk_tmu_gpu_apbif,
 	clk_tmu_apbif,
-	clk_rtc,
+	gate_rtc,
 	clk_wdt,
 	clk_st,
 	clk_seckey_apbif = 1510,
@@ -1775,12 +1787,14 @@ struct samsung_gate_clock exynos5422_gate_clks[] __initdata = {
 	CGATE(clk_sdmmc2, "clk_sdmmc2", "aclk_noc_fsys2", EXYNOS5_CLK_GATE_IP_FSYS, 14, 0, 0),
 	CGATE(clk_sdmmc1, "clk_sdmmc1", "aclk_noc_fsys2", EXYNOS5_CLK_GATE_IP_FSYS, 13, 0, 0),
 	CGATE(clk_sdmmc0, "clk_sdmmc0", "aclk_noc_fsys2", EXYNOS5_CLK_GATE_IP_FSYS, 12, 0, 0),
+	CGATE(clk_rtic, "clk_rtic", "aclk_noc_fsys2", EXYNOS5_CLK_GATE_IP_FSYS, 9, 0, 0),
 
 	CGATE(aclk_pdma0, "aclk_pdma0", "aclk_noc_fsys", EXYNOS5_CLK_GATE_BUS_FSYS0, 1, 0, 0),
 	CGATE(aclk_pdma1, "aclk_pdma1", "aclk_noc_fsys", EXYNOS5_CLK_GATE_BUS_FSYS0, 2, 0, 0),
 
 	/* PERIS */
 	CGATE(clk_wdt, "clk_wdt", "aclk_66_psgen", EXYNOS5_CLK_GATE_IP_PERIS, 19, 0, 0),
+	CGATE(gate_rtc, "gate_rtc", "aclk_66_psgen", EXYNOS5_CLK_GATE_IP_PERIS, 20, 0, 0),
 
 #ifdef CONFIG_SOC_EXYNOS5422_REV_0
 /* CLK_GATE_IP_GSCL0 */
@@ -1797,14 +1811,8 @@ struct samsung_gate_clock exynos5422_gate_clks[] __initdata = {
 /* CLK_GATE_IP_GSCL1 */
 	CGATE(clk_camif_top_csis0, "clk_camif_top_csis0", "dout2_gscl_blk_333", EXYNOS5_CLK_GATE_IP_GSCL1, 18, 0, 0),
 	CGATE(gscl_fimc_lite3, "gscl_fimc_lite3", "aclk_333_432_gscl", EXYNOS5_CLK_GATE_IP_GSCL1, 17, 0, 0),
-	CGATE(clk_smmu_fimcl3, "clk_smmu_fimcl3", "dout2_gscl_blk_333", EXYNOS5_CLK_GATE_IP_GSCL1, 16, 0, 0),
 	CGATE(clk_gscl_wrap_b, "clk_gscl_wrap_b", "dout_gscl_wrap_b", EXYNOS5_CLK_GATE_IP_GSCL1, 13, 0, 0),
 	CGATE(clk_gscl_wrap_a, "clk_gscl_wrap_a", "dout_gscl_wrap_a", EXYNOS5_CLK_GATE_IP_GSCL1, 12, 0, 0),
-	CGATE(clk_smmu_gscl1, "clk_smmu_gscl1", "dout2_gscl_blk_300", EXYNOS5_CLK_GATE_IP_GSCL1, 7, 0, 0),
-	CGATE(clk_smmu_gscl0, "clk_smmu_gscl0", "dout2_gscl_blk_300", EXYNOS5_CLK_GATE_IP_GSCL1, 6, 0, 0),
-	CGATE(clk_smmu_fimcl1, "clk_smmu_fimcl1", "dout2_gscl_blk_333", EXYNOS5_CLK_GATE_IP_GSCL1, 4, 0, 0),
-	CGATE(clk_smmu_fimcl0, "clk_smmu_fimcl0", "dout2_gscl_blk_333", EXYNOS5_CLK_GATE_IP_GSCL1, 3, 0, 0),
-	CGATE(clk_smmu_3aa, "clk_smmu_3aa", "dout2_gscl_blk_333", EXYNOS5_CLK_GATE_IP_GSCL1, 2, 0, 0),
 #else
 	/* GSCL */
 	CGATE(clk_gscl0, "clk_gscl0", "aclk_300_gscl", EXYNOS5_CLK_GATE_IP_GSCL0, 0, 0, 0),
@@ -1850,6 +1858,7 @@ struct samsung_gate_clock exynos5422_gate_clks[] __initdata = {
 	CMGATE(clk_jpeg, "clk_jpeg", "aclk_300_jpeg", EXYNOS5_CLK_GATE_IP_GEN, 2, CLK_GATE_MULTI_BIT_SET, 0, 0x1 << 12 | 0x1 << 2),
 	CGATE(clk_jpeg2, "clk_jpeg2", "aclk_300_jpeg", EXYNOS5_CLK_GATE_IP_GEN, 3, 0, 0),
 	CMGATE(clk_mdma1, "clk_mdma1", "aclk_gen", EXYNOS5_CLK_GATE_IP_GEN, 4, CLK_GATE_MULTI_BIT_SET, 0, 0x1 << 14 | 0x1 << 4),
+	CGATE(clk_top_rtc, "clk_top_rtc", "aclk_66_psgen", EXYNOS5_CLK_GATE_IP_GEN, 5, 0, 0),
 	CGATE(clk_smmurotator, "clk_smmurotator", "aclk_gen", EXYNOS5_CLK_GATE_IP_GEN, 6, 0, 0),
 	CGATE(clk_smmujpeg, "clk_smmujpeg", "aclk_300_jpeg", EXYNOS5_CLK_GATE_IP_GEN, 7, 0, 0),
 	CGATE(clk_smmumdma1, "clk_smmumdma1", "aclk_gen", EXYNOS5_CLK_GATE_IP_GEN, 9, 0, 0),
@@ -1939,7 +1948,6 @@ struct samsung_gate_clock exynos5422_gate_clks[] __initdata = {
 	CGATE(clk_xiu_si_gscl_cam, "clk_xiu_si_gscl_cam", "aclk_333_432_gscl", EXYNOS5_CLK_GATE_IP_CAM, 29, 0, 0),
 	CGATE(clk_noc_p_rstop_fimcl, "clk_noc_p_rstop_fimcl", "aclk_333_432_gscl", EXYNOS5_CLK_GATE_IP_CAM, 28, 0, 0),
 	CGATE(clk_camif_top_3aa0, "clk_camif_top_3aa0", "aclk_550_cam", EXYNOS5_CLK_GATE_IP_CAM, 27, 0, 0),
-	CGATE(clk_smmu_3aa0, "clk_smmu_3aa0", "dout2_gscl_blk_333", EXYNOS5_CLK_GATE_IP_CAM, 25, 0, 0),
 #endif
 };
 
@@ -2023,6 +2031,8 @@ struct samsung_pll_rate_table rpll_rate_table[] = {
 	/* rate		p	m	s	k */
 	{ 300000000U,   2,  100,    2, 0},
 	{ 266000000U,   3,  266,    3, 0},
+	{ 240000000U,	1,   80,    3, 0},
+	{ 133000000U,   3,  266,    4, 0},
 };
 
 struct samsung_pll_rate_table bpll_rate_table[] = {
@@ -2100,6 +2110,7 @@ struct samsung_pll_rate_table kpll_rate_table[] = {
 struct samsung_pll_rate_table dpll_rate_table[] = {
 	/* rate		p	m	s	k */
 	{  66000000U,   4,  352,    5,  0},
+	{  60000000U,   2,  200,    2,  0},
 };
 
 #define EXYNOS5422_PRINT_CMU(name) \
@@ -2136,7 +2147,7 @@ void __init exynos5422_clk_init(struct device_node *np)
 			ARRAY_SIZE(exynos5422_fixed_rate_ext_clks),
 			ext_clk_match);
 	samsung_clk_register_pll35xx("fout_apll", "fin_pll",
-			EXYNOS5_APLL_LOCK, EXYNOS5_APLL_CON0, apll_rate_table, ARRAY_SIZE(apll_rate_table));
+			EXYNOS5_APLL_LOCK, EXYNOS5_APLL_CON0, NULL, 0);
 
 	samsung_clk_register_pll35xx("fout_bpll", "fin_pll",
 			EXYNOS5_BPLL_LOCK, EXYNOS5_BPLL_CON0, bpll_rate_table, ARRAY_SIZE(bpll_rate_table));
@@ -2151,7 +2162,7 @@ void __init exynos5422_clk_init(struct device_node *np)
 			EXYNOS5_IPLL_LOCK, EXYNOS5_IPLL_CON0, ipll_rate_table, ARRAY_SIZE(ipll_rate_table));
 
 	samsung_clk_register_pll35xx("fout_kpll", "fin_pll",
-			EXYNOS5_KPLL_LOCK, EXYNOS5_KPLL_CON0, kpll_rate_table, ARRAY_SIZE(kpll_rate_table));
+			EXYNOS5_KPLL_LOCK, EXYNOS5_KPLL_CON0, NULL, 0);
 
 	samsung_clk_register_pll35xx("fout_mpll", "fin_pll",
 			EXYNOS5_MPLL_LOCK, EXYNOS5_MPLL_CON0, mpll_rate_table, ARRAY_SIZE(mpll_rate_table));

@@ -147,6 +147,7 @@ static int exynos_genpd_power_on(struct generic_pm_domain *genpd)
 		pd->cb->on_post(pd);
 
 #if defined(CONFIG_EXYNOS5430_BTS) || defined(CONFIG_EXYNOS5422_BTS)
+
 	/* enable bts features if exists */
 	if (pd->bts)
 		bts_initialize(pd->name, true);
@@ -413,13 +414,20 @@ static __init int exynos_pm_dt_parse_domains(void)
 		pd->name = pd->genpd.name;
 		pd->genpd.of_node = np;
 		pd->base = of_iomap(np, 0);
-		pd->on = exynos_pd_power;
-		pd->off = exynos_pd_power;
 		pd->cb = exynos_pd_find_callback(pd);
+		if (pd->cb && pd->cb->on)
+			pd->on = pd->cb->on;
+		else
+			pd->on = exynos_pd_power;
+
+		if (pd->cb && pd->cb->off)
+			pd->off = pd->cb->off;
+		else
+			pd->off = exynos_pd_power;
 
 		ret = of_property_read_u32_index(np, "pd-option", 0, &val);
 		if (ret)
-			pd->pd_option = 0x0102;
+			pd->pd_option = EXYNOS_SC_FEEDBACK;
 		else
 			pd->pd_option = val;
 
@@ -431,6 +439,19 @@ static __init int exynos_pm_dt_parse_domains(void)
 		}
 
 		platform_set_drvdata(pdev, pd);
+
+		if (pd->cb && pd->cb->init) {
+			ret = pd->cb->init(pd);
+			if (ret) {
+				iounmap(pd->base);
+				kfree(pd->genpd.name);
+				kfree(pd);
+				pr_err(PM_DOMAIN_PREFIX
+					"%s: Failed to init domain %s\n",
+					__func__, np->name);
+				return ret;
+			}
+		}
 
 		exynos_pm_powerdomain_init(pd);
 
@@ -543,11 +564,6 @@ arch_initcall(exynos5_pm_domain_init);
 
 static __init int exynos_pm_domain_idle(void)
 {
-	unsigned long j1 = jiffies+HZ;
-
-	/* HACK: wait 1sec not to interfere late-probed devices */
-	while(time_before(jiffies, j1))
-		schedule();
 
 	pr_info(PM_DOMAIN_PREFIX "Power off unused power domains.\n");
 	pm_genpd_poweroff_unused();

@@ -88,4 +88,14 @@ static inline int exynos_tmu_add_notifier(struct notifier_block *n)
 	return 0;
 }
 #endif
+
+#if defined(CONFIG_EXYNOS_THERMAL) && defined(CONFIG_SOC_EXYNOS5430)
+extern void exynos_tmu_core_control(bool on, int id);
+#else
+static inline void exynos_tmu_core_control(bool on, int id)
+{
+	return;
+}
+#endif
+
 #endif /* __ASM_ARCH_TMU_H */

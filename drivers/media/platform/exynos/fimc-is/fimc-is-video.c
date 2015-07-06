@@ -111,7 +111,12 @@ struct fimc_is_fmt fimc_is_formats[] = {
 		.name		= "BAYER 16 bit",
 		.pixelformat	= V4L2_PIX_FMT_SBGGR16,
 		.num_planes	= 1 + SPARE_PLANE,
-	},
+	}, {
+		.name		= "JPEG",
+		.pixelformat	= V4L2_PIX_FMT_JPEG,
+		.num_planes	= 1 + SPARE_PLANE,
+		.mbus_code	= V4L2_MBUS_FMT_JPEG_1X8,
+	}
 };
 
 struct fimc_is_fmt *fimc_is_find_format(u32 *pixelformat,
@@ -197,7 +202,7 @@ void fimc_is_set_plane_size(struct fimc_is_frame_cfg *frame, unsigned int sizes[
 	case V4L2_PIX_FMT_SBGGR10:
 		dbg("V4L2_PIX_FMT_SBGGR10(w:%d)(h:%d)\n",
 				frame->width, frame->height);
-		sizes[0] = frame->width*frame->height*2;
+		sizes[0] = get_plane_size_flite(frame->width,frame->height);
 		if (frame->bytesperline[0]) {
 			if (frame->bytesperline[0] >= frame->width * 5 / 4) {
 			sizes[0] = frame->bytesperline[0]
@@ -574,14 +579,12 @@ set_info:
 	for (i = 0; i < frame->planes; i++) {
 		frame->dvaddr_buffer[i] = queue->buf_dva[index][i];
 #ifdef PRINT_BUFADDR
-		pr_info("%04X %d.%d %08X\n", framemgr->id,
-			index, i, frame->dvaddr_buffer[i]);
+		info("%04X %d.%d %08X\n", framemgr->id, index, i, frame->dvaddr_buffer[i]);
 #endif
 	}
 
 	if (framemgr->id & FRAMEMGR_ID_SHOT) {
-		ext_size = sizeof(struct camera2_shot_ext) -
-			sizeof(struct camera2_shot);
+		ext_size = sizeof(struct camera2_shot_ext) - sizeof(struct camera2_shot);
 
 		/* Create Kvaddr for Metadata */
 		queue->buf_kva[index][spare] = vb2->plane_kvaddr(vb, spare);
@@ -595,8 +598,7 @@ set_info:
 		frame->kvaddr_shot = queue->buf_kva[index][spare] + ext_size;
 		frame->cookie_shot = (u32)vb2_plane_cookie(vb, spare);
 		frame->shot = (struct camera2_shot *)frame->kvaddr_shot;
-		frame->shot_ext = (struct camera2_shot_ext *)
-			queue->buf_kva[index][spare];
+		frame->shot_ext = (struct camera2_shot_ext *)queue->buf_kva[index][spare];
 		frame->shot_size = queue->framecfg.size[spare] - ext_size;
 #ifdef MEASURE_TIME
 		frame->tzone = (struct timeval *)frame->shot_ext->timeZone;
@@ -610,8 +612,7 @@ set_info:
 			goto exit;
 		}
 
-		frame->stream = (struct camera2_stream *)
-			queue->buf_kva[index][spare];
+		frame->stream = (struct camera2_stream *)queue->buf_kva[index][spare];
 		frame->stream->address = queue->buf_kva[index][spare];
 		frame->stream_size = queue->framecfg.size[spare];
 	}
@@ -729,11 +730,12 @@ int fimc_is_queue_stop_streaming(struct fimc_is_queue *queue,
 		goto p_err;
 	}
 
+p_err:
+	/* HACK: this state must be clear only if all ops was finished */
 	clear_bit(FIMC_IS_QUEUE_STREAM_ON, &queue->state);
 	clear_bit(FIMC_IS_QUEUE_BUFFER_READY, &queue->state);
 	clear_bit(FIMC_IS_QUEUE_BUFFER_PREPARED, &queue->state);
 
-p_err:
 	return ret;
 }
 
@@ -748,6 +750,7 @@ int fimc_is_video_probe(struct fimc_is_video *video,
 	const struct v4l2_ioctl_ops *ioctl_ops)
 {
 	int ret = 0;
+	u32 video_id;
 
 	vref_init(video);
 	mutex_init(&video->lock);
@@ -766,6 +769,7 @@ int fimc_is_video_probe(struct fimc_is_video *video,
 	video->vd.lock		= lock;
 	video_set_drvdata(&video->vd, video);
 
+	video_id = EXYNOS_VIDEONODE_FIMC_IS + video_number;
 	ret = video_register_device(&video->vd,
 		VFL_TYPE_GRABBER,
 		(EXYNOS_VIDEONODE_FIMC_IS + video_number));
@@ -775,6 +779,7 @@ int fimc_is_video_probe(struct fimc_is_video *video,
 	}
 
 p_err:
+	info("[VID] %s(%d) is created\n", video_name, video_id);
 	return ret;
 }
 
@@ -879,7 +884,9 @@ int fimc_is_video_close(struct fimc_is_video_ctx *vctx)
 		BUG_ON(!q_src->vbq);
 		BUG_ON(!q_dst->vbq);
 		fimc_is_queue_close(q_src);
+		vb2_queue_release(q_src->vbq);
 		fimc_is_queue_close(q_dst);
+		vb2_queue_release(q_dst->vbq);
 		kfree(q_src->vbq);
 		kfree(q_dst->vbq);
 		break;

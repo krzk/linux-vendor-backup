@@ -11,6 +11,14 @@ if ARCH_EXYNOS
 
 menu "SAMSUNG EXYNOS SoCs Support"
 
+config ARCH_EXYNOS3
+	bool "SAMSUNG EXYNOS3"
+	default y
+	select HAVE_ARM_SCU if SMP
+	select HAVE_SMP
+	help
+	  Samsung EXYNOS3 SoCs based systems
+
 config ARCH_EXYNOS4
 	bool "SAMSUNG EXYNOS4"
 	default y
@@ -29,6 +37,17 @@ config ARCH_EXYNOS5
 	  Samsung EXYNOS5 (Cortex-A15) SoC based systems
 
 comment "EXYNOS SoCs"
+
+config SOC_EXYNOS3250
+	bool "SAMSUNG EXYNOS3250"
+	default y
+	depends on ARCH_EXYNOS3
+	select PM_GENERIC_DOMAINS if PM
+	select S5P_PM if PM
+	select S5P_SLEEP if SUSPEND
+	select SAMSUNG_DMADEV
+	help
+	  Enable EXYNOS3250 SoC support
 
 config CPU_EXYNOS4210
 	bool "SAMSUNG EXYNOS4210"
@@ -143,28 +162,57 @@ config SOC_EXYNOS5440
 	help
 	  Enable EXYNOS5440 SoC support
 
-config EXYNOS_SNAPSHOT
+menuconfig EXYNOS_SNAPSHOT
 	bool "Enable SnapShot of exynos for debugging"
 	default y
+	depends on ARCH_EXYNOS
 
-config EXYNOS_SNAPSHOT_REG
-	bool "Enable debugging of register access by exynos-snapshot log"
+config EXYNOS_SNAPSHOT_CALLSTACK
+	int "shown callstack level"
 	depends on EXYNOS_SNAPSHOT
-	default n
+	range 1 4
+	default 2
+
+config EXYNOS_SNAPSHOT_IRQ_EXIT
+	bool "Enable debugging of interrupt exit event by kevent"
+	depends on EXYNOS_SNAPSHOT
+	default y
+
+config EXYNOS_SNAPSHOT_IRQ_EXIT_THRESHOLD
+	int "threshold of detection(microsecond)"
+	depends on EXYNOS_SNAPSHOT_IRQ_EXIT
+	range 0 1000000
+	default 0
+
+config EXYNOS_SNAPSHOT_IRQ_DISABLED
+	bool "Enable debugging of interrupt disable period by kevent"
+	depends on EXYNOS_SNAPSHOT
+	default y
+
+config EXYNOS_SNAPSHOT_IRQ_DISABLED_THRESHOLD
+	int "threshold of detection(microsecond)"
+	depends on EXYNOS_SNAPSHOT_IRQ_DISABLED
+	range 0 1000000
+	default 30000
 
 config EXYNOS_SNAPSHOT_HRTIMER
-	bool "Enable debugging of hrtimer by exynos-snapshot log"
+	bool "Enable debugging of hrtimer by kevent"
 	depends on EXYNOS_SNAPSHOT
 	default n
 
 config EXYNOS_SNAPSHOT_SOFTIRQ
-	bool "Enable debugging of softirq by exynos-snapshot log"
+	bool "Enable debugging of softirq by kevent"
+	depends on EXYNOS_SNAPSHOT
+	default n
+
+config EXYNOS_SNAPSHOT_REG
+	bool "Enable debugging of accessing register by kevent"
 	depends on EXYNOS_SNAPSHOT
 	default n
 
 config EXYNOS_SNAPSHOT_HOOK_LOGGER
 	bool "Enable hooking android platform log for ramdump"
-	depends on EXYNOS_SNAPSHOT
+	depends on EXYNOS_SNAPSHOT && ANDROID_LOGGER
 	default y
 
 config EXYNOS_SNAPSHOT_PANIC_REBOOT
@@ -178,10 +226,23 @@ config EXYNOS_SNAPSHOT_FORCE_DUMP_MODE
 	default n
 
 config EXYNOS5_DYNAMIC_CPU_HOTPLUG
-	bool "Dynamic CPU Hotplug support"
+	bool "Exynos5 Dynamic CPU Hotplug support"
 	depends on CPU_FREQ
 	help
 		Enable Dynamic CPU Hotplug
+
+config EXYNOS3_DYNAMIC_CPU_HOTPLUG
+	bool "Exynos3 Dynamic CPU Hotplug support"
+	depends on CPU_FREQ && HOTPLUG_CPU
+	help
+		Enable Dynamic CPU Hotplug
+
+config BOARD_HAS_LOWRAM
+	bool "Boards having Low Memory (<= 256 MB)"
+	depends on SOC_EXYNOS3250
+	help
+		Enable this if you have low memory on board
+		or you want to enable low memory support in kernel.
 
 config EXYNOS_CONTENT_PATH_PROTECTION
 	bool "Exynos Content Path Protection"
@@ -189,6 +250,12 @@ config EXYNOS_CONTENT_PATH_PROTECTION
 	default y
 	help
 	  Enable content path protection of EXYNOS.
+
+config EXYNOS_CORESIGHT
+	bool "Exynos Coresight Debug(Show pc value)"
+	default n
+	help
+	  Enable Coresight debug.
 
 config EXYNOS_ATAGS
 	bool "ATAGS based boot for EXYNOS (deprecated)"
@@ -203,7 +270,14 @@ config EXYNOS_ATAGS
 
 config EXYNOS5_SETUP_MIPIPHY
 	bool
-	depends on (VIDEO_EXYNOS_FIMC_IS)
+	depends on (VIDEO_EXYNOS_FIMC_IS || DECON_MIPI_DSI)
+	default y
+	help
+	  Compile in common setup code for MIPI-CSIS devices
+
+config EXYNOS_SETUP_MIPIPHY
+	bool
+	depends on (VIDEO_EXYNOS_FIMC_IS || DECON_MIPI_DSI)
 	default y
 	help
 	  Compile in common setup code for MIPI-CSIS devices
@@ -215,12 +289,88 @@ config EXYNOS_CONTENT_PATH_PROTECTION
 	help
 	  Enable content path protection of EXYNOS.
 
+config EXYNOS_ASV
+	bool "ASV support for Exynos"
+	default y
+	help
+	  Support to provide ABB and ASV voltage values.
+
 config ASV_MARGIN_TEST
 	bool "Enable margin test"
-	depends on ARM_ATAG_DTB_COMPAT
+	depends on EXYNOS_ASV
 	default n
 	help
 	  Support to ASV voltage margin test
+
+config EXYNOS_LOCK_MAX_CPUFREQ
+	bool "Lock maximum CPU frequency"
+	depends on ARM_EXYNOS_CPUFREQ
+	default n
+	help
+	  Support for locking maximum CPU frequency level.
+
+config EXYNOS3250_MAX_CPUFREQ
+	int "MHz : Maximum CPU frequency to be allowed"
+	depends on ARM_EXYNOS3250_CPUFREQ
+	depends on EXYNOS_LOCK_MAX_CPUFREQ
+	range 100 1000
+	default 1000
+	help
+	  It limits max_freq of CPU to the provided value.
+	  Provide a valid cpu_freq value[1000/900/800/700/600/.../200/100].
+
+config EXYNOS_LOCK_MAX_INTFREQ
+	bool "Lock maximum INT frequency"
+	depends on PM_DEVFREQ
+	default n
+	help
+	  Support for locking maximum INT frequency level.
+
+config EXYNOS3250_MAX_INTFREQ
+	int "MHz : Maximum INT frequency to be allowed"
+	depends on ARM_EXYNOS3250_BUS_DEVFREQ
+	depends on EXYNOS_LOCK_MAX_INTFREQ
+	range 50 135
+	default 135
+	help
+	  It limits max_freq of INT to the provided value.
+	  provide valid INT freq value[135/134/133/100/80/50 MHz].
+
+config EXYNOS_LOCK_MAX_MIFFREQ
+	bool "Lock maximum MIF frequency"
+	depends on PM_DEVFREQ
+	default n
+	help
+	  Support for locking maximum MIF frequency level.
+
+config EXYNOS3250_MAX_MIFFREQ
+	int "MHz : Maximum MIF frequency to be allowed"
+	depends on ARM_EXYNOS3250_BUS_DEVFREQ
+	depends on EXYNOS_LOCK_MAX_MIFFREQ
+	range 50 400
+	default 400
+	help
+	  It limits max_freq of MIF to the provided value.
+	  Provide valid MIF freq value[400/200/133/100/50 MHz].
+
+choice
+	prompt "Lock maximum G3D frequency"
+	default EXYNOS_MAX_G3DFREQ_266
+	depends on SOC_EXYNOS3250
+	depends on MALI_VER_R4P0_REL0
+	help
+	 It limits maximum frequency of MALI G3D to the provided value.
+
+config EXYNOS_MAX_G3DFREQ_266
+	bool "266MHz"
+
+config EXYNOS_MAX_G3DFREQ_160
+	bool "160MHz"
+
+config EXYNOS_MAX_G3DFREQ_80
+	bool "80MHz"
+
+endchoice
 
 if EXYNOS_ATAGS
 
@@ -532,6 +682,20 @@ endif
 
 comment "Flattened Device Tree based board for EXYNOS SoCs"
 
+config MACH_EXYNOS3_DT
+	bool "SAMSUNG Exynos3 Machine using device tree"
+	default y
+	depends on ARCH_EXYNOS3
+	select ARM_AMBA
+	select CLKSRC_OF
+	select SOC_EXYNOS3250
+	select USE_OF
+	select PINCTRL
+	select PINCTRL_EXYNOS
+	help
+	  Machine support for Samsung EXYNOS3 machine with device tree enabled.
+	  Select this if a fdt blob is available for the EXYNOS3 SoC based board.
+
 config MACH_EXYNOS4_DT
 	bool "Samsung Exynos4 Machine using device tree"
 	depends on ARCH_EXYNOS4
@@ -566,7 +730,7 @@ config MACH_EXYNOS5_DT
 config MACH_SMDK5422
 	bool "SAMSUNG SMDK5422 Machine using device tree"
 	default y
-	depends on ARCH_EXYNOS5
+	depends on ARCH_EXYNOS5 && SOC_EXYNOS5422
 	select ARM_AMBA
 	select CLKSRC_OF
 	select PINCTRL
@@ -579,7 +743,7 @@ config MACH_SMDK5422
 config MACH_XYREF5422
 	bool "SAMSUNG XYREF5422 Machine using device tree"
 	default y
-	depends on ARCH_EXYNOS5
+	depends on ARCH_EXYNOS5 && SOC_EXYNOS5422
 	select ARM_AMBA
 	select CLKSRC_OF
 	select PINCTRL
@@ -592,7 +756,7 @@ config MACH_XYREF5422
 config MACH_XYREF5430
 	bool "SAMSUNG XYREF5430 Machine using device tree"
 	default y
-	depends on ARCH_EXYNOS5
+	depends on ARCH_EXYNOS5 && SOC_EXYNOS5430
 	select ARM_AMBA
 	select CLKSRC_OF
 	select PINCTRL
@@ -601,6 +765,13 @@ config MACH_XYREF5430
 	help
 	  Machine support for Samsung EXYNOS5430 machine with device tree enabled.
 	  Select this if a fdt blob is available for the EXYNOS5430 SoC based board.
+
+config EXYNOS54XX_DEBUG
+	bool "ARM Debug architecture v7.1 support"
+	depends on SOC_EXYNOS5430
+	default y
+	help
+	  Enable preserve debug logic state.
 
 if ARCH_EXYNOS4
 
@@ -620,5 +791,30 @@ config EXYNOS4_SDHCI_CH2_8BIT
 endif
 
 endmenu
+
+# Reset IPs during LPA/DSTOP
+config EXYNOS_HSI2C_RESET_DURING_DSTOP
+	bool
+
+config EXYNOS_I2C_RESET_DURING_DSTOP
+	bool
+
+config EXYNOS_SPI_RESET_DURING_DSTOP
+	bool
+
+config EXYNOS_ADC_RESET_DURING_DSTOP
+	bool
+
+config EXYNOS_PWM_RESET_DURING_DSTOP
+	bool
+
+config EXYNOS_TMU_RESET_DURING_DSTOP
+	bool
+
+config EXYNOS_HDMI_RESET_DURING_DSTOP
+	bool
+
+config EXYNOS_TOP_RTC_RESET_DURING_DSTOP
+	bool
 
 endif

@@ -116,6 +116,9 @@ typedef struct kbasep_pm_metrics_data {
 	spinlock_t lock;
 
 	struct hrtimer timer;
+#if defined(SLSI_INTEGRATION)
+	struct timer_list tlist;
+#endif
 	mali_bool timer_active;
 
 	void *platform_data;

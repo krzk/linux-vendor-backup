@@ -151,6 +151,8 @@ static void kbase_reg_pending_dtor(struct kbase_va_region *reg)
 void kbase_destroy_context(kbase_context *kctx)
 {
 	kbase_device *kbdev;
+	int pages;
+	unsigned long pending_regions_to_clean;
 #ifdef SLSI_INTEGRATION
 	if (!kctx || kctx->ctx_status != CTX_INITIALIZED) {
 		printk("An uninitialized or destroyed context is tried to be destroyed\n");
@@ -158,9 +160,6 @@ void kbase_destroy_context(kbase_context *kctx)
 		return ;
 	}
 #endif
-	int pages;
-	unsigned long pending_regions_to_clean;
-
 	KBASE_DEBUG_ASSERT(NULL != kctx);
 
 	kbdev = kctx->kbdev;

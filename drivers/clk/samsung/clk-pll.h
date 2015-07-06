@@ -71,4 +71,23 @@ extern struct clk * __init samsung_clk_register_pll2550x(const char *name,
 			const char *pname, const void __iomem *reg_base,
 			const unsigned long offset);
 
+enum pll_ops_kind {
+	SIMPLE_PLL_OPS,
+	NORMAL_PLL_OPS,
+	FULL_PLL_OPS,
+	MAX_PLL_OPS_TYPE,
+};
+
+struct samsung_clk_pll {
+	struct clk_hw		hw;
+	void __iomem		*lock_reg;
+	void __iomem		*con_reg;
+	const struct samsung_pll_rate_table *rate_table;
+	unsigned int rate_count;
+	unsigned int bit_enable;
+	unsigned int bit_lockstat;
+};
+
+extern int set_pll35xx_ops(struct clk *clk, unsigned int ops_type);
+
 #endif /* __SAMSUNG_CLK_PLL_H */

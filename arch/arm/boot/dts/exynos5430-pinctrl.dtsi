@@ -112,6 +112,24 @@
 			samsung,pin-function = <2>;
 			samsung,pin-pud = <0>;
 		};
+
+		uart_aud_bus_idle: uart-aud-bus-idle {
+			samsung,pins = "gpz1-3";
+			samsung,pin-function = <1>;
+			samsung,pin-val = <1>;
+			samsung,pin-pud = <0>;
+			samsung,pin-con-pdn = <1>;
+			samsung,pin-pud-pdn = <3>;
+		};
+
+		uart_aud_bus_lpm: uart-aud-bus-lpm {
+			samsung,pins = "gpz1-3";
+			samsung,pin-function = <1>;
+			samsung,pin-val = <1>;
+			samsung,pin-pud = <0>;
+			samsung,pin-con-pdn = <1>;
+			samsung,pin-pud-pdn = <3>;
+		};
 	};
 
 	pinctrl@10FE0000 {
@@ -737,6 +755,20 @@
 			samsung,pins = "gpd5-1";
 			samsung,pin-function = <1>;
 			samsung,pin-pud = <2>;
+			samsung,pin-drv = <0>;
+		};
+
+		pwm_tout0: pwm-tout0 {
+			samsung,pins = "gpd2-4";
+			samsung,pin-function = <2>;
+			samsung,pin-pud = <3>;
+			samsung,pin-drv = <0>;
+		};
+
+		pwm_tout1: pwm-tout1 {
+			samsung,pins = "gpd2-5";
+			samsung,pin-function = <2>;
+			samsung,pin-pud = <3>;
 			samsung,pin-drv = <0>;
 		};
 	};

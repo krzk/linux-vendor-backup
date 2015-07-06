@@ -34,6 +34,12 @@ config ARM_EXYNOS_MP_CPUFREQ
 
 	  If in doubt, say N.
 
+config ARM_EXYNOS3250_CPUFREQ
+	def_bool SOC_EXYNOS3250
+	help
+	  This adds the CPUFreq driver for Samsung EXYNOS3250
+	  SoC.
+
 config ARM_EXYNOS4210_CPUFREQ
 	def_bool CPU_EXYNOS4210
 	help

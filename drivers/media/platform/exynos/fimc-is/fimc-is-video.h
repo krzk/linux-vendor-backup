@@ -17,8 +17,6 @@
 #endif
 
 #define FIMC_IS_MAX_NODES			(3)
-#define FIMC_IS_MAX_BUFS			(12)
-#define FIMC_IS_MAX_PLANES			(4)
 #define FIMC_IS_INVALID_BUF_INDEX		(0xFF)
 
 #define VIDEO_SENSOR_READY_BUFFERS		0

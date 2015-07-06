@@ -239,6 +239,58 @@ int (*pm_cpu_sleep)(unsigned long);
 
 #define any_allowed(mask, allow) (((mask) & (allow)) != (allow))
 
+#ifdef CONFIG_RTC_TICK_SLEEP_AGING_TEST
+#define TICK_RESOLUTION 0.03
+#define WAKEUP_TICK_START (unsigned int)3333.33 //100ms/TICK_RESOLUTION
+#define WAKEUP_TICK_END (unsigned int)6666.66 //1030.92 //200ms/TICK_RESOLUTION
+#define WAKEUP_TICK_INCREASEMENT (unsigned int)333.33   //10ms/TICK_RESOLUTION
+#define WAKEUP_MASK_RTC_TICK 0x2
+
+void s3c_rtc_tick_control(int onoff)
+{
+	static void __iomem *base_tick_base = 0;
+	static unsigned int tick_position = WAKEUP_TICK_START;
+	static unsigned int backup_rtc_val = 0;
+	static unsigned int backup_wakeup_mask_val = 0;
+
+	unsigned int tmp;
+
+	if(base_tick_base == 0)
+		base_tick_base = ioremap(0x10590000, SZ_16K);
+
+	if(onoff == 1) {
+		tmp = __raw_readl(EXYNOS5430_WAKEUP_MASK);
+		backup_wakeup_mask_val = tmp;
+		__raw_writel(tmp & ~(0x1 << WAKEUP_MASK_RTC_TICK), EXYNOS5430_WAKEUP_MASK);
+
+		tick_position = tick_position +	(unsigned int)WAKEUP_TICK_INCREASEMENT;
+		if(tick_position > (unsigned int)WAKEUP_TICK_END)
+			tick_position = WAKEUP_TICK_START;
+
+		flush_cache_all();
+
+		// RTCCON, TICKSEL[7:4], CLKRST[3], CNTSEL[2], CLKSEL[0], CTLEN[0]
+		tmp = __raw_readl(base_tick_base + 0x40);
+		backup_rtc_val = tmp;
+		__raw_writel((tmp & ~(0x1F0)), base_tick_base + 0x40); // TICEN disable, TICCKSEL 32768Hz //1024Hz
+
+		// TICNT, TICK_TIME_COUNT[31:0]
+		__raw_writel(tick_position, base_tick_base + 0x44);
+
+		// RTCCON, TICEN[8], TICEN enable
+		tmp = __raw_readl(base_tick_base + 0x40);
+		__raw_writel(tmp | 0x100, base_tick_base + 0x40); // TICEN enable
+	}
+	else {
+		// TICEN disable, TICCKSEL 1024Hz
+		__raw_writel(backup_rtc_val, base_tick_base + 0x40);
+		// INTP, Timer TIC
+		__raw_writel(0x01, base_tick_base + 0x30);
+		__raw_writel(backup_wakeup_mask_val, EXYNOS5430_WAKEUP_MASK);
+	}
+}
+#endif
+
 /* s3c_pm_enter
  *
  * central control for sleep/resume process
@@ -284,10 +336,6 @@ static int s3c_pm_enter(suspend_state_t state)
 	/* set the irq configuration for wake */
 
 	s3c_pm_configure_extint();
-
-	S3C_PMDBG("sleep: irq wakeup masks: %08lx,%08lx\n",
-	    s3c_irqwake_intmask, s3c_irqwake_eintmask);
-
 	s3c_pm_arch_prepare_irqs();
 
 	/* call cpu specific preparation */
@@ -300,11 +348,20 @@ static int s3c_pm_enter(suspend_state_t state)
 
 	s3c_pm_arch_stop_clocks();
 
+#ifdef CONFIG_RTC_TICK_SLEEP_AGING_TEST
+	s3c_rtc_tick_control(1);
+#endif
+
 	/* this will also act as our return point from when
 	 * we resume as it saves its own register state and restores it
 	 * during the resume.  */
 
 	ret = cpu_suspend(0, pm_cpu_sleep);
+
+#ifdef CONFIG_RTC_TICK_SLEEP_AGING_TEST
+	s3c_rtc_tick_control(0);
+#endif
+
 	if (ret)
 		return ret;
 

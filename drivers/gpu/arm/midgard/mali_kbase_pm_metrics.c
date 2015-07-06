@@ -24,6 +24,7 @@
 
 #include <mali_kbase.h>
 #include <mali_kbase_pm.h>
+#include <platform/mali_kbase_platform.h>
 
 /* When VSync is being hit aim for utilisation between 70-90% */
 #define KBASE_PM_VSYNC_MIN_UTILISATION          70
@@ -37,31 +38,57 @@
    Exceeding this will cause overflow */
 #define KBASE_PM_TIME_SHIFT			8
 
+#if defined(SLSI_SUBSTITUTE)
+static void dvfs_callback(unsigned long __data)
+#else
 static enum hrtimer_restart dvfs_callback(struct hrtimer *timer)
+#endif
 {
 	unsigned long flags;
 	kbase_pm_dvfs_action action;
 	kbasep_pm_metrics_data *metrics;
+#if defined(SLSI_SUBSTITUTE)
+	struct exynos_context *platform;
+	struct timer_list *tlist = (struct timer_list *)__data;
 
+	KBASE_DEBUG_ASSERT(tlist != NULL);
+
+	metrics = container_of(tlist, kbasep_pm_metrics_data, tlist);
+	platform = (struct exynos_context *)metrics->kbdev->platform_context;
+#else
 	KBASE_DEBUG_ASSERT(timer != NULL);
 
 	metrics = container_of(timer, kbasep_pm_metrics_data, timer);
+#endif
+
 	action = kbase_pm_get_dvfs_action(metrics->kbdev);
 
 	spin_lock_irqsave(&metrics->lock, flags);
 
-	if (metrics->timer_active)
+	if (metrics->timer_active) {
+#if defined(SLSI_SUBSTITUTE)
+		metrics->tlist.function = dvfs_callback;
+		metrics->tlist.expires = jiffies + msecs_to_jiffies(platform->polling_speed);
+		add_timer_on(&metrics->tlist, 0);
+#else
 		hrtimer_start(timer,
 					  HR_TIMER_DELAY_MSEC(metrics->kbdev->pm.platform_dvfs_frequency),
 					  HRTIMER_MODE_REL);
+#endif
+	}
 
 	spin_unlock_irqrestore(&metrics->lock, flags);
-
+#if !defined(SLSI_SUBSTITUTE)
 	return HRTIMER_NORESTART;
+#endif
 }
 
 mali_error kbasep_pm_metrics_init(kbase_device *kbdev)
 {
+#if defined(SLSI_SUBSTITUTE)
+	struct exynos_context *platform;
+	platform = (struct exynos_context *)kbdev->platform_context;
+#endif
 	KBASE_DEBUG_ASSERT(kbdev != NULL);
 
 	kbdev->pm.metrics.kbdev = kbdev;
@@ -75,14 +102,23 @@ mali_error kbasep_pm_metrics_init(kbase_device *kbdev)
 	kbdev->pm.metrics.timer_active = MALI_TRUE;
 
 	spin_lock_init(&kbdev->pm.metrics.lock);
+#if defined(SLSI_SUBSTITUTE)
+	/* use timer with core affinity */
+	init_timer(&kbdev->pm.metrics.tlist);
+	kbdev->pm.metrics.tlist.function = dvfs_callback;
+	kbdev->pm.metrics.tlist.expires = jiffies + msecs_to_jiffies(platform->polling_speed);
+	kbdev->pm.metrics.tlist.data = (unsigned long)&kbdev->pm.metrics.tlist;
+	add_timer_on(&kbdev->pm.metrics.tlist, 0);
+#else
 
 	hrtimer_init(&kbdev->pm.metrics.timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	kbdev->pm.metrics.timer.function = dvfs_callback;
 
 	hrtimer_start(&kbdev->pm.metrics.timer, HR_TIMER_DELAY_MSEC(kbdev->pm.platform_dvfs_frequency), HRTIMER_MODE_REL);
+#endif
 
 	kbase_pm_register_vsync_callback(kbdev);
-#if defined(SLSI_INTEGRATION) && defined(CL_UTILIZATION_BOOST_BY_TIME_WEIGHT)
+#if defined(CL_UTILIZATION_BOOST_BY_TIME_WEIGHT)
 	atomic_set(&kbdev->pm.metrics.time_compute_jobs, 0);atomic_set(&kbdev->pm.metrics.time_vertex_jobs, 0);atomic_set(&kbdev->pm.metrics.time_fragment_jobs, 0);
 #endif
 
@@ -99,9 +135,11 @@ void kbasep_pm_metrics_term(kbase_device *kbdev)
 	spin_lock_irqsave(&kbdev->pm.metrics.lock, flags);
 	kbdev->pm.metrics.timer_active = MALI_FALSE;
 	spin_unlock_irqrestore(&kbdev->pm.metrics.lock, flags);
-
+#if defined(SLSI_SUBSTITUTE)
+	del_timer(&kbdev->pm.metrics.tlist);
+#else
 	hrtimer_cancel(&kbdev->pm.metrics.timer);
-
+#endif
 	kbase_pm_unregister_vsync_callback(kbdev);
 }
 
@@ -169,7 +207,7 @@ void kbase_pm_report_vsync(kbase_device *kbdev, int buffer_updated)
 
 KBASE_EXPORT_TEST_API(kbase_pm_report_vsync)
 
-#if defined(SLSI_INTEGRATION) && defined(CL_UTILIZATION_BOOST_BY_TIME_WEIGHT)
+#if defined(CL_UTILIZATION_BOOST_BY_TIME_WEIGHT)
 /*
 * peak_flops: 100/85
 * sobel: 100/50
@@ -181,7 +219,7 @@ KBASE_EXPORT_TEST_API(kbase_pm_report_vsync)
 int kbase_pm_get_dvfs_utilisation(kbase_device *kbdev)
 {
 	int utilisation = 0;
-#if defined(SLSI_INTEGRATION) && defined(CL_UTILIZATION_BOOST_BY_TIME_WEIGHT)
+#if defined(CL_UTILIZATION_BOOST_BY_TIME_WEIGHT)
 	int compute_time = 0, vertex_time = 0, fragment_time = 0, total_time = 0, compute_time_rate = 0;
 #endif
 
@@ -209,7 +247,7 @@ int kbase_pm_get_dvfs_utilisation(kbase_device *kbdev)
 	utilisation = (100 * kbdev->pm.metrics.time_busy) / (kbdev->pm.metrics.time_idle + kbdev->pm.metrics.time_busy);
 	kbdev->pm.metrics.time_idle = 0;
 	kbdev->pm.metrics.time_busy = 0;
-#if defined(SLSI_INTEGRATION) && defined(CL_UTILIZATION_BOOST_BY_TIME_WEIGHT)
+#if defined(CL_UTILIZATION_BOOST_BY_TIME_WEIGHT)
 	compute_time = atomic_read(&kbdev->pm.metrics.time_compute_jobs);
 	vertex_time = atomic_read(&kbdev->pm.metrics.time_vertex_jobs);
 	fragment_time = atomic_read(&kbdev->pm.metrics.time_fragment_jobs);

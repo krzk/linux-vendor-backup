@@ -204,6 +204,14 @@ config BATTERY_MAX17042
 	  with MAX17042. This driver also supports max17047/50 chips which are
 	  improved version of max17042.
 
+config BATTERY_MODELGAUGE
+        tristate "Maxim ModelGauge ICs fuel gauge"
+        depends on I2C
+        help
+          ModelGauge(TM) is a Maxim algorithm incorporated in
+          MAX17040/41/43/44/48/49/58/59 fuel-gauges for lithium-ion (Li+)
+          batteries.
+
 config BATTERY_Z2
 	tristate "Z2 battery driver"
 	depends on I2C && MACH_ZIPIT2
@@ -342,6 +350,12 @@ config CHARGER_BQ24160
 	  PMICs.
 
 	  You'll need this driver to charge batteries on Xyref5430 board.
+
+config CHARGER_BQ24160_ENABLE_WAKELOCK
+	tristate "TI BQ24160 battery charger driver can take wakelock for USB Charging"
+	depends on CHARGER_BQ24160
+	help
+	  Say Y to enable wake_lock support in TI BQ24160 battery charger driver.
 
 config CHARGER_SMB347
 	tristate "Summit Microelectronics SMB347 Battery Charger"

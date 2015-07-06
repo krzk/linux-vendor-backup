@@ -53,6 +53,8 @@ void secmem_crypto_deregister(void);
 #define secmem_crypto_deregister()
 #endif
 
+int drm_gsc_enable_locked(bool enable);
+
 #define SECMEM_IOC_CHUNKINFO		_IOWR('S', 1, struct secchunk_info)
 #define SECMEM_IOC_SET_DRM_ONOFF	_IOWR('S', 2, int)
 #define SECMEM_IOC_GET_DRM_ONOFF	_IOWR('S', 3, int)

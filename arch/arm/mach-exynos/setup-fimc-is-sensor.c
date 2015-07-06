@@ -40,14 +40,21 @@
 #include <mach/exynos-fimc-is-sensor.h>
 
 static int exynos_fimc_is_sensor_pin_control(struct platform_device *pdev,
-	int pin, char *name, u32 act, u32 channel)
+	struct exynos_sensor_pin *pin_ctrls, int channel)
 {
 	int ret = 0;
 	char ch_name[30];
+
+	int pin = pin_ctrls->pin;
+	int delay = pin_ctrls->delay;
+	char* name = pin_ctrls->name;
+	enum pin_act act = pin_ctrls->act;
+	int voltage = pin_ctrls->voltage;
+
 	struct pinctrl *pinctrl_ch;
 
 	snprintf(ch_name, sizeof(ch_name), "%s%d", name, channel);
-	pr_info("%s(pin(%d), act(%d), ch(%s))\n", __func__, pin, act, ch_name);
+	pr_info("%s(pin(%d), act(%d), ch(%s), delay(%d), voltage(%d))\n", __func__, pin, act, ch_name, delay, voltage);
 
 	switch (act) {
 	case PIN_PULL_NONE:
@@ -55,12 +62,14 @@ static int exynos_fimc_is_sensor_pin_control(struct platform_device *pdev,
 	case PIN_OUTPUT_HIGH:
 		if (gpio_is_valid(pin)) {
 			gpio_request_one(pin, GPIOF_OUT_INIT_HIGH, "CAM_GPIO_OUTPUT_HIGH");
+			usleep_range(delay, delay);
 			gpio_free(pin);
 		}
 		break;
 	case PIN_OUTPUT_LOW:
 		if (gpio_is_valid(pin)) {
 			gpio_request_one(pin, GPIOF_OUT_INIT_LOW, "CAM_GPIO_OUTPUT_LOW");
+			usleep_range(delay, delay);
 			gpio_free(pin);
 		}
 		break;
@@ -98,6 +107,14 @@ static int exynos_fimc_is_sensor_pin_control(struct platform_device *pdev,
 				return PTR_ERR(regulator);
 			}
 
+			if(voltage > 0) {
+				pr_info("%s : regulator_set_voltage(%d)\n",__func__, voltage);
+				ret = regulator_set_voltage(regulator, voltage, voltage);
+				if(ret) {
+					pr_err("%s : regulator_set_voltage(%d) fail\n", __func__, ret);
+				}
+			}
+
 			if (regulator_is_enabled(regulator)) {
 				pr_warning("%s regulator is already enabled\n", name);
 				regulator_put(regulator);
@@ -110,7 +127,7 @@ static int exynos_fimc_is_sensor_pin_control(struct platform_device *pdev,
 				regulator_put(regulator);
 				return ret;
 			}
-
+			usleep_range(delay, delay);
 			regulator_put(regulator);
 		}
 		break;
@@ -136,7 +153,7 @@ static int exynos_fimc_is_sensor_pin_control(struct platform_device *pdev,
 				regulator_put(regulator);
 				return ret;
 			}
-
+			usleep_range(delay, delay);
 			regulator_put(regulator);
 		}
 		break;
@@ -172,9 +189,7 @@ int exynos_fimc_is_sensor_pins_cfg(struct platform_device *pdev,
 		}
 
 		ret = exynos_fimc_is_sensor_pin_control(pdev,
-			pin_ctrls[scenario][enable][i].pin,
-			pin_ctrls[scenario][enable][i].name,
-			pin_ctrls[scenario][enable][i].act,
+			&pin_ctrls[scenario][enable][i],
 			pdata->csi_ch);
 		if (ret) {
 			pr_err("exynos5_fimc_is_sensor_gpio(%d, %s, %d, %d) is fail(%d)",
@@ -282,12 +297,6 @@ int exynos5422_fimc_is_sensor_mclk_on(struct platform_device *pdev,
 		break;
 	}
 
-	if (scenario != SENSOR_SCENARIO_VISION) {
-		fimc_is_enable_dt(pdev, "clk_3aa");
-		fimc_is_enable_dt(pdev, "clk_camif_top_3aa");
-		fimc_is_enable_dt(pdev, "clk_3aa_2");
-		fimc_is_enable_dt(pdev, "clk_camif_top_3aa0");
-	}
 	fimc_is_enable_dt(pdev, "clk_camif_top_csis0");
 	fimc_is_enable_dt(pdev, "clk_xiu_si_gscl_cam");
 	fimc_is_enable_dt(pdev, "clk_noc_p_rstop_fimcl");
@@ -399,6 +408,22 @@ int exynos5430_fimc_is_sensor_iclk_cfg(struct platform_device *pdev,
 		fimc_is_set_rate_dt(pdev, "dout_aclk_cam0_400", 400 * 1000000);
 		fimc_is_set_rate_dt(pdev, "dout_aclk_cam0_200", 200 * 1000000);
 		fimc_is_set_rate_dt(pdev, "dout_pclk_cam0_50", 50 * 1000000);
+
+		/* FIMC-LITE2 PIXELASYNC */
+		fimc_is_set_rate_dt(pdev, "dout_sclk_pixelasync_lite_c_init", 1);
+		fimc_is_set_rate_dt(pdev, "dout_pclk_pixelasync_lite_c", 1);
+		fimc_is_set_rate_dt(pdev, "dout_sclk_pixelasync_lite_c", 1);
+
+		/* FIMC-LITE2 PIXELASYNC */
+		fimc_is_set_parent_dt(pdev, "mout_sclk_pixelasync_lite_c_init_a", "mout_aclk_cam0_552_user");
+		fimc_is_set_parent_dt(pdev, "mout_sclk_pixelasync_lite_c_init_b", "mout_sclk_pixelasync_lite_c_init_a");
+		fimc_is_set_rate_dt(pdev, "dout_sclk_pixelasync_lite_c_init", 552 * 1000000);
+		fimc_is_set_rate_dt(pdev, "dout_pclk_pixelasync_lite_c", 276 * 1000000);
+
+		fimc_is_set_parent_dt(pdev, "mout_sclk_pixelasync_lite_c_a", "mout_aclk_cam0_552_user");
+		fimc_is_set_parent_dt(pdev, "mout_sclk_pixelasync_lite_c_b", "mout_aclk_cam0_333_user");
+		fimc_is_set_rate_dt(pdev, "dout_sclk_pixelasync_lite_c", 333 * 1000000);
+
 		break;
 	case 1:
 		/* USER_MUX_SEL */
@@ -451,11 +476,6 @@ int exynos5430_fimc_is_sensor_iclk_cfg(struct platform_device *pdev,
 		fimc_is_set_rate_dt(pdev, "dout_aclk_lite_c", 1);
 		fimc_is_set_rate_dt(pdev, "dout_pclk_lite_c", 1);
 
-		/* FIMC-LITE2 PIXELASYNC */
-		fimc_is_set_rate_dt(pdev, "dout_sclk_pixelasync_lite_c_init", 1);
-		fimc_is_set_rate_dt(pdev, "dout_pclk_pixelasync_lite_c", 1);
-		fimc_is_set_rate_dt(pdev, "dout_sclk_pixelasync_lite_c", 1);
-
 		/* USER_MUX_SEL */
 		fimc_is_set_parent_dt(pdev, "mout_aclk_cam1_552_user", "aclk_cam1_552");
 		fimc_is_set_parent_dt(pdev, "mout_aclk_cam1_400_user", "aclk_cam1_400");
@@ -468,16 +488,6 @@ int exynos5430_fimc_is_sensor_iclk_cfg(struct platform_device *pdev,
 		fimc_is_set_parent_dt(pdev, "mout_aclk_csis2_a", "mout_aclk_cam1_400_user");
 		fimc_is_set_parent_dt(pdev, "mout_aclk_csis2_b", "mout_aclk_cam1_333_user");
 		fimc_is_set_rate_dt(pdev, "dout_aclk_csis2_a", 333 * 1000000);
-
-		/* FIMC-LITE2 PIXELASYNC */
-		fimc_is_set_parent_dt(pdev, "mout_sclk_pixelasync_lite_c_init_a", "mout_aclk_cam0_552_user");
-		fimc_is_set_parent_dt(pdev, "mout_sclk_pixelasync_lite_c_init_b", "mout_sclk_pixelasync_lite_c_init_a");
-		fimc_is_set_rate_dt(pdev, "dout_sclk_pixelasync_lite_c_init", 552 * 1000000);
-		fimc_is_set_rate_dt(pdev, "dout_pclk_pixelasync_lite_c", 276 * 1000000);
-
-		fimc_is_set_parent_dt(pdev, "mout_sclk_pixelasync_lite_c_a", "mout_aclk_cam0_552_user");
-		fimc_is_set_parent_dt(pdev, "mout_sclk_pixelasync_lite_c_b", "mout_aclk_cam0_333_user");
-		fimc_is_set_rate_dt(pdev, "dout_sclk_pixelasync_lite_c", 333 * 1000000);
 		break;
 	default:
 		pr_err("channel is invalid(%d)\n", channel);

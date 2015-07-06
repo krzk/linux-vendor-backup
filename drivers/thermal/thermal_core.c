@@ -300,11 +300,22 @@ static void thermal_zone_device_set_polling(struct thermal_zone_device *tz,
 					    int delay)
 {
 	if (delay > 1000)
+#ifdef CONFIG_SCHED_HMP
+		mod_delayed_work_on(0, system_freezable_wq, &tz->poll_queue,
+				 round_jiffies(msecs_to_jiffies(delay)));
+#else
 		mod_delayed_work(system_freezable_wq, &tz->poll_queue,
 				 round_jiffies(msecs_to_jiffies(delay)));
+#endif
 	else if (delay)
+#ifdef CONFIG_SCHED_HMP
+		mod_delayed_work_on(0, system_freezable_wq, &tz->poll_queue,
+				 msecs_to_jiffies(delay));
+#else
 		mod_delayed_work(system_freezable_wq, &tz->poll_queue,
 				 msecs_to_jiffies(delay));
+#endif
+
 	else
 		cancel_delayed_work(&tz->poll_queue);
 }
@@ -436,12 +447,22 @@ static void update_temperature(struct thermal_zone_device *tz)
 
 void thermal_zone_device_update(struct thermal_zone_device *tz)
 {
-	int count;
+	int count, result;
+	enum thermal_device_mode mode;
 
 	update_temperature(tz);
 
-	for (count = 0; count < tz->trips; count++)
-		handle_thermal_trip(tz, count);
+	if (!tz->ops->get_mode)
+		return;
+
+	result = tz->ops->get_mode(tz, &mode);
+	if (result)
+		return;
+
+	if (mode == THERMAL_DEVICE_ENABLED) {
+		for (count = 0; count < tz->trips; count++)
+			handle_thermal_trip(tz, count);
+	}
 
 	/*
 	 * Alright, we handled this trip successfully.

@@ -882,7 +882,11 @@ static int gsc_capture_streamon(struct file *file, void *priv,
 		return -EBUSY;
 
 	if (p->disp) {
+#if defined(CONFIG_SOC_EXYNOS3250)
+		gsc_pm_qos_ctrl(gsc, GSC_QOS_ON, 160000, 111000);
+#else
 		gsc_pm_qos_ctrl(gsc, GSC_QOS_ON, 267000, 200000);
+#endif
 		ret = media_entity_pipeline_start(&p->disp->entity,
 							p->pipe);
 		if (ret) {

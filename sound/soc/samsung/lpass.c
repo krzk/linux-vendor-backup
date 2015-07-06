@@ -20,10 +20,16 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/pm_runtime.h>
+#include <linux/pm_qos.h>
+#include <linux/fb.h>
 #include <linux/iommu.h>
 #include <linux/dma-mapping.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+#include <linux/sched.h>
+#include <linux/sched/rt.h>
+#include <linux/cpu.h>
+#include <linux/kthread.h>
 
 #include <sound/exynos.h>
 
@@ -32,9 +38,44 @@
 #include <mach/regs-pmu.h>
 #include <mach/regs-clock-exynos5430.h>
 #include <mach/regs-clock-exynos5422.h>
+#include <mach/cpufreq.h>
 
 #include "lpass.h"
 
+#ifdef USE_EXYNOS_AUD_SCHED
+#define AUD_TASK_CPU_UHQ	(5)
+#endif
+
+#ifdef CONFIG_PM_DEVFREQ
+#define USE_AUD_DEVFREQ
+#ifdef CONFIG_SOC_EXYNOS5422
+#define AUD_CPU_FREQ_UHQA	(1000000)
+#define AUD_KFC_FREQ_UHQA	(1300000)
+#define AUD_MIF_FREQ_UHQA	(413000)
+#define AUD_INT_FREQ_UHQA	(0)
+#define AUD_CPU_FREQ_HIGH	(0)
+#define AUD_KFC_FREQ_HIGH	(1300000)
+#define AUD_MIF_FREQ_HIGH	(0)
+#define AUD_INT_FREQ_HIGH	(0)
+#define AUD_CPU_FREQ_NORM	(0)
+#define AUD_KFC_FREQ_NORM	(0)
+#define AUD_MIF_FREQ_NORM	(0)
+#define AUD_INT_FREQ_NORM	(0)
+#else
+#define AUD_CPU_FREQ_UHQA	(1000000)
+#define AUD_KFC_FREQ_UHQA	(1300000)
+#define AUD_MIF_FREQ_UHQA	(413000)
+#define AUD_INT_FREQ_UHQA	(0)
+#define AUD_CPU_FREQ_HIGH	(0)
+#define AUD_KFC_FREQ_HIGH	(1300000)
+#define AUD_MIF_FREQ_HIGH	(0)
+#define AUD_INT_FREQ_HIGH	(0)
+#define AUD_CPU_FREQ_NORM	(0)
+#define AUD_KFC_FREQ_NORM	(0)
+#define AUD_MIF_FREQ_NORM	(0)
+#define AUD_INT_FREQ_NORM	(0)
+#endif
+#endif
 
 /* Target clock rate */
 #define TARGET_ACLKENM_RATE	(133000000)
@@ -46,6 +87,10 @@
 				 LPASS_INTR_PCM | LPASS_INTR_SB | \
 				 LPASS_INTR_UART | LPASS_INTR_SFR)
 
+/* Default clk gate for slimbus, pcm, i2s, pclk_dbg, ca5 */
+#define INIT_CLK_GATE_MASK	(1 << 11 | 1 << 10 | 1 << 8 | 1 << 7 | \
+				 1 <<  6 | 1 <<  5 | 1 << 1 | 1 << 0)
+
 #define msecs_to_loops(t) (loops_per_jiffy / 1000 * HZ * t)
 
 /* Audio subsystem version */
@@ -55,6 +100,7 @@ enum {
 	LPASS_VER_100100 = 16,		/* gaia/adonis */
 	LPASS_VER_110100,		/* ares */
 	LPASS_VER_370100 = 32,		/* rhea/helsinki */
+	LPASS_VER_370200,		/* helsinki prime */
 	LPASS_VER_MAX
 };
 
@@ -79,8 +125,26 @@ struct lpass_info {
 	struct clk		*clk_mout_ass_clk;
 	struct clk		*clk_mout_ass_i2s;
 	struct clk		*clk_fin_pll;
+	struct clk		*clk_fout_aud_pll;
+	struct clk		*clk_mout_aud_pll;
+	struct clk		*clk_mout_aud_pll_user_top;
+	struct clk		*clk_mout_aud_pll_user;
+	struct clk		*clk_mout_aud_pll_sub;
 	bool			rpm_enabled;
 	atomic_t		use_cnt;
+	atomic_t		stream_cnt;
+	bool			display_on;
+	bool			uhqa_on;
+#ifdef USE_AUD_DEVFREQ
+	struct pm_qos_request	aud_cpu_qos;
+	struct pm_qos_request	aud_kfc_qos;
+	struct pm_qos_request	aud_mif_qos;
+	struct pm_qos_request	aud_int_qos;
+	int			cpu_qos;
+	int			kfc_qos;
+	int			mif_qos;
+	int			int_qos;
+#endif
 } lpass;
 
 struct aud_reg {
@@ -92,7 +156,7 @@ struct aud_reg {
 struct subip_info {
 	struct device		*dev;
 	const char		*name;
-	void			(*cb)(void);
+	void			(*cb)(struct device *dev);
 	atomic_t		use_cnt;
 	struct list_head	node;
 };
@@ -100,11 +164,11 @@ struct subip_info {
 static LIST_HEAD(reg_list);
 static LIST_HEAD(subip_list);
 
-extern int exynos_set_parent(const char *child, const char *parent);
-
 extern int check_adma_status(void);
 extern int check_fdma_status(void);
 extern int check_esa_status(void);
+
+static void lpass_update_qos(void);
 
 static inline bool is_old_ass(void)
 {
@@ -255,7 +319,7 @@ int lpass_register_subip(struct device *ip_dev, const char *ip_name)
 	return 0;
 }
 
-int lpass_set_gpio_cb(struct device *ip_dev, void (*ip_cb)(void))
+int lpass_set_gpio_cb(struct device *ip_dev, void (*ip_cb)(struct device *dev))
 {
 	struct subip_info *si;
 
@@ -284,6 +348,8 @@ void lpass_get_sync(struct device *ip_dev)
 			pm_runtime_get_sync(&lpass.pdev->dev);
 		}
 	}
+
+	lpass_update_qos();
 }
 
 void lpass_put_sync(struct device *ip_dev)
@@ -299,6 +365,63 @@ void lpass_put_sync(struct device *ip_dev)
 			pm_runtime_put_sync(&lpass.pdev->dev);
 		}
 	}
+
+	lpass_update_qos();
+}
+
+void lpass_set_sched(pid_t pid, int mode)
+{
+	struct sched_param param_fifo = {.sched_priority = MAX_RT_PRIO >> 1};
+	struct task_struct *task = find_task_by_vpid(pid);
+
+	switch (mode) {
+	case AUD_MODE_UHQA:
+		lpass.uhqa_on = true;
+		break;
+	case AUD_MODE_NORM:
+		lpass.uhqa_on = false;
+		break;
+	default:
+		break;
+	}
+
+	lpass_update_qos();
+
+	if (task) {
+		sched_setscheduler_nocheck(task,
+				SCHED_FIFO, &param_fifo);
+		pr_info("%s: [%s] pid = %d, prio = %d\n",
+				__func__, task->comm, pid, task->prio);
+	} else {
+		pr_err("%s: task not found (pid = %d)\n",
+				__func__, pid);
+	}
+}
+
+#ifdef USE_EXYNOS_AUD_CPU_HOTPLUG
+void lpass_get_cpu_hotplug(void)
+{
+	pr_debug("%s ++\n", __func__);
+	little_core1_hotplug_in(true);
+}
+
+void lpass_put_cpu_hotplug(void)
+{
+	pr_debug("%s --\n", __func__);
+	little_core1_hotplug_in(false);
+}
+#endif
+
+void lpass_add_stream(void)
+{
+	atomic_inc(&lpass.stream_cnt);
+	lpass_update_qos();
+}
+
+void lpass_remove_stream(void)
+{
+	atomic_dec(&lpass.stream_cnt);
+	lpass_update_qos();
 }
 
 static void lpass_reg_save(void)
@@ -325,27 +448,6 @@ static void lpass_reg_restore(void)
 	return;
 }
 
-static void lpass_pll_enable(bool on)
-{
-	u32 pll_con0;
-
-#define PLL_CON0_ENABLE		(1 << 31)
-#define PLL_CON0_LOCKED		(1 << 29)
-
-	pll_con0 = __raw_readl(EXYNOS5430_AUD_PLL_CON0);
-	pll_con0 &= ~PLL_CON0_ENABLE;
-	pll_con0 |= on ? PLL_CON0_ENABLE : 0;
-	__raw_writel(pll_con0, EXYNOS5430_AUD_PLL_CON0);
-
-	if (on) {
-		/* wait_lock_time */
-		do {
-			cpu_relax();
-			pll_con0 = __raw_readl(EXYNOS5430_AUD_PLL_CON0);
-		} while (!(pll_con0 & PLL_CON0_LOCKED));
-	}
-}
-
 static void lpass_retention_pad(void)
 {
 	struct subip_info *si;
@@ -353,7 +455,7 @@ static void lpass_retention_pad(void)
 	/* Powerdown mode for gpio */
 	list_for_each_entry(si, &subip_list, node) {
 		if (si->cb != NULL)
-			(*si->cb)();
+			(*si->cb)(si->dev);
 	}
 
 	/* Set PAD retention */
@@ -367,7 +469,7 @@ static void lpass_release_pad(void)
 	/* Restore gpio */
 	list_for_each_entry(si, &subip_list, node) {
 		if (si->cb != NULL)
-			(*si->cb)();
+			(*si->cb)(si->dev);
 	}
 
 	/* Release PAD retention */
@@ -380,16 +482,11 @@ static void ass_enable(void)
 	lpass_reg_restore();
 
 	/* ASS_MUX_SEL */
-#ifdef CONFIG_SOC_EXYNOS5422_REV_0
 	clk_set_parent(lpass.clk_mout_dpll_ctrl, lpass.clk_fout_dpll);
 	clk_set_parent(lpass.clk_mout_mau_epll_clk, lpass.clk_mout_dpll_ctrl);
 	clk_set_parent(lpass.clk_mout_mau_epll_clk_user, lpass.clk_mout_mau_epll_clk);
 	clk_set_parent(lpass.clk_mout_ass_clk, lpass.clk_mout_mau_epll_clk_user);
 	clk_set_parent(lpass.clk_mout_ass_i2s, lpass.clk_mout_ass_clk);
-#else
-	exynos_set_parent("mout_ass_clk", "fin_pll");
-	exynos_set_parent("mout_ass_i2s", "mout_ass_clk");
-#endif
 
 	clk_prepare_enable(lpass.clk_dmac);
 	clk_prepare_enable(lpass.clk_timer);
@@ -410,30 +507,30 @@ static void lpass_enable(void)
 	}
 
 	/* Enable AUD_PLL */
-	lpass_pll_enable(true);
+	clk_prepare_enable(lpass.clk_fout_aud_pll);
 
 	lpass_reg_restore();
 
 #ifdef CONFIG_SOC_EXYNOS5430_REV_0
 	/* AUD0 */
-	exynos_set_parent("mout_aud_pll_user", "mout_aud_pll");
-	exynos_set_parent("mout_aud_pll_sub", "mout_aud_pll_user");
+	clk_set_parent(lpass.clk_mout_aud_pll_user, lpass.clk_mout_aud_pll);
+	clk_set_parent(lpass.clk_mout_aud_pll_sub, lpass.clk_mout_aud_pll_user);
 #else
 	/* AUD0 */
-	exynos_set_parent("mout_aud_pll_user", "fout_aud_pll");
+	clk_set_parent(lpass.clk_mout_aud_pll_user, lpass.clk_fout_aud_pll);
 #endif
 	/* TOP1 */
-	exynos_set_parent("mout_aud_pll", "fout_aud_pll");
-	exynos_set_parent("mout_aud_pll_user_top", "mout_aud_pll");
+	clk_set_parent(lpass.clk_mout_aud_pll, lpass.clk_fout_aud_pll);
+	clk_set_parent(lpass.clk_mout_aud_pll_user_top, lpass.clk_mout_aud_pll);
 
 	clk_prepare_enable(lpass.clk_dmac);
 	clk_prepare_enable(lpass.clk_sramc);
-	clk_prepare_enable(lpass.clk_intr);
-	clk_prepare_enable(lpass.clk_timer);
 
 	lpass_reset_toggle(LPASS_IP_MEM);
 	lpass_reset_toggle(LPASS_IP_I2S);
 	lpass_reset_toggle(LPASS_IP_DMA);
+
+	clk_disable_unprepare(lpass.clk_dmac);
 
 	/* PAD */
 	lpass_release_pad();
@@ -471,24 +568,21 @@ static void lpass_disable(void)
 	/* PAD */
 	lpass_retention_pad();
 
-	clk_disable_unprepare(lpass.clk_dmac);
 	clk_disable_unprepare(lpass.clk_sramc);
-	clk_disable_unprepare(lpass.clk_intr);
-	clk_disable_unprepare(lpass.clk_timer);
 
 	lpass_reg_save();
 
 	/* TOP1 */
-	exynos_set_parent("mout_aud_pll", "fin_pll");
-	exynos_set_parent("mout_aud_pll_user_top", "fin_pll");
+	clk_set_parent(lpass.clk_mout_aud_pll, lpass.clk_fin_pll);
+	clk_set_parent(lpass.clk_mout_aud_pll_user_top, lpass.clk_fin_pll);
 
 #ifdef CONFIG_SOC_EXYNOS5430_REV_0
 	/* AUD0 */
-	exynos_set_parent("mout_aud_pll_user", "fin_pll");
-	exynos_set_parent("mout_aud_pll_sub", "mout_aud_pll_user");
+	clk_set_parent(lpass.clk_mout_aud_pll_user, lpass.clk_fin_pll);
+	clk_set_parent(lpass.clk_mout_aud_pll_sub, lpass.clk_mout_aud_pll_user);
 #else
 	/* AUD0 */
-	exynos_set_parent("mout_aud_pll_user", "fin_pll");
+	clk_set_parent(lpass.clk_mout_aud_pll_user, lpass.clk_fin_pll);
 #endif
 
 	/* Enable clocks */
@@ -499,7 +593,7 @@ static void lpass_disable(void)
 	writel(0x0000003F, EXYNOS5430_ENABLE_IP_AUD1);
 
 	/* Disable AUD_PLL */
-	lpass_pll_enable(false);
+	clk_disable_unprepare(lpass.clk_fout_aud_pll);
 }
 
 static int clk_set_heirachy_ass(struct platform_device *pdev)
@@ -613,19 +707,68 @@ static int clk_set_heirachy(struct platform_device *pdev)
 		goto err3;
 	}
 
+	lpass.clk_fin_pll = clk_get(dev, "fin_pll");
+	if (IS_ERR(lpass.clk_fin_pll)) {
+		dev_err(dev, "fin_pll clk not found\n");
+		goto err4;
+	}
+
+	lpass.clk_fout_aud_pll = clk_get(dev, "fout_aud_pll");
+	if (IS_ERR(lpass.clk_fout_aud_pll)) {
+		dev_err(dev, "fout_aud_pll clk not found\n");
+		goto err5;
+	}
+
+	lpass.clk_mout_aud_pll = clk_get(dev, "mout_aud_pll");
+	if (IS_ERR(lpass.clk_mout_aud_pll)) {
+		dev_err(dev, "mout_aud_pll clk not found\n");
+		goto err6;
+	}
+
+	lpass.clk_mout_aud_pll_user_top = clk_get(dev, "mout_aud_pll_user_top");
+	if (IS_ERR(lpass.clk_mout_aud_pll_user_top)) {
+		dev_err(dev, "mout_aud_pll_user_top clk not found\n");
+		goto err7;
+	}
+
+	lpass.clk_mout_aud_pll_user = clk_get(dev, "mout_aud_pll_user");
+	if (IS_ERR(lpass.clk_mout_aud_pll_user)) {
+		dev_err(dev, "mout_aud_pll_user clk not found\n");
+		goto err8;
+	}
 #ifdef CONFIG_SOC_EXYNOS5430_REV_0
-	/* AUD0 */
-	exynos_set_parent("mout_aud_pll", "fout_aud_pll");
-	exynos_set_parent("mout_aud_pll_user", "mout_aud_pll");
-	exynos_set_parent("mout_aud_pll_sub", "mout_aud_pll_user");
+	lpass.clk_mout_aud_pll_sub = clk_get(dev, "mout_aud_pll_sub");
+	if (IS_ERR(lpass.clk_mout_aud_pll_sub)) {
+		dev_err(dev, "mout_aud_pll_sub clk not found\n");
+		goto err9;
+	}
+#endif
+
+#ifdef CONFIG_SOC_EXYNOS5430_REV_0
+	clk_set_parent(lpass.clk_mout_aud_pll, lpass.clk_fout_aud_pll);
+	clk_set_parent(lpass.clk_mout_aud_pll_user, lpass.clk_mout_aud_pll);
+	clk_set_parent(lpass.clk_mout_aud_pll_sub, lpass.clk_mout_aud_pll_user);
 #else
-	/* AUD0 */
-	exynos_set_parent("mout_aud_pll", "fout_aud_pll");
-	exynos_set_parent("mout_aud_pll_user", "fout_aud_pll");
+	clk_set_parent(lpass.clk_mout_aud_pll, lpass.clk_fout_aud_pll);
+	clk_set_parent(lpass.clk_mout_aud_pll_user, lpass.clk_fout_aud_pll);
 #endif
 
 	return 0;
 
+#ifdef CONFIG_SOC_EXYNOS5430_REV_0
+err9:
+	clk_put(lpass.clk_mout_aud_pll_user);
+#endif
+err8:
+	clk_put(lpass.clk_mout_aud_pll_user_top);
+err7:
+	clk_put(lpass.clk_mout_aud_pll);
+err6:
+	clk_put(lpass.clk_fout_aud_pll);
+err5:
+	clk_put(lpass.clk_fin_pll);
+err4:
+	clk_put(lpass.clk_timer);
 err3:
 	clk_put(lpass.clk_intr);
 err2:
@@ -634,6 +777,15 @@ err1:
 	clk_put(lpass.clk_dmac);
 err0:
 	return -1;
+}
+
+static void clk_init(void)
+{
+	u32 val;
+
+	val = readl(EXYNOS5430_ENABLE_IP_AUD0);
+	val &= ~INIT_CLK_GATE_MASK;
+	writel(val, EXYNOS5430_ENABLE_IP_AUD0);
 }
 
 static void clk_put_all_ass(void)
@@ -709,6 +861,14 @@ static int lpass_proc_show(struct seq_file *m, void *v) {
 				si->name, atomic_read(&si->use_cnt));
 	}
 
+	seq_printf(m, "strm: %d\n", atomic_read(&lpass.stream_cnt));
+	seq_printf(m, "uhqa: %s\n", lpass.uhqa_on ? "on" : "off");
+#ifdef USE_AUD_DEVFREQ
+	seq_printf(m, "cpu: %d, kfc: %d\n",
+			lpass.cpu_qos / 1000, lpass.kfc_qos / 1000);
+	seq_printf(m, "mif: %d, int: %d\n",
+			lpass.mif_qos / 1000, lpass.int_qos / 1000);
+#endif
 	return 0;
 }
 
@@ -779,6 +939,90 @@ static int lpass_get_ver(struct device_node *np)
 }
 #endif
 
+static void lpass_update_qos(void)
+{
+#ifdef USE_AUD_DEVFREQ
+	int cpu_qos_new, kfc_qos_new, mif_qos_new, int_qos_new;
+
+	if (!lpass.enabled) {
+		cpu_qos_new = 0;
+		kfc_qos_new = 0;
+		mif_qos_new = 0;
+		int_qos_new = 0;
+	} else if (lpass.uhqa_on) {
+		cpu_qos_new = AUD_CPU_FREQ_UHQA;
+		kfc_qos_new = AUD_KFC_FREQ_UHQA;
+		mif_qos_new = AUD_MIF_FREQ_UHQA;
+		int_qos_new = AUD_INT_FREQ_UHQA;
+	} else if (atomic_read(&lpass.stream_cnt) > 1) {
+		cpu_qos_new = AUD_CPU_FREQ_HIGH;
+		kfc_qos_new = AUD_KFC_FREQ_HIGH;
+		mif_qos_new = AUD_MIF_FREQ_HIGH;
+		int_qos_new = AUD_INT_FREQ_HIGH;
+	} else {
+		cpu_qos_new = AUD_CPU_FREQ_NORM;
+		kfc_qos_new = AUD_KFC_FREQ_NORM;
+		mif_qos_new = AUD_MIF_FREQ_NORM;
+		int_qos_new = AUD_INT_FREQ_NORM;
+	}
+
+	if (lpass.cpu_qos != cpu_qos_new) {
+		lpass.cpu_qos = cpu_qos_new;
+		pm_qos_update_request(&lpass.aud_cpu_qos, lpass.cpu_qos);
+		pr_debug("%s: cpu_qos = %d\n", __func__, lpass.cpu_qos);
+	}
+
+	if (lpass.kfc_qos != kfc_qos_new) {
+		lpass.kfc_qos = kfc_qos_new;
+		pm_qos_update_request(&lpass.aud_kfc_qos, lpass.kfc_qos);
+		pr_debug("%s: kfc_qos = %d\n", __func__, lpass.kfc_qos);
+	}
+
+	if (lpass.mif_qos != mif_qos_new) {
+		lpass.mif_qos = mif_qos_new;
+		pm_qos_update_request(&lpass.aud_mif_qos, lpass.mif_qos);
+		pr_debug("%s: mif_qos = %d\n", __func__, lpass.mif_qos);
+	}
+
+	if (lpass.int_qos != int_qos_new) {
+		lpass.int_qos = int_qos_new;
+		pm_qos_update_request(&lpass.aud_int_qos, lpass.int_qos);
+		pr_debug("%s: int_qos = %d\n", __func__, lpass.int_qos);
+	}
+#endif
+}
+
+static int lpass_fb_state_chg(struct notifier_block *nb,
+		unsigned long val, void *data)
+{
+	struct fb_event *evdata = data;
+	unsigned int blank;
+
+	if (val != FB_EVENT_BLANK)
+		return 0;
+
+	blank = *(int *)evdata->data;
+
+	switch (blank) {
+	case FB_BLANK_POWERDOWN:
+		lpass.display_on = false;
+		lpass_update_qos();
+		break;
+	case FB_BLANK_UNBLANK:
+		lpass.display_on = true;
+		lpass_update_qos();
+		break;
+	default:
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block fb_noti_block = {
+	.notifier_call = lpass_fb_state_chg,
+};
+
 static char banner[] =
 	KERN_INFO "Samsung Low Power Audio Subsystem driver, "\
 		  "(c)2013 Samsung Electronics\n";
@@ -831,6 +1075,7 @@ static int lpass_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to set clock hierachy\n");
 		return -ENXIO;
 	}
+	clk_init();
 
 #ifdef CONFIG_SND_SAMSUNG_IOMMU
 	lpass.domain = iommu_domain_alloc(pdev->dev.bus);
@@ -854,6 +1099,7 @@ static int lpass_probe(struct platform_device *pdev)
 
 	spin_lock_init(&lpass.lock);
 	atomic_set(&lpass.use_cnt, 0);
+	atomic_set(&lpass.stream_cnt, 0);
 	lpass_init_reg_list();
 
 	/* unmask irq source */
@@ -870,7 +1116,19 @@ static int lpass_probe(struct platform_device *pdev)
 #else
 	lpass_enable();
 #endif
+	lpass.display_on = true;
+	fb_register_client(&fb_noti_block);
 
+#ifdef USE_AUD_DEVFREQ
+	lpass.cpu_qos = 0;
+	lpass.kfc_qos = 0;
+	lpass.mif_qos = 0;
+	lpass.int_qos = 0;
+	pm_qos_add_request(&lpass.aud_cpu_qos, PM_QOS_CPU_FREQ_MIN, 0);
+	pm_qos_add_request(&lpass.aud_kfc_qos, PM_QOS_KFC_FREQ_MIN, 0);
+	pm_qos_add_request(&lpass.aud_mif_qos, PM_QOS_BUS_THROUGHPUT, 0);
+	pm_qos_add_request(&lpass.aud_int_qos, PM_QOS_DEVICE_THROUGHPUT, 0);
+#endif
 	return 0;
 }
 
@@ -916,6 +1174,7 @@ static const int lpass_ver_data[] = {
 	[LPASS_VER_100100] = LPASS_VER_100100,
 	[LPASS_VER_110100] = LPASS_VER_110100,
 	[LPASS_VER_370100] = LPASS_VER_370100,
+	[LPASS_VER_370200] = LPASS_VER_370200,
 };
 
 static struct platform_device_id lpass_driver_ids[] = {

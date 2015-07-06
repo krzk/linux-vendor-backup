@@ -282,6 +282,8 @@ int exynos5422_fimc_is_clk_gate(u32 clk_gate_id, bool is_on)
 		value |= (1 << 0);
 	if (clk_gate_id & (1 << FIMC_IS_GATE_DRC_IP))
 		value |= (1 << 1);
+	if (clk_gate_id & (1 << FIMC_IS_GATE_FD_IP))
+		value |= (1 << 2);
 	if (clk_gate_id & (1 << FIMC_IS_GATE_SCC_IP))
 		value |= (1 << 3);
 	if (clk_gate_id & (1 << FIMC_IS_GATE_SCP_IP))
@@ -352,6 +354,7 @@ int exynos5422_cfg_clk_div_max(struct platform_device *pdev)
 int exynos5422_cfg_clk_sclk(struct platform_device *pdev)
 {
 	pr_info("%s\n", __func__);
+#ifndef CONFIG_COMPANION_USE
 	/* SCLK_SPI0_ISP */
 	fimc_is_set_parent_dt(pdev, "mout_spi0_isp", "fin_pll");
 	fimc_is_set_rate_dt(pdev, "dout_spi0_isp", 24 * 1000000);
@@ -360,6 +363,7 @@ int exynos5422_cfg_clk_sclk(struct platform_device *pdev)
 	fimc_is_set_parent_dt(pdev, "mout_spi1_isp", "fin_pll");
 	fimc_is_set_rate_dt(pdev, "dout_spi1_isp", 24 * 1000000);
 	fimc_is_set_rate_dt(pdev, "dout_spi1_isp_pre", 24 * 1000000);
+#endif
 	/* SCLK_UART_ISP */
 	fimc_is_set_parent_dt(pdev, "mout_uart_isp", "fin_pll");
 	fimc_is_set_rate_dt(pdev, "dout_uart_isp", (24* 1000000));
@@ -493,8 +497,6 @@ int exynos5422_fimc_is_cfg_clk(struct platform_device *pdev)
 	exynos5422_cfg_clk_cam(pdev);
 	exynos5422_cfg_clk_isp(pdev);
 
-	exynos5422_fimc_is_print_clk(pdev);
-
 	return 0;
 }
 
@@ -505,6 +507,11 @@ int exynos5422_fimc_is_clk_on(struct platform_device *pdev)
 	fimc_is_enable_dt(pdev, "sclk_uart_isp");
 	fimc_is_enable_dt(pdev, "sclk_pwm_isp");
 	fimc_is_enable_dt(pdev, "sclk_spi0_isp");
+
+	fimc_is_enable_dt(pdev, "clk_3aa");
+	fimc_is_enable_dt(pdev, "clk_camif_top_3aa");
+	fimc_is_enable_dt(pdev, "clk_3aa_2");
+	fimc_is_enable_dt(pdev, "clk_camif_top_3aa0");
 
 	return 0;
 }
@@ -517,6 +524,11 @@ int exynos5422_fimc_is_clk_off(struct platform_device *pdev)
 	fimc_is_disable_dt(pdev, "sclk_uart_isp");
 	fimc_is_disable_dt(pdev, "sclk_pwm_isp");
 	fimc_is_disable_dt(pdev, "sclk_spi0_isp");
+
+	fimc_is_disable_dt(pdev, "clk_3aa");
+	fimc_is_disable_dt(pdev, "clk_camif_top_3aa");
+	fimc_is_disable_dt(pdev, "clk_3aa_2");
+	fimc_is_disable_dt(pdev, "clk_camif_top_3aa0");
 
 	return 0;
 }
@@ -554,8 +566,35 @@ int exynos5422_fimc_is_set_user_clk_gate(u32 group_id,
 		unsigned long msk_state,
 		struct exynos_fimc_is_clk_gate_info *gate_info) {
 	/* if you want to skip clock on/off, let this func return -1 */
-	/* int ret = -1; */
-	int ret = 0;
+	int ret = -1;
+
+	switch (user_scenario_id) {
+	case CLK_GATE_FULL_BYPASS_SN:
+		if (is_on == true)
+			gate_info->groups[group_id].mask_clk_on_mod &=
+				~((1 << FIMC_IS_GATE_DIS_IP) |
+				(1 << FIMC_IS_GATE_3DNR_IP));
+		else
+			gate_info->groups[group_id].mask_clk_off_self_mod |=
+				((1 << FIMC_IS_GATE_DIS_IP) |
+				(1 << FIMC_IS_GATE_3DNR_IP));
+		ret = 0;
+		break;
+	case CLK_GATE_DIS_SN:
+		if (is_on == true)
+			gate_info->groups[group_id].mask_clk_on_mod |=
+				((1 << FIMC_IS_GATE_DIS_IP) |
+				(1 << FIMC_IS_GATE_3DNR_IP));
+		else
+			gate_info->groups[group_id].mask_clk_off_self_mod |=
+				((1 << FIMC_IS_GATE_DIS_IP) |
+				(1 << FIMC_IS_GATE_3DNR_IP));
+		ret = 0;
+		break;
+	default:
+		ret = 0;
+		break;
+	}
 
 	return ret;
 }
@@ -642,9 +681,32 @@ int exynos5430_fimc_is_clk_gate(u32 clk_gate_id, bool is_on)
 	return 0;
 }
 
+#ifdef CONFIG_SOC_EXYNOS5430
+static int exynos5430_cfg_clk_isp_pll_on(struct platform_device *pdev)
+{
+	pr_info("%s\n", __func__);
+
+	fimc_is_enable_dt(pdev, "fout_isp_pll");
+	fimc_is_set_parent_dt(pdev, "mout_isp_pll", "fout_isp_pll");
+
+	return 0;
+}
+
+static int exynos5430_cfg_clk_isp_pll_off(struct platform_device *pdev)
+{
+	pr_info("%s\n", __func__);
+
+	fimc_is_set_parent_dt(pdev, "mout_isp_pll", "fin_pll");
+	fimc_is_disable_dt(pdev, "fout_isp_pll");
+
+	return 0;
+}
+#endif
+
 int exynos5430_cfg_clk_div_max(struct platform_device *pdev)
 {
 	/* SCLK */
+#ifndef CONFIG_COMPANION_USE
 	/* SCLK_SPI0 */
 	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_spi0", "oscclk");
 	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_spi0_a", 1);
@@ -656,6 +718,7 @@ int exynos5430_cfg_clk_div_max(struct platform_device *pdev)
 	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_spi1_a", 1);
 	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_spi1_b", 1);
 	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_spi1_user", "oscclk");
+#endif
 
 	/* SCLK_UART */
 	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_uart", "oscclk");
@@ -731,22 +794,19 @@ int exynos5430_cfg_clk_div_max(struct platform_device *pdev)
 
 int exynos5430_cfg_clk_sclk(struct platform_device *pdev)
 {
+#ifndef CONFIG_COMPANION_USE
 	/* SCLK_SPI0 */
 	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_spi0", "mout_bus_pll_user");
 	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_spi0_a", 275 * 1000000);
 	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_spi0_b", 46 * 1000000);
 	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_spi0_user", "sclk_isp_spi0_top");
 
+#endif
 	/* SCLK_SPI1 */
 	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_spi1", "mout_bus_pll_user");
 	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_spi1_a", 275 * 1000000);
 	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_spi1_b", 46 * 1000000);
 	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_spi1_user", "sclk_isp_spi1_top");
-
-	/* SCLK_UART */
-	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_uart", "mout_bus_pll_user");
-	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_uart", 207 * 1000000);
-	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_uart_user", "sclk_isp_uart_top");
 
 	return 0;
 }
@@ -849,9 +909,13 @@ int exynos5430_cfg_clk_cam1(struct platform_device *pdev)
 	fimc_is_set_rate_dt(pdev, "dout_aclk_csis2_a", 333 * 1000000);
 
 	/* MPWM */
-	fimc_is_set_rate_dt(pdev, "dout_pclk_cam1_166", 166 * 1000000);
-	fimc_is_set_rate_dt(pdev, "dout_pclk_cam1_83", 83 * 1000000);
-	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_mpwm", 83 * 1000000);
+	fimc_is_set_rate_dt(pdev, "dout_pclk_cam1_166", 167 * 1000000);
+	fimc_is_set_rate_dt(pdev, "dout_pclk_cam1_83", 84 * 1000000);
+	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_mpwm", 84 * 1000000);
+
+	/* CAM1 QE CLK GATE */
+	fimc_is_enable_dt(pdev, "gate_bts_fd");
+	fimc_is_disable_dt(pdev, "gate_bts_fd");
 
 	return 0;
 }
@@ -869,6 +933,18 @@ int exynos5430_cfg_clk_isp(struct platform_device *pdev)
 	/* DIS */
 	fimc_is_set_rate_dt(pdev, "dout_pclk_isp_dis", 207 * 1000000);
 
+	/* ISP QE CLK GATE */
+	fimc_is_enable_dt(pdev, "gate_bts_3dnr");
+	fimc_is_enable_dt(pdev, "gate_bts_dis1");
+	fimc_is_enable_dt(pdev, "gate_bts_dis0");
+	fimc_is_enable_dt(pdev, "gate_bts_scalerc");
+	fimc_is_enable_dt(pdev, "gate_bts_drc");
+	fimc_is_disable_dt(pdev, "gate_bts_3dnr");
+	fimc_is_disable_dt(pdev, "gate_bts_dis1");
+	fimc_is_disable_dt(pdev, "gate_bts_dis0");
+	fimc_is_disable_dt(pdev, "gate_bts_scalerc");
+	fimc_is_disable_dt(pdev, "gate_bts_drc");
+
 	return 0;
 }
 
@@ -876,6 +952,9 @@ int exynos5430_fimc_is_cfg_clk(struct platform_device *pdev)
 {
 	pr_debug("%s\n", __func__);
 
+#ifdef CONFIG_SOC_EXYNOS5430
+	exynos5430_cfg_clk_isp_pll_on(pdev);
+#endif
 	exynos5430_cfg_clk_div_max(pdev);
 
 	/* initialize Clocks */
@@ -883,8 +962,6 @@ int exynos5430_fimc_is_cfg_clk(struct platform_device *pdev)
 	exynos5430_cfg_clk_cam0(pdev);
 	exynos5430_cfg_clk_cam1(pdev);
 	exynos5430_cfg_clk_isp(pdev);
-
-	//exynos5430_fimc_is_print_clk(pdev);
 
 	return 0;
 }
@@ -935,6 +1012,11 @@ int exynos5430_fimc_is_clk_off(struct platform_device *pdev)
 {
 	pr_debug("%s\n", __func__);
 
+#ifdef CONFIG_SOC_EXYNOS5430
+	exynos5430_cfg_clk_isp_pll_off(pdev);
+#else
+	exynos5430_cfg_clk_div_max(pdev);
+#endif
 	return 0;
 }
 
@@ -1030,6 +1112,7 @@ int exynos5430_fimc_is_print_clk(struct platform_device *pdev)
 	pr_info("EXYNOS5430_DIV_TOP0(0x%08X)\n", readl(EXYNOS5430_DIV_TOP0));
 	pr_info("EXYNOS5430_DIV_TOP_CAM10(0x%08X)\n", readl(EXYNOS5430_DIV_TOP_CAM10));
 	pr_info("EXYNOS5430_DIV_TOP_CAM11(0x%08X)\n", readl(EXYNOS5430_DIV_TOP_CAM11));
+	pr_info("EXYNOS5430_ENABLE_SCLK_TOP_CAM1(0x%08X)\n", readl(EXYNOS5430_ENABLE_SCLK_TOP_CAM1));
 	pr_info("EXYNOS5430_ENABLE_IP_TOP(0x%08X)\n", readl(EXYNOS5430_ENABLE_IP_TOP));
 	/* CMU_CAM0_DUMP */
 	pr_info("EXYNOS5430_SRC_SEL_CAM00(0x%08X)\n", readl(EXYNOS5430_SRC_SEL_CAM00));
@@ -1075,6 +1158,7 @@ int exynos5430_fimc_is_print_clk(struct platform_device *pdev)
 	pr_info("EXYNOS5430_DIV_CAM11(0x%08X)\n", readl(EXYNOS5430_DIV_CAM11));
 	pr_info("EXYNOS5430_DIV_STAT_CAM10(0x%08X)\n", readl(EXYNOS5430_DIV_STAT_CAM10));
 	pr_info("EXYNOS5430_DIV_STAT_CAM11(0x%08X)\n", readl(EXYNOS5430_DIV_STAT_CAM11));
+	pr_info("EXYNOS5430_ENABLE_SCLK_CAM1(0x%08X)\n", readl(EXYNOS5430_ENABLE_SCLK_CAM1));
 	pr_info("EXYNOS5430_ENABLE_IP_CAM10(0x%08X)\n", readl(EXYNOS5430_ENABLE_IP_CAM10));
 	pr_info("EXYNOS5430_ENABLE_IP_CAM11(0x%08X)\n", readl(EXYNOS5430_ENABLE_IP_CAM11));
 	pr_info("EXYNOS5430_ENABLE_IP_CAM12(0x%08X)\n", readl(EXYNOS5430_ENABLE_IP_CAM12));
@@ -1177,6 +1261,467 @@ int exynos5430_fimc_is_set_user_clk_gate(u32 group_id,
 
 	return ret;
 }
+#elif defined(CONFIG_SOC_EXYNOS3250)
+int exynos3250_fimc_is_cfg_clk(struct platform_device *pdev)
+{
+	/*parent*/
+	struct clk *sclk_mpll_pre_div = NULL;
+	struct clk *xusbxti = NULL;
+
+	/*mcuisp*/
+	struct clk *dout_aclk_400 = NULL;
+	struct clk *aclk_400_mcuisp = NULL;
+
+	struct clk *aclk_mcuisp_div0 = NULL;
+	struct clk *aclk_mcuisp_div1 = NULL;
+
+	/*ack_266*/
+	struct clk *mout_aclk_266_0 = NULL;
+	struct clk *dout_aclk_266	= NULL;
+	struct clk *aclk_266 = NULL;
+
+	struct clk *aclk_div0 = NULL;
+	struct clk *aclk_div1 = NULL;
+	struct clk *aclk_div2 = NULL;
+
+	/*function sclk*/
+	struct clk *sclk_uart_isp = NULL;
+	struct clk *sclk_spi1_isp = NULL;
+	struct clk *dout_sclk_spi1_isp = NULL;
+	struct clk *sclk_spi0_isp = NULL;
+	struct clk *dout_sclk_spi0_isp = NULL;
+
+	/*MCLK*/
+	struct clk *sclk_cam1 = NULL;
+	struct clk *clk_cam_blk_320, *clk_cam;
+
+	unsigned long mcu_isp_400;
+	unsigned long isp_266;
+	unsigned long isp_uart;
+	unsigned long isp_spi1;
+	unsigned long isp_spi0;
+	unsigned long isp_cam1;
+
+
+	pr_info(" %s\n",__func__);
+
+	/* initialize Clocks */
+
+	/* 0. Parent*/
+	sclk_mpll_pre_div = clk_get(&pdev->dev, "sclk_mpll_pre_div");
+	if (IS_ERR(sclk_mpll_pre_div)) {
+		pr_err("%s : clk_get(sclk_mpll_pre_div) failed\n", __func__);
+		return PTR_ERR(sclk_mpll_pre_div);
+	}
+
+	pr_info("sclk_mpll_pre_div : %ld\n", clk_get_rate(sclk_mpll_pre_div));
+
+	xusbxti = clk_get(&pdev->dev, "xusbxti");
+	if (IS_ERR(xusbxti)) {
+		pr_err("%s : clk_get(xxti) failed\n", __func__);
+		return PTR_ERR(xusbxti);
+	}
+
+	pr_info("xusbxti : %ld\n", clk_get_rate(xusbxti));
+
+
+	/* 1. MCUISP  and DIV*/
+	/*
+	mout_mpll
+	sclk_mpll_mif
+	sclk_mpll_pre_div
+	dout_aclk_400
+	aclk_400_mcuisp
+	*/
+
+	dout_aclk_400 = clk_get(&pdev->dev, "dout_aclk_400");
+	if (IS_ERR(dout_aclk_400)) {
+		pr_err("%s : clk_get(dout_aclk_400) failed\n", __func__);
+		return PTR_ERR(dout_aclk_400);
+	}
+
+	clk_set_parent(dout_aclk_400, sclk_mpll_pre_div);
+	clk_set_rate(dout_aclk_400, 400 * 1000000);
+
+	aclk_400_mcuisp = clk_get(&pdev->dev, "aclk_400_mcuisp");
+	if (IS_ERR(aclk_400_mcuisp)) {
+		pr_err("%s : clk_get(aclk_400_mcuisp) failed\n", __func__);
+		return PTR_ERR(aclk_400_mcuisp);
+	}
+
+	clk_set_parent(aclk_400_mcuisp, dout_aclk_400);
+
+	/*mcuisp div*/
+	aclk_mcuisp_div0 = clk_get(&pdev->dev, "aclk_mcuisp_div0");
+	if (IS_ERR(aclk_mcuisp_div0)) {
+		pr_err("%s : clk_get(aclk_mcuisp_div0) failed\n", __func__);
+		return PTR_ERR(aclk_mcuisp_div0);
+	}
+
+	aclk_mcuisp_div1 = clk_get(&pdev->dev, "aclk_mcuisp_div1");
+	if (IS_ERR(aclk_mcuisp_div1)) {
+		pr_err("%s : clk_get(aclk_mcuisp_div1) failed\n", __func__);
+		return PTR_ERR(aclk_mcuisp_div1);
+	}
+
+	clk_set_rate(aclk_mcuisp_div0, 200 * 1000000);
+	clk_set_rate(aclk_mcuisp_div1, 100 * 1000000);
+
+	mcu_isp_400 = clk_get_rate(aclk_400_mcuisp);
+	pr_info("mcu_isp_400 : %ld\n", mcu_isp_400);
+
+	mcu_isp_400 = clk_get_rate(aclk_mcuisp_div0);
+	pr_info("mcu_isp_400_div0 : %ld\n", mcu_isp_400);
+
+	mcu_isp_400 = clk_get_rate(aclk_mcuisp_div1);
+	pr_info("aclk_mcuisp_div1 : %ld\n", mcu_isp_400);
+
+	clk_put(dout_aclk_400);
+	clk_put(aclk_400_mcuisp);
+	clk_put(aclk_mcuisp_div0);
+	clk_put(aclk_mcuisp_div1);
+
+	/* 2. ACLK_266_ISP */
+	/*
+	sclk_mpll_pre_div/mout_vpll : TODO. if we use vpll for 300M later, we will select this clk.
+	mout_aclk_266_0
+	dout_aclk_266
+	aclk_266
+	*/
+	mout_aclk_266_0 = clk_get(&pdev->dev, "mout_aclk_266_0");
+	if (IS_ERR(mout_aclk_266_0)) {
+		pr_err("%s : clk_get(mout_aclk_266_0) failed\n", __func__);
+		return PTR_ERR(mout_aclk_266_0);
+	}
+	dout_aclk_266 = clk_get(&pdev->dev, "dout_aclk_266");
+	if (IS_ERR(dout_aclk_266)) {
+		pr_err("%s : clk_get(dout_aclk_266) failed\n", __func__);
+		return PTR_ERR(dout_aclk_266);
+	}
+
+	aclk_266 = clk_get(&pdev->dev, "aclk_266");
+	if (IS_ERR(aclk_266)) {
+		pr_err("%s : clk_get(aclk_266) failed\n", __func__);
+		return PTR_ERR(aclk_266);
+	}
+
+	clk_set_parent(dout_aclk_266, mout_aclk_266_0);
+	clk_set_parent(aclk_266, dout_aclk_266);
+
+	isp_266 = clk_get_rate(aclk_266);
+	pr_info("isp_266 : %ld\n", isp_266);
+
+	clk_put(mout_aclk_266_0);
+	clk_put(dout_aclk_266);
+	clk_put(aclk_266);
+
+	/* ISP_DIV0 */
+	aclk_div0 = clk_get(&pdev->dev, "aclk_div0");
+	if (IS_ERR(aclk_div0)) {
+		pr_err("%s : clk_get(isp_div0) failed\n", __func__);
+		return PTR_ERR(aclk_div0);
+	}
+
+	clk_set_rate(aclk_div0, 50 * 1000000);
+	pr_info("aclk_div0 : %ld\n", clk_get_rate(aclk_div0));
+
+	/* ISP_DIV1 */
+	aclk_div1 = clk_get(&pdev->dev, "aclk_div1");
+	if (IS_ERR(aclk_div1)) {
+		pr_err("%s : clk_get(isp_div1) failed\n", __func__);
+		return PTR_ERR(aclk_div1);
+	}
+
+	clk_set_rate(aclk_div1, 50 * 1000000);
+	pr_info("aclk_div1 : %ld\n", clk_get_rate(aclk_div1));
+
+	/* ISP_DIV2*/
+	aclk_div2 = clk_get(&pdev->dev, "aclk_div2");
+	if (IS_ERR(aclk_div2)) {
+		pr_err("%s : clk_get(mpwm_div) failed\n", __func__);
+		return PTR_ERR(aclk_div2);
+	}
+
+	clk_set_rate(aclk_div2, 50 * 1000000);
+	pr_info("aclk_div2 : %ld\n", clk_get_rate(aclk_div2));
+
+	clk_put(aclk_div0);
+	clk_put(aclk_div1);
+	clk_put(aclk_div2);
+
+
+	/* 3. SCLK_ISP_BLK */
+	/*UART, SPI, PWM, all from sclk_mpll_pre_div*/
+
+	/* UART-ISP */
+	sclk_uart_isp = clk_get(&pdev->dev, "sclk_uart_isp");
+	if (IS_ERR(sclk_uart_isp)) {
+		pr_err("%s : clk_get(sclk_uart_isp) failed\n", __func__);
+		return PTR_ERR(sclk_uart_isp);
+	}
+
+	clk_set_parent(sclk_uart_isp, sclk_mpll_pre_div);
+	clk_set_rate(sclk_uart_isp, 67 * 1000000);
+
+	isp_uart = clk_get_rate(sclk_uart_isp);
+	pr_info("isp_uart : %ld\n", isp_uart);
+
+	clk_put(sclk_uart_isp);
+
+	/* SPI1-ISP */
+	sclk_spi1_isp = clk_get(&pdev->dev, "sclk_spi1_isp");
+	if (IS_ERR(sclk_spi1_isp)) {
+		pr_err("%s : clk_get(sclk_spi1_isp) failed\n", __func__);
+		return PTR_ERR(sclk_spi1_isp);
+	}
+
+	dout_sclk_spi1_isp = clk_get(&pdev->dev, "dout_sclk_spi1_isp");
+	if (IS_ERR(dout_sclk_spi1_isp)) {
+		pr_err("%s : clk_get(dout_sclk_spi1_isp) failed\n", __func__);
+		return PTR_ERR(dout_sclk_spi1_isp);
+	}
+
+	clk_set_parent(dout_sclk_spi1_isp, sclk_mpll_pre_div);
+	clk_set_parent(sclk_spi1_isp, dout_sclk_spi1_isp);
+	clk_set_rate(sclk_spi1_isp, 100 * 1000000);
+
+	isp_spi1 = clk_get_rate(sclk_spi1_isp);
+	pr_info("isp_spi1 : %ld\n", isp_spi1);
+
+	clk_put(sclk_spi1_isp);
+	clk_put(dout_sclk_spi1_isp);
+
+	/* SPI0-ISP */
+	sclk_spi0_isp = clk_get(&pdev->dev, "sclk_spi0_isp");
+	if (IS_ERR(sclk_spi0_isp)) {
+		pr_err("%s : clk_get(sclk_spi0_isp) failed\n", __func__);
+		return PTR_ERR(sclk_spi0_isp);
+	}
+
+	dout_sclk_spi0_isp = clk_get(&pdev->dev, "dout_sclk_spi0_isp");
+	if (IS_ERR(dout_sclk_spi0_isp)) {
+		pr_err("%s : clk_get(dout_sclk_spi0_isp) failed\n", __func__);
+		return PTR_ERR(dout_sclk_spi0_isp);
+	}
+
+	clk_set_parent(dout_sclk_spi0_isp, sclk_mpll_pre_div);
+	clk_set_parent(sclk_spi0_isp, dout_sclk_spi0_isp);
+	clk_set_rate(sclk_spi0_isp, 100 * 1000000);
+
+	isp_spi0 = clk_get_rate(sclk_spi0_isp);
+	pr_info("isp_spi0 : %ld\n", isp_spi0);
+
+	clk_put(sclk_spi0_isp);
+	clk_put(dout_sclk_spi0_isp);
+
+
+	/* CAM1 */
+	sclk_cam1 = clk_get(&pdev->dev, "sclk_cam1");
+	if (IS_ERR(sclk_cam1)) {
+		pr_err("%s : clk_get(sclk_cam1) failed\n", __func__);
+		return PTR_ERR(sclk_cam1);
+	}
+
+
+	clk_set_parent(sclk_cam1, xusbxti);//from where?
+	clk_set_rate(sclk_cam1, 24 * 1000000);
+
+	isp_cam1 = clk_get_rate(sclk_cam1);
+	pr_info("isp_cam1 : %ld\n", isp_cam1);
+
+	//put the parent
+	clk_put(sclk_mpll_pre_div);
+	clk_put(xusbxti);
+
+	clk_cam_blk_320 = clk_get(&pdev->dev, "cam_blk_320");
+	clk_cam = clk_get(&pdev->dev, "sclk_cam_blk");
+
+	if (clk_set_parent(clk_cam, clk_cam_blk_320))
+		pr_err("Unable to set parent cam_blk_320 of clock sclk_cam_blk.\n");
+
+	clk_set_rate(clk_cam, 320 * MHZ);
+
+	clk_put(clk_cam_blk_320);
+	clk_put(clk_cam);
+
+	/*FLite*/
+	/*MIPI*/
+	return 0;
+}
+
+int exynos3250_fimc_is_clk_on(struct platform_device *pdev)
+{
+	struct clk *mcuisp = NULL;
+	struct clk *csis0 = NULL;
+	struct clk *csis1 = NULL;
+	struct clk *lite0 = NULL;
+	struct clk *lite1 = NULL;
+	struct clk *sclk_cam1 = NULL;
+
+	pr_info("%s\n",__func__);
+
+	mcuisp = clk_get(&pdev->dev, "mcuisp");
+	if (IS_ERR(mcuisp)) {
+		pr_err("%s : clk_get(mcuisp) failed\n", __func__);
+		return PTR_ERR(mcuisp);
+	}
+
+	clk_prepare_enable(mcuisp);
+	clk_put(mcuisp);
+
+	csis0 = clk_get(&pdev->dev, "csis0");
+	if (IS_ERR(csis0)) {
+		pr_err("%s : clk_get(csis0) failed\n", __func__);
+		return PTR_ERR(csis0);
+	}
+
+	clk_prepare_enable(csis0);
+	clk_put(csis0);
+
+	csis1 = clk_get(&pdev->dev, "csis1");
+	if (IS_ERR(csis1)) {
+		pr_err("%s : clk_get(csis1) failed\n", __func__);
+		return PTR_ERR(csis1);
+	}
+
+	clk_prepare_enable(csis1);
+	clk_put(csis1);
+
+	lite0 = clk_get(&pdev->dev, "lite0");
+	if (IS_ERR(lite0)) {
+		pr_err("%s : clk_get(lite0) failed\n", __func__);
+		return PTR_ERR(lite0);
+	}
+
+	clk_prepare_enable(lite0);
+	clk_put(lite0);
+
+	lite1 = clk_get(&pdev->dev, "lite1");
+	if (IS_ERR(lite1)) {
+		pr_err("%s : clk_get(lite1) failed\n", __func__);
+		return PTR_ERR(lite1);
+	}
+
+	clk_prepare_enable(lite1);
+	clk_put(lite1);
+
+	sclk_cam1 = clk_get(&pdev->dev, "sclk_cam1");
+	if (IS_ERR(sclk_cam1)) {
+		pr_err("%s : clk_get(sclk_cam1) failed\n", __func__);
+		return PTR_ERR(sclk_cam1);
+	}
+	clk_prepare_enable(sclk_cam1);
+	clk_put(sclk_cam1);
+
+	return 0;
+}
+
+int exynos3250_fimc_is_clk_off(struct platform_device *pdev)
+{
+	struct clk *mcuisp = NULL;
+	struct clk *csis0 = NULL;
+	struct clk *csis1 = NULL;
+	struct clk *lite0 = NULL;
+	struct clk *lite1 = NULL;
+	struct clk *sclk_cam1 = NULL;
+
+	pr_info("%s\n",__func__);
+
+	mcuisp = clk_get(&pdev->dev, "mcuisp");
+	if (IS_ERR(mcuisp)) {
+		pr_err("%s : clk_get(mcuisp) failed\n", __func__);
+		return PTR_ERR(mcuisp);
+	}
+
+	clk_disable_unprepare(mcuisp);
+	clk_put(mcuisp);
+
+	csis0 = clk_get(&pdev->dev, "csis0");
+	if (IS_ERR(csis0)) {
+		pr_err("%s : clk_get(csis0) failed\n", __func__);
+		return PTR_ERR(csis0);
+	}
+
+	clk_disable_unprepare(csis0);
+	clk_put(csis0);
+
+	csis1 = clk_get(&pdev->dev, "csis1");
+	if (IS_ERR(csis1)) {
+		pr_err("%s : clk_get(csis1) failed\n", __func__);
+		return PTR_ERR(csis1);
+	}
+
+	clk_disable_unprepare(csis1);
+	clk_put(csis1);
+
+	lite0 = clk_get(&pdev->dev, "lite0");
+	if (IS_ERR(lite0)) {
+		pr_err("%s : clk_get(lite0) failed\n", __func__);
+		return PTR_ERR(lite0);
+	}
+
+	clk_disable_unprepare(lite0);
+	clk_put(lite0);
+
+	lite1 = clk_get(&pdev->dev, "lite1");
+	if (IS_ERR(lite1)) {
+		pr_err("%s : clk_get(lite1) failed\n", __func__);
+		return PTR_ERR(lite1);
+	}
+
+	clk_disable_unprepare(lite1);
+	clk_put(lite1);
+
+	sclk_cam1 = clk_get(&pdev->dev, "sclk_cam1");
+	if (IS_ERR(sclk_cam1)) {
+		pr_err("%s : clk_get(sclk_cam1) failed\n", __func__);
+		return PTR_ERR(sclk_cam1);
+	}
+	clk_disable_unprepare(sclk_cam1);
+	clk_put(sclk_cam1);
+
+	return 0;
+}
+
+int exynos3250_fimc_is_print_clk(struct platform_device *pdev)
+{
+	pr_debug("%s\n", __func__);
+	return 0;
+}
+
+int exynos3250_fimc_is_set_user_clk_gate(u32 group_id,
+		bool is_on,
+		u32 user_scenario_id,
+		unsigned long msk_state,
+		struct exynos_fimc_is_clk_gate_info *gate_info) {
+
+	pr_debug("%s\n", __func__);
+	return 0;
+}
+
+int exynos3250_fimc_is_clk_gate(u32 clk_gate_id, bool is_on)
+{
+	pr_debug("%s\n", __func__);
+	return 0;
+}
+
+int exynos3250_fimc_is_sensor_power_on(struct platform_device *pdev, int sensor_id)
+{
+	pr_debug("%s\n", __func__);
+	return 0;
+}
+
+int exynos3250_fimc_is_sensor_power_off(struct platform_device *pdev, int sensor_id)
+{
+	pr_debug("%s\n", __func__);
+	return 0;
+}
+
+int exynos3250_fimc_is_print_pwr(struct platform_device *pdev)
+{
+	pr_debug("%s\n", __func__);
+	return 0;
+}
 #endif
 
 /* Wrapper functions */
@@ -1186,6 +1731,8 @@ int exynos_fimc_is_cfg_clk(struct platform_device *pdev)
 	exynos5422_fimc_is_cfg_clk(pdev);
 #elif defined(CONFIG_SOC_EXYNOS5430)
 	exynos5430_fimc_is_cfg_clk(pdev);
+#elif defined(CONFIG_SOC_EXYNOS3250)
+	exynos3250_fimc_is_cfg_clk(pdev);
 #endif
 	return 0;
 }
@@ -1208,6 +1755,8 @@ int exynos_fimc_is_clk_on(struct platform_device *pdev)
 	exynos5422_fimc_is_clk_on(pdev);
 #elif defined(CONFIG_SOC_EXYNOS5430)
 	exynos5430_fimc_is_clk_on(pdev);
+#elif defined(CONFIG_SOC_EXYNOS3250)
+	exynos3250_fimc_is_clk_on(pdev);
 #endif
 	return 0;
 }
@@ -1218,6 +1767,8 @@ int exynos_fimc_is_clk_off(struct platform_device *pdev)
 	exynos5422_fimc_is_clk_off(pdev);
 #elif defined(CONFIG_SOC_EXYNOS5430)
 	exynos5430_fimc_is_clk_off(pdev);
+#elif defined(CONFIG_SOC_EXYNOS3250)
+	exynos3250_fimc_is_clk_off(pdev);
 #endif
 	return 0;
 }
@@ -1228,6 +1779,8 @@ int exynos_fimc_is_print_clk(struct platform_device *pdev)
 	exynos5422_fimc_is_print_clk(pdev);
 #elif defined(CONFIG_SOC_EXYNOS5430)
 	exynos5430_fimc_is_print_clk(pdev);
+#elif defined(CONFIG_SOC_EXYNOS3250)
+	exynos3250_fimc_is_print_clk(pdev);
 #endif
 	return 0;
 }
@@ -1241,6 +1794,8 @@ int exynos_fimc_is_set_user_clk_gate(u32 group_id, bool is_on,
 	exynos5422_fimc_is_set_user_clk_gate(group_id, is_on, user_scenario_id, msk_state, gate_info);
 #elif defined(CONFIG_SOC_EXYNOS5430)
 	exynos5430_fimc_is_set_user_clk_gate(group_id, is_on, user_scenario_id, msk_state, gate_info);
+#elif defined(CONFIG_SOC_EXYNOS3250)
+	exynos3250_fimc_is_set_user_clk_gate(group_id, is_on, user_scenario_id, msk_state, gate_info);
 #endif
 	return 0;
 }
@@ -1251,6 +1806,8 @@ int exynos_fimc_is_clk_gate(u32 clk_gate_id, bool is_on)
 	exynos5422_fimc_is_clk_gate(clk_gate_id, is_on);
 #elif defined(CONFIG_SOC_EXYNOS5430)
 	exynos5430_fimc_is_clk_gate(clk_gate_id, is_on);
+#elif defined(CONFIG_SOC_EXYNOS3250)
+	exynos3250_fimc_is_clk_gate(clk_gate_id, is_on);
 #endif
 	return 0;
 }
@@ -1261,6 +1818,8 @@ int exynos_fimc_is_sensor_power_on(struct platform_device *pdev, int sensor_id)
 	exynos5422_fimc_is_sensor_power_on(pdev, sensor_id);
 #elif defined(CONFIG_SOC_EXYNOS5430)
 	exynos5430_fimc_is_sensor_power_on(pdev, sensor_id);
+#elif defined(CONFIG_SOC_EXYNOS3250)
+	exynos3250_fimc_is_sensor_power_on(pdev, sensor_id);
 #endif
 	return 0;
 }
@@ -1271,6 +1830,8 @@ int exynos_fimc_is_sensor_power_off(struct platform_device *pdev, int sensor_id)
 	exynos5422_fimc_is_sensor_power_off(pdev, sensor_id);
 #elif defined(CONFIG_SOC_EXYNOS5430)
 	exynos5430_fimc_is_sensor_power_off(pdev, sensor_id);
+#elif defined(CONFIG_SOC_EXYNOS3250)
+	exynos3250_fimc_is_sensor_power_off(pdev, sensor_id);
 #endif
 	return 0;
 }
@@ -1281,6 +1842,8 @@ int exynos_fimc_is_print_pwr(struct platform_device *pdev)
 	exynos5422_fimc_is_print_pwr(pdev);
 #elif defined(CONFIG_SOC_EXYNOS5430)
 	exynos5430_fimc_is_print_pwr(pdev);
+#elif defined(CONFIG_SOC_EXYNOS3250)
+	exynos3250_fimc_is_print_pwr(pdev);
 #endif
 	return 0;
 }

@@ -14,7 +14,6 @@
 
 #define SENSOR_IMX135_INSTANCE	0
 #define SENSOR_IMX135_NAME	SENSOR_NAME_IMX135
-/* #define SENSOR_IMX135_DRIVING */
 
 int sensor_imx135_probe(struct i2c_client *client,
 	const struct i2c_device_id *id);

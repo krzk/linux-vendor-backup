@@ -572,16 +572,13 @@ static DEFINE_RAW_SPINLOCK(stop_lock);
 /*
  * ipi_cpu_stop - handle IPI from smp_send_stop()
  */
-static void ipi_cpu_stop(unsigned int cpu)
+static void ipi_cpu_stop(unsigned int cpu, struct pt_regs *regs)
 {
 	if (system_state == SYSTEM_BOOTING ||
 	    system_state == SYSTEM_RUNNING) {
 		raw_spin_lock(&stop_lock);
 		printk(KERN_CRIT "CPU%u: stopping\n", cpu);
 		dump_stack();
-#ifdef CONFIG_EXYNOS_SNAPSHOT
-		exynos_ss_save_context();
-#endif
 		raw_spin_unlock(&stop_lock);
 	}
 
@@ -589,6 +586,8 @@ static void ipi_cpu_stop(unsigned int cpu)
 
 	local_fiq_disable();
 	local_irq_disable();
+
+	exynos_ss_save_context(regs);
 
 	while (1)
 		cpu_relax();
@@ -662,6 +661,8 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 	if (ipinr < NR_IPI)
 		__inc_irq_stat(cpu, ipi_irqs[ipinr]);
 
+	exynos_ss_irq(ipinr, do_IPI, irqs_disabled(), ESS_FLAG_IN);
+
 	switch (ipinr) {
 	case IPI_WAKEUP:
 		break;
@@ -692,7 +693,7 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 
 	case IPI_CPU_STOP:
 		irq_enter();
-		ipi_cpu_stop(cpu);
+		ipi_cpu_stop(cpu, regs);
 		irq_exit();
 		break;
 
@@ -705,6 +706,8 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 		       cpu, ipinr);
 		break;
 	}
+	exynos_ss_irq(ipinr, do_IPI, irqs_disabled(), ESS_FLAG_OUT);
+
 	set_irq_regs(old_regs);
 }
 

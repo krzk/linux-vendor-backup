@@ -80,9 +80,10 @@ static void get_cluster_stat(struct cluster_stats *cl)
 
 	for_each_cpu(cpu, cl->mask) {
 		struct cpu_load *pcpuload = &per_cpu(cpuload, cpu);
+		int load = (cpu_online(cpu)) ?  pcpuload->load : 0;
 
-		util += pcpuload->load;
-		cl->utils[i++] = pcpuload->load;
+		util += load;
+		cl->utils[i++] = load;
 		freq = pcpuload->frequency;
 	}
 

@@ -100,25 +100,25 @@ static unsigned int clkdiv_cpu0_5422_CA7[CPUFREQ_LEVEL_END_CA7][5] = {
 	{ 0, 2, 7, 5, 3 },
 
 	/* ARM L8: 800MHz */
-	{ 0, 1, 7, 5, 3 },
+	{ 0, 2, 7, 5, 3 },
 
 	/* ARM L9: 700MHz */
-	{ 0, 1, 7, 4, 3 },
+	{ 0, 2, 7, 4, 3 },
 
 	/* ARM L10: 600MHz */
-	{ 0, 1, 7, 4, 3 },
+	{ 0, 2, 7, 4, 3 },
 
 	/* ARM L11: 500MHz */
-	{ 0, 1, 7, 4, 3 },
+	{ 0, 2, 7, 4, 3 },
 
 	/* ARM L12: 400MHz */
-	{ 0, 1, 7, 3, 3 },
+	{ 0, 2, 7, 3, 3 },
 
 	/* ARM L13: 300MHz */
-	{ 0, 1, 7, 3, 3 },
+	{ 0, 2, 7, 3, 3 },
 
 	/* ARM L14: 200MHz */
-	{ 0, 1, 7, 3, 3 },
+	{ 0, 2, 7, 3, 3 },
 };
 
 static unsigned int exynos5422_kfc_pll_pms_table_CA7[CPUFREQ_LEVEL_END_CA7] = {
@@ -156,7 +156,7 @@ static unsigned int exynos5422_kfc_pll_pms_table_CA7[CPUFREQ_LEVEL_END_CA7] = {
 	((175 << 16) | (3 << 8) | (0x1)),
 
 	/* KPLL FOUT L10: 600MHz */
-	((100 << 16) | (2 << 8) | (0x1)),
+	((200 << 16) | (2 << 8) | (0x2)),
 
 	/* KPLL FOUT L11: 500MHz */
 	((250 << 16) | (3 << 8) | (0x2)),
@@ -165,7 +165,7 @@ static unsigned int exynos5422_kfc_pll_pms_table_CA7[CPUFREQ_LEVEL_END_CA7] = {
 	((200 << 16) | (3 << 8) | (0x2)),
 
 	/* KPLL FOUT L13: 300MHz */
-	((100 << 16) | (2 << 8) | (0x2)),
+	((200 << 16) | (2 << 8) | (0x3)),
 
 	/* KPLL FOUT L14: 200MHz */
 	((200 << 16) | (3 << 8) | (0x3)),
@@ -194,16 +194,16 @@ static const unsigned int asv_voltage_5422_CA7[CPUFREQ_LEVEL_END_CA7] = {
 
 /* Minimum memory throughput in megabytes per second */
 static int exynos5422_bus_table_CA7[CPUFREQ_LEVEL_END_CA7] = {
-	266000, /* 1.6 GHz */
-	266000, /* 1.5 GHz */
-	266000, /* 1.4 GHz */
-	266000, /* 1.3 GHz */
-	266000, /* 1.2 GHz */
-	266000, /* 1.1 GHz */
-	266000, /* 1.0 GHz */
-	160000, /* 900 MHz */
-	160000, /* 800 MHz */
-	160000, /* 700 MHz */
+	633000, /* 1.6 GHz */
+	633000, /* 1.5 GHz */
+	633000, /* 1.4 GHz */
+	633000, /* 1.3 GHz */
+	633000, /* 1.2 GHz */
+	633000, /* 1.1 GHz */
+	543000, /* 1.0 GHz */
+	413000, /* 900 MHz */
+	413000, /* 800 MHz */
+	275000, /* 700 MHz */
 	133000, /* 600 MHz */
 	133000, /* 500 MHz */
 	0,  /* 400 MHz */
@@ -266,7 +266,6 @@ static void exynos5422_set_clkdiv_CA7(unsigned int div_index)
 #endif
 }
 
-#define USING_CCF
 static void exynos5422_set_kfc_pll_CA7(unsigned int new_index, unsigned int old_index)
 {
 	unsigned int tmp, pdiv;
@@ -290,7 +289,6 @@ static void exynos5422_set_kfc_pll_CA7(unsigned int new_index, unsigned int old_
 		tmp &= 0x7;
 	} while (tmp != 0x2);
 
-#if !defined(USING_CCF)
 	/* 2. Set KPLL Lock time */
 	pdiv = ((exynos5422_kfc_pll_pms_table_CA7[new_index] >> 8) & 0x3f);
 
@@ -307,11 +305,6 @@ static void exynos5422_set_kfc_pll_CA7(unsigned int new_index, unsigned int old_
 		cpu_relax();
 		tmp = __raw_readl(EXYNOS5_KPLL_CON0);
 	} while (!(tmp & (0x1 << EXYNOS5_KPLLCON0_LOCKED_SHIFT)));
-#else
-	pdiv = 0;
-	clk_set_rate(fout_kpll, exynos5422_freq_table_CA7[new_index].frequency*1000);
-	pr_debug("kpll set_rate:%ld\n", clk_get_rate(fout_kpll));
-#endif
 
 	/* 5. CLKMUX_CPU_KFC = KPLL */
 	if (clk_set_parent(mout_cpu_kfc, mout_kpll_ctrl))
@@ -345,7 +338,7 @@ static bool exynos5422_pms_change_CA7(unsigned int old_index,
 static void exynos5422_set_frequency_CA7(unsigned int old_index,
 					 unsigned int new_index)
 {
-unsigned int tmp;
+	unsigned int tmp;
 
 	if (old_index > new_index) {
 		if (!exynos5422_pms_change_CA7(old_index, new_index)) {
@@ -381,6 +374,7 @@ unsigned int tmp;
 		}
 	}
 
+	clk_set_rate(fout_kpll, exynos5422_freq_table_CA7[new_index].frequency * 1000);
 	pr_debug("post clk [%ld]\n", clk_get_rate(dout_cpu_kfc));
 }
 
@@ -388,7 +382,6 @@ static void __init set_volt_table_CA7(void)
 {
 	unsigned int i;
 	unsigned int asv_volt __maybe_unused;
-	unsigned int asv_abb = 0;
 
 	for (i = 0; i < CPUFREQ_LEVEL_END_CA7; i++) {
 		/* FIXME: need to update voltage table for REV1 */
@@ -401,21 +394,19 @@ static void __init set_volt_table_CA7(void)
 
 		pr_info("CPUFREQ of CA7  L%d : %d uV\n", i,
 			exynos5422_volt_table_CA7[i]);
-		asv_abb = get_match_abb(ID_KFC, exynos5422_freq_table_CA7[i].frequency);
-		if (!asv_abb)
-			exynos5422_abb_table_CA7[i] = ABB_BYPASS;
-		else
-			exynos5422_abb_table_CA7[i] = asv_abb;
+
+		exynos5422_abb_table_CA7[i] =
+			get_match_abb(ID_KFC, exynos5422_freq_table_CA7[i].frequency);
 
 		pr_info("CPUFREQ of CA7  L%d : ABB %d\n", i,
 				exynos5422_abb_table_CA7[i]);
 	}
 #ifdef CONFIG_SOC_EXYNOS5422_REV_0
-	max_support_idx_CA7 = L1;
+	max_support_idx_CA7 = L3;
 #else
 	max_support_idx_CA7 = L3;
 #endif
-	min_support_idx_CA7 = L8;
+	min_support_idx_CA7 = L11;
 }
 
 static bool exynos5422_is_alive_CA7(void)
@@ -505,6 +496,7 @@ int __init exynos5_cpufreq_CA7_init(struct exynos_dvfs_info *info)
 	info->pll_safe_idx = L5;
 	info->max_support_idx = max_support_idx_CA7;
 	info->min_support_idx = min_support_idx_CA7;
+	info->boost_freq = exynos5422_freq_table_CA7[L6].frequency;
 	info->boot_cpu_min_qos = exynos5422_freq_table_CA7[L2].frequency;
 	info->boot_cpu_max_qos = exynos5422_freq_table_CA7[L2].frequency;
 	info->cpu_clk = fout_kpll;

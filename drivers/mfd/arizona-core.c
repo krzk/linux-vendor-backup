@@ -478,6 +478,26 @@ static int arizona_runtime_suspend(struct device *dev)
 #endif
 
 #ifdef CONFIG_PM_SLEEP
+static int arizona_suspend(struct device *dev)
+{
+	struct arizona *arizona = dev_get_drvdata(dev);
+
+	dev_dbg(arizona->dev, "Suspend, disabling IRQ\n");
+	disable_irq(arizona->irq);
+
+	return 0;
+}
+
+static int arizona_suspend_late(struct device *dev)
+{
+	struct arizona *arizona = dev_get_drvdata(dev);
+
+	dev_dbg(arizona->dev, "Late suspend, reenabling IRQ\n");
+	enable_irq(arizona->irq);
+
+	return 0;
+}
+
 static int arizona_resume_noirq(struct device *dev)
 {
 	struct arizona *arizona = dev_get_drvdata(dev);
@@ -503,8 +523,9 @@ const struct dev_pm_ops arizona_pm_ops = {
 	SET_RUNTIME_PM_OPS(arizona_runtime_suspend,
 			   arizona_runtime_resume,
 			   NULL)
-	SET_SYSTEM_SLEEP_PM_OPS(NULL, arizona_resume)
+	SET_SYSTEM_SLEEP_PM_OPS(arizona_suspend, arizona_resume)
 #ifdef CONFIG_PM_SLEEP
+	.suspend_late = arizona_suspend_late,
 	.resume_noirq = arizona_resume_noirq,
 #endif
 };
@@ -749,6 +770,7 @@ static int arizona_of_get_core_pdata(struct arizona *arizona)
 
 	arizona_of_get_named_gpio(arizona, "wlf,reset", true, &pdata->reset);
 	arizona_of_get_named_gpio(arizona, "wlf,ldoena", true, &pdata->ldoena);
+	arizona_of_get_named_gpio(arizona, "wlf,irq-gpio", true, &pdata->irq_gpio);
 
 	arizona_of_get_micd_ranges(arizona, "wlf,micd-ranges");
 	arizona_of_get_micd_configs(arizona, "wlf,micd-configs");
@@ -865,6 +887,10 @@ int arizona_dev_init(struct arizona *arizona)
 		dev_err(dev, "Failed to request DCVDD: %d\n", ret);
 		goto err_early;
 	}
+
+	gpio_request(arizona->pdata.ldoena, "codec_ldoena");
+	gpio_direction_output(arizona->pdata.ldoena, 1);
+	gpio_free(arizona->pdata.ldoena);
 
 	if (arizona->pdata.reset) {
 		/* Start out with /RESET low to put the chip into reset */

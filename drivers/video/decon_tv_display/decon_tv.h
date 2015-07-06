@@ -74,6 +74,17 @@ extern int dex_log_level;
 #define HDMI_STOP	0 << 1
 #define HDMI_STREAMING	1 << 1
 
+/*
+ * HDMI timing distinguish definition
+ * If timings has the same widh and height,
+ * it is low definition as it is low pixelclock.
+ */
+#define HDMI_TIMINGS_1		0x10
+#define HDMI_TIMINGS_2		0x20
+#define HDMI_TIMINGS_3		0x30
+#define HDMI_TIMINGS_4		0x40
+#define HDMI_TIMINGS_5		0x50
+
 struct display_driver;
 extern struct ion_device *ion_exynos;
 

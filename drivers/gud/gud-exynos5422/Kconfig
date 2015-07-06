@@ -28,3 +28,5 @@ config MOBICORE_API
 	depends on MOBICORE_DRIVER
 	---help---
 	  Enable Linux Kernel MobiCore API
+
+source "drivers/gud/gud-exynos5422/sec-os-ctrl/Kconfig"

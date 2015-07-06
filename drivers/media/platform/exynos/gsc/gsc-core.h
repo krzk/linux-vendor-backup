@@ -26,6 +26,7 @@
 #include <linux/of_address.h>
 #include <mach/videonode.h>
 #include <mach/smc.h>
+#include <mach/bts.h>
 #include <media/videobuf2-core.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
@@ -73,7 +74,11 @@ extern int gsc_dbg;
 				__func__, __LINE__, ##args);		\
 	} while (0)
 
+#if defined(CONFIG_SOC_EXYNOS3250)
+#define GSC_MAX_CLOCKS			3
+#else
 #define GSC_MAX_CLOCKS			5
+#endif
 #define GSC_SHUTDOWN_TIMEOUT		((100*HZ)/1000)
 #define GSC_MAX_DEVS			4
 #define WORKQUEUE_NAME_SIZE		32
@@ -104,6 +109,7 @@ extern int gsc_dbg;
 #define	GSC_CTX_START			(1 << 5)
 #define	GSC_CTX_STOP_REQ		(1 << 6)
 #define	GSC_CTX_CAP			(1 << 10)
+#define	GSC_DST_CROP			(1 << 11)
 
 #define GSC_SC_UP_MAX_RATIO		65536
 #define GSC_SC_DOWN_RATIO_7_8		74898
@@ -123,6 +129,8 @@ enum gsc_dev_flags {
 	/* for output node */
 	ST_OUTPUT_OPEN,
 	ST_OUTPUT_STREAMON,
+	DEBUG_STREAMON,
+	DEBUG_S_STREAM,
 	/* for capture node */
 	ST_CAPT_OPEN,
 	ST_CAPT_PEND,
@@ -247,18 +255,6 @@ struct gsc_fmt {
 };
 
 /**
- * struct gsc_input_buf - the driver's video buffer
- * @vb:	videobuf2 buffer
- * @list : linked list structure for buffer queue
- * @idx : index of G-Scaler input buffer
- */
-struct gsc_input_buf {
-	struct vb2_buffer	vb;
-	struct list_head	list;
-	int			idx;
-};
-
-/**
  * struct gsc_addr - the G-Scaler physical address set
  * @y:	 luminance plane address
  * @cb:	 Cb plane address
@@ -268,6 +264,19 @@ struct gsc_addr {
 	dma_addr_t	y;
 	dma_addr_t	cb;
 	dma_addr_t	cr;
+};
+
+/**
+ * struct gsc_input_buf - the driver's video buffer
+ * @vb:	videobuf2 buffer
+ * @list : linked list structure for buffer queue
+ * @idx : index of G-Scaler input buffer
+ */
+struct gsc_input_buf {
+	struct vb2_buffer	vb;
+	struct list_head	list;
+	struct gsc_addr		addr;
+	int			idx;
 };
 
 /* struct gsc_ctrls - the G-Scaler control set
@@ -579,6 +588,11 @@ struct gsc_dev {
 	struct pm_qos_request		exynos5_gsc_int_qos;
 	void __iomem			*sysreg_disp;
 	void __iomem			*sysreg_gscl;
+	struct timer_list		op_timer;
+	u32				q_cnt;
+	u32				dq_cnt;
+	u32				isr_cnt;
+	u32				wq_cnt;
 };
 
 /**
@@ -613,7 +627,6 @@ struct gsc_ctx {
 	struct v4l2_fh		fh;
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct gsc_ctrls	gsc_ctrls;
-	struct timer_list	op_timer;
 	bool			ctrls_rdy;
 	struct work_struct	fence_work;
 	struct list_head	fence_wait_list;
@@ -785,11 +798,12 @@ active_queue_pop(struct gsc_output_device *vid_out, struct gsc_dev *dev)
 	struct gsc_input_buf *buf;
 
 	buf = list_entry(vid_out->active_buf_q.next, struct gsc_input_buf, list);
+
 	return buf;
 }
 
 static inline void active_queue_push(struct gsc_output_device *vid_out,
-				     struct gsc_input_buf *buf, struct gsc_dev *dev)
+			     struct gsc_input_buf *buf, struct gsc_dev *dev)
 {
 	list_add_tail(&buf->list, &vid_out->active_buf_q);
 }
@@ -821,6 +835,7 @@ void gsc_hw_set_frm_done_irq_mask(struct gsc_dev *dev, bool mask);
 void gsc_hw_set_overflow_irq_mask(struct gsc_dev *dev, bool mask);
 void gsc_hw_set_gsc_irq_enable(struct gsc_dev *dev, bool mask);
 void gsc_hw_set_input_buf_mask_all(struct gsc_dev *dev);
+void gsc_hw_set_input_buf_fixed(struct gsc_dev *dev);
 void gsc_hw_set_output_buf_mask_all(struct gsc_dev *dev);
 void gsc_hw_set_input_buf_masking(struct gsc_dev *dev, u32 shift, bool enable);
 void gsc_hw_set_output_buf_masking(struct gsc_dev *dev, u32 shift, bool enable);
@@ -880,4 +895,5 @@ void gsc_hw_set_smart_if_pix_num(struct gsc_ctx *ctx);
 void gsc_hw_set_sfr_update(struct gsc_ctx *ctx);
 void gsc_hw_set_dynamic_clock_gating(struct gsc_dev *dev);
 void gsc_hw_set_input_apply_pending_bit(struct gsc_dev *dev);
+void gsc_hw_set_input_addr_fixed(struct gsc_dev *dev, struct gsc_addr *addr);
 #endif /* GSC_CORE_H_ */

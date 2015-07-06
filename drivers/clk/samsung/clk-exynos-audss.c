@@ -81,7 +81,6 @@ void __init exynos_audss_clk_init(struct device_node *np)
 	clk_data.clk_num = EXYNOS_AUDSS_MAX_CLKS;
 	of_clk_add_provider(np, of_clk_src_onecell_get, &clk_data);
 
-	#if defined (CONFIG_SOC_EXYNOS5430_REV_1)
 	clk_table[EXYNOS_MOUT_AUDSS] = clk_register_mux(NULL, "mout_audss",
 				mout_audss_p, ARRAY_SIZE(mout_audss_p), 0,
 				reg_base + ASS_CLK_SRC, 0, 1, 0, &lock, 0, 0, 0);
@@ -89,15 +88,6 @@ void __init exynos_audss_clk_init(struct device_node *np)
 	clk_table[EXYNOS_MOUT_I2S] = clk_register_mux(NULL, "mout_i2s",
 				mout_i2s_p, ARRAY_SIZE(mout_i2s_p), 0,
 				reg_base + ASS_CLK_SRC, 2, 2, 0, &lock, 0, 0, 0);
-	#else
-	clk_table[EXYNOS_MOUT_AUDSS] = clk_register_mux(NULL, "mout_audss",
-				mout_audss_p, ARRAY_SIZE(mout_audss_p), 0,
-				reg_base + ASS_CLK_SRC, 0, 1, 0, &lock);
-
-	clk_table[EXYNOS_MOUT_I2S] = clk_register_mux(NULL, "mout_i2s",
-				mout_i2s_p, ARRAY_SIZE(mout_i2s_p), 0,
-				reg_base + ASS_CLK_SRC, 2, 2, 0, &lock);
-	#endif
 
 	clk_table[EXYNOS_DOUT_SRP] = clk_register_divider(NULL, "dout_srp",
 				"mout_audss", 0, reg_base + ASS_CLK_DIV, 0, 4,

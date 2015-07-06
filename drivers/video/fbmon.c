@@ -355,6 +355,11 @@ static void parse_vendor_specific_block(struct fb_vendor *vsdb,
 	DPRINTK("   3D present: %d\n", vsdb->s3d_present);
 	DPRINTK("   3D multi present: %d\n", vsdb->s3d_multi_present);
 
+	for (i = 0; i < vsdb->vic_len; i++) {
+		vsdb->vic_data[i] = svsdb[offset + 11 + i];
+		DPRINTK("   HDMI VIC Data[%d]:0x%x\n", i, vsdb->vic_data[i]);
+	}
+
 	offset += vsdb->vic_len;
 	if (vsdb->s3d_multi_present) {
 		vsdb->s3d_structure_all = svsdb[offset + 11] << 8;
@@ -1031,19 +1036,19 @@ int fb_parse_edid(unsigned char *edid, struct fb_var_screeninfo *var)
 	return 1;
 }
 
-void fb_edid_to_monspecs(unsigned char *edid, struct fb_monspecs *specs)
+int fb_edid_to_monspecs(unsigned char *edid, struct fb_monspecs *specs)
 {
 	unsigned char *block;
 	int i, found = 0;
 
 	if (edid == NULL)
-		return;
+		return -EINVAL;
 
 	if (!(edid_checksum(edid)))
-		return;
+		return -EINVAL;
 
 	if (!(edid_check_header(edid)))
-		return;
+		return -EINVAL;
 
 	memset(specs, 0, sizeof(struct fb_monspecs));
 
@@ -1093,6 +1098,7 @@ void fb_edid_to_monspecs(unsigned char *edid, struct fb_monspecs *specs)
 		specs->misc &= ~FB_MISC_1ST_DETAIL;
 
 	DPRINTK("========================================\n");
+	return 1;
 }
 
 /**
@@ -1169,14 +1175,14 @@ int fb_edid_add_monspecs(unsigned char *edid, struct fb_monspecs *specs)
 	u8 pos = 4, sad_n = 0, svd_n = 0, svsdb_n = 0;
 
 	if (!edid)
-		return 1;
+		return -EINVAL;
 
 	if (!edid_checksum(edid))
-		return 1;
+		return -EINVAL;
 
 	if (edid[0] != 0x2 || edid[1] != 0x3 ||
 	    edid[2] < 4 || edid[2] > 128 - DETAILED_TIMING_DESCRIPTION_SIZE)
-		return 1;
+		return -EINVAL;
 
 	DPRINTK("  Data Block Collection\n");
 
@@ -1743,9 +1749,10 @@ int fb_parse_edid(unsigned char *edid, struct fb_var_screeninfo *var)
 {
 	return 1;
 }
-void fb_edid_to_monspecs(unsigned char *edid, struct fb_monspecs *specs)
+int fb_edid_to_monspecs(unsigned char *edid, struct fb_monspecs *specs)
 {
 	specs = NULL;
+	return 1;
 }
 int fb_edid_add_monspecs(unsigned char *edid, struct fb_monspecs *specs)
 {

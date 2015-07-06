@@ -24,6 +24,18 @@
 #define STREAM_TO_U16(var16, p)	{(var16) = ((u16)(*((u8 *)p+1)) + \
 				((u8)(*((u8 *)p) << 8))); }
 
+#ifndef __devinit
+#define __devinit
+#endif
+
+#ifndef __devexit
+#define __devexit
+#endif
+
+#ifndef __devexit_p
+#define __devexit_p(x) x
+#endif
+
 static struct spi_device *g_spi;
 
 int fimc_is_spi_reset(void *buf, u32 rx_addr, size_t size)
@@ -94,6 +106,78 @@ int fimc_is_spi_read(void *buf, u32 rx_addr, size_t size)
 		return 0;
 }
 
+int fimc_is_spi_reset_by_core(struct spi_device *spi, void *buf, u32 rx_addr, size_t size)
+{
+	unsigned char req_rst[1] = { 0x99 };
+	int ret;
+
+	struct spi_transfer t_c;
+	struct spi_transfer t_r;
+
+	struct spi_message m;
+
+	memset(&t_c, 0x00, sizeof(t_c));
+	memset(&t_r, 0x00, sizeof(t_r));
+
+	t_c.tx_buf = req_rst;
+	t_c.len = 1;
+	t_c.cs_change = 0;
+
+	spi_message_init(&m);
+	spi_message_add_tail(&t_c, &m);
+
+	ret = spi_sync(spi, &m);
+	if (ret) {
+		err("spi sync error - can't get device information");
+		return -EIO;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(fimc_is_spi_reset_by_core);
+
+int fimc_is_spi_read_by_core(struct spi_device *spi, void *buf, u32 rx_addr, size_t size)
+{
+	unsigned char req_data[4] = { 0x03,  };
+	int ret;
+
+	struct spi_transfer t_c;
+	struct spi_transfer t_r;
+
+	struct spi_message m;
+
+	memset(&t_c, 0x00, sizeof(t_c));
+	memset(&t_r, 0x00, sizeof(t_r));
+
+	req_data[1] = (rx_addr & 0xFF0000) >> 16;
+	req_data[2] = (rx_addr & 0xFF00) >> 8;
+	req_data[3] = (rx_addr & 0xFF);
+
+	t_c.tx_buf = req_data;
+	t_c.len = 4;
+	t_c.cs_change = 1;
+	t_c.bits_per_word = 32;
+
+	t_r.rx_buf = buf;
+	t_r.len = size;
+	t_r.cs_change = 0;
+	t_r.bits_per_word = 32;
+
+	spi_message_init(&m);
+	spi_message_add_tail(&t_c, &m);
+	spi_message_add_tail(&t_r, &m);
+
+	spi->max_speed_hz = 48000000;
+	ret = spi_sync(spi, &m);
+	if (ret) {
+		err("spi sync error - can't read data");
+		return -EIO;
+	} else {
+		return 0;
+		}
+}
+EXPORT_SYMBOL(fimc_is_spi_read_by_core);
+
 static int __devinit fimc_is_spi_probe(struct spi_device *spi)
 {
 	int ret = 0;
@@ -118,8 +202,7 @@ static int __devexit fimc_is_spi_remove(struct spi_device *spi)
 	return 0;
 }
 
-static
-struct spi_driver fimc_is_spi_driver = {
+static struct spi_driver fimc_is_spi_driver = {
 	.driver = {
 		.name = "fimc_is_spi",
 		.bus = &spi_bus_type,
@@ -129,8 +212,7 @@ struct spi_driver fimc_is_spi_driver = {
 	.remove = __devexit_p(fimc_is_spi_remove),
 };
 
-static
-int __init fimc_is_spi_init(void)
+static int __init fimc_is_spi_init(void)
 {
 	int ret;
 
@@ -142,8 +224,7 @@ int __init fimc_is_spi_init(void)
 	return ret;
 }
 
-static
-void __exit fimc_is_spi_exit(void)
+static void __exit fimc_is_spi_exit(void)
 {
 	spi_unregister_driver(&fimc_is_spi_driver);
 }

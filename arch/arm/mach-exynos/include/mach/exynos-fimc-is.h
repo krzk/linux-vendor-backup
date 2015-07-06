@@ -62,6 +62,7 @@ enum FIMC_IS_SCENARIO_ID {
 	FIMC_IS_SN_REAR_PREVIEW_WHD,
 	FIMC_IS_SN_REAR_PREVIEW_UHD,
 	FIMC_IS_SN_REAR_CAPTURE,
+	FIMC_IS_SN_REAR_CAMCORDING,
 	FIMC_IS_SN_REAR_CAMCORDING_FHD,
 	FIMC_IS_SN_REAR_CAMCORDING_UHD,
 	FIMC_IS_SN_DUAL_PREVIEW,
@@ -115,6 +116,7 @@ enum FIMC_IS_GRP {
 
 enum FIMC_IS_CLK_GATE_USR_SCENARIO {
 	CLK_GATE_NOT_FULL_BYPASS_SN = 1,
+	CLK_GATE_FULL_BYPASS_SN,
 	CLK_GATE_DIS_SN,
 };
 
@@ -211,6 +213,11 @@ struct exynos_platform_fimc_is {
 
 	/* For host clock gating */
 	struct exynos_fimc_is_clk_gate_info *gate_info;
+#ifdef CONFIG_COMPANION_USE
+	u32	companion_spi_channel;
+	bool	use_two_spi_line;
+#endif
+	u32	use_sensor_dynamic_voltage_mode;
 };
 
 extern struct device *fimc_is_dev;

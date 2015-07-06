@@ -504,6 +504,38 @@ exit:
 	return ret;
 }
 
+int fimc_is_frame_swap_process_head(struct fimc_is_framemgr *this)
+{
+	int ret = 0;
+	struct fimc_is_frame *head;
+	struct fimc_is_frame *next;
+
+	if (!this->frame_pro_cnt) {
+		err("shot process count is zero\n");
+		ret = -EFAULT;
+		goto exit;
+	}
+
+	fimc_is_frame_process_head(this, &head);
+
+	list_del(&head->list);
+	this->frame_pro_cnt--;
+
+	/* list swap operation */
+	fimc_is_frame_process_head(this, &next);
+	if (next) {
+		list_del(&next->list);
+		this->frame_pro_cnt--;
+		fimc_is_frame_s_process_shot(this, next);
+		head->has_fcount = false;
+	}
+
+	fimc_is_frame_s_process_shot(this, head);
+
+exit:
+	return ret;
+}
+
 int fimc_is_frame_open(struct fimc_is_framemgr *this, u32 id, u32 buffers)
 {
 	int ret = 0;

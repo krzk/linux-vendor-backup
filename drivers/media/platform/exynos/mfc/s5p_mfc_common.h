@@ -48,12 +48,14 @@
 #define MFC_MAX_DRM_CTX		2
 /* Interrupt timeout */
 #define MFC_INT_TIMEOUT		2000
+/* Interrupt short timeout */
+#define MFC_INT_SHORT_TIMEOUT	800
 /* Busy wait timeout */
 #define MFC_BW_TIMEOUT		500
 /* Watchdog interval */
 #define MFC_WATCHDOG_INTERVAL   1000
 /* After how many executions watchdog should assume lock up */
-#define MFC_WATCHDOG_CNT        10
+#define MFC_WATCHDOG_CNT        3
 
 #define MFC_NO_INSTANCE_SET	-1
 
@@ -77,6 +79,7 @@
 #define SMC_DRM_MAKE_PGTABLE	0x81000003
 #define SMC_DRM_CLEAR_PGTABLE	0x81000004
 #define SMC_MEM_PROT_SET	0x81000005
+#define SMC_DRM_SECMEM_INFO	0x81000006
 
 /* Parameter for smc */
 #define SMC_PROTECTION_ENABLE	1
@@ -88,16 +91,14 @@
 enum {
 	FC_MFC_EXYNOS_ID_MFC_SH        = 0,
 	FC_MFC_EXYNOS_ID_VIDEO         = 1,
-	FC_MFC_EXYNOS_ID_MFC_INPUT     = 2,
-	FC_MFC_EXYNOS_ID_MFC_FW        = 3,
-	FC_MFC_EXYNOS_ID_SECTBL        = 4,
-	FC_MFC_EXYNOS_ID_G2D_WFD       = 5,
-	FC_MFC_EXYNOS_ID_MFC_NFW       = 6,
+	FC_MFC_EXYNOS_ID_MFC_FW        = 2,
+	FC_MFC_EXYNOS_ID_SECTBL        = 3,
+	FC_MFC_EXYNOS_ID_G2D_WFD       = 4,
+	FC_MFC_EXYNOS_ID_MFC_NFW       = 5,
 };
 
 #define SMC_FC_ID_MFC_SH(id)		((id) * 10 + FC_MFC_EXYNOS_ID_MFC_SH)
 #define SMC_FC_ID_VIDEO(id)		((id) * 10 + FC_MFC_EXYNOS_ID_VIDEO)
-#define SMC_FC_ID_MFC_INPUT(id)		((id) * 10 + FC_MFC_EXYNOS_ID_MFC_INPUT)
 #define SMC_FC_ID_MFC_FW(id)		((id) * 10 + FC_MFC_EXYNOS_ID_MFC_FW)
 #define SMC_FC_ID_SECTBL(id)		((id) * 10 + FC_MFC_EXYNOS_ID_SECTBL)
 #define SMC_FC_ID_G2D_WFD(id)		((id) * 10 + FC_MFC_EXYNOS_ID_G2D_WFD)
@@ -187,6 +188,15 @@ enum mfc_buf_usage_type {
 	MFCBUF_DRM,
 };
 
+enum mfc_buf_process_type {
+	MFCBUFPROC_DEFAULT 		= 0x0,
+	MFCBUFPROC_COPY 		= (1 << 0),
+	MFCBUFPROC_SHARE 		= (1 << 1),
+	MFCBUFPROC_META 		= (1 << 2),
+	MFCBUFPROC_ANBSHARE		= (1 << 3),
+	MFCBUFPROC_ANBSHARE_NV12L	= (1 << 4),
+};
+
 struct s5p_mfc_ctx;
 struct s5p_mfc_extra_buf;
 
@@ -202,6 +212,7 @@ struct s5p_mfc_buf {
 		dma_addr_t stream;
 	} planes;
 	int used;
+	int already;
 };
 
 #define vb_to_mfc_buf(x)	\
@@ -688,6 +699,8 @@ struct s5p_mfc_dec {
 	struct dec_dpb_ref_info *ref_info;
 	int assigned_fd[MFC_MAX_DPBS];
 	struct mfc_user_shared_handle sh_handle;
+
+	int dynamic_ref_filled;
 };
 
 struct s5p_mfc_enc {
@@ -815,6 +828,9 @@ struct s5p_mfc_ctx {
 	struct timeval last_timestamp;
 	int qp_min_change;
 	int qp_max_change;
+
+	int is_max_fps;
+	int buf_process_type;
 };
 
 #define fh_to_mfc_ctx(x)	\
@@ -872,6 +888,9 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 	case IP_VER_MFC_6A_2:
 		version = 0x723;
 		break;
+	case IP_VER_MFC_6P_0:
+		version = 0x78;
+		break;
 	case IP_VER_MFC_7A_0:
 		version = 0x80;
 		break;
@@ -892,16 +911,17 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
  * IS_MFCv6X : For MFC v6.X only
  * IS_MFCv5X : For MFC v5.X only
  * IS_MFCV6 : For MFC v6 architecure
- * IS_OVER_MFCv78 : For MFC v7.8 and later version
+ * IS_MFCv78 : For MFC v7.8 only
  */
 #define IS_MFCv7X(dev)		((mfc_version(dev) == 0x72) || \
-				 (mfc_version(dev) == 0x723))
+				(mfc_version(dev) == 0x723) || \
+				(mfc_version(dev) == 0x78))
 #define IS_MFCv6X(dev)		((mfc_version(dev) == 0x61) || \
 				 (mfc_version(dev) == 0x65))
 #define IS_MFCv5X(dev)		(mfc_version(dev) == 0x51)
 #define IS_MFCV6(dev)		(IS_MFCv6X(dev) || IS_MFCv7X(dev) || IS_MFCv8X(dev))
 #define IS_MFCv8X(dev)		(mfc_version(dev) == 0x80)
-#define IS_OVER_MFCv78(dev)		(mfc_version(dev) >= 0x78)
+#define IS_MFCv78(dev)		(mfc_version(dev) == 0x78)
 
 /* supported feature macros by F/W version */
 #define FW_HAS_BUS_RESET(dev)		(dev->fw.date >= 0x120206)
@@ -924,8 +944,12 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 					(dev->fw.date >= 0x131108))
 #define FW_HAS_BASE_CHANGE(dev)		((IS_MFCv7X(dev) || IS_MFCv8X(dev))&&	\
 					(dev->fw.date >= 0x131108))
+#define FW_WAKEUP_AFTER_RISC_ON(dev)	(IS_MFCv8X(dev) || IS_MFCv78(dev))
 
 #define HW_LOCK_CLEAR_MASK		(0xFFFFFFFF)
+
+#define is_h264(ctx)		((ctx->codec_mode == S5P_FIMV_CODEC_H264_DEC) ||\
+				(ctx->codec_mode == S5P_FIMV_CODEC_H264_MVC_DEC))
 
 /* Extra information for Decoder */
 #define	DEC_SET_DUAL_DPB		(1 << 0)
@@ -933,6 +957,8 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 /* Extra information for Encoder */
 #define	ENC_SET_RGB_INPUT		(1 << 0)
 #define	ENC_SET_SPARE_SIZE		(1 << 1)
+
+#define MFC_QOS_FLAG_NODATA		0xFFFFFFFF
 
 struct s5p_mfc_fmt {
 	char *name;

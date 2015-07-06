@@ -25,77 +25,55 @@
 
 #include <asm/mach/map.h>
 #include <asm/cacheflush.h>
+#include <asm/ptrace.h>
 #include <plat/cpu.h>
 #include <mach/regs-pmu.h>
 #include <mach/exynos-ss.h>
 
 #ifdef CONFIG_EXYNOS_SNAPSHOT
 
-/*  Size of Domain */
+/*  Size domain */
 #define ESS_HEADER_SZ			SZ_4K
 #define ESS_MMU_REG_SZ			SZ_4K
 #define ESS_CORE_REG_SZ			SZ_4K
 #define ESS_HEADER_TOTAL_SZ		(ESS_HEADER_SZ + ESS_MMU_REG_SZ + ESS_CORE_REG_SZ)
-#define ESS_LOG_MEM_SZ			SZ_4M
-#define ESS_HOOK_LOGBUF_SZ		SZ_2M
 
-#define ESS_HOOK_LOGGER_MAIN_SZ		(SZ_2M + SZ_1M)
-#define ESS_HOOK_LOGGER_SYSTEM_SZ	SZ_1M
-#define ESS_HOOK_LOGGER_EVENTS_SZ	0
-#define ESS_HOOK_LOGGER_RADIO_SZ	0
-
+/*  Length domain */
 #define ESS_LOG_STRING_LENGTH		SZ_128
 #define ESS_MMU_REG_OFFSET		SZ_256
 #define ESS_CORE_REG_OFFSET		SZ_256
-#define ESS_LOG_MAX_NUM			SZ_2K
+#define ESS_LOG_MAX_NUM			SZ_1K
+#define ESS_API_MAX_NUM			SZ_2K
+#define ESS_EX_MAX_NUM			SZ_8
+#define ESS_IN_MAX_NUM			SZ_8
+#define ESS_CALLSTACK_MAX_NUM		4
+#define ESS_ITERATION			4
+#define ESS_NR_CPUS			NR_CPUS
 
-/*  Virtual Address Information */
+/* Items domain */
+#define ESS_ITEMS_NUM			4
+#define ESS_ITEMS_KEVENTS		0
+#define ESS_ITEMS_LOG_KERNEL		1
+#define ESS_ITEMS_LOG_MAIN		2
+#define ESS_ITEMS_LOG_SYSTEM		3
+
+/*  Specific Address Information */
 #define S5P_VA_SS_BASE			S3C_ADDR(0x03000000)
-#define S5P_VA_SS_LOGMEM		(S5P_VA_SS_BASE)
+#define S5P_VA_SS_SCRATCH		(S5P_VA_SS_BASE + 0x10)
+#define S5P_VA_SS_LAST_LOGBUF		(S5P_VA_SS_BASE + 0x14)
 
-#define S5P_VA_SS_HEADER		(S5P_VA_SS_LOGMEM)
-#define S5P_VA_SS_SCRATCH		(S5P_VA_SS_LOGMEM + 0x10)
-#define S5P_VA_SS_LAST_LOGBUF		(S5P_VA_SS_LOGMEM + 0x14)
-#define S5P_VA_SS_MMU_REG		(S5P_VA_SS_HEADER + ESS_HEADER_SZ)
-#define S5P_VA_SS_CORE_REG		(S5P_VA_SS_MMU_REG + ESS_MMU_REG_SZ)
-
-/*  logger mandotory */
-#define S5P_VA_SS_LOGBUF		(S5P_VA_SS_LOGMEM + ESS_LOG_MEM_SZ)
-#define S5P_VA_SS_LOGGER_MAIN		(S5P_VA_SS_LOGBUF + ESS_HOOK_LOGBUF_SZ)
-#define S5P_VA_SS_LOGGER_SYSTEM		(S5P_VA_SS_LOGGER_MAIN + ESS_HOOK_LOGGER_MAIN_SZ)
-
-/*  logger option */
-#define S5P_VA_SS_LOGGER_RADIO		(S5P_VA_SS_LOGGER_SYSTEM + ESS_HOOK_LOGGER_SYSTEM_SZ)
-#define S5P_VA_SS_LOGGER_EVENTS		(S5P_VA_SS_LOGGER_RADIO + ESS_HOOK_LOGGER_RADIO_SZ)
-
-/*  Physical Address Information */
-#define S5P_PA_SS_BASE(x)		(x)
-#define S5P_PA_SS_LOGMEM(x)		(S5P_PA_SS_BASE(x))
-#define S5P_PA_SS_HEADER(x)		(S5P_PA_SS_LOGMEM(x))
-#define S5P_PA_SS_MMU_REG(x)		(S5P_PA_SS_HEADER(x) + ESS_HEADER_SZ)
-#define S5P_PA_SS_CORE_REG(x)		(S5P_PA_SS_MMU_REG(x) + ESS_MMU_REG_SZ)
-
-/*  logger mandotory */
-#define S5P_PA_SS_LOGBUF(x)		(S5P_PA_SS_LOGMEM(x) + ESS_LOG_MEM_SZ)
-#define S5P_PA_SS_LOGGER_MAIN(x)	(S5P_PA_SS_LOGBUF(x) + ESS_HOOK_LOGBUF_SZ)
-#define S5P_PA_SS_LOGGER_SYSTEM(x)	(S5P_PA_SS_LOGGER_MAIN(x) + ESS_HOOK_LOGGER_MAIN_SZ)
-
-/*  logger option */
-#define S5P_PA_SS_LOGGER_RADIO(x)	(S5P_PA_SS_LOGGER_SYSTEM(x) + ESS_HOOK_LOGGER_SYSTEM_SZ)
-#define S5P_PA_SS_LOGGER_EVENTS(x)	(S5P_PA_SS_LOGGER_RADIO(x) + ESS_HOOK_LOGGER_RADIO_SZ)
-
-struct exynos_ss_hook_item {
-	unsigned char *head_ptr;
-	unsigned char *curr_ptr;
-	size_t bufsize;
+struct exynos_ss_base {
+	size_t size;
+	size_t vaddr;
+	size_t paddr;
+	unsigned int enabled;
 };
 
-struct exynos_ss_hook {
-	struct exynos_ss_hook_item logbuf;
-	struct exynos_ss_hook_item logger_main;
-	struct exynos_ss_hook_item logger_system;
-	struct exynos_ss_hook_item logger_radio;
-	struct exynos_ss_hook_item logger_events;
+struct exynos_ss_item {
+	char *name;
+	struct exynos_ss_base entry;
+	unsigned char *head_ptr;
+	unsigned char *curr_ptr;
 };
 
 struct exynos_ss_log {
@@ -103,51 +81,113 @@ struct exynos_ss_log {
 		unsigned long long time;
 		char comm[TASK_COMM_LEN];
 		pid_t pid;
-	} task[NR_CPUS][ESS_LOG_MAX_NUM];
-	struct irq_log {
-		unsigned long long time;
-		int irq;
-		void *fn;
-		int en;
-	} irq[NR_CPUS][ESS_LOG_MAX_NUM];
+	} task[ESS_NR_CPUS][ESS_LOG_MAX_NUM];
+
 	struct work_log {
 		unsigned long long time;
 		struct worker *worker;
 		struct work_struct *work;
 		work_func_t f;
 		int en;
-	} work[NR_CPUS][ESS_LOG_MAX_NUM];
+	} work[ESS_NR_CPUS][ESS_LOG_MAX_NUM];
+
+	struct clockevent_log {
+		unsigned long long time;
+		unsigned long long clc;
+		int64_t	delta;
+		ktime_t	next_event;
+	} clockevent[ESS_NR_CPUS][ESS_LOG_MAX_NUM];
+
+	struct cpuidle_log {
+		unsigned long long time;
+		int index;
+		unsigned state;
+		u32 num_online_cpus;
+		int delta;
+		int en;
+	} cpuidle[ESS_NR_CPUS][ESS_LOG_MAX_NUM];
+
+	struct irq_log {
+		unsigned long long time;
+		int irq;
+		void *fn;
+		int preempt;
+		int curr_disabled;
+		int en;
+	} irq[ESS_NR_CPUS][ESS_LOG_MAX_NUM];
+
+#ifdef CONFIG_EXYNOS_SNAPSHOT_IRQ_EXIT
+	struct irq_exit_log {
+		unsigned long long time;
+		unsigned long long end_time;
+		unsigned long long latency;
+		int irq;
+	} irq_exit[ESS_NR_CPUS][ESS_LOG_MAX_NUM];
+#endif
+#ifdef CONFIG_EXYNOS_SNAPSHOT_IRQ_DISABLED
+	struct irqs_disabled_log {
+		unsigned long long time;
+		unsigned long long latency;
+		int try_disabled;
+		int curr_disabled;
+		void *caller[ESS_CALLSTACK_MAX_NUM];
+	} irqs_disabled[ESS_NR_CPUS][ESS_LOG_MAX_NUM];
+#endif
+#ifdef CONFIG_EXYNOS_SNAPSHOT_REG
 	struct reg_log {
 		unsigned long long time;
 		int read;
 		unsigned int val;
 		unsigned int reg;
 		int en;
-	} reg[NR_CPUS][ESS_LOG_MAX_NUM];
-	struct printkl_log {
-		unsigned long long time;
-		int cpu;
-		unsigned int msg;
-		unsigned int val;
-	} printkl[ESS_LOG_MAX_NUM * 2];
-	struct printk_log {
-		unsigned long long time;
-		int cpu;
-		char log[ESS_LOG_STRING_LENGTH];
-	} printk[ESS_LOG_MAX_NUM / 2];
+		void *caller[ESS_CALLSTACK_MAX_NUM];
+	} reg[ESS_NR_CPUS][ESS_LOG_MAX_NUM];
+#endif
+#ifdef CONFIG_EXYNOS_SNAPSHOT_HRTIMER
 	struct hrtimer_log {
 		unsigned long long time;
 		unsigned long long now;
 		struct hrtimer *timer;
 		enum hrtimer_restart (*fn)(struct hrtimer *);
 		int en;
-	} hrtimers[NR_CPUS][ESS_LOG_MAX_NUM];
+	} hrtimers[ESS_NR_CPUS][ESS_LOG_MAX_NUM];
+#endif
+	struct printkl_log {
+		unsigned long long time;
+		int cpu;
+		unsigned int msg;
+		unsigned int val;
+		void *caller[ESS_CALLSTACK_MAX_NUM];
+	} printkl[ESS_API_MAX_NUM];
 
-	atomic_t task_log_idx[NR_CPUS];
-	atomic_t irq_log_idx[NR_CPUS];
-	atomic_t work_log_idx[NR_CPUS];
-	atomic_t reg_log_idx[NR_CPUS];
-	atomic_t hrtimer_log_idx[NR_CPUS];
+	struct printk_log {
+		unsigned long long time;
+		int cpu;
+		char log[ESS_LOG_STRING_LENGTH];
+		void *caller[ESS_CALLSTACK_MAX_NUM];
+	} printk[ESS_API_MAX_NUM];
+#ifdef CONFIG_EXYNOS_CORESIGHT
+	struct core_log {
+		void *last_pc[ESS_ITERATION];
+	} core[ESS_NR_CPUS];
+#endif
+	atomic_t task_log_idx[ESS_NR_CPUS];
+	atomic_t work_log_idx[ESS_NR_CPUS];
+	atomic_t clockevent_log_idx[ESS_NR_CPUS];
+	atomic_t cpuidle_log_idx[ESS_NR_CPUS];
+	atomic_t irq_log_idx[ESS_NR_CPUS];
+#ifdef CONFIG_EXYNOS_SNAPSHOT_IRQ_EXIT
+	atomic_t irq_exit_log_idx[ESS_NR_CPUS];
+#endif
+#ifdef CONFIG_EXYNOS_SNAPSHOT_IRQ_DISABLED
+	atomic_t irqs_disabled_log_idx[ESS_NR_CPUS];
+#endif
+#ifdef CONFIG_EXYNOS_SNAPSHOT_REG
+	atomic_t reg_log_idx[ESS_NR_CPUS];
+#endif
+#ifdef CONFIG_EXYNOS_SNAPSHOT_HRTIMER
+	atomic_t hrtimer_log_idx[ESS_NR_CPUS];
+#endif
 	atomic_t printkl_log_idx;
 	atomic_t printk_log_idx;
 };
@@ -173,187 +213,108 @@ struct exynos_ss_mmu_reg {
 	int POTPIDR;
 };
 
-struct exynos_ss_core_reg {
-	/* COMMON */
-	unsigned int r0;
-	unsigned int r1;
-	unsigned int r2;
-	unsigned int r3;
-	unsigned int r4;
-	unsigned int r5;
-	unsigned int r6;
-	unsigned int r7;
-	unsigned int r8;
-	unsigned int r9;
-	unsigned int r10;
-	unsigned int r11;
-	unsigned int r12;
-
-	/* SVC */
-	unsigned int r13_svc;
-	unsigned int r14_svc;
-	unsigned int spsr_svc;
-
-	/* PC & CPSR */
-	unsigned int pc;
-	unsigned int cpsr;
-
-	/* USR/SYS */
-	unsigned int r13_usr;
-	unsigned int r14_usr;
-
-	/* FIQ */
-	unsigned int r8_fiq;
-	unsigned int r9_fiq;
-	unsigned int r10_fiq;
-	unsigned int r11_fiq;
-	unsigned int r12_fiq;
-	unsigned int r13_fiq;
-	unsigned int r14_fiq;
-	unsigned int spsr_fiq;
-
-	/* IRQ */
-	unsigned int r13_irq;
-	unsigned int r14_irq;
-	unsigned int spsr_irq;
-
-	/* MON */
-	unsigned int r13_mon;
-	unsigned int r14_mon;
-	unsigned int spsr_mon;
-
-	/* ABT */
-	unsigned int r13_abt;
-	unsigned int r14_abt;
-	unsigned int spsr_abt;
-
-	/* UNDEF */
-	unsigned int r13_und;
-	unsigned int r14_und;
-	unsigned int spsr_und;
-};
-
 struct exynos_ss_interface {
-	struct exynos_ss_log *info_log;
-	struct exynos_ss_hook info_hook;
+	struct exynos_ss_log *info_event;
+	struct exynos_ss_item info_log[ESS_ITEMS_NUM];
 };
 
+extern void *return_address(int);
 extern void (*arm_pm_restart)(char str, const char *cmd);
+#ifdef CONFIG_EXYNOS_CORESIGHT
+extern unsigned int exynos_cs_pc[NR_CPUS][ESS_ITERATION];
+#endif
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(3,5,00)
 extern void register_hook_logbuf(void (*)(const char));
 #else
 extern void register_hook_logbuf(void (*)(const char *, u64, size_t));
 #endif
 extern void register_hook_logger(void (*)(const char *, const char *, size_t));
-static struct exynos_ss_log *ess_log = NULL;
-static struct exynos_ss_hook ess_hook;
 
-/*  External Interface Variable For T32 debugging */
+static DEFINE_SPINLOCK(ess_lock);
+static unsigned ess_callstack = CONFIG_EXYNOS_SNAPSHOT_CALLSTACK;
+
+/*
+ * ---------------------------------------------------------------------------
+ *  User defined Start
+ * ---------------------------------------------------------------------------
+ *
+ *  clarified exynos-snapshot items, before using exynos-snapshot we should
+ *  evince memory-map of snapshot
+ */
+static struct exynos_ss_item ess_items[] = {
+	{"log_kevents",	{SZ_8M,		0, 0, true}, NULL ,NULL},
+	{"log_kernel",	{SZ_2M,		0, 0, true}, NULL ,NULL},
+#ifdef CONFIG_EXYNOS_SNAPSHOT_HOOK_LOGGER
+	{"log_main",	{SZ_2M + SZ_1M,	0, 0, true}, NULL ,NULL},
+	{"log_system",	{SZ_1M,		0, 0, true}, NULL ,NULL},
+#endif
+};
+
+/*
+ *  including or excluding options
+ *  if you want to except some interrupt, it should be written in this array
+ */
+static unsigned int ess_irqlog_exlist[] = {
+/*  interrupt number ex) 152, 153, 154, */
+	0,0,0,0,0,0,0,0,
+};
+
+#ifdef CONFIG_EXYNOS_SNAPSHOT_IRQ_EXIT
+static unsigned int ess_irqexit_exlist[] = {
+/*  interrupt number ex) 152, 153, 154, */
+	0,0,0,0,0,0,0,0,
+};
+
+static unsigned ess_irqexit_threshold =
+		CONFIG_EXYNOS_SNAPSHOT_IRQ_EXIT_THRESHOLD;
+#endif
+
+#ifdef CONFIG_EXYNOS_SNAPSHOT_IRQ_DISABLED
+static unsigned ess_irqdisabled_threshold =
+		CONFIG_EXYNOS_SNAPSHOT_IRQ_DISABLED_THRESHOLD;
+#endif
+
+#ifdef CONFIG_EXYNOS_SNAPSHOT_REG
+struct ess_reg_list {
+	unsigned addr;
+	unsigned size;
+};
+
+static struct ess_reg_list ess_reg_exlist[] = {
+/*
+ *  if it wants to reduce effect enabled reg feautre to system,
+ *  you must add these registers - mct, serial
+ *  because they are called very often.
+ *  physical address, size ex) {0x10C00000, 0x1000},
+ */
+	{ESS_REG_MCT_ADDR, ESS_REG_MCT_SIZE},
+	{ESS_REG_UART_ADDR, ESS_REG_UART_SIZE},
+	{0, 0},
+	{0, 0},
+	{0, 0},
+	{0, 0},
+	{0, 0},
+	{0, 0},
+	{0, 0},
+};
+#endif
+
+/*
+ * ---------------------------------------------------------------------------
+ *  User defined End
+ * ---------------------------------------------------------------------------
+ */
+
+/*  External interface variable for trace debugging */
 static struct exynos_ss_interface ess_info;
 
-/*  internal interface variable */
-static int ess_enable = 0;
-static unsigned int ess_phy_addr = 0;
-static unsigned int ess_virt_addr = 0;
-static unsigned int ess_size = 0;
+/*  Internal interface variable */
+static struct exynos_ss_base ess_base;
+static struct exynos_ss_log *ess_log = NULL;
 
-DEFINE_PER_CPU(struct exynos_ss_core_reg *, ess_core_reg);
+DEFINE_PER_CPU(struct pt_regs *, ess_core_reg);
 DEFINE_PER_CPU(struct exynos_ss_mmu_reg *, ess_mmu_reg);
 DEFINE_PER_CPU(enum ess_cause_emerg_events, ess_cause_emerg);
-
-static void exynos_ss_save_core(struct exynos_ss_core_reg *core_reg)
-{
-	asm("str r0, [%0,#0]\n\t"	/* R0 is pushed first to core_reg */
-	    "mov r0, %0\n\t"		/* R0 will be alias for core_reg */
-	    "str r1, [r0,#4]\n\t"	/* R1 */
-	    "str r2, [r0,#8]\n\t"	/* R2 */
-	    "str r3, [r0,#12]\n\t"	/* R3 */
-	    "str r4, [r0,#16]\n\t"	/* R4 */
-	    "str r5, [r0,#20]\n\t"	/* R5 */
-	    "str r6, [r0,#24]\n\t"	/* R6 */
-	    "str r7, [r0,#28]\n\t"	/* R7 */
-	    "str r8, [r0,#32]\n\t"	/* R8 */
-	    "str r9, [r0,#36]\n\t"	/* R9 */
-	    "str r10, [r0,#40]\n\t"	/* R10 */
-	    "str r11, [r0,#44]\n\t"	/* R11 */
-	    "str r12, [r0,#48]\n\t"	/* R12 */
-	    /* SVC */
-	    "str r13, [r0,#52]\n\t"	/* R13_SVC */
-	    "str r14, [r0,#56]\n\t"	/* R14_SVC */
-	    "mrs r1, spsr\n\t"		/* SPSR_SVC */
-	    "str r1, [r0,#60]\n\t"
-	    /* PC and CPSR */
-	    "sub r1, r15, #0x4\n\t"	/* PC */
-	    "str r1, [r0,#64]\n\t"
-	    "mrs r1, cpsr\n\t"		/* CPSR */
-	    "str r1, [r0,#68]\n\t"
-	    /* SYS/USR */
-	    "mrs r1, cpsr\n\t"		/* switch to SYS mode */
-	    "and r1, r1, #0xFFFFFFE0\n\t"
-	    "orr r1, r1, #0x1f\n\t"
-	    "msr cpsr,r1\n\t"
-	    "str r13, [r0,#72]\n\t"	/* R13_USR */
-	    "str r14, [r0,#76]\n\t"	/* R14_USR */
-	    /* FIQ */
-	    "mrs r1, cpsr\n\t"		/* switch to FIQ mode */
-	    "and r1,r1,#0xFFFFFFE0\n\t"
-	    "orr r1,r1,#0x11\n\t"
-	    "msr cpsr,r1\n\t"
-	    "str r8, [r0,#80]\n\t"	/* R8_FIQ */
-	    "str r9, [r0,#84]\n\t"	/* R9_FIQ */
-	    "str r10, [r0,#88]\n\t"	/* R10_FIQ */
-	    "str r11, [r0,#92]\n\t"	/* R11_FIQ */
-	    "str r12, [r0,#96]\n\t"	/* R12_FIQ */
-	    "str r13, [r0,#100]\n\t"	/* R13_FIQ */
-	    "str r14, [r0,#104]\n\t"	/* R14_FIQ */
-	    "mrs r1, spsr\n\t"		/* SPSR_FIQ */
-	    "str r1, [r0,#108]\n\t"
-	    /* IRQ */
-	    "mrs r1, cpsr\n\t"		/* switch to IRQ mode */
-	    "and r1, r1, #0xFFFFFFE0\n\t"
-	    "orr r1, r1, #0x12\n\t"
-	    "msr cpsr,r1\n\t"
-	    "str r13, [r0,#112]\n\t"	/* R13_IRQ */
-	    "str r14, [r0,#116]\n\t"	/* R14_IRQ */
-	    "mrs r1, spsr\n\t"		/* SPSR_IRQ */
-	    "str r1, [r0,#120]\n\t"
-	    /* MON */
-	    "mrs r1, cpsr\n\t"		/* switch to monitor mode */
-	    "and r1, r1, #0xFFFFFFE0\n\t"
-	    "orr r1, r1, #0x16\n\t"
-	    "msr cpsr,r1\n\t"
-	    "str r13, [r0,#124]\n\t"	/* R13_MON */
-	    "str r14, [r0,#128]\n\t"	/* R14_MON */
-	    "mrs r1, spsr\n\t"		/* SPSR_MON */
-	    "str r1, [r0,#132]\n\t"
-	    /* ABT */
-	    "mrs r1, cpsr\n\t"		/* switch to Abort mode */
-	    "and r1, r1, #0xFFFFFFE0\n\t"
-	    "orr r1, r1, #0x17\n\t"
-	    "msr cpsr,r1\n\t"
-	    "str r13, [r0,#136]\n\t"	/* R13_ABT */
-	    "str r14, [r0,#140]\n\t"	/* R14_ABT */
-	    "mrs r1, spsr\n\t"		/* SPSR_ABT */
-	    "str r1, [r0,#144]\n\t"
-	    /* UND */
-	    "mrs r1, cpsr\n\t"		/* switch to undef mode */
-	    "and r1, r1, #0xFFFFFFE0\n\t"
-	    "orr r1, r1, #0x1B\n\t"
-	    "msr cpsr,r1\n\t"
-	    "str r13, [r0,#148]\n\t"	/* R13_UND */
-	    "str r14, [r0,#152]\n\t"	/* R14_UND */
-	    "mrs r1, spsr\n\t"		/* SPSR_UND */
-	    "str r1, [r0,#156]\n\t"
-	    /* restore to SVC mode */
-	    "mrs r1, cpsr\n\t"		/* switch to SVC mode */
-	    "and r1, r1, #0xFFFFFFE0\n\t"
-	    "orr r1, r1, #0x13\n\t"
-	    "msr cpsr,r1\n\t" :		/* output */
-	    : "r"(core_reg)		/* input */
-	    : "%r0", "%r1"		/* clobbered registers */
-	);
-	return;
-}
 
 static void exynos_ss_save_mmu(struct exynos_ss_mmu_reg *mmu_reg)
 {
@@ -395,100 +356,199 @@ static void exynos_ss_save_mmu(struct exynos_ss_mmu_reg *mmu_reg)
 	);
 }
 
-int exynos_ss_save_context(void)
+int exynos_ss_early_dump(void)
+{
+	/*  This function is for tracing registers more early */
+	return 0;
+}
+EXPORT_SYMBOL(exynos_ss_early_dump);
+
+int exynos_ss_dump(void)
+{
+	/*
+	 *  Output CPU Memory Error syndrome Register
+	 *  CPUMERRSR, L2MERRSR
+	 */
+	unsigned long reg0;
+
+	asm ("mrc p15, 0, %0, c0, c0, 0\n": "=r" (reg0));
+	if (((reg0 >> 4) & 0xFFF) == 0xC0F) {
+		/*  Only Cortex-A15 */
+		unsigned long reg1, reg2, reg3;
+		asm ("mrrc p15, 0, %0, %1, c15\n\t"
+			"mrrc p15, 1, %2, %3, c15\n"
+			: "=r" (reg0), "=r" (reg1),
+			"=r" (reg2), "=r" (reg3));
+		pr_emerg("CPUMERRSR: %08lx_%08lx, L2MERRSR: %08lx_%08lx\n",
+				reg1, reg0, reg3, reg2);
+	}
+	return 0;
+}
+EXPORT_SYMBOL(exynos_ss_dump);
+
+int exynos_ss_save_reg(struct pt_regs *regs)
+{
+	struct pt_regs *core_reg =
+			per_cpu(ess_core_reg, smp_processor_id());
+
+	if (!regs)
+		regs = task_pt_regs(current);
+
+	memcpy(core_reg, regs, sizeof(struct pt_regs));
+
+	pr_emerg("exynos-snapshot: core register saved(CPU:%d)\n",
+						smp_processor_id());
+	return 0;
+}
+EXPORT_SYMBOL(exynos_ss_save_reg);
+
+int exynos_ss_save_context(struct pt_regs *regs)
 {
 	unsigned long flags;
-	local_irq_save(flags);
+	spin_lock_irqsave(&ess_lock, flags);
 	exynos_ss_save_mmu(per_cpu(ess_mmu_reg, smp_processor_id()));
-	exynos_ss_save_core(per_cpu(ess_core_reg, smp_processor_id()));
-	pr_emerg("exynos-snapshot: context saved(CPU:%d)\n", smp_processor_id());
-	local_irq_restore(flags);
+	exynos_ss_save_reg(regs);
+	exynos_ss_dump();
+	pr_emerg("exynos-snapshot: context saved(CPU:%d)\n",
+						smp_processor_id());
 	flush_cache_all();
+	spin_unlock_irqrestore(&ess_lock, flags);
 	return 0;
 }
 EXPORT_SYMBOL(exynos_ss_save_context);
 
-static inline int exynos_ss_check_rb(struct exynos_ss_hook_item *hook,
+int exynos_ss_set_enable(const char *name, int en)
+{
+	struct exynos_ss_item *item = NULL;
+	unsigned i;
+
+	if (!strncmp(name, "base", strlen(name))) {
+		ess_base.enabled = en;
+		pr_info("exynos-snapshot: %sabled\n", en ? "en" : "dis");
+	}
+	else {
+		for (i = 0; i < ARRAY_SIZE(ess_items); i++) {
+			if (!strncmp(ess_items[i].name, name, strlen(name))) {
+				item = &ess_items[i];
+				item->entry.enabled = en;
+				pr_info("exynos-snapshot: item - %s is %sabled\n",
+						name, en ? "en" : "dis");
+				break;
+			}
+		}
+	}
+	return 0;
+}
+EXPORT_SYMBOL(exynos_ss_set_enable);
+
+int exynos_ss_get_enable(const char *name)
+{
+	struct exynos_ss_item *item = NULL;
+	unsigned i;
+	int ret = -1;
+
+	if (!strncmp(name, "base", strlen(name))) {
+		ret = ess_base.enabled;
+	}
+	else {
+		for (i = 0; i < ARRAY_SIZE(ess_items); i++) {
+			if (!strncmp(ess_items[i].name, name, strlen(name))) {
+				item = &ess_items[i];
+				ret = item->entry.enabled;
+				break;
+			}
+		}
+	}
+	return ret;
+}
+EXPORT_SYMBOL(exynos_ss_get_enable);
+
+static inline int exynos_ss_check_eob(struct exynos_ss_item *item,
 						size_t size)
 {
 	unsigned int max, cur;
 
-	max = (unsigned int)(hook->head_ptr + hook->bufsize);
-	cur = (unsigned int)(hook->curr_ptr + size);
+	max = (unsigned int)(item->head_ptr + item->entry.size);
+	cur = (unsigned int)(item->curr_ptr + size);
 
-	if (cur > max)
+	if (unlikely(cur > max))
 		return -1;
 	else
 		return 0;
 }
 
+#ifdef CONFIG_EXYNOS_SNAPSHOT_HOOK_LOGGER
 static inline void exynos_ss_hook_logger(const char *name,
 					 const char *buf, size_t size)
 {
-	struct exynos_ss_hook_item *hook;
+	struct exynos_ss_item *item = NULL;
+	int i;
 
-	if (!strcmp(name, "log_main"))
-		hook = &ess_hook.logger_main;
-	else if (!strcmp(name, "log_system"))
-		hook = &ess_hook.logger_system;
-#if ESS_HOOK_LOGGER_MAIN_SZ <= SZ_1M
-	else if (!strcmp(name, "log_radio"))
-		hook = &ess_hook.logger_radio;
-	else if (!strcmp(name, "log_events"))
-		hook = &ess_hook.logger_events;
-#endif
-	else
+	for (i = ESS_ITEMS_LOG_MAIN; i < ARRAY_SIZE(ess_items); i++) {
+		if (!strncmp(ess_items[i].name, name, strlen(name))) {
+			item = &ess_items[i];
+			break;
+		}
+	}
+
+	if (unlikely(!item))
 		return;
 
-	if ((exynos_ss_check_rb(hook, size)))
-		hook->curr_ptr = hook->head_ptr;
-
-	memcpy(hook->curr_ptr, buf, size);
-	hook->curr_ptr += size;
+	if (likely(ess_base.enabled == true && item->entry.enabled == true)) {
+		if (unlikely((exynos_ss_check_eob(item, size))))
+			item->curr_ptr = item->head_ptr;
+		memcpy(item->curr_ptr, buf, size);
+		item->curr_ptr += size;
+	}
 }
+#endif
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(3,5,00)
 static inline void exynos_ss_hook_logbuf(const char buf)
 {
 	unsigned int last_buf;
-	if (ess_hook.logbuf.head_ptr && buf) {
-		if (exynos_ss_check_rb(&ess_hook.logbuf, 1))
-			ess_hook.logbuf.curr_ptr = ess_hook.logbuf.head_ptr;
+	struct exynos_ss_item *item = &ess_items[ESS_ITEMS_LOG_KERNEL];
 
-		ess_hook.logbuf.curr_ptr[0] = buf;
-		ess_hook.logbuf.curr_ptr++;
+	if (likely(ess_base.enabled == true && item->entry.enabled == true)) {
+		if (exynos_ss_check_eob(item, 1))
+			item->curr_ptr = item->head_ptr;
+
+		item->curr_ptr[0] = buf;
+		item->curr_ptr++;
 
 		/*  save the address of last_buf to physical address */
-		last_buf = (unsigned int)ess_hook.logbuf.curr_ptr;
-		__raw_writel((last_buf & (SZ_16M - 1)) | ess_phy_addr, S5P_VA_SS_LAST_LOGBUF);
+		last_buf = (unsigned int)item->curr_ptr;
+		__raw_writel((last_buf & (SZ_16M - 1)) | ess_base.paddr, S5P_VA_SS_LAST_LOGBUF);
 	}
 }
 #else
 static inline void exynos_ss_hook_logbuf(const char *buf, u64 ts_nsec, size_t size)
 {
-	if (ess_hook.logbuf.head_ptr && buf && size) {
+	struct exynos_ss_item *item = &ess_items[ESS_ITEMS_LOG_KERNEL];
+
+	if (likely(ess_base.enabled == true && item->entry.enabled == true)) {
 		unsigned long rem_nsec;
 		unsigned int last_buf;
 		size_t timelen = 0;
 
-		if (exynos_ss_check_rb(&ess_hook.logbuf, size + 32))
-			ess_hook.logbuf.curr_ptr = ess_hook.logbuf.head_ptr;
+		if (exynos_ss_check_eob(item, size + 32))
+			item->curr_ptr = item->head_ptr;
 
 		rem_nsec = do_div(ts_nsec, 1000000000);
 
 		/*  fixed exact size */
-		timelen = snprintf(ess_hook.logbuf.curr_ptr, 32,
-				"[%5lu.%06lu] ", (unsigned long)ts_nsec, rem_nsec / 1000);
+		timelen = snprintf(item->curr_ptr, 32,
+			"[%5lu.%06lu] ", (unsigned long)ts_nsec, rem_nsec / 1000);
 
-		ess_hook.logbuf.curr_ptr += timelen;
-		memcpy(ess_hook.logbuf.curr_ptr, buf, size);
-		ess_hook.logbuf.curr_ptr += size;
-		ess_hook.logbuf.curr_ptr[0] = '\n';
-		ess_hook.logbuf.curr_ptr++;
+		item->curr_ptr += timelen;
+		memcpy(item->curr_ptr, buf, size);
+		item->curr_ptr += size;
+		item->curr_ptr[0] = '\n';
+		item->curr_ptr++;
 
 		/*  save the address of last_buf to physical address */
-		last_buf = (unsigned int)ess_hook.logbuf.curr_ptr;
-		__raw_writel((last_buf & (SZ_16M - 1)) | ess_phy_addr, S5P_VA_SS_LAST_LOGBUF);
+		last_buf = (unsigned int)item->curr_ptr;
+		__raw_writel((last_buf & (SZ_16M - 1)) | ess_base.paddr, S5P_VA_SS_LAST_LOGBUF);
 	}
 }
 #endif
@@ -519,13 +579,13 @@ static int exynos_ss_reboot_handler(struct notifier_block *nb,
 	local_irq_disable();
 	pr_emerg("exynos-snapshot: forced reboot [%s]\n", __func__);
 	exynos_ss_report_cause_emerg(CAUSE_FORCE_DUMP);
-	exynos_ss_save_context();
 	flush_cache_all();
 	arm_pm_restart(0, "reset");
 	while(1);
 #else
 	pr_emerg("exynos-snapshot: normal reboot [%s]\n", __func__);
 	exynos_ss_scratch_reg(CAUSE_INVALID_DUMP);
+	exynos_ss_save_context(NULL);
 	flush_cache_all();
 #endif
 	return 0;
@@ -535,13 +595,16 @@ static int exynos_ss_panic_handler(struct notifier_block *nb,
 				   unsigned long l, void *buf)
 {
 #ifdef CONFIG_EXYNOS_SNAPSHOT_PANIC_REBOOT
-	local_irq_disable();
+	unsigned long flags;
+	spin_lock_irqsave(&ess_lock, flags);
 	exynos_ss_report_cause_emerg(CAUSE_KERNEL_PANIC);
+#ifdef CONFIG_EXYNOS_CORESIGHT
+	memcpy(ess_log->core[0].last_pc, exynos_cs_pc[0], sizeof(ess_log->core));
+#endif
 	pr_emerg("exynos-snapshot: panic - forced ramdump mode [%s]\n", __func__);
-	exynos_ss_save_context();
 	flush_cache_all();
 	arm_pm_restart(0, "reset");
-	while(1);
+	spin_unlock_irqrestore(&ess_lock, flags);
 #else
 	pr_emerg("exynos-snapshot: panic [%s]\n", __func__);
 	flush_cache_all();
@@ -559,91 +622,63 @@ static struct notifier_block nb_panic_block = {
 
 static unsigned int __init exynos_ss_remap(unsigned int base, unsigned int size)
 {
-	static struct map_desc ess_iodesc[] __initdata = {
-		{
-			.virtual	= (unsigned long)S5P_VA_SS_LOGMEM,
-			.length		= ESS_LOG_MEM_SZ,
-			.type		= MT_DEVICE,
-		}, {
-			.virtual	= (unsigned long)S5P_VA_SS_LOGBUF,
-			.length		= ESS_HOOK_LOGBUF_SZ,
-			.type		= MT_DEVICE,
-		},
-	};
-#ifdef CONFIG_EXYNOS_SNAPSHOT_HOOK_LOGGER
-	static struct map_desc ess_iodesc_logger[] __initdata = {
-		{
-			.virtual        = (unsigned long)S5P_VA_SS_LOGGER_MAIN,
-			.length         = ESS_HOOK_LOGGER_MAIN_SZ,
-			.type           = MT_DEVICE,
-		}, {
-			.virtual        = (unsigned long)S5P_VA_SS_LOGGER_SYSTEM,
-			.length         = ESS_HOOK_LOGGER_SYSTEM_SZ,
-			.type           = MT_DEVICE,
-#if ESS_HOOK_LOGGER_MAIN_SZ <= SZ_1M
-		}, {
-			.virtual        = (unsigned long)S5P_VA_SS_LOGGER_RADIO,
-			.length         = ESS_HOOK_LOGGER_RADIO_SZ,
-			.type           = MT_DEVICE,
-		}, {
-			.virtual        = (unsigned long)S5P_VA_SS_LOGGER_EVENTS,
-			.length         = ESS_HOOK_LOGGER_EVENTS_SZ,
-			.type           = MT_DEVICE,
-#endif
-		},
-	};
-#endif
-	ess_iodesc[0].pfn = __phys_to_pfn(S5P_PA_SS_LOGMEM(base));
-	ess_iodesc[1].pfn = __phys_to_pfn(S5P_PA_SS_LOGBUF(base));
+	static struct map_desc ess_iodesc[ESS_ITEMS_NUM];
+	int i;
 
-	iotable_init(ess_iodesc, ARRAY_SIZE(ess_iodesc));
-#ifdef CONFIG_EXYNOS_SNAPSHOT_HOOK_LOGGER
-	ess_iodesc_logger[0].pfn = __phys_to_pfn(S5P_PA_SS_LOGGER_MAIN(base));
-	ess_iodesc_logger[1].pfn = __phys_to_pfn(S5P_PA_SS_LOGGER_SYSTEM(base));
-#if ESS_HOOK_LOGGER_MAIN_SZ <= SZ_1M
-	ess_iodesc_logger[2].pfn = __phys_to_pfn(S5P_PA_SS_LOGGER_RADIO(base));
-	ess_iodesc_logger[3].pfn = __phys_to_pfn(S5P_PA_SS_LOGGER_EVENTS(base));
-#endif
-	iotable_init(ess_iodesc_logger, ARRAY_SIZE(ess_iodesc_logger));
-#endif
-	return (unsigned int)S5P_VA_SS_BASE;
+	for (i = 0; i < ARRAY_SIZE(ess_items); i++) {
+		/* fill rest value of ess_items arrary */
+		if (i == 0) {
+			ess_items[i].entry.vaddr = (size_t)S5P_VA_SS_BASE;
+			ess_items[i].entry.paddr = (size_t)base;
+		} else {
+			ess_items[i].entry.vaddr = ess_items[i - 1].entry.vaddr
+						+ ess_items[i - 1].entry.size;
+			ess_items[i].entry.paddr = ess_items[i - 1].entry.paddr
+						+ ess_items[i - 1].entry.size;
+		}
+		ess_items[i].head_ptr = (unsigned char *)ess_items[i].entry.vaddr;
+		ess_items[i].curr_ptr = (unsigned char *)ess_items[i].entry.vaddr;
+
+		/* fill to ess_iodesc for mapping */
+		ess_iodesc[i].type = MT_DEVICE;
+		ess_iodesc[i].length = ess_items[i].entry.size;
+		ess_iodesc[i].virtual = ess_items[i].entry.vaddr;
+		ess_iodesc[i].pfn = __phys_to_pfn(ess_items[i].entry.paddr);
+	}
+
+	iotable_init(ess_iodesc, ARRAY_SIZE(ess_items));
+	return (unsigned int)ess_items[0].entry.vaddr;
 }
 
 static int __init exynos_ss_setup(char *str)
 {
+	int i;
 	unsigned int size = 0;
 	unsigned long base = 0;
 
 	if (kstrtoul(str, 0, &base))
 		goto out;
 
-	size = sizeof(struct exynos_ss_log);
+	for (i = 0; i < ARRAY_SIZE(ess_items); i++) {
+		if (ess_items[i].entry.enabled)
+			size += ess_items[i].entry.size;
+	}
 
-	if (ESS_LOG_MEM_SZ < size)
-		goto out;
-
-	size = ESS_LOG_MEM_SZ + ESS_HOOK_LOGBUF_SZ;
-#ifdef CONFIG_EXYNOS_SNAPSHOT_HOOK_LOGGER
-	size += ESS_HOOK_LOGGER_MAIN_SZ;
-	size += ESS_HOOK_LOGGER_SYSTEM_SZ;
-	size += ESS_HOOK_LOGGER_RADIO_SZ;
-	size += ESS_HOOK_LOGGER_EVENTS_SZ;
-#endif
-	/*  allow only align 2Mbyte */
-	if ((size & SZ_1M) != 0)
-		goto out;
+	pr_info("exynos-snapshot: try to reserve dedicated memory : %08x, %08x\n",
+			(unsigned int)base, (unsigned int)size);
 
 	if (!(reserve_bootmem(base, size, BOOTMEM_EXCLUSIVE))) {
-		ess_phy_addr = base;
-		ess_virt_addr = exynos_ss_remap(base,size);
-		ess_size = size;
+		ess_base.paddr = base;
+		ess_base.vaddr = exynos_ss_remap(base,size);
+		ess_base.size = size;
+		ess_base.enabled = false;
 
-		pr_info("exynos-snapshot: memory reserved complete - base:%08X, size: %08X\n",
+		pr_info("exynos-snapshot: memory reserved complete : %08x, %08x\n",
 				(unsigned int)base, (unsigned int)size);
 		return 0;
 	}
 out:
-	pr_err("exynos-snapshot: buffer reserved failed base:%08X, size:%08X\n",
+	pr_err("exynos-snapshot: buffer reserved failed : %08x, %08x\n",
 			(unsigned int)base, (unsigned int)size);
 	return -1;
 }
@@ -655,7 +690,7 @@ __setup("ess_setup=", exynos_ss_setup);
  *  Each buffer has 2Mbyte memory except loggers. Loggers is consist of 4
  *  division. Each logger has 1Mbytes.
  *  ---------------------------------------------------------------------
- *  - dummy data(4K):phy_addr, virtual_addr, buffer_size, magic_key	-
+ *  - dummy data:phy_addr, virtual_addr, buffer_size, magic_key(4K)	-
  *  ---------------------------------------------------------------------
  *  -		Cores MMU register(4K)					-
  *  ---------------------------------------------------------------------
@@ -676,32 +711,16 @@ __setup("ess_setup=", exynos_ss_setup);
  */
 static int __init exynos_ss_output(void)
 {
-	pr_info("Exynos-SnapShot physical / virtual memoy layout-(mandotory):"
-		"\n\theader        : phys:0x%08x virt:0x%08x"
-		"\n\tmmu_reg       : phys:0x%08x virt:0x%08x"
-		"\n\tcore_reg      : phys:0x%08x virt:0x%08x"
-		"\n\tlog           : phys:0x%08x virt:0x%08x"
-		"\n\tlogbuf        : phys:0x%08x virt:0x%08x\n",
-	(unsigned int)S5P_PA_SS_HEADER(ess_phy_addr), (unsigned int)S5P_VA_SS_HEADER,
-	(unsigned int)S5P_PA_SS_MMU_REG(ess_phy_addr), (unsigned int)S5P_VA_SS_MMU_REG,
-	(unsigned int)S5P_PA_SS_CORE_REG(ess_phy_addr), (unsigned int)S5P_VA_SS_CORE_REG,
-	(unsigned int)S5P_PA_SS_LOGMEM(ess_phy_addr), (unsigned int)S5P_VA_SS_LOGMEM,
-	(unsigned int)S5P_PA_SS_LOGBUF(ess_phy_addr), (unsigned int)S5P_VA_SS_LOGBUF);
-#ifdef CONFIG_EXYNOS_SNAPSHOT_HOOK_LOGGER
-	pr_info("Exynos-SnapShot physical / virtual memoy layout-(option):"
-		"\n\tlogger-main   : phys:0x%08x virt:0x%08x"
-		"\n\tlogger-sys    : phys:0x%08x virt:0x%08x"
-		"\n\tlogger-radio  : phys:0x%08x virt:0x%08x"
-		"\n\tlogger-events  : phys:0x%08x virt:0x%08x\n",
-	(unsigned int)S5P_PA_SS_LOGGER_MAIN(ess_phy_addr), (unsigned int)S5P_VA_SS_LOGGER_MAIN,
-	(unsigned int)S5P_PA_SS_LOGGER_SYSTEM(ess_phy_addr), (unsigned int)S5P_VA_SS_LOGGER_SYSTEM,
-#if ESS_HOOK_LOGGER_MAIN_SZ <= SZ_1M
-	(unsigned int)S5P_PA_SS_LOGGER_RADIO(ess_phy_addr), (unsigned int)S5P_VA_SS_LOGGER_RADIO,
-	(unsigned int)S5P_PA_SS_LOGGER_EVENTS(ess_phy_addr), (unsigned int)S5P_VA_SS_LOGGER_EVENTS);
-#else
-	0,0,0,0);
-#endif
-#endif
+	int i;
+
+	pr_info("exynos-snapshot physical / virtual memory layout:\n");
+	for (i = 0; i < ARRAY_SIZE(ess_items); i++)
+		pr_info("%-12s: phys:0x%08x / virt:0x%08x / size:0x%08x\n",
+			ess_items[i].name,
+			ess_items[i].entry.paddr,
+			ess_items[i].entry.vaddr,
+			ess_items[i].entry.size);
+
 	return 0;
 }
 
@@ -709,149 +728,112 @@ static int __init exynos_ss_output(void)
  *	-------------------------------------------------------------------------
  *		0		4		8		C
  *	-------------------------------------------------------------------------
- *	0	virt_addr	phy_addr	size		magic_code
+ *	0	vaddr	phy_addr	size		magic_code
  *	4	Scratch_val	logbuf_addr	0		0
  *	-------------------------------------------------------------------------
 */
 static void __init exynos_ss_fixmap_header(void)
 {
 	/*  fill 0 to next to header */
+	unsigned int vaddr, paddr, size;
+	unsigned int *addr;
 	int i;
-	unsigned int *addr = (unsigned int *)ess_virt_addr;
 
-	*addr = (unsigned int)ess_virt_addr;
-	addr++;
-	*addr = (unsigned int)ess_phy_addr;
-	addr++;
-	*addr = (unsigned int)ess_size;
-	addr++;
-	*addr = 0xDBDBDBDB;
+	vaddr = ess_items[ESS_ITEMS_KEVENTS].entry.vaddr;
+	paddr = ess_items[ESS_ITEMS_KEVENTS].entry.paddr;
+	size = ess_items[ESS_ITEMS_KEVENTS].entry.size;
+
+	/*  set to confirm exynos-snapshot */
+	addr = (unsigned int *)vaddr;
+	memcpy(addr, &ess_base, sizeof(struct exynos_ss_base));
 
 	/*  kernel log buf */
-	ess_log = (struct exynos_ss_log *)(S5P_VA_SS_LOGMEM + ESS_HEADER_TOTAL_SZ);
+	ess_log = (struct exynos_ss_log *)(vaddr + ESS_HEADER_TOTAL_SZ);
+
 	/*  set fake translation to virtual address to debug trace */
-	ess_info.info_log = (struct exynos_ss_log *)(CONFIG_PAGE_OFFSET |
-			    (0x0FFFFFFF & (S5P_PA_SS_LOGMEM(ess_phy_addr) +
-					   ESS_HEADER_TOTAL_SZ)));
+	ess_info.info_event = (struct exynos_ss_log *)(CONFIG_PAGE_OFFSET |
+			    (0x0FFFFFFF & (paddr + ESS_HEADER_TOTAL_SZ)));
 
 	atomic_set(&(ess_log->printk_log_idx), -1);
 	atomic_set(&(ess_log->printkl_log_idx), -1);
-	for (i = 0; i < NR_CPUS; i++) {
+	for (i = 0; i < ESS_NR_CPUS; i++) {
 		atomic_set(&(ess_log->task_log_idx[i]), -1);
-		atomic_set(&(ess_log->irq_log_idx[i]), -1);
 		atomic_set(&(ess_log->work_log_idx[i]), -1);
+		atomic_set(&(ess_log->clockevent_log_idx[i]), -1);
+		atomic_set(&(ess_log->cpuidle_log_idx[i]), -1);
+		atomic_set(&(ess_log->irq_log_idx[i]), -1);
+#ifdef CONFIG_EXYNOS_SNAPSHOT_IRQ_EXIT
+		atomic_set(&(ess_log->irq_exit_log_idx[i]), -1);
+#endif
+#ifdef CONFIG_EXYNOS_SNAPSHOT_IRQ_DISABLED
+		atomic_set(&(ess_log->irqs_disabled_log_idx[i]), -1);
+#endif
+#ifdef CONFIG_EXYNOS_SNAPSHOT_REG
 		atomic_set(&(ess_log->reg_log_idx[i]), -1);
+#endif
+#ifdef CONFIG_EXYNOS_SNAPSHOT_HRTIMER
 		atomic_set(&(ess_log->hrtimer_log_idx[i]), -1);
-
+#endif
 		per_cpu(ess_mmu_reg, i) = (struct exynos_ss_mmu_reg *)
-					  (S5P_VA_SS_MMU_REG + i * ESS_MMU_REG_OFFSET);
-		per_cpu(ess_core_reg, i) = (struct exynos_ss_core_reg *)
-					   (S5P_VA_SS_CORE_REG + i * ESS_CORE_REG_OFFSET);
+					  (vaddr + ESS_HEADER_SZ +
+					   i * ESS_MMU_REG_OFFSET);
+		per_cpu(ess_core_reg, i) = (struct pt_regs *)
+					   (vaddr + ESS_HEADER_SZ + ESS_MMU_REG_SZ +
+					    i * ESS_CORE_REG_OFFSET);
 	}
-	/*  initialize Logmem to 0 except only header */
-	memset((unsigned int *)(S5P_VA_SS_LOGMEM + ESS_HEADER_SZ),
-				0, ESS_LOG_MEM_SZ - ESS_HEADER_SZ);
+	/*  initialize kernel event to 0 except only header */
+	memset((unsigned int *)(vaddr + ESS_HEADER_SZ), 0, size - ESS_HEADER_SZ);
 }
 
 static int __init exynos_ss_fixmap(void)
 {
 	unsigned int last_buf, align;
+	unsigned int vaddr, paddr, size;
+	int i;
 
 	/*  fixmap to header first */
 	exynos_ss_fixmap_header();
 
-	/*  load last_buf address */
-	last_buf = (unsigned int)readl(S5P_VA_SS_LAST_LOGBUF);
-	align = (last_buf & 0xFF000000);
+	for (i = 1; i < ARRAY_SIZE(ess_items); i++) {
+		/*  assign kernel log information */
+		paddr = ess_items[i].entry.paddr;
+		vaddr = ess_items[i].entry.vaddr;
+		size = ess_items[i].entry.size;
 
-	/*  check physical address offset */
-	if (align == ((S5P_PA_SS_LOGBUF(ess_phy_addr) & 0xFF000000))) {
-		/*  assumed valid address */
-		ess_hook.logbuf.curr_ptr = (unsigned char*)
-			((last_buf & (SZ_16M - 1)) |
-			 (unsigned int)S5P_VA_SS_LOGBUF);
+		if (!strncmp(ess_items[i].name, "log_kernel", strlen(ess_items[i].name))) {
+			/*  load last_buf address */
+			last_buf = (unsigned int)readl(S5P_VA_SS_LAST_LOGBUF);
+			align = (last_buf & 0xFF000000);
+
+			/*  check physical address offset of kernel logbuf */
+			if (align == (paddr & 0xFF000000)) {
+				/*  assumed valid address */
+				ess_items[i].curr_ptr = (unsigned char *)
+						((last_buf & (SZ_16M - 1)) |
+						(unsigned int)vaddr);
+			} else {
+				/*  invalid address, set to first line */
+				ess_items[i].curr_ptr = (unsigned char *)vaddr;
+				/*  initialize logbuf to 0 */
+				memset((unsigned int *)vaddr, 0, size);
+			}
+		} else {
+			/*  initialized log to 0 */
+			memset((unsigned int *)vaddr, 0, size);
+		}
+		ess_info.info_log[i - 1].name = kstrdup(ess_items[i].name, GFP_KERNEL);
+		ess_info.info_log[i - 1].head_ptr =
+			(unsigned char *)(CONFIG_PAGE_OFFSET | (0x0FFFFFFF & paddr));
+		ess_info.info_log[i - 1].curr_ptr = NULL;
+		ess_info.info_log[i - 1].entry.size = size;
 	}
-	else {	/*  invalid address, set to first line */
-		ess_hook.logbuf.curr_ptr = (unsigned char *)S5P_VA_SS_LOGBUF;
-
-		/*  initialize logbuf to 0 */
-		memset((unsigned int *)S5P_VA_SS_LOGBUF, 0, ESS_HOOK_LOGBUF_SZ);
-	}
-
-	ess_hook.logbuf.head_ptr = (unsigned char *)S5P_VA_SS_LOGBUF;
-	ess_hook.logbuf.bufsize = ESS_HOOK_LOGBUF_SZ;
-
-	ess_info.info_hook.logbuf.head_ptr =
-			(unsigned char *)(CONFIG_PAGE_OFFSET |
-			(0x0FFFFFFF & S5P_PA_SS_LOGBUF(ess_phy_addr)));
-	ess_info.info_hook.logbuf.curr_ptr = NULL;
-	ess_info.info_hook.logbuf.bufsize = ESS_HOOK_LOGBUF_SZ;
-
-#ifdef CONFIG_EXYNOS_SNAPSHOT_HOOK_LOGGER
-	/* logger - main */
-	ess_hook.logger_main.head_ptr = (unsigned char *)S5P_VA_SS_LOGGER_MAIN;
-	ess_hook.logger_main.curr_ptr = (unsigned char *)S5P_VA_SS_LOGGER_MAIN;
-	ess_hook.logger_main.bufsize = ESS_HOOK_LOGGER_MAIN_SZ;
-	ess_info.info_hook.logger_main.head_ptr =
-			(unsigned char *)(CONFIG_PAGE_OFFSET |
-			(0x0FFFFFFF & S5P_PA_SS_LOGGER_MAIN(ess_phy_addr)));
-	ess_info.info_hook.logger_main.curr_ptr = NULL;
-	ess_info.info_hook.logger_main.bufsize = ESS_HOOK_LOGGER_MAIN_SZ;
-
-	/*  initialize logger main to 0 */
-	memset((unsigned int *)S5P_VA_SS_LOGGER_MAIN, 0, ESS_HOOK_LOGGER_MAIN_SZ);
-
-	/*  logger - system */
-	ess_hook.logger_system.head_ptr = (unsigned char *)S5P_VA_SS_LOGGER_SYSTEM;
-	ess_hook.logger_system.curr_ptr = (unsigned char *)S5P_VA_SS_LOGGER_SYSTEM;
-	ess_hook.logger_system.bufsize = ESS_HOOK_LOGGER_SYSTEM_SZ;
-	ess_info.info_hook.logger_system.head_ptr =
-			(unsigned char *)(CONFIG_PAGE_OFFSET |
-			(0x0FFFFFFF & S5P_PA_SS_LOGGER_SYSTEM(ess_phy_addr)));
-	ess_info.info_hook.logger_system.curr_ptr = NULL;
-	ess_info.info_hook.logger_system.bufsize = ESS_HOOK_LOGGER_SYSTEM_SZ;
-
-	/*  initialize logger system to 0 */
-	memset((unsigned int *)S5P_VA_SS_LOGGER_SYSTEM, 0, ESS_HOOK_LOGGER_SYSTEM_SZ);
-
-#if ESS_HOOK_LOGGER_MAIN_SZ <= SZ_1M
-	/*  logger - radio */
-	ess_hook.logger_radio.head_ptr = (unsigned char *)S5P_VA_SS_LOGGER_RADIO;
-	ess_hook.logger_radio.curr_ptr = (unsigned char *)S5P_VA_SS_LOGGER_RADIO;
-	ess_hook.logger_radio.bufsize = ESS_HOOK_LOGGER_RADIO_SZ;
-	ess_info.info_hook.logger_radio.head_ptr =
-			(unsigned char *)(CONFIG_PAGE_OFFSET |
-			(0x0FFFFFFF & S5P_PA_SS_LOGGER_RADIO(ess_phy_addr)));
-	ess_info.info_hook.logger_radio.curr_ptr = NULL;
-	ess_info.info_hook.logger_radio.bufsize = ESS_HOOK_LOGGER_RADIO_SZ;
-
-	/*  initialize logger radio to 0 */
-	memset((unsigned int *)S5P_VA_SS_LOGGER_RADIO, 0, ESS_HOOK_LOGGER_RADIO_SZ);
-
-	/*  logger - events */
-	ess_hook.logger_events.head_ptr = (unsigned char *)S5P_VA_SS_LOGGER_EVENTS;
-	ess_hook.logger_events.curr_ptr = (unsigned char *)S5P_VA_SS_LOGGER_EVENTS;
-	ess_hook.logger_events.bufsize = ESS_HOOK_LOGGER_EVENTS_SZ;
-	ess_info.info_hook.logger_events.head_ptr =
-			(unsigned char *)(CONFIG_PAGE_OFFSET |
-			(0x0FFFFFFF & S5P_PA_SS_LOGGER_EVENTS(ess_phy_addr)));
-	ess_info.info_hook.logger_events.curr_ptr = NULL;
-	ess_info.info_hook.logger_events.bufsize = ESS_HOOK_LOGGER_EVENTS_SZ;
-
-	/*  initialize logger events to 0 */
-	memset((unsigned int *)S5P_VA_SS_LOGGER_EVENTS, 0, ESS_HOOK_LOGGER_EVENTS_SZ);
-#else
-	memset(&ess_hook.logger_radio, 0, sizeof(ess_hook.logger_radio));
-	memset(&ess_hook.logger_events, 0, sizeof(ess_hook.logger_events));
-#endif
-#endif
 	exynos_ss_output();
 	return 0;
 }
 
 static int __init exynos_ss_init(void)
 {
-	if (ess_virt_addr && ess_phy_addr) {
+	if (ess_base.vaddr && ess_base.paddr) {
 	/*
 	 *  for debugging when we don't know the virtual address of pointer,
 	 *  In just privous the debug buffer, It is added 16byte dummy data.
@@ -861,6 +843,9 @@ static int __init exynos_ss_init(void)
 	 */
 		exynos_ss_fixmap();
 
+		exynos_ss_scratch_reg(CAUSE_FORCE_DUMP);
+		exynos_ss_set_enable("base", true);
+
 		register_hook_logbuf(exynos_ss_hook_logbuf);
 
 #ifdef CONFIG_EXYNOS_SNAPSHOT_HOOK_LOGGER
@@ -869,11 +854,8 @@ static int __init exynos_ss_init(void)
 		register_reboot_notifier(&nb_reboot_block);
 		atomic_notifier_chain_register(&panic_notifier_list, &nb_panic_block);
 
-		exynos_ss_scratch_reg(CAUSE_FORCE_DUMP);
-
-		ess_enable = 1;
 	} else
-		pr_err("Exynos-SnapShot: %s failed\n", __func__);
+		pr_err("exynos-snapshot: %s failed\n", __func__);
 
 	return 0;
 }
@@ -881,45 +863,33 @@ early_initcall(exynos_ss_init);
 
 void __exynos_ss_task(int cpu, struct task_struct *task)
 {
+	struct exynos_ss_item *item = &ess_items[ESS_ITEMS_KEVENTS];
 	unsigned i;
 
-	if (!ess_enable || !ess_log)
+	if (unlikely(!ess_base.enabled || !item->entry.enabled))
 		return;
 
 	i = atomic_inc_return(&ess_log->task_log_idx[cpu]) &
 	    (ARRAY_SIZE(ess_log->task[0]) - 1);
+
 	ess_log->task[cpu][i].time = cpu_clock(cpu);
 	strncpy(ess_log->task[cpu][i].comm, task->comm, TASK_COMM_LEN - 1);
 	ess_log->task[cpu][i].pid = task->pid;
 }
 
-void __exynos_ss_irq(unsigned int irq, void *fn, int en)
-{
-	int cpu = raw_smp_processor_id();
-	unsigned i;
-
-	if (!ess_enable || !ess_log)
-		return;
-
-	i = atomic_inc_return(&ess_log->irq_log_idx[cpu]) &
-	    (ARRAY_SIZE(ess_log->irq[0]) - 1);
-	ess_log->irq[cpu][i].time = cpu_clock(cpu);
-	ess_log->irq[cpu][i].irq = irq;
-	ess_log->irq[cpu][i].fn = (void *)fn;
-	ess_log->irq[cpu][i].en = en;
-}
-
 void __exynos_ss_work(struct worker *worker, struct work_struct *work,
 			work_func_t f, int en)
 {
+	struct exynos_ss_item *item = &ess_items[ESS_ITEMS_KEVENTS];
 	int cpu = raw_smp_processor_id();
 	unsigned i;
 
-	if (!ess_enable || !ess_log)
+	if (unlikely(!ess_base.enabled || !item->entry.enabled))
 		return;
 
 	i = atomic_inc_return(&ess_log->work_log_idx[cpu]) &
 	    (ARRAY_SIZE(ess_log->work[0]) - 1);
+
 	ess_log->work[cpu][i].time = cpu_clock(cpu);
 	ess_log->work[cpu][i].worker = worker;
 	ess_log->work[cpu][i].work = work;
@@ -927,13 +897,222 @@ void __exynos_ss_work(struct worker *worker, struct work_struct *work,
 	ess_log->work[cpu][i].en = en;
 }
 
-void __exynos_ss_hrtimer(struct hrtimer *timer, s64 *now,
-		     enum hrtimer_restart (*fn) (struct hrtimer *), int en)
+void __exynos_ss_clockevent(unsigned long long clc, int64_t delta, ktime_t next_event)
 {
+	struct exynos_ss_item *item = &ess_items[ESS_ITEMS_KEVENTS];
 	int cpu = raw_smp_processor_id();
 	unsigned i;
 
-	if (!ess_enable || !ess_log)
+	if (unlikely(!ess_base.enabled || !item->entry.enabled))
+		return;
+
+	i = atomic_inc_return(&ess_log->clockevent_log_idx[cpu]) &
+	    (ARRAY_SIZE(ess_log->clockevent[0]) - 1);
+
+	ess_log->clockevent[cpu][i].time = cpu_clock(cpu);
+	ess_log->clockevent[cpu][i].clc = clc;
+	ess_log->clockevent[cpu][i].delta = delta;
+	ess_log->clockevent[cpu][i].next_event = next_event;
+}
+
+void __exynos_ss_cpuidle(int index, unsigned state, int diff, int en)
+{
+	struct exynos_ss_item *item = &ess_items[ESS_ITEMS_KEVENTS];
+	int cpu = raw_smp_processor_id();
+	unsigned i;
+
+	if (unlikely(!ess_base.enabled || !item->entry.enabled))
+		return;
+
+	i = atomic_inc_return(&ess_log->cpuidle_log_idx[cpu]) &
+	    (ARRAY_SIZE(ess_log->cpuidle[0]) - 1);
+
+	ess_log->cpuidle[cpu][i].time = cpu_clock(cpu);
+	ess_log->cpuidle[cpu][i].index = index;
+	ess_log->cpuidle[cpu][i].state = state;
+	ess_log->cpuidle[cpu][i].num_online_cpus = num_online_cpus();
+	ess_log->cpuidle[cpu][i].delta = diff;
+	ess_log->cpuidle[cpu][i].en = en;
+}
+
+void __exynos_ss_irq(unsigned int irq, void *fn, int curr_disabled, int en)
+{
+	struct exynos_ss_item *item = &ess_items[ESS_ITEMS_KEVENTS];
+	int cpu = raw_smp_processor_id();
+	unsigned i;
+
+	if (unlikely(!ess_base.enabled || !item->entry.enabled))
+		return;
+
+	for (i = 0; i < ARRAY_SIZE(ess_irqlog_exlist); i++)
+		if (irq == 0 || irq == ess_irqlog_exlist[i])
+			return;
+
+	i = atomic_inc_return(&ess_log->irq_log_idx[cpu]) &
+	    (ARRAY_SIZE(ess_log->irq[0]) - 1);
+
+	ess_log->irq[cpu][i].time = cpu_clock(cpu);
+	ess_log->irq[cpu][i].irq = irq;
+	ess_log->irq[cpu][i].fn = (void *)fn;
+	ess_log->irq[cpu][i].preempt = preempt_count();
+	ess_log->irq[cpu][i].curr_disabled = curr_disabled;
+	ess_log->irq[cpu][i].en = en;
+}
+
+#ifdef CONFIG_EXYNOS_SNAPSHOT_IRQ_EXIT
+void __exynos_ss_irq_exit(unsigned int irq, unsigned long long start_time)
+{
+	struct exynos_ss_item *item = &ess_items[ESS_ITEMS_KEVENTS];
+	int cpu = raw_smp_processor_id();
+	unsigned long long time, latency;
+	unsigned i;
+
+	if (unlikely(!ess_base.enabled || !item->entry.enabled))
+		return;
+
+	for (i = 0; i < ARRAY_SIZE(ess_irqexit_exlist); i++)
+		if (irq == 0 || irq == ess_irqexit_exlist[i])
+			return;
+
+	i = atomic_inc_return(&ess_log->irq_exit_log_idx[cpu]) &
+	    (ARRAY_SIZE(ess_log->irq_exit[0]) - 1);
+
+	time = cpu_clock(cpu);
+	latency = time - start_time;
+
+	if (unlikely(latency >
+		(ess_irqexit_threshold * 1000))) {
+		ess_log->irq_exit[cpu][i].latency = latency;
+		ess_log->irq_exit[cpu][i].end_time = time;
+		ess_log->irq_exit[cpu][i].time = start_time;
+		ess_log->irq_exit[cpu][i].irq = irq;
+	} else
+		atomic_dec(&ess_log->irq_exit_log_idx[cpu]);
+}
+#endif
+
+#ifdef CONFIG_EXYNOS_SNAPSHOT_IRQ_DISABLED
+static inline void __exynos_ss_irqs_disabled(unsigned curr_disabled, int try_disabled)
+{
+	struct exynos_ss_item *item = &ess_items[ESS_ITEMS_KEVENTS];
+	int cpu = raw_smp_processor_id();
+	unsigned long long latency = 0;
+	unsigned long long time = 0;
+	unsigned j, curr;
+	long prev;
+
+	if (unlikely(!ess_base.enabled || !item->entry.enabled))
+		return;
+
+	prev = atomic_read(&ess_log->irqs_disabled_log_idx[cpu]);
+	if (likely(prev > -1)) {
+		prev = ((unsigned long)prev & (ARRAY_SIZE(ess_log->irqs_disabled[0]) - 1));
+		if (unlikely(ess_log->irqs_disabled[cpu][prev].try_disabled == try_disabled))
+			return;
+		time = cpu_clock(cpu);
+		if (!try_disabled) {
+			latency = time - ess_log->irqs_disabled[cpu][prev].time;
+			/* remove status under threshold */
+			if (likely(latency < ess_irqdisabled_threshold * 1000))
+				return;
+		}
+	} else {
+		/* We need only irq disable function at the first time */
+		if (!try_disabled)
+			return;
+		time = cpu_clock(cpu);
+	}
+
+	/* It should be saved to the new array */
+	curr = atomic_inc_return(&ess_log->irqs_disabled_log_idx[cpu]) &
+		    (ARRAY_SIZE(ess_log->irqs_disabled[0]) - 1);
+
+	ess_log->irqs_disabled[cpu][curr].latency = latency;
+	ess_log->irqs_disabled[cpu][curr].time = time;
+	ess_log->irqs_disabled[cpu][curr].try_disabled = try_disabled;
+	ess_log->irqs_disabled[cpu][curr].curr_disabled = curr_disabled;
+
+	for (j = 0; j < ess_callstack; j++) {
+		ess_log->irqs_disabled[cpu][curr].caller[j] =
+				(void *)(return_address(j + 1) - sizeof(int));
+	}
+}
+
+void arch_local_irq_restore(unsigned long flags)
+{
+	unsigned irqs_disabled = irqs_disabled();
+
+	if (flags & PSR_I_BIT) {
+		asm volatile(
+			"	msr	cpsr_c, %0	@ local_irq_restore"
+			:
+			: "r" (flags)
+			: "memory", "cc");
+
+		__exynos_ss_irqs_disabled(irqs_disabled, 1);
+	} else {
+		__exynos_ss_irqs_disabled(irqs_disabled, 0);
+
+		asm volatile(
+			"	msr	cpsr_c, %0	@ local_irq_restore"
+			:
+			: "r" (flags)
+			: "memory", "cc");
+	}
+}
+
+unsigned long arch_local_irq_save(void)
+{
+	unsigned long flags;
+	unsigned irqs_disabled = irqs_disabled();
+
+	asm volatile(
+		"	mrs	%0, cpsr	@ arch_local_irq_save\n"
+		"	cpsid	i"
+		: "=r" (flags) : : "memory", "cc");
+
+	__exynos_ss_irqs_disabled(irqs_disabled, 1);
+
+	return flags;
+}
+
+EXPORT_SYMBOL(arch_local_irq_save);
+EXPORT_SYMBOL(arch_local_irq_restore);
+
+void arch_local_irq_disable(void)
+{
+	unsigned irqs_disabled = irqs_disabled();
+
+	asm volatile(
+		"	cpsid i			@ arch_local_irq_disable"
+		:
+		:
+		: "memory", "cc");
+
+	__exynos_ss_irqs_disabled(irqs_disabled, 1);
+}
+
+void arch_local_irq_enable(void)
+{
+	__exynos_ss_irqs_disabled(irqs_disabled(), 0);
+
+	asm volatile(
+		"	cpsie i			@ arch_local_irq_enable"
+		:
+		:
+		: "memory", "cc");
+}
+#endif
+
+#ifdef CONFIG_EXYNOS_SNAPSHOT_HRTIMER
+void __exynos_ss_hrtimer(struct hrtimer *timer, s64 *now,
+		     enum hrtimer_restart (*fn) (struct hrtimer *), int en)
+{
+	struct exynos_ss_item *item = &ess_items[ESS_ITEMS_KEVENTS];
+	int cpu = raw_smp_processor_id();
+	unsigned i;
+
+	if (unlikely(!ess_base.enabled || !item->entry.enabled))
 		return;
 
 	i = atomic_inc_return(&ess_log->hrtimer_log_idx[cpu]) &
@@ -944,56 +1123,129 @@ void __exynos_ss_hrtimer(struct hrtimer *timer, s64 *now,
 	ess_log->hrtimers[cpu][i].fn = fn;
 	ess_log->hrtimers[cpu][i].en = en;
 }
+#endif
+
+#ifdef CONFIG_EXYNOS_SNAPSHOT_REG
+static phys_addr_t virt_to_phys_high(unsigned long vaddr)
+{
+	phys_addr_t paddr = 0;
+	pgd_t *pgd;
+	pmd_t *pmd;
+	pte_t *pte;
+
+	if (virt_addr_valid((void *) vaddr)) {
+		paddr = virt_to_phys((void *) vaddr);
+		goto out;
+	}
+
+	pgd = pgd_offset_k(vaddr);
+	if (pgd_none(*pgd) || unlikely(pgd_bad(*pgd)))
+		goto out;
+
+	if (pgd_val(*pgd) & 2) {
+		paddr = pgd_val(*pgd) & SECTION_MASK;
+		goto out;
+	}
+
+	pmd = pmd_offset((pud_t *)pgd, vaddr);
+	if (pmd_none_or_clear_bad(pmd))
+		goto out;
+
+	pte = pte_offset_kernel(pmd, vaddr);
+	if (pte_none(*pte))
+		goto out;
+
+	paddr = pte_val(*pte) & PAGE_MASK;
+
+out:
+	return paddr | (vaddr & 0xFFF);
+}
 
 void __exynos_ss_reg(unsigned int read, unsigned int val,
 			unsigned int reg, int en)
 {
+	struct exynos_ss_item *item = &ess_items[ESS_ITEMS_KEVENTS];
 	int cpu = raw_smp_processor_id();
-	unsigned i;
+	unsigned i, j, phys_reg, start_addr, end_addr;
 
-	if (!ess_enable || !ess_log)
+	if (unlikely(!ess_base.enabled || !item->entry.enabled))
 		return;
+
+	if (ess_reg_exlist[0].addr == 0)
+		return;
+
+	phys_reg = virt_to_phys_high(reg);
+	if (unlikely(!phys_reg))
+		return;
+
+	for (j = 0; j < ARRAY_SIZE(ess_reg_exlist); j++) {
+		if (ess_reg_exlist[j].addr == 0)
+			break;
+		start_addr = ess_reg_exlist[j].addr;
+		end_addr = start_addr + ess_reg_exlist[j].size;
+		if (start_addr <= phys_reg && phys_reg <= end_addr)
+			return;
+	}
 
 	i = atomic_inc_return(&ess_log->reg_log_idx[cpu]) &
 		(ARRAY_SIZE(ess_log->reg[0]) - 1);
 
-	ess_log->reg[cpu][i].time =
-		(unsigned long long)(jiffies - INITIAL_JIFFIES) *
-		(NSEC_PER_SEC / HZ);
-
+	ess_log->reg[cpu][i].time = cpu_clock(cpu);
 	ess_log->reg[cpu][i].read = read;
 	ess_log->reg[cpu][i].val = val;
-	ess_log->reg[cpu][i].reg = reg;
+	ess_log->reg[cpu][i].reg = phys_reg;
 	ess_log->reg[cpu][i].en = en;
+
+	for (j = 0; j < ess_callstack; j++) {
+		if (unlikely(j == 0))
+			ess_log->reg[cpu][i].caller[j] =
+				(void *)((unsigned int)__builtin_return_address(0) - sizeof(int));
+		else
+			ess_log->reg[cpu][i].caller[j] =
+				(void *)((unsigned int)return_address(j) - sizeof(int));
+	}
 }
+#endif
 
-void exynos_ss_printk(char *fmt, ...)
+void exynos_ss_printk(const char *fmt, ...)
 {
-	va_list args;
-	char buf[ESS_LOG_STRING_LENGTH];
-	unsigned i;
+	struct exynos_ss_item *item = &ess_items[ESS_ITEMS_KEVENTS];
 	int cpu = raw_smp_processor_id();
+	va_list args;
+	int ret;
+	unsigned i, j;
 
-	if (!ess_enable || !ess_log)
+	if (unlikely(!ess_base.enabled || !item->entry.enabled))
 		return;
-
-	va_start(args, fmt);
-	vsnprintf(buf, sizeof(buf), fmt, args);
-	va_end(args);
 
 	i = atomic_inc_return(&ess_log->printk_log_idx) &
 	    (ARRAY_SIZE(ess_log->printk) - 1);
+
+	va_start(args, fmt);
+	ret = vsnprintf(ess_log->printk[i].log,
+			sizeof(ess_log->printk[i].log), fmt, args);
+	va_end(args);
+
 	ess_log->printk[i].time = cpu_clock(cpu);
 	ess_log->printk[i].cpu = cpu;
-	strncpy(ess_log->printk[i].log, buf, ESS_LOG_STRING_LENGTH - 1);
+
+	for (j = 0; j < ess_callstack; j++) {
+		if (unlikely(j == 0))
+			ess_log->printk[i].caller[j] =
+				(void *)((unsigned int)__builtin_return_address(0) - sizeof(int));
+		else
+			ess_log->printk[i].caller[j] =
+				(void *)((unsigned int)return_address(j) - sizeof(int));
+	}
 }
 
 void exynos_ss_printkl(unsigned int msg, unsigned int val)
 {
+	struct exynos_ss_item *item = &ess_items[ESS_ITEMS_KEVENTS];
 	int cpu = raw_smp_processor_id();
-	unsigned i;
+	unsigned i, j;
 
-	if (!ess_enable || !ess_log)
+	if (unlikely(!ess_base.enabled || !item->entry.enabled))
 		return;
 
 	i = atomic_inc_return(&ess_log->printkl_log_idx) &
@@ -1003,5 +1255,325 @@ void exynos_ss_printkl(unsigned int msg, unsigned int val)
 	ess_log->printkl[i].cpu = cpu;
 	ess_log->printkl[i].msg = msg;
 	ess_log->printkl[i].val = val;
+
+	for (j = 0; j < ess_callstack; j++) {
+		if (unlikely(j == 0))
+			ess_log->printkl[i].caller[j] =
+				(void *)((unsigned int)__builtin_return_address(0) - sizeof(int));
+		else
+			ess_log->printkl[i].caller[j] =
+				(void *)((unsigned int)return_address(j) - sizeof(int));
+	}
 }
+
+/*
+ *  sysfs implementation for exynos-snapshot
+ *  you can access the sysfs of exynos-snapshot to /sys/devices/system/exynos-ss
+ *  path.
+ */
+static struct bus_type ess_subsys = {
+	.name = "exynos-ss",
+	.dev_name = "exynos-ss",
+};
+
+static ssize_t ess_enable_show(struct kobject *kobj,
+			         struct kobj_attribute *attr, char *buf)
+{
+	struct exynos_ss_item *item;
+	unsigned i;
+	ssize_t n = 0;
+
+	/*  item  */
+	for (i = 0; i < ARRAY_SIZE(ess_items); i++) {
+		item = &ess_items[i];
+		n += scnprintf(buf + n, 24, "%-12s : %sable\n",
+			item->name, item->entry.enabled ? "en" : "dis");
+        }
+
+	/*  base  */
+	n += scnprintf(buf + n, 24, "%-12s : %sable\n",
+			"base", ess_base.enabled ? "en" : "dis");
+
+	return n;
+}
+
+static ssize_t ess_enable_store(struct kobject *kobj,
+				struct kobj_attribute *attr,
+				const char *buf, size_t count)
+{
+	int en;
+	char *name;
+
+	name = (char *)kstrndup(buf, count, GFP_KERNEL);
+	name[count - 1] = '\0';
+
+	en = exynos_ss_get_enable(name);
+
+	if (en == -1)
+		pr_info("echo name > enabled\n");
+	else {
+		if (en)
+			exynos_ss_set_enable(name, false);
+		else
+			exynos_ss_set_enable(name, true);
+	}
+
+	kfree(name);
+	return count;
+}
+
+static ssize_t ess_callstack_show(struct kobject *kobj,
+			         struct kobj_attribute *attr, char *buf)
+{
+	ssize_t n = 0;
+
+	n = scnprintf(buf, 24, "callstack depth : %d\n", ess_callstack);
+
+	return n;
+}
+
+static ssize_t ess_callstack_store(struct kobject *kobj, struct kobj_attribute *attr,
+				const char *buf, size_t count)
+{
+	unsigned long callstack;
+
+	callstack = simple_strtoul(buf, NULL, 0);
+	pr_info("callstack depth(min 1, max 4) : %lu\n", callstack);
+
+	if (callstack < 5 && callstack > 0) {
+		ess_callstack = callstack;
+		pr_info("success inserting %lu to callstack value\n", callstack);
+	}
+	return count;
+}
+
+static ssize_t ess_irqlog_exlist_show(struct kobject *kobj,
+			         struct kobj_attribute *attr, char *buf)
+{
+	unsigned i;
+	ssize_t n = 0;
+
+	n = scnprintf(buf, 24, "excluded irq number\n");
+
+	for (i = 0; i < ARRAY_SIZE(ess_irqlog_exlist); i++) {
+		if (ess_irqlog_exlist[i] == 0)
+			break;
+		n += scnprintf(buf + n, 24, "irq num: %-4d\n", ess_irqlog_exlist[i]);
+        }
+	return n;
+}
+
+static ssize_t ess_irqlog_exlist_store(struct kobject *kobj,
+					struct kobj_attribute *attr,
+					const char *buf, size_t count)
+{
+	unsigned i;
+	unsigned long irq;
+
+	irq = simple_strtoul(buf, NULL, 0);
+	pr_info("irq number : %lu\n", irq);
+
+	for (i = 0; i < ARRAY_SIZE(ess_irqlog_exlist); i++) {
+		if (ess_irqlog_exlist[i] == 0)
+			break;
+	}
+	if (irq != 0) {
+		ess_irqlog_exlist[i] = irq;
+		pr_info("success inserting %lu to list\n", irq);
+	}
+	return count;
+}
+
+#ifdef CONFIG_EXYNOS_SNAPSHOT_IRQ_EXIT
+static ssize_t ess_irqexit_exlist_show(struct kobject *kobj,
+			         struct kobj_attribute *attr, char *buf)
+{
+	unsigned i;
+	ssize_t n = 0;
+
+	n = scnprintf(buf, 36, "Excluded irq number\n");
+	for (i = 0; i < ARRAY_SIZE(ess_irqexit_exlist); i++) {
+		if (ess_irqexit_exlist[i] == 0)
+			break;
+		n += scnprintf(buf + n, 24, "IRQ num: %-4d\n", ess_irqexit_exlist[i]);
+        }
+	return n;
+}
+
+static ssize_t ess_irqexit_exlist_store(struct kobject *kobj,
+				struct kobj_attribute *attr,
+				const char *buf, size_t count)
+{
+	unsigned i;
+	unsigned long irq;
+
+	irq = simple_strtoul(buf, NULL, 0);
+	pr_info("irq number : %lu\n", irq);
+
+	for (i = 0; i < ARRAY_SIZE(ess_irqexit_exlist); i++) {
+		if (ess_irqexit_exlist[i] == 0)
+			break;
+	}
+	if (irq != 0) {
+		ess_irqexit_exlist[i] = irq;
+		pr_info("success inserting %lu to list\n", irq);
+	}
+	return count;
+}
+
+static ssize_t ess_irqexit_threshold_show(struct kobject *kobj,
+			         struct kobj_attribute *attr, char *buf)
+{
+	ssize_t n;
+
+	n = scnprintf(buf, 46, "threshold : %12u us\n", ess_irqexit_threshold);
+	return n;
+}
+
+static ssize_t ess_irqexit_threshold_store(struct kobject *kobj,
+				struct kobj_attribute *attr,
+				const char *buf, size_t count)
+{
+	unsigned long val;
+
+	val = simple_strtoul(buf, NULL, 0);
+	pr_info("threshold value : %lu\n", val);
+
+	if (val != 0) {
+		ess_irqexit_threshold = val;
+		pr_info("success %lu to threshold\n", val);
+	}
+	return count;
+}
+#endif
+
+#ifdef CONFIG_EXYNOS_SNAPSHOT_IRQ_DISABLED
+static ssize_t ess_irqdisabled_threshold_show(struct kobject *kobj,
+			         struct kobj_attribute *attr, char *buf)
+{
+	ssize_t n;
+
+	n = scnprintf(buf, 46, "threshold : %12u us\n",
+				ess_irqdisabled_threshold);
+	return n;
+}
+
+static ssize_t ess_irqdisabled_threshold_store(struct kobject *kobj,
+			struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	unsigned long val;
+
+	val = simple_strtoul(buf, NULL, 0);
+	pr_info("threshold value : %lu\n", val);
+
+	if (val != 0) {
+		ess_irqdisabled_threshold = val;
+		pr_info("success %lu to threshold\n", val);
+	}
+	return count;
+}
+#endif
+
+#ifdef CONFIG_EXYNOS_SNAPSHOT_REG
+static ssize_t ess_reg_exlist_show(struct kobject *kobj,
+			         struct kobj_attribute *attr, char *buf)
+{
+	unsigned i;
+	ssize_t n = 0;
+
+	n = scnprintf(buf, 36, "excluded register address\n");
+	for (i = 0; i < ARRAY_SIZE(ess_reg_exlist); i++) {
+		if (ess_reg_exlist[i].addr == 0)
+			break;
+		n += scnprintf(buf + n, 40, "register addr: %08x size: %08x\n",
+				ess_reg_exlist[i].addr, ess_reg_exlist[i].size);
+        }
+	return n;
+}
+
+static ssize_t ess_reg_exlist_store(struct kobject *kobj,
+				struct kobj_attribute *attr,
+				const char *buf, size_t count)
+{
+	unsigned i;
+	unsigned long addr;
+
+	addr = simple_strtoul(buf, NULL, 0);
+	pr_info("register addr: %08x\n", (unsigned int)addr);
+
+	for (i = 0; i < ARRAY_SIZE(ess_reg_exlist); i++) {
+		if (ess_reg_exlist[i].addr == 0)
+			break;
+	}
+	if (addr != 0) {
+		ess_reg_exlist[i].size = SZ_4K;
+		ess_reg_exlist[i].addr = addr;
+		pr_info("success %08x to threshold\n", (unsigned int)addr);
+	}
+	return count;
+}
+#endif
+
+static struct kobj_attribute ess_enable_attr =
+        __ATTR(enabled, 0644, ess_enable_show, ess_enable_store);
+static struct kobj_attribute ess_callstack_attr =
+        __ATTR(callstack, 0644, ess_callstack_show, ess_callstack_store);
+static struct kobj_attribute ess_irqlog_attr =
+        __ATTR(exlist_irqdisabled, 0644, ess_irqlog_exlist_show,
+					ess_irqlog_exlist_store);
+#ifdef CONFIG_EXYNOS_SNAPSHOT_IRQ_EXIT
+static struct kobj_attribute ess_irqexit_attr =
+        __ATTR(exlist_irqexit, 0644, ess_irqexit_exlist_show,
+					ess_irqexit_exlist_store);
+static struct kobj_attribute ess_irqexit_threshold_attr =
+        __ATTR(threshold_irqexit, 0644, ess_irqexit_threshold_show,
+					ess_irqexit_threshold_store);
+#endif
+#ifdef CONFIG_EXYNOS_SNAPSHOT_IRQ_DISABLED
+static struct kobj_attribute ess_irqdisabled_threshold_attr =
+        __ATTR(threshold_irqdisabled, 0644, ess_irqdisabled_threshold_show,
+					ess_irqdisabled_threshold_store);
+#endif
+#ifdef CONFIG_EXYNOS_SNAPSHOT_REG
+static struct kobj_attribute ess_reg_attr =
+        __ATTR(exlist_reg, 0644, ess_reg_exlist_show, ess_reg_exlist_store);
+#endif
+
+static struct attribute *ess_sysfs_attrs[] = {
+	&ess_enable_attr.attr,
+	&ess_callstack_attr.attr,
+	&ess_irqlog_attr.attr,
+#ifdef CONFIG_EXYNOS_SNAPSHOT_IRQ_EXIT
+	&ess_irqexit_attr.attr,
+	&ess_irqexit_threshold_attr.attr,
+#endif
+#ifdef CONFIG_EXYNOS_SNAPSHOT_IRQ_DISABLED
+	&ess_irqdisabled_threshold_attr.attr,
+#endif
+#ifdef CONFIG_EXYNOS_SNAPSHOT_REG
+	&ess_reg_attr.attr,
+#endif
+	NULL,
+};
+
+static struct attribute_group ess_sysfs_group = {
+	.attrs = ess_sysfs_attrs,
+};
+
+static const struct attribute_group *ess_sysfs_groups[] = {
+	&ess_sysfs_group,
+	NULL,
+};
+
+static int __init exynos_ss_sysfs_init(void)
+{
+	int ret = 0;
+
+	ret = subsys_system_register(&ess_subsys, ess_sysfs_groups);
+	if (ret)
+		pr_err("fail to register exynos-snapshop subsys\n");
+
+	return ret;
+}
+late_initcall(exynos_ss_sysfs_init);
 #endif

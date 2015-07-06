@@ -14,6 +14,9 @@
 #ifndef FIMC_IS_FRAME_MGR_H
 #define FIMC_IS_FRAME_MGR_H
 
+#define FIMC_IS_MAX_BUFS            VIDEO_MAX_FRAME
+#define FIMC_IS_MAX_PLANES          VIDEO_MAX_PLANES
+
 #define FRAMEMGR_ID_INVALID	0x000000
 #define FRAMEMGR_ID_SENSOR	0x000100
 #define FRAMEMGR_ID_3AA_GRP	0x000200
@@ -32,7 +35,7 @@
 /* #define TRACE_FRAME */
 #define TRACE_ID		(FRAMEMGR_ID_SHOT | FRAMEMGR_ID_STREAM)
 
-#define FRAMEMGR_MAX_REQUEST	12
+#define FRAMEMGR_MAX_REQUEST	VIDEO_MAX_FRAME
 
 /*flite frame start tasklet*/
 #define FMGR_IDX_0		(0x10)
@@ -134,8 +137,8 @@ struct fimc_is_frame {
 
 	/* common use */
 	u32			planes;
-	u32			kvaddr_buffer[4];
-	u32			dvaddr_buffer[4];
+	u32			kvaddr_buffer[FIMC_IS_MAX_PLANES];
+	u32			dvaddr_buffer[FIMC_IS_MAX_PLANES];
 
 	/* internal use */
 	enum fimc_is_frame_mem	memory;
@@ -230,5 +233,7 @@ int fimc_is_frame_trans_pro_to_fre(struct fimc_is_framemgr *this,
 	struct fimc_is_frame *frame);
 int fimc_is_frame_trans_com_to_fre(struct fimc_is_framemgr *this,
 	struct fimc_is_frame *frame);
+
+int fimc_is_frame_swap_process_head(struct fimc_is_framemgr *this);
 
 #endif

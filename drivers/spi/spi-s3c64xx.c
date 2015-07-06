@@ -39,6 +39,12 @@
 #include <mach/dma.h>
 #endif
 
+#include <mach/exynos-pm.h>
+
+#ifdef CONFIG_EXYNOS_SPI_RESET_DURING_DSTOP
+static LIST_HEAD(drvdata_list);
+#endif
+
 #define MAX_SPI_PORTS		5
 #define SPI_AUTOSUSPEND_TIMEOUT		(2000)
 
@@ -295,10 +301,13 @@ static int acquire_dma(struct s3c64xx_spi_driver_data *sdd)
 	return 1;
 }
 
+static void s3c64xx_spi_hwinit(struct s3c64xx_spi_driver_data *sdd, int channel);
+
 static int s3c64xx_spi_prepare_transfer(struct spi_master *spi)
 {
 	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(spi);
 	struct s3c64xx_spi_info *sci = sdd->cntrlr_info;
+	int ret;
 
 	if (sci->dma_mode == DMA_MODE) {
 		/* Acquire DMA channels */
@@ -306,7 +315,12 @@ static int s3c64xx_spi_prepare_transfer(struct spi_master *spi)
 			usleep_range(10000, 11000);
 	}
 
-	pm_runtime_get_sync(&sdd->pdev->dev);
+	ret = pm_runtime_get_sync(&sdd->pdev->dev);
+	if(ret < 0)
+		return ret;
+
+	if (sci->need_hw_init)
+		s3c64xx_spi_hwinit(sdd, sdd->port_id);
 
 	return 0;
 }
@@ -315,6 +329,7 @@ static int s3c64xx_spi_unprepare_transfer(struct spi_master *spi)
 {
 	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(spi);
 	struct s3c64xx_spi_info *sci = sdd->cntrlr_info;
+	int ret;
 
 	/* Free DMA channels */
 	if (sci->dma_mode == DMA_MODE) {
@@ -325,7 +340,9 @@ static int s3c64xx_spi_unprepare_transfer(struct spi_master *spi)
 	}
 
 	pm_runtime_mark_last_busy(&sdd->pdev->dev);
-	pm_runtime_put_autosuspend(&sdd->pdev->dev);
+	ret = pm_runtime_put_autosuspend(&sdd->pdev->dev);
+	if(ret < 0)
+		return ret;
 
 	return 0;
 }
@@ -573,8 +590,9 @@ static int wait_for_xfer(struct s3c64xx_spi_driver_data *sdd,
 	int ms;
 
 	/* millisecs to xfer 'len' bytes @ 'cur_speed' */
-	ms = xfer->len * 8 * 2000 / sdd->cur_speed;
-	ms += 10; /* some tolerance */
+	ms = xfer->len * 8 * 1000 / sdd->cur_speed;
+	ms = (ms * 10) + 30; /* some tolerance */
+	ms = max(ms, 100); /* minimum timeout */
 
 	if (dma_mode) {
 		val = msecs_to_jiffies(ms) + 10;
@@ -650,9 +668,13 @@ static inline void disable_cs(struct s3c64xx_spi_driver_data *sdd,
 
 	if(cs->line != (unsigned)NULL)
 		gpio_set_value(cs->line, spi->mode & SPI_CS_HIGH ? 0 : 1);
-	/* Quiese the signals */
-	writel(spi->mode & SPI_CS_HIGH ? 0 : S3C64XX_SPI_SLAVE_SIG_INACT,
-	       sdd->regs + S3C64XX_SPI_SLAVE_SEL);
+
+	if (cs->cs_mode != AUTO_CS_MODE) {
+		/* Quiese the signals */
+		writel(spi->mode & SPI_CS_HIGH
+			? 0 : S3C64XX_SPI_SLAVE_SIG_INACT,
+		       sdd->regs + S3C64XX_SPI_SLAVE_SEL);
+	}
 }
 
 static void s3c64xx_spi_config(struct s3c64xx_spi_driver_data *sdd)
@@ -900,10 +922,11 @@ static int s3c64xx_spi_transfer_one_message(struct spi_master *master,
 				xfer->len = fifo_lvl;
 		} else {
 		/* Polling method for xfers not bigger than FIFO capacity */
-			if (xfer->len <= fifo_lvl)
+			if (xfer->len <= fifo_lvl) {
 				use_dma = 0;
-			else
+			} else {
 				use_dma = 1;
+			}
 		}
 try_transfer:
 		spin_lock_irqsave(&sdd->lock, flags);
@@ -1040,8 +1063,15 @@ static struct s3c64xx_spi_csinfo *s3c64xx_get_slave_ctrldata(
 	of_property_read_u32(data_np, "samsung,spi-feedback-delay", &fb_delay);
 	cs->fb_delay = fb_delay;
 
-	of_property_read_u32(data_np, "samsung,spi-chip-select-mode", &cs_mode);
-	cs->cs_mode = cs_mode;
+	if (of_property_read_u32(data_np,
+			    "samsung,spi-chip-select-mode", &cs_mode)) {
+		cs->cs_mode = AUTO_CS_MODE;
+	} else {
+		if (cs_mode)
+			cs->cs_mode = AUTO_CS_MODE;
+		else
+			cs->cs_mode = MANUAL_CS_MODE;
+	}
 
 	of_node_put(data_np);
 	return cs;
@@ -1156,10 +1186,11 @@ static int s3c64xx_spi_setup(struct spi_device *spi)
 		}
 	}
 
+	disable_cs(sdd, spi);
+
 	pm_runtime_mark_last_busy(&sdd->pdev->dev);
 	pm_runtime_put_autosuspend(&sdd->pdev->dev);
 
-	disable_cs(sdd, spi);
 	return 0;
 
 setup_exit:
@@ -1257,6 +1288,8 @@ static void s3c64xx_spi_hwinit(struct s3c64xx_spi_driver_data *sdd, int channel)
 	writel(val, regs + S3C64XX_SPI_MODE_CFG);
 
 	flush_fifo(sdd);
+
+	sci->need_hw_init = 0;
 }
 
 #ifdef CONFIG_OF
@@ -1329,6 +1362,27 @@ static inline struct s3c64xx_spi_port_config *s3c64xx_spi_get_port_config(
 			 platform_get_device_id(pdev)->driver_data;
 }
 
+#ifdef CONFIG_EXYNOS_SPI_RESET_DURING_DSTOP
+static int s3c64xx_spi_notifier(struct notifier_block *self,
+				unsigned long cmd, void *v)
+{
+	struct s3c64xx_spi_info *sci;
+
+	switch (cmd) {
+	case LPA_EXIT:
+		list_for_each_entry(sci, &drvdata_list, node)
+			sci->need_hw_init = 1;
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block s3c64xx_spi_notifier_block = {
+	.notifier_call = s3c64xx_spi_notifier,
+};
+#endif /* CONFIG_EXYNOS_SPI_RESET_DURING_DSTOP */
+
 static int s3c64xx_spi_probe(struct platform_device *pdev)
 {
 	struct resource	*mem_res;
@@ -1345,14 +1399,15 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 			return PTR_ERR(sci);
 	}
 
-#ifndef CONFIG_VIDEO_EXYNOS_FIMC_IS
-	if (sci->domain != DOMAIN_TOP)
-		return -ENODEV;
-#endif
 	if (!sci) {
 		dev_err(&pdev->dev, "platform_data missing!\n");
 		return -ENODEV;
 	}
+
+#ifndef CONFIG_VIDEO_EXYNOS_FIMC_IS
+	if (sci->domain != DOMAIN_TOP)
+		return -ENODEV;
+#endif
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (mem_res == NULL) {
@@ -1438,9 +1493,12 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_use_autosuspend(&pdev->dev);
-	pm_runtime_set_autosuspend_delay(&pdev->dev, SPI_AUTOSUSPEND_TIMEOUT);
-	pm_runtime_enable(&pdev->dev);
-	pm_runtime_get_sync(&pdev->dev);
+
+	if (sci->domain == DOMAIN_TOP)
+		pm_runtime_set_autosuspend_delay(&pdev->dev, 0);
+	else
+		pm_runtime_set_autosuspend_delay(&pdev->dev,
+					SPI_AUTOSUSPEND_TIMEOUT);
 
 	if (sci->cfg_gpio && sci->cfg_gpio()) {
 		dev_err(&pdev->dev, "Unable to config gpio\n");
@@ -1477,6 +1535,8 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 		goto err2;
 	}
 
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
 
 	/* Setup Deufult Mode */
 	s3c64xx_spi_hwinit(sdd, sdd->port_id);
@@ -1505,6 +1565,13 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 		ret = -EBUSY;
 		goto err3;
 	}
+
+#ifdef CONFIG_EXYNOS_SPI_RESET_DURING_DSTOP
+	list_add_tail(&sci->node, &drvdata_list);
+#endif
+
+	clk_disable_unprepare(sdd->src_clk);
+	clk_disable_unprepare(sdd->clk);
 
 	dev_dbg(&pdev->dev, "Samsung SoC SPI Driver loaded for Bus SPI-%d with %d Slaves attached\n",
 					sdd->port_id, master->num_chipselect);
@@ -1761,6 +1828,9 @@ MODULE_ALIAS("platform:s3c64xx-spi");
 
 static int __init s3c64xx_spi_init(void)
 {
+#ifdef CONFIG_EXYNOS_SPI_RESET_DURING_DSTOP
+	exynos_pm_register_notifier(&s3c64xx_spi_notifier_block);
+#endif
 	return platform_driver_probe(&s3c64xx_spi_driver, s3c64xx_spi_probe);
 }
 subsys_initcall(s3c64xx_spi_init);

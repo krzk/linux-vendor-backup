@@ -41,12 +41,15 @@
 #define SYSREG_GSCBLK_CFG2		(S3C_VA_SYS + 0x2000)
 #define PXLASYNC_LO_MASK_CAMIF_GSCL(x)	(1 << (x))
 
+#if defined(CONFIG_SOC_EXYNOS3250)
+#define DSD_CFG                         (0x0210)
+#else
 #define DSD_CFG				(0x1000)
+#endif
 #define DSD_CFG_MUX			(0x1004)
 #define DSD_RESERVE10			(0x1048)
 
 /* Dynamic clock gating */
-#define GSCL_NOC_DCG_EN			(0x200)
 #define GSCL_XIU_TOP_DCG_EN		(0x204)
 #define GSCL_DYN_CLKGATE_DISABLE	(0x500)
 
@@ -271,15 +274,11 @@
 /* G-Scaler input y base current address */
 #define GSC_IN_BASE_ADDR_Y_CUR(n)	(0x60 + (n) * 0x4)
 
-/* G-Scaler input cb address mask */
-#define GSC_IN_BASE_ADDR_CB_MASK	0x7C
 /* G-Scaler input cb base address */
 #define GSC_IN_BASE_ADDR_CB(n)		(0x80 + (n) * 0x4)
 /* G-Scaler input cb base current address */
 #define GSC_IN_BASE_ADDR_CB_CUR(n)	(0x90 + (n) * 0x4)
 
-/* G-Scaler input cr address mask */
-#define GSC_IN_BASE_ADDR_CR_MASK	0xAC
 /* G-Scaler input cr base address */
 #define GSC_IN_BASE_ADDR_CR(n)		(0xB0 + (n) * 0x4)
 /* G-Scaler input cr base current address */

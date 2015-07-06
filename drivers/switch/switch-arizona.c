@@ -1186,8 +1186,10 @@ static ssize_t arizona_extcon_show(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE, "%d\n", info->hp_impedance);
 }
 
+#ifndef CONFIG_SOC_EXYNOS3250
 /* To support PBA function test */
 #include "../../sound/soc/samsung/jack_arizona.c"
+#endif
 
 static int arizona_extcon_probe(struct platform_device *pdev)
 {
@@ -1504,8 +1506,10 @@ static int arizona_extcon_probe(struct platform_device *pdev)
 			"Failed to create sysfs node for hp_impedance %d\n",
 			ret);
 
+#ifndef CONFIG_SOC_EXYNOS3250
 	/* To support PBA function test */
 	create_jack_devices(info);
+#endif
 
 	return 0;
 

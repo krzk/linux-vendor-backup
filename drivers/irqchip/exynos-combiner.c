@@ -273,6 +273,13 @@ static void combiner_resume(void)
 #else
 #define irq_gc_suspend NULL
 #define irq_gc_resume NULL
+static int combiner_suspend(void)
+{
+	return 0;
+}
+static void combiner_resume(void)
+{
+}
 #endif
 
 static struct syscore_ops combiner_syscore_ops = {

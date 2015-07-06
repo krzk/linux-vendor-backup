@@ -72,7 +72,6 @@ int fimc_is_scc_video_probe(void *data)
 		dev_err(&core->pdev->dev, "%s is fail(%d)\n", __func__, ret);
 
 p_err:
-	info("[SCC:V:X] %s(%d)\n", __func__, ret);
 	return ret;
 }
 

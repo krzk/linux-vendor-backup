@@ -24,6 +24,11 @@
 #include <linux/nmi.h>
 #include "sched/sched.h"
 
+#ifdef CONFIG_EXYNOS_CORESIGHT
+#include <mach/coresight.h>
+#endif
+#include <mach/exynos-ss.h>
+
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
 #if defined(CONFIG_SOC_EXYNOS5422) || defined(CONFIG_SOC_EXYNOS5430)
@@ -127,6 +132,11 @@ void panic(const char *fmt, ...)
 #if defined(CONFIG_SOC_EXYNOS5422)
 	show_exynos_cmu();
 #endif
+
+#ifdef CONFIG_EXYNOS_CORESIGHT
+	exynos_cs_show_pcval();
+#endif
+	exynos_ss_early_dump();
 	sysrq_sched_debug_show();
 
 	/*

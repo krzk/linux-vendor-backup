@@ -44,7 +44,6 @@ static uint32_t secmem_regions[] = {
 	ION_EXYNOS_ID_MFC_SH,
 	ION_EXYNOS_ID_G2D_WFD,
 	ION_EXYNOS_ID_VIDEO,
-	ION_EXYNOS_ID_MFC_INPUT,
 	ION_EXYNOS_ID_SECTBL,
 	ION_EXYNOS_ID_MFC_FW,
 	ION_EXYNOS_ID_MFC_NFW,
@@ -54,10 +53,9 @@ static char *secmem_regions_name[] = {
 	"mfc_sh",	/* 0 */
 	"g2d_wfd",	/* 1 */
 	"video",	/* 2 */
-	"mfc_input",	/* 3 */
-	"sectbl",	/* 4 */
-	"mfc_fw",	/* 5 */
-	"mfc_nfw",	/* 6 */
+	"sectbl",	/* 3 */
+	"mfc_fw",	/* 4 */
+	"mfc_nfw",	/* 5 */
 	NULL
 };
 
@@ -143,35 +141,9 @@ struct platform_device *get_secmem_dt_index_pdev(struct device_node *np, int idx
 
 int drm_enable_locked(struct secmem_info *info, bool enable)
 {
-	int idx_np;
-	size_t idx_np_size;
-	struct platform_device *pdev;
-	struct device_node *np = NULL;
-	struct device *dev;
-
 	if (drm_onoff == enable) {
 		pr_err("%s: DRM is already %s\n", __func__, drm_onoff ? "on" : "off");
-		return 0;
-	}
-
-	np = get_secmem_dev_node_and_size(&idx_np_size);
-	if (!np) {
-		pr_err("fail to get secmem dev node and size\n");
-		return 0;
-	}
-
-	for (idx_np = 0; idx_np < idx_np_size; idx_np++) {
-		pdev = get_secmem_dt_index_pdev(np, idx_np);
-		if (pdev == NULL) {
-			pr_err("fail to get secmem index pdev\n");
-			return 0;
-		}
-		dev = &pdev->dev;
-
-		if (enable)
-			pm_runtime_get_sync(dev);
-		else
-			pm_runtime_put_sync(dev);
+		return -EINVAL;
 	}
 
 	drm_onoff = enable;
@@ -180,6 +152,38 @@ int drm_enable_locked(struct secmem_info *info, bool enable)
 	 * calling the ioctl or by closing the fd
 	 */
 	info->drm_enabled = enable;
+
+	return 0;
+}
+
+int drm_gsc_enable_locked(bool enable)
+{
+	int idx_np;
+	size_t idx_np_size;
+	struct platform_device *pdev;
+	struct device_node *np = NULL;
+	struct device *dev;
+
+
+	np = get_secmem_dev_node_and_size(&idx_np_size);
+	if (!np) {
+		pr_err("fail to get secmem dev node and size\n");
+		return -EINVAL;
+	}
+
+	for (idx_np = 0; idx_np < idx_np_size; idx_np++) {
+		pdev = get_secmem_dt_index_pdev(np, idx_np);
+		if (pdev == NULL) {
+			pr_err("fail to get secmem index pdev\n");
+			return -EINVAL;
+		}
+		dev = &pdev->dev;
+
+		if (enable)
+			pm_runtime_get_sync(dev);
+		else
+			pm_runtime_put_sync(dev);
+	}
 
 	return 0;
 }
@@ -258,7 +262,7 @@ static long secmem_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	{
 		struct ion_client *client;
 		struct secfd_info fd_info;
-		struct ion_handle *handle;
+		struct ion_fd_data data;
 		size_t len;
 
 		if (copy_from_user(&fd_info, (int __user *)arg,
@@ -272,28 +276,29 @@ static long secmem_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -ENOMEM;
 		}
 
-		handle = ion_import_dma_buf(client, fd_info.fd);
+		data.fd = fd_info.fd;
+		data.handle = ion_import_dma_buf(client, data.fd);
 		pr_debug("%s: fd from user space = %d\n",
 				__func__, fd_info.fd);
-		if (IS_ERR(handle)) {
+		if (IS_ERR(data.handle)) {
 			pr_err("%s: Failed to get ion_handle of DRM\n",
 				__func__);
 			ion_client_destroy(client);
 			return -ENOMEM;
 		}
 
-		if (ion_phys(client, handle, &fd_info.phys, &len)) {
+		if (ion_phys(client, data.handle, &fd_info.phys, &len)) {
 			pr_err("%s: Failed to get phys. addr of DRM\n",
 				__func__);
 			ion_client_destroy(client);
-			ion_free(client, handle);
+			ion_free(client, data.handle);
 			return -ENOMEM;
 		}
 
 		pr_debug("%s: physical addr from kernel space = 0x%08x\n",
 				__func__, (unsigned int)fd_info.phys);
 
-		ion_free(client, handle);
+		ion_free(client, data.handle);
 		ion_client_destroy(client);
 
 		if (copy_to_user((void __user *)arg, &fd_info, sizeof(fd_info)))

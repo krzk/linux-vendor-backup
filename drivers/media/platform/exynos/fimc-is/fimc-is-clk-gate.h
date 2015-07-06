@@ -37,7 +37,7 @@ int fimc_is_wrap_clk_gate_set(struct fimc_is_core *core,
 			int msk_group_id, bool is_on);
 /* For only single group */
 int fimc_is_clk_gate_set(struct fimc_is_core *core,
-			int group_id, bool is_on, bool skip_set_state);
+			int group_id, bool is_on, bool skip_set_state, bool user_scenario);
 
 int fimc_is_set_user_clk_gate(u32 group_id,
 		struct fimc_is_core *core,

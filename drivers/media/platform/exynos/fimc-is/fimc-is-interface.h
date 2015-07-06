@@ -150,6 +150,10 @@ struct fimc_is_interface {
 	atomic_t			sensor_timeout[FIMC_IS_MAX_NODES];
 	struct timer_list		timer;
 
+	/* callback func to handle error report for specific purpose */
+	void				*err_report_data;
+	int					(*err_report_vendor)(void *data, u32 err_report_type);
+
 	struct camera2_uctl		isp_peri_ctl;
 	void				*core;
 };
@@ -169,6 +173,7 @@ int print_fre_work_list(struct fimc_is_work_list *this);
 int print_req_work_list(struct fimc_is_work_list *this);
 
 int fimc_is_hw_logdump(struct fimc_is_interface *this);
+int fimc_is_hw_regdump(struct fimc_is_interface *this);
 int fimc_is_hw_memdump(struct fimc_is_interface *this,
 	u32 start,
 	u32 end);
@@ -213,5 +218,10 @@ int fimc_is_hw_shot_nblk(struct fimc_is_interface *this,
 	u32 instance, u32 group, u32 bayer, u32 shot, u32 fcount, u32 rcount);
 int fimc_is_hw_s_camctrl_nblk(struct fimc_is_interface *this,
 	u32 instance, u32 address, u32 fcount);
+
+/* func to register error report callback */
+int fimc_is_set_err_report_vendor(struct fimc_is_interface *itf,
+		void *err_report_data,
+		int (*err_report_vendor)(void *data, u32 err_report_type));
 
 #endif

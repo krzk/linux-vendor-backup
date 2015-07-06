@@ -331,10 +331,6 @@ static int s5p_cec_probe(struct platform_device *pdev)
 
 	if (of_get_property(dev->of_node, "gpios", NULL) != NULL) {
 		gpio = of_get_gpio(dev->of_node, 0);
-		if (gpio < 0) {
-			dev_err(dev, "failed to get gpio cec\n");
-			return -ENODEV;
-		}
 		if (gpio_request(gpio, "hdmi-cec")) {
 			dev_err(dev, "failed to request cec gpio\n");
 			return -ENODEV;

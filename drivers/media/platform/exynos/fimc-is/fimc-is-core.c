@@ -35,6 +35,13 @@
 #include <linux/v4l2-mediabus.h>
 #include <mach/devfreq.h>
 #include <mach/bts.h>
+#include <linux/gpio.h>
+#include <plat/gpio-cfg.h>
+
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#include <linux/of_gpio.h>
+#endif
 
 #include "fimc-is-core.h"
 #include "fimc-is-param.h"
@@ -46,6 +53,7 @@
 #include "fimc-is-resourcemgr.h"
 #include "fimc-is-clk-gate.h"
 #include "fimc-is-dvfs.h"
+#include "fimc-is-fan53555.h"
 
 #include "sensor/fimc-is-device-2p2.h"
 #include "sensor/fimc-is-device-3h5.h"
@@ -61,6 +69,9 @@
 #include "sensor/fimc-is-device-4h5.h"
 #include "sensor/fimc-is-device-3l2.h"
 #include "sensor/fimc-is-device-2p2.h"
+#ifdef CONFIG_USE_VENDER_FEATURE
+#include "fimc-is-sec-define.h"
+#endif
 
 #ifdef USE_OWN_FAULT_HANDLER
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 9, 0))
@@ -70,26 +81,26 @@
 #endif
 #endif
 
-#if defined(CONFIG_ARM_EXYNOS5260_BUS_DEVFREQ)
-#define CONFIG_FIMC_IS_BUS_DEVFREQ
-#endif
-#if defined(CONFIG_ARM_EXYNOS3470_BUS_DEVFREQ)
-#define CONFIG_FIMC_IS_BUS_DEVFREQ
-#endif
-#if defined(CONFIG_ARM_EXYNOS5422_BUS_DEVFREQ)
-#define CONFIG_FIMC_IS_BUS_DEVFREQ
-#endif
-#if defined(CONFIG_ARM_EXYNOS5430_BUS_DEVFREQ)
-#define CONFIG_FIMC_IS_BUS_DEVFREQ
-#endif
-
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 9))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0))
 #define PM_QOS_CAM_THROUGHPUT	PM_QOS_RESERVED
 #endif
 
 struct fimc_is_from_info *sysfs_finfo = NULL;
 struct fimc_is_from_info *sysfs_pinfo = NULL;
+
+struct class *camera_class = NULL;
+struct device *camera_front_dev;
+struct device *camera_rear_dev;
 struct device *fimc_is_dev = NULL;
+struct fimc_is_core *sysfs_core;
+
+extern bool crc32_fw_check;
+extern bool crc32_c1_fw_check;
+extern bool crc32_check;
+extern bool crc32_c1_check;
+extern bool crc32_check_factory;
+extern bool crc32_c1_check_factory;
+extern bool fw_version_crc_check;
 
 extern struct pm_qos_request exynos_isp_qos_int;
 extern struct pm_qos_request exynos_isp_qos_mem;
@@ -113,11 +124,7 @@ static int fimc_is_ischain_allocmem(struct fimc_is_core *this)
 {
 	int ret = 0;
 	void *fw_cookie;
-
-	dbg_core("Allocating memory for FIMC-IS firmware.\n");
-
-	fw_cookie = vb2_ion_private_alloc(this->mem.alloc_ctx,
-				FIMC_IS_A5_MEM_SIZE +
+	size_t fw_size =
 #ifdef ENABLE_ODC
 				SIZE_ODC_INTERNAL_BUF * NUM_ODC_INTERNAL_BUF +
 #endif
@@ -127,7 +134,12 @@ static int fimc_is_ischain_allocmem(struct fimc_is_core *this)
 #ifdef ENABLE_TDNR
 				SIZE_DNR_INTERNAL_BUF * NUM_DNR_INTERNAL_BUF +
 #endif
-				0, 1, 0);
+			FIMC_IS_A5_MEM_SIZE;
+
+	fw_size = PAGE_ALIGN(fw_size);
+	dbg_core("Allocating memory for FIMC-IS firmware.\n");
+
+	fw_cookie = vb2_ion_private_alloc(this->mem.alloc_ctx, fw_size, 1, 0);
 
 	if (IS_ERR(fw_cookie)) {
 		err("Allocating bitprocessor buffer failed");
@@ -157,6 +169,8 @@ static int fimc_is_ischain_allocmem(struct fimc_is_core *this)
 		ret = -EIO;
 		goto exit;
 	}
+
+	vb2_ion_sync_for_device(fw_cookie, 0, fw_size, DMA_BIDIRECTIONAL);
 
 exit:
 	info("[COR] Device virtual for internal: %08x\n", this->minfo.kvaddr);
@@ -221,6 +235,283 @@ exit:
 	return ret;
 }
 
+#ifdef CONFIG_USE_VENDER_FEATURE
+static ssize_t camera_front_sensorid_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct exynos_platform_fimc_is_sensor *sensor = dev_get_drvdata(dev);
+
+	dev_info(dev, "%s: E", __func__);
+
+	if (unlikely(!sensor)) {
+		dev_err(dev, "%s: sensor null\n", __func__);
+		return -EFAULT;
+	}
+
+	return sprintf(buf, "%d\n", sensor->sensor_id);
+}
+
+static ssize_t camera_rear_sensorid_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct exynos_platform_fimc_is_sensor *sensor = dev_get_drvdata(dev);
+
+	dev_info(dev, "%s: E", __func__);
+
+	if (unlikely(!sensor)) {
+		dev_err(dev, "%s: sensor null\n", __func__);
+		return -EFAULT;
+	}
+
+	return sprintf(buf, "%d\n", sensor->sensor_id);
+}
+
+static DEVICE_ATTR(front_sensorid, S_IRUGO, camera_front_sensorid_show, NULL);
+static DEVICE_ATTR(rear_sensorid, S_IRUGO, camera_rear_sensorid_show, NULL);
+
+static ssize_t camera_front_camtype_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	char type[50] = "SLSI_S5K6B2YX_FIMC_IS";
+#if defined(CONFIG_CAMERA_SENSOR_8B1)
+	strcpy(type, "SLSI_S5K8B1YX_FIMC_IS");
+#endif
+	return sprintf(buf, "%s\n", type);
+}
+
+static ssize_t camera_front_camfw_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	char type[50] = "S5K6B2YX";
+#if defined(CONFIG_CAMERA_SENSOR_8B1)
+	strcpy(type, "S5K8B1YX");
+#endif
+	return sprintf(buf, "%s N\n", type);
+}
+
+static DEVICE_ATTR(front_camtype, S_IRUGO,
+		camera_front_camtype_show, NULL);
+static DEVICE_ATTR(front_camfw, S_IRUGO, camera_front_camfw_show, NULL);
+
+static struct fimc_is_from_info *pinfo = NULL;
+static struct fimc_is_from_info *finfo = NULL;
+
+int read_from_firmware_version(void)
+{
+	char fw_name[100];
+	char setf_name[100];
+	char master_setf_name[100];
+	char mode_setf_name[100];
+	struct device *is_dev = &sysfs_core->ischain[0].pdev->dev;
+
+	fimc_is_sec_get_sysfs_pinfo(&pinfo);
+	fimc_is_sec_get_sysfs_finfo(&finfo);
+
+	if (!finfo->is_caldata_read) {
+		if (finfo->bin_start_addr != 0x80000) {
+			//fimc_is_sec_set_camid(CAMERA_DUAL_FRONT);
+#if defined(CONFIG_PM_RUNTIME)
+			pr_debug("pm_runtime_suspended = %d\n",
+			pm_runtime_suspended(is_dev));
+			pm_runtime_get_sync(is_dev);
+#else
+			fimc_is_runtime_resume(is_dev);
+			printk(KERN_INFO "%s(%d) - fimc_is runtime resume complete\n", __func__, on);
+#endif
+			fimc_is_sec_fw_sel(sysfs_core, is_dev, fw_name, setf_name, 1);
+#ifdef CONFIG_COMPANION_USE
+			fimc_is_sec_concord_fw_sel(sysfs_core, is_dev, fw_name, master_setf_name, mode_setf_name, 1);
+#endif
+#if defined(CONFIG_PM_RUNTIME)
+			pm_runtime_put_sync(is_dev);
+			pr_debug("pm_runtime_suspended = %d\n",
+				pm_runtime_suspended(is_dev));
+#else
+			fimc_is_runtime_suspend(is_dev);
+#endif
+		}
+	}
+	return 0;
+}
+
+static ssize_t camera_rear_camtype_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	char type[] = "SLSI_S5K2P2_FIMC_IS";
+#if 0
+	char type_unknown[] = "UNKNOWN_UNKNOWN_FIMC_IS";
+
+	read_from_firmware_version(false);
+	if (fimc_is_sec_fw_module_compare(FW_2P2, finfo->header_ver))
+		return sprintf(buf, "%s\n", type);
+	else
+		return sprintf(buf, "%s\n", type_unknown);
+#endif
+	return sprintf(buf, "%s\n", type);
+}
+
+static ssize_t camera_rear_camfw_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	char command_ack[20] = {0, };
+	char *loaded_fw;
+
+	read_from_firmware_version();
+	fimc_is_sec_get_loaded_fw(&loaded_fw);
+
+	if(fw_version_crc_check) {
+		if (crc32_fw_check && crc32_check_factory && crc32_c1_fw_check && crc32_c1_check_factory) {
+			return sprintf(buf, "%s %s\n", finfo->header_ver, loaded_fw);
+		} else {
+			strcpy(command_ack, "NG_");
+			if (!crc32_fw_check)
+				strcat(command_ack, "FW");
+			if (!crc32_check_factory)
+				strcat(command_ack, "CD");
+			if (!crc32_c1_fw_check)
+				strcat(command_ack, "FW1");
+			if (!crc32_c1_check_factory)
+				strcat(command_ack, "CD1");
+			if (finfo->header_ver[3] == 'Q')
+				strcat(command_ack, "_Q");
+			return sprintf(buf, "%s %s\n", finfo->header_ver, command_ack);
+		}
+	} else {
+		strcpy(command_ack, "NG_FWCDFW1CD1");
+		return sprintf(buf, "%s %s\n", finfo->header_ver, command_ack);
+	}
+}
+
+static ssize_t camera_rear_camfw_full_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	char command_ack[20] = {0, };
+	char *loaded_fw;
+
+	read_from_firmware_version();
+	fimc_is_sec_get_loaded_fw(&loaded_fw);
+
+	if(fw_version_crc_check) {
+		if (crc32_fw_check && crc32_check_factory && crc32_c1_fw_check && crc32_c1_check_factory) {
+			return sprintf(buf, "%s %s %s\n", finfo->header_ver, pinfo->header_ver, loaded_fw);
+		} else {
+			strcpy(command_ack, "NG_");
+			if (!crc32_fw_check)
+				strcat(command_ack, "FW");
+			if (!crc32_check_factory)
+				strcat(command_ack, "CD");
+			if (!crc32_c1_fw_check)
+				strcat(command_ack, "FW1");
+			if (!crc32_c1_check_factory)
+				strcat(command_ack, "CD1");
+			if (finfo->header_ver[3] == 'Q')
+				strcat(command_ack, "_Q");
+			return sprintf(buf, "%s %s %s\n", finfo->header_ver, pinfo->header_ver, command_ack);
+		}
+	} else {
+		strcpy(command_ack, "NG_FWCDFW1CD1");
+		return sprintf(buf, "%s %s %s\n", finfo->header_ver, pinfo->header_ver, command_ack);
+	}
+}
+
+static ssize_t camera_rear_companionfw_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	char *loaded_c1_fw;
+
+	read_from_firmware_version();
+	fimc_is_sec_get_loaded_c1_fw(&loaded_c1_fw);
+
+	return sprintf(buf, "%s %s\n",
+		finfo->concord_header_ver, loaded_c1_fw);
+}
+
+static ssize_t camera_rear_companionfw_full_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	char *loaded_c1_fw;
+
+	read_from_firmware_version();
+	fimc_is_sec_get_loaded_c1_fw(&loaded_c1_fw);
+
+	return sprintf(buf, "%s %s %s\n",
+		finfo->concord_header_ver, pinfo->concord_header_ver, loaded_c1_fw);
+}
+
+
+static ssize_t camera_rear_camfw_write(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	ssize_t ret = -EINVAL;
+
+	if ((size == 1 || size == 2) && (buf[0] == 'F' || buf[0] == 'f')) {
+		fimc_is_sec_set_force_caldata_dump(true);
+		ret = size;
+	} else {
+		fimc_is_sec_set_force_caldata_dump(false);
+	}
+	return ret;
+}
+
+static ssize_t camera_rear_calcheck_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	char rear_sensor[10] = {0, };
+	char rear_companion[10] = {0, };
+
+	read_from_firmware_version();
+
+	if (crc32_check_factory)
+		strcpy(rear_sensor, "Normal");
+	else
+		strcpy(rear_sensor, "Abnormal");
+
+	if (crc32_c1_check_factory)
+		strcpy(rear_companion, "Normal");
+	else
+		strcpy(rear_companion, "Abnormal");
+
+	return sprintf(buf, "%s %s %s\n", rear_sensor, rear_companion, "Null");
+}
+
+static ssize_t camera_isp_core_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int voltage = 0;
+	char companion_voltage[10] = {0, };
+
+	voltage = fimc_is_power_binning(sysfs_core);
+	if (voltage == FAN53555_VOUT_0P88)
+		strcpy(companion_voltage, "0.88");
+	else if (voltage == FAN53555_VOUT_0P90)
+		strcpy(companion_voltage, "0.90");
+	else if (voltage == FAN53555_VOUT_0P93)
+		strcpy(companion_voltage, "0.93");
+	else if (voltage == FAN53555_VOUT_0P95)
+		strcpy(companion_voltage, "0.95");
+	else if (voltage == FAN53555_VOUT_0P98)
+		strcpy(companion_voltage, "0.98");
+	else
+		strcpy(companion_voltage, "1.00"); /* defualt voltage */
+
+	return sprintf(buf, "%s\n", companion_voltage);
+}
+
+static DEVICE_ATTR(rear_camtype, S_IRUGO,
+		camera_rear_camtype_show, NULL);
+static DEVICE_ATTR(rear_camfw, S_IRUGO,
+		camera_rear_camfw_show, camera_rear_camfw_write);
+static DEVICE_ATTR(rear_camfw_full, S_IRUGO,
+		camera_rear_camfw_full_show, NULL);
+static DEVICE_ATTR(rear_companionfw, S_IRUGO,
+		camera_rear_companionfw_show, NULL);
+static DEVICE_ATTR(rear_companionfw_full, S_IRUGO,
+		camera_rear_companionfw_full_show, NULL);
+static DEVICE_ATTR(rear_calcheck, S_IRUGO,
+		camera_rear_calcheck_show, NULL);
+static DEVICE_ATTR(isp_core, S_IRUGO,
+		camera_isp_core_show, NULL);
+#endif
 static int fimc_is_suspend(struct device *dev)
 {
 	pr_debug("FIMC_IS Suspend\n");
@@ -233,142 +524,13 @@ static int fimc_is_resume(struct device *dev)
 	return 0;
 }
 
-int fimc_is_runtime_suspend(struct device *dev)
-{
-	int ret = 0;
-	struct platform_device *pdev = to_platform_device(dev);
-	struct fimc_is_core *core
-		= (struct fimc_is_core *)platform_get_drvdata(pdev);
-#if defined(CONFIG_PM_DEVFREQ)
-	int int_qos, mif_qos, cam_qos, disp_qos;
-#endif
-
-	pr_info("FIMC_IS runtime suspend in\n");
-
-#if defined(CONFIG_VIDEOBUF2_ION)
-	if (core->mem.alloc_ctx)
-		vb2_ion_detach_iommu(core->mem.alloc_ctx);
-#endif
-
-#if defined(CONFIG_PM_DEVFREQ)
-	/* DEVFREQ release */
-	pr_info("[RSC] %s: QoS UNLOCK\n", __func__);
-	int_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_INT, FIMC_IS_SN_MAX);
-	mif_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_MIF, FIMC_IS_SN_MAX);
-	cam_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_CAM, FIMC_IS_SN_MAX);
-	disp_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_DISP, FIMC_IS_SN_MAX);
-
-	if (int_qos > 0)
-		pm_qos_remove_request(&exynos_isp_qos_int);
-	if (mif_qos > 0)
-		pm_qos_remove_request(&exynos_isp_qos_mem);
-	if (cam_qos > 0)
-		pm_qos_remove_request(&exynos_isp_qos_cam);
-	if (disp_qos > 0)
-		pm_qos_remove_request(&exynos_isp_qos_disp);
-#endif
-
-#if defined(CONFIG_FIMC_IS_BUS_DEVFREQ)
-#if defined(CONFIG_SOC_EXYNOS5260)
-	bts_initialize("spd-flite-a", false);
-	bts_initialize("spd-flite-b", false);
-#elif defined(CONFIG_SOC_EXYNOS3470)
-	bts_initialize("pd-cam", false);
-#else
-	exynos5_update_media_layers(TYPE_FIMC_LITE, false);
-	bts_initialize("pd-fimclite", false);
-#endif
-#endif
-
-	if (CALL_POPS(core, clk_off, core->pdev) < 0) {
-		err("clk_off is fail\n");
-		ret = -EINVAL;
-		goto p_err;
-	}
-	pr_info("FIMC_IS runtime suspend out\n");
-
-p_err:
-	pm_relax(dev);
-	return ret;
-}
-
-int fimc_is_runtime_resume(struct device *dev)
-{
-	int ret = 0;
-	struct platform_device *pdev = to_platform_device(dev);
-	struct fimc_is_core *core
-		= (struct fimc_is_core *)platform_get_drvdata(pdev);
-#if defined(CONFIG_PM_DEVFREQ)
-	int int_qos, mif_qos, cam_qos, disp_qos;
-#endif
-
-	pm_stay_awake(dev);
-	pr_info("FIMC_IS runtime resume in\n");
-
-#if defined(CONFIG_PM_DEVFREQ)
-	int_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_INT, FIMC_IS_SN_MAX);
-	mif_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_MIF, FIMC_IS_SN_MAX);
-	cam_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_CAM, FIMC_IS_SN_MAX);
-	disp_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_DISP, FIMC_IS_SN_MAX);
-
-	/* DEVFREQ lock */
-	if (int_qos > 0)
-		pm_qos_add_request(&exynos_isp_qos_int, PM_QOS_DEVICE_THROUGHPUT, int_qos);
-	if (mif_qos > 0)
-		pm_qos_add_request(&exynos_isp_qos_mem, PM_QOS_BUS_THROUGHPUT, mif_qos);
-	if (cam_qos > 0)
-		pm_qos_add_request(&exynos_isp_qos_cam, PM_QOS_CAM_THROUGHPUT, cam_qos);
-	if (disp_qos > 0)
-		pm_qos_add_request(&exynos_isp_qos_disp, PM_QOS_DISPLAY_THROUGHPUT, disp_qos);
-
-	pr_info("[RSC] %s: QoS LOCK [INT(%d), MIF(%d), CAM(%d), DISP(%d)]\n",
-		__func__, int_qos, mif_qos, cam_qos, disp_qos);
-#endif
-
-	/* Low clock setting */
-	if (CALL_POPS(core, clk_cfg, core->pdev) < 0) {
-		err("clk_cfg is fail\n");
-		ret = -EINVAL;
-		goto p_err;
-	}
-
-	/* Clock on */
-	if (CALL_POPS(core, clk_on, core->pdev) < 0) {
-		err("clk_on is fail\n");
-		ret = -EINVAL;
-		goto p_err;
-	}
-
-#if defined(CONFIG_VIDEOBUF2_ION)
-	if (core->mem.alloc_ctx)
-		vb2_ion_attach_iommu(core->mem.alloc_ctx);
-#endif
-
-#if defined(CONFIG_FIMC_IS_BUS_DEVFREQ)
-#if defined(CONFIG_SOC_EXYNOS5260)
-	bts_initialize("spd-flite-a", true);
-	bts_initialize("spd-flite-b", true);
-#elif defined(CONFIG_SOC_EXYNOS3470)
-	bts_initialize("pd-cam", true);
-#endif
-	bts_initialize("pd-fimclite", true);
-	exynos5_update_media_layers(TYPE_FIMC_LITE, true);
-#endif
-
-	pr_info("FIMC-IS runtime resume out\n");
-	return 0;
-
-p_err:
-	pm_relax(dev);
-	return ret;
-}
-
 #ifdef USE_OWN_FAULT_HANDLER
 static void __fimc_is_fault_handler(struct device *dev)
 {
 	u32 i, j, k;
 	struct fimc_is_core *core;
 	struct fimc_is_device_sensor *sensor;
+	struct fimc_is_device_ischain *ischain;
 	struct fimc_is_framemgr *framemgr;
 
 	core = dev_get_drvdata(dev);
@@ -377,18 +539,16 @@ static void __fimc_is_fault_handler(struct device *dev)
 		fimc_is_hw_memdump(&core->interface,
 			core->minfo.kvaddr + 0x010F8000 /* TTB_BASE ~ 16KB */,
 			core->minfo.kvaddr + 0x010F8000 + 0x4000);
-		fimc_is_hw_memdump(&core->interface,
-			core->minfo.kvaddr + 0x010FC000 /* GUARD2_BASE ~ 16KB */,
-			core->minfo.kvaddr + 0x010FC000 + 0x4000);
 
 		/* REAR SENSOR */
 		sensor = &core->sensor[0];
 		if (test_bit(FIMC_IS_SENSOR_OPEN, &sensor->state)) {
 			framemgr = &sensor->vctx->q_dst.framemgr;
 			for (i = 0; i < FRAMEMGR_MAX_REQUEST; ++i) {
-				pr_err("LITE0 BUF[%d][0] = %d, 0x%08X\n", i,
+				pr_err("LITE0 BUF[%d][0] = %d, 0x%08X, 0x%08X\n", i,
 					framemgr->frame[i].memory,
-					framemgr->frame[i].dvaddr_buffer[0]);
+					framemgr->frame[i].dvaddr_buffer[0],
+					framemgr->frame[i].kvaddr_buffer[0]);
 			}
 		}
 
@@ -397,93 +557,119 @@ static void __fimc_is_fault_handler(struct device *dev)
 		if (test_bit(FIMC_IS_SENSOR_OPEN, &sensor->state)) {
 			framemgr = &sensor->vctx->q_dst.framemgr;
 			for (i = 0; i < FRAMEMGR_MAX_REQUEST; ++i) {
-				pr_err("LITE1 BUF[%d][0] = %d, 0x%08X\n", i,
+				pr_err("LITE1 BUF[%d][0] = %d, 0x%08X. 0x%08X\n", i,
 					framemgr->frame[i].memory,
-					framemgr->frame[i].dvaddr_buffer[0]);
+					framemgr->frame[i].dvaddr_buffer[0],
+					framemgr->frame[i].kvaddr_buffer[0]);
 			}
 		}
 
 		/* ISCHAIN */
 		for (i = 0; i < FIMC_IS_MAX_NODES; i++) {
-			if (test_bit(FIMC_IS_ISCHAIN_OPEN, &((core->ischain[i]).state))) {
+			if (test_bit(FIMC_IS_ISCHAIN_OPEN, &(core->ischain[i].state))) {
+				ischain = &core->ischain[i];
 				/* 3AA */
-				framemgr = &core->ischain[i].group_3aa.leader.vctx->q_src.framemgr;
-				for (j = 0; j < framemgr->frame_cnt; ++j) {
-					for (k = 0; k < framemgr->frame[j].planes; k++) {
-						pr_err("ID[%d:%08X] BUF[%d][%d] = %d, 0x%08X\n", i,
-							framemgr->id, j, k,
-							framemgr->frame[j].memory,
-							framemgr->frame[j].dvaddr_buffer[k]);
+				if (test_bit(FIMC_IS_SUBDEV_START, &ischain->group_3aa.leader.state)) {
+					framemgr = &ischain->group_3aa.leader.vctx->q_src.framemgr;
+					for (j = 0; j < framemgr->frame_cnt; ++j) {
+						for (k = 0; k < framemgr->frame[j].planes; k++) {
+							pr_err("[3AA:%d] BUF[%d][%d] = %d, 0x%08X, 0x%08X\n",
+								i, j, k,
+								framemgr->frame[j].memory,
+								framemgr->frame[j].dvaddr_buffer[k],
+								framemgr->frame[j].kvaddr_buffer[k]);
+						}
 					}
 				}
 				/* 3AAC */
-				framemgr = &core->ischain[i].taac.vctx->q_dst.framemgr;
-				for (j = 0; j < framemgr->frame_cnt; ++j) {
-					for (k = 0; k < framemgr->frame[j].planes; k++) {
-						pr_err("ID[%d:%08X] BUF[%d][%d] = %d, 0x%08X\n", i,
-							framemgr->id, j, k,
-							framemgr->frame[j].memory,
-							framemgr->frame[j].dvaddr_buffer[k]);
+				if (test_bit(FIMC_IS_SUBDEV_START, &ischain->taac.state)) {
+					framemgr = &ischain->taac.leader->vctx->q_dst.framemgr;
+					for (j = 0; j < framemgr->frame_cnt; ++j) {
+						for (k = 0; k < framemgr->frame[j].planes; k++) {
+							pr_err("[3AAC:%d] BUF[%d][%d] = %d, 0x%08X, 0x%08X\n",
+								i, j, k,
+								framemgr->frame[j].memory,
+								framemgr->frame[j].dvaddr_buffer[k],
+								framemgr->frame[j].kvaddr_buffer[k]);
+						}
 					}
 				}
 				/* 3AAP */
-				framemgr = &core->ischain[i].taap.vctx->q_dst.framemgr;
-				for (j = 0; j < framemgr->frame_cnt; ++j) {
-					for (k = 0; k < framemgr->frame[j].planes; k++) {
-						pr_err("ID[%d:%08X] BUF[%d][%d] = %d, 0x%08X\n", i,
-							framemgr->id, j, k,
-							framemgr->frame[j].memory,
-							framemgr->frame[j].dvaddr_buffer[k]);
+				if (test_bit(FIMC_IS_SUBDEV_START, &ischain->taap.state)) {
+					framemgr = &ischain->taap.leader->vctx->q_dst.framemgr;
+					for (j = 0; j < framemgr->frame_cnt; ++j) {
+						for (k = 0; k < framemgr->frame[j].planes; k++) {
+							pr_err("[3AAP:%d] BUF[%d][%d] = %d, 0x%08X, 0x%08X\n",
+								i, j, k,
+								framemgr->frame[j].memory,
+								framemgr->frame[j].dvaddr_buffer[k],
+								framemgr->frame[j].kvaddr_buffer[k]);
+						}
 					}
 				}
 				/* ISP */
-				framemgr = &core->ischain[i].group_isp.leader.vctx->q_src.framemgr;
-				for (j = 0; j < framemgr->frame_cnt; ++j) {
-					for (k = 0; k < framemgr->frame[j].planes; k++) {
-						pr_err("ID[%d:%08X] BUF[%d][%d] = %d, 0x%08X\n", i,
-							framemgr->id, j, k,
-							framemgr->frame[j].memory,
-							framemgr->frame[j].dvaddr_buffer[k]);
+				if (test_bit(FIMC_IS_SUBDEV_START, &ischain->group_isp.leader.state)) {
+					framemgr = &ischain->group_isp.leader.vctx->q_src.framemgr;
+					for (j = 0; j < framemgr->frame_cnt; ++j) {
+						for (k = 0; k < framemgr->frame[j].planes; k++) {
+							pr_err("[ISP:%d] BUF[%d][%d] = %d, 0x%08X, 0x%08X\n",
+								i, j, k,
+								framemgr->frame[j].memory,
+								framemgr->frame[j].dvaddr_buffer[k],
+								framemgr->frame[j].kvaddr_buffer[k]);
+						}
 					}
 				}
 				/* SCC */
-				framemgr = &core->ischain[i].scc.vctx->q_dst.framemgr;
-				for (j = 0; j < framemgr->frame_cnt; ++j) {
-					for (k = 0; k < framemgr->frame[j].planes; k++) {
-						pr_err("ID[%d:%08X] BUF[%d][%d] = %d, 0x%08X\n", i,
-							framemgr->id, j, k,
-							framemgr->frame[j].memory,
-							framemgr->frame[j].dvaddr_buffer[k]);
+				if (test_bit(FIMC_IS_SUBDEV_START, &ischain->scc.state)) {
+					framemgr = &ischain->scc.vctx->q_dst.framemgr;
+					for (j = 0; j < framemgr->frame_cnt; ++j) {
+						for (k = 0; k < framemgr->frame[j].planes; k++) {
+							pr_err("[SCC:%d] BUF[%d][%d] = %d, 0x%08X, 0x%08X\n",
+								i, j, k,
+								framemgr->frame[j].memory,
+								framemgr->frame[j].dvaddr_buffer[k],
+								framemgr->frame[j].kvaddr_buffer[k]);
+						}
 					}
 				}
 				/* VDC */
-				framemgr = &core->ischain[i].dis.vctx->q_dst.framemgr;
-				for (j = 0; j < framemgr->frame_cnt; ++j) {
-					for (k = 0; k < framemgr->frame[j].planes; k++) {
-						pr_err("ID[%d:%08X] BUF[%d][%d] = %d, 0x%08X\n", i,
-							framemgr->id, j, k,
-							framemgr->frame[j].memory,
-							framemgr->frame[j].dvaddr_buffer[k]);
+				if (test_bit(FIMC_IS_SUBDEV_START, &ischain->dis.state)) {
+					framemgr = &ischain->dis.vctx->q_dst.framemgr;
+					for (j = 0; j < framemgr->frame_cnt; ++j) {
+						for (k = 0; k < framemgr->frame[j].planes; k++) {
+							pr_err("[VDC:%d] BUF[%d][%d] = %d, 0x%08X, 0x%08X\n",
+								i, j, k,
+								framemgr->frame[j].memory,
+								framemgr->frame[j].dvaddr_buffer[k],
+								framemgr->frame[j].kvaddr_buffer[k]);
+						}
 					}
 				}
 				/* VDO */
-				framemgr = &core->ischain[i].group_dis.leader.vctx->q_src.framemgr;
-				for (j = 0; j < framemgr->frame_cnt; ++j) {
-					for (k = 0; k < framemgr->frame[j].planes; k++) {
-						pr_err("ID[%d:%08X] BUF[%d][%d] = %d, 0x%08X\n", i,
-							framemgr->id, j, k,
-							framemgr->frame[j].memory,
-							framemgr->frame[j].dvaddr_buffer[k]);
+				if (test_bit(FIMC_IS_SUBDEV_START, &ischain->group_dis.leader.state)) {
+					framemgr = &ischain->group_dis.leader.vctx->q_src.framemgr;
+					for (j = 0; j < framemgr->frame_cnt; ++j) {
+						for (k = 0; k < framemgr->frame[j].planes; k++) {
+							pr_err("[VDO:%d] BUF[%d][%d] = %d, 0x%08X, 0x%08X\n",
+								i, j, k,
+								framemgr->frame[j].memory,
+								framemgr->frame[j].dvaddr_buffer[k],
+								framemgr->frame[j].kvaddr_buffer[k]);
+						}
 					}
 				}
 				/* SCP */
-				framemgr = &core->ischain[i].scp.vctx->q_dst.framemgr;
-				for (j = 0; j < framemgr->frame_cnt; ++j) {
-					for (k = 0; k < framemgr->frame[j].planes; k++) {
-						pr_err("ID[%d:%08X] BUF[%d][%d] = %d, 0x%08X\n", i,
-							framemgr->id, j, k,
-							framemgr->frame[j].memory,
-							framemgr->frame[j].dvaddr_buffer[k]);
+				if (test_bit(FIMC_IS_SUBDEV_START, &ischain->scp.state)) {
+					framemgr = &ischain->scp.vctx->q_dst.framemgr;
+					for (j = 0; j < framemgr->frame_cnt; ++j) {
+						for (k = 0; k < framemgr->frame[j].planes; k++) {
+							pr_err("[SCP:%d] BUF[%d][%d] = %d, 0x%08X, 0x%08X\n",
+								i, j, k,
+								framemgr->frame[j].memory,
+								framemgr->frame[j].dvaddr_buffer[k],
+								framemgr->frame[j].kvaddr_buffer[k]);
+						}
 					}
 				}
 			}
@@ -715,8 +901,18 @@ static int fimc_is_probe(struct platform_device *pdev)
 	ret = dev_set_drvdata(fimc_is_dev, core);
 	if (ret) {
 		err("dev_set_drvdata is fail(%d)", ret);
+		kfree(core);
 		return ret;
 	}
+
+#ifdef CONFIG_COMPANION_USE
+	core->companion_spi_channel = pdata->companion_spi_channel;
+	core->use_two_spi_line = pdata->use_two_spi_line;
+	core->fan53555_client = NULL;
+#endif
+#ifdef CONFIG_USE_VENDER_FEATURE
+	core->use_sensor_dynamic_voltage_mode = pdata->use_sensor_dynamic_voltage_mode;
+#endif
 
 	core->pdev = pdev;
 	core->pdata = pdata;
@@ -767,101 +963,77 @@ static int fimc_is_probe(struct platform_device *pdev)
 	/* group initialization */
 	fimc_is_groupmgr_probe(&core->groupmgr);
 
-#ifndef SENSOR_S5K6B2_DRIVING
 	ret = sensor_6b2_probe(NULL, NULL);
 	if (ret) {
 		err("sensor_6b2_probe is fail(%d)", ret);
 		goto p_err3;
 	}
-#endif
 
-#ifndef SENSOR_S5K8B1_DRIVING
 	ret = sensor_8b1_probe(NULL, NULL);
 	if (ret) {
 		err("sensor_8b1_probe is fail(%d)", ret);
 		goto p_err3;
 	}
-#endif
 
-#ifndef SENSOR_S5K6A3_DRIVING
 	ret = sensor_6a3_probe(NULL, NULL);
 	if (ret) {
 		err("sensor_6a3_probe is fail(%d)", ret);
 		goto p_err3;
 	}
-#endif
 
-#ifndef SENSOR_IMX135_DRIVING
 	ret = sensor_imx135_probe(NULL, NULL);
 	if (ret) {
 		err("sensor_imx135_probe is fail(%d)", ret);
 		goto p_err3;
 	}
-#endif
 
-#ifndef SENSOR_S5K3L2_DRIVING
 	ret = sensor_3l2_probe(NULL, NULL);
 	if (ret) {
 		err("sensor_3l2_probe is fail(%d)", ret);
 		goto p_err3;
 	}
-#endif
 
-#ifndef SENSOR_S5K2P2_DRIVING
 	ret = sensor_2p2_probe(NULL, NULL);
 	if (ret) {
 		err("sensor_2p2_probe is fail(%d)", ret);
 		goto p_err3;
 	}
-#endif
 
-#ifndef SENSOR_S5K3H5_DRIVING
 	ret = sensor_3h5_probe(NULL, NULL);
 	if (ret) {
 		err("sensor_3h5_probe is fail(%d)", ret);
 		goto p_err3;
 	}
-#endif
 
-#ifndef SENSOR_S5K3H7_DRIVING
 	ret = sensor_3h7_probe(NULL, NULL);
 	if (ret) {
 		err("sensor_3h7_probe is fail(%d)", ret);
 		goto p_err3;
 	}
-#endif
 
-#ifndef SENSOR_S5K3H7_SUNNY_DRIVING
 	ret = sensor_3h7_sunny_probe(NULL, NULL);
 	if (ret) {
 		err("sensor_3h7_sunny_probe is fail(%d)", ret);
 		goto p_err3;
 	}
-#endif
 
-#ifndef SENSOR_S5K4E5_DRIVING
 	ret = sensor_4e5_probe(NULL, NULL);
 	if (ret) {
 		err("sensor_4e5_probe is fail(%d)", ret);
 		goto p_err3;
 	}
-#endif
 
-#ifndef SENSOR_IMX175_DRIVING
 	ret = sensor_imx175_probe(NULL, NULL);
 	if (ret) {
 		err("sensor_imx175_probe is fail(%d)", ret);
 		goto p_err3;
 	}
-#endif
 
-#ifndef SENSOR_S5K4H5_DRIVING
 	ret = sensor_4h5_probe(NULL, NULL);
 	if (ret) {
 		err("sensor_4h5_probe is fail(%d)", ret);
 		goto p_err3;
 	}
-#endif
 
 	/* device entity - ischain0 */
 	fimc_is_ischain_probe(&core->ischain[0],
@@ -938,8 +1110,108 @@ static int fimc_is_probe(struct platform_device *pdev)
 
 	fimc_is_ishcain_initmem(core);
 
+#if defined(CONFIG_SOC_EXYNOS5430)
+#if defined(CONFIG_VIDEOBUF2_ION)
+	if (core->mem.alloc_ctx)
+		vb2_ion_attach_iommu(core->mem.alloc_ctx);
+#endif
+#endif
+
 #if defined(CONFIG_PM_RUNTIME)
 	pm_runtime_enable(&pdev->dev);
+#endif
+
+#ifdef CONFIG_USE_VENDER_FEATURE
+	if (camera_class == NULL) {
+		camera_class = class_create(THIS_MODULE, "camera");
+		if (IS_ERR(camera_class)) {
+			pr_err("Failed to create class(camera)!\n");
+			return PTR_ERR(camera_class);
+		}
+	}
+
+	camera_front_dev = device_create(camera_class, NULL, 0,
+				/*core->sensor[SENSOR_POSITION_FRONT].pdata*/ NULL,
+				"front");
+	if (IS_ERR(camera_front_dev)) {
+		printk(KERN_ERR "failed to create front device!\n");
+	} else {
+		if (device_create_file(camera_front_dev,
+				&dev_attr_front_sensorid) < 0) {
+			printk(KERN_ERR "failed to create front device file, %s\n",
+					dev_attr_front_sensorid.attr.name);
+		}
+
+		if (device_create_file(camera_front_dev,
+					&dev_attr_front_camtype)
+				< 0) {
+			printk(KERN_ERR
+				"failed to create front device file, %s\n",
+				dev_attr_front_camtype.attr.name);
+		}
+		if (device_create_file(camera_front_dev,
+					&dev_attr_front_camfw) < 0) {
+			printk(KERN_ERR
+				"failed to create front device file, %s\n",
+				dev_attr_front_camfw.attr.name);
+		}
+	}
+	camera_rear_dev = device_create(camera_class, NULL, 0,
+				/*core->sensor[SENSOR_POSITION_REAR].pdata*/ NULL,
+				"rear");
+	if (IS_ERR(camera_rear_dev)) {
+		printk(KERN_ERR "failed to create rear device!\n");
+	} else {
+		if (device_create_file(camera_rear_dev,
+					&dev_attr_rear_sensorid) < 0) {
+			printk(KERN_ERR "failed to create rear device file, %s\n",
+					dev_attr_rear_sensorid.attr.name);
+		}
+
+		if (device_create_file(camera_rear_dev, &dev_attr_rear_camtype)
+				< 0) {
+			printk(KERN_ERR
+				"failed to create rear device file, %s\n",
+				dev_attr_rear_camtype.attr.name);
+		}
+		if (device_create_file(camera_rear_dev,
+					&dev_attr_rear_camfw) < 0) {
+			printk(KERN_ERR
+				"failed to create rear device file, %s\n",
+				dev_attr_rear_camfw.attr.name);
+		}
+		if (device_create_file(camera_rear_dev,
+					&dev_attr_rear_camfw_full) < 0) {
+			printk(KERN_ERR
+				"failed to create rear device file, %s\n",
+				dev_attr_rear_camfw_full.attr.name);
+		}
+		if (device_create_file(camera_rear_dev,
+					&dev_attr_rear_companionfw) < 0) {
+			printk(KERN_ERR
+				"failed to create rear device file, %s\n",
+				dev_attr_rear_companionfw.attr.name);
+		}
+		if (device_create_file(camera_rear_dev,
+					&dev_attr_rear_companionfw_full) < 0) {
+			printk(KERN_ERR
+				"failed to create rear device file, %s\n",
+				dev_attr_rear_companionfw_full.attr.name);
+		}
+		if (device_create_file(camera_rear_dev,
+					&dev_attr_rear_calcheck) < 0) {
+			printk(KERN_ERR
+				"failed to create rear device file, %s\n",
+				dev_attr_rear_calcheck.attr.name);
+		}
+		if (device_create_file(camera_rear_dev,
+					&dev_attr_isp_core) < 0) {
+			printk(KERN_ERR
+				"failed to create rear device file, %s\n",
+				dev_attr_isp_core.attr.name);
+		}
+	}
+	sysfs_core = core;
 #endif
 
 #ifdef USE_OWN_FAULT_HANDLER
@@ -1001,6 +1273,116 @@ static const struct dev_pm_ops fimc_is_pm_ops = {
 	.runtime_resume		= fimc_is_runtime_resume,
 };
 
+#ifdef CONFIG_USE_VENDER_FEATURE
+#if defined(CONFIG_COMPANION_USE) || defined(CONFIG_CAMERA_EEPROM_SUPPORT)
+static int fimc_is_i2c0_probe(struct i2c_client *client,
+				  const struct i2c_device_id *id)
+{
+	struct fimc_is_core *core;
+	static bool probe_retried = false;
+
+	if (!fimc_is_dev)
+		goto probe_defer;
+
+	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	if (!core)
+		goto probe_defer;
+
+	core->client0 = client;
+
+	pr_info("%s %s: fimc_is_i2c0 driver probed!\n",
+		dev_driver_string(&client->dev), dev_name(&client->dev));
+
+	return 0;
+
+probe_defer:
+	if (probe_retried) {
+		err("probe has already been retried!!");
+		BUG();
+	}
+
+	probe_retried = true;
+	err("core device is not yet probed");
+	return -EPROBE_DEFER;
+}
+
+static int fimc_is_i2c0_remove(struct i2c_client *client)
+{
+	return 0;
+}
+
+#ifdef CONFIG_OF
+static struct of_device_id fimc_is_i2c0_dt_ids[] = {
+	{ .compatible = "samsung,fimc_is_i2c0",},
+	{},
+};
+MODULE_DEVICE_TABLE(of, fimc_is_i2c0_dt_ids);
+#endif
+
+static const struct i2c_device_id fimc_is_i2c0_id[] = {
+	{"fimc_is_i2c0", 0},
+	{}
+};
+MODULE_DEVICE_TABLE(i2c, fimc_is_i2c0_id);
+
+static struct i2c_driver fimc_is_i2c0_driver = {
+	.driver = {
+		.name = "fimc_is_i2c0",
+		.owner	= THIS_MODULE,
+#ifdef CONFIG_OF
+		.of_match_table = fimc_is_i2c0_dt_ids,
+#endif
+	},
+	.probe = fimc_is_i2c0_probe,
+	.remove = fimc_is_i2c0_remove,
+	.id_table = fimc_is_i2c0_id,
+};
+module_i2c_driver(fimc_is_i2c0_driver);
+#endif
+
+#if defined(CONFIG_OF) && defined(CONFIG_COMPANION_USE)
+static int of_fimc_is_spi_dt(struct device *dev, struct fimc_is_spi_gpio *spi_gpio, struct fimc_is_core *core)
+{
+	struct device_node *np;
+	int ret;
+
+	np = of_find_compatible_node(NULL,NULL,"samsung,fimc_is_spi1");
+	if(np == NULL) {
+		pr_err("compatible: fail to read, spi_parse_dt\n");
+		return -ENODEV;
+	}
+
+	ret = of_property_read_string(np, "fimc_is_spi_sclk", (const char **) &spi_gpio->spi_sclk);
+	if (ret) {
+		pr_err("spi gpio: fail to read, spi_parse_dt\n");
+		return -ENODEV;
+	}
+
+	ret = of_property_read_string(np, "fimc_is_spi_ssn",(const char **) &spi_gpio->spi_ssn);
+	if (ret) {
+		pr_err("spi gpio: fail to read, spi_parse_dt\n");
+		return -ENODEV;
+	}
+
+	ret = of_property_read_string(np, "fimc_is_spi_miso",(const char **) &spi_gpio->spi_miso);
+	if (ret) {
+		pr_err("spi gpio: fail to read, spi_parse_dt\n");
+		return -ENODEV;
+	}
+
+	ret = of_property_read_string(np, "fimc_is_spi_mois",(const char **) &spi_gpio->spi_mois);
+	if (ret) {
+		pr_err("spi gpio: fail to read, spi_parse_dt\n");
+		return -ENODEV;
+	}
+
+	pr_info("sclk = %s, ssn = %s, miso = %s, mois = %s spi_channel:(%d)\n", spi_gpio->spi_sclk, spi_gpio->spi_ssn, spi_gpio->spi_miso, spi_gpio->spi_mois,core->companion_spi_channel);
+
+	return 0;
+}
+#endif
+#endif
+
 #ifdef CONFIG_OF
 static int fimc_is_spi_probe(struct spi_device *spi)
 {
@@ -1017,6 +1399,13 @@ static int fimc_is_spi_probe(struct spi_device *spi)
 		return -EPROBE_DEFER;
 	}
 
+#ifdef CONFIG_SOC_EXYNOS5422
+	if (!strncmp(spi->modalias, "fimc_is_spi0", 12))
+		spi->mode = SPI_MODE_1;
+	else if (!strncmp(spi->modalias, "fimc_is_spi1", 12))
+		spi->mode = SPI_MODE_0;
+#endif
+
 	/* spi->bits_per_word = 16; */
 	if (spi_setup(spi)) {
 		pr_err("failed to setup spi for fimc_is_spi\n");
@@ -1027,8 +1416,16 @@ static int fimc_is_spi_probe(struct spi_device *spi)
 	if (!strncmp(spi->modalias, "fimc_is_spi0", 12))
 		core->spi0 = spi;
 
-	if (!strncmp(spi->modalias, "fimc_is_spi1", 12))
+	if (!strncmp(spi->modalias, "fimc_is_spi1", 12)) {
 		core->spi1 = spi;
+#ifdef CONFIG_COMPANION_USE
+		ret = of_fimc_is_spi_dt(&spi->dev,&core->spi_gpio, core);
+		if (ret) {
+			pr_err("[%s] of_fimc_is_spi_dt parse dt failed\n", __func__);
+			return ret;
+		}
+#endif
+	}
 
 exit:
 	return ret;
@@ -1038,6 +1435,122 @@ static int fimc_is_spi_remove(struct spi_device *spi)
 {
 	return 0;
 }
+
+#if defined(CONFIG_USE_VENDER_FEATURE) && defined(CONFIG_COMPANION_USE)
+static int fimc_is_fan53555_probe(struct i2c_client *client,
+				  const struct i2c_device_id *id)
+{
+	struct fimc_is_core *core;
+	int ret;
+#ifdef CONFIG_SOC_EXYNOS5422
+        struct regulator *regulator = NULL;
+        const char power_name[] = "CAM_IO_1.8V_AP";
+#endif
+	struct device_node *np;
+	int gpio_comp_en;
+
+	np = of_find_compatible_node(NULL,NULL,"samsung,fimc_is_fan53555");
+	if(np == NULL) {
+		pr_err("compatible: fail to read, fan_parse_dt\n");
+		return -ENODEV;
+	}
+
+	gpio_comp_en = of_get_named_gpio(np, "comp_en", 0);
+	if (!gpio_is_valid(gpio_comp_en))
+		pr_err("failed to get comp en gpio\n");
+
+	ret = gpio_request(gpio_comp_en,"COMP_EN");
+	if (ret >0 )
+		pr_err("gpio_request_error(%d)\n",ret);
+
+	gpio_direction_output(gpio_comp_en,1);
+
+	BUG_ON(!fimc_is_dev);
+
+	pr_info("%s start\n",__func__);
+
+	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	if (!core) {
+		err("core device is not yet probed");
+		return -EPROBE_DEFER;
+	}
+
+        if (!i2c_check_functionality(client->adapter, I2C_FUNC_SMBUS_BYTE_DATA)) {
+                pr_err("%s: SMBUS Byte Data not Supported\n", __func__);
+                ret =  -EIO;
+		goto err;
+        }
+
+	core->fan53555_client = client;
+
+#ifdef CONFIG_SOC_EXYNOS5422
+        regulator = regulator_get(NULL, power_name);
+        if (IS_ERR(regulator)) {
+                pr_err("%s : regulator_get(%s) fail\n", __func__, power_name);
+                return PTR_ERR(regulator);
+        }
+
+        if (regulator_is_enabled(regulator)) {
+                pr_info("%s regulator is already enabled\n", power_name);
+        } else {
+                ret = regulator_enable(regulator);
+                if (unlikely(ret)) {
+                        pr_err("%s : regulator_enable(%s) fail\n", __func__, power_name);
+                        goto err;
+                }
+        }
+        usleep_range(1000, 1000);
+#endif
+
+	ret = i2c_smbus_write_byte_data(client, REG_VSEL0, VSEL0_INIT_VAL);
+	if (ret < 0){
+		pr_err("%s: write error = %d , try again\n", __func__, ret);
+		ret = i2c_smbus_write_byte_data(client, REG_VSEL0, VSEL0_INIT_VAL);
+		if (ret < 0)
+			pr_err("%s: write 2nd error = %d\n", __func__, ret);
+	}
+
+        ret = i2c_smbus_read_byte_data(client, REG_VSEL0);
+	if(ret < 0){
+		pr_err("%s: read error = %d , try again\n", __func__, ret);
+		ret = i2c_smbus_read_byte_data(client, REG_VSEL0);
+		if (ret < 0)
+			pr_err("%s: read 2nd error = %d\n", __func__, ret);
+	}
+        pr_err("[%s::%d]fan53555 [Read :: %x ,%x]\n\n", __func__, __LINE__, ret,VSEL0_INIT_VAL);
+
+#ifdef CONFIG_SOC_EXYNOS5422
+        ret = regulator_disable(regulator);
+        if (unlikely(ret)) {
+                pr_err("%s: regulator_disable(%s) fail\n", __func__, power_name);
+                goto err;
+        }
+	regulator_put(regulator);
+#endif
+	gpio_direction_output(gpio_comp_en,0);
+	gpio_free(gpio_comp_en);
+
+        pr_info(" %s end\n",__func__);
+
+        return 0;
+err:
+#ifdef CONFIG_SOC_EXYNOS5422
+        if (!IS_ERR_OR_NULL(regulator)) {
+                ret = regulator_disable(regulator);
+                if (unlikely(ret)) {
+                        pr_err("%s: regulator_disable(%s) fail\n", __func__, power_name);
+                }
+                regulator_put(regulator);
+        }
+#endif
+        return ret;
+}
+
+static int fimc_is_fan53555_remove(struct i2c_client *client)
+{
+	return 0;
+}
+#endif
 
 static const struct of_device_id exynos_fimc_is_match[] = {
 	{
@@ -1078,6 +1591,32 @@ static struct spi_driver fimc_is_spi1_driver = {
 };
 
 module_spi_driver(fimc_is_spi1_driver);
+
+#ifdef CONFIG_COMPANION_USE
+static struct of_device_id fan53555_dt_ids[] = {
+        { .compatible = "samsung,fimc_is_fan53555",},
+        {},
+};
+MODULE_DEVICE_TABLE(of, fan53555_dt_ids);
+
+static const struct i2c_device_id fan53555_id[] = {
+        {"fimc_is_fan53555", 0},
+        {}
+};
+MODULE_DEVICE_TABLE(i2c, fan53555_id);
+
+static struct i2c_driver fan53555_driver = {
+        .driver = {
+                .name = "fimc_is_fan53555",
+                .owner  = THIS_MODULE,
+                .of_match_table = fan53555_dt_ids,
+        },
+        .probe = fimc_is_fan53555_probe,
+        .remove = fimc_is_fan53555_remove,
+        .id_table = fan53555_id,
+};
+module_i2c_driver(fan53555_driver);
+#endif
 
 static struct platform_driver fimc_is_driver = {
 	.probe		= fimc_is_probe,

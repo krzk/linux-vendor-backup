@@ -16,6 +16,7 @@
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/err.h>
+#include <linux/delay.h>
 
 /*
  * DOC: basic adjustable multiplexer clock that cannot gate
@@ -91,7 +92,6 @@ static int clk_mux_set_parent(struct clk_hw *hw, u8 index)
 	val |= index << mux->shift;
 	writel(val, mux->reg);
 
-#if defined (CONFIG_SOC_EXYNOS5430_REV_1)
 	if (mux->stat_reg) {
 		unsigned int timeout = 1000;
 		unsigned int mask = BIT(mux->stat_shift + mux->stat_width - 1);
@@ -110,7 +110,7 @@ static int clk_mux_set_parent(struct clk_hw *hw, u8 index)
 			val &= mask;
 		} while (val != 0);
 	}
-#endif
+
 	if (mux->lock)
 		spin_unlock_irqrestore(mux->lock, flags);
 
@@ -123,18 +123,11 @@ const struct clk_ops clk_mux_ops = {
 };
 EXPORT_SYMBOL_GPL(clk_mux_ops);
 
-#if defined (CONFIG_SOC_EXYNOS5430_REV_1)
 struct clk *clk_register_mux_table(struct device *dev, const char *name,
 		const char **parent_names, u8 num_parents, unsigned long flags,
 		void __iomem *reg, u8 shift, u32 mask,
 		u8 clk_mux_flags, u32 *table, spinlock_t *lock,
 		void __iomem *stat_reg, u8 stat_shift, u8 stat_width)
-#else
-struct clk *clk_register_mux_table(struct device *dev, const char *name,
-		const char **parent_names, u8 num_parents, unsigned long flags,
-		void __iomem *reg, u8 shift, u32 mask,
-		u8 clk_mux_flags, u32 *table, spinlock_t *lock)
-#endif
 {
 	struct clk_mux *mux;
 	struct clk *clk;
@@ -156,11 +149,9 @@ struct clk *clk_register_mux_table(struct device *dev, const char *name,
 	/* struct clk_mux assignments */
 	mux->reg = reg;
 	mux->shift = shift;
-	#if defined(CONFIG_SOC_EXYNOS5430_REV_1)
 	mux->stat_reg = stat_reg;
 	mux->stat_shift = stat_shift;
 	mux->stat_width = stat_width;
-	#endif
 	mux->mask = mask;
 	mux->flags = clk_mux_flags;
 	mux->lock = lock;
@@ -175,7 +166,6 @@ struct clk *clk_register_mux_table(struct device *dev, const char *name,
 	return clk;
 }
 
-#if defined(CONFIG_SOC_EXYNOS5430_REV_1)
 struct clk *clk_register_mux(struct device *dev, const char *name,
 		const char **parent_names, u8 num_parents, unsigned long flags,
 		void __iomem *reg, u8 shift, u8 width, u8 clk_mux_flags, spinlock_t *lock,
@@ -187,16 +177,3 @@ struct clk *clk_register_mux(struct device *dev, const char *name,
 				      flags, reg, shift, mask, clk_mux_flags,
 				      NULL, lock, stat_reg, stat_shift, stat_width);
 }
-#else
-struct clk *clk_register_mux(struct device *dev, const char *name,
-		const char **parent_names, u8 num_parents, unsigned long flags,
-		void __iomem *reg, u8 shift, u8 width,
-		u8 clk_mux_flags, spinlock_t *lock)
-{
-	u32 mask = BIT(width) - 1;
-
-	return clk_register_mux_table(dev, name, parent_names, num_parents,
-				      flags, reg, shift, mask, clk_mux_flags,
-				      NULL, lock);
-}
-#endif

@@ -47,6 +47,13 @@
 #define RSTCON_HLINK_SWRST			(0x1 << 1)
 #define RSTCON_SWRST				(0x1 << 0)
 
+/* For Exynos3 */
+#define PHYCLK1_COMMON_ON_N                     (0x1 << 7)
+#define PHYCLK0_COMMON_ON_N                     (0x1 << 4)
+#define PHYCLK_REF_CLKSEL			(0x2 << 8)
+#define EXYNOS3_PHY_CTRL		(0x00)
+#define PHY0_FORCESUSPEND		(0x1 << 0)
+
 /* EXYNOS5 */
 #define EXYNOS5_PHY_HOST_CTRL0			(0x00)
 
@@ -259,8 +266,14 @@
 #define TX_VBOOSTLEVEL_OVRD_IN_VBOOST_5420		(0x5 << 13)
 #define TX_VBOOSTLEVEL_OVRD_IN_VBOOST_DEFAULT		(0x4 << 13)
 
+#define EXYNOS5_DRD_PHYSS_RXDET_MEAS_TIME	(0x1010)
+#define RXDET_MEAS_TIME_20M			(0x1 << 6)
+#define RXDET_MEAS_TIME_24M			(0x1 << 7)
+#define RXDET_MEAS_TIME_50M			(0x1 << 9)
+
 enum samsung_cpu_type {
 	TYPE_S3C64XX,
+	TYPE_EXYNOS3,
 	TYPE_EXYNOS4210,
 	TYPE_EXYNOS5250,
 	TYPE_EXYNOS5,

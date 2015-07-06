@@ -23,6 +23,7 @@
 #include <linux/interrupt.h>
 #include <linux/pm_runtime.h>
 #include <linux/mutex.h>
+#include <linux/rtc.h>
 #include <linux/mfd/core.h>
 #include <linux/mfd/samsung/core.h>
 #include <linux/mfd/samsung/irq.h>
@@ -73,6 +74,14 @@ static struct mfd_cell s2mps13_devs[] = {
 	},
 };
 
+static struct mfd_cell s2mps14_devs[] = {
+	{
+		.name = "s2mps14-pmic",
+	}, {
+		.name = "s2m-rtc",
+	},
+};
+
 #ifdef CONFIG_OF
 static struct of_device_id sec_dt_match[] = {
 	{	.compatible = "samsung,s5m8767-pmic",
@@ -83,6 +92,9 @@ static struct of_device_id sec_dt_match[] = {
 	},
 	{	.compatible = "samsung,s2mps11-pmic",
 		.data = (void *)S2MPS11X,
+	},
+	{	.compatible = "samsung,s2mps14-pmic",
+		.data = (void *)S2MPS14X,
 	},
 	{},
 };
@@ -117,6 +129,7 @@ int sec_reg_update(struct sec_pmic_dev *sec_pmic, u32 reg, u32 val, u32 mask)
 	return regmap_update_bits(sec_pmic->regmap, reg, mask, val);
 }
 EXPORT_SYMBOL_GPL(sec_reg_update);
+
 int sec_rtc_read(struct sec_pmic_dev *sec_pmic, u32 reg, void *dest)
 {
 	return regmap_read(sec_pmic->rtc_regmap, reg, dest);
@@ -162,6 +175,8 @@ static struct sec_platform_data *sec_pmic_i2c_parse_dt_pdata(
 {
 	struct sec_platform_data *pdata;
 	struct device_node *np = dev->of_node;
+	int ret;
+	u32 val;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
@@ -169,18 +184,87 @@ static struct sec_platform_data *sec_pmic_i2c_parse_dt_pdata(
 		return ERR_PTR(-ENOMEM);
 	}
 	dev->platform_data = pdata;
-
-	pdata->wtsr_smpl = of_get_property(np, "wtsr_smpl", NULL);
 	pdata->irq_base = -1;
+
+	/* WTSR, SMPL */
+	pdata->wtsr_smpl = devm_kzalloc(dev, sizeof(*pdata->wtsr_smpl),
+			GFP_KERNEL);
+	if (!pdata->wtsr_smpl)
+		return ERR_PTR(-ENOMEM);
+
+	ret = of_property_read_u32(np, "wtsr_en", &val);
+	if (ret)
+		return ERR_PTR(ret);
+	pdata->wtsr_smpl->wtsr_en = !!val;
+
+	ret = of_property_read_u32(np, "smpl_en", &val);
+	if (ret)
+		return ERR_PTR(ret);
+	pdata->wtsr_smpl->smpl_en = !!val;
+
+	ret = of_property_read_u32(np, "wtsr_timer_val",
+			&pdata->wtsr_smpl->wtsr_timer_val);
+	if (ret)
+		return ERR_PTR(ret);
+
+	ret = of_property_read_u32(np, "smpl_timer_val",
+			&pdata->wtsr_smpl->smpl_timer_val);
+	if (ret)
+		return ERR_PTR(ret);
+
+	ret = of_property_read_u32(np, "check_jigon", &val);
+	if (ret)
+		return ERR_PTR(ret);
+	pdata->wtsr_smpl->check_jigon = !!val;
+
+	/* init time */
+	pdata->init_time = devm_kzalloc(dev, sizeof(*pdata->init_time),
+			GFP_KERNEL);
+	if (!pdata->init_time)
+		return ERR_PTR(-ENOMEM);
+
+	ret = of_property_read_u32(np, "init_time,sec",
+			&pdata->init_time->tm_sec);
+	if (ret)
+		return ERR_PTR(ret);
+
+	ret = of_property_read_u32(np, "init_time,min",
+			&pdata->init_time->tm_min);
+	if (ret)
+		return ERR_PTR(ret);
+
+	ret = of_property_read_u32(np, "init_time,hour",
+			&pdata->init_time->tm_hour);
+	if (ret)
+		return ERR_PTR(ret);
+
+	ret = of_property_read_u32(np, "init_time,mday",
+			&pdata->init_time->tm_mday);
+	if (ret)
+		return ERR_PTR(ret);
+
+	ret = of_property_read_u32(np, "init_time,mon",
+			&pdata->init_time->tm_mon);
+	if (ret)
+		return ERR_PTR(ret);
+
+	ret = of_property_read_u32(np, "init_time,year",
+			&pdata->init_time->tm_year);
+	if (ret)
+		return ERR_PTR(ret);
+
+	ret = of_property_read_u32(np, "init_time,wday",
+			&pdata->init_time->tm_wday);
+	if (ret)
+		return ERR_PTR(ret);
 
 	return pdata;
 }
-
 #else
 static struct sec_platform_data *sec_pmic_i2c_parse_dt_pdata(
 					struct device *dev)
 {
-	return 0;
+	return NULL;
 }
 #endif
 
@@ -223,6 +307,7 @@ static int sec_pmic_probe(struct i2c_client *i2c,
 		}
 		pdata->device_type = sec_pmic->type;
 	}
+
 	if (pdata) {
 		sec_pmic->device_type = pdata->device_type;
 		sec_pmic->ono = pdata->ono;
@@ -230,7 +315,6 @@ static int sec_pmic_probe(struct i2c_client *i2c,
 		sec_pmic->wakeup = true;
 		sec_pmic->pdata = pdata;
 		sec_pmic->irq = i2c->irq;
-		sec_pmic->wtsr_smpl = pdata->wtsr_smpl;
 	}
 
 	sec_pmic->regmap = devm_regmap_init_i2c(i2c, &sec_regmap_config);
@@ -278,6 +362,10 @@ static int sec_pmic_probe(struct i2c_client *i2c,
 	case S2MPS13X:
 		ret = mfd_add_devices(sec_pmic->dev, -1, s2mps13_devs,
 				      ARRAY_SIZE(s2mps13_devs), NULL, 0, NULL);
+		break;
+	case S2MPS14X:
+		ret = mfd_add_devices(sec_pmic->dev, -1, s2mps14_devs,
+				      ARRAY_SIZE(s2mps14_devs), NULL, 0, NULL);
 		break;
 	default:
 		/* If this happens the probe function is problem */
@@ -353,7 +441,7 @@ static struct i2c_driver sec_pmic_driver = {
 		   .name = "sec_pmic",
 		   .owner = THIS_MODULE,
 		   .of_match_table = of_match_ptr(sec_dt_match),
-		   .pm = &sec_pmic_apm,
+		   .pm = &sec_pmic_apm,		   
 	},
 	.probe = sec_pmic_probe,
 	.remove = sec_pmic_remove,

@@ -37,7 +37,6 @@
 #define to_s3c_chip(chip)		container_of(chip, struct s3c_chip, chip)
 
 #define pwm_dbg(_pwm, msg...)		dev_dbg(&(_pwm)->pdev->dev, msg)
-#define pwm_info(_pwm, msg...)		dev_info(&(_pwm)->pdev->dev, msg)
 
 #define pwm_tcon_start(pwm)		(1 << (pwm->tcon_base + 0))
 #define pwm_tcon_invert(pwm)		(1 << (pwm->tcon_base + 2))
@@ -78,7 +77,6 @@ struct s3c_pwm_device {
 struct s3c_chip {
 	struct platform_device	*pdev;
 	struct clk		*clk;
-	struct clk		*ipclk;
 	void __iomem		*reg_base;
 	struct pwm_chip		chip;
 	struct s3c_pwm_device	*s3c_pwm[NPWM];
@@ -169,7 +167,7 @@ static unsigned long pwm_calc_tin(struct pwm_device *pwm, unsigned long freq)
 	unsigned int div;
 
 	tin_parent_rate = clk_get_rate(clk_get_parent(s3c_pwm->clk_div));
-	pr_info("tin parent at %lu\n", tin_parent_rate);
+	clk_set_rate(clk_get_parent(s3c_pwm->clk_div),tin_parent_rate);
 
 	for (div = 2; div <= 16; div *= 2) {
 		if ((tin_parent_rate / (div << 16)) < freq)
@@ -210,9 +208,6 @@ static int s3c_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		return 0;
 
 	period = NS_IN_HZ / period_ns;
-
-	pwm_info(s3c, "duty_ns=%d, period_ns=%d (%lu)\n",
-			duty_ns, period_ns, period);
 
 	/* Check to see if we are changing the clock rate of the PWM */
 
@@ -418,14 +413,7 @@ static int s3c_pwm_clk_init(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 	static struct clk *clk_scaler[2];
-
-	s3c->ipclk = devm_clk_get(dev, "ipclk");
-	if (IS_ERR(s3c->ipclk)) {
-		pr_err("no parent ip clock\n");
-		return -EINVAL;
-	}
-
-	clk_prepare_enable(s3c->ipclk);
+	int ret;
 
 	s3c->clk = devm_clk_get(dev, "gate_timers");
 	if (IS_ERR(s3c->clk)) {
@@ -440,6 +428,18 @@ static int s3c_pwm_clk_init(struct platform_device *pdev,
 
 	if (IS_ERR(clk_scaler[0]) || IS_ERR(clk_scaler[1])) {
 		pr_err("failed to get scaler clocks\n");
+		return -EINVAL;
+	}
+
+	ret = clk_set_parent(clk_scaler[0], s3c->clk);
+	if (ret) {
+		pr_err("failed to parent for pwm-scaler0\n");
+		return -EINVAL;
+	}
+
+	ret = clk_set_parent(clk_scaler[1], s3c->clk);
+	if (ret) {
+		pr_err("failed to parent for pwm-scaler1\n");
 		return -EINVAL;
 	}
 
@@ -534,7 +534,6 @@ static int s3c_pwm_remove(struct platform_device *pdev)
 		return err;
 
 	clk_disable_unprepare(s3c->clk);
-	clk_disable_unprepare(s3c->ipclk);
 
 	return 0;
 }
@@ -576,7 +575,6 @@ static int s3c_pwm_suspend(struct device *dev)
 	s3c->reg_tcfg0 = __raw_readl(s3c->reg_base + REG_TCFG0);
 
 	clk_disable(s3c->clk);
-	clk_disable(s3c->ipclk);
 	return 0;
 }
 
@@ -586,7 +584,6 @@ static int s3c_pwm_resume(struct device *dev)
 	struct s3c_pwm_device *s3c_pwm;
 	unsigned char i;
 
-	clk_enable(s3c->ipclk);
 	clk_enable(s3c->clk);
 
 	/* Restore pwm registers*/

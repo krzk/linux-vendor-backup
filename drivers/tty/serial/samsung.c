@@ -94,8 +94,12 @@
 /* flag to ignore all characters coming in */
 #define RXSTAT_DUMMY_READ (0x10000000)
 
+static bool s3c24xx_serial_lpm_suspend(struct s3c24xx_uart_port *ourport);
 static void s3c24xx_serial_resetport(struct uart_port *port,
 				   struct s3c2410_uartcfg *cfg);
+static void s3c24xx_serial_pm(struct uart_port *port, unsigned int level,
+			      unsigned int old);
+static struct uart_driver s3c24xx_uart_drv;
 
 #ifdef CONFIG_SERIAL_SAMSUNG_DMA
 static struct s3c2410_dma_client samsung_uart_dma_client = {
@@ -171,6 +175,38 @@ static void s3c24xx_serial_rx_disable(struct uart_port *port)
 	spin_unlock_irqrestore(&port->lock, flags);
 }
 
+static void s3c64xx_serial_lpm(struct work_struct *work)
+{
+	struct s3c24xx_uart_port *ourport =
+		container_of(work, struct s3c24xx_uart_port,
+						uart_port_lpm_work);
+	struct uart_port *port = &ourport->port;
+
+	if (ourport->uart_lpm_wake)
+		uart_resume_port(&s3c24xx_uart_drv, port);
+	else
+		uart_suspend_port(&s3c24xx_uart_drv, port);
+}
+
+static int s3c24xx_serial_set_wake(struct uart_port *port, unsigned int state)
+{
+	struct s3c24xx_uart_port *ourport =
+		container_of(port, struct s3c24xx_uart_port, port);
+	bool lpass_subip_uart;
+
+	lpass_subip_uart = of_property_read_bool(ourport->pdev->dev.of_node,
+							"samsung,lpass-subip");
+	if (lpass_subip_uart) {
+
+		ourport->uart_lpm_wake = state;
+
+		if (!ourport->aud_uart_notifier_suspend)
+			schedule_work(&ourport->uart_port_lpm_work);
+	}
+
+	return 0;
+}
+
 static void s3c24xx_serial_stop_tx(struct uart_port *port)
 {
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
@@ -179,6 +215,12 @@ static void s3c24xx_serial_stop_tx(struct uart_port *port)
 #endif
 
 	if (tx_enabled(port)) {
+		if (s3c24xx_serial_lpm_suspend(ourport)) {
+			pr_info("%s: s3c24xx serial power off!\n", __func__);
+			tx_enabled(port) = 0;
+			return;
+		}
+
 		if (s3c24xx_serial_has_interrupt_mask(port))
 			__set_bit(S3C64XX_UINTM_TXD,
 				portaddrl(port, S3C64XX_UINTM));
@@ -196,9 +238,29 @@ static void s3c24xx_serial_stop_tx(struct uart_port *port)
 	}
 }
 
+static bool s3c24xx_serial_lpm_suspend(struct s3c24xx_uart_port *ourport)
+{
+	bool lpass_subip_uart;
+
+	lpass_subip_uart = of_property_read_bool(ourport->pdev->dev.of_node,
+							"samsung,lpass-subip");
+
+	if ((atomic_read(&ourport->serial_suspend)
+		|| ourport->port.suspended) && lpass_subip_uart)
+		return 1;
+
+	return 0;
+}
+
 static void s3c24xx_serial_start_tx(struct uart_port *port)
 {
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
+
+	if (s3c24xx_serial_lpm_suspend(ourport)) {
+		/* wakeup serial port */
+		s3c24xx_serial_set_wake(port, 1);
+		return;
+	}
 
 	if (!tx_enabled(port)) {
 		if (port->flags & UPF_CONS_FLOW)
@@ -219,6 +281,11 @@ static void s3c24xx_serial_stop_rx(struct uart_port *port)
 #ifdef CONFIG_SERIAL_SAMSUNG_DMA
 	struct exynos_uart_dma *uart_dma = &ourport->uart_dma;
 #endif
+
+	if (s3c24xx_serial_lpm_suspend(ourport)) {
+		rx_enabled(port) = 0;
+		return;
+	}
 
 	if (rx_enabled(port)) {
 		dbg("s3c24xx_serial_stop_rx: port=%p\n", port);
@@ -755,13 +822,25 @@ static irqreturn_t s3c24xx_serial_err_chars(int irq, void *id)
 #endif
 
 #ifdef CONFIG_PM_DEVFREQ
-static void s3c64xx_serial_mif_qos_func(struct work_struct *work)
+static void s3c64xx_serial_qos_func(struct work_struct *work)
 {
 	struct s3c24xx_uart_port *ourport =
-		container_of(work, struct s3c24xx_uart_port, mif_qos_work.work);
+		container_of(work, struct s3c24xx_uart_port, qos_work.work);
+	struct uart_port *port = &ourport->port;
 
-	pm_qos_update_request_timeout(&ourport->s3c24xx_uart_mif_qos,
-			ourport->mif_qos_val, ourport->mif_qos_timeout);
+	if (ourport->mif_qos_val)
+		pm_qos_update_request_timeout(&ourport->s3c24xx_uart_mif_qos,
+			ourport->mif_qos_val, ourport->qos_timeout);
+
+	if (ourport->cpu_qos_val)
+		pm_qos_update_request_timeout(&ourport->s3c24xx_uart_cpu_qos,
+			ourport->cpu_qos_val, ourport->qos_timeout);
+
+	if (ourport->int_qos_val)
+		pm_qos_update_request_timeout(&ourport->s3c24xx_uart_int_qos,
+			ourport->int_qos_val, ourport->qos_timeout);
+
+	irq_set_affinity(port->irq, cpumask_of(ourport->uart_irq_affinity));
 }
 #endif
 
@@ -774,8 +853,9 @@ static irqreturn_t s3c64xx_serial_handle_irq(int irq, void *id)
 	irqreturn_t ret = IRQ_HANDLED;
 
 #ifdef CONFIG_PM_DEVFREQ
-	if (ourport->mif_qos_val && ourport->mif_qos_timeout)
-		schedule_delayed_work(&ourport->mif_qos_work,
+	if ((ourport->baudclk_rate >= 1000000) && (ourport->mif_qos_val || ourport->cpu_qos_val
+			|| ourport->int_qos_val) && ourport->qos_timeout)
+		schedule_delayed_work(&ourport->qos_work,
 						msecs_to_jiffies(100));
 #endif
 
@@ -800,9 +880,15 @@ static irqreturn_t s3c64xx_serial_handle_irq(int irq, void *id)
 static unsigned int s3c24xx_serial_tx_empty(struct uart_port *port)
 {
 	struct s3c24xx_uart_info *info = s3c24xx_port_to_info(port);
-	unsigned long ufstat = rd_regl(port, S3C2410_UFSTAT);
-	unsigned long ufcon = rd_regl(port, S3C2410_UFCON);
+	struct s3c24xx_uart_port *ourport = to_ourport(port);
+	unsigned long ufstat;
+	unsigned long ufcon;
 
+	if (s3c24xx_serial_lpm_suspend(ourport))
+		return 1;
+
+	ufstat = rd_regl(port, S3C2410_UFSTAT);
+	ufcon = rd_regl(port, S3C2410_UFCON);
 	if (ufcon & S3C2410_UFCON_FIFOMODE) {
 		if ((ufstat & info->tx_fifomask) != 0 ||
 		    (ufstat & info->tx_fifofull))
@@ -817,7 +903,15 @@ static unsigned int s3c24xx_serial_tx_empty(struct uart_port *port)
 /* no modem control lines */
 static unsigned int s3c24xx_serial_get_mctrl(struct uart_port *port)
 {
-	unsigned int umstat = rd_regb(port, S3C2410_UMSTAT);
+	struct s3c24xx_uart_port *ourport = to_ourport(port);
+	unsigned int umstat;
+
+	if (s3c24xx_serial_lpm_suspend(ourport)) {
+		pr_info("%s: s3c24xx serial power off!\n", __func__);
+		return 0;
+	}
+
+	umstat = rd_regb(port, S3C2410_UMSTAT);
 
 	if (umstat & S3C2410_UMSTAT_CTS)
 		return TIOCM_CAR | TIOCM_DSR | TIOCM_CTS;
@@ -832,8 +926,14 @@ static void s3c24xx_serial_set_mctrl(struct uart_port *port, unsigned int mctrl)
 
 static void s3c24xx_serial_break_ctl(struct uart_port *port, int break_state)
 {
+	struct s3c24xx_uart_port *ourport = to_ourport(port);
 	unsigned long flags;
 	unsigned int ucon;
+
+	if (s3c24xx_serial_lpm_suspend(ourport)) {
+		pr_info("%s: s3c24xx serial power off!\n", __func__);
+		return;
+	}
 
 	spin_lock_irqsave(&port->lock, flags);
 
@@ -890,6 +990,11 @@ static void s3c24xx_serial_shutdown(struct uart_port *port)
 			dbg("%s rx free DMA : %x\n", __func__, port->mapbase);
 		}
 #endif
+	}
+
+	if (s3c24xx_serial_lpm_suspend(ourport)) {
+		free_irq(port->irq, ourport);
+		return;
 	}
 
 	/* Clear pending interrupts and mask all interrupts */
@@ -962,13 +1067,16 @@ static int s3c64xx_serial_startup(struct uart_port *port)
 	dbg("s3c64xx_serial_startup: port=%p (%08lx,%p)\n",
 	    port->mapbase, port->membase);
 
+	if (s3c24xx_serial_lpm_suspend(ourport))
+		s3c24xx_serial_pm(port, UART_PM_STATE_ON, 0);
+
 	ourport->cfg->wake_peer[port->line] =
 				s3c2410_serial_wake_peer[port->line];
 
 	wr_regl(port, S3C64XX_UINTM, 0xf);
 
-	ret = request_irq(port->irq, s3c64xx_serial_handle_irq, IRQF_SHARED,
-			  s3c24xx_serial_portname(port), ourport);
+	ret = request_threaded_irq(port->irq, NULL, s3c64xx_serial_handle_irq,
+			IRQF_ONESHOT, s3c24xx_serial_portname(port), ourport);
 	if (ret) {
 		dev_err(port->dev, "cannot get irq %d\n", port->irq);
 		return ret;
@@ -1019,7 +1127,7 @@ static int s3c64xx_serial_startup(struct uart_port *port)
 }
 
 #if defined(CONFIG_PM_RUNTIME) && defined(CONFIG_SND_SAMSUNG_AUDSS)
-static void aud_uart_get_sync(struct platform_device *pdev, struct uart_port *port)
+static void aud_uart_get_sync(struct platform_device *pdev)
 {
 	if (of_find_property(pdev->dev.of_node, "samsung,lpass-subip", NULL))
 		lpass_get_sync(&pdev->dev);
@@ -1030,21 +1138,25 @@ static void aud_uart_put_sync(struct platform_device *pdev)
 	if (of_find_property(pdev->dev.of_node, "samsung,lpass-subip", NULL))
 		lpass_put_sync(&pdev->dev);
 }
-static int aud_uart_gpio_cfg(struct platform_device *pdev, int level)
+
+static void aud_uart_gpio_cfg(struct device *dev, int level)
 {
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pins_default;
 	int status = 0;
 
-	pinctrl = devm_pinctrl_get(&pdev->dev);
+	pinctrl = devm_pinctrl_get(dev);
 	if (IS_ERR(pinctrl)) {
-		dev_err(&pdev->dev, "could not get pinctrl\n");
+		dev_err(dev, "could not get pinctrl\n");
 		goto err_no_pinctrl;
 	}
 
-	if (level)
+	if (level == S3C24XX_UART_PORT_SUSPEND)
 		pins_default =
 		    pinctrl_lookup_state(pinctrl, PINCTRL_STATE_IDLE);
+	else if (level == S3C24XX_UART_PORT_LPM)
+		pins_default =
+		    pinctrl_lookup_state(pinctrl, "lpm");
 	else
 		pins_default =
 		    pinctrl_lookup_state(pinctrl, PINCTRL_STATE_DEFAULT);
@@ -1052,33 +1164,72 @@ static int aud_uart_gpio_cfg(struct platform_device *pdev, int level)
 	if (!IS_ERR(pins_default)) {
 		status = pinctrl_select_state(pinctrl, pins_default);
 		if (status) {
-			dev_err(&pdev->dev, "could not set default pins\n");
+			dev_err(dev, "could not set default pins\n");
 			goto err_no_pinctrl;
 		}
 	} else {
-		dev_err(&pdev->dev, "could not get default pinstate\n");
+		dev_err(dev, "could not get default pinstate\n");
 		goto err_no_pinctrl;
 	}
 
-	return 0;
+	return;
 
 err_no_pinctrl:
-	return -ENODEV;
+	dev_err(dev, "failed to configure gpio for audio\n");
 }
 #else
-static void aud_uart_get_sync(struct platform_device *pdev, struct uart_port *port)
+#define aud_uart_get_sync(c)   do {} while(0)
+#define aud_uart_put_sync(c)   do {} while(0)
+#define aud_uart_gpio_cfg(c,d) do {} while(0)
+#endif
+
+void aud_uart_gpio_idle(struct device *dev)
 {
+	/* set aud uart gpio for idle */
+	aud_uart_gpio_cfg(dev, S3C24XX_UART_PORT_LPM);
+	aud_uart_gpio_cfg(dev, S3C24XX_UART_PORT_SUSPEND);
 }
 
-static void aud_uart_put_sync(struct platform_device *pdev)
+#ifdef CONFIG_PM_RUNTIME
+/* serial port save/restore */
+static void s3c24xx_serial_save_restore(struct uart_port *port,
+						unsigned int level)
 {
+	struct s3c24xx_uart_port *ourport = to_ourport(port);
+
+	switch (level) {
+	case 3:
+
+		/* save uart port sfr */
+		ourport->serial_ctrl[0] = rd_regl(port, S3C2410_ULCON);
+		ourport->serial_ctrl[1] = rd_regl(port, S3C2410_UCON);
+		ourport->serial_ctrl[2] = rd_regl(port, S3C2410_UFCON);
+		ourport->serial_baud[0] = rd_regl(port, S3C2410_UBRDIV);
+		ourport->serial_baud[1] = rd_regl(port, S3C2443_DIVSLOT);
+
+		break;
+
+	case 0:
+		/* restore uart port sfr */
+		if (ourport->serial_baud[0]) {
+			wr_regl(port, S3C2410_UBRDIV, ourport->serial_baud[0]);
+			wr_regl(port, S3C2443_DIVSLOT, ourport->serial_baud[1]);
+			wr_regl(port, S3C2410_ULCON, ourport->serial_ctrl[0]);
+			wr_regl(port, S3C2410_UCON, ourport->serial_ctrl[1]);
+			wr_regl(port, S3C2410_UFCON, ourport->serial_ctrl[2]);
+			wr_regl(port, S3C2410_UMCON, 0x0);
+			ourport->serial_ctrl[0] = 0;
+			ourport->serial_ctrl[1] = 0;
+			ourport->serial_ctrl[2] = 0;
+			ourport->serial_baud[0] = 0;
+			ourport->serial_baud[1] = 0;
+		}
+
+		break;
+	default:
+		dev_err(port->dev, "%s: unknown pm %d\n", __func__, level);
+	}
 }
-#ifdef CONFIG_SOC_EXYNOS5422_REV_0
-static int aud_uart_gpio_cfg(struct platform_device *pdev, int level)
-{
-	return 0;
-}
-#endif
 #endif
 
 /* power power management control */
@@ -1087,33 +1238,80 @@ static void s3c24xx_serial_pm(struct uart_port *port, unsigned int level,
 			      unsigned int old)
 {
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
+	unsigned int umcon;
 
 	switch (level) {
-	case 3:
+	case S3C24XX_UART_PORT_SUSPEND:
+		/* disable auto flow control & set nRTS for High */
+		umcon = rd_regl(port, S3C2410_UMCON);
+		umcon &= ~(S3C2410_UMCOM_AFC | S3C2410_UMCOM_RTS_LOW);
+		wr_regl(port, S3C2410_UMCON, umcon);
+
 #ifdef CONFIG_PM_RUNTIME
 		if (of_find_property(ourport->pdev->dev.of_node,
 						"samsung,lpass-subip", NULL)) {
-			if (aud_uart_gpio_cfg(ourport->pdev, level))
-				dev_err(port->dev,
-					"failed to configure gpio for audio\n");
+
+			if (!atomic_read(&ourport->serial_suspend)) {
+				aud_uart_gpio_cfg(&ourport->pdev->dev, level);
+
+				s3c24xx_serial_save_restore(port, level);
+
+				clk_disable_unprepare(ourport->clk);
+
+				aud_uart_put_sync(ourport->pdev);
+
+				atomic_set(&ourport->serial_suspend, level);
+
+				pr_info("%s: aud_uart_pm_suspend\n", __func__);
+			}
+		} else {
+			clk_disable_unprepare(ourport->clk);
 		}
-#endif
+#else
 		clk_disable_unprepare(ourport->clk);
-		aud_uart_put_sync(ourport->pdev);
+#endif
 		break;
 
-	case 0:
-		aud_uart_get_sync(ourport->pdev, port);
-		clk_prepare_enable(ourport->clk);
+	case S3C24XX_UART_PORT_RESUME:
 #ifdef CONFIG_PM_RUNTIME
 		if (of_find_property(ourport->pdev->dev.of_node,
 						"samsung,lpass-subip", NULL)) {
-			if (aud_uart_gpio_cfg(ourport->pdev, level))
-				dev_err(port->dev,
-					"failed to configure gpio for audio\n");
 
-			s3c24xx_serial_resetport(port, s3c24xx_port_to_cfg(port));
+			if (atomic_read(&ourport->serial_suspend)) {
+
+				aud_uart_get_sync(ourport->pdev);
+
+				clk_prepare_enable(ourport->clk);
+
+				s3c24xx_serial_save_restore(port, level);
+
+				/* Keep all interrupts masked and cleared */
+				wr_regl(port, S3C64XX_UINTM, 0xf);
+				wr_regl(port, S3C64XX_UINTP, 0xf);
+				wr_regl(port, S3C64XX_UINTSP, 0xf);
+
+				s3c24xx_serial_resetport(port,
+						s3c24xx_port_to_cfg(port));
+
+				aud_uart_gpio_cfg(&ourport->pdev->dev, level);
+
+				atomic_set(&ourport->serial_suspend, level);
+
+				pr_info("%s: aud_uart_pm_resume\n", __func__);
+			}
+
+		} else {
+			clk_prepare_enable(ourport->clk);
+
+			s3c24xx_serial_resetport(port,
+					s3c24xx_port_to_cfg(port));
 		}
+
+#else
+		clk_prepare_enable(ourport->clk);
+
+		s3c24xx_serial_resetport(port,
+				s3c24xx_port_to_cfg(port));
 #endif
 		break;
 	default:
@@ -1270,6 +1468,10 @@ static void s3c24xx_serial_set_termios(struct uart_port *port,
 	termios->c_cflag &= ~(HUPCL | CMSPAR);
 	termios->c_cflag |= CLOCAL;
 
+	if (s3c24xx_serial_lpm_suspend(ourport)) {
+		pr_info("%s: s3c24xx serial power off!\n", __func__);
+		return;
+	}
 	/*
 	 * Ask the core to calculate the divisor for us.
 	 */
@@ -1495,6 +1697,7 @@ static struct uart_ops s3c24xx_serial_ops = {
 	.config_port	= s3c24xx_serial_config_port,
 	.verify_port	= s3c24xx_serial_verify_port,
 	.wake_peer	= s3c24xx_serial_wake_peer,
+	.set_wake	= s3c24xx_serial_set_wake,
 #if defined(CONFIG_SERIAL_SAMSUNG_CONSOLE) && defined(CONFIG_CONSOLE_POLL)
 	.poll_get_char = s3c24xx_serial_get_poll_char,
 	.poll_put_char = s3c24xx_serial_put_poll_char,
@@ -1581,7 +1784,10 @@ static void s3c24xx_serial_resetport(struct uart_port *port,
 
 	ucon &= ucon_mask;
 	wr_regl(port, S3C2410_UCON,  ucon | cfg->ucon);
-
+#ifdef CONFIG_SERIAL_SAMSUNG_LOOPBACK_MODE
+	if (port->line == 0)
+		wr_regl(port, S3C2410_UCON,  ucon | cfg->ucon | (1 << 5));
+#endif
 	/* reset both fifos */
 	wr_regl(port, S3C2410_UFCON, cfg->ufcon | S3C2410_UFCON_RESETBOTH);
 	wr_regl(port, S3C2410_UFCON, cfg->ufcon);
@@ -1605,6 +1811,7 @@ static int s3c24xx_serial_init_port(struct s3c24xx_uart_port *ourport,
 	struct exynos_uart_dma *uart_dma = &ourport->uart_dma;
 #endif
 	char clkname[MAX_CLK_NAME_LENGTH];
+	struct clk* baud_clk;
 	int ret;
 
 	dbg("s3c24xx_serial_init_port: port=%p, platdev=%p\n", port, platdev);
@@ -1679,6 +1886,10 @@ static int s3c24xx_serial_init_port(struct s3c24xx_uart_port *ourport,
 		clk_put(ourport->clk);
 		return ret;
 	}
+
+	snprintf(clkname, sizeof(clkname), "sclk_uart%d", ourport->port.line);
+	baud_clk = clk_get(&platdev->dev, clkname);
+	clk_set_rate(baud_clk, 100000000);
 
 	/* Keep all interrupts masked and cleared */
 	if (s3c24xx_serial_has_interrupt_mask(port)) {
@@ -1756,11 +1967,16 @@ static int exynos_aud_uart_notifier(struct notifier_block *notifier,
 
 	switch (event) {
 	case PM_SUSPEND_PREPARE:
+		cancel_work_sync(&ourport->uart_port_lpm_work);
 		uart_suspend_port(&s3c24xx_uart_drv, port);
+		ourport->aud_uart_notifier_suspend = true;
 		return NOTIFY_OK;
 	case PM_POST_RESTORE:
 	case PM_POST_SUSPEND:
+		cancel_work_sync(&ourport->uart_port_lpm_work);
+		if (ourport->uart_lpm_wake)
 		uart_resume_port(&s3c24xx_uart_drv, port);
+		ourport->aud_uart_notifier_suspend = false;
 
 		return NOTIFY_OK;
 	}
@@ -1836,15 +2052,39 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 	if (of_property_read_u32(pdev->dev.of_node, "mif_qos_val",
 						&ourport->mif_qos_val))
 		ourport->mif_qos_val = 0;
-	if (of_property_read_u32(pdev->dev.of_node, "mif_qos_timeout",
-					(u32 *)&ourport->mif_qos_timeout))
-		ourport->mif_qos_timeout = 0;
 
-	if (ourport->mif_qos_val && ourport->mif_qos_timeout) {
-		INIT_DELAYED_WORK(&ourport->mif_qos_work,
-						s3c64xx_serial_mif_qos_func);
-		pm_qos_add_request(&ourport->s3c24xx_uart_mif_qos,
+	if (of_property_read_u32(pdev->dev.of_node, "cpu_qos_val",
+						&ourport->cpu_qos_val))
+		ourport->cpu_qos_val = 0;
+
+	if (of_property_read_u32(pdev->dev.of_node, "int_qos_val",
+						&ourport->int_qos_val))
+		ourport->int_qos_val = 0;
+
+	if (of_property_read_u32(pdev->dev.of_node, "irq_affinity",
+						&ourport->uart_irq_affinity))
+		ourport->uart_irq_affinity = 0;
+
+	if (of_property_read_u32(pdev->dev.of_node, "qos_timeout",
+					(u32 *)&ourport->qos_timeout))
+		ourport->qos_timeout = 0;
+
+	if ((ourport->mif_qos_val || ourport->cpu_qos_val || ourport->int_qos_val)
+					&& ourport->qos_timeout) {
+		INIT_DELAYED_WORK(&ourport->qos_work,
+						s3c64xx_serial_qos_func);
+		/* request pm qos */
+		if (ourport->mif_qos_val)
+			pm_qos_add_request(&ourport->s3c24xx_uart_mif_qos,
 						PM_QOS_BUS_THROUGHPUT, 0);
+
+		if (ourport->cpu_qos_val)
+			pm_qos_add_request(&ourport->s3c24xx_uart_cpu_qos,
+						PM_QOS_CPU_FREQ_MIN, 0);
+
+		if (ourport->int_qos_val)
+			pm_qos_add_request(&ourport->s3c24xx_uart_int_qos,
+						PM_QOS_DEVICE_THROUGHPUT, 0);
 	}
 #endif
 
@@ -1857,6 +2097,17 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 		ourport->aud_uart_notifier.notifier_call =
 						exynos_aud_uart_notifier;
 		register_pm_notifier(&ourport->aud_uart_notifier);
+
+		ourport->aud_uart_notifier_suspend = false;
+		ourport->uart_lpm_wake = true;
+
+		INIT_WORK(&ourport->uart_port_lpm_work,
+					s3c64xx_serial_lpm);
+#ifdef CONFIG_SND_SAMSUNG_AUDSS
+		lpass_set_gpio_cb(&pdev->dev, &aud_uart_gpio_idle);
+#endif
+
+		atomic_set(&ourport->serial_suspend, S3C24XX_UART_PORT_SUSPEND);
 	}
 
 	dbg("%s: adding port\n", __func__);
@@ -1868,7 +2119,6 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 	if (ret < 0)
 		dev_err(&pdev->dev, "failed to add clock source attr.\n");
 #endif
-
 	return 0;
 
  probe_err:
@@ -1878,12 +2128,17 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 static int s3c24xx_serial_remove(struct platform_device *dev)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(&dev->dev);
-
-#ifdef CONFIG_PM_DEVFREQ
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
 
-	if (ourport->mif_qos_val && ourport->mif_qos_timeout)
+#ifdef CONFIG_PM_DEVFREQ
+	if (ourport->mif_qos_val && ourport->qos_timeout)
 		pm_qos_remove_request(&ourport->s3c24xx_uart_mif_qos);
+
+	if (ourport->cpu_qos_val && ourport->qos_timeout)
+		pm_qos_remove_request(&ourport->s3c24xx_uart_cpu_qos);
+
+	if (ourport->int_qos_val && ourport->qos_timeout)
+		pm_qos_remove_request(&ourport->s3c24xx_uart_int_qos);
 #endif
 
 	if (port) {
@@ -2094,8 +2349,8 @@ s3c24xx_serial_get_options(struct uart_port *port, int *baud,
 		case S3C2410_LCON_CS7:
 			*bits = 7;
 			break;
-		default:
 		case S3C2410_LCON_CS8:
+		default:
 			*bits = 8;
 			break;
 		}
@@ -2348,11 +2603,38 @@ static struct s3c24xx_serial_drv_data exynos4210_serial_drv_data = {
 		.ufcon		= S5PV210_UFCON_DEFAULT,
 		.has_fracval	= 1,
 	},
-	.fifosize = { 256, 64, 16, 16 },
+/* For 3250 */
+	.fifosize = { 256, 64, 256, 16 },
+};
+
+static struct s3c24xx_serial_drv_data exynos5430_serial_drv_data = {
+	.info = &(struct s3c24xx_uart_info) {
+		.name		= "Samsung Exynos4 UART",
+		.type		= PORT_S3C6400,
+		.has_divslot	= 1,
+		.rx_fifomask	= S5PV210_UFSTAT_RXMASK,
+		.rx_fifoshift	= S5PV210_UFSTAT_RXSHIFT,
+		.rx_fifofull	= S5PV210_UFSTAT_RXFULL,
+		.tx_fifofull	= S5PV210_UFSTAT_TXFULL,
+		.tx_fifomask	= S5PV210_UFSTAT_TXMASK,
+		.tx_fifoshift	= S5PV210_UFSTAT_TXSHIFT,
+		.def_clk_sel	= S3C2410_UCON_CLKSEL0,
+		.num_clks	= 1,
+		.clksel_mask	= 0,
+		.clksel_shift	= 0,
+	},
+	.def_cfg = &(struct s3c2410_uartcfg) {
+		.ucon		= S5PV210_UCON_DEFAULT,
+		.ufcon		= S5PV210_UFCON_DEFAULT,
+		.has_fracval	= 1,
+	},
+	.fifosize = { 64, 256, 16, 256 },
 };
 #define EXYNOS4210_SERIAL_DRV_DATA ((kernel_ulong_t)&exynos4210_serial_drv_data)
+#define EXYNOS5430_SERIAL_DRV_DATA ((kernel_ulong_t)&exynos5430_serial_drv_data)
 #else
 #define EXYNOS4210_SERIAL_DRV_DATA (kernel_ulong_t)NULL
+#define EXYNOS5430_SERIAL_DRV_DATA (kernel_ulong_t)NULL
 #endif
 
 static struct platform_device_id s3c24xx_serial_driver_ids[] = {
@@ -2374,6 +2656,9 @@ static struct platform_device_id s3c24xx_serial_driver_ids[] = {
 	}, {
 		.name		= "exynos4210-uart",
 		.driver_data	= EXYNOS4210_SERIAL_DRV_DATA,
+	}, {
+		.name		= "exynos5430-uart",
+		.driver_data	= EXYNOS5430_SERIAL_DRV_DATA,
 	},
 	{ },
 };
@@ -2393,6 +2678,8 @@ static const struct of_device_id s3c24xx_uart_dt_match[] = {
 		.data = (void *)S5PV210_SERIAL_DRV_DATA },
 	{ .compatible = "samsung,exynos4210-uart",
 		.data = (void *)EXYNOS4210_SERIAL_DRV_DATA },
+	{ .compatible = "samsung,exynos5430-uart",
+		.data = (void *)EXYNOS5430_SERIAL_DRV_DATA },
 	{},
 };
 MODULE_DEVICE_TABLE(of, s3c24xx_uart_dt_match);

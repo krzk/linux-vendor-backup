@@ -37,13 +37,34 @@ enum {
 	AUD_PWR_AFTR,
 };
 
+#ifdef CONFIG_SCHED_HMP
+#define USE_EXYNOS_AUD_SCHED
+enum {
+	AUD_MODE_DEFAULT = 0,
+	AUD_MODE_NORM,
+	AUD_MODE_UHQA,
+};
+
+extern void lpass_set_sched(pid_t pid, int mode);
+#endif
+
+#if defined(CONFIG_SCHED_HMP) && defined(CONFIG_EXYNOS5_DYNAMIC_CPU_HOTPLUG)
+#define USE_EXYNOS_AUD_CPU_HOTPLUG
+extern void lpass_get_cpu_hotplug(void);
+extern void lpass_put_cpu_hotplug(void);
+#endif
+
 extern int exynos_check_aud_pwr(void);
 
 extern int lpass_register_subip(struct device *ip_dev, const char *ip_name);
-extern int lpass_set_gpio_cb(struct device *ip_dev, void (*ip_cb)(void));
+extern int lpass_set_gpio_cb(struct device *ip_dev,
+			void (*ip_cb)(struct device *dev));
 extern void lpass_get_sync(struct device *ip_dev);
 extern void lpass_put_sync(struct device *ip_dev);
 extern struct iommu_domain *lpass_get_iommu_domain(void);
+
+extern void lpass_add_stream(void);
+extern void lpass_remove_stream(void);
 
 extern void lpass_reset(int ip, int op);
 extern void lpass_reset_toggle(int ip);

@@ -34,10 +34,13 @@ static inline void s3c_pm_debug_init_uart(void)
 
 static inline void s3c_pm_arch_prepare_irqs(void)
 {
-	u32 eintmask = s3c_irqwake_eintmask;
+	unsigned long eintmask = s3c_irqwake_eintmask;
 
 	if (of_have_populated_dt())
 		eintmask = exynos_get_eint_wake_mask();
+
+	S3C_PMDBG("sleep: irq wakeup masks: %08lx,%08lx\n",
+			s3c_irqwake_intmask, eintmask);
 
 	if (soc_is_exynos5430()) {
 		__raw_writel(eintmask, EXYNOS5430_EINT_WAKEUP_MASK);

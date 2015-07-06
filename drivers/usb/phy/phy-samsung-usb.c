@@ -93,6 +93,7 @@ void samsung_usbphy_set_isolation(struct samsung_usbphy *sphy, bool on)
 		 * Do nothing: We will add here once S3C64xx goes for DT support
 		 */
 		break;
+	case TYPE_EXYNOS3:
 	case TYPE_EXYNOS4210:
 		/*
 		 * Fall through since exynos4210 and exynos5250 have similar
@@ -230,7 +231,8 @@ int samsung_usbphy_get_refclk_freq(struct samsung_usbphy *sphy)
 	}
 
 	if (sphy->drv_data->cpu_type == TYPE_EXYNOS5250 ||
-		sphy->drv_data->cpu_type == TYPE_EXYNOS5) {
+		sphy->drv_data->cpu_type == TYPE_EXYNOS5 ||
+		sphy->drv_data->cpu_type == TYPE_EXYNOS3) {
 		/* set clock frequency for PLL */
 		switch (clk_get_rate(ref_clk)) {
 		case 9600 * KHZ:

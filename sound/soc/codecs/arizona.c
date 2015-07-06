@@ -1687,7 +1687,13 @@ int arizona_init_fll(struct arizona *arizona, int id, int base, int lock_irq,
 	fll->sync_src = ARIZONA_FLL_SRC_NONE;
 
 	/* Configure default refclk to 32kHz if we have one */
-	regmap_read(arizona->regmap, ARIZONA_CLOCK_32K_1, &val);
+	ret = regmap_read(arizona->regmap, ARIZONA_CLOCK_32K_1, &val);
+	if (ret != 0) {
+		arizona_fll_err(fll, "Failed to read current clock: %d\n",
+			ret);
+		return ret;
+	}
+
 	switch (val & ARIZONA_CLK_32K_SRC_MASK) {
 	case ARIZONA_CLK_SRC_MCLK1:
 	case ARIZONA_CLK_SRC_MCLK2:

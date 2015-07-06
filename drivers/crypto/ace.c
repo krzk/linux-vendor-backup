@@ -669,6 +669,7 @@ static int s5p_ace_aes_engine_start(struct s5p_ace_aes_ctx *sctx,
 	return 0;
 }
 
+#ifndef CONFIG_ACE_BC_IRQMODE
 static void s5p_ace_aes_engine_wait(struct s5p_ace_aes_ctx *sctx,
 				u8 *out, const u8 *in, u32 len)
 {
@@ -680,6 +681,7 @@ static void s5p_ace_aes_engine_wait(struct s5p_ace_aes_ctx *sctx,
 		printk(KERN_ERR "%s : DMA time out\n", __func__);
 	s5p_ace_write_sfr(ACE_FC_INTPEND, ACE_FC_BTDMA | ACE_FC_BRDMA);
 }
+#endif
 
 void s5p_ace_sg_update(struct scatterlist **sg, size_t *offset,
 					size_t count)
@@ -864,7 +866,9 @@ static int s5p_ace_aes_crypt_dma_start(struct s5p_ace_device *dev)
 		return ret;
 	}
 
+#ifndef CONFIG_ACE_BC_IRQMODE
 run:
+#endif
 #ifdef CONFIG_ACE_BC_ASYNC
 #ifndef CONFIG_ACE_BC_IRQMODE
 	if (!ret) {

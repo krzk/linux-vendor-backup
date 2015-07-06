@@ -13,7 +13,9 @@
 #ifndef __MACH_VIDEONODE_H
 #define __MACH_VIDEONODE_H __FILE__
 
-#if defined(CONFIG_ARCH_EXYNOS4)
+#if defined(CONFIG_ARCH_EXYNOS3)
+#include "videonode-exynos3.h"
+#elif defined(CONFIG_ARCH_EXYNOS4)
 #include "videonode-exynos4.h"
 #elif defined(CONFIG_ARCH_EXYNOS5)
 #include "videonode-exynos5.h"

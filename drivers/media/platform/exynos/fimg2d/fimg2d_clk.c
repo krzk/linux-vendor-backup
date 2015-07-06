@@ -24,7 +24,7 @@
 
 void fimg2d_clk_on(struct fimg2d_control *ctrl)
 {
-	if (ip_is_g2d_5ar2() || ip_is_g2d_5h()) {
+	if (ip_is_g2d_5ar2() || ip_is_g2d_5h() || ip_is_g2d_5hp()) {
 		clk_enable(ctrl->clock);
 		clk_enable(ctrl->qe_clock);
 	} else
@@ -35,7 +35,7 @@ void fimg2d_clk_on(struct fimg2d_control *ctrl)
 
 void fimg2d_clk_off(struct fimg2d_control *ctrl)
 {
-	if (ip_is_g2d_5ar2() || ip_is_g2d_5h()) {
+	if (ip_is_g2d_5ar2() || ip_is_g2d_5h() || ip_is_g2d_5hp()) {
 		clk_disable(ctrl->clock);
 		clk_disable(ctrl->qe_clock);
 	} else
@@ -53,6 +53,16 @@ int exynos5430_fimg2d_clk_setup(struct fimg2d_control *ctrl)
 
 	of_property_read_string_index(ctrl->dev->of_node,
 			"clock-names", 0, (const char **)&(pdata->gate_clkname));
+
+	ctrl->clk_osc = devm_clk_get(ctrl->dev, "fin_pll");
+	if (IS_ERR(ctrl->clk_osc)) {
+		if (PTR_ERR(ctrl->clk_osc) == -ENOENT)
+			/* clock is not present */
+			ctrl->clk_osc = NULL;
+		else
+			return PTR_ERR(ctrl->clk_osc);
+		dev_info(ctrl->dev, "'fin_pll' clock is not present\n");
+	}
 
 	ctrl->qe_clock = devm_clk_get(ctrl->dev, "gate_qe_g2d");
 	if (IS_ERR(ctrl->qe_clock)) {
@@ -104,100 +114,22 @@ int exynos5430_fimg2d_clk_setup(struct fimg2d_control *ctrl)
 		dev_info(ctrl->dev, "'mux_266_child' clock is not present\n");
 	}
 
-	fimg2d_info("fimg2d clk name: %s, %s clkrate: %d, %s clkrate: %d\n",
+	fimg2d_debug("fimg2d clk name: %s, %s clkrate: %lu, %s clkrate: %lu\n",
 			pdata->gate_clkname,
-			"aclk_g2d_400", exynos_get_rate("aclk_g2d_400"),
-			"aclk_g2d_266", exynos_get_rate("aclk_g2d_266"));
+			"aclk_g2d_400", clk_get_rate(ctrl->clk_parn1),
+			"aclk_g2d_266", clk_get_rate(ctrl->clk_parn2));
 
 	fimg2d_info("Done fimg2d clock setup\n");
 	return 0;
 }
-
-#if 0
-int exynos5430_fimg2d_clk_setup(struct fimg2d_control *ctrl)
-{
-	struct fimg2d_platdata *pdata;
-	char *gate_clkname2;
-	char *parn1_clkname, *chld1_clkname;
-	char *parn2_clkname, *chld2_clkname;
-
-	pdata = ctrl->pdata;
-
-	of_property_read_string_index(ctrl->dev->of_node,
-			"clock-names", G2D_GATE_CLK1, (const char **)&(pdata->gate_clkname));
-	of_property_read_string_index(ctrl->dev->of_node,
-			"clock-names", G2D_GATE_CLK2, (const char **)&gate_clkname2);
-	of_property_read_string_index(ctrl->dev->of_node,
-			"clock-names", G2D_PARN1_CLK, (const char **)&parn1_clkname);
-	of_property_read_string_index(ctrl->dev->of_node,
-			"clock-names", G2D_CHLD1_CLK, (const char **)&chld1_clkname);
-	of_property_read_string_index(ctrl->dev->of_node,
-			"clock-names", G2D_PARN2_CLK, (const char **)&parn2_clkname);
-	of_property_read_string_index(ctrl->dev->of_node,
-			"clock-names", G2D_CHLD2_CLK, (const char **)&chld2_clkname);
-
-	fimg2d_info("clknames: parent1 %s, child1 %s, parent2 %s, child2 %s, gate %s\n"
-			, parn1_clkname, chld1_clkname
-			, parn2_clkname, chld2_clkname, pdata->gate_clkname);
-
-	ctrl->qe_clock = clk_get(ctrl->dev, gate_clkname2);
-	if (IS_ERR(ctrl->qe_clock)) {
-		dev_err(ctrl->dev, "failed to get gate clk1\n");
-		goto err_clk_get_parn1;
-	}
-
-	ctrl->clk_parn1 = clk_get(ctrl->dev, parn1_clkname);
-	if (IS_ERR(ctrl->clk_parn1)) {
-		dev_err(ctrl->dev, "failed to get parent1 clk\n");
-		goto err_clk_get_parn1;
-	}
-
-	ctrl->clk_chld1 = clk_get(ctrl->dev, chld1_clkname);
-	if (IS_ERR(ctrl->clk_chld1)) {
-		dev_err(ctrl->dev, "failed to get child1 clk\n");
-		goto err_clk_get_chld1;
-	}
-
-	ctrl->clk_parn2 = clk_get(ctrl->dev, parn2_clkname);
-	if (IS_ERR(ctrl->clk_parn2)) {
-		dev_err(ctrl->dev, "failed to get parent2 clk\n");
-		goto err_clk_get_parn2;
-	}
-
-	ctrl->clk_chld2 = clk_get(ctrl->dev, chld2_clkname);
-	if (IS_ERR(ctrl->clk_chld2)) {
-		dev_err(ctrl->dev, "failed to get child2 clk\n");
-		goto err_clk_get_chld2;
-	}
-
-#if 0
-	fimg2d_info("fimg2d clk name: %s, %s clkrate: %d, %s clkrate: %d\n",
-			pdata->gate_clkname,
-			parn1_clkname, exynos_get_rate("aclk_g2d_400"),
-			parn2_clkname, exynos_get_rate("aclk_g2d_266"));
-#endif
-
-	fimg2d_info("Done fimg2d clock setup\n");
-	return 0;
-
-err_clk_get_chld2:
-	clk_put(ctrl->clk_parn2);
-err_clk_get_parn2:
-	clk_put(ctrl->clk_chld1);
-err_clk_get_chld1:
-	clk_put(ctrl->clk_parn1);
-err_clk_get_parn1:
-	return -ENXIO;
-}
-#endif
 
 int exynos5430_fimg2d_clk_set(struct fimg2d_control *ctrl)
 {
-	if (exynos_set_parent("mout_aclk_g2d_400_user", "aclk_g2d_400"))
+	if (clk_set_parent(ctrl->clk_chld1, ctrl->clk_parn1))
 		pr_err("Unable to set clock %s's parent %s\n"
 				, "mout_aclk_g2d_400_user", "aclk_g2d_400");
 
-	if (exynos_set_parent("mout_aclk_g2d_266_user", "aclk_g2d_266"))
+	if (clk_set_parent(ctrl->clk_chld2, ctrl->clk_parn2))
 		pr_err("Unable to set clock %s's parent %s\n"
 				, "mout_aclk_g2d_266_user", "aclk_g2d_266");
 
@@ -236,7 +168,7 @@ int fimg2d_clk_setup(struct fimg2d_control *ctrl)
 			goto err_clk2;
 
 		}
-	} else if (ip_is_g2d_5h()) {
+	} else if (ip_is_g2d_5h() || ip_is_g2d_5hp()) {
 #ifdef CONFIG_OF
 		if (exynos5430_fimg2d_clk_setup(ctrl)) {
 			fimg2d_err("failed to setup clk\n");
@@ -263,7 +195,7 @@ int fimg2d_clk_setup(struct fimg2d_control *ctrl)
 		goto err_clk2;
 	}
 
-	if (ip_is_g2d_5ar2() || ip_is_g2d_5h()) {
+	if (ip_is_g2d_5ar2() || ip_is_g2d_5h() || ip_is_g2d_5hp()) {
 		if (clk_prepare(ctrl->clock))
 			fimg2d_err("failed to prepare gate clock\n");
 
@@ -291,14 +223,14 @@ void fimg2d_clk_release(struct fimg2d_control *ctrl)
 {
 	clk_put(ctrl->clock);
 
-	if (ip_is_g2d_5ar2() || ip_is_g2d_5h()) {
+	if (ip_is_g2d_5ar2() || ip_is_g2d_5h() || ip_is_g2d_5hp()) {
 		clk_unprepare(ctrl->clock);
 		clk_unprepare(ctrl->qe_clock);
 	} else
 		clk_unprepare(ctrl->clock);
 
 
-	if (ip_is_g2d_5ar2() || ip_is_g2d_5h())
+	if (ip_is_g2d_5ar2() || ip_is_g2d_5h() || ip_is_g2d_5hp())
 		clk_put(ctrl->qe_clock);
 
 	if (ip_is_g2d_4p()) {

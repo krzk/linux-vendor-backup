@@ -831,11 +831,6 @@ config DMA_CACHE_RWFO
 	  in hardware, other workarounds are needed (e.g. cache
 	  maintenance broadcasting in software via FIQ).
 
-config L2_AUTO_CLOCK_DISABLE
-	bool "Prevents the clock generator from stopping the L2 logic clock"
-	depends on CPU_V7
-	default n
-
 config OUTER_CACHE
 	bool
 

@@ -14,7 +14,6 @@
 
 #define SENSOR_S5K3H7_SUNNY_INSTANCE	0
 #define SENSOR_S5K3H7_SUNNY_NAME	SENSOR_NAME_S5K3H7_SUNNY
-/* #define SENSOR_S5K3H7_SUNNY_DRIVING */
 
 int sensor_3h7_sunny_probe(struct i2c_client *client,
 	const struct i2c_device_id *id);

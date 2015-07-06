@@ -41,6 +41,8 @@ static void arch_detect_cpu(void)
 		uart_base = (volatile u8 *)EXYNOS5_PA_UART + (S3C_UART_OFFSET * CONFIG_S3C_LOWLEVEL_UART_PORT);
 	else if (chip_id == EXYNOS5430_SOC_ID)
 		uart_base = (volatile u8 *)EXYNOS5430_PA_UART + (S3C_UART_OFFSET * CONFIG_S3C_LOWLEVEL_UART_PORT);
+	else if (chip_id == EXYNOS3250_SOC_ID)
+		uart_base = (volatile u8 *)EXYNOS3_PA_UART + (S3C_UART_OFFSET * CONFIG_S3C_LOWLEVEL_UART_PORT);
 	else
 		uart_base = (volatile u8 *)EXYNOS4_PA_UART + (S3C_UART_OFFSET * CONFIG_S3C_LOWLEVEL_UART_PORT);
 

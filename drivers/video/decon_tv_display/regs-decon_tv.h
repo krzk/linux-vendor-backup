@@ -160,15 +160,15 @@
 /* VIDWxxADD2 */
 #define VIDW_BUF_SIZE(_win)			(0x200 + ((_win) * 0x4))
 
-#define VIDW_BUF_SIZE_OFFSET_MASK		(0x3fff << 14)
-#define VIDW_BUF_SIZE_OFFSET_SHIFT		(14)
-#define VIDW_BUF_SIZE_OFFSET_LIMIT		(0x3fff)
-#define VIDW_BUF_SIZE_OFFSET(_x)		(((_x) & 0x3fff) << 15)
+#define VIDW_BUF_SIZE_OFFSET_MASK		(0x7fff << 15)
+#define VIDW_BUF_SIZE_OFFSET_SHIFT		(15)
+#define VIDW_BUF_SIZE_OFFSET_LIMIT		(0x7fff)
+#define VIDW_BUF_SIZE_OFFSET(_x)		(((_x) & 0x7fff) << 15)
 
-#define VIDW_BUF_SIZE_PAGEWIDTH_MASK		(0x3fff << 0)
+#define VIDW_BUF_SIZE_PAGEWIDTH_MASK		(0x7fff << 0)
 #define VIDW_BUF_SIZE_PAGEWIDTH_SHIFT		(0)
-#define VIDW_BUF_SIZE_PAGEWIDTH_LIMIT		(0x3fff)
-#define VIDW_BUF_SIZE_PAGEWIDTH(_x)		(((_x) & 0x3fff) << 0)
+#define VIDW_BUF_SIZE_PAGEWIDTH_LIMIT		(0x7fff)
+#define VIDW_BUF_SIZE_PAGEWIDTH(_x)		(((_x) & 0x7fff) << 0)
 
 /* LOCAL PATH SIZE */
 #define LOCAL_SIZE(_x)				(0x214 + (_x) * 0x4)

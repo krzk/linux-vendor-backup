@@ -207,6 +207,11 @@
 #define DCTL_GNPINNakSts			(1 << 2)
 #define DCTL_SftDiscon				(1 << 1)
 #define DCTL_RmtWkUpSig			(1 << 0)
+#define TEST_J_MODE         (0x1<<4)
+#define TEST_K_MODE         (0x2<<4)
+#define TEST_SE0_NAK_MODE       (0x3<<4)
+#define TEST_PACKET_MODE        (0x4<<4)
+#define TEST_FORCE_ENABLE_MODE      (0x5<<4)
 
 #define DSTS					HSOTG_REG(0x808)
 
@@ -373,5 +378,11 @@
 #define DTXFSTS(_a)			HSOTG_REG(0x918 + ((_a) * 0x20))
 
 #define EPFIFO(_a)			HSOTG_REG(0x1000 + ((_a) * 0x1000))
+
+#define TEST_J_SEL      0x1
+#define TEST_K_SEL      0x2
+#define TEST_SE0_NAK_SEL    0x3
+#define TEST_PACKET_SEL     0x4
+#define TEST_FORCE_ENABLE_SEL   0x5
 
 #endif /* __REGS_USB_HSOTG_H */

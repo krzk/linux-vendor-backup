@@ -93,13 +93,15 @@ out:
 	exynos_smc(SMC_CMD_RANDOM, HWRNG_EXIT, 0, 0);
 	spin_unlock_irqrestore(&hwrandom_lock, flag);
 
-	return max;
+	return ret;
 }
 
 static int exyswd_rng_probe(struct platform_device *pdev)
 {
 	rng.name = "exyswd_rng";
 	rng.read = exynos_swd_read;
+
+	spin_lock_init(&hwrandom_lock);
 
 	return hwrng_register(&rng);
 }

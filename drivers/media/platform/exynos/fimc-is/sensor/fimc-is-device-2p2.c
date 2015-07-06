@@ -35,6 +35,7 @@
 #include "../fimc-is-core.h"
 #include "../fimc-is-device-sensor.h"
 #include "../fimc-is-resourcemgr.h"
+#include "../fimc-is-hw.h"
 #include "fimc-is-device-2p2.h"
 
 #define SENSOR_NAME "S5K2P2"
@@ -42,16 +43,22 @@
 static struct fimc_is_sensor_cfg config_2p2[] = {
 	/* 5328x3000@30fps */
 	FIMC_IS_SENSOR_CFG(5328, 3000, 30, 30, 0),
-	/* 4004X3000@30fps */
-	FIMC_IS_SENSOR_CFG(4004, 3000, 30, 23, 1),
+	/* 5328x3000@24fps */
+	FIMC_IS_SENSOR_CFG(5328, 3000, 24, 30, 1),
+	/* 4000X3000@30fps */
+	FIMC_IS_SENSOR_CFG(4000, 3000, 30, 23, 2),
+	/* 4000X3000@24fps */
+	FIMC_IS_SENSOR_CFG(4000, 3000, 24, 23, 3),
 	/* 3008X3000@30fps */
-	FIMC_IS_SENSOR_CFG(3008, 3000, 30, 19, 2),
+	FIMC_IS_SENSOR_CFG(3008, 3000, 30, 19, 4),
+	/* 3008X3000@30fps */
+	FIMC_IS_SENSOR_CFG(3008, 3000, 24, 19, 5),
 	/* 2664X1500@60fps */
-	FIMC_IS_SENSOR_CFG(2664, 1500, 60, 19, 3),
+	FIMC_IS_SENSOR_CFG(2664, 1500, 60, 19, 6),
 	/* 1328X748@120fps */
-	FIMC_IS_SENSOR_CFG(1328, 748, 120, 13, 4),
-	/* 816X490@300fps */
-	FIMC_IS_SENSOR_CFG(816, 490, 300, 13, 5),
+	FIMC_IS_SENSOR_CFG(1328, 748, 120, 13, 7),
+	/* 824X496@300fps */
+	FIMC_IS_SENSOR_CFG(824, 496, 300, 13, 8),
 };
 
 static int sensor_2p2_init(struct v4l2_subdev *subdev, u32 val)
@@ -115,6 +122,8 @@ int sensor_2p2_probe(struct i2c_client *client,
 	module->pixel_height = module->active_height + 10;
 	module->max_framerate = 300;
 	module->position = SENSOR_POSITION_REAR;
+	module->mode = CSI_MODE_CH0_ONLY;
+	module->lanes = CSI_DATA_LANES_4;
 	module->setfile_name = "setfile_2p2.bin";
 	module->cfgs = ARRAY_SIZE(config_2p2);
 	module->cfg = config_2p2;
@@ -122,7 +131,7 @@ int sensor_2p2_probe(struct i2c_client *client,
 	module->private_data = NULL;
 
 	ext = &module->ext;
-	ext->mipi_lane_num = 4;
+	ext->mipi_lane_num = module->lanes;
 	ext->I2CSclk = I2C_L0;
 
 	ext->sensor_con.product_name = SENSOR_NAME_S5K2P2;
@@ -137,21 +146,31 @@ int sensor_2p2_probe(struct i2c_client *client,
 	ext->actuator_con.peri_setting.i2c.slave_address = 0x5A;
 	ext->actuator_con.peri_setting.i2c.speed = 400000;
 
+#ifdef CONFIG_LEDS_MAX77804
+	ext->flash_con.product_name = FLADRV_NAME_MAX77693;
+#endif
+#if defined(CONFIG_LEDS_LM3560) || !defined(CONFIG_USE_VENDER_FEATURE)
 	ext->flash_con.product_name = FLADRV_NAME_LM3560;
+#endif
+#ifdef CONFIG_LEDS_SKY81296
+	ext->flash_con.product_name = FLADRV_NAME_SKY81296;
+#endif
 	ext->flash_con.peri_type = SE_GPIO;
+#ifdef CONFIG_USE_VENDER_FEATURE
+	ext->flash_con.peri_setting.gpio.first_gpio_port_no = 1;
+	ext->flash_con.peri_setting.gpio.second_gpio_port_no = 2;
+#else
 	ext->flash_con.peri_setting.gpio.first_gpio_port_no = 2;
 	ext->flash_con.peri_setting.gpio.second_gpio_port_no = 3;
+#endif
 
 	ext->from_con.product_name = FROMDRV_NAME_NOTHING;
 
+#ifdef CONFIG_COMPANION_USE
 	ext->companion_con.product_name = COMPANION_NAME_73C1;
 	ext->companion_con.peri_info0.valid = true;
 	ext->companion_con.peri_info0.peri_type = SE_SPI;
-#if defined(CONFIG_SOC_EXYNOS5422)
-	ext->companion_con.peri_info0.peri_setting.spi.channel = 0;
-#else
-	ext->companion_con.peri_info0.peri_setting.spi.channel = 1;
-#endif
+	ext->companion_con.peri_info0.peri_setting.spi.channel = (int) core->companion_spi_channel;
 	ext->companion_con.peri_info1.valid = true;
 	ext->companion_con.peri_info1.peri_type = SE_I2C;
 	ext->companion_con.peri_info1.peri_setting.i2c.channel = 0;
@@ -160,12 +179,15 @@ int sensor_2p2_probe(struct i2c_client *client,
 	ext->companion_con.peri_info2.valid = true;
 	ext->companion_con.peri_info2.peri_type = SE_FIMC_LITE;
 	ext->companion_con.peri_info2.peri_setting.fimc_lite.channel = FLITE_ID_D;
-
-#ifdef DEFAULT_S5K2P2_DRIVING
-	v4l2_i2c_subdev_init(subdev_module, client, &subdev_ops);
 #else
-	v4l2_subdev_init(subdev_module, &subdev_ops);
+	ext->companion_con.product_name = COMPANION_NAME_NOTHING;
 #endif
+
+	if (client)
+		v4l2_i2c_subdev_init(subdev_module, client, &subdev_ops);
+	else
+		v4l2_subdev_init(subdev_module, &subdev_ops);
+
 	v4l2_set_subdevdata(subdev_module, module);
 	v4l2_set_subdev_hostdata(subdev_module, device);
 	snprintf(subdev_module->name, V4L2_SUBDEV_NAME_SIZE, "sensor-subdev.%d", module->id);

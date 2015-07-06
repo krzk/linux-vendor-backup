@@ -71,7 +71,7 @@ static struct exynos_pmu_conf exynos5422_pmu_config[] = {
 	{ EXYNOS5422_CMU_ACLKSTOP_COREBLK_SYS_PWR_REG,		{ 0x1, 0x0, 0x0, 0x0 } }, /* 0x1004_1120 */
 	{ EXYNOS5422_CMU_SCLKSTOP_COREBLK_SYS_PWR_REG,		{ 0x1, 0x0, 0x0, 0x0 } }, /* 0x1004_1124 */
 	{ EXYNOS5422_CMU_RESET_COREBLK_SYS_PWR_REG,		{ 0x1, 0x1, 0x1, 0x0 } }, /* 0x1004_112C */
-	{ EXYNOS5422_DRAM_FREQ_DOWN_SYS_PWR_REG,		{ 0x1, 0x0, 0x0, 0x1 } }, /* 0x1004_1130 */
+	{ EXYNOS5422_DRAM_FREQ_DOWN_SYS_PWR_REG,		{ 0x1, 0x1, 0x1, 0x1 } }, /* 0x1004_1130 */
 	{ EXYNOS5422_DDRPHY_DLLOFF_SYS_PWR_REG,			{ 0x1, 0x1, 0x1, 0x1 } }, /* 0x1004_1134 */
 	{ EXYNOS5422_DDRPHY_DLLLOCK_SYS_PWR_REG,		{ 0x1, 0x0, 0x0, 0x1 } }, /* 0x1004_1138 */
 	{ EXYNOS5422_APLL_SYSCLK_SYS_PWR_REG,			{ 0x1, 0x0, 0x0, 0x0 } }, /* 0x1004_1140 */
@@ -131,7 +131,7 @@ static struct exynos_pmu_conf exynos5422_pmu_config[] = {
 	{ EXYNOS5422_MAU_SYS_PWR_REG,				{ 0x7, 0x7, 0x0, 0x0 } }, /* 0x1004_1414 */
 	{ EXYNOS5422_G2D_SYS_PWR_REG,				{ 0x7, 0x0, 0x0, 0x0 } }, /* 0x1004_1418 */
 	{ EXYNOS5422_MSC_SYS_PWR_REG,				{ 0x7, 0x0, 0x0, 0x0 } }, /* 0x1004_141C */
-	{ EXYNOS5422_FSYS_SYS_PWR_REG,				{ 0x7, 0x7, 0x7, 0x0 } }, /* 0x1004_1420 */
+	{ EXYNOS5422_FSYS_SYS_PWR_REG,				{ 0x7, 0x0, 0x7, 0x0 } }, /* 0x1004_1420 */
 	{ EXYNOS5422_FSYS2_SYS_PWR_REG,				{ 0x7, 0x7, 0x7, 0x0 } }, /* 0x1004_1424 */
 	{ EXYNOS5422_PSGEN_SYS_PWR_REG,				{ 0x7, 0x7, 0x7, 0x0 } }, /* 0x1004_1428 */
 	{ EXYNOS5422_PERIC_SYS_PWR_REG,				{ 0x7, 0x7, 0x7, 0x0 } }, /* 0x1004_142C */
@@ -635,18 +635,10 @@ void show_exynos_pmu(void)
 			__raw_readl(EXYNOS5422_ARM_CORE0_STATUS + i * 0x80),
 			__raw_readl(EXYNOS5422_ARM_CORE0_OPTION + i * 0x80));
 	}
-	pr_info(" **** EGL NONCPU CONFIG : 0x%x  STATUS : 0x%x  OPTION : 0x%x\n",
-			__raw_readl(EXYNOS5422_ARM_COMMON_CONFIGURATION),
-			__raw_readl(EXYNOS5422_ARM_COMMON_STATUS),
-			__raw_readl(EXYNOS5422_ARM_COMMON_OPTION));
 	pr_info("      EGL L2 CONFIG : 0x%x  STATUS : 0x%x  OPTION : 0x%x\n",
 			__raw_readl(EXYNOS5422_ARM_L2_CONFIGURATION),
 			__raw_readl(EXYNOS5422_ARM_L2_STATUS),
 			__raw_readl(EXYNOS5422_ARM_L2_OPTION));
-	pr_info(" **** KFC NONCPU CONFIG : 0x%x  STATUS : 0x%x  OPTION : 0x%x\n",
-			__raw_readl(EXYNOS5422_KFC_COMMON_CONFIGURATION),
-			__raw_readl(EXYNOS5422_KFC_COMMON_STATUS),
-			__raw_readl(EXYNOS5422_KFC_COMMON_OPTION));
 	pr_info("      KFC L2 CONFIG : 0x%x  STATUS : 0x%x  OPTION : 0x%x\n",
 			__raw_readl(EXYNOS5422_KFC_L2_CONFIGURATION),
 			__raw_readl(EXYNOS5422_KFC_L2_STATUS),
@@ -665,6 +657,20 @@ void show_exynos_pmu(void)
 	EXYNOS5422_PRINT_PMU(PSGEN);
 	EXYNOS5422_PRINT_PMU(PERIC);
 	EXYNOS5422_PRINT_PMU(WCORE);
+	pr_info(" **** POWER MODE FLAGS ****\n");
+	pr_info("      EGL STATES : 0x%x  0x%x  0x%x  0x%x\n",
+			__raw_readl(REG_CPU_STATE_ADDR + 0x0),
+			__raw_readl(REG_CPU_STATE_ADDR + 0x4),
+			__raw_readl(REG_CPU_STATE_ADDR + 0x8),
+			__raw_readl(REG_CPU_STATE_ADDR + 0xC));
+	pr_info("      KFC STATES : 0x%x  0x%x  0x%x  0x%x\n",
+			__raw_readl(REG_CPU_STATE_ADDR + 0x10),
+			__raw_readl(REG_CPU_STATE_ADDR + 0x14),
+			__raw_readl(REG_CPU_STATE_ADDR + 0x18),
+			__raw_readl(REG_CPU_STATE_ADDR + 0x1C));
+	pr_info("      CLUSTER STATES : 0x%x  0x%x\n",
+			__raw_readl(REG_CPU_STATE_ADDR + 0x20),
+			__raw_readl(REG_CPU_STATE_ADDR + 0x24));
 	pr_info(" -----------------------------------------------------------------------------------\n");
 }
 

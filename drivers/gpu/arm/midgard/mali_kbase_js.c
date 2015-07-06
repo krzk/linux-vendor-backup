@@ -1981,7 +1981,7 @@ void kbasep_js_release_privileged_ctx(kbase_device *kbdev, kbase_context *kctx)
 	kbasep_js_runpool_release_ctx(kbdev, kctx);
 }
 
-#if defined(SLSI_INTEGRATION) && defined(CL_UTILIZATION_BOOST_BY_TIME_WEIGHT)
+#if defined(CL_UTILIZATION_BOOST_BY_TIME_WEIGHT)
 #define KBASE_PM_TIME_SHIFT			8
 #endif
 
@@ -2030,7 +2030,7 @@ void kbasep_js_job_done_slot_irq(kbase_jd_atom *katom, int slot_nr,
 
 		microseconds_spent = ktime_to_ns(tick_diff);
 
-#if defined(SLSI_INTEGRATION) && defined(CL_UTILIZATION_BOOST_BY_TIME_WEIGHT)
+#if defined(CL_UTILIZATION_BOOST_BY_TIME_WEIGHT)
 		if (katom->core_req & BASE_JD_REQ_ONLY_COMPUTE)
 			atomic_add((microseconds_spent >> KBASE_PM_TIME_SHIFT), &kbdev->pm.metrics.time_compute_jobs);
 		else if (katom->core_req & BASE_JD_REQ_FS)

@@ -933,6 +933,28 @@ const struct fb_videomode vesa_modes[VESA_MODEDB_SIZE] = {
 	  FB_SYNC_VERT_HIGH_ACT, FB_VMODE_NONINTERLACED, FB_MODE_IS_VESA },
 };
 EXPORT_SYMBOL(vesa_modes);
+
+/*
+ *  Video mode definitions for UD(HDMI VIC for extended resolution transmission)
+ *
+ *  ud_modes structure array order is very important because it is matched with
+ *  HDMI_VIC specification
+ */
+const struct fb_videomode ud_modes[UD_MODEDB_SIZE] = {
+	/* 3840x2160 @ 30 Hz HDMI_VIC 0x1 */
+	{NULL, 30, 3840, 2160, 2970, 176, 296, 8, 72, 88, 10, 0, 0,
+		FB_VMODE_NONINTERLACED},
+	/* 3840x2160 @ 25 Hz HDMI_VIC 0x2 */
+	{NULL, 25, 3840, 2160, 2970, 1056, 296, 8, 72, 88, 10, 0, 0,
+		FB_VMODE_NONINTERLACED},
+	/* 3840x2160 @ 24 Hz HDMI_VIC 0x3 */
+	{NULL, 24, 3840, 2160, 2970, 1276, 296, 8, 72, 88, 10, 0, 0,
+		FB_VMODE_NONINTERLACED},
+	/* 4096x2160 @ 24 Hz HDMI_VIC 0x4 */
+	{NULL, 24, 4096, 2160, 2970, 1020, 296, 8, 72, 88, 10, 0, 0,
+		FB_VMODE_NONINTERLACED},
+};
+EXPORT_SYMBOL(ud_modes);
 #endif /* CONFIG_FB_MODE_HELPERS */
 
 /**

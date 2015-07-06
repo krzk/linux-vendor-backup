@@ -53,6 +53,7 @@ struct s5p_ehci_hcd {
 	struct s5p_ehci_platdata *pdata;
 	struct notifier_block lpa_nb;
 	int power_on;
+	int retention;
 	unsigned post_lpa_resume:1;
 };
 
@@ -280,6 +281,10 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 		s5p_ehci->otg = phy->otg;
 	}
 
+	err = of_property_read_u32_index((&pdev->dev)->of_node, "l2-retention", 0, &s5p_ehci->retention);
+	if (err)
+		dev_err(&pdev->dev, " can not find l2-retention value\n");
+
 	s5p_ehci->clk = devm_clk_get(&pdev->dev, "usbhost");
 
 	if (IS_ERR(s5p_ehci->clk)) {
@@ -344,9 +349,11 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 	s5p_ehci->lpa_nb.next = NULL;
 	s5p_ehci->lpa_nb.priority = 0;
 
-	err = register_samsung_usb_lpa_notifier(&s5p_ehci->lpa_nb);
-	if (err)
-		dev_err(&pdev->dev, "Failed to register lpa notifier\n");
+	if (!s5p_ehci->retention) {
+		err = register_samsung_usb_lpa_notifier(&s5p_ehci->lpa_nb);
+		if (err)
+			dev_err(&pdev->dev, "Failed to register lpa notifier\n");
+	}
 
 	s5p_ehci->power_on = 1;
 
@@ -375,7 +382,8 @@ static int s5p_ehci_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 
 	s5p_ehci->power_on = 0;
-	unregister_samsung_usb_lpa_notifier(&s5p_ehci->lpa_nb);
+	if (!s5p_ehci->retention)
+		unregister_samsung_usb_lpa_notifier(&s5p_ehci->lpa_nb);
 	remove_ehci_sys_file(hcd_to_ehci(hcd));
 	usb_remove_hcd(hcd);
 

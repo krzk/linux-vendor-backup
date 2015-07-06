@@ -257,6 +257,11 @@ again:
 	}
 }
 
+/* In some cases, idle should return RIGHT index to enter
+ * correct idle states.
+ */
+#define CONFIG_SKIP_IDLE_CORRELATION
+
 /**
  * menu_select - selects the next idle state to enter
  * @drv: cpuidle driver containing state data
@@ -291,6 +296,11 @@ static int menu_select(struct cpuidle_driver *drv, struct cpuidle_device *dev)
 	data->bucket = which_bucket(data->expected_us);
 
 	multiplier = performance_multiplier();
+
+#ifdef CONFIG_SKIP_IDLE_CORRELATION
+       if (dev->skip_idle_correlation)
+               data->correction_factor[data->bucket] = RESOLUTION * DECAY;
+#endif
 
 	/*
 	 * if the correction factor is 0 (eg first time init or cpu hotplug
@@ -360,6 +370,7 @@ static void menu_reflect(struct cpuidle_device *dev, int index)
 {
 	struct menu_device *data = &__get_cpu_var(menu_devices);
 	data->last_state_idx = index;
+
 	if (index >= 0)
 		data->needs_update = 1;
 }

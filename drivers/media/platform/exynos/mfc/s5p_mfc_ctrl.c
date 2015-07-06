@@ -54,9 +54,7 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 
 	mfc_debug(2, "Allocating memory for firmware.\n");
 
-#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	alloc_ctx = dev->alloc_ctx_fw;
-#endif
 
 	dev->fw_info.alloc = s5p_mfc_mem_alloc_priv(alloc_ctx, firmware_size);
 	if (IS_ERR(dev->fw_info.alloc)) {
@@ -594,7 +592,7 @@ int s5p_mfc_wakeup(struct s5p_mfc_dev *dev)
 
 	s5p_mfc_clean_dev_int_flags(dev);
 	/* 3. Initialize firmware */
-	if (!IS_OVER_MFCv78(dev))
+	if (!FW_WAKEUP_AFTER_RISC_ON(dev))
 		ret = s5p_mfc_wakeup_cmd(dev);
 	if (ret) {
 		mfc_err_dev("Failed to send command to MFC - timeout.\n");
@@ -608,14 +606,16 @@ int s5p_mfc_wakeup(struct s5p_mfc_dev *dev)
 		s5p_mfc_write_reg(dev, 0x3ff, S5P_FIMV_SW_RESET);
 
 	mfc_debug(2, "Will now wait for completion of firmware transfer.\n");
-	if (s5p_mfc_wait_for_done_dev(dev, S5P_FIMV_R2H_CMD_FW_STATUS_RET)) {
-		mfc_err_dev("Failed to load firmware.\n");
-		s5p_mfc_clean_dev_int_flags(dev);
-		ret = -EIO;
-		goto err_mfc_wakeup;
+	if (FW_WAKEUP_AFTER_RISC_ON(dev)) {
+		if (s5p_mfc_wait_for_done_dev(dev, S5P_FIMV_R2H_CMD_FW_STATUS_RET)) {
+			mfc_err_dev("Failed to load firmware.\n");
+			s5p_mfc_clean_dev_int_flags(dev);
+			ret = -EIO;
+			goto err_mfc_wakeup;
+		}
 	}
 
-	if (IS_OVER_MFCv78(dev))
+	if (FW_WAKEUP_AFTER_RISC_ON(dev))
 		ret = s5p_mfc_wakeup_cmd(dev);
 	mfc_debug(2, "Ok, now will write a command to wakeup the system\n");
 	if (s5p_mfc_wait_for_done_dev(dev, S5P_FIMV_R2H_CMD_WAKEUP_RET)) {

@@ -26,10 +26,10 @@
 
 #define EXYNOS_LLI_LINK_START		(0x4000)
 /*
- * 5ns, Default System Clock 200MHz
+ * 5ns, Default System Clock 100MHz
  * SYSTEM_CLOCK_PERIOD = 1000MHz / System Clock
  */
-#define SYSTEM_CLOCK_PERIOD		(5)
+#define SYSTEM_CLOCK_PERIOD		(10)
 #define SIG_INT_MASK0			(0xFFFFFFFF)
 #define SIG_INT_MASK1			(0xFFFFFFFF)
 
@@ -61,11 +61,108 @@ static u32 exynos_lli_cal_remap(u32 base_addr, unsigned long size)
 	if (size != (1 << bit_pos))
 		return 0;
 
+	/* check base_address is aligned with size */
+	if (base_addr & (size - 1))
+		return 0;
+
 	remap_addr = (base_addr >> bit_pos) << LLI_REMAP_BASE_ADDR_SHIFT;
 	remap_addr |= bit_pos;
 	remap_addr |= LLI_REMAP_ENABLE;
 
 	return remap_addr;
+}
+
+static void exynos_lli_print_dump(struct work_struct *work)
+{
+	struct mipi_lli *lli = container_of(work, struct mipi_lli,
+			wq_print_dump);
+	struct mipi_lli_dump *dump = &lli->dump;
+	int len = 0, i = 0;
+
+	len = sizeof(lli_debug_clk_info) / sizeof(lli_debug_clk_info[0]);
+	for (i = 0; i < len; i++)
+	{
+		dev_err(lli->dev, "[LLI-CLK]0x%p : 0x%08x\n",
+				lli_debug_clk_info[i], dump->clk[i]);
+	}
+
+	len = sizeof(lli_debug_info) / sizeof(lli_debug_info[0]);
+	for (i = 0; i < len; i++)
+	{
+		dev_err(lli->dev, "[LLI]0x%x : 0x%08x\n",
+				0x10F24000 + (lli_debug_info[i]),
+				dump->lli[i]);
+	}
+
+	len = sizeof(phy_std_debug_info) / sizeof(phy_std_debug_info[0]);
+	for (i = 0; i < len; i++)
+	{
+		dev_err(lli->dev, "[MPHY-STD]0x%x : 0x%08x\n",
+				0x10F20000 + (phy_std_debug_info[i] / 4),
+				dump->mphy_std[i]);
+	}
+
+	len = sizeof(phy_cmn_debug_info) / sizeof(phy_cmn_debug_info[0]);
+	for (i = 0; i < len; i++)
+	{
+		dev_err(lli->dev, "[MPHY-CMN]0x%x : 0x%08x\n",
+				0x10F20000 + (phy_cmn_debug_info[i] / 4),
+				dump->mphy_cmn[i]);
+	}
+
+	len = sizeof(phy_ovtm_debug_info) / sizeof(phy_ovtm_debug_info[0]);
+	for (i = 0; i < len; i++)
+	{
+		dev_err(lli->dev, "[MPHY-OVTM]0x%x : 0x%08x\n",
+				0x10F20000 + (phy_ovtm_debug_info[i] / 4),
+				dump->mphy_ovtm[i]);
+	}
+
+	memset(dump, 0, sizeof(struct mipi_lli_dump));
+}
+
+static int exynos_lli_reg_dump(struct mipi_lli *lli)
+{
+	struct exynos_mphy *phy = dev_get_drvdata(lli->mphy);
+	struct mipi_lli_dump *dump = &lli->dump;
+	int len = 0, i = 0;
+
+	memset(dump, 0, sizeof(struct mipi_lli_dump));
+
+	len = sizeof(lli_debug_clk_info) / sizeof(lli_debug_clk_info[0]);
+	for (i = 0; i < len; i++)
+		dump->clk[i] = readl(lli_debug_clk_info[i]);
+
+	len = sizeof(lli_debug_info) / sizeof(lli_debug_info[0]);
+	for (i = 0; i < len; i++){
+		dump->lli[i] = readl(lli->regs + lli_debug_info[i]);
+	}
+
+	len = sizeof(phy_std_debug_info) / sizeof(phy_std_debug_info[0]);
+	for (i = 0; i < len; i++)
+		dump->mphy_std[i] = readl(phy->loc_regs + phy_std_debug_info[i]);
+
+	len = sizeof(phy_cmn_debug_info) / sizeof(phy_cmn_debug_info[0]);
+	writel(0x1, lli->regs + EXYNOS_PA_MPHY_CMN_ENABLE);
+	for (i = 0; i < len; i++)
+		dump->mphy_cmn[i] = readl(phy->loc_regs + phy_cmn_debug_info[i]);
+	writel(0x0, lli->regs + EXYNOS_PA_MPHY_CMN_ENABLE);
+
+	len = sizeof(phy_ovtm_debug_info) / sizeof(phy_ovtm_debug_info[0]);
+	writel(0x1, lli->regs + EXYNOS_PA_MPHY_OV_TM_ENABLE);
+	for (i = 0; i < len; i++)
+		dump->mphy_ovtm[i] = readl(phy->loc_regs + phy_ovtm_debug_info[i]);
+	writel(0x0, lli->regs + EXYNOS_PA_MPHY_OV_TM_ENABLE);
+
+	return 0;
+}
+
+static int exynos_lli_debug_info(struct mipi_lli *lli)
+{
+	exynos_lli_reg_dump(lli);
+	schedule_work(&lli->wq_print_dump);
+
+	return 0;
 }
 
 static int exynos_lli_get_clk_info(struct mipi_lli *lli)
@@ -138,17 +235,23 @@ static void exynos_lli_system_config(struct mipi_lli *lli)
 
 static int exynos_lli_init(struct mipi_lli *lli)
 {
+	/* LLI Interrupt enable */
+	writel(0x3FFFF, lli->regs + EXYNOS_DME_LLI_INTR_ENABLE);
+	writel(1, lli->regs + EXYNOS_DME_LLI_RESET);
+	return 0;
+}
+
+static int exynos_lli_setting(struct mipi_lli *lli)
+{
 	struct exynos_mphy *phy = dev_get_drvdata(lli->mphy);
 	u32 remap_addr;
 
 	/* update lli_link_state as reset */
-	lli->state = LLI_RESET;
+	atomic_set(&lli->state, LLI_UNMOUNTED);
 
 	exynos_lli_system_config(lli);
 	/* enable LLI_PHY_CONTROL */
 	writel(1, lli->pmu_regs);
-	/* software reset */
-	writel(1, lli->regs + EXYNOS_DME_LLI_RESET);
 
 	/* set_system clk period */
 	writel(SYSTEM_CLOCK_PERIOD, lli->regs + EXYNOS_PA_SYSTEM_CLK_PERIOD);
@@ -195,9 +298,14 @@ static int exynos_lli_init(struct mipi_lli *lli)
 
 	writel(0x40, lli->regs + EXYNOS_PA_NACK_RTT);
 	writel(0x1, lli->regs + EXYNOS_PA_MK0_INSERTION_ENABLE);
+#if defined(CONFIG_UMTS_MODEM_SS300) || defined(CONFIG_UMTS_MODEM_SS303)
+	writel((128<<0) | (15<<8) | (1<<12), lli->regs + EXYNOS_PA_MK0_CONTROL);
+#else
 	writel((128<<0) | (1<<12), lli->regs + EXYNOS_PA_MK0_CONTROL);
+#endif
 	/* Set Scrambler enable */
-	writel(1, lli->regs + EXYNOS_PA_USR_SCRAMBLER_ENABLE);
+	if (lli->modem_info.scrambler)
+		writel(1, lli->regs + EXYNOS_PA_USR_SCRAMBLER_ENABLE);
 
 	/* MPHY configuration */
 	if (phy->init)
@@ -214,13 +322,16 @@ static int exynos_lli_init(struct mipi_lli *lli)
 		phy->ovtm_init(phy);
 		writel(0x0, lli->regs + EXYNOS_PA_MPHY_OV_TM_ENABLE);
 	}
+	/* Update PA configuration for MPHY standard attributes */
+	writel(0xFFFFFFFF, lli->regs + EXYNOS_PA_CONFIG_UPDATE);
 
 	/* Set SNF FIFO for LL&BE */
 	writel(((0x1F<<1) | 1), lli->regs + EXYNOS_IAL_LL_SNF_FIFO);
 	writel(((0x1F<<1) | 1), lli->regs + EXYNOS_IAL_BE_SNF_FIFO);
 
 	writel(0x1000, lli->regs + EXYNOS_PA_WORSTCASE_RTT);
-	writel(0x1, lli->regs + EXYNOS_PA_SLAVE_AUTOMOUNT);
+
+	dev_err(lli->dev, "MIPI LLI is initialized\n");
 
 	return 0;
 }
@@ -277,7 +388,22 @@ static int exynos_lli_get_status(struct mipi_lli *lli)
 
 static int exynos_lli_send_signal(struct mipi_lli *lli, u32 cmd)
 {
-	writel(cmd, lli->remote_regs + EXYNOS_TL_SIGNAL_SET_LSB);
+	if (atomic_read(&lli->state) == LLI_MOUNTED) {
+#ifdef CONFIG_LTE_MODEM_XMM7260
+		writel(cmd, lli->remote_regs + EXYNOS_TL_SIGNAL_SET_LSB
+				+ 0x20C);
+#else
+		writel(cmd, lli->remote_regs + EXYNOS_TL_SIGNAL_SET_LSB);
+#endif
+	} else {
+		int is_mounted = 0;
+
+		is_mounted = readl(lli->regs + EXYNOS_DME_CSA_SYSTEM_STATUS);
+		is_mounted &= LLI_MOUNTED;
+
+		dev_err(lli->dev, "%s: LLI not mounted !! mnt_reg = %x",
+				__func__, is_mounted);
+	}
 
 	return 0;
 }
@@ -303,7 +429,7 @@ static int exynos_lli_read_signal(struct mipi_lli *lli)
 		writel(intr_msb, lli->regs + EXYNOS_TL_SIGNAL_CLR_MSB);
 
 	/* TODO: change to dev_dbg */
-	dev_info(lli->dev, "LSB = %x, MSB = %x\n", intr_lsb, intr_msb);
+	dev_dbg(lli->dev, "LSB = %x, MSB = %x\n", intr_lsb, intr_msb);
 
 	return intr_lsb;
 }
@@ -352,20 +478,48 @@ static int exynos_lli_clock_gating(struct mipi_lli *lli, int is_gating)
 		/* it doesn't gate/ungate aclk_cpif_200
 		   clk_prepare_enable(clks->aclk_cpif_200);
 		 */
-		clk_prepare_enable(clks->gate_cpifnm_200);
-		clk_prepare_enable(clks->gate_mphy_pll);
-		clk_prepare_enable(clks->gate_lli_svc_loc);
-		clk_prepare_enable(clks->gate_lli_svc_rem);
-		clk_prepare_enable(clks->gate_lli_ll_init);
-		clk_prepare_enable(clks->gate_lli_be_init);
-		clk_prepare_enable(clks->gate_lli_ll_targ);
-		clk_prepare_enable(clks->gate_lli_be_targ);
-		clk_prepare_enable(clks->gate_lli_cmn_cfg);
-		clk_prepare_enable(clks->gate_lli_tx0_cfg);
-		clk_prepare_enable(clks->gate_lli_rx0_cfg);
-		clk_prepare_enable(clks->gate_lli_tx0_symbol);
-		clk_prepare_enable(clks->gate_lli_rx0_symbol);
+		if (clks->gate_cpifnm_200->enable_count < 1)
+			clk_prepare_enable(clks->gate_cpifnm_200);
+		if (clks->gate_mphy_pll->enable_count < 1)
+			clk_prepare_enable(clks->gate_mphy_pll);
+		if (clks->gate_lli_svc_loc->enable_count < 1)
+			clk_prepare_enable(clks->gate_lli_svc_loc);
+		if (clks->gate_lli_svc_rem->enable_count < 1)
+			clk_prepare_enable(clks->gate_lli_svc_rem);
+		if (clks->gate_lli_ll_init->enable_count < 1)
+			clk_prepare_enable(clks->gate_lli_ll_init);
+		if (clks->gate_lli_be_init->enable_count < 1)
+			clk_prepare_enable(clks->gate_lli_be_init);
+		if (clks->gate_lli_ll_targ->enable_count < 1)
+			clk_prepare_enable(clks->gate_lli_ll_targ);
+		if (clks->gate_lli_be_targ->enable_count < 1)
+			clk_prepare_enable(clks->gate_lli_be_targ);
+		if (clks->gate_lli_cmn_cfg->enable_count < 1)
+			clk_prepare_enable(clks->gate_lli_cmn_cfg);
+		if (clks->gate_lli_tx0_cfg->enable_count < 1)
+			clk_prepare_enable(clks->gate_lli_tx0_cfg);
+		if (clks->gate_lli_rx0_cfg->enable_count < 1)
+			clk_prepare_enable(clks->gate_lli_rx0_cfg);
+		if (clks->gate_lli_tx0_symbol->enable_count < 1)
+			clk_prepare_enable(clks->gate_lli_tx0_symbol);
+		if (clks->gate_lli_rx0_symbol->enable_count < 1)
+			clk_prepare_enable(clks->gate_lli_rx0_symbol);
 	}
+
+	return 0;
+}
+
+static int exynos_lli_intr_enable(struct mipi_lli *lli)
+{
+	u32 lli_intr = 0;
+
+	if (mipi_lli_suspended())
+		return -1;
+
+	lli_intr = readl(lli->regs + EXYNOS_DME_LLI_INTR_ENABLE);
+
+	if (lli_intr != 0x3FFFF)
+		writel(0x3FFFF, lli->regs + EXYNOS_DME_LLI_INTR_ENABLE);
 
 	return 0;
 }
@@ -376,6 +530,7 @@ static int exynos_lli_suspend(struct mipi_lli *lli)
 {
 	/* masking all of lli interrupts */
 	exynos_lli_system_config(lli);
+	writel(0x0, lli->regs + EXYNOS_DME_LLI_INTR_ENABLE);
 	/* clearing all of lli sideband signal */
 	exynos_lli_reset_signal(lli);
 	/* disable LLI_PHY_CONTROL */
@@ -440,6 +595,85 @@ static void exynos_mipi_lli_set_automode(struct mipi_lli *lli, bool is_auto)
 		writel(CSA_AUTO_MODE, lli->regs + EXYNOS_PA_CSA_PA_CLR);
 }
 
+static int exynos_lli_loopback_test(struct mipi_lli *lli)
+{
+	int uval = 0;
+	struct exynos_mphy *phy = dev_get_drvdata(lli->mphy);
+
+	/* enable LLI_PHY_CONTROL */
+	writel(1, lli->pmu_regs);
+
+	/* software reset */
+	writel(1, lli->regs + EXYNOS_DME_LLI_RESET);
+
+	/* to set TxH8 as H8_EXIT : 0x2b -> 0 */
+	writel(0x0, phy->loc_regs + PHY_TX_HIBERN8_CONTROL(0));
+	/* to set RxH8 as H8_EXIT : 0xa7 -> 0 */
+	writel(0x0, phy->loc_regs + PHY_RX_ENTER_HIBERN8(0));
+
+	writel(0x1, phy->loc_regs + PHY_TX_MODE(0));
+	writel(0x1, phy->loc_regs + PHY_RX_MODE(0));
+
+	writel(0x0, phy->loc_regs + PHY_TX_LCC_ENABLE(0));
+	/* 0x10F24128 sets 0xFFFFFFFF to
+	   LLI_Set_Config_update_All(LLI_SVC_BASE_LOCAL); */
+	writel(0xFFFFFFFF, lli->regs + EXYNOS_PA_CONFIG_UPDATE);
+
+	writel(0x1, lli->regs + EXYNOS_PA_MPHY_OV_TM_ENABLE);
+	/* RX setting */
+	writel(0x75, phy->loc_regs + (0x0a*4)); /* Internal Serial loopback */
+	writel(0x01, phy->loc_regs + (0x16*4)); /* Align Enable */
+
+	writel(0x01, phy->loc_regs + (0x0b*4)); /* user pattern ALL 0 */
+	writel(0x0F, phy->loc_regs + (0x0C*4));
+	writel(0xFF, phy->loc_regs + (0x0D*4));
+	writel(0xFF, phy->loc_regs + (0x0E*4));
+
+	writel(0x2b, phy->loc_regs + (0x2f*4));
+	writel(0x60, phy->loc_regs + (0x1a*4));
+	writel(0x14, phy->loc_regs + (0x29*4)); /* failed LB test on ATE */
+	writel(0xC0, phy->loc_regs + (0x2E*4));
+
+	/* TX setting */
+	writel(0x03, phy->loc_regs + (0x32*4));
+	writel(0x25, phy->loc_regs + (0x78*4)); /* Internal serial loopback */
+	writel(0x01, phy->loc_regs + (0x79*4)); /* user ALL 0 */
+
+	writel(0x0F, phy->loc_regs + (0x7A*4));
+	writel(0xFF, phy->loc_regs + (0x7B*4));
+	writel(0xFF, phy->loc_regs + (0x7C*4));
+
+	writel(0x0, lli->regs + EXYNOS_PA_MPHY_OV_TM_ENABLE);
+
+	mdelay(100);
+	/* LLI_Set_RxBYpass as BY_PASS_ENTER */
+	writel(0x1, phy->loc_regs + (0x2e*4));
+	writel(0xFFFFFFFF, lli->regs + EXYNOS_PA_CONFIG_UPDATE);
+	/* LLI_Set_TxBYpass as BY_PASS_ENTER */
+	writel(0x1, phy->loc_regs + (0xa8*4));
+	writel(0xFFFFFFFF, lli->regs + EXYNOS_PA_CONFIG_UPDATE);
+
+	mdelay(200);
+
+	writel(0x1, lli->regs + EXYNOS_PA_MPHY_OV_TM_ENABLE);
+	uval = readl(phy->loc_regs + (0x23*4));
+	dev_err(lli->dev, "LB error : 0x%x\n", uval);
+	if (uval == 0x24)
+		dev_err(lli->dev, "PWM loopbacktest is Passed!!");
+	else
+		dev_err(lli->dev, "PWM loopbacktest is Failed!!");
+
+	writel(0x0, lli->regs + EXYNOS_PA_MPHY_OV_TM_ENABLE);
+
+	writel(0x1, lli->regs + EXYNOS_PA_MPHY_CMN_ENABLE);
+	uval = readl(phy->loc_regs + (0x26*4)); /* o_pll_lock[7] */
+	writel(0x0, lli->regs + EXYNOS_PA_MPHY_CMN_ENABLE);
+
+	dev_err(lli->dev, "uval : %d\n", uval);
+
+	return 0;
+}
+
 const struct lli_driver exynos_lli_driver = {
 	.init = exynos_lli_init,
 	.set_master = exynos_lli_set_master,
@@ -448,6 +682,9 @@ const struct lli_driver exynos_lli_driver = {
 	.send_signal = exynos_lli_send_signal,
 	.reset_signal = exynos_lli_reset_signal,
 	.read_signal = exynos_lli_read_signal,
+	.loopback_test = exynos_lli_loopback_test,
+	.debug_info = exynos_lli_debug_info,
+	.intr_enable = exynos_lli_intr_enable,
 	.suspend = exynos_lli_suspend,
 	.resume = exynos_lli_resume,
 };
@@ -456,55 +693,62 @@ static irqreturn_t exynos_mipi_lli_irq(int irq, void *_dev)
 {
 	struct device *dev = _dev;
 	struct mipi_lli *lli = dev_get_drvdata(dev);
-	struct exynos_mphy *phy;
+	static int pa_err_cnt = 0;
+	static int roe_cnt = 0;
+	static int mnt_cnt = 0;
+	static int mnt_fail_cnt = 0;
 	int status;
+	struct exynos_mphy *phy;
 
+	phy = dev_get_drvdata(lli->mphy);
 	status = readl(lli->regs + EXYNOS_DME_LLI_INTR_STATUS);
 
-	if (status & INTR_MPHY_HIBERN8_EXIT_DONE)
-		writel(LLI_MOUNT_CTRL, lli->regs + EXYNOS_DME_CSA_SYSTEM_SET);
-
-	if (status & INTR_LLI_MOUNT_DONE) {
-		lli->state = LLI_MOUNTED;
-		dev_dbg(dev, "Mount\n");
+	if (status & INTR_SW_RESET_DONE) {
+		dev_err(dev, "SW_RESET_DONE ++\n");
+		exynos_lli_setting(lli);
 	}
 
-	if (status & INTR_LLI_UNMOUNT_DONE) {
-		lli->state = LLI_UNMOUNTED;
-		dev_dbg(dev, "Unmount\n");
+	if (status & INTR_MPHY_HIBERN8_EXIT_DONE) {
+		dev_info(dev, "HIBERN8_EXIT_DONE: rx=%x, tx=%x\n",
+				readl(phy->loc_regs + PHY_RX_FSM_STATE(0)),
+				readl(phy->loc_regs + PHY_TX_FSM_STATE(0)));
+		mdelay(1);
+		writel(LLI_MOUNT_CTRL, lli->regs + EXYNOS_DME_CSA_SYSTEM_SET);
+	}
+
+	if (status & INTR_MPHY_HIBERN8_ENTER_DONE) {
+		dev_info(dev, "HIBERN8_ENTER_DONE: rx=%x, tx=%x\n",
+				readl(phy->loc_regs + PHY_RX_FSM_STATE(0)),
+				readl(phy->loc_regs + PHY_TX_FSM_STATE(0)));
 	}
 
 	if (status & INTR_PA_PLU_DETECTED)
-		dev_dbg(dev, "PLU_DETECT\n");
+		dev_info(dev, "PLU_DETECT\n");
 
 	if (status & INTR_PA_PLU_DONE) {
-		dev_dbg(dev, "PLU_DONE\n");
+		dev_info(dev, "PLU_DONE: rx=%x, tx=%x\n",
+				readl(phy->loc_regs + PHY_RX_FSM_STATE(0)),
+				readl(phy->loc_regs + PHY_TX_FSM_STATE(0)));
 
-		phy = dev_get_drvdata(lli->mphy);
-
-		if (phy) {
-			if (phy->is_shared_clk)
-				exynos_mipi_lli_set_automode(lli, true);
-			else
-				exynos_mipi_lli_set_automode(lli, false);
-		} else {
-			dev_err(dev, "Failed to get exynos_mphy\n");
-		}
+		if (lli->modem_info.automode)
+			exynos_mipi_lli_set_automode(lli, true);
 	}
 
 	if ((status & INTR_RESET_ON_ERROR_DETECTED)) {
-		dev_err(dev, "Error detected\n");
-		writel(1, lli->regs + EXYNOS_DME_LLI_RESET);
+		dev_err(dev, "Error detected ++ roe_cnt = %d\n", ++roe_cnt);
 	}
 
 	if (status & INTR_RESET_ON_ERROR_SENT) {
-		dev_err(dev, "Error sent\n");
+		dev_err(dev, "Error sent ++ roe_cnt = %d\n", ++roe_cnt);
 		writel(1, lli->regs + EXYNOS_DME_LLI_RESET);
+
+		return IRQ_HANDLED;
 	}
 
 	if (status & INTR_PA_ERROR_INDICATION) {
-		dev_err(dev, "PA_REASON %x\n",
+		dev_err_ratelimited(dev, "PA_REASON %x\n",
 			readl(lli->regs + EXYNOS_DME_LLI_PA_INTR_REASON));
+		pa_err_cnt++;
 	}
 
 	if (status & INTR_DL_ERROR_INDICATION) {
@@ -523,9 +767,116 @@ static irqreturn_t exynos_mipi_lli_irq(int irq, void *_dev)
 			readl(lli->regs + EXYNOS_DME_LLI_IAL_INTR_REASON1));
 	}
 
+	if (status & INTR_LLI_MOUNT_DONE) {
+		static bool is_first = true;
+		int credit = 0;
+		int rx_fsm_state, tx_fsm_state, afc_val, csa_status;
+
+		rx_fsm_state = readl(phy->loc_regs + PHY_RX_FSM_STATE(0));
+		tx_fsm_state = readl(phy->loc_regs + PHY_TX_FSM_STATE(0));
+		csa_status = readl(lli->regs + EXYNOS_DME_CSA_SYSTEM_STATUS);
+		credit = readl(lli->regs + EXYNOS_DL_DBG_TX_CREDTIS);
+		writel(0x1, lli->regs + EXYNOS_PA_MPHY_CMN_ENABLE);
+		afc_val = readl(phy->loc_regs + (0x27*4));
+		writel(0x0, lli->regs + EXYNOS_PA_MPHY_CMN_ENABLE);
+
+		if (is_first) {
+			phy->afc_val = afc_val;
+			is_first = false;
+		}
+
+		dev_err(dev, "rx=%x, tx=%x, afc=%x, status=%x, pa_err=%x\n"
+				,rx_fsm_state, tx_fsm_state, afc_val,
+				csa_status, pa_err_cnt);
+
+		if (!credit) {
+			u32 udelay = 0;
+			for (udelay = 0 ; udelay < 200 ; udelay++) {
+				udelay(1);
+				credit = readl(lli->regs + EXYNOS_DL_DBG_TX_CREDTIS);
+
+				if (credit)
+					break;
+			}
+			dev_err(dev, "waiting %dus for CREDITS: tx=%x, rx=%x\n",
+					udelay,
+					readl(phy->loc_regs + PHY_RX_FSM_STATE(0)),
+					readl(phy->loc_regs + PHY_TX_FSM_STATE(0)));
+
+			if (!credit) {
+				dev_err(dev, "ERR: Mount failed : %d\n",
+						++mnt_fail_cnt);
+				mipi_lli_debug_info();
+				writel(status, lli->regs + EXYNOS_DME_LLI_INTR_STATUS);
+				dev_err(dev, "DUMP: ok:%d fail:%d roe:%d",
+						mnt_cnt, mnt_fail_cnt, roe_cnt);
+				return IRQ_HANDLED;
+			}
+		}
+
+		atomic_set(&lli->state, LLI_MOUNTED);
+		dev_err(dev, "Mount : ok:%d fail:%d roe:%d pa_err:%d\n",
+				++mnt_cnt, mnt_fail_cnt, roe_cnt, pa_err_cnt);
+	}
+
+	if (status & INTR_LLI_UNMOUNT_DONE) {
+		atomic_set(&lli->state, LLI_UNMOUNTED);
+		writel(status, lli->regs + EXYNOS_DME_LLI_INTR_STATUS);
+		writel(1, lli->regs + EXYNOS_DME_LLI_RESET);
+		dev_err(dev, "Unmount\n");
+		return IRQ_HANDLED;
+	}
+
 	writel(status, lli->regs + EXYNOS_DME_LLI_INTR_STATUS);
 
 	return IRQ_HANDLED;
+}
+
+int mipi_lli_get_setting(struct mipi_lli *lli)
+{
+	struct device_node *lli_node = lli->dev->of_node;
+	struct device_node *modem_node;
+	const char *modem_name;
+	const __be32 *prop;
+
+	modem_name = of_get_property(lli_node, "modem-name", NULL);
+	if (!modem_name) {
+		dev_err(lli->dev, "parsing err : modem-name node\n");
+		goto parsing_err;
+	}
+	modem_node = of_get_child_by_name(lli_node, "modems");
+	if (!modem_node) {
+		dev_err(lli->dev, "parsing err : modems node\n");
+		goto parsing_err;
+	}
+	modem_node = of_get_child_by_name(modem_node, modem_name);
+	if (!modem_node) {
+		dev_err(lli->dev, "parsing err : modem node\n");
+		goto parsing_err;
+	}
+
+	lli->modem_info.name = devm_kzalloc(lli->dev, strlen(modem_name),
+			GFP_KERNEL);
+	strncpy(lli->modem_info.name, modem_name, strlen(modem_name));
+
+	prop = of_get_property(modem_node, "scrambler", NULL);
+	if (prop)
+		lli->modem_info.scrambler = be32_to_cpup(prop) ? true : false;
+	else
+		lli->modem_info.scrambler = false;
+
+	prop = of_get_property(modem_node, "automode", NULL);
+	if (prop)
+		lli->modem_info.automode = be32_to_cpup(prop) ? true : false;
+	else
+		lli->modem_info.scrambler = false;
+
+parsing_err:
+	dev_err(lli->dev, "modem_name:%s, scrambler:%d, automode:%d\n",
+			modem_name,
+			lli->modem_info.scrambler,
+			lli->modem_info.automode);
+	return 0;
 }
 
 static int exynos_mipi_lli_probe(struct platform_device *pdev)
@@ -613,6 +964,9 @@ static int exynos_mipi_lli_probe(struct platform_device *pdev)
 	lli->sys_regs = sysregs;
 	lli->pmu_regs = pmuregs;
 	lli->is_master = false;
+	INIT_WORK(&lli->wq_print_dump, exynos_lli_print_dump);
+
+	mipi_lli_get_setting(lli);
 
 	ret = request_irq(irq, exynos_mipi_lli_irq, 0, dev_name(dev), dev);
 	if (ret < 0)

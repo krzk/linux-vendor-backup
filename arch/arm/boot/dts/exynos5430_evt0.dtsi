@@ -908,6 +908,7 @@
 		clock-names = "usbhost";
 		usb-phy = <&usb2_phy>;
 		status = "ok";
+		l2-retention = <1>;
 	};
 
 	ohci: usb@15520000 {
@@ -1501,8 +1502,17 @@
 		clocks = <&clock 2012>,		/* gate_dmac */
 			 <&clock 2011>,		/* gate_sramc */
 			 <&clock 2008>,		/* gate_intr_ctrl */
-			 <&clock 2007>;		/* gate_timer */
-		clock-names = "dmac", "sramc", "intr", "timer";
+			 <&clock 2007>,		/* gate_timer */
+			 <&clock 1>,		/* fin_pll */
+			 <&clock 10>,		/* fout_aud_pll */
+			 <&clock 3014>,		/* mout_aud_pll */
+			 <&clock 3016>,		/* mout_aud_pll_user_top */
+			 <&clock 3164>,		/* mout_aud_pll_user */
+			 <&clock 3166>;		/* mout_aud_pll_sub */
+		clock-names = "dmac", "sramc", "intr", "timer",
+			      "fin_pll", "fout_aud_pll",
+			      "mout_aud_pll", "mout_aud_pll_user_top",
+			      "mout_aud_pll_user", "mout_aud_pll_sub";
 		samsung,power-domain = <&pd_maudio>;
 		status = "ok";
 	};
