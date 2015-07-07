@@ -642,12 +642,17 @@
 	};
 
 	fimc_is_spi_pin0: fimc-is-spi-pin0 {
-		samsung,pins = "gpc3-3", "gpc3-2", "gpc3-1", "gpc3-0";
+		samsung,pins = "gpc3-3", "gpc3-2", "gpc3-0";
 		samsung,pin-function = <2>;
 		samsung,pin-pud = <0>;
 		samsung,pin-drv = <0>;
 	};
-
+	fimc_is_spi_ssn0: fimc-is-spi-ssn0 {
+		samsung,pins = "gpc3-1", "gpc0-6";
+		samsung,pin-function = <0>;
+		samsung,pin-pud = <0>;
+		samsung,pin-drv = <2>;
+	};
 	fimc_is_spi_pin1: fimc-is-spi-pin1 {
 		samsung,pins = "gpc3-7", "gpc3-6", "gpc3-5", "gpc3-4";
 		samsung,pin-function = <2>;
@@ -675,7 +680,7 @@
 	};
 
 	uart1_bus: uart1-bus {
-		samsung,pins = "gpd1-3", "gpd1-2", "gpd1-1", "gpd1-0";
+		samsung,pins = "gpd1-1", "gpd1-0";
 		samsung,pin-function = <2>;
 		samsung,pin-pud = <0>;
 	};
@@ -778,7 +783,12 @@
 		samsung,pin-pud = <3>;
 		samsung,pin-drv = <0>;
 	};
-
+	fimc_is_comp_int: fimc-is-comp-int {
+		samsung,pins = "gpc1-0";
+		samsung,pin-function = <3>;
+		samsung,pin-pud = <1>;
+		samsung,pin-drv = <0>;
+	};
 	fimc_is_uart: fimc-is-uart {
 		samsung,pins = "gpc1-1", "gpc0-7";
 		samsung,pin-function = <3>;
@@ -790,16 +800,21 @@
 		samsung,pins = "gpc2-1", "gpc2-0";
 		samsung,pin-function = <2>;
 		samsung,pin-pud = <0>;
-		samsung,pin-drv = <0>;
+		samsung,pin-drv = <3>;
 	};
 
 	fimc_is_ch0_mclk: fimc-is-ch0_mclk {
 		samsung,pins = "gpd7-0";
 		samsung,pin-function = <2>;
 		samsung,pin-pud = <0>;
-		samsung,pin-drv = <0>;
+		samsung,pin-drv = <2>;
 	};
-
+	fimc_is_ch0_mclk_off: fimc-is-ch0_mclk_off {
+		samsung,pins = "gpd7-0";
+		samsung,pin-function = <1>;
+		samsung,pin-pud = <1>;
+		samsung,pin-drv = <2>;
+	};
 	fimc_is_ch1_i2c: fimc-is-ch1-i2c {
 		samsung,pins = "gpc2-3", "gpc2-2";
 		samsung,pin-function = <2>;
