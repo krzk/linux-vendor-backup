@@ -1133,7 +1133,7 @@
 		clocks = <&clock 1350>, <&clock 486>, <&clock 2041>, <&clock 1234>, <&clock 2034>, <&clock 4008>;
 		samsung,power-domain = <&pd_mfc0>;
 		status = "ok";
-		ip_ver = <10>;
+		ip_ver = <11>;
 		clock_rate = <400000000>;
 		min_rate = <100000>;
 		num_qos_steps = <5>;
