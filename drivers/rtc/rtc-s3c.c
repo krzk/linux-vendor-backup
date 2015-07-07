@@ -56,6 +56,7 @@ struct s3c_rtc {
 struct s3c_rtc_data {
 	int max_user_freq;
 	bool needs_src_clk;
+	bool clk_always_on;
 	bool tick_en;
 
 	void (*irq_handler) (struct s3c_rtc *info, int mask);
@@ -72,6 +73,9 @@ static void s3c_rtc_enable_clk(struct s3c_rtc *info)
 {
 	unsigned long irq_flags;
 
+	if (info->data->clk_always_on)
+		return;
+
 	spin_lock_irqsave(&info->alarm_clk_lock, irq_flags);
 	if (info->clk_disabled) {
 		clk_enable(info->rtc_clk);
@@ -85,6 +89,9 @@ static void s3c_rtc_enable_clk(struct s3c_rtc *info)
 static void s3c_rtc_disable_clk(struct s3c_rtc *info)
 {
 	unsigned long irq_flags;
+
+	if (info->data->clk_always_on)
+		return;
 
 	spin_lock_irqsave(&info->alarm_clk_lock, irq_flags);
 	if (!info->clk_disabled) {
@@ -438,6 +445,9 @@ static struct s3c_rtc_data *s3c_rtc_get_data(struct platform_device *pdev)
 
 	if (of_get_property(pdev->dev.of_node, "s3c-rtc-tick-en", NULL))
 		rtc_data->tick_en = true;
+
+	if (of_get_property(pdev->dev.of_node, "rtc-clk-always-on", NULL))
+		rtc_data->clk_always_on = true;
 
 	return rtc_data;
 }
