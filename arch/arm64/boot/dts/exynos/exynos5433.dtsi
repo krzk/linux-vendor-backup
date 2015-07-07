@@ -1130,6 +1130,7 @@
 			#clock-cells = <1>;
 			clocks = <&cmu_mif CLK_PCLK_RTC>, <&s2mps13_osc 0>;
 			clock-names = "rtc", "rtc_src";
+			rtc-clk-always-on;
 			interrupts = <0 385 0>, <0 386 0>;
 			status = "disabled";
 		};
