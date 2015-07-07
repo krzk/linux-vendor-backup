@@ -15,6 +15,10 @@
 #include <linux/io.h>
 #include <linux/clocksource.h>
 
+#ifdef CONFIG_SOC_EXYNOS5422
+#include <linux/exynos_ion.h>
+#endif
+
 #include <asm/mach/arch.h>
 #include <mach/regs-pmu.h>
 
@@ -30,6 +34,7 @@ static void __init exynos5_dt_map_io(void)
 
 static void __init exynos5_dt_machine_init(void)
 {
+#if !defined(CONFIG_SOC_EXYNOS5422)
 	struct device_node *i2c_np;
 	const char *i2c_compat = "samsung,s3c2440-i2c";
 	unsigned int tmp;
@@ -51,18 +56,22 @@ static void __init exynos5_dt_machine_init(void)
 			}
 		}
 	}
-
+#endif
 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
 }
 
 static char const *exynos5_dt_compat[] __initdata = {
 	"samsung,exynos5250",
+	"samsung,exynos5422",
 	"samsung,exynos5440",
 	NULL
 };
 
 static void __init exynos5_reserve(void)
 {
+#ifdef CONFIG_SOC_EXYNOS5422
+	init_exynos_ion_contig_heap();
+#else
 #ifdef CONFIG_S5P_DEV_MFC
 	struct s5p_mfc_dt_meminfo mfc_mem;
 
@@ -71,6 +80,7 @@ static void __init exynos5_reserve(void)
 	if (of_scan_flat_dt(s5p_fdt_find_mfc_mem, &mfc_mem))
 		s5p_mfc_reserve_mem(mfc_mem.roff, mfc_mem.rsize, mfc_mem.loff,
 				mfc_mem.lsize);
+#endif
 #endif
 }
 
