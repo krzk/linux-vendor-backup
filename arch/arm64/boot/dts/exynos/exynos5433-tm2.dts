@@ -1426,6 +1426,12 @@
 		clock-names = "xtal";
 		assigned-clocks = <&pmu_system_controller 0>;
 		assigned-clock-parents = <&xxti>;
+
+		port {
+			mhl_to_hdmi: endpoint {
+				remote-endpoint = <&hdmi_to_mhl>;
+			};
+		};
 	};
 };
 
@@ -1439,6 +1445,15 @@
 	vdd-supply = <&ldo6_reg>;
 	vdd_osc-supply = <&ldo7_reg>;
 	vdd_pll-supply = <&ldo6_reg>;
+
+	ports {
+		port@1 {
+			reg = <1>;
+			hdmi_to_mhl: endpoint {
+				remote-endpoint = <&mhl_to_hdmi>;
+			};
+		};
+	};
 };
 
 &hsi2c_11 {
