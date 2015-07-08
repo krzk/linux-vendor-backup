@@ -44,12 +44,6 @@ enum sii8620_sink_type {
 	SINK_DVI
 };
 
-const char *sii8620_sink_type_str[] = {
-	[SINK_NONE] = "NONE",
-	[SINK_HDMI] = "HDMI",
-	[SINK_DVI] = "DVI"
-};
-
 struct sii8620 {
 	struct drm_bridge bridge;
 	struct device *dev;
@@ -366,24 +360,33 @@ static void sii8620_update_array(u8 *dst, u8 *src, int count)
 
 static void sii8620_mr_devcap(struct sii8620 *ctx)
 {
+	static const char *sink_str[] = {
+		[SINK_NONE] = "NONE",
+		[SINK_HDMI] = "HDMI",
+		[SINK_DVI] = "DVI"
+	};
+
 	u8 dcap[MHL_DCAP_SIZE];
 
-	sii8620_read_buf(ctx, REG_EDID_FIFO_RD_DATA, ctx->devcap,
+	sii8620_read_buf(ctx, REG_EDID_FIFO_RD_DATA, dcap,
 			 MHL_DCAP_SIZE);
 	sii8620_update_array(ctx->devcap, dcap, MHL_DCAP_SIZE);
 
-	if (dcap[MHL_DCAP_DEV_CAT] & MHL_DCAP_CAT_SINK) {
-		sii8620_fetch_edid(ctx);
-		if (drm_detect_hdmi_monitor(ctx->edid))
-			ctx->sink_type = SINK_HDMI;
-		else
-			ctx->sink_type = SINK_DVI;
-		//sii8620_parse_edid(ctx);
-		dev_info(ctx->dev, "detected sink type: %s\n",
-			 sii8620_sink_type_str[ctx->sink_type]);
-		sii8620_set_upstream_edid(ctx);
-		sii8620_enable_hpd(ctx);
-	}
+	if (!(dcap[MHL_DCAP_DEV_CAT] & MHL_DCAP_CAT_SINK))
+		return;
+
+	sii8620_fetch_edid(ctx);
+	if (drm_detect_hdmi_monitor(ctx->edid))
+		ctx->sink_type = SINK_HDMI;
+	else
+		ctx->sink_type = SINK_DVI;
+
+	dev_info(ctx->dev, "detected dongle: %s, ppixel: %d\n",
+		 sink_str[ctx->sink_type],
+		 !!(ctx->devcap[MHL_DCAP_VID_LINK_MODE]
+		    & MHL_DCAP_VID_LINK_PPIXEL));
+	sii8620_set_upstream_edid(ctx);
+	sii8620_enable_hpd(ctx);
 }
 
 static void sii8620_mr_xdevcap(struct sii8620 *ctx)
