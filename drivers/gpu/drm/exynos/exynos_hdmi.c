@@ -34,6 +34,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_gpio.h>
+#include <linux/of_graph.h>
 #include <linux/hdmi.h>
 #include <linux/component.h>
 #include <linux/mfd/syscon.h>
@@ -236,6 +237,7 @@ struct hdmi_context {
 	struct regmap			*sysreg;
 	enum hdmi_type			type;
 	struct hdmi_driver_data		*drv_data;
+	struct drm_bridge		*bridge;
 };
 
 static inline struct hdmi_context *display_to_hdmi(struct exynos_drm_display *d)
@@ -1298,7 +1300,15 @@ static int hdmi_create_connector(struct exynos_drm_display *display,
 	drm_connector_register(connector);
 	drm_mode_connector_attach_encoder(connector, encoder);
 
-	return 0;
+	if (hdata->bridge) {
+		encoder->bridge = hdata->bridge;
+		hdata->bridge->encoder = encoder;
+		ret = drm_bridge_attach(encoder->dev, hdata->bridge);
+		if (ret)
+			DRM_ERROR("Failed to attach bridge\n");
+	}
+
+	return ret;
 }
 
 static void hdmi_mode_fixup(struct exynos_drm_display *display,
@@ -2446,6 +2456,33 @@ static int hdmi_clk_init(struct hdmi_context *hdata)
 	return ret;
 }
 
+static int hdmi_bridge_init(struct hdmi_context *hdata)
+{
+	struct device *dev = hdata->dev;
+	struct device_node *ep, *np;
+
+	ep = of_graph_get_endpoint_by_regs(dev->of_node, 1, -1);
+	if (!ep)
+		return 0;
+	dev_err(dev, "ep=%s\n", ep->full_name);
+
+	np = of_graph_get_remote_port_parent(ep);
+	of_node_put(ep);
+	if (!np) {
+		DRM_ERROR("failed to get remote port parent");
+		return -EINVAL;
+	}
+
+	dev_err(dev, "np=%s\n", np->full_name);
+	hdata->bridge = of_drm_find_bridge(np);
+	of_node_put(np);
+
+	if (!hdata->bridge)
+		return -EPROBE_DEFER;
+
+	return 0;
+}
+
 static int hdmi_resources_init(struct hdmi_context *hdata)
 {
 	struct device *dev = hdata->dev;
@@ -2465,10 +2502,9 @@ static int hdmi_resources_init(struct hdmi_context *hdata)
 
 	res->regul_bulk = devm_kzalloc(dev, ARRAY_SIZE(supply) *
 		sizeof(res->regul_bulk[0]), GFP_KERNEL);
-	if (!res->regul_bulk) {
-		ret = -ENOMEM;
-		goto fail;
-	}
+	if (!res->regul_bulk)
+		return -ENOMEM;
+
 	for (i = 0; i < ARRAY_SIZE(supply); ++i) {
 		res->regul_bulk[i].supply = supply[i];
 		res->regul_bulk[i].consumer = NULL;
@@ -2494,10 +2530,7 @@ static int hdmi_resources_init(struct hdmi_context *hdata)
 	} else
 		res->reg_hdmi_en = NULL;
 
-	return 0;
-fail:
-	DRM_ERROR("HDMI resource init - failed\n");
-	return ret;
+	return hdmi_bridge_init(hdata);
 }
 
 static struct s5p_hdmi_platform_data *drm_hdmi_dt_parse_pdata
