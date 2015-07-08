@@ -1657,7 +1657,7 @@
 #define BIT_MHL_EST_INT				BIT(2)
 #define BIT_MHL3_EST_INT			BIT(1)
 #define VAL_CBUS_MHL_DISCON			(BIT_CBUS_MHL12_DISCON_INT | \
-		BIT_CBUS_MHL3_DISCON_INT)
+		BIT_CBUS_MHL3_DISCON_INT | BIT_NOT_MHL_EST_INT)
 
 /* 0xEE Interrupt CBUS_reg1 INTR0 Mask Register            (Default: 0x00)    */
 #define REG_CBUS_DISC_INTR0_MASK                    (0x05EE)
