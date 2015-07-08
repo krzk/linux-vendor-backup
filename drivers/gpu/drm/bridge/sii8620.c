@@ -51,6 +51,7 @@ const char *sii8620_sink_type_str[] = {
 };
 
 struct sii8620 {
+	struct drm_bridge bridge;
 	struct device *dev;
 	struct clk *clk_xtal;
 	struct gpio_desc *gpio_reset;
@@ -1418,6 +1419,49 @@ static void sii8620_cable_in(struct sii8620 *ctx)
 	enable_irq(ctx->irq);
 }
 
+static inline struct sii8620 *bridge_to_sii8620(struct drm_bridge *bridge)
+{
+	return container_of(bridge, struct sii8620, bridge);
+}
+
+void sii8620_bridge_dummy(struct drm_bridge *bridge)
+{
+
+}
+
+bool sii8620_mode_fixup(struct drm_bridge *bridge,
+		   const struct drm_display_mode *mode,
+		   struct drm_display_mode *adjusted_mode)
+{
+	struct sii8620 *ctx = bridge_to_sii8620(bridge);
+	bool ret = false;
+	int max_clock = 74250;
+
+	mutex_lock(&ctx->lock);
+
+	if (mode->flags & DRM_MODE_FLAG_INTERLACE)
+		goto out;
+
+	if (ctx->devcap[MHL_DCAP_VID_LINK_MODE] & MHL_DCAP_VID_LINK_PPIXEL)
+		max_clock = 300000;
+
+	ret = mode->clock <= max_clock;
+
+out:
+	mutex_unlock(&ctx->lock);
+
+	return ret;
+}
+
+
+static const struct drm_bridge_funcs sii8620_bridge_funcs = {
+	.pre_enable = sii8620_bridge_dummy,
+	.enable = sii8620_bridge_dummy,
+	.disable = sii8620_bridge_dummy,
+	.post_disable = sii8620_bridge_dummy,
+	.mode_fixup = sii8620_mode_fixup,
+};
+
 static int sii8620_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
@@ -1470,11 +1514,19 @@ static int sii8620_probe(struct i2c_client *client,
 
 	sii8620_cable_in(ctx);
 
+	ctx->bridge.funcs = &sii8620_bridge_funcs;
+	ctx->bridge.of_node = dev->of_node;
+	drm_bridge_add(&ctx->bridge);
+
 	return 0;
 }
 
 static int sii8620_remove(struct i2c_client *client)
 {
+	struct sii8620 *ctx = i2c_get_clientdata(client);
+
+	drm_bridge_remove(&ctx->bridge);
+
 	return 0;
 }
 
