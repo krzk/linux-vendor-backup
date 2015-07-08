@@ -46,6 +46,7 @@ struct rfkill_bcm_data {
 	struct clk		*clk;
 
 	bool			clk_enabled;
+	bool			hci_registered;
 	int			irq;
 	struct device		*dev;
 	struct bt_lpm_timer	timer;
@@ -101,9 +102,11 @@ static int rfkill_bcm_hci_event(struct notifier_block *this,
 	switch (event) {
 	case HCI_DEV_REG:
 		dev_dbg(rfkill->dev, "HCI device is registered\n");
+		rfkill->hci_registered = true;
 		break;
 	case HCI_DEV_UNREG:
 		dev_dbg(rfkill->dev, "HCI device is unregistered\n");
+		rfkill->hci_registered = false;
 		break;
 	case HCI_DEV_WRITE:
 		dev_dbg(rfkill->dev, "HCI Tx is on going\n");
@@ -184,9 +187,11 @@ static irqreturn_t rfkill_bcm_irq_handler(int irq, void *data)
 	unsigned int type;
 
 	host_wake = gpiod_get_value(rfkill->host_wake_gpio);
+
 	if (host_wake) {
 		/* host is waked until Rx is finished */
-		pm_stay_awake(rfkill->dev);
+		if (rfkill->hci_registered)
+			pm_stay_awake(rfkill->dev);
 		dev_dbg(rfkill->dev, "HCI Rx is started\n");
 	} else {
 		struct hrtimer *htimer = &rfkill->timer.htimer;
