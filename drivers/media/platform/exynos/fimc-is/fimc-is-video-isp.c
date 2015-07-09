@@ -574,6 +574,7 @@ static int fimc_is_isp_video_s_ctrl(struct file *file, void *priv,
 					(FIMC_IS_CRANGE_LIMITED << FIMC_IS_ISP_CRANGE_SHIFT);
 		}
 		break;
+#if 0
 	case V4L2_CID_IS_MAP_BUFFER:
 		{
 			struct fimc_is_queue *queue;
@@ -720,13 +721,16 @@ static int fimc_is_isp_video_s_ctrl(struct file *file, void *priv,
 			kfree(buf);
 		}
 		break;
+#endif
 	default:
 		err("unsupported ioctl(%d)\n", ctrl->id);
 		ret = -EINVAL;
 		break;
 	}
 
+#if 0
 p_err:
+#endif
 	return ret;
 }
 
