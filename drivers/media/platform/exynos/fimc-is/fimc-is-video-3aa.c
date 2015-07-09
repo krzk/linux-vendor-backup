@@ -557,6 +557,7 @@ static int fimc_is_3aa_video_s_ctrl(struct file *file, void *priv,
 	case V4L2_CID_IS_FORCE_DONE:
 		set_bit(FIMC_IS_GROUP_REQUEST_FSTOP, &device->group_3aa.state);
 		break;
+#if 0
 	case V4L2_CID_IS_MAP_BUFFER:
 		{
 			struct fimc_is_queue *queue;
@@ -703,6 +704,7 @@ static int fimc_is_3aa_video_s_ctrl(struct file *file, void *priv,
 			kfree(buf);
 		}
 		break;
+#endif
 	default:
 		err("unsupported ioctl(%d)\n", ctrl->id);
 		ret = -EINVAL;
