@@ -41,14 +41,15 @@ int get_avg_nr_runnings(unsigned int cpu)
 	unsigned long flags = 0;
 	int cluster_id;
 
-	spin_lock_irqsave(&lock, flags);
-
-	if (cpu == CLUSTER_0_FIRST_CPU)
-		cluster_id = CLUSTER_0;
-	else if (cpu == CLUSTER_1_FIRST_CPU)
-		cluster_id = CLUSTER_1;
-	else
+	if (cpu > NR_CPUS - 1)
 		return 0;
+
+	if (cpu < CLUSTER_1_FIRST_CPU)
+		cluster_id = CLUSTER_0;
+	else
+		cluster_id = CLUSTER_1;
+
+	spin_lock_irqsave(&lock, flags);
 
 	avg_nr_runnings = rq_data[cluster_id].avg_nr_runnings;
 	rq_data[cluster_id].avg_nr_runnings = 0;
