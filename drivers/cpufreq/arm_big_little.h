@@ -47,4 +47,10 @@ struct cpufreq_arm_bL_ops {
 int bL_cpufreq_register(struct cpufreq_arm_bL_ops *ops);
 void bL_cpufreq_unregister(struct cpufreq_arm_bL_ops *ops);
 
+static inline struct device *topology_first_cpu(int cpu)
+{
+	return get_cpu_device(cpumask_first(
+				topology_core_cpumask(cpu)));
+}
+
 #endif /* CPUFREQ_ARM_BIG_LITTLE_H */

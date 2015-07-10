@@ -63,6 +63,7 @@ static int dt_init_opp_table(struct device *cpu_dev)
 static int dt_get_transition_latency(struct device *cpu_dev)
 {
 	struct device_node *np;
+	int ret;
 	u32 transition_latency = CPUFREQ_ETERNAL;
 
 	np = of_node_get(cpu_dev->of_node);
@@ -71,7 +72,13 @@ static int dt_get_transition_latency(struct device *cpu_dev)
 		return CPUFREQ_ETERNAL;
 	}
 
-	of_property_read_u32(np, "clock-latency", &transition_latency);
+	ret = of_property_read_u32(np, "clock-latency", &transition_latency);
+	if (ret) {
+		struct device *first_cpu = topology_first_cpu(cpu_dev->id);
+		if (cpu_dev != first_cpu)
+			transition_latency =
+				dt_get_transition_latency(first_cpu);
+	}
 	of_node_put(np);
 
 	pr_debug("%s: clock-latency: %d\n", __func__, transition_latency);
@@ -80,23 +87,18 @@ static int dt_get_transition_latency(struct device *cpu_dev)
 
 static void dt_free_opp_table(struct device *cpu_dev)
 {
-	struct cpumask *sibling = topology_core_cpumask(cpu_dev->id);
-	int cpu;
+	struct device *first_cpu;
 
 	if (of_get_property(cpu_dev->of_node, "operating-points", NULL)) {
 		of_free_opp_table(cpu_dev);
-		return;
+		goto out;
 	}
 
-	for (cpu = cpumask_first(sibling); cpu < nr_cpu_ids;
-			cpu = cpumask_next(cpu, sibling)) {
-		struct device *d = get_cpu_device(cpu);
-
-		if (of_get_property(d->of_node, "operating-points", NULL)) {
-			of_free_opp_table(d);
-			return;
-		}
-	}
+	first_cpu = topology_first_cpu(cpu_dev->id);
+	if (cpu_dev != first_cpu)
+		of_free_opp_table(first_cpu);
+out:
+	return;
 }
 
 static struct cpufreq_arm_bL_ops dt_bL_ops = {

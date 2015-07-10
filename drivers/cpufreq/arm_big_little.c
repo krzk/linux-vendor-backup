@@ -399,6 +399,13 @@ static int _get_cluster_clk_and_freq_table(struct device *cpu_dev)
 
 	ret = arm_bL_ops->init_opp_table(cpu_dev);
 	if (ret) {
+		/* Try it again with first cpu of cluster */
+		struct device *first_cpu = topology_first_cpu(cpu_dev->id);
+		if (cpu_dev != first_cpu) {
+			ret = _get_cluster_clk_and_freq_table(first_cpu);
+			if (!ret)
+				return ret;
+		}
 		dev_err(cpu_dev, "%s: init_opp_table failed, cpu: %d, err: %d\n",
 				__func__, cpu_dev->id, ret);
 		goto out;
