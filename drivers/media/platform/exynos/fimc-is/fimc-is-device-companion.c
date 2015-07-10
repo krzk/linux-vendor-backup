@@ -361,11 +361,6 @@ int fimc_is_companion_open(struct fimc_is_device_companion *device)
 	/* TODO: loading firmware */
 	fimc_is_s_int_comb_isp(core, false, INTMR2_INTMCIS22);
 
-	// Workaround for Host to use ISP-SPI. Will be removed later.
-	/* set pin output for Host to use SPI*/
-	pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_ssn,
-		PINCFG_PACK(PINCFG_TYPE_FUNC, FUNC_OUTPUT));
-
 	fimc_is_set_spi_config(spi_gpio, FIMC_IS_SPI_FUNC, false);
 
 	if (fimc_is_comp_is_valid(core) == 0) {
@@ -388,45 +383,16 @@ int fimc_is_companion_open(struct fimc_is_device_companion *device)
 		}
 	}
 
-	// Workaround for Host to use ISP-SPI. Will be removed later.
-	/* Set SPI pins to low before changing pin function */
-	pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_sclk,
-		PINCFG_PACK(PINCFG_TYPE_DAT, 0));
-	pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_ssn,
-		PINCFG_PACK(PINCFG_TYPE_DAT, 0));
-	pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_miso,
-		PINCFG_PACK(PINCFG_TYPE_DAT, 0));
-	pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_mois,
-		PINCFG_PACK(PINCFG_TYPE_DAT, 0));
-
-	/* Set pin function for A5 to use SPI */
-	pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_ssn,
-		PINCFG_PACK(PINCFG_TYPE_FUNC, 2));
-
 	set_bit(FIMC_IS_COMPANION_OPEN, &device->state);
 	device->companion_status = FIMC_IS_COMPANION_OPENDONE;
 	fimc_is_companion_wakeup(device);
 
 	if(core->use_ois) {
-		if (!core->use_ois_hsi2c) {
-			pin_config_set(FIMC_IS_SPI_PINNAME, "gpc2-2",
-				PINCFG_PACK(PINCFG_TYPE_FUNC, 1));
-			pin_config_set(FIMC_IS_SPI_PINNAME, "gpc2-3",
-				PINCFG_PACK(PINCFG_TYPE_FUNC, 1));
-		}
-
 		if (!core->ois_ver_read) {
 			fimc_is_ois_check_fw(core);
 		}
 
 		fimc_is_ois_exif_data(core);
-
-		if (!core->use_ois_hsi2c) {
-			pin_config_set(FIMC_IS_SPI_PINNAME, "gpc2-2",
-				PINCFG_PACK(PINCFG_TYPE_FUNC, 2));
-			pin_config_set(FIMC_IS_SPI_PINNAME, "gpc2-3",
-				PINCFG_PACK(PINCFG_TYPE_FUNC, 2));
-		}
 	}
 
 	info("[COMP:D] %s(%d)status(%d)\n", __func__, ret, device->companion_status);
