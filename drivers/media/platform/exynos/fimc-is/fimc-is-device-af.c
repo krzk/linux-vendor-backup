@@ -49,15 +49,15 @@ static void fimc_is_af_i2c_config(struct i2c_client *client, bool onoff)
 {
 	struct device *i2c_dev = client->dev.parent->parent;
 	struct pinctrl *pinctrl_i2c = NULL;
-
 	info("(%s):onoff(%d)\n", __func__, onoff);
 	if (onoff) {
 		/* ON */
-		pin_config_set(FIMC_IS_SPI_PINNAME, "gpc2-2",
-			PINCFG_PACK(PINCFG_TYPE_FUNC, 0));
-		pin_config_set(FIMC_IS_SPI_PINNAME, "gpc2-3",
-			PINCFG_PACK(PINCFG_TYPE_FUNC, 0));
-
+		pinctrl_i2c = devm_pinctrl_get_select(i2c_dev, "default");
+		if (IS_ERR_OR_NULL(pinctrl_i2c)) {
+			printk(KERN_ERR "%s: Failed to configure i2c pin\n", __func__);
+		} else {
+			devm_pinctrl_put(pinctrl_i2c);
+		}
 		pinctrl_i2c = devm_pinctrl_get_select(i2c_dev, "on_i2c");
 		if (IS_ERR_OR_NULL(pinctrl_i2c)) {
 			printk(KERN_ERR "%s: Failed to configure i2c pin\n", __func__);
@@ -66,17 +66,18 @@ static void fimc_is_af_i2c_config(struct i2c_client *client, bool onoff)
 		}
 	} else {
 		/* OFF */
+		pinctrl_i2c = devm_pinctrl_get_select(i2c_dev, "default");
+		if (IS_ERR_OR_NULL(pinctrl_i2c)) {
+			printk(KERN_ERR "%s: Failed to configure i2c pin\n", __func__);
+		} else {
+			devm_pinctrl_put(pinctrl_i2c);
+		}
 		pinctrl_i2c = devm_pinctrl_get_select(i2c_dev, "off_i2c");
 		if (IS_ERR_OR_NULL(pinctrl_i2c)) {
 			printk(KERN_ERR "%s: Failed to configure i2c pin\n", __func__);
 		} else {
 			devm_pinctrl_put(pinctrl_i2c);
 		}
-
-		pin_config_set(FIMC_IS_SPI_PINNAME, "gpc2-2",
-			PINCFG_PACK(PINCFG_TYPE_FUNC, 2));
-		pin_config_set(FIMC_IS_SPI_PINNAME, "gpc2-3",
-			PINCFG_PACK(PINCFG_TYPE_FUNC, 2));
     }
 }
 

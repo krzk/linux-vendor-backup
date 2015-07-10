@@ -1084,6 +1084,7 @@ exit:
 }
 
 void fimc_is_set_spi_config(struct fimc_is_spi_gpio *spi_gpio, int func, bool ssn) {
+#if 0
 	pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_sclk,
 			PINCFG_PACK(PINCFG_TYPE_FUNC, func));
 	pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_miso,
@@ -1094,6 +1095,7 @@ void fimc_is_set_spi_config(struct fimc_is_spi_gpio *spi_gpio, int func, bool ss
 		pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_ssn,
 				PINCFG_PACK(PINCFG_TYPE_FUNC, func));
 	}
+#endif
 }
 
 int fimc_is_sec_concord_fw_sel(struct fimc_is_core *core, struct device *dev,

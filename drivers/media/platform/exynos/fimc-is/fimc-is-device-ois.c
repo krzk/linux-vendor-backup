@@ -78,11 +78,12 @@ static void fimc_is_ois_i2c_config(struct i2c_client *client, bool onoff)
 			ois_device->ois_hsi2c_status, onoff);
 
 		if (onoff) {
-			pin_config_set(FIMC_IS_SPI_PINNAME, "gpc2-2",
-				PINCFG_PACK(PINCFG_TYPE_FUNC, 0));
-			pin_config_set(FIMC_IS_SPI_PINNAME, "gpc2-3",
-				PINCFG_PACK(PINCFG_TYPE_FUNC, 0));
-
+			pinctrl_i2c = devm_pinctrl_get_select(i2c_dev, "default");
+			if (IS_ERR_OR_NULL(pinctrl_i2c)) {
+				printk(KERN_ERR "%s: Failed to configure i2c pin\n", __func__);
+			} else {
+				devm_pinctrl_put(pinctrl_i2c);
+			}
 			pinctrl_i2c = devm_pinctrl_get_select(i2c_dev, "on_i2c");
 			if (IS_ERR_OR_NULL(pinctrl_i2c)) {
 				printk(KERN_ERR "%s: Failed to configure i2c pin\n", __func__);
@@ -90,17 +91,18 @@ static void fimc_is_ois_i2c_config(struct i2c_client *client, bool onoff)
 				devm_pinctrl_put(pinctrl_i2c);
 			}
 		} else {
+			pinctrl_i2c = devm_pinctrl_get_select(i2c_dev, "default");
+			if (IS_ERR_OR_NULL(pinctrl_i2c)) {
+				printk(KERN_ERR "%s: Failed to configure i2c pin\n", __func__);
+			} else {
+				devm_pinctrl_put(pinctrl_i2c);
+			}
 			pinctrl_i2c = devm_pinctrl_get_select(i2c_dev, "off_i2c");
 			if (IS_ERR_OR_NULL(pinctrl_i2c)) {
 				printk(KERN_ERR "%s: Failed to configure i2c pin\n", __func__);
 			} else {
 				devm_pinctrl_put(pinctrl_i2c);
 			}
-
-			pin_config_set(FIMC_IS_SPI_PINNAME, "gpc2-2",
-				PINCFG_PACK(PINCFG_TYPE_FUNC, 2));
-			pin_config_set(FIMC_IS_SPI_PINNAME, "gpc2-3",
-				PINCFG_PACK(PINCFG_TYPE_FUNC, 2));
 		}
 		ois_device->ois_hsi2c_status = onoff;
 	}
@@ -1416,15 +1418,6 @@ static int fimc_is_ois_probe(struct i2c_client *client,
 	} else {
 		devm_pinctrl_put(pinctrl_i2c);
 	}
-
-	pin_config_set(FIMC_IS_SPI_PINNAME, "gpc2-2",
-		PINCFG_PACK(PINCFG_TYPE_FUNC, 0));
-	pin_config_set(FIMC_IS_SPI_PINNAME, "gpc2-3",
-		PINCFG_PACK(PINCFG_TYPE_FUNC, 0));
-	pin_config_set(FIMC_IS_SPI_PINNAME, "gpc2-2",
-		PINCFG_PACK(PINCFG_TYPE_PUD, 0));
-	pin_config_set(FIMC_IS_SPI_PINNAME, "gpc2-3",
-		PINCFG_PACK(PINCFG_TYPE_PUD, 0));
 
 	return 0;
 }
