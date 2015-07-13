@@ -260,7 +260,8 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 				 unsigned long state)
 {
 	struct cpufreq_cooling_device *cpufreq_device = cdev->devdata;
-	unsigned int cpu = cpumask_any(&cpufreq_device->allowed_cpus);
+	unsigned int cpu = cpumask_any_and(&cpufreq_device->allowed_cpus,
+						cpu_online_mask);
 	unsigned int clip_freq;
 
 	/* Request state should be less than max_level */
