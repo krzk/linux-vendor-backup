@@ -929,8 +929,9 @@ static int cpufreq_create_debugfs_dir(unsigned int cpu,
 	return 0;
 }
 
-static int cpufreq_create_debugfs_symlink(unsigned int cpu,
-					  struct cpufreq_policy *policy)
+static int __cpufreq_create_debugfs_symlink(unsigned int cpu,
+						unsigned int target,
+						struct cpufreq_policy *policy)
 {
 	char symlink_name[CPUFREQ_NAME_LEN];
 	char target_name[CPUFREQ_NAME_LEN];
@@ -943,7 +944,7 @@ static int cpufreq_create_debugfs_symlink(unsigned int cpu,
 	if (policy->cpu_debugfs[idx])
 		return -EINVAL;
 
-	sprintf(target_name, "./cpu%d", policy->cpu);
+	sprintf(target_name, "./cpu%d", target);
 	sprintf(symlink_name, "cpu%d", cpu);
 	policy->cpu_debugfs[idx] = debugfs_create_symlink(symlink_name,
 							  cpufreq_debugfs,
@@ -954,6 +955,12 @@ static int cpufreq_create_debugfs_symlink(unsigned int cpu,
 	}
 
 	return 0;
+}
+
+static int cpufreq_create_debugfs_symlink(unsigned int cpu,
+					  struct cpufreq_policy *policy)
+{
+	return __cpufreq_create_debugfs_symlink(cpu, policy->cpu, policy);
 }
 
 static void cpufreq_remove_debugfs(unsigned int cpu,
@@ -980,14 +987,12 @@ static int cpufreq_move_debugfs_dir(unsigned int cpu,
 	unsigned int new_cpu_idx, old_cpu_idx, sibling;
 
 	new_cpu_idx = cpufreq_get_index(cpu, policy);
-	if (!policy->cpu_debugfs[new_cpu_idx])
-		return -EINVAL;
-
 	/*
 	 * Delete previous symbolic link of debugfs directory for new cpu.
 	 * The target of debugfs_rename() must not exist for rename to succedd.
 	 */
-	cpufreq_remove_debugfs(cpu, policy);
+	if (policy->cpu_debugfs[new_cpu_idx])
+		cpufreq_remove_debugfs(cpu, policy);
 
 	/* Change debugfs directory name from old_cpu to new_cpu */
 	old_cpu_idx = cpufreq_get_index(policy->cpu, policy);
@@ -996,7 +1001,7 @@ static int cpufreq_move_debugfs_dir(unsigned int cpu,
 				   policy->cpu_debugfs[old_cpu_idx],
 				   cpufreq_debugfs,
 				   new_dir_name);
-	if (!policy->cpu_debugfs[new_cpu_idx]) {
+	if (!new_entry) {
 		pr_err("changing debugfs directory name failed\n");
 		return -EINVAL;
 	}
@@ -1009,7 +1014,7 @@ static int cpufreq_move_debugfs_dir(unsigned int cpu,
 			continue;
 
 		cpufreq_remove_debugfs(sibling, policy);
-		cpufreq_create_debugfs_symlink(sibling, policy);
+		__cpufreq_create_debugfs_symlink(sibling, cpu, policy);
 	}
 
 	return 0;
@@ -1061,8 +1066,6 @@ static int cpufreq_add_dev_symlink(struct cpufreq_policy *policy)
 					"cpufreq");
 		if (ret)
 			break;
-
-		cpufreq_create_debugfs_symlink(j, policy);
 	}
 	return ret;
 }
@@ -1268,6 +1271,8 @@ static int update_policy_cpu(struct cpufreq_policy *policy, unsigned int cpu,
 		return ret;
 	}
 
+	cpufreq_move_debugfs_dir(cpu, policy);
+
 	down_write(&policy->rwsem);
 	policy->cpu = cpu;
 	up_write(&policy->rwsem);
@@ -1291,8 +1296,10 @@ static int __cpufreq_add_dev(struct device *dev, struct subsys_interface *sif)
 	/* check whether a different CPU already registered this
 	 * CPU because it is in the same boat. */
 	policy = cpufreq_cpu_get_raw(cpu);
-	if (unlikely(policy))
+	if (unlikely(policy)) {
+		cpufreq_create_debugfs_symlink(cpu, policy);
 		return 0;
+	}
 
 	if (!down_read_trylock(&cpufreq_rwsem))
 		return 0;
@@ -1457,6 +1464,7 @@ static int __cpufreq_add_dev(struct device *dev, struct subsys_interface *sif)
 	return 0;
 
 err_out_unregister:
+	cpufreq_remove_debugfs(cpu, policy);
 err_get_freq:
 	write_lock_irqsave(&cpufreq_driver_lock, flags);
 	for_each_cpu(j, policy->cpus)
@@ -1549,8 +1557,8 @@ static int __cpufreq_remove_dev_prepare(struct device *dev,
 		struct device *cpu_dev = get_cpu_device(new_cpu);
 
 		sysfs_remove_link(&cpu_dev->kobj, "cpufreq");
+
 		ret = update_policy_cpu(policy, new_cpu, cpu_dev);
-		cpufreq_move_debugfs_dir(cpu_dev->id, policy);
 		if (ret) {
 			if (sysfs_create_link(&cpu_dev->kobj, &policy->kobj,
 					      "cpufreq"))
@@ -1606,8 +1614,10 @@ static int __cpufreq_remove_dev_finish(struct device *dev,
 			}
 		}
 
-		if (!cpufreq_suspended)
+		if (!cpufreq_suspended) {
+			cpufreq_remove_debugfs(cpu, policy);
 			cpufreq_policy_put_kobj(policy);
+		}
 
 		/*
 		 * Perform the ->exit() even during light-weight tear-down,
