@@ -108,6 +108,24 @@ static struct cpufreq_arm_bL_ops dt_bL_ops = {
 	.free_opp_table = dt_free_opp_table,
 };
 
+static inline int bL_cpufreq_get_suspend_freq(struct device *dev,
+						int *suspend_freq)
+{
+	struct device *first_cpu;
+	int ret;
+
+	ret = of_property_read_u32(dev->of_node, "suspend-freq", suspend_freq);
+	if (!ret)
+		goto out;
+
+	first_cpu = topology_first_cpu(dev->id);
+	if (dev != first_cpu)
+		ret = of_property_read_u32(first_cpu->of_node,
+					"suspend-freq", suspend_freq);
+out:
+	return ret;
+}
+
 static int bL_cpufreq_add_dev(struct device *dev, struct subsys_interface *sif)
 {
 	int cpu = dev->id;
@@ -116,7 +134,7 @@ static int bL_cpufreq_add_dev(struct device *dev, struct subsys_interface *sif)
 	if (!dev->of_node)
 		return -ENODEV;
 
-	if (!of_property_read_u32(dev->of_node, "suspend-freq", &freq)) {
+	if (!bL_cpufreq_get_suspend_freq(dev, &freq)) {
 		struct cpufreq_policy *policy;
 
 		policy = cpufreq_cpu_get(cpu);
