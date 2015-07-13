@@ -39,7 +39,7 @@
 #include "fimc-is-device-ois.h"
 #include "fimc-is-device-af.h"
 
-#define FIMC_IS_OIS_SDCARD_PATH		"/data/media/0/"
+#define FIMC_IS_OIS_SDCARD_PATH		"/tmp/"
 #define FIMC_IS_OIS_DEV_NAME		"exynos-fimc-is-ois"
 #define FIMC_OIS_FW_NAME_SEC		"fimc_is_ois_63B.bin"
 #define FIMC_OIS_FW_NAME_DOM		"fimc_is_ois_63A.bin"

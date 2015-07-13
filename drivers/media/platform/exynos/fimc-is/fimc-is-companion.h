@@ -21,7 +21,7 @@
 
 #define CRC_RETRY_COUNT         40
 
-#define FIMC_IS_ISP_CV	"/data/ISP_CV"
+#define FIMC_IS_ISP_CV	"/lib/firmware/ISP_CV"
 
 enum dcdc_vendor{
 	DCDC_VENDOR_NONE = 0,
