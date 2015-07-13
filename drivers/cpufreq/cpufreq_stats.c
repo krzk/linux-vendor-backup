@@ -259,6 +259,7 @@ static void cpufreq_stats_free_load_table(unsigned int cpu)
 		pr_debug("Free memory of load_table\n");
 		kfree(stat->load_table);
 	}
+	cpufreq_cpu_put(policy);
 }
 
 /*
@@ -274,6 +275,7 @@ static void cpufreq_stats_free_debugfs(unsigned int cpu)
 		pr_debug("Remove load_table debugfs file\n");
 		debugfs_remove(stat->debugfs_load_table);
 	}
+	cpufreq_cpu_put(policy);
 }
 
 static void cpufreq_stats_store_load_table(struct cpufreq_freqs *freq,
@@ -286,10 +288,10 @@ static void cpufreq_stats_store_load_table(struct cpufreq_freqs *freq,
 
 	stat = policy->stats;
 	if (!stat)
-		return;
+		goto out;
 
 	if (!stat->load_table)
-		return;
+		goto out;
 
 	spin_lock(&cpufreq_stats_lock);
 
@@ -324,6 +326,8 @@ static void cpufreq_stats_store_load_table(struct cpufreq_freqs *freq,
 	}
 
 	spin_unlock(&cpufreq_stats_lock);
+out:
+	cpufreq_cpu_put(policy);
 }
 
 static int freq_table_get_index(struct cpufreq_stats *stats, unsigned int freq)
