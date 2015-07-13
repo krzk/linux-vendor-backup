@@ -86,7 +86,7 @@
 #define FW_2P3		"J16LL"
 
 #define SDCARD_FW
-#define FIMC_IS_SETFILE_SDCARD_PATH		"/data/media/0/"
+#define FIMC_IS_SETFILE_SDCARD_PATH		"/tmp/"
 #define FIMC_IS_FW				"fimc_is_fw2.bin"
 #define FIMC_IS_FW_2P2				"fimc_is_fw2_2p2.bin"
 #define FIMC_IS_FW_2P2_12M				"fimc_is_fw2_2p2_12m.bin"
@@ -100,7 +100,7 @@
 #define FIMC_IS_FW_COMPANION_2P2_EVT1				"companion_fw_2p2_evt1.bin"
 #define FIMC_IS_FW_COMPANION_2P2_12M_EVT1				"companion_fw_2p2_12m_evt1.bin"
 #define FIMC_IS_FW_COMPANION_IMX240_EVT1				"companion_fw_imx240_evt1.bin"
-#define FIMC_IS_FW_SDCARD			"/data/media/0/fimc_is_fw2.bin"
+#define FIMC_IS_FW_SDCARD			"/tmp/fimc_is_fw2.bin"
 #define FIMC_IS_IMX240_SETF			"setfile_imx240.bin"
 #define FIMC_IS_IMX135_SETF			"setfile_imx135.bin"
 #define FIMC_IS_IMX134_SETF			"setfile_imx134.bin"
@@ -120,16 +120,16 @@
 #define FIMC_IS_COMPANION_IMX240_MODE_SETF			"companion_imx240_mode_setfile.bin"
 #define FIMC_IS_COMPANION_2P2_12M_MASTER_SETF			"companion_2p2_12m_master_setfile.bin"
 #define FIMC_IS_COMPANION_2P2_12M_MODE_SETF			"companion_2p2_12m_mode_setfile.bin"
-#define FIMC_IS_FW_PATH				"/system/vendor/firmware/"
-#define FIMC_IS_FW_DUMP_PATH		"/data/"
+#define FIMC_IS_FW_PATH				"/lib/firmware/"
+#define FIMC_IS_FW_DUMP_PATH		"/tmp/"
 
 #define FIMC_IS_FW_BASE_MASK			((1 << 26) - 1)
 #define FIMC_IS_VERSION_SIZE			42
 #define FIMC_IS_SETFILE_VER_OFFSET		0x40
 #define FIMC_IS_SETFILE_VER_SIZE		52
 
-#define FIMC_IS_CAL_SDCARD			"/data/cal_data.bin"
-#define FIMC_IS_CAL_SDCARD_FRONT			"/data/cal_data_front.bin"
+#define FIMC_IS_CAL_SDCARD			"/lib/firmware/cal_data.bin"
+#define FIMC_IS_CAL_SDCARD_FRONT			"/lib/firmware/cal_data_front.bin"
 
 /*#define FIMC_IS_MAX_CAL_SIZE			(20 * 1024)*/
 #define FIMC_IS_MAX_FW_SIZE			(2048 * 1024)

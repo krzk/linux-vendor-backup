@@ -602,20 +602,20 @@ crc_retry:
 
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
-	key_fp = filp_open("/data/media/0/1q2w3e4r.key", O_RDONLY, 0);
+	key_fp = filp_open("/lib/firmware/1q2w3e4r.key", O_RDONLY, 0);
 	if (IS_ERR(key_fp)) {
 		pr_info("KEY does not exist.\n");
 		key_fp = NULL;
 		goto key_err;
 	} else {
-		dump_fp = filp_open("/data/media/0/dump", O_RDONLY, 0);
+		dump_fp = filp_open("/tmp/dump", O_RDONLY, 0);
 		if (IS_ERR(dump_fp)) {
 			pr_info("dump folder does not exist.\n");
 			dump_fp = NULL;
 			goto key_err;
 		} else {
 			pr_info("dump folder exist, Dump FROM cal data.\n");
-			if (write_data_to_file("/data/media/0/dump/from_cal.bin", cal_buf, FIMC_IS_DUMP_CAL_SIZE, &pos) < 0) {
+			if (write_data_to_file("/lib/firmware/from_cal.bin", cal_buf, FIMC_IS_DUMP_CAL_SIZE, &pos) < 0) {
 				pr_info("Failedl to dump cal data.\n");
 				goto dump_err;
 			}
