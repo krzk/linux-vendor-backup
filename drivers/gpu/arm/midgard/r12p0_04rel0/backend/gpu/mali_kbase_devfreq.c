@@ -163,8 +163,9 @@ static int kbase_devfreq_init_freq_table(struct kbase_device *kbdev,
 		return -ENOMEM;
 
 	rcu_read_lock();
-	for (i = 0; i < count; i++, freq++) {
-		opp = dev_pm_opp_find_freq_ceil(kbdev->dev, &freq);
+	freq = ULONG_MAX;
+	for (i = 0; i < count; i++, freq--) {
+		opp = dev_pm_opp_find_freq_floor(kbdev->dev, &freq);
 		if (IS_ERR(opp))
 			break;
 
