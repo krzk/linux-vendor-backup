@@ -1150,6 +1150,8 @@
 			assigned-clocks = <&cmu_g3d CLK_FOUT_G3D_PLL>;
 			assigned-clock-rates = <160000000>;
 
+			#cooling-cells = <2>;
+
 			operating-points = <
 				700000 1150000
 				600000 1150000
