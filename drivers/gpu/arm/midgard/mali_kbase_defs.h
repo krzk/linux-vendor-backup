@@ -815,7 +815,7 @@ struct kbase_device {
 	struct devfreq *devfreq;
 	unsigned long freq;
 #ifdef CONFIG_DEVFREQ_THERMAL
-	struct devfreq_cooling_device *devfreq_cooling;
+	struct thermal_cooling_device *devfreq_cooling;
 #ifdef CONFIG_MALI_POWER_ACTOR
 	struct power_actor *power_actor;
 #endif
