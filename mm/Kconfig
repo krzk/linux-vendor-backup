@@ -507,6 +507,23 @@ config ZSWAP
 	  interactions don't cause any known issues on simple memory setups,
 	  they have not be fully explored on the large set of potential
 	  configurations and workloads that exist.
+choice
+	prompt "zswap compression"
+	depends on ZSWAP
+	default ZSWAP_LZO
+
+config ZSWAP_LZO
+	bool "lz0"
+
+config ZSWAP_LZ4HC
+	depends on CRYPTO_LZ4HC
+	bool "lz4hc"
+
+config ZSWAP_LZ4
+	depends on CRYPTO_LZ4
+	bool "lz4"
+
+endchoice
 
 config ZPOOL
 	tristate "Common API for compressed memory storage"
