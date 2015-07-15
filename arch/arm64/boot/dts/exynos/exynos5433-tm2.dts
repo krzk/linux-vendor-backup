@@ -253,11 +253,11 @@
 };
 
 &cpu0 {
-	cpu-cluster.0-supply = <&buck3_reg>;
+	cpu-cluster.1-supply = <&buck3_reg>;
 };
 
 &cpu4 {
-	cpu-cluster.1-supply = <&buck2_reg>;
+	cpu-cluster.0-supply = <&buck2_reg>;
 };
 
 &serial_1 {
