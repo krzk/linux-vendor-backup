@@ -352,9 +352,6 @@ static struct platform_driver exynos_drm_platform_driver;
  * because connector requires pipe number of its crtc during initialization.
  */
 static struct platform_driver *const exynos_drm_kms_drivers[] = {
-#ifdef CONFIG_DRM_EXYNOS_VIDI
-	&vidi_driver,
-#endif
 #ifdef CONFIG_DRM_EXYNOS_FIMD
 	&fimd_driver,
 #endif
@@ -373,6 +370,9 @@ static struct platform_driver *const exynos_drm_kms_drivers[] = {
 #ifdef CONFIG_DRM_EXYNOS_HDMI
 	&mixer_driver,
 	&hdmi_driver,
+#endif
+#ifdef CONFIG_DRM_EXYNOS_VIDI
+	&vidi_driver,
 #endif
 };
 
