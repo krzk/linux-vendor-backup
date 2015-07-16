@@ -13,7 +13,7 @@
 #define CRC32_H
 
 /* unit of count is 2byte */
-unsigned long getCRC(volatile unsigned short *mem, signed long count,
+unsigned int getCRC(volatile unsigned short *mem, signed long count,
 	volatile unsigned short *crcH, volatile unsigned short *crcL);
 
 #endif
