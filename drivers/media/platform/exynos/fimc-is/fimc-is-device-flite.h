@@ -70,7 +70,7 @@ enum fimc_is_flite_early_buf_done_mode {
 
 struct fimc_is_device_flite {
 	u32				instance;
-	unsigned long __iomem		*base_reg;
+	void __iomem			*base_reg;
 	unsigned long			state;
 	wait_queue_head_t		wait_queue;
 
