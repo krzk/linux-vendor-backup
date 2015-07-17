@@ -8,7 +8,7 @@
 struct fimc_is_device_csi {
 	/* channel information */
 	u32				instance;
-	unsigned long __iomem		*base_reg;
+	void __iomem			*base_reg;
 	struct phy			*phy;
 
 	/* for settle time */
@@ -28,5 +28,11 @@ struct fimc_is_device_csi {
 int __must_check fimc_is_csi_probe(void *parent, u32 instance);
 int __must_check fimc_is_csi_open(struct v4l2_subdev *subdev);
 int __must_check fimc_is_csi_close(struct v4l2_subdev *subdev);
+
+void s5pcsis_enable_interrupts(void __iomem *base_reg, struct fimc_is_image *image, bool on);
+void s5pcsis_set_hsync_settle(void __iomem *base_reg, int settle);
+void s5pcsis_set_params(void __iomem *base_reg, struct fimc_is_image *image, u32 lanes);
+void s5pcsis_reset(void __iomem *base_reg);
+void s5pcsis_system_enable(void __iomem *base_reg, int on, u32 lanes);
 
 #endif

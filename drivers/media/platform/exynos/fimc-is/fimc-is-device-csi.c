@@ -25,11 +25,6 @@
 #include "fimc-is-device-csi.h"
 #include "fimc-is-device-sensor.h"
 #include "fimc-is-core.h"
-extern void s5pcsis_enable_interrupts(unsigned long __iomem *base_reg, struct fimc_is_image *image, bool on);
-extern void s5pcsis_set_hsync_settle(unsigned long __iomem *base_reg, int settle);
-extern void s5pcsis_set_params(unsigned long __iomem *base_reg, struct fimc_is_image *image, u32 lanes);
-extern void s5pcsis_reset(unsigned long __iomem *base_reg);
-extern void s5pcsis_system_enable(unsigned long __iomem *base_reg, int on, u32 lanes);
 static u32 get_hsync_settle(struct fimc_is_sensor_cfg *cfg,
 	const u32 cfgs, u32 width, u32 height, u32 framerate)
 {
@@ -180,7 +175,7 @@ static int csi_stream_on(struct fimc_is_device_csi *csi)
 {
 	int ret = 0;
 	u32 settle;
-	unsigned long __iomem *base_reg;
+	void __iomem *base_reg;
 
 	BUG_ON(!csi);
 	BUG_ON(!csi->sensor_cfg);
@@ -215,7 +210,7 @@ static int csi_stream_on(struct fimc_is_device_csi *csi)
 static int csi_stream_off(struct fimc_is_device_csi *csi)
 {
 	int ret = 0;
-	unsigned long __iomem *base_reg;
+	void __iomem *base_reg;
 
 	BUG_ON(!csi);
 
@@ -223,7 +218,7 @@ static int csi_stream_off(struct fimc_is_device_csi *csi)
 
 	s5pcsis_enable_interrupts(base_reg, &csi->image, false);
 	/* lane total count = csi->lanes + 1 (CSI_DATA_LANES_1 is 0) */
-	s5pcsis_system_enable(base_reg, false, (csi->lanes + 1));
+	s5pcsis_system_enable(base_reg, false, csi->lanes + 1);
 
 	return ret;
 }
