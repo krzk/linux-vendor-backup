@@ -116,10 +116,10 @@
 #define CSIS_MAX_PIX_WIDTH				(0xffff)
 #define CSIS_MAX_PIX_HEIGHT				(0xffff)
 
-void s5pcsis_enable_interrupts(unsigned long __iomem *base_reg,
+void s5pcsis_enable_interrupts(void __iomem *base_reg,
 	struct fimc_is_image *image, bool on)
 {
-	u32 val = readl(base_reg + TO_WORD_OFFSET(S5PCSIS_INTMSK));
+	u32 val = readl(base_reg + S5PCSIS_INTMSK);
 
 	val = on ? val | S5PCSIS_INTMSK_EN_ALL :
 		   val & ~S5PCSIS_INTMSK_EN_ALL;
@@ -134,22 +134,22 @@ void s5pcsis_enable_interrupts(unsigned long __iomem *base_reg,
 		}
 	}
 
-	writel(val, base_reg + TO_WORD_OFFSET(S5PCSIS_INTMSK));
+	writel(val, base_reg + S5PCSIS_INTMSK);
 }
 
-void s5pcsis_reset(unsigned long __iomem *base_reg)
+void s5pcsis_reset(void __iomem *base_reg)
 {
-	u32 val = readl(base_reg + TO_WORD_OFFSET(S5PCSIS_CTRL));
+	u32 val = readl(base_reg + S5PCSIS_CTRL);
 
-	writel(val | S5PCSIS_CTRL_RESET, base_reg + TO_WORD_OFFSET(S5PCSIS_CTRL));
+	writel(val | S5PCSIS_CTRL_RESET, base_reg + S5PCSIS_CTRL);
 	udelay(10);
 }
 
-void s5pcsis_system_enable(unsigned long __iomem *base_reg, int on, u32 lanes)
+void s5pcsis_system_enable(void __iomem *base_reg, int on, u32 lanes)
 {
 	u32 val;
 
-	val = readl(base_reg + TO_WORD_OFFSET(S5PCSIS_CTRL));
+	val = readl(base_reg + S5PCSIS_CTRL);
 
 	val |= S5PCSIS_CTRL_WCLK_EXTCLK;
 
@@ -158,18 +158,18 @@ void s5pcsis_system_enable(unsigned long __iomem *base_reg, int on, u32 lanes)
 		val |= S5PCSIS_CTRL_WCLK_EXTCLK;
 	} else
 		val &= ~S5PCSIS_CTRL_ENABLE;
-	writel(val, base_reg + TO_WORD_OFFSET(S5PCSIS_CTRL));
+	writel(val, base_reg + S5PCSIS_CTRL);
 
-	val = readl(base_reg + TO_WORD_OFFSET(S5PCSIS_DPHYCTRL));
+	val = readl(base_reg + S5PCSIS_DPHYCTRL);
 	if (on)
 		val |= S5PCSIS_DPHYCTRL_DPHY_ON(lanes);
 	else
 		val &= ~S5PCSIS_DPHYCTRL_DPHY_ON(lanes);
-	writel(val, base_reg + TO_WORD_OFFSET(S5PCSIS_DPHYCTRL));
+	writel(val, base_reg + S5PCSIS_DPHYCTRL);
 }
 
 /* Called with the state.lock mutex held */
-static void __s5pcsis_set_format(unsigned long __iomem *base_reg,
+static void __s5pcsis_set_format(void __iomem *base_reg,
 	struct fimc_is_image *image)
 {
 	u32 val;
@@ -177,7 +177,7 @@ static void __s5pcsis_set_format(unsigned long __iomem *base_reg,
 	BUG_ON(!image);
 
 	/* Color format */
-	val = readl(base_reg + TO_WORD_OFFSET(S5PCSIS_CONFIG));
+	val = readl(base_reg + S5PCSIS_CONFIG);
 
 	if (image->format.pixelformat == V4L2_PIX_FMT_SGRBG8)
 		val = (val & ~S5PCSIS_CFG_FMT_MASK) | S5PCSIS_CFG_FMT_RAW8;
@@ -185,39 +185,39 @@ static void __s5pcsis_set_format(unsigned long __iomem *base_reg,
 		val = (val & ~S5PCSIS_CFG_FMT_MASK) | S5PCSIS_CFG_FMT_RAW10;
 
 	val |= S5PCSIS_CFG_END_INTERVAL(1);
-	writel(val, base_reg + TO_WORD_OFFSET(S5PCSIS_CONFIG));
+	writel(val, base_reg + S5PCSIS_CONFIG);
 
 	/* Pixel resolution */
 	val = (image->window.o_width << 16) | image->window.o_height;
-	writel(val, base_reg + TO_WORD_OFFSET(S5PCSIS_RESOL));
+	writel(val, base_reg + S5PCSIS_RESOL);
 
 	/* Output channel2 for DT */
 	if (image->format.field == V4L2_FIELD_INTERLACED) {
-		val = readl(base_reg + TO_WORD_OFFSET(S5PCSIS_CONFIG_CH2));
+		val = readl(base_reg + S5PCSIS_CONFIG_CH2);
 		val |= S5PCSIS_CFG_VIRTUAL_CH(2);
 		val |= S5PCSIS_CFG_END_INTERVAL(1);
 		val = (val & ~S5PCSIS_CFG_FMT_MASK) | S5PCSIS_CFG_FMT_USER(1);
-		writel(val, base_reg + TO_WORD_OFFSET(S5PCSIS_CONFIG_CH2));
+		writel(val, base_reg + S5PCSIS_CONFIG_CH2);
 	}
 }
 
-void s5pcsis_set_hsync_settle(unsigned long __iomem *base_reg, u32 settle)
+void s5pcsis_set_hsync_settle(void __iomem *base_reg, u32 settle)
 {
-	u32 val = readl(base_reg + TO_WORD_OFFSET(S5PCSIS_DPHYCTRL));
+	u32 val = readl(base_reg + (S5PCSIS_DPHYCTRL));
 
 	val = (val & ~S5PCSIS_DPHYCTRL_HSS_MASK) | (settle << 24);
 
-	writel(val, base_reg + TO_WORD_OFFSET(S5PCSIS_DPHYCTRL));
+	writel(val, base_reg + S5PCSIS_DPHYCTRL);
 }
 
-void s5pcsis_set_params(unsigned long __iomem *base_reg,
+void s5pcsis_set_params(void __iomem *base_reg,
 	struct fimc_is_image *image, u32 lanes)
 {
 	u32 val;
 
 	__s5pcsis_set_format(base_reg, image);
 
-	val = readl(base_reg + TO_WORD_OFFSET(S5PCSIS_CTRL));
+	val = readl(base_reg + S5PCSIS_CTRL);
 	val &= ~S5PCSIS_CTRL_ALIGN_32BIT;
 
 	val |= S5PCSIS_CTRL_NUMOFDATALANE(lanes);
@@ -232,9 +232,9 @@ void s5pcsis_set_params(unsigned long __iomem *base_reg,
 	/* Not using external clock. */
 	val &= ~S5PCSIS_CTRL_WCLK_EXTCLK;
 
-	writel(val, base_reg + TO_WORD_OFFSET(S5PCSIS_CTRL));
+	writel(val, base_reg + S5PCSIS_CTRL);
 
 	/* Update the shadow register. */
-	val = readl(base_reg + TO_WORD_OFFSET(S5PCSIS_CTRL));
-	writel(val | S5PCSIS_CTRL_UPDATE_SHADOW(0), base_reg + TO_WORD_OFFSET(S5PCSIS_CTRL));
+	val = readl(base_reg + S5PCSIS_CTRL);
+	writel(val | S5PCSIS_CTRL_UPDATE_SHADOW(0), base_reg + S5PCSIS_CTRL);
 }
