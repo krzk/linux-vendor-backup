@@ -138,6 +138,7 @@ static int devfreq_set_cur_state(struct thermal_cooling_device *cdev,
 
 	/* Set the limited frequency to maximum frequency of devfreq */
 	devfreq_dev->devfreq->max_freq = limited_freq;
+	update_devfreq(devfreq_dev->devfreq);
 
 	return 0;
 }
