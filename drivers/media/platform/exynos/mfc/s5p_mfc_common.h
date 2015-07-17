@@ -63,7 +63,7 @@
 #define MFC_ENC_OUT_PLANE_COUNT	2
 
 #define MFC_NAME_LEN		16
-#define MFC_FW_NAME		"mfc_fw.bin"
+#define MFC_FW_NAME		CONFIG_EXYNOS_MFC_FW_NAME
 
 #define STUFF_BYTE		4
 #define MFC_WORKQUEUE_LEN	32
