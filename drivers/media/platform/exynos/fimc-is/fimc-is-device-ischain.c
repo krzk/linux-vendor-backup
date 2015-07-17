@@ -1251,8 +1251,8 @@ int fimc_is_ischain_power(struct fimc_is_device_ischain *device, int on)
 		set_bit(FIMC_IS_ISCHAIN_LOADED, &device->state);
 
 		/* 4. A5 start address setting */
-		mdbgd_ischain("imemory.base(dvaddr) : 0x%08x\n", device, device->imemory.dvaddr);
-		mdbgd_ischain("imemory.base(kvaddr) : 0x%08X\n", device, device->imemory.kvaddr);
+		mdbgd_ischain("imemory.base(dvaddr) : %pad\n", device, &device->imemory.dvaddr);
+		mdbgd_ischain("imemory.base(kvaddr) : %p\n", device, device->imemory.kvaddr);
 
 		if (!device->imemory.dvaddr) {
 			merr("firmware device virtual is null", device);
@@ -5404,11 +5404,11 @@ static int fimc_is_ischain_scc_start(struct fimc_is_device_ischain *device,
 		}
 	}
 
-	mdbgd_ischain("buf_num:%d buf_plane:%d shared[447] : 0x%X\n",
+	mdbgd_ischain("buf_num:%d buf_plane:%d shared[447] : 0x%lX\n",
 		device,
 		queue->buf_maxcount,
 		queue->framecfg.format.num_planes,
-		device->imemory.kvaddr_shared + 447 * sizeof(u32));
+		      (unsigned long)device->imemory.kvaddr_shared + 447 * sizeof(u32));
 
 	/* setting always although otf output is not used. */
 	if (test_bit(FIMC_IS_ISCHAIN_REPROCESSING, &device->state)) {
@@ -5763,11 +5763,11 @@ static int fimc_is_ischain_scp_start(struct fimc_is_device_ischain *device,
 		}
 	}
 
-	mdbgd_ischain("buf_num:%d buf_plane:%d shared[400] : 0x%X\n",
+	mdbgd_ischain("buf_num:%d buf_plane:%d shared[400] : 0x%lX\n",
 		device,
 		queue->buf_maxcount,
 		queue->framecfg.format.num_planes,
-		device->imemory.kvaddr_shared + 400 * sizeof(u32));
+		      (unsigned long)device->imemory.kvaddr_shared + 400 * sizeof(u32));
 
 	scp_input_crop = fimc_is_itf_g_param(device, frame, PARAM_SCALERP_INPUT_CROP);
 	scp_input_crop->cmd = SCALER_CROP_COMMAND_ENABLE;
