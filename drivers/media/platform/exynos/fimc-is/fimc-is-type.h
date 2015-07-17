@@ -34,6 +34,4 @@ struct fimc_is_image {
 	struct fimc_is_fmt	format;
 };
 
-#define TO_WORD_OFFSET(byte_offset) ((byte_offset) >> 2)
-
 #endif

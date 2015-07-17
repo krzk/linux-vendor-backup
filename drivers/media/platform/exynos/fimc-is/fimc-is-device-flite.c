@@ -232,18 +232,18 @@
 #define FLITE_REG_WEIGHTY23_1(x)			((x) << 16)
 #define FLITE_REG_WEIGHTY23_0(x)			((x) << 0)
 
-static void flite_hw_enable_bns(unsigned long __iomem *base_reg, bool enable)
+static void flite_hw_enable_bns(void __iomem *base_reg, bool enable)
 {
 	u32 cfg = 0;
 
 	/* enable */
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_BINNINGON));
+	cfg = readl(base_reg + FLITE_REG_BINNINGON);
 	cfg |= FLITE_REG_BINNINGON_CLKGATE_ON(enable);
 	cfg |= FLITE_REG_BINNINGON_EN(enable);
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_BINNINGON));
+	writel(cfg, base_reg + FLITE_REG_BINNINGON);
 }
 
-static void flite_hw_s_coeff_bns(unsigned long __iomem *base_reg,
+static void flite_hw_s_coeff_bns(void __iomem *base_reg,
 	u32 factor_x, u32 factor_y)
 {
 	u32 cfg = 0;
@@ -254,45 +254,45 @@ static void flite_hw_s_coeff_bns(unsigned long __iomem *base_reg,
 		err("x y factor is not the same (%d, %d)", factor_x, factor_y);
 
 	/* control */
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_BINNINGCTRL));
+	cfg = readl(base_reg + FLITE_REG_BINNINGCTRL);
 	cfg |= FLITE_REG_BINNINGCTRL_FACTOR_Y(factor_y);
 	cfg |= FLITE_REG_BINNINGCTRL_FACTOR_X(factor_x);
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_BINNINGCTRL));
+	writel(cfg, base_reg + FLITE_REG_BINNINGCTRL);
 
 	switch (factor) {
 	case 9:
 		/* coefficient */
-		cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_WEIGHTX01));
+		cfg = readl(base_reg + FLITE_REG_WEIGHTX01);
 		cfg |= FLITE_REG_WEIGHTX01_1(0x20);
 		cfg |= FLITE_REG_WEIGHTX01_0(0xE0);
-		writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_WEIGHTX01));
+		writel(cfg, base_reg + FLITE_REG_WEIGHTX01);
 
-		cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_WEIGHTX23));
+		cfg = readl(base_reg + FLITE_REG_WEIGHTX23);
 		cfg |= FLITE_REG_WEIGHTX23_1(0xA0);
 		cfg |= FLITE_REG_WEIGHTX23_0(0x60);
-		writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_WEIGHTX23));
+		writel(cfg, base_reg + FLITE_REG_WEIGHTX23);
 
-		cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_WEIGHTY01));
+		cfg = readl(base_reg + FLITE_REG_WEIGHTY01);
 		cfg |= FLITE_REG_WEIGHTY01_1(0x20);
 		cfg |= FLITE_REG_WEIGHTY01_0(0xE0);
-		writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_WEIGHTY01));
+		writel(cfg, base_reg + FLITE_REG_WEIGHTY01);
 
-		cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_WEIGHTY23));
+		cfg = readl(base_reg + FLITE_REG_WEIGHTY23);
 		cfg |= FLITE_REG_WEIGHTY23_1(0xA0);
 		cfg |= FLITE_REG_WEIGHTY23_0(0x60);
-		writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_WEIGHTY23));
+		writel(cfg, base_reg + FLITE_REG_WEIGHTY23);
 		break;
 	case 16:
 		/* coefficient */
-		cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_WEIGHTX01));
+		cfg = readl(base_reg + FLITE_REG_WEIGHTX01);
 		cfg |= FLITE_REG_WEIGHTX01_1(0x40);
 		cfg |= FLITE_REG_WEIGHTX01_0(0xC0);
-		writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_WEIGHTX01));
+		writel(cfg, base_reg + FLITE_REG_WEIGHTX01);
 
-		cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_WEIGHTY01));
+		cfg = readl(base_reg + FLITE_REG_WEIGHTY01);
 		cfg |= FLITE_REG_WEIGHTY01_1(0x40);
 		cfg |= FLITE_REG_WEIGHTY01_0(0xC0);
-		writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_WEIGHTY01));
+		writel(cfg, base_reg + FLITE_REG_WEIGHTY01);
 		break;
 	default:
 		err("unknown factor!! (%d, %d)", factor_x, factor_y);
@@ -300,34 +300,34 @@ static void flite_hw_s_coeff_bns(unsigned long __iomem *base_reg,
 	}
 }
 
-static void flite_hw_s_size_bns(unsigned long __iomem *base_reg,
+static void flite_hw_s_size_bns(void __iomem *base_reg,
 	u32 width, u32 height, u32 otf_width, u32 otf_height)
 {
 	u32 cfg = 0;
 
 	/* size */
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_BINNINGTOTAL));
+	cfg = readl(base_reg + FLITE_REG_BINNINGTOTAL);
 	cfg |= FLITE_REG_BINNINGTOTAL_HEIGHT(height);
 	cfg |= FLITE_REG_BINNINGTOTAL_WIDTH(width);
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_BINNINGTOTAL));
+	writel(cfg, base_reg + FLITE_REG_BINNINGTOTAL);
 
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_BINNINGINPUT));
+	cfg = readl(base_reg + FLITE_REG_BINNINGINPUT);
 	cfg |= FLITE_REG_BINNINGINPUT_HEIGHT(height);
 	cfg |= FLITE_REG_BINNINGINPUT_WIDTH(width);
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_BINNINGINPUT));
+	writel(cfg, base_reg + FLITE_REG_BINNINGINPUT);
 
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_BINNINGMARGIN));
+	cfg = readl(base_reg + FLITE_REG_BINNINGMARGIN);
 	cfg |= FLITE_REG_BINNINGMARGIN_TOP(0);
 	cfg |= FLITE_REG_BINNINGMARGIN_LEFT(0);
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_BINNINGMARGIN));
+	writel(cfg, base_reg + FLITE_REG_BINNINGMARGIN);
 
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_BINNINGOUTPUT));
+	cfg = readl(base_reg + FLITE_REG_BINNINGOUTPUT);
 	cfg |= FLITE_REG_BINNINGOUTPUT_HEIGHT(otf_height);
 	cfg |= FLITE_REG_BINNINGOUTPUT_WIDTH(otf_width);
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_BINNINGOUTPUT));
+	writel(cfg, base_reg + FLITE_REG_BINNINGOUTPUT);
 }
 
-static int flite_hw_set_bns(unsigned long __iomem *base_reg,
+static int flite_hw_set_bns(void __iomem *base_reg,
         struct fimc_is_image *image)
 {
 	int ret = 0;
@@ -367,7 +367,7 @@ exit:
 	return ret;
 }
 
-static void flite_hw_set_cam_source_size(unsigned long __iomem *base_reg,
+static void flite_hw_set_cam_source_size(void __iomem *base_reg,
 	struct fimc_is_image *image)
 {
 	u32 cfg = 0;
@@ -382,10 +382,10 @@ static void flite_hw_set_cam_source_size(unsigned long __iomem *base_reg,
 	cfg |= FLITE_REG_CISRCSIZE_SIZE_V(image->window.o_height);
 #endif
 
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CISRCSIZE));
+	writel(cfg, base_reg + FLITE_REG_CISRCSIZE);
 }
 
-static void flite_hw_set_dma_offset(unsigned long __iomem *base_reg,
+static void flite_hw_set_dma_offset(void __iomem *base_reg,
 	struct fimc_is_image *image)
 {
 	u32 cfg = 0;
@@ -400,40 +400,40 @@ static void flite_hw_set_dma_offset(unsigned long __iomem *base_reg,
 
 	cfg |= FLITE_REG_CIOCAN_OCAN_V(image->window.o_height);
 
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIOCAN));
+	writel(cfg, base_reg + FLITE_REG_CIOCAN);
 }
 
-static void flite_hw_set_cam_channel(unsigned long __iomem *base_reg,
+static void flite_hw_set_cam_channel(void __iomem *base_reg,
 	u32 otf_setting)
 {
 	u32 cfg = 0;
 
 	cfg |= otf_setting;
 
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIGENERAL));
+	writel(cfg, base_reg + FLITE_REG_CIGENERAL);
 }
 
-static void flite_hw_set_capture_start(unsigned long __iomem *base_reg)
+static void flite_hw_set_capture_start(void __iomem *base_reg)
 {
 	u32 cfg = 0;
 
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIIMGCPT));
+	cfg = readl(base_reg + FLITE_REG_CIIMGCPT);
 	cfg |= FLITE_REG_CIIMGCPT_IMGCPTEN;
 
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIIMGCPT));
+	writel(cfg, base_reg + FLITE_REG_CIIMGCPT);
 }
 
-static void flite_hw_set_capture_stop(unsigned long __iomem *base_reg)
+static void flite_hw_set_capture_stop(void __iomem *base_reg)
 {
 	u32 cfg = 0;
 
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIIMGCPT));
+	cfg = readl(base_reg + FLITE_REG_CIIMGCPT);
 	cfg &= ~FLITE_REG_CIIMGCPT_IMGCPTEN;
 
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIIMGCPT));
+	writel(cfg, base_reg + FLITE_REG_CIIMGCPT);
 }
 
-static int flite_hw_set_source_format(unsigned long __iomem *base_reg, struct fimc_is_image *image)
+static int flite_hw_set_source_format(void __iomem *base_reg, struct fimc_is_image *image)
 {
 	int ret = 0;
 	u32 pixelformat, format, cfg;
@@ -441,7 +441,7 @@ static int flite_hw_set_source_format(unsigned long __iomem *base_reg, struct fi
 	BUG_ON(!image);
 
 	pixelformat = image->format.pixelformat;
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	cfg = readl(base_reg + FLITE_REG_CIGCTRL);
 
 	switch (pixelformat) {
 	case V4L2_PIX_FMT_SBGGR8:
@@ -485,17 +485,17 @@ static int flite_hw_set_source_format(unsigned long __iomem *base_reg, struct fi
 	cfg |= (format << 24);
 #endif
 
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	writel(cfg, base_reg + FLITE_REG_CIGCTRL);
 
 	return ret;
 }
 
-static void flite_hw_set_dma_fmt(unsigned long __iomem *base_reg,
+static void flite_hw_set_dma_fmt(void __iomem *base_reg,
 	u32 pixelformat)
 {
 	u32 cfg = 0;
 
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIODMAFMT));
+	cfg = readl(base_reg + FLITE_REG_CIODMAFMT);
 
 	if (pixelformat == V4L2_PIX_FMT_SBGGR10 || pixelformat == V4L2_PIX_FMT_SBGGR12)
 		cfg |= FLITE_REG_CIODMAFMT_PACK12;
@@ -507,14 +507,14 @@ static void flite_hw_set_dma_fmt(unsigned long __iomem *base_reg,
 	else
 		cfg |= FLITE_REG_CIODMAFMT_2D_DMA;
 
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIODMAFMT));
+	writel(cfg, base_reg + FLITE_REG_CIODMAFMT);
 }
 
-static void flite_hw_set_output_dma(unsigned long __iomem *base_reg, bool enable,
+static void flite_hw_set_output_dma(void __iomem *base_reg, bool enable,
 	u32 pixelformat)
 {
 	u32 cfg = 0;
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	cfg = readl(base_reg + FLITE_REG_CIGCTRL);
 
 	if (enable) {
 		cfg &= ~FLITE_REG_CIGCTRL_ODMA_DISABLE;
@@ -523,39 +523,39 @@ static void flite_hw_set_output_dma(unsigned long __iomem *base_reg, bool enable
 		cfg |= FLITE_REG_CIGCTRL_ODMA_DISABLE;
 	}
 
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	writel(cfg, base_reg + FLITE_REG_CIGCTRL);
 }
 
-static void flite_hw_set_output_local(unsigned long __iomem *base_reg, bool enable)
+static void flite_hw_set_output_local(void __iomem *base_reg, bool enable)
 {
 	u32 cfg = 0;
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	cfg = readl(base_reg + FLITE_REG_CIGCTRL);
 
 	if (enable)
 		cfg &= ~FLITE_REG_CIGCTRL_OLOCAL_DISABLE;
 	else
 		cfg |= FLITE_REG_CIGCTRL_OLOCAL_DISABLE;
 
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	writel(cfg, base_reg + FLITE_REG_CIGCTRL);
 }
 
 #ifdef COLORBAR_MODE
-static void flite_hw_set_test_pattern_enable(unsigned long __iomem *base_reg)
+static void flite_hw_set_test_pattern_enable(void __iomem *base_reg)
 {
 	u32 cfg = 0;
 
 	/* will use for pattern generation testing */
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	cfg = readl(base_reg + FLITE_REG_CIGCTRL);
 	cfg |= FLITE_REG_CIGCTRL_TEST_PATTERN_COLORBAR;
 
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	writel(cfg, base_reg + FLITE_REG_CIGCTRL);
 }
 #endif
 
-static void flite_hw_set_interrupt_source(unsigned long __iomem *base_reg)
+static void flite_hw_set_interrupt_source(void __iomem *base_reg)
 {
 	u32 cfg = 0;
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	cfg = readl(base_reg + FLITE_REG_CIGCTRL);
 
 	/* for checking stop complete */
 	cfg &= ~FLITE_REG_CIGCTRL_IRQ_LASTEN0_DISABLE;
@@ -569,13 +569,13 @@ static void flite_hw_set_interrupt_source(unsigned long __iomem *base_reg)
 	/* for checking overflow */
 	cfg &= ~FLITE_REG_CIGCTRL_IRQ_OVFEN0_DISABLE;
 
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	writel(cfg, base_reg + FLITE_REG_CIGCTRL);
 }
 
-static void flite_hw_clr_interrupt_source(unsigned long __iomem *base_reg)
+static void flite_hw_clr_interrupt_source(void __iomem *base_reg)
 {
 	u32 cfg = 0;
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	cfg = readl(base_reg + FLITE_REG_CIGCTRL);
 
 	/* for checking stop complete */
 	cfg |= FLITE_REG_CIGCTRL_IRQ_LASTEN0_DISABLE;
@@ -589,35 +589,35 @@ static void flite_hw_clr_interrupt_source(unsigned long __iomem *base_reg)
 	/* for checking overflow */
 	cfg |= FLITE_REG_CIGCTRL_IRQ_OVFEN0_DISABLE;
 
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	writel(cfg, base_reg + FLITE_REG_CIGCTRL);
 }
 
-static void flite_hw_set_ovf_interrupt_source(unsigned long __iomem *base_reg)
+static void flite_hw_set_ovf_interrupt_source(void __iomem *base_reg)
 {
 	u32 cfg = 0;
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	cfg = readl(base_reg + FLITE_REG_CIGCTRL);
 
 	/* for checking overflow */
 	cfg &= ~FLITE_REG_CIGCTRL_IRQ_OVFEN0_DISABLE;
 
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	writel(cfg, base_reg + FLITE_REG_CIGCTRL);
 }
 
-static void flite_hw_clr_ovf_interrupt_source(unsigned long __iomem *base_reg)
+static void flite_hw_clr_ovf_interrupt_source(void __iomem *base_reg)
 {
 	u32 cfg = 0;
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	cfg = readl(base_reg + FLITE_REG_CIGCTRL);
 
 	/* for checking overflow */
 	cfg |= FLITE_REG_CIGCTRL_IRQ_OVFEN0_DISABLE;
 
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	writel(cfg, base_reg + FLITE_REG_CIGCTRL);
 }
 
-static int flite_hw_check_ovf_interrupt_source(unsigned long __iomem *base_reg)
+static int flite_hw_check_ovf_interrupt_source(void __iomem *base_reg)
 {
 	u32 cfg = 0;
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	cfg = readl(base_reg + FLITE_REG_CIGCTRL);
 
 	/* for checking overflow */
 	if (cfg & FLITE_REG_CIGCTRL_IRQ_OVFEN0_DISABLE)
@@ -626,53 +626,53 @@ static int flite_hw_check_ovf_interrupt_source(unsigned long __iomem *base_reg)
 	return false;
 }
 
-static void flite_hw_force_reset(unsigned long __iomem *base_reg)
+static void flite_hw_force_reset(void __iomem *base_reg)
 {
 	u32 cfg = 0, retry = 100;
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	cfg = readl(base_reg + FLITE_REG_CIGCTRL);
 
 	/* request sw reset */
 	cfg |= FLITE_REG_CIGCTRL_SWRST_REQ;
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	writel(cfg, base_reg + FLITE_REG_CIGCTRL);
 
 	/* checking reset ready */
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	cfg = readl(base_reg + FLITE_REG_CIGCTRL);
 	while (retry-- && !(cfg & FLITE_REG_CIGCTRL_SWRST_RDY))
-		cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+		cfg = readl(base_reg + FLITE_REG_CIGCTRL);
 
 	if (!(cfg & FLITE_REG_CIGCTRL_SWRST_RDY))
 		warn("[CamIF] sw reset is not read but forcelly");
 
 	/* sw reset */
 	cfg |= FLITE_REG_CIGCTRL_SWRST;
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	writel(cfg, base_reg + FLITE_REG_CIGCTRL);
 	warn("[CamIF] sw reset");
 }
 
-static void flite_hw_set_inverse_polarity(unsigned long __iomem *base_reg)
+static void flite_hw_set_inverse_polarity(void __iomem *base_reg)
 {
 	u32 cfg = 0;
 
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	cfg = readl(base_reg + FLITE_REG_CIGCTRL);
 	cfg &= ~(FLITE_REG_CIGCTRL_INVPOLPCLK | FLITE_REG_CIGCTRL_INVPOLVSYNC
 			| FLITE_REG_CIGCTRL_INVPOLHREF);
 
 	/* cfg |= (FLITE_REG_CIGCTRL_INVPOLPCLK | FLITE_REG_CIGCTRL_INVPOLVSYNC); */
 
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	writel(cfg, base_reg + FLITE_REG_CIGCTRL);
 }
 
-static void flite_hw_set_camera_type(unsigned long __iomem *base_reg)
+static void flite_hw_set_camera_type(void __iomem *base_reg)
 {
 	u32 cfg = 0;
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	cfg = readl(base_reg + FLITE_REG_CIGCTRL);
 
 	cfg |= FLITE_REG_CIGCTRL_SELCAM_MIPI;
 
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
+	writel(cfg, base_reg + FLITE_REG_CIGCTRL);
 }
 
-static void flite_hw_set_window_offset(unsigned long __iomem *base_reg,
+static void flite_hw_set_window_offset(void __iomem *base_reg,
         struct fimc_is_image *image)
 {
 	u32 cfg = 0;
@@ -680,122 +680,122 @@ static void flite_hw_set_window_offset(unsigned long __iomem *base_reg,
 
 	BUG_ON(!image);
 
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIWDOFST));
+	cfg = readl(base_reg + FLITE_REG_CIWDOFST);
 	cfg &= ~(FLITE_REG_CIWDOFST_HOROFF_MASK |
 		FLITE_REG_CIWDOFST_VEROFF_MASK);
 	cfg |= FLITE_REG_CIWDOFST_WINOFSEN |
 		FLITE_REG_CIWDOFST_WINHOROFST(image->window.offs_h) |
 		FLITE_REG_CIWDOFST_WINVEROFST(image->window.offs_v);
 
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIWDOFST));
+	writel(cfg, base_reg + FLITE_REG_CIWDOFST);
 
 	hoff2 = image->window.o_width - image->window.width - image->window.offs_h;
 	voff2 = image->window.o_height - image->window.height - image->window.offs_v;
 	cfg = FLITE_REG_CIWDOFST2_WINHOROFST2(hoff2) |
 		FLITE_REG_CIWDOFST2_WINVEROFST2(voff2);
 
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIWDOFST2));
+	writel(cfg, base_reg + FLITE_REG_CIWDOFST2);
 }
 
-static void flite_hw_set_last_capture_end_clear(unsigned long __iomem *base_reg)
+static void flite_hw_set_last_capture_end_clear(void __iomem *base_reg)
 {
 	u32 cfg = 0;
 
-	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CISTATUS2));
+	cfg = readl(base_reg + FLITE_REG_CISTATUS2);
 	cfg &= ~FLITE_REG_CISTATUS2_LASTCAPEND;
 
-	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CISTATUS2));
+	writel(cfg, base_reg + FLITE_REG_CISTATUS2);
 }
 
-int flite_hw_get_present_frame_buffer(unsigned long __iomem *base_reg)
+int flite_hw_get_present_frame_buffer(void __iomem *base_reg)
 {
 	u32 status = 0;
 
-	status = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CISTATUS3));
+	status = readl(base_reg + FLITE_REG_CISTATUS3);
 	status &= FLITE_REG_CISTATUS3_PRESENT_MASK;
 
 	return status;
 }
 
-int flite_hw_get_status2(unsigned long __iomem *base_reg)
+int flite_hw_get_status2(void __iomem *base_reg)
 {
 	u32 status = 0;
 
-	status = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CISTATUS2));
+	status = readl(base_reg + FLITE_REG_CISTATUS2);
 
 	return status;
 }
 
-int flite_hw_get_status1(unsigned long __iomem *base_reg)
+int flite_hw_get_status1(void __iomem *base_reg)
 {
 	u32 status = 0;
 
-	status = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CISTATUS));
+	status = readl(base_reg + FLITE_REG_CISTATUS);
 
 	return status;
 }
 
-int flite_hw_getnclr_status1(unsigned long __iomem *base_reg)
+int flite_hw_getnclr_status1(void __iomem *base_reg)
 {
 	u32 status = 0;
 
-	status = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CISTATUS));
-	writel(0, base_reg + TO_WORD_OFFSET(FLITE_REG_CISTATUS));
+	status = readl(base_reg + FLITE_REG_CISTATUS);
+	writel(0, base_reg + FLITE_REG_CISTATUS);
 
 	return status;
 }
 
-void flite_hw_set_status2(unsigned long __iomem *base_reg, u32 val)
+void flite_hw_set_status2(void __iomem *base_reg, u32 val)
 {
-	writel(val, base_reg + TO_WORD_OFFSET(FLITE_REG_CISTATUS2));
+	writel(val, base_reg + FLITE_REG_CISTATUS2);
 }
 
-void flite_hw_set_start_addr(unsigned long __iomem *base_reg, u32 number, u32 addr)
+void flite_hw_set_start_addr(void __iomem *base_reg, u32 number, u32 addr)
 {
-	unsigned long __iomem *target_reg;
+	void __iomem *target_reg;
 
 	if (number == 0) {
-		target_reg = base_reg + TO_WORD_OFFSET(0x30);
+		target_reg = base_reg + 0x30;
 	} else {
 		number--;
-		target_reg = base_reg + TO_WORD_OFFSET(0x200 + (0x4*number));
+		target_reg = base_reg + 0x200 + (0x4*number);
 	}
 
 	writel(addr, target_reg);
 }
 
-void flite_hw_set_use_buffer(unsigned long __iomem *base_reg, u32 number)
+void flite_hw_set_use_buffer(void __iomem *base_reg, u32 number)
 {
 	u32 buffer;
-	buffer = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIFCNTSEQ));
-	buffer |= 1<<number;
-	writel(buffer, base_reg + TO_WORD_OFFSET(FLITE_REG_CIFCNTSEQ));
+	buffer = readl(base_reg + FLITE_REG_CIFCNTSEQ);
+	buffer |= (1<<number);
+	writel(buffer, base_reg + FLITE_REG_CIFCNTSEQ);
 }
 
-void flite_hw_set_unuse_buffer(unsigned long __iomem *base_reg, u32 number)
+void flite_hw_set_unuse_buffer(void __iomem *base_reg, u32 number)
 {
 	u32 buffer;
-	buffer = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIFCNTSEQ));
+	buffer = readl(base_reg + FLITE_REG_CIFCNTSEQ);
 	buffer &= ~(1<<number);
-	writel(buffer, base_reg + TO_WORD_OFFSET(FLITE_REG_CIFCNTSEQ));
+	writel(buffer, base_reg + FLITE_REG_CIFCNTSEQ);
 }
 
-void flite_hw_set_mux(unsigned long __iomem *base_reg, u32 csi_ch, u32 flite_ch)
+void flite_hw_set_mux(void __iomem *base_reg, u32 csi_ch, u32 flite_ch)
 {
 	u32 cfg;
 	if ((csi_ch == 0) && (flite_ch == 1)) {
 		info("[CSI:D] mux setting : CSI0 <-> FLITE1\n");
-		cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIGENERAL));
+		cfg = readl(base_reg + FLITE_REG_CIGENERAL);
 		cfg |= (1 << 12);
-		writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIGENERAL));
+		writel(cfg, base_reg + FLITE_REG_CIGENERAL);
 	}
 }
 
-int init_fimc_lite(unsigned long __iomem *base_reg)
+int init_fimc_lite(void __iomem *base_reg)
 {
 	int i;
 
-	writel(0, base_reg + TO_WORD_OFFSET(FLITE_REG_CIFCNTSEQ));
+	writel(0, base_reg + FLITE_REG_CIFCNTSEQ);
 
 	for (i = 0; i < 32; i++)
 		flite_hw_set_start_addr(base_reg , i, 0xffffffff);
@@ -803,7 +803,7 @@ int init_fimc_lite(unsigned long __iomem *base_reg)
 	return 0;
 }
 
-static int start_fimc_lite(unsigned long __iomem *base_reg,
+static int start_fimc_lite(void __iomem *base_reg,
 	struct fimc_is_image *image,
 	u32 otf_setting,
 	u32 bns,
@@ -833,7 +833,7 @@ static int start_fimc_lite(unsigned long __iomem *base_reg,
 	return 0;
 }
 
-static inline void stop_fimc_lite(unsigned long __iomem *base_reg)
+static inline void stop_fimc_lite(void __iomem *base_reg)
 {
 	flite_hw_set_capture_stop(base_reg);
 }
@@ -1055,7 +1055,7 @@ static void tasklet_flite_str1(unsigned long data)
 			flite->early_work_skip = false;
 		} else {
 			queue_delayed_work(flite->early_workqueue, &flite->early_work_wq,
-					msecs_to_jiffies(flite->buf_done_wait_time));
+					   msecs_to_jiffies(flite->buf_done_wait_time));
 		}
 	}
 
@@ -1381,11 +1381,11 @@ clear_status:
 		if ((flite->overflow_cnt % FLITE_OVERFLOW_COUNT == 0) ||
 			(flite->overflow_cnt < FLITE_OVERFLOW_COUNT))
 			pr_err("[CamIF%d] OFCR(cnt:%u)\n", flite->instance, flite->overflow_cnt);
-		ciwdofst = readl(flite->base_reg + TO_WORD_OFFSET(0x10));
+		ciwdofst = readl(flite->base_reg + 0x10);
 		ciwdofst  |= (0x1 << 14);
-		writel(ciwdofst, flite->base_reg + TO_WORD_OFFSET(0x10));
+		writel(ciwdofst, flite->base_reg + 0x10);
 		ciwdofst  &= ~(0x1 << 14);
-		writel(ciwdofst, flite->base_reg + TO_WORD_OFFSET(0x10));
+		writel(ciwdofst, flite->base_reg + 0x10);
 	}
 
 	if (status1 & (1 << 9)) {
@@ -1397,11 +1397,11 @@ clear_status:
 		if ((flite->overflow_cnt % FLITE_OVERFLOW_COUNT == 0) ||
 			(flite->overflow_cnt < FLITE_OVERFLOW_COUNT))
 			pr_err("[CamIF%d] OFCB(cnt:%u)\n", flite->instance, flite->overflow_cnt);
-		ciwdofst = readl(flite->base_reg + TO_WORD_OFFSET(0x10));
+		ciwdofst = readl(flite->base_reg + 0x10);
 		ciwdofst  |= (0x1 << 15);
-		writel(ciwdofst, flite->base_reg + TO_WORD_OFFSET(0x10));
+		writel(ciwdofst, flite->base_reg + 0x10);
 		ciwdofst  &= ~(0x1 << 15);
-		writel(ciwdofst, flite->base_reg + TO_WORD_OFFSET(0x10));
+		writel(ciwdofst, flite->base_reg + 0x10);
 	}
 
 	if (status1 & (1 << 10)) {
@@ -1417,11 +1417,11 @@ clear_status:
 			tasklet_schedule(&flite->tasklet_flite_end);
 #endif
 		}
-		ciwdofst = readl(flite->base_reg + TO_WORD_OFFSET(0x10));
+		ciwdofst = readl(flite->base_reg + 0x10);
 		ciwdofst  |= (0x1 << 30);
-		writel(ciwdofst, flite->base_reg + TO_WORD_OFFSET(0x10));
+		writel(ciwdofst, flite->base_reg + 0x10);
 		ciwdofst  &= ~(0x1 << 30);
-		writel(ciwdofst, flite->base_reg + TO_WORD_OFFSET(0x10));
+		writel(ciwdofst, flite->base_reg + 0x10);
 	}
 
 	return IRQ_HANDLED;
@@ -1650,7 +1650,7 @@ static int flite_stream_off(struct v4l2_subdev *subdev,
 	bool nowait)
 {
 	int ret = 0;
-	unsigned long __iomem *base_reg;
+	void __iomem *base_reg;
 	unsigned long flags;
 	struct fimc_is_framemgr *framemgr;
 	struct fimc_is_frame *frame;
