@@ -48,15 +48,6 @@ struct fimc_is_vci {
 	u32			vc_map[CSI_VIRTUAL_CH_MAX];
 };
 
-int csi_hw_reset(unsigned long __iomem *base_reg);
-int csi_hw_s_settle(unsigned long __iomem *base_reg, u32 settle);
-int csi_hw_s_control(unsigned long __iomem *base_reg, u32 pixelformat, u32 mode, u32 lanes);
-int csi_hw_s_config(unsigned long __iomem *base_reg, u32 vc_src, u32 vc_dst, u32 pixelformat, u32 width, u32 height);
-int csi_hw_s_interrupt(unsigned long __iomem *base_reg, bool on);
-int csi_hw_g_interrupt(unsigned long __iomem *base_reg);
-int csi_hw_enable(unsigned long __iomem *base_reg);
-int csi_hw_disable(unsigned long __iomem *base_reg);
-
 int fimc_is_runtime_suspend_post(struct device *dev);
 int fimc_is_runtime_suspend(struct device *dev);
 int fimc_is_runtime_resume(struct device *dev);
