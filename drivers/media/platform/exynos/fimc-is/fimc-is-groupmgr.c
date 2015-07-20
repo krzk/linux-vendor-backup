@@ -1622,7 +1622,7 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 				ldr_frame->fcount);
 			if (!gframe) {
 				spin_unlock_irq(&gframemgr->frame_slock);
-				merr("rewinding is fail,can't recovery", group);
+				merr("rewinding failed, can't recover", group);
 				goto p_err;
 			}
 		}
@@ -1695,7 +1695,7 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 				ldr_frame->fcount);
 			if (!gframe) {
 				spin_unlock_irq(&gframemgr->frame_slock);
-				merr("rewinding is fail,can't recovery", group);
+				merr("rewinding failed, can't recover", group);
 				goto p_err;
 			}
 		}
