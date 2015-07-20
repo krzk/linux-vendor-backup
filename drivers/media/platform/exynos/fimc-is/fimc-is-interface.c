@@ -902,8 +902,8 @@ static void wq_func_general(struct work_struct *data)
 				testnclr_wakeup(itf, msg->parameter1);
 				break;
 			case HIC_GET_SET_FILE_ADDR:
-				dbg_interface("saddr(%p) done\n",
-					(void *)msg->parameter2);
+				dbg_interface("saddr(%#x) done\n",
+					      msg->parameter2);
 				memcpy(&itf->reply, msg,
 					sizeof(struct fimc_is_msg));
 				testnclr_wakeup(itf, msg->parameter1);
