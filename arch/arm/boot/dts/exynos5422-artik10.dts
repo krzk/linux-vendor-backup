@@ -76,10 +76,23 @@
 	dwmmc1@12210000 {
 		status = "okay";
 		num-slots = <1>;
+		channel = <1>;
+		caps-control;
+		bypass-smu;
+		clock-gate;
+		enable-cclk-on-suspend;
 		fixed_volt;
 		only_once_tune;
 		supports-highspeed;
+		broken-cd;
+		non-removable;
+		enable-sdio-wakeup;
 		sw_data_timeout;
+		keep-power-in-suspend;
+		pm-ignore-notify;
+		cd-type-external;
+		cd-type = <2>;
+		use-broken-voltage;
 		fifo-depth = <0x40>;
 		card-detect-delay = <200>;
 		qos_int_level = <222000>;
@@ -98,9 +111,9 @@
 		slot@0 {
 			reg = <0>;
 			bus-width = <4>;
+			disable-wp;
 		};
 	};
-
 
 	dwmmc2@12220000 {
 		status = "okay";
@@ -137,6 +150,33 @@
 			samsung,pin-pud = <3>;
 			samsung,pin-drv = <3>;
 		};
+
+		cfg_wlanen: cfg-wlanen {
+			samsung,pins = "gpx1-7";
+			samsung,pin-function = <1>;
+			samsung,pin-pud = <0>;
+			samsung,pin-drv = <3>;
+			samsung,pin-con-pdn = <3>;
+			samsung,pin-pud-pdn = <0>;
+		};
+
+		cfg_wlanhostwake: cfg-wlanhostwake {
+			samsung,pins = "gpx2-3";
+			samsung,pin-function = <0>;
+			samsung,pin-pud = <1>;
+			samsung,pin-con-pdn = <2>;
+			samsung,pin-pud-pdn = <0>;
+		};
+	};
+
+	wlan {
+		compatible = "samsung,brcm-wlan";
+		gpios = <&gpx1 7 0x1	/* WLAN_EN */
+			 &gpx2 3 0xF	/* WLAN_HOST_WAKE */
+			>;
+		pinctrl-names = "default";
+		pinctrl-0=<&cfg_wlanen &cfg_wlanhostwake>;
+		status = "okay";
 	};
 
 	hsi2c@12CC0000 {
