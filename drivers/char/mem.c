@@ -799,9 +799,6 @@ static const struct memdev {
 	 [7] = { "full", 0666, &full_fops, 0 },
 	 [8] = { "random", 0666, &random_fops, 0 },
 	 [9] = { "urandom", 0666, &urandom_fops, 0 },
-#ifdef CONFIG_PRINTK
-	[11] = { "kmsg", 0644, &kmsg_fops, 0 },
-#endif
 };
 
 static int memory_open(struct inode *inode, struct file *filp)
@@ -811,7 +808,7 @@ static int memory_open(struct inode *inode, struct file *filp)
 
 	minor = iminor(inode);
 	if (minor >= ARRAY_SIZE(devlist))
-		return -ENXIO;
+		return kmsg_memory_open(inode, filp);
 
 	dev = &devlist[minor];
 	if (!dev->fops)
@@ -833,16 +830,28 @@ static const struct file_operations memory_fops = {
 
 static char *mem_devnode(struct device *dev, umode_t *mode)
 {
-	if (mode && devlist[MINOR(dev->devt)].mode)
-		*mode = devlist[MINOR(dev->devt)].mode;
+	int minor = MINOR(dev->devt);
+
+	if (!mode)
+		goto out;
+
+	if (minor >= ARRAY_SIZE(devlist)) {
+		kmsg_mode(minor, mode);
+		goto out;
+	}
+
+	if (devlist[minor].mode)
+		*mode = devlist[minor].mode;
+out:
 	return NULL;
 }
 
-static struct class *mem_class;
+struct class *mem_class;
 
 static int __init chr_dev_init(void)
 {
 	int minor;
+	struct device *kmsg;
 
 	if (register_chrdev(MEM_MAJOR, "mem", &memory_fops))
 		printk("unable to get major %d for memory devs\n", MEM_MAJOR);
@@ -865,6 +874,10 @@ static int __init chr_dev_init(void)
 		device_create(mem_class, NULL, MKDEV(MEM_MAJOR, minor),
 			      NULL, devlist[minor].name);
 	}
+
+	kmsg = init_kmsg(KMSG_MINOR, 0644);
+	if (IS_ERR(kmsg))
+		return PTR_ERR(kmsg);
 
 	return tty_init();
 }

@@ -417,7 +417,39 @@ do {									\
 	no_printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
 #endif
 
+struct file;
+struct inode;
+
+#ifdef CONFIG_PRINTK
+
+extern struct class *mem_class;
+
+#define KMSG_MINOR	11
+
 extern const struct file_operations kmsg_fops;
+
+extern struct device *init_kmsg(int minor, umode_t mode);
+extern int kmsg_memory_open(struct inode *inode, struct file *filp);
+extern int kmsg_mode(int minor, umode_t *mode);
+
+#else
+
+static inline struct device *init_kmsg(int minor, umode_t mode)
+{
+	return NULL;
+}
+
+static inline int kmsg_memory_open(struct inode *inode, struct file *filp)
+{
+	return -ENXIO;
+}
+
+static inline int kmsg_mode(int minor, umode_t *mode)
+{
+	return -ENXIO;
+}
+
+#endif
 
 enum {
 	DUMP_PREFIX_NONE,

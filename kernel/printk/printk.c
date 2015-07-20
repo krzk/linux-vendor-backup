@@ -46,6 +46,8 @@
 #include <linux/utsname.h>
 #include <linux/ctype.h>
 #include <linux/uio.h>
+#include <linux/device.h>
+#include <linux/kdev_t.h>
 
 #include <asm/uaccess.h>
 
@@ -241,6 +243,7 @@ struct log_buffer {
 	u64 next_seq;
 #ifdef CONFIG_PRINTK
 	u32 next_idx;		/* index of the next record to store */
+	int mode;		/* mode of device */
 	int minor;		/* minor representing buffer device */
 #endif
 };
@@ -283,6 +286,7 @@ static struct log_buffer log_buf = {
 	.first_idx	= 0,
 	.next_seq	= 0,
 	.next_idx	= 0,
+	.mode		= 0,
 	.minor		= 0,
 };
 
@@ -1185,6 +1189,45 @@ const struct file_operations kmsg_fops = {
 	.poll = devkmsg_poll,
 	.release = devkmsg_release,
 };
+
+/* Should be used for device registration */
+struct device *init_kmsg(int minor, umode_t mode)
+{
+	log_buf.minor = minor;
+	log_buf.mode = mode;
+	return device_create(mem_class, NULL, MKDEV(MEM_MAJOR, minor),
+			NULL, "kmsg");
+}
+
+int kmsg_memory_open(struct inode *inode, struct file *filp)
+{
+	filp->f_op = &kmsg_fops;
+
+	return kmsg_fops.open(inode, filp);
+}
+
+int kmsg_mode(int minor, umode_t *mode)
+{
+	int ret = -ENXIO;
+	struct log_buffer *log_b;
+
+	if (minor == log_buf.minor) {
+		*mode = log_buf.mode;
+		return 0;
+	}
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(log_b, &log_buf.list, list) {
+		if (log_b->minor == minor) {
+			*mode = log_b->mode;
+			ret = 0;
+			break;
+		}
+	}
+	rcu_read_unlock();
+
+	return ret;
+}
 
 #ifdef CONFIG_KEXEC
 /*
