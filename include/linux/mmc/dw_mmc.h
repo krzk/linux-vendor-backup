@@ -401,9 +401,9 @@ struct dw_mci_board {
 	*/
 
 	int (*ext_cd_init)(void (*notify_func)
-			(struct platform_device *, int state));
+			(void *dev_id, int state), void *dev_id);
 	int (*ext_cd_cleanup)(void (*notify_func)
-			(struct platform_device *, int state));
+			(void *dev_id, int state), void *dev_id);
 
 	/*
 	 * Enable power to selected slot and set voltage to desired level.

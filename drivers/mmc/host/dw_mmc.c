@@ -3166,18 +3166,18 @@ static void dw_mci_work_routine_card(struct work_struct *work)
 	}
 }
 
-static void dw_mci_notify_change(struct platform_device *dev, int state)
+static void dw_mci_notify_change(void *dev_id, int state)
 {
-	struct dw_mci *host = platform_get_drvdata(dev);
+	struct dw_mci *host = (struct dw_mci *)dev_id;
 	unsigned long flags;
 
 	if (host) {
 		spin_lock_irqsave(&host->lock, flags);
 		if (state) {
-			dev_dbg(&dev->dev, "card inserted.\n");
+			dev_dbg(host->dev, "card inserted.\n");
 			host->pdata->quirks |= DW_MCI_QUIRK_BROKEN_CARD_DETECTION;
 		} else {
-			dev_dbg(&dev->dev, "card removed.\n");
+			dev_dbg(host->dev, "card removed.\n");
 			host->pdata->quirks &= ~DW_MCI_QUIRK_BROKEN_CARD_DETECTION;
 		}
 		queue_work(host->card_workqueue, &host->card_work);
@@ -3501,11 +3501,11 @@ static int dw_mci_init_slot(struct dw_mci *host, unsigned int id)
 			wifi_status_cb_devid = to_platform_device(host->dev);
 			host->pdata->ext_cd_init = MTK6220_wifi_status_register;
 		}
-		host->pdata->ext_cd_init(&dw_mci_notify_change);
+		host->pdata->ext_cd_init(&dw_mci_notify_change, (void *)host);
 	}
 #else
 	if (host->pdata->cd_type == DW_MCI_CD_EXTERNAL)
-		host->pdata->ext_cd_init(&dw_mci_notify_change);
+		host->pdata->ext_cd_init(&dw_mci_notify_change, (void *)host);
 #endif
 
 	/*
@@ -3652,6 +3652,34 @@ static struct dw_mci_of_quirks {
 	},
 };
 
+void (*notify_func_callback)(void *dev_id, int state);
+void *mmc_host_dev;
+static DEFINE_MUTEX(notify_mutex_lock);
+
+static int ext_cd_init_callback(
+	void (*notify_func)(void *dev_id, int state), void *dev_id)
+{
+	mutex_lock(&notify_mutex_lock);
+	WARN_ON(notify_func_callback);
+	notify_func_callback = notify_func;
+	mmc_host_dev = dev_id;
+	mutex_unlock(&notify_mutex_lock);
+
+	return 0;
+}
+
+static int ext_cd_cleanup_callback(
+	void (*notify_func)(void *dev_id, int state), void *dev_id)
+{
+	mutex_lock(&notify_mutex_lock);
+	WARN_ON(notify_func_callback);
+	notify_func_callback = NULL;
+	mmc_host_dev = NULL;
+	mutex_unlock(&notify_mutex_lock);
+
+	return 0;
+}
+
 static struct dw_mci_board *dw_mci_parse_dt(struct dw_mci *host)
 {
 	struct dw_mci_board *pdata;
@@ -3749,6 +3777,12 @@ static struct dw_mci_board *dw_mci_parse_dt(struct dw_mci *host)
 
 	if (of_find_property(np, "pm-ignore-notify", NULL))
 		pdata->pm_caps |= MMC_PM_IGNORE_PM_NOTIFY;
+
+	if (of_find_property(np, "cd-type-external", NULL)) {
+		pdata->cd_type = DW_MCI_CD_EXTERNAL;
+		pdata->ext_cd_init = ext_cd_init_callback;
+		pdata->ext_cd_cleanup = ext_cd_cleanup_callback;
+	}
 
 	if (of_find_property(np, "enable-sdio-wakeup", NULL))
 		pdata->pm_caps |= MMC_PM_WAKE_SDIO_IRQ;
@@ -4150,7 +4184,8 @@ void dw_mci_remove(struct dw_mci *host)
 	mci_writel(host, INTMASK, 0); /* disable all mmc interrupt first */
 
 	if (host->pdata->cd_type == DW_MCI_CD_EXTERNAL)
-		host->pdata->ext_cd_cleanup(&dw_mci_notify_change);
+		host->pdata->ext_cd_cleanup(&dw_mci_notify_change,
+					    (void *)host);
 
 	for (i = 0; i < host->num_slots; i++) {
 		dev_dbg(host->dev, "remove slot %d\n", i);
