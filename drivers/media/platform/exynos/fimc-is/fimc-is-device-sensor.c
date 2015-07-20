@@ -48,14 +48,6 @@ int fimc_is_sensor_runtime_suspend(struct device *dev);
 
 extern int fimc_is_sen_video_probe(void *data);
 
-extern u32 __iomem *notify_fcount_sen0;
-extern u32 __iomem *notify_fcount_sen1;
-extern u32 __iomem *notify_fcount_sen2;
-u32 notify_fcount_sen0_fw;
-u32 notify_fcount_sen1_fw;
-u32 notify_fcount_sen2_fw;
-u32 notify_fcount_dummy;
-
 #define BINNING(x, y) roundup((x) * 1000 / (y), 250)
 
 int fimc_is_sensor_write(struct i2c_client *client,
