@@ -3786,17 +3786,17 @@ static int s3c_hsotg_probe(struct platform_device *pdev)
 
 	/* USB detect IRQ */
 	gpio = of_get_named_gpio(dev->of_node, "samsung,vbus-gpio", 0);
-	if (!gpio_is_valid(gpio)) {
-		dev_err(dev, "failed to get interrupt gpio\n");
-		return -EINVAL;
-	}
-	hsotg->detect_irq = gpio_to_irq(gpio);
+	if (gpio_is_valid(gpio)) {
+		hsotg->detect_irq = gpio_to_irq(gpio);
 
-	ret = devm_request_irq(&pdev->dev, hsotg->detect_irq, s3c_vbus_detect_irq,
-			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING, "USB_DETECT", hsotg);
-	if (ret < 0) {
-		dev_err(dev, "cannot claim USB detect IRQ\n");
-		goto err_clk;
+		ret = devm_request_irq(&pdev->dev, hsotg->detect_irq,
+				s3c_vbus_detect_irq,
+				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+				"USB_DETECT", hsotg);
+		if (ret < 0) {
+			dev_err(dev, "cannot claim USB detect IRQ\n");
+			goto err_clk;
+		}
 	}
 	pm_runtime_enable(hsotg->dev);
 
