@@ -544,6 +544,30 @@
 			samsung,pin-con-pdn = <2>;
 			samsung,pin-pud-pdn = <0>;
 		};
+
+		cfg_en: cfg-en {
+			samsung,pins ="gpx1-7";
+			samsung,pin-function = <1>;
+			samsung,pin-pud = <1>;
+			samsung,pin-con-pdn = <3>;
+			samsung,pin-pud-pdn = <1>;
+		};
+
+		cfg_btwake: cfg-btwake {
+			samsung,pins = "gpx3-7";
+			samsung,pin-function = <1>;
+			samsung,pin-pud = <1>;
+			samsung,pin-con-pdn = <0>;
+			samsung,pin-pud-pdn = <1>;
+		};
+
+		cfg_hostwake: cfg-hostwake {
+			samsung,pins = "gpx3-6";
+			samsung,pin-function = <0>;
+			samsung,pin-pud = <2>;
+			samsung,pin-con-pdn = <2>;
+			samsung,pin-pud-pdn = <0>;
+		};
 	};
 
 	wlan {
@@ -553,6 +577,23 @@
 			>;
 		pinctrl-names = "default";
 		pinctrl-0=<&cfg_wlanen &cfg_wlanhostwake>;
+		status = "okay";
+	};
+
+	serial@13800000 {
+		force-auto-flow-control;
+	};
+
+	bluetooth {
+		compatible = "broadcom,bcm4354bt";
+
+		gpios = <&gpx1 7 0	/* BT_EN */
+			 &gpx3 7 0	/* BT_WAKE */
+			 &gpx3 6 0xF	/* BT_HOST_WAKE */
+			 >;
+
+		pinctrl-names = "default";
+		pinctrl-0=<&cfg_hostwake &cfg_btwake &cfg_en>;
 		status = "okay";
 	};
 };
