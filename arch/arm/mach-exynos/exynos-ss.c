@@ -1091,6 +1091,7 @@ void arch_local_irq_disable(void)
 
 	__exynos_ss_irqs_disabled(irqs_disabled, 1);
 }
+EXPORT_SYMBOL(arch_local_irq_disable);
 
 void arch_local_irq_enable(void)
 {
@@ -1102,6 +1103,8 @@ void arch_local_irq_enable(void)
 		:
 		: "memory", "cc");
 }
+EXPORT_SYMBOL(arch_local_irq_enable);
+
 #endif
 
 #ifdef CONFIG_EXYNOS_SNAPSHOT_HRTIMER
