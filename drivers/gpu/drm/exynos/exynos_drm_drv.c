@@ -12,6 +12,7 @@
  */
 
 #include <linux/pm_runtime.h>
+#include <linux/suspend.h>
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
 
@@ -108,6 +109,8 @@ static int exynos_drm_load(struct drm_device *dev, unsigned long flags)
 
 	/* force connectors detection */
 	drm_helper_hpd_irq_event(dev);
+
+	pm_set_vt_switch(0);
 
 	return 0;
 
