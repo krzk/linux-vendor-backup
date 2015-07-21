@@ -1887,9 +1887,12 @@ static int s3c24xx_serial_init_port(struct s3c24xx_uart_port *ourport,
 		return ret;
 	}
 
-	snprintf(clkname, sizeof(clkname), "sclk_uart%d", ourport->port.line);
-	baud_clk = clk_get(&platdev->dev, clkname);
-	clk_set_rate(baud_clk, 100000000);
+	if (of_machine_is_compatible("samsung,exynos3250")) {
+		snprintf(clkname, sizeof(clkname), "sclk_uart%d",
+			 ourport->port.line);
+		baud_clk = clk_get(&platdev->dev, clkname);
+		clk_set_rate(baud_clk, 100000000);
+	}
 
 	/* Keep all interrupts masked and cleared */
 	if (s3c24xx_serial_has_interrupt_mask(port)) {
