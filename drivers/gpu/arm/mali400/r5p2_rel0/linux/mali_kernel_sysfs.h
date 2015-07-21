@@ -21,6 +21,12 @@ extern "C" {
 
 int mali_sysfs_register(const char *mali_dev_name);
 int mali_sysfs_unregister(void);
+#if TIZEN_GLES_MEM_PROFILE
+int mali_sysfs_gles_mem_profile_add(void *data);
+void mali_sysfs_gles_mem_profile_remove(void *data);
+void *mali_sysfs_gles_mem_profile_move_to_trash(void *data1, void *data2,
+								int idx);
+#endif
 
 #ifdef __cplusplus
 }

@@ -61,6 +61,10 @@
 #define POWER_BUFFER_SIZE 3
 
 static struct dentry *mali_debugfs_dir = NULL;
+#if TIZEN_GLES_MEM_PROFILE
+struct dentry *mali_gles_mem_profile_dir;
+struct dentry *mali_gles_mem_profile_trash_dir;
+#endif
 
 typedef enum {
 	_MALI_DEVICE_SUSPEND,
@@ -1357,6 +1361,12 @@ int mali_sysfs_register(const char *mali_dev_name)
 #endif
 			}
 
+#if TIZEN_GLES_MEM_PROFILE
+			mali_gles_mem_profile_dir = debugfs_create_dir(
+							"gles_mem",
+							mali_debugfs_dir);
+#endif
+
 #if MALI_STATE_TRACKING
 			debugfs_create_file("state_dump", 0400, mali_debugfs_dir, NULL, &mali_seq_internal_state_fops);
 #endif
@@ -1383,6 +1393,172 @@ int mali_sysfs_unregister(void)
 	return 0;
 }
 
+#if TIZEN_GLES_MEM_PROFILE
+static void gles_mem_profile_show_common(struct seq_file *s, char *comm,
+									u32 pid)
+{
+	seq_printf(s,
+		"%s\n"
+		"%s (%s)\t\t%s(%d)\n"
+		"%s\n%s\t\t\t\t%s(%s)\n"
+		"\t| %s\t\t\t\t%s(%s)\n%s\n",
+	"===============================================================",
+	"Process name", comm, "Process ID", pid,
+	"---------------------------------------------------------------",
+	"Type Name", "Type Usage", "bytes", "API Name", "API Usage", "bytes",
+	"***************************************************************");
+}
+
+static int gles_mem_profile_show(struct seq_file *s, void *private_data)
+{
+	struct mali_session_data *session =
+				(struct mali_session_data *)(s->private);
+
+	gles_mem_profile_show_common(s, session->comm, session->pid);
+
+	seq_printf(s, "\n\nTotal Mali GLES mem usage: %lld (bytes)\n",
+		mali_session_gles_mem_profile_info_tracking(s,
+							(void *)session,
+							false));
+
+	return 0;
+}
+
+static int gles_mem_profile_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, gles_mem_profile_show, inode->i_private);
+}
+
+static const struct file_operations gles_mem_profile_fops = {
+	.owner = THIS_MODULE,
+	.open = gles_mem_profile_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release
+};
+
+int mali_sysfs_gles_mem_profile_add(void *data)
+{
+	struct mali_session_data *session = (struct mali_session_data *)data;
+	char name[11];
+
+	if (!mali_gles_mem_profile_dir)
+		return 0;
+
+	_mali_osk_snprintf(name, sizeof(name), "%u", session->pid);
+	session->gles_mem_profile_dentry =
+			debugfs_create_file(name, S_IRUSR,
+						mali_gles_mem_profile_dir,
+						(void *)session,
+						&gles_mem_profile_fops);
+
+	return 0;
+}
+
+void mali_sysfs_gles_mem_profile_remove(void *data)
+{
+	struct mali_session_data *session = (struct mali_session_data *)data;
+
+	debugfs_remove(session->gles_mem_profile_dentry);
+}
+
+static int gles_mem_profile_trash_show(struct seq_file *s, void *private_data)
+{
+	struct mali_session_gles_mem_profile_trash_info *trash_info =
+		(struct mali_session_gles_mem_profile_trash_info *)(s->private);
+
+	gles_mem_profile_show_common(s, trash_info->comm, trash_info->pid);
+
+	seq_printf(s, "\n\nTotal Mali GLES mem usage: %lld (bytes)\n",
+		mali_session_gles_mem_profile_info_tracking(s,
+							(void *)trash_info,
+							true));
+
+	return 0;
+}
+
+static int gles_mem_profile_trash_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, gles_mem_profile_trash_show, inode->i_private);
+}
+
+static const struct file_operations gles_mem_profile_trash_fops = {
+	.owner = THIS_MODULE,
+	.open = gles_mem_profile_trash_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release
+};
+
+void *mali_sysfs_gles_mem_profile_move_to_trash(void *data1, void *data2,
+									int idx)
+{
+	struct mali_session_gles_mem_profile_trash_info *trash_info =
+		(struct mali_session_gles_mem_profile_trash_info *)data1;
+	struct mali_session_data *session = (struct mali_session_data *)data2;
+	struct mali_session_gles_mem_profile_info *tinfo, *info;
+
+	if (!mali_gles_mem_profile_dir)
+		return NULL;
+
+	if (!trash_info) {
+		char name[11];
+		int i;
+
+		trash_info =
+			(struct mali_session_gles_mem_profile_trash_info *)
+			_mali_osk_calloc(1,
+			sizeof(struct mali_session_gles_mem_profile_trash_info)
+			);
+		if (!trash_info) {
+			MALI_PRINT_ERROR(("TrashInfo alloc failure"));
+			return NULL;
+		}
+
+		trash_info->pid = session->pid;
+		trash_info->comm = session->comm;
+
+		for (i = 0; i < MALI_MAX_GLES_MEM_TYPES; i++) {
+			tinfo = &(trash_info->info[i]);
+			tinfo->type = i;
+			tinfo->lock =
+				_mali_osk_mutex_init(_MALI_OSK_LOCKFLAG_ORDERED,
+						_MALI_OSK_LOCK_ORDER_SESSIONS);
+			if (!tinfo->lock)
+				MALI_PRINT_ERROR(("Mutex init failure"));
+			_MALI_OSK_INIT_LIST_HEAD(&(tinfo->api_head));
+		}
+
+		if (!mali_gles_mem_profile_trash_dir) {
+			mali_gles_mem_profile_trash_dir =
+				debugfs_create_dir("trash",
+						mali_gles_mem_profile_dir);
+		}
+
+		_mali_osk_snprintf(name, sizeof(name), "%u", trash_info->pid);
+		debugfs_create_file(name, S_IRUSR,
+						mali_gles_mem_profile_trash_dir,
+						(void *)trash_info,
+						&gles_mem_profile_trash_fops);
+	}
+
+	tinfo = &(trash_info->info[idx]);
+	info = &(session->gles_mem_profile_info[idx]);
+
+	_mali_osk_mutex_wait(info->lock);
+
+	if (tinfo->lock) {
+		tinfo->type = info->type;
+		tinfo->size = info->size;
+		_mali_osk_list_move_list(&(info->api_head), &(tinfo->api_head));
+	}
+
+	_mali_osk_mutex_signal(info->lock);
+
+	return trash_info;
+}
+#endif	/* TIZEN_GLES_MEM_PROFILE */
+
 #else /* MALI_LICENSE_IS_GPL */
 
 /* Dummy implementations for non-GPL */
@@ -1397,4 +1573,21 @@ int mali_sysfs_unregister(void)
 	return 0;
 }
 
+#if TIZEN_GLES_MEM_PROFILE
+int mali_sysfs_gles_mem_profile_add(void *data)
+{
+	return 0;
+}
+
+void mali_sysfs_gles_mem_profile_remove(void *data)
+{
+	return;
+}
+
+void *mali_sysfs_gles_mem_profile_move_to_trash(void *data1, void *data2,
+									int idx)
+{
+	return NULL;
+}
+#endif	/* TIZEN_GLES_MEM_PROFILE */
 #endif /* MALI_LICENSE_IS_GPL */

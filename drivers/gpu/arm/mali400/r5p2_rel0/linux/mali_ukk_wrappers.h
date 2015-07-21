@@ -40,6 +40,10 @@ int mem_write_safe_wrapper(struct mali_session_data *session_data, _mali_uk_mem_
 int mem_query_mmu_page_table_dump_size_wrapper(struct mali_session_data *session_data, _mali_uk_query_mmu_page_table_dump_size_s __user *uargs);
 int mem_dump_mmu_page_table_wrapper(struct mali_session_data *session_data, _mali_uk_dump_mmu_page_table_s __user *uargs);
 int mem_usage_get_wrapper(struct mali_session_data *session_data, _mali_uk_profiling_memory_usage_get_s __user *uargs);
+#if TIZEN_GLES_MEM_PROFILE
+int mem_profile_gles_mem(struct mali_session_data *session_data,
+				_mali_uk_gles_mem_profiler_s __user *uargs);
+#endif
 
 int timeline_get_latest_point_wrapper(struct mali_session_data *session, _mali_uk_timeline_get_latest_point_s __user *uargs);
 int timeline_wait_wrapper(struct mali_session_data *session, _mali_uk_timeline_wait_s __user *uargs);

@@ -23,6 +23,67 @@ struct mali_soft_system;
 /* Number of frame builder job lists per session. */
 #define MALI_PP_JOB_FB_LOOKUP_LIST_SIZE 16
 #define MALI_PP_JOB_FB_LOOKUP_LIST_MASK (MALI_PP_JOB_FB_LOOKUP_LIST_SIZE - 1)
+#if TIZEN_GLES_MEM_PROFILE
+#define MALI_GLES_MEM_SHIFT	8
+
+enum mali_session_gles_mem_profile_type {
+	MALI_GLES_MEM_PP_READ			= (1 << 0),
+	MALI_GLES_MEM_PP_WRITE			= (1 << 1),
+	MALI_GLES_MEM_GP_READ			= (1 << 2),
+	MALI_GLES_MEM_GP_WRITE			= (1 << 3),
+	MALI_GLES_MEM_CPU_READ			= (1 << 4),
+	MALI_GLES_MEM_CPU_WRITE			= (1 << 5),
+	MALI_GLES_MEM_GP_L2_ALLOC		= (1 << 6),
+	MALI_GLES_MEM_FRAME_POOL_ALLOC		= (1 << 7),
+	/* type of this mem block */
+	MALI_GLES_MEM_UNTYPED			= (0 << MALI_GLES_MEM_SHIFT),
+	MALI_GLES_MEM_VB_IB			= (1 << MALI_GLES_MEM_SHIFT),
+	MALI_GLES_MEM_TEXTURE			= (2 << MALI_GLES_MEM_SHIFT),
+	MALI_GLES_MEM_VARYING			= (3 << MALI_GLES_MEM_SHIFT),
+	MALI_GLES_MEM_RT			= (4 << MALI_GLES_MEM_SHIFT),
+	MALI_GLES_MEM_PBUFFER			= (5 << MALI_GLES_MEM_SHIFT),
+	/* memory types for gp command */
+	MALI_GLES_MEM_PLBU_HEAP			= (6 << MALI_GLES_MEM_SHIFT),
+	MALI_GLES_MEM_POINTER_ARRAY		= (7 << MALI_GLES_MEM_SHIFT),
+	MALI_GLES_MEM_SLAVE_TILE_LIST		= (8 << MALI_GLES_MEM_SHIFT),
+	MALI_GLES_MEM_UNTYPE_GP_CMD_LIST	= (9 << MALI_GLES_MEM_SHIFT),
+	/* memory type for polygon list command */
+	MALI_GLES_MEM_POLYGON_CMD_LIST		= (10 << MALI_GLES_MEM_SHIFT),
+	/* memory types for pp command */
+	MALI_GLES_MEM_TD			= (11 << MALI_GLES_MEM_SHIFT),
+	MALI_GLES_MEM_RSW			= (12 << MALI_GLES_MEM_SHIFT),
+	/* other memory types */
+	MALI_GLES_MEM_SHADER			= (13 << MALI_GLES_MEM_SHIFT),
+	MALI_GLES_MEM_STREAMS			= (14 << MALI_GLES_MEM_SHIFT),
+	MALI_GLES_MEM_FRAGMENT_STACK		= (15 << MALI_GLES_MEM_SHIFT),
+	MALI_GLES_MEM_UNIFORM			= (16 << MALI_GLES_MEM_SHIFT),
+	MALI_GLES_MEM_UNTYPE_FRAME_POOL		= (17 << MALI_GLES_MEM_SHIFT),
+	MALI_GLES_MEM_UNTYPE_SURFACE		= (18 << MALI_GLES_MEM_SHIFT),
+	MALI_GLES_MEM_MAX			= (19 << MALI_GLES_MEM_SHIFT),
+};
+
+#define MALI_MAX_GLES_MEM_TYPES	(MALI_GLES_MEM_MAX >> MALI_GLES_MEM_SHIFT)
+
+struct mali_session_gles_mem_profile_api_info {
+	char api[64]; /**< API name */
+	u16 id; /**< API ID */
+	int size; /**< Total size for this API */
+	_MALI_OSK_LIST_HEAD(link); /**< Link for the list of all EGL/GL API */
+};
+
+struct mali_session_gles_mem_profile_info {
+	u32 type; /**< Memory type ID */
+	s64 size; /**< Total sizes for this type */
+	_mali_osk_mutex_t *lock; /**< Mutex lock */
+	_mali_osk_list_t api_head; /**< List of all EGL/GL APIs for this type */
+};
+
+struct mali_session_gles_mem_profile_trash_info {
+	u32 pid;
+	char *comm;
+	struct mali_session_gles_mem_profile_info info[MALI_MAX_GLES_MEM_TYPES];
+};
+#endif	/* TIZEN_GLES_MEM_PROFILE */
 
 struct mali_session_data {
 	_mali_osk_notification_queue_t *ioctl_queue;
@@ -56,6 +117,12 @@ struct mali_session_data {
 	struct mali_allocation_manager allocation_mgr;
 #ifdef SPRD_GPU_BOOST
 	int level;
+#endif
+
+#if TIZEN_GLES_MEM_PROFILE
+	struct dentry *gles_mem_profile_dentry;
+	struct mali_session_gles_mem_profile_info
+				gles_mem_profile_info[MALI_MAX_GLES_MEM_TYPES];
 #endif
 };
 
@@ -123,5 +190,14 @@ u32 mali_session_max_window_num(void);
 #endif
 
 void mali_session_memory_tracking(_mali_osk_print_ctx *print_ctx);
+
+#if TIZEN_GLES_MEM_PROFILE
+void mali_session_gles_mem_profile_api_add(
+			struct mali_session_gles_mem_profile_info *info,
+			struct mali_session_gles_mem_profile_api_info *api,
+			_mali_osk_list_t *head);
+s64 mali_session_gles_mem_profile_info_tracking(_mali_osk_print_ctx *print_ctx,
+							void *data, bool trash);
+#endif
 
 #endif /* __MALI_SESSION_H__ */

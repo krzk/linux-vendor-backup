@@ -95,6 +95,9 @@ typedef enum {
 	_MALI_UK_DUMP_MMU_PAGE_TABLE,            /**< _mali_ukk_mem_dump_mmu_page_table() */
 	_MALI_UK_DMA_BUF_GET_SIZE,               /**< _mali_ukk_dma_buf_get_size() */
 	_MALI_UK_MEM_WRITE_SAFE,                 /**< _mali_uku_mem_write_safe() */
+#if TIZEN_GLES_MEM_PROFILE
+	_MALI_UK_GLES_MEM_PROFILER,              /**< _mali_uku_gles_mem_profiler() */
+#endif
 
 	/** Common functions for each core */
 
@@ -839,6 +842,19 @@ typedef struct {
 	u32 page_table_dump_size;       /**< [out] size of MMU page table dump */
 	u64 page_table_dump;           /**< [out] pointer within buffer where MMU page table dump is stored */
 } _mali_uk_dump_mmu_page_table_s;
+
+#if TIZEN_GLES_MEM_PROFILE
+/**
+ * @brief Arguments for _mali_uk[uk]_gles_mem_profiler()
+ */
+typedef struct {
+	u64 ctx;	/**< [in,out] user-kernel context (trashed on output) */
+	char api[64];	/**< [in] OpenGLES or EGL API function name */
+	u32  entrypoint;/**< [in] OpenGLES or EGL API entrypoint */
+	u32  type;	/**< [in] Type of memory */
+	int  size;	/**< [in] Number of bytes. +ve means allocated. -ve means freed */
+} _mali_uk_gles_mem_profiler_s;
+#endif
 
 /** @} */ /* end group _mali_uk_memory */
 
