@@ -1462,6 +1462,9 @@ static void s3c24xx_serial_set_termios(struct uart_port *port,
 	unsigned int umcon;
 	unsigned int udivslot = 0;
 
+	if (ourport->force_afc)
+		termios->c_cflag |= CRTSCTS;
+
 	/*
 	 * We don't support modem control lines.
 	 */
@@ -2050,6 +2053,12 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 	probe_index++;
 
 	dbg("%s: initialising port %p...\n", __func__, ourport);
+
+	if (of_find_property(pdev->dev.of_node, "force-auto-flow-control",
+				NULL))
+		ourport->force_afc = true;
+	else
+		ourport->force_afc = false;
 
 #ifdef CONFIG_PM_DEVFREQ
 	if (of_property_read_u32(pdev->dev.of_node, "mif_qos_val",

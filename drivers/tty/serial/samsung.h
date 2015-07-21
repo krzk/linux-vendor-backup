@@ -111,6 +111,7 @@ struct s3c24xx_uart_port {
 	/* reference to platform data */
 	struct s3c2410_uartcfg		*cfg;
 
+	bool				force_afc;
 	struct notifier_block		aud_uart_notifier;
 	unsigned int			aud_uart_notifier_suspend;
 	struct platform_device		*pdev;
