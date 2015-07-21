@@ -884,6 +884,15 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 #endif
 		break;
 
+#if TIZEN_GLES_MEM_PROFILE
+	case MALI_IOC_MEM_PROFILE_GLES_MEM:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_gles_mem_profiler_s),
+				sizeof(u64)));
+		err = mem_profile_gles_mem(session_data,
+				(_mali_uk_gles_mem_profiler_s __user *)arg);
+		break;
+#endif
+
 	case MALI_IOC_PP_START_JOB:
 		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_pp_start_job_s), sizeof(u64)));
 		err = pp_start_job_wrapper(session_data, (_mali_uk_pp_start_job_s __user *)arg);

@@ -308,3 +308,62 @@ int mem_usage_get_wrapper(struct mali_session_data *session_data, _mali_uk_profi
 	return 0;
 }
 
+#if TIZEN_GLES_MEM_PROFILE
+int mem_profile_gles_mem(struct mali_session_data *session_data,
+				_mali_uk_gles_mem_profiler_s __user *uargs)
+{
+	_mali_uk_gles_mem_profiler_s kargs;
+	struct mali_session_gles_mem_profile_info *info;
+	struct mali_session_gles_mem_profile_api_info *api, *tmp;
+	mali_bool flag = MALI_FALSE;
+
+	MALI_CHECK_NON_NULL(uargs, -EINVAL);
+	MALI_CHECK_NON_NULL(session_data, -EINVAL);
+
+	if (copy_from_user(&kargs, uargs, sizeof(_mali_uk_gles_mem_profiler_s)))
+		return -EFAULT;
+
+	kargs.ctx = (uintptr_t)session_data;
+
+	info = &session_data->gles_mem_profile_info[kargs.type];
+	if (!info) {
+		MALI_PRINT_ERROR(("No info is available. Something wrong"));
+		return -EINVAL;
+	}
+
+	_MALI_OSK_LIST_FOREACHENTRY(api, tmp, &(info->api_head),
+			struct mali_session_gles_mem_profile_api_info, link) {
+		if (api->id == (u16)kargs.entrypoint) {
+			/* This API is recorded already. Update it. */
+			api->size += kargs.size;
+			info->size += kargs.size;
+			flag = MALI_TRUE;
+			break;
+		}
+	}
+
+	if (flag == MALI_FALSE) {
+		/*
+		 * This is the first time the API is recorded for this info.
+		 * So add it.
+		 */
+		api = (struct mali_session_gles_mem_profile_api_info *)
+			_mali_osk_calloc(1,
+			sizeof(struct mali_session_gles_mem_profile_api_info));
+		if (!api) {
+			MALI_PRINT_ERROR(("Alloc failure"));
+			return -ENOMEM;
+		}
+		memcpy(&api->api, &kargs.api, sizeof(api->api));
+
+		api->id = (u16)kargs.entrypoint;
+		api->size += kargs.size;
+		info->size += kargs.size;
+
+		mali_session_gles_mem_profile_api_add(info, api,
+							&(info->api_head));
+	}
+
+	return 0;
+}
+#endif
