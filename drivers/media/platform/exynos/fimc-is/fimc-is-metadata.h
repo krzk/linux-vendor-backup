@@ -1325,7 +1325,7 @@ struct camera2_stream {
 		\remarks
 		[X] kernel virtual address for this buffer
 	*/
-	void *		address;
+	uint32_t		address;
 
 	/**	\brief
 		this frame count is from FLITE through dm.request.fcount,

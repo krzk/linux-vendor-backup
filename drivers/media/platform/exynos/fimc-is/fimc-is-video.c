@@ -634,7 +634,7 @@ set_info:
 		}
 
 		frame->stream = queue->buf_kva[index][spare];
-		frame->stream->address = queue->buf_kva[index][spare];
+		frame->stream->address = 0; //queue->buf_kva[index][spare];
 		frame->stream_size = queue->framecfg.size[spare];
 	}
 
