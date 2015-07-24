@@ -461,7 +461,7 @@ static int cm_get_battery_temperature(struct charger_manager *cm,
 	if (!cm->tzd_batt)
 		return -ENODEV;
 
-	ret = thermal_zone_get_temp(cm->tzd_batt, (unsigned long *)temp);
+	ret = thermal_zone_get_temp(cm->tzd_batt, temp);
 	if (!ret)
 		/* Calibrate temperature unit */
 		*temp /= 100;
