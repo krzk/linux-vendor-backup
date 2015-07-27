@@ -19,6 +19,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <asm/cacheflush.h>
+#include <asm/barrier.h>
 #include <asm/pgtable.h>
 #include <linux/firmware.h>
 #include <linux/dma-mapping.h>
@@ -688,6 +689,7 @@ static void fimc_is_ischain_cache_flush(struct fimc_is_device_ischain *this,
 		size,
 		DMA_TO_DEVICE);
 #endif
+	smp_mb();
 }
 
 static void fimc_is_ischain_region_invalid(struct fimc_is_device_ischain *device)
@@ -699,6 +701,7 @@ static void fimc_is_ischain_region_invalid(struct fimc_is_device_ischain *device
 		sizeof(struct is_region),
 		DMA_FROM_DEVICE);
 #endif
+	smp_mb();
 }
 
 static void fimc_is_ischain_region_flush(struct fimc_is_device_ischain *device)
@@ -710,6 +713,7 @@ static void fimc_is_ischain_region_flush(struct fimc_is_device_ischain *device)
 		sizeof(struct is_region),
 		DMA_TO_DEVICE);
 #endif
+	smp_mb();
 }
 
 void fimc_is_ischain_meta_flush(struct fimc_is_frame *frame)
@@ -723,6 +727,7 @@ void fimc_is_ischain_meta_flush(struct fimc_is_frame *frame)
 		DMA_TO_DEVICE);
 #endif
 #endif
+	smp_mb();
 }
 
 void fimc_is_ischain_meta_invalid(struct fimc_is_frame *frame)
@@ -736,6 +741,7 @@ void fimc_is_ischain_meta_invalid(struct fimc_is_frame *frame)
 		DMA_FROM_DEVICE);
 #endif
 #endif
+	smp_mb();
 }
 
 static void fimc_is_ischain_version(struct fimc_is_device_ischain *this, char *name, const char *load_bin, u32 size)
