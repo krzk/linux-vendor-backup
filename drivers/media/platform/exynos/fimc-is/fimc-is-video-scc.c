@@ -91,6 +91,12 @@ static int fimc_is_scc_video_open(struct file *file)
 	video = video_drvdata(file);
 	core = container_of(video, struct fimc_is_core, video_scc);
 
+	if (!core->fimc_is_companion_opened) {
+		pr_info("%s: /dev/video109 (companion) must be opened first\n",
+			__func__);
+		return -EINVAL;
+	}
+
 	ret = open_vctx(file, video, &vctx, FRAMEMGR_ID_INVALID, FRAMEMGR_ID_SCC);
 	if (ret) {
 		err("open_vctx is fail(%d)", ret);

@@ -30,6 +30,7 @@
 
 #include "fimc-is-device-companion.h"
 #include "fimc-is-video.h"
+#include "fimc-is-core.h"
 
 const struct v4l2_file_operations fimc_is_comp_video_fops;
 const struct v4l2_ioctl_ops fimc_is_comp_video_ioctl_ops;
@@ -125,6 +126,7 @@ static int fimc_is_comp_video_open(struct file *file)
 	struct fimc_is_video_ctx *vctx;
 	struct fimc_is_device_companion *device;
 	struct platform_device *fimc_is_pdev;
+	struct fimc_is_core *core;
 
 	fimc_is_pdev = to_platform_device(fimc_is_dev);
 	exynos_fimc_is_cfg_cam_clk(fimc_is_pdev);
@@ -132,6 +134,7 @@ static int fimc_is_comp_video_open(struct file *file)
 	vctx = NULL;
 	video = video_drvdata(file);
 	device = container_of(video, struct fimc_is_device_companion, video);
+	core = device->private_data;
 
 	ret = open_vctx(file, video, &vctx, FRAMEMGR_ID_INVALID, FRAMEMGR_ID_INVALID);
 	if (ret) {
@@ -148,6 +151,7 @@ static int fimc_is_comp_video_open(struct file *file)
 		goto p_err;
 	}
 
+	core->fimc_is_companion_opened = 1;
 p_err:
 	return ret;
 }
@@ -158,11 +162,13 @@ static int fimc_is_comp_video_close(struct file *file)
 	struct fimc_is_video *video = NULL;
 	struct fimc_is_video_ctx *vctx = NULL;
 	struct fimc_is_device_companion *device = NULL;
+	struct fimc_is_core *core;
 
 	BUG_ON(!file);
 
 	video = video_drvdata(file);
 	device = container_of(video, struct fimc_is_device_companion, video);
+	core = device->private_data;
 
 	vctx = file->private_data;
 	if (!vctx) {
@@ -182,6 +188,7 @@ static int fimc_is_comp_video_close(struct file *file)
 		err("close_vctx is fail(%d)", ret);
 
 p_err:
+	core->fimc_is_companion_opened = 0;
 	return ret;
 }
 

@@ -284,6 +284,7 @@ struct fimc_is_core {
 	bool					use_module_check;
 	bool					running_rear_camera;
 	bool					running_front_camera;
+	bool					fimc_is_companion_opened;
 };
 
 extern struct device *fimc_is_dev;
