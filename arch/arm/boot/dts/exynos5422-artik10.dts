@@ -41,12 +41,18 @@
 		broken-cd;
 		bypass-smu;
 		fixed_volt;
+		clock-gate;
+		enable-cclk-on-suspend;
 		only_once_tune;
 		extra_tuning;
 		supports-highspeed;
 		supports-hs200-1-8v-mode;
 		supports-ddr200-1-8v-mode;
+		error-retry;
 		enable-cache-control;
+		supports-poweroff-notification;
+		use-fine-tuning;
+		supports-ddr200-enhanced-strobe;
 		sw_data_timeout;
 		fifo-depth = <0x40>;
 		card-detect-delay = <200>;
