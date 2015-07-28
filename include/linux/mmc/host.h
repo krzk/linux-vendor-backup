@@ -62,6 +62,7 @@ struct mmc_ios {
 #define MMC_TIMING_MMC_HS200	6
 #define MMC_TIMING_MMC_HS200_DDR	7
 #define MMC_TIMING_MMC_HS200_DDR_ES	8
+#define MMC_TIMING_MMC_HS200_DDR_ULP	9
 
 #define MMC_SDR_MODE		0
 #define MMC_1_2V_DDR_MODE	1
@@ -294,13 +295,13 @@ struct mmc_host {
 #define MMC_CAP2_PACKED_CMD	(MMC_CAP2_PACKED_RD | \
 				 MMC_CAP2_PACKED_WR)
 #define MMC_CAP2_NO_PRESCAN_POWERUP (1 << 14)	/* Don't power up before scan */
-#define MMC_CAP2_HS200_1_8V_DDR	(1 << 12)	/* can support */
-#define MMC_CAP2_HS200_1_2V_DDR	(1 << 13)	/* can support */
+#define MMC_CAP2_HS200_1_8V_DDR	(1 << 15)	/* can support */
+#define MMC_CAP2_HS200_1_2V_DDR	(1 << 16)	/* can support */
 #define MMC_CAP2_HS200_DDR	(MMC_CAP2_HS200_1_8V_DDR | \
 				 MMC_CAP2_HS200_1_2V_DDR)
-#define MMC_CAP2_STROBE_ENHANCED	(1 << 14)	/* enhanced strobe */
+#define MMC_CAP2_STROBE_ENHANCED	(1 << 17)	/* enhanced strobe */
 #define MMC_CAP2_CMDQ		(MMC_CAP2_CACHE_CTRL | \
-				(1 << 15))	/* Allow command queuing */
+				(1 << 18))	/* Allow command queuing */
 
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
@@ -426,6 +427,7 @@ struct mmc_host {
 	} embedded_sdio_data;
 #endif
 
+	unsigned int		blk_reset_cnt;
 	unsigned long		private[0] ____cacheline_aligned;
 };
 

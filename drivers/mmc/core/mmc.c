@@ -272,6 +272,37 @@ static void mmc_select_card_type(struct mmc_card *card)
 	card->ext_csd.card_type = card_type;
 }
 
+/* eMMC 5.0 or later only */
+/*
+ * mmc_merge_ext_csd - merge some ext_csd field to a variable.
+ * @ext_csd : pointer of ext_csd.(1 Byte/field)
+ * @continuous : if you want to merge continuous field, set true.
+ * @count : a number of ext_csd field to merge(=< 8)
+ * @args : list of ext_csd index or first index.
+ */
+static unsigned long long mmc_merge_ext_csd(u8 *ext_csd, bool continuous, int count, ...)
+{
+	unsigned long long merge_ext_csd = 0;
+	va_list args;
+	int i = 0;
+	int index;
+
+	va_start(args, count);
+
+	index = va_arg(args, int);
+	for (i = 0; i < count; i++) {
+		if (continuous) {
+			merge_ext_csd = merge_ext_csd << 8 | ext_csd[index + count - 1 - i];
+		} else {
+			merge_ext_csd = merge_ext_csd << 8 | ext_csd[index];
+			index = va_arg(args, int);
+		}
+	}
+	va_end(args);
+
+	return merge_ext_csd;
+}
+
 /*
  * Decode extended CSD.
  */
@@ -554,6 +585,7 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		card->ext_csd.data_sector_size = 512;
 	}
 
+	/* eMMC v5.0 or later */
 	if (card->ext_csd.rev >= 7) {
 		card->ext_csd.cmdq_support = ext_csd[EXT_CSD_CMDQ_SUPPORT];
 		if (card->ext_csd.cmdq_support) {
@@ -563,9 +595,36 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 			card->ext_csd.qrdy_function =
 				ext_csd[EXT_CSD_CMDQ_QRDY_FUNCTION];
 		}
-	}
 
-	if (card->ext_csd.rev >= 7) {
+		if (card->cid.manfid == 0x15 &&
+				ext_csd[EXT_CSD_PRE_EOL_INFO] == 0x0 &&
+				ext_csd[EXT_CSD_DEVICE_VERSION] == 0x0) {
+			/* eMMC : moviNAND VMX device Only */
+			card->ext_csd.smart_info = mmc_merge_ext_csd(ext_csd, false, 8,
+					EXT_CSD_PREv5_LIFE_TIME_EST,
+					EXT_CSD_PREv5_LIFE_TIME_EST,
+					EXT_CSD_PREv5_PRE_EOL_INFO,
+					EXT_CSD_PREv5_OPT_ERASE_SIZE,
+					EXT_CSD_PREv5_OPT_WRITE_SIZE,
+					EXT_CSD_PREv5_CTRL_VERSION,
+					EXT_CSD_HC_ERASE_GRP_SIZE,
+					EXT_CSD_HC_WP_GRP_SIZE);
+			card->ext_csd.fwdate = mmc_merge_ext_csd(ext_csd, false, 1,
+					EXT_CSD_PREv5_FIRMWARE_VERSION);
+		} else {
+			card->ext_csd.smart_info = mmc_merge_ext_csd(ext_csd, false, 8,
+					EXT_CSD_DEVICE_LIFE_TIME_EST_TYPE_B,
+					EXT_CSD_DEVICE_LIFE_TIME_EST_TYPE_A,
+					EXT_CSD_PRE_EOL_INFO,
+					EXT_CSD_OPTIMAL_TRIM_UNIT_SIZE,
+					EXT_CSD_DEVICE_VERSION + 1,
+					EXT_CSD_DEVICE_VERSION,
+					EXT_CSD_HC_ERASE_GRP_SIZE,
+					EXT_CSD_HC_WP_GRP_SIZE);
+			card->ext_csd.fwdate = mmc_merge_ext_csd(ext_csd, true, 8,
+					EXT_CSD_FIRMWARE_VERSION);
+		}
+
 		card->ext_csd.enhanced_strobe_support =
 				ext_csd[EXT_CSD_STORBE_SUPPORT];
 	}
@@ -656,6 +715,20 @@ MMC_DEV_ATTR(enhanced_area_offset, "%llu\n",
 MMC_DEV_ATTR(enhanced_area_size, "%u\n", card->ext_csd.enhanced_area_size);
 MMC_DEV_ATTR(raw_rpmb_size_mult, "%#x\n", card->ext_csd.raw_rpmb_size_mult);
 MMC_DEV_ATTR(rel_sectors, "%#x\n", card->ext_csd.rel_sectors);
+MMC_DEV_ATTR(smart, "0x%016llx\n", card->ext_csd.smart_info);
+MMC_DEV_ATTR(fwdate, "0x%016llx\n", card->ext_csd.fwdate);
+MMC_DEV_ATTR(caps, "0x%08x\n", card->host->caps);
+MMC_DEV_ATTR(caps2, "0x%08x\n", card->host->caps2);
+MMC_DEV_ATTR(erase_type, "MMC_CAP_ERASE %s, type %s, SECURE %s, Sanitize %s\n",
+		card->host->caps & MMC_CAP_ERASE ? "enabled" : "disabled",
+		mmc_can_discard(card) ? "DISCARD" :
+		(mmc_can_trim(card) ? "TRIM" : "NORMAL"),
+		(!mmc_can_sanitize(card) && mmc_can_secure_erase_trim(card) &&
+		 !(card->quirks & MMC_QUIRK_SEC_ERASE_TRIM_BROKEN)) ?
+		"supportable" : "disabled",
+		(mmc_can_sanitize(card) &&
+		 !(card->quirks & MMC_QUIRK_SEC_ERASE_TRIM_BROKEN)) ?
+		"enabled" : "disabled");
 
 static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_cid.attr,
@@ -674,6 +747,11 @@ static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_enhanced_area_size.attr,
 	&dev_attr_raw_rpmb_size_mult.attr,
 	&dev_attr_rel_sectors.attr,
+	&dev_attr_smart.attr,
+	&dev_attr_fwdate.attr,
+	&dev_attr_caps.attr,
+	&dev_attr_caps2.attr,
+	&dev_attr_erase_type.attr,
 	NULL,
 };
 
@@ -861,7 +939,7 @@ static int mmc_select_hs200(struct mmc_card *card, u8 driver_type)
 	/* switch to HS200 mode if bus width set successfully */
 	if (!err)
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
-				driver_type | EXT_CSD_HS_TIMING, 2, 0);
+				EXT_CSD_HS_TIMING, driver_type | 2, 0);
 
 	return err;
 }
@@ -1503,7 +1581,7 @@ static int mmc_can_poweroff_notify(const struct mmc_card *card)
 		(card->ext_csd.power_off_notification == EXT_CSD_POWER_ON);
 }
 
-static int mmc_poweroff_notify(struct mmc_card *card, unsigned int notify_type)
+int mmc_poweroff_notify(struct mmc_card *card, unsigned int notify_type)
 {
 	unsigned int timeout = card->ext_csd.generic_cmd6_time;
 	int err;
@@ -1524,6 +1602,7 @@ static int mmc_poweroff_notify(struct mmc_card *card, unsigned int notify_type)
 
 	return err;
 }
+EXPORT_SYMBOL(mmc_poweroff_notify);
 
 /*
  * Host is being removed. Free up the current card.
@@ -1592,7 +1671,8 @@ static int mmc_suspend(struct mmc_host *host)
 	if (err)
 		goto out;
 
-	if (mmc_can_poweroff_notify(host->card))
+	if (mmc_can_poweroff_notify(host->card) &&
+		!(host->caps2 & MMC_CAP2_NO_SLEEP_CMD))
 		err = mmc_poweroff_notify(host->card, EXT_CSD_POWER_OFF_SHORT);
 	else if (mmc_card_can_sleep(host))
 		err = mmc_card_sleep(host);

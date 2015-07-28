@@ -117,6 +117,22 @@ struct mmc_ext_csd {
 
 	unsigned int            feature_support;
 #define MMC_DISCARD_FEATURE	BIT(0)                  /* CMD38 feature */
+	/*
+	 * smart_info : It's for eMMC 5.0 or later device
+	 * [63:56] : DEVICE_LIFE_TIME_EST_TYPE_B [269]
+	 * [55:48] : DEVICE_LIFE_TIME_EST_TYPE_A [268]
+	 * [47:40] : PRE_EOL_INFO [267]
+	 * [39:32] : OPTIMAL_TRIM_UNIT_SIZE [264]
+	 * [31:16] : DEVICE_VERSION [263-262]
+	 * [15:08] : HC_ERASE_GRP_SIZE [224]
+	 * [07:00] : HC_WP_GRP_SIZE [221]
+	 */
+	unsigned long long	smart_info;
+	/*
+	 * fwdate : It's for eMMC 5.0 or later device
+	 * [63:00] : FIRMWARE_VERSION [261-254]
+	 */
+	unsigned long long	fwdate;
 };
 
 struct sd_scr {
@@ -275,6 +291,7 @@ struct mmc_card {
 #define MMC_QUIRK_LONG_READ_TIME (1<<9)		/* Data read time > CSD says */
 #define MMC_QUIRK_SEC_ERASE_TRIM_BROKEN (1<<10)	/* Skip secure for erase/trim */
 						/* byte mode */
+#define MMC_QUIRK_SEC_HW_RESET	(1<<11)		/* allow HW_RESET to recovery when some error happens */
 
 	unsigned int		erase_size;	/* erase size in sectors */
  	unsigned int		erase_shift;	/* if erase unit is power 2 */

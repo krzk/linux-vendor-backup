@@ -342,6 +342,22 @@ struct _mmc_csd {
 #define EXT_CSD_BKOPS_SUPPORT		502	/* RO */
 #define EXT_CSD_HPI_FEATURES		503	/* RO */
 
+/* additional : eMMC v5.0 or later Only */
+#define EXT_CSD_DEVICE_LIFE_TIME_EST_TYPE_B	269	/* RO */
+#define EXT_CSD_DEVICE_LIFE_TIME_EST_TYPE_A	268	/* RO */
+#define EXT_CSD_PRE_EOL_INFO			267	/* RO */
+#define EXT_CSD_OPTIMAL_TRIM_UNIT_SIZE		264	/* RO */
+#define EXT_CSD_DEVICE_VERSION			262	/* RO, 2Byte */
+#define EXT_CSD_FIRMWARE_VERSION		254	/* RO, 8Byte */
+
+/* additional : eMMC moviNAND VMX(PRE eMMC v5.0) device Only */
+#define EXT_CSD_PREv5_FIRMWARE_VERSION		259	/* RO */
+#define EXT_CSD_PREv5_CTRL_VERSION		258	/* RO */
+#define EXT_CSD_PREv5_OPT_ERASE_SIZE		257	/* RO */
+#define EXT_CSD_PREv5_OPT_WRITE_SIZE		256	/* RO */
+#define EXT_CSD_PREv5_PRE_EOL_INFO		255	/* RO */
+#define EXT_CSD_PREv5_LIFE_TIME_EST		254	/* RO */
+
 /*
  * EXT_CSD field definitions
  */
@@ -434,14 +450,6 @@ struct _mmc_csd {
 #define MMC_SWITCH_MODE_SET_BITS	0x01	/* Set bits which are 1 in value */
 #define MMC_SWITCH_MODE_CLEAR_BITS	0x02	/* Clear bits which are 1 in value */
 #define MMC_SWITCH_MODE_WRITE_BYTE	0x03	/* Set target to value */
-
-/*
- * Manufacturer ID from CID
- */
-#define CID_MANFID_SANDISK	0x2
-#define CID_MANFID_TOSHIBA	0x11
-#define CID_MANFID_MICRON	0x13
-#define CID_MANFID_SAMSUNG	0x15
 
 /*
  * HS_TIMING

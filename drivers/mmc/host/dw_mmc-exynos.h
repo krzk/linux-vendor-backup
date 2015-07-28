@@ -12,11 +12,13 @@
 
 #define NUM_PINS(x)			(x + 2)
 
+#define DWMCI_RESP_RCLK_MODE			BIT(5)
 #define EXYNOS_DEF_MMC_0_CAPS	(MMC_CAP_UHS_DDR50 | MMC_CAP_1_8V_DDR | \
 				MMC_CAP_8_BIT_DATA | MMC_CAP_CMD23 | \
 				MMC_CAP_ERASE)
 #define EXYNOS_DEF_MMC_1_CAPS	MMC_CAP_CMD23
-#define EXYNOS_DEF_MMC_2_CAPS	(MMC_CAP_CMD23 | MMC_CAP_ERASE)
+#define EXYNOS_DEF_MMC_2_CAPS	(MMC_CAP_CMD23 | MMC_CAP_UHS_SDR50 | \
+				MMC_CAP_UHS_SDR104 | MMC_CAP_ERASE)
 
 #define MAX_TUNING_RETRIES	6
 #define MAX_TUNING_LOOP		(MAX_TUNING_RETRIES * 8 * 2)
@@ -34,19 +36,24 @@ enum dw_mci_exynos_type {
 struct dw_mci_exynos_priv_data {
 	u8			ciu_div;
 	u32			sdr_timing;
+	u32			sdr_hs_timing;
 	u32			ddr_timing;
 	u32			hs200_timing;
 	u32			ddr200_timing;
+	u32			ddr200_ulp_timing;
+	u32			ddr200_tx_t_fastlimit;
+	u32			ddr200_tx_t_initval;
 	u32			*ref_clk;
 	const char		*drv_str_pin;
 	const char		*drv_str_addr;
 	int			drv_str_val;
 	u32			delay_line;
+	u32			tx_delay_line;
 	int			drv_str_base_val;
 	u32			drv_str_num;
 	int			cd_gpio;
-	int			sd_gpio;
-	int			sd2_pwr_gpio;
+	int			vqmmc_en_gpio;
+	int			vmmc_en_gpio;
 	u32			caps;
 	u32			ctrl_flag;
 	u32			ignore_phase;
@@ -54,6 +61,7 @@ struct dw_mci_exynos_priv_data {
 
 #define DW_MMC_EXYNOS_USE_FINE_TUNING		BIT(0)
 #define DW_MMC_EXYNOS_BYPASS_FOR_ALL_PASS	BIT(1)
+#define DW_MMC_EXYNOS_ENABLE_SHIFT		BIT(2)
 };
 
 /*

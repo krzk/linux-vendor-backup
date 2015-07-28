@@ -1815,6 +1815,7 @@ static void mmc_power_up(struct mmc_host *host)
 	host->ios.power_mode = MMC_POWER_UP;
 	host->ios.bus_width = MMC_BUS_WIDTH_1;
 	host->ios.timing = MMC_TIMING_LEGACY;
+	host->ios.clock = host->f_init;
 	mmc_set_ios(host);
 
 	/* Set signal voltage to 3.3V */
@@ -2392,6 +2393,9 @@ EXPORT_SYMBOL(mmc_can_discard);
 
 int mmc_can_sanitize(struct mmc_card *card)
 {
+	/* do not use sanitize*/
+	return 0;
+
 	if (!mmc_can_trim(card) && !mmc_can_erase(card))
 		return 0;
 	if (card->ext_csd.sec_feature_support & EXT_CSD_SEC_SANITIZE)
@@ -2536,6 +2540,9 @@ int mmc_can_reset(struct mmc_card *card)
 {
 	u8 rst_n_function;
 
+	if (card->host->caps & MMC_CAP_HW_RESET)
+		return 1;
+
 	if (!mmc_card_mmc(card))
 		return 0;
 	rst_n_function = card->ext_csd.rst_n_function;
@@ -2562,6 +2569,15 @@ static int mmc_do_hw_reset(struct mmc_host *host, int check)
 		return -EOPNOTSUPP;
 
 	mmc_host_clk_hold(host);
+
+	if (!check && mmc_card_mmc(card)) {
+		/*
+		 * f_min is needed to change max 400KHz
+		 * before mmc_blk_reset, eMMC bus_hz is 400MHz
+		 */
+		host->f_min = 400000;
+	}
+
 	mmc_set_clock(host, host->f_init);
 
 	host->ops->hw_reset(host);
@@ -2693,6 +2709,11 @@ int mmc_detect_card_removed(struct mmc_host *host)
 
 	if (!card)
 		return 1;
+
+	/* Check : SDcard is removed physically */
+	if (host->card && mmc_card_sd(host->card) &&
+			host->ops->get_cd && host->ops->get_cd(host) == 0)
+		mmc_card_set_removed(host->card);
 
 	ret = mmc_card_removed(card);
 	/*
@@ -2938,6 +2959,9 @@ EXPORT_SYMBOL(mmc_card_sleep);
 int mmc_card_can_sleep(struct mmc_host *host)
 {
 	struct mmc_card *card = host->card;
+
+	if (host->caps2 & MMC_CAP2_NO_SLEEP_CMD)
+		return 0;
 
 	if (card && mmc_card_mmc(card) && card->ext_csd.rev >= 3)
 		return 1;

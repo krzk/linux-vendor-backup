@@ -213,6 +213,7 @@ enum dw_mci_misc_control {
 	CTRL_REQUEST_EXT_IRQ,
 	CTRL_CHECK_CD_GPIO,
 	CTRL_SET_DEF_CAPS,
+	CTRL_SET_ETC_GPIO,
 };
 
 extern int dw_mci_probe(struct dw_mci *host);
@@ -222,6 +223,8 @@ extern void dw_mci_status_reg_summary(struct dw_mci *host);
 #ifdef CONFIG_PM
 extern int dw_mci_suspend(struct dw_mci *host);
 extern int dw_mci_resume(struct dw_mci *host);
+extern void dw_mci_shutdown(struct dw_mci *host);
+extern int dw_mci_early_resume(struct dw_mci *host);
 #endif
 extern int dw_mci_ciu_clk_en(struct dw_mci *host, bool force_gating);
 extern void dw_mci_ciu_clk_dis(struct dw_mci *host);

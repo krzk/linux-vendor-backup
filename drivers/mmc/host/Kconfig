@@ -588,6 +588,20 @@ config MMC_DW_EXYNOS
 	  Synopsys DesignWare Memory Card Interface driver. Select this option
 	  for platforms based on Exynos4 and Exynos5 SoC's.
 
+config MMC_DW_DEBUG
+	bool "Samsung DWMCI debug feature"
+	depends on MMC_DW
+	help
+	  This selects support for infomation logging for debugging.
+	  Select this option if this feature is needed on working.
+
+config MMC_DW_SKIP_CACHE_OP
+	bool "Skip operations for cache coherency"
+	depends on MMC_DW
+	help
+	  This selects support for skipping operations for cache coherency
+	  to reduce I/O overhead if file system layer do same thing.
+ 
 config MMC_DW_PCI
 	tristate "Synopsys Designware MCI support on PCI bus"
 	depends on MMC_DW && PCI
