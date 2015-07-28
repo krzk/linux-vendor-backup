@@ -89,10 +89,21 @@ static int fimc_is_sen_video_open(struct file *file)
 	struct fimc_is_video *video;
 	struct fimc_is_video_ctx *vctx;
 	struct fimc_is_device_sensor *device;
+	struct platform_device *fimc_is_pdev;
+	struct fimc_is_core *core;
+
+	fimc_is_pdev = to_platform_device(fimc_is_dev);
+	core = dev_get_drvdata(fimc_is_dev);
 
 	vctx = NULL;
 	video = video_drvdata(file);
 	device = container_of(video, struct fimc_is_device_sensor, video);
+
+	if (!core->fimc_is_companion_opened) {
+		pr_info("%s: /dev/video109 (companion) must be opened first\n",
+			__func__);
+		return -EINVAL;
+	}
 
 	ret = open_vctx(file, video, &vctx, FRAMEMGR_ID_INVALID, FRAMEMGR_ID_SENSOR);
 	if (ret) {

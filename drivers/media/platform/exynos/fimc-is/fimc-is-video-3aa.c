@@ -135,6 +135,12 @@ static int fimc_is_3aa_video_open(struct file *file)
 	else
 		core = container_of(video, struct fimc_is_core, video_3a1);
 
+	if (!core->fimc_is_companion_opened) {
+		pr_info("%s: /dev/video109 (companion) must be opened first\n",
+			__func__);
+		return -EINVAL;
+	}
+
 	ret = open_vctx(file, video, &vctx, FRAMEMGR_ID_3AA_GRP, FRAMEMGR_ID_3AAP);
 	if (ret) {
 		err("open_vctx is fail(%d)", ret);
