@@ -38,6 +38,7 @@
 struct exynos_drm_gem_buf {
 	void 			*cookie;
 	void __iomem		*kvaddr;
+	int			kvmap_count;
 	unsigned long		userptr;
 	dma_addr_t		dma_addr;
 	struct dma_attrs	dma_attrs;

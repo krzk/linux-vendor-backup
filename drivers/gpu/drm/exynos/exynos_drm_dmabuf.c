@@ -48,6 +48,8 @@ static void exynos_gem_detach_dma_buf(struct dma_buf *dmabuf,
 					struct dma_buf_attachment *attach)
 {
 	struct exynos_drm_dmabuf_attachment *exynos_attach = attach->priv;
+	struct exynos_drm_gem_obj *gem_obj = dma_buf_to_obj(attach->dmabuf);
+	struct exynos_drm_gem_buf *buffer = gem_obj->buffer;
 	struct sg_table *sgt;
 
 	if (!exynos_attach)
@@ -58,6 +60,12 @@ static void exynos_gem_detach_dma_buf(struct dma_buf *dmabuf,
 	if (exynos_attach->dir != DMA_NONE)
 		dma_unmap_sg(attach->dev, sgt->sgl, sgt->nents,
 				exynos_attach->dir);
+
+	WARN_ON(buffer->kvmap_count != 0);
+	if (buffer->kvaddr) {
+		vunmap(buffer->kvaddr);
+		buffer->kvaddr = NULL;
+	}
 
 	sg_free_table(sgt);
 	kfree(exynos_attach);
@@ -168,6 +176,33 @@ static int exynos_gem_dmabuf_mmap(struct dma_buf *dma_buf,
 	return -ENOTTY;
 }
 
+static void *exynos_gem_dmabuf_vmap(struct dma_buf *dmabuf)
+{
+	struct exynos_drm_gem_obj *exynos_gem_obj = dma_buf_to_obj(dmabuf);
+	struct exynos_drm_gem_buf *buffer = exynos_gem_obj->buffer;
+	int nr_pages = buffer->size >> PAGE_SHIFT;
+
+	if (!buffer->kvaddr) {
+		buffer->kvaddr = (void __iomem *) vmap(buffer->pages,
+			nr_pages, VM_MAP,
+			pgprot_writecombine(PAGE_KERNEL));
+		if (!buffer->kvaddr) {
+			DRM_ERROR("failed to map pages to kernel space.\n");
+			return ERR_PTR(-EIO);
+		}
+	}
+	buffer->kvmap_count++;
+	return buffer->kvaddr;
+}
+
+static void exynos_gem_dmabuf_vunmap(struct dma_buf *dmabuf, void *ptr)
+{
+	struct exynos_drm_gem_obj *exynos_gem_obj = dma_buf_to_obj(dmabuf);
+	struct exynos_drm_gem_buf *buffer = exynos_gem_obj->buffer;
+
+	WARN_ON(--buffer->kvmap_count < 0);
+}
+
 static struct dma_buf_ops exynos_dmabuf_ops = {
 	.attach			= exynos_gem_attach_dma_buf,
 	.detach			= exynos_gem_detach_dma_buf,
@@ -178,6 +213,8 @@ static struct dma_buf_ops exynos_dmabuf_ops = {
 	.kunmap			= exynos_gem_dmabuf_kunmap,
 	.kunmap_atomic		= exynos_gem_dmabuf_kunmap_atomic,
 	.mmap			= exynos_gem_dmabuf_mmap,
+	.vmap			= exynos_gem_dmabuf_vmap,
+	.vunmap			= exynos_gem_dmabuf_vunmap,
 	.release		= drm_gem_dmabuf_release,
 };
 
