@@ -2805,6 +2805,11 @@ void mmc_rescan(struct work_struct *work)
 		if (!mmc_rescan_try_freq(host, max(freqs[i], host->f_min))) {
 			extend_wakelock = true;
 			break;
+		} else {
+			/* FIXME: To enter this function again if rescan is
+			 * failed, there is no way to avoid timing issue except
+			 * this approach */
+			host->rescan_entered = 0;
 		}
 		if (freqs[i] <= host->f_min)
 			break;
