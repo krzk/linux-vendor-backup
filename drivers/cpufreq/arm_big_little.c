@@ -611,6 +611,7 @@ static int bL_cpufreq_init(struct cpufreq_policy *policy)
 static int bL_cpufreq_exit(struct cpufreq_policy *policy)
 {
 	struct device *cpu_dev;
+	struct private_data *priv = policy->driver_data;
 
 	cpu_dev = get_cpu_device(policy->cpu);
 	if (!cpu_dev) {
@@ -618,6 +619,9 @@ static int bL_cpufreq_exit(struct cpufreq_policy *policy)
 				policy->cpu);
 		return -ENODEV;
 	}
+
+	if (priv->cdev)
+		cpufreq_cooling_unregister(priv->cdev);
 
 	put_cluster_clk_and_freq_table(cpu_dev);
 	dev_dbg(cpu_dev, "%s: Exited, cpu: %d\n", __func__, policy->cpu);
