@@ -872,7 +872,7 @@ config HAVE_S3C2410_I2C
 
 config I2C_S3C2410
 	tristate "S3C2410 I2C Driver"
-	depends on HAVE_S3C2410_I2C
+	depends on HAVE_S3C2410_I2C || ARCH_EXYNOS
 	help
 	  Say Y here to include support for I2C controller in the
 	  Samsung SoCs.
