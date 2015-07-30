@@ -38,6 +38,7 @@
 	dwmmc0@12200000 {
 		status = "okay";
 		num-slots = <1>;
+		non-removable;
 		broken-cd;
 		bypass-smu;
 		fixed_volt;
