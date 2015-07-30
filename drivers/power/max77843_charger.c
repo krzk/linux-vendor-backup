@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2015 Samsung Electronics, Co., Ltd.
  * Author: Beomho Seo <beomho.seo@samsung.com>
+ * Krzysztof Kozlowski <k.kozlowski@samsung.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -26,7 +27,7 @@ struct max77843_charger {
 	struct max77843		*max77843;
 	struct i2c_client	*client;
 	struct regmap		*regmap;
-	struct power_supply	psy;
+	struct power_supply	*psy;
 	struct extcon_dev	*edev;
 	struct work_struct	work;
 	struct notifier_block	otg_nb;
@@ -219,8 +220,7 @@ static int max77843_charger_get_property(struct power_supply *psy,
 		enum power_supply_property psp,
 		union power_supply_propval *val)
 {
-	struct max77843_charger *charger = container_of(psy,
-				struct max77843_charger, psy);
+	struct max77843_charger *charger = power_supply_get_drvdata(psy);
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
@@ -501,9 +501,18 @@ static int max77843_extcon_register(struct max77843_charger *charger)
 	return 0;
 }
 
+static const struct power_supply_desc max77843_charger_desc = {
+	.name		= "max77843-charger",
+	.type		= POWER_SUPPLY_TYPE_MAINS,
+	.get_property	= max77843_charger_get_property,
+	.properties	= max77843_charger_props,
+	.num_properties	= ARRAY_SIZE(max77843_charger_props),
+};
+
 static int max77843_charger_probe(struct platform_device *pdev)
 {
 	struct max77843 *max77843 = dev_get_drvdata(pdev->dev.parent);
+	struct power_supply_config psy_cfg = {};
 	struct max77843_charger *charger;
 	int ret;
 
@@ -511,6 +520,7 @@ static int max77843_charger_probe(struct platform_device *pdev)
 	if (!charger)
 		return -ENOMEM;
 
+	psy_cfg.drv_data = charger;
 	platform_set_drvdata(pdev, charger);
 	charger->dev = &pdev->dev;
 	charger->max77843 = max77843;
@@ -526,18 +536,14 @@ static int max77843_charger_probe(struct platform_device *pdev)
 	if (IS_ERR_OR_NULL(charger->info))
 		return PTR_ERR(charger->info);
 
-	charger->psy.name	= "max77843-charger";
-	charger->psy.type	= POWER_SUPPLY_TYPE_MAINS;
-	charger->psy.get_property	= max77843_charger_get_property;
-	charger->psy.properties		= max77843_charger_props;
-	charger->psy.num_properties	= ARRAY_SIZE(max77843_charger_props);
 
 	ret = max77843_charger_init(charger);
 	if (ret)
 		return ret;
 
-	ret = power_supply_register(&pdev->dev, &charger->psy);
-	if (ret) {
+	charger->psy = power_supply_register(&pdev->dev, &max77843_charger_desc, &psy_cfg);
+	if (IS_ERR(charger->psy)) {
+		ret = PTR_ERR(charger->psy);
 		dev_err(&pdev->dev,
 			"Failed to register power supply %d\n", ret);
 		return ret;
@@ -550,7 +556,7 @@ static int max77843_charger_remove(struct platform_device *pdev)
 {
 	struct max77843_charger *charger = platform_get_drvdata(pdev);
 
-	power_supply_unregister(&charger->psy);
+	power_supply_unregister(charger->psy);
 
 	return 0;
 }
