@@ -544,29 +544,26 @@ charging_ok:
  */
 static bool update_battery_state(struct charger_manager *cm)
 {
-	struct power_supply *charger_psy = &cm->charger_psy;
+	struct power_supply *charger_psy = cm->charger_psy;
 	union power_supply_propval val;
 	int ret;
 	bool updated = false;
 
-	/* FIXME: use wrapper */
-	ret = charger_psy->get_property(charger_psy,
+	ret = power_supply_get_property(charger_psy,
 			POWER_SUPPLY_PROP_CAPACITY, &val);
 	if (!ret && cm->battery_soc != val.intval) {
 		cm->battery_soc = val.intval;
 		updated = true;
 	}
 
-	/* FIXME: use wrapper */
-	ret = charger_psy->get_property(charger_psy,
+	ret = power_supply_get_property(charger_psy,
 			POWER_SUPPLY_PROP_VOLTAGE_NOW, &val);
 	if (!ret && cm->battery_voltage != val.intval) {
 		cm->battery_voltage = val.intval;
 		updated = true;
 	}
 
-	/* FIXME: use wrapper */
-	ret = charger_psy->get_property(charger_psy,
+	ret = power_supply_get_property(charger_psy,
 			POWER_SUPPLY_PROP_TEMP, &val);
 	if (!ret && cm->battery_temperature != val.intval) {
 		cm->battery_temperature = val.intval;
@@ -1122,10 +1119,10 @@ static ssize_t show_polling_ms(struct device *dev,
 	ssize_t len;
 
 	list_for_each_entry(cm, &cm_list, entry)
-		if (cm->charger_psy.dev == dev)
+		if (&cm->charger_psy->dev == dev)
 			break;
 
-	if (cm->charger_psy.dev != dev)
+	if (&cm->charger_psy->dev != dev)
 		return -EINVAL;
 
 	len = sprintf(buf, "%d\n", cm->desc->polling_interval_ms);
@@ -1149,10 +1146,10 @@ static ssize_t store_polling_ms(struct device *dev,
 		return -EINVAL;
 
 	list_for_each_entry(cm, &cm_list, entry)
-		if (cm->charger_psy.dev == dev)
+		if (&cm->charger_psy->dev == dev)
 			break;
 
-	if (cm->charger_psy.dev != dev)
+	if (&cm->charger_psy->dev != dev)
 		return -ENODEV;
 
 	cm->desc->polling_interval_ms = polling_ms;
@@ -1196,7 +1193,7 @@ static int charger_manager_register_sysfs(struct charger_manager *cm)
 	int i;
 
 	/* Create polling_ms sysfs node */
-	ret = device_create_file(cm->charger_psy.dev, &dev_attr_polling_ms);
+	ret = device_create_file(&cm->charger_psy->dev, &dev_attr_polling_ms);
 	if (ret)
 		pr_err("Failed to create poling_ms sysfs node (%d)\n", ret);
 
