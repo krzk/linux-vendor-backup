@@ -35,6 +35,7 @@
 #include "fimc-is-err.h"
 #include "fimc-is-video.h"
 #include "fimc-is-metadata.h"
+#include "fimc-is-core.h"
 
 const struct v4l2_file_operations fimc_is_sen_video_fops;
 const struct v4l2_ioctl_ops fimc_is_sen_video_ioctl_ops;
@@ -228,7 +229,16 @@ const struct v4l2_file_operations fimc_is_sen_video_fops = {
 static int fimc_is_sen_video_querycap(struct file *file, void *fh,
 					struct v4l2_capability *cap)
 {
-	/* Todo : add to query capability code */
+	struct fimc_is_video_ctx *vctx = file->private_data;
+	struct fimc_is_device_sensor *device = vctx->device;
+
+	strlcpy(cap->driver, FIMC_IS_DRV_NAME, sizeof(cap->driver));
+	strlcpy(cap->card, FIMC_IS_DRV_NAME, sizeof(cap->card));
+	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:%s",
+					dev_name(&device->pdev->dev));
+	cap->device_caps = V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_CAPTURE_MPLANE;
+	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
+
 	return 0;
 }
 
