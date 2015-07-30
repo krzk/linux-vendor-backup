@@ -53,7 +53,6 @@
 		enable-cache-control;
 		supports-poweroff-notification;
 		use-fine-tuning;
-		supports-ddr200-enhanced-strobe;
 		sw_data_timeout;
 		fifo-depth = <0x40>;
 		card-detect-delay = <200>;
