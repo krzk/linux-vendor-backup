@@ -1713,6 +1713,21 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 	pdata->hotplug_in_threshold = CPU_HOTPLUG_IN_TEMP;
 	pdata->hotplug_out_threshold = CPU_HOTPLUG_OUT_TEMP;
 
+	/* FIXME: Due to eMMC broken issue with high cpu clock,
+	 * the max clock of CA15 drops to 1.5Ghz. Thus, thermal
+	 * max clock should be also changed more aggressively */
+	if (of_machine_is_compatible("samsung,artik10")) {
+		pdata->freq_tab[0].freq_clip_max = 1300 * 1000;
+		pdata->freq_tab[1].freq_clip_max = 1100 * 1000;
+		pdata->freq_tab[2].freq_clip_max = 800 * 1000;
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+		pdata->freq_tab[0].freq_clip_max_kfc = 1200 * 1000;
+		pdata->freq_tab[1].freq_clip_max_kfc = 1000 * 1000;
+		pdata->freq_tab[2].freq_clip_max_kfc = 800 * 1000;
+		pdata->freq_tab[3].freq_clip_max_kfc = 800 * 1000;
+#endif
+	}
+
 #if defined(CONFIG_SOC_EXYNOS5430)
 	exynos5430_get_egl_speed_option(&spd_option_flag, &spd_sel);
 	if (spd_option_flag == EGL_DISABLE_SPD_OPTION)
