@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2015 Samsung Electronics, Co., Ltd.
  * Author: Beomho Seo <beomho.seo@samsung.com>
+ * Krzysztof Kozlowski <k.kozlowski@samsung.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -19,7 +20,7 @@ struct max77843_battery {
 	struct max77843		*max77843;
 	struct i2c_client	*client;
 	struct regmap		*regmap;
-	struct power_supply	psy;
+	struct power_supply	*psy;
 };
 
 static int max77843_battery_get_capacity(struct max77843_battery *battery)
@@ -151,8 +152,8 @@ static int max77843_battery_get_property(struct power_supply *psy,
 		enum power_supply_property psp,
 		union power_supply_propval *val)
 {
-	struct max77843_battery *battery = container_of(psy,
-				struct max77843_battery, psy);
+	struct max77843_battery *battery = power_supply_get_drvdata(psy);
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 	case POWER_SUPPLY_PROP_VOLTAGE_AVG:
@@ -205,9 +206,18 @@ static const struct regmap_config max77843_fuel_regmap_config = {
 	.max_register	= MAX77843_FG_END,
 };
 
+static const struct power_supply_desc max77843_battery_desc = {
+	.name		= "max77843-fuelgauge",
+	.type		= POWER_SUPPLY_TYPE_BATTERY,
+	.get_property	= max77843_battery_get_property,
+	.properties	= max77843_battery_props,
+	.num_properties	= ARRAY_SIZE(max77843_battery_props),
+};
+
 static int max77843_battery_probe(struct platform_device *pdev)
 {
 	struct max77843 *max77843 = dev_get_drvdata(pdev->dev.parent);
+	struct power_supply_config psy_cfg = {};
 	struct max77843_battery *battery;
 	int ret;
 
@@ -217,6 +227,8 @@ static int max77843_battery_probe(struct platform_device *pdev)
 
 	battery->dev = &pdev->dev;
 	battery->max77843 = max77843;
+
+	psy_cfg.drv_data = battery;
 
 	battery->client = i2c_new_dummy(max77843->i2c->adapter, I2C_ADDR_FG);
 	if (!battery->client) {
@@ -234,15 +246,11 @@ static int max77843_battery_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, battery);
 
-	battery->psy.name	= "max77843-fuelgauge";
-	battery->psy.type	= POWER_SUPPLY_TYPE_BATTERY;
-	battery->psy.get_property	= max77843_battery_get_property;
-	battery->psy.properties		= max77843_battery_props;
-	battery->psy.num_properties	= ARRAY_SIZE(max77843_battery_props);
-
-	ret = power_supply_register(&pdev->dev, &battery->psy);
-	if (ret) {
+	battery->psy = power_supply_register(&pdev->dev,
+					    &max77843_battery_desc, &psy_cfg);
+	if (IS_ERR(battery->psy)) {
 		dev_err(&pdev->dev, "Failed  to register power supply\n");
+		ret = PTR_ERR(battery->psy);
 		goto err_i2c;
 	}
 
@@ -258,7 +266,7 @@ static int max77843_battery_remove(struct platform_device *pdev)
 {
 	struct max77843_battery *battery = platform_get_drvdata(pdev);
 
-	power_supply_unregister(&battery->psy);
+	power_supply_unregister(battery->psy);
 
 	i2c_unregister_device(battery->client);
 
