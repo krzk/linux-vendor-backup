@@ -17,6 +17,7 @@
 #include <linux/cpufreq.h>
 #include <linux/clk-private.h>
 #include <linux/pm_qos.h>
+#include <linux/of.h>
 
 #include <mach/map.h>
 #include <mach/regs-clock.h>
@@ -556,6 +557,11 @@ static void __init set_volt_table_CA15(void)
 	max_support_idx_CA15 = L5;
 #endif
 #endif
+	/* FIXME: Due to eMMC broken issue with high cpu clock,
+	 * the max clock of CA15 drops to 1.5Ghz */
+	if (of_machine_is_compatible("samsung,artik10"))
+		max_support_idx_CA15 = L9;
+
 	min_support_idx_CA15 = L16;
 }
 
