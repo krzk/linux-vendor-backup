@@ -1139,20 +1139,21 @@ int fimc_is_sensor_s_input(struct fimc_is_device_sensor *device,
 		goto p_err;
 	}
 
-	ret = v4l2_subdev_call(subdev_flite, core, init, (void *)(long)device->pdata->csi_ch);
+	ret = v4l2_subdev_call(subdev_flite, core, ioctl, 0,
+			       (void *)(long)device->pdata->csi_ch);
 	if (ret) {
 		merr("v4l2_flite_call(init) is fail(%d)", device, ret);
 		goto p_err;
 	}
 
-	ret = v4l2_subdev_call(subdev_csi, core, init, module);
+	ret = v4l2_subdev_call(subdev_csi, core, ioctl, 0, module);
 	if (ret) {
 		merr("v4l2_csi_call(init) is fail(%d)", device, ret);
 		goto p_err;
 	}
 
 	if (test_bit(FIMC_IS_SENSOR_DRIVING, &device->state)) {
-		ret = v4l2_subdev_call(subdev_module, core, init, 0);
+		ret = v4l2_subdev_call(subdev_module, core, ioctl, 0, 0);
 		if (ret) {
 			merr("v4l2_module_call(init) is fail(%d)", device, ret);
 			goto p_err;

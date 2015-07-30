@@ -238,7 +238,8 @@ static const struct v4l2_subdev_internal_ops internal_ops = {
 	.unregistered = sensor_6d1_unregistered,
 };
 
-static int sensor_6d1_init(struct v4l2_subdev *subdev, void *val)
+static long sensor_6d1_init(struct v4l2_subdev *subdev, unsigned int cmd,
+			    void *val)
 {
 	int i, ret = 0;
 	struct fimc_is_module_enum *module;
@@ -268,7 +269,7 @@ static int sensor_6d1_init(struct v4l2_subdev *subdev, void *val)
 }
 
 static const struct v4l2_subdev_core_ops core_ops = {
-	.init = sensor_6d1_init
+	.ioctl = sensor_6d1_init
 };
 
 static int sensor_6d1_s_stream(struct v4l2_subdev *subdev, int enable)

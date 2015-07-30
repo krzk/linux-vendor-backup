@@ -103,7 +103,7 @@ int fimc_is_csi_close(struct v4l2_subdev *subdev)
 }
 
 /* value : module enum */
-static int csi_init(struct v4l2_subdev *subdev, void *value)
+static long csi_init(struct v4l2_subdev *subdev, unsigned int cmd, void *value)
 {
 	int ret = 0;
 	struct fimc_is_device_csi *csi;
@@ -167,7 +167,7 @@ p_err:
 }
 
 static const struct v4l2_subdev_core_ops core_ops = {
-	.init = csi_init,
+	.ioctl = csi_init,
 	.s_power = csi_s_power
 };
 

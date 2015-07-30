@@ -59,7 +59,8 @@ static struct fimc_is_sensor_cfg config_imx240[] = {
 	//FIMC_IS_SENSOR_CFG(824, 496, 300, 13, 8),
 };
 
-static int sensor_imx240_init(struct v4l2_subdev *subdev, void *val)
+static long sensor_imx240_init(struct v4l2_subdev *subdev, unsigned int cmd,
+			      void *val)
 {
 	int ret = 0;
 	struct fimc_is_module_enum *module;
@@ -74,7 +75,7 @@ static int sensor_imx240_init(struct v4l2_subdev *subdev, void *val)
 }
 
 static const struct v4l2_subdev_core_ops core_ops = {
-	.init = sensor_imx240_init
+	.ioctl = sensor_imx240_init
 };
 
 static const struct v4l2_subdev_ops subdev_ops = {

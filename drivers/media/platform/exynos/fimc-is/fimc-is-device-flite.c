@@ -1495,7 +1495,8 @@ p_err:
 }
 
 /* value : csi ch */
-static int flite_init(struct v4l2_subdev *subdev, void *value)
+static long flite_init(struct v4l2_subdev *subdev, unsigned int cmd,
+		       void *value)
 {
 	int ret = 0;
 	struct fimc_is_device_flite *flite;
@@ -1842,7 +1843,7 @@ p_err:
 }
 
 static const struct v4l2_subdev_core_ops core_ops = {
-	.init = flite_init,
+	.ioctl = flite_init,
 	.s_ctrl = flite_s_ctrl,
 };
 
