@@ -34,6 +34,7 @@
 #include "fimc-is-regs.h"
 #include "fimc-is-err.h"
 #include "fimc-is-video.h"
+#include "fimc-is-core.h"
 
 const struct v4l2_file_operations fimc_is_scp_video_fops;
 const struct v4l2_ioctl_ops fimc_is_scp_video_ioctl_ops;
@@ -227,15 +228,12 @@ static int fimc_is_scp_video_querycap(struct file *file, void *fh,
 {
 	struct fimc_is_core *core = video_drvdata(file);
 
-	strncpy(cap->driver, core->pdev->name, sizeof(cap->driver) - 1);
-
-	dbg("%s(devname : %s)\n", __func__, cap->driver);
-	strncpy(cap->card, core->pdev->name, sizeof(cap->card) - 1);
-	cap->bus_info[0] = 0;
-	cap->version = KERNEL_VERSION(1, 0, 0);
-	cap->capabilities = V4L2_CAP_STREAMING
-					| V4L2_CAP_VIDEO_CAPTURE
-					| V4L2_CAP_VIDEO_CAPTURE_MPLANE;
+	strlcpy(cap->driver, FIMC_IS_DRV_NAME, sizeof(cap->driver));
+	strlcpy(cap->card, FIMC_IS_DRV_NAME, sizeof(cap->card));
+	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:%s",
+					dev_name(&core->pdev->dev));
+	cap->device_caps = V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_CAPTURE_MPLANE;
+	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
 
 	return 0;
 }
