@@ -94,8 +94,8 @@
 #define EXYNOS5260_EMUL_CON			0x100
 
 /* Exynos4412 specific */
-#define EXYNOS4412_MUX_ADDR_VALUE          6
-#define EXYNOS4412_MUX_ADDR_SHIFT          20
+#define EXYNOS_TMU_MUX_ADDR_MASK           7
+#define EXYNOS_TMU_MUX_ADDR_SHIFT          20
 
 /* Exynos5433 specific registers */
 #define EXYNOS5433_TMU_REG_CONTROL1		0x024
@@ -364,9 +364,8 @@ static u32 get_con_reg(struct exynos_tmu_data *data, u32 con)
 {
 	struct exynos_tmu_platform_data *pdata = data->pdata;
 
-	if (data->soc == SOC_ARCH_EXYNOS4412 ||
-	    data->soc == SOC_ARCH_EXYNOS3250)
-		con |= (EXYNOS4412_MUX_ADDR_VALUE << EXYNOS4412_MUX_ADDR_SHIFT);
+	con &= ~(EXYNOS_TMU_MUX_ADDR_MASK << EXYNOS_TMU_MUX_ADDR_SHIFT);
+	con |= (pdata->mux_addr << EXYNOS_TMU_MUX_ADDR_SHIFT);
 
 	con &= ~(EXYNOS_TMU_REF_VOLTAGE_MASK << EXYNOS_TMU_REF_VOLTAGE_SHIFT);
 	con |= pdata->reference_voltage << EXYNOS_TMU_REF_VOLTAGE_SHIFT;
@@ -1156,6 +1155,8 @@ static int exynos_of_sensor_conf(struct device_node *np,
 	pdata->second_point_trim = (u8)value;
 	of_property_read_u32(np, "samsung,tmu_default_temp_offset", &value);
 	pdata->default_temp_offset = (u8)value;
+	of_property_read_u32(np, "samsung,tmu_mux_addr", &value);
+	pdata->mux_addr = (u8)value;
 
 	of_property_read_u32(np, "samsung,tmu_cal_type", &pdata->cal_type);
 	of_property_read_u32(np, "samsung,tmu_cal_mode", &pdata->cal_mode);

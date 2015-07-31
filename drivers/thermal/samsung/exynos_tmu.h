@@ -52,6 +52,7 @@ enum soc_type {
  * @min_efuse_value: minimum valid trimming data
  * @max_efuse_value: maximum valid trimming data
  * @default_temp_offset: default temperature offset in case of no trimming
+ * @mux_addr: address of tmu mux
  * @cal_type: calibration type for temperature
  *
  * This structure is required for configuration of exynos_tmu driver.
@@ -67,6 +68,7 @@ struct exynos_tmu_platform_data {
 	u8 first_point_trim;
 	u8 second_point_trim;
 	u8 default_temp_offset;
+	u8 mux_addr;
 
 	enum soc_type type;
 	u32 cal_type;

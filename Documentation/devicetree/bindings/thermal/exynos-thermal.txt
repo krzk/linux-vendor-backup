@@ -54,6 +54,7 @@ Following properties are mandatory (depending on SoC):
 - samsung,tmu_first_point_trim: First point trimming value
 - samsung,tmu_second_point_trim: Second point trimming value
 - samsung,tmu_default_temp_offset: Default temperature offset
+- samsung,tmu_mux_addr: MUX address
 - samsung,tmu_cal_type: Callibration type
 
 Example 1):
