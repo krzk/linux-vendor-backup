@@ -243,7 +243,7 @@ static void decon_win_set_pixfmt(struct decon_context *ctx, unsigned int win)
 	writel(val, ctx->addr+ DECON_WINCONx(win));
 }
 
-static void decon_shadow_protect_win(struct decon_context *ctx, int win,
+static void decon_shadow_protect_win(struct decon_context *ctx, unsigned int win,
 					bool protect)
 {
 	u32 val;
@@ -258,16 +258,12 @@ static void decon_shadow_protect_win(struct decon_context *ctx, int win,
 	writel(val, ctx->addr + DECON_SHADOWCON);
 }
 
-static void decon_win_commit(struct exynos_drm_crtc *crtc, unsigned int zpos)
+static void decon_win_commit(struct exynos_drm_crtc *crtc, unsigned int win)
 {
 	struct decon_context *ctx = crtc->ctx;
 	struct exynos5433_decon_driver_data *drv_data = ctx->drv_data;
 	struct exynos_drm_plane *plane;
-	unsigned int win = zpos;
 	u32 val;
-
-	//if (win == DEFAULT_ZPOS)
-	//	win = drv_data->first_win;
 
 	if (win < drv_data->first_win || win >= WINDOWS_NR)
 		return;
@@ -345,16 +341,12 @@ static void decon_win_commit(struct exynos_drm_crtc *crtc, unsigned int zpos)
 	plane->enabled = true;
 }
 
-static void decon_win_disable(struct exynos_drm_crtc *crtc, unsigned int zpos)
+static void decon_win_disable(struct exynos_drm_crtc *crtc, unsigned int win)
 {
 	struct decon_context *ctx = crtc->ctx;
 	struct exynos5433_decon_driver_data *drv_data = ctx->drv_data;
 	struct exynos_drm_plane *plane;
-	unsigned int win = zpos;
 	u32 val;
-
-	//if (win == DEFAULT_ZPOS)
-	//	win = drv_data->first_win;
 
 	if (win < drv_data->first_win || win >= WINDOWS_NR)
 		return;
@@ -625,7 +617,8 @@ static int decon_bind(struct device *dev, struct device *master, void *data)
 	struct exynos_drm_private *priv = drm_dev->dev_private;
 	struct exynos_drm_plane *exynos_plane;
 	enum drm_plane_type type;
-	int zpos, ret;
+	unsigned int zpos;
+	int ret;
 
 	ctx->drm_dev = drm_dev;
 	ctx->pipe = priv->pipe++;
