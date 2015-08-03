@@ -549,7 +549,7 @@ void iommu_dma_unmap_sg(struct device *dev, struct scatterlist *sg, int nents,
 	__free_iova(dom, iova, len);
 }
 
-struct iommu_dma_domain *iommu_dma_create_domain(const struct iommu_ops *ops,
+struct iommu_dma_domain *iommu_dma_create_domain(struct bus_type *bus,
 		dma_addr_t base, size_t size)
 {
 	struct iommu_dma_domain *dom;
@@ -590,18 +590,16 @@ struct iommu_dma_domain *iommu_dma_create_domain(const struct iommu_ops *ops,
 	 * domain, but until that happens, bypass the bus nonsense and create
 	 * one directly for this specific device/IOMMU combination...
 	 */
-	domain = kzalloc(sizeof(*domain), GFP_KERNEL);
 
+	domain = iommu_domain_alloc(bus);
 	if (!domain)
 		goto out_free_dma_domain;
-	domain->ops = ops;
 
-	if (ops->domain_init(domain))
-		goto out_free_iommu_domain;
 	/*
 	 * ...and do the bare minimum to sanity-check that the domain allows
 	 * at least some access to the device...
 	 */
+
 	dg = &domain->geometry;
 	if (!(base <= dg->aperture_end && base + size > dg->aperture_start)) {
 		pr_warn("DMA range outside IOMMU capability; is DT correct?\n");
@@ -619,7 +617,7 @@ struct iommu_dma_domain *iommu_dma_create_domain(const struct iommu_ops *ops,
 	 */
 
 	/* Use the smallest supported page size for IOVA granularity */
-	order = __ffs(ops->pgsize_bitmap);
+	order = __ffs(bus->iommu_ops->pgsize_bitmap);
 	base_pfn = max(dg->aperture_start >> order, (dma_addr_t)1);
 	end_pfn = dg->aperture_end >> order;
 

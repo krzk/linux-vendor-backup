@@ -244,10 +244,9 @@ struct exynos_iommu_owner {
 };
 
 /*
- * This structure is stored in ->priv field of generic struct iommu_domain,
- * contains list of SYSMMU controllers from all master devices, which has been
- * attached to this domain and page tables of IO address space defined by this
- * domain. It is usually referenced by 'domain' pointer.
+ * This structure contains list of SYSMMU controllers from all master devices,
+ * which has been attached to this domain and page tables of IO address space
+ * defined by this domain. It is usually referenced by 'domain' pointer.
  */
 struct exynos_iommu_domain {
 	struct list_head clients; /* list of sysmmu_drvdata.domain_node */
@@ -798,7 +797,7 @@ err_pgtable:
 	return NULL;
 }
 
-static void exynos_iommu_domain_destroy(struct iommu_domain *iommu_domain)
+static void exynos_iommu_domain_free(struct iommu_domain *iommu_domain)
 {
 	struct exynos_iommu_domain *domain = to_exynos_domain(iommu_domain);
 	struct sysmmu_drvdata *data;
@@ -824,8 +823,7 @@ static void exynos_iommu_domain_destroy(struct iommu_domain *iommu_domain)
 
 	free_pages((unsigned long)domain->pgtable, 2);
 	free_pages((unsigned long)domain->lv2entcnt, 1);
-	kfree(iommu_domain->priv);
-	iommu_domain->priv = NULL;
+	kfree(domain);
 }
 
 static int exynos_iommu_attach_device(struct iommu_domain *iommu_domain,
@@ -868,7 +866,7 @@ static int exynos_iommu_attach_device(struct iommu_domain *iommu_domain,
 static void exynos_iommu_detach_device(struct iommu_domain *iommu_domain,
 				    struct device *dev)
 {
-	struct exynos_iommu_domain *priv = to_exynos_domain(iommu_domain);
+	struct exynos_iommu_domain *domain = to_exynos_domain(iommu_domain);
 	phys_addr_t pagetable = virt_to_phys(domain->pgtable);
 	struct sysmmu_drvdata *data, *next;
 	unsigned long flags;

@@ -26,7 +26,7 @@
 int iommu_dma_init(void);
 
 
-struct iommu_dma_domain *iommu_dma_create_domain(const struct iommu_ops *ops,
+struct iommu_dma_domain *iommu_dma_create_domain(struct bus_type *bus,
 		dma_addr_t base, size_t size);
 void iommu_dma_release_domain(struct iommu_dma_domain *dma_domain);
 

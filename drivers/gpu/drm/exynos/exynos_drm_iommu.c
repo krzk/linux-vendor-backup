@@ -45,7 +45,8 @@ int drm_create_iommu_mapping(struct drm_device *drm_dev)
 	mapping = arm_iommu_create_mapping(&platform_bus_type, priv->da_start,
 						priv->da_space_size);
 #else
-	mapping = iommu_dma_create_domain((struct iommu_ops *)platform_bus_type.iommu_ops, priv->da_start, priv->da_space_size);
+	mapping = iommu_dma_create_domain(&platform_bus_type,
+					priv->da_start, priv->da_space_size);
 #endif
 
 	if (IS_ERR(mapping))

@@ -753,7 +753,7 @@ static void __iommu_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 	if (!ops)
 		return;
 
-	dma_domain = iommu_dma_create_domain(ops, dma_base, size);
+	dma_domain = iommu_dma_create_domain(dev->bus, dma_base, size);
 	if (!dma_domain) {
 		pr_warn("Failed to create %llu-byte IOMMU mapping for device %s\n",
 				size, dev_name(dev));
