@@ -188,6 +188,8 @@ __devfreq_cooling_register(struct device_node *np, struct devfreq *devfreq)
 	}
 	rcu_read_unlock();
 
+	devfreq_dev->max_state -= 1;
+
 	/*
 	 * Use the freq_table of devfreq_dev_profile structure
 	 * if the devfreq_dev_profile includes already filled frequency table.
@@ -200,13 +202,12 @@ __devfreq_cooling_register(struct device_node *np, struct devfreq *devfreq)
 	/* Allocate the frequency table and fill it */
 	rcu_read_lock();
 	devfreq_dev->freq_table = kzalloc(sizeof(*devfreq_dev->freq_table) *
-					devfreq_dev->max_state, GFP_KERNEL);
+					devfreq_dev->max_state + 1, GFP_KERNEL);
 	if (!devfreq_dev->freq_table) {
 		rcu_read_unlock();
 		cool_dev = ERR_PTR(-ENOMEM);
 		goto free_cdev;
 	}
-	devfreq_dev->max_state -= 1;
 
 	freq = ULONG_MAX;
 	for (i = 0; i <= devfreq_dev->max_state; i++, freq--) {
