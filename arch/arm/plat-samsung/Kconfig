@@ -416,8 +416,9 @@ config SAMSUNG_DMADEV
 	bool
 	select ARM_AMBA
 	select DMADEVICES
-	select PL330_DMA if (ARCH_EXYNOS5 || ARCH_EXYNOS4 || CPU_S5PV210 || CPU_S5PC100 || \
-					CPU_S5P6450 || CPU_S5P6440)
+	select PL330_DMA if (ARCH_EXYNOS5 || ARCH_EXYNOS4 || ARCH_EXYNOS3 || \
+			     CPU_S5PV210 || CPU_S5PC100 || \
+			     CPU_S5P6450 || CPU_S5P6440)
 	help
 	  Use DMA device engine for PL330 DMAC.
 
