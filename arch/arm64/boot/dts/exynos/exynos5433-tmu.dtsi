@@ -142,37 +142,37 @@ thermal-zones {
 		polling-delay = <0>;
 		trips {
 			g3d_alert_0: g3d-alert-0 {
-				temperature = <20000>;	/* millicelsius */
-				hysteresis = <10000>;	/* millicelsius */
-				type = "active";
-			};
-			g3d_alert_1: g3d-alert-1 {
-				temperature = <25000>;	/* millicelsius */
-				hysteresis = <10000>;	/* millicelsius */
-				type = "active";
-			};
-			g3d_alert_2: g3d-alert-2 {
-				temperature = <30000>;	/* millicelsius */
-				hysteresis = <10000>;	/* millicelsius */
-				type = "active";
-			};
-			g3d_alert_3: g3d-alert-3 {
-				temperature = <35000>;	/* millicelsius */
-				hysteresis = <10000>;	/* millicelsius */
-				type = "active";
-			};
-			g3d_alert_4: g3d-alert-4 {
-				temperature = <400000>;	/* millicelsius */
-				hysteresis = <10000>;	/* millicelsius */
-				type = "active";
-			};
-			g3d_alert_5: g3d-alert-5 {
 				temperature = <45000>;	/* millicelsius */
 				hysteresis = <10000>;	/* millicelsius */
 				type = "active";
 			};
-			g3d_alert_6: g3d-alert-6 {
+			g3d_alert_1: g3d-alert-1 {
 				temperature = <50000>;	/* millicelsius */
+				hysteresis = <10000>;	/* millicelsius */
+				type = "active";
+			};
+			g3d_alert_2: g3d-alert-2 {
+				temperature = <55000>;	/* millicelsius */
+				hysteresis = <10000>;	/* millicelsius */
+				type = "active";
+			};
+			g3d_alert_3: g3d-alert-3 {
+				temperature = <60000>;	/* millicelsius */
+				hysteresis = <10000>;	/* millicelsius */
+				type = "active";
+			};
+			g3d_alert_4: g3d-alert-4 {
+				temperature = <65000>;	/* millicelsius */
+				hysteresis = <10000>;	/* millicelsius */
+				type = "active";
+			};
+			g3d_alert_5: g3d-alert-5 {
+				temperature = <70000>;	/* millicelsius */
+				hysteresis = <10000>;	/* millicelsius */
+				type = "active";
+			};
+			g3d_alert_6: g3d-alert-6 {
+				temperature = <75000>;	/* millicelsius */
 				hysteresis = <10000>;	/* millicelsius */
 				type = "active";
 			};
@@ -185,7 +185,7 @@ thermal-zones {
 				cooling-device = <&mali 2 2>;
 			};
 			map1 {
-				/* Set maximum frequency as 600MHz  */
+				/* Set maximum frequency as 500MHz  */
 				trip = <&g3d_alert_1>;
 				cooling-device = <&mali 3 3>;
 			};
@@ -200,7 +200,7 @@ thermal-zones {
 				cooling-device = <&mali 5 5>;
 			};
 			map4 {
-				/* Set maximum frequency as 2660MHz  */
+				/* Set maximum frequency as 266MHz  */
 				trip = <&g3d_alert_4>;
 				cooling-device = <&mali 6 6>;
 			};
