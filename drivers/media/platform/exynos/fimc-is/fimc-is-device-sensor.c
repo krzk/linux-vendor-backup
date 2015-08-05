@@ -801,7 +801,7 @@ static int fimc_is_sensor_probe(struct platform_device *pdev)
 	device->dtp_check = false;
 #endif
 
-	ret = fimc_is_mem_probe(&device->mem, device->pdev);
+	ret = fimc_is_mem_probe(&device->mem, core->pdev);
 	if (ret) {
 		merr("fimc_is_mem_probe is fail(%d)", device, ret);
 		goto p_err;
