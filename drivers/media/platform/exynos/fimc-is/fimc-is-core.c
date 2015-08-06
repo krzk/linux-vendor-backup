@@ -29,6 +29,7 @@
 #include <linux/bug.h>
 #include <linux/v4l2-mediabus.h>
 #include <linux/gpio.h>
+#include <linux/dma-iommu.h>
 
 #include <linux/of.h>
 #include <linux/of_gpio.h>
@@ -840,6 +841,7 @@ static int fimc_is_probe(struct platform_device *pdev)
 	struct resource *mem_res;
 	struct resource *regs_res;
 	struct fimc_is_core *core;
+	struct iommu_dma_domain *dom;
 	int ret = -ENODEV;
 
 	info("%s:start\n", __func__);
@@ -877,6 +879,13 @@ static int fimc_is_probe(struct platform_device *pdev)
 	core->running_front_camera = false;
 
 	device_init_wakeup(&pdev->dev, true);
+
+	/* detach default iommu domain and create our own one */
+	iommu_dma_detach_device(&pdev->dev);
+	dom = iommu_dma_create_domain(
+			(struct iommu_ops *)platform_bus_type.iommu_ops,
+			0x10000000, 0x80000000);
+	iommu_dma_attach_device(&pdev->dev, dom);
 
 	/* init mutex for spi read */
 	mutex_init(&core->spi_lock);
