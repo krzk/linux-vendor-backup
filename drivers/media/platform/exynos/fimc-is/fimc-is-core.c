@@ -869,9 +869,6 @@ static int fimc_is_probe(struct platform_device *pdev)
 	core->use_ois_hsi2c = pdata->use_ois_hsi2c;
 	core->use_module_check = pdata->use_module_check;
 
-#ifdef USE_ION_ALLOC
-	core->fimc_ion_client = ion_client_create(ion_exynos, "fimc-is");
-#endif
 	core->pdev = pdev;
 	core->pdata = pdata;
 	core->id = pdev->id;

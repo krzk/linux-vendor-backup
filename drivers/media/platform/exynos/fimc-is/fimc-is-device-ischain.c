@@ -770,10 +770,6 @@ static int fimc_is_ischain_loadfirm(struct fimc_is_device_ischain *device)
 	int location = 0;
 	const struct firmware *fw_blob = NULL;
 	u8 *buf = NULL;
-#ifdef USE_ION_ALLOC
-	struct ion_handle *handle = NULL;
-	struct fimc_is_core *core = platform_get_drvdata(device->pdev);
-#endif
 #ifdef SDCARD_FW
 	struct file *fp = NULL;
 	mm_segment_t old_fs;
@@ -783,10 +779,6 @@ static int fimc_is_ischain_loadfirm(struct fimc_is_device_ischain *device)
 	int retry_count = 0;
 
 	mdbgd_ischain("%s\n", device, __func__);
-#ifdef USE_ION_ALLOC
-	BUG_ON(!core);
-	BUG_ON(!core->fimc_ion_client);
-#endif
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 	fp = filp_open(FIMC_IS_FW_SDCARD, O_RDONLY, 0);
@@ -811,22 +803,6 @@ static int fimc_is_ischain_loadfirm(struct fimc_is_device_ischain *device)
 	fsize = fp->f_path.dentry->d_inode->i_size;
 	pr_info("start, file path %s, size %ld Bytes\n",
 			is_dumped_fw_loading_needed ? fw_path : FIMC_IS_FW_SDCARD, fsize);
-#ifdef USE_ION_ALLOC
-	handle = ion_alloc(core->fimc_ion_client, (size_t)fsize, 0,
-				EXYNOS_ION_HEAP_SYSTEM_MASK, 0);
-	if (IS_ERR_OR_NULL(handle)) {
-		err("fimc_is_comp_load_binary:failed to ioc_alloc\n");
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	buf = (u8 *)ion_map_kernel(core->fimc_ion_client, handle);
-	if (IS_ERR_OR_NULL(buf)) {
-		err("fimc_is_comp_load_binary:fail to ion_map_kernle\n");
-		ret = -ENOMEM;
-		goto out;
-	}
-#else
 	buf = vmalloc(fsize);
 	if (!buf) {
 		dev_err(&device->pdev->dev,
@@ -834,7 +810,6 @@ static int fimc_is_ischain_loadfirm(struct fimc_is_device_ischain *device)
 		ret = -ENOMEM;
 		goto out;
 	}
-#endif
 	nread = vfs_read(fp, (char __user *)buf, fsize, &fp->f_pos);
 	if (nread != fsize) {
 		dev_err(&device->pdev->dev,
@@ -887,22 +862,11 @@ request_fw:
 
 out:
 #ifdef SDCARD_FW
-#ifdef USE_ION_ALLOC
-	if (!IS_ERR_OR_NULL(buf)) {
-		ion_unmap_kernel(core->fimc_ion_client, handle);
-	}
-
-	if (!IS_ERR_OR_NULL(handle)) {
-		ion_free(core->fimc_ion_client, handle);
-	}
-#endif
 
 	if (!fw_requested) {
-#ifndef USE_ION_ALLOC
 		if (buf) {
 			vfree(buf);
 		}
-#endif
 		if (!IS_ERR_OR_NULL(fp)) {
 			filp_close(fp, current->files);
 		}
@@ -995,10 +959,6 @@ static int fimc_is_ischain_loadsetf(struct fimc_is_device_ischain *device,
 	void *address;
 	const struct firmware *fw_blob = NULL;
 	u8 *buf = NULL;
-#ifdef USE_ION_ALLOC
-	struct ion_handle *handle = NULL;
-	struct fimc_is_core *core = platform_get_drvdata(device->pdev);
-#endif
 
 #ifdef SDCARD_FW
 	struct file *fp = NULL;
@@ -1009,11 +969,6 @@ static int fimc_is_ischain_loadsetf(struct fimc_is_device_ischain *device,
 	u32 retry;
 
 	mdbgd_ischain("%s\n", device, __func__);
-
-#ifdef USE_ION_ALLOC
-	BUG_ON(!core);
-	BUG_ON(!core->fimc_ion_client);
-#endif
 
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
@@ -1043,22 +998,6 @@ static int fimc_is_ischain_loadsetf(struct fimc_is_device_ischain *device,
 	fsize = fp->f_path.dentry->d_inode->i_size;
 	info("start, file path %s, size %ld Bytes\n",
 		setfile_path, fsize);
-#ifdef USE_ION_ALLOC
-	handle = ion_alloc(core->fimc_ion_client, (size_t)fsize, 0,
-				EXYNOS_ION_HEAP_SYSTEM_MASK, 0);
-	if (IS_ERR_OR_NULL(handle)) {
-		err("fimc_is_comp_load_binary:failed to ioc_alloc\n");
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	buf = (u8 *)ion_map_kernel(core->fimc_ion_client, handle);
-	if (IS_ERR_OR_NULL(buf)) {
-		err("fimc_is_comp_load_binary:fail to ion_map_kernle\n");
-		ret = -ENOMEM;
-		goto out;
-	}
-#else
 	buf = vmalloc(fsize);
 	if (!buf) {
 		dev_err(&device->pdev->dev,
@@ -1066,7 +1005,6 @@ static int fimc_is_ischain_loadsetf(struct fimc_is_device_ischain *device,
 		ret = -ENOMEM;
 		goto out;
 	}
-#endif
 	nread = vfs_read(fp, (char __user *)buf, fsize, &fp->f_pos);
 	if (nread != fsize) {
 		dev_err(&device->pdev->dev,
@@ -1124,22 +1062,11 @@ request_fw:
 
 out:
 #ifdef SDCARD_FW
-#ifdef USE_ION_ALLOC
-	if (!IS_ERR_OR_NULL(buf)) {
-		ion_unmap_kernel(core->fimc_ion_client, handle);
-	}
-
-	if (!IS_ERR_OR_NULL(handle)) {
-		ion_free(core->fimc_ion_client, handle);
-	}
-#endif
 
 	if (!fw_requested) {
-#ifndef USE_ION_ALLOC
 		if (buf) {
 			vfree(buf);
 		}
-#endif
 		if (!IS_ERR_OR_NULL(fp)) {
 			filp_close(fp, current->files);
 		}
