@@ -103,13 +103,6 @@ static int exynos_fimc_is_sensor_pin_control(struct platform_device *pdev,
 					pr_err("%s : regulator_set_voltage(%d) fail\n", __func__, ret);
 				}
 			}
-
-			if (regulator_is_enabled(regulator)) {
-				pr_warning("%s regulator is already enabled\n", name);
-				regulator_put(regulator);
-				return 0;
-			}
-
 			ret = regulator_enable(regulator);
 			if (ret) {
 				pr_err("%s : regulator_enable(%s) fail\n", __func__, name);
@@ -129,13 +122,6 @@ static int exynos_fimc_is_sensor_pin_control(struct platform_device *pdev,
 				pr_err("%s : regulator_get(%s) fail\n", __func__, name);
 				return PTR_ERR(regulator);
 			}
-
-			if (!regulator_is_enabled(regulator)) {
-				pr_warning("%s regulator is already disabled\n", name);
-				regulator_put(regulator);
-				return 0;
-			}
-
 			ret = regulator_disable(regulator);
 			if (ret) {
 				pr_err("%s : regulator_disable(%s) fail\n", __func__, name);
