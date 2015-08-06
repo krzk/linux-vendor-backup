@@ -56,26 +56,8 @@
 #include "fimc-is-fan53555.h"
 #include "fimc-is-ncp6335b.h"
 
-#include "sensor/fimc-is-device-2p2.h"
-#include "sensor/fimc-is-device-3h5.h"
-#include "sensor/fimc-is-device-3h7.h"
-#include "sensor/fimc-is-device-3h7_sunny.h"
-#include "sensor/fimc-is-device-3l2.h"
-#include "sensor/fimc-is-device-4e5.h"
-#include "sensor/fimc-is-device-6a3.h"
-#include "sensor/fimc-is-device-6b2.h"
-#include "sensor/fimc-is-device-8b1.h"
 #include "sensor/fimc-is-device-6d1.h"
-#include "sensor/fimc-is-device-imx134.h"
-#include "sensor/fimc-is-device-imx135.h"
-#include "sensor/fimc-is-device-imx175.h"
 #include "sensor/fimc-is-device-imx240.h"
-#include "sensor/fimc-is-device-imx219.h"
-#include "sensor/fimc-is-device-4h5.h"
-#include "sensor/fimc-is-device-3l2.h"
-#include "sensor/fimc-is-device-2p2.h"
-#include "sensor/fimc-is-device-2p2_12m.h"
-#include "sensor/fimc-is-device-2p3.h"
 #ifdef CONFIG_USE_VENDER_FEATURE
 #include "fimc-is-sec-define.h"
 #ifdef CONFIG_OIS_USE
@@ -1409,22 +1391,6 @@ static int fimc_is_probe(struct platform_device *pdev)
 	/* group initialization */
 	fimc_is_groupmgr_probe(&core->groupmgr);
 
-#if defined(CONFIG_CAMERA_SENSOR_6B2_OBJ)
-	ret = sensor_6b2_probe(NULL, NULL);
-	if (ret) {
-		err("sensor_6b2_probe is fail(%d)", ret);
-		goto p_err3;
-	}
-#endif
-
-#if defined(CONFIG_CAMERA_SENSOR_8B1_OBJ)
-	ret = sensor_8b1_probe(NULL, NULL);
-	if (ret) {
-		err("sensor_8b1_probe is fail(%d)", ret);
-		goto p_err3;
-	}
-#endif
-
 #if defined(CONFIG_CAMERA_SENSOR_6D1_OBJ)
 	ret = sensor_6d1_probe(NULL, NULL);
 	if (ret) {
@@ -1433,122 +1399,10 @@ static int fimc_is_probe(struct platform_device *pdev)
 	}
 #endif
 
-#if defined(CONFIG_CAMERA_SENSOR_6A3_OBJ)
-	ret = sensor_6a3_probe(NULL, NULL);
-	if (ret) {
-		err("sensor_6a3_probe is fail(%d)", ret);
-		goto p_err3;
-	}
-#endif
-
-#if defined(CONFIG_CAMERA_SENSOR_IMX134_OBJ)
-	ret = sensor_imx134_probe(NULL, NULL);
-	if (ret) {
-		err("sensor_imx134_probe is fail(%d)", ret);
-		goto p_err3;
-	}
-#endif
-
-#if defined(CONFIG_CAMERA_SENSOR_IMX135_OBJ)
-	ret = sensor_imx135_probe(NULL, NULL);
-	if (ret) {
-		err("sensor_imx135_probe is fail(%d)", ret);
-		goto p_err3;
-	}
-#endif
-
-#if defined(CONFIG_CAMERA_SENSOR_3L2_OBJ)
-	ret = sensor_3l2_probe(NULL, NULL);
-	if (ret) {
-		err("sensor_3l2_probe is fail(%d)", ret);
-		goto p_err3;
-	}
-#endif
-
-#if defined(CONFIG_CAMERA_SENSOR_2P2_OBJ)
-	ret = sensor_2p2_probe(NULL, NULL);
-	if (ret) {
-		err("sensor_2p2_probe is fail(%d)", ret);
-		goto p_err3;
-	}
-#endif
-
-#if defined(CONFIG_CAMERA_SENSOR_2P2_12M_OBJ)
-	ret = sensor_2p2_12m_probe(NULL, NULL);
-	if (ret) {
-		err("sensor_2p2_12m_probe is fail(%d)", ret);
-		goto p_err3;
-	}
-#endif
-
-#if defined(CONFIG_CAMERA_SENSOR_2P3_OBJ)
-	ret = sensor_2p3_probe(NULL, NULL);
-	if (ret) {
-		err("sensor_2p3_probe is fail(%d)", ret);
-		goto p_err3;
-	}
-#endif
-
-#if defined(CONFIG_CAMERA_SENSOR_3H5_OBJ)
-	ret = sensor_3h5_probe(NULL, NULL);
-	if (ret) {
-		err("sensor_3h5_probe is fail(%d)", ret);
-		goto p_err3;
-	}
-#endif
-
-#if defined(CONFIG_CAMERA_SENSOR_3H7_OBJ)
-	ret = sensor_3h7_probe(NULL, NULL);
-	if (ret) {
-		err("sensor_3h7_probe is fail(%d)", ret);
-		goto p_err3;
-	}
-#endif
-
-#if defined(CONFIG_CAMERA_SENSOR_3H7_SUNNY_OBJ)
-	ret = sensor_3h7_sunny_probe(NULL, NULL);
-	if (ret) {
-		err("sensor_3h7_sunny_probe is fail(%d)", ret);
-		goto p_err3;
-	}
-#endif
-
-#if defined(CONFIG_CAMERA_SENSOR_4E5_OBJ)
-	ret = sensor_4e5_probe(NULL, NULL);
-	if (ret) {
-		err("sensor_4e5_probe is fail(%d)", ret);
-		goto p_err3;
-	}
-#endif
-
-#if defined(CONFIG_CAMERA_SENSOR_IMX175_OBJ)
-	ret = sensor_imx175_probe(NULL, NULL);
-	if (ret) {
-		err("sensor_imx175_probe is fail(%d)", ret);
-		goto p_err3;
-	}
-#endif
-
 #if defined(CONFIG_CAMERA_SENSOR_IMX240_OBJ)
 	ret = sensor_imx240_probe(NULL, NULL);
 	if (ret) {
 		err("sensor_imx175_probe is fail(%d)", ret);
-		goto p_err3;
-	}
-#endif
-
-#if defined(CONFIG_CAMERA_SENSOR_IMX219_OBJ)
-	ret = sensor_imx219_probe(NULL, NULL);
-	if (ret) {
-		err("sensor_imx219_probe is fail(%d)", ret);
-		goto p_err3;
-	}
-#endif
-
-#if defined(CONFIG_CAMERA_SENSOR_4H5_OBJ)
-	ret = sensor_4h5_probe(NULL, NULL);
-	if (ret) {
-		err("sensor_4h5_probe is fail(%d)", ret);
 		goto p_err3;
 	}
 #endif

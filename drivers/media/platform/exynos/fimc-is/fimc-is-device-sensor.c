@@ -45,9 +45,6 @@
 #include "fimc-is-dt.h"
 #include "fimc-is-dvfs.h"
 
-#include "sensor/fimc-is-device-6b2.h"
-#include "sensor/fimc-is-device-imx134.h"
-#include "sensor/fimc-is-device-imx135.h"
 #include "fimc-is-device-sensor.h"
 #ifdef CONFIG_COMPANION_USE
 #include "fimc-is-companion-dt.h"
