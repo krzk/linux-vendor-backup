@@ -161,7 +161,7 @@ struct fimc_is_interface {
 };
 
 int fimc_is_interface_probe(struct fimc_is_interface *this,
-	u32 regs,
+	void *regs,
 	u32 irq,
 	void *core_data);
 int fimc_is_interface_open(struct fimc_is_interface *this);
@@ -178,8 +178,8 @@ int fimc_is_hw_msg_test(struct fimc_is_interface *this, u32 sync_id, u32 msg_tes
 int fimc_is_hw_logdump(struct fimc_is_interface *this);
 int fimc_is_hw_regdump(struct fimc_is_interface *this);
 int fimc_is_hw_memdump(struct fimc_is_interface *this,
-	u32 start,
-	u32 end);
+	void *start,
+	void *end);
 int fimc_is_hw_enum(struct fimc_is_interface *this);
 int fimc_is_hw_open(struct fimc_is_interface *this,
 	u32 instance, u32 module, u32 info, u32 group, u32 flag,

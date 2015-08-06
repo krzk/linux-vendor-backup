@@ -35,33 +35,16 @@
 #include "fimc-is-regs.h"
 #include "fimc-is-err.h"
 
-#ifdef IOC_ALLOC
-static void *fimc_is_ion_init(struct platform_device *pdev)
+static dma_addr_t plane_addr(struct vb2_buffer *vb, u32 plane_no)
 {
-	return vb2_ion_create_context(&pdev->dev, SZ_4K,
-					VB2ION_CTX_IOMMU |
-					VB2ION_CTX_VMCONTIG |
-					VB2ION_CTX_KVA_ONDEMAND);
-}
-#endif
-
-static unsigned long plane_addr(struct vb2_buffer *vb, u32 plane_no)
-{
-#ifdef IOC_ALLOC
-	void *cookie = vb2_plane_cookie(vb, plane_no);
-	dma_addr_t dva = 0;
-
-	WARN_ON(vb2_ion_dma_address(cookie, &dva) != 0);
-#else
 	return vb2_dma_contig_plane_dma_addr(vb, plane_no);
-#endif
 }
 
-static unsigned long plane_kvaddr(struct vb2_buffer *vb, u32 plane_no)
+static void * plane_kvaddr(struct vb2_buffer *vb, u32 plane_no)
 {
 	void *kvaddr = vb2_plane_vaddr(vb, plane_no);
 
-	return (unsigned long)kvaddr;
+	return kvaddr;
 }
 
 
@@ -90,19 +73,6 @@ void vb2_null_destroy_context(void *ctx)
 
 }
 
-#ifdef IOC_ALLOC
-const struct fimc_is_vb2 fimc_is_vb2_ion = {
-	.ops		= &vb2_ion_memops,
-	.init		= fimc_is_ion_init,
-	.cleanup	= vb2_ion_destroy_context,
-	.plane_addr	= plane_addr,
-	.plane_kvaddr	= plane_kvaddr,
-	.resume		= vb2_ion_attach_iommu,
-	.suspend	= vb2_ion_detach_iommu,
-	.set_cacheable	= vb2_ion_set_cached,
-};
-#define fimc_is_vb2_allocator (&fimc_is_vb2_ion)
-#else
 const struct fimc_is_vb2 fimc_is_vb2_dc = {
 	.ops		= &vb2_dma_contig_memops,
 	.init		= fimc_is_dma_contig_init,
@@ -114,7 +84,6 @@ const struct fimc_is_vb2 fimc_is_vb2_dc = {
 	.set_cacheable	= vb2_null_set_cached,
 };
 #define fimc_is_vb2_allocator (&fimc_is_vb2_dc)
-#endif
 
 int fimc_is_mem_probe(struct fimc_is_mem *this,
 	struct platform_device *pdev)
@@ -129,10 +98,6 @@ int fimc_is_mem_probe(struct fimc_is_mem *this,
 		goto p_err;
 	}
 
-#ifdef IOC_ALLOC
-	/* FIXME: should be different by device type */
-	exynos_create_iovmm(&pdev->dev, 1, 4);
-#endif
 p_err:
 	return ret;
 }

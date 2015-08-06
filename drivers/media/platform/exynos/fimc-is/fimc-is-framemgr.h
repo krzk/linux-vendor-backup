@@ -124,9 +124,9 @@ struct fimc_is_frame {
 	/* group leader use */
 	struct camera2_shot	*shot;
 	struct camera2_shot_ext	*shot_ext;
-	u32			kvaddr_shot;
-	u32			dvaddr_shot;
-	u32			cookie_shot;
+	void *			kvaddr_shot;
+	dma_addr_t		dvaddr_shot;
+	void *			cookie_shot;
 	u32			shot_size;
 
 	/* stream use */
@@ -135,8 +135,8 @@ struct fimc_is_frame {
 
 	/* common use */
 	u32			planes;
-	u32			kvaddr_buffer[FIMC_IS_MAX_PLANES];
-	u32			dvaddr_buffer[FIMC_IS_MAX_PLANES];
+	void *			kvaddr_buffer[FIMC_IS_MAX_PLANES];
+	dma_addr_t		dvaddr_buffer[FIMC_IS_MAX_PLANES];
 
 	/* internal use */
 	unsigned long		memory;

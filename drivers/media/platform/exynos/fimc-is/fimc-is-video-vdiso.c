@@ -48,7 +48,7 @@ int fimc_is_vdo_video_probe(void *data)
 
 	BUG_ON(!data);
 
-	core = (struct fimc_is_core *)data;
+	core = data;
 	video = &core->video_vdo;
 
 	if (!core->pdev) {
@@ -493,7 +493,7 @@ static int fimc_is_vdo_start_streaming(struct vb2_queue *q,
 	return ret;
 }
 
-static int fimc_is_vdo_stop_streaming(struct vb2_queue *q)
+static void fimc_is_vdo_stop_streaming(struct vb2_queue *q)
 {
 	int ret = 0;
 	struct fimc_is_video_ctx *vctx = q->drv_priv;
@@ -509,17 +509,13 @@ static int fimc_is_vdo_stop_streaming(struct vb2_queue *q)
 	device = vctx->device;
 	if (!device) {
 		err("device is NULL");
-		ret = -EINVAL;
-		goto p_err;
+		return;
 	}
 	leader = &device->group_dis.leader;
 
 	ret = fimc_is_queue_stop_streaming(queue, device, leader, vctx);
 	if (ret)
 		merr("fimc_is_queue_stop_streaming is fail(%d)", vctx, ret);
-
-p_err:
-	return ret;
 }
 
 static void fimc_is_vdo_buffer_queue(struct vb2_buffer *vb)
@@ -555,9 +551,8 @@ static void fimc_is_vdo_buffer_queue(struct vb2_buffer *vb)
 	}
 }
 
-static int fimc_is_vdo_buffer_finish(struct vb2_buffer *vb)
+static void fimc_is_vdo_buffer_finish(struct vb2_buffer *vb)
 {
-	int ret = 0;
 	struct fimc_is_video_ctx *vctx = vb->vb2_queue->drv_priv;
 	struct fimc_is_device_ischain *device = vctx->device;
 
@@ -565,9 +560,7 @@ static int fimc_is_vdo_buffer_finish(struct vb2_buffer *vb)
 	mdbgv_vdo("%s(%d)\n", vctx, __func__, vb->v4l2_buf.index);
 #endif
 
-	ret = fimc_is_ischain_vdo_buffer_finish(device, vb->v4l2_buf.index);
-
-	return ret;
+	fimc_is_ischain_vdo_buffer_finish(device, vb->v4l2_buf.index);
 }
 
 const struct vb2_ops fimc_is_vdo_qops = {

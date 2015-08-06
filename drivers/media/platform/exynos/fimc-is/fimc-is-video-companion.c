@@ -45,7 +45,7 @@ int fimc_is_comp_video_probe(void *data)
 
 	BUG_ON(!data);
 
-	device = (struct fimc_is_device_companion *)data;
+	device = data;
 	video = &device->video;
 	snprintf(name, sizeof(name), "%s%d", FIMC_IS_VIDEO_SENSOR_NAME, 9);
 	number = FIMC_IS_VIDEO_SS0_NUM + 9;

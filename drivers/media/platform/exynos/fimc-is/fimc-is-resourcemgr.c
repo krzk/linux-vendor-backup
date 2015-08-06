@@ -52,7 +52,7 @@ int fimc_is_resource_get(struct fimc_is_resourcemgr *resourcemgr, u32 rsc_type)
 	BUG_ON(rsc_type >= RESOURCE_TYPE_MAX);
 
 	resource = GET_RESOURCE(resourcemgr, rsc_type);
-	core = (struct fimc_is_core *)resourcemgr->private_data;
+	core = resourcemgr->private_data;
 	rsccount = atomic_read(&core->rsccount);
 
 	if (rsccount >= 5) {
@@ -116,7 +116,7 @@ int fimc_is_resource_put(struct fimc_is_resourcemgr *resourcemgr, u32 rsc_type)
 	BUG_ON(rsc_type >= RESOURCE_TYPE_MAX);
 
 	resource = GET_RESOURCE(resourcemgr, rsc_type);
-	core = (struct fimc_is_core *)resourcemgr->private_data;
+	core = resourcemgr->private_data;
 	rsccount = atomic_read(&core->rsccount);
 
 	if (rsccount == 0) {

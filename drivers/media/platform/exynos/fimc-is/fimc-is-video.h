@@ -103,8 +103,8 @@ struct fimc_is_queue {
 	u32				buf_maxcount;
 	u32				buf_rdycount;
 	u32				buf_refcount;
-	u32				buf_dva[FIMC_IS_MAX_BUFS][FIMC_IS_MAX_PLANES];
-	u32				buf_kva[FIMC_IS_MAX_BUFS][FIMC_IS_MAX_PLANES];
+	dma_addr_t			buf_dva[FIMC_IS_MAX_BUFS][FIMC_IS_MAX_PLANES];
+	void *				buf_kva[FIMC_IS_MAX_BUFS][FIMC_IS_MAX_PLANES];
 
 	u32				id;
 	unsigned long			state;

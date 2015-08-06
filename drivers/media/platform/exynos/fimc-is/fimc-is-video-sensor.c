@@ -50,7 +50,7 @@ int fimc_is_sen_video_probe(void *data)
 
 	BUG_ON(!data);
 
-	device = (struct fimc_is_device_sensor *)data;
+	device = data;
 	video = &device->video;
 	snprintf(name, sizeof(name), "%s%d", FIMC_IS_VIDEO_SENSOR_NAME, device->instance);
 	number = FIMC_IS_VIDEO_SS0_NUM + device->instance;
@@ -284,7 +284,7 @@ static int fimc_is_sen_video_get_crop(struct file *file, void *fh,
 }
 
 static int fimc_is_sen_video_set_crop(struct file *file, void *fh,
-	struct v4l2_crop *crop)
+	const struct v4l2_crop *crop)
 {
 	struct fimc_is_video_ctx *vctx = file->private_data;
 	struct fimc_is_device_sensor *sensor;
@@ -774,7 +774,7 @@ static int fimc_is_sen_start_streaming(struct vb2_queue *q,
 	return 0;
 }
 
-static int fimc_is_sen_stop_streaming(struct vb2_queue *q)
+static void fimc_is_sen_stop_streaming(struct vb2_queue *q)
 {
 	int ret = 0;
 	struct fimc_is_video_ctx *vctx = q->drv_priv;
@@ -795,10 +795,7 @@ static int fimc_is_sen_stop_streaming(struct vb2_queue *q)
 		ret = fimc_is_sensor_back_stop(device);
 	} else {
 		err("already stream off");
-		ret = -EINVAL;
 	}
-
-	return ret;
 }
 
 static void fimc_is_sen_buffer_queue(struct vb2_buffer *vb)
@@ -834,9 +831,9 @@ static void fimc_is_sen_buffer_queue(struct vb2_buffer *vb)
 	}
 }
 
-static int fimc_is_sen_buffer_finish(struct vb2_buffer *vb)
+static void fimc_is_sen_buffer_finish(struct vb2_buffer *vb)
 {
-	int ret = 0;
+	int ret;
 	struct fimc_is_video_ctx *vctx = vb->vb2_queue->drv_priv;
 	struct fimc_is_device_sensor *device;
 
@@ -848,13 +845,8 @@ static int fimc_is_sen_buffer_finish(struct vb2_buffer *vb)
 	ret = fimc_is_sensor_buffer_finish(
 		device,
 		vb->v4l2_buf.index);
-	if (ret) {
+	if (ret)
 		merr("fimc_is_sensor_buffer_finish is fail(%d)", device, ret);
-		goto p_err;
-	}
-
-p_err:
-	return ret;
 }
 
 const struct vb2_ops fimc_is_sen_qops = {

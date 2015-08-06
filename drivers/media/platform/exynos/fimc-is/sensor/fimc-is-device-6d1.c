@@ -238,7 +238,7 @@ static const struct v4l2_subdev_internal_ops internal_ops = {
 	.unregistered = sensor_6d1_unregistered,
 };
 
-static int sensor_6d1_init(struct v4l2_subdev *subdev, u32 val)
+static int sensor_6d1_init(struct v4l2_subdev *subdev, void *val)
 {
 	int i, ret = 0;
 	struct fimc_is_module_enum *module;
@@ -247,7 +247,7 @@ static int sensor_6d1_init(struct v4l2_subdev *subdev, u32 val)
 
 	BUG_ON(!subdev);
 
-	module = (struct fimc_is_module_enum *)v4l2_get_subdevdata(subdev);
+	module = v4l2_get_subdevdata(subdev);
 	module_6d1 = module->private_data;
 	client = module->client;
 
@@ -262,7 +262,7 @@ static int sensor_6d1_init(struct v4l2_subdev *subdev, u32 val)
 				(u8)setfile_vision_6d1[i][1]);
 	}
 
-	pr_info("[MOD:D:%d] %s(%d)\n", module->id, __func__, val);
+	pr_info("[MOD:D:%d] %s(%ld)\n", module->id, __func__, (long)val);
 
 	return ret;
 }
@@ -278,7 +278,7 @@ static int sensor_6d1_s_stream(struct v4l2_subdev *subdev, int enable)
 
 	pr_info("%s\n", __func__);
 
-	sensor = (struct fimc_is_module_enum *)v4l2_get_subdevdata(subdev);
+	sensor = v4l2_get_subdevdata(subdev);
 	if (!sensor) {
 		err("sensor is NULL");
 		ret = -EINVAL;
@@ -334,7 +334,7 @@ static int sensor_6d1_s_param(struct v4l2_subdev *subdev, struct v4l2_streamparm
 	duration = (u64)(tpf->numerator * 1000 * 1000 * 1000) /
 					(u64)(tpf->denominator);
 
-	sensor = (struct fimc_is_module_enum *)v4l2_get_subdevdata(subdev);
+	sensor = v4l2_get_subdevdata(subdev);
 	if (!sensor) {
 		err("sensor is NULL");
 		ret = -EINVAL;
@@ -376,7 +376,7 @@ int sensor_6d1_stream_on(struct v4l2_subdev *subdev)
 
 	BUG_ON(!subdev);
 
-	sensor = (struct fimc_is_module_enum *)v4l2_get_subdevdata(subdev);
+	sensor = v4l2_get_subdevdata(subdev);
 	if (unlikely(!sensor)) {
 		err("sensor is NULL");
 		ret = -EINVAL;
@@ -408,7 +408,7 @@ int sensor_6d1_stream_off(struct v4l2_subdev *subdev)
 
 	BUG_ON(!subdev);
 
-	sensor = (struct fimc_is_module_enum *)v4l2_get_subdevdata(subdev);
+	sensor = v4l2_get_subdevdata(subdev);
 	if (unlikely(!sensor)) {
 		err("sensor is NULL");
 		ret = -EINVAL;
@@ -450,7 +450,7 @@ int sensor_6d1_s_duration(struct v4l2_subdev *subdev, u64 duration)
 
 	pr_info("%s\n", __func__);
 
-	sensor = (struct fimc_is_module_enum *)v4l2_get_subdevdata(subdev);
+	sensor = v4l2_get_subdevdata(subdev);
 	if (unlikely(!sensor)) {
 		err("sensor is NULL");
 		ret = -EINVAL;
@@ -498,9 +498,9 @@ int sensor_6d1_s_exposure(struct v4l2_subdev *subdev, u64 exposure)
 
 	BUG_ON(!subdev);
 
-	pr_info("%s(%d)\n", __func__, (u32)exposure);
+	pr_info("%s(%lld)\n", __func__, exposure);
 
-	sensor = (struct fimc_is_module_enum *)v4l2_get_subdevdata(subdev);
+	sensor = v4l2_get_subdevdata(subdev);
 	if (unlikely(!sensor)) {
 		err("sensor is NULL");
 		ret = -EINVAL;
@@ -681,7 +681,7 @@ int sensor_6d1_probe(struct i2c_client *client,
 	if (!fimc_is_dev)
 		goto probe_defer;
 
-	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	core = dev_get_drvdata(fimc_is_dev);
 	if (!core) {
 		err("core device is not yet probed");
 		return -EPROBE_DEFER;

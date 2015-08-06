@@ -152,7 +152,7 @@ int fimc_is_power_setpin(struct device *dev, int position, int sensor_id)
 		return -ENODEV;
 	}
 
-	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	core = dev_get_drvdata(fimc_is_dev);
 	if (!core) {
 		err("core is NULL");
 		return -EINVAL;

@@ -86,7 +86,7 @@
 #ifndef __ASSEMBLY__
 extern int exynos_smc(unsigned long cmd, unsigned long arg1, unsigned long arg2,
 		      unsigned long arg3);
-extern int exynos_smc_readsfr(unsigned long addr, unsigned long* val);
+extern int exynos_smc_readsfr(unsigned long addr, u32 * val);
 #endif
 
 #endif

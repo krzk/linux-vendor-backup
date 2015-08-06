@@ -38,7 +38,7 @@ struct fimc_is_resource {
         struct platform_device                  *pdev;
         void __iomem                            *regs;
         atomic_t                                rsccount;
-        u32                                     private_data;
+        void *                                  private_data;
 };
 
 struct fimc_is_resourcemgr {

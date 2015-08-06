@@ -526,7 +526,7 @@ int fimc_is_queue_setup(struct fimc_is_queue *queue,
 	BUG_ON(!sizes);
 	BUG_ON(!allocators);
 
-	*num_planes = (unsigned int)(queue->framecfg.format.num_planes);
+	*num_planes = (queue->framecfg.format.num_planes);
 	fimc_is_set_plane_size(&queue->framecfg, sizes);
 
 	for (plane = 0; plane < *num_planes; plane++) {
@@ -574,10 +574,10 @@ int fimc_is_queue_buffer_queue(struct fimc_is_queue *queue,
 	/* plane address check */
 	for (i = 0; i < frame->planes; i++) {
 		if (frame->dvaddr_buffer[i] != queue->buf_dva[index][i]) {
-			err("buffer %d plane %d is changed(%08X != %08X)",
+			err("buffer %d plane %d is changed(%pad != %pad)",
 				index, i,
-				frame->dvaddr_buffer[i],
-				queue->buf_dva[index][i]);
+				&frame->dvaddr_buffer[i],
+				&queue->buf_dva[index][i]);
 			ret = -EINVAL;
 			goto exit;
 		}
@@ -616,11 +616,12 @@ set_info:
 
 		frame->dvaddr_shot = queue->buf_dva[index][spare] + ext_size;
 		frame->kvaddr_shot = queue->buf_kva[index][spare] + ext_size;
-		frame->cookie_shot = (u32)vb2_plane_cookie(vb, spare);
-		frame->shot = (struct camera2_shot *)frame->kvaddr_shot;
-		frame->shot_ext = (struct camera2_shot_ext *)queue->buf_kva[index][spare];
+		frame->cookie_shot = vb2_plane_cookie(vb, spare);
+		frame->shot = frame->kvaddr_shot;
+		frame->shot_ext = queue->buf_kva[index][spare];
 		frame->shot_size = queue->framecfg.size[spare] - ext_size;
 #ifdef MEASURE_TIME
+# warning POSSIBLE WARNING
 		frame->tzone = (struct timeval *)frame->shot_ext->timeZone;
 #endif
 	} else {
@@ -632,7 +633,7 @@ set_info:
 			goto exit;
 		}
 
-		frame->stream = (struct camera2_stream *)queue->buf_kva[index][spare];
+		frame->stream = queue->buf_kva[index][spare];
 		frame->stream->address = queue->buf_kva[index][spare];
 		frame->stream_size = queue->framecfg.size[spare];
 	}

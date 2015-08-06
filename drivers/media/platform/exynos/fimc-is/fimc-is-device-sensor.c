@@ -319,7 +319,7 @@ static int fimc_is_sensor_gpio_on(struct fimc_is_device_sensor *device)
 {
 	int ret = 0;
 	struct exynos_platform_fimc_is_sensor *pdata;
-	struct fimc_is_core *core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	struct fimc_is_core *core = dev_get_drvdata(fimc_is_dev);
 
 	BUG_ON(!device);
 	BUG_ON(!device->pdev);
@@ -360,7 +360,7 @@ static int fimc_is_sensor_gpio_off(struct fimc_is_device_sensor *device)
 {
 	int ret = 0;
 	struct exynos_platform_fimc_is_sensor *pdata;
-	struct fimc_is_core *core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	struct fimc_is_core *core = dev_get_drvdata(fimc_is_dev);
 
 	BUG_ON(!device);
 	BUG_ON(!device->pdev);
@@ -636,7 +636,7 @@ static int fimc_is_sensor_notify_by_fend(struct fimc_is_device_sensor *device, v
 		fimc_is_sensor_dtp((unsigned long)device);
 #endif
 
-	frame = (struct fimc_is_frame *)arg;
+	frame = arg;
 	if (frame) {
 		frame->has_fcount = false;
 		buffer_done(device->vctx, frame->index);
@@ -747,7 +747,7 @@ static int fimc_is_sensor_probe(struct platform_device *pdev)
 		return -EPROBE_DEFER;
 	}
 
-	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	core = dev_get_drvdata(fimc_is_dev);
 	if (!core) {
 		err("core is NULL");
 		return -EINVAL;
@@ -860,7 +860,7 @@ int fimc_is_sensor_open(struct fimc_is_device_sensor *device,
 	struct fimc_is_video_ctx *vctx)
 {
 	int ret = 0;
-	struct fimc_is_core *core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	struct fimc_is_core *core = dev_get_drvdata(fimc_is_dev);
 	struct exynos_platform_fimc_is_sensor *pdata;
 
 	BUG_ON(!device);
@@ -942,7 +942,7 @@ int fimc_is_sensor_close(struct fimc_is_device_sensor *device)
 	int ret = 0;
 	struct fimc_is_device_ischain *ischain;
 	struct fimc_is_group *group_3aa;
-	struct fimc_is_core *core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	struct fimc_is_core *core = dev_get_drvdata(fimc_is_dev);
 	struct exynos_platform_fimc_is_sensor *pdata;
 
 	BUG_ON(!device);
@@ -1147,13 +1147,13 @@ int fimc_is_sensor_s_input(struct fimc_is_device_sensor *device,
 		goto p_err;
 	}
 
-	ret = v4l2_subdev_call(subdev_flite, core, init, device->pdata->csi_ch);
+	ret = v4l2_subdev_call(subdev_flite, core, init, (void *)(long)device->pdata->csi_ch);
 	if (ret) {
 		merr("v4l2_flite_call(init) is fail(%d)", device, ret);
 		goto p_err;
 	}
 
-	ret = v4l2_subdev_call(subdev_csi, core, init, (u32)module);
+	ret = v4l2_subdev_call(subdev_csi, core, init, module);
 	if (ret) {
 		merr("v4l2_csi_call(init) is fail(%d)", device, ret);
 		goto p_err;
@@ -1196,7 +1196,7 @@ int fimc_is_sensor_s_format(struct fimc_is_device_sensor *device,
 	subdev_csi = device->subdev_csi;
 	subdev_flite = device->subdev_flite;
 
-	module = (struct fimc_is_module_enum *)v4l2_get_subdevdata(subdev_module);
+	module = v4l2_get_subdevdata(subdev_module);
 	if (!module) {
 		merr("module is NULL", device);
 		goto p_err;
@@ -1292,7 +1292,7 @@ int fimc_is_sensor_s_framerate(struct fimc_is_device_sensor *device,
 		goto p_err;
 	}
 
-	module = (struct fimc_is_module_enum *)v4l2_get_subdevdata(subdev_module);
+	module = v4l2_get_subdevdata(subdev_module);
 	if (!module) {
 		merr("module is NULL", device);
 		ret = -EINVAL;
@@ -1574,7 +1574,7 @@ int fimc_is_sensor_g_bratio(struct fimc_is_device_sensor *device)
 	BUG_ON(!device);
 	BUG_ON(!device->subdev_module);
 
-	module = (struct fimc_is_module_enum *)v4l2_get_subdevdata(device->subdev_module);
+	module = v4l2_get_subdevdata(device->subdev_module);
 	if (!module) {
 		merr("module is NULL", device);
 		goto p_err;
@@ -1595,7 +1595,7 @@ int fimc_is_sensor_g_module(struct fimc_is_device_sensor *device,
 	BUG_ON(!device);
 	BUG_ON(!device->subdev_module);
 
-	*module = (struct fimc_is_module_enum *)v4l2_get_subdevdata(device->subdev_module);
+	*module = v4l2_get_subdevdata(device->subdev_module);
 	if (!*module) {
 		merr("module is NULL", device);
 		ret = -EINVAL;
@@ -1714,7 +1714,7 @@ int fimc_is_sensor_back_start(struct fimc_is_device_sensor *device)
 		goto p_err;
 	}
 
-	flite = (struct fimc_is_device_flite *)v4l2_get_subdevdata(subdev_flite);
+	flite = v4l2_get_subdevdata(subdev_flite);
 	if (!flite) {
 		merr("flite is NULL", device);
 		ret = -EINVAL;
@@ -1804,7 +1804,7 @@ int fimc_is_sensor_front_start(struct fimc_is_device_sensor *device,
 		goto p_err;
 	}
 
-	module = (struct fimc_is_module_enum *)v4l2_get_subdevdata(subdev_module);
+	module = v4l2_get_subdevdata(subdev_module);
 	if (!module) {
 		merr("module is NULL", device);
 		ret = -EINVAL;
@@ -1932,7 +1932,7 @@ int fimc_is_sensor_runtime_suspend(struct device *dev)
 
 	BUG_ON(!pdev);
 
-	device = (struct fimc_is_device_sensor *)platform_get_drvdata(pdev);
+	device = platform_get_drvdata(pdev);
 	if (!device) {
 		err("device is NULL");
 		return -EINVAL;
@@ -1977,7 +1977,7 @@ int fimc_is_sensor_runtime_resume(struct device *dev)
 	struct fimc_is_device_sensor *device;
 	struct v4l2_subdev *subdev_csi;
 
-	device = (struct fimc_is_device_sensor *)platform_get_drvdata(pdev);
+	device = platform_get_drvdata(pdev);
 	if (!device) {
 		err("device is NULL");
 		return -EINVAL;

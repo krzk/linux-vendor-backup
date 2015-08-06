@@ -37,12 +37,6 @@
 #include "fimc-is-device-af.h"
 
 #define FIMC_IS_AF_DEV_NAME "exynos-fimc-is-af"
-static int af_noise_count;
-
-static struct remove_af_noise af_sensor_interface = {
-	.af_pdata = NULL,
-	.af_func = NULL,
-};
 
 static void fimc_is_af_i2c_config(struct i2c_client *client, bool onoff)
 {
@@ -123,7 +117,7 @@ int fimc_is_af_i2c_write(struct i2c_client *client ,u16 addr, u16 data)
 
 int fimc_is_af_ldo_enable(char *name, bool on)
 {
-	struct fimc_is_core *core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	struct fimc_is_core *core = dev_get_drvdata(fimc_is_dev);
 	struct regulator *regulator = NULL;
 	struct platform_device *pdev = NULL;
 	int ret = 0;
@@ -210,7 +204,7 @@ int fimc_is_af_power(struct fimc_is_device_af *af_device, bool onoff)
 
 bool fimc_is_check_regulator_status(char *name)
 {
-	struct fimc_is_core *core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	struct fimc_is_core *core = dev_get_drvdata(fimc_is_dev);
 	struct regulator *regulator = NULL;
 	struct platform_device *pdev = NULL;
 	int ret = 0;
@@ -238,11 +232,11 @@ bool fimc_is_check_regulator_status(char *name)
 int16_t fimc_is_af_enable(void *device, bool onoff)
 {
 	int ret = 0;
-	struct fimc_is_device_af *af_device = (struct fimc_is_device_af *)device;
+	struct fimc_is_device_af *af_device = device;
 	struct fimc_is_core *core;
 	bool af_regulator = false, io_regulator = false;
 
-	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	core = dev_get_drvdata(fimc_is_dev);
 	if (!core) {
 		err("core is NULL");
 		return -ENODEV;
@@ -273,8 +267,6 @@ int16_t fimc_is_af_enable(void *device, bool onoff)
 				err("i2c write fail\n");
 				goto power_off;
 			}
-			af_noise_count++;
-			pr_info("af_noise : count = %d\n", af_noise_count);
 		} else {
 			/* Check the Power Pins */
 			af_regulator = fimc_is_check_regulator_status("CAM_AF_2.8V_AP");
@@ -348,7 +340,6 @@ static int fimc_is_af_probe(struct i2c_client *client,
 {
 	struct fimc_is_device_af *device;
 	struct fimc_is_core *core;
-	int ret;
 
 	if (fimc_is_dev == NULL) {
 		warn("fimc_is_dev is not yet probed");
@@ -356,7 +347,7 @@ static int fimc_is_af_probe(struct i2c_client *client,
 		return -EPROBE_DEFER;
 	}
 
-	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	core = dev_get_drvdata(fimc_is_dev);
 	if (!core)
 		return -EINVAL;
 
@@ -375,15 +366,6 @@ static int fimc_is_af_probe(struct i2c_client *client,
 	device->client = client;
 	device->core = core;
 
-#if 0
-	af_noise_count = 0;
-
-	af_sensor_interface.af_pdata = device;
-	af_sensor_interface.af_func = &fimc_is_af_enable;
-	ret = remove_af_noise_register(&af_sensor_interface);
-	if (ret)
-		err("reduce_af_noise_register failed: %d\n", ret);
-#endif
 	i2c_set_clientdata(client, device);
 
 	return 0;
@@ -391,9 +373,6 @@ static int fimc_is_af_probe(struct i2c_client *client,
 
 static int fimc_is_af_remove(struct i2c_client *client)
 {
-#if 0
-	remove_af_noise_unregister(&af_sensor_interface);
-#endif
 	return 0;
 }
 

@@ -614,7 +614,7 @@ int fimc_is_group_open(struct fimc_is_groupmgr *groupmgr,
 
 	leader = &group->leader;
 	framemgr = GET_SRC_FRAMEMGR(vctx);
-	core = (struct fimc_is_core *)device->interface->core;
+	core = device->interface->core;
 
 	mdbgd_ischain("%s(id %d)\n", device, __func__, id);
 
@@ -1330,8 +1330,8 @@ int fimc_is_group_buffer_queue(struct fimc_is_groupmgr *groupmgr,
 
 	if (frame->state == FIMC_IS_FRAME_STATE_FREE) {
 		if (frame->req_flag) {
-			merr("req_flag of buffer%d is not clear(%08X)",
-				group, frame->index, (u32)frame->req_flag);
+			merr("req_flag of buffer%d is not clear(%08lX)",
+				group, frame->index, frame->req_flag);
 			frame->req_flag = 0;
 		}
 
