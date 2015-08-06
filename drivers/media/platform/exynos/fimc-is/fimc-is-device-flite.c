@@ -729,11 +729,6 @@ int flite_hw_get_status2(unsigned long __iomem *base_reg)
 	return status;
 }
 
-void flite_hw_set_status1(unsigned long __iomem *base_reg, u32 val)
-{
-	writel(val, base_reg + TO_WORD_OFFSET(FLITE_REG_CISTATUS));
-}
-
 int flite_hw_get_status1(unsigned long __iomem *base_reg)
 {
 	u32 status = 0;
@@ -786,11 +781,6 @@ void flite_hw_set_unuse_buffer(unsigned long __iomem *base_reg, u32 number)
 	buffer = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIFCNTSEQ));
 	buffer &= ~(1<<number);
 	writel(buffer, base_reg + TO_WORD_OFFSET(FLITE_REG_CIFCNTSEQ));
-}
-
-u32 flite_hw_get_buffer_seq(unsigned long __iomem *base_reg)
-{
-	return readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIFCNTSEQ));
 }
 
 void flite_hw_set_mux(unsigned long __iomem *base_reg, u32 csi_ch, u32 flite_ch)
@@ -1332,32 +1322,6 @@ static irqreturn_t fimc_is_flite_isr(int irq, void *data)
 					flite->instance);
 				goto clear_status;
 /* HACK: Disable dead code because of Prevent Issue */
-#if 0
-#ifdef DBG_FLITEISR
-				printk(KERN_CONT "<");
-#endif
-				/* frame start interrupt */
-				flite->sw_checker = EXPECT_FRAME_END;
-				if (flite->sw_trigger)
-					flite->sw_trigger = FLITE_A_SLOT_VALID;
-				else
-					flite->sw_trigger = FLITE_B_SLOT_VALID;
-				flite->tasklet_param_str = flite->sw_trigger;
-				atomic_inc(&flite->fcount);
-				notify_fcount(flite);
-				if (flite->buf_done_mode == FLITE_BUF_DONE_EARLY)
-					flite->early_work_skip = true;
-				tasklet_schedule(&flite->tasklet_flite_str);
-#ifdef DBG_FLITEISR
-				printk(KERN_CONT ">");
-#endif
-				/* frame end interrupt */
-				flite->sw_checker = EXPECT_FRAME_START;
-				flite->tasklet_param_end = flite->sw_trigger;
-				if (flite->buf_done_mode == FLITE_BUF_DONE_EARLY)
-					tasklet_schedule(&flite->tasklet_flite_early_end);
-				tasklet_schedule(&flite->tasklet_flite_end);
-#endif
 			}
 		} else if (status == (2 << 4)) {
 			/* W/A: Skip start tasklet at interrupt lost case */

@@ -40,7 +40,6 @@
 #include "fimc-is-framemgr.h"
 #include "fimc-is-groupmgr.h"
 #include "fimc-is-cmd.h"
-#include "fimc-is-dvfs.h"
 
 /* sysfs variable for debug */
 extern struct fimc_is_sysfs_debug sysfs_debug;
@@ -227,37 +226,6 @@ static int fimc_is_gframe_trans_grp_to_fre(struct fimc_is_group *prev,
 	fimc_is_gframe_s_free(next, item);
 
 exit:
-	return ret;
-}
-
-int fimc_is_gframe_cancel(struct fimc_is_groupmgr *groupmgr,
-	struct fimc_is_group *group, u32 target_fcount)
-{
-	int ret = -EINVAL;
-	struct fimc_is_group_framemgr *gframemgr;
-	struct fimc_is_group_frame *gframe, *temp;
-
-	BUG_ON(!groupmgr);
-	BUG_ON(!group);
-	BUG_ON(group->instance >= FIMC_IS_MAX_NODES);
-
-	gframemgr = &groupmgr->framemgr[group->instance];
-
-	spin_lock_irq(&gframemgr->frame_slock);
-
-	list_for_each_entry_safe(gframe, temp, &group->frame_group_head, list) {
-		if (gframe->fcount == target_fcount) {
-			list_del(&gframe->list);
-			group->frame_group_cnt--;
-			mwarn("gframe%d is cancelled", group, target_fcount);
-			fimc_is_gframe_s_free(gframemgr, gframe);
-			ret = 0;
-			break;
-		}
-	}
-
-	spin_unlock_irq(&gframemgr->frame_slock);
-
 	return ret;
 }
 
@@ -487,14 +455,7 @@ static void fimc_is_group_cancel(struct fimc_is_group *group,
 		framemgr_x_barrier_irqr(sub_framemgr, 0, flags);
 	}
 }
-#ifdef CONFIG_USE_VENDER_FEATURE
 /* Flash Mode Control */
-#ifdef CONFIG_LEDS_LM3560
-extern int lm3560_reg_update_export(u8 reg, u8 mask, u8 data);
-#endif
-#ifdef CONFIG_LEDS_SKY81296
-extern int sky81296_torch_ctrl(int state);
-#endif
 
 static void fimc_is_group_set_torch(struct fimc_is_group *group,
 	struct fimc_is_frame *ldr_frame)
@@ -506,25 +467,12 @@ static void fimc_is_group_set_torch(struct fimc_is_group *group,
 		group->aeflashMode = ldr_frame->shot->ctl.aa.aeflashMode;
 		switch (group->aeflashMode) {
 		case AA_FLASHMODE_ON_ALWAYS: /*TORCH mode*/
-#ifdef CONFIG_LEDS_LM3560
-			lm3560_reg_update_export(0xE0, 0xFF, 0xEF);
-#elif defined(CONFIG_LEDS_SKY81296)
-			sky81296_torch_ctrl(1);
-#endif
 			break;
 		case AA_FLASHMODE_START: /*Pre flash mode*/
-#ifdef CONFIG_LEDS_LM3560
-			lm3560_reg_update_export(0xE0, 0xFF, 0xEF);
-#elif defined(CONFIG_LEDS_SKY81296)
-			sky81296_torch_ctrl(1);
-#endif
 			break;
 		case AA_FLASHMODE_CAPTURE: /*Main flash mode*/
 			break;
 		case AA_FLASHMODE_OFF: /*OFF mode*/
-#ifdef CONFIG_LEDS_SKY81296
-			sky81296_torch_ctrl(0);
-#endif
 			break;
 		default:
 			break;
@@ -532,7 +480,6 @@ static void fimc_is_group_set_torch(struct fimc_is_group *group,
 	}
 	return;
 }
-#endif
 
 #ifdef DEBUG_AA
 static void fimc_is_group_debug_aa_shot(struct fimc_is_group *group,
@@ -1528,9 +1475,6 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 	int async_step = 0;
 	bool try_sdown = false;
 	bool try_rdown = false;
-#ifdef ENABLE_DVFS
-	int scenario_id;
-#endif
 
 	BUG_ON(!groupmgr);
 	BUG_ON(!group);
@@ -1807,36 +1751,9 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 #ifdef DEBUG_AA
 	fimc_is_group_debug_aa_shot(group, ldr_frame);
 #endif
-#ifdef CONFIG_USE_VENDER_FEATURE
 	/* Flash Mode Control */
 	fimc_is_group_set_torch(group, ldr_frame);
-#endif
 
-#ifdef ENABLE_DVFS
-	mutex_lock(&resourcemgr->dvfs_ctrl.lock);
-	if ((!pm_qos_request_active(&device->user_qos)) &&
-			(sysfs_debug.en_dvfs)) {
-		/* try to find dynamic scenario to apply */
-		scenario_id = fimc_is_dvfs_sel_scenario(FIMC_IS_DYNAMIC_SN, device, ldr_frame);
-
-		if (scenario_id > 0) {
-			struct fimc_is_dvfs_scenario_ctrl *dynamic_ctrl = resourcemgr->dvfs_ctrl.dynamic_ctrl;
-			info("GRP:%d dynamic scenario(%d)-[%s]\n",
-					group->id, scenario_id,
-					dynamic_ctrl->scenarios[dynamic_ctrl->cur_scenario_idx].scenario_nm);
-			fimc_is_set_dvfs(device, scenario_id);
-		}
-
-		if ((scenario_id < 0) && (resourcemgr->dvfs_ctrl.dynamic_ctrl->cur_frame_tick == 0)) {
-			struct fimc_is_dvfs_scenario_ctrl *static_ctrl = resourcemgr->dvfs_ctrl.static_ctrl;
-			info("GRP:%d restore scenario(%d)-[%s]\n",
-					group->id, static_ctrl->cur_scenario_id,
-					static_ctrl->scenarios[static_ctrl->cur_scenario_idx].scenario_nm);
-			fimc_is_set_dvfs(device, static_ctrl->cur_scenario_id);
-		}
-	}
-	mutex_unlock(&resourcemgr->dvfs_ctrl.lock);
-#endif
 
 	PROGRAM_COUNT(6);
 	ret = group->start_callback(group->device, ldr_frame);

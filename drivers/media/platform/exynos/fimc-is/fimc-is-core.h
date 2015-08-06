@@ -34,16 +34,10 @@
 #elif defined(CONFIG_VIDEOBUF2_ION)
 #include <media/videobuf2-ion.h>
 #endif
-#ifdef CONFIG_COMPANION_USE
 #include <linux/i2c.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include "fimc-is-companion.h"
-#ifdef CONFIG_SOC_EXYNOS5422
-#include <linux/regulator/consumer.h>
-#include <linux/delay.h>
-#endif
-#endif
 
 #include "fimc-is-param.h"
 #include "fimc-is-interface.h"
@@ -124,26 +118,6 @@
 #define GATE_IP_ODC			(0)
 #define GATE_IP_DIS			(1)
 #define GATE_IP_DNR			(2)
-#if defined(CONFIG_SOC_EXYNOS5422)
-#define DVFS_L0				(600000)
-#define DVFS_L1				(500000)
-#define DVFS_L1_1			(480000)
-#define DVFS_L1_2			(460000)
-#define DVFS_L1_3			(440000)
-
-#define DVFS_MIF_L0			(825000)
-#define DVFS_MIF_L1			(728000)
-#define DVFS_MIF_L2			(633000)
-#define DVFS_MIF_L3			(543000)
-#define DVFS_MIF_L4			(413000)
-#define DVFS_MIF_L5			(275000)
-
-#define I2C_L0				(108000000)
-#define I2C_L1				(36000000)
-#define I2C_L1_1			(54000000)
-#define I2C_L2				(21600000)
-#define DVFS_SKIP_FRAME_NUM		(5)
-#elif defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 #define DVFS_L0				(600000)
 #define DVFS_L1				(500000)
 #define DVFS_L1_1			(480000)
@@ -162,14 +136,6 @@
 #define I2C_L1_1			(54000000)
 #define I2C_L2				(21600000)
 #define DVFS_SKIP_FRAME_NUM		(5)
-#elif defined(CONFIG_SOC_EXYNOS3470) || defined(CONFIG_SOC_EXYNOS3472) ||defined(CONFIG_SOC_EXYNOS5260) || defined(CONFIG_SOC_EXYNOS4415)
-#define DVFS_L0				(266000)
-#define DVFS_MIF_L0			(400000)
-#define I2C_L0				(108000000)
-#define I2C_L1				(36000000)
-#define I2C_L1_1			(54000000)
-#define I2C_L2				(21600000)
-#endif
 
 #define I2C_RETRY_COUNT         5
 
@@ -247,14 +213,12 @@ struct fimc_is_sysfs_debug {
 	unsigned int clk_gate_mode;
 };
 
-#ifdef CONFIG_COMPANION_USE
 struct fimc_is_spi_gpio {
         char *spi_sclk;
         char *spi_ssn;
         char *spi_miso;
         char *spi_mois;
 };
-#endif
 
 struct fimc_is_core {
 	struct platform_device			*pdev;
@@ -297,31 +261,21 @@ struct fimc_is_core {
 	struct spi_device			*spi0;
 	struct spi_device			*spi1;
 
-#if defined(CONFIG_COMPANION_USE)
 	struct i2c_client			*client0;
-#endif
-#if defined(CONFIG_OIS_USE)
 	struct i2c_client			*client1;
-#endif
-#ifdef CONFIG_AF_HOST_CONTROL
 	struct i2c_client			*client2;
-#endif
 	struct i2c_client			*eeprom_client0;
 	struct i2c_client			*eeprom_client1;
 
-#ifdef CONFIG_COMPANION_USE
 	struct dcdc_power			companion_dcdc;
 	struct fimc_is_spi_gpio			spi_gpio;
 	u32					companion_spi_channel;
 	bool					use_two_spi_line;
-#endif
 	u32					use_sensor_dynamic_voltage_mode;
 	struct mutex				spi_lock;
-#ifdef CONFIG_OIS_USE
 	bool					use_ois;
 	int					pin_ois_en;
 	bool					ois_ver_read;
-#endif /* CONFIG_OIS_USE */
 	bool					use_ois_hsi2c;
 	bool					use_module_check;
 #ifdef USE_ION_ALLOC

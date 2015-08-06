@@ -12,8 +12,6 @@
 #ifndef FIMC_IS_DEVICE_ISCHAIN_H
 #define FIMC_IS_DEVICE_ISCHAIN_H
 
-#include <linux/pm_qos.h>
-
 #include "fimc-is-mem.h"
 #include "fimc-is-subdev-ctrl.h"
 #include "fimc-is-groupmgr.h"
@@ -43,13 +41,8 @@
 #define FIMC_IS_CRANGE_FULL		0
 #define FIMC_IS_CRANGE_LIMITED		1
 
-#if defined(CONFIG_SOC_EXYNOS5422)
-#define FIMC_IS_SPI_PINNAME "14000000.pinctrl"
-#endif
 
-#if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 #define FIMC_IS_SPI_PINNAME "14cc0000.pinctrl"
-#endif
 #define FIMC_IS_SPI_OUTPUT	1
 #define FIMC_IS_SPI_FUNC	2
 
@@ -68,12 +61,10 @@ enum fimc_is_camera_device {
 	CAMERA_SINGLE_FRONT,
 };
 
-#ifdef CONFIG_COMPANION_USE
 enum fimc_is_companion_sensor {
 	COMPANION_SENSOR_2P2 = 1,
 	COMPANION_SENSOR_IMX240 = 2,
 };
-#endif
 
 struct fimc_is_from_info {
 	u32		bin_start_addr;
@@ -86,7 +77,6 @@ struct fimc_is_from_info {
 	u32		shading_end_addr;
 	u32		setfile_start_addr;
 	u32		setfile_end_addr;
-#ifdef CONFIG_COMPANION_USE
 	u32		concord_master_setfile_start_addr;
 	u32		concord_master_setfile_end_addr;
 	u32		concord_mode_setfile_start_addr;
@@ -137,7 +127,6 @@ struct fimc_is_from_info {
 	char		load_c1_mastersetf_name[50];
 	char		load_c1_modesetf_name[50];
 	int		sensor_id;
-#endif
 	char		header_ver[12];
 	char		cal_map_ver[4];
 	char		setfile_ver[7];
@@ -150,12 +139,10 @@ struct fimc_is_from_info {
 	bool		is_caldata_read;
 };
 
-#ifdef CONFIG_OIS_USE
 struct fimc_is_ois_info {
 	char		header_ver[7];
 	char		load_fw_name[50];
 };
-#endif
 
 struct fimc_is_ishcain_mem {
 	/* buffer base */
@@ -277,7 +264,6 @@ struct fimc_is_device_ischain {
 
 	u32					private_data;
 	struct fimc_is_device_sensor		*sensor;
-	struct pm_qos_request			user_qos;
 };
 
 /*global function*/
@@ -298,7 +284,6 @@ int fimc_is_ischain_init_wrap(struct fimc_is_device_ischain *device,
 	u32 input);
 int fimc_is_ischain_g_capability(struct fimc_is_device_ischain *this,
 	u32 user_ptr);
-int fimc_is_ischain_print_status(struct fimc_is_device_ischain *this);
 void fimc_is_ischain_meta_invalid(struct fimc_is_frame *frame);
 
 /* 3AA subdev */
@@ -366,8 +351,6 @@ int fimc_is_ischain_vdo_start(struct fimc_is_device_ischain *device,
 int fimc_is_ischain_vdo_stop(struct fimc_is_device_ischain *device,
 	struct fimc_is_subdev *leader,
 	struct fimc_is_queue *queue);
-int fimc_is_ischain_vdo_s_format(struct fimc_is_device_ischain *this,
-	u32 width, u32 height);
 int fimc_is_ischain_vdo_buffer_queue(struct fimc_is_device_ischain *device,
 	struct fimc_is_queue *queue,
 	u32 index);
@@ -380,11 +363,6 @@ int fimc_is_ischain_3aa_callback(struct fimc_is_device_ischain *device,
 int fimc_is_ischain_isp_callback(struct fimc_is_device_ischain *device,
 	struct fimc_is_frame *frame);
 int fimc_is_ischain_dis_callback(struct fimc_is_device_ischain *device,
-	struct fimc_is_frame *frame);
-int fimc_is_ischain_camctl(struct fimc_is_device_ischain *this,
-	struct fimc_is_frame *frame,
-	u32 fcount);
-int fimc_is_ischain_tag(struct fimc_is_device_ischain *ischain,
 	struct fimc_is_frame *frame);
 
 int fimc_is_itf_stream_on(struct fimc_is_device_ischain *this);
@@ -407,7 +385,6 @@ extern const struct fimc_is_queue_ops fimc_is_ischain_sub_ops;
 
 int fimc_is_itf_power_down(struct fimc_is_interface *interface);
 int fimc_is_ischain_power(struct fimc_is_device_ischain *this, int on);
-void fimc_is_ischain_savefirm(struct fimc_is_device_ischain *this);
 
 #define IS_ISCHAIN_OTF(device)				\
 	(test_bit(FIMC_IS_GROUP_OTF_INPUT, &(device)->group_3aa.state))

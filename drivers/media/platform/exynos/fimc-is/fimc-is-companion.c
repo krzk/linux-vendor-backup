@@ -55,7 +55,6 @@ static u16 companion_ver;
 static u32 concord_fw_size;
 char companion_crc[10];
 
-#if 1
 static int fimc_is_comp_spi_read(struct spi_device *spi,
 		void *buf, u16 rx_addr, size_t size)
 {
@@ -92,7 +91,6 @@ static int fimc_is_comp_spi_read(struct spi_device *spi,
 	} else
 		return 0;
 }
-#endif
 
 static int fimc_is_comp_spi_single_write(struct spi_device *spi, u16 addr, u16 data)
 {
@@ -172,38 +170,7 @@ p_err:
 	return ret;
 }
 
-#if 0
-static int fimc_is_comp_i2c_read(struct i2c_client *client, u16 addr, u16 *data)
-{
-	int err;
-	u8 rxbuf[2], txbuf[2];
-	struct i2c_msg msg[2];
 
-	rxbuf[0] = (addr & 0xff00) >> 8;
-	rxbuf[1] = (addr & 0xff);
-
-	msg[0].addr = client->addr;
-	msg[0].flags = 0;
-	msg[0].len = 2;
-	msg[0].buf = rxbuf;
-
-	msg[1].addr = client->addr;
-	msg[1].flags = I2C_M_RD;
-	msg[1].len = 2;
-	msg[1].buf = txbuf;
-
-	err = i2c_transfer(client->adapter, msg, 2);
-	if (unlikely(err != 2)) {
-		pr_err("%s: register read fail\n", __func__);
-		return -EIO;
-	}
-
-	*data = ((txbuf[0] << 8) | txbuf[1]);
-	return 0;
-}
-#endif
-
-#ifndef USE_SPI
 static int fimc_is_comp_i2c_write(struct i2c_client *client ,u16 addr, u16 data)
 {
         int retries = I2C_RETRY_COUNT;
@@ -221,9 +188,6 @@ static int fimc_is_comp_i2c_write(struct i2c_client *client ,u16 addr, u16 data)
         buf[2] = data >> 8;
         buf[3] = data & 0xff;
 
-#if 0
-        pr_info("%s : W(0x%02X%02X%02X%02X)\n",__func__, buf[0], buf[1], buf[2], buf[3]);
-#endif
 
         do {
                 ret = i2c_transfer(client->adapter, &msg, 1);
@@ -247,18 +211,10 @@ static int fimc_is_comp_i2c_write(struct i2c_client *client ,u16 addr, u16 data)
 
         return 0;
 }
-#endif
 
 static int fimc_is_comp_single_write(struct fimc_is_core *core , u16 addr, u16 data)
 {
 	int ret = 0;
-#ifdef USE_SPI
-	struct spi_device *spi = core->spi1;
-	ret = fimc_is_comp_spi_single_write(spi, addr, data);
-	if (ret) {
-		err("spi_single_write() fail");
-	}
-#else
 	struct i2c_client *client = core->client0;
 	fimc_is_s_int_comb_isp(core, true, INTMR2_INTMCIS22); /* interrupt on */
 	ret = fimc_is_comp_i2c_write(client, addr, data);
@@ -266,7 +222,6 @@ static int fimc_is_comp_single_write(struct fimc_is_core *core , u16 addr, u16 d
 		err("i2c write fail");
 	}
 	fimc_is_s_int_comb_isp(core, false, INTMR2_INTMCIS22); /* interrupt off */
-#endif
 
 	return ret;
 }
@@ -274,23 +229,12 @@ static int fimc_is_comp_single_write(struct fimc_is_core *core , u16 addr, u16 d
 static int fimc_is_comp_single_read(struct fimc_is_core *core , u16 addr, u16 *data, size_t size)
 {
 	int ret = 0;
-//#ifdef USE_SPI
-#if 1
 	struct spi_device *spi = core->spi1;
 	ret = fimc_is_comp_spi_read(spi, (void *)data, addr, size);
 	if (ret) {
 		err("spi_single_read() fail");
 	}
 	*data = *data << 8 | *data >> 8;
-#else
-	struct i2c_client *client = core->client0;
-	fimc_is_s_int_comb_isp(core, true, INTMR2_INTMCIS22); /* I2C0 interrupt on */
-	ret = fimc_is_comp_i2c_read(client, addr, data);
-	if (ret) {
-		err("i2c read fail");
-	}
-	fimc_is_s_int_comb_isp(core, false, INTMR2_INTMCIS22); /* I2C0 interrupt off */
-#endif
 
 	return ret;
 }
@@ -741,67 +685,6 @@ static int fimc_is_comp_load_cal(struct fimc_is_core *core, char *name)
 	return ret;
 }
 
-#if 0
-static int fimc_is_comp_read_i2c_cal(struct fimc_is_core *core, u32 addr)
-{
-	int ret = 0;
-	u32 i,data_size = 0;
-	u16 data1, data2;
-	u8 read_data[2];
-
-	struct fimc_is_from_info *sysfs_finfo;
-
-	fimc_is_sec_get_sysfs_finfo(&sysfs_finfo);
-
-	fimc_is_s_int_comb_isp(core, true, INTMR2_INTMCIS22); /* interrupt on */
-	if (addr == sysfs_finfo->lsc_i0_gain_addr) {
-		data_size = FIMC_IS_COMPANION_LSC_I0_SIZE;
-		data1 = 0x0EF8;
-	} else if (addr == sysfs_finfo->lsc_j0_gain_addr) {
-		data_size = FIMC_IS_COMPANION_LSC_J0_SIZE;
-		data1 = 0x0EFA;
-	} else if (addr == sysfs_finfo->lsc_a_gain_addr) {
-		data_size = FIMC_IS_COMPANION_LSC_A_SIZE;
-		data1 = 0x0F00;
-	} else if (addr == sysfs_finfo->lsc_k4_gain_addr) {
-		data_size = FIMC_IS_COMPANION_LSC_K4_SIZE;
-		data1 = 0x0F04;
-	} else if (addr == sysfs_finfo->lsc_scale_gain_addr) {
-		data_size = FIMC_IS_COMPANION_LSC_SCALE_SIZE;
-		data1 = 0x0F08;
-	} else if (addr == sysfs_finfo->wcoefficient1_addr) {
-		data_size = FIMC_IS_COMPANION_WCOEF1_SIZE;
-		data1 = 0x1420;
-	} else {
-		err("wrong companion cal data addr\n");
-		return -EINVAL;
-	}
-	pr_info("===Camera: I2C read cal data, addr [0x%04x], size(%d)\n", addr,data_size);
-	ret = fimc_is_comp_i2c_write(core->client0, 0x642C, 0x4000);
-	if (ret) {
-		err("fimc_is_comp_load_i2c_cal() i2c write fail");
-	}
-	ret = fimc_is_comp_i2c_write(core->client0, 0x642E, data1);
-	if (ret) {
-		err("fimc_is_comp_load_i2c_cal() i2c write fail");
-	}
-
-	for (i = 0; i < data_size; i += 2) {
-		fimc_is_comp_spi_read(core->spi1, (void *)read_data, data1, 2);
-		data2 = read_data[0] << 8 | read_data[1] << 0;
-//		pr_info("===Camera: I2C read addr[0x%04x],data[0x%04x]\n", data1,data2);
-		if (ret) {
-				err("fimc_is_comp_i2c_setf_write() fail");
-				break;
-		}
-		data1 += 2;
-	}
-
-	fimc_is_s_int_comb_isp(core, false, INTMR2_INTMCIS22); /* interrupt off */
-
-	return ret;
-}
-#endif
 
 static int fimc_is_comp_load_i2c_cal(struct fimc_is_core *core, u32 addr)
 {
@@ -981,14 +864,6 @@ int fimc_is_power_binning(struct fimc_is_core *core)
 	}
 
 	/*read BIN_INFO 0x5000 500C*/
-#if 0
-	ret = fimc_is_comp_single_write(core, 0x602C, 0x5000);
-		if (ret)
-			err("fimc_is_comp_i2c_setf_write() fail");
-	ret = fimc_is_comp_single_write(core, 0x602E, 0x500C);
-		if (ret)
-			err("fimc_is_comp_i2c_setf_write() fail");
-#endif
 
 	ret = read_data_from_file(FIMC_IS_ISP_CV, buf, 1, &pos);
 	if(ret > 0) {
@@ -1079,12 +954,6 @@ int fimc_is_comp_is_valid(struct fimc_is_core *core)
 	read_addr = 0x0;
 	fimc_is_comp_single_read(core, read_addr, &companion_id, 2);
 	pr_info("Companion vaildation: 0x%04x\n", companion_id);
-#if 0
-#if defined(CONFIG_SOC_EXYNOS5430)
-	if (companion_id != COMP_MAGIC_NUMBER)
-		ret = -EINVAL;
-#endif
-#endif
 exit:
 	return ret;
 }
@@ -1092,9 +961,6 @@ exit:
 int fimc_is_comp_read_ver(struct fimc_is_core *core)
 {
 	int ret = 0;
-#if 0
-	u16 read_addr;
-#endif
 
 	if (!core->spi1) {
 		pr_info("spi1 device is not available");
@@ -1102,13 +968,8 @@ int fimc_is_comp_read_ver(struct fimc_is_core *core)
 	}
 
 	/* check validation(Read data must be 0x73C1) */
-#if 0
-	read_addr = 0x02;
-	fimc_is_comp_single_read(core, read_addr, &companion_ver, 2);
-#else
 	companion_ver = 0x00B0;
 	pr_info("Default Companion Version is 0x00B0(EVT1)\n");
-#endif
 
 	if (companion_ver == 0x00A0) {
 		pr_info("Companion version: 0x%04x\n", companion_ver);
@@ -1207,22 +1068,6 @@ retry:
 		}
 		usleep_range(1000, 1000);
 	}
-#if 0
-	if (fimc_is_comp_is_compare_ver(core) >= FROM_VERSION_V004) {
-		ret = fimc_is_comp_load_i2c_cal(core, sysfs_finfo->af_inf_addr);
-		if (ret) {
-			err("fimc_is_comp_load_binary(0x%04x) fail", sysfs_finfo->af_inf_addr);
-			goto p_err;
-		}
-		usleep_range(1000, 1000);
-		ret = fimc_is_comp_load_i2c_cal(core, sysfs_finfo->af_macro_addr);
-		if (ret) {
-			err("fimc_is_comp_load_binary(0x%04x) fail", sysfs_finfo->af_macro_addr);
-			goto p_err;
-		}
-		usleep_range(1000, 1000);
-	}
-#endif
 	if (fimc_is_comp_is_compare_ver(core) >= FROM_VERSION_V004) {
 		if (companion_lsc_isvalid) {
 			ret = fimc_is_comp_load_cal(core, COMP_LSC);

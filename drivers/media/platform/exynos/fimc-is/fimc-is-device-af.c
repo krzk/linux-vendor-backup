@@ -80,35 +80,6 @@ static void fimc_is_af_i2c_config(struct i2c_client *client, bool onoff)
     }
 }
 
-int fimc_is_af_i2c_read(struct i2c_client *client, u16 addr, u16 *data)
-{
-	int err;
-	u8 rxbuf[2], txbuf[2];
-	struct i2c_msg msg[2];
-
-	txbuf[0] = (addr & 0xff00) >> 8;
-	txbuf[1] = (addr & 0xff);
-
-	msg[0].addr = client->addr;
-	msg[0].flags = 0;
-	msg[0].len = 2;
-	msg[0].buf = txbuf;
-
-	msg[1].addr = client->addr;
-	msg[1].flags = I2C_M_RD;
-	msg[1].len = 2;
-	msg[1].buf = rxbuf;
-
-	err = i2c_transfer(client->adapter, msg, 2);
-	if (unlikely(err != 2)) {
-		err("%s: register read fail err = %d\n", __func__, err);
-		return -EIO;
-	}
-
-	*data = ((rxbuf[0] << 8) | rxbuf[1]);
-	return 0;
-}
-
 int fimc_is_af_i2c_write(struct i2c_client *client ,u16 addr, u16 data)
 {
         int retries = I2C_RETRY_COUNT;
@@ -126,9 +97,6 @@ int fimc_is_af_i2c_write(struct i2c_client *client ,u16 addr, u16 data)
         buf[2] = data >> 8;
         buf[3] = data & 0xff;
 
-#if 0
-        pr_info("%s : W(0x%02X%02X%02X%02X)\n",__func__, buf[0], buf[1], buf[2], buf[3]);
-#endif
 
         do {
                 ret = i2c_transfer(client->adapter, &msg, 1);
@@ -203,9 +171,7 @@ int fimc_is_af_ldo_enable(char *name, bool on)
 int fimc_is_af_power(struct fimc_is_device_af *af_device, bool onoff)
 {
 	int ret = 0;
-#ifdef CONFIG_OIS_USE
 	int pin_ois_en = af_device->core->pin_ois_en;
-#endif
 
 	/*CAM_AF_2.8V_AP*/
 	ret = fimc_is_af_ldo_enable("CAM_AF_2.8V_AP", onoff);
@@ -214,7 +180,6 @@ int fimc_is_af_power(struct fimc_is_device_af *af_device, bool onoff)
 		return -EINVAL;
 	}
 
-#ifdef CONFIG_OIS_USE
 	/* OIS_VDD_2.8V */
 	if (gpio_is_valid(pin_ois_en)) {
 		if (onoff) {
@@ -231,7 +196,6 @@ int fimc_is_af_power(struct fimc_is_device_af *af_device, bool onoff)
 		err("failed to power control OIS_VM_2.8V, onoff = %d", onoff);
 		return -EINVAL;
 	}
-#endif
 
 	/*CAM_IO_1.8V_AP*/
 	ret = fimc_is_af_ldo_enable("CAM_IO_1.8V_AP", onoff);
@@ -377,18 +341,14 @@ int16_t fimc_is_af_move_lens(struct fimc_is_core *core)
 	return ret;
 }
 
-#ifdef CONFIG_SENSORS_SSP_BBD
 extern int remove_af_noise_register(struct remove_af_noise *af_cam);
 extern void remove_af_noise_unregister(struct remove_af_noise *af_cam);
-#endif
 static int fimc_is_af_probe(struct i2c_client *client,
 				  const struct i2c_device_id *id)
 {
 	struct fimc_is_device_af *device;
 	struct fimc_is_core *core;
-#ifdef CONFIG_SENSORS_SSP_BBD
 	int ret;
-#endif
 
 	if (fimc_is_dev == NULL) {
 		warn("fimc_is_dev is not yet probed");
@@ -418,11 +378,9 @@ static int fimc_is_af_probe(struct i2c_client *client,
 
 	af_sensor_interface.af_pdata = device;
 	af_sensor_interface.af_func = &fimc_is_af_enable;
-#ifdef CONFIG_SENSORS_SSP_BBD
 	ret = remove_af_noise_register(&af_sensor_interface);
 	if (ret)
 		err("reduce_af_noise_register failed: %d\n", ret);
-#endif
 	i2c_set_clientdata(client, device);
 
 	return 0;
@@ -430,9 +388,7 @@ static int fimc_is_af_probe(struct i2c_client *client,
 
 static int fimc_is_af_remove(struct i2c_client *client)
 {
-#ifdef CONFIG_SENSORS_SSP_BBD
 	remove_af_noise_unregister(&af_sensor_interface);
-#endif
 	return 0;
 }
 
@@ -442,20 +398,16 @@ static const struct i2c_device_id af_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, af_id);
 
-#ifdef CONFIG_OF
 static struct of_device_id af_dt_ids[] = {
 	{ .compatible = "samsung,af",},
 	{},
 };
-#endif
 
 static struct i2c_driver af_i2c_driver = {
 	.driver = {
 		   .name = FIMC_IS_AF_DEV_NAME,
 		   .owner = THIS_MODULE,
-#ifdef CONFIG_OF
 		   .of_match_table = af_dt_ids,
-#endif
 	},
 	.probe = fimc_is_af_probe,
 	.remove = fimc_is_af_remove,

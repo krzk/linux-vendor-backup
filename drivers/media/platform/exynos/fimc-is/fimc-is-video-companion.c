@@ -75,9 +75,7 @@ p_err:
 	return ret;
 }
 
-#ifdef CONFIG_OIS_USE
 extern int fimc_is_ois_sine_mode(struct fimc_is_core *core, int mode);
-#endif
 
 static int fimc_is_comp_video_s_ctrl(struct file *file, void *priv,
 	struct v4l2_control *ctrl)
@@ -98,7 +96,6 @@ static int fimc_is_comp_video_s_ctrl(struct file *file, void *priv,
 	}
 
 	switch (ctrl->id) {
-#ifdef CONFIG_OIS_USE
 	case V4L2_CID_CAMERA_OIS_SINE_MODE:
 		if (fimc_is_ois_sine_mode(device->private_data, ctrl->value)) {
 			err("failed to set ois sine mode : %d\n - %d",
@@ -106,7 +103,6 @@ static int fimc_is_comp_video_s_ctrl(struct file *file, void *priv,
 			ret = -EINVAL;
 		}
 		break;
-#endif
 
 	default:
 		info("unsupported ioctl(%d, sine id = %d)\n", ctrl->id, V4L2_CID_CAMERA_OIS_SINE_MODE);

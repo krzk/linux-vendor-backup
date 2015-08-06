@@ -23,9 +23,7 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/platform_device.h>
-#ifdef CONFIG_OF
 #include <linux/of_gpio.h>
-#endif
 #include <mach/regs-gpio.h>
 #include <mach/regs-clock.h>
 #include <plat/clock.h>
@@ -213,24 +211,6 @@ static struct fimc_is_sensor_cfg config_6d1[] = {
 	FIMC_IS_SENSOR_CFG(2576, 1456, 30, 14, 0),
 	/* 2576x1456@24fps */
 	FIMC_IS_SENSOR_CFG(2576, 1456, 24, 14, 1),
-#if 0
-	/* 1924x1082@30fps */
-	FIMC_IS_SENSOR_CFG(1924, 1082, 30, 16, 1),
-	/* 1444x1082@30fps */
-	FIMC_IS_SENSOR_CFG(1444, 1082, 30, 16, 2),
-	/* 1084x1082@30fps */
-	FIMC_IS_SENSOR_CFG(1084, 1082, 30, 16, 3),
-	/* 964x542@30fps */
-	FIMC_IS_SENSOR_CFG(964, 542, 30, 16, 4),
-	/* 724x542@30fps */
-	FIMC_IS_SENSOR_CFG(724, 542, 30, 16, 5),
-	/* 544x542@30fps */
-	FIMC_IS_SENSOR_CFG(544, 542, 30, 16, 6),
-	/* 320x180@10fps : only for vision(settle) */
-	FIMC_IS_SENSOR_CFG(320, 180, 10, 4, 6),
-	/* 1936x1090@24fps */
-	FIMC_IS_SENSOR_CFG(1936, 1090, 24, 13, 7),
-#endif
 };
 
 static int sensor_6d1_open(struct v4l2_subdev *sd,
@@ -615,7 +595,6 @@ struct fimc_is_sensor_ops module_6d1_ops = {
 	.g_max_dgain	= sensor_6d1_g_max_dgain
 };
 
-#ifdef CONFIG_OF
 static int sensor_6d1_power_setpin(struct device *dev)
 {
 	int gpio_none = 0, gpio_reset = 0, gpio_standby = 0;
@@ -692,7 +671,6 @@ static int sensor_6d1_power_setpin(struct device *dev)
 
 	return 0;
 }
-#endif
 
 int sensor_6d1_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
@@ -751,9 +729,7 @@ int sensor_6d1_probe(struct i2c_client *client,
 		kfree(subdev_module);
 		goto p_err;
 	}
-#ifdef CONFIG_OF
 	module->power_setpin = sensor_6d1_power_setpin;
-#endif
 	ext = &module->ext;
 	ext->mipi_lane_num = module->lanes;
 	ext->I2CSclk = I2C_L0;
@@ -799,14 +775,12 @@ static int sensor_6d1_remove(struct i2c_client *client)
 	return ret;
 }
 
-#ifdef CONFIG_OF
 static const struct of_device_id exynos_fimc_is_sensor_6d1_match[] = {
 	{
 		.compatible = "samsung,exynos5-fimc-is-sensor-6d1",
 	},
 	{},
 };
-#endif
 
 static const struct i2c_device_id sensor_6d1_idt[] = {
 	{ SENSOR_NAME, 0 },
@@ -816,9 +790,7 @@ static struct i2c_driver sensor_6d1_driver = {
 	.driver = {
 		.name	= SENSOR_NAME,
 		.owner	= THIS_MODULE,
-#ifdef CONFIG_OF
 		.of_match_table = exynos_fimc_is_sensor_6d1_match
-#endif
 	},
 	.probe	= sensor_6d1_probe,
 	.remove	= sensor_6d1_remove,

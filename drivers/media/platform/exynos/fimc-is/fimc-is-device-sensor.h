@@ -189,11 +189,6 @@ struct fimc_is_device_sensor {
 
 	struct exynos_platform_fimc_is_sensor		*pdata;
 	void						*private_data;
-
-	/* DVFS state */
-	bool						request_cam_qos;
-	bool						request_int_qos;
-	bool						request_mif_qos;
 };
 
 int fimc_is_sensor_open(struct fimc_is_device_sensor *device,
@@ -246,16 +241,10 @@ int fimc_is_sensor_g_module(struct fimc_is_device_sensor *device,
 int fimc_is_sensor_gpio_off_softlanding(struct fimc_is_device_sensor *device);
 
 /* sensor driver */
-int fimc_is_sensor_read8(struct i2c_client *client,
-	u16 addr, u8 *val);
-int fimc_is_sensor_read16(struct i2c_client *client,
-	u16 addr, u16 *val);
 int fimc_is_sensor_write(struct i2c_client *client,
 	u8 *buf, u32 size);
 int fimc_is_sensor_write8(struct i2c_client *client,
 	u16 addr, u8 val);
-int fimc_is_sensor_write16(struct i2c_client *client,
-	u16 addr, u16 val);
 
 #define CALL_MOPS(s, op, args...) (((s)->ops->op) ? ((s)->ops->op(args)) : 0)
 

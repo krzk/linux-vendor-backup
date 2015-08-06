@@ -43,15 +43,9 @@
 #include "fimc-is-err.h"
 #include "fimc-is-video.h"
 #include "fimc-is-dt.h"
-#include "fimc-is-dvfs.h"
 
-#include "sensor/fimc-is-device-6b2.h"
-#include "sensor/fimc-is-device-imx134.h"
-#include "sensor/fimc-is-device-imx135.h"
 #include "fimc-is-device-sensor.h"
-#ifdef CONFIG_COMPANION_USE
 #include "fimc-is-companion-dt.h"
-#endif
 
 extern struct device *camera_front_dev;
 extern struct device *camera_rear_dev;
@@ -59,9 +53,6 @@ int fimc_is_sensor_runtime_resume(struct device *dev);
 int fimc_is_sensor_runtime_suspend(struct device *dev);
 
 extern int fimc_is_sen_video_probe(void *data);
-struct pm_qos_request exynos_sensor_qos_cam;
-struct pm_qos_request exynos_sensor_qos_int;
-struct pm_qos_request exynos_sensor_qos_mem;
 
 extern u32 __iomem *notify_fcount_sen0;
 extern u32 __iomem *notify_fcount_sen1;
@@ -72,92 +63,6 @@ u32 notify_fcount_sen2_fw;
 u32 notify_fcount_dummy;
 
 #define BINNING(x, y) roundup((x) * 1000 / (y), 250)
-
-int fimc_is_sensor_read8(struct i2c_client *client,
-	u16 addr, u8 *val)
-{
-	int ret = 0;
-	struct i2c_msg msg[2];
-	u8 wbuf[2];
-
-	if (!client->adapter) {
-		err("Could not find adapter!\n");
-		ret = -ENODEV;
-		goto p_err;
-	}
-
-	/* 1. I2C operation for writing. */
-	msg[0].addr = client->addr;
-	msg[0].flags = 0; /* write : 0, read : 1 */
-	msg[0].len = 2;
-	msg[0].buf = wbuf;
-	/* TODO : consider other size of buffer */
-	wbuf[0] = (addr & 0xFF00) >> 8;
-	wbuf[1] = (addr & 0xFF);
-
-	/* 2. I2C operation for reading data. */
-	msg[1].addr = client->addr;
-	msg[1].flags = I2C_M_RD;
-	msg[1].len = 1;
-	msg[1].buf = val;
-
-	ret = i2c_transfer(client->adapter, msg, 2);
-	if (ret < 0) {
-		err("i2c treansfer fail");
-		goto p_err;
-	}
-
-#ifdef PRINT_I2CCMD
-	info("I2CR08(%d) [0x%04X] : 0x%04X\n", client->addr, addr, *val);
-#endif
-
-p_err:
-	return ret;
-}
-
-int fimc_is_sensor_read16(struct i2c_client *client,
-	u16 addr, u16 *val)
-{
-	int ret = 0;
-	struct i2c_msg msg[2];
-	u8 wbuf[2], rbuf[2];
-
-	if (!client->adapter) {
-		err("Could not find adapter!\n");
-		ret = -ENODEV;
-		goto p_err;
-	}
-
-	/* 1. I2C operation for writing. */
-	msg[0].addr = client->addr;
-	msg[0].flags = 0; /* write : 0, read : 1 */
-	msg[0].len = 2;
-	msg[0].buf = wbuf;
-	/* TODO : consider other size of buffer */
-	wbuf[0] = (addr & 0xFF00) >> 8;
-	wbuf[1] = (addr & 0xFF);
-
-	/* 2. I2C operation for reading data. */
-	msg[1].addr = client->addr;
-	msg[1].flags = I2C_M_RD;
-	msg[1].len = 2;
-	msg[1].buf = rbuf;
-
-	ret = i2c_transfer(client->adapter, msg, 2);
-	if (ret < 0) {
-		err("i2c treansfer fail");
-		goto p_err;
-	}
-
-	*val = ((rbuf[0] << 8) | rbuf[1]);
-
-#ifdef PRINT_I2CCMD
-	info("I2CR16(%d) [0x%04X] : 0x%04X\n", client->addr, addr, *val);
-#endif
-
-p_err:
-	return ret;
-}
 
 int fimc_is_sensor_write(struct i2c_client *client,
 	u8 *buf, u32 size)
@@ -216,143 +121,6 @@ p_err:
 	return ret;
 }
 
-int fimc_is_sensor_write16(struct i2c_client *client,
-	u16 addr, u16 val)
-{
-	int ret = 0;
-	struct i2c_msg msg[1];
-	u8 wbuf[4];
-
-	if (!client->adapter) {
-		err("Could not find adapter!\n");
-		ret = -ENODEV;
-		goto p_err;
-	}
-
-	msg->addr = client->addr;
-	msg->flags = 0;
-	msg->len = 4;
-	msg->buf = wbuf;
-	wbuf[0] = (addr & 0xFF00) >> 8;
-	wbuf[1] = (addr & 0xFF);
-	wbuf[2] = (val & 0xFF00) >> 8;
-	wbuf[3] = (val & 0xFF);
-
-	ret = i2c_transfer(client->adapter, msg, 1);
-	if (ret < 0) {
-		err("i2c treansfer fail(%d)", ret);
-		goto p_err;
-	}
-
-#ifdef PRINT_I2CCMD
-	info("I2CW16(%d) [0x%04X] : 0x%04X\n", client->addr, addr, val);
-#endif
-
-p_err:
-	return ret;
-}
-
-#if defined(CONFIG_PM_DEVFREQ)
-inline static void fimc_is_sensor_set_qos_init(struct fimc_is_device_sensor *device, bool on)
-{
-	int cam_qos = 0;
-	int int_qos = 0;
-	int mif_qos = 0;
-	struct fimc_is_core *core =
-		(struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
-
-	cam_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_CAM, START_DVFS_LEVEL);
-#if 0 /* For vision of L_version */
-	int_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_INT, START_DVFS_LEVEL);
-#endif
-	if (on) {
-		/* DEVFREQ lock */
-		if (cam_qos > 0) {
-			if (device->request_cam_qos == false) {
-				pm_qos_add_request(&exynos_sensor_qos_cam, PM_QOS_CAM_THROUGHPUT, cam_qos);
-				device->request_cam_qos = true;
-			} else {
-				err("Adding sensor cam_qos is not allowed");
-			}
-		}
-
-		if (int_qos > 0) {
-			if (device->request_int_qos == false) {
-				pm_qos_add_request(&exynos_sensor_qos_int, PM_QOS_DEVICE_THROUGHPUT, int_qos);
-				device->request_int_qos = true;
-			} else {
-				err("Adding sensor int_qos is not allowed");
-			}
-		}
-
-		if (mif_qos > 0) {
-			if (device->request_mif_qos == false) {
-				pm_qos_add_request(&exynos_sensor_qos_mem, PM_QOS_BUS_THROUGHPUT, mif_qos);
-				device->request_mif_qos = true;
-			} else {
-				err("Adding sensor mif_qos is not allowed");
-			}
-		}
-		minfo("[SEN:D] %s: QoS LOCK [INT(%d), MIF(%d), CAM(%d)]\n", device,
-				__func__, int_qos, mif_qos, cam_qos);
-	} else {
-		/* DEVFREQ unlock */
-		if (cam_qos > 0) {
-			if (device->request_cam_qos == true) {
-				pm_qos_remove_request(&exynos_sensor_qos_cam);
-				device->request_cam_qos = false;
-			} else {
-				err("Removing sensor cam_qos is not allowed");
-			}
-		}
-
-		if (int_qos > 0) {
-			if (device->request_int_qos == true) {
-				pm_qos_remove_request(&exynos_sensor_qos_int);
-				device->request_int_qos = false;
-			} else {
-				err("Removing sensor int_qos is not allowed");
-			}
-		}
-
-		if (mif_qos > 0) {
-			if (device->request_mif_qos == true) {
-				pm_qos_remove_request(&exynos_sensor_qos_mem);
-				device->request_mif_qos = false;
-			} else {
-				err("Removing sensor mif_qos is not allowed");
-			}
-		}
-		minfo("[SEN:D] %s: QoS UNLOCK\n", device, __func__);
-	}
-}
-
-inline static void fimc_is_sensor_set_qos_update(struct fimc_is_device_sensor *device, u32 scenario)
-{
-	int cam_qos = 0;
-	int int_qos = 0;
-	int mif_qos = 0;
-	struct fimc_is_core *core =
-		(struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
-
-	/* HACK: This is considerated only front camera vision scenario. */
-	if (scenario == SENSOR_SCENARIO_VISION) {
-		cam_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_CAM, FIMC_IS_SN_FRONT_PREVIEW);
-		int_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_INT, FIMC_IS_SN_FRONT_PREVIEW);
-	}
-
-	/* DEVFREQ update */
-	if (cam_qos > 0)
-		pm_qos_update_request(&exynos_sensor_qos_cam, cam_qos);
-	if (int_qos > 0)
-		pm_qos_update_request(&exynos_sensor_qos_int, int_qos);
-	if (mif_qos > 0)
-		pm_qos_update_request(&exynos_sensor_qos_mem, mif_qos);
-
-	minfo("[SEN:D] %s: QoS UPDATE(%d) [INT(%d), MIF(%d), CAM(%d)]\n", device,
-			__func__, scenario, int_qos, mif_qos, cam_qos);
-}
-#endif
 
 static int get_sensor_mode(struct fimc_is_sensor_cfg *cfg,
 	u32 cfgs, u32 width, u32 height, u32 framerate)
@@ -788,39 +556,6 @@ static void fimc_is_sensor_control(struct work_struct *data)
  * HAL can't send meta data for vision
  * We accepted vision control by s_ctrl
  */
-#if 0
-	struct v4l2_subdev *subdev_module;
-	struct fimc_is_module_enum *module;
-	struct camera2_sensor_ctl *rsensor_ctl;
-	struct camera2_sensor_ctl *csensor_ctl;
-	struct fimc_is_device_sensor *device;
-
-	device = container_of(data, struct fimc_is_device_sensor, control_work);
-	subdev_module = device->subdev_module;
-	if (!subdev_module) {
-		err("subdev_module is NULL");
-		return;
-	}
-
-	module = v4l2_get_subdevdata(subdev_module);
-	rsensor_ctl = &device->control_frame->shot->ctl.sensor;
-	csensor_ctl = &device->sensor_ctl;
-
-	if (rsensor_ctl->exposureTime != csensor_ctl->exposureTime) {
-		CALL_MOPS(module, s_exposure, subdev_module, rsensor_ctl->exposureTime);
-		csensor_ctl->exposureTime = rsensor_ctl->exposureTime;
-	}
-
-	if (rsensor_ctl->frameDuration != csensor_ctl->frameDuration) {
-		CALL_MOPS(module, s_duration, subdev_module, rsensor_ctl->frameDuration);
-		csensor_ctl->frameDuration = rsensor_ctl->frameDuration;
-	}
-
-	if (rsensor_ctl->sensitivity != csensor_ctl->sensitivity) {
-		CALL_MOPS(module, s_again, subdev_module, rsensor_ctl->sensitivity);
-		csensor_ctl->sensitivity = rsensor_ctl->sensitivity;
-	}
-#endif
 }
 
 static int fimc_is_sensor_notify_by_fstr(struct fimc_is_device_sensor *device, void *arg)
@@ -1024,21 +759,11 @@ static int fimc_is_sensor_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-#ifdef CONFIG_OF
-#ifdef CONFIG_COMPANION_USE
 	ret = fimc_is_sensor_parse_dt_with_companion(pdev);
 	if (ret) {
 		err("parsing device tree is fail(%d)", ret);
 		goto p_err;
 	}
-#else
-	ret = fimc_is_sensor_parse_dt(pdev);
-	if (ret) {
-		err("parsing device tree is fail(%d)", ret);
-		goto p_err;
-	}
-#endif /* CONFIG_COMPANION_USE */
-#endif /* CONFIG_OF */
 
 	pdata = dev_get_platdata(&pdev->dev);
 	if (!pdata) {
@@ -1088,11 +813,9 @@ static int fimc_is_sensor_probe(struct platform_device *pdev)
 		goto p_err;
 	}
 
-#if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 #if defined(CONFIG_VIDEOBUF2_ION)
 	if (device->mem.alloc_ctx)
 		vb2_ion_attach_iommu(device->mem.alloc_ctx);
-#endif
 #endif
 
 #if defined(CONFIG_PM_RUNTIME)
@@ -1178,9 +901,6 @@ int fimc_is_sensor_open(struct fimc_is_device_sensor *device,
 	device->exposure_time = 0;
 	device->frame_duration = 0;
 	device->force_stop = 0;
-	device->request_cam_qos = 0;
-	device->request_int_qos = 0;
-	device->request_mif_qos = 0;
 	memset(&device->sensor_ctl, 0, sizeof(struct camera2_sensor_ctl));
 	memset(&device->lens_ctl, 0, sizeof(struct camera2_lens_ctl));
 	memset(&device->flash_ctl, 0, sizeof(struct camera2_flash_ctl));
@@ -1317,9 +1037,7 @@ int fimc_is_sensor_s_input(struct fimc_is_device_sensor *device,
 	struct v4l2_subdev *subdev_flite;
 	struct fimc_is_module_enum *module = NULL;
 	u32 sensor_ch, actuator_ch;
-#if defined(CONFIG_OIS_USE)
 	u32 ois_ch, ois_addr;
-#endif
 	u32 sensor_addr, actuator_addr;
 	u32 i = 0;
 
@@ -1377,7 +1095,6 @@ int fimc_is_sensor_s_input(struct fimc_is_device_sensor *device,
 		module->ext.actuator_con.peri_setting.i2c.slave_address = actuator_addr;
 	}
 
-#if defined(CONFIG_OIS_USE)
 	if (module->ext.ois_con.peri_type == SE_I2C) {
 		ois_ch = device->pdata->i2c_ch & OIS_I2C_CH_MASK;
 		ois_ch >>= OIS_I2C_CH_SHIFT;
@@ -1386,7 +1103,6 @@ int fimc_is_sensor_s_input(struct fimc_is_device_sensor *device,
 		module->ext.ois_con.peri_setting.i2c.channel = ois_ch;
 		module->ext.ois_con.peri_setting.i2c.slave_address = ois_addr;
 	}
-#endif
 
 	/* send csi chennel to FW */
 	module->ext.sensor_con.csi_ch = device->pdata->csi_ch;
@@ -1395,14 +1111,12 @@ int fimc_is_sensor_s_input(struct fimc_is_device_sensor *device,
 	module->ext.flash_con.peri_setting.gpio.first_gpio_port_no = device->pdata->flash_first_gpio;
 	module->ext.flash_con.peri_setting.gpio.second_gpio_port_no = device->pdata->flash_second_gpio;
 
-#ifdef CONFIG_COMPANION_USE
 	/* Data Type For Comapnion:
 	 * Companion use user defined data type.
 	 */
 	if (module->ext.companion_con.product_name &&
 	module->ext.companion_con.product_name != COMPANION_NAME_NOTHING)
 		device->image.format.field = V4L2_FIELD_INTERLACED;
-#endif
 
 	subdev_csi = device->subdev_csi;
 	subdev_flite = device->subdev_flite;
@@ -1433,11 +1147,6 @@ int fimc_is_sensor_s_input(struct fimc_is_device_sensor *device,
 		device->subdev_module = subdev_module;
 	}
 
-#if defined(CONFIG_PM_DEVFREQ)
-	/* DEVFREQ set */
-	if (test_bit(FIMC_IS_SENSOR_DRIVING, &device->state))
-		fimc_is_sensor_set_qos_init(device, true);
-#endif
 
 	/* configuration clock control */
 	ret = fimc_is_sensor_iclk_on(device);
@@ -1446,10 +1155,6 @@ int fimc_is_sensor_s_input(struct fimc_is_device_sensor *device,
 		goto p_err;
 	}
 
-#if defined(CONFIG_PM_DEVFREQ)
-	if (test_bit(FIMC_IS_SENSOR_DRIVING, &device->state))
-		fimc_is_sensor_set_qos_update(device, device->pdata->scenario);
-#endif
 
 	/* Sensor power on */
 	ret = fimc_is_sensor_gpio_on(device);
@@ -2249,12 +1954,6 @@ int fimc_is_sensor_runtime_suspend(struct device *dev)
 		return -EINVAL;
 	}
 
-#if !(defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433))
-#if defined(CONFIG_VIDEOBUF2_ION)
-	if (device->mem.alloc_ctx)
-		vb2_ion_detach_iommu(device->mem.alloc_ctx);
-#endif
-#endif
 
 	subdev_csi = device->subdev_csi;
 	if (!subdev_csi)
@@ -2282,11 +1981,6 @@ int fimc_is_sensor_runtime_suspend(struct device *dev)
 	if (ret)
 		mwarn("v4l2_csi_call(s_power) is fail(%d)", device, ret);
 
-#if defined(CONFIG_PM_DEVFREQ)
-	/* DEVFREQ set */
-	if (test_bit(FIMC_IS_SENSOR_DRIVING, &device->state))
-		fimc_is_sensor_set_qos_init(device, false);
-#endif
 
 	info("[SEN:D:%d] %s(%d)\n", device->instance, __func__, ret);
 	return 0;
@@ -2312,25 +2006,6 @@ int fimc_is_sensor_runtime_resume(struct device *dev)
 		goto p_err;
 	}
 
-/* HACK */
-/* at xyref 4415, when runtime_suspend operating, isp0 power is off thoroughly
-   so it needs to power on operation at sensor_runtime_resume operation */
-#if defined(CONFOG_SOC_EXYNOS4415) && !defined(CONFIG_PM_RUNTIME)
-	{
-		u32 val;
-		/* ISP0 */
-		/* 1. set feedback mode */
-		val = __raw_readl(PMUREG_ISP0_OPTION);
-		val = (val & ~(0x3<< 0)) | (0x2 << 0);
-		__raw_writel(val, PMUREG_ISP0_OPTION);
-
-		/* 2. power on isp0 */
-		val = __raw_readl(PMUREG_ISP0_CONFIGURATION);
-		val = (val & ~(0x7 << 0)) | (0x7 << 0);
-		__raw_writel(val, PMUREG_ISP0_CONFIGURATION);
-	}
-#endif
-
 	/* 1. Enable MIPI */
 	ret = v4l2_subdev_call(subdev_csi, core, s_power, 1);
 	if (ret) {
@@ -2345,13 +2020,6 @@ int fimc_is_sensor_runtime_resume(struct device *dev)
 		goto p_err;
 	}
 
-#if !(defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433))
-#if defined(CONFIG_VIDEOBUF2_ION)
-	if (device->mem.alloc_ctx)
-		vb2_ion_attach_iommu(device->mem.alloc_ctx);
-	pr_debug("FIMC_IS runtime resume - ion attach complete\n");
-#endif
-#endif
 
 p_err:
 	info("[SEN:D:%d] %s(%d)\n", device->instance, __func__, ret);
@@ -2365,7 +2033,6 @@ static const struct dev_pm_ops fimc_is_sensor_pm_ops = {
 	.runtime_resume		= fimc_is_sensor_runtime_resume,
 };
 
-#ifdef CONFIG_OF
 static const struct of_device_id exynos_fimc_is_sensor_match[] = {
 	{
 		.compatible = "samsung,exynos5-fimc-is-sensor",
@@ -2386,45 +2053,6 @@ static struct platform_driver fimc_is_sensor_driver = {
 };
 
 module_platform_driver(fimc_is_sensor_driver);
-#else
-static struct platform_device_id fimc_is_sensor_driver_ids[] = {
-	{
-		.name		= FIMC_IS_SENSOR_DEV_NAME,
-		.driver_data	= 0,
-	},
-	{},
-};
-MODULE_DEVICE_TABLE(platform, fimc_is_sensor_driver_ids);
-
-static struct platform_driver fimc_is_sensor_driver = {
-	.probe	  = fimc_is_sensor_probe,
-	.remove	  = __devexit_p(fimc_is_sensor_remove),
-	.id_table = fimc_is_sensor_driver_ids,
-	.driver	  = {
-		.name	= FIMC_IS_SENSOR_DEV_NAME,
-		.owner	= THIS_MODULE,
-		.pm	= &fimc_is_sensor_pm_ops,
-	}
-};
-
-static int __init fimc_is_sensor_init(void)
-{
-	int ret = 0;
-
-	ret = platform_driver_register(&fimc_is_sensor_driver);
-	if (ret)
-		err("platform_driver_register failed: %d\n", ret);
-
-	return ret;
-}
-
-static void __exit fimc_is_sensor_exit(void)
-{
-	platform_driver_unregister(&fimc_is_sensor_driver);
-}
-module_init(fimc_is_sensor_init);
-module_exit(fimc_is_sensor_exit);
-#endif
 
 MODULE_AUTHOR("Gilyeon lim<kilyeon.im@samsung.com>");
 MODULE_DESCRIPTION("Exynos FIMC_IS_SENSOR driver");

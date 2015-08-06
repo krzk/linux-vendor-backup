@@ -21,19 +21,7 @@
 
 #include "fimc-is-resourcemgr.h"
 #include "fimc-is-core.h"
-#include "fimc-is-dvfs.h"
-#include "fimc-is-clk-gate.h"
 #include "fimc-is-hw.h"
-
-struct pm_qos_request exynos_isp_qos_cpu_min;
-struct pm_qos_request exynos_isp_qos_cpu_max;
-struct pm_qos_request exynos_isp_qos_int;
-struct pm_qos_request exynos_isp_qos_mem;
-struct pm_qos_request exynos_isp_qos_cam;
-struct pm_qos_request exynos_isp_qos_disp;
-#if defined(CONFIG_SOC_EXYNOS5422) || defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
-struct pm_qos_request max_cpu_qos;
-#endif
 
 extern struct fimc_is_sysfs_debug sysfs_debug;
 
@@ -52,12 +40,6 @@ int fimc_is_resource_probe(struct fimc_is_resourcemgr *resourcemgr,
 	atomic_set(&resourcemgr->resource_sensor1.rsccount, 0);
 	atomic_set(&resourcemgr->resource_ischain.rsccount, 0);
 
-#ifdef ENABLE_DVFS
-	/* dvfs controller init */
-	ret = fimc_is_dvfs_init(resourcemgr);
-	if (ret)
-		err("%s: fimc_is_dvfs_init failed!\n", __func__);
-#endif
 
 	info("%s\n", __func__);
 	return ret;
@@ -85,14 +67,6 @@ int fimc_is_resource_get(struct fimc_is_resourcemgr *resourcemgr, u32 rsc_type)
 	}
 
 	if (rsccount == 0) {
-#ifdef ENABLE_DVFS
-		/* dvfs controller init */
-		ret = fimc_is_dvfs_init(resourcemgr);
-		if (ret) {
-			err("%s: fimc_is_dvfs_init failed!\n", __func__);
-			goto p_err;
-		}
-#endif
 	}
 
 	if (atomic_read(&resource->rsccount) == 0) {
@@ -119,11 +93,6 @@ int fimc_is_resource_get(struct fimc_is_resourcemgr *resourcemgr, u32 rsc_type)
 			/* W/A for a lower version MCUCTL */
 			fimc_is_interface_reset(&core->interface);
 
-#ifdef ENABLE_CLOCK_GATE
-			if (sysfs_debug.en_clk_gate &&
-					sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST)
-				fimc_is_clk_gate_init(core);
-#endif
 			break;
 		default:
 			err("[RSC] resource type(%d) is invalid", rsc_type);

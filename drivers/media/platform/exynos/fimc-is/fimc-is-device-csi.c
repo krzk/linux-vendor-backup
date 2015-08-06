@@ -27,13 +27,11 @@
 #include "fimc-is-device-csi.h"
 #include "fimc-is-device-sensor.h"
 
-#if (FIMC_IS_CSI_VERSION == CSI_VERSION_0000_0000)
 extern void s5pcsis_enable_interrupts(unsigned long __iomem *base_reg, struct fimc_is_image *image, bool on);
 extern void s5pcsis_set_hsync_settle(unsigned long __iomem *base_reg, int settle);
 extern void s5pcsis_set_params(unsigned long __iomem *base_reg, struct fimc_is_image *image, u32 lanes);
 extern void s5pcsis_reset(unsigned long __iomem *base_reg);
 extern void s5pcsis_system_enable(unsigned long __iomem *base_reg, int on, u32 lanes);
-#endif
 
 static u32 get_hsync_settle(struct fimc_is_sensor_cfg *cfg,
 	const u32 cfgs, u32 width, u32 height, u32 framerate)
@@ -84,31 +82,6 @@ static u32 get_hsync_settle(struct fimc_is_sensor_cfg *cfg,
 
 	return settle;
 }
-
-#if (FIMC_IS_CSI_VERSION == CSI_VERSION_0310_0100)
-static u32 get_vci_channel(struct fimc_is_vci *vci,
-	const u32 vcis, u32 pixelformat)
-{
-	u32 i;
-	u32 index = vcis;
-
-	BUG_ON(!vci);
-
-	for (i = 0; i < vcis; i++) {
-		if (vci[i].pixelformat == pixelformat) {
-			index = i;
-			break;
-		}
-	}
-
-	if (index == vcis) {
-		err("invalid vc setting(foramt : %d)", pixelformat);
-		BUG();
-	}
-
-	return index;
-}
-#endif
 
 int fimc_is_csi_open(struct v4l2_subdev *subdev)
 {
@@ -228,49 +201,12 @@ static int csi_stream_on(struct fimc_is_device_csi *csi)
 		settle,
 		csi->lanes);
 
-#if (FIMC_IS_CSI_VERSION == CSI_VERSION_0000_0000)
 	s5pcsis_reset(base_reg);
 	s5pcsis_set_hsync_settle(base_reg, settle);
 	s5pcsis_set_params(base_reg, &csi->image, csi->lanes);
 	/* lane total count = csi->lanes + 1 (CSI_DATA_LANES_1 is 0) */
 	s5pcsis_system_enable(base_reg, true, (csi->lanes + 1));
 	s5pcsis_enable_interrupts(base_reg, &csi->image, true);
-#else
-	csi_hw_reset(base_reg);
-	csi_hw_s_settle(base_reg, settle);
-	csi_hw_s_control(base_reg, csi->image.format.pixelformat, csi->mode, csi->lanes);
-	if (csi->mode == CSI_MODE_CH0_ONLY) {
-		csi_hw_s_config(base_reg,
-			CSI_VIRTUAL_CH_0,
-			CSI_VIRTUAL_CH_0,
-			csi->image.format.pixelformat,
-			csi->image.window.width,
-			csi->image.window.height);
-	} else {
-		u32 index = get_vci_channel(csi->vci, csi->vcis, csi->image.format.pixelformat);
-		csi_hw_s_config(base_reg,
-			CSI_VIRTUAL_CH_0,
-			csi->vci[index].vc_map[CSI_VIRTUAL_CH_0],
-			csi->image.format.pixelformat,
-			csi->image.window.width,
-			csi->image.window.height);
-		csi_hw_s_config(base_reg,
-			CSI_VIRTUAL_CH_1,
-			csi->vci[index].vc_map[CSI_VIRTUAL_CH_1],
-			csi->image.format.pixelformat,
-			csi->image.window.width,
-			csi->image.window.height);
-		csi_hw_s_config(base_reg,
-			CSI_VIRTUAL_CH_2,
-			csi->vci[index].vc_map[CSI_VIRTUAL_CH_2],
-			csi->image.format.pixelformat,
-			csi->image.window.width,
-			csi->image.window.height);
-	}
-
-	csi_hw_s_interrupt(base_reg, true);
-	csi_hw_enable(base_reg);
-#endif
 
 	return ret;
 }
@@ -284,14 +220,9 @@ static int csi_stream_off(struct fimc_is_device_csi *csi)
 
 	base_reg = csi->base_reg;
 
-#if (FIMC_IS_CSI_VERSION == CSI_VERSION_0000_0000)
 	s5pcsis_enable_interrupts(base_reg, &csi->image, false);
 	/* lane total count = csi->lanes + 1 (CSI_DATA_LANES_1 is 0) */
 	s5pcsis_system_enable(base_reg, false, (csi->lanes + 1));
-#else
-	csi_hw_s_interrupt(base_reg, false);
-	csi_hw_disable(base_reg);
-#endif
 
 	return ret;
 }

@@ -167,9 +167,6 @@ int fimc_is_group_done(struct fimc_is_groupmgr *groupmgr,
 	struct fimc_is_frame *ldr_frame,
 	u32 done_state);
 
-int fimc_is_gframe_cancel(struct fimc_is_groupmgr *groupmgr,
-	struct fimc_is_group *group, u32 target_fcount);
-
 #define PROGRAM_COUNT(count) (group->pcount = count)
 
 #define GET_GROUP_FRAMEMGR(group) \

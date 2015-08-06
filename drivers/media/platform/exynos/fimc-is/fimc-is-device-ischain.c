@@ -31,7 +31,6 @@
 #include <linux/v4l2-mediabus.h>
 #include <linux/vmalloc.h>
 #include <linux/kthread.h>
-#include <linux/pm_qos.h>
 #include <linux/debugfs.h>
 #include <linux/syscalls.h>
 #include <linux/bug.h>
@@ -42,9 +41,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/gpio.h>
 #include <plat/gpio-cfg.h>
-#if defined(CONFIG_SOC_EXYNOS3470)
-#include <mach/bts.h>
-#endif
 
 #include "fimc-is-time.h"
 #include "fimc-is-core.h"
@@ -56,33 +52,11 @@
 #include "fimc-is-groupmgr.h"
 #include "fimc-is-device-ischain.h"
 #include "fimc-is-companion.h"
-#include "fimc-is-clk-gate.h"
-#include "fimc-is-dvfs.h"
 #include "fimc-is-device-companion.h"
 #include <linux/pinctrl/consumer.h>
 #include <mach/pinctrl-samsung.h>
 
-#ifdef CONFIG_USE_VENDER_FEATURE
 #include "fimc-is-sec-define.h"
-#else
-#define SDCARD_FW
-#define FIMC_IS_SETFILE_SDCARD_PATH		"/data/"
-#define FIMC_IS_FW				"fimc_is_fw2.bin"
-#define FIMC_IS_FW_SDCARD			"/data/fimc_is_fw2.bin"
-
-#define FIMC_IS_FW_BASE_MASK			((1 << 26) - 1)
-#define FIMC_IS_VERSION_SIZE			42
-#define FIMC_IS_SETFILE_VER_OFFSET		0x40
-#define FIMC_IS_SETFILE_VER_SIZE		52
-
-#define FIMC_IS_CAL_SDCARD			"/data/cal_data.bin"
-#define FIMC_IS_CAL_SDCARD_FRONT			"/data/cal_data_front.bin"
-#define FIMC_IS_MAX_FW_SIZE			(2048 * 1024)
-#define FIMC_IS_CAL_START_ADDR			(0x013D0000)
-#define FIMC_IS_CAL_START_ADDR_FRONT			(0x013E0000)
-#define FIMC_IS_CAL_RETRY_CNT			(2)
-#define FIMC_IS_FW_RETRY_CNT			(2)
-#endif
 
 /* Default setting values */
 #define DEFAULT_PREVIEW_STILL_WIDTH		(1280) /* sensor margin : 16 */
@@ -111,11 +85,7 @@ static struct dentry		*debugfs_file;
 static char fw_name[100];
 //static char setf_name[100];
 
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
-#define FIMC_IS_MAX_CAL_SIZE	(8 * 1024)
-#else
 #define FIMC_IS_MAX_CAL_SIZE	(64 * 1024)
-#endif
 #define FIMC_IS_MAX_CAL_SIZE_FRONT	(8 * 1024)
 
 #define FIMC_IS_DEFAULT_CAL_SIZE	(20 * 1024)
@@ -125,12 +95,8 @@ extern bool crc32_check_front;
 extern bool crc32_header_check_front;
 
 static int cam_id;
-#ifdef CONFIG_USE_VENDER_FEATURE
 extern bool is_dumped_fw_loading_needed;
 extern char fw_core_version;
-#else
-bool is_dumped_fw_loading_needed = false;
-#endif
 
 static int isfw_debug_open(struct inode *inode, struct file *file)
 {
@@ -793,16 +759,6 @@ static void fimc_is_ischain_version(struct fimc_is_device_ischain *this, char *n
 	info("%s version : %s\n", name, version_str);
 }
 
-void fimc_is_ischain_savefirm(struct fimc_is_device_ischain *this)
-{
-#ifdef DEBUG_DUMP_FIRMWARE
-	loff_t pos;
-
-	write_data_to_file("/data/firmware.bin", (char *)this->imemory.kvaddr,
-		(size_t)FIMC_IS_A5_MEM_SIZE, &pos);
-#endif
-}
-
 static int fimc_is_ischain_loadfirm(struct fimc_is_device_ischain *device)
 {
 	int ret = 0;
@@ -830,7 +786,6 @@ static int fimc_is_ischain_loadfirm(struct fimc_is_device_ischain *device)
 	set_fs(KERNEL_DS);
 	fp = filp_open(FIMC_IS_FW_SDCARD, O_RDONLY, 0);
 	if (IS_ERR_OR_NULL(fp)) {
-#ifdef CONFIG_USE_VENDER_FEATURE
 		if (is_dumped_fw_loading_needed &&
 			device->pdev->id == SENSOR_POSITION_REAR) {
 			snprintf(fw_path, sizeof(fw_path), "%s%s",
@@ -843,7 +798,6 @@ static int fimc_is_ischain_loadfirm(struct fimc_is_device_ischain *device)
 				goto out;
 			}
 		} else
-#endif
 			goto request_fw;
 	}
 
@@ -1063,7 +1017,6 @@ static int fimc_is_ischain_loadsetf(struct fimc_is_device_ischain *device,
 		FIMC_IS_SETFILE_SDCARD_PATH, setfile_name);
 	fp = filp_open(setfile_path, O_RDONLY, 0);
 	if (IS_ERR_OR_NULL(fp)) {
-#ifdef CONFIG_USE_VENDER_FEATURE
 		if (is_dumped_fw_loading_needed &&
 			device->pdev->id == SENSOR_POSITION_REAR) {
 			memset(setfile_path, 0x00, sizeof(setfile_path));
@@ -1077,7 +1030,6 @@ static int fimc_is_ischain_loadsetf(struct fimc_is_device_ischain *device,
 				goto out;
 			}
 		} else
-#endif
 			goto request_fw;
 	}
 
@@ -1205,95 +1157,16 @@ out:
 	return ret;
 }
 
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR) || defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-static int fimc_is_ischain_loadcalb_eeprom(struct fimc_is_device_ischain *device,
-	struct fimc_is_module_enum *active_sensor, int id)
-	{
-		int ret = 0;
-#ifdef CONFIG_USE_VENDER_FEATURE
-		char *cal_ptr;
-		char *cal_buf = NULL;
-		u32 start_addr = 0;
-		int cal_size = 0;
-		struct fimc_is_from_info *finfo;
 
-		mdbgd_ischain("%s\n", device, __func__);
-
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-		if (id == SENSOR_POSITION_FRONT) {
-			start_addr = FIMC_IS_CAL_START_ADDR_FRONT;
-			cal_size = FIMC_IS_MAX_CAL_SIZE_FRONT;
-			fimc_is_sec_get_sysfs_finfo_front(&finfo);
-			fimc_is_sec_get_front_cal_buf(&cal_buf);
-		} else
-#endif
-		{
-			start_addr = FIMC_IS_CAL_START_ADDR;
-			cal_size = FIMC_IS_MAX_CAL_SIZE;
-			fimc_is_sec_get_sysfs_finfo(&finfo);
-			fimc_is_sec_get_cal_buf(&cal_buf);
-		}
-
-		cal_ptr = (char *)(device->imemory.kvaddr + start_addr);
-
-		info("CAL DATA : MAP ver : %c%c%c%c\n", cal_buf[0x30], cal_buf[0x31],
-			cal_buf[0x32], cal_buf[0x33]);
-
-		/* CRC check */
-		if (id == SENSOR_POSITION_FRONT) {
-			if (crc32_check_front == true) {
-				memcpy((void *)(cal_ptr) ,(void *)cal_buf, cal_size);
-				info("Front Camera : the dumped Cal. data was applied successfully.\n");
-			} else {
-				if (crc32_header_check_front == true) {
-					pr_err("Front Camera : CRC32 error but only header section is no problem.\n");
-					memset((void *)(cal_ptr + 0x1000), 0xFF, cal_size - 0x1000);
-				} else {
-					pr_err("Front Camera : CRC32 error for all section.\n");
-					memset((void *)(cal_ptr), 0xFF, cal_size);
-					ret = -EIO;
-				}
-			}
-		} else {
-			if (crc32_check == true) {
-				memcpy((void *)(cal_ptr) ,(void *)cal_buf, cal_size);
-				info("Rear Camera : the dumped Cal. data was applied successfully.\n");
-			} else {
-				if (crc32_header_check == true) {
-					pr_err("Rear Camera : CRC32 error but only header section is no problem.\n");
-					memset((void *)(cal_ptr + 0x1000), 0xFF, cal_size - 0x1000);
-				} else {
-					pr_err("Rear Camera : CRC32 error for all section.\n");
-					memset((void *)(cal_ptr), 0xFF, cal_size);
-					ret = -EIO;
-				}
-			}
-		}
-
-		fimc_is_ischain_cache_flush(device, start_addr, cal_size);
-		if (ret)
-			mwarn("calibration loading is fail", device);
-		else
-			mwarn("calibration loading is success", device);
-
-#endif
-		return ret;
-	}
-#endif
-
-#if !defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
 static int fimc_is_ischain_loadcalb(struct fimc_is_device_ischain *device,
 	struct fimc_is_module_enum *active_sensor)
 {
 	int ret = 0;
-#ifdef CONFIG_USE_VENDER_FEATURE
 	char *cal_ptr;
 	struct fimc_is_from_info *sysfs_finfo;
 	char *cal_buf;
 
-#ifdef CONFIG_COMPANION_USE
 	struct fimc_is_core *core = (struct fimc_is_core *)platform_get_drvdata(device->pdev);
-#endif
 	mdbgd_ischain("%s\n", device, __func__);
 
 	cal_ptr = (char *)(device->imemory.kvaddr + FIMC_IS_CAL_START_ADDR);
@@ -1306,17 +1179,12 @@ static int fimc_is_ischain_loadcalb(struct fimc_is_device_ischain *device,
 
 	/* CRC check */
 	if (crc32_check == true) {
-#ifdef CONFIG_COMPANION_USE
 		if (fimc_is_comp_is_compare_ver(core) >= FROM_VERSION_V004) {
 			memcpy((void *)(cal_ptr) ,(void *)cal_buf, FIMC_IS_MAX_CAL_SIZE);
 			info("Camera : the dumped Cal. data was applied successfully.\n");
 		} else {
 			info("Camera : Did not load dumped Cal. Sensor version is lower than V004.\n");
 		}
-#else
-		memcpy((void *)(cal_ptr) ,(void *)cal_buf, FIMC_IS_MAX_CAL_SIZE);
-		info("Camera : the dumped Cal. data was applied successfully.\n");
-#endif
 	} else {
 		if (crc32_header_check == true) {
 			pr_err("Camera : CRC32 error but only header section is no problem.\n");
@@ -1334,10 +1202,8 @@ static int fimc_is_ischain_loadcalb(struct fimc_is_device_ischain *device,
 		mwarn("calibration loading is fail", device);
 	else
 		mwarn("calibration loading is success", device);
-#endif
 	return ret;
 }
-#endif
 static void fimc_is_ischain_forcedown(struct fimc_is_device_ischain *this,
 	bool on)
 {
@@ -1354,21 +1220,6 @@ static void fimc_is_ischain_forcedown(struct fimc_is_device_ischain *this,
 	}
 }
 
-#if !defined(CONFIG_SOC_EXYNOS4415)
-void tdnr_s3d_pixel_async_sw_reset(struct fimc_is_device_ischain *this)
-{
-	u32 cfg = readl(SYSREG_GSCBLK_CFG1);
-	/* S3D pixel async sw reset */
-	cfg &= ~(1 << 25);
-	writel(cfg, SYSREG_GSCBLK_CFG1);
-
-	cfg = readl(SYSREG_ISPBLK_CFG);
-	/* 3DNR pixel async sw reset */
-	cfg &= ~(1 << 5);
-	writel(cfg, SYSREG_ISPBLK_CFG);
-}
-#endif
-
 static void fimc_is_a5_power(struct device *dev, int power_flags)
 {
 	u32 timeout;
@@ -1378,13 +1229,8 @@ static void fimc_is_a5_power(struct device *dev, int power_flags)
 
 	/* option */
 	if (power_flags) {
-#if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 		/* A5 enable[15] */
 		writel((1 << 15), PMUREG_ISP_ARM_OPTION);
-#else
-		/* STANDBY WFI[16] & A5 enable[15] */
-		writel((1 << 16 | 1 << 15), PMUREG_ISP_ARM_OPTION);
-#endif
 	}
 
 	/* status */
@@ -1399,9 +1245,7 @@ static void fimc_is_a5_power(struct device *dev, int power_flags)
 
 int fimc_is_ischain_power(struct fimc_is_device_ischain *device, int on)
 {
-#ifdef CONFIG_ARM_TRUSTZONE
 	int i;
-#endif
 	int ret = 0;
 	u32 debug;
 #if defined(CONFIG_PM_RUNTIME)
@@ -1430,37 +1274,10 @@ int fimc_is_ischain_power(struct fimc_is_device_ischain *device, int on)
 		info("%s(%d) - fimc_is runtime resume complete\n", __func__, on);
 #endif
 
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-		if (core->id == SENSOR_POSITION_FRONT) {
-			fimc_is_sec_get_sysfs_finfo(&sysfs_finfo);
-			if (!sysfs_finfo->is_caldata_read) {
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
-				ret = fimc_is_sec_fw_sel_eeprom(dev, fw_name, setf_name, SENSOR_POSITION_REAR, true);
-#else
-				ret = fimc_is_sec_fw_sel(core, dev, fw_name, setf_name, true);
-#endif
-			} else {
-				snprintf(fw_name, sizeof(fw_name), "%s", sysfs_finfo->load_fw_name);
-			}
-			fimc_is_sec_get_sysfs_finfo_front(&sysfs_finfo);
-			if (!sysfs_finfo->is_caldata_read) {
-				ret = fimc_is_sec_fw_sel_eeprom(dev, fw_name, setf_name, SENSOR_POSITION_FRONT, false);
-				if (ret < 0) {
-					err("failed to select firmware (%d)", ret);
-					clear_bit(FIMC_IS_ISCHAIN_LOADED, &device->state);
-					goto p_err_pm;
-				}
-			}
-		} else
-#endif
 		{
 			fimc_is_sec_get_sysfs_finfo(&sysfs_finfo);
 			if (!sysfs_finfo->is_caldata_read) {
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
-				ret = fimc_is_sec_fw_sel_eeprom(dev, fw_name, setf_name, SENSOR_POSITION_REAR, false);
-#else
 				ret = fimc_is_sec_fw_sel(core, dev, fw_name, setf_name, false);
-#endif
 				if (ret < 0) {
 					err("failed to select firmware (%d)", ret);
 					clear_bit(FIMC_IS_ISCHAIN_LOADED, &device->state);
@@ -1471,14 +1288,12 @@ int fimc_is_ischain_power(struct fimc_is_device_ischain *device, int on)
 			}
 		}
 
-#ifdef CONFIG_COMPANION_USE
 //		ret = fimc_is_sec_concord_fw_sel(core, dev, device->pdata, companion_fw_name, master_setf_name, mode_setf_name);
 		/*if (ret < 0) {
 			err("failed to select companion firmware (%d)", ret);
 			clear_bit(FIMC_IS_ISCHAIN_LOADED, &device->state);
 			goto exit;
 		}*/
-#endif
 		/* 3. Load IS firmware */
 		ret = fimc_is_ischain_loadfirm(device);
 		if (ret) {
@@ -1489,9 +1304,6 @@ int fimc_is_ischain_power(struct fimc_is_device_ischain *device, int on)
 		}
 		set_bit(FIMC_IS_ISCHAIN_LOADED, &device->state);
 
-#if defined(CONFIG_SOC_EXYNOS5422)
-		tdnr_s3d_pixel_async_sw_reset(device);
-#endif /* defined(CONFIG_SOC_EXYNOS5422) */
 		/* 4. A5 start address setting */
 		mdbgd_ischain("imemory.base(dvaddr) : 0x%08x\n", device, device->imemory.dvaddr);
 		mdbgd_ischain("imemory.base(kvaddr) : 0x%08X\n", device, device->imemory.kvaddr);
@@ -1507,7 +1319,6 @@ int fimc_is_ischain_power(struct fimc_is_device_ischain *device, int on)
 		if(device->imemory.dvaddr != val)
 			err("dvaddr : %x , BBOAR : %x", device->imemory.dvaddr,val);
 
-#ifdef CONFIG_ARM_TRUSTZONE
 		exynos_smc(SMC_CMD_REG, SMC_REG_ID_SFR_W(PA_FIMC_IS_GIC_C + 0x4), 0x000000FF, 0);
 		for (i = 0; i < 3; i++)
 			exynos_smc(SMC_CMD_REG, SMC_REG_ID_SFR_W(PA_FIMC_IS_GIC_D + 0x80 + (i * 4)), 0xFFFFFFFF, 0);
@@ -1518,7 +1329,6 @@ int fimc_is_ischain_power(struct fimc_is_device_ischain *device, int on)
 		info("%s : PA_FIMC_IS_GIC_C : 0x%08x\n", __func__, debug);
 		if (debug == 0x00)
 			merr("secure configuration is fail[0x131E0004:%08X]", device, debug);
-#endif
 
 		/* To guarantee FW restart */
 		if (__raw_readl(PMUREG_ISP_ARM_STATUS) & 0x1) {
@@ -2162,9 +1972,6 @@ int fimc_is_itf_stream_on(struct fimc_is_device_ischain *device)
 {
 	int ret = 0;
 	u32 retry = 10000;
-#ifdef ENABLE_DVFS
-	int scenario_id;
-#endif
 	struct fimc_is_group *group_3aa, *group_isp;
 	struct fimc_is_resourcemgr *resourcemgr;
 
@@ -2201,23 +2008,6 @@ int fimc_is_itf_stream_on(struct fimc_is_device_ischain *device)
 	else
 		pr_err("[ISC:D:%d] stream on NOT ready\n", device->instance);
 
-#ifdef ENABLE_DVFS
-	mutex_lock(&resourcemgr->dvfs_ctrl.lock);
-	if ((!pm_qos_request_active(&device->user_qos)) &&
-			(sysfs_debug.en_dvfs)) {
-		/* try to find dynamic scenario to apply */
-		scenario_id = fimc_is_dvfs_sel_scenario(FIMC_IS_STATIC_SN, device, NULL);
-		if (scenario_id >= 0) {
-			struct fimc_is_dvfs_scenario_ctrl *static_ctrl =
-				resourcemgr->dvfs_ctrl.static_ctrl;
-			info("[ISC:D:%d] static scenario(%d)-[%s]\n",
-					device->instance, scenario_id,
-					static_ctrl->scenarios[static_ctrl->cur_scenario_idx].scenario_nm);
-			fimc_is_set_dvfs(device, scenario_id);
-		}
-	}
-	mutex_unlock(&resourcemgr->dvfs_ctrl.lock);
-#endif
 	ret = fimc_is_hw_stream_on(device->interface, device->instance);
 	if (ret) {
 		merr("fimc_is_hw_stream_on is fail(%d)", device, ret);
@@ -2255,21 +2045,8 @@ int fimc_is_itf_process_stop(struct fimc_is_device_ischain *device,
 {
 	int ret = 0;
 
-#ifdef ENABLE_CLOCK_GATE
-	struct fimc_is_core *core = (struct fimc_is_core *)device->interface->core;
-	if (sysfs_debug.en_clk_gate &&
-			sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST) {
-		fimc_is_clk_gate_lock_set(core, device->instance, true);
-		fimc_is_wrap_clk_gate_set(core, (1 << GROUP_ID_MAX) - 1, true);
-	}
-#endif
 	ret = fimc_is_hw_process_off(device->interface,
 		device->instance, group, 0);
-#ifdef ENABLE_CLOCK_GATE
-	if (sysfs_debug.en_clk_gate &&
-		sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST)
-		fimc_is_clk_gate_lock_set(core, device->instance, false);
-#endif
 	return ret;
 }
 
@@ -2278,28 +2055,14 @@ int fimc_is_itf_force_stop(struct fimc_is_device_ischain *device,
 {
 	int ret = 0;
 
-#ifdef ENABLE_CLOCK_GATE
-	struct fimc_is_core *core = (struct fimc_is_core *)device->interface->core;
-#endif
 	/* if there's only one group of isp, send group id by 3a0 */
 	if ((group & GROUP_ID(GROUP_ID_ISP)) &&
 			GET_FIMC_IS_NUM_OF_SUBIP2(device, 3a0) == 0 &&
 			GET_FIMC_IS_NUM_OF_SUBIP2(device, 3a1) == 0)
 		group = GROUP_ID(GROUP_ID_3A0);
-#ifdef ENABLE_CLOCK_GATE
-	if (sysfs_debug.en_clk_gate &&
-			sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST) {
-		fimc_is_clk_gate_lock_set(core, device->instance, true);
-		fimc_is_wrap_clk_gate_set(core, (1 << GROUP_ID_MAX) - 1, true);
-	}
-#endif
 	ret = fimc_is_hw_process_off(device->interface,
 		device->instance, group, 1);
-#ifdef ENABLE_CLOCK_GATE
-	if (sysfs_debug.en_clk_gate &&
-		sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST)
-		fimc_is_clk_gate_lock_set(core, device->instance, false);
-#endif
+
 	return ret;
 }
 
@@ -2329,9 +2092,6 @@ static int fimc_is_itf_init_process_stop(struct fimc_is_device_ischain *device)
 	int ret = 0;
 	u32 group = 0;
 
-#ifdef ENABLE_CLOCK_GATE
-	struct fimc_is_core *core = (struct fimc_is_core *)device->interface->core;
-#endif
 	group |= GROUP_ID(device->group_3aa.id);
 	group |= GROUP_ID(device->group_isp.id);
 
@@ -2340,21 +2100,8 @@ static int fimc_is_itf_init_process_stop(struct fimc_is_device_ischain *device)
 			GET_FIMC_IS_NUM_OF_SUBIP2(device, 3a0) == 0 &&
 			GET_FIMC_IS_NUM_OF_SUBIP2(device, 3a1) == 0)
 		group = GROUP_ID(GROUP_ID_3A0);
-#ifdef ENABLE_CLOCK_GATE
-	if (sysfs_debug.en_clk_gate &&
-			sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST) {
-		fimc_is_clk_gate_lock_set(core, device->instance, true);
-		fimc_is_wrap_clk_gate_set(core, (1 << GROUP_ID_MAX) - 1, true);
-
-	}
-#endif
 	ret = fimc_is_hw_process_off(device->interface,
 		device->instance, (group & GROUP_ID_PARM_MASK), 0);
-#ifdef ENABLE_CLOCK_GATE
-	if (sysfs_debug.en_clk_gate &&
-		sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST)
-		fimc_is_clk_gate_lock_set(core, device->instance, false);
-#endif
 	return ret;
 }
 
@@ -2480,21 +2227,7 @@ int fimc_is_itf_g_capability(struct fimc_is_device_ischain *this)
 int fimc_is_itf_power_down(struct fimc_is_interface *interface)
 {
 	int ret = 0;
-#ifdef ENABLE_CLOCK_GATE
-	/* HACK */
-	struct fimc_is_core *core = (struct fimc_is_core *)interface->core;
-	if (sysfs_debug.en_clk_gate &&
-			sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST) {
-		fimc_is_clk_gate_lock_set(core, 0, true);
-		fimc_is_wrap_clk_gate_set(core, (1 << GROUP_ID_MAX) - 1, true);
-	}
-#endif
 	ret = fimc_is_hw_power_down(interface, 0);
-#ifdef ENABLE_CLOCK_GATE
-	if (sysfs_debug.en_clk_gate &&
-		sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST)
-		fimc_is_clk_gate_lock_set(core, 0, false);
-#endif
 	return ret;
 }
 
@@ -2525,9 +2258,6 @@ static int fimc_is_itf_grp_shot(struct fimc_is_device_ischain *device,
 {
 	int ret = 0;
 	u32 group_id = 0;
-#ifdef ENABLE_CLOCK_GATE
-	struct fimc_is_core *core = (struct fimc_is_core *)device->interface->core;
-#endif
 	BUG_ON(!device);
 	BUG_ON(!group);
 	BUG_ON(!frame);
@@ -2565,13 +2295,6 @@ static int fimc_is_itf_grp_shot(struct fimc_is_device_ischain *device,
 #endif
 #endif
 
-#ifdef ENABLE_CLOCK_GATE
-	/* HACK */
-	/* dynamic clock on */
-	if (sysfs_debug.en_clk_gate &&
-			sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST)
-		fimc_is_clk_gate_set(core, group->id, true, false, true);
-#endif
 	group_id = GROUP_ID(group->id);
 
 	/* if there's only one group of isp, send group id by 3a0 */
@@ -2725,9 +2448,6 @@ int fimc_is_ischain_open(struct fimc_is_device_ischain *device,
 {
 	int ret = 0;
 	struct fimc_is_ishcain_mem *imemory;
-#ifdef ENABLE_CLOCK_GATE
-	struct fimc_is_core *core;
-#endif
 	BUG_ON(!device);
 	BUG_ON(!device->groupmgr);
 	BUG_ON(!vctx);
@@ -2839,14 +2559,6 @@ int fimc_is_ischain_open(struct fimc_is_device_ischain *device,
 
 	set_bit(FIMC_IS_ISCHAIN_OPEN, &device->state);
 
-#ifdef ENABLE_CLOCK_GATE
-	if (sysfs_debug.en_clk_gate &&
-			sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST) {
-		core = (struct fimc_is_core *)device->interface->core;
-		fimc_is_clk_gate_lock_set(core, device->instance, true);
-		fimc_is_wrap_clk_gate_set(core, (1 << GROUP_ID_MAX) - 1, true);
-	}
-#endif
 p_err:
 	info("[ISC:D:%d] %s(%d)\n", device->instance, __func__, ret);
 	return ret;
@@ -2862,9 +2574,7 @@ int fimc_is_ischain_close(struct fimc_is_device_ischain *device,
 	struct fimc_is_subdev *leader;
 	struct fimc_is_queue *queue;
 	struct fimc_is_core *core;
-#ifdef CONFIG_COMPANION_USE
 	struct fimc_is_spi_gpio *spi_gpio;
-#endif
 	BUG_ON(!device);
 
 	groupmgr = device->groupmgr;
@@ -2873,9 +2583,7 @@ int fimc_is_ischain_close(struct fimc_is_device_ischain *device,
 	queue = GET_SRC_QUEUE(vctx);
 	core = (struct fimc_is_core *)device->interface->core;
 	refcount = atomic_read(&vctx->video->refcount);
-#ifdef CONFIG_COMPANION_USE
 	spi_gpio = &core->spi_gpio;
-#endif
 	if (refcount < 0) {
 		merr("invalid ischain refcount", device);
 		ret = -ENODEV;
@@ -2888,14 +2596,6 @@ int fimc_is_ischain_close(struct fimc_is_device_ischain *device,
 		goto exit;
 	}
 
-#ifdef ENABLE_CLOCK_GATE
-	core = (struct fimc_is_core *)device->interface->core;
-	if (sysfs_debug.en_clk_gate &&
-			sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST) {
-		fimc_is_clk_gate_lock_set(core, device->instance, true);
-		fimc_is_wrap_clk_gate_set(core, (1 << GROUP_ID_MAX) - 1, true);
-	}
-#endif
 	/* 1. Stop all request */
 	ret = fimc_is_ischain_isp_stop(device, leader, queue);
 	if (ret)
@@ -2931,15 +2631,8 @@ int fimc_is_ischain_close(struct fimc_is_device_ischain *device,
 
 	clear_bit(FIMC_IS_ISCHAIN_OPEN_SENSOR, &device->state);
 	clear_bit(FIMC_IS_ISCHAIN_OPEN, &device->state);
-#ifdef CONFIG_COMPANION_USE
 	fimc_is_set_spi_config(spi_gpio, FIMC_IS_SPI_OUTPUT, true);
-#endif
 
-#ifdef ENABLE_CLOCK_GATE
-	if (sysfs_debug.en_clk_gate &&
-			sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST)
-		fimc_is_clk_gate_lock_set(core, device->instance, false);
-#endif
 exit:
 	pr_info("[ISC:D:%d] %s(%d)\n", device->instance, __func__, ret);
 	return ret;
@@ -2954,12 +2647,10 @@ static int fimc_is_ischain_init(struct fimc_is_device_ischain *device,
 	int ret = 0;
 	struct fimc_is_module_enum *module;
 	struct fimc_is_device_sensor *sensor;
-#ifdef CONFIG_COMPANION_USE
 	struct fimc_is_core *core
 		= (struct fimc_is_core *)platform_get_drvdata(device->pdev);
 	/* Workaround for Host to use ISP-SPI. Will be removed later.*/
 //	struct fimc_is_spi_gpio *spi_gpio = &core->spi_gpio;
-#endif
 
 	BUG_ON(!device);
 	BUG_ON(!device->sensor);
@@ -2995,28 +2686,15 @@ static int fimc_is_ischain_init(struct fimc_is_device_ischain *device,
 		if(sensor->instance == 0) {
 			/* Load calibration data from sensor */
 			module->ext.sensor_con.cal_address = FIMC_IS_CAL_START_ADDR;
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
-			ret = fimc_is_ischain_loadcalb_eeprom(device, NULL, SENSOR_POSITION_REAR);
-#else
 			ret = fimc_is_ischain_loadcalb(device, NULL);
-#endif
 			if (ret) {
 				err("loadcalb fail, load default caldata\n");
 			}
 		} else {
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-			module->ext.sensor_con.cal_address = FIMC_IS_CAL_START_ADDR_FRONT;
-			ret = fimc_is_ischain_loadcalb_eeprom(device, NULL, SENSOR_POSITION_FRONT);
-			if (ret) {
-				err("loadcalb fail, load default caldata\n");
-			}
-#else
 			module->ext.sensor_con.cal_address = 0;
-#endif
 		}
 	}
 
-#ifdef CONFIG_COMPANION_USE
 	if(core->companion->companion_status != FIMC_IS_COMPANION_IDLE) {
 		pr_info("[ISC:D:%d] fimc_is_companion_wait wait(%d)\n", device->instance,core->companion->companion_status);
 		fimc_is_companion_wait(core->companion);
@@ -3025,54 +2703,6 @@ static int fimc_is_ischain_init(struct fimc_is_device_ischain *device,
 
 	fimc_is_s_int_comb_isp(core, false, INTMR2_INTMCIS22);
 
-#if 0
-	/* FW loading of peripheral device */
-	if ((module->position == SENSOR_POSITION_REAR)
-		&& !test_bit(FIMC_IS_ISCHAIN_REPROCESSING, &device->state)) {
-		// Workaround for Host to use ISP-SPI. Will be removed later.
-		/* set pin output for Host to use SPI*/
-		pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_ssn,
-					PINCFG_PACK(PINCFG_TYPE_FUNC, FUNC_OUTPUT));
-
-		fimc_is_set_spi_config(spi_gpio, FIMC_IS_SPI_FUNC, false);
-
-		if (fimc_is_comp_is_valid(core) == 0) {
-			fimc_is_power_binning(core);
-			ret = fimc_is_comp_loadfirm(core);
-			if (ret) {
-				err("fimc_is_comp_loadfirm() fail");
-				goto p_err;
-			}
-			ret = fimc_is_comp_loadcal(core);
-			if (ret) {
-				err("fimc_is_comp_loadcal() fail");
-			}
-			ret = fimc_is_comp_loadsetf(core);
-			if (ret) {
-				err("fimc_is_comp_loadsetf() fail");
-				goto p_err;
-			}
-		} else {
-			module->ext.companion_con.product_name
-				= COMPANION_NAME_NOTHING;
-		}
-		// Workaround for Host to use ISP-SPI. Will be removed later.
-		/* Set SPI pins to low before changing pin function */
-		pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_sclk,
-					PINCFG_PACK(PINCFG_TYPE_DAT, 0));
-		pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_ssn,
-					PINCFG_PACK(PINCFG_TYPE_DAT, 0));
-		pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_miso,
-					PINCFG_PACK(PINCFG_TYPE_DAT, 0));
-		pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_mois,
-					PINCFG_PACK(PINCFG_TYPE_DAT, 0));
-
-		/* Set pin function for A5 to use SPI */
-		pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_ssn,
-					PINCFG_PACK(PINCFG_TYPE_FUNC, 2));
-	}
-#endif
-#endif
 
 	ret = fimc_is_itf_enum(device);
 	if (ret) {
@@ -6882,14 +6512,6 @@ p_err:
 	return ret;
 }
 
-int fimc_is_ischain_vdo_s_format(struct fimc_is_device_ischain *this,
-	u32 width, u32 height)
-{
-	int ret = 0;
-
-	return ret;
-}
-
 int fimc_is_ischain_vdo_buffer_queue(struct fimc_is_device_ischain *device,
 	struct fimc_is_queue *queue,
 	u32 index)
@@ -6953,27 +6575,6 @@ int fimc_is_ischain_g_capability(struct fimc_is_device_ischain *this,
 
 	ret = copy_to_user((void *)user_ptr, &this->capability,
 		sizeof(struct camera2_sm));
-
-	return ret;
-}
-
-int fimc_is_ischain_print_status(struct fimc_is_device_ischain *device)
-{
-	int ret = 0;
-	struct fimc_is_video_ctx *vctx;
-	struct fimc_is_subdev *isp;
-	struct fimc_is_framemgr *framemgr;
-	struct fimc_is_interface *itf;
-
-	isp = &device->group_isp.leader;
-	vctx = isp->vctx;
-	framemgr = GET_SRC_FRAMEMGR(vctx);
-	itf = device->interface;
-
-	fimc_is_frame_print_free_list(framemgr);
-	fimc_is_frame_print_request_list(framemgr);
-	fimc_is_frame_print_process_list(framemgr);
-	fimc_is_frame_print_complete_list(framemgr);
 
 	return ret;
 }
@@ -7558,100 +7159,5 @@ p_err:
 		fimc_is_itf_grp_shot(device, group, frame);
 	}
 
-	return ret;
-}
-
-int fimc_is_ischain_camctl(struct fimc_is_device_ischain *this,
-	struct fimc_is_frame *frame,
-	u32 fcount)
-{
-	int ret = 0;
-#ifdef ENABLE_SENSOR_DRIVER
-	struct fimc_is_interface *itf;
-	struct camera2_uctl *applied_ctl;
-
-	struct camera2_sensor_ctl *isp_sensor_ctl;
-	struct camera2_lens_ctl *isp_lens_ctl;
-	struct camera2_flash_ctl *isp_flash_ctl;
-
-	u32 index;
-
-#ifdef DBG_STREAMING
-	mdbgd_ischain("%s()\n", device, __func__);
-#endif
-
-	itf = this->interface;
-	isp_sensor_ctl = &itf->isp_peri_ctl.sensorUd.ctl;
-	isp_lens_ctl = &itf->isp_peri_ctl.lensUd.ctl;
-	isp_flash_ctl = &itf->isp_peri_ctl.flashUd.ctl;
-
-	/*lens*/
-	index = (fcount + 0) & SENSOR_MAX_CTL_MASK;
-	applied_ctl = &this->peri_ctls[index];
-	applied_ctl->lensUd.ctl.focusDistance = isp_lens_ctl->focusDistance;
-
-	/*sensor*/
-	index = (fcount + 1) & SENSOR_MAX_CTL_MASK;
-	applied_ctl = &this->peri_ctls[index];
-	applied_ctl->sensorUd.ctl.exposureTime = isp_sensor_ctl->exposureTime;
-	applied_ctl->sensorUd.ctl.frameDuration = isp_sensor_ctl->frameDuration;
-	applied_ctl->sensorUd.ctl.sensitivity = isp_sensor_ctl->sensitivity;
-
-	/*flash*/
-	index = (fcount + 0) & SENSOR_MAX_CTL_MASK;
-	applied_ctl = &this->peri_ctls[index];
-	applied_ctl->flashUd.ctl.flashMode = isp_flash_ctl->flashMode;
-	applied_ctl->flashUd.ctl.firingPower = isp_flash_ctl->firingPower;
-	applied_ctl->flashUd.ctl.firingTime = isp_flash_ctl->firingTime;
-#endif
-	return ret;
-}
-
-int fimc_is_ischain_tag(struct fimc_is_device_ischain *ischain,
-	struct fimc_is_frame *frame)
-{
-	int ret = 0;
-#ifdef ENABLE_SENSOR_DRIVER
-	struct camera2_uctl *applied_ctl;
-	struct timeval curtime;
-	u32 fcount;
-
-	fcount = frame->fcount;
-	applied_ctl = &ischain->peri_ctls[fcount & SENSOR_MAX_CTL_MASK];
-
-	do_gettimeofday(&curtime);
-
-	/* Request */
-	frame->shot->dm.request.frameCount = fcount;
-
-	/* Lens */
-	frame->shot->dm.lens.focusDistance =
-		applied_ctl->lensUd.ctl.focusDistance;
-
-	/* Sensor */
-	frame->shot->dm.sensor.exposureTime =
-		applied_ctl->sensorUd.ctl.exposureTime;
-	frame->shot->dm.sensor.sensitivity =
-		applied_ctl->sensorUd.ctl.sensitivity;
-	frame->shot->dm.sensor.frameDuration =
-		applied_ctl->sensorUd.ctl.frameDuration;
-	frame->shot->dm.sensor.timeStamp =
-		(uint64_t)curtime.tv_sec*1000000 + curtime.tv_usec;
-
-	/* Flash */
-	frame->shot->dm.flash.flashMode =
-		applied_ctl->flashUd.ctl.flashMode;
-	frame->shot->dm.flash.firingPower =
-		applied_ctl->flashUd.ctl.firingPower;
-	frame->shot->dm.flash.firingTime =
-		applied_ctl->flashUd.ctl.firingTime;
-#else
-	struct timespec curtime;
-
-	do_posix_clock_monotonic_gettime(&curtime);
-
-	frame->shot->dm.request.frameCount = frame->fcount;
-	frame->shot->dm.sensor.timeStamp = fimc_is_get_timestamp();
-#endif
 	return ret;
 }

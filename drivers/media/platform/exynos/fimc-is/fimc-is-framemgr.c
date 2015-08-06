@@ -65,41 +65,6 @@ int fimc_is_frame_s_free_shot(struct fimc_is_framemgr *this,
 	return ret;
 }
 
-
-int fimc_is_frame_g_free_shot(struct fimc_is_framemgr *this,
-	struct fimc_is_frame **item)
-{
-	int ret = 0;
-
-	if (item) {
-		if (this->frame_fre_cnt) {
-			*item = container_of(this->frame_free_head.next,
-				struct fimc_is_frame, list);
-			list_del(&(*item)->list);
-			this->frame_fre_cnt--;
-
-			(*item)->state = FIMC_IS_FRAME_STATE_INVALID;
-		} else {
-			*item = NULL;
-		}
-	} else {
-		ret = -EFAULT;
-		err("item is null ptr\n");
-	}
-
-	return ret;
-}
-
-void fimc_is_frame_free_head(struct fimc_is_framemgr *this,
-	struct fimc_is_frame **item)
-{
-	if (this->frame_fre_cnt)
-		*item = container_of(this->frame_free_head.next,
-			struct fimc_is_frame, list);
-	else
-		*item = NULL;
-}
-
 void fimc_is_frame_print_free_list(struct fimc_is_framemgr *this)
 {
 	struct list_head *temp;
@@ -132,30 +97,6 @@ int fimc_is_frame_s_request_shot(struct fimc_is_framemgr *this,
 #ifdef TRACE_FRAME
 		fimc_is_frame_print_request_list(this);
 #endif
-	} else {
-		ret = -EFAULT;
-		err("item is null ptr\n");
-	}
-
-	return ret;
-}
-
-int fimc_is_frame_g_request_shot(struct fimc_is_framemgr *this,
-	struct fimc_is_frame **item)
-{
-	int ret = 0;
-
-	if (item) {
-		if (this->frame_req_cnt) {
-			*item = container_of(this->frame_request_head.next,
-				struct fimc_is_frame, list);
-			list_del(&(*item)->list);
-			this->frame_req_cnt--;
-
-			(*item)->state = FIMC_IS_FRAME_STATE_INVALID;
-		} else {
-			*item = NULL;
-		}
 	} else {
 		ret = -EFAULT;
 		err("item is null ptr\n");
@@ -215,30 +156,6 @@ int fimc_is_frame_s_process_shot(struct fimc_is_framemgr *this,
 	return ret;
 }
 
-int fimc_is_frame_g_process_shot(struct fimc_is_framemgr *this,
-	struct fimc_is_frame **item)
-{
-	int ret = 0;
-
-	if (item) {
-		if (this->frame_pro_cnt) {
-			*item = container_of(this->frame_process_head.next,
-				struct fimc_is_frame, list);
-			list_del(&(*item)->list);
-			this->frame_pro_cnt--;
-
-			(*item)->state = FIMC_IS_FRAME_STATE_INVALID;
-		} else {
-			*item = NULL;
-		}
-	} else {
-		ret = -EFAULT;
-		err("item is null ptr\n");
-	}
-
-	return ret;
-}
-
 void fimc_is_frame_process_head(struct fimc_is_framemgr *this,
 	struct fimc_is_frame **item)
 {
@@ -290,30 +207,6 @@ int fimc_is_frame_s_complete_shot(struct fimc_is_framemgr *this,
 	return ret;
 }
 
-
-int fimc_is_frame_g_complete_shot(struct fimc_is_framemgr *this,
-	struct fimc_is_frame **item)
-{
-	int ret = 0;
-
-	if (item) {
-		if (this->frame_com_cnt) {
-			*item = container_of(this->frame_complete_head.next,
-				struct fimc_is_frame, list);
-			list_del(&(*item)->list);
-			this->frame_com_cnt--;
-
-			(*item)->state = FIMC_IS_FRAME_STATE_INVALID;
-		} else {
-			*item = NULL;
-		}
-	} else {
-		ret = -EFAULT;
-		err("item is null ptr\n");
-	}
-
-	return ret;
-}
 
 void fimc_is_frame_complete_head(struct fimc_is_framemgr *this,
 	struct fimc_is_frame **item)
@@ -459,26 +352,6 @@ int fimc_is_frame_trans_pro_to_fre(struct fimc_is_framemgr *this,
 	this->frame_pro_cnt--;
 
 	fimc_is_frame_s_free_shot(this, item);
-
-exit:
-	return ret;
-}
-
-int fimc_is_frame_trans_fre_to_com(struct fimc_is_framemgr *this,
-	struct fimc_is_frame *item)
-{
-	int ret = 0;
-
-	if (!this->frame_fre_cnt) {
-		err("shot free count is zero\n");
-		ret = -EFAULT;
-		goto exit;
-	}
-
-	list_del(&item->list);
-	this->frame_fre_cnt--;
-
-	fimc_is_frame_s_complete_shot(this, item);
 
 exit:
 	return ret;

@@ -20,7 +20,6 @@
 #include "fimc-is-groupmgr.h"
 
 #include "fimc-is-interface.h"
-#include "fimc-is-clk-gate.h"
 
 u32 __iomem *notify_fcount_sen0;
 u32 __iomem *notify_fcount_sen1;
@@ -36,19 +35,6 @@ u32 __iomem *last_fcount1;
 #define exit_process_barrier(itf) spin_unlock_irq(&itf->process_barrier);
 
 extern struct fimc_is_sysfs_debug sysfs_debug;
-
-/* func to register error report callback */
-int fimc_is_set_err_report_vendor(struct fimc_is_interface *itf,
-		void *err_report_data,
-		int (*err_report_vendor)(void *data, u32 err_report_type))
-{
-	if (itf) {
-		itf->err_report_data = err_report_data;
-		itf->err_report_vendor = err_report_vendor;
-	}
-
-	return 0;
-}
 
 /* main func to handle error report */
 static int fimc_is_err_report_handler(struct fimc_is_interface *itf, struct fimc_is_msg *msg)
@@ -170,32 +156,6 @@ static int set_free_work(struct fimc_is_work_list *this,
 	} else {
 		ret = -EFAULT;
 		err("item is null ptr\n");
-	}
-
-	return ret;
-}
-
-static int get_free_work(struct fimc_is_work_list *this,
-	struct fimc_is_work **work)
-{
-	int ret = 0;
-	unsigned long flags;
-
-	if (work) {
-		spin_lock_irqsave(&this->slock_free, flags);
-
-		if (this->work_free_cnt) {
-			*work = container_of(this->work_free_head.next,
-					struct fimc_is_work, list);
-			list_del(&(*work)->list);
-			this->work_free_cnt--;
-		} else
-			*work = NULL;
-
-		spin_unlock_irqrestore(&this->slock_free, flags);
-	} else {
-		ret = -EFAULT;
-		err("item is null ptr");
 	}
 
 	return ret;
@@ -1044,23 +1004,7 @@ static void wq_func_general(struct work_struct *data)
 				break;
 			case HIC_SET_CAM_CONTROL:
 				/* this code will be used latter */
-#if 0
-				dbg_interface("camctrl done\n");
-				get_req_work(&itf->nblk_cam_ctrl , &nblk_work);
-				if (nblk_work) {
-					nblk_work->msg.command = ISR_DONE;
-					set_free_work(&itf->nblk_cam_ctrl,
-						nblk_work);
-				} else {
-					err("nblk camctrl request is empty");
-					print_fre_work_list(
-						&itf->nblk_cam_ctrl);
-					print_req_work_list(
-						&itf->nblk_cam_ctrl);
-				}
-#else
 				err("camctrl is not acceptable\n");
-#endif
 				break;
 			default:
 				err("unknown done is invokded\n");
@@ -2012,12 +1956,6 @@ static void wq_func_shot(struct work_struct *data)
 				merr("group(%d) req flag is not clear all(%X)",
 					device, group->id, (u32)frame->req_flag);
 
-#ifdef ENABLE_CLOCK_GATE
-			/* dynamic clock off */
-			if (sysfs_debug.en_clk_gate &&
-					sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST)
-				fimc_is_clk_gate_set(core, group->id, false, false, true);
-#endif
 			wq_func_group(groupmgr, group, grp_framemgr, frame,
 				vctx, status1, status2, fcount);
 		} else {
@@ -2027,12 +1965,6 @@ static void wq_func_shot(struct work_struct *data)
 		}
 
 		framemgr_x_barrier_irqr(grp_framemgr, FMGR_IDX_7, flags);
-#ifdef ENABLE_CLOCK_GATE
-		if (fcount == 1 &&
-				sysfs_debug.en_clk_gate &&
-				sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST)
-			fimc_is_clk_gate_lock_set(core, instance, false);
-#endif
 remain:
 		set_free_work(work_list, work);
 		get_req_work(work_list, &work);
@@ -3174,40 +3106,6 @@ int fimc_is_hw_shot_nblk(struct fimc_is_interface *this,
 	msg.parameter4 = rcount;
 
 	ret = fimc_is_set_cmd_shot(this, &msg);
-
-	return ret;
-}
-
-int fimc_is_hw_s_camctrl_nblk(struct fimc_is_interface *this,
-	u32 instance, u32 address, u32 fcount)
-{
-	int ret = 0;
-	struct fimc_is_work *work;
-	struct fimc_is_msg *msg;
-
-	dbg_interface("cam_ctrl_nblk(%d)\n", instance);
-
-	get_free_work(&this->nblk_cam_ctrl, &work);
-
-	if (work) {
-		work->fcount = fcount;
-		msg = &work->msg;
-		msg->id = 0;
-		msg->command = HIC_SET_CAM_CONTROL;
-		msg->instance = instance;
-		msg->group = 0;
-		msg->parameter1 = address;
-		msg->parameter2 = fcount;
-		msg->parameter3 = 0;
-		msg->parameter4 = 0;
-
-		ret = fimc_is_set_cmd_nblk(this, work);
-	} else {
-		err("g_free_nblk return NULL");
-		print_fre_work_list(&this->nblk_cam_ctrl);
-		print_req_work_list(&this->nblk_cam_ctrl);
-		ret = 1;
-	}
 
 	return ret;
 }

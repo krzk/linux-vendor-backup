@@ -27,16 +27,8 @@
 #include <plat/gpio-cfg.h>
 #include <plat/map-s5p.h>
 #include <plat/cpu.h>
-#ifdef CONFIG_OF
 #include <linux/of_gpio.h>
-#endif
-#if defined(CONFIG_SOC_EXYNOS5422)
-#include <mach/regs-clock-exynos5422.h>
-#elif defined(CONFIG_SOC_EXYNOS5430)
-#include <mach/regs-clock-exynos5430.h>
-#elif defined(CONFIG_SOC_EXYNOS5433)
 #include <mach/regs-clock-exynos5433.h>
-#endif
 
 #include "exynos-fimc-is.h"
 #include "exynos-fimc-is-sensor.h"
@@ -212,140 +204,6 @@ p_err:
 
 }
 
-#if defined(CONFIG_SOC_EXYNOS5422)
-int exynos5422_fimc_is_sensor_iclk_cfg(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
-{
-	int ret = 0;
-
-	pr_info("clk_cfg:(ch%d),scenario(%d)\n", channel, scenario);
-
-	switch (channel) {
-	case 0:
-		/* MIPI-CSIS0 */
-		fimc_is_set_parent_dt(pdev, "mout_gscl_wrap_a", "mout_mpll_ctrl");
-		fimc_is_set_rate_dt(pdev, "dout_gscl_wrap_a", (532 * 1000000));
-		fimc_is_get_rate_dt(pdev, "dout_gscl_wrap_a");
-		break;
-	case 1:
-		/* FL1_550_CAM */
-		fimc_is_set_parent_dt(pdev, "mout_aclk_fl1_550_cam", "mout_mpll_ctrl");
-		fimc_is_set_rate_dt(pdev, "dout_aclk_fl1_550_cam", (76 * 1000000));
-		fimc_is_set_parent_dt(pdev, "mout_aclk_fl1_550_cam_sw", "dout_aclk_fl1_550_cam");
-		fimc_is_set_parent_dt(pdev, "mout_aclk_fl1_550_cam_user", "mout_aclk_fl1_550_cam_sw");
-		fimc_is_set_rate_dt(pdev, "dout2_cam_blk_550", (38 * 1000000));
-
-		/* MIPI-CSIS1 */
-		fimc_is_set_parent_dt(pdev, "mout_gscl_wrap_b", "mout_mpll_ctrl");
-		fimc_is_set_rate_dt(pdev, "dout_gscl_wrap_b", (76 * 1000000));
-		fimc_is_get_rate_dt(pdev, "dout_gscl_wrap_b");
-		break;
-	default:
-		pr_err("channel is invalid(%d)\n", channel);
-		break;
-	}
-
-	return ret;
-}
-
-int exynos5422_fimc_is_sensor_iclk_on(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
-{
-	return 0;
-}
-
-int exynos5422_fimc_is_sensor_iclk_off(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
-{
-	return 0;
-}
-
-int exynos5422_fimc_is_sensor_mclk_on(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
-{
-	u32 frequency;
-	char div_name[30];
-	char sclk_name[30];
-
-	pr_info("%s:ch(%d)\n", __func__, channel);
-
-	snprintf(div_name, sizeof(div_name), "dout_isp_sensor%d", channel);
-	snprintf(sclk_name, sizeof(sclk_name), "sclk_isp_sensor%d", channel);
-
-	fimc_is_set_parent_dt(pdev, "mout_isp_sensor", "fin_pll");
-	fimc_is_set_rate_dt(pdev, div_name, (24 * 1000000));
-	fimc_is_enable_dt(pdev, sclk_name);
-	frequency = fimc_is_get_rate_dt(pdev, div_name);
-
-	switch (channel) {
-	case SENSOR_CONTROL_I2C0:
-		fimc_is_enable_dt(pdev, "sclk_gscl_wrap_a");
-		fimc_is_enable_dt(pdev, "clk_camif_top_fimcl0");
-		fimc_is_enable_dt(pdev, "clk_camif_top_fimcl3");
-		fimc_is_enable_dt(pdev, "gscl_fimc_lite0");
-		fimc_is_enable_dt(pdev, "gscl_fimc_lite3");
-		fimc_is_enable_dt(pdev, "clk_gscl_wrap_a");
-		break;
-	case SENSOR_CONTROL_I2C1:
-	case SENSOR_CONTROL_I2C2:
-		fimc_is_enable_dt(pdev, "sclk_gscl_wrap_b");
-		fimc_is_enable_dt(pdev, "clk_camif_top_fimcl1");
-		fimc_is_enable_dt(pdev, "gscl_fimc_lite1");
-		fimc_is_enable_dt(pdev, "clk_gscl_wrap_b");
-		break;
-	default:
-		pr_err("channel is invalid(%d)\n", channel);
-		break;
-	}
-
-	fimc_is_enable_dt(pdev, "clk_camif_top_csis0");
-	fimc_is_enable_dt(pdev, "clk_xiu_si_gscl_cam");
-	fimc_is_enable_dt(pdev, "clk_noc_p_rstop_fimcl");
-
-	pr_info("%s(%d, mclk : %d)\n", __func__, channel, frequency);
-
-	return 0;
-}
-
-int exynos5422_fimc_is_sensor_mclk_off(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
-{
-	char sclk_name[30];
-
-	pr_debug("%s\n", __func__);
-
-	snprintf(sclk_name, sizeof(sclk_name), "sclk_isp_sensor%d", channel);
-
-	fimc_is_disable_dt(pdev, sclk_name);
-
-	switch (channel) {
-	case SENSOR_CONTROL_I2C0:
-		fimc_is_disable_dt(pdev, "sclk_gscl_wrap_a");
-		fimc_is_disable_dt(pdev, "clk_camif_top_fimcl0");
-		fimc_is_disable_dt(pdev, "clk_camif_top_fimcl3");
-		fimc_is_disable_dt(pdev, "gscl_fimc_lite0");
-		fimc_is_disable_dt(pdev, "gscl_fimc_lite3");
-		fimc_is_disable_dt(pdev, "clk_gscl_wrap_a");
-		break;
-	case SENSOR_CONTROL_I2C2:
-		fimc_is_disable_dt(pdev, "sclk_gscl_wrap_b");
-		fimc_is_disable_dt(pdev, "clk_camif_top_fimcl1");
-		fimc_is_disable_dt(pdev, "gscl_fimc_lite1");
-		fimc_is_disable_dt(pdev, "clk_gscl_wrap_b");
-		break;
-	default:
-		pr_err("channel is invalid(%d)\n", channel);
-		break;
-	}
-
-	return 0;
-}
-#elif defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 int exynos5430_fimc_is_sensor_iclk_cfg(struct platform_device *pdev,
 	u32 scenario,
 	u32 channel)
@@ -608,18 +466,13 @@ int exynos5430_fimc_is_sensor_mclk_off(struct platform_device *pdev,
 
 	return 0;
 }
-#endif
 
 /* Wrapper functions */
 int exynos_fimc_is_sensor_iclk_cfg(struct platform_device *pdev,
 	u32 scenario,
 	u32 channel)
 {
-#if defined(CONFIG_SOC_EXYNOS5422)
-	exynos5422_fimc_is_sensor_iclk_cfg(pdev, scenario, channel);
-#elif defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 	exynos5430_fimc_is_sensor_iclk_cfg(pdev, scenario, channel);
-#endif
 	return 0;
 }
 
@@ -627,11 +480,7 @@ int exynos_fimc_is_sensor_iclk_on(struct platform_device *pdev,
 	u32 scenario,
 	u32 channel)
 {
-#if defined(CONFIG_SOC_EXYNOS5422)
-	exynos5422_fimc_is_sensor_iclk_on(pdev, scenario, channel);
-#elif defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 	exynos5430_fimc_is_sensor_iclk_on(pdev, scenario, channel);
-#endif
 	return 0;
 }
 
@@ -639,11 +488,7 @@ int exynos_fimc_is_sensor_iclk_off(struct platform_device *pdev,
 	u32 scenario,
 	u32 channel)
 {
-#if defined(CONFIG_SOC_EXYNOS5422)
-	exynos5422_fimc_is_sensor_iclk_off(pdev, scenario, channel);
-#elif defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 	exynos5430_fimc_is_sensor_iclk_off(pdev, scenario, channel);
-#endif
 	return 0;
 }
 
@@ -651,11 +496,7 @@ int exynos_fimc_is_sensor_mclk_on(struct platform_device *pdev,
 	u32 scenario,
 	u32 channel)
 {
-#if defined(CONFIG_SOC_EXYNOS5422)
-	exynos5422_fimc_is_sensor_mclk_on(pdev, scenario, channel);
-#elif defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 	exynos5430_fimc_is_sensor_mclk_on(pdev, scenario, channel);
-#endif
 	return 0;
 }
 
@@ -663,10 +504,6 @@ int exynos_fimc_is_sensor_mclk_off(struct platform_device *pdev,
 	u32 scenario,
 	u32 channel)
 {
-#if defined(CONFIG_SOC_EXYNOS5422)
-	exynos5422_fimc_is_sensor_mclk_off(pdev, scenario, channel);
-#elif defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 	exynos5430_fimc_is_sensor_mclk_off(pdev, scenario, channel);
-#endif
 	return 0;
 }
