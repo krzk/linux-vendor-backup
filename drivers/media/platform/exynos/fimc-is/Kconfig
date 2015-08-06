@@ -1,8 +1,8 @@
 config VIDEO_EXYNOS_FIMC_IS
         bool "Exynos FIMC-IS (Image Subsystem) driver"
-        depends on VIDEO_EXYNOS
         select MEDIA_EXYNOS
         select USE_VENDER_FEATURE
+        select VIDEOBUF2_DMA_CONTIG
         default n
         help
           This is a v4l2 driver for exynos FIMC-IS device.
