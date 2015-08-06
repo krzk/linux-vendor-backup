@@ -49,7 +49,6 @@
 #include "fimc-is-dt.h"
 #include "fimc-is-resourcemgr.h"
 #include "fimc-is-fan53555.h"
-#include "fimc-is-ncp6335b.h"
 
 #include "sensor/fimc-is-device-6d1.h"
 #include "sensor/fimc-is-device-imx240.h"
@@ -1496,80 +1495,6 @@ static int fimc_is_fan53555_remove(struct i2c_client *client)
 	return 0;
 }
 
-static int fimc_is_ncp6335b_probe(struct i2c_client *client,
-				  const struct i2c_device_id *id)
-{
-	struct fimc_is_core *core;
-	int ret = 0;
-
-	struct device_node *np;
-	int gpio_comp_en;
-
-	BUG_ON(!fimc_is_dev);
-
-	pr_info("%s start\n",__func__);
-
-	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
-	if (!core) {
-		pr_err("core device is not yet probed");
-		return -EPROBE_DEFER;
-	}
-
-	np = of_find_compatible_node(NULL, NULL, "samsung,fimc_is_ncp6335b");
-	if(np == NULL) {
-		pr_err("compatible: fail to read, fan_parse_dt\n");
-		return -ENODEV;
-	}
-
-	gpio_comp_en = of_get_named_gpio(np, "comp_en", 0);
-	if (!gpio_is_valid(gpio_comp_en))
-		pr_err("failed to get comp en gpio\n");
-
-	ret = gpio_request(gpio_comp_en,"COMP_EN");
-	if (ret < 0 )
-		pr_err("gpio_request_error(%d)\n",ret);
-
-	gpio_direction_output(gpio_comp_en,1);
-
-	if (!i2c_check_functionality(client->adapter, I2C_FUNC_SMBUS_BYTE_DATA)) {
-		pr_err("%s: SMBUS Byte Data not Supported\n", __func__);
-		ret = -EIO;
-		goto err;
-	}
-
-	core->companion_dcdc.client = client;
-	core->companion_dcdc.type = DCDC_VENDOR_NCP6335B;
-	core->companion_dcdc.get_vout_val = ncp6335b_get_vout_val;
-	core->companion_dcdc.get_vout_str = ncp6335b_get_vout_str;
-	core->companion_dcdc.set_vout = ncp6335b_set_voltage;
-
-	ret = ncp6335b_set_voltage(client, 0xC0);
-	if (ret < 0) {
-		pr_err("%s: error, fail to set voltage\n", __func__);
-		goto err;
-	}
-
-	ret = ncp6335b_read_voltage(client);
-	if (ret < 0) {
-		pr_err("%s: error, fail to read voltage\n", __func__);
-		goto err;
-	}
-
-	pr_info("%s %s: ncp6335b probed\n",
-		dev_driver_string(&client->dev), dev_name(&client->dev));
-
-err:
-	gpio_direction_output(gpio_comp_en,0);
-	gpio_free(gpio_comp_en);
-
-	return ret;
-}
-
-static int fimc_is_ncp6335b_remove(struct i2c_client *client)
-{
-	return 0;
-}
-
 static const struct of_device_id exynos_fimc_is_match[] = {
 	{
 		.compatible = "samsung,exynos5-fimc-is",
@@ -1633,30 +1558,6 @@ static struct i2c_driver fan53555_driver = {
         .id_table = fan53555_id,
 };
 module_i2c_driver(fan53555_driver);
-
-static struct of_device_id ncp6335b_dt_ids[] = {
-        { .compatible = "samsung,fimc_is_ncp6335b",},
-        {},
-};
-MODULE_DEVICE_TABLE(of, ncp6335b_dt_ids);
-
-static const struct i2c_device_id ncp6335b_id[] = {
-        {"fimc_is_ncp6335b", 0},
-        {}
-};
-MODULE_DEVICE_TABLE(i2c, ncp6335b_id);
-
-static struct i2c_driver ncp6335b_driver = {
-        .driver = {
-                .name = "fimc_is_ncp6335b",
-                .owner  = THIS_MODULE,
-                .of_match_table = ncp6335b_dt_ids,
-        },
-        .probe = fimc_is_ncp6335b_probe,
-        .remove = fimc_is_ncp6335b_remove,
-        .id_table = ncp6335b_id,
-};
-module_i2c_driver(ncp6335b_driver);
 
 static struct platform_driver fimc_is_driver = {
 	.probe		= fimc_is_probe,

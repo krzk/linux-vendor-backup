@@ -29,7 +29,6 @@ obj-$(CONFIG_USE_VENDER_FEATURE) := fimc-is-spi.o \
 
 obj-$(CONFIG_COMPANION_USE)	+= fimc-is-companion.o \
 				fimc-is-fan53555.o \
-				fimc-is-ncp6335b.o \
 				fimc-is-companion-dt.o \
 				fimc-is-device-companion.o \
 				fimc-is-video-companion.o
