@@ -15,11 +15,6 @@
 #include "fimc-is-companion.h"
 #include "fimc-is-device-ischain.h"
 #include "fimc-is-fan53555.h"
-#ifdef USE_ION_ALLOC
-#include <linux/dma-buf.h>
-#include <linux/exynos_ion.h>
-#include <linux/ion.h>
-#endif
 
 #define COMP_FW_EVT0			"companion_fw_evt0.bin"
 #define COMP_FW_EVT1			"companion_fw_evt1.bin"
@@ -387,9 +382,6 @@ static int fimc_is_comp_load_binary(struct fimc_is_core *core, char *name)
 	u16 addr1, addr2;
 	char companion_ver[12] = {0, };
 	struct fimc_is_from_info *sysfs_finfo;
-#ifdef USE_ION_ALLOC
-	struct ion_handle *handle = NULL;
-#endif
 	int retry_count = 0;
 
 	BUG_ON(!core);
@@ -397,9 +389,6 @@ static int fimc_is_comp_load_binary(struct fimc_is_core *core, char *name)
 	BUG_ON(!core->companion);
 	BUG_ON(!core->companion->pdev);
 	BUG_ON(!name);
-#ifdef USE_ION_ALLOC
-	BUG_ON(!core->fimc_ion_client);
-#endif
 	fimc_is_sec_get_sysfs_finfo(&sysfs_finfo);
 
 	old_fs = get_fs();
@@ -414,29 +403,12 @@ static int fimc_is_comp_load_binary(struct fimc_is_core *core, char *name)
 	size = fp->f_path.dentry->d_inode->i_size;
 	pr_info("start read sdcard, file path %s, size %d Bytes\n", fw_name, size);
 
-#ifdef USE_ION_ALLOC
-	handle = ion_alloc(core->fimc_ion_client, (size_t)size, 0,
-				EXYNOS_ION_HEAP_SYSTEM_MASK, 0);
-	if (IS_ERR_OR_NULL(handle)) {
-		err("fimc_is_comp_load_binary:failed to ioc_alloc\n");
-		ret = -ENOMEM;
-		goto p_err;
-	}
-
-	buf = (u8 *)ion_map_kernel(core->fimc_ion_client, handle);
-	if (IS_ERR_OR_NULL(buf)) {
-		err("fimc_is_comp_load_binary:fail to ion_map_kernle\n");
-		ret = -ENOMEM;
-		goto p_err;
-	}
-#else
 	buf = vmalloc(size);
 	if (!buf) {
 		err("failed to allocate memory");
 		ret = -ENOMEM;
 		goto p_err;
 	}
-#endif
 
 	nread = vfs_read(fp, (char __user *)buf, size, &fp->f_pos);
 	if (nread != size) {
@@ -479,29 +451,12 @@ request_fw:
 		}
 
 		size = fw_blob->size;
-#ifdef USE_ION_ALLOC
-		handle = ion_alloc(core->fimc_ion_client, (size_t)size, 0,
-				EXYNOS_ION_HEAP_SYSTEM_MASK, 0);
-		if (IS_ERR_OR_NULL(handle)) {
-			err("fimc_is_comp_load_binary:failed to ioc_alloc\n");
-			ret = -ENOMEM;
-			goto p_err;
-		}
-
-		buf = (u8 *)ion_map_kernel(core->fimc_ion_client, handle);
-		if (IS_ERR_OR_NULL(buf)) {
-			err("fimc_is_comp_load_binary:fail to ion_map_kernle\n");
-			ret = -ENOMEM;
-			goto p_err;
-		}
-#else
 		buf = vmalloc(size);
 		if (!buf) {
 			err("failed to allocate memory");
 			ret = -ENOMEM;
 			goto p_err;
 		}
-#endif
 		memcpy((void *)buf, fw_blob->data, size);
 		if ((!strcmp(name, COMP_FW_EVT0)) || (!strcmp(name, sysfs_finfo->load_c1_fw_name))) {
 			memcpy((void *)companion_crc, fw_blob->data + size - 4, 4);
@@ -596,19 +551,9 @@ request_fw:
 	}
 
 p_err:
-#ifdef USE_ION_ALLOC
-	if (!IS_ERR_OR_NULL(buf)) {
-		ion_unmap_kernel(core->fimc_ion_client, handle);
-	}
-
-	if (!IS_ERR_OR_NULL(handle)) {
-		ion_free(core->fimc_ion_client, handle);
-	}
-#else
 	if (buf) {
 		vfree(buf);
 	}
-#endif
 	if (!fw_requested) {
 		if (!IS_ERR_OR_NULL(fp)) {
 			filp_close(fp, current->files);

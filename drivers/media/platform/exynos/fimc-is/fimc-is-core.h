@@ -282,18 +282,9 @@ struct fimc_is_core {
 	bool					ois_ver_read;
 	bool					use_ois_hsi2c;
 	bool					use_module_check;
-#ifdef USE_ION_ALLOC
-	struct ion_client    *fimc_ion_client;
-#endif
 	bool					running_rear_camera;
 	bool					running_front_camera;
 };
-
-#if defined(CONFIG_VIDEOBUF2_CMA_PHYS)
-extern const struct fimc_is_vb2 fimc_is_vb2_cma;
-#elif defined(CONFIG_VIDEOBUF2_ION)
-extern const struct fimc_is_vb2 fimc_is_vb2_ion;
-#endif
 
 extern struct device *fimc_is_dev;
 
