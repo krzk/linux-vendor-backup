@@ -71,6 +71,8 @@ void iommu_dma_unmap_resource(struct device *dev, dma_addr_t handle,
 		size_t size, enum dma_data_direction dir, unsigned long attrs);
 int iommu_dma_mapping_error(struct device *dev, dma_addr_t dma_addr);
 
+int iommu_dma_reserve(struct device *dev, dma_addr_t addr, size_t size);
+
 /* The DMA API isn't _quite_ the whole story, though... */
 void iommu_dma_map_msi_msg(int irq, struct msi_msg *msg);
 void iommu_dma_get_resv_regions(struct device *dev, struct list_head *list);

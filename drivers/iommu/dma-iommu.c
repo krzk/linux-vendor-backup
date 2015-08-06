@@ -841,6 +841,22 @@ int iommu_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
 	return dma_addr == IOMMU_MAPPING_ERROR;
 }
 
+int iommu_dma_reserve(struct device *dev, dma_addr_t addr, size_t size)
+{
+	struct iommu_domain *domain = iommu_get_domain_for_dev(dev);
+	struct iommu_dma_cookie *cookie = domain->iova_cookie;
+	struct iova_domain *iovad = &cookie->iovad;
+	unsigned long lo, hi;
+
+	size = iova_align(iovad, size);
+	lo = iova_pfn(iovad, addr);
+	hi = iova_pfn(iovad, addr + size - 1);
+	if (!reserve_iova(iovad, lo, hi))
+		return -EBUSY;
+
+	return 0;
+}
+
 static struct iommu_dma_msi_page *iommu_dma_get_msi_page(struct device *dev,
 		phys_addr_t msi_addr, struct iommu_domain *domain)
 {

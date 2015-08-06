@@ -29,6 +29,8 @@
 #include <linux/bug.h>
 #include <linux/v4l2-mediabus.h>
 #include <linux/gpio.h>
+#include <linux/dma-iommu.h>
+#include <linux/iommu.h>
 
 #include <linux/of.h>
 #include <linux/of_gpio.h>
@@ -88,10 +90,48 @@ extern int fimc_is_3a1c_video_probe(void *data);
 /* sysfs global variable for debug */
 struct fimc_is_sysfs_debug sysfs_debug;
 
+int dma_alloc_coherent_at(struct device *dev, unsigned int size, void **kaddr, dma_addr_t dma_addr, gfp_t flags)
+{
+	struct iommu_domain *domain = iommu_get_domain_for_dev(dev);
+	struct sg_table sgt;
+	dma_addr_t alloc_dma_addr;
+	int ret;
+
+	*kaddr = dma_alloc_coherent(dev, size, &alloc_dma_addr, flags);
+
+	dev_info(dev, "Allocated %d buffer at %pad\n", size, &alloc_dma_addr);
+
+	/*
+	 * HW requires firmware to be mapped at the begging of its address
+	 * space. IOMMU_DMA glue layer uses allocator, which assigns
+	 * virtual addresses from the end of defined address space.
+	 * There is no direct way to enforce different IOVA address for the
+	 * allocated buffer, so as a workaround, the firmware buffer will
+	 * be mapped second time at the beggining of the address space.
+	 */
+
+	if (iommu_dma_reserve(dev, dma_addr, size))
+		return -EBUSY;
+	dev_info(dev, "Reserved %d bytes at %pad\n", size, &dma_addr);
+
+	ret = dma_get_sgtable(dev, &sgt, *kaddr, alloc_dma_addr, size);
+
+	if (iommu_map_sg(domain, dma_addr, sgt.sgl, sgt.nents,
+			 IOMMU_READ | IOMMU_WRITE) != size) {
+		ret = -ENOMEM;
+	}
+
+	dev_info(dev, "Remapped buffer to %pad address\n", &dma_addr);
+
+	sg_free_table(&sgt);
+
+	return ret;
+}
+
 static int fimc_is_ischain_allocmem(struct fimc_is_core *this)
 {
 	struct device *dev = &this->pdev->dev;
-	/* int ret = 0; */
+	int ret = 0;
 	/* void *fw_cookie; */
 	size_t fw_size =
 #ifdef ENABLE_ODC
@@ -147,10 +187,12 @@ exit:
 	info("[COR] Device virtual for internal: %08x\n", this->minfo.kvaddr);
 	this->minfo.fw_cookie = fw_cookie;
 #endif
-	this->minfo.kvaddr = dma_alloc_coherent(dev, fw_size,
-						&this->minfo.dvaddr,
-						GFP_KERNEL);
-	if (this->minfo.kvaddr == NULL)
+
+	this->minfo.dvaddr = 0x10000000;
+	ret = dma_alloc_coherent_at(dev, fw_size,
+				    &this->minfo.kvaddr, this->minfo.dvaddr,
+				    GFP_KERNEL);
+	if (ret)
 		return -ENOMEM;
 
 	/* memset((void *)this->minfo.kvaddr, 0, fw_size); */
@@ -875,6 +917,9 @@ static int fimc_is_probe(struct platform_device *pdev)
 	core->running_front_camera = false;
 
 	device_init_wakeup(&pdev->dev, true);
+
+	/* TEMPORARY HACK */
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(31);
 
 	/* init mutex for spi read */
 	mutex_init(&core->spi_lock);
