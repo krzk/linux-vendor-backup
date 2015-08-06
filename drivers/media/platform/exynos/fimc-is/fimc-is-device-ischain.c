@@ -99,7 +99,7 @@ static int isfw_debug_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int isfw_debug_read(struct file *file, char __user *user_buf,
+static ssize_t isfw_debug_read(struct file *file, char __user *user_buf,
 	size_t buf_len, loff_t *ppos)
 {
 	char *debug;
@@ -117,14 +117,13 @@ static int isfw_debug_read(struct file *file, char __user *user_buf,
 	count2 = 0;
 	debug_cnt = 0;
 	imemory = &device->imemory;
-	core = (struct fimc_is_core *)device->interface->core;
+	core = device->interface->core;
 
 	if (atomic_read(&core->video_isp.refcount) <= 0) {
 		err("isp video node is not open");
 		goto exit;
 	}
 
-#warning NOT IMPLEMENTED
 #if 0
 	vb2_ion_sync_for_device(imemory->fw_cookie, DEBUG_OFFSET,
 		DEBUG_CNT, DMA_FROM_DEVICE);
@@ -167,7 +166,7 @@ static int isfw_debug_read(struct file *file, char __user *user_buf,
 		core->debug_cnt = count2;
 	}
 
-	info("FW_READ : Origin(%d), New(%d) - Length(%d)\n",
+	info("FW_READ : Origin(%zd), New(%d) - Length(%zd)\n",
 		backup_cnt,
 		core->debug_cnt,
 		(buf_len - buf_count));
@@ -683,7 +682,6 @@ static int fimc_is_ishcain_deinitmem(struct fimc_is_device_ischain *device)
 static void fimc_is_ischain_cache_flush(struct fimc_is_device_ischain *this,
 	u32 offset, u32 size)
 {
-#warning NOT IMPLEMENTED
 #if 0
 	vb2_ion_sync_for_device(this->imemory.fw_cookie,
 		offset,
@@ -694,7 +692,6 @@ static void fimc_is_ischain_cache_flush(struct fimc_is_device_ischain *this,
 
 static void fimc_is_ischain_region_invalid(struct fimc_is_device_ischain *device)
 {
-#warning NOT IMPLEMENTED
 #if 0
 	vb2_ion_sync_for_device(
 		device->imemory.fw_cookie,
@@ -706,7 +703,6 @@ static void fimc_is_ischain_region_invalid(struct fimc_is_device_ischain *device
 
 static void fimc_is_ischain_region_flush(struct fimc_is_device_ischain *device)
 {
-#warning NOT IMPLEMENTED
 #if 0
 	vb2_ion_sync_for_device(
 		device->imemory.fw_cookie,
@@ -718,7 +714,6 @@ static void fimc_is_ischain_region_flush(struct fimc_is_device_ischain *device)
 
 void fimc_is_ischain_meta_flush(struct fimc_is_frame *frame)
 {
-#warning NOT IMPLEMENTED
 #if 0
 #ifdef ENABLE_CACHE
 	vb2_ion_sync_for_device(
@@ -732,7 +727,6 @@ void fimc_is_ischain_meta_flush(struct fimc_is_frame *frame)
 
 void fimc_is_ischain_meta_invalid(struct fimc_is_frame *frame)
 {
-#warning NOT IMPLEMENTED
 #if 0
 #ifdef ENABLE_CACHE
 	vb2_ion_sync_for_device(
@@ -778,7 +772,7 @@ static int fimc_is_ischain_loadfirm(struct fimc_is_device_ischain *device)
 	u8 *buf = NULL;
 #ifdef USE_ION_ALLOC
 	struct ion_handle *handle = NULL;
-	struct fimc_is_core *core = (struct fimc_is_core *)platform_get_drvdata(device->pdev);
+	struct fimc_is_core *core = platform_get_drvdata(device->pdev);
 #endif
 #ifdef SDCARD_FW
 	struct file *fp = NULL;
@@ -1003,7 +997,7 @@ static int fimc_is_ischain_loadsetf(struct fimc_is_device_ischain *device,
 	u8 *buf = NULL;
 #ifdef USE_ION_ALLOC
 	struct ion_handle *handle = NULL;
-	struct fimc_is_core *core = (struct fimc_is_core *)platform_get_drvdata(device->pdev);
+	struct fimc_is_core *core = platform_get_drvdata(device->pdev);
 #endif
 
 #ifdef SDCARD_FW
@@ -1081,8 +1075,8 @@ static int fimc_is_ischain_loadsetf(struct fimc_is_device_ischain *device,
 		goto out;
 	}
 
-	address = (void *)(device->imemory.kvaddr + load_addr);
-	memcpy((void *)address, (void *)buf, fsize);
+	address = (device->imemory.kvaddr + load_addr);
+	memcpy(address, buf, fsize);
 	fimc_is_ischain_cache_flush(device, load_addr, fsize + 1);
 	fimc_is_ischain_version(device, setfile_name, buf, fsize);
 
@@ -1118,7 +1112,7 @@ request_fw:
 			goto out;
 		}
 
-		address = (void *)(device->imemory.kvaddr + load_addr);
+		address = (device->imemory.kvaddr + load_addr);
 		memcpy(address, fw_blob->data, fw_blob->size);
 		fimc_is_ischain_cache_flush(device, load_addr, fw_blob->size + 1);
 		fimc_is_ischain_version(device, setfile_name, fw_blob->data,
@@ -1177,7 +1171,7 @@ static int fimc_is_ischain_loadcalb(struct fimc_is_device_ischain *device,
 	struct fimc_is_from_info *sysfs_finfo;
 	char *cal_buf;
 
-	struct fimc_is_core *core = (struct fimc_is_core *)platform_get_drvdata(device->pdev);
+	struct fimc_is_core *core = platform_get_drvdata(device->pdev);
 	mdbgd_ischain("%s\n", device, __func__);
 
 	cal_ptr = (char *)(device->imemory.kvaddr + FIMC_IS_CAL_START_ADDR);
@@ -1245,7 +1239,7 @@ static void fimc_is_a5_power(struct device *dev, int power_flags)
 		BUG();
 	}
 
-	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	core = dev_get_drvdata(fimc_is_dev);
 	if (!core) {
 		err("core is NULL");
 		BUG();
@@ -1285,7 +1279,7 @@ int fimc_is_ischain_power(struct fimc_is_device_ischain *device, int on)
 	char setf_name[100];
 
 	struct device *dev = &device->pdev->dev;
-	struct fimc_is_core *core = (struct fimc_is_core *)platform_get_drvdata(device->pdev);
+	struct fimc_is_core *core = platform_get_drvdata(device->pdev);
 	struct fimc_is_from_info *sysfs_finfo;
 
 	if (on) {
@@ -1342,7 +1336,7 @@ int fimc_is_ischain_power(struct fimc_is_device_ischain *device, int on)
 		writel(device->imemory.dvaddr, device->regs + BBOAR);
 		val = __raw_readl(device->regs + BBOAR);
 		if(device->imemory.dvaddr != val)
-			err("dvaddr : %x , BBOAR : %x", device->imemory.dvaddr,val);
+			err("dvaddr : %pad , BBOAR : %x", &(device->imemory.dvaddr), val);
 
 		exynos_smc(SMC_CMD_REG, SMC_REG_ID_SFR_W(PA_FIMC_IS_GIC_C + 0x4), 0x000000FF, 0);
 		for (i = 0; i < 3; i++)
@@ -1407,7 +1401,7 @@ static int fimc_is_itf_s_param(struct fimc_is_device_ischain *device,
 {
 	int ret = 0;
 	u32 flag, index;
-	u32 dst_base, src_base;
+	void *dst_base, *src_base;
 
 	BUG_ON(!device);
 
@@ -1417,14 +1411,14 @@ static int fimc_is_itf_s_param(struct fimc_is_device_ischain *device,
 			BUG();
 		}
 
-		dst_base = (u32)&device->is_region->parameter;
-		src_base = (u32)frame->shot->ctl.entry.parameter;
+		dst_base = &device->is_region->parameter;
+		src_base = frame->shot->ctl.entry.parameter;
 
 		for (index = 0; lindex && (index < 32); index++) {
 			flag = 1 << index;
 			if (lindex & flag) {
-				memcpy((u32 *)(dst_base + (index * PARAMETER_MAX_SIZE)),
-					(u32 *)(src_base + (index * PARAMETER_MAX_SIZE)),
+				memcpy((dst_base + (index * PARAMETER_MAX_SIZE)),
+					(src_base + (index * PARAMETER_MAX_SIZE)),
 					PARAMETER_MAX_SIZE);
 				lindex &= ~flag;
 			}
@@ -1433,8 +1427,8 @@ static int fimc_is_itf_s_param(struct fimc_is_device_ischain *device,
 		for (index = 0; hindex && (index < 32); index++) {
 			flag = 1 << index;
 			if (hindex & flag) {
-				memcpy((u32 *)(dst_base + ((32 + index) * PARAMETER_MAX_SIZE)),
-					(u32 *)(src_base + ((32 + index) * PARAMETER_MAX_SIZE)),
+				memcpy((dst_base + ((32 + index) * PARAMETER_MAX_SIZE)),
+					(src_base + ((32 + index) * PARAMETER_MAX_SIZE)),
 					PARAMETER_MAX_SIZE);
 				hindex &= ~flag;
 			}
@@ -1469,7 +1463,7 @@ static void * fimc_is_itf_g_param(struct fimc_is_device_ischain *device,
 	struct fimc_is_frame *frame,
 	u32 index)
 {
-	u32 dst_base, src_base, dst_param, src_param;
+	void *dst_base, *src_base, *dst_param, *src_param;
 
 	BUG_ON(!device);
 
@@ -1479,13 +1473,13 @@ static void * fimc_is_itf_g_param(struct fimc_is_device_ischain *device,
 			BUG();
 		}
 
-		dst_base = (u32)&frame->shot->ctl.entry.parameter[0];
+		dst_base = &frame->shot->ctl.entry.parameter[0];
 		dst_param = (dst_base + (index * PARAMETER_MAX_SIZE));
-		src_base = (u32)&device->is_region->parameter;
+		src_base = &device->is_region->parameter;
 		src_param = (src_base + (index * PARAMETER_MAX_SIZE));
-		memcpy((u32 *)dst_param, (u32 *)src_param, PARAMETER_MAX_SIZE);
+		memcpy(dst_param, src_param, PARAMETER_MAX_SIZE);
 	} else {
-		dst_base = (u32)&device->is_region->parameter;
+		dst_base = &device->is_region->parameter;
 		dst_param = (dst_base + (index * PARAMETER_MAX_SIZE));
 	}
 
@@ -2284,7 +2278,7 @@ static int fimc_is_itf_grp_shot(struct fimc_is_device_ischain *device,
 
 	if (frame->shot->magicNumber != SHOT_MAGIC_NUMBER) {
 		merr("shot magic number error(0x%08X)\n", device, frame->shot->magicNumber);
-		merr("shot_ext size : %d", device, sizeof(struct camera2_shot_ext));
+		merr("shot_ext size : %ld", device, sizeof(struct camera2_shot_ext));
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -2338,7 +2332,7 @@ int fimc_is_ischain_probe(struct fimc_is_device_ischain *device,
 	struct fimc_is_mem *mem,
 	struct platform_device *pdev,
 	u32 instance,
-	u32 regs)
+	void * regs)
 {
 	int ret = 0;
 	struct fimc_is_subdev *scc, *dis, *scp;
@@ -2534,8 +2528,6 @@ int fimc_is_ischain_open(struct fimc_is_device_ischain *device,
 	imemory			= &device->imemory;
 	imemory->base		= minfo->base;
 	imemory->size		= minfo->size;
-	imemory->vaddr_base	= minfo->vaddr_base;
-	imemory->vaddr_curr	= minfo->vaddr_curr;
 	imemory->fw_cookie	= minfo->fw_cookie;
 	imemory->dvaddr		= minfo->dvaddr;
 	imemory->kvaddr		= minfo->kvaddr;
@@ -2550,8 +2542,7 @@ int fimc_is_ischain_open(struct fimc_is_device_ischain *device,
 	imemory->dvaddr_region	= imemory->dvaddr + imemory->offset_region;
 	imemory->kvaddr_region	= imemory->kvaddr + imemory->offset_region;
 	imemory->is_region	= (struct is_region *)imemory->kvaddr_region;
-	imemory->offset_shared	= (u32)&imemory->is_region->shared[0] -
-		imemory->kvaddr;
+	imemory->offset_shared	= (void *)(&imemory->is_region->shared[0]) - imemory->kvaddr;
 	imemory->dvaddr_shared	= imemory->dvaddr + imemory->offset_shared;
 	imemory->kvaddr_shared	= imemory->kvaddr + imemory->offset_shared;
 	device->is_region = imemory->is_region;
@@ -2597,7 +2588,7 @@ int fimc_is_ischain_close(struct fimc_is_device_ischain *device,
 	group = &device->group_isp;
 	leader = &group->leader;
 	queue = GET_SRC_QUEUE(vctx);
-	core = (struct fimc_is_core *)device->interface->core;
+	core = device->interface->core;
 	refcount = atomic_read(&vctx->video->refcount);
 	spi_gpio = &core->spi_gpio;
 	if (refcount < 0) {
@@ -2792,7 +2783,7 @@ int fimc_is_ischain_init_wrap(struct fimc_is_device_ischain *device,
 
 	mdbgd_ischain("%s(input : %08X)\n", device, __func__, input);
 
-	core = (struct fimc_is_core *)platform_get_drvdata(device->pdev);
+	core = platform_get_drvdata(device->pdev);
 
 	module = input & MODULE_MASK;
 	ssx_vindex = (input & SSX_VINDEX_MASK) >> SSX_VINDEX_SHIFT;
@@ -2991,13 +2982,13 @@ static int fimc_is_ischain_s_3aa_size(struct fimc_is_device_ischain *device,
 	/* check crop size */
 	if (test_bit(FIMC_IS_GROUP_OTF_INPUT, &device->group_3aa.state)) {
 		if (bns_width <= total_width) {
-			merr("crop width(%d) is bigger than input width(%d)\n",
+			merr("crop width(%zd) is bigger than input width(%zd)\n",
 				device, total_width, bns_width);
 			goto p_err;
 		}
 
 		if (bns_height <= total_height) {
-			merr("crop height(%d) is bigger than input height(%d)\n",
+			merr("crop height(%zd) is bigger than input height(%zd)\n",
 				device, total_height, bns_height);
 			goto p_err;
 		}
@@ -3009,13 +3000,13 @@ static int fimc_is_ischain_s_3aa_size(struct fimc_is_device_ischain *device,
 		taa_dma_input->cmd = DMA_INPUT_COMMAND_DISABLE;
 	} else {
 		if (sensor_width <= total_width) {
-			merr("crop width(%d) is bigger than input width(%d)\n",
+			merr("crop width(%zd) is bigger than input width(%zd)\n",
 				device, total_width, sensor_width);
 			goto p_err;
 		}
 
 		if (sensor_height <= total_height) {
-			merr("crop height(%d) is bigger than input height(%d)\n",
+			merr("crop height(%zd) is bigger than input height(%zd)\n",
 				device, total_height, sensor_height);
 			goto p_err;
 		}
@@ -6585,11 +6576,11 @@ const struct fimc_is_queue_ops fimc_is_ischain_vdo_ops = {
 };
 
 int fimc_is_ischain_g_capability(struct fimc_is_device_ischain *this,
-	u32 user_ptr)
+	void *user_ptr)
 {
 	int ret = 0;
 
-	ret = copy_to_user((void *)user_ptr, &this->capability,
+	ret = copy_to_user(user_ptr, &this->capability,
 		sizeof(struct camera2_sm));
 
 	return ret;
@@ -6632,8 +6623,8 @@ int fimc_is_ischain_3aa_callback(struct fimc_is_device_ischain *device,
 	}
 
 	if (unlikely(frame != check_frame)) {
-		merr("frame checking is fail(%X != %X)", device,
-			(u32)frame, (u32)check_frame);
+		merr("frame checking is fail(%p != %p)", device,
+			frame, check_frame);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -6826,8 +6817,8 @@ int fimc_is_ischain_isp_callback(struct fimc_is_device_ischain *device,
 	}
 
 	if (unlikely(frame != check_frame)) {
-		merr("frame checking is fail(%X != %X)", device,
-			(u32)frame, (u32)check_frame);
+		merr("frame checking is fail(%p != %p)", device,
+			frame, check_frame);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -7026,8 +7017,8 @@ int fimc_is_ischain_isp_callback(struct fimc_is_device_ischain *device,
 #ifdef PRINT_PARAM
 	if (frame->fcount == 1) {
 		fimc_is_hw_memdump(device->interface,
-			(u32) &device->is_region->parameter,
-			(u32) &device->is_region->parameter + sizeof(device->is_region->parameter));
+			&device->is_region->parameter,
+			((void *)&device->is_region->parameter) + sizeof(device->is_region->parameter));
 	}
 #endif
 
@@ -7078,8 +7069,8 @@ int fimc_is_ischain_dis_callback(struct fimc_is_device_ischain *device,
 	fimc_is_frame_request_head(framemgr, &frame);
 
 	if (frame != check_frame) {
-		merr("grp_frame is invalid(%X != %X)", device,
-			(u32)frame, (u32)check_frame);
+		merr("grp_frame is invalid(%p != %p)", device,
+			frame, check_frame);
 		return -EINVAL;
 	}
 

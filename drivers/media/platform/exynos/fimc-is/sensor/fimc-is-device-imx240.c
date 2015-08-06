@@ -59,16 +59,16 @@ static struct fimc_is_sensor_cfg config_imx240[] = {
 	//FIMC_IS_SENSOR_CFG(824, 496, 300, 13, 8),
 };
 
-static int sensor_imx240_init(struct v4l2_subdev *subdev, u32 val)
+static int sensor_imx240_init(struct v4l2_subdev *subdev, void *val)
 {
 	int ret = 0;
 	struct fimc_is_module_enum *module;
 
 	BUG_ON(!subdev);
 
-	module = (struct fimc_is_module_enum *)v4l2_get_subdevdata(subdev);
+	module = v4l2_get_subdevdata(subdev);
 
-	pr_info("[MOD:D:%d] %s(%d)\n", module->id, __func__, val);
+	pr_info("[MOD:D:%d] %s(%ld)\n", module->id, __func__, (long)val);
 
 	return ret;
 }
@@ -213,7 +213,7 @@ int sensor_imx240_probe(struct i2c_client *client,
 
 	BUG_ON(!fimc_is_dev);
 
-	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	core = dev_get_drvdata(fimc_is_dev);
 	if (!core) {
 		err("core device is not yet probed");
 		return -EPROBE_DEFER;
@@ -288,7 +288,7 @@ int sensor_imx240_probe(struct i2c_client *client,
 	ext->companion_con.product_name = COMPANION_NAME_73C1;
 	ext->companion_con.peri_info0.valid = true;
 	ext->companion_con.peri_info0.peri_type = SE_SPI;
-	ext->companion_con.peri_info0.peri_setting.spi.channel = (int) core->companion_spi_channel;
+	ext->companion_con.peri_info0.peri_setting.spi.channel = core->companion_spi_channel;
 	ext->companion_con.peri_info1.valid = true;
 	ext->companion_con.peri_info1.peri_type = SE_I2C;
 	ext->companion_con.peri_info1.peri_setting.i2c.channel = 0;

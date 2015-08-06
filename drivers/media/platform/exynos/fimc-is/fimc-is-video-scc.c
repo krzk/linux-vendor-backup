@@ -47,7 +47,7 @@ int fimc_is_scc_video_probe(void *data)
 
 	BUG_ON(!data);
 
-	core = (struct fimc_is_core *)data;
+	core = data;
 	video = &core->video_scc;
 
 	if (!core->pdev) {
@@ -285,7 +285,7 @@ static int fimc_is_scc_video_get_crop(struct file *file, void *fh,
 }
 
 static int fimc_is_scc_video_set_crop(struct file *file, void *fh,
-						struct v4l2_crop *crop)
+						const struct v4l2_crop *crop)
 {
 	dbg("%s\n", __func__);
 	return 0;
@@ -612,7 +612,7 @@ static int fimc_is_scc_start_streaming(struct vb2_queue *q,
 	return ret;
 }
 
-static int fimc_is_scc_stop_streaming(struct vb2_queue *q)
+static void fimc_is_scc_stop_streaming(struct vb2_queue *q)
 {
 	int ret = 0;
 	struct fimc_is_video_ctx *vctx = q->drv_priv;
@@ -626,17 +626,13 @@ static int fimc_is_scc_stop_streaming(struct vb2_queue *q)
 	device = vctx->device;
 	if (!device) {
 		err("device is NULL");
-		ret = -EINVAL;
-		goto p_err;
+		return;
 	}
 	subdev = &device->scc;
 
 	ret = fimc_is_queue_stop_streaming(queue, device, subdev, vctx);
 	if (ret)
 		merr("fimc_is_queue_stop_streaming is fail(%d)", vctx, ret);
-
-p_err:
-	return ret;
 }
 
 static void fimc_is_scc_buffer_queue(struct vb2_buffer *vb)
@@ -665,9 +661,8 @@ static void fimc_is_scc_buffer_queue(struct vb2_buffer *vb)
 	}
 }
 
-static int fimc_is_scc_buffer_finish(struct vb2_buffer *vb)
+static void fimc_is_scc_buffer_finish(struct vb2_buffer *vb)
 {
-	int ret = 0;
 	struct fimc_is_video_ctx *vctx = vb->vb2_queue->drv_priv;
 	struct fimc_is_device_ischain *device;
 	struct fimc_is_subdev *subdev;
@@ -681,9 +676,7 @@ static int fimc_is_scc_buffer_finish(struct vb2_buffer *vb)
 	device = vctx->device;
 	subdev = &device->scc;
 
-	ret = fimc_is_subdev_buffer_finish(subdev, vb->v4l2_buf.index);
-
-	return ret;
+	fimc_is_subdev_buffer_finish(subdev, vb->v4l2_buf.index);
 }
 
 const struct vb2_ops fimc_is_scc_qops = {

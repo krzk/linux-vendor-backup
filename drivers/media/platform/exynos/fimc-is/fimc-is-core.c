@@ -90,8 +90,9 @@ struct fimc_is_sysfs_debug sysfs_debug;
 
 static int fimc_is_ischain_allocmem(struct fimc_is_core *this)
 {
-	int ret = 0;
-	void *fw_cookie;
+	struct device *dev = &this->pdev->dev;
+	/* int ret = 0; */
+	/* void *fw_cookie; */
 	size_t fw_size =
 #ifdef ENABLE_ODC
 				SIZE_ODC_INTERNAL_BUF * NUM_ODC_INTERNAL_BUF +
@@ -105,9 +106,9 @@ static int fimc_is_ischain_allocmem(struct fimc_is_core *this)
 			FIMC_IS_A5_MEM_SIZE;
 
 	fw_size = PAGE_ALIGN(fw_size);
+
 	dbg_core("Allocating memory for FIMC-IS firmware.\n");
 
-#warning NOT IMPLEMENTED
 #if 0
 	fw_cookie = vb2_ion_private_alloc(this->mem.alloc_ctx, fw_size, 1, 0);
 
@@ -130,8 +131,8 @@ static int fimc_is_ischain_allocmem(struct fimc_is_core *this)
 	dbg_core("Device vaddr = %08x , size = %08x\n",
 		this->minfo.dvaddr, FIMC_IS_A5_MEM_SIZE);
 
-	this->minfo.kvaddr = (u32)vb2_ion_private_vaddr(fw_cookie);
-	if (IS_ERR((void *)this->minfo.kvaddr)) {
+	this->minfo.kvaddr = vb2_ion_private_vaddr(fw_cookie);
+	if (IS_ERR(this->minfo.kvaddr)) {
 		err("Bitprocessor memory remap failed");
 		vb2_ion_private_free(fw_cookie);
 		this->minfo.kvaddr = 0;
@@ -140,16 +141,31 @@ static int fimc_is_ischain_allocmem(struct fimc_is_core *this)
 		goto exit;
 	}
 
-#warning NOT IMPLEMENTED
-#if 0
 	vb2_ion_sync_for_device(fw_cookie, 0, fw_size, DMA_BIDIRECTIONAL);
-#endif
-#endif
+
 exit:
 	info("[COR] Device virtual for internal: %08x\n", this->minfo.kvaddr);
 	this->minfo.fw_cookie = fw_cookie;
+#endif
+	this->minfo.kvaddr = dma_alloc_coherent(dev, fw_size,
+						&this->minfo.dvaddr,
+						GFP_KERNEL);
+	if (this->minfo.kvaddr == NULL)
+		return -ENOMEM;
 
-	return ret;
+	/* memset((void *)this->minfo.kvaddr, 0, fw_size); */
+
+	dev_info(dev, "FIMC-IS CPU memory base: %pad\n", &this->minfo.dvaddr);
+
+	if (((u32)this->minfo.dvaddr) & FIMC_IS_FW_BASE_MASK) {
+		dev_err(dev, "invalid firmware memory alignment: %pad\n",
+			&this->minfo.dvaddr);
+		dma_free_coherent(dev, fw_size, this->minfo.kvaddr,
+				  this->minfo.dvaddr);
+		return -EIO;
+	}
+
+	return 0;
 }
 
 static int fimc_is_ishcain_initmem(struct fimc_is_core *this)
@@ -258,7 +274,7 @@ int fimc_is_get_sensor_data(struct device *dev, char *maker, char *name, int pos
 		return -ENODEV;
 	}
 
-	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	core = dev_get_drvdata(fimc_is_dev);
 	if (!core) {
 		dev_err(dev, "%s: core is NULL", __func__);
 		return -EINVAL;
@@ -905,7 +921,7 @@ static int fimc_is_probe(struct platform_device *pdev)
 	}
 
 	fimc_is_interface_probe(&core->interface,
-		(u32)core->regs,
+		core->regs,
 		core->irq,
 		core);
 
@@ -938,7 +954,7 @@ static int fimc_is_probe(struct platform_device *pdev)
 		&core->mem,
 		core->pdev,
 		0,
-		(u32)core->regs);
+		core->regs);
 
 	/* device entity - ischain1 */
 	fimc_is_ischain_probe(&core->ischain[1],
@@ -948,7 +964,7 @@ static int fimc_is_probe(struct platform_device *pdev)
 		&core->mem,
 		core->pdev,
 		1,
-		(u32)core->regs);
+		core->regs);
 
 	/* device entity - ischain2 */
 	fimc_is_ischain_probe(&core->ischain[2],
@@ -958,7 +974,7 @@ static int fimc_is_probe(struct platform_device *pdev)
 		&core->mem,
 		core->pdev,
 		2,
-		(u32)core->regs);
+		core->regs);
 
 	ret = v4l2_device_register(&pdev->dev, &core->v4l2_dev);
 	if (ret) {
@@ -1259,7 +1275,7 @@ static int fimc_is_i2c0_probe(struct i2c_client *client,
 	if (!fimc_is_dev)
 		goto probe_defer;
 
-	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	core = dev_get_drvdata(fimc_is_dev);
 	if (!core)
 		goto probe_defer;
 
@@ -1359,7 +1375,7 @@ static int fimc_is_spi_probe(struct spi_device *spi)
 
 	dbg_core("%s\n", __func__);
 
-	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	core = dev_get_drvdata(fimc_is_dev);
 	if (!core) {
 		err("core device is not yet probed");
 		return -EPROBE_DEFER;
@@ -1406,7 +1422,7 @@ static int fimc_is_fan53555_probe(struct i2c_client *client,
 
 	pr_info("%s start\n",__func__);
 
-	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	core = dev_get_drvdata(fimc_is_dev);
 	if (!core) {
 		err("core device is not yet probed");
 		return -EPROBE_DEFER;

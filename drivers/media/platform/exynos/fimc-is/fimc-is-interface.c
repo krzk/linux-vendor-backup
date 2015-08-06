@@ -1878,7 +1878,7 @@ static void wq_func_shot(struct work_struct *data)
 
 	get_req_work(work_list, &work);
 	while (work) {
-		core = (struct fimc_is_core *)itf->core;
+		core = itf->core;
 		instance = work->msg.instance;
 		group_id = work->msg.group;
 		device = &((struct fimc_is_core *)itf->core)->ischain[instance];
@@ -1953,8 +1953,8 @@ static void wq_func_shot(struct work_struct *data)
 
 			clear_bit(req_flag, &frame->req_flag);
 			if (frame->req_flag)
-				merr("group(%d) req flag is not clear all(%X)",
-					device, group->id, (u32)frame->req_flag);
+				merr("group(%d) req flag is not clear all(%lX)",
+					device, group->id, frame->req_flag);
 
 			wq_func_group(groupmgr, group, grp_framemgr, frame,
 				vctx, status1, status2, fcount);
@@ -2158,7 +2158,7 @@ static irqreturn_t interface_isr(int irq, void *data)
 	struct fimc_is_work *work;
 	u32 status;
 
-	itf = (struct fimc_is_interface *)data;
+	itf = data;
 	status = fimc_is_get_intr(itf);
 
 	if (status & (1<<INTR_SHOT_DONE)) {
@@ -2298,12 +2298,12 @@ static irqreturn_t interface_isr(int irq, void *data)
 
 #define VERSION_OF_NO_NEED_IFLAG 221
 int fimc_is_interface_probe(struct fimc_is_interface *this,
-	u32 regs,
+	void *regs,
 	u32 irq,
 	void *core_data)
 {
 	int ret = 0;
-	struct fimc_is_core *core = (struct fimc_is_core *)core_data;
+	struct fimc_is_core *core = core_data;
 
 	dbg_interface("%s\n", __func__);
 
@@ -2326,8 +2326,8 @@ int fimc_is_interface_probe(struct fimc_is_interface *this,
 	INIT_WORK(&this->work_wq[INTR_SCP_FDONE], wq_func_scp);
 	INIT_WORK(&this->work_wq[INTR_SHOT_DONE], wq_func_shot);
 
-	this->regs = (void *)regs;
-	this->com_regs = (struct is_common_reg *)(regs + ISSR0);
+	this->regs = regs;
+	this->com_regs = (regs + ISSR0);
 
 	if (GET_FIMC_IS_VER_OF_SUBIP(core, mcuctl) < VERSION_OF_NO_NEED_IFLAG)
 		this->need_iflag = true;
@@ -2490,10 +2490,9 @@ int fimc_is_hw_logdump(struct fimc_is_interface *this)
 
 	pr_err("\n### firmware messsage dump ###\n");
 
-	core = (struct fimc_is_core *)this->core;
+	core = this->core;
 	sentence_i = 0;
 
-#warning NOT IMPLEMENTED
 #if 0
 	vb2_ion_sync_for_device(core->minfo.fw_cookie,
 		DEBUG_OFFSET, DEBUG_CNT, DMA_FROM_DEVICE);
@@ -2566,8 +2565,8 @@ p_err:
 }
 
 int fimc_is_hw_memdump(struct fimc_is_interface *this,
-	u32 start,
-	u32 end)
+	void *start,
+	void *end)
 {
 	int ret = 0;
 	u32 *cur;
@@ -2580,14 +2579,14 @@ int fimc_is_hw_memdump(struct fimc_is_interface *this,
 		goto p_err;
 	}
 
-	cur = (u32 *)start;
+	cur = start;
 	items = 0;
 	offset = 0;
 
 	memset(sentence, 0, sizeof(sentence));
-	printk(KERN_ERR "Memory Dump(0x%08X ~ 0x%08X)\n", start, end);
+	printk(KERN_ERR "Memory Dump(%p ~ %p)\n", start, end);
 
-	while ((u32)cur <= end) {
+	while ((void *)cur <= end) {
 		if (!(items % 8)) {
 			printk(KERN_ERR "%s", sentence);
 			offset = 0;
@@ -2603,7 +2602,7 @@ int fimc_is_hw_memdump(struct fimc_is_interface *this,
 		items++;
 	}
 
-	ret = (u32)cur - end;
+	ret = (void *)cur - end;
 
 p_err:
 	return ret;

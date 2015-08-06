@@ -1369,7 +1369,7 @@ static int fimc_is_ois_probe(struct i2c_client *client,
 		return -EPROBE_DEFER;
 	}
 
-	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	core = dev_get_drvdata(fimc_is_dev);
 	if (!core)
 		return -EINVAL;
 

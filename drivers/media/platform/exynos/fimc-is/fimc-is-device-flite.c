@@ -1434,7 +1434,7 @@ int fimc_is_flite_open(struct v4l2_subdev *subdev,
 	struct fimc_is_device_flite *flite;
 	struct fimc_is_core *core;
 
-	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	core = dev_get_drvdata(fimc_is_dev);
 
 	BUG_ON(!core);
 	BUG_ON(!subdev);
@@ -1476,7 +1476,7 @@ int fimc_is_flite_close(struct v4l2_subdev *subdev)
 	struct fimc_is_device_flite *flite;
 	struct fimc_is_core *core;
 
-	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	core = dev_get_drvdata(fimc_is_dev);
 
 	BUG_ON(!core);
 	BUG_ON(!subdev);
@@ -1495,7 +1495,7 @@ p_err:
 }
 
 /* value : csi ch */
-static int flite_init(struct v4l2_subdev *subdev, u32 value)
+static int flite_init(struct v4l2_subdev *subdev, void *value)
 {
 	int ret = 0;
 	struct fimc_is_device_flite *flite;
@@ -1509,7 +1509,7 @@ static int flite_init(struct v4l2_subdev *subdev, u32 value)
 		goto p_err;
 	}
 
-	flite->csi = value;
+	flite->csi = (long)value;
 
 p_err:
 	return ret;
@@ -1747,7 +1747,7 @@ static int flite_s_stream(struct v4l2_subdev *subdev, int enable)
 	nowait = (enable & FLITE_NOWAIT_MASK) >> FLITE_NOWAIT_SHIFT;
 	enable = enable & FLITE_ENABLE_MASK;
 
-	flite = (struct fimc_is_device_flite *)v4l2_get_subdevdata(subdev);
+	flite = v4l2_get_subdevdata(subdev);
 	if (!flite) {
 		err("flite is NULL");
 		ret = -EINVAL;
@@ -1781,7 +1781,7 @@ static int flite_s_format(struct v4l2_subdev *subdev, struct v4l2_mbus_framefmt 
 	BUG_ON(!subdev);
 	BUG_ON(!fmt);
 
-	flite = (struct fimc_is_device_flite *)v4l2_get_subdevdata(subdev);
+	flite = v4l2_get_subdevdata(subdev);
 	if (!flite) {
 		err("flite is NULL");
 		ret = -EINVAL;
@@ -1809,7 +1809,7 @@ static int flite_s_ctrl(struct v4l2_subdev *subdev, struct v4l2_control *ctrl)
 	BUG_ON(!subdev);
 	BUG_ON(!ctrl);
 
-	flite = (struct fimc_is_device_flite *)v4l2_get_subdevdata(subdev);
+	flite = v4l2_get_subdevdata(subdev);
 	if (!flite) {
 		err("flite is NULL");
 		ret = -EINVAL;

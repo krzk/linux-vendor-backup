@@ -231,7 +231,7 @@ static int fimc_is_companion_gpio_on(struct fimc_is_device_companion *device)
 
 	pdata = device->pdata;
 	pin_ctrls = pdata->pin_ctrls;
-	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	core = dev_get_drvdata(fimc_is_dev);
 
 	if (test_bit(FIMC_IS_COMPANION_GPIO_ON, &device->state)) {
 		err("%s : already gpio on", __func__);
@@ -285,7 +285,7 @@ static int fimc_is_companion_gpio_off(struct fimc_is_device_companion *device)
 {
 	int ret = 0;
 	struct exynos_platform_fimc_is_sensor *pdata;
-	struct fimc_is_core *core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	struct fimc_is_core *core = dev_get_drvdata(fimc_is_dev);
 
 	BUG_ON(!device);
 	BUG_ON(!device->pdev);
@@ -333,7 +333,7 @@ int fimc_is_companion_open(struct fimc_is_device_companion *device)
 
 	BUG_ON(!device);
 
-	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	core = dev_get_drvdata(fimc_is_dev);
 	spi_gpio = &core->spi_gpio;
 
 	if (test_bit(FIMC_IS_COMPANION_OPEN, &device->state)) {
@@ -403,7 +403,7 @@ p_err:
 int fimc_is_companion_close(struct fimc_is_device_companion *device)
 {
 	int ret = 0;
-	struct fimc_is_core *core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	struct fimc_is_core *core = dev_get_drvdata(fimc_is_dev);
 	if (!core) {
 		err("core is NULL");
 		return -EINVAL;
@@ -459,7 +459,7 @@ static int fimc_is_companion_probe(struct platform_device *pdev)
 		return -EPROBE_DEFER;
 	}
 
-	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	core = dev_get_drvdata(fimc_is_dev);
 	if (!core) {
 		err("core is NULL");
 		return -EINVAL;
@@ -563,12 +563,12 @@ int fimc_is_companion_runtime_suspend(struct device *dev)
 
 	info("%s\n", __func__);
 
-	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	core = dev_get_drvdata(fimc_is_dev);
 	if (!core) {
 		err("core is NULL");
 		return -EINVAL;
 	}
-	device = (struct fimc_is_device_companion *)platform_get_drvdata(pdev);
+	device = platform_get_drvdata(pdev);
 	if (!device) {
 		err("device is NULL");
 		ret = -EINVAL;
@@ -609,12 +609,12 @@ int fimc_is_companion_runtime_resume(struct device *dev)
 	struct fimc_is_device_companion *device;
 	struct fimc_is_core *core;
 
-	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	core = dev_get_drvdata(fimc_is_dev);
 	if (!core) {
 		err("core is NULL");
 		return -EINVAL;
 	}
-	device = (struct fimc_is_device_companion *)platform_get_drvdata(pdev);
+	device = platform_get_drvdata(pdev);
 	if (!device) {
 		err("device is NULL");
 		return -EINVAL;

@@ -108,7 +108,7 @@ int fimc_is_csi_close(struct v4l2_subdev *subdev)
 }
 
 /* value : module enum */
-static int csi_init(struct v4l2_subdev *subdev, u32 value)
+static int csi_init(struct v4l2_subdev *subdev, void *value)
 {
 	int ret = 0;
 	struct fimc_is_device_csi *csi;
@@ -124,7 +124,7 @@ static int csi_init(struct v4l2_subdev *subdev, u32 value)
 		goto p_err;
 	}
 
-	module = (struct fimc_is_module_enum *)value;
+	module = value;
 	csi->sensor_cfgs = module->cfgs;
 	csi->sensor_cfg = module->cfg;
 	csi->vcis = module->vcis;
@@ -145,7 +145,7 @@ static int csi_s_power(struct v4l2_subdev *subdev,
 
 	BUG_ON(!subdev);
 
-	csi = (struct fimc_is_device_csi *)v4l2_get_subdevdata(subdev);
+	csi = v4l2_get_subdevdata(subdev);
 	if (!csi) {
 		err("csi is NULL");
 		return -EINVAL;
@@ -231,7 +231,7 @@ static int csi_s_stream(struct v4l2_subdev *subdev, int enable)
 
 	BUG_ON(!subdev);
 
-	csi = (struct fimc_is_device_csi *)v4l2_get_subdevdata(subdev);
+	csi = v4l2_get_subdevdata(subdev);
 	if (!csi) {
 		err("csi is NULL");
 		return -EINVAL;
@@ -268,7 +268,7 @@ static int csi_s_param(struct v4l2_subdev *subdev, struct v4l2_streamparm *param
 	cp = &param->parm.capture;
 	tpf = &cp->timeperframe;
 
-	csi = (struct fimc_is_device_csi *)v4l2_get_subdevdata(subdev);
+	csi = v4l2_get_subdevdata(subdev);
 	if (!csi) {
 		err("csi is NULL");
 		return -EINVAL;
@@ -288,7 +288,7 @@ static int csi_s_format(struct v4l2_subdev *subdev, struct v4l2_mbus_framefmt *f
 	BUG_ON(!subdev);
 	BUG_ON(!fmt);
 
-	csi = (struct fimc_is_device_csi *)v4l2_get_subdevdata(subdev);
+	csi = v4l2_get_subdevdata(subdev);
 	if (!csi) {
 		err("csi is NULL");
 		return -EINVAL;

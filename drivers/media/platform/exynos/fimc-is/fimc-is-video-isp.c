@@ -52,7 +52,7 @@ int fimc_is_isp_video_probe(void *data)
 
 	BUG_ON(!data);
 
-	core = (struct fimc_is_core *)data;
+	core = data;
 	video = &core->video_isp;
 
 	if (!core->pdev) {
@@ -287,7 +287,7 @@ static int fimc_is_isp_video_get_crop(struct file *file, void *fh,
 }
 
 static int fimc_is_isp_video_set_crop(struct file *file, void *fh,
-	struct v4l2_crop *crop)
+	const struct v4l2_crop *crop)
 {
 	struct fimc_is_video_ctx *vctx = file->private_data;
 	struct fimc_is_device_ischain *ischain;
@@ -516,7 +516,9 @@ static int fimc_is_isp_video_s_ctrl(struct file *file, void *priv,
 		fimc_is_logsync(device->interface, ctrl->value, IS_MSG_TEST_SYNC_LOG);
 		break;
 	case V4L2_CID_IS_G_CAPABILITY:
-		ret = fimc_is_ischain_g_capability(device, ctrl->value);
+		BUG();
+		ret = fimc_is_ischain_g_capability(device, NULL);
+//		ret = fimc_is_ischain_g_capability(device, ctrl->value);
 		dbg_isp("V4L2_CID_IS_G_CAPABILITY : %X\n", ctrl->value);
 		break;
 	case V4L2_CID_IS_FORCE_DONE:
@@ -869,7 +871,7 @@ static int fimc_is_isp_start_streaming(struct vb2_queue *vbq,
 	return ret;
 }
 
-static int fimc_is_isp_stop_streaming(struct vb2_queue *q)
+static void fimc_is_isp_stop_streaming(struct vb2_queue *q)
 {
 	int ret = 0;
 	struct fimc_is_video_ctx *vctx = q->drv_priv;
@@ -885,17 +887,13 @@ static int fimc_is_isp_stop_streaming(struct vb2_queue *q)
 	device = vctx->device;
 	if (!device) {
 		err("device is NULL");
-		ret = -EINVAL;
-		goto p_err;
+		return;
 	}
 	leader = &device->group_isp.leader;
 
 	ret = fimc_is_queue_stop_streaming(queue, device, leader, vctx);
 	if (ret)
 		merr("fimc_is_queue_stop_streaming is fail(%d)", vctx, ret);
-
-p_err:
-	return ret;
 }
 
 static void fimc_is_isp_buffer_queue(struct vb2_buffer *vb)
@@ -931,9 +929,8 @@ static void fimc_is_isp_buffer_queue(struct vb2_buffer *vb)
 	}
 }
 
-static int fimc_is_isp_buffer_finish(struct vb2_buffer *vb)
+static void fimc_is_isp_buffer_finish(struct vb2_buffer *vb)
 {
-	int ret = 0;
 	struct fimc_is_video_ctx *vctx = vb->vb2_queue->drv_priv;
 	struct fimc_is_device_ischain *device = vctx->device;
 
@@ -941,9 +938,7 @@ static int fimc_is_isp_buffer_finish(struct vb2_buffer *vb)
 	mdbgv_isp("%s(%d)\n", vctx, __func__, vb->v4l2_buf.index);
 #endif
 
-	ret = fimc_is_ischain_isp_buffer_finish(device, vb->v4l2_buf.index);
-
-	return ret;
+	fimc_is_ischain_isp_buffer_finish(device, vb->v4l2_buf.index);
 }
 
 const struct vb2_ops fimc_is_isp_qops = {

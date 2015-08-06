@@ -47,7 +47,7 @@ int fimc_is_3a0c_video_probe(void *data)
 
 	BUG_ON(!data);
 
-	core = (struct fimc_is_core *)data;
+	core = data;
 	video = &core->video_3a0c;
 
 	if (!core->pdev) {
@@ -80,7 +80,7 @@ int fimc_is_3a1c_video_probe(void *data)
 
 	BUG_ON(!data);
 
-	core = (struct fimc_is_core *)data;
+	core = data;
 	video = &core->video_3a1c;
 
 	if (!core->pdev) {
@@ -334,7 +334,7 @@ static int fimc_is_3aac_video_get_crop(struct file *file, void *fh,
 }
 
 static int fimc_is_3aac_video_set_crop(struct file *file, void *fh,
-	struct v4l2_crop *crop)
+	const struct v4l2_crop *crop)
 {
 	dbg("%s\n", __func__);
 	return 0;
@@ -624,7 +624,7 @@ static int fimc_is_3aac_start_streaming(struct vb2_queue *vbq,
 	return ret;
 }
 
-static int fimc_is_3aac_stop_streaming(struct vb2_queue *vbq)
+static void fimc_is_3aac_stop_streaming(struct vb2_queue *vbq)
 {
 	int ret = 0;
 	struct fimc_is_video_ctx *vctx = vbq->drv_priv;
@@ -644,8 +644,6 @@ static int fimc_is_3aac_stop_streaming(struct vb2_queue *vbq)
 	ret = fimc_is_queue_stop_streaming(queue, device, subdev, vctx);
 	if (ret)
 		merr("fimc_is_queue_stop_streaming is fail(%d)", vctx, ret);
-
-	return ret;
 }
 
 static void fimc_is_3aac_buffer_queue(struct vb2_buffer *vb)
@@ -681,9 +679,8 @@ static void fimc_is_3aac_buffer_queue(struct vb2_buffer *vb)
 	}
 }
 
-static int fimc_is_3aac_buffer_finish(struct vb2_buffer *vb)
+static void fimc_is_3aac_buffer_finish(struct vb2_buffer *vb)
 {
-	int ret = 0;
 	struct fimc_is_video_ctx *vctx = vb->vb2_queue->drv_priv;
 	struct fimc_is_device_ischain *ischain = vctx->device;
 	struct fimc_is_subdev *subdev = &ischain->taac;
@@ -692,9 +689,7 @@ static int fimc_is_3aac_buffer_finish(struct vb2_buffer *vb)
 	mdbgv_3aac("%s(%d)\n", vctx, __func__, vb->v4l2_buf.index);
 #endif
 
-	ret = fimc_is_subdev_buffer_finish(subdev, vb->v4l2_buf.index);
-
-	return ret;
+	fimc_is_subdev_buffer_finish(subdev, vb->v4l2_buf.index);
 }
 
 const struct vb2_ops fimc_is_3aac_qops = {

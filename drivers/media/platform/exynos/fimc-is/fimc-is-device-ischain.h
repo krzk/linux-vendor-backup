@@ -149,35 +149,31 @@ struct fimc_is_ishcain_mem {
 	dma_addr_t		base;
 	/* total length */
 	size_t			size;
-	/* buffer base */
-	dma_addr_t		vaddr_base;
-	/* current addr */
-	dma_addr_t		vaddr_curr;
 	void			*fw_cookie;
 
 	/* fw memory base */
-	u32			dvaddr;
-	u32			kvaddr;
+	dma_addr_t		dvaddr;
+	void *			kvaddr;
 	/* debug part of fw memory */
-	u32			dvaddr_debug;
-	u32			kvaddr_debug;
+	dma_addr_t		dvaddr_debug;
+	void *			kvaddr_debug;
 	/* is region part of fw memory */
 	u32			offset_region;
-	u32			dvaddr_region;
-	u32			kvaddr_region;
+	dma_addr_t		dvaddr_region;
+	void *			kvaddr_region;
 	/* shared part of is region */
 	u32			offset_shared;
-	u32			dvaddr_shared;
-	u32			kvaddr_shared;
+	dma_addr_t		dvaddr_shared;
+	void *			kvaddr_shared;
 	/* internal memory for ODC */
-	u32			dvaddr_odc;
-	u32			kvaddr_odc;
+	dma_addr_t		dvaddr_odc;
+	void *			kvaddr_odc;
 	/* internal memory for DIS */
-	u32			dvaddr_dis;
-	u32			kvaddr_dis;
+	dma_addr_t		dvaddr_dis;
+	void *			kvaddr_dis;
 	/* internal memory for 3DNR */
-	u32			dvaddr_3dnr;
-	u32			kvaddr_3dnr;
+	dma_addr_t		dvaddr_3dnr;
+	void *			kvaddr_3dnr;
 
 	struct is_region	*is_region;
 };
@@ -262,7 +258,7 @@ struct fimc_is_device_ischain {
 	u32					chain3_height;
 	struct fimc_is_subdev			fd;
 
-	u32					private_data;
+	void *					private_data;
 	struct fimc_is_device_sensor		*sensor;
 };
 
@@ -274,7 +270,7 @@ int fimc_is_ischain_probe(struct fimc_is_device_ischain *device,
 	struct fimc_is_mem *mem,
 	struct platform_device *pdev,
 	u32 instance,
-	u32 regs);
+	void * regs);
 int fimc_is_ischain_open(struct fimc_is_device_ischain *device,
 	struct fimc_is_video_ctx *vctx,
 	struct fimc_is_minfo *minfo);
@@ -283,7 +279,7 @@ int fimc_is_ischain_close(struct fimc_is_device_ischain *device,
 int fimc_is_ischain_init_wrap(struct fimc_is_device_ischain *device,
 	u32 input);
 int fimc_is_ischain_g_capability(struct fimc_is_device_ischain *this,
-	u32 user_ptr);
+	void *user_ptr);
 void fimc_is_ischain_meta_invalid(struct fimc_is_frame *frame);
 
 /* 3AA subdev */

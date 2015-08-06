@@ -167,8 +167,8 @@ int fimc_is_subdev_buffer_queue(struct fimc_is_subdev *subdev,
 
 	if (frame->state == FIMC_IS_FRAME_STATE_FREE) {
 		if (frame->req_flag) {
-			warn("%d request flag is not clear(%08X)\n",
-				frame->index, (u32)frame->req_flag);
+			warn("%d request flag is not clear(%08lX)\n",
+				frame->index, frame->req_flag);
 			frame->req_flag = 0;
 		}
 
