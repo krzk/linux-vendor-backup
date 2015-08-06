@@ -28,7 +28,7 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/delay.h>
-#include <mach/exynos-fimc-is-sensor.h>
+#include "exynos-fimc-is-sensor.h"
 #include <mach/pinctrl-samsung.h>
 #ifdef CONFIG_OIS_FW_UPDATE_THREAD_USE
 #include <linux/kthread.h>
