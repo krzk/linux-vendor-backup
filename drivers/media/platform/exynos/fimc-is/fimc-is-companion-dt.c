@@ -11,9 +11,9 @@
  */
 
 #include <linux/sched.h>
-#include <mach/exynos-fimc-is-sensor.h>
-#include <mach/exynos-fimc-is.h>
-#include <media/exynos_mc.h>
+#include "exynos-fimc-is-sensor.h"
+#include "exynos-fimc-is.h"
+#include "media/exynos_mc.h"
 #ifdef CONFIG_OF
 #include <linux/of_gpio.h>
 #endif

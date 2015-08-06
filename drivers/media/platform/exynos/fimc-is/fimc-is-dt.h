@@ -9,7 +9,7 @@
  * published by the Free Software Foundation.
  */
 
-#include <mach/exynos-fimc-is-sensor.h>
+#include "exynos-fimc-is-sensor.h"
 
 #ifndef FIMC_IS_DT_H
 #define FIMC_IS_DT_H
