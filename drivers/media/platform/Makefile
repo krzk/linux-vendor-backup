@@ -33,6 +33,7 @@ obj-$(CONFIG_VIDEO_MUX)			+= video-mux.o
 
 obj-$(CONFIG_VIDEO_S3C_CAMIF) 		+= s3c-camif/
 obj-$(CONFIG_VIDEO_SAMSUNG_EXYNOS4_IS) 	+= exynos4-is/
+obj-$(CONFIG_VIDEO_EXYNOS_FIMC_IS) 	+= exynos/fimc-is/
 obj-$(CONFIG_VIDEO_SAMSUNG_S5P_JPEG)	+= s5p-jpeg/
 obj-$(CONFIG_VIDEO_SAMSUNG_S5P_MFC)	+= s5p-mfc/
 
