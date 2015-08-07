@@ -24,7 +24,6 @@
 /* #define ENABLE_CACHE */
 #define ENABLE_FULL_BYPASS
 #define ENABLE_FAST_SHOT
-#define USE_OWN_FAULT_HANDLER
 /* #define ENABLE_MIF_400 */
 #define ENABLE_DTP
 #define USE_ION_ALLOC
