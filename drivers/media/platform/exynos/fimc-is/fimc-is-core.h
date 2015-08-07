@@ -34,12 +34,10 @@
 #elif defined(CONFIG_VIDEOBUF2_ION)
 #include <media/videobuf2-ion.h>
 #endif
-#ifdef CONFIG_COMPANION_USE
 #include <linux/i2c.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include "fimc-is-companion.h"
-#endif
 
 #include "fimc-is-param.h"
 #include "fimc-is-interface.h"
@@ -215,14 +213,12 @@ struct fimc_is_sysfs_debug {
 	unsigned int clk_gate_mode;
 };
 
-#ifdef CONFIG_COMPANION_USE
 struct fimc_is_spi_gpio {
         char *spi_sclk;
         char *spi_ssn;
         char *spi_miso;
         char *spi_mois;
 };
-#endif
 
 struct fimc_is_core {
 	struct platform_device			*pdev;
@@ -265,31 +261,21 @@ struct fimc_is_core {
 	struct spi_device			*spi0;
 	struct spi_device			*spi1;
 
-#if defined(CONFIG_COMPANION_USE)
 	struct i2c_client			*client0;
-#endif
-#if defined(CONFIG_OIS_USE)
 	struct i2c_client			*client1;
-#endif
-#ifdef CONFIG_AF_HOST_CONTROL
 	struct i2c_client			*client2;
-#endif
 	struct i2c_client			*eeprom_client0;
 	struct i2c_client			*eeprom_client1;
 
-#ifdef CONFIG_COMPANION_USE
 	struct dcdc_power			companion_dcdc;
 	struct fimc_is_spi_gpio			spi_gpio;
 	u32					companion_spi_channel;
 	bool					use_two_spi_line;
-#endif
 	u32					use_sensor_dynamic_voltage_mode;
 	struct mutex				spi_lock;
-#ifdef CONFIG_OIS_USE
 	bool					use_ois;
 	int					pin_ois_en;
 	bool					ois_ver_read;
-#endif /* CONFIG_OIS_USE */
 	bool					use_ois_hsi2c;
 	bool					use_module_check;
 #ifdef USE_ION_ALLOC

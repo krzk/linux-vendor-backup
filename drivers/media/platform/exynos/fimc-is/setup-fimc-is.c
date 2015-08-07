@@ -28,9 +28,7 @@
 #include <plat/map-s5p.h>
 #include <plat/cpu.h>
 #include "exynos-fimc-is.h"
-#ifdef CONFIG_OF
 #include <linux/of_gpio.h>
-#endif
 
 struct platform_device; /* don't need the contents */
 
@@ -155,17 +153,6 @@ static int exynos5430_cfg_clk_isp_pll_off(struct platform_device *pdev)
 int exynos5430_cfg_clk_div_max(struct platform_device *pdev)
 {
 	/* SCLK */
-#ifndef CONFIG_COMPANION_USE
-	/* SCLK_SPI0 */
-	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_spi0", "oscclk");
-	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_spi0_a", 1);
-	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_spi0_user", "oscclk");
-
-	/* SCLK_SPI1 */
-	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_spi1", "oscclk");
-	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_spi1_a", 1);
-	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_spi1_user", "oscclk");
-#endif
 
 	/* SCLK_UART */
 	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_uart", "oscclk");
@@ -182,14 +169,6 @@ int exynos5430_cfg_clk_div_max(struct platform_device *pdev)
 
 int exynos5430_cfg_clk_sclk(struct platform_device *pdev)
 {
-#ifndef CONFIG_COMPANION_USE
-	/* SCLK_SPI0 */
-	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_spi0", "mout_bus_pll_user");
-	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_spi0_a", 275 * 1000000);
-	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_spi0_b", 46 * 1000000);
-	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_spi0_user", "sclk_isp_spi0_top");
-
-#endif
 	/* SCLK_SPI1 */
 	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_spi1", "mout_bus_pll_user");
 	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_spi1_a", 275 * 1000000);

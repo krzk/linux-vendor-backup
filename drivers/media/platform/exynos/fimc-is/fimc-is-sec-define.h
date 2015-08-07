@@ -137,20 +137,12 @@
 #define FIMC_IS_CAL_SDCARD			"/data/cal_data.bin"
 #define FIMC_IS_CAL_SDCARD_FRONT			"/data/cal_data_front.bin"
 
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
-#define FIMC_IS_MAX_FW_SIZE			(8 * 1024)
-#define HEADER_CRC32_LEN			(80 / 2)
-#define OEM_CRC32_LEN				(64 / 2)
-#define AWB_CRC32_LEN				(32 / 2)
-#define SHADING_CRC32_LEN			(6623 / 2)
-#else
 /*#define FIMC_IS_MAX_CAL_SIZE			(20 * 1024)*/
 #define FIMC_IS_MAX_FW_SIZE			(2048 * 1024)
 #define HEADER_CRC32_LEN (224 / 2)
 #define OEM_CRC32_LEN (192 / 2)
 #define AWB_CRC32_LEN (32 / 2)
 #define SHADING_CRC32_LEN (2336 / 2)
-#endif
 
 #define FIMC_IS_MAX_COMPANION_FW_SIZE			(120 * 1024)
 #define FIMC_IS_CAL_START_ADDR			(0x013D0000)
@@ -178,10 +170,6 @@ ssize_t read_data_from_file(char *name, char *buf, size_t count, loff_t *pos);
 
 int fimc_is_sec_get_sysfs_finfo(struct fimc_is_from_info **finfo);
 int fimc_is_sec_get_sysfs_pinfo(struct fimc_is_from_info **pinfo);
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-int fimc_is_sec_get_sysfs_finfo_front(struct fimc_is_from_info **finfo);
-int fimc_is_sec_get_front_cal_buf(char **buf);
-#endif
 
 int fimc_is_sec_get_cal_buf(char **buf);
 int fimc_is_sec_get_loaded_fw(char **buf);
@@ -190,17 +178,10 @@ int fimc_is_sec_get_loaded_c1_fw(char **buf);
 int fimc_is_sec_get_pixel_size(char *header_ver);
 int fimc_is_sec_fw_find(struct fimc_is_core *core, char *fw_name, char *setf_name);
 
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR) || defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-int fimc_is_sec_fw_sel_eeprom(struct device *dev, char *fw_name, char *setf_name, int id, bool headerOnly);
-#endif
-#if !defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
 int fimc_is_sec_readcal(struct fimc_is_core *core);
 int fimc_is_sec_fw_sel(struct fimc_is_core *core, struct device *dev, char *fw_name, char *setf_name, bool headerOnly);
-#endif
-#ifdef CONFIG_COMPANION_USE
 int fimc_is_sec_concord_fw_sel(struct fimc_is_core *core, struct device *dev,
 	char *fw_name, char *master_setf_name, char *mode_setf_name);
-#endif
 int fimc_is_sec_fw_revision(char *fw_ver);
 int fimc_is_sec_fw_revision(char *fw_ver);
 bool fimc_is_sec_fw_module_compare(char *fw_ver1, char *fw_ver2);
@@ -213,7 +194,5 @@ int fimc_is_sec_ldo_enable(struct device *dev, char *name, bool on);
 
 int fimc_is_spi_reset_by_core(struct spi_device *spi, void *buf, u32 rx_addr, size_t size);
 int fimc_is_spi_read_by_core(struct spi_device *spi, void *buf, u32 rx_addr, size_t size);
-#ifdef CONFIG_COMPANION_USE
 void fimc_is_set_spi_config(struct fimc_is_spi_gpio *spi_gpio, int func, bool ssn);
-#endif
 #endif /* FIMC_IS_SEC_DEFINE_H */

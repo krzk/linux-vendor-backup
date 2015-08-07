@@ -14,15 +14,12 @@
 #include "exynos-fimc-is-sensor.h"
 #include "exynos-fimc-is.h"
 #include <media/exynos_mc.h>
-#ifdef CONFIG_OF
 #include <linux/of.h>
 #include <linux/of_gpio.h>
-#endif
 
 #include "fimc-is-core.h"
 #include "fimc-is-dt.h"
 
-#ifdef CONFIG_OF
 int get_pin_lookup_state(struct device *dev,
 	struct exynos_platform_fimc_is_sensor *pdata)
 {
@@ -205,9 +202,7 @@ struct exynos_platform_fimc_is *fimc_is_parse_dt(struct device *dev)
 	struct exynos_platform_fimc_is *pdata;
 	struct device_node *subip_info_np;
 	struct device_node *np = dev->of_node;
-#if defined CONFIG_COMPANION_USE || defined CONFIG_USE_VENDER_FEATURE
 	int retVal = 0;
-#endif
 
 	if (!np)
 		return ERR_PTR(-ENOENT);
@@ -227,26 +222,21 @@ struct exynos_platform_fimc_is *fimc_is_parse_dt(struct device *dev)
 
 	dev->platform_data = pdata;
 
-#ifdef CONFIG_COMPANION_USE
 	retVal = of_property_read_u32(np, "companion_spi_channel", &pdata->companion_spi_channel);
 	if (retVal) {
 		err("spi_channel read is fail(%d)", retVal);
 	}
 
 	pdata->use_two_spi_line = of_property_read_bool(np, "use_two_spi_line");
-#endif
-#ifdef CONFIG_USE_VENDER_FEATURE
 	retVal = of_property_read_u32(np, "use_sensor_dynamic_voltage_mode", &pdata->use_sensor_dynamic_voltage_mode);
 	if (retVal) {
 		err("use_sensor_dynamic_voltage_mode read is fail(%d)", retVal);
 		pdata->use_sensor_dynamic_voltage_mode = 0;
 	}
-#ifdef CONFIG_OIS_USE
 	pdata->use_ois = of_property_read_bool(np, "use_ois");
 	if (!pdata->use_ois) {
 		err("use_ois not use(%d)", pdata->use_ois);
 	}
-#endif /* CONFIG_OIS_USE */
 	pdata->use_ois_hsi2c = of_property_read_bool(np, "use_ois_hsi2c");
 	if (!pdata->use_ois_hsi2c) {
 		err("use_ois_hsi2c not use(%d)", pdata->use_ois_hsi2c);
@@ -256,7 +246,6 @@ struct exynos_platform_fimc_is *fimc_is_parse_dt(struct device *dev)
 	if (!pdata->use_module_check) {
 		err("use_module_check not use(%d)", pdata->use_module_check);
 	}
-#endif
 	subip_info_np = of_find_node_by_name(np, "subip_info");
 	if (!subip_info_np) {
 		printk(KERN_ERR "%s: can't find fimc_is subip_info node\n", __func__);
@@ -391,9 +380,3 @@ p_err:
 	kfree(pdata);
 	return ret;
 }
-#else
-struct exynos_platform_fimc_is *fimc_is_parse_dt(struct device *dev)
-{
-	return ERR_PTR(-EINVAL);
-}
-#endif

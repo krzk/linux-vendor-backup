@@ -38,210 +38,6 @@ extern struct pm_qos_request exynos_isp_qos_cam;
 extern struct pm_qos_request exynos_isp_qos_disp;
 extern struct pm_qos_request max_cpu_qos;
 
-#if defined(CONFIG_ARGOS)
-extern void argos_block_enable(char *req_name, bool set);
-#endif
-
-
-
-#if (FIMC_IS_VERSION == FIMC_IS_VERSION_250)
-int fimc_is_runtime_suspend_post(struct device *dev)
-{
-	int ret = 0;
-	u32 timeout;
-
-	timeout = 1000;
-	while ((readl(PMUREG_ISP0_STATUS) & 0x1) && timeout) {
-		timeout--;
-		usleep_range(1000, 1000);
-	}
-	if (timeout == 0)
-		err("ISP0 power down failed(0x%08x)\n", readl(PMUREG_ISP0_STATUS));
-
-	timeout = 1000;
-	while ((readl(PMUREG_ISP1_STATUS) & 0x1) && timeout) {
-		timeout--;
-		usleep_range(1000, 1000);
-	}
-	if (timeout == 0)
-		err("ISP0 power down failed(0x%08x)\n", readl(PMUREG_ISP1_STATUS));
-
-	return ret;
-}
-
-int fimc_is_runtime_suspend(struct device *dev)
-{
-#ifndef CONFIG_PM_RUNTIME
-	int ret = 0;
-	u32 val;
-#endif
-	struct platform_device *pdev = to_platform_device(dev);
-	struct fimc_is_core *core = (struct fimc_is_core *)platform_get_drvdata(pdev);
-
-	BUG_ON(!core);
-	BUG_ON(!core->pdata);
-	BUG_ON(!core->pdata->clk_off);
-
-	info("FIMC_IS runtime suspend in\n");
-
-#if defined(CONFIG_VIDEOBUF2_ION)
-	if (core->mem.alloc_ctx)
-		vb2_ion_detach_iommu(core->mem.alloc_ctx);
-#endif
-
-
-#ifndef CONFIG_PM_RUNTIME
-	/* ISP1 */
-	/* 1. set internal clock reset */
-	val = __raw_readl(PMUREG_CMU_RESET_ISP1_SYS_PWR);
-	val = (val & ~(0x1 << 0)) | (0x0 << 0);
-	__raw_writel(val, PMUREG_CMU_RESET_ISP1_SYS_PWR);
-
-	/* 2. change to OSCCLK */
-	ret = core->pdata->clk_off(pdev);
-	if (ret)
-		warn("clk_off is fail(%d)", ret);
-
-	/* 3. set feedback mode */
-	val = __raw_readl(PMUREG_ISP1_OPTION);
-	val = (val & ~(0x3 << 0)) | (0x2 << 0);
-	__raw_writel(val, PMUREG_ISP1_OPTION);
-
-	/* 4. power off */
-	val = __raw_readl(PMUREG_ISP1_CONFIGURATION);
-	val = (val & ~(0x7 << 0)) | (0x0 << 0);
-	__raw_writel(val, PMUREG_ISP1_CONFIGURATION);
-
-	/* ISP0 */
-	/* 1. set internal clock reset */
-	val = __raw_readl(PMUREG_CMU_RESET_ISP0_SYS_PWR);
-	val = (val & ~(0x1 << 0)) | (0x0 << 0);
-	__raw_writel(val, PMUREG_CMU_RESET_ISP0_SYS_PWR);
-
-	/* 2. set standbywfi a5 */
-	val = __raw_readl(PMUREG_CENTRAL_SEQ_OPTION);
-	val = (val & ~(0x1 << 18)) | (0x1 << 18);
-	__raw_writel(val, PMUREG_CENTRAL_SEQ_OPTION);
-
-	/* 3. stop a5 */
-	__raw_writel(0x00010000, PMUREG_ISP_ARM_OPTION);
-
-	/* 4. reset a5 */
-	val = __raw_readl(PMUREG_ISP_ARM_SYS_PWR_REG);
-	val = (val & ~(0x1 << 0)) | (0x1 << 0);
-	__raw_writel(val, PMUREG_ISP_ARM_SYS_PWR_REG);
-
-	/* 5. change to OSCCLK */
-
-	/* 6. set feedback mode */
-	val = __raw_readl(PMUREG_ISP0_OPTION);
-	val = (val & ~(0x3 << 0)) | (0x2 << 0);
-	__raw_writel(val, PMUREG_ISP0_OPTION);
-
-	/* 7. power off */
-	val = __raw_readl(PMUREG_ISP0_CONFIGURATION);
-	val = (val & ~(0x7 << 0)) | (0x0 << 0);
-	__raw_writel(val, PMUREG_ISP0_CONFIGURATION);
-
-	/* 8. a5 power off */
-	val = __raw_readl(PMUREG_ISP_ARM_CONFIGURATION);
-	val = (val & ~(0x1 << 0)) | (0x0 << 0);
-	__raw_writel(val, PMUREG_ISP_ARM_CONFIGURATION);
-#endif
-
-
-#ifdef CONFIG_PM_RUNTIME
-	if (CALL_POPS(core, clk_off, pdev) < 0)
-		warn("clk_off is fail\n");
-#endif
-
-	info("FIMC_IS runtime suspend out\n");
-	pm_relax(dev);
-	return 0;
-}
-
-int fimc_is_runtime_resume(struct device *dev)
-{
-	int ret = 0;
-	u32 val;
-
-	struct platform_device *pdev = to_platform_device(dev);
-	struct fimc_is_core *core = (struct fimc_is_core *)platform_get_drvdata(pdev);
-
-	BUG_ON(!core);
-	BUG_ON(!core->pdata);
-	BUG_ON(!core->pdata->clk_cfg);
-	BUG_ON(!core->pdata->clk_on);
-
-	info("FIMC_IS runtime resume in\n");
-
-	val  = __raw_readl(PMUREG_ISP0_STATUS);
-	if((val & 0x7) != 0x7){
-	    err("FIMC_IS runtime resume ISP0 : %d Power down\n",val);
-	    BUG();
-	}
-
-	val = __raw_readl(PMUREG_ISP1_STATUS);
-	if((val & 0x7) != 0x7){
-	    err("FIMC_IS runtime resume ISP1 : %d Power down\n",val);
-	    BUG();
-	}
-
-#ifndef CONFIG_PM_RUNTIME
-	/* ISP0 */
-	/* 1. set feedback mode */
-	val = __raw_readl(PMUREG_ISP0_OPTION);
-	val = (val & ~(0x3<< 0)) | (0x2 << 0);
-	__raw_writel(val, PMUREG_ISP0_OPTION);
-
-	/* 2. power on isp0 */
-	val = __raw_readl(PMUREG_ISP0_CONFIGURATION);
-	val = (val & ~(0x7 << 0)) | (0x7 << 0);
-	__raw_writel(val, PMUREG_ISP0_CONFIGURATION);
-
-	/* ISP1 */
-	/* 3. set feedback mode */
-	val = __raw_readl(PMUREG_ISP1_OPTION);
-	val = (val & ~(0x3<< 0)) | (0x2 << 0);
-	__raw_writel(val, PMUREG_ISP1_OPTION);
-
-	/* 4. power on isp1 */
-	val = __raw_readl(PMUREG_ISP1_CONFIGURATION);
-	val = (val & ~(0x7 << 0)) | (0x7 << 0);
-	__raw_writel(val, PMUREG_ISP1_CONFIGURATION);
-#endif
-
-	ret = core->pdata->clk_cfg(pdev);
-	if (ret) {
-		err("clk_cfg is fail(%d)", ret);
-		goto p_err;
-	}
-
-	/* HACK: DVFS lock sequence is change.
-	 * DVFS level should be locked after power on.
-	 */
-
-	/* Clock on */
-	ret = core->pdata->clk_on(pdev);
-	if (ret) {
-		err("clk_on is fail(%d)", ret);
-		goto p_err;
-	}
-
-#if defined(CONFIG_VIDEOBUF2_ION)
-	if (core->mem.alloc_ctx)
-		vb2_ion_attach_iommu(core->mem.alloc_ctx);
-#endif
-
-
-	pm_stay_awake(dev);
-
-p_err:
-	info("FIMC-IS runtime resume out\n");
-	return ret;
-}
-
-#else
 int fimc_is_runtime_suspend_post(struct device *dev)
 {
 	int ret = 0;
@@ -290,12 +86,6 @@ int fimc_is_runtime_suspend(struct device *dev)
 
 	pr_info("FIMC_IS runtime suspend in\n");
 
-
-
-#if defined(CONFIG_ARGOS)
-	argos_block_enable("EMMC", false);
-#endif
-
 	/* EGL Release */
 	pm_qos_update_request(&max_cpu_qos, PM_QOS_CPU_FREQ_MAX_DEFAULT_VALUE);
 	pm_qos_remove_request(&max_cpu_qos);
@@ -319,10 +109,6 @@ int fimc_is_runtime_resume(struct device *dev)
 
 	pm_stay_awake(dev);
 	pr_info("FIMC_IS runtime resume in\n");
-
-#if defined(CONFIG_ARGOS)
-	argos_block_enable("EMMC", true);
-#endif
 
 	/* EGL Lock */
 	pm_qos_add_request(&max_cpu_qos, PM_QOS_CPU_FREQ_MAX, 1700000);
@@ -354,4 +140,3 @@ p_err:
 	pm_relax(dev);
 	return ret;
 }
-#endif

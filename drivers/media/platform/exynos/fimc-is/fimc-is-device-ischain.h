@@ -63,12 +63,10 @@ enum fimc_is_camera_device {
 	CAMERA_SINGLE_FRONT,
 };
 
-#ifdef CONFIG_COMPANION_USE
 enum fimc_is_companion_sensor {
 	COMPANION_SENSOR_2P2 = 1,
 	COMPANION_SENSOR_IMX240 = 2,
 };
-#endif
 
 struct fimc_is_from_info {
 	u32		bin_start_addr;
@@ -81,7 +79,6 @@ struct fimc_is_from_info {
 	u32		shading_end_addr;
 	u32		setfile_start_addr;
 	u32		setfile_end_addr;
-#ifdef CONFIG_COMPANION_USE
 	u32		concord_master_setfile_start_addr;
 	u32		concord_master_setfile_end_addr;
 	u32		concord_mode_setfile_start_addr;
@@ -132,7 +129,6 @@ struct fimc_is_from_info {
 	char		load_c1_mastersetf_name[50];
 	char		load_c1_modesetf_name[50];
 	int		sensor_id;
-#endif
 	char		header_ver[12];
 	char		cal_map_ver[4];
 	char		setfile_ver[7];
@@ -145,12 +141,10 @@ struct fimc_is_from_info {
 	bool		is_caldata_read;
 };
 
-#ifdef CONFIG_OIS_USE
 struct fimc_is_ois_info {
 	char		header_ver[7];
 	char		load_fw_name[50];
 };
-#endif
 
 struct fimc_is_ishcain_mem {
 	/* buffer base */

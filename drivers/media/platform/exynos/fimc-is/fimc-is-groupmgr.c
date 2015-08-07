@@ -455,14 +455,7 @@ static void fimc_is_group_cancel(struct fimc_is_group *group,
 		framemgr_x_barrier_irqr(sub_framemgr, 0, flags);
 	}
 }
-#ifdef CONFIG_USE_VENDER_FEATURE
 /* Flash Mode Control */
-#ifdef CONFIG_LEDS_LM3560
-extern int lm3560_reg_update_export(u8 reg, u8 mask, u8 data);
-#endif
-#ifdef CONFIG_LEDS_SKY81296
-extern int sky81296_torch_ctrl(int state);
-#endif
 
 static void fimc_is_group_set_torch(struct fimc_is_group *group,
 	struct fimc_is_frame *ldr_frame)
@@ -474,25 +467,12 @@ static void fimc_is_group_set_torch(struct fimc_is_group *group,
 		group->aeflashMode = ldr_frame->shot->ctl.aa.aeflashMode;
 		switch (group->aeflashMode) {
 		case AA_FLASHMODE_ON_ALWAYS: /*TORCH mode*/
-#ifdef CONFIG_LEDS_LM3560
-			lm3560_reg_update_export(0xE0, 0xFF, 0xEF);
-#elif defined(CONFIG_LEDS_SKY81296)
-			sky81296_torch_ctrl(1);
-#endif
 			break;
 		case AA_FLASHMODE_START: /*Pre flash mode*/
-#ifdef CONFIG_LEDS_LM3560
-			lm3560_reg_update_export(0xE0, 0xFF, 0xEF);
-#elif defined(CONFIG_LEDS_SKY81296)
-			sky81296_torch_ctrl(1);
-#endif
 			break;
 		case AA_FLASHMODE_CAPTURE: /*Main flash mode*/
 			break;
 		case AA_FLASHMODE_OFF: /*OFF mode*/
-#ifdef CONFIG_LEDS_SKY81296
-			sky81296_torch_ctrl(0);
-#endif
 			break;
 		default:
 			break;
@@ -500,7 +480,6 @@ static void fimc_is_group_set_torch(struct fimc_is_group *group,
 	}
 	return;
 }
-#endif
 
 #ifdef DEBUG_AA
 static void fimc_is_group_debug_aa_shot(struct fimc_is_group *group,
@@ -1772,10 +1751,8 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 #ifdef DEBUG_AA
 	fimc_is_group_debug_aa_shot(group, ldr_frame);
 #endif
-#ifdef CONFIG_USE_VENDER_FEATURE
 	/* Flash Mode Control */
 	fimc_is_group_set_torch(group, ldr_frame);
-#endif
 
 
 	PROGRAM_COUNT(6);

@@ -57,27 +57,7 @@
 #include <linux/pinctrl/consumer.h>
 #include <mach/pinctrl-samsung.h>
 
-#ifdef CONFIG_USE_VENDER_FEATURE
 #include "fimc-is-sec-define.h"
-#else
-#define SDCARD_FW
-#define FIMC_IS_SETFILE_SDCARD_PATH		"/data/"
-#define FIMC_IS_FW				"fimc_is_fw2.bin"
-#define FIMC_IS_FW_SDCARD			"/data/fimc_is_fw2.bin"
-
-#define FIMC_IS_FW_BASE_MASK			((1 << 26) - 1)
-#define FIMC_IS_VERSION_SIZE			42
-#define FIMC_IS_SETFILE_VER_OFFSET		0x40
-#define FIMC_IS_SETFILE_VER_SIZE		52
-
-#define FIMC_IS_CAL_SDCARD			"/data/cal_data.bin"
-#define FIMC_IS_CAL_SDCARD_FRONT			"/data/cal_data_front.bin"
-#define FIMC_IS_MAX_FW_SIZE			(2048 * 1024)
-#define FIMC_IS_CAL_START_ADDR			(0x013D0000)
-#define FIMC_IS_CAL_START_ADDR_FRONT			(0x013E0000)
-#define FIMC_IS_CAL_RETRY_CNT			(2)
-#define FIMC_IS_FW_RETRY_CNT			(2)
-#endif
 
 /* Default setting values */
 #define DEFAULT_PREVIEW_STILL_WIDTH		(1280) /* sensor margin : 16 */
@@ -106,11 +86,7 @@ static struct dentry		*debugfs_file;
 static char fw_name[100];
 //static char setf_name[100];
 
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
-#define FIMC_IS_MAX_CAL_SIZE	(8 * 1024)
-#else
 #define FIMC_IS_MAX_CAL_SIZE	(64 * 1024)
-#endif
 #define FIMC_IS_MAX_CAL_SIZE_FRONT	(8 * 1024)
 
 #define FIMC_IS_DEFAULT_CAL_SIZE	(20 * 1024)
@@ -120,12 +96,8 @@ extern bool crc32_check_front;
 extern bool crc32_header_check_front;
 
 static int cam_id;
-#ifdef CONFIG_USE_VENDER_FEATURE
 extern bool is_dumped_fw_loading_needed;
 extern char fw_core_version;
-#else
-bool is_dumped_fw_loading_needed = false;
-#endif
 
 static int isfw_debug_open(struct inode *inode, struct file *file)
 {
@@ -815,7 +787,6 @@ static int fimc_is_ischain_loadfirm(struct fimc_is_device_ischain *device)
 	set_fs(KERNEL_DS);
 	fp = filp_open(FIMC_IS_FW_SDCARD, O_RDONLY, 0);
 	if (IS_ERR_OR_NULL(fp)) {
-#ifdef CONFIG_USE_VENDER_FEATURE
 		if (is_dumped_fw_loading_needed &&
 			device->pdev->id == SENSOR_POSITION_REAR) {
 			snprintf(fw_path, sizeof(fw_path), "%s%s",
@@ -828,7 +799,6 @@ static int fimc_is_ischain_loadfirm(struct fimc_is_device_ischain *device)
 				goto out;
 			}
 		} else
-#endif
 			goto request_fw;
 	}
 
@@ -1048,7 +1018,6 @@ static int fimc_is_ischain_loadsetf(struct fimc_is_device_ischain *device,
 		FIMC_IS_SETFILE_SDCARD_PATH, setfile_name);
 	fp = filp_open(setfile_path, O_RDONLY, 0);
 	if (IS_ERR_OR_NULL(fp)) {
-#ifdef CONFIG_USE_VENDER_FEATURE
 		if (is_dumped_fw_loading_needed &&
 			device->pdev->id == SENSOR_POSITION_REAR) {
 			memset(setfile_path, 0x00, sizeof(setfile_path));
@@ -1062,7 +1031,6 @@ static int fimc_is_ischain_loadsetf(struct fimc_is_device_ischain *device,
 				goto out;
 			}
 		} else
-#endif
 			goto request_fw;
 	}
 
@@ -1190,95 +1158,16 @@ out:
 	return ret;
 }
 
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR) || defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-static int fimc_is_ischain_loadcalb_eeprom(struct fimc_is_device_ischain *device,
-	struct fimc_is_module_enum *active_sensor, int id)
-	{
-		int ret = 0;
-#ifdef CONFIG_USE_VENDER_FEATURE
-		char *cal_ptr;
-		char *cal_buf = NULL;
-		u32 start_addr = 0;
-		int cal_size = 0;
-		struct fimc_is_from_info *finfo;
 
-		mdbgd_ischain("%s\n", device, __func__);
-
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-		if (id == SENSOR_POSITION_FRONT) {
-			start_addr = FIMC_IS_CAL_START_ADDR_FRONT;
-			cal_size = FIMC_IS_MAX_CAL_SIZE_FRONT;
-			fimc_is_sec_get_sysfs_finfo_front(&finfo);
-			fimc_is_sec_get_front_cal_buf(&cal_buf);
-		} else
-#endif
-		{
-			start_addr = FIMC_IS_CAL_START_ADDR;
-			cal_size = FIMC_IS_MAX_CAL_SIZE;
-			fimc_is_sec_get_sysfs_finfo(&finfo);
-			fimc_is_sec_get_cal_buf(&cal_buf);
-		}
-
-		cal_ptr = (char *)(device->imemory.kvaddr + start_addr);
-
-		info("CAL DATA : MAP ver : %c%c%c%c\n", cal_buf[0x30], cal_buf[0x31],
-			cal_buf[0x32], cal_buf[0x33]);
-
-		/* CRC check */
-		if (id == SENSOR_POSITION_FRONT) {
-			if (crc32_check_front == true) {
-				memcpy((void *)(cal_ptr) ,(void *)cal_buf, cal_size);
-				info("Front Camera : the dumped Cal. data was applied successfully.\n");
-			} else {
-				if (crc32_header_check_front == true) {
-					pr_err("Front Camera : CRC32 error but only header section is no problem.\n");
-					memset((void *)(cal_ptr + 0x1000), 0xFF, cal_size - 0x1000);
-				} else {
-					pr_err("Front Camera : CRC32 error for all section.\n");
-					memset((void *)(cal_ptr), 0xFF, cal_size);
-					ret = -EIO;
-				}
-			}
-		} else {
-			if (crc32_check == true) {
-				memcpy((void *)(cal_ptr) ,(void *)cal_buf, cal_size);
-				info("Rear Camera : the dumped Cal. data was applied successfully.\n");
-			} else {
-				if (crc32_header_check == true) {
-					pr_err("Rear Camera : CRC32 error but only header section is no problem.\n");
-					memset((void *)(cal_ptr + 0x1000), 0xFF, cal_size - 0x1000);
-				} else {
-					pr_err("Rear Camera : CRC32 error for all section.\n");
-					memset((void *)(cal_ptr), 0xFF, cal_size);
-					ret = -EIO;
-				}
-			}
-		}
-
-		fimc_is_ischain_cache_flush(device, start_addr, cal_size);
-		if (ret)
-			mwarn("calibration loading is fail", device);
-		else
-			mwarn("calibration loading is success", device);
-
-#endif
-		return ret;
-	}
-#endif
-
-#if !defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
 static int fimc_is_ischain_loadcalb(struct fimc_is_device_ischain *device,
 	struct fimc_is_module_enum *active_sensor)
 {
 	int ret = 0;
-#ifdef CONFIG_USE_VENDER_FEATURE
 	char *cal_ptr;
 	struct fimc_is_from_info *sysfs_finfo;
 	char *cal_buf;
 
-#ifdef CONFIG_COMPANION_USE
 	struct fimc_is_core *core = (struct fimc_is_core *)platform_get_drvdata(device->pdev);
-#endif
 	mdbgd_ischain("%s\n", device, __func__);
 
 	cal_ptr = (char *)(device->imemory.kvaddr + FIMC_IS_CAL_START_ADDR);
@@ -1291,17 +1180,12 @@ static int fimc_is_ischain_loadcalb(struct fimc_is_device_ischain *device,
 
 	/* CRC check */
 	if (crc32_check == true) {
-#ifdef CONFIG_COMPANION_USE
 		if (fimc_is_comp_is_compare_ver(core) >= FROM_VERSION_V004) {
 			memcpy((void *)(cal_ptr) ,(void *)cal_buf, FIMC_IS_MAX_CAL_SIZE);
 			info("Camera : the dumped Cal. data was applied successfully.\n");
 		} else {
 			info("Camera : Did not load dumped Cal. Sensor version is lower than V004.\n");
 		}
-#else
-		memcpy((void *)(cal_ptr) ,(void *)cal_buf, FIMC_IS_MAX_CAL_SIZE);
-		info("Camera : the dumped Cal. data was applied successfully.\n");
-#endif
 	} else {
 		if (crc32_header_check == true) {
 			pr_err("Camera : CRC32 error but only header section is no problem.\n");
@@ -1319,10 +1203,8 @@ static int fimc_is_ischain_loadcalb(struct fimc_is_device_ischain *device,
 		mwarn("calibration loading is fail", device);
 	else
 		mwarn("calibration loading is success", device);
-#endif
 	return ret;
 }
-#endif
 static void fimc_is_ischain_forcedown(struct fimc_is_device_ischain *this,
 	bool on)
 {
@@ -1364,9 +1246,7 @@ static void fimc_is_a5_power(struct device *dev, int power_flags)
 
 int fimc_is_ischain_power(struct fimc_is_device_ischain *device, int on)
 {
-#ifdef CONFIG_ARM_TRUSTZONE
 	int i;
-#endif
 	int ret = 0;
 	u32 debug;
 #if defined(CONFIG_PM_RUNTIME)
@@ -1395,37 +1275,10 @@ int fimc_is_ischain_power(struct fimc_is_device_ischain *device, int on)
 		info("%s(%d) - fimc_is runtime resume complete\n", __func__, on);
 #endif
 
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-		if (core->id == SENSOR_POSITION_FRONT) {
-			fimc_is_sec_get_sysfs_finfo(&sysfs_finfo);
-			if (!sysfs_finfo->is_caldata_read) {
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
-				ret = fimc_is_sec_fw_sel_eeprom(dev, fw_name, setf_name, SENSOR_POSITION_REAR, true);
-#else
-				ret = fimc_is_sec_fw_sel(core, dev, fw_name, setf_name, true);
-#endif
-			} else {
-				snprintf(fw_name, sizeof(fw_name), "%s", sysfs_finfo->load_fw_name);
-			}
-			fimc_is_sec_get_sysfs_finfo_front(&sysfs_finfo);
-			if (!sysfs_finfo->is_caldata_read) {
-				ret = fimc_is_sec_fw_sel_eeprom(dev, fw_name, setf_name, SENSOR_POSITION_FRONT, false);
-				if (ret < 0) {
-					err("failed to select firmware (%d)", ret);
-					clear_bit(FIMC_IS_ISCHAIN_LOADED, &device->state);
-					goto p_err_pm;
-				}
-			}
-		} else
-#endif
 		{
 			fimc_is_sec_get_sysfs_finfo(&sysfs_finfo);
 			if (!sysfs_finfo->is_caldata_read) {
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
-				ret = fimc_is_sec_fw_sel_eeprom(dev, fw_name, setf_name, SENSOR_POSITION_REAR, false);
-#else
 				ret = fimc_is_sec_fw_sel(core, dev, fw_name, setf_name, false);
-#endif
 				if (ret < 0) {
 					err("failed to select firmware (%d)", ret);
 					clear_bit(FIMC_IS_ISCHAIN_LOADED, &device->state);
@@ -1436,14 +1289,12 @@ int fimc_is_ischain_power(struct fimc_is_device_ischain *device, int on)
 			}
 		}
 
-#ifdef CONFIG_COMPANION_USE
 //		ret = fimc_is_sec_concord_fw_sel(core, dev, device->pdata, companion_fw_name, master_setf_name, mode_setf_name);
 		/*if (ret < 0) {
 			err("failed to select companion firmware (%d)", ret);
 			clear_bit(FIMC_IS_ISCHAIN_LOADED, &device->state);
 			goto exit;
 		}*/
-#endif
 		/* 3. Load IS firmware */
 		ret = fimc_is_ischain_loadfirm(device);
 		if (ret) {
@@ -1469,7 +1320,6 @@ int fimc_is_ischain_power(struct fimc_is_device_ischain *device, int on)
 		if(device->imemory.dvaddr != val)
 			err("dvaddr : %x , BBOAR : %x", device->imemory.dvaddr,val);
 
-#ifdef CONFIG_ARM_TRUSTZONE
 		exynos_smc(SMC_CMD_REG, SMC_REG_ID_SFR_W(PA_FIMC_IS_GIC_C + 0x4), 0x000000FF, 0);
 		for (i = 0; i < 3; i++)
 			exynos_smc(SMC_CMD_REG, SMC_REG_ID_SFR_W(PA_FIMC_IS_GIC_D + 0x80 + (i * 4)), 0xFFFFFFFF, 0);
@@ -1480,7 +1330,6 @@ int fimc_is_ischain_power(struct fimc_is_device_ischain *device, int on)
 		info("%s : PA_FIMC_IS_GIC_C : 0x%08x\n", __func__, debug);
 		if (debug == 0x00)
 			merr("secure configuration is fail[0x131E0004:%08X]", device, debug);
-#endif
 
 		/* To guarantee FW restart */
 		if (__raw_readl(PMUREG_ISP_ARM_STATUS) & 0x1) {
@@ -2726,9 +2575,7 @@ int fimc_is_ischain_close(struct fimc_is_device_ischain *device,
 	struct fimc_is_subdev *leader;
 	struct fimc_is_queue *queue;
 	struct fimc_is_core *core;
-#ifdef CONFIG_COMPANION_USE
 	struct fimc_is_spi_gpio *spi_gpio;
-#endif
 	BUG_ON(!device);
 
 	groupmgr = device->groupmgr;
@@ -2737,9 +2584,7 @@ int fimc_is_ischain_close(struct fimc_is_device_ischain *device,
 	queue = GET_SRC_QUEUE(vctx);
 	core = (struct fimc_is_core *)device->interface->core;
 	refcount = atomic_read(&vctx->video->refcount);
-#ifdef CONFIG_COMPANION_USE
 	spi_gpio = &core->spi_gpio;
-#endif
 	if (refcount < 0) {
 		merr("invalid ischain refcount", device);
 		ret = -ENODEV;
@@ -2787,9 +2632,7 @@ int fimc_is_ischain_close(struct fimc_is_device_ischain *device,
 
 	clear_bit(FIMC_IS_ISCHAIN_OPEN_SENSOR, &device->state);
 	clear_bit(FIMC_IS_ISCHAIN_OPEN, &device->state);
-#ifdef CONFIG_COMPANION_USE
 	fimc_is_set_spi_config(spi_gpio, FIMC_IS_SPI_OUTPUT, true);
-#endif
 
 exit:
 	pr_info("[ISC:D:%d] %s(%d)\n", device->instance, __func__, ret);
@@ -2805,12 +2648,10 @@ static int fimc_is_ischain_init(struct fimc_is_device_ischain *device,
 	int ret = 0;
 	struct fimc_is_module_enum *module;
 	struct fimc_is_device_sensor *sensor;
-#ifdef CONFIG_COMPANION_USE
 	struct fimc_is_core *core
 		= (struct fimc_is_core *)platform_get_drvdata(device->pdev);
 	/* Workaround for Host to use ISP-SPI. Will be removed later.*/
 //	struct fimc_is_spi_gpio *spi_gpio = &core->spi_gpio;
-#endif
 
 	BUG_ON(!device);
 	BUG_ON(!device->sensor);
@@ -2846,28 +2687,15 @@ static int fimc_is_ischain_init(struct fimc_is_device_ischain *device,
 		if(sensor->instance == 0) {
 			/* Load calibration data from sensor */
 			module->ext.sensor_con.cal_address = FIMC_IS_CAL_START_ADDR;
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
-			ret = fimc_is_ischain_loadcalb_eeprom(device, NULL, SENSOR_POSITION_REAR);
-#else
 			ret = fimc_is_ischain_loadcalb(device, NULL);
-#endif
 			if (ret) {
 				err("loadcalb fail, load default caldata\n");
 			}
 		} else {
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-			module->ext.sensor_con.cal_address = FIMC_IS_CAL_START_ADDR_FRONT;
-			ret = fimc_is_ischain_loadcalb_eeprom(device, NULL, SENSOR_POSITION_FRONT);
-			if (ret) {
-				err("loadcalb fail, load default caldata\n");
-			}
-#else
 			module->ext.sensor_con.cal_address = 0;
-#endif
 		}
 	}
 
-#ifdef CONFIG_COMPANION_USE
 	if(core->companion->companion_status != FIMC_IS_COMPANION_IDLE) {
 		pr_info("[ISC:D:%d] fimc_is_companion_wait wait(%d)\n", device->instance,core->companion->companion_status);
 		fimc_is_companion_wait(core->companion);
@@ -2876,7 +2704,6 @@ static int fimc_is_ischain_init(struct fimc_is_device_ischain *device,
 
 	fimc_is_s_int_comb_isp(core, false, INTMR2_INTMCIS22);
 
-#endif
 
 	ret = fimc_is_itf_enum(device);
 	if (ret) {

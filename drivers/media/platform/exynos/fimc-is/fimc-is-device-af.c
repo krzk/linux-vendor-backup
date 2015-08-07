@@ -171,9 +171,7 @@ int fimc_is_af_ldo_enable(char *name, bool on)
 int fimc_is_af_power(struct fimc_is_device_af *af_device, bool onoff)
 {
 	int ret = 0;
-#ifdef CONFIG_OIS_USE
 	int pin_ois_en = af_device->core->pin_ois_en;
-#endif
 
 	/*CAM_AF_2.8V_AP*/
 	ret = fimc_is_af_ldo_enable("CAM_AF_2.8V_AP", onoff);
@@ -182,7 +180,6 @@ int fimc_is_af_power(struct fimc_is_device_af *af_device, bool onoff)
 		return -EINVAL;
 	}
 
-#ifdef CONFIG_OIS_USE
 	/* OIS_VDD_2.8V */
 	if (gpio_is_valid(pin_ois_en)) {
 		if (onoff) {
@@ -199,7 +196,6 @@ int fimc_is_af_power(struct fimc_is_device_af *af_device, bool onoff)
 		err("failed to power control OIS_VM_2.8V, onoff = %d", onoff);
 		return -EINVAL;
 	}
-#endif
 
 	/*CAM_IO_1.8V_AP*/
 	ret = fimc_is_af_ldo_enable("CAM_IO_1.8V_AP", onoff);
@@ -345,18 +341,14 @@ int16_t fimc_is_af_move_lens(struct fimc_is_core *core)
 	return ret;
 }
 
-#ifdef CONFIG_SENSORS_SSP_BBD
 extern int remove_af_noise_register(struct remove_af_noise *af_cam);
 extern void remove_af_noise_unregister(struct remove_af_noise *af_cam);
-#endif
 static int fimc_is_af_probe(struct i2c_client *client,
 				  const struct i2c_device_id *id)
 {
 	struct fimc_is_device_af *device;
 	struct fimc_is_core *core;
-#ifdef CONFIG_SENSORS_SSP_BBD
 	int ret;
-#endif
 
 	if (fimc_is_dev == NULL) {
 		warn("fimc_is_dev is not yet probed");
@@ -386,11 +378,9 @@ static int fimc_is_af_probe(struct i2c_client *client,
 
 	af_sensor_interface.af_pdata = device;
 	af_sensor_interface.af_func = &fimc_is_af_enable;
-#ifdef CONFIG_SENSORS_SSP_BBD
 	ret = remove_af_noise_register(&af_sensor_interface);
 	if (ret)
 		err("reduce_af_noise_register failed: %d\n", ret);
-#endif
 	i2c_set_clientdata(client, device);
 
 	return 0;
@@ -398,9 +388,7 @@ static int fimc_is_af_probe(struct i2c_client *client,
 
 static int fimc_is_af_remove(struct i2c_client *client)
 {
-#ifdef CONFIG_SENSORS_SSP_BBD
 	remove_af_noise_unregister(&af_sensor_interface);
-#endif
 	return 0;
 }
 
@@ -410,20 +398,16 @@ static const struct i2c_device_id af_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, af_id);
 
-#ifdef CONFIG_OF
 static struct of_device_id af_dt_ids[] = {
 	{ .compatible = "samsung,af",},
 	{},
 };
-#endif
 
 static struct i2c_driver af_i2c_driver = {
 	.driver = {
 		   .name = FIMC_IS_AF_DEV_NAME,
 		   .owner = THIS_MODULE,
-#ifdef CONFIG_OF
 		   .of_match_table = af_dt_ids,
-#endif
 	},
 	.probe = fimc_is_af_probe,
 	.remove = fimc_is_af_remove,

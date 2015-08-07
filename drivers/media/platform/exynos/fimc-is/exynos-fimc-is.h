@@ -177,14 +177,10 @@ struct exynos_platform_fimc_is {
 	int	(*print_cfg)(struct platform_device *pdev, u32 channel);
 	int	(*print_pwr)(struct platform_device *pdev);
 
-#ifdef CONFIG_COMPANION_USE
 	u32	companion_spi_channel;
 	bool	use_two_spi_line;
-#endif
 	u32	use_sensor_dynamic_voltage_mode;
-#ifdef CONFIG_OIS_USE
 	bool use_ois;
-#endif /* CONFIG_OIS_USE */
 	bool use_ois_hsi2c;
 	bool use_module_check;
 };

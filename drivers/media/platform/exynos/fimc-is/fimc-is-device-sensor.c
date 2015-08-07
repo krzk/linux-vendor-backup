@@ -45,9 +45,7 @@
 #include "fimc-is-dt.h"
 
 #include "fimc-is-device-sensor.h"
-#ifdef CONFIG_COMPANION_USE
 #include "fimc-is-companion-dt.h"
-#endif
 
 extern struct device *camera_front_dev;
 extern struct device *camera_rear_dev;
@@ -764,21 +762,11 @@ static int fimc_is_sensor_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-#ifdef CONFIG_OF
-#ifdef CONFIG_COMPANION_USE
 	ret = fimc_is_sensor_parse_dt_with_companion(pdev);
 	if (ret) {
 		err("parsing device tree is fail(%d)", ret);
 		goto p_err;
 	}
-#else
-	ret = fimc_is_sensor_parse_dt(pdev);
-	if (ret) {
-		err("parsing device tree is fail(%d)", ret);
-		goto p_err;
-	}
-#endif /* CONFIG_COMPANION_USE */
-#endif /* CONFIG_OF */
 
 	pdata = dev_get_platdata(&pdev->dev);
 	if (!pdata) {
@@ -1055,9 +1043,7 @@ int fimc_is_sensor_s_input(struct fimc_is_device_sensor *device,
 	struct v4l2_subdev *subdev_flite;
 	struct fimc_is_module_enum *module = NULL;
 	u32 sensor_ch, actuator_ch;
-#if defined(CONFIG_OIS_USE)
 	u32 ois_ch, ois_addr;
-#endif
 	u32 sensor_addr, actuator_addr;
 	u32 i = 0;
 
@@ -1115,7 +1101,6 @@ int fimc_is_sensor_s_input(struct fimc_is_device_sensor *device,
 		module->ext.actuator_con.peri_setting.i2c.slave_address = actuator_addr;
 	}
 
-#if defined(CONFIG_OIS_USE)
 	if (module->ext.ois_con.peri_type == SE_I2C) {
 		ois_ch = device->pdata->i2c_ch & OIS_I2C_CH_MASK;
 		ois_ch >>= OIS_I2C_CH_SHIFT;
@@ -1124,7 +1109,6 @@ int fimc_is_sensor_s_input(struct fimc_is_device_sensor *device,
 		module->ext.ois_con.peri_setting.i2c.channel = ois_ch;
 		module->ext.ois_con.peri_setting.i2c.slave_address = ois_addr;
 	}
-#endif
 
 	/* send csi chennel to FW */
 	module->ext.sensor_con.csi_ch = device->pdata->csi_ch;
@@ -1133,14 +1117,12 @@ int fimc_is_sensor_s_input(struct fimc_is_device_sensor *device,
 	module->ext.flash_con.peri_setting.gpio.first_gpio_port_no = device->pdata->flash_first_gpio;
 	module->ext.flash_con.peri_setting.gpio.second_gpio_port_no = device->pdata->flash_second_gpio;
 
-#ifdef CONFIG_COMPANION_USE
 	/* Data Type For Comapnion:
 	 * Companion use user defined data type.
 	 */
 	if (module->ext.companion_con.product_name &&
 	module->ext.companion_con.product_name != COMPANION_NAME_NOTHING)
 		device->image.format.field = V4L2_FIELD_INTERLACED;
-#endif
 
 	subdev_csi = device->subdev_csi;
 	subdev_flite = device->subdev_flite;
@@ -2057,7 +2039,6 @@ static const struct dev_pm_ops fimc_is_sensor_pm_ops = {
 	.runtime_resume		= fimc_is_sensor_runtime_resume,
 };
 
-#ifdef CONFIG_OF
 static const struct of_device_id exynos_fimc_is_sensor_match[] = {
 	{
 		.compatible = "samsung,exynos5-fimc-is-sensor",
@@ -2078,45 +2059,6 @@ static struct platform_driver fimc_is_sensor_driver = {
 };
 
 module_platform_driver(fimc_is_sensor_driver);
-#else
-static struct platform_device_id fimc_is_sensor_driver_ids[] = {
-	{
-		.name		= FIMC_IS_SENSOR_DEV_NAME,
-		.driver_data	= 0,
-	},
-	{},
-};
-MODULE_DEVICE_TABLE(platform, fimc_is_sensor_driver_ids);
-
-static struct platform_driver fimc_is_sensor_driver = {
-	.probe	  = fimc_is_sensor_probe,
-	.remove	  = __devexit_p(fimc_is_sensor_remove),
-	.id_table = fimc_is_sensor_driver_ids,
-	.driver	  = {
-		.name	= FIMC_IS_SENSOR_DEV_NAME,
-		.owner	= THIS_MODULE,
-		.pm	= &fimc_is_sensor_pm_ops,
-	}
-};
-
-static int __init fimc_is_sensor_init(void)
-{
-	int ret = 0;
-
-	ret = platform_driver_register(&fimc_is_sensor_driver);
-	if (ret)
-		err("platform_driver_register failed: %d\n", ret);
-
-	return ret;
-}
-
-static void __exit fimc_is_sensor_exit(void)
-{
-	platform_driver_unregister(&fimc_is_sensor_driver);
-}
-module_init(fimc_is_sensor_init);
-module_exit(fimc_is_sensor_exit);
-#endif
 
 MODULE_AUTHOR("Gilyeon lim<kilyeon.im@samsung.com>");
 MODULE_DESCRIPTION("Exynos FIMC_IS_SENSOR driver");

@@ -23,9 +23,7 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/platform_device.h>
-#ifdef CONFIG_OF
 #include <linux/of_gpio.h>
-#endif
 #include <mach/regs-gpio.h>
 #include <mach/regs-clock.h>
 #include <plat/clock.h>
@@ -597,7 +595,6 @@ struct fimc_is_sensor_ops module_6d1_ops = {
 	.g_max_dgain	= sensor_6d1_g_max_dgain
 };
 
-#ifdef CONFIG_OF
 static int sensor_6d1_power_setpin(struct device *dev)
 {
 	int gpio_none = 0, gpio_reset = 0, gpio_standby = 0;
@@ -674,7 +671,6 @@ static int sensor_6d1_power_setpin(struct device *dev)
 
 	return 0;
 }
-#endif
 
 int sensor_6d1_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
@@ -733,9 +729,7 @@ int sensor_6d1_probe(struct i2c_client *client,
 		kfree(subdev_module);
 		goto p_err;
 	}
-#ifdef CONFIG_OF
 	module->power_setpin = sensor_6d1_power_setpin;
-#endif
 	ext = &module->ext;
 	ext->mipi_lane_num = module->lanes;
 	ext->I2CSclk = I2C_L0;
@@ -781,14 +775,12 @@ static int sensor_6d1_remove(struct i2c_client *client)
 	return ret;
 }
 
-#ifdef CONFIG_OF
 static const struct of_device_id exynos_fimc_is_sensor_6d1_match[] = {
 	{
 		.compatible = "samsung,exynos5-fimc-is-sensor-6d1",
 	},
 	{},
 };
-#endif
 
 static const struct i2c_device_id sensor_6d1_idt[] = {
 	{ SENSOR_NAME, 0 },
@@ -798,9 +790,7 @@ static struct i2c_driver sensor_6d1_driver = {
 	.driver = {
 		.name	= SENSOR_NAME,
 		.owner	= THIS_MODULE,
-#ifdef CONFIG_OF
 		.of_match_table = exynos_fimc_is_sensor_6d1_match
-#endif
 	},
 	.probe	= sensor_6d1_probe,
 	.remove	= sensor_6d1_remove,

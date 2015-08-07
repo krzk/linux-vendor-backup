@@ -14,14 +14,11 @@
 #include "exynos-fimc-is-sensor.h"
 #include "exynos-fimc-is.h"
 #include "media/exynos_mc.h"
-#ifdef CONFIG_OF
 #include <linux/of_gpio.h>
-#endif
 
 #include "fimc-is-dt.h"
 #include "fimc-is-companion-dt.h"
 
-#ifdef CONFIG_OF
 int fimc_is_sensor_parse_dt_with_companion(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -219,5 +216,4 @@ p_err:
 	kfree(pdata);
 	return ret;
 }
-#endif
 

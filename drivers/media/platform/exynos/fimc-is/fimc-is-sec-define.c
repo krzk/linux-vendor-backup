@@ -1,9 +1,6 @@
 #include "fimc-is-sec-define.h"
 #include <mach/pinctrl-samsung.h>
 
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR) || defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-#include <linux/i2c.h>
-#endif
 
 bool crc32_fw_check = true;
 bool crc32_check = true;
@@ -16,19 +13,13 @@ bool fw_version_crc_check = true;
 bool is_latest_cam_module = false;
 bool is_final_cam_module = false;
 bool is_right_prj_name = true;
-#ifdef CONFIG_COMPANION_USE
 bool crc32_c1_fw_check = true;
 bool crc32_c1_check = true;
 bool crc32_c1_check_factory = true;
 bool companion_lsc_isvalid = false;
 bool companion_coef_isvalid = false;
-#endif
 u8 cal_map_version[4] = {0,};
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
-#define FIMC_IS_MAX_CAL_SIZE	(8 * 1024)
-#else
 #define FIMC_IS_MAX_CAL_SIZE	(64 * 1024)
-#endif
 #define FIMC_IS_MAX_CAL_SIZE_FRONT	(8 * 1024)
 
 #define FIMC_IS_DEFAULT_CAL_SIZE	(20 * 1024)
@@ -51,11 +42,6 @@ char fw_core_version;
 //struct device *camera_rear_dev; /*sys/class/camera/rear*/
 static struct fimc_is_from_info sysfs_finfo;
 static struct fimc_is_from_info sysfs_pinfo;
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-static struct fimc_is_from_info sysfs_finfo_front;
-static struct fimc_is_from_info sysfs_pinfo_front;
-static char cal_buf_front[FIMC_IS_MAX_CAL_SIZE_FRONT];
-#endif
 
 static char cal_buf[FIMC_IS_MAX_CAL_SIZE];
 char loaded_fw[12] = {0, };
@@ -81,19 +67,6 @@ int fimc_is_sec_get_sysfs_pinfo(struct fimc_is_from_info **pinfo)
 	return 0;
 }
 
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-int fimc_is_sec_get_sysfs_finfo_front(struct fimc_is_from_info **finfo)
-{
-	*finfo = &sysfs_finfo_front;
-	return 0;
-}
-
-int fimc_is_sec_get_front_cal_buf(char **buf)
-{
-	*buf = &cal_buf_front[0];
-	return 0;
-}
-#endif
 
 int fimc_is_sec_get_cal_buf(char **buf)
 {
@@ -153,26 +126,14 @@ bool fimc_is_sec_check_cal_crc32(char *buf, int id)
 
 
 	crc32_temp = true;
-#ifdef CONFIG_COMPANION_USE
 	crc32_c1_check = true;
-#endif
 
 	/* Header data */
 	check_base = 0;
 	checksum = 0;
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-	if (id == SENSOR_POSITION_FRONT) {
-		finfo = &sysfs_finfo_front;
-		checksum_base = ((check_base & 0xffffff00) + 0xfc) / 4;
-	} else
-#endif
 	{
 		finfo = &sysfs_finfo;
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
-		checksum_base = ((check_base & 0xffffff00) + 0xfc) / 4;
-#else
 		checksum_base = ((check_base & 0xfffff000) + 0xffc) / 4;
-#endif
 	}
 
 	checksum = getCRC((u16 *)&buf32[check_base], HEADER_CRC32_LEN, NULL, NULL);
@@ -192,17 +153,8 @@ bool fimc_is_sec_check_cal_crc32(char *buf, int id)
 	checksum = 0;
 	check_length = (finfo->oem_end_addr - finfo->oem_start_addr + 1) / 2;
 
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-	if (id == SENSOR_POSITION_FRONT) {
-		checksum_base = ((finfo->oem_end_addr & 0xffffff00) + 0xfc) / 4;
-	} else
-#endif
 	{
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
-		checksum_base = ((finfo->oem_end_addr & 0xffffff00) + 0xfc) / 4;
-#else
 		checksum_base = ((finfo->oem_end_addr & 0xfffff000) + 0xffc) / 4;
-#endif
 	}
 
 	checksum = getCRC((u16 *)&buf32[check_base],
@@ -220,17 +172,8 @@ bool fimc_is_sec_check_cal_crc32(char *buf, int id)
 	checksum = 0;
 	check_length = (finfo->awb_end_addr - finfo->awb_start_addr + 1) / 2;
 
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-	if (id == SENSOR_POSITION_FRONT) {
-		checksum_base = ((finfo->awb_end_addr & 0xffffff00) + 0xfc) / 4;
-	} else
-#endif
 	{
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
-		checksum_base = ((finfo->awb_end_addr & 0xffffff00) + 0xfc) / 4;
-#else
 		checksum_base = ((finfo->awb_end_addr & 0xfffff000) + 0xffc) / 4;
-#endif
 	}
 
 	checksum = getCRC((u16 *)&buf32[check_base],
@@ -248,17 +191,8 @@ bool fimc_is_sec_check_cal_crc32(char *buf, int id)
 	checksum = 0;
 	check_length = (finfo->shading_end_addr - finfo->shading_start_addr + 1) / 2;
 
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-	if (id == SENSOR_POSITION_FRONT) {
-		checksum_base = 0x1ffc / 4;
-	} else
-#endif
 	{
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
-		checksum_base = 0x1ffc / 4;
-#else
 		checksum_base = ((finfo->shading_end_addr & 0xfffff000) + 0xffc) / 4;
-#endif
 	}
 
 	checksum = getCRC((u16 *)&buf32[check_base],
@@ -271,7 +205,6 @@ bool fimc_is_sec_check_cal_crc32(char *buf, int id)
 		err("Camera: Shading checksum address has error(0x%08X)", checksum_base * 4);
 	}
 
-#ifdef CONFIG_COMPANION_USE
 	/* pdaf cal */
 	check_base = finfo->pdaf_cal_start_addr / 4;
 	checksum = 0;
@@ -303,23 +236,11 @@ bool fimc_is_sec_check_cal_crc32(char *buf, int id)
 	} else if (checksum_base > 0x80000 || checksum_base < 0) {
 		err("Camera: concord cal checksum address has error(0x%08X)", checksum_base * 4);
 	}
-#endif
 
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-	if (id == SENSOR_POSITION_FRONT) {
-		crc32_check_front = crc32_temp;
-		crc32_header_check_front = crc32_header_temp;
-		return crc32_check_front;
-	} else
-#endif
 	{
 		crc32_check = crc32_temp;
 		crc32_header_check = crc32_header_temp;
-#ifdef CONFIG_COMPANION_USE
 		return crc32_check && crc32_c1_check;
-#else
-		return crc32_check;
-#endif
 	}
 }
 
@@ -388,228 +309,7 @@ ssize_t read_data_from_file(char *name, char *buf, size_t count, loff_t *pos)
 	return count;
 }
 
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR) || defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-int fimc_is_i2c_read(struct i2c_client *client, void *buf, u32 addr, size_t size)
-{
-	const u32 addr_size = 2, max_retry = 5;
-	u8 addr_buf[addr_size];
-	int retries = max_retry;
-	int ret = 0;
 
-	if (!client) {
-		pr_info("%s: client is null\n", __func__);
-		return -ENODEV;
-	}
-
-	/* pr_info("%s %s: fimc_is_i2c_read\n",
-		dev_driver_string(&client->dev), dev_name(&client->dev));*/
-
-	/* Send addr */
-	addr_buf[0] = ((u16)addr) >> 8;
-	addr_buf[1] = (u8)addr;
-
-	for (retries = max_retry; retries > 0; retries--) {
-		ret = i2c_master_send(client, addr_buf, addr_size);
-		if (likely(addr_size == ret))
-			break;
-
-		pr_info("%s: i2c_master_send failed(%d), try %d\n", __func__, ret, retries);
-		usleep_range(1000, 1000);
-	}
-
-	if (unlikely(ret <= 0)) {
-		pr_err("%s: error %d, fail to write 0x%04X\n", __func__, ret, addr);
-		return ret ? ret : -ETIMEDOUT;
-	}
-
-	/* Receive data */
-	for (retries = max_retry; retries > 0; retries--) {
-		ret = i2c_master_recv(client, buf, size);
-		if (likely(ret == size))
-			break;
-
-		pr_info("%s: i2c_master_recv failed(%d), try %d\n", __func__,  ret, retries);
-		usleep_range(1000, 1000);
-	}
-
-	if (unlikely(ret <= 0)) {
-		pr_err("%s: error %d, fail to read 0x%04X\n", __func__, ret, addr);
-		return ret ? ret : -ETIMEDOUT;
-	}
-
-	return 0;
-}
-
-int fimc_is_sec_read_eeprom_header(struct device *dev)
-{
-	int ret = 0;
-	struct fimc_is_core *core = dev_get_drvdata(dev);
-	u8 header_version[12] = {0, };
-	struct i2c_client *client;
-	client = core->eeprom_client0;
-
-	ret = fimc_is_i2c_read(client, header_version, 0x20, 0x0B);
-	if (unlikely(ret)) {
-		err("failed to fimc_is_i2c_read for header version (%d)\n", ret);
-		ret = -EINVAL;
-	}
-
-	memcpy(sysfs_finfo.header_ver, header_version, 11);
-	sysfs_finfo.header_ver[11] = '\0';
-
-	return ret;
-}
-
-int fimc_is_sec_readcal_eeprom(struct device *dev, int id)
-{
-	int ret = 0;
-	char *buf = NULL;
-	int retry = FIMC_IS_CAL_RETRY_CNT;
-	struct fimc_is_core *core = dev_get_drvdata(dev);
-	struct fimc_is_from_info *finfo = NULL;
-	int cal_size = 0;
-	struct i2c_client *client = NULL;
-
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-	if (id == SENSOR_POSITION_FRONT) {
-		finfo = &sysfs_finfo_front;
-		fimc_is_sec_get_front_cal_buf(&buf);
-		cal_size = FIMC_IS_MAX_CAL_SIZE_FRONT;
-		client = core->eeprom_client1;
-	} else
-#endif
-	{
-		finfo = &sysfs_finfo;
-		fimc_is_sec_get_cal_buf(&buf);
-		cal_size = FIMC_IS_MAX_CAL_SIZE;
-		client = core->eeprom_client0;
-	}
-
-	ret = fimc_is_i2c_read(client, cal_map_version, 0x30, 0x4);
-	if (unlikely(ret)) {
-		err("failed to fimc_is_i2c_read (%d)\n", ret);
-		ret = -EINVAL;
-		goto exit;
-	}
-	printk(KERN_INFO "Camera: Cal map_version = %c%c%c%c\n", cal_map_version[0],
-			cal_map_version[1], cal_map_version[2], cal_map_version[3]);
-
-crc_retry:
-
-	/* read cal data */
-	pr_info("Camera: I2C read cal data\n\n");
-	fimc_is_i2c_read(client, buf, 0x0, cal_size);
-
-	finfo->oem_start_addr = *((u32 *)&buf[0x0]);
-	finfo->oem_end_addr = *((u32 *)&buf[0x04]);
-	pr_info("OEM start = 0x%08x, end = 0x%08x\n",
-			(finfo->oem_start_addr), (finfo->oem_end_addr));
-	finfo->awb_start_addr = *((u32 *)&buf[0x08]);
-	finfo->awb_end_addr = *((u32 *)&buf[0x0C]);
-	pr_info("AWB start = 0x%08x, end = 0x%08x\n",
-			(finfo->awb_start_addr), (finfo->awb_end_addr));
-	finfo->shading_start_addr = *((u32 *)&buf[0x10]);
-	finfo->shading_end_addr = *((u32 *)&buf[0x14]);
-	if (finfo->shading_end_addr > 0x1fff) {
-		err("Shading end_addr has error!! 0x%08x", finfo->shading_end_addr);
-		finfo->setfile_end_addr = 0x1fff;
-	}
-	pr_info("Shading start = 0x%08x, end = 0x%08x\n",
-		(finfo->shading_start_addr), (finfo->shading_end_addr));
-
-	/* HEARDER Data : Module/Manufacturer Information */
-	memcpy(finfo->header_ver, &buf[0x20], 11);
-	finfo->header_ver[11] = '\0';
-	/* HEARDER Data : Cal Map Version */
-	memcpy(finfo->cal_map_ver, &buf[0x30], 4);
-
-	memcpy(finfo->project_name, &buf[0x38], 8);
-	finfo->project_name[8] = '\0';
-
-	/* OEM Data : Module/Manufacturer Information */
-	memcpy(finfo->oem_ver, &buf[0x150], 11);
-	finfo->oem_ver[11] = '\0';
-
-	/* AWB Data : Module/Manufacturer Information */
-	memcpy(finfo->awb_ver, &buf[0x220], 11);
-	finfo->awb_ver[11] = '\0';
-
-	/* SHADING Data : Module/Manufacturer Information */
-	memcpy(finfo->shading_ver, &buf[0x1CE0], 11);
-	finfo->shading_ver[11] = '\0';
-
-	/* debug info dump */
-#if defined(EEPROM_DEBUG)
-	pr_info("++++ EEPROM data info\n");
-	pr_info("1. Header info\n");
-	pr_info("Module info : %s\n", finfo->header_ver);
-	pr_info(" ID : %c\n", finfo->header_ver[0]);
-	pr_info(" Pixel num : %c%c\n", finfo->header_ver[1],
-							finfo->header_ver[2]);
-	pr_info(" ISP ID : %c\n", finfo->header_ver[3]);
-	pr_info(" Sensor Maker : %c\n", finfo->header_ver[4]);
-	pr_info(" Module ver : %c\n", finfo->header_ver[6]);
-	pr_info(" Year : %c\n", finfo->header_ver[7]);
-	pr_info(" Month : %c\n", finfo->header_ver[8]);
-	pr_info(" Release num : %c%c\n", finfo->header_ver[9],
-							finfo->header_ver[10]);
-	pr_info("project_name : %s\n", finfo->project_name);
-	pr_info("Cal data map ver : %s\n", finfo->cal_map_ver);
-	pr_info("2. OEM info\n");
-	pr_info("Module info : %s\n", finfo->oem_ver);
-	pr_info("3. AWB info\n");
-	pr_info("Module info : %s\n", finfo->awb_ver);
-	pr_info("4. Shading info\n");
-	pr_info("Module info : %s\n", finfo->shading_ver);
-	pr_info("---- EEPROM data info\n");
-#endif
-
-	/* CRC check */
-	if (id == SENSOR_POSITION_FRONT) {
-		ret = fimc_is_sec_check_cal_crc32(buf, SENSOR_POSITION_FRONT);
-	} else {
-		ret = fimc_is_sec_check_cal_crc32(buf, SENSOR_POSITION_REAR);
-	}
-	if (!ret && (retry > 0)) {
-		retry--;
-		goto crc_retry;
-	}
-
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR) || defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-	if (id == SENSOR_POSITION_FRONT) {
-		if (finfo->header_ver[3] == 'L') {
-			crc32_check_factory_front = crc32_check_front;
-		} else {
-			crc32_check_factory_front = false;
-		}
-	} else
-#endif
-	{
-		if (finfo->header_ver[3] == 'L') {
-			crc32_check_factory = crc32_check;
-		} else {
-			crc32_check_factory = false;
-		}
-
-		if (finfo->project_name[6] == 'C' && finfo->header_ver[0] == 'E' && finfo->header_ver[1] == '0' &&
-			finfo->header_ver[2] == '8') {
-			pr_info("This camera module use IMX134+EEPROM - project_name: %c-%c\n"
-				, finfo->project_name[6], finfo->project_name[7]);
-
-			if (!core->use_module_check) {
-				is_right_prj_name = true;
-				is_latest_cam_module = true;
-				is_final_cam_module = true;
-			}
-		}
-	}
-
-exit:
-	return ret;
-}
-#endif
-
-#if !defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
 extern int fimc_is_spi_reset_by_core(struct spi_device *spi, void *buf, u32 rx_addr, size_t size);
 extern int fimc_is_spi_read_by_core(struct spi_device *spi, void *buf, u32 rx_addr, size_t size);
 extern int fimc_is_spi_read_module_id(struct spi_device *spi, void *buf, u16 rx_addr, size_t size);
@@ -699,7 +399,6 @@ crc_retry:
 		sysfs_finfo.setfile_start_addr = *((u32 *)&cal_buf[40]);
 		sysfs_finfo.setfile_end_addr = *((u32 *)&cal_buf[44]);
 	}*/
-#ifdef CONFIG_COMPANION_USE
 	sysfs_finfo.concord_cal_start_addr = *((u32 *)&cal_buf[40]);
 	sysfs_finfo.concord_cal_end_addr = 0xF23F;//*((u32 *)&cal_buf[44]);
 	pr_info("concord cal start = 0x%08x, end = 0x%08x\n",
@@ -781,7 +480,6 @@ crc_retry:
 	sysfs_finfo.coef4_crc_addr = 0xF226;
 	sysfs_finfo.coef5_crc_addr = 0xF22A;
 	sysfs_finfo.coef6_crc_addr = 0xF22E;
-#endif
 
 	if (sysfs_finfo.setfile_end_addr < 0x8000 || sysfs_finfo.setfile_end_addr > 0x3fffff) {
 		err("setfile end_addr has error!!  0x%08x", sysfs_finfo.setfile_end_addr);
@@ -811,9 +509,7 @@ crc_retry:
 	pr_err("++++ FROM data info\n");
 	pr_err("1. Header info\n");
 	pr_err("Module info : %s\n", sysfs_finfo.header_ver);
-#ifdef CONFIG_COMPANION_USE
 	pr_err("Companion version info : %s\n", sysfs_finfo.concord_header_ver);
-#endif
 	pr_err(" ID : %c\n", sysfs_finfo.header_ver[0]);
 	pr_err(" Pixel num : %c%c\n", sysfs_finfo.header_ver[1],
 							sysfs_finfo.header_ver[2]);
@@ -836,7 +532,6 @@ crc_retry:
 	pr_err("---- FROM data info\n");
 
 	/* CRC check */
-#ifdef CONFIG_COMPANION_USE
 	if (fimc_is_comp_is_compare_ver(core) >= FROM_VERSION_V004) {
 		if (!fimc_is_sec_check_cal_crc32(cal_buf, SENSOR_POSITION_REAR) && (retry > 0)) {
 			retry--;
@@ -847,26 +542,15 @@ crc_retry:
 		crc32_check = false;
 		crc32_c1_check = false;
 	}
-#else
-	if (!fimc_is_sec_check_cal_crc32(cal_buf, SENSOR_POSITION_REAR) && (retry > 0)) {
-		retry--;
-		goto crc_retry;
-	}
-#endif
 
 	if (sysfs_finfo.header_ver[3] == 'L') {
 		crc32_check_factory = crc32_check;
-#ifdef CONFIG_COMPANION_USE
 		crc32_c1_check_factory = crc32_c1_check;
-#endif
 	} else {
 		crc32_check_factory = false;
-#ifdef CONFIG_COMPANION_USE
 		crc32_c1_check_factory = false;
-#endif
 	}
 
-#ifdef CONFIG_COMPANION_USE
 	if (fimc_is_comp_is_compare_ver(core) >= FROM_VERSION_V004) {
 		if (crc32_check && crc32_c1_check) {
 			/* If FROM LSC value is not valid, loading default lsc data */
@@ -888,7 +572,6 @@ crc_retry:
 		companion_lsc_isvalid = true;
 		companion_coef_isvalid = true;
 	}
-#endif
 
 	if (!core->use_module_check) {
 		is_latest_cam_module = true;
@@ -950,7 +633,6 @@ exit:
 	return ret;
 }
 
-#endif
 
 int fimc_is_sec_get_pixel_size(char *header_ver)
 {
@@ -1158,159 +840,7 @@ int fimc_is_sec_fw_find(struct fimc_is_core *core, char *fw_name, char *setf_nam
 	return 0;
 }
 
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR) || defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-int fimc_is_sec_fw_sel_eeprom(struct device *dev,
-                char *fw_name, char *setf_name, int id, bool headerOnly)
-{
-	int ret = 0;
-	char fw_path[100];
-	char phone_fw_version[12] = {0, };
 
-	struct file *fp = NULL;
-	mm_segment_t old_fs;
-	long fsize, nread;
-	u8 *fw_buf = NULL;
-	bool is_ldo_enabled = false;
-	struct platform_device *pdev = to_platform_device(dev);
-	struct fimc_is_core *core = (struct fimc_is_core *)platform_get_drvdata(pdev);
-	struct exynos_platform_fimc_is_sensor *pdata;
-	struct fimc_is_device_sensor *sensor_device = &core->sensor[0];
-
-	BUG_ON(!sensor_device);
-	BUG_ON(!sensor_device->pdata);
-	BUG_ON(!sensor_device->pdata->sensor_id);
-
-	pdata = sensor_device->pdata;
-
-	/* Use mutex for i2c read */
-	mutex_lock(&core->spi_lock);
-
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-	if (id == SENSOR_POSITION_FRONT) {
-		if (!sysfs_finfo_front.is_caldata_read || force_caldata_dump) {
-			if (force_caldata_dump)
-				pr_info("forced caldata dump!!\n");
-
-			if (!fimc_is_sec_ldo_enabled(dev, "VT_CAM_1.8V")) {
-				ret = fimc_is_sec_ldo_enable(dev, "VT_CAM_1.8V", true);
-				if (ret) {
-					pr_err("fimc_is_sec_fw_sel_eeprom: error, failed to cam_io(on)");
-					goto exit;
-				}
-
-				is_ldo_enabled = true;
-			}
-
-			pr_info("Camera: read cal data from Front EEPROM\n");
-			if ((fimc_is_sec_readcal_eeprom(dev, SENSOR_POSITION_FRONT) != -EIO) &&
-					crc32_header_check_front) {
-				sysfs_finfo_front.is_caldata_read = true;
-			}
-		}
-		goto exit;
-	} else
-#endif
-	{
-		if (!sysfs_finfo.is_caldata_read || force_caldata_dump) {
-			is_dumped_fw_loading_needed = false;
-			if (force_caldata_dump)
-				pr_info("forced caldata dump!!\n");
-
-			if (!fimc_is_sec_ldo_enabled(dev, "CAM_IO_1.8V_AP")) {
-				ret = fimc_is_sec_ldo_enable(dev, "CAM_IO_1.8V_AP", true);
-				if (ret) {
-					pr_err("fimc_is_sec_fw_sel_eeprom: error, failed to cam_io(on)");
-					goto exit;
-				}
-
-				is_ldo_enabled = true;
-			}
-
-			pr_info("Camera: read cal data from Rear EEPROM\n");
-			if (headerOnly) {
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
-				fimc_is_sec_read_eeprom_header(dev);
-#endif
-			} else {
-				if ((fimc_is_sec_readcal_eeprom(dev, SENSOR_POSITION_REAR) != -EIO) &&
-						crc32_header_check) {
-					sysfs_finfo.is_caldata_read = true;
-				}
-			}
-		}
-	}
-
-	fimc_is_sec_fw_find(core, fw_name, setf_name);
-	if (headerOnly) {
-		goto exit;
-	}
-
-	snprintf(fw_path, sizeof(fw_path), "%s%s", FIMC_IS_FW_PATH, fw_name);
-
-	old_fs = get_fs();
-	set_fs(KERNEL_DS);
-
-	fp = filp_open(fw_path, O_RDONLY, 0);
-	if (IS_ERR(fp)) {
-		pr_err("Camera: Failed open phone firmware\n");
-		ret = -EIO;
-		fp = NULL;
-		goto read_phone_fw_exit;
-	}
-
-	fsize = fp->f_path.dentry->d_inode->i_size;
-	pr_info("start, file path %s, size %ld Bytes\n",
-		fw_path, fsize);
-	fw_buf = vmalloc(fsize);
-	if (!fw_buf) {
-		pr_err("failed to allocate memory\n");
-		ret = -ENOMEM;
-		goto read_phone_fw_exit;
-	}
-	nread = vfs_read(fp, (char __user *)fw_buf, fsize, &fp->f_pos);
-	if (nread != fsize) {
-		pr_err("failed to read firmware file, %ld Bytes\n", nread);
-		ret = -EIO;
-		goto read_phone_fw_exit;
-	}
-
-	strncpy(phone_fw_version, fw_buf + nread - 11, 11);
-	strncpy(sysfs_pinfo.header_ver, fw_buf + nread - 11, 11);
-	pr_info("Camera: phone fw version: %s\n", phone_fw_version);
-read_phone_fw_exit:
-	if (fw_buf) {
-		vfree(fw_buf);
-		fw_buf = NULL;
-	}
-
-	if (fp) {
-		filp_close(fp, current->files);
-		fp = NULL;
-	}
-
-	set_fs(old_fs);
-
-exit:
-	if (is_ldo_enabled) {
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
-		if (id == SENSOR_POSITION_FRONT) {
-			ret = fimc_is_sec_ldo_enable(dev, "VT_CAM_1.8V", false);
-		} else
-#endif
-		{
-			ret = fimc_is_sec_ldo_enable(dev, "CAM_IO_1.8V_AP", false);
-		}
-		if (ret)
-			pr_err("fimc_is_sec_fw_sel_eeprom: error, failed to cam_io(off)");
-	}
-
-	mutex_unlock(&core->spi_lock);
-
-	return ret;
-}
-#endif
-
-#if !defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
 int fimc_is_sec_fw_sel(struct fimc_is_core *core, struct device *dev,
 	char *fw_name, char *setf_name, bool headerOnly)
 {
@@ -1329,9 +859,7 @@ int fimc_is_sec_fw_sel(struct fimc_is_core *core, struct device *dev,
 	u8 *fw_buf = NULL;
 	bool is_dump_existed = false;
 	bool is_dump_needed = true;
-#ifdef CONFIG_COMPANION_USE
 	struct fimc_is_spi_gpio *spi_gpio = &core->spi_gpio;
-#endif
 	bool is_ldo_enabled = false;
 	struct exynos_platform_fimc_is_sensor *pdata;
 	struct fimc_is_device_sensor *sensor_device = &core->sensor[0];
@@ -1359,9 +887,7 @@ int fimc_is_sec_fw_sel(struct fimc_is_core *core, struct device *dev,
 			is_ldo_enabled = true;
 		}
 		pr_info("read cal data from FROM\n");
-#ifdef CONFIG_COMPANION_USE
 		fimc_is_set_spi_config(spi_gpio, FIMC_IS_SPI_FUNC, false);
-#endif
 
 		if (headerOnly) {
 			fimc_is_sec_read_from_header(dev);
@@ -1372,9 +898,7 @@ int fimc_is_sec_fw_sel(struct fimc_is_core *core, struct device *dev,
 			}
 		}
 
-#ifdef CONFIG_COMPANION_USE
 		fimc_is_set_spi_config(spi_gpio, FIMC_IS_SPI_OUTPUT, false);
-#endif
 		/*select AF actuator*/
 		if (!crc32_header_check) {
 			pr_info("Camera : CRC32 error for all section.\n");
@@ -1558,9 +1082,7 @@ exit:
 
 	return ret;
 }
-#endif
 
-#ifdef CONFIG_COMPANION_USE
 void fimc_is_set_spi_config(struct fimc_is_spi_gpio *spi_gpio, int func, bool ssn) {
 	pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_sclk,
 			PINCFG_PACK(PINCFG_TYPE_FUNC, func));
@@ -1849,4 +1371,3 @@ read_phone_fw_exit:
 exit:
 	return ret;
 }
-#endif

@@ -171,7 +171,6 @@ p_err:
 }
 
 
-#ifndef USE_SPI
 static int fimc_is_comp_i2c_write(struct i2c_client *client ,u16 addr, u16 data)
 {
         int retries = I2C_RETRY_COUNT;
@@ -212,18 +211,10 @@ static int fimc_is_comp_i2c_write(struct i2c_client *client ,u16 addr, u16 data)
 
         return 0;
 }
-#endif
 
 static int fimc_is_comp_single_write(struct fimc_is_core *core , u16 addr, u16 data)
 {
 	int ret = 0;
-#ifdef USE_SPI
-	struct spi_device *spi = core->spi1;
-	ret = fimc_is_comp_spi_single_write(spi, addr, data);
-	if (ret) {
-		err("spi_single_write() fail");
-	}
-#else
 	struct i2c_client *client = core->client0;
 	fimc_is_s_int_comb_isp(core, true, INTMR2_INTMCIS22); /* interrupt on */
 	ret = fimc_is_comp_i2c_write(client, addr, data);
@@ -231,7 +222,6 @@ static int fimc_is_comp_single_write(struct fimc_is_core *core , u16 addr, u16 d
 		err("i2c write fail");
 	}
 	fimc_is_s_int_comb_isp(core, false, INTMR2_INTMCIS22); /* interrupt off */
-#endif
 
 	return ret;
 }
@@ -239,7 +229,6 @@ static int fimc_is_comp_single_write(struct fimc_is_core *core , u16 addr, u16 d
 static int fimc_is_comp_single_read(struct fimc_is_core *core , u16 addr, u16 *data, size_t size)
 {
 	int ret = 0;
-//#ifdef USE_SPI
 	struct spi_device *spi = core->spi1;
 	ret = fimc_is_comp_spi_read(spi, (void *)data, addr, size);
 	if (ret) {

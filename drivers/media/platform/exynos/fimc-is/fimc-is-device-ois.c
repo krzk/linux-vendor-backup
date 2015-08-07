@@ -30,9 +30,7 @@
 #include <linux/delay.h>
 #include "exynos-fimc-is-sensor.h"
 #include <mach/pinctrl-samsung.h>
-#ifdef CONFIG_OIS_FW_UPDATE_THREAD_USE
 #include <linux/kthread.h>
-#endif
 
 #include "fimc-is-core.h"
 #include "fimc-is-interface.h"
@@ -40,9 +38,7 @@
 #include "fimc-is-device-ischain.h"
 #include "fimc-is-dt.h"
 #include "fimc-is-device-ois.h"
-#ifdef CONFIG_AF_HOST_CONTROL
 #include "fimc-is-device-af.h"
-#endif
 
 #define FIMC_IS_OIS_SDCARD_PATH		"/data/media/0/"
 #define FIMC_IS_OIS_DEV_NAME		"exynos-fimc-is-ois"
@@ -69,9 +65,7 @@ static struct fimc_is_ois_info ois_uinfo;
 static struct fimc_is_ois_exif ois_exif_data;
 static bool fw_sdcard;
 static bool not_crc_bin;
-#ifdef CONFIG_OIS_FW_UPDATE_THREAD_USE
 static struct task_struct *ois_ts;
-#endif
 
 static void fimc_is_ois_i2c_config(struct i2c_client *client, bool onoff)
 {
@@ -556,10 +550,8 @@ bool fimc_is_ois_diff_test(struct fimc_is_core *core, int *x_diff, int *y_diff)
 		fimc_is_ois_i2c_config(core->client1, true);
 	}
 
-#ifdef CONFIG_AF_HOST_CONTROL
 	fimc_is_af_move_lens(core);
 	msleep(30);
-#endif
 	ret = fimc_is_ois_i2c_read_multi(core->client1, 0x021A, read_x, 2);
 	ret |= fimc_is_ois_i2c_read_multi(core->client1, 0x021C, read_y, 2);
 	if (ret) {
@@ -1338,7 +1330,6 @@ p_err:
 	return;
 }
 
-#ifdef CONFIG_OIS_FW_UPDATE_THREAD_USE
 int fimc_is_ois_thread(void *data)
 {
 	struct fimc_is_core *core = data;
@@ -1361,7 +1352,6 @@ void fimc_is_ois_init_thread(struct fimc_is_core *core)
 
 	return;
 }
-#endif /* CONFIG_OIS_FW_UPDATE_THREAD_USE */
 
 static int fimc_is_ois_probe(struct i2c_client *client,
 				  const struct i2c_device_id *id)
@@ -1441,12 +1431,10 @@ static int fimc_is_ois_probe(struct i2c_client *client,
 
 static int fimc_is_ois_remove(struct i2c_client *client)
 {
-#ifdef CONFIG_OIS_FW_UPDATE_THREAD_USE
 	if (ois_ts) {
 		kthread_stop(ois_ts);
 		ois_ts = NULL;
 	}
-#endif
 
 	return 0;
 }
@@ -1457,20 +1445,16 @@ static const struct i2c_device_id ois_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, ois_id);
 
-#ifdef CONFIG_OF
 static struct of_device_id ois_dt_ids[] = {
 	{ .compatible = "rumba,ois",},
 	{},
 };
-#endif
 
 static struct i2c_driver ois_i2c_driver = {
 	.driver = {
 		   .name = FIMC_IS_OIS_DEV_NAME,
 		   .owner = THIS_MODULE,
-#ifdef CONFIG_OF
 		   .of_match_table = ois_dt_ids,
-#endif
 	},
 	.probe = fimc_is_ois_probe,
 	.remove = fimc_is_ois_remove,
