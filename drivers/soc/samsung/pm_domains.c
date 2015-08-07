@@ -46,28 +46,36 @@ struct exynos_pm_domain {
 	u32 local_pwr_cfg;
 };
 
+static BLOCKING_NOTIFIER_HEAD(exynos_pd_nh);
+
 int exynos_pd_notifier_register(struct generic_pm_domain *domain,
 					struct notifier_block *nb)
 {
 	struct exynos_pm_domain *pd;
 
-	if (!domain || !nb)
+	if (!nb)
 		return -EINVAL;
+
+	if (!domain)
+		return blocking_notifier_chain_register(&exynos_pd_nh, nb);
 
 	pd = container_of(domain, struct exynos_pm_domain, pd);
 	return atomic_notifier_chain_register(&pd->nh, nb);
 }
 
-void exynos_pd_notifier_unregister(struct generic_pm_domain *domain,
+int exynos_pd_notifier_unregister(struct generic_pm_domain *domain,
 					struct notifier_block *nb)
 {
 	struct exynos_pm_domain *pd;
 
-	if (!domain || !nb)
-		return;
+	if (!nb)
+		return -EINVAL;
+
+	if (!domain)
+		return blocking_notifier_chain_unregister(&exynos_pd_nh, nb);
 
 	pd = container_of(domain, struct exynos_pm_domain, pd);
-	atomic_notifier_chain_unregister(&pd->nh, nb);
+	return atomic_notifier_chain_unregister(&pd->nh, nb);
 }
 
 static void exynos_pd_notify_pre(struct exynos_pm_domain *pd, bool power_on)
@@ -252,6 +260,9 @@ static __init int exynos4_pm_init_power_domain(void)
 
 		pm_genpd_init(&pd->pd, NULL, !on);
 		of_genpd_add_provider_simple(np, &pd->pd);
+
+		blocking_notifier_call_chain(&exynos_pd_nh,
+						EXYNOS_PD_ADD, &pd->pd);
 	}
 
 	/* Assign the child power domains to their parents */
