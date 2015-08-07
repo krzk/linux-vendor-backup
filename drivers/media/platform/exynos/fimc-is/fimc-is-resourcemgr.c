@@ -23,14 +23,6 @@
 #include "fimc-is-core.h"
 #include "fimc-is-hw.h"
 
-struct pm_qos_request exynos_isp_qos_cpu_min;
-struct pm_qos_request exynos_isp_qos_cpu_max;
-struct pm_qos_request exynos_isp_qos_int;
-struct pm_qos_request exynos_isp_qos_mem;
-struct pm_qos_request exynos_isp_qos_cam;
-struct pm_qos_request exynos_isp_qos_disp;
-struct pm_qos_request max_cpu_qos;
-
 extern struct fimc_is_sysfs_debug sysfs_debug;
 
 int fimc_is_resource_probe(struct fimc_is_resourcemgr *resourcemgr,

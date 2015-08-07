@@ -30,7 +30,6 @@
 #include <linux/vmalloc.h>
 #include <linux/interrupt.h>
 #include <mach/regs-clock.h>
-#include <linux/pm_qos.h>
 #include <linux/bug.h>
 #include <linux/v4l2-mediabus.h>
 #include <mach/devfreq.h>
@@ -83,11 +82,6 @@ extern bool is_right_prj_name;
 extern bool crc32_c1_fw_check;
 extern bool crc32_c1_check;
 extern bool crc32_c1_check_factory;
-
-extern struct pm_qos_request exynos_isp_qos_int;
-extern struct pm_qos_request exynos_isp_qos_mem;
-extern struct pm_qos_request exynos_isp_qos_cam;
-extern struct pm_qos_request exynos_isp_qos_disp;
 
 extern int fimc_is_3a0_video_probe(void *data);
 extern int fimc_is_3a1_video_probe(void *data);

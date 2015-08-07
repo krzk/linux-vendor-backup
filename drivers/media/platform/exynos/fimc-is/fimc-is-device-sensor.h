@@ -189,11 +189,6 @@ struct fimc_is_device_sensor {
 
 	struct exynos_platform_fimc_is_sensor		*pdata;
 	void						*private_data;
-
-	/* DVFS state */
-	bool						request_cam_qos;
-	bool						request_int_qos;
-	bool						request_mif_qos;
 };
 
 int fimc_is_sensor_open(struct fimc_is_device_sensor *device,

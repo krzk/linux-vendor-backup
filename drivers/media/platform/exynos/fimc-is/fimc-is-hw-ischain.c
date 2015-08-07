@@ -27,17 +27,6 @@
 #include "fimc-is-regs.h"
 #include "fimc-is-core.h"
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0))
-#define PM_QOS_CAM_THROUGHPUT	PM_QOS_RESERVED
-#endif
-extern struct pm_qos_request exynos_isp_qos_cpu_min;
-extern struct pm_qos_request exynos_isp_qos_cpu_max;
-extern struct pm_qos_request exynos_isp_qos_int;
-extern struct pm_qos_request exynos_isp_qos_mem;
-extern struct pm_qos_request exynos_isp_qos_cam;
-extern struct pm_qos_request exynos_isp_qos_disp;
-extern struct pm_qos_request max_cpu_qos;
-
 int fimc_is_runtime_suspend_post(struct device *dev)
 {
 	int ret = 0;
@@ -86,11 +75,6 @@ int fimc_is_runtime_suspend(struct device *dev)
 
 	pr_info("FIMC_IS runtime suspend in\n");
 
-	/* EGL Release */
-	pm_qos_update_request(&max_cpu_qos, PM_QOS_CPU_FREQ_MAX_DEFAULT_VALUE);
-	pm_qos_remove_request(&max_cpu_qos);
-
-
 	if (CALL_POPS(core, clk_off, pdev) < 0)
 		warn("clk_off is fail\n");
 
@@ -109,9 +93,6 @@ int fimc_is_runtime_resume(struct device *dev)
 
 	pm_stay_awake(dev);
 	pr_info("FIMC_IS runtime resume in\n");
-
-	/* EGL Lock */
-	pm_qos_add_request(&max_cpu_qos, PM_QOS_CPU_FREQ_MAX, 1700000);
 
 	/* HACK: DVFS lock sequence is change.
 	 * DVFS level should be locked after power on.

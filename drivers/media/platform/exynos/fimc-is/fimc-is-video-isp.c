@@ -29,7 +29,6 @@
 #include <linux/videodev2_exynos_media.h>
 #include <linux/videodev2_exynos_camera.h>
 #include <linux/v4l2-mediabus.h>
-#include <linux/pm_qos.h>
 #include <linux/bug.h>
 
 #include "fimc-is-core.h"
@@ -165,9 +164,6 @@ static int fimc_is_isp_video_close(struct file *file)
 		ret = -EINVAL;
 		goto p_err;
 	}
-
-	if (pm_qos_request_active(&device->user_qos))
-		pm_qos_remove_request(&device->user_qos);
 
 	fimc_is_ischain_close(device, vctx);
 	fimc_is_video_close(vctx);
@@ -535,8 +531,6 @@ static int fimc_is_isp_video_s_ctrl(struct file *file, void *priv,
 			err("fimc_is_itf_i2_clock fail\n");
 			break;
 		}
-		pm_qos_add_request(&device->user_qos, PM_QOS_DEVICE_THROUGHPUT,
-					ctrl->value);
 		ret = fimc_is_itf_i2c_lock(device, I2C_L0, false);
 		if (ret) {
 			err("fimc_is_itf_i2c_unlock fail\n");
@@ -550,7 +544,6 @@ static int fimc_is_isp_video_s_ctrl(struct file *file, void *priv,
 			err("fimc_is_itf_i2_clock fail\n");
 			break;
 		}
-		pm_qos_remove_request(&device->user_qos);
 		ret = fimc_is_itf_i2c_lock(device, i2c_clk, false);
 		if (ret) {
 			err("fimc_is_itf_i2c_unlock fail\n");

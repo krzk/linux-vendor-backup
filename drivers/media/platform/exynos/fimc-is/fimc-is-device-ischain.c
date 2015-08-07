@@ -31,7 +31,6 @@
 #include <linux/v4l2-mediabus.h>
 #include <linux/vmalloc.h>
 #include <linux/kthread.h>
-#include <linux/pm_qos.h>
 #include <linux/debugfs.h>
 #include <linux/syscalls.h>
 #include <linux/bug.h>

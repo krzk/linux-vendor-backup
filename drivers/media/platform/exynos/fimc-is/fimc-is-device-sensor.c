@@ -53,9 +53,6 @@ int fimc_is_sensor_runtime_resume(struct device *dev);
 int fimc_is_sensor_runtime_suspend(struct device *dev);
 
 extern int fimc_is_sen_video_probe(void *data);
-struct pm_qos_request exynos_sensor_qos_cam;
-struct pm_qos_request exynos_sensor_qos_int;
-struct pm_qos_request exynos_sensor_qos_mem;
 
 extern u32 __iomem *notify_fcount_sen0;
 extern u32 __iomem *notify_fcount_sen1;
@@ -904,9 +901,6 @@ int fimc_is_sensor_open(struct fimc_is_device_sensor *device,
 	device->exposure_time = 0;
 	device->frame_duration = 0;
 	device->force_stop = 0;
-	device->request_cam_qos = 0;
-	device->request_int_qos = 0;
-	device->request_mif_qos = 0;
 	memset(&device->sensor_ctl, 0, sizeof(struct camera2_sensor_ctl));
 	memset(&device->lens_ctl, 0, sizeof(struct camera2_lens_ctl));
 	memset(&device->flash_ctl, 0, sizeof(struct camera2_flash_ctl));

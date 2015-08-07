@@ -12,8 +12,6 @@
 #ifndef FIMC_IS_DEVICE_ISCHAIN_H
 #define FIMC_IS_DEVICE_ISCHAIN_H
 
-#include <linux/pm_qos.h>
-
 #include "fimc-is-mem.h"
 #include "fimc-is-subdev-ctrl.h"
 #include "fimc-is-groupmgr.h"
@@ -266,7 +264,6 @@ struct fimc_is_device_ischain {
 
 	u32					private_data;
 	struct fimc_is_device_sensor		*sensor;
-	struct pm_qos_request			user_qos;
 };
 
 /*global function*/
