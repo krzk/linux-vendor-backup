@@ -339,24 +339,15 @@ int read_from_firmware_version(void)
 
 	if (!finfo->is_caldata_read) {
 		if (finfo->bin_start_addr != 0x80000) {
-#if defined(CONFIG_PM_RUNTIME)
 			pr_debug("pm_runtime_suspended = %d\n",
 			pm_runtime_suspended(is_dev));
 			pm_runtime_get_sync(is_dev);
-#else
-			fimc_is_runtime_resume(is_dev);
-			printk(KERN_INFO "%s - fimc_is runtime resume complete\n", __func__);
-#endif
 
 			fimc_is_sec_fw_sel(sysfs_core, is_dev, fw_name, setf_name, false);
 			fimc_is_sec_concord_fw_sel(sysfs_core, is_dev, fw_name, master_setf_name, mode_setf_name);
-#if defined(CONFIG_PM_RUNTIME)
 			pm_runtime_put_sync(is_dev);
 			pr_debug("pm_runtime_suspended = %d\n",
 				pm_runtime_suspended(is_dev));
-#else
-			fimc_is_runtime_suspend(is_dev);
-#endif
 		}
 	}
 	return 0;
@@ -1031,9 +1022,7 @@ static int fimc_is_probe(struct platform_device *pdev)
 		vb2_ion_attach_iommu(core->mem.alloc_ctx);
 #endif
 
-#if defined(CONFIG_PM_RUNTIME)
 	pm_runtime_enable(&pdev->dev);
-#endif
 
 	if (camera_class == NULL) {
 		camera_class = class_create(THIS_MODULE, "camera");
@@ -1200,9 +1189,7 @@ static int fimc_is_probe(struct platform_device *pdev)
 	return 0;
 
 p_err5:
-#if defined(CONFIG_PM_RUNTIME)
 	__pm_runtime_disable(&pdev->dev, false);
-#endif
 p_err4:
 	v4l2_device_unregister(&core->v4l2_dev);
 p_err3:
