@@ -80,35 +80,6 @@ static void fimc_is_af_i2c_config(struct i2c_client *client, bool onoff)
     }
 }
 
-int fimc_is_af_i2c_read(struct i2c_client *client, u16 addr, u16 *data)
-{
-	int err;
-	u8 rxbuf[2], txbuf[2];
-	struct i2c_msg msg[2];
-
-	txbuf[0] = (addr & 0xff00) >> 8;
-	txbuf[1] = (addr & 0xff);
-
-	msg[0].addr = client->addr;
-	msg[0].flags = 0;
-	msg[0].len = 2;
-	msg[0].buf = txbuf;
-
-	msg[1].addr = client->addr;
-	msg[1].flags = I2C_M_RD;
-	msg[1].len = 2;
-	msg[1].buf = rxbuf;
-
-	err = i2c_transfer(client->adapter, msg, 2);
-	if (unlikely(err != 2)) {
-		err("%s: register read fail err = %d\n", __func__, err);
-		return -EIO;
-	}
-
-	*data = ((rxbuf[0] << 8) | rxbuf[1]);
-	return 0;
-}
-
 int fimc_is_af_i2c_write(struct i2c_client *client ,u16 addr, u16 data)
 {
         int retries = I2C_RETRY_COUNT;
@@ -126,9 +97,6 @@ int fimc_is_af_i2c_write(struct i2c_client *client ,u16 addr, u16 data)
         buf[2] = data >> 8;
         buf[3] = data & 0xff;
 
-#if 0
-        pr_info("%s : W(0x%02X%02X%02X%02X)\n",__func__, buf[0], buf[1], buf[2], buf[3]);
-#endif
 
         do {
                 ret = i2c_transfer(client->adapter, &msg, 1);

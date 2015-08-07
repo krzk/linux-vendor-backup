@@ -53,7 +53,6 @@
 #include "fimc-is-groupmgr.h"
 #include "fimc-is-device-ischain.h"
 #include "fimc-is-companion.h"
-#include "fimc-is-clk-gate.h"
 #include "fimc-is-device-companion.h"
 #include <linux/pinctrl/consumer.h>
 #include <mach/pinctrl-samsung.h>
@@ -789,16 +788,6 @@ static void fimc_is_ischain_version(struct fimc_is_device_ischain *this, char *n
 	info("%s version : %s\n", name, version_str);
 }
 
-void fimc_is_ischain_savefirm(struct fimc_is_device_ischain *this)
-{
-#ifdef DEBUG_DUMP_FIRMWARE
-	loff_t pos;
-
-	write_data_to_file("/data/firmware.bin", (char *)this->imemory.kvaddr,
-		(size_t)FIMC_IS_A5_MEM_SIZE, &pos);
-#endif
-}
-
 static int fimc_is_ischain_loadfirm(struct fimc_is_device_ischain *device)
 {
 	int ret = 0;
@@ -1348,19 +1337,6 @@ static void fimc_is_ischain_forcedown(struct fimc_is_device_ischain *this,
 		__raw_writel(0x8, PMUREG_ISP_LOW_POWER_OFF);
 		this->force_down = false;
 	}
-}
-
-void tdnr_s3d_pixel_async_sw_reset(struct fimc_is_device_ischain *this)
-{
-	u32 cfg = readl(SYSREG_GSCBLK_CFG1);
-	/* S3D pixel async sw reset */
-	cfg &= ~(1 << 25);
-	writel(cfg, SYSREG_GSCBLK_CFG1);
-
-	cfg = readl(SYSREG_ISPBLK_CFG);
-	/* 3DNR pixel async sw reset */
-	cfg &= ~(1 << 5);
-	writel(cfg, SYSREG_ISPBLK_CFG);
 }
 
 static void fimc_is_a5_power(struct device *dev, int power_flags)
@@ -2900,53 +2876,6 @@ static int fimc_is_ischain_init(struct fimc_is_device_ischain *device,
 
 	fimc_is_s_int_comb_isp(core, false, INTMR2_INTMCIS22);
 
-#if 0
-	/* FW loading of peripheral device */
-	if ((module->position == SENSOR_POSITION_REAR)
-		&& !test_bit(FIMC_IS_ISCHAIN_REPROCESSING, &device->state)) {
-		// Workaround for Host to use ISP-SPI. Will be removed later.
-		/* set pin output for Host to use SPI*/
-		pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_ssn,
-					PINCFG_PACK(PINCFG_TYPE_FUNC, FUNC_OUTPUT));
-
-		fimc_is_set_spi_config(spi_gpio, FIMC_IS_SPI_FUNC, false);
-
-		if (fimc_is_comp_is_valid(core) == 0) {
-			fimc_is_power_binning(core);
-			ret = fimc_is_comp_loadfirm(core);
-			if (ret) {
-				err("fimc_is_comp_loadfirm() fail");
-				goto p_err;
-			}
-			ret = fimc_is_comp_loadcal(core);
-			if (ret) {
-				err("fimc_is_comp_loadcal() fail");
-			}
-			ret = fimc_is_comp_loadsetf(core);
-			if (ret) {
-				err("fimc_is_comp_loadsetf() fail");
-				goto p_err;
-			}
-		} else {
-			module->ext.companion_con.product_name
-				= COMPANION_NAME_NOTHING;
-		}
-		// Workaround for Host to use ISP-SPI. Will be removed later.
-		/* Set SPI pins to low before changing pin function */
-		pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_sclk,
-					PINCFG_PACK(PINCFG_TYPE_DAT, 0));
-		pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_ssn,
-					PINCFG_PACK(PINCFG_TYPE_DAT, 0));
-		pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_miso,
-					PINCFG_PACK(PINCFG_TYPE_DAT, 0));
-		pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_mois,
-					PINCFG_PACK(PINCFG_TYPE_DAT, 0));
-
-		/* Set pin function for A5 to use SPI */
-		pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_ssn,
-					PINCFG_PACK(PINCFG_TYPE_FUNC, 2));
-	}
-#endif
 #endif
 
 	ret = fimc_is_itf_enum(device);
@@ -6757,14 +6686,6 @@ p_err:
 	return ret;
 }
 
-int fimc_is_ischain_vdo_s_format(struct fimc_is_device_ischain *this,
-	u32 width, u32 height)
-{
-	int ret = 0;
-
-	return ret;
-}
-
 int fimc_is_ischain_vdo_buffer_queue(struct fimc_is_device_ischain *device,
 	struct fimc_is_queue *queue,
 	u32 index)
@@ -6828,27 +6749,6 @@ int fimc_is_ischain_g_capability(struct fimc_is_device_ischain *this,
 
 	ret = copy_to_user((void *)user_ptr, &this->capability,
 		sizeof(struct camera2_sm));
-
-	return ret;
-}
-
-int fimc_is_ischain_print_status(struct fimc_is_device_ischain *device)
-{
-	int ret = 0;
-	struct fimc_is_video_ctx *vctx;
-	struct fimc_is_subdev *isp;
-	struct fimc_is_framemgr *framemgr;
-	struct fimc_is_interface *itf;
-
-	isp = &device->group_isp.leader;
-	vctx = isp->vctx;
-	framemgr = GET_SRC_FRAMEMGR(vctx);
-	itf = device->interface;
-
-	fimc_is_frame_print_free_list(framemgr);
-	fimc_is_frame_print_request_list(framemgr);
-	fimc_is_frame_print_process_list(framemgr);
-	fimc_is_frame_print_complete_list(framemgr);
 
 	return ret;
 }
@@ -7433,100 +7333,5 @@ p_err:
 		fimc_is_itf_grp_shot(device, group, frame);
 	}
 
-	return ret;
-}
-
-int fimc_is_ischain_camctl(struct fimc_is_device_ischain *this,
-	struct fimc_is_frame *frame,
-	u32 fcount)
-{
-	int ret = 0;
-#ifdef ENABLE_SENSOR_DRIVER
-	struct fimc_is_interface *itf;
-	struct camera2_uctl *applied_ctl;
-
-	struct camera2_sensor_ctl *isp_sensor_ctl;
-	struct camera2_lens_ctl *isp_lens_ctl;
-	struct camera2_flash_ctl *isp_flash_ctl;
-
-	u32 index;
-
-#ifdef DBG_STREAMING
-	mdbgd_ischain("%s()\n", device, __func__);
-#endif
-
-	itf = this->interface;
-	isp_sensor_ctl = &itf->isp_peri_ctl.sensorUd.ctl;
-	isp_lens_ctl = &itf->isp_peri_ctl.lensUd.ctl;
-	isp_flash_ctl = &itf->isp_peri_ctl.flashUd.ctl;
-
-	/*lens*/
-	index = (fcount + 0) & SENSOR_MAX_CTL_MASK;
-	applied_ctl = &this->peri_ctls[index];
-	applied_ctl->lensUd.ctl.focusDistance = isp_lens_ctl->focusDistance;
-
-	/*sensor*/
-	index = (fcount + 1) & SENSOR_MAX_CTL_MASK;
-	applied_ctl = &this->peri_ctls[index];
-	applied_ctl->sensorUd.ctl.exposureTime = isp_sensor_ctl->exposureTime;
-	applied_ctl->sensorUd.ctl.frameDuration = isp_sensor_ctl->frameDuration;
-	applied_ctl->sensorUd.ctl.sensitivity = isp_sensor_ctl->sensitivity;
-
-	/*flash*/
-	index = (fcount + 0) & SENSOR_MAX_CTL_MASK;
-	applied_ctl = &this->peri_ctls[index];
-	applied_ctl->flashUd.ctl.flashMode = isp_flash_ctl->flashMode;
-	applied_ctl->flashUd.ctl.firingPower = isp_flash_ctl->firingPower;
-	applied_ctl->flashUd.ctl.firingTime = isp_flash_ctl->firingTime;
-#endif
-	return ret;
-}
-
-int fimc_is_ischain_tag(struct fimc_is_device_ischain *ischain,
-	struct fimc_is_frame *frame)
-{
-	int ret = 0;
-#ifdef ENABLE_SENSOR_DRIVER
-	struct camera2_uctl *applied_ctl;
-	struct timeval curtime;
-	u32 fcount;
-
-	fcount = frame->fcount;
-	applied_ctl = &ischain->peri_ctls[fcount & SENSOR_MAX_CTL_MASK];
-
-	do_gettimeofday(&curtime);
-
-	/* Request */
-	frame->shot->dm.request.frameCount = fcount;
-
-	/* Lens */
-	frame->shot->dm.lens.focusDistance =
-		applied_ctl->lensUd.ctl.focusDistance;
-
-	/* Sensor */
-	frame->shot->dm.sensor.exposureTime =
-		applied_ctl->sensorUd.ctl.exposureTime;
-	frame->shot->dm.sensor.sensitivity =
-		applied_ctl->sensorUd.ctl.sensitivity;
-	frame->shot->dm.sensor.frameDuration =
-		applied_ctl->sensorUd.ctl.frameDuration;
-	frame->shot->dm.sensor.timeStamp =
-		(uint64_t)curtime.tv_sec*1000000 + curtime.tv_usec;
-
-	/* Flash */
-	frame->shot->dm.flash.flashMode =
-		applied_ctl->flashUd.ctl.flashMode;
-	frame->shot->dm.flash.firingPower =
-		applied_ctl->flashUd.ctl.firingPower;
-	frame->shot->dm.flash.firingTime =
-		applied_ctl->flashUd.ctl.firingTime;
-#else
-	struct timespec curtime;
-
-	do_posix_clock_monotonic_gettime(&curtime);
-
-	frame->shot->dm.request.frameCount = frame->fcount;
-	frame->shot->dm.sensor.timeStamp = fimc_is_get_timestamp();
-#endif
 	return ret;
 }

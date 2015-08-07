@@ -174,26 +174,6 @@ int csi_hw_s_settle(unsigned long __iomem *base_reg,
 	return 0;
 }
 
-int csi_hw_s_dphyctrl0(unsigned long __iomem *base_reg,
-	u32 ctrl)
-{
-	u32 val = readl(base_reg + TO_WORD_OFFSET(CSI_REG_DPHYCTRL0));
-	val = (val & ~(0xFFFFFFFF << 0)) | (ctrl << 0);
-	writel(val, base_reg + TO_WORD_OFFSET(CSI_REG_DPHYCTRL0));
-
-	return 0;
-}
-
-int csi_hw_s_dphyctrl1(unsigned long __iomem *base_reg,
-	u32 ctrl)
-{
-	u32 val = readl(base_reg + TO_WORD_OFFSET(CSI_REG_DPHYCTRL1));
-	val = (val & ~(0xFFFFFFFF << 0)) | (ctrl << 0);
-	writel(val, base_reg + TO_WORD_OFFSET(CSI_REG_DPHYCTRL1));
-
-	return 0;
-}
-
 int csi_hw_s_control(unsigned long __iomem *base_reg,
 	u32 pixelformat, u32 mode, u32 lanes)
 {

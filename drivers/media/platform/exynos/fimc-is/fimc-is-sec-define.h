@@ -180,7 +180,6 @@ int fimc_is_sec_get_sysfs_finfo(struct fimc_is_from_info **finfo);
 int fimc_is_sec_get_sysfs_pinfo(struct fimc_is_from_info **pinfo);
 #if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
 int fimc_is_sec_get_sysfs_finfo_front(struct fimc_is_from_info **finfo);
-int fimc_is_sec_get_sysfs_pinfo_front(struct fimc_is_from_info **pinfo);
 int fimc_is_sec_get_front_cal_buf(char **buf);
 #endif
 
@@ -188,13 +187,9 @@ int fimc_is_sec_get_cal_buf(char **buf);
 int fimc_is_sec_get_loaded_fw(char **buf);
 int fimc_is_sec_get_loaded_c1_fw(char **buf);
 
-int fimc_is_sec_get_camid_from_hal(char *fw_name, char *setf_name);
-int fimc_is_sec_get_camid(void);
-int fimc_is_sec_set_camid(int id);
 int fimc_is_sec_get_pixel_size(char *header_ver);
 int fimc_is_sec_fw_find(struct fimc_is_core *core, char *fw_name, char *setf_name);
 
-int fimc_is_sec_readfw(struct fimc_is_core *core);
 #if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR) || defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
 int fimc_is_sec_fw_sel_eeprom(struct device *dev, char *fw_name, char *setf_name, int id, bool headerOnly);
 #endif
@@ -210,9 +205,7 @@ int fimc_is_sec_fw_revision(char *fw_ver);
 int fimc_is_sec_fw_revision(char *fw_ver);
 bool fimc_is_sec_fw_module_compare(char *fw_ver1, char *fw_ver2);
 
-bool fimc_is_sec_check_fw_crc32(char *buf);
 bool fimc_is_sec_check_cal_crc32(char *buf, int id);
-void fimc_is_sec_make_crc32_table(u32 *table, u32 id);
 
 int fimc_is_sec_gpio_enable(struct exynos_platform_fimc_is *pdata, char *name, bool on);
 int fimc_is_sec_core_voltage_select(struct device *dev, char *header_ver);

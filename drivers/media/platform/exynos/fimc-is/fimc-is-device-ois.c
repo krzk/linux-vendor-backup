@@ -158,9 +158,6 @@ int fimc_is_ois_i2c_write(struct i2c_client *client ,u16 addr, u8 data)
         buf[1] = addr & 0xff;
         buf[2] = data;
 
-#if 0
-        pr_info("%s : W(0x%02X%02X %02X)\n",__func__, buf[0], buf[1], buf[2]);
-#endif
 
         do {
                 ret = i2c_transfer(client->adapter, &msg, 1);
@@ -203,9 +200,6 @@ int fimc_is_ois_i2c_write_multi(struct i2c_client *client ,u16 addr, u8 *data, s
 	for (i = 0; i < size - 2; i++) {
 	        buf[i + 2] = *(data + i);
 	}
-#if 0
-        pr_info("OISLOG %s : W(0x%02X%02X%02X)\n", __func__, buf[0], buf[1], buf[2]);
-#endif
         do {
                 ret = i2c_transfer(client->adapter, &msg, 1);
                 if (likely(ret == 1))
@@ -310,31 +304,6 @@ int fimc_is_ois_gpio_off(struct fimc_is_device_companion *device)
 
 p_err:
 	return ret;
-}
-
-void fimc_is_ois_enable(struct fimc_is_core *core)
-{
-	int ret = 0;
-
-	pr_info("%s : E\n", __FUNCTION__);
-	if (core->use_ois_hsi2c) {
-	    fimc_is_ois_i2c_config(core->client1, true);
-	}
-
-	ret = fimc_is_ois_i2c_write(core->client1, 0x02, 0x00);
-	if (ret) {
-		err("i2c write fail\n");
-	}
-
-	ret = fimc_is_ois_i2c_write(core->client1, 0x00, 0x01);
-	if (ret) {
-		err("i2c write fail\n");
-	}
-
-	if (core->use_ois_hsi2c) {
-	    fimc_is_ois_i2c_config(core->client1, false);
-	}
-	pr_info("%s : X\n", __FUNCTION__);
 }
 
 int fimc_is_ois_sine_mode(struct fimc_is_core *core, int mode)
@@ -659,27 +628,6 @@ bool fimc_is_ois_diff_test(struct fimc_is_core *core, int *x_diff, int *y_diff)
 		err("i2c write fail\n");
 	}
 
-#if 0
-	ret = fimc_is_ois_i2c_write(core->client1, 0x0012, 0x01);
-	if (ret) {
-		err("i2c write fail\n");
-	}
-
-	retries = 30;
-	do { //polarity check
-		ret = fimc_is_ois_i2c_read(core->client1, 0x0012, &val);
-		if (ret != 0) {
-			break;
-		}
-		msleep(100);
-		if (--retries < 0) {
-			err("Polarity check is not done or not [read_val_0x0012::0x%04x]\n", val);
-			break;
-		}
-	} while (val);
-	fimc_is_ois_i2c_read(core->client1, 0x0200, &val);
-	err("OIS[read_val_0x0200::0x%04x]\n", val);
-#endif
 
 	retries = 120;
 	do {

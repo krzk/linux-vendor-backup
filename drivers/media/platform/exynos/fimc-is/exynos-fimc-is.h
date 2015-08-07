@@ -195,8 +195,6 @@ extern void exynos_fimc_is_set_platdata(struct exynos_platform_fimc_is *pd);
 
 int fimc_is_set_parent_dt(struct platform_device *pdev,
 	const char *child, const char *parent);
-struct clk *fimc_is_get_parent_dt(struct platform_device *pdev,
-	const char *child);
 int fimc_is_set_rate_dt(struct platform_device *pdev,
 	const char *conid, unsigned int rate);
 unsigned int  fimc_is_get_rate_dt(struct platform_device *pdev,
@@ -207,18 +205,6 @@ void  fimc_is_disable_dt(struct platform_device *pdev,
 	const char *conid);
 
 /* platform specific clock functions */
-#if defined(CONFIG_ARCH_EXYNOS4)
-/* exynos 4 */
-extern int exynos4_fimc_is_cfg_clk(struct platform_device *pdev);
-extern int exynos4_fimc_is_clk_on(struct platform_device *pdev);
-extern int exynos4_fimc_is_clk_off(struct platform_device *pdev);
-extern int exynos4_fimc_is_sensor_clock_on(struct platform_device *pdev, u32 source);
-extern int exynos4_fimc_is_sensor_clock_off(struct platform_device *pdev, u32 source);
-extern int exynos4_fimc_is_sensor_power_on(struct platform_device *pdev, int sensor_id);
-extern int exynos4_fimc_is_sensor_power_off(struct platform_device *pdev, int sensor_id);
-extern int exynos4_fimc_is_print_cfg(struct platform_device *pdev, u32 channel);
-extern int exynos4_fimc_is_cfg_gpio(struct platform_device *pdev, int channel, bool flag_on);
-#else /* exynos 4 */
 /* exynos 5 */
 extern int exynos_fimc_is_cfg_clk(struct platform_device *pdev);
 extern int exynos_fimc_is_cfg_cam_clk(struct platform_device *pdev);
@@ -226,9 +212,6 @@ extern int exynos_fimc_is_clk_on(struct platform_device *pdev);
 extern int exynos_fimc_is_clk_off(struct platform_device *pdev);
 extern int exynos_fimc_is_print_clk(struct platform_device *pdev);
 
-extern int exynos_fimc_is_sensor_power_on(struct platform_device *pdev, int sensor_id);
-extern int exynos_fimc_is_sensor_power_off(struct platform_device *pdev, int sensor_id);
 extern int exynos_fimc_is_print_cfg(struct platform_device *pdev, u32 channel);
 extern int exynos_fimc_is_print_pwr(struct platform_device *pdev);
-#endif /* exynos 5*/
 #endif /* EXYNOS_FIMC_IS_H_ */

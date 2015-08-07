@@ -59,13 +59,6 @@ int exynos5430_fimc_is_companion_iclk_cfg(struct platform_device *pdev,
 	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_spi0_a", 200 * 1000000);
 	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_spi0_b", 100 * 1000000);
 	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_spi0_user", "sclk_isp_spi0_top");
-#if 0
-	/* SCLK_SPI1_ISP */
-	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_spi1", "mout_bus_pll_user");
-	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_spi1_a", 275 * 1000000);
-	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_spi1_b", 46 * 1000000);
-	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_spi1_user", "sclk_isp_spi1_top");
-#endif
 
 	/* I2C */
 	/* CMU TOP */

@@ -51,7 +51,6 @@
 #include "fimc-is-framemgr.h"
 #include "fimc-is-dt.h"
 #include "fimc-is-resourcemgr.h"
-#include "fimc-is-clk-gate.h"
 #include "fimc-is-fan53555.h"
 #include "fimc-is-ncp6335b.h"
 
@@ -366,7 +365,6 @@ int read_from_firmware_version(void)
 
 	if (!finfo->is_caldata_read) {
 		if (finfo->bin_start_addr != 0x80000) {
-			//fimc_is_sec_set_camid(CAMERA_DUAL_FRONT);
 #if defined(CONFIG_PM_RUNTIME)
 			pr_debug("pm_runtime_suspended = %d\n",
 			pm_runtime_suspended(is_dev));

@@ -66,21 +66,6 @@ int fimc_is_set_parent_dt(struct platform_device *pdev,
 	return clk_set_parent(c, p);
 }
 
-/* utility function to get parent with DT */
-struct clk *fimc_is_get_parent_dt(struct platform_device *pdev,
-	const char *child)
-{
-	struct clk *c;
-
-	c = clk_get(&pdev->dev, child);
-	if (IS_ERR(c)) {
-		pr_err("%s: could not lookup clock : %s\n", __func__, child);
-		return NULL;
-	}
-
-	return clk_get_parent(c);
-}
-
 /* utility function to set rate with DT */
 int fimc_is_set_rate_dt(struct platform_device *pdev,
 	const char *conid, unsigned int rate)
@@ -437,22 +422,6 @@ int exynos5430_fimc_is_print_clk(struct platform_device *pdev)
 	return 0;
 }
 
-/* sequence is important, don't change order */
-int exynos5430_fimc_is_sensor_power_on(struct platform_device *pdev, int sensor_id)
-{
-	pr_debug("%s\n", __func__);
-
-	return 0;
-}
-
-/* sequence is important, don't change order */
-int exynos5430_fimc_is_sensor_power_off(struct platform_device *pdev, int sensor_id)
-{
-	pr_debug("%s\n", __func__);
-
-	return 0;
-}
-
 int exynos5430_fimc_is_print_pwr(struct platform_device *pdev)
 {
 	pr_debug("%s\n", __func__);
@@ -490,18 +459,6 @@ int exynos_fimc_is_clk_off(struct platform_device *pdev)
 int exynos_fimc_is_print_clk(struct platform_device *pdev)
 {
 	exynos5430_fimc_is_print_clk(pdev);
-	return 0;
-}
-
-int exynos_fimc_is_sensor_power_on(struct platform_device *pdev, int sensor_id)
-{
-	exynos5430_fimc_is_sensor_power_on(pdev, sensor_id);
-	return 0;
-}
-
-int exynos_fimc_is_sensor_power_off(struct platform_device *pdev, int sensor_id)
-{
-	exynos5430_fimc_is_sensor_power_off(pdev, sensor_id);
 	return 0;
 }
 

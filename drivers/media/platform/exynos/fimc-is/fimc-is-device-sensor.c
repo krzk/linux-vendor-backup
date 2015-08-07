@@ -69,92 +69,6 @@ u32 notify_fcount_dummy;
 
 #define BINNING(x, y) roundup((x) * 1000 / (y), 250)
 
-int fimc_is_sensor_read8(struct i2c_client *client,
-	u16 addr, u8 *val)
-{
-	int ret = 0;
-	struct i2c_msg msg[2];
-	u8 wbuf[2];
-
-	if (!client->adapter) {
-		err("Could not find adapter!\n");
-		ret = -ENODEV;
-		goto p_err;
-	}
-
-	/* 1. I2C operation for writing. */
-	msg[0].addr = client->addr;
-	msg[0].flags = 0; /* write : 0, read : 1 */
-	msg[0].len = 2;
-	msg[0].buf = wbuf;
-	/* TODO : consider other size of buffer */
-	wbuf[0] = (addr & 0xFF00) >> 8;
-	wbuf[1] = (addr & 0xFF);
-
-	/* 2. I2C operation for reading data. */
-	msg[1].addr = client->addr;
-	msg[1].flags = I2C_M_RD;
-	msg[1].len = 1;
-	msg[1].buf = val;
-
-	ret = i2c_transfer(client->adapter, msg, 2);
-	if (ret < 0) {
-		err("i2c treansfer fail");
-		goto p_err;
-	}
-
-#ifdef PRINT_I2CCMD
-	info("I2CR08(%d) [0x%04X] : 0x%04X\n", client->addr, addr, *val);
-#endif
-
-p_err:
-	return ret;
-}
-
-int fimc_is_sensor_read16(struct i2c_client *client,
-	u16 addr, u16 *val)
-{
-	int ret = 0;
-	struct i2c_msg msg[2];
-	u8 wbuf[2], rbuf[2];
-
-	if (!client->adapter) {
-		err("Could not find adapter!\n");
-		ret = -ENODEV;
-		goto p_err;
-	}
-
-	/* 1. I2C operation for writing. */
-	msg[0].addr = client->addr;
-	msg[0].flags = 0; /* write : 0, read : 1 */
-	msg[0].len = 2;
-	msg[0].buf = wbuf;
-	/* TODO : consider other size of buffer */
-	wbuf[0] = (addr & 0xFF00) >> 8;
-	wbuf[1] = (addr & 0xFF);
-
-	/* 2. I2C operation for reading data. */
-	msg[1].addr = client->addr;
-	msg[1].flags = I2C_M_RD;
-	msg[1].len = 2;
-	msg[1].buf = rbuf;
-
-	ret = i2c_transfer(client->adapter, msg, 2);
-	if (ret < 0) {
-		err("i2c treansfer fail");
-		goto p_err;
-	}
-
-	*val = ((rbuf[0] << 8) | rbuf[1]);
-
-#ifdef PRINT_I2CCMD
-	info("I2CR16(%d) [0x%04X] : 0x%04X\n", client->addr, addr, *val);
-#endif
-
-p_err:
-	return ret;
-}
-
 int fimc_is_sensor_write(struct i2c_client *client,
 	u8 *buf, u32 size)
 {
@@ -212,45 +126,6 @@ p_err:
 	return ret;
 }
 
-int fimc_is_sensor_write16(struct i2c_client *client,
-	u16 addr, u16 val)
-{
-	int ret = 0;
-	struct i2c_msg msg[1];
-	u8 wbuf[4];
-
-	if (!client->adapter) {
-		err("Could not find adapter!\n");
-		ret = -ENODEV;
-		goto p_err;
-	}
-
-	msg->addr = client->addr;
-	msg->flags = 0;
-	msg->len = 4;
-	msg->buf = wbuf;
-	wbuf[0] = (addr & 0xFF00) >> 8;
-	wbuf[1] = (addr & 0xFF);
-	wbuf[2] = (val & 0xFF00) >> 8;
-	wbuf[3] = (val & 0xFF);
-
-	ret = i2c_transfer(client->adapter, msg, 1);
-	if (ret < 0) {
-		err("i2c treansfer fail(%d)", ret);
-		goto p_err;
-	}
-
-#ifdef PRINT_I2CCMD
-	info("I2CW16(%d) [0x%04X] : 0x%04X\n", client->addr, addr, val);
-#endif
-
-p_err:
-	return ret;
-}
-
-#if 0 /* For vision of L_version */
-	int_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_INT, START_DVFS_LEVEL);
-#endif
 
 static int get_sensor_mode(struct fimc_is_sensor_cfg *cfg,
 	u32 cfgs, u32 width, u32 height, u32 framerate)
@@ -686,39 +561,6 @@ static void fimc_is_sensor_control(struct work_struct *data)
  * HAL can't send meta data for vision
  * We accepted vision control by s_ctrl
  */
-#if 0
-	struct v4l2_subdev *subdev_module;
-	struct fimc_is_module_enum *module;
-	struct camera2_sensor_ctl *rsensor_ctl;
-	struct camera2_sensor_ctl *csensor_ctl;
-	struct fimc_is_device_sensor *device;
-
-	device = container_of(data, struct fimc_is_device_sensor, control_work);
-	subdev_module = device->subdev_module;
-	if (!subdev_module) {
-		err("subdev_module is NULL");
-		return;
-	}
-
-	module = v4l2_get_subdevdata(subdev_module);
-	rsensor_ctl = &device->control_frame->shot->ctl.sensor;
-	csensor_ctl = &device->sensor_ctl;
-
-	if (rsensor_ctl->exposureTime != csensor_ctl->exposureTime) {
-		CALL_MOPS(module, s_exposure, subdev_module, rsensor_ctl->exposureTime);
-		csensor_ctl->exposureTime = rsensor_ctl->exposureTime;
-	}
-
-	if (rsensor_ctl->frameDuration != csensor_ctl->frameDuration) {
-		CALL_MOPS(module, s_duration, subdev_module, rsensor_ctl->frameDuration);
-		csensor_ctl->frameDuration = rsensor_ctl->frameDuration;
-	}
-
-	if (rsensor_ctl->sensitivity != csensor_ctl->sensitivity) {
-		CALL_MOPS(module, s_again, subdev_module, rsensor_ctl->sensitivity);
-		csensor_ctl->sensitivity = rsensor_ctl->sensitivity;
-	}
-#endif
 }
 
 static int fimc_is_sensor_notify_by_fstr(struct fimc_is_device_sensor *device, void *arg)

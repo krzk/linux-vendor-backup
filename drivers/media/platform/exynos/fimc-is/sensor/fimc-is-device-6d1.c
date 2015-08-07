@@ -213,24 +213,6 @@ static struct fimc_is_sensor_cfg config_6d1[] = {
 	FIMC_IS_SENSOR_CFG(2576, 1456, 30, 14, 0),
 	/* 2576x1456@24fps */
 	FIMC_IS_SENSOR_CFG(2576, 1456, 24, 14, 1),
-#if 0
-	/* 1924x1082@30fps */
-	FIMC_IS_SENSOR_CFG(1924, 1082, 30, 16, 1),
-	/* 1444x1082@30fps */
-	FIMC_IS_SENSOR_CFG(1444, 1082, 30, 16, 2),
-	/* 1084x1082@30fps */
-	FIMC_IS_SENSOR_CFG(1084, 1082, 30, 16, 3),
-	/* 964x542@30fps */
-	FIMC_IS_SENSOR_CFG(964, 542, 30, 16, 4),
-	/* 724x542@30fps */
-	FIMC_IS_SENSOR_CFG(724, 542, 30, 16, 5),
-	/* 544x542@30fps */
-	FIMC_IS_SENSOR_CFG(544, 542, 30, 16, 6),
-	/* 320x180@10fps : only for vision(settle) */
-	FIMC_IS_SENSOR_CFG(320, 180, 10, 4, 6),
-	/* 1936x1090@24fps */
-	FIMC_IS_SENSOR_CFG(1936, 1090, 24, 13, 7),
-#endif
 };
 
 static int sensor_6d1_open(struct v4l2_subdev *sd,

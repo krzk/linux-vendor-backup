@@ -229,37 +229,6 @@ exit:
 	return ret;
 }
 
-int fimc_is_gframe_cancel(struct fimc_is_groupmgr *groupmgr,
-	struct fimc_is_group *group, u32 target_fcount)
-{
-	int ret = -EINVAL;
-	struct fimc_is_group_framemgr *gframemgr;
-	struct fimc_is_group_frame *gframe, *temp;
-
-	BUG_ON(!groupmgr);
-	BUG_ON(!group);
-	BUG_ON(group->instance >= FIMC_IS_MAX_NODES);
-
-	gframemgr = &groupmgr->framemgr[group->instance];
-
-	spin_lock_irq(&gframemgr->frame_slock);
-
-	list_for_each_entry_safe(gframe, temp, &group->frame_group_head, list) {
-		if (gframe->fcount == target_fcount) {
-			list_del(&gframe->list);
-			group->frame_group_cnt--;
-			mwarn("gframe%d is cancelled", group, target_fcount);
-			fimc_is_gframe_s_free(gframemgr, gframe);
-			ret = 0;
-			break;
-		}
-	}
-
-	spin_unlock_irq(&gframemgr->frame_slock);
-
-	return ret;
-}
-
 void * fimc_is_gframe_rewind(struct fimc_is_groupmgr *groupmgr,
 	struct fimc_is_group *group, u32 target_fcount)
 {

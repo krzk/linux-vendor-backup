@@ -104,7 +104,6 @@ struct fan53555_vout {
 
 int fan53555_get_vout_val(int sel);
 const char *fan53555_get_vout_str(int sel);
-int fan53555_enable_vsel0(struct i2c_client *client, int on_off);
 int fan53555_set_vsel0_vout(struct i2c_client *client, int vout);
 
 

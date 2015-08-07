@@ -21,7 +21,6 @@
 
 #include "fimc-is-resourcemgr.h"
 #include "fimc-is-core.h"
-#include "fimc-is-clk-gate.h"
 #include "fimc-is-hw.h"
 
 struct pm_qos_request exynos_isp_qos_cpu_min;

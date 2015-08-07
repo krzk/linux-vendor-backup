@@ -293,7 +293,6 @@ int fimc_is_ischain_init_wrap(struct fimc_is_device_ischain *device,
 	u32 input);
 int fimc_is_ischain_g_capability(struct fimc_is_device_ischain *this,
 	u32 user_ptr);
-int fimc_is_ischain_print_status(struct fimc_is_device_ischain *this);
 void fimc_is_ischain_meta_invalid(struct fimc_is_frame *frame);
 
 /* 3AA subdev */
@@ -361,8 +360,6 @@ int fimc_is_ischain_vdo_start(struct fimc_is_device_ischain *device,
 int fimc_is_ischain_vdo_stop(struct fimc_is_device_ischain *device,
 	struct fimc_is_subdev *leader,
 	struct fimc_is_queue *queue);
-int fimc_is_ischain_vdo_s_format(struct fimc_is_device_ischain *this,
-	u32 width, u32 height);
 int fimc_is_ischain_vdo_buffer_queue(struct fimc_is_device_ischain *device,
 	struct fimc_is_queue *queue,
 	u32 index);
@@ -375,11 +372,6 @@ int fimc_is_ischain_3aa_callback(struct fimc_is_device_ischain *device,
 int fimc_is_ischain_isp_callback(struct fimc_is_device_ischain *device,
 	struct fimc_is_frame *frame);
 int fimc_is_ischain_dis_callback(struct fimc_is_device_ischain *device,
-	struct fimc_is_frame *frame);
-int fimc_is_ischain_camctl(struct fimc_is_device_ischain *this,
-	struct fimc_is_frame *frame,
-	u32 fcount);
-int fimc_is_ischain_tag(struct fimc_is_device_ischain *ischain,
 	struct fimc_is_frame *frame);
 
 int fimc_is_itf_stream_on(struct fimc_is_device_ischain *this);
@@ -402,7 +394,6 @@ extern const struct fimc_is_queue_ops fimc_is_ischain_sub_ops;
 
 int fimc_is_itf_power_down(struct fimc_is_interface *interface);
 int fimc_is_ischain_power(struct fimc_is_device_ischain *this, int on);
-void fimc_is_ischain_savefirm(struct fimc_is_device_ischain *this);
 
 #define IS_ISCHAIN_OTF(device)				\
 	(test_bit(FIMC_IS_GROUP_OTF_INPUT, &(device)->group_3aa.state))
