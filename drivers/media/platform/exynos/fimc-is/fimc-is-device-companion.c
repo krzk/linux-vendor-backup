@@ -231,10 +231,8 @@ static int fimc_is_companion_gpio_on(struct fimc_is_device_companion *device)
 {
 	int ret = 0;
 	struct exynos_platform_fimc_is_sensor *pdata;
-#if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 	struct fimc_is_from_info *sysfs_finfo;
 	struct exynos_sensor_pin (*pin_ctrls)[2][GPIO_CTRL_MAX];
-#endif
 	struct fimc_is_core *core;
 
 	BUG_ON(!device);
@@ -242,9 +240,7 @@ static int fimc_is_companion_gpio_on(struct fimc_is_device_companion *device)
 	BUG_ON(!device->pdata);
 
 	pdata = device->pdata;
-#if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 	pin_ctrls = pdata->pin_ctrls;
-#endif
 	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
 
 	if (test_bit(FIMC_IS_COMPANION_GPIO_ON, &device->state)) {
@@ -260,7 +256,6 @@ static int fimc_is_companion_gpio_on(struct fimc_is_device_companion *device)
 
 	core->running_rear_camera = true;
 
-#if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 	if(core->use_sensor_dynamic_voltage_mode) {
 		fimc_is_sec_get_sysfs_finfo(&sysfs_finfo);
 		if (pin_ctrls[pdata->scenario][GPIO_SCENARIO_ON][0].name != NULL &&
@@ -273,7 +268,6 @@ static int fimc_is_companion_gpio_on(struct fimc_is_device_companion *device)
 			}
 		}
 
-#if defined(CONFIG_SOC_EXYNOS5433)
 		if (pin_ctrls[pdata->scenario][GPIO_SCENARIO_ON][1].name != NULL &&
 			!strcmp(pin_ctrls[pdata->scenario][GPIO_SCENARIO_ON][1].name, "CAM_SEN_CORE_1.2V_AP")) {
 			if (sysfs_finfo->header_ver[1] == '1' && sysfs_finfo->header_ver[2] == '6' && sysfs_finfo->header_ver[4] == 'S') {
@@ -283,9 +277,7 @@ static int fimc_is_companion_gpio_on(struct fimc_is_device_companion *device)
 				pin_ctrls[pdata->scenario][GPIO_SCENARIO_ON][1].voltage = 1200000;
 			}
 		}
-#endif
 	}
-#endif
 
 	ret = pdata->gpio_cfg(device->pdev, pdata->scenario, GPIO_SCENARIO_ON);
 	if (ret) {
@@ -469,9 +461,7 @@ p_err:
 int fimc_is_companion_close(struct fimc_is_device_companion *device)
 {
 	int ret = 0;
-#if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 	u32 timeout;
-#endif
 	struct fimc_is_core *core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
 	if (!core) {
 		err("core is NULL");
@@ -488,7 +478,6 @@ int fimc_is_companion_close(struct fimc_is_device_companion *device)
 
 #if defined(CONFIG_PM_RUNTIME)
 	pm_runtime_put_sync(&device->pdev->dev);
-#if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 	if (core != NULL && !test_bit(FIMC_IS_ISCHAIN_POWER_ON, &core->state)) {
 		warn("only companion device closing after open..");
 		timeout = 2000;
@@ -502,7 +491,6 @@ int fimc_is_companion_close(struct fimc_is_device_companion *device)
 			err("CAM1 power down failed(CAM1:0x%08x, A5:0x%08x)\n",
 					readl(PMUREG_CAM1_STATUS), readl(PMUREG_ISP_ARM_STATUS));
 	}
-#endif
 #else
 	fimc_is_companion_runtime_suspend(&device->pdev->dev);
 #endif /* CONFIG_PM_RUNTIME */

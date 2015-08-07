@@ -102,9 +102,7 @@ extern bool crc32_check_factory;
 extern bool fw_version_crc_check;
 extern bool is_latest_cam_module;
 extern bool is_final_cam_module;
-#if defined(CONFIG_SOC_EXYNOS5433)
 extern bool is_right_prj_name;
-#endif
 #ifdef CONFIG_COMPANION_USE
 extern bool crc32_c1_fw_check;
 extern bool crc32_c1_check;
@@ -244,44 +242,6 @@ static int fimc_is_ishcain_initmem(struct fimc_is_core *this)
 exit:
 	return ret;
 }
-
-#if defined(CONFIG_ARM_EXYNOS5433_BUS_DEVFREQ) && defined(CONFIG_CPU_THERMAL_IPA)
-static int fimc_is_mif_throttling_notifier(struct notifier_block *nb,
-		unsigned long val, void *v)
-{
-	struct fimc_is_core *core = NULL;
-	struct fimc_is_device_sensor *device = NULL;
-	int i;
-
-	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
-	if (!core) {
-		err("core is null");
-		goto exit;
-	}
-
-	for (i = 0; i < FIMC_IS_MAX_NODES; i++) {
-		if (test_bit(FIMC_IS_SENSOR_OPEN, &core->sensor[i].state)) {
-			device = &core->sensor[i];
-			break;
-		}
-	}
-
-	if (device && !test_bit(FIMC_IS_SENSOR_FRONT_DTP_STOP, &device->state))
-		/* Set DTP */
-		set_bit(FIMC_IS_MIF_THROTTLING_STOP, &device->force_stop);
-	else
-		err("any sensor is not opened");
-
-exit:
-	err("MIF: cause of mif_throttling, mif_qos is [%lu]!!!\n", val);
-
-	return NOTIFY_OK;
-}
-
-static struct notifier_block exynos_fimc_is_mif_throttling_nb = {
-	.notifier_call = fimc_is_mif_throttling_notifier,
-};
-#endif
 
 #ifdef CONFIG_USE_VENDER_FEATURE
 static ssize_t camera_front_sensorid_show(struct device *dev,
@@ -574,9 +534,7 @@ static ssize_t camera_rear_checkfw_user_show(struct device *dev,
 #endif
 		) {
 			if (!is_latest_cam_module
-#if defined(CONFIG_SOC_EXYNOS5433)
 				|| !is_right_prj_name
-#endif
 			) {
 				return sprintf(buf, "%s\n", "NG");
 			} else {
@@ -602,9 +560,7 @@ static ssize_t camera_rear_checkfw_factory_show(struct device *dev,
 #endif
 		) {
 			if (!is_final_cam_module
-#if defined(CONFIG_SOC_EXYNOS5433)
 				|| !is_right_prj_name
-#endif
 			) {
 				return sprintf(buf, "%s\n", "NG");
 			} else {
@@ -1487,13 +1443,10 @@ static int fimc_is_probe(struct platform_device *pdev)
 	}
 
 
-#if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 #if defined(CONFIG_VIDEOBUF2_ION)
 	if (core->mem.alloc_ctx)
 		vb2_ion_attach_iommu(core->mem.alloc_ctx);
 #endif
-#endif
-	EXYNOS_MIF_ADD_NOTIFIER(&exynos_fimc_is_mif_throttling_nb);
 
 #if defined(CONFIG_PM_RUNTIME)
 	pm_runtime_enable(&pdev->dev);
@@ -1941,10 +1894,6 @@ static int fimc_is_fan53555_probe(struct i2c_client *client,
 {
 	struct fimc_is_core *core;
 	int ret = 0;
-#ifdef CONFIG_SOC_EXYNOS5422
-	struct regulator *regulator = NULL;
-	const char power_name[] = "CAM_IO_1.8V_AP";
-#endif
 	struct device_node *np;
 	int gpio_comp_en;
 
@@ -1986,24 +1935,6 @@ static int fimc_is_fan53555_probe(struct i2c_client *client,
 	core->companion_dcdc.get_vout_str = fan53555_get_vout_str;
 	core->companion_dcdc.set_vout = fan53555_set_vsel0_vout;
 
-#ifdef CONFIG_SOC_EXYNOS5422
-	regulator = regulator_get(NULL, power_name);
-	if (IS_ERR(regulator)) {
-		pr_err("%s : regulator_get(%s) fail\n", __func__, power_name);
-		return PTR_ERR(regulator);
-	}
-
-	if (regulator_is_enabled(regulator)) {
-		pr_info("%s regulator is already enabled\n", power_name);
-	} else {
-		ret = regulator_enable(regulator);
-		if (unlikely(ret)) {
-			pr_err("%s : regulator_enable(%s) fail\n", __func__, power_name);
-			goto err;
-		}
-	}
-	usleep_range(1000, 1000);
-#endif
 
 	ret = i2c_smbus_write_byte_data(client, REG_VSEL0, VSEL0_INIT_VAL);
 	if (ret < 0) {
@@ -2022,14 +1953,6 @@ static int fimc_is_fan53555_probe(struct i2c_client *client,
 	}
 	pr_err("[%s::%d]fan53555 [Read :: %x ,%x]\n\n", __func__, __LINE__, ret,VSEL0_INIT_VAL);
 
-#ifdef CONFIG_SOC_EXYNOS5422
-	ret = regulator_disable(regulator);
-	if (unlikely(ret)) {
-		pr_err("%s: regulator_disable(%s) fail\n", __func__, power_name);
-		goto err;
-	}
-	regulator_put(regulator);
-#endif
 	gpio_direction_output(gpio_comp_en,0);
 	gpio_free(gpio_comp_en);
 
@@ -2041,15 +1964,6 @@ err:
 	gpio_direction_output(gpio_comp_en, 0);
 	gpio_free(gpio_comp_en);
 
-#ifdef CONFIG_SOC_EXYNOS5422
-	if (!IS_ERR_OR_NULL(regulator)) {
-		ret = regulator_disable(regulator);
-		if (unlikely(ret)) {
-			pr_err("%s: regulator_disable(%s) fail\n", __func__, power_name);
-		}
-		regulator_put(regulator);
-	}
-#endif
         return ret;
 }
 

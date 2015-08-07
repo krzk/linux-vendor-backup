@@ -37,9 +37,7 @@ extern struct pm_qos_request exynos_isp_qos_int;
 extern struct pm_qos_request exynos_isp_qos_mem;
 extern struct pm_qos_request exynos_isp_qos_cam;
 extern struct pm_qos_request exynos_isp_qos_disp;
-#if defined(CONFIG_SOC_EXYNOS5422) || defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 extern struct pm_qos_request max_cpu_qos;
-#endif
 
 #if defined(CONFIG_ARGOS)
 extern void argos_block_enable(char *req_name, bool set);
@@ -328,7 +326,6 @@ int fimc_is_runtime_suspend_post(struct device *dev)
 		err("ISP power down failed(0x%08x)\n",
 			readl(PMUREG_ISP_STATUS));
 
-#if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 	timeout = 1000;
 	while ((readl(PMUREG_CAM0_STATUS) & 0x1) && timeout) {
 		timeout--;
@@ -346,10 +343,7 @@ int fimc_is_runtime_suspend_post(struct device *dev)
 	if (timeout == 0)
 		err("CAM1 power down failed(CAM1:0x%08x, A5:0x%08x)\n",
 			readl(PMUREG_CAM1_STATUS), readl(PMUREG_ISP_ARM_STATUS));
-#endif /* defined(CONFIG_SOC_EXYNOS5430) */
 
-#if defined(CONFIG_SOC_EXYNOS5422)
-#endif /* defined(CONFIG_SOC_EXYNOS5422) */
 
 	return ret;
 }
@@ -366,12 +360,6 @@ int fimc_is_runtime_suspend(struct device *dev)
 
 	pr_info("FIMC_IS runtime suspend in\n");
 
-#if !(defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433))
-#if defined(CONFIG_VIDEOBUF2_ION)
-	if (core->mem.alloc_ctx)
-		vb2_ion_detach_iommu(core->mem.alloc_ctx);
-#endif
-#endif
 
 #if defined(CONFIG_PM_DEVFREQ)
 	/* DEVFREQ set */
@@ -382,22 +370,13 @@ int fimc_is_runtime_suspend(struct device *dev)
 	argos_block_enable("EMMC", false);
 #endif
 
-#if defined(CONFIG_SOC_EXYNOS5422) || defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 	/* EGL Release */
 	pm_qos_update_request(&max_cpu_qos, PM_QOS_CPU_FREQ_MAX_DEFAULT_VALUE);
 	pm_qos_remove_request(&max_cpu_qos);
-#endif /* CONFIG_SOC_EXYNOS5422 */
 
 #if defined(CONFIG_FIMC_IS_BUS_DEVFREQ)
 	/* BTS */
-#if defined(CONFIG_SOC_EXYNOS5260)
-	bts_initialize("spd-flite-a", false);
-	bts_initialize("spd-flite-b", false);
-#elif defined(CONFIG_SOC_EXYNOS3470)
-	bts_initialize("pd-cam", false);
-#else
 	bts_initialize("pd-fimclite", false);
-#endif
 	/* media layer */
 	exynos5_update_media_layers(TYPE_FIMC_LITE, false);
 #endif /* CONFIG_FIMC_IS_BUS_DEVFREQ */
@@ -425,13 +404,8 @@ int fimc_is_runtime_resume(struct device *dev)
 	argos_block_enable("EMMC", true);
 #endif
 
-#if defined(CONFIG_SOC_EXYNOS5422) || defined(CONFIG_SOC_EXYNOS5430)
-	/* EGL Lock */
-	pm_qos_add_request(&max_cpu_qos, PM_QOS_CPU_FREQ_MAX, 1600000);
-#elif defined(CONFIG_SOC_EXYNOS5433)
 	/* EGL Lock */
 	pm_qos_add_request(&max_cpu_qos, PM_QOS_CPU_FREQ_MAX, 1700000);
-#endif /* CONFIG_SOC_EXYNOS5422 */
 
 	/* HACK: DVFS lock sequence is change.
 	 * DVFS level should be locked after power on.
@@ -454,23 +428,10 @@ int fimc_is_runtime_resume(struct device *dev)
 		ret = -EINVAL;
 		goto p_err;
 	}
-#if !(defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433))
-#if defined(CONFIG_VIDEOBUF2_ION)
-	if (core->mem.alloc_ctx)
-		vb2_ion_attach_iommu(core->mem.alloc_ctx);
-#endif
-#endif
 
 #if defined(CONFIG_FIMC_IS_BUS_DEVFREQ)
 	/* BTS */
-#if defined(CONFIG_SOC_EXYNOS5260)
-	bts_initialize("spd-flite-a", true);
-	bts_initialize("spd-flite-b", true);
-#elif defined(CONFIG_SOC_EXYNOS3470)
-	bts_initialize("pd-cam", true);
-#else
 	bts_initialize("pd-fimclite", true);
-#endif
 	/* media layer */
 	exynos5_update_media_layers(TYPE_FIMC_LITE, true);
 #endif /* CONFIG_FIMC_IS_BUS_DEVFREQ */

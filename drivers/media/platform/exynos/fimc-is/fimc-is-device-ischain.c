@@ -42,9 +42,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/gpio.h>
 #include <plat/gpio-cfg.h>
-#if defined(CONFIG_SOC_EXYNOS3470)
-#include <mach/bts.h>
-#endif
 
 #include "fimc-is-time.h"
 #include "fimc-is-core.h"
@@ -1354,7 +1351,6 @@ static void fimc_is_ischain_forcedown(struct fimc_is_device_ischain *this,
 	}
 }
 
-#if !defined(CONFIG_SOC_EXYNOS4415)
 void tdnr_s3d_pixel_async_sw_reset(struct fimc_is_device_ischain *this)
 {
 	u32 cfg = readl(SYSREG_GSCBLK_CFG1);
@@ -1367,7 +1363,6 @@ void tdnr_s3d_pixel_async_sw_reset(struct fimc_is_device_ischain *this)
 	cfg &= ~(1 << 5);
 	writel(cfg, SYSREG_ISPBLK_CFG);
 }
-#endif
 
 static void fimc_is_a5_power(struct device *dev, int power_flags)
 {
@@ -1378,13 +1373,8 @@ static void fimc_is_a5_power(struct device *dev, int power_flags)
 
 	/* option */
 	if (power_flags) {
-#if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 		/* A5 enable[15] */
 		writel((1 << 15), PMUREG_ISP_ARM_OPTION);
-#else
-		/* STANDBY WFI[16] & A5 enable[15] */
-		writel((1 << 16 | 1 << 15), PMUREG_ISP_ARM_OPTION);
-#endif
 	}
 
 	/* status */
@@ -1489,9 +1479,6 @@ int fimc_is_ischain_power(struct fimc_is_device_ischain *device, int on)
 		}
 		set_bit(FIMC_IS_ISCHAIN_LOADED, &device->state);
 
-#if defined(CONFIG_SOC_EXYNOS5422)
-		tdnr_s3d_pixel_async_sw_reset(device);
-#endif /* defined(CONFIG_SOC_EXYNOS5422) */
 		/* 4. A5 start address setting */
 		mdbgd_ischain("imemory.base(dvaddr) : 0x%08x\n", device, device->imemory.dvaddr);
 		mdbgd_ischain("imemory.base(kvaddr) : 0x%08X\n", device, device->imemory.kvaddr);

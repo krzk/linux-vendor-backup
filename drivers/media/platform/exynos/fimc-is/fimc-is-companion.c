@@ -1080,10 +1080,6 @@ int fimc_is_comp_is_valid(struct fimc_is_core *core)
 	fimc_is_comp_single_read(core, read_addr, &companion_id, 2);
 	pr_info("Companion vaildation: 0x%04x\n", companion_id);
 #if 0
-#if defined(CONFIG_SOC_EXYNOS5430)
-	if (companion_id != COMP_MAGIC_NUMBER)
-		ret = -EINVAL;
-#endif
 #endif
 exit:
 	return ret;

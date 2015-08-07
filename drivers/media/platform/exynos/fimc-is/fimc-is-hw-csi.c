@@ -58,12 +58,8 @@
 /* D-PHY control */
 #define S5PCSIS_DPHYCTRL				(0x04)
 #define S5PCSIS_DPHYCTRL_DPHY_ON(lanes)			((~(0x1f << (lanes + 1))) & 0x1f)
-#if defined(CONFIG_SOC_EXYNOS5260)
-#define S5PCSIS_DPHYCTRL_HSS_MASK			(0x1f << 27)
-#else
 #define S5PCSIS_DPHYCTRL_HSS_MASK			(0xff << 24)
 #define S5PCSIS_DPHYCTRL_CLKSETTLEMASK			(0x3 << 22)
-#endif
 
 /* Configuration */
 #define S5PCSIS_CONFIG					(0x08)
@@ -85,11 +81,7 @@
 
 /* Interrupt mask. */
 #define S5PCSIS_INTMSK					(0x10)
-#if defined(CONFIG_SOC_EXYNOS5260)
-#define S5PCSIS_INTMSK_EN_ALL				(0xfc00103f)
-#else
 #define S5PCSIS_INTMSK_EN_ALL				(0xf1101117)
-#endif
 #define S5PCSIS_INTMSK_EVEN_BEFORE			(1 << 31)
 #define S5PCSIS_INTMSK_EVEN_AFTER			(1 << 30)
 #define S5PCSIS_INTMSK_ODD_BEFORE			(1 << 29)
@@ -425,12 +417,7 @@ void s5pcsis_enable_interrupts(unsigned long __iomem *base_reg,
 		}
 	}
 
-#if defined(CONFIG_SOC_EXYNOS5260)
-	/* FIXME: hard coded, only for rhea */
-	writel(0xFFF01037, base_reg + TO_WORD_OFFSET(S5PCSIS_INTMSK));
-#else
 	writel(val, base_reg + TO_WORD_OFFSET(S5PCSIS_INTMSK));
-#endif
 }
 
 void s5pcsis_reset(unsigned long __iomem *base_reg)
@@ -447,33 +434,21 @@ void s5pcsis_system_enable(unsigned long __iomem *base_reg, int on, u32 lanes)
 
 	val = readl(base_reg + TO_WORD_OFFSET(S5PCSIS_CTRL));
 
-#if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433) || defined(CONFIG_SOC_EXYNOS5422)
 	val |= S5PCSIS_CTRL_WCLK_EXTCLK;
-#endif
 
 	if (on) {
 		val |= S5PCSIS_CTRL_ENABLE;
 		val |= S5PCSIS_CTRL_WCLK_EXTCLK;
 	} else
 		val &= ~S5PCSIS_CTRL_ENABLE;
-#if defined(CONFIG_SOC_EXYNOS5260)
-	/* FIXME: hard coded, only for rhea */
-	writel(0x0000010D, base_reg + TO_WORD_OFFSET(S5PCSIS_CTRL));
-#else
 	writel(val, base_reg + TO_WORD_OFFSET(S5PCSIS_CTRL));
-#endif
 
 	val = readl(base_reg + TO_WORD_OFFSET(S5PCSIS_DPHYCTRL));
 	if (on)
 		val |= S5PCSIS_DPHYCTRL_DPHY_ON(lanes);
 	else
 		val &= ~S5PCSIS_DPHYCTRL_DPHY_ON(lanes);
-#if defined(CONFIG_SOC_EXYNOS5260)
-	/* FIXME: hard coded, only for rhea */
-	writel(0x0E00001F, base_reg + TO_WORD_OFFSET(S5PCSIS_DPHYCTRL));
-#else
 	writel(val, base_reg + TO_WORD_OFFSET(S5PCSIS_DPHYCTRL));
-#endif
 }
 
 /* Called with the state.lock mutex held */
@@ -492,9 +467,7 @@ static void __s5pcsis_set_format(unsigned long __iomem *base_reg,
 	else
 		val = (val & ~S5PCSIS_CFG_FMT_MASK) | S5PCSIS_CFG_FMT_RAW10;
 
-#if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433) || defined(CONFIG_SOC_EXYNOS5422)
 	val |= S5PCSIS_CFG_END_INTERVAL(1);
-#endif
 	writel(val, base_reg + TO_WORD_OFFSET(S5PCSIS_CONFIG));
 
 	/* Pixel resolution */
@@ -517,12 +490,7 @@ void s5pcsis_set_hsync_settle(unsigned long __iomem *base_reg, u32 settle)
 
 	val = (val & ~S5PCSIS_DPHYCTRL_HSS_MASK) | (settle << 24);
 
-#if defined(CONFIG_SOC_EXYNOS5260)
-	/* FIXME: hard coded, only for rhea */
-	writel(0x0E00001F, base_reg + TO_WORD_OFFSET(S5PCSIS_DPHYCTRL));
-#else
 	writel(val, base_reg + TO_WORD_OFFSET(S5PCSIS_DPHYCTRL));
-#endif
 }
 
 void s5pcsis_set_params(unsigned long __iomem *base_reg,
@@ -530,9 +498,6 @@ void s5pcsis_set_params(unsigned long __iomem *base_reg,
 {
 	u32 val;
 
-#if defined(CONFIG_SOC_EXYNOS3470)
-	writel(0x000000AC, base_reg + TO_WORD_OFFSET(S5PCSIS_CONFIG)); /* only for carmen */
-#endif
 	__s5pcsis_set_format(base_reg, image);
 
 	val = readl(base_reg + TO_WORD_OFFSET(S5PCSIS_CTRL));

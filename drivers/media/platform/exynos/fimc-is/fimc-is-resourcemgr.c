@@ -31,9 +31,7 @@ struct pm_qos_request exynos_isp_qos_int;
 struct pm_qos_request exynos_isp_qos_mem;
 struct pm_qos_request exynos_isp_qos_cam;
 struct pm_qos_request exynos_isp_qos_disp;
-#if defined(CONFIG_SOC_EXYNOS5422) || defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 struct pm_qos_request max_cpu_qos;
-#endif
 
 extern struct fimc_is_sysfs_debug sysfs_debug;
 

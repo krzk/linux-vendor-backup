@@ -15,9 +15,7 @@ bool crc32_check_factory_front = true;
 bool fw_version_crc_check = true;
 bool is_latest_cam_module = false;
 bool is_final_cam_module = false;
-#if defined(CONFIG_SOC_EXYNOS5433)
 bool is_right_prj_name = true;
-#endif
 #ifdef CONFIG_COMPANION_USE
 bool crc32_c1_fw_check = true;
 bool crc32_c1_check = true;
@@ -1344,7 +1342,6 @@ crc_retry:
 		is_final_cam_module = true;
 	}
 
-#if defined(CONFIG_SOC_EXYNOS5433)
 	if (sysfs_finfo.project_name[6] != 'T' && sysfs_finfo.header_ver[0] == 'H' && sysfs_finfo.header_ver[1] == '1' &&
 		sysfs_finfo.header_ver[2] == '6') {
 		pr_info("FROM has abnormal project name : %c-%c\n", sysfs_finfo.project_name[6], sysfs_finfo.project_name[7]);
@@ -1352,7 +1349,6 @@ crc_retry:
 	} else {
 		is_right_prj_name = true;
 	}
-#endif
 
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);

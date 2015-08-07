@@ -15,9 +15,6 @@
 #define FIMC_IS_DECLARE_QOS_ENUM(__TYPE) enum FIMC_IS_DVFS_ ## __TYPE ## _LV_IDX
 
 #include <linux/videodev2.h>
-#if defined(CONFIG_ARCH_EXYNOS4)
-#include <media/s5p_fimc.h>
-#endif
 
 #define FIMC_IS_DEV_NAME			"exynos-fimc-is"
 #include <linux/platform_device.h>
