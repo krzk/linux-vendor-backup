@@ -852,6 +852,8 @@ static int fimc_is_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	fimc_is_parse_children_dt(&pdev->dev, core);
+
 	fimc_is_dev = &pdev->dev;
 	ret = dev_set_drvdata(fimc_is_dev, core);
 	if (ret) {

@@ -339,15 +339,6 @@
 #define ISSR62			(MCUCTL+0x178)
 #define ISSR63			(MCUCTL+0x17c)
 
-/* PMU for FIMC-IS*/
-#define MIPICSI0_REG_BASE                       (S5P_VA_MIPICSI0)
-#define MIPICSI1_REG_BASE                       (S5P_VA_MIPICSI1)
-#define MIPICSI2_REG_BASE			(S5P_VA_MIPICSI2)
-
-#define FIMCLITE0_REG_BASE                      (S5P_VA_FIMCLITE0)
-#define FIMCLITE1_REG_BASE                      (S5P_VA_FIMCLITE1)
-#define FIMCLITE2_REG_BASE                      (S5P_VA_FIMCLITE2)
-
 #define PMUREG_ISP_ARM_CONFIGURATION		(S5P_VA_PMU  + 0x2580)
 #define PMUREG_ISP_ARM_STATUS			(S5P_VA_PMU  + 0x2584)
 #define PMUREG_ISP_ARM_OPTION			(S5P_VA_PMU  + 0x2588)
