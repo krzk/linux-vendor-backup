@@ -21,8 +21,6 @@
 #include "clk.h"
 #include "clk-pll.h"
 
-static __initdata LIST_HEAD(exynos5433_cmu_pd_list);
-
 struct exynos5433_cmu_pd_handler {
 	struct list_head entry;
 	struct notifier_block nb;
@@ -40,6 +38,13 @@ static int exynos5433_cmu_pd_notifier(struct notifier_block *nb, unsigned long v
 	int i;
 
 	switch (val) {
+	case EXYNOS_PD_ADD:
+		if ((struct generic_pm_domain *)data ==
+			of_genpd_get_from_provider(&handler->pd_args)) {
+			exynos_pd_notifier_unregister(NULL, nb);
+			exynos_pd_notifier_register(data, nb);
+		}
+		break;
 	case EXYNOS_PD_PRE_ON:
 		if (handler->nr_reqd_clks)
 			for (i = 0; i < handler->nr_reqd_clks; i++)
@@ -75,6 +80,7 @@ static void __init exynos5433_cmu_pd_handler_init(struct device_node *np,
 					unsigned long *regs, int nr_regs)
 {
 	CMU_PD_H *handler;
+	struct generic_pm_domain *domain;
 	int ret, nr_clks;
 
 	handler = kzalloc(sizeof(*handler), GFP_KERNEL);
@@ -86,6 +92,8 @@ static void __init exynos5433_cmu_pd_handler_init(struct device_node *np,
 					&handler->pd_args);
 	if (ret < 0)
 		goto err;
+
+	domain = of_genpd_get_from_provider(&handler->pd_args);
 
 	handler->nb.notifier_call = exynos5433_cmu_pd_notifier;
 
@@ -121,7 +129,10 @@ static void __init exynos5433_cmu_pd_handler_init(struct device_node *np,
 		handler->nr_reqd_clks = nr_clks;
 	}
 
-	list_add(&handler->entry, &exynos5433_cmu_pd_list);
+	if (IS_ERR(domain))
+		exynos_pd_notifier_register(NULL, &handler->nb);
+	else
+		exynos_pd_notifier_register(domain, &handler->nb);
 
 	return;
 err:
@@ -5613,17 +5624,6 @@ static int __init exynos5433_suspend_init(void)
 	int i, ret;
 	struct device_node *np;
 	struct of_phandle_args clkspec;
-	CMU_PD_H *handler;
-
-	list_for_each_entry(handler, &exynos5433_cmu_pd_list, entry) {
-		struct generic_pm_domain *domain;
-
-		domain = of_genpd_get_from_provider(&handler->pd_args);
-		if (IS_ERR(domain))
-			continue;
-
-		exynos_pd_notifier_register(domain, &handler->nb);
-	}
 
 	np = of_find_compatible_node(NULL, NULL, "exynos5433-cmu-suspend");
 	if (!np)
