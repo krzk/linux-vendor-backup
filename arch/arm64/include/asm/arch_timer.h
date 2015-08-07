@@ -105,6 +105,11 @@ static inline void arch_timer_set_cntkctl(u32 cntkctl)
 	asm volatile("msr	cntkctl_el1, %0" : : "r" (cntkctl));
 }
 
+/* FIXME :
+ * For the case which firmware doesn't initialize virtual counter,
+ * it recalls the way of reading physical counter.
+ */
+#if 0
 static inline u64 arch_counter_get_cntpct(void)
 {
 	/*
@@ -112,6 +117,16 @@ static inline u64 arch_counter_get_cntpct(void)
 	 */
 	BUG();
 	return 0;
+}
+#endif
+static inline u64 arch_counter_get_cntpct(void)
+{
+	u64 cval;
+
+	isb();
+	asm volatile("mrs %0, cntpct_el0" : "=r" (cval));
+
+	return cval;
 }
 
 static inline u64 arch_counter_get_cntvct(void)

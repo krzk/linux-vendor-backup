@@ -468,7 +468,7 @@ static void __init arch_counter_register(unsigned type)
 
 	/* Register the CP15 based counter if we have one */
 	if (type & ARCH_CP15_TIMER) {
-		if (IS_ENABLED(CONFIG_ARM64) || arch_timer_use_virtual)
+		if (arch_timer_use_virtual)
 			arch_timer_read_counter = arch_counter_get_cntvct;
 		else
 			arch_timer_read_counter = arch_counter_get_cntpct;
@@ -736,6 +736,15 @@ static void __init arch_timer_of_init(struct device_node *np)
 	arch_timer_detect_rate(NULL, np);
 
 	arch_timer_c3stop = !of_property_read_bool(np, "always-on");
+
+	/* FIXME :
+	 * ARM recommended to use vcnt for clocksource of ARMv8.
+	 * However, On Exynos5433, it seemed that they aren't intialized
+	 * properly, each of counters' value are not synchronized.
+	 * For Exynos5433, let it uses pcnt for representive clock source.
+	 */
+	if (of_machine_is_compatible("samsung,exynos5433"))
+		arch_timer_use_virtual = false;
 
 	/*
 	 * If we cannot rely on firmware initializing the timer registers then
