@@ -1,8 +1,7 @@
 #ifndef FIMC_IS_TYPE_H
 #define FIMC_IS_TYPE_H
 
-#include <linux/v4l2-mediabus.h>
-
+#include <media/v4l2-mediabus.h>
 #include <media/v4l2-device.h>
 
 enum fimc_is_device_type {

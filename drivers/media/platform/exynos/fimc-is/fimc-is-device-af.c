@@ -28,7 +28,6 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/delay.h>
-#include <mach/pinctrl-samsung.h>
 
 #include "fimc-is-core.h"
 #include "fimc-is-interface.h"
@@ -78,7 +77,7 @@ static void fimc_is_af_i2c_config(struct i2c_client *client, bool onoff)
 		} else {
 			devm_pinctrl_put(pinctrl_i2c);
 		}
-    }
+	}
 }
 
 int fimc_is_af_i2c_write(struct i2c_client *client ,u16 addr, u16 data)
@@ -375,6 +374,8 @@ static int fimc_is_af_probe(struct i2c_client *client,
 	core->client2 = client;
 	device->client = client;
 	device->core = core;
+
+#if 0
 	af_noise_count = 0;
 
 	af_sensor_interface.af_pdata = device;
@@ -382,6 +383,7 @@ static int fimc_is_af_probe(struct i2c_client *client,
 	ret = remove_af_noise_register(&af_sensor_interface);
 	if (ret)
 		err("reduce_af_noise_register failed: %d\n", ret);
+#endif
 	i2c_set_clientdata(client, device);
 
 	return 0;
@@ -389,7 +391,9 @@ static int fimc_is_af_probe(struct i2c_client *client,
 
 static int fimc_is_af_remove(struct i2c_client *client)
 {
+#if 0
 	remove_af_noise_unregister(&af_sensor_interface);
+#endif
 	return 0;
 }
 

@@ -24,7 +24,7 @@
 #define ENABLE_FAST_SHOT
 /* #define ENABLE_MIF_400 */
 #define ENABLE_DTP
-#define USE_ION_ALLOC
+//#define USE_ION_ALLOC
 
 #define START_DVFS_LEVEL FIMC_IS_SN_MAX
 
@@ -32,6 +32,8 @@
 #define TARGET_SPI_CH_FOR_PERI	0
 #define MAX_ZOOM_LEVEL 8
 
+#define EXYNOS_VIDEONODE_FLITE(x)		(36 + x)
+#define EXYNOS_VIDEONODE_FIMC_IS		(100)
 
 #if !defined(MAX_ZOOM_LEVEL)
 /* default max zoom lv is 4 */

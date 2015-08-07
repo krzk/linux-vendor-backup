@@ -19,15 +19,10 @@
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
 #include <linux/videodev2.h>
-#include <linux/videodev2_exynos_camera.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/platform_device.h>
 #include <linux/of_gpio.h>
-#include <mach/regs-gpio.h>
-#include <mach/regs-clock.h>
-#include <plat/clock.h>
-#include <plat/gpio-cfg.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-subdev.h>

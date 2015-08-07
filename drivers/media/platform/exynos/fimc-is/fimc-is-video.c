@@ -18,16 +18,12 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
-#include <mach/videonode.h>
-#include <media/exynos_mc.h>
 #include <asm/cacheflush.h>
 #include <asm/pgtable.h>
 #include <linux/firmware.h>
 #include <linux/dma-mapping.h>
 #include <linux/scatterlist.h>
 #include <linux/videodev2.h>
-#include <linux/videodev2_exynos_media.h>
-#include <linux/videodev2_exynos_camera.h>
 #include <linux/v4l2-mediabus.h>
 #include <linux/bug.h>
 
@@ -36,7 +32,6 @@
 #include <media/v4l2-device.h>
 #include <media/v4l2-mem2mem.h>
 #include <media/v4l2-mediabus.h>
-#include <media/exynos_mc.h>
 
 #include "fimc-is-time.h"
 #include "fimc-is-core.h"
@@ -305,9 +300,8 @@ static int queue_init(void *priv, struct vb2_queue *vbq_src,
 		vbq_src->drv_priv	= vctx;
 		vbq_src->ops		= vctx->vb2_ops;
 		vbq_src->mem_ops	= vctx->mem_ops;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))
-		vbq_src->timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_COPY;
-#endif
+		vbq_src->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
+
 		ret = vb2_queue_init(vbq_src);
 		if (ret) {
 			err("vb2_queue_init fail");
@@ -322,9 +316,8 @@ static int queue_init(void *priv, struct vb2_queue *vbq_src,
 		vbq_dst->drv_priv	= vctx;
 		vbq_dst->ops		= vctx->vb2_ops;
 		vbq_dst->mem_ops	= vctx->mem_ops;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))
-		vbq_dst->timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_COPY;
-#endif
+		vbq_dst->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
+
 		ret = vb2_queue_init(vbq_dst);
 		if (ret) {
 			err("vb2_queue_init fail");
@@ -340,9 +333,8 @@ static int queue_init(void *priv, struct vb2_queue *vbq_src,
 		vbq_src->drv_priv	= vctx;
 		vbq_src->ops		= vctx->vb2_ops;
 		vbq_src->mem_ops	= vctx->mem_ops;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))
-		vbq_src->timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_COPY;
-#endif
+		vbq_src->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
+
 		ret = vb2_queue_init(vbq_src);
 		if (ret) {
 			err("vb2_queue_init fail");
@@ -355,9 +347,8 @@ static int queue_init(void *priv, struct vb2_queue *vbq_src,
 		vbq_dst->drv_priv	= vctx;
 		vbq_dst->ops		= vctx->vb2_ops;
 		vbq_dst->mem_ops	= vctx->mem_ops;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))
-		vbq_dst->timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_COPY;
-#endif
+		vbq_dst->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
+
 		ret = vb2_queue_init(vbq_dst);
 		if (ret) {
 			err("vb2_queue_init fail");
@@ -1115,7 +1106,7 @@ int fimc_is_video_qbuf(struct file *file,
 	BUG_ON(!vctx);
 	BUG_ON(!buf);
 
-	buf->flags &= ~V4L2_BUF_FLAG_USE_SYNC;
+//	buf->flags &= ~V4L2_BUF_FLAG_USE_SYNC;
 	queue = GET_VCTX_QUEUE(vctx, buf);
 	vbq = queue->vbq;
 

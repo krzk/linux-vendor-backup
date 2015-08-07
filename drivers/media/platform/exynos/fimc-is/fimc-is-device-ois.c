@@ -29,7 +29,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/delay.h>
 #include "exynos-fimc-is-sensor.h"
-#include <mach/pinctrl-samsung.h>
 #include <linux/kthread.h>
 
 #include "fimc-is-core.h"

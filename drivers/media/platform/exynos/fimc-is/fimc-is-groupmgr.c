@@ -18,21 +18,15 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
-#include <mach/videonode.h>
-#include <media/exynos_mc.h>
 #include <asm/cacheflush.h>
 #include <asm/pgtable.h>
 #include <linux/firmware.h>
 #include <linux/dma-mapping.h>
 #include <linux/scatterlist.h>
 #include <linux/videodev2.h>
-#include <linux/videodev2_exynos_camera.h>
-#include <linux/videodev2_exynos_media.h>
 #include <linux/v4l2-mediabus.h>
 #include <linux/bug.h>
 
-#include <mach/map.h>
-#include <mach/regs-clock.h>
 
 #include "fimc-is-core.h"
 #include "fimc-is-err.h"

@@ -21,12 +21,6 @@
 #include <linux/delay.h>
 #include <linux/clk-provider.h>
 #include <linux/clkdev.h>
-#include <mach/regs-gpio.h>
-#include <mach/map.h>
-#include <mach/regs-clock.h>
-#include <plat/gpio-cfg.h>
-#include <plat/map-s5p.h>
-#include <plat/cpu.h>
 #include <linux/of_gpio.h>
 
 #include "exynos-fimc-is.h"

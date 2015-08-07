@@ -17,7 +17,6 @@
 #include <linux/module.h>
 #include <linux/spi/spi.h>
 #include <linux/gpio.h>
-#include <plat/gpio-cfg.h>
 #include "fimc-is-core.h"
 #include "fimc-is-regs.h"
 
