@@ -162,6 +162,8 @@ static int fimc_is_isp_video_close(struct file *file)
 		goto p_err;
 	}
 
+	fimc_is_hw_logdump(device->interface);
+
 	fimc_is_ischain_close(device, vctx);
 	fimc_is_video_close(vctx);
 
