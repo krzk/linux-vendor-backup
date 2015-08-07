@@ -818,9 +818,7 @@ static int fimc_is_sensor_probe(struct platform_device *pdev)
 		vb2_ion_attach_iommu(device->mem.alloc_ctx);
 #endif
 
-#if defined(CONFIG_PM_RUNTIME)
 	pm_runtime_enable(&pdev->dev);
-#endif
 
 	ret = v4l2_device_register(&pdev->dev, &device->v4l2_dev);
 	if (ret) {
@@ -932,11 +930,7 @@ int fimc_is_sensor_open(struct fimc_is_device_sensor *device,
 		goto p_err;
 	}
 
-#ifdef CONFIG_PM_RUNTIME
 	pm_runtime_get_sync(&device->pdev->dev);
-#else
-	fimc_is_sensor_runtime_resume(&device->pdev->dev);
-#endif
 
 #ifdef ENABLE_DTP
 	device->dtp_check = true;
@@ -994,11 +988,7 @@ int fimc_is_sensor_close(struct fimc_is_device_sensor *device)
 	if (ret)
 		merr("fimc_is_flite_close is fail(%d)", device, ret);
 
-#if defined(CONFIG_PM_RUNTIME)
 	pm_runtime_put_sync(&device->pdev->dev);
-#else
-	fimc_is_sensor_runtime_suspend(&device->pdev->dev);
-#endif
 
 	/* cancel a work and wait for it to finish */
 	cancel_work_sync(&device->control_work);

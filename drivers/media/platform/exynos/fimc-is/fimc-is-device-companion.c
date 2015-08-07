@@ -350,11 +350,7 @@ int fimc_is_companion_open(struct fimc_is_device_companion *device)
 
 	device->companion_status = FIMC_IS_COMPANION_OPENNING;
 	core->running_rear_camera = true;
-#if defined(CONFIG_PM_RUNTIME)
 	pm_runtime_get_sync(&device->pdev->dev);
-#else
-	fimc_is_companion_runtime_resume(&device->pdev->dev);
-#endif
 	ret = fimc_is_sec_fw_sel(core, &device->pdev->dev, fw_name, setf_name, false);
 	if (ret < 0) {
 		err("failed to select firmware (%d)", ret);
@@ -437,11 +433,7 @@ int fimc_is_companion_open(struct fimc_is_device_companion *device)
 	return ret;
 
 p_err_pm:
-#if defined(CONFIG_PM_RUNTIME)
 	pm_runtime_put_sync(&device->pdev->dev);
-#else
-	fimc_is_companion_runtime_suspend(&device->pdev->dev);
-#endif
 
 p_err:
 	err("[COMP:D] open fail(%d)status(%d)", ret, device->companion_status);
@@ -465,7 +457,6 @@ int fimc_is_companion_close(struct fimc_is_device_companion *device)
 		goto p_err;
 	}
 
-#if defined(CONFIG_PM_RUNTIME)
 	pm_runtime_put_sync(&device->pdev->dev);
 #if 0
 	if (core != NULL && !test_bit(FIMC_IS_ISCHAIN_POWER_ON, &core->state)) {
@@ -483,9 +474,6 @@ int fimc_is_companion_close(struct fimc_is_device_companion *device)
 					readl(PMUREG_CAM1_STATUS), readl(PMUREG_ISP_ARM_STATUS));
 	}
 #endif
-#else
-	fimc_is_companion_runtime_suspend(&device->pdev->dev);
-#endif /* CONFIG_PM_RUNTIME */
 
 	clear_bit(FIMC_IS_COMPANION_OPEN, &device->state);
 
@@ -568,9 +556,7 @@ static int fimc_is_companion_probe(struct platform_device *pdev)
 		goto p_err;
 	}
 
-#if defined(CONFIG_PM_RUNTIME)
 	pm_runtime_enable(&pdev->dev);
-#endif
 
 	info("[COMP:D] %s(%d)\n", __func__, ret);
 
