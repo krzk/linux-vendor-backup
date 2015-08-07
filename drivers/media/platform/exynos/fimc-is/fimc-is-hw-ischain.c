@@ -30,6 +30,7 @@
 int fimc_is_runtime_suspend_post(struct device *dev)
 {
 	int ret = 0;
+#if 0
 	u32 timeout;
 
 	timeout = 2000;
@@ -59,7 +60,7 @@ int fimc_is_runtime_suspend_post(struct device *dev)
 		err("CAM1 power down failed(CAM1:0x%08x, A5:0x%08x)\n",
 			readl(PMUREG_CAM1_STATUS), readl(PMUREG_ISP_ARM_STATUS));
 
-
+#endif
 	return ret;
 }
 

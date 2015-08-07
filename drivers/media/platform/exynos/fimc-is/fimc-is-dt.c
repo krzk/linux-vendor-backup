@@ -16,6 +16,8 @@
 #include <media/exynos_mc.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
+#include <linux/regmap.h>
+#include <linux/mfd/syscon.h>
 
 #include "fimc-is-core.h"
 #include "fimc-is-dt.h"
@@ -276,6 +278,10 @@ int fimc_is_parse_children_dt(struct device *dev, struct fimc_is_core *core)
 		if (i >= 0 || i < FIMC_IS_MAX_NODES)
 			core->csis_np[i] = child;
 	}
+
+	core->pmu_regmap = syscon_regmap_lookup_by_phandle(np,
+						"samsung,pmureg-phandle");
+
 	return 0;
 }
 
