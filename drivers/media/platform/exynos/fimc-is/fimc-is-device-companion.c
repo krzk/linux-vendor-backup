@@ -451,7 +451,6 @@ p_err:
 int fimc_is_companion_close(struct fimc_is_device_companion *device)
 {
 	int ret = 0;
-	u32 timeout;
 	struct fimc_is_core *core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
 	if (!core) {
 		err("core is NULL");
@@ -468,7 +467,9 @@ int fimc_is_companion_close(struct fimc_is_device_companion *device)
 
 #if defined(CONFIG_PM_RUNTIME)
 	pm_runtime_put_sync(&device->pdev->dev);
+#if 0
 	if (core != NULL && !test_bit(FIMC_IS_ISCHAIN_POWER_ON, &core->state)) {
+		u32 timeout;
 		warn("only companion device closing after open..");
 		timeout = 2000;
 		while ((readl(PMUREG_CAM1_STATUS) & 0x1) && timeout) {
@@ -481,6 +482,7 @@ int fimc_is_companion_close(struct fimc_is_device_companion *device)
 			err("CAM1 power down failed(CAM1:0x%08x, A5:0x%08x)\n",
 					readl(PMUREG_CAM1_STATUS), readl(PMUREG_ISP_ARM_STATUS));
 	}
+#endif
 #else
 	fimc_is_companion_runtime_suspend(&device->pdev->dev);
 #endif /* CONFIG_PM_RUNTIME */

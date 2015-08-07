@@ -224,6 +224,7 @@ struct fimc_is_core {
 	struct platform_device			*pdev;
 	struct resource				*regs_res;
 	void __iomem				*regs;
+	struct regmap				*pmu_regmap;
 	int					irq;
 	u32					id;
 	u32					debug_cnt;

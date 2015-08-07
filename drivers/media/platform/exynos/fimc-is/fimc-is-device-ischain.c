@@ -32,6 +32,7 @@
 #include <linux/vmalloc.h>
 #include <linux/kthread.h>
 #include <linux/debugfs.h>
+#include <linux/regmap.h>
 #include <linux/syscalls.h>
 #include <linux/bug.h>
 
@@ -1204,9 +1205,11 @@ static int fimc_is_ischain_loadcalb(struct fimc_is_device_ischain *device,
 		mwarn("calibration loading is success", device);
 	return ret;
 }
+
 static void fimc_is_ischain_forcedown(struct fimc_is_device_ischain *this,
 	bool on)
 {
+#if 0
 	if (on) {
 		printk(KERN_INFO "Set low poweroff mode\n");
 		__raw_writel(0x0, PMUREG_ISP_ARM_OPTION);
@@ -1218,29 +1221,48 @@ static void fimc_is_ischain_forcedown(struct fimc_is_device_ischain *this,
 		__raw_writel(0x8, PMUREG_ISP_LOW_POWER_OFF);
 		this->force_down = false;
 	}
+#endif
 }
 
 static void fimc_is_a5_power(struct device *dev, int power_flags)
 {
-	u32 timeout;
+	struct fimc_is_core *core;
+	int timeout;
+	u32 val;
+
+	if (!fimc_is_dev) {
+		err("fimc_is_dev is not yet probed");
+		BUG();
+	}
+
+	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	if (!core) {
+		err("core is NULL");
+		BUG();
+	}
 
 	/* configuration */
-	__raw_writel(power_flags, PMUREG_ISP_ARM_CONFIGURATION);
+	regmap_write(core->pmu_regmap, PMUREG_ISP_ARM_CONFIGURATION, power_flags);
 
 	/* option */
 	if (power_flags) {
 		/* A5 enable[15] */
-		writel((1 << 15), PMUREG_ISP_ARM_OPTION);
+		regmap_write(core->pmu_regmap, PMUREG_ISP_ARM_OPTION, (1 << 15));
 	}
 
 	/* status */
 	timeout = 1000;
-	while ((__raw_readl(PMUREG_ISP_ARM_STATUS) & 0x1) != power_flags) {
-		if (timeout == 0)
-			err("%s can't control power(%d), timeout\n", __func__, power_flags);
-		timeout--;
-		udelay(1);
+	while (timeout) {
+		regmap_read(core->pmu_regmap, PMUREG_ISP_ARM_STATUS, &val);
+		if ((val & 0x1) != power_flags) {
+			timeout--;
+			udelay(1);
+		} else {
+			break;
+		}
 	}
+	if (timeout == 0)
+		err("%s can't control power(%d), timeout\n", __func__, power_flags);
 }
 
 int fimc_is_ischain_power(struct fimc_is_device_ischain *device, int on)
@@ -1331,7 +1353,8 @@ int fimc_is_ischain_power(struct fimc_is_device_ischain *device, int on)
 			merr("secure configuration is fail[0x131E0004:%08X]", device, debug);
 
 		/* To guarantee FW restart */
-		if (__raw_readl(PMUREG_ISP_ARM_STATUS) & 0x1) {
+		regmap_read(core->pmu_regmap, PMUREG_ISP_ARM_STATUS, &val);
+		if (val & 0x1) {
 			fimc_is_a5_power(dev, 0);
 		}
 
