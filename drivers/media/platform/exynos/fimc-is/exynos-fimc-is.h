@@ -161,44 +161,6 @@ struct exynos_fimc_is_subip_info {
 	struct exynos_fimc_is_subip_ext _pwm;
 };
 
-/*
- * struct exynos_fimc_is_clk_gate_group
- *	This struct is for host clock gating.
- * 	It decsribes register, masking bit info and other control for each group.
- *	If you uses host clock gating, You must define this struct in exynos_fimc_is_clk_gate_info.
- */
-struct exynos_fimc_is_clk_gate_group {
-	u32	mask_clk_on_org;	/* masking value in clk on */
-	u32	mask_clk_on_mod;	/* masking value in clk on */
-	u32	mask_clk_off_self_org;	/* masking value in clk off(not depend) original */
-	u32	mask_clk_off_self_mod;	/* masking value in clk off(not depend) final */
-	u32	mask_clk_off_depend;	/* masking value in clk off(depend on other grp) */
-	u32	mask_cond_for_depend;	/* masking group having dependancy for other */
-};
-
-/*
- * struct exynos_fimc_is_clk_gate_info
- * 	This struct is for host clock gating.
- * 	It has exynos_fimc_is_clk_gate_group to control each group's clk gating.
- * 	And it has function pointer to include user scenario masking
- */
-struct exynos_fimc_is_clk_gate_info {
-	const char *gate_str[FIMC_IS_CLK_GATE_MAX];			/* register adr for gating */
-	struct exynos_fimc_is_clk_gate_group groups[FIMC_IS_GRP_MAX];
-	/* You must set this function pointer (on/off) */
-	int (*clk_on_off)(u32 clk_gate_id, bool is_on);
-	/*
-	 * if there are specific scenarios for clock gating,
-	 * You can define user function.
-	 * user_scenario_id will be in
-	 */
-	int (*user_clk_gate)(u32 group_id,
-			bool is_on,
-			u32 user_scenario_id,
-			unsigned long msk_state,
-			struct exynos_fimc_is_clk_gate_info *gate_info);
-};
-
 /**
 * struct exynos_platform_fimc_is - camera host interface platform data
 *
@@ -224,8 +186,6 @@ struct exynos_platform_fimc_is {
 	int	(*get_i2c_qos)(int scenario_id);
 	u32	dvfs_data[FIMC_IS_SN_END][FIMC_IS_DVFS_END];
 
-	/* For host clock gating */
-	struct exynos_fimc_is_clk_gate_info *gate_info;
 #ifdef CONFIG_COMPANION_USE
 	u32	companion_spi_channel;
 	bool	use_two_spi_line;
@@ -274,10 +234,6 @@ extern int exynos_fimc_is_cfg_cam_clk(struct platform_device *pdev);
 extern int exynos_fimc_is_clk_on(struct platform_device *pdev);
 extern int exynos_fimc_is_clk_off(struct platform_device *pdev);
 extern int exynos_fimc_is_print_clk(struct platform_device *pdev);
-extern int exynos_fimc_is_set_user_clk_gate(u32 group_id, bool is_on, u32 user_scenario_id,
-											unsigned long msk_state,
-											struct exynos_fimc_is_clk_gate_info *gate_info);
-extern int exynos_fimc_is_clk_gate(u32 clk_gate_id, bool is_on);
 
 extern int exynos_fimc_is_sensor_power_on(struct platform_device *pdev, int sensor_id);
 extern int exynos_fimc_is_sensor_power_off(struct platform_device *pdev, int sensor_id);

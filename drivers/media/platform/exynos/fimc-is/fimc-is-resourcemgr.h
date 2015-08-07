@@ -39,7 +39,6 @@ struct fimc_is_clk_gate_ctrl {
 	unsigned long msk_state;
 	int msk_cnt[GROUP_ID_MAX];
 	u32 msk_lock_by_ischain[FIMC_IS_MAX_NODES];
-	struct exynos_fimc_is_clk_gate_info *gate_info;
 	u32 msk_clk_on_off_state; /* on/off(1/0) state per ip */
 	/*
 	 * For check that there's too long clock-on period.

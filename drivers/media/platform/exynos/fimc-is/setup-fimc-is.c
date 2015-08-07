@@ -147,11 +147,6 @@ void  fimc_is_disable_dt(struct platform_device *pdev,
 	clk_unprepare(target);
 }
 
-int exynos5430_fimc_is_clk_gate(u32 clk_gate_id, bool is_on)
-{
-	return 0;
-}
-
 static int exynos5430_cfg_clk_isp_pll_on(struct platform_device *pdev)
 {
 	pr_info("%s\n", __func__);
@@ -465,16 +460,6 @@ int exynos5430_fimc_is_print_pwr(struct platform_device *pdev)
 	return 0;
 }
 
-int exynos5430_fimc_is_set_user_clk_gate(u32 group_id,
-		bool is_on,
-		u32 user_scenario_id,
-		unsigned long msk_state,
-		struct exynos_fimc_is_clk_gate_info *gate_info) {
-	/* if you want to skip clock on/off, let this func return -1 */
-	int ret = -1;
-
-	return ret;
-}
 
 /* Wrapper functions */
 int exynos_fimc_is_cfg_clk(struct platform_device *pdev)
@@ -505,21 +490,6 @@ int exynos_fimc_is_clk_off(struct platform_device *pdev)
 int exynos_fimc_is_print_clk(struct platform_device *pdev)
 {
 	exynos5430_fimc_is_print_clk(pdev);
-	return 0;
-}
-
-int exynos_fimc_is_set_user_clk_gate(u32 group_id, bool is_on,
-	u32 user_scenario_id,
-	unsigned long msk_state,
-	struct exynos_fimc_is_clk_gate_info *gate_info)
-{
-	exynos5430_fimc_is_set_user_clk_gate(group_id, is_on, user_scenario_id, msk_state, gate_info);
-	return 0;
-}
-
-int exynos_fimc_is_clk_gate(u32 clk_gate_id, bool is_on)
-{
-	exynos5430_fimc_is_clk_gate(clk_gate_id, is_on);
 	return 0;
 }
 

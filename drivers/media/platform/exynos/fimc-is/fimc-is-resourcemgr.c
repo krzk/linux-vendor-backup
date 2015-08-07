@@ -117,11 +117,6 @@ int fimc_is_resource_get(struct fimc_is_resourcemgr *resourcemgr, u32 rsc_type)
 			/* W/A for a lower version MCUCTL */
 			fimc_is_interface_reset(&core->interface);
 
-#ifdef ENABLE_CLOCK_GATE
-			if (sysfs_debug.en_clk_gate &&
-					sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST)
-				fimc_is_clk_gate_init(core);
-#endif
 			break;
 		default:
 			err("[RSC] resource type(%d) is invalid", rsc_type);

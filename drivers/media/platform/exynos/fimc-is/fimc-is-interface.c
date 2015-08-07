@@ -2012,12 +2012,6 @@ static void wq_func_shot(struct work_struct *data)
 				merr("group(%d) req flag is not clear all(%X)",
 					device, group->id, (u32)frame->req_flag);
 
-#ifdef ENABLE_CLOCK_GATE
-			/* dynamic clock off */
-			if (sysfs_debug.en_clk_gate &&
-					sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST)
-				fimc_is_clk_gate_set(core, group->id, false, false, true);
-#endif
 			wq_func_group(groupmgr, group, grp_framemgr, frame,
 				vctx, status1, status2, fcount);
 		} else {
@@ -2027,12 +2021,6 @@ static void wq_func_shot(struct work_struct *data)
 		}
 
 		framemgr_x_barrier_irqr(grp_framemgr, FMGR_IDX_7, flags);
-#ifdef ENABLE_CLOCK_GATE
-		if (fcount == 1 &&
-				sysfs_debug.en_clk_gate &&
-				sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST)
-			fimc_is_clk_gate_lock_set(core, instance, false);
-#endif
 remain:
 		set_free_work(work_list, work);
 		get_req_work(work_list, &work);

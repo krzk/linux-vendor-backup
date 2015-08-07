@@ -2242,21 +2242,8 @@ int fimc_is_itf_process_stop(struct fimc_is_device_ischain *device,
 {
 	int ret = 0;
 
-#ifdef ENABLE_CLOCK_GATE
-	struct fimc_is_core *core = (struct fimc_is_core *)device->interface->core;
-	if (sysfs_debug.en_clk_gate &&
-			sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST) {
-		fimc_is_clk_gate_lock_set(core, device->instance, true);
-		fimc_is_wrap_clk_gate_set(core, (1 << GROUP_ID_MAX) - 1, true);
-	}
-#endif
 	ret = fimc_is_hw_process_off(device->interface,
 		device->instance, group, 0);
-#ifdef ENABLE_CLOCK_GATE
-	if (sysfs_debug.en_clk_gate &&
-		sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST)
-		fimc_is_clk_gate_lock_set(core, device->instance, false);
-#endif
 	return ret;
 }
 
@@ -2265,28 +2252,14 @@ int fimc_is_itf_force_stop(struct fimc_is_device_ischain *device,
 {
 	int ret = 0;
 
-#ifdef ENABLE_CLOCK_GATE
-	struct fimc_is_core *core = (struct fimc_is_core *)device->interface->core;
-#endif
 	/* if there's only one group of isp, send group id by 3a0 */
 	if ((group & GROUP_ID(GROUP_ID_ISP)) &&
 			GET_FIMC_IS_NUM_OF_SUBIP2(device, 3a0) == 0 &&
 			GET_FIMC_IS_NUM_OF_SUBIP2(device, 3a1) == 0)
 		group = GROUP_ID(GROUP_ID_3A0);
-#ifdef ENABLE_CLOCK_GATE
-	if (sysfs_debug.en_clk_gate &&
-			sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST) {
-		fimc_is_clk_gate_lock_set(core, device->instance, true);
-		fimc_is_wrap_clk_gate_set(core, (1 << GROUP_ID_MAX) - 1, true);
-	}
-#endif
 	ret = fimc_is_hw_process_off(device->interface,
 		device->instance, group, 1);
-#ifdef ENABLE_CLOCK_GATE
-	if (sysfs_debug.en_clk_gate &&
-		sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST)
-		fimc_is_clk_gate_lock_set(core, device->instance, false);
-#endif
+
 	return ret;
 }
 
@@ -2316,9 +2289,6 @@ static int fimc_is_itf_init_process_stop(struct fimc_is_device_ischain *device)
 	int ret = 0;
 	u32 group = 0;
 
-#ifdef ENABLE_CLOCK_GATE
-	struct fimc_is_core *core = (struct fimc_is_core *)device->interface->core;
-#endif
 	group |= GROUP_ID(device->group_3aa.id);
 	group |= GROUP_ID(device->group_isp.id);
 
@@ -2327,21 +2297,8 @@ static int fimc_is_itf_init_process_stop(struct fimc_is_device_ischain *device)
 			GET_FIMC_IS_NUM_OF_SUBIP2(device, 3a0) == 0 &&
 			GET_FIMC_IS_NUM_OF_SUBIP2(device, 3a1) == 0)
 		group = GROUP_ID(GROUP_ID_3A0);
-#ifdef ENABLE_CLOCK_GATE
-	if (sysfs_debug.en_clk_gate &&
-			sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST) {
-		fimc_is_clk_gate_lock_set(core, device->instance, true);
-		fimc_is_wrap_clk_gate_set(core, (1 << GROUP_ID_MAX) - 1, true);
-
-	}
-#endif
 	ret = fimc_is_hw_process_off(device->interface,
 		device->instance, (group & GROUP_ID_PARM_MASK), 0);
-#ifdef ENABLE_CLOCK_GATE
-	if (sysfs_debug.en_clk_gate &&
-		sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST)
-		fimc_is_clk_gate_lock_set(core, device->instance, false);
-#endif
 	return ret;
 }
 
@@ -2467,21 +2424,7 @@ int fimc_is_itf_g_capability(struct fimc_is_device_ischain *this)
 int fimc_is_itf_power_down(struct fimc_is_interface *interface)
 {
 	int ret = 0;
-#ifdef ENABLE_CLOCK_GATE
-	/* HACK */
-	struct fimc_is_core *core = (struct fimc_is_core *)interface->core;
-	if (sysfs_debug.en_clk_gate &&
-			sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST) {
-		fimc_is_clk_gate_lock_set(core, 0, true);
-		fimc_is_wrap_clk_gate_set(core, (1 << GROUP_ID_MAX) - 1, true);
-	}
-#endif
 	ret = fimc_is_hw_power_down(interface, 0);
-#ifdef ENABLE_CLOCK_GATE
-	if (sysfs_debug.en_clk_gate &&
-		sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST)
-		fimc_is_clk_gate_lock_set(core, 0, false);
-#endif
 	return ret;
 }
 
@@ -2512,9 +2455,6 @@ static int fimc_is_itf_grp_shot(struct fimc_is_device_ischain *device,
 {
 	int ret = 0;
 	u32 group_id = 0;
-#ifdef ENABLE_CLOCK_GATE
-	struct fimc_is_core *core = (struct fimc_is_core *)device->interface->core;
-#endif
 	BUG_ON(!device);
 	BUG_ON(!group);
 	BUG_ON(!frame);
@@ -2552,13 +2492,6 @@ static int fimc_is_itf_grp_shot(struct fimc_is_device_ischain *device,
 #endif
 #endif
 
-#ifdef ENABLE_CLOCK_GATE
-	/* HACK */
-	/* dynamic clock on */
-	if (sysfs_debug.en_clk_gate &&
-			sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST)
-		fimc_is_clk_gate_set(core, group->id, true, false, true);
-#endif
 	group_id = GROUP_ID(group->id);
 
 	/* if there's only one group of isp, send group id by 3a0 */
@@ -2712,9 +2645,6 @@ int fimc_is_ischain_open(struct fimc_is_device_ischain *device,
 {
 	int ret = 0;
 	struct fimc_is_ishcain_mem *imemory;
-#ifdef ENABLE_CLOCK_GATE
-	struct fimc_is_core *core;
-#endif
 	BUG_ON(!device);
 	BUG_ON(!device->groupmgr);
 	BUG_ON(!vctx);
@@ -2826,14 +2756,6 @@ int fimc_is_ischain_open(struct fimc_is_device_ischain *device,
 
 	set_bit(FIMC_IS_ISCHAIN_OPEN, &device->state);
 
-#ifdef ENABLE_CLOCK_GATE
-	if (sysfs_debug.en_clk_gate &&
-			sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST) {
-		core = (struct fimc_is_core *)device->interface->core;
-		fimc_is_clk_gate_lock_set(core, device->instance, true);
-		fimc_is_wrap_clk_gate_set(core, (1 << GROUP_ID_MAX) - 1, true);
-	}
-#endif
 p_err:
 	info("[ISC:D:%d] %s(%d)\n", device->instance, __func__, ret);
 	return ret;
@@ -2875,14 +2797,6 @@ int fimc_is_ischain_close(struct fimc_is_device_ischain *device,
 		goto exit;
 	}
 
-#ifdef ENABLE_CLOCK_GATE
-	core = (struct fimc_is_core *)device->interface->core;
-	if (sysfs_debug.en_clk_gate &&
-			sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST) {
-		fimc_is_clk_gate_lock_set(core, device->instance, true);
-		fimc_is_wrap_clk_gate_set(core, (1 << GROUP_ID_MAX) - 1, true);
-	}
-#endif
 	/* 1. Stop all request */
 	ret = fimc_is_ischain_isp_stop(device, leader, queue);
 	if (ret)
@@ -2922,11 +2836,6 @@ int fimc_is_ischain_close(struct fimc_is_device_ischain *device,
 	fimc_is_set_spi_config(spi_gpio, FIMC_IS_SPI_OUTPUT, true);
 #endif
 
-#ifdef ENABLE_CLOCK_GATE
-	if (sysfs_debug.en_clk_gate &&
-			sysfs_debug.clk_gate_mode == CLOCK_GATE_MODE_HOST)
-		fimc_is_clk_gate_lock_set(core, device->instance, false);
-#endif
 exit:
 	pr_info("[ISC:D:%d] %s(%d)\n", device->instance, __func__, ret);
 	return ret;

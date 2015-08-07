@@ -19,8 +19,6 @@
 /* #define ENABLE_VDIS */
 /* #define ENABLE_TDNR */
 #define ENABLE_FD
-#define ENABLE_CLOCK_GATE
-/* #define HAS_FW_CLOCK_GATE */
 /* #define ENABLE_CACHE */
 #define ENABLE_FULL_BYPASS
 #define ENABLE_FAST_SHOT
@@ -43,7 +41,6 @@
 #define TARGET_SPI_CH_FOR_PERI	0
 #define FIMC_IS_CSI_VERSION	CSI_VERSION_0000_0000
 #define FIMC_IS_VERSION	FIMC_IS_VERSION_000
-#define HAS_FW_CLOCK_GATE
 #define MAX_ZOOM_LEVEL 8
 
 
@@ -88,11 +85,7 @@
 /*
  * driver version extension
  */
-#ifdef ENABLE_CLOCK_GATE
 #define get_drv_clock_gate() 0x1
-#else
-#define get_drv_clock_gate() 0x0
-#endif
 #ifdef ENABLE_DVFS
 #define get_drv_dvfs() 0x2
 #else
