@@ -934,6 +934,11 @@ static void fimc_is_isp_buffer_finish(struct vb2_buffer *vb)
 	struct fimc_is_video_ctx *vctx = vb->vb2_queue->drv_priv;
 	struct fimc_is_device_ischain *device = vctx->device;
 
+	if (vb->state != VB2_BUF_STATE_DONE && vb->state != VB2_BUF_STATE_ERROR) {
+		merr("unsupported buffer state %d", vctx, vb->state);
+		return;
+	}
+
 #ifdef DBG_STREAMING
 	mdbgv_isp("%s(%d)\n", vctx, __func__, vb->v4l2_buf.index);
 #endif
