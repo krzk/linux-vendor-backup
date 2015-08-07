@@ -26,7 +26,6 @@
 #include "fimc-is-type.h"
 #include "fimc-is-regs.h"
 #include "fimc-is-core.h"
-#include "fimc-is-dvfs.h"
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0))
 #define PM_QOS_CAM_THROUGHPUT	PM_QOS_RESERVED
@@ -43,61 +42,6 @@ extern struct pm_qos_request max_cpu_qos;
 extern void argos_block_enable(char *req_name, bool set);
 #endif
 
-#if defined(CONFIG_PM_DEVFREQ)
-inline static void fimc_is_set_qos_init(struct fimc_is_core *core, bool on)
-{
-	int cpu_min_qos, cpu_max_qos, int_qos, mif_qos, cam_qos, disp_qos;
-
-	cpu_min_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_CPU_MIN, START_DVFS_LEVEL);
-	cpu_max_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_CPU_MAX, START_DVFS_LEVEL);
-	int_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_INT, START_DVFS_LEVEL);
-	mif_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_MIF, START_DVFS_LEVEL);
-	cam_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_CAM, START_DVFS_LEVEL);
-	disp_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_DISP, START_DVFS_LEVEL);
-
-	core->resourcemgr.dvfs_ctrl.cur_cpu_min_qos = cpu_min_qos;
-	core->resourcemgr.dvfs_ctrl.cur_cpu_max_qos = cpu_max_qos;
-	core->resourcemgr.dvfs_ctrl.cur_int_qos = int_qos;
-	core->resourcemgr.dvfs_ctrl.cur_mif_qos = mif_qos;
-	core->resourcemgr.dvfs_ctrl.cur_cam_qos = cam_qos;
-	core->resourcemgr.dvfs_ctrl.cur_disp_qos = disp_qos;
-
-	if (on) {
-		/* DEVFREQ lock */
-		if (cpu_min_qos > 0)
-			pm_qos_add_request(&exynos_isp_qos_cpu_min, PM_QOS_CPU_FREQ_MIN, cpu_min_qos);
-		if (cpu_max_qos > 0)
-			pm_qos_add_request(&exynos_isp_qos_cpu_max, PM_QOS_CPU_FREQ_MAX, cpu_max_qos);
-		if (int_qos > 0)
-			pm_qos_add_request(&exynos_isp_qos_int, PM_QOS_DEVICE_THROUGHPUT, int_qos);
-		if (mif_qos > 0)
-			pm_qos_add_request(&exynos_isp_qos_mem, PM_QOS_BUS_THROUGHPUT, mif_qos);
-		if (cam_qos > 0)
-			pm_qos_add_request(&exynos_isp_qos_cam, PM_QOS_CAM_THROUGHPUT, cam_qos);
-		if (disp_qos > 0)
-			pm_qos_add_request(&exynos_isp_qos_disp, PM_QOS_DISPLAY_THROUGHPUT, disp_qos);
-
-		pr_info("[RSC] %s: QoS LOCK [INT(%d), MIF(%d), CAM(%d), DISP(%d) CPU(%d/%d)]\n",
-				__func__, int_qos, mif_qos, cam_qos, disp_qos, cpu_min_qos, cpu_max_qos);
-	} else {
-		/* DEVFREQ unlock */
-		if (cpu_min_qos > 0)
-			pm_qos_remove_request(&exynos_isp_qos_cpu_min);
-		if (cpu_max_qos > 0)
-			pm_qos_remove_request(&exynos_isp_qos_cpu_max);
-		if (int_qos > 0)
-			pm_qos_remove_request(&exynos_isp_qos_int);
-		if (mif_qos > 0)
-			pm_qos_remove_request(&exynos_isp_qos_mem);
-		if (cam_qos > 0)
-			pm_qos_remove_request(&exynos_isp_qos_cam);
-		if (disp_qos > 0)
-			pm_qos_remove_request(&exynos_isp_qos_disp);
-
-		pr_info("[RSC] %s: QoS UNLOCK\n", __func__);
-	}
-}
-#endif
 
 
 #if (FIMC_IS_VERSION == FIMC_IS_VERSION_250)
@@ -145,9 +89,6 @@ int fimc_is_runtime_suspend(struct device *dev)
 		vb2_ion_detach_iommu(core->mem.alloc_ctx);
 #endif
 
-#if defined(CONFIG_FIMC_IS_BUS_DEVFREQ)
-	exynos5_update_media_layers(TYPE_FIMC_LITE, false);
-#endif
 
 #ifndef CONFIG_PM_RUNTIME
 	/* ISP1 */
@@ -208,10 +149,6 @@ int fimc_is_runtime_suspend(struct device *dev)
 	__raw_writel(val, PMUREG_ISP_ARM_CONFIGURATION);
 #endif
 
-#if defined(CONFIG_PM_DEVFREQ)
-	/* DEVFREQ release */
-	fimc_is_set_qos_init(core, false);
-#endif
 
 #ifdef CONFIG_PM_RUNTIME
 	if (CALL_POPS(core, clk_off, pdev) < 0)
@@ -283,10 +220,6 @@ int fimc_is_runtime_resume(struct device *dev)
 	/* HACK: DVFS lock sequence is change.
 	 * DVFS level should be locked after power on.
 	 */
-#if defined(CONFIG_PM_DEVFREQ)
-	/* DEVFREQ set */
-	fimc_is_set_qos_init(core, true);
-#endif
 
 	/* Clock on */
 	ret = core->pdata->clk_on(pdev);
@@ -300,9 +233,6 @@ int fimc_is_runtime_resume(struct device *dev)
 		vb2_ion_attach_iommu(core->mem.alloc_ctx);
 #endif
 
-#if defined(CONFIG_FIMC_IS_BUS_DEVFREQ)
-	exynos5_update_media_layers(TYPE_FIMC_LITE, true);
-#endif
 
 	pm_stay_awake(dev);
 
@@ -361,10 +291,6 @@ int fimc_is_runtime_suspend(struct device *dev)
 	pr_info("FIMC_IS runtime suspend in\n");
 
 
-#if defined(CONFIG_PM_DEVFREQ)
-	/* DEVFREQ set */
-	fimc_is_set_qos_init(core, false);
-#endif
 
 #if defined(CONFIG_ARGOS)
 	argos_block_enable("EMMC", false);
@@ -374,12 +300,6 @@ int fimc_is_runtime_suspend(struct device *dev)
 	pm_qos_update_request(&max_cpu_qos, PM_QOS_CPU_FREQ_MAX_DEFAULT_VALUE);
 	pm_qos_remove_request(&max_cpu_qos);
 
-#if defined(CONFIG_FIMC_IS_BUS_DEVFREQ)
-	/* BTS */
-	bts_initialize("pd-fimclite", false);
-	/* media layer */
-	exynos5_update_media_layers(TYPE_FIMC_LITE, false);
-#endif /* CONFIG_FIMC_IS_BUS_DEVFREQ */
 
 	if (CALL_POPS(core, clk_off, pdev) < 0)
 		warn("clk_off is fail\n");
@@ -410,10 +330,6 @@ int fimc_is_runtime_resume(struct device *dev)
 	/* HACK: DVFS lock sequence is change.
 	 * DVFS level should be locked after power on.
 	 */
-#if defined(CONFIG_PM_DEVFREQ)
-	/* DEVFREQ set */
-	fimc_is_set_qos_init(core, true);
-#endif
 
 	/* Low clock setting */
 	if (CALL_POPS(core, clk_cfg, core->pdev) < 0) {
@@ -429,12 +345,6 @@ int fimc_is_runtime_resume(struct device *dev)
 		goto p_err;
 	}
 
-#if defined(CONFIG_FIMC_IS_BUS_DEVFREQ)
-	/* BTS */
-	bts_initialize("pd-fimclite", true);
-	/* media layer */
-	exynos5_update_media_layers(TYPE_FIMC_LITE, true);
-#endif /* CONFIG_FIMC_IS_BUS_DEVFREQ */
 
 	pr_info("FIMC-IS runtime resume out\n");
 

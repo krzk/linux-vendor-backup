@@ -21,7 +21,6 @@
 
 #include "fimc-is-resourcemgr.h"
 #include "fimc-is-core.h"
-#include "fimc-is-dvfs.h"
 #include "fimc-is-clk-gate.h"
 #include "fimc-is-hw.h"
 
@@ -50,12 +49,6 @@ int fimc_is_resource_probe(struct fimc_is_resourcemgr *resourcemgr,
 	atomic_set(&resourcemgr->resource_sensor1.rsccount, 0);
 	atomic_set(&resourcemgr->resource_ischain.rsccount, 0);
 
-#ifdef ENABLE_DVFS
-	/* dvfs controller init */
-	ret = fimc_is_dvfs_init(resourcemgr);
-	if (ret)
-		err("%s: fimc_is_dvfs_init failed!\n", __func__);
-#endif
 
 	info("%s\n", __func__);
 	return ret;
@@ -83,14 +76,6 @@ int fimc_is_resource_get(struct fimc_is_resourcemgr *resourcemgr, u32 rsc_type)
 	}
 
 	if (rsccount == 0) {
-#ifdef ENABLE_DVFS
-		/* dvfs controller init */
-		ret = fimc_is_dvfs_init(resourcemgr);
-		if (ret) {
-			err("%s: fimc_is_dvfs_init failed!\n", __func__);
-			goto p_err;
-		}
-#endif
 	}
 
 	if (atomic_read(&resource->rsccount) == 0) {

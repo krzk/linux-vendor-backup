@@ -43,7 +43,6 @@
 #include "fimc-is-err.h"
 #include "fimc-is-video.h"
 #include "fimc-is-dt.h"
-#include "fimc-is-dvfs.h"
 
 #include "fimc-is-device-sensor.h"
 #ifdef CONFIG_COMPANION_USE
@@ -249,106 +248,8 @@ p_err:
 	return ret;
 }
 
-#if defined(CONFIG_PM_DEVFREQ)
-inline static void fimc_is_sensor_set_qos_init(struct fimc_is_device_sensor *device, bool on)
-{
-	int cam_qos = 0;
-	int int_qos = 0;
-	int mif_qos = 0;
-	struct fimc_is_core *core =
-		(struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
-
-	cam_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_CAM, START_DVFS_LEVEL);
 #if 0 /* For vision of L_version */
 	int_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_INT, START_DVFS_LEVEL);
-#endif
-	if (on) {
-		/* DEVFREQ lock */
-		if (cam_qos > 0) {
-			if (device->request_cam_qos == false) {
-				pm_qos_add_request(&exynos_sensor_qos_cam, PM_QOS_CAM_THROUGHPUT, cam_qos);
-				device->request_cam_qos = true;
-			} else {
-				err("Adding sensor cam_qos is not allowed");
-			}
-		}
-
-		if (int_qos > 0) {
-			if (device->request_int_qos == false) {
-				pm_qos_add_request(&exynos_sensor_qos_int, PM_QOS_DEVICE_THROUGHPUT, int_qos);
-				device->request_int_qos = true;
-			} else {
-				err("Adding sensor int_qos is not allowed");
-			}
-		}
-
-		if (mif_qos > 0) {
-			if (device->request_mif_qos == false) {
-				pm_qos_add_request(&exynos_sensor_qos_mem, PM_QOS_BUS_THROUGHPUT, mif_qos);
-				device->request_mif_qos = true;
-			} else {
-				err("Adding sensor mif_qos is not allowed");
-			}
-		}
-		minfo("[SEN:D] %s: QoS LOCK [INT(%d), MIF(%d), CAM(%d)]\n", device,
-				__func__, int_qos, mif_qos, cam_qos);
-	} else {
-		/* DEVFREQ unlock */
-		if (cam_qos > 0) {
-			if (device->request_cam_qos == true) {
-				pm_qos_remove_request(&exynos_sensor_qos_cam);
-				device->request_cam_qos = false;
-			} else {
-				err("Removing sensor cam_qos is not allowed");
-			}
-		}
-
-		if (int_qos > 0) {
-			if (device->request_int_qos == true) {
-				pm_qos_remove_request(&exynos_sensor_qos_int);
-				device->request_int_qos = false;
-			} else {
-				err("Removing sensor int_qos is not allowed");
-			}
-		}
-
-		if (mif_qos > 0) {
-			if (device->request_mif_qos == true) {
-				pm_qos_remove_request(&exynos_sensor_qos_mem);
-				device->request_mif_qos = false;
-			} else {
-				err("Removing sensor mif_qos is not allowed");
-			}
-		}
-		minfo("[SEN:D] %s: QoS UNLOCK\n", device, __func__);
-	}
-}
-
-inline static void fimc_is_sensor_set_qos_update(struct fimc_is_device_sensor *device, u32 scenario)
-{
-	int cam_qos = 0;
-	int int_qos = 0;
-	int mif_qos = 0;
-	struct fimc_is_core *core =
-		(struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
-
-	/* HACK: This is considerated only front camera vision scenario. */
-	if (scenario == SENSOR_SCENARIO_VISION) {
-		cam_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_CAM, FIMC_IS_SN_FRONT_PREVIEW);
-		int_qos = fimc_is_get_qos(core, FIMC_IS_DVFS_INT, FIMC_IS_SN_FRONT_PREVIEW);
-	}
-
-	/* DEVFREQ update */
-	if (cam_qos > 0)
-		pm_qos_update_request(&exynos_sensor_qos_cam, cam_qos);
-	if (int_qos > 0)
-		pm_qos_update_request(&exynos_sensor_qos_int, int_qos);
-	if (mif_qos > 0)
-		pm_qos_update_request(&exynos_sensor_qos_mem, mif_qos);
-
-	minfo("[SEN:D] %s: QoS UPDATE(%d) [INT(%d), MIF(%d), CAM(%d)]\n", device,
-			__func__, scenario, int_qos, mif_qos, cam_qos);
-}
 #endif
 
 static int get_sensor_mode(struct fimc_is_sensor_cfg *cfg,
@@ -1428,11 +1329,6 @@ int fimc_is_sensor_s_input(struct fimc_is_device_sensor *device,
 		device->subdev_module = subdev_module;
 	}
 
-#if defined(CONFIG_PM_DEVFREQ)
-	/* DEVFREQ set */
-	if (test_bit(FIMC_IS_SENSOR_DRIVING, &device->state))
-		fimc_is_sensor_set_qos_init(device, true);
-#endif
 
 	/* configuration clock control */
 	ret = fimc_is_sensor_iclk_on(device);
@@ -1441,10 +1337,6 @@ int fimc_is_sensor_s_input(struct fimc_is_device_sensor *device,
 		goto p_err;
 	}
 
-#if defined(CONFIG_PM_DEVFREQ)
-	if (test_bit(FIMC_IS_SENSOR_DRIVING, &device->state))
-		fimc_is_sensor_set_qos_update(device, device->pdata->scenario);
-#endif
 
 	/* Sensor power on */
 	ret = fimc_is_sensor_gpio_on(device);
@@ -2271,11 +2163,6 @@ int fimc_is_sensor_runtime_suspend(struct device *dev)
 	if (ret)
 		mwarn("v4l2_csi_call(s_power) is fail(%d)", device, ret);
 
-#if defined(CONFIG_PM_DEVFREQ)
-	/* DEVFREQ set */
-	if (test_bit(FIMC_IS_SENSOR_DRIVING, &device->state))
-		fimc_is_sensor_set_qos_init(device, false);
-#endif
 
 	info("[SEN:D:%d] %s(%d)\n", device->instance, __func__, ret);
 	return 0;

@@ -59,116 +59,6 @@ p_err:
 	return ret;
 }
 
-
-static int parse_dvfs_data(struct exynos_platform_fimc_is *pdata, struct device_node *np)
-{
-	u32 temp;
-	char *pprop;
-
-	memset(pdata->dvfs_data, 0, sizeof(pdata->dvfs_data));
-	DT_READ_U32(np, "default_int", pdata->dvfs_data[FIMC_IS_SN_DEFAULT][FIMC_IS_DVFS_INT]);
-	DT_READ_U32(np, "default_cam", pdata->dvfs_data[FIMC_IS_SN_DEFAULT][FIMC_IS_DVFS_CAM]);
-	DT_READ_U32(np, "default_mif", pdata->dvfs_data[FIMC_IS_SN_DEFAULT][FIMC_IS_DVFS_MIF]);
-	DT_READ_U32(np, "default_i2c", pdata->dvfs_data[FIMC_IS_SN_DEFAULT][FIMC_IS_DVFS_I2C]);
-	DT_READ_U32(np, "front_preview_int", pdata->dvfs_data[FIMC_IS_SN_FRONT_PREVIEW][FIMC_IS_DVFS_INT]);
-	DT_READ_U32(np, "front_preview_cam", pdata->dvfs_data[FIMC_IS_SN_FRONT_PREVIEW][FIMC_IS_DVFS_CAM]);
-	DT_READ_U32(np, "front_preview_mif", pdata->dvfs_data[FIMC_IS_SN_FRONT_PREVIEW][FIMC_IS_DVFS_MIF]);
-	DT_READ_U32(np, "front_preview_i2c", pdata->dvfs_data[FIMC_IS_SN_FRONT_PREVIEW][FIMC_IS_DVFS_I2C]);
-	DT_READ_U32(np, "front_capture_int", pdata->dvfs_data[FIMC_IS_SN_FRONT_CAPTURE][FIMC_IS_DVFS_INT]);
-	DT_READ_U32(np, "front_capture_cam", pdata->dvfs_data[FIMC_IS_SN_FRONT_CAPTURE][FIMC_IS_DVFS_CAM]);
-	DT_READ_U32(np, "front_capture_mif", pdata->dvfs_data[FIMC_IS_SN_FRONT_CAPTURE][FIMC_IS_DVFS_MIF]);
-	DT_READ_U32(np, "front_capture_i2c", pdata->dvfs_data[FIMC_IS_SN_FRONT_CAPTURE][FIMC_IS_DVFS_I2C]);
-	DT_READ_U32(np, "front_camcording_int", pdata->dvfs_data[FIMC_IS_SN_FRONT_CAMCORDING][FIMC_IS_DVFS_INT]);
-	DT_READ_U32(np, "front_camcording_cam", pdata->dvfs_data[FIMC_IS_SN_FRONT_CAMCORDING][FIMC_IS_DVFS_CAM]);
-	DT_READ_U32(np, "front_camcording_mif", pdata->dvfs_data[FIMC_IS_SN_FRONT_CAMCORDING][FIMC_IS_DVFS_MIF]);
-	DT_READ_U32(np, "front_camcording_i2c", pdata->dvfs_data[FIMC_IS_SN_FRONT_CAMCORDING][FIMC_IS_DVFS_I2C]);
-	DT_READ_U32(np, "front_vt1_int", pdata->dvfs_data[FIMC_IS_SN_FRONT_VT1][FIMC_IS_DVFS_INT]);
-	DT_READ_U32(np, "front_vt1_cam", pdata->dvfs_data[FIMC_IS_SN_FRONT_VT1][FIMC_IS_DVFS_CAM]);
-	DT_READ_U32(np, "front_vt1_mif", pdata->dvfs_data[FIMC_IS_SN_FRONT_VT1][FIMC_IS_DVFS_MIF]);
-	DT_READ_U32(np, "front_vt1_i2c", pdata->dvfs_data[FIMC_IS_SN_FRONT_VT1][FIMC_IS_DVFS_I2C]);
-	DT_READ_U32(np, "front_vt2_int", pdata->dvfs_data[FIMC_IS_SN_FRONT_VT2][FIMC_IS_DVFS_INT]);
-	DT_READ_U32(np, "front_vt2_cam", pdata->dvfs_data[FIMC_IS_SN_FRONT_VT2][FIMC_IS_DVFS_CAM]);
-	DT_READ_U32(np, "front_vt2_mif", pdata->dvfs_data[FIMC_IS_SN_FRONT_VT2][FIMC_IS_DVFS_MIF]);
-	DT_READ_U32(np, "front_vt2_i2c", pdata->dvfs_data[FIMC_IS_SN_FRONT_VT2][FIMC_IS_DVFS_I2C]);
-	DT_READ_U32(np, "rear_preview_fhd_bns_off_int", pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_FHD_BNS_OFF][FIMC_IS_DVFS_INT]);
-	DT_READ_U32(np, "rear_preview_fhd_bns_off_cam", pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_FHD_BNS_OFF][FIMC_IS_DVFS_CAM]);
-	DT_READ_U32(np, "rear_preview_fhd_bns_off_mif", pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_FHD_BNS_OFF][FIMC_IS_DVFS_MIF]);
-	DT_READ_U32(np, "rear_preview_fhd_bns_off_i2c", pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_FHD_BNS_OFF][FIMC_IS_DVFS_I2C]);
-	DT_READ_U32(np, "rear_preview_fhd_int", pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_FHD][FIMC_IS_DVFS_INT]);
-	DT_READ_U32(np, "rear_preview_fhd_cam", pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_FHD][FIMC_IS_DVFS_CAM]);
-	DT_READ_U32(np, "rear_preview_fhd_mif", pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_FHD][FIMC_IS_DVFS_MIF]);
-	DT_READ_U32(np, "rear_preview_fhd_i2c", pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_FHD][FIMC_IS_DVFS_I2C]);
-	/* if there's no FHD preview(with BNS off) dvfa data, set value of FHD recording data */
-	if (!(pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_FHD_BNS_OFF][FIMC_IS_DVFS_MIF])) {
-		pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_FHD_BNS_OFF][FIMC_IS_DVFS_INT] = pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_FHD][FIMC_IS_DVFS_INT];
-		pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_FHD_BNS_OFF][FIMC_IS_DVFS_CAM] = pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_FHD][FIMC_IS_DVFS_CAM];
-		pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_FHD_BNS_OFF][FIMC_IS_DVFS_MIF] = pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_FHD][FIMC_IS_DVFS_MIF];
-		pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_FHD_BNS_OFF][FIMC_IS_DVFS_I2C] = pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_FHD][FIMC_IS_DVFS_I2C];
-	}
-	DT_READ_U32(np, "rear_preview_whd_int", pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_WHD][FIMC_IS_DVFS_INT]);
-	DT_READ_U32(np, "rear_preview_whd_cam", pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_WHD][FIMC_IS_DVFS_CAM]);
-	DT_READ_U32(np, "rear_preview_whd_mif", pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_WHD][FIMC_IS_DVFS_MIF]);
-	DT_READ_U32(np, "rear_preview_whd_i2c", pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_WHD][FIMC_IS_DVFS_I2C]);
-	DT_READ_U32(np, "rear_preview_uhd_int", pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_UHD][FIMC_IS_DVFS_INT]);
-	DT_READ_U32(np, "rear_preview_uhd_cam", pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_UHD][FIMC_IS_DVFS_CAM]);
-	DT_READ_U32(np, "rear_preview_uhd_mif", pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_UHD][FIMC_IS_DVFS_MIF]);
-	DT_READ_U32(np, "rear_preview_uhd_i2c", pdata->dvfs_data[FIMC_IS_SN_REAR_PREVIEW_UHD][FIMC_IS_DVFS_I2C]);
-	DT_READ_U32(np, "rear_capture_int", pdata->dvfs_data[FIMC_IS_SN_REAR_CAPTURE][FIMC_IS_DVFS_INT]);
-	DT_READ_U32(np, "rear_capture_cam", pdata->dvfs_data[FIMC_IS_SN_REAR_CAPTURE][FIMC_IS_DVFS_CAM]);
-	DT_READ_U32(np, "rear_capture_mif", pdata->dvfs_data[FIMC_IS_SN_REAR_CAPTURE][FIMC_IS_DVFS_MIF]);
-	DT_READ_U32(np, "rear_capture_i2c", pdata->dvfs_data[FIMC_IS_SN_REAR_CAPTURE][FIMC_IS_DVFS_I2C]);
-
-	DT_READ_U32(np, "rear_camcording_fhd_bns_off_int", pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_FHD_BNS_OFF][FIMC_IS_DVFS_INT]);
-	DT_READ_U32(np, "rear_camcording_fhd_bns_off_cam", pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_FHD_BNS_OFF][FIMC_IS_DVFS_CAM]);
-	DT_READ_U32(np, "rear_camcording_fhd_bns_off_mif", pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_FHD_BNS_OFF][FIMC_IS_DVFS_MIF]);
-	DT_READ_U32(np, "rear_camcording_fhd_bns_off_i2c", pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_FHD_BNS_OFF][FIMC_IS_DVFS_I2C]);
-	DT_READ_U32(np, "rear_camcording_fhd_int", pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_FHD][FIMC_IS_DVFS_INT]);
-	DT_READ_U32(np, "rear_camcording_fhd_cam", pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_FHD][FIMC_IS_DVFS_CAM]);
-	DT_READ_U32(np, "rear_camcording_fhd_mif", pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_FHD][FIMC_IS_DVFS_MIF]);
-	DT_READ_U32(np, "rear_camcording_fhd_i2c", pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_FHD][FIMC_IS_DVFS_I2C]);
-	DT_READ_U32(np, "rear_camcording_whd_int", pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_WHD][FIMC_IS_DVFS_INT]);
-	DT_READ_U32(np, "rear_camcording_whd_cam", pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_WHD][FIMC_IS_DVFS_CAM]);
-	DT_READ_U32(np, "rear_camcording_whd_mif", pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_WHD][FIMC_IS_DVFS_MIF]);
-	DT_READ_U32(np, "rear_camcording_whd_i2c", pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_WHD][FIMC_IS_DVFS_I2C]);
-	DT_READ_U32(np, "rear_camcording_uhd_int", pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_UHD][FIMC_IS_DVFS_INT]);
-	DT_READ_U32(np, "rear_camcording_uhd_cam", pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_UHD][FIMC_IS_DVFS_CAM]);
-	DT_READ_U32(np, "rear_camcording_uhd_mif", pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_UHD][FIMC_IS_DVFS_MIF]);
-	DT_READ_U32(np, "rear_camcording_uhd_i2c", pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_UHD][FIMC_IS_DVFS_I2C]);
-	/* if there's no FHD recording(with BNS off) dvfa data, set value of FHD recording data */
-	if (!(pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_FHD_BNS_OFF][FIMC_IS_DVFS_MIF])) {
-		pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_FHD_BNS_OFF][FIMC_IS_DVFS_INT] = pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_FHD][FIMC_IS_DVFS_INT];
-		pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_FHD_BNS_OFF][FIMC_IS_DVFS_CAM] = pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_FHD][FIMC_IS_DVFS_CAM];
-		pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_FHD_BNS_OFF][FIMC_IS_DVFS_MIF] = pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_FHD][FIMC_IS_DVFS_MIF];
-		pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_FHD_BNS_OFF][FIMC_IS_DVFS_I2C] = pdata->dvfs_data[FIMC_IS_SN_REAR_CAMCORDING_FHD][FIMC_IS_DVFS_I2C];
-	}
-	DT_READ_U32(np, "dual_preview_int", pdata->dvfs_data[FIMC_IS_SN_DUAL_PREVIEW][FIMC_IS_DVFS_INT]);
-	DT_READ_U32(np, "dual_preview_cam", pdata->dvfs_data[FIMC_IS_SN_DUAL_PREVIEW][FIMC_IS_DVFS_CAM]);
-	DT_READ_U32(np, "dual_preview_mif", pdata->dvfs_data[FIMC_IS_SN_DUAL_PREVIEW][FIMC_IS_DVFS_MIF]);
-	DT_READ_U32(np, "dual_preview_i2c", pdata->dvfs_data[FIMC_IS_SN_DUAL_PREVIEW][FIMC_IS_DVFS_I2C]);
-	DT_READ_U32(np, "dual_capture_int", pdata->dvfs_data[FIMC_IS_SN_DUAL_CAPTURE][FIMC_IS_DVFS_INT]);
-	DT_READ_U32(np, "dual_capture_cam", pdata->dvfs_data[FIMC_IS_SN_DUAL_CAPTURE][FIMC_IS_DVFS_CAM]);
-	DT_READ_U32(np, "dual_capture_mif", pdata->dvfs_data[FIMC_IS_SN_DUAL_CAPTURE][FIMC_IS_DVFS_MIF]);
-	DT_READ_U32(np, "dual_capture_i2c", pdata->dvfs_data[FIMC_IS_SN_DUAL_CAPTURE][FIMC_IS_DVFS_I2C]);
-	DT_READ_U32(np, "dual_camcording_int", pdata->dvfs_data[FIMC_IS_SN_DUAL_CAMCORDING][FIMC_IS_DVFS_INT]);
-	DT_READ_U32(np, "dual_camcording_cam", pdata->dvfs_data[FIMC_IS_SN_DUAL_CAMCORDING][FIMC_IS_DVFS_CAM]);
-	DT_READ_U32(np, "dual_camcording_mif", pdata->dvfs_data[FIMC_IS_SN_DUAL_CAMCORDING][FIMC_IS_DVFS_MIF]);
-	DT_READ_U32(np, "dual_camcording_i2c", pdata->dvfs_data[FIMC_IS_SN_DUAL_CAMCORDING][FIMC_IS_DVFS_I2C]);
-	DT_READ_U32(np, "high_speed_fps_int", pdata->dvfs_data[FIMC_IS_SN_HIGH_SPEED_FPS][FIMC_IS_DVFS_INT]);
-	DT_READ_U32(np, "high_speed_fps_cam", pdata->dvfs_data[FIMC_IS_SN_HIGH_SPEED_FPS][FIMC_IS_DVFS_CAM]);
-	DT_READ_U32(np, "high_speed_fps_mif", pdata->dvfs_data[FIMC_IS_SN_HIGH_SPEED_FPS][FIMC_IS_DVFS_MIF]);
-	DT_READ_U32(np, "high_speed_fps_i2c", pdata->dvfs_data[FIMC_IS_SN_HIGH_SPEED_FPS][FIMC_IS_DVFS_I2C]);
-	DT_READ_U32(np, "dis_enable_int", pdata->dvfs_data[FIMC_IS_SN_DIS_ENABLE][FIMC_IS_DVFS_INT]);
-	DT_READ_U32(np, "dis_enable_cam", pdata->dvfs_data[FIMC_IS_SN_DIS_ENABLE][FIMC_IS_DVFS_CAM]);
-	DT_READ_U32(np, "dis_enable_mif", pdata->dvfs_data[FIMC_IS_SN_DIS_ENABLE][FIMC_IS_DVFS_MIF]);
-	DT_READ_U32(np, "dis_enable_i2c", pdata->dvfs_data[FIMC_IS_SN_DIS_ENABLE][FIMC_IS_DVFS_I2C]);
-	DT_READ_U32(np, "max_int", pdata->dvfs_data[FIMC_IS_SN_MAX][FIMC_IS_DVFS_INT]);
-	DT_READ_U32(np, "max_cam", pdata->dvfs_data[FIMC_IS_SN_MAX][FIMC_IS_DVFS_CAM]);
-	DT_READ_U32(np, "max_mif", pdata->dvfs_data[FIMC_IS_SN_MAX][FIMC_IS_DVFS_MIF]);
-	DT_READ_U32(np, "max_i2c", pdata->dvfs_data[FIMC_IS_SN_MAX][FIMC_IS_DVFS_I2C]);
-
-	return 0;
-}
-
 static int parse_subip_info(struct exynos_platform_fimc_is *pdata, struct device_node *np)
 {
 	u32 temp;
@@ -314,7 +204,6 @@ struct exynos_platform_fimc_is *fimc_is_parse_dt(struct device *dev)
 	void *ret = NULL;
 	struct exynos_platform_fimc_is *pdata;
 	struct device_node *subip_info_np;
-	struct device_node *dvfs_np;
 	struct device_node *np = dev->of_node;
 #if defined CONFIG_COMPANION_USE || defined CONFIG_USE_VENDER_FEATURE
 	int retVal = 0;
@@ -375,14 +264,6 @@ struct exynos_platform_fimc_is *fimc_is_parse_dt(struct device *dev)
 		goto p_err;
 	}
 	parse_subip_info(pdata, subip_info_np);
-
-	dvfs_np = of_find_node_by_name(np, "fimc_is_dvfs");
-	if (!dvfs_np) {
-		printk(KERN_ERR "%s: can't find fimc_is_dvfs node\n", __func__);
-		ret = ERR_PTR(-ENOENT);
-		goto p_err;
-	}
-	parse_dvfs_data(pdata, dvfs_np);
 
 	return pdata;
 p_err:

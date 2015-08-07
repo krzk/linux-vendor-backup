@@ -177,15 +177,6 @@ struct exynos_platform_fimc_is {
 	int	(*print_cfg)(struct platform_device *pdev, u32 channel);
 	int	(*print_pwr)(struct platform_device *pdev);
 
-	/* These fields are to return qos value for dvfs scenario */
-	u32	*int_qos_table;
-	u32	*mif_qos_table;
-	u32	*i2c_qos_table;
-	int	(*get_int_qos)(int scenario_id);
-	int	(*get_mif_qos)(int scenario_id);
-	int	(*get_i2c_qos)(int scenario_id);
-	u32	dvfs_data[FIMC_IS_SN_END][FIMC_IS_DVFS_END];
-
 #ifdef CONFIG_COMPANION_USE
 	u32	companion_spi_channel;
 	bool	use_two_spi_line;

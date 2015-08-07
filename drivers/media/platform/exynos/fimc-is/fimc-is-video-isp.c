@@ -504,10 +504,7 @@ static int fimc_is_isp_video_s_ctrl(struct file *file, void *priv,
 	video = vctx->video;
 	core = container_of(video, struct fimc_is_core, video_isp);
 
-	if (core->resourcemgr.dvfs_ctrl.cur_int_qos == DVFS_L0)
-		i2c_clk = I2C_L0;
-	else
-		i2c_clk = I2C_L1;
+	i2c_clk = I2C_L0;
 
 	switch (ctrl->id) {
 	case V4L2_CID_IS_DEBUG_DUMP:

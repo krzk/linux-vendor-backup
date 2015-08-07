@@ -32,10 +32,7 @@
 #define FIMC_IS_VERSION_000	0x0
 #define FIMC_IS_VERSION_250	0x250
 
-#if defined(CONFIG_PM_DEVFREQ)
-#define ENABLE_DVFS
 #define START_DVFS_LEVEL FIMC_IS_SN_MAX
-#endif
 
 #define SUPPORTED_IS_CMD_VER	132
 #define TARGET_SPI_CH_FOR_PERI	0
@@ -86,11 +83,7 @@
  * driver version extension
  */
 #define get_drv_clock_gate() 0x1
-#ifdef ENABLE_DVFS
 #define get_drv_dvfs() 0x2
-#else
-#define get_drv_dvfs() 0x0
-#endif
 
 #define GET_3AA_ID(video) ((video->id < 14) ? 0 : 1)
 #define GET_3AAC_ID(video) ((video->id < FIMC_IS_VIDEO_3A1_NUM) ? 0 : 1)

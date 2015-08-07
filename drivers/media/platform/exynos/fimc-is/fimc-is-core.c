@@ -52,7 +52,6 @@
 #include "fimc-is-dt.h"
 #include "fimc-is-resourcemgr.h"
 #include "fimc-is-clk-gate.h"
-#include "fimc-is-dvfs.h"
 #include "fimc-is-fan53555.h"
 #include "fimc-is-ncp6335b.h"
 
@@ -905,38 +904,6 @@ static ssize_t store_en_dvfs(struct device *dev,
 				 struct device_attribute *attr,
 				 const char *buf, size_t count)
 {
-#ifdef ENABLE_DVFS
-	struct fimc_is_core *core =
-		(struct fimc_is_core *)platform_get_drvdata(to_platform_device(dev));
-	struct fimc_is_resourcemgr *resourcemgr;
-	int i;
-
-	BUG_ON(!core);
-
-	resourcemgr = &core->resourcemgr;
-
-	switch (buf[0]) {
-	case '0':
-		sysfs_debug.en_dvfs = false;
-		/* update dvfs lever to max */
-		mutex_lock(&resourcemgr->dvfs_ctrl.lock);
-		for (i = 0; i < FIMC_IS_MAX_NODES; i++) {
-			if (test_bit(FIMC_IS_ISCHAIN_OPEN, &((core->ischain[i]).state)))
-				fimc_is_set_dvfs(&(core->ischain[i]), FIMC_IS_SN_MAX);
-		}
-		fimc_is_dvfs_init(resourcemgr);
-		resourcemgr->dvfs_ctrl.static_ctrl->cur_scenario_id = FIMC_IS_SN_MAX;
-		mutex_unlock(&resourcemgr->dvfs_ctrl.lock);
-		break;
-	case '1':
-		/* It can not re-define static scenario */
-		sysfs_debug.en_dvfs = true;
-		break;
-	default:
-		pr_debug("%s: %c\n", __func__, buf[0]);
-		break;
-	}
-#endif
 	return count;
 }
 
@@ -1337,16 +1304,6 @@ static int fimc_is_probe(struct platform_device *pdev)
 
 	ret = sysfs_create_group(&core->pdev->dev.kobj, &fimc_is_debug_attr_group);
 
-#ifdef ENABLE_DVFS
-	{
-		struct fimc_is_resourcemgr *resourcemgr;
-		resourcemgr = &core->resourcemgr;
-		/* dvfs controller init */
-		ret = fimc_is_dvfs_init(resourcemgr);
-		if (ret)
-			err("%s: fimc_is_dvfs_init failed!\n", __func__);
-	}
-#endif
 
 	info("%s:end\n", __func__);
 	return 0;

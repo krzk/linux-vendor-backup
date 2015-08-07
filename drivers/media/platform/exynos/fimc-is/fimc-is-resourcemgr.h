@@ -20,20 +20,6 @@
 #define RESOURCE_TYPE_ISCHAIN	2
 #define RESOURCE_TYPE_MAX	3
 
-struct fimc_is_dvfs_ctrl {
-	struct mutex lock;
-	int cur_cpu_min_qos;
-	int cur_cpu_max_qos;
-	int cur_int_qos;
-	int cur_mif_qos;
-	int cur_cam_qos;
-	int cur_i2c_qos;
-	int cur_disp_qos;
-
-	struct fimc_is_dvfs_scenario_ctrl *static_ctrl;
-	struct fimc_is_dvfs_scenario_ctrl *dynamic_ctrl;
-};
-
 struct fimc_is_clk_gate_ctrl {
 	spinlock_t lock;
 	unsigned long msk_state;
@@ -62,7 +48,6 @@ struct fimc_is_resourcemgr {
 	struct fimc_is_resource			resource_sensor1;
 	struct fimc_is_resource			resource_ischain;
 
-	struct fimc_is_dvfs_ctrl		dvfs_ctrl;
 	struct fimc_is_clk_gate_ctrl		clk_gate_ctrl;
 
 	void					*private_data;

@@ -54,7 +54,6 @@
 #include "fimc-is-device-ischain.h"
 #include "fimc-is-companion.h"
 #include "fimc-is-clk-gate.h"
-#include "fimc-is-dvfs.h"
 #include "fimc-is-device-companion.h"
 #include <linux/pinctrl/consumer.h>
 #include <mach/pinctrl-samsung.h>
@@ -2149,9 +2148,6 @@ int fimc_is_itf_stream_on(struct fimc_is_device_ischain *device)
 {
 	int ret = 0;
 	u32 retry = 10000;
-#ifdef ENABLE_DVFS
-	int scenario_id;
-#endif
 	struct fimc_is_group *group_3aa, *group_isp;
 	struct fimc_is_resourcemgr *resourcemgr;
 
@@ -2188,23 +2184,6 @@ int fimc_is_itf_stream_on(struct fimc_is_device_ischain *device)
 	else
 		pr_err("[ISC:D:%d] stream on NOT ready\n", device->instance);
 
-#ifdef ENABLE_DVFS
-	mutex_lock(&resourcemgr->dvfs_ctrl.lock);
-	if ((!pm_qos_request_active(&device->user_qos)) &&
-			(sysfs_debug.en_dvfs)) {
-		/* try to find dynamic scenario to apply */
-		scenario_id = fimc_is_dvfs_sel_scenario(FIMC_IS_STATIC_SN, device, NULL);
-		if (scenario_id >= 0) {
-			struct fimc_is_dvfs_scenario_ctrl *static_ctrl =
-				resourcemgr->dvfs_ctrl.static_ctrl;
-			info("[ISC:D:%d] static scenario(%d)-[%s]\n",
-					device->instance, scenario_id,
-					static_ctrl->scenarios[static_ctrl->cur_scenario_idx].scenario_nm);
-			fimc_is_set_dvfs(device, scenario_id);
-		}
-	}
-	mutex_unlock(&resourcemgr->dvfs_ctrl.lock);
-#endif
 	ret = fimc_is_hw_stream_on(device->interface, device->instance);
 	if (ret) {
 		merr("fimc_is_hw_stream_on is fail(%d)", device, ret);

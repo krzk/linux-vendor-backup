@@ -40,7 +40,6 @@
 #include "fimc-is-framemgr.h"
 #include "fimc-is-groupmgr.h"
 #include "fimc-is-cmd.h"
-#include "fimc-is-dvfs.h"
 
 /* sysfs variable for debug */
 extern struct fimc_is_sysfs_debug sysfs_debug;
@@ -1528,9 +1527,6 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 	int async_step = 0;
 	bool try_sdown = false;
 	bool try_rdown = false;
-#ifdef ENABLE_DVFS
-	int scenario_id;
-#endif
 
 	BUG_ON(!groupmgr);
 	BUG_ON(!group);
@@ -1812,31 +1808,6 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 	fimc_is_group_set_torch(group, ldr_frame);
 #endif
 
-#ifdef ENABLE_DVFS
-	mutex_lock(&resourcemgr->dvfs_ctrl.lock);
-	if ((!pm_qos_request_active(&device->user_qos)) &&
-			(sysfs_debug.en_dvfs)) {
-		/* try to find dynamic scenario to apply */
-		scenario_id = fimc_is_dvfs_sel_scenario(FIMC_IS_DYNAMIC_SN, device, ldr_frame);
-
-		if (scenario_id > 0) {
-			struct fimc_is_dvfs_scenario_ctrl *dynamic_ctrl = resourcemgr->dvfs_ctrl.dynamic_ctrl;
-			info("GRP:%d dynamic scenario(%d)-[%s]\n",
-					group->id, scenario_id,
-					dynamic_ctrl->scenarios[dynamic_ctrl->cur_scenario_idx].scenario_nm);
-			fimc_is_set_dvfs(device, scenario_id);
-		}
-
-		if ((scenario_id < 0) && (resourcemgr->dvfs_ctrl.dynamic_ctrl->cur_frame_tick == 0)) {
-			struct fimc_is_dvfs_scenario_ctrl *static_ctrl = resourcemgr->dvfs_ctrl.static_ctrl;
-			info("GRP:%d restore scenario(%d)-[%s]\n",
-					group->id, static_ctrl->cur_scenario_id,
-					static_ctrl->scenarios[static_ctrl->cur_scenario_idx].scenario_nm);
-			fimc_is_set_dvfs(device, static_ctrl->cur_scenario_id);
-		}
-	}
-	mutex_unlock(&resourcemgr->dvfs_ctrl.lock);
-#endif
 
 	PROGRAM_COUNT(6);
 	ret = group->start_callback(group->device, ldr_frame);

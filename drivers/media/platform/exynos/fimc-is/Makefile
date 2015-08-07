@@ -21,7 +21,6 @@ fimc-is-objs	:= fimc-is-core.o \
 		fimc-is-device-ischain.o \
 		fimc-is-interface.o \
 		fimc-is-time.o \
-		fimc-is-dvfs.o \
 		fimc-is-dt.o \
 		fimc-is-clk-gate.o
 
