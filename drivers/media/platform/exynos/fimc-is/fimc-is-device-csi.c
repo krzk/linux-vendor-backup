@@ -14,6 +14,7 @@
 #include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
+#include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 
@@ -26,7 +27,7 @@
 #include "fimc-is-hw.h"
 #include "fimc-is-device-csi.h"
 #include "fimc-is-device-sensor.h"
-
+#include "fimc-is-core.h"
 extern void s5pcsis_enable_interrupts(unsigned long __iomem *base_reg, struct fimc_is_image *image, bool on);
 extern void s5pcsis_set_hsync_settle(unsigned long __iomem *base_reg, int settle);
 extern void s5pcsis_set_params(unsigned long __iomem *base_reg, struct fimc_is_image *image, u32 lanes);
@@ -342,7 +343,11 @@ int fimc_is_csi_probe(void *parent, u32 instance)
 	struct v4l2_subdev *subdev_csi;
 	struct fimc_is_device_csi *csi;
 	struct fimc_is_device_sensor *device = parent;
+	struct fimc_is_core *core;
 
+	core = dev_get_drvdata(fimc_is_dev);
+
+	BUG_ON(!core);
 	BUG_ON(!device);
 
 	subdev_csi = kzalloc(sizeof(struct v4l2_subdev), GFP_KERNEL);
@@ -361,43 +366,10 @@ int fimc_is_csi_probe(void *parent, u32 instance)
 	}
 
 	csi->instance = instance;
-	switch(instance) {
-	case CSI_ID_A:
-		csi->base_reg = (unsigned long *)MIPICSI0_REG_BASE;
-#ifdef DBG_CSIISR
-		ret = request_irq(IRQ_MIPICSI0,
-			fimc_is_csi_isr,
-			IRQF_SHARED,
-			"mipi-csi0",
-			csi);
-		if (ret) {
-			err("request_irq(IRQ_MIPICSI0) is fail(%d)", ret);
-			goto p_err_free2;
-		}
-#endif
-		break;
-	case CSI_ID_B:
-		csi->base_reg = (unsigned long *)MIPICSI1_REG_BASE;
-#ifdef DBG_CSIISR
-		ret = request_irq(IRQ_MIPICSI1,
-			fimc_is_csi_isr,
-			IRQF_SHARED,
-			"mipi-csi1",
-			csi);
-		if (ret) {
-			err("request_irq(IRQ_MIPICSI1) is fail(%d)", ret);
-			goto p_err_free2;
-		}
-#endif
-		break;
-	case CSI_ID_C:
-		csi->base_reg = (unsigned long *)MIPICSI2_REG_BASE;
-		break;
-	default:
-		err("instance is invalid(%d)", instance);
-		ret = -EINVAL;
+
+	csi->base_reg = of_iomap(core->csis_np[instance], 0);
+	if (!csi->base_reg)
 		goto p_err_free2;
-	}
 
 	v4l2_subdev_init(subdev_csi, &subdev_ops);
 	v4l2_set_subdevdata(subdev_csi, csi);

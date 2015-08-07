@@ -33,5 +33,6 @@ int get_pin_lookup_state(struct device *dev, struct exynos_platform_fimc_is_sens
 int fimc_is_power_initpin(struct device *dev);
 int fimc_is_power_setpin(struct device *dev, int position, int sensor_id);
 struct exynos_platform_fimc_is *fimc_is_parse_dt(struct device *dev);
+int fimc_is_parse_children_dt(struct device *dev, struct fimc_is_core *core);
 int fimc_is_sensor_parse_dt(struct platform_device *pdev);
 #endif

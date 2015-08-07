@@ -233,6 +233,9 @@ struct fimc_is_core {
 	/* depended on isp */
 	struct exynos_platform_fimc_is		*pdata;
 
+	struct device_node			*lite_np[FIMC_IS_MAX_NODES];
+	struct device_node			*csis_np[FIMC_IS_MAX_NODES];
+
 	struct fimc_is_resourcemgr		resourcemgr;
 	struct fimc_is_groupmgr			groupmgr;
 

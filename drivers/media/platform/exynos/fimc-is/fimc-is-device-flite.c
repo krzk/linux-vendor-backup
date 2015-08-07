@@ -16,6 +16,9 @@
 #include <linux/errno.h>
 #include <linux/interrupt.h>
 #include <linux/device.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <mach/videonode.h>
@@ -1435,7 +1438,11 @@ int fimc_is_flite_open(struct v4l2_subdev *subdev,
 {
 	int ret = 0;
 	struct fimc_is_device_flite *flite;
+	struct fimc_is_core *core;
 
+	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+
+	BUG_ON(!core);
 	BUG_ON(!subdev);
 	BUG_ON(!framemgr);
 
@@ -1457,41 +1464,13 @@ int fimc_is_flite_open(struct v4l2_subdev *subdev,
 	clear_bit(FLITE_A_SLOT_VALID, &flite->state);
 	clear_bit(FLITE_B_SLOT_VALID, &flite->state);
 
-	switch(flite->instance) {
-	case FLITE_ID_A:
-		ret = request_irq(IRQ_FIMC_LITE0,
-			fimc_is_flite_isr,
-			IRQF_SHARED,
-			"fimc-lite0",
+	ret = of_irq_get(core->lite_np[flite->instance], 0);
+	if (ret > 0)
+		ret = request_irq(ret, fimc_is_flite_isr,
+			IRQF_SHARED, "fimc-lite",
 			flite);
-		if (ret)
-			err("request_irq(L0) failed\n");
-		break;
-	case FLITE_ID_B:
-		ret = request_irq(IRQ_FIMC_LITE1,
-			fimc_is_flite_isr,
-			IRQF_SHARED,
-			"fimc-lite1",
-			flite);
-		if (ret)
-			err("request_irq(L1) failed\n");
-		break;
-#ifdef IRQ_FIMC_LITE2
-	case FLITE_ID_C:
-		ret = request_irq(IRQ_FIMC_LITE2,
-			fimc_is_flite_isr,
-			IRQF_SHARED,
-			"fimc-lite2",
-			flite);
-		if (ret)
-			err("request_irq(L2) failed\n");
-		break;
-#endif
-	default:
-		err("instance is invalid(%d)", flite->instance);
-		ret = -EINVAL;
-		goto p_err;
-	}
+	if (ret)
+		err("request_irq(L%d) failed\n", flite->instance);
 
 p_err:
 	return ret;
@@ -1501,7 +1480,11 @@ int fimc_is_flite_close(struct v4l2_subdev *subdev)
 {
 	int ret = 0;
 	struct fimc_is_device_flite *flite;
+	struct fimc_is_core *core;
 
+	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+
+	BUG_ON(!core);
 	BUG_ON(!subdev);
 
 	flite = v4l2_get_subdevdata(subdev);
@@ -1511,23 +1494,7 @@ int fimc_is_flite_close(struct v4l2_subdev *subdev)
 		goto p_err;
 	}
 
-	switch(flite->instance) {
-	case FLITE_ID_A:
-		free_irq(IRQ_FIMC_LITE0, flite);
-		break;
-	case FLITE_ID_B:
-		free_irq(IRQ_FIMC_LITE1, flite);
-		break;
-#ifdef IRQ_FIMC_LITE2
-	case FLITE_ID_C:
-		free_irq(IRQ_FIMC_LITE2, flite);
-		break;
-#endif
-	default:
-		err("instance is invalid(%d)", flite->instance);
-		ret = -EINVAL;
-		goto p_err;
-	}
+	free_irq(of_irq_get(core->lite_np[flite->instance], 0), flite);
 
 p_err:
 	return ret;
@@ -1901,7 +1868,11 @@ int fimc_is_flite_probe(struct fimc_is_device_sensor *device,
 	int ret = 0;
 	struct v4l2_subdev *subdev_flite;
 	struct fimc_is_device_flite *flite;
+	struct fimc_is_core *core;
 
+	core = dev_get_drvdata(fimc_is_dev);
+
+	BUG_ON(!core);
 	BUG_ON(!device);
 
 	subdev_flite = kzalloc(sizeof(struct v4l2_subdev), GFP_KERNEL);
@@ -1923,21 +1894,10 @@ int fimc_is_flite_probe(struct fimc_is_device_sensor *device,
 	flite->subdev = &device->subdev_flite;
 	flite->instance = instance;
 	init_waitqueue_head(&flite->wait_queue);
-	switch(instance) {
-	case FLITE_ID_A:
-		flite->base_reg = (unsigned long *)FIMCLITE0_REG_BASE;
-		break;
-	case FLITE_ID_B:
-		flite->base_reg = (unsigned long *)FIMCLITE1_REG_BASE;
-		break;
-	case FLITE_ID_C:
-		flite->base_reg = (unsigned long *)FIMCLITE2_REG_BASE;
-		break;
-	default:
-		err("instance is invalid(%d)", instance);
-		ret = -EINVAL;
-		goto err_invalid_instance;
-	}
+
+	flite->base_reg = of_iomap(core->lite_np[instance], 0);
+	if (!flite->base_reg)
+		goto err_reg_v4l2_subdev;
 
 	v4l2_subdev_init(subdev_flite, &subdev_ops);
 	v4l2_set_subdevdata(subdev_flite, (void *)flite);
@@ -1967,7 +1927,6 @@ int fimc_is_flite_probe(struct fimc_is_device_sensor *device,
 	return 0;
 
 err_reg_v4l2_subdev:
-err_invalid_instance:
 	kfree(flite);
 
 err_alloc_flite:

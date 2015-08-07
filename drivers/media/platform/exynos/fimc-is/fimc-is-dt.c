@@ -260,6 +260,25 @@ p_err:
 	return ret;
 }
 
+int fimc_is_parse_children_dt(struct device *dev, struct fimc_is_core *core)
+{
+	struct device_node *np = dev->of_node;
+	struct device_node *child;
+
+	for_each_available_child_of_node(np, child) {
+		int i;
+
+		i = of_alias_get_id(child, "fimc-lite");
+		if (i >= 0 || i < FIMC_IS_MAX_NODES)
+			core->lite_np[i] = child;
+
+		i = of_alias_get_id(child, "csis");
+		if (i >= 0 || i < FIMC_IS_MAX_NODES)
+			core->csis_np[i] = child;
+	}
+	return 0;
+}
+
 int fimc_is_sensor_parse_dt(struct platform_device *pdev)
 {
 	int ret = 0;
