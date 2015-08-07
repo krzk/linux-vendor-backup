@@ -2493,8 +2493,11 @@ int fimc_is_hw_logdump(struct fimc_is_interface *this)
 	core = (struct fimc_is_core *)this->core;
 	sentence_i = 0;
 
+#warning NOT IMPLEMENTED
+#if 0
 	vb2_ion_sync_for_device(core->minfo.fw_cookie,
 		DEBUG_OFFSET, DEBUG_CNT, DMA_FROM_DEVICE);
+#endif
 
 	debug = (char *)(core->minfo.kvaddr + DEBUG_OFFSET);
 	debug_cnt = *((int *)(core->minfo.kvaddr + DEBUGCTL_OFFSET))

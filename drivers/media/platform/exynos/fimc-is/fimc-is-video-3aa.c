@@ -18,14 +18,12 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
-#include <mach/videonode.h>
-#include <media/exynos_mc.h>
+#include <linux/videodev2.h>
 #include <asm/cacheflush.h>
 #include <asm/pgtable.h>
 #include <linux/firmware.h>
 #include <linux/dma-mapping.h>
 #include <linux/scatterlist.h>
-#include <linux/videodev2_exynos_media.h>
 #include <linux/videodev2_exynos_camera.h>
 #include <linux/v4l2-mediabus.h>
 #include <linux/bug.h>
@@ -35,7 +33,6 @@
 #include <media/v4l2-device.h>
 #include <media/v4l2-mem2mem.h>
 #include <media/v4l2-mediabus.h>
-#include <media/exynos_mc.h>
 
 #include "fimc-is-core.h"
 #include "fimc-is-param.h"

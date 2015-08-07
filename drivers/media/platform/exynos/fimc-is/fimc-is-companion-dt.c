@@ -10,10 +10,14 @@
  * published by the Free Software Foundation.
  */
 
+#include <linux/device.h>
 #include <linux/sched.h>
+#include <linux/mutex.h>
+#include <linux/slab.h>
+#include <linux/videodev2.h>
+#include "fimc-is-config.h"
 #include "exynos-fimc-is-sensor.h"
 #include "exynos-fimc-is.h"
-#include "media/exynos_mc.h"
 #include <linux/of_gpio.h>
 
 #include "fimc-is-dt.h"

@@ -13,7 +13,6 @@
 #include <linux/sched.h>
 #include "exynos-fimc-is-sensor.h"
 #include "exynos-fimc-is.h"
-#include <media/exynos_mc.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/regmap.h>

@@ -12,7 +12,6 @@
 #ifndef FIMC_IS_REGS_H
 #define FIMC_IS_REGS_H
 
-#include <mach/map.h>
 
 /* MCUCTL register */
 #define MCUCTL				0x0

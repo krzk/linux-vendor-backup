@@ -1,5 +1,4 @@
 #include "fimc-is-sec-define.h"
-#include <mach/pinctrl-samsung.h>
 
 
 bool crc32_fw_check = true;

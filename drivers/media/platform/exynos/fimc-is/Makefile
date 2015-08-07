@@ -21,7 +21,8 @@ fimc-is-objs	:= fimc-is-core.o \
 		fimc-is-device-ischain.o \
 		fimc-is-interface.o \
 		fimc-is-time.o \
-		fimc-is-dt.o
+		fimc-is-dt.o \
+		exynos-smc.o
 
 obj-$(CONFIG_USE_VENDER_FEATURE) := fimc-is-spi.o \
 				fimc-is-sec-define.o \

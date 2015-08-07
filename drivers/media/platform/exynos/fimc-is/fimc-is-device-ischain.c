@@ -18,16 +18,12 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
-#include <mach/videonode.h>
-#include <media/exynos_mc.h>
 #include <asm/cacheflush.h>
 #include <asm/pgtable.h>
 #include <linux/firmware.h>
 #include <linux/dma-mapping.h>
 #include <linux/scatterlist.h>
 #include <linux/videodev2.h>
-#include <linux/videodev2_exynos_camera.h>
-#include <linux/videodev2_exynos_media.h>
 #include <linux/v4l2-mediabus.h>
 #include <linux/vmalloc.h>
 #include <linux/kthread.h>
@@ -36,12 +32,9 @@
 #include <linux/syscalls.h>
 #include <linux/bug.h>
 
-#include <mach/map.h>
-#include <mach/regs-clock.h>
-#include <mach/smc.h>
+#include "smc.h"
 #include <linux/regulator/consumer.h>
 #include <linux/gpio.h>
-#include <plat/gpio-cfg.h>
 
 #include "fimc-is-time.h"
 #include "fimc-is-core.h"
@@ -55,7 +48,6 @@
 #include "fimc-is-companion.h"
 #include "fimc-is-device-companion.h"
 #include <linux/pinctrl/consumer.h>
-#include <mach/pinctrl-samsung.h>
 
 #include "fimc-is-sec-define.h"
 
@@ -132,8 +124,11 @@ static int isfw_debug_read(struct file *file, char __user *user_buf,
 		goto exit;
 	}
 
+#warning NOT IMPLEMENTED
+#if 0
 	vb2_ion_sync_for_device(imemory->fw_cookie, DEBUG_OFFSET,
 		DEBUG_CNT, DMA_FROM_DEVICE);
+#endif
 
 	debug_cnt = *((int *)(imemory->kvaddr + DEBUGCTL_OFFSET)) - DEBUG_OFFSET;
 	backup_cnt = core->debug_cnt;
@@ -688,32 +683,43 @@ static int fimc_is_ishcain_deinitmem(struct fimc_is_device_ischain *device)
 static void fimc_is_ischain_cache_flush(struct fimc_is_device_ischain *this,
 	u32 offset, u32 size)
 {
+#warning NOT IMPLEMENTED
+#if 0
 	vb2_ion_sync_for_device(this->imemory.fw_cookie,
 		offset,
 		size,
 		DMA_TO_DEVICE);
+#endif
 }
 
 static void fimc_is_ischain_region_invalid(struct fimc_is_device_ischain *device)
 {
+#warning NOT IMPLEMENTED
+#if 0
 	vb2_ion_sync_for_device(
 		device->imemory.fw_cookie,
 		device->imemory.offset_region,
 		sizeof(struct is_region),
 		DMA_FROM_DEVICE);
+#endif
 }
 
 static void fimc_is_ischain_region_flush(struct fimc_is_device_ischain *device)
 {
+#warning NOT IMPLEMENTED
+#if 0
 	vb2_ion_sync_for_device(
 		device->imemory.fw_cookie,
 		device->imemory.offset_region,
 		sizeof(struct is_region),
 		DMA_TO_DEVICE);
+#endif
 }
 
 void fimc_is_ischain_meta_flush(struct fimc_is_frame *frame)
 {
+#warning NOT IMPLEMENTED
+#if 0
 #ifdef ENABLE_CACHE
 	vb2_ion_sync_for_device(
 		(void *)frame->cookie_shot,
@@ -721,16 +727,20 @@ void fimc_is_ischain_meta_flush(struct fimc_is_frame *frame)
 		frame->shot_size,
 		DMA_TO_DEVICE);
 #endif
+#endif
 }
 
 void fimc_is_ischain_meta_invalid(struct fimc_is_frame *frame)
 {
+#warning NOT IMPLEMENTED
+#if 0
 #ifdef ENABLE_CACHE
 	vb2_ion_sync_for_device(
 		(void *)frame->cookie_shot,
 		0,
 		frame->shot_size,
 		DMA_FROM_DEVICE);
+#endif
 #endif
 }
 

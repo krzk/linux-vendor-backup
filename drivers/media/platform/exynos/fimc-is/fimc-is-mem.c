@@ -18,15 +18,13 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
-#include <mach/videonode.h>
-#include <media/exynos_mc.h>
 #include <asm/cacheflush.h>
 #include <asm/pgtable.h>
 #include <linux/firmware.h>
 #include <linux/dma-mapping.h>
 #include <linux/scatterlist.h>
+#include <media/videobuf2-dma-contig.h>
 #include <linux/videodev2.h>
-#include <linux/videodev2_exynos_camera.h>
 #include <linux/vmalloc.h>
 #include <linux/interrupt.h>
 #include <linux/of.h>
@@ -37,12 +35,7 @@
 #include "fimc-is-regs.h"
 #include "fimc-is-err.h"
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 9, 0))
-#include <linux/exynos_iovmm.h>
-#else
-#include <plat/iovmm.h>
-#endif
-
+#ifdef IOC_ALLOC
 static void *fimc_is_ion_init(struct platform_device *pdev)
 {
 	return vb2_ion_create_context(&pdev->dev, SZ_4K,
@@ -50,15 +43,18 @@ static void *fimc_is_ion_init(struct platform_device *pdev)
 					VB2ION_CTX_VMCONTIG |
 					VB2ION_CTX_KVA_ONDEMAND);
 }
+#endif
 
 static unsigned long plane_addr(struct vb2_buffer *vb, u32 plane_no)
 {
+#ifdef IOC_ALLOC
 	void *cookie = vb2_plane_cookie(vb, plane_no);
 	dma_addr_t dva = 0;
 
 	WARN_ON(vb2_ion_dma_address(cookie, &dva) != 0);
-
-	return dva;
+#else
+	return vb2_dma_contig_plane_dma_addr(vb, plane_no);
+#endif
 }
 
 static unsigned long plane_kvaddr(struct vb2_buffer *vb, u32 plane_no)
@@ -68,6 +64,33 @@ static unsigned long plane_kvaddr(struct vb2_buffer *vb, u32 plane_no)
 	return (unsigned long)kvaddr;
 }
 
+
+static void *fimc_is_dma_contig_init(struct platform_device *pdev)
+{
+	return vb2_dma_contig_init_ctx(&pdev->dev);
+}
+
+int vb2_null_attach_iommu(void *alloc_ctx)
+{
+	return 0;
+}
+
+void vb2_null_detach_iommu(void *alloc_ctx)
+{
+
+}
+
+void vb2_null_set_cached(void *ctx, bool cached)
+{
+
+}
+
+void vb2_null_destroy_context(void *ctx)
+{
+
+}
+
+#ifdef IOC_ALLOC
 const struct fimc_is_vb2 fimc_is_vb2_ion = {
 	.ops		= &vb2_ion_memops,
 	.init		= fimc_is_ion_init,
@@ -78,13 +101,27 @@ const struct fimc_is_vb2 fimc_is_vb2_ion = {
 	.suspend	= vb2_ion_detach_iommu,
 	.set_cacheable	= vb2_ion_set_cached,
 };
+#define fimc_is_vb2_allocator (&fimc_is_vb2_ion)
+#else
+const struct fimc_is_vb2 fimc_is_vb2_dc = {
+	.ops		= &vb2_dma_contig_memops,
+	.init		= fimc_is_dma_contig_init,
+	.cleanup	= vb2_null_destroy_context,
+	.plane_addr	= plane_addr,
+	.plane_kvaddr	= plane_kvaddr,
+	.resume		= vb2_null_attach_iommu,
+	.suspend	= vb2_null_detach_iommu,
+	.set_cacheable	= vb2_null_set_cached,
+};
+#define fimc_is_vb2_allocator (&fimc_is_vb2_dc)
+#endif
 
 int fimc_is_mem_probe(struct fimc_is_mem *this,
 	struct platform_device *pdev)
 {
 	u32 ret = 0;
 
-	this->vb2 = &fimc_is_vb2_ion;
+	this->vb2 = fimc_is_vb2_allocator;
 
 	this->alloc_ctx = this->vb2->init(pdev);
 	if (IS_ERR(this->alloc_ctx)) {
@@ -92,9 +129,10 @@ int fimc_is_mem_probe(struct fimc_is_mem *this,
 		goto p_err;
 	}
 
+#ifdef IOC_ALLOC
 	/* FIXME: should be different by device type */
 	exynos_create_iovmm(&pdev->dev, 1, 4);
-
+#endif
 p_err:
 	return ret;
 }

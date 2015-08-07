@@ -18,24 +18,17 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
-#include <mach/videonode.h>
-#include <media/exynos_mc.h>
 #include <asm/cacheflush.h>
 #include <asm/pgtable.h>
 #include <linux/firmware.h>
 #include <linux/dma-mapping.h>
 #include <linux/scatterlist.h>
 #include <linux/videodev2.h>
-#include <linux/videodev2_exynos_camera.h>
 #include <linux/vmalloc.h>
 #include <linux/interrupt.h>
-#include <mach/regs-clock.h>
 #include <linux/bug.h>
 #include <linux/v4l2-mediabus.h>
-#include <mach/devfreq.h>
-#include <mach/bts.h>
 #include <linux/gpio.h>
-#include <plat/gpio-cfg.h>
 
 #include <linux/of.h>
 #include <linux/of_gpio.h>
@@ -114,6 +107,8 @@ static int fimc_is_ischain_allocmem(struct fimc_is_core *this)
 	fw_size = PAGE_ALIGN(fw_size);
 	dbg_core("Allocating memory for FIMC-IS firmware.\n");
 
+#warning NOT IMPLEMENTED
+#if 0
 	fw_cookie = vb2_ion_private_alloc(this->mem.alloc_ctx, fw_size, 1, 0);
 
 	if (IS_ERR(fw_cookie)) {
@@ -145,8 +140,11 @@ static int fimc_is_ischain_allocmem(struct fimc_is_core *this)
 		goto exit;
 	}
 
+#warning NOT IMPLEMENTED
+#if 0
 	vb2_ion_sync_for_device(fw_cookie, 0, fw_size, DMA_BIDIRECTIONAL);
-
+#endif
+#endif
 exit:
 	info("[COR] Device virtual for internal: %08x\n", this->minfo.kvaddr);
 	this->minfo.fw_cookie = fw_cookie;
@@ -846,12 +844,7 @@ static int fimc_is_probe(struct platform_device *pdev)
 	fimc_is_parse_children_dt(&pdev->dev, core);
 
 	fimc_is_dev = &pdev->dev;
-	ret = dev_set_drvdata(fimc_is_dev, core);
-	if (ret) {
-		err("dev_set_drvdata is fail(%d)", ret);
-		kfree(core);
-		return ret;
-	}
+	dev_set_drvdata(fimc_is_dev, core);
 
 	core->companion_spi_channel = pdata->companion_spi_channel;
 	core->use_two_spi_line = pdata->use_two_spi_line;
