@@ -3889,7 +3889,10 @@ static int s3c_hsotg_probe(struct platform_device *pdev)
 
 	/* work after booting */
 	boot_done = 0;
-	queue_delayed_work(system_nrt_wq, &hsotg->s3c_hsotg_work, msecs_to_jiffies(10000));
+	if (gpio_is_valid(gpio)) {
+		queue_delayed_work(system_nrt_wq, &hsotg->s3c_hsotg_work,
+				msecs_to_jiffies(10000));
+	}
 
 	s3c_hsotg_create_debug(hsotg);
 
