@@ -17,6 +17,7 @@
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/phy/phy.h>
 
 #include "fimc-is-config.h"
 #include "fimc-is-regs.h"
@@ -29,7 +30,6 @@ extern void s5pcsis_set_hsync_settle(unsigned long __iomem *base_reg, int settle
 extern void s5pcsis_set_params(unsigned long __iomem *base_reg, struct fimc_is_image *image, u32 lanes);
 extern void s5pcsis_reset(unsigned long __iomem *base_reg);
 extern void s5pcsis_system_enable(unsigned long __iomem *base_reg, int on, u32 lanes);
-
 static u32 get_hsync_settle(struct fimc_is_sensor_cfg *cfg,
 	const u32 cfgs, u32 width, u32 height, u32 framerate)
 {
@@ -137,11 +137,10 @@ p_err:
 	return ret;
 }
 
-static int csi_s_power(struct v4l2_subdev *subdev,
-	int on)
+static int csi_s_power(struct v4l2_subdev *subdev, int on)
 {
-	int ret = 0;
 	struct fimc_is_device_csi *csi;
+	int ret;
 
 	BUG_ON(!subdev);
 
@@ -152,13 +151,18 @@ static int csi_s_power(struct v4l2_subdev *subdev,
 	}
 
 	/* HACK: CSI #1 phy should be enabled when CSI #2 phy is eanbled. */
-	if (csi->instance == CSI_ID_C) {
-		ret = exynos5_csis_phy_enable(CSI_ID_B, on);
+	if (WARN_ON(csi->instance == CSI_ID_C)) {
+		/* FIXME: add equivalent of the commented out code below */
+		/* ret = exynos5_csis_phy_enable(CSI_ID_B, on); */
 	}
 
-	ret = exynos5_csis_phy_enable(csi->instance, on);
+	if (on)
+		ret = phy_power_on(csi->phy);
+	else
+		ret = phy_power_off(csi->phy);
+
 	if (ret) {
-		err("fail to csi%d power on", csi->instance);
+		err("failed to power on/off csi%d", csi->instance);
 		goto p_err;
 	}
 
@@ -358,6 +362,12 @@ int fimc_is_csi_probe(void *parent, u32 instance)
 	if (!csi) {
 		merr("csi is NULL", device);
 		ret = -ENOMEM;
+		goto p_err_free1;
+	}
+
+	csi->phy = devm_phy_get(&device->pdev->dev, "csis");
+	if (IS_ERR(csi->phy)) {
+		ret = PTR_ERR(csi->phy);
 		goto p_err_free1;
 	}
 
