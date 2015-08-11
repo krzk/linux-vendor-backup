@@ -246,11 +246,13 @@
 			       <&cmu_cpif CLK_SCLK_MPHY_PLL>;
 		};
 
-		mipi_phy: video-phy@10020710 {
-			compatible = "samsung,s5pv210-mipi-video-phy";
-			reg = <0x10020710 8>;
+		mipi_phy: video-phy@105C0708 {
+			compatible = "samsung,exynos5433-mipi-video-phy";
 			#phy-cells = <1>;
-			syscon = <&pmu_system_controller>;
+			samsung,pmu-syscon = <&pmu_system_controller>;
+			samsung,cam0-sysreg = <&syscon_cam0>;
+			samsung,cam1-sysreg = <&syscon_cam1>;
+			samsung,disp-sysreg = <&syscon_disp>;
 		};
 
 		cmu_peric: clock-controller@14c80000 {
@@ -1167,6 +1169,16 @@
 		syscon_disp: syscon@13B80000 {
 			compatible = "samsung,exynos5433-sysreg", "syscon";
 			reg = <0x13B80000 0x1010>;
+		};
+
+		syscon_cam0: syscon@120F0000 {
+			compatible = "samsung,exynos5433-sysreg", "syscon";
+			reg = <0x120F0000 0x1020>;
+		};
+
+		syscon_cam1: syscon@145F0000 {
+			compatible = "samsung,exynos5433-sysreg", "syscon";
+			reg = <0x145F0000 0x1038>;
 		};
 
 		adc: adc@14d10000 {
