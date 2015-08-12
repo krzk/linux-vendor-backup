@@ -45,7 +45,6 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/wlan_plat.h>
-#include <linux/sec_sysfs.h>
 
 #include <mach/gpio.h>
 #include <mach/irqs.h>
@@ -195,7 +194,6 @@ err_skb_alloc:
 }
 #endif /* CONFIG_BROADCOM_WIFI_RESERVED_MEM */
 
-static struct device *wlan_dev;
 static int wlan_pwr_on = -1;
 static int wlan_host_wake_irq = 0;
 
@@ -241,9 +239,6 @@ int __init dhd_wlan_init_gpio(void)
 	unsigned int wlan_host_wake_up = -1;
 	struct device_node *root_node = NULL;
 
-	wlan_dev = sec_device_create(NULL, "wlan");
-	BUG_ON(!wlan_dev);
-
 	root_node = of_find_compatible_node(NULL, NULL, wlan_node);
 	if (!root_node) {
 		WARN(1, "failed to get device node of bcm4354\n");
@@ -263,7 +258,6 @@ int __init dhd_wlan_init_gpio(void)
 	}
 	gpio_direction_output(wlan_pwr_on, 0);
 	gpio_export(wlan_pwr_on, 1);
-	gpio_export_link(wlan_dev, "WLAN_REG_ON", wlan_pwr_on);
 
 	/* ========== WLAN_HOST_WAKE ============ */
 	wlan_host_wake_up = of_get_gpio(root_node, 1);
@@ -278,7 +272,6 @@ int __init dhd_wlan_init_gpio(void)
 	}
 	gpio_direction_input(wlan_host_wake_up);
 	gpio_export(wlan_host_wake_up, 1);
-	gpio_export_link(wlan_dev, "WLAN_HOST_WAKE", wlan_host_wake_up);
 
 	wlan_host_wake_irq = gpio_to_irq(wlan_host_wake_up);
 
@@ -360,4 +353,28 @@ int __init dhd_wlan_init(void)
 	return ret;
 }
 
-device_initcall(dhd_wlan_init);
+void __exit dhd_wlan_exit(void)
+{
+#ifdef CONFIG_BROADCOM_WIFI_RESERVED_MEM
+	int i;
+
+	for (i = 0; i < 8; i++) {
+		if (wlan_static_skb[i])
+			dev_kfree_skb(wlan_static_skb[i]);
+	}
+
+	for (; i < 16; i++) {
+		if (wlan_static_skb[i])
+			dev_kfree_skb(wlan_static_skb[i]);
+	}
+
+	kfree(wlan_static_skb[i]);
+
+	for (i = 0; i < PREALLOC_WLAN_SEC_NUM; i++)
+		kfree(wlan_mem_array[i].mem_ptr);
+
+	kfree(wlan_static_scan_buf0);
+	kfree(wlan_static_scan_buf1);
+	kfree(wlan_static_dhd_info_buf);
+#endif
+}

@@ -59,7 +59,7 @@ bool cfg_multichip = FALSE;
 bcmdhd_wifi_platdata_t *dhd_wifi_platdata = NULL;
 static int wifi_plat_dev_probe_ret = 0;
 static bool is_power_on = FALSE;
-#ifdef DHD_OF_SUPPORT
+#if defined(DHD_OF_SUPPORT)
 static bool dts_enabled = TRUE;
 extern struct resource dhd_wlan_resources;
 extern struct wifi_platform_data dhd_wlan_control;

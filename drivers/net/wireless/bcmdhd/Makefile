@@ -404,18 +404,14 @@ ifeq ($(GGSM_WIFI_5GHz_CHANNELS),true)
   DHDCFLAGS += -DCUSTOMER_SET_COUNTRY
 endif
 
-ifeq ($(CONFIG_OF),y)
-ifneq ($(CONFIG_ARCH_EXYNOS),)
-obj-$(CONFIG_ARCH_EXYNOS) += dhd_custom_exynos.o
-DHDCFLAGS += -DDHD_OF_SUPPORT
-endif
-endif
-
 ##############################################################
 # dhd_sec_feature.h
 DHDCFLAGS += -include "dhd_sec_feature.h"
 ##############################################################
 
+ifeq ($(CONFIG_OF),y)
+DHDCFLAGS += -DDHD_OF_SUPPORT
+endif
 #########
 # Others
 #########
@@ -433,6 +429,12 @@ DHDOFILES := bcmsdh.o bcmsdh_linux.o bcmsdh_sdmmc.o bcmsdh_sdmmc_linux.o \
 	bcmutils.o bcmwifi_channels.o hndpmu.o linux_osl.o sbutils.o siutils.o \
 	wl_android.o wl_cfg80211.o wl_cfgp2p.o wl_cfg_btcoex.o wldev_common.o wl_linux_mon.o wl_roam.o \
 	dhd_linux_platdev.o dhd_pno.o dhd_linux_wq.o wl_cfg_btcoex.o
+
+ifeq ($(CONFIG_OF),y)
+ifneq ($(CONFIG_ARCH_EXYNOS),)
+DHDOFILES += dhd_custom_exynos.o
+endif
+endif
 
 # For SPI projects
 ifeq ($(CONFIG_SPI_SC8810),y)
