@@ -882,9 +882,8 @@ static int fimc_is_probe(struct platform_device *pdev)
 
 	/* detach default iommu domain and create our own one */
 	iommu_dma_detach_device(&pdev->dev);
-	dom = iommu_dma_create_domain(
-			(struct iommu_ops *)platform_bus_type.iommu_ops,
-			0x10000000, 0x80000000);
+	dom = iommu_dma_create_domain(&platform_bus_type, 0x10000000,
+				      0x80000000);
 	iommu_dma_attach_device(&pdev->dev, dom);
 
 	/* init mutex for spi read */
