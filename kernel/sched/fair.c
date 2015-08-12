@@ -7057,9 +7057,9 @@ static int hmp_active_task_migration_cpu_stop(void *data)
 	rcu_read_unlock();
 	double_unlock_balance(busiest_rq, target_rq);
 out_unlock:
-	put_task_struct(p);
 	busiest_rq->active_balance = 0;
 	raw_spin_unlock_irq(&busiest_rq->lock);
+	put_task_struct(p);
 	return 0;
 }
 
@@ -7133,9 +7133,9 @@ static int hmp_idle_pull_cpu_stop(void *data)
 	rcu_read_unlock();
 	double_unlock_balance(busiest_rq, target_rq);
 out_unlock:
-	put_task_struct(p);
 	busiest_rq->active_balance = 0;
 	raw_spin_unlock_irq(&busiest_rq->lock);
+	put_task_struct(p);
 	return 0;
 }
 
