@@ -301,6 +301,7 @@ static int queue_init(void *priv, struct vb2_queue *vbq_src,
 		vbq_src->ops		= vctx->vb2_ops;
 		vbq_src->mem_ops	= vctx->mem_ops;
 		vbq_src->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
+		vbq_src->allow_zero_bytesused = 1;
 
 		ret = vb2_queue_init(vbq_src);
 		if (ret) {
@@ -334,6 +335,7 @@ static int queue_init(void *priv, struct vb2_queue *vbq_src,
 		vbq_src->ops		= vctx->vb2_ops;
 		vbq_src->mem_ops	= vctx->mem_ops;
 		vbq_src->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
+		vbq_src->allow_zero_bytesused = 1;
 
 		ret = vb2_queue_init(vbq_src);
 		if (ret) {
