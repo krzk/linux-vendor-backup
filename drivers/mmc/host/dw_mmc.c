@@ -3957,7 +3957,9 @@ static struct dw_mci_of_quirks {
 };
 
 void (*notify_func_callback)(void *dev_id, int state);
+EXPORT_SYMBOL(notify_func_callback);
 void *mmc_host_dev = NULL;
+EXPORT_SYMBOL(mmc_host_dev);
 static DEFINE_MUTEX(notify_mutex_lock);
 
 static int ext_cd_init_callback(
