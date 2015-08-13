@@ -130,9 +130,11 @@
 
 				ldo13_reg: LDO13 {
 					regulator-name = "vdd_zb_2.8";
-					regulator-min-microvolt = <1800000>;
-					regulator-max-microvolt = <3375000>;
+					regulator-min-microvolt = <2400000>;
+					regulator-max-microvolt = <2400000>;
 					regulator-initial-mode = <1>;
+					regulator-always-on;
+					regulator-boot-on;
 				};
 
 				ldo16_reg: LDO16 {
@@ -165,9 +167,11 @@
 
 				ldo21_reg: LDO21 {
 					regulator-name = "zbcore_1.25";
-					regulator-min-microvolt = <800000>;
+					regulator-min-microvolt = <1250000>;
 					regulator-max-microvolt = <1250000>;
 					regulator-initial-mode = <1>;
+					regulator-always-on;
+					regulator-boot-on;
 				};
 
 				ldo23_reg: LDO23 {
