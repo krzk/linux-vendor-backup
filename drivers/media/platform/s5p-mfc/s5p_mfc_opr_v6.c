@@ -159,7 +159,7 @@ static int s5p_mfc_alloc_codec_buffers_v6(struct s5p_mfc_ctx *ctx)
 		break;
 	case S5P_MFC_CODEC_H263_DEC:
 		ctx->scratch_buf_size =
-			S5P_FIMV_SCRATCH_BUF_SIZE_H263_DEC_V6(
+			S5P_FIMV_SCRATCH_BUF_SIZE_MPEG4_DEC_V6(
 					mb_width,
 					mb_height);
 		ctx->scratch_buf_size = ALIGN(ctx->scratch_buf_size,
