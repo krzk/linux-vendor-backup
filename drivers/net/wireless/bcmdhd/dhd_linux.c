@@ -6152,6 +6152,12 @@ dhd_module_init(void)
 #endif /* defined(DHD_OF_SUPPORT) */
 
 	err = dhd_wifi_platform_register_drv();
+	if (err) {
+		DHD_ERROR(("%s: failed to register platformt.", __FUNCTION__));
+#if defined(DHD_OF_SUPPORT)
+		dhd_wlan_exit();
+#endif /* defined(DHD_OF_SUPPORT) */
+	}
 
 	return err;
 }

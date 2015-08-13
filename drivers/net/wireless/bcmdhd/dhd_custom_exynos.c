@@ -195,6 +195,7 @@ err_skb_alloc:
 #endif /* CONFIG_BROADCOM_WIFI_RESERVED_MEM */
 
 static int wlan_pwr_on = -1;
+static int wlan_host_wake_up = -1;
 static int wlan_host_wake_irq = 0;
 
 static int dhd_wlan_power(int onoff)
@@ -236,7 +237,6 @@ static int dhd_wlan_set_carddetect(int val)
 int __init dhd_wlan_init_gpio(void)
 {
 	const char *wlan_node = "samsung,brcm-wlan";
-	unsigned int wlan_host_wake_up = -1;
 	struct device_node *root_node = NULL;
 
 	root_node = of_find_compatible_node(NULL, NULL, wlan_node);
@@ -263,11 +263,13 @@ int __init dhd_wlan_init_gpio(void)
 	wlan_host_wake_up = of_get_gpio(root_node, 1);
 	if (!gpio_is_valid(wlan_host_wake_up)) {
 		WARN(1, "Invalied gpio pin : %d\n", wlan_host_wake_up);
+		gpio_free(wlan_pwr_on);
 		return -ENODEV;
 	}
 
 	if (gpio_request(wlan_host_wake_up, "WLAN_HOST_WAKE")) {
 		WARN(1, "fail to request gpio(WLAN_HOST_WAKE)\n");
+		gpio_free(wlan_pwr_on);
 		return -ENODEV;
 	}
 	gpio_direction_input(wlan_host_wake_up);
@@ -377,4 +379,7 @@ void __exit dhd_wlan_exit(void)
 	kfree(wlan_static_scan_buf1);
 	kfree(wlan_static_dhd_info_buf);
 #endif
+	gpio_free(wlan_pwr_on);
+	gpio_free(wlan_host_wake_up);
+	printk(KERN_INFO "%s: exit\n", __FUNCTION__);
 }
