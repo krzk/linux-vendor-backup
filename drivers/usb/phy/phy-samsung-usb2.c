@@ -583,9 +583,27 @@ static int samsung_usb2phy_runtime_suspend(struct device *dev)
 	}
 
 	spin_lock_irqsave(&sphy->lock, flags);
-	phyctrl = readl(regs + EXYNOS3_PHY_CTRL);
-	phyctrl |= PHY0_FORCESUSPEND;
-	writel(phyctrl, regs + EXYNOS3_PHY_CTRL);
+
+	if (sphy->drv_data->cpu_type == TYPE_EXYNOS3) {
+		phyctrl = readl(regs + EXYNOS3_PHY_CTRL);
+		phyctrl |= PHY0_FORCESUSPEND;
+		writel(phyctrl, regs + EXYNOS3_PHY_CTRL);
+	} else if (sphy->drv_data->cpu_type == TYPE_EXYNOS5) {
+		phyctrl = readl(regs + EXYNOS5_PHY_HOST_CTRL0);
+		phyctrl |= HOST_CTRL0_FORCESUSPEND;
+		writel(phyctrl, regs + EXYNOS5_PHY_HOST_CTRL0);
+
+		phyctrl = readl(regs + EXYNOS5_PHY_HSIC_CTRL1);
+		phyctrl |= HSIC_CTRL_FORCESUSPEND;
+		writel(phyctrl, regs + EXYNOS5_PHY_HSIC_CTRL1);
+
+		phyctrl = readl(regs + EXYNOS5_PHY_HSIC_CTRL2);
+		phyctrl |= HSIC_CTRL_FORCESUSPEND;
+		writel(phyctrl, regs + EXYNOS5_PHY_HSIC_CTRL2);
+
+		phyctrl = readl(regs + EXYNOS3_PHY_CTRL);
+	}
+
 	spin_unlock_irqrestore(&sphy->lock, flags);
 
 	/* Disable the phy clock */
@@ -612,9 +630,25 @@ static int samsung_usb2phy_runtime_resume(struct device *dev)
 	}
 
 	spin_lock_irqsave(&sphy->lock, flags);
-	phyctrl = readl(regs + EXYNOS3_PHY_CTRL);
-	phyctrl &= ~PHY0_FORCESUSPEND;
-	writel(phyctrl, regs + EXYNOS3_PHY_CTRL);
+
+	if (sphy->drv_data->cpu_type == TYPE_EXYNOS3) {
+		phyctrl = readl(regs + EXYNOS3_PHY_CTRL);
+		phyctrl &= ~PHY0_FORCESUSPEND;
+		writel(phyctrl, regs + EXYNOS3_PHY_CTRL);
+	} else if (sphy->drv_data->cpu_type == TYPE_EXYNOS5) {
+		phyctrl = readl(regs + EXYNOS5_PHY_HOST_CTRL0);
+		phyctrl &= ~HOST_CTRL0_FORCESUSPEND;
+		writel(phyctrl, regs + EXYNOS5_PHY_HOST_CTRL0);
+
+		phyctrl = readl(regs + EXYNOS5_PHY_HSIC_CTRL1);
+		phyctrl &= ~HSIC_CTRL_FORCESUSPEND;
+		writel(phyctrl, regs + EXYNOS5_PHY_HSIC_CTRL1);
+
+		phyctrl = readl(regs + EXYNOS5_PHY_HSIC_CTRL2);
+		phyctrl &= ~HSIC_CTRL_FORCESUSPEND;
+		writel(phyctrl, regs + EXYNOS5_PHY_HSIC_CTRL2);
+	}
+
 	spin_unlock_irqrestore(&sphy->lock, flags);
 
 	/* Disable the phy clock */
