@@ -344,7 +344,11 @@ static int samsung_usb2phy_init(struct usb_phy *phy)
 
 	spin_unlock_irqrestore(&sphy->lock, flags);
 
+	pm_runtime_set_active(phy->dev);
+	pm_runtime_enable(phy->dev);
 exit:
+	pm_runtime_get_noresume(phy->dev);
+
 	/* Disable the phy clock */
 	clk_disable(sphy->clk);
 
@@ -415,7 +419,10 @@ static void samsung_usb2phy_shutdown(struct usb_phy *phy)
 
 	spin_unlock_irqrestore(&sphy->lock, flags);
 
+	pm_runtime_disable(phy->dev);
+	pm_runtime_set_suspended(phy->dev);
 exit2:
+	pm_runtime_put_noidle(phy->dev);
 exit1:
 	clk_disable(sphy->clk);
 
@@ -534,8 +541,6 @@ static int samsung_usb2phy_probe(struct platform_device *pdev)
 		goto err1;
 	}
 
-	pm_runtime_enable(dev);
-
 	device_create_file(dev, &dev_attr_phystate);
 
 	return 0;
@@ -549,8 +554,6 @@ err1:
 static int samsung_usb2phy_remove(struct platform_device *pdev)
 {
 	struct samsung_usbphy *sphy = platform_get_drvdata(pdev);
-
-	pm_runtime_disable(&pdev->dev);
 
 	usb_remove_phy(&sphy->phy);
 	clk_unprepare(sphy->clk);
