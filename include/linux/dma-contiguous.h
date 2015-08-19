@@ -66,9 +66,6 @@ struct cma_info {
 
 #ifdef CONFIG_CMA
 
-/* Not to allow CMA migration */
-#define CMA_NO_MIGRATION
-
 /*
  * There is always at least global CMA area and a few optional device
  * private areas configured in kernel .config.
