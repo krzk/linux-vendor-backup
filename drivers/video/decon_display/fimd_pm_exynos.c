@@ -28,6 +28,28 @@
 
 #include <../drivers/clk/samsung/clk.h>
 
+#ifdef CONFIG_SOC_EXYNOS5422_REV_0
+#define FIMD_VIDEO_PSR
+
+static struct clk *g_mout_fimd1;
+static struct clk *g_mout_mpll_ctrl;
+static struct clk *g_dout_fimd1;
+static struct clk *g_mout_aclk_300_disp1_user;
+static struct clk *g_mout_aclk_300_disp1_sw;
+static struct clk *g_dout_aclk_300_disp1;
+static struct clk *g_mout_aclk_300_disp1;
+/*static struct clk *g_mout_aclk_200_disp1_user;
+static struct clk *g_mout_aclk_200_disp1_sw;
+static struct clk *g_dout_aclk_200_disp1;
+static struct clk *g_mout_aclk_200_disp1;*/
+static struct clk *g_mout_dpll_ctrl;
+static struct clk *g_mout_aclk_400_disp1_user;
+static struct clk *g_mout_aclk_400_disp1_sw;
+static struct clk *g_dout_aclk_400_disp1;
+static struct clk *g_mout_aclk_400_disp1;
+
+#else
+
 static struct clk *g_mout_fimd0;
 static struct clk *g_dout_mpll_pre;
 static struct clk *g_dout_fimd0;
@@ -36,6 +58,8 @@ static struct clk *g_dout_aclk_160;
 static struct clk *g_mout_mipi0;
 static struct clk *g_dout_mipi0;
 static struct clk *g_dout_mipi0_pre;
+
+#endif /* CONFIG_SOC_EXYNOS5422_REV_0 */
 
 #define DISPLAY_CLOCK_SET_PARENT(child, parent) do {\
 	g_##child = clk_get(dev, #child); \
@@ -93,6 +117,30 @@ int init_display_decon_clocks(struct device *dev)
 {
 	int ret = 0;
 
+#ifdef CONFIG_SOC_EXYNOS5422_REV_0
+	DISPLAY_CLOCK_SET_PARENT(mout_fimd1, mout_mpll_ctrl);
+
+#if defined(CONFIG_DECON_LCD_S6E8AA0)
+	DISPLAY_SET_RATE(dout_fimd1, 67 * MHZ);
+#elif defined(CONFIG_DECON_LCD_S6E3FA0)
+	DISPLAY_SET_RATE(dout_fimd1, 133 * MHZ);
+#else
+	DISPLAY_SET_RATE(dout_fimd1, 266 * MHZ);
+#endif
+
+	DISPLAY_CLOCK_SET_PARENT(mout_aclk_300_disp1_user, mout_aclk_300_disp1_sw);
+	DISPLAY_CLOCK_SET_PARENT(mout_aclk_300_disp1_sw, dout_aclk_300_disp1);
+	DISPLAY_CLOCK_SET_PARENT(mout_aclk_300_disp1, mout_dpll_ctrl);
+	DISPLAY_SET_RATE(dout_aclk_300_disp1, 300 * MHZ);
+	DISPLAY_CLOCK_SET_PARENT(mout_aclk_400_disp1_user, mout_aclk_400_disp1_sw);
+	DISPLAY_CLOCK_SET_PARENT(mout_aclk_400_disp1_sw, dout_aclk_400_disp1);
+	DISPLAY_CLOCK_SET_PARENT(mout_aclk_400_disp1, mout_dpll_ctrl);
+
+	pr_info("%s: pixel_clk_rate: %d\n", __func__, exynos_get_rate("sclk_fimd1"));
+	pr_info("%s: aclk200_clk_rate: %d\n", __func__, exynos_get_rate("mout_aclk_200_disp1_user"));
+	pr_info("%s: aclk300_clk_rate: %d\n", __func__, exynos_get_rate("mout_aclk_300_disp1_user"));
+	pr_info("%s: aclk400_clk_rate: %d\n", __func__, exynos_get_rate("mout_aclk_400_disp1_user"));
+#else /* CONFIG_SOC_EXYNOS5422_REV_0 */
 	/* Set parent clock and rate */
 	/* 1. Set [LCD0_BLK:sclk_fimd0]: display special pixel clock */
 	DISPLAY_CLOCK_SET_PARENT(dout_fimd0, mout_fimd0);
@@ -103,26 +151,94 @@ int init_display_decon_clocks(struct device *dev)
 	DISPLAY_CLOCK_SET_PARENT(dout_aclk_160, mout_aclk_160);
 	DISPLAY_CLOCK_SET_PARENT(mout_aclk_160, dout_mpll_pre);
 	DISPLAY_SET_RATE(dout_aclk_160, 100 * MHZ);
-
+#endif /* CONFIG_SOC_EXYNOS5422_REV_0 */
 	return ret;
 }
 
 int init_display_driver_clocks(struct device *dev)
 {
 	int ret = 0;
+#ifndef CONFIG_SOC_EXYNOS5422_REV_0
 	/* Set parent clock and rate */
 	/* 1. Set [LCD0_BLK:sclk_mipi0]: display special mipi-dsim */
 	DISPLAY_CLOCK_SET_PARENT(dout_mipi0_pre, dout_mipi0);
 	DISPLAY_CLOCK_SET_PARENT(dout_mipi0, mout_mipi0);
 	DISPLAY_CLOCK_SET_PARENT(mout_mipi0, dout_mpll_pre);
 	DISPLAY_SET_RATE(dout_mipi0_pre, 100 * MHZ);
-
+#endif /* CONFIG_SOC_EXYNOS5422_REV_0 */
 	return ret;
 }
 
 void init_display_gpio_exynos(void)
 {
 	unsigned int reg = 0;
+
+#ifdef CONFIG_SOC_EXYNOS5422_REV_0
+#if defined(CONFIG_S5P_DP)
+	unsigned gpio_dp_hotplug = 0;
+
+	gpio_dp_hotplug = get_display_dp_hotplug_gpio_exynos();
+	/* Set Hotplug detect for DP */
+	gpio_request(gpio_dp_hotplug, "dp_hotplug");
+	/* TO DO */
+	s3c_gpio_cfgpin(gpio_dp_hotplug, S3C_GPIO_SFN(3));
+#endif
+
+	/*
+	 * Set DISP1BLK_CFG register for Display path selection
+	 *
+	 * FIMD of DISP1_BLK Bypass selection : DISP1BLK_CFG[15]
+	 * ---------------------
+	 *  1 | FIMD : selected
+	 */
+	reg = __raw_readl(S3C_VA_SYS + 0x0214);
+	reg &= ~(1 << 15);	/* To save other reset values */
+	reg |= (1 << 15);
+	__raw_writel(reg, S3C_VA_SYS + 0x0214);
+#if defined(CONFIG_S5P_DP)
+	/* Reference clcok selection for DPTX_PHY: PAD_OSC_IN */
+	reg = __raw_readl(S3C_VA_SYS + 0x04d4);
+	reg &= ~(1 << 0);
+	__raw_writel(reg, S3C_VA_SYS + 0x04d4);
+
+	/* DPTX_PHY: XXTI */
+	reg = __raw_readl(S3C_VA_SYS + 0x04d8);
+	reg &= ~(1 << 3);
+	__raw_writel(reg, S3C_VA_SYS + 0x04d8);
+#endif
+	/*
+	 * Set DISP1BLK_CFG register for Display path selection
+	 *
+	 * MIC of DISP1_BLK Bypass selection: DISP1BLK_CFG[11]
+	 * --------------------
+	 *  0 | MIC
+	 *  1 | Bypass : selected
+	 */
+	reg = __raw_readl(S3C_VA_SYS + 0x0214);
+	reg &= ~(1 << 11);
+#ifndef CONFIG_DECON_MIC
+	reg |= (1 << 11);
+#endif
+	__raw_writel(reg, S3C_VA_SYS + 0x0214);
+
+#if  defined (CONFIG_FB_I80_COMMAND_MODE) && !defined (FIMD_VIDEO_PSR)
+	reg = __raw_readl(S3C_VA_SYS + 0x0214);
+	reg |= (1 << 24);
+	__raw_writel(reg, S3C_VA_SYS + 0x0214);
+#endif
+
+#if defined (CONFIG_FB_I80_COMMAND_MODE) 
+	/* related to convertor between FIMD & MIPI */
+	reg = __raw_readl(S3C_VA_SYS + 0x0214);
+	reg |= (1 << 12);
+	__raw_writel(reg, S3C_VA_SYS + 0x0214);
+#else
+	reg = __raw_readl(S3C_VA_SYS + 0x0214);
+	reg &= ~(1 << 12);
+	__raw_writel(reg, S3C_VA_SYS + 0x0214);
+#endif
+
+#else /* CONFIG_SOC_EXYNOS5422_REV_0 */
 	/*
 	 * Set DISP1BLK_CFG register for Display path selection
 	 * ---------------------
@@ -139,6 +255,7 @@ void init_display_gpio_exynos(void)
 	reg &= ~(3 << 10);
 	reg |= (1 << 10);
 	__raw_writel(reg, S3C_VA_SYS + 0x0210);
+#endif /* CONFIG_SOC_EXYNOS5422_REV_0 */
 }
 
 
@@ -151,9 +268,24 @@ int enable_display_driver_power(struct device *dev)
 	dispdrv = get_display_driver();
 
 	gpio = dispdrv->dt_ops.get_display_dsi_reset_gpio();
+
+#ifdef CONFIG_SOC_EXYNOS5422_REV_0
+	gpio_request_one(gpio->id[0], GPIOF_OUT_INIT_HIGH, "lcd_power");
+	usleep_range(5000, 6000);
+	gpio_free(gpio->id[0]);
+
+	gpio_request_one(gpio->id[1], GPIOF_OUT_INIT_HIGH, "lcd_reset");
+	usleep_range(5000, 6000);
+	gpio_set_value(gpio->id[1], 0);
+	usleep_range(5000, 6000);
+	gpio_set_value(gpio->id[1], 1);
+	usleep_range(5000, 6000);
+	gpio_free(gpio->id[1]);
+#else /* CONFIG_SOC_EXYNOS5422_REV_0 */
 	gpio_request_one(gpio->id[0], GPIOF_OUT_INIT_HIGH, "lcd_reset");
 	usleep_range(20000, 21000);
 	gpio_free(gpio->id[0]);
+#endif /* CONFIG_SOC_EXYNOS5422_REV_0 */
 	
 	return ret;
 }
@@ -167,9 +299,18 @@ int disable_display_driver_power(struct device *dev)
 	dispdrv = get_display_driver();
 
 	gpio = dispdrv->dt_ops.get_display_dsi_reset_gpio();
+#ifdef CONFIG_SOC_EXYNOS5422_REV_0
+	gpio_request_one(gpio->id[1], GPIOF_OUT_INIT_LOW, "lcd_reset");
+	usleep_range(5000, 6000);
+	gpio_free(gpio->id[1]);
+	/* Power */
+	gpio_request_one(gpio->id[0], GPIOF_OUT_INIT_LOW, "lcd_power");
+	usleep_range(5000, 6000);
+#else /* CONFIG_SOC_EXYNOS5422_REV_0 */
 	/* Reset */
 	gpio_request_one(gpio->id[0], GPIOF_OUT_INIT_LOW, "lcd_reset");
 	usleep_range(20000, 21000);
+#endif /* CONFIG_SOC_EXYNOS5422_REV_0 */
 	gpio_free(gpio->id[0]);
 
 	return ret;
@@ -250,6 +391,27 @@ int enable_display_decon_clocks(struct device *dev)
 	dispdrv = get_display_driver();
 	sfb = dispdrv->decon_driver.sfb;
 
+#ifdef CONFIG_SOC_EXYNOS5422_REV_0
+DISPLAY_CLOCK_INLINE_SET_PARENT(mout_fimd1, mout_mpll_ctrl);
+
+#if defined(CONFIG_DECON_LCD_S6E8AA0)
+	DISPLAY_INLINE_SET_RATE(dout_fimd1, 67 * MHZ);
+#elif defined(CONFIG_DECON_LCD_S6E3FA0)
+	DISPLAY_INLINE_SET_RATE(dout_fimd1, 133 * MHZ);
+#else
+	DISPLAY_INLINE_SET_RATE(dout_fimd1, 266 * MHZ);
+#endif
+
+	DISPLAY_CLOCK_INLINE_SET_PARENT(mout_aclk_300_disp1_user, mout_aclk_300_disp1_sw);
+	DISPLAY_CLOCK_INLINE_SET_PARENT(mout_aclk_300_disp1_sw, dout_aclk_300_disp1);
+	DISPLAY_CLOCK_INLINE_SET_PARENT(mout_aclk_300_disp1, mout_dpll_ctrl);
+	DISPLAY_INLINE_SET_RATE(dout_aclk_300_disp1, 300 * MHZ);
+	DISPLAY_CLOCK_INLINE_SET_PARENT(mout_aclk_400_disp1_user, mout_aclk_400_disp1_sw);
+	DISPLAY_CLOCK_INLINE_SET_PARENT(mout_aclk_400_disp1_sw, dout_aclk_400_disp1);
+	DISPLAY_CLOCK_INLINE_SET_PARENT(mout_aclk_400_disp1, mout_dpll_ctrl);
+
+#else /* CONFIG_SOC_EXYNOS5422_REV_0 */
+
 	/* Set INLINE parent clock and rate */
 	/* 1. Set [LCD0_BLK:sclk_fimd0]: display special pixel clock */
 	DISPLAY_CLOCK_INLINE_SET_PARENT(dout_fimd0, mout_fimd0);
@@ -260,6 +422,8 @@ int enable_display_decon_clocks(struct device *dev)
 	DISPLAY_CLOCK_INLINE_SET_PARENT(dout_aclk_160, mout_aclk_160);
 	DISPLAY_CLOCK_INLINE_SET_PARENT(mout_aclk_160, dout_mpll_pre);
 	DISPLAY_INLINE_SET_RATE(dout_aclk_160, 100 * MHZ);
+
+#endif /* CONFIG_SOC_EXYNOS5422_REV_0 */
 
 #ifdef CONFIG_FB_HIBERNATION_DISPLAY_CLOCK_GATING
 	dispdrv->pm_status.ops->clk_on(dispdrv);
@@ -315,7 +479,11 @@ int disable_display_decon_runtimepm(struct device *dev)
 bool check_camera_is_running(void)
 {
 	/* CAM1 STATUS */
+#ifdef CONFIG_SOC_EXYNOS5422_REV_0
+	if (readl(S5P_VA_PMU + 0x5104) & 0x1)
+#else /* CONFIG_SOC_EXYNOS5422_REV_0 */
 	if (readl(S5P_VA_PMU + 0x3C04) & 0x1)
+#endif /* CONFIG_SOC_EXYNOS5422_REV_0 */
 		return true;
 	else
 		return false;
@@ -324,7 +492,11 @@ bool check_camera_is_running(void)
 bool get_display_power_status(void)
 {
 	/* DISP_STATUS */
+#ifdef CONFIG_SOC_EXYNOS5422_REV_0
+	if (readl(S5P_VA_PMU + 0x40C4) & 0x1)
+#else /* CONFIG_SOC_EXYNOS5422_REV_0 */
 	if (readl(S5P_VA_PMU + 0x3C84) & 0x1)
+#endif /* CONFIG_SOC_EXYNOS5422_REV_0 */
 		return true;
 	else
 		return false;
@@ -332,9 +504,10 @@ bool get_display_power_status(void)
 
 int get_display_line_count(struct display_driver *dispdrv)
 {
-/*need to find proper fix or reason for this*/
-//	struct s3c_fb *sfb = dispdrv->decon_driver.sfb;
-//	return (readl(sfb->regs + VIDCON1) >> VIDCON1_LINECNT_SHIFT);
+#ifdef CONFIG_SOC_EXYNOS5422_REV_0
+	struct s3c_fb *sfb = dispdrv->decon_driver.sfb;
+	return (readl(sfb->regs + VIDCON1) >> VIDCON1_LINECNT_SHIFT);
+#endif /* CONFIG_SOC_EXYNOS5422_REV_0 */
 	return 0;
 }
 

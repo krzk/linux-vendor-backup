@@ -574,39 +574,45 @@ static unsigned long s5p_mipi_dsi_change_pll(struct mipi_dsim_device *dsim,
 
 	dfin_pll = (FIN_HZ / pre_divider);
 
-	if (dfin_pll < DFIN_PLL_MIN_HZ || dfin_pll > DFIN_PLL_MAX_HZ) {
-		dev_warn(dsim->dev, "fin_pll range should be 6MHz ~ 12MHz\n");
-		s5p_mipi_dsi_enable_afc(dsim, 0, 0);
-	} else {
-		if (dfin_pll < 7 * MHZ)
-			s5p_mipi_dsi_enable_afc(dsim, 1, 0x1);
-		else if (dfin_pll < 8 * MHZ)
-			s5p_mipi_dsi_enable_afc(dsim, 1, 0x0);
-		else if (dfin_pll < 9 * MHZ)
-			s5p_mipi_dsi_enable_afc(dsim, 1, 0x3);
-		else if (dfin_pll < 10 * MHZ)
-			s5p_mipi_dsi_enable_afc(dsim, 1, 0x2);
-		else if (dfin_pll < 11 * MHZ)
-			s5p_mipi_dsi_enable_afc(dsim, 1, 0x5);
-		else
-			s5p_mipi_dsi_enable_afc(dsim, 1, 0x4);
+	if (soc_is_exynos5250() || soc_is_exynos3250()) {
+		if (dfin_pll < DFIN_PLL_MIN_HZ || dfin_pll > DFIN_PLL_MAX_HZ) {
+			dev_warn(dsim->dev, "fin_pll range should be 6MHz ~ 12MHz\n");
+			s5p_mipi_dsi_enable_afc(dsim, 0, 0);
+		} else {
+			if (dfin_pll < 7 * MHZ)
+				s5p_mipi_dsi_enable_afc(dsim, 1, 0x1);
+			else if (dfin_pll < 8 * MHZ)
+				s5p_mipi_dsi_enable_afc(dsim, 1, 0x0);
+			else if (dfin_pll < 9 * MHZ)
+				s5p_mipi_dsi_enable_afc(dsim, 1, 0x3);
+			else if (dfin_pll < 10 * MHZ)
+				s5p_mipi_dsi_enable_afc(dsim, 1, 0x2);
+			else if (dfin_pll < 11 * MHZ)
+				s5p_mipi_dsi_enable_afc(dsim, 1, 0x5);
+			else
+				s5p_mipi_dsi_enable_afc(dsim, 1, 0x4);
+		}
 	}
 	dfvco = dfin_pll * main_divider;
 	dev_dbg(dsim->dev, "dfvco = %lu, dfin_pll = %lu, main_divider = %d\n",
 				dfvco, dfin_pll, main_divider);
 
-	if (dfvco < DFVCO_MIN_HZ || dfvco > DFVCO_MAX_HZ)
-		dev_warn(dsim->dev, "fvco range should be 500MHz ~ 1000MHz\n");
+	if (soc_is_exynos5250() || soc_is_exynos3250()) {
+		if (dfvco < DFVCO_MIN_HZ || dfvco > DFVCO_MAX_HZ)
+			dev_warn(dsim->dev, "fvco range should be 500MHz ~ 1000MHz\n");
+	}
 
 	dpll_out = dfvco / (1 << scaler);
 
 	dev_dbg(dsim->dev, "dpll_out = %lu, dfvco = %lu, scaler = %d\n",
 		dpll_out, dfvco, scaler);
 
-	for (i = 0; i < ARRAY_SIZE(dpll_table); i++) {
-		if (dpll_out < dpll_table[i] * MHZ) {
-			freq_band = i;
-			break;
+	if (soc_is_exynos5250() || soc_is_exynos3250()) {
+		for (i = 0; i < ARRAY_SIZE(dpll_table); i++) {
+			if (dpll_out < dpll_table[i] * MHZ) {
+				freq_band = i;
+				break;
+			}
 		}
 	}
 
@@ -617,8 +623,10 @@ static unsigned long s5p_mipi_dsi_change_pll(struct mipi_dsim_device *dsim,
 	s5p_mipi_dsi_hs_zero_ctrl(dsim, 0);
 	s5p_mipi_dsi_prep_ctrl(dsim, 0);
 
-	/* Freq Band */
-	s5p_mipi_dsi_pll_freq_band(dsim, freq_band);
+	if (soc_is_exynos5250() || soc_is_exynos3250()) {
+		/* Freq Band */
+		s5p_mipi_dsi_pll_freq_band(dsim, freq_band);
+	}
 	/* Stable time */
 	s5p_mipi_dsi_pll_stable_time(dsim, dsim->dsim_config->pll_stable_time);
 
@@ -629,80 +637,67 @@ static unsigned long s5p_mipi_dsi_change_pll(struct mipi_dsim_device *dsim,
 	return dpll_out;
 }
 
-static int s5p_mipi_dsi_set_clock(struct mipi_dsim_device *dsim,
-	unsigned int byte_clk_sel, unsigned int enable)
+static u32 decon_mipi_dsi_calc_pms(struct mipi_dsim_device *dsim)
 {
-	unsigned int esc_div;
-	unsigned long esc_clk_error_rate;
-	unsigned long byte_clk;
-	unsigned long escape_clk;
-	unsigned long hs_clk;
+	u32 p_div, m_div, s_div;
+	u32 target_freq, fin_pll, voc_out, fout_cal;
+	u32 fin = 24;
+	/*
+	 * One clk lane consists of 2 lines.
+	 * HS clk freq = line rate X 2
+	 * Here, we calculate the freq of ONE line(fout_cal is the freq of ONE line).
+	 * Thus, target_freq = dsim->lcd_info->hs_clk/2.
+	 */
+	target_freq = dsim->lcd_info->hs_clk / 2;
 
-	if (enable) {
-		dsim->e_clk_src = byte_clk_sel;
+	for (p_div = 1; p_div <= 33; p_div++)
+		for (m_div = 25; m_div <= 125; m_div++)
+			for (s_div = 0; s_div <= 3; s_div++) {
 
-		/* Escape mode clock and byte clock source */
-		s5p_mipi_dsi_set_byte_clock_src(dsim, byte_clk_sel);
+				fin_pll = fin / p_div;
+				voc_out = (m_div * fin) / p_div;
+				fout_cal = (m_div * fin) / (p_div * (1 << s_div));
 
-		/* DPHY, DSIM Link : D-PHY clock out */
-		if (byte_clk_sel == DSIM_PLL_OUT_DIV8) {
-			hs_clk = s5p_mipi_dsi_change_pll(dsim,
-				dsim->dsim_config->p, dsim->dsim_config->m,
-				dsim->dsim_config->s);
-			if (hs_clk == 0) {
-				dev_err(dsim->dev,
-					"failed to get hs clock.\n");
-				return -EINVAL;
+				if ((fin_pll < 6) || (fin_pll > 12))
+					continue;
+				if ((voc_out < 300) || (voc_out > 750))
+					continue;
+				if (fout_cal < target_freq)
+					continue;
+				if ((target_freq == fout_cal) && (fout_cal <= 750))
+					goto calculation_success;
 			}
-			s5p_mipi_dsi_enable_pll_bypass(dsim, 0);
-			s5p_mipi_dsi_pll_on(dsim, 1);
-		} else {
-			dev_warn(dsim->dev, "this project only support PLL clock source for MIPI DSIM\n");
-			return 0;
-		}
 
-		/* escape clock divider */
-		byte_clk = hs_clk / 8;
+	for (p_div = 1; p_div <= 33; p_div++)
+		for (m_div = 25; m_div <= 125; m_div++)
+			for (s_div = 0; s_div <= 3; s_div++) {
 
-		esc_div = byte_clk / (dsim->dsim_config->esc_clk);
-		dev_dbg(dsim->dev,
-			"esc_div = %d, byte_clk = %lu, esc_clk = %lu\n",
-			esc_div, byte_clk, dsim->dsim_config->esc_clk);
+				fin_pll = fin / p_div;
+				voc_out = (m_div * fin) / p_div;
+				fout_cal = (m_div * fin) / (p_div * (1 << s_div));
 
-		if ((byte_clk / esc_div) >= (20 * MHZ) || (byte_clk / esc_div) > dsim->dsim_config->esc_clk)
-			esc_div += 1;
-		escape_clk = byte_clk / esc_div;
+				if ((fin_pll < 6) || (fin_pll > 12))
+					continue;
+				if ((voc_out < 300) || (voc_out > 750))
+					continue;
+				if (fout_cal < target_freq)
+					continue;
+				/* target_freq < fout_cal, here is different from the above */
+				if ((target_freq < fout_cal) && (fout_cal <= 750))
+					goto calculation_success;
+			}
 
-		/* enable byte clock. */
-		s5p_mipi_dsi_enable_byte_clock(dsim, DSIM_ESCCLK_ON);
+	dev_err(dsim->dev, "Failed to calculate PMS values\n");
+	return -EINVAL;
 
-		/* enable escape clock */
-		s5p_mipi_dsi_set_esc_clk_prs(dsim, 1, esc_div);
-		/* escape clock on lane */
-		s5p_mipi_dsi_enable_esc_clk_on_lane(dsim, (DSIM_LANE_CLOCK | dsim->data_lane), 1);
+calculation_success:
+	dsim->dsim_config->p = p_div;
+	dsim->dsim_config->m = m_div;
+	dsim->dsim_config->s = s_div;
+	dev_dbg(dsim->dev, "High Speed Clock rate = %dMhz, P = %d, M = %d, S = %d\n",
+			fout_cal * 2, p_div, m_div, s_div);
 
-		dev_dbg(dsim->dev, "escape_clk = %lu, byte_clk = %lu, esc_div = %d\n", escape_clk, byte_clk, esc_div);
-
-		if ((byte_clk / esc_div) > escape_clk) {
-			esc_clk_error_rate = escape_clk / (byte_clk / esc_div);
-			dev_warn(dsim->dev, "error rate is %lu over.\n", (esc_clk_error_rate / 100));
-		} else if ((byte_clk / esc_div) < (escape_clk)) {
-			esc_clk_error_rate = (byte_clk / esc_div) / escape_clk;
-			dev_warn(dsim->dev, "error rate is %lu under.\n", (esc_clk_error_rate / 100));
-		}
-	} else {
-		s5p_mipi_dsi_enable_esc_clk_on_lane(dsim,
-			(DSIM_LANE_CLOCK | dsim->data_lane), 0);
-		s5p_mipi_dsi_set_esc_clk_prs(dsim, 0, 0);
-
-		/* disable escape clock. */
-		s5p_mipi_dsi_enable_byte_clock(dsim, DSIM_ESCCLK_OFF);
-
-		if (byte_clk_sel == DSIM_PLL_OUT_DIV8)
-			s5p_mipi_dsi_pll_on(dsim, 0);
-	}
-
-	return 0;
+	return fout_cal * 2;
 }
 
 int decon_mipi_dsi_get_dphy_timing(struct mipi_dsim_device *dsim)
@@ -797,6 +792,103 @@ int decon_mipi_dsi_set_dphy_timing_value(struct mipi_dsim_device *dsim)
 			dsim->timing.hs_zero, dsim->timing.hs_trail);
 	s5p_mipi_dsi_set_b_dphyctrl(dsim, dsim->timing.b_dphyctl);
 	return 1;
+}
+
+static int s5p_mipi_dsi_set_clock(struct mipi_dsim_device *dsim,
+	unsigned int byte_clk_sel, unsigned int enable)
+{
+	unsigned int esc_div;
+	unsigned long esc_clk_error_rate;
+	unsigned long byte_clk;
+	unsigned long escape_clk;
+	unsigned long hs_clk;
+
+	if (enable) {
+		dsim->e_clk_src = byte_clk_sel;
+
+		/* Escape mode clock and byte clock source */
+		s5p_mipi_dsi_set_byte_clock_src(dsim, byte_clk_sel);
+
+		/* DPHY, DSIM Link : D-PHY clock out */
+		if (byte_clk_sel == DSIM_PLL_OUT_DIV8) {
+			if (!soc_is_exynos3250()) {
+				dsim->hs_clk = decon_mipi_dsi_calc_pms(dsim);
+				if (dsim->hs_clk == -EINVAL) {
+					dev_err(dsim->dev,
+							"failed to get hs clock.\n");
+					return -EINVAL;
+				}
+				decon_mipi_dsi_get_dphy_timing(dsim);
+			}
+
+			hs_clk = s5p_mipi_dsi_change_pll(dsim,
+				dsim->dsim_config->p, dsim->dsim_config->m,
+				dsim->dsim_config->s);
+			if (hs_clk == 0) {
+				dev_err(dsim->dev,
+					"failed to get hs clock.\n");
+				return -EINVAL;
+			}
+
+			if (!soc_is_exynos5250() || !soc_is_exynos3250())
+				decon_mipi_dsi_set_dphy_timing_value(dsim);
+
+			s5p_mipi_dsi_enable_pll_bypass(dsim, 0);
+			s5p_mipi_dsi_pll_on(dsim, 1);
+		} else {
+			dev_warn(dsim->dev, "this project only support PLL clock source for MIPI DSIM\n");
+			return 0;
+		}
+
+		/* escape clock divider */
+		byte_clk = hs_clk / 8;
+
+		esc_div = byte_clk / (dsim->dsim_config->esc_clk);
+		dev_dbg(dsim->dev,
+			"esc_div = %d, byte_clk = %lu, esc_clk = %lu\n",
+			esc_div, byte_clk, dsim->dsim_config->esc_clk);
+
+		if (soc_is_exynos5250() || soc_is_exynos3250()) {
+			if ((byte_clk / esc_div) >= (20 * MHZ) ||
+			    (byte_clk / esc_div) > dsim->dsim_config->esc_clk)
+			esc_div += 1;
+		} else {
+			if ((byte_clk / esc_div) >= (10 * MHZ) ||
+			    (byte_clk / esc_div) > dsim->dsim_config->esc_clk)
+			esc_div += 1;
+		}
+		escape_clk = byte_clk / esc_div;
+
+		/* enable byte clock. */
+		s5p_mipi_dsi_enable_byte_clock(dsim, DSIM_ESCCLK_ON);
+
+		/* enable escape clock */
+		s5p_mipi_dsi_set_esc_clk_prs(dsim, 1, esc_div);
+		/* escape clock on lane */
+		s5p_mipi_dsi_enable_esc_clk_on_lane(dsim, (DSIM_LANE_CLOCK | dsim->data_lane), 1);
+
+		dev_dbg(dsim->dev, "escape_clk = %lu, byte_clk = %lu, esc_div = %d\n", escape_clk, byte_clk, esc_div);
+
+		if ((byte_clk / esc_div) > escape_clk) {
+			esc_clk_error_rate = escape_clk / (byte_clk / esc_div);
+			dev_warn(dsim->dev, "error rate is %lu over.\n", (esc_clk_error_rate / 100));
+		} else if ((byte_clk / esc_div) < (escape_clk)) {
+			esc_clk_error_rate = (byte_clk / esc_div) / escape_clk;
+			dev_warn(dsim->dev, "error rate is %lu under.\n", (esc_clk_error_rate / 100));
+		}
+	} else {
+		s5p_mipi_dsi_enable_esc_clk_on_lane(dsim,
+			(DSIM_LANE_CLOCK | dsim->data_lane), 0);
+		s5p_mipi_dsi_set_esc_clk_prs(dsim, 0, 0);
+
+		/* disable escape clock. */
+		s5p_mipi_dsi_enable_byte_clock(dsim, DSIM_ESCCLK_OFF);
+
+		if (byte_clk_sel == DSIM_PLL_OUT_DIV8)
+			s5p_mipi_dsi_pll_on(dsim, 0);
+	}
+
+	return 0;
 }
 
 void s5p_mipi_dsi_d_phy_onoff(struct mipi_dsim_device *dsim,

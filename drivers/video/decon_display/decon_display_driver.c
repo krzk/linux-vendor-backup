@@ -28,6 +28,8 @@
 
 #include "fimd_fb.h"
 
+#include "decon_debug.h"
+
 #ifdef CONFIG_OF
 static const struct of_device_id decon_disp_device_table[] = {
 	{ .compatible = "samsung,exynos5-disp_driver" },
@@ -77,6 +79,7 @@ static int init_display_operations(void)
 #endif
 
 	DSI_OPS.init_display_driver_clocks = init_display_driver_clocks;
+	DSI_OPS.enable_display_driver_clocks = enable_display_driver_clocks;
 	DSI_OPS.enable_display_driver_power = enable_display_driver_power;
 	DSI_OPS.disable_display_driver_power = disable_display_driver_power;
 
@@ -122,6 +125,28 @@ static int create_disp_components(struct platform_device *pdev)
 	return ret;
 }
 
+/* disp_driver_fault_handler - fault handler for display device driver */
+int disp_driver_fault_handler(struct iommu_domain *iodmn, struct device *dev,
+	unsigned long addr, int id, void *param)
+{
+	struct display_driver *dispdrv;
+
+	dispdrv = (struct display_driver*)param;
+	decon_dump_registers(dispdrv);
+	return 0;
+}
+
+/* register_debug_features - for registering debug features.
+ * currently registered features are like as follows...
+ * - iovmm falult handler
+ * - ... */
+static void register_debug_features(void)
+{
+	/* 1. fault handler registration */
+	iovmm_set_fault_handler(g_display_driver.display_driver,
+		disp_driver_fault_handler, &g_display_driver);
+}
+
 /* s5p_decon_disp_probe - probe function of the display driver */
 static int s5p_decon_disp_probe(struct platform_device *pdev)
 {
@@ -136,11 +161,15 @@ static int s5p_decon_disp_probe(struct platform_device *pdev)
 	/* parse display driver device tree & convers it to objects
 	 * for each platform device */
 	ret = g_display_driver.dt_ops.parse_display_driver_dt(pdev, &g_display_driver);
+	if (ret < 0)
+		return ret;
 
 	GET_DISPDRV_OPS(&g_display_driver).init_display_driver_clocks(&pdev->dev);
 	GET_DISPCTL_OPS(&g_display_driver).init_display_decon_clocks(&pdev->dev);
 
 	create_disp_components(pdev);
+
+	register_debug_features();
 
 	return ret;
 }
@@ -168,6 +197,18 @@ static int display_driver_runtime_resume(struct device *dev)
 #endif
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int display_driver_resume(struct device *dev)
+{
+	return s3c_fb_resume(dev);
+}
+
+static int display_driver_suspend(struct device *dev)
+{
+	return s3c_fb_suspend(dev);
+}
+#endif
+
 static void display_driver_shutdown(struct platform_device *pdev)
 {
 #ifdef CONFIG_FB_HIBERNATION_DISPLAY
@@ -182,8 +223,8 @@ static void display_driver_shutdown(struct platform_device *pdev)
 static const struct dev_pm_ops s5p_decon_disp_ops = {
 #ifdef CONFIG_PM_SLEEP
 #ifndef CONFIG_HAS_EARLYSUSPEND
-	.suspend = NULL,
-	.resume = NULL,
+	.suspend = display_driver_suspend,
+	.resume = display_driver_resume,
 #endif
 #endif
 	.runtime_suspend	= display_driver_runtime_suspend,

@@ -10,6 +10,26 @@
  */
 #define S3C_FB_MAX_WIN	(5)
 
+#ifdef CONFIG_FB_EXYNOS_FIMD_MC
+#define SYSREG_MIXER0_VALID	(1 << 7)
+#define SYSREG_MIXER1_VALID	(1 << 4)
+#define FIMD_PAD_SINK_FROM_GSCALER_SRC		0
+#define FIMD_PADS_NUM				1
+
+/* SYSREG for local path between Gscaler and Mixer */
+#define SYSREG_DISP1BLK_CFG	(S3C_VA_SYS + 0x0214)
+#endif
+
+#ifdef CONFIG_FB_EXYNOS_FIMD_MC_WB
+#define SYSREG_DISP1WB_DEST(_x)			((_x) << 10)
+#define SYSREG_DISP1WB_DEST_MASK		(0x3 << 10)
+#define FIMD_WB_PAD_SRC_TO_GSCALER_SINK		0
+#define FIMD_WB_PADS_NUM			1
+
+/* SYSREG for local path between Gscaler and Mixer */
+#define SYSREG_GSCLBLK_CFG	(S3C_VA_SYS + 0x0224)
+#endif
+
 #define VALID_BPP(x) (1 << ((x) - 1))
 
 #define OSD_BASE(win, variant) ((variant).osd + ((win) * (variant).osd_stride))
@@ -265,6 +285,11 @@ struct s3c_fb_win {
 
 	int			fps;
 
+#ifdef CONFIG_FB_EXYNOS_FIMD_MC
+	int use; /* use of widnow subdev in fimd */
+	struct media_pad pads[FIMD_PADS_NUM]; /* window's pad : 1 sink */
+	struct v4l2_subdev sd; /* Take a window as a v4l2_subdevice */
+#endif
 	int local; /* use of local path gscaler to window in fimd */
 };
 
@@ -347,6 +372,17 @@ struct s3c_fb {
 	int			timeline_max;
 #endif
 
+#ifdef CONFIG_FB_EXYNOS_FIMD_MC
+	struct exynos_md *md;
+#endif
+#ifdef CONFIG_FB_EXYNOS_FIMD_MC_WB
+	struct exynos_md *md_wb;
+	int use_wb;	/* use of fimd subdev for writeback */
+	int local_wb;	/* use of writeback path to gscaler in fimd */
+	struct media_pad pads_wb;	/* FIMD1's pad */
+	struct v4l2_subdev sd_wb;	/* Take a FIMD1 as a v4l2_subdevice */
+#endif
+
 #ifdef CONFIG_DEBUG_FS
 	struct dentry		*debug_dentry;
 	struct s3c_fb_debug	debug_data;
@@ -355,6 +391,10 @@ struct s3c_fb {
 #if defined(CONFIG_FB_SMIES)
 	struct s5p_smies_device *smies;
 #endif
+#ifdef CONFIG_SOC_EXYNOS5422_REV_0
+	struct exynos5_bus_mif_handle *fb_mif_handle;
+	struct exynos5_bus_int_handle *fb_int_handle;
+#endif /* CONFIG_SOC_EXYNOS5422_REV_0 */
 };
 
 struct s3c_fb_rect {
