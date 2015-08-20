@@ -410,7 +410,12 @@ int hdmi_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 		hdev->color_range = ctrl->value;
 		break;
 	case V4L2_CID_TV_HDCP_ENABLE:
+
+		/* FIXME: do not allow hdcp enable because some hdmi monitors
+		 * cannot support the HDCP functionality */
+#if 0
 		hdev->hdcp_info.hdcp_enable = ctrl->value;
+#endif
 		dev_dbg(hdev->dev, "HDCP %s\n",
 				ctrl->value ? "enable" : "disable");
 		break;
