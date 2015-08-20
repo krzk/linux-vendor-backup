@@ -39,8 +39,13 @@ struct decon_lcd s6e3fa0_lcd_info = {
 	.vsa = 1,
 	.hsa = 1,
 
+#ifdef CONFIG_DECON_LCD_S6E3FA0_LANDSCAPE
+	.xres = 1920,
+	.yres = 1080,
+#else
 	.xres = 1080,
 	.yres = 1920,
+#endif
 
 	.width = 70,
 	.height = 121,
