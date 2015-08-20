@@ -557,6 +557,7 @@ int dw_pcie_host_init(struct pcie_port *pp)
 
 	pci_fixup_irqs(pci_common_swizzle, dw_pcie_map_irq);
 	pci_assign_unassigned_bus_resources(bus);
+	pci_bus_add_devices(bus);
 
 	return 0;
 }
