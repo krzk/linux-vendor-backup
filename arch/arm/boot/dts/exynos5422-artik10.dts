@@ -225,10 +225,20 @@
 		status = "okay";
 	};
 
-	hsi2c@12CC0000 {
-		clock-frequency = <400000>;
-		status = "okay";
+	hdmi@14530000 {
+		gpios = <&gpx3 7 0xf>, <&gpy4 2 0x1>, <&gpy4 3 0x1>,
+			<&gpd1 7 0x1>;	/* HDMI_5V */
+	};
 
+	i2c@50 {
+		compatible = "i2c-gpio";
+		gpios = <&gpb2 2 0>,	/* sda */
+			<&gpb2 3 0>;	/* scl */
+		i2c-gpio,delay-us = <2>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "okay";
 		/* hdmi edid dirver */
 		edid@50 {
 			compatible = "samsung,exynos5-edid_driver";
