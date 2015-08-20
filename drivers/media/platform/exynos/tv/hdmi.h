@@ -164,6 +164,7 @@ struct hdmi_resources {
 	int gpio_hpd;
 	int gpio_ls;
 	int gpio_dcdc;
+	int gpio_hdmi_5v_en;
 };
 
 struct hdmi_tg_regs {

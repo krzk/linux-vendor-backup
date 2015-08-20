@@ -867,6 +867,19 @@ static int hdmi_set_gpio(struct hdmi_device *hdev)
 			gpio_set_value(res->gpio_dcdc, 1);
 			dev_info(dev, "success request GPIO for hdmi-dcdc\n");
 		}
+
+		/* HDMI_5V */
+		res->gpio_hdmi_5v_en = of_get_gpio(dev->of_node, 3);
+		if (gpio_is_valid(res->gpio_hdmi_5v_en)) {
+			if (gpio_request(res->gpio_hdmi_5v_en, "hdmi_5v_en")) {
+				dev_err(dev, "failed to request hdmi_5v_en\n");
+				ret = -ENODEV;
+			} else {
+				gpio_direction_output(res->gpio_hdmi_5v_en, 1);
+				gpio_set_value(res->gpio_hdmi_5v_en, 1);
+				dev_info(dev, "success request GPIO for hdmi_5v_en\n");
+			}
+		}
 	}
 
 	return ret;
@@ -1079,6 +1092,8 @@ fail_gpio:
 	gpio_free(hdmi_dev->res.gpio_hpd);
 	gpio_free(hdmi_dev->res.gpio_ls);
 	gpio_free(hdmi_dev->res.gpio_dcdc);
+	if (gpio_is_valid(hdmi_dev->res.gpio_hdmi_5v_en))
+		gpio_free(hdmi_dev->res.gpio_hdmi_5v_en);
 
 fail_clk:
 	hdmi_resources_cleanup(hdmi_dev);
