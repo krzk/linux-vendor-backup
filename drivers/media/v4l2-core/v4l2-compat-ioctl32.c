@@ -735,7 +735,7 @@ struct v4l2_event32 {
 	__u32				type;
 	union {
 		__u8			data[64];
-	} u;
+	} u __attribute__((aligned(8)));
 	__u32				pending;
 	__u32				sequence;
 	struct compat_timespec		timestamp;
