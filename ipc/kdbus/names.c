@@ -290,10 +290,13 @@ int kdbus_name_acquire(struct kdbus_name_registry *reg,
 
 	down_write(&reg->rwlock);
 
+        /* Disable internal kdbus policy - possibilities of connections to own,
+         * see and talk to well-known names are restricted by LSM hooks
 	if (!kdbus_conn_policy_own_name(conn, current_cred(), name)) {
 		ret = -EPERM;
 		goto exit_unlock;
 	}
+	*/
 
 	hash = kdbus_strhash(name);
 	e = kdbus_name_find(reg, hash, name);
