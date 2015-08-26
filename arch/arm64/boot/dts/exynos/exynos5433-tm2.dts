@@ -1714,9 +1714,9 @@
 
 	clock-frequency = <400000>;
 	pinctrl-names = "default","on_i2c","off_i2c";
-	pinctrl-0 = <&fimc_is_hsi2c_off>;
-	pinctrl-1 = <&fimc_is_ois_hsi2c_on>;
-	pinctrl-2 = <&fimc_is_hsi2c_off>;
+	pinctrl-0 = <&fimc_is_hsi2c_off &fimc_is_ch1_i2c_off>;
+	pinctrl-1 = <&fimc_is_ois_hsi2c_on &fimc_is_ch1_i2c_off>;
+	pinctrl-2 = <&fimc_is_hsi2c_off &fimc_is_ch1_i2c>;
 
 	ois@24{
 		compatible = "rumba,ois";

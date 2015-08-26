@@ -821,6 +821,12 @@
 		samsung,pin-pud = <0>;
 		samsung,pin-drv = <0>;
 	};
+	fimc_is_ch1_i2c_off: fimc-is-ch1-i2c-off {
+		samsung,pins = "gpc2-3", "gpc2-2";
+		samsung,pin-function = <0>;
+		samsung,pin-pud = <0>;
+		samsung,pin-drv = <3>;
+	};
 
 	fimc_is_ch1_mclk: fimc-is-ch1-mclk {
 		samsung,pins = "gpd7-1";
