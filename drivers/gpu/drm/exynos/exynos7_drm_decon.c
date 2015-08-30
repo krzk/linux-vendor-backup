@@ -96,6 +96,18 @@ static const struct of_device_id decon_driver_dt_match[] = {
 };
 MODULE_DEVICE_TABLE(of, decon_driver_dt_match);
 
+static const uint32_t decon_formats[] = {
+	DRM_FORMAT_RGB565,
+	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_XBGR8888,
+	DRM_FORMAT_RGBX8888,
+	DRM_FORMAT_BGRX8888,
+	DRM_FORMAT_ARGB8888,
+	DRM_FORMAT_ABGR8888,
+	DRM_FORMAT_RGBA8888,
+	DRM_FORMAT_BGRA8888,
+};
+
 static inline struct decon_driver_data *drm_decon_get_driver_data(
 	struct platform_device *pdev)
 {
@@ -940,7 +952,8 @@ static int decon_bind(struct device *dev, struct device *master, void *data)
 		type = (zpos == ctx->default_win) ? DRM_PLANE_TYPE_PRIMARY :
 						DRM_PLANE_TYPE_OVERLAY;
 		ret = exynos_plane_init(drm_dev, &ctx->planes[zpos],
-					1 << ctx->pipe, type, zpos);
+					1 << ctx->pipe, type, decon_formats,
+					ARRAY_SIZE(decon_formats), zpos);
 		if (ret)
 			return ret;
 	}

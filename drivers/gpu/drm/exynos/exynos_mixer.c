@@ -42,8 +42,8 @@
 #include "exynos_mixer.h"
 
 #define MIXER_WIN_NR		3
-#define VP_DEFAULT_WIN		2
 #define MIXER_DEFAULT_WIN	0
+#define VP_DEFAULT_WIN		2
 
 /* The pixelformats that are natively supported by the mixer. */
 #define MXR_FORMAT_RGB565	4
@@ -68,6 +68,19 @@ enum mixer_version_id {
 	MXR_VER_0_0_0_16,
 	MXR_VER_16_0_33_0,
 	MXR_VER_128_0_0_184,
+};
+
+static const uint32_t mixer_formats[] = {
+	DRM_FORMAT_XRGB4444,
+	DRM_FORMAT_XRGB1555,
+	DRM_FORMAT_RGB565,
+	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_ARGB8888,
+};
+
+static const uint32_t vp_formats[] = {
+	DRM_FORMAT_NV12,
+	DRM_FORMAT_NV21,
 };
 
 struct mixer_context {
@@ -1227,7 +1240,6 @@ static int mixer_bind(struct device *dev, struct device *manager, void *data)
 	struct mixer_context *ctx = dev_get_drvdata(dev);
 	struct drm_device *drm_dev = data;
 	struct exynos_drm_plane *exynos_plane;
-	enum drm_plane_type type;
 	unsigned int zpos;
 	int ret;
 
@@ -1236,12 +1248,26 @@ static int mixer_bind(struct device *dev, struct device *manager, void *data)
 		return ret;
 
 	for (zpos = 0; zpos < MIXER_WIN_NR; zpos++) {
+		enum drm_plane_type type;
+		const uint32_t *formats;
+		unsigned int fcount;
+
 		if (zpos == VP_DEFAULT_WIN && !ctx->vp_enabled)
 			continue;
+
 		type = (zpos == MIXER_DEFAULT_WIN) ? DRM_PLANE_TYPE_PRIMARY :
 						DRM_PLANE_TYPE_OVERLAY;
+		if (zpos < VP_DEFAULT_WIN) {
+			formats = mixer_formats;
+			fcount = ARRAY_SIZE(mixer_formats);
+		} else {
+			formats = vp_formats;
+			fcount = ARRAY_SIZE(vp_formats);
+		}
+
 		ret = exynos_plane_init(drm_dev, &ctx->planes[zpos],
-					1 << ctx->pipe, type, zpos);
+					1 << ctx->pipe, type, formats, fcount,
+					zpos);
 		if (ret)
 			return ret;
 	}

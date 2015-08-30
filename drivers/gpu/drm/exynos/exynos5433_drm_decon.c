@@ -39,6 +39,13 @@ static const char * const decon_clks_name[] = {
 	"sclk_decon_eclk",
 };
 
+static const uint32_t decon_formats[] = {
+	DRM_FORMAT_XRGB1555,
+	DRM_FORMAT_RGB565,
+	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_ARGB8888,
+};
+
 struct exynos5433_decon_driver_data {
 	enum exynos_drm_output_type type;
 	enum exynos_drm_trigger_type trg_type;
@@ -691,7 +698,8 @@ static int decon_bind(struct device *dev, struct device *master, void *data)
 		type = (zpos == drv_data->first_win) ? DRM_PLANE_TYPE_PRIMARY :
 			DRM_PLANE_TYPE_OVERLAY;
 		ret = exynos_plane_init(drm_dev, &ctx->planes[zpos],
-					1 << ctx->pipe, type, zpos);
+				1 << ctx->pipe, type, decon_formats,
+				ARRAY_SIZE(decon_formats), zpos);
 		if (ret)
 			return ret;
 	}
