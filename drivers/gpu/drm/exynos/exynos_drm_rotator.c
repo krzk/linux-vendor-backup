@@ -88,7 +88,6 @@ struct rot_limit_table {
  * @clock: rotator gate clock.
  * @limit_tbl: limitation of rotator.
  * @irq: irq number.
- * @cur_buf_id: current operation buffer id.
  * @suspended: suspended state.
  */
 struct rot_context {
@@ -98,7 +97,6 @@ struct rot_context {
 	struct clk	*clock;
 	struct rot_limit_table	*limit_tbl;
 	int	irq;
-	int	cur_buf_id[EXYNOS_DRM_OPS_MAX];
 	bool	suspended;
 };
 
@@ -154,8 +152,6 @@ static irqreturn_t rotator_irq_handler(int irq, void *arg)
 
 	if (irq_status == ROT_IRQ_STATUS_COMPLETE) {
 		event_work->ippdrv = ippdrv;
-		event_work->buf_id[EXYNOS_DRM_OPS_DST] =
-			rot->cur_buf_id[EXYNOS_DRM_OPS_DST];
 		queue_work(ippdrv->event_workq, &event_work->work);
 	} else {
 		DRM_ERROR("the SFR is set illegally\n");
@@ -274,9 +270,6 @@ static int rotator_src_set_addr(struct device *dev,
 	dma_addr_t addr[EXYNOS_DRM_PLANAR_MAX];
 	u32 val, fmt, hsize, vsize;
 	int i;
-
-	/* Set current buf_id */
-	rot->cur_buf_id[EXYNOS_DRM_OPS_SRC] = buf_id;
 
 	switch (buf_type) {
 	case IPP_BUF_ENQUEUE:
@@ -409,9 +402,6 @@ static int rotator_dst_set_addr(struct device *dev,
 	dma_addr_t addr[EXYNOS_DRM_PLANAR_MAX];
 	u32 val, fmt, hsize, vsize;
 	int i;
-
-	/* Set current buf_id */
-	rot->cur_buf_id[EXYNOS_DRM_OPS_DST] = buf_id;
 
 	switch (buf_type) {
 	case IPP_BUF_ENQUEUE:
