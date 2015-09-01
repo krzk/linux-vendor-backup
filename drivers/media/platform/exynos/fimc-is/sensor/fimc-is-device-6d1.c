@@ -780,6 +780,7 @@ static const struct of_device_id exynos_fimc_is_sensor_6d1_match[] = {
 
 static const struct i2c_device_id sensor_6d1_idt[] = {
 	{ SENSOR_NAME, 0 },
+	{},
 };
 
 static struct i2c_driver sensor_6d1_driver = {
