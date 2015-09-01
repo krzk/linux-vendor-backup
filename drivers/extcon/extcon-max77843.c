@@ -149,6 +149,7 @@ static const char *max77843_extcon_cable[] = {
 	[MAX77843_CABLE_JIG_USB_OFF]		= "JIG-USB-OFF",
 	[MAX77843_CABLE_JIG_UART_ON]		= "JIG-UART-ON",
 	[MAX77843_CABLE_JIG_UART_OFF]		= "JIG-UART-OFF",
+	NULL,
 };
 
 struct max77843_muic_irq {
