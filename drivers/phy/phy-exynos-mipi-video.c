@@ -261,6 +261,7 @@ static const struct of_device_id exynos_mipi_video_phy_of_match[] = {
 		.compatible = "samsung,exynos5433-mipi-video-phy",
 		.data = &exynos5433_mipi_phy,
 	},
+	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, exynos_mipi_video_phy_of_match);
 
