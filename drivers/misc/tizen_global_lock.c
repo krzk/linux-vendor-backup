@@ -19,6 +19,7 @@
 #include <linux/jiffies.h>
 #include <asm/current.h>
 #include <linux/sched.h>
+#include <linux/uaccess.h>	/* For copy_from_user/copy_to_user */
 
 #include "tizen_global_lock.h"
 
@@ -424,16 +425,20 @@ static int tgl_unlock_lock(struct tgl_session_data *session_data,
 }
 
 static int tgl_init_lock(struct tgl_session_data *session_data,
-			 struct tgl_attribute *attr)
+			 const struct tgl_attribute *args)
 {
 	struct tgl_lock *lock;
+	struct tgl_attribute attr;
 	int err;
 
-	TGL_LOG("key: %d", attr->key);
+	if (copy_from_user(&attr, args, sizeof(struct tgl_attribute)))
+		return -EFAULT;
+
+	TGL_LOG("key: %d", attr.key);
 
 	mutex_lock(&tgl_global.mutex);
 
-	lock = tgl_get_lock(tgl_global.locks, attr->key);
+	lock = tgl_get_lock(tgl_global.locks, attr.key);
 	if (lock == NULL) {
 		/*
 		 * allocate and add to the global table if this is the first
@@ -445,14 +450,14 @@ static int tgl_init_lock(struct tgl_session_data *session_data,
 			goto out_unlock;
 		}
 
-		lock->key = attr->key;
+		lock->key = attr.key;
 
 		err = tgl_insert_lock(tgl_global.locks, lock);
 		if (err < 0)
 			goto out_unlock;
 
 		/* default timeout value is 16ms */
-		lock->timeout_ms = attr->timeout_ms ? attr->timeout_ms : 16;
+		lock->timeout_ms = attr.timeout_ms ? attr.timeout_ms : 16;
 
 		init_waitqueue_head(&lock->waiting_queue);
 		INIT_LIST_HEAD(&lock->waiting_list);
@@ -551,56 +556,68 @@ out_unlock:
 }
 
 static int tgl_set_data(struct tgl_session_data *session_data,
-			struct tgl_user_data *user_data)
+			struct tgl_user_data __user *args)
 {
 	struct tgl_lock *lock;
-	unsigned int key = user_data->key;
+	struct tgl_user_data user_data;
 
-	TGL_LOG("key: %d", key);
+	if (copy_from_user(&user_data, args, sizeof(struct tgl_user_data)))
+		return -EFAULT;
+
+	TGL_LOG("key: %d", user_data.key);
 
 	mutex_lock(&tgl_global.mutex);
 
-	lock = tgl_get_lock(tgl_global.locks, key);
+	lock = tgl_get_lock(tgl_global.locks, user_data.key);
 	if (lock == NULL) {
 		TGL_WARN("lock is not in the inited locks");
 		mutex_unlock(&tgl_global.mutex);
 		return -ENOENT;
 	}
 	mutex_lock(&lock->data_mutex);
-	lock->user_data1 = user_data->data1;
-	lock->user_data2 = user_data->data2;
-	user_data->locked = lock->locked;
+	lock->user_data1 = user_data.data1;
+	lock->user_data2 = user_data.data2;
+	user_data.locked = lock->locked;
 	mutex_unlock(&lock->data_mutex);
 	mutex_unlock(&tgl_global.mutex);
 
 	TGL_LOG();
+
+	if (copy_to_user(args, &user_data, sizeof(struct tgl_user_data)))
+		return -EFAULT;
 
 	return 0;
 }
 
 static int tgl_get_data(struct tgl_session_data *session_data,
-			struct tgl_user_data *user_data)
+			struct tgl_user_data __user *args)
 {
 	struct tgl_lock *lock;
-	unsigned int key = user_data->key;
+	struct tgl_user_data user_data;
 
-	TGL_LOG("key: %d", key);
+	if (copy_from_user(&user_data, args, sizeof(struct tgl_user_data)))
+		return -EFAULT;
+
+	TGL_LOG("key: %d", user_data.key);
 	mutex_lock(&tgl_global.mutex);
 
-	lock = tgl_get_lock(tgl_global.locks, key);
+	lock = tgl_get_lock(tgl_global.locks, user_data.key);
 	if (lock == NULL) {
 		TGL_WARN("lock is not in the inited locks");
 		mutex_unlock(&tgl_global.mutex);
 		return -ENOENT;
 	}
 	mutex_lock(&lock->data_mutex);
-	user_data->data1 = lock->user_data1;
-	user_data->data2 = lock->user_data2;
-	user_data->locked = lock->locked;
+	user_data.data1 = lock->user_data1;
+	user_data.data2 = lock->user_data2;
+	user_data.locked = lock->locked;
 	mutex_unlock(&lock->data_mutex);
 	mutex_unlock(&tgl_global.mutex);
 
 	TGL_LOG();
+
+	if (copy_to_user(args, &user_data, sizeof(struct tgl_user_data)))
+		return -EFAULT;
 
 	return 0;
 }
@@ -651,7 +668,8 @@ static long tgl_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case TGL_IOC_INIT_LOCK_COMPAT:
 #endif
 		/* destroy lock with attribute */
-		err = tgl_init_lock(session_data, (struct tgl_attribute *)arg);
+		err = tgl_init_lock(session_data,
+				(const struct tgl_attribute *)arg);
 		break;
 	case TGL_IOC_DESTROY_LOCK:
 		/* destroy lock with id(=arg) */
