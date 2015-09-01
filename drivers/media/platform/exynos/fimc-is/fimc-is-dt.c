@@ -270,11 +270,11 @@ int fimc_is_parse_children_dt(struct device *dev, struct fimc_is_core *core)
 		int i;
 
 		i = of_alias_get_id(child, "fimc-lite");
-		if (i >= 0 || i < FIMC_IS_MAX_NODES)
+		if (i >= 0 && i < FIMC_IS_MAX_NODES)
 			core->lite_np[i] = child;
 
 		i = of_alias_get_id(child, "csis");
-		if (i >= 0 || i < FIMC_IS_MAX_NODES)
+		if (i >= 0 && i < FIMC_IS_MAX_NODES)
 			core->csis_np[i] = child;
 	}
 
