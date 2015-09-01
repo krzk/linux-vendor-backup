@@ -130,6 +130,11 @@
 		};
 	};
 
+	gpu@13000000 {
+		status = "okay";
+		vdd_g3d-supply = <&buck4_reg>;
+	};
+
 	adc: adc@126C0000 {
 		vdd-supply = <&ldo3_reg>;
 		status = "okay";
