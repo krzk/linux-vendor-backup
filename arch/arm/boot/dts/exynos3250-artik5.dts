@@ -625,6 +625,12 @@
 			reg = <0x13>;
 			ak4953,pdn-gpio = <&gpc0 3 0x1>;
 		};
+
+		bq24296_charger@6b {
+			compatible = "ti,bq24296";
+			reg = <0x6b>;
+			ti,chg_current = <1000 500 2000>;
+		};
 	};
 
 	i2s: i2s@13970000 {
