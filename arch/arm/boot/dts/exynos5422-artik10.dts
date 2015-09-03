@@ -196,6 +196,13 @@
 			samsung,pin-con-pdn = <0>;
 			samsung,pin-pud-pdn = <1>;
 		};
+
+		chg_irq: chg-irq {
+			samsung,pins = "gpx2-1";
+			samsung,pin-function = <0xf>;
+			samsung,pin-pud = <3>;
+			samsung,pin-drv = <3>;
+		};
 	};
 
 	pinctrl@14010000 {
@@ -502,12 +509,25 @@
 			samsung,pin-function = <0xf>;
 			samsung,pin-pud = <0>;
 		};
+	};
 
-		chg_irq: chg-irq {
-			samsung,pins = "gpx0-0";
-			samsung,pin-function = <0>;
-			samsung,pin-pud = <3>;
-			samsung,pin-drv = <3>;
+	i2c@6b {
+		compatible = "i2c-gpio";
+		gpios = <&gpy0 2 0 /* sda */
+			&gpy0 3 0 /* scl */
+			>;
+		i2c-gpio,delay-us = <2>;        /* ~100kHz */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "okay";
+
+		bq24296_charger@6b {
+			compatible = "ti,bq24296";
+			reg = <0x6b>;
+			ti,chg_current = <1000 1500 2000>;
+			gpios = <&gpx2 1 0>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&chg_irq>;
 		};
 	};
 
