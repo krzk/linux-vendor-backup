@@ -332,6 +332,13 @@ config CHARGER_MAX8998
 	  Say Y to enable support for the battery charger control sysfs and
 	  platform data of MAX8998/LP3974 PMICs.
 
+config CW2015_BATTERY
+	tristate "CW2015 Battery Fuel Guage driver"
+	depends on I2C_GPIO
+	help
+          Say Y to enable support CW2015 battery fuel guage driver for
+	  Lithium-ion(Li+) based batteries in handheld and portable devices.
+
 config CHARGER_BQ2415X
 	tristate "TI BQ2415x battery charger driver"
 	depends on I2C
