@@ -357,6 +357,12 @@ config CHARGER_BQ24160_ENABLE_WAKELOCK
 	help
 	  Say Y to enable wake_lock support in TI BQ24160 battery charger driver.
 
+config CHARGER_BQ2429X
+	tristate "TI BQ2429x battery charger support"
+	depends on I2C && GPIOLIB
+	help
+	  Say Y to enable support for the TI BQ2429x battery charger.
+
 config CHARGER_SMB347
 	tristate "Summit Microelectronics SMB347 Battery Charger"
 	depends on I2C
