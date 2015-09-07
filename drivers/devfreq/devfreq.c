@@ -163,17 +163,18 @@ int update_devfreq(struct devfreq *devfreq)
 	int err = 0;
 	u32 flags = 0;
 
+	if (!mutex_is_locked(&devfreq->lock)) {
+		WARN(true, "devfreq->lock must be locked by the caller.\n");
+		return -EINVAL;
+	}
+
 	if (!devfreq->governor)
 		return -EINVAL;
 
-	mutex_lock(&devfreq->lock);
-
 	/* Reevaluate the proper frequency */
 	err = devfreq->governor->get_target_freq(devfreq, &freq);
-	if (err) {
-		mutex_unlock(&devfreq->lock);
+	if (err)
 		return err;
-	}
 
 	/*
 	 * Adjust the freuqency with user freq and QoS.
@@ -193,10 +194,8 @@ int update_devfreq(struct devfreq *devfreq)
 	}
 
 	err = devfreq->profile->target(devfreq->dev.parent, &freq, flags);
-	if (err) {
-		mutex_unlock(&devfreq->lock);
+	if (err)
 		return err;
-	}
 
 	if (devfreq->profile->freq_table)
 		if (devfreq_update_status(devfreq, freq))
@@ -204,9 +203,6 @@ int update_devfreq(struct devfreq *devfreq)
 				"Couldn't update frequency transition information.\n");
 
 	devfreq->previous_freq = freq;
-
-	mutex_unlock(&devfreq->lock);
-
 	return err;
 }
 EXPORT_SYMBOL(update_devfreq);
@@ -222,12 +218,14 @@ static void devfreq_monitor(struct work_struct *work)
 	struct devfreq *devfreq = container_of(work,
 					struct devfreq, work.work);
 
+	mutex_lock(&devfreq->lock);
 	err = update_devfreq(devfreq);
 	if (err)
 		dev_err(&devfreq->dev, "dvfs failed with (%d) error\n", err);
 
 	queue_delayed_work(devfreq_wq, &devfreq->work,
 				msecs_to_jiffies(devfreq->profile->polling_ms));
+	mutex_unlock(&devfreq->lock);
 }
 
 /**
@@ -384,7 +382,9 @@ static int devfreq_notifier_call(struct notifier_block *nb, unsigned long type,
 	struct devfreq *devfreq = container_of(nb, struct devfreq, nb);
 	int ret;
 
+	mutex_lock(&devfreq->lock);
 	ret = update_devfreq(devfreq);
+	mutex_unlock(&devfreq->lock);
 
 	return ret;
 }

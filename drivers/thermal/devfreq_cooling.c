@@ -123,6 +123,7 @@ static int devfreq_set_cur_state(struct thermal_cooling_device *cdev,
 {
 	struct devfreq_cooling_device *devfreq_dev = cdev->devdata;
 	unsigned int limited_freq;
+	int ret;
 
 	/* Request state should be less than max_level */
 	if (WARN_ON(state > devfreq_dev->max_state))
@@ -138,9 +139,11 @@ static int devfreq_set_cur_state(struct thermal_cooling_device *cdev,
 
 	/* Set the limited frequency to maximum frequency of devfreq */
 	devfreq_dev->devfreq->max_freq = limited_freq;
-	update_devfreq(devfreq_dev->devfreq);
+	mutex_lock(&devfreq_dev->devfreq->lock);
+	ret = update_devfreq(devfreq_dev->devfreq);
+	mutex_unlock(&devfreq_dev->devfreq->lock);
 
-	return 0;
+	return ret;
 }
 
 /* Bind devfreq callbacks to thermal cooling device ops */
