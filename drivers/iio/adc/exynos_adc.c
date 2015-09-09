@@ -88,6 +88,7 @@ struct exynos_adc {
 	void __iomem		*regs;
 	void __iomem		*enable_reg;
 	struct clk		*clk;
+	struct clk		*sclk;
 	unsigned int		irq;
 	struct regulator	*vdd;
 	struct device		*dev;
@@ -125,6 +126,9 @@ static void exynos_adc_hw_init(struct exynos_adc *info)
 		if (regulator_enable(info->vdd))
 			dev_err(info->dev, "failed enabling iio regulator.\n");
 	}
+
+	if (info->sclk)
+		clk_prepare_enable(info->sclk);
 
 	clk_prepare_enable(info->clk);
 	enable_irq(info->irq);
@@ -171,6 +175,9 @@ static void exynos_adc_hw_deinit(struct exynos_adc *info)
 
 	disable_irq(info->irq);
 	clk_disable_unprepare(info->clk);
+
+	if (info->sclk)
+		clk_disable_unprepare(info->sclk);
 
 	if (info->vdd) {
 		if (regulator_disable(info->vdd))
@@ -259,11 +266,19 @@ static int exynos_adc_reg_access(struct iio_dev *indio_dev,
 		return -EINVAL;
 
 	mutex_lock(&indio_dev->mlock);
+
+	if (info->sclk)
+		clk_prepare_enable(info->sclk);
+
 	clk_prepare_enable(info->clk);
 
 	*readval = readl(info->regs + reg);
 
 	clk_disable_unprepare(info->clk);
+
+	if (info->sclk)
+		clk_disable_unprepare(info->sclk);
+
 	mutex_unlock(&indio_dev->mlock);
 
 	return 0;
@@ -377,6 +392,12 @@ static int exynos_adc_probe(struct platform_device *pdev)
 		}
 	}
 
+	info->sclk = devm_clk_get(&pdev->dev, "sclk");
+	if (IS_ERR(info->sclk))
+		info->sclk = NULL;
+	else
+		clk_set_rate(info->sclk, 6000000);
+
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
 		dev_err(&pdev->dev, "no irq resource?\n");
@@ -387,6 +408,9 @@ static int exynos_adc_probe(struct platform_device *pdev)
 	info->irq = irq;
 
 	init_completion(&info->completion);
+
+	if (info->sclk)
+		clk_prepare_enable(info->sclk);
 
 	clk_prepare_enable(info->clk);
 
@@ -400,6 +424,9 @@ static int exynos_adc_probe(struct platform_device *pdev)
 
 	disable_irq(info->irq);
 	clk_disable_unprepare(info->clk);
+
+	if (info->sclk)
+		clk_disable_unprepare(info->sclk);
 
 	info->vdd = devm_regulator_get(&pdev->dev, "vdd");
 	if (IS_ERR(info->vdd)) {
@@ -463,6 +490,9 @@ static int exynos_adc_remove(struct platform_device *pdev)
 
 	device_for_each_child(&pdev->dev, NULL,
 				exynos_adc_remove_devices);
+
+	if (info->sclk)
+		clk_prepare_enable(info->sclk);
 
 	clk_prepare_enable(info->clk);
 
