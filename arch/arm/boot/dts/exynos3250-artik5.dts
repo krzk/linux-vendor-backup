@@ -614,3 +614,9 @@
 	samsung,pins = "gpe1-2";
 	samsung,pin-con-pdn = <3>;
 };
+
+&adc {
+	status = "okay";
+	clock-names = "gate_adcif", "sclk";
+	clocks = <&clock CLK_TSADC>, <&clock CLK_SCLK_TSADC>;
+};
