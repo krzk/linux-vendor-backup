@@ -420,6 +420,7 @@
 					regulator-name = "vdd_ldo25";
 					regulator-min-microvolt = <1800000>;
 					regulator-max-microvolt = <1800000>;
+					regulator-always-on;
 				};
 
 				ldo27_reg: LDO27 {
