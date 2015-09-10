@@ -276,6 +276,16 @@ config SND_SOC_SAMSUNG_SHIRI_AK4678
 	help
 	  Say Y if you want to add support for SoC audio on the Shiri board.
 
+config SND_SOC_SAMSUNG_ARTIK_AK4953
+	tristate "SoC I2S Audio support for AK4953 on Artik board"
+	depends on SND_SOC_SAMSUNG
+	depends on I2C=y
+	select SND_SAMSUNG_I2S
+	select SND_SAMSUNG_AUDSS if SOC_EXYNOS5422
+	select SND_SOC_AK4953
+	help
+	  Say Y if you want to add support for SoC audio on the Artik board.
+
 config SND_SAMSUNG_I2S_MASTER
 	tristate "Samsung SoC I2S Clock Master"
 	depends on SND_SOC_SAMSUNG
