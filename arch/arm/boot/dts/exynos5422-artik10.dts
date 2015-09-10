@@ -252,6 +252,19 @@
 		};
 	};
 
+	i2c_1: i2c@12C70000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		samsung,i2c-max-bus-freq = <400000>;
+		status = "okay";
+
+		gaudio_codec: ak4953@13 {
+			compatible = "akm,ak4953";
+			reg = <0x13>;
+			ak4953,pdn-gpio = <&gpj4 2 0x1>;
+		};
+	};
+
 	hsi2c@12CA0000 {
 		samsung,hs-mode;
 		clock-frequency = <400000>;
@@ -754,5 +767,20 @@
 		exynos_contig_heap {
 			id-type = <4 6>;
 		};
+	};
+
+	i2s0: i2s@03830000 {
+		status = "okay";
+	};
+
+	sound {
+		compatible = "samsung,artik-ak4953";
+		clocks = <&clock 5316>;         /* fout_epll */
+		clock-names = "fout_epll";
+		samsung,i2s-controller = <&i2s0>;
+		samsung,audio-codec = <&gaudio_codec>;
+		samsung,audio-cpu = <&i2s0      /* primary */
+				     &i2s0>;    /* secondary */
+		status = "okay";
 	};
 };
