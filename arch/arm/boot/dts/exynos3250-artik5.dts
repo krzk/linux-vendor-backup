@@ -601,6 +601,39 @@
 		pinctrl-0=<&cfg_hostwake &cfg_btwake &cfg_en>;
 		status = "okay";
 	};
+
+	i2c@13870000 {
+		status = "okay";
+		samsung,i2c-sda-delay = <100>;
+		samsung,i2c-max-bus-freq = <400000>;
+		#size-cells = <0>;
+
+		gaudio_codec: ak4953@13 {
+			compatible = "akm,ak4953";
+			reg = <0x13>;
+			ak4953,pdn-gpio = <&gpc0 3 0x1>;
+		};
+	};
+
+	i2s: i2s@13970000 {
+		status = "okay";
+	};
+
+	sound {
+		compatible = "samsung,artik-ak4953";
+		samsung,audio-cpu = <&i2s>;
+		samsung,audio-codec = <&gaudio_codec>;
+		clocks = <&clock CLK_MOUT_EPLL>,
+			 <&clock CLK_FOUT_EPLL>,
+			 <&clock CLK_MOUT_AUDIO>,
+			 <&clock CLK_DIV_AUDIO>,
+			 <&clock CLK_DIV_I2S>,
+			 <&clock CLK_SCLK_I2S>;
+		clock-names = "mout_epll", "fout_epll",
+			      "mout_audio", "dout_audio",
+			      "dout_i2s", "sclk_i2s";
+		status = "okay";
+	};
 };
 
 &pmic_irq {
