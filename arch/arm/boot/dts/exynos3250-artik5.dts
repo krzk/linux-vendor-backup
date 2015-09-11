@@ -602,6 +602,18 @@
 		status = "okay";
 	};
 
+	gpio_keys {
+		compatible = "gpio-keys";
+
+		power_key {
+			label = "power key";
+			linux,code = <116>;
+			gpios = <&gpx2 7 0x1>;
+			gpio-key,wakeup = <1>;
+			debounce-interval = <0>;
+		};
+	};
+
 	i2c@13870000 {
 		status = "okay";
 		samsung,i2c-sda-delay = <100>;
