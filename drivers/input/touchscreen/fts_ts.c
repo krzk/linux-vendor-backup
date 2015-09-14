@@ -450,6 +450,50 @@ static void fts_input_close(struct input_dev *dev)
 }
 #endif
 
+static int fts_pm_suspend(struct device *dev);
+static int fts_pm_resume(struct device *dev);
+
+static ssize_t show_enabled(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	struct fts_ts_info *info = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%d\n", info->enabled);
+}
+
+static ssize_t store_enabled(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t size)
+{
+	struct fts_ts_info *info = dev_get_drvdata(dev);
+	int enabled;
+	int ret;
+
+	ret = sscanf(buf, "%d", &enabled);
+	if (ret == 0)
+		return -EINVAL;
+
+	if (enabled == info->enabled)
+		return 0;
+
+	if (enabled)
+		fts_pm_resume(&info->client->dev);
+	else
+		fts_pm_suspend(&info->client->dev);
+
+	return size;
+}
+
+static DEVICE_ATTR(enabled, S_IRUGO | S_IWUSR, show_enabled, store_enabled);
+
+static struct attribute *fts_ts_attributes[] = {
+	&dev_attr_enabled.attr,
+	NULL,
+};
+
+static struct attribute_group fts_ts_attr_group = {
+	.attrs = fts_ts_attributes,
+};
+
 static struct fts_i2c_platform_data *fts_parse_dt(struct device *dev)
 {
 	struct fts_i2c_platform_data *pdata;
@@ -477,6 +521,7 @@ static int fts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct fts_i2c_platform_data *pdata;
 	struct fts_ts_info *info;
+	struct input_dev *input_dev;
 	static char fts_ts_phys[64] = { 0 };
 	int retval;
 	int i = 0;
@@ -525,41 +570,37 @@ static int fts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	}
 
 	info->dev = &info->client->dev;
-	info->input_dev = devm_input_allocate_device(&client->dev);
-	if (!info->input_dev)
+	input_dev = devm_input_allocate_device(&client->dev);
+	if (!input_dev)
 		return -ENOMEM;
 
-	info->input_dev->dev.parent = &client->dev;
-	info->input_dev->name = "sec_touchscreen";
+	info->input_dev = input_dev;
+	input_dev->dev.parent = &client->dev;
+	input_dev->name = "sec_touchscreen";
 	snprintf(fts_ts_phys, sizeof(fts_ts_phys), "%s/input0",
-		 info->input_dev->name);
-	info->input_dev->phys = fts_ts_phys;
-	info->input_dev->id.bustype = BUS_I2C;
+			input_dev->name);
+	input_dev->phys = fts_ts_phys;
+	input_dev->id.bustype = BUS_I2C;
 #ifdef USE_OPEN_CLOSE
-	info->input_dev->open = fts_input_open;
-	info->input_dev->close = fts_input_close;
+	input_dev->open = fts_input_open;
+	input_dev->close = fts_input_close;
 #endif
-	__set_bit(EV_ABS, info->input_dev->evbit);
-	__set_bit(EV_KEY, info->input_dev->evbit);
-	set_bit(BTN_TOUCH, info->input_dev->keybit);
+	__set_bit(EV_ABS, input_dev->evbit);
+	__set_bit(EV_KEY, input_dev->evbit);
+	set_bit(BTN_TOUCH, input_dev->keybit);
 
-	input_mt_init_slots(info->input_dev, FINGER_MAX, 0);
-	input_set_abs_params(info->input_dev, ABS_MT_POSITION_X,
+	input_mt_init_slots(input_dev, FINGER_MAX, 0);
+	input_set_abs_params(input_dev, ABS_MT_POSITION_X,
 			0, info->board->max_x, 0, 0);
-	input_set_abs_params(info->input_dev, ABS_MT_POSITION_Y,
+	input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
 			0, info->board->max_y, 0, 0);
-	input_set_abs_params(info->input_dev, ABS_X,
-			0, info->board->max_x, 0, 0);
-	input_set_abs_params(info->input_dev, ABS_Y,
-			0, info->board->max_y, 0, 0);
-	input_set_abs_params(info->input_dev, ABS_MT_TOUCH_MAJOR,
-				 0, 255, 0, 0);
-	input_set_abs_params(info->input_dev, ABS_MT_TOUCH_MINOR,
-				 0, 255, 0, 0);
-	input_set_abs_params(info->input_dev, ABS_MT_DISTANCE,
-				 0, 255, 0, 0);
+	input_set_abs_params(input_dev, ABS_X, 0, info->board->max_x, 0, 0);
+	input_set_abs_params(input_dev, ABS_Y,0, info->board->max_y, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_TOUCH_MINOR, 0, 255, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_DISTANCE, 0, 255, 0, 0);
 
-	input_set_drvdata(info->input_dev, info);
+	input_set_drvdata(input_dev, info);
 	i2c_set_clientdata(client, info);
 
 	if (info->board->power)
@@ -583,7 +624,7 @@ static int fts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		goto err_fts_init;
 	}
 
-	retval = input_register_device(info->input_dev);
+	retval = input_register_device(input_dev);
 	if (retval) {
 		dev_err(&client->dev, "FTS input_register_device fail!\n");
 		goto err_fts_init;
@@ -592,6 +633,12 @@ static int fts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	for (i = 0; i < FINGER_MAX; i++) {
 		info->finger[i].state = EVENTID_LEAVE_POINTER;
 		info->finger[i].mcount = 0;
+	}
+
+	retval = sysfs_create_group(&input_dev->dev.kobj, &fts_ts_attr_group);
+	if (retval) {
+		dev_err(&client->dev, "Failed to create sysfs group\n");
+		return retval;
 	}
 
 	return 0;
