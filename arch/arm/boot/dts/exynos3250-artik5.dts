@@ -656,7 +656,8 @@
 };
 
 &pm_wrsti {
-	samsung,pins = "gpe1-2";
+	samsung,pins = "gpe2-0";
+	samsung,pin-pud = <3>;
 	samsung,pin-con-pdn = <3>;
 };
 
