@@ -440,6 +440,10 @@ static int arizona_suspend(struct device *dev)
 	struct arizona *arizona = dev_get_drvdata(dev);
 
 	dev_dbg(arizona->dev, "Suspend, disabling IRQ\n");
+
+	if (!pm_runtime_status_suspended(dev))
+		arizona_runtime_suspend(dev);
+
 	disable_irq(arizona->irq);
 
 	return 0;
@@ -470,6 +474,10 @@ static int arizona_resume(struct device *dev)
 	struct arizona *arizona = dev_get_drvdata(dev);
 
 	dev_dbg(arizona->dev, "Late resume, reenabling IRQ\n");
+
+	if (!pm_runtime_status_suspended(dev))
+		arizona_runtime_resume(dev);
+
 	enable_irq(arizona->irq);
 
 	return 0;
