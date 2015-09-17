@@ -167,7 +167,9 @@ static unsigned long pwm_calc_tin(struct pwm_device *pwm, unsigned long freq)
 	unsigned int div;
 
 	tin_parent_rate = clk_get_rate(clk_get_parent(s3c_pwm->clk_div));
+#ifdef CONFIG_ARCH_EXYNOS3
 	clk_set_rate(clk_get_parent(s3c_pwm->clk_div),tin_parent_rate);
+#endif
 
 	for (div = 2; div <= 16; div *= 2) {
 		if ((tin_parent_rate / (div << 16)) < freq)
@@ -413,7 +415,7 @@ static int s3c_pwm_clk_init(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 	static struct clk *clk_scaler[2];
-	int ret;
+	int ret = 0;
 
 	s3c->clk = devm_clk_get(dev, "gate_timers");
 	if (IS_ERR(s3c->clk)) {
@@ -431,6 +433,7 @@ static int s3c_pwm_clk_init(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
+#ifdef CONFIG_ARCH_EXYNOS3
 	ret = clk_set_parent(clk_scaler[0], s3c->clk);
 	if (ret) {
 		pr_err("failed to parent for pwm-scaler0\n");
@@ -442,8 +445,9 @@ static int s3c_pwm_clk_init(struct platform_device *pdev,
 		pr_err("failed to parent for pwm-scaler1\n");
 		return -EINVAL;
 	}
+#endif
 
-	return 0;
+	return ret;
 }
 
 #ifdef CONFIG_OF
