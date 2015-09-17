@@ -615,16 +615,4 @@ static struct platform_driver s3c_pwm_driver = {
 	.probe		= s3c_pwm_probe,
 	.remove		= s3c_pwm_remove,
 };
-
-static int __init pwm_init(void)
-{
-	int ret;
-
-	ret = platform_driver_register(&s3c_pwm_driver);
-	if (ret)
-		pr_err("failed to add pwm driver\n");
-
-	return ret;
-}
-
-arch_initcall(pwm_init);
+module_platform_driver(s3c_pwm_driver);
