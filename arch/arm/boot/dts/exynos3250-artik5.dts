@@ -666,3 +666,9 @@
 	clock-names = "gate_adcif", "sclk";
 	clocks = <&clock CLK_TSADC>, <&clock CLK_SCLK_TSADC>;
 };
+
+&sec_pwm {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm0_out>, <&pwm1_out>;
+};
