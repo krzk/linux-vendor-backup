@@ -26,10 +26,81 @@ struct tm2_machine_priv {
 	struct snd_soc_codec *codec;
 	struct clk *codec_mclk1;
 	struct clk *codec_mclk2;
+
+	unsigned int sysclk_rate;
+
 	int mic_bias;
 };
 
 static struct tm2_machine_priv tm2_machine_priv;
+
+static int tm2_start_sysclk(struct snd_soc_card *card)
+{
+	struct tm2_machine_priv *priv = snd_soc_card_get_drvdata(card);
+	struct snd_soc_codec *codec = priv->codec;
+	unsigned int mclk_rate =
+			(unsigned int)clk_get_rate(priv->codec_mclk1);
+	int ret;
+
+	ret = clk_prepare_enable(priv->codec_mclk1);
+	if (ret) {
+		dev_err(card->dev, "Failed to enable mclk: %d\n", ret);
+		return ret;
+	}
+
+	ret = snd_soc_codec_set_pll(codec, WM5110_FLL1,
+				    ARIZONA_FLL_SRC_MCLK1,
+				    mclk_rate,
+				    priv->sysclk_rate);
+	if (ret < 0) {
+		dev_err(codec->dev, "Failed to start FLL: %d\n", ret);
+		return ret;
+	}
+
+	ret = snd_soc_codec_set_pll(codec, WM5110_FLL1_REFCLK,
+				    ARIZONA_FLL_SRC_MCLK1,
+				    mclk_rate,
+				    priv->sysclk_rate);
+	if (ret < 0) {
+		dev_err(codec->dev, "Failed to set FLL1 Source: %d\n", ret);
+		return ret;
+	}
+
+	ret = snd_soc_codec_set_sysclk(codec, ARIZONA_CLK_SYSCLK,
+				       ARIZONA_CLK_SRC_FLL1,
+				       priv->sysclk_rate,
+				       SND_SOC_CLOCK_IN);
+	if (ret < 0) {
+		dev_err(codec->dev, "Failed to set SYSCLK Source: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int tm2_stop_sysclk(struct snd_soc_card *card)
+{
+	struct tm2_machine_priv *priv = snd_soc_card_get_drvdata(card);
+	struct snd_soc_codec *codec = priv->codec;
+	int ret;
+
+	ret = snd_soc_codec_set_pll(codec, WM5110_FLL1, 0, 0, 0);
+	if (ret < 0) {
+		dev_err(codec->dev, "Failed to stop FLL: %d\n", ret);
+		return ret;
+	}
+
+	ret = snd_soc_codec_set_sysclk(codec, ARIZONA_CLK_SYSCLK,
+				       ARIZONA_CLK_SRC_FLL1, 0, 0);
+	if (ret < 0) {
+		dev_err(codec->dev, "Failed to stop SYSCLK: %d\n", ret);
+		return ret;
+	}
+
+	clk_disable_unprepare(priv->codec_mclk1);
+
+	return 0;
+}
 
 static int tm2_aif1_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params)
@@ -39,9 +110,6 @@ static int tm2_aif1_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_codec *codec = rtd->codec;
 	struct tm2_machine_priv *priv =
 				snd_soc_card_get_drvdata(rtd->card);
-	unsigned int sysclk_rate;
-	unsigned int mclk_rate =
-			(unsigned int)clk_get_rate(priv->codec_mclk1);
 	int ret;
 
 	dev_dbg(codec->dev, "params_rate: %d\n", params_rate(params));
@@ -63,7 +131,7 @@ static int tm2_aif1_hw_params(struct snd_pcm_substream *substream,
 	case 96000:
 	case 192000:
 		/* highest possible SYSCLK frequency: 147.456MHz */
-		sysclk_rate = 147456000;
+		priv->sysclk_rate = 147456000;
 		break;
 	case 11025:
 	case 22050:
@@ -71,30 +139,12 @@ static int tm2_aif1_hw_params(struct snd_pcm_substream *substream,
 	case 88200:
 	case 176400:
 		/* highest possible SYSCLK frequency: 135.4752 MHz */
-		sysclk_rate = 135475200;
+		priv->sysclk_rate = 135475200;
 		break;
 	default:
 		dev_err(codec->dev, "Not supported sample rate: %d\n",
 			params_rate(params));
 		return -EINVAL;
-	}
-
-	ret = snd_soc_codec_set_pll(codec, WM5110_FLL1,
-				    ARIZONA_FLL_SRC_MCLK1,
-				    mclk_rate,
-				    sysclk_rate);
-	if (ret < 0) {
-		dev_err(codec->dev, "Failed to start FLL: %d\n", ret);
-		return ret;
-	}
-
-	ret = snd_soc_codec_set_pll(codec, WM5110_FLL1_REFCLK,
-				    ARIZONA_FLL_SRC_MCLK1,
-				    mclk_rate,
-				    sysclk_rate);
-	if (ret < 0) {
-		dev_err(codec->dev, "Failed to set FLL1 Source: %d\n", ret);
-		return ret;
 	}
 
 	ret = snd_soc_dai_set_sysclk(codec_dai, ARIZONA_CLK_SYSCLK, 0, 0);
@@ -103,47 +153,7 @@ static int tm2_aif1_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 
-	ret = snd_soc_codec_set_sysclk(codec, ARIZONA_CLK_SYSCLK,
-				       ARIZONA_CLK_SRC_FLL1,
-				       sysclk_rate,
-				       SND_SOC_CLOCK_IN);
-	if (ret < 0) {
-		dev_err(codec->dev, "Failed to set SYSCLK Source: %d\n", ret);
-		return ret;
-	}
-
-	return 0;
-}
-
-static int tm2_start_sysclk(struct snd_soc_card *card)
-{
-	struct tm2_machine_priv *priv = snd_soc_card_get_drvdata(card);
-	int ret;
-
-	ret = clk_prepare_enable(priv->codec_mclk1);
-	if (ret) {
-		dev_err(card->dev, "Failed to enable mclk: %d\n", ret);
-		return ret;
-	}
-
-	return 0;
-}
-
-static void tm2_stop_sysclk(struct snd_soc_card *card)
-{
-	struct tm2_machine_priv *priv = snd_soc_card_get_drvdata(card);
-	int ret;
-
-	ret = snd_soc_codec_set_pll(priv->codec, WM5110_FLL1, 0, 0, 0);
-	if (ret < 0)
-		dev_err(priv->codec->dev, "Failed to stop FLL: %d\n", ret);
-
-	ret = snd_soc_codec_set_sysclk(priv->codec, ARIZONA_CLK_SYSCLK,
-				       ARIZONA_CLK_SRC_FLL1, 0, 0);
-	if (ret < 0)
-		dev_err(priv->codec->dev, "Failed to stop SYSCLK: %d\n", ret);
-
-	clk_disable_unprepare(priv->codec_mclk1);
+	return tm2_start_sysclk(rtd->card);
 }
 
 static struct snd_soc_ops tm2_aif1_ops = {
@@ -331,6 +341,16 @@ static int tm2_late_probe(struct snd_soc_card *card)
 	return 0;
 }
 
+static int tm2_suspend_post(struct snd_soc_card *card)
+{
+	return tm2_stop_sysclk(card);
+}
+
+static int tm2_resume_pre(struct snd_soc_card *card)
+{
+	return tm2_start_sysclk(card);
+}
+
 static const struct snd_kcontrol_new card_controls[] = {
 	SOC_DAPM_PIN_SWITCH("HP"),
 	SOC_DAPM_PIN_SWITCH("SPK"),
@@ -451,6 +471,9 @@ static struct snd_soc_card tm2_card = {
 	.late_probe		= tm2_late_probe,
 
 	.set_bias_level		= tm2_set_bias_level,
+
+	.suspend_post		= tm2_suspend_post,
+	.resume_pre		= tm2_resume_pre,
 
 	.drvdata		= &tm2_machine_priv,
 };
