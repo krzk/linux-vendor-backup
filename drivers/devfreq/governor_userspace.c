@@ -51,7 +51,6 @@ static ssize_t store_freq(struct device *dev, struct device_attribute *attr,
 	int err = 0;
 
 
-	mutex_lock(&devfreq->lock);
 	data = devfreq->data;
 
 	sscanf(buf, "%lu", &wanted);
@@ -60,7 +59,7 @@ static ssize_t store_freq(struct device *dev, struct device_attribute *attr,
 	err = update_devfreq(devfreq);
 	if (err == 0)
 		err = count;
-	mutex_unlock(&devfreq->lock);
+
 	return err;
 }
 
