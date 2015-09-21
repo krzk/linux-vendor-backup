@@ -82,6 +82,7 @@ struct s3c_chip {
 	struct s3c_pwm_device	*s3c_pwm[NPWM];
 	unsigned int		pwm_type;
 	unsigned int		reg_tcfg0;
+	u8			inverter_mask;
 };
 
 static DEFINE_SPINLOCK(pwm_spinlock);
@@ -306,6 +307,45 @@ static int s3c_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	return 0;
 }
 
+static void s3c_pwm_set_invert(struct s3c_chip *s3c,
+			       struct s3c_pwm_device *s3c_pwm, bool invert)
+{
+	void __iomem *reg_base = s3c->reg_base;
+	unsigned int id = s3c_pwm->pwm_id;
+	unsigned long tcon;
+	unsigned long flags;
+
+	spin_lock_irqsave(&pwm_spinlock, flags);
+
+	tcon = __raw_readl(reg_base + REG_TCON);
+
+	if (invert) {
+		s3c->inverter_mask |= BIT(id);
+		tcon |= pwm_tcon_invert(s3c_pwm);
+	} else {
+		s3c->inverter_mask &= ~BIT(id);
+		tcon &= ~pwm_tcon_invert(s3c_pwm);
+	}
+
+	__raw_writel(tcon, reg_base + REG_TCON);
+
+	spin_unlock_irqrestore(&pwm_spinlock, flags);
+}
+
+static int s3c_pwm_set_polarity(struct pwm_chip *chip,
+				struct pwm_device *pwm,
+				enum pwm_polarity polarity)
+{
+	struct s3c_chip *s3c = to_s3c_chip(chip);
+	struct s3c_pwm_device *s3c_pwm = pwm_get_chip_data(pwm);
+
+	bool invert = (polarity == PWM_POLARITY_NORMAL);
+
+	s3c_pwm_set_invert(s3c, s3c_pwm, invert);
+
+	return 0;
+}
+
 static void s3c_pwm_init(struct s3c_chip *s3c, struct s3c_pwm_device *s3c_pwm)
 {
 	void __iomem *reg_base = s3c->reg_base;
@@ -407,6 +447,7 @@ static struct pwm_ops s3c_pwm_ops = {
 	.enable = s3c_pwm_enable,
 	.disable = s3c_pwm_disable,
 	.config = s3c_pwm_config,
+	.set_polarity = s3c_pwm_set_polarity,
 	.owner = THIS_MODULE,
 };
 
@@ -516,6 +557,7 @@ static int s3c_pwm_probe(struct platform_device *pdev)
 	s3c->chip.of_pwm_n_cells = 3;
 	s3c->chip.base = -1;
 	s3c->chip.npwm = NPWM;
+	s3c->inverter_mask = BIT(NPWM) - 1;
 	s3c->pwm_type = s3c_pwm_get_driver_data(dev);
 
 	ret = pwmchip_add(&s3c->chip);
