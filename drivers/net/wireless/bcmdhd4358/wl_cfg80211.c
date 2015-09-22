@@ -8314,6 +8314,15 @@ s32 wl_mode_to_nl80211_iftype(s32 mode)
 static const struct wiphy_wowlan_support brcm_wowlan_support = {
 	.flags = WIPHY_WOWLAN_ANY,
 };
+
+/*
+ * Workaround code for Tizen
+ * Fixed the WiFi disconnection issue during suspend when AP is connected
+ * Refer to commit 6abb9cb99f33b20c
+ */
+static const struct cfg80211_wowlan brcm_wowlan_config = {
+	.any = true,
+};
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0) */
 #endif /* CONFIG_PM */
 
@@ -8447,6 +8456,7 @@ static s32 wl_setup_wiphy(struct wireless_dev *wdev, struct device *sdiofunc_dev
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0))
 	wdev->wiphy->wowlan = &brcm_wowlan_support;
+	wdev->wiphy->wowlan_config = &brcm_wowlan_config;
 #else
 	wdev->wiphy->wowlan.flags = WIPHY_WOWLAN_ANY;
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 10) */
