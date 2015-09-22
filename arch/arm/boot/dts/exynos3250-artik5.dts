@@ -704,3 +704,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pwm0_out>, <&pwm1_out>;
 };
+
+&i2c_7 {
+	status = "okay";
+};
