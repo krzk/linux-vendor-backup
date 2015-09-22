@@ -678,6 +678,13 @@
 			      "dout_i2s", "sclk_i2s";
 		status = "okay";
 	};
+
+	i2c@13890000 {
+		samsung,i2c-sda-delay = <100>;
+		samsung,i2c-max-bus-freq = <400000>;
+		#size-cells = <0>;
+		status = "okay";
+	};
 };
 
 &pmic_irq {
