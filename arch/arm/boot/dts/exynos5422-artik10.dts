@@ -849,3 +849,11 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pwm0_out>, <&pwm1_out>;
 };
+
+&hsi2c_1 {
+	status = "okay";
+};
+
+&hsi2c_5 {
+	status = "okay";
+};
