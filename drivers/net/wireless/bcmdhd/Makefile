@@ -127,7 +127,7 @@ DHDCFLAGS += -DSUPPORT_P2P_GO_PS
 # KitKat
 ##########
 # Definitions are filtered by Kernel version
-DHDCFLAGS += -DWL_ENABLE_P2P_IF
+DHDCFLAGS += -DWL_CFG80211_P2P_DEV_IF
 DHDCFLAGS += -DWL_SUPPORT_BACKPORTED_KPATCHES
 # Default definitions for KitKat
 DHDCFLAGS += -DWL_CFG80211_STA_EVENT
