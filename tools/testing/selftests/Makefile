@@ -6,6 +6,7 @@ TARGETS += firmware
 TARGETS += ftrace
 TARGETS += kcmp
 TARGETS += kdbus
+TARGETS += kmsg
 TARGETS += memfd
 TARGETS += memory-hotplug
 TARGETS += mount
