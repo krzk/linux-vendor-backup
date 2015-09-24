@@ -3734,6 +3734,8 @@ static int dw_mci_init_slot(struct dw_mci *host, unsigned int id)
 	else
 		mmc->dev_drv_str = MMC_DRIVER_TYPE_0;
 
+	mmc_of_parse(mmc);
+
 	if (host->pdata->get_bus_wd)
 		bus_width = host->pdata->get_bus_wd(slot->id);
 	else if (host->dev->of_node)
