@@ -132,6 +132,8 @@ struct sec_platform_data {
 	int				buck2_init;
 	int				buck3_init;
 	int				buck4_init;
+	/* Disable the WRSTBI (buck voltage warm reset) when probing? */
+	bool				disable_wrstbi;
 };
 
 /**
