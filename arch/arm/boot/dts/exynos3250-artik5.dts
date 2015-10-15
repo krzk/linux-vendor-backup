@@ -178,7 +178,6 @@
 					regulator-name = "vcc_peri_1.8";
 					regulator-min-microvolt = <800000>;
 					regulator-max-microvolt = <2375000>;
-					regulator-initial-mode = <1>;
 					regulator-always-on;
 				};
 
