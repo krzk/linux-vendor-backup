@@ -262,7 +262,6 @@
 		supports-highspeed;
 		broken-cd;
 		non-removable;
-		enable-sdio-wakeup;
 		sw_data_timeout;
 		keep-power-in-suspend;
 		pm-ignore-notify;
