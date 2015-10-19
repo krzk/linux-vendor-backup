@@ -238,8 +238,8 @@ static int bcm_bt_lpm_init(struct platform_device *pdev)
 		(s3c_wake_peer_t)bcm_bt_lpm_exit_lpm_locked;
 
 	bt_gpio.irq = gpio_to_irq(bt_gpio.bt_hostwake);
-	ret = request_irq(bt_gpio.irq, host_wake_isr, IRQF_TRIGGER_RISING,
-		"bt_host_wake", NULL);
+	ret = devm_request_irq(&pdev->dev, bt_gpio.irq, host_wake_isr,
+			IRQF_TRIGGER_RISING, "bt_host_wake", NULL);
 	if (ret) {
 		pr_err("[BT] Request_host wake irq failed.\n");
 		return ret;
