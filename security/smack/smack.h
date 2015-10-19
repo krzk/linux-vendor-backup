@@ -100,6 +100,7 @@ struct task_smack {
 	struct smack_known	*smk_forked;	/* label when forked */
 	struct list_head	smk_rules;	/* per task access rules */
 	struct mutex		smk_rules_lock;	/* lock for the rules */
+	struct list_head	smk_relabel;	/* transit allowed labels */
 };
 
 #define	SMK_INODE_INSTANT	0x01	/* inode is instantiated */
@@ -138,7 +139,7 @@ struct smk_port_label {
 	struct smack_known	*smk_out;	/* outgoing label */
 };
 
-struct smack_onlycap {
+struct smack_known_list_elem {
 	struct list_head	list;
 	struct smack_known	*smk_label;
 };
@@ -273,6 +274,7 @@ struct smack_known *smk_import_entry(const char *, int);
 void smk_insert_entry(struct smack_known *skp);
 struct smack_known *smk_find_entry(const char *);
 int smack_privileged(int cap);
+void smk_destroy_label_list(struct list_head *list);
 
 /*
  * Shared data.
