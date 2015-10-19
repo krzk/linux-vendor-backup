@@ -244,7 +244,7 @@ config BT_WILINK
 	  into the kernel or say M to compile it as module.
 
 config BT_BCM4354
-	bool "Enable BCM4354 driver"
+	tristate "Enable BCM4354 driver"
 	default n
 	help
 	  Adds BCM4354 RFKILL driver for Broadcom BCM4354 chipset.
