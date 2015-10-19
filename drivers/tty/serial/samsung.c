@@ -94,6 +94,8 @@
 /* flag to ignore all characters coming in */
 #define RXSTAT_DUMMY_READ (0x10000000)
 
+EXPORT_SYMBOL_GPL(s3c2410_serial_wake_peer);
+
 static bool s3c24xx_serial_lpm_suspend(struct s3c24xx_uart_port *ourport);
 static void s3c24xx_serial_resetport(struct uart_port *port,
 				   struct s3c2410_uartcfg *cfg);
