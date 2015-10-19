@@ -257,10 +257,8 @@
 		clock-gate;
 		enable-cclk-on-suspend;
 		fixed_volt;
-		only_once_tune;
+		use-fine-tuning;
 		supports-highspeed;
-		broken-cd;
-		non-removable;
 		sw_data_timeout;
 		keep-power-in-suspend;
 		pm-ignore-notify;
