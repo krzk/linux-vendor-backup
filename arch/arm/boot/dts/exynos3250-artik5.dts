@@ -675,6 +675,13 @@
 		status = "okay";
 	};
 
+	artik_zb_power {
+		compatible = "samsung,artik_zb_power_v31";
+		vdd_zb-supply = <&ldo13_reg>;
+		vdd-supply = <&ldo18_reg>;
+		vdd_zbcore-supply = <&ldo21_reg>;
+	};
+
 	i2c@13890000 {
 		samsung,i2c-sda-delay = <100>;
 		samsung,i2c-max-bus-freq = <400000>;
