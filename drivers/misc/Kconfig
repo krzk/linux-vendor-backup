@@ -542,6 +542,13 @@ config AUTO_SLEEP_WAKEUP_TEST
 	bool "The dummy driver for auto sleep wakeup test"
 	default n
 
+config ARTIK_ZB_POWER
+        tristate "ARTIK Zigbee Power control driver"
+        depends on (SOC_EXYNOS3250 || SOC_EXYNOS5422)
+        default n
+        help
+          This driver allows you can control zigbee powers for artik board.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
