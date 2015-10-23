@@ -1552,8 +1552,17 @@ static int exynos_dsi_enable(struct exynos_dsi *dsi)
 
 static void exynos_dsi_disable(struct exynos_dsi *dsi)
 {
+	struct drm_encoder *encoder = dsi->display.encoder;
+
 	if (!(dsi->state & DSIM_STATE_ENABLED))
 		return;
+
+	/*
+	 * If panel is use i80 interface, encoder should wait to complete prior
+	 * pageflip before encoder disables panel because te interrupt is
+	 * happened by panel.
+	 */
+	exynos_drm_wait_for_pageflip(encoder->crtc);
 
 	dsi->state &= ~DSIM_STATE_VIDOUT_AVAILABLE;
 

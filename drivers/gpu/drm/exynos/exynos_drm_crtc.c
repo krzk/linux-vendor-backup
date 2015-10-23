@@ -376,3 +376,11 @@ void exynos_drm_crtc_te_handler(struct drm_crtc *crtc)
 	if (exynos_crtc->ops->te_handler)
 		exynos_crtc->ops->te_handler(exynos_crtc);
 }
+
+void exynos_drm_wait_for_pageflip(struct drm_crtc *crtc)
+{
+	struct exynos_drm_crtc *exynos_crtc = to_exynos_crtc(crtc);
+
+	wait_event_timeout(exynos_crtc->pending_flip_queue,
+			   (exynos_crtc->event == NULL), HZ/20);
+}

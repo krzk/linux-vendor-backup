@@ -39,4 +39,6 @@ int exynos_drm_crtc_get_pipe_from_type(struct drm_device *drm_dev,
  */
 void exynos_drm_crtc_te_handler(struct drm_crtc *crtc);
 
+void exynos_drm_wait_for_pageflip(struct drm_crtc *crtc);
+
 #endif
