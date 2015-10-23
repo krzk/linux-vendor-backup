@@ -38,22 +38,19 @@ ifeq ($(CONFIG_SOC_EXYNOS3470),y)
 endif
 
 ifeq ($(CONFIG_SOC_EXYNOS3250),y)
-       TARGET_PLATFORM=exynos3250
+	TARGET_PLATFORM=exynos3250
 endif
 
-#include $(src)/MALI_CONFIGURATION
-include $(srctree)/$(src)/MALI_CONFIGURATION
+include $(src)/MALI_CONFIGURATION
 MALI_PLATFORM = $(MALI_PLATFORM-$(TARGET_PLATFORM))
 EXTRA_DEFINES += -DMALI_FAKE_PLATFORM_DEVICE=1
-#MALI_PLATFORM_FILES = $(subst $(src)/,,$(wildcard $(src)/platform/$(MALI_PLATFORM)/*.c)) --jhpark
-MALI_PLATFORM_FILES = $(subst $(srctree)/$(src),,$(wildcard $(srctree)/$(src)/platform/$(MALI_PLATFORM)/*.c))
+MALI_PLATFORM_FILES = $(subst $(src)/,,$(wildcard $(src)/platform/$(MALI_PLATFORM)/*.c))
 # End of MALI_SEC
 
 # For customer releases the Linux Device Drivers will be provided as ARM proprietary and GPL releases:
 # The ARM proprietary product will only include the license/proprietary directory
 # The GPL product will only include the license/gpl directory
-#ifeq ($(wildcard $(src)/linux/license/gpl/*),) --jhpark
-ifeq ($(wildcard $(srctree)/$(src)/linux/license/gpl/*),)
+ifeq ($(wildcard $(src)/linux/license/gpl/*),)
     ccflags-y += -I$(src)/linux/license/proprietary
     ifeq ($(CONFIG_MALI400_PROFILING),y)
         $(error Profiling is incompatible with non-GPL license)
@@ -66,8 +63,7 @@ ifeq ($(wildcard $(srctree)/$(src)/linux/license/gpl/*),)
     endif
     $(error Linux Device integration is incompatible with non-GPL license)
 else
-#    ccflags-y += -I$(src)/linux/license/gpl --jhpark
-     ccflags-y += -I$(srctree)/$(src)/linux/license/gpl
+    ccflags-y += -I$(src)/linux/license/gpl
 endif
 
 mali-y += \
@@ -175,13 +171,13 @@ ifeq ($(MALI_UPPER_HALF_SCHEDULING),1)
 	ccflags-y += -DMALI_UPPER_HALF_SCHEDULING
 endif
 
-ccflags-$(CONFIG_MALI400_UMP) += -I$(srctree)/$(src)/../../ump/include/ump
+ccflags-$(CONFIG_MALI400_UMP) += -I$(src)/../../ump/include/ump
 ccflags-$(CONFIG_MALI400_DEBUG) += -DDEBUG
 
 # Use our defines when compiling
-ccflags-y += -I$(srctree)/$(src) -I$(srctree)/$(src)/include -I$(srctree)/$(src)/common -I$(srctree)/$(src)/linux -I$(srctree)/$(src)/platform
+ccflags-y += -I$(src) -I$(src)/include -I$(src)/common -I$(src)/linux -I$(src)/platform
 # MALI_SEC 
-ccflags-y += -I$(srctree)/$(src)/../ump/include -I$(srctree)/$(src)/include/linux/mali -I$(srctree)/$(src)/platform/$(MALI_PLATFORM)
+ccflags-y += -I$(src)/../ump/include -I$(src)/include/linux/mali -I$(src)/platform/$(MALI_PLATFORM)
 
 # Get subversion revision number, fall back to only ${MALI_RELEASE_NAME} if no svn info is available
 MALI_RELEASE_NAME=$(shell cat $(src)/.version 2> /dev/null)
