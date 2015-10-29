@@ -445,7 +445,6 @@
 					regulator-name = "vdd_ldo24";
 					regulator-min-microvolt = <2400000>;
 					regulator-max-microvolt = <2400000>;
-					regulator-always-on;
 					regulator-initial-mode = <1>;
 				};
 
@@ -469,7 +468,6 @@
 					regulator-name = "vdd_ldo28";
 					regulator-min-microvolt = <2800000>;
 					regulator-max-microvolt = <2800000>;
-					regulator-always-on;
 					regulator-initial-mode = <1>;
 				};
 
@@ -838,6 +836,12 @@
 		samsung,audio-cpu = <&i2s0      /* primary */
 				     &i2s0>;    /* secondary */
 		status = "okay";
+	};
+
+	artik_zb_power {
+		compatible = "samsung,artik_zb_power_a10";
+		vdd_zb-supply = <&ldo24_reg>;
+		vdd-supply = <&ldo28_reg>;
 	};
 };
 
