@@ -133,8 +133,6 @@
 					regulator-min-microvolt = <2400000>;
 					regulator-max-microvolt = <2400000>;
 					regulator-initial-mode = <1>;
-					regulator-always-on;
-					regulator-boot-on;
 				};
 
 				ldo16_reg: LDO16 {
@@ -170,8 +168,6 @@
 					regulator-min-microvolt = <1250000>;
 					regulator-max-microvolt = <1250000>;
 					regulator-initial-mode = <1>;
-					regulator-always-on;
-					regulator-boot-on;
 				};
 
 				ldo23_reg: LDO23 {
