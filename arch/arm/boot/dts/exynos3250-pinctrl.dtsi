@@ -151,7 +151,7 @@
 			samsung,pins = "gpb-0", "gpb-2", "gpb-3";
 			samsung,pin-function = <2>;
 			samsung,pin-pud = <3>;
-			samsung,pin-drv = <0>;
+			samsung,pin-drv = <3>;
 		};
 
 		i2c4_bus: i2c4-bus {
@@ -451,6 +451,13 @@
 
 		eint14: ext-int14 {
 			samsung,pins = "gpx1-6";
+			samsung,pin-function = <0xf>;
+			samsung,pin-pud = <3>;
+			samsung,pin-drv = <3>;
+		};
+
+		eint16: ext-int16 {
+			samsung,pins = "gpx2-0";
 			samsung,pin-function = <0xf>;
 			samsung,pin-pud = <3>;
 			samsung,pin-drv = <3>;
