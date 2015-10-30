@@ -23,6 +23,7 @@
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
+#include <linux/clk-private.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmaengine.h>
 #include <linux/platform_device.h>
@@ -46,7 +47,7 @@ static LIST_HEAD(drvdata_list);
 #endif
 
 #define MAX_SPI_PORTS		5
-#define SPI_AUTOSUSPEND_TIMEOUT		(2000)
+#define SPI_AUTOSUSPEND_TIMEOUT		(100)
 
 /* Registers and bit-fields */
 
@@ -1514,12 +1515,6 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 		goto err0;
 	}
 
-	if (clk_prepare_enable(sdd->clk)) {
-		dev_err(&pdev->dev, "Couldn't enable clock 'spi'\n");
-		ret = -EBUSY;
-		goto err0;
-	}
-
 	snprintf(clk_name, sizeof(clk_name), "spi_busclk%d", sci->src_clk_nr);
 	sdd->src_clk = devm_clk_get(&pdev->dev, clk_name);
 	if (IS_ERR(sdd->src_clk)) {
@@ -1528,15 +1523,23 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 		ret = PTR_ERR(sdd->src_clk);
 		goto err2;
 	}
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
+#else
+	if (clk_prepare_enable(sdd->clk)) {
+		dev_err(&pdev->dev, "Couldn't enable clock 'spi'\n");
+		ret = -EBUSY;
+		goto err0;
+	}
 
 	if (clk_prepare_enable(sdd->src_clk)) {
 		dev_err(&pdev->dev, "Couldn't enable clock '%s'\n", clk_name);
 		ret = -EBUSY;
 		goto err2;
 	}
+#endif
 
-	pm_runtime_enable(&pdev->dev);
-	pm_runtime_get_sync(&pdev->dev);
 
 	/* Setup Deufult Mode */
 	s3c64xx_spi_hwinit(sdd, sdd->port_id);
@@ -1570,8 +1573,6 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 	list_add_tail(&sci->node, &drvdata_list);
 #endif
 
-	clk_disable_unprepare(sdd->src_clk);
-	clk_disable_unprepare(sdd->clk);
 
 	dev_dbg(&pdev->dev, "Samsung SoC SPI Driver loaded for Bus SPI-%d with %d Slaves attached\n",
 					sdd->port_id, master->num_chipselect);
@@ -1682,8 +1683,10 @@ static int s3c64xx_spi_runtime_suspend(struct device *dev)
 	struct spi_master *master = dev_get_drvdata(dev);
 	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(master);
 
-	clk_disable_unprepare(sdd->clk);
-	clk_disable_unprepare(sdd->src_clk);
+	if (sdd->clk->enable_count)
+		clk_disable_unprepare(sdd->clk);
+	if (sdd->src_clk->enable_count)
+		clk_disable_unprepare(sdd->src_clk);
 
 	return 0;
 }
