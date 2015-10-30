@@ -11,10 +11,10 @@
 #include <linux/of.h>
 #include <linux/sec_sysfs.h>
 
-static bool artik_zb_boot_enable;
+static bool artik_zb_boot_enable = true;
 module_param_named(zb_boot_enable, artik_zb_boot_enable, bool, 0);
 MODULE_PARM_DESC(zb_boot_enable,
-		 "Enable artik zigbee power during boot (default=disabled)");
+		 "Enable artik zigbee power during boot (default=enabled)");
 
 /* Before v0.5 version, we should provide below three ldos */
 static const char * const zb_v31_supply_names[] = {
