@@ -41,6 +41,7 @@
 		gsc1 = &gsc_1;
 		mdev0 = &mdev_0;
 		jpeg0 = &jpeg_0;
+		spi0 = &spi_0;
 		spi1 = &spi_1;
 	};
 
@@ -884,6 +885,21 @@
 		io-channel-ranges;
 		status = "disabled";
 	};
+
+	spi_0: spi@13920000 {
+		compatible = "samsung,exynos4210-spi";
+		reg = <0x13920000 0x100>;
+		interrupts = <0 121 0>;
+		dmas = <&pdma0 7
+			&pdma0 6>;
+		dma-names = "tx", "rx";
+		clocks = <&clock CLK_SPI0>, <&clock CLK_SCLK_SPI0>;
+		clock-names = "spi", "spi_busclk0";
+		pinctrl-names = "default";
+		pinctrl-0 = <&spi0_bus>;
+		status = "disabled";
+	};
+
 
 	spi_1: spi@13930000 {
 		compatible = "samsung,exynos4210-spi";
