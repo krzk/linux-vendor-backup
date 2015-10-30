@@ -546,6 +546,36 @@
 		status = "okay";
 	};
 
+	spi@13920000 {
+		status = "okay";
+			#address-cells = <1>;
+			#size-cells = <0>;
+		ax88796c@0 {
+			compatible = "asix,ax88796c";
+			gpios = <&gpx2 0 1>;
+			interrupt-parent = <&gpx2>;
+			interrupts = <0 0 0>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&eint16>;
+			spi-max-frequency = <40000000>;
+			/* swap-mode; */
+			/* spi-cpol; */
+			/* spi-cpha; */
+			reg = <0x0>;
+			ax88796c,reset = <&gpe0 2 1>;
+			clocks = <&clock CLK_FOUT_MPLL>,
+				<&clock CLK_DIV_MPLL_PRE>,
+				<&clock CLK_MOUT_SPI0>,
+				<&clock CLK_SCLK_SPI0>;
+			clock-names = "fout_mpll", "dout_mpll_pre", "mout_spi0", "sclk_spi0";
+			controller-data {
+				cs-gpio = <&gpx3 4 1>;
+				samsung,spi-feedback-delay = <2>;
+				samsung,spi-chip-select-mode;
+			};
+		};
+	};
+
 	serial@13800000 {
 		status = "okay";
 	};
