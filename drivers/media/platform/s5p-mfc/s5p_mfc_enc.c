@@ -1200,6 +1200,8 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 			mfc_err("error in vb2_reqbufs() for E(S)\n");
 			return ret;
 		}
+		if (reqbufs->memory != V4L2_MEMORY_MMAP)
+			ctx->src_bufs_cnt = reqbufs->count;
 		ctx->output_state = QUEUE_BUFS_REQUESTED;
 	} else {
 		mfc_err("invalid buf type\n");
@@ -1892,7 +1894,8 @@ static int s5p_mfc_buf_init(struct vb2_buffer *vb)
 					vb2_dma_contig_plane_dma_addr(vb, 0);
 		ctx->src_bufs[i].cookie.raw.chroma =
 					vb2_dma_contig_plane_dma_addr(vb, 1);
-		ctx->src_bufs_cnt++;
+		if (vb->v4l2_buf.memory == V4L2_MEMORY_MMAP)
+			ctx->src_bufs_cnt++;
 	} else {
 		mfc_err("invalid queue type: %d\n", vq->type);
 		return -EINVAL;
