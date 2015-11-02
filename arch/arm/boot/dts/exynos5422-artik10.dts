@@ -44,7 +44,6 @@
 		fixed_volt;
 		clock-gate;
 		enable-cclk-on-suspend;
-		only_once_tune;
 		extra_tuning;
 		supports-highspeed;
 		supports-hs200-1-8v-mode;
