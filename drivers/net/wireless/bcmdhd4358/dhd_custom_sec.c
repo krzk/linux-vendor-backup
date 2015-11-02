@@ -380,7 +380,6 @@ int dhd_read_macaddr(struct dhd_info *dhd, struct ether_addr *mac)
 {
 	struct file *fp      = NULL;
 	char macbuffer[18]   = {0};
-	mm_segment_t oldfs   = {0};
 	char randommac[3]    = {0};
 	char buf[18]         = {0};
 	char *filepath_efs       = MACINFO_EFS;
@@ -395,27 +394,22 @@ start_readmac:
 			DHD_ERROR(("[WIFI_SEC] %s: File open error\n", filepath_efs));
 			return -1;
 		}
-		oldfs = get_fs();
-		set_fs(get_ds());
 
 		/* Generating the Random Bytes for 3 last octects of the MAC address */
 		get_random_bytes(randommac, 3);
-
 		sprintf(macbuffer, "%02X:%02X:%02X:%02X:%02X:%02X\n",
 			0x00, 0x12, 0x34, randommac[0], randommac[1], randommac[2]);
 		DHD_ERROR(("[WIFI_SEC] The Random Generated MAC ID: %s\n", macbuffer));
 
-		if (fp->f_mode & FMODE_WRITE) {
-			ret = fp->f_op->write(fp, (const char *)macbuffer,
-			sizeof(macbuffer), &fp->f_pos);
-			if (ret < 0)
-				DHD_ERROR(("[WIFI_SEC] MAC address [%s] Failed to write into File:"
-					" %s\n", macbuffer, filepath_efs));
-			else
-				DHD_ERROR(("[WIFI_SEC] MAC address [%s] written into File: %s\n",
-					macbuffer, filepath_efs));
-		}
-		set_fs(oldfs);
+		ret = kernel_write(fp, (const char *)macbuffer,
+				   sizeof(macbuffer), fp->f_pos);
+		if (ret < 0)
+			DHD_ERROR(("[WIFI_SEC] MAC address [%s] Failed to write"
+				   " into File: %s\n", macbuffer, filepath_efs));
+		else
+			DHD_ERROR(("[WIFI_SEC] MAC address [%s] written into File: %s\n",
+				  macbuffer, filepath_efs));
+
 		/* Reading the MAC Address from .mac.info file
 		   ( the existed file or just created file)
 		 */
@@ -476,7 +470,6 @@ int dhd_write_rdwr_macaddr(struct ether_addr *mac)
 	char *filepath_efs = MACINFO_EFS;
 	struct file *fp_mac = NULL;
 	char buf[18]      = {0};
-	mm_segment_t oldfs    = {0};
 	int ret = -1;
 
 	if ((g_imac_flag != MACADDR_COB) && (g_imac_flag != MACADDR_MOD))
@@ -491,21 +484,16 @@ int dhd_write_rdwr_macaddr(struct ether_addr *mac)
 	if (IS_ERR(fp_mac)) {
 		DHD_ERROR(("[WIFI_SEC] %s: File open error\n", filepath_data));
 		return -1;
-	}	else {
-		oldfs = get_fs();
-		set_fs(get_ds());
+	} else {
+		kernel_write(fp_mac, (const char *)buf, sizeof(buf),
+			     fp_mac->f_pos);
+		if (ret < 0)
+			DHD_ERROR(("[WIFI_SEC] Mac address [%s] Failed"
+			" to write into File: %s\n", buf, filepath_data));
+		else
+			DHD_INFO(("[WIFI_SEC] Mac address [%s] written"
+			" into File: %s\n", buf, filepath_data));
 
-		if (fp_mac->f_mode & FMODE_WRITE) {
-			ret = fp_mac->f_op->write(fp_mac, (const char *)buf,
-				sizeof(buf), &fp_mac->f_pos);
-			if (ret < 0)
-				DHD_ERROR(("[WIFI_SEC] Mac address [%s] Failed"
-				" to write into File: %s\n", buf, filepath_data));
-			else
-				DHD_INFO(("[WIFI_SEC] Mac address [%s] written"
-				" into File: %s\n", buf, filepath_data));
-		}
-		set_fs(oldfs);
 		filp_close(fp_mac, NULL);
 	}
 	/* /data/.mac.info will be created */
@@ -513,21 +501,15 @@ int dhd_write_rdwr_macaddr(struct ether_addr *mac)
 	if (IS_ERR(fp_mac)) {
 		DHD_ERROR(("[WIFI_SEC] %s: File open error\n", filepath_efs));
 		return -1;
-	}	else {
-		oldfs = get_fs();
-		set_fs(get_ds());
-
-		if (fp_mac->f_mode & FMODE_WRITE) {
-			ret = fp_mac->f_op->write(fp_mac, (const char *)buf,
-				sizeof(buf), &fp_mac->f_pos);
-			if (ret < 0)
-				DHD_ERROR(("[WIFI_SEC] Mac address [%s] Failed"
-				" to write into File: %s\n", buf, filepath_efs));
-			else
-				DHD_INFO(("[WIFI_SEC] Mac address [%s] written"
-				" into File: %s\n", buf, filepath_efs));
-		}
-		set_fs(oldfs);
+	} else {
+		ret = kernel_write(fp_mac, (const char *)buf, sizeof(buf),
+				   fp_mac->f_pos);
+		if (ret < 0)
+			DHD_ERROR(("[WIFI_SEC] Mac address [%s] Failed"
+			" to write into File: %s\n", buf, filepath_efs));
+		else
+			DHD_INFO(("[WIFI_SEC] Mac address [%s] written"
+			" into File: %s\n", buf, filepath_efs));
 		filp_close(fp_mac, NULL);
 	}
 
@@ -592,6 +574,7 @@ int dhd_check_rdwr_macaddr(struct dhd_info *dhd, dhd_pub_t *dhdp,
 			int is_zeromac;
 
 			ret = kernel_read(fp_mac, 0, buf, 18);
+
 			filp_close(fp_mac, NULL);
 			buf[17] = '\0';
 
@@ -747,7 +730,6 @@ int dhd_write_rdwr_korics_macaddr(struct dhd_info *dhd, struct ether_addr *mac)
 {
 	struct file *fp      = NULL;
 	char macbuffer[18]   = {0};
-	mm_segment_t oldfs   = {0};
 	char randommac[3]    = {0};
 	char buf[18]         = {0};
 	char *filepath_efs       = MACINFO_EFS;
@@ -765,9 +747,6 @@ int dhd_write_rdwr_korics_macaddr(struct dhd_info *dhd, struct ether_addr *mac)
 			return -1;
 		}
 
-		oldfs = get_fs();
-		set_fs(get_ds());
-
 		/* Generating the Random Bytes for
 		 * 3 last octects of the MAC address
 		 */
@@ -779,20 +758,16 @@ int dhd_write_rdwr_korics_macaddr(struct dhd_info *dhd, struct ether_addr *mac)
 		DHD_ERROR(("[WIFI_SEC] The Random Generated MAC ID : %s\n",
 			macbuffer));
 
-		if (fp->f_mode & FMODE_WRITE) {
-			ret = fp->f_op->write(fp,
-				(const char *)macbuffer,
-				sizeof(macbuffer), &fp->f_pos);
-			if (ret < 0)
-				DHD_ERROR(("[WIFI_SEC] Mac address [%s]"
-					" Failed to write into File:"
-					" %s\n", macbuffer, filepath_efs));
-			else
-				DHD_ERROR(("[WIFI_SEC] Mac address [%s]"
-					" written into File: %s\n",
-					macbuffer, filepath_efs));
-		}
-		set_fs(oldfs);
+		ret = kernel_write(fp, (const char *)macbuffer,
+				   sizeof(macbuffer), fp->f_pos);
+		if (ret < 0)
+			DHD_ERROR(("[WIFI_SEC] Mac address [%s]"
+				" Failed to write into File:"
+				" %s\n", macbuffer, filepath_efs));
+		else
+			DHD_ERROR(("[WIFI_SEC] Mac address [%s]"
+				" written into File: %s\n",
+				macbuffer, filepath_efs));
 	} else {
 	/* Reading the MAC Address from .mac.info file
 	 * (the existed file or just created file)
@@ -846,7 +821,6 @@ int dhd_write_rdwr_korics_macaddr(struct dhd_info *dhd, struct ether_addr *mac)
 static int dhd_write_cid_file(const char *filepath_cid, const char *buf, int buf_len)
 {
 	struct file *fp = NULL;
-	mm_segment_t oldfs = {0};
 	int ret = 0;
 
 	/* File is always created. */
@@ -855,19 +829,13 @@ static int dhd_write_cid_file(const char *filepath_cid, const char *buf, int buf
 		DHD_ERROR(("[WIFI_SEC] %s: File open error\n", filepath_cid));
 		return -1;
 	} else {
-		oldfs = get_fs();
-		set_fs(get_ds());
-
-		if (fp->f_mode & FMODE_WRITE) {
-			ret = fp->f_op->write(fp, buf, buf_len, &fp->f_pos);
-			if (ret < 0)
-				DHD_ERROR(("[WIFI_SEC] Failed to write CIS[%s]"
-					" into '%s'\n", buf, filepath_cid));
-			else
-				DHD_ERROR(("[WIFI_SEC] CID [%s] written into"
-					" '%s'\n", buf, filepath_cid));
-		}
-		set_fs(oldfs);
+		ret = kernel_write(fp, buf, buf_len, fp->f_pos);
+		if (ret < 0)
+			DHD_ERROR(("[WIFI_SEC] Failed to write CIS[%s]"
+				" into '%s'\n", buf, filepath_cid));
+		else
+			DHD_ERROR(("[WIFI_SEC] CID [%s] written into"
+				" '%s'\n", buf, filepath_cid));
 	}
 	filp_close(fp, NULL);
 
@@ -1085,7 +1053,6 @@ write_cid:
 static int dhd_write_mac_file(const char *filepath, const char *buf, int buf_len)
 {
 	struct file *fp = NULL;
-	mm_segment_t oldfs = {0};
 	int ret = 0;
 
 	fp = filp_open(filepath, O_RDWR | O_CREAT, 0666);
@@ -1094,17 +1061,11 @@ static int dhd_write_mac_file(const char *filepath, const char *buf, int buf_len
 		DHD_ERROR(("[WIFI_SEC] File open error\n"));
 		return -1;
 	} else {
-		oldfs = get_fs();
-		set_fs(get_ds());
-
-		if (fp->f_mode & FMODE_WRITE) {
-			ret = fp->f_op->write(fp, buf, buf_len, &fp->f_pos);
-			if (ret < 0)
-				DHD_ERROR(("[WIFI_SEC] Failed to write CIS. \n"));
-			else
-				DHD_ERROR(("[WIFI_SEC] MAC written. \n"));
-		}
-		set_fs(oldfs);
+		ret = kernel_write(fp, buf, buf_len, fp->f_pos);
+		if (ret < 0)
+			DHD_ERROR(("[WIFI_SEC] Failed to write CIS. \n"));
+		else
+			DHD_ERROR(("[WIFI_SEC] MAC written. \n"));
 	}
 	filp_close(fp, NULL);
 
@@ -1196,7 +1157,6 @@ int dhd_write_macaddr(struct ether_addr *mac)
 
 	struct file *fp_mac = NULL;
 	char buf[WRMAC_BUF_SIZE]      = {0};
-	mm_segment_t oldfs    = {0};
 	int ret = -1;
 	int retry_count = 0;
 
@@ -1213,20 +1173,14 @@ startwrite:
 		DHD_ERROR(("[WIFI_SEC] %s: File open error\n", filepath_data));
 		return -1;
 	} else {
-		oldfs = get_fs();
-		set_fs(get_ds());
-
-		if (fp_mac->f_mode & FMODE_WRITE) {
-			ret = fp_mac->f_op->write(fp_mac, (const char *)buf,
-				sizeof(buf), &fp_mac->f_pos);
-			if (ret < 0)
-				DHD_ERROR(("[WIFI_SEC] Mac address [%s] Failed to"
-				" write into File: %s\n", buf, filepath_data));
-			else
-				DHD_INFO(("[WIFI_SEC] Mac address [%s] written"
-				" into File: %s\n", buf, filepath_data));
-		}
-		set_fs(oldfs);
+		ret = kernel_write(fp_mac, (const char *)buf,
+				   sizeof(buf), fp_mac->f_pos);
+		if (ret < 0)
+			DHD_ERROR(("[WIFI_SEC] Mac address [%s] Failed to"
+			" write into File: %s\n", buf, filepath_data));
+		else
+			DHD_INFO(("[WIFI_SEC] Mac address [%s] written"
+			" into File: %s\n", buf, filepath_data));
 		filp_close(fp_mac, NULL);
 	}
 	/* check .mac.info file is 0 byte */
@@ -1253,20 +1207,14 @@ startwrite:
 		DHD_ERROR(("[WIFI_SEC] %s: File open error\n", filepath_efs));
 		return -1;
 	} else {
-		oldfs = get_fs();
-		set_fs(get_ds());
-
-		if (fp_mac->f_mode & FMODE_WRITE) {
-			ret = fp_mac->f_op->write(fp_mac, (const char *)buf,
-				sizeof(buf), &fp_mac->f_pos);
-			if (ret < 0)
-				DHD_ERROR(("[WIFI_SEC] Mac address [%s] Failed to"
-				" write into File: %s\n", buf, filepath_efs));
-			else
-				DHD_INFO(("[WIFI_SEC] Mac address [%s] written"
-				" into File: %s\n", buf, filepath_efs));
-		}
-		set_fs(oldfs);
+		ret = kernel_write(fp_mac, (const char *)buf,
+				   sizeof(buf), fp_mac->f_pos);
+		if (ret < 0)
+			DHD_ERROR(("[WIFI_SEC] Mac address [%s] Failed to"
+			" write into File: %s\n", buf, filepath_efs));
+		else
+			DHD_INFO(("[WIFI_SEC] Mac address [%s] written"
+			" into File: %s\n", buf, filepath_efs));
 		filp_close(fp_mac, NULL);
 	}
 
@@ -1539,21 +1487,6 @@ int sec_get_param(dhd_pub_t *dhd, int mode)
 char version_info[512];
 char version_old_info[512];
 
-int write_filesystem(struct file *file, unsigned long long offset,
-	unsigned char* data, unsigned int size)
-{
-	mm_segment_t oldfs;
-	int ret;
-
-	oldfs = get_fs();
-	set_fs(get_ds());
-
-	ret = vfs_write(file, data, size, &offset);
-
-	set_fs(oldfs);
-	return ret;
-}
-
 uint32 sec_save_wlinfo(char *firm_ver, char *dhd_ver, char *nvram_p)
 {
 	struct file *fp = NULL;
@@ -1660,7 +1593,7 @@ uint32 sec_save_wlinfo(char *firm_ver, char *dhd_ver, char *nvram_p)
 		DHD_ERROR(("[WIFI_SEC] %s: .wifiver.info File open failed.\n",
 			__FUNCTION__));
 	} else {
-		ret = write_filesystem(fp, fp->f_pos, version_info, sizeof(version_info));
+		ret = kernel_write(fp, version_info, sizeof(version_info), fp->f_pos);
 		DHD_INFO(("[WIFI_SEC] sec_save_wlinfo done. ret : %d\n", ret));
 		DHD_ERROR(("[WIFI_SEC] save .wifiver.info file.\n"));
 		filp_close(fp, NULL);
