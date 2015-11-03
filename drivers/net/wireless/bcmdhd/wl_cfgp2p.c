@@ -2606,7 +2606,7 @@ wl_cfgp2p_add_p2p_disc_if(struct bcm_cfg80211 *cfg)
 	struct wireless_dev *wdev = NULL;
 	struct ether_addr primary_mac;
 
-	if (!cfg)
+	if (!cfg || !cfg->p2p)
 		return ERR_PTR(-EINVAL);
 
 	WL_TRACE(("Enter\n"));
