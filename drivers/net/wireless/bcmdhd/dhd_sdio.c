@@ -8119,7 +8119,7 @@ dhdsdio_disconnect(void *ptr)
 static int
 dhdsdio_suspend(void *context)
 {
-	int ret = 0;
+	int ret = 0, retry_count = 5;
 
 	dhd_bus_t *bus = (dhd_bus_t*)context;
 #ifdef SUPPORT_P2P_GO_PS
@@ -8130,6 +8130,10 @@ dhdsdio_suspend(void *context)
 	}
 #endif /* SUPPORT_P2P_GO_PS */
 	ret = dhd_os_check_wakelock(bus->dhd);
+	while (ret && retry_count--) {
+		msleep(100);
+		ret = dhd_os_check_wakelock(bus->dhd);
+	}
 #ifdef SUPPORT_P2P_GO_PS
 	if ((!ret) && (bus->dhd->up) && (bus->dhd->op_mode != DHD_FLAG_HOSTAP_MODE)) {
 		if (wait_event_timeout(bus->bus_sleep, bus->sleeping, wait_time) == 0) {
