@@ -161,7 +161,7 @@ static const struct mipi_phy_device_desc s5pv210_mipi_phy = {
 			.enable_reg = EXYNOS4_MIPI_PHY_CONTROL(0),
 			.enable_map = EXYNOS_MIPI_REGMAP_PMU,
 			.reset_val = EXYNOS4_MIPI_PHY_SRESETN,
-			.reset_reg = EXYNOS4_MIPI_PHY_ENABLE,
+			.reset_reg = EXYNOS4_MIPI_PHY_CONTROL(0),
 			.reset_map = EXYNOS_MIPI_REGMAP_PMU,
 		}, {
 			/* EXYNOS_MIPI_PHY_ID_DSIM0 */
