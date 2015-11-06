@@ -1413,8 +1413,12 @@ int fimc_is_group_buffer_finish(struct fimc_is_groupmgr *groupmgr,
 	BUG_ON(!group);
 	BUG_ON(!group->leader.vctx);
 	BUG_ON(group->instance >= FIMC_IS_MAX_NODES);
-	BUG_ON(group->id >= GROUP_ID_MAX);
-	BUG_ON(index >= FRAMEMGR_MAX_REQUEST);
+
+	if (WARN_ON(group->id >= GROUP_ID_MAX))
+		return -EINVAL;
+
+	if (WARN_ON(index >= FRAMEMGR_MAX_REQUEST))
+		return -EINVAL;
 
 	framemgr = GET_GROUP_FRAMEMGR(group);
 
