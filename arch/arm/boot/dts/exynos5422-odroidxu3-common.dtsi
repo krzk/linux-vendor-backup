@@ -28,10 +28,6 @@
 		linux,stdout-path = &serial_2;
 	};
 
-	fimd@14400000 {
-		status = "okay";
-	};
-
 	firmware@02073000 {
 		compatible = "samsung,secure-firmware";
 		reg = <0x02073000 0x1000>;
