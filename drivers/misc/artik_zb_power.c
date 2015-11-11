@@ -16,11 +16,6 @@ module_param_named(zb_boot_enable, artik_zb_boot_enable, bool, 0);
 MODULE_PARM_DESC(zb_boot_enable,
 		 "Enable artik zigbee power during boot (default=enabled)");
 
-static bool artik_zb_power_workaround = true;
-module_param_named(zb_power_workaround, artik_zb_power_workaround, bool, 0);
-MODULE_PARM_DESC(zb_power_workaround,
-	"Enable artik zigbee power workaround during boot (default=enabled)");
-
 /* Before v0.5 version, we should provide below three ldos */
 static const char * const zb_v31_supply_names[] = {
 	"vdd_zb",	/* 2.4v */
@@ -209,22 +204,6 @@ static int artik_zb_power_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Failed to turn power on\n");
 			ret = -ENODEV;
 			goto err_control;
-		}
-
-		if (artik_zb_power_workaround) {
-			ret = artik_zb_power_control(pdata, 0);
-			if (ret) {
-				dev_err(&pdev->dev, "Failed to turn power off\n");
-				ret = -ENODEV;
-				goto err_control;
-			}
-
-			ret = artik_zb_power_control(pdata, 1);
-			if (ret) {
-				dev_err(&pdev->dev, "Failed to turn power on\n");
-				ret = -ENODEV;
-				goto err_control;
-			}
 		}
 	}
 
