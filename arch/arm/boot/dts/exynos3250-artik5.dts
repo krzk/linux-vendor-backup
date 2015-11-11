@@ -621,6 +621,24 @@
 			samsung,pin-con-pdn = <2>;
 			samsung,pin-pud-pdn = <0>;
 		};
+
+		zb_rstn: zb-rstn {
+			samsung,pins = "gpm0-1";
+			samsung,pin-function = <1>;
+			samsung,pin-pud = <0>;
+			samsung,pin-val = <1>;
+			samsung,pin-con-pdn = <2>;
+			samsung,pin-pud-pdn = <1>;
+		};
+
+		zb_bootloader: zb-bootloader {
+			samsung,pins = "gpe0-0";
+			samsung,pin-function = <1>;
+			samsung,pin-pud = <0>;
+			samsung,pin-val = <1>;
+			samsung,pin-con-pdn = <2>;
+			samsung,pin-pud-pdn = <1>;
+		};
 	};
 
 	wlan {
@@ -703,6 +721,8 @@
 
 	artik_zb_power {
 		compatible = "samsung,artik_zb_power_v31";
+		pinctrl-names = "default";
+		pinctrl-0 = <&zb_rstn &zb_bootloader>;
 		vdd_zb-supply = <&ldo13_reg>;
 		vdd-supply = <&ldo18_reg>;
 		vdd_zbcore-supply = <&ldo21_reg>;
