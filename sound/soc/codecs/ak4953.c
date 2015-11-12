@@ -1081,6 +1081,8 @@ static int ak4953_remove(struct snd_soc_codec *codec)
 
 	ak4953_set_bias_level(codec, SND_SOC_BIAS_OFF);
 
+	gpio_set_value(ak4953_data->pdn, 0);
+
 	return 0;
 }
 
@@ -1089,11 +1091,15 @@ static int ak4953_suspend(struct device *dev)
 {
 	ak4953_set_bias_level(ak4953_codec, SND_SOC_BIAS_OFF);
 
+	gpio_set_value(ak4953_data->pdn, 0);
+
 	return 0;
 }
 
 static int ak4953_resume(struct device *dev)
 {
+	gpio_set_value(ak4953_data->pdn, 1);
+
 	ak4953_set_bias_level(ak4953_codec, SND_SOC_BIAS_STANDBY);
 
 	return 0;
@@ -1161,7 +1167,7 @@ static int ak4953_i2c_parse_dt(struct i2c_client *i2c, struct ak4953_priv *p)
 
 	dev_dbg(dev, "p->pdn = %u\n", p->pdn);
 
-	ret = gpio_request(p->pdn, "PDNA");
+	ret = devm_gpio_request(dev, p->pdn, "PDNA");
 	if (ret) {
 		dev_err(dev, "%s: failed to request reset gpio PDNA\n",
 				__func__);
