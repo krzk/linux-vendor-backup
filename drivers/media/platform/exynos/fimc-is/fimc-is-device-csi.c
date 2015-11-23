@@ -363,7 +363,7 @@ int fimc_is_csi_probe(void *parent, u32 instance)
 	csi->phy = devm_phy_get(&device->pdev->dev, "csis");
 	if (IS_ERR(csi->phy)) {
 		ret = PTR_ERR(csi->phy);
-		goto p_err_free1;
+		goto p_err_free2;
 	}
 
 	csi->instance = instance;
