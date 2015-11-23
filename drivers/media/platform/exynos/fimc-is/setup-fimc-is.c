@@ -43,13 +43,13 @@ int fimc_is_set_parent_dt(struct platform_device *pdev,
 	struct clk *p;
 	struct clk *c;
 
-	p = clk_get(&pdev->dev, parent);
+	p = devm_clk_get(&pdev->dev, parent);
 	if (IS_ERR(p)) {
 		pr_err("%s: could not lookup clock : %s\n", __func__, parent);
 		return -EINVAL;
 	}
 
-	c = clk_get(&pdev->dev, child);
+	c = devm_clk_get(&pdev->dev, child);
 	if (IS_ERR(c)) {
 		pr_err("%s: could not lookup clock : %s\n", __func__, child);
 		return -EINVAL;
@@ -64,7 +64,7 @@ int fimc_is_set_rate_dt(struct platform_device *pdev,
 {
 	struct clk *target;
 
-	target = clk_get(&pdev->dev, conid);
+	target = devm_clk_get(&pdev->dev, conid);
 	if (IS_ERR(target)) {
 		pr_err("%s: could not lookup clock : %s\n", __func__, conid);
 		return -EINVAL;
@@ -80,7 +80,7 @@ unsigned int  fimc_is_get_rate_dt(struct platform_device *pdev,
 	struct clk *target;
 	unsigned int rate_target;
 
-	target = clk_get(&pdev->dev, conid);
+	target = devm_clk_get(&pdev->dev, conid);
 	if (IS_ERR(target)) {
 		pr_err("%s: could not lookup clock : %s\n", __func__, conid);
 		return -EINVAL;
@@ -98,7 +98,7 @@ unsigned int  fimc_is_enable_dt(struct platform_device *pdev,
 {
 	struct clk *target;
 
-	target = clk_get(&pdev->dev, conid);
+	target = devm_clk_get(&pdev->dev, conid);
 	if (IS_ERR(target)) {
 		pr_err("%s: could not lookup clock : %s\n", __func__, conid);
 		return -EINVAL;
@@ -115,7 +115,7 @@ void  fimc_is_disable_dt(struct platform_device *pdev,
 {
 	struct clk *target;
 
-	target = clk_get(&pdev->dev, conid);
+	target = devm_clk_get(&pdev->dev, conid);
 	if (IS_ERR(target)) {
 		pr_err("%s: could not lookup clock : %s\n", __func__, conid);
 	}
