@@ -501,8 +501,10 @@ static void sii8620_fetch_edid(struct sii8620 *ctx)
 			if (int3 & BIT_DDC_CMD_DONE)
 				break;
 
-			if (!(cbus & BIT_CBUS_STATUS_CBUS_CONNECTED))
+			if (!(cbus & BIT_CBUS_STATUS_CBUS_CONNECTED)) {
+				kfree(edid);
 				return;
+			}
 		} while (1);
 
 		sii8620_readb(ctx, REG_DDC_STATUS);
