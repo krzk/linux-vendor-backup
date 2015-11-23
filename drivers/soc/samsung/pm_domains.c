@@ -235,6 +235,7 @@ static __init int exynos4_pm_init_power_domain(void)
 
 			if (IS_ERR(pd->oscclk)) {
 				pr_err("Could not get oscclk for %s domain\n", pd->pd.name);
+				kfree(pd);
 				continue;
 			}
 
