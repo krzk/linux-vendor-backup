@@ -127,7 +127,7 @@
 
 #define S3C64XX_SPI_TRAILCNT		S3C64XX_SPI_MAX_TRAILCNT
 
-#define msecs_to_loops(t) (loops_per_jiffy / 1000 * HZ * t)
+#define msecs_to_loops(t) (loops_per_jiffy / 1000 * HZ * (t))
 
 #define RXBUSY    (1<<2)
 #define TXBUSY    (1<<3)

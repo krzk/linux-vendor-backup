@@ -10,6 +10,9 @@
  * published by the Free Software Foundation.
  */
 
+#ifndef __MEDIA_FIMC_IS_DEVICE_OIS_H
+#define __MEDIA_FIMC_IS_DEVICE_OIS_H
+
 struct fimc_is_device_ois {
 	struct v4l2_device				v4l2_dev;
 	struct platform_device				*pdev;
@@ -48,3 +51,5 @@ bool fimc_is_ois_read_userdata(struct fimc_is_core *core);
 void fimc_is_ois_exif_data(struct fimc_is_core *core);
 int fimc_is_ois_get_exif_data(struct fimc_is_ois_exif **exif_info);
 void fimc_is_ois_fw_status(struct fimc_is_core *core, u8 *checksum, u8 *caldata);
+
+#endif

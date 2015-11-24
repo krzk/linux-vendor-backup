@@ -14,6 +14,9 @@
 #include <linux/slab.h>
 #include "fimc-is-core.h"
 
+#ifndef __MEDIA_FIMC_IS_FAN53555_H
+#define __MEDIA_FIMC_IS_FAN53555_H
+
 typedef unsigned char BYTE;
 
 #define REG_VSEL0		0x00
@@ -106,4 +109,4 @@ int fan53555_get_vout_val(int sel);
 const char *fan53555_get_vout_str(int sel);
 int fan53555_set_vsel0_vout(struct i2c_client *client, int vout);
 
-
+#endif

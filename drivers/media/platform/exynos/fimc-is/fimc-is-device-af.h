@@ -10,6 +10,9 @@
  * published by the Free Software Foundation.
  */
 
+#ifndef __MEDIA_FIMC_IS_DEVICE_AF_H
+#define __MEDIA_FIMC_IS_DEVICE_AF_H
+
 struct fimc_is_device_af {
 	struct v4l2_device				v4l2_dev;
 	struct platform_device				*pdev;
@@ -27,3 +30,5 @@ struct remove_af_noise {
 int fimc_is_af_i2c_write(struct i2c_client *client ,u16 addr, u16 data);
 int16_t fimc_is_af_enable(void *device, bool onoff);
 int16_t fimc_is_af_move_lens(struct fimc_is_core *core);
+
+#endif
