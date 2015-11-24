@@ -93,7 +93,7 @@ int s5p_mfc_clock_on(void)
 #endif
 
 	for (i = 0; i < pm->num_clocks; i++) {
-		int ret = clk_enable(pm->clocks[i]);
+		ret = clk_enable(pm->clocks[i]);
 		if (ret) {
 			while (--i > 0)
 				clk_disable(pm->clocks[i]);
