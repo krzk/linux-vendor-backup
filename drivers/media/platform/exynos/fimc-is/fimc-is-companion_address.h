@@ -1,3 +1,6 @@
+#ifndef __MEDIA_FIMC_IS_FIMC_IS_COMPANION_ADDRESS_H
+#define __MEDIA_FIMC_IS_FIMC_IS_COMPANION_ADDRESS_H
+
 /*2P2 Address*/
 #define	MEM_GRAS_B_2P2						0x2001A000      //      0x00000000      0x1A00  0x2001A000      0x0020
 #define	MEM_AF_10_1_2P2						0x2000B900      //      0x00000000      0x0200  0x2000B900      0x0020
@@ -24,3 +27,4 @@
 #define	grasTuning_actuatorPositionToShadingPowerLut_0_IMX240		0x40000984	//	    0x0032	0x0002	0x2000097C	0x0002
 #define	grasTuning_actuatorPositionToShadingPowerLut_9_IMX240		0x40000996	//	    0x00CF	0x0002	0x2000098E	0x0002
 
+#endif

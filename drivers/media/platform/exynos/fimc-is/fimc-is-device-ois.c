@@ -515,7 +515,7 @@ int fimc_is_ois_self_test(struct fimc_is_core *core)
 	do {
 		ret = fimc_is_ois_i2c_read(core->client1, 0x0014, &val);
 		if (ret != 0) {
-			val = -EIO;
+			ret = -EIO;
 			break;
 		}
 		msleep(10);
@@ -527,7 +527,7 @@ int fimc_is_ois_self_test(struct fimc_is_core *core)
 
 	ret = fimc_is_ois_i2c_read(core->client1, 0x0004, &val);
 	if (ret != 0) {
-		val = -EIO;
+		ret = -EIO;
 	}
 
 	if (core->use_ois_hsi2c) {
@@ -535,7 +535,7 @@ int fimc_is_ois_self_test(struct fimc_is_core *core)
 	}
 
 	pr_info("%s(%d) : X\n", __FUNCTION__, val);
-	return (int)val;
+	return ret == 0 ? val : ret;
 }
 
 bool fimc_is_ois_diff_test(struct fimc_is_core *core, int *x_diff, int *y_diff)
