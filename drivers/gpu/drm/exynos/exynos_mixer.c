@@ -42,6 +42,7 @@
 #include "exynos_mixer.h"
 
 #define MIXER_WIN_NR		3
+#define VP_DEFAULT_WIN		2
 #define MIXER_DEFAULT_WIN	0
 
 /* The pixelformats that are natively supported by the mixer. */
@@ -1233,6 +1234,8 @@ static int mixer_bind(struct device *dev, struct device *manager, void *data)
 		return ret;
 
 	for (zpos = 0; zpos < MIXER_WIN_NR; zpos++) {
+		if (zpos == VP_DEFAULT_WIN && !ctx->vp_enabled)
+			continue;
 		type = (zpos == MIXER_DEFAULT_WIN) ? DRM_PLANE_TYPE_PRIMARY :
 						DRM_PLANE_TYPE_OVERLAY;
 		ret = exynos_plane_init(drm_dev, &ctx->planes[zpos],
