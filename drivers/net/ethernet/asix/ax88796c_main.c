@@ -59,6 +59,10 @@ MODULE_PARM_DESC(ps_level,
 module_param(msg_enable, int, 0);
 MODULE_PARM_DESC(msg_enable, "Message level");
 
+static char *macaddr;
+module_param(macaddr, charp, 0);
+MODULE_PARM_DESC(macaddr, "MAC address");
+
 MODULE_AUTHOR("ASIX");
 MODULE_DESCRIPTION("ASIX AX88796C SPI Ethernet driver");
 MODULE_LICENSE("GPL");
@@ -366,6 +370,9 @@ static int ax88796c_load_mac_addr(struct net_device *ndev)
 
 	/* Supported for no EEPROM */
 	if (!is_valid_ether_addr(ndev->dev_addr)) {
+		if (macaddr && mac_pton(macaddr, ndev->dev_addr))
+			return 0;
+
 		if (netif_msg_probe(ax_local))
 			netdev_info(ndev, "Use random MAC address\n");
 
