@@ -45,7 +45,7 @@
 
 /* NAMING CONSTANT AND TYPE DECLARATIONS */
 /* These identify the driver base version and may not be removed. */
-#define DRV_NAME	"AX88796C-SPI"
+#define DRV_NAME	"asix"
 #define ADP_NAME	"ASIX AX88796C SPI Ethernet Adapter"
 #define DRV_VERSION	"1.2.0"
 
