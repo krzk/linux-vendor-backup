@@ -44,6 +44,10 @@ struct ax88172_int_data {
 	__le16 res3;
 } __packed;
 
+static char *macaddr;
+module_param(macaddr, charp, 0);
+MODULE_PARM_DESC(macaddr, "MAC address");
+
 static void asix_status(struct usbnet *dev, struct urb *urb)
 {
 	struct ax88172_int_data *event;
@@ -65,6 +69,8 @@ static void asix_set_netdev_dev_addr(struct usbnet *dev, u8 *addr)
 	if (is_valid_ether_addr(addr)) {
 		memcpy(dev->net->dev_addr, addr, ETH_ALEN);
 	} else {
+		if (macaddr && mac_pton(macaddr, dev->net->dev_addr))
+			return;
 		netdev_info(dev->net, "invalid hw address, using random\n");
 		eth_hw_addr_random(dev->net);
 	}
