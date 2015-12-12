@@ -199,6 +199,12 @@
 			samsung,pin-pud = <3>;
 			samsung,pin-drv = <3>;
 		};
+
+		key_pullup: key-pullup {
+			samsung,pins = "gpx1-3";
+			samsung,pin-pud = <3>;
+			samsung,pin-pud-pdn = <3>;
+		};
 	};
 
 	pinctrl@14010000 {
@@ -841,6 +847,24 @@
 		compatible = "samsung,artik_zb_power_a10";
 		vdd_zb-supply = <&ldo24_reg>;
 		vdd-supply = <&ldo28_reg>;
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		poll-interval = <100>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&key_pullup>;
+
+		button@1 {
+			label = "gpio-keys: KEY_POWER";
+			interrupts = <3 0 0>;
+			interrupt-parent = <&gpx1>;
+			linux,code = <116>;
+			gpios = <&gpx1 3 0xf>;
+			gpio-key,wakeup = <1>;
+		};
 	};
 };
 
