@@ -878,11 +878,13 @@
 	};
 
 	artik_zb_power {
-		compatible = "samsung,artik_zb_power_a10";
+		compatible = "samsung,artik_zb_power";
 		pinctrl-names = "default";
 		pinctrl-0 = <&zb_rstn &zb_bootloader>;
 		vdd_zb-supply = <&ldo24_reg>;
 		vdd-supply = <&ldo28_reg>;
+		vcca-supply = <&ldo32_reg>;
+		vccb-supply = <&ldo17_reg>;
 	};
 
 	gpio_keys {
