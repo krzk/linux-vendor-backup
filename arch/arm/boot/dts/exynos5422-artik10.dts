@@ -413,6 +413,13 @@
 					regulator-initial-mode = <1>;
 				};
 
+				ldo17_reg: LDO17 {
+					regulator-name = "vdd_ldo17";
+					regulator-min-microvolt = <2800000>;
+					regulator-max-microvolt = <2800000>;
+					regulator-initial-mode = <1>;
+				};
+
 				ldo18_reg: LDO18 {
 					regulator-name = "vdd_ldo18";
 					regulator-min-microvolt = <1800000>;
@@ -473,6 +480,13 @@
 					regulator-name = "vdd_ldo28";
 					regulator-min-microvolt = <2800000>;
 					regulator-max-microvolt = <2800000>;
+					regulator-initial-mode = <1>;
+				};
+
+				ldo32_reg: LDO32 {
+					regulator-name = "vdd_lcd_1v8";
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <1800000>;
 					regulator-initial-mode = <1>;
 				};
 
