@@ -207,6 +207,17 @@
 		};
 	};
 
+	pinctrl@13410000 {
+		zb_rstn: zb-rstn {
+			samsung,pins = "gpd1-1";
+			samsung,pin-function = <1>;
+			samsung,pin-pud = <0>;
+			samsung,pin-val = <1>;
+			samsung,pin-con-pdn = <2>;
+			samsung,pin-pud-pdn = <1>;
+		};
+	};
+
 	pinctrl@14010000 {
 		pwm0_out: pwm0-out {
 			samsung,pins = "gpb2-0";
@@ -220,6 +231,15 @@
 			samsung,pin-function = <2>;
 			samsung,pin-pud = <3>;
 			samsung,pin-drv = <0>;
+		};
+
+		zb_bootloader: zb-bootloader {
+			samsung,pins = "gph0-7";
+			samsung,pin-function = <1>;
+			samsung,pin-pud = <0>;
+			samsung,pin-val = <1>;
+			samsung,pin-con-pdn = <2>;
+			samsung,pin-pud-pdn = <1>;
 		};
 	};
 
@@ -859,6 +879,8 @@
 
 	artik_zb_power {
 		compatible = "samsung,artik_zb_power_a10";
+		pinctrl-names = "default";
+		pinctrl-0 = <&zb_rstn &zb_bootloader>;
 		vdd_zb-supply = <&ldo24_reg>;
 		vdd-supply = <&ldo28_reg>;
 	};
