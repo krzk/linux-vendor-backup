@@ -31,9 +31,13 @@ static const char * const zb_artik10_supply_names[] = {
 	NULL,
 };
 
-/* Since v0.5, only vbrd(2.8v vdd) is required */
+/* Since v0.5, vbrd(2.8v vdd), vcca, vccb are required.
+ * For backward compatibility, vdd_zb should be also provided */
 static const char * const zb_supply_names[] = {
+	"vdd_zb",	/* 2.4v */
 	"vdd",		/* 2.8v */
+	"vcca",
+	"vccb",
 	NULL,
 };
 
