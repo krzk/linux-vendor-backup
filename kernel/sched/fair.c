@@ -7824,8 +7824,9 @@ __init void init_sched_fair_class(void)
 #ifdef CONFIG_HMP_FREQUENCY_INVARIANT_SCALE
 static u32 cpufreq_calc_scale(u32 min, u32 max, u32 curr)
 {
-	u32 result = curr / max;
-	return result;
+	if (max == 0)
+		max = 1024;
+	return curr / max;
 }
 
 static void extents_update_max_min(struct cpufreq_extents *extents)
