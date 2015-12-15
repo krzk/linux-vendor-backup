@@ -77,6 +77,15 @@
 		#clock-cells = <1>;
 	};
 
+	sys_reg: syscon@10010000 {
+		compatible = "samsung,exynos3-sysreg", "syscon";
+		reg = <0x10010000 0x400>;
+	};
+
+	pmu_system_controller: system-controller@10020000 {
+		compatible = "samsung,exynos3250-pmu", "syscon";
+		reg = <0x10020000 0x4000>;
+	};
 
 	gic:interrupt-controller@10481000 {
 		compatible = "arm,cortex-a7-gic";
