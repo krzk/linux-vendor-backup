@@ -763,4 +763,5 @@
 
 &i2c_7 {
 	status = "okay";
+	samsung,sysreg-phandle = <&sys_reg>;
 };
