@@ -108,6 +108,9 @@ static LIST_HEAD(drvdata_list);
 /* Exynos5 Sysreg offset */
 #define EXYNOS5_SYS_I2C_CFG	0x0234
 
+/* Exynos3 Sysreg offset */
+#define EXYNOS3_SYS_I2C_CFG	0x0228
+
 /* i2c controller state */
 enum s3c24xx_i2c_state {
 	STATE_IDLE,
@@ -1042,13 +1045,19 @@ s3c24xx_i2c_parse_dt(struct device_node *np, struct s3c24xx_i2c *i2c)
 	 * are available then re-configure the interrupts via the
 	 * system register.
 	 */
-	id = of_alias_get_id(np, "i2c");
 	i2c->sysreg = syscon_regmap_lookup_by_phandle(np,
 			"samsung,sysreg-phandle");
 	if (IS_ERR(i2c->sysreg))
 		return;
 
-	regmap_update_bits(i2c->sysreg, EXYNOS5_SYS_I2C_CFG, BIT(id), 0);
+	if (of_machine_is_compatible("samsung,exynos3250")) {
+		regmap_update_bits(i2c->sysreg, EXYNOS3_SYS_I2C_CFG, BIT(0),
+				0);
+	} else if (of_machine_is_compatible("samsung,exynos5250")) {
+		id = of_alias_get_id(np, "i2c");
+		regmap_update_bits(i2c->sysreg, EXYNOS5_SYS_I2C_CFG,
+				BIT(id), 0);
+	}
 }
 #else
 static void
