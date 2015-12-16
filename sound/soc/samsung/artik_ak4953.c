@@ -196,8 +196,22 @@ static int artik_hw_params(struct snd_pcm_substream *substream,
 			return ret;
 		}
 		break;
+	case 11025:
+	case 22050:
 	case 44100:
 		epll = 45158400;
+		ret = set_aud_pll_rate(epll);
+		if (ret) {
+			pr_err("%s: set_aud_pll_rate return error %d\n",
+					__func__, ret);
+			return ret;
+		}
+		break;
+	case 8000:
+	case 16000:
+	case 32000:
+	case 64000:
+		epll = 65536000;
 		ret = set_aud_pll_rate(epll);
 		if (ret) {
 			pr_err("%s: set_aud_pll_rate return error %d\n",
