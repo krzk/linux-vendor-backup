@@ -566,7 +566,7 @@ static int exynos_enter_lowpower(struct cpuidle_device *dev,
 	if (num_online_cpus() > 1)
 #if defined (CONFIG_EXYNOS_CPUIDLE_C2)
 #if defined (CONFIG_EXYNOS_CLUSTER_POWER_DOWN)
-		return exynos_enter_c2(dev, drv, 1);
+		return exynos_enter_c2(dev, drv, 2);
 #else
 		return exynos_enter_c2(dev, drv, 1);
 #endif
