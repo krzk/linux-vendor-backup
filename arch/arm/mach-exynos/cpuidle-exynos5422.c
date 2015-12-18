@@ -905,7 +905,7 @@ static int __init exynos_init_cpuidle(void)
 
 		/* Eagle will not change idle time correlation factor */
 		if (cpu_id & 0x4)
-			device->skip_idle_correlation = true;
+			device->skip_idle_correlation = false;
 		else
 			device->skip_idle_correlation = false;
 
