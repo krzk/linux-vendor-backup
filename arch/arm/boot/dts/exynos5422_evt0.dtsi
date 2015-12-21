@@ -620,7 +620,7 @@
 		clock-names = "sysmmu", "master";
 		clocks = <&clock 1322>, <&clock 1329>;
 		qos = <15>;
-		mmu-masters = <&fimd_fb>;
+		mmu-masters = <&fimd_drm>;
 		prop-map {
 			winmap = <0x11>;
 		};
@@ -634,10 +634,22 @@
 		clock-names = "sysmmu", "master";
 		clocks = <&clock 1321>, <&clock 1329>;
 		qos = <15>;
-		mmu-masters = <&fimd_fb>;
+		mmu-masters = <&fimd_drm>;
 		prop-map {
 			winmap = <0xe>;
 		};
+	};
+
+	fimd_drm: fimd-drm@14400000 {
+		compatible = "samsung,exynos5250-fimd";
+		interrupt-parent = <&combiner>;
+		reg = <0x14400000 0x40000>;
+		samsung,power-domain = <&spd_fimd>;
+		interrupt-names = "fifo", "vsync", "lcd_sys";
+		interrupts = <18 4>, <18 5>, <18 6>;
+		clocks = <&clock 1061>, <&clock 1329>;
+		clock-names = "sclk_fimd", "fimd";
+		samsung,sysreg = <&sysreg_system_controller>;
 	};
 
 	/* disp_driver */
