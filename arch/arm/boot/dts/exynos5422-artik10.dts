@@ -14,7 +14,7 @@
 
 / {
 	model = "Samsung ARTIK10 board based on EXYNOS5422";
-	compatible = "samsung,artik10", "samsung,exynos5422";
+	compatible = "samsung,artik10", "samsung,exynos5422", "samsung,exynos5";
 
 	memory {
 		reg = <0x40000000 0x80000000>;
@@ -270,30 +270,99 @@
 		status = "okay";
 	};
 
-	hdmi@14530000 {
-		gpios = <&gpx3 7 0xf>, <&gpy4 2 0x1>, <&gpy4 3 0x1>,
-			<&gpd1 7 0x1>;	/* HDMI_5V */
+	regulators {
+                compatible = "simple-bus";
+                #address-cells = <1>;
+                #size-cells = <0>;
+
+                vdd_5v: voltage-regulator-0 {
+                        compatible = "regulator-fixed";
+                        regulator-name = "VDD_5V";
+                        regulator-min-microvolt = <5000000>;
+                        regulator-max-microvolt = <5000000>;
+                        gpio = <&gpd1 7 0>;
+                        enable-active-high;
+                        regulator-always-on;
+                };
+
+                hdmi_ls_en: voltage-regulator-1 {
+                        compatible = "regulator-fixed";
+                        regulator-name = "HDMI_LS_EN";
+                        regulator-min-microvolt = <1800000>;
+                        regulator-max-microvolt = <1800000>;
+                        gpio = <&gpy4 2 0>;
+                        enable-active-high;
+                        regulator-always-on;
+                };
+
+                hdmi_dcdc_en: voltage-regulator-2 {
+                        compatible = "regulator-fixed";
+                        regulator-name = "HDMI_DCDC_EN";
+                        regulator-min-microvolt = <1800000>;
+                        regulator-max-microvolt = <1800000>;
+                        gpio = <&gpy4 3 0>;
+                        enable-active-high;
+                        regulator-always-on;
+                };
+        };
+
+	hdmiphy: hdmiphy@145D0000 {
+		compatible = "exynos4412-phy";
+		reg = <0x145D0000 0x20>;
+		#phy-cells = <1>;
 	};
 
-	i2c@50 {
-		compatible = "i2c-gpio";
-		gpios = <&gpb2 2 0>,	/* sda */
-			<&gpb2 3 0>;	/* scl */
-		i2c-gpio,delay-us = <2>;
-
-		#address-cells = <1>;
-		#size-cells = <0>;
-		status = "okay";
-		/* hdmi edid dirver */
-		edid@50 {
-			compatible = "samsung,exynos5-edid_driver";
-			reg = <0x50>;
+	pinctrl@13400000 {
+		hdmi_hpd_irq: hdmi-hpd-irq {
+			samsung,pins = "gpx3-7";
+			samsung,pin-function = <0>;
+			samsung,pin-pud = <1>;
 		};
+	};
 
-		/* hdmi hdcp dirver */
-		hdcp@3A {
-			compatible = "samsung,exynos5-hdcp_driver";
-			reg = <0x3A>;
+	hdmi: hdmi@14530000 {
+		compatible = "samsung,exynos5420-hdmi";
+		reg = <0x14530000 0x70000>;
+		interrupts = <0 95 0>;
+		samsung,power-domain = <&spd_hdmi>;
+		clock-names = "hdmi", "sclk_hdmi", "sclk_pixel",
+				"sclk_hdmiphy", "mout_hdmi";
+		clocks = <&clock 1323>, <&clock 1059>, <&clock 1058>,
+			 <&clock 28>, <&clock 2108>;
+		phy = <&hdmiphy>;
+		samsung,syscon-phandle = <&pmu_system_controller>;
+		phys = <&hdmiphy 0>;
+		phy-names = "hdmiphy";
+		hpd-gpio = <&gpx3 7 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&hdmi_hpd_irq>;
+		ddc = <&hsi2c_3>;
+
+		vdd_osc-supply = <&ldo7_reg>;
+		vdd_pll-supply = <&ldo6_reg>;
+		vdd-supply = <&hdmi_dcdc_en>;
+		hdmi-en-supply = <&hdmi_ls_en>;
+		hdmi_5v-supply = <&vdd_5v>;
+
+		status = "okay";
+	};
+
+	mixer: mixer@14450000 {
+		compatible = "samsung,exynos5420-mixer";
+		reg = <0x14450000 0x1000>;
+		interrupts = <0 94 0>;
+		samsung,power-domain = <&spd_mixer>;
+		clock-names = "mixer", "hdmi", "sclk_hdmi";
+		clocks = <&clock 1324>, <&clock 1323>, <&clock 1059>;
+	};
+
+	hsi2c_3: hsi2c@12CD0000 {
+		status = "okay";
+		samsung,i2c-max-bus-freq = <100000>;
+
+		hdmiddc@50 {
+			compatible = "samsung,exynos4210-hdmiddc";
+			reg = <0x50>;
 		};
 	};
 
@@ -632,186 +701,6 @@
 		status = "disabled";
 	};
 
-	fimd_fb: fimd_fb {
-		gpios = <&gpx0 2 0xf>;
-
-		fimd: fimd_ctrl {
-			samsung,left_margin = <10>;
-			samsung,right_margin = <10>;
-			samsung,upper_margin = <4>;
-			samsung,lower_margin = <3>;
-			samsung,hsync_len = <10>;
-			samsung,vsync_len = <1>;
-			samsung,xres = <1080>;
-			samsung,yres = <1920>;
-			samsung,virtual_x = <1080>;
-			samsung,virtual_y = <1920>;
-
-			samsung,width = <71>;
-			samsung,height = <114>;
-			samsung,max_bpp = <32>;
-			samsung,default_bpp = <24>;
-
-			fb_driver_data {
-				fb_win_variant_0 {
-					has_osd_c = <1>;
-					has_osd_d = <0>;
-					has_osd_alpha = <0>;
-					osd_size_off = <0x08>;
-					palette_size = <256>;
-					VALID_BPP_1248 = <1>;
-					VALID_BPP_13 = <1>;
-					VALID_BPP_15 = <1>;
-					VALID_BPP_16 = <1>;
-					VALID_BPP_18 = <1>;
-					VALID_BPP_19 = <1>;
-					VALID_BPP_24 = <1>;
-					VALID_BPP_25 = <1>;
-					VALID_BPP_32 = <1>;
-				};
-
-				fb_win_variant_1 {
-					has_osd_c = <1>;
-					has_osd_d = <1>;
-					has_osd_alpha = <1>;
-					osd_size_off = <0x0c>;
-					palette_size = <256>;
-					VALID_BPP_1248 = <1>;
-					VALID_BPP_13 = <1>;
-					VALID_BPP_15 = <1>;
-					VALID_BPP_16 = <1>;
-					VALID_BPP_18 = <1>;
-					VALID_BPP_19 = <1>;
-					VALID_BPP_24 = <1>;
-					VALID_BPP_25 = <1>;
-					VALID_BPP_32 = <1>;
-				};
-
-				fb_win_variant_2 {
-					has_osd_c = <1>;
-					has_osd_d = <1>;
-					has_osd_alpha = <1>;
-					osd_size_off = <0x0c>;
-					palette_size = <256>;
-					VALID_BPP_1248 = <1>;
-					VALID_BPP_13 = <1>;
-					VALID_BPP_15 = <1>;
-					VALID_BPP_16 = <1>;
-					VALID_BPP_18 = <1>;
-					VALID_BPP_19 = <1>;
-					VALID_BPP_24 = <1>;
-					VALID_BPP_25 = <1>;
-					VALID_BPP_32 = <1>;
-				};
-
-				fb_win_variant_3 {
-					has_osd_c = <1>;
-					has_osd_d = <0>;
-					has_osd_alpha = <1>;
-					osd_size_off = <0x0>;
-					palette_size = <256>;
-					VALID_BPP_1248 = <1>;
-					VALID_BPP_13 = <1>;
-					VALID_BPP_15 = <1>;
-					VALID_BPP_16 = <1>;
-					VALID_BPP_18 = <1>;
-					VALID_BPP_19 = <1>;
-					VALID_BPP_24 = <1>;
-					VALID_BPP_25 = <1>;
-					VALID_BPP_32 = <1>;
-				};
-
-				fb_win_variant_4 {
-					has_osd_c = <1>;
-					has_osd_d = <0>;
-					has_osd_alpha = <1>;
-					osd_size_off = <0x0>;
-					palette_size = <256>;
-					VALID_BPP_1248 = <1>;
-					VALID_BPP_13 = <1>;
-					VALID_BPP_15 = <1>;
-					VALID_BPP_16 = <1>;
-					VALID_BPP_18 = <1>;
-					VALID_BPP_19 = <1>;
-					VALID_BPP_24 = <1>;
-					VALID_BPP_25 = <1>;
-					VALID_BPP_32 = <1>;
-				};
-			};
-		};
-
-		mipi_dsi: mipi_dsi {
-			gpios = <&gpy5 2 0x1>, <&gpy1 0 0x1>;
-			interrupt-parent = <&gic>;
-			interrupts = <0 82 0>;
-			/* Interface definition: 0 - DSIM_COMMAND,
-						 1 - DSIM_VIDEO */
-			e_interface = <1>;
-
-			/* Pixel format : 0 - DSIM_CMD_3BPP,
-					  1 - DSIM_CMD_8BPP,
-					  2 - DSIM_CMD_12BPP,
-					  3 - DSIM_CMD_16BPP,
-					  4 - DSIM_VID_16BPP_565,
-					  5 - DSIM_VID_18BPP_666PACKED,
-					  6 - DSIM_18BPP_666LOOSELYPACKED,
-					  7 - DSIM_24BPP_888 */
-			e_pixel_format = <7>;
-
-			/* main frame fifo auto flush at VSYNC pulse */
-			auto_flush = <0>;
-			eot_disable = <1>;
-			auto_vertical_cnt = <0>;
-			hse = <0>;
-			hfp = <0>;
-			hbp = <0>;
-			hsa = <0>;
-
-			/* num of data lane : 0 - DSIM_DATA_LANE_1,
-					      1 - DSIM_DATA_LANE_2,
-					      2 - DSIM_DATA_LANE_3,
-					      3 - DSIM_DATA_LANE_4 */
-			e_no_data_lane = <3>;
-
-			/* byte clock divider : 0 - DSIM_PLL_OUT_DIV8,
-						1 - DSIM_EXT_CLK_DIV8,
-						2 - DSIM_EXT_CLK_BYPASS */
-			e_byte_clk = <0>;
-
-			/* Burst mode : 0 - DSIM_NON_BURST_SYNC_EVENT,
-					2 - DSIM_NON_BURST_SYNC_PULSE,
-					1 - DSIM_BURST
-					4 - DSIM_NON_VIDEO_MODE */
-			e_burst_mode = <1>;
-
-			/* PMS
-			- 1. LCD_S6E8AA0 : p - 4, m - 80, s - 2
-			- 2. LCD_S6E3FA0(COMMAND): p - 2, m - 46, s - 1
-			- 3. LCD_S6E3FA0(VIDEO): p - 4, m - 75, s - 1
-			- 4. LCD_S6E3HA0(COMMAND): p - 2, m - 46, s - 1*/
-			p = <2>;
-			m = <46>;
-			s = <1>;
-
-			/* D-PHY PLL stable time spec :
-			   min = 200usec ~ max 400usec */
-			pll_stable_time = <500>;
-
-			/* escape clk : 7MHz */
-			esc_clk = <7000000>;
-
-			/* stop state holding counter
-			after bta change count 0 ~ 0xfff */
-			stop_holding_cnt = <0x0fff>;
-
-			/* bta timeout 0 ~ 0xff */
-			bta_timeout = <0xff>;
-
-			/* lp rx timeout 0 ~ 0xffff */
-			rx_timeout = <0xffff>;
-		};
-	};
-
 	ion {
 		compatible = "samsung,exynos5430-ion";
 
@@ -900,5 +789,9 @@
 };
 
 &hsi2c_5 {
+	status = "okay";
+};
+
+&fimd_drm {
 	status = "okay";
 };
