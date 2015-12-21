@@ -195,6 +195,19 @@
 		};
 	};
 
+	pmu_system_controller: system-controller@10040000 {
+		compatible = "samsung,exynos5420-pmu", "syscon";
+		reg = <0x10040000 0x5000>;
+		clock-names = "clkout16";
+		clocks = <&clock 1>;
+		#clock-cells = <1>;
+	};
+
+	sysreg_system_controller: syscon@10050000 {
+		compatible = "samsung,exynos5-sysreg", "syscon";
+		reg = <0x10050000 0x5000>;
+	};
+
 	mct@101C0000 {
 		compatible = "samsung,exynos4210-mct";
 		reg = <0x101C0000 0x800>;
