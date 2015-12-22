@@ -154,8 +154,6 @@ out:
 	exynos_drm_fini_buf(obj->dev, buf);
 	exynos_gem_obj->buffer = NULL;
 
-	drm_gem_free_mmap_offset(obj);
-
 	/* release file pointer to gem object. */
 	drm_gem_object_release(obj);
 
@@ -654,7 +652,6 @@ int exynos_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 
 err_close_vm:
 	drm_gem_vm_close(vma);
-	drm_gem_free_mmap_offset(obj);
 
 	return ret;
 }
