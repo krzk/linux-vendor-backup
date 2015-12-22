@@ -538,6 +538,11 @@ config SRAM
 	  the genalloc API. It is supposed to be used for small on-chip SRAM
 	  areas found on many SoCs.
 
+config TIZEN_GLOBAL_LOCK
+	bool "Tizen Global Lock"
+	help
+	  This supports global lock feature for Tizen.
+
 config AUTO_SLEEP_WAKEUP_TEST
 	bool "The dummy driver for auto sleep wakeup test"
 	default n

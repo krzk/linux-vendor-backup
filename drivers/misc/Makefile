@@ -55,6 +55,7 @@ obj-$(CONFIG_INTEL_MEI)		+= mei/
 obj-$(CONFIG_VMWARE_VMCI)	+= vmw_vmci/
 obj-$(CONFIG_LATTICE_ECP3_CONFIG)	+= lattice-ecp3-config.o
 obj-$(CONFIG_SRAM)		+= sram.o
+obj-$(CONFIG_TIZEN_GLOBAL_LOCK)	+= tizen_global_lock.o
 obj-$(CONFIG_AUTO_SLEEP_WAKEUP_TEST) += auto_sleep_wakeup_test.o
 obj-$(CONFIG_SCHED_HMP)		+= cci400.o
 obj-$(CONFIG_MIPI_LLI)		+= mipi-lli/
