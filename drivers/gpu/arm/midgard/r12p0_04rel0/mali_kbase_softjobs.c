@@ -834,9 +834,7 @@ static int kbase_mem_copy_from_extres(struct kbase_context *kctx,
 
 		KBASE_DEBUG_ASSERT(dma_buf != NULL);
 
-		ret = dma_buf_begin_cpu_access(dma_buf, 0,
-				buf_data->nr_extres_pages*PAGE_SIZE,
-				DMA_FROM_DEVICE);
+		ret = dma_buf_begin_cpu_access(dma_buf, DMA_FROM_DEVICE);
 		if (ret)
 			goto out_unlock;
 
@@ -855,9 +853,7 @@ static int kbase_mem_copy_from_extres(struct kbase_context *kctx,
 			if (target_page_nr >= buf_data->nr_pages)
 				break;
 		}
-		dma_buf_end_cpu_access(dma_buf, 0,
-				buf_data->nr_extres_pages*PAGE_SIZE,
-				DMA_FROM_DEVICE);
+		dma_buf_end_cpu_access(dma_buf, DMA_FROM_DEVICE);
 		break;
 	}
 #endif
