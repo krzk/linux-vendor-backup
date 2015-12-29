@@ -214,6 +214,7 @@
 #define CLK_MOUT_SW_ACLK400     651
 #define CLK_MOUT_USER_ACLK300_GSCL	652
 #define CLK_MOUT_SW_ACLK300_GSCL	653
+#define CLK_MOUT_EPLL		654
 
 /* divider clocks */
 #define CLK_DOUT_PIXEL		768
