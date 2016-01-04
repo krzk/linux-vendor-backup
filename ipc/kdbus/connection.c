@@ -53,6 +53,11 @@
 #define KDBUS_CONN_ACTIVE_BIAS	(INT_MIN + 2)
 #define KDBUS_CONN_ACTIVE_NEW	(INT_MIN + 1)
 
+/* Disable internal kdbus policy - possibilities of connections to own, see and
+ * talk to names are restricted by libdbuspolicy library and LSM hooks
+ */
+#define DISABLE_KDBUS_POLICY
+
 static struct kdbus_conn *kdbus_conn_new(struct kdbus_ep *ep, bool privileged,
 					 struct kdbus_cmd_hello *hello,
 					 const char *name,
@@ -1218,13 +1223,10 @@ static struct kdbus_reply *kdbus_conn_call(struct kdbus_conn *src,
 	if (ret)
 		goto exit;
 
-	/* Disable internal kdbus policy - possibilities of connections to own,
-	 * see and talk to well-known names are restricted by LSM hooks
 	if (!kdbus_conn_policy_talk(src, current_cred(), dst)) {
 		ret = -EPERM;
 		goto exit;
 	}
-	*/
 
 	wait = kdbus_reply_new(dst, src, &kmsg->msg, name, true);
 	if (IS_ERR(wait)) {
@@ -1303,12 +1305,9 @@ static int kdbus_conn_unicast(struct kdbus_conn *src, struct kdbus_kmsg *kmsg)
 		if (!kdbus_match_db_match_kmsg(dst->match_db, src, kmsg) ||
 		    !kdbus_conn_policy_talk(dst, NULL, src))
 			goto exit;
-        /* Disable internal kdbus policy - possibilities of connections to own,
-         * see and talk to well-known names are restricted by LSM hooks
 	} else if (!kdbus_conn_policy_talk(src, current_cred(), dst)) {
 		ret = -EPERM;
 		goto exit;
-	*/
 	} else if (kmsg->msg.flags & KDBUS_MSG_EXPECT_REPLY) {
 		wait = kdbus_reply_new(dst, src, &kmsg->msg, name, false);
 		if (IS_ERR(wait)) {
@@ -1475,6 +1474,10 @@ bool kdbus_conn_policy_own_name(struct kdbus_conn *conn,
 	unsigned int hash = kdbus_strhash(name);
 	int res;
 
+#ifdef DISABLE_KDBUS_POLICY
+	return true;
+#endif
+
 	if (!conn_creds)
 		conn_creds = conn->cred;
 
@@ -1507,6 +1510,11 @@ bool kdbus_conn_policy_talk(struct kdbus_conn *conn,
 			    const struct cred *conn_creds,
 			    struct kdbus_conn *to)
 {
+
+#ifdef DISABLE_KDBUS_POLICY
+	return true;
+#endif
+
 	if (!conn_creds)
 		conn_creds = conn->cred;
 
@@ -1543,6 +1551,10 @@ bool kdbus_conn_policy_see_name_unlocked(struct kdbus_conn *conn,
 {
 	int res;
 
+#ifdef DISABLE_KDBUS_POLICY
+	return true;
+#endif
+
 	/*
 	 * By default, all names are visible on a bus. SEE policies can only be
 	 * installed on custom endpoints, where by default no name is visible.
@@ -1573,6 +1585,11 @@ static bool kdbus_conn_policy_see(struct kdbus_conn *conn,
 				  const struct cred *conn_creds,
 				  struct kdbus_conn *whom)
 {
+
+#ifdef DISABLE_KDBUS_POLICY
+	return true;
+#endif
+
 	/*
 	 * By default, all names are visible on a bus, so a connection can
 	 * always see other connections. SEE policies can only be installed on
