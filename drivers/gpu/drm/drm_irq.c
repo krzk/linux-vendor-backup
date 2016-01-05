@@ -856,7 +856,7 @@ int drm_calc_vbltimestamp_from_scanoutpos(struct drm_device *dev,
 			   mode->crtc_clock);
 
 	if (!drm_timestamp_monotonic)
-		etime = ktime_mono_to_real(etime);
+		etime = ktime_get_monotonic_offset();
 
 	/* save this only for debugging purposes */
 	tv_etime = ktime_to_timeval(etime);
