@@ -24,6 +24,7 @@
 #include <linux/mutex.h>
 #include <linux/regulator/consumer.h>
 #include <linux/switch.h>
+#include <linux/v4l2-mediabus.h>
 #include <uapi/linux/v4l2-dv-timings.h>
 
 #include <media/v4l2-subdev.h>
