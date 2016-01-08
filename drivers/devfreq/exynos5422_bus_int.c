@@ -107,8 +107,6 @@ struct int_bus_opp_table int_bus_opp_list[] = {
 	{LV_3,   400000,  987500, 0},
 	{LV_4,   333000,  950000, 0},
 	{LV_5,   222000,  950000, 0},
-	{LV_6,   111000,  950000, 0},
-	{LV_7,    83000,  925000, 0},
 #else
 	{LV_2,   400000,  987500, 0},
 	{LV_3,   333000,  950000, 0},
@@ -1182,7 +1180,7 @@ static DEVICE_ATTR(freq_table, S_IRUGO, show_freq_table, NULL);
 
 
 static struct exynos_devfreq_platdata default_qos_int_pd = {
-	.default_qos = 83000,
+	.default_qos = 222000,
 };
 
 static int exynos5_int_reboot_notifier_call(struct notifier_block *this,
