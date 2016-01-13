@@ -93,6 +93,7 @@ struct fimd_driver_data {
 	unsigned int lcdblk_offset;
 	unsigned int lcdblk_vt_shift;
 	unsigned int lcdblk_bypass_shift;
+	unsigned int lcdblk_mic_bypass_shift;
 
 	unsigned int has_shadowcon:1;
 	unsigned int has_clksel:1;
@@ -139,6 +140,7 @@ static struct fimd_driver_data exynos5_fimd_driver_data = {
 	.lcdblk_offset = 0x214,
 	.lcdblk_vt_shift = 24,
 	.lcdblk_bypass_shift = 15,
+	.lcdblk_mic_bypass_shift = 11,
 	.has_shadowcon = 1,
 	.has_vidoutcon = 1,
 	.has_vtsel = 1,
@@ -161,6 +163,7 @@ struct fimd_context {
 	u32				i80ifcon;
 	bool				i80_if;
 	bool				suspended;
+	bool				mic_bypass;
 	int				pipe;
 	wait_queue_head_t		wait_vsync_queue;
 	atomic_t			wait_vsync_event;
@@ -407,6 +410,14 @@ static void fimd_commit(struct exynos_drm_crtc *crtc)
 				0x1 << driver_data->lcdblk_bypass_shift,
 				0x1 << driver_data->lcdblk_bypass_shift)) {
 		DRM_ERROR("Failed to update sysreg for bypass setting.\n");
+		return;
+	}
+
+	if (ctx->mic_bypass && ctx->sysreg && regmap_update_bits(ctx->sysreg,
+				driver_data->lcdblk_offset,
+				0x1 << driver_data->lcdblk_mic_bypass_shift,
+				0x1 << driver_data->lcdblk_mic_bypass_shift)) {
+		DRM_ERROR("Failed to update sysreg for bypass mic.\n");
 		return;
 	}
 
@@ -1087,6 +1098,9 @@ static int fimd_probe(struct platform_device *pdev)
 		ctx->vidcon1 |= VIDCON1_INV_VDEN;
 	if (of_property_read_bool(dev->of_node, "samsung,invert-vclk"))
 		ctx->vidcon1 |= VIDCON1_INV_VCLK;
+
+	if (of_property_read_bool(dev->of_node, "samsung,mic-bypass"))
+		ctx->mic_bypass = true;
 
 	i80_if_timings = of_get_child_by_name(dev->of_node, "i80-if-timings");
 	if (i80_if_timings) {
