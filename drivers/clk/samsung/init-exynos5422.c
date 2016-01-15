@@ -428,6 +428,12 @@ void isp_init_clock(void)
     exynos_set_parent("mout_isp_sensor", "fin_pll");
 }
 
+void fimd_init_clock(void)
+{
+	exynos_set_parent("mout_fimd1", "mout_mpll_ctrl");
+	exynos_set_rate("dout_fimd1", 266 * 1000000);
+}
+
 void __init exynos5422_clock_init(void)
 {
 /* EXYNOS5422 C2 enable support */
@@ -447,4 +453,5 @@ void __init exynos5422_clock_init(void)
 	mfc_clock_init();
 	crypto_init_clock();
 	isp_init_clock();
+	fimd_init_clock();
 }
