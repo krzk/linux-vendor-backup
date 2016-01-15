@@ -658,6 +658,20 @@
 		#phy-cells = <1>;
 	};
 
+	mipi_dsi: dsi@14500000 {
+		compatible = "samsung,exynos5422-mipi-dsi";
+		reg = <0x14500000 0x8000>;
+		interrupts = <0 82 0>;
+		samsung,power-domain = <&spd_fimd>;
+		phys = <&mipi_phy 3>;
+		phy-names = "dsim";
+		clocks = <&clock 1326>, <&clock 1060>;
+		clock-names = "bus_clk", "pll_clk";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+	};
+
 	/* disp_driver */
 	fimd_fb: fimd_fb {
 		compatible = "samsung,exynos5-disp_driver";
