@@ -868,4 +868,5 @@
 
 &fimd_drm {
 	status = "okay";
+	samsung,mic-bypass;
 };
