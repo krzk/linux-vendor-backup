@@ -304,6 +304,20 @@
                         enable-active-high;
                         regulator-always-on;
                 };
+
+		vcc_lcd1v8: voltage-regulator-3 {
+                        compatible = "regulator-fixed";
+			regulator-name = "VCC_LCD1V8";
+                        regulator-min-microvolt = <1800000>;
+                        regulator-max-microvolt = <1800000>;
+		};
+
+		vddext_28: voltage-regulator-4 {
+                        compatible = "regulator-fixed";
+			regulator-name = "VDDEXT_28";
+                        regulator-min-microvolt = <2800000>;
+                        regulator-max-microvolt = <2800000>;
+		};
         };
 
 	hdmiphy: hdmiphy@145D0000 {
@@ -790,6 +804,66 @@
 
 &hsi2c_5 {
 	status = "okay";
+};
+
+&mipi_dsi {
+	vddcore-supply = <&ldo6_reg>;
+	vddio-supply = <&ldo7_reg>;
+	samsung,pll-clock-frequency = <24000000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@1 {
+			reg = <1>;
+
+			dsi_out: endpoint {
+				remote-endpoint = <&dsi_in>;
+				samsung,burst-clock-frequency = <552000000>;
+				samsung,esc-clock-frequency = <7000000>;
+			};
+		};
+	};
+
+	panel@0 {
+		compatible = "samsung,s6e8fa0";
+		reg = <0>;
+		vdd3-supply = <&vddext_28>;
+		vci-supply = <&vcc_lcd1v8>;
+		reset-gpio = <&gpy1 0 0>;
+		power-on-delay= <50>;
+		reset-delay = <100>;
+		init-delay = <100>;
+		flip-horizontal;
+		flip-vertical;
+		panel-width-mm = <62>;
+		panel-height-mm = <110>;
+
+		display-timings {
+			timings0 {
+				clock-frequency = <130361520>;
+				hactive = <1080>;
+				vactive = <1920>;
+				hfront-porch = <32>;
+				hback-porch = <16>;
+				hsync-len = <12>;
+				vfront-porch = <12>;
+				vback-porch = <3>;
+				vsync-len = <1>;
+			};
+		};
+
+		port {
+			dsi_in: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
 };
 
 &fimd_drm {
