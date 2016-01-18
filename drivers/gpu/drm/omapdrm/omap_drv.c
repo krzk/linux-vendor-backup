@@ -65,10 +65,8 @@ static int get_connector_type(struct omap_dss_device *dssdev)
 	switch (dssdev->type) {
 	case OMAP_DISPLAY_TYPE_HDMI:
 		return DRM_MODE_CONNECTOR_HDMIA;
-	case OMAP_DISPLAY_TYPE_DPI:
-		if (!strcmp(dssdev->name, "dvi"))
-			return DRM_MODE_CONNECTOR_DVID;
-		/* fallthrough */
+	case OMAP_DISPLAY_TYPE_DVI:
+		return DRM_MODE_CONNECTOR_DVID;
 	default:
 		return DRM_MODE_CONNECTOR_Unknown;
 	}
@@ -88,6 +86,70 @@ static bool channel_used(struct drm_device *dev, enum omap_channel channel)
 
 	return false;
 }
+static void omap_disconnect_dssdevs(void)
+{
+	struct omap_dss_device *dssdev = NULL;
+
+	for_each_dss_dev(dssdev)
+		dssdev->driver->disconnect(dssdev);
+}
+
+static int omap_connect_dssdevs(void)
+{
+	int r;
+	struct omap_dss_device *dssdev = NULL;
+	bool no_displays = true;
+
+	for_each_dss_dev(dssdev) {
+		r = dssdev->driver->connect(dssdev);
+		if (r == -EPROBE_DEFER) {
+			omap_dss_put_device(dssdev);
+			goto cleanup;
+		} else if (r) {
+			dev_warn(dssdev->dev, "could not connect display: %s\n",
+				dssdev->name);
+		} else {
+			no_displays = false;
+		}
+	}
+
+	if (no_displays)
+		return -EPROBE_DEFER;
+
+	return 0;
+
+cleanup:
+	/*
+	 * if we are deferring probe, we disconnect the devices we previously
+	 * connected
+	 */
+	omap_disconnect_dssdevs();
+
+	return r;
+}
+
+static int omap_modeset_create_crtc(struct drm_device *dev, int id,
+				    enum omap_channel channel)
+{
+	struct omap_drm_private *priv = dev->dev_private;
+	struct drm_plane *plane;
+	struct drm_crtc *crtc;
+
+	plane = omap_plane_init(dev, id, DRM_PLANE_TYPE_PRIMARY);
+	if (IS_ERR(plane))
+		return PTR_ERR(plane);
+
+	crtc = omap_crtc_init(dev, plane, channel, id);
+
+	BUG_ON(priv->num_crtcs >= ARRAY_SIZE(priv->crtcs));
+	priv->crtcs[id] = crtc;
+	priv->num_crtcs++;
+
+	priv->planes[id] = plane;
+	priv->num_planes++;
+
+	return 0;
+}
 
 static int omap_modeset_init(struct drm_device *dev)
 {
@@ -97,6 +159,7 @@ static int omap_modeset_init(struct drm_device *dev)
 	int num_mgrs = dss_feat_get_num_mgrs();
 	int num_crtcs;
 	int i, id = 0;
+	int ret;
 
 	drm_mode_config_init(dev);
 
@@ -116,20 +179,10 @@ static int omap_modeset_init(struct drm_device *dev)
 		struct drm_connector *connector;
 		struct drm_encoder *encoder;
 		enum omap_channel channel;
+		struct omap_overlay_manager *mgr;
 
-		if (!dssdev->driver) {
-			dev_warn(dev->dev, "%s has no driver.. skipping it\n",
-					dssdev->name);
+		if (!omapdss_device_is_connected(dssdev))
 			continue;
-		}
-
-		if (!(dssdev->driver->get_timings ||
-					dssdev->driver->read_edid)) {
-			dev_warn(dev->dev, "%s driver does not support "
-				"get_timings or read_edid.. skipping it!\n",
-				dssdev->name);
-			continue;
-		}
 
 		encoder = omap_encoder_init(dev, dssdev);
 
@@ -172,25 +225,21 @@ static int omap_modeset_init(struct drm_device *dev)
 		 * other possible channels to which the encoder can connect are
 		 * not considered.
 		 */
-		channel = dssdev->output->dispc_channel;
 
+		mgr = omapdss_find_mgr_from_display(dssdev);
+		channel = mgr->id;
 		/*
 		 * if this channel hasn't already been taken by a previously
 		 * allocated crtc, we create a new crtc for it
 		 */
 		if (!channel_used(dev, channel)) {
-			struct drm_plane *plane;
-			struct drm_crtc *crtc;
-
-			plane = omap_plane_init(dev, id, true);
-			crtc = omap_crtc_init(dev, plane, channel, id);
-
-			BUG_ON(priv->num_crtcs >= ARRAY_SIZE(priv->crtcs));
-			priv->crtcs[id] = crtc;
-			priv->num_crtcs++;
-
-			priv->planes[id] = plane;
-			priv->num_planes++;
+			ret = omap_modeset_create_crtc(dev, id, channel);
+			if (ret < 0) {
+				dev_err(dev->dev,
+					"could not create CRTC (channel %u)\n",
+					channel);
+				return ret;
+			}
 
 			id++;
 		}
@@ -204,26 +253,8 @@ static int omap_modeset_init(struct drm_device *dev)
 
 		/* find a free manager for this crtc */
 		for (i = 0; i < num_mgrs; i++) {
-			if (!channel_used(dev, i)) {
-				struct drm_plane *plane;
-				struct drm_crtc *crtc;
-
-				plane = omap_plane_init(dev, id, true);
-				crtc = omap_crtc_init(dev, plane, i, id);
-
-				BUG_ON(priv->num_crtcs >=
-					ARRAY_SIZE(priv->crtcs));
-
-				priv->crtcs[id] = crtc;
-				priv->num_crtcs++;
-
-				priv->planes[id] = plane;
-				priv->num_planes++;
-
+			if (!channel_used(dev, i))
 				break;
-			} else {
-				continue;
-			}
 		}
 
 		if (i == num_mgrs) {
@@ -231,13 +262,24 @@ static int omap_modeset_init(struct drm_device *dev)
 			dev_err(dev->dev, "no managers left for crtc\n");
 			return -ENOMEM;
 		}
+
+		ret = omap_modeset_create_crtc(dev, id, i);
+		if (ret < 0) {
+			dev_err(dev->dev,
+				"could not create CRTC (channel %u)\n", i);
+			return ret;
+		}
 	}
 
 	/*
 	 * Create normal planes for the remaining overlays:
 	 */
 	for (; id < num_ovls; id++) {
-		struct drm_plane *plane = omap_plane_init(dev, id, false);
+		struct drm_plane *plane;
+
+		plane = omap_plane_init(dev, id, DRM_PLANE_TYPE_OVERLAY);
+		if (IS_ERR(plane))
+			return PTR_ERR(plane);
 
 		BUG_ON(priv->num_planes >= ARRAY_SIZE(priv->planes));
 		priv->planes[priv->num_planes++] = plane;
@@ -247,21 +289,25 @@ static int omap_modeset_init(struct drm_device *dev)
 		struct drm_encoder *encoder = priv->encoders[i];
 		struct omap_dss_device *dssdev =
 					omap_encoder_get_dssdev(encoder);
+		struct omap_dss_device *output;
+
+		output = omapdss_find_output_from_display(dssdev);
 
 		/* figure out which crtc's we can connect the encoder to: */
 		encoder->possible_crtcs = 0;
 		for (id = 0; id < priv->num_crtcs; id++) {
 			struct drm_crtc *crtc = priv->crtcs[id];
 			enum omap_channel crtc_channel;
-			enum omap_dss_output_id supported_outputs;
 
 			crtc_channel = omap_crtc_channel(crtc);
-			supported_outputs =
-				dss_feat_get_supported_outputs(crtc_channel);
 
-			if (supported_outputs & dssdev->output->id)
+			if (output->dispc_channel == crtc_channel) {
 				encoder->possible_crtcs |= (1 << id);
+				break;
+			}
 		}
+
+		omap_dss_put_device(output);
 	}
 
 	DBG("registered %d planes, %d crtcs, %d encoders and %d connectors\n",
@@ -404,7 +450,7 @@ static int ioctl_gem_info(struct drm_device *dev, void *data,
 	return ret;
 }
 
-static struct drm_ioctl_desc ioctls[DRM_COMMAND_END - DRM_COMMAND_BASE] = {
+static const struct drm_ioctl_desc ioctls[DRM_COMMAND_END - DRM_COMMAND_BASE] = {
 	DRM_IOCTL_DEF_DRV(OMAP_GET_PARAM, ioctl_get_param, DRM_UNLOCKED|DRM_AUTH),
 	DRM_IOCTL_DEF_DRV(OMAP_SET_PARAM, ioctl_set_param, DRM_UNLOCKED|DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY),
 	DRM_IOCTL_DEF_DRV(OMAP_GEM_NEW, ioctl_gem_new, DRM_UNLOCKED|DRM_AUTH),
@@ -445,6 +491,7 @@ static int dev_load(struct drm_device *dev, unsigned long flags)
 
 	priv->wq = alloc_ordered_workqueue("omapdrm", 0);
 
+	spin_lock_init(&priv->list_lock);
 	INIT_LIST_HEAD(&priv->obj_list);
 
 	omap_gem_init(dev);
@@ -478,19 +525,26 @@ static int dev_load(struct drm_device *dev, unsigned long flags)
 static int dev_unload(struct drm_device *dev)
 {
 	struct omap_drm_private *priv = dev->dev_private;
+	int i;
 
 	DBG("unload: dev=%p", dev);
 
 	drm_kms_helper_poll_fini(dev);
-	drm_vblank_cleanup(dev);
-	omap_drm_irq_uninstall(dev);
 
-	omap_fbdev_free(dev);
+	if (priv->fbdev)
+		omap_fbdev_free(dev);
+
+	/* flush crtcs so the fbs get released */
+	for (i = 0; i < priv->num_crtcs; i++)
+		omap_crtc_flush(priv->crtcs[i]);
+
 	omap_modeset_free(dev);
 	omap_gem_deinit(dev);
 
-	flush_workqueue(priv->wq);
 	destroy_workqueue(priv->wq);
+
+	drm_vblank_cleanup(dev);
+	omap_drm_irq_uninstall(dev);
 
 	kfree(dev->dev_private);
 	dev->dev_private = NULL;
@@ -506,12 +560,6 @@ static int dev_open(struct drm_device *dev, struct drm_file *file)
 
 	DBG("open: dev=%p, file=%p", dev, file);
 
-	return 0;
-}
-
-static int dev_firstopen(struct drm_device *dev)
-{
-	DBG("firstopen: dev=%p", dev);
 	return 0;
 }
 
@@ -553,11 +601,11 @@ static void dev_lastclose(struct drm_device *dev)
 		}
 	}
 
-	drm_modeset_lock_all(dev);
-	ret = drm_fb_helper_restore_fbdev_mode(priv->fbdev);
-	drm_modeset_unlock_all(dev);
-	if (ret)
-		DBG("failed to restore crtc mode");
+	if (priv->fbdev) {
+		ret = drm_fb_helper_restore_fbdev_mode_unlocked(priv->fbdev);
+		if (ret)
+			DBG("failed to restore crtc mode");
+	}
 }
 
 static void dev_preclose(struct drm_device *dev, struct drm_file *file)
@@ -577,80 +625,71 @@ static const struct vm_operations_struct omap_gem_vm_ops = {
 };
 
 static const struct file_operations omapdriver_fops = {
-		.owner = THIS_MODULE,
-		.open = drm_open,
-		.unlocked_ioctl = drm_ioctl,
-		.release = drm_release,
-		.mmap = omap_gem_mmap,
-		.poll = drm_poll,
-		.fasync = drm_fasync,
-		.read = drm_read,
-		.llseek = noop_llseek,
+	.owner = THIS_MODULE,
+	.open = drm_open,
+	.unlocked_ioctl = drm_ioctl,
+	.release = drm_release,
+	.mmap = omap_gem_mmap,
+	.poll = drm_poll,
+	.read = drm_read,
+	.llseek = noop_llseek,
 };
 
 static struct drm_driver omap_drm_driver = {
-		.driver_features =
-				DRIVER_HAVE_IRQ | DRIVER_MODESET | DRIVER_GEM | DRIVER_PRIME,
-		.load = dev_load,
-		.unload = dev_unload,
-		.open = dev_open,
-		.firstopen = dev_firstopen,
-		.lastclose = dev_lastclose,
-		.preclose = dev_preclose,
-		.postclose = dev_postclose,
-		.get_vblank_counter = drm_vblank_count,
-		.enable_vblank = omap_irq_enable_vblank,
-		.disable_vblank = omap_irq_disable_vblank,
-		.irq_preinstall = omap_irq_preinstall,
-		.irq_postinstall = omap_irq_postinstall,
-		.irq_uninstall = omap_irq_uninstall,
-		.irq_handler = omap_irq_handler,
+	.driver_features = DRIVER_HAVE_IRQ | DRIVER_MODESET | DRIVER_GEM
+			 | DRIVER_PRIME,
+	.load = dev_load,
+	.unload = dev_unload,
+	.open = dev_open,
+	.lastclose = dev_lastclose,
+	.preclose = dev_preclose,
+	.postclose = dev_postclose,
+	.set_busid = drm_platform_set_busid,
+	.get_vblank_counter = drm_vblank_count,
+	.enable_vblank = omap_irq_enable_vblank,
+	.disable_vblank = omap_irq_disable_vblank,
+	.irq_preinstall = omap_irq_preinstall,
+	.irq_postinstall = omap_irq_postinstall,
+	.irq_uninstall = omap_irq_uninstall,
+	.irq_handler = omap_irq_handler,
 #ifdef CONFIG_DEBUG_FS
-		.debugfs_init = omap_debugfs_init,
-		.debugfs_cleanup = omap_debugfs_cleanup,
+	.debugfs_init = omap_debugfs_init,
+	.debugfs_cleanup = omap_debugfs_cleanup,
 #endif
-		.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
-		.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
-		.gem_prime_export = omap_gem_prime_export,
-		.gem_prime_import = omap_gem_prime_import,
-		.gem_init_object = omap_gem_init_object,
-		.gem_free_object = omap_gem_free_object,
-		.gem_vm_ops = &omap_gem_vm_ops,
-		.dumb_create = omap_gem_dumb_create,
-		.dumb_map_offset = omap_gem_dumb_map_offset,
-		.dumb_destroy = omap_gem_dumb_destroy,
-		.ioctls = ioctls,
-		.num_ioctls = DRM_OMAP_NUM_IOCTLS,
-		.fops = &omapdriver_fops,
-		.name = DRIVER_NAME,
-		.desc = DRIVER_DESC,
-		.date = DRIVER_DATE,
-		.major = DRIVER_MAJOR,
-		.minor = DRIVER_MINOR,
-		.patchlevel = DRIVER_PATCHLEVEL,
+	.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
+	.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
+	.gem_prime_export = omap_gem_prime_export,
+	.gem_prime_import = omap_gem_prime_import,
+	.gem_free_object = omap_gem_free_object,
+	.gem_vm_ops = &omap_gem_vm_ops,
+	.dumb_create = omap_gem_dumb_create,
+	.dumb_map_offset = omap_gem_dumb_map_offset,
+	.dumb_destroy = drm_gem_dumb_destroy,
+	.ioctls = ioctls,
+	.num_ioctls = DRM_OMAP_NUM_IOCTLS,
+	.fops = &omapdriver_fops,
+	.name = DRIVER_NAME,
+	.desc = DRIVER_DESC,
+	.date = DRIVER_DATE,
+	.major = DRIVER_MAJOR,
+	.minor = DRIVER_MINOR,
+	.patchlevel = DRIVER_PATCHLEVEL,
 };
-
-static int pdev_suspend(struct platform_device *pDevice, pm_message_t state)
-{
-	DBG("");
-	return 0;
-}
-
-static int pdev_resume(struct platform_device *device)
-{
-	DBG("");
-	return 0;
-}
-
-static void pdev_shutdown(struct platform_device *device)
-{
-	DBG("");
-}
 
 static int pdev_probe(struct platform_device *device)
 {
+	int r;
+
 	if (omapdss_is_initialized() == false)
 		return -EPROBE_DEFER;
+
+	omap_crtc_pre_init();
+
+	r = omap_connect_dssdevs();
+	if (r) {
+		omap_crtc_pre_uninit();
+		return r;
+	}
 
 	DBG("%s", device->name);
 	return drm_platform_init(&omap_drm_driver, device);
@@ -659,47 +698,75 @@ static int pdev_probe(struct platform_device *device)
 static int pdev_remove(struct platform_device *device)
 {
 	DBG("");
-	drm_platform_exit(&omap_drm_driver, device);
 
-	platform_driver_unregister(&omap_dmm_driver);
+	drm_put_dev(platform_get_drvdata(device));
+
+	omap_disconnect_dssdevs();
+	omap_crtc_pre_uninit();
+
 	return 0;
 }
 
-#ifdef CONFIG_PM
-static const struct dev_pm_ops omapdrm_pm_ops = {
-	.resume = omap_gem_resume,
-};
+#ifdef CONFIG_PM_SLEEP
+static int omap_drm_suspend(struct device *dev)
+{
+	struct drm_device *drm_dev = dev_get_drvdata(dev);
+
+	drm_kms_helper_poll_disable(drm_dev);
+
+	return 0;
+}
+
+static int omap_drm_resume(struct device *dev)
+{
+	struct drm_device *drm_dev = dev_get_drvdata(dev);
+
+	drm_kms_helper_poll_enable(drm_dev);
+
+	return omap_gem_resume(dev);
+}
 #endif
 
+static SIMPLE_DEV_PM_OPS(omapdrm_pm_ops, omap_drm_suspend, omap_drm_resume);
+
 static struct platform_driver pdev = {
-		.driver = {
-			.name = DRIVER_NAME,
-			.owner = THIS_MODULE,
-#ifdef CONFIG_PM
-			.pm = &omapdrm_pm_ops,
-#endif
-		},
-		.probe = pdev_probe,
-		.remove = pdev_remove,
-		.suspend = pdev_suspend,
-		.resume = pdev_resume,
-		.shutdown = pdev_shutdown,
+	.driver = {
+		.name = DRIVER_NAME,
+		.pm = &omapdrm_pm_ops,
+	},
+	.probe = pdev_probe,
+	.remove = pdev_remove,
 };
 
 static int __init omap_drm_init(void)
 {
+	int r;
+
 	DBG("init");
-	if (platform_driver_register(&omap_dmm_driver)) {
-		/* we can continue on without DMM.. so not fatal */
-		dev_err(NULL, "DMM registration failed\n");
+
+	r = platform_driver_register(&omap_dmm_driver);
+	if (r) {
+		pr_err("DMM driver registration failed\n");
+		return r;
 	}
-	return platform_driver_register(&pdev);
+
+	r = platform_driver_register(&pdev);
+	if (r) {
+		pr_err("omapdrm driver registration failed\n");
+		platform_driver_unregister(&omap_dmm_driver);
+		return r;
+	}
+
+	return 0;
 }
 
 static void __exit omap_drm_fini(void)
 {
 	DBG("fini");
+
 	platform_driver_unregister(&pdev);
+
+	platform_driver_unregister(&omap_dmm_driver);
 }
 
 /* need late_initcall() so we load after dss_driver's are loaded */

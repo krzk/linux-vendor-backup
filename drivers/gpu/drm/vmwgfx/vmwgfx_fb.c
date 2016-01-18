@@ -374,19 +374,24 @@ static int vmw_fb_create_bo(struct vmw_private *vmw_priv,
 			    size_t size, struct vmw_dma_buffer **out)
 {
 	struct vmw_dma_buffer *vmw_bo;
-	struct ttm_placement ne_placement = vmw_vram_ne_placement;
+	struct ttm_place ne_place = vmw_vram_ne_placement.placement[0];
+	struct ttm_placement ne_placement;
 	int ret;
 
-	ne_placement.lpfn = (size + PAGE_SIZE - 1) >> PAGE_SHIFT;
+	ne_placement.num_placement = 1;
+	ne_placement.placement = &ne_place;
+	ne_placement.num_busy_placement = 1;
+	ne_placement.busy_placement = &ne_place;
 
-	/* interuptable? */
-	ret = ttm_write_lock(&vmw_priv->fbdev_master.lock, false);
-	if (unlikely(ret != 0))
-		return ret;
+	ne_place.lpfn = (size + PAGE_SIZE - 1) >> PAGE_SHIFT;
+
+	(void) ttm_write_lock(&vmw_priv->reservation_sem, false);
 
 	vmw_bo = kmalloc(sizeof(*vmw_bo), GFP_KERNEL);
-	if (!vmw_bo)
+	if (!vmw_bo) {
+		ret = -ENOMEM;
 		goto err_unlock;
+	}
 
 	ret = vmw_dmabuf_init(vmw_priv, vmw_bo, size,
 			      &ne_placement,
