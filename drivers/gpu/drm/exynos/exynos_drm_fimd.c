@@ -95,6 +95,7 @@ struct fimd_driver_data {
 	unsigned int lcdblk_bypass_shift;
 	unsigned int lcdblk_mic_bypass_shift;
 
+	unsigned int parent_clk_set:1;
 	unsigned int has_shadowcon:1;
 	unsigned int has_clksel:1;
 	unsigned int has_limited_fmt:1;
@@ -114,6 +115,7 @@ static struct fimd_driver_data exynos3_fimd_driver_data = {
 	.lcdblk_bypass_shift = 1,
 	.has_shadowcon = 1,
 	.has_vidoutcon = 1,
+	.parent_clk_set = 1,
 };
 
 static struct fimd_driver_data exynos4_fimd_driver_data = {
@@ -153,6 +155,9 @@ struct fimd_context {
 	struct exynos_drm_plane		planes[WINDOWS_NR];
 	struct clk			*bus_clk;
 	struct clk			*lcd_clk;
+	struct clk			*mout_fimd_clk;
+	struct clk			*dout_mpll_pre_clk;
+	struct clk			*dout_fimd_clk;
 	void __iomem			*regs;
 	struct regmap			*sysreg;
 	unsigned int			default_win;
@@ -1150,6 +1155,20 @@ static int fimd_probe(struct platform_device *pdev)
 	if (IS_ERR(ctx->lcd_clk)) {
 		dev_err(dev, "failed to get lcd clock\n");
 		return PTR_ERR(ctx->lcd_clk);
+	}
+
+	if (ctx->driver_data->parent_clk_set) {
+		ctx->mout_fimd_clk = devm_clk_get(dev, "mout_fimd");
+		ctx->dout_mpll_pre_clk = devm_clk_get(dev, "dout_mpll_pre");
+		ctx->dout_fimd_clk = devm_clk_get(dev, "dout_fimd");
+
+		if (!IS_ERR(ctx->mout_fimd_clk) &&
+			!IS_ERR(ctx->dout_mpll_pre_clk) &&
+			!IS_ERR(ctx->dout_fimd_clk)) {
+			clk_set_parent(ctx->mout_fimd_clk,
+					ctx->dout_mpll_pre_clk);
+			clk_set_rate(ctx->dout_fimd_clk, 25 * 1000000);
+		}
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
