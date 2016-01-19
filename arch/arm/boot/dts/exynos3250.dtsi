@@ -186,7 +186,7 @@
 		interrupts = <0 80 0>;
 		clock-names = "sysmmu", "master";
 		clocks = <&clock CLK_SMMUFIMD0>, <&clock CLK_FIMD0>;
-		mmu-masters = <&fimd_fb>;
+		mmu-masters = <&fimd_drm>;
 	};
 
 	sysmmu_mfc0: sysmmu@13620000 {
@@ -645,6 +645,48 @@
 		scr_black              = <0x000000>;
 		width                  = <480>;
 		height                 = <800>;
+	};
+
+	fimd_drm: fimd@11c00000 {
+		compatible = "samsung,exynos3250-fimd";
+		reg = <0x11c00000 0x30000>;
+		interrupt-names = "fifo", "vsync", "lcd_sys";
+		interrupts = <0 84 0>, <0 85 0>, <0 86 0>;
+		clocks = <&clock CLK_SCLK_FIMD0>, <&clock CLK_FIMD0>,
+			<&clock CLK_MOUT_FIMD0>, <&clock CLK_DIV_MPLL_PRE>,
+			<&clock CLK_DIV_FIMD0>, <&clock CLK_DIV_ACLK_160>,
+			<&clock CLK_ACLK_FIMD0>;
+		clock-names = "sclk_fimd", "fimd",
+				"mout_fimd", "dout_mpll_pre", "dout_fimd",
+				"dout_aclk_160", "aclk_fimd";
+		samsung,power-domain = <&pd_lcd0>;
+		samsung,sysreg = <&sys_reg>;
+		status = "disabled";
+	};
+
+	mipi_phy: video-phy@10020710 {
+		compatible = "samsung,s5pv210-mipi-video-phy";
+		reg = <0x10020710 4>;
+		#phy-cells = <1>;
+		syscon = <&pmu_system_controller>;
+	};
+
+	dsi_0: dsi@11C80000 {
+		compatible = "samsung,exynos3250-mipi-dsi";
+		reg = <0x11C80000 0x10000>;
+		interrupts = <0 83 0>;
+		samsung,phy-type = <0>;
+		samsung,power-domain = <&pd_lcd0>;
+		phys = <&mipi_phy 1>;
+		phy-names = "dsim";
+		clocks = <&clock CLK_DSIM0>, <&clock CLK_SCLK_MIPI0>,
+			<&clock CLK_MOUT_MIPI0>, <&clock CLK_DIV_MPLL_PRE>,
+			<&clock CLK_DIV_MIPI0_PRE>;
+		clock-names = "bus_clk", "pll_clk", "mout_mipi",
+			"dout_mpll_pre", "dout_mipi_pre";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
 	};
 
 	fimd_fb: fimd_fb {
