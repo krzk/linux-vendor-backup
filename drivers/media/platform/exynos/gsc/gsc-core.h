@@ -24,6 +24,7 @@
 #include <linux/pm_qos.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/v4l2-mediabus.h>
 #include <mach/videonode.h>
 #include <mach/smc.h>
 #include <mach/bts.h>
@@ -31,7 +32,6 @@
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-mem2mem.h>
-#include <media/v4l2-mediabus.h>
 #include <media/exynos_mc.h>
 #include <media/exynos_gscaler.h>
 #include "regs-gsc.h"
@@ -243,7 +243,7 @@ enum gsc_yuv_fmt {
  * @flags: flags indicating which operation mode format applies to
  */
 struct gsc_fmt {
-	enum v4l2_mbus_pixelcode mbus_code;
+	u32	mbus_code;
 	char	*name;
 	u32	pixelformat;
 	u32	yorder;
