@@ -228,7 +228,11 @@ struct printk_log {
 	u8 facility;		/* syslog facility */
 	u8 flags:5;		/* internal record flags */
 	u8 level:3;		/* syslog level */
-};
+}
+#ifdef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
+__packed __aligned(4)
+#endif
+;
 
 struct log_buffer {
 #ifdef CONFIG_PRINTK
@@ -276,11 +280,7 @@ static enum log_flags console_prev;
 #define KMSG_NUM_MAX    255
 
 /* record buffer */
-#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
-#define LOG_ALIGN 4
-#else
 #define LOG_ALIGN __alignof__(struct printk_log)
-#endif
 #define __LOG_BUF_K_LEN (1 << CONFIG_LOG_BUF_SHIFT)
 static char __log_buf_k[__LOG_BUF_K_LEN] __aligned(LOG_ALIGN);
 
