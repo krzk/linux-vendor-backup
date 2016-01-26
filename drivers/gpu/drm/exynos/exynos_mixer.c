@@ -309,9 +309,7 @@ static void mixer_cfg_rgb_fmt(struct mixer_context *ctx, unsigned int height)
 	struct mixer_resources *res = &ctx->mixer_res;
 	u32 val;
 
-	if (height == 480) {
-		val = MXR_CFG_RGB601_0_255;
-	} else if (height == 576) {
+	if (height == 480 || height == 576 || height == 600) {
 		val = MXR_CFG_RGB601_0_255;
 	} else if (height == 720) {
 		val = MXR_CFG_RGB709_16_235;
