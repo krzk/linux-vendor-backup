@@ -421,7 +421,7 @@ static int fimc_is_sensor_iclk_off(struct fimc_is_device_sensor *device)
 	pdata = device->pdata;
 
 	if (!test_bit(FIMC_IS_SENSOR_ICLK_ON, &device->state)) {
-		merr("%s : already clk off", device, __func__);
+		mwarn("%s : already clk off", device, __func__);
 		goto p_err;
 	}
 
@@ -489,7 +489,7 @@ static int fimc_is_sensor_gpio_off(struct fimc_is_device_sensor *device)
 	pdata = device->pdata;
 
 	if (!test_bit(FIMC_IS_SENSOR_GPIO_ON, &device->state)) {
-		merr("%s : already gpio off", device, __func__);
+		mwarn("%s : already gpio off", device, __func__);
 		goto p_err;
 	}
 
@@ -1172,11 +1172,27 @@ int fimc_is_sensor_s_input(struct fimc_is_device_sensor *device,
 	u32 sensor_ch, actuator_ch;
 	u32 sensor_addr, actuator_addr;
 	u32 i = 0;
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	struct exynos_platform_fimc_is *core_pdata =
+		dev_get_platdata(fimc_is_dev);
+#endif
 
 	BUG_ON(!device);
 	BUG_ON(!device->pdata);
 	BUG_ON(!device->subdev_csi);
 	BUG_ON(input >= SENSOR_NAME_END);
+
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	if (!core_pdata) {
+		err("core->pdata is null");
+		return -EINVAL;
+	}
+	input = core_pdata->fixed_sensor_id;
+	scenario = device->pdata->scenario;
+	info("%s set scenario(%d) and input(%d) from DT\n",
+			__func__, scenario, input);
+#endif
+
 
 module_retry:
 	do {
@@ -1329,6 +1345,15 @@ int fimc_is_sensor_s_format(struct fimc_is_device_sensor *device,
 	struct v4l2_mbus_framefmt subdev_format;
 
 	BUG_ON(!device);
+
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	if (device->subdev_module == NULL) {
+		minfo("Forced call of fimc_is_sensor_s_input\n", device);
+		fimc_is_sensor_s_input(device, SENSOR_NAME_S5K5EA,
+			SENSOR_SCENARIO_EXTERNAL);
+	}
+#endif
+
 	BUG_ON(!device->subdev_module);
 	BUG_ON(!device->subdev_csi);
 	BUG_ON(!device->subdev_flite);
@@ -1448,11 +1473,13 @@ int fimc_is_sensor_s_framerate(struct fimc_is_device_sensor *device,
 		goto p_err;
 	}
 
+#ifndef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
 	if (param->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		merr("type is invalid(%d)", device, param->type);
 		ret = -EINVAL;
 		goto p_err;
 	}
+#endif
 
 	if (framerate > module->max_framerate) {
 		merr("framerate is invalid(%d > %d)", device, framerate, module->max_framerate);

@@ -324,6 +324,11 @@ struct exynos_platform_fimc_is *fimc_is_parse_dt(struct device *dev)
 	if (parse_gate_info(pdata, np) < 0)
 		printk(KERN_ERR "%s: can't parse clock gate info node\n", __func__);
 
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	of_property_read_u32(np, "fixed_sensor_id",
+		&pdata->fixed_sensor_id);
+#endif
+
 	dvfs_np = of_find_node_by_name(np, "fimc_is_dvfs");
 	if (!dvfs_np) {
 		printk(KERN_ERR "%s: can't find fimc_is_dvfs node\n", __func__);

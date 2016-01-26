@@ -30,6 +30,9 @@
 #include <linux/v4l2-mediabus.h>
 #include <linux/bug.h>
 
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+#include "fimc-is-core.h"
+#endif
 #include "fimc-is-device-sensor.h"
 #include "fimc-is-param.h"
 #include "fimc-is-cmd.h"
@@ -41,6 +44,11 @@
 const struct v4l2_file_operations fimc_is_sen_video_fops;
 const struct v4l2_ioctl_ops fimc_is_sen_video_ioctl_ops;
 const struct vb2_ops fimc_is_sen_qops;
+
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+static int fimc_is_sen_video_s_ctrl(struct file *file, void *priv,
+	struct v4l2_control *ctrl);
+#endif
 
 int fimc_is_sen_video_probe(void *data)
 {
@@ -219,7 +227,15 @@ const struct v4l2_file_operations fimc_is_sen_video_fops = {
 static int fimc_is_sen_video_querycap(struct file *file, void *fh,
 					struct v4l2_capability *cap)
 {
-	/* Todo : add to query capability code */
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	strncpy(cap->driver, "fimc-video", sizeof(cap->driver) - 1);
+	strncpy(cap->card, "FIMC Webcam", sizeof(cap->card) - 1);
+	cap->bus_info[0] = 0;
+	cap->version = LINUX_VERSION_CODE;
+	cap->capabilities = V4L2_CAP_STREAMING
+					| V4L2_CAP_VIDEO_CAPTURE;
+#endif
+
 	return 0;
 }
 
@@ -270,6 +286,49 @@ static int fimc_is_sen_video_set_format_mplane(struct file *file, void *fh,
 p_err:
 	return ret;
 }
+
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+static int fimc_is_sen_video_enum_fmt(struct file *file, void *fh,
+	struct v4l2_fmtdesc *f)
+{
+	enum v4l2_buf_type type = f->type;
+	__u32 index = f->index;
+	struct fimc_is_fmt *format;
+
+	info("%s index=%d\n", __func__, index);
+
+	if (f->index >= fimc_is_num_formats)
+		return -EINVAL;
+
+	memset(f, 0, sizeof(struct v4l2_fmtdesc));
+	f->index = index;
+	f->type = type;
+
+	format = &fimc_is_formats[f->index];
+
+	if (format->pixelformat == V4L2_PIX_FMT_MJPEG)
+		f->flags |= V4L2_FMT_FLAG_COMPRESSED;
+
+	f->pixelformat = format->pixelformat;
+
+	return 0;
+}
+
+static int fimc_is_sen_video_try_fmt(struct file *file, void *fh,
+	struct v4l2_format *format)
+{
+	struct fimc_is_fmt *fmt;
+
+	fmt = fimc_is_find_format(&format->fmt.pix.pixelformat, NULL, 0);
+
+	if (fmt->pixelformat == format->fmt.pix.pixelformat)
+		return 0;
+	else
+		return -EINVAL;
+
+	return 0;
+}
+#endif
 
 static int fimc_is_sen_video_cropcap(struct file *file, void *fh,
 	struct v4l2_cropcap *cropcap)
@@ -378,12 +437,23 @@ static int fimc_is_sen_video_streamon(struct file *file, void *priv,
 {
 	int ret = 0;
 	struct fimc_is_video_ctx *vctx = file->private_data;
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	struct v4l2_control ctrl;
+#endif
 
 	mdbgv_sensor("%s\n", vctx, __func__);
 
 	ret = fimc_is_video_streamon(file, vctx, type);
 	if (ret)
 		merr("fimc_is_video_streamon is fail(%d)", vctx, ret);
+
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	ctrl.id = V4L2_CID_IS_S_STREAM;
+	ctrl.value = IS_ENABLE_STREAM;
+	ret = fimc_is_sen_video_s_ctrl(file, vctx, &ctrl);
+	if (ret)
+		merr("fimc_is_sen_video_s_ctrl is fail(%d)", vctx, ret);
+#endif
 
 	return ret;
 }
@@ -393,6 +463,9 @@ static int fimc_is_sen_video_streamoff(struct file *file, void *priv,
 {
 	int ret = 0;
 	struct fimc_is_video_ctx *vctx = file->private_data;
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	struct v4l2_control ctrl;
+#endif
 
 	mdbgv_sensor("%s\n", vctx, __func__);
 
@@ -400,14 +473,30 @@ static int fimc_is_sen_video_streamoff(struct file *file, void *priv,
 	if (ret)
 		merr("fimc_is_video_streamoff is fail(%d)", vctx, ret);
 
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	ctrl.id = V4L2_CID_IS_S_STREAM;
+	ctrl.value = IS_DISABLE_STREAM;
+	ret = fimc_is_sen_video_s_ctrl(file, vctx, &ctrl);
+	if (ret)
+		merr("fimc_is_sen_video_s_ctrl is fail(%d)", vctx, ret);
+#endif
+
 	return ret;
 }
 
 static int fimc_is_sen_video_enum_input(struct file *file, void *priv,
 	struct v4l2_input *input)
 {
-	/* Todo: add to enumerate input code */
 	info("%s is calld\n", __func__);
+
+	if (input->index != 0)
+		return -EINVAL;
+
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	input->type = V4L2_INPUT_TYPE_CAMERA;
+	strcpy(input->name, "MIPI EXT Camera");
+#endif
+
 	return 0;
 }
 
@@ -638,8 +727,10 @@ static int fimc_is_sen_video_g_parm(struct file *file, void *priv,
 	struct v4l2_captureparm *cp = &parm->parm.capture;
 	struct v4l2_fract *tfp = &cp->timeperframe;
 
+#ifndef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
 	if (parm->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
 		return -EINVAL;
+#endif
 
 	cp->capability |= V4L2_CAP_TIMEPERFRAME;
 	tfp->numerator = 1;
@@ -682,6 +773,11 @@ const struct v4l2_ioctl_ops fimc_is_sen_video_ioctl_ops = {
 	.vidioc_enum_fmt_vid_cap_mplane	= fimc_is_sen_video_enum_fmt_mplane,
 	.vidioc_g_fmt_vid_cap_mplane	= fimc_is_sen_video_get_format_mplane,
 	.vidioc_s_fmt_vid_cap_mplane	= fimc_is_sen_video_set_format_mplane,
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	.vidioc_enum_fmt_vid_cap	= fimc_is_sen_video_enum_fmt,
+	.vidioc_s_fmt_vid_cap	= fimc_is_sen_video_set_format_mplane,
+	.vidioc_try_fmt_vid_cap	= fimc_is_sen_video_try_fmt,
+#endif
 	.vidioc_cropcap			= fimc_is_sen_video_cropcap,
 	.vidioc_g_crop			= fimc_is_sen_video_get_crop,
 	.vidioc_s_crop			= fimc_is_sen_video_set_crop,

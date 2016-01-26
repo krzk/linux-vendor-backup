@@ -219,6 +219,13 @@ int queue_done(struct fimc_is_video_ctx *vctx,
 int buffer_done(struct fimc_is_video_ctx *vctx, u32 index);
 long video_ioctl3(struct file *file, unsigned int cmd, unsigned long arg);
 
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+struct fimc_is_fmt *fimc_is_find_format(u32 *pixelformat,
+	u32 *mbus_code, int index);
+extern struct fimc_is_fmt fimc_is_formats[];
+extern const int fimc_is_num_formats;
+#endif
+
 #define GET_QUEUE(vctx, type) \
 	(V4L2_TYPE_IS_OUTPUT((type)) ? &vctx->q_src : &vctx->q_dst)
 #define GET_VCTX_QUEUE(vctx, vbq) (GET_QUEUE(vctx, vbq->type))
