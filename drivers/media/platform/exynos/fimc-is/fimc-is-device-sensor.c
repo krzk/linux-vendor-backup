@@ -1269,8 +1269,10 @@ module_retry:
 #if defined(CONFIG_PM_DEVFREQ)
 	if (test_bit(FIMC_IS_SENSOR_DRIVING, &device->state) &&
 		(device->pdata->scenario == SENSOR_SCENARIO_EXTERNAL)) {
-		pm_qos_add_request(&exynos_sensor_qos_int, PM_QOS_DEVICE_THROUGHPUT, 533000);
-		pm_qos_add_request(&exynos_sensor_qos_mem, PM_QOS_BUS_THROUGHPUT, 667000);
+		pm_qos_add_request(&exynos_sensor_qos_int,
+			PM_QOS_DEVICE_THROUGHPUT, 400000);
+		pm_qos_add_request(&exynos_sensor_qos_mem,
+			PM_QOS_BUS_THROUGHPUT, 633000);
 	}
 #endif
 

@@ -474,6 +474,8 @@ static void __s5pcsis_set_format(unsigned long __iomem *base_reg,
 
 	if (image->format.pixelformat == V4L2_PIX_FMT_SGRBG8)
 		val = (val & ~S5PCSIS_CFG_FMT_MASK) | S5PCSIS_CFG_FMT_RAW8;
+	else if (image->format.pixelformat == V4L2_PIX_FMT_YUYV)
+		val = (val & ~S5PCSIS_CFG_FMT_MASK) | S5PCSIS_CFG_FMT_YCBCR422_8BIT;
 	else
 		val = (val & ~S5PCSIS_CFG_FMT_MASK) | S5PCSIS_CFG_FMT_RAW10;
 
@@ -522,6 +524,9 @@ void s5pcsis_set_params(unsigned long __iomem *base_reg,
 
 	val = readl(base_reg + TO_WORD_OFFSET(S5PCSIS_CTRL));
 	val &= ~S5PCSIS_CTRL_ALIGN_32BIT;
+
+	if (image->format.pixelformat == V4L2_PIX_FMT_YUYV)
+		val |= S5PCSIS_CTRL_ALIGN_32BIT;	/* For YUYV format */
 
 	val |= S5PCSIS_CTRL_NUMOFDATALANE(lanes);
 
