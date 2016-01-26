@@ -715,6 +715,131 @@
 		status = "disabled";
 	};
 
+	i2c@2d {
+		compatible = "i2c-gpio";
+		gpios = <&gpf0 4 0 &gpf0 5 0>;
+		i2c-gpio,delay-us = <2>;    /* ~100kHz */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "okay";
+
+		s5k5ea@2d {
+			compatible = "samsung,exynos5-fimc-is-sensor-5ea";
+			reg = <0x2d>;
+		};
+	};
+
+	/* CAMIF1 - MIPI-CSIS1, FIMC-Lite1 driver */
+	fimc_is_sensor1: fimc_is_sensor@13C10000 {
+		scenario = <2>;
+		gpio_reset = <&gpe0 4 0x1>;
+		gpios_cam_en = <&gph0 1 0x1>;
+		id = <1>;
+		mclk_ch = <1>;
+		csi_ch = <1>;
+		flite_ch = <1>;
+		i2c_ch = <0x2>;
+		i2c_addr = <0x2D>;
+		is_bns = <0>;
+		status = "okay";
+	};
+
+	/* FIMC-IS driver */
+	fimc_is@13000000 {
+		fixed_sensor_id = <14>;
+		fimc_is_dvfs {
+			default_int = <600000>; /* L0 */
+			default_cam = <666000>; /* L0 */
+			default_mif = <825000>; /* L0 */
+			default_i2c = <0>;
+
+			front_preview_int = <460000>; /* L1-2 */
+			front_preview_cam = <333000>; /* L3 */
+			front_preview_mif = <413000>; /* L4 */
+			front_preview_i2c = <0>;
+
+			front_capture_int = <460000>; /* L1-2 */
+			front_capture_cam = <333000>; /* L3 */
+			front_capture_mif = <413000>; /* L4 */
+			front_capture_i2c = <0>;
+
+			front_camcording_int = <460000>; /* L1-2 */
+			front_camcording_cam = <333000>; /* L3 */
+			front_camcording_mif = <413000>; /* L4 */
+			front_camcording_i2c = <0>;
+
+			front_vt1_int = <460000>; /* L1-2 */
+			front_vt1_cam = <333000>; /* L3 */
+			front_vt1_mif = <413000>; /* L4 */
+			front_vt1_i2c = <0>;
+
+			front_vt2_int = <460000>; /* L1-2 */
+			front_vt2_cam = <333000>; /* L3 */
+			front_vt2_mif = <413000>; /* L4 */
+			front_vt2_i2c = <0>;
+
+			rear_preview_fhd_int = <480000>; /* L1-1 */
+			rear_preview_fhd_cam = <444000>; /* L2 */
+			rear_preview_fhd_mif = <543000>; /* L3 */
+			rear_preview_fhd_i2c = <0>;
+
+			rear_preview_whd_int = <600000>; /* L0 */
+			rear_preview_whd_cam = <666000>; /* L0 */
+			rear_preview_whd_mif = <825000>; /* L0 */
+			rear_preview_whd_i2c = <0>;
+
+			rear_preview_uhd_int = <600000>; /* L0 */
+			rear_preview_uhd_cam = <666000>; /* L0 */
+			rear_preview_uhd_mif = <825000>; /* L0 */
+			rear_preview_uhd_i2c = <0>;
+
+			rear_capture_int = <600000>; /* L0 */
+			rear_capture_cam = <666000>; /* L0 */
+			rear_capture_mif = <825000>; /* L0 */
+			rear_capture_i2c = <0>;
+
+			rear_camcording_fhd_int = <500000>; /* L1 */
+			rear_camcording_fhd_cam = <444000>; /* L2 */
+			rear_camcording_fhd_mif = <633000>; /* L2 */
+			rear_camcording_fhd_i2c = <0>;
+
+			rear_camcording_uhd_int = <600000>; /* L0 */
+			rear_camcording_uhd_cam = <666000>; /* L0 */
+			rear_camcording_uhd_mif = <825000>; /* L0 */
+			rear_camcording_uhd_i2c = <0>;
+
+			dual_preview_int = <600000>; /* L0 */
+			dual_preview_cam = <666000>; /* L0 */
+			dual_preview_mif = <728000>; /* L1 */
+			dual_preview_i2c = <0>;
+
+			dual_capture_int = <600000>; /* L0 */
+			dual_capture_cam = <666000>; /* L0 */
+			dual_capture_mif = <825000>; /* L0 */
+			dual_capture_i2c = <0>;
+
+			dual_camcording_int = <600000>; /* L0 */
+			dual_camcording_cam = <666000>; /* L0 */
+			dual_camcording_mif = <825000>; /* L0 */
+			dual_camcording_i2c = <0>;
+
+			high_speed_fps_int = <600000>; /* L0 */
+			high_speed_fps_cam = <666000>; /* L0 */
+			high_speed_fps_mif = <825000>; /* L0 */
+			high_speed_fps_i2c = <0>;
+
+			dis_enable_int = <600000>; /* L0 */
+			dis_enable_cam = <666000>; /* L0 */
+			dis_enable_mif = <825000>; /* L0 */
+			dis_enable_i2c = <0>;
+
+			max_int = <600000>; /* L0 */
+			max_cam = <666000>; /* L0 */
+			max_mif = <825000>; /* L0 */
+			max_i2c = <0>;
+		};
+	};
+
 	ion {
 		compatible = "samsung,exynos5430-ion";
 

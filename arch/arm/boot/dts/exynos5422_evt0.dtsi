@@ -1725,7 +1725,7 @@
 			<0x13C30000 0x10000>;	/* MIPI-CSI1 */
 		interrupts = <0 126 0>;
 		pinctrl-names =	"ch1";
-		pinctrl-0 = <&fimc_is_ch2_i2c &fimc_is_ch1_mclk &fimc_is_ch2_mclk>;
+		pinctrl-0 = <&fimc_is_ch2_i2c &fimc_is_ch1_mclk>;
 		iommu = <&sysmmu_flite_b>;
 		samsung,power-domain = <&pd_cam>;
 		clock-names = "mout_isp_sensor", /* 2116 */
