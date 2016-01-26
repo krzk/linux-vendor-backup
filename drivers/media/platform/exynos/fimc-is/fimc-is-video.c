@@ -272,6 +272,12 @@ void fimc_is_set_plane_size(struct fimc_is_frame_cfg *frame, unsigned int sizes[
 		}
 		sizes[1] = SPARE_SIZE;
 		break;
+	case V4L2_PIX_FMT_MJPEG:
+		dbg("V4L2_PIX_FMT_MJPEG(w:%d)(h:%d)\n",
+				frame->width, frame->height);
+		sizes[0] = width[0] * frame->height * 2 / MJPEG_TARGET_DIV;
+		sizes[1] = SPARE_SIZE;
+		break;
 	default:
 		err("unknown pixelformat\n");
 		break;

@@ -473,6 +473,7 @@ static int flite_hw_set_source_format(unsigned long __iomem *base_reg, struct fi
 		format = HW_FORMAT_YUV422_8BIT;
 		break;
 	case V4L2_PIX_FMT_JPEG:
+	case V4L2_PIX_FMT_MJPEG:
 		format = HW_FORMAT_USER;
 		break;
 	default:
