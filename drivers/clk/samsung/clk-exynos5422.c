@@ -1086,7 +1086,7 @@ PNAME(mout_aclk_266_g2d_user_p)	= { "fin_pll", "mout_aclk_266_g2d_sw" };
 PNAME(mout_aclk_333_g2d_sw_p) = { "dout_aclk_333_g2d", "mout_spll_ctrl"};
 PNAME(mout_aclk_333_g2d_user_p)	= { "fin_pll", "mout_aclk_333_g2d_sw" };
 
-PNAME(mout_hdmi_p)	= { "sclk_hdmiphy", "dout_hdmi_pixel" };
+PNAME(mout_hdmi_p)	= { "dout_hdmi_pixel", "sclk_hdmiphy" };
 #ifndef CONFIG_SOC_EXYNOS5422_REV_0
 PNAME(mout_fimd1_mdnie1_p) = { "mout_fimd1", "mout_mdnie1"};
 #endif
@@ -1385,7 +1385,7 @@ struct samsung_mux_clock exynos5422_mux_clks[] __initdata = {
 
 	/* DISP1 BLK */
 	CMX(mout_pixel, "mout_pixel", group2_p, EXYNOS5_CLK_SRC_DISP10, 24, 3),
-	CMUX(mout_hdmi, EXYNOS5_CLK_SRC_DISP10, 28, 1),
+	CMX(mout_hdmi, "mout_hdmi", mout_hdmi_p, EXYNOS5_CLK_SRC_DISP10, 28, 1),
 #ifdef CONFIG_SOC_EXYNOS5422_REV_0
 	CMX(mout_mdnie1, "mout_mdine1", group2_p, EXYNOS5_CLK_SRC_DISP10, 8, 3),
 	CMX(mout_fimd1, "mout_fimd1", group2_p, EXYNOS5_CLK_SRC_DISP10, 4, 3),
