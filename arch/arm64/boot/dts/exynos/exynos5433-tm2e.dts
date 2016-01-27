@@ -935,7 +935,7 @@
 		reg = <0x49>;
 		interrupt-parent = <&gpa1>;
 		interrupts = <1 0>;
-		x-size = <1439>;
+		x-size = <1599>;
 		y-size = <2559>;
 		vdd-supply = <&ldo31_reg>;
 		avdd-supply = <&ldo30_reg>;
