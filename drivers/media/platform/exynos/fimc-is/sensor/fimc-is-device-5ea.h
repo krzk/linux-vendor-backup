@@ -34,7 +34,7 @@
 
 #define DEFAULT_SENSOR_WIDTH						640
 #define DEFAULT_SENSOR_HEIGHT						480
-#define DEFAULT_SENSOR_CODE		V4L2_MBUS_FMT_YUYV8_2X8
+#define DEFAULT_SENSOR_CODE		MEDIA_BUS_FMT_YUYV8_2X8
 #define SENSOR_MEMSIZE	(DEFAULT_SENSOR_WIDTH * DEFAULT_SENSOR_HEIGHT)
 
 #define V4L2_CID_CAM_CONTRAST           (V4L2_CID_CAMERA_CLASS_BASE+42)
@@ -237,14 +237,14 @@ static struct v4l2_mbus_framefmt default_fmt[S5K5EA_OPRMODE_MAX] = {
 	[S5K5EA_OPRMODE_VIDEO] = {
 		.width      = DEFAULT_SENSOR_WIDTH,
 		.height     = DEFAULT_SENSOR_HEIGHT,
-		.code       = V4L2_MBUS_FMT_YUYV8_2X8,
+		.code       = MEDIA_BUS_FMT_YUYV8_2X8,
 		.field      = V4L2_FIELD_NONE,
 		.colorspace = V4L2_COLORSPACE_JPEG,
 	},
 	[S5K5EA_OPRMODE_IMAGE] = {
 		.width      = DEFAULT_SENSOR_WIDTH,
 		.height     = DEFAULT_SENSOR_HEIGHT,
-		.code       = V4L2_MBUS_FMT_JPEG_1X8,
+		.code       = MEDIA_BUS_FMT_JPEG_1X8,
 		.field      = V4L2_FIELD_NONE,
 		.colorspace = V4L2_COLORSPACE_JPEG,
 	},
