@@ -644,7 +644,7 @@
 		compatible = "samsung,exynos5250-fimd";
 		interrupt-parent = <&combiner>;
 		reg = <0x14400000 0x40000>;
-		samsung,power-domain = <&spd_fimd>;
+		samsung,power-domain = <&pd_disp1>;
 		interrupt-names = "fifo", "vsync", "lcd_sys";
 		interrupts = <18 4>, <18 5>, <18 6>;
 		clocks = <&clock 1061>, <&clock 1329>;
@@ -2229,6 +2229,13 @@
 	pd_disp1: pd-disp1@0x100440c0 {
 		compatible = "samsung,exynos-pd";
 		reg = <0x100440c0 0x20>;
+		clocks = <&clock 1>, <&clock 2031>, <&clock 2038>,
+			 <&clock 2068>, <&clock 2078>,
+			 <&clock 2073>, <&clock 2083>,
+			 <&clock 1329>, <&clock 1324>;
+		clock-names = "oscclk", "pclk0", "clk0",
+			      "pclk1", "clk1", "pclk2", "clk2",
+			      "asb0", "asb1";
 
 		spd_fimd: spd-fimd@100440c0 {
 			compatible = "samsung,exynos-spd";
@@ -2245,7 +2252,6 @@
 			bts-status = "disabled";
 		};
 	};
-
 
 	pd_maudio: pd-maudio@100440e0 {
 		compatible = "samsung,exynos-pd";
