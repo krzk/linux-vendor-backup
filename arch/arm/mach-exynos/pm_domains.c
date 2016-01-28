@@ -125,11 +125,17 @@ static int exynos_pd_power(struct exynos_pm_domain *pd, int power_flags)
 static int exynos_genpd_power_on(struct generic_pm_domain *genpd)
 {
 	struct exynos_pm_domain *pd = container_of(genpd, struct exynos_pm_domain, genpd);
-	int ret;
+	int ret, i;
 
 	if (unlikely(!pd->on)) {
 		pr_err(PM_DOMAIN_PREFIX "%s cannot support power on\n", pd->name);
 		return -EINVAL;
+	}
+
+	for (i = 0; i < MAX_CLK_PER_DOMAIN; i++) {
+		if (IS_ERR_OR_NULL(pd->asb_clk[i]))
+			break;
+		clk_prepare_enable(pd->asb_clk[i]);
 	}
 
 	/* clock enable before pd on */
@@ -153,6 +159,21 @@ static int exynos_genpd_power_on(struct generic_pm_domain *genpd)
 		bts_initialize(pd->name, true);
 #endif
 
+	/* Restore clocks after powering on a domain*/
+	for (i = 0; i < MAX_CLK_PER_DOMAIN; i++) {
+		if (IS_ERR_OR_NULL(pd->clk[i]))
+			break;
+		if (clk_set_parent(pd->clk[i], pd->pclk[i]))
+			pr_err("%s: error setting parent to clock%d\n",
+					pd->name, i);
+	}
+
+	for (i = 0; i < MAX_CLK_PER_DOMAIN; i++) {
+		if (IS_ERR_OR_NULL(pd->asb_clk[i]))
+			break;
+		clk_disable_unprepare(pd->asb_clk[i]);
+	}
+
 	return 0;
 }
 
@@ -168,7 +189,7 @@ static int exynos_genpd_power_on(struct generic_pm_domain *genpd)
 static int exynos_genpd_power_off(struct generic_pm_domain *genpd)
 {
 	struct exynos_pm_domain *pd = container_of(genpd, struct exynos_pm_domain, genpd);
-	int ret;
+	int ret, i;
 
 	if (unlikely(!pd->off)) {
 		pr_err(PM_DOMAIN_PREFIX "%s can't support power off!\n", genpd->name);
@@ -181,6 +202,21 @@ static int exynos_genpd_power_off(struct generic_pm_domain *genpd)
 		bts_initialize(pd->name, false);
 #endif
 
+	for (i = 0; i < MAX_CLK_PER_DOMAIN; i++) {
+		if (IS_ERR_OR_NULL(pd->asb_clk[i]))
+			break;
+		clk_prepare_enable(pd->asb_clk[i]);
+	}
+
+	/* Set oscclk before powering off a domain*/
+	for (i = 0; i < MAX_CLK_PER_DOMAIN; i++) {
+		if (IS_ERR_OR_NULL(pd->clk[i]))
+			break;
+		if (clk_set_parent(pd->clk[i], pd->oscclk))
+			pr_err("%s: error setting oscclk as parent to clock %d\n",
+					pd->name, i);
+	}
+
 	if (pd->cb && pd->cb->off_pre)
 		pd->cb->off_pre(pd);
 
@@ -192,6 +228,12 @@ static int exynos_genpd_power_off(struct generic_pm_domain *genpd)
 
 	if (pd->cb && pd->cb->off_post)
 		pd->cb->off_post(pd);
+
+	for (i = 0; i < MAX_CLK_PER_DOMAIN; i++) {
+		if (IS_ERR_OR_NULL(pd->asb_clk[i]))
+			break;
+		clk_disable_unprepare(pd->asb_clk[i]);
+	}
 
 	return 0;
 }
@@ -387,6 +429,51 @@ static struct notifier_block platform_nb = {
 	.notifier_call = exynos_pm_notifier_call,
 };
 
+static inline void exynos_pm_domain_clock_init(struct exynos_pm_domain *pd)
+{
+	pd->asb_clk[0] = pd->oscclk = pd->clk[0] = pd->pclk[0] = NULL;
+}
+
+static __init int exynos_pm_dt_parse_clocks(struct exynos_pm_domain *pd,
+		struct device_node *np)
+{
+	int i;
+
+	for (i = 0; i < MAX_CLK_PER_DOMAIN; i++) {
+		char clk_name[8];
+
+		snprintf(clk_name, sizeof(clk_name), "asb%d", i);
+		pd->asb_clk[i] = of_clk_get_by_name(np, clk_name);
+		if (IS_ERR_OR_NULL(pd->asb_clk[i]))
+			break;
+	}
+
+	pd->oscclk = of_clk_get_by_name(np, "oscclk");
+	if (IS_ERR_OR_NULL(pd->oscclk))
+		return -ENODEV;
+
+	for (i = 0; i < MAX_CLK_PER_DOMAIN; i++) {
+		char clk_name[8];
+
+		snprintf(clk_name, sizeof(clk_name), "clk%d", i);
+		pd->clk[i] = of_clk_get_by_name(np, clk_name);
+		if (IS_ERR_OR_NULL(pd->clk[i]))
+			break;
+		snprintf(clk_name, sizeof(clk_name), "pclk%d", i);
+		pd->pclk[i] = of_clk_get_by_name(np, clk_name);
+		if (IS_ERR_OR_NULL(pd->pclk[i])) {
+			clk_put(pd->clk[i]);
+			pd->clk[i] = ERR_PTR(-EINVAL);
+			break;
+		}
+	}
+
+	if (IS_ERR_OR_NULL(pd->clk[0]))
+		clk_put(pd->oscclk);
+
+	return 0;
+}
+
 static __init int exynos_pm_dt_parse_domains(void)
 {
 	struct platform_device *pdev = NULL;
@@ -440,6 +527,9 @@ static __init int exynos_pm_dt_parse_domains(void)
 
 		platform_set_drvdata(pdev, pd);
 
+		exynos_pm_domain_clock_init(pd);
+		exynos_pm_dt_parse_clocks(pd, np);
+
 		if (pd->cb && pd->cb->init) {
 			ret = pd->cb->init(pd);
 			if (ret) {
@@ -490,6 +580,8 @@ static __init int exynos_pm_dt_parse_domains(void)
 				continue;
 			}
 			platform_set_drvdata(sub_pdev, sub_pd);
+
+			exynos_pm_domain_clock_init(sub_pd);
 
 			exynos_pm_powerdomain_init(sub_pd);
 
