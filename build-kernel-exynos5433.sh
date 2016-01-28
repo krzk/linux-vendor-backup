@@ -11,7 +11,7 @@ check_ccache()
 
 check_ccache
 
-rm output/linux-4-0-exynos5433-arm64.tar
+rm -f output/linux-*-exynos5433-arm64.tar
 if ! [ -d output ] ; then
 	mkdir output
 fi
@@ -27,5 +27,12 @@ tools/dtbtool -o output/dt.img arch/arm64/boot/dts/exynos/
 cp arch/arm64/boot/Image output/kernel
 
 tools/mkbootimg --kernel output/kernel --ramdisk usr/ramdisk.img --output output/boot.img --dt output/dt.img
+
+# Check kernel version from Makefile
+_major_version=`cat Makefile | grep "^VERSION = " | awk '{print $3}'`
+_minor_version=`cat Makefile | grep "^PATCHLEVEL = " | awk '{print $3}'`
+_extra_version=`cat Makefile | grep "^EXTRAVERSION = " | awk '{print $3}'`
+_version=${_major_version}.${_minor_version}${_extra_version}
+
 cd output
-tar cf linux-4-0-exynos5433-arm64.tar boot.img
+tar cf linux-${_version}-exynos5433-arm64.tar boot.img
