@@ -211,6 +211,7 @@ struct fts_ts_info {
 	struct device *dev;
 	struct i2c_client *client;
 	struct input_dev *input_dev;
+	struct input_dev *input_key;
 
 	bool irq_enabled;
 	struct fts_i2c_platform_data *board;

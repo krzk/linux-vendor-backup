@@ -937,6 +937,7 @@
 		interrupts = <1 0>;
 		x-size = <1599>;
 		y-size = <2559>;
+		touch-key-connected;
 		vdd-supply = <&ldo31_reg>;
 		avdd-supply = <&ldo30_reg>;
 	};

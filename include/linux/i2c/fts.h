@@ -9,6 +9,8 @@ struct fts_i2c_platform_data {
 	struct regulator *vdd;
 	struct regulator *avdd;
 
+	bool keys_en;
+
 	int (*power)(void *data, bool on);
 };
 

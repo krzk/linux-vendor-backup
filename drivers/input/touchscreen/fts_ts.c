@@ -15,6 +15,13 @@
 
 #include "fts_ts.h"
 
+#define FTS_TOUCH_NO_KEY	0x00
+#define FTS_TOUCH_KEY_PHONE	0x01
+#define FTS_TOUCH_KEY_BACK	0x02
+
+#define FTS_KEY_RELEASE		0x00
+#define FTS_KEY_PRESS		0x01
+
 int fts_write_reg(struct fts_ts_info *info,
 		unsigned char *reg, unsigned short num_com)
 {
@@ -194,6 +201,12 @@ static int fts_init(struct fts_ts_info *info)
 	fts_command(info, FORCECALIBRATION);
 	fts_command(info, FLUSHBUFFER);
 
+	/* enable touch screen */
+	if (info->board->keys_en) {
+		dev_info(&client->dev, "enabling touch screen\n");
+		fts_command(info, FTS_CMD_KEY_SENSE_ON);
+	}
+
 	fts_interrupt_set(info, INT_ENABLE);
 
 	memset(val, 0x0, 4);
@@ -232,6 +245,13 @@ void fts_release_all_finger(struct fts_ts_info *info)
 	input_sync(info->input_dev);
 }
 
+static void fts_release_all_key(struct fts_ts_info *info)
+{
+	input_report_key(info->input_key, KEY_PHONE, FTS_KEY_RELEASE);
+	input_report_key(info->input_key, KEY_BACK, FTS_KEY_RELEASE);
+	input_sync(info->input_key);
+}
+
 static unsigned char fts_event_handler_type_b(struct fts_ts_info *info,
 		unsigned char data[], unsigned char left_event)
 {
@@ -239,6 +259,7 @@ static unsigned char fts_event_handler_type_b(struct fts_ts_info *info,
 	unsigned char touch_id = 0, event_id = 0;
 	unsigned char last_left_event = 0;
 	unsigned char event_num = 0;
+	u8 input_keys;
 	int x = 0, y = 0;
 	int bw = 0, bh = 0, palm = 0, msize = 0;
 
@@ -273,6 +294,28 @@ static unsigned char fts_event_handler_type_b(struct fts_ts_info *info,
 			info->finger[touch_id].lx = x;
 			info->finger[touch_id].ly = y;
 
+			break;
+
+		case EVENTID_MSKEY:
+			input_keys = data[2 + event_num * FTS_EVENT_SIZE];
+
+			switch (input_keys) {
+			case FTS_TOUCH_NO_KEY:
+				fts_release_all_key(info);
+				break;
+
+			case FTS_TOUCH_KEY_PHONE:
+				input_report_key(info->input_key, KEY_PHONE,
+								FTS_KEY_PRESS);
+				break;
+
+			case FTS_TOUCH_KEY_BACK:
+				input_report_key(info->input_key, KEY_BACK,
+								FTS_KEY_PRESS);
+				break;
+			}
+
+			input_sync(info->input_key);
 			break;
 
 		case EVENTID_LEAVE_POINTER:
@@ -377,6 +420,9 @@ static void fts_reinit(struct fts_ts_info *info)
 	fts_command(info, SENSEON);
 	msleep(50);
 
+	if (info->board->keys_en)
+		fts_command(info, FTS_CMD_KEY_SENSE_ON);
+
 	fts_command(info, FLUSHBUFFER);
 	fts_interrupt_set(info, INT_ENABLE);
 }
@@ -391,6 +437,8 @@ static int fts_start_device(struct fts_ts_info *info)
 	}
 
 	fts_release_all_finger(info);
+	if (info->board->keys_en)
+		fts_release_all_key(info);
 
 	if (info->board->power)
 		info->board->power(info, true);
@@ -415,6 +463,9 @@ static int fts_stop_device(struct fts_ts_info *info)
 
 	fts_interrupt_set(info, INT_DISABLE);
 	disable_irq(client->irq);
+
+	if (info->board->keys_en)
+		fts_release_all_key(info);
 
 	fts_command(info, FLUSHBUFFER);
 	fts_command(info, SLEEPIN);
@@ -514,7 +565,28 @@ static struct fts_i2c_platform_data *fts_parse_dt(struct device *dev)
 		return NULL;
 	};
 
+	pdata->keys_en = of_property_read_bool(np, "touch-key-connected");
+
 	return pdata;
+}
+
+static int fts_touch_init(struct fts_ts_info *info)
+{
+	info->input_key = devm_input_allocate_device(&info->client->dev);
+	if (info->input_dev)
+		return -ENOMEM;
+
+	info->input_key->name = "sec_touchkey";
+	info->input_key->id.bustype = BUS_HOST;
+	info->input_key->dev.parent = &info->client->dev;
+
+	__set_bit(EV_KEY, info->input_key->evbit);
+	__set_bit(EV_SYN, info->input_key->evbit);
+	__set_bit(KEY_BACK, info->input_key->keybit);
+	__set_bit(KEY_PHONE, info->input_key->keybit);
+
+	input_set_drvdata(info->input_key, info);
+	return input_register_device(info->input_key);
 }
 
 static int fts_probe(struct i2c_client *client, const struct i2c_device_id *id)
@@ -566,6 +638,17 @@ static int fts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		dev_err(&client->dev,
 			"Unable to get the Core regulator (%d)\n", retval);
 		return retval;
+	}
+
+	/* allocate for touch keys */
+	if (pdata->keys_en) {
+		retval = fts_touch_init(info);
+		if (retval) {
+			dev_err(&client->dev,
+				"Unable to create touch key event (%d)\n",
+				retval);
+			return retval;
+		}
 	}
 
 	info->dev = &info->client->dev;
