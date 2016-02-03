@@ -942,22 +942,6 @@
 	};
 };
 
-&hsi2c_9 {
-	status = "okay";
-
-	touchkey@20 {
-		compatible = "cypress,cypress_touchkey";
-		reg = <0x20>;
-		interrupt-parent = <&gpa3>;
-		interrupts = <2 0>;
-		pinctrl-names = "default";
-		cypress,ic-stabilizing-time = <150>;
-		cypress,i2c-gpio = <1>;
-		cypress,boot-on-ldo = "false";
-		linux,code = <KEY_PHONE KEY_BACK>;
-	};
-};
-
 &mshc_0 {
 	status = "okay";
 	num-slots = <1>;
