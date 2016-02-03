@@ -86,6 +86,7 @@ enum actuator_name {
 	ACTUATOR_NAME_AK7345	= 7,
 	ACTUATOR_NAME_DW9804    = 8,
 	ACTUATOR_NAME_AK7348    = 9,
+	ACTUATOR_NAME_BU64241GWZ = 11,
 	ACTUATOR_NAME_END,
 	ACTUATOR_NAME_NOTHING	= 100,
 };
@@ -236,11 +237,12 @@ struct exynos_sensor_pin {
 		(p)->pin_ctrls[id1][id2][n].act = _act; \
 		(p)->pin_ctrls[id1][id2][n].voltage = 0;
 #else
-#define SET_PIN(d, s, c, i, p , v, n, a) \
+#define SET_PIN(d, s, c, i, p , v, n, a, t) \
 		(d)->pin_ctrls[s][c][i].pin     = p; \
 		(d)->pin_ctrls[s][c][i].value   = v; \
 		(d)->pin_ctrls[s][c][i].name    = n; \
-		(d)->pin_ctrls[s][c][i].act     = a;
+		(d)->pin_ctrls[s][c][i].act     = a; \
+		(d)->pin_ctrls[s][c][i].delay	= t;
 #endif
 
 /*
