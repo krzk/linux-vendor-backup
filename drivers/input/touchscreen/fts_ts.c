@@ -522,7 +522,6 @@ static int fts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	struct fts_i2c_platform_data *pdata;
 	struct fts_ts_info *info;
 	struct input_dev *input_dev;
-	static char fts_ts_phys[64] = { 0 };
 	int retval;
 	int i = 0;
 
@@ -577,9 +576,6 @@ static int fts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	info->input_dev = input_dev;
 	input_dev->dev.parent = &client->dev;
 	input_dev->name = "sec_touchscreen";
-	snprintf(fts_ts_phys, sizeof(fts_ts_phys), "%s/input0",
-			input_dev->name);
-	input_dev->phys = fts_ts_phys;
 	input_dev->id.bustype = BUS_I2C;
 #ifdef USE_OPEN_CLOSE
 	input_dev->open = fts_input_open;
