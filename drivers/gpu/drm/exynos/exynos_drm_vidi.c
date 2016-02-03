@@ -344,7 +344,9 @@ int vidi_connection_ioctl(struct drm_device *drm_dev, void *data,
 	}
 
 	if (vidi->connection) {
-		struct edid *raw_edid  = (struct edid *)vidi->edid;
+		struct edid *raw_edid;
+
+		raw_edid = (struct edid *)(unsigned long)vidi->edid;
 		if (!drm_edid_is_valid(raw_edid)) {
 			DRM_DEBUG_KMS("edid data is invalid.\n");
 			return -EINVAL;
