@@ -495,10 +495,9 @@ enum stats_mode {
 };
 
 enum stats_lowlightmode {
-    STATE_LLS_NONE = 0,
-    STATE_LLS_LEVEL_LOW,
-    STATE_LLS_LEVEL_HIGH,
-    STATE_LLS_LEVEL_SIS
+	STATE_LLS_NONE = 0,
+	STATE_LLS_LEVEL_LOW,
+	STATE_LLS_LEVEL_HIGH
 };
 
 struct camera2_stats_ctl {
@@ -588,8 +587,7 @@ enum aa_scene_mode {
 	AA_SCENE_MODE_SLOWMOTION_4_8,
 	AA_SCENE_MODE_DUAL_PREVIEW,
 	AA_SCENE_MODE_DUAL_VIDEO,
-	AA_SCENE_MODE_120_PREVIEW,
-	AA_SCENE_MODE_LIGHT_TRACE
+	AA_SCENE_MODE_120_PREVIEW
 };
 
 enum aa_effect_mode {
@@ -657,12 +655,10 @@ enum aa_afmode {
 	AA_AFMODE_OFF = 1,
 	AA_AFMODE_SLEEP,
 	AA_AFMODE_INFINITY,
-	AA_AFMODE_MACRO,
-	AA_AFMODE_DELAYED_OFF,
 
 	/* Single AF. These modes are adjusted when afTrigger is changed from 0 to 1 */
 	AA_AFMODE_AUTO = 11,
-	AA_AFMODE_AUTO_MACRO,
+	AA_AFMODE_MACRO,
 	AA_AFMODE_AUTO_VIDEO,
 	AA_AFMODE_AUTO_FACE,
 
@@ -674,8 +670,6 @@ enum aa_afmode {
 	/* Special modes for PDAF */
 	AA_AFMODE_PDAF_OUTFOCUSING = 31,
 	AA_AFMODE_PDAF_OUTFOCUSING_FACE,
-	AA_AFMODE_PDAF_OUTFOCUSING_CONTINUOUS_PICTURE,
-	AA_AFMODE_PDAF_OUTFOCUSING_CONTINUOUS_PICTURE_FACE,
 
 	/* Not supported yet */
 	AA_AFMODE_EDOF = 41,
@@ -741,6 +735,8 @@ struct camera2_aa_ctl {
 	uint32_t			afTrigger;
 	enum aa_isomode			isoMode;
 	uint32_t			isoValue;
+	int32_t awbValue;
+	uint32_t reserved[10];
 };
 
 struct camera2_aa_dm {
@@ -765,6 +761,7 @@ struct camera2_aa_dm {
 	enum aa_afstate				afState;
 	enum aa_isomode				isoMode;
 	uint32_t				isoValue;
+	uint32_t reserved[10];
 };
 
 struct camera2_aa_sm {
@@ -1055,8 +1052,8 @@ struct camera2_pdaf_multi_result {
 };
 
 struct camera2_pdaf_udm {
-	uint16_t				numCol;	/* width of PDAF map, 0 means no multi PDAF data */
-	uint16_t				numRow;	/* height of PDAF map, 0 means no multi PDAF data */
+	uint16_t		numColumn;	/* width of PDAF map, 0 means no multi PDAF data */
+	uint16_t		numRow;	/* height of PDAF map, 0 means no multi PDAF data */
 	struct camera2_pdaf_multi_result	multiResult[CAMERA2_MAX_PDAF_MULTIROI_COLUMN][CAMERA2_MAX_PDAF_MULTIROI_ROW];
 	struct camera2_pdaf_single_result	singleResult;
 	uint16_t				lensPosResolution;	/* 1023(unsigned 10bit) */
@@ -1101,6 +1098,7 @@ struct camera2_uctl {
 	/** ispfw specific control(user-defined) of Bcrop1. */
 	struct camera2_bayer_uctl	bayerUd;
 	struct camera2_companion_uctl   companionUd;
+	uint32_t reserved[10];
 };
 
 struct camera2_udm {
@@ -1115,6 +1113,7 @@ struct camera2_udm {
 	/* Add udm for bayer down size. */
 	struct camera2_bayer_udm	bayer;
 	struct camera2_companion_udm	companion;
+	uint32_t reserved[10];
 };
 
 struct camera2_shot {
