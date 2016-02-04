@@ -205,6 +205,13 @@
 			samsung,pin-pud = <3>;
 			samsung,pin-pud-pdn = <3>;
 		};
+
+		touchpanel_irq: touchpanel-irq {
+			samsung,pins = "gpx3-0";
+			samsung,pin-function = <0xf>;
+			samsung,pin-pud = <3>;
+			samsung,pin-drv = <0>;
+		};
 	};
 
 	pinctrl@13410000 {
@@ -1012,4 +1019,21 @@
 &fimd_drm {
 	status = "okay";
 	samsung,mic-bypass;
+};
+
+&hsi2c_4 {
+	samsung,hs-mode;
+	clock-frequency = <400000>;
+	status = "okay";
+
+	touchscreen@4a {
+		compatible = "atmel,maxtouch";
+		reg = <0x4a>;
+		interrupt-parent = <&gpx3>;
+		interrupts = <0 0 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&touchpanel_irq>;
+		skip-cfg-load;
+		switch-xy;
+	};
 };
