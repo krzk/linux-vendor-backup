@@ -650,15 +650,15 @@
 
 		display-timings {
 			timing-0 {
-				clock-frequency = <23241960>;
+				clock-frequency = <23696640>;
 				hactive = <480>;
 				vactive = <800>;
-				hfront-porch = <1>;
-				hback-porch = <1>;
-				hsync-len = <1>;
-				vfront-porch = <2>;
-				vback-porch = <1>;
-				vsync-len = <1>;
+				hfront-porch = <2>;
+				hback-porch = <12>;
+				hsync-len = <2>;
+				vfront-porch = <14>;
+				vback-porch = <5>;
+				vsync-len = <2>;
 			};
 		};
 
