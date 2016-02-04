@@ -74,12 +74,12 @@ struct fimc_is_fmt fimc_is_formats[] = {
 		.name		= "YUV 4:2:2 packed, YCbYCr",
 		.pixelformat	= V4L2_PIX_FMT_YUYV,
 		.num_planes	= 1 + SPARE_PLANE,
-		.mbus_code	= V4L2_MBUS_FMT_YUYV8_2X8,
+		.mbus_code	= MEDIA_BUS_FMT_YUYV8_2X8,
 	}, {
 		.name		= "YUV 4:2:2 packed, CbYCrY",
 		.pixelformat	= V4L2_PIX_FMT_UYVY,
 		.num_planes	= 1 + SPARE_PLANE,
-		.mbus_code	= V4L2_MBUS_FMT_UYVY8_2X8,
+		.mbus_code	= MEDIA_BUS_FMT_UYVY8_2X8,
 	}, {
 		.name		= "YUV 4:2:2 planar, Y/Cb/Cr",
 		.pixelformat	= V4L2_PIX_FMT_YUV422P,
@@ -136,7 +136,7 @@ struct fimc_is_fmt fimc_is_formats[] = {
 		.name		= "JPEG",
 		.pixelformat	= V4L2_PIX_FMT_JPEG,
 		.num_planes	= 1 + SPARE_PLANE,
-		.mbus_code	= V4L2_MBUS_FMT_JPEG_1X8,
+		.mbus_code	= MEDIA_BUS_FMT_JPEG_1X8,
 	}
 };
 #endif
