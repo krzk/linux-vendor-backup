@@ -237,12 +237,11 @@ struct exynos_sensor_pin {
 		(p)->pin_ctrls[id1][id2][n].act = _act; \
 		(p)->pin_ctrls[id1][id2][n].voltage = 0;
 #else
-#define SET_PIN(d, s, c, i, p , v, n, a, t) \
+#define SET_PIN(d, s, c, i, p , v, n, a) \
 		(d)->pin_ctrls[s][c][i].pin     = p; \
 		(d)->pin_ctrls[s][c][i].value   = v; \
 		(d)->pin_ctrls[s][c][i].name    = n; \
-		(d)->pin_ctrls[s][c][i].act     = a; \
-		(d)->pin_ctrls[s][c][i].delay	= t;
+		(d)->pin_ctrls[s][c][i].act     = a;
 #endif
 
 /*
