@@ -729,6 +729,24 @@
 		};
 	};
 
+	/* CAMIF0 - MIPI-CSIS0, FIMC-Lite0 driver */
+	fimc_is_sensor0: fimc_is_sensor@13C00000 {
+		scenario = <0>;
+		gpio_reset = <&gpe0 1 0x1>;
+		gpios_cam_en = <&gph0 2 0x1>;
+		gpio_flash = <&gph0 3 0x1>;
+		id = <0>;
+		mclk_ch = <0>;
+		csi_ch = <0>;
+		flite_ch = <0>;
+		i2c_ch = <0x000>; 		/* actuator i2c channel changed to CH 0 */
+		i2c_addr = <0x1820>;
+		flash_first_gpio = <2>;		/* XISPGP2,GPE0_2,CAM_GPIO[2] */
+		flash_second_gpio = <3>;	/* XISPGP3,GPE0_3,CAM_GPIO[3] */
+		is_bns = <1>;
+		status = "okay";
+	};
+
 	/* CAMIF1 - MIPI-CSIS1, FIMC-Lite1 driver */
 	fimc_is_sensor1: fimc_is_sensor@13C10000 {
 		scenario = <2>;
