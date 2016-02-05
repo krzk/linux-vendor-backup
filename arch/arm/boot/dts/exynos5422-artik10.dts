@@ -940,6 +940,34 @@
 			gpio-key,wakeup = <1>;
 		};
 	};
+
+	input_booster {
+		status = "okay";
+		compatible = "input_booster";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		booster_key@1 {
+			input_booster,label = "TOUCH";
+			input_booster,type = <0>;	/* BOOSTER_DEVICE_TOUCH */
+
+			input_booster,levels = <1 2 3 4 5 9 10>;
+
+			/* Frequency table */
+			/* for level : 1_Head, 2_Tail, 3_Head, 4_Head/Tail, 5_Head, 9_Head, 9_Tail */
+			input_booster,cpu_freqs = <1600000 0 0 0 1200000 1900000 1600000>;
+			input_booster,hmp_boost = <1 0 0 0 1 1 1>;
+			input_booster,kfc_freqs = <1000000 1200000 1300000 1300000 800000 1300000 1300000>;
+			input_booster,mif_freqs = <633000 413000 413000 633000 633000 825000 825000>;
+			input_booster,int_freqs = <333000 110000 111000 111000 333000 400000 400000>;
+
+			/* Time table */
+			input_booster,head_times = <130 130 130 130 100 500 0>;
+			input_booster,tail_times = <500 500 500 200 500 1000 0>;
+			input_booster,phase_times = <0 0 0 0 40 0 0>;
+		};
+		/* If you need to add new key type, add it this position */
+	};
 };
 
 &sec_pwm {
