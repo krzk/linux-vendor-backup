@@ -29,6 +29,10 @@
 #include <linux/slab.h>
 #include <asm/unaligned.h>
 
+#ifdef CONFIG_INPUT_BOOSTER
+#include <linux/input/input_booster.h>
+#endif
+
 /* Firmware files */
 #define MXT_FW_NAME		"maxtouch.fw"
 #define MXT_CFG_NAME		"maxtouch.cfg"
@@ -237,6 +241,9 @@ struct mxt_data {
 	u8 num_touchids;
 	u8 multitouch;
 	struct t7_config t7_cfg;
+#ifdef CONFIG_INPUT_BOOSTER
+	atomic_t touch_count;
+#endif
 
 	/* Cached parameters from object table */
 	u16 T5_address;
@@ -860,11 +867,21 @@ static void mxt_proc_t100_message(struct mxt_data *data, u8 *message)
 		input_report_abs(input_dev, ABS_MT_PRESSURE, pressure);
 		input_report_abs(input_dev, ABS_MT_DISTANCE, distance);
 		input_report_abs(input_dev, ABS_MT_ORIENTATION, orientation);
+#ifdef CONFIG_INPUT_BOOSTER
+		if (atomic_inc_and_test(&data->touch_count))
+			input_booster_send_event(BOOSTER_DEVICE_TOUCH,
+						 BOOSTER_MODE_ON);
+#endif
 	} else {
 		dev_dbg(dev, "[%u] release\n", id);
 
 		/* close out slot */
 		input_mt_report_slot_state(input_dev, 0, 0);
+#ifdef CONFIG_INPUT_BOOSTER
+		input_booster_send_event(BOOSTER_DEVICE_TOUCH,
+					 BOOSTER_MODE_OFF);
+		atomic_set(&data->touch_count, -1);
+#endif
 	}
 
 	data->update_input = true;
@@ -1647,6 +1664,10 @@ static int mxt_get_object_table(struct mxt_data *data)
 		error = -ENOMEM;
 		goto free_object_table;
 	}
+
+#ifdef CONFIG_INPUT_BOOSTER
+	atomic_set(&data->touch_count, -1);
+#endif
 
 	data->object_table = object_table;
 
