@@ -216,7 +216,7 @@ MODULE_DEVICE_TABLE(of, exynos5_i2c_match);
 
 static inline void dump_i2c_register(struct exynos5_i2c *i2c)
 {
-	dev_err(i2c->dev, "Register dump(suspended : %d)\n"
+	dev_dbg(i2c->dev, "Register dump(suspended : %d)\n"
 		": CTL          0x%08x\n"
 		": FIFO_CTL     0x%08x\n"
 		": TRAILING_CTL 0x%08x\n"
