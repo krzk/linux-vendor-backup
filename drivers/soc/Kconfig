@@ -5,4 +5,7 @@ source "drivers/soc/qcom/Kconfig"
 source "drivers/soc/ti/Kconfig"
 source "drivers/soc/versatile/Kconfig"
 
+if ARCH_S5P6818
+source "drivers/soc/nexell/Kconfig"
+endif
 endmenu
