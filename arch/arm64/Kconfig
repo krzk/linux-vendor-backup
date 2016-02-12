@@ -13,7 +13,7 @@ config ARM64
 	select ARCH_WANT_COMPAT_IPC_PARSE_VERSION
 	select ARCH_WANT_FRAME_POINTERS
 	select ARM_AMBA
-	select ARM_ARCH_TIMER
+	select ARM_ARCH_TIMER if !ARCH_S5P6818
 	select ARM_GIC
 	select AUDIT_ARCH_COMPAT_GENERIC
 	select ARM_GIC_V2M if PCI_MSI
@@ -258,6 +258,17 @@ config ARCH_ZYNQMP
 	bool "Xilinx ZynqMP Family"
 	help
 	  This enables support for Xilinx ZynqMP Family
+
+config ARCH_S5P6818
+	bool "NEXELL S5P6818"
+	select ARCH_REQUIRE_GPIOLIB
+	select ARCH_HAS_RESET_CONTROLLER
+	select CLKSRC_NXP_TIMER
+	select RESET_CONTROLLER
+	select PINCTRL
+	select ARM64_ERRATUM_845719
+	help
+	  This enables support for the NEXELL S5P6818 Architecture
 
 endmenu
 

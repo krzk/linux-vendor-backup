@@ -66,11 +66,14 @@ EXPORT_SYMBOL(profile_pc);
 
 void __init time_init(void)
 {
+#ifdef CONFIG_ARM_ARCH_TIMER
 	u32 arch_timer_rate;
+#endif
 
 	of_clk_init(NULL);
 	clocksource_of_init();
 
+#ifdef CONFIG_ARM_ARCH_TIMER
 	tick_setup_hrtimer_broadcast();
 
 	/*
@@ -85,4 +88,5 @@ void __init time_init(void)
 
 	/* Calibrate the delay loop directly */
 	lpj_fine = arch_timer_rate / HZ;
+#endif
 }
