@@ -122,6 +122,8 @@
 		supports-highspeed;
 		cd-type = <1>;
 		sw_data_timeout;
+		use-fine-tuning;
+		ignore-phase = <(1 << 7)>;
 		fifo-depth = <0x40>;
 		card-detect-delay = <200>;
 		qos_int_level = <222000>;
@@ -130,7 +132,7 @@
 		samsung,dw-mshc-ddr-timing = <3 0 2 0>;
 		clk_pin = "gpc2-0";
 		clk_addr = "13410000.pinctrl";
-		clk_val = <0x3>;
+		clk_val = <0x1>;
 		clk_str_num = <4>;
 		num-ref-clks = <8>;
 		ciu_clkin = <20812500 41625000 41625000 83250000 166500000
