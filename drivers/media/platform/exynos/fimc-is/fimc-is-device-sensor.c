@@ -849,6 +849,13 @@ static void fimc_is_sensor_instanton(struct work_struct *data)
 	clear_bit(FIMC_IS_SENSOR_FRONT_DTP_STOP, &device->state);
 	clear_bit(FIMC_IS_SENSOR_BACK_NOWAIT_STOP, &device->state);
 
+	ret = fimc_is_sensor_start(device);
+	if (ret) {
+		merr("fimc_is_sensor_start is fail(%d)\n", device, ret);
+		goto p_err;
+	}
+	set_bit(FIMC_IS_SENSOR_FRONT_START, &device->state);
+
 #ifdef ENABLE_DTP
 	if (device->dtp_check) {
 		setup_timer(&device->dtp_timer, fimc_is_sensor_dtp, (unsigned long)device);
@@ -856,13 +863,6 @@ static void fimc_is_sensor_instanton(struct work_struct *data)
 		info("DTP checking...\n");
 	}
 #endif
-
-	ret = fimc_is_sensor_start(device);
-	if (ret) {
-		merr("fimc_is_sensor_start is fail(%d)\n", device, ret);
-		goto p_err;
-	}
-	set_bit(FIMC_IS_SENSOR_FRONT_START, &device->state);
 
 	if (instant_cnt) {
 		u32 timetowait, timetoelapse, timeout;
