@@ -932,11 +932,34 @@ static void fimc_is_sen_buffer_queue(struct vb2_buffer *vb)
 	}
 }
 
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+static void fimc_is_sen_set_payload(struct vb2_buffer *vb)
+{
+	u8 *kvaddr = vb2_plane_vaddr(vb, 0);
+	u32 length = vb2_plane_size(vb, 0);
+	int i;
+
+	for (i = 4; i < length; i++) {
+		/* Search EOI Marker from MJPEG */
+		if (*(kvaddr+i) == 0xD9 && *(kvaddr+i-1) == 0xFF) {
+			vb->v4l2_planes[0].bytesused = i+1;
+			break;
+		}
+	}
+}
+#endif
+
 static int fimc_is_sen_buffer_finish(struct vb2_buffer *vb)
 {
 	int ret = 0;
 	struct fimc_is_video_ctx *vctx = vb->vb2_queue->drv_priv;
 	struct fimc_is_device_sensor *device;
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	struct fimc_is_queue *queue = GET_DST_QUEUE(vctx);
+
+	if (queue->framecfg.format.pixelformat == V4L2_PIX_FMT_MJPEG)
+		fimc_is_sen_set_payload(vb);
+#endif
 
 #ifdef DBG_STREAMING
 	mdbgv_sensor("%s(%d)\n", vctx, __func__, vb->v4l2_buf.index);

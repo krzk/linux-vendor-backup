@@ -49,7 +49,7 @@
 #define SPARE_SIZE (32 * 1024)
 
 #ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
-#define	MJPEG_TARGET_DIV	4
+#define	MJPEG_TARGET_DIV	2
 
 struct fimc_is_fmt fimc_is_formats[] = {
 	{
@@ -1202,7 +1202,8 @@ int fimc_is_video_dqbuf(struct file *file,
 	ret = vb2_dqbuf(queue->vbq, buf, blocking);
 
 #ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
-	buf->bytesused = buf->length;
+	if (!buf->bytesused)
+		buf->bytesused = buf->length;
 	do_gettimeofday(&buf->timestamp);
 #endif
 
