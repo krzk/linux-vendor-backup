@@ -1349,8 +1349,11 @@ int fimc_is_sensor_s_format(struct fimc_is_device_sensor *device,
 #ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
 	if (device->subdev_module == NULL) {
 		minfo("Forced call of fimc_is_sensor_s_input\n", device);
-		fimc_is_sensor_s_input(device, SENSOR_NAME_S5K5EA,
-			SENSOR_SCENARIO_EXTERNAL);
+		ret = fimc_is_sensor_s_input(device, 0, 0);
+		if (ret) {
+			merr("fimc_is_sensor_s_input is fail(%d)", device, ret);
+			goto p_err;
+		}
 	}
 #endif
 
