@@ -651,6 +651,8 @@ static void flite_hw_force_reset(unsigned long __iomem *base_reg)
 	cfg |= FLITE_REG_CIGCTRL_SWRST;
 	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
 	warn("[CamIF] sw reset");
+
+	msleep(200);
 }
 
 static void flite_hw_set_inverse_polarity(unsigned long __iomem *base_reg)
