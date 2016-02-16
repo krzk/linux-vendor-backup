@@ -118,6 +118,8 @@ static const struct s5k5ea_framesize capture_size_list[] = {
 	{ S5K5EA_CAPTURE_640_480,	640,	480 },
 };
 
+static int s5k5ea_get_index(struct v4l2_subdev *sd);
+
 static inline struct s5k5ea_state *to_state(struct v4l2_subdev *sd)
 {
 	return container_of(sd, struct s5k5ea_state, sd);
@@ -887,11 +889,26 @@ static void s5k5ea_init_setting(struct v4l2_subdev *sd)
 
 static int s5k5ea_init(struct v4l2_subdev *sd, u32 val)
 {
+	struct s5k5ea_state *state = to_state(sd);
 	struct i2c_client *client = g_s5k5ea_i2c_client;
 	u16 read_value = 0;
 	int ret = 0;
 
 	cam_info("%s\n", __func__);
+
+	state->size.width = state->size.height = state->size.code = 0;
+	state->point.x = state->point.y = 0;
+	state->userset.camera_mode   = S5K5EA_OPRMODE_VIDEO;
+	state->userset.frame_mode    = FM_NORMAL;
+	state->userset.scenemode    = V4L2_SCENE_MODE_NONE;
+	state->userset.brightness   = EV_DEFAULT;
+	state->userset.white_balance = WHITE_BALANCE_AUTO;
+	state->userset.contrast     = V4L2_CONTRAST_AUTO;
+	state->userset.saturation   = V4L2_SATURATION_DEFAULT;
+	state->userset.sharpness    = V4L2_SHARPNESS_DEFAULT;
+	state->userset.iso          = V4L2_ISO_AUTO;
+	state->userset.framerate	= 30;
+	state->preset_index			= 0;
 
 	/* read Chip ID */
 	s5k5ea_i2c_write_twobyte(client, 0xFCFC, 0xD000);
@@ -906,6 +923,13 @@ static int s5k5ea_init(struct v4l2_subdev *sd, u32 val)
 			__func__, read_value);
 		return -1;
 	}
+
+	s5k5ea_i2c_write_twobyte(client, 0xFCFC, 0xD000);
+	s5k5ea_i2c_write_twobyte(client, 0x002C, 0x2000);
+	s5k5ea_i2c_write_twobyte(client, 0x002E, 0x0002);
+	s5k5ea_i2c_read_twobyte(client, 0x0F12, &read_value);
+
+	cam_info("%s hw version = %04x\n", __func__, read_value);
 
 	ret = s5k5ea_apply_set(sd, &regs_set.init_reg_1);
 	if (ret < 0) {
@@ -1002,25 +1026,21 @@ static int s5k5ea_s_fmt(struct v4l2_subdev *sd, struct v4l2_mbus_framefmt *fmt)
 	cam_info("%s: width = %d, height = %d, format = %x(%d)\n",
 			__func__, fmt->width, fmt->height, fmt->code, format);
 
+	if (state->size.width == 2560 && state->size.height == 1920)
+		state->userset.camera_mode = S5K5EA_OPRMODE_IMAGE;
+	else
+		state->userset.camera_mode = S5K5EA_OPRMODE_VIDEO;
+
+	cam_info("%s: camera_mode: %s\n", __func__,
+		(state->userset.camera_mode == S5K5EA_OPRMODE_IMAGE) ?
+		"capture mode" : "video mode");
+
+	state->preset_index = s5k5ea_get_index(sd);
+
 	s5k5ea_i2c_write_twobyte(client, 0x0028, 0x2000);
-	/* REG_0TC_PCFG_Format */
-	s5k5ea_i2c_write_twobyte(client, 0x002A, 0x02E6);
-	s5k5ea_i2c_write_twobyte(client, 0x0F12, format);
-
-	/* REG_1TC_PCFG_Format */
-	s5k5ea_i2c_write_twobyte(client, 0x002A, 0x0316);
-	s5k5ea_i2c_write_twobyte(client, 0x0F12, format);
-
-	/* REG_2TC_PCFG_Format */
-	s5k5ea_i2c_write_twobyte(client, 0x002A, 0x0346);
-	s5k5ea_i2c_write_twobyte(client, 0x0F12, format);
-
-	/* REG_3TC_PCFG_Format */
-	s5k5ea_i2c_write_twobyte(client, 0x002A, 0x0376);
-	s5k5ea_i2c_write_twobyte(client, 0x0F12, format);
-
-	/* REG_4TC_PCFG_Format */
-	s5k5ea_i2c_write_twobyte(client, 0x002A, 0x03A6);
+	/* REG_xTC_PCFG_Format */
+	s5k5ea_i2c_write_twobyte(client, 0x002A,
+		PCFG_FMT_BASE + PCFG_SIZE * state->preset_index);
 	s5k5ea_i2c_write_twobyte(client, 0x0F12, format);
 
 	return 0;
@@ -1033,7 +1053,7 @@ static int s5k5ea_get_index(struct v4l2_subdev *sd)
 	int width, height, ret = -1;
 	u32 i;
 
-	cam_info("%s\n", __func__);
+	cam_dbg("%s\n", __func__);
 
 	width = state->size.width;
 	height = state->size.height;
@@ -1100,15 +1120,16 @@ static void s5k5ea_preview_setting(struct v4l2_subdev *sd, int value)
 
 static int s5k5ea_start_preview(struct v4l2_subdev *sd)
 {
+	struct s5k5ea_state *state = to_state(sd);
 	struct i2c_client *client = g_s5k5ea_i2c_client;
-	int value = s5k5ea_get_index(sd);
+	int value = state->preset_index;
 
 	if (value < 0) {
 		err("Invalid index %d", value);
 		return -EINVAL;
 	}
 
-	cam_info("%sindex(%d)\n", __func__, value);
+	cam_info("%s index(%d)\n", __func__, value);
 
 	s5k5ea_preview_setting(sd, value);
 
@@ -1198,15 +1219,16 @@ static void s5k5ea_capture_setting(struct v4l2_subdev *sd)
 
 static int s5k5ea_start_capture(struct v4l2_subdev *sd)
 {
+	struct s5k5ea_state *state = to_state(sd);
 	struct i2c_client *client = g_s5k5ea_i2c_client;
-	int value = s5k5ea_get_index(sd);
+	int value = state->preset_index;
 
 	if (value < 0) {
 		err("Invalid index %d", value);
 		return -EINVAL;
 	}
 
-	cam_info("%sindex(%d)\n", __func__, value);
+	cam_info("%s index(%d)\n", __func__, value);
 
 	s5k5ea_capture_setting(sd);
 
@@ -1232,11 +1254,6 @@ static int s5k5ea_s_stream(struct v4l2_subdev *sd, int enable)
 
 	cam_info("%s\n", __func__);
 
-	if (state->size.width == 2560 && state->size.height == 1920)
-		state->userset.camera_mode = S5K5EA_OPRMODE_IMAGE;
-	else
-		state->userset.camera_mode = S5K5EA_OPRMODE_VIDEO;
-
 	if (enable)
 		if (state->userset.camera_mode == S5K5EA_OPRMODE_VIDEO)
 			ret = s5k5ea_start_preview(sd);
@@ -1261,9 +1278,41 @@ static int s5k5ea_g_parm(struct v4l2_subdev *sd,
 static int s5k5ea_s_parm(struct v4l2_subdev *sd,
 		struct v4l2_streamparm *param)
 {
-	cam_info("%s\n", __func__);
+	int ret = 0;
+	struct fimc_is_module_enum *module;
+	struct v4l2_captureparm *cp;
+	struct v4l2_fract *tpf;
+	u64 framerate;
 
-	return 0;
+	BUG_ON(!sd);
+	BUG_ON(!param);
+
+	cp = &param->parm.capture;
+	tpf = &cp->timeperframe;
+
+	if (!tpf->numerator) {
+		err("numerator is 0");
+		ret = -EINVAL;
+		goto p_err;
+	}
+
+	framerate = tpf->denominator;
+
+	module = (struct fimc_is_module_enum *)v4l2_get_subdevdata(sd);
+	if (!module) {
+		err("module is NULL");
+		ret = -EINVAL;
+		goto p_err;
+	}
+
+	ret = CALL_MOPS(module, s_duration, sd, framerate);
+	if (ret) {
+		err("s_duration is fail(%d)", ret);
+		goto p_err;
+	}
+
+p_err:
+	return ret;
 }
 
 static int s5k5ea_enum_framesizes(struct v4l2_subdev *sd,
@@ -1379,36 +1428,35 @@ static const struct v4l2_subdev_ops s5k5ea_ops = {
  * nano second
  * @ remarks
  */
-int sensor_5ea_s_duration(struct v4l2_subdev *subdev, u64 duration)
+int sensor_5ea_s_duration(struct v4l2_subdev *subdev, u64 framerate)
 {
 	int ret = 0;
-	u8 value[2];
-	u32 framerate, result;
-	struct fimc_is_module_enum *sensor;
-	struct i2c_client *client;
+	u32 frametime;
+	struct i2c_client *client = g_s5k5ea_i2c_client;
+	struct s5k5ea_state *state = to_state(subdev);
 
 	cam_info("%s\n", __func__);
 	BUG_ON(!subdev);
 
-	sensor = (struct fimc_is_module_enum *)v4l2_get_subdevdata(subdev);
-	if (unlikely(!sensor)) {
-		err("sensor is NULL");
+	if (!framerate) {
+		err("framerate is 0");
 		ret = -EINVAL;
 		goto p_err;
 	}
 
-	client = sensor->client;
-	if (unlikely(!client)) {
-		err("client is NULL");
-		ret = -EINVAL;
-		goto p_err;
-	}
+	frametime = 10000 / (u32)framerate;
+	state->userset.framerate = (int)framerate;
 
-	framerate = 1000 * 1000 * 1000 / (u32)duration;
-	result = 1060 / framerate;
-	value[0] = result & 0xFF;
-	value[1] = (result >> 8) & 0xFF;
+	cam_info("%s framerate=%lld, frametime=%d\n",
+		__func__, framerate, frametime);
 
+	s5k5ea_i2c_write_twobyte(client, 0x0028, 0x2000);
+
+	/* XTC_PCFG_usMaxFrTimeMsecMult10 */
+	s5k5ea_i2c_write_twobyte(client, 0x002A,
+		PCFG_FRTIME_BASE + PCFG_SIZE * state->preset_index);
+	s5k5ea_i2c_write_twobyte(client, 0x0F12, frametime);
+	s5k5ea_i2c_write_twobyte(client, 0x0F12, frametime);
 
 p_err:
 	return ret;
@@ -1711,7 +1759,8 @@ int sensor_5ea_probe(struct i2c_client *client,
 	state->userset.saturation   = V4L2_SATURATION_DEFAULT;
 	state->userset.sharpness    = V4L2_SHARPNESS_DEFAULT;
 	state->userset.iso          = V4L2_ISO_AUTO;
-
+	state->userset.framerate	= 30;
+	state->preset_index			= 0;
 
 	v4l2_set_subdevdata(sd, module);
 	v4l2_set_subdev_hostdata(sd, device);

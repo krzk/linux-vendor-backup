@@ -155,6 +155,7 @@ struct s5k5ea_userset {
 	int saturation;
 	int sharpness;
 	int iso;
+	int framerate;
 };
 
 struct afpoint {
@@ -183,6 +184,7 @@ struct s5k5ea_state {
 	struct afpoint                  point;
 	struct mutex                    lock;
 	struct mutex                    i2c_lock;
+	u32								preset_index;
 };
 
 struct s5k5ea_framesize {

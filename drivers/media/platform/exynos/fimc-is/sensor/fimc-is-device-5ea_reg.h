@@ -19,22 +19,32 @@
  * 3. LOW		=  5 FPS ~ 10 FPS
  */
 
-#define HIG_MAXFRTIME	0x01A1
-#define HIG_MINFRTIME	0x014D
+#define FRTIME_30	0x014D
+#define FRTIME_24	0x01A1
+#define FRTIME_15	0x029A
+#define FRTIME_10	0x03E8
+#define FRTIME_5	0x07D0
 
-#define NOR_MAXFRTIME	0x029A
-#define NOR_MINFRTIME	0x014D
+#define HIG_MAXFRTIME	FRTIME_24
+#define HIG_MINFRTIME	FRTIME_30
 
-#define LOW_MAXFRTIME	0x07D0
-#define LOW_MINFRTIME	0x03E8
+#define NOR_MAXFRTIME	FRTIME_15
+#define NOR_MINFRTIME	FRTIME_30
+
+#define LOW_MAXFRTIME	FRTIME_5
+#define LOW_MINFRTIME	FRTIME_10
 
 /* Capture Frame Time */
 /* 1. NORMAL = 5 FPS ~ 15 FPS(MAX) */
-#define CAP_MAXFRTIME	0x07D0
-#define CAP_MINFRTIME	0x029A
+#define CAP_MAXFRTIME	FRTIME_5
+#define CAP_MINFRTIME	FRTIME_15
 
 #define PCFG_FORMAT_YUV		0x05
 #define PCFG_FORMAT_MJPEG	0x09
+
+#define PCFG_FMT_BASE		0x02E6
+#define PCFG_FRTIME_BASE	0x02FE
+#define PCFG_SIZE		48
 
 /***********************************************************************
  # Preview #
@@ -3038,8 +3048,8 @@ static const struct s5k5ea_reg_item s5k5ea_init_reg2[] = {
 	{0x0F12, 0x0001},   //REG_0TC_PCFG_uClockInd (1 : 81MHz)
 	{0x0F12, 0x0002},   //0: Dynamic, 1: Not Accurate, 2: Fixed
 	{0x0F12, 0x0001},   //0: Dynamic  1: BEST FrameRate(Binning), 2: BEST QUALITY(No Binning)
-	{0x0F12, NOR_MINFRTIME},	//REG_0TC_PCFG_usMaxFrTimeMsecMult10
-	{0x0F12, NOR_MINFRTIME},	//REG_0TC_PCFG_usMinFrTimeMsecMult10
+	{0x0F12, FRTIME_30},	//REG_0TC_PCFG_usMaxFrTimeMsecMult10
+	{0x0F12, FRTIME_30},	//REG_0TC_PCFG_usMinFrTimeMsecMult10
 	{0x002A, 0x030C},
 	{0x0F12, 0x0000},   //REG_0TC_PCFG_uPrevMirror
 	{0x0F12, 0x0000},   //REG_0TC_PCFG_uCaptureMirror
@@ -3060,8 +3070,8 @@ static const struct s5k5ea_reg_item s5k5ea_init_reg2[] = {
 	{0x0F12, 0x0001},	//REG_1TC_PCFG_uClockInd (1 : 81MHz)
 	{0x0F12, 0x0002},	//0: Dynamic, 1:Not Accurate, 2: Fixed
 	{0x0F12, 0x0001},	//0: Dynamic, 1:BEST FrameRate(Binning), 2: BEST QUALITY(No Binning)
-	{0x0F12, NOR_MINFRTIME},	//REG_1TC_PCFG_usMaxFrTimeMsecMult10
-	{0x0F12, NOR_MINFRTIME},	//REG_1TC_PCFG_usMinFrTimeMsecMult10
+	{0x0F12, FRTIME_15},	//REG_1TC_PCFG_usMaxFrTimeMsecMult10
+	{0x0F12, FRTIME_15},	//REG_1TC_PCFG_usMinFrTimeMsecMult10
 	{0x002A, 0x033C},
 	{0x0F12, 0x0000},	//REG_1TC_PCFG_uPrevMirror
 	{0x0F12, 0x0000},	//REG_1TC_PCFG_uCaptureMirror
@@ -3082,8 +3092,8 @@ static const struct s5k5ea_reg_item s5k5ea_init_reg2[] = {
 	{0x0F12, 0x0001},	//REG_2TC_PCFG_uClockInd (1 : 81MHz)
 	{0x0F12, 0x0002},	//0: Dynamic, 1:Not Accurate, 2: Fixed
 	{0x0F12, 0x0001},	//0: Dynamic 1: BEST FrameRate(Binning), 2: BEST QUALITY(No Binning)
-	{0x0F12, NOR_MINFRTIME},	//REG_2TC_PCFG_usMaxFrTimeMsecMult10
-	{0x0F12, NOR_MINFRTIME},	//REG_2TC_PCFG_usMinFrTimeMsecMult10
+	{0x0F12, FRTIME_30},	//REG_2TC_PCFG_usMaxFrTimeMsecMult10
+	{0x0F12, FRTIME_30},	//REG_2TC_PCFG_usMinFrTimeMsecMult10
 	{0x002A, 0x036C},
 	{0x0F12, 0x0000},	//REG_2TC_PCFG_uPrevMirror
 	{0x0F12, 0x0000},	//REG_2TC_PCFG_uCaptureMirror
@@ -3104,8 +3114,8 @@ static const struct s5k5ea_reg_item s5k5ea_init_reg2[] = {
 	{0x0F12, 0x0001},	//REG_3TC_PCFG_uClockInd
 	{0x0F12, 0x0002},	//REG_3TC_PCFG_usFrTimeType	0: Dynamic, 1:Not Accurate, 2: Fixed
 	{0x0F12, 0x0001},	//0: Dynamic 1: BEST FrameRate(Binning), 2: BEST QUALITY(No Binning)
-	{0x0F12, NOR_MINFRTIME},	//REG_3TC_PCFG_usMaxFrTimeMsecMult10
-	{0x0F12, NOR_MINFRTIME},	//REG_3TC_PCFG_usMinFrTimeMsecMult10
+	{0x0F12, FRTIME_30},	//REG_3TC_PCFG_usMaxFrTimeMsecMult10
+	{0x0F12, FRTIME_30},	//REG_3TC_PCFG_usMinFrTimeMsecMult10
 	{0x002A, 0x039C},
 	{0x0F12, 0x0000},	//REG_3TC_PCFG_uPrevMirror
 	{0x0F12, 0x0000},	//REG_3TC_PCFG_uCaptureMirror
@@ -3126,8 +3136,8 @@ static const struct s5k5ea_reg_item s5k5ea_init_reg2[] = {
 	{0x0F12, 0x0001},	//REG_4TC_PCFG_uClockInd
 	{0x0F12, 0x0002},	//REG_4TC_PCFG_usFrTimeType	0: Dynamic, 1:Not Accurate, 2: Fixed
 	{0x0F12, 0x0001},	//0: Dynamic 1: BEST FrameRate(Binning), 2: BEST QUALITY(No Binning)
-	{0x0F12, NOR_MINFRTIME},	//REG_4TC_PCFG_usMaxFrTimeMsecMult10
-	{0x0F12, NOR_MINFRTIME},	//REG_4TC_PCFG_usMinFrTimeMsecMult10
+	{0x0F12, FRTIME_30},	//REG_4TC_PCFG_usMaxFrTimeMsecMult10
+	{0x0F12, FRTIME_30},	//REG_4TC_PCFG_usMinFrTimeMsecMult10
 	{0x002A, 0x03CC},
 	{0x0F12, 0x0000},	//REG_4TC_PCFG_uPrevMirror
 	{0x0F12, 0x0000},	//REG_4TC_PCFG_uCaptureMirror
@@ -3916,7 +3926,7 @@ static const struct s5k5ea_reg_item s5k5ea_preview_input_1920_1080[] = {
 	{0x0F12, 0x0000},	/* REG_TC_PZOOM_PrevZoomReqInputHeightOfs */
 };
 
-/* Preview Input 2560x1920 */
+/* Preview Input 2560x1440 */
 static const struct s5k5ea_reg_item s5k5ea_preview_input_2560_1440[] = {
 	{0x0028, 0x2000},
 	{0x002A, 0x028A},
