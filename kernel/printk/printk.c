@@ -273,6 +273,7 @@ static enum log_flags console_prev;
 
 #define PREFIX_MAX		32
 #define LOG_LINE_MAX		(1024 - PREFIX_MAX)
+#define KMSG_NUM_MAX    255
 
 /* record buffer */
 #if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
@@ -1507,7 +1508,7 @@ int kmsg_sys_buffer_add(size_t size, umode_t mode)
 		minor = log_b->minor;
 	}
 
-	if (!(minor & MINORMASK)) {
+	if (!(minor & MINORMASK) || (minor & MINORMASK) >= KMSG_NUM_MAX) {
 		kref_put(&log_b->refcount, log_buf_release);
 		spin_unlock_irqrestore(&kmsg_sys_list_lock, flags);
 		return -ERANGE;
