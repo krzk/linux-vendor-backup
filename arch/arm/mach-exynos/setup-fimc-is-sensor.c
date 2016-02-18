@@ -327,6 +327,7 @@ int exynos5422_fimc_is_sensor_mclk_off(struct platform_device *pdev,
 		fimc_is_disable_dt(pdev, "gscl_fimc_lite3");
 		fimc_is_disable_dt(pdev, "clk_gscl_wrap_a");
 		break;
+	case SENSOR_CONTROL_I2C1:
 	case SENSOR_CONTROL_I2C2:
 		fimc_is_disable_dt(pdev, "sclk_gscl_wrap_b");
 		fimc_is_disable_dt(pdev, "clk_camif_top_fimcl1");
