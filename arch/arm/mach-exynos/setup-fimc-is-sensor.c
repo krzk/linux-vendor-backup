@@ -604,6 +604,62 @@ int exynos5430_fimc_is_sensor_mclk_off(struct platform_device *pdev,
 
 	return 0;
 }
+#elif defined(CONFIG_SOC_EXYNOS3250)
+int exynos3250_fimc_is_sensor_iclk_cfg(struct platform_device *pdev,
+	u32 scenario,
+	u32 channel)
+{
+	int ret = 0;
+
+	pr_info("iclk_cfg:(ch%d),scenario(%d)\n", channel, scenario);
+
+	if (scenario == SENSOR_SCENARIO_EXTERNAL)
+		exynos_fimc_is_cfg_clk(pdev);
+
+	return ret;
+}
+
+int exynos3250_fimc_is_sensor_iclk_on(struct platform_device *pdev,
+	u32 scenario,
+	u32 channel)
+{
+	int ret = 0;
+
+	pr_info("iclk_on:(ch%d),scenario(%d)\n", channel, scenario);
+
+	if (scenario == SENSOR_SCENARIO_EXTERNAL)
+		exynos_fimc_is_clk_on(pdev);
+
+	return ret;
+}
+
+int exynos3250_fimc_is_sensor_iclk_off(struct platform_device *pdev,
+	u32 scenario,
+	u32 channel)
+{
+	int ret = 0;
+
+	pr_info("iclk_off:(ch%d),scenario(%d)\n", channel, scenario);
+
+	if (scenario == SENSOR_SCENARIO_EXTERNAL)
+		exynos_fimc_is_clk_off(pdev);
+
+	return ret;
+}
+
+int exynos3250_fimc_is_sensor_mclk_on(struct platform_device *pdev,
+	u32 scenario,
+	u32 channel)
+{
+	return 0;
+}
+
+int exynos3250_fimc_is_sensor_mclk_off(struct platform_device *pdev,
+	u32 scenario,
+	u32 channel)
+{
+	return 0;
+}
 #endif
 
 /* Wrapper functions */
@@ -615,6 +671,8 @@ int exynos_fimc_is_sensor_iclk_cfg(struct platform_device *pdev,
 	exynos5422_fimc_is_sensor_iclk_cfg(pdev, scenario, channel);
 #elif defined(CONFIG_SOC_EXYNOS5430)
 	exynos5430_fimc_is_sensor_iclk_cfg(pdev, scenario, channel);
+#elif defined(CONFIG_SOC_EXYNOS3250)
+	exynos3250_fimc_is_sensor_iclk_cfg(pdev, scenario, channel);
 #endif
 	return 0;
 }
@@ -627,6 +685,8 @@ int exynos_fimc_is_sensor_iclk_on(struct platform_device *pdev,
 	exynos5422_fimc_is_sensor_iclk_on(pdev, scenario, channel);
 #elif defined(CONFIG_SOC_EXYNOS5430)
 	exynos5430_fimc_is_sensor_iclk_on(pdev, scenario, channel);
+#elif defined(CONFIG_SOC_EXYNOS3250)
+	exynos3250_fimc_is_sensor_iclk_on(pdev, scenario, channel);
 #endif
 	return 0;
 }
@@ -639,6 +699,8 @@ int exynos_fimc_is_sensor_iclk_off(struct platform_device *pdev,
 	exynos5422_fimc_is_sensor_iclk_off(pdev, scenario, channel);
 #elif defined(CONFIG_SOC_EXYNOS5430)
 	exynos5430_fimc_is_sensor_iclk_off(pdev, scenario, channel);
+#elif defined(CONFIG_SOC_EXYNOS3250)
+	exynos3250_fimc_is_sensor_iclk_off(pdev, scenario, channel);
 #endif
 	return 0;
 }
@@ -651,6 +713,8 @@ int exynos_fimc_is_sensor_mclk_on(struct platform_device *pdev,
 	exynos5422_fimc_is_sensor_mclk_on(pdev, scenario, channel);
 #elif defined(CONFIG_SOC_EXYNOS5430)
 	exynos5430_fimc_is_sensor_mclk_on(pdev, scenario, channel);
+#elif defined(CONFIG_SOC_EXYNOS3250)
+	exynos3250_fimc_is_sensor_mclk_on(pdev, scenario, channel);
 #endif
 	return 0;
 }
@@ -663,6 +727,8 @@ int exynos_fimc_is_sensor_mclk_off(struct platform_device *pdev,
 	exynos5422_fimc_is_sensor_mclk_off(pdev, scenario, channel);
 #elif defined(CONFIG_SOC_EXYNOS5430)
 	exynos5430_fimc_is_sensor_mclk_off(pdev, scenario, channel);
+#elif defined(CONFIG_SOC_EXYNOS3250)
+	exynos3250_fimc_is_sensor_mclk_off(pdev, scenario, channel);
 #endif
 	return 0;
 }
