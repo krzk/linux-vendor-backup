@@ -2590,10 +2590,10 @@ int fimc_is_ischain_open(struct fimc_is_device_ischain *device,
 	fimc_is_subdev_open(&device->fd, NULL, NULL);
 
 	/* for mediaserver force close */
-	ret = fimc_is_resource_get(device->resourcemgr);
+	ret = fimc_is_resource_get(device->resourcemgr, 0);
 	if (ret) {
 		merr("fimc_is_resource_get is fail", device);
-		fimc_is_resource_put(device->resourcemgr);
+		fimc_is_resource_put(device->resourcemgr, 0);
 		goto p_err;
 	}
 
@@ -2602,7 +2602,7 @@ int fimc_is_ischain_open(struct fimc_is_device_ischain *device,
 		ret = fimc_is_ischain_power(device, 1);
 		if (ret) {
 			err("failed to fimc_is_ischain_power (%d)\n", ret);
-			fimc_is_resource_put(device->resourcemgr);
+			fimc_is_resource_put(device->resourcemgr, 0);
 			ret = -EINVAL;
 			goto p_err;
 		}
@@ -2700,7 +2700,7 @@ int fimc_is_ischain_close(struct fimc_is_device_ischain *device,
 	}
 
 	/* for mediaserver force close */
-	ret = fimc_is_resource_put(device->resourcemgr);
+	ret = fimc_is_resource_put(device->resourcemgr, 0);
 	if (ret) {
 		merr("fimc_is_resource_put is fail", device);
 		goto exit;

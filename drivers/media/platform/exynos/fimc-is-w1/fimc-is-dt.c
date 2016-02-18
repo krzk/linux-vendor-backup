@@ -300,6 +300,11 @@ struct exynos_platform_fimc_is *fimc_is_parse_dt(struct device *dev)
 	if (parse_gate_info(pdata, np) < 0)
 		printk(KERN_ERR "%s: can't parse clock gate info node\n", __func__);
 
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	of_property_read_u32(np, "fixed_sensor_id",
+		&pdata->fixed_sensor_id);
+#endif
+
 	dvfs_np = of_find_node_by_name(np, "fimc_is_dvfs");
 	if (!dvfs_np) {
 		printk(KERN_ERR "%s: can't find fimc_is_dvfs node\n", __func__);
@@ -466,6 +471,14 @@ int fimc_is_sensor_parse_dt(struct platform_device *pdev)
 	SET_PIN(pdata, SENSOR_SCENARIO_VISION, GPIO_SCENARIO_OFF, 5, gpio_none, 0, "cam_sensor", PIN_REGULATOR_OFF);
 	SET_PIN(pdata, SENSOR_SCENARIO_VISION, GPIO_SCENARIO_OFF, 6, gpio_none, 0, NULL, PIN_END);
 
+	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, 0, gpio_cam_en, 0, NULL, PIN_OUTPUT_HIGH);
+	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, 1, gpio_reset, 0, NULL, PIN_RESET);
+	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, 2, gpio_none, 0, "ch", PIN_FUNCTION);
+	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_ON, 3, gpio_none, 0, NULL, PIN_END);
+	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_OFF, 0, gpio_reset, 0, NULL, PIN_RESET);
+	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_OFF, 1, gpio_reset, 0, NULL, PIN_INPUT);
+	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_OFF, 2, gpio_cam_en, 0, NULL, PIN_OUTPUT_LOW);
+	SET_PIN(pdata, SENSOR_SCENARIO_EXTERNAL, GPIO_SCENARIO_OFF, 3, gpio_none, 0, NULL, PIN_END);
 	/* Xyref5430 board revision config */
 	if ((id == SENSOR_POSITION_FRONT) && board_rev) {
 		pdata->mclk_ch = 2;
