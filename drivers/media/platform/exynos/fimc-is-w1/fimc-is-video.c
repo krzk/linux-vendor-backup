@@ -48,6 +48,27 @@
 #define SPARE_PLANE 1
 #define SPARE_SIZE (32 * 1024)
 
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+#define	MJPEG_TARGET_DIV	2
+
+struct fimc_is_fmt fimc_is_formats[] = {
+	{
+		.name		= "YUV 4:2:2 packed, YCbYCr",
+		.pixelformat	= V4L2_PIX_FMT_YUYV,
+		.num_planes	= 1,
+		.mbus_code	= MEDIA_BUS_FMT_YUYV8_2X8,
+	}, {
+		.name		= "MJPEG",
+		.pixelformat	= V4L2_PIX_FMT_MJPEG,
+		.num_planes	= 1,
+	}
+};
+
+const int fimc_is_num_formats = ARRAY_SIZE(fimc_is_formats);
+
+#else
+#define	MJPEG_TARGET_DIV	1
+
 struct fimc_is_fmt fimc_is_formats[] = {
 	 {
 		.name		= "YUV 4:2:2 packed, YCbYCr",
@@ -111,8 +132,14 @@ struct fimc_is_fmt fimc_is_formats[] = {
 		.name		= "BAYER 16 bit",
 		.pixelformat	= V4L2_PIX_FMT_SBGGR16,
 		.num_planes	= 1 + SPARE_PLANE,
-	},
+	}, {
+		.name		= "JPEG",
+		.pixelformat	= V4L2_PIX_FMT_JPEG,
+		.num_planes	= 1 + SPARE_PLANE,
+		.mbus_code	= MEDIA_BUS_FMT_JPEG_1X8,
+	}
 };
+#endif
 
 struct fimc_is_fmt *fimc_is_find_format(u32 *pixelformat,
 	u32 *mbus_code, int index)
@@ -245,6 +272,12 @@ void fimc_is_set_plane_size(struct fimc_is_frame_cfg *frame, unsigned int sizes[
 		}
 		sizes[1] = SPARE_SIZE;
 		break;
+	case V4L2_PIX_FMT_MJPEG:
+		dbg("V4L2_PIX_FMT_MJPEG(w:%d)(h:%d)\n",
+				frame->width, frame->height);
+		sizes[0] = width[0] * frame->height * 2 / MJPEG_TARGET_DIV;
+		sizes[1] = SPARE_SIZE;
+		break;
 	default:
 		err("unknown pixelformat\n");
 		break;
@@ -300,8 +333,11 @@ static int queue_init(void *priv, struct vb2_queue *vbq_src,
 		vctx->q_src.vbq = vbq_src;
 	} else if (vctx->type == FIMC_IS_VIDEO_TYPE_CAPTURE) {
 		BUG_ON(!vbq_dst);
-
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+		vbq_dst->type		= V4L2_BUF_TYPE_VIDEO_CAPTURE;
+#else
 		vbq_dst->type		= V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+#endif
 		vbq_dst->io_modes	= VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
 		vbq_dst->drv_priv	= vctx;
 		vbq_dst->ops		= vctx->vb2_ops;
@@ -474,6 +510,11 @@ static int fimc_is_queue_set_format_mplane(struct fimc_is_queue *queue,
 		}
 	}
 
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	/* Notify found pixelformat */
+	format->fmt.pix.pixelformat = fmt->pixelformat;
+#endif
+
 p_err:
 	return ret;
 }
@@ -579,7 +620,7 @@ set_info:
 #endif
 	}
 
-	if (framemgr->id & FRAMEMGR_ID_SHOT) {
+	if ((frame->planes > 1) && (framemgr->id & FRAMEMGR_ID_SHOT)) {
 		ext_size = sizeof(struct camera2_shot_ext) -
 			sizeof(struct camera2_shot);
 
@@ -748,6 +789,7 @@ int fimc_is_video_probe(struct fimc_is_video *video,
 	const struct v4l2_ioctl_ops *ioctl_ops)
 {
 	int ret = 0;
+	u32 video_id;
 
 	vref_init(video);
 	mutex_init(&video->lock);
@@ -766,15 +808,24 @@ int fimc_is_video_probe(struct fimc_is_video *video,
 	video->vd.lock		= lock;
 	video_set_drvdata(&video->vd, video);
 
-	ret = video_register_device(&video->vd,
-				VFL_TYPE_GRABBER,
-				(EXYNOS_VIDEONODE_FIMC_IS + video_number));
-	if (ret) {
-		err("Failed to register video device");
-		goto p_err;
+	video_id = EXYNOS_VIDEONODE_FIMC_IS + video_number;
+
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	if (video_id <= (EXYNOS_VIDEONODE_FIMC_IS + FIMC_IS_VIDEO_SS1_NUM)) {
+#else
+	{
+#endif
+		ret = video_register_device(&video->vd,
+			VFL_TYPE_GRABBER,
+			(EXYNOS_VIDEONODE_FIMC_IS + video_number));
+		if (ret) {
+			err("Failed to register video device");
+			goto p_err;
+		}
 	}
 
 p_err:
+	info("[VID] %s(%d) is created\n", video_name, video_id);
 	return ret;
 }
 
@@ -970,6 +1021,11 @@ int fimc_is_video_reqbufs(struct file *file,
 		goto p_err;
 	}
 
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	request->count = min_t(unsigned int,
+		request->count, FIMC_IS_MAX_BUFS);
+#endif
+
 	ret = vb2_reqbufs(queue->vbq, request);
 	if (ret) {
 		err("vb2_reqbufs is fail(%d)", ret);
@@ -1150,6 +1206,12 @@ int fimc_is_video_dqbuf(struct file *file,
 	}
 
 	ret = vb2_dqbuf(queue->vbq, buf, blocking);
+
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	if (!buf->bytesused)
+		buf->bytesused = buf->length;
+	do_gettimeofday(&buf->timestamp);
+#endif
 
 p_err:
 	return ret;

@@ -582,9 +582,11 @@ static int fimc_is_sensor_tag(struct fimc_is_device_sensor *device,
 	struct fimc_is_frame *frame)
 {
 	int ret = 0;
+
+#ifndef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
 	frame->shot->dm.request.frameCount = frame->fcount;
 	frame->shot->dm.sensor.timeStamp = fimc_is_get_timestamp();
-
+#endif
 	return ret;
 }
 
@@ -1055,11 +1057,26 @@ int fimc_is_sensor_s_input(struct fimc_is_device_sensor *device,
 	u32 sensor_ch, actuator_ch;
 	u32 sensor_addr, actuator_addr;
 	u32 i;
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	struct exynos_platform_fimc_is *core_pdata =
+		dev_get_platdata(fimc_is_dev);
+#endif
 
 	BUG_ON(!device);
 	BUG_ON(!device->pdata);
 	BUG_ON(!device->subdev_csi);
 	BUG_ON(input >= SENSOR_NAME_END);
+
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	if (!core_pdata) {
+		err("core->pdata is null");
+		return -EINVAL;
+	}
+	input = core_pdata->fixed_sensor_id;
+	drive = device->pdata->scenario;
+	info("%s set drive(%d) and input(%d) from DT\n",
+			__func__, drive, input);
+#endif
 
 	for (i = 0; i < SENSOR_MAX_ENUM; i++) {
 		if (&device->module_enum[i] &&
@@ -1210,6 +1227,18 @@ int fimc_is_sensor_s_format(struct fimc_is_device_sensor *device,
 	BUG_ON(!device);
 	BUG_ON(!device->subdev_csi);
 	BUG_ON(!device->subdev_flite);
+
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	if (device->subdev_module == NULL) {
+		minfo("Forced call of fimc_is_sensor_s_input\n", device);
+		ret = fimc_is_sensor_s_input(device, 0,	0);
+		if (ret) {
+			merr("fimc_is_sensor_s_input is fail(%d)", device, ret);
+			goto p_err;
+		}
+	}
+#endif
+
 	BUG_ON(!device->subdev_module);
 	BUG_ON(!format);
 
@@ -1324,11 +1353,13 @@ int fimc_is_sensor_s_framerate(struct fimc_is_device_sensor *device,
 		goto p_err;
 	}
 
+#ifndef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
 	if (param->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		merr("type is invalid(%d)", device, param->type);
 		ret = -EINVAL;
 		goto p_err;
 	}
+#endif
 
 	if (framerate > module->max_framerate) {
 		merr("framerate is invalid(%d > %d)", device, framerate, module->max_framerate);
@@ -1566,14 +1597,17 @@ int fimc_is_sensor_buffer_finish(struct fimc_is_device_sensor *device,
 	framemgr_e_barrier_irqs(framemgr, FMGR_IDX_3 + index, flags);
 
 	if (frame->state == FIMC_IS_FRAME_STATE_COMPLETE) {
+#ifndef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
 		if (!frame->shot->dm.request.frameCount)
 			err("request.frameCount is 0\n");
+#endif
 		fimc_is_frame_trans_com_to_fre(framemgr, frame);
-
+#ifndef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
 		frame->shot_ext->free_cnt = framemgr->frame_fre_cnt;
 		frame->shot_ext->request_cnt = framemgr->frame_req_cnt;
 		frame->shot_ext->process_cnt = framemgr->frame_pro_cnt;
 		frame->shot_ext->complete_cnt = framemgr->frame_com_cnt;
+#endif
 	} else {
 		err("frame(%d) is not com state(%d)", index, frame->state);
 		fimc_is_frame_print_all(framemgr);
