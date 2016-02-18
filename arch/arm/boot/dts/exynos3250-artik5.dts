@@ -24,6 +24,10 @@
 		reg = <0x40000000 0x1F800000>;
 	};
 
+	aliases {
+		i2c8 = &i2c_gpio0;
+	};
+
 	fixed-rate-clocks {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -578,6 +582,64 @@
                         regulator-min-microvolt = <2800000>;
                         regulator-max-microvolt = <2800000>;
 		};
+	};
+
+	i2c_gpio0: i2c@2d {
+		compatible = "i2c-gpio";
+		gpios = <&gpm4 1 0 &gpm4 0 0>;
+		i2c-gpio,delay-us = <2>;    /* ~100kHz */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "okay";
+
+		s5k5ea@2d {
+			compatible = "samsung,exynos5-fimc-is-sensor-5ea";
+			reg = <0x2d>;
+		};
+	};
+
+	fimc_is@14000000 {
+		fixed_sensor_id = <14>;
+		fimc_is_dvfs {
+			default_int = <134000>; /* L1 */
+			default_cam = <320000>; /* L0 */
+			default_mif = <400000>; /* L0 */
+			default_i2c = <0>;
+
+			rear_preview_int = <134000>; /* L1 */
+			rear_preview_cam = <320000>; /* L0 */
+			rear_preview_mif = <400000>; /* L0 */
+			rear_preview_i2c = <0>;
+
+			rear_capture_int = <134000>; /* L1 */
+			rear_capture_cam = <320000>; /* L0 */
+			rear_capture_mif = <400000>; /* L0 */
+			rear_capture_i2c = <0>;
+
+			rear_camcording_int = <134000>; /* L1 */
+			rear_camcording_cam = <320000>; /* L0 */
+			rear_camcording_mif = <400000>; /* L0 */
+			rear_camcording_i2c = <0>;
+
+			max_int = <134000>; /* L1 */
+			max_cam = <320000>; /* L0 */
+			max_mif = <400000>; /* L0 */
+			max_i2c = <0>;
+		};
+	};
+
+	fimc_is_sensor0: fimc_is_sensor@120A0000 {
+		scenario = <2>;
+		gpio_reset = <&gpm3 2 0x1>;
+		gpios_cam_en = <&gpm0 2 0x1>;
+		id = <0>;
+		mclk_ch = <1>;
+		csi_ch = <0>;
+		flite_ch = <0>;
+		i2c_ch = <0>;
+		i2c_addr = <0x20>;
+		is_bns = <0>;
+		status = "okay";
 	};
 };
 
