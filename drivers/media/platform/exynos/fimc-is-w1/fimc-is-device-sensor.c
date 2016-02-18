@@ -125,6 +125,65 @@ int fimc_is_sensor_write(struct i2c_client *client,
 	return 0;
 }
 
+int fimc_is_sensor_write_burst(struct i2c_client *client,
+	u8 *buf, u32 size)
+{
+	int ret = 0;
+	int retry_count = 5;
+	struct i2c_msg msg = {client->addr, 0, size, buf};
+
+	do {
+		ret = i2c_transfer(client->adapter, &msg, 1);
+		if (likely(ret == 1))
+			break;
+		msleep(10);
+	} while (retry_count-- > 0);
+
+	if (ret != 1) {
+		dev_err(&client->dev, "%s: I2C is not working.\n", __func__);
+		return -EIO;
+	}
+
+	return 0;
+}
+
+int fimc_is_sensor_write16(struct i2c_client *client,
+	u16 addr, u16 val)
+{
+	int ret = 0;
+	struct i2c_msg msg[1];
+	u8 wbuf[4];
+
+	if (!client->adapter) {
+		err("Could not find adapter!\n");
+		ret = -ENODEV;
+		goto p_err;
+	}
+
+	msg->addr = client->addr;
+	msg->flags = 0;
+	msg->len = 4;
+	msg->buf = wbuf;
+	wbuf[0] = (addr & 0xFF00) >> 8;
+	wbuf[1] = (addr & 0xFF);
+	wbuf[2] = (val & 0xFF00) >> 8;
+	wbuf[3] = (val & 0xFF);
+
+	ret = i2c_transfer(client->adapter, msg, 1);
+	if (ret < 0) {
+		err("i2c treansfer fail(%d)", ret);
+		goto p_err;
+	}
+
+#ifdef PRINT_I2CCMD
+	info("I2CW16(%d) [0x%04X] : 0x%04X\n", client->addr, addr, val);
+#endif
+
+p_err:
+	return ret;
+}
+
+
 static int get_sensor_mode(struct fimc_is_sensor_cfg *cfg,
 	u32 cfgs, u32 width, u32 height, u32 framerate)
 {

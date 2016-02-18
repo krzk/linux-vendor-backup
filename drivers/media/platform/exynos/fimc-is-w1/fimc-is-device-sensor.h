@@ -212,6 +212,10 @@ int fimc_is_sensor_read(struct i2c_client *client,
 	u32 addr, u8 *val);
 int fimc_is_sensor_write(struct i2c_client *client,
 	u32 addr, u8 val);
+int fimc_is_sensor_write_burst(struct i2c_client *client,
+	u8 *buf, u32 size);
+int fimc_is_sensor_write16(struct i2c_client *client,
+	u16 addr, u16 val);
 
 #define CALL_MOPS(s, op, args...) (((s)->ops->op) ? ((s)->ops->op(args)) : 0)
 
