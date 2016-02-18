@@ -48,6 +48,9 @@ static void *fimc_is_ion_init(struct platform_device *pdev)
 	return vb2_ion_create_context(&pdev->dev, SZ_4K,
 					VB2ION_CTX_IOMMU |
 					VB2ION_CTX_VMCONTIG |
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+					VB2ION_CTX_UNCACHED |
+#endif
 					VB2ION_CTX_KVA_ONDEMAND);
 }
 
