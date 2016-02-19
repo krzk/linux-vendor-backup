@@ -658,19 +658,19 @@
 
 &spi_1 {
 	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
 
 	spidev@0 {
 		compatible = "spidev";
 		reg = <0>;
-		#address-cells = <1>;
-		#size-cells = <0>;
 		spi-max-frequency = <40000000>;
 
-			controller-data {
-				cs-gpio = <&gpb 5 0>;
-				samsung,spi-feedback-delay = <2>;
-				samsung,spi-chip-select-mode;
-			};
+		controller-data {
+			cs-gpio = <&gpb 5 0>;
+			samsung,spi-feedback-delay = <2>;
+			samsung,spi-chip-select-mode;
+		};
 	};
 };
 
