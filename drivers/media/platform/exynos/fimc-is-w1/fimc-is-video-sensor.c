@@ -802,6 +802,9 @@ static int fimc_is_sen_queue_setup(struct vb2_queue *vbq,
 
 static int fimc_is_sen_buffer_prepare(struct vb2_buffer *vb)
 {
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	flush_all_cpu_caches();
+#endif
 	return 0;
 }
 
