@@ -193,8 +193,6 @@ static unsigned int fimc_is_sen_video_poll(struct file *file,
 	struct fimc_is_video_ctx *vctx = file->private_data;
 
 	ret = fimc_is_video_poll(file, vctx, wait);
-	if (ret)
-		merr("fimc_is_video_poll is fail(%d)", vctx, ret);
 
 	return ret;
 }
