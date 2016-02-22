@@ -329,6 +329,24 @@ static int fimc_is_sen_video_try_fmt(struct file *file, void *fh,
 
 	return 0;
 }
+
+static int fimc_is_sen_video_get_format(struct file *file, void *fh,
+	struct v4l2_format *format)
+{
+	struct fimc_is_video_ctx *vctx = file->private_data;
+	struct fimc_is_queue *queue;
+
+	BUG_ON(!vctx);
+
+	queue = GET_DST_QUEUE(vctx);
+
+	format->fmt.pix.pixelformat = queue->framecfg.format.pixelformat;
+	format->fmt.pix.width = queue->framecfg.width;
+	format->fmt.pix.height = queue->framecfg.height;
+	format->fmt.pix.field = V4L2_FIELD_NONE;
+
+	return 0;
+}
 #endif
 
 static int fimc_is_sen_video_cropcap(struct file *file, void *fh,
@@ -751,6 +769,7 @@ const struct v4l2_ioctl_ops fimc_is_sen_video_ioctl_ops = {
 	.vidioc_enum_fmt_vid_cap	= fimc_is_sen_video_enum_fmt,
 	.vidioc_s_fmt_vid_cap	= fimc_is_sen_video_set_format_mplane,
 	.vidioc_try_fmt_vid_cap	= fimc_is_sen_video_try_fmt,
+	.vidioc_g_fmt_vid_cap	= fimc_is_sen_video_get_format,
 #endif
 	.vidioc_cropcap			= fimc_is_sen_video_cropcap,
 	.vidioc_g_crop			= fimc_is_sen_video_get_crop,
