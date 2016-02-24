@@ -245,6 +245,7 @@ struct exynos_dsi_transfer {
 #define DSIM_STATE_INITIALIZED		BIT(1)
 #define DSIM_STATE_CMD_LPM		BIT(2)
 #define DSIM_STATE_VIDOUT_AVAILABLE	BIT(3)
+#define DSIM_STATE_PREPARED		BIT(4)
 
 struct exynos_dsi_driver_data {
 	unsigned int *reg_ofs;
@@ -1445,7 +1446,7 @@ static ssize_t exynos_dsi_host_transfer(struct mipi_dsi_host *host,
 	struct exynos_dsi_transfer xfer;
 	int ret;
 
-	if (!(dsi->state & DSIM_STATE_ENABLED))
+	if (!(dsi->state & DSIM_STATE_PREPARED))
 		return -EINVAL;
 
 	if (!(dsi->state & DSIM_STATE_INITIALIZED)) {
@@ -1549,6 +1550,39 @@ static void exynos_dsi_poweroff(struct exynos_dsi *dsi)
 		dev_err(dsi->dev, "cannot disable regulators %d\n", ret);
 }
 
+static int exynos_dsi_prepare(struct exynos_dsi *dsi)
+{
+	int ret;
+
+	if (dsi->state & DSIM_STATE_PREPARED)
+		return 0;
+
+	ret = exynos_dsi_poweron(dsi);
+	if (ret < 0)
+		return ret;
+
+	dsi->state |= DSIM_STATE_PREPARED;
+
+	ret = drm_panel_prepare(dsi->panel);
+	if (ret < 0) {
+		dsi->state &= ~DSIM_STATE_PREPARED;
+		exynos_dsi_poweroff(dsi);
+		return ret;
+	}
+
+	return ret;
+}
+
+static void exynos_dsi_unprepare(struct exynos_dsi *dsi)
+{
+	if (!(dsi->state & DSIM_STATE_PREPARED))
+		return;
+
+	drm_panel_unprepare(dsi->panel);
+	exynos_dsi_poweroff(dsi);
+	dsi->state &= ~DSIM_STATE_PREPARED;
+}
+
 static void exynos_dsi_enable(struct drm_encoder *encoder)
 {
 	struct exynos_dsi *dsi = encoder_to_dsi(encoder);
@@ -1557,21 +1591,16 @@ static void exynos_dsi_enable(struct drm_encoder *encoder)
 	if (dsi->state & DSIM_STATE_ENABLED)
 		return;
 
-	ret = exynos_dsi_poweron(dsi);
-	if (ret < 0)
-		return;
-
-	dsi->state |= DSIM_STATE_ENABLED;
-
-	ret = drm_panel_prepare(dsi->panel);
-	if (ret < 0) {
-		dsi->state &= ~DSIM_STATE_ENABLED;
-		exynos_dsi_poweroff(dsi);
-		return;
+	if (!(dsi->state & DSIM_STATE_PREPARED)) {
+		ret = exynos_dsi_prepare(dsi);
+		if (ret < 0)
+			return;
 	}
 
 	exynos_dsi_set_display_mode(dsi);
 	exynos_dsi_set_display_enable(dsi, true);
+
+	dsi->state |= DSIM_STATE_ENABLED;
 
 	ret = drm_panel_enable(dsi->panel);
 	if (ret < 0) {
@@ -1596,11 +1625,10 @@ static void exynos_dsi_disable(struct drm_encoder *encoder)
 
 	drm_panel_disable(dsi->panel);
 	exynos_dsi_set_display_enable(dsi, false);
-	drm_panel_unprepare(dsi->panel);
+
+	exynos_dsi_unprepare(dsi);
 
 	dsi->state &= ~DSIM_STATE_ENABLED;
-
-	exynos_dsi_poweroff(dsi);
 }
 
 static enum drm_connector_status
