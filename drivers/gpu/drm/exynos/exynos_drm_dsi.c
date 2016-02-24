@@ -281,6 +281,8 @@ struct exynos_dsi {
 	u32 mode_flags;
 	u32 format;
 	struct videomode vm;
+	bool check_panel;
+	enum drm_connector_status panel_status;
 
 	int state;
 	struct drm_property *brightness;
@@ -1649,10 +1651,24 @@ exynos_dsi_detect(struct drm_connector *connector, bool force)
 		dsi->panel = NULL;
 	}
 
-	if (dsi->panel)
-		return connector_status_connected;
+	if (dsi->panel) {
+		if (!dsi->check_panel) {
+			int ret;
+			ret = exynos_dsi_prepare(dsi);
+			if (!ret) {
+				exynos_dsi_unprepare(dsi);
+				dsi->panel_status = connector_status_connected;
+			} else {
+				drm_panel_detach(dsi->panel);
+				dsi->panel = NULL;
+				dsi->panel_status =
+					connector_status_disconnected;
+			}
+			dsi->check_panel = true;
+		}
+	}
 
-	return connector_status_disconnected;
+	return dsi->panel_status;
 }
 
 static void exynos_dsi_connector_destroy(struct drm_connector *connector)
@@ -1949,6 +1965,7 @@ static int exynos_dsi_probe(struct platform_device *pdev)
 
 	dsi->dev = dev;
 	dsi->driver_data = exynos_dsi_get_driver_data(pdev);
+	dsi->panel_status = connector_status_disconnected;
 
 	ret = exynos_dsi_parse_dt(dsi);
 	if (ret)
