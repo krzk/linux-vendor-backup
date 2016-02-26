@@ -18,12 +18,10 @@ Provides: linux-%{KERNEL_VERSION}
 
 BuildRequires:  lzop
 BuildRequires:  binutils-devel
-BuildRequires:  module-init-tools elfutils-devel
+BuildRequires:  module-init-tools
 BuildRequires:	python
 BuildRequires:	gcc
 BuildRequires:	bash
-BuildRequires:	system-tools
-BuildRequires:	sec-product-features
 BuildRequires:	bc
 ExclusiveArch:  %arm
 
