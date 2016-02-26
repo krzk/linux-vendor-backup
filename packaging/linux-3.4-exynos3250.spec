@@ -30,6 +30,8 @@ The Linux Kernel, the operating system core itself
 
 %if "%{?sec_product_feature_kernel_defconfig}" == "undefined"
 %define MODEL tizen_wc1
+%else if "%{?sec_product_feature_kernel_defconfig}" == ""
+%define MODEL tizen_wc1
 %else
 %define MODEL tizen_%{?sec_product_feature_kernel_defconfig}
 %endif
