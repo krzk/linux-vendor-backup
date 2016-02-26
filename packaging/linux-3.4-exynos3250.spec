@@ -5,8 +5,8 @@ Name: linux-%{KERNEL_VERSION}-%{CHIPSET}
 Summary: The Linux Kernel
 Version: Tizen_exynos3250_20150821_4_468f84a5
 Release: 4
-License: GPL
-Group: System Environment/Kernel
+License: GPL-2.0
+Group: System/Kernel
 Vendor: The Linux Community
 URL: http://www.kernel.org
 Source0: %{name}-%{version}.tar.gz
@@ -37,40 +37,40 @@ The Linux Kernel, the operating system core itself
 %endif
 
 %package -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}
-License: GPL
+License: GPL-2.0
 Summary: Linux support headers for userspace development
-Group: System Environment/Kernel
+Group: System/Kernel
 Requires(post): coreutils
 
 %files -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}
-/var/tmp/kernel/mod_%{MODEL}
-/var/tmp/kernel/kernel-%{MODEL}/zImage
-/var/tmp/kernel/kernel-%{MODEL}/zImage-recovery
+/boot/kernel/mod_%{MODEL}
+/boot/kernel/kernel-%{MODEL}/zImage
+/boot/kernel/kernel-%{MODEL}/zImage-recovery
 
 %post -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}
-mv /var/tmp/kernel/mod_%{MODEL}/lib/modules/* /lib/modules/.
-mv /var/tmp/kernel/kernel-%{MODEL}/zImage /var/tmp/kernel/.
-mv /var/tmp/kernel/kernel-%{MODEL}/zImage-recovery /var/tmp/kernel/.
+mv /boot/kernel/mod_%{MODEL}/lib/modules/* /lib/modules/.
+mv /boot/kernel/kernel-%{MODEL}/zImage /boot/kernel/.
+mv /boot/kernel/kernel-%{MODEL}/zImage-recovery /boot/kernel/.
 
 %description -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}
 This package provides the %{CHIPSET}_eur linux kernel image & module.img.
 
 %package -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}-debuginfo
-License: GPL
+License: GPL-2.0
 Summary: Linux support debug symbol
-Group: System Environment/Kernel
+Group: System/Kernel
 
 %files -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}-debuginfo
-/var/tmp/kernel/mod_%{MODEL}
-/var/tmp/kernel/kernel-%{MODEL}
+/boot/kernel/mod_%{MODEL}
+/boot/kernel/kernel-%{MODEL}
 
 %description -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}-debuginfo
 This package provides the %{CHIPSET}_eur linux kernel's debugging files.
 
 %package -n kernel-headers-%{KERNEL_VERSION}-%{CHIPSET}
-License: GPL
+License: GPL-2.0
 Summary: Linux support headers for userspace development
-Group: System Environment/Kernel
+Group: System/Kernel
 Provides: kernel-headers, kernel-headers-tizen-dev
 Obsoletes: kernel-headers
 
@@ -80,7 +80,7 @@ headers are used by the installed headers for GNU glibc and other system
  libraries.
 
 %package -n kernel-devel-%{KERNEL_VERSION}-%{CHIPSET}
-License: GPL
+License: GPL-2.0
 Summary: Linux support kernel map and etc for other package
 Group: System/Kernel
 Provides: kernel-devel-tizen-dev
@@ -89,7 +89,7 @@ Provides: kernel-devel-tizen-dev
 This package provides kernel map and etc information.
 
 %package -n linux-kernel-license
-License: GPL
+License: GPL-2.0
 Summary: Linux support kernel license file
 Group: System/Kernel
 
@@ -141,22 +141,22 @@ rm -f %{buildroot}/usr/include/asm*/io.h
 mkdir -p %{buildroot}/usr/share/license
 cp -vf COPYING %{buildroot}/usr/share/license/linux-kernel
 
-mkdir -p %{buildroot}/var/tmp/kernel/kernel-%{MODEL}
-mkdir -p %{buildroot}/var/tmp/kernel/license-%{MODEL}
+mkdir -p %{buildroot}/boot/kernel/kernel-%{MODEL}
+mkdir -p %{buildroot}/boot/kernel/license-%{MODEL}
 
-mv %_builddir/mod_%{MODEL} %{buildroot}/var/tmp/kernel/mod_%{MODEL}
+mv %_builddir/mod_%{MODEL} %{buildroot}/boot/kernel/mod_%{MODEL}
 
-mv %_builddir/zImage.%{MODEL} %{buildroot}/var/tmp/kernel/kernel-%{MODEL}/zImage
-mv %_builddir/zImage-recovery.%{MODEL} %{buildroot}/var/tmp/kernel/kernel-%{MODEL}/zImage-recovery
+mv %_builddir/zImage.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/zImage
+mv %_builddir/zImage-recovery.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/zImage-recovery
 
-mv %_builddir/System.map.%{MODEL} %{buildroot}/var/tmp/kernel/kernel-%{MODEL}/System.map
-mv %_builddir/config.%{MODEL} %{buildroot}/var/tmp/kernel/kernel-%{MODEL}/config
-mv %_builddir/vmlinux.%{MODEL} %{buildroot}/var/tmp/kernel/kernel-%{MODEL}/vmlinux
+mv %_builddir/System.map.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/System.map
+mv %_builddir/config.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/config
+mv %_builddir/vmlinux.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/vmlinux
 
-find %{buildroot}/var/tmp/kernel/ -name 'System.map' > develfiles.pre # for secure storage
-find %{buildroot}/var/tmp/kernel/ -name 'vmlinux' >> develfiles.pre   # for TIMA
-find %{buildroot}/var/tmp/kernel/ -name '*.ko' >> develfiles.pre      # for TIMA
-find %{buildroot}/var/tmp/kernel/ -name '*zImage' >> develfiles.pre   # for Trusted Boot
+find %{buildroot}/boot/kernel/ -name 'System.map' > develfiles.pre # for secure storage
+find %{buildroot}/boot/kernel/ -name 'vmlinux' >> develfiles.pre   # for TIMA
+find %{buildroot}/boot/kernel/ -name '*.ko' >> develfiles.pre      # for TIMA
+find %{buildroot}/boot/kernel/ -name '*zImage' >> develfiles.pre   # for Trusted Boot
 cat develfiles.pre | sed -e "s#%{buildroot}##g" | uniq | sort > develfiles
 
 %clean
