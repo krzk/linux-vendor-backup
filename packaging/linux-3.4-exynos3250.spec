@@ -3,7 +3,7 @@
 
 Name: linux-%{KERNEL_VERSION}-%{CHIPSET}
 Summary: The Linux Kernel
-Version: Tizen_exynos3250_20150821_4_468f84a5
+Version: Tizen_exynos3250
 Release: 4
 License: GPL-2.0
 Group: System/Kernel
