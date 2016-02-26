@@ -244,7 +244,8 @@ int exynos5430_cfg_clk_cam0(struct platform_device *pdev)
 int exynos5430_cfg_clk_cam1(struct platform_device *pdev)
 {
 	/* USER_MUX_SEL */
-	fimc_is_set_parent_dt(pdev, "mout_aclk_cam1_552_user", "aclk_cam1_552");
+	/* FIXME: when this is uncommented only empty buffers are dequeued */
+	/* fimc_is_set_parent_dt(pdev, "mout_aclk_cam1_552_user", "aclk_cam1_552"); */
 	fimc_is_set_parent_dt(pdev, "mout_aclk_cam1_400_user", "aclk_cam1_400");
 	fimc_is_set_parent_dt(pdev, "mout_aclk_cam1_333_user", "aclk_cam1_333");
 
