@@ -260,6 +260,9 @@ struct fimc_is_device_ischain {
 
 	void *					private_data;
 	struct fimc_is_device_sensor		*sensor;
+
+	unsigned int 				isp_vs2_offset;
+	unsigned int 				isp_vs2_step;
 };
 
 /*global function*/
