@@ -757,6 +757,19 @@ static void fimc_is_ischain_version(struct fimc_is_device_ischain *this, char *n
 		pinfo = &this->pinfo;
 		memcpy(pinfo->header_ver, &version_str[32], 11);
 		pinfo->header_ver[11] = '\0';
+
+		if (strnstr(&load_bin[size - FIMC_IS_VERSION_SIZE],
+			    "9745-2014/08/27", FIMC_IS_VERSION_SIZE)) {
+			/* TM2E (reverse engineered values) */
+			this->isp_vs2_offset = 0x003f8be0;
+			this->isp_vs2_step = 0x8308;
+		} else {
+			/* TM2 */
+			this->isp_vs2_offset = 0x003f8ce4;
+			this->isp_vs2_step = 0x8350;
+		}
+		info("vendorSpecific2[0]: offset: %#x, step: %#x\n",
+		     this->isp_vs2_offset, this->isp_vs2_step);
 	} else {
 		memcpy(version_str, &load_bin[size - FIMC_IS_SETFILE_VER_OFFSET],
 			FIMC_IS_SETFILE_VER_SIZE);
@@ -5213,6 +5226,26 @@ int fimc_is_ischain_isp_buffer_queue(struct fimc_is_device_ischain *device,
 
 	groupmgr = device->groupmgr;
 	group = &device->group_isp;
+
+	/*
+	 * Set the (all undocumented) shot->udm.internal.vendorSpecific2[0]
+	 * field if it is cleared.
+	 */
+	if (groupmgr && queue && group && group->instance < FIMC_IS_MAX_NODES
+	    && group->id < GROUP_ID_MAX && index < FRAMEMGR_MAX_REQUEST) {
+		struct fimc_is_framemgr *framemgr = &queue->framemgr;
+		struct fimc_is_frame *frame = &framemgr->frame[index];
+		struct camera2_shot *shot = frame->shot;
+		int fcount;
+
+		if (shot->udm.internal.vendorSpecific2[0] == 0) {
+			fcount = shot->dm.request.frameCount;
+
+			shot->udm.internal.vendorSpecific2[0] =
+				(device->isp_vs2_offset + ((fcount - 1) % 40)
+			        * device->isp_vs2_step);
+		}
+	}
 
 	ret = fimc_is_group_buffer_queue(groupmgr, group, queue, index);
 	if (ret) {
