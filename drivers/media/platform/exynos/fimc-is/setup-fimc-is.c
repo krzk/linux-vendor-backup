@@ -21,8 +21,9 @@
 #include <linux/delay.h>
 #include <linux/clk-provider.h>
 #include <linux/clkdev.h>
-#include "exynos-fimc-is.h"
 #include <linux/of_gpio.h>
+#include "exynos-fimc-is.h"
+#include "fimc-is-core.h"
 
 struct platform_device; /* don't need the contents */
 
@@ -243,9 +244,19 @@ int exynos5430_cfg_clk_cam0(struct platform_device *pdev)
 
 int exynos5430_cfg_clk_cam1(struct platform_device *pdev)
 {
+	struct fimc_is_core *core = platform_get_drvdata(pdev);
+	/*
+	 * It's not clear to me why, but the front camera doesn't work properly
+	 * (only empty buffers dequeued) when this ACLK_CAM1_552_USER mux is
+	 * reconfigured here. So as an ugly workaround this mux is temporarily
+	 * left untouched when the front sensor video node is opened.
+	 *
+	 * FIXME: remove the 'if' below if the root cause is found.
+	 */
 	/* USER_MUX_SEL */
-	/* FIXME: when this is uncommented only empty buffers are dequeued */
-	/* fimc_is_set_parent_dt(pdev, "mout_aclk_cam1_552_user", "aclk_cam1_552"); */
+	if (core->id == 0)
+		fimc_is_set_parent_dt(pdev, "mout_aclk_cam1_552_user",
+				      "aclk_cam1_552");
 	fimc_is_set_parent_dt(pdev, "mout_aclk_cam1_400_user", "aclk_cam1_400");
 	fimc_is_set_parent_dt(pdev, "mout_aclk_cam1_333_user", "aclk_cam1_333");
 
