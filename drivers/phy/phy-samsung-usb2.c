@@ -30,21 +30,34 @@ static int samsung_usb2_phy_power_on(struct phy *phy)
 	ret = clk_prepare_enable(drv->clk);
 	if (ret)
 		goto err_main_clk;
+
+	if (of_device_is_compatible(drv->dev->of_node,
+					"nexell,nexell-usb2-phy"))
+		goto skip_ref_clk_en;
+
 	ret = clk_prepare_enable(drv->ref_clk);
 	if (ret)
 		goto err_instance_clk;
+
+skip_ref_clk_en:
+
 	if (inst->cfg->power_on) {
 		spin_lock(&drv->lock);
 		ret = inst->cfg->power_on(inst);
 		spin_unlock(&drv->lock);
-		if (ret)
+		if (ret) {
+			if (of_device_is_compatible(drv->dev->of_node,
+						    "nexell,nexell-usb2-phy"))
+				goto skip_err_power_on;
 			goto err_power_on;
+		}
 	}
 
 	return 0;
 
 err_power_on:
 	clk_disable_unprepare(drv->ref_clk);
+skip_err_power_on:
 err_instance_clk:
 	clk_disable_unprepare(drv->clk);
 err_main_clk:
@@ -66,7 +79,12 @@ static int samsung_usb2_phy_power_off(struct phy *phy)
 		if (ret)
 			return ret;
 	}
+	if (of_device_is_compatible(drv->dev->of_node,
+					"nexell,nexell-usb2-phy"))
+		goto skip_ref_clk_dis;
+
 	clk_disable_unprepare(drv->ref_clk);
+skip_ref_clk_dis:
 	clk_disable_unprepare(drv->clk);
 	return 0;
 }
@@ -123,6 +141,12 @@ static const struct of_device_id samsung_usb2_phy_of_match[] = {
 		.data = &s5pv210_usb2_phy_config,
 	},
 #endif
+#ifdef CONFIG_PHY_NX_USB2
+	{
+		.compatible = "nexell,nexell-usb2-phy",
+		.data = &nexell_usb2_phy_config,
+	},
+#endif
 	{ },
 };
 MODULE_DEVICE_TABLE(of, samsung_usb2_phy_of_match);
@@ -168,6 +192,16 @@ static int samsung_usb2_phy_probe(struct platform_device *pdev)
 		return PTR_ERR(drv->reg_phy);
 	}
 
+	if (of_device_is_compatible(pdev->dev.of_node,
+					"nexell,nexell-usb2-phy")) {
+		drv->clk = devm_clk_get(dev, "phy");
+		if (IS_ERR(drv->clk)) {
+			dev_err(dev, "Failed to get clock of phy controller\n");
+			return PTR_ERR(drv->clk);
+		}
+		goto skip_syscon_refclk;
+	}
+
 	drv->reg_pmu = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
 		"samsung,pmureg-phandle");
 	if (IS_ERR(drv->reg_pmu)) {
@@ -203,6 +237,8 @@ static int samsung_usb2_phy_probe(struct platform_device *pdev)
 			return ret;
 	}
 
+skip_syscon_refclk:
+
 	for (i = 0; i < drv->cfg->num_phys; i++) {
 		char *label = drv->cfg->phys[i].label;
 		struct samsung_usb2_phy_instance *p = &drv->instances[i];
@@ -217,7 +253,11 @@ static int samsung_usb2_phy_probe(struct platform_device *pdev)
 
 		p->cfg = &drv->cfg->phys[i];
 		p->drv = drv;
-		phy_set_bus_width(p->phy, 8);
+		if (of_device_is_compatible(pdev->dev.of_node,
+					"nexell,nexell-usb2-phy")) {
+			phy_set_bus_width(p->phy, 16);
+		} else
+			phy_set_bus_width(p->phy, 8);
 		phy_set_drvdata(p->phy, p);
 	}
 
