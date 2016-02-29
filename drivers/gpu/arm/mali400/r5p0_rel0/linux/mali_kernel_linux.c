@@ -591,8 +591,7 @@ static int mali_driver_suspend_scheduler(struct device *dev)
 {
 	mali_pm_os_suspend(MALI_TRUE);
 
-	if (pm_runtime_active(dev))
-		mali_platform_power_mode_change(2);
+	mali_platform_power_mode_change(2);
 
 	/* Tracing the frequency and voltage after mali is suspended */
 	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
@@ -621,8 +620,7 @@ static int mali_driver_resume_scheduler(struct device *dev)
 				      0, 0, 0);
 #endif
 
-	if (pm_runtime_active(dev))
-		mali_platform_power_mode_change(0);
+	mali_platform_power_mode_change(0);
 
 	mali_pm_os_resume();
 	return 0;
