@@ -375,6 +375,14 @@
 		status = "okay";
 	};
 
+	slp_multi: slp_multi {
+		compatible = "slp,slp_multi";
+		slp,slp_mult-nluns = <2>;
+		slp,slp_mult-swfi-latency = <1>;
+		slp,slp_mult-nfuncs = <4>;
+		slp,slp_mult-enable-funcs = "rndis", "sdb", "mtp", "acm";
+	};
+
 	spi@13920000 {
 		status = "okay";
 			#address-cells = <1>;
