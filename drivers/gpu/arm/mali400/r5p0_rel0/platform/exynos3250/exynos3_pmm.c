@@ -139,16 +139,15 @@ void mali_exynos_update_dvfs(struct mali_gpu_utilization_data *data)
 	queue_work(mali->dvfs_workqueue, &mali->dvfs_work);
 }
 
-_mali_osk_errcode_t mali_platform_power_mode_change(struct device *dev,
-						mali_power_mode power_mode)
+void mali_platform_power_mode_change(mali_power_mode power_mode)
 {
 	if (mali->power_mode == power_mode)
-		MALI_SUCCESS;
+		return;
 	/* to avoid multiple clk_disable() call */
 	else if ((mali->power_mode > MALI_POWER_MODE_ON) &&
 					(power_mode > MALI_POWER_MODE_ON)) {
 		mali->power_mode = power_mode;
-		MALI_SUCCESS;
+		return;
 	}
 
 	switch (power_mode) {
@@ -165,8 +164,14 @@ _mali_osk_errcode_t mali_platform_power_mode_change(struct device *dev,
 	}
 
 	mali->power_mode = power_mode;
+}
 
-	MALI_SUCCESS;
+bool mali_is_on(void)
+{
+	if (mali->power_mode == MALI_POWER_MODE_ON)
+		return true;
+	else
+		return false;
 }
 
 static mali_bool mali_clk_get(struct mali_exynos_drvdata *mali)

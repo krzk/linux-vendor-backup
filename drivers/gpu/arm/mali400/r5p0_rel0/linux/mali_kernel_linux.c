@@ -245,7 +245,7 @@ static struct platform_driver mali_platform_driver = {
 #endif
 	.driver =
 	{
-		.name   = MALI_GPU_NAME_UTGARD,
+		.name   = "mali_dev", /* MALI_SEC MALI_GPU_NAME_UTGARD, */
 		.owner  = THIS_MODULE,
 		.bus = &platform_bus_type,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29))

@@ -72,7 +72,7 @@ _mali_osk_errcode_t mali_platform_deinit(struct device *dev);
  * @param power_mode defines the power modes
  * @return _MALI_OSK_ERR_OK on success otherwise, a suitable _mali_osk_errcode_t error.
  */
-_mali_osk_errcode_t mali_platform_power_mode_change(struct device *dev, mali_power_mode power_mode);
+void mali_platform_power_mode_change(mali_power_mode power_mode);
 
 void mali_exynos_update_dvfs(struct mali_gpu_utilization_data *data);
 

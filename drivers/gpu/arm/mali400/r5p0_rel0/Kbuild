@@ -21,7 +21,7 @@ MALI_PP_SCHEDULER_KEEP_SUB_JOB_STARTS_ALIGNED ?= 0
 MALI_PP_SCHEDULER_FORCE_NO_JOB_OVERLAP_BETWEEN_APPS ?= 0
 MALI_UPPER_HALF_SCHEDULING ?= 1
 MALI_ENABLE_CPU_CYCLES ?= 0
-MALI_PLATFORM ?= sc8830
+MALI_PLATFORM ?= exynos3250
 MALI_FAKE_PLATFORM_DEVICE ?= 1
 DFS_ONE_STEP_SCALE_DOWN ?= 1
 MATCH_DFS_TO_LOWER_FREQ ?= 1
@@ -102,7 +102,7 @@ mali-y += \
 	linux/mali_pmu_power_up_down.o \
 	__malidrv_build_info.o
 
-MALI_PLATFORM_FILES = platform/$(MALI_PLATFORM)/mali_platform.c
+MALI_PLATFORM_FILES = $(subst $(src)/,,$(wildcard $(src)/platform/$(MALI_PLATFORM)/*.c))
 ifneq ($(MALI_PLATFORM_FILES),)
 	mali-y += $(MALI_PLATFORM_FILES:.c=.o)
 endif
@@ -127,10 +127,6 @@ obj-$(CONFIG_MALI400) := mali.o
 ccflags-y += $(EXTRA_DEFINES)
 
 # Set up our defines, which will be passed to gcc
-ccflags-y += -DSPRD_MEM_OPT_PAGE_TABLE_SHRINK
-ccflags-y += -DSPRD_GPU_BOOST
-ccflags-y += -DSPRD_DFS_ONE_STEP_SCALE_DOWN=$(DFS_ONE_STEP_SCALE_DOWN)
-ccflags-y += -DSPRD_MATCH_DFS_TO_LOWER_FREQ=$(MATCH_DFS_TO_LOWER_FREQ)
 ccflags-y += -DTIZEN_GLES_MEM_PROFILE=$(GLES_MEM_PROFILE)
 
 ccflags-y += -DMALI_PP_SCHEDULER_FORCE_NO_JOB_OVERLAP=$(MALI_PP_SCHEDULER_FORCE_NO_JOB_OVERLAP)
