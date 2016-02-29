@@ -1,0 +1,193 @@
+#
+# Exynos Video configuration
+#
+
+menuconfig EXYNOS_VIDEO
+	bool "Exynos Video driver support"
+	help
+	  This enables support for EXYNOS Video device.
+
+if EXYNOS_VIDEO
+
+#
+# MIPI DSI driver
+#
+
+config EXYNOS_MIPI_DSI
+	bool "EXYNOS MIPI DSI driver support."
+	depends on ARCH_S5PV210 || ARCH_EXYNOS
+	help
+	  This enables support for MIPI-DSI device.
+
+config EXYNOS_LCD_S6E8AX0
+	bool "S6E8AX0 MIPI AMOLED LCD Driver"
+	depends on (EXYNOS_MIPI_DSI && BACKLIGHT_CLASS_DEVICE && LCD_CLASS_DEVICE)
+	default n
+	help
+	  If you have an S6E8AX0 MIPI AMOLED LCD Panel, say Y to enable its
+	  LCD control driver.
+
+config EXYNOS_LCD_S6E63J0X03
+	bool "S6E63J0X03 MIPI AMOLED LCD Driver"
+	depends on (EXYNOS_MIPI_DSI && BACKLIGHT_CLASS_DEVICE && LCD_CLASS_DEVICE)
+	default n
+	help
+	  If you have an S6E63J0X03 MIPI AMOLED LCD Panel, say Y to enable its
+	  LCD control driver.
+
+config EXYNOS_LCD_S6E36W0X01
+	bool "S6E36W0X01 MIPI AMOLED LCD Driver"
+	depends on (EXYNOS_MIPI_DSI && BACKLIGHT_CLASS_DEVICE && LCD_CLASS_DEVICE)
+	default n
+	help
+	  If you have an S6E36W0X01 MIPI AMOLED LCD Panel, say Y to enable its
+	  LCD control driver.
+
+config EXYNOS_LCD_S6E36W1X01
+	bool "S6E36W1X01 MIPI AMOLED LCD Driver"
+	depends on (EXYNOS_MIPI_DSI && BACKLIGHT_CLASS_DEVICE && LCD_CLASS_DEVICE)
+	default n
+	help
+	  If you have an S6E36W1X01 MIPI AMOLED LCD Panel, say Y to enable its
+	  LCD control driver.
+
+config LCD_ESD
+	bool "LCD ESD function"
+	depends on EXYNOS_MIPI_DSI && BACKLIGHT_CLASS_DEVICE
+	help
+	  If you need a LCD ESD function to improve ESD stability,
+	  Say Y to enable its ESD routine.
+	  If ESD is detected, LCD will blink shortly.
+	  This function depends on hardware support.
+
+config EXYNOS_DP
+	bool "EXYNOS DP driver support"
+	depends on ARCH_EXYNOS
+	default n
+	help
+	  This enables support for DP device.
+
+config EXYNOS_SMIES
+	bool "Samsung SMIES"
+	depends on SOC_EXYNOS3250
+	#select EXYNOS_SMIES_ENABLE_BOOTTIME
+
+config EXYNOS_SMIES_ENABLE_BOOTTIME
+	bool "Samsung SMIES Enable at Boot Time"
+	depends on EXYNOS_SMIES
+
+config EXYNOS_SMIES_RUNTIME_ACTIVE
+	bool "Samsung SMIES Block Runtime Active"
+	depends on (SOC_EXYNOS3250 && EXYNOS_SMIES)
+
+config LCD_S6D6AA1
+	tristate "S6D6AA1 MIPI TFT-LCD Driver"
+	depends on EXYNOS_MIPI_DSI && BACKLIGHT_CLASS_DEVICE && \
+	  (MACH_REDWOOD || MACH_REDWOOD45 || MACH_REDWOODLTE || MACH_REDWOOD45_LTE_JPN || MACH_REDWOOD45_LTE)
+	help
+	  If you have an S6D6AA1 MIPI TFT-LCD Panel, say Y to enable its
+	  LCD control driver. this driver supported white maic sony ip.
+	  improve power consumtion and outdoor mode using white pixel.
+	  please find advantage about this driver.
+
+config LCD_S6E8AA0
+	tristate "S6E8AA0 MIPI AMOLED LCD Driver"
+	depends on EXYNOS_MIPI_DSI && BACKLIGHT_CLASS_DEVICE && \
+	  (MACH_SLP_MIDAS || MACH_SLP_PQ_LTE || MACH_SLP_PQ || MACH_TRATS || MACH_SLP_M3)
+	help
+	  If you have an S6E8AA0 MIPI AMOLED LCD Panel, say Y to enable its
+	  LCD control driver.
+	  If unsure, say N.
+	  To compile this driver as a module, choose M here: the
+	  module will be called S6E8AA0.
+
+config LCD_S6D6FA0
+	tristate "S6D6FA0 MIPI TFT-LCD Driver"
+	depends on (EXYNOS_MIPI_DSI && BACKLIGHT_CLASS_DEVICE && MACH_SLP_ADONIS)
+	help
+	  If you have an S6D6FA0 MIPI TFT-LCD Panel,
+	  say Y to enable its LCD control driver.
+	  MIPI-DSI based s6d6fa0 TFT-LCD Full-HD 4.97 inch panel driver.
+	  please find advantage about this driver.
+
+config LCD_S6E8FA0
+	tristate "S6E8FA0 MIPI AMOLED LCD Driver"
+	depends on (EXYNOS_MIPI_DSI && BACKLIGHT_CLASS_DEVICE && MACH_SLP_ADONIS)
+	help
+	  If you have an S6D6FA0 MIPI AMOLED LCD Panel,
+	  say Y to enable its LCD control driver.
+	  MIPI-DSI based s6e8fa0 AMOLED LCD Full-HD panel driver.
+	  please find advantage about this driver.
+
+config LCD_L5F31188
+	tristate "L5F31188 MIPI TFT-LCD Driver"
+	depends on EXYNOS_MIPI_DSI && BACKLIGHT_CLASS_DEVICE && \
+	  (MACH_REDWOOD || MACH_REDWOOD45 || MACH_REDWOODLTE || MACH_REDWOOD45_LTE_JPN || MACH_REDWOOD45_LTE)
+	help
+	  If you have an L5F31188 MIPI TFT-LCD Panel,
+	  say Y to enable its LCD control driver.
+	  MIPI-DSI based L5F31188 TFT-LCD HD 4.5 inch panel driver.
+	  please find advantage about this driver.
+
+config LCD_ESD
+	bool "LCD ESD function"
+	depends on EXYNOS_MIPI_DSI && BACKLIGHT_CLASS_DEVICE
+	help
+	  If you need a LCD ESD function to improve ESD stability,
+	  Say Y to enable its ESD routine.
+	  If ESD is detected, LCD will blink shortly.
+	  This function depends on hardware support.
+
+config BL_OVERHEATING_PROTECTION
+	tristate "Backlight driver feature for Intelligent Overheating Protection"
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  If you want to control the backlight under overheating condition,
+	  Say Y to enable the Intelligent Overheating Protection Feature.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here.
+
+config BACKLIGHT_SMART_DIMMING
+	bool "SLP Backlight driver feature for smart dimming"
+	depends on (MACH_SLP_MIDAS || MACH_SLP_T0_LTE || MACH_SLP_PQ_LTE || \
+	  MACH_SLP_PQ || MACH_TRATS || MACH_SLP_ADONIS || MACH_SLP_M3)
+	help
+	  If you have an AMOLED display device
+	  And it support a smart dimming,
+	  Say Y to enable the Smart Dimming Feature.
+	  Please find advantage about this driver.
+
+config FIMD_EXT_SUPPORT
+	bool "FIMD Extension Driver support"
+	depends on SLP
+	default n
+
+if FIMD_EXT_SUPPORT
+
+config MDNIE_SUPPORT
+	bool "Samsung SoC mDNIe support"
+	depends on FIMD_EXT_SUPPORT
+	help
+	  If you have a mDNIe device, say Y to enable its
+	  mDNIe support. Enabling the mDNIe driver,
+	  please consider fimd lite driver enable.
+
+	  If unsure, say N.
+
+config MDNIE_PWM_SUPPORT
+	bool "mDNIe Backlight Driver"
+	depends on MDNIE_SUPPORT
+	default n
+	help
+	  If you have a mDNIe device, say y to
+	  enable the PWM for backlight driver.
+
+config FIMD_LITE_SUPPORT
+	bool "Samsung SoC FIMD-LITE support"
+	depends on FIMD_EXT_SUPPORT
+
+endif # FIMD_EXT_SUPPORT
+
+endif # EXYNOS_VIDEO

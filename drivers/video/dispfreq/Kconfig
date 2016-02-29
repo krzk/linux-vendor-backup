@@ -1,0 +1,39 @@
+#
+# Display Frequency configuration
+#
+
+menuconfig DISPFREQ_SUPPORT
+	bool "Display Frequency support"
+	help
+	  Enable this to be able to choose the drivers for controlling the
+	  display frequency on some platforms, for example on Smartphones.
+
+if DISPFREQ_SUPPORT
+
+#
+# Display Frequency
+#
+config DISPFREQ_CLASS_DEVICE
+        tristate "Lowlevel Display Frequency controls"
+	help
+	  This framework adds support for low-level control of the Display
+	  Frequency. This includes support for refresh rate of controller
+
+	  To have support for your specific Display controller you will have to
+	  select the proper drivers which depend on this option.
+
+if DISPFREQ_CLASS_DEVICE
+
+config DISPFREQ_EXYNOS
+	bool "Exynos Display Frequency control"
+	help
+	  This provides a display frequency control internal to the Exynos FIMD
+	  device. If you want to use various refresh rate in Exynos display controller.
+	  please use this option.
+
+	  If in doubt, it's safe to enable this option; it doesn't kick
+	  in unless the board's description says it's wired that way.
+
+endif # DISPFREQ_CLASS_DEVICE
+
+endif # DISPFREQ_SUPPORT

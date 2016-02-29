@@ -1,0 +1,15 @@
+config TRUSTONIC_TRUSTED_UI
+    tristate "<t-base TUI"
+    depends on MOBICORE_API
+    ---help---
+      Enable <t-base Trusted User Interface
+
+config TRUSTONIC_TRUSTED_UI_FB_BLANK
+    bool "<t-base TUI with fb_blank"
+    depends on TRUSTONIC_TRUSTED_UI
+    ---help---
+      Blank the framebuffer before starting a TUI session
+
+config TRUSTONIC_TRUSTED_UI_NOTIFY
+    bool "<t-base TUI to support notify"
+    depends on TRUSTONIC_TRUSTED_UI
