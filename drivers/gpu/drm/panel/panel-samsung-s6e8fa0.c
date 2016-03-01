@@ -114,6 +114,21 @@ static int s6e8fa0_dcs_read(struct s6e8fa0 *ctx, u8 cmd, void *data, size_t len)
 	s6e8fa0_dcs_write(ctx, d, ARRAY_SIZE(d));\
 })
 
+static void s6e8fa0_apply_level_2_key(struct s6e8fa0 *ctx)
+{
+	s6e8fa0_dcs_write_seq_static(ctx, 0xf0, 0x5a, 0x5a);
+}
+
+static void s6e8fa0_seq_test_key_on_f1(struct s6e8fa0 *ctx)
+{
+	s6e8fa0_dcs_write_seq_static(ctx, 0xf1, 0x5a, 0x5a);
+}
+
+static void s6e8fa0_seq_test_key_on_fc(struct s6e8fa0 *ctx)
+{
+	s6e8fa0_dcs_write_seq_static(ctx, 0xfc, 0x5a, 0x5a);
+}
+
 static void s6e8fa0_set_maximum_return_packet_size(struct s6e8fa0 *ctx,
 						   u16 size)
 {
@@ -137,7 +152,7 @@ static void s6e8fa0_read_mtp_id(struct s6e8fa0 *ctx)
 	int ret;
 	int id_len = ARRAY_SIZE(ctx->id);
 
-	ret = s6e8fa0_dcs_read(ctx, 0xd7, ctx->id, id_len);
+	ret = s6e8fa0_dcs_read(ctx, 0x04, ctx->id, id_len);
 	if (ret < id_len || ctx->error < 0) {
 		dev_err(ctx->dev, "read id failed\n");
 		ctx->error = -EIO;
@@ -149,10 +164,60 @@ static void s6e8fa0_set_sequence(struct s6e8fa0 *ctx)
 {
 	s6e8fa0_set_maximum_return_packet_size(ctx, 3);
 	s6e8fa0_read_mtp_id(ctx);
+
+	if (ctx->error != 0)
+		return;
+
+	usleep_range(17000, 18000);
+
+	s6e8fa0_apply_level_2_key(ctx);
+
+	s6e8fa0_seq_test_key_on_f1(ctx);
+	s6e8fa0_seq_test_key_on_fc(ctx);
+	/* Scan timing1 b0 */
+	s6e8fa0_dcs_write_seq_static(ctx, 0xb0, 0x29);
+	/* Scan timing1 fe */
+	s6e8fa0_dcs_write_seq_static(ctx, 0xfe, 0x01, 0x12, 0x22, 0x8c, 0xa2,
+				     0x00, 0x80, 0x0A, 0x01);
 	s6e8fa0_dcs_write_seq_static(ctx, MIPI_DCS_EXIT_SLEEP_MODE);
+
+	/* Error flags on */
+	s6e8fa0_dcs_write_seq_static(ctx, 0xe7, 0xed, 0xc7, 0x23, 0x63);
+
+	msleep(25);
+
+	/* LTPS f2 */
+	s6e8fa0_dcs_write_seq_static(ctx, 0xf2, 0x00, 0x04, 0x0c);
+	/* LTPS b0 */
+	s6e8fa0_dcs_write_seq_static(ctx, 0xb0, 0x20);
+	/* LTPS cb */
+	s6e8fa0_dcs_write_seq_static(ctx, 0xcb, 0x02);
+	/* LTPS f7 */
+	s6e8fa0_dcs_write_seq_static(ctx, 0xf7, 0x03);
+
+	msleep(100);
+
+	/* Scan timing2 fd */
+	s6e8fa0_dcs_write_seq_static(ctx, 0xfd, 0x14, 0x09);
+	/* Scan timing2 c0 */
+	s6e8fa0_dcs_write_seq_static(ctx, 0xc0, 0x00, 0x02, 0x03, 0x32, 0xc0,
+				     0x44, 0x44, 0xc0, 0x00, 0x08, 0x20, 0xc0);
+
+	/* TODO: Gamma control */
+
+	/* Brightness control rev_a2 */
+	s6e8fa0_dcs_write_seq_static(ctx, 0xb2, 0x01, 0x00, 0x00, 0x00, 0x00,
+				     0x00, 0x06);
+
+	/* Gamma update */
+	s6e8fa0_dcs_write_seq_static(ctx, 0xf7, 0x03);
+	/* ETC condition set */
+	s6e8fa0_dcs_write_seq_static(ctx, 0x55, 0x00);
+
+	usleep_range(17000, 18000);
+	s6e8fa0_dcs_write_seq_static(ctx, MIPI_DCS_CUSTOM_DIMMING_SET, 0xff);
 	s6e8fa0_dcs_write_seq_static(ctx, MIPI_DCS_CUSTOM_HBM_MODE,
 			MIPI_DCS_CUSTOM_HBM_MODE_NONE);
-	s6e8fa0_dcs_write_seq_static(ctx, MIPI_DCS_CUSTOM_DIMMING_SET, 0xff);
 }
 
 static int s6e8fa0_power_on(struct s6e8fa0 *ctx)
@@ -168,7 +233,9 @@ static int s6e8fa0_power_on(struct s6e8fa0 *ctx)
 
 	msleep(ctx->power_on_delay);
 
-	gpio_direction_output(ctx->reset_gpio, 0);
+	gpio_direction_output(ctx->reset_gpio, 1);
+	usleep_range(5000, 6000);
+	gpio_set_value(ctx->reset_gpio, 0);
 	usleep_range(5000, 6000);
 	gpio_set_value(ctx->reset_gpio, 1);
 
@@ -197,15 +264,17 @@ static int s6e8fa0_disable(struct drm_panel *panel)
 {
 	struct s6e8fa0 *ctx = panel_to_s6e8fa0(panel);
 
-	s6e8fa0_dcs_write_seq_static(ctx, MIPI_DCS_ENTER_SLEEP_MODE);
-	if (ctx->error != 0)
-		return ctx->error;
-
 	s6e8fa0_dcs_write_seq_static(ctx, MIPI_DCS_SET_DISPLAY_OFF);
 	if (ctx->error != 0)
 		return ctx->error;
 
-	msleep(40);
+	msleep(35);
+
+	s6e8fa0_dcs_write_seq_static(ctx, MIPI_DCS_ENTER_SLEEP_MODE);
+	if (ctx->error != 0)
+		return ctx->error;
+
+	msleep(125);
 
 	return 0;
 }
