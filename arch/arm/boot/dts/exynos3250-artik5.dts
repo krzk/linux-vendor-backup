@@ -730,14 +730,14 @@
 
 		display-timings {
 			timing-0 {
-				clock-frequency = <23812800>;
+				clock-frequency = <24800400>;
 				hactive = <480>;
 				vactive = <800>;
-				hfront-porch = <2>;
-				hback-porch = <18>;
+				hfront-porch = <16>;
+				hback-porch = <16>;
 				hsync-len = <2>;
-				vfront-porch = <18>;
-				vback-porch = <30>;
+				vfront-porch = <28>;
+				vback-porch = <28>;
 				vsync-len = <2>;
 			};
 		};
