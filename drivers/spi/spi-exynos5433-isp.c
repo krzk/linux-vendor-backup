@@ -132,6 +132,8 @@
 #define RXBUSY    (1<<2)
 #define TXBUSY    (1<<3)
 
+#define SPI_AUTOSUSPEND_TIMEOUT		100 /* ms */
+
 /**
  * struct s3c64xx_spi_info - SPI Controller hardware info
  * @fifo_lvl_mask: Bit-mask for {TX|RX}_FIFO_LVL bits in SPI_STATUS register.
@@ -333,7 +335,8 @@ static int s3c64xx_spi_unprepare_transfer(struct spi_master *spi)
 		dma_release_channel(sdd->tx_dma.ch);
 	}
 
-	pm_runtime_put(&sdd->pdev->dev);
+	pm_runtime_mark_last_busy(&sdd->pdev->dev);
+	pm_runtime_put_autosuspend(&sdd->pdev->dev);
 	return 0;
 }
 
@@ -1013,8 +1016,11 @@ static int s3c64xx_spi_setup(struct spi_device *spi)
 		}
 	}
 
-	pm_runtime_put(&sdd->pdev->dev);
 	disable_cs(sdd, spi);
+
+	pm_runtime_mark_last_busy(&sdd->pdev->dev);
+	pm_runtime_put_autosuspend(&sdd->pdev->dev);
+
 	return 0;
 
 setup_exit:
@@ -1344,6 +1350,10 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 					sdd->rx_dma.dmach, sdd->tx_dma.dmach);
 
 	pm_runtime_enable(&pdev->dev);
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_set_autosuspend_delay(&pdev->dev,
+				sdd->port_conf->clk_from_cmu ?
+				SPI_AUTOSUSPEND_TIMEOUT : 0);
 
 	return 0;
 
@@ -1433,6 +1443,9 @@ static int s3c64xx_spi_runtime_resume(struct device *dev)
 
 	clk_prepare_enable(sdd->src_clk);
 	clk_prepare_enable(sdd->clk);
+
+	if (sdd->port_conf->clk_from_cmu)
+		s3c64xx_spi_hwinit(sdd, sdd->port_id);
 
 	return 0;
 }
