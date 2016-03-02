@@ -248,8 +248,13 @@ static void eh400wv_gamma_setting(struct eh400wv *ctx)
 
 static void eh400wv_apply_display_parameter(struct eh400wv *ctx)
 {
+	u8 rgb_settings[6] = { 0xB0, 0x00, ctx->vm.vback_porch,
+		ctx->vm.vfront_porch, ctx->vm.hback_porch,
+		ctx->vm.hfront_porch };
+
 	eh400wv_dcs_write_seq_static(ctx, 0xF0, 0x55, 0xAA, 0x52, 0x08, 0x00);
-	eh400wv_dcs_write_seq_static(ctx, 0xB0, 0x00, 0x01, 0x01, 0x01, 0x01);
+	/* Porch setting from videomode */
+	eh400wv_dcs_write(ctx, rgb_settings, ARRAY_SIZE(rgb_settings));
 	eh400wv_dcs_write_seq_static(ctx, 0xB1, 0xFC, 0x00);
 	eh400wv_dcs_write_seq_static(ctx, 0xB6, 0x08);
 	eh400wv_dcs_write_seq_static(ctx, 0xB8, 0x00, 0x00, 0x00, 0x00);
