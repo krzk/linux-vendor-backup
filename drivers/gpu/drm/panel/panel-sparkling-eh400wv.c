@@ -223,12 +223,14 @@ static void eh400wv_apply_power_cond(struct eh400wv *ctx)
 
 	eh400wv_dcs_write_seq_static(ctx, 0xF0, 0x55, 0xAA, 0x52, 0x08, 0x01);
 	for (i = 0; i < ARRAY_SIZE(power_b0_b6); i++)
-		eh400wv_dcs_write(ctx, power_b0_b6, ARRAY_SIZE(power_b0_b6));
+		eh400wv_dcs_write(ctx, power_b0_b6[i],
+				ARRAY_SIZE(power_b0_b6[i]));
 
 	msleep(20);
 
 	for (i = 0; i < ARRAY_SIZE(power_b7_bd); i++)
-		eh400wv_dcs_write(ctx, power_b7_bd, ARRAY_SIZE(power_b7_bd));
+		eh400wv_dcs_write(ctx, power_b7_bd[i],
+				ARRAY_SIZE(power_b7_bd[i]));
 
 	eh400wv_dcs_write_seq_static(ctx, 0xBE, 0x00, 0x0C);
 	eh400wv_dcs_write_seq_static(ctx, 0xBF, 0x01);
@@ -239,7 +241,7 @@ static void eh400wv_gamma_setting(struct eh400wv *ctx)
 	int i;
 
 	for (i = 0; i < GAMMA_TABLE_COUNT; i++) {
-		eh400wv_dcs_write(ctx, gamma_tables,
+		eh400wv_dcs_write(ctx, gamma_tables[i],
 				ARRAY_SIZE(gamma_tables[i]));
 	}
 }
