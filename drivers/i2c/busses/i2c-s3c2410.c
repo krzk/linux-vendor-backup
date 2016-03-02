@@ -117,6 +117,7 @@ struct s3c24xx_i2c {
 	wait_queue_head_t	wait;
 	kernel_ulong_t		quirks;
 	unsigned int		suspended:1;
+	unsigned int		initialized:1;
 
 	struct i2c_msg		*msg;
 	unsigned int		msg_num;
@@ -831,6 +832,7 @@ static int s3c24xx_i2c_doxfer(struct s3c24xx_i2c *i2c,
  * first port of call from the i2c bus code when an message needs
  * transferring across the i2c bus.
 */
+static int s3c24xx_i2c_init(struct s3c24xx_i2c *i2c);
 
 static int s3c24xx_i2c_xfer(struct i2c_adapter *adap,
 			struct i2c_msg *msgs, int num)
@@ -843,6 +845,9 @@ static int s3c24xx_i2c_xfer(struct i2c_adapter *adap,
 	ret = clk_enable(i2c->clk);
 	if (ret)
 		return ret;
+
+	if (!i2c->initialized)
+		s3c24xx_i2c_init(i2c);
 
 	for (retry = 0; retry < adap->retries; retry++) {
 
@@ -1120,7 +1125,7 @@ static int s3c24xx_i2c_init(struct s3c24xx_i2c *i2c)
 
 	writeb(pdata->slave_addr, i2c->regs + S3C2410_IICADD);
 
-	dev_info(i2c->dev, "slave address 0x%02x\n", pdata->slave_addr);
+	dev_dbg(i2c->dev, "slave address 0x%02x\n", pdata->slave_addr);
 
 	writel(0, i2c->regs + S3C2410_IICCON);
 	writel(0, i2c->regs + S3C2410_IICSTAT);
@@ -1132,9 +1137,10 @@ static int s3c24xx_i2c_init(struct s3c24xx_i2c *i2c)
 		return -EINVAL;
 	}
 
+	i2c->initialized = 1;
 	/* todo - check that the i2c lines aren't being dragged anywhere */
 
-	dev_info(i2c->dev, "bus frequency set to %d KHz\n", freq);
+	dev_dbg(i2c->dev, "bus frequency set to %d KHz\n", freq);
 	dev_dbg(i2c->dev, "S3C2410_IICCON=0x%02x\n",
 		readl(i2c->regs + S3C2410_IICCON));
 
@@ -1385,11 +1391,22 @@ static int s3c24xx_i2c_resume_noirq(struct device *dev)
 		return ret;
 	s3c24xx_i2c_init(i2c);
 	clk_disable(i2c->clk);
+
 	i2c->suspended = 0;
 
 	return 0;
 }
 #endif
+
+static int s3c24xx_i2c_runtime_resume(struct device *dev)
+{
+	struct s3c24xx_i2c *i2c = dev_get_drvdata(dev);
+
+	if (i2c->quirks & QUIRK_FIMC_I2C)
+		i2c->initialized = 0;
+
+	return 0;
+}
 
 #ifdef CONFIG_PM
 static const struct dev_pm_ops s3c24xx_i2c_dev_pm_ops = {
@@ -1400,6 +1417,7 @@ static const struct dev_pm_ops s3c24xx_i2c_dev_pm_ops = {
 	.thaw_noirq = s3c24xx_i2c_resume_noirq,
 	.poweroff_noirq = s3c24xx_i2c_suspend_noirq,
 	.restore_noirq = s3c24xx_i2c_resume_noirq,
+	.runtime_resume = s3c24xx_i2c_runtime_resume,
 #endif
 };
 
