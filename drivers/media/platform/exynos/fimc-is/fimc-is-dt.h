@@ -29,6 +29,8 @@
 		(value) = name; \
 	} while (0)
 
+struct fimc_is_core;
+
 int get_pin_lookup_state(struct device *dev, struct exynos_platform_fimc_is_sensor *pdata);
 int fimc_is_power_initpin(struct device *dev);
 int fimc_is_power_setpin(struct device *dev, int position, int sensor_id);
