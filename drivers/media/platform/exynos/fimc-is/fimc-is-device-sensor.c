@@ -177,7 +177,7 @@ static int fimc_is_sensor_mclk_on(struct fimc_is_device_sensor *device)
 
 	ret = pdata->mclk_on(device->pdev, pdata->scenario, pdata->mclk_ch);
 	if (ret) {
-		merr("mclk_on is fail(%d)", device, ret);
+		merr("mclk_on failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -211,7 +211,7 @@ static int fimc_is_sensor_mclk_off(struct fimc_is_device_sensor *device)
 
 	ret = pdata->mclk_off(device->pdev, pdata->scenario, pdata->mclk_ch);
 	if (ret) {
-		merr("mclk_off is fail(%d)", device, ret);
+		merr("mclk_off failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -254,13 +254,13 @@ static int fimc_is_sensor_iclk_on(struct fimc_is_device_sensor *device)
 
 	ret = pdata->iclk_cfg(core->pdev, pdata->scenario, pdata->csi_ch);
 	if (ret) {
-		merr("iclk_cfg is fail(%d)", device, ret);
+		merr("iclk_cfg failed(%d)", device, ret);
 		goto p_err;
 	}
 
 	ret = pdata->iclk_on(core->pdev, pdata->scenario, pdata->csi_ch);
 	if (ret) {
-		merr("iclk_on is fail(%d)", device, ret);
+		merr("iclk_on failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -297,7 +297,7 @@ static int fimc_is_sensor_iclk_off(struct fimc_is_device_sensor *device)
 
 	ret = pdata->iclk_off(core->pdev, pdata->scenario, pdata->csi_ch);
 	if (ret) {
-		merr("iclk_off is fail(%d)", device, ret);
+		merr("iclk_off failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -338,7 +338,7 @@ static int fimc_is_sensor_gpio_on(struct fimc_is_device_sensor *device)
 
 	ret = pdata->gpio_cfg(device->pdev, pdata->scenario, GPIO_SCENARIO_ON);
 	if (ret) {
-		merr("gpio_cfg is fail(%d)", device, ret);
+		merr("gpio_cfg failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -373,7 +373,7 @@ static int fimc_is_sensor_gpio_off(struct fimc_is_device_sensor *device)
 
 	ret = pdata->gpio_cfg(device->pdev, pdata->scenario, GPIO_SCENARIO_OFF);
 	if (ret) {
-		merr("gpio_cfg is fail(%d)", device, ret);
+		merr("gpio_cfg failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -462,7 +462,7 @@ static int fimc_is_sensor_start(struct fimc_is_device_sensor *device)
 		}
 		ret = v4l2_subdev_call(subdev, video, s_stream, true);
 		if (ret) {
-			merr("v4l2_subdev_call(s_stream) is fail(%d)", device, ret);
+			merr("v4l2_subdev_call(s_stream) failed(%d)", device, ret);
 			goto p_err;
 		}
 	} else {
@@ -477,7 +477,7 @@ static int fimc_is_sensor_start(struct fimc_is_device_sensor *device)
 
 		ret = fimc_is_itf_stream_on(ischain);
 		if (ret) {
-			merr("fimc_is_itf_stream_on is fail(%d)", device, ret);
+			merr("fimc_is_itf_stream_on failed(%d)", device, ret);
 			goto p_err;
 		}
 	}
@@ -503,7 +503,7 @@ static int fimc_is_sensor_stop(struct fimc_is_device_sensor *device)
 		}
 		ret = v4l2_subdev_call(subdev, video, s_stream, false);
 		if (ret) {
-			merr("v4l2_subdev_call(s_stream) is fail(%d)", device, ret);
+			merr("v4l2_subdev_call(s_stream) failed(%d)", device, ret);
 			goto p_err;
 		}
 	} else {
@@ -517,7 +517,7 @@ static int fimc_is_sensor_stop(struct fimc_is_device_sensor *device)
 		}
 		ret = fimc_is_itf_stream_off(ischain);
 		if (ret) {
-			merr("fimc_is_itf_stream_off is fail(%d)", device, ret);
+			merr("fimc_is_itf_stream_off failed(%d)", device, ret);
 			goto p_err;
 		}
 	}
@@ -658,12 +658,12 @@ static void fimc_is_sensor_notify(struct v4l2_subdev *subdev,
 	case FLITE_NOTIFY_FSTART:
 		ret = fimc_is_sensor_notify_by_fstr(device, arg);
 		if (ret)
-			merr("fimc_is_sensor_notify_by_fstr is fail(%d)", device, ret);
+			merr("fimc_is_sensor_notify_by_fstr failed(%d)", device, ret);
 		break;
 	case FLITE_NOTIFY_FEND:
 		ret = fimc_is_sensor_notify_by_fend(device, arg);
 		if (ret)
-			merr("fimc_is_sensor_notify_by_fend is fail(%d)", device, ret);
+			merr("fimc_is_sensor_notify_by_fend failed(%d)", device, ret);
 		break;
 	}
 }
@@ -684,7 +684,7 @@ static void fimc_is_sensor_instanton(struct work_struct *data)
 
 	ret = fimc_is_sensor_start(device);
 	if (ret) {
-		merr("fimc_is_sensor_start is fail(%d)\n", device, ret);
+		merr("fimc_is_sensor_start failed(%d)\n", device, ret);
 		goto p_err;
 	}
 	set_bit(FIMC_IS_SENSOR_FRONT_START, &device->state);
@@ -747,7 +747,7 @@ static int fimc_is_sensor_probe(struct platform_device *pdev)
 
 	ret = fimc_is_sensor_parse_dt_with_companion(pdev);
 	if (ret) {
-		err("parsing device tree is fail(%d)", ret);
+		err("parsing device tree failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -795,7 +795,7 @@ static int fimc_is_sensor_probe(struct platform_device *pdev)
 
 	ret = fimc_is_mem_probe(&device->mem, core->pdev);
 	if (ret) {
-		merr("fimc_is_mem_probe is fail(%d)", device, ret);
+		merr("fimc_is_mem_probe failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -808,25 +808,25 @@ static int fimc_is_sensor_probe(struct platform_device *pdev)
 
 	ret = v4l2_device_register(&pdev->dev, &device->v4l2_dev);
 	if (ret) {
-		merr("v4l2_device_register is fail(%d)", device, ret);
+		merr("v4l2_device_register failed(%d)", device, ret);
 		goto p_err;
 	}
 
 	ret = fimc_is_csi_probe(device, device->pdata->csi_ch);
 	if (ret) {
-		merr("fimc_is_csi_probe is fail(%d)", device, ret);
+		merr("fimc_is_csi_probe failed(%d)", device, ret);
 		goto p_err;
 	}
 
 	ret = fimc_is_flite_probe(device, device->pdata->flite_ch);
 	if (ret) {
-		merr("fimc_is_flite_probe is fail(%d)", device, ret);
+		merr("fimc_is_flite_probe failed(%d)", device, ret);
 		goto p_err;
 	}
 
 	ret = fimc_is_sen_video_probe(device);
 	if (ret) {
-		merr("fimc_is_sensor_video_probe is fail(%d)", device, ret);
+		merr("fimc_is_sensor_video_probe failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -900,19 +900,19 @@ int fimc_is_sensor_open(struct fimc_is_device_sensor *device,
 	/* for mediaserver force close */
 	ret = fimc_is_resource_get(device->resourcemgr, device->instance);
 	if (ret) {
-		merr("fimc_is_resource_get is fail", device);
+		merr("fimc_is_resource_get failed", device);
 		goto p_err;
 	}
 
 	ret = fimc_is_csi_open(device->subdev_csi);
 	if (ret) {
-		merr("fimc_is_csi_open is fail(%d)", device, ret);
+		merr("fimc_is_csi_open failed(%d)", device, ret);
 		goto p_err;
 	}
 
 	ret = fimc_is_flite_open(device->subdev_flite, GET_DST_FRAMEMGR(vctx));
 	if (ret) {
-		merr("fimc_is_flite_open is fail(%d)", device, ret);
+		merr("fimc_is_flite_open failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -960,19 +960,19 @@ int fimc_is_sensor_close(struct fimc_is_device_sensor *device)
 
 	ret = fimc_is_sensor_back_stop(device);
 	if (ret)
-		merr("fimc_is_sensor_back_stop is fail(%d)", device, ret);
+		merr("fimc_is_sensor_back_stop failed(%d)", device, ret);
 
 	ret = fimc_is_sensor_front_stop(device);
 	if (ret)
-		merr("fimc_is_sensor_front_stop is fail(%d)", device, ret);
+		merr("fimc_is_sensor_front_stop failed(%d)", device, ret);
 
 	ret = fimc_is_csi_close(device->subdev_csi);
 	if (ret)
-		merr("fimc_is_flite_close is fail(%d)", device, ret);
+		merr("fimc_is_flite_close failed(%d)", device, ret);
 
 	ret = fimc_is_flite_close(device->subdev_flite);
 	if (ret)
-		merr("fimc_is_flite_close is fail(%d)", device, ret);
+		merr("fimc_is_flite_close failed(%d)", device, ret);
 
 	pm_runtime_put_sync(&device->pdev->dev);
 
@@ -988,7 +988,7 @@ int fimc_is_sensor_close(struct fimc_is_device_sensor *device)
 	/* for mediaserver force close */
 	ret = fimc_is_resource_put(device->resourcemgr, device->instance);
 	if (ret)
-		merr("fimc_is_resource_put is fail", device);
+		merr("fimc_is_resource_put failed", device);
 
 	clear_bit(FIMC_IS_SENSOR_OPEN, &device->state);
 	set_bit(FIMC_IS_SENSOR_BACK_NOWAIT_STOP, &device->state);
@@ -1117,7 +1117,7 @@ int fimc_is_sensor_s_input(struct fimc_is_device_sensor *device,
 
 	ret = v4l2_device_register_subdev(&device->v4l2_dev, subdev_module);
 	if (ret) {
-		merr("v4l2_device_register_subdev is fail(%d)", device, ret);
+		merr("v4l2_device_register_subdev failed(%d)", device, ret);
 		goto p_err;
 	} else {
 		device->subdev_module = subdev_module;
@@ -1127,7 +1127,7 @@ int fimc_is_sensor_s_input(struct fimc_is_device_sensor *device,
 	/* configuration clock control */
 	ret = fimc_is_sensor_iclk_on(device);
 	if (ret) {
-		merr("fimc_is_sensor_iclk_on is fail(%d)", device, ret);
+		merr("fimc_is_sensor_iclk_on failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -1135,27 +1135,27 @@ int fimc_is_sensor_s_input(struct fimc_is_device_sensor *device,
 	/* Sensor power on */
 	ret = fimc_is_sensor_gpio_on(device);
 	if (ret) {
-		merr("fimc_is_sensor_gpio_on is fail(%d)", device, ret);
+		merr("fimc_is_sensor_gpio_on failed(%d)", device, ret);
 		goto p_err;
 	}
 
 	ret = v4l2_subdev_call(subdev_flite, core, ioctl, 0,
 			       (void *)(long)device->pdata->csi_ch);
 	if (ret) {
-		merr("v4l2_flite_call(init) is fail(%d)", device, ret);
+		merr("v4l2_flite_call(init) failed(%d)", device, ret);
 		goto p_err;
 	}
 
 	ret = v4l2_subdev_call(subdev_csi, core, ioctl, 0, module);
 	if (ret) {
-		merr("v4l2_csi_call(init) is fail(%d)", device, ret);
+		merr("v4l2_csi_call(init) failed(%d)", device, ret);
 		goto p_err;
 	}
 
 	if (test_bit(FIMC_IS_SENSOR_DRIVING, &device->state)) {
 		ret = v4l2_subdev_call(subdev_module, core, ioctl, 0, 0);
 		if (ret) {
-			merr("v4l2_module_call(init) is fail(%d)", device, ret);
+			merr("v4l2_module_call(init) failed(%d)", device, ret);
 			goto p_err;
 		}
 	}
@@ -1217,20 +1217,20 @@ int fimc_is_sensor_s_format(struct fimc_is_device_sensor *device,
 	if (test_bit(FIMC_IS_SENSOR_DRIVING, &device->state)) {
 		ret = v4l2_subdev_call(subdev_module, video, s_mbus_fmt, &subdev_format);
 		if (ret) {
-			merr("v4l2_module_call(s_format) is fail(%d)", device, ret);
+			merr("v4l2_module_call(s_format) failed(%d)", device, ret);
 			goto p_err;
 		}
 	}
 
 	ret = v4l2_subdev_call(subdev_csi, video, s_mbus_fmt, &subdev_format);
 	if (ret) {
-		merr("v4l2_csi_call(s_format) is fail(%d)", device, ret);
+		merr("v4l2_csi_call(s_format) failed(%d)", device, ret);
 		goto p_err;
 	}
 
 	ret = v4l2_subdev_call(subdev_flite, video, s_mbus_fmt, &subdev_format);
 	if (ret) {
-		merr("v4l2_flite_call(s_format) is fail(%d)", device, ret);
+		merr("v4l2_flite_call(s_format) failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -1312,14 +1312,14 @@ int fimc_is_sensor_s_framerate(struct fimc_is_device_sensor *device,
 
 	ret = v4l2_subdev_call(subdev_csi, video, s_parm, param);
 	if (ret) {
-		merr("v4l2_csi_call(s_param) is fail(%d)", device, ret);
+		merr("v4l2_csi_call(s_param) failed(%d)", device, ret);
 		goto p_err;
 	}
 
 	if (test_bit(FIMC_IS_SENSOR_DRIVING, &device->state)) {
 		ret = v4l2_subdev_call(subdev_module, video, s_parm, param);
 		if (ret) {
-			merr("v4l2_module_call(s_param) is fail(%d)", device, ret);
+			merr("v4l2_module_call(s_param) failed(%d)", device, ret);
 			goto p_err;
 		}
 	}
@@ -1352,7 +1352,7 @@ int fimc_is_sensor_s_ctrl(struct fimc_is_device_sensor *device,
 
 	ret = v4l2_subdev_call(subdev_module, core, s_ctrl, ctrl);
 	if (ret) {
-		err("s_ctrl is fail(%d)", ret);
+		err("s_ctrl failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -1482,7 +1482,7 @@ int fimc_is_sensor_g_ctrl(struct fimc_is_device_sensor *device,
 
 	ret = v4l2_subdev_call(subdev_module, core, g_ctrl, ctrl);
 	if (ret) {
-		err("g_ctrl is fail(%d)", ret);
+		err("g_ctrl failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -1722,7 +1722,7 @@ int fimc_is_sensor_back_start(struct fimc_is_device_sensor *device)
 
 	ret = v4l2_subdev_call(subdev_flite, video, s_stream, enable);
 	if (ret) {
-		merr("v4l2_flite_call(s_stream) is fail(%d)", device, ret);
+		merr("v4l2_flite_call(s_stream) failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -1758,7 +1758,7 @@ int fimc_is_sensor_back_stop(struct fimc_is_device_sensor *device)
 
 	ret = v4l2_subdev_call(subdev_flite, video, s_stream, enable);
 	if (ret) {
-		merr("v4l2_flite_call(s_stream) is fail(%d)", device, ret);
+		merr("v4l2_flite_call(s_stream) failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -1806,7 +1806,7 @@ int fimc_is_sensor_front_start(struct fimc_is_device_sensor *device,
 
 	ret = v4l2_subdev_call(subdev_csi, video, s_stream, IS_ENABLE_STREAM);
 	if (ret) {
-		merr("v4l2_csi_call(s_stream) is fail(%d)", device, ret);
+		merr("v4l2_csi_call(s_stream) failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -1822,7 +1822,7 @@ int fimc_is_sensor_front_start(struct fimc_is_device_sensor *device,
 	} else {
 		fimc_is_sensor_instanton(&device->instant_work);
 		if (device->instant_ret) {
-			merr("fimc_is_sensor_instanton is fail(%d)", device, device->instant_ret);
+			merr("fimc_is_sensor_instanton failed(%d)", device, device->instant_ret);
 			ret = device->instant_ret;
 			goto p_err;
 		}
@@ -1848,11 +1848,11 @@ int fimc_is_sensor_front_stop(struct fimc_is_device_sensor *device)
 
 	ret = fimc_is_sensor_stop(device);
 	if (ret)
-		merr("sensor stream off is failed(%d)\n", device, ret);
+		merr("sensor stream off faileded(%d)\n", device, ret);
 
 	ret = v4l2_subdev_call(subdev_csi, video, s_stream, IS_DISABLE_STREAM);
 	if (ret)
-		merr("v4l2_csi_call(s_stream) is fail(%d)", device, ret);
+		merr("v4l2_csi_call(s_stream) failed(%d)", device, ret);
 
 	set_bit(FIMC_IS_SENSOR_BACK_NOWAIT_STOP, &device->state);
 	clear_bit(FIMC_IS_SENSOR_FRONT_START, &device->state);
@@ -1886,7 +1886,7 @@ int fimc_is_sensor_gpio_off_softlanding(struct fimc_is_device_sensor *device)
 
 	ret = pdata->gpio_cfg(device->pdev, pdata->scenario, GPIO_SCENARIO_OFF);
 	if (ret) {
-		merr("gpio_cfg is fail(%d)", device, ret);
+		merr("gpio_cfg failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -1940,23 +1940,23 @@ int fimc_is_sensor_runtime_suspend(struct device *dev)
 	if(device->pdata->is_softlanding == false) {
 		ret = fimc_is_sensor_gpio_off(device);
 		if (ret) {
-			mwarn("fimc_is_sensor_gpio_off is fail(%d)", device, ret);
+			mwarn("fimc_is_sensor_gpio_off failed(%d)", device, ret);
 		}
 	}
 
 	/* GSCL internal clock off */
 	ret = fimc_is_sensor_iclk_off(device);
 	if (ret)
-		mwarn("fimc_is_sensor_iclk_off is fail(%d)", device, ret);
+		mwarn("fimc_is_sensor_iclk_off failed(%d)", device, ret);
 
 	/* Sensor clock on */
 	ret = fimc_is_sensor_mclk_off(device);
 	if (ret)
-		mwarn("fimc_is_sensor_mclk_off is fail(%d)", device, ret);
+		mwarn("fimc_is_sensor_mclk_off failed(%d)", device, ret);
 
 	ret = v4l2_subdev_call(subdev_csi, core, s_power, 0);
 	if (ret)
-		mwarn("v4l2_csi_call(s_power) is fail(%d)", device, ret);
+		mwarn("v4l2_csi_call(s_power) failed(%d)", device, ret);
 
 
 	info("[SEN:D:%d] %s(%d)\n", device->instance, __func__, ret);
@@ -1986,14 +1986,14 @@ int fimc_is_sensor_runtime_resume(struct device *dev)
 	/* 1. Enable MIPI */
 	ret = v4l2_subdev_call(subdev_csi, core, s_power, 1);
 	if (ret) {
-		merr("v4l2_csi_call(s_power) is fail(%d)", device, ret);
+		merr("v4l2_csi_call(s_power) failed(%d)", device, ret);
 		goto p_err;
 	}
 
 	/* 2. Sensor clock on */
 	ret = fimc_is_sensor_mclk_on(device);
 	if (ret) {
-		merr("fimc_is_sensor_mclk_on is fail(%d)", device, ret);
+		merr("fimc_is_sensor_mclk_on failed(%d)", device, ret);
 		goto p_err;
 	}
 

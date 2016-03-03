@@ -66,7 +66,7 @@ int fimc_is_scc_video_probe(void *data)
 		&fimc_is_scc_video_fops,
 		&fimc_is_scc_video_ioctl_ops);
 	if (ret)
-		dev_err(&core->pdev->dev, "%s is fail(%d)\n", __func__, ret);
+		dev_err(&core->pdev->dev, "%s failed(%d)\n", __func__, ret);
 
 p_err:
 	return ret;
@@ -99,7 +99,7 @@ static int fimc_is_scc_video_open(struct file *file)
 
 	ret = open_vctx(file, video, &vctx, FRAMEMGR_ID_INVALID, FRAMEMGR_ID_SCC);
 	if (ret) {
-		err("open_vctx is fail(%d)", ret);
+		err("open_vctx failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -124,14 +124,14 @@ static int fimc_is_scc_video_open(struct file *file)
 		NULL,
 		&fimc_is_ischain_sub_ops);
 	if (ret) {
-		err("fimc_is_video_open is fail");
+		err("fimc_is_video_open failed");
 		close_vctx(file, video, vctx);
 		goto p_err;
 	}
 
 	ret = fimc_is_subdev_open(&device->scc, vctx, NULL);
 	if (ret) {
-		err("fimc_is_subdev_open is fail");
+		err("fimc_is_subdev_open failed");
 		close_vctx(file, video, vctx);
 		goto p_err;
 	}
@@ -177,7 +177,7 @@ static int fimc_is_scc_video_close(struct file *file)
 
 	ret = close_vctx(file, video, vctx);
 	if (ret < 0)
-		err("close_vctx is fail(%d)", ret);
+		err("close_vctx failed(%d)", ret);
 
 p_err:
 	return ret;
@@ -202,7 +202,7 @@ static int fimc_is_scc_video_mmap(struct file *file,
 
 	ret = fimc_is_video_mmap(file, vctx, vma);
 	if (ret)
-		merr("fimc_is_video_mmap is fail(%d)", vctx, ret);
+		merr("fimc_is_video_mmap failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -262,7 +262,7 @@ static int fimc_is_scc_video_set_format_mplane(struct file *file, void *fh,
 
 	ret = fimc_is_video_set_format_mplane(file, vctx, format);
 	if (ret)
-		merr("fimc_is_video_set_format_mplane is fail(%d)", vctx, ret);
+		merr("fimc_is_video_set_format_mplane failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -326,7 +326,7 @@ static int fimc_is_scc_video_reqbufs(struct file *file, void *priv,
 
 	ret = fimc_is_video_reqbufs(file, vctx, buf);
 	if (ret)
-		merr("fimc_is_video_reqbufs is fail(%d)", vctx, ret);
+		merr("fimc_is_video_reqbufs failed(%d)", vctx, ret);
 
 p_err:
 	return ret;
@@ -342,7 +342,7 @@ static int fimc_is_scc_video_querybuf(struct file *file, void *priv,
 
 	ret = fimc_is_video_querybuf(file, vctx, buf);
 	if (ret)
-		merr("fimc_is_video_querybuf is fail(%d)", vctx, ret);
+		merr("fimc_is_video_querybuf failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -359,7 +359,7 @@ static int fimc_is_scc_video_qbuf(struct file *file, void *priv,
 
 	ret = fimc_is_video_qbuf(file, vctx, buf);
 	if (ret)
-		merr("fimc_is_video_qbuf is fail(%d)", vctx, ret);
+		merr("fimc_is_video_qbuf failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -376,7 +376,7 @@ static int fimc_is_scc_video_dqbuf(struct file *file, void *priv,
 
 	ret = fimc_is_video_dqbuf(file, vctx, buf);
 	if (ret)
-		merr("fimc_is_video_dqbuf is fail(%d)", vctx, ret);
+		merr("fimc_is_video_dqbuf failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -391,7 +391,7 @@ static int fimc_is_scc_video_streamon(struct file *file, void *priv,
 
 	ret = fimc_is_video_streamon(file, vctx, type);
 	if (ret)
-		merr("fimc_is_video_streamon is fail(%d)", vctx, ret);
+		merr("fimc_is_video_streamon failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -406,7 +406,7 @@ static int fimc_is_scc_video_streamoff(struct file *file, void *priv,
 
 	ret = fimc_is_video_streamoff(file, vctx, type);
 	if (ret)
-		merr("fimc_is_video_streamoff is fail(%d)", vctx, ret);
+		merr("fimc_is_video_streamoff failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -573,7 +573,7 @@ static int fimc_is_scc_queue_setup(struct vb2_queue *vbq,
 		sizes,
 		allocators);
 	if (ret)
-		merr("fimc_is_queue_setup is fail(%d)", vctx, ret);
+		merr("fimc_is_queue_setup failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -611,7 +611,7 @@ static int fimc_is_scc_start_streaming(struct vb2_queue *q,
 
 	ret = fimc_is_queue_start_streaming(queue, device, subdev, vctx);
 	if (ret)
-		merr("fimc_is_queue_start_streaming is fail(%d)", vctx, ret);
+		merr("fimc_is_queue_start_streaming failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -636,7 +636,7 @@ static void fimc_is_scc_stop_streaming(struct vb2_queue *q)
 
 	ret = fimc_is_queue_stop_streaming(queue, device, subdev, vctx);
 	if (ret)
-		merr("fimc_is_queue_stop_streaming is fail(%d)", vctx, ret);
+		merr("fimc_is_queue_stop_streaming failed(%d)", vctx, ret);
 }
 
 static void fimc_is_scc_buffer_queue(struct vb2_buffer *vb)
@@ -654,13 +654,13 @@ static void fimc_is_scc_buffer_queue(struct vb2_buffer *vb)
 
 	ret = fimc_is_queue_buffer_queue(queue, video->vb2, vb);
 	if (ret) {
-		merr("fimc_is_queue_buffer_queue is fail(%d)", vctx, ret);
+		merr("fimc_is_queue_buffer_queue failed(%d)", vctx, ret);
 		return;
 	}
 
 	ret = fimc_is_subdev_buffer_queue(scc, vb->v4l2_buf.index);
 	if (ret) {
-		merr("fimc_is_subdev_buffer_queue is fail(%d)", vctx, ret);
+		merr("fimc_is_subdev_buffer_queue failed(%d)", vctx, ret);
 		return;
 	}
 }

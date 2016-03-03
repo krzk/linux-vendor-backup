@@ -266,7 +266,7 @@ int fimc_is_ois_gpio_on(struct fimc_is_device_companion *device)
 
 	ret = pdata->gpio_cfg(device->pdev, SENSOR_SCENARIO_OIS_FACTORY, GPIO_SCENARIO_ON);
 	if (ret) {
-		err("gpio_cfg is fail(%d)", ret);
+		err("gpio_cfg failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -293,7 +293,7 @@ int fimc_is_ois_gpio_off(struct fimc_is_device_companion *device)
 
 	ret = pdata->gpio_cfg(device->pdev, SENSOR_SCENARIO_OIS_FACTORY, GPIO_SCENARIO_OFF);
 	if (ret) {
-		err("gpio_cfg is fail(%d)", ret);
+		err("gpio_cfg failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -939,7 +939,7 @@ request_fw:
 		}
 
 		if (ret) {
-			err("request_firmware is fail(ret:%d)", ret);
+			err("request_firmware failed(ret:%d)", ret);
 			ret = -EINVAL;
 			goto p_err;
 		}

@@ -87,7 +87,7 @@ static int fimc_is_companion_mclk_on(struct fimc_is_device_companion *device)
 
 	ret = pdata->mclk_on(pdev, pdata->scenario, pdata->mclk_ch);
 	if (ret) {
-		err("mclk_on is fail(%d)", ret);
+		err("mclk_on failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -123,7 +123,7 @@ static int fimc_is_companion_mclk_off(struct fimc_is_device_companion *device)
 
 	ret = pdata->mclk_off(pdev, pdata->scenario, pdata->mclk_ch);
 	if (ret) {
-		err("mclk_off is fail(%d)", ret);
+		err("mclk_off failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -165,13 +165,13 @@ static int fimc_is_companion_iclk_on(struct fimc_is_device_companion *device)
 
 	ret = pdata->iclk_cfg(pdev, pdata->scenario, 0);
 	if (ret) {
-		err("iclk_cfg is fail(%d)", ret);
+		err("iclk_cfg failed(%d)", ret);
 		goto p_err;
 	}
 
 	ret = pdata->iclk_on(pdev, pdata->scenario, 0);
 	if (ret) {
-		err("iclk_on is fail(%d)", ret);
+		err("iclk_on failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -207,7 +207,7 @@ static int fimc_is_companion_iclk_off(struct fimc_is_device_companion *device)
 
 	ret = pdata->iclk_off(pdev, pdata->scenario, 0);
 	if (ret) {
-		err("iclk_off is fail(%d)", ret);
+		err("iclk_off failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -271,7 +271,7 @@ static int fimc_is_companion_gpio_on(struct fimc_is_device_companion *device)
 
 	ret = pdata->gpio_cfg(device->pdev, pdata->scenario, GPIO_SCENARIO_ON);
 	if (ret) {
-		err("gpio_cfg is fail(%d)", ret);
+		err("gpio_cfg failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -306,7 +306,7 @@ static int fimc_is_companion_gpio_off(struct fimc_is_device_companion *device)
 
 	ret = pdata->gpio_cfg(device->pdev, pdata->scenario, GPIO_SCENARIO_OFF);
 	if (ret) {
-		err("gpio_cfg is fail(%d)", ret);
+		err("gpio_cfg failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -478,7 +478,7 @@ static int fimc_is_companion_probe(struct platform_device *pdev)
 
 	ret = fimc_is_companion_parse_dt(pdev);
 	if (ret) {
-		err("parsing device tree is fail(%d)", ret);
+		err("parsing device tree failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -506,13 +506,13 @@ static int fimc_is_companion_probe(struct platform_device *pdev)
 
 	ret = v4l2_device_register(&pdev->dev, &device->v4l2_dev);
 	if (ret) {
-		err("v4l2_device_register is fail(%d)", ret);
+		err("v4l2_device_register failed(%d)", ret);
 		goto p_err;
 	}
 
 	ret = fimc_is_comp_video_probe(device);
 	if (ret) {
-		err("fimc_is_companion_video_probe is fail(%d)", ret);
+		err("fimc_is_companion_video_probe failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -578,21 +578,21 @@ int fimc_is_companion_runtime_suspend(struct device *dev)
 	/* gpio uninit */
 	ret = fimc_is_companion_gpio_off(device);
 	if (ret) {
-		err("fimc_is_companion_gpio_off is fail(%d)", ret);
+		err("fimc_is_companion_gpio_off failed(%d)", ret);
 		goto p_err;
 	}
 
 	/* periperal internal clock off */
 	ret = fimc_is_companion_iclk_off(device);
 	if (ret) {
-		err("fimc_is_companion_iclk_off is fail(%d)", ret);
+		err("fimc_is_companion_iclk_off failed(%d)", ret);
 		goto p_err;
 	}
 
 	/* companion clock off */
 	ret = fimc_is_companion_mclk_off(device);
 	if (ret) {
-		err("fimc_is_companion_mclk_off is fail(%d)", ret);
+		err("fimc_is_companion_mclk_off failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -623,21 +623,21 @@ int fimc_is_companion_runtime_resume(struct device *dev)
 	/* Sensor clock on */
 	ret = fimc_is_companion_mclk_on(device);
 	if (ret) {
-		err("fimc_is_companion_mclk_on is fail(%d)", ret);
+		err("fimc_is_companion_mclk_on failed(%d)", ret);
 		goto p_err;
 	}
 
 	/* gpio init */
 	ret = fimc_is_companion_gpio_on(device);
 	if (ret) {
-		err("fimc_is_companion_gpio_on is fail(%d)", ret);
+		err("fimc_is_companion_gpio_on failed(%d)", ret);
 		goto p_err;
 	}
 
 	/* periperal internal clock on */
 	ret = fimc_is_companion_iclk_on(device);
 	if (ret) {
-		err("fimc_is_companion_iclk_on is fail(%d)", ret);
+		err("fimc_is_companion_iclk_on failed(%d)", ret);
 		goto p_err;
 	}
 p_err:

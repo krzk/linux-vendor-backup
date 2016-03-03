@@ -921,7 +921,7 @@ static int fimc_is_probe(struct platform_device *pdev)
 
 	ret = fimc_is_mem_probe(&core->mem, core->pdev);
 	if (ret) {
-		err("fimc_is_mem_probe is fail(%d)", ret);
+		err("fimc_is_mem_probe failed(%d)", ret);
 		goto p_err3;
 	}
 
@@ -938,7 +938,7 @@ static int fimc_is_probe(struct platform_device *pdev)
 #if defined(CONFIG_CAMERA_SENSOR_6D1_OBJ)
 	ret = sensor_6d1_probe(NULL, NULL);
 	if (ret) {
-		err("sensor_6d1_probe is fail(%d)", ret);
+		err("sensor_6d1_probe failed(%d)", ret);
 		goto p_err3;
 	}
 #endif
@@ -946,7 +946,7 @@ static int fimc_is_probe(struct platform_device *pdev)
 #if defined(CONFIG_CAMERA_SENSOR_IMX240_OBJ)
 	ret = sensor_imx240_probe(NULL, NULL);
 	if (ret) {
-		err("sensor_imx175_probe is fail(%d)", ret);
+		err("sensor_imx175_probe failed(%d)", ret);
 		goto p_err3;
 	}
 #endif
@@ -1026,7 +1026,7 @@ static int fimc_is_probe(struct platform_device *pdev)
 
 	ret = fimc_is_ishcain_initmem(core);
 	if (ret) {
-		err("fimc_is_ishcain_initmem is fail(%d)", ret);
+		err("fimc_is_ishcain_initmem failed(%d)", ret);
 		goto p_err4;
 	}
 

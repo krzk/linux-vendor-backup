@@ -386,7 +386,6 @@ int open_vctx(struct file *file,
 
 	*vctx = kzalloc(sizeof(struct fimc_is_video_ctx), GFP_KERNEL);
 	if (*vctx == NULL) {
-		err("kzalloc is fail");
 		ret = -ENOMEM;
 		*vctx = NULL;
 		goto exit;
@@ -394,7 +393,6 @@ int open_vctx(struct file *file,
 
 	q_src = kzalloc(sizeof(struct fimc_is_queue), GFP_KERNEL);
 	if (q_src == NULL) {
-		err("kzalloc is fail(q_src)");
 		ret = -ENOMEM;
 		kfree(*vctx);
 		*vctx = NULL;
@@ -403,7 +401,6 @@ int open_vctx(struct file *file,
 
 	q_dst = kzalloc(sizeof(struct fimc_is_queue), GFP_KERNEL);
 	if (q_dst == NULL) {
-		err("kzalloc is fail(q_dst)");
 		ret = -ENOMEM;
 		kfree(*vctx);
 		kfree(q_src);
@@ -611,7 +608,7 @@ set_info:
 		/* Create Kvaddr for Metadata */
 		queue->buf_kva[index][spare] = vb2->plane_kvaddr(vb, spare);
 		if (!queue->buf_kva[index][spare]) {
-			err("plane_kvaddr is fail(%08X)", framemgr->id);
+			err("plane_kvaddr failed(%08X)", framemgr->id);
 			ret = -EINVAL;
 			goto exit;
 		}
@@ -630,7 +627,7 @@ set_info:
 		/* Create Kvaddr for frame sync */
 		queue->buf_kva[index][spare] = vb2->plane_kvaddr(vb, spare);
 		if (!queue->buf_kva[index][spare]) {
-			err("plane_kvaddr is fail(%08X)", framemgr->id);
+			err("plane_kvaddr failed(%08X)", framemgr->id);
 			ret = -EINVAL;
 			goto exit;
 		}
@@ -688,7 +685,7 @@ void fimc_is_queue_wait_finish(struct vb2_queue *vbq)
 	video = vctx->video;
 	ret = mutex_lock_interruptible(&video->lock);
 	if (ret)
-		err("mutex_lock_interruptible is fail(%d)", ret);
+		err("mutex_lock_interruptible failed(%d)", ret);
 }
 
 int fimc_is_queue_start_streaming(struct fimc_is_queue *queue,
@@ -717,7 +714,7 @@ int fimc_is_queue_start_streaming(struct fimc_is_queue *queue,
 
 	ret = CALL_QOPS(queue, start_streaming, device, subdev, queue);
 	if (ret) {
-		merr("start_streaming is fail(%d)", vctx, ret);
+		merr("start_streaming failed(%d)", vctx, ret);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -748,7 +745,7 @@ int fimc_is_queue_stop_streaming(struct fimc_is_queue *queue,
 
 	ret = CALL_QOPS(queue, stop_streaming, device, subdev, queue);
 	if (ret) {
-		merr("stop_streaming is fail(%d)", vctx, ret);
+		merr("stop_streaming failed(%d)", vctx, ret);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -842,7 +839,6 @@ int fimc_is_video_open(struct fimc_is_video_ctx *vctx,
 
 		q_src->vbq = kzalloc(sizeof(struct vb2_queue), GFP_KERNEL);
 		if (!q_src->vbq) {
-			err("kzalloc is fail");
 			ret = -ENOMEM;
 			goto p_err;
 		}
@@ -859,7 +855,6 @@ int fimc_is_video_open(struct fimc_is_video_ctx *vctx,
 
 		q_dst->vbq = kzalloc(sizeof(struct vb2_queue), GFP_KERNEL);
 		if (!q_dst->vbq) {
-			err("kzalloc is fail");
 			ret = -ENOMEM;
 			goto p_err;
 		}
@@ -877,14 +872,14 @@ int fimc_is_video_open(struct fimc_is_video_ctx *vctx,
 
 		q_src->vbq = kzalloc(sizeof(struct vb2_queue), GFP_KERNEL);
 		if (!q_src->vbq) {
-			err("kzalloc is fail");
+			err("kzalloc failed");
 			ret = -ENOMEM;
 			goto p_err;
 		}
 
 		q_dst->vbq = kzalloc(sizeof(struct vb2_queue), GFP_KERNEL);
 		if (!q_dst->vbq) {
-			err("kzalloc is fail");
+			err("kzalloc failed");
 			kfree(q_src->vbq);
 			ret = -ENOMEM;
 			goto p_err;
@@ -1033,7 +1028,7 @@ int fimc_is_video_reqbufs(struct file *file,
 
 	ret = vb2_reqbufs(queue->vbq, request);
 	if (ret) {
-		err("vb2_reqbufs is fail(%d)", ret);
+		err("vb2_reqbufs failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -1153,7 +1148,7 @@ int fimc_is_video_qbuf(struct file *file,
 
 	ret = vb2_qbuf(queue->vbq, buf);
 	if (ret) {
-		merr("vb2_qbuf is fail(index : %d, %d)", vctx, buf->index, ret);
+		merr("vb2_qbuf failed(index : %d, %d)", vctx, buf->index, ret);
 		goto p_err;
 	}
 

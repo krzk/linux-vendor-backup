@@ -41,7 +41,7 @@ int get_pin_lookup_state(struct device *dev,
 							pdata->csi_ch);
 					s = pinctrl_lookup_state(pdata->pinctrl, ch_name);
 					if (IS_ERR(s)) {
-						err("cam %s, ch %d pinctrl_lookup_state is failed", ch_name, pdata->csi_ch);
+						err("cam %s, ch %d pinctrl_lookup_state failed", ch_name, pdata->csi_ch);
 						ret = -EINVAL;
 						goto p_err;
 					} else {
@@ -225,13 +225,13 @@ struct exynos_platform_fimc_is *fimc_is_parse_dt(struct device *dev)
 
 	retVal = of_property_read_u32(np, "companion_spi_channel", &pdata->companion_spi_channel);
 	if (retVal) {
-		err("spi_channel read is fail(%d)", retVal);
+		err("spi_channel read failed(%d)", retVal);
 	}
 
 	pdata->use_two_spi_line = of_property_read_bool(np, "use_two_spi_line");
 	retVal = of_property_read_u32(np, "use_sensor_dynamic_voltage_mode", &pdata->use_sensor_dynamic_voltage_mode);
 	if (retVal) {
-		err("use_sensor_dynamic_voltage_mode read is fail(%d)", retVal);
+		err("use_sensor_dynamic_voltage_mode read failed(%d)", retVal);
 		pdata->use_sensor_dynamic_voltage_mode = 0;
 	}
 	pdata->use_ois = of_property_read_bool(np, "use_ois");
@@ -316,49 +316,49 @@ int fimc_is_sensor_parse_dt(struct platform_device *pdev)
 
 	ret = of_property_read_u32(dnode, "scenario", &pdata->scenario);
 	if (ret) {
-		err("scenario read is fail(%d)", ret);
+		err("scenario read failed(%d)", ret);
 		goto p_err;
 	}
 
 	ret = of_property_read_u32(dnode, "mclk_ch", &pdata->mclk_ch);
 	if (ret) {
-		err("mclk_ch read is fail(%d)", ret);
+		err("mclk_ch read failed(%d)", ret);
 		goto p_err;
 	}
 
 	ret = of_property_read_u32(dnode, "csi_ch", &pdata->csi_ch);
 	if (ret) {
-		err("csi_ch read is fail(%d)", ret);
+		err("csi_ch read failed(%d)", ret);
 		goto p_err;
 	}
 
 	ret = of_property_read_u32(dnode, "flite_ch", &pdata->flite_ch);
 	if (ret) {
-		err("flite_ch read is fail(%d)", ret);
+		err("flite_ch read failed(%d)", ret);
 		goto p_err;
 	}
 
 	ret = of_property_read_u32(dnode, "i2c_ch", &pdata->i2c_ch);
 	if (ret) {
-		err("i2c_ch read is fail(%d)", ret);
+		err("i2c_ch read failed(%d)", ret);
 		goto p_err;
 	}
 
 	ret = of_property_read_u32(dnode, "i2c_addr", &pdata->i2c_addr);
 	if (ret) {
-		err("i2c_addr read is fail(%d)", ret);
+		err("i2c_addr read failed(%d)", ret);
 		goto p_err;
 	}
 
 	ret = of_property_read_u32(dnode, "is_bns", &pdata->is_bns);
 	if (ret) {
-		err("is_bns read is fail(%d)", ret);
+		err("is_bns read failed(%d)", ret);
 		goto p_err;
 	}
 
 	ret = of_property_read_u32(dnode, "id", &id);
 	if (ret) {
-		err("id read is fail(%d)", ret);
+		err("id read failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -367,14 +367,14 @@ int fimc_is_sensor_parse_dt(struct platform_device *pdev)
 
 	ret = of_property_read_string(dnode, "sensor_name", &name);
 	if (ret) {
-		err("sensor_name read is fail(%d)", ret);
+		err("sensor_name read failed(%d)", ret);
 		goto p_err;
 	}
 	strcpy(pdata->sensor_name, name);
 
 	ret = of_property_read_u32(dnode, "sensor_id", &pdata->sensor_id);
 	if (ret) {
-		err("sensor_id read is fail(%d)", ret);
+		err("sensor_id read failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -388,12 +388,12 @@ int fimc_is_sensor_parse_dt(struct platform_device *pdev)
 
 	pdata->pinctrl = devm_pinctrl_get(dev);
 	if (IS_ERR(pdata->pinctrl)) {
-		err("devm_pinctrl_get is fail");
+		err("devm_pinctrl_get failed");
 		goto p_err;
 	} else {
 		ret = get_pin_lookup_state(dev, pdata);
 		if (ret < 0) {
-			err("fimc_is_get_pin_lookup_state is fail");
+			err("fimc_is_get_pin_lookup_state failed");
 			goto p_err;
 		}
 	}

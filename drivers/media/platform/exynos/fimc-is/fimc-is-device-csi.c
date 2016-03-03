@@ -25,6 +25,7 @@
 #include "fimc-is-device-csi.h"
 #include "fimc-is-device-sensor.h"
 #include "fimc-is-core.h"
+
 static u32 get_hsync_settle(struct fimc_is_sensor_cfg *cfg,
 	const u32 cfgs, u32 width, u32 height, u32 framerate)
 {
@@ -239,13 +240,13 @@ static int csi_s_stream(struct v4l2_subdev *subdev, int enable)
 	if (enable) {
 		ret = csi_stream_on(csi);
 		if (ret) {
-			err("csi_stream_on is fail(%d)", ret);
+			err("csi_stream_on failed(%d)", ret);
 			goto p_err;
 		}
 	} else {
 		ret = csi_stream_off(csi);
 		if (ret) {
-			err("csi_stream_off is fail(%d)", ret);
+			err("csi_stream_off failed(%d)", ret);
 			goto p_err;
 		}
 	}
@@ -378,7 +379,7 @@ int fimc_is_csi_probe(void *parent, u32 instance)
 	snprintf(subdev_csi->name, V4L2_SUBDEV_NAME_SIZE, "csi-subdev.%d", instance);
 	ret = v4l2_device_register_subdev(&device->v4l2_dev, subdev_csi);
 	if (ret) {
-		merr("v4l2_device_register_subdev is fail(%d)", device, ret);
+		merr("v4l2_device_register_subdev failed(%d)", device, ret);
 		goto p_err_free2;
 	}
 

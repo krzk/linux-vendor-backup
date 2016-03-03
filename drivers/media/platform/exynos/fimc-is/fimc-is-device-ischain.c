@@ -853,7 +853,7 @@ request_fw:
 		}
 
 		if (ret) {
-			err("request_firmware is fail(%d)", ret);
+			err("request_firmware failed(%d)", ret);
 			ret = -EINVAL;
 			goto out;
 		}
@@ -898,7 +898,7 @@ out:
 		}
 	}
 	if (ret)
-		err("firmware loading is fail");
+		err("firmware loading failed");
 	else
 		info("Camera: the %s FW were applied successfully.\n",
 			((cam_id == CAMERA_SINGLE_REAR) &&
@@ -1046,13 +1046,13 @@ request_fw:
 		ret = request_firmware((const struct firmware **)&fw_blob,
 			setfile_name, &device->pdev->dev);
 		while (--retry && ret) {
-			mwarn("request_firmware is fail(%d)", device, ret);
+			mwarn("request_firmware failed(%d)", device, ret);
 			ret = request_firmware((const struct firmware **)&fw_blob,
 				setfile_name, &device->pdev->dev);
 		}
 
 		if (!retry) {
-			merr("request_firmware is fail(%d)", device, ret);
+			merr("request_firmware failed(%d)", device, ret);
 			ret = -EINVAL;
 			goto out;
 		}
@@ -1099,7 +1099,7 @@ out:
 	}
 
 	if (ret)
-		err("setfile loading is fail");
+		err("setfile loading failed");
 	else
 		info("Camera: the %s Setfile were applied successfully.\n",
 			((cam_id == CAMERA_SINGLE_REAR) &&
@@ -1150,7 +1150,7 @@ static int fimc_is_ischain_loadcalb(struct fimc_is_device_ischain *device,
 	fimc_is_ischain_cache_flush(device, FIMC_IS_CAL_START_ADDR,
 		FIMC_IS_MAX_CAL_SIZE);
 	if (ret)
-		mwarn("calibration loading is fail", device);
+		mwarn("calibration loading failed", device);
 	else
 		mwarn("calibration loading is success", device);
 	return ret;
@@ -1297,7 +1297,7 @@ int fimc_is_ischain_power(struct fimc_is_device_ischain *device, int on)
 		exynos_smc_readsfr(PA_FIMC_IS_GIC_C + 0x4, &debug);
 		info("%s : PA_FIMC_IS_GIC_C : 0x%08x\n", __func__, debug);
 		if (debug == 0x00)
-			merr("secure configuration is fail[0x131E0004:%08X]", device, debug);
+			merr("secure configuration failed[0x131E0004:%08X]", device, debug);
 
 		/* To guarantee FW restart */
 		regmap_read(core->pmu_regmap, PMUREG_ISP_ARM_STATUS, &val);
@@ -1357,7 +1357,7 @@ static int fimc_is_itf_s_param(struct fimc_is_device_ischain *device,
 
 	if (frame) {
 		if (!test_bit(FIMC_IS_ISHCAIN_START, &device->state)) {
-			merr("s_param is fail, device already is stopped", device);
+			merr("s_param failed, device already is stopped", device);
 			BUG();
 		}
 
@@ -1390,7 +1390,7 @@ static int fimc_is_itf_s_param(struct fimc_is_device_ischain *device,
 		 * this check code is commented until per-frame control is worked fully
 		 *
 		 * if ( test_bit(FIMC_IS_ISHCAIN_START, &device->state)) {
-		 *	merr("s_param is fail, device already is started", device);
+		 *	merr("s_param failed, device already is started", device);
 		 *	BUG();
 		 * }
 		 */
@@ -1419,7 +1419,7 @@ static void * fimc_is_itf_g_param(struct fimc_is_device_ischain *device,
 
 	if (frame) {
 		if (!test_bit(FIMC_IS_ISHCAIN_START, &device->state)) {
-			merr("s_param is fail, device already is stopped", device);
+			merr("s_param failed, device already is stopped", device);
 			BUG();
 		}
 
@@ -1731,7 +1731,7 @@ static int fimc_is_itf_enum(struct fimc_is_device_ischain *device)
 
 	ret = fimc_is_hw_enum(device->interface);
 	if (ret) {
-		merr("fimc_is_itf_enum is fail(%d)", device, ret);
+		merr("fimc_is_itf_enum failed(%d)", device, ret);
 		CALL_POPS(device, print_pwr, device->pdev);
 		CALL_POPS(device, print_clk, device->pdev);
 	}
@@ -1771,7 +1771,7 @@ static int fimc_is_itf_open(struct fimc_is_device_ischain *device,
 		&device->margin_width,
 		&device->margin_height);
 	if (ret) {
-		merr("fimc_is_hw_open is fail", device);
+		merr("fimc_is_hw_open failed", device);
 		CALL_POPS(device, print_cfg, device->pdev,
 				fimc_is_sensor_g_instance(device->sensor));
 		ret = -EINVAL;
@@ -1835,7 +1835,7 @@ static int fimc_is_itf_close(struct fimc_is_device_ischain *device)
 
 	ret = fimc_is_hw_close(itf, device->instance);
 	if (ret) {
-		merr("fimc_is_hw_close is fail", device);
+		merr("fimc_is_hw_close failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -1861,7 +1861,7 @@ static int fimc_is_itf_setfile(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_hw_saddr(itf, device->instance, &setfile_addr);
 	if (ret) {
-		merr("fimc_is_hw_saddr is fail(%d)", device, ret);
+		merr("fimc_is_hw_saddr failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -1878,13 +1878,13 @@ static int fimc_is_itf_setfile(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_ischain_loadsetf(device, setfile_addr, setfile_name);
 	if (ret) {
-		merr("fimc_is_ischain_loadsetf is fail(%d)", device, ret);
+		merr("fimc_is_ischain_loadsetf failed(%d)", device, ret);
 		goto p_err;
 	}
 
 	ret = fimc_is_hw_setfile(itf, device->instance);
 	if (ret) {
-		merr("fimc_is_hw_setfile is fail(%d)", device, ret);
+		merr("fimc_is_hw_setfile failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -1903,7 +1903,7 @@ int fimc_is_itf_map(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_hw_map(device->interface, device->instance, group, shot_addr, shot_size);
 	if (ret)
-		merr("fimc_is_hw_map is fail(%d)", device, ret);
+		merr("fimc_is_hw_map failed(%d)", device, ret);
 
 	return ret;
 }
@@ -1923,7 +1923,7 @@ static int fimc_is_itf_unmap(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_hw_unmap(device->interface, device->instance, group);
 	if (ret)
-		merr("fimc_is_hw_unmap is fail(%d)", device, ret);
+		merr("fimc_is_hw_unmap failed(%d)", device, ret);
 
 	return ret;
 }
@@ -1970,7 +1970,7 @@ int fimc_is_itf_stream_on(struct fimc_is_device_ischain *device)
 
 	ret = fimc_is_hw_stream_on(device->interface, device->instance);
 	if (ret) {
-		merr("fimc_is_hw_stream_on is fail(%d)", device, ret);
+		merr("fimc_is_hw_stream_on failed(%d)", device, ret);
 		CALL_POPS(device, print_clk, device->pdev);
 	}
 
@@ -2424,7 +2424,7 @@ int fimc_is_ischain_open(struct fimc_is_device_ischain *device,
 		/* 1. init memory */
 		ret = fimc_is_ishcain_initmem(device);
 		if (ret) {
-			err("fimc_is_ishcain_initmem is fail(%d)\n", ret);
+			err("fimc_is_ishcain_initmem failed(%d)\n", ret);
 			goto p_err;
 		}
 	}
@@ -2510,7 +2510,7 @@ int fimc_is_ischain_open(struct fimc_is_device_ischain *device,
 	/* for mediaserver force close */
 	ret = fimc_is_resource_get(device->resourcemgr, RESOURCE_TYPE_ISCHAIN);
 	if (ret) {
-		merr("fimc_is_resource_get is fail", device);
+		merr("fimc_is_resource_get failed", device);
 		goto p_err;
 	}
 
@@ -2556,12 +2556,12 @@ int fimc_is_ischain_close(struct fimc_is_device_ischain *device,
 	/* 1. Stop all request */
 	ret = fimc_is_ischain_isp_stop(device, leader, queue);
 	if (ret)
-		merr("fimc_is_ischain_isp_stop is fail", device);
+		merr("fimc_is_ischain_isp_stop failed", device);
 
 	/* group close */
 	ret = fimc_is_group_close(groupmgr, group);
 	if (ret)
-		merr("fimc_is_group_close is fail", device);
+		merr("fimc_is_group_close failed", device);
 
 	/* subdev close */
 	fimc_is_subdev_close(&device->drc);
@@ -2573,7 +2573,7 @@ int fimc_is_ischain_close(struct fimc_is_device_ischain *device,
 	if (test_bit(FIMC_IS_ISCHAIN_OPEN_SENSOR, &device->state)) {
 		ret = fimc_is_itf_close(device);
 		if (ret)
-			merr("fimc_is_itf_close is fail", device);
+			merr("fimc_is_itf_close failed", device);
 
 		if(device->sensor->pdata->is_softlanding)
 			fimc_is_sensor_gpio_off_softlanding(device->sensor);
@@ -2582,7 +2582,7 @@ int fimc_is_ischain_close(struct fimc_is_device_ischain *device,
 	/* for mediaserver force close */
 	ret = fimc_is_resource_put(device->resourcemgr, RESOURCE_TYPE_ISCHAIN);
 	if (ret) {
-		merr("fimc_is_resource_put is fail", device);
+		merr("fimc_is_resource_put failed", device);
 		goto exit;
 	}
 
@@ -2629,7 +2629,7 @@ static int fimc_is_ischain_init(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_sensor_g_module(sensor, &module);
 	if (ret) {
-		merr("fimc_is_sensor_g_module is fail(%d)", device, ret);
+		merr("fimc_is_sensor_g_module failed(%d)", device, ret);
 		goto p_err;
 	}
 	if (module->id != module_id) {
@@ -2695,7 +2695,7 @@ static int fimc_is_ischain_init(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_itf_init_process_stop(device);
 	if (ret) {
-		merr("fimc_is_itf_init_process_stop is fail", device);
+		merr("fimc_is_itf_init_process_stop failed", device);
 		goto p_err;
 	}
 
@@ -2782,7 +2782,7 @@ int fimc_is_ischain_init_wrap(struct fimc_is_device_ischain *device,
 	/* 5. init ischain */
 	ret = fimc_is_ischain_init(device, module, group_id, tax_vindex, flag);
 	if (ret)
-		merr("fimc_is_device_init(%d, %d, %d) is fail", device, module, group_id, rep_stream);
+		merr("fimc_is_device_init(%d, %d, %d) failed", device, module, group_id, rep_stream);
 
 p_err:
 	return ret;
@@ -3620,7 +3620,7 @@ static int fimc_is_ischain_chg_setfile(struct fimc_is_device_ischain *device,
 	group_isp = &device->group_isp;
 
 	if (group_isp->smp_shot.count < 1) {
-		mwarn("group%d is working(%d), setfile change is fail",
+		mwarn("group%d is working(%d), setfile change failed",
 			device, group_isp->id, group_isp->smp_shot.count);
 		goto p_err;
 	}
@@ -3649,7 +3649,7 @@ static int fimc_is_ischain_chg_setfile(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_itf_a_param(device, group_id);
 	if (ret) {
-		merr("fimc_is_itf_a_param is fail", device);
+		merr("fimc_is_itf_a_param failed", device);
 		device->setfile = save_setfile;
 		ret = -EINVAL;
 		goto p_err;
@@ -3849,7 +3849,7 @@ static int fimc_is_ischain_s_dzoom(struct fimc_is_device_ischain *this,
 
 	ret = fimc_is_itf_s_param(this, indexes, lindex, hindex);
 	if (ret) {
-		err("fimc_is_itf_s_param is fail\n");
+		err("fimc_is_itf_s_param failed\n");
 		ret = -EINVAL;
 		goto exit;
 	}
@@ -3896,7 +3896,7 @@ static int fimc_is_ischain_drc_bypass(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_itf_process_stop(device, group_id);
 	if (ret) {
-		merr("fimc_is_itf_process_stop is fail", device);
+		merr("fimc_is_itf_process_stop failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -3914,20 +3914,20 @@ static int fimc_is_ischain_drc_bypass(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_itf_s_param(device, NULL, lindex, hindex, indexes);
 	if (ret) {
-		mrerr("fimc_is_itf_s_param is fail(%d)", device, frame, ret);
+		mrerr("fimc_is_itf_s_param failed(%d)", device, frame, ret);
 		goto p_err;
 	}
 
 	ret = fimc_is_itf_a_param(device, group_id);
 	if (ret) {
-		merr("fimc_is_itf_a_param is fail", device);
+		merr("fimc_is_itf_a_param failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
 
 	ret = fimc_is_itf_process_start(device, group_id);
 	if (ret) {
-		merr("fimc_is_itf_process_start is fail", device);
+		merr("fimc_is_itf_process_start failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -3966,7 +3966,7 @@ static int fimc_is_ischain_dnr_bypass(struct fimc_is_device_ischain *device,
 	frame->shot->ctl.entry.highIndexParam |= hindex;
 	ret = fimc_is_itf_s_param(device, frame, lindex, hindex, indexes);
 	if (ret) {
-		mrerr("fimc_is_itf_s_param is fail(%d)", device, frame, ret);
+		mrerr("fimc_is_itf_s_param failed(%d)", device, frame, ret);
 		goto p_err;
 	}
 
@@ -4015,7 +4015,7 @@ static int fimc_is_ischain_fd_bypass(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_itf_process_stop(device, group_id);
 	if (ret) {
-		merr("fimc_is_itf_process_stop is fail", device);
+		merr("fimc_is_itf_process_stop failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -4040,14 +4040,14 @@ static int fimc_is_ischain_fd_bypass(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_itf_s_param(device, NULL, lindex, hindex, indexes);
 	if (ret) {
-		merr("fimc_is_itf_s_param is fail", device);
+		merr("fimc_is_itf_s_param failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
 
 	ret = fimc_is_itf_process_start(device, group_id);
 	if (ret) {
-		merr("fimc_is_itf_process_start is fail", device);
+		merr("fimc_is_itf_process_start failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -4088,7 +4088,7 @@ int fimc_is_ischain_3aa_open(struct fimc_is_device_ischain *device,
 		device,
 		fimc_is_ischain_3aa_callback);
 	if (ret)
-		merr("fimc_is_group_open is fail", device);
+		merr("fimc_is_group_open failed", device);
 
 	return ret;
 }
@@ -4111,11 +4111,11 @@ int fimc_is_ischain_3aa_close(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_ischain_3aa_stop(device, leader, queue);
 	if (ret)
-		merr("fimc_is_ischain_3aa_stop is fail", device);
+		merr("fimc_is_ischain_3aa_stop failed", device);
 
 	ret = fimc_is_group_close(groupmgr, group);
 	if (ret)
-		merr("fimc_is_group_close is fail", device);
+		merr("fimc_is_group_close failed", device);
 
 	return ret;
 }
@@ -4142,7 +4142,7 @@ int fimc_is_ischain_3aa_start(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_group_process_start(groupmgr, group, queue);
 	if (ret) {
-		merr("fimc_is_group_process_start is fail", device);
+		merr("fimc_is_group_process_start failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -4174,7 +4174,7 @@ int fimc_is_ischain_3aa_stop(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_group_process_stop(groupmgr, group, queue);
 	if (ret) {
-		merr("fimc_is_group_process_stop is fail", device);
+		merr("fimc_is_group_process_stop failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -4200,7 +4200,7 @@ int fimc_is_ischain_3aa_reqbufs(struct fimc_is_device_ischain *device,
 	if (!count) {
 		ret = fimc_is_itf_unmap(device, GROUP_ID(group->id));
 		if (ret)
-			merr("fimc_is_itf_unmap is fail(%d)", device, ret);
+			merr("fimc_is_itf_unmap failed(%d)", device, ret);
 	}
 
 	return ret;
@@ -4242,7 +4242,7 @@ int fimc_is_ischain_3aa_s_input(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_group_init(groupmgr, group, otf_input, 0);
 	if (ret) {
-		merr("fimc_is_group_init is fail", device);
+		merr("fimc_is_group_init failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -4271,7 +4271,7 @@ int fimc_is_ischain_3aa_buffer_queue(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_group_buffer_queue(groupmgr, group, queue, index);
 	if (ret)
-		merr("fimc_is_group_buffer_queue is fail(%d)", device, ret);
+		merr("fimc_is_group_buffer_queue failed(%d)", device, ret);
 
 	return ret;
 }
@@ -4294,7 +4294,7 @@ int fimc_is_ischain_3aa_buffer_finish(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_group_buffer_finish(groupmgr, group, index);
 	if (ret)
-		merr("fimc_is_group_buffer_finish is fail(%d)", device, ret);
+		merr("fimc_is_group_buffer_finish failed(%d)", device, ret);
 
 	return ret;
 }
@@ -4371,7 +4371,7 @@ int fimc_is_ischain_3aa_tag(struct fimc_is_device_ischain *device,
 				&hindex,
 				&indexes);
 			if (ret) {
-				merr("fimc_is_ischain_3aa_size is fail(%d)", device, ret);
+				merr("fimc_is_ischain_3aa_size failed(%d)", device, ret);
 				goto p_err;
 			}
 			mrdbg("[3AA] in_crop[%d, %d, %d, %d]\n", device, ldr_frame,
@@ -4403,7 +4403,7 @@ int fimc_is_ischain_3aa_tag(struct fimc_is_device_ischain *device,
 				&hindex,
 				&indexes);
 			if (ret) {
-				merr("fimc_is_ischain_3aa_size is fail(%d)", device, ret);
+				merr("fimc_is_ischain_3aa_size failed(%d)", device, ret);
 				goto p_err;
 			}
 
@@ -4416,7 +4416,7 @@ int fimc_is_ischain_3aa_tag(struct fimc_is_device_ischain *device,
 	ldr_frame->shot->ctl.entry.highIndexParam |= hindex;
 	ret = fimc_is_itf_s_param(device, ldr_frame, lindex, hindex, 0);
 	if (ret) {
-		mrerr("fimc_is_itf_s_param is fail(%d)", device, ldr_frame, ret);
+		mrerr("fimc_is_itf_s_param failed(%d)", device, ldr_frame, ret);
 		goto p_err;
 	}
 
@@ -4606,7 +4606,7 @@ static int fimc_is_ischain_3aap_tag(struct fimc_is_device_ischain *device,
 				&hindex,
 				&indexes);
 			if (ret) {
-				merr("fimc_is_ischain_3aap_start is fail(%d)", device, ret);
+				merr("fimc_is_ischain_3aap_start failed(%d)", device, ret);
 				goto p_err;
 			}
 
@@ -4634,7 +4634,7 @@ static int fimc_is_ischain_3aap_tag(struct fimc_is_device_ischain *device,
 				&hindex,
 				&indexes);
 			if (ret) {
-				merr("fimc_is_ischain_3aap_stop is fail(%d)", device, ret);
+				merr("fimc_is_ischain_3aap_stop failed(%d)", device, ret);
 				goto p_err;
 			}
 
@@ -4652,7 +4652,7 @@ static int fimc_is_ischain_3aap_tag(struct fimc_is_device_ischain *device,
 	ldr_frame->shot->ctl.entry.highIndexParam |= hindex;
 	ret = fimc_is_itf_s_param(device, ldr_frame, lindex, hindex, 0);
 	if (ret) {
-		mrerr("fimc_is_itf_s_param is fail(%d)", device, ldr_frame, ret);
+		mrerr("fimc_is_itf_s_param failed(%d)", device, ldr_frame, ret);
 		goto p_err;
 	}
 
@@ -4796,7 +4796,7 @@ static int fimc_is_ischain_3aac_tag(struct fimc_is_device_ischain *device,
 				&hindex,
 				&indexes);
 			if (ret) {
-				merr("fimc_is_ischain_3aac_start is fail(%d)", device, ret);
+				merr("fimc_is_ischain_3aac_start failed(%d)", device, ret);
 				goto p_err;
 			}
 
@@ -4824,7 +4824,7 @@ static int fimc_is_ischain_3aac_tag(struct fimc_is_device_ischain *device,
 				&hindex,
 				&indexes);
 			if (ret) {
-				merr("fimc_is_ischain_3aac_stop is fail(%d)", device, ret);
+				merr("fimc_is_ischain_3aac_stop failed(%d)", device, ret);
 				goto p_err;
 			}
 
@@ -4841,7 +4841,7 @@ static int fimc_is_ischain_3aac_tag(struct fimc_is_device_ischain *device,
 	ldr_frame->shot->ctl.entry.highIndexParam |= hindex;
 	ret = fimc_is_itf_s_param(device, ldr_frame, lindex, hindex, 0);
 	if (ret) {
-		mrerr("fimc_is_itf_s_param is fail(%d)", device, ldr_frame, ret);
+		mrerr("fimc_is_itf_s_param failed(%d)", device, ldr_frame, ret);
 		goto p_err;
 	}
 
@@ -5048,21 +5048,21 @@ int fimc_is_ischain_isp_start(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_itf_s_param(device , NULL, lindex, hindex, indexes);
 	if (ret) {
-		merr("fimc_is_itf_s_param is fail", device);
+		merr("fimc_is_itf_s_param failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
 
 	ret = fimc_is_itf_f_param(device);
 	if (ret) {
-		merr("fimc_is_itf_f_param is fail", device);
+		merr("fimc_is_itf_f_param failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
 
 	ret = fimc_is_itf_sys_ctl(device, IS_SYS_CLOCK_GATE, sysfs_debug.clk_gate_mode);
 	if (ret) {
-		merr("fimc_is_itf_sys_ctl is fail", device);
+		merr("fimc_is_itf_sys_ctl failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -5071,7 +5071,7 @@ int fimc_is_ischain_isp_start(struct fimc_is_device_ischain *device,
 	 * this code is enabled when camera 2.0 feature is enabled
 	 * ret = fimc_is_itf_g_capability(device);
 	 * if (ret) {
-	 *	err("fimc_is_itf_g_capability is fail\n");
+	 *	err("fimc_is_itf_g_capability failed\n");
 	 *	ret = -EINVAL;
 	 *	goto p_err;
 	 *}
@@ -5079,14 +5079,14 @@ int fimc_is_ischain_isp_start(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_itf_init_process_start(device);
 	if (ret) {
-		merr("fimc_is_itf_init_process_start is fail", device);
+		merr("fimc_is_itf_init_process_start failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
 
 	ret = fimc_is_group_process_start(groupmgr, group, queue);
 	if (ret) {
-		merr("fimc_is_group_process_start is fail", device);
+		merr("fimc_is_group_process_start failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -5123,7 +5123,7 @@ int fimc_is_ischain_isp_stop(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_group_process_stop(groupmgr, group, queue);
 	if (ret) {
-		merr("fimc_is_group_process_stop is fail", device);
+		merr("fimc_is_group_process_stop failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -5150,7 +5150,7 @@ int fimc_is_ischain_isp_reqbufs(struct fimc_is_device_ischain *device,
 	if (!count) {
 		ret = fimc_is_itf_unmap(device, GROUP_ID(group->id));
 		if (ret)
-			merr("fimc_is_itf_unmap is fail(%d)", device, ret);
+			merr("fimc_is_itf_unmap failed(%d)", device, ret);
 	}
 
 	return ret;
@@ -5206,7 +5206,7 @@ int fimc_is_ischain_isp_s_input(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_group_init(groupmgr, group, false, tax_vindex);
 	if (ret) {
-		merr("fimc_is_group_init is fail", device);
+		merr("fimc_is_group_init failed", device);
 		ret = -EINVAL;
 	}
 
@@ -5254,7 +5254,7 @@ int fimc_is_ischain_isp_buffer_queue(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_group_buffer_queue(groupmgr, group, queue, index);
 	if (ret) {
-		merr("fimc_is_group_buffer_queue is fail(%d)", device, ret);
+		merr("fimc_is_group_buffer_queue failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -5280,7 +5280,7 @@ int fimc_is_ischain_isp_buffer_finish(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_group_buffer_finish(groupmgr, group, index);
 	if (ret)
-		merr("fimc_is_group_buffer_finish is fail(%d)", device, ret);
+		merr("fimc_is_group_buffer_finish failed(%d)", device, ret);
 
 	return ret;
 }
@@ -5337,7 +5337,7 @@ int fimc_is_ischain_isp_tag(struct fimc_is_device_ischain *device,
 				&hindex,
 				&indexes);
 			if (ret) {
-				merr("fimc_is_ischain_s_chain0_size is fail(%d)", device, ret);
+				merr("fimc_is_ischain_s_chain0_size failed(%d)", device, ret);
 				goto p_err;
 			}
 
@@ -5369,7 +5369,7 @@ int fimc_is_ischain_isp_tag(struct fimc_is_device_ischain *device,
 				&hindex,
 				&indexes);
 			if (ret) {
-				merr("fimc_is_ischain_s_chain0_size is fail(%d)", device, ret);
+				merr("fimc_is_ischain_s_chain0_size failed(%d)", device, ret);
 				goto p_err;
 			}
 
@@ -5382,7 +5382,7 @@ int fimc_is_ischain_isp_tag(struct fimc_is_device_ischain *device,
 	ldr_frame->shot->ctl.entry.highIndexParam |= hindex;
 	ret = fimc_is_itf_s_param(device, ldr_frame, lindex, hindex, 0);
 	if (ret) {
-		mrerr("fimc_is_itf_s_param is fail(%d)", device, ldr_frame, ret);
+		mrerr("fimc_is_itf_s_param failed(%d)", device, ldr_frame, ret);
 		goto p_err;
 	}
 
@@ -5710,7 +5710,7 @@ static int fimc_is_ischain_scc_tag(struct fimc_is_device_ischain *device,
 				&hindex,
 				&indexes);
 			if (ret) {
-				merr("fimc_is_ischain_scc_start is fail(%d)", device, ret);
+				merr("fimc_is_ischain_scc_start failed(%d)", device, ret);
 				goto p_err;
 			}
 
@@ -5755,7 +5755,7 @@ static int fimc_is_ischain_scc_tag(struct fimc_is_device_ischain *device,
 				&hindex,
 				&indexes);
 			if (ret) {
-				merr("fimc_is_ischain_scc_stop is fail(%d)", device, ret);
+				merr("fimc_is_ischain_scc_stop failed(%d)", device, ret);
 				goto p_err;
 			}
 
@@ -5772,7 +5772,7 @@ static int fimc_is_ischain_scc_tag(struct fimc_is_device_ischain *device,
 	ldr_frame->shot->ctl.entry.highIndexParam |= hindex;
 	ret = fimc_is_itf_s_param(device, ldr_frame, lindex, hindex, 0);
 	if (ret) {
-		mrerr("fimc_is_itf_s_param is fail(%d)", device, ldr_frame, ret);
+		mrerr("fimc_is_itf_s_param failed(%d)", device, ldr_frame, ret);
 		goto p_err;
 	}
 
@@ -6054,7 +6054,7 @@ static int fimc_is_ischain_scp_tag(struct fimc_is_device_ischain *device,
 				&hindex,
 				&indexes);
 			if (ret) {
-				merr("fimc_is_ischain_s_chain2_size is fail(%d)", device, ret);
+				merr("fimc_is_ischain_s_chain2_size failed(%d)", device, ret);
 				goto p_err;
 			}
 
@@ -6066,7 +6066,7 @@ static int fimc_is_ischain_scp_tag(struct fimc_is_device_ischain *device,
 				&hindex,
 				&indexes);
 			if (ret) {
-				merr("fimc_is_ischain_s_chain3_size is fail(%d)", device, ret);
+				merr("fimc_is_ischain_s_chain3_size failed(%d)", device, ret);
 				goto p_err;
 			}
 			mrinfo("[SCPX] xx_crop[%d, %d, %d, %d]\n", device, ldr_frame,
@@ -6084,7 +6084,7 @@ static int fimc_is_ischain_scp_tag(struct fimc_is_device_ischain *device,
 				&hindex,
 				&indexes);
 			if (ret) {
-				merr("fimc_is_ischain_scp_start is fail(%d)", device, ret);
+				merr("fimc_is_ischain_scp_start failed(%d)", device, ret);
 				goto p_err;
 			}
 
@@ -6115,7 +6115,7 @@ static int fimc_is_ischain_scp_tag(struct fimc_is_device_ischain *device,
 				&hindex,
 				&indexes);
 			if (ret) {
-				merr("fimc_is_ischain_scp_stop is fail(%d)", device, ret);
+				merr("fimc_is_ischain_scp_stop failed(%d)", device, ret);
 				goto p_err;
 			}
 
@@ -6132,7 +6132,7 @@ static int fimc_is_ischain_scp_tag(struct fimc_is_device_ischain *device,
 	ldr_frame->shot->ctl.entry.highIndexParam |= hindex;
 	ret = fimc_is_itf_s_param(device, ldr_frame, lindex, hindex, 0);
 	if (ret) {
-		mrerr("fimc_is_itf_s_param is fail(%d)", device, ldr_frame, ret);
+		mrerr("fimc_is_itf_s_param failed(%d)", device, ldr_frame, ret);
 		goto p_err;
 	}
 
@@ -6170,14 +6170,14 @@ int fimc_is_ischain_dis_start(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_group_init(groupmgr, group, false, 0);
 	if (ret) {
-		merr("fimc_is_group_init is fail", device);
+		merr("fimc_is_group_init failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
 
 	ret = fimc_is_itf_process_stop(device, group_id);
 	if (ret) {
-		merr("fimc_is_itf_process_stop is fail", device);
+		merr("fimc_is_itf_process_stop failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -6194,21 +6194,21 @@ int fimc_is_ischain_dis_start(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_itf_s_param(device, NULL, lindex, hindex, indexes);
 	if (ret) {
-		merr("fimc_is_itf_s_param is fail", device);
+		merr("fimc_is_itf_s_param failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
 
 	ret = fimc_is_itf_a_param(device, group_id);
 	if (ret) {
-		merr("fimc_is_itf_a_param is fail", device);
+		merr("fimc_is_itf_a_param failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
 
 	ret = fimc_is_itf_process_start(device, group_id);
 	if (ret) {
-		merr("fimc_is_itf_process_start is fail", device);
+		merr("fimc_is_itf_process_start failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -6242,7 +6242,7 @@ int fimc_is_ischain_dis_stop(struct fimc_is_device_ischain *device)
 
 	ret = fimc_is_itf_process_stop(device, group_id);
 	if (ret) {
-		merr("fimc_is_itf_process_stop is fail", device);
+		merr("fimc_is_itf_process_stop failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -6255,14 +6255,14 @@ int fimc_is_ischain_dis_stop(struct fimc_is_device_ischain *device)
 
 	ret = fimc_is_itf_s_param(device, NULL, lindex, hindex, indexes);
 	if (ret) {
-		merr("fimc_is_itf_s_param is fail", device);
+		merr("fimc_is_itf_s_param failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
 
 	ret = fimc_is_itf_a_param(device, group_id);
 	if (ret) {
-		merr("fimc_is_itf_a_param is fail", device);
+		merr("fimc_is_itf_a_param failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -6270,7 +6270,7 @@ int fimc_is_ischain_dis_stop(struct fimc_is_device_ischain *device)
 	group_id = GROUP_ID(device->group_isp.id);
 	ret = fimc_is_itf_process_start(device, group_id);
 	if (ret) {
-		merr("fimc_is_itf_process_start is fail", device);
+		merr("fimc_is_itf_process_start failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -6321,7 +6321,7 @@ int fimc_is_ischain_dis_tag(struct fimc_is_device_ischain *device,
 			ret = fimc_is_ischain_dis_start(device,
 				ldr_frame->shot_ext->dis_bypass);
 			if (ret) {
-				merr("vdisc_start is fail", device);
+				merr("vdisc_start failed", device);
 				goto p_err;
 			}
 		}
@@ -6341,7 +6341,7 @@ int fimc_is_ischain_dis_tag(struct fimc_is_device_ischain *device,
 		if (test_bit(FIMC_IS_SUBDEV_START, &subdev->state)) {
 			ret = fimc_is_ischain_dis_stop(device);
 			if (ret) {
-				merr("vdisc_stop is fail", device);
+				merr("vdisc_stop failed", device);
 				goto p_err;
 			}
 		}
@@ -6382,7 +6382,7 @@ int fimc_is_ischain_vdo_open(struct fimc_is_device_ischain *device,
 	ret = fimc_is_group_open(groupmgr, group, GROUP_ID_DIS,
 		device->instance, vctx, device, fimc_is_ischain_dis_callback);
 	if (ret)
-		merr("fimc_is_group_open is fail", device);
+		merr("fimc_is_group_open failed", device);
 
 	return ret;
 }
@@ -6405,11 +6405,11 @@ int fimc_is_ischain_vdo_close(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_ischain_vdo_stop(device, leader, queue);
 	if (ret)
-		merr("fimc_is_ischain_vdo_stop is fail", device);
+		merr("fimc_is_ischain_vdo_stop failed", device);
 
 	ret = fimc_is_group_close(groupmgr, group);
 	if (ret)
-		merr("fimc_is_group_close is fail", device);
+		merr("fimc_is_group_close failed", device);
 
 	return ret;
 }
@@ -6437,7 +6437,7 @@ int fimc_is_ischain_vdo_start(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_group_process_start(groupmgr, group, queue);
 	if (ret) {
-		merr("fimc_is_group_process_start is fail", device);
+		merr("fimc_is_group_process_start failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -6470,14 +6470,14 @@ int fimc_is_ischain_vdo_stop(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_group_process_stop(groupmgr, group, queue);
 	if (ret) {
-		merr("fimc_is_group_process_start is fail", device);
+		merr("fimc_is_group_process_start failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
 
 	ret = fimc_is_itf_process_stop(device, GROUP_ID_DIS);
 	if (ret) {
-		merr("fimc_is_itf_process_stop is fail", device);
+		merr("fimc_is_itf_process_stop failed", device);
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -6510,7 +6510,7 @@ int fimc_is_ischain_vdo_buffer_queue(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_group_buffer_queue(groupmgr, group, queue, index);
 	if (ret) {
-		merr("fimc_is_group_buffer_queue is fail(%d)", device, ret);
+		merr("fimc_is_group_buffer_queue failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -6536,7 +6536,7 @@ int fimc_is_ischain_vdo_buffer_finish(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_group_buffer_finish(groupmgr, group, index);
 	if (ret)
-		merr("fimc_is_group_buffer_finish is fail(%d)", device, ret);
+		merr("fimc_is_group_buffer_finish failed(%d)", device, ret);
 
 	return ret;
 }
@@ -6594,7 +6594,7 @@ int fimc_is_ischain_3aa_callback(struct fimc_is_device_ischain *device,
 	}
 
 	if (unlikely(frame != check_frame)) {
-		merr("frame checking is fail(%p != %p)", device,
+		merr("frame checking failed(%p != %p)", device,
 			frame, check_frame);
 		ret = -EINVAL;
 		goto p_err;
@@ -6622,7 +6622,7 @@ int fimc_is_ischain_3aa_callback(struct fimc_is_device_ischain *device,
 		unsigned int setfile = frame->shot_ext->setfile;
 		ret = fimc_is_ischain_chg_setfile(device, setfile);
 		if (ret) {
-			err("fimc_is_ischain_chg_setfile is fail");
+			err("fimc_is_ischain_chg_setfile failed");
 			goto p_err;
 		}
 	}
@@ -6652,7 +6652,7 @@ int fimc_is_ischain_3aa_callback(struct fimc_is_device_ischain *device,
 
 	ret = fimc_is_ischain_3aa_tag(device, leader, frame, leader_node);
 	if (ret) {
-		merr("fimc_is_ischain_3aa_tag is fail(%d)", device, ret);
+		merr("fimc_is_ischain_3aa_tag failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -6689,7 +6689,7 @@ int fimc_is_ischain_3aa_callback(struct fimc_is_device_ischain *device,
 		if (taac) {
 			ret = fimc_is_ischain_3aac_tag(device, taac, frame, node);
 			if (ret) {
-				merr("fimc_is_ischain_3aac_tag is fail(%d)", device, ret);
+				merr("fimc_is_ischain_3aac_tag failed(%d)", device, ret);
 				goto p_err;
 			}
 		}
@@ -6697,7 +6697,7 @@ int fimc_is_ischain_3aa_callback(struct fimc_is_device_ischain *device,
 		if (taap) {
 			ret = fimc_is_ischain_3aap_tag(device, taap, frame, node);
 			if (ret) {
-				merr("fimc_is_ischain_3aap_tag is fail(%d)", device, ret);
+				merr("fimc_is_ischain_3aap_tag failed(%d)", device, ret);
 				goto p_err;
 			}
 		}
@@ -6788,7 +6788,7 @@ int fimc_is_ischain_isp_callback(struct fimc_is_device_ischain *device,
 	}
 
 	if (unlikely(frame != check_frame)) {
-		merr("frame checking is fail(%p != %p)", device,
+		merr("frame checking failed(%p != %p)", device,
 			frame, check_frame);
 		ret = -EINVAL;
 		goto p_err;
@@ -6831,7 +6831,7 @@ int fimc_is_ischain_isp_callback(struct fimc_is_device_ischain *device,
 			unsigned int setfile = frame->shot_ext->setfile;
 			ret = fimc_is_ischain_chg_setfile(device, setfile);
 			if (ret) {
-				err("fimc_is_ischain_chg_setfile is fail");
+				err("fimc_is_ischain_chg_setfile failed");
 				goto p_err;
 			}
 		}
@@ -6843,7 +6843,7 @@ int fimc_is_ischain_isp_callback(struct fimc_is_device_ischain *device,
 		if (test_bit(FIMC_IS_SUBDEV_START, &device->drc.state)) {
 			ret = fimc_is_ischain_drc_bypass(device, frame, true);
 			if (ret) {
-				err("fimc_is_ischain_drc_bypass(1) is fail");
+				err("fimc_is_ischain_drc_bypass(1) failed");
 				goto p_err;
 			}
 		}
@@ -6851,7 +6851,7 @@ int fimc_is_ischain_isp_callback(struct fimc_is_device_ischain *device,
 		if (!test_bit(FIMC_IS_SUBDEV_START, &device->drc.state)) {
 			ret = fimc_is_ischain_drc_bypass(device, frame, false);
 			if (ret) {
-				err("fimc_is_ischain_drc_bypass(0) is fail");
+				err("fimc_is_ischain_drc_bypass(0) failed");
 				goto p_err;
 			}
 		}
@@ -6864,7 +6864,7 @@ int fimc_is_ischain_isp_callback(struct fimc_is_device_ischain *device,
 			if (test_bit(FIMC_IS_SUBDEV_START, &dnr->state)) {
 				ret = fimc_is_ischain_dnr_bypass(device, frame, true);
 				if (ret) {
-					merr("dnr_bypass(1) is fail", device);
+					merr("dnr_bypass(1) failed", device);
 					goto p_err;
 				}
 			}
@@ -6872,7 +6872,7 @@ int fimc_is_ischain_isp_callback(struct fimc_is_device_ischain *device,
 			if (!test_bit(FIMC_IS_SUBDEV_START, &dnr->state)) {
 				ret = fimc_is_ischain_dnr_bypass(device, frame, false);
 				if (ret) {
-					merr("dnr_bypass(0) is fail", device);
+					merr("dnr_bypass(0) failed", device);
 					goto p_err;
 				}
 			}
@@ -6886,7 +6886,7 @@ int fimc_is_ischain_isp_callback(struct fimc_is_device_ischain *device,
 			if (test_bit(FIMC_IS_SUBDEV_START, &fd->state)) {
 				ret = fimc_is_ischain_fd_bypass(device, true);
 				if (ret) {
-					merr("fd_bypass(1) is fail", device);
+					merr("fd_bypass(1) failed", device);
 					goto p_err;
 				}
 			}
@@ -6894,7 +6894,7 @@ int fimc_is_ischain_isp_callback(struct fimc_is_device_ischain *device,
 			if (!test_bit(FIMC_IS_SUBDEV_START, &fd->state)) {
 				ret = fimc_is_ischain_fd_bypass(device, false);
 				if (ret) {
-					merr("fd_bypass(0) is fail", device);
+					merr("fd_bypass(0) failed", device);
 					goto p_err;
 				}
 			}
@@ -6911,7 +6911,7 @@ int fimc_is_ischain_isp_callback(struct fimc_is_device_ischain *device,
 			frame->shot->ctl.scaler.cropRegion[1],
 			frame->shot->ctl.scaler.cropRegion[2]);
 		if (ret) {
-			err("fimc_is_ischain_s_dzoom(%d, %d, %d) is fail",
+			err("fimc_is_ischain_s_dzoom(%d, %d, %d) failed",
 				frame->shot->ctl.scaler.cropRegion[0],
 				frame->shot->ctl.scaler.cropRegion[1],
 				frame->shot->ctl.scaler.cropRegion[2]);
@@ -6923,14 +6923,14 @@ int fimc_is_ischain_isp_callback(struct fimc_is_device_ischain *device,
 	if (!GET_FIMC_IS_NUM_OF_SUBIP2(device, 3a0)) {
 		ret = fimc_is_ischain_3aa_tag(device, leader, frame, leader_node);
 		if (ret) {
-			merr("fimc_is_ischain_3aa_tag is fail(%d)", device, ret);
+			merr("fimc_is_ischain_3aa_tag failed(%d)", device, ret);
 			goto p_err;
 		}
 	}
 
 	ret = fimc_is_ischain_isp_tag(device, leader, frame, leader_node);
 	if (ret) {
-		merr("fimc_is_ischain_isp_tag is fail(%d)", device, ret);
+		merr("fimc_is_ischain_isp_tag failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -7056,7 +7056,7 @@ int fimc_is_ischain_dis_callback(struct fimc_is_device_ischain *device,
 			if (test_bit(FIMC_IS_SUBDEV_START, &dnr->state)) {
 				ret = fimc_is_ischain_dnr_bypass(device, frame, true);
 				if (ret) {
-					merr("dnr_bypass(1) is fail", device);
+					merr("dnr_bypass(1) failed", device);
 					goto p_err;
 				}
 			}
@@ -7064,7 +7064,7 @@ int fimc_is_ischain_dis_callback(struct fimc_is_device_ischain *device,
 			if (!test_bit(FIMC_IS_SUBDEV_START, &dnr->state)) {
 				ret = fimc_is_ischain_dnr_bypass(device, frame, false);
 				if (ret) {
-					merr("dnr_bypass(0) is fail", device);
+					merr("dnr_bypass(0) failed", device);
 					goto p_err;
 				}
 			}
@@ -7078,7 +7078,7 @@ int fimc_is_ischain_dis_callback(struct fimc_is_device_ischain *device,
 			if (test_bit(FIMC_IS_SUBDEV_START, &fd->state)) {
 				ret = fimc_is_ischain_fd_bypass(device, true);
 				if (ret) {
-					merr("fd_bypass(1) is fail", device);
+					merr("fd_bypass(1) failed", device);
 					goto p_err;
 				}
 			}
@@ -7086,7 +7086,7 @@ int fimc_is_ischain_dis_callback(struct fimc_is_device_ischain *device,
 			if (!test_bit(FIMC_IS_SUBDEV_START, &fd->state)) {
 				ret = fimc_is_ischain_fd_bypass(device, false);
 				if (ret) {
-					merr("fd_bypass(0) is fail", device);
+					merr("fd_bypass(0) failed", device);
 					goto p_err;
 				}
 			}

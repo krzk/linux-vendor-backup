@@ -72,7 +72,7 @@ int fimc_is_runtime_suspend(struct device *dev)
 	pr_info("FIMC_IS runtime suspend in\n");
 
 	if (CALL_POPS(core, clk_off, pdev) < 0)
-		warn("clk_off is fail\n");
+		warn("clk_off failed\n");
 
 	pr_info("FIMC_IS runtime suspend out\n");
 
@@ -96,14 +96,14 @@ int fimc_is_runtime_resume(struct device *dev)
 
 	/* Low clock setting */
 	if (CALL_POPS(core, clk_cfg, core->pdev) < 0) {
-		err("clk_cfg is fail\n");
+		err("clk_cfg failed\n");
 		ret = -EINVAL;
 		goto p_err;
 	}
 
 	/* Clock on */
 	if (CALL_POPS(core, clk_on, core->pdev) < 0) {
-		err("clk_on is fail\n");
+		err("clk_on failed\n");
 		ret = -EINVAL;
 		goto p_err;
 	}

@@ -75,13 +75,13 @@ int fimc_is_resource_get(struct fimc_is_resourcemgr *resourcemgr, u32 rsc_type)
 
 			ret = fimc_is_interface_open(&core->interface);
 			if (ret) {
-				err("fimc_is_interface_open is fail(%d)", ret);
+				err("fimc_is_interface_open failed(%d)", ret);
 				goto p_err;
 			}
 
 			ret = fimc_is_ischain_power(&core->ischain[0], 1);
 			if (ret) {
-				err("fimc_is_ischain_power is fail (%d)", ret);
+				err("fimc_is_ischain_power failed (%d)", ret);
 				goto p_err;
 			}
 
@@ -134,20 +134,20 @@ int fimc_is_resource_put(struct fimc_is_resourcemgr *resourcemgr, u32 rsc_type)
 		case RESOURCE_TYPE_ISCHAIN:
 			ret = fimc_is_itf_power_down(&core->interface);
 			if (ret)
-				err("power down cmd is fail(%d)", ret);
+				err("power down cmd failed(%d)", ret);
 
 			ret = fimc_is_ischain_power(&core->ischain[0], 0);
 			if (ret)
-				err("fimc_is_ischain_power is fail(%d)", ret);
+				err("fimc_is_ischain_power failed(%d)", ret);
 
 			ret = fimc_is_interface_close(&core->interface);
 			if (ret)
-				err("fimc_is_interface_close is fail(%d)", ret);
+				err("fimc_is_interface_close failed(%d)", ret);
 #ifndef RESERVED_MEM
 			/* 5. Dealloc memroy */
 			ret = fimc_is_ishcain_deinitmem(&core->ischain[0]);
 			if (ret)
-				err("fimc_is_ishcain_deinitmem is fail(%d)", ret);
+				err("fimc_is_ishcain_deinitmem failed(%d)", ret);
 #endif
 			break;
 
@@ -162,7 +162,7 @@ int fimc_is_resource_put(struct fimc_is_resourcemgr *resourcemgr, u32 rsc_type)
 	if (atomic_read(&core->rsccount) == 1) {
 		ret = fimc_is_runtime_suspend_post(NULL);
 		if (ret)
-			err("fimc_is_runtime_suspend_post is fail(%d)", ret);
+			err("fimc_is_runtime_suspend_post failed(%d)", ret);
 	}
 
 	atomic_dec(&resource->rsccount);
