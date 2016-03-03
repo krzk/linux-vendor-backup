@@ -67,7 +67,7 @@ int fimc_is_comp_video_probe(void *data)
 		&fimc_is_comp_video_fops,
 		&fimc_is_comp_video_ioctl_ops);
 	if (ret)
-		dev_err(&device->pdev->dev, "%s is fail(%d)\n", __func__, ret);
+		dev_err(&device->pdev->dev, "%s failed(%d)\n", __func__, ret);
 
 p_err:
 	info("[CP%d:V:X] %s(%d)\n", number, __func__, ret);
@@ -142,7 +142,7 @@ static int fimc_is_comp_video_open(struct file *file)
 
 	ret = open_vctx(file, video, &vctx, FRAMEMGR_ID_INVALID, FRAMEMGR_ID_INVALID);
 	if (ret) {
-		err("open_vctx is fail(%d)", ret);
+		err("open_vctx failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -150,7 +150,7 @@ static int fimc_is_comp_video_open(struct file *file)
 
 	ret = fimc_is_companion_open(device);
 	if (ret) {
-		merr("fimc_is_comp_open is fail(%d)", vctx, ret);
+		merr("fimc_is_comp_open failed(%d)", vctx, ret);
 		close_vctx(file, video, vctx);
 		goto p_err;
 	}
@@ -185,11 +185,11 @@ static int fimc_is_comp_video_close(struct file *file)
 
 	ret = fimc_is_companion_close(device);
 	if (ret)
-		err("fimc_is_companion_close is fail(%d)", ret);
+		err("fimc_is_companion_close failed(%d)", ret);
 
 	ret = close_vctx(file, video, vctx);
 	if (ret)
-		err("close_vctx is fail(%d)", ret);
+		err("close_vctx failed(%d)", ret);
 
 p_err:
 	core->fimc_is_companion_opened = 0;

@@ -638,7 +638,7 @@ int fimc_is_group_open(struct fimc_is_groupmgr *groupmgr,
 
 		ret = sched_setscheduler_nocheck(groupmgr->group_task[id], SCHED_FIFO, &param);
 		if (ret) {
-			merr("sched_setscheduler_nocheck is fail(%d)", group, ret);
+			merr("sched_setscheduler_nocheck failed(%d)", group, ret);
 			goto p_err;
 		}
 
@@ -1198,7 +1198,7 @@ check_completion:
 	}
 
 	if (!retry) {
-		merr("waiting(until request empty) is fail", group);
+		merr("waiting(until request empty) failed", group);
 		ret = -EINVAL;
 	}
 
@@ -1210,7 +1210,7 @@ check_completion:
 		}
 
 		if (!retry) {
-			merr("waiting(until process empty) is fail", group);
+			merr("waiting(until process empty) failed", group);
 			ret = -EINVAL;
 		}
 	}
@@ -1218,7 +1218,7 @@ check_completion:
 	if (test_bit(FIMC_IS_GROUP_FORCE_STOP, &group->state)) {
 		ret = fimc_is_itf_force_stop(device, GROUP_ID(group->id));
 		if (ret) {
-			merr("fimc_is_itf_force_stop is fail", group);
+			merr("fimc_is_itf_force_stop failed", group);
 			ret = -EINVAL;
 		}
 	} else {
@@ -1232,7 +1232,7 @@ check_completion:
 
 		ret = fimc_is_itf_process_stop(device, group_id);
 		if (ret) {
-			merr("fimc_is_itf_process_stop is fail", group);
+			merr("fimc_is_itf_process_stop failed", group);
 			ret = -EINVAL;
 		}
 	}
@@ -1245,7 +1245,7 @@ check_completion:
 		}
 
 		if (!retry) {
-			merr("waiting(until process empty) is fail", group);
+			merr("waiting(until process empty) failed", group);
 			ret = -EINVAL;
 		}
 	}
@@ -1263,7 +1263,7 @@ check_completion:
 	}
 
 	if (!retry) {
-		mgerr(" waiting(until thread stop) is fail", device, group);
+		mgerr(" waiting(until thread stop) failed", device, group);
 		ret = -EINVAL;
 	}
 
@@ -1501,7 +1501,7 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 	PROGRAM_COUNT(1);
 	ret = down_interruptible(&group->smp_shot);
 	if (ret) {
-		err("down is fail1(%d)", ret);
+		err("down failed1(%d)", ret);
 		goto p_err;
 	}
 	atomic_dec(&group->smp_shot_count);
@@ -1517,7 +1517,7 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 	PROGRAM_COUNT(2);
 	ret = down_interruptible(&groupmgr->group_smp_res[group->id]);
 	if (ret) {
-		err("down is fail2(%d)", ret);
+		err("down failed2(%d)", ret);
 		goto p_err;
 	}
 	try_rdown = true;
@@ -1527,7 +1527,7 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 			PROGRAM_COUNT(3);
 			ret = down_interruptible(&group->smp_trigger);
 			if (ret) {
-				err("down is fail3(%d)", ret);
+				err("down failed3(%d)", ret);
 				goto p_err;
 			}
 		} else {
@@ -1541,7 +1541,7 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 				PROGRAM_COUNT(4);
 				ret = down_interruptible(&group->smp_trigger);
 				if (ret) {
-					err("down is fail4(%d)", ret);
+					err("down failed4(%d)", ret);
 					goto p_err;
 				}
 			} else {
@@ -1756,7 +1756,7 @@ int fimc_is_group_start(struct fimc_is_groupmgr *groupmgr,
 	PROGRAM_COUNT(6);
 	ret = group->start_callback(group->device, ldr_frame);
 	if (ret) {
-		merr("start_callback is fail", group);
+		merr("start_callback failed", group);
 		fimc_is_group_cancel(group, ldr_frame);
 		fimc_is_group_done(groupmgr, group, ldr_frame, VB2_BUF_STATE_ERROR);
 	} else {

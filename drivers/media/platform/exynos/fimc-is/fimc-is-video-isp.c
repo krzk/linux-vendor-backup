@@ -71,7 +71,7 @@ int fimc_is_isp_video_probe(void *data)
 		&fimc_is_isp_video_fops,
 		&fimc_is_isp_video_ioctl_ops);
 	if (ret)
-		dev_err(&core->pdev->dev, "%s is fail(%d)\n", __func__, ret);
+		dev_err(&core->pdev->dev, "%s failed(%d)\n", __func__, ret);
 
 p_err:
 	return ret;
@@ -103,7 +103,7 @@ static int fimc_is_isp_video_open(struct file *file)
 
 	ret = open_vctx(file, video, &vctx, FRAMEMGR_ID_ISP_GRP, FRAMEMGR_ID_INVALID);
 	if (ret) {
-		err("open_vctx is fail(%d)", ret);
+		err("open_vctx failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -120,14 +120,14 @@ static int fimc_is_isp_video_open(struct file *file)
 		&fimc_is_ischain_isp_ops,
 		NULL);
 	if (ret) {
-		err("fimc_is_video_open is fail");
+		err("fimc_is_video_open failed");
 		close_vctx(file, video, vctx);
 		goto p_err;
 	}
 
 	ret = fimc_is_ischain_open(device, vctx, &core->minfo);
 	if (ret) {
-		err("fimc_is_ischain_open is fail");
+		err("fimc_is_ischain_open failed");
 		close_vctx(file, video, vctx);
 		goto p_err;
 	}
@@ -173,7 +173,7 @@ static int fimc_is_isp_video_close(struct file *file)
 
 	ret = close_vctx(file, video, vctx);
 	if (ret < 0)
-		err("close_vctx is fail(%d)", ret);
+		err("close_vctx failed(%d)", ret);
 
 p_err:
 	return ret;
@@ -187,7 +187,7 @@ static unsigned int fimc_is_isp_video_poll(struct file *file,
 
 	ret = fimc_is_video_poll(file, vctx, wait);
 	if (ret)
-		merr("fimc_is_video_poll is fail(%d)", vctx, ret);
+		merr("fimc_is_video_poll failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -200,7 +200,7 @@ static int fimc_is_isp_video_mmap(struct file *file,
 
 	ret = fimc_is_video_mmap(file, vctx, vma);
 	if (ret)
-		merr("fimc_is_video_mmap is fail(%d)", vctx, ret);
+		merr("fimc_is_video_mmap failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -266,7 +266,7 @@ static int fimc_is_isp_video_set_format_mplane(struct file *file, void *fh,
 
 	ret = fimc_is_video_set_format_mplane(file, vctx, format);
 	if (ret)
-		merr("fimc_is_video_set_format_mplane is fail(%d)", vctx, ret);
+		merr("fimc_is_video_set_format_mplane failed(%d)", vctx, ret);
 
 	fimc_is_ischain_isp_s_format(device,
 		queue->framecfg.width,
@@ -328,13 +328,13 @@ static int fimc_is_isp_video_reqbufs(struct file *file, void *priv,
 
 	ret = fimc_is_ischain_isp_reqbufs(device, buf->count);
 	if (ret) {
-		merr("isp_reqbufs is fail(%d)", vctx, ret);
+		merr("isp_reqbufs failed(%d)", vctx, ret);
 		goto p_err;
 	}
 
 	ret = fimc_is_video_reqbufs(file, vctx, buf);
 	if (ret)
-		merr("fimc_is_video_reqbufs is fail(error %d)", vctx, ret);
+		merr("fimc_is_video_reqbufs failed(error %d)", vctx, ret);
 
 p_err:
 	return ret;
@@ -350,7 +350,7 @@ static int fimc_is_isp_video_querybuf(struct file *file, void *priv,
 
 	ret = fimc_is_video_querybuf(file, vctx, buf);
 	if (ret)
-		merr("fimc_is_video_querybuf is fail(%d)", vctx, ret);
+		merr("fimc_is_video_querybuf failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -378,7 +378,7 @@ static int fimc_is_isp_video_qbuf(struct file *file, void *priv,
 
 	ret = fimc_is_video_qbuf(file, vctx, buf);
 	if (ret)
-		merr("fimc_is_video_qbuf is fail(%d)", vctx, ret);
+		merr("fimc_is_video_qbuf failed(%d)", vctx, ret);
 
 p_err:
 	return ret;
@@ -396,7 +396,7 @@ static int fimc_is_isp_video_dqbuf(struct file *file, void *priv,
 
 	ret = fimc_is_video_dqbuf(file, vctx, buf);
 	if (ret)
-		merr("fimc_is_video_dqbuf is fail(%d)", vctx, ret);
+		merr("fimc_is_video_dqbuf failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -411,7 +411,7 @@ static int fimc_is_isp_video_streamon(struct file *file, void *priv,
 
 	ret = fimc_is_video_streamon(file, vctx, type);
 	if (ret)
-		merr("fimc_is_video_streamon is fail(%d)", vctx, ret);
+		merr("fimc_is_video_streamon failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -426,7 +426,7 @@ static int fimc_is_isp_video_streamoff(struct file *file, void *priv,
 
 	ret = fimc_is_video_streamoff(file, vctx, type);
 	if (ret)
-		merr("fimc_is_video_streamoff is fail(%d)", vctx, ret);
+		merr("fimc_is_video_streamoff failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -461,7 +461,7 @@ static int fimc_is_isp_video_s_input(struct file *file, void *priv,
 
 	ret = fimc_is_ischain_isp_s_input(device, input);
 	if (ret) {
-		merr("fimc_is_ischain_isp_s_input is fail", vctx);
+		merr("fimc_is_ischain_isp_s_input failed", vctx);
 		goto p_err;
 	}
 
@@ -472,7 +472,7 @@ static int fimc_is_isp_video_s_input(struct file *file, void *priv,
 
 	ret = fimc_is_ischain_init_wrap(device, input);
 	if (ret) {
-		merr("fimc_is_device_init(%d) is fail", vctx, input);
+		merr("fimc_is_device_init(%d) failed", vctx, input);
 		goto p_err;
 	}
 
@@ -593,14 +593,14 @@ static int fimc_is_isp_video_s_ctrl(struct file *file, void *priv,
 			size = sizeof(struct v4l2_buffer);
 			buf = kmalloc(size, GFP_KERNEL);
 			if (!buf) {
-				merr("kmalloc is fail", vctx);
+				merr("kmalloc failed", vctx);
 				ret = -EINVAL;
 				goto p_err;
 			}
 
 			ret = copy_from_user(buf, (void __user *)ctrl->value, size);
 			if (ret) {
-				merr("copy_from_user is fail(%d)", vctx, ret);
+				merr("copy_from_user failed(%d)", vctx, ret);
 				kfree(buf);
 				ret = -EINVAL;
 				goto p_err;
@@ -638,7 +638,7 @@ static int fimc_is_isp_video_s_ctrl(struct file *file, void *priv,
 			size = sizeof(struct v4l2_plane) * buf->length;
 			planes = kmalloc(size, GFP_KERNEL);
 			if (IS_ERR(planes)) {
-				merr("kmalloc is fail(%p)", vctx, planes);
+				merr("kmalloc failed(%p)", vctx, planes);
 				kfree(buf);
 				ret = -EINVAL;
 				goto p_err;
@@ -646,7 +646,7 @@ static int fimc_is_isp_video_s_ctrl(struct file *file, void *priv,
 
 			ret = copy_from_user(planes, (void __user *)buf->m.planes, size);
 			if (ret) {
-				merr("copy_from_user is fail(%d)", vctx, ret);
+				merr("copy_from_user failed(%d)", vctx, ret);
 				kfree(planes);
 				kfree(buf);
 				ret = -EINVAL;
@@ -675,7 +675,7 @@ static int fimc_is_isp_video_s_ctrl(struct file *file, void *priv,
 			}
 			dmabuf = dma_buf_get(planes[plane].m.fd);
 			if (IS_ERR(dmabuf)) {
-				merr("dma_buf_get is fail(%p)", vctx, dmabuf);
+				merr("dma_buf_get failed(%p)", vctx, dmabuf);
 				kfree(planes);
 				kfree(buf);
 				ret = -EINVAL;
@@ -684,7 +684,7 @@ static int fimc_is_isp_video_s_ctrl(struct file *file, void *priv,
 
 			attachment = dma_buf_attach(dmabuf, &device->pdev->dev);
 			if (IS_ERR(attachment)) {
-				merr("dma_buf_attach is fail(%p)", vctx, attachment);
+				merr("dma_buf_attach failed(%p)", vctx, attachment);
 				kfree(planes);
 				kfree(buf);
 				dma_buf_put(dmabuf);
@@ -695,7 +695,7 @@ static int fimc_is_isp_video_s_ctrl(struct file *file, void *priv,
 			write = !V4L2_TYPE_IS_OUTPUT(buf->type);
 			dva = ion_iovmm_map(attachment, 0, dmabuf->size, write, plane);
 			if (IS_ERR_VALUE(dva)) {
-				merr("ion_iovmm_map is fail(%X)", vctx, dva);
+				merr("ion_iovmm_map failed(%X)", vctx, dva);
 				kfree(planes);
 				kfree(buf);
 				dma_buf_detach(dmabuf, attachment);
@@ -707,7 +707,7 @@ static int fimc_is_isp_video_s_ctrl(struct file *file, void *priv,
 			group_id = GROUP_ID(device->group_isp.id);
 			ret = fimc_is_itf_map(device, group_id, dva, dmabuf->size);
 			if (ret) {
-				merr("fimc_is_itf_map is fail(%d)", vctx, ret);
+				merr("fimc_is_itf_map failed(%d)", vctx, ret);
 				kfree(planes);
 				kfree(buf);
 				dma_buf_detach(dmabuf, attachment);
@@ -829,7 +829,7 @@ static int fimc_is_isp_queue_setup(struct vb2_queue *vbq,
 		sizes,
 		allocators);
 	if (ret)
-		merr("fimc_is_queue_setup is fail(%d)", vctx, ret);
+		merr("fimc_is_queue_setup failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -869,7 +869,7 @@ static int fimc_is_isp_start_streaming(struct vb2_queue *vbq,
 
 	ret = fimc_is_queue_start_streaming(queue, device, leader, vctx);
 	if (ret)
-		merr("fimc_is_queue_start_streaming is fail(%d)", vctx, ret);
+		merr("fimc_is_queue_start_streaming failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -896,7 +896,7 @@ static void fimc_is_isp_stop_streaming(struct vb2_queue *q)
 
 	ret = fimc_is_queue_stop_streaming(queue, device, leader, vctx);
 	if (ret)
-		merr("fimc_is_queue_stop_streaming is fail(%d)", vctx, ret);
+		merr("fimc_is_queue_stop_streaming failed(%d)", vctx, ret);
 }
 
 static void fimc_is_isp_buffer_queue(struct vb2_buffer *vb)
@@ -921,13 +921,13 @@ static void fimc_is_isp_buffer_queue(struct vb2_buffer *vb)
 
 	ret = fimc_is_queue_buffer_queue(queue, video->vb2, vb);
 	if (ret) {
-		merr("fimc_is_queue_buffer_queue is fail(%d)", vctx, ret);
+		merr("fimc_is_queue_buffer_queue failed(%d)", vctx, ret);
 		return;
 	}
 
 	ret = fimc_is_ischain_isp_buffer_queue(device, queue, index);
 	if (ret) {
-		merr("fimc_is_ischain_isp_buffer_queue is fail(%d)", vctx, ret);
+		merr("fimc_is_ischain_isp_buffer_queue failed(%d)", vctx, ret);
 		return;
 	}
 }

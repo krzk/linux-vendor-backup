@@ -72,7 +72,7 @@ int fimc_is_sen_video_probe(void *data)
 		&fimc_is_sen_video_fops,
 		&fimc_is_sen_video_ioctl_ops);
 	if (ret)
-		dev_err(&device->pdev->dev, "%s is fail(%d)\n", __func__, ret);
+		dev_err(&device->pdev->dev, "%s failed(%d)\n", __func__, ret);
 
 p_err:
 	return ret;
@@ -108,7 +108,7 @@ static int fimc_is_sen_video_open(struct file *file)
 
 	ret = open_vctx(file, video, &vctx, FRAMEMGR_ID_INVALID, FRAMEMGR_ID_SENSOR);
 	if (ret) {
-		err("open_vctx is fail(%d)", ret);
+		err("open_vctx failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -123,14 +123,14 @@ static int fimc_is_sen_video_open(struct file *file)
 		NULL,
 		NULL);
 	if (ret) {
-		merr("fimc_is_video_open is fail(%d)", vctx, ret);
+		merr("fimc_is_video_open failed(%d)", vctx, ret);
 		close_vctx(file, video, vctx);
 		goto p_err;
 	}
 
 	ret = fimc_is_sensor_open(device, vctx);
 	if (ret) {
-		merr("fimc_is_sen_open is fail(%d)", vctx, ret);
+		merr("fimc_is_sen_open failed(%d)", vctx, ret);
 		close_vctx(file, video, vctx);
 		goto p_err;
 	}
@@ -173,15 +173,15 @@ static int fimc_is_sen_video_close(struct file *file)
 
 	ret = fimc_is_sensor_close(device);
 	if (ret)
-		err("fimc_is_sensor_close is fail(%d)", ret);
+		err("fimc_is_sensor_close failed(%d)", ret);
 
 	ret = fimc_is_video_close(vctx);
 	if (ret)
-		err("fimc_is_video_close is fail(%d)", ret);
+		err("fimc_is_video_close failed(%d)", ret);
 
 	ret = close_vctx(file, video, vctx);
 	if (ret)
-		err("close_vctx is fail(%d)", ret);
+		err("close_vctx failed(%d)", ret);
 
 p_err:
 	return ret;
@@ -206,7 +206,7 @@ static int fimc_is_sen_video_mmap(struct file *file,
 
 	ret = fimc_is_video_mmap(file, vctx, vma);
 	if (ret)
-		merr("fimc_is_video_mmap is fail(%d)", vctx, ret);
+		merr("fimc_is_video_mmap failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -273,7 +273,7 @@ static int fimc_is_sen_video_set_format_mplane(struct file *file, void *fh,
 
 	ret = fimc_is_video_set_format_mplane(file, vctx, format);
 	if (ret) {
-		merr("fimc_is_video_set_format_mplane is fail(%d)", vctx, ret);
+		merr("fimc_is_video_set_format_mplane failed(%d)", vctx, ret);
 		goto p_err;
 	}
 
@@ -282,7 +282,7 @@ static int fimc_is_sen_video_set_format_mplane(struct file *file, void *fh,
 		queue->framecfg.width,
 		queue->framecfg.height);
 	if (ret) {
-		merr("fimc_is_sensor_s_format is fail(%d)", vctx, ret);
+		merr("fimc_is_sensor_s_format failed(%d)", vctx, ret);
 		goto p_err;
 	}
 
@@ -334,7 +334,7 @@ static int fimc_is_sen_video_reqbufs(struct file *file, void *priv,
 
 	ret = fimc_is_video_reqbufs(file, vctx, buf);
 	if (ret)
-		merr("fimc_is_video_reqbufs is fail(error %d)", vctx, ret);
+		merr("fimc_is_video_reqbufs failed(error %d)", vctx, ret);
 
 	return ret;
 }
@@ -349,7 +349,7 @@ static int fimc_is_sen_video_querybuf(struct file *file, void *priv,
 
 	ret = fimc_is_video_querybuf(file, vctx, buf);
 	if (ret)
-		merr("fimc_is_video_querybuf is fail(%d)", vctx, ret);
+		merr("fimc_is_video_querybuf failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -366,7 +366,7 @@ static int fimc_is_sen_video_qbuf(struct file *file, void *priv,
 
 	ret = fimc_is_video_qbuf(file, vctx, buf);
 	if (ret)
-		merr("fimc_is_video_qbuf is fail(%d)", vctx, ret);
+		merr("fimc_is_video_qbuf failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -386,7 +386,7 @@ static int fimc_is_sen_video_dqbuf(struct file *file, void *priv,
 	if (ret) {
 		blocking = file->f_flags & O_NONBLOCK;
 		if (!blocking || (ret != -EAGAIN))
-			merr("fimc_is_video_dqbuf is fail(%d)", vctx, ret);
+			merr("fimc_is_video_dqbuf failed(%d)", vctx, ret);
 	}
 
 	return ret;
@@ -402,7 +402,7 @@ static int fimc_is_sen_video_streamon(struct file *file, void *priv,
 
 	ret = fimc_is_video_streamon(file, vctx, type);
 	if (ret)
-		merr("fimc_is_video_streamon is fail(%d)", vctx, ret);
+		merr("fimc_is_video_streamon failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -417,7 +417,7 @@ static int fimc_is_sen_video_streamoff(struct file *file, void *priv,
 
 	ret = fimc_is_video_streamoff(file, vctx, type);
 	if (ret)
-		merr("fimc_is_video_streamoff is fail(%d)", vctx, ret);
+		merr("fimc_is_video_streamoff failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -457,7 +457,7 @@ static int fimc_is_sen_video_s_input(struct file *file, void *priv,
 
 	ret = fimc_is_sensor_s_input(device, input, scenario);
 	if (ret) {
-		merr("fimc_is_sensor_s_input is fail(%d)", device, ret);
+		merr("fimc_is_sensor_s_input failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -506,13 +506,13 @@ static int fimc_is_sen_video_s_ctrl(struct file *file, void *priv,
 			if (sstream == IS_ENABLE_STREAM) {
 				ret = fimc_is_sensor_front_start(device, instant, noblock);
 				if (ret) {
-					merr("fimc_is_sensor_front_start is fail(%d)", device, ret);
+					merr("fimc_is_sensor_front_start failed(%d)", device, ret);
 					goto p_err;
 				}
 			} else {
 				ret = fimc_is_sensor_front_stop(device);
 				if (ret) {
-					merr("fimc_is_sensor_front_stop is fail(%d)", device, ret);
+					merr("fimc_is_sensor_front_stop failed(%d)", device, ret);
 					goto p_err;
 				}
 			}
@@ -526,13 +526,13 @@ static int fimc_is_sen_video_s_ctrl(struct file *file, void *priv,
 
 		ret = fimc_is_sensor_s_bns(device, ctrl->value);
 		if (ret) {
-			merr("fimc_is_sensor_s_bns is fail(%d)", device, ret);
+			merr("fimc_is_sensor_s_bns failed(%d)", device, ret);
 			goto p_err;
 		}
 
 		ret = v4l2_subdev_call(subdev_flite, core, s_ctrl, ctrl);
 		if (ret) {
-			merr("v4l2_flite_call(s_ctrl) is fail(%d)", device, ret);
+			merr("v4l2_flite_call(s_ctrl) failed(%d)", device, ret);
 			goto p_err;
 		}
 		break;
@@ -688,7 +688,7 @@ static int fimc_is_sen_video_s_parm(struct file *file, void *priv,
 
 	ret = fimc_is_sensor_s_framerate(device, parm);
 	if (ret) {
-		merr("fimc_is_sen_s_framerate is fail(%d)", device, ret);
+		merr("fimc_is_sen_s_framerate failed(%d)", device, ret);
 		goto p_err;
 	}
 
@@ -744,7 +744,7 @@ static int fimc_is_sen_queue_setup(struct vb2_queue *vbq,
 		sizes,
 		allocators);
 	if (ret)
-		merr("fimc_is_queue_setup is fail(%d)", vctx, ret);
+		merr("fimc_is_queue_setup failed(%d)", vctx, ret);
 
 	return ret;
 }
@@ -841,13 +841,13 @@ static void fimc_is_sen_buffer_queue(struct vb2_buffer *vb)
 
 	ret = fimc_is_queue_buffer_queue(queue, video->vb2, vb);
 	if (ret) {
-		merr("fimc_is_queue_buffer_queue is fail(%d)", device, ret);
+		merr("fimc_is_queue_buffer_queue failed(%d)", device, ret);
 		return;
 	}
 
 	ret = fimc_is_sensor_buffer_queue(device, vb->v4l2_buf.index);
 	if (ret) {
-		merr("fimc_is_sensor_buffer_queue is fail(%d)", device, ret);
+		merr("fimc_is_sensor_buffer_queue failed(%d)", device, ret);
 		return;
 	}
 }
@@ -867,7 +867,7 @@ static void fimc_is_sen_buffer_finish(struct vb2_buffer *vb)
 		device,
 		vb->v4l2_buf.index);
 	if (ret)
-		merr("fimc_is_sensor_buffer_finish is fail(%d)", device, ret);
+		merr("fimc_is_sensor_buffer_finish failed(%d)", device, ret);
 }
 
 const struct vb2_ops fimc_is_sen_qops = {

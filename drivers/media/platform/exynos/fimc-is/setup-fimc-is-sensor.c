@@ -80,7 +80,7 @@ static int exynos_fimc_is_sensor_pin_control(struct platform_device *pdev,
 		s = (struct pinctrl_state *)pin_ctrls->pin;
 		ret = pinctrl_select_state(pinctrl, s);
 		if (ret < 0) {
-			pr_err("%s: cam %s, state %p pinctrl_select_statee is failed\n", __func__, ch_name, s);
+			pr_err("%s: cam %s, state %p pinctrl_select_state failed\n", __func__, ch_name, s);
 			return ret;
 		}
 
@@ -92,7 +92,7 @@ static int exynos_fimc_is_sensor_pin_control(struct platform_device *pdev,
 
 			regulator = regulator_get(&pdev->dev, name);
 			if (IS_ERR_OR_NULL(regulator)) {
-				pr_err("%s : regulator_get(%s) fail\n", __func__, name);
+				pr_err("%s : regulator_get(%s) failed\n", __func__, name);
 				return PTR_ERR(regulator);
 			}
 
@@ -100,12 +100,12 @@ static int exynos_fimc_is_sensor_pin_control(struct platform_device *pdev,
 				pr_info("%s : regulator_set_voltage(%d)\n",__func__, voltage);
 				ret = regulator_set_voltage(regulator, voltage, voltage);
 				if(ret) {
-					pr_err("%s : regulator_set_voltage(%d) fail\n", __func__, ret);
+					pr_err("%s : regulator_set_voltage(%d) failed\n", __func__, ret);
 				}
 			}
 			ret = regulator_enable(regulator);
 			if (ret) {
-				pr_err("%s : regulator_enable(%s) fail\n", __func__, name);
+				pr_err("%s : regulator_enable(%s) failed\n", __func__, name);
 				regulator_put(regulator);
 				return ret;
 			}
@@ -168,7 +168,7 @@ int exynos_fimc_is_sensor_pins_cfg(struct platform_device *pdev,
 			&pin_ctrls[scenario][enable][i],
 			pdata->csi_ch);
 		if (ret) {
-			pr_err("exynos5_fimc_is_sensor_gpio(%lu, %s, %d, %d) is fail(%d)",
+			pr_err("exynos5_fimc_is_sensor_gpio(%lu, %s, %d, %d) failed(%d)",
 				pin_ctrls[scenario][enable][i].pin,
 				pin_ctrls[scenario][enable][i].name,
 				pin_ctrls[scenario][enable][i].act,

@@ -289,13 +289,13 @@ static int sensor_6d1_s_stream(struct v4l2_subdev *subdev, int enable)
 	if (enable) {
 		ret = CALL_MOPS(sensor, stream_on, subdev);
 		if (ret < 0) {
-			err("s_duration is fail(%d)", ret);
+			err("s_duration failed(%d)", ret);
 			goto p_err;
 		}
 	} else {
 		ret = CALL_MOPS(sensor, stream_off, subdev);
 		if (ret < 0) {
-			err("s_duration is fail(%d)", ret);
+			err("s_duration failed(%d)", ret);
 			goto p_err;
 		}
 	}
@@ -344,7 +344,7 @@ static int sensor_6d1_s_param(struct v4l2_subdev *subdev, struct v4l2_streamparm
 
 	ret = CALL_MOPS(sensor, s_duration, subdev, duration);
 	if (ret) {
-		err("s_duration is fail(%d)", ret);
+		err("s_duration failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -393,7 +393,7 @@ int sensor_6d1_stream_on(struct v4l2_subdev *subdev)
 
 	ret = fimc_is_sensor_write8(client, 0x4100, 1);
 	if (ret < 0) {
-		err("fimc_is_sensor_write8 is fail(%d)", ret);
+		err("fimc_is_sensor_write8 failed(%d)", ret);
 		goto p_err;
 	}
 
@@ -425,7 +425,7 @@ int sensor_6d1_stream_off(struct v4l2_subdev *subdev)
 
 	ret = fimc_is_sensor_write8(client, 0x4100, 0);
 	if (ret < 0) {
-		err("fimc_is_sensor_write8 is fail(%d)", ret);
+		err("fimc_is_sensor_write8 failed(%d)", ret);
 		goto p_err;
 	}
 

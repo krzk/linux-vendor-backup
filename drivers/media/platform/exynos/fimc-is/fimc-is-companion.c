@@ -361,7 +361,7 @@ static int fimc_is_comp_check_crc32(struct fimc_is_core *core, char *name)
 
 	checksum = result_data << 16 | temp_data;
 	if (checksum != from_checksum) {
-		err("[%s] CRC check is failed. Checksum = 0x%08x, FROM checksum = 0x%08x\n",
+		err("[%s] CRC check failed. Checksum = 0x%08x, FROM checksum = 0x%08x\n",
 			name, checksum, from_checksum);
 		return -EIO;
 	}
@@ -437,7 +437,7 @@ request_fw:
 		}
 
 		if (ret) {
-			err("request_firmware is fail(ret:%d)", ret);
+			err("request_firmware failed: %d", ret);
 			ret = -EINVAL;
 			goto p_err;
 		}

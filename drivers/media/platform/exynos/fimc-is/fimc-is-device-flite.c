@@ -1758,13 +1758,13 @@ static int flite_s_stream(struct v4l2_subdev *subdev, int enable)
 	if (enable) {
 		ret = flite_stream_on(subdev, flite);
 		if (ret) {
-			err("flite_stream_on is fail(%d)", ret);
+			err("flite_stream_on failed(%d)", ret);
 			goto p_err;
 		}
 	} else {
 		ret = flite_stream_off(subdev, flite, nowait);
 		if (ret) {
-			err("flite_stream_off is fail(%d)", ret);
+			err("flite_stream_off failed(%d)", ret);
 			goto p_err;
 		}
 	}
@@ -1900,7 +1900,7 @@ int fimc_is_flite_probe(struct fimc_is_device_sensor *device,
 	snprintf(subdev_flite->name, V4L2_SUBDEV_NAME_SIZE, "flite-subdev.%d", instance);
 	ret = v4l2_device_register_subdev(&device->v4l2_dev, subdev_flite);
 	if (ret) {
-		merr("v4l2_device_register_subdev is fail(%d)", device, ret);
+		merr("v4l2_device_register_subdev failed(%d)", device, ret);
 		goto err_reg_v4l2_subdev;
 	}
 

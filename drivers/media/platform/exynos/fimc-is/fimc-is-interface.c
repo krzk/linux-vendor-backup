@@ -481,7 +481,7 @@ static int fimc_is_set_cmd(struct fimc_is_interface *itf,
 		wait_lock = wait_lockstate(itf);
 		pr_info("itf UNLOCK, %d(%d) go\n", current->pid, msg->command);
 		if (wait_lock) {
-			err("wait_lockstate is fail, lock reset");
+			err("wait_lockstate failed, lock reset");
 			atomic_set(&itf->lock_pid, 0);
 		}
 	}
@@ -533,7 +533,7 @@ static int fimc_is_set_cmd(struct fimc_is_interface *itf,
 	if (ret) {
 		exit_request_barrier(itf);
 		exit_process_barrier(itf);
-		err("waiting for ready is fail");
+		err("waiting for ready failed");
 		ret = -EBUSY;
 		goto exit;
 	}
@@ -653,7 +653,7 @@ static int fimc_is_set_cmd_shot(struct fimc_is_interface *this,
 	ret = waiting_is_ready(this);
 	if (ret) {
 		exit_process_barrier(this);
-		err("waiting for ready is fail");
+		err("waiting for ready failed");
 		ret = -EBUSY;
 		goto exit;
 	}
@@ -702,7 +702,7 @@ static int fimc_is_set_cmd_nblk(struct fimc_is_interface *this,
 
 	ret = waiting_is_ready(this);
 	if (ret) {
-		err("waiting for ready is fail");
+		err("waiting for ready failed");
 		ret = -EBUSY;
 		goto exit;
 	}
@@ -2438,7 +2438,7 @@ int fimc_is_interface_close(struct fimc_is_interface *this)
 		retry--;
 	}
 	if (!retry)
-		err("waiting idle is fail");
+		err("waiting idle failed");
 
 	del_timer_sync(&this->timer);
 	dbg_interface("%s\n", __func__);
@@ -3013,7 +3013,7 @@ int fimc_is_hw_power_down(struct fimc_is_interface *this,
 		warn("instance(%d): FW is not initialized, wait\n", instance);
 		ret = fimc_is_hw_enum(this);
 		if (ret)
-			err("fimc_is_itf_enum is fail(%d)", ret);
+			err("fimc_is_itf_enum failed(%d)", ret);
 	}
 
 	msg.id = 0;
