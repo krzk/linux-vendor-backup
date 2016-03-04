@@ -1506,9 +1506,12 @@ int fimc_is_sensor_s_framerate(struct fimc_is_device_sensor *device,
 
 	device->image.framerate = framerate;
 
-	device->mode = get_sensor_mode(module->cfg, module->cfgs,
+	/* if sensor is driving mode, skip finding sensor mode */
+	if (!test_bit(FIMC_IS_SENSOR_DRIVING, &device->state)) {
+		device->mode = get_sensor_mode(module->cfg, module->cfgs,
 			device->image.window.width, device->image.window.height,
 			framerate);
+	}
 
 	info("[SEN:D:%d] framerate: req@%dfps, cur@%dfps\n", device->instance,
 		framerate, device->image.framerate);
