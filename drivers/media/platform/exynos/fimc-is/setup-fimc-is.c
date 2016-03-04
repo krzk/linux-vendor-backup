@@ -147,6 +147,23 @@ static int exynos5430_cfg_clk_isp_pll_off(struct platform_device *pdev)
 
 int exynos5430_cfg_clk_div_max(struct platform_device *pdev)
 {
+
+	fimc_is_set_parent_dt(pdev, "mout_aclk_cam0_552_user", "oscclk");
+	fimc_is_set_parent_dt(pdev, "mout_aclk_cam0_400_user", "oscclk");
+	fimc_is_set_parent_dt(pdev, "mout_aclk_cam0_333_user", "oscclk");
+
+	/* MIPI-CSIS PHY */
+	fimc_is_set_parent_dt(pdev, "mout_phyclk_rxbyteclkhs0_s4", "oscclk");
+	fimc_is_set_parent_dt(pdev, "mout_phyclk_rxbyteclkhs0_s2a", "oscclk");
+
+	/* USER_MUX_SEL */
+	fimc_is_set_parent_dt(pdev, "mout_aclk_cam1_552_user", "oscclk");
+	fimc_is_set_parent_dt(pdev, "mout_aclk_cam1_400_user", "oscclk");
+	fimc_is_set_parent_dt(pdev, "mout_aclk_cam1_333_user", "oscclk");
+
+	/* MIPI-CSIS PHY */
+	fimc_is_set_parent_dt(pdev, "mout_phyclk_rxbyteclkhs0_s2b", "oscclk");
+
 	/* SCLK */
 
 	/* SCLK_UART */
@@ -158,6 +175,9 @@ int exynos5430_cfg_clk_div_max(struct platform_device *pdev)
 	/* C-A5 */
 	fimc_is_set_rate_dt(pdev, "dout_atclk_cam1", 1);
 	fimc_is_set_rate_dt(pdev, "dout_pclk_dbg_cam1", 1);
+
+	fimc_is_set_parent_dt(pdev, "mout_aclk_isp_400_user", "oscclk");
+	fimc_is_set_parent_dt(pdev, "mout_aclk_isp_dis_400_user", "oscclk");
 
 	return 0;
 }
