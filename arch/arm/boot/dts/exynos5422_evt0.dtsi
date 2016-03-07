@@ -641,7 +641,7 @@
 	};
 
 	fimd_drm: fimd-drm@14400000 {
-		compatible = "samsung,exynos5250-fimd";
+		compatible = "samsung,exynos5420-fimd";
 		interrupt-parent = <&combiner>;
 		reg = <0x14400000 0x40000>;
 		samsung,power-domain = <&pd_disp1>;
