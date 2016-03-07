@@ -55,7 +55,9 @@ static int exynos_crtc_atomic_check(struct drm_crtc *crtc,
 {
 	struct exynos_drm_crtc *exynos_crtc = to_exynos_crtc(crtc);
 
-	if (!state->enable)
+	/* FIXME: It's not good approach when disabled crtc tries to change
+	 * its status */
+	if (!drm_atomic_crtc_needs_modeset(state))
 		return 0;
 
 	if (exynos_crtc->ops->atomic_check)
