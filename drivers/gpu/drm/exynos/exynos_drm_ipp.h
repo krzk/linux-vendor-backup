@@ -62,7 +62,6 @@ struct drm_exynos_ipp_cmd_work {
  * @event_work: event work structure.
  * @state: state of command node.
  * @filp: associated file pointer.
- * @last_buf_id: store the current processing frame buf id from userspace
  */
 struct drm_exynos_ipp_cmd_node {
 	struct list_head	list;
@@ -79,7 +78,6 @@ struct drm_exynos_ipp_cmd_node {
 	struct drm_exynos_ipp_event_work *event_work;
 	enum drm_exynos_ipp_state	state;
 	struct drm_file	*filp;
-	unsigned int last_buf_id[EXYNOS_DRM_OPS_MAX];
 };
 
 /*
@@ -87,12 +85,10 @@ struct drm_exynos_ipp_cmd_node {
  *
  * @handles: Y, Cb, Cr each gem object handle.
  * @base: Y, Cb, Cr each planar address.
- * @size: Y, Cb, Cr each planar size.
  */
 struct drm_exynos_ipp_buf_info {
 	unsigned long	handles[EXYNOS_DRM_PLANAR_MAX];
 	dma_addr_t	base[EXYNOS_DRM_PLANAR_MAX];
-	uint64_t	size[EXYNOS_DRM_PLANAR_MAX];
 };
 
 /*

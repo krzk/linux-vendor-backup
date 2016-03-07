@@ -38,7 +38,7 @@ int drm_create_iommu_mapping(struct drm_device *drm_dev)
 		priv->da_space_size = EXYNOS_DEV_ADDR_SIZE;
 
 	mapping = arm_iommu_create_mapping(&platform_bus_type, priv->da_start,
-						priv->da_space_size, 0);
+						priv->da_space_size);
 
 	if (IS_ERR(mapping))
 		return PTR_ERR(mapping);
@@ -87,10 +87,8 @@ int drm_iommu_attach_device(struct drm_device *drm_dev,
 	struct device *dev = drm_dev->dev;
 	int ret;
 
-	if (!dev->archdata.mapping) {
-		DRM_ERROR("iommu_mapping is null.\n");
-		return -EFAULT;
-	}
+	if (!dev->archdata.mapping)
+		return 0;
 
 	subdrv_dev->dma_parms = devm_kzalloc(subdrv_dev,
 					sizeof(*subdrv_dev->dma_parms),
@@ -117,8 +115,8 @@ int drm_iommu_attach_device(struct drm_device *drm_dev,
 	 * If iommu attach succeeded, the sub driver would have dma_ops
 	 * for iommu and also all sub drivers have same dma_ops.
 	 */
-	if (!dev->archdata.dma_ops)
-		dev->archdata.dma_ops = subdrv_dev->archdata.dma_ops;
+	if (get_dma_ops(dev) == get_dma_ops(NULL))
+		set_dma_ops(dev, get_dma_ops(subdrv_dev));
 
 	return 0;
 }
@@ -141,6 +139,5 @@ void drm_iommu_detach_device(struct drm_device *drm_dev,
 	if (!mapping || !mapping->domain)
 		return;
 
-	iommu_detach_device(mapping->domain, subdrv_dev);
-	drm_release_iommu_mapping(drm_dev);
+	arm_iommu_detach_device(subdrv_dev);
 }
