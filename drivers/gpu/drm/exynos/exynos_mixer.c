@@ -1059,6 +1059,7 @@ static void mixer_enable(struct exynos_drm_crtc *crtc)
 {
 	struct mixer_context *ctx = crtc->ctx;
 	struct mixer_resources *res = &ctx->mixer_res;
+	int ret;
 
 	if (test_bit(MXR_BIT_POWERED, &ctx->flags))
 		return;
@@ -1066,6 +1067,36 @@ static void mixer_enable(struct exynos_drm_crtc *crtc)
 	pm_runtime_get_sync(ctx->dev);
 
 	mixer_vsync_set_update(ctx, false);
+
+	ret = clk_prepare_enable(res->mixer);
+	if (ret < 0) {
+		DRM_ERROR("Failed to prepare_enable the mixer clk [%d]\n", ret);
+		return;
+	}
+	ret = clk_prepare_enable(res->hdmi);
+	if (ret < 0) {
+		DRM_ERROR("Failed to prepare_enable the hdmi clk [%d]\n", ret);
+		return;
+	}
+	if (ctx->vp_enabled) {
+		ret = clk_prepare_enable(res->vp);
+		if (ret < 0) {
+			DRM_ERROR("Failed to prepare_enable the vp clk [%d]\n",
+				  ret);
+			return;
+		}
+		if (ctx->has_sclk) {
+			ret = clk_prepare_enable(res->sclk_mixer);
+			if (ret < 0) {
+				DRM_ERROR("Failed to prepare_enable the " \
+					   "sclk_mixer clk [%d]\n",
+					  ret);
+				return;
+			}
+		}
+	}
+
+	set_bit(MXR_BIT_POWERED, &ctx->flags);
 
 	mixer_reg_writemask(res, MXR_STATUS, ~0, MXR_STATUS_SOFT_RESET);
 
@@ -1076,13 +1107,12 @@ static void mixer_enable(struct exynos_drm_crtc *crtc)
 	mixer_win_reset(ctx);
 
 	mixer_vsync_set_update(ctx, true);
-
-	set_bit(MXR_BIT_POWERED, &ctx->flags);
 }
 
 static void mixer_disable(struct exynos_drm_crtc *crtc)
 {
 	struct mixer_context *ctx = crtc->ctx;
+	struct mixer_resources *res = &ctx->mixer_res;
 	int i;
 
 	if (!test_bit(MXR_BIT_POWERED, &ctx->flags))
@@ -1094,9 +1124,17 @@ static void mixer_disable(struct exynos_drm_crtc *crtc)
 	for (i = 0; i < MIXER_WIN_NR; i++)
 		mixer_disable_plane(crtc, &ctx->planes[i]);
 
-	pm_runtime_put(ctx->dev);
-
 	clear_bit(MXR_BIT_POWERED, &ctx->flags);
+
+	clk_disable_unprepare(res->hdmi);
+	clk_disable_unprepare(res->mixer);
+	if (ctx->vp_enabled) {
+		clk_disable_unprepare(res->vp);
+		if (ctx->has_sclk)
+			clk_disable_unprepare(res->sclk_mixer);
+	}
+
+	pm_runtime_put_sync(ctx->dev);
 }
 
 /* Only valid for Mixer version 16.0.33.0 */
@@ -1289,68 +1327,10 @@ static int mixer_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int __maybe_unused exynos_mixer_suspend(struct device *dev)
-{
-	struct mixer_context *ctx = dev_get_drvdata(dev);
-	struct mixer_resources *res = &ctx->mixer_res;
-
-	clk_disable_unprepare(res->hdmi);
-	clk_disable_unprepare(res->mixer);
-	if (ctx->vp_enabled) {
-		clk_disable_unprepare(res->vp);
-		if (ctx->has_sclk)
-			clk_disable_unprepare(res->sclk_mixer);
-	}
-
-	return 0;
-}
-
-static int __maybe_unused exynos_mixer_resume(struct device *dev)
-{
-	struct mixer_context *ctx = dev_get_drvdata(dev);
-	struct mixer_resources *res = &ctx->mixer_res;
-	int ret;
-
-	ret = clk_prepare_enable(res->mixer);
-	if (ret < 0) {
-		DRM_ERROR("Failed to prepare_enable the mixer clk [%d]\n", ret);
-		return ret;
-	}
-	ret = clk_prepare_enable(res->hdmi);
-	if (ret < 0) {
-		DRM_ERROR("Failed to prepare_enable the hdmi clk [%d]\n", ret);
-		return ret;
-	}
-	if (ctx->vp_enabled) {
-		ret = clk_prepare_enable(res->vp);
-		if (ret < 0) {
-			DRM_ERROR("Failed to prepare_enable the vp clk [%d]\n",
-				  ret);
-			return ret;
-		}
-		if (ctx->has_sclk) {
-			ret = clk_prepare_enable(res->sclk_mixer);
-			if (ret < 0) {
-				DRM_ERROR("Failed to prepare_enable the " \
-					   "sclk_mixer clk [%d]\n",
-					  ret);
-				return ret;
-			}
-		}
-	}
-
-	return 0;
-}
-
-static const struct dev_pm_ops exynos_mixer_pm_ops = {
-	SET_RUNTIME_PM_OPS(exynos_mixer_suspend, exynos_mixer_resume, NULL)
-};
-
 struct platform_driver mixer_driver = {
 	.driver = {
 		.name = "exynos-mixer",
 		.owner = THIS_MODULE,
-		.pm = &exynos_mixer_pm_ops,
 		.of_match_table = mixer_match_types,
 	},
 	.probe = mixer_probe,
