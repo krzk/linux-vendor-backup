@@ -14,7 +14,6 @@
 
 #include <linux/shmem_fs.h>
 #include <linux/dma-buf.h>
-#include <linux/pfn_t.h>
 #include <drm/exynos_drm.h>
 
 #include "exynos_drm_drv.h"
@@ -491,8 +490,7 @@ int exynos_drm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	}
 
 	pfn = page_to_pfn(exynos_gem->pages[page_offset]);
-	ret = vm_insert_mixed(vma, (unsigned long)vmf->virtual_address,
-			__pfn_to_pfn_t(pfn, PFN_DEV));
+	ret = vm_insert_mixed(vma, (unsigned long)vmf->virtual_address, pfn);
 
 out:
 	switch (ret) {
