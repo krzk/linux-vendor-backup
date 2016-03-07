@@ -1590,6 +1590,8 @@ static void hdmi_enable(struct drm_encoder *encoder)
 	if (hdata->powered)
 		return;
 
+	hdata->powered = true;
+
 	pm_runtime_get_sync(hdata->dev);
 
 	if (regulator_bulk_enable(ARRAY_SIZE(supply), hdata->regul_bulk))
@@ -1599,9 +1601,10 @@ static void hdmi_enable(struct drm_encoder *encoder)
 	regmap_update_bits(hdata->pmureg, PMU_HDMI_PHY_CONTROL,
 			PMU_HDMI_PHY_ENABLE_BIT, 1);
 
-	hdmi_conf_apply(hdata);
+	clk_prepare_enable(hdata->hdmi);
+	clk_prepare_enable(hdata->sclk_hdmi);
 
-	hdata->powered = true;
+	hdmi_conf_apply(hdata);
 }
 
 static void hdmi_disable(struct drm_encoder *encoder)
@@ -1631,6 +1634,9 @@ static void hdmi_disable(struct drm_encoder *encoder)
 	hdmi_reg_writemask(hdata, HDMI_CON_0, 0, HDMI_EN);
 
 	cancel_delayed_work(&hdata->hotplug_work);
+
+	clk_disable_unprepare(hdata->sclk_hdmi);
+	clk_disable_unprepare(hdata->hdmi);
 
 	/* reset pmu hdmiphy control bit to disable hdmiphy */
 	regmap_update_bits(hdata->pmureg, PMU_HDMI_PHY_CONTROL,
@@ -1981,49 +1987,12 @@ static int hdmi_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
-static int exynos_hdmi_suspend(struct device *dev)
-{
-	struct hdmi_context *hdata = dev_get_drvdata(dev);
-
-	clk_disable_unprepare(hdata->sclk_hdmi);
-	clk_disable_unprepare(hdata->hdmi);
-
-	return 0;
-}
-
-static int exynos_hdmi_resume(struct device *dev)
-{
-	struct hdmi_context *hdata = dev_get_drvdata(dev);
-	int ret;
-
-	ret = clk_prepare_enable(hdata->hdmi);
-	if (ret < 0) {
-		DRM_ERROR("Failed to prepare_enable the hdmi clk [%d]\n", ret);
-		return ret;
-	}
-	ret = clk_prepare_enable(hdata->sclk_hdmi);
-	if (ret < 0) {
-		DRM_ERROR("Failed to prepare_enable the sclk_mixer clk [%d]\n",
-			  ret);
-		return ret;
-	}
-
-	return 0;
-}
-#endif
-
-static const struct dev_pm_ops exynos_hdmi_pm_ops = {
-	SET_RUNTIME_PM_OPS(exynos_hdmi_suspend, exynos_hdmi_resume, NULL)
-};
-
 struct platform_driver hdmi_driver = {
 	.probe		= hdmi_probe,
 	.remove		= hdmi_remove,
 	.driver		= {
 		.name	= "exynos-hdmi",
 		.owner	= THIS_MODULE,
-		.pm	= &exynos_hdmi_pm_ops,
 		.of_match_table = hdmi_match_types,
 	},
 };
