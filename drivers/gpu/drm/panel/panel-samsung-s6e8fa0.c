@@ -29,6 +29,10 @@
 
 #define MIPI_DCS_CUSTOM_DIMMING_SET		0x51
 
+#define MIN_BRIGHTNESS				0
+#define MAX_BRIGHTNESS				255
+#define DEFAULT_BRIGHTNESS			160
+
 struct s6e8fa0 {
 	struct device *dev;
 	struct drm_panel panel;
@@ -45,6 +49,7 @@ struct s6e8fa0 {
 	u32 height_mm;
 	bool is_power_on;
 
+	struct backlight_device *bl_dev;
 	u8 id[3];
 	/* This field is tested by functions directly accessing DSI bus before
 	 * transfer, transfer is skipped if it is set. In case of transfer
@@ -219,6 +224,35 @@ static void s6e8fa0_set_sequence(struct s6e8fa0 *ctx)
 	s6e8fa0_dcs_write_seq_static(ctx, MIPI_DCS_CUSTOM_HBM_MODE,
 			MIPI_DCS_CUSTOM_HBM_MODE_NONE);
 }
+
+static int s6e8fa0_get_brightness(struct backlight_device *bl_dev)
+{
+	return bl_dev->props.brightness;
+}
+
+static int s6e8fa0_set_brightness(struct backlight_device *bl_dev)
+{
+	struct s6e8fa0 *ctx = (struct s6e8fa0 *)bl_get_data(bl_dev);
+	unsigned int brightness = bl_dev->props.brightness;
+	u8 gamma_update[2] = { 0x51, };
+
+	if (brightness < MIN_BRIGHTNESS ||
+		brightness > bl_dev->props.max_brightness) {
+		dev_err(ctx->dev, "Invalid brightness: %u\n", brightness);
+		return -EINVAL;
+	}
+
+	/* TODO: support only over 60nit */
+	gamma_update[1] = brightness;
+	s6e8fa0_dcs_write(ctx, gamma_update, ARRAY_SIZE(gamma_update));
+
+	return 0;
+}
+
+static const struct backlight_ops s6e8fa0_bl_ops = {
+	.get_brightness = s6e8fa0_get_brightness,
+	.update_status = s6e8fa0_set_brightness,
+};
 
 static int s6e8fa0_power_on(struct s6e8fa0 *ctx)
 {
@@ -421,17 +455,32 @@ static int s6e8fa0_probe(struct mipi_dsi_device *dsi)
 		return ret;
 	}
 
+	ctx->bl_dev = backlight_device_register("s6e8fa0", dev, ctx,
+						&s6e8fa0_bl_ops, NULL);
+	if (IS_ERR(ctx->bl_dev)) {
+		dev_err(dev, "failed to register backlight device\n");
+		return PTR_ERR(ctx->bl_dev);
+	}
+
+	ctx->bl_dev->props.max_brightness = MAX_BRIGHTNESS;
+	ctx->bl_dev->props.brightness = DEFAULT_BRIGHTNESS;
+	ctx->bl_dev->props.power = FB_BLANK_POWERDOWN;
+
 	drm_panel_init(&ctx->panel);
 	ctx->panel.dev = dev;
 	ctx->panel.funcs = &s6e8fa0_drm_funcs;
 
 	ret = drm_panel_add(&ctx->panel);
-	if (ret < 0)
+	if (ret < 0) {
+		backlight_device_unregister(ctx->bl_dev);
 		return ret;
+	}
 
 	ret = mipi_dsi_attach(dsi);
-	if (ret < 0)
+	if (ret < 0) {
+		backlight_device_unregister(ctx->bl_dev);
 		drm_panel_remove(&ctx->panel);
+	}
 
 	return ret;
 }
@@ -442,6 +491,7 @@ static int s6e8fa0_remove(struct mipi_dsi_device *dsi)
 
 	mipi_dsi_detach(dsi);
 	drm_panel_remove(&ctx->panel);
+	backlight_device_unregister(ctx->bl_dev);
 	s6e8fa0_power_off(ctx);
 
 	return 0;
