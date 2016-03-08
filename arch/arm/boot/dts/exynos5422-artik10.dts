@@ -20,6 +20,11 @@
 		reg = <0x40000000 0x80000000>;
 	};
 
+	aliases {
+		i2c11 = &i2c_gpio0;
+		i2c12 = &i2c_gpio1;
+	};
+
 	chosen {
 		bootargs = "console=ttySAC3,115200 vmalloc=512M ess_setup=0x46000000";
 	};
@@ -653,7 +658,7 @@
 		};
 	};
 
-	i2c@6b {
+	i2c_gpio0: i2c@6b {
 		compatible = "i2c-gpio";
 		gpios = <&gpy0 2 0 /* sda */
 			&gpy0 3 0 /* scl */
@@ -732,7 +737,7 @@
 		status = "disabled";
 	};
 
-	i2c@2d {
+	i2c_gpio1: i2c@2d {
 		compatible = "i2c-gpio";
 		gpios = <&gpf0 4 0 &gpf0 5 0>;
 		i2c-gpio,delay-us = <2>;    /* ~100kHz */
