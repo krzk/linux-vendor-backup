@@ -729,10 +729,6 @@
 		status = "disabled";
 	};
 
-	spi_1: spi@12d30000 {
-		status = "disabled";
-	};
-
 	spi_2: spi@12d40000 {
 		status = "disabled";
 	};
@@ -1078,5 +1074,23 @@
 		pinctrl-0 = <&touchpanel_irq>;
 		skip-cfg-load;
 		switch-xy;
+	};
+};
+
+&spi_1 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	spidev@0 {
+		compatible = "spidev";
+		reg = <0x0>;
+		spi-max-frequency = <25000000>;
+
+		controller-data {
+			cs-gpio = <&gpy7 1 0>;
+			samsung,spi-feedback-delay = <0x2>;
+			samsung,spi-chip-select-mode;
+		};
 	};
 };
