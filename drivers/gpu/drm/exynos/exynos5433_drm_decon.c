@@ -51,6 +51,7 @@ struct exynos5433_decon_driver_data {
 	enum exynos_drm_trigger_type trg_type;
 	unsigned int nr_window;
 	unsigned int first_win;
+	unsigned int primary_win;
 	unsigned int lcdblk_offset;
 	unsigned int lcdblk_te_unmask_shift;
 };
@@ -695,8 +696,8 @@ static int decon_bind(struct device *dev, struct device *master, void *data)
 	}
 
 	for (zpos = drv_data->first_win; zpos < WINDOWS_NR; zpos++) {
-		type = (zpos == drv_data->first_win) ? DRM_PLANE_TYPE_PRIMARY :
-			DRM_PLANE_TYPE_OVERLAY;
+		type = (zpos == drv_data->primary_win) ?
+			DRM_PLANE_TYPE_PRIMARY : DRM_PLANE_TYPE_OVERLAY;
 		ret = exynos_plane_init(drm_dev, &ctx->planes[zpos],
 				1 << ctx->pipe, type, decon_formats,
 				ARRAY_SIZE(decon_formats), zpos);
@@ -704,7 +705,7 @@ static int decon_bind(struct device *dev, struct device *master, void *data)
 			return ret;
 	}
 
-	exynos_plane = &ctx->planes[drv_data->first_win];
+	exynos_plane = &ctx->planes[drv_data->primary_win];
 	ctx->crtc = exynos_drm_crtc_create(drm_dev, &exynos_plane->base,
 			ctx->pipe, ctx->drv_data->type, &decon_crtc_ops, ctx);
 	if (IS_ERR(ctx->crtc)) {
@@ -862,6 +863,7 @@ static const struct exynos5433_decon_driver_data exynos5433_decon_int_driver_dat
 	.type = EXYNOS_DISPLAY_TYPE_LCD,
 	.trg_type = EXYNOS_DISPLAY_HW_TRIGGER,
 	.first_win = 0,
+	.primary_win = 1,
 	.lcdblk_offset = 0x1004,
 	.lcdblk_te_unmask_shift = 13,
 };
@@ -870,6 +872,7 @@ static const struct exynos5433_decon_driver_data exynos5433_decon_ext_driver_dat
 	.type = EXYNOS_DISPLAY_TYPE_HDMI,
 	.trg_type = EXYNOS_DISPLAY_HW_TRIGGER,
 	.first_win = 1,
+	.primary_win = 1,
 	.lcdblk_offset = 0x1004,
 	.lcdblk_te_unmask_shift = 13,
 };
