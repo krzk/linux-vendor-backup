@@ -242,6 +242,10 @@ static int s6e8fa0_set_brightness(struct backlight_device *bl_dev)
 		return -EINVAL;
 	}
 
+	if (!ctx->is_power_on) {
+		return -ENODEV;
+	}
+
 	/* TODO: support only over 60nit */
 	gamma_update[1] = brightness;
 	s6e8fa0_dcs_write(ctx, gamma_update, ARRAY_SIZE(gamma_update));
