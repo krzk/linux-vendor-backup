@@ -1314,7 +1314,7 @@ int fimc_is_ischain_power(struct fimc_is_device_ischain *device, int on)
 		set_bit(FIMC_IS_ISCHAIN_POWER_ON, &core->state);
 	} else {
 		/* Check FW state for WFI of A5 */
-		debug = readl(device->interface->regs + ISSR6);
+		debug = readl(device->interface->regs + ISSR(6));
 		printk(KERN_INFO "%s: A5 state(0x%x)\n", __func__, debug);
 
 		/* FIMC-IS local power down */
@@ -2653,13 +2653,14 @@ static int fimc_is_ischain_init(struct fimc_is_device_ischain *device,
 	}
 
 	if(core->companion->companion_status != FIMC_IS_COMPANION_IDLE) {
-		pr_info("[ISC:D:%d] fimc_is_companion_wait wait(%d)\n", device->instance,core->companion->companion_status);
+		pr_info("[ISC:D:%d] fimc_is_companion_wait wait(%d)\n",
+			device->instance,core->companion->companion_status);
 		fimc_is_companion_wait(core->companion);
-		pr_info("[ISC:D:%d] fimc_is_companion_wait wake up(%d)\n", device->instance,core->companion->companion_status);
+		pr_info("[ISC:D:%d] fimc_is_companion_wait wake up(%d)\n",
+			device->instance,core->companion->companion_status);
 	}
 
-	fimc_is_s_int_comb_isp(core, false, INTMR2_INTMCIS22);
-
+	fimc_is_s_int_comb_isp(core, false, INTMR2_INTMCIS(22));
 
 	ret = fimc_is_itf_enum(device);
 	if (ret) {

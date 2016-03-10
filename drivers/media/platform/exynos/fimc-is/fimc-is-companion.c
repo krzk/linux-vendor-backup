@@ -209,14 +209,18 @@ static int fimc_is_comp_i2c_write(struct i2c_client *client ,u16 addr, u16 data)
 
 static int fimc_is_comp_single_write(struct fimc_is_core *core , u16 addr, u16 data)
 {
-	int ret = 0;
 	struct i2c_client *client = core->client0;
-	fimc_is_s_int_comb_isp(core, true, INTMR2_INTMCIS22); /* interrupt on */
+	int ret;
+
+	/* interrupt on */
+	fimc_is_s_int_comb_isp(core, true, INTMR2_INTMCIS(22));
+
 	ret = fimc_is_comp_i2c_write(client, addr, data);
-	if (ret) {
+	if (ret)
 		err("i2c write fail");
-	}
-	fimc_is_s_int_comb_isp(core, false, INTMR2_INTMCIS22); /* interrupt off */
+
+	/* interrupt off */
+	fimc_is_s_int_comb_isp(core, false, INTMR2_INTMCIS(22));
 
 	return ret;
 }

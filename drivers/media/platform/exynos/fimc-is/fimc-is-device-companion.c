@@ -353,7 +353,7 @@ int fimc_is_companion_open(struct fimc_is_device_companion *device)
 	ret = fimc_is_sec_concord_fw_sel(core, &device->pdev->dev, companion_fw_name, master_setf_name, mode_setf_name);
 
 	/* TODO: loading firmware */
-	fimc_is_s_int_comb_isp(core, false, INTMR2_INTMCIS22);
+	fimc_is_s_int_comb_isp(core, false, INTMR2_INTMCIS(22));
 
 	fimc_is_set_spi_config(spi_gpio, FIMC_IS_SPI_FUNC, false);
 
