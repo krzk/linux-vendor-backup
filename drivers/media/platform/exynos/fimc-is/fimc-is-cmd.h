@@ -243,33 +243,4 @@ struct is_common_reg {
 	u32 fcount_sen0;
 };
 
-struct is_mcuctl_reg {
-	u32 mcuctl;
-	u32 bboar;
-
-	u32 intgr0;
-	u32 intcr0;
-	u32 intmr0;
-	u32 intsr0;
-	u32 intmsr0;
-
-	u32 intgr1;
-	u32 intcr1;
-	u32 intmr1;
-	u32 intsr1;
-	u32 intmsr1;
-
-	u32 intcr2;
-	u32 intmr2;
-	u32 intsr2;
-	u32 intmsr2;
-
-	u32 gpoctrl;
-	u32 cpoenctlr;
-	u32 gpictlr;
-
-	u32 pad[0xD];
-
-	struct is_common_reg common_reg;
-};
 #endif
