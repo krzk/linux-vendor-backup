@@ -426,11 +426,11 @@ static int waiting_is_ready(struct fimc_is_interface *interface)
 	int ret = 0;
 	u32 try_count = TRY_RECV_AWARE_COUNT;
 	u32 cfg = readl(interface->regs + INTMSR0);
-	u32 status = INTMSR0_GET_INTMSD0(cfg);
+	u32 status = INTMSR0_GET_INTMSD(0, cfg);
 
 	while (status) {
 		cfg = readl(interface->regs + INTMSR0);
-		status = INTMSR0_GET_INTMSD0(cfg);
+		status = INTMSR0_GET_INTMSD(0, cfg);
 		udelay(100);
 		dbg("Retry to read INTMSR0(%d)\n", try_count);
 
@@ -446,7 +446,7 @@ static int waiting_is_ready(struct fimc_is_interface *interface)
 
 static void send_interrupt(struct fimc_is_interface *interface)
 {
-	writel(INTGR0_INTGD0, interface->regs + INTGR0);
+	writel(INTGR0_INTGD(0), interface->regs + INTGR0);
 }
 
 static int fimc_is_set_cmd(struct fimc_is_interface *itf,
@@ -2327,7 +2327,7 @@ int fimc_is_interface_probe(struct fimc_is_interface *this,
 	INIT_WORK(&this->work_wq[INTR_SHOT_DONE], wq_func_shot);
 
 	this->regs = regs;
-	this->com_regs = (regs + ISSR0);
+	this->com_regs = (regs + ISSR(0));
 
 	if (GET_FIMC_IS_VER_OF_SUBIP(core, mcuctl) < VERSION_OF_NO_NEED_IFLAG)
 		this->need_iflag = true;
