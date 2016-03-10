@@ -1239,6 +1239,10 @@ int fimc_is_ischain_power(struct fimc_is_device_ischain *device, int on)
 		if (rpm_ret < 0)
 			err("pm_runtime_get_sync() return error: %d", rpm_ret);
 
+		/* clear all MCUCTL registers */
+		for (i = 0; i < ISSR(63); i += 4)
+			writel(0, core->regs + i);
+
 		{
 			fimc_is_sec_get_sysfs_finfo(&sysfs_finfo);
 			if (!sysfs_finfo->is_caldata_read) {
