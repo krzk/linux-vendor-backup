@@ -1159,19 +1159,19 @@ static int fimc_is_ischain_loadcalb(struct fimc_is_device_ischain *device,
 static void fimc_is_ischain_forcedown(struct fimc_is_device_ischain *this,
 	bool on)
 {
-#if 0
+	struct fimc_is_core *core = platform_get_drvdata(this->pdev);
+
 	if (on) {
-		printk(KERN_INFO "Set low poweroff mode\n");
-		__raw_writel(0x0, PMUREG_ISP_ARM_OPTION);
-		__raw_writel(0x1CF82000, PMUREG_ISP_LOW_POWER_OFF);
+		pr_info("Set low poweroff mode\n");
+		regmap_write(core->pmu_regmap, PMUREG_ISP_ARM_OPTION, 0x0);
+		regmap_write(core->pmu_regmap, PMUREG_ISP_LOW_POWER_OFF, 0x1CF82000);
 		this->force_down = true;
 	} else {
-		printk(KERN_INFO "Clear low poweroff mode\n");
-		__raw_writel(0xFFFFFFFF, PMUREG_ISP_ARM_OPTION);
-		__raw_writel(0x8, PMUREG_ISP_LOW_POWER_OFF);
+		pr_info("Clear low poweroff mode\n");
+		regmap_write(core->pmu_regmap, PMUREG_ISP_ARM_OPTION, 0xFFFFFFFF);
+		regmap_write(core->pmu_regmap, PMUREG_ISP_LOW_POWER_OFF, 0x8);
 		this->force_down = false;
 	}
-#endif
 }
 
 static void fimc_is_a5_power(struct device *dev, int power_flags)
