@@ -85,7 +85,7 @@ static unsigned long model_dynamic_power(unsigned long freq,
 	return (dynamic_coefficient * v2 * f_mhz) / 1000000; /* mW */
 }
 
-struct devfreq_cooling_ops power_model_simple_ops = {
+struct devfreq_cooling_power power_model_simple_ops = {
 	.get_static_power = model_static_power,
 	.get_dynamic_power = model_dynamic_power,
 };
