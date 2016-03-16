@@ -374,6 +374,15 @@ config SENSORS_APDS990X
 	   To compile this driver as a module, choose M here: the
 	   module will be called apds990x. If unsure, say N here.
 
+config SE_S3FV5RP
+	tristate "S3FV5RP Secure Element driver"
+	help
+	  S3FV5RP Secure Element driver.
+	  This driver provides support for S3FV5RP Secure Element devices.
+
+	  Say Y here to compile support for Secure Element devices into the
+	  kernel or say M to compile it as module (S3FV5RP).
+
 config HMC6352
 	tristate "Honeywell HMC6352 compass"
 	depends on I2C
