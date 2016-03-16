@@ -211,6 +211,11 @@ static void kbase_devfreq_exit(struct device *dev)
 	kbase_devfreq_term_freq_table(kbdev);
 }
 
+static struct devfreq_simple_ondemand_data kbase_devfreq_ondemand_data = {
+	.upthreshold		= 40,
+	.downdifferential	= 5,
+};
+
 int kbase_devfreq_init(struct kbase_device *kbdev)
 {
 	struct devfreq_dev_profile *dp;
@@ -234,7 +239,8 @@ int kbase_devfreq_init(struct kbase_device *kbdev)
 		return -EFAULT;
 
 	kbdev->devfreq = devfreq_add_device(kbdev->dev, dp,
-				"simple_ondemand", NULL);
+				"simple_ondemand",
+				&kbase_devfreq_ondemand_data);
 	if (IS_ERR(kbdev->devfreq)) {
 		kbase_devfreq_term_freq_table(kbdev);
 		return PTR_ERR(kbdev->devfreq);
