@@ -24,9 +24,6 @@
 
 extern const struct cpu_operations smp_spin_table_ops;
 extern const struct cpu_operations cpu_psci_ops;
-#if defined(CONFIG_ARCH_S5P6818)
-extern const struct cpu_operations cpu_s5p6818_ops;
-#endif
 
 const struct cpu_operations *cpu_ops[NR_CPUS];
 
@@ -35,12 +32,6 @@ static const struct cpu_operations *supported_cpu_ops[] __initconst = {
 	&smp_spin_table_ops,
 #endif
 	&cpu_psci_ops,
-/* FIXME: The nxp_ops will be removed after we implement
- * the PSCI in the el3_mon
- */
-#if defined(CONFIG_ARCH_S5P6818)
-	&cpu_s5p6818_ops,
-#endif
 	NULL,
 };
 
