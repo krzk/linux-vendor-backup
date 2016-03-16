@@ -133,9 +133,11 @@ kbase_devfreq_status(struct device *dev, struct devfreq_dev_status *stat)
 	stat->private_data = NULL;
 
 #ifdef CONFIG_DEVFREQ_THERMAL
+#if 0 /* FIXME: devfreq_cooling has no last_status field */
 	if (kbdev->devfreq_cooling)
 		memcpy(&kbdev->devfreq_cooling->last_status, stat,
 				sizeof(*stat));
+#endif
 #endif
 
 	return 0;
