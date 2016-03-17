@@ -59,7 +59,7 @@ kbase_devfreq_target(struct device *dev, unsigned long *target_freq, u32 flags)
 	opp = devfreq_recommended_opp(dev, &freq, flags);
 	voltage = dev_pm_opp_get_voltage(opp);
 	rcu_read_unlock();
-	if (IS_ERR_OR_NULL(opp)) {
+	if (IS_ERR(opp)) {
 		dev_err(dev, "Failed to get opp (%ld)\n", PTR_ERR(opp));
 		return PTR_ERR(opp);
 	}
@@ -268,7 +268,7 @@ int kbase_devfreq_init(struct kbase_device *kbdev)
 				kbdev->dev->of_node,
 				kbdev->devfreq,
 				&power_model_simple_ops);
-		if (IS_ERR_OR_NULL(kbdev->devfreq_cooling)) {
+		if (IS_ERR(kbdev->devfreq_cooling)) {
 			err = PTR_ERR(kbdev->devfreq_cooling);
 			dev_err(kbdev->dev,
 				"Failed to register cooling device (%d)\n",

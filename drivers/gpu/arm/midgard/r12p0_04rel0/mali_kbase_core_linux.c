@@ -3340,7 +3340,7 @@ static int power_control_init(struct platform_device *pdev)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0)) && defined(CONFIG_OF) \
 			&& defined(CONFIG_REGULATOR)
 	kbdev->regulator = regulator_get_optional(kbdev->dev, "mali");
-	if (IS_ERR_OR_NULL(kbdev->regulator)) {
+	if (IS_ERR(kbdev->regulator)) {
 		err = PTR_ERR(kbdev->regulator);
 		kbdev->regulator = NULL;
 		if (err == -EPROBE_DEFER) {
@@ -3361,7 +3361,7 @@ static int power_control_init(struct platform_device *pdev)
 #endif /* LINUX_VERSION_CODE >= 3, 12, 0 */
 
 	kbdev->clock = clk_get(kbdev->dev, "clk_mali");
-	if (IS_ERR_OR_NULL(kbdev->clock)) {
+	if (IS_ERR(kbdev->clock)) {
 		err = PTR_ERR(kbdev->clock);
 		kbdev->clock = NULL;
 		if (err == -EPROBE_DEFER) {
