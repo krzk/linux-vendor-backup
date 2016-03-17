@@ -476,6 +476,27 @@ static int fimc_is_queue_close(struct fimc_is_queue *queue)
 	return ret;
 }
 
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+static int fimc_is_get_bytesperline(struct v4l2_format *format)
+{
+	u32 bytesperline = 0;
+
+	switch (format->fmt.pix.pixelformat) {
+	case V4L2_PIX_FMT_YUYV:
+		bytesperline = format->fmt.pix.width * 2;
+		break;
+	case V4L2_PIX_FMT_MJPEG:
+		bytesperline = format->fmt.pix.width * 2 / MJPEG_TARGET_DIV;
+		break;
+	default:
+		err("unknown pixelformat\n");
+		break;
+	}
+
+	return bytesperline;
+}
+#endif
+
 static int fimc_is_queue_set_format_mplane(struct fimc_is_queue *queue,
 	struct v4l2_format *format)
 {
@@ -513,6 +534,7 @@ static int fimc_is_queue_set_format_mplane(struct fimc_is_queue *queue,
 #ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
 	/* Notify found pixelformat */
 	format->fmt.pix.pixelformat = fmt->pixelformat;
+	format->fmt.pix.bytesperline = fimc_is_get_bytesperline(format);
 #endif
 
 p_err:
