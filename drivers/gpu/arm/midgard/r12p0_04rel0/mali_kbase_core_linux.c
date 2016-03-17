@@ -3350,6 +3350,13 @@ static int power_control_init(struct platform_device *pdev)
 		dev_info(kbdev->dev,
 			"Continuing without Mali regulator control\n");
 		/* Allow probe to continue without regulator */
+	} else {
+		err = regulator_enable(kbdev->regulator);
+		if (err < 0) {
+			dev_err(kbdev->dev, "Failed to enable Mali regulator\n");
+			regulator_put(kbdev->regulator);
+			return err;
+		}
 	}
 #endif /* LINUX_VERSION_CODE >= 3, 12, 0 */
 
@@ -3397,6 +3404,7 @@ if (kbdev->clock != NULL) {
 
 #ifdef CONFIG_REGULATOR
 	if (NULL != kbdev->regulator) {
+		regulator_disable(kbdev->regulator);
 		regulator_put(kbdev->regulator);
 		kbdev->regulator = NULL;
 	}
@@ -3422,6 +3430,7 @@ static void power_control_term(struct kbase_device *kbdev)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0)) && defined(CONFIG_OF) \
 			&& defined(CONFIG_REGULATOR)
 	if (kbdev->regulator) {
+		regulator_disable(kbdev->regulator);
 		regulator_put(kbdev->regulator);
 		kbdev->regulator = NULL;
 	}
