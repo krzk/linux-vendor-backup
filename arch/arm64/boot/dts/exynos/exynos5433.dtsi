@@ -1848,6 +1848,15 @@
 				266000 1000000
 				160000 1000000
 			>;
+			power_model {
+				compatible = "arm,mali-simple-power-model";
+				voltage = <800>;
+				frequency = <500>;
+				static-power = <500>;
+				dynamic-power = <1500>;
+				ts = <20000 2000 (-20) 2>;
+				thermal-zone = "g3d-thermal";
+			};
 		};
 
 		syscon_disp: syscon@13B80000 {
