@@ -20,7 +20,7 @@ config STMMAC_PLATFORM
 	---help---
 	  This selects the platform specific bus support for the stmmac driver.
 	  This is the driver used on several SoCs:
-	  STi, Allwinner, Amlogic Meson, Altera SOCFPGA.
+	  STi, Allwinner, Amlogic Meson, Altera SOCFPGA, Nexell.
 
 	  If you have a controller with this interface, say Y or M here.
 
