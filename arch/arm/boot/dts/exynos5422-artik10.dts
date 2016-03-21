@@ -581,7 +581,6 @@
 					regulator-name = "vdd_ldo25";
 					regulator-min-microvolt = <1800000>;
 					regulator-max-microvolt = <1800000>;
-					regulator-always-on;
 				};
 
 				ldo27_reg: LDO27 {
@@ -730,7 +729,24 @@
 	};
 
 	spi_2: spi@12d40000 {
-		status = "disabled";
+		status = "okay";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		s3fv5rp {
+			compatible = "samsung,s3fv5rp";
+			reg = <0>;
+			gpio-reset = <&gpy7 3 1>;
+			gpio-wakeup = <&gpy7 4 1>;
+			gpio-status = <&gph0 4 0>;
+			vdd_se-supply = <&ldo25_reg>;
+			spi-max-frequency = <10000000>;
+			controller-data {
+				cs-gpio = <&gpb3 1 2>;
+				samsung,spi-feedback-delay = <0>;
+			};
+		};
+
 	};
 
 	i2c_gpio1: i2c@2d {
