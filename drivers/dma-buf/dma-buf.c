@@ -611,7 +611,7 @@ EXPORT_SYMBOL_GPL(dma_buf_begin_cpu_access);
  * @dmabuf:	[in]	buffer to complete cpu access for.
  * @direction:	[in]	length of range for cpu access.
  *
- * This call must always succeed.
+ * Can return negative error values, returns 0 on success.
  */
 void dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 			    enum dma_data_direction direction)
