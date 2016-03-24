@@ -266,11 +266,13 @@ EXPORT_SYMBOL(vibtonz_pwm);
 static ssize_t motor_control_show_motor_on(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	vibtonz_en(1);
+	vibtonz_pwm(127);
 	return 0;
 }
 
 static ssize_t motor_control_show_motor_off(struct device *dev, struct device_attribute *attr, char *buf)
 {
+	vibtonz_pwm(0);
 	vibtonz_en(0);
 	return 0;
 }
