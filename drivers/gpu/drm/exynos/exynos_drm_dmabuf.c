@@ -470,6 +470,21 @@ err_buf_detach:
 	return ERR_PTR(ret);
 }
 
+int exynos_drm_gem_prime_fd_to_handle(struct drm_device *dev,
+		struct drm_file *file_priv, int prime_fd, uint32_t *handle)
+{
+	int ret;
+
+	ret = drm_gem_prime_fd_to_handle(dev, file_priv, prime_fd, handle);
+	if (ret < 0)
+		goto out;
+
+	exynos_drm_gem_register_pid(file_priv);
+
+out:
+	return ret;
+}
+
 MODULE_AUTHOR("Inki Dae <inki.dae@samsung.com>");
 MODULE_DESCRIPTION("Samsung SoC DRM DMABUF Module");
 MODULE_LICENSE("GPL");

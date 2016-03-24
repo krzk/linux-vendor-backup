@@ -155,6 +155,25 @@ static int exynos_drm_gem_handle_create(struct drm_gem_object *obj,
 	return 0;
 }
 
+void exynos_drm_gem_register_pid(struct drm_file *file_priv)
+{
+	struct drm_exynos_file_private *driver_priv = file_priv->driver_priv;
+
+	if (!driver_priv->pid && !driver_priv->tgid) {
+		driver_priv->pid = task_pid_nr(current);
+		driver_priv->tgid = task_tgid_nr(current);
+	} else {
+		if (driver_priv->pid != task_pid_nr(current))
+			DRM_DEBUG_KMS("wrong pid: %ld, %ld\n",
+					(unsigned long)driver_priv->pid,
+					(unsigned long)task_pid_nr(current));
+		if (driver_priv->tgid != task_tgid_nr(current))
+			DRM_DEBUG_KMS("wrong tgid: %ld, %ld\n",
+					(unsigned long)driver_priv->tgid,
+					(unsigned long)task_tgid_nr(current));
+	}
+}
+
 void exynos_drm_gem_destroy(struct exynos_drm_gem_obj *exynos_gem_obj)
 {
 	struct drm_gem_object *obj;
@@ -319,6 +338,8 @@ int exynos_drm_gem_create_ioctl(struct drm_device *dev, void *data,
 		exynos_drm_gem_destroy(exynos_gem_obj);
 		return ret;
 	}
+
+	exynos_drm_gem_register_pid(file_priv);
 
 	DRM_DEBUG("%s:hdl[%d]sz[%d]f[0x%x]obj[0x%x]addr[0x%x]\n",
 		__func__,args->handle, (int)args->size, args->flags,
@@ -1015,6 +1036,8 @@ int exynos_drm_gem_dumb_create(struct drm_file *file_priv,
 		exynos_drm_gem_destroy(exynos_gem_obj);
 		return ret;
 	}
+
+	exynos_drm_gem_register_pid(file_priv);
 
 	return 0;
 }

@@ -89,6 +89,8 @@ struct exynos_drm_gem_obj {
 int exynos_drm_gem_user_limit_ioctl(struct drm_device *dev, void *data,
 				      struct drm_file *filp);
 
+void exynos_drm_gem_register_pid(struct drm_file *file_priv);
+
 /* destroy a buffer with gem object */
 void exynos_drm_gem_destroy(struct exynos_drm_gem_obj *exynos_gem_obj);
 

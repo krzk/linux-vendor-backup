@@ -36,4 +36,8 @@ struct drm_gem_object *exynos_dmabuf_prime_import(struct drm_device *drm_dev,
 #define exynos_dmabuf_prime_export		NULL
 #define exynos_dmabuf_prime_import		NULL
 #endif
+
+int exynos_drm_gem_prime_fd_to_handle(struct drm_device *dev,
+		struct drm_file *file_priv, int prime_fd, uint32_t *handle);
+
 #endif
