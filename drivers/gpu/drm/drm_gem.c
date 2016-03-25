@@ -94,7 +94,6 @@ drm_gem_init(struct drm_device *dev)
 
 	spin_lock_init(&dev->object_name_lock);
 	idr_init(&dev->object_name_idr);
-	mutex_init(&dev->prime_lock);
 
 	mm = kzalloc(sizeof(struct drm_gem_mm), GFP_KERNEL);
 	if (!mm) {

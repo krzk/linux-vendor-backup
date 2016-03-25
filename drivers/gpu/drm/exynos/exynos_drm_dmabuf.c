@@ -198,7 +198,6 @@ static void exynos_dmabuf_release(struct dma_buf *dmabuf)
 {
 	struct exynos_drm_gem_obj *exynos_gem_obj = dmabuf->priv;
 	struct drm_gem_object *obj = &exynos_gem_obj->base;
-	struct drm_device *drm_dev = obj->dev;
 
 	DRM_DEBUG_PRIME("%s\n", __FILE__);
 
@@ -208,10 +207,8 @@ static void exynos_dmabuf_release(struct dma_buf *dmabuf)
 	 * to drop the references that these values had been increased
 	 * at drm_prime_handle_to_fd()
 	 */
-	mutex_lock(&drm_dev->prime_lock);
 	if (obj->export_dma_buf == dmabuf) {
 		obj->export_dma_buf = NULL;
-		mutex_unlock(&drm_dev->prime_lock);
 
 		/*
 		 * drop this gem object refcount to release allocated buffer
@@ -220,7 +217,6 @@ static void exynos_dmabuf_release(struct dma_buf *dmabuf)
 		drm_gem_object_unreference_unlocked(obj);
 		return;
 	}
-	mutex_unlock(&drm_dev->prime_lock);
 }
 
 static void *exynos_gem_dmabuf_kmap_atomic(struct dma_buf *dma_buf,

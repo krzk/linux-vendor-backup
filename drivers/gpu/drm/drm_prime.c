@@ -62,27 +62,6 @@ struct drm_prime_member {
 	uint32_t handle;
 };
 
-static bool drm_prime_check_dmabuf_valid(struct dma_buf *dmabuf)
-{
-	struct file *file = dmabuf->file;
-
-	/*
-	 * There could be a race when drm_gem_prime_handle_to_fd() is requested
-	 * during __fput() is executed with same dmabuf.
-	 * Let's suppose that there are process A and B. A creates a gem obj
-	 * and exports it to dmabuf, B opens gem name which comes from A.
-	 * And A is closing dmabuf and B tries to import dmabuf at that time.
-	 * In this case, the dmabuf is in obj->export_dma_buf cache, because
-	 * gem obj is still valid, and B could get dmabuf from this cache,
-	 * but this dmabuf is invalid already, so B has to get a new dmabuf
-	 * directly.
-	 */
-	if (!atomic_long_read(&file->f_count))
-		return false;
-
-	return true;
-}
-
 int drm_gem_prime_handle_to_fd(struct drm_device *dev,
 		struct drm_file *file_priv, uint32_t handle, uint32_t flags,
 		int *prime_fd)
@@ -95,33 +74,21 @@ int drm_gem_prime_handle_to_fd(struct drm_device *dev,
 	if (!obj)
 		return -ENOENT;
 
-	mutex_lock(&dev->prime_lock);
 	mutex_lock(&file_priv->prime.lock);
 	/* re-export the original imported object */
 	if (obj->import_attach) {
-		if (!drm_prime_check_dmabuf_valid(obj->import_attach->dmabuf))
-			goto get_direct;
-
 		get_dma_buf(obj->import_attach->dmabuf);
 		*prime_fd = dma_buf_fd(obj->import_attach->dmabuf, flags);
 		drm_gem_object_unreference_unlocked(obj);
 		mutex_unlock(&file_priv->prime.lock);
-		mutex_unlock(&dev->prime_lock);
-
-		DRM_DEBUG("%s:hdl[%d]f[0x%x]obj[0x%x]fd[%d]\n",
-			__func__, handle, flags, (int)obj, *prime_fd);
 		return 0;
 	}
 
 	if (obj->export_dma_buf) {
-		if (!drm_prime_check_dmabuf_valid(obj->export_dma_buf))
-			goto get_direct;
-
 		get_dma_buf(obj->export_dma_buf);
 		*prime_fd = dma_buf_fd(obj->export_dma_buf, flags);
 		drm_gem_object_unreference_unlocked(obj);
 	} else {
-get_direct:
 		buf = dev->driver->gem_prime_export(dev, obj, flags);
 		if (IS_ERR(buf)) {
 			/* normally the created dma-buf takes ownership of the ref,
@@ -142,16 +109,10 @@ get_direct:
 	if (ret) {
 		drm_gem_object_unreference_unlocked(obj);
 		mutex_unlock(&file_priv->prime.lock);
-		mutex_unlock(&dev->prime_lock);
 		return ret;
 	}
 
 	mutex_unlock(&file_priv->prime.lock);
-	mutex_unlock(&dev->prime_lock);
-
-	DRM_DEBUG("%s:hdl[%d]f[0x%x]obj[0x%x]fd[%d]\n",
-		__func__, handle, flags, (int)obj, *prime_fd);
-
 	return 0;
 }
 EXPORT_SYMBOL(drm_gem_prime_handle_to_fd);
@@ -167,7 +128,6 @@ int drm_gem_prime_fd_to_handle(struct drm_device *dev,
 	if (IS_ERR(dma_buf))
 		return PTR_ERR(dma_buf);
 
-	mutex_lock(&dev->prime_lock);
 	mutex_lock(&file_priv->prime.lock);
 
 	ret = drm_prime_lookup_imported_buf_handle(&file_priv->prime,
@@ -195,11 +155,6 @@ int drm_gem_prime_fd_to_handle(struct drm_device *dev,
 		goto fail;
 
 	mutex_unlock(&file_priv->prime.lock);
-	mutex_unlock(&dev->prime_lock);
-
-	DRM_DEBUG("%s:fd[%d]obj[0x%x]hdl[%d]\n",
-		__func__, prime_fd, (int)obj, *handle);
-
 	return 0;
 
 fail:
@@ -210,7 +165,6 @@ fail:
 out_put:
 	dma_buf_put(dma_buf);
 	mutex_unlock(&file_priv->prime.lock);
-	mutex_unlock(&dev->prime_lock);
 	return ret;
 }
 EXPORT_SYMBOL(drm_gem_prime_fd_to_handle);
