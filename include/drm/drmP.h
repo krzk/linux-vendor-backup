@@ -1216,12 +1216,6 @@ struct drm_device {
 	/*@{ */
 	spinlock_t object_name_lock;
 	struct idr object_name_idr;
-
-	/*
-	 * prime_lock - protects dma buf state of exported GEM objects
-	 */
-	struct mutex prime_lock;
-
 	/*@} */
 	int switch_power_state;
 
