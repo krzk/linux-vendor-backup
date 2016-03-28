@@ -692,6 +692,7 @@ out:
 
 	return ret;
 }
+EXPORT_SYMBOL(little_core1_hotplug_in);
 
 static void event_hotplug_in_work(struct work_struct *work)
 {
