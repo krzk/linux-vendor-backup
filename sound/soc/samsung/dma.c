@@ -87,6 +87,7 @@ int check_adma_status(void)
 {
 	return atomic_read(&dram_usage_cnt) ? 1 : 0;
 }
+EXPORT_SYMBOL(check_adma_status);
 
 /* dma_enqueue
  *
