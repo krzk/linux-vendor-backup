@@ -364,6 +364,7 @@ static void exynos_add_device_to_pd(struct exynos_pm_domain *pd,
 	if (!ret) {
 		pm_genpd_dev_need_restore(dev, true);
 		pr_info(PM_DOMAIN_PREFIX "%s, Device : %s Registered\n", pd->genpd.name, dev_name(dev));
+		pm_genpd_poweron(&pd->genpd);
 	} else
 		pr_err(PM_DOMAIN_PREFIX "%s can't add device %s\n", pd->genpd.name, dev_name(dev));
 }
