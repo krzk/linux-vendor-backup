@@ -188,7 +188,7 @@ void exynos_drm_gem_destroy(struct exynos_drm_gem_obj *exynos_gem_obj)
 
 	DRM_DEBUG("%s:obj[0x%x]addr[0x%x]ref[%d][%s]\n", __func__,
 		(int)obj, (int)exynos_gem_obj->buffer->dma_addr,
-		atomic_read(&obj->handle_count),
+		obj->handle_count,
 		obj->import_attach ? "imported" : "free");
 
 	/*
@@ -440,7 +440,7 @@ void *exynos_drm_gem_get_dmabuf(struct drm_device *dev,
 
 	drm_gem_object_unreference_unlocked(obj);
 
-	return obj->export_dma_buf;
+	return obj->dma_buf;
 }
 
 int exynos_drm_gem_map_offset_ioctl(struct drm_device *dev, void *data,

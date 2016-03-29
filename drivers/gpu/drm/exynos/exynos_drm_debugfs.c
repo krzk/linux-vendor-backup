@@ -37,11 +37,11 @@ static int exynos_drm_debugfs_gem_one_info(int id, void *ptr, void *data)
 				file_priv->tgid,
 				id,
 				atomic_read(&obj->refcount.refcount),
-				atomic_read(&obj->handle_count),
+				obj->handle_count,
 				exynos_gem_obj->size,
 				exynos_gem_obj->flags,
 				buf->pfnmap,
-				obj->export_dma_buf ? 1 : 0,
+				obj->dma_buf ? 1 : 0,
 				obj->import_attach ? 1 : 0,
 				obj,
 				obj->name);

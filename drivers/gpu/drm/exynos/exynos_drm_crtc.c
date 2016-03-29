@@ -365,7 +365,7 @@ static int exynos_drm_crtc_page_flip(struct drm_crtc *crtc,
 			}
 
 			obj = &exynos_fb->exynos_gem_obj[i]->base;
-			if (!obj->export_dma_buf) {
+			if (!obj->dma_buf) {
 				WARN_ON(1);
 				continue;
 			}
@@ -375,7 +375,7 @@ static int exynos_drm_crtc_page_flip(struct drm_crtc *crtc,
 			 * object to reservation entry.
 			 */
 			ret = dmabuf_sync_get(sync,
-					obj->export_dma_buf,
+					obj->dma_buf,
 					DMA_BUF_ACCESS_DMA_R);
 			if (WARN_ON(ret < 0))
 				continue;
