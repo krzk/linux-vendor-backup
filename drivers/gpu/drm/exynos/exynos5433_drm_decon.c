@@ -408,8 +408,6 @@ static void decon_apply(struct decon_context *ctx)
 	struct exynos_drm_plane *plane;
 	int i;
 
-	decon_setup_trigger(ctx);
-
 	for (i = drv_data->first_win; i < WINDOWS_NR; i++) {
 		plane = &ctx->planes[i];
 		if (plane->enabled)
@@ -435,8 +433,6 @@ static void decon_reset(struct decon_context *ctx)
 							VIDCON1_VCLK_MASK);
 	decon_set_bits(ctx, DECON_CRCCTRL, CRCCTRL_MASK,
 		       CRCCTRL_CRCEN | CRCCTRL_CRCSTART_F | CRCCTRL_CRCCLKEN);
-
-	decon_setup_trigger(ctx);
 }
 
 /* this function will be replaced by clk API call */
