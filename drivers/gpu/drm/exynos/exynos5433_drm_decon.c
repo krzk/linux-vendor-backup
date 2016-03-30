@@ -56,6 +56,8 @@ struct decon_context {
 #define BIT_IRQS_ENABLED		1
 	unsigned long			enabled;
 	bool				i80_if;
+	wait_queue_head_t		wait_vsync_queue;
+	atomic_t			wait_vsync_event;
 	atomic_t			win_updated;
 	struct exynos5433_decon_driver_data *drv_data;
 };
@@ -68,6 +70,25 @@ static inline void decon_set_bits(struct decon_context *ctx, u32 reg, u32 mask,
 	val &= mask;
 	val |= readl(ctx->addr + reg) & ~mask;
 	writel(val, ctx->addr + reg);
+}
+
+static void decon_wait_for_vblank(struct exynos_drm_crtc *crtc)
+{
+	struct decon_context *ctx = crtc->ctx;
+
+	if (ctx->suspended)
+		return;
+
+	atomic_set(&ctx->wait_vsync_event, 1);
+
+	/*
+	 * wait for FIMD to signal VSYNC interrupt or return after
+	 * timeout which is set to 50ms (refresh rate of 20).
+	 */
+	if (!wait_event_timeout(ctx->wait_vsync_queue,
+				!atomic_read(&ctx->wait_vsync_event),
+				HZ/20))
+		DRM_DEBUG_KMS("vblank wait timed out.\n");
 }
 
 static int decon_enable_vblank(struct exynos_drm_crtc *crtc)
@@ -550,6 +571,12 @@ void decon_te_irq_handler(struct exynos_drm_crtc *crtc)
 		writel(val, ctx->addr + DECON_TRIGCON);
 	}
 
+	/* Wakes up vsync event queue */
+	if (atomic_read(&ctx->wait_vsync_event)) {
+		atomic_set(&ctx->wait_vsync_event, 0);
+		wake_up(&ctx->wait_vsync_queue);
+	}
+
 	drm_handle_vblank(ctx->drm_dev, ctx->pipe);
 }
 
@@ -557,6 +584,7 @@ static struct exynos_drm_crtc_ops decon_crtc_ops = {
 	.dpms			= decon_dpms,
 	.enable_vblank		= decon_enable_vblank,
 	.disable_vblank		= decon_disable_vblank,
+	.wait_for_vblank	= decon_wait_for_vblank,
 	.commit			= decon_commit,
 	.win_commit		= decon_win_commit,
 	.win_disable		= decon_win_disable,
@@ -683,6 +711,12 @@ static irqreturn_t decon_vsync_irq_handler(int irq, void *dev_id)
 	}
 
 out:
+	/* set wait vsync event to zero and wake up queue. */
+	if (atomic_read(&ctx->wait_vsync_event)) {
+		atomic_set(&ctx->wait_vsync_event, 0);
+		wake_up(&ctx->wait_vsync_queue);
+	}
+
 	return IRQ_HANDLED;
 }
 
@@ -774,6 +808,9 @@ static int exynos5433_decon_probe(struct platform_device *pdev)
 		dev_err(dev, "lcd_sys irq request failed\n");
 		return ret;
 	}
+
+	init_waitqueue_head(&ctx->wait_vsync_queue);
+	atomic_set(&ctx->wait_vsync_event, 0);
 
 	platform_set_drvdata(pdev, ctx);
 
