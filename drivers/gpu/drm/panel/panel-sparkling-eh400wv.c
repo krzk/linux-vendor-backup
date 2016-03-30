@@ -46,6 +46,7 @@ struct eh400wv {
 	u32 height_mm;
 	bool is_power_on;
 
+	u8 id[3];
 	/* This field is tested by functions directly accessing DSI bus before
 	 * transfer, transfer is skipped if it is set. In case of transfer
 	 * failure or unexpected response the field is set to error value.
@@ -269,9 +270,61 @@ static void eh400wv_apply_display_parameter(struct eh400wv *ctx)
 	msleep(120);
 }
 
+static void eh400wv_set_maximum_return_packet_size(struct eh400wv *ctx,
+						   u16 size)
+{
+	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
+	int ret;
+
+	if (ctx->error < 0)
+		return;
+
+	ret = mipi_dsi_set_maximum_return_packet_size(dsi, size);
+	if (ret < 0) {
+		dev_err(ctx->dev,
+			"error %d setting maximum return packet size to %d\n",
+			ret, size);
+		ctx->error = ret;
+	}
+}
+
+static int eh400wv_dcs_read(struct eh400wv *ctx, u8 cmd, void *data, size_t len)
+{
+	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
+	int ret;
+
+	if (ctx->error < 0)
+		return ctx->error;
+
+	ret = mipi_dsi_dcs_read(dsi, cmd, data, len);
+	if (ret < 0) {
+		dev_err(ctx->dev, "error %d reading dcs seq(%#x)\n", ret, cmd);
+		ctx->error = ret;
+	}
+
+	return ret;
+}
+
+static void eh400wv_read_mtp_id(struct eh400wv *ctx)
+{
+	int ret;
+	int id_len = ARRAY_SIZE(ctx->id);
+
+	ret = eh400wv_dcs_read(ctx, 0x04, ctx->id, id_len);
+	if (ret < id_len || ctx->error < 0) {
+		dev_err(ctx->dev, "read id failed\n");
+		ctx->error = -EIO;
+		return;
+	}
+}
+
 static void eh400wv_panel_init(struct eh400wv *ctx)
 {
 	eh400wv_apply_power_cond(ctx);
+	eh400wv_set_maximum_return_packet_size(ctx, 3);
+	eh400wv_read_mtp_id(ctx);
+	if (ctx->error != 0)
+		return;
 	eh400wv_gamma_setting(ctx);
 	eh400wv_apply_display_parameter(ctx);
 }
