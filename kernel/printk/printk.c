@@ -944,7 +944,6 @@ static ssize_t kmsg_read(struct log_buffer *log_b, struct file *file,
 			ret = wait_event_interruptible(log_b->wait,
 						user->seq != log_b->next_seq);
 		} else {
-			rcu_read_unlock();
 			kref_get(&log_b->refcount);
 			ret = wait_event_interruptible(log_b->wait,
 						user->seq != log_b->next_seq);
@@ -952,7 +951,6 @@ static ssize_t kmsg_read(struct log_buffer *log_b, struct file *file,
 				ret = -ENXIO;
 			if (kref_put(&log_b->refcount, log_buf_release))
 				ret = -ENXIO;
-			rcu_read_lock();
 		}
 		if (ret)
 			goto out;
@@ -1057,6 +1055,7 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
 	ssize_t ret = -ENXIO;
 	int minor = iminor(file->f_inode);
 	struct log_buffer *log_b;
+	int found = 0;
 
 	if (!user)
 		return -EBADF;
@@ -1067,11 +1066,17 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
 	rcu_read_lock();
 	list_for_each_entry_rcu(log_b, &log_buf.list, list) {
 		if (log_b->minor == minor) {
-			ret = kmsg_read(log_b, file, buf, count, ppos);
+			found = 1;
+			kref_get(&log_b->refcount);
 			break;
 		}
 	}
 	rcu_read_unlock();
+
+	if(found){
+		ret = kmsg_read(log_b, file, buf, count, ppos);
+		kref_put(&log_b->refcount, log_buf_release);
+	}
 	return ret;
 }
 
@@ -1211,6 +1216,7 @@ static int devkmsg_open(struct inode *inode, struct file *file)
 	int ret = -ENXIO;
 	int minor = iminor(file->f_inode);
 	struct log_buffer *log_b;
+	int found = 0;
 
 	/* write-only does not need any file context */
 	if ((file->f_flags & O_ACCMODE) == O_WRONLY)
@@ -1228,11 +1234,17 @@ static int devkmsg_open(struct inode *inode, struct file *file)
 	rcu_read_lock();
 	list_for_each_entry_rcu(log_b, &log_buf.list, list) {
 		if (log_b->minor == minor) {
-			ret = kmsg_open(log_b, file);
+			found = 1;
+			kref_get(&log_b->refcount);
 			break;
 		}
 	}
 	rcu_read_unlock();
+
+	if(found){
+		ret = kmsg_open(log_b, file);
+		kref_put(&log_b->refcount, log_buf_release);
+	}
 	return ret;
 }
 
