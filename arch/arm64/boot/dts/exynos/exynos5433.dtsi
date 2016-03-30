@@ -2079,6 +2079,7 @@
 			interrupt-names = "fifo", "vsync", "lcd_sys";
 			interrupts = <0 201 0>, <0 202 0>, <0 203 0>;
 			power-domains = <&pd_disp>;
+			samsung,disp-sysreg = <&syscon_disp>;
 			status = "disabled";
 			iommus = <&sysmmu_decon0x>, <&sysmmu_decon1x>;
 			iommu-names = "m0", "m1";
