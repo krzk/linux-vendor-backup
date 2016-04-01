@@ -1192,8 +1192,11 @@ static bool exynos_dsi_transfer_finish(struct exynos_dsi *dsi)
 	if (xfer->tx_done != xfer->tx_len)
 		return true;
 
-	if (xfer->rx_done != xfer->rx_len)
+	if (xfer->rx_done != xfer->rx_len) {
 		exynos_dsi_read_from_fifo(dsi, xfer);
+		if (xfer->rx_done == 0)
+			return false;
+	}
 
 	if (xfer->rx_done != xfer->rx_len)
 		return true;
