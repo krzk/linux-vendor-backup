@@ -414,6 +414,7 @@
 	};
 
 	serial@13800000 {
+		force-auto-flow-control;
 		status = "okay";
 	};
 
@@ -486,10 +487,6 @@
 		pinctrl-names = "default";
 		pinctrl-0=<&cfg_wlanen &cfg_wlanhostwake>;
 		status = "okay";
-	};
-
-	serial@13800000 {
-		force-auto-flow-control;
 	};
 
 	bluetooth {
