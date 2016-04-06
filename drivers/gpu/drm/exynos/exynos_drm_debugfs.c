@@ -25,16 +25,14 @@ static int exynos_drm_debugfs_gem_one_info(int id, void *ptr, void *data)
 {
 	struct drm_gem_object *obj = (struct drm_gem_object *)ptr;
 	struct exynos_drm_debugfs_gem_info_data *gem_info_data = data;
-	struct drm_exynos_file_private *file_priv =
-					gem_info_data->filp->driver_priv;
 	struct exynos_drm_gem_obj *exynos_gem_obj = to_exynos_gem_obj(obj);
 	struct exynos_drm_gem_buf *buf = exynos_gem_obj->buffer;
 
 	seq_printf(gem_info_data->m,
 			"%5d\t%5d\t%4d\t%4d\t\t%4d\t0x%08lx\t0x%x\t%4d\t%4d\t\t"
 			"%4d\t\t0x%p\t%6d\n",
-				gem_info_data->filp->pid,
-				file_priv->tgid,
+				exynos_gem_obj->pid,
+				exynos_gem_obj->tgid,
 				id,
 				atomic_read(&obj->refcount.refcount),
 				atomic_read(&obj->handle_count),

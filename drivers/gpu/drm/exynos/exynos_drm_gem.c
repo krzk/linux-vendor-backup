@@ -241,6 +241,9 @@ struct exynos_drm_gem_obj *exynos_drm_gem_init(struct drm_device *dev,
 		return NULL;
 	}
 
+	exynos_gem_obj->pid = task_pid_nr(current);
+	exynos_gem_obj->tgid = task_tgid_nr(current);
+
 	DRM_DEBUG_KMS("created file object = 0x%x\n", (unsigned int)obj->filp);
 
 	return exynos_gem_obj;

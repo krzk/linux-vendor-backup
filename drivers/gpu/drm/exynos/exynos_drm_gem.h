@@ -82,6 +82,8 @@ struct exynos_drm_gem_obj {
 	unsigned long			packed_size;
 	struct vm_area_struct		*vma;
 	unsigned int			flags;
+	pid_t	pid;
+	pid_t	tgid;
 };
 
 int exynos_drm_gem_user_limit_ioctl(struct drm_device *dev, void *data,

@@ -234,8 +234,6 @@ static int exynos_drm_open(struct drm_device *dev, struct drm_file *file)
 	if (!file_priv)
 		return -ENOMEM;
 
-	file_priv->tgid = task_tgid_nr(current);
-
 	drm_prime_init_file_private(&file->prime);
 	file->driver_priv = file_priv;
 
