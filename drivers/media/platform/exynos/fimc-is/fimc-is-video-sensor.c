@@ -723,6 +723,11 @@ static int fimc_is_sen_video_g_ctrl(struct file *file, void *priv,
 		else
 			ctrl->value = 0;
 		break;
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	case V4L2_CID_MIN_BUFFERS_FOR_CAPTURE:
+		ctrl->value = FIMC_IS_MIN_BUFFERS_FOR_CAPTURE;
+		break;
+#endif
 	default:
 		ret = fimc_is_sensor_g_ctrl(device, ctrl);
 		if (ret) {
