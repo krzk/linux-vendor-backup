@@ -495,6 +495,26 @@ static int fimc_is_get_bytesperline(struct v4l2_format *format)
 
 	return bytesperline;
 }
+
+static int fimc_is_get_sizeimage(struct v4l2_format *format)
+{
+	u32 sizeimage = 0;
+
+	switch (format->fmt.pix.pixelformat) {
+	case V4L2_PIX_FMT_YUYV:
+		sizeimage = format->fmt.pix.width * format->fmt.pix.height * 2;
+		break;
+	case V4L2_PIX_FMT_MJPEG:
+		sizeimage = format->fmt.pix.width * format->fmt.pix.height * 2
+			/ MJPEG_TARGET_DIV;
+		break;
+	default:
+		err("unknown pixelformat\n");
+		break;
+	}
+
+	return sizeimage;
+}
 #endif
 
 static int fimc_is_queue_set_format_mplane(struct fimc_is_queue *queue,
@@ -535,6 +555,7 @@ static int fimc_is_queue_set_format_mplane(struct fimc_is_queue *queue,
 	/* Notify found pixelformat */
 	format->fmt.pix.pixelformat = fmt->pixelformat;
 	format->fmt.pix.bytesperline = fimc_is_get_bytesperline(format);
+	format->fmt.pix.sizeimage = fimc_is_get_sizeimage(format);
 #endif
 
 p_err:
