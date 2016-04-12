@@ -1525,6 +1525,13 @@
 	status = "okay";
 };
 
+&mic {
+	status = "okay";
+
+	i80-if-timings {
+	};
+};
+
 &hdmi {
 	hpd-gpio = <&gpa3 0 0>;
 	status = "okay";
