@@ -38,6 +38,7 @@ static const char * const decon_clks_name[] = {
 
 struct exynos5433_decon_driver_data {
 	enum exynos_drm_output_type type;
+	enum exynos_drm_trigger_type trg_type;
 	unsigned int nr_window;
 	unsigned int first_win;
 };
@@ -125,10 +126,15 @@ static void decon_disable_vblank(struct exynos_drm_crtc *crtc)
 
 static void decon_setup_trigger(struct decon_context *ctx)
 {
-	enum exynos_drm_output_type type = ctx->drv_data->type;
-	u32 val;
+	enum exynos_drm_trigger_type trg_type = ctx->drv_data->trg_type;
+	u32 val = 0;
 
-	if (type == EXYNOS_DISPLAY_TYPE_HDMI)
+	val &= ~(TRIGCON_SWTRIGEN | TRIGCON_HWTRIGEN_I80_RGB |
+		TRIGCON_HWTRIGMASK_I80_RGB | TRIGCON_TRIGEN_PER_F |
+		TRIGCON_TRIGEN_F);
+
+	/* HW trigger mode is mandatory for HDMI. */
+	if (trg_type == EXYNOS_DISPLAY_HW_TRIGGER)
 		val = TRIGCON_TRIGEN_PER_F | TRIGCON_TRIGEN_F
 			| TRIGCON_HWTRIGMASK_I80_RGB | TRIGCON_HWTRIGEN_I80_RGB;
 	else
@@ -200,7 +206,8 @@ static void decon_commit(struct exynos_drm_crtc *crtc)
 		writel(val, ctx->addr + DECON_VIDTCON11);
 	}
 
-	decon_setup_trigger(ctx);
+	if (ctx->i80_if)
+		decon_setup_trigger(ctx);
 
 	/* enable output and display signal */
 	decon_set_bits(ctx, DECON_VIDCON0, VIDCON0_ENVID | VIDCON0_ENVID_F, ~0);
@@ -356,7 +363,7 @@ static void decon_win_commit(struct exynos_drm_crtc *crtc, unsigned int win)
 	val |= STANDALONE_UPDATE_F;
 	writel(val, ctx->addr + DECON_UPDATE);
 
-	if (ctx->i80_if)
+	if (ctx->i80_if && drv_data->trg_type == EXYNOS_DISPLAY_SW_TRIGGER)
 		atomic_set(&ctx->win_updated, 1);
 
 	plane->enabled = true;
@@ -559,10 +566,14 @@ static void decon_dpms(struct exynos_drm_crtc *crtc, int mode)
 void decon_te_irq_handler(struct exynos_drm_crtc *crtc)
 {
 	struct decon_context *ctx = crtc->ctx;
+	enum exynos_drm_trigger_type trg_type = ctx->drv_data->trg_type;
 	u32 val;
 
 	if (!test_bit(BIT_CLKS_ENABLED, &ctx->enabled))
 		return;
+
+	if (trg_type == EXYNOS_DISPLAY_HW_TRIGGER)
+		goto out;
 
 	if (atomic_add_unless(&ctx->win_updated, -1, 0)) {
 		/* trigger */
@@ -571,6 +582,7 @@ void decon_te_irq_handler(struct exynos_drm_crtc *crtc)
 		writel(val, ctx->addr + DECON_TRIGCON);
 	}
 
+out:
 	/* Wakes up vsync event queue */
 	if (atomic_read(&ctx->wait_vsync_event)) {
 		atomic_set(&ctx->wait_vsync_event, 0);
@@ -769,7 +781,8 @@ static int exynos5433_decon_probe(struct platform_device *pdev)
 	drv_data = get_driver_data(pdev);
 	ctx->drv_data = drv_data;
 
-	if (of_get_child_by_name(dev->of_node, "i80-if-timings"))
+	if (of_get_child_by_name(dev->of_node, "i80-if-timings") ||
+	    drv_data->type == EXYNOS_DISPLAY_TYPE_HDMI)
 		ctx->i80_if = true;
 
 	for (i = 0; i < ARRAY_SIZE(decon_clks_name); i++) {
@@ -826,11 +839,13 @@ static int exynos5433_decon_remove(struct platform_device *pdev)
 
 static const struct exynos5433_decon_driver_data exynos5433_decon_int_driver_data = {
 	.type = EXYNOS_DISPLAY_TYPE_LCD,
+	.trg_type = EXYNOS_DISPLAY_HW_TRIGGER,
 	.first_win = 0,
 };
 
 static const struct exynos5433_decon_driver_data exynos5433_decon_ext_driver_data = {
 	.type = EXYNOS_DISPLAY_TYPE_HDMI,
+	.trg_type = EXYNOS_DISPLAY_HW_TRIGGER,
 	.first_win = 1,
 };
 

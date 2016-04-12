@@ -43,6 +43,12 @@ enum exynos_drm_output_type {
 	EXYNOS_DISPLAY_TYPE_VIDI,
 };
 
+/* this enumerates trigger types on command mode. */
+enum exynos_drm_trigger_type {
+	EXYNOS_DISPLAY_SW_TRIGGER,
+	EXYNOS_DISPLAY_HW_TRIGGER,
+};
+
 /*
  * Exynos drm common overlay structure.
  *
