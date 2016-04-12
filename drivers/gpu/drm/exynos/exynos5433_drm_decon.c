@@ -655,8 +655,17 @@ static void decon_clear_channel(struct decon_context *ctx)
 		val |= STANDALONE_UPDATE_F;
 		writel(val, ctx->addr + DECON_UPDATE);
 	}
-	/* TODO: wait for possible vsync */
-	msleep(50);
+
+	atomic_set(&ctx->wait_vsync_event, 1);
+
+	/*
+	 * wait for FIMD to signal VSYNC interrupt or return after
+	 * timeout which is set to 50ms (refresh rate of 20).
+	 */
+	if (!wait_event_timeout(ctx->wait_vsync_queue,
+				!atomic_read(&ctx->wait_vsync_event),
+				HZ/20))
+		DRM_DEBUG_KMS("vblank wait timed out.\n");
 
 err:
 	while (--i >= 0)
