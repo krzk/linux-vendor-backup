@@ -272,3 +272,10 @@ config VIDEO_VIM2M
 	  This is a virtual test device for the memory-to-memory driver
 	  framework.
 endif #V4L_TEST_DRIVERS
+
+config VIDEO_NEXELL_CODEC
+	tristate "Nexell Video Codec"
+	depends on VIDEO_V4L2
+	default n
+	---help---
+	  This is a v4l2 driver for Nesell Video Codec.
