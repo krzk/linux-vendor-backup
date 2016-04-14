@@ -218,7 +218,6 @@ static int s3c_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		tin_rate = pwm_calc_tin(pwm, period);
 		clk_set_rate(s3c_pwm->clk_div, tin_rate);
 		tin_rate = clk_get_rate(s3c_pwm->clk_div);
-		s3c_pwm->period_ns = period_ns;
 		pwm_dbg(s3c, "tin_rate=%lu\n", tin_rate);
 	} else {
 		tin_rate = clk_get_rate(s3c_pwm->clk_tin);
