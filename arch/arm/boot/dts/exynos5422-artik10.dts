@@ -23,6 +23,7 @@
 	aliases {
 		i2c11 = &i2c_gpio0;
 		i2c12 = &i2c_gpio1;
+		i2c13 = &i2c_gpio2;
 	};
 
 	chosen {
@@ -364,7 +365,7 @@
 		hpd-gpio = <&gpx3 7 0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&hdmi_hpd_irq>;
-		ddc = <&hsi2c_3>;
+		ddc = <&i2c_gpio2>;
 
 		vdd_osc-supply = <&ldo7_reg>;
 		vdd_pll-supply = <&ldo6_reg>;
@@ -384,9 +385,13 @@
 		clocks = <&clock 1324>, <&clock 1323>, <&clock 1059>;
 	};
 
-	hsi2c_3: hsi2c@12CD0000 {
+	i2c_gpio2: i2c@50 {
+		compatible = "i2c-gpio";
+		gpios = <&gpb2 2 0 &gpb2 3 0>;
+		i2c-gpio,delay-us = <2>;    /* ~100kHz */
+		#address-cells = <1>;
+		#size-cells = <0>;
 		status = "okay";
-		samsung,i2c-max-bus-freq = <100000>;
 
 		hdmiddc@50 {
 			compatible = "samsung,exynos4210-hdmiddc";
