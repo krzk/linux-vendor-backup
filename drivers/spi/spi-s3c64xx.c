@@ -45,6 +45,8 @@
 #ifdef CONFIG_EXYNOS_SPI_RESET_DURING_DSTOP
 static LIST_HEAD(drvdata_list);
 #endif
+static int disable = 0;
+module_param(disable, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
 
 #define MAX_SPI_PORTS		5
 #define SPI_AUTOSUSPEND_TIMEOUT		(100)
@@ -1393,6 +1395,12 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 	struct spi_master *master;
 	int ret, irq;
 	char clk_name[16];
+
+	/* WIP for Artik */
+	if (disable) {
+		dev_err(&pdev->dev, "Disable SPI: WIP for Artik ATS\n");
+		return -ENODEV;
+	}
 
 	if (!sci && pdev->dev.of_node) {
 		sci = s3c64xx_spi_parse_dt(&pdev->dev);
