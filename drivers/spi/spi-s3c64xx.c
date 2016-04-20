@@ -1048,6 +1048,12 @@ static struct s3c64xx_spi_csinfo *s3c64xx_get_slave_ctrldata(
 		return ERR_PTR(-EINVAL);
 	}
 
+	/* WIP for Artik */
+	if (of_property_read_bool(data_np, "artik,disable_for_ats") && disable) {
+		dev_err(&spi->dev, "disable : WIP for artik ATS\n");
+		return ERR_PTR(-ENODEV);
+	}
+
 	cs = kzalloc(sizeof(*cs), GFP_KERNEL);
 	if (!cs) {
 		dev_err(&spi->dev, "could not allocate memory for controller data\n");
@@ -1395,12 +1401,6 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 	struct spi_master *master;
 	int ret, irq;
 	char clk_name[16];
-
-	/* WIP for Artik */
-	if (disable) {
-		dev_err(&pdev->dev, "Disable SPI: WIP for Artik ATS\n");
-		return -ENODEV;
-	}
 
 	if (!sci && pdev->dev.of_node) {
 		sci = s3c64xx_spi_parse_dt(&pdev->dev);
