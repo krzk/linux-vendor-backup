@@ -674,6 +674,7 @@
 		controller-data {
 			cs-gpio = <&gpb 5 0>;
 			samsung,spi-feedback-delay = <2>;
+			artik,disable_for_ats;	/* for ats */
 		};
 	};
 
@@ -687,6 +688,7 @@
 		controller-data {
 			cs-gpio = <&gpm3 3 0>;
 			samsung,spi-feedback-delay = <0>;
+			artik,disable_for_ats;	/* for ats */
 		};
 	};
 };
