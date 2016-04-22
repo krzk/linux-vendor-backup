@@ -1112,6 +1112,7 @@
 			cs-gpio = <&gpy7 1 0>;
 			samsung,spi-feedback-delay = <0x2>;
 			samsung,spi-chip-select-mode;
+			artik,disable_for_ats;  /* for ats */
 		};
 	};
 };
