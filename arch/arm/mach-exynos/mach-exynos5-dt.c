@@ -27,6 +27,29 @@
 
 #include "common.h"
 
+#if defined(CONFIG_SOC_EXYNOS5422)
+void exynos5422_power_off(void)
+{
+	unsigned int reg = 0;
+
+	reg = readl(EXYNOS3_PS_HOLD_CONTROL);
+	reg &= ~(0x1<<8);
+	writel(reg, EXYNOS3_PS_HOLD_CONTROL);
+}
+
+static void exynos5422_power_off_prepare(void)
+{
+	pr_info("power off prepare the deivce....\n");
+}
+
+static void __init exynos5422_power_off_init(void)
+{
+	/* register power off callback */
+	pm_power_off = exynos5422_power_off;
+	pm_power_off_prepare = exynos5422_power_off_prepare;
+}
+#endif
+
 static void __init exynos5_dt_map_io(void)
 {
 	exynos_init_io(NULL, 0);
@@ -34,6 +57,9 @@ static void __init exynos5_dt_map_io(void)
 
 static void __init exynos5_dt_machine_init(void)
 {
+#if defined(CONFIG_SOC_EXYNOS5422)
+	exynos5422_power_off_init();
+#endif
 #if !defined(CONFIG_SOC_EXYNOS5422)
 	struct device_node *i2c_np;
 	const char *i2c_compat = "samsung,s3c2440-i2c";
