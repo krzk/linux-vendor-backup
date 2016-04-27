@@ -260,6 +260,7 @@
 		use-fine-tuning;
 		supports-highspeed;
 		sw_data_timeout;
+		supports-sdr104-mode;
 		keep-power-in-suspend;
 		pm-ignore-notify;
 		cd-type-external;
