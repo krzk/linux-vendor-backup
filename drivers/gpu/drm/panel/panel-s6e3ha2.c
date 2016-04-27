@@ -312,31 +312,16 @@ static void s6e3ha2_single_dsi_set2(struct s6e3ha2 *ctx)
 	s6e3ha2_dcs_write_seq_static(ctx, 0xf9, 0x09);
 }
 
-static void s6e3ha2_calibration_set1(struct s6e3ha2 *ctx)
+static void s6e3ha2_freq_calibration(struct s6e3ha2 *ctx)
 {
 	s6e3ha2_dcs_write_seq_static(ctx, 0xfd, 0x1c);
-}
-
-static void s6e3ha2_calibration_set2(struct s6e3ha2 *ctx)
-{
+	s6e3ha2_dcs_write_seq_static(ctx, 0xf2, 0x67, 0x40, 0xc5);
 	s6e3ha2_dcs_write_seq_static(ctx, 0xfe, 0x20, 0x39);
-}
-
-static void s6e3ha2_calibration_set3(struct s6e3ha2 *ctx)
-{
 	s6e3ha2_dcs_write_seq_static(ctx, 0xfe, 0xa0);
-}
-
-static void s6e3ha2_calibration_set4(struct s6e3ha2 *ctx)
-{
 	s6e3ha2_dcs_write_seq_static(ctx, 0xfe, 0x20);
-}
-
-static void s6e3ha2_calibration_set5(struct s6e3ha2 *ctx)
-{
-	s6e3ha2_dcs_write_seq_static(ctx, 0xce,
-			0x03, 0x3B, 0x12, 0x62, 0x40, 0x80, 0xC0, 0x28, 0x28,
-			0x28, 0x28, 0x39, 0xC5);
+	s6e3ha2_dcs_write_seq_static(ctx, 0xce, 0x03, 0x3b, 0x14, 0x6d,
+		0x40, 0x80, 0xc0, 0x28, 0x28, 0x28, 0x28, 0x39, 0xc5
+	);
 }
 
 static void s6e3ha2_aor_control(struct s6e3ha2 *ctx)
@@ -500,11 +485,7 @@ static void s6e3ha2_panel_init(struct s6e3ha2 *ctx)
 
 	/* calibration enable */
 	s6e3ha2_test_key_on_fc(ctx);
-	s6e3ha2_calibration_set1(ctx);
-	s6e3ha2_calibration_set2(ctx);
-	s6e3ha2_calibration_set3(ctx);
-	s6e3ha2_calibration_set4(ctx);
-	s6e3ha2_calibration_set5(ctx);
+	s6e3ha2_freq_calibration(ctx);
 
 	msleep(120);
 
