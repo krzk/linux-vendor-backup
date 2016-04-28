@@ -370,6 +370,7 @@ struct skb_data {
 	#define LCR_LED2_10MODE		(1 << 6)
 	#define LCR_LED2_DUPCOL		(1 << 7)
 #define P2_IPGCR	(0x50)
+#define P2_CRIR		(0x52)
 #define P2_FLHWCR	(0x54)
 #define P2_RXCR		(0x56)
 	#define RXCR_PRO		(1 << 0)
