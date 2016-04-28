@@ -42,7 +42,7 @@ make ARCH=arm menuconfig
 ```
 make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- zImage -j4
 make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- exynos3250-artik5.dtb
-./scripts/mk_modules.img
+./scripts/mk_modules.sh
 ```
 
 + For artik10>
@@ -57,7 +57,7 @@ make ARCH=arm menuconfig
 ```
 make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- zImage -j4
 make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- exynos5422-artik10.dtb
-./scripts/mk_modules.img
+./scripts/mk_modules.sh
 ```
 
 ## 3. Update Guide
@@ -73,7 +73,7 @@ scp usr/modules.img root@{YOUR_BOARD_IP}:/root
 ```
 cp /root/zImage /boot
 cp /root/*.dtb /boot
-dd if=/root/modules.img /dev/mmcblk0p2
+dd if=/root/modules.img of=/dev/mmcblk0p2
 sync
 reboot
 ```
