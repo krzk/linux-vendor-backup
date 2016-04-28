@@ -227,10 +227,13 @@ unsigned char VINT_TABLE[VINT_STATUS_MAX] = {
 	0x1D, 0x1E, 0x1F, 0x20, 0x21
 };
 
+enum s6e3ha2_model { MODEL_1440, MODEL_1600 };
+
 struct s6e3ha2 {
 	struct device *dev;
 	struct drm_panel panel;
 	struct backlight_device *bl_dev;
+	enum s6e3ha2_model model;
 
 	struct regulator_bulk_data supplies[2];
 	struct gpio_desc *reset_gpio;
@@ -315,13 +318,17 @@ static void s6e3ha2_single_dsi_set2(struct s6e3ha2 *ctx)
 static void s6e3ha2_freq_calibration(struct s6e3ha2 *ctx)
 {
 	s6e3ha2_dcs_write_seq_static(ctx, 0xfd, 0x1c);
-	s6e3ha2_dcs_write_seq_static(ctx, 0xf2, 0x67, 0x40, 0xc5);
+	if (ctx->model != MODEL_1440)
+		s6e3ha2_dcs_write_seq_static(ctx, 0xf2, 0x67, 0x40, 0xc5);
 	s6e3ha2_dcs_write_seq_static(ctx, 0xfe, 0x20, 0x39);
 	s6e3ha2_dcs_write_seq_static(ctx, 0xfe, 0xa0);
 	s6e3ha2_dcs_write_seq_static(ctx, 0xfe, 0x20);
-	s6e3ha2_dcs_write_seq_static(ctx, 0xce, 0x03, 0x3b, 0x14, 0x6d,
-		0x40, 0x80, 0xc0, 0x28, 0x28, 0x28, 0x28, 0x39, 0xc5
-	);
+	if (ctx->model == MODEL_1440)
+		s6e3ha2_dcs_write_seq_static(ctx, 0xce, 0x03, 0x3b, 0x12, 0x62,
+			0x40, 0x80, 0xc0, 0x28, 0x28, 0x28, 0x28, 0x39, 0xc5);
+	else
+		s6e3ha2_dcs_write_seq_static(ctx, 0xce, 0x03, 0x3b, 0x14, 0x6d,
+			0x40, 0x80, 0xc0, 0x28, 0x28, 0x28, 0x28, 0x39, 0xc5);
 }
 
 static void s6e3ha2_aor_control(struct s6e3ha2 *ctx)
@@ -654,6 +661,19 @@ static int s6e3ha2_parse_dt(struct s6e3ha2 *ctx)
 	ret = of_get_videomode(np, &ctx->vm, 0);
 	if (ret < 0)
 		return ret;
+
+	switch (ctx->vm.hactive) {
+	case 1440:
+		ctx->model = MODEL_1440;
+		break;
+	case 1600:
+		ctx->model = MODEL_1600;
+		break;
+	default:
+		dev_err(dev, "Unsupported panel resolution: %dx%d\n",
+			ctx->vm.hactive, ctx->vm.vactive);
+		return -EINVAL;
+	}
 
 	of_property_read_u32(np, "panel-width-mm", &ctx->width_mm);
 	of_property_read_u32(np, "panel-height-mm", &ctx->height_mm);
