@@ -843,6 +843,8 @@
 	status = "okay";
 
 	s3fwrn5@27 {
+		/* mainline s3fwrn5 nfc driver is disabled to enable legacy sec-nfc driver */
+		status = "disabled";
 		compatible = "samsung,s3fwrn5-i2c";
 
 		reg = <0x27>;
@@ -852,6 +854,32 @@
 
 		s3fwrn5,en-gpios = <&gpf1 4 0>;
 		s3fwrn5,fw-gpios = <&gpj0 2 0>;
+	};
+
+	sec-nfc@27 {
+		/* legacy sec-nfc driver */
+		compatible = "sec-nfc";
+		reg = <0x27>;
+		interrupts = <3 0 0>;
+		interrupt-parent = <&gpa1>;
+
+		sec-nfc,ven-gpio = <&gpf1 4 0>;
+		sec-nfc,irq-gpio = <&gpa1 3 0>;
+		sec-nfc,firm-gpio = <&gpj0 2 0>;
+
+		sec-nfc,clk_req-gpio = <&gpa0 0 0xf>;
+		sec-nfc,clk_use = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&fimc_is_ch1_mclk &nfc_n5_en>;
+
+		clock-names = "sclk_isp_sensor1",
+				"mout_sclk_isp_sensor1",
+				"dout_sclk_isp_sensor1_a",
+				"dout_sclk_isp_sensor1_b";
+		clocks = <&cmu_top CLK_SCLK_ISP_SENSOR1>,
+			<&cmu_top CLK_MOUT_SCLK_ISP_SENSOR1>,
+			<&cmu_top CLK_DIV_SCLK_ISP_SENSOR1_A>,
+			<&cmu_top CLK_DIV_SCLK_ISP_SENSOR1_B>;
 	};
 
 	fimc_is_fan53555@60 {

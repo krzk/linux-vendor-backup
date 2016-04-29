@@ -55,14 +55,14 @@
 
 /* gpio pin configuration */
 struct sec_nfc_platform_data {
-	int irq;
-	int ven;
+	unsigned int irq;
+	unsigned int ven;
 #ifdef CONFIG_NFC_N5_PMC8974_CLK_REQ
 	int firm;
 	int wake;
 #else
-	int firm;
-	int wake;
+	unsigned int firm;
+	unsigned int wake;
 #endif
 	unsigned int tvdd;
 	unsigned int avdd;
