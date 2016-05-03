@@ -27,8 +27,13 @@
 #include <asm/tlbflush.h>
 #include <asm/cachetype.h>
 
+#ifdef CONFIG_ARM64_WORKAROUND_CCI400_DVMV7
+/* In DVMv7 protocol, ASID bits must be 8 regardless of cpu core feature */
+#define asid_bits(reg) 8
+#else
 #define asid_bits(reg) \
 	(((read_cpuid(ID_AA64MMFR0_EL1) & 0xf0) >> 2) + 8)
+#endif
 
 #define ASID_FIRST_VERSION	(1 << MAX_ASID_BITS)
 
