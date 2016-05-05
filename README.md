@@ -6,7 +6,7 @@
 
 ## 1. Introduction
 This 'linux-artik' repository is linux kernel source for artik5(artik520) and
-artik10(artik1020). The base kernel version of artik is linux-3.10.93 and based
+artik10(artik1020). The base kernel version of artik is linux-3.10.9 and based
 on Samsung Exynos kernel.
 
 ---
@@ -17,9 +17,9 @@ sudo apt-get install gcc-arm-linux-gnueabihf
 ```
 If you can't install the above toolchain, you can use linaro toolchain.
 ```
-wget http://releases.linaro.org/components/toolchain/binaries/latest-5/arm-linux-gnueabihf/gcc-linaro-5.3-2016.02-x86_64_arm-linux-gnueabihf.tar.xz
-tar xf gcc-linaro-5.3-2016.02-x86_64_arm-linux-gnueabihf.tar.xz
-export PATH=~/gcc-linaro-5.3-2016.02-x86_64_arm-linux-gnueabihf/bin:$PATH
+wget https://releases.linaro.org/components/toolchain/binaries/4.9-2016.02/arm-linux-gnueabihf/gcc-linaro-4.9-2016.02-x86_64_arm-linux-gnueabihf.tar.xz
+tar xf gcc-linaro-4.9-2016.02-x86_64_arm-linux-gnueabihf
+export PATH=~/gcc-linaro-4.9-2016.02-x86_64_arm-linux-gnueabihf/bin:$PATH
 ```
 You can the path permernently through adding it into ~/.bashrc
 
