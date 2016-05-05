@@ -174,6 +174,10 @@ struct amp_assoc {
 
 #define HCI_MAX_PAGES	3
 
+#ifdef CONFIG_TIZEN_WIP
+#define HCI_MAX_EIR_MANUFACTURER_DATA_LENGTH	100
+#endif
+
 #define NUM_REASSEMBLY 4
 struct hci_dev {
 	struct list_head list;
@@ -376,7 +380,7 @@ struct hci_dev {
 	__u8			adv_type;
 
 	__u8			manufacturer_len;
-	__u8			manufacturer_data[HCI_MAX_AD_LENGTH - 3];
+	__u8			manufacturer_data[HCI_MAX_EIR_MANUFACTURER_DATA_LENGTH];
 
 	struct wake_lock hci_rx_wake_lock;
 	char hci_rx_wake_lock_name[15];

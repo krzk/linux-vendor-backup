@@ -136,10 +136,10 @@ struct mgmt_cp_le_conn_update {
 } __packed;
 
 #define MGMT_OP_SET_MANUFACTURER_DATA		(TIZEN_OP_CODE_BASE + 0x0e)
+#define MGMT_SET_MANUFACTURER_DATA_SIZE		100
 struct mgmt_cp_set_manufacturer_data {
-	__u8 data[28];
+	__u8 data[MGMT_SET_MANUFACTURER_DATA_SIZE];
 } __packed;
-#define MGMT_SET_MANUFACTURER_DATA_SIZE		28
 
 #define MGMT_OP_LE_SET_SCAN_PARAMS		(TIZEN_OP_CODE_BASE + 0x0f)
 struct mgmt_cp_le_set_scan_params {
