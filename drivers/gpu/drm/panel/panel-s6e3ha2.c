@@ -497,7 +497,7 @@ static void s6e3ha2_panel_init(struct s6e3ha2 *ctx)
 	msleep(120);
 
 	/* common setting */
-	s6e3ha2_dcs_write_seq_static(ctx, MIPI_DCS_SET_TEAR_ON);
+	s6e3ha2_dcs_write_seq_static(ctx, MIPI_DCS_SET_TEAR_ON, MIPI_DSI_DCS_TEAR_MODE_VBLANK);
 
 	s6e3ha2_touch_hsync_on1(ctx);
 	s6e3ha2_pentile_control(ctx);
