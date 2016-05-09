@@ -50,6 +50,8 @@
 /* In Exynos, the number of MAX_POWER_DOMAIN is less than 15 */
 #define MAX_PARENT_POWER_DOMAIN	15
 
+#define MAX_CLK_PER_DOMAIN	4
+
 struct exynos_pm_domain;
 
 struct exynos_pd_callback {
@@ -77,6 +79,11 @@ struct exynos_pm_domain {
 #if defined(CONFIG_EXYNOS5430_BTS) || defined(CONFIG_EXYNOS5422_BTS)
 	unsigned int bts;
 #endif
+
+	struct clk *oscclk;
+	struct clk *clk[MAX_CLK_PER_DOMAIN];
+	struct clk *pclk[MAX_CLK_PER_DOMAIN];
+	struct clk *asb_clk[MAX_CLK_PER_DOMAIN];
 
 	struct mutex access_lock;
 	void *priv;

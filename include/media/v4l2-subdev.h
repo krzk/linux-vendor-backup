@@ -334,7 +334,7 @@ struct v4l2_subdev_video_ops {
 	int (*dv_timings_cap)(struct v4l2_subdev *sd,
 			struct v4l2_dv_timings_cap *cap);
 	int (*enum_mbus_fmt)(struct v4l2_subdev *sd, unsigned int index,
-			     enum v4l2_mbus_pixelcode *code);
+			     u32 *code);
 	int (*enum_mbus_fsizes)(struct v4l2_subdev *sd,
 			     struct v4l2_frmsizeenum *fsize);
 	int (*g_mbus_fmt)(struct v4l2_subdev *sd,

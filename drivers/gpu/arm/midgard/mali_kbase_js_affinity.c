@@ -25,38 +25,11 @@
 #include <mali_kbase.h>
 #include "mali_kbase_js_affinity.h"
 
-#if defined(CONFIG_MALI_DEBUG) && 0	/* disabled to avoid compilation warnings */
 
-STATIC void debug_get_binary_string(const u64 n, char *buff, const int size)
-{
-	unsigned int i;
-	for (i = 0; i < size; i++)
-		buff[i] = ((n >> i) & 1) ? '*' : '-';
-
-	buff[size] = '\0';
-}
-
-#define N_CORES 8
-STATIC void debug_print_affinity_info(const kbase_device *kbdev, const kbase_jd_atom *katom, int js, u64 affinity)
-{
-	char buff[N_CORES + 1];
-	char buff2[N_CORES + 1];
-	base_jd_core_req core_req = katom->atom->core_req;
-	u64 shader_present_bitmap = kbdev->shader_present_bitmap;
-
-	debug_get_binary_string(shader_present_bitmap, buff, N_CORES);
-	debug_get_binary_string(affinity, buff2, N_CORES);
-
-	KBASE_DEBUG_PRINT_INFO(KBASE_JM, "Job: COH FS  CS   T  CF   V  JS | GPU:12345678 | AFF:12345678");
-	KBASE_DEBUG_PRINT_INFO(KBASE_JM, "      %s   %s   %s   %s   %s   %s   %u |     %s |     %s", core_req & BASE_JD_REQ_COHERENT_GROUP ? "*" : "-", core_req & BASE_JD_REQ_FS ? "*" : "-", core_req & BASE_JD_REQ_CS ? "*" : "-", core_req & BASE_JD_REQ_T ? "*" : "-", core_req & BASE_JD_REQ_CF ? "*" : "-", core_req & BASE_JD_REQ_V ? "*" : "-", js, buff, buff2);
-}
-
-#endif				/* CONFIG_MALI_DEBUG */
-
-STATIC INLINE mali_bool affinity_job_uses_high_cores(kbase_device *kbdev, kbase_jd_atom *katom)
+STATIC INLINE mali_bool affinity_job_uses_high_cores(struct kbase_device *kbdev, struct kbase_jd_atom *katom)
 {
 	if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_8987)) {
-		kbase_context *kctx;
+		struct kbase_context *kctx;
 		kbase_context_flags ctx_flags;
 
 		kctx = katom->kctx;
@@ -79,7 +52,7 @@ STATIC INLINE mali_bool affinity_job_uses_high_cores(kbase_device *kbdev, kbase_
  * @return MALI_FALSE if a core split is not required
  * @return != MALI_FALSE if a core split is required.
  */
-STATIC INLINE mali_bool kbase_affinity_requires_split(kbase_device *kbdev)
+STATIC INLINE mali_bool kbase_affinity_requires_split(struct kbase_device *kbdev)
 {
 	KBASE_DEBUG_ASSERT(kbdev != NULL);
 	lockdep_assert_held(&kbdev->js_data.runpool_irq.lock);
@@ -103,7 +76,7 @@ STATIC INLINE mali_bool kbase_affinity_requires_split(kbase_device *kbdev)
 	return MALI_FALSE;
 }
 
-mali_bool kbase_js_can_run_job_on_slot_no_lock(kbase_device *kbdev, int js)
+mali_bool kbase_js_can_run_job_on_slot_no_lock(struct kbase_device *kbdev, int js)
 {
 	/*
 	 * Here are the reasons for using job slot 2:
@@ -157,7 +130,7 @@ mali_bool kbase_js_can_run_job_on_slot_no_lock(kbase_device *kbdev, int js)
  *   (see notes in loops), but as the functionallity will likely
  *   be modified, optimization has not been addressed.
 */
-mali_bool kbase_js_choose_affinity(u64 * const affinity, kbase_device *kbdev, kbase_jd_atom *katom, int js)
+mali_bool kbase_js_choose_affinity(u64 * const affinity, struct kbase_device *kbdev, struct kbase_jd_atom *katom, int js)
 {
 	base_jd_core_req core_req = katom->core_req;
 	unsigned int num_core_groups = kbdev->gpu_props.num_core_groups;
@@ -172,8 +145,7 @@ mali_bool kbase_js_choose_affinity(u64 * const affinity, kbase_device *kbdev, kb
 	 * If no cores are currently available (core availability policy is
 	 * transitioning) then fail.
 	 */
-	if (0 == core_availability_mask)
-	{
+	if (0 == core_availability_mask) {
 		spin_unlock_irqrestore(&kbdev->pm.power_change_lock, flags);
 		*affinity = 0;
 		return MALI_FALSE;
@@ -181,8 +153,7 @@ mali_bool kbase_js_choose_affinity(u64 * const affinity, kbase_device *kbdev, kb
 
 	KBASE_DEBUG_ASSERT(js >= 0);
 
-	if ((core_req & (BASE_JD_REQ_FS | BASE_JD_REQ_CS | BASE_JD_REQ_T)) == BASE_JD_REQ_T)
-	{
+	if ((core_req & (BASE_JD_REQ_FS | BASE_JD_REQ_CS | BASE_JD_REQ_T)) == BASE_JD_REQ_T) {
 		spin_unlock_irqrestore(&kbdev->pm.power_change_lock, flags);
 		/* Tiler only job, bit 0 needed to enable tiler but no shader cores required */
 		*affinity = 1;
@@ -200,6 +171,7 @@ mali_bool kbase_js_choose_affinity(u64 * const affinity, kbase_device *kbdev, kb
 			} else {
 				/* js[1], js[2] use core groups 0, 1 for dual-core-group systems */
 				u32 core_group_idx = ((u32) js) - 1;
+
 				KBASE_DEBUG_ASSERT(core_group_idx < num_core_groups);
 				*affinity = kbdev->gpu_props.props.coherency_info.group[core_group_idx].core_mask & core_availability_mask;
 
@@ -250,7 +222,7 @@ mali_bool kbase_js_choose_affinity(u64 * const affinity, kbase_device *kbdev, kb
 	return MALI_TRUE;
 }
 
-STATIC INLINE mali_bool kbase_js_affinity_is_violating(kbase_device *kbdev, u64 *affinities)
+STATIC INLINE mali_bool kbase_js_affinity_is_violating(struct kbase_device *kbdev, u64 *affinities)
 {
 	/* This implementation checks whether the two slots involved in Generic thread creation
 	 * have intersecting affinity. This is due to micro-architectural issues where a job in
@@ -264,6 +236,7 @@ STATIC INLINE mali_bool kbase_js_affinity_is_violating(kbase_device *kbdev, u64 
 	u64 affinity_set_left;
 	u64 affinity_set_right;
 	u64 intersection;
+
 	KBASE_DEBUG_ASSERT(affinities != NULL);
 
 	affinity_set_left = affinities[1];
@@ -282,9 +255,9 @@ STATIC INLINE mali_bool kbase_js_affinity_is_violating(kbase_device *kbdev, u64 
 	return (mali_bool) (intersection != (u64) 0u);
 }
 
-mali_bool kbase_js_affinity_would_violate(kbase_device *kbdev, int js, u64 affinity)
+mali_bool kbase_js_affinity_would_violate(struct kbase_device *kbdev, int js, u64 affinity)
 {
-	kbasep_js_device_data *js_devdata;
+	struct kbasep_js_device_data *js_devdata;
 	u64 new_affinities[BASE_JM_MAX_NR_SLOTS];
 
 	KBASE_DEBUG_ASSERT(kbdev != NULL);
@@ -298,9 +271,9 @@ mali_bool kbase_js_affinity_would_violate(kbase_device *kbdev, int js, u64 affin
 	return kbase_js_affinity_is_violating(kbdev, new_affinities);
 }
 
-void kbase_js_affinity_retain_slot_cores(kbase_device *kbdev, int js, u64 affinity)
+void kbase_js_affinity_retain_slot_cores(struct kbase_device *kbdev, int js, u64 affinity)
 {
-	kbasep_js_device_data *js_devdata;
+	struct kbasep_js_device_data *js_devdata;
 	u64 cores;
 
 	KBASE_DEBUG_ASSERT(kbdev != NULL);
@@ -324,12 +297,11 @@ void kbase_js_affinity_retain_slot_cores(kbase_device *kbdev, int js, u64 affini
 
 		cores &= ~bit;
 	}
-
 }
 
-void kbase_js_affinity_release_slot_cores(kbase_device *kbdev, int js, u64 affinity)
+void kbase_js_affinity_release_slot_cores(struct kbase_device *kbdev, int js, u64 affinity)
 {
-	kbasep_js_device_data *js_devdata;
+	struct kbasep_js_device_data *js_devdata;
 	u64 cores;
 
 	KBASE_DEBUG_ASSERT(kbdev != NULL);
@@ -354,9 +326,9 @@ void kbase_js_affinity_release_slot_cores(kbase_device *kbdev, int js, u64 affin
 
 }
 
-void kbase_js_affinity_slot_blocked_an_atom(kbase_device *kbdev, int js)
+void kbase_js_affinity_slot_blocked_an_atom(struct kbase_device *kbdev, int js)
 {
-	kbasep_js_device_data *js_devdata;
+	struct kbasep_js_device_data *js_devdata;
 
 	KBASE_DEBUG_ASSERT(kbdev != NULL);
 	KBASE_DEBUG_ASSERT(js < BASE_JM_MAX_NR_SLOTS);
@@ -365,9 +337,9 @@ void kbase_js_affinity_slot_blocked_an_atom(kbase_device *kbdev, int js)
 	js_devdata->runpool_irq.slots_blocked_on_affinity |= 1u << js;
 }
 
-void kbase_js_affinity_submit_to_blocked_slots(kbase_device *kbdev)
+void kbase_js_affinity_submit_to_blocked_slots(struct kbase_device *kbdev)
 {
-	kbasep_js_device_data *js_devdata;
+	struct kbasep_js_device_data *js_devdata;
 	u16 slots;
 
 	KBASE_DEBUG_ASSERT(kbdev != NULL);
@@ -380,6 +352,7 @@ void kbase_js_affinity_submit_to_blocked_slots(kbase_device *kbdev)
 
 	while (slots) {
 		int bitnum = fls(slots) - 1;
+
 		u16 bit = 1u << bitnum;
 		slots &= ~bit;
 
@@ -394,10 +367,10 @@ void kbase_js_affinity_submit_to_blocked_slots(kbase_device *kbdev)
 	}
 }
 
-#if KBASE_TRACE_ENABLE != 0
-void kbase_js_debug_log_current_affinities(kbase_device *kbdev)
+#if KBASE_TRACE_ENABLE
+void kbase_js_debug_log_current_affinities(struct kbase_device *kbdev)
 {
-	kbasep_js_device_data *js_devdata;
+	struct kbasep_js_device_data *js_devdata;
 	int slot_nr;
 
 	KBASE_DEBUG_ASSERT(kbdev != NULL);
@@ -406,4 +379,4 @@ void kbase_js_debug_log_current_affinities(kbase_device *kbdev)
 	for (slot_nr = 0; slot_nr < 3; ++slot_nr)
 		KBASE_TRACE_ADD_SLOT_INFO(kbdev, JS_AFFINITY_CURRENT, NULL, NULL, 0u, slot_nr, (u32) js_devdata->runpool_irq.slot_affinities[slot_nr]);
 }
-#endif				/* KBASE_TRACE_ENABLE != 0 */
+#endif				/* KBASE_TRACE_ENABLE  */

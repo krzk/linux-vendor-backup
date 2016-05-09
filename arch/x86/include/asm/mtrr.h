@@ -26,7 +26,10 @@
 #include <uapi/asm/mtrr.h>
 
 
-/*  The following functions are for use by other drivers  */
+/*
+ * The following functions are for use by other drivers that cannot use
+ * arch_phys_wc_add and arch_phys_wc_del.
+ */
 # ifdef CONFIG_MTRR
 extern u8 mtrr_type_lookup(u64 addr, u64 end);
 extern void mtrr_save_fixed_ranges(void *);

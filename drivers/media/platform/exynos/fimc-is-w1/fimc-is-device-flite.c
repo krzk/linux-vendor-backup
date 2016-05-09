@@ -41,6 +41,8 @@
 #include "fimc-is-interface.h"
 #include "fimc-is-device-flite.h"
 
+/* #define COLORBAR_MODE */
+
 #define FIMCLITE0_REG_BASE	(S5P_VA_FIMCLITE0)  /* phy : 0x13c0_0000 */
 #define FIMCLITE1_REG_BASE	(S5P_VA_FIMCLITE1)  /* phy : 0x13c1_0000 */
 #define FIMCLITE2_REG_BASE	(S5P_VA_FIMCLITE2)  /* phy : 0x13c9_0000 */
@@ -68,7 +70,7 @@
 #define FLITE_REG_CIGCTRL_RAW14				(0x2D << 24)
 
 /* User defined formats. x = 0...0xF. */
-#define FLITE_REG_CIGCTRL_USER(x)			(0x30 + x - 1)
+#define FLITE_REG_CIGCTRL_USER(x)			((0x30 + x - 1) << 24)
 #define FLITE_REG_CIGCTRL_OLOCAL_DISABLE		(1 << 22)
 #define FLITE_REG_CIGCTRL_SHADOWMASK_DISABLE		(1 << 21)
 #define FLITE_REG_CIGCTRL_ODMA_DISABLE			(1 << 20)
@@ -401,6 +403,10 @@ static int flite_hw_set_source_format(unsigned long __iomem *base_reg, struct fi
 
 	if (image->format.pixelformat == V4L2_PIX_FMT_SGRBG8)
 		cfg |= FLITE_REG_CIGCTRL_RAW8;
+	else if (image->format.pixelformat == V4L2_PIX_FMT_YUYV)
+		cfg |= FLITE_REG_CIGCTRL_YUV422_1P;
+	else if (image->format.pixelformat == V4L2_PIX_FMT_MJPEG)
+		cfg |= FLITE_REG_CIGCTRL_USER(1);
 	else
 		cfg |= FLITE_REG_CIGCTRL_RAW10;
 
@@ -458,16 +464,16 @@ static void flite_hw_set_output_local(unsigned long __iomem *base_reg, bool enab
 	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
 }
 
-/* will use for pattern generation testing
-static void flite_hw_set_test_pattern_enable(void)
+#ifdef COLORBAR_MODE
+static void flite_hw_set_test_pattern_enable(unsigned long __iomem *base_reg)
 {
 	u32 cfg = 0;
-	cfg = readl(flite_reg_base + FLITE_REG_CIGCTRL);
+	cfg = readl(base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
 	cfg |= FLITE_REG_CIGCTRL_TEST_PATTERN_COLORBAR;
 
-	writel(cfg, flite_reg_base + FLITE_REG_CIGCTRL);
+	writel(cfg, base_reg + TO_WORD_OFFSET(FLITE_REG_CIGCTRL));
 }
-*/
+#endif
 
 static void flite_hw_set_config_irq(unsigned long __iomem *base_reg)
 {
@@ -731,7 +737,9 @@ static int start_fimc_lite(unsigned long __iomem *base_reg,
 	/*flite_hw_set_interrupt_starten0_disable(mipi_reg_base);*/
 	flite_hw_set_config_irq(base_reg);
 	flite_hw_set_window_offset(base_reg, image);
-	/* flite_hw_set_test_pattern_enable(); */
+#ifdef COLORBAR_MODE
+	flite_hw_set_test_pattern_enable(base_reg);
+#endif
 
 	if (bns)
 		flite_hw_set_bns(base_reg, image);

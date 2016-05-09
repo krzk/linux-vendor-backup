@@ -41,6 +41,7 @@
 #include <media/v4l2-dev.h>
 #include <media/v4l2-device.h>
 #include <media/exynos_mc.h>
+#include <linux/v4l2-mediabus.h>
 
 #include "regs-hdmi.h"
 
@@ -517,7 +518,7 @@ static int hdmi_s_mbus_fmt(struct v4l2_subdev *sd,
 	struct device *dev = hdev->dev;
 
 	dev_dbg(dev, "%s\n", __func__);
-	if (fmt->code == V4L2_MBUS_FMT_YUV8_1X24)
+	if (fmt->code == MEDIA_BUS_FMT_YUV8_1X24)
 		hdev->output_fmt = HDMI_OUTPUT_YUV444;
 	else
 		hdev->output_fmt = HDMI_OUTPUT_RGB888;

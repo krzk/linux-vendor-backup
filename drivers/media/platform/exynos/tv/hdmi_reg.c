@@ -79,7 +79,7 @@ static const struct hdmi_timings hdmi_conf_720p60 = {
 	.mbus_fmt = {
 		.width = 1280,
 		.height = 720,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_NONE,
 	},
 	.vic = 4,
@@ -143,7 +143,7 @@ static const struct hdmi_timings hdmi_conf_1080i60 = {
 	.mbus_fmt = {
 		.width = 1920,
 		.height = 1080,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_INTERLACED,
 	},
 	.vic = 5,
@@ -201,7 +201,7 @@ static const struct hdmi_timings hdmi_conf_1080p60 = {
 	.mbus_fmt = {
 		.width = 1920,
 		.height = 1080,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_NONE,
 	},
 	.vic = 16,
@@ -259,7 +259,7 @@ static const struct hdmi_timings hdmi_conf_576p50 = {
 	.mbus_fmt = {
 		.width = 720,
 		.height = 576,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_NONE,
 	},
 	.vic = 18,
@@ -323,7 +323,7 @@ static const struct hdmi_timings hdmi_conf_720p50 = {
 	.mbus_fmt = {
 		.width = 1280,
 		.height = 720,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_NONE,
 	},
 	.vic = 19,
@@ -387,7 +387,7 @@ static const struct hdmi_timings hdmi_conf_1080i50 = {
 	.mbus_fmt = {
 		.width = 1920,
 		.height = 1080,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_INTERLACED,
 	},
 	.vic = 20,
@@ -451,7 +451,7 @@ static const struct hdmi_timings hdmi_conf_1080p50 = {
 	.mbus_fmt = {
 		.width = 1920,
 		.height = 1080,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_NONE,
 	},
 	.vic = 31,
@@ -515,7 +515,7 @@ static const struct hdmi_timings hdmi_conf_1080p30 = {
 	.mbus_fmt = {
 		.width = 1920,
 		.height = 1080,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_NONE,
 	},
 	.vic = 34,
@@ -579,7 +579,7 @@ static const struct hdmi_timings hdmi_conf_1080p24 = {
 	.mbus_fmt = {
 		.width = 1920,
 		.height = 1080,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_NONE,
 	},
 	.vic = 32,
@@ -643,7 +643,7 @@ static const struct hdmi_timings hdmi_conf_1080p25 = {
 	.mbus_fmt = {
 		.width = 1920,
 		.height = 1080,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_NONE,
 	},
 	.vic = 33,
@@ -707,7 +707,7 @@ static const struct hdmi_timings hdmi_conf_480p59_94 = {
 	.mbus_fmt = {
 		.width = 720,
 		.height = 480,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_NONE,
 	},
 	.vic = 3,
@@ -771,7 +771,7 @@ static const struct hdmi_timings hdmi_conf_720p60_sb_half = {
 	.mbus_fmt = {
 		.width = 1280,
 		.height = 720,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_NONE,
 	},
 	.vic = 4,
@@ -835,7 +835,7 @@ static const struct hdmi_timings hdmi_conf_720p60_tb = {
 	.mbus_fmt = {
 		.width = 1280,
 		.height = 720,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_NONE,
 	},
 	.vic = 4,
@@ -899,7 +899,7 @@ static const struct hdmi_timings hdmi_conf_720p50_sb_half = {
 	.mbus_fmt = {
 		.width = 1280,
 		.height = 720,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_NONE,
 	},
 	.vic = 19,
@@ -963,7 +963,7 @@ static const struct hdmi_timings hdmi_conf_720p50_tb = {
 	.mbus_fmt = {
 		.width = 1280,
 		.height = 720,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_NONE,
 	},
 	.vic = 19,
@@ -1027,7 +1027,7 @@ static const struct hdmi_timings hdmi_conf_1080p24_fp = {
 	.mbus_fmt = {
 		.width = 1920,
 		.height = 1080,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_NONE,
 	},
 	.vic = 32,
@@ -1091,7 +1091,7 @@ static const struct hdmi_timings hdmi_conf_1080p24_sb_half = {
 	.mbus_fmt = {
 		.width = 1920,
 		.height = 1080,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_NONE,
 	},
 	.vic = 32,
@@ -1155,7 +1155,7 @@ static const struct hdmi_timings hdmi_conf_1080p24_tb = {
 	.mbus_fmt = {
 		.width = 1920,
 		.height = 1080,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_NONE,
 	},
 	.vic = 32,
@@ -1219,7 +1219,7 @@ static const struct hdmi_timings hdmi_conf_1080i60_sb_half = {
 	.mbus_fmt = {
 		.width = 1920,
 		.height = 1080,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_INTERLACED,
 	},
 	.vic = 5,
@@ -1283,7 +1283,7 @@ static const struct hdmi_timings hdmi_conf_1080i50_sb_half = {
 	.mbus_fmt = {
 		.width = 1920,
 		.height = 1080,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_INTERLACED,
 	},
 	.vic = 20,
@@ -1347,7 +1347,7 @@ static const struct hdmi_timings hdmi_conf_1080p60_sb_half = {
 	.mbus_fmt = {
 		.width = 1920,
 		.height = 1080,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_NONE,
 	},
 	.vic = 16,
@@ -1411,7 +1411,7 @@ static const struct hdmi_timings hdmi_conf_1080p60_tb = {
 	.mbus_fmt = {
 		.width = 1920,
 		.height = 1080,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_NONE,
 	},
 	.vic = 16,
@@ -1475,7 +1475,7 @@ static const struct hdmi_timings hdmi_conf_1080p30_sb_half = {
 	.mbus_fmt = {
 		.width = 1920,
 		.height = 1080,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_NONE,
 	},
 	.vic = 34,
@@ -1539,7 +1539,7 @@ static const struct hdmi_timings hdmi_conf_1080p30_tb = {
 	.mbus_fmt = {
 		.width = 1920,
 		.height = 1080,
-		.code = V4L2_MBUS_FMT_FIXED, /* means RGB888 */
+		.code = MEDIA_BUS_FMT_FIXED, /* means RGB888 */
 		.field = V4L2_FIELD_NONE,
 	},
 	.vic = 34,

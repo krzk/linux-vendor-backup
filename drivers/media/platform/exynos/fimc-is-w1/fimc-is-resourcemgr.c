@@ -53,7 +53,8 @@ int fimc_is_resource_probe(struct fimc_is_resourcemgr *resourcemgr,
 	return ret;
 }
 
-int fimc_is_resource_get(struct fimc_is_resourcemgr *resourcemgr)
+int fimc_is_resource_get(struct fimc_is_resourcemgr *resourcemgr,
+	u32 scenario)
 {
 	int ret = 0;
 	struct fimc_is_core *core;
@@ -68,7 +69,8 @@ int fimc_is_resource_get(struct fimc_is_resourcemgr *resourcemgr)
 		core->debug_cnt = 0;
 
 		/* 1. interface open */
-		fimc_is_interface_open(&core->interface);
+		if (scenario != SENSOR_SCENARIO_EXTERNAL)
+			fimc_is_interface_open(&core->interface);
 
 #ifdef ENABLE_DVFS
 		/* dvfs controller init */
@@ -89,7 +91,8 @@ int fimc_is_resource_get(struct fimc_is_resourcemgr *resourcemgr)
 	return ret;
 }
 
-int fimc_is_resource_put(struct fimc_is_resourcemgr *resourcemgr)
+int fimc_is_resource_put(struct fimc_is_resourcemgr *resourcemgr,
+	u32 scenario)
 {
 	int ret = 0;
 	struct fimc_is_core *core;
@@ -126,9 +129,11 @@ int fimc_is_resource_put(struct fimc_is_resourcemgr *resourcemgr)
 		}
 
 		/* 3. Deinit variables */
-		ret = fimc_is_interface_close(&core->interface);
-		if (ret)
-			err("fimc_is_interface_close is failed");
+		if (scenario != SENSOR_SCENARIO_EXTERNAL) {
+			ret = fimc_is_interface_close(&core->interface);
+			if (ret)
+				err("fimc_is_interface_close is failed");
+		}
 
 #ifndef RESERVED_MEM
 		/* 5. Dealloc memroy */

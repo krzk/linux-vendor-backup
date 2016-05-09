@@ -782,16 +782,16 @@ __mxr_get_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 static unsigned int mxr_adjust_graph_format(unsigned int code)
 {
 	switch (code) {
-	case V4L2_MBUS_FMT_RGB444_2X8_PADHI_BE:
-	case V4L2_MBUS_FMT_RGB444_2X8_PADHI_LE:
-	case V4L2_MBUS_FMT_RGB555_2X8_PADHI_BE:
-	case V4L2_MBUS_FMT_RGB555_2X8_PADHI_LE:
-	case V4L2_MBUS_FMT_RGB565_2X8_BE:
-	case V4L2_MBUS_FMT_RGB565_2X8_LE:
-	case V4L2_MBUS_FMT_XRGB8888_4X8_LE:
+	case MEDIA_BUS_FMT_RGB444_2X8_PADHI_BE:
+	case MEDIA_BUS_FMT_RGB444_2X8_PADHI_LE:
+	case MEDIA_BUS_FMT_RGB555_2X8_PADHI_BE:
+	case MEDIA_BUS_FMT_RGB555_2X8_PADHI_LE:
+	case MEDIA_BUS_FMT_RGB565_2X8_BE:
+	case MEDIA_BUS_FMT_RGB565_2X8_LE:
+	case MEDIA_BUS_FMT_XRGB8888_4X8_LE:
 		return code;
 	default:
-		return V4L2_MBUS_FMT_XRGB8888_4X8_LE; /* default format */
+		return MEDIA_BUS_FMT_XRGB8888_4X8_LE; /* default format */
 	}
 }
 
@@ -804,19 +804,19 @@ static void mxr_set_layer_src_fmt(struct sub_mxr_device *sub_mxr, u32 pad)
 	u32 fourcc;
 
 	switch (fmt->code) {
-	case V4L2_MBUS_FMT_RGB444_2X8_PADHI_BE:
-	case V4L2_MBUS_FMT_RGB444_2X8_PADHI_LE:
+	case MEDIA_BUS_FMT_RGB444_2X8_PADHI_BE:
+	case MEDIA_BUS_FMT_RGB444_2X8_PADHI_LE:
 		fourcc = V4L2_PIX_FMT_RGB444;
 		break;
-	case V4L2_MBUS_FMT_RGB555_2X8_PADHI_BE:
-	case V4L2_MBUS_FMT_RGB555_2X8_PADHI_LE:
+	case MEDIA_BUS_FMT_RGB555_2X8_PADHI_BE:
+	case MEDIA_BUS_FMT_RGB555_2X8_PADHI_LE:
 		fourcc = V4L2_PIX_FMT_RGB555;
 		break;
-	case V4L2_MBUS_FMT_RGB565_2X8_BE:
-	case V4L2_MBUS_FMT_RGB565_2X8_LE:
+	case MEDIA_BUS_FMT_RGB565_2X8_BE:
+	case MEDIA_BUS_FMT_RGB565_2X8_LE:
 		fourcc = V4L2_PIX_FMT_RGB565;
 		break;
-	case V4L2_MBUS_FMT_XRGB8888_4X8_LE:
+	case MEDIA_BUS_FMT_XRGB8888_4X8_LE:
 		fourcc = V4L2_PIX_FMT_BGR32;
 		break;
 	default:
@@ -839,7 +839,7 @@ static int mxr_try_format(struct mxr_device *mdev,
 
 	switch (pad) {
 	case MXR_PAD_SINK_GSCALER:
-		fmt->code = V4L2_MBUS_FMT_YUV8_1X24;
+		fmt->code = MEDIA_BUS_FMT_YUV8_1X24;
 		break;
 	case MXR_PAD_SINK_GRP0:
 	case MXR_PAD_SINK_GRP1:
@@ -849,8 +849,8 @@ static int mxr_try_format(struct mxr_device *mdev,
 	case MXR_PAD_SOURCE_GRP0:
 	case MXR_PAD_SOURCE_GRP1:
 		mxr_get_mbus_fmt(mdev, &mbus_fmt);
-		fmt->code = (fmt->code == V4L2_MBUS_FMT_YUV8_1X24) ?
-			V4L2_MBUS_FMT_YUV8_1X24 : V4L2_MBUS_FMT_XRGB8888_4X8_LE;
+		fmt->code = (fmt->code == MEDIA_BUS_FMT_YUV8_1X24) ?
+			MEDIA_BUS_FMT_YUV8_1X24 : MEDIA_BUS_FMT_XRGB8888_4X8_LE;
 		fmt->width = mbus_fmt.width;
 		fmt->height = mbus_fmt.height;
 		break;

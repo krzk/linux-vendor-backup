@@ -40,6 +40,9 @@
 #define V4L2_MBUS_FIELD_EVEN_HIGH		(1 << 10)
 /* FIELD = 1/0 - Field1 (odd)/Field2 (even) */
 #define V4L2_MBUS_FIELD_EVEN_LOW		(1 << 11)
+/* Active state of Sync-on-green (SoG) signal, 0/1 for LOW/HIGH respectively. */
+#define V4L2_MBUS_VIDEO_SOG_ACTIVE_HIGH	(1 << 12)
+#define V4L2_MBUS_VIDEO_SOG_ACTIVE_LOW		(1 << 13)
 
 /* Serial flags */
 /* How many lanes the client can use */
@@ -95,7 +98,7 @@ static inline void v4l2_fill_pix_format(struct v4l2_pix_format *pix_fmt,
 
 static inline void v4l2_fill_mbus_format(struct v4l2_mbus_framefmt *mbus_fmt,
 			   const struct v4l2_pix_format *pix_fmt,
-			   enum v4l2_mbus_pixelcode code)
+			   u32 code)
 {
 	mbus_fmt->width = pix_fmt->width;
 	mbus_fmt->height = pix_fmt->height;

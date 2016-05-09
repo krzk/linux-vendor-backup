@@ -397,6 +397,7 @@ void lpass_set_sched(pid_t pid, int mode)
 				__func__, pid);
 	}
 }
+EXPORT_SYMBOL(lpass_set_sched);
 
 #ifdef USE_EXYNOS_AUD_CPU_HOTPLUG
 void lpass_get_cpu_hotplug(void)
@@ -404,12 +405,14 @@ void lpass_get_cpu_hotplug(void)
 	pr_debug("%s ++\n", __func__);
 	little_core1_hotplug_in(true);
 }
+EXPORT_SYMBOL(lpass_get_cpu_hotplug);
 
 void lpass_put_cpu_hotplug(void)
 {
 	pr_debug("%s --\n", __func__);
 	little_core1_hotplug_in(false);
 }
+EXPORT_SYMBOL(lpass_put_cpu_hotplug);
 #endif
 
 void lpass_add_stream(void)

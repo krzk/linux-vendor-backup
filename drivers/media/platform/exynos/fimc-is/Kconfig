@@ -24,3 +24,13 @@ config USE_VENDER_FEATURE
 	default n
 	help
 	  Enable to use the vender.
+config FIMC_IS_SUPPORT_V4L2_CAMERA
+	bool "Support V4L2 camera interface"
+        depends on VIDEO_EXYNOS_FIMC_IS
+	default n
+	help
+	  This configuration supports standard V4L2 interface.
+	  We can use fimc-is camera chain with V4L2 interface
+	  similar to USB Web camera.
+	  This configuration cannot support internal ISP feature
+	  of FIMC-IS chain.

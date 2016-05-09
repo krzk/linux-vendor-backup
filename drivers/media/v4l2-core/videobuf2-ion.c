@@ -759,6 +759,7 @@ static struct dma_buf *vb2_ion_get_user_pages(unsigned long start,
 	struct vb2_ion_dmabuf_data *priv;
 	struct scatterlist *sgl;
 	struct dma_buf *dbuf;
+	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
 
 	last_size = (start + len) & ~PAGE_MASK;
 	if (last_size == 0)
@@ -826,7 +827,12 @@ static struct dma_buf *vb2_ion_get_user_pages(unsigned long start,
 
 	priv->write = write;
 
-	dbuf = dma_buf_export(priv, &vb2_ion_dmabuf_ops, len, O_RDWR);
+	exp_info.ops = &vb2_ion_dmabuf_ops;
+	exp_info.size = len;
+	exp_info.flags = O_RDWR;
+	exp_info.priv = priv;
+
+	dbuf = dma_buf_export(&exp_info);
 	if (IS_ERR(dbuf)) {
 		sg_free_table(&priv->sgt);
 		ret = PTR_ERR(dbuf);

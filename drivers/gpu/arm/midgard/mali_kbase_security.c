@@ -45,7 +45,7 @@ static inline mali_bool kbasep_am_i_root(void)
  * kbase_security_has_capability - see mali_kbase_caps.h for description.
  */
 
-mali_bool kbase_security_has_capability(kbase_context *kctx, kbase_security_capability cap, u32 flags)
+mali_bool kbase_security_has_capability(struct kbase_context *kctx, enum kbase_security_capability cap, u32 flags)
 {
 	/* Assume failure */
 	mali_bool access_allowed = MALI_FALSE;
@@ -69,7 +69,7 @@ mali_bool kbase_security_has_capability(kbase_context *kctx, kbase_security_capa
 	/* Report problem if requested */
 	if (MALI_FALSE == access_allowed) {
 		if (MALI_FALSE != audit)
-			KBASE_DEBUG_PRINT_WARN(KBASE_CORE, "Security capability failure: %d, %p", cap, (void *)kctx);
+			dev_warn(kctx->kbdev->dev, "Security capability failure: %d, %p", cap, (void *)kctx);
 	}
 
 	return access_allowed;

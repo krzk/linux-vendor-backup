@@ -218,6 +218,9 @@ struct exynos_platform_fimc_is {
 	bool	use_two_spi_line;
 #endif
 	u32	use_sensor_dynamic_voltage_mode;
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	u32 fixed_sensor_id;
+#endif
 };
 
 extern struct device *fimc_is_dev;

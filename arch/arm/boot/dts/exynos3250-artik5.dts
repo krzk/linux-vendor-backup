@@ -24,6 +24,10 @@
 		reg = <0x40000000 0x1F800000>;
 	};
 
+	aliases {
+		i2c8 = &i2c_gpio0;
+	};
+
 	fixed-rate-clocks {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -256,6 +260,7 @@
 		use-fine-tuning;
 		supports-highspeed;
 		sw_data_timeout;
+		supports-sdr104-mode;
 		keep-power-in-suspend;
 		pm-ignore-notify;
 		cd-type-external;
@@ -356,181 +361,6 @@
 	        };
 	};
 
-	fimd_fb: fimd_fb {
-                /* gpx0[6]- TE external interrupt pin */
-                gpios = <&gpx0 4 0xf>;
-		lcd-3.0-supply = <&ldo16_reg>;
-		lcd-1.8-supply = <&ldo19_reg>;
-                fimd: fimd_ctrl {
-                        samsung,left_margin = <1>;
-                        samsung,right_margin = <1>;
-                        samsung,upper_margin = <1>;
-                        samsung,lower_margin = <1>;
-                        samsung,hsync_len = <1>;
-                        samsung,vsync_len = <1>;
-                        samsung,xres = <240>;
-                        samsung,yres = <240>;
-                        samsung,virtual_x = <240>;
-                        samsung,virtual_y = <240>;
-
-                        samsung,width = <24>;
-                        samsung,height = <24>;
-                        samsung,max_bpp = <32>;
-                        samsung,default_bpp = <24>;
-
-                        fb_driver_data {
-                                fb_win_variant_0 {
-                                        has_osd_c = <1>;
-                                        has_osd_d = <0>;
-                                        has_osd_alpha = <0>;
-                                        osd_size_off = <0x08>;
-                                        palette_size = <256>;
-                                        VALID_BPP_1248 = <1>;
-                                        VALID_BPP_13 = <1>;
-                                        VALID_BPP_15 = <1>;
-                                        VALID_BPP_16 = <1>;
-                                        VALID_BPP_18 = <1>;
-                                        VALID_BPP_19 = <1>;
-                                        VALID_BPP_24 = <1>;
-                                        VALID_BPP_25 = <1>;
-                                        VALID_BPP_32 = <1>;
-                                };
-                                fb_win_variant_1 {
-                                        has_osd_c = <1>;
-                                        has_osd_d = <1>;
-                                        has_osd_alpha = <1>;
-                                        osd_size_off = <0x0c>;
-                                        palette_size = <256>;
-                                        VALID_BPP_1248 = <1>;
-                                        VALID_BPP_13 = <1>;
-                                        VALID_BPP_15 = <1>;
-                                        VALID_BPP_16 = <1>;
-                                        VALID_BPP_18 = <1>;
-                                        VALID_BPP_19 = <1>;
-                                        VALID_BPP_24 = <1>;
-                                        VALID_BPP_25 = <1>;
-                                        VALID_BPP_32 = <1>;
-                                };
-                                fb_win_variant_2 {
-                                        has_osd_c = <1>;
-                                        has_osd_d = <1>;
-                                        has_osd_alpha = <1>;
-                                        osd_size_off = <0x0c>;
-                                        palette_size = <256>;
-                                        VALID_BPP_1248 = <1>;
-                                        VALID_BPP_13 = <1>;
-                                        VALID_BPP_15 = <1>;
-                                        VALID_BPP_16 = <1>;
-                                        VALID_BPP_18 = <1>;
-                                        VALID_BPP_19 = <1>;
-                                        VALID_BPP_24 = <1>;
-                                        VALID_BPP_25 = <1>;
-                                        VALID_BPP_32 = <1>;
-                                };
-                                fb_win_variant_3 {
-                                        has_osd_c = <1>;
-                                        has_osd_d = <0>;
-                                        has_osd_alpha = <1>;
-                                        osd_size_off = <0x0>;
-                                        palette_size = <256>;
-                                        VALID_BPP_1248 = <1>;
-                                        VALID_BPP_13 = <1>;
-                                        VALID_BPP_15 = <1>;
-                                        VALID_BPP_16 = <1>;
-                                        VALID_BPP_18 = <1>;
-                                        VALID_BPP_19 = <1>;
-                                        VALID_BPP_24 = <1>;
-                                        VALID_BPP_25 = <1>;
-                                        VALID_BPP_32 = <1>;
-                                };
-                                fb_win_variant_4 {
-                                        has_osd_c = <1>;
-                                        has_osd_d = <0>;
-                                        has_osd_alpha = <1>;
-                                        osd_size_off = <0x0>;
-                                        palette_size = <256>;
-                                        VALID_BPP_1248 = <1>;
-                                        VALID_BPP_13 = <1>;
-                                        VALID_BPP_15 = <1>;
-                                        VALID_BPP_16 = <1>;
-                                        VALID_BPP_18 = <1>;
-                                        VALID_BPP_19 = <1>;
-                                        VALID_BPP_24 = <1>;
-                                        VALID_BPP_25 = <1>;
-                                        VALID_BPP_32 = <1>;
-                                };
-                        };
-                };
-
-                mipi_dsi: mipi_dsi {
-                        /* gpm0[4]-Reset, gpd0[0]-LCD_BL_EN */
-                        gpios = <&gpm0 4 0x1>, <&gpd0 0 0x1>;
-                        interrupt-parent = <&gic>;
-                        interrupts = <0 83 0>;
-
-                        /* Interface definition: 0 - DSIM_COMMAND,
-                                                 1 - DSIM_VIDEO */
-                        e_interface = <0>;
-
-                        /* Pixel format : 0 - DSIM_CMD_3BPP,
-                                          1 - DSIM_CMD_8BPP,
-                                          2 - DSIM_CMD_12BPP,
-                                          3 - DSIM_CMD_16BPP,
-                                          4 - DSIM_VID_16BPP_565,
-                                          5 - DSIM_VID_18BPP_666PACKED,
-                                          6 - DSIM_18BPP_666LOOSELYPACKED,
-                                          7 - DSIM_24BPP_888 */
-                        e_pixel_format = <7>;
-
-                        /* main frame fifo auto flush at VSYNC pulse */
-                        auto_flush = <0>;
-                        eot_disable = <0>;
-                        auto_vertical_cnt = <0>;
-                        hse = <0>;
-                        hfp = <0>;
-                        hbp = <0>;
-                        hsa = <0>;
-
-                        /* num of data lane : 0 - DSIM_DATA_LANE_1,
-                                              1 - DSIM_DATA_LANE_2,
-                                              2 - DSIM_DATA_LANE_3,
-                                              3 - DSIM_DATA_LANE_4 */
-                        e_no_data_lane = <0>;
-
-                        /* byte clock divider : 0 - DSIM_PLL_OUT_DIV8,
-                                                1 - DSIM_EXT_CLK_DIV8,
-                                                2 - DSIM_EXT_CLK_BYPASS */
-                        e_byte_clk = <0>;
-
-                        /* Burst mode : 0 - DSIM_NON_BURST_SYNC_EVENT,
-                                        2 - DSIM_NON_BURST_SYNC_PULSE,
-                                        1 - DSIM_BURST
-                                        4 - DSIM_NON_VIDEO_MODE */
-                        e_burst_mode = <1>;
-
-                        /* PMS
-                           - 1. LCD_S6E8AA0 : p - 4, m - 80, s - 2
-                           - 2. LCD_S6E3FA0(COMMAND): p - 2, m - 46, s - 1
-                           - 3. LCD_S6E3FA0(VIDEO): p - 4, m - 75, s - 1
-                           - 4. LCD_S6E3HA0(COMMAND): p - 2, m - 46, s - 1
-                           - 5. LCD_S6E63J0X03(CMD):  p - 3, m - 125, s -1 */
-                        p = <3>;
-                        m = <110>;
-                        s = <3>;
-
-                        /* D-PHY PLL stable time spec :min = 200usec ~ max 400usec */
-                        pll_stable_time = <0x400>;
-                        /* escape clk : 7MHz */
-                        esc_clk = <7000000>;
-                        /* stop state holding counter after bta change count 0 ~ 0xfff */
-                        stop_holding_cnt = <0x0f>;
-                        /* bta timeout 0 ~ 0xff */
-                        bta_timeout = <0xff>;
-                        /* lp rx timeout 0 ~ 0xffff */
-                        rx_timeout = <0xffff>;
-                };
-        };
-
 	sysreg_localout: sysreg_localout@10010000 {
 		compatible = "samsung,exynos5-sysreg_localout";
 		reg = <0x10010000 0x2000>;
@@ -544,6 +374,14 @@
 		vusb_d-supply = <&ldo6_reg>;
 		vusb_a-supply = <&ldo8_reg>;
 		status = "okay";
+	};
+
+	slp_multi: slp_multi {
+		compatible = "slp,slp_multi";
+		slp,slp_mult-nluns = <2>;
+		slp,slp_mult-swfi-latency = <1>;
+		slp,slp_mult-nfuncs = <4>;
+		slp,slp_mult-enable-funcs = "rndis", "sdb", "mtp", "acm";
 	};
 
 	spi@13920000 {
@@ -577,6 +415,7 @@
 	};
 
 	serial@13800000 {
+		force-auto-flow-control;
 		status = "okay";
 	};
 
@@ -649,10 +488,6 @@
 		pinctrl-names = "default";
 		pinctrl-0=<&cfg_wlanen &cfg_wlanhostwake>;
 		status = "okay";
-	};
-
-	serial@13800000 {
-		force-auto-flow-control;
 	};
 
 	bluetooth {
@@ -734,6 +569,84 @@
 		#size-cells = <0>;
 		status = "okay";
 	};
+
+	regulators {
+                compatible = "simple-bus";
+                #address-cells = <1>;
+                #size-cells = <0>;
+
+		vddext_18: voltage-regulator-1 {
+                        compatible = "regulator-fixed";
+			regulator-name = "VDDEXT_18";
+                        regulator-min-microvolt = <1800000>;
+                        regulator-max-microvolt = <1800000>;
+		};
+
+		vddext_28: voltage-regulator-2 {
+                        compatible = "regulator-fixed";
+			regulator-name = "VDDEXT_28";
+                        regulator-min-microvolt = <2800000>;
+                        regulator-max-microvolt = <2800000>;
+		};
+	};
+
+	i2c_gpio0: i2c@2d {
+		compatible = "i2c-gpio";
+		gpios = <&gpm4 1 0 &gpm4 0 0>;
+		i2c-gpio,delay-us = <2>;    /* ~100kHz */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "okay";
+
+		s5k5ea@2d {
+			compatible = "samsung,exynos5-fimc-is-sensor-5ea";
+			reg = <0x2d>;
+		};
+	};
+
+	fimc_is@14000000 {
+		fixed_sensor_id = <14>;
+		fimc_is_dvfs {
+			default_int = <134000>; /* L1 */
+			default_cam = <320000>; /* L0 */
+			default_mif = <400000>; /* L0 */
+			default_i2c = <0>;
+
+			rear_preview_int = <134000>; /* L1 */
+			rear_preview_cam = <320000>; /* L0 */
+			rear_preview_mif = <400000>; /* L0 */
+			rear_preview_i2c = <0>;
+
+			rear_capture_int = <134000>; /* L1 */
+			rear_capture_cam = <320000>; /* L0 */
+			rear_capture_mif = <400000>; /* L0 */
+			rear_capture_i2c = <0>;
+
+			rear_camcording_int = <134000>; /* L1 */
+			rear_camcording_cam = <320000>; /* L0 */
+			rear_camcording_mif = <400000>; /* L0 */
+			rear_camcording_i2c = <0>;
+
+			max_int = <134000>; /* L1 */
+			max_cam = <320000>; /* L0 */
+			max_mif = <400000>; /* L0 */
+			max_i2c = <0>;
+		};
+	};
+
+	fimc_is_sensor0: fimc_is_sensor@120A0000 {
+		scenario = <2>;
+		gpio_reset = <&gpm3 2 0x1>;
+		gpios_cam_en = <&gpm0 2 0x1>;
+		id = <0>;
+		mclk_ch = <1>;
+		csi_ch = <0>;
+		flite_ch = <0>;
+		i2c_ch = <0>;
+		i2c_addr = <0x20>;
+		is_bns = <0>;
+		status = "okay";
+	};
 };
 
 &pmic_irq {
@@ -747,6 +660,38 @@
 	samsung,pins = "gpe2-0";
 	samsung,pin-pud = <3>;
 	samsung,pin-con-pdn = <3>;
+};
+
+&spi_1 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	num-cs = <2>;
+
+	spidev@0 {
+		compatible = "spidev";
+		reg = <0>;
+		spi-max-frequency = <20000000>;
+		controller-data {
+			cs-gpio = <&gpb 5 0>;
+			samsung,spi-feedback-delay = <2>;
+			artik,disable_for_ats;	/* for ats */
+		};
+	};
+
+	s3fv5rp {
+		compatible = "samsung,s3fv5rp";
+		reg = <1>;
+		gpio-reset = <&gpc0 0 0x1>;
+		gpio-wakeup = <&gpc0 1 0x1>;
+		gpio-status = <&gpc0 2 0x0>;
+		spi-max-frequency = <10000000>;
+		controller-data {
+			cs-gpio = <&gpm3 3 0>;
+			samsung,spi-feedback-delay = <0>;
+			artik,disable_for_ats;	/* for ats */
+		};
+	};
 };
 
 &adc {
@@ -764,4 +709,67 @@
 &i2c_7 {
 	status = "okay";
 	samsung,sysreg-phandle = <&sys_reg>;
+};
+
+&dsi_0 {
+	vddcore-supply = <&ldo6_reg>;
+	vddio-supply = <&ldo6_reg>;
+	samsung,pll-clock-frequency = <24000000>;
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@1 {
+			reg = <1>;
+
+			dsi_out: endpoint {
+				remote-endpoint = <&dsi_in>;
+				samsung,burst-clock-frequency = <400000000>;
+				samsung,esc-clock-frequency = <7200000>;
+			};
+		};
+	};
+
+	panel@0 {
+		compatible = "sparkling,eh400wv";
+		reg = <0>;
+		vdd3-supply = <&vddext_28>;
+		vci-supply = <&vddext_18>;
+		reset-gpio = <&gpe2 1 0>;
+		psr-te-gpio = <&gpm0 0 0>;
+		power-on-delay= <30>;
+		power-off-delay= <120>;
+		reset-delay = <5>;
+		init-delay = <100>;
+		flip-horizontal;
+		flip-vertical;
+		panel-width-mm = <52>;
+		panel-height-mm = <86>;
+
+		display-timings {
+			timing-0 {
+				clock-frequency = <24800400>;
+				hactive = <480>;
+				vactive = <800>;
+				hfront-porch = <16>;
+				hback-porch = <16>;
+				hsync-len = <2>;
+				vfront-porch = <28>;
+				vback-porch = <28>;
+				vsync-len = <2>;
+			};
+		};
+
+		port {
+			dsi_in: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+};
+
+&fimd_drm {
+	status = "okay";
 };

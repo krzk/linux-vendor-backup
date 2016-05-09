@@ -421,7 +421,7 @@ static int fimc_is_sensor_iclk_off(struct fimc_is_device_sensor *device)
 	pdata = device->pdata;
 
 	if (!test_bit(FIMC_IS_SENSOR_ICLK_ON, &device->state)) {
-		merr("%s : already clk off", device, __func__);
+		mwarn("%s : already clk off", device, __func__);
 		goto p_err;
 	}
 
@@ -489,7 +489,7 @@ static int fimc_is_sensor_gpio_off(struct fimc_is_device_sensor *device)
 	pdata = device->pdata;
 
 	if (!test_bit(FIMC_IS_SENSOR_GPIO_ON, &device->state)) {
-		merr("%s : already gpio off", device, __func__);
+		mwarn("%s : already gpio off", device, __func__);
 		goto p_err;
 	}
 
@@ -849,6 +849,13 @@ static void fimc_is_sensor_instanton(struct work_struct *data)
 	clear_bit(FIMC_IS_SENSOR_FRONT_DTP_STOP, &device->state);
 	clear_bit(FIMC_IS_SENSOR_BACK_NOWAIT_STOP, &device->state);
 
+	ret = fimc_is_sensor_start(device);
+	if (ret) {
+		merr("fimc_is_sensor_start is fail(%d)\n", device, ret);
+		goto p_err;
+	}
+	set_bit(FIMC_IS_SENSOR_FRONT_START, &device->state);
+
 #ifdef ENABLE_DTP
 	if (device->dtp_check) {
 		setup_timer(&device->dtp_timer, fimc_is_sensor_dtp, (unsigned long)device);
@@ -856,13 +863,6 @@ static void fimc_is_sensor_instanton(struct work_struct *data)
 		info("DTP checking...\n");
 	}
 #endif
-
-	ret = fimc_is_sensor_start(device);
-	if (ret) {
-		merr("fimc_is_sensor_start is fail(%d)\n", device, ret);
-		goto p_err;
-	}
-	set_bit(FIMC_IS_SENSOR_FRONT_START, &device->state);
 
 	if (instant_cnt) {
 		u32 timetowait, timetoelapse, timeout;
@@ -1172,11 +1172,27 @@ int fimc_is_sensor_s_input(struct fimc_is_device_sensor *device,
 	u32 sensor_ch, actuator_ch;
 	u32 sensor_addr, actuator_addr;
 	u32 i = 0;
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	struct exynos_platform_fimc_is *core_pdata =
+		dev_get_platdata(fimc_is_dev);
+#endif
 
 	BUG_ON(!device);
 	BUG_ON(!device->pdata);
 	BUG_ON(!device->subdev_csi);
 	BUG_ON(input >= SENSOR_NAME_END);
+
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	if (!core_pdata) {
+		err("core->pdata is null");
+		return -EINVAL;
+	}
+	input = core_pdata->fixed_sensor_id;
+	scenario = device->pdata->scenario;
+	info("%s set scenario(%d) and input(%d) from DT\n",
+			__func__, scenario, input);
+#endif
+
 
 module_retry:
 	do {
@@ -1269,8 +1285,10 @@ module_retry:
 #if defined(CONFIG_PM_DEVFREQ)
 	if (test_bit(FIMC_IS_SENSOR_DRIVING, &device->state) &&
 		(device->pdata->scenario == SENSOR_SCENARIO_EXTERNAL)) {
-		pm_qos_add_request(&exynos_sensor_qos_int, PM_QOS_DEVICE_THROUGHPUT, 533000);
-		pm_qos_add_request(&exynos_sensor_qos_mem, PM_QOS_BUS_THROUGHPUT, 667000);
+		pm_qos_add_request(&exynos_sensor_qos_int,
+			PM_QOS_DEVICE_THROUGHPUT, 400000);
+		pm_qos_add_request(&exynos_sensor_qos_mem,
+			PM_QOS_BUS_THROUGHPUT, 633000);
 	}
 #endif
 
@@ -1327,6 +1345,18 @@ int fimc_is_sensor_s_format(struct fimc_is_device_sensor *device,
 	struct v4l2_mbus_framefmt subdev_format;
 
 	BUG_ON(!device);
+
+#ifdef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
+	if (device->subdev_module == NULL) {
+		minfo("Forced call of fimc_is_sensor_s_input\n", device);
+		ret = fimc_is_sensor_s_input(device, 0, 0);
+		if (ret) {
+			merr("fimc_is_sensor_s_input is fail(%d)", device, ret);
+			goto p_err;
+		}
+	}
+#endif
+
 	BUG_ON(!device->subdev_module);
 	BUG_ON(!device->subdev_csi);
 	BUG_ON(!device->subdev_flite);
@@ -1446,11 +1476,13 @@ int fimc_is_sensor_s_framerate(struct fimc_is_device_sensor *device,
 		goto p_err;
 	}
 
+#ifndef CONFIG_FIMC_IS_SUPPORT_V4L2_CAMERA
 	if (param->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		merr("type is invalid(%d)", device, param->type);
 		ret = -EINVAL;
 		goto p_err;
 	}
+#endif
 
 	if (framerate > module->max_framerate) {
 		merr("framerate is invalid(%d > %d)", device, framerate, module->max_framerate);
@@ -1474,9 +1506,12 @@ int fimc_is_sensor_s_framerate(struct fimc_is_device_sensor *device,
 
 	device->image.framerate = framerate;
 
-	device->mode = get_sensor_mode(module->cfg, module->cfgs,
+	/* if sensor is driving mode, skip finding sensor mode */
+	if (!test_bit(FIMC_IS_SENSOR_DRIVING, &device->state)) {
+		device->mode = get_sensor_mode(module->cfg, module->cfgs,
 			device->image.window.width, device->image.window.height,
 			framerate);
+	}
 
 	info("[SEN:D:%d] framerate: req@%dfps, cur@%dfps\n", device->instance,
 		framerate, device->image.framerate);

@@ -87,6 +87,7 @@ int check_adma_status(void)
 {
 	return atomic_read(&dram_usage_cnt) ? 1 : 0;
 }
+EXPORT_SYMBOL(check_adma_status);
 
 /* dma_enqueue
  *
@@ -537,11 +538,14 @@ static void dma_free_dma_buffers(struct snd_pcm *pcm)
 		if (!buf->area)
 			continue;
 
-		prtd = substream->runtime->private_data;
-		if (prtd->dram_used)
-			dma_free_writecombine(pcm->card->dev, buf->bytes,
+		if(substream->runtime) {
+			prtd = substream->runtime->private_data;
+			if (prtd->dram_used)
+				dma_free_writecombine(pcm->card->dev, buf->bytes,
 						buf->area, buf->addr);
-		else
+			else
+				iounmap(buf->area);
+		} else
 			iounmap(buf->area);
 
 		buf->area = NULL;

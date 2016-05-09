@@ -852,6 +852,18 @@ config USB_ANDROID_RNDIS_DWORD_ALIGNED
 	help
 		Provides dword aligned for DMA controller.
 
+config USB_G_SLP
+	boolean "SLP Composite Gadget (similar to Android)"
+	select USB_F_ACM
+	select USB_U_SERIAL
+	select USB_LIBCOMPOSITE
+	help
+	  The SLP gadget driver supports multiple USB functions.
+	  The functions can be configured via a board file and may be
+	  enabled and disabled dynamically.
+	  Support functions: sdb, acm, mtp, mass storage, rndis,
+	  android accessory, diag.
+
 if TTY
 
 config USB_CDC_COMPOSITE

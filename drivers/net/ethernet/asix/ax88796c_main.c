@@ -1338,6 +1338,13 @@ static int ax88796c_probe(struct spi_device *spi)
 	/* Reset AX88796C */
 	ax88796c_reset(ax_local);
 
+	/* Check board revision */
+	temp = AX_READ(&ax_local->ax_spi, P2_CRIR);
+	if ((temp & 0xF) != 0x0) {
+		dev_err(&spi->dev, "spi read failed\n");
+		return -ENODEV;
+	}
+
 	temp = AX_READ(&ax_local->ax_spi, P0_BOR);
 	if (temp == 0x1234) {
 		ax_local->plat_endian = PLAT_LITTLE_ENDIAN;

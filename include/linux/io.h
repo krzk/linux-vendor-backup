@@ -62,6 +62,8 @@ void __iomem *devm_ioremap(struct device *dev, resource_size_t offset,
 			    unsigned long size);
 void __iomem *devm_ioremap_nocache(struct device *dev, resource_size_t offset,
 				    unsigned long size);
+void __iomem *devm_ioremap_wc(struct device *dev, resource_size_t offset,
+				   resource_size_t size);
 void devm_iounmap(struct device *dev, void __iomem *addr);
 int check_signature(const volatile void __iomem *io_addr,
 			const unsigned char *signature, int length);
@@ -74,6 +76,38 @@ void devm_ioremap_release(struct device *dev, void *res);
  */
 #ifndef arch_has_dev_port
 #define arch_has_dev_port()     (1)
+#endif
+
+/*
+ * Some systems (x86 without PAT) have a somewhat reliable way to mark a
+ * physical address range such that uncached mappings will actually
+ * end up write-combining.  This facility should be used in conjunction
+ * with pgprot_writecombine, ioremap-wc, or set_memory_wc, since it has
+ * no effect if the per-page mechanisms are functional.
+ * (On x86 without PAT, these functions manipulate MTRRs.)
+ *
+ * arch_phys_del_wc(0) or arch_phys_del_wc(any error code) is guaranteed
+ * to have no effect.
+ */
+#ifndef arch_phys_wc_add
+static inline int __must_check arch_phys_wc_add(unsigned long base,
+						unsigned long size)
+{
+	return 0;  /* It worked (i.e. did nothing). */
+}
+
+static inline void arch_phys_wc_del(int handle)
+{
+}
+
+#define arch_phys_wc_add arch_phys_wc_add
+#ifndef arch_phys_wc_index
+static inline int arch_phys_wc_index(int handle)
+{
+	return -1;
+}
+#define arch_phys_wc_index arch_phys_wc_index
+#endif
 #endif
 
 #endif /* _LINUX_IO_H */

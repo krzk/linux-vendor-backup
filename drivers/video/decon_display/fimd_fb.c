@@ -3021,7 +3021,7 @@ static int s3c_fb_sd_pad_get_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_fh *
 	format->format.height = win->fbinfo->var.yres;
 
 	/* FIMD only accept the YUV data via local bus from GSCALER */
-	format->format.code = V4L2_MBUS_FMT_YUV8_1X24;
+	format->format.code = MEDIA_BUS_FMT_YUV8_1X24;
 
 	dev_dbg(sfb->dev, "Get sd pad format (width, height) : (%d, %d)\n",
 			format->format.width, format->format.height);

@@ -45,6 +45,8 @@
 #ifdef CONFIG_EXYNOS_SPI_RESET_DURING_DSTOP
 static LIST_HEAD(drvdata_list);
 #endif
+static int disable = 0;
+module_param(disable, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
 
 #define MAX_SPI_PORTS		5
 #define SPI_AUTOSUSPEND_TIMEOUT		(100)
@@ -1044,6 +1046,12 @@ static struct s3c64xx_spi_csinfo *s3c64xx_get_slave_ctrldata(
 	if (!data_np) {
 		dev_err(&spi->dev, "child node 'controller-data' not found\n");
 		return ERR_PTR(-EINVAL);
+	}
+
+	/* WIP for Artik */
+	if (of_property_read_bool(data_np, "artik,disable_for_ats") && disable) {
+		dev_err(&spi->dev, "disable : WIP for artik ATS\n");
+		return ERR_PTR(-ENODEV);
 	}
 
 	cs = kzalloc(sizeof(*cs), GFP_KERNEL);

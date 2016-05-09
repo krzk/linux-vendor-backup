@@ -2416,11 +2416,11 @@ static int dw_mci_tasklet_dat(struct dw_mci *host)
 
 			if (status & DW_MCI_DATA_ERROR_FLAGS) {
 				if (status & SDMMC_INT_DTO) {
-					dev_err(host->dev,
+					dev_info(host->dev,
 						"data timeout error\n");
 					data->error = -ETIMEDOUT;
 				} else if (status & SDMMC_INT_DCRC) {
-					dev_err(host->dev,
+					dev_info(host->dev,
 						"data CRC error %s\n",
 						(data->flags & MMC_DATA_READ) ? "READ" : "WRITE");
 					data->error = -EILSEQ;
@@ -2434,22 +2434,22 @@ static int dw_mci_tasklet_dat(struct dw_mci *host)
 						 */
 						data->bytes_xfered = 0;
 						data->error = -ETIMEDOUT;
-						dev_err(host->dev,
+						dev_info(host->dev,
 							"Write no CRC\n");
 					} else {
 						data->error = -EIO;
-						dev_err(host->dev,
+						dev_info(host->dev,
 							"End bit error\n");
 					}
 
 				} else if (status & SDMMC_INT_SBE) {
-					dev_err(host->dev,
+					dev_info(host->dev,
 						"Start bit error "
 						"(status=%08x)\n",
 						status);
 					data->error = -EIO;
 				} else {
-					dev_err(host->dev,
+					dev_info(host->dev,
 						"data FIFO error "
 						"(status=%08x)\n",
 						status);

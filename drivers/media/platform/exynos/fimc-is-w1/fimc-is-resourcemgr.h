@@ -55,6 +55,8 @@ struct fimc_is_resourcemgr {
 
 int fimc_is_resource_probe(struct fimc_is_resourcemgr *resourcemgr,
 	void *private_data);
-int fimc_is_resource_get(struct fimc_is_resourcemgr *resourcemgr);
-int fimc_is_resource_put(struct fimc_is_resourcemgr *resourcemgr);
+int fimc_is_resource_get(struct fimc_is_resourcemgr *resourcemgr,
+	u32 scenario);
+int fimc_is_resource_put(struct fimc_is_resourcemgr *resourcemgr,
+	u32 scenario);
 #endif

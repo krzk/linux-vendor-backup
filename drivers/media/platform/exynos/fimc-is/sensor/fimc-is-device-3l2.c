@@ -134,14 +134,14 @@ int sensor_3l2_probe(struct i2c_client *client,
 	ext->sensor_con.peri_setting.i2c.slave_address = 0x20;
 	ext->sensor_con.peri_setting.i2c.speed = 400000;
 
-	ext->actuator_con.product_name = ACTUATOR_NAME_DWXXXX;
+	ext->actuator_con.product_name = ACTUATOR_NAME_BU64241GWZ;
 	ext->actuator_con.peri_type = SE_I2C;
 	ext->actuator_con.peri_setting.i2c.channel = SENSOR_CONTROL_I2C0;
 	ext->actuator_con.peri_setting.i2c.slave_address = 0x20;
 	ext->actuator_con.peri_setting.i2c.speed = 400000;
 
-	ext->flash_con.product_name = FLADRV_NAME_AS3643;
-	ext->flash_con.peri_type = SE_I2C;
+	ext->flash_con.product_name = FLADRV_NAME_LM3560;
+	ext->flash_con.peri_type = SE_GPIO;
 	ext->flash_con.peri_setting.gpio.first_gpio_port_no = 2;
 	ext->flash_con.peri_setting.gpio.second_gpio_port_no = 3;
 
