@@ -203,9 +203,8 @@ onlycap
 	This contains labels processes must have for CAP_MAC_ADMIN
 	and CAP_MAC_OVERRIDE to be effective. If this file is empty
 	these capabilities are effective at for processes with any
-	label. The values are set by writing the desired labels,
-	separated by space, to the file or cleared by writing an empty
-	string to the file.
+	label. The values are set by writing the desired labels, separated
+	by spaces, to the file or cleared by writing "-" to the file.
 ptrace
 	This is used to define the current ptrace policy
 	0 - default: this is the policy that relies on smack access rules.

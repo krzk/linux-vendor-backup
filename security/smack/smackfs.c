@@ -1697,8 +1697,8 @@ static int onlycap_seq_show(struct seq_file *s, void *v)
 	struct smack_onlycap *sop =
 		list_entry_rcu(list, struct smack_onlycap, list);
 
-	seq_putc(s, ' ');
 	seq_puts(s, sop->smk_label->smk_known);
+	seq_putc(s, ' ');
 
 	return 0;
 }
@@ -1716,6 +1716,44 @@ static int smk_open_onlycap(struct inode *inode, struct file *file)
 }
 
 /**
+ * smk_list_swap_rcu - swap public list with a private one in RCU-safe way
+ * The caller must hold appropriate mutex to prevent concurrent modifications
+ * to the public list.
+ * Private list is assumed to be not accessible to other threads yet.
+ *
+ * @public: public list
+ * @private: private list
+ */
+static void smk_list_swap_rcu(struct list_head *public,
+			      struct list_head *private)
+{
+	struct list_head *first, *last;
+
+	if (list_empty(public)) {
+		list_splice_init_rcu(private, public, synchronize_rcu);
+	} else {
+		/* Remember public list before replacing it */
+		first = public->next;
+		last = public->prev;
+
+		/* Publish private list in place of public in RCU-safe way */
+		private->prev->next = public;
+		private->next->prev = public;
+		rcu_assign_pointer(public->next, private->next);
+		public->prev = private->prev;
+
+		synchronize_rcu();
+
+		/* When all readers are done with the old public list,
+		 * attach it in place of private */
+		private->next = first;
+		private->prev = last;
+		first->prev = private;
+		last->next = private;
+	}
+}
+
+/**
  * smk_write_onlycap - write() for /smack/onlycap
  * @file: file pointer, not actually used
  * @buf: where to get the data from
@@ -1727,60 +1765,71 @@ static int smk_open_onlycap(struct inode *inode, struct file *file)
 static ssize_t smk_write_onlycap(struct file *file, const char __user *buf,
 				 size_t count, loff_t *ppos)
 {
-	char *data, *str;
+	char *data;
+	char *data_parse;
+	char *tok;
+	struct smack_known *skp;
 	struct smack_onlycap *sop;
-	struct smack_known *skp = smk_of_task(current->cred->security);
+	struct smack_onlycap *sop2;
+	LIST_HEAD(list_tmp);
 	int rc = count;
 
 	if (!smack_privileged(CAP_MAC_ADMIN))
 		return -EPERM;
 
-	data = kzalloc(count, GFP_KERNEL);
+	data = kzalloc(count + 1, GFP_KERNEL);
 	if (data == NULL)
 		return -ENOMEM;
 
-	/*
-	 * Should the null string be passed in unset the onlycap value.
-	 * This seems like something to be careful with as usually
-	 * smk_import only expects to return NULL for errors. It
-	 * is usually the case that a nullstring or "\n" would be
-	 * bad to pass to smk_import but in fact this is useful here.
-	 *
-	 * smk_import will also reject a label beginning with '-',
-	 * so "-usecapabilities" will also work.
-	 */
 	if (copy_from_user(data, buf, count) != 0) {
 		kfree(data);
 		return -EFAULT;
  	}
 
-	mutex_lock(&smack_onlycap_lock);
-	list_for_each_entry_rcu(sop, &smack_onlycap_list, list)
-		list_del_rcu(&sop->list);
-
-	while ((str = strsep(&data, " ")) != NULL) {
-		if (!*str)
+	data_parse = data;
+	while ((tok = strsep(&data_parse, " ")) != NULL) {
+		if (!*tok)
 			continue;
-		skp = smk_import_entry(str, 0);
+
+		skp = smk_import_entry(tok, 0);
 		if (IS_ERR(skp)) {
 			rc = PTR_ERR(skp);
-			goto out;
+			break;
 		}
 
 		sop = kzalloc(sizeof(*sop), GFP_KERNEL);
-		if (skp == NULL) {
+		if (sop == NULL) {
 			rc = -ENOMEM;
-			goto out;
+			break;
 		}
 
 		sop->smk_label = skp;
-		list_add_rcu(&sop->list, &smack_onlycap_list);
+		list_add_rcu(&sop->list, &list_tmp);
+	}
+	kfree(data);
+
+	/*
+	 * Clear the smack_onlycap on invalid label errors. This means
+	 * that we can pass a null string to unset the onlycap value.
+	 *
+	 * Importing will also reject a label beginning with '-',
+	 * so "-usecapabilities" will also work.
+	 *
+	 * But do so only on invalid label, not on system errors.
+	 * The invalid label must be first to count as clearing attempt.
+	 */
+	if (rc == -EINVAL && list_empty(&list_tmp))
+		rc = count;
+
+	if (rc >= 0) {
+		mutex_lock(&smack_onlycap_lock);
+		smk_list_swap_rcu(&smack_onlycap_list, &list_tmp);
+		mutex_unlock(&smack_onlycap_lock);
 	}
 
-out:
-	mutex_unlock(&smack_onlycap_lock);
-	synchronize_rcu();
-	kfree(data);
+	list_for_each_entry_safe(sop, sop2, &list_tmp, list)
+		kfree(sop);
+
 	return rc;
 }
 
@@ -1788,7 +1837,7 @@ static const struct file_operations smk_onlycap_ops = {
 	.open		= smk_open_onlycap,
 	.read		= seq_read,
 	.write		= smk_write_onlycap,
-	.llseek	= seq_lseek,
+	.llseek		= seq_lseek,
 	.release	= seq_release,
 };
 
