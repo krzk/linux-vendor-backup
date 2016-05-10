@@ -32,6 +32,15 @@ if MALI_VER_R4P0_REL0
 source "drivers/gpu/arm/mali400/r4p0_rel0/Kconfig"
 endif
 
+config MALI_VER_R5P2_REL0
+	bool "Mali400 Version R5P2-REL0"
+	help
+	  Choose this option to select DDK version.
+
+if MALI_VER_R5P2_REL0
+source "drivers/gpu/arm/mali400/r5p2_rel0/Kconfig"
+endif
+
 endchoice
 
 config VIDEO_SAMSUNG
