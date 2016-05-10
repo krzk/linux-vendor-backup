@@ -32,14 +32,14 @@ static int get_board_rev(struct device *dev)
 
 	board_rev_pin0 = of_get_named_gpio(np, "gpios_board_rev", 0);
 	if (!gpio_is_valid(board_rev_pin0)) {
-		dev_err(dev, "failed to get main board_rev_pin0\n");
+		dev_info(dev, "failed to get main board_rev_pin0\n");
 		ret = -EINVAL;
 		goto p_err;
 	}
 
 	board_rev_pin1 = of_get_named_gpio(np, "gpios_board_rev", 1);
 	if (!gpio_is_valid(board_rev_pin1)) {
-		dev_err(dev, "failed to get main board_rev_pin1\n");
+		dev_info(dev, "failed to get main board_rev_pin1\n");
 		ret = -EINVAL;
 		goto p_err;
 	}
@@ -474,19 +474,19 @@ int fimc_is_sensor_parse_dt(struct platform_device *pdev)
 	/* Optional Feature */
 	gpio_comp_en = of_get_named_gpio(dnode, "gpios_comp_en", 0);
 	if (!gpio_is_valid(gpio_comp_en))
-	dev_err(dev, "failed to get main comp en gpio\n");
+		dev_info(dev, "failed to get main comp en gpio\n");
 
 	gpio_comp_rst = of_get_named_gpio(dnode, "gpios_comp_reset", 0);
 	if (!gpio_is_valid(gpio_comp_rst))
-	dev_err(dev, "failed to get main comp reset gpio\n");
+		dev_info(dev, "failed to get main comp reset gpio\n");
 
 	gpio_standby = of_get_named_gpio(dnode, "gpio_standby", 0);
 	if (!gpio_is_valid(gpio_standby))
-		dev_err(dev, "failed to get gpio_standby\n");
+		dev_info(dev, "failed to get gpio_standby\n");
 
 	gpio_cam_en = of_get_named_gpio(dnode, "gpios_cam_en", 0);
 	if (!gpio_is_valid(gpio_cam_en))
-		dev_err(dev, "failed to get gpio_cam_en\n");
+		dev_info(dev, "failed to get gpio_cam_en\n");
 
 	SET_PIN(pdata, SENSOR_SCENARIO_NORMAL, GPIO_SCENARIO_ON, 0, gpio_cam_en, 0, NULL, PIN_OUTPUT_HIGH);
 	SET_PIN(pdata, SENSOR_SCENARIO_NORMAL, GPIO_SCENARIO_ON, 1, gpio_reset, 0, NULL, PIN_RESET);

@@ -919,7 +919,7 @@ static int fimc_is_sen_stop_streaming(struct vb2_queue *q)
 		clear_bit(FIMC_IS_QUEUE_BUFFER_PREPARED, &queue->state);
 		ret = fimc_is_sensor_back_stop(device);
 	} else {
-		err("already stream off");
+		warn("already stream off");
 		ret = -EINVAL;
 	}
 
