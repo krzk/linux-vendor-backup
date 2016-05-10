@@ -163,6 +163,15 @@ int mali_mmap(struct file *filp, struct vm_area_struct *vma)
 	vma->vm_flags |= VM_DONTEXPAND;
 #endif
 
+	/* For CTS5.1_r0.5 security case
+	 * force read mapping fail if meet KBASE_REG_COOKIE_MTP or KBASE_REG_COOKIE_TB
+	 */
+#define KBASE_REG_COOKIE_MTP 1
+#define KBASE_REG_COOKIE_TB 2
+	if ((vma->vm_pgoff == KBASE_REG_COOKIE_MTP) || (vma->vm_pgoff == KBASE_REG_COOKIE_TB)) {
+		vma->vm_flags &= ~(VM_READ | VM_MAYREAD);
+	}
+
 	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 	vma->vm_ops = &mali_kernel_vm_ops;
 
@@ -422,5 +431,4 @@ unsigned long _mali_page_node_get_pfn(struct mali_page_node *node)
 	}
 	return 0;
 }
-
 

@@ -132,6 +132,11 @@ static void timeline_print_pt(struct seq_file *s, struct sync_pt *sync_pt)
 	MALI_DEBUG_ASSERT_POINTER(sync_pt);
 
 	mpt = to_mali_sync_pt(sync_pt);
+	if (mpt == NULL || mpt->flag == NULL)
+	{
+		MALI_DEBUG_PRINT(2, ("mali timeline NULL resource mpt: %p, mpt->flag: %p\n", (void *)mpt, (void *)(mpt->flag)));
+		return;
+	}
 
 	/* It is possible this sync point is just under construct,
 	 * make sure the flag is valid before accessing it

@@ -702,7 +702,21 @@ _mali_osk_errcode_t _mali_ukk_gp_start_job(void *ctx,
 	}
 
 	point_ptr = (u32 __user *)(uintptr_t)mali_gp_job_get_timeline_point_ptr(job);
-
+#ifdef SPRD_GPU_BOOST
+	{
+		extern int gpu_boost_level;
+		extern int gpu_boost_sf_level;
+		if (99 == session->level)
+		{
+			gpu_boost_sf_level = 1;
+		}
+		else
+		{
+			if (gpu_boost_level < session->level)
+				gpu_boost_level = session->level;
+		}
+	}
+#endif
 	point = mali_scheduler_submit_gp_job(session, job);
 
 	if (0 != _mali_osk_put_user(((u32) point), point_ptr)) {
@@ -736,7 +750,21 @@ _mali_osk_errcode_t _mali_ukk_pp_start_job(void *ctx,
 	}
 
 	point_ptr = (u32 __user *)(uintptr_t)mali_pp_job_get_timeline_point_ptr(job);
-
+#ifdef SPRD_GPU_BOOST
+	{
+		extern int gpu_boost_level;
+		extern int gpu_boost_sf_level;
+		if (99 == session->level)
+		{
+			gpu_boost_sf_level = 1;
+		}
+		else
+		{
+			if (gpu_boost_level < session->level)
+				gpu_boost_level = session->level;
+		}
+	}
+#endif
 	point = mali_scheduler_submit_pp_job(session, job);
 	job = NULL;
 
@@ -793,7 +821,21 @@ _mali_osk_errcode_t _mali_ukk_pp_and_gp_start_job(void *ctx,
 	}
 
 	point_ptr = (u32 __user *)(uintptr_t)mali_pp_job_get_timeline_point_ptr(pp_job);
-
+#ifdef SPRD_GPU_BOOST
+	{
+		extern int gpu_boost_level;
+		extern int gpu_boost_sf_level;
+		if (99 == session->level)
+		{
+			gpu_boost_sf_level = 1;
+		}
+		else
+		{
+			if (gpu_boost_level < session->level)
+				gpu_boost_level = session->level;
+		}
+	}
+#endif
 	/* Submit GP job. */
 	mali_scheduler_submit_gp_job(session, gp_job);
 	gp_job = NULL;

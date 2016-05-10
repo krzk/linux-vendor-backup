@@ -122,8 +122,10 @@ _mali_osk_errcode_t mali_mmu_pagedir_map(struct mali_page_directory *pagedir, u3
 	mali_dma_addr pde_phys;
 	int i;
 
-	if (last_pde < first_pde)
+	if (last_pde < first_pde){
+		MALI_DEBUG_PRINT(2,("function = %s, line =%d, last_pde < first_pde \n", __FUNCTION__, __LINE__));
 		return _MALI_OSK_ERR_INVALID_ARGS;
+	}
 
 	for (i = first_pde; i <= last_pde; i++) {
 		if (0 == (_mali_osk_mem_ioread32(pagedir->page_directory_mapped,
@@ -134,7 +136,7 @@ _mali_osk_errcode_t mali_mmu_pagedir_map(struct mali_page_directory *pagedir, u3
 
 			err = mali_mmu_get_table_page(&pde_phys, &pde_mapping);
 			if (_MALI_OSK_ERR_OK != err) {
-				MALI_PRINT_ERROR(("Failed to allocate page table page.\n"));
+				MALI_PRINT_ERROR(("Failed to allocate page table page( %d).\n", err));
 				return err;
 			}
 			pagedir->page_entries_mapped[i] = pde_mapping;
@@ -420,7 +422,7 @@ static _mali_osk_errcode_t dump_mmu_page_table(struct mali_page_directory *paged
 			mali_mmu_dump_page(pagedir->page_directory_mapped, pagedir->page_directory, info)
 		);
 
-		for (i = 0; i < 1024; i++) {
+		for (i = 0; i < sizeof(pagedir->page_entries_mapped) / sizeof(pagedir->page_entries_mapped[0]); i++) {
 			if (NULL != pagedir->page_entries_mapped[i]) {
 				MALI_CHECK_NO_ERROR(
 					mali_mmu_dump_page(pagedir->page_entries_mapped[i],

@@ -86,6 +86,7 @@ TRACE_EVENT(mali_hw_counter,
 
 	    TP_fast_assign(
 		    __entry->counter_id = counter_id;
+		    __entry->value = value;
 	    ),
 
 	    TP_printk("event %d = %d", __entry->counter_id, __entry->value)

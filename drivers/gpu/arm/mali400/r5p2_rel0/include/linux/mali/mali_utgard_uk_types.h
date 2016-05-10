@@ -81,6 +81,7 @@ typedef enum {
 	_MALI_UK_TIMELINE_CREATE_SYNC_FENCE,  /**< _mali_ukk_timeline_create_sync_fence() */
 	_MALI_UK_SOFT_JOB_START,              /**< _mali_ukk_soft_job_start() */
 	_MALI_UK_SOFT_JOB_SIGNAL,             /**< _mali_ukk_soft_job_signal() */
+	_MALI_UK_SET_GPU_BOOST_LEVEL,         /**< set gpu level to control frequency */
 
 	/** Memory functions */
 

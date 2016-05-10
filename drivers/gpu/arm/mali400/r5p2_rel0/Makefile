@@ -7,15 +7,16 @@
 # A copy of the licence is included with the program, and can also be obtained from Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
-
+USING_UMP=0
 USE_UMPV2=0
-USING_PROFILING ?= 1
+USING_PROFILING ?= 0
 USING_INTERNAL_PROFILING ?= 0
-USING_DVFS ?= 1
+USING_DVFS ?= 0
 MALI_HEATMAPS_ENABLED ?= 0
 MALI_DMA_BUF_MAP_ON_ATTACH ?= 1
 MALI_PMU_PARALLEL_POWER_UP ?= 0
-USING_DT ?= 0
+MALI_SHARED_INTERRUPTS ?= 1
+USING_DT ?= 1
 
 # The Makefile sets up "arch" based on the CONFIG, creates the version info
 # string and the __malidrv_build_info.c file, and then call the Linux build
@@ -89,7 +90,7 @@ include $(KDIR)/.config
 
 ifeq ($(ARCH), arm)
 # when compiling for ARM we're cross compiling
-export CROSS_COMPILE ?= $(call check_cc2, arm-linux-gnueabi-gcc, arm-linux-gnueabi-, arm-none-linux-gnueabi-)
+export CROSS_COMPILE ?= $(call check_cc2, arm-linux-gnueabi-gcc, arm-linux-gnueabi-, arm-eabi-)
 endif
 
 # report detected/selected settings
@@ -101,10 +102,10 @@ endif
 
 # Set up build config
 export CONFIG_MALI400=m
-export CONFIG_MALI450=y
+# export CONFIG_MALI450=y
 
 export EXTRA_DEFINES += -DCONFIG_MALI400=1
-export EXTRA_DEFINES += -DCONFIG_MALI450=1
+# export EXTRA_DEFINES += -DCONFIG_MALI450=1
 
 ifneq ($(MALI_PLATFORM),)
 export EXTRA_DEFINES += -DMALI_FAKE_PLATFORM_DEVICE=1

@@ -118,8 +118,6 @@ static _mali_osk_wait_queue_t *executor_notify_core_change_wait_queue = NULL;
 /*
  * ---------- Forward declaration of static functions ----------
  */
-static void mali_executor_lock(void);
-static void mali_executor_unlock(void);
 static mali_bool mali_executor_is_suspended(void *data);
 static mali_bool mali_executor_is_working(void);
 static void mali_executor_disable_empty_virtual(void);
@@ -153,6 +151,9 @@ static void mali_executor_set_state_pp_physical(struct mali_group *group,
 		_mali_osk_list_t *new_list,
 		u32 *new_count);
 
+extern bool mali_is_on(void);
+extern void mali_executor_lock(void);
+extern void mali_executor_unlock(void);
 /*
  * ---------- Actual implementation ----------
  */
@@ -509,7 +510,7 @@ void mali_executor_schedule_from_mask(mali_scheduler_mask mask, mali_bool deferr
 _mali_osk_errcode_t mali_executor_interrupt_gp(struct mali_group *group,
 		mali_bool in_upper_half)
 {
-	enum mali_interrupt_result int_result;
+	enum mali_interrupt_result int_result = MALI_INTERRUPT_RESULT_NONE;
 	mali_bool time_out = MALI_FALSE;
 
 	MALI_DEBUG_PRINT(4, ("Executor: GP interrupt from %s in %s half\n",
@@ -533,10 +534,12 @@ _mali_osk_errcode_t mali_executor_interrupt_gp(struct mali_group *group,
 			    mali_gp_job_get_id(group->gp_running_job),
 			    mali_group_core_description(group)));
 	} else {
-		int_result = mali_group_get_interrupt_result_gp(group);
-		if (MALI_INTERRUPT_RESULT_NONE == int_result) {
-			mali_executor_unlock();
-			return _MALI_OSK_ERR_FAULT;
+		if (mali_is_on()) {
+			int_result = mali_group_get_interrupt_result_gp(group);
+			if (MALI_INTERRUPT_RESULT_NONE == int_result) {
+				mali_executor_unlock();
+				return _MALI_OSK_ERR_FAULT;
+			}
 		}
 	}
 
@@ -637,7 +640,7 @@ _mali_osk_errcode_t mali_executor_interrupt_gp(struct mali_group *group,
 _mali_osk_errcode_t mali_executor_interrupt_pp(struct mali_group *group,
 		mali_bool in_upper_half)
 {
-	enum mali_interrupt_result int_result;
+	enum mali_interrupt_result int_result = MALI_INTERRUPT_RESULT_NONE;
 	mali_bool time_out = MALI_FALSE;
 
 	MALI_DEBUG_PRINT(4, ("Executor: PP interrupt from %s in %s half\n",
@@ -649,6 +652,7 @@ _mali_osk_errcode_t mali_executor_interrupt_pp(struct mali_group *group,
 	if (!mali_group_is_working(group)) {
 		/* Not working, so nothing to do */
 		mali_executor_unlock();
+		MALI_DEBUG_PRINT(3, ("group is not working while receive the interrupt\n"));
 		return _MALI_OSK_ERR_FAULT;
 	}
 
@@ -671,13 +675,14 @@ _mali_osk_errcode_t mali_executor_interrupt_pp(struct mali_group *group,
 			    mali_pp_job_get_id(group->pp_running_job),
 			    mali_group_core_description(group)));
 	} else {
-		int_result = mali_group_get_interrupt_result_pp(group);
-		if (MALI_INTERRUPT_RESULT_NONE == int_result) {
-			mali_executor_unlock();
-			return _MALI_OSK_ERR_FAULT;
+                if (mali_is_on()) {
+                        int_result = mali_group_get_interrupt_result_pp(group);
+                        if (MALI_INTERRUPT_RESULT_NONE == int_result) {
+                                mali_executor_unlock();
+                                return _MALI_OSK_ERR_FAULT;
+                        }
 		}
 	}
-
 #if defined(CONFIG_MALI_SHARED_INTERRUPTS)
 	if (MALI_INTERRUPT_RESULT_NONE == int_result) {
 		/* No interrupts signalled, so nothing to do */
@@ -738,7 +743,7 @@ _mali_osk_errcode_t mali_executor_interrupt_pp(struct mali_group *group,
 _mali_osk_errcode_t mali_executor_interrupt_mmu(struct mali_group *group,
 		mali_bool in_upper_half)
 {
-	enum mali_interrupt_result int_result;
+	enum mali_interrupt_result int_result = MALI_INTERRUPT_RESULT_NONE;
 
 	MALI_DEBUG_PRINT(4, ("Executor: MMU interrupt from %s in %s half\n",
 			     mali_group_core_description(group),
@@ -754,10 +759,12 @@ _mali_osk_errcode_t mali_executor_interrupt_mmu(struct mali_group *group,
 	MALI_DEBUG_ASSERT_EXECUTOR_LOCK_HELD();
 	MALI_DEBUG_ASSERT(mali_group_is_working(group));
 
-	int_result = mali_group_get_interrupt_result_mmu(group);
-	if (MALI_INTERRUPT_RESULT_NONE == int_result) {
-		mali_executor_unlock();
-		return _MALI_OSK_ERR_FAULT;
+	if (mali_is_on()) {
+		int_result = mali_group_get_interrupt_result_mmu(group);
+		if (MALI_INTERRUPT_RESULT_NONE == int_result) {
+			mali_executor_unlock();
+			return _MALI_OSK_ERR_FAULT;
+		}
 	}
 
 #if defined(CONFIG_MALI_SHARED_INTERRUPTS)
@@ -1341,13 +1348,13 @@ _mali_osk_errcode_t _mali_ukk_gp_suspend_response(_mali_uk_gp_suspend_response_s
  * ---------- Implementation of static functions ----------
  */
 
-static void mali_executor_lock(void)
+void mali_executor_lock(void)
 {
 	_mali_osk_spinlock_irq_lock(mali_executor_lock_obj);
 	MALI_DEBUG_PRINT(5, ("Executor: lock taken\n"));
 }
 
-static void mali_executor_unlock(void)
+void mali_executor_unlock(void)
 {
 	MALI_DEBUG_PRINT(5, ("Executor: Releasing lock\n"));
 	_mali_osk_spinlock_irq_unlock(mali_executor_lock_obj);
