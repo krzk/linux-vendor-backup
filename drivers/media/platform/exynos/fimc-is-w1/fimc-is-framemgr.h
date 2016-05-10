@@ -32,7 +32,7 @@
 /* #define TRACE_FRAME */
 #define TRACE_ID		(FRAMEMGR_ID_SHOT | FRAMEMGR_ID_STREAM)
 
-#define FRAMEMGR_MAX_REQUEST	12
+#define FRAMEMGR_MAX_REQUEST	32
 
 /*flite frame start tasklet*/
 #define FMGR_IDX_0		(0x10)

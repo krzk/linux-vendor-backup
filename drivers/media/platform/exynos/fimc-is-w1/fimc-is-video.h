@@ -17,7 +17,7 @@
 #endif
 
 #define FIMC_IS_MAX_NODES			(3)
-#define FIMC_IS_MAX_BUFS			(12)
+#define FIMC_IS_MAX_BUFS			(32)
 #define FIMC_IS_MAX_PLANES			(4)
 #define FIMC_IS_INVALID_BUF_INDEX		(0xFF)
 #define FIMC_IS_MIN_BUFFERS_FOR_CAPTURE		(8)
