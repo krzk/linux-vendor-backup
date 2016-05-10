@@ -455,6 +455,7 @@ void mali_l2_cache_invalidate_all_pages(u32 *pages, u32 num_pages)
 							 pages[j]);
 			if (_MALI_OSK_ERR_OK != ret) {
 				MALI_PRINT_ERROR(("Failed to invalidate cache (page)\n"));
+				dump_stack();
 			}
 		}
 

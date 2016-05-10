@@ -248,9 +248,9 @@ MALI_STATIC_INLINE mali_bool mali_group_is_working(struct mali_group *group)
 	MALI_DEBUG_ASSERT_EXECUTOR_LOCK_HELD();
 	if (mali_group_is_in_virtual(group)) {
 		struct mali_group *tmp_group = mali_executor_get_virtual_group();
-		return tmp_group->is_working;
+		return tmp_group->is_working && (tmp_group->power_is_on);
 	}
-	return group->is_working;
+	return (group->is_working) && (group->power_is_on);
 }
 
 MALI_STATIC_INLINE struct mali_gp_job *mali_group_get_running_gp_job(struct mali_group *group)

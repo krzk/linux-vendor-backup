@@ -49,10 +49,13 @@ _mali_osk_errcode_t mali_mem_validation_check(u32 phys_addr, u32 size)
 	if (phys_addr < (phys_addr + size)) { /* Don't allow overflow (or zero size) */
 		if ((0 == (phys_addr & (~_MALI_OSK_CPU_PAGE_MASK))) &&
 		    (0 == (size & (~_MALI_OSK_CPU_PAGE_MASK)))) {
+#if 0
 			if ((phys_addr          >= mali_mem_validator.phys_base) &&
 			    ((phys_addr + (size - 1)) >= mali_mem_validator.phys_base) &&
 			    (phys_addr          <= (mali_mem_validator.phys_base + (mali_mem_validator.size - 1))) &&
-			    ((phys_addr + (size - 1)) <= (mali_mem_validator.phys_base + (mali_mem_validator.size - 1)))) {
+			    ((phys_addr + (size - 1)) <= (mali_mem_validator.phys_base + (mali_mem_validator.size - 1))) )
+#endif
+			{
 				MALI_DEBUG_PRINT(3, ("Accepted range 0x%08X + size 0x%08X (= 0x%08X)\n", phys_addr, size, (phys_addr + size - 1)));
 				return _MALI_OSK_ERR_OK;
 			}

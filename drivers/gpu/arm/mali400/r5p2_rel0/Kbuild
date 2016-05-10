@@ -13,7 +13,7 @@
 # set up defaults if not defined by the user
 TIMESTAMP ?= default
 OS_MEMORY_KERNEL_BUFFER_SIZE_IN_MB ?= 16
-USING_GPU_UTILIZATION ?= 0
+USING_GPU_UTILIZATION ?= 1
 PROFILING_SKIP_PP_JOBS ?= 0
 PROFILING_SKIP_PP_AND_GP_JOBS ?= 0
 MALI_PP_SCHEDULER_FORCE_NO_JOB_OVERLAP ?= 0
@@ -142,6 +142,8 @@ obj-$(CONFIG_MALI400) := mali.o
 ccflags-y += $(EXTRA_DEFINES)
 
 # Set up our defines, which will be passed to gcc
+ccflags-y += -DSPRD_GPU_BOOST
+
 ccflags-y += -DMALI_PP_SCHEDULER_FORCE_NO_JOB_OVERLAP=$(MALI_PP_SCHEDULER_FORCE_NO_JOB_OVERLAP)
 ccflags-y += -DMALI_PP_SCHEDULER_KEEP_SUB_JOB_STARTS_ALIGNED=$(MALI_PP_SCHEDULER_KEEP_SUB_JOB_STARTS_ALIGNED)
 ccflags-y += -DMALI_PP_SCHEDULER_FORCE_NO_JOB_OVERLAP_BETWEEN_APPS=$(MALI_PP_SCHEDULER_FORCE_NO_JOB_OVERLAP_BETWEEN_APPS)
@@ -154,16 +156,16 @@ ifeq ($(MALI_UPPER_HALF_SCHEDULING),1)
 	ccflags-y += -DMALI_UPPER_HALF_SCHEDULING
 endif
 
-ccflags-$(CONFIG_MALI400_UMP) += -I$(src)/../../ump/include/ump
+ccflags-$(CONFIG_MALI400_UMP) += -I$(src)/../ump/include/ump
 ccflags-$(CONFIG_MALI400_DEBUG) += -DDEBUG
 
 # Use our defines when compiling
-ccflags-y += -I$(src) -I$(src)/include -I$(src)/common -I$(src)/linux -I$(src)/platform
+ccflags-y += -I$(src) -I$(src)/include -I$(src)/common -I$(src)/linux -I$(src)/platform -I$(src)/platform/$(MALI_PLATFORM)
 
 # Get subversion revision number, fall back to only ${MALI_RELEASE_NAME} if no svn info is available
 MALI_RELEASE_NAME=$(shell cat $(src)/.version 2> /dev/null)
 
-SVN_INFO = (cd $(src); svn info 2>/dev/null)
+#SVN_INFO = (cd $(src); svn info 2>/dev/null)
 
 ifneq ($(shell $(SVN_INFO) 2>/dev/null),)
 # SVN detected
@@ -174,7 +176,7 @@ CHANGED_REVISION := $(shell $(SVN_INFO) | grep '^Last Changed Rev: ' | cut -d: -
 REPO_URL := $(shell $(SVN_INFO) | grep '^URL: ' | cut -d: -f2- | cut -b2-)
 
 else # SVN
-GIT_REV := $(shell cd $(src); git describe --always 2>/dev/null)
+#GIT_REV := $(shell cd $(src); git describe --always 2>/dev/null)
 ifneq ($(GIT_REV),)
 # Git detected
 DRIVER_REV := $(MALI_RELEASE_NAME)-$(GIT_REV)
@@ -191,6 +193,7 @@ endif
 endif
 
 ccflags-y += -DSVN_REV_STRING=\"$(DRIVER_REV)\"
+ccflags-y += -fno-PIC
 
 VERSION_STRINGS :=
 VERSION_STRINGS += API_VERSION=$(shell cd $(src); grep "\#define _MALI_API_VERSION" $(FILES_PREFIX)include/linux/mali/mali_utgard_uk_types.h | cut -d' ' -f 3 )
@@ -198,7 +201,7 @@ VERSION_STRINGS += REPO_URL=$(REPO_URL)
 VERSION_STRINGS += REVISION=$(DRIVER_REV)
 VERSION_STRINGS += CHANGED_REVISION=$(CHANGED_REVISION)
 VERSION_STRINGS += CHANGE_DATE=$(CHANGE_DATE)
-VERSION_STRINGS += BUILD_DATE=$(shell date)
+#VERSION_STRINGS += BUILD_DATE=$(shell date)
 ifdef CONFIG_MALI400_DEBUG
 VERSION_STRINGS += BUILD=debug
 else

@@ -50,6 +50,7 @@ extern "C" {
 #define MALI_IOC_TIMELINE_CREATE_SYNC_FENCE _IOWR(MALI_IOC_CORE_BASE, _MALI_UK_TIMELINE_CREATE_SYNC_FENCE, _mali_uk_timeline_create_sync_fence_s)
 #define MALI_IOC_SOFT_JOB_START             _IOWR(MALI_IOC_CORE_BASE, _MALI_UK_SOFT_JOB_START, _mali_uk_soft_job_start_s)
 #define MALI_IOC_SOFT_JOB_SIGNAL            _IOWR(MALI_IOC_CORE_BASE, _MALI_UK_SOFT_JOB_SIGNAL, _mali_uk_soft_job_signal_s)
+#define MALI_IOC_SET_GPU_BOOST_LEVEL        _IOWR(MALI_IOC_CORE_BASE, _MALI_UK_SET_GPU_BOOST_LEVEL, int)
 
 #define MALI_IOC_MEM_ALLOC                  _IOWR(MALI_IOC_MEMORY_BASE, _MALI_UK_ALLOC_MEM, _mali_uk_alloc_mem_s)
 #define MALI_IOC_MEM_FREE                   _IOWR(MALI_IOC_MEMORY_BASE, _MALI_UK_FREE_MEM, _mali_uk_free_mem_s)

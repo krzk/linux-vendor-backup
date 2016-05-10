@@ -163,13 +163,6 @@ _mali_osk_errcode_t mali_pmu_power_down(struct mali_pmu_core *pmu, u32 mask)
 					    PMU_REG_ADDR_MGMT_INT_CLEAR, PMU_REG_VAL_IRQ);
 	}
 
-#if defined(DEBUG)
-	/* Verify power status of domains after power down */
-	stat = mali_hw_core_register_read(&pmu->hw_core,
-					  PMU_REG_ADDR_MGMT_STATUS);
-	MALI_DEBUG_ASSERT(mask == (stat & mask));
-#endif
-
 	return _MALI_OSK_ERR_OK;
 }
 
@@ -227,13 +220,6 @@ _mali_osk_errcode_t mali_pmu_power_up(struct mali_pmu_core *pmu, u32 mask)
 		}
 	}
 #endif
-
-#if defined(DEBUG)
-	/* Verify power status of domains after power up */
-	stat = mali_hw_core_register_read(&pmu->hw_core,
-					  PMU_REG_ADDR_MGMT_STATUS);
-	MALI_DEBUG_ASSERT(0 == (stat & mask));
-#endif /* defined(DEBUG) */
 
 	return _MALI_OSK_ERR_OK;
 }

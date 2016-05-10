@@ -24,7 +24,9 @@
 #include <linux/miscdevice.h>
 #include <linux/bug.h>
 #include <linux/of.h>
-
+#ifdef CONFIG_PM_RUNTIME
+#include <linux/pm_runtime.h>
+#endif
 #include <linux/mali/mali_utgard.h>
 #include "mali_kernel_common.h"
 #include "mali_session.h"
@@ -50,6 +52,8 @@ static int is_first_resume = 1;
 static struct mali_gpu_clk_item mali_gpu_clk[2];
 #endif
 
+#include <linux/dma-mapping.h>
+
 /* Streamline support for the Mali driver */
 #if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_MALI400_PROFILING)
 /* Ask Linux to create the tracepoints */
@@ -68,6 +72,30 @@ extern const char *__malidrv_build_info(void);
 int mali_debug_level = 2;
 module_param(mali_debug_level, int, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH); /* rw-rw-r-- */
 MODULE_PARM_DESC(mali_debug_level, "Higher number, more dmesg output");
+
+int gpu_freq_cur = 0;
+module_param(gpu_freq_cur, int, S_IRUSR | S_IRGRP | S_IROTH); /* r-r-r-- */
+MODULE_PARM_DESC(gpu_freq_cur, "GPU gpu_freq_cur");
+
+int gpu_freq_min_limit = -1;
+module_param(gpu_freq_min_limit, int, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH); /* rw-rw-r-- */
+MODULE_PARM_DESC(gpu_freq_min_limit, "GPU min_freq limit");
+
+int gpu_freq_max_limit = -1;
+module_param(gpu_freq_max_limit, int, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH); /* rw-rw-r-- */
+MODULE_PARM_DESC(gpu_freq_max_limit, "GPU max_freq limit");
+
+char* gpu_freq_list = NULL;
+module_param(gpu_freq_list, charp,S_IRUSR | S_IRGRP | S_IROTH ); /* r-r-r-- */
+MODULE_PARM_DESC(gpu_freq_list, "GPU freq_list");
+
+int gpu_boost_level=0;
+module_param(gpu_boost_level, int, S_IRUSR | S_IRGRP | S_IROTH); /* r-r-r-- */
+MODULE_PARM_DESC(gpu_boost_level, "GPU gpu_boost_level");
+
+int gpu_boost_sf_level = 0;
+module_param(gpu_boost_sf_level, int, S_IRUSR | S_IRGRP | S_IROTH); /* r-r-r-- */
+MODULE_PARM_DESC(gpu_boost_sf_level, "GPU gpu boost surfaceflinger level");
 
 extern int mali_max_job_runtime;
 module_param(mali_max_job_runtime, int, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH);
@@ -159,6 +187,8 @@ static int mali_driver_runtime_resume(struct device *dev);
 static int mali_driver_runtime_idle(struct device *dev);
 #endif
 
+extern void mali_platform_power_mode_change(int power_mode);
+
 #if defined(MALI_FAKE_PLATFORM_DEVICE)
 #if defined(CONFIG_MALI_DT)
 extern int mali_platform_device_init(struct platform_device *device);
@@ -196,7 +226,7 @@ static const struct dev_pm_ops mali_dev_pm_ops = {
 #endif
 
 #ifdef CONFIG_MALI_DT
-static struct of_device_id base_dt_ids[] = {
+struct of_device_id base_dt_ids[] = {
 	{.compatible = "arm,mali-300"},
 	{.compatible = "arm,mali-400"},
 	{.compatible = "arm,mali-450"},
@@ -365,7 +395,7 @@ int mali_module_init(void)
 	int err = 0;
 
 	MALI_DEBUG_PRINT(2, ("Inserting Mali v%d device driver. \n", _MALI_API_VERSION));
-	MALI_DEBUG_PRINT(2, ("Compiled: %s, time: %s.\n", __DATE__, __TIME__));
+//	MALI_DEBUG_PRINT(2, ("Compiled: %s, time: %s.\n", __DATE__, __TIME__));
 	MALI_DEBUG_PRINT(2, ("Driver revision: %s\n", SVN_REV_STRING));
 
 #if MALI_ENABLE_CPU_CYCLES
@@ -470,6 +500,18 @@ static int mali_probe(struct platform_device *pdev)
 
 	mali_platform_device = pdev;
 
+#ifdef CONFIG_64BIT
+	static u64 mali_dma_mask = DMA_BIT_MASK(32);
+	pdev->dev.dma_mask = &mali_dma_mask;
+#endif
+
+	err = mali_executor_initialize();
+	if (_MALI_OSK_ERR_OK != err)
+	{
+		MALI_PRINT_ERROR(("mali_executor_initialize failed.\n"));
+		return -EFAULT;
+	}
+
 #ifdef CONFIG_MALI_DT
 	/* If we use DT to initialize our DDK, we have to prepare somethings. */
 	err = mali_platform_device_init(mali_platform_device);
@@ -549,6 +591,10 @@ static void mali_miscdevice_unregister(void)
 static int mali_driver_suspend_scheduler(struct device *dev)
 {
 	mali_pm_os_suspend(MALI_TRUE);
+
+	if (pm_runtime_active(dev))
+		mali_platform_power_mode_change(2);
+
 	/* Tracing the frequency and voltage after mali is suspended */
 	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
 				      MALI_PROFILING_EVENT_CHANNEL_GPU |
@@ -575,6 +621,10 @@ static int mali_driver_resume_scheduler(struct device *dev)
 				      mali_gpu_clk[1].vol / 1000,
 				      0, 0, 0);
 #endif
+
+	if (pm_runtime_active(dev))
+		mali_platform_power_mode_change(0);
+
 	mali_pm_os_resume();
 	return 0;
 }
@@ -583,6 +633,8 @@ static int mali_driver_resume_scheduler(struct device *dev)
 static int mali_driver_runtime_suspend(struct device *dev)
 {
 	if (MALI_TRUE == mali_pm_runtime_suspend()) {
+		mali_platform_power_mode_change(1);
+
 		/* Tracing the frequency and voltage after mali is suspended */
 		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
 					      MALI_PROFILING_EVENT_CHANNEL_GPU |
@@ -613,6 +665,7 @@ static int mali_driver_runtime_resume(struct device *dev)
 				      mali_gpu_clk[1].vol / 1000,
 				      0, 0, 0);
 #endif
+	mali_platform_power_mode_change(0);
 
 	mali_pm_runtime_resume();
 	return 0;
@@ -620,7 +673,8 @@ static int mali_driver_runtime_resume(struct device *dev)
 
 static int mali_driver_runtime_idle(struct device *dev)
 {
-	/* Nothing to do */
+	MALI_DEBUG_PRINT(5, ("%s:%d \n",__FUNCTION__, __LINE__));
+	pm_runtime_suspend(dev);
 	return 0;
 }
 #endif
@@ -740,7 +794,11 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_get_user_settings_s), sizeof(u64)));
 		err = get_user_settings_wrapper(session_data, (_mali_uk_get_user_settings_s __user *)arg);
 		break;
-
+#ifdef SPRD_GPU_BOOST
+	case MALI_IOC_SET_GPU_BOOST_LEVEL:
+		err = get_user(session_data->level,(int __user *)arg);
+		break;
+#endif
 	case MALI_IOC_REQUEST_HIGH_PRIORITY:
 		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_request_high_priority_s), sizeof(u64)));
 		err = request_high_priority_wrapper(session_data, (_mali_uk_request_high_priority_s __user *)arg);

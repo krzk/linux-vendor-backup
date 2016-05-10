@@ -54,6 +54,9 @@ struct mali_session_data {
 	size_t max_mali_mem_allocated_size; /**< The past max mali memory allocated size, which include mali os memory and mali dedicated memory. */
 	/* Added for new memroy system */
 	struct mali_allocation_manager allocation_mgr;
+#ifdef SPRD_GPU_BOOST
+	int level;
+#endif
 };
 
 _mali_osk_errcode_t mali_session_initialize(void);
