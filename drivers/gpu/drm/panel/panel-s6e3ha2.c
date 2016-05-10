@@ -490,39 +490,9 @@ static void s6e3ha2_panel_init(struct s6e3ha2 *ctx)
 	s6e3ha2_single_dsi_set1(ctx);
 	s6e3ha2_single_dsi_set2(ctx);
 
-	/* calibration enable */
 	s6e3ha2_test_key_on_fc(ctx);
 	s6e3ha2_freq_calibration(ctx);
-
-	msleep(120);
-
-	/* common setting */
-	s6e3ha2_dcs_write_seq_static(ctx, MIPI_DCS_SET_TEAR_ON, MIPI_DSI_DCS_TEAR_MODE_VBLANK);
-
-	s6e3ha2_touch_hsync_on1(ctx);
-	s6e3ha2_pentile_control(ctx);
-	s6e3ha2_poc_global(ctx);
-	s6e3ha2_poc_setting(ctx);
 	s6e3ha2_test_key_off_fc(ctx);
-
-	/* pcd setting off for TB */
-	s6e3ha2_pcd_set_off(ctx);
-	s6e3ha2_err_fg_set(ctx);
-	s6e3ha2_te_start_setting(ctx);
-
-	/* brightness setting */
-	s6e3ha2_set_brightness(ctx->bl_dev);
-	s6e3ha2_aor_control(ctx);
-	s6e3ha2_caps_elvss_set(ctx);
-	s6e3ha2_gamma_update(ctx);
-	s6e3ha2_acl_off(ctx);
-	s6e3ha2_acl_off_opr(ctx);
-	s6e3ha2_hbm_off(ctx);
-
-	/* elvss temp compensation */
-	s6e3ha2_test_global(ctx);
-	s6e3ha2_test(ctx);
-
 	s6e3ha2_test_key_off_f0(ctx);
 }
 
@@ -609,6 +579,40 @@ static int s6e3ha2_prepare(struct drm_panel *panel)
 static int s6e3ha2_enable(struct drm_panel *panel)
 {
 	struct s6e3ha2 *ctx = panel_to_s6e3ha2(panel);
+
+	msleep(120);
+
+	/* common setting */
+	s6e3ha2_dcs_write_seq_static(ctx, MIPI_DCS_SET_TEAR_ON, MIPI_DSI_DCS_TEAR_MODE_VBLANK);
+
+	s6e3ha2_test_key_on_f0(ctx);
+
+	s6e3ha2_test_key_on_fc(ctx);
+	s6e3ha2_touch_hsync_on1(ctx);
+	s6e3ha2_pentile_control(ctx);
+	s6e3ha2_poc_global(ctx);
+	s6e3ha2_poc_setting(ctx);
+	s6e3ha2_test_key_off_fc(ctx);
+
+	/* pcd setting off for TB */
+	s6e3ha2_pcd_set_off(ctx);
+	s6e3ha2_err_fg_set(ctx);
+	s6e3ha2_te_start_setting(ctx);
+
+
+	/* brightness setting */
+	s6e3ha2_set_brightness(ctx->bl_dev);
+	s6e3ha2_aor_control(ctx);
+	s6e3ha2_caps_elvss_set(ctx);
+	s6e3ha2_gamma_update(ctx);
+	s6e3ha2_acl_off(ctx);
+	s6e3ha2_acl_off_opr(ctx);
+	s6e3ha2_hbm_off(ctx);
+
+	/* elvss temp compensation */
+	s6e3ha2_test_global(ctx);
+	s6e3ha2_test(ctx);
+	s6e3ha2_test_key_off_f0(ctx);
 
 	s6e3ha2_dcs_write_seq_static(ctx, MIPI_DCS_SET_DISPLAY_ON);
 	if (ctx->error != 0)
