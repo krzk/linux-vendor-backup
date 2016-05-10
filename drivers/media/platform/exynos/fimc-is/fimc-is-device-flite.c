@@ -913,9 +913,8 @@ static inline int flite_s_unuse_buffer(struct fimc_is_device_flite *flite,
 		}
 
 		if (flite_hw_get_status1(flite->base_reg) && (7 << 20)) {
-			merr("over vblank (buf-mode : %d)", flite, flite->buf_done_mode);
-			ret = -EINVAL;
-			goto p_err;
+			mwarn("over vblank (buf-mode : %d)", flite,
+				flite->buf_done_mode);
 		}
 
 		flite_hw_set_output_dma(flite->base_reg, false, flite->image.format.pixelformat);
@@ -926,7 +925,6 @@ static inline int flite_s_unuse_buffer(struct fimc_is_device_flite *flite,
 		atomic_dec(&flite->bcount);
 	}
 
-p_err:
 	return ret;
 }
 
