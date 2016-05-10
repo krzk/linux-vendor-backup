@@ -763,6 +763,11 @@
 		#size-cells = <0>;
 		status = "okay";
 
+		s5k4ec@56 {
+			compatible = "samsung,exynos5-fimc-is-sensor-4ec";
+			reg = <0x56>;
+		};
+
 		s5k5ea@2d {
 			compatible = "samsung,exynos5-fimc-is-sensor-5ea";
 			reg = <0x2d>;
