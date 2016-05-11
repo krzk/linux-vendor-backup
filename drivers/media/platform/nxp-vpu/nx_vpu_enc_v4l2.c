@@ -1022,7 +1022,7 @@ int vpu_enc_open_instance(struct nx_vpu_ctx *ctx)
 	}
 
 	openArg.instanceBuf = *ctx->instance_buf;
-	openArg.instIndex = -1;
+	openArg.instIndex = ctx->idx;
 	openArg.isEncoder = 1;
 
 	ret = NX_VpuEncOpen(&openArg, dev, &hInst);
@@ -1035,8 +1035,6 @@ int vpu_enc_open_instance(struct nx_vpu_ctx *ctx)
 	}
 
 	ctx->hInst = (void *)hInst;
-	ctx->instIndex = hInst->instIndex;
-
 	dev->cur_num_instance++;
 
 	return ret;
