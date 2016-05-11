@@ -254,6 +254,7 @@
 			samsung,pin-function = <1>;
 			samsung,pin-pud = <0>;
 			samsung,pin-val = <1>;
+			samsung,pin-drv = <3>;
 			samsung,pin-con-pdn = <2>;
 			samsung,pin-pud-pdn = <1>;
 		};
