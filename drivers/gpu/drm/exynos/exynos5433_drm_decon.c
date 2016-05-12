@@ -133,13 +133,11 @@ static void decon_disable_vblank(struct exynos_drm_crtc *crtc)
 static void decon_setup_trigger(struct decon_context *ctx)
 {
 	enum exynos_drm_trigger_type trg_type = ctx->drv_data->trg_type;
-	u32 val = 0;
+	u32 val;
 
-	val &= ~(TRIGCON_SWTRIGEN | TRIGCON_HWTRIGEN_I80_RGB |
-		TRIGCON_HWTRIGMASK_I80_RGB | TRIGCON_TRIGEN_PER_F |
-		TRIGCON_TRIGEN_F);
+	if (!ctx->i80_if && trg_type != EXYNOS_DISPLAY_HW_TRIGGER)
+		return;
 
-	/* HW trigger mode is mandatory for HDMI. */
 	if (trg_type == EXYNOS_DISPLAY_HW_TRIGGER)
 		val = TRIGCON_TRIGEN_PER_F | TRIGCON_TRIGEN_F
 			| TRIGCON_HWTRIGMASK_I80_RGB | TRIGCON_HWTRIGEN_I80_RGB;
@@ -188,6 +186,8 @@ static void decon_commit(struct exynos_drm_crtc *crtc)
 		if (mode->flags & DRM_MODE_FLAG_INTERLACE)
 			interlaced = true;
 	}
+
+	decon_setup_trigger(ctx);
 
 	val = VIDOUT_LCD_ON;
 	if (interlaced)
@@ -241,10 +241,6 @@ static void decon_commit(struct exynos_drm_crtc *crtc)
 			return;
 		}
 	}
-
-	if (ctx->i80_if)
-		decon_setup_trigger(ctx);
-
 	/* enable output and display signal */
 	decon_set_bits(ctx, DECON_VIDCON0, VIDCON0_ENVID | VIDCON0_ENVID_F, ~0);
 	decon_update(ctx);
@@ -826,8 +822,7 @@ static int exynos5433_decon_probe(struct platform_device *pdev)
 	drv_data = get_driver_data(pdev);
 	ctx->drv_data = drv_data;
 
-	if (of_get_child_by_name(dev->of_node, "i80-if-timings") ||
-	    drv_data->type == EXYNOS_DISPLAY_TYPE_HDMI)
+	if (of_get_child_by_name(dev->of_node, "i80-if-timings"))
 		ctx->i80_if = true;
 
 	ctx->sysreg = syscon_regmap_lookup_by_phandle(dev->of_node,
