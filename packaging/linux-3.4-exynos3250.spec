@@ -117,9 +117,23 @@ cp -f vmlinux %{_builddir}/vmlinux.%{MODEL}
 make modules
 make modules_install INSTALL_MOD_PATH=%{_builddir}/mod_%{MODEL}
 
+# prepare for devel package
+find %{_builddir}/%{name}-%{version} -name ".tmp_vmlinux*" -exec rm -f {} \;
+find %{_builddir}/%{name}-%{version} -name "\.*dtb*tmp" -exec rm -f {} \;
+find %{_builddir}/%{name}-%{version} -name "*\.*tmp" -exec rm -f {} \;
+find %{_builddir}/%{name}-%{version} -name "vmlinux" -exec rm -f {} \;
+find %{_builddir}/%{name}-%{version} -name "bzImage" -exec rm -f {} \;
+find %{_builddir}/%{name}-%{version} -name "zImage" -exec rm -f {} \;
+find %{_builddir}/%{name}-%{version} -name "dzImage" -exec rm -f {} \;
+find %{_builddir}/%{name}-%{version} -name "*.cmd" -exec rm -f {} \;
+find %{_builddir}/%{name}-%{version} -name "*\.ko" -exec rm -f {} \;
+find %{_builddir}/%{name}-%{version} -name "*\.o" -exec rm -f {} \;
+find %{_builddir}/%{name}-%{version} -name "*\.S" -exec rm -f {} \;
+find %{_builddir}/%{name}-%{version} -name "*\.c" -not -path "%{_builddir}/%{name}-%{version}/scripts/*" -exec rm -f {} \;
+
 #remove all changed source codes for next build
 cd %_builddir
-rm -rf %{name}-%{version}
+mv %{name}-%{version} kernel-devel-%{MODEL}
 /bin/tar -xf %{SOURCE0}
 cd %{name}-%{version}
 
@@ -138,6 +152,8 @@ rm -f %{buildroot}/usr/include/asm*/io.h
 mkdir -p %{buildroot}/usr/share/license
 cp -vf COPYING %{buildroot}/usr/share/license/linux-kernel
 
+mkdir -p %{buildroot}/boot/kernel/devel
+
 mkdir -p %{buildroot}/boot/kernel/kernel-%{MODEL}
 mkdir -p %{buildroot}/boot/kernel/license-%{MODEL}
 
@@ -148,6 +164,10 @@ mv %_builddir/zImage.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/zImage
 mv %_builddir/System.map.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/System.map
 mv %_builddir/config.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/config
 mv %_builddir/vmlinux.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/vmlinux
+
+mv %_builddir/kernel-devel-%{MODEL} %{buildroot}/boot/kernel/devel/kernel-devel-%{MODEL}
+
+find %{buildroot}/boot/kernel/ -name "*.h" -exec chmod 644 {} \;
 
 find %{buildroot}/boot/kernel/ -name 'System.map' > develfiles.pre # for secure storage
 find %{buildroot}/boot/kernel/ -name 'vmlinux' >> develfiles.pre   # for TIMA
@@ -165,3 +185,4 @@ rm -rf %_builddir
 /usr/share/license/*
 
 %files -n kernel-devel-%{KERNEL_VERSION}-%{CHIPSET} -f develfiles
+/boot/kernel/devel/*
