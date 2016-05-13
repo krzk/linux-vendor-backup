@@ -259,7 +259,7 @@ config CLKSRC_PXA
 	  This enables OST0 support available on PXA and SA-11x0
 	  platforms.
 
-config CLKSRC_S5P6818_TIMER
+config CLKSRC_NEXELL_TIMER
 	bool "Support for s5p6818 timer generation"
 	def_bool y if ARCH_S5P6818
 	select CLKSRC_OF if OF
