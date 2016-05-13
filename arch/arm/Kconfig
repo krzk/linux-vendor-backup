@@ -951,6 +951,8 @@ source "arch/arm/mach-w90x900/Kconfig"
 
 source "arch/arm/mach-zynq/Kconfig"
 
+source "arch/arm/mach-s5p4418/Kconfig"
+
 # Definitions to make life easier
 config ARCH_ACORN
 	bool
