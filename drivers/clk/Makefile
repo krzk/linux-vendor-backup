@@ -74,3 +74,4 @@ obj-$(CONFIG_COMMON_CLK_VERSATILE)	+= versatile/
 obj-$(CONFIG_X86)			+= x86/
 obj-$(CONFIG_ARCH_ZYNQ)			+= zynq/
 obj-$(CONFIG_ARCH_S5P6818)   		+= nexell/
+obj-$(CONFIG_ARCH_S5P4418)   		+= nexell/
