@@ -573,4 +573,5 @@ source "drivers/misc/altera-stapl/Kconfig"
 source "drivers/misc/mei/Kconfig"
 source "drivers/misc/vmw_vmci/Kconfig"
 source "drivers/misc/mipi-lli/Kconfig"
+source "drivers/misc/artiktee/Kconfig"
 endmenu
