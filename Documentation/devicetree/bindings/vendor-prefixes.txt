@@ -212,3 +212,4 @@ xillybus	Xillybus Ltd.
 xlnx	Xilinx
 zyxel	ZyXEL Communications Corp.
 zarlink	Zarlink Semiconductor
+dongguan Dong guan GT Display Co., Ltd.
