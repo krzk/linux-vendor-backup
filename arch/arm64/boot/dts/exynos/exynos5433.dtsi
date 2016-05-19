@@ -605,6 +605,9 @@
 				<&cmu_disp CLK_MOUT_PHYCLK_MIPIDPHY1_RXCLKESC0_USER>,
 				<&cmu_disp CLK_MOUT_PHYCLK_MIPIDPHY1_BITCLKDIV8_USER>,
 				<&xxti>;
+			clock-names = "clk0", "clk1", "clk2", "clk3", "clk4", "clk5",
+				      "clk6", "clk7", "clk8", "clk9", "clk10", "clk11",
+				      "clk12", "clk13", "oscclk";
 		};
 
 		pd_cam1: cam1-power-domain@105c40a0 {

@@ -23,6 +23,8 @@
 #include <linux/sched.h>
 #include <linux/soc/samsung/pm_domain.h>
 
+#define MAX_CLK_PER_DOMAIN	16
+
 struct exynos_pm_domain_config {
 	/* Value for LOCAL_PWR_CFG and STATUS fields for each domain */
 	u32	local_pwr_cfg;
@@ -36,13 +38,11 @@ struct exynos_pm_domain {
 	void __iomem *base;
 	char const *name;
 	bool is_off;
-	int nr_reparent_clks;
 	struct atomic_notifier_head nh;
 	struct clk *oscclk;
-	struct clk **clk;
-	struct clk **pclk;
-	int nr_asb_clks;
-	struct clk **asb_clk;
+	struct clk *clk[MAX_CLK_PER_DOMAIN];
+	struct clk *pclk[MAX_CLK_PER_DOMAIN];
+	struct clk *asb_clk[MAX_CLK_PER_DOMAIN];
 	u32 local_pwr_cfg;
 };
 
@@ -107,7 +107,7 @@ static int exynos_pd_power(struct generic_pm_domain *domain, bool power_on)
 
 	exynos_pd_notify_pre(pd, power_on);
 
-	for (i = 0; i < pd->nr_asb_clks; i++) {
+	for (i = 0; i < MAX_CLK_PER_DOMAIN; i++) {
 		if (IS_ERR(pd->asb_clk[i]))
 			break;
 		clk_prepare_enable(pd->asb_clk[i]);
@@ -115,7 +115,7 @@ static int exynos_pd_power(struct generic_pm_domain *domain, bool power_on)
 
 	/* Set oscclk before powering off a domain*/
 	if (!power_on) {
-		for (i = 0; i < pd->nr_reparent_clks; i++) {
+		for (i = 0; i < MAX_CLK_PER_DOMAIN; i++) {
 			if (IS_ERR(pd->clk[i]))
 				break;
 			pd->pclk[i] = clk_get_parent(pd->clk[i]);
@@ -144,7 +144,7 @@ static int exynos_pd_power(struct generic_pm_domain *domain, bool power_on)
 
 	/* Restore clocks after powering on a domain*/
 	if (power_on) {
-		for (i = 0; i < pd->nr_reparent_clks; i++) {
+		for (i = 0; i < MAX_CLK_PER_DOMAIN; i++) {
 			if (IS_ERR(pd->clk[i]))
 				break;
 			if (IS_ERR(pd->pclk[i]))
@@ -155,7 +155,7 @@ static int exynos_pd_power(struct generic_pm_domain *domain, bool power_on)
 		}
 	}
 
-	for (i = 0; i < pd->nr_asb_clks; i++) {
+	for (i = 0; i < MAX_CLK_PER_DOMAIN; i++) {
 		if (IS_ERR(pd->asb_clk[i]))
 			break;
 		clk_disable_unprepare(pd->asb_clk[i]);
@@ -199,7 +199,6 @@ static __init int exynos4_pm_init_power_domain(void)
 {
 	struct device_node *np;
 	const struct of_device_id *match;
-	int nr_clks;
 
 	for_each_matching_node_and_match(np, exynos_pm_domain_of_match, &match) {
 		const struct exynos_pm_domain_config *pm_domain_cfg;
@@ -228,35 +227,37 @@ static __init int exynos4_pm_init_power_domain(void)
 
 		ATOMIC_INIT_NOTIFIER_HEAD(&pd->nh);
 
-		nr_clks = of_count_phandle_with_args(np, "clocks","#clock-cells");
-		if (nr_clks > 1) {
-			/* oscclk is the last phandle */
-			pd->oscclk = of_clk_get(np, --nr_clks);
+		for (i = 0; i < MAX_CLK_PER_DOMAIN; i++) {
+			char clk_name[8];
 
-			if (IS_ERR(pd->oscclk)) {
-				pr_err("Could not get oscclk for %s domain\n", pd->pd.name);
-				kfree(pd);
-				continue;
-			}
-
-			pd->clk = kcalloc(sizeof(struct clk *),
-						nr_clks, GFP_KERNEL);
-			pd->pclk = kcalloc(sizeof(struct clk *),
-						nr_clks, GFP_KERNEL);
-			for (i = 0; i < nr_clks; i++) {
-				pd->clk[i] = of_clk_get(np, i);
-				if (IS_ERR(pd->clk[i]))
-					break;
-				/*
-				 * Skip setting parent on first power up.
-				 * The parent at this time may not be useful at all.
-				 */
-				pd->pclk[i] = ERR_PTR(-EINVAL);
-			}
-
-			pd->nr_reparent_clks = nr_clks;
+			snprintf(clk_name, sizeof(clk_name), "asb%d", i);
+			pd->asb_clk[i] = of_clk_get_by_name(np, clk_name);
+			if (IS_ERR(pd->asb_clk[i]))
+				break;
 		}
 
+		pd->oscclk = of_clk_get_by_name(np, "oscclk");
+		if (IS_ERR(pd->oscclk))
+			goto no_clk;
+
+		for (i = 0; i < MAX_CLK_PER_DOMAIN; i++) {
+			char clk_name[8];
+
+			snprintf(clk_name, sizeof(clk_name), "clk%d", i);
+			pd->clk[i] = of_clk_get_by_name(np, clk_name);
+			if (IS_ERR(pd->clk[i]))
+				break;
+			/*
+			 * Skip setting parent on first power up.
+			 * The parent at this time may not be useful at all.
+			 */
+			pd->pclk[i] = ERR_PTR(-EINVAL);
+		}
+
+		if (IS_ERR(pd->clk[0]))
+			clk_put(pd->oscclk);
+
+no_clk:
 		on = __raw_readl(pd->base + 0x4) & pd->local_pwr_cfg;
 
 		pm_genpd_init(&pd->pd, NULL, !on);
