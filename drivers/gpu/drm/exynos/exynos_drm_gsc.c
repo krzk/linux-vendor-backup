@@ -852,16 +852,16 @@ static int gsc_src_set_addr(struct device *dev,
 		}
 
 		gsc_write(buf_info->base[EXYNOS_DRM_PLANAR_Y],
-			GSC_IN_BASE_ADDR_Y(0));
+			GSC_IN_BASE_ADDR_Y(buf_id));
 		gsc_write(buf_info->base[EXYNOS_DRM_PLANAR_CB],
-			GSC_IN_BASE_ADDR_CB(0));
+			GSC_IN_BASE_ADDR_CB(buf_id));
 		gsc_write(buf_info->base[EXYNOS_DRM_PLANAR_CR],
-			GSC_IN_BASE_ADDR_CR(0));
+			GSC_IN_BASE_ADDR_CR(buf_id));
 		break;
 	case IPP_BUF_DEQUEUE:
-		gsc_write(0x0, GSC_IN_BASE_ADDR_Y(0));
-		gsc_write(0x0, GSC_IN_BASE_ADDR_CB(0));
-		gsc_write(0x0, GSC_IN_BASE_ADDR_CR(0));
+		gsc_write(0x0, GSC_IN_BASE_ADDR_Y(buf_id));
+		gsc_write(0x0, GSC_IN_BASE_ADDR_CB(buf_id));
+		gsc_write(0x0, GSC_IN_BASE_ADDR_CR(buf_id));
 		break;
 	default:
 		/* bypass */
@@ -1317,16 +1317,16 @@ static int gsc_dst_set_addr(struct device *dev,
 		}
 
 		gsc_write(buf_info->base[EXYNOS_DRM_PLANAR_Y],
-			GSC_OUT_BASE_ADDR_Y(0));
+			GSC_OUT_BASE_ADDR_Y(buf_id));
 		gsc_write(buf_info->base[EXYNOS_DRM_PLANAR_CB],
-			GSC_OUT_BASE_ADDR_CB(0));
+			GSC_OUT_BASE_ADDR_CB(buf_id));
 		gsc_write(buf_info->base[EXYNOS_DRM_PLANAR_CR],
-			GSC_OUT_BASE_ADDR_CR(0));
+			GSC_OUT_BASE_ADDR_CR(buf_id));
 		break;
 	case IPP_BUF_DEQUEUE:
-		gsc_write(0x0, GSC_OUT_BASE_ADDR_Y(0));
-		gsc_write(0x0, GSC_OUT_BASE_ADDR_CB(0));
-		gsc_write(0x0, GSC_OUT_BASE_ADDR_CR(0));
+		gsc_write(0x0, GSC_OUT_BASE_ADDR_Y(buf_id));
+		gsc_write(0x0, GSC_OUT_BASE_ADDR_CB(buf_id));
+		gsc_write(0x0, GSC_OUT_BASE_ADDR_CR(buf_id));
 		break;
 	default:
 		/* bypass */
