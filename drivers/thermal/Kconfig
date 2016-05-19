@@ -112,19 +112,6 @@ config CPU_THERMAL
 
 	  If you want this support, you should say Y here.
 
-config DEVFREQ_THERMAL
-	bool "generic devfreq cooling support"
-	depends on PM_DEVFREQ
-	depends on THERMAL_OF
-	help
-	  This implements the generic devfreq cooling mechanism through frequency
-	  reduction. An ACPI version of this already exists
-	  (drivers/acpi/processor_thermal.c).
-	  This will be useful for platforms using the generic thermal interface
-	  and not the ACPI interface.
-
-	  If you want this support, you should say Y here.
-
 config CLOCK_THERMAL
 	bool "Generic clock cooling support"
 	depends on COMMON_CLK
