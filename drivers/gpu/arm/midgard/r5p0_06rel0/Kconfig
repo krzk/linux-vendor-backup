@@ -14,15 +14,6 @@
 
 
 
-menuconfig MALI_MIDGARD
-	tristate "Mali Midgard series support"
-	default n
-	help
-	  Enable this option to build support for a ARM Mali Midgard GPU.
-
-	  To compile this driver as a module, choose M here:
-	  this will generate a single module, called mali_kbase.
-
 config MALI_GATOR_SUPPORT
 	bool "Streamline Debug support"
 	depends on MALI_MIDGARD
@@ -190,4 +181,4 @@ config MALI_GPU_TRACEPOINTS
 	help
 	  Enables GPU tracepoints using Android trace event definitions.
 
-source "drivers/gpu/arm/midgard/platform/Kconfig"
+source "drivers/gpu/arm/midgard/r5p0_06rel0/platform/Kconfig"
