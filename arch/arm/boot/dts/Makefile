@@ -660,6 +660,9 @@ dtb-$(CONFIG_ARCH_MEDIATEK) += \
 	mt6592-evb.dtb \
 	mt8127-moose.dtb \
 	mt8135-evbp1.dtb
+dtb-$(CONFIG_ARCH_S5P4418) += \
+	s5p4418-drone.dtb \
+	s5p4418-artik530-raptor-rev00.dtb
 endif
 
 always		:= $(dtb-y)
