@@ -836,7 +836,7 @@ static int gsc_src_set_addr(struct device *dev,
 	DRM_DEBUG_KMS("prop_id[%d]buf_id[%d]buf_type[%d]\n",
 		property->prop_id, buf_id, buf_type);
 
-	buf_id %= GSC_MAX_SRC;
+	buf_id = 0;
 
 	/* address register set */
 	switch (buf_type) {
@@ -1298,7 +1298,7 @@ static int gsc_dst_set_addr(struct device *dev,
 	DRM_DEBUG_KMS("prop_id[%d]buf_id[%d]buf_type[%d]\n",
 		property->prop_id, buf_id, buf_type);
 
-	buf_id %= GSC_MAX_DST;
+	buf_id = 0;
 
 	/* address register set */
 	switch (buf_type) {
@@ -1365,26 +1365,10 @@ static int gsc_clk_ctrl(struct gsc_context *ctx, bool enable)
 
 static int gsc_get_src_buf_index(struct gsc_context *ctx)
 {
-	u32 cfg, curr_index, i;
-	u32 buf_id = GSC_MAX_SRC;
+	u32 buf_id = 0;
 	int ret;
 
 	DRM_DEBUG_KMS("gsc id[%d]\n", ctx->id);
-
-	cfg = gsc_read(GSC_IN_BASE_ADDR_Y_MASK);
-	curr_index = GSC_IN_CURR_GET_INDEX(cfg);
-
-	for (i = curr_index; i < GSC_MAX_SRC; i++) {
-		if (!((cfg >> i) & 0x1)) {
-			buf_id = i;
-			break;
-		}
-	}
-
-	if (buf_id == GSC_MAX_SRC) {
-		DRM_ERROR("failed to get in buffer index.\n");
-		return -EINVAL;
-	}
 
 	ret = gsc_src_set_buf_seq(ctx, buf_id, IPP_BUF_DEQUEUE);
 	if (ret < 0) {
@@ -1392,43 +1376,21 @@ static int gsc_get_src_buf_index(struct gsc_context *ctx)
 		return ret;
 	}
 
-	DRM_DEBUG_KMS("cfg[0x%x]curr_index[%d]buf_id[%d]\n", cfg,
-		curr_index, buf_id);
-
 	return buf_id;
 }
 
 static int gsc_get_dst_buf_index(struct gsc_context *ctx)
 {
-	u32 cfg, curr_index, i;
-	u32 buf_id = GSC_MAX_DST;
+	u32 buf_id = 0;
 	int ret;
 
 	DRM_DEBUG_KMS("gsc id[%d]\n", ctx->id);
-
-	cfg = gsc_read(GSC_OUT_BASE_ADDR_Y_MASK);
-	curr_index = GSC_OUT_CURR_GET_INDEX(cfg);
-
-	for (i = curr_index; i < GSC_MAX_DST; i++) {
-		if (!((cfg >> i) & 0x1)) {
-			buf_id = i;
-			break;
-		}
-	}
-
-	if (buf_id == GSC_MAX_DST) {
-		DRM_ERROR("failed to get out buffer index.\n");
-		return -EINVAL;
-	}
 
 	ret = gsc_dst_set_buf_seq(ctx, buf_id, IPP_BUF_DEQUEUE);
 	if (ret < 0) {
 		DRM_ERROR("failed to dequeue.\n");
 		return ret;
 	}
-
-	DRM_DEBUG_KMS("cfg[0x%x]curr_index[%d]buf_id[%d]\n", cfg,
-		curr_index, buf_id);
 
 	return buf_id;
 }
