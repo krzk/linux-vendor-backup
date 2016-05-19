@@ -32,11 +32,7 @@
 
 #include <typedefs.h>
 #include <linuxver.h>
-#ifdef CONFIG_PCI_TM2
-#include <linux/pci-tm2.h>
-#else
 #include <linux/pci.h>
-#endif
 #include <linux/completion.h>
 
 #include <osl.h>
