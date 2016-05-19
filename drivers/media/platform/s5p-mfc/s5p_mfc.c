@@ -1427,8 +1427,8 @@ static struct s5p_mfc_variant mfc_drvdata_v8 = {
 	.buf_size	= &buf_size_v8,
 	.buf_align	= &mfc_buf_align_v8,
 	.fw_name[0]     = "s5p-mfc-v8.fw",
-	.clk_names	= {"mfc", "sclk_mfc"},
-	.num_clocks	= 2,
+	.clk_names	= {"mfc"},
+	.num_clocks	= 1,
 };
 
 static struct s5p_mfc_variant mfc_drvdata_v8_5433 = {
