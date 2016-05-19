@@ -17,7 +17,7 @@ if ! [ -d output ] ; then
 fi
 
 if ! [ -e .config ] ; then
-	make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- defconfig
+	make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- tizen_tm2_defconfig
 fi
 
 make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j8
