@@ -11,7 +11,8 @@ check_ccache()
 
 check_ccache
 
-rm -f output/linux-*-exynos5433-arm64.tar
+rm -f output/linux-*-exynos5433-arm64*.tar
+rm -f arch/arm64/boot/Image
 if ! [ -d output ] ; then
 	mkdir output
 fi
@@ -22,11 +23,13 @@ fi
 
 make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j8
 make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- dtbs
+if [ ! -f "./arch/arm64/boot/Image" ]; then
+	echo "Build fail"
+	exit 1
+fi
 
-tools/dtbtool -o output/dt.img arch/arm64/boot/dts/exynos/
-cp arch/arm64/boot/Image output/kernel
-
-tools/mkbootimg --kernel output/kernel --ramdisk usr/ramdisk.img --output output/boot.img --dt output/dt.img
+# create fit style image from its
+PATH=tools:$PATH tools/mkimage -f arch/arm64/boot/tizen-tm2.its output/kernel.img
 
 # Check kernel version from Makefile
 _major_version=`cat Makefile | grep "^VERSION = " | awk '{print $3}'`
@@ -35,4 +38,4 @@ _extra_version=`cat Makefile | grep "^EXTRAVERSION = " | awk '{print $3}'`
 _version=${_major_version}.${_minor_version}${_extra_version}
 
 cd output
-tar cf linux-${_version}-exynos5433-arm64.tar boot.img
+tar cf linux-${_version}-exynos5433-arm64-fit.tar kernel.img
