@@ -1268,6 +1268,7 @@
 &mali {
 	status = "okay";
 	vdd_g3d-supply = <&buck6_reg>;
+	mali-supply = <&buck6_reg>;
 };
 
 &pinctrl_alive {
