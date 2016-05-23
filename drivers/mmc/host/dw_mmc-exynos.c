@@ -77,62 +77,62 @@ void dw_mci_reg_dump(struct dw_mci *host)
 {
 	const struct dw_mci_drv_data *drv_data = host->drv_data;
 
-	dev_err(host->dev, ": ============== REGISTER DUMP ==============\n");
-	dev_err(host->dev, ": CTRL:	0x%08x\n", mci_readl(host, CTRL));
-	dev_err(host->dev, ": PWREN:	0x%08x\n", mci_readl(host, PWREN));
-	dev_err(host->dev, ": CLKDIV:	0x%08x\n", mci_readl(host, CLKDIV));
-	dev_err(host->dev, ": CLKSRC:	0x%08x\n", mci_readl(host, CLKSRC));
-	dev_err(host->dev, ": CLKENA:	0x%08x\n", mci_readl(host, CLKENA));
-	dev_err(host->dev, ": TMOUT:	0x%08x\n", mci_readl(host, TMOUT));
-	dev_err(host->dev, ": CTYPE:	0x%08x\n", mci_readl(host, CTYPE));
-	dev_err(host->dev, ": BLKSIZ:	0x%08x\n", mci_readl(host, BLKSIZ));
-	dev_err(host->dev, ": BYTCNT:	0x%08x\n", mci_readl(host, BYTCNT));
-	dev_err(host->dev, ": INTMSK:	0x%08x\n", mci_readl(host, INTMASK));
-	dev_err(host->dev, ": CMDARG:	0x%08x\n", mci_readl(host, CMDARG));
-	dev_err(host->dev, ": CMD:	0x%08x\n", mci_readl(host, CMD));
-	dev_err(host->dev, ": RESP0:	0x%08x\n", mci_readl(host, RESP0));
-	dev_err(host->dev, ": RESP1:	0x%08x\n", mci_readl(host, RESP1));
-	dev_err(host->dev, ": RESP2:	0x%08x\n", mci_readl(host, RESP2));
-	dev_err(host->dev, ": RESP3:	0x%08x\n", mci_readl(host, RESP3));
-	dev_err(host->dev, ": MINTSTS:	0x%08x\n", mci_readl(host, MINTSTS));
-	dev_err(host->dev, ": RINTSTS:	0x%08x\n", mci_readl(host, RINTSTS));
-	dev_err(host->dev, ": STATUS:	0x%08x\n", mci_readl(host, STATUS));
-	dev_err(host->dev, ": FIFOTH:	0x%08x\n", mci_readl(host, FIFOTH));
-	dev_err(host->dev, ": CDETECT:	0x%08x\n", mci_readl(host, CDETECT));
-	dev_err(host->dev, ": WRTPRT:	0x%08x\n", mci_readl(host, WRTPRT));
-	dev_err(host->dev, ": GPIO:	0x%08x\n", mci_readl(host, GPIO));
-	dev_err(host->dev, ": TCBCNT:	0x%08x\n", mci_readl(host, TCBCNT));
-	dev_err(host->dev, ": TBBCNT:	0x%08x\n", mci_readl(host, TBBCNT));
-	dev_err(host->dev, ": DEBNCE:	0x%08x\n", mci_readl(host, DEBNCE));
-	dev_err(host->dev, ": USRID:	0x%08x\n", mci_readl(host, USRID));
-	dev_err(host->dev, ": VERID:	0x%08x\n", mci_readl(host, VERID));
-	dev_err(host->dev, ": HCON:	0x%08x\n", mci_readl(host, HCON));
-	dev_err(host->dev, ": UHS_REG:	0x%08x\n", mci_readl(host, UHS_REG));
-	dev_err(host->dev, ": BMOD:	0x%08x\n", mci_readl(host, BMOD));
-	dev_err(host->dev, ": PLDMND:	0x%08x\n", mci_readl(host, PLDMND));
-	dev_err(host->dev, ": DBADDR:	0x%08x\n", mci_readl(host, DBADDR));
-	dev_err(host->dev, ": DSCADDR:	0x%08x\n", mci_readl(host, DSCADDR));
-	dev_err(host->dev, ": BUFADDR:	0x%08x\n", mci_readl(host, BUFADDR));
+	dev_info(host->dev, ": ============== REGISTER DUMP ==============\n");
+	dev_info(host->dev, ": CTRL:	0x%08x\n", mci_readl(host, CTRL));
+	dev_info(host->dev, ": PWREN:	0x%08x\n", mci_readl(host, PWREN));
+	dev_info(host->dev, ": CLKDIV:	0x%08x\n", mci_readl(host, CLKDIV));
+	dev_info(host->dev, ": CLKSRC:	0x%08x\n", mci_readl(host, CLKSRC));
+	dev_info(host->dev, ": CLKENA:	0x%08x\n", mci_readl(host, CLKENA));
+	dev_info(host->dev, ": TMOUT:	0x%08x\n", mci_readl(host, TMOUT));
+	dev_info(host->dev, ": CTYPE:	0x%08x\n", mci_readl(host, CTYPE));
+	dev_info(host->dev, ": BLKSIZ:	0x%08x\n", mci_readl(host, BLKSIZ));
+	dev_info(host->dev, ": BYTCNT:	0x%08x\n", mci_readl(host, BYTCNT));
+	dev_info(host->dev, ": INTMSK:	0x%08x\n", mci_readl(host, INTMASK));
+	dev_info(host->dev, ": CMDARG:	0x%08x\n", mci_readl(host, CMDARG));
+	dev_info(host->dev, ": CMD:	0x%08x\n", mci_readl(host, CMD));
+	dev_info(host->dev, ": RESP0:	0x%08x\n", mci_readl(host, RESP0));
+	dev_info(host->dev, ": RESP1:	0x%08x\n", mci_readl(host, RESP1));
+	dev_info(host->dev, ": RESP2:	0x%08x\n", mci_readl(host, RESP2));
+	dev_info(host->dev, ": RESP3:	0x%08x\n", mci_readl(host, RESP3));
+	dev_info(host->dev, ": MINTSTS:	0x%08x\n", mci_readl(host, MINTSTS));
+	dev_info(host->dev, ": RINTSTS:	0x%08x\n", mci_readl(host, RINTSTS));
+	dev_info(host->dev, ": STATUS:	0x%08x\n", mci_readl(host, STATUS));
+	dev_info(host->dev, ": FIFOTH:	0x%08x\n", mci_readl(host, FIFOTH));
+	dev_info(host->dev, ": CDETECT:	0x%08x\n", mci_readl(host, CDETECT));
+	dev_info(host->dev, ": WRTPRT:	0x%08x\n", mci_readl(host, WRTPRT));
+	dev_info(host->dev, ": GPIO:	0x%08x\n", mci_readl(host, GPIO));
+	dev_info(host->dev, ": TCBCNT:	0x%08x\n", mci_readl(host, TCBCNT));
+	dev_info(host->dev, ": TBBCNT:	0x%08x\n", mci_readl(host, TBBCNT));
+	dev_info(host->dev, ": DEBNCE:	0x%08x\n", mci_readl(host, DEBNCE));
+	dev_info(host->dev, ": USRID:	0x%08x\n", mci_readl(host, USRID));
+	dev_info(host->dev, ": VERID:	0x%08x\n", mci_readl(host, VERID));
+	dev_info(host->dev, ": HCON:	0x%08x\n", mci_readl(host, HCON));
+	dev_info(host->dev, ": UHS_REG:	0x%08x\n", mci_readl(host, UHS_REG));
+	dev_info(host->dev, ": BMOD:	0x%08x\n", mci_readl(host, BMOD));
+	dev_info(host->dev, ": PLDMND:	0x%08x\n", mci_readl(host, PLDMND));
+	dev_info(host->dev, ": DBADDR:	0x%08x\n", mci_readl(host, DBADDR));
+	dev_info(host->dev, ": DSCADDR:	0x%08x\n", mci_readl(host, DSCADDR));
+	dev_info(host->dev, ": BUFADDR:	0x%08x\n", mci_readl(host, BUFADDR));
 
-	dev_err(host->dev, ": IDSTS:	0x%08x\n", mci_readl(host, IDSTS));
-	dev_err(host->dev, ": IDINTEN:	0x%08x\n", mci_readl(host, IDINTEN));
-	dev_err(host->dev, ": SHA_CMD_IS:	0x%08x\n", mci_readl(host, SHA_CMD_IS));
+	dev_info(host->dev, ": IDSTS:	0x%08x\n", mci_readl(host, IDSTS));
+	dev_info(host->dev, ": IDINTEN:	0x%08x\n", mci_readl(host, IDINTEN));
+	dev_info(host->dev, ": SHA_CMD_IS:	0x%08x\n", mci_readl(host, SHA_CMD_IS));
 	if (drv_data && drv_data->register_dump)
 		drv_data->register_dump(host);
 	dw_mci_cmd_reg_summary(host);
 	dw_mci_status_reg_summary(host);
-	dev_err(host->dev, ": ============== STATUS DUMP ================\n");
-	dev_err(host->dev, ": cmd_status:      0x%08x\n", host->cmd_status);
-	dev_err(host->dev, ": data_status:     0x%08x\n", host->data_status);
-	dev_err(host->dev, ": pending_events:  0x%08lx\n", host->pending_events);
-	dev_err(host->dev, ": completed_events:0x%08lx\n", host->completed_events);
-	dev_err(host->dev, ": state:           %d\n", host->state_cmd);
-	dev_err(host->dev, ": gate-clk:            %s\n",
+	dev_info(host->dev, ": ============== STATUS DUMP ================\n");
+	dev_info(host->dev, ": cmd_status:      0x%08x\n", host->cmd_status);
+	dev_info(host->dev, ": data_status:     0x%08x\n", host->data_status);
+	dev_info(host->dev, ": pending_events:  0x%08lx\n", host->pending_events);
+	dev_info(host->dev, ": completed_events:0x%08lx\n", host->completed_events);
+	dev_info(host->dev, ": state:           %d\n", host->state_cmd);
+	dev_info(host->dev, ": gate-clk:            %s\n",
 			      atomic_read(&host->ciu_clk_cnt) ?
 			      "enable" : "disable");
-	dev_err(host->dev, ": ciu_en_win:           %d\n",
+	dev_info(host->dev, ": ciu_en_win:           %d\n",
 			atomic_read(&host->ciu_en_win));
-	dev_err(host->dev, ": ===========================================\n");
+	dev_info(host->dev, ": ===========================================\n");
 	if ((mci_readl(host, IDSTS) == 0x4000) && (mci_readl(host, MPSTAT) & 0x1))
 		panic("eMMC DMA BUS hang.\n");
 }
@@ -416,28 +416,28 @@ static void dw_mci_exynos_register_dump(struct dw_mci *host)
 	is_smu = is_smu || ((host->pdata->quirks & DW_MCI_QUIRK_USE_SMU) ?
 				true : false);
 #endif
-	dev_err(host->dev, ": CLKSEL:	0x%08x\n", mci_readl(host, CLKSEL));
+	dev_info(host->dev, ": CLKSEL:	0x%08x\n", mci_readl(host, CLKSEL));
 	if (is_smu) {
-		dev_err(host->dev, ": EMMCP_BASE:	0x%08x\n",
+		dev_info(host->dev, ": EMMCP_BASE:	0x%08x\n",
 			mci_readl(host, EMMCP_BASE));
-		dev_err(host->dev, ": MPSECURITY:	0x%08x\n",
+		dev_info(host->dev, ": MPSECURITY:	0x%08x\n",
 			mci_readl(host, MPSECURITY));
-		dev_err(host->dev, ": MPSTAT:	0x%08x\n",
+		dev_info(host->dev, ": MPSTAT:	0x%08x\n",
 			mci_readl(host, MPSTAT));
 		for (i = 0; i < 8; i++) {
-			dev_err(host->dev, ": MPSBEGIN%d:	0x%08x\n", i,
+			dev_info(host->dev, ": MPSBEGIN%d:	0x%08x\n", i,
 				__raw_readl(host->regs + SDMMC_MPSBEGIN0 + (0x10 * i)));
-			dev_err(host->dev, ": MPSEND%d:	0x%08x\n", i,
+			dev_info(host->dev, ": MPSEND%d:	0x%08x\n", i,
 				__raw_readl(host->regs + SDMMC_MPSEND0 + (0x10 * i)));
-			dev_err(host->dev, ": MPSCTRL%d:	0x%08x\n", i,
+			dev_info(host->dev, ": MPSCTRL%d:	0x%08x\n", i,
 				__raw_readl(host->regs + SDMMC_MPSCTRL0 + (0x10 * i)));
 		}
 	}
-	dev_err(host->dev, ": DDR200_RDDQS_EN:	0x%08x\n",
+	dev_info(host->dev, ": DDR200_RDDQS_EN:	0x%08x\n",
 		mci_readl(host, DDR200_RDDQS_EN));
-	dev_err(host->dev, ": DDR200_ASYNC_FIFO_CTRL:	0x%08x\n",
+	dev_info(host->dev, ": DDR200_ASYNC_FIFO_CTRL:	0x%08x\n",
 		mci_readl(host, DDR200_ASYNC_FIFO_CTRL));
-	dev_err(host->dev, ": DDR200_DLINE_CTRL:	0x%08x\n",
+	dev_info(host->dev, ": DDR200_DLINE_CTRL:	0x%08x\n",
 		mci_readl(host, DDR200_DLINE_CTRL));
 }
 
