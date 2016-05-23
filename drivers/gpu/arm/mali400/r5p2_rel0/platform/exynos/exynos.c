@@ -206,10 +206,10 @@ static void exynos_update_dvfs(struct mali_gpu_utilization_data *data)
  * Power management
  */
 
-_mali_osk_errcode_t mali_platform_power_mode_change(mali_power_mode power_mode)
+void mali_platform_power_mode_change(int power_mode)
 {
 	if (WARN_ON(mali->power_mode == power_mode))
-		MALI_SUCCESS;
+		return;
 
 	switch (power_mode) {
 	case MALI_POWER_MODE_ON:
@@ -231,8 +231,14 @@ _mali_osk_errcode_t mali_platform_power_mode_change(mali_power_mode power_mode)
 	}
 
 	mali->power_mode = power_mode;
+}
 
-	MALI_SUCCESS;
+bool mali_is_on(void)
+{
+	if (mali->power_mode == MALI_POWER_MODE_ON)
+		return true;
+	else
+		return false;
 }
 
 /*
@@ -243,13 +249,12 @@ static struct mali_gpu_device_data mali_exynos_gpu_data = {
 	.shared_mem_size = SZ_256M,
 	.fb_start = 0x40000000,
 	.fb_size = 0xb1000000,
-	.utilization_interval = 100, /* 100ms in Tizen */
+	.control_interval = 100, /* 100ms in Tizen */
 	.utilization_callback = exynos_update_dvfs,
 };
 
-_mali_osk_errcode_t mali_platform_init(void)
+int mali_platform_device_init(struct platform_device *pdev)
 {
-	struct platform_device *pdev = mali_platform_device;
 	const struct mali_exynos_variant *variant;
 	const struct of_device_id *match;
 	struct resource *old_res, *new_res;
@@ -359,10 +364,8 @@ _mali_osk_errcode_t mali_platform_init(void)
 	MALI_SUCCESS;
 }
 
-_mali_osk_errcode_t mali_platform_deinit(void)
+int mali_platform_device_deinit(struct platform_device *pdev)
 {
-	struct platform_device *pdev = mali_platform_device;
-
 	pm_runtime_disable(&pdev->dev);
 
 	regulator_disable(mali->vdd_g3d);
