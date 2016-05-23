@@ -490,6 +490,7 @@
 &mali {
 	status = "okay";
 	vdd_g3d-supply = <&buck4_reg>;
+	mali-supply = <&buck4_reg>;
 };
 
 &usbdrd3_0 {
