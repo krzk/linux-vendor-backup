@@ -24,9 +24,7 @@
 #include <linux/miscdevice.h>
 #include <linux/bug.h>
 #include <linux/of.h>
-#ifdef CONFIG_PM_RUNTIME
 #include <linux/pm_runtime.h>
-#endif
 #include <linux/mali/mali_utgard.h>
 #include "mali_kernel_common.h"
 #include "mali_session.h"
