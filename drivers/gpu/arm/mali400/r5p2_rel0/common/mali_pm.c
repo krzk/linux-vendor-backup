@@ -8,6 +8,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#include <linux/version.h>
+
 #include "mali_pm.h"
 #include "mali_kernel_common.h"
 #include "mali_osk.h"
@@ -70,7 +72,8 @@ static int mali_pm_domain_power_cost_result[MALI_MAX_NUMBER_OF_PHYSICAL_PP_GROUP
  * Keep track of runtime PM state, so that we know
  * how to resume during OS resume.
  */
-#ifdef CONFIG_PM_RUNTIME
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0) && defined(CONFIG_PM_RUNTIME))\
+	|| defined(CONFIG_PM)
 static mali_bool mali_pm_runtime_active = MALI_FALSE;
 #else
 /* when kernel don't enable PM_RUNTIME, set the flag always true,

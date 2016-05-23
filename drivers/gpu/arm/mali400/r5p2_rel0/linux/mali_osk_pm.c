@@ -15,9 +15,7 @@
 
 #include <linux/sched.h>
 
-#ifdef CONFIG_PM_RUNTIME
 #include <linux/pm_runtime.h>
-#endif /* CONFIG_PM_RUNTIME */
 #include <linux/platform_device.h>
 #include <linux/version.h>
 #include "mali_osk.h"
@@ -27,7 +25,8 @@
 /* Can NOT run in atomic context */
 _mali_osk_errcode_t _mali_osk_pm_dev_ref_get_sync(void)
 {
-#ifdef CONFIG_PM_RUNTIME
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0) && defined(CONFIG_PM_RUNTIME))\
+	|| defined(CONFIG_PM)
 	int err;
 	MALI_DEBUG_ASSERT_POINTER(mali_platform_device);
 	err = pm_runtime_get_sync(&(mali_platform_device->dev));
@@ -45,7 +44,8 @@ _mali_osk_errcode_t _mali_osk_pm_dev_ref_get_sync(void)
 /* Can run in atomic context */
 _mali_osk_errcode_t _mali_osk_pm_dev_ref_get_async(void)
 {
-#ifdef CONFIG_PM_RUNTIME
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0) && defined(CONFIG_PM_RUNTIME))\
+	|| defined(CONFIG_PM)
 	int err;
 	MALI_DEBUG_ASSERT_POINTER(mali_platform_device);
 	err = pm_runtime_get(&(mali_platform_device->dev));
@@ -64,7 +64,8 @@ _mali_osk_errcode_t _mali_osk_pm_dev_ref_get_async(void)
 /* Can run in atomic context */
 void _mali_osk_pm_dev_ref_put(void)
 {
-#ifdef CONFIG_PM_RUNTIME
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0) && defined(CONFIG_PM_RUNTIME))\
+	|| defined(CONFIG_PM)
 	MALI_DEBUG_ASSERT_POINTER(mali_platform_device);
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37))
 	pm_runtime_mark_last_busy(&(mali_platform_device->dev));
@@ -77,7 +78,8 @@ void _mali_osk_pm_dev_ref_put(void)
 
 void _mali_osk_pm_dev_barrier(void)
 {
-#ifdef CONFIG_PM_RUNTIME
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0) && defined(CONFIG_PM_RUNTIME))\
+	|| defined(CONFIG_PM)
 	pm_runtime_barrier(&(mali_platform_device->dev));
 #endif
 }
