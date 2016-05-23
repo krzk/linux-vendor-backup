@@ -411,7 +411,10 @@ static int nx_pcm_open(struct snd_pcm_substream *substream)
 		return ret;
 	}
 
-	hw->period_bytes_max = PERIOD_BYTES_MAX;
+	if (strstr(dev_name(prtd->dma_param->dev), "spdiftx"))
+		hw->period_bytes_max = 4096;
+	else
+		hw->period_bytes_max = PERIOD_BYTES_MAX;
 
 	return snd_soc_set_runtime_hwparams(substream, &nx_pcm_hardware);
 }
