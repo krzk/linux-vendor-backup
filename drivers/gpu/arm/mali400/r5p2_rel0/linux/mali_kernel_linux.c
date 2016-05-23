@@ -187,6 +187,7 @@ static int mali_driver_runtime_resume(struct device *dev);
 static int mali_driver_runtime_idle(struct device *dev);
 #endif
 
+extern const struct of_device_id mali_of_matches[];
 extern void mali_platform_power_mode_change(int power_mode);
 
 #if defined(MALI_FAKE_PLATFORM_DEVICE)
@@ -253,7 +254,7 @@ static struct platform_driver mali_platform_driver = {
 		.pm = &mali_dev_pm_ops,
 #endif
 #ifdef CONFIG_MALI_DT
-		.of_match_table = of_match_ptr(base_dt_ids),
+		.of_match_table = of_match_ptr(mali_of_matches),
 #endif
 	},
 };
