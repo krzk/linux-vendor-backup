@@ -279,18 +279,15 @@ _mali_osk_errcode_t mali_platform_init(void)
 	if (WARN_ON(!new_res))
 		return -ENOMEM;
 
-	/* Copy first resource */
-	memcpy(new_res, old_res++, sizeof(*new_res));
-
 	/* Rearrange next resources */
 	irq_res = 0;
 	mem_res = 0;
-	for (i = 1; i < pdev->num_resources; ++i, ++old_res) {
+	for (i = 0; i < pdev->num_resources; ++i, ++old_res) {
 		if (resource_type(old_res) == IORESOURCE_MEM)
-			memcpy(&new_res[1 + 2 * mem_res++],
+			memcpy(&new_res[2 * mem_res++],
 						old_res, sizeof(*old_res));
 		else if (resource_type(old_res) == IORESOURCE_IRQ)
-			memcpy(&new_res[2 + 2 * irq_res++],
+			memcpy(&new_res[1 + 2 * irq_res++],
 						old_res, sizeof(*old_res));
 	}
 
