@@ -35,6 +35,44 @@
 #define GAMMA_CMD_CNT			35
 #define VINT_STATUS_MAX			10
 
+static const u8 MDNIE_6500K[] = {
+	0xec, 0x98, 0x24, 0x10, 0x14, 0xb3, 0x01, 0x0e, 0x01, 0x00,
+	0x66, 0xfa, 0x2d, 0x03, 0x96, 0x02, 0xff, 0x00, 0x00, 0x07,
+	0xff, 0x07, 0xff, 0x14, 0x00, 0x0a, 0x00, 0x32, 0x01, 0xf4,
+	0x0b, 0x8a, 0x6e, 0x99, 0x1b, 0x17, 0x14, 0x1e, 0x02, 0x5f,
+	0x02, 0xc8, 0x03, 0x33, 0x02, 0x22, 0x10, 0x10, 0x07, 0x07,
+	0x20, 0x2d, 0x01, 0x40, 0x00, 0x20, 0x00, 0x20, 0x00, 0x20,
+	0x00, 0x20, 0x02, 0x1b, 0x02, 0x1b, 0x02, 0x1b, 0x02, 0x1b,
+	0x09, 0xa6, 0x09, 0xa6, 0x09, 0xa6, 0x09, 0xa6, 0x00, 0x20,
+	0x00, 0x20, 0x00, 0x20, 0x00, 0x20, 0x00, 0x20, 0x00, 0x20,
+	0x00, 0x20, 0x00, 0x20, 0x00, 0x20, 0x00, 0x20, 0x00, 0x20,
+	0x00, 0xFF, 0x40, 0x67, 0xa9, 0x0c, 0x0c, 0x0c, 0x0c, 0x00,
+	0xaa, 0xab, 0x00, 0xaa, 0xab, 0x00, 0xaa, 0xab, 0x00, 0xaa,
+	0xab, 0xd5, 0x2c, 0x2a, 0xff, 0xf5, 0x63, 0xfe, 0x4a, 0xff,
+	0xff, 0xf9, 0xf8, 0x00, 0xff, 0xff, 0x00, 0xff, 0x00, 0xff,
+	0x00, 0x00, 0xff, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0x00,
+	0xff, 0xff, 0x00, 0xf7, 0x00, 0xed, 0x00,
+};
+
+static const u8 MDNIE_BYPASS[] = {
+	0xec, 0x98, 0x24, 0x10, 0x14, 0xb3, 0x01, 0x0e, 0x01, 0x00,
+	0x66, 0xfa, 0x2d, 0x03, 0x96, 0x00, 0xff, 0x00, 0x00, 0x07,
+	0xff, 0x07, 0xff, 0x14, 0x00, 0x0a, 0x00, 0x32, 0x01, 0xf4,
+	0x0b, 0x8a, 0x6e, 0x99, 0x1b, 0x17, 0x14, 0x1e, 0x02, 0x5f,
+	0x02, 0xc8, 0x03, 0x33, 0x02, 0x22, 0x10, 0x10, 0x07, 0x07,
+	0x20, 0x2d, 0x01, 0x00, 0x00, 0x20, 0x00, 0x20, 0x00, 0x20,
+	0x00, 0x20, 0x02, 0x1b, 0x02, 0x1b, 0x02, 0x1b, 0x02, 0x1b,
+	0x09, 0xa6, 0x09, 0xa6, 0x09, 0xa6, 0x09, 0xa6, 0x00, 0x20,
+	0x00, 0x20, 0x00, 0x20, 0x00, 0x20, 0x00, 0x20, 0x00, 0x20,
+	0x00, 0x20, 0x00, 0x20, 0x00, 0x20, 0x00, 0x20, 0x00, 0x20,
+	0x00, 0xFF, 0x00, 0x67, 0xa9, 0x0c, 0x0c, 0x0c, 0x0c, 0x00,
+	0xaa, 0xab, 0x00, 0xaa, 0xab, 0x00, 0xaa, 0xab, 0x00, 0xaa,
+	0xab, 0xd5, 0x2c, 0x2a, 0xff, 0xf5, 0x63, 0xfe, 0x4a, 0xff,
+	0xff, 0xf9, 0xf8, 0x00, 0xff, 0xff, 0x00, 0xff, 0x00, 0xff,
+	0x00, 0x00, 0xff, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0x00,
+	0xff, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00,
+};
+
 static const u8 gamma_tbl[NUM_GAMMA_STEPS][GAMMA_CMD_CNT] = {
 	{ 0x00, 0xb8, 0x00, 0xc3, 0x00, 0xb1, 0x89, 0x87, 0x87, 0x82, 0x83,
 	  0x85, 0x88, 0x8b, 0x8b, 0x84, 0x88, 0x82, 0x82, 0x89, 0x86, 0x8c,
@@ -241,6 +279,7 @@ struct s6e3ha2 {
 	struct videomode vm;
 	u32 width_mm;
 	u32 height_mm;
+	u32 vr_mode;
 
 	/* This field is tested by functions directly accessing DSI bus before
 	 * transfer, transfer is skipped if it is set. In case of transfer
@@ -249,6 +288,14 @@ struct s6e3ha2 {
 	 * functions.
 	 */
 	int error;
+
+	/*
+	 * This mutex lock is used to ensure to prevent from being raced
+	 * between Panel device access by VR sysfs and KMS power management
+	 * operation because while enabling or disabing Panel device power
+	 * it's possible to access Panel device by VR sysfs interface.
+	 */
+	struct mutex lock;
 };
 
 static inline struct s6e3ha2 *panel_to_s6e3ha2(struct drm_panel *panel)
@@ -406,6 +453,52 @@ static void s6e3ha2_gamma_update(struct s6e3ha2 *ctx)
 	s6e3ha2_dcs_write_seq_static(ctx, 0xf7, 0x03);
 }
 
+static void s6e3ha2_vr_enable(struct s6e3ha2 *ctx, int enable)
+{
+	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
+	ssize_t ret;
+	const u8 *cmds;
+	u32 cmd_len;
+
+	if (enable) {
+		cmds = MDNIE_6500K;
+		cmd_len = ARRAY_SIZE(MDNIE_6500K);
+	} else {
+		cmds = MDNIE_BYPASS;
+		cmd_len = ARRAY_SIZE(MDNIE_BYPASS);
+	}
+
+	/* TEST KEY ENABLE. */
+	s6e3ha2_test_key_on_f0(ctx);
+	s6e3ha2_test_key_on_fc(ctx);
+
+	ret = mipi_dsi_dcs_write_buffer(dsi, cmds, cmd_len);
+	if (ret < 0) {
+		dev_err(ctx->dev, "error %zd writing dcs seq: %*ph\n", ret,
+							(int)cmd_len, cmds);
+		ctx->error = ret;
+		return;
+	}
+
+	/* TEST KEY DISABLE. */
+	s6e3ha2_test_key_off_f0(ctx);
+	s6e3ha2_test_key_off_fc(ctx);
+
+	/* TEST KEY ENABLE. */
+	s6e3ha2_test_key_on_f0(ctx);
+	s6e3ha2_test_key_on_fc(ctx);
+
+	if (enable)
+		s6e3ha2_dcs_write_seq_static(ctx, 0xeb, 0x01, 0x00, 0x3c);
+	else
+		s6e3ha2_dcs_write_seq_static(ctx, 0xeb, 0x01, 0x00, 0x00);
+
+	/* TEST KEY DISABLE. */
+	s6e3ha2_test_key_off_f0(ctx);
+	s6e3ha2_test_key_off_fc(ctx);
+}
+
+
 static int s6e3ha2_get_brightness(struct backlight_device *bl_dev)
 {
 	return bl_dev->props.brightness;
@@ -505,6 +598,8 @@ static int s6e3ha2_disable(struct drm_panel *panel)
 {
 	struct s6e3ha2 *ctx = panel_to_s6e3ha2(panel);
 
+	mutex_lock(&ctx->lock);
+
 	s6e3ha2_dcs_write_seq_static(ctx, MIPI_DCS_ENTER_SLEEP_MODE);
 	if (ctx->error != 0)
 		goto err;
@@ -518,6 +613,7 @@ static int s6e3ha2_disable(struct drm_panel *panel)
 
 	return 0;
 err:
+	mutex_unlock(&ctx->lock);
 	return ctx->error;
 }
 
@@ -525,12 +621,26 @@ static int s6e3ha2_unprepare(struct drm_panel *panel)
 {
 	struct s6e3ha2 *ctx = panel_to_s6e3ha2(panel);
 
+	/*
+	 * This function is called by mipi dsi driver
+	 * after calling disable callback and mutex is locked by
+	 * disable callback. So make sure to check if locked.
+	 */
+	if (!mutex_is_locked(&ctx->lock)) {
+		WARN_ON(1);
+		return -EPERM;
+	}
+
 	s6e3ha2_power_off(ctx);
-	if (ctx->error != 0)
+	if (ctx->error != 0) {
+		mutex_unlock(&ctx->lock);
 		return ctx->error;
+	}
 
 	s6e3ha2_clear_error(ctx);
 	ctx->bl_dev->props.power = FB_BLANK_POWERDOWN;
+
+	mutex_unlock(&ctx->lock);
 
 	return 0;
 }
@@ -563,15 +673,20 @@ static int s6e3ha2_prepare(struct drm_panel *panel)
 	struct s6e3ha2 *ctx = panel_to_s6e3ha2(panel);
 	int ret;
 
+	/* This mutex will be unlocked at enable callback. */
+	mutex_lock(&ctx->lock);
+
 	ret = s6e3ha2_power_on(ctx);
-	if (ret < 0)
+	if (ret < 0) {
+		mutex_unlock(&ctx->lock);
 		return ret;
+	}
 
 	ctx->bl_dev->props.power = FB_BLANK_NORMAL;
 
 	s6e3ha2_panel_init(ctx);
 	if (ctx->error < 0)
-		s6e3ha2_unprepare(panel);
+		return s6e3ha2_unprepare(panel);
 
 	return ret;
 }
@@ -579,6 +694,16 @@ static int s6e3ha2_prepare(struct drm_panel *panel)
 static int s6e3ha2_enable(struct drm_panel *panel)
 {
 	struct s6e3ha2 *ctx = panel_to_s6e3ha2(panel);
+
+	/*
+	 * This function is called by mipi dsi driver
+	 * after calling prepare callback and mutex is locked by
+	 * prepare callback. So make sure to check if locked.
+	 */
+	if (!mutex_is_locked(&ctx->lock)) {
+		WARN_ON(1);
+		return -EPERM;
+	}
 
 	msleep(120);
 
@@ -619,6 +744,11 @@ static int s6e3ha2_enable(struct drm_panel *panel)
 		return ctx->error;
 
 	ctx->bl_dev->props.power = FB_BLANK_UNBLANK;
+
+	if (ctx->vr_mode)
+		s6e3ha2_vr_enable(ctx, 1);
+
+	mutex_unlock(&ctx->lock);
 
 	return 0;
 }
@@ -685,6 +815,57 @@ static int s6e3ha2_parse_dt(struct s6e3ha2 *ctx)
 	return 0;
 }
 
+static ssize_t s6e3ha2_vr_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct s6e3ha2 *ctx = dev_get_drvdata(dev);
+
+	sprintf(buf, "%s\n", ctx->vr_mode ? "on" : "off");
+
+	return strlen(buf);
+}
+
+static ssize_t s6e3ha2_vr_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct s6e3ha2 *ctx = dev_get_drvdata(dev);
+	int value;
+	int rc;
+
+	mutex_lock(&ctx->lock);
+
+	if (ctx->bl_dev->props.power != FB_BLANK_UNBLANK) {
+		dev_err(ctx->dev,
+			"panel must be in fb blank unblank state\n");
+		goto out;
+	}
+
+	rc = kstrtoul(buf, (unsigned int)0, (unsigned long *)&value);
+	if (rc < 0) {
+		mutex_unlock(&ctx->lock);
+		return rc;
+	}
+
+	if (value != 0 && value != 1) {
+		dev_err(dev, "invalid vr mode.\n");
+		goto out;
+	}
+
+	if (ctx->vr_mode == value)
+		goto out;
+
+	s6e3ha2_vr_enable(ctx, value);
+
+	ctx->vr_mode = value;
+
+out:
+	mutex_unlock(&ctx->lock);
+
+	return size;
+}
+
+static DEVICE_ATTR(vr, 0664, s6e3ha2_vr_show, s6e3ha2_vr_store);
+
 static int s6e3ha2_probe(struct mipi_dsi_device *dsi)
 {
 	struct device *dev = &dsi->dev;
@@ -698,6 +879,7 @@ static int s6e3ha2_probe(struct mipi_dsi_device *dsi)
 	mipi_dsi_set_drvdata(dsi, ctx);
 
 	ctx->dev = dev;
+	mutex_init(&ctx->lock);
 
 	dsi->lanes = 4;
 	dsi->format = MIPI_DSI_FMT_RGB888;
@@ -748,6 +930,12 @@ static int s6e3ha2_probe(struct mipi_dsi_device *dsi)
 		return PTR_ERR(ctx->bl_dev);
 	}
 
+	ret = device_create_file(dev, &dev_attr_vr);
+	if (ret) {
+		dev_err(dev, "failed to create vr sysfs file.\n");
+		goto unregister_backlight;
+	}
+
 	ctx->bl_dev->props.max_brightness = MAX_BRIGHTNESS;
 	ctx->bl_dev->props.brightness = DEFAULT_BRIGHTNESS;
 	ctx->bl_dev->props.power = FB_BLANK_POWERDOWN;
@@ -758,7 +946,7 @@ static int s6e3ha2_probe(struct mipi_dsi_device *dsi)
 
 	ret = drm_panel_add(&ctx->panel);
 	if (ret < 0)
-		goto unregister_backlight;
+		goto remove_sysfs;
 
 	ret = mipi_dsi_attach(dsi);
 	if (ret < 0)
@@ -768,6 +956,9 @@ static int s6e3ha2_probe(struct mipi_dsi_device *dsi)
 
 remove_panel:
 	drm_panel_remove(&ctx->panel);
+
+remove_sysfs:
+	device_remove_file(dev, &dev_attr_vr);
 
 unregister_backlight:
 	backlight_device_unregister(ctx->bl_dev);
@@ -781,6 +972,7 @@ static int s6e3ha2_remove(struct mipi_dsi_device *dsi)
 
 	mipi_dsi_detach(dsi);
 	drm_panel_remove(&ctx->panel);
+	device_remove_file(ctx->dev, &dev_attr_vr);
 	backlight_device_unregister(ctx->bl_dev);
 
 	return 0;
