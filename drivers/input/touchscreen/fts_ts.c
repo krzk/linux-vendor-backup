@@ -339,7 +339,10 @@ static unsigned char fts_event_handler_type_b(struct fts_ts_info *info,
 		} else if (event_id == EVENTID_MOTION_POINTER)
 			info->finger[touch_id].mcount++;
 
-		info->finger[touch_id].state = event_id;
+		if ((event_id == EVENTID_ENTER_POINTER) ||
+				(event_id == EVENTID_LEAVE_POINTER) ||
+				(event_id == EVENTID_MOTION_POINTER))
+			info->finger[touch_id].state = event_id;
 	}
 
 	input_sync(info->input_dev);
