@@ -1,5 +1,6 @@
 /*********************************************************
  * Copyright (C) 2011 - 2015 Samsung Electronics Co., Ltd All Rights Reserved
+ * Author: Jaroslaw Pelczar <j.pelczar@samsung.com>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -26,8 +27,6 @@
 #define SMC_STD_REGISTER_SYSPAGE		1
 /* R1 - wsm id page */
 #define SMC_STD_REGISTER_MINIDUMP		2
-/* R1 - address, R2 - size, R3 - flags, R4 - tee context ID */
-#define SMC_STD_REGISTER_WSM			3
 /* R1 - wsm ID */
 #define SMC_STD_UNREGISTER_WSM			4
 /* R1 - wsm ID */

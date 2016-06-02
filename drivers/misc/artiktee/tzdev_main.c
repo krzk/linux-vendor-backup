@@ -69,6 +69,7 @@ struct tzio_context {
 	void *payload;
 	size_t payload_size;
 	int softlock_timer;
+	unsigned int timeout_seconds;
 	struct completion comp;
 	struct file *owner;
 	int state;
@@ -306,7 +307,7 @@ static void tzio_reset_softlock_timer(int cpu)
 #endif /* !CONFIG_PSCI */
 
 void tzio_init_context(struct tzio_context *ctx, struct file *filp,
-		       void *payload)
+		       void *payload, uint32_t seconds)
 {
 	init_completion(&ctx->comp);
 
@@ -315,6 +316,7 @@ void tzio_init_context(struct tzio_context *ctx, struct file *filp,
 	ctx->payload_size = 0;
 	ctx->softlock_timer = 0;
 	ctx->owner = filp;
+	ctx->timeout_seconds = seconds;
 }
 
 void tzio_rbtree_list_context_node(void)
@@ -333,11 +335,10 @@ void tzio_rbtree_list_context_node(void)
 	tzlog_print(TZLOG_DEBUG, "End list all context node in rbtree\n");
 }
 
-void tzio_connection_closed(struct scm_msg_link *msg)
+void tzio_connection_closed(int epid)
 {
 	struct tzio_context *tmp_node;
 	int id;
-	int epid = msg->channel & ~PAGE_MASK;
 	unsigned long flags;
 
 	tzlog_print(TZLOG_DEBUG, "TA of channel ID %d died\n", epid);
@@ -516,7 +517,7 @@ static int tzio_pop_message(struct scm_buffer *ring)
 			rx_taken += sizeof(struct scm_msg_link) + mtcp.length;
 			rx_avail -= sizeof(struct scm_msg_link) + mtcp.length;
 
-			tzio_connection_closed(&mtcp);
+			tzio_connection_closed(mtcp.channel & ~PAGE_MASK);
 			break;
 		case SCM_LLC_DATA:
 			spin_lock_irqsave(&tzio_context_slock, flags);
@@ -796,6 +797,12 @@ int tzio_message_wait(struct tzio_message *__user msg,
 						scm_softlockup();
 					}
 				}
+
+				if(context->timeout_seconds > 0 && context->softlock_timer > context->timeout_seconds) {
+					tzlog_print(TZLOG_ERROR, "TA %u timed out. Killing all requests\n", context->remote_id);
+					tzio_connection_closed(context->remote_id);
+					break;
+				}
 			}
 			/* soft lockup checking end */
 		}
@@ -872,8 +879,16 @@ int tzio_exchange_message(struct file *filp, struct tzio_message *__user msg)
 	unsigned int svc_flags;
 	char __payload[TZIO_PAYLOAD_MAX];
 	int32_t restart_context_id;
+	uint32_t timeout_seconds;
 
 	ret = get_user(restart_context_id, &msg->context_id);
+
+	if (ret < 0) {
+		tzlog_print(TZLOG_ERROR, "get_user error\n");
+		return ret;
+	}
+
+	ret = get_user(timeout_seconds, &msg->timeout_seconds);
 
 	if (ret < 0) {
 		tzlog_print(TZLOG_ERROR, "get_user error\n");
@@ -913,7 +928,7 @@ int tzio_exchange_message(struct file *filp, struct tzio_message *__user msg)
 		return -ENOMEM;
 	}
 
-	tzio_init_context(context, filp, __payload);
+	tzio_init_context(context, filp, __payload, timeout_seconds);
 
 	link = tzio_acquire_link(GFP_KERNEL);
 
