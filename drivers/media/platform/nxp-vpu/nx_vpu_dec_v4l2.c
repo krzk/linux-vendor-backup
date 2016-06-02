@@ -545,8 +545,6 @@ static int nx_vpu_dec_stop_streaming(struct vb2_queue *q)
 		spin_unlock_irqrestore(&dev->irqlock, flags);
 	}
 
-	ctx->vpu_cmd = SEQ_END;
-
 	return 0;
 }
 
