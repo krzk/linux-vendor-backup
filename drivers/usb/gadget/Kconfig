@@ -135,171 +135,628 @@ source "drivers/usb/gadget/udc/Kconfig"
 
 # composite based drivers
 config USB_LIBCOMPOSITE
-	tristate
+	tristate "USB Gadget Drivers"
 	select CONFIGFS_FS
 	depends on USB_GADGET
 
 config USB_F_ACM
 	tristate
 
+# Just a dummy config which indicates that serial gadget requires ACM in particular state
+config USB_G_SERIAL_REQ_F_ACM
+       tristate
+
+# Just a dummy config which indicates that cdc gadget requires ACM in particular state
+config USB_G_CDC_COMPOSITE_REQ_F_ACM
+       tristate
+
+# Just a dummy config which indicates that nokia gadget requires ACM in particular state
+config USB_G_NOKIA_REQ_F_ACM
+       tristate
+
+# Just a dummy config which indicates that acm ms gadget requires ACM in particular state
+config USB_G_ACM_MS_REQ_F_ACM
+       tristate
+
+# Just a dummy config which indicates that gadget multi requires ACM in particular state
+config USB_G_MULTI_REQ_F_ACM
+       tristate
+
+# Just a dummy config which indicates that slp gadget requires ACM in particular state
+config USB_G_SLP_REQ_F_ACM
+       tristate
+
+if USB_CONFIGFS_F_ACM = y || USB_G_SERIAL_REQ_F_ACM = y || USB_G_CDC_COMPOSITE_REQ_F_ACM = y || USB_G_NOKIA_REQ_F_ACM = y || USB_G_ACM_MS_REQ_F_ACM = y || USB_G_MULTI_REQ_F_ACM = y || USB_G_SLP_REQ_F_ACM = y
+config USB_F_ACM_SELECTOR
+       tristate
+       default y
+       select USB_F_ACM
+       select USB_F_ACM_REQ_U_SERIAL
+endif
+
+if !(USB_CONFIGFS_F_ACM = y || USB_G_SERIAL_REQ_F_ACM = y || USB_G_CDC_COMPOSITE_REQ_F_ACM = y || USB_G_NOKIA_REQ_F_ACM = y || USB_G_ACM_MS_REQ_F_ACM = y || USB_G_MULTI_REQ_F_ACM = y || USB_G_SLP_REQ_F_ACM = y) && (USB_CONFIGFS_F_ACM = m || USB_G_SERIAL_REQ_F_ACM = m || USB_G_CDC_COMPOSITE_REQ_F_ACM = m || USB_G_NOKIA_REQ_F_ACM = m || USB_G_ACM_MS_REQ_F_ACM = m || USB_G_MULTI_REQ_F_ACM = m || USB_G_SLP_REQ_F_ACM = m)
+config USB_F_ACM_SELECTOR
+       tristate
+       default m
+       select USB_F_ACM
+       select USB_F_ACM_REQ_U_SERIAL
+endif
+
 config USB_F_SS_LB
 	tristate
+
+# Just a dummy config which indicates that gadget zero requires SS and LB in particular state
+config USB_G_ZERO_REQ_F_SS_LB
+       tristate
+
+if USB_CONFIGFS_F_SS_LB = y || USB_G_ZERO_REQ_F_SS_LB = y
+config USB_F_SS_LB_SELECTOR
+       tristate
+       default y
+       select USB_F_SS_LB
+endif
+
+if !(USB_CONFIGFS_F_SS_LB = y || USB_G_ZERO_REQ_F_SS_LB = y) && (USB_CONFIGFS_F_SS_LB = m || USB_G_ZERO_REQ_F_SS_LB = m)
+config USB_F_SS_LB_SELECTOR
+       tristate
+       default m
+       select USB_F_SS_LB
+endif
 
 config USB_U_SERIAL
 	tristate
 
+# Just a dummy config which indicates that F_ACM requires U_SERIAL in particular state
+config USB_F_ACM_REQ_U_SERIAL
+       tristate
+
+# Just a dummy config which indicates that F_SERIAL requires U_SERIAL in particular state
+config USB_F_SERIAL_REQ_U_SERIAL
+       tristate
+
+# Just a dummy config which indicates that F_OBEX requires U_SERIAL in particular state
+config USB_F_OBEX_REQ_U_SERIAL
+       tristate
+
+# Just a dummy config which indicates that dbg gadget requires U_SERIAL in particular state
+config USB_G_DBG_REQ_U_SERIAL
+       tristate
+
+if USB_F_ACM_REQ_U_SERIAL = y || USB_F_SERIAL_REQ_U_SERIAL = y || USB_F_OBEX_REQ_U_SERIAL = y || USB_G_DBG_REQ_U_SERIAL = y
+config USB_U_SERIAL_SELECTOR
+       tristate
+       default y
+       select USB_U_SERIAL
+endif
+
+if !(USB_F_ACM_REQ_U_SERIAL = y || USB_F_SERIAL_REQ_U_SERIAL = y || USB_F_OBEX_REQ_U_SERIAL = y || USB_G_DBG_REQ_U_SERIAL = y) && (USB_F_ACM_REQ_U_SERIAL = m || USB_F_SERIAL_REQ_U_SERIAL = m || USB_F_OBEX_REQ_U_SERIAL = m || USB_G_DBG_REQ_U_SERIAL = m)
+config USB_U_SERIAL_SELECTOR
+       tristate
+       default m
+       select USB_U_SERIAL
+endif
+
 config USB_U_ETHER
 	tristate
+
+# Just a dummy config which indicates that F_NCM requires U_ETHER in particular state
+config USB_F_NCM_REQ_U_ETHER
+       tristate
+
+# Just a dummy config which indicates that F_ECM requires U_ETHER in particular state
+config USB_F_ECM_REQ_U_ETHER
+       tristate
+
+# Just a dummy config which indicates that F_SUBSET requires U_ETHER in particular state
+config USB_F_SUBSET_REQ_U_ETHER
+       tristate
+
+# Just a dummy config which indicates that F_RNDIS requires U_ETHER in particular state
+config USB_F_RNDIS_REQ_U_ETHER
+       tristate
+
+# Just a dummy config which indicates that F_EEM requires U_ETHER in particular state
+config USB_F_EEM_REQ_U_ETHER
+       tristate
+
+# Just a dummy config which indicates that F_PHONET requires U_ETHER in particular state
+config USB_F_PHONET_REQ_U_ETHER
+       tristate
+
+if USB_F_NCM_REQ_U_ETHER = y || USB_F_ECM_REQ_U_ETHER = y || USB_F_SUBSET_REQ_U_ETHER = y || USB_F_RNDIS_REQ_U_ETHER = y || USB_F_EEM_REQ_U_ETHER = y || USB_F_PHONET_REQ_U_ETHER = y
+config USB_U_ETHER_SELECTOR
+       tristate
+       default y
+       select USB_U_ETHER
+endif
+
+if !(USB_F_NCM_REQ_U_ETHER = y || USB_F_ECM_REQ_U_ETHER = y || USB_F_SUBSET_REQ_U_ETHER = y || USB_F_RNDIS_REQ_U_ETHER = y || USB_F_EEM_REQ_U_ETHER = y || USB_F_PHONET_REQ_U_ETHER = y) && (USB_F_NCM_REQ_U_ETHER = m || USB_F_ECM_REQ_U_ETHER = m || USB_F_SUBSET_REQ_U_ETHER = m || USB_F_RNDIS_REQ_U_ETHER = m || USB_F_EEM_REQ_U_ETHER = m || USB_F_PHONET_REQ_U_ETHER = m)
+config USB_U_ETHER_SELECTOR
+       tristate
+       default m
+       select USB_U_ETHER
+endif
 
 config USB_F_SERIAL
 	tristate
 
+# Just a dummy config which indicates that serial gadget requires SERIAL in particular state
+config USB_G_SERIAL_REQ_F_SERIAL
+       tristate
+
+if USB_CONFIGFS_F_SERIAL = y || USB_G_SERIAL_REQ_F_SERIAL = y
+config USB_F_SERIAL_SELECTOR
+       tristate
+       default y
+       select USB_F_SERIAL
+       select USB_F_SERIAL_REQ_U_SERIAL
+endif
+
+if !(USB_CONFIGFS_F_SERIAL = y || USB_G_SERIAL_REQ_F_SERIAL = y) && (USB_CONFIGFS_F_SERIAL = m || USB_G_SERIAL_REQ_F_SERIAL = m)
+config USB_F_SERIAL_SELECTOR
+       tristate
+       default m
+       select USB_F_SERIAL
+       select USB_F_SERIAL_REQ_U_SERIAL
+endif
+
 config USB_F_OBEX
 	tristate
+
+# Just a dummy config which indicates that serial gadget requires OBEX in particular state
+config USB_G_SERIAL_REQ_F_OBEX
+       tristate
+
+# Just a dummy config which indicates that nokia gadget requires OBEX in particular state
+config USB_G_NOKIA_REQ_F_OBEX
+       tristate
+
+if USB_CONFIGFS_F_OBEX = y || USB_G_SERIAL_REQ_F_OBEX = y || USB_G_NOKIA_REQ_F_OBEX = y
+config USB_F_OBEX_SELECTOR
+       tristate
+       default y
+       select USB_F_OBEX
+       select USB_F_OBEX_REQ_U_SERIAL
+endif
+
+if !(USB_CONFIGFS_F_OBEX = y || USB_G_SERIAL_REQ_F_OBEX = y || USB_G_NOKIA_REQ_F_OBEX = y) && (USB_CONFIGFS_F_OBEX = m || USB_G_SERIAL_REQ_F_OBEX = m || USB_G_NOKIA_REQ_F_OBEX = m)
+config USB_F_OBEX_SELECTOR
+       tristate
+       default m
+       select USB_F_OBEX
+       select USB_F_OBEX_REQ_U_SERIAL
+endif
 
 config USB_F_NCM
 	tristate
 
+# Just a dummy config which indicates that ncm gadget requires NCM in particular state
+config USB_G_NCM_REQ_F_NCM
+       tristate
+
+if USB_CONFIGFS_F_NCM = y || USB_G_NCM_REQ_F_NCM = y
+config USB_F_NCM_SELECTOR
+       tristate
+       default y
+       select USB_F_NCM
+       select USB_F_NCM_REQ_U_ETHER
+endif
+
+if !(USB_CONFIGFS_F_NCM = y || USB_G_NCM_REQ_F_NCM = y) && (USB_CONFIGFS_F_NCM = m || USB_G_NCM_REQ_F_NCM = m)
+config USB_F_NCM_SELECTOR
+       tristate
+       default m
+       select USB_F_NCM
+       select USB_F_NCM_REQ_U_ETHER
+endif
+
 config USB_F_ECM
 	tristate
+
+# Just a dummy config which indicates that eth gadget requires ECM in particular state
+config USB_G_ETH_REQ_F_ECM
+       tristate
+
+# Just a dummy config which indicates that cdc gadget requires ECM in particular state
+config USB_G_CDC_COMPOSITE_REQ_F_ECM
+       tristate
+
+# Just a dummy config which indicates that nokia gadget requires ECM in particular state
+config USB_G_NOKIA_REQ_F_ECM
+       tristate
+
+# Just a dummy config which indicates that functionfs gadget requires ECM in particular state
+config USB_G_FUNCTIONFS_REQ_F_ECM
+       tristate
+
+# Just a dummy config which indicates that multi gadget requires ECM in particular state
+config USB_G_MULTI_REQ_F_ECM
+       tristate
+
+if USB_CONFIGFS_F_ECM = y || USB_G_ETH_REQ_F_ECM = y || USB_G_CDC_COMPOSITE_REQ_F_ECM = y || USB_G_NOKIA_REQ_F_ECM = y || USB_G_FUNCTIONFS_REQ_F_ECM = y || USB_G_MULTI_REQ_F_ECM = y
+config USB_F_ECM_SELECTOR
+       tristate
+       default y
+       select USB_F_ECM
+       select USB_F_ECM_REQ_U_ETHER
+endif
+
+if !(USB_CONFIGFS_F_ECM = y || USB_G_ETH_REQ_F_ECM = y || USB_G_CDC_COMPOSITE_REQ_F_ECM = y || USB_G_NOKIA_REQ_F_ECM = y || USB_G_FUNCTIONFS_REQ_F_ECM = y || USB_G_MULTI_REQ_F_ECM = y) && (USB_CONFIGFS_F_ECM = m || USB_G_ETH_REQ_F_ECM = m || USB_G_CDC_COMPOSITE_REQ_F_ECM = m || USB_G_NOKIA_REQ_F_ECM = m || USB_G_FUNCTIONFS_REQ_F_ECM = m || USB_G_MULTI_REQ_F_ECM = m)
+config USB_F_ECM_SELECTOR
+       tristate
+       default m
+       select USB_F_ECM
+       select USB_F_ECM_REQ_U_ETHER
+endif
 
 config USB_F_PHONET
 	tristate
 
+# Just a dummy config which indicates that nokia gadget requires PHONET in particular state
+config USB_G_NOKIA_REQ_F_PHONET
+       tristate
+
+if USB_CONFIGFS_F_PHONET = y || USB_G_NOKIA_REQ_F_PHONET = y
+config USB_F_PHONET_SELECTOR
+       tristate
+       default y
+       select USB_F_PHONET
+       select USB_F_PHONET_REQ_U_ETHER
+endif
+
+if !(USB_CONFIGFS_F_PHONET = y || USB_G_NOKIA_REQ_F_PHONET = y) && (USB_CONFIGFS_F_PHONET = m || USB_G_NOKIA_REQ_F_PHONET = m)
+config USB_F_PHONET_SELECTOR
+       tristate
+       default m
+       select USB_F_PHONET
+       select USB_F_PHONET_REQ_U_ETHER
+endif
+
 config USB_F_EEM
 	tristate
+
+# Just a dummy config which indicates that eth gadget requires EEM in particular state
+config USB_G_ETH_REQ_F_EEM
+       tristate
+
+if USB_CONFIGFS_F_EEM = y || USB_G_ETH_REQ_F_EEM = y
+config USB_F_EEM_SELECTOR
+       tristate
+       default y
+       select USB_F_EEM
+       select USB_F_EEM_REQ_U_ETHER
+endif
+
+if !(USB_CONFIGFS_F_EEM = y || USB_G_ETH_REQ_F_EEM = y) && (USB_CONFIGFS_F_EEM = m || USB_G_ETH_REQ_F_EEM = m)
+config USB_F_EEM_SELECTOR
+       tristate
+       default m
+       select USB_F_EEM
+       select USB_F_EEM_REQ_U_ETHER
+endif
 
 config USB_F_SUBSET
 	tristate
 
+# Just a dummy config which indicates that eth gadget requires SUBSET in particular state
+config USB_G_ETH_REQ_F_SUBSET
+       tristate
+
+# Just a dummy config which indicates that functionfs gadget requires SUBSET in particular state
+config USB_G_FUNCTIONFS_REQ_F_SUBSET
+       tristate
+
+if USB_CONFIGFS_F_SUBSET = y || USB_G_ETH_REQ_F_SUBSET = y || USB_G_FUNCTIONFS_REQ_F_SUBSET = y
+config USB_F_SUBSET_SELECTOR
+       tristate
+       default y
+       select USB_F_SUBSET
+       select USB_F_SUBSET_REQ_U_ETHER
+endif
+
+if !(USB_CONFIGFS_F_SUBSET = y || USB_G_ETH_REQ_F_SUBSET = y || USB_G_FUNCTIONFS_REQ_F_SUBSET = y) && (USB_CONFIGFS_F_SUBSET = m || USB_G_ETH_REQ_F_SUBSET = m || USB_G_FUNCTIONFS_REQ_F_SUBSET = m)
+config USB_F_SUBSET_SELECTOR
+       tristate
+       default m
+       select USB_F_SUBSET
+       select USB_F_SUBSET_REQ_U_ETHER
+endif
+
 config USB_F_RNDIS
 	tristate
+
+# Just a dummy config which indicates that eth gadget requires RNDIS in particular state
+config USB_G_ETH_REQ_F_RNDIS
+       tristate
+
+# Just a dummy config which indicates that functionfs gadget requires RNDIS in particular state
+config USB_G_FUNCTIONFS_REQ_F_RNDIS
+       tristate
+
+# Just a dummy config which indicates that multi gadget requires RNDIS in particular state
+config USB_G_MULTI_REQ_F_RNDIS
+       tristate
+
+if USB_CONFIGFS_F_RNDIS = y || USB_G_ETH_REQ_F_RNDIS = y || USB_G_FUNCTIONFS_REQ_F_RNDIS = y || USB_G_MULTI_REQ_F_RNDIS = y
+config USB_F_RNDIS_SELECTOR
+       tristate
+       default y
+       select USB_F_RNDIS
+       select USB_F_RNDIS_REQ_U_ETHER
+endif
+
+if !(USB_CONFIGFS_F_RNDIS = y || USB_G_ETH_REQ_F_RNDIS = y || USB_G_FUNCTIONFS_REQ_F_RNDIS = y || USB_G_MULTI_REQ_F_RNDIS = y) && (USB_CONFIGFS_F_RNDIS = m || USB_G_ETH_REQ_F_RNDIS = m || USB_G_FUNCTIONFS_REQ_F_RNDIS = m || USB_G_MULTI_REQ_F_RNDIS = m)
+config USB_F_RNDIS_SELECTOR
+       tristate
+       default m
+       select USB_F_RNDIS
+       select USB_F_RNDIS_REQ_U_ETHER
+endif
 
 config USB_F_MASS_STORAGE
 	tristate
 
+# Just a dummy config which indicates that mass storage gadget requires MASS_STORAGE in particular state
+config USB_G_MASS_STORAGE_REQ_F_MASS_STORAGE
+       tristate
+
+# Just a dummy config which indicates that nokia gadget requires MASS_STORAGE in particular state
+config USB_G_NOKIA_REQ_F_MASS_STORAGE
+       tristate
+
+# Just a dummy config which indicates that acm ms gadget requires MASS_STORAGE in particular state
+config USB_G_ACM_MS_REQ_F_MASS_STORAGE
+       tristate
+
+# Just a dummy config which indicates that multi gadget requires MASS_STORAGE in particular state
+config USB_G_MULTI_REQ_F_MASS_STORAGE
+       tristate
+
+if USB_CONFIGFS_F_MASS_STORAGE = y || USB_G_MASS_STORAGE_REQ_F_MASS_STORAGE = y || USB_G_NOKIA_REQ_F_MASS_STORAGE = y || USB_G_ACM_MS_REQ_F_MASS_STORAGE = y|| USB_G_MULTI_REQ_F_MASS_STORAGE = y
+config USB_F_MASS_STORAGE_SELECTOR
+       tristate
+       default y
+       select USB_F_MASS_STORAGE
+endif
+
+if !(USB_CONFIGFS_F_MASS_STORAGE = y || USB_G_MASS_STORAGE_REQ_F_MASS_STORAGE = y || USB_G_NOKIA_REQ_F_MASS_STORAGE = y || USB_G_ACM_MS_REQ_F_MASS_STORAGE = y || USB_G_MULTI_REQ_F_MASS_STORAGE = y) && (USB_CONFIGFS_F_MASS_STORAGE = m || USB_G_MASS_STORAGE_REQ_F_MASS_STORAGE = m || USB_G_NOKIA_REQ_F_MASS_STORAGE = m || USB_G_ACM_MS_REQ_F_MASS_STORAGE = m ||USB_G_MULTI_REQ_F_MASS_STORAGE = m)
+config USB_F_MASS_STORAGE_SELECTOR
+       tristate
+       default m
+       select USB_F_MASS_STORAGE
+endif
+
 config USB_F_FS
 	tristate
+
+# Just a dummy config which indicates that functionfs gadget requires F_FS in particular state
+config USB_G_FUNCTIONFS_REQ_F_FS
+       tristate
+
+if USB_CONFIGFS_F_FS = y || USB_G_FUNCTIONFS_REQ_F_FS = y
+config USB_F_FS_SELECTOR
+       tristate
+       default y
+       select USB_F_FS
+endif
+
+if !(USB_CONFIGFS_F_FS = y || USB_G_FUNCTIONFS_REQ_F_FS = y) && (USB_CONFIGFS_F_FS = m || USB_G_FUNCTIONFS_REQ_F_FS = m)
+config USB_F_FS_SELECTOR
+       tristate
+       default m
+       select USB_F_FS
+endif
 
 config USB_F_UAC1
 	tristate
 
+# Just a dummy config which indicates that audio gadget requires UAC1 in particular state
+config USB_G_AUDIO_REQ_F_UAC1
+       tristate
+
+if USB_CONFIGFS_F_UAC1 = y || USB_G_AUDIO_REQ_F_UAC1 = y
+config USB_F_UAC1_SELECTOR
+       tristate
+       default y
+       select USB_F_UAC1
+       select SND_PCM
+endif
+
+if !(USB_CONFIGFS_F_UAC1 = y || USB_G_AUDIO_REQ_F_UAC1 = y) && (USB_CONFIGFS_F_UAC1 = m || USB_G_AUDIO_REQ_F_UAC1 = m)
+config USB_F_UAC1_SELECTOR
+       tristate
+       default m
+       select USB_F_UAC1
+       select SND_PCM
+endif
+
 config USB_F_UAC2
 	tristate
+
+# Just a dummy config which indicates that audio gadget requires UAC2 in particular state
+config USB_G_AUDIO_REQ_F_UAC2
+       tristate
+
+if USB_CONFIGFS_F_UAC2 = y || USB_G_AUDIO_REQ_F_UAC2 = y
+config USB_F_UAC2_SELECTOR
+       tristate
+       default y
+       select USB_F_UAC2
+       select SND_PCM
+endif
+
+if !(USB_CONFIGFS_F_UAC2 = y || USB_G_AUDIO_REQ_F_UAC2 = y) && (USB_CONFIGFS_F_UAC2 = m || USB_G_AUDIO_REQ_F_UAC2 = m)
+config USB_F_UAC2_SELECTOR
+       tristate
+       default m
+       select USB_F_UAC2
+       select SND_PCM
+endif
 
 config USB_F_UVC
 	tristate
 
+# Just a dummy config which indicates that webcam gadget requires UVC in particular state
+config USB_G_WEBCAM_REQ_F_UVC
+       tristate
+
+if USB_CONFIGFS_F_UVC = y || USB_G_WEBCAM_REQ_F_UVC = y
+config USB_F_UVC_SELECTOR
+       tristate
+       default y
+       select USB_F_UVC
+       select VIDEOBUF2_VMALLOC
+endif
+
+if !(USB_CONFIGFS_F_UVC = y || USB_G_WEBCAM_REQ_F_UVC = y) && (USB_CONFIGFS_F_UVC = m || USB_G_WEBCAM_REQ_F_UVC = m)
+config USB_F_UVC_SELECTOR
+       tristate
+       default m
+       select USB_F_UVC
+       select VIDEOBUF2_VMALLOC
+endif
+
 config USB_F_MIDI
 	tristate
+
+# Just a dummy config which indicates that midi gadget requires MIDI in particular state
+config USB_G_MIDI_REQ_F_MIDI
+       tristate
+
+if USB_CONFIGFS_F_MIDI = y || USB_G_MIDI_REQ_F_MIDI = y
+config USB_F_MIDI_SELECTOR
+       tristate
+       default y
+       select USB_F_MIDI
+       select SND_RAWMIDI
+endif
+
+if !(USB_CONFIGFS_F_MIDI = y || USB_G_MIDI_REQ_F_MIDI = y) && (USB_CONFIGFS_F_MIDI = m || USB_G_MIDI_REQ_F_MIDI = m)
+config USB_F_MIDI_SELECTOR
+       tristate
+       default m
+       select USB_F_MIDI
+       select SND_RAWMIDI
+endif
 
 config USB_F_HID
 	tristate
 
+# Just a dummy config which indicates that hid gadget requires HID in particular state
+config USB_G_HID_REQ_F_HID
+       tristate
+
+if USB_CONFIGFS_F_HID = y || USB_G_HID_REQ_F_HID = y
+config USB_F_HID_SELECTOR
+       tristate
+       default y
+       select USB_F_HID
+endif
+
+if !(USB_CONFIGFS_F_HID = y || USB_G_HID_REQ_F_HID = y) && (USB_CONFIGFS_F_HID = m || USB_G_HID_REQ_F_HID = m)
+config USB_F_HID_SELECTOR
+       tristate
+       default m
+       select USB_F_HID
+endif
+
 config USB_F_PRINTER
 	tristate
 
-choice
-	tristate "USB Gadget Drivers"
-	default USB_ETH
-	help
-	  A Linux "Gadget Driver" talks to the USB Peripheral Controller
-	  driver through the abstract "gadget" API.  Some other operating
-	  systems call these "client" drivers, of which "class drivers"
-	  are a subset (implementing a USB device class specification).
-	  A gadget driver implements one or more USB functions using
-	  the peripheral hardware.
+# Just a dummy config which indicates that printer gadget requires PRINTER in particular state
+config USB_G_PRINTER_REQ_F_PRINTER
+       tristate
 
-	  Gadget drivers are hardware-neutral, or "platform independent",
-	  except that they sometimes must understand quirks or limitations
-	  of the particular controllers they work with.  For example, when
-	  a controller doesn't support alternate configurations or provide
-	  enough of the right types of endpoints, the gadget driver might
-	  not be able work with that controller, or might need to implement
-	  a less common variant of a device class protocol.
+if USB_CONFIGFS_F_PRINTER = y || USB_G_PRINTER_REQ_F_PRINTER = y
+config USB_F_PRINTER_SELECTOR
+       tristate
+       default y
+       select USB_F_PRINTER
+endif
 
-# this first set of drivers all depend on bulk-capable hardware.
+if !(USB_CONFIGFS_F_PRINTER = y || USB_G_PRINTER_REQ_F_PRINTER = y) && (USB_CONFIGFS_F_PRINTER = m || USB_G_PRINTER_REQ_F_PRINTER = m)
+config USB_F_PRINTER_SELECTOR
+       tristate
+       default m
+       select USB_F_PRINTER
+endif
 
-config USB_CONFIGFS
-	tristate "USB functions configurable through configfs"
-	select USB_LIBCOMPOSITE
-	help
-	  A Linux USB "gadget" can be set up through configfs.
-	  If this is the case, the USB functions (which from the host's
-	  perspective are seen as interfaces) and configurations are
-	  specified simply by creating appropriate directories in configfs.
-	  Associating functions with configurations is done by creating
-	  appropriate symbolic links.
-	  For more information see Documentation/usb/gadget_configfs.txt.
+# Just a dummy config which indicates that tcm gadget requires TCM in particular state
+config USB_G_TCM_REQ_F_TCM
+       tristate
 
-config USB_CONFIGFS_SERIAL
-	bool "Generic serial bulk in/out"
-	depends on USB_CONFIGFS
+if USB_CONFIGFS_F_TCM = y || USB_G_TCM_REQ_F_TCM = y
+config USB_F_TCM_SELECTOR
+       tristate
+       default y
+       select USB_F_TCM
+endif
+
+if !(USB_CONFIGFS_F_TCM = y || USB_G_TCM_REQ_F_TCM = y) && (USB_CONFIGFS_F_TCM = m || USB_G_TCM_REQ_F_TCM = m)
+config USB_F_TCM_SELECTOR
+       tristate
+       default m
+       select USB_F_TCM
+endif
+
+if USB_LIBCOMPOSITE
+
+menu "USB Functions"
+
+config USB_CONFIGFS_F_SERIAL
+	tristate "Generic serial bulk in/out"
+	depends on USB_LIBCOMPOSITE
 	depends on TTY
-	select USB_U_SERIAL
-	select USB_F_SERIAL
 	help
 	  The function talks to the Linux-USB generic serial driver.
 
-config USB_CONFIGFS_ACM
-	bool "Abstract Control Model (CDC ACM)"
-	depends on USB_CONFIGFS
+config USB_CONFIGFS_F_ACM
+	tristate "Abstract Control Model (CDC ACM)"
+	depends on USB_LIBCOMPOSITE
 	depends on TTY
-	select USB_U_SERIAL
-	select USB_F_ACM
 	help
 	  ACM serial link.  This function can be used to interoperate with
 	  MS-Windows hosts or with the Linux-USB "cdc-acm" driver.
 
-config USB_CONFIGFS_OBEX
-	bool "Object Exchange Model (CDC OBEX)"
-	depends on USB_CONFIGFS
+config USB_CONFIGFS_F_OBEX
+	tristate "Object Exchange Model (CDC OBEX)"
+	depends on USB_LIBCOMPOSITE
 	depends on TTY
-	select USB_U_SERIAL
-	select USB_F_OBEX
 	help
 	  You will need a user space OBEX server talking to /dev/ttyGS*,
 	  since the kernel itself doesn't implement the OBEX protocol.
 
-config USB_CONFIGFS_NCM
-	bool "Network Control Model (CDC NCM)"
-	depends on USB_CONFIGFS
+config USB_CONFIGFS_F_NCM
+	tristate "Network Control Model (CDC NCM)"
+	depends on USB_LIBCOMPOSITE
 	depends on NET
-	select USB_U_ETHER
-	select USB_F_NCM
 	help
 	  NCM is an advanced protocol for Ethernet encapsulation, allows
 	  grouping of several ethernet frames into one USB transfer and
 	  different alignment possibilities.
 
-config USB_CONFIGFS_ECM
-	bool "Ethernet Control Model (CDC ECM)"
-	depends on USB_CONFIGFS
+config USB_CONFIGFS_F_ECM
+	tristate "Ethernet Control Model (CDC ECM)"
+	depends on USB_LIBCOMPOSITE
 	depends on NET
-	select USB_U_ETHER
-	select USB_F_ECM
 	help
 	  The "Communication Device Class" (CDC) Ethernet Control Model.
 	  That protocol is often avoided with pure Ethernet adapters, in
 	  favor of simpler vendor-specific hardware, but is widely
 	  supported by firmware for smart network devices.
 
-config USB_CONFIGFS_ECM_SUBSET
-	bool "Ethernet Control Model (CDC ECM) subset"
-	depends on USB_CONFIGFS
+config USB_CONFIGFS_F_SUBSET
+	tristate "Ethernet Control Model (CDC ECM) subset"
+	depends on USB_LIBCOMPOSITE
 	depends on NET
-	select USB_U_ETHER
-	select USB_F_SUBSET
 	help
 	  On hardware that can't implement the full protocol,
 	  a simple CDC subset is used, placing fewer demands on USB.
 
-config USB_CONFIGFS_RNDIS
-	bool "RNDIS"
-	depends on USB_CONFIGFS
+config USB_CONFIGFS_F_RNDIS
+	tristate "RNDIS"
+	depends on USB_LIBCOMPOSITE
 	depends on NET
-	select USB_U_ETHER
-	select USB_F_RNDIS
 	help
 	   Microsoft Windows XP bundles the "Remote NDIS" (RNDIS) protocol,
 	   and Microsoft provides redistributable binary RNDIS drivers for
@@ -310,12 +767,10 @@ config USB_CONFIGFS_RNDIS
 	   XP, you'll need to download drivers from Microsoft's website; a URL
 	   is given in comments found in that info file.
 
-config USB_CONFIGFS_EEM
-	bool "Ethernet Emulation Model (EEM)"
-	depends on USB_CONFIGFS
+config USB_CONFIGFS_F_EEM
+	tristate "Ethernet Emulation Model (EEM)"
+	depends on USB_LIBCOMPOSITE
 	depends on NET
-	select USB_U_ETHER
-	select USB_F_EEM
 	help
 	  CDC EEM is a newer USB standard that is somewhat simpler than CDC ECM
 	  and therefore can be supported by more hardware.  Technically ECM and
@@ -325,31 +780,27 @@ config USB_CONFIGFS_EEM
 	  ethernet over USB.  For Linux gadgets, however, the interface with
 	  the host is the same (a usbX device), so the differences are minimal.
 
-config USB_CONFIGFS_PHONET
-	bool "Phonet protocol"
-	depends on USB_CONFIGFS
+config USB_CONFIGFS_F_PHONET
+	tristate "Phonet protocol"
+	depends on USB_LIBCOMPOSITE
 	depends on NET
 	depends on PHONET
-	select USB_U_ETHER
-	select USB_F_PHONET
 	help
 	  The Phonet protocol implementation for USB device.
 
-config USB_CONFIGFS_MASS_STORAGE
-	bool "Mass storage"
-	depends on USB_CONFIGFS
+config USB_CONFIGFS_F_MASS_STORAGE
+	tristate "Mass storage"
+	depends on USB_LIBCOMPOSITE
 	depends on BLOCK
-	select USB_F_MASS_STORAGE
 	help
 	  The Mass Storage Gadget acts as a USB Mass Storage disk drive.
 	  As its storage repository it can use a regular file or a block
 	  device (in much the same way as the "loop" device driver),
 	  specified as a module parameter or sysfs option.
 
-config USB_CONFIGFS_F_LB_SS
-	bool "Loopback and sourcesink function (for testing)"
-	depends on USB_CONFIGFS
-	select USB_F_SS_LB
+config USB_CONFIGFS_F_SS_LB
+	tristate "Loopback and sourcesink function (for testing)"
+	depends on USB_LIBCOMPOSITE
 	help
 	  Loopback function loops back a configurable number of transfers.
 	  Sourcesink function either sinks and sources bulk data.
@@ -360,9 +811,8 @@ config USB_CONFIGFS_F_LB_SS
 	  and its driver through a basic set of functional tests.
 
 config USB_CONFIGFS_F_FS
-	bool "Function filesystem (FunctionFS)"
-	depends on USB_CONFIGFS
-	select USB_F_FS
+	tristate "Function filesystem (FunctionFS)"
+	depends on USB_LIBCOMPOSITE
 	help
 	  The Function Filesystem (FunctionFS) lets one create USB
 	  composite functions in user space in the same way GadgetFS
@@ -372,12 +822,9 @@ config USB_CONFIGFS_F_FS
 	  mass storage) and other are implemented in user space.
 
 config USB_CONFIGFS_F_UAC1
-	bool "Audio Class 1.0"
-	depends on USB_CONFIGFS
+	tristate "Audio Class 1.0"
+	depends on USB_LIBCOMPOSITE
 	depends on SND
-	select USB_LIBCOMPOSITE
-	select SND_PCM
-	select USB_F_UAC1
 	help
 	  This Audio function implements 1 AudioControl interface,
 	  1 AudioStreaming Interface each for USB-OUT and USB-IN.
@@ -385,12 +832,9 @@ config USB_CONFIGFS_F_UAC1
 	  on the device.
 
 config USB_CONFIGFS_F_UAC2
-	bool "Audio Class 2.0"
-	depends on USB_CONFIGFS
+	tristate "Audio Class 2.0"
+	depends on USB_LIBCOMPOSITE
 	depends on SND
-	select USB_LIBCOMPOSITE
-	select SND_PCM
-	select USB_F_UAC2
 	help
 	  This Audio function is compatible with USB Audio Class
 	  specification 2.0. It implements 1 AudioControl interface,
@@ -403,12 +847,9 @@ config USB_CONFIGFS_F_UAC2
 	  wants as audio data to the USB Host.
 
 config USB_CONFIGFS_F_MIDI
-	bool "MIDI function"
-	depends on USB_CONFIGFS
+	tristate "MIDI function"
+	depends on USB_LIBCOMPOSITE
 	depends on SND
-	select USB_LIBCOMPOSITE
-	select SND_RAWMIDI
-	select USB_F_MIDI
 	help
 	  The MIDI Function acts as a USB Audio device, with one MIDI
 	  input and one MIDI output. These MIDI jacks appear as
@@ -417,9 +858,8 @@ config USB_CONFIGFS_F_MIDI
 	  ALSA's aconnect utility etc.
 
 config USB_CONFIGFS_F_HID
-	bool "HID function"
-	depends on USB_CONFIGFS
-	select USB_F_HID
+	tristate "HID function"
+	depends on USB_LIBCOMPOSITE
 	help
 	  The HID function driver provides generic emulation of USB
 	  Human Interface Devices (HID).
@@ -427,20 +867,17 @@ config USB_CONFIGFS_F_HID
 	  For more information, see Documentation/usb/gadget_hid.txt.
 
 config USB_CONFIGFS_F_UVC
-	bool "USB Webcam function"
-	depends on USB_CONFIGFS
+	tristate "USB Webcam function"
+	depends on USB_LIBCOMPOSITE
 	depends on VIDEO_DEV
-	select VIDEOBUF2_VMALLOC
-	select USB_F_UVC
 	help
 	  The Webcam function acts as a composite USB Audio and Video Class
 	  device. It provides a userspace API to process UVC control requests
 	  and stream video data to the host.
 
 config USB_CONFIGFS_F_PRINTER
-	bool "Printer function"
-	select USB_F_PRINTER
-	depends on USB_CONFIGFS
+	tristate "Printer function"
+	depends on USB_LIBCOMPOSITE
 	help
 	  The Printer function channels data between the USB host and a
 	  userspace program driving the print engine. The user space
@@ -451,8 +888,9 @@ config USB_CONFIGFS_F_PRINTER
 	  For more information, see Documentation/usb/gadget_printer.txt
 	  which includes sample code for accessing the device file.
 
+endmenu
+
 source "drivers/usb/gadget/legacy/Kconfig"
 
-endchoice
-
+endif # USB_LIBCOMPOSITE
 endif # USB_GADGET
