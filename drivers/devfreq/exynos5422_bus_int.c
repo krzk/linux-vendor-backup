@@ -1439,6 +1439,7 @@ static int exynos5_devfreq_int_probe(struct platform_device *pdev)
 		goto err_opp_add;
 	}
 
+	data->devfreq->max_freq = 400000;
 	devfreq_register_opp_notifier(dev, data->devfreq);
 
 	/* Create file for time_in_state */
