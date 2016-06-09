@@ -132,6 +132,7 @@ struct samsung_pin_bank_data {
 	u32		eint_mask;
 	u32		eint_offset;
 	bool		eint_ext;
+	u32		eint_ext_offset;
 	const char	*name;
 };
 
@@ -165,6 +166,7 @@ struct samsung_pin_bank {
 	u32		eint_mask;
 	u32		eint_offset;
 	bool		eint_ext;
+	u32		eint_ext_offset;
 	const char	*name;
 
 	u32		pin_base;
@@ -203,7 +205,6 @@ struct samsung_pin_ctrl {
  * struct samsung_pinctrl_drv_data: wrapper for holding driver data together.
  * @node: global list node
  * @virt_base: register base address of the controller.
- * @ext_base: external register base address of the controller.
  * @ext_base: external register base address of the controller.
  * @dev: device instance representing the controller.
  * @irq: interrpt number used by the controller to notify gpio interrupts.

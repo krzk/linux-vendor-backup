@@ -1015,6 +1015,7 @@ samsung_pinctrl_get_soc_data(struct samsung_pinctrl_drv_data *d,
 		bank->eint_mask = bdata->eint_mask;
 		bank->eint_offset = bdata->eint_offset;
 		bank->eint_ext = bdata->eint_ext;
+		bank->eint_ext_offset = bdata->eint_ext_offset;
 		bank->name = bdata->name;
 
 		spin_lock_init(&bank->slock);

@@ -276,7 +276,7 @@ static void exynos5433_set_wakeupmask(enum sys_powerdown mode)
 	u32 intmask = 0;
 
 	pmu_raw_writel(exynos_get_eint_wake_mask(), EXYNOS7_EINT_WAKEUP_MASK);
-	pmu_raw_writel(0xFFFFFFFF, EXYNOS7_EINT_WAKEUP_MASK_MIF1);
+	pmu_raw_writel(exynos_get_eint_wake_mask1(), EXYNOS7_EINT_WAKEUP_MASK_MIF1);
 
 	/* Disable WAKEUP event monitor */
 	intmask = pmu_raw_readl(EXYNOS7_WAKEUP_MASK);

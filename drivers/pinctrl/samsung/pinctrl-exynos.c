@@ -363,17 +363,23 @@ err_domains:
 	return ret;
 }
 
-static u32 exynos_eint_wake_mask = 0xffffffff;
+static u64 exynos_eint_wake_mask = 0xffffffffffffffff;
 
 u32 exynos_get_eint_wake_mask(void)
 {
-	return exynos_eint_wake_mask;
+	return (u32)exynos_eint_wake_mask;
+}
+
+u32 exynos_get_eint_wake_mask1(void)
+{
+	return (u32)(exynos_eint_wake_mask >> 32);
 }
 
 static int exynos_wkup_irq_set_wake(struct irq_data *irqd, unsigned int on)
 {
 	struct samsung_pin_bank *bank = irq_data_get_irq_chip_data(irqd);
-	unsigned long bit = 1UL << (2 * bank->eint_offset + irqd->hwirq);
+	u64 bit = 1ULL << ((bank->eint_ext ? bank->eint_ext_offset :
+				    (2 * bank->eint_offset)) + irqd->hwirq);
 
 	pr_info("wake %s for irq %d\n", on ? "enabled" : "disabled", irqd->irq);
 
@@ -1256,11 +1262,11 @@ static const struct samsung_pin_bank_data exynos5433_pin_banks0[] = {
 	EXYNOS5433_PIN_BANK_EINTW(8, 0x020, "gpa1", 0x04),
 	EXYNOS5433_PIN_BANK_EINTW(8, 0x040, "gpa2", 0x08),
 	EXYNOS5433_PIN_BANK_EINTW(8, 0x060, "gpa3", 0x0c),
-	EXYNOS5433_PIN_BANK_EINTW_EXT(8, 0x020, "gpf1", 0x1004),
-	EXYNOS5433_PIN_BANK_EINTW_EXT(4, 0x040, "gpf2", 0x1008),
-	EXYNOS5433_PIN_BANK_EINTW_EXT(4, 0x060, "gpf3", 0x100c),
-	EXYNOS5433_PIN_BANK_EINTW_EXT(8, 0x080, "gpf4", 0x1010),
-	EXYNOS5433_PIN_BANK_EINTW_EXT(8, 0x0a0, "gpf5", 0x1014),
+	EXYNOS5433_PIN_BANK_EINTW_EXT(8, 0x020, "gpf1", 0x1004, 0x20),
+	EXYNOS5433_PIN_BANK_EINTW_EXT(4, 0x040, "gpf2", 0x1008, 0x28),
+	EXYNOS5433_PIN_BANK_EINTW_EXT(4, 0x060, "gpf3", 0x100c, 0x2c),
+	EXYNOS5433_PIN_BANK_EINTW_EXT(8, 0x080, "gpf4", 0x1010, 0x30),
+	EXYNOS5433_PIN_BANK_EINTW_EXT(8, 0x0a0, "gpf5", 0x1014, 0x38),
 };
 
 /* pin banks of exynos5433 pin-controller - AUD */

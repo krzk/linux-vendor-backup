@@ -110,15 +110,16 @@
 		.name		= id				\
 	}
 
-#define EXYNOS5433_PIN_BANK_EINTW_EXT(pins, reg, id, offs)	\
-	{							\
-		.type		= &bank_type_off_exynos5433,	\
-		.pctl_offset	= reg,				\
-		.nr_pins	= pins,				\
-		.eint_type	= EINT_TYPE_WKUP,		\
-		.eint_offset	= offs,				\
-		.eint_ext	= true,				\
-		.name		= id				\
+#define EXYNOS5433_PIN_BANK_EINTW_EXT(pins, reg, id, offs, ext_offs)	\
+	{								\
+		.type		= &bank_type_off_exynos5433,		\
+		.pctl_offset	= reg,					\
+		.nr_pins	= pins,					\
+		.eint_type	= EINT_TYPE_WKUP,			\
+		.eint_offset	= offs,					\
+		.eint_ext	= true,					\
+		.eint_ext_offset= ext_offs,				\
+		.name		= id					\
 	}
 
 /**
