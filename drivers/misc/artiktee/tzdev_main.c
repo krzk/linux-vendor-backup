@@ -46,6 +46,7 @@
 #include "sstransaction.h"
 #include "tzpage.h"
 #include "tzdev_smc.h"
+#include "tzdev_plat.h"
 
 #define TZDEV_MAJOR_VERSION  "007"
 #define TZDEV_MINOR_VERSION  "0"
@@ -772,6 +773,9 @@ int tzio_message_wait(struct tzio_message *__user msg,
 			tzlog_print(TZLOG_DEBUG,
 				    "Syscall trigger for context %d\n", ret);
 			/* We may get syscall */
+			if(unlikely(msg->boost_flag))
+				plat_postprocess();
+
 			return -EINTR;
 		}
 
@@ -826,6 +830,9 @@ int tzio_message_wait(struct tzio_message *__user msg,
 
 	tzio_context_idr_remove(context);
 	tzio_context_put(context);
+
+	if(unlikely(msg->boost_flag))
+		plat_postprocess();
 
 	return ret;
 }
@@ -981,6 +988,9 @@ int tzio_exchange_message(struct file *filp, struct tzio_message *__user msg)
 
 	svc_flags = SCM_PROCESS_RX | SCM_PROCESS_TX | SCM_PROCESS_DPC;
 
+	if(unlikely(msg->boost_flag))
+		plat_preprocess();
+
 	do {
 		/* Invoke secure environment */
 		ret = scm_invoke_svc(link->id, svc_flags);
@@ -1059,6 +1069,8 @@ out:
 	}
 
 	if (signal_pending(current)) {
+		if(unlikely(msg->boost_flag))
+			plat_postprocess();
 		return -EINTR;
 	}
 
@@ -1703,6 +1715,9 @@ static int __init init_tzdev(void)
 	}
 
 	tzlog_init();
+
+	plat_init();
+
 
 #ifdef CONFIG_TZDEV_CPU_IDLE
 	sdp_cpuidle_enable_c1();

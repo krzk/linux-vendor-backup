@@ -45,6 +45,7 @@ struct tzio_message {
 	__u32		length;
 	int32_t	context_id;
 	uint32_t timeout_seconds;
+	uint32_t boost_flag;
 	char		payload[];
 };
 

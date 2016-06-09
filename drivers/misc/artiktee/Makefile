@@ -16,3 +16,4 @@ $(MODULE_NAME)-objs += tzdev_smc.o
 $(MODULE_NAME)-objs += tzlinkmgr.o
 $(MODULE_NAME)-objs += tzwsm.o
 $(MODULE_NAME)-objs += tzmem.o
+$(MODULE_NAME)-objs += tzdev_plat.o
