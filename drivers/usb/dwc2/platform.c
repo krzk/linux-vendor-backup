@@ -348,6 +348,12 @@ static int __maybe_unused dwc2_suspend(struct device *dev)
 	struct dwc2_hsotg *dwc2 = dev_get_drvdata(dev);
 	int ret = 0;
 
+	if (of_device_is_compatible(dev->of_node,
+				    "nexell,nexell-dwc2otg")) {
+		phy_exit(dwc2->phy);
+		phy_power_off(dwc2->phy);
+	}
+
 	if (dwc2_is_device_mode(dwc2)) {
 		ret = s3c_hsotg_suspend(dwc2);
 	} else {
@@ -365,21 +371,24 @@ static int __maybe_unused dwc2_resume(struct device *dev)
 	struct dwc2_hsotg *dwc2 = dev_get_drvdata(dev);
 	int ret = 0;
 
+	if (of_device_is_compatible(dev->of_node,
+				    "nexell,nexell-dwc2otg")) {
+#ifdef CONFIG_RESET_CONTROLLER
+		struct reset_control *rst;
+
+		rst = devm_reset_control_get(dev, "usbotg-reset");
+		if (!IS_ERR(rst)) {
+			if (reset_control_status(rst))
+				reset_control_reset(rst);
+		}
+#endif
+		phy_power_on(dwc2->phy);
+		phy_init(dwc2->phy);
+	}
+
 	if (dwc2_is_device_mode(dwc2)) {
 		ret = s3c_hsotg_resume(dwc2);
 	} else {
-		if (of_device_is_compatible(dev->of_node,
-					    "nexell,nexell-dwc2otg")) {
-#ifdef CONFIG_RESET_CONTROLLER
-			struct reset_control *rst;
-
-			rst = devm_reset_control_get(dev, "usbotg-reset");
-			if (!IS_ERR(rst)) {
-				if (reset_control_status(rst))
-					reset_control_reset(rst);
-			}
-#endif
-		}
 		phy_power_on(dwc2->phy);
 		phy_init(dwc2->phy);
 
