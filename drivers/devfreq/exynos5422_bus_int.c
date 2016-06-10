@@ -63,14 +63,11 @@ enum int_bus_idx {
 	LV_3,
 	LV_4,
 	LV_5,
+	LV_6,
 #ifdef CONFIG_SOC_EXYNOS5422_REV_0
-	LV_END,
-	LV_6,
 	LV_7,
-#else
-	LV_6,
-	LV_END,
 #endif
+	LV_END,
 };
 
 enum int_bus_pll {
