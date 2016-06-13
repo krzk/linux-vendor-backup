@@ -150,10 +150,10 @@ struct s3c64xx_spi_dma_data {
  * which is provided as driver data to the driver.
  */
 struct s3c64xx_spi_port_config {
-	int	fifo_lvl_mask[MAX_SPI_PORTS];
-	int	rx_lvl_offset;
-	int	tx_st_done;
-	int	quirks;
+	u32	fifo_lvl_mask[MAX_SPI_PORTS];
+	u8	rx_lvl_offset;
+	u8	tx_st_done;
+	u8	quirks;
 	bool	high_speed;
 	bool	clk_from_cmu;
 };
