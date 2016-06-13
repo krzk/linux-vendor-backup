@@ -106,6 +106,7 @@
 
 /* code length in bits, currently only for LIRC_MODE_LIRCCODE */
 #define LIRC_GET_LENGTH                _IOR('i', 0x0000000f, __u32)
+#define LIRC_SET_LENGTH                _IOW('i', 0x00000010, __u32)
 
 #define LIRC_SET_SEND_MODE             _IOW('i', 0x00000011, __u32)
 #define LIRC_SET_REC_MODE              _IOW('i', 0x00000012, __u32)
@@ -115,6 +116,10 @@
 #define LIRC_SET_SEND_DUTY_CYCLE       _IOW('i', 0x00000015, __u32)
 #define LIRC_SET_REC_DUTY_CYCLE        _IOW('i', 0x00000016, __u32)
 #define LIRC_SET_TRANSMITTER_MASK      _IOW('i', 0x00000017, __u32)
+
+/* driver dependent frequency settings */
+#define LIRC_GET_FREQUENCY		_IOR('i', 0x00000024, __u32)
+#define LIRC_SET_FREQUENCY		_IOW('i', 0x00000025, __u32)
 
 /*
  * when a timeout != 0 is set the driver will send a
