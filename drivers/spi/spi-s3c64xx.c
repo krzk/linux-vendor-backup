@@ -706,7 +706,8 @@ static int s3c64xx_spi_transfer_one(struct spi_master *master,
 	enable_datapath(sdd, spi, xfer, use_dma);
 
 	/* Start the signals */
-	if (!(sdd->port_conf->quirks & S3C64XX_SPI_QUIRK_CS_AUTO))
+	if (!(sdd->port_conf->quirks & S3C64XX_SPI_QUIRK_CS_AUTO) ||
+					sdd->cntrlr_info->broken_cs)
 		writel(0, sdd->regs + S3C64XX_SPI_SLAVE_SEL);
 	else
 		writel(readl(sdd->regs + S3C64XX_SPI_SLAVE_SEL)
@@ -996,6 +997,8 @@ static struct s3c64xx_spi_info *s3c64xx_spi_parse_dt(struct device *dev)
 	} else {
 		sci->num_cs = temp;
 	}
+
+	sci->broken_cs = of_property_read_bool(dev->of_node, "broken-cs");
 
 	return sci;
 }

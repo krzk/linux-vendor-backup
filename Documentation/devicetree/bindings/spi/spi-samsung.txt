@@ -40,6 +40,9 @@ Optional Board Specific Properties:
 
 - cs-gpios: should specify GPIOs used for chipselects (see spi-bus.txt)
 
+- broken-cs: the CS line is disconnected, therefore the device should not wait
+  for the CS protocol to be established
+
 SPI Controller specific data in SPI slave nodes:
 
 - The spi slave nodes should provide the following information which is required
