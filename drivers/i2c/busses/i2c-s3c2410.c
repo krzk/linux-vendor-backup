@@ -493,6 +493,11 @@ static int i2c_s3c_irq_nextbyte(struct s3c24xx_i2c *i2c, unsigned long iicstat)
  retry_write:
 
 		if (!is_msgend(i2c)) {
+			if (!i2c->msg->buf) {
+				dev_err(i2c->dev, "WRITE: buf is NULL\n");
+				goto out_ack;
+			}
+
 			byte = i2c->msg->buf[i2c->msg_ptr++];
 			writeb(byte, i2c->regs + S3C2410_IICDS);
 
