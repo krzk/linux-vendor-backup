@@ -960,6 +960,8 @@
 		vdd-supply = <&ldo28_reg>;
 		vcca-supply = <&ldo32_reg>;
 		vccb-supply = <&ldo17_reg>;
+		reset-gpio = <&gpd1 1 0x1>;
+		bootloader-gpio = <&gph0 7 0x1>;
 	};
 
 	gpio_keys {
