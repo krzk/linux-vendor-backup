@@ -175,6 +175,13 @@
 		};
 	};
 
+	irda_regulator: irda-regulator {
+		compatible = "regulator-fixed";
+		enable-active-high;
+		gpio = <&gpr3 3 0>;
+		regulator-name = "irda_regulator";
+	};
+
 	i2c_max98504: i2c-gpio-0 {
 		compatible = "i2c-gpio";
 		gpios = <&gpd0 1 0 /* SPK_AMP_SDA */
@@ -360,6 +367,22 @@
 
 &i2s0 {
 	status = "okay";
+};
+
+&spi_3 {
+	status = "okay";
+	broken-cs;
+
+	irled@0 {
+		compatible = "ir-spi";
+		reg = <0x0>;
+		spi-max-frequency = <5000000>;
+		power-supply = <&irda_regulator>;
+
+		controller-data {
+			samsung,spi-feedback-delay = <0>;
+		};
+	};
 };
 
 &spi_5 {
@@ -1424,8 +1447,6 @@
 
 		PIN(IN, gpg3-0, DOWN, LV1);	/* NC */
 		PIN(IN, gpg3-1, DOWN, LV1);	/* NC */
-		PIN(IN, gpg3-5, DOWN, LV1);	/* NC */
-		PIN(IN, gpg3-7, DOWN, LV1);	/* IRDA_CONTROL */
 	};
 
 	sleep1: sleep-state {
