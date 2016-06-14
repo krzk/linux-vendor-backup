@@ -562,6 +562,8 @@
 		vdd_zb-supply = <&ldo13_reg>;
 		vdd-supply = <&ldo18_reg>;
 		vdd_zbcore-supply = <&ldo21_reg>;
+		reset-gpio = <&gpm0 1 0x1>;
+		bootloader-gpio = <&gpe0 0 0x1>;
 	};
 
 	i2c@13890000 {
