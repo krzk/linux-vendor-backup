@@ -68,6 +68,10 @@ int ss_file_create_object(char *path, char *buf, size_t size)
 
 	filp_close(file, NULL);
 
+	if (write_size != size) {
+		ss_file_delete_object(path);
+	}
+
 	return write_size;
 }
 
@@ -165,7 +169,7 @@ int ss_file_object_size(char *path)
 
 	file = filp_open(path, O_RDWR, 0);
 	if (IS_ERR(file)) {
-		tzlog_print(TZLOG_ERROR,
+		tzlog_print(TZLOG_DEBUG,
 			    "error occured while opening file %s, exiting...\n",
 			    path);
 		return -1;

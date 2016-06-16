@@ -176,6 +176,7 @@ static void ssdev_query_object(SSTransaction_t *tsx)
 		char file_main[128] = { 0 };
 		char file_back[128] = { 0 };
 		int *p = NULL;
+		int file_size;
 
 		p = (int *)sstransaction_payload_ptr(tsx);
 
@@ -191,20 +192,23 @@ static void ssdev_query_object(SSTransaction_t *tsx)
 		tzlog_print(TZLOG_DEBUG, "file_main:%s\n", file_main);
 		tzlog_print(TZLOG_DEBUG, "file_back:%s\n", file_back);
 
-		if (ss_file_object_exist(file_main) == 1) {
+		file_size = ss_file_object_size(file_main);
+		if (file_size > 0) {
 			sstransaction_set_arg(tsx, 0, TEE_STORAGE_PRIVATE);
 			tzlog_print(TZLOG_DEBUG,
-				    " Same object id in main File.\n");
-		} else if ((ss_file_object_exist(file_back) == 1)) {
-			/*if not find in main file,
-			  let's check bak file for the obj */
-			sstransaction_set_arg(tsx, 0, TEE_STORAGE_PRIVATE);
-			tzlog_print(TZLOG_DEBUG,
-				    " Same object id in back File.\n");
+					" Same object id in main File.\n");
 		} else {
-			sstransaction_set_arg(tsx, 0, 0);
-			tzlog_print(TZLOG_DEBUG,
-				    " object id does not found in normal world.\n");
+			file_size = ss_file_object_size(file_back);
+			if (file_size > 0) {
+				sstransaction_set_arg(tsx, 0, TEE_STORAGE_PRIVATE);
+				tzlog_print(TZLOG_DEBUG,
+						" Same object id in back File.\n");
+			}
+			else {
+				sstransaction_set_arg(tsx, 0, 0);
+				tzlog_print(TZLOG_DEBUG,
+						" object id does not found in normal world.\n");
+			}
 		}
 	} else if (sstransaction_get_arg(tsx, 0) == TEE_STORAGE_RPMB) {
 		if (sstransaction_get_arg(tsx, 1)) {
@@ -374,6 +378,7 @@ static void ssdev_file_create_data(SSTransaction_t *tsx)
 	int *p = (int *)sstransaction_payload_ptr(tsx);
 	size_t wsm_size = 0;
 	int ret;
+	int file_size;
 	void *wsm_buffer =
 	    (char *)ss_wsm_channel.payload + sstransaction_wsm_offset(tsx,
 								      &wsm_size);
@@ -391,7 +396,8 @@ static void ssdev_file_create_data(SSTransaction_t *tsx)
 		    "Create data, file_main '%s', file back '%s'\n", file_main,
 		    file_back);
 
-	if (ss_file_object_exist(file_main) == 1) {
+	file_size = ss_file_object_size(file_main);
+	if (file_size > 0) {
 		tzlog_print(TZLOG_DEBUG, "Copy main to bak file\n");
 
 		(void)ssdev_file_copy_object(file_back, file_main);
