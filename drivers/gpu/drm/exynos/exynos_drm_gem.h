@@ -194,6 +194,9 @@ int exynos_drm_gem_dumb_destroy(struct drm_file *file_priv,
 /* page fault handler and mmap fault address(virtual) to physical memory. */
 int exynos_drm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf);
 
+int exynos_drm_gem_mmap_obj(struct drm_gem_object *obj,
+			    struct vm_area_struct *vma);
+
 /* set vm_flags and we can change the vm attribute to other one at here. */
 int exynos_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma);
 

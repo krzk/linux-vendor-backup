@@ -1166,23 +1166,11 @@ int exynos_drm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	return convert_to_vm_err_msg(ret);
 }
 
-int exynos_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
+int exynos_drm_gem_mmap_obj(struct drm_gem_object *obj,
+			    struct vm_area_struct *vma)
 {
-	struct exynos_drm_gem_obj *exynos_gem_obj;
-	struct drm_gem_object *obj;
+	struct exynos_drm_gem_obj *exynos_gem_obj = to_exynos_gem_obj(obj);
 	int ret;
-
-	DRM_DEBUG_KMS("%s\n", __FILE__);
-
-	/* set vm_area_struct. */
-	ret = drm_gem_mmap(filp, vma);
-	if (ret < 0) {
-		DRM_ERROR("failed to mmap.\n");
-		return ret;
-	}
-
-	obj = vma->vm_private_data;
-	exynos_gem_obj = to_exynos_gem_obj(obj);
 
 	ret = check_gem_flags(exynos_gem_obj->flags);
 	if (ret) {
@@ -1197,4 +1185,23 @@ int exynos_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	update_vm_cache_attr(exynos_gem_obj, vma);
 
 	return ret;
+}
+
+int exynos_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+	struct drm_gem_object *obj;
+	int ret;
+
+	DRM_DEBUG_KMS("%s\n", __FILE__);
+
+	/* set vm_area_struct. */
+	ret = drm_gem_mmap(filp, vma);
+	if (ret < 0) {
+		DRM_ERROR("failed to mmap.\n");
+		return ret;
+	}
+
+	obj = vma->vm_private_data;
+
+	return exynos_drm_gem_mmap_obj(obj, vma);
 }

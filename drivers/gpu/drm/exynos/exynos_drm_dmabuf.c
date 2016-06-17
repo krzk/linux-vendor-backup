@@ -251,7 +251,17 @@ static void exynos_gem_dmabuf_kunmap(struct dma_buf *dma_buf,
 static int exynos_gem_dmabuf_mmap(struct dma_buf *dma_buf,
 	struct vm_area_struct *vma)
 {
-	return -ENOTTY;
+	struct drm_gem_object *obj = dma_buf->priv;
+	struct drm_device *dev = obj->dev;
+	int ret;
+
+	mutex_lock(&dev->struct_mutex);
+	ret = drm_gem_mmap_obj(obj, obj->size, vma);
+	mutex_unlock(&dev->struct_mutex);
+	if (ret < 0)
+		return ret;
+
+	return exynos_drm_gem_mmap_obj(obj, vma);
 }
 
 static void *exynos_gem_dmabuf_vmap(struct dma_buf *dmabuf)
