@@ -400,7 +400,13 @@ static void ssdev_file_create_data(SSTransaction_t *tsx)
 	if (file_size > 0) {
 		tzlog_print(TZLOG_DEBUG, "Copy main to bak file\n");
 
-		(void)ssdev_file_copy_object(file_back, file_main);
+		ret = ssdev_file_copy_object(file_back, file_main);
+		if(ret < 0)
+		{
+			tzlog_print(TZLOG_WARNING, "Failed to make bak file. result : %d\n", ret);
+			sstransaction_complete(tsx, -EIO);
+			return;
+		}
 	}
 
 	tzlog_print(TZLOG_DEBUG,
