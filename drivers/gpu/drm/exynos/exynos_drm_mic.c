@@ -107,6 +107,7 @@ struct exynos_mic {
 	struct drm_bridge bridge;
 
 	bool enabled;
+	bool mode_setting;
 };
 
 static void mic_set_path(struct exynos_mic *mic, bool enable)
@@ -316,7 +317,7 @@ static void mic_post_disable(struct drm_bridge *bridge)
 	int i;
 
 	mutex_lock(&mic_mutex);
-	if (!mic->enabled)
+	if (!mic->enabled || mic->mode_setting)
 		goto already_disabled;
 
 	mic_set_path(mic, 0);
@@ -337,6 +338,7 @@ static void mic_pre_enable(struct drm_bridge *bridge)
 	int ret, i;
 
 	mutex_lock(&mic_mutex);
+	mic->mode_setting = false;
 	if (mic->enabled)
 		goto already_enabled;
 
@@ -378,7 +380,18 @@ already_enabled:
 
 static void mic_enable(struct drm_bridge *bridge) { }
 
+bool mic_mode_fixup(struct drm_bridge *bridge,
+			const struct drm_display_mode *mode,
+			struct drm_display_mode *adjusted_mode)
+{
+	struct exynos_mic *mic = bridge->driver_private;
+
+	mic->mode_setting = true;
+	return true;
+}
+
 static const struct drm_bridge_funcs mic_bridge_funcs = {
+	.mode_fixup = mic_mode_fixup,
 	.disable = mic_disable,
 	.post_disable = mic_post_disable,
 	.pre_enable = mic_pre_enable,
