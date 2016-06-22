@@ -81,7 +81,7 @@ int ss_file_append_object(char *path, char *buf, size_t size)
 	struct file *file = NULL;
 	loff_t pos;
 
-	file = filp_open(path, O_CREAT | O_RDWR | O_SYNC, 0600);
+	file = filp_open(path, O_RDWR | O_SYNC, 0600);
 
 	if (IS_ERR(file)) {
 		tzlog_print(TZLOG_ERROR,
