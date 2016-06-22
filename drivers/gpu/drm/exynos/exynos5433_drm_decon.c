@@ -139,7 +139,7 @@ static void decon_setup_trigger(struct decon_context *ctx)
 		return;
 
 	if (trg_type == EXYNOS_DISPLAY_HW_TRIGGER)
-		val = TRIGCON_TRIGEN_PER_F | TRIGCON_TRIGEN_F
+		val = TRIGCON_TRIGEN_PER_F | TRIGCON_TRIGEN_F | TRIGCON_TE_AUTO_MASK
 			| TRIGCON_HWTRIGMASK_I80_RGB | TRIGCON_HWTRIGEN_I80_RGB;
 	else
 		val = TRIGCON_TRIGEN_PER_F | TRIGCON_TRIGEN_F
