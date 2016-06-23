@@ -597,6 +597,7 @@ static int gsc_set_planar_addr(struct drm_exynos_ipp_buf_info *buf_info,
 			bypass = true;
 		}
 		break;
+	case DRM_FORMAT_ARGB8888:
 	case DRM_FORMAT_XRGB8888:
 		ofs[0] = sz->hsize * sz->vsize << 2;
 		if (*base[0]) {
@@ -653,6 +654,7 @@ static int gsc_src_set_fmt(struct device *dev, u32 fmt)
 	case DRM_FORMAT_RGB565:
 		cfg |= GSC_IN_RGB565;
 		break;
+	case DRM_FORMAT_ARGB8888:
 	case DRM_FORMAT_XRGB8888:
 		cfg |= GSC_IN_XRGB8888;
 		break;
@@ -940,6 +942,7 @@ static int gsc_dst_set_fmt(struct device *dev, u32 fmt)
 	case DRM_FORMAT_RGB565:
 		cfg |= GSC_OUT_RGB565;
 		break;
+	case DRM_FORMAT_ARGB8888:
 	case DRM_FORMAT_XRGB8888:
 		cfg |= GSC_OUT_XRGB8888;
 		break;
@@ -1596,14 +1599,6 @@ static inline bool gsc_check_drm_flip(enum drm_exynos_flip flip)
 	}
 }
 
-static inline bool gsc_check_fmt(int fmt)
-{
-	if (fmt == DRM_FORMAT_ARGB8888)
-		return false;
-
-	return true;
-}
-
 static int gsc_ippdrv_check_property(struct device *dev,
 		struct drm_exynos_ipp_property *property)
 {
@@ -1631,11 +1626,6 @@ static int gsc_ippdrv_check_property(struct device *dev,
 		config = &property->config[i];
 		pos = &config->pos;
 		sz = &config->sz;
-
-		if (!gsc_check_fmt(config->fmt)) {
-			DRM_INFO("%s:not supported fmt.\n", __func__);
-			return -EPERM;
-		}
 
 		/* check for flip */
 		if (!gsc_check_drm_flip(config->flip)) {
