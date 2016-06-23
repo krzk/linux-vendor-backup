@@ -595,25 +595,6 @@ static int cap_sem_semop(struct sem_array *sma, struct sembuf *sops,
 	return 0;
 }
 
-#ifdef CONFIG_KDBUS
-
-static int cap_kdbus_conn_alloc(struct kdbus_conn *conn)
-{
-	return 0;
-}
-
-static void cap_kdbus_conn_free(struct kdbus_conn *conn)
-{
-}
-
-static int cap_kdbus_talk(const struct kdbus_conn *src,
-			  const struct kdbus_conn *dst)
-{
-	return 0;
-}
-
-#endif /* CONFIG_KDBUS */
-
 #ifdef CONFIG_SECURITY_NETWORK
 static int cap_unix_stream_connect(struct sock *sock, struct sock *other,
 				   struct sock *newsk)
@@ -1111,11 +1092,6 @@ void __init security_fixup_ops(struct security_operations *ops)
 	set_to_cap_if_null(ops, inode_notifysecctx);
 	set_to_cap_if_null(ops, inode_setsecctx);
 	set_to_cap_if_null(ops, inode_getsecctx);
-#ifdef CONFIG_KDBUS
-	set_to_cap_if_null(ops, kdbus_conn_alloc);
-	set_to_cap_if_null(ops, kdbus_conn_free);
-	set_to_cap_if_null(ops, kdbus_talk);
-#endif /* CONFIG_KDBUS */
 #ifdef CONFIG_SECURITY_NETWORK
 	set_to_cap_if_null(ops, unix_stream_connect);
 	set_to_cap_if_null(ops, unix_may_send);

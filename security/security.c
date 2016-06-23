@@ -812,7 +812,6 @@ int security_file_receive(struct file *file)
 {
 	return security_ops->file_receive(file);
 }
-EXPORT_SYMBOL(security_file_receive);
 
 int security_file_open(struct file *file, const struct cred *cred)
 {
@@ -1152,29 +1151,6 @@ int security_inode_getsecctx(struct inode *inode, void **ctx, u32 *ctxlen)
 	return security_ops->inode_getsecctx(inode, ctx, ctxlen);
 }
 EXPORT_SYMBOL(security_inode_getsecctx);
-
-#ifdef CONFIG_KDBUS
-
-int security_kdbus_conn_alloc(struct kdbus_conn *conn)
-{
-	return security_ops->kdbus_conn_alloc(conn);
-}
-EXPORT_SYMBOL(security_kdbus_conn_alloc);
-
-void security_kdbus_conn_free(struct kdbus_conn *conn)
-{
-	security_ops->kdbus_conn_free(conn);
-}
-EXPORT_SYMBOL(security_kdbus_conn_free);
-
-int security_kdbus_talk(const struct kdbus_conn *src,
-			const struct kdbus_conn *dst)
-{
-	return security_ops->kdbus_talk(src, dst);
-}
-EXPORT_SYMBOL(security_kdbus_talk);
-
-#endif /* CONFIG_KDBUS */
 
 #ifdef CONFIG_SECURITY_NETWORK
 
