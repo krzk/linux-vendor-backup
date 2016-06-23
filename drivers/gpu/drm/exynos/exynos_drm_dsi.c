@@ -23,6 +23,7 @@
 #include <linux/of_graph.h>
 #include <linux/phy/phy.h>
 #include <linux/regulator/consumer.h>
+#include <linux/pm_runtime.h>
 #include <linux/component.h>
 
 #include <video/mipi_display.h>
@@ -1458,10 +1459,14 @@ static int exynos_dsi_poweron(struct exynos_dsi *dsi)
 	struct exynos_dsi_driver_data *driver_data = dsi->driver_data;
 	int ret, i;
 
+	ret = pm_runtime_get_sync(dsi->dev);
+	if (ret < 0)
+		return ret;
+
 	ret = regulator_bulk_enable(ARRAY_SIZE(dsi->supplies), dsi->supplies);
 	if (ret < 0) {
 		dev_err(dsi->dev, "cannot enable regulators %d\n", ret);
-		return ret;
+		goto err_pm;
 	}
 
 	for (i = 0; i < driver_data->num_clks; i++) {
@@ -1482,6 +1487,8 @@ err_clk:
 	while (--i > -1)
 		clk_disable_unprepare(dsi->clks[i]);
 	regulator_bulk_disable(ARRAY_SIZE(dsi->supplies), dsi->supplies);
+err_pm:
+	pm_runtime_put(dsi->dev);
 
 	return ret;
 }
@@ -1511,6 +1518,7 @@ static void exynos_dsi_poweroff(struct exynos_dsi *dsi)
 	ret = regulator_bulk_disable(ARRAY_SIZE(dsi->supplies), dsi->supplies);
 	if (ret < 0)
 		dev_err(dsi->dev, "cannot disable regulators %d\n", ret);
+	pm_runtime_put(dsi->dev);
 }
 
 static int exynos_dsi_enable(struct exynos_dsi *dsi)
@@ -1950,13 +1958,24 @@ static int exynos_dsi_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, &dsi->display);
+	pm_runtime_enable(dev);
 
-	return component_add(dev, &exynos_dsi_component_ops);
+	ret = component_add(dev, &exynos_dsi_component_ops);
+	if (ret)
+		goto err_pm;
+
+	return 0;
+
+err_pm:
+	pm_runtime_disable(dev);
+
+	return ret;
 }
 
 static int exynos_dsi_remove(struct platform_device *pdev)
 {
 	component_del(&pdev->dev, &exynos_dsi_component_ops);
+	pm_runtime_disable(&pdev->dev);
 
 	return 0;
 }
