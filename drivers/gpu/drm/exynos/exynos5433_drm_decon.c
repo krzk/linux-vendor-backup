@@ -41,7 +41,7 @@ static const char * const decon_clks_name[] = {
 
 struct exynos5433_decon_driver_data {
 	enum exynos_drm_output_type type;
-	enum exynos_drm_trigger_type default_trg_type;
+	enum exynos_drm_trigger_type trg_type;
 	unsigned int nr_window;
 	unsigned int first_win;
 	unsigned int lcdblk_offset;
@@ -66,7 +66,6 @@ struct decon_context {
 	wait_queue_head_t		wait_vsync_queue;
 	atomic_t			wait_vsync_event;
 	atomic_t			win_updated;
-	enum exynos_drm_trigger_type	trg_type;
 	struct exynos5433_decon_driver_data *drv_data;
 };
 
@@ -133,7 +132,7 @@ static void decon_disable_vblank(struct exynos_drm_crtc *crtc)
 
 static void decon_setup_trigger(struct decon_context *ctx)
 {
-	enum exynos_drm_trigger_type trg_type = ctx->trg_type;
+	enum exynos_drm_trigger_type trg_type = ctx->drv_data->trg_type;
 	u32 val = 0;
 
 	val &= ~(TRIGCON_SWTRIGEN | TRIGCON_HWTRIGEN_I80_RGB |
@@ -229,8 +228,9 @@ static void decon_commit(struct exynos_drm_crtc *crtc)
 				mode->crtc_hsync_end - mode->crtc_hsync_start - 1);
 		writel(val, ctx->addr + DECON_VIDTCON11);
 	} else {
-		struct exynos5433_decon_driver_data *drv_data = ctx->drv_data;
-		unsigned int te_unmask = ctx->trg_type;
+		struct exynos5433_decon_driver_data *drv_data =
+							ctx->drv_data;
+		unsigned int te_unmask = drv_data->trg_type;
 
 		/* set te unmask */
 		if (ctx->sysreg && regmap_update_bits(ctx->sysreg,
@@ -399,7 +399,7 @@ static void decon_win_commit(struct exynos_drm_crtc *crtc, unsigned int win)
 
 	decon_update(ctx);
 
-	if (ctx->i80_if && ctx->trg_type == EXYNOS_DISPLAY_SW_TRIGGER)
+	if (ctx->i80_if && drv_data->trg_type == EXYNOS_DISPLAY_SW_TRIGGER)
 		atomic_set(&ctx->win_updated, 1);
 
 	plane->enabled = true;
@@ -579,17 +579,6 @@ static void decon_dpms_off(struct decon_context *ctx)
 
 	pm_runtime_put_sync(ctx->dev);
 	ctx->suspended = true;
-
-	/*
-	 * In case of DECON Display, the controller should work
-	 * with SW trigger mode even default_trigger_type is
-	 * EXYNOS_DISPLAY_HW_TRIGGER before power off to on again
-	 * because Trigger mode change should be done on PSR mode of Panel.
-	 * There might be some Panel not supported for PSR mode.
-	 */
-	if (ctx->drv_data->default_trg_type == EXYNOS_DISPLAY_HW_TRIGGER &&
-			ctx->drv_data->type == EXYNOS_DISPLAY_TYPE_LCD)
-		ctx->trg_type = EXYNOS_DISPLAY_HW_TRIGGER;
 }
 
 static void decon_dpms(struct exynos_drm_crtc *crtc, int mode)
@@ -614,7 +603,7 @@ static void decon_dpms(struct exynos_drm_crtc *crtc, int mode)
 void decon_te_irq_handler(struct exynos_drm_crtc *crtc)
 {
 	struct decon_context *ctx = crtc->ctx;
-	enum exynos_drm_trigger_type trg_type = ctx->trg_type;
+	enum exynos_drm_trigger_type trg_type = ctx->drv_data->trg_type;
 	u32 val;
 
 	if (!test_bit(BIT_CLKS_ENABLED, &ctx->enabled))
@@ -837,14 +826,9 @@ static int exynos5433_decon_probe(struct platform_device *pdev)
 	drv_data = get_driver_data(pdev);
 	ctx->drv_data = drv_data;
 
-	if (of_get_child_by_name(dev->of_node, "i80-if-timings"))
+	if (of_get_child_by_name(dev->of_node, "i80-if-timings") ||
+	    drv_data->type == EXYNOS_DISPLAY_TYPE_HDMI)
 		ctx->i80_if = true;
-
-	/* For DECON-TV, HW trigger mode is mandatory. */
-	if (drv_data->type == EXYNOS_DISPLAY_TYPE_HDMI) {
-		ctx->i80_if = true;
-		ctx->trg_type = EXYNOS_DISPLAY_HW_TRIGGER;
-	}
 
 	ctx->sysreg = syscon_regmap_lookup_by_phandle(dev->of_node,
 							"samsung,disp-sysreg");
@@ -920,7 +904,7 @@ static int exynos5433_decon_remove(struct platform_device *pdev)
 
 static const struct exynos5433_decon_driver_data exynos5433_decon_int_driver_data = {
 	.type = EXYNOS_DISPLAY_TYPE_LCD,
-	.default_trg_type = EXYNOS_DISPLAY_HW_TRIGGER,
+	.trg_type = EXYNOS_DISPLAY_HW_TRIGGER,
 	.first_win = 0,
 	.lcdblk_offset = 0x1004,
 	.lcdblk_te_unmask_shift = 13,
@@ -928,7 +912,7 @@ static const struct exynos5433_decon_driver_data exynos5433_decon_int_driver_dat
 
 static const struct exynos5433_decon_driver_data exynos5433_decon_ext_driver_data = {
 	.type = EXYNOS_DISPLAY_TYPE_HDMI,
-	.default_trg_type = EXYNOS_DISPLAY_HW_TRIGGER,
+	.trg_type = EXYNOS_DISPLAY_HW_TRIGGER,
 	.first_win = 1,
 	.lcdblk_offset = 0x1004,
 	.lcdblk_te_unmask_shift = 13,
