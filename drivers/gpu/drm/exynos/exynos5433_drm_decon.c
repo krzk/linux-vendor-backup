@@ -150,12 +150,31 @@ static void decon_setup_trigger(struct decon_context *ctx)
 	writel(val, ctx->addr + DECON_TRIGCON);
 }
 
+static void decon_update(struct decon_context *ctx)
+{
+	decon_set_bits(ctx, DECON_UPDATE, STANDALONE_UPDATE_F, ~0);
+}
+
+static void decon_wait_for_update(struct decon_context *ctx)
+{
+	/* wait up to duration of 2 frames */
+	unsigned long timeout = jiffies + msecs_to_jiffies(2 * 1000 / 60);
+
+	while (readl(ctx->addr + DECON_UPDATE) & STANDALONE_UPDATE_F) {
+		if (time_is_after_jiffies(timeout))
+			break;
+		usleep_range(500, 1000);
+	}
+}
+
 static void decon_commit(struct exynos_drm_crtc *crtc)
 {
 	struct decon_context *ctx = crtc->ctx;
 	struct drm_display_mode *mode = &crtc->base.mode;
 	bool interlaced = false;
 	u32 val;
+
+	decon_wait_for_update(ctx);
 
 	decon_set_bits(ctx, DECON_VIDCON0, VIDCON0_ENVID, 0);
 
@@ -229,6 +248,7 @@ static void decon_commit(struct exynos_drm_crtc *crtc)
 
 	/* enable output and display signal */
 	decon_set_bits(ctx, DECON_VIDCON0, VIDCON0_ENVID | VIDCON0_ENVID_F, ~0);
+	decon_update(ctx);
 }
 
 #define BIT_VAL(x, e, s)	(((x) & ((1 << ((e) - (s) + 1)) - 1)) << (s))
@@ -322,6 +342,8 @@ static void decon_win_commit(struct exynos_drm_crtc *crtc, unsigned int win)
 		return;
 	}
 
+	decon_wait_for_update(ctx);
+
 	decon_shadow_protect_win(ctx, win, true);
 
 	/* FIXME: padding? padding = (plane->pitch / (plane->bpp >> 3)) - plane->fb_width */
@@ -376,10 +398,7 @@ static void decon_win_commit(struct exynos_drm_crtc *crtc, unsigned int win)
 
 	decon_shadow_protect_win(ctx, win, false);
 
-	/* standalone update */
-	val = readl(ctx->addr + DECON_UPDATE);
-	val |= STANDALONE_UPDATE_F;
-	writel(val, ctx->addr + DECON_UPDATE);
+	decon_update(ctx);
 
 	if (ctx->i80_if && ctx->trg_type == EXYNOS_DISPLAY_SW_TRIGGER)
 		atomic_set(&ctx->win_updated, 1);
@@ -404,6 +423,8 @@ static void decon_win_disable(struct exynos_drm_crtc *crtc, unsigned int win)
 		return;
 	}
 
+	decon_wait_for_update(ctx);
+
 	decon_shadow_protect_win(ctx, win, true);
 
 	/* window disable */
@@ -413,10 +434,7 @@ static void decon_win_disable(struct exynos_drm_crtc *crtc, unsigned int win)
 
 	decon_shadow_protect_win(ctx, win, false);
 
-	/* standalone update */
-	val = readl(ctx->addr + DECON_UPDATE);
-	val |= STANDALONE_UPDATE_F;
-	writel(val, ctx->addr + DECON_UPDATE);
+	decon_update(ctx);
 
 	plane->enabled = false;
 }
@@ -645,6 +663,8 @@ static void decon_clear_channel(struct decon_context *ctx)
 			goto err;
 	}
 
+	decon_wait_for_update(ctx);
+
 	for (win = 0; win < WINDOWS_NR; win++) {
 		/* shadow update disable */
 		val = readl(ctx->addr + DECON_SHADOWCON);
@@ -660,12 +680,9 @@ static void decon_clear_channel(struct decon_context *ctx)
 		val = readl(ctx->addr + DECON_SHADOWCON);
 		val &= ~SHADOWCON_Wx_PROTECT(win);
 		writel(val, ctx->addr + DECON_SHADOWCON);
-
-		/* standalone update */
-		val = readl(ctx->addr + DECON_UPDATE);
-		val |= STANDALONE_UPDATE_F;
-		writel(val, ctx->addr + DECON_UPDATE);
 	}
+
+	decon_update(ctx);
 
 	atomic_set(&ctx->wait_vsync_event, 1);
 
