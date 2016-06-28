@@ -2219,6 +2219,7 @@
 				 <&cmu_disp CLK_SCLK_RGB_VCLK_TO_MIC0>;
 			clock-names = "pclk_mic0", "sclk_rgb_vclk_to_mic0";
 			samsung,disp-syscon = <&syscon_disp>;
+			power-domains = <&pd_disp>;
 			status = "disabled";
 
 			ports {
