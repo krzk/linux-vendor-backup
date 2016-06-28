@@ -19,6 +19,7 @@
 #include <linux/of_graph.h>
 #include <linux/clk.h>
 #include <linux/component.h>
+#include <linux/pm_runtime.h>
 #include <drm/drmP.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
@@ -323,6 +324,7 @@ static void mic_post_disable(struct drm_bridge *bridge)
 	for (i = NUM_CLKS - 1; i > -1; i--)
 		clk_disable_unprepare(mic->clks[i]);
 
+	pm_runtime_put(mic->dev);
 	mic->enabled = 0;
 
 already_disabled:
@@ -337,6 +339,8 @@ static void mic_pre_enable(struct drm_bridge *bridge)
 	mutex_lock(&mic_mutex);
 	if (mic->enabled)
 		goto already_enabled;
+
+	pm_runtime_get_sync(mic->dev);
 
 	for (i = 0; i < NUM_CLKS; i++) {
 		ret = clk_prepare_enable(mic->clks[i]);
@@ -472,8 +476,18 @@ static int exynos_mic_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, mic);
 
+	pm_runtime_enable(dev);
+
+	ret = component_add(dev, &exynos_mic_component_ops);
+	if (ret)
+		goto err_pm;
+
 	DRM_DEBUG_KMS("MIC has been probed\n");
-	return component_add(dev, &exynos_mic_component_ops);
+
+	return 0;
+
+err_pm:
+	pm_runtime_disable(dev);
 
 err:
 	return ret;
@@ -482,6 +496,7 @@ err:
 static int exynos_mic_remove(struct platform_device *pdev)
 {
 	component_del(&pdev->dev, &exynos_mic_component_ops);
+	pm_runtime_disable(&pdev->dev);
 	return 0;
 }
 
