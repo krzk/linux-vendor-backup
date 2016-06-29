@@ -237,8 +237,10 @@ static __init int exynos4_pm_init_power_domain(void)
 		}
 
 		pd->oscclk = of_clk_get_by_name(np, "oscclk");
-		if (IS_ERR(pd->oscclk))
+		if (IS_ERR(pd->oscclk)) {
+			pd->clk[0] = ERR_PTR(-EINVAL);
 			goto no_clk;
+		}
 
 		for (i = 0; i < MAX_CLK_PER_DOMAIN; i++) {
 			char clk_name[8];
