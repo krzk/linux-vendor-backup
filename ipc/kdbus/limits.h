@@ -53,7 +53,7 @@
 #define KDBUS_CONN_MAX_NAMES			256
 
 /* maximum number of queued requests waiting for a reply */
-#define KDBUS_CONN_MAX_REQUESTS_PENDING		128
+#define KDBUS_CONN_MAX_REQUESTS_PENDING		1024	/* 128 -> 1024 */
 
 /* maximum number of connections per user in one domain */
 #define KDBUS_USER_MAX_CONN			1024
