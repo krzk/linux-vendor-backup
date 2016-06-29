@@ -600,29 +600,13 @@ void decon_te_irq_handler(struct exynos_drm_crtc *crtc)
 {
 	struct decon_context *ctx = crtc->ctx;
 	enum exynos_drm_trigger_type trg_type = ctx->drv_data->trg_type;
-	u32 val;
 
-	if (!test_bit(BIT_CLKS_ENABLED, &ctx->enabled))
+	if (!test_bit(BIT_CLKS_ENABLED, &ctx->enabled) ||
+	    (trg_type == EXYNOS_DISPLAY_HW_TRIGGER))
 		return;
 
-	if (trg_type == EXYNOS_DISPLAY_HW_TRIGGER)
-		goto out;
-
-	if (atomic_add_unless(&ctx->win_updated, -1, 0)) {
-		/* trigger */
-		val = readl(ctx->addr + DECON_TRIGCON);
-		val |= TRIGCON_SWTRIGCMD;
-		writel(val, ctx->addr + DECON_TRIGCON);
-	}
-
-out:
-	/* Wakes up vsync event queue */
-	if (atomic_read(&ctx->wait_vsync_event)) {
-		atomic_set(&ctx->wait_vsync_event, 0);
-		wake_up(&ctx->wait_vsync_queue);
-	}
-
-	drm_handle_vblank(ctx->drm_dev, ctx->pipe);
+	if (atomic_add_unless(&ctx->win_updated, -1, 0))
+		decon_set_bits(ctx, DECON_TRIGCON, TRIGCON_SWTRIGCMD, ~0);
 }
 
 static struct exynos_drm_crtc_ops decon_crtc_ops = {
@@ -783,14 +767,17 @@ static irqreturn_t decon_lcd_sys_irq_handler(int irq, void *dev_id)
 
 	val = readl(ctx->addr + DECON_VIDINTCON1);
 	if (val & VIDINTCON1_INTFRMDONEPEND) {
+		drm_handle_vblank(ctx->drm_dev, ctx->pipe);
 		exynos_drm_crtc_finish_pageflip(ctx->drm_dev, ctx->pipe);
-
-		/* clear */
-		writel(VIDINTCON1_INTFRMDONEPEND,
-				ctx->addr + DECON_VIDINTCON1);
+		writel(VIDINTCON1_INTFRMDONEPEND, ctx->addr + DECON_VIDINTCON1);
 	}
 
 out:
+	if (atomic_read(&ctx->wait_vsync_event)) {
+		atomic_set(&ctx->wait_vsync_event, 0);
+		wake_up(&ctx->wait_vsync_queue);
+	}
+
 	return IRQ_HANDLED;
 }
 
