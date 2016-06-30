@@ -17,6 +17,7 @@
 #include <linux/of_device.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
+#include <linux/pm_runtime.h>
 
 #include <video/exynos5433_decon.h>
 
@@ -514,6 +515,7 @@ static void decon_dpms_on(struct decon_context *ctx)
 	if (!ctx->suspended)
 		return;
 
+	pm_runtime_get_sync(ctx->dev);
 	ctx->suspended = false;
 
 	for (i = 0; i < ARRAY_SIZE(decon_clks_name); i++) {
@@ -577,6 +579,7 @@ static void decon_dpms_off(struct decon_context *ctx)
 	for (i = ARRAY_SIZE(decon_clks_name) - 1; i >= 0; i--)
 		clk_disable_unprepare(ctx->clks[i]);
 
+	pm_runtime_put_sync(ctx->dev);
 	ctx->suspended = true;
 
 	/*
@@ -894,12 +897,25 @@ static int exynos5433_decon_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, ctx);
 
-	return component_add(dev, &decon_component_ops);
+	pm_runtime_enable(dev);
+
+	ret = component_add(dev, &decon_component_ops);
+	if (ret)
+		goto err_disable_pm_runtime;
+
+	return 0;
+
+err_disable_pm_runtime:
+	pm_runtime_disable(dev);
+
+	return ret;
 }
 
 static int exynos5433_decon_remove(struct platform_device *pdev)
 {
 	component_del(&pdev->dev, &decon_component_ops);
+
+	pm_runtime_disable(&pdev->dev);
 
 	return 0;
 }
