@@ -255,7 +255,7 @@
 		};
 
 		jpeg_block: memory_bus_block7 {
-			clocks = <&cmu_mscl CLK_SCLK_JPEG>;
+			clocks = <&cmu_top CLK_SCLK_JPEG_MSCL>;
 			clock-names = "memory-bus";
 			frequency = <
 				400000
