@@ -1318,9 +1318,8 @@ static int exynos_dsi_register_te_irq(struct exynos_dsi *dsi)
 
 	dsi->te_gpio = of_get_named_gpio(dsi->panel_node, "te-gpios", 0);
 	if (!gpio_is_valid(dsi->te_gpio)) {
-		dev_err(dsi->dev, "no te-gpios specified\n");
-		ret = dsi->te_gpio;
-		goto out;
+		dev_info(dsi->dev, "no te-gpios specified\n");
+		return 0;
 	}
 
 	ret = gpio_request(dsi->te_gpio, "te_gpio");
