@@ -941,6 +941,8 @@ static int s5p_mfc_release(struct file *file)
 	if (dev->curr_ctx == ctx->num)
 		clear_bit(0, &dev->hw_lock);
 	dev->num_inst--;
+	mfc_debug(2, "Shutting down clock\n");
+	s5p_mfc_clock_off();
 	if (dev->num_inst == 0) {
 		mfc_debug(2, "Last instance\n");
 		s5p_mfc_deinit_hw(dev);
@@ -948,8 +950,6 @@ static int s5p_mfc_release(struct file *file)
 		if (s5p_mfc_power_off() < 0)
 			mfc_err("Power off failed\n");
 	}
-	mfc_debug(2, "Shutting down clock\n");
-	s5p_mfc_clock_off();
 	dev->ctx[ctx->num] = NULL;
 	s5p_mfc_dec_ctrls_delete(ctx);
 	v4l2_fh_del(&ctx->fh);
