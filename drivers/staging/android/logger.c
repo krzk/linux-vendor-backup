@@ -28,7 +28,7 @@
 #include <linux/slab.h>
 #include <linux/time.h>
 #include <linux/vmalloc.h>
-#include <linux/aio.h>
+#include <linux/uio.h>
 #include "logger.h"
 
 #include <asm/ioctls.h>
@@ -421,7 +421,7 @@ static ssize_t logger_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	struct timespec now;
 	size_t len, count, w_off;
 
-	count = min_t(size_t, iocb->ki_nbytes, LOGGER_ENTRY_MAX_PAYLOAD);
+	count = min_t(size_t, iov_iter_count(from), LOGGER_ENTRY_MAX_PAYLOAD);
 
 	now = current_kernel_time();
 
