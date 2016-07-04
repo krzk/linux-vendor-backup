@@ -1228,7 +1228,6 @@
 		vci-supply = <&ldo28_reg>;
 		reset-gpios = <&gpg0 0 0>;
 		panel-en-gpios = <&gpf1 5 0>;
-		te-gpios = <&gpf1 3 1>;
 		power-on-delay= <5>;
 		init-delay = <120>;
 		panel-width-mm = <71>;
