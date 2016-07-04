@@ -36,7 +36,7 @@
 #include "ss_rpmb.h"
 #include "ss_core.h"
 #include "ss_dev.h"
-#include "tzdev_internal.h"
+#include "tzlog_print.h"
 
 #ifndef CONFIG_SECOS_NO_SECURE_STORAGE
 
@@ -96,6 +96,9 @@ static const struct file_operations storage_fops = {
 	.release = storage_release,
 	.mmap = storage_mmap,
 	.unlocked_ioctl = storage_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = storage_ioctl,
+#endif
 };
 
 static struct miscdevice storage = {

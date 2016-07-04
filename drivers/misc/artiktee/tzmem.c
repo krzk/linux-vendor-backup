@@ -32,6 +32,7 @@
 
 #include "tzdev.h"
 #include "tzdev_internal.h"
+#include "tzlog_print.h"
 #include "sstransaction.h"
 #include "tzpage.h"
 #include "tzdev_smc.h"
@@ -116,6 +117,81 @@ static long tzmem_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 	return ret;
 }
+
+#ifdef CONFIG_COMPAT
+static long tzmem_compat_ioctl(struct file *file,
+		unsigned int cmd, unsigned long arg)
+{
+	int ret = 0;
+
+	switch (cmd) {
+	case TZMEM_COMPAT_EXPORT_MEMORY:
+		{
+			struct tzmem_region32 __user *argp, s;
+
+			argp = (struct tzmem_region32 __user *)arg;
+			if (copy_from_user
+			    (&s, argp, sizeof(struct tzmem_region32))) {
+				ret = -EFAULT;
+				break;
+			}
+
+			ret = register_user_memory(file,
+						   (unsigned long)s.ptr,
+						   s.size,
+						   s.tee_ctx_id, s.writable);
+
+			if (ret < 0)
+				break;
+
+			s.pid = current->tgid;
+			s.id = ret;
+			ret = 0;
+
+			if (copy_to_user(argp, &s,
+					sizeof(struct tzmem_region32))) {
+				unregister_user_memory(file, s.id);
+				ret = -EFAULT;
+				break;
+			}
+
+			break;
+		}
+	case TZMEM_RELEASE_MEMORY:
+		{
+			int id;
+
+			if (copy_from_user(&id,
+					(int __user *)arg, sizeof(int))) {
+				ret = -EFAULT;
+				break;
+			}
+
+			ret = unregister_user_memory(file, id);
+			break;
+		}
+	case TZMEM_COMPAT_CHECK_MEMORY:
+		{
+			struct tzmem_region32 __user *argp, s;
+
+			argp = (struct tzmem_region32 __user *)arg;
+			if (copy_from_user
+			    (&s, argp, sizeof(struct tzmem_region32))) {
+				ret = -EFAULT;
+				break;
+			}
+
+			ret = verify_client_memory(s.id, s.pid, s.tee_ctx_id);
+			break;
+		}
+	default:
+		tzlog_print(TZLOG_ERROR, "Unknown TZMEM Command: %d\n", cmd);
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+#endif
 
 struct tzmem_file {
 	struct list_head nodes;
@@ -345,6 +421,9 @@ static const struct file_operations tzmem_fops = {
 	.owner = THIS_MODULE,
 	.open = tzmem_open,
 	.release = tzmem_release,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = tzmem_compat_ioctl,
+#endif
 	.unlocked_ioctl = tzmem_ioctl,
 };
 

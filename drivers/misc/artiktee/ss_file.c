@@ -25,7 +25,7 @@
 #include <linux/fs.h>
 
 #include "ss_file.h"
-#include "tzdev_internal.h"
+#include "tzlog_print.h"
 
 #ifndef CONFIG_SECOS_NO_SECURE_STORAGE
 

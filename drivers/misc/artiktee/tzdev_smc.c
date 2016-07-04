@@ -23,6 +23,7 @@
 #include "tzdev_internal.h"
 #include "tzdev_smc.h"
 #include "tzpage.h"
+#include "tzlog_print.h"
 
 static inline void __do_call_smc_internal(struct monitor_arguments *args,
 					  struct monitor_result *result)
@@ -286,6 +287,27 @@ int scm_register_phys_wsm(phys_addr_t arg_pfn)
 
 	return res.res[0];
 }
+
+#ifdef CONFIG_FETCH_TEE_INFO
+int scm_fetch_tzinfo(int cmd, int arg)
+{
+	struct monitor_arguments args = { 0, };
+	struct monitor_result res = { {0,} };
+
+	args.function_id =
+	    SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS |
+			SMC_STD_FETCH_TEE_INFO;
+
+	args.arg[0] = cmd;
+	args.arg[1] = arg;
+	args.arg[2] = 0;
+	args.arg[3] = 0;
+
+	__do_call_smc_internal(&args, &res);
+
+	return res.res[0];
+}
+#endif /* !CONFIG_FETCH_TEE_INFO */
 
 #ifndef CONFIG_PSCI
 int scm_cpu_suspend(void)

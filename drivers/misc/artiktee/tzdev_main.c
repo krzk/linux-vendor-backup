@@ -48,12 +48,17 @@
 #include "tzdev_smc.h"
 #include "tzdev_plat.h"
 
+#ifdef CONFIG_FETCH_TEE_INFO
+#include "tzinfo.h"
+#endif /* !CONFIG_FETCH_TEE_INFO */
+#include "tzlog_core.h"
+#include "tzlog_print.h"
+
 #define TZDEV_MAJOR_VERSION  "007"
 #define TZDEV_MINOR_VERSION  "0"
 
-module_param(tzlog_loglevel, int, 0);
-MODULE_PARM_DESC(tzlog_loglevel,
-		 "Loglevel of tz driver (8 - debug, 7 - info, 6 - notice, 5 - warning, 4 - error, ...)");
+MODULE_PARM_DESC(default_tzdev_local_log_level,
+		 "Loglevel of tz driver (7 - debug, 6 - info, 5 - notice, 4 - warning, 3 - error, ...)");
 
 /*#define CONFIG_TZDEV_CPU_IDLE*/
 #ifdef CONFIG_TZDEV_CPU_IDLE
@@ -103,8 +108,6 @@ struct tzdevext_function {
  * IPC data for tzdev worker thread
  */
 static struct tzdev_ipc_data tzdev_ipc;
-
-int tzlog_loglevel = TZLOG_INFO;
 
 static DEFINE_SPINLOCK(tzio_context_slock);
 static DEFINE_IDR(tzio_context_idr);
@@ -820,8 +823,8 @@ int tzio_message_wait(struct tzio_message *__user msg,
 	put_user(0, &msg->context_id);
 
 	if (context->payload_size) {
-		if (copy_to_user
-		    (msg->payload, context->payload, context->payload_size)) {
+		if (copy_to_user(
+		    msg->payload, context->payload, context->payload_size)) {
 			tzlog_print(TZLOG_ERROR,
 				    "Can't copy data back to userspace\n");
 			ret = -EFAULT;
@@ -1409,6 +1412,9 @@ static const struct file_operations tzdev_fops = {
 	.open = tzio_open,
 	.release = tzio_release,
 	.mmap = tzio_mmap,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = tzio_ioctl,
+#endif
 	.unlocked_ioctl = tzio_ioctl,
 	.poll = tzio_poll,
 	.read = tzio_read
@@ -1419,6 +1425,9 @@ static const struct file_operations tzlog_fops = {
 	.open = tzlog_open,
 	.read = tzlog_read,
 	.write = tzlog_write,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = tzlog_ioctl,
+#endif
 	.unlocked_ioctl = tzlog_ioctl,
 	.release = tzlog_release,
 };
@@ -1483,7 +1492,8 @@ static ssize_t tzdev_store(struct kobject *kobj, struct kobj_attribute *attr,
 static ssize_t tzlog_show(struct kobject *kobj, struct kobj_attribute *attr,
 			  char *buf)
 {
-	return snprintf(buf, 256, "current loglevel = %d\n", tzlog_loglevel);
+	return snprintf(buf, 256, "current loglevel = %d\n",
+			default_tzdev_local_log_level);
 }
 
 static ssize_t tzlog_store(struct kobject *kobj, struct kobj_attribute *attr,
@@ -1492,10 +1502,9 @@ static ssize_t tzlog_store(struct kobject *kobj, struct kobj_attribute *attr,
 	int var;
 
 	sscanf(buf, "%d", &var);
-	tzlog_print(TZLOG_DEBUG, "Change Loglevel = %d\n", var);
-	if (var >= TZLOG_ERROR && var <= TZLOG_DEBUG) {
-		tzlog_loglevel = var;
-	}
+	tzlog_print(K_DEBUG, "Change Loglevel = %d\n", var);
+	if (var >= K_EMERG && var <= K_DEBUG)
+		default_tzdev_local_log_level = var;
 
 	return count;
 }
@@ -1505,6 +1514,23 @@ static ssize_t tzmem_show(struct kobject *kobj, struct kobj_attribute *attr,
 {
 	return snprintf(buf, 256, "TZMEM Show Test\n");
 }
+
+#ifdef CONFIG_FETCH_TEE_INFO
+static ssize_t tzinfo_show(struct kobject *kobj, struct kobj_attribute *attr,
+			  char *buf)
+{
+		int ret;
+		char *info;
+
+		ret = tzinfo_fetch_info(&info);
+
+		if (ret >= PAGE_SIZE)
+			tzlog_print(TZLOG_WARNING,
+				"Extracted TEE information is suppressed");
+
+		return snprintf(buf, PAGE_SIZE, "%s\n", info);
+}
+#endif /* !CONFIG_FETCH_TEE_INFO */
 
 static ssize_t tzmem_store(struct kobject *kobj, struct kobj_attribute *attr,
 			   const char *buf, size_t count)
@@ -1549,6 +1575,11 @@ __ATTR(tzlog, 0660, tzlog_show, tzlog_store);
 static struct kobj_attribute tzmem_attr =
 __ATTR(tzmem, 0660, tzmem_show, tzmem_store);
 
+#ifdef CONFIG_FETCH_TEE_INFO
+static struct kobj_attribute tzinfo_attr =
+__ATTR(tzinfo, 0440, tzinfo_show, NULL);
+#endif /* !CONFIG_FETCH_TEE_INFO */
+
 #ifndef CONFIG_PSCI
 static struct kobj_attribute tzpm_attr =
 __ATTR(tzpm, 0660, tzpm_show, tzpm_store);
@@ -1558,6 +1589,9 @@ static struct attribute *tzdev_attrs[] = {
 	&tzdev_attr.attr,
 	&tzlog_attr.attr,
 	&tzmem_attr.attr,
+#ifdef CONFIG_FETCH_TEE_INFO
+	&tzinfo_attr.attr,
+#endif /* !CONFIG_FETCH_TEE_INFO */
 #ifndef CONFIG_PSCI
 	&tzpm_attr.attr,
 #endif /* !CONFIG_PSCI */
@@ -1696,6 +1730,15 @@ static int __init init_tzdev(void)
 
 #ifndef CONFIG_SECOS_NO_SECURE_STORAGE
 	init_storage();
+#endif
+
+#ifdef CONFIG_FETCH_TEE_INFO
+	rc = tzinfo_init();
+	if (rc != 0) {
+		sysfs_remove_file(tzdev_kobj, &tzinfo_attr.attr);
+
+		tzlog_print(TZLOG_WARNING, "Failed to register tzinfo node\n");
+	}
 #endif
 
 	sstransaction_init();

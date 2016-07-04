@@ -16,15 +16,17 @@
  *
  *********************************************************/
 
-#ifndef SOURCE_TZDEV_INIT_H_
-#define SOURCE_TZDEV_INIT_H_
+#ifndef __TZLOG_PRINT_H__
+#define __TZLOG_PRINT_H__
 
-void tzsys_init(void);
-void tzmem_init(void);
-int init_storage(void);
-void tzio_link_init(void);
+#include "log_level_ree.h"
 
-int sstransaction_init_early(void);
-int sstransaction_init(void);
+extern kernel_log_level default_tzdev_local_log_level; /* OutPut */
 
-#endif /* SOURCE_TZDEV_INIT_H_ */
+void tzlog_print(kernel_log_level level, const char *fmt, ...);
+void tzlog_print_for_tee(log_header_info header_info,
+		kernel_log_level level,
+		const char *label,
+		const char *fmt, ...);
+
+#endif

@@ -46,6 +46,10 @@
 
 #define SMC_STD_REGISTER_PHYS_WSM	14
 
+#ifdef CONFIG_FETCH_TEE_INFO
+#define SMC_STD_FETCH_TEE_INFO		16
+#endif /* !CONFIG_FETCH_TEE_INFO */
+
 /* TODO: this should be sent to PSCI */
 #define SMC_PM_CPU_OFF			0
 #define SMC_PM_SYSTEM_OFF		1

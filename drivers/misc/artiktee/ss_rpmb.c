@@ -32,7 +32,7 @@
 #if defined(CONFIG_MMC) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0))
 
 #include "ss_rpmb.h"
-#include "tzdev_internal.h"
+#include "tzlog_print.h"
 
 #define RPMB_DEVICE         "mmcblk0rpmb"
 

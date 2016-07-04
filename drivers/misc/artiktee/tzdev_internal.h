@@ -56,36 +56,6 @@ struct scm_mux_link {
 
 #define WSM_FLAG_PERSIST	0x00000001
 
-#define TZLOG_ERROR	1		/* Error condition */
-#define TZLOG_WARNING	2	/* Warning condition */
-#define TZLOG_INFO	3		/* Informational */
-#define TZLOG_DEBUG	4		/* Debug-level message */
-
-#define tzlog_print(lvl, fmt, ...) \
-	do { \
-		if (lvl <= tzlog_loglevel) { \
-			switch (lvl) { \
-			case TZLOG_ERROR: \
-				printk(KERN_ERR "[TZDEV_ERR]%s:"fmt, __func__, ##__VA_ARGS__); \
-				break; \
-			case TZLOG_WARNING: \
-				printk(KERN_WARNING "[TZDEV_WARN]%s:"fmt, __func__, ##__VA_ARGS__); \
-				break; \
-			case TZLOG_INFO: \
-				printk(KERN_INFO "[TZDEV_INFO]%s:"fmt, __func__, ##__VA_ARGS__); \
-				break; \
-			case TZLOG_DEBUG: \
-				printk(KERN_DEBUG "[TZDEV_DBG]%s:"fmt, __func__, ##__VA_ARGS__); \
-				break; \
-			default: \
-				break; \
-			} \
-		} \
-	} while (0)
-
-extern int tzlog_loglevel;
-
-void tzlog_notify(void);
 void tzsys_crash_check(void);
 
 struct secos_syspage {

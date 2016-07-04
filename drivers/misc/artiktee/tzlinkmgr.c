@@ -22,6 +22,7 @@
 #include "tzdev_internal.h"
 #include "tzpage.h"
 #include "tzdev_smc.h"
+#include "tzlog_print.h"
 
 static DEFINE_SPINLOCK(tzio_free_lock);
 static LIST_HEAD(tzio_free_links);

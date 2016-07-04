@@ -16,15 +16,10 @@
  *
  *********************************************************/
 
-#ifndef SOURCE_TZDEV_INIT_H_
-#define SOURCE_TZDEV_INIT_H_
+#ifndef SOURCE_TZDEV_TZINFO_H_
+#define SOURCE_TZDEV_TZINFO_H_
 
-void tzsys_init(void);
-void tzmem_init(void);
-int init_storage(void);
-void tzio_link_init(void);
+int tzinfo_init(void);
+int tzinfo_fetch_info(char **buf);
 
-int sstransaction_init_early(void);
-int sstransaction_init(void);
-
-#endif /* SOURCE_TZDEV_INIT_H_ */
+#endif /* SOURCE_TZDEV_TZINFO_H_ */

@@ -31,6 +31,9 @@
 #include "sstransaction.h"
 #include "tzdev.h"
 #include "tzdev_internal.h"
+#include "tzlog_print.h"
+
+/* If you update this, also update sstransaction.h in Secure Kernel */
 
 #define SSTRANSACTION_CHANNEL_SSDEV			1
 

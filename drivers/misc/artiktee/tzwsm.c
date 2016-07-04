@@ -23,10 +23,10 @@
 #include <linux/uaccess.h>
 #include <linux/slab.h>
 #include "tzdev.h"
-#include "tzdev_internal.h"
 #include "tzpage.h"
 #include "tzdev_smc.h"
 #include "wsm.h"
+#include "tzlog_print.h"
 
 int tzswm_register_tzdev_memory(uint64_t ctx_id, struct page **pages,
 				size_t num_pages, gfp_t gfp, int for_kernel)

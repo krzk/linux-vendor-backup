@@ -94,6 +94,10 @@ int scm_watch(unsigned long devfn, unsigned long a0, unsigned long a1,
 	      unsigned long a2);
 int scm_register_phys_wsm(phys_addr_t arg_pfn);
 
+#ifdef CONFIG_FETCH_TEE_INFO
+int scm_fetch_tzinfo(int cmd, int arg);
+#endif /* !CONFIG_FETCH_TEE_INFO */
+
 #ifndef CONFIG_PSCI
 int scm_cpu_suspend(void);
 int scm_cpu_resume(void);
