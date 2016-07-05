@@ -1,4 +1,4 @@
-%define config_name odroidxu3_defconfig
+%define config_name tizen_odroid_defconfig
 %define buildarch arm
 %define target_board odroidxu3
 %define variant %{buildarch}-%{target_board}
