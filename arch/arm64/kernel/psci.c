@@ -279,7 +279,7 @@ static void psci_sys_poweroff(void)
 #ifdef CONFIG_SUSPEND
 static int psci_system_suspend(unsigned long unused)
 {
-	return invoke_psci_fn(PSCI_0_2_FN64_CPU_SUSPEND,
+	return invoke_psci_fn(PSCI_1_0_FN64_SYSTEM_SUSPEND,
 			      virt_to_phys(cpu_resume), 0, 0);
 }
 
