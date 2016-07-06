@@ -730,7 +730,7 @@ static const struct component_ops decon_component_ops = {
 	.unbind = decon_unbind,
 };
 
-static irqreturn_t decon_vsync_irq_handler(int irq, void *dev_id)
+static irqreturn_t decon_irq_handler(int irq, void *dev_id)
 {
 	struct decon_context *ctx = dev_id;
 	u32 val;
@@ -739,37 +739,11 @@ static irqreturn_t decon_vsync_irq_handler(int irq, void *dev_id)
 		goto out;
 
 	val = readl(ctx->addr + DECON_VIDINTCON1);
-	if (val & VIDINTCON1_INTFRMPEND) {
+	val &= ctx->i80_if ? VIDINTCON1_INTFRMDONEPEND : VIDINTCON1_INTFRMPEND;
+	if (val) {
+		writel(val, ctx->addr + DECON_VIDINTCON1);
 		drm_handle_vblank(ctx->drm_dev, ctx->pipe);
 		exynos_drm_crtc_finish_pageflip(ctx->drm_dev, ctx->pipe);
-
-		/* clear */
-		writel(VIDINTCON1_INTFRMPEND, ctx->addr + DECON_VIDINTCON1);
-	}
-
-out:
-	/* set wait vsync event to zero and wake up queue. */
-	if (atomic_read(&ctx->wait_vsync_event)) {
-		atomic_set(&ctx->wait_vsync_event, 0);
-		wake_up(&ctx->wait_vsync_queue);
-	}
-
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t decon_lcd_sys_irq_handler(int irq, void *dev_id)
-{
-	struct decon_context *ctx = dev_id;
-	u32 val;
-
-	if (!test_bit(BIT_CLKS_ENABLED, &ctx->enabled))
-		goto out;
-
-	val = readl(ctx->addr + DECON_VIDINTCON1);
-	if (val & VIDINTCON1_INTFRMDONEPEND) {
-		drm_handle_vblank(ctx->drm_dev, ctx->pipe);
-		exynos_drm_crtc_finish_pageflip(ctx->drm_dev, ctx->pipe);
-		writel(VIDINTCON1_INTFRMDONEPEND, ctx->addr + DECON_VIDINTCON1);
 	}
 
 out:
@@ -848,8 +822,7 @@ static int exynos5433_decon_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
-	ret = devm_request_irq(dev, res->start, ctx->i80_if ?
-			decon_lcd_sys_irq_handler : decon_vsync_irq_handler, 0,
+	ret = devm_request_irq(dev, res->start, decon_irq_handler, 0,
 			"drm_decon", ctx);
 	if (ret < 0) {
 		dev_err(dev, "lcd_sys irq request failed\n");
