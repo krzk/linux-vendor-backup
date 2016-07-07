@@ -13,6 +13,7 @@ check_ccache
 
 rm -f output/linux-*-exynos5433-arm64*.tar
 rm -f arch/arm64/boot/Image
+rm -f arch/arm64/boot/dts/exynos/*.dtb
 if ! [ -d output ] ; then
 	mkdir output
 fi
