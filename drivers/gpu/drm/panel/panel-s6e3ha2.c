@@ -280,6 +280,7 @@ struct s6e3ha2 {
 	u32 width_mm;
 	u32 height_mm;
 	u32 vr_mode;
+	bool hmt_mode;
 
 	/* This field is tested by functions directly accessing DSI bus before
 	 * transfer, transfer is skipped if it is set. In case of transfer
@@ -334,6 +335,18 @@ static void s6e3ha2_dcs_write(struct s6e3ha2 *ctx, const u8 cmd,
 	static const u8 d[] = { seq };\
 	s6e3ha2_dcs_write(ctx, c, d, ARRAY_SIZE(d));\
 })
+
+#define NSEQ(seq...) sizeof((char[]){ seq }), seq
+
+static void s6e3ha2__write_nseq(struct s6e3ha2 *ctx, const u8 *nseq)
+{
+	int count;
+
+	while ((count = *nseq++)) {
+		s6e3ha2_dcs_write(ctx, *nseq, nseq + 1, count - 1);
+		nseq += count;
+	}
+}
 
 static void s6e3ha2_test_key_on_f0(struct s6e3ha2 *ctx)
 {
@@ -456,6 +469,11 @@ static void s6e3ha2_gamma_update(struct s6e3ha2 *ctx)
 	s6e3ha2_dcs_write_seq_static(ctx, 0xf7, 0x03);
 }
 
+static void s6e3ha2_gamma_update_l(struct s6e3ha2 *ctx)
+{
+	s6e3ha2_dcs_write_seq_static(ctx, 0xf7, 0x00);
+}
+
 static void s6e3ha2_vr_enable(struct s6e3ha2 *ctx, int enable)
 {
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
@@ -532,8 +550,58 @@ static void s6e3ha2_update_gamma(struct s6e3ha2 *ctx, unsigned int brightness)
 		ctx->bl_dev->props.brightness = brightness;
 }
 
+static void s6e3ha2_set_hmt_gamma(struct s6e3ha2 *ctx)
+{
+	/* TODO */
+	s6e3ha2_dcs_write_seq_static(ctx,
+			0xca, 0x00, 0xf3, 0x00, 0xe6, 0x00, 0xf4, 0x86, 0x85,
+			0x85, 0x85, 0x85, 0x86, 0x88, 0x87, 0x88, 0x86, 0x84,
+			0x86, 0x83, 0x82, 0x85, 0x88, 0x86, 0x87, 0x8f, 0x93,
+			0x85, 0xa6, 0x90, 0xaa, 0x00, 0x00, 0x00, 0x00, 0x00);
+}
+
+static void s6e3ha2_set_hmt_aid_parameter_ctl(struct s6e3ha2 *ctx)
+{
+	/* TODO */
+	s6e3ha2_dcs_write_seq_static(ctx, 0xb2, 0x3, 0x13, 0x4);
+}
+
+static void s6e3ha2_set_hmt_elvss(struct s6e3ha2 *ctx)
+{
+	/* TODO */
+	s6e3ha2_dcs_write_seq_static(ctx, 0xb6, 0x9c, 0xa);
+}
+
+static void s6e3ha2_set_hmt_vint(struct s6e3ha2 *ctx)
+{
+	s6e3ha2_dcs_write_seq_static(ctx, 0xf4, 0x8b, 0x21);
+}
+
+static void s6e3ha2_set_hmt_brightness(struct s6e3ha2 *ctx)
+{
+	s6e3ha2_test_key_on_f0(ctx);
+	s6e3ha2_test_key_on_fc(ctx);
+
+	s6e3ha2_set_hmt_gamma(ctx);
+	s6e3ha2_set_hmt_aid_parameter_ctl(ctx);
+	s6e3ha2_set_hmt_elvss(ctx);
+	if (ctx->model == MODEL_1440)
+		s6e3ha2_set_hmt_vint(ctx);
+	s6e3ha2_gamma_update(ctx);
+	s6e3ha2_gamma_update_l(ctx);
+
+	s6e3ha2_test_key_off_fc(ctx);
+	s6e3ha2_test_key_off_f0(ctx);
+	/* TODO */
+}
+
 static void s6e3ha2_set_brightness(struct s6e3ha2 *ctx)
 {
+	if (ctx->hmt_mode) {
+		s6e3ha2_set_hmt_brightness(ctx);
+		return;
+	}
+
 	s6e3ha2_test_key_on_f0(ctx);
 	s6e3ha2_update_gamma(ctx, ctx->bl_dev->props.brightness);
 	s6e3ha2_aor_control(ctx);
@@ -692,6 +760,8 @@ static int s6e3ha2_prepare(struct drm_panel *panel)
 	return ret;
 }
 
+static void s6e3ha2_hmt_set(struct s6e3ha2 *ctx, bool enable);
+
 static int s6e3ha2_enable(struct drm_panel *panel)
 {
 	struct s6e3ha2 *ctx = panel_to_s6e3ha2(panel);
@@ -748,6 +818,9 @@ static int s6e3ha2_enable(struct drm_panel *panel)
 
 	if (ctx->vr_mode)
 		s6e3ha2_vr_enable(ctx, 1);
+
+	if (ctx->hmt_mode)
+		s6e3ha2_hmt_set(ctx, 1);
 
 	mutex_unlock(&ctx->lock);
 
@@ -867,6 +940,146 @@ out:
 
 static DEVICE_ATTR(vr, 0664, s6e3ha2_vr_show, s6e3ha2_vr_store);
 
+static void s6e3ha2_hmt_on(struct s6e3ha2 *ctx)
+{
+	static const u8 ha2_hmt_on[] = {
+		NSEQ(0xF2, 0x67, 0x41, 0xC5, 0x0A, 0x06),
+		NSEQ(0xB2, 0x03, 0x10, 0x00, 0x0A, 0x0A, 0x00),
+		NSEQ(0xF3, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10),
+		NSEQ(0x2B, 0x00, 0x00, 0x09, 0xFF),
+		NSEQ(0xCB,
+		     0x18, 0x11, 0x01, 0x00, 0x00, 0x24, 0x00, 0x00, 0xe1, 0x0B,
+		     0x01, 0x00, 0x00, 0x00, 0x02, 0x09, 0x00, 0x15, 0x98, 0x15,
+		     0x98, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10,
+		     0x00, 0x12, 0x8c, 0x00, 0x00, 0xca, 0x0a, 0x0a, 0x0a, 0xca,
+		     0x8a, 0xca, 0x0a, 0x0a, 0x0a, 0xc0, 0xc1, 0xc4, 0xc5, 0x42,
+		     0xc3, 0xca, 0xca, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a,
+		     0x0a, 0x0c),
+		0
+	};
+	static const u8 hf2_hmt_on[] = {
+		NSEQ(0xB0, 0x03),
+		NSEQ(0xF2, 0x0A, 0x06),
+		NSEQ(0xB0, 0x05),
+		NSEQ(0xB2, 0x00),
+		NSEQ(0xB0, 0x06),
+		NSEQ(0xF3, 0x10),
+		NSEQ(0x2B, 0x00, 0x00, 0x09, 0xFF),
+		NSEQ(0xB0, 0x09),
+		NSEQ(0xCB, 0x0B),
+		NSEQ(0xB0, 0x0F),
+		NSEQ(0xCB, 0x09),
+		NSEQ(0xB0, 0x1D),
+		NSEQ(0xCB, 0x10),
+		NSEQ(0xB0, 0x33),
+		NSEQ(0xCB, 0xCC),
+		0
+	};
+	static const u8 *hmt_on[] = { ha2_hmt_on, hf2_hmt_on };
+
+	s6e3ha2__write_nseq(ctx, hmt_on[ctx->model]);
+}
+
+static void s6e3ha2_hmt_off(struct s6e3ha2 *ctx)
+{
+	static const u8 ha2_hmt_off[] = {
+		NSEQ(0xF2, 0x67, 0x41, 0xC5, 0x06, 0x0A),
+		NSEQ(0xB2, 0x03, 0x10, 0x00, 0x0A, 0x0A, 0x40),
+		NSEQ(0xCB,
+		     0x18, 0x11, 0x01, 0x00, 0x00, 0x24, 0x00, 0x00, 0xe1, 0x09,
+		     0x01, 0x00, 0x00, 0x00, 0x02, 0x05, 0x00, 0x15, 0x98, 0x15,
+		     0x98, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		     0x00, 0x12, 0x8c, 0x00, 0x00, 0xca, 0x0a, 0x0a, 0x0a, 0xca,
+		     0x8a, 0xca, 0x0a, 0x0a, 0x0a, 0xc0, 0xc1, 0xc4, 0xc5, 0x42,
+		     0xc3, 0xca, 0xca, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a,
+		     0x0a, 0x0b),
+		0
+	};
+	static const u8 hf2_hmt_off[] = {
+		NSEQ(0xB0, 0x03),
+		NSEQ(0xF2, 0x06, 0x0A),
+		NSEQ(0xB0, 0x05),
+		NSEQ(0xB2, 0x40),
+		NSEQ(0xB0, 0x09),
+		NSEQ(0xCB, 0x09),
+		NSEQ(0xB0, 0x0F),
+		NSEQ(0xCB, 0x05),
+		NSEQ(0xB0, 0x1D),
+		NSEQ(0xCB, 0x00),
+		NSEQ(0xB0, 0x33),
+		NSEQ(0xCB, 0xCB),
+		0
+	};
+	static const u8 *hmt_off[] = { ha2_hmt_off, hf2_hmt_off };
+
+	s6e3ha2__write_nseq(ctx, hmt_off[ctx->model]);
+}
+
+static void s6e3ha2_hmt_set(struct s6e3ha2 *ctx, bool enable)
+{
+	if (ctx->bl_dev->props.power != FB_BLANK_UNBLANK)
+		return;
+
+	ctx->hmt_mode = enable;
+
+	s6e3ha2_test_key_on_f0(ctx);
+	s6e3ha2_test_key_on_fc(ctx);
+
+	if (ctx->model != MODEL_1440) {
+		s6e3ha2_dcs_write_seq_static(ctx, MIPI_DCS_SET_TEAR_OFF);
+		usleep_range(17000, 20000);
+	}
+
+	if (enable)
+		s6e3ha2_hmt_on(ctx);
+	else
+		s6e3ha2_hmt_off(ctx);
+
+	if (ctx->model != MODEL_1440)
+		s6e3ha2_dcs_write_seq_static(ctx, MIPI_DCS_SET_TEAR_ON,
+					     MIPI_DSI_DCS_TEAR_MODE_VBLANK);
+
+	s6e3ha2_test_key_off_fc(ctx);
+	s6e3ha2_test_key_off_f0(ctx);
+
+	s6e3ha2_set_brightness(ctx);
+}
+
+static ssize_t s6e3ha2_hmt_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct s6e3ha2 *ctx = dev_get_drvdata(dev);
+
+	sprintf(buf, "%d\n", ctx->hmt_mode);
+
+	return strlen(buf);
+}
+
+static ssize_t s6e3ha2_hmt_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct s6e3ha2 *ctx = dev_get_drvdata(dev);
+	int ret, value;
+
+	ret = kstrtoint(buf, 0, &value);
+	if (ret < 0)
+		return ret;
+
+	if (value < 0 || value > 1)
+		return -ERANGE;
+
+	mutex_lock(&ctx->lock);
+
+	if (ctx->hmt_mode != value)
+		s6e3ha2_hmt_set(ctx, value);
+
+	mutex_unlock(&ctx->lock);
+
+	return size;
+}
+
+static DEVICE_ATTR(hmt, 0664, s6e3ha2_hmt_show, s6e3ha2_hmt_store);
+
 static int s6e3ha2_probe(struct mipi_dsi_device *dsi)
 {
 	struct device *dev = &dsi->dev;
@@ -937,6 +1150,12 @@ static int s6e3ha2_probe(struct mipi_dsi_device *dsi)
 		goto unregister_backlight;
 	}
 
+	ret = device_create_file(dev, &dev_attr_hmt);
+	if (ret) {
+		dev_err(dev, "failed to create hmt sysfs file.\n");
+		goto remove_vr;
+	}
+
 	ctx->bl_dev->props.max_brightness = MAX_BRIGHTNESS;
 	ctx->bl_dev->props.brightness = DEFAULT_BRIGHTNESS;
 	ctx->bl_dev->props.power = FB_BLANK_POWERDOWN;
@@ -947,7 +1166,7 @@ static int s6e3ha2_probe(struct mipi_dsi_device *dsi)
 
 	ret = drm_panel_add(&ctx->panel);
 	if (ret < 0)
-		goto remove_sysfs;
+		goto remove_hmt;
 
 	ret = mipi_dsi_attach(dsi);
 	if (ret < 0)
@@ -958,7 +1177,10 @@ static int s6e3ha2_probe(struct mipi_dsi_device *dsi)
 remove_panel:
 	drm_panel_remove(&ctx->panel);
 
-remove_sysfs:
+remove_hmt:
+	device_remove_file(dev, &dev_attr_hmt);
+
+remove_vr:
 	device_remove_file(dev, &dev_attr_vr);
 
 unregister_backlight:
