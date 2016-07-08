@@ -532,37 +532,49 @@ static void s6e3ha2_update_gamma(struct s6e3ha2 *ctx, unsigned int brightness)
 		ctx->bl_dev->props.brightness = brightness;
 }
 
-static int s6e3ha2_set_brightness(struct backlight_device *bl_dev)
+static void s6e3ha2_set_brightness(struct s6e3ha2 *ctx)
+{
+	s6e3ha2_test_key_on_f0(ctx);
+	s6e3ha2_update_gamma(ctx, ctx->bl_dev->props.brightness);
+	s6e3ha2_aor_control(ctx);
+	s6e3ha2_set_vint(ctx);
+	s6e3ha2_test_key_off_f0(ctx);
+}
+
+static int s6e3ha2_bl_update_status(struct backlight_device *bl_dev)
 {
 	struct s6e3ha2 *ctx = (struct s6e3ha2 *)bl_get_data(bl_dev);
 	unsigned int brightness = bl_dev->props.brightness;
 	int ret;
 
+	mutex_lock(&ctx->lock);
+
 	if (brightness < MIN_BRIGHTNESS ||
 		brightness > bl_dev->props.max_brightness) {
 		dev_err(ctx->dev, "Invalid brightness: %u\n", brightness);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto end;
 	}
 
 	if (bl_dev->props.power > FB_BLANK_NORMAL) {
 		dev_err(ctx->dev,
 			"panel must be at least in fb blank normal state\n");
-		return -EPERM;
+		ret = -EPERM;
+		goto end;
 	}
 
-	s6e3ha2_test_key_on_f0(ctx);
-	s6e3ha2_update_gamma(ctx, brightness);
-	s6e3ha2_aor_control(ctx);
-	s6e3ha2_set_vint(ctx);
+	s6e3ha2_set_brightness(ctx);
+	ret = s6e3ha2_clear_error(ctx);
 
-	s6e3ha2_test_key_off_f0(ctx);
+end:
+	mutex_unlock(&ctx->lock);
 
-	return 0;
+	return ret;
 }
 
 static const struct backlight_ops s6e3ha2_bl_ops = {
 	.get_brightness = s6e3ha2_get_brightness,
-	.update_status = s6e3ha2_set_brightness,
+	.update_status = s6e3ha2_bl_update_status,
 };
 
 static void s6e3ha2_panel_init(struct s6e3ha2 *ctx)
@@ -715,7 +727,7 @@ static int s6e3ha2_enable(struct drm_panel *panel)
 
 
 	/* brightness setting */
-	s6e3ha2_set_brightness(ctx->bl_dev);
+	s6e3ha2_set_brightness(ctx);
 	s6e3ha2_aor_control(ctx);
 	s6e3ha2_caps_elvss_set(ctx);
 	s6e3ha2_gamma_update(ctx);
