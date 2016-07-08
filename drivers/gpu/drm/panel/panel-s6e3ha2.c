@@ -623,6 +623,7 @@ err:
 static int s6e3ha2_unprepare(struct drm_panel *panel)
 {
 	struct s6e3ha2 *ctx = panel_to_s6e3ha2(panel);
+	int ret;
 
 	/*
 	 * This function is called by mipi dsi driver
@@ -635,17 +636,13 @@ static int s6e3ha2_unprepare(struct drm_panel *panel)
 	}
 
 	s6e3ha2_power_off(ctx);
-	if (ctx->error != 0) {
-		mutex_unlock(&ctx->lock);
-		return ctx->error;
-	}
-
-	s6e3ha2_clear_error(ctx);
-	ctx->bl_dev->props.power = FB_BLANK_POWERDOWN;
+	ret = s6e3ha2_clear_error(ctx);
+	if (!ret)
+		ctx->bl_dev->props.power = FB_BLANK_POWERDOWN;
 
 	mutex_unlock(&ctx->lock);
 
-	return 0;
+	return ret;
 }
 
 static int s6e3ha2_power_on(struct s6e3ha2 *ctx)
