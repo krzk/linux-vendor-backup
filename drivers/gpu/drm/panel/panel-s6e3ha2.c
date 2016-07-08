@@ -303,9 +303,12 @@ static inline struct s6e3ha2 *panel_to_s6e3ha2(struct drm_panel *panel)
 	return container_of(panel, struct s6e3ha2, panel);
 }
 
-static void s6e3ha2_clear_error(struct s6e3ha2 *ctx)
+static int s6e3ha2_clear_error(struct s6e3ha2 *ctx)
 {
+	int ret = ctx->error;
+
 	ctx->error = 0;
+	return ret;
 }
 
 static void s6e3ha2_dcs_write(struct s6e3ha2 *ctx, const u8 cmd,
