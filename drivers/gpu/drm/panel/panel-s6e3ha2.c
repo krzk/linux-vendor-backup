@@ -521,24 +521,15 @@ static unsigned int s6e3ha2_get_brightness_index(unsigned int brightness)
 	return (brightness * (NUM_GAMMA_STEPS - 1)) / MAX_BRIGHTNESS;
 }
 
-static int s6e3ha2_update_gamma(struct s6e3ha2 *ctx,
-					unsigned int brightness)
+static void s6e3ha2_update_gamma(struct s6e3ha2 *ctx, unsigned int brightness)
 {
-	struct backlight_device *bl_dev = ctx->bl_dev;
-	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
 	unsigned int index = s6e3ha2_get_brightness_index(brightness);
-	int ret;
 
-	ret = mipi_dsi_dcs_write(dsi, 0xca, gamma_tbl[index],
-							GAMMA_CMD_CNT);
-	if (ret < 0)
-		return ret;
-
+	s6e3ha2_dcs_write(ctx, 0xca, gamma_tbl[index], GAMMA_CMD_CNT);
 	s6e3ha2_gamma_update(ctx);
 
-	bl_dev->props.brightness = brightness;
-
-	return 0;
+	if (!ctx->error)
+		ctx->bl_dev->props.brightness = brightness;
 }
 
 static int s6e3ha2_set_brightness(struct backlight_device *bl_dev)
@@ -560,9 +551,7 @@ static int s6e3ha2_set_brightness(struct backlight_device *bl_dev)
 	}
 
 	s6e3ha2_test_key_on_f0(ctx);
-	ret = s6e3ha2_update_gamma(ctx, brightness);
-	if (ret < 0)
-		return ret;
+	s6e3ha2_update_gamma(ctx, brightness);
 	s6e3ha2_aor_control(ctx);
 	s6e3ha2_set_vint(ctx);
 
