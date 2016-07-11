@@ -16,11 +16,11 @@
  *
  *********************************************************/
 
-#ifndef TRUSTZONE_REE_SOURCE_TZDEV_TZDEV_PLAT_H_
-#define TRUSTZONE_REE_SOURCE_TZDEV_TZDEV_PLAT_H_
+#ifndef __TRUSTZONE_REE_SOURCE_TZDEV_TZDEV_PLAT_H__
+#define __TRUSTZONE_REE_SOURCE_TZDEV_TZDEV_PLAT_H__
 
 int plat_init(void);
 int plat_preprocess(void);
 int plat_postprocess(void);
 
-#endif /* TRUSTZONE_REE_SOURCE_TZDEV_TZDEV_PLAT_H_ */
+#endif /* __TRUSTZONE_REE_SOURCE_TZDEV_TZDEV_PLAT_H__ */

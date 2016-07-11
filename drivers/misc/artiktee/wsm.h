@@ -16,8 +16,8 @@
  *
  *********************************************************/
 
-#ifndef TRUSTZONE_SHARED_INCLUDE_TRUSTWAREOS_PRIVATE_WSM_H_
-#define TRUSTZONE_SHARED_INCLUDE_TRUSTWAREOS_PRIVATE_WSM_H_
+#ifndef __TRUSTZONE_SHARED_INCLUDE_TRUSTWAREOS_PRIVATE_WSM_H__
+#define __TRUSTZONE_SHARED_INCLUDE_TRUSTWAREOS_PRIVATE_WSM_H__
 
 typedef uint64_t		ns_phys_addr_t;
 
@@ -33,4 +33,4 @@ struct ns_level_registration {
 
 #define NS_WSM_FLAG_KERNEL		1
 
-#endif /* TRUSTZONE_SHARED_INCLUDE_TRUSTWAREOS_PRIVATE_WSM_H_ */
+#endif /* __TRUSTZONE_SHARED_INCLUDE_TRUSTWAREOS_PRIVATE_WSM_H__ */
