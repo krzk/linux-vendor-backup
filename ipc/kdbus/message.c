@@ -229,8 +229,6 @@ exit:
 static struct file *kdbus_get_fd(int fd)
 {
 	struct file *f, *ret;
-	struct inode *inode;
-	struct socket *sock;
 
 	if (fd < 0)
 		return ERR_PTR(-EBADF);
@@ -239,15 +237,10 @@ static struct file *kdbus_get_fd(int fd)
 	if (!f)
 		return ERR_PTR(-EBADF);
 
-	inode = file_inode(f);
-	sock = S_ISSOCK(inode->i_mode) ? SOCKET_I(inode) : NULL;
-
 	if (f->f_mode & FMODE_PATH)
 		ret = f; /* O_PATH is always allowed */
 	else if (f->f_op == &kdbus_handle_ops)
 		ret = ERR_PTR(-EOPNOTSUPP); /* disallow kdbus-fd over kdbus */
-	else if (sock && sock->sk && sock->ops && sock->ops->family == PF_UNIX)
-		ret = ERR_PTR(-EOPNOTSUPP); /* disallow UDS over kdbus */
 	else
 		ret = f; /* all other are allowed */
 
