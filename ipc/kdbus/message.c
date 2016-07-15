@@ -169,9 +169,6 @@ exit:
 
 static int kdbus_handle_check_file(struct file *file)
 {
-	struct inode *inode = file_inode(file);
-	struct socket *sock;
-
 	/*
 	 * Don't allow file descriptors in the transport that themselves allow
 	 * file descriptor queueing. This will eventually be allowed once both
@@ -179,16 +176,6 @@ static int kdbus_handle_check_file(struct file *file)
 	 */
 
 	if (file->f_op == &kdbus_handle_ops)
-		return -EOPNOTSUPP;
-
-	if (!S_ISSOCK(inode->i_mode))
-		return 0;
-
-	if (file->f_mode & FMODE_PATH)
-		return 0;
-
-	sock = SOCKET_I(inode);
-	if (sock->sk && sock->ops && sock->ops->family == PF_UNIX)
 		return -EOPNOTSUPP;
 
 	return 0;
