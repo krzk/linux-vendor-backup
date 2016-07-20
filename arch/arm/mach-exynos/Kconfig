@@ -357,7 +357,6 @@ choice
 	prompt "Lock maximum G3D frequency"
 	default EXYNOS_MAX_G3DFREQ_266
 	depends on SOC_EXYNOS3250
-	depends on MALI_VER_R4P0_REL0
 	help
 	 It limits maximum frequency of MALI G3D to the provided value.
 
