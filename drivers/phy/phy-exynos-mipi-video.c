@@ -67,14 +67,6 @@ struct exynos_mipi_phy {
 	} phys[EXYNOS_MIPI_PHYS_NUM];
 };
 
-static int __is_running(const struct exynos_mipi_phy_desc *data,
-			struct exynos_mipi_phy *state)
-{
-	u32 val;
-	regmap_read(state->regmaps[data->reset_map], data->reset_reg, &val);
-	return val & data->reset_val;
-}
-
 static int __set_phy_state(const struct exynos_mipi_phy_desc *data,
 			   struct exynos_mipi_phy *state, unsigned int on)
 {
@@ -84,7 +76,7 @@ static int __set_phy_state(const struct exynos_mipi_phy_desc *data,
 
 	/* PHY PMU disable */
 	if (!on && data->coupled_id >= 0 &&
-	    !__is_running(state->phys[data->coupled_id].data, state)) {
+	    state->phys[data->coupled_id].phy->power_count == 0) {
 		regmap_read(state->regmaps[data->enable_map], data->enable_reg,
 			    &val);
 		val &= ~data->enable_val;
