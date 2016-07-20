@@ -1,9 +1,9 @@
 /*
- * Copyright (C) 2011-2012 ARM Limited. All rights reserved.
- *
+ * Copyright (C) 2010-2014, 2016 ARM Limited. All rights reserved.
+ * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- *
+ * 
  * A copy of the licence is included with the program, and can also be obtained from Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
@@ -13,321 +13,275 @@
  * Implemenation of the OS abstraction layer for the kernel device driver
  */
 
-#include <linux/spinlock.h>
-#include <linux/rwsem.h>
-#include <linux/mutex.h>
-
-#include <linux/slab.h>
-
-#include "mali_osk.h"
+#include "mali_osk_locks.h"
 #include "mali_kernel_common.h"
+#include "mali_osk.h"
 
-/* These are all the locks we implement: */
-typedef enum
-{
-	_MALI_OSK_INTERNAL_LOCKTYPE_SPIN,            /* Mutex, implicitly non-interruptable, use spin_lock/spin_unlock */
-	_MALI_OSK_INTERNAL_LOCKTYPE_SPIN_IRQ,        /* Mutex, IRQ version of spinlock, use spin_lock_irqsave/spin_unlock_irqrestore */
-	_MALI_OSK_INTERNAL_LOCKTYPE_MUTEX,           /* Interruptable, use mutex_unlock()/down_interruptable() */
-	_MALI_OSK_INTERNAL_LOCKTYPE_MUTEX_NONINT,    /* Non-Interruptable, use mutex_unlock()/down() */
-	_MALI_OSK_INTERNAL_LOCKTYPE_MUTEX_NONINT_RW, /* Non-interruptable, Reader/Writer, use {mutex_unlock,down}{read,write}() */
-
-	/* Linux supports, but we do not support:
-	 * Non-Interruptable Reader/Writer spinlock mutexes - RW optimization will be switched off
-	 */
-
-	/* Linux does not support:
-	 * One-locks, of any sort - no optimization for this fact will be made.
-	 */
-
-} _mali_osk_internal_locktype;
-
-struct _mali_osk_lock_t_struct
-{
-    _mali_osk_internal_locktype type;
-	unsigned long flags;
-    union
-    {
-        spinlock_t spinlock;
-	struct mutex mutex;
-        struct rw_semaphore rw_sema;
-    } obj;
-	MALI_DEBUG_CODE(
-				  /** original flags for debug checking */
-				  _mali_osk_lock_flags_t orig_flags;
-
-				  /* id of the thread currently holding this lock, 0 if no
-				   * threads hold it. */
-				  u32 owner;
-				  /* number of owners this lock currently has (can be > 1 if
-				   * taken in R/O mode. */
-				  u32 nOwners;
-				  /* what mode the lock was taken in */
-				  _mali_osk_lock_mode_t mode;
-	); /* MALI_DEBUG_CODE */
-};
-
-_mali_osk_lock_t *_mali_osk_lock_init( _mali_osk_lock_flags_t flags, u32 initial, u32 order )
-{
-    _mali_osk_lock_t *lock = NULL;
-
-	/* Validate parameters: */
-	/* Flags acceptable */
-	MALI_DEBUG_ASSERT( 0 == ( flags & ~(_MALI_OSK_LOCKFLAG_SPINLOCK
-                                      | _MALI_OSK_LOCKFLAG_SPINLOCK_IRQ
-                                      | _MALI_OSK_LOCKFLAG_NONINTERRUPTABLE
-                                      | _MALI_OSK_LOCKFLAG_READERWRITER
-                                      | _MALI_OSK_LOCKFLAG_ORDERED
-                                      | _MALI_OSK_LOCKFLAG_ONELOCK )) );
-	/* Spinlocks are always non-interruptable */
-	MALI_DEBUG_ASSERT( (((flags & _MALI_OSK_LOCKFLAG_SPINLOCK) || (flags & _MALI_OSK_LOCKFLAG_SPINLOCK_IRQ)) && (flags & _MALI_OSK_LOCKFLAG_NONINTERRUPTABLE))
-					 || !(flags & _MALI_OSK_LOCKFLAG_SPINLOCK));
-	/* Parameter initial SBZ - for future expansion */
-	MALI_DEBUG_ASSERT( 0 == initial );
-
-	lock = kmalloc(sizeof(_mali_osk_lock_t), GFP_KERNEL);
-
-	if ( NULL == lock )
-	{
-		return lock;
-	}
-
-	/* Determine type of mutex: */
-    /* defaults to interruptable mutex if no flags are specified */
-
-	if ( (flags & _MALI_OSK_LOCKFLAG_SPINLOCK) )
-	{
-		/* Non-interruptable Spinlocks override all others */
-		lock->type = _MALI_OSK_INTERNAL_LOCKTYPE_SPIN;
-		spin_lock_init( &lock->obj.spinlock );
-	}
-	else if ( (flags & _MALI_OSK_LOCKFLAG_SPINLOCK_IRQ ) )
-	{
-		lock->type = _MALI_OSK_INTERNAL_LOCKTYPE_SPIN_IRQ;
-		lock->flags = 0;
-		spin_lock_init( &lock->obj.spinlock );
-	}
-	else if ( (flags & _MALI_OSK_LOCKFLAG_NONINTERRUPTABLE)
-			  && (flags & _MALI_OSK_LOCKFLAG_READERWRITER) )
-	{
-		lock->type = _MALI_OSK_INTERNAL_LOCKTYPE_MUTEX_NONINT_RW;
-		init_rwsem( &lock->obj.rw_sema );
-	}
-	else
-	{
-		/* Usual mutex types */
-		if ( (flags & _MALI_OSK_LOCKFLAG_NONINTERRUPTABLE) )
-		{
-			lock->type = _MALI_OSK_INTERNAL_LOCKTYPE_MUTEX_NONINT;
-		}
-		else
-		{
-			lock->type = _MALI_OSK_INTERNAL_LOCKTYPE_MUTEX;
-		}
-
-		/* Initially unlocked */
-		mutex_init(&lock->obj.mutex);
-	}
 
 #ifdef DEBUG
-	/* Debug tracking of flags */
-	lock->orig_flags = flags;
+#ifdef LOCK_ORDER_CHECKING
+static DEFINE_SPINLOCK(lock_tracking_lock);
+static mali_bool add_lock_to_log_and_check(struct _mali_osk_lock_debug_s *lock, uint32_t tid);
+static void remove_lock_from_log(struct _mali_osk_lock_debug_s *lock, uint32_t tid);
+static const char *const lock_order_to_string(_mali_osk_lock_order_t order);
+#endif /* LOCK_ORDER_CHECKING */
 
-	/* Debug tracking of lock owner */
-	lock->owner = 0;
-	lock->nOwners = 0;
-#endif /* DEBUG */
+void _mali_osk_locks_debug_init(struct _mali_osk_lock_debug_s *checker, _mali_osk_lock_flags_t flags, _mali_osk_lock_order_t order)
+{
+	checker->orig_flags = flags;
+	checker->owner = 0;
 
-    return lock;
+#ifdef LOCK_ORDER_CHECKING
+	checker->order = order;
+	checker->next = NULL;
+#endif
 }
 
-#ifdef DEBUG
-u32 _mali_osk_lock_get_owner( _mali_osk_lock_t *lock )
+void _mali_osk_locks_debug_add(struct _mali_osk_lock_debug_s *checker)
 {
-	return lock->owner;
-}
+	checker->owner = _mali_osk_get_tid();
 
-u32 _mali_osk_lock_get_number_owners( _mali_osk_lock_t *lock )
-{
-	return lock->nOwners;
-}
-
-u32 _mali_osk_lock_get_mode( _mali_osk_lock_t *lock )
-{
-	return lock->mode;
-}
-#endif /* DEBUG */
-
-_mali_osk_errcode_t _mali_osk_lock_wait( _mali_osk_lock_t *lock, _mali_osk_lock_mode_t mode)
-{
-    _mali_osk_errcode_t err = _MALI_OSK_ERR_OK;
-
-	/* Parameter validation */
-	MALI_DEBUG_ASSERT_POINTER( lock );
-
-	MALI_DEBUG_ASSERT( _MALI_OSK_LOCKMODE_RW == mode
-					 || _MALI_OSK_LOCKMODE_RO == mode );
-
-	/* Only allow RO locks when the initial object was a Reader/Writer lock
-	 * Since information is lost on the internal locktype, we use the original
-	 * information, which is only stored when built for DEBUG */
-	MALI_DEBUG_ASSERT( _MALI_OSK_LOCKMODE_RW == mode
-					 || (_MALI_OSK_LOCKMODE_RO == mode && (_MALI_OSK_LOCKFLAG_READERWRITER & lock->orig_flags)) );
-
-	switch ( lock->type )
-	{
-	case _MALI_OSK_INTERNAL_LOCKTYPE_SPIN:
-		spin_lock(&lock->obj.spinlock);
-		break;
-	case _MALI_OSK_INTERNAL_LOCKTYPE_SPIN_IRQ:
-		{
-			unsigned long tmp_flags;
-			spin_lock_irqsave(&lock->obj.spinlock, tmp_flags);
-			lock->flags = tmp_flags;
-		}
-		break;
-
-	case _MALI_OSK_INTERNAL_LOCKTYPE_MUTEX:
-		if (mutex_lock_interruptible(&lock->obj.mutex))
-		{
-			MALI_PRINT_ERROR(("Can not lock mutex\n"));
-			err = _MALI_OSK_ERR_RESTARTSYSCALL;
-		}
-		break;
-
-	case _MALI_OSK_INTERNAL_LOCKTYPE_MUTEX_NONINT:
-		mutex_lock(&lock->obj.mutex);
-		break;
-
-	case _MALI_OSK_INTERNAL_LOCKTYPE_MUTEX_NONINT_RW:
-		if (mode == _MALI_OSK_LOCKMODE_RO)
-        {
-            down_read(&lock->obj.rw_sema);
-        }
-        else
-        {
-            down_write(&lock->obj.rw_sema);
-        }
-		break;
-
-	default:
-		/* Reaching here indicates a programming error, so you will not get here
-		 * on non-DEBUG builds */
-		MALI_DEBUG_PRINT_ERROR( ("Invalid internal lock type: %.8X", lock->type ) );
-		break;
-	}
-
-#ifdef DEBUG
-	/* This thread is now the owner of this lock */
-	if (_MALI_OSK_ERR_OK == err)
-	{
-		if (mode == _MALI_OSK_LOCKMODE_RW)
-		{
-			/*MALI_DEBUG_ASSERT(0 == lock->owner);*/
-			if (0 != lock->owner)
-			{
-				printk(KERN_ERR "%d: ERROR: Lock %p already has owner %d\n", _mali_osk_get_tid(), lock, lock->owner);
-				dump_stack();
-			}
-			lock->owner = _mali_osk_get_tid();
-			lock->mode = mode;
-			++lock->nOwners;
-		}
-		else /* mode == _MALI_OSK_LOCKMODE_RO */
-		{
-			lock->owner |= _mali_osk_get_tid();
-			lock->mode = mode;
-			++lock->nOwners;
+#ifdef LOCK_ORDER_CHECKING
+	if (!(checker->orig_flags & _MALI_OSK_LOCKFLAG_UNORDERED)) {
+		if (!add_lock_to_log_and_check(checker, _mali_osk_get_tid())) {
+			printk(KERN_ERR "%d: ERROR lock %p taken while holding a lock of a higher order.\n",
+			       _mali_osk_get_tid(), checker);
+			dump_stack();
 		}
 	}
 #endif
-
-    return err;
 }
 
-void _mali_osk_lock_signal( _mali_osk_lock_t *lock, _mali_osk_lock_mode_t mode )
+void _mali_osk_locks_debug_remove(struct _mali_osk_lock_debug_s *checker)
 {
-	/* Parameter validation */
-	MALI_DEBUG_ASSERT_POINTER( lock );
 
-	MALI_DEBUG_ASSERT( _MALI_OSK_LOCKMODE_RW == mode
-					 || _MALI_OSK_LOCKMODE_RO == mode );
-
-	/* Only allow RO locks when the initial object was a Reader/Writer lock
-	 * Since information is lost on the internal locktype, we use the original
-	 * information, which is only stored when built for DEBUG */
-	MALI_DEBUG_ASSERT( _MALI_OSK_LOCKMODE_RW == mode
-					 || (_MALI_OSK_LOCKMODE_RO == mode && (_MALI_OSK_LOCKFLAG_READERWRITER & lock->orig_flags)) );
-
-#ifdef DEBUG
-	/* make sure the thread releasing the lock actually was the owner */
-	if (mode == _MALI_OSK_LOCKMODE_RW)
-	{
-		/*MALI_DEBUG_ASSERT(_mali_osk_get_tid() == lock->owner);*/
-		if (_mali_osk_get_tid() != lock->owner)
-		{
-			printk(KERN_ERR "%d: ERROR: Lock %p owner was %d\n", _mali_osk_get_tid(), lock, lock->owner);
-			dump_stack();
-		}
-		/* This lock now has no owner */
-		lock->owner = 0;
-		--lock->nOwners;
+#ifdef LOCK_ORDER_CHECKING
+	if (!(checker->orig_flags & _MALI_OSK_LOCKFLAG_UNORDERED)) {
+		remove_lock_from_log(checker, _mali_osk_get_tid());
 	}
-	else /* mode == _MALI_OSK_LOCKMODE_RO */
-	{
-		if ((_mali_osk_get_tid() & lock->owner) != _mali_osk_get_tid())
-		{
-			printk(KERN_ERR "%d: ERROR: Not an owner of %p lock.\n", _mali_osk_get_tid(), lock);
-			dump_stack();
-		}
+#endif
+	checker->owner = 0;
+}
 
-		/* if this is the last thread holding this lock in R/O mode, set owner
-		 * back to 0 */
-		if (0 == --lock->nOwners)
-		{
-			lock->owner = 0;
-		}
+
+#ifdef LOCK_ORDER_CHECKING
+/* Lock order checking
+ * -------------------
+ *
+ * To assure that lock ordering scheme defined by _mali_osk_lock_order_t is strictly adhered to, the
+ * following function will, together with a linked list and some extra members in _mali_osk_lock_debug_s,
+ * make sure that a lock that is taken has a higher order than the current highest-order lock a
+ * thread holds.
+ *
+ * This is done in the following manner:
+ * - A linked list keeps track of locks held by a thread.
+ * - A `next' pointer is added to each lock. This is used to chain the locks together.
+ * - When taking a lock, the `add_lock_to_log_and_check' makes sure that taking
+ *   the given lock is legal. It will follow the linked list  to find the last
+ *   lock taken by this thread. If the last lock's order was lower than the
+ *   lock that is to be taken, it appends the new lock to the list and returns
+ *   true, if not, it return false. This return value is assert()'ed on in
+ *   _mali_osk_lock_wait().
+ */
+
+static struct _mali_osk_lock_debug_s *lock_lookup_list;
+
+static void dump_lock_tracking_list(void)
+{
+	struct _mali_osk_lock_debug_s *l;
+	u32 n = 1;
+
+	/* print list for debugging purposes */
+	l = lock_lookup_list;
+
+	while (NULL != l) {
+		printk(" [lock: %p, tid_owner: %d, order: %d] ->", l, l->owner, l->order);
+		l = l->next;
+		MALI_DEBUG_ASSERT(n++ < 100);
 	}
-#endif /* DEBUG */
+	printk(" NULL\n");
+}
 
-	switch ( lock->type )
-	{
-	case _MALI_OSK_INTERNAL_LOCKTYPE_SPIN:
-		spin_unlock(&lock->obj.spinlock);
-		break;
-	case _MALI_OSK_INTERNAL_LOCKTYPE_SPIN_IRQ:
-		spin_unlock_irqrestore(&lock->obj.spinlock, lock->flags);
-		break;
+static int tracking_list_length(void)
+{
+	struct _mali_osk_lock_debug_s *l;
+	u32 n = 0;
+	l = lock_lookup_list;
 
-	case _MALI_OSK_INTERNAL_LOCKTYPE_MUTEX:
-		/* FALLTHROUGH */
-	case _MALI_OSK_INTERNAL_LOCKTYPE_MUTEX_NONINT:
-		mutex_unlock(&lock->obj.mutex);
-		break;
+	while (NULL != l) {
+		l = l->next;
+		n++;
+		MALI_DEBUG_ASSERT(n < 100);
+	}
+	return n;
+}
 
-	case _MALI_OSK_INTERNAL_LOCKTYPE_MUTEX_NONINT_RW:
-		if (mode == _MALI_OSK_LOCKMODE_RO)
-        {
-            up_read(&lock->obj.rw_sema);
-        }
-        else
-        {
-            up_write(&lock->obj.rw_sema);
-        }
-		break;
+static mali_bool add_lock_to_log_and_check(struct _mali_osk_lock_debug_s *lock, uint32_t tid)
+{
+	mali_bool ret = MALI_FALSE;
+	_mali_osk_lock_order_t highest_order_for_tid = _MALI_OSK_LOCK_ORDER_FIRST;
+	struct _mali_osk_lock_debug_s *highest_order_lock = (struct _mali_osk_lock_debug_s *)0xbeefbabe;
+	struct _mali_osk_lock_debug_s *l;
+	unsigned long local_lock_flag;
+	u32 len;
 
+	spin_lock_irqsave(&lock_tracking_lock, local_lock_flag);
+	len = tracking_list_length();
+
+	l  = lock_lookup_list;
+	if (NULL == l) { /* This is the first lock taken by this thread -- record and return true */
+		lock_lookup_list = lock;
+		spin_unlock_irqrestore(&lock_tracking_lock, local_lock_flag);
+		return MALI_TRUE;
+	} else {
+		/* Traverse the locks taken and find the lock of the highest order.
+		 * Since several threads may hold locks, each lock's owner must be
+		 * checked so that locks not owned by this thread can be ignored. */
+		for (;;) {
+			MALI_DEBUG_ASSERT_POINTER(l);
+			if (tid == l->owner && l->order >= highest_order_for_tid) {
+				highest_order_for_tid = l->order;
+				highest_order_lock = l;
+			}
+
+			if (NULL != l->next) {
+				l = l->next;
+			} else {
+				break;
+			}
+		}
+
+		l->next = lock;
+		l->next = NULL;
+	}
+
+	/* We have now found the highest order lock currently held by this thread and can see if it is
+	 * legal to take the requested lock. */
+	ret = highest_order_for_tid < lock->order;
+
+	if (!ret) {
+		printk(KERN_ERR "Took lock of order %d (%s) while holding lock of order %d (%s)\n",
+		       lock->order, lock_order_to_string(lock->order),
+		       highest_order_for_tid, lock_order_to_string(highest_order_for_tid));
+		dump_lock_tracking_list();
+	}
+
+	if (len + 1 != tracking_list_length()) {
+		printk(KERN_ERR "************ lock: %p\n", lock);
+		printk(KERN_ERR "************ before: %d *** after: %d ****\n", len, tracking_list_length());
+		dump_lock_tracking_list();
+		MALI_DEBUG_ASSERT_POINTER(NULL);
+	}
+
+	spin_unlock_irqrestore(&lock_tracking_lock, local_lock_flag);
+	return ret;
+}
+
+static void remove_lock_from_log(struct _mali_osk_lock_debug_s *lock, uint32_t tid)
+{
+	struct _mali_osk_lock_debug_s *curr;
+	struct _mali_osk_lock_debug_s *prev = NULL;
+	unsigned long local_lock_flag;
+	u32 len;
+	u32 n = 0;
+
+	spin_lock_irqsave(&lock_tracking_lock, local_lock_flag);
+	len = tracking_list_length();
+	curr = lock_lookup_list;
+
+	if (NULL == curr) {
+		printk(KERN_ERR "Error: Lock tracking list was empty on call to remove_lock_from_log\n");
+		dump_lock_tracking_list();
+	}
+
+	MALI_DEBUG_ASSERT_POINTER(curr);
+
+
+	while (lock != curr) {
+		prev = curr;
+
+		MALI_DEBUG_ASSERT_POINTER(curr);
+		curr = curr->next;
+		MALI_DEBUG_ASSERT(n++ < 100);
+	}
+
+	if (NULL == prev) {
+		lock_lookup_list = curr->next;
+	} else {
+		MALI_DEBUG_ASSERT_POINTER(curr);
+		MALI_DEBUG_ASSERT_POINTER(prev);
+		prev->next = curr->next;
+	}
+
+	lock->next = NULL;
+
+	if (len - 1 != tracking_list_length()) {
+		printk(KERN_ERR "************ lock: %p\n", lock);
+		printk(KERN_ERR "************ before: %d *** after: %d ****\n", len, tracking_list_length());
+		dump_lock_tracking_list();
+		MALI_DEBUG_ASSERT_POINTER(NULL);
+	}
+
+	spin_unlock_irqrestore(&lock_tracking_lock, local_lock_flag);
+}
+
+static const char *const lock_order_to_string(_mali_osk_lock_order_t order)
+{
+	switch (order) {
+	case _MALI_OSK_LOCK_ORDER_SESSIONS:
+		return "_MALI_OSK_LOCK_ORDER_SESSIONS";
+		break;
+	case _MALI_OSK_LOCK_ORDER_MEM_SESSION:
+		return "_MALI_OSK_LOCK_ORDER_MEM_SESSION";
+		break;
+	case _MALI_OSK_LOCK_ORDER_MEM_INFO:
+		return "_MALI_OSK_LOCK_ORDER_MEM_INFO";
+		break;
+	case _MALI_OSK_LOCK_ORDER_MEM_PT_CACHE:
+		return "_MALI_OSK_LOCK_ORDER_MEM_PT_CACHE";
+		break;
+	case _MALI_OSK_LOCK_ORDER_DESCRIPTOR_MAP:
+		return "_MALI_OSK_LOCK_ORDER_DESCRIPTOR_MAP";
+		break;
+	case _MALI_OSK_LOCK_ORDER_PM_EXECUTION:
+		return "_MALI_OSK_LOCK_ORDER_PM_EXECUTION";
+		break;
+	case _MALI_OSK_LOCK_ORDER_EXECUTOR:
+		return "_MALI_OSK_LOCK_ORDER_EXECUTOR";
+		break;
+	case _MALI_OSK_LOCK_ORDER_TIMELINE_SYSTEM:
+		return "_MALI_OSK_LOCK_ORDER_TIMELINE_SYSTEM";
+		break;
+	case _MALI_OSK_LOCK_ORDER_SCHEDULER:
+		return "_MALI_OSK_LOCK_ORDER_SCHEDULER";
+		break;
+	case _MALI_OSK_LOCK_ORDER_SCHEDULER_DEFERRED:
+		return "_MALI_OSK_LOCK_ORDER_SCHEDULER_DEFERRED";
+		break;
+	case _MALI_OSK_LOCK_ORDER_DMA_COMMAND:
+		return "_MALI_OSK_LOCK_ORDER_DMA_COMMAND";
+		break;
+	case _MALI_OSK_LOCK_ORDER_PROFILING:
+		return "_MALI_OSK_LOCK_ORDER_PROFILING";
+		break;
+	case _MALI_OSK_LOCK_ORDER_L2:
+		return "_MALI_OSK_LOCK_ORDER_L2";
+		break;
+	case _MALI_OSK_LOCK_ORDER_L2_COMMAND:
+		return "_MALI_OSK_LOCK_ORDER_L2_COMMAND";
+		break;
+	case _MALI_OSK_LOCK_ORDER_UTILIZATION:
+		return "_MALI_OSK_LOCK_ORDER_UTILIZATION";
+		break;
+	case _MALI_OSK_LOCK_ORDER_SESSION_PENDING_JOBS:
+		return "_MALI_OSK_LOCK_ORDER_SESSION_PENDING_JOBS";
+		break;
+	case _MALI_OSK_LOCK_ORDER_PM_STATE:
+		return "_MALI_OSK_LOCK_ORDER_PM_STATE";
+		break;
 	default:
-		/* Reaching here indicates a programming error, so you will not get here
-		 * on non-DEBUG builds */
-		MALI_DEBUG_PRINT_ERROR( ("Invalid internal lock type: %.8X", lock->type ) );
-		break;
+		return "<UNKNOWN_LOCK_ORDER>";
 	}
 }
-
-void _mali_osk_lock_term( _mali_osk_lock_t *lock )
-{
-	/* Parameter validation  */
-	MALI_DEBUG_ASSERT_POINTER( lock );
-
-	/* Linux requires no explicit termination of spinlocks, semaphores, or rw_semaphores */
-    kfree(lock);
-}
+#endif /* LOCK_ORDER_CHECKING */
+#endif /* DEBUG */

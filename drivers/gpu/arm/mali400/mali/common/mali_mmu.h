@@ -1,9 +1,9 @@
 /*
- * Copyright (C) 2011-2012 ARM Limited. All rights reserved.
- *
+ * Copyright (C) 2010-2016 ARM Limited. All rights reserved.
+ * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- *
+ * 
  * A copy of the licence is included with the program, and can also be obtained from Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
@@ -42,14 +42,12 @@ typedef enum mali_mmu_register {
  * Multiple interrupts can be pending, so multiple bits
  * can be set at once.
  */
-typedef enum mali_mmu_interrupt
-{
+typedef enum mali_mmu_interrupt {
 	MALI_MMU_INTERRUPT_PAGE_FAULT = 0x01, /**< A page fault occured */
 	MALI_MMU_INTERRUPT_READ_BUS_ERROR = 0x02 /**< A bus read error occured */
 } mali_mmu_interrupt;
 
-typedef enum mali_mmu_status_bits
-{
+typedef enum mali_mmu_status_bits {
 	MALI_MMU_STATUS_BIT_PAGING_ENABLED      = 1 << 0,
 	MALI_MMU_STATUS_BIT_PAGE_FAULT_ACTIVE   = 1 << 1,
 	MALI_MMU_STATUS_BIT_STALL_ACTIVE        = 1 << 2,
@@ -64,8 +62,7 @@ typedef enum mali_mmu_status_bits
  * Used to track a MMU unit in the system.
  * Contains information about the mapping of the registers
  */
-struct mali_mmu_core
-{
+struct mali_mmu_core {
 	struct mali_hw_core hw_core; /**< Common for all HW cores */
 	_mali_osk_irq_t *irq;        /**< IRQ handler */
 };
@@ -82,26 +79,23 @@ mali_bool mali_mmu_zap_tlb(struct mali_mmu_core *mmu);
 void mali_mmu_zap_tlb_without_stall(struct mali_mmu_core *mmu);
 void mali_mmu_invalidate_page(struct mali_mmu_core *mmu, u32 mali_address);
 
-mali_bool mali_mmu_activate_page_directory(struct mali_mmu_core* mmu, struct mali_page_directory *pagedir);
-void mali_mmu_activate_empty_page_directory(struct mali_mmu_core* mmu);
-void mali_mmu_activate_fault_flush_page_directory(struct mali_mmu_core* mmu);
-
-/**
- * Issues the enable stall command to the MMU and waits for HW to complete the request
- * @param mmu The MMU to enable paging for
- * @return MALI_TRUE if HW stall was successfully engaged, otherwise MALI_FALSE (req timed out)
- */
-mali_bool mali_mmu_enable_stall(struct mali_mmu_core *mmu);
-
-/**
- * Issues the disable stall command to the MMU and waits for HW to complete the request
- * @param mmu The MMU to enable paging for
- */
-void mali_mmu_disable_stall(struct mali_mmu_core *mmu);
+void mali_mmu_activate_page_directory(struct mali_mmu_core *mmu, struct mali_page_directory *pagedir);
+void mali_mmu_activate_empty_page_directory(struct mali_mmu_core *mmu);
+void mali_mmu_activate_fault_flush_page_directory(struct mali_mmu_core *mmu);
 
 void mali_mmu_page_fault_done(struct mali_mmu_core *mmu);
 
-/*** Register reading/writing functions ***/
+MALI_STATIC_INLINE enum mali_interrupt_result mali_mmu_get_interrupt_result(struct mali_mmu_core *mmu)
+{
+	u32 rawstat_used = mali_hw_core_register_read(&mmu->hw_core, MALI_MMU_REGISTER_INT_RAWSTAT);
+	if (0 == rawstat_used) {
+		return MALI_INTERRUPT_RESULT_NONE;
+	}
+
+	return MALI_INTERRUPT_RESULT_ERROR;
+}
+
+
 MALI_STATIC_INLINE u32 mali_mmu_get_int_status(struct mali_mmu_core *mmu)
 {
 	return mali_hw_core_register_read(&mmu->hw_core, MALI_MMU_REGISTER_INT_STATUS);
