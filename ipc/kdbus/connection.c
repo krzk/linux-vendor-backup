@@ -1129,11 +1129,6 @@ static int kdbus_conn_reply(struct kdbus_conn *src, struct kdbus_kmsg *kmsg)
 	}
 	mutex_unlock(&dst->lock);
 
-	if (!reply) {
-		ret = -EPERM;
-		goto exit;
-	}
-
 	/* attach metadata */
 
 	attach = kdbus_meta_calc_attach_flags(src, dst);
