@@ -1069,6 +1069,7 @@
 		clock-names = "sysmmu", "master";
 		clocks = <&clock CLK_SMMU_G2D>, <&clock CLK_G2D>;
 		#iommu-cells = <0>;
+		status = "disabled";
 	};
 
 	sysmmu_g2dw: sysmmu@10A70000 {
@@ -1079,6 +1080,7 @@
 		clock-names = "sysmmu", "master";
 		clocks = <&clock CLK_SMMU_G2D>, <&clock CLK_G2D>;
 		#iommu-cells = <0>;
+		status = "disabled";
 	};
 
 	sysmmu_mfc_l: sysmmu@11200000 {
