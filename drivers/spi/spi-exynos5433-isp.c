@@ -1349,6 +1349,7 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 					(int)mem_res->end, (int)mem_res->start,
 					sdd->rx_dma.dmach, sdd->tx_dma.dmach);
 
+	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_autosuspend_delay(&pdev->dev,
