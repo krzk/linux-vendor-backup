@@ -455,7 +455,6 @@ static int vidioc_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 
 static int vidioc_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 {
-	struct nx_vpu_v4l2 *dev = video_drvdata(file);
 	struct nx_vpu_ctx *ctx = fh_to_ctx(priv);
 	struct nx_vpu_fmt *fmt;
 	struct v4l2_pix_format_mplane *pix_fmt_mp = &f->fmt.pix_mp;
@@ -1039,7 +1038,7 @@ static int nx_vpu_enc_start_streaming(struct vb2_queue *q, unsigned int count)
 	return ret;
 }
 
-static int nx_vpu_enc_stop_streaming(struct vb2_queue *q)
+static void nx_vpu_enc_stop_streaming(struct vb2_queue *q)
 {
 	unsigned long flags;
 	struct nx_vpu_ctx *ctx = q->drv_priv;
@@ -1060,8 +1059,6 @@ static int nx_vpu_enc_stop_streaming(struct vb2_queue *q)
 	}
 
 	spin_unlock_irqrestore(&dev->irqlock, flags);
-
-	return 0;
 }
 
 static void nx_vpu_enc_buf_queue(struct vb2_buffer *vb)
