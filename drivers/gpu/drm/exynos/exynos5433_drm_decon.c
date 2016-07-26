@@ -494,13 +494,6 @@ static void decon_reset(struct decon_context *ctx)
 		       CRCCTRL_CRCEN | CRCCTRL_CRCSTART_F | CRCCTRL_CRCCLKEN);
 }
 
-/* this function will be replaced by clk API call */
-#ifdef CONFIG_DRM_EXYNOS_HDMI
-void exynos_hdmiphy_enable(struct exynos_drm_crtc *crtc);
-#else
-static void exynos_hdmiphy_enable(struct exynos_drm_crtc *crtc) {}
-#endif
-
 static void decon_dpms_on(struct decon_context *ctx)
 {
 	int ret;

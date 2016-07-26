@@ -1079,6 +1079,8 @@ static void mixer_poweron(struct mixer_context *ctx)
 	ctx->powered = true;
 	mutex_unlock(&ctx->mixer_mutex);
 
+	exynos_hdmiphy_enable(ctx->crtc);
+
 	mixer_reg_writemask(res, MXR_STATUS, ~0, MXR_STATUS_SOFT_RESET);
 
 	mixer_reg_write(res, MXR_INT_EN, ctx->int_en);
