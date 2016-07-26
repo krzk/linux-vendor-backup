@@ -84,7 +84,7 @@ static int __set_phy_state(const struct exynos_mipi_phy_desc *data,
 
 	/* PHY PMU disable */
 	if (!on && data->coupled_id >= 0 &&
-	    __is_running(state->phys[data->coupled_id].data, state)) {
+	    !__is_running(state->phys[data->coupled_id].data, state)) {
 		regmap_read(state->regmaps[data->enable_map], data->enable_reg,
 			    &val);
 		val &= ~data->enable_val;
