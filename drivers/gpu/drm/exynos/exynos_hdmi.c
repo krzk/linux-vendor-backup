@@ -2346,6 +2346,7 @@ static void hdmi_poweroff(struct hdmi_context *hdata)
 
 	pm_runtime_put_sync(hdata->dev);
 
+	hdata->applied = false;
 	hdata->powered = false;
 }
 
