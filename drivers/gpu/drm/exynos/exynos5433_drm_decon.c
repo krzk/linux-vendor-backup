@@ -694,7 +694,7 @@ static int decon_bind(struct device *dev, struct device *master, void *data)
 		drm_iommu_attach_device(drm_dev, ctx->dev);
 	}
 
-	for (zpos = 0; zpos < WINDOWS_NR; zpos++) {
+	for (zpos = drv_data->first_win; zpos < WINDOWS_NR; zpos++) {
 		type = (zpos == drv_data->first_win) ? DRM_PLANE_TYPE_PRIMARY :
 			DRM_PLANE_TYPE_OVERLAY;
 		ret = exynos_plane_init(drm_dev, &ctx->planes[zpos],
