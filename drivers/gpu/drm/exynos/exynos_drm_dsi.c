@@ -1459,7 +1459,7 @@ static int exynos_dsi_poweron(struct exynos_dsi *dsi)
 	int ret, i;
 
 	ret = pm_runtime_get_sync(dsi->dev);
-	if (ret < 0)
+	if (ret < 0 && ret != -EACCES)
 		return ret;
 
 	ret = regulator_bulk_enable(ARRAY_SIZE(dsi->supplies), dsi->supplies);
