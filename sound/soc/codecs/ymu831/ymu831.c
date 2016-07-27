@@ -8784,9 +8784,9 @@ static int mc_asoc_probe(
 #endif
 
 	/* Headset jack detection */
-	snd_soc_jack_new(codec, "Headset",
+	snd_soc_card_jack_new(codec->component.card, "Headset",
 		SND_JACK_HEADSET|SND_JACK_BTN_0|SND_JACK_BTN_1|SND_JACK_BTN_2,
-		&hs_jack);
+		&hs_jack, NULL, 0);
 
 	snd_jack_set_key(hs_jack.jack, SND_JACK_BTN_0, KEY_MEDIA);
 	snd_jack_set_key(hs_jack.jack, SND_JACK_BTN_1, KEY_VOLUMEUP);
