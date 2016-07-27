@@ -8522,7 +8522,7 @@ static int init_irq(struct snd_soc_codec *codec)
 		dev_err(codec->dev, "Failed to set_irq_type: %d\n", err);
 		return -EIO;
 	}
-	err	= request_irq(mc_asoc->pdata->irq, irq_handler, IRQF_DISABLED,
+	err	= request_irq(mc_asoc->pdata->irq, irq_handler, 0x0,
 							"MC_YAMAHA IRQ", NULL);
 	if (err < 0) {
 		dev_err(codec->dev, "Failed to request_irq: %d\n", err);
