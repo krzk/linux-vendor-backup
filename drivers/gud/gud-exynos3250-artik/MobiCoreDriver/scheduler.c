@@ -133,8 +133,10 @@ static int tee_scheduler(void *arg)
 			if (!timeout_ms) {
 				mc_scheduler_command(NSIQ);
 			} else {
-				if (timeout_ms < 0)
-					timeout_ms = DEFAULT_TIMEOUT_MS;
+				if ((timeout_ms < 0) ||
+					(timeout_ms > DEFAULT_TIMEOUT_MS)) {
+						timeout_ms = DEFAULT_TIMEOUT_MS;
+				}
 
 				if (!wait_for_completion_timeout(
 					&sched_ctx.idle_complete,

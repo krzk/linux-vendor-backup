@@ -46,6 +46,7 @@
 #define MCP_RETRIES		5
 #define MCP_NF_QUEUE_SZ		8
 #define NQ_NUM_ELEMS		64
+#define DEFAULT_TIMEOUT_MS	60000
 
 static const struct {
 	unsigned int index;
@@ -1114,10 +1115,14 @@ static inline void handle_session_notif(u32 session_id, u32 exit_code)
 static int irq_bh_worker(void *arg)
 {
 	struct notification_queue *rx = mcp_ctx.nq.rx;
+	s32 timeout_ms = DEFAULT_TIMEOUT_MS;
 
 	while (mcp_ctx.irq_bh_active) {
-		wait_for_completion(&mcp_ctx.irq_bh_complete);
-
+		if (!wait_for_completion_timeout
+			(&mcp_ctx.irq_bh_complete,
+			msecs_to_jiffies(timeout_ms))) {
+				continue;
+		}
 		/* Deal with all pending notifications in one go */
 		while ((rx->hdr.write_cnt - rx->hdr.read_cnt) > 0) {
 			struct notification nf;
