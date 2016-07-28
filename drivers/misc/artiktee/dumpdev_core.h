@@ -16,42 +16,27 @@
  *
  *********************************************************/
 
-#include <linux/pm_qos.h>
-#include "tzdev_plat.h"
-#include "tzdev_internal.h"
+#ifndef __SOURCE_TZDEV_DUMPDEV_CORE_H__
+#define __SOURCE_TZDEV_DUMPDEV_CORE_H__
 
-static struct pm_qos_request min_cpu_qos;
+#define MAX_DUMP_FILE_NAME 32 * 2
 
-int plat_init(void)
-{
-	int ret = 0;
+#include "nsrpc_ree_slave.h"
 
-	pm_qos_add_request(&min_cpu_qos, PM_QOS_CPU_FREQ_MIN, 0);
+typedef enum {
+	NSRPC_CMD_DUMP_START = 1,
+	NSRPC_CMD_DUMP_TRANSFER,
+	NSRPC_CMD_DUMP_END,
+} nsrpc_dumpdev_cmd;
 
-	return ret;
-}
+typedef struct nsrpc_dump_ctrl {
+	char 		 	dump_file_name[MAX_DUMP_FILE_NAME];
+	char 			dump_ta_uuid[37]; /* Can not change by caller */
+	uint32_t		data_order; /* Can not change by caller */
+} nsrpc_dumpdev_ctrl;
 
-int plat_preprocess(void)
-{
-	int ret = 0;
+typedef nsrpc_dumpdev_ctrl *pss_dump_ctrl;
 
-	if (pm_qos_request_active(&min_cpu_qos))
-		pm_qos_update_request(&min_cpu_qos, 1000000);
+void dumpdev_handler(NSRPCTransaction_t *txn_object);
 
-	return ret;
-}
-
-int plat_postprocess(void)
-{
-	int ret = 0;
-
-	if (pm_qos_request_active(&min_cpu_qos))
-		pm_qos_update_request(&min_cpu_qos, -1);
-
-	return ret;
-}
-
-int plat_dump_postprocess(char *uuid)
-{
-	return 0;
-}
+#endif /* __SOURCE_TZDEV_DUMPDEV_CORE_H__ */
