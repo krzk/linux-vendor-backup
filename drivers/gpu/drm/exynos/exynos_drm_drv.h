@@ -317,7 +317,7 @@ static inline int exynos_dpi_remove(struct exynos_drm_display *display)
 #ifdef CONFIG_DRM_EXYNOS_HDMI
 void exynos_hdmiphy_enable(struct exynos_drm_crtc *crtc);
 #else
-static void exynos_hdmiphy_enable(struct exynos_drm_crtc *crtc) {}
+static inline void exynos_hdmiphy_enable(struct exynos_drm_crtc *crtc) {}
 #endif
 
 /* This function creates a encoder and a connector, and initializes them. */
