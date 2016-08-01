@@ -550,3 +550,7 @@
 	clocks = <&clock CLK_RTC>, <&s2mps11_osc S2MPS11_CLK_AP>;
 	clock-names = "rtc", "rtc_src";
 };
+
+&pmu_system_controller {
+	reboot-inform = <0x0808>;
+};
