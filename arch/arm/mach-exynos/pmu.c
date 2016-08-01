@@ -23,6 +23,10 @@
 
 #define PMU_TABLE_END	(-1U)
 
+#define REBOOT_MODE_PREFIX	0x12345670
+#define REBOOT_MODE_NONE	0
+#define REBOOT_MODE_DOWNLOAD	1
+
 struct exynos_pmu_conf {
 	unsigned int offset;
 	u8 val[NUM_SYS_POWERDOWN];
@@ -40,6 +44,7 @@ struct exynos_pmu_data {
 struct exynos_pmu_context {
 	struct device *dev;
 	const struct exynos_pmu_data *pmu_data;
+	u32 reboot_inform_reg;
 };
 
 static void __iomem *pmu_base_addr;
@@ -878,6 +883,19 @@ static void exynos5420_pmu_init(void)
 static int pmu_restart_notify(struct notifier_block *this,
 		unsigned long code, void *unused)
 {
+	char *cmd = (char *)unused;
+
+	if (pmu_context->reboot_inform_reg) {
+		if (cmd && !strncmp(cmd, "download", 8)) {
+			pmu_raw_writel(REBOOT_MODE_PREFIX |
+				REBOOT_MODE_DOWNLOAD,
+				pmu_context->reboot_inform_reg);
+		} else
+			pmu_raw_writel(REBOOT_MODE_PREFIX |
+				REBOOT_MODE_NONE,
+				pmu_context->reboot_inform_reg);
+	}
+
 	pmu_raw_writel(0x1, EXYNOS_SWRESET);
 
 	return NOTIFY_DONE;
@@ -952,7 +970,9 @@ static int exynos_pmu_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *match;
 	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
 	struct resource *res;
+	u32 inform_reg;
 	int ret;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -972,6 +992,10 @@ static int exynos_pmu_probe(struct platform_device *pdev)
 	match = of_match_node(exynos_pmu_of_device_ids, dev->of_node);
 
 	pmu_context->pmu_data = match->data;
+
+	ret = of_property_read_u32(np, "reboot-inform", &inform_reg);
+	if (!ret)
+		pmu_context->reboot_inform_reg = inform_reg;
 
 	if (pmu_context->pmu_data->pmu_init)
 		pmu_context->pmu_data->pmu_init();

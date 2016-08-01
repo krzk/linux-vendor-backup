@@ -44,6 +44,10 @@ following properties:
 - interrupt-parent: a phandle indicating which interrupt controller
   this PMU signals interrupts to.
 
+- reboot-inform: indicates the offset of the INFORM register which supports
+		reboot special mode. (e.g, reboot download)
+		It requires support from the bootloader.
+
 Example :
 pmu_system_controller: system-controller@10040000 {
 	compatible = "samsung,exynos5250-pmu", "syscon";
@@ -58,6 +62,7 @@ pmu_system_controller: system-controller@10040000 {
 		<&clock CLK_OUT_LEFTBUS>, <&clock CLK_OUT_RIGHTBUS>,
 		<&clock CLK_OUT_CPU>, <&clock CLK_XXTI>,
 		<&clock CLK_XUSBXTI>;
+	reboot-inform = <0x0808>; /* Offset of INFORM2 register */
 };
 
 Example of clock consumer :
