@@ -37,6 +37,7 @@ int s5p_mfc_init_pm(struct s5p_mfc_dev *dev)
 
 	pm->num_clocks = dev->variant->num_clocks;
 	pm->clk_names = dev->variant->clk_names;
+	pm->use_clock_gating = dev->variant->use_clock_gating;
 
 	/* clock control */
 	for (i = 0; i < pm->num_clocks; i++) {
@@ -73,6 +74,8 @@ int s5p_mfc_clock_on(void)
 	atomic_inc(&clk_ref);
 	mfc_debug(3, "+ %d\n", atomic_read(&clk_ref));
 #endif
+	if (!pm->use_clock_gating)
+		return 0;
 
 	for (i = 0; i < pm->num_clocks; i++) {
 		ret = clk_enable(pm->clocks[i]);
@@ -92,6 +95,9 @@ void s5p_mfc_clock_off(void)
 	atomic_dec(&clk_ref);
 	mfc_debug(3, "- %d\n", atomic_read(&clk_ref));
 #endif
+	if (!pm->use_clock_gating)
+		return;
+
 	for (i = pm->num_clocks - 1; i >= 0; i--)
 		clk_disable(pm->clocks[i]);
 }
@@ -109,7 +115,11 @@ int s5p_mfc_power_on(void)
 #endif
 	/* clock control */
 	for (i = 0; i < pm->num_clocks; i++) {
-		ret = clk_prepare(pm->clocks[i]);
+		if (pm->use_clock_gating)
+			ret = clk_prepare(pm->clocks[i]);
+		else
+			ret = clk_prepare_enable(pm->clocks[i]);
+
 		if (ret < 0) {
 			mfc_err("clock prepare failed for clock: %s\n",
 				pm->clk_names[i]);
@@ -121,7 +131,10 @@ int s5p_mfc_power_on(void)
 	return 0;
 err:
 	while (--i > 0)
-		clk_unprepare(pm->clocks[i]);
+		if (pm->use_clock_gating)
+			clk_disable(pm->clocks[i]);
+		else
+			clk_disable_unprepare(pm->clocks[i]);
 	pm_runtime_put(pm->device);
 	return ret;
 }
@@ -129,8 +142,12 @@ err:
 int s5p_mfc_power_off(void)
 {
 	int i;
+
 	for (i = 0; i < pm->num_clocks; i++)
-		clk_unprepare(pm->clocks[i]);
+		if (pm->use_clock_gating)
+			clk_unprepare(pm->clocks[i]);
+		else
+			clk_disable_unprepare(pm->clocks[i]);
 
 #ifdef CONFIG_PM
 	return pm_runtime_put_sync(pm->device);
