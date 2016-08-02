@@ -312,8 +312,8 @@ config USB_G_PRINTER
 
 config USB_G_SLP
         boolean "SLP Gadget based on Android"
-        select USB_LIBCOMPOSITE
-	depends on USB_G_SLP_REQ_F_ACM
+	depends on USB_LIBCOMPOSITE
+	select USB_G_SLP_REQ_F_ACM
         help
           The SLP gadget driver supports multiple USB functions.
           The functions can be configured via a board file and may be
