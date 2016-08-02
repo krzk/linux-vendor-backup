@@ -953,6 +953,7 @@
 &pmu_system_controller {
 	assigned-clocks = <&pmu_system_controller 0>;
 	assigned-clock-parents =  <&clock CLK_XUSBXTI>;
+	reboot-inform = <0x080C>;
 };
 
 &ppmu_dmc0 {
