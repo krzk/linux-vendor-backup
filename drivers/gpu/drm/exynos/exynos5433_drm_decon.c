@@ -180,6 +180,9 @@ static void decon_commit(struct exynos_drm_crtc *crtc)
 	bool interlaced = false;
 	u32 val;
 
+	if (ctx->suspended)
+		return;
+
 	decon_wait_for_update(ctx);
 
 	/* enable clock gate */
