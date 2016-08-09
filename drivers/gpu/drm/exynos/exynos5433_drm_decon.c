@@ -176,9 +176,11 @@ static void decon_wait_for_update(struct decon_context *ctx)
 static void decon_commit(struct exynos_drm_crtc *crtc)
 {
 	struct decon_context *ctx = crtc->ctx;
+	struct exynos5433_decon_driver_data *drv_data = ctx->drv_data;
 	struct drm_display_mode *mode = &crtc->base.mode;
 	bool interlaced = false;
 	u32 val;
+	int win;
 
 	if (ctx->suspended)
 		return;
@@ -254,7 +256,14 @@ static void decon_commit(struct exynos_drm_crtc *crtc)
 	}
 	/* enable output and display signal */
 	decon_set_bits(ctx, DECON_VIDCON0, VIDCON0_ENVID | VIDCON0_ENVID_F, ~0);
-	decon_update(ctx);
+
+	/* update iff there are active windows */
+	for (win = drv_data->first_win; win < WINDOWS_NR; win++) {
+		if (ctx->planes[win].enabled) {
+			decon_update(ctx);
+			break;
+		}
+	}
 }
 
 #define BIT_VAL(x, e, s)	(((x) & ((1 << ((e) - (s) + 1)) - 1)) << (s))
