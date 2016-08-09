@@ -94,7 +94,7 @@ static void decon_wait_for_vblank(struct exynos_drm_crtc *crtc)
 	if (ctx->suspended)
 		return;
 
-	atomic_set(&ctx->wait_vsync_event, 2);
+	atomic_set(&ctx->wait_vsync_event, 1);
 
 	/*
 	 * wait for FIMD to signal VSYNC interrupt or return after
@@ -667,7 +667,7 @@ static void decon_clear_channel(struct decon_context *ctx)
 
 	decon_update(ctx);
 
-	atomic_set(&ctx->wait_vsync_event, 2);
+	atomic_set(&ctx->wait_vsync_event, 1);
 
 	/*
 	 * wait for FIMD to signal VSYNC interrupt or return after
@@ -762,7 +762,7 @@ static irqreturn_t decon_irq_handler(int irq, void *dev_id)
 
 out:
 	if (atomic_read(&ctx->wait_vsync_event)) {
-		atomic_dec_if_positive(&ctx->wait_vsync_event);
+		atomic_set(&ctx->wait_vsync_event, 0);
 		wake_up(&ctx->wait_vsync_queue);
 	}
 
