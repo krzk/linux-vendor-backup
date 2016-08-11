@@ -237,7 +237,7 @@ struct dma_buf *exynos_dmabuf_prime_export(struct drm_device *drm_dev,
 
 	exp_info.ops = &exynos_dmabuf_ops;
 	exp_info.size = exynos_gem_obj->base.size;
-	exp_info.flags = flags;
+	exp_info.flags = flags | O_RDWR;
 	exp_info.priv = obj;
 
 	return dma_buf_export(&exp_info);
