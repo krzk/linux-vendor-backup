@@ -485,7 +485,7 @@ static int max77843_extcon_register(struct max77843_charger *charger)
 		charger->otg_nb.notifier_call = max77843_charger_otg_notifier;
 
 		edev = extcon_get_edev_by_phandle(charger->dev, 0);
-		if (IS_ERR(charger->edev)) {
+		if (IS_ERR(edev)) {
 			dev_dbg(charger->dev, "Cannot get extcon device\n");
 			return -EPROBE_DEFER;
 		}
