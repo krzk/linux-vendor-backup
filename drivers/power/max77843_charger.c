@@ -496,9 +496,19 @@ static int max77843_extcon_register(struct max77843_charger *charger)
 			dev_err(charger->dev, "Cannot register OTG notifier\n");
 			return ret;
 		}
+
+	 	charger->edev = edev;
 	}
 
 	return 0;
+}
+
+static void max77843_extcon_unregister(struct max77843_charger *charger)
+{
+	if (charger->edev) {
+		extcon_unregister_interest(&charger->otg_cable_nb);
+		charger->edev = NULL;
+	}
 }
 
 static const struct power_supply_desc max77843_charger_desc = {
@@ -533,23 +543,28 @@ static int max77843_charger_probe(struct platform_device *pdev)
 		return ret;
 
 	charger->info = max77843_charger_dt_init(pdev);
-	if (IS_ERR(charger->info))
-		return PTR_ERR(charger->info);
-
+	if (IS_ERR(charger->info)) {
+		ret = PTR_ERR(charger->info);
+		goto err_extcon;
+	}
 
 	ret = max77843_charger_init(charger);
 	if (ret)
-		return ret;
+		goto err_extcon;
 
 	charger->psy = power_supply_register(&pdev->dev, &max77843_charger_desc, &psy_cfg);
 	if (IS_ERR(charger->psy)) {
 		ret = PTR_ERR(charger->psy);
 		dev_err(&pdev->dev,
 			"Failed to register power supply %d\n", ret);
-		return ret;
+		goto err_extcon;
 	}
 
 	return 0;
+
+err_extcon:
+	max77843_extcon_unregister(charger);
+	return ret;
 }
 
 static int max77843_charger_remove(struct platform_device *pdev)
@@ -557,7 +572,7 @@ static int max77843_charger_remove(struct platform_device *pdev)
 	struct max77843_charger *charger = platform_get_drvdata(pdev);
 
 	power_supply_unregister(charger->psy);
-
+	max77843_extcon_unregister(charger);
 	return 0;
 }
 
