@@ -533,7 +533,7 @@ static int max77843_charger_probe(struct platform_device *pdev)
 		return ret;
 
 	charger->info = max77843_charger_dt_init(pdev);
-	if (IS_ERR_OR_NULL(charger->info))
+	if (IS_ERR(charger->info))
 		return PTR_ERR(charger->info);
 
 
