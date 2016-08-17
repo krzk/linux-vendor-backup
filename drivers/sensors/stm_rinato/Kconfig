@@ -45,17 +45,6 @@ config SENSORS_SSP_AK09911
 	  To compile this driver as a module, choose M here: the
 	  module will be called ssp.
 
-config SENSORS_SSP_YAS532
-	tristate "Sensors ssp yas532"
-	default n
-	depends on SPI
-	help
-	  yas532 file for factory test in ssp driver.
-          If you say yes here you get yas532 support for
-	  factory test.
-	  To compile this driver as a module, choose M here: the
-	  module will be called ssp.
-
 config SENSORS_SSP_CM3320
 	tristate "Sensors ssp cm3320"
 	default n
