@@ -183,7 +183,7 @@ static ssize_t get_adc_value(struct device *dev,
 		mutex_lock(&uv->read_lock);
 		if (uv->pdata->power_on)
 			uv->pdata->power_on(true);
-		mdelay(20);
+		usleep_range(20000, 21000);
 		adc = uv->pdata->get_adc_value();
 		if (uv->pdata->power_on)
 			uv->pdata->power_on(false);

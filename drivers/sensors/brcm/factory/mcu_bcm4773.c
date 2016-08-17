@@ -79,7 +79,7 @@ ssize_t mcu_dump_show(struct device *dev,
 	set_big_data_start(data, BIG_TYPE_DUMP, 0);
 	msleep(300);
 	while (data->bDumping) {
-		mdelay(10);
+		usleep_range(10000, 15000);
 		if (iDelaycnt++ > 1000) {
 			status = 0;
 			break;

@@ -302,16 +302,16 @@ static bool bcm4773_hello(struct bcm_spi_priv *priv)
 			return false;
 		}
 
-		mdelay(1);
+		usleep_range(1000, 1100);
 
 		/*if awake, done */
 		if (gpio_get_value(priv->mcu_resp)) break;
 
 		if (count%20==0 && retries++ < 3) {
 			gpio_set_value(priv->mcu_req, 0);
-			mdelay(1);
+			usleep_range(1000, 1100);
 			gpio_set_value(priv->mcu_req, 1);
-			mdelay(1);
+			usleep_range(1000, 1100);
 		}
 	}
 	return true;

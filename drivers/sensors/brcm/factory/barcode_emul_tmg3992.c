@@ -125,7 +125,7 @@ retries:
 
 		if (iReties++ < 2) {
 			pr_err("[SSP] %s fail, retry\n", __func__);
-			mdelay(5);
+			usleep_range(5000, 5500);
 			goto retries;
 		}
 	} else {

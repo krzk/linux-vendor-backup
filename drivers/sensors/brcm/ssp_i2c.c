@@ -422,7 +422,7 @@ retries:
 	iRet = ssp_spi_sync(data, msg, 1000);
 
 	if (buffer != DEVICE_ID && iReties++ < 2) {
-	 mdelay(5);
+	 usleep_range(5000, 5500);
 	 pr_err("[SSP] %s - get chip ID retry\n", __func__);
 	 goto retries;
 	}

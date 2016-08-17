@@ -745,7 +745,7 @@ static int bbd_suspend(pm_message_t state)
 	if (pssp_driver->driver.pm && pssp_driver->driver.pm->suspend)
 		pssp_driver->driver.pm->suspend(&dummy_spi.dev);
 #endif
-	mdelay(20);
+	msleep(20);
 
      return 0;
 }
