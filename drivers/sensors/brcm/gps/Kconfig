@@ -1,0 +1,7 @@
+menu "Broadcom GPS Drivers"
+
+config GPS_BCM47531
+	bool "BROADCOM_GPS_CHIPSET_47531"
+	select SEC_SYSFS
+	default n
+endmenu

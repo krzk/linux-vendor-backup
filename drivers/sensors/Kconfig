@@ -60,5 +60,14 @@ config SENSORS_SSP_STM_RINATO
 if SENSORS_SSP_STM_RINATO
 source "drivers/sensors/stm_rinato/Kconfig"
 endif
+
+config SENSORS_SSP_BBD_BRCM
+	bool "Sensorhub for BRCM"
+	help
+	  This is enables Sensorhub for BRCM
+if SENSORS_SSP_BBD_BRCM
+source "drivers/sensors/brcm/Kconfig"
+endif
+
 endif
 endmenu
