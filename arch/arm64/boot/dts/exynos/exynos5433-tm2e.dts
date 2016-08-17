@@ -1561,6 +1561,7 @@
 		clock-names = "xtal";
 		assigned-clocks = <&pmu_system_controller 0>;
 		assigned-clock-parents = <&xxti>;
+		extcon = <&muic>;
 
 		port {
 			mhl_to_hdmi: endpoint {
