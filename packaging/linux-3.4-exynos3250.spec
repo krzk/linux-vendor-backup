@@ -69,8 +69,7 @@ This package provides the %{CHIPSET}_eur linux kernel's debugging files.
 License: GPL-2.0
 Summary: Linux support headers for userspace development
 Group: System/Kernel
-Provides: kernel-headers, kernel-headers-tizen-dev
-Obsoletes: kernel-headers
+Provides: kernel-headers-tizen-dev
 
 %description -n kernel-headers-%{KERNEL_VERSION}-%{CHIPSET}
 This package provides userspaces headers from the Linux kernel. These
