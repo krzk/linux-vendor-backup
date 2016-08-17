@@ -21,6 +21,28 @@ config SENSORS_MAX86902
 	  This driver can also be built as a module.    If so, the module
 	  will be called max86902.
 
+config SENSORS_SSP
+	tristate "Sensors ssp"
+	default n
+	depends on SPI
+	help
+	  ssp driver for sensor hub.
+          If you say yes here you get ssp support for
+	  sensor hub.
+	  To compile this driver as a module, choose M here: the
+	  module will be called ssp.
+
+config SENSORS_SSP_SENSORHUB
+	tristate "Sensors ssp sensorhub"
+	default n
+	depends on SPI
+	help
+	  ssp sensor hub driver for sensor hub.
+          If you say yes here you get ssp support for
+	  sensor hub.
+	  To compile this driver as a module, choose M here: the
+	  module will be called ssp.
+
 config SENSORS_MAX_NOTCHFILTER
 	bool "Sensors Maxim Notch Filter"
 	help
