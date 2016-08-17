@@ -175,6 +175,14 @@
 		};
 	};
 
+	gps {
+		compatible = "samsung,exynos54xx-bcm4753";
+		gpios = <&gpg2 0 0x1 &gpa1 0 0xf>;
+		status = "okay";
+		pinctrl-names ="default";
+		pinctrl-0 = <&ssp_gps_pwr_en &ssp_host_wake>;
+	};
+
 	irda_regulator: irda-regulator {
 		compatible = "regulator-fixed";
 		enable-active-high;
@@ -312,6 +320,41 @@
 	assigned-clocks = <&cmu_aud CLK_MOUT_AUD_PLL_USER>;
 	assigned-clock-parents = <&cmu_top CLK_FOUT_AUD_PLL>;
 	status = "okay";
+};
+
+&spi_0 {
+	cs-gpios = <&gpd8 1 0>;
+	status = "okay";
+
+	bcm4773@0 {
+		compatible = "ssp,BCM4773";
+		reg = <0>;
+		spi-max-frequency = <26000000>;
+		spi-cpol;
+		spi-cpha;
+
+		clocks = <&s2mps13_osc 0>;
+		clock-names = "xtal";
+
+		pinctrl-names ="default";
+		pinctrl-0 = <&ssp_irq &ssp_mcu_req &ssp_mcu_resp>;
+
+		ssp-irq = <&gpa3 3 0x01>;
+		ssp-mcu-req = <&gpf2 3 0x01>;
+		ssp-mcu-resp = <&gpf2 2 0x00>;
+		ssp-acc-position = <5>;
+		ssp-mag-position = <3>;
+		ssp-sns-combination = <0>;
+		ssp,prox-hi_thresh = <130>;
+		ssp,prox-low_thresh = <90>;
+		ssp-ap-rev = <1>;
+		ssp-mag-array = <10196 176 (-21) 516 10378 20 (-774) 1027 9454>;
+		ssp-hw-rev = <9>;
+
+		controller-data {
+			samsung,spi-feedback-delay = <0>;
+		};
+	};
 };
 
 &spi_1 {
@@ -1309,7 +1352,6 @@
 		PIN(IN, gpa3-0, DOWN, LV1);	/* HDMI_HPD */
 		PIN(IN, gpa3-1, DOWN, LV1);	/* PWRRST_D_N */
 		PIN(IN, gpa3-2, NONE, LV1);	/* TOUCH_INT */
-		PIN(IN, gpa3-3, DOWN, LV1);	/* MCU_HOST_REQ */
 		PIN(IN, gpa3-4, NONE, LV1);	/* AMP_INT_R */
 		PIN(IN, gpa3-5, DOWN, LV1);	/* WCINOKB */
 		PIN(IN, gpa3-6, DOWN, LV1);	/* COVER_DET */
@@ -1325,8 +1367,6 @@
 
 		PIN(IN, gpf2-0, DOWN, LV1);	/* TSP_ID */
 		PIN(IN, gpf2-1, DOWN, LV1);	/* OCTA_ID */
-		PIN(IN, gpf2-2, DOWN, LV1);	/* MCU_AP_INT_2_1.8V */
-		PIN(IN, gpf2-3, DOWN, LV1);	/* AP_MCU_INT_1.8V */
 
 		PIN(IN, gpf3-0, DOWN, LV1);	/* NC */
 		PIN(IN, gpf3-1, DOWN, LV1);	/* WLAN_HOST_WAKE */
@@ -1481,7 +1521,6 @@
 		PIN(IN, gpg1-3, DOWN, LV1);	/* NC */
 		PIN(IN, gpg1-4, DOWN, LV1);	/* NC */
 
-		PIN(IN, gpg2-0, DOWN, LV1);	/* GPS_HUB_EN */
 		PIN(IN, gpg2-1, DOWN, LV1);	/* PDA_ACTIVE */
 
 		PIN(IN, gpg3-0, DOWN, LV1);	/* NC */
@@ -1521,6 +1560,13 @@
 		samsung,pin-pud = <1>;
 		samsung,pin-drv = <2>;
 	};
+
+	ssp_gps_pwr_en: ssp-gps-pwr-en {
+		samsung,pins = "gpg2-0";
+		samsung,pin-function = <1>;
+		samsung,pin-pud = <1>;
+		samsung,pin-drv = <3>;
+	};
 };
 
 &pinctrl_touch {
@@ -1533,6 +1579,34 @@
 };
 
 &pinctrl_alive {
+	ssp_irq: ssp-irq {
+		samsung,pins = "gpa3-3";
+		samsung,pin-function = <0xf>;
+		samsung,pin-pud = <1>;
+		samsung,pin-drv = <3>;
+	};
+
+	ssp_mcu_req: ssp-mcu-req {
+		samsung,pins = "gpf2-3";
+		samsung,pin-function = <1>;
+		samsung,pin-pud = <1>;
+		samsung,pin-drv = <3>;
+	};
+
+	ssp_mcu_resp: ssp-mcu-resp {
+		samsung,pins = "gpf2-2";
+		samsung,pin-function = <0>;
+		samsung,pin-pud = <3>;
+		samsung,pin-drv = <3>;
+	};
+
+	ssp_host_wake: ssp-host-wake {
+		samsung,pins = "gpa1-0";
+		samsung,pin-function = <0>;
+		samsung,pin-pud = <3>;
+		samsung,pin-drv = <3>;
+	};
+
 	te_irq: te_irq {
 		samsung,pins = "gpf1-3";
 		samsung,pin-function = <0xf>;
