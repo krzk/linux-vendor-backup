@@ -9,7 +9,7 @@ EXTRA_CFLAGS += -DMALI_USE_UMP=1 \
                 -DMALI_BACKEND_KERNEL=1 \
                 -DMALI_NO_MALI=0
 
-DDK_DIR ?= .
+DDK_DIR ?= $(srctree)/
 
 ifneq ($(wildcard $(DDK_DIR)/$(subst $\",,$(CONFIG_GATOR_MALI_MIDGARD_PATH))/mali_kbase_gator_api.h),)
   # r5p0/Fluorine - ...
