@@ -480,30 +480,14 @@ static void s6e3ha2_gamma_update_l(struct s6e3ha2 *ctx)
 
 static void s6e3ha2_vr_enable(struct s6e3ha2 *ctx, int enable)
 {
-	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
-	ssize_t ret;
-	const u8 *cmds;
-	u32 cmd_len;
-
-	if (enable) {
-		cmds = MDNIE_6500K;
-		cmd_len = ARRAY_SIZE(MDNIE_6500K);
-	} else {
-		cmds = MDNIE_BYPASS;
-		cmd_len = ARRAY_SIZE(MDNIE_BYPASS);
-	}
-
 	/* TEST KEY ENABLE. */
 	s6e3ha2_test_key_on_f0(ctx);
 	s6e3ha2_test_key_on_fc(ctx);
 
-	ret = mipi_dsi_dcs_write_buffer(dsi, cmds, cmd_len);
-	if (ret < 0) {
-		dev_err(ctx->dev, "error %zd writing dcs seq: %*ph\n", ret,
-							(int)cmd_len, cmds);
-		ctx->error = ret;
-		return;
-	}
+	if (enable)
+		s6e3ha2_dcs_write(ctx, MDNIE_6500K, ARRAY_SIZE(MDNIE_6500K));
+	else
+		s6e3ha2_dcs_write(ctx, MDNIE_BYPASS, ARRAY_SIZE(MDNIE_BYPASS));
 
 	/* TEST KEY DISABLE. */
 	s6e3ha2_test_key_off_f0(ctx);
