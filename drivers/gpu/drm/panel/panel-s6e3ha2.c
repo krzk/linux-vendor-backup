@@ -342,7 +342,7 @@ static void s6e3ha2_dcs_write(struct s6e3ha2 *ctx, const void *data, size_t len)
 
 #define NSEQ(seq...) sizeof((char[]){ seq }), seq
 
-static void s6e3ha2__write_nseq(struct s6e3ha2 *ctx, const u8 *nseq)
+static void s6e3ha2_write_nseq(struct s6e3ha2 *ctx, const u8 *nseq)
 {
 	int count;
 
@@ -967,7 +967,7 @@ static void s6e3ha2_hmt_on(struct s6e3ha2 *ctx)
 	};
 	static const u8 *hmt_on[] = { ha2_hmt_on, hf2_hmt_on };
 
-	s6e3ha2__write_nseq(ctx, hmt_on[ctx->model]);
+	s6e3ha2_write_nseq(ctx, hmt_on[ctx->model]);
 }
 
 static void s6e3ha2_hmt_off(struct s6e3ha2 *ctx)
@@ -1002,7 +1002,7 @@ static void s6e3ha2_hmt_off(struct s6e3ha2 *ctx)
 	};
 	static const u8 *hmt_off[] = { ha2_hmt_off, hf2_hmt_off };
 
-	s6e3ha2__write_nseq(ctx, hmt_off[ctx->model]);
+	s6e3ha2_write_nseq(ctx, hmt_off[ctx->model]);
 }
 
 static void s6e3ha2_hmt_set(struct s6e3ha2 *ctx, bool enable)
