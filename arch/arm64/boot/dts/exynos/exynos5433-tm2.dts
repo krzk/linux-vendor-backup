@@ -425,10 +425,6 @@
 	};
 };
 
-
-&spi_6 {
-	status = "disabled";
-};
 &hsi2c_0 {
 	status = "okay";
 	clock-frequency = <2500000>;
