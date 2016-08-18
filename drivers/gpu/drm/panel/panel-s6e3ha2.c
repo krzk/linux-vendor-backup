@@ -312,8 +312,7 @@ static int s6e3ha2_clear_error(struct s6e3ha2 *ctx)
 	return ret;
 }
 
-static void s6e3ha2_dcs_write(struct s6e3ha2 *ctx, const u8 cmd,
-		const void *data, size_t len)
+static void s6e3ha2_dcs_write(struct s6e3ha2 *ctx, const void *data, size_t len)
 {
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
 	ssize_t ret;
@@ -321,7 +320,7 @@ static void s6e3ha2_dcs_write(struct s6e3ha2 *ctx, const u8 cmd,
 	if (ctx->error < 0)
 		return;
 
-	ret = mipi_dsi_dcs_write(dsi, cmd, data, len);
+	ret = mipi_dsi_dcs_write_buffer(dsi, data, len);
 	if (ret < 0) {
 		dev_err(ctx->dev, "error %zd writing dcs seq: %*ph\n", ret,
 							(int)len, data);
@@ -329,11 +328,16 @@ static void s6e3ha2_dcs_write(struct s6e3ha2 *ctx, const u8 cmd,
 	}
 }
 
-#define s6e3ha2_dcs_write_seq_static(ctx, cmd, seq...) \
+#define s6e3ha2_dcs_write_seq(ctx, seq...) \
 ({\
-	static const u8 c = cmd;\
+	const u8 d[] = { seq };\
+	s6e3ha2_dcs_write(ctx, d, ARRAY_SIZE(d));\
+})
+
+#define s6e3ha2_dcs_write_seq_static(ctx, seq...) \
+({\
 	static const u8 d[] = { seq };\
-	s6e3ha2_dcs_write(ctx, c, d, ARRAY_SIZE(d));\
+	s6e3ha2_dcs_write(ctx, d, ARRAY_SIZE(d));\
 })
 
 #define NSEQ(seq...) sizeof((char[]){ seq }), seq
@@ -343,7 +347,7 @@ static void s6e3ha2__write_nseq(struct s6e3ha2 *ctx, const u8 *nseq)
 	int count;
 
 	while ((count = *nseq++)) {
-		s6e3ha2_dcs_write(ctx, *nseq, nseq + 1, count - 1);
+		s6e3ha2_dcs_write(ctx, nseq, count);
 		nseq += count;
 	}
 }
@@ -525,13 +529,12 @@ static int s6e3ha2_get_brightness(struct backlight_device *bl_dev)
 	return bl_dev->props.brightness;
 }
 
-static void s6e3ha2_set_vint(struct s6e3ha2 *ctx) {
-	struct backlight_device *bl_dev = ctx->bl_dev;
-	unsigned int brightness = bl_dev->props.brightness;
-	unsigned char data[] = { 0x8b,
-		VINT_TABLE[brightness * (VINT_STATUS_MAX - 1) / MAX_BRIGHTNESS] };
+static void s6e3ha2_set_vint(struct s6e3ha2 *ctx)
+{
+	int vind = (VINT_STATUS_MAX - 1)
+		 * ctx->bl_dev->props.brightness / MAX_BRIGHTNESS;
 
-	s6e3ha2_dcs_write(ctx, 0xf4, data, 2);
+	s6e3ha2_dcs_write_seq(ctx, 0xf4, 0x8b, VINT_TABLE[vind]);
 }
 
 static unsigned int s6e3ha2_get_brightness_index(unsigned int brightness)
@@ -542,8 +545,11 @@ static unsigned int s6e3ha2_get_brightness_index(unsigned int brightness)
 static void s6e3ha2_update_gamma(struct s6e3ha2 *ctx, unsigned int brightness)
 {
 	unsigned int index = s6e3ha2_get_brightness_index(brightness);
+	char data[GAMMA_CMD_CNT + 1];
 
-	s6e3ha2_dcs_write(ctx, 0xca, gamma_tbl[index], GAMMA_CMD_CNT);
+	data[0] = 0xca;
+	memcpy(data + 1, gamma_tbl[index], GAMMA_CMD_CNT);
+	s6e3ha2_dcs_write(ctx, data, ARRAY_SIZE(data));
 	s6e3ha2_gamma_update(ctx);
 
 	if (!ctx->error)
