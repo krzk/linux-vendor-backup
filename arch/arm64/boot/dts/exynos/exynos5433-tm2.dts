@@ -1514,18 +1514,21 @@
 		samsung,pin-pud = <0>;
 		samsung,pin-drv = <0>;
 	};
+
 	fimc_is_hsi2c_off: fimc-is-hsi2c-off {
 		samsung,pins = "gpd1-3", "gpd1-2";
 		samsung,pin-function = <0>;
 		samsung,pin-pud = <0>;
 		samsung,pin-drv = <3>;
 	};
+
 	fimc_is_ch2_i2c_off: fimc-is-ch2-i2c-off {
 		samsung,pins = "gpc2-5", "gpc2-4";
 		samsung,pin-function = <0>;
 		samsung,pin-pud = <0>;
 		samsung,pin-drv = <6>;
 	};
+
 	fimc_is_ch2_mclk_off: fimc-is-ch2_mclk_off {
 		samsung,pins = "gpd7-2";
 		samsung,pin-function = <1>;
@@ -1808,4 +1811,3 @@
 		reg = <0x0c>;
 	};
 };
-
