@@ -25,6 +25,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 
+#include <linux/extcon.h>
 #include <linux/mhl.h>
 #include "sii8620.h"
 
@@ -67,6 +68,12 @@ struct sii8620 {
 	unsigned int mt_done:1;
 	int irq;
 	struct list_head mt_queue;
+
+	/* extcon features */
+	struct work_struct work;
+	struct notifier_block mhl_nb;
+	struct extcon_specific_cable_nb mhl_cable_nb;
+	struct extcon_dev *edev;
 };
 
 struct sii8620_msc_msg;
@@ -613,6 +620,13 @@ static int sii8620_hw_on(struct sii8620 *ctx)
 	gpiod_set_value(ctx->gpio_reset, 1);
 
 	return 0;
+}
+
+static int sii8620_hw_off(struct sii8620 *ctx)
+{
+	gpiod_set_value(ctx->gpio_reset, 0);
+
+	return regulator_bulk_disable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
 }
 
 static void sii8620_hw_reset(struct sii8620 *ctx)
@@ -1424,6 +1438,13 @@ static void sii8620_cable_in(struct sii8620 *ctx)
 	enable_irq(ctx->irq);
 }
 
+static void sii8620_cable_out(struct sii8620 *ctx)
+{
+	disable_irq(ctx->irq);
+	clk_disable_unprepare(ctx->clk_xtal);
+	sii8620_hw_off(ctx);
+}
+
 static inline struct sii8620 *bridge_to_sii8620(struct drm_bridge *bridge)
 {
 	return container_of(bridge, struct sii8620, bridge);
@@ -1458,6 +1479,75 @@ out:
 	return ret;
 }
 
+static void sii8620_mhl_worker(struct work_struct *work)
+{
+	struct sii8620 *ctx = container_of(work, struct sii8620, work);
+
+	if (extcon_get_cable_state(ctx->edev, "MHL"))
+		sii8620_cable_in(ctx);
+	else
+		sii8620_cable_out(ctx);
+}
+
+static int sii8620_mhl_notifier(struct notifier_block *nb,
+				unsigned long event, void *ptr)
+{
+	struct sii8620 *ctx = container_of(nb, struct sii8620, mhl_nb);
+
+	schedule_work(&ctx->work);
+
+	return 0;
+}
+
+static int sii8620_extcon_activate(struct sii8620 *ctx)
+{
+	struct device_node *np = ctx->dev->of_node;
+	struct extcon_dev *edev;
+	int ret;
+
+	if (of_property_read_bool(np, "extcon")) {
+		INIT_WORK(&ctx->work, sii8620_mhl_worker);
+
+		ctx->mhl_nb.notifier_call = sii8620_mhl_notifier;
+
+		edev = extcon_get_edev_by_phandle(ctx->dev, 0);
+		if (IS_ERR(edev)) {
+			dev_dbg(ctx->dev, "Cannot get extcon device\n");
+			return -EPROBE_DEFER;
+		}
+
+		ret = extcon_register_interest(&ctx->mhl_cable_nb, edev->name,
+							"MHL", &ctx->mhl_nb);
+		if (ret < 0) {
+			dev_err(ctx->dev, "Cannot register MHL notifier\n");
+			return ret;
+		}
+
+		ctx->edev = edev;
+	} else {
+		dev_dbg(ctx->dev, "extcon for MHL is not supported\n");
+		sii8620_cable_in(ctx);
+	}
+
+	return 0;
+}
+
+static void sii8620_extcon_deactivate(struct sii8620 *ctx)
+{
+	struct device_node *np = ctx->dev->of_node;
+
+	if (of_property_read_bool(np, "extcon")) {
+		extcon_unregister_interest(&ctx->mhl_cable_nb);
+		/*
+		 * When the driver is being removed, it needs to be powered
+		 * off if still connected.
+		 */
+		if (extcon_get_cable_state(ctx->edev, "MHL"))
+			sii8620_cable_out(ctx);
+	} else {
+		sii8620_cable_out(ctx);
+	}
+}
 
 static const struct drm_bridge_funcs sii8620_bridge_funcs = {
 	.pre_enable = sii8620_bridge_dummy,
@@ -1515,9 +1605,11 @@ static int sii8620_probe(struct i2c_client *client,
 	if (ret)
 		return ret;
 
-	i2c_set_clientdata(client, ctx);
+	ret = sii8620_extcon_activate(ctx);
+	if (ret)
+		return ret;
 
-	sii8620_cable_in(ctx);
+	i2c_set_clientdata(client, ctx);
 
 	ctx->bridge.funcs = &sii8620_bridge_funcs;
 	ctx->bridge.of_node = dev->of_node;
@@ -1531,6 +1623,7 @@ static int sii8620_remove(struct i2c_client *client)
 	struct sii8620 *ctx = i2c_get_clientdata(client);
 
 	drm_bridge_remove(&ctx->bridge);
+	sii8620_extcon_deactivate(ctx);
 
 	return 0;
 }
