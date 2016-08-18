@@ -2639,14 +2639,6 @@
 				  0x81000000 0 0          0x0c001000 0 0x00010000   /* downstream I/O */
 				  0x82000000 0 0x0c011000 0x0c011000 0 0x3feefff>; /* non-prefetchable memory */
 		};
-
-		wlan {
-			compatible = "samsung,brcm-wlan";
-			gpios = <&gpj2 0 0x1 &gpf3 1 0x1>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&cfg_wlanen &wlan_host_wake>;
-			status = "okay";
-		};
 	};
 
 	timer {

@@ -286,6 +286,14 @@
 			thermal-sensors = <&thermistor_battery>;
 		};
 	};
+
+	wlan {
+		compatible = "samsung,brcm-wlan";
+		gpios = <&gpj2 0 0x1 &gpf3 1 0x1>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cfg_wlanen &wlan_host_wake>;
+		status = "okay";
+	};
 };
 
 &cpu0 {
@@ -1388,6 +1396,13 @@
 
 	sleep2: sleep-state {
 		PIN_SLP(gpj2-0, PREV, DOWN);	/* WLAN_EN */
+	};
+
+	cfg_wlanen: cfg-wlanen {
+		samsung,pins = "gpj2-0";
+		samsung,pin-function = <1>;
+		samsung,pin-drv = <3>;
+		samsung,pin-con-pdn = <3>;
 	};
 };
 
