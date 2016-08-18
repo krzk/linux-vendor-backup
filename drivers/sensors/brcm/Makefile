@@ -14,6 +14,7 @@ obj-$(CONFIG_SENSORS_SSP_TMG399X)	+= factory/light_tmg399x.o factory/prox_tmg399
 obj-$(CONFIG_SENSORS_SSP_BMP182)	+= factory/pressure_bmp182.o
 obj-$(CONFIG_SENSORS_SSP_MOBEAM)	+= factory/barcode_emul_tmg3992.o
 obj-$(CONFIG_SENSORS_SSP_SENSORHUB)	+= ssp_sensorhub.o ssp_misc.o
-obj-$(CONFIG_SENSORS_SSP_BBD)           += ssp_bbd.o factory/mcu_bcm4773.o \
-						bbdpl1/
+obj-$(CONFIG_SENSORS_SSP_BBD)		+= ssp_bbd.o factory/mcu_bcm4773.o
+obj-$(CONFIG_SENSORS_SSP_BBD_VER1)	+= bbdpl1/
+obj-$(CONFIG_SENSORS_SSP_BBD_VER2)	+= bbdpl2/
 obj-$(CONFIG_GPS_BCM47531)		+= gps/sec_gps_bcm47531.o

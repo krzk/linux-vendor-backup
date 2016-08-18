@@ -14,8 +14,30 @@ config SENSORS_SSP_BBD
 
 choice
 	depends on SENSORS_SSP_BBD
-	prompt "Choose target patch"
-	default SENSORHUB_TM2
+	prompt "Choose BBDPL Version"
+	default SENSORS_SSP_BBD_VER2
+
+config SENSORS_SSP_BBD_VER1
+	bool "bbdpl1"
+	depends on SPI
+	help
+	  Sensorhub bbdpl version 1 for TM2(e).
+
+config SENSORS_SSP_BBD_VER2
+	bool "bbdpl2"
+	depends on SPI
+	help
+	  Sensorhub bbdpl version 2 for TM2(e).
+endchoice
+
+if SENSORS_SSP_BBD_VER2
+source "drivers/sensors/brcm/bbdpl2/Kconfig"
+endif
+
+choice
+    depends on SENSORS_SSP_BBD
+    prompt "Choose target patch"
+    default SENSORHUB_TM2
 
 config SENSORHUB_S333
 	bool "BROADCOM_SENSORHUB_S333"
