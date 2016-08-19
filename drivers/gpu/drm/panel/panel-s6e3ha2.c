@@ -352,6 +352,29 @@ static void s6e3ha2_write_nseq(struct s6e3ha2 *ctx, const u8 *nseq)
 	}
 }
 
+static void s6e3ha2_dcs_read(struct s6e3ha2 *ctx, u8 cmd, void *buf, size_t len)
+{
+	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
+	int ret;
+
+	if (ctx->error < 0)
+		return;
+
+	ret = mipi_dsi_set_maximum_return_packet_size(dsi, len);
+	if (ret < 0) {
+		dev_err(ctx->dev, "error setting maximum return packet size to %lu\n",
+			len);
+		ctx->error = ret;
+		return;
+	}
+
+	ret = mipi_dsi_dcs_read(dsi, cmd, buf, len);
+	if (ret < 0) {
+		dev_err(ctx->dev, "error %d reading dcs seq(%#x)\n", ret, cmd);
+		ctx->error = ret;
+	}
+}
+
 static void s6e3ha2_test_key_on_f0(struct s6e3ha2 *ctx)
 {
 	s6e3ha2_dcs_write_seq_static(ctx, 0xf0, 0x5a, 0x5a);
@@ -755,6 +778,7 @@ static void s6e3ha2_hmt_set(struct s6e3ha2 *ctx, bool enable);
 static int s6e3ha2_enable(struct drm_panel *panel)
 {
 	struct s6e3ha2 *ctx = panel_to_s6e3ha2(panel);
+	u8 id[3];
 
 	/*
 	 * This function is called by mipi dsi driver
@@ -767,6 +791,10 @@ static int s6e3ha2_enable(struct drm_panel *panel)
 	}
 
 	msleep(120);
+
+	s6e3ha2_dcs_read(ctx, MIPI_DCS_GET_DISPLAY_ID, id, ARRAY_SIZE(id));
+	if (ctx->error >= 0)
+		dev_info(ctx->dev, "Id: %*ph\n", (int)ARRAY_SIZE(id), id);
 
 	/* common setting */
 	s6e3ha2_dcs_write_seq_static(ctx, MIPI_DCS_SET_TEAR_ON, MIPI_DSI_DCS_TEAR_MODE_VBLANK);
