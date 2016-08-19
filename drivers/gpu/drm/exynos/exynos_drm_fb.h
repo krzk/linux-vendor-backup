@@ -32,4 +32,8 @@ void exynos_drm_fb_set_buf_cnt(struct drm_framebuffer *fb,
 /* get a buffer count to drm framebuffer. */
 unsigned int exynos_drm_fb_get_buf_cnt(struct drm_framebuffer *fb);
 
+/* get a gem object corresponding to a given index. */
+struct exynos_drm_gem_obj *exynos_drm_fb_gem_obj(struct drm_framebuffer *fb,
+								 int index);
+
 #endif

@@ -17,6 +17,7 @@
 #include <drm/drm_crtc_helper.h>
 
 #include <linux/component.h>
+#include <linux/fence.h>
 
 #include <drm/exynos_drm.h>
 
@@ -51,6 +52,9 @@ static int exynos_drm_load(struct drm_device *dev, unsigned long flags)
 
 	dev_set_drvdata(dev->dev, dev);
 	dev->dev_private = (void *)private;
+
+	private->gem_fence_context = fence_context_alloc(1);
+	atomic_set(&private->gem_fence_seqno, 0);
 
 	/*
 	 * create mapping to manage iommu table and set a pointer to iommu

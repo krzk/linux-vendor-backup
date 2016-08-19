@@ -254,6 +254,22 @@ struct exynos_drm_gem_buf *exynos_drm_fb_buffer(struct drm_framebuffer *fb,
 	return buffer;
 }
 
+struct exynos_drm_gem_obj *exynos_drm_fb_gem_obj(struct drm_framebuffer *fb,
+								 int index)
+{
+	struct exynos_drm_fb *exynos_fb = to_exynos_fb(fb);
+	struct exynos_drm_gem_obj *obj;
+
+	if (index >= MAX_FB_BUFFER)
+		return ERR_PTR(-EINVAL);
+
+	obj = exynos_fb->exynos_gem_obj[index];
+	if (!obj)
+		return ERR_PTR(-EFAULT);
+
+	return obj;
+}
+
 static void exynos_drm_output_poll_changed(struct drm_device *dev)
 {
 	struct exynos_drm_private *private = dev->dev_private;
