@@ -18,6 +18,7 @@
 #include "exynos_drm_fb.h"
 #include "exynos_drm_gem.h"
 #include "exynos_drm_plane.h"
+#include "exynos_trace.h"
 
 /*
  * This function is to get X or Y size shown via screen. This needs length and
@@ -145,6 +146,7 @@ static void exynos_plane_update_cb(struct drm_reservation_cb *rcb, void *params)
 	struct exynos_drm_crtc *exynos_crtc =
 					to_exynos_crtc(exynos_plane->base.crtc);
 
+	trace_exynos_update_cb(exynos_crtc, exynos_plane);
 	if (exynos_crtc->ops->win_commit)
 		exynos_crtc->ops->win_commit(exynos_crtc,
 					     exynos_plane->zpos);
@@ -193,18 +195,22 @@ static int exynos_plane_fence(struct exynos_drm_plane *plane,
 	plane->update_pending = true;
 	plane->pending_fence = fence;
 
+	trace_exynos_add_shared_fence(exynos_crtc, plane);
 	reservation_object_add_shared_fence(resv, plane->pending_fence);
 
 	if (!reservation_object_test_signaled_rcu(resv, false)) {
 		drm_reservation_cb_init(&plane->rcb, exynos_plane_update_cb, plane);
+		trace_exynos_cb_add(exynos_crtc, plane);
 		ret = drm_reservation_cb_add(&plane->rcb, resv, false);
 		if (ret < 0) {
 			DRM_ERROR("Adding reservation to callback failed: %d\n", ret);
 			goto err_fence;
 		}
 
+		trace_exynos_cb_done(exynos_crtc, plane);
 		drm_reservation_cb_done(&plane->rcb);
 	} else {
+		trace_exynos_cb_fast_path(exynos_crtc, plane);
 		exynos_plane_update_cb(&plane->rcb, plane);
 	}
 

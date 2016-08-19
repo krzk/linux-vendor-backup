@@ -19,6 +19,7 @@
 #include "exynos_drm_drv.h"
 #include "exynos_drm_encoder.h"
 #include "exynos_drm_plane.h"
+#include "exynos_trace.h"
 
 static void exynos_drm_crtc_dpms(struct drm_crtc *crtc, int mode)
 {
@@ -178,6 +179,9 @@ static int exynos_drm_crtc_page_flip(struct drm_crtc *crtc,
 	if (!event)
 		return -EINVAL;
 
+	trace_exynos_request_pageflip(exynos_crtc);
+
+
 	spin_lock_irq(&dev->event_lock);
 	if (exynos_crtc->event) {
 		ret = -EBUSY;
@@ -324,6 +328,7 @@ void exynos_drm_crtc_finish_pageflip(struct drm_device *dev, int pipe)
 		drm_vblank_put(dev, pipe);
 		wake_up(&exynos_crtc->pending_flip_queue);
 
+		trace_exynos_finish_vsync(exynos_crtc);
 	}
 
 	exynos_crtc->event = NULL;
