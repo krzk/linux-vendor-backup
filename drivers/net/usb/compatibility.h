@@ -22,6 +22,8 @@
 	#define skb_vlan_tag_present(__skb)		vlan_tx_tag_present(__skb)
 	#define skb_vlan_tag_get(__skb)			vlan_tx_tag_get(__skb)
 	#define skb_vlan_tag_get_id(__skb)		vlan_tx_tag_get_id(__skb)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
+	#define napi_alloc_skb(napi, length)		netdev_alloc_skb_ip_align(netdev,length)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0)
 	#define ether_addr_copy(dst, src)		memcpy(dst, src, ETH_ALEN)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,13,0)
@@ -421,6 +423,7 @@
 #endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0) */
 #endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3,13,0) */
 #endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0) */
+#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0) */
 #endif /* LINUX_VERSION_CODE < KERNEL_VERSION(4,0,0) */
 #endif /* LINUX_VERSION_CODE < KERNEL_VERSION(4,5,0) */
 
