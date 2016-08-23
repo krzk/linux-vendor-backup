@@ -34,6 +34,9 @@
 #define PF_BLUETOOTH	AF_BLUETOOTH
 #endif
 
+/*To enable Tizen specific fixes */
+#define TIZEN_BT
+
 /* Bluetooth versions */
 #define BLUETOOTH_VER_1_1	1
 #define BLUETOOTH_VER_1_2	2
