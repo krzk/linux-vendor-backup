@@ -473,6 +473,9 @@ struct hci_conn {
 	void		*sco_data;
 	struct amp_mgr	*amp_mgr;
 
+#ifdef TIZEN_BT
+	bool		rssi_monitored;
+#endif
 	struct hci_conn	*link;
 
 	void (*connect_cfm_cb)	(struct hci_conn *conn, u8 status);
@@ -795,6 +798,70 @@ static inline struct hci_conn *hci_conn_hash_lookup_state(struct hci_dev *hdev,
 
 	return NULL;
 }
+
+#ifdef TIZEN_BT
+static inline bool hci_conn_rssi_state_set(struct hci_dev *hdev,
+					__u8 type, bdaddr_t *ba, bool value)
+{
+	struct hci_conn_hash *h = &hdev->conn_hash;
+	struct hci_conn  *c;
+	__u8 conn_type;
+
+	if (type == 0x01)
+		conn_type = LE_LINK;
+	else
+		conn_type = ACL_LINK;
+
+	rcu_read_lock();
+
+	list_for_each_entry_rcu(c, &h->list, list) {
+		if (c->type == conn_type && !bacmp(&c->dst, ba)) {
+			c->rssi_monitored = value;
+			rcu_read_unlock();
+			return true;
+		}
+	}
+
+	rcu_read_unlock();
+	return false;
+}
+
+static inline void hci_conn_rssi_unset_all(struct hci_dev *hdev,
+					__u8 type)
+{
+	struct hci_conn_hash *h = &hdev->conn_hash;
+	struct hci_conn  *c;
+	__u8 conn_type;
+
+	if (type == 0x01)
+		conn_type = LE_LINK;
+	else
+		conn_type = ACL_LINK;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(c, &h->list, list) {
+		if (c->type == conn_type)
+			c->rssi_monitored = false;
+	}
+	rcu_read_unlock();
+}
+
+static inline int hci_conn_hash_lookup_rssi_count(struct hci_dev *hdev)
+{
+	struct hci_conn_hash *h = &hdev->conn_hash;
+	struct hci_conn  *c;
+	int count = 0;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(c, &h->list, list) {
+		if (c->rssi_monitored == true)
+			++count;
+	}
+	rcu_read_unlock();
+
+	return count;
+}
+#endif
 
 int hci_disconnect(struct hci_conn *conn, __u8 reason);
 bool hci_setup_sync(struct hci_conn *conn, __u16 handle);
@@ -1415,6 +1482,19 @@ void mgmt_new_conn_param(struct hci_dev *hdev, bdaddr_t *bdaddr,
 			 u16 max_interval, u16 latency, u16 timeout);
 void mgmt_reenable_advertising(struct hci_dev *hdev);
 void mgmt_smp_complete(struct hci_conn *conn, bool complete);
+
+#ifdef TIZEN_BT
+void mgmt_rssi_enable_success(struct sock *sk, struct hci_dev *hdev,
+		void *data, struct hci_cc_rsp_enable_rssi *rp, int success);
+void mgmt_rssi_disable_success(struct sock *sk, struct hci_dev *hdev,
+		void *data, struct hci_cc_rsp_enable_rssi *rp, int success);
+int mgmt_set_rssi_threshold(struct sock *sk, struct hci_dev *hdev,
+		void *data, u16 len);
+void mgmt_rssi_alert_evt(struct hci_dev *hdev, struct sk_buff *skb);
+void mgmt_raw_rssi_response(struct hci_dev *hdev,
+		struct hci_cc_rp_get_raw_rssi *rp, int success);
+void mgmt_enable_rssi_cc(struct hci_dev *hdev, void *response, u8 status);
+#endif
 
 u8 hci_le_conn_update(struct hci_conn *conn, u16 min, u16 max, u16 latency,
 		      u16 to_multiplier);

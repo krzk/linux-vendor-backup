@@ -1423,6 +1423,30 @@ static void hci_cc_write_remote_amp_assoc(struct hci_dev *hdev,
 	amp_write_rem_assoc_continue(hdev, rp->phy_handle);
 }
 
+#ifdef TIZEN_BT
+static void hci_cc_enable_rssi(struct hci_dev *hdev,
+					  struct sk_buff *skb)
+{
+	struct hci_cc_rsp_enable_rssi *rp = (void *)skb->data;
+
+	BT_DBG("hci_cc_enable_rssi - %s status 0x%2.2x Event_LE_ext_Opcode 0x%2.2x",
+	       hdev->name, rp->status, rp->le_ext_opcode);
+
+	mgmt_enable_rssi_cc(hdev, rp, rp->status);
+}
+
+static void hci_cc_get_raw_rssi(struct hci_dev *hdev,
+					  struct sk_buff *skb)
+{
+	struct hci_cc_rp_get_raw_rssi *rp = (void *)skb->data;
+
+	BT_DBG("hci_cc_get_raw_rssi- %s Get Raw Rssi Response[%2.2x %4.4x %2.2X]",
+	       hdev->name, rp->status, rp->conn_handle, rp->rssi_dbm);
+
+	mgmt_raw_rssi_response(hdev, rp, rp->status);
+}
+#endif
+
 static void hci_cc_read_rssi(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	struct hci_rp_read_rssi *rp = (void *) skb->data;
@@ -3036,6 +3060,15 @@ static void hci_cmd_complete_evt(struct hci_dev *hdev, struct sk_buff *skb,
 		hci_cc_write_ssp_debug_mode(hdev, skb);
 		break;
 
+#ifdef TIZEN_BT
+	case HCI_OP_ENABLE_RSSI:
+		hci_cc_enable_rssi(hdev, skb);
+		break;
+
+	case HCI_OP_GET_RAW_RSSI:
+		hci_cc_get_raw_rssi(hdev, skb);
+		break;
+#endif
 	default:
 		BT_DBG("%s opcode 0x%4.4x", hdev->name, *opcode);
 		break;

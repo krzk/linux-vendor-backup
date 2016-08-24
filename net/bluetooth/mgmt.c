@@ -5948,6 +5948,689 @@ unlocked:
 
 	return err;
 }
+
+static void set_rssi_threshold_complete(struct hci_dev *hdev,
+			u8 status, u16 opcode)
+{
+	struct mgmt_pending_cmd *cmd;
+
+	BT_DBG("status 0x%02x", status);
+
+	hci_dev_lock(hdev);
+
+	cmd = pending_find(MGMT_OP_SET_RSSI_ENABLE, hdev);
+	if (!cmd)
+		goto unlock;
+
+	if (status)
+		mgmt_cmd_status(cmd->sk, hdev->id, MGMT_OP_SET_RSSI_ENABLE,
+				mgmt_status(status));
+	else
+		mgmt_cmd_complete(cmd->sk, hdev->id, MGMT_OP_SET_RSSI_ENABLE, 0,
+				NULL, 0);
+
+	mgmt_pending_remove(cmd);
+
+unlock:
+	hci_dev_unlock(hdev);
+}
+
+static void set_rssi_disable_complete(struct hci_dev *hdev,
+			u8 status, u16 opcode)
+{
+	struct mgmt_pending_cmd *cmd;
+
+	BT_DBG("status 0x%02x", status);
+
+	hci_dev_lock(hdev);
+
+	cmd = pending_find(MGMT_OP_SET_RSSI_DISABLE, hdev);
+	if (!cmd)
+		goto unlock;
+
+	if (status)
+		mgmt_cmd_status(cmd->sk, hdev->id, MGMT_OP_SET_RSSI_DISABLE,
+				mgmt_status(status));
+	else
+		mgmt_cmd_complete(cmd->sk, hdev->id, MGMT_OP_SET_RSSI_DISABLE,
+				0, NULL, 0);
+
+	mgmt_pending_remove(cmd);
+
+unlock:
+	hci_dev_unlock(hdev);
+}
+
+int mgmt_set_rssi_threshold(struct sock *sk, struct hci_dev *hdev,
+		void *data, u16 len)
+{
+	int err = 0;
+	struct hci_cp_set_rssi_threshold th = { 0, };
+	struct mgmt_cp_set_enable_rssi *cp = data;
+	struct hci_conn *conn;
+	struct mgmt_pending_cmd *cmd;
+	struct hci_request req;
+	__u8 dest_type;
+
+	hci_dev_lock(hdev);
+
+	cmd = pending_find(MGMT_OP_SET_RSSI_ENABLE, hdev);
+	if (!cmd) {
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_SET_RSSI_ENABLE,
+				MGMT_STATUS_FAILED);
+		goto unlocked;
+	}
+
+	if (!lmp_le_capable(hdev)) {
+		mgmt_pending_remove(cmd);
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_SET_RSSI_ENABLE,
+				MGMT_STATUS_NOT_SUPPORTED);
+		goto unlocked;
+	}
+
+	if (!hdev_is_powered(hdev)) {
+		BT_DBG("%s", hdev->name);
+		mgmt_pending_remove(cmd);
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_SET_RSSI_ENABLE,
+				MGMT_STATUS_NOT_POWERED);
+		goto unlocked;
+	}
+
+	if (cp->link_type == 0x01)
+		dest_type = LE_LINK;
+	else
+		dest_type = ACL_LINK;
+
+	/* Get LE/ACL link handle info */
+	conn = hci_conn_hash_lookup_ba(hdev,
+			dest_type, &cp->bdaddr);
+
+	if (!conn) {
+		err = mgmt_cmd_complete(sk, hdev->id,
+				MGMT_OP_SET_RSSI_ENABLE, 1, NULL, 0);
+		mgmt_pending_remove(cmd);
+		goto unlocked;
+	}
+
+	hci_req_init(&req, hdev);
+
+	th.hci_le_ext_opcode = 0x0B;
+	th.mode = 0x01;
+	th.conn_handle = conn->handle;
+	th.alert_mask = 0x07;
+	th.low_th = cp->low_th;
+	th.in_range_th = cp->in_range_th;
+	th.high_th = cp->high_th;
+
+	hci_req_add(&req, HCI_OP_ENABLE_RSSI, sizeof(th), &th);
+	err = hci_req_run(&req, set_rssi_threshold_complete);
+
+	if (err < 0) {
+		mgmt_pending_remove(cmd);
+		BT_ERR("Error in requesting hci_req_run");
+		goto unlocked;
+	}
+
+unlocked:
+	hci_dev_unlock(hdev);
+	return err;
+}
+
+void mgmt_rssi_enable_success(struct sock *sk, struct hci_dev *hdev,
+		void *data, struct hci_cc_rsp_enable_rssi *rp, int success)
+{
+	struct mgmt_cc_rsp_enable_rssi mgmt_rp = { 0, };
+	struct mgmt_cp_set_enable_rssi *cp = data;
+	struct mgmt_pending_cmd *cmd;
+
+	if (!cp || !rp)
+		goto remove_cmd;
+
+	mgmt_rp.status = rp->status;
+	mgmt_rp.le_ext_opcode = rp->le_ext_opcode;
+	mgmt_rp.bt_address = cp->bdaddr;
+	mgmt_rp.link_type = cp->link_type;
+
+	mgmt_cmd_complete(sk, hdev->id, MGMT_OP_SET_RSSI_ENABLE,
+			MGMT_STATUS_SUCCESS, &mgmt_rp,
+			sizeof(struct mgmt_cc_rsp_enable_rssi));
+
+	mgmt_event(MGMT_EV_RSSI_ENABLED, hdev, &mgmt_rp,
+			sizeof(struct mgmt_cc_rsp_enable_rssi), NULL);
+
+	hci_conn_rssi_unset_all(hdev, mgmt_rp.link_type);
+	hci_conn_rssi_state_set(hdev, mgmt_rp.link_type,
+			&mgmt_rp.bt_address, true);
+
+remove_cmd:
+	hci_dev_lock(hdev);
+	cmd = pending_find(MGMT_OP_SET_RSSI_ENABLE, hdev);
+	if (cmd)
+		mgmt_pending_remove(cmd);
+
+	hci_dev_unlock(hdev);
+}
+
+void mgmt_rssi_disable_success(struct sock *sk, struct hci_dev *hdev,
+		void *data, struct hci_cc_rsp_enable_rssi *rp, int success)
+{
+	struct mgmt_cc_rp_disable_rssi mgmt_rp = { 0, };
+	struct mgmt_cp_disable_rssi *cp = data;
+	struct mgmt_pending_cmd *cmd;
+
+	if (!cp || !rp)
+		goto remove_cmd;
+
+	mgmt_rp.status = rp->status;
+	mgmt_rp.le_ext_opcode = rp->le_ext_opcode;
+	mgmt_rp.bt_address = cp->bdaddr;
+	mgmt_rp.link_type = cp->link_type;
+
+	mgmt_cmd_complete(sk, hdev->id, MGMT_OP_SET_RSSI_DISABLE,
+			MGMT_STATUS_SUCCESS, &mgmt_rp,
+			sizeof(struct mgmt_cc_rsp_enable_rssi));
+
+	mgmt_event(MGMT_EV_RSSI_DISABLED, hdev, &mgmt_rp,
+			sizeof(struct mgmt_cc_rsp_enable_rssi), NULL);
+
+	hci_conn_rssi_state_set(hdev, mgmt_rp.link_type,
+			&mgmt_rp.bt_address, false);
+
+remove_cmd:
+	hci_dev_lock(hdev);
+	cmd = pending_find(MGMT_OP_SET_RSSI_DISABLE, hdev);
+	if (cmd)
+		mgmt_pending_remove(cmd);
+
+	hci_dev_unlock(hdev);
+}
+
+static int mgmt_set_disable_rssi(struct sock *sk, struct hci_dev *hdev,
+		void *data, u16 len)
+{
+	struct mgmt_pending_cmd *cmd;
+	struct hci_request req;
+	struct hci_cp_set_enable_rssi cp_en = { 0, };
+	int err;
+
+	BT_DBG("Set Disable RSSI.");
+
+	cp_en.hci_le_ext_opcode = 0x01;
+	cp_en.le_enable_cs_Features = 0x00;
+	cp_en.data[0] = 0x00;
+	cp_en.data[1] = 0x00;
+	cp_en.data[2] = 0x00;
+
+	hci_dev_lock(hdev);
+
+	cmd = pending_find(MGMT_OP_SET_RSSI_DISABLE, hdev);
+	if (!cmd) {
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_SET_RSSI_DISABLE,
+				MGMT_STATUS_FAILED);
+		goto unlocked;
+	}
+
+	if (!lmp_le_capable(hdev)) {
+		mgmt_pending_remove(cmd);
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_SET_RSSI_DISABLE,
+				MGMT_STATUS_NOT_SUPPORTED);
+		goto unlocked;
+	}
+
+	if (!hdev_is_powered(hdev)) {
+		BT_DBG("%s", hdev->name);
+		mgmt_pending_remove(cmd);
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_SET_RSSI_DISABLE,
+				MGMT_STATUS_NOT_POWERED);
+		goto unlocked;
+	}
+
+	hci_req_init(&req, hdev);
+
+	BT_DBG("Enable Len: %zu [%2.2X %2.2X %2.2X %2.2X %2.2X]",
+			sizeof(struct hci_cp_set_enable_rssi),
+			cp_en.hci_le_ext_opcode, cp_en.le_enable_cs_Features,
+			cp_en.data[0], cp_en.data[1], cp_en.data[2]);
+
+	hci_req_add(&req, HCI_OP_ENABLE_RSSI, sizeof(cp_en), &cp_en);
+	err = hci_req_run(&req, set_rssi_disable_complete);
+
+	if (err < 0) {
+		mgmt_pending_remove(cmd);
+		BT_ERR("Error in requesting hci_req_run");
+		goto unlocked;
+	}
+
+unlocked:
+	hci_dev_unlock(hdev);
+	return err;
+}
+
+void mgmt_enable_rssi_cc(struct hci_dev *hdev, void *response, u8 status)
+{
+	struct hci_cc_rsp_enable_rssi *rp = response;
+	struct mgmt_pending_cmd *cmd_enable = NULL;
+	struct mgmt_pending_cmd *cmd_disable = NULL;
+	struct mgmt_cp_set_enable_rssi *cp_en;
+	struct mgmt_cp_disable_rssi *cp_dis;
+
+	hci_dev_lock(hdev);
+	cmd_enable = pending_find(MGMT_OP_SET_RSSI_ENABLE, hdev);
+	cmd_disable = pending_find(MGMT_OP_SET_RSSI_DISABLE, hdev);
+	hci_dev_unlock(hdev);
+
+	if (cmd_enable)
+		BT_DBG("Enable Request");
+
+	if (cmd_disable)
+		BT_DBG("Disable Request");
+
+	if (cmd_enable) {
+		cp_en = cmd_enable->param;
+
+		if (status != 0x00)
+			return;
+
+		switch (rp->le_ext_opcode) {
+		case 0x01:
+			BT_DBG("RSSI enabled.. Setting Threshold...");
+			mgmt_set_rssi_threshold(cmd_enable->sk, hdev,
+					cp_en, sizeof(*cp_en));
+			break;
+
+		case 0x0B:
+			BT_DBG("Sending RSSI enable success");
+			mgmt_rssi_enable_success(cmd_enable->sk, hdev,
+					cp_en, rp, rp->status);
+			break;
+		}
+
+	} else if (cmd_disable) {
+		cp_dis = cmd_disable->param;
+
+		if (status != 0x00)
+			return;
+
+		switch (rp->le_ext_opcode) {
+		case 0x01:
+			BT_DBG("Sending RSSI disable success");
+			mgmt_rssi_disable_success(cmd_disable->sk, hdev,
+					cp_dis, rp, rp->status);
+			break;
+
+		case 0x0B:
+			/*
+			 * Only unset RSSI Threshold values for the Link if
+			 * RSSI is monitored for other BREDR or LE Links
+			 */
+			if (hci_conn_hash_lookup_rssi_count(hdev) > 1) {
+				BT_DBG("Unset Threshold. Other links being monitored");
+				mgmt_rssi_disable_success(cmd_disable->sk, hdev,
+						cp_dis, rp, rp->status);
+			} else {
+				BT_DBG("Unset Threshold. Disabling...");
+				mgmt_set_disable_rssi(cmd_disable->sk, hdev,
+						cp_dis, sizeof(*cp_dis));
+			}
+			break;
+		}
+	}
+}
+
+static void set_rssi_enable_complete(struct hci_dev *hdev, u8 status,
+		u16 opcode)
+{
+	struct mgmt_pending_cmd *cmd;
+
+	BT_DBG("status 0x%02x", status);
+
+	hci_dev_lock(hdev);
+
+	cmd = pending_find(MGMT_OP_SET_RSSI_ENABLE, hdev);
+	if (!cmd)
+		goto unlock;
+
+	if (status)
+		mgmt_cmd_status(cmd->sk, hdev->id, MGMT_OP_SET_RSSI_ENABLE,
+				mgmt_status(status));
+	else
+		mgmt_cmd_complete(cmd->sk, hdev->id, MGMT_OP_SET_RSSI_ENABLE, 0,
+				NULL, 0);
+
+	mgmt_pending_remove(cmd);
+
+unlock:
+	hci_dev_unlock(hdev);
+}
+
+static int set_enable_rssi(struct sock *sk, struct hci_dev *hdev,
+		void *data, u16 len)
+{
+	struct mgmt_pending_cmd *cmd;
+	struct hci_request req;
+	struct mgmt_cp_set_enable_rssi *cp = data;
+	struct hci_cp_set_enable_rssi cp_en = { 0, };
+	int err;
+
+	BT_DBG("Set Enable RSSI.");
+
+	cp_en.hci_le_ext_opcode = 0x01;
+	cp_en.le_enable_cs_Features = 0x04;
+	cp_en.data[0] = 0x00;
+	cp_en.data[1] = 0x00;
+	cp_en.data[2] = 0x00;
+
+	hci_dev_lock(hdev);
+
+	if (!lmp_le_capable(hdev)) {
+		err =  mgmt_cmd_status(sk, hdev->id, MGMT_OP_SET_RSSI_ENABLE,
+				MGMT_STATUS_NOT_SUPPORTED);
+		goto unlocked;
+	}
+
+	if (!hdev_is_powered(hdev)) {
+		BT_DBG("%s", hdev->name);
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_SET_RSSI_ENABLE,
+				MGMT_STATUS_NOT_POWERED);
+		goto unlocked;
+	}
+
+	if (pending_find(MGMT_OP_SET_RSSI_ENABLE, hdev)) {
+		BT_DBG("%s", hdev->name);
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_SET_RSSI_ENABLE,
+				MGMT_STATUS_BUSY);
+		goto unlocked;
+	}
+
+	cmd = mgmt_pending_add(sk, MGMT_OP_SET_RSSI_ENABLE, hdev, cp,
+			sizeof(*cp));
+	if (!cmd) {
+		BT_DBG("%s", hdev->name);
+		err = -ENOMEM;
+		goto unlocked;
+	}
+
+	/* If RSSI is already enabled directly set Threshold values */
+	if (hci_conn_hash_lookup_rssi_count(hdev) > 0) {
+		hci_dev_unlock(hdev);
+		BT_DBG("RSSI Enabled. Directly set Threshold");
+		err = mgmt_set_rssi_threshold(sk, hdev, cp, sizeof(*cp));
+		return err;
+	}
+
+	hci_req_init(&req, hdev);
+
+	BT_DBG("Enable Len: %zu [%2.2X %2.2X %2.2X %2.2X %2.2X]",
+			sizeof(struct hci_cp_set_enable_rssi),
+			cp_en.hci_le_ext_opcode, cp_en.le_enable_cs_Features,
+			cp_en.data[0], cp_en.data[1], cp_en.data[2]);
+
+	hci_req_add(&req, HCI_OP_ENABLE_RSSI, sizeof(cp_en), &cp_en);
+	err = hci_req_run(&req, set_rssi_enable_complete);
+
+	if (err < 0) {
+		mgmt_pending_remove(cmd);
+		BT_ERR("Error in requesting hci_req_run");
+		goto unlocked;
+	}
+
+unlocked:
+	hci_dev_unlock(hdev);
+
+	return err;
+}
+
+static void get_raw_rssi_complete(struct hci_dev *hdev, u8 status, u16 opcode)
+{
+	struct mgmt_pending_cmd *cmd;
+
+	BT_DBG("status 0x%02x", status);
+
+	hci_dev_lock(hdev);
+
+	cmd = pending_find(MGMT_OP_GET_RAW_RSSI, hdev);
+	if (!cmd)
+		goto unlock;
+
+	mgmt_cmd_complete(cmd->sk, hdev->id, MGMT_OP_GET_RAW_RSSI,
+			MGMT_STATUS_SUCCESS, &status, 1);
+
+	mgmt_pending_remove(cmd);
+
+unlock:
+	hci_dev_unlock(hdev);
+}
+
+static int get_raw_rssi(struct sock *sk, struct hci_dev *hdev, void *data,
+			u16 len)
+{
+	struct mgmt_pending_cmd *cmd;
+	struct hci_request req;
+	struct mgmt_cp_get_raw_rssi *cp = data;
+	struct hci_cp_get_raw_rssi hci_cp;
+
+	struct hci_conn *conn;
+	int err;
+	__u8 dest_type;
+
+	BT_DBG("Get Raw RSSI.");
+
+	hci_dev_lock(hdev);
+
+	if (!lmp_le_capable(hdev)) {
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_GET_RAW_RSSI,
+				MGMT_STATUS_NOT_SUPPORTED);
+		goto unlocked;
+	}
+
+	if (cp->link_type == 0x01)
+		dest_type = LE_LINK;
+	else
+		dest_type = ACL_LINK;
+
+	/* Get LE/BREDR link handle info */
+	conn = hci_conn_hash_lookup_ba(hdev,
+			dest_type, &cp->bt_address);
+	if (!conn) {
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_GET_RAW_RSSI,
+						   MGMT_STATUS_NOT_CONNECTED);
+		goto unlocked;
+	}
+	hci_cp.conn_handle = conn->handle;
+
+	if (!hdev_is_powered(hdev)) {
+		BT_DBG("%s", hdev->name);
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_GET_RAW_RSSI,
+				MGMT_STATUS_NOT_POWERED);
+		goto unlocked;
+	}
+
+	if (pending_find(MGMT_OP_GET_RAW_RSSI, hdev)) {
+		BT_DBG("%s", hdev->name);
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_GET_RAW_RSSI,
+				MGMT_STATUS_BUSY);
+		goto unlocked;
+	}
+
+	cmd = mgmt_pending_add(sk, MGMT_OP_GET_RAW_RSSI, hdev, data, len);
+	if (!cmd) {
+		BT_DBG("%s", hdev->name);
+		err = -ENOMEM;
+		goto unlocked;
+	}
+
+	hci_req_init(&req, hdev);
+
+	BT_DBG("Connection Handle [%d]", hci_cp.conn_handle);
+	hci_req_add(&req, HCI_OP_GET_RAW_RSSI, sizeof(hci_cp), &hci_cp);
+	err = hci_req_run(&req, get_raw_rssi_complete);
+
+	if (err < 0) {
+		mgmt_pending_remove(cmd);
+		BT_ERR("Error in requesting hci_req_run");
+	}
+
+unlocked:
+	hci_dev_unlock(hdev);
+
+	return err;
+}
+
+void mgmt_raw_rssi_response(struct hci_dev *hdev,
+		struct hci_cc_rp_get_raw_rssi *rp, int success)
+{
+	struct mgmt_cc_rp_get_raw_rssi mgmt_rp = { 0, };
+	struct hci_conn *conn;
+
+	mgmt_rp.status = rp->status;
+	mgmt_rp.rssi_dbm = rp->rssi_dbm;
+
+	conn = hci_conn_hash_lookup_handle(hdev, rp->conn_handle);
+	if (!conn)
+		return;
+
+	bacpy(&mgmt_rp.bt_address, &conn->dst);
+	if (conn->type == LE_LINK)
+		mgmt_rp.link_type = 0x01;
+	else
+		mgmt_rp.link_type = 0x00;
+
+	mgmt_event(MGMT_EV_RAW_RSSI, hdev, &mgmt_rp,
+			sizeof(struct mgmt_cc_rp_get_raw_rssi), NULL);
+}
+
+static void set_disable_threshold_complete(struct hci_dev *hdev,
+			u8 status, u16 opcode)
+{
+	struct mgmt_pending_cmd *cmd;
+
+	BT_DBG("status 0x%02x", status);
+
+	hci_dev_lock(hdev);
+
+	cmd = pending_find(MGMT_OP_SET_RSSI_DISABLE, hdev);
+	if (!cmd)
+		goto unlock;
+
+	mgmt_cmd_complete(cmd->sk, hdev->id, MGMT_OP_SET_RSSI_DISABLE,
+			MGMT_STATUS_SUCCESS, &status, 1);
+
+	mgmt_pending_remove(cmd);
+
+unlock:
+	hci_dev_unlock(hdev);
+}
+
+/** Removes monitoring for a link*/
+static int set_disable_threshold(struct sock *sk, struct hci_dev *hdev,
+		void *data, u16 len)
+{
+	int err = 0;
+	struct hci_cp_set_rssi_threshold th = { 0, };
+	struct mgmt_cp_disable_rssi *cp = data;
+	struct hci_conn *conn;
+	struct mgmt_pending_cmd *cmd;
+	struct hci_request req;
+	__u8 dest_type;
+
+	BT_DBG("Set Disable RSSI.");
+
+	hci_dev_lock(hdev);
+
+	if (!lmp_le_capable(hdev)) {
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_SET_RSSI_DISABLE,
+				MGMT_STATUS_NOT_SUPPORTED);
+		goto unlocked;
+	}
+
+	/* Get LE/ACL link handle info*/
+	if (cp->link_type == 0x01)
+		dest_type = LE_LINK;
+	else
+		dest_type = ACL_LINK;
+
+	conn = hci_conn_hash_lookup_ba(hdev, dest_type, &cp->bdaddr);
+	if (!conn) {
+		err = mgmt_cmd_complete(sk, hdev->id,
+				MGMT_OP_SET_RSSI_DISABLE, 1, NULL, 0);
+		goto unlocked;
+	}
+
+	th.hci_le_ext_opcode = 0x0B;
+	th.mode = 0x01;
+	th.conn_handle = conn->handle;
+	th.alert_mask = 0x00;
+	th.low_th = 0x00;
+	th.in_range_th = 0x00;
+	th.high_th = 0x00;
+
+	if (!hdev_is_powered(hdev)) {
+		BT_DBG("%s", hdev->name);
+		err = mgmt_cmd_complete(sk, hdev->id, MGMT_OP_SET_RSSI_DISABLE,
+				0, data, len);
+		goto unlocked;
+	}
+
+	if (pending_find(MGMT_OP_SET_RSSI_DISABLE, hdev)) {
+		BT_DBG("%s", hdev->name);
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_SET_RSSI_DISABLE,
+				MGMT_STATUS_BUSY);
+		goto unlocked;
+	}
+
+	cmd = mgmt_pending_add(sk, MGMT_OP_SET_RSSI_DISABLE, hdev, cp,
+			sizeof(*cp));
+	if (!cmd) {
+		BT_DBG("%s", hdev->name);
+		err = -ENOMEM;
+		goto unlocked;
+	}
+
+	hci_req_init(&req, hdev);
+
+	hci_req_add(&req, HCI_OP_ENABLE_RSSI, sizeof(th), &th);
+	err = hci_req_run(&req, set_disable_threshold_complete);
+	if (err < 0) {
+		mgmt_pending_remove(cmd);
+		BT_ERR("Error in requesting hci_req_run");
+		goto unlocked;
+	}
+
+unlocked:
+	hci_dev_unlock(hdev);
+
+	return err;
+}
+
+void mgmt_rssi_alert_evt(struct hci_dev *hdev, struct sk_buff *skb)
+{
+	struct hci_ev_vendor_specific_rssi_alert *ev = (void *)skb->data;
+	struct mgmt_ev_vendor_specific_rssi_alert mgmt_ev;
+	struct hci_conn *conn;
+
+	BT_DBG("RSSI alert [%2.2X %2.2X %2.2X]",
+			ev->conn_handle, ev->alert_type, ev->rssi_dbm);
+
+	conn = hci_conn_hash_lookup_handle(hdev, ev->conn_handle);
+
+	if (!conn) {
+		BT_ERR("RSSI alert Error: Device not found for handle");
+		return;
+	}
+	bacpy(&mgmt_ev.bdaddr, &conn->dst);
+
+	if (conn->type == LE_LINK)
+		mgmt_ev.link_type = 0x01;
+	else
+		mgmt_ev.link_type = 0x00;
+
+	mgmt_ev.alert_type = ev->alert_type;
+	mgmt_ev.rssi_dbm = ev->rssi_dbm;
+
+	mgmt_event(MGMT_EV_RSSI_ALERT, hdev, &mgmt_ev,
+			sizeof(struct mgmt_ev_vendor_specific_rssi_alert),
+			NULL);
+}
 #endif /* TIZEN_BT */
 
 static bool ltk_is_valid(struct mgmt_ltk_info *key)
@@ -7732,6 +8415,9 @@ static const struct hci_mgmt_handler tizen_mgmt_handlers[] = {
 	{ add_white_list,          MGMT_ADD_DEV_WHITE_LIST_SIZE },
 	{ remove_from_white_list,  MGMT_REMOVE_DEV_FROM_WHITE_LIST_SIZE },
 	{ clear_white_list,        MGMT_OP_CLEAR_DEV_WHITE_LIST_SIZE },
+	{ set_enable_rssi,         MGMT_SET_RSSI_ENABLE_SIZE },
+	{ get_raw_rssi,            MGMT_GET_RAW_RSSI_SIZE },
+	{ set_disable_threshold,   MGMT_SET_RSSI_DISABLE_SIZE },
 };
 #endif
 

@@ -63,4 +63,67 @@ struct mgmt_cp_remove_dev_from_white_list {
 #define MGMT_OP_CLEAR_DEV_WHITE_LIST		(TIZEN_OP_CODE_BASE + 0x06)
 #define MGMT_OP_CLEAR_DEV_WHITE_LIST_SIZE	0
 
+/* For RSSI monitoring */
+#define MGMT_OP_SET_RSSI_ENABLE			(TIZEN_OP_CODE_BASE + 0x07)
+#define MGMT_SET_RSSI_ENABLE_SIZE		10
+
+struct mgmt_cp_set_enable_rssi {
+	__s8	low_th;
+	__s8	in_range_th;
+	__s8	high_th;
+	bdaddr_t	bdaddr;
+	__s8	link_type;
+} __packed;
+
+struct mgmt_cc_rsp_enable_rssi {
+	__u8	status;
+	__u8	le_ext_opcode;
+	bdaddr_t	bt_address;
+	__s8	link_type;
+} __packed;
+
+#define MGMT_OP_GET_RAW_RSSI			(TIZEN_OP_CODE_BASE + 0x08)
+#define MGMT_GET_RAW_RSSI_SIZE			7
+
+struct mgmt_cp_get_raw_rssi {
+	bdaddr_t bt_address;
+	__u8	link_type;
+} __packed;
+
+#define MGMT_OP_SET_RSSI_DISABLE		(TIZEN_OP_CODE_BASE + 0x09)
+#define MGMT_SET_RSSI_DISABLE_SIZE		7
+struct mgmt_cp_disable_rssi {
+	bdaddr_t	bdaddr;
+	__u8	link_type;
+} __packed;
+struct mgmt_cc_rp_disable_rssi {
+	__u8	status;
+	__u8	le_ext_opcode;
+	bdaddr_t	bt_address;
+	__s8	link_type;
+} __packed;
+/* RSSI monitoring */
+
+/* For handling of RSSI Events */
+#define MGMT_EV_RSSI_ALERT			(TIZEN_EV_BASE + 0x04)
+struct mgmt_ev_vendor_specific_rssi_alert {
+	bdaddr_t	bdaddr;
+	__s8	link_type;
+	__s8	alert_type;
+	__s8	rssi_dbm;
+} __packed;
+
+#define MGMT_EV_RAW_RSSI			(TIZEN_EV_BASE + 0x05)
+struct mgmt_cc_rp_get_raw_rssi {
+	__u8	status;
+	__s8	rssi_dbm;
+	__u8	link_type;
+	bdaddr_t	bt_address;
+} __packed;
+
+#define MGMT_EV_RSSI_ENABLED			(TIZEN_EV_BASE + 0x06)
+
+#define MGMT_EV_RSSI_DISABLED			(TIZEN_EV_BASE + 0x07)
+/* Handling of RSSI Events */
+
 #endif	/* __MGMT_TIZEN_H */
