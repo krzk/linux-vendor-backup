@@ -89,17 +89,6 @@ config SENSORS_SSP_LPS25H
 	  To compile this driver as a module, choose M here: the
 	  module will be called ssp.
 
-config SENSORS_SSP_SHTC1
-	tristate "Sensors ssp shtc1"
-	default n
-	depends on SPI
-	help
-	  shtc1 file for factory test in ssp driver.
-          If you say yes here you get shtc1 support for
-	  factory test.
-	  To compile this driver as a module, choose M here: the
-	  module will be called ssp.
-
 config SENSORS_SSP_ADPD142
 	tristate "Sensors ssp adpd142"
 	default n
@@ -110,15 +99,6 @@ config SENSORS_SSP_ADPD142
 	  factory test.
 	  To compile this driver as a module, choose M here: the
 	  module will be called ssp.
-
-config SENSORS_SSP_SHTC1_VER
-	string "Sensors shtc1 version name"
-	default "No_Version_Name"
-	depends on SENSORS_SSP_SHTC1
-	help
-	  shtc1 version for temphumid factory test in ssp driver.
-          If you give version name here you get shtc1 version for
-	  lcd test.
 
 config SENSORS_SSP_STM32F401
 	tristate "Sensors ssp stm32f401"
