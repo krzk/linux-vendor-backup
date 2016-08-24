@@ -468,6 +468,8 @@ enum {
 #define EIR_SSP_HASH_C192	0x0E /* Simple Pairing Hash C-192 */
 #define EIR_SSP_RAND_R192	0x0F /* Simple Pairing Randomizer R-192 */
 #define EIR_DEVICE_ID		0x10 /* device ID */
+#define EIR_SOLICIT_UUID16	0x14 /* 16-bit Solicitation UUID */
+#define EIR_MANUFACTURER_DATA	0XFF /* Manufacturer Specific Data*/
 #define EIR_APPEARANCE		0x19 /* Device appearance */
 #define EIR_LE_BDADDR		0x1B /* LE Bluetooth device address */
 #define EIR_LE_ROLE		0x1C /* LE role */

@@ -889,6 +889,13 @@ static void update_scan_rsp_data_for_instance(struct hci_request *req,
 	else
 		len = create_default_scan_rsp_data(hdev, cp.data);
 
+#ifdef TIZEN_BT
+	/* Advertising scan response data is handled in bluez.
+	 * This value will be updated only when application request the update
+	 * using adapter_set_scan_rsp_data()
+	 */
+	return;
+#else
 	if (hdev->scan_rsp_data_len == len &&
 	    !memcmp(cp.data, hdev->scan_rsp_data, len))
 		return;
@@ -899,6 +906,7 @@ static void update_scan_rsp_data_for_instance(struct hci_request *req,
 	cp.length = len;
 
 	hci_req_add(req, HCI_OP_LE_SET_SCAN_RSP_DATA, sizeof(cp), &cp);
+#endif
 }
 
 static void update_scan_rsp_data(struct hci_request *req)
@@ -997,6 +1005,7 @@ static u32 get_adv_instance_flags(struct hci_dev *hdev, u8 instance)
 	return flags;
 }
 
+#ifndef TIZEN_BT
 static u8 get_adv_instance_scan_rsp_len(struct hci_dev *hdev, u8 instance)
 {
 	/* Ignore instance 0 and other unsupported instances */
@@ -1008,6 +1017,7 @@ static u8 get_adv_instance_scan_rsp_len(struct hci_dev *hdev, u8 instance)
 	 */
 	return hdev->adv_instance.scan_rsp_len;
 }
+#endif
 
 static u8 create_instance_adv_data(struct hci_dev *hdev, u8 instance, u8 *ptr)
 {
@@ -1081,6 +1091,13 @@ static void update_adv_data_for_instance(struct hci_request *req, u8 instance)
 
 	len = create_instance_adv_data(hdev, instance, cp.data);
 
+#ifdef TIZEN_BT
+	/* Bluez will handle the advertising data including the flag and tx
+	 * power. This value will be updated only when application request the
+	 * update using adapter_set_advertising_data().
+	*/
+	return;
+#else
 	/* There's nothing to do if the data hasn't changed */
 	if (hdev->adv_data_len == len &&
 	    memcmp(cp.data, hdev->adv_data, len) == 0)
@@ -1092,6 +1109,7 @@ static void update_adv_data_for_instance(struct hci_request *req, u8 instance)
 	cp.length = len;
 
 	hci_req_add(req, HCI_OP_LE_SET_ADV_DATA, sizeof(cp), &cp);
+#endif
 }
 
 static void update_adv_data(struct hci_request *req)
@@ -1278,12 +1296,17 @@ static void enable_advertising(struct hci_request *req)
 	cp.min_interval = cpu_to_le16(hdev->le_adv_min_interval);
 	cp.max_interval = cpu_to_le16(hdev->le_adv_max_interval);
 
+#ifdef TIZEN_BT
+	cp.filter_policy = hdev->adv_filter_policy;
+	cp.type = hdev->adv_type;
+#else
 	if (connectable)
 		cp.type = LE_ADV_IND;
 	else if (get_adv_instance_scan_rsp_len(hdev, instance))
 		cp.type = LE_ADV_SCAN_IND;
 	else
 		cp.type = LE_ADV_NONCONN_IND;
+#endif
 
 	cp.own_address_type = own_addr_type;
 	cp.channel_map = hdev->le_adv_channel_map;
@@ -5470,6 +5493,225 @@ static int load_irks(struct sock *sk, struct hci_dev *hdev, void *cp_data,
 	return err;
 }
 
+#ifdef TIZEN_BT
+static int set_advertising_params(struct sock *sk, struct hci_dev *hdev,
+			void *data, u16 len)
+{
+	struct mgmt_cp_set_advertising_params *cp = data;
+	__u16 min_interval;
+	__u16 max_interval;
+	int err;
+
+	BT_DBG("%s", hdev->name);
+
+	if (!lmp_le_capable(hdev))
+		return mgmt_cmd_status(sk, hdev->id,
+				MGMT_OP_SET_ADVERTISING_PARAMS,
+				MGMT_STATUS_NOT_SUPPORTED);
+
+	if (hci_dev_test_flag(hdev, HCI_ADVERTISING))
+		return mgmt_cmd_status(sk, hdev->id,
+				MGMT_OP_SET_ADVERTISING_PARAMS,
+				MGMT_STATUS_BUSY);
+
+	min_interval = __le16_to_cpu(cp->interval_min);
+	max_interval = __le16_to_cpu(cp->interval_max);
+
+	if (min_interval > max_interval ||
+	    min_interval < 0x0020 || max_interval > 0x4000)
+		return mgmt_cmd_status(sk, hdev->id,
+				MGMT_OP_SET_ADVERTISING_PARAMS,
+				MGMT_STATUS_INVALID_PARAMS);
+
+	hci_dev_lock(hdev);
+
+	hdev->le_adv_min_interval = min_interval;
+	hdev->le_adv_max_interval = max_interval;
+	hdev->adv_filter_policy = cp->filter_policy;
+	hdev->adv_type = cp->type;
+
+	err = mgmt_cmd_complete(sk, hdev->id,
+			MGMT_OP_SET_ADVERTISING_PARAMS, 0, NULL, 0);
+
+	hci_dev_unlock(hdev);
+
+	return err;
+}
+
+static void set_advertising_data_complete(struct hci_dev *hdev,
+			u8 status, u16 opcode)
+{
+	struct mgmt_cp_set_advertising_data *cp;
+	struct mgmt_pending_cmd *cmd;
+
+	BT_DBG("status 0x%02x", status);
+
+	hci_dev_lock(hdev);
+
+	cmd = pending_find(MGMT_OP_SET_ADVERTISING_DATA, hdev);
+	if (!cmd)
+		goto unlock;
+
+	cp = cmd->param;
+
+	if (status)
+		mgmt_cmd_status(cmd->sk, hdev->id,
+				MGMT_OP_SET_ADVERTISING_DATA,
+				mgmt_status(status));
+	else
+		mgmt_cmd_complete(cmd->sk, hdev->id,
+				MGMT_OP_SET_ADVERTISING_DATA, 0,
+				cp, sizeof(*cp));
+
+	mgmt_pending_remove(cmd);
+
+unlock:
+	hci_dev_unlock(hdev);
+}
+
+static int set_advertising_data(struct sock *sk, struct hci_dev *hdev,
+			void *data, u16 len)
+{
+	struct mgmt_pending_cmd *cmd;
+	struct hci_request req;
+	struct mgmt_cp_set_advertising_data *cp = data;
+	struct hci_cp_le_set_adv_data adv;
+	int err;
+
+	BT_DBG("%s", hdev->name);
+
+	if (!lmp_le_capable(hdev)) {
+		return mgmt_cmd_status(sk, hdev->id,
+				MGMT_OP_SET_ADVERTISING_DATA,
+				MGMT_STATUS_NOT_SUPPORTED);
+	}
+
+	hci_dev_lock(hdev);
+
+	if (pending_find(MGMT_OP_SET_ADVERTISING_DATA, hdev)) {
+		err = mgmt_cmd_status(sk, hdev->id,
+				MGMT_OP_SET_ADVERTISING_DATA,
+				MGMT_STATUS_BUSY);
+		goto unlocked;
+	}
+
+	if (len > HCI_MAX_AD_LENGTH) {
+		err = mgmt_cmd_status(sk, hdev->id,
+				MGMT_OP_SET_ADVERTISING_DATA,
+				MGMT_STATUS_INVALID_PARAMS);
+		goto unlocked;
+	}
+
+	cmd = mgmt_pending_add(sk, MGMT_OP_SET_ADVERTISING_DATA,
+			       hdev, data, len);
+	if (!cmd) {
+		err = -ENOMEM;
+		goto unlocked;
+	}
+
+	hci_req_init(&req, hdev);
+
+	memset(&adv, 0, sizeof(adv));
+	memcpy(adv.data, cp->data, len);
+	adv.length = len;
+
+	hci_req_add(&req, HCI_OP_LE_SET_ADV_DATA, sizeof(adv), &adv);
+
+	err = hci_req_run(&req, set_advertising_data_complete);
+	if (err < 0)
+		mgmt_pending_remove(cmd);
+
+unlocked:
+	hci_dev_unlock(hdev);
+
+	return err;
+}
+
+static void set_scan_rsp_data_complete(struct hci_dev *hdev, u8 status,
+			u16 opcode)
+{
+	struct mgmt_cp_set_scan_rsp_data *cp;
+	struct mgmt_pending_cmd *cmd;
+
+	BT_DBG("status 0x%02x", status);
+
+	hci_dev_lock(hdev);
+
+	cmd = pending_find(MGMT_OP_SET_SCAN_RSP_DATA, hdev);
+	if (!cmd)
+		goto unlock;
+
+	cp = cmd->param;
+
+	if (status)
+		mgmt_cmd_status(cmd->sk, hdev->id, MGMT_OP_SET_SCAN_RSP_DATA,
+				mgmt_status(status));
+	else
+		mgmt_cmd_complete(cmd->sk, hdev->id,
+				MGMT_OP_SET_SCAN_RSP_DATA, 0,
+				cp, sizeof(*cp));
+
+	mgmt_pending_remove(cmd);
+
+unlock:
+	hci_dev_unlock(hdev);
+}
+
+static int set_scan_rsp_data(struct sock *sk, struct hci_dev *hdev, void *data,
+			u16 len)
+{
+	struct mgmt_pending_cmd *cmd;
+	struct hci_request req;
+	struct mgmt_cp_set_scan_rsp_data *cp = data;
+	struct hci_cp_le_set_scan_rsp_data rsp;
+	int err;
+
+	BT_DBG("%s", hdev->name);
+
+	if (!lmp_le_capable(hdev))
+		return mgmt_cmd_status(sk, hdev->id,
+				MGMT_OP_SET_SCAN_RSP_DATA,
+				MGMT_STATUS_NOT_SUPPORTED);
+
+	hci_dev_lock(hdev);
+
+	if (pending_find(MGMT_OP_SET_SCAN_RSP_DATA, hdev)) {
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_SET_SCAN_RSP_DATA,
+				MGMT_STATUS_BUSY);
+		goto unlocked;
+	}
+
+	if (len > HCI_MAX_AD_LENGTH) {
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_SET_SCAN_RSP_DATA,
+				MGMT_STATUS_INVALID_PARAMS);
+		goto unlocked;
+	}
+
+	cmd = mgmt_pending_add(sk, MGMT_OP_SET_SCAN_RSP_DATA, hdev, data, len);
+	if (!cmd) {
+		err = -ENOMEM;
+		goto unlocked;
+	}
+
+	hci_req_init(&req, hdev);
+
+	memset(&rsp, 0, sizeof(rsp));
+	memcpy(rsp.data, cp->data, len);
+	rsp.length = len;
+
+	hci_req_add(&req, HCI_OP_LE_SET_SCAN_RSP_DATA, sizeof(rsp), &rsp);
+
+	err = hci_req_run(&req, set_scan_rsp_data_complete);
+	if (err < 0)
+		mgmt_pending_remove(cmd);
+
+unlocked:
+	hci_dev_unlock(hdev);
+
+	return err;
+}
+#endif /* TIZEN_BT */
+
 static bool ltk_is_valid(struct mgmt_ltk_info *key)
 {
 	if (key->master != 0x00 && key->master != 0x01)
@@ -7244,6 +7486,11 @@ static const struct hci_mgmt_handler mgmt_handlers[] = {
 #ifdef TIZEN_BT
 static const struct hci_mgmt_handler tizen_mgmt_handlers[] = {
 	{ NULL }, /* 0x0000 (no command) */
+	{ set_advertising_params,  MGMT_SET_ADVERTISING_PARAMS_SIZE },
+	{ set_advertising_data,    MGMT_SET_ADV_MIN_APP_DATA_SIZE,
+						HCI_MGMT_VAR_LEN },
+	{ set_scan_rsp_data,       MGMT_SET_SCAN_RSP_MIN_APP_DATA_SIZE,
+						HCI_MGMT_VAR_LEN },
 };
 #endif
 

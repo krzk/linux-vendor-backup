@@ -380,6 +380,11 @@ struct hci_dev {
 	struct delayed_work	rpa_expired;
 	bdaddr_t		rpa;
 
+#ifdef TIZEN_BT
+	__u8			adv_filter_policy;
+	__u8			adv_type;
+#endif
+
 	int (*open)(struct hci_dev *hdev);
 	int (*close)(struct hci_dev *hdev);
 	int (*flush)(struct hci_dev *hdev);
