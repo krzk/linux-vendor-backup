@@ -46,4 +46,21 @@ struct mgmt_cp_set_scan_rsp_data {
 #define MGMT_SET_SCAN_RSP_DATA_SIZE		HCI_MAX_AD_LENGTH
 #define MGMT_SET_SCAN_RSP_MIN_APP_DATA_SIZE	1
 
+#define MGMT_OP_ADD_DEV_WHITE_LIST		(TIZEN_OP_CODE_BASE + 0x04)
+struct mgmt_cp_add_dev_white_list {
+	__u8	bdaddr_type;
+	bdaddr_t bdaddr;
+} __packed;
+#define MGMT_ADD_DEV_WHITE_LIST_SIZE		7
+
+#define MGMT_OP_REMOVE_DEV_FROM_WHITE_LIST	(TIZEN_OP_CODE_BASE + 0x05)
+struct mgmt_cp_remove_dev_from_white_list {
+	__u8	bdaddr_type;
+	bdaddr_t bdaddr;
+} __packed;
+#define MGMT_REMOVE_DEV_FROM_WHITE_LIST_SIZE	7
+
+#define MGMT_OP_CLEAR_DEV_WHITE_LIST		(TIZEN_OP_CODE_BASE + 0x06)
+#define MGMT_OP_CLEAR_DEV_WHITE_LIST_SIZE	0
+
 #endif	/* __MGMT_TIZEN_H */
