@@ -118,6 +118,11 @@ struct mgmt_cp_stop_le_discovery {
 #define MGMT_STOP_LE_DISCOVERY_SIZE		1
 /* le discovery */
 
+/* For LE auto connection */
+#define MGMT_OP_DISABLE_LE_AUTO_CONNECT		(TIZEN_OP_CODE_BASE + 0x0c)
+#define MGMT_DISABLE_LE_AUTO_CONNECT_SIZE	0
+/* LE auto connection */
+
 /* EVENTS */
 
 /* For device name update changes */

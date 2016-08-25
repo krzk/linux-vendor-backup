@@ -6898,6 +6898,24 @@ void mgmt_le_discovering(struct hci_dev *hdev, u8 discovering)
 
 	mgmt_event(MGMT_EV_DISCOVERING, hdev, &ev, sizeof(ev), NULL);
 }
+
+static int disable_le_auto_connect(struct sock *sk, struct hci_dev *hdev,
+			void *data, u16 len)
+{
+	int err;
+
+	BT_DBG("%s", hdev->name);
+
+	hci_dev_lock(hdev);
+
+	err = hci_send_cmd(hdev, HCI_OP_LE_CREATE_CONN_CANCEL, 0, NULL);
+	if (err < 0)
+		BT_ERR("HCI_OP_LE_CREATE_CONN_CANCEL is failed");
+
+	hci_dev_unlock(hdev);
+
+	return err;
+}
 #endif /* TIZEN_BT */
 
 static bool ltk_is_valid(struct mgmt_ltk_info *key)
@@ -8711,6 +8729,7 @@ static const struct hci_mgmt_handler tizen_mgmt_handlers[] = {
 	{ set_disable_threshold,   MGMT_SET_RSSI_DISABLE_SIZE },
 	{ start_le_discovery,      MGMT_START_LE_DISCOVERY_SIZE },
 	{ stop_le_discovery,       MGMT_STOP_LE_DISCOVERY_SIZE },
+	{ disable_le_auto_connect, MGMT_DISABLE_LE_AUTO_CONNECT_SIZE },
 };
 #endif
 
