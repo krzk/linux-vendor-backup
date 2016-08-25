@@ -104,6 +104,17 @@ struct mgmt_cc_rp_disable_rssi {
 } __packed;
 /* RSSI monitoring */
 
+/* EVENTS */
+
+/* For device name update changes */
+#define MGMT_EV_DEVICE_NAME_UPDATE		(TIZEN_EV_BASE + 0x01)
+struct mgmt_ev_device_name_update {
+	struct mgmt_addr_info addr;
+	__le16	eir_len;
+	__u8	eir[0];
+} __packed;
+/* Device name update changes */
+
 /* For handling of RSSI Events */
 #define MGMT_EV_RSSI_ALERT			(TIZEN_EV_BASE + 0x04)
 struct mgmt_ev_vendor_specific_rssi_alert {

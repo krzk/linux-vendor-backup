@@ -7634,6 +7634,30 @@ static inline u16 eir_append_data(u8 *eir, u16 eir_len, u8 type, u8 *data,
 	return eir_len;
 }
 
+#ifdef TIZEN_BT
+int mgmt_device_name_update(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 *name,
+			    u8 name_len)
+{
+	char buf[512];
+	struct mgmt_ev_device_name_update *ev = (void *)buf;
+	u16 eir_len = 0;
+
+	if (name_len <= 0)
+		return -EINVAL;
+
+	bacpy(&ev->addr.bdaddr, bdaddr);
+	ev->addr.type = BDADDR_BREDR;
+
+	eir_len = eir_append_data(ev->eir, 0, EIR_NAME_COMPLETE, name,
+				  name_len);
+
+	ev->eir_len = cpu_to_le16(eir_len);
+
+	return mgmt_event(MGMT_EV_DEVICE_NAME_UPDATE, hdev, buf,
+			  sizeof(*ev) + eir_len, NULL);
+}
+#endif
+
 static void read_local_oob_ext_data_complete(struct hci_dev *hdev, u8 status,
 					     u16 opcode, struct sk_buff *skb)
 {

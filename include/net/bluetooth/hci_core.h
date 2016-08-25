@@ -1494,6 +1494,8 @@ void mgmt_rssi_alert_evt(struct hci_dev *hdev, struct sk_buff *skb);
 void mgmt_raw_rssi_response(struct hci_dev *hdev,
 		struct hci_cc_rp_get_raw_rssi *rp, int success);
 void mgmt_enable_rssi_cc(struct hci_dev *hdev, void *response, u8 status);
+int mgmt_device_name_update(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 *name,
+		u8 name_len);
 #endif
 
 u8 hci_le_conn_update(struct hci_conn *conn, u16 min, u16 max, u16 latency,

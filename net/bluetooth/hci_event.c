@@ -1717,15 +1717,25 @@ static void hci_check_pending_name(struct hci_dev *hdev, struct hci_conn *conn,
 	struct discovery_state *discov = &hdev->discovery;
 	struct inquiry_entry *e;
 
+#ifdef TIZEN_BT
 	/* Update the mgmt connected state if necessary. Be careful with
 	 * conn objects that exist but are not (yet) connected however.
 	 * Only those in BT_CONFIG or BT_CONNECTED states can be
 	 * considered connected.
 	 */
 	if (conn &&
+	    (conn->state == BT_CONFIG || conn->state == BT_CONNECTED)) {
+		if (!test_and_set_bit(HCI_CONN_MGMT_CONNECTED, &conn->flags))
+			mgmt_device_connected(hdev, conn, 0, name, name_len);
+		else
+			mgmt_device_name_update(hdev, bdaddr, name, name_len);
+	}
+#else
+	if (conn &&
 	    (conn->state == BT_CONFIG || conn->state == BT_CONNECTED) &&
 	    !test_and_set_bit(HCI_CONN_MGMT_CONNECTED, &conn->flags))
 		mgmt_device_connected(hdev, conn, 0, name, name_len);
+#endif
 
 	if (discov->state == DISCOVERY_STOPPED)
 		return;
