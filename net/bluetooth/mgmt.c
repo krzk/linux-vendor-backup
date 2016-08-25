@@ -7105,6 +7105,64 @@ failed:
 	hci_dev_unlock(hdev);
 	return err;
 }
+
+static int le_set_scan_params(struct sock *sk, struct hci_dev *hdev,
+		void *data, u16 len)
+{
+	struct mgmt_cp_le_set_scan_params *cp = data;
+	__u16 interval, window;
+	int err;
+
+	BT_DBG("%s", hdev->name);
+
+	if (!lmp_le_capable(hdev))
+		return mgmt_cmd_status(sk, hdev->id, MGMT_OP_LE_SET_SCAN_PARAMS,
+				MGMT_STATUS_NOT_SUPPORTED);
+
+	interval = __le16_to_cpu(cp->interval);
+
+	if (interval < 0x0004 || interval > 0x4000)
+		return mgmt_cmd_status(sk, hdev->id, MGMT_OP_LE_SET_SCAN_PARAMS,
+				MGMT_STATUS_INVALID_PARAMS);
+
+	window = __le16_to_cpu(cp->window);
+
+	if (window < 0x0004 || window > 0x4000)
+		return mgmt_cmd_status(sk, hdev->id, MGMT_OP_LE_SET_SCAN_PARAMS,
+				MGMT_STATUS_INVALID_PARAMS);
+
+	if (window > interval)
+		return mgmt_cmd_status(sk, hdev->id, MGMT_OP_LE_SET_SCAN_PARAMS,
+				MGMT_STATUS_INVALID_PARAMS);
+
+	hci_dev_lock(hdev);
+
+	hdev->le_scan_type = cp->type;
+	hdev->le_scan_interval = interval;
+	hdev->le_scan_window = window;
+
+	err = mgmt_cmd_complete(sk, hdev->id, MGMT_OP_LE_SET_SCAN_PARAMS, 0,
+				NULL, 0);
+
+	/* If background scan is running, restart it so new parameters are
+	 * loaded.
+	 */
+	if (hci_dev_test_flag(hdev, HCI_LE_SCAN) &&
+	    hdev->discovery.state == DISCOVERY_STOPPED) {
+		struct hci_request req;
+
+		hci_req_init(&req, hdev);
+
+		hci_req_add_le_scan_disable(&req);
+		hci_req_add_le_passive_scan(&req);
+
+		hci_req_run(&req, NULL);
+	}
+
+	hci_dev_unlock(hdev);
+
+	return err;
+}
 #endif /* TIZEN_BT */
 
 static bool ltk_is_valid(struct mgmt_ltk_info *key)
@@ -8950,6 +9008,7 @@ static const struct hci_mgmt_handler tizen_mgmt_handlers[] = {
 	{ disable_le_auto_connect, MGMT_DISABLE_LE_AUTO_CONNECT_SIZE },
 	{ le_conn_update,          MGMT_LE_CONN_UPDATE_SIZE },
 	{ set_manufacturer_data,   MGMT_SET_MANUFACTURER_DATA_SIZE },
+	{ le_set_scan_params,      MGMT_LE_SET_SCAN_PARAMS_SIZE },
 };
 #endif
 

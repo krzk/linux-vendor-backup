@@ -143,6 +143,14 @@ struct mgmt_cp_set_manufacturer_data {
 #define MGMT_SET_MANUFACTURER_DATA_SIZE		100
 /* Set Manufacturer Data */
 
+#define MGMT_OP_LE_SET_SCAN_PARAMS		(TIZEN_OP_CODE_BASE + 0x0f)
+struct mgmt_cp_le_set_scan_params {
+	__u8	type;	/* le scan type */
+	__le16	interval;
+	__le16	window;
+} __packed;
+#define MGMT_LE_SET_SCAN_PARAMS_SIZE		5
+
 /* EVENTS */
 
 /* For device name update changes */
