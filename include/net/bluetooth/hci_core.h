@@ -185,6 +185,10 @@ struct amp_assoc {
 
 #define HCI_MAX_PAGES	3
 
+#ifdef TIZEN_BT
+#define HCI_MAX_EIR_MANUFACTURER_DATA_LENGTH	100
+#endif
+
 struct hci_dev {
 	struct list_head list;
 	struct mutex	lock;
@@ -386,6 +390,8 @@ struct hci_dev {
 #ifdef TIZEN_BT
 	__u8			adv_filter_policy;
 	__u8			adv_type;
+	__u8			manufacturer_len;
+	__u8			manufacturer_data[HCI_MAX_EIR_MANUFACTURER_DATA_LENGTH];
 #endif
 
 	int (*open)(struct hci_dev *hdev);

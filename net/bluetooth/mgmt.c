@@ -6984,6 +6984,127 @@ static int le_conn_update(struct sock *sk, struct hci_dev *hdev, void *data,
 	return mgmt_cmd_complete(sk, hdev->id, MGMT_OP_LE_CONN_UPDATE, 0,
 				 NULL, 0);
 }
+
+static void set_manufacturer_data_complete(struct hci_dev *hdev, u8 status,
+		u16 opcode)
+{
+	struct mgmt_cp_set_manufacturer_data *cp;
+	struct mgmt_pending_cmd *cmd;
+
+	BT_DBG("status 0x%02x", status);
+
+	hci_dev_lock(hdev);
+
+	cmd = pending_find(MGMT_OP_SET_MANUFACTURER_DATA, hdev);
+	if (!cmd)
+		goto unlock;
+
+	cp = cmd->param;
+
+	if (status)
+		mgmt_cmd_status(cmd->sk, hdev->id,
+				MGMT_OP_SET_MANUFACTURER_DATA,
+				mgmt_status(status));
+	else
+		mgmt_cmd_complete(cmd->sk, hdev->id,
+				  MGMT_OP_SET_MANUFACTURER_DATA, 0,
+				  cp, sizeof(*cp));
+
+	mgmt_pending_remove(cmd);
+
+unlock:
+	hci_dev_unlock(hdev);
+}
+
+static int set_manufacturer_data(struct sock *sk, struct hci_dev *hdev,
+		void *data, u16 len)
+{
+	struct mgmt_pending_cmd *cmd;
+	struct hci_request req;
+	struct mgmt_cp_set_manufacturer_data *cp = data;
+	u8 old_data[HCI_MAX_EIR_LENGTH] = {0, };
+	u8 old_len;
+	int err;
+
+	BT_DBG("%s", hdev->name);
+
+	if (!lmp_bredr_capable(hdev))
+		return mgmt_cmd_status(sk, hdev->id,
+				MGMT_OP_SET_MANUFACTURER_DATA,
+				MGMT_STATUS_NOT_SUPPORTED);
+
+	if (cp->data[0] == 0 ||
+			cp->data[0] - 1 > sizeof(hdev->manufacturer_data))
+		return mgmt_cmd_status(sk, hdev->id,
+				MGMT_OP_SET_MANUFACTURER_DATA,
+				MGMT_STATUS_INVALID_PARAMS);
+
+	if (cp->data[1] != 0xFF)
+		return mgmt_cmd_status(sk, hdev->id,
+				MGMT_OP_SET_MANUFACTURER_DATA,
+				MGMT_STATUS_NOT_SUPPORTED);
+
+	hci_dev_lock(hdev);
+
+	if (pending_find(MGMT_OP_SET_MANUFACTURER_DATA, hdev)) {
+		err = mgmt_cmd_status(sk, hdev->id,
+				MGMT_OP_SET_MANUFACTURER_DATA,
+				MGMT_STATUS_BUSY);
+		goto unlocked;
+	}
+
+	cmd = mgmt_pending_add(sk, MGMT_OP_SET_MANUFACTURER_DATA, hdev, data,
+			len);
+	if (!cmd) {
+		err = -ENOMEM;
+		goto unlocked;
+	}
+
+	hci_req_init(&req, hdev);
+
+	/* if new data is same as previous data then return command
+	 * complete event
+	 */
+	if (hdev->manufacturer_len == cp->data[0] - 1 &&
+	    !memcmp(hdev->manufacturer_data, cp->data + 2, cp->data[0] - 1)) {
+		mgmt_pending_remove(cmd);
+		mgmt_cmd_complete(sk, hdev->id, MGMT_OP_SET_MANUFACTURER_DATA,
+				  0, cp, sizeof(*cp));
+		err = 0;
+		goto unlocked;
+	}
+
+	old_len = hdev->manufacturer_len;
+	if (old_len > 0)
+		memcpy(old_data, hdev->manufacturer_data, old_len);
+
+	hdev->manufacturer_len = cp->data[0] - 1;
+	if (hdev->manufacturer_len > 0)
+		memcpy(hdev->manufacturer_data, cp->data + 2,
+				hdev->manufacturer_len);
+
+	update_eir(&req);
+
+	err = hci_req_run(&req, set_manufacturer_data_complete);
+	if (err < 0) {
+		mgmt_pending_remove(cmd);
+		goto failed;
+	}
+
+unlocked:
+	hci_dev_unlock(hdev);
+
+	return err;
+
+failed:
+	memset(hdev->manufacturer_data, 0x00, sizeof(hdev->manufacturer_data));
+	hdev->manufacturer_len = old_len;
+	if (hdev->manufacturer_len > 0)
+		memcpy(hdev->manufacturer_data, old_data,
+		       hdev->manufacturer_len);
+	hci_dev_unlock(hdev);
+	return err;
+}
 #endif /* TIZEN_BT */
 
 static bool ltk_is_valid(struct mgmt_ltk_info *key)
@@ -8828,6 +8949,7 @@ static const struct hci_mgmt_handler tizen_mgmt_handlers[] = {
 	{ stop_le_discovery,       MGMT_STOP_LE_DISCOVERY_SIZE },
 	{ disable_le_auto_connect, MGMT_DISABLE_LE_AUTO_CONNECT_SIZE },
 	{ le_conn_update,          MGMT_LE_CONN_UPDATE_SIZE },
+	{ set_manufacturer_data,   MGMT_SET_MANUFACTURER_DATA_SIZE },
 };
 #endif
 

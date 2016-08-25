@@ -135,6 +135,14 @@ struct mgmt_cp_le_conn_update {
 } __packed;
 /* Add LE connection parameter update procedure */
 
+/* For Set Manufacturer Data */
+#define MGMT_OP_SET_MANUFACTURER_DATA		(TIZEN_OP_CODE_BASE + 0x0e)
+struct mgmt_cp_set_manufacturer_data {
+	__u8	data[100];
+} __packed;
+#define MGMT_SET_MANUFACTURER_DATA_SIZE		100
+/* Set Manufacturer Data */
+
 /* EVENTS */
 
 /* For device name update changes */
