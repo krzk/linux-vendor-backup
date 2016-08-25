@@ -1063,6 +1063,51 @@ void hci_discovery_set_state(struct hci_dev *hdev, int state)
 	}
 }
 
+#ifdef TIZEN_BT
+bool hci_le_discovery_active(struct hci_dev *hdev)
+{
+	struct discovery_state *discov = &hdev->le_discovery;
+
+	switch (discov->state) {
+	case DISCOVERY_FINDING:
+	case DISCOVERY_RESOLVING:
+		return true;
+
+	default:
+		return false;
+	}
+}
+
+void hci_le_discovery_set_state(struct hci_dev *hdev, int state)
+{
+	BT_DBG("%s state %u -> %u", hdev->name,
+			hdev->le_discovery.state, state);
+
+	if (hdev->le_discovery.state == state)
+		return;
+
+	switch (state) {
+	case DISCOVERY_STOPPED:
+		hci_update_background_scan(hdev);
+
+		if (hdev->le_discovery.state != DISCOVERY_STARTING)
+			mgmt_le_discovering(hdev, 0);
+		break;
+	case DISCOVERY_STARTING:
+		break;
+	case DISCOVERY_FINDING:
+		mgmt_le_discovering(hdev, 1);
+		break;
+	case DISCOVERY_RESOLVING:
+		break;
+	case DISCOVERY_STOPPING:
+		break;
+	}
+
+	hdev->le_discovery.state = state;
+}
+#endif
+
 void hci_inquiry_cache_flush(struct hci_dev *hdev)
 {
 	struct discovery_state *cache = &hdev->discovery;

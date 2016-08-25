@@ -104,6 +104,20 @@ struct mgmt_cc_rp_disable_rssi {
 } __packed;
 /* RSSI monitoring */
 
+/* For le discovery */
+#define MGMT_OP_START_LE_DISCOVERY		(TIZEN_OP_CODE_BASE + 0x0a)
+struct mgmt_cp_start_le_discovery {
+	__u8	type;
+} __packed;
+#define MGMT_START_LE_DISCOVERY_SIZE		1
+
+#define MGMT_OP_STOP_LE_DISCOVERY		(TIZEN_OP_CODE_BASE + 0x0b)
+struct mgmt_cp_stop_le_discovery {
+	__u8	type;
+} __packed;
+#define MGMT_STOP_LE_DISCOVERY_SIZE		1
+/* le discovery */
+
 /* EVENTS */
 
 /* For device name update changes */

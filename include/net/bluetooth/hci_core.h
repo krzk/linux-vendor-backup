@@ -337,6 +337,9 @@ struct hci_dev {
 	void			*smp_bredr_data;
 
 	struct discovery_state	discovery;
+#ifdef TIZEN_BT
+	struct discovery_state	le_discovery;
+#endif
 	struct hci_conn_hash	conn_hash;
 
 	struct list_head	mgmt_pending;
@@ -861,6 +864,9 @@ static inline int hci_conn_hash_lookup_rssi_count(struct hci_dev *hdev)
 
 	return count;
 }
+
+bool hci_le_discovery_active(struct hci_dev *hdev);
+void hci_le_discovery_set_state(struct hci_dev *hdev, int state);
 #endif
 
 int hci_disconnect(struct hci_conn *conn, __u8 reason);
@@ -1496,6 +1502,7 @@ void mgmt_raw_rssi_response(struct hci_dev *hdev,
 void mgmt_enable_rssi_cc(struct hci_dev *hdev, void *response, u8 status);
 int mgmt_device_name_update(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 *name,
 		u8 name_len);
+void mgmt_le_discovering(struct hci_dev *hdev, u8 discovering);
 #endif
 
 u8 hci_le_conn_update(struct hci_conn *conn, u16 min, u16 max, u16 latency,
