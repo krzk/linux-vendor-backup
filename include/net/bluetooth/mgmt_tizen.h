@@ -123,6 +123,18 @@ struct mgmt_cp_stop_le_discovery {
 #define MGMT_DISABLE_LE_AUTO_CONNECT_SIZE	0
 /* LE auto connection */
 
+/* For Add LE connection parameter update procedure */
+#define MGMT_LE_CONN_UPDATE_SIZE		14
+#define MGMT_OP_LE_CONN_UPDATE			(TIZEN_OP_CODE_BASE + 0x0d)
+struct mgmt_cp_le_conn_update {
+	__le16	conn_interval_min;
+	__le16	conn_interval_max;
+	__le16	conn_latency;
+	__le16	supervision_timeout;
+	bdaddr_t	bdaddr;
+} __packed;
+/* Add LE connection parameter update procedure */
+
 /* EVENTS */
 
 /* For device name update changes */
@@ -155,5 +167,21 @@ struct mgmt_cc_rp_get_raw_rssi {
 
 #define MGMT_EV_RSSI_DISABLED			(TIZEN_EV_BASE + 0x07)
 /* Handling of RSSI Events */
+
+/* For Add LE connection update Events */
+#define MGMT_EV_CONN_UPDATED			(TIZEN_EV_BASE + 0x08)
+struct mgmt_ev_conn_updated {
+	struct	mgmt_addr_info addr;
+	__le16	conn_interval;
+	__le16	conn_latency;
+	__le16	supervision_timeout;
+} __packed;
+
+#define MGMT_EV_CONN_UPDATE_FAILED		(TIZEN_EV_BASE + 0x09)
+struct mgmt_ev_conn_update_failed {
+	struct	mgmt_addr_info addr;
+	__u8	status;
+} __packed;
+/* Add LE connection update Events */
 
 #endif	/* __MGMT_TIZEN_H */

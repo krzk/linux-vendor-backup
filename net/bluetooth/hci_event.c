@@ -4661,12 +4661,26 @@ static void hci_le_conn_update_complete_evt(struct hci_dev *hdev,
 
 	conn = hci_conn_hash_lookup_handle(hdev, __le16_to_cpu(ev->handle));
 	if (conn) {
+#ifdef TIZEN_BT
+		if (ev->status) {
+			hci_dev_unlock(hdev);
+			mgmt_le_conn_update_failed(hdev, &conn->dst,
+				conn->type, conn->dst_type, ev->status);
+			return;
+		}
+#endif
 		conn->le_conn_interval = le16_to_cpu(ev->interval);
 		conn->le_conn_latency = le16_to_cpu(ev->latency);
 		conn->le_supv_timeout = le16_to_cpu(ev->supervision_timeout);
 	}
 
 	hci_dev_unlock(hdev);
+
+#ifdef TIZEN_BT
+	mgmt_le_conn_updated(hdev, &conn->dst, conn->type,
+				conn->dst_type, conn->le_conn_interval,
+				conn->le_conn_latency, conn->le_supv_timeout);
+#endif
 }
 
 /* This function requires the caller holds hdev->lock */

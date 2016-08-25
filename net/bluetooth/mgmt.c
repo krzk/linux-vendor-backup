@@ -6916,6 +6916,74 @@ static int disable_le_auto_connect(struct sock *sk, struct hci_dev *hdev,
 
 	return err;
 }
+
+static inline int check_le_conn_update_param(u16 min, u16 max, u16 latency,
+		u16 to_multiplier)
+{
+	u16 max_latency;
+
+	if (min > max || min < 6 || max > 3200)
+		return -EINVAL;
+
+	if (to_multiplier < 10 || to_multiplier > 3200)
+		return -EINVAL;
+
+	if (max >= to_multiplier * 8)
+		return -EINVAL;
+
+	max_latency = (to_multiplier * 8 / max) - 1;
+
+	if (latency > 499 || latency > max_latency)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int le_conn_update(struct sock *sk, struct hci_dev *hdev, void *data,
+		u16 len)
+{
+	struct mgmt_cp_le_conn_update *cp = data;
+
+	struct hci_conn *conn;
+	u16 min, max, latency, supervision_timeout;
+	int err = -1;
+
+	if (!hdev_is_powered(hdev))
+		return mgmt_cmd_status(sk, hdev->id, MGMT_OP_LE_CONN_UPDATE,
+				MGMT_STATUS_NOT_POWERED);
+
+	min = __le16_to_cpu(cp->conn_interval_min);
+	max = __le16_to_cpu(cp->conn_interval_max);
+	latency = __le16_to_cpu(cp->conn_latency);
+	supervision_timeout = __le16_to_cpu(cp->supervision_timeout);
+
+	BT_DBG("min 0x%4.4x max 0x%4.4x latency: 0x%4.4x supervision_timeout: 0x%4.4x",
+			min, max, latency, supervision_timeout);
+
+	err = check_le_conn_update_param(min, max, latency,
+			supervision_timeout);
+
+	if (err < 0)
+		return mgmt_cmd_status(sk, hdev->id, MGMT_OP_LE_CONN_UPDATE,
+				MGMT_STATUS_INVALID_PARAMS);
+
+	hci_dev_lock(hdev);
+
+	conn = hci_conn_hash_lookup_ba(hdev, LE_LINK, &cp->bdaddr);
+	if (!conn) {
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_LE_CONN_UPDATE,
+				MGMT_STATUS_NOT_CONNECTED);
+		hci_dev_unlock(hdev);
+		return err;
+	}
+
+	hci_dev_unlock(hdev);
+
+	hci_le_conn_update(conn, min, max, latency, supervision_timeout);
+
+	return mgmt_cmd_complete(sk, hdev->id, MGMT_OP_LE_CONN_UPDATE, 0,
+				 NULL, 0);
+}
 #endif /* TIZEN_BT */
 
 static bool ltk_is_valid(struct mgmt_ltk_info *key)
@@ -7941,6 +8009,35 @@ int mgmt_device_name_update(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 *name,
 	return mgmt_event(MGMT_EV_DEVICE_NAME_UPDATE, hdev, buf,
 			  sizeof(*ev) + eir_len, NULL);
 }
+
+int mgmt_le_conn_update_failed(struct hci_dev *hdev, bdaddr_t *bdaddr,
+			       u8 link_type, u8 addr_type, u8 status)
+{
+	struct mgmt_ev_conn_update_failed ev;
+
+	bacpy(&ev.addr.bdaddr, bdaddr);
+	ev.addr.type = link_to_bdaddr(link_type, addr_type);
+	ev.status = status;
+
+	return mgmt_event(MGMT_EV_CONN_UPDATE_FAILED, hdev,
+				&ev, sizeof(ev), NULL);
+}
+
+int mgmt_le_conn_updated(struct hci_dev *hdev, bdaddr_t *bdaddr,
+			 u8 link_type, u8 addr_type, u16 conn_interval,
+			 u16 conn_latency, u16 supervision_timeout)
+{
+	struct mgmt_ev_conn_updated ev;
+
+	bacpy(&ev.addr.bdaddr, bdaddr);
+	ev.addr.type = link_to_bdaddr(link_type, addr_type);
+	ev.conn_interval = cpu_to_le16(conn_interval);
+	ev.conn_latency = cpu_to_le16(conn_latency);
+	ev.supervision_timeout = cpu_to_le16(supervision_timeout);
+
+	return mgmt_event(MGMT_EV_CONN_UPDATED, hdev,
+				&ev, sizeof(ev), NULL);
+}
 #endif
 
 static void read_local_oob_ext_data_complete(struct hci_dev *hdev, u8 status,
@@ -8730,6 +8827,7 @@ static const struct hci_mgmt_handler tizen_mgmt_handlers[] = {
 	{ start_le_discovery,      MGMT_START_LE_DISCOVERY_SIZE },
 	{ stop_le_discovery,       MGMT_STOP_LE_DISCOVERY_SIZE },
 	{ disable_le_auto_connect, MGMT_DISABLE_LE_AUTO_CONNECT_SIZE },
+	{ le_conn_update,          MGMT_LE_CONN_UPDATE_SIZE },
 };
 #endif
 

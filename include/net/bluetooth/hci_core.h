@@ -1503,6 +1503,11 @@ void mgmt_enable_rssi_cc(struct hci_dev *hdev, void *response, u8 status);
 int mgmt_device_name_update(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 *name,
 		u8 name_len);
 void mgmt_le_discovering(struct hci_dev *hdev, u8 discovering);
+int mgmt_le_conn_updated(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 type,
+		u8 dst_type, u16 conn_interval, u16 conn_latency,
+		u16 supervision_timeout);
+int mgmt_le_conn_update_failed(struct hci_dev *hdev, bdaddr_t *bdaddr,
+		u8 link_type, u8 addr_type, u8 status);
 #endif
 
 u8 hci_le_conn_update(struct hci_conn *conn, u16 min, u16 max, u16 latency,
