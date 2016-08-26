@@ -258,6 +258,9 @@ static long ssp_sensorhub_ioctl(struct file *file, unsigned int cmd,
 
 	switch (cmd) {
 	case IOCTL_READ_BIG_CONTEXT_DATA:
+#ifdef CONFIG_COMPAT
+	case IOCTL_READ_BIG_CONTEXT_DATA_COMPAT:
+#endif
 		if (unlikely(!hub_data->big_events.library_data
 			|| !hub_data->big_events.library_length)) {
 			sensorhub_info("no big library data");
@@ -300,6 +303,9 @@ static struct file_operations ssp_sensorhub_fops = {
 	.write = ssp_sensorhub_write,
 	.read = ssp_sensorhub_read,
 	.unlocked_ioctl = ssp_sensorhub_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = ssp_sensorhub_ioctl,
+#endif
 };
 
 void ssp_sensorhub_report_notice(struct ssp_data *ssp_data, char notice)
@@ -696,6 +702,9 @@ void ssp_sensorhub_remove(struct ssp_data *ssp_data)
 	ssp_sensorhub_fops.write = NULL;
 	ssp_sensorhub_fops.read = NULL;
 	ssp_sensorhub_fops.unlocked_ioctl = NULL;
+#ifdef CONFIG_COMPAT
+	ssp_sensorhub_fops.compat_ioctl = NULL;
+#endif
 
 	kthread_stop(hub_data->sensorhub_task);
 	kfifo_free(&hub_data->fifo);

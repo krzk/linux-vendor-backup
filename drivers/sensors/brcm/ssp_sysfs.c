@@ -905,6 +905,9 @@ static struct file_operations ssp_batch_fops = {
 	.owner = THIS_MODULE,
 	.open = nonseekable_open,
 	.unlocked_ioctl = ssp_batch_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = ssp_batch_ioctl,
+#endif
 };
 
 static void initialize_mcu_factorytest(struct ssp_data *data)

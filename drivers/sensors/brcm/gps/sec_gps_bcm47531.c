@@ -95,7 +95,10 @@ static const struct file_operations gps_geofence_wake_fops = {
 	.poll = gps_geofence_wake_poll,
 	/*.read = gps_geofence_wake_read,
 	.write = gps_geofence_wake_write,*/
-	.unlocked_ioctl = gps_geofence_wake_ioctl
+	.unlocked_ioctl = gps_geofence_wake_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = gps_geofence_wake_ioctl,
+#endif
 };
 
 static struct gps_geofence_wake geofence_wake;

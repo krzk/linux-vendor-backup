@@ -437,7 +437,10 @@ static const struct file_operations gps_irq_fops = {
 	.poll = gps_irq_poll,
 	.read = gps_irq_read,
 	.write = gps_irq_write,
-	.unlocked_ioctl = gps_irq_ioctl
+	.unlocked_ioctl = gps_irq_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = gps_irq_ioctl,
+#endif
 };
 
 static int gps_hostwake_probe(struct i2c_client *client,

@@ -37,6 +37,8 @@
 
 #define SENSORHUB_IOCTL_MAGIC		'S'
 #define IOCTL_READ_BIG_CONTEXT_DATA	_IOR(SENSORHUB_IOCTL_MAGIC, 3, char *)
+#define IOCTL_READ_BIG_CONTEXT_DATA_COMPAT	\
+					_IOR(SENSORHUB_IOCTL_MAGIC, 3, unsigned int)
 
 #define sensorhub_info(str, args...) \
 	pr_info("[SSP]: %s - " str, __func__, ##args)
