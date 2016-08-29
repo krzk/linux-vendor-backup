@@ -28,13 +28,7 @@ ExclusiveArch:  %arm
 %description
 The Linux Kernel, the operating system core itself
 
-%if "%{?sec_product_feature_kernel_defconfig}" == "undefined"
 %define MODEL tizen_wc1
-%else if "%{?sec_product_feature_kernel_defconfig}" == ""
-%define MODEL tizen_wc1
-%else
-%define MODEL tizen_%{?sec_product_feature_kernel_defconfig}
-%endif
 
 %package -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}
 License: GPL-2.0
@@ -97,16 +91,11 @@ This package provides kernel license file.
 %setup -q
 
 %build
-%if 0%{?tizen_build_binary_release_type_eng}
-%define RELEASE eng
-%else
-%define RELEASE usr
-%endif
 
 mkdir -p %{_builddir}/mod_%{MODEL}
 make distclean
 
-./release_obs.sh %{RELEASE} %{MODEL}
+./release_obs.sh %{MODEL}
 
 cp -f arch/arm/boot/zImage %{_builddir}/zImage.%{MODEL}
 cp -f System.map %{_builddir}/System.map.%{MODEL}

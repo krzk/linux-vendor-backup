@@ -6,12 +6,11 @@ JOBS="-j${JOBS}"
 BOOT_PATH="arch/arm/boot"
 ZIMAGE="zImage"
 
-RELEASE=${1}
-MODEL=${2}
+MODEL=${1}
 CONFIG_STR=${MODEL%_smk_dis*}
 OPTION_STR=${MODEL#*${CONFIG_STR}}
 
-echo "defconfig : ${CONFIG_STR}_defconfig , option : ${OPTION_STR}, Release : ${RELEASE}"
+echo "defconfig : ${CONFIG_STR}_defconfig , option : ${OPTION_STR}"
 
 if [ "${OPTION_STR}" = "_smk_dis" ]; then
 	echo "Now change smack-disable for ${CONFIG_STR}_defconfig"
@@ -37,16 +36,6 @@ if [ "${OPTION_STR}" = "_smk_dis" ]; then
 	sed -i 's/CONFIG_DEFAULT_SECURITY="smack"/CONFIG_DEFAULT_SECURITY=""/g' arch/arm/configs/${CONFIG_STR}_defconfig
 	if [ "$?" != "0" ]; then
 		echo "Failed to change smack-disable step 4"
-		exit 1
-	fi
-fi
-
-if [ "${RELEASE}" = "usr" ]; then
-	echo "Now disable CONFIG_SLP_KERNEL_ENG for ${CONFIG_STR}_defconfig"
-
-	sed -i 's/CONFIG_SLP_KERNEL_ENG=y/\# CONFIG_SLP_KERNEL_ENG is not set/g' arch/arm/configs/${CONFIG_STR}_defconfig
-	if [ "$?" != "0" ]; then
-		echo "Failed to disable CONFIG_SLP_KERNEL_ENG feature"
 		exit 1
 	fi
 fi
