@@ -1683,14 +1683,14 @@ static int smack_file_send_sigiotask(struct task_struct *tsk,
 
 	/* we don't log here as rc can be overriden */
 	skp = smk_find_entry(file->f_security);
-	rc = smk_access(skp, tkp->smk_known, MAY_WRITE, NULL);
-	rc = smk_bu_note("sigiotask", skp, tkp->smk_known, MAY_WRITE, rc);
+	rc = smk_access(skp, tkp->smk_known, MAY_DELIVER, NULL);
+	rc = smk_bu_note("sigiotask", skp, tkp->smk_known, MAY_DELIVER, rc);
 	if (rc != 0 && has_capability(tsk, CAP_MAC_OVERRIDE))
 		rc = 0;
 
 	smk_ad_init(&ad, __func__, LSM_AUDIT_DATA_TASK);
 	smk_ad_setfield_u_tsk(&ad, tsk);
-	smack_log(file->f_security, tkp->smk_known, MAY_WRITE, rc, &ad);
+	smack_log(file->f_security, tkp->smk_known, MAY_DELIVER, rc, &ad);
 	return rc;
 }
 
@@ -2091,8 +2091,8 @@ static int smack_task_kill(struct task_struct *p, struct siginfo *info,
 	 * can write the receiver.
 	 */
 	if (secid == 0) {
-		rc = smk_curacc(tkp->smk_known, MAY_WRITE, &ad);
-		rc = smk_bu_task(p, MAY_WRITE, rc);
+		rc = smk_curacc(tkp->smk_known, MAY_DELIVER, &ad);
+		rc = smk_bu_task(p, MAY_DELIVER, rc);
 		return rc;
 	}
 	/*
@@ -2101,8 +2101,8 @@ static int smack_task_kill(struct task_struct *p, struct siginfo *info,
 	 * we can't take privilege into account.
 	 */
 	skp = smack_from_secid(secid);
-	rc = smk_access(skp, tkp->smk_known, MAY_WRITE, &ad);
-	rc = smk_bu_note("USB signal", skp, tkp->smk_known, MAY_WRITE, rc);
+	rc = smk_access(skp, tkp->smk_known, MAY_DELIVER, &ad);
+	rc = smk_bu_note("USB signal", skp, tkp->smk_known, MAY_DELIVER, rc);
 	return rc;
 }
 
