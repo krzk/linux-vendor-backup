@@ -29,8 +29,17 @@ if [ ! -f "./arch/arm64/boot/Image" ]; then
 	exit 1
 fi
 
+HOST_ARCH=`uname -m`
+if [ "$HOST_ARCH" == "x86_64" ]; then
+	cp tools/mkimage.x86_64 tools/mkimage
+elif [ "$HOST_ARCH" == "i586" ] || [ "$HOST_ARCH" == "i686" ]; then
+	cp tools/mkimage.i686 tools/mkimage
+else
+	echo "Unknow HOST architecture, u-boot-tools, mkimage is required!"
+fi
+
 # create fit style image from its
-PATH=tools:$PATH tools/mkimage -f arch/arm64/boot/tizen-tm2.its output/kernel.img
+PATH=scripts/dtc:$PATH tools/mkimage -f arch/arm64/boot/tizen-tm2.its output/kernel.img
 
 # Check kernel version from Makefile
 _major_version=`cat Makefile | grep "^VERSION = " | awk '{print $3}'`

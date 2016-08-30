@@ -141,7 +141,7 @@ rm -rf System.map*
 rm -rf vmlinux*
 rm -rf kernel.img
 rm -rf uapi-headers
-rm -f tools/mkbootimg tools/dtc
+rm -f tools/mkimage*
 find %{_builddir}/linux-kernel-%{version} -name ".tmp_vmlinux*" -exec rm -f {} \;
 find %{_builddir}/linux-kernel-%{version} -name ".gitignore" -exec rm -f {} \;
 find %{_builddir}/linux-kernel-%{version} -name "\.*dtb*tmp" -exec rm -f {} \;
