@@ -1411,12 +1411,20 @@ static void sii8620_cable_in(struct sii8620 *ctx)
 	sii8620_hw_on(ctx);
 	clk_prepare_enable(ctx->clk_xtal);
 	sii8620_hw_reset(ctx);
+	msleep(100);
 
 	sii8620_read_buf(ctx, REG_VND_IDL, ver, ARRAY_SIZE(ver));
 	ret = sii8620_clear_error(ctx);
 	if (ret) {
-		dev_err(dev, "Error accessing I2C bus, %d.\n", ret);
-		return;
+		dev_err(dev, "Error 1st accessing I2C bus, %d.\n", ret);
+		sii8620_hw_reset(ctx);
+		msleep(20);
+		sii8620_read_buf(ctx, REG_VND_IDL, ver, ARRAY_SIZE(ver));
+		ret = sii8620_clear_error(ctx);
+		if (ret) {
+			dev_err(dev, "Error 2nd accessing I2C bus, %d.\n", ret);
+			return;
+		}
 	}
 
 	dev_info(dev, "ChipID %02x%02x:%02x%02x rev %02x.\n", ver[1], ver[0],
