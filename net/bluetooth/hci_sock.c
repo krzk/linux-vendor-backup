@@ -31,6 +31,9 @@
 #include <net/bluetooth/hci_core.h>
 #include <net/bluetooth/hci_mon.h>
 #include <net/bluetooth/mgmt.h>
+#ifdef TIZEN_BT
+#include <net/bluetooth/mgmt_tizen.h>
+#endif
 
 #include "mgmt_util.h"
 
@@ -1002,6 +1005,21 @@ static int hci_mgmt_cmd(struct hci_mgmt_chan *chan, struct sock *sk,
 		goto done;
 	}
 
+#ifdef TIZEN_BT
+	if (opcode >= TIZEN_OP_CODE_BASE) {
+		u16 tizen_opcode_index = opcode - TIZEN_OP_CODE_BASE;
+		if (tizen_opcode_index >= chan->tizen_handler_count ||
+		    chan->tizen_handlers[tizen_opcode_index].func == NULL) {
+			BT_DBG("Unknown op %u", opcode);
+			err = mgmt_cmd_status(sk, index, opcode,
+					      MGMT_STATUS_UNKNOWN_COMMAND);
+			goto done;
+		}
+
+		handler = &chan->tizen_handlers[tizen_opcode_index];
+
+	} else {
+#endif
 	if (opcode >= chan->handler_count ||
 	    chan->handlers[opcode].func == NULL) {
 		BT_DBG("Unknown op %u", opcode);
@@ -1011,6 +1029,9 @@ static int hci_mgmt_cmd(struct hci_mgmt_chan *chan, struct sock *sk,
 	}
 
 	handler = &chan->handlers[opcode];
+#ifdef TIZEN_BT
+	}
+#endif
 
 	if (!hci_sock_test_flag(sk, HCI_SOCK_TRUSTED) &&
 	    !(handler->flags & HCI_MGMT_UNTRUSTED)) {

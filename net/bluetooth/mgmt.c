@@ -32,6 +32,9 @@
 #include <net/bluetooth/hci_sock.h>
 #include <net/bluetooth/l2cap.h>
 #include <net/bluetooth/mgmt.h>
+#ifdef TIZEN_BT
+#include <net/bluetooth/mgmt_tizen.h>
+#endif
 
 #include "hci_request.h"
 #include "smp.h"
@@ -7238,6 +7241,12 @@ static const struct hci_mgmt_handler mgmt_handlers[] = {
 	{ remove_advertising,	   MGMT_REMOVE_ADVERTISING_SIZE },
 };
 
+#ifdef TIZEN_BT
+static const struct hci_mgmt_handler tizen_mgmt_handlers[] = {
+	{ NULL }, /* 0x0000 (no command) */
+};
+#endif
+
 void mgmt_index_added(struct hci_dev *hdev)
 {
 	struct mgmt_ev_ext_index ev;
@@ -8403,6 +8412,10 @@ static struct hci_mgmt_chan chan = {
 	.channel	= HCI_CHANNEL_CONTROL,
 	.handler_count	= ARRAY_SIZE(mgmt_handlers),
 	.handlers	= mgmt_handlers,
+#ifdef TIZEN_BT
+	.tizen_handler_count	= ARRAY_SIZE(tizen_mgmt_handlers),
+	.tizen_handlers	= tizen_mgmt_handlers,
+#endif
 	.hdev_init	= mgmt_init_hdev,
 };
 

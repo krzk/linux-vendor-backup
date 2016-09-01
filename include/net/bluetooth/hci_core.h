@@ -1320,6 +1320,10 @@ struct hci_mgmt_chan {
 	unsigned short channel;
 	size_t handler_count;
 	const struct hci_mgmt_handler *handlers;
+#ifdef TIZEN_BT
+	size_t tizen_handler_count;
+	const struct hci_mgmt_handler *tizen_handlers;
+#endif
 	void (*hdev_init) (struct sock *sk, struct hci_dev *hdev);
 };
 
