@@ -1571,6 +1571,12 @@ static const struct of_device_id ax88796c_dt_ids[] = {
 MODULE_DEVICE_TABLE(of, ax88796c_dt_ids);
 #endif
 
+static const struct spi_device_id asix_id[] = {
+	{ "ax88796c", 0 },
+	{ }
+};
+MODULE_DEVICE_TABLE(spi, asix_id);
+
 static struct spi_driver ax88796c_spi_driver = {
 	.driver = {
 		.name = DRV_NAME,
@@ -1583,6 +1589,7 @@ static struct spi_driver ax88796c_spi_driver = {
 	.remove = ax88796c_remove,
 	.suspend = ax88796c_suspend,
 	.resume = ax88796c_resume,
+	.id_table = asix_id,
 };
 
 /* ----------------------------------------------------------------------------
