@@ -271,7 +271,8 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
 		break;
 
 	case NFQNL_COPY_PACKET:
-		if (entskb->ip_summed == CHECKSUM_PARTIAL &&
+		if (!(queue->flags & NFQA_CFG_F_GSO) &&
+		    entskb->ip_summed == CHECKSUM_PARTIAL &&
 		    skb_checksum_help(entskb))
 			return NULL;
 
