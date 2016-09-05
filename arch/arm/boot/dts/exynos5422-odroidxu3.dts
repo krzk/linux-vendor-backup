@@ -464,7 +464,7 @@
 		/* Hardkernel I2C 3.5" Touchscreen */
 		/* drivers/input/sx865x.c */
 		sx865x: sx865x@49	{
-			status = "okay";
+			status = "disabled";
 			compatible = "semtech,sx8650";
 			reg = <0x49>;
 			#clock-cells = <0>;
