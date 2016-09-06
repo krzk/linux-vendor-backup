@@ -484,6 +484,8 @@ struct hci_conn {
 
 #ifdef TIZEN_BT
 	bool		rssi_monitored;
+	__u8		sco_role;
+	__u16		voice_setting;
 #endif
 	struct hci_conn	*link;
 
@@ -873,6 +875,23 @@ static inline int hci_conn_hash_lookup_rssi_count(struct hci_dev *hdev)
 
 bool hci_le_discovery_active(struct hci_dev *hdev);
 void hci_le_discovery_set_state(struct hci_dev *hdev, int state);
+
+static inline struct hci_conn *hci_conn_hash_lookup_sco(struct hci_dev *hdev)
+{
+	struct hci_conn_hash *h = &hdev->conn_hash;
+	struct hci_conn  *c;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(c, &h->list, list) {
+		if (c->type == SCO_LINK || c->type == ESCO_LINK) {
+			rcu_read_unlock();
+			return c;
+		}
+	}
+	rcu_read_unlock();
+
+	return NULL;
+}
 #endif
 
 int hci_disconnect(struct hci_conn *conn, __u8 reason);

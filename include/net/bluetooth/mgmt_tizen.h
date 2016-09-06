@@ -151,6 +151,16 @@ struct mgmt_cp_le_set_scan_params {
 } __packed;
 #define MGMT_LE_SET_SCAN_PARAMS_SIZE		5
 
+#define MGMT_SCO_ROLE_HANDSFREE			0x00
+#define MGMT_SCO_ROLE_AUDIO_GATEWAY		0x01
+#define MGMT_OP_SET_VOICE_SETTING		(TIZEN_OP_CODE_BASE + 0x10)
+struct mgmt_cp_set_voice_setting {
+	bdaddr_t	bdaddr;
+	uint8_t		sco_role;
+	uint16_t	voice_setting;
+} __packed;
+#define MGMT_SET_VOICE_SETTING_SIZE		9
+
 /* EVENTS */
 
 /* For device name update changes */

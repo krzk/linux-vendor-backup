@@ -34,6 +34,7 @@
 #include <net/bluetooth/mgmt.h>
 #ifdef TIZEN_BT
 #include <net/bluetooth/mgmt_tizen.h>
+#include <net/bluetooth/sco.h>
 #endif
 
 #include "hci_request.h"
@@ -7164,6 +7165,61 @@ static int le_set_scan_params(struct sock *sk, struct hci_dev *hdev,
 	return err;
 }
 
+static int set_voice_setting(struct sock *sk, struct hci_dev *hdev,
+		void *data, u16 len)
+{
+	struct mgmt_cp_set_voice_setting *cp = data;
+	struct hci_conn *conn;
+	struct hci_conn *sco_conn;
+
+	int err;
+
+	BT_DBG("%s", hdev->name);
+
+	if (!lmp_bredr_capable(hdev)) {
+		return mgmt_cmd_status(sk, hdev->id, MGMT_OP_SET_VOICE_SETTING,
+				MGMT_STATUS_NOT_SUPPORTED);
+	}
+
+	hci_dev_lock(hdev);
+
+	conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK, &cp->bdaddr);
+	if (!conn) {
+		err = mgmt_cmd_complete(sk, hdev->id,
+				MGMT_OP_SET_VOICE_SETTING, 0, NULL, 0);
+		goto unlock;
+	}
+
+	conn->voice_setting = cp->voice_setting;
+	conn->sco_role = cp->sco_role;
+
+	sco_conn = hci_conn_hash_lookup_sco(hdev);
+	if (sco_conn && bacmp(&sco_conn->dst, &cp->bdaddr) != 0) {
+		BT_ERR("There is other SCO connection.");
+		goto done;
+	}
+
+	if (conn->sco_role == MGMT_SCO_ROLE_HANDSFREE) {
+		if (conn->voice_setting == 0x0063)
+			sco_connect_set_wbc(hdev);
+		else
+			sco_connect_set_nbc(hdev);
+	} else {
+		if (conn->voice_setting == 0x0063)
+			sco_connect_set_gw_wbc(hdev);
+		else
+			sco_connect_set_gw_nbc(hdev);
+	}
+
+done:
+	err = mgmt_cmd_complete(sk, hdev->id, MGMT_OP_SET_VOICE_SETTING, 0,
+			cp, sizeof(cp));
+
+unlock:
+	hci_dev_unlock(hdev);
+	return err;
+}
+
 void mgmt_hardware_error(struct hci_dev *hdev, u8 err_code)
 {
 	struct mgmt_ev_hardware_error ev;
@@ -9081,6 +9137,7 @@ static const struct hci_mgmt_handler tizen_mgmt_handlers[] = {
 	{ le_conn_update,          MGMT_LE_CONN_UPDATE_SIZE },
 	{ set_manufacturer_data,   MGMT_SET_MANUFACTURER_DATA_SIZE },
 	{ le_set_scan_params,      MGMT_LE_SET_SCAN_PARAMS_SIZE },
+	{ set_voice_setting,       MGMT_SET_VOICE_SETTING_SIZE },
 };
 #endif
 
