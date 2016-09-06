@@ -54,5 +54,9 @@ config DRM_PANEL_S6E3HA2
 	depends on OF
 	select DRM_MIPI_DSI
 	select VIDEOMODE_HELPERS
+	select DRM_PANEL_SAMSUNG_DYNAMIC_AID
+
+config DRM_PANEL_SAMSUNG_DYNAMIC_AID
+	bool
 
 endmenu
