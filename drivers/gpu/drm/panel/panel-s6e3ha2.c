@@ -13,17 +13,12 @@
 #include <drm/drmP.h>
 #include <drm/drm_mipi_dsi.h>
 #include <drm/drm_panel.h>
-
-#include <linux/of_gpio.h>
-#include <linux/gpio.h>
-
+#include <linux/backlight.h>
 #include <linux/gpio/consumer.h>
 #include <linux/regulator/consumer.h>
-
 #include <video/mipi_display.h>
 #include <video/of_videomode.h>
 #include <video/videomode.h>
-#include <linux/backlight.h>
 
 #define MIN_BRIGHTNESS		0
 #define MAX_BRIGHTNESS		100
