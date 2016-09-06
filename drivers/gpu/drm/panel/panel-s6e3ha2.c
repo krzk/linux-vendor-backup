@@ -28,7 +28,6 @@
 #define MAX_GAMMA			350
 #define NUM_GAMMA_STEPS			46
 #define GAMMA_CMD_CNT			35
-#define VINT_STATUS_MAX			10
 
 static const u8 MDNIE_6500K[] = {
 	0xec, 0x98, 0x24, 0x10, 0x14, 0xb3, 0x01, 0x0e, 0x01, 0x00,
@@ -255,7 +254,7 @@ static const u8 gamma_tbl[NUM_GAMMA_STEPS][GAMMA_CMD_CNT] = {
 	  0x00, 0x00 }
 };
 
-unsigned char VINT_TABLE[VINT_STATUS_MAX] = {
+unsigned char VINT_TABLE[] = {
 	0x18, 0x19, 0x1A, 0x1B, 0x1C,
 	0x1D, 0x1E, 0x1F, 0x20, 0x21
 };
@@ -533,7 +532,7 @@ static int s6e3ha2_get_brightness(struct backlight_device *bl_dev)
 
 static void s6e3ha2_set_vint(struct s6e3ha2 *ctx)
 {
-	int vind = (VINT_STATUS_MAX - 1)
+	int vind = (ARRAY_SIZE(VINT_TABLE) - 1)
 		 * ctx->bl_dev->props.brightness / MAX_BRIGHTNESS;
 
 	s6e3ha2_dcs_write_seq(ctx, 0xf4, 0x8b, VINT_TABLE[vind]);
