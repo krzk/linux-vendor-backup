@@ -2,6 +2,10 @@
 # Mobicore Configuration
 #
 
+if SOC_EXYNOS3250
+source "drivers/gud/gud-exynos3250-artik/Kconfig"
+endif
+
 if SOC_EXYNOS5422
 source "drivers/gud/gud-exynos5422/Kconfig"
 endif

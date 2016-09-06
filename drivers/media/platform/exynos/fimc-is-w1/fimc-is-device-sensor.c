@@ -343,7 +343,7 @@ static int fimc_is_sensor_iclk_off(struct fimc_is_device_sensor *device)
 	pdata = device->pdata;
 
 	if (!test_bit(FIMC_IS_SENSOR_ICLK_ON, &device->state)) {
-		merr("%s : already clk off", device, __func__);
+		mwarn("%s : already clk off", device, __func__);
 		goto p_err;
 	}
 
@@ -411,7 +411,7 @@ static int fimc_is_sensor_gpio_off(struct fimc_is_device_sensor *device)
 	pdata = device->pdata;
 
 	if (!test_bit(FIMC_IS_SENSOR_GPIO_ON, &device->state)) {
-		merr("%s : already gpio off", device, __func__);
+		mwarn("%s : already gpio off", device, __func__);
 		goto p_err;
 	}
 

@@ -10,6 +10,9 @@
 #include <linux/err.h>
 #include <linux/of.h>
 #include <linux/sec_sysfs.h>
+#include <linux/of_gpio.h>
+#include <linux/gpio.h>
+#include <linux/delay.h>
 
 static bool artik_zb_boot_enable = true;
 module_param_named(zb_boot_enable, artik_zb_boot_enable, bool, 0);
@@ -54,7 +57,10 @@ struct artik_zb_power_platform_data {
 	struct regulator_bulk_data *supplies;
 	struct device *sec_sysfs;
 	int on;
+	int recovery_mode;
 	int num_supplies;
+	int reset_gpio;
+	int bootloader_gpio;
 };
 
 static int artik_zb_power_control(struct artik_zb_power_platform_data *pdata,
@@ -68,7 +74,11 @@ static int artik_zb_power_control(struct artik_zb_power_platform_data *pdata,
 	if (onoff) {
 		ret = regulator_bulk_enable(pdata->num_supplies,
 				pdata->supplies);
+		gpio_set_value(pdata->bootloader_gpio, 1);
+		gpio_set_value(pdata->reset_gpio, 1);
 	} else {
+		gpio_set_value(pdata->bootloader_gpio, 0);
+		gpio_set_value(pdata->reset_gpio, 0);
 		ret = regulator_bulk_disable(pdata->num_supplies,
 				pdata->supplies);
 	}
@@ -76,6 +86,36 @@ static int artik_zb_power_control(struct artik_zb_power_platform_data *pdata,
 	pdata->on = onoff;
 
 	return ret;
+}
+
+static void artik_zb_recovery_control(struct artik_zb_power_platform_data *pdata,
+				  int onoff)
+{
+	if (onoff != pdata->recovery_mode) {
+		 if (onoff) {
+			  /* Turn off device */
+			  gpio_set_value(pdata->reset_gpio, 0);
+			  gpio_set_value(pdata->bootloader_gpio, 0);
+
+			  /* EM358x chip needs 26usec hold time to reset device */
+			  udelay(30);
+
+			  /* Go to recovery mode */
+			  gpio_set_value(pdata->reset_gpio, 1);
+		 } else {
+			  /* Turn off */
+			  gpio_set_value(pdata->reset_gpio, 0);
+			  gpio_set_value(pdata->bootloader_gpio, 0);
+
+			  /* EM358x chip needs 26usec hold time to reset device */
+			  udelay(30);
+
+			  /* Go to normal mode */
+			  gpio_set_value(pdata->bootloader_gpio, 1);
+			  gpio_set_value(pdata->reset_gpio, 1);
+		 }
+		 pdata->recovery_mode = onoff;
+	}
 }
 
 static ssize_t show_zb_power_status(struct device *dev,
@@ -108,6 +148,41 @@ static ssize_t set_zb_power_status(struct device *dev,
 
 	return count;	/* if success returns count, if failed returns - */
 }
+
+static ssize_t show_zb_recovery_status(struct device *dev,
+				    struct device_attribute *attr,
+				    char *buf)
+{
+	struct artik_zb_power_platform_data *pdata = dev_get_drvdata(dev);
+	int ret;
+
+	ret = sprintf(buf, "%d\n", pdata->recovery_mode);
+
+	return ret;
+}
+
+static ssize_t set_zb_recovery_status(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf, size_t count)
+{
+	struct artik_zb_power_platform_data *pdata = dev_get_drvdata(dev);
+	int val = 0;
+	int ret;
+
+	ret = kstrtoint(buf, 10, &val);
+	if (ret)
+		return -EINVAL;
+
+	artik_zb_recovery_control(pdata, !!val);
+
+	return count;	/* if success returns count, if failed returns - */
+}
+
+static DEVICE_ATTR(recovery,
+		S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH,
+		show_zb_recovery_status,
+		set_zb_recovery_status);
+
 static DEVICE_ATTR(enable,
 		S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH,
 		show_zb_power_status,
@@ -115,6 +190,7 @@ static DEVICE_ATTR(enable,
 
 static struct attribute *artik_zb_power_attributes[] = {
 	&dev_attr_enable.attr,
+	&dev_attr_recovery.attr,
 	NULL
 };
 
@@ -140,6 +216,38 @@ static const struct of_device_id artik_zb_power_match[] = {
 };
 MODULE_DEVICE_TABLE(of, artik_zb_power_match);
 #endif
+
+static int artik_zb_power_gpio_init(struct device *dev,
+		struct artik_zb_power_platform_data *pdata)
+{
+	int ret;
+	pdata->reset_gpio = of_get_named_gpio(dev->of_node, "reset-gpio", 0);
+	if (pdata->reset_gpio < 0) {
+		dev_err(dev, "cannot get reset-gpios %d\n",
+			pdata->reset_gpio);
+		return pdata->reset_gpio;
+	}
+	ret = devm_gpio_request(dev, pdata->reset_gpio, "reset-gpio");
+	if (ret) {
+		dev_err(dev, "failed to request reset-gpio\n");
+		return ret;
+	}
+
+	pdata->bootloader_gpio = of_get_named_gpio(dev->of_node,
+			  "bootloader-gpio", 0);
+	if (pdata->bootloader_gpio < 0) {
+		dev_err(dev, "cannot get bootloader-gpio %d\n",
+			pdata->bootloader_gpio);
+		return pdata->bootloader_gpio;
+	}
+	ret = devm_gpio_request(dev, pdata->bootloader_gpio, "bootloader-gpio");
+	if (ret) {
+		dev_err(dev, "failed to request bootloader-gpio\n");
+		return ret;
+	}
+
+	return 0;
+}
 
 static int artik_zb_power_probe(struct platform_device *pdev)
 {
@@ -185,6 +293,10 @@ static int artik_zb_power_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	ret = artik_zb_power_gpio_init(&pdev->dev, pdata);
+	if (ret)
+		return -ENODEV;
+
 	platform_set_drvdata(pdev, pdata);
 
 	pdata->sec_sysfs = sec_device_create(pdata, "artik_zb_power");
@@ -211,6 +323,7 @@ static int artik_zb_power_probe(struct platform_device *pdev)
 		}
 	}
 
+	pdata->recovery_mode = 0;
 	dev_info(&pdev->dev, "platform driver %s registered\n", pdev->name);
 
 	return 0;

@@ -192,8 +192,6 @@ static int s5k5ea_i2c_write_twobyte(struct i2c_client *client,
 		if (likely(ret == 1))
 			break;
 		mdelay(10);
-		dev_err(&client->dev, "%s: I2C err %d, retry %d.\n",
-				__func__, ret, retry_count);
 	} while (retry_count-- > 0);
 
 	if (ret != 1) {
@@ -1681,6 +1679,14 @@ int sensor_5ea_probe(struct i2c_client *client,
 
 	device = &core->sensor[SENSOR_S5K5EA_INSTANCE];
 
+	device->pdata->gpio_cfg(device->pdev, SENSOR_SCENARIO_EXTERNAL, 0);
+	ret = s5k5ea_i2c_write_twobyte(client, 0xFCFC, 0xD000);
+	if (ret < 0) {
+		cam_warn("%s failed to write to sensor(%d)", __func__, ret);
+		ret = -ENODEV;
+		goto p_err;
+	}
+
 	state = kzalloc(sizeof(struct s5k5ea_state), GFP_KERNEL);
 	if (state == NULL) {
 		dev_err(&client->dev, "S5K5EA probe error : kzalloc\n");
@@ -1765,6 +1771,7 @@ int sensor_5ea_probe(struct i2c_client *client,
 		"sensor-subdev.%d", module->id);
 
 p_err:
+	device->pdata->gpio_cfg(device->pdev, SENSOR_SCENARIO_EXTERNAL, 1);
 	info("%s(%d)\n", __func__, ret);
 	return ret;
 }

@@ -61,3 +61,4 @@ obj-$(CONFIG_AUTO_SLEEP_WAKEUP_TEST) += auto_sleep_wakeup_test.o
 obj-$(CONFIG_SCHED_HMP)		+= cci400.o
 obj-$(CONFIG_MIPI_LLI)		+= mipi-lli/
 obj-$(CONFIG_ARTIK_ZB_POWER)	+= artik_zb_power.o
+obj-$(CONFIG_ARTIK_TRUSTZONE_DRIVER)    += artiktee/

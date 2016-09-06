@@ -96,6 +96,10 @@ static LIST_HEAD(drvdata_list);
 
 #define S3C2440_IICINT_BUSHOLD_CLEAR	(1 << 8)
 
+#define S3C2410_NEED_REG_INIT		(1 << 0)
+#define S3C2410_NEED_BUS_INIT		(2 << 0)
+#define S3C2410_NEED_FULL_INIT		(3 << 0)
+
 /* Treat S3C2410 as baseline hardware, anything else is supported via quirks */
 #define QUIRK_S3C2440		(1 << 0)
 #define QUIRK_HDMIPHY		(1 << 1)
@@ -319,6 +323,7 @@ static void s3c24xx_i2c_message_start(struct s3c24xx_i2c *i2c,
 static inline void s3c24xx_i2c_stop(struct s3c24xx_i2c *i2c, int ret)
 {
 	unsigned long iicstat = readl(i2c->regs + S3C2410_IICSTAT);
+	unsigned long iiccon = 0;
 
 	dev_dbg(i2c->dev, "STOP\n");
 
@@ -365,10 +370,16 @@ static inline void s3c24xx_i2c_stop(struct s3c24xx_i2c *i2c, int ret)
 	}
 	writel(iicstat, i2c->regs + S3C2410_IICSTAT);
 
-	i2c->state = STATE_STOP;
+	/* Clear pending bit */
+	iiccon = readl(i2c->regs + S3C2410_IICCON);
+	iiccon &= ~S3C2410_IICCON_IRQPEND;
+	writel(iiccon, i2c->regs + S3C2410_IICCON);
+
+	s3c24xx_i2c_disable_irq(i2c);
 
 	s3c24xx_i2c_master_complete(i2c, ret);
-	s3c24xx_i2c_disable_irq(i2c);
+
+	i2c->state = STATE_STOP;
 }
 
 /* helper functions to determine the current state in the set of
@@ -482,6 +493,11 @@ static int i2c_s3c_irq_nextbyte(struct s3c24xx_i2c *i2c, unsigned long iicstat)
  retry_write:
 
 		if (!is_msgend(i2c)) {
+			if (!i2c->msg->buf) {
+				dev_err(i2c->dev, "WRITE: buf is NULL\n");
+				goto out_ack;
+			}
+
 			byte = i2c->msg->buf[i2c->msg_ptr++];
 			writeb(byte, i2c->regs + S3C2410_IICDS);
 
@@ -710,8 +726,11 @@ static void s3c24xx_i2c_wait_idle(struct s3c24xx_i2c *i2c)
 		iicstat = readl(i2c->regs + S3C2410_IICSTAT);
 	}
 
-	if (iicstat & S3C2410_IICSTAT_START)
+	if (iicstat & S3C2410_IICSTAT_START) {
 		dev_warn(i2c->dev, "timeout waiting for bus idle\n");
+		if (i2c->state != STATE_STOP)
+			s3c24xx_i2c_stop(i2c, -ENXIO);
+	}
 }
 
 /* s3c24xx_i2c_doxfer
@@ -731,6 +750,7 @@ static int s3c24xx_i2c_doxfer(struct s3c24xx_i2c *i2c,
 	ret = s3c24xx_i2c_set_master(i2c);
 	if (ret != 0) {
 		dev_err(i2c->dev, "cannot get bus (error %d)\n", ret);
+		i2c->need_hw_init = S3C2410_NEED_FULL_INIT;
 		ret = -EAGAIN;
 		goto out;
 	}
@@ -783,10 +803,10 @@ static int s3c24xx_i2c_xfer(struct i2c_adapter *adap,
 	pm_runtime_get_sync(&adap->dev);
 	clk_prepare_enable(i2c->clk);
 
-	if (i2c->need_hw_init)
-		s3c24xx_i2c_init(i2c);
-
 	for (retry = 0; retry < adap->retries; retry++) {
+
+		if (i2c->need_hw_init & S3C2410_NEED_FULL_INIT)
+			s3c24xx_i2c_init(i2c);
 
 		ret = s3c24xx_i2c_doxfer(i2c, msgs, num);
 
@@ -986,11 +1006,18 @@ static int s3c24xx_i2c_init(struct s3c24xx_i2c *i2c)
 {
 	unsigned long iicon = S3C2410_IICCON_IRQEN | S3C2410_IICCON_ACKEN;
 	struct s3c2410_platform_i2c *pdata;
+	unsigned long iicstat = readl(i2c->regs + S3C2410_IICSTAT);
 	unsigned int freq;
 
 	/* get the plafrom data */
 
 	pdata = i2c->pdata;
+
+	if (i2c->need_hw_init & S3C2410_NEED_BUS_INIT) {
+		/* reset i2c bus to recover from "cannot get bus" */
+		iicstat &= ~S3C2410_IICSTAT_TXRXEN;
+		writel(iicstat, i2c->regs + S3C2410_IICSTAT);
+	}
 
 	/* write slave address */
 
@@ -1076,7 +1103,7 @@ static int s3c24xx_i2c_notifier(struct notifier_block *self,
 	switch (cmd) {
 	case LPA_EXIT:
 		list_for_each_entry(i2c, &drvdata_list, node)
-			i2c->need_hw_init = 1;
+			i2c->need_hw_init = S3C2410_NEED_REG_INIT;
 		break;
 	}
 
@@ -1179,7 +1206,7 @@ static int s3c24xx_i2c_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	i2c->need_hw_init = 1;
+	i2c->need_hw_init = S3C2410_NEED_REG_INIT;
 
 	/* find the IRQ for this unit (note, this relies on the init call to
 	 * ensure no current IRQs pending
@@ -1273,7 +1300,7 @@ static int s3c24xx_i2c_resume(struct device *dev)
 		regmap_write(i2c->sysreg, EXYNOS5_SYS_I2C_CFG, i2c->sys_i2c_cfg);
 
 	i2c->suspended = 0;
-	i2c->need_hw_init = 1;
+	i2c->need_hw_init = S3C2410_NEED_REG_INIT;
 
 	return 0;
 }
@@ -1286,7 +1313,7 @@ static int s3c24xx_i2c_runtime_resume(struct device *dev)
 	struct s3c24xx_i2c *i2c = platform_get_drvdata(pdev);
 
 	if (i2c->quirks & QUIRK_FIMC_I2C)
-		i2c->need_hw_init = 1;
+		i2c->need_hw_init = S3C2410_NEED_REG_INIT;
 
 	return 0;
 }

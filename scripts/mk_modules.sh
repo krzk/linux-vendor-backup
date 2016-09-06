@@ -1,5 +1,7 @@
 #!/bin/bash
 
+RELEASE_VERSION=$1
+
 let NCPUS=(`grep -c ^processor /proc/cpuinfo` + 1)
 
 if [ "$CROSS_COMPILE" == "" ]; then
@@ -17,7 +19,12 @@ if [ "$USE_MAKE_EXT4FS" != "1" ]; then
 fi
 
 make ARCH=arm modules_prepare
-make ARCH=arm modules -j ${NCPUS}
+if [ "$RELEASE_VERSION" == "" ]; then
+	make ARCH=arm modules -j ${NCPUS}
+else
+	make ARCH=arm modules -j ${NCPUS} EXTRAVERSION="-$RELEASE_VERSION"
+fi
+
 
 if [ "$?" != "0" ]; then
 	echo "Failed to make modules"

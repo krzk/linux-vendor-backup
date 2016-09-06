@@ -935,6 +935,31 @@ unsigned int exynos5422_regist_asv_member(void)
 	return 0;
 }
 
+static void exynos5422_get_lot_id(struct asv_common *asv_info)
+{
+	unsigned int lid_reg = 0;
+	unsigned int rev_lid = 0;
+	unsigned int i;
+	unsigned int tmp;
+
+	lid_reg = __raw_readl(LOT_ID_REG);
+
+	for (i = 0; i < 32; i++) {
+		tmp = (lid_reg >> i) & 0x1;
+		rev_lid += tmp << (31 - i);
+	}
+
+	asv_info->lot_name[0] = 'N';
+	lid_reg = (rev_lid >> 11) & 0x1FFFFF;
+
+	for (i = 4; i >= 1; i--) {
+		tmp = lid_reg % 36;
+		lid_reg /= 36;
+		asv_info->lot_name[i] = (tmp < 10) ?
+				(tmp + '0') : ((tmp - 10) + 'A');
+	}
+}
+
 int exynos5422_init_asv(struct asv_common *asv_info)
 {
 	struct clk *clk_abb;
@@ -944,6 +969,9 @@ int exynos5422_init_asv(struct asv_common *asv_info)
 
 	special_lot_group = 0;
 	is_speedgroup = false;
+
+	/* convert lot id for factory process */
+	exynos5422_get_lot_id(asv_info);
 
 	/* enable abb clock */
 	clk_abb = __clk_lookup("clk_abb_apbif");
@@ -978,8 +1006,9 @@ int exynos5422_init_asv(struct asv_common *asv_info)
 	if (!asv_info->hpm_value)
 		pr_err("Exynos5422 ASV : invalid IDS value\n");
 
-	pr_info("EXYNOS5422 ASV : %s IDS : %d HPM : %d\n", asv_info->lot_name,
-				asv_info->ids_value, asv_info->hpm_value);
+	pr_info("EXYNOS5422 ASV INFO\nLOT ID : %s\nIDS : %d\nHPM : %d\n",
+				asv_info->lot_name, asv_info->ids_value,
+				asv_info->hpm_value);
 
 	asv_table_version = (chip_id3_value >> EXYNOS5422_TABLE_OFFSET) & EXYNOS5422_TABLE_MASK;
 	asv_volt_offset[ID_ARM][0] = (chip_id4_value >> EXYNOS5422_EGLLOCK_UP_OFFSET) & EXYNOS5422_EGLLOCK_UP_MASK;

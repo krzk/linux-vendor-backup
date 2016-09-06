@@ -54,6 +54,7 @@ extern struct device *camera_rear_dev;
 extern int fimc_is_sen_video_probe(void *data);
 struct pm_qos_request exynos_sensor_qos_int;
 struct pm_qos_request exynos_sensor_qos_mem;
+struct pm_qos_request exynos_sensor_qos_cam;
 
 extern u32 __iomem *notify_fcount_sen0;
 extern u32 __iomem *notify_fcount_sen1;
@@ -1289,6 +1290,8 @@ module_retry:
 			PM_QOS_DEVICE_THROUGHPUT, 400000);
 		pm_qos_add_request(&exynos_sensor_qos_mem,
 			PM_QOS_BUS_THROUGHPUT, 633000);
+		pm_qos_add_request(&exynos_sensor_qos_cam,
+			PM_QOS_CAM_THROUGHPUT, 333000);
 	}
 #endif
 
@@ -2151,6 +2154,7 @@ int fimc_is_sensor_runtime_suspend(struct device *dev)
 		(device->pdata->scenario == SENSOR_SCENARIO_EXTERNAL)) {
 		pm_qos_remove_request(&exynos_sensor_qos_int);
 		pm_qos_remove_request(&exynos_sensor_qos_mem);
+		pm_qos_remove_request(&exynos_sensor_qos_cam);
 	}
 #endif
 

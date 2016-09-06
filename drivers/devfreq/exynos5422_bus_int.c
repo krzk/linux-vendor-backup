@@ -63,14 +63,11 @@ enum int_bus_idx {
 	LV_3,
 	LV_4,
 	LV_5,
+	LV_6,
 #ifdef CONFIG_SOC_EXYNOS5422_REV_0
-	LV_END,
-	LV_6,
 	LV_7,
-#else
-	LV_6,
-	LV_END,
 #endif
+	LV_END,
 };
 
 enum int_bus_pll {
@@ -100,13 +97,7 @@ struct int_bus_opp_table {
 };
 
 struct int_bus_opp_table int_bus_opp_list[] = {
-	{LV_0,   600000, 1075000, 0},	/* ISP Special Level */
-	{LV_1,   500000,  987500, 0},	/* ISP Special Level */
-	{LV_1_1, 480000,  987500, 0},	/* ISP Special Level */
-	{LV_1_2, 460000,  987500, 0},	/* ISP Special Level */
-	{LV_1_3, 440000,  987500, 0},	/* ISP Special Level */
 #ifdef CONFIG_SOC_EXYNOS5422_REV_0
-	{LV_2,   420000,  987500, 0},	/* UHD play */
 	{LV_3,   400000,  987500, 0},
 	{LV_4,   333000,  950000, 0},
 	{LV_5,   222000,  950000, 0},
@@ -935,7 +926,7 @@ static void exynos5_int_update_state(unsigned int target_freq)
 	 */
 	for (i = LV_0; i < LV_END; i++) {
 		if (int_bus_opp_list[i].freq == target_freq)
-			target_idx = int_bus_opp_list[i].idx;
+			target_idx = i;
 	}
 
 	tmp_cputime = cur_time - int_pre_time;
@@ -1135,9 +1126,11 @@ static ssize_t int_show_state(struct device *dev, struct device_attribute *attr,
 	unsigned int i;
 	ssize_t len = 0;
 	ssize_t write_cnt = (ssize_t)((PAGE_SIZE / LV_END) - 2);
+	int count = opp_get_opp_count(dev->parent);
 
-	for (i = LV_0; i < LV_END; i++)
-		len += snprintf(buf + len, write_cnt, "%ld %llu\n", int_bus_opp_list[i].freq,
+	for (i = LV_0; i < count; i++)
+		len += snprintf(buf + len, PAGE_SIZE - len, "%lu %llu\n",
+				int_bus_opp_list[i].freq,
 				(unsigned long long)int_bus_opp_list[i].time_in_state);
 
 	return len;
@@ -1439,6 +1432,8 @@ static int exynos5_devfreq_int_probe(struct platform_device *pdev)
 		goto err_opp_add;
 	}
 
+	data->devfreq->max_freq = 400000;
+	data->devfreq->min_freq = 222000;
 	devfreq_register_opp_notifier(dev, data->devfreq);
 
 	/* Create file for time_in_state */

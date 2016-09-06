@@ -158,4 +158,4 @@ obj-$(CONFIG_IPACK_BUS)		+= ipack/
 obj-$(CONFIG_NTB)		+= ntb/
 
 # Mobicore driver
-obj-$(CONFIG_MOBICORE_DRIVER)   += gud/
+obj-$(CONFIG_TRUSTONIC_TEE)   += gud/

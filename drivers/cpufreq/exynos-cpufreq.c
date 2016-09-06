@@ -17,6 +17,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/cpufreq.h>
 #include <linux/suspend.h>
+#include <linux/pm_qos.h>
 
 #include <plat/cpu.h>
 
@@ -195,6 +196,9 @@ static int exynos_target(struct cpufreq_policy *policy,
 
 	if (frequency_locked)
 		goto out;
+
+	target_freq = max((unsigned int)pm_qos_request(PM_QOS_CPU_FREQ_MIN), target_freq);
+	target_freq = min((unsigned int)pm_qos_request(PM_QOS_CPU_FREQ_MAX), target_freq);
 
 	if (cpufreq_frequency_table_target(policy, freq_table,
 					   target_freq, relation, &index)) {
