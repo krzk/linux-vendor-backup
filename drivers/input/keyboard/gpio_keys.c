@@ -100,8 +100,10 @@ void gpio_keys_send_fake_powerkey(int value)
 	input_event(input, EV_KEY, KEY_POWER, value);
 	input_sync(input);
 
+#ifdef CONFIG_SLP_KERNEL_ENG
 	dev_info(&input->dev, "%s: [%s] KEY_POWER\n",
 			__func__, value ? "P":"R");
+#endif
 }
 EXPORT_SYMBOL(gpio_keys_send_fake_powerkey);
 
@@ -585,8 +587,6 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 #ifdef CONFIG_SLP_KERNEL_ENG
 				pr_info("%s:[%s][%s][A]\n", __func__, !state ? "P":"R",
 					button->desc);
-#else
-				pr_info("gpio_keys:[%s][A]\n", !state ? "P":"R");
 #endif
 				input_event(input, type, button->code, !state);
 				input_sync(input);
@@ -615,9 +615,6 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 #ifdef CONFIG_SLP_KERNEL_ENG
 	pr_info("%s:[%s][%s][%s]\n", __func__, !!state ? "P":"R",
 		button->desc, bdata->isr_status ? "I":"R");
-#else
-	pr_info("gpio_keys:[%s][%s]\n", !!state ? "P":"R",
-		bdata->isr_status ? "I":"R");
 #endif
 #ifdef CONFIG_SLEEP_MONITOR
 	if ((ddata->press_cnt < 0xffff) && (bdata->isr_status) && (!!state))
