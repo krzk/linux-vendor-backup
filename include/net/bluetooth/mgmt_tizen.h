@@ -161,6 +161,12 @@ struct mgmt_cp_set_voice_setting {
 } __packed;
 #define MGMT_SET_VOICE_SETTING_SIZE		9
 
+#define MGMT_OP_GET_ADV_TX_POWER		(TIZEN_OP_CODE_BASE + 0x11)
+#define MGMT_GET_ADV_TX_POWER_SIZE		0
+struct mgmt_rp_get_adv_tx_power {
+	__s8	adv_tx_power;
+} __packed;
+
 /* EVENTS */
 
 /* For device name update changes */

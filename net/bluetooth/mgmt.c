@@ -7220,6 +7220,37 @@ unlock:
 	return err;
 }
 
+static int get_adv_tx_power(struct sock *sk, struct hci_dev *hdev,
+		void *data, u16 len)
+{
+	struct mgmt_rp_get_adv_tx_power *rp;
+	size_t rp_len;
+	int err;
+
+	BT_DBG("%s", hdev->name);
+
+	hci_dev_lock(hdev);
+
+	rp_len = sizeof(*rp);
+	rp = kmalloc(rp_len, GFP_KERNEL);
+	if (!rp) {
+		err = -ENOMEM;
+		goto unlock;
+	}
+
+	rp->adv_tx_power = hdev->adv_tx_power;
+
+	err = mgmt_cmd_complete(sk, hdev->id, MGMT_OP_GET_ADV_TX_POWER, 0, rp,
+				rp_len);
+
+	kfree(rp);
+
+unlock:
+	hci_dev_unlock(hdev);
+
+	return err;
+}
+
 void mgmt_hardware_error(struct hci_dev *hdev, u8 err_code)
 {
 	struct mgmt_ev_hardware_error ev;
@@ -9138,6 +9169,7 @@ static const struct hci_mgmt_handler tizen_mgmt_handlers[] = {
 	{ set_manufacturer_data,   MGMT_SET_MANUFACTURER_DATA_SIZE },
 	{ le_set_scan_params,      MGMT_LE_SET_SCAN_PARAMS_SIZE },
 	{ set_voice_setting,       MGMT_SET_VOICE_SETTING_SIZE },
+	{ get_adv_tx_power,        MGMT_GET_ADV_TX_POWER_SIZE },
 };
 #endif
 
