@@ -1269,6 +1269,7 @@ static int hdmi_mode_valid(struct drm_connector *connector,
 			struct drm_display_mode *mode)
 {
 	struct hdmi_context *hdata = ctx_from_connector(connector);
+	struct drm_display_mode adjusted_mode;
 	int ret;
 
 	DRM_DEBUG_KMS("xres=%d, yres=%d, refresh=%d, intl=%d clock=%d\n",
@@ -1278,6 +1279,14 @@ static int hdmi_mode_valid(struct drm_connector *connector,
 
 	ret = hdmi_find_phy_conf(hdata, mode->clock * 1000);
 	if (ret < 0)
+		return MODE_BAD;
+
+	/*
+	 * If attached bridge does not support a mode with fixup, then
+	 * it cannot be set, so not valid.
+	 */
+	drm_mode_copy(&adjusted_mode, mode);
+	if (!drm_bridge_mode_fixup(hdata->bridge, mode, &adjusted_mode))
 		return MODE_BAD;
 
 	return MODE_OK;
