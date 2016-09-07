@@ -385,27 +385,11 @@ cyttsp5_get_mt_touches_pr_tch:
 #endif
 				touch_booster_press();
 #endif
-			dev_info(dev, "P [%d] x=%d y=%d z=%d M=%d m=%d\n",
-				t, tch->abs[CY_TCH_X],
-				tch->abs[CY_TCH_Y],
-				tch->abs[CY_TCH_P],
-				tch->abs[CY_TCH_MAJ],
-				tch->abs[CY_TCH_MIN]);
+			;
 		} else if (tch->abs[CY_TCH_E] == CY_EV_LIFTOFF) {
-			dev_info(dev, "R [%d] x=%d y=%d C=%d V=%02x\n",
-				t, tch->abs[CY_TCH_X],
-				tch->abs[CY_TCH_Y],
-				mt_count[t],
-				md->fw_ver_ic);
 			mt_count[t] = 0;
 		} else if (tch->abs[CY_TCH_E] == CY_EV_MOVE) {
 			mt_count[t]++;
-			dev_dbg(dev, "M [%d] x=%d y=%d z=%d M=%d m=%d\n",
-				t, tch->abs[CY_TCH_X],
-				tch->abs[CY_TCH_Y],
-				tch->abs[CY_TCH_P],
-				tch->abs[CY_TCH_MAJ],
-				tch->abs[CY_TCH_MIN]);
 		}
 #endif /* CYTTSP5_TOUCHLOG_ENABLE */
 	}
