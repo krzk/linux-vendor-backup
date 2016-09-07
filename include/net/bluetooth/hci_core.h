@@ -1516,6 +1516,7 @@ int mgmt_le_conn_updated(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 type,
 int mgmt_le_conn_update_failed(struct hci_dev *hdev, bdaddr_t *bdaddr,
 		u8 link_type, u8 addr_type, u8 status);
 void mgmt_hardware_error(struct hci_dev *hdev, u8 err_code);
+void mgmt_tx_timeout_error(struct hci_dev *hdev);
 #endif
 
 u8 hci_le_conn_update(struct hci_conn *conn, u16 min, u16 max, u16 latency,

@@ -169,6 +169,10 @@ struct mgmt_ev_hardware_error {
 } __packed;
 /* handling of hardware error event */
 
+/* For HCI TX Timeout Error */
+#define MGMT_EV_TX_TIMEOUT_ERROR		(TIZEN_EV_BASE + 0x03)
+/* HCI TX Timeout Error */
+
 /* For handling of RSSI Events */
 #define MGMT_EV_RSSI_ALERT			(TIZEN_EV_BASE + 0x04)
 struct mgmt_ev_vendor_specific_rssi_alert {

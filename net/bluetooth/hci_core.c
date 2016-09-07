@@ -1106,6 +1106,13 @@ void hci_le_discovery_set_state(struct hci_dev *hdev, int state)
 
 	hdev->le_discovery.state = state;
 }
+
+static void hci_tx_timeout_error_evt(struct hci_dev *hdev)
+{
+	BT_ERR("%s H/W TX Timeout error", hdev->name);
+
+	mgmt_tx_timeout_error(hdev);
+}
 #endif
 
 void hci_inquiry_cache_flush(struct hci_dev *hdev)
@@ -2580,6 +2587,10 @@ static void hci_cmd_timeout(struct work_struct *work)
 	} else {
 		BT_ERR("%s command tx timeout", hdev->name);
 	}
+
+#ifdef TIZEN_BT
+	hci_tx_timeout_error_evt(hdev);
+#endif
 
 	atomic_set(&hdev->cmd_cnt, 1);
 	queue_work(hdev->workqueue, &hdev->cmd_work);
