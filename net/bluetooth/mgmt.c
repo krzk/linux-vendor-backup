@@ -7163,6 +7163,14 @@ static int le_set_scan_params(struct sock *sk, struct hci_dev *hdev,
 
 	return err;
 }
+
+void mgmt_hardware_error(struct hci_dev *hdev, u8 err_code)
+{
+	struct mgmt_ev_hardware_error ev;
+
+	ev.error_code = err_code;
+	mgmt_event(MGMT_EV_HARDWARE_ERROR, hdev, &ev, sizeof(ev), NULL);
+}
 #endif /* TIZEN_BT */
 
 static bool ltk_is_valid(struct mgmt_ltk_info *key)

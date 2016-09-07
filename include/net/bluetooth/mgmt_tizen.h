@@ -162,6 +162,13 @@ struct mgmt_ev_device_name_update {
 } __packed;
 /* Device name update changes */
 
+/* For handling of hardware error event */
+#define MGMT_EV_HARDWARE_ERROR			(TIZEN_EV_BASE + 0x02)
+struct mgmt_ev_hardware_error {
+	__u8	error_code;
+} __packed;
+/* handling of hardware error event */
+
 /* For handling of RSSI Events */
 #define MGMT_EV_RSSI_ALERT			(TIZEN_EV_BASE + 0x04)
 struct mgmt_ev_vendor_specific_rssi_alert {
