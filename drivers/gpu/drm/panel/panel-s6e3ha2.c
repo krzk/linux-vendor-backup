@@ -699,14 +699,31 @@ static void s6e3ha2_set_vint(struct s6e3ha2 *ctx)
 	s6e3ha2_dcs_write_seq(ctx, 0xf4, 0x8b, VINT_TABLE[vind]);
 }
 
-static unsigned int s6e3ha2_get_brightness_index(unsigned int brightness)
+static unsigned int s6e3ha2_get_brightness_index(struct s6e3ha2 *ctx,
+	unsigned int brightness)
 {
-	return (brightness * (S6E3HA2_NITS_COUNT - 1)) / MAX_BRIGHTNESS;
+	int nit, b = 0, e = S6E3HA2_NITS_COUNT, m;
+	const int *nits = s6e3ha2_nits[ctx->model];
+
+	nit = brightness * nits[S6E3HA2_NITS_COUNT - 1] / MAX_BRIGHTNESS;
+
+	while (e - b > 1) {
+		m = (b + e) / 2;
+		if (nit < nits[m])
+			e = m;
+		else
+			b = m;
+	}
+
+	if (e < S6E3HA2_NITS_COUNT && nit - nits[b] > nits[e] - nit)
+		b = e;
+
+	return b;
 }
 
 static void s6e3ha2_update_gamma(struct s6e3ha2 *ctx, unsigned int brightness)
 {
-	unsigned int index = s6e3ha2_get_brightness_index(brightness);
+	unsigned int index = s6e3ha2_get_brightness_index(ctx, brightness);
 	char data[DAID_PARAM_COUNT + 1];
 
 	data[0] = LDI_GAMMODE1;
