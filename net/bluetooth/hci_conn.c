@@ -359,7 +359,12 @@ static void hci_conn_timeout(struct work_struct *work)
 		if (conn->out) {
 			if (conn->type == ACL_LINK)
 				hci_acl_create_connection_cancel(conn);
+#ifdef TIZEN_BT
+			else if (conn->type == LE_LINK &&
+					bacmp(&conn->dst, BDADDR_ANY))
+#else
 			else if (conn->type == LE_LINK)
+#endif
 				hci_le_create_connection_cancel(conn);
 		} else if (conn->type == SCO_LINK || conn->type == ESCO_LINK) {
 			hci_reject_sco(conn);
@@ -691,7 +696,15 @@ static void hci_req_add_le_create_conn(struct hci_request *req,
 
 	cp.scan_interval = cpu_to_le16(hdev->le_scan_interval);
 	cp.scan_window = cpu_to_le16(hdev->le_scan_window);
+#ifdef TIZEN_BT
+	/* LE auto connect */
+	if (!bacmp(&conn->dst, BDADDR_ANY))
+		cp.filter_policy = 0x1;
+	else
+		bacpy(&cp.peer_addr, &conn->dst);
+#else
 	bacpy(&cp.peer_addr, &conn->dst);
+#endif
 	cp.peer_addr_type = conn->dst_type;
 	cp.own_address_type = own_addr_type;
 	cp.conn_interval_min = cpu_to_le16(conn->le_conn_min_interval);
