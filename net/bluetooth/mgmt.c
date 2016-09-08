@@ -5387,9 +5387,14 @@ static int set_privacy(struct sock *sk, struct hci_dev *hdev, void *cp_data,
 		return mgmt_cmd_status(sk, hdev->id, MGMT_OP_SET_PRIVACY,
 				       MGMT_STATUS_INVALID_PARAMS);
 
+#ifndef TIZEN_BT
+	/* commenting out since set privacy command is always rejected
+	 * if this condition is enabled.
+	 */
 	if (hdev_is_powered(hdev))
 		return mgmt_cmd_status(sk, hdev->id, MGMT_OP_SET_PRIVACY,
 				       MGMT_STATUS_REJECTED);
+#endif
 
 	hci_dev_lock(hdev);
 
