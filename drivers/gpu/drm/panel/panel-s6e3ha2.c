@@ -1334,13 +1334,13 @@ static int s6e3ha2_probe(struct mipi_dsi_device *dsi)
 		return PTR_ERR(ctx->bl_dev);
 	}
 
-	ret = device_create_file(dev, &dev_attr_vr);
+	ret = device_create_file(&ctx->bl_dev->dev, &dev_attr_vr);
 	if (ret) {
 		dev_err(dev, "failed to create vr sysfs file.\n");
 		goto unregister_backlight;
 	}
 
-	ret = device_create_file(dev, &dev_attr_hmt);
+	ret = device_create_file(&ctx->bl_dev->dev, &dev_attr_hmt);
 	if (ret) {
 		dev_err(dev, "failed to create hmt sysfs file.\n");
 		goto remove_vr;
@@ -1368,10 +1368,10 @@ remove_panel:
 	drm_panel_remove(&ctx->panel);
 
 remove_hmt:
-	device_remove_file(dev, &dev_attr_hmt);
+	device_remove_file(&ctx->bl_dev->dev, &dev_attr_hmt);
 
 remove_vr:
-	device_remove_file(dev, &dev_attr_vr);
+	device_remove_file(&ctx->bl_dev->dev, &dev_attr_vr);
 
 unregister_backlight:
 	backlight_device_unregister(ctx->bl_dev);
@@ -1385,7 +1385,8 @@ static int s6e3ha2_remove(struct mipi_dsi_device *dsi)
 
 	mipi_dsi_detach(dsi);
 	drm_panel_remove(&ctx->panel);
-	device_remove_file(ctx->dev, &dev_attr_vr);
+	device_remove_file(&ctx->bl_dev->dev, &dev_attr_hmt);
+	device_remove_file(&ctx->bl_dev->dev, &dev_attr_vr);
 	backlight_device_unregister(ctx->bl_dev);
 
 	return 0;
