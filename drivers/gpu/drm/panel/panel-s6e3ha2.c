@@ -576,6 +576,7 @@ struct s6e3ha2 {
 	 */
 	struct mutex lock;
 
+	int nit_index;
 	u8 gammodes[S6E3HA2_NITS_COUNT][DAID_PARAM_COUNT];
 	u8 hmt_gammodes[HMT_NITS_COUNT][DAID_PARAM_COUNT];
 };
@@ -862,14 +863,14 @@ static void s6e3ha2_set_vint(struct s6e3ha2 *ctx)
 	s6e3ha2_dcs_write_seq(ctx, 0xf4, 0x8b, VINT_TABLE[vind]);
 }
 
-static unsigned int s6e3ha2_get_brightness_index(struct s6e3ha2 *ctx,
-	unsigned int brightness)
+static void s6e3ha2_update_nit_index(struct s6e3ha2 *ctx)
 {
+	int bri = ctx->bl_dev->props.brightness;
 	const int *nits = ctx->hmt_mode ? hmt_nits : s6e3ha2_nits[ctx->model];
 	const int count = ctx->hmt_mode ? HMT_NITS_COUNT : S6E3HA2_NITS_COUNT;
 	int nit, b = 0, e = count, m;
 
-	nit = brightness * nits[count - 1] / MAX_BRIGHTNESS;
+	nit = bri * nits[count - 1] / MAX_BRIGHTNESS;
 
 	while (e - b > 1) {
 		m = (b + e) / 2;
@@ -882,20 +883,18 @@ static unsigned int s6e3ha2_get_brightness_index(struct s6e3ha2 *ctx,
 	if (e < count && nit - nits[b] > nits[e] - nit)
 		b = e;
 
-	return b;
+	ctx->nit_index = b;
 }
 
-static void s6e3ha2_update_gamma(struct s6e3ha2 *ctx, unsigned int brightness)
+static void s6e3ha2_update_gamma(struct s6e3ha2 *ctx)
 {
-	unsigned int index = s6e3ha2_get_brightness_index(ctx, brightness);
+	int i = ctx->nit_index;
 	u8 data[DAID_PARAM_COUNT + 1];
-	u8 *g = ctx->hmt_mode ? ctx->hmt_gammodes[index] : ctx->gammodes[index];
+	u8 *g = ctx->hmt_mode ? ctx->hmt_gammodes[i] : ctx->gammodes[i];
 
 	data[0] = LDI_GAMMODE1;
 	memcpy(data + 1, g, DAID_PARAM_COUNT);
 	s6e3ha2_dcs_write(ctx, data, ARRAY_SIZE(data));
-	if (!ctx->error)
-		ctx->bl_dev->props.brightness = brightness;
 }
 
 static void s6e3ha2_set_hmt_aid_parameter_ctl(struct s6e3ha2 *ctx)
@@ -920,7 +919,7 @@ static void s6e3ha2_set_hmt_brightness(struct s6e3ha2 *ctx)
 	s6e3ha2_test_key_on_f0(ctx);
 	s6e3ha2_test_key_on_fc(ctx);
 
-	s6e3ha2_update_gamma(ctx, ctx->bl_dev->props.brightness);
+	s6e3ha2_update_gamma(ctx);
 	s6e3ha2_set_hmt_aid_parameter_ctl(ctx);
 	s6e3ha2_set_hmt_elvss(ctx);
 	if (ctx->model == MODEL_1440)
@@ -935,12 +934,14 @@ static void s6e3ha2_set_hmt_brightness(struct s6e3ha2 *ctx)
 
 static void s6e3ha2_set_brightness(struct s6e3ha2 *ctx)
 {
+	s6e3ha2_update_nit_index(ctx);
+
 	if (ctx->hmt_mode) {
 		s6e3ha2_set_hmt_brightness(ctx);
 		return;
 	}
 	s6e3ha2_test_key_on_f0(ctx);
-	s6e3ha2_update_gamma(ctx, ctx->bl_dev->props.brightness);
+	s6e3ha2_update_gamma(ctx);
 	s6e3ha2_gamma_update(ctx);
 	s6e3ha2_aor_control(ctx);
 	s6e3ha2_set_vint(ctx);
