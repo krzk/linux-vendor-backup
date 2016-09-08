@@ -868,7 +868,12 @@ static void s6e3ha2_update_nit_index(struct s6e3ha2 *ctx)
 	int bri = ctx->bl_dev->props.brightness;
 	const int *nits = ctx->hmt_mode ? hmt_nits : s6e3ha2_nits[ctx->model];
 	const int count = ctx->hmt_mode ? HMT_NITS_COUNT : S6E3HA2_NITS_COUNT;
-	int nit, b = 0, e = count, m;
+	int nit, b = 0, e = count - 1, m;
+
+	if (bri == MAX_BRIGHTNESS) {
+		ctx->nit_index = e;
+		return;
+	}
 
 	nit = bri * nits[count - 1] / MAX_BRIGHTNESS;
 
