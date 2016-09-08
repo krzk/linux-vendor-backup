@@ -7176,6 +7176,23 @@ void mgmt_tx_timeout_error(struct hci_dev *hdev)
 {
 	mgmt_event(MGMT_EV_TX_TIMEOUT_ERROR, hdev, NULL, 0, NULL);
 }
+
+void mgmt_multi_adv_state_change_evt(struct hci_dev *hdev, u8 adv_instance,
+		u8 state_change_reason, u16 connection_handle)
+{
+	struct mgmt_ev_vendor_specific_multi_adv_state_changed mgmt_ev;
+
+	BT_DBG("Multi adv state changed [%2.2X %2.2X %2.2X]",
+	       adv_instance, state_change_reason, connection_handle);
+
+	mgmt_ev.adv_instance = adv_instance;
+	mgmt_ev.state_change_reason = state_change_reason;
+	mgmt_ev.connection_handle = connection_handle;
+
+	mgmt_event(MGMT_EV_MULTI_ADV_STATE_CHANGED, hdev, &mgmt_ev,
+		sizeof(struct mgmt_ev_vendor_specific_multi_adv_state_changed),
+		NULL);
+}
 #endif /* TIZEN_BT */
 
 static bool ltk_is_valid(struct mgmt_ltk_info *key)

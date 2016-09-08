@@ -223,4 +223,13 @@ struct mgmt_ev_le_device_found {
 } __packed;
 /* LE device found event */
 
+/* For LE advertisement state changed event */
+#define MGMT_EV_MULTI_ADV_STATE_CHANGED		(TIZEN_EV_BASE + 0x0b)
+struct mgmt_ev_vendor_specific_multi_adv_state_changed {
+	__u8	adv_instance;
+	__u8	state_change_reason;
+	__le16	connection_handle;
+} __packed;
+/* LE advertisement state changed event */
+
 #endif	/* __MGMT_TIZEN_H */

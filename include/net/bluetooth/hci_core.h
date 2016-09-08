@@ -1521,6 +1521,8 @@ void mgmt_tx_timeout_error(struct hci_dev *hdev);
 void mgmt_le_device_found(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 link_type,
 		u8 addr_type, u8 *dev_class, s8 rssi, u32 flags, u8 *eir,
 		u16 eir_len, u8 *scan_rsp, u8 scan_rsp_len, u8 adv_type);
+void mgmt_multi_adv_state_change_evt(struct hci_dev *hdev, u8 adv_instance,
+		u8 state_change_reason, u16 connection_handle);
 #endif
 
 u8 hci_le_conn_update(struct hci_conn *conn, u16 min, u16 max, u16 latency,

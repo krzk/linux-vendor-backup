@@ -1485,6 +1485,18 @@ static void hci_vendor_specific_group_ext_evt(struct hci_dev *hdev,
 	}
 }
 
+static void hci_vendor_multi_adv_state_change_evt(struct hci_dev *hdev,
+						  struct sk_buff *skb)
+{
+	struct hci_ev_vendor_specific_multi_adv_state *ev = (void *)skb->data;
+
+	BT_DBG("LE_MULTI_ADV_STATE_CHANGE_SUB_EVENT");
+
+	mgmt_multi_adv_state_change_evt(hdev, ev->adv_instance,
+					ev->state_change_reason,
+					ev->connection_handle);
+}
+
 static void hci_vendor_specific_evt(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	struct hci_ev_vendor_specific *ev = (void *)skb->data;
@@ -1498,6 +1510,10 @@ static void hci_vendor_specific_evt(struct hci_dev *hdev, struct sk_buff *skb)
 	switch (event_sub_code) {
 	case LE_META_VENDOR_SPECIFIC_GROUP_EVENT:
 		hci_vendor_specific_group_ext_evt(hdev, skb);
+		break;
+
+	case LE_MULTI_ADV_STATE_CHANGE_SUB_EVENT:
+		hci_vendor_multi_adv_state_change_evt(hdev, skb);
 		break;
 
 	default:
