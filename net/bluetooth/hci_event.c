@@ -2635,6 +2635,22 @@ static void hci_disconn_complete_evt(struct hci_dev *hdev, struct sk_buff *skb)
 	if (type == LE_LINK)
 		mgmt_reenable_advertising(hdev);
 
+#ifdef TIZEN_BT
+	if (type == ACL_LINK && !hci_conn_num(hdev, ACL_LINK)) {
+		int iscan;
+		int pscan;
+
+		iscan = test_bit(HCI_ISCAN, &hdev->flags);
+		pscan = test_bit(HCI_PSCAN, &hdev->flags);
+		if (!iscan && !pscan) {
+			u8 scan_enable = SCAN_PAGE;
+
+			hci_send_cmd(hdev, HCI_OP_WRITE_SCAN_ENABLE,
+				     sizeof(scan_enable), &scan_enable);
+		}
+	}
+#endif
+
 unlock:
 	hci_dev_unlock(hdev);
 }
