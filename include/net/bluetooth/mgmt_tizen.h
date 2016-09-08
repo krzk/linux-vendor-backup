@@ -211,4 +211,16 @@ struct mgmt_ev_conn_update_failed {
 } __packed;
 /* Add LE connection update Events */
 
+/* For LE device found event */
+#define MGMT_EV_LE_DEVICE_FOUND			(TIZEN_EV_BASE + 0x0a)
+struct mgmt_ev_le_device_found {
+	struct	mgmt_addr_info addr;
+	__s8	rssi;
+	__le32	flags;
+	__s8	adv_type;
+	__le16	eir_len;
+	__u8	eir[0];
+} __packed;
+/* LE device found event */
+
 #endif	/* __MGMT_TIZEN_H */

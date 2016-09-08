@@ -1517,6 +1517,10 @@ int mgmt_le_conn_update_failed(struct hci_dev *hdev, bdaddr_t *bdaddr,
 		u8 link_type, u8 addr_type, u8 status);
 void mgmt_hardware_error(struct hci_dev *hdev, u8 err_code);
 void mgmt_tx_timeout_error(struct hci_dev *hdev);
+/*  Pass adv type in the le device found */
+void mgmt_le_device_found(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 link_type,
+		u8 addr_type, u8 *dev_class, s8 rssi, u32 flags, u8 *eir,
+		u16 eir_len, u8 *scan_rsp, u8 scan_rsp_len, u8 adv_type);
 #endif
 
 u8 hci_le_conn_update(struct hci_conn *conn, u16 min, u16 max, u16 latency,

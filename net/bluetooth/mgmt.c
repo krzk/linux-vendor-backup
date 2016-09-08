@@ -8230,6 +8230,48 @@ int mgmt_le_conn_updated(struct hci_dev *hdev, bdaddr_t *bdaddr,
 	return mgmt_event(MGMT_EV_CONN_UPDATED, hdev,
 				&ev, sizeof(ev), NULL);
 }
+
+/* le device found event - Pass adv type */
+void mgmt_le_device_found(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 link_type,
+		u8 addr_type, u8 *dev_class, s8 rssi, u32 flags, u8 *eir,
+		u16 eir_len, u8 *scan_rsp, u8 scan_rsp_len, u8 adv_type)
+{
+	char buf[512];
+	struct mgmt_ev_le_device_found *ev = (void *)buf;
+	size_t ev_size;
+
+	if (!hci_discovery_active(hdev) && !hci_le_discovery_active(hdev))
+		return;
+
+	/* Make sure that the buffer is big enough. The 5 extra bytes
+	 * are for the potential CoD field.
+	 */
+	if (sizeof(*ev) + eir_len + scan_rsp_len + 5 > sizeof(buf))
+		return;
+
+	memset(buf, 0, sizeof(buf));
+
+	bacpy(&ev->addr.bdaddr, bdaddr);
+	ev->addr.type = link_to_bdaddr(link_type, addr_type);
+	ev->rssi = rssi;
+	ev->flags = cpu_to_le32(flags);
+	ev->adv_type = adv_type;
+
+	if (eir_len > 0)
+		memcpy(ev->eir, eir, eir_len);
+
+	if (dev_class && !eir_has_data_type(ev->eir, eir_len, EIR_CLASS_OF_DEV))
+		eir_len = eir_append_data(ev->eir, eir_len, EIR_CLASS_OF_DEV,
+					  dev_class, 3);
+
+	if (scan_rsp_len > 0)
+		memcpy(ev->eir + eir_len, scan_rsp, scan_rsp_len);
+
+	ev->eir_len = cpu_to_le16(eir_len + scan_rsp_len);
+	ev_size = sizeof(*ev) + eir_len + scan_rsp_len;
+
+	mgmt_event(MGMT_EV_LE_DEVICE_FOUND, hdev, ev, ev_size, NULL);
+}
 #endif
 
 static void read_local_oob_ext_data_complete(struct hci_dev *hdev, u8 status,
