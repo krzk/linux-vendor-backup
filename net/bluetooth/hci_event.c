@@ -1449,6 +1449,50 @@ static void hci_cc_get_raw_rssi(struct hci_dev *hdev,
 
 	mgmt_raw_rssi_response(hdev, rp, rp->status);
 }
+
+static void hci_vendor_specific_group_ext_evt(struct hci_dev *hdev,
+					      struct sk_buff *skb)
+{
+	struct hci_ev_ext_vendor_specific *ev = (void *)skb->data;
+	__u8 event_le_ext_sub_code;
+
+	BT_DBG("RSSI event LE_META_VENDOR_SPECIFIC_GROUP_EVENT: %X",
+	       LE_META_VENDOR_SPECIFIC_GROUP_EVENT);
+
+	skb_pull(skb, sizeof(*ev));
+	event_le_ext_sub_code = ev->event_le_ext_sub_code;
+
+	switch (event_le_ext_sub_code) {
+	case LE_RSSI_LINK_ALERT:
+		BT_DBG("RSSI event LE_RSSI_LINK_ALERT %X",
+		       LE_RSSI_LINK_ALERT);
+		mgmt_rssi_alert_evt(hdev, skb);
+		break;
+
+	default:
+		break;
+	}
+}
+
+static void hci_vendor_specific_evt(struct hci_dev *hdev, struct sk_buff *skb)
+{
+	struct hci_ev_vendor_specific *ev = (void *)skb->data;
+	__u8 event_sub_code;
+
+	BT_DBG("hci_vendor_specific_evt");
+
+	skb_pull(skb, sizeof(*ev));
+	event_sub_code = ev->event_sub_code;
+
+	switch (event_sub_code) {
+	case LE_META_VENDOR_SPECIFIC_GROUP_EVENT:
+		hci_vendor_specific_group_ext_evt(hdev, skb);
+		break;
+
+	default:
+		break;
+	}
+}
 #endif
 
 static void hci_cc_read_rssi(struct hci_dev *hdev, struct sk_buff *skb)
@@ -5443,6 +5487,12 @@ void hci_event_packet(struct hci_dev *hdev, struct sk_buff *skb)
 	case HCI_EV_NUM_COMP_BLOCKS:
 		hci_num_comp_blocks_evt(hdev, skb);
 		break;
+
+#ifdef TIZEN_BT
+	case HCI_EV_VENDOR_SPECIFIC:
+		hci_vendor_specific_evt(hdev, skb);
+		break;
+#endif
 
 	default:
 		BT_DBG("%s event 0x%2.2x", hdev->name, event);
