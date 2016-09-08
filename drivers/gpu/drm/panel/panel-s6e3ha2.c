@@ -10,6 +10,7 @@
  * published by the Free Software Foundation.
 */
 
+#include <asm/unaligned.h>
 #include <drm/drmP.h>
 #include <drm/drm_mipi_dsi.h>
 #include <drm/drm_panel.h>
@@ -24,6 +25,7 @@
 
 #define LDI_MTP_REG 0xc8
 #define LDI_GAMMODE1 0xca
+#define LDI_AIDCTL 0xb2
 
 #define MIN_BRIGHTNESS		0
 #define MAX_BRIGHTNESS		100
@@ -538,6 +540,37 @@ static const daid_rgb hmt_color_ofs[][HMT_NITS_COUNT][DAID_GCP_COUNT] = {
 	}
 };
 
+static const u32 aor_data[][S6E3HA2_NITS_COUNT] = {
+	{
+		0x90E5, 0x90CC, 0x90B6, 0x90A3, 0x908E, 0x9079, 0x9066, 0x9057,
+		0x9044, 0x9035, 0x9025, 0x9014, 0x9005, 0x80EB, 0x80E0, 0x80C7,
+		0x80A4, 0x8092, 0x807B, 0x8067, 0x8043, 0x802F, 0x70FD, 0x70DF,
+		0x70C7, 0x70A4, 0x706F, 0x703D, 0x7014, 0x60EE, 0x60B2, 0x6073,
+		0x6034, 0x50F4, 0x50B5, 0x505F, 0x500E, 0x40B4, 0x4062, 0x30ED,
+		0x30ED, 0x30ED, 0x30ED, 0x30ED, 0x30ED, 0x30ED, 0x30ED, 0x30ED,
+		0x30ED, 0x30ED, 0x30ED, 0x30ED, 0x30ED, 0x30A7, 0x3026, 0x20B5,
+		0x2026, 0x108F, 0x1003, 0x1003, 0x1003, 0x1003, 0x1003, 0x1003,
+		0x1003, 0x1003,
+	}, {
+		0x90EB, 0x90D9, 0x90C7, 0x90B3, 0x90A1, 0x908F, 0x907B, 0x9068,
+		0x9055, 0x9042, 0x902F, 0x901A, 0x9009, 0x80F5, 0x80E2, 0x80CF,
+		0x80A7, 0x8095, 0x8080, 0x806C, 0x8045, 0x8031, 0x8008, 0x70E1,
+		0x70CC, 0x70A4, 0x707B, 0x703C, 0x7012, 0x60E8, 0x60AA, 0x606B,
+		0x602A, 0x50EA, 0x50AA, 0x5050, 0x40F9, 0x4098, 0x4046, 0x30E2,
+		0x30E2, 0x30E2, 0x30E2, 0x30E2, 0x30E2, 0x30E2, 0x30E2, 0x30E2,
+		0x30E2, 0x30E2, 0x30E2, 0x30E2, 0x30E2, 0x30E2, 0x3062, 0x20DE,
+		0x204D, 0x10AE, 0x1003, 0x1003, 0x1003, 0x1003, 0x1003, 0x1003,
+		0x1003, 0x1003,
+	}
+};
+
+static const u32 hmt_aor_data[HMT_NITS_COUNT] = {
+	0x31203, 0x31203, 0x31203, 0x31203, 0x31203, 0x31203, 0x31203, 0x31203,
+	0x31203, 0x31203, 0x31203, 0x31203, 0x31203, 0x31203, 0x31203, 0x31203,
+	0x31203, 0x31203, 0x31203, 0x31203, 0x31203, 0x31203, 0x41303, 0x41303,
+	0x41303, 0x41303, 0x41303, 0x41303, 0x41303, 0x41303,
+};
+
 unsigned char VINT_TABLE[] = {
 	0x18, 0x19, 0x1A, 0x1B, 0x1C,
 	0x1D, 0x1E, 0x1F, 0x20, 0x21
@@ -703,9 +736,14 @@ static void s6e3ha2_freq_calibration(struct s6e3ha2 *ctx)
 			0x40, 0x80, 0xc0, 0x28, 0x28, 0x28, 0x28, 0x39, 0xc5);
 }
 
-static void s6e3ha2_aor_control(struct s6e3ha2 *ctx)
+static void s6e3ha2_aid_control(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0xb2, 0x03, 0x10);
+	const u32 *d = ctx->hmt_mode ? hmt_aor_data : aor_data[ctx->model];
+	u8 cmd[5];
+
+	cmd[0] = LDI_AIDCTL;
+	put_unaligned_le32(d[ctx->nit_index], &cmd[1]);
+	s6e3ha2_dcs_write(ctx, cmd, 4);
 }
 
 static void s6e3ha2_caps_elvss_set(struct s6e3ha2 *ctx)
@@ -902,12 +940,6 @@ static void s6e3ha2_update_gamma(struct s6e3ha2 *ctx)
 	s6e3ha2_dcs_write(ctx, data, ARRAY_SIZE(data));
 }
 
-static void s6e3ha2_set_hmt_aid_parameter_ctl(struct s6e3ha2 *ctx)
-{
-	/* TODO */
-	s6e3ha2_dcs_write_seq_static(ctx, 0xb2, 0x3, 0x13, 0x4);
-}
-
 static void s6e3ha2_set_hmt_elvss(struct s6e3ha2 *ctx)
 {
 	/* TODO */
@@ -925,7 +957,7 @@ static void s6e3ha2_set_hmt_brightness(struct s6e3ha2 *ctx)
 	s6e3ha2_test_key_on_fc(ctx);
 
 	s6e3ha2_update_gamma(ctx);
-	s6e3ha2_set_hmt_aid_parameter_ctl(ctx);
+	s6e3ha2_aid_control(ctx);
 	s6e3ha2_set_hmt_elvss(ctx);
 	if (ctx->model == MODEL_1440)
 		s6e3ha2_set_hmt_vint(ctx);
@@ -948,7 +980,7 @@ static void s6e3ha2_set_brightness(struct s6e3ha2 *ctx)
 	s6e3ha2_test_key_on_f0(ctx);
 	s6e3ha2_update_gamma(ctx);
 	s6e3ha2_gamma_update(ctx);
-	s6e3ha2_aor_control(ctx);
+	s6e3ha2_aid_control(ctx);
 	s6e3ha2_set_vint(ctx);
 	s6e3ha2_test_key_off_f0(ctx);
 }
@@ -1147,7 +1179,7 @@ static int s6e3ha2_enable(struct drm_panel *panel)
 
 	/* brightness setting */
 	s6e3ha2_set_brightness(ctx);
-	s6e3ha2_aor_control(ctx);
+	s6e3ha2_aid_control(ctx);
 	s6e3ha2_caps_elvss_set(ctx);
 	s6e3ha2_gamma_update(ctx);
 	s6e3ha2_acl_off(ctx);
