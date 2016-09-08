@@ -1081,6 +1081,29 @@ static void sco_conn_ready(struct sco_conn *conn)
 }
 
 #ifdef TIZEN_BT
+/* Link policy */
+static int hci_write_acl_link_policy(struct hci_conn *hcon, uint16_t policy)
+{
+	struct hci_conn *hcon_acl;
+	struct hci_cp_write_link_policy cp;
+
+	BT_DBG("Write link Policy %d", policy);
+
+	hcon_acl = hci_conn_hash_lookup_ba(hcon->hdev, ACL_LINK, &hcon->dst);
+	if (!hcon_acl) {
+		BT_ERR("ACL does not alive");
+		return -1;
+	}
+
+	memset(&cp, 0, sizeof(cp));
+	cp.handle = __cpu_to_le16(hcon_acl->handle);
+	cp.policy = __cpu_to_le16(policy);
+
+	hci_send_cmd(hcon_acl->hdev, HCI_OP_WRITE_LINK_POLICY, sizeof(cp), &cp);
+
+	return 0;
+}
+
 /* WBC/NBC feature */
 void sco_connect_set_gw_nbc(struct hci_dev *hdev)
 {
@@ -1282,6 +1305,11 @@ static void sco_connect_cfm(struct hci_conn *hcon, __u8 status)
 		conn = sco_conn_add(hcon);
 		if (conn)
 			sco_conn_ready(conn);
+
+#ifdef TIZEN_BT
+		/* Link policy */
+		hci_write_acl_link_policy(hcon, HCI_LP_RSWITCH);
+#endif
 	} else
 		sco_conn_del(hcon, bt_to_errno(status));
 }
@@ -1292,6 +1320,11 @@ static void sco_disconn_cfm(struct hci_conn *hcon, __u8 reason)
 		return;
 
 	BT_DBG("hcon %p reason %d", hcon, reason);
+
+#ifdef TIZEN_BT
+	/* Link policy */
+	hci_write_acl_link_policy(hcon, HCI_LP_SNIFF | HCI_LP_RSWITCH);
+#endif
 
 	sco_conn_del(hcon, bt_to_errno(reason));
 }

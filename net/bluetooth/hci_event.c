@@ -136,6 +136,10 @@ static void hci_cc_write_link_policy(struct hci_dev *hdev, struct sk_buff *skb)
 	struct hci_rp_write_link_policy *rp = (void *) skb->data;
 	struct hci_conn *conn;
 	void *sent;
+#ifdef TIZEN_BT
+	struct hci_cp_write_link_policy cp;
+	struct hci_conn *sco_conn;
+#endif
 
 	BT_DBG("%s status 0x%2.2x", hdev->name, rp->status);
 
@@ -151,6 +155,17 @@ static void hci_cc_write_link_policy(struct hci_dev *hdev, struct sk_buff *skb)
 	conn = hci_conn_hash_lookup_handle(hdev, __le16_to_cpu(rp->handle));
 	if (conn)
 		conn->link_policy = get_unaligned_le16(sent + 2);
+
+#ifdef TIZEN_BT
+	sco_conn = hci_conn_hash_lookup_sco(hdev);
+	if (sco_conn && bacmp(&sco_conn->dst, &conn->dst) == 0 &&
+	    conn->link_policy & HCI_LP_SNIFF) {
+		BT_ERR("SNIFF is not allowed during sco connection");
+		cp.handle = __cpu_to_le16(conn->handle);
+		cp.policy = __cpu_to_le16(conn->link_policy & ~HCI_LP_SNIFF);
+		hci_send_cmd(hdev, HCI_OP_WRITE_LINK_POLICY, sizeof(cp), &cp);
+	}
+#endif
 
 	hci_dev_unlock(hdev);
 }
@@ -2460,6 +2475,20 @@ static void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
 	ie = hci_inquiry_cache_lookup(hdev, &ev->bdaddr);
 	if (ie)
 		memcpy(ie->data.dev_class, ev->dev_class, 3);
+
+#ifdef TIZEN_BT
+		if ((ev->link_type == SCO_LINK || ev->link_type == ESCO_LINK) &&
+		    hci_conn_hash_lookup_sco(hdev)) {
+			struct hci_cp_reject_conn_req cp;
+
+			bacpy(&cp.bdaddr, &ev->bdaddr);
+			cp.reason = HCI_ERROR_REJ_LIMITED_RESOURCES;
+			hci_send_cmd(hdev, HCI_OP_REJECT_CONN_REQ,
+				     sizeof(cp), &cp);
+			hci_dev_unlock(hdev);
+			return;
+		}
+#endif
 
 	conn = hci_conn_hash_lookup_ba(hdev, ev->link_type,
 			&ev->bdaddr);
