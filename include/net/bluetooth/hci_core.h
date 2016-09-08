@@ -619,6 +619,10 @@ u32 hci_inquiry_cache_update(struct hci_dev *hdev, struct inquiry_data *data,
 void hci_inquiry_cache_flush(struct hci_dev *hdev);
 
 /* ----- HCI Connections ----- */
+#ifdef TIZEN_BT
+#define LINK_SUPERVISION_TIMEOUT	0x1F40   /* n * 0.625 = 5 seconds */
+#endif /* TIZEN_BT */
+
 enum {
 	HCI_CONN_AUTH_PEND,
 	HCI_CONN_REAUTH_PEND,
@@ -873,6 +877,7 @@ static inline int hci_conn_hash_lookup_rssi_count(struct hci_dev *hdev)
 	return count;
 }
 
+int hci_conn_change_supervision_timeout(struct hci_conn *conn, __u16 timeout);
 bool hci_le_discovery_active(struct hci_dev *hdev);
 void hci_le_discovery_set_state(struct hci_dev *hdev, int state);
 
@@ -1055,6 +1060,9 @@ int hci_get_dev_info(void __user *arg);
 int hci_get_conn_list(void __user *arg);
 int hci_get_conn_info(struct hci_dev *hdev, void __user *arg);
 int hci_get_auth_info(struct hci_dev *hdev, void __user *arg);
+#ifdef TIZEN_BT
+u32 get_link_mode(struct hci_conn *conn);
+#endif
 int hci_inquiry(void __user *arg);
 
 struct bdaddr_list *hci_bdaddr_list_lookup(struct list_head *list,

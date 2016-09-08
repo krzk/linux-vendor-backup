@@ -1147,6 +1147,29 @@ int hci_conn_switch_role(struct hci_conn *conn, __u8 role)
 }
 EXPORT_SYMBOL(hci_conn_switch_role);
 
+#ifdef TIZEN_BT
+int hci_conn_change_supervision_timeout(struct hci_conn *conn, __u16 timeout)
+{
+	struct hci_cp_write_link_supervision_timeout cp;
+
+	if (!((get_link_mode(conn)) & HCI_LM_MASTER))
+		return 1;
+
+	if (conn->handle == 0)
+		return 1;
+
+	memset(&cp, 0, sizeof(cp));
+	cp.handle  = cpu_to_le16(conn->handle);
+	cp.timeout = cpu_to_le16(timeout);
+
+	if (hci_send_cmd(conn->hdev, HCI_OP_WRITE_LINK_SUPERVISION_TIMEOUT,
+			 sizeof(cp), &cp) < 0)
+		BT_ERR("HCI_OP_WRITE_LINK_SUPERVISION_TIMEOUT is failed");
+
+	return 0;
+}
+#endif
+
 /* Enter active mode */
 void hci_conn_enter_active_mode(struct hci_conn *conn, __u8 force_active)
 {
@@ -1204,7 +1227,11 @@ void hci_conn_check_pending(struct hci_dev *hdev)
 	hci_dev_unlock(hdev);
 }
 
+#ifndef TIZEN_BT
 static u32 get_link_mode(struct hci_conn *conn)
+#else
+u32 get_link_mode(struct hci_conn *conn)
+#endif
 {
 	u32 link_mode = 0;
 
