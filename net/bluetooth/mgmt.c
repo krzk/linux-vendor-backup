@@ -1952,7 +1952,9 @@ failed:
 static void write_fast_connectable(struct hci_request *req, bool enable)
 {
 	struct hci_dev *hdev = req->hdev;
+#ifndef TIZEN_BT
 	struct hci_cp_write_page_scan_activity acp;
+#endif
 	u8 type;
 
 	if (!hci_dev_test_flag(hdev, HCI_BREDR_ENABLED))
@@ -1961,6 +1963,12 @@ static void write_fast_connectable(struct hci_request *req, bool enable)
 	if (hdev->hci_ver < BLUETOOTH_VER_1_2)
 		return;
 
+#ifdef TIZEN_BT
+	if (enable)
+		type = PAGE_SCAN_TYPE_INTERLACED;
+	else
+		type = PAGE_SCAN_TYPE_STANDARD;	/* default */
+#else
 	if (enable) {
 		type = PAGE_SCAN_TYPE_INTERLACED;
 
@@ -1979,6 +1987,7 @@ static void write_fast_connectable(struct hci_request *req, bool enable)
 	    __cpu_to_le16(hdev->page_scan_window) != acp.window)
 		hci_req_add(req, HCI_OP_WRITE_PAGE_SCAN_ACTIVITY,
 			    sizeof(acp), &acp);
+#endif
 
 	if (hdev->page_scan_type != type)
 		hci_req_add(req, HCI_OP_WRITE_PAGE_SCAN_TYPE, 1, &type);
