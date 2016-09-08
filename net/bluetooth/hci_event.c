@@ -4076,6 +4076,14 @@ unlock:
 
 static u8 hci_get_auth_req(struct hci_conn *conn)
 {
+#ifdef TIZEN_BT
+	if (conn->remote_auth == HCI_AT_GENERAL_BONDING_MITM) {
+		if (conn->remote_cap != HCI_IO_NO_INPUT_OUTPUT &&
+		    conn->io_capability != HCI_IO_NO_INPUT_OUTPUT)
+			return HCI_AT_GENERAL_BONDING_MITM;
+	}
+#endif
+
 	/* If remote requests no-bonding follow that lead */
 	if (conn->remote_auth == HCI_AT_NO_BONDING ||
 	    conn->remote_auth == HCI_AT_NO_BONDING_MITM)
