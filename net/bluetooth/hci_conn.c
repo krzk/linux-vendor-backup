@@ -479,6 +479,11 @@ struct hci_conn *hci_conn_add(struct hci_dev *hdev, int type, bdaddr_t *dst,
 	conn->tx_power = HCI_TX_POWER_INVALID;
 	conn->max_tx_power = HCI_TX_POWER_INVALID;
 
+#ifdef TIZEN_BT
+	/* enable sniff mode for incoming connection */
+	conn->link_policy = hdev->link_policy;
+#endif
+
 	set_bit(HCI_CONN_POWER_SAVE, &conn->flags);
 	conn->disc_timeout = HCI_DISCONN_TIMEOUT;
 
