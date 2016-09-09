@@ -443,6 +443,9 @@ static struct fbtft_device_display displays[] = {
 			.dev = {
 			.release = fbtft_device_pdev_release,
 			.platform_data = &(struct fbtft_platform_data) {
+#if defined(CONFIG_MACH_ODROIDXU3)
+				.bgr = true,
+#endif
 				.gpios = (const struct fbtft_gpio []) {
 #if defined(CONFIG_MACH_ODROIDXU3)
 					{ "reset", 174 }, /* GPA0.3 */
