@@ -33,7 +33,7 @@
 #include "tzdev.h"
 #include "tzdev_internal.h"
 #include "tzlog_print.h"
-#include "nsrpc_ree_slave.h"
+#include "sstransaction.h"
 #include "tzpage.h"
 #include "tzdev_smc.h"
 #include "tzwsm.h"

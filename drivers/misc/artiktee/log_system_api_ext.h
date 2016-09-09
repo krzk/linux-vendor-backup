@@ -149,4 +149,4 @@ static inline uint32_t get_check_magic(char *buffer)
 	}
 	return ret;
 }
-#endif /* __LOG_SYSTEM_API_REE_H__ */
+#endif
