@@ -25,4 +25,5 @@ int init_log_processing_resources(void);
 void tzlog_transfer_to_tzdaemon(s_tzlog_data *src_data, int src_buffer_size);
 void tzlog_transfer_to_local(s_tzlog_data *src_data, int src_buffer_size);
 
-#endif /* __TZLOG_PROCESS_H__ */
+#endif
+

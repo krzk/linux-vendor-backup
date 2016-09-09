@@ -67,7 +67,7 @@ struct semaphore ssdev_sem;
 #define SS_CHECK_TIME_DECLARE()
 #define SS_CHECK_TIME_BEGIN()
 #define SS_CHECK_TIME_END()
-#endif /* SSDEV_MEASURE_TIME */
+#endif
 
 static long storage_ioctl(struct file *file, unsigned int cmd,
 			  unsigned long arg)
@@ -123,8 +123,9 @@ int __init init_storage(void)
 
 	tzlog_print(TZLOG_INFO, "storage driver version [%s.%s]\n",
 			SS_MAJOR_VERSION, SS_MINOR_VERSION);
+	/* VD Change */
 
 	return 0;
 }
 
-#endif /* CONFIG_SECOS_NO_SECURE_STORAGE */
+#endif

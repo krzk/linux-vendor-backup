@@ -212,20 +212,26 @@ int sstransaction_get_next_completion(void *buffer,
 	unsigned long flags;
 	SSTransaction_t *tsx;
 
+	/*
+	 tzlog_print(TZLOG_DEBUG,
+	 "Get next sstransaction completion, buffer = %p, avail = %zd, remaining = %zd\n", buffer, avail_size, *remaining_size);
+	 */
+
 	if (!atomic_add_unless(&s_completion_count, -1, 0)) {
-   		/*  tzlog_print(TZLOG_DEBUG, "No more completions available\n");*/
+    /*  tzlog_print(TZLOG_DEBUG, "No more completions available\n");*/
 		return -ENOENT;
 	}
 
 	spin_lock_irqsave(&s_sstransaction_completion_lock, flags);
 	if (list_empty(&s_sstransaction_completion_queue)) {
-    		/*  tzlog_print(TZLOG_WARNING, "Completion list empty\n"); */
+    /*  tzlog_print(TZLOG_WARNING, "Completion list empty\n"); */
 		spin_unlock_irqrestore(&s_sstransaction_completion_lock, flags);
 		return -ENOENT;
 	}
 
 	if (avail_size < sizeof(struct sstransaction_rpc_data)) {
 		/*
+		 *
 		 * Balance s_completion_count, because we have 1 pending item
 		 * and we can't put it right now, so next retry will need this
 		 * coubnter value
@@ -235,8 +241,9 @@ int sstransaction_get_next_completion(void *buffer,
 		return -ENOSPC;
 	}
 
-	tsx = list_entry(s_sstransaction_completion_queue.next,
-			struct SSTransaction_s, tsx_queue);
+	tsx =
+	    list_entry(s_sstransaction_completion_queue.next,
+		       struct SSTransaction_s, tsx_queue);
 	list_del(&tsx->tsx_queue);
 
 	spin_unlock_irqrestore(&s_sstransaction_completion_lock, flags);
@@ -253,14 +260,15 @@ int sstransaction_get_next_completion(void *buffer,
 	    (unsigned long)tsx <
 	    (unsigned long)(s_emerg_pool + NUM_EMERGENCY_TRANSACTIONS)) {
 		tzlog_print(TZLOG_DEBUG,
-			"Put back transaction %p into emergency pool\n", tsx);
+			    "Put back transaction %p into emergency pool\n",
+			    tsx);
 
 		spin_lock_irqsave(&s_emergency_transaction_lock, flags);
 		list_add(&tsx->tsx_queue, &s_emergency_transactions);
 		spin_unlock_irqrestore(&s_emergency_transaction_lock, flags);
 	} else {
-		tzlog_print(TZLOG_DEBUG,
-			"Free transaction %p using SLAB\n", tsx);
+		tzlog_print(TZLOG_DEBUG, "Free transaction %p using SLAB\n",
+			    tsx);
 
 		kmem_cache_free(s_sstransaction_cache, tsx);
 	}

@@ -16,10 +16,10 @@
  *
  *********************************************************/
 
-#ifndef __SOURCE_TZDEV_TZWSM_H__
-#define __SOURCE_TZDEV_TZWSM_H__
+#ifndef SOURCE_TZDEV_TZWSM_H_
+#define SOURCE_TZDEV_TZWSM_H_
 
 void tzwsm_unregister_user_memory(int wsmid, struct page **pages,
 				  size_t num_pages);
 
-#endif /* __SOURCE_TZDEV_TZWSM_H__ */
+#endif /* SOURCE_TZDEV_TZWSM_H_ */

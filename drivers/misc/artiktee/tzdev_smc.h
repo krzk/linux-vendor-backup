@@ -16,14 +16,14 @@
  *
  *********************************************************/
 
-#ifndef __TRUSTZONE_REE_SOURCE_TZDEV_TZDEV_SMC_H__
-#define __TRUSTZONE_REE_SOURCE_TZDEV_TZDEV_SMC_H__
+#ifndef TRUSTZONE_REE_SOURCE_TZDEV_TZDEV_SMC_H_
+#define TRUSTZONE_REE_SOURCE_TZDEV_TZDEV_SMC_H_
 
 #define SMC_STANDARD_CALL		0x00000000
 #define SMC_FAST_CALL			0x80000000
 
-#define SMC_32CALL			0x00000000
-#define SMC_64CALL			0x40000000
+#define SMC_32CALL				0x00000000
+#define SMC_64CALL				0x40000000
 
 #define SMC_ENTITY_MASK			0x3F000000
 #define SMC_ENTITY_SHIFT		24
@@ -105,4 +105,4 @@ int scm_sys_suspend(void);
 int scm_sys_resume(void);
 #endif /* !CONFIG_PSCI */
 
-#endif /* __TRUSTZONE_REE_SOURCE_TZDEV_TZDEV_SMC_H__ */
+#endif /* TRUSTZONE_REE_SOURCE_TZDEV_TZDEV_SMC_H_ */

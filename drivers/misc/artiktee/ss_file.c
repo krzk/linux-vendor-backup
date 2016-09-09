@@ -183,4 +183,4 @@ int ss_file_object_size(char *path)
 	return size;
 }
 
-#endif /* CONFIG_SECOS_NO_SECURE_STORAGE */
+#endif

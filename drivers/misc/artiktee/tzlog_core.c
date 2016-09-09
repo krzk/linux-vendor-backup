@@ -48,7 +48,7 @@
 #define ERROR_LOG_PARENT_DIR_PATH  "/opt/usr/apps/save_error_log/error_log/"
 #define ERROR_LOG_DIR_NAME "secureos_log"
 #define SYSLOG_ENCRYPT_MEM_SIZE (PAGE_SIZE * 8)
-#endif /* CONFIG_INSTANCE_DEBUG */
+#endif
 #define TZLOG_TYPE_PURE 1
 #define TZLOG_TYPE_ENCRYPT 2
 
@@ -118,7 +118,7 @@ static int tzlog_output_to_error_log(char *data, int data_size,
 
 	return ss_file_create_object(path, data, data_size);
 }
-#endif /* CONFIG_INSTANCE_DEBUG */
+#endif
 
 static int tzlog_worker(void *arg)
 {
@@ -137,7 +137,7 @@ static int tzlog_worker(void *arg)
 	*(int *)((char *)data + complete_offset) = 0;
 	*(int *)((char *)data + header_offset) = 0;
 	is_need_enc = 1;
-#endif /* CONFIG_INSTANCE_DEBUG */
+#endif
 
 	tzlog_print(TZLOG_DEBUG, "Start tzlog worker thread\n");
 
@@ -208,7 +208,7 @@ static int tzlog_worker(void *arg)
 					}
 				}
 			}
-#endif /* CONFIG_INSTANCE_DEBUG */
+#endif
 		} while (ret > 0);
 
 		mutex_unlock(&log_data.lock);
@@ -292,7 +292,7 @@ void __init tzlog_init(void)
 	tzlog_print(TZLOG_DEBUG,
 		    "Registered TZLOG WSM with id %d(encrypt)\n",
 		    encrypt_log_data.log_wsm_id);
-#endif /* CONFIG_INSTANCE_DEBUG */
+#endif
 	log_data.task = kthread_run(tzlog_worker, NULL, "tzlogd");
 
 	if (IS_ERR(log_data.task))

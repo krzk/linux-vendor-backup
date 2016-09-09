@@ -71,10 +71,9 @@ struct tzio_link *tzio_acquire_link(gfp_t gfp)
 	for (try = 0; try < 2; ++try) {
 		spin_lock_irqsave(&tzio_free_lock, flags);
 
-		link = list_first_entry_or_null(
-				&tzio_free_links,
-				struct tzio_link,
-				list);
+		link =
+		    list_first_entry_or_null(&tzio_free_links, struct tzio_link,
+					     list);
 
 		if (link) {
 			list_del(&link->list);

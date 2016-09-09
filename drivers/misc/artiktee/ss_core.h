@@ -109,4 +109,4 @@ int storage_get_rpmb_status(void);
 void storage_free_rpmb_buddy(void);
 int storage_bottom_handler(void);
 
-#endif /* __SECURE_CORE_H__ */
+#endif

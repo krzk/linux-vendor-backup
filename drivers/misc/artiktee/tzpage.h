@@ -16,8 +16,8 @@
  *
  *********************************************************/
 
-#ifndef __SOURCE_TZDEV_TZPAGE_H__
-#define __SOURCE_TZDEV_TZPAGE_H__
+#ifndef SOURCE_TZDEV_TZPAGE_H_
+#define SOURCE_TZDEV_TZPAGE_H_
 
 struct __tzdev_page {
 	struct list_head queue;
@@ -34,4 +34,4 @@ struct tzdev_page {
 
 void tzpage_init(phys_addr_t phys_addr, size_t size);
 
-#endif /* __SOURCE_TZDEV_TZPAGE_H__ */
+#endif /* SOURCE_TZDEV_TZPAGE_H_ */

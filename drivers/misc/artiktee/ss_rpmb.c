@@ -441,6 +441,7 @@ exit:
 	return result;
 }
 
-#endif /* defined(CONFIG_MMC) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0)) */
-#endif /* CONFIG_SECOS_NO_SECURE_STORAGE */
-#endif /* CONFIG_SECOS_NO_RPMB */
+#endif
+
+#endif
+#endif

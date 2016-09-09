@@ -17,8 +17,8 @@
  *********************************************************/
 
 
-#ifndef __SOURCE_TZDEV_TZDEV_INTERNAL_H__
-#define __SOURCE_TZDEV_TZDEV_INTERNAL_H__
+#ifndef SOURCE_TZDEV_TZDEV_INTERNAL_H_
+#define SOURCE_TZDEV_TZDEV_INTERNAL_H_
 
 #define SCM_RESULT_DENIED       1
 #define SCM_RESULT_INTERRUPTED  4
@@ -83,16 +83,16 @@ struct tzio_link {
 
 struct secos_kern_info {
 	/* Sent from SecureOS */
-	uint32_t size;
-	uint32_t abi;
-	uint64_t shmem_base;
-	uint64_t shmem_size;
+	uint32_t			size;
+	uint32_t			abi;
+	uint64_t			shmem_base;
+	uint64_t			shmem_size;
 
 	/* Check if timer management needs linux assistance */
-	uint32_t soft_timer;
+	uint32_t			soft_timer;
 
 	/* Send to SecureOS */
-	uint32_t ipi_fiq;
+	uint32_t			ipi_fiq;
 };
 
 #define SECOS_KERN_INFO_V1      (sizeof(struct secos_kern_info))
@@ -121,22 +121,11 @@ struct scm_msg_link {
 
 struct tzio_link *tzio_acquire_link(gfp_t gfp);
 void tzio_release_link(struct tzio_link *link);
-int tzswm_register_tzdev_memory(
-		uint64_t ctx_id,
-		struct page **pages,
-		size_t num_pages,
-		gfp_t gfp,
-		int for_kernel);
+int tzswm_register_tzdev_memory(uint64_t ctx_id, struct page **pages, size_t num_pages, gfp_t gfp, int for_kernel);
 int tzwsm_register_kernel_memory(const void *ptr, size_t size, gfp_t gfp);
-int tzwsm_register_user_memory(
-		uint64_t ctx_id,
-		const void *__user ptr,
-		size_t size,
-		int rw,
-		gfp_t gfp,
-		struct page ***p_pages,
-		size_t *p_num_pages);
+int tzwsm_register_user_memory(uint64_t ctx_id, const void *__user ptr, size_t size, int rw, gfp_t gfp, struct page ***p_pages, size_t *p_num_pages);
 void tzwsm_unregister_kernel_memory(int wsmid);
 
-#endif /* __SecureOS__ */
-#endif /* __SOURCE_TZDEV_TZDEV_INTERNAL_H__ */
+#endif
+
+#endif /* SOURCE_TZDEV_TZDEV_INTERNAL_H_ */

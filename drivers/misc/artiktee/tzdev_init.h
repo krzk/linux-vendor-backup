@@ -16,8 +16,8 @@
  *
  *********************************************************/
 
-#ifndef __SOURCE_TZDEV_INIT_H__
-#define __SOURCE_TZDEV_INIT_H__
+#ifndef SOURCE_TZDEV_INIT_H_
+#define SOURCE_TZDEV_INIT_H_
 
 void tzsys_init(void);
 void tzmem_init(void);
@@ -27,4 +27,4 @@ void tzio_link_init(void);
 int sstransaction_init_early(void);
 int sstransaction_init(void);
 
-#endif /* __SOURCE_TZDEV_INIT_H__ */
+#endif /* SOURCE_TZDEV_INIT_H_ */

@@ -27,7 +27,7 @@
 #include <linux/types.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
-#endif /* __KERNEL__ */
+#endif
 
 #define TZ_IOC_MAGIC		'c'
 

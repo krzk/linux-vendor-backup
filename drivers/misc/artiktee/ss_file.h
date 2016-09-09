@@ -27,4 +27,4 @@ void ss_file_delete_object(char *path);
 int ss_file_object_exist(char *path);
 int ss_file_object_size(char *path);
 
-#endif /* __SECURE_FILE_H__ */
+#endif

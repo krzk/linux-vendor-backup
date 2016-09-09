@@ -600,7 +600,7 @@ static void ssdev_rpmb_load_frames(SSTransaction_t *tsx)
 	sstransaction_complete(tsx, 0);
 #else
 	sstransaction_complete(tsx, -EIO);
-#endif /* defined(CONFIG_MMC) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0)) */
+#endif
 }
 
 static void ssdev_rpmb_store_frames(SSTransaction_t *tsx)
@@ -661,9 +661,9 @@ static void ssdev_rpmb_store_frames(SSTransaction_t *tsx)
 	sstransaction_complete(tsx, 0);
 #else
 	sstransaction_complete(tsx, -EIO);
-#endif /* defined(CONFIG_MMC) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0)) */
+#endif
 }
-#endif /* CONFIG_SECOS_NO_RPMB */
+#endif /*CONFIG_SECOS_NO_RPMB*/
 
 int storage_register_wsm(void)
 {
@@ -753,4 +753,5 @@ void sstransaction_handler(SSTransaction_t *txn_object)
 	tzlog_print(TZLOG_DEBUG, "Finished handling command %d\n", command);
 }
 
-#endif /* CONFIG_SECOS_NO_SECURE_STORAGE */
+#endif
+

@@ -16,8 +16,8 @@
  *
  *********************************************************/
 
-#ifndef __SOURCE_TZDEV_SSTRANSACTION_H__
-#define __SOURCE_TZDEV_SSTRANSACTION_H__
+#ifndef SOURCE_TZDEV_SSTRANSACTION_H_
+#define SOURCE_TZDEV_SSTRANSACTION_H_
 
 #include <linux/kernel.h>
 
@@ -40,4 +40,4 @@ void *sstransaction_payload_ptr(SSTransaction_t *tsx);
 unsigned int sstransaction_wsm_offset(SSTransaction_t *tsx, size_t *p_size);
 int sstransaction_count_completions(void);
 
-#endif /* __SOURCE_TZDEV_SSTRANSACTION_H__ */
+#endif /* SOURCE_TZDEV_SSTRANSACTION_H_ */

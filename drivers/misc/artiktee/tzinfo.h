@@ -16,10 +16,10 @@
  *
  *********************************************************/
 
-#ifndef __SOURCE_TZDEV_TZINFO_H__
-#define __SOURCE_TZDEV_TZINFO_H__
+#ifndef SOURCE_TZDEV_TZINFO_H_
+#define SOURCE_TZDEV_TZINFO_H_
 
 int tzinfo_init(void);
 int tzinfo_fetch_info(char **buf);
 
-#endif /* __SOURCE_TZDEV_TZINFO_H__ */
+#endif /* SOURCE_TZDEV_TZINFO_H_ */

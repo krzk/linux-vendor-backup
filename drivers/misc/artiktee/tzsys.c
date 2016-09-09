@@ -42,7 +42,7 @@
 #define ERROR_DIR_NAME_DEPTH2 "error_log"
 #define ERROR_DUMP_PARENT_DIR_PATH  "/opt/usr/apps/save_error_log/error_log/"
 #define ERROR_DUMP_DIR_NAME "secureos_dump"
-#endif /* CONFIG_INSTANCE_DEBUG */
+#endif
 
 struct secos_syspage *tz_syspage;
 #ifdef CONFIG_TZDEV_MINIDUMP
@@ -54,8 +54,8 @@ static atomic_t tz_crashed;
 #ifdef CONFIG_CALL_SAVELOG
 extern void set_kpi_fault(unsigned long pc, unsigned long lr, char *thread_name,
 			  char *process_name, char *type);
-#endif /* CONFIG_CALL_SAVELOG */
-#endif /* CONFIG_INSTANCE_DEBUG */
+#endif
+#endif
 
 #define MINIDUMP_PAGES			256
 
@@ -66,7 +66,7 @@ void __init tzsys_init(void)
 #ifdef CONFIG_TZDEV_MINIDUMP
 	void *minipage;
 	int miniwsm;
-#endif /* CONFIG_TZDEV_MINIDUMP */
+#endif
 	struct page *pg;
 
 	pg = alloc_page(GFP_KERNEL);
@@ -99,12 +99,11 @@ void __init tzsys_init(void)
 	rc = scm_minidump_register(miniwsm);
 
 	tzlog_print(K_INFO, "This tzdev has minidump system enabled !!!\n");
-#endif /* CONFIG_TZDEV_MINIDUMP */
+#endif
 }
 
 #ifdef CONFIG_TZDEV_MINIDUMP
 int tzlog_create_dir(char *parnet_dir_name, char *dir_name);
-
 int tzlog_output_do_dump(int is_kernel)
 {
 	int write_size;
@@ -172,8 +171,8 @@ int tzlog_output_do_dump(int is_kernel)
 		set_kpi_fault(0, 0, "main", "TrustWare", "TZ");
 	 else
 		set_kpi_fault(0, 0, "main", tz_syspage->uid, "TZ");
-#endif /* CONFIG_CALL_SAVELOG */
-#endif /* CONFIG_INSTANCE_DEBUG */
+#endif
+#endif
 
 	/* End of writing the dump file */
 	tz_syspage->minidump_size = 0;
@@ -194,7 +193,7 @@ out:
 	panic("Detected crash of Secure Kernel\n");
 	return 0;
 }
-#endif /* CONFIG_TZDEV_MINIDUMP */
+#endif
 
 void tzsys_crash_check(void)
 {
@@ -218,6 +217,6 @@ void tzsys_crash_check(void)
 		}
 #else
 		panic("Detected crash of Secure Kernel\n");
-#endif /* CONFIG_TZDEV_MINIDUMP */
+#endif
 	}
 }

@@ -633,7 +633,7 @@ static irqreturn_t tzdev_ipc_notify(int irq, void *unused)
 	up(&tzdev_ipc.sem);
 	return IRQ_HANDLED;
 }
-#endif /* CONFIG_TZDEV_EVENT_FORWARD */
+#endif
 
 void tzdev_notify_worker(void)
 {

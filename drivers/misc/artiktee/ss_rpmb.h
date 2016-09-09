@@ -69,4 +69,4 @@ struct rpmb_frame {
 int ss_rpmb_write_block(struct rpmb_frame *rpmb_frame, u8 *buf, size_t size);
 int ss_rpmb_read_block(struct rpmb_frame *rpmb_frame, u8 *buf, size_t size);
 int ss_rpmb_get_wctr(u32 *wctr);
-#endif /* __SECURE_RPMB_H__ */
+#endif
