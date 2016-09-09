@@ -786,14 +786,12 @@ static void s6e3ha2_acl_off_opr(struct s6e3ha2 *ctx)
 	s6e3ha2_dcs_write_seq_static(ctx, LDI_OPRCTL, 0x40);
 }
 
-static void s6e3ha2_test_global(struct s6e3ha2 *ctx)
+static void s6e3ha2_set_temperature(struct s6e3ha2 *ctx, int temp)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, LDI_G_PARA, 0x07);
-}
+	s8 t = clamp(temp, -127, 127);
 
-static void s6e3ha2_test(struct s6e3ha2 *ctx)
-{
-	s6e3ha2_dcs_write_seq_static(ctx, LDI_TSETCTL, 0x19);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_G_PARA, 0x07);
+	s6e3ha2_dcs_write_seq(ctx, LDI_TSETCTL, t);
 }
 
 static void s6e3ha2_touch_hsync_on1(struct s6e3ha2 *ctx) {
@@ -1212,10 +1210,7 @@ static int s6e3ha2_enable(struct drm_panel *panel)
 	s6e3ha2_acl_off(ctx);
 	s6e3ha2_acl_off_opr(ctx);
 	s6e3ha2_hbm_off(ctx);
-
-	/* elvss temp compensation */
-	s6e3ha2_test_global(ctx);
-	s6e3ha2_test(ctx);
+	s6e3ha2_set_temperature(ctx, 25);
 	s6e3ha2_test_key_off_f0(ctx);
 
 	s6e3ha2_dcs_write_seq_static(ctx, MIPI_DCS_SET_DISPLAY_ON);
