@@ -23,9 +23,32 @@
 
 #include "samsung-dynamic_aid.h"
 
+#define LDI_WRCTRLD 0x53
+#define LDI_WRPWRSAVE 0x55
+#define LDI_PCDCTL 0xcc
+#define LDI_G_PARA 0xb0
+#define LDI_AIDCTL 0xb2
+#define LDI_OPRCTL 0xb5
+#define LDI_ELVSSOST 0xb6
+#define LDI_TSETCTL 0xb8
+#define LDI_PSRTECTRL 0xb9
+#define LDI_TSPCTL 0xbd
+#define LDI_PENTILECTL 0xc0
 #define LDI_MTP_REG 0xc8
 #define LDI_GAMMODE1 0xca
-#define LDI_AIDCTL 0xb2
+#define LDI_LTPSCTL 0xcb
+#define LDI_FREQ_SUM 0xce
+#define LDI_ERR_FGCTL 0xed
+#define LDI_PASSWD1 0xf0
+#define LDI_PASSWD2 0xf1
+#define LDI_DISPCTL 0xf2
+#define LDI_DISPCTL2 0xf3
+#define LDI_PWRCTL 0xf4
+#define LDI_PANELUPDATE 0xf7
+#define LDI_MICCTL 0xf9
+#define LDI_PASSWD3 0xfc
+#define LDI_OSCCTL 0xfd
+#define LDI_OSCCTL2 0xfe
 
 #define MIN_BRIGHTNESS		0
 #define MAX_BRIGHTNESS		100
@@ -692,48 +715,50 @@ static void s6e3ha2_dcs_read(struct s6e3ha2 *ctx, u8 cmd, void *buf, size_t len)
 
 static void s6e3ha2_test_key_on_f0(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0xf0, 0x5a, 0x5a);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_PASSWD1, 0x5a, 0x5a);
 }
 
 static void s6e3ha2_test_key_off_f0(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0xf0, 0xa5, 0xa5);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_PASSWD1, 0xa5, 0xa5);
 }
 
 static void s6e3ha2_test_key_on_fc(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0xfc, 0x5a, 0x5a);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_PASSWD3, 0x5a, 0x5a);
 }
 
 static void s6e3ha2_test_key_off_fc(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0xfc, 0xa5, 0xa5);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_PASSWD3, 0xa5, 0xa5);
 }
 
 static void s6e3ha2_single_dsi_set1(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0xf2, 0x67);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_DISPCTL, 0x67);
 }
 
 static void s6e3ha2_single_dsi_set2(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0xf9, 0x09);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_MICCTL, 0x09);
 }
 
 static void s6e3ha2_freq_calibration(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0xfd, 0x1c);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_OSCCTL, 0x1c);
 	if (ctx->model != MODEL_1440)
-		s6e3ha2_dcs_write_seq_static(ctx, 0xf2, 0x67, 0x40, 0xc5);
-	s6e3ha2_dcs_write_seq_static(ctx, 0xfe, 0x20, 0x39);
-	s6e3ha2_dcs_write_seq_static(ctx, 0xfe, 0xa0);
-	s6e3ha2_dcs_write_seq_static(ctx, 0xfe, 0x20);
+		s6e3ha2_dcs_write_seq_static(ctx, LDI_DISPCTL, 0x67, 0x40, 0xc5);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_OSCCTL2, 0x20, 0x39);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_OSCCTL2, 0xa0);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_OSCCTL2, 0x20);
 	if (ctx->model == MODEL_1440)
-		s6e3ha2_dcs_write_seq_static(ctx, 0xce, 0x03, 0x3b, 0x12, 0x62,
-			0x40, 0x80, 0xc0, 0x28, 0x28, 0x28, 0x28, 0x39, 0xc5);
+		s6e3ha2_dcs_write_seq_static(ctx, LDI_FREQ_SUM, 0x03, 0x3b,
+			0x12, 0x62, 0x40, 0x80, 0xc0, 0x28, 0x28, 0x28, 0x28,
+			0x39, 0xc5);
 	else
-		s6e3ha2_dcs_write_seq_static(ctx, 0xce, 0x03, 0x3b, 0x14, 0x6d,
-			0x40, 0x80, 0xc0, 0x28, 0x28, 0x28, 0x28, 0x39, 0xc5);
+		s6e3ha2_dcs_write_seq_static(ctx, LDI_FREQ_SUM, 0x03, 0x3b,
+			0x14, 0x6d, 0x40, 0x80, 0xc0, 0x28, 0x28, 0x28, 0x28,
+			0x39, 0xc5);
 }
 
 static void s6e3ha2_aid_control(struct s6e3ha2 *ctx)
@@ -748,67 +773,69 @@ static void s6e3ha2_aid_control(struct s6e3ha2 *ctx)
 
 static void s6e3ha2_caps_elvss_set(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0xb6, 0x9c, 0x0a);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_ELVSSOST, 0x9c, 0x0a);
 }
 
 static void s6e3ha2_acl_off(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0x55, 0x00);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_WRPWRSAVE, 0x00);
 }
 
 static void s6e3ha2_acl_off_opr(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0xb5, 0x40);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_OPRCTL, 0x40);
 }
 
 static void s6e3ha2_test_global(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0xb0, 0x07);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_G_PARA, 0x07);
 }
 
 static void s6e3ha2_test(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0xb8, 0x19);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_TSETCTL, 0x19);
 }
 
 static void s6e3ha2_touch_hsync_on1(struct s6e3ha2 *ctx) {
 	s6e3ha2_dcs_write_seq_static(ctx,
-			0xbd, 0x33, 0x11, 0x02, 0x16, 0x02, 0x16);
+			LDI_TSPCTL, 0x33, 0x11, 0x02, 0x16, 0x02, 0x16);
 }
 
 static void s6e3ha2_pentile_control(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0xc0, 0x00, 0x00, 0xd8, 0xd8);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_PENTILECTL,
+		0x00, 0x00, 0xd8, 0xd8);
 }
 
 static void s6e3ha2_poc_global(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0xb0, 0x20);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_G_PARA, 0x20);
 }
 
 static void s6e3ha2_poc_setting(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0xfe, 0x08);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_OSCCTL2, 0x08);
 }
 
 static void s6e3ha2_pcd_set_off(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0xcc, 0x40, 0x51);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_PCDCTL, 0x40, 0x51);
 }
 
 static void s6e3ha2_err_fg_set(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0xed, 0x44);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_ERR_FGCTL, 0x44);
 }
 
 static void s6e3ha2_hbm_off(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0x53, 0x00);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_WRCTRLD, 0x00);
 }
 
 static void s6e3ha2_te_start_setting(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0xb9, 0x10, 0x09, 0xff, 0x00, 0x09);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_PSRTECTRL,
+		0x10, 0x09, 0xff, 0x00, 0x09);
 }
 
 #define BITS(v, h, l) ((int)(GENMASK((h), (l)) & (v)) >> (l))
@@ -850,12 +877,12 @@ static void s6e3ha2_calc_gammodes(struct s6e3ha2 *ctx)
 
 static void s6e3ha2_gamma_update(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0xf7, 0x03);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_PANELUPDATE, 0x03);
 }
 
 static void s6e3ha2_gamma_update_l(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0xf7, 0x00);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_PANELUPDATE, 0x00);
 }
 
 static void s6e3ha2_vr_enable(struct s6e3ha2 *ctx, int enable)
@@ -898,7 +925,7 @@ static void s6e3ha2_set_vint(struct s6e3ha2 *ctx)
 	int vind = (ARRAY_SIZE(VINT_TABLE) - 1)
 		 * ctx->bl_dev->props.brightness / MAX_BRIGHTNESS;
 
-	s6e3ha2_dcs_write_seq(ctx, 0xf4, 0x8b, VINT_TABLE[vind]);
+	s6e3ha2_dcs_write_seq(ctx, LDI_PWRCTL, 0x8b, VINT_TABLE[vind]);
 }
 
 static void s6e3ha2_update_nit_index(struct s6e3ha2 *ctx)
@@ -943,12 +970,12 @@ static void s6e3ha2_update_gamma(struct s6e3ha2 *ctx)
 static void s6e3ha2_set_hmt_elvss(struct s6e3ha2 *ctx)
 {
 	/* TODO */
-	s6e3ha2_dcs_write_seq_static(ctx, 0xb6, 0x9c, 0xa);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_ELVSSOST, 0x9c, 0xa);
 }
 
 static void s6e3ha2_set_hmt_vint(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, 0xf4, 0x8b, 0x21);
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_PWRCTL, 0x8b, 0x21);
 }
 
 static void s6e3ha2_set_hmt_brightness(struct s6e3ha2 *ctx)
@@ -1324,11 +1351,11 @@ static DEVICE_ATTR(vr, 0664, s6e3ha2_vr_show, s6e3ha2_vr_store);
 static void s6e3ha2_hmt_on(struct s6e3ha2 *ctx)
 {
 	static const u8 ha2_hmt_on[] = {
-		NSEQ(0xF2, 0x67, 0x41, 0xC5, 0x0A, 0x06),
-		NSEQ(0xB2, 0x03, 0x10, 0x00, 0x0A, 0x0A, 0x00),
-		NSEQ(0xF3, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10),
-		NSEQ(0x2B, 0x00, 0x00, 0x09, 0xFF),
-		NSEQ(0xCB,
+		NSEQ(LDI_DISPCTL, 0x67, 0x41, 0xC5, 0x0A, 0x06),
+		NSEQ(LDI_AIDCTL, 0x03, 0x10, 0x00, 0x0A, 0x0A, 0x00),
+		NSEQ(LDI_DISPCTL2, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10),
+		NSEQ(MIPI_DCS_SET_PAGE_ADDRESS, 0x00, 0x00, 0x09, 0xFF),
+		NSEQ(LDI_LTPSCTL,
 		     0x18, 0x11, 0x01, 0x00, 0x00, 0x24, 0x00, 0x00, 0xe1, 0x0B,
 		     0x01, 0x00, 0x00, 0x00, 0x02, 0x09, 0x00, 0x15, 0x98, 0x15,
 		     0x98, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10,
@@ -1339,21 +1366,21 @@ static void s6e3ha2_hmt_on(struct s6e3ha2 *ctx)
 		0
 	};
 	static const u8 hf2_hmt_on[] = {
-		NSEQ(0xB0, 0x03),
-		NSEQ(0xF2, 0x0A, 0x06),
-		NSEQ(0xB0, 0x05),
-		NSEQ(0xB2, 0x00),
-		NSEQ(0xB0, 0x06),
-		NSEQ(0xF3, 0x10),
-		NSEQ(0x2B, 0x00, 0x00, 0x09, 0xFF),
-		NSEQ(0xB0, 0x09),
-		NSEQ(0xCB, 0x0B),
-		NSEQ(0xB0, 0x0F),
-		NSEQ(0xCB, 0x09),
-		NSEQ(0xB0, 0x1D),
-		NSEQ(0xCB, 0x10),
-		NSEQ(0xB0, 0x33),
-		NSEQ(0xCB, 0xCC),
+		NSEQ(LDI_G_PARA, 0x03),
+		NSEQ(LDI_DISPCTL, 0x0A, 0x06),
+		NSEQ(LDI_G_PARA, 0x05),
+		NSEQ(LDI_AIDCTL, 0x00),
+		NSEQ(LDI_G_PARA, 0x06),
+		NSEQ(LDI_DISPCTL2, 0x10),
+		NSEQ(MIPI_DCS_SET_PAGE_ADDRESS, 0x00, 0x00, 0x09, 0xFF),
+		NSEQ(LDI_G_PARA, 0x09),
+		NSEQ(LDI_LTPSCTL, 0x0B),
+		NSEQ(LDI_G_PARA, 0x0F),
+		NSEQ(LDI_LTPSCTL, 0x09),
+		NSEQ(LDI_G_PARA, 0x1D),
+		NSEQ(LDI_LTPSCTL, 0x10),
+		NSEQ(LDI_G_PARA, 0x33),
+		NSEQ(LDI_LTPSCTL, 0xCC),
 		0
 	};
 	static const u8 *hmt_on[] = { ha2_hmt_on, hf2_hmt_on };
@@ -1364,9 +1391,9 @@ static void s6e3ha2_hmt_on(struct s6e3ha2 *ctx)
 static void s6e3ha2_hmt_off(struct s6e3ha2 *ctx)
 {
 	static const u8 ha2_hmt_off[] = {
-		NSEQ(0xF2, 0x67, 0x41, 0xC5, 0x06, 0x0A),
-		NSEQ(0xB2, 0x03, 0x10, 0x00, 0x0A, 0x0A, 0x40),
-		NSEQ(0xCB,
+		NSEQ(LDI_DISPCTL, 0x67, 0x41, 0xC5, 0x06, 0x0A),
+		NSEQ(LDI_AIDCTL, 0x03, 0x10, 0x00, 0x0A, 0x0A, 0x40),
+		NSEQ(LDI_LTPSCTL,
 		     0x18, 0x11, 0x01, 0x00, 0x00, 0x24, 0x00, 0x00, 0xe1, 0x09,
 		     0x01, 0x00, 0x00, 0x00, 0x02, 0x05, 0x00, 0x15, 0x98, 0x15,
 		     0x98, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -1377,18 +1404,18 @@ static void s6e3ha2_hmt_off(struct s6e3ha2 *ctx)
 		0
 	};
 	static const u8 hf2_hmt_off[] = {
-		NSEQ(0xB0, 0x03),
-		NSEQ(0xF2, 0x06, 0x0A),
-		NSEQ(0xB0, 0x05),
-		NSEQ(0xB2, 0x40),
-		NSEQ(0xB0, 0x09),
-		NSEQ(0xCB, 0x09),
-		NSEQ(0xB0, 0x0F),
-		NSEQ(0xCB, 0x05),
-		NSEQ(0xB0, 0x1D),
-		NSEQ(0xCB, 0x00),
-		NSEQ(0xB0, 0x33),
-		NSEQ(0xCB, 0xCB),
+		NSEQ(LDI_G_PARA, 0x03),
+		NSEQ(LDI_DISPCTL, 0x06, 0x0A),
+		NSEQ(LDI_G_PARA, 0x05),
+		NSEQ(LDI_AIDCTL, 0x40),
+		NSEQ(LDI_G_PARA, 0x09),
+		NSEQ(LDI_LTPSCTL, 0x09),
+		NSEQ(LDI_G_PARA, 0x0F),
+		NSEQ(LDI_LTPSCTL, 0x05),
+		NSEQ(LDI_G_PARA, 0x1D),
+		NSEQ(LDI_LTPSCTL, 0x00),
+		NSEQ(LDI_G_PARA, 0x33),
+		NSEQ(LDI_LTPSCTL, 0xCB),
 		0
 	};
 	static const u8 *hmt_off[] = { ha2_hmt_off, hf2_hmt_off };
