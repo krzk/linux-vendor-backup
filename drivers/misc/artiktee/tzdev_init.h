@@ -20,6 +20,7 @@
 #define SOURCE_TZDEV_INIT_H_
 
 void tzsys_init(void);
+void tzlog_init(void);
 void tzmem_init(void);
 int init_storage(void);
 void tzio_link_init(void);

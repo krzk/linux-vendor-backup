@@ -40,7 +40,6 @@
 #include "tzdev_smc.h"
 
 #include "sstransaction.h"
-#include "tzlog_print.h"
 
 #ifndef CONFIG_SECOS_NO_SECURE_STORAGE
 

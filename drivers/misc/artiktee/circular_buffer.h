@@ -34,7 +34,7 @@
 #include <linux/uaccess.h>
 #include <linux/uio.h>
 #include <linux/slab.h>
-#include "tzlog_print.h"
+#include "tzdev_internal.h"
 #endif
 #else
 #include <sys/types.h>
