@@ -892,7 +892,7 @@ static void __init arch_counter_register(unsigned type)
 	if (type & ARCH_TIMER_TYPE_CP15) {
 		if (IS_ENABLED(CONFIG_ARM64) ||
 		    arch_timer_uses_ppi == ARCH_TIMER_VIRT_PPI)
-			arch_timer_read_counter = arch_counter_get_cntvct;
+			arch_timer_read_counter = arch_counter_get_cntpct;
 		else
 			arch_timer_read_counter = arch_counter_get_cntpct;
 
