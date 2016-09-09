@@ -51,7 +51,3 @@ int plat_postprocess(void)
 	return ret;
 }
 
-int plat_dump_postprocess(char *uuid)
-{
-	return 0;
-}

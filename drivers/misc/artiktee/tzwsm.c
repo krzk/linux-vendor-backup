@@ -36,7 +36,7 @@ int tzwsm_register_tzdev_memory(uint64_t ctx_id, struct page **pages,
 	int error;
 	struct ns_level_registration *level0 = NULL;
 	size_t num_level1_pages = 0;
-	size_t i, j, pleft, l1index;
+	size_t i, j;
 
 	if (unlikely(num_pages == 0))
 		return -EINVAL;
@@ -86,24 +86,25 @@ int tzwsm_register_tzdev_memory(uint64_t ctx_id, struct page **pages,
 				goto err2;
 			}
 
-			level0->address[i] = page_to_phys(level1_pages[i]) |
+			level0->address[i] = page_to_phys(pages[i]) |
 					NS_PHYS_ADDR_IS_LEVEL_1;
 		}
 
-		pleft = num_pages;
-		l1index = 0;
-
-		for (i = 0; pleft > 0 ; ++l1index) {
+		for (i = 0; i < num_pages;) {
 			struct ns_level_registration *level1;
 
-			level1 = (struct ns_level_registration *)page_address(level1_pages[l1index]);
-			level1->num_pfns = min(pleft, (size_t)NS_PAGES_PER_LEVEL);
-			pleft -= level1->num_pfns;
+			level1 =
+			    (struct ns_level_registration *)
+			    page_address(pages[i / NS_PAGES_PER_LEVEL]);
+			level1->num_pfns =
+			    min(num_pages - i, (size_t)NS_PAGES_PER_LEVEL);
 
 			tzlog_print(TZLOG_DEBUG,
 				    "Level 1 Indirection #%zd Address %llx\n",
-					l1index,
-				    (uint64_t)page_to_phys(level1_pages[l1index]));
+				    (size_t)(i / NS_PAGES_PER_LEVEL),
+				    (uint64_t)
+				    page_to_phys(pages
+						 [i / NS_PAGES_PER_LEVEL]));
 
 			for (j = 0; j < level1->num_pfns; ++j, ++i) {
 				level1->address[j] = page_to_phys(pages[i]);

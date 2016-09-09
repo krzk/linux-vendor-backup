@@ -82,7 +82,7 @@ static inline ssize_t __chimera_read_from_buffer(
 	if (buffer_in < 0 || buffer_in > buffer_size || buffer_size < 32
 	    || buffer_size > (0x100000) || buffer_first < 0
 	    || buffer_first > buffer_size
-	    || buffer_size > (int)buf_size_limit - (int)sizeof(struct chimera_ring_buffer)) {
+	    || buffer_size > buf_size_limit - sizeof(struct chimera_ring_buffer)) {
 #ifdef __KERNEL__
 #ifdef __SecureOS__
 		printk(KERN_PANIC,
@@ -126,11 +126,11 @@ static inline ssize_t __chimera_read_from_buffer(
 #endif /* defined(__SecureOS__) */
 		} else
 #endif /* __KERNEL__ */
-			memcpy(data, buffer->buffer + buffer_first, (size_t)length);
+			memcpy(data, buffer->buffer + buffer_first, length);
 	} else {
 		/* need to copy both ends */
-		size_t upper = (size_t)buffer_size - (size_t)buffer_first;
-		size_t lower = (size_t)length - upper;
+		size_t upper = buffer_size - buffer_first;
+		size_t lower = length - upper;
 
 #ifdef __KERNEL__
 		if (user) {
@@ -204,7 +204,7 @@ static inline ssize_t __chimera_write_to_buffer(
 	if (buffer_in < 0 || buffer_in > buffer_size || buffer_size < 32
 	    || buffer_size > (0x100000) || buffer_first < 0
 	    || buffer_first > buffer_size
-	    || buffer_size > (int)buf_size_limit - (int)sizeof(struct chimera_ring_buffer)) {
+	    || buffer_size > buf_size_limit - sizeof(struct chimera_ring_buffer)) {
 #ifdef __KERNEL__
 #ifdef __SecureOS__
 		printk(KERN_PANIC,
@@ -249,11 +249,11 @@ static inline ssize_t __chimera_write_to_buffer(
 #endif /* defined(__SecureOS__) */
 		} else
 #endif /* __KERNEL__ */
-			memcpy(buffer->buffer + position, data, (size_t)length);
+			memcpy(buffer->buffer + position, data, length);
 	} else {
 		/* need to copy both ends */
-		size_t upper = (size_t)buffer_size - (size_t)position;
-		size_t lower = (size_t)length - upper;
+		size_t upper = buffer_size - position;
+		size_t lower = length - upper;
 
 #ifdef __KERNEL__
 		if (user) {
@@ -326,7 +326,7 @@ static inline struct chimera_ring_buffer *chimera_create_ring_buffer_etc(
 			return NULL;
 		}
 
-		buffer->size = (int32_t)size;
+		buffer->size = size;
 		chimera_ring_buffer_clear(buffer);
 
 		return buffer;
@@ -335,7 +335,7 @@ static inline struct chimera_ring_buffer *chimera_create_ring_buffer_etc(
 		    (struct chimera_ring_buffer *)memory;
 		size -= sizeof(struct chimera_ring_buffer);
 
-		buffer->size = (int32_t)size;
+		buffer->size = size;
 		if (init_from_memory && (size_t) buffer->size == size
 		    && buffer->in >= 0 && (size_t) buffer->in <= size
 		    && buffer->first >= 0 && (size_t) buffer->first < size) {
@@ -388,13 +388,13 @@ static inline void chimera_ring_buffer_delete(
 static inline size_t chimera_ring_buffer_readable(
 		struct chimera_ring_buffer *buffer)
 {
-	return (size_t)buffer->in;
+	return buffer->in;
 }
 
 static inline size_t chimera_ring_buffer_writable(
 		struct chimera_ring_buffer *buffer)
 {
-	return (size_t)(buffer->size - buffer->in);
+	return buffer->size - buffer->in;
 }
 
 static inline void chimera_ring_buffer_flush(
@@ -402,12 +402,12 @@ static inline void chimera_ring_buffer_flush(
 		size_t length)
 {
 	/* we can't flush more bytes than there are */
-	if (length > (size_t)buffer->in) {
-		length = (size_t)buffer->in;
+	if (length > (size_t) buffer->in) {
+		length = buffer->in;
 	}
 
-	buffer->in -= (int32_t)length;
-	buffer->first = (buffer->first + (int32_t)length) % buffer->size;
+	buffer->in -= length;
+	buffer->first = (buffer->first + length) % buffer->size;
 }
 
 static inline ssize_t chimera_ring_buffer_read(
@@ -504,7 +504,7 @@ static inline ssize_t chimera_ring_buffer_peek(
 	    || buffer_size > (0x100000) || buffer_first < 0
 	    || buffer_first > buffer_size
 	    || buffer_size >
-	    (int)buf_size_limit - (int)sizeof(struct chimera_ring_buffer)) {
+	    buf_size_limit - sizeof(struct chimera_ring_buffer)) {
 #ifdef __KERNEL__
 #ifdef __SecureOS__
 		printk(KERN_PANIC,
@@ -519,7 +519,7 @@ static inline ssize_t chimera_ring_buffer_peek(
 		return -EFAULT;
 	}
 
-	available = (size_t)buffer_in;
+	available = buffer_in;
 
 	if (offset >= available || length == 0) {
 		return 0;
@@ -529,10 +529,10 @@ static inline ssize_t chimera_ring_buffer_peek(
 		length = available - offset;
 	}
 
-	offset += (size_t)buffer_first;
+	offset += buffer_first;
 
 	if (offset >= (size_t) buffer_size) {
-		offset -= (size_t)buffer_size;
+		offset -= buffer_size;
 	}
 
 	if (offset + length <= (size_t) buffer->size) {
@@ -540,14 +540,14 @@ static inline ssize_t chimera_ring_buffer_peek(
 		memcpy(data, buffer->buffer + offset, length);
 	} else {
 		/* need to copy both ends */
-		size_t upper = (size_t)buffer_size - offset;
+		size_t upper = buffer_size - offset;
 		size_t lower = length - upper;
 
 		memcpy(data, buffer->buffer + offset, upper);
 		memcpy((uint8_t *) data + upper, buffer->buffer, lower);
 	}
 
-	return (ssize_t)length;
+	return length;
 }
 
 /*!	Returns iovecs describing the contents of the ring buffer.
@@ -574,9 +574,9 @@ static inline int chimera_ring_buffer_get_vecs(
 	size_t lower;
 
 	if (buffer_in < 0 || buffer_in > buffer_size || buffer_size < 32
-		|| buffer_size > (0x100000) || buffer_first < 0
-		|| buffer_first > buffer_size
-		|| buffer_size >  (int)buf_size_limit - (int)sizeof(struct chimera_ring_buffer)) {
+	    || buffer_size > (0x100000) || buffer_first < 0
+	    || buffer_first > buffer_size
+	    || buffer_size >  buf_size_limit - sizeof(struct chimera_ring_buffer)) {
 #ifdef __KERNEL__
 #ifdef __SecureOS__
 		printk(KERN_PANIC,
@@ -602,14 +602,14 @@ static inline int chimera_ring_buffer_get_vecs(
 		vecs[0].length = buffer_in;
 #else
 		vecs[0].iov_base = buffer->buffer + buffer_first;
-		vecs[0].iov_len = (size_t)buffer_in;
+		vecs[0].iov_len = buffer_in;
 #endif
 		return 1;
 	}
 
 	/* two elements */
-	upper = (size_t)buffer_size - (size_t)buffer_first;
-	lower = (size_t)buffer_in - upper;
+	upper = buffer_size - buffer_first;
+	lower = buffer_in - upper;
 
 #if defined(__SecureOS__) && defined(__KERNEL__)
 	vecs[0].buffer = buffer->buffer + buffer_first;

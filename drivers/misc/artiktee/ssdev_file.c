@@ -64,8 +64,7 @@ int ss_file_create_object(char *path, char *buf, size_t size)
 		return -1;
 	}
 
-	if(buf != NULL)
-		write_size = kernel_write(file, (char *)buf, size, 0);
+	write_size = kernel_write(file, (char *)buf, size, 0);
 
 	filp_close(file, NULL);
 

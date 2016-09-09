@@ -24,81 +24,9 @@
 #include "tzdev_smc.h"
 #include "tzpage.h"
 #include "tzlog_print.h"
-#include "tzrsrc_msg.h"
-
-#ifdef CONFIG_TZDEV_DEBUG
-#include <linux/slab.h>
-#include <linux/lockdep.h>
-#include <linux/cpumask.h>
-
-#define CONFIG_PRINT_SMC_INFO
-
-typedef struct smc_status{
-	struct timeval smc_in;
-	struct timeval smc_out;
-	int  inout_status;
-	int  function_number;
-} SMC_STATUS;
-
-static DEFINE_PER_CPU(SMC_STATUS, smc_status_each_core);
-
-static void update_smc_status(int cpu, int inout_status, int function_nubmer)
-{
-	SMC_STATUS * smc_status;
-
-	smc_status = &per_cpu(smc_status_each_core, cpu);
-	smc_status->inout_status = inout_status;
-	smc_status->function_number = function_nubmer;
-
-	if (inout_status == 0) {
-		do_gettimeofday(&smc_status->smc_in);
-	}
-	else if (inout_status == 1) {
-		do_gettimeofday(&smc_status->smc_out);
-	}
-
-	if(inout_status == 1) {
-		struct timeval temp;
-		unsigned long difftime;
-		if ((smc_status->smc_out.tv_usec-smc_status->smc_in.tv_usec)<0) {
-			temp.tv_sec = smc_status->smc_out.tv_sec-smc_status->smc_in.tv_sec-1;
-			temp.tv_usec = 1000000+smc_status->smc_out.tv_usec-smc_status->smc_in.tv_usec;
-		}
-		else {
-			temp.tv_sec = smc_status->smc_out.tv_sec-smc_status->smc_in.tv_sec;
-			temp.tv_usec = smc_status->smc_out.tv_usec-smc_status->smc_in.tv_usec;
-		}
-		difftime = (temp.tv_sec*1000+ temp.tv_usec/1000);
-
-		if(difftime > 30) {
-			tzlog_print(TZLOG_INFO,
-				"[CPU : %d ] smc call(%d) spend over %lu ms \n",
-				cpu, function_nubmer, difftime);
-		}
-	}
-}
-
-void init_smc_status(void)
-{
-	unsigned int cpu = num_online_cpus();
-	unsigned int loop;
-
-	SMC_STATUS * smc_status;
-
-	for (loop = 0; loop < cpu; loop++) {
-		smc_status = &per_cpu(smc_status_each_core, loop);
-		smc_status->inout_status = -1;
-		smc_status->function_number = -1;
-		smc_status->smc_in.tv_sec = 0;
-		smc_status->smc_in.tv_usec = 0;
-		smc_status->smc_out.tv_sec = 0;
-		smc_status->smc_out.tv_usec = 0;
-	}
-}
-#endif
 
 static inline void __do_call_smc_internal(struct monitor_arguments *args,
-					struct monitor_result *result)
+					  struct monitor_result *result)
 {
 #if defined(__aarch64__)
 	register unsigned long r0 asm("x0");
@@ -136,17 +64,9 @@ static inline void __do_call_smc_internal(struct monitor_arguments *args,
 }
 
 static inline void do_call_smc_internal(struct monitor_arguments *args,
-					struct monitor_result *result, int smc_op)
+					struct monitor_result *result)
 {
-#ifdef CONFIG_PRINT_SMC_INFO
-	int cpu = raw_smp_processor_id();
-	update_smc_status(cpu, 0, smc_op);
-#endif
 	__do_call_smc_internal(args, result);
-
-#ifdef CONFIG_PRINT_SMC_INFO
-	update_smc_status(cpu, 1, smc_op);
-#endif
 }
 
 int smc_init_monitor(void)
@@ -154,13 +74,10 @@ int smc_init_monitor(void)
 	struct monitor_uuid uuid;
 	struct monitor_arguments args = { 0, {0,} };
 	struct monitor_result res = { {0,} };
-	int SMC_OP = SMC_STD_GET_UUID;
 
 	args.function_id =
-	    SMC_32CALL | SMC_FAST_CALL | SMC_ENTITY_SECUREOS | SMC_OP;
-
-	do_call_smc_internal(&args, &res, SMC_OP);
-
+	    SMC_32CALL | SMC_FAST_CALL | SMC_ENTITY_SECUREOS | SMC_STD_GET_UUID;
+	do_call_smc_internal(&args, &res);
 	if (res.res[0] == -1) {
 		tzlog_print(TZLOG_ERROR, "Failed to query SecureOS UUID.\n");
 		return -1;
@@ -184,11 +101,9 @@ int scm_query_kernel_info(struct secos_kern_info *kinfo)
 	struct monitor_arguments args = { 0, };
 	struct monitor_result res = { {0,} };
 
-	int SMC_OP = SMC_STD_GET_KERNEL_INFO;
-
 	args.function_id =
-		SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS | SMC_OP;
-
+	    SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS |
+	    SMC_STD_GET_KERNEL_INFO;
 	args.arg[0] = SECOS_KERN_INFO_V1;
 	args.arg[1] = (uint32_t) (uintptr_t) kinfo;
 #ifdef CONFIG_64BIT
@@ -199,8 +114,7 @@ int scm_query_kernel_info(struct secos_kern_info *kinfo)
 	compiletime_assert(sizeof(uintptr_t) == 4, "Incorrect pointer size");
 #endif
 
-	do_call_smc_internal(&args, &res, SMC_OP);
-
+	do_call_smc_internal(&args, &res);
 	return res.res[0];
 }
 
@@ -209,14 +123,12 @@ int scm_syscrash_register(int wsm_id)
 	struct monitor_arguments args = { 0, };
 	struct monitor_result res = { {0,} };
 
-	int SMC_OP = SMC_STD_REGISTER_SYSPAGE;
-
 	args.function_id =
-		SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS | SMC_OP;
-
+	    SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS |
+	    SMC_STD_REGISTER_SYSPAGE;
 	args.arg[0] = wsm_id;
 
-	do_call_smc_internal(&args, &res, SMC_OP);
+	do_call_smc_internal(&args, &res);
 
 	return res.res[0];
 }
@@ -226,14 +138,12 @@ int scm_minidump_register(int wsm_id)
 	struct monitor_arguments args = { 0, };
 	struct monitor_result res = { {0,} };
 
-	int SMC_OP = SMC_STD_REGISTER_MINIDUMP;
-
 	args.function_id =
-		SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS | SMC_OP;
-
+	    SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS |
+	    SMC_STD_REGISTER_MINIDUMP;
 	args.arg[0] = wsm_id;
 
-	do_call_smc_internal(&args, &res, SMC_OP);
+	do_call_smc_internal(&args, &res);
 
 	return res.res[0];
 }
@@ -243,14 +153,12 @@ int scm_unregister_wsm(int memid)
 	struct monitor_arguments args = { 0, };
 	struct monitor_result res = { {0,} };
 
-	int SMC_OP = SMC_STD_UNREGISTER_WSM;
-
 	args.function_id =
-		SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS | SMC_OP;
-
+	    SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS |
+	    SMC_STD_UNREGISTER_WSM;
 	args.arg[0] = memid;
 
-	do_call_smc_internal(&args, &res, SMC_OP);
+	do_call_smc_internal(&args, &res);
 
 	return res.res[0];
 }
@@ -260,15 +168,13 @@ int scm_syslog(int memid, unsigned int option)
 	struct monitor_arguments args = { 0, };
 	struct monitor_result res = { {0,} };
 
-	int SMC_OP = SMC_STD_SYSLOG_DRAIN;
-
 	args.function_id =
-		SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS | SMC_OP;
-
+	    SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS |
+	    SMC_STD_SYSLOG_DRAIN;
 	args.arg[0] = memid;
 	args.arg[1] = option;
 
-	do_call_smc_internal(&args, &res, SMC_OP);
+	do_call_smc_internal(&args, &res);
 
 	return res.res[0];
 }
@@ -278,13 +184,12 @@ int scm_tzdaemon_dead(int flag)
 	struct monitor_arguments args = { 0, };
 	struct monitor_result res = { {0,} };
 
-	int SMC_OP = SMC_STD_TZDAEMON_DEAD;
-
 	args.function_id =
-		SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS | SMC_OP;
+	    SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS |
+	    SMC_STD_TZDAEMON_DEAD;
 	args.arg[0] = flag;
 
-	do_call_smc_internal(&args, &res, SMC_OP);
+	do_call_smc_internal(&args, &res);
 
 	return res.res[0];
 }
@@ -294,12 +199,11 @@ int scm_softlockup(void)
 	struct monitor_arguments args = { 0, };
 	struct monitor_result res = { {0,} };
 
-	int SMC_OP = SMC_STD_SOFTLOCKUP;
-
 	args.function_id =
-		SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS | SMC_OP;
+	    SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS |
+	    SMC_STD_SOFTLOCKUP;
 
-	do_call_smc_internal(&args, &res, SMC_OP);
+	do_call_smc_internal(&args, &res);
 
 	return res.res[0];
 }
@@ -309,13 +213,11 @@ int scm_slab_flush(void)
 	struct monitor_arguments args = { 0, };
 	struct monitor_result res = { {0,} };
 
-	int SMC_OP = SMC_STD_SLAB_FLUSH;
-
 	args.function_id =
-		SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS |
-		SMC_STD_SLAB_FLUSH;
+	    SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS |
+	    SMC_STD_SLAB_FLUSH;
 
-	do_call_smc_internal(&args, &res, SMC_OP);
+	do_call_smc_internal(&args, &res);
 
 	return res.res[0];
 }
@@ -325,12 +227,11 @@ int scm_soft_timer(void)
 	struct monitor_arguments args = { 0, };
 	struct monitor_result res = { {0,} };
 
-	int SMC_OP = SMC_STD_SOFTTIMER;
-
 	args.function_id =
-		SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS | SMC_OP;
+	    SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS |
+	    SMC_STD_SOFTTIMER;
 
-	do_call_smc_internal(&args, &res, SMC_OP);
+	do_call_smc_internal(&args, &res);
 
 	return res.res[0];
 }
@@ -340,14 +241,12 @@ int scm_invoke_svc(unsigned long channel, unsigned long flags)
 	struct monitor_arguments args = { 0, };
 	struct monitor_result res = { {0,} };
 
-	int SMC_OP = SMC_STD_RPC;
-
 	args.function_id =
-		SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS | SMC_OP;
+	    SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS | SMC_STD_RPC;
 	args.arg[0] = channel;
 	args.arg[1] = flags;
 
-	do_call_smc_internal(&args, &res, SMC_OP);
+	do_call_smc_internal(&args, &res);
 
 	return res.res[0];
 }
@@ -358,17 +257,15 @@ int scm_watch(unsigned long devfn, unsigned long a0, unsigned long a1,
 	struct monitor_arguments args = { 0, };
 	struct monitor_result res = { {0,} };
 
-	int SMC_OP = SMC_STD_WATCH;
-
 	args.function_id =
-		SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS | SMC_OP;
-
+	    SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS |
+	    SMC_STD_WATCH;
 	args.arg[0] = devfn;
 	args.arg[1] = a0;
 	args.arg[2] = a1;
 	args.arg[3] = a2;
 
-	do_call_smc_internal(&args, &res, SMC_OP);
+	do_call_smc_internal(&args, &res);
 
 	return res.res[0];
 }
@@ -378,17 +275,15 @@ int scm_register_phys_wsm(phys_addr_t arg_pfn)
 	struct monitor_arguments args = { 0, };
 	struct monitor_result res = { {0,} };
 
-	int SMC_OP = SMC_STD_REGISTER_PHYS_WSM;
-
 	args.function_id =
-		SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS | SMC_OP;
-
+	    SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS |
+	    SMC_STD_REGISTER_PHYS_WSM;
 	args.arg[0] = lower_32_bits(arg_pfn);
 	args.arg[1] = upper_32_bits(arg_pfn);
 	args.arg[2] = 0;
 	args.arg[3] = 0;
 
-	do_call_smc_internal(&args, &res, SMC_OP);
+	do_call_smc_internal(&args, &res);
 
 	return res.res[0];
 }
@@ -399,17 +294,16 @@ int scm_fetch_tzinfo(int cmd, int arg)
 	struct monitor_arguments args = { 0, };
 	struct monitor_result res = { {0,} };
 
-	int SMC_OP = SMC_STD_FETCH_TEE_INFO;
-
 	args.function_id =
-		SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS | SMC_OP;
+	    SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS |
+			SMC_STD_FETCH_TEE_INFO;
 
 	args.arg[0] = cmd;
 	args.arg[1] = arg;
 	args.arg[2] = 0;
 	args.arg[3] = 0;
 
-	do_call_smc_internal(&args, &res, SMC_OP);
+	__do_call_smc_internal(&args, &res);
 
 	return res.res[0];
 }
@@ -421,11 +315,11 @@ int scm_cpu_suspend(void)
 	struct monitor_arguments args = { 0, };
 	struct monitor_result res = { {0,} };
 
-	int SMC_OP = SMC_CPU_SUSPEND;
 	args.function_id =
-		SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS | SMC_OP;
+	    SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS |
+	    SMC_CPU_SUSPEND;
 
-	do_call_smc_internal(&args, &res, SMC_OP);
+	do_call_smc_internal(&args, &res);
 
 	return res.res[0];
 }
@@ -435,12 +329,11 @@ int scm_cpu_resume(void)
 	struct monitor_arguments args = { 0, };
 	struct monitor_result res = { {0,} };
 
-	int SMC_OP = SMC_CPU_RESUME;
-
 	args.function_id =
-		SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS | SMC_OP;
+	    SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS |
+	    SMC_CPU_RESUME;
 
-	do_call_smc_internal(&args, &res, SMC_OP);
+	do_call_smc_internal(&args, &res);
 
 	return res.res[0];
 }
@@ -450,12 +343,11 @@ int scm_sys_suspend(void)
 	struct monitor_arguments args = { 0, };
 	struct monitor_result res = { {0,} };
 
-	int SMC_OP = SMC_CPU_SUSPEND_SYS;
-
 	args.function_id =
-		SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS | SMC_OP;
+	    SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS |
+	    SMC_CPU_SUSPEND_SYS;
 
-	do_call_smc_internal(&args, &res, SMC_OP);
+	do_call_smc_internal(&args, &res);
 
 	return res.res[0];
 }
@@ -465,32 +357,12 @@ int scm_sys_resume(void)
 	struct monitor_arguments args = { 0, };
 	struct monitor_result res = { {0,} };
 
-	int SMC_OP = SMC_CPU_RESUME_SYS;
-
 	args.function_id =
-		SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS | SMC_OP;
+	    SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS |
+	    SMC_CPU_RESUME_SYS;
 
-	do_call_smc_internal(&args, &res, SMC_OP);
+	do_call_smc_internal(&args, &res);
 
 	return res.res[0];
 }
 #endif /* !CONFIG_PSCI */
-
-int scm_resource_monitor_cmd(uint32_t cmd, uint32_t wsm_id)
-{
-	struct monitor_arguments args = {0,};
-	struct monitor_result res = {{0,}};
-
-	int SMC_OP = SMC_STD_RESOURCE_MONITOR;
-
-	args.function_id =
-		SMC_32CALL | SMC_STANDARD_CALL | SMC_ENTITY_SECUREOS | SMC_OP;
-	args.arg[0] = cmd;
-	if(cmd == RSRC_REGISTER_WSM)
-	{
-		args.arg[1] = wsm_id;
-	}
-
-	do_call_smc_internal(&args, &res, SMC_OP);
-	return res.res[0];
-}
