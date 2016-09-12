@@ -771,9 +771,22 @@ static void s6e3ha2_aid_control(struct s6e3ha2 *ctx)
 	s6e3ha2_dcs_write(ctx, cmd, 4);
 }
 
-static void s6e3ha2_caps_elvss_set(struct s6e3ha2 *ctx)
+static void s6e3ha2_set_elvss(struct s6e3ha2 *ctx)
 {
-	s6e3ha2_dcs_write_seq_static(ctx, LDI_ELVSSOST, 0x9c, 0x0a);
+	int nit = ctx->hmt_mode ? hmt_nits[ctx->nit_index]
+				: s6e3ha2_nits[ctx->model][ctx->nit_index], i;
+	u8 mps_con = nit < 20 ? 0x8c : 0x9c;
+
+	static const int nits[] = {
+		0, 87, 110, 134, 162, 183, 207, 249, 282, 316, 360
+	};
+	static const u8 elvss[] = {
+		0x16, 0x15, 0x14, 0x13, 0x12, 0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x0a
+	};
+
+	for (i = 1; i < ARRAY_SIZE(nits) && nits[i] <= nit; ++i);
+
+	s6e3ha2_dcs_write_seq(ctx, LDI_ELVSSOST, mps_con, elvss[i - 1]);
 }
 
 static void s6e3ha2_acl_off(struct s6e3ha2 *ctx)
@@ -965,12 +978,6 @@ static void s6e3ha2_update_gamma(struct s6e3ha2 *ctx)
 	s6e3ha2_dcs_write(ctx, data, ARRAY_SIZE(data));
 }
 
-static void s6e3ha2_set_hmt_elvss(struct s6e3ha2 *ctx)
-{
-	/* TODO */
-	s6e3ha2_dcs_write_seq_static(ctx, LDI_ELVSSOST, 0x9c, 0xa);
-}
-
 static void s6e3ha2_set_hmt_vint(struct s6e3ha2 *ctx)
 {
 	s6e3ha2_dcs_write_seq_static(ctx, LDI_PWRCTL, 0x8b, 0x21);
@@ -983,7 +990,7 @@ static void s6e3ha2_set_hmt_brightness(struct s6e3ha2 *ctx)
 
 	s6e3ha2_update_gamma(ctx);
 	s6e3ha2_aid_control(ctx);
-	s6e3ha2_set_hmt_elvss(ctx);
+	s6e3ha2_set_elvss(ctx);
 	if (ctx->model == MODEL_1440)
 		s6e3ha2_set_hmt_vint(ctx);
 	s6e3ha2_gamma_update(ctx);
@@ -1205,7 +1212,7 @@ static int s6e3ha2_enable(struct drm_panel *panel)
 	/* brightness setting */
 	s6e3ha2_set_brightness(ctx);
 	s6e3ha2_aid_control(ctx);
-	s6e3ha2_caps_elvss_set(ctx);
+	s6e3ha2_set_elvss(ctx);
 	s6e3ha2_gamma_update(ctx);
 	s6e3ha2_acl_off(ctx);
 	s6e3ha2_acl_off_opr(ctx);
