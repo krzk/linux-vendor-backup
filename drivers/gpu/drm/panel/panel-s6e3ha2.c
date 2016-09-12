@@ -886,13 +886,10 @@ static void s6e3ha2_calc_gammodes(struct s6e3ha2 *ctx)
 	daid_calc_gammodes(ctx->hmt_gammodes, &hmt_cfg, mtp);
 }
 
-static void s6e3ha2_gamma_update(struct s6e3ha2 *ctx)
+static void s6e3ha2_panel_update(struct s6e3ha2 *ctx)
 {
 	s6e3ha2_dcs_write_seq_static(ctx, LDI_PANELUPDATE, 0x03);
-}
-
-static void s6e3ha2_gamma_update_l(struct s6e3ha2 *ctx)
-{
+	usleep_range(1, 1); /* delay should be at least 100ns */
 	s6e3ha2_dcs_write_seq_static(ctx, LDI_PANELUPDATE, 0x00);
 }
 
@@ -993,8 +990,7 @@ static void s6e3ha2_set_hmt_brightness(struct s6e3ha2 *ctx)
 	s6e3ha2_set_elvss(ctx);
 	if (ctx->model == MODEL_1440)
 		s6e3ha2_set_hmt_vint(ctx);
-	s6e3ha2_gamma_update(ctx);
-	s6e3ha2_gamma_update_l(ctx);
+	s6e3ha2_panel_update(ctx);
 
 	s6e3ha2_test_key_off_fc(ctx);
 	s6e3ha2_test_key_off_f0(ctx);
@@ -1011,7 +1007,7 @@ static void s6e3ha2_set_brightness(struct s6e3ha2 *ctx)
 	}
 	s6e3ha2_test_key_on_f0(ctx);
 	s6e3ha2_update_gamma(ctx);
-	s6e3ha2_gamma_update(ctx);
+	s6e3ha2_panel_update(ctx);
 	s6e3ha2_aid_control(ctx);
 	s6e3ha2_set_vint(ctx);
 	s6e3ha2_test_key_off_f0(ctx);
@@ -1213,7 +1209,7 @@ static int s6e3ha2_enable(struct drm_panel *panel)
 	s6e3ha2_set_brightness(ctx);
 	s6e3ha2_aid_control(ctx);
 	s6e3ha2_set_elvss(ctx);
-	s6e3ha2_gamma_update(ctx);
+	s6e3ha2_panel_update(ctx);
 	s6e3ha2_acl_off(ctx);
 	s6e3ha2_acl_off_opr(ctx);
 	s6e3ha2_hbm_off(ctx);
