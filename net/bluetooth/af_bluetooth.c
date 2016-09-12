@@ -189,12 +189,18 @@ struct sock *bt_accept_dequeue(struct sock *parent, struct socket *newsock)
 		/* FIXME: Is this check still needed */
 		if (sk->sk_state == BT_CLOSED) {
 			release_sock(sk);
+#ifdef TIZEN_BT
+			if (bt_sk(sk)->parent)
+#endif
 			bt_accept_unlink(sk);
 			continue;
 		}
 
 		if (sk->sk_state == BT_CONNECTED || !newsock ||
 		    test_bit(BT_SK_DEFER_SETUP, &bt_sk(parent)->flags)) {
+#ifdef TIZEN_BT
+			if (bt_sk(sk)->parent)
+#endif
 			bt_accept_unlink(sk);
 			if (newsock)
 				sock_graft(sk, newsock);
