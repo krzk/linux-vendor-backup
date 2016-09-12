@@ -966,35 +966,15 @@ static void s6e3ha2_update_gamma(struct s6e3ha2 *ctx)
 	s6e3ha2_dcs_write(ctx, data, ARRAY_SIZE(data));
 }
 
-static void s6e3ha2_set_hmt_brightness(struct s6e3ha2 *ctx)
+static void s6e3ha2_set_brightness(struct s6e3ha2 *ctx)
 {
+	s6e3ha2_update_nit_index(ctx);
 	s6e3ha2_test_key_on_f0(ctx);
-	s6e3ha2_test_key_on_fc(ctx);
-
 	s6e3ha2_update_gamma(ctx);
 	s6e3ha2_aid_control(ctx);
 	s6e3ha2_set_elvss(ctx);
 	s6e3ha2_set_vint(ctx);
 	s6e3ha2_panel_update(ctx);
-
-	s6e3ha2_test_key_off_fc(ctx);
-	s6e3ha2_test_key_off_f0(ctx);
-	/* TODO */
-}
-
-static void s6e3ha2_set_brightness(struct s6e3ha2 *ctx)
-{
-	s6e3ha2_update_nit_index(ctx);
-
-	if (ctx->hmt_mode) {
-		s6e3ha2_set_hmt_brightness(ctx);
-		return;
-	}
-	s6e3ha2_test_key_on_f0(ctx);
-	s6e3ha2_update_gamma(ctx);
-	s6e3ha2_panel_update(ctx);
-	s6e3ha2_aid_control(ctx);
-	s6e3ha2_set_vint(ctx);
 	s6e3ha2_test_key_off_f0(ctx);
 }
 
