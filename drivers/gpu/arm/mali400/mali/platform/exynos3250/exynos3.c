@@ -38,6 +38,23 @@
 #include <linux/irq.h>
 #include "exynos3_pmm.h"
 
+static void exynos3_platform_suspend(struct device *dev)
+{
+	mali_platform_power_mode_change(dev, MALI_POWER_MODE_DEEP_SLEEP);
+}
+
+static void exynos3_platform_resume(struct device *dev)
+{
+	mali_platform_power_mode_change(dev, MALI_POWER_MODE_ON);
+}
+
+#ifdef CONFIG_PM_RUNTIME
+static void exynos3_platform_runtime_suspend(struct device *dev)
+{
+	mali_platform_power_mode_change(dev, MALI_POWER_MODE_LIGHT_SLEEP);
+}
+#endif
+
 static struct mali_gpu_device_data mali_gpu_data = {
 	.shared_mem_size = 256 * 1024 * 1024, /* 256MB */
 	.fb_start = 0x40000000,
@@ -47,6 +64,12 @@ static struct mali_gpu_device_data mali_gpu_data = {
 	.get_clock_info = exynos3_get_clock_info,
 	.get_freq = exynos3_get_freq,
 	.set_freq = exynos3_set_freq,
+#endif
+	.platform_suspend = exynos3_platform_suspend,
+	.platform_resume = exynos3_platform_resume,
+#ifdef CONFIG_PM_RUNTIME
+	.platform_runtime_suspend = exynos3_platform_runtime_suspend,
+	.platform_runtime_resume = exynos3_platform_resume,
 #endif
 };
 
