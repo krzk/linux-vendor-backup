@@ -733,13 +733,9 @@ static void s6e3ha2_test_key_off_fc(struct s6e3ha2 *ctx)
 	s6e3ha2_dcs_write_seq_static(ctx, LDI_PASSWD3, 0xa5, 0xa5);
 }
 
-static void s6e3ha2_single_dsi_set1(struct s6e3ha2 *ctx)
+static void s6e3ha2_set_interface(struct s6e3ha2 *ctx)
 {
 	s6e3ha2_dcs_write_seq_static(ctx, LDI_DISPCTL, 0x67);
-}
-
-static void s6e3ha2_single_dsi_set2(struct s6e3ha2 *ctx)
-{
 	s6e3ha2_dcs_write_seq_static(ctx, LDI_MICCTL, 0x09);
 }
 
@@ -1056,9 +1052,7 @@ static void s6e3ha2_panel_init(struct s6e3ha2 *ctx)
 	usleep_range(5000, 6000);
 
 	s6e3ha2_test_key_on_f0(ctx);
-	s6e3ha2_single_dsi_set1(ctx);
-	s6e3ha2_single_dsi_set2(ctx);
-
+	s6e3ha2_set_interface(ctx);
 	s6e3ha2_test_key_on_fc(ctx);
 	s6e3ha2_freq_calibration(ctx);
 	s6e3ha2_test_key_off_fc(ctx);
