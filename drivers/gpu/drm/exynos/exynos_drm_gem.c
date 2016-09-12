@@ -427,6 +427,7 @@ int exynos_drm_gem_dumb_create(struct drm_file *file_priv,
 	 */
 
 	args->pitch = args->width * ((args->bpp + 7) / 8);
+	args->pitch = ALIGN(args->pitch, 8);
 	args->size = args->pitch * args->height;
 
 	if (is_drm_iommu_supported(dev))
