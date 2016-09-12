@@ -2309,6 +2309,14 @@ static bool hci_persistent_key(struct hci_dev *hdev, struct hci_conn *conn,
 	if (conn->remote_auth == 0x02 || conn->remote_auth == 0x03)
 		return true;
 
+#ifdef TIZEN_BT
+	/* In case of auth_type '0x01', it is authenticated by MITM.
+	 * So store it.
+	 */
+	if (key_type == HCI_LK_AUTH_COMBINATION_P192)
+		return true;
+#endif
+
 	/* If none of the above criteria match, then don't store the key
 	 * persistently */
 	return false;
