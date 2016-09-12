@@ -594,11 +594,6 @@ static const u32 hmt_aor_data[HMT_NITS_COUNT] = {
 	0x41303, 0x41303, 0x41303, 0x41303, 0x41303, 0x41303,
 };
 
-unsigned char VINT_TABLE[] = {
-	0x18, 0x19, 0x1A, 0x1B, 0x1C,
-	0x1D, 0x1E, 0x1F, 0x20, 0x21
-};
-
 enum s6e3ha2_model { MODEL_1440, MODEL_1600 };
 
 struct s6e3ha2 {
@@ -922,10 +917,14 @@ static int s6e3ha2_get_brightness(struct backlight_device *bl_dev)
 
 static void s6e3ha2_set_vint(struct s6e3ha2 *ctx)
 {
-	int vind = (ARRAY_SIZE(VINT_TABLE) - 1)
-		 * ctx->bl_dev->props.brightness / MAX_BRIGHTNESS;
+	int nit = ctx->hmt_mode ? hmt_nits[ctx->nit_index]
+				: s6e3ha2_nits[ctx->model][ctx->nit_index];
+	u8 v = clamp(nit, 5, 14) - 5 + 0x18;
 
-	s6e3ha2_dcs_write_seq(ctx, LDI_PWRCTL, 0x8b, VINT_TABLE[vind]);
+	if (ctx->model != MODEL_1440)
+		return;
+
+	s6e3ha2_dcs_write_seq(ctx, LDI_PWRCTL, 0x8b, v);
 }
 
 static void s6e3ha2_update_nit_index(struct s6e3ha2 *ctx)
@@ -967,11 +966,6 @@ static void s6e3ha2_update_gamma(struct s6e3ha2 *ctx)
 	s6e3ha2_dcs_write(ctx, data, ARRAY_SIZE(data));
 }
 
-static void s6e3ha2_set_hmt_vint(struct s6e3ha2 *ctx)
-{
-	s6e3ha2_dcs_write_seq_static(ctx, LDI_PWRCTL, 0x8b, 0x21);
-}
-
 static void s6e3ha2_set_hmt_brightness(struct s6e3ha2 *ctx)
 {
 	s6e3ha2_test_key_on_f0(ctx);
@@ -980,8 +974,7 @@ static void s6e3ha2_set_hmt_brightness(struct s6e3ha2 *ctx)
 	s6e3ha2_update_gamma(ctx);
 	s6e3ha2_aid_control(ctx);
 	s6e3ha2_set_elvss(ctx);
-	if (ctx->model == MODEL_1440)
-		s6e3ha2_set_hmt_vint(ctx);
+	s6e3ha2_set_vint(ctx);
 	s6e3ha2_panel_update(ctx);
 
 	s6e3ha2_test_key_off_fc(ctx);
