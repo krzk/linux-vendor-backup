@@ -814,13 +814,9 @@ static void s6e3ha2_pentile_control(struct s6e3ha2 *ctx)
 		0x00, 0x00, 0xd8, 0xd8);
 }
 
-static void s6e3ha2_poc_global(struct s6e3ha2 *ctx)
-{
-	s6e3ha2_dcs_write_seq_static(ctx, LDI_G_PARA, 0x20);
-}
-
 static void s6e3ha2_poc_setting(struct s6e3ha2 *ctx)
 {
+	s6e3ha2_dcs_write_seq_static(ctx, LDI_G_PARA, 0x20);
 	s6e3ha2_dcs_write_seq_static(ctx, LDI_OSCCTL2, 0x08);
 }
 
@@ -1189,7 +1185,6 @@ static int s6e3ha2_enable(struct drm_panel *panel)
 	s6e3ha2_test_key_on_fc(ctx);
 	s6e3ha2_touch_hsync_on1(ctx);
 	s6e3ha2_pentile_control(ctx);
-	s6e3ha2_poc_global(ctx);
 	s6e3ha2_poc_setting(ctx);
 	s6e3ha2_test_key_off_fc(ctx);
 
