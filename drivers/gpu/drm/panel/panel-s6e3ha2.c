@@ -627,6 +627,8 @@ struct s6e3ha2 {
 	 */
 	struct mutex lock;
 
+	const int *nits[2];
+	int nits_count[2];
 	int nit_index;
 	u8 gammodes[S6E3HA2_NITS_COUNT][DAID_PARAM_COUNT];
 	u8 hmt_gammodes[HMT_NITS_COUNT][DAID_PARAM_COUNT];
@@ -764,8 +766,7 @@ static void s6e3ha2_aid_control(struct s6e3ha2 *ctx)
 
 static void s6e3ha2_set_elvss(struct s6e3ha2 *ctx)
 {
-	int nit = ctx->hmt_mode ? hmt_nits[ctx->nit_index]
-				: s6e3ha2_nits[ctx->model][ctx->nit_index], i;
+	int nit = ctx->nits[ctx->hmt_mode][ctx->nit_index], i;
 	u8 mps_con = nit < 20 ? 0x8c : 0x9c;
 
 	static const int nits[] = {
@@ -917,8 +918,7 @@ static int s6e3ha2_get_brightness(struct backlight_device *bl_dev)
 
 static void s6e3ha2_set_vint(struct s6e3ha2 *ctx)
 {
-	int nit = ctx->hmt_mode ? hmt_nits[ctx->nit_index]
-				: s6e3ha2_nits[ctx->model][ctx->nit_index];
+	int nit = ctx->nits[ctx->hmt_mode][ctx->nit_index];
 	u8 v = clamp(nit, 5, 14) - 5 + 0x18;
 
 	if (ctx->model != MODEL_1440)
@@ -930,8 +930,8 @@ static void s6e3ha2_set_vint(struct s6e3ha2 *ctx)
 static void s6e3ha2_update_nit_index(struct s6e3ha2 *ctx)
 {
 	int bri = ctx->bl_dev->props.brightness;
-	const int *nits = ctx->hmt_mode ? hmt_nits : s6e3ha2_nits[ctx->model];
-	const int count = ctx->hmt_mode ? HMT_NITS_COUNT : S6E3HA2_NITS_COUNT;
+	const int *nits = ctx->nits[ctx->hmt_mode];
+	const int count = ctx->nits_count[ctx->hmt_mode];
 	int nit, b = 0, e = count - 1, m;
 
 	if (bri == MAX_BRIGHTNESS) {
@@ -1470,6 +1470,11 @@ static int s6e3ha2_probe(struct mipi_dsi_device *dsi)
 	ret = s6e3ha2_parse_dt(ctx);
 	if (ret < 0)
 		return ret;
+
+	ctx->nits[0] = s6e3ha2_nits[ctx->model];
+	ctx->nits[1] = hmt_nits;
+	ctx->nits_count[0] = S6E3HA2_NITS_COUNT;
+	ctx->nits_count[1] = HMT_NITS_COUNT;
 
 	ctx->supplies[0].supply = "vdd3";
 	ctx->supplies[1].supply = "vci";
