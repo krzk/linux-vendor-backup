@@ -907,6 +907,12 @@ static inline void chan_ready_cb(struct l2cap_chan *chan)
 
 	add_peer_chan(chan, dev);
 	ifup(dev->netdev);
+
+#ifdef TIZEN_BT
+	/* IPSP: Send connection changed state info to bluez */
+	mgmt_6lowpan_conn_changed(dev->hdev, dev->netdev->name, &chan->dst,
+				  chan->dst_type, true);
+#endif
 }
 
 static inline struct l2cap_chan *chan_new_conn_cb(struct l2cap_chan *pchan)
@@ -964,6 +970,13 @@ static void chan_close_cb(struct l2cap_chan *chan)
 			       last ? "last " : "1 ", peer);
 			BT_DBG("chan %p orig refcnt %d", chan,
 			       atomic_read(&chan->kref.refcount));
+
+#ifdef TIZEN_BT
+			/* IPSP: Send connection changed state info to bluez */
+			mgmt_6lowpan_conn_changed(dev->hdev, dev->netdev->name,
+						  &chan->dst, chan->dst_type,
+						  false);
+#endif
 
 			l2cap_chan_put(chan);
 			break;
@@ -1476,6 +1489,16 @@ void bt_6lowpan_disable(void)
 		unregister_netdevice_notifier(&bt_6lowpan_dev_notifier);
 		enable_6lowpan = false;
 	}
+}
+
+int _bt_6lowpan_connect(bdaddr_t *addr, u8 dst_type)
+{
+	return bt_6lowpan_connect(addr, dst_type);
+}
+
+int _bt_6lowpan_disconnect(struct l2cap_conn *conn, u8 dst_type)
+{
+	return bt_6lowpan_disconnect(conn, dst_type);
 }
 #endif
 

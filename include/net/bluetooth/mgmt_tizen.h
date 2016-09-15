@@ -173,6 +173,18 @@ struct mgmt_cp_enable_6lowpan {
 } __packed;
 #define MGMT_ENABLE_BT_6LOWPAN_SIZE		1
 
+#define MGMT_OP_CONNECT_6LOWPAN			(TIZEN_OP_CODE_BASE + 0x13)
+struct mgmt_cp_connect_6lowpan {
+	struct mgmt_addr_info	addr;
+} __packed;
+#define MGMT_CONNECT_6LOWPAN_SIZE		7
+
+#define MGMT_OP_DISCONNECT_6LOWPAN		(TIZEN_OP_CODE_BASE + 0x14)
+struct mgmt_cp_disconnect_6lowpan {
+	struct	mgmt_addr_info addr;
+} __packed;
+#define MGMT_DISCONNECT_6LOWPAN_SIZE		7
+
 /* EVENTS */
 
 /* For device name update changes */
@@ -254,4 +266,10 @@ struct mgmt_ev_vendor_specific_multi_adv_state_changed {
 } __packed;
 /* LE advertisement state changed event */
 
+#define MGMT_EV_6LOWPAN_CONN_STATE_CHANGED	(TIZEN_EV_BASE + 0x0c)
+struct mgmt_ev_6lowpan_conn_state_changed {
+	struct	mgmt_addr_info addr;
+	__u8	connected;
+	__u8	ifname[16];
+} __packed;
 #endif	/* __MGMT_TIZEN_H */

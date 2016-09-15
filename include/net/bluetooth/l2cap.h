@@ -943,9 +943,14 @@ void l2cap_unregister_user(struct l2cap_conn *conn, struct l2cap_user *user);
 /* IPSP : initialize/deinitialize 6lowpan */
 void bt_6lowpan_enable(void);
 void bt_6lowpan_disable(void);
+/* IPSP: Connect and Disconnect */
+int _bt_6lowpan_connect(bdaddr_t *addr, u8 dst_type);
+int _bt_6lowpan_disconnect(struct l2cap_conn *conn, u8 dst_type);
 #else
 static inline void bt_6lowpan_enable(void) { }
 static inline void bt_6lowpan_disable(void) { }
+static inline int _bt_6lowpan_connect(bdaddr_t *addr, u8 dst_type) { return -ENODEV; }
+static inline int _bt_6lowpan_disconnect(struct l2cap_conn *conn, u8 dst_type) { return -ENODEV; }
 #endif
 #endif /* TIZEN_BT */
 

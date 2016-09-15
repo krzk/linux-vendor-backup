@@ -7328,6 +7328,154 @@ unlocked:
 	hci_dev_unlock(hdev);
 	return err;
 }
+
+static int connect_bt_6lowpan(struct sock *sk, struct hci_dev *hdev,
+		void *data, u16 len)
+{
+	struct mgmt_cp_connect_6lowpan *cp = data;
+	__u8 addr_type = ADDR_LE_DEV_PUBLIC;
+	int err;
+
+	BT_DBG("%s", hdev->name);
+
+	hci_dev_lock(hdev);
+
+	if (!lmp_le_capable(hdev)) {
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_CONNECT_6LOWPAN,
+				      MGMT_STATUS_NOT_SUPPORTED);
+		goto unlocked;
+	}
+
+	if (!hdev_is_powered(hdev)) {
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_CONNECT_6LOWPAN,
+				      MGMT_STATUS_REJECTED);
+		goto unlocked;
+	}
+
+	if (bdaddr_type_is_le(cp->addr.type)) {
+		if (cp->addr.type == BDADDR_LE_PUBLIC)
+			addr_type = ADDR_LE_DEV_PUBLIC;
+		else
+			addr_type = ADDR_LE_DEV_RANDOM;
+	} else {
+		err = mgmt_cmd_complete(sk, hdev->id, MGMT_OP_CONNECT_6LOWPAN,
+					MGMT_STATUS_INVALID_PARAMS, NULL, 0);
+		goto unlocked;
+	}
+
+	hci_dev_unlock(hdev);
+
+	/* 6lowpan Connect */
+	err = _bt_6lowpan_connect(&cp->addr.bdaddr, cp->addr.type);
+
+	hci_dev_lock(hdev);
+
+	if (err < 0) {
+		err = mgmt_cmd_complete(sk, hdev->id, MGMT_OP_CONNECT_6LOWPAN,
+					MGMT_STATUS_REJECTED, NULL, 0);
+
+		goto unlocked;
+	}
+
+	err = mgmt_cmd_complete(sk, hdev->id, MGMT_OP_CONNECT_6LOWPAN, 0,
+				NULL, 0);
+unlocked:
+	hci_dev_unlock(hdev);
+	return err;
+}
+
+static int disconnect_bt_6lowpan(struct sock *sk, struct hci_dev *hdev,
+		void *data, u16 len)
+{
+	struct mgmt_cp_disconnect_6lowpan *cp = data;
+	struct hci_conn *conn = NULL;
+	__u8 addr_type = ADDR_LE_DEV_PUBLIC;
+	int err;
+
+	BT_DBG("%s", hdev->name);
+
+	hci_dev_lock(hdev);
+
+	if (!lmp_le_capable(hdev)) {
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_DISCONNECT_6LOWPAN,
+				      MGMT_STATUS_NOT_SUPPORTED);
+		goto unlocked;
+	}
+
+	if (!hdev_is_powered(hdev)) {
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_DISCONNECT_6LOWPAN,
+				      MGMT_STATUS_REJECTED);
+		goto unlocked;
+	}
+
+	if (bdaddr_type_is_le(cp->addr.type)) {
+		if (cp->addr.type == BDADDR_LE_PUBLIC)
+			addr_type = ADDR_LE_DEV_PUBLIC;
+		else
+			addr_type = ADDR_LE_DEV_RANDOM;
+	} else {
+		err = mgmt_cmd_complete(sk, hdev->id,
+					MGMT_OP_DISCONNECT_6LOWPAN,
+					MGMT_STATUS_INVALID_PARAMS, NULL, 0);
+		goto unlocked;
+	}
+
+	conn = hci_conn_hash_lookup_ba(hdev, LE_LINK, &cp->addr.bdaddr);
+	if (!conn) {
+		err = mgmt_cmd_complete(sk, hdev->id,
+					MGMT_OP_DISCONNECT_6LOWPAN,
+					MGMT_STATUS_NOT_CONNECTED, NULL, 0);
+		goto unlocked;
+	}
+
+	if (conn->dst_type != addr_type) {
+		err = mgmt_cmd_complete(sk, hdev->id,
+					MGMT_OP_DISCONNECT_6LOWPAN,
+					MGMT_STATUS_INVALID_PARAMS, NULL, 0);
+		goto unlocked;
+	}
+
+	if (conn->state != BT_CONNECTED) {
+		err = mgmt_cmd_complete(sk, hdev->id,
+					MGMT_OP_DISCONNECT_6LOWPAN,
+					MGMT_STATUS_NOT_CONNECTED, NULL, 0);
+		goto unlocked;
+	}
+
+	/* 6lowpan Disconnect */
+	err = _bt_6lowpan_disconnect(conn->l2cap_data, cp->addr.type);
+	if (err < 0) {
+		err = mgmt_cmd_complete(sk, hdev->id,
+					MGMT_OP_DISCONNECT_6LOWPAN,
+					MGMT_STATUS_REJECTED, NULL, 0);
+		goto unlocked;
+	}
+
+	err = mgmt_cmd_complete(sk, hdev->id, MGMT_OP_CONNECT_6LOWPAN, 0,
+				NULL, 0);
+
+unlocked:
+	hci_dev_unlock(hdev);
+	return err;
+}
+
+void mgmt_6lowpan_conn_changed(struct hci_dev *hdev, char if_name[16],
+		bdaddr_t *bdaddr, u8 addr_type, bool connected)
+{
+	char buf[512];
+	struct mgmt_ev_6lowpan_conn_state_changed *ev = (void *)buf;
+	size_t ev_size;
+
+	memset(buf, 0, sizeof(buf));
+	bacpy(&ev->addr.bdaddr, bdaddr);
+	ev->addr.type = addr_type;
+	ev->connected = connected;
+	memcpy(ev->ifname, (__u8 *)if_name, 16);
+
+	ev_size = sizeof(*ev);
+
+	mgmt_event(MGMT_EV_6LOWPAN_CONN_STATE_CHANGED, hdev, ev, ev_size, NULL);
+}
 #endif /* TIZEN_BT */
 
 static bool ltk_is_valid(struct mgmt_ltk_info *key)
@@ -9219,6 +9367,8 @@ static const struct hci_mgmt_handler tizen_mgmt_handlers[] = {
 	{ set_voice_setting,       MGMT_SET_VOICE_SETTING_SIZE },
 	{ get_adv_tx_power,        MGMT_GET_ADV_TX_POWER_SIZE },
 	{ enable_bt_6lowpan,       MGMT_ENABLE_BT_6LOWPAN_SIZE },
+	{ connect_bt_6lowpan,      MGMT_CONNECT_6LOWPAN_SIZE },
+	{ disconnect_bt_6lowpan,   MGMT_DISCONNECT_6LOWPAN_SIZE },
 };
 #endif
 
