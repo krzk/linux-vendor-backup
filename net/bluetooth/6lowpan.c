@@ -1445,6 +1445,40 @@ static int __init bt_6lowpan_init(void)
 	return register_netdevice_notifier(&bt_6lowpan_dev_notifier);
 }
 
+#ifdef TIZEN_BT
+void bt_6lowpan_enable(void)
+{
+	if (!enable_6lowpan) {
+		disconnect_all_peers();
+
+		enable_6lowpan = true;
+
+		if (listen_chan) {
+			l2cap_chan_close(listen_chan, 0);
+			l2cap_chan_put(listen_chan);
+		}
+
+		listen_chan = bt_6lowpan_listen();
+
+		register_netdevice_notifier(&bt_6lowpan_dev_notifier);
+	}
+}
+
+void bt_6lowpan_disable(void)
+{
+	if (enable_6lowpan) {
+		if (listen_chan) {
+			l2cap_chan_close(listen_chan, 0);
+			l2cap_chan_put(listen_chan);
+			listen_chan = NULL;
+		}
+		disconnect_devices();
+		unregister_netdevice_notifier(&bt_6lowpan_dev_notifier);
+		enable_6lowpan = false;
+	}
+}
+#endif
+
 static void __exit bt_6lowpan_exit(void)
 {
 	debugfs_remove(lowpan_enable_debugfs);

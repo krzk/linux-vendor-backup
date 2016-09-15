@@ -167,6 +167,12 @@ struct mgmt_rp_get_adv_tx_power {
 	__s8	adv_tx_power;
 } __packed;
 
+#define MGMT_OP_ENABLE_6LOWPAN			(TIZEN_OP_CODE_BASE + 0x12)
+struct mgmt_cp_enable_6lowpan {
+	__u8	enable_6lowpan;
+} __packed;
+#define MGMT_ENABLE_BT_6LOWPAN_SIZE		1
+
 /* EVENTS */
 
 /* For device name update changes */

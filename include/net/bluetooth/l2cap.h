@@ -938,4 +938,15 @@ void l2cap_conn_put(struct l2cap_conn *conn);
 int l2cap_register_user(struct l2cap_conn *conn, struct l2cap_user *user);
 void l2cap_unregister_user(struct l2cap_conn *conn, struct l2cap_user *user);
 
+#ifdef TIZEN_BT
+#ifdef CONFIG_BT_6LOWPAN
+/* IPSP : initialize/deinitialize 6lowpan */
+void bt_6lowpan_enable(void);
+void bt_6lowpan_disable(void);
+#else
+static inline void bt_6lowpan_enable(void) { }
+static inline void bt_6lowpan_disable(void) { }
+#endif
+#endif /* TIZEN_BT */
+
 #endif /* __L2CAP_H */
