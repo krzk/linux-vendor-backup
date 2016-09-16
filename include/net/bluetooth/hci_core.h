@@ -1556,6 +1556,8 @@ void mgmt_le_read_maximum_data_length_complete(struct hci_dev *hdev,
 		u8 status);
 void mgmt_le_write_host_suggested_data_length_complete(struct hci_dev *hdev,
 		u8 status);
+void mgmt_le_read_host_suggested_data_length_complete(struct hci_dev *hdev,
+		u8 status);
 #endif
 
 u8 hci_le_conn_update(struct hci_conn *conn, u16 min, u16 max, u16 latency,

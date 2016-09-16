@@ -1335,11 +1335,21 @@ static void hci_cc_le_read_def_data_len(struct hci_dev *hdev,
 
 	BT_DBG("%s status 0x%2.2x", hdev->name, rp->status);
 
+#ifdef TIZEN_BT
+	hci_dev_lock(hdev);
+#else
 	if (rp->status)
 		return;
+#endif
 
 	hdev->le_def_tx_len = le16_to_cpu(rp->tx_len);
 	hdev->le_def_tx_time = le16_to_cpu(rp->tx_time);
+
+#ifdef TIZEN_BT
+	mgmt_le_read_host_suggested_data_length_complete(hdev, rp->status);
+
+	hci_dev_unlock(hdev);
+#endif
 }
 
 static void hci_cc_le_write_def_data_len(struct hci_dev *hdev,
