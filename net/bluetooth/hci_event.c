@@ -1567,6 +1567,31 @@ static void hci_vendor_specific_evt(struct hci_dev *hdev, struct sk_buff *skb)
 		break;
 	}
 }
+
+static void hci_le_data_length_changed_complete_evt(struct hci_dev *hdev,
+		struct sk_buff *skb)
+{
+	struct hci_ev_le_data_len_change *ev = (void *)skb->data;
+	struct hci_conn *conn;
+
+	BT_DBG("%s status", hdev->name);
+
+	hci_dev_lock(hdev);
+
+	conn = hci_conn_hash_lookup_handle(hdev, __le16_to_cpu(ev->handle));
+	if (conn) {
+		conn->tx_len = le16_to_cpu(ev->tx_len);
+		conn->tx_time = le16_to_cpu(ev->tx_time);
+		conn->rx_len = le16_to_cpu(ev->rx_len);
+		conn->rx_time = le16_to_cpu(ev->rx_time);
+	}
+
+	mgmt_le_data_length_change_complete(hdev, &conn->dst,
+					    conn->tx_len, conn->tx_time,
+					    conn->rx_len, conn->rx_time);
+
+	hci_dev_unlock(hdev);
+}
 #endif
 
 static void hci_cc_read_rssi(struct hci_dev *hdev, struct sk_buff *skb)
@@ -5385,6 +5410,12 @@ static void hci_le_meta_evt(struct hci_dev *hdev, struct sk_buff *skb)
 	case HCI_EV_LE_DIRECT_ADV_REPORT:
 		hci_le_direct_adv_report_evt(hdev, skb);
 		break;
+
+#ifdef TIZEN_BT
+	case HCI_EV_LE_DATA_LEN_CHANGE:
+		hci_le_data_length_changed_complete_evt(hdev, skb);
+		break;
+#endif
 
 	default:
 		break;

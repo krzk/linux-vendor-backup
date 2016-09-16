@@ -1173,6 +1173,35 @@ int hci_conn_change_supervision_timeout(struct hci_conn *conn, __u16 timeout)
 
 	return 0;
 }
+
+int hci_le_set_data_length(struct hci_conn *conn, u16 tx_octets, u16 tx_time)
+{
+	struct hci_dev *hdev = conn->hdev;
+	struct hci_conn_params *params;
+	struct hci_cp_le_set_data_len cp;
+
+	hci_dev_lock(hdev);
+
+	params = hci_conn_params_lookup(hdev, &conn->dst, conn->dst_type);
+	if (params) {
+		params->max_tx_octets = tx_octets;
+		params->max_tx_time = tx_time;
+	}
+
+	hci_dev_unlock(hdev);
+
+	memset(&cp, 0, sizeof(cp));
+	cp.handle = cpu_to_le16(conn->handle);
+	cp.tx_len = cpu_to_le16(tx_octets);
+	cp.tx_time = cpu_to_le16(tx_time);
+
+	hci_send_cmd(hdev, HCI_OP_LE_SET_DATA_LEN, sizeof(cp), &cp);
+
+	if (params)
+		return 0x01;
+
+	return 0x00;
+}
 #endif
 
 /* Enter active mode */

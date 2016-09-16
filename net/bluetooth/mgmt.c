@@ -7716,6 +7716,99 @@ unlock:
 
 	return err;
 }
+
+static int set_le_data_length_params(struct sock *sk, struct hci_dev *hdev,
+		void *data, u16 len)
+{
+	struct mgmt_cp_le_set_data_length *cp = data;
+	struct mgmt_rp_le_set_data_length *rp;
+	struct mgmt_pending_cmd *cmd;
+	struct hci_conn *conn;
+	int err = 0;
+	u16 max_tx_octets, max_tx_time;
+	size_t rp_len;
+
+	BT_INFO("Set Data length for the device %s", hdev->name);
+
+	hci_dev_lock(hdev);
+
+	rp_len = sizeof(*rp);
+	rp = kmalloc(rp_len, GFP_KERNEL);
+	if (!rp) {
+		err = -ENOMEM;
+		goto unlock;
+	}
+
+	if (!hdev_is_powered(hdev)) {
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_LE_SET_DATA_LENGTH,
+				      MGMT_STATUS_NOT_POWERED);
+		goto unlock;
+	}
+
+	if (!lmp_le_capable(hdev)) {
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_LE_SET_DATA_LENGTH,
+				      MGMT_STATUS_NOT_SUPPORTED);
+		goto unlock;
+	}
+
+	if (pending_find(MGMT_OP_LE_SET_DATA_LENGTH, hdev)) {
+		err = mgmt_cmd_status(sk, hdev->id, MGMT_OP_LE_SET_DATA_LENGTH,
+				      MGMT_STATUS_BUSY);
+		goto unlock;
+	}
+
+	cmd = mgmt_pending_add(sk, MGMT_OP_LE_SET_DATA_LENGTH, hdev, data, len);
+	if (!cmd) {
+		err = -ENOMEM;
+		goto unlock;
+	}
+
+	max_tx_octets = __le16_to_cpu(cp->max_tx_octets);
+	max_tx_time = __le16_to_cpu(cp->max_tx_time);
+
+	BT_DBG("max_tx_octets 0x%4.4x max_tx_time 0x%4.4x latency",
+	       max_tx_octets, max_tx_time);
+
+	conn = hci_conn_hash_lookup_ba(hdev, LE_LINK, &cp->bdaddr);
+	if (!conn) {
+		mgmt_cmd_status(sk, hdev->id, MGMT_OP_LE_SET_DATA_LENGTH,
+				MGMT_STATUS_NOT_CONNECTED);
+		goto unlock;
+	}
+
+	hci_dev_unlock(hdev);
+
+	err = hci_le_set_data_length(conn, max_tx_octets, max_tx_time);
+	if (err < 0)
+		mgmt_pending_remove(cmd);
+
+	rp->handle = conn->handle;
+	rp->status = 0;
+
+	hci_dev_lock(hdev);
+	err = mgmt_cmd_complete(sk, hdev->id, MGMT_OP_LE_SET_DATA_LENGTH, 0,
+				rp, rp_len);
+unlock:
+	kfree(rp);
+	hci_dev_unlock(hdev);
+
+	return err;
+}
+
+void mgmt_le_data_length_change_complete(struct hci_dev *hdev,
+		bdaddr_t *bdaddr, u16 tx_octets, u16 tx_time,
+		u16 rx_octets, u16 rx_time)
+{
+	struct mgmt_ev_le_data_length_changed ev;
+
+	bacpy(&ev.addr.bdaddr, bdaddr);
+	ev.max_tx_octets = tx_octets;
+	ev.max_tx_time = tx_time;
+	ev.max_rx_octets = rx_octets;
+	ev.max_rx_time = rx_time;
+
+	mgmt_event(MGMT_EV_LE_DATA_LENGTH_CHANGED, hdev, &ev, sizeof(ev), NULL);
+}
 #endif /* TIZEN_BT */
 
 static bool ltk_is_valid(struct mgmt_ltk_info *key)
@@ -9615,6 +9708,8 @@ static const struct hci_mgmt_handler tizen_mgmt_handlers[] = {
 				   MGMT_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH_SIZE },
 	{ read_host_suggested_data_length,
 				   MGMT_LE_READ_HOST_SUGGESTED_DATA_LENGTH_SIZE },
+	{ set_le_data_length_params,
+				   MGMT_LE_SET_DATA_LENGTH_SIZE },
 };
 #endif
 

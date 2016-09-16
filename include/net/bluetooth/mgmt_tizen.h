@@ -208,6 +208,20 @@ struct mgmt_rp_le_read_host_suggested_data_length {
 } __packed;
 #define MGMT_LE_READ_HOST_SUGGESTED_DATA_LENGTH_SIZE	0
 
+#define MGMT_OP_LE_SET_DATA_LENGTH		(TIZEN_OP_CODE_BASE + 0x18)
+struct mgmt_cp_le_set_data_length {
+	bdaddr_t	bdaddr;
+	__le16	max_tx_octets;
+	__le16	max_tx_time;
+} __packed;
+#define MGMT_LE_SET_DATA_LENGTH_SIZE		10
+
+struct mgmt_rp_le_set_data_length {
+	__u8	status;
+	__le16	handle;
+} __packed;
+#define MGMT_LE_SET_DATA_LENGTH_RSP_SIZE	3
+
 /* EVENTS */
 
 /* For device name update changes */
@@ -295,4 +309,14 @@ struct mgmt_ev_6lowpan_conn_state_changed {
 	__u8	connected;
 	__u8	ifname[16];
 } __packed;
+
+#define MGMT_EV_LE_DATA_LENGTH_CHANGED		(TIZEN_EV_BASE + 0x0d)
+struct mgmt_ev_le_data_length_changed {
+	struct	mgmt_addr_info addr;
+	__le16	max_tx_octets;
+	__le16	max_tx_time;
+	__le16	max_rx_octets;
+	__le16	max_rx_time;
+} __packed;
+
 #endif	/* __MGMT_TIZEN_H */
