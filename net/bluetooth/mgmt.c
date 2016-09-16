@@ -7553,6 +7553,90 @@ unlock:
 	hci_dev_unlock(hdev);
 	return err;
 }
+
+void mgmt_le_write_host_suggested_data_length_complete(struct hci_dev *hdev,
+		u8 status)
+{
+	struct mgmt_pending_cmd *cmd;
+
+	BT_DBG("status 0x%02x", status);
+
+	hci_dev_lock(hdev);
+
+	cmd = pending_find(MGMT_OP_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH, hdev);
+	if (!cmd) {
+		BT_ERR("cmd not found in the pending list");
+		goto unlock;
+	}
+
+	if (status)
+		mgmt_cmd_status(cmd->sk, hdev->id,
+				MGMT_OP_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH,
+				mgmt_status(status));
+	else
+		mgmt_cmd_complete(cmd->sk, hdev->id,
+				  MGMT_OP_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH,
+				  0, NULL, 0);
+
+	mgmt_pending_remove(cmd);
+
+unlock:
+	hci_dev_unlock(hdev);
+}
+
+static int write_host_suggested_le_data_length(struct sock *sk,
+		struct hci_dev *hdev, void *data, u16 len)
+{
+	struct mgmt_pending_cmd *cmd;
+	struct mgmt_cp_le_write_host_suggested_data_length *cp = data;
+	struct hci_cp_le_write_def_data_len hci_data;
+	int err = 0;
+
+	BT_DBG("Write host suggested data length request for %s", hdev->name);
+
+	hci_dev_lock(hdev);
+
+	if (!hdev_is_powered(hdev)) {
+		err = mgmt_cmd_status(sk, hdev->id,
+				MGMT_OP_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH,
+				MGMT_STATUS_NOT_POWERED);
+		goto unlock;
+	}
+
+	if (!lmp_le_capable(hdev)) {
+		err = mgmt_cmd_status(sk, hdev->id,
+				MGMT_OP_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH,
+				MGMT_STATUS_NOT_SUPPORTED);
+		goto unlock;
+	}
+
+	if (pending_find(MGMT_OP_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH, hdev)) {
+		err = mgmt_cmd_status(sk, hdev->id,
+				MGMT_OP_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH,
+				MGMT_STATUS_BUSY);
+		goto unlock;
+	}
+
+	cmd = mgmt_pending_add(sk, MGMT_OP_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH,
+			       hdev, data, len);
+	if (!cmd) {
+		err = -ENOMEM;
+		goto unlock;
+	}
+
+	hci_data.tx_len = cp->def_tx_octets;
+	hci_data.tx_time = cp->def_tx_time;
+
+	err = hci_send_cmd(hdev, HCI_OP_LE_WRITE_DEF_DATA_LEN,
+			   sizeof(hci_data), &hci_data);
+	if (err < 0)
+		mgmt_pending_remove(cmd);
+
+unlock:
+	hci_dev_unlock(hdev);
+
+	return err;
+}
 #endif /* TIZEN_BT */
 
 static bool ltk_is_valid(struct mgmt_ltk_info *key)
@@ -9448,6 +9532,8 @@ static const struct hci_mgmt_handler tizen_mgmt_handlers[] = {
 	{ disconnect_bt_6lowpan,   MGMT_DISCONNECT_6LOWPAN_SIZE },
 	{ read_maximum_le_data_length,
 				   MGMT_LE_READ_MAXIMUM_DATA_LENGTH_SIZE },
+	{ write_host_suggested_le_data_length,
+				   MGMT_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH_SIZE },
 };
 #endif
 
