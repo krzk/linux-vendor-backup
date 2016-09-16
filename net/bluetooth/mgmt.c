@@ -7476,6 +7476,83 @@ void mgmt_6lowpan_conn_changed(struct hci_dev *hdev, char if_name[16],
 
 	mgmt_event(MGMT_EV_6LOWPAN_CONN_STATE_CHANGED, hdev, ev, ev_size, NULL);
 }
+
+void mgmt_le_read_maximum_data_length_complete(struct hci_dev *hdev, u8 status)
+{
+	struct mgmt_pending_cmd *cmd;
+	struct mgmt_rp_le_read_maximum_data_length rp;
+
+	BT_DBG("%s status %u", hdev->name, status);
+
+	cmd = pending_find(MGMT_OP_LE_READ_MAXIMUM_DATA_LENGTH, hdev);
+	if (!cmd)
+		return;
+
+	if (status)
+		mgmt_cmd_status(cmd->sk, hdev->id,
+				MGMT_OP_LE_READ_MAXIMUM_DATA_LENGTH,
+				mgmt_status(status));
+
+	memset(&rp, 0, sizeof(rp));
+
+	rp.max_tx_octets = cpu_to_le16(hdev->le_max_tx_len);
+	rp.max_tx_time = cpu_to_le16(hdev->le_max_tx_time);
+	rp.max_rx_octets = cpu_to_le16(hdev->le_max_rx_len);
+	rp.max_rx_time = cpu_to_le16(hdev->le_max_rx_time);
+
+	mgmt_cmd_complete(cmd->sk, hdev->id,
+			  MGMT_OP_LE_READ_MAXIMUM_DATA_LENGTH, 0,
+			  &rp, sizeof(rp));
+
+	mgmt_pending_remove(cmd);
+}
+
+static int read_maximum_le_data_length(struct sock *sk,
+		struct hci_dev *hdev, void *data, u16 len)
+{
+	struct mgmt_pending_cmd *cmd;
+	int err;
+
+	BT_DBG("read_maximum_le_data_length  %s", hdev->name);
+
+	hci_dev_lock(hdev);
+
+	if (!hdev_is_powered(hdev)) {
+		err = mgmt_cmd_status(sk, hdev->id,
+				      MGMT_OP_LE_READ_MAXIMUM_DATA_LENGTH,
+				      MGMT_STATUS_NOT_POWERED);
+		goto unlock;
+	}
+
+	if (!lmp_le_capable(hdev)) {
+		err = mgmt_cmd_status(sk, hdev->id,
+				      MGMT_OP_LE_READ_MAXIMUM_DATA_LENGTH,
+				      MGMT_STATUS_NOT_SUPPORTED);
+		goto unlock;
+	}
+
+	if (pending_find(MGMT_OP_LE_READ_MAXIMUM_DATA_LENGTH, hdev)) {
+		err = mgmt_cmd_status(sk, hdev->id,
+				      MGMT_OP_LE_READ_MAXIMUM_DATA_LENGTH,
+				      MGMT_STATUS_BUSY);
+		goto unlock;
+	}
+
+	cmd = mgmt_pending_add(sk, MGMT_OP_LE_READ_MAXIMUM_DATA_LENGTH,
+			       hdev, data, len);
+	if (!cmd) {
+		err = -ENOMEM;
+		goto unlock;
+	}
+
+	err = hci_send_cmd(hdev, HCI_OP_LE_READ_MAX_DATA_LEN, 0, NULL);
+	if (err < 0)
+		mgmt_pending_remove(cmd);
+
+unlock:
+	hci_dev_unlock(hdev);
+	return err;
+}
 #endif /* TIZEN_BT */
 
 static bool ltk_is_valid(struct mgmt_ltk_info *key)
@@ -9369,6 +9446,8 @@ static const struct hci_mgmt_handler tizen_mgmt_handlers[] = {
 	{ enable_bt_6lowpan,       MGMT_ENABLE_BT_6LOWPAN_SIZE },
 	{ connect_bt_6lowpan,      MGMT_CONNECT_6LOWPAN_SIZE },
 	{ disconnect_bt_6lowpan,   MGMT_DISCONNECT_6LOWPAN_SIZE },
+	{ read_maximum_le_data_length,
+				   MGMT_LE_READ_MAXIMUM_DATA_LENGTH_SIZE },
 };
 #endif
 
