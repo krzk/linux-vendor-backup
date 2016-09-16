@@ -1248,8 +1248,23 @@ static void l2cap_chan_ready(struct l2cap_chan *chan)
 	 * case of receiving data before the L2CAP info req/rsp
 	 * procedure is complete.
 	 */
+#ifndef TIZEN_BT
 	if (chan->state == BT_CONNECTED)
 		return;
+#else
+	if (chan->state == BT_CONNECTED) {
+		if (chan->psm == L2CAP_PSM_IPSP) {
+			struct l2cap_conn *conn = chan->conn;
+
+			if (conn->hcon->out)
+				return;
+			else if (conn->hcon->type != LE_LINK)
+				return;
+		} else {
+			return;
+		}
+	}
+#endif
 
 	/* This clears all conf flags, including CONF_NOT_COMPLETE */
 	chan->conf_state = 0;
@@ -6796,8 +6811,23 @@ static void l2cap_data_channel(struct l2cap_conn *conn, u16 cid,
 	 * procdure is done simply assume that the channel is supported
 	 * and mark it as ready.
 	 */
+#ifndef TIZEN_BT
 	if (chan->chan_type == L2CAP_CHAN_FIXED)
 		l2cap_chan_ready(chan);
+#else
+	if (chan->chan_type == L2CAP_CHAN_FIXED) {
+		if (chan->psm == L2CAP_PSM_IPSP) {
+			struct l2cap_conn *conn = chan->conn;
+
+			if (conn->hcon->out)
+				l2cap_chan_ready(chan);
+			else if (conn->hcon->type != LE_LINK)
+				l2cap_chan_ready(chan);
+		} else {
+			l2cap_chan_ready(chan);
+		}
+	}
+#endif
 
 	if (chan->state != BT_CONNECTED)
 		goto drop;
