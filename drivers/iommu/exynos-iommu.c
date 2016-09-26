@@ -386,7 +386,9 @@ static irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 	/* SYSMMU is in blocked state when interrupt occurred. */
 	struct sysmmu_drvdata *data = dev_id;
 	enum exynos_sysmmu_inttype itype;
+#ifndef CONFIG_ARM64
 	sysmmu_iova_t addr = -1;
+#endif
 	int ret = -ENOSYS;
 
 	WARN_ON(!is_sysmmu_active(data));
