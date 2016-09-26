@@ -170,7 +170,6 @@ static int max98504_probe(struct max98504_priv *max98504)
 
 	u8 regval;
 	int ret;
-	unsigned int value;
 
 	msg_maxim("\n");
 
@@ -266,9 +265,6 @@ static int max98504_probe(struct max98504_priv *max98504)
 	}
 	#endif
 
-	return ret;
-
-err_access:
 	return ret;
 }
 
