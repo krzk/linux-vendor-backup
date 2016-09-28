@@ -590,10 +590,12 @@ static unsigned int exynos_ss_get_core_power_stat(unsigned cpu)
 	return __raw_readl(S5P_VA_SS_CORE_POWER_STAT + cpu * 4);
 }
 
+#if 0
 static unsigned int exynos_ss_get_core_panic_stat(unsigned cpu)
 {
 	return __raw_readl(S5P_VA_SS_CORE_PANIC_STAT + cpu * 4);
 }
+#endif
 
 static void exynos_ss_set_core_panic_stat(unsigned int val, unsigned cpu)
 {
@@ -990,6 +992,7 @@ static inline void exynos_ss_hook_logbuf(const char *buf, size_t size)
 }
 #endif
 
+#if 0
 static void exynos_ss_dump_one_task_info(struct task_struct *tsk, bool is_main)
 {
 	char state_array[] = {'R', 'S', 'D', 'T', 't', 'Z', 'X', 'x', 'K', 'W'};
@@ -1082,6 +1085,7 @@ static void exynos_ss_dump_task_info(void)
 	}
 	pr_info(" ----------------------------------------------------------------------------------------------------------------------------\n");
 }
+#endif
 
 static int exynos_ss_reboot_handler(struct notifier_block *nb,
 				    unsigned long l, void *p)
