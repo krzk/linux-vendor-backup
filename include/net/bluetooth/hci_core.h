@@ -1502,7 +1502,8 @@ void mgmt_rssi_disable_success(struct sock *sk, struct hci_dev *hdev,
 		void *data, struct hci_cc_rsp_enable_rssi *rp, int success);
 int mgmt_set_rssi_threshold(struct sock *sk, struct hci_dev *hdev,
 		void *data, u16 len);
-void mgmt_rssi_alert_evt(struct hci_dev *hdev, struct sk_buff *skb);
+void mgmt_rssi_alert_evt(struct hci_dev *hdev, u16 conn_handle,
+		s8 alert_type, s8 rssi_dbm);
 void mgmt_raw_rssi_response(struct hci_dev *hdev,
 		struct hci_cc_rp_get_raw_rssi *rp, int success);
 void mgmt_enable_rssi_cc(struct hci_dev *hdev, void *response, u8 status);

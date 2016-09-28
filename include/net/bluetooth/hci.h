@@ -1498,12 +1498,6 @@ struct hci_cc_rsp_enable_rssi {
 	__u8	le_ext_opcode;
 } __packed;
 
-struct hci_ev_vendor_specific_rssi_alert {
-	__le16	conn_handle;
-	__s8	alert_type;
-	__s8	rssi_dbm;
-} __packed;
-
 /*
  * Vendor Specific HCI Command
  * Vendor: Broadcom
@@ -1907,6 +1901,11 @@ struct hci_ev_ext_vendor_specific {
 } __packed;
 
 #define LE_RSSI_LINK_ALERT 0x02
+struct hci_ev_vendor_specific_rssi_alert {
+	__le16	conn_handle;
+	__s8	alert_type;
+	__s8	rssi_dbm;
+} __packed;
 #endif
 
 #define HCI_EV_LE_CONN_COMPLETE		0x01

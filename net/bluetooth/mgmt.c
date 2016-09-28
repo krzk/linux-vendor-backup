@@ -6602,16 +6602,16 @@ unlocked:
 	return err;
 }
 
-void mgmt_rssi_alert_evt(struct hci_dev *hdev, struct sk_buff *skb)
+void mgmt_rssi_alert_evt(struct hci_dev *hdev, u16 conn_handle,
+		s8 alert_type, s8 rssi_dbm)
 {
-	struct hci_ev_vendor_specific_rssi_alert *ev = (void *)skb->data;
 	struct mgmt_ev_vendor_specific_rssi_alert mgmt_ev;
 	struct hci_conn *conn;
 
 	BT_DBG("RSSI alert [%2.2X %2.2X %2.2X]",
-			ev->conn_handle, ev->alert_type, ev->rssi_dbm);
+			conn_handle, alert_type, rssi_dbm);
 
-	conn = hci_conn_hash_lookup_handle(hdev, ev->conn_handle);
+	conn = hci_conn_hash_lookup_handle(hdev, conn_handle);
 
 	if (!conn) {
 		BT_ERR("RSSI alert Error: Device not found for handle");
@@ -6624,8 +6624,8 @@ void mgmt_rssi_alert_evt(struct hci_dev *hdev, struct sk_buff *skb)
 	else
 		mgmt_ev.link_type = 0x00;
 
-	mgmt_ev.alert_type = ev->alert_type;
-	mgmt_ev.rssi_dbm = ev->rssi_dbm;
+	mgmt_ev.alert_type = alert_type;
+	mgmt_ev.rssi_dbm = rssi_dbm;
 
 	mgmt_event(MGMT_EV_RSSI_ALERT, hdev, &mgmt_ev,
 			sizeof(struct mgmt_ev_vendor_specific_rssi_alert),

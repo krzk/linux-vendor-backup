@@ -1450,6 +1450,17 @@ static void hci_cc_get_raw_rssi(struct hci_dev *hdev,
 	mgmt_raw_rssi_response(hdev, rp, rp->status);
 }
 
+static void hci_vendor_ext_rssi_link_alert_evt(struct hci_dev *hdev,
+					       struct sk_buff *skb)
+{
+	struct hci_ev_vendor_specific_rssi_alert *ev = (void *)skb->data;
+
+	BT_DBG("RSSI event LE_RSSI_LINK_ALERT %X", LE_RSSI_LINK_ALERT);
+
+	mgmt_rssi_alert_evt(hdev, ev->conn_handle, ev->alert_type,
+			    ev->rssi_dbm);
+}
+
 static void hci_vendor_specific_group_ext_evt(struct hci_dev *hdev,
 					      struct sk_buff *skb)
 {
@@ -1464,9 +1475,7 @@ static void hci_vendor_specific_group_ext_evt(struct hci_dev *hdev,
 
 	switch (event_le_ext_sub_code) {
 	case LE_RSSI_LINK_ALERT:
-		BT_DBG("RSSI event LE_RSSI_LINK_ALERT %X",
-		       LE_RSSI_LINK_ALERT);
-		mgmt_rssi_alert_evt(hdev, skb);
+		hci_vendor_ext_rssi_link_alert_evt(hdev, skb);
 		break;
 
 	default:
