@@ -6805,6 +6805,41 @@ void mgmt_multi_adv_state_change_evt(struct hci_dev *hdev, struct sk_buff *skb)
 	mgmt_event(MGMT_EV_MULTI_ADV_STATE_CHANGED, hdev, &mgmt_ev,
 			sizeof(struct mgmt_ev_vendor_specific_multi_adv_state_changed), NULL);
 }
+
+static int enable_bt_6lowpan(struct sock *sk, struct hci_dev *hdev,
+		void *data, u16 len)
+{
+	int err;
+	struct mgmt_cp_enable_6lowpan *cp = data;
+
+	BT_DBG("%s", hdev->name);
+
+	hci_dev_lock(hdev);
+
+	if (!hdev_is_powered(hdev)) {
+		err = cmd_status(sk, hdev->id, MGMT_OP_ENABLE_6LOWPAN,
+				      MGMT_STATUS_NOT_POWERED);
+		goto unlocked;
+	}
+
+	if (!lmp_le_capable(hdev)) {
+		err = cmd_status(sk, hdev->id, MGMT_OP_ENABLE_6LOWPAN,
+				      MGMT_STATUS_NOT_SUPPORTED);
+		goto unlocked;
+	}
+
+	if (cp->enable_6lowpan)
+		bt_6lowpan_enable();
+	else
+		bt_6lowpan_disable();
+
+	err = cmd_complete(sk, hdev->id, MGMT_OP_ENABLE_6LOWPAN,
+				MGMT_STATUS_SUCCESS, NULL, 0);
+unlocked:
+	hci_dev_unlock(hdev);
+	return err;
+}
+
 /* END TIZEN_Bluetooth */
 #endif
 
@@ -7910,7 +7945,8 @@ static const struct mgmt_handler tizen_mgmt_handlers[] = {
 	{ set_manufacturer_data,   false, MGMT_SET_MANUFACTURER_DATA_SIZE},
 	{ le_set_scan_params,      false, MGMT_LE_SET_SCAN_PARAMS_SIZE },
 	{ set_voice_setting,       false, MGMT_SET_VOICE_SETTING_SIZE},
-	{ get_adv_tx_power,       false, MGMT_GET_ADV_TX_POWER_SIZE}
+	{ get_adv_tx_power,       false, MGMT_GET_ADV_TX_POWER_SIZE},
+	{ enable_bt_6lowpan,       false, MGMT_ENABLE_BT_6LOWPAN_SIZE },
 };
 #endif
 

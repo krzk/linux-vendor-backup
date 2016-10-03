@@ -973,5 +973,14 @@ void l2cap_unregister_user(struct l2cap_conn *conn, struct l2cap_user *user);
 #ifdef CONFIG_TIZEN_WIP
 int l2cap_update_connection_param(struct l2cap_conn *conn, u16 min, u16 max,
 				  u16 latency, u16 to_multiplier);
+#ifdef CONFIG_BT_6LOWPAN
+/* IPSP : initialize/deinitialize 6lowpan */
+void bt_6lowpan_enable(void);
+void bt_6lowpan_disable(void);
+#else
+static inline void bt_6lowpan_enable(void) { }
+static inline void bt_6lowpan_disable(void) { }
 #endif
+#endif
+
 #endif /* __L2CAP_H */
