@@ -1379,14 +1379,27 @@ static void hci_cc_le_write_def_data_len(struct hci_dev *hdev,
 	BT_DBG("%s status 0x%2.2x", hdev->name, status);
 
 	if (status)
+#ifndef CONFIG_TIZEN_WIP
 		return;
+#else
+		goto unblock;
+#endif
 
 	sent = hci_sent_cmd_data(hdev, HCI_OP_LE_WRITE_DEF_DATA_LEN);
 	if (!sent)
+#ifndef CONFIG_TIZEN_WIP
 		return;
+#else
+		goto unblock;
+#endif
 
 	hdev->le_def_tx_len = le16_to_cpu(sent->tx_len);
 	hdev->le_def_tx_time = le16_to_cpu(sent->tx_time);
+
+#ifdef CONFIG_TIZEN_WIP
+unblock:
+	mgmt_le_write_host_suggested_data_length_complete(hdev, status);
+#endif
 }
 
 static void hci_cc_le_read_max_data_len(struct hci_dev *hdev,
