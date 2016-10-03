@@ -1574,6 +1574,8 @@ int mgmt_le_conn_update_failed(struct hci_dev *hdev, bdaddr_t *bdaddr,
 		u8 link_type, u8 addr_type, u8 status);
 void mgmt_6lowpan_conn_changed(struct hci_dev *hdev, char if_name[16],
 		bdaddr_t *bdaddr, u8 addr_type, bool connected);
+void mgmt_le_read_maximum_data_length_complete(struct hci_dev *hdev,
+		u8 status);
 #endif
 
 u8 hci_le_conn_update(struct hci_conn *conn, u16 min, u16 max, u16 latency,

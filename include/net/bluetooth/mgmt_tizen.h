@@ -183,6 +183,15 @@ struct mgmt_cp_disconnect_6lowpan {
 } __packed;
 #define MGMT_DISCONNECT_6LOWPAN_SIZE		7
 
+#define MGMT_OP_LE_READ_MAXIMUM_DATA_LENGTH	(TIZEN_OP_CODE_BASE + 0x15)
+struct mgmt_rp_le_read_maximum_data_length {
+	__le16	max_tx_octets;
+	__le16	max_tx_time;
+	__le16	max_rx_octets;
+	__le16	max_rx_time;
+} __packed;
+#define MGMT_LE_READ_MAXIMUM_DATA_LENGTH_SIZE	0
+
 /* BEGIN TIZEN_Bluetooth :: name update changes */
 #define MGMT_EV_DEVICE_NAME_UPDATE		(TIZEN_EV_BASE + 0x01)
 struct mgmt_ev_device_name_update {
