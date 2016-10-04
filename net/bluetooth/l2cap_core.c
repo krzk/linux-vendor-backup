@@ -1487,6 +1487,24 @@ static void l2cap_conn_start(struct l2cap_conn *conn)
 	mutex_unlock(&conn->chan_lock);
 }
 
+#ifdef TIZEN_BT
+int l2cap_update_connection_param(struct l2cap_conn *conn, u16 min, u16 max,
+				  u16 latency, u16 to_multiplier)
+{
+	struct l2cap_conn_param_update_req req;
+
+	req.min = cpu_to_le16(min);
+	req.max = cpu_to_le16(max);
+	req.latency = cpu_to_le16(latency);
+	req.to_multiplier = cpu_to_le16(to_multiplier);
+
+	l2cap_send_cmd(conn, l2cap_get_ident(conn), L2CAP_CONN_PARAM_UPDATE_REQ,
+		       sizeof(req), &req);
+
+	return 0;
+}
+#endif
+
 static void l2cap_le_conn_ready(struct l2cap_conn *conn)
 {
 	struct hci_conn *hcon = conn->hcon;
@@ -1500,6 +1518,7 @@ static void l2cap_le_conn_ready(struct l2cap_conn *conn)
 	if (hcon->out)
 		smp_conn_security(hcon, hcon->pending_sec_level);
 
+#ifndef TIZEN_BT
 	/* For LE slave connections, make sure the connection interval
 	 * is in the range of the minium and maximum interval that has
 	 * been configured for this connection. If not, then trigger
@@ -1518,6 +1537,32 @@ static void l2cap_le_conn_ready(struct l2cap_conn *conn)
 		l2cap_send_cmd(conn, l2cap_get_ident(conn),
 			       L2CAP_CONN_PARAM_UPDATE_REQ, sizeof(req), &req);
 	}
+#else
+	/* Too small supervision timeout causes sudden link loss, when remote
+	 * device has multiple links and it cannot manage those properly.
+	 * To protect such a case, it needs to widen supervision timeout.
+	 */
+	if (hcon->role == HCI_ROLE_SLAVE &&
+	    hcon->le_supv_timeout < hdev->le_supv_timeout) {
+		if (hdev->le_features[0] & HCI_LE_CONN_PARAM_REQ_PROC &&
+		    hcon->features[0][0] & HCI_LE_CONN_PARAM_REQ_PROC) {
+			BT_DBG("use hci_le_conn_update");
+			hci_le_conn_update(hcon,
+					hcon->le_conn_min_interval,
+					hcon->le_conn_max_interval,
+					hcon->le_conn_latency,
+					hdev->le_supv_timeout);
+		} else {
+			BT_DBG("use l2cap conn_update");
+			l2cap_update_connection_param(conn,
+					hcon->le_conn_min_interval,
+					hcon->le_conn_max_interval,
+					hcon->le_conn_latency,
+					hdev->le_supv_timeout);
+		}
+	}
+
+#endif
 }
 
 static void l2cap_conn_ready(struct l2cap_conn *conn)
