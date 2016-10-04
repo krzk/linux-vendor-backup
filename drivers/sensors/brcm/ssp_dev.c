@@ -491,6 +491,9 @@ static int ssp_suspend(struct device *dev)
 	struct spi_device *spi = to_spi_device(dev);
 	struct ssp_data *data = spi_get_drvdata(spi);
 
+	if (data->uSensorState == NORMAL_SENSOR_STATE_K)
+		return 0;
+
 	func_dbg();
 
 	if (SUCCESS != ssp_send_cmd(data, MSG2SSP_AP_STATUS_SUSPEND, 0))
@@ -510,6 +513,9 @@ static int ssp_resume(struct device *dev)
 {
 	struct spi_device *spi = to_spi_device(dev);
 	struct ssp_data *data = spi_get_drvdata(spi);
+
+	if (data->uSensorState == NORMAL_SENSOR_STATE_K)
+		return 0;
 
 	func_dbg();
 	enable_debug_timer(data);
