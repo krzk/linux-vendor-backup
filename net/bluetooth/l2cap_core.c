@@ -6919,8 +6919,23 @@ static void l2cap_data_channel(struct l2cap_conn *conn, u16 cid,
 	 * procdure is done simply assume that the channel is supported
 	 * and mark it as ready.
 	 */
+#ifdef CONFIG_TIZEN_WIP
+	if (chan->chan_type == L2CAP_CHAN_FIXED) {
+		if (chan->psm == L2CAP_PSM_IPSP) {
+			struct l2cap_conn *conn = chan->conn;
+
+			if (conn->hcon->out)
+				l2cap_chan_ready(chan);
+			else if (conn->hcon->type != LE_LINK)
+				l2cap_chan_ready(chan);
+		} else {
+			l2cap_chan_ready(chan);
+		}
+	}
+#else
 	if (chan->chan_type == L2CAP_CHAN_FIXED)
 		l2cap_chan_ready(chan);
+#endif
 
 	if (chan->state != BT_CONNECTED)
 		goto drop;
