@@ -62,6 +62,7 @@ License: GPL-2.0
 Summary: Linux support kernel map and etc for other packages
 Group: System/Kernel
 Provides: kernel-devel-tizen-dev
+Provides: kernel-devel-tizen
 Provides: %{variant}-kernel-devel = %{fullVersion}
 Provides: %{variant}-kernel-devel-uname-r = %{fullVersion}
 
@@ -169,6 +170,8 @@ rm -rf %{_builddir}/boot
 mv %{_builddir}/lib %{buildroot}/
 mv %{_builddir}/usr %{buildroot}/
 mv %{_builddir}/kernel-devel-%{variant} %{buildroot}/boot/kernel/devel/
+
+ln -s kernel-devel-%{variant} %{buildroot}/boot/kernel/devel/tizen-devel
 
 %clean
 rm -rf %{buildroot}
