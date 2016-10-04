@@ -75,6 +75,7 @@ License: GPL-2.0
 Summary: Linux support kernel map and etc for other package
 Group: System/Kernel
 Provides: kernel-devel-tizen-dev
+Provides: kernel-devel-tizen
 
 %description -n kernel-devel-%{KERNEL_VERSION}-%{CHIPSET}
 This package provides kernel map and etc information.
@@ -154,6 +155,8 @@ mv %_builddir/config.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/config
 mv %_builddir/vmlinux.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/vmlinux
 
 mv %_builddir/kernel-devel-%{MODEL} %{buildroot}/boot/kernel/devel/kernel-devel-%{MODEL}
+
+ln -s kernel-devel-%{MODEL} %{buildroot}/boot/kernel/devel/tizen-devel
 
 find %{buildroot}/boot/kernel/ -name "*.h" -exec chmod 644 {} \;
 
