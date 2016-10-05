@@ -1068,7 +1068,6 @@ static struct drm_exynos_ipp_mem_node
 	void *addr;
 	unsigned long size;
 	int protect = c_node->property.protect, i;
-	int valid_cnt = 0;
 
 	DRM_DEBUG_KMS("%s\n", __func__);
 
@@ -1097,8 +1096,6 @@ static struct drm_exynos_ipp_mem_node
 
 		/* get dma address by handle */
 		if (qbuf->handle[i]) {
-			valid_cnt++;
-
 			if (protect)
 				addr = (void *) exynos_drm_gem_get_phys_addr(
 					drm_dev, qbuf->handle[i], file);
@@ -1128,11 +1125,6 @@ static struct drm_exynos_ipp_mem_node
 				(int)buf_info.handles[i],
 				(int)buf_info.size[i]);
 		}
-	}
-
-	if (!valid_cnt) {
-		DRM_ERROR("invalid gem handle.\n");
-		goto err_clear;
 	}
 
 	m_node->filp = file;
@@ -1443,8 +1435,7 @@ int exynos_drm_ipp_queue_buf(struct drm_device *drm_dev, void *data,
 		m_node = ipp_get_mem_node(drm_dev, file, c_node, qbuf);
 		if (IS_ERR(m_node)) {
 			DRM_ERROR("failed to get m_node.\n");
-			ret = PTR_ERR(m_node);
-			goto err_clean_node;
+			return PTR_ERR(m_node);
 		}
 
 		/*
