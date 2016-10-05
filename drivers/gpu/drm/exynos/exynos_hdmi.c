@@ -1894,26 +1894,6 @@ static void hdmiphy_conf_reset(struct hdmi_context *hdata)
 	usleep_range(10000, 12000);
 }
 
-static void hdmiphy_poweron(struct hdmi_context *hdata)
-{
-	if (hdata->type == HDMI_TYPE13)
-		return;
-
-	DRM_DEBUG_KMS("\n");
-
-	/* For PHY Mode Setting */
-	hdmiphy_reg_writeb(hdata, HDMIPHY_MODE_SET_DONE,
-				HDMI_PHY_ENABLE_MODE_SET);
-	/* Phy Power On */
-	hdmiphy_reg_writeb(hdata, HDMIPHY_POWER,
-				HDMI_PHY_POWER_ON);
-	/* For PHY Mode Setting */
-	hdmiphy_reg_writeb(hdata, HDMIPHY_MODE_SET_DONE,
-				HDMI_PHY_DISABLE_MODE_SET);
-	/* PHY SW Reset */
-	hdmiphy_conf_reset(hdata);
-}
-
 static void hdmiphy_poweroff(struct hdmi_context *hdata)
 {
 	if (!hdata->phy_enabled)
