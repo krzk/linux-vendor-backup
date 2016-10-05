@@ -1057,6 +1057,69 @@ static int ipp_set_mem_node(struct exynos_drm_ippdrv *ippdrv,
 	return ret;
 }
 
+static int ipp_validate_mem_node(struct drm_device *drm_dev,
+				 struct drm_exynos_ipp_mem_node *m_node,
+				 struct drm_exynos_ipp_cmd_node *c_node)
+{
+	struct drm_exynos_ipp_config *ipp_cfg;
+	unsigned int num_plane;
+	unsigned long size, buf_size = 0, plane_size, img_size = 0;
+	unsigned int bpp, width, height;
+	int i;
+
+	ipp_cfg = &c_node->property.config[m_node->ops_id];
+	num_plane = drm_format_num_planes(ipp_cfg->fmt);
+
+	/**
+	 * This is a rather simplified validation of a memory node.
+	 * It basically verifies provided gem object handles
+	 * and the buffer sizes with respect to current configuration.
+	 * This is not the best that can be done
+	 * but it seems more than enough
+	 */
+	for (i = 0; i < num_plane; ++i) {
+		width = ipp_cfg->sz.hsize;
+		height = ipp_cfg->sz.vsize;
+		bpp = drm_format_plane_cpp(ipp_cfg->fmt, i);
+
+		/*
+		 * The result of drm_format_plane_cpp() for chroma planes must
+		 * be used with drm_format_xxxx_chroma_subsampling() for
+		 * correct result.
+		 */
+		if (i > 0) {
+			width /= drm_format_horz_chroma_subsampling(
+								ipp_cfg->fmt);
+			height /= drm_format_vert_chroma_subsampling(
+								ipp_cfg->fmt);
+		}
+		plane_size = width * height * bpp;
+		img_size += plane_size;
+
+		if (m_node->buf_info.handles[i]) {
+			size = exynos_drm_gem_get_size(drm_dev,
+					m_node->buf_info.handles[i],
+					m_node->filp);
+			if (plane_size > size) {
+				DRM_ERROR(
+					"buffer %d is smaller than required\n",
+					i);
+				return -EINVAL;
+			}
+
+			buf_size += size;
+		}
+	}
+
+	if (buf_size < img_size) {
+		DRM_ERROR("size of buffers(%lu) is smaller than image(%lu)\n",
+			buf_size, img_size);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int ipp_put_mem_node(struct drm_device *drm_dev,
 		struct drm_exynos_ipp_cmd_node *c_node,
 		struct drm_exynos_ipp_mem_node *m_node)
@@ -1170,6 +1233,12 @@ static struct drm_exynos_ipp_mem_node
 	m_node->filp = file;
 	m_node->buf_info = buf_info;
 	mutex_lock(&c_node->mem_lock);
+	if (ipp_validate_mem_node(drm_dev, m_node, c_node)) {
+		DRM_ERROR("invalid gem handle.\n");
+		ipp_put_mem_node(drm_dev, c_node, m_node);
+		mutex_unlock(&c_node->mem_lock);
+		return ERR_PTR(-EFAULT);
+	}
 	list_add_tail(&m_node->list, &c_node->mem_list[qbuf->ops_id]);
 	mutex_unlock(&c_node->mem_lock);
 
