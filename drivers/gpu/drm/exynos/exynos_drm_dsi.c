@@ -241,7 +241,7 @@ struct exynos_dsi_transfer {
 #define DSIM_STATE_VIDOUT_AVAILABLE	BIT(3)
 
 struct exynos_dsi_driver_data {
-	unsigned int *reg_ofs;
+	const unsigned int *reg_ofs;
 	unsigned int plltmr_reg;
 	unsigned int has_freqband:1;
 	unsigned int has_clklane_stop:1;
@@ -249,7 +249,7 @@ struct exynos_dsi_driver_data {
 	unsigned int max_freq;
 	unsigned int wait_for_reset;
 	unsigned int num_bits_resol;
-	unsigned int *reg_values;
+	const unsigned int *reg_values;
 };
 
 struct exynos_dsi {
@@ -282,7 +282,7 @@ struct exynos_dsi {
 	spinlock_t transfer_lock; /* protects transfer_list */
 	struct list_head transfer_list;
 
-	struct exynos_dsi_driver_data *driver_data;
+	const struct exynos_dsi_driver_data *driver_data;
 	struct device_node *bridge_node;
 };
 
@@ -330,7 +330,7 @@ static inline u32 exynos_dsi_read(struct exynos_dsi *dsi, enum reg_idx idx)
 	return readl(dsi->reg_base + dsi->driver_data->reg_ofs[idx]);
 }
 
-static unsigned int exynos_reg_ofs[] = {
+static const unsigned int exynos_reg_ofs[] = {
 	[DSIM_STATUS_REG] =  0x00,
 	[DSIM_SWRST_REG] =  0x04,
 	[DSIM_CLKCTRL_REG] =  0x08,
@@ -354,7 +354,7 @@ static unsigned int exynos_reg_ofs[] = {
 	[DSIM_PHYTIMING2_REG] =  0x6c,
 };
 
-static unsigned int exynos5433_reg_ofs[] = {
+static const unsigned int exynos5433_reg_ofs[] = {
 	[DSIM_STATUS_REG] = 0x04,
 	[DSIM_SWRST_REG] = 0x0C,
 	[DSIM_CLKCTRL_REG] = 0x10,
@@ -396,7 +396,7 @@ enum reg_value_idx {
 	PHYTIMING_HS_TRAIL
 };
 
-static unsigned int reg_values[] = {
+static const unsigned int reg_values[] = {
 	[RESET_TYPE] = DSIM_SWRST,
 	[PLL_TIMER] = 500,
 	[STOP_STATE_CNT] = 0xf,
@@ -414,7 +414,7 @@ static unsigned int reg_values[] = {
 	[PHYTIMING_HS_TRAIL] = DSIM_PHYTIMING2_HS_TRAIL(0x0b),
 };
 
-static unsigned int exynos5422_reg_values[] = {
+static const unsigned int exynos5422_reg_values[] = {
 	[RESET_TYPE] = DSIM_SWRST,
 	[PLL_TIMER] = 500,
 	[STOP_STATE_CNT] = 0xf,
@@ -432,7 +432,7 @@ static unsigned int exynos5422_reg_values[] = {
 	[PHYTIMING_HS_TRAIL] = DSIM_PHYTIMING2_HS_TRAIL(0x0d),
 };
 
-static unsigned int exynos5433_reg_values[] = {
+static const unsigned int exynos5433_reg_values[] = {
 	[RESET_TYPE] = DSIM_FUNCRST,
 	[PLL_TIMER] = 22200,
 	[STOP_STATE_CNT] = 0xa,
@@ -450,7 +450,7 @@ static unsigned int exynos5433_reg_values[] = {
 	[PHYTIMING_HS_TRAIL] = DSIM_PHYTIMING2_HS_TRAIL(0x0c),
 };
 
-static struct exynos_dsi_driver_data exynos3_dsi_driver_data = {
+static const struct exynos_dsi_driver_data exynos3_dsi_driver_data = {
 	.reg_ofs = exynos_reg_ofs,
 	.plltmr_reg = 0x50,
 	.has_freqband = 1,
@@ -462,7 +462,7 @@ static struct exynos_dsi_driver_data exynos3_dsi_driver_data = {
 	.reg_values = reg_values,
 };
 
-static struct exynos_dsi_driver_data exynos4_dsi_driver_data = {
+static const struct exynos_dsi_driver_data exynos4_dsi_driver_data = {
 	.reg_ofs = exynos_reg_ofs,
 	.plltmr_reg = 0x50,
 	.has_freqband = 1,
@@ -474,7 +474,7 @@ static struct exynos_dsi_driver_data exynos4_dsi_driver_data = {
 	.reg_values = reg_values,
 };
 
-static struct exynos_dsi_driver_data exynos4415_dsi_driver_data = {
+static const struct exynos_dsi_driver_data exynos4415_dsi_driver_data = {
 	.reg_ofs = exynos_reg_ofs,
 	.plltmr_reg = 0x58,
 	.has_clklane_stop = 1,
@@ -485,7 +485,7 @@ static struct exynos_dsi_driver_data exynos4415_dsi_driver_data = {
 	.reg_values = reg_values,
 };
 
-static struct exynos_dsi_driver_data exynos5_dsi_driver_data = {
+static const struct exynos_dsi_driver_data exynos5_dsi_driver_data = {
 	.reg_ofs = exynos_reg_ofs,
 	.plltmr_reg = 0x58,
 	.num_clks = 2,
@@ -495,7 +495,7 @@ static struct exynos_dsi_driver_data exynos5_dsi_driver_data = {
 	.reg_values = reg_values,
 };
 
-static struct exynos_dsi_driver_data exynos5433_dsi_driver_data = {
+static const struct exynos_dsi_driver_data exynos5433_dsi_driver_data = {
 	.reg_ofs = exynos5433_reg_ofs,
 	.plltmr_reg = 0xa0,
 	.has_clklane_stop = 1,
@@ -506,7 +506,7 @@ static struct exynos_dsi_driver_data exynos5433_dsi_driver_data = {
 	.reg_values = exynos5433_reg_values,
 };
 
-static struct exynos_dsi_driver_data exynos5422_dsi_driver_data = {
+static const struct exynos_dsi_driver_data exynos5422_dsi_driver_data = {
 	.reg_ofs = exynos5433_reg_ofs,
 	.plltmr_reg = 0xa0,
 	.has_clklane_stop = 1,
@@ -517,7 +517,7 @@ static struct exynos_dsi_driver_data exynos5422_dsi_driver_data = {
 	.reg_values = exynos5422_reg_values,
 };
 
-static struct of_device_id exynos_dsi_of_match[] = {
+static const struct of_device_id exynos_dsi_of_match[] = {
 	{ .compatible = "samsung,exynos3250-mipi-dsi",
 	  .data = &exynos3_dsi_driver_data },
 	{ .compatible = "samsung,exynos4210-mipi-dsi",
@@ -533,13 +533,13 @@ static struct of_device_id exynos_dsi_of_match[] = {
 	{ }
 };
 
-static inline struct exynos_dsi_driver_data *exynos_dsi_get_driver_data(
+static inline const struct exynos_dsi_driver_data *exynos_dsi_get_driver_data(
 						struct platform_device *pdev)
 {
 	const struct of_device_id *of_id =
 			of_match_device(exynos_dsi_of_match, &pdev->dev);
 
-	return (struct exynos_dsi_driver_data *)of_id->data;
+	return (const struct exynos_dsi_driver_data *)of_id->data;
 }
 
 static void exynos_dsi_wait_for_reset(struct exynos_dsi *dsi)
@@ -565,7 +565,7 @@ static void exynos_dsi_reset(struct exynos_dsi *dsi)
 static unsigned long exynos_dsi_pll_find_pms(struct exynos_dsi *dsi,
 		unsigned long fin, unsigned long fout, u8 *p, u16 *m, u8 *s)
 {
-	struct exynos_dsi_driver_data *driver_data = dsi->driver_data;
+	const struct exynos_dsi_driver_data *driver_data = dsi->driver_data;
 	unsigned long best_freq = 0;
 	u32 min_delta = 0xffffffff;
 	u8 p_min, p_max;
@@ -619,7 +619,7 @@ static unsigned long exynos_dsi_pll_find_pms(struct exynos_dsi *dsi,
 static unsigned long exynos_dsi_set_pll(struct exynos_dsi *dsi,
 					unsigned long freq)
 {
-	struct exynos_dsi_driver_data *driver_data = dsi->driver_data;
+	const struct exynos_dsi_driver_data *driver_data = dsi->driver_data;
 	unsigned long fin, fout;
 	int timeout;
 	u8 p, s;
@@ -713,8 +713,8 @@ static int exynos_dsi_enable_clock(struct exynos_dsi *dsi)
 
 static void exynos_dsi_set_phy_ctrl(struct exynos_dsi *dsi)
 {
-	struct exynos_dsi_driver_data *driver_data = dsi->driver_data;
-	unsigned int *reg_values = driver_data->reg_values;
+	const struct exynos_dsi_driver_data *driver_data = dsi->driver_data;
+	const unsigned int *reg_values = driver_data->reg_values;
 	u32 reg;
 
 	if (driver_data->has_freqband)
@@ -789,7 +789,7 @@ static void exynos_dsi_enable_lane(struct exynos_dsi *dsi, u32 lane)
 
 static int exynos_dsi_init_link(struct exynos_dsi *dsi)
 {
-	struct exynos_dsi_driver_data *driver_data = dsi->driver_data;
+	const struct exynos_dsi_driver_data *driver_data = dsi->driver_data;
 	int timeout;
 	u32 reg;
 	u32 lanes_mask;
@@ -1333,7 +1333,7 @@ static void exynos_dsi_disable_irq(struct exynos_dsi *dsi)
 
 static int exynos_dsi_init(struct exynos_dsi *dsi)
 {
-	struct exynos_dsi_driver_data *driver_data = dsi->driver_data;
+	const struct exynos_dsi_driver_data *driver_data = dsi->driver_data;
 
 	exynos_dsi_reset(dsi);
 	exynos_dsi_enable_irq(dsi);
@@ -1494,7 +1494,7 @@ static const struct mipi_dsi_host_ops exynos_dsi_ops = {
 
 static int exynos_dsi_poweron(struct exynos_dsi *dsi)
 {
-	struct exynos_dsi_driver_data *driver_data = dsi->driver_data;
+	const struct exynos_dsi_driver_data *driver_data = dsi->driver_data;
 	int ret, i;
 
 	ret = pm_runtime_get_sync(dsi->dev);
@@ -1533,7 +1533,7 @@ err_pm:
 
 static void exynos_dsi_poweroff(struct exynos_dsi *dsi)
 {
-	struct exynos_dsi_driver_data *driver_data = dsi->driver_data;
+	const struct exynos_dsi_driver_data *driver_data = dsi->driver_data;
 	int ret, i;
 
 	usleep_range(10000, 20000);
