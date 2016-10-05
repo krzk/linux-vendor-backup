@@ -1057,91 +1057,6 @@ static int ipp_set_mem_node(struct exynos_drm_ippdrv *ippdrv,
 	return ret;
 }
 
-static struct drm_exynos_ipp_mem_node
-		*ipp_get_mem_node(struct drm_device *drm_dev,
-		struct drm_file *file,
-		struct drm_exynos_ipp_cmd_node *c_node,
-		struct drm_exynos_ipp_queue_buf *qbuf)
-{
-	struct drm_exynos_ipp_mem_node *m_node;
-	struct drm_exynos_ipp_buf_info buf_info;
-	void *addr;
-	unsigned long size;
-	int protect = c_node->property.protect, i;
-
-	DRM_DEBUG_KMS("%s\n", __func__);
-
-	m_node = kzalloc(sizeof(*m_node), GFP_KERNEL);
-	if (!m_node) {
-		DRM_ERROR("failed to allocate queue node.\n");
-		goto err_unlock;
-	}
-
-	/* clear base address for error handling */
-	memset(&buf_info, 0x0, sizeof(buf_info));
-
-	/* operations, buffer id */
-	m_node->ops_id = qbuf->ops_id;
-	m_node->prop_id = qbuf->prop_id;
-	m_node->buf_id = qbuf->buf_id;
-
-	DRM_DEBUG_KMS("%s:m_node[0x%x]ops_id[%d]\n", __func__,
-		(int)m_node, qbuf->ops_id);
-	DRM_DEBUG_KMS("%s:prop_id[%d]buf_id[%d]\n", __func__,
-		qbuf->prop_id, m_node->buf_id);
-
-	for_each_ipp_planar(i) {
-		DRM_DEBUG_KMS("%s:i[%d]handle[0x%x]\n", __func__,
-			i, qbuf->handle[i]);
-
-		/* get dma address by handle */
-		if (qbuf->handle[i]) {
-			if (protect)
-				addr = (void *) exynos_drm_gem_get_phys_addr(
-					drm_dev, qbuf->handle[i], file);
-			else
-				addr = exynos_drm_gem_get_dma_addr(drm_dev,
-						qbuf->handle[i], file);
-
-			if (IS_ERR_OR_NULL(addr)) {
-				DRM_ERROR("protect[%d]:failed to get addr.\n",
-					protect);
-				goto err_clear;
-			}
-
-			size = exynos_drm_gem_get_size(drm_dev,
-						qbuf->handle[i], file);
-			if (!size) {
-				DRM_ERROR("failed to get size.\n");
-				goto err_clear;
-			}
-
-			buf_info.handles[i] = qbuf->handle[i];
-			buf_info.base[i] = protect ?
-				(dma_addr_t) addr : *(dma_addr_t *) addr;
-			buf_info.size[i] = (uint64_t) size;
-			DRM_DEBUG_KMS("%s:i[%d]base[0x%x]hd[0x%x]sz[%d]\n",
-				__func__, i, buf_info.base[i],
-				(int)buf_info.handles[i],
-				(int)buf_info.size[i]);
-		}
-	}
-
-	m_node->filp = file;
-	m_node->buf_info = buf_info;
-	mutex_lock(&c_node->mem_lock);
-	list_add_tail(&m_node->list, &c_node->mem_list[qbuf->ops_id]);
-	mutex_unlock(&c_node->mem_lock);
-
-	return m_node;
-
-err_clear:
-	kfree(m_node);
-err_unlock:
-	mutex_unlock(&c_node->mem_lock);
-	return ERR_PTR(-EFAULT);
-}
-
 static int ipp_put_mem_node(struct drm_device *drm_dev,
 		struct drm_exynos_ipp_cmd_node *c_node,
 		struct drm_exynos_ipp_mem_node *m_node)
@@ -1177,6 +1092,88 @@ static int ipp_put_mem_node(struct drm_device *drm_dev,
 	kfree(m_node);
 
 	return 0;
+}
+
+static struct drm_exynos_ipp_mem_node
+		*ipp_get_mem_node(struct drm_device *drm_dev,
+		struct drm_file *file,
+		struct drm_exynos_ipp_cmd_node *c_node,
+		struct drm_exynos_ipp_queue_buf *qbuf)
+{
+	struct drm_exynos_ipp_mem_node *m_node;
+	struct drm_exynos_ipp_buf_info buf_info;
+	void *addr;
+	unsigned long size;
+	int protect = c_node->property.protect, i;
+
+	DRM_DEBUG_KMS("%s\n", __func__);
+
+	m_node = kzalloc(sizeof(*m_node), GFP_KERNEL);
+	if (!m_node) {
+		DRM_ERROR("failed to allocate queue node.\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	/* clear base address for error handling */
+	memset(&buf_info, 0x0, sizeof(buf_info));
+
+	/* operations, buffer id */
+	m_node->ops_id = qbuf->ops_id;
+	m_node->prop_id = qbuf->prop_id;
+	m_node->buf_id = qbuf->buf_id;
+	INIT_LIST_HEAD(&m_node->list);
+
+	DRM_DEBUG_KMS("%s:m_node[0x%x]ops_id[%d]\n", __func__,
+		(int)m_node, qbuf->ops_id);
+	DRM_DEBUG_KMS("%s:prop_id[%d]buf_id[%d]\n", __func__,
+		qbuf->prop_id, m_node->buf_id);
+
+	for_each_ipp_planar(i) {
+		DRM_DEBUG_KMS("%s:i[%d]handle[0x%x]\n", __func__,
+			i, qbuf->handle[i]);
+
+		/* get dma address by handle */
+		if (qbuf->handle[i]) {
+			if (protect)
+				addr = (void *) exynos_drm_gem_get_phys_addr(
+					drm_dev, qbuf->handle[i], file);
+			else
+				addr = exynos_drm_gem_get_dma_addr(drm_dev,
+						qbuf->handle[i], file);
+
+			if (IS_ERR_OR_NULL(addr)) {
+				DRM_ERROR("protect[%d]:failed to get addr.\n",
+					protect);
+				ipp_put_mem_node(drm_dev, c_node, m_node);
+				return ERR_PTR(-EFAULT);
+			}
+
+			size = exynos_drm_gem_get_size(drm_dev,
+						qbuf->handle[i], file);
+			if (!size) {
+				DRM_ERROR("failed to get size.\n");
+				ipp_put_mem_node(drm_dev, c_node, m_node);
+				return ERR_PTR(-EINVAL);
+			}
+
+			buf_info.handles[i] = qbuf->handle[i];
+			buf_info.base[i] = protect ?
+				(dma_addr_t) addr : *(dma_addr_t *) addr;
+			buf_info.size[i] = (uint64_t) size;
+			DRM_DEBUG_KMS("%s:i[%d]base[0x%x]hd[0x%x]sz[%d]\n",
+				__func__, i, buf_info.base[i],
+				(int)buf_info.handles[i],
+				(int)buf_info.size[i]);
+		}
+	}
+
+	m_node->filp = file;
+	m_node->buf_info = buf_info;
+	mutex_lock(&c_node->mem_lock);
+	list_add_tail(&m_node->list, &c_node->mem_list[qbuf->ops_id]);
+	mutex_unlock(&c_node->mem_lock);
+
+	return m_node;
 }
 
 static void ipp_free_event(struct drm_pending_event *event)
