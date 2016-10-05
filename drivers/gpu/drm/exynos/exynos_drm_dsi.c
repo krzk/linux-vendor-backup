@@ -241,7 +241,7 @@ struct exynos_dsi_transfer {
 #define DSIM_STATE_VIDOUT_AVAILABLE	BIT(3)
 
 struct exynos_dsi_driver_data {
-	unsigned int *regs;
+	unsigned int *reg_ofs;
 	unsigned int plltmr_reg;
 	unsigned int has_freqband:1;
 	unsigned int has_clklane_stop:1;
@@ -249,7 +249,7 @@ struct exynos_dsi_driver_data {
 	unsigned int max_freq;
 	unsigned int wait_for_reset;
 	unsigned int num_bits_resol;
-	unsigned int *values;
+	unsigned int *reg_values;
 };
 
 struct exynos_dsi {
@@ -294,7 +294,7 @@ static inline struct exynos_dsi *display_to_dsi(struct exynos_drm_display *d)
 	return container_of(d, struct exynos_dsi, display);
 }
 
-enum regs {
+enum reg_idx {
 	DSIM_STATUS_REG,	/* Status register */
 	DSIM_SWRST_REG,		/* Software reset register */
 	DSIM_CLKCTRL_REG,	/* Clock control register */
@@ -319,18 +319,18 @@ enum regs {
 	NUM_REGS
 };
 
-static inline void exynos_dsi_write(struct exynos_dsi *dsi, enum regs idx,
+static inline void exynos_dsi_write(struct exynos_dsi *dsi, enum reg_idx idx,
 				    u32 val)
 {
-	writel(val, dsi->reg_base + dsi->driver_data->regs[idx]);
+	writel(val, dsi->reg_base + dsi->driver_data->reg_ofs[idx]);
 }
 
-static inline u32 exynos_dsi_read(struct exynos_dsi *dsi, enum regs idx)
+static inline u32 exynos_dsi_read(struct exynos_dsi *dsi, enum reg_idx idx)
 {
-	return readl(dsi->reg_base + dsi->driver_data->regs[idx]);
+	return readl(dsi->reg_base + dsi->driver_data->reg_ofs[idx]);
 }
 
-static unsigned int regs[] = {
+static unsigned int exynos_reg_ofs[] = {
 	[DSIM_STATUS_REG] =  0x00,
 	[DSIM_SWRST_REG] =  0x04,
 	[DSIM_CLKCTRL_REG] =  0x08,
@@ -354,7 +354,7 @@ static unsigned int regs[] = {
 	[DSIM_PHYTIMING2_REG] =  0x6c,
 };
 
-static unsigned int exynos5433_regs[] = {
+static unsigned int exynos5433_reg_ofs[] = {
 	[DSIM_STATUS_REG] = 0x04,
 	[DSIM_SWRST_REG] = 0x0C,
 	[DSIM_CLKCTRL_REG] = 0x10,
@@ -378,7 +378,7 @@ static unsigned int exynos5433_regs[] = {
 	[DSIM_PHYTIMING2_REG] = 0xBC,
 };
 
-enum values {
+enum reg_value_idx {
 	RESET_TYPE,
 	PLL_TIMER,
 	STOP_STATE_CNT,
@@ -396,7 +396,7 @@ enum values {
 	PHYTIMING_HS_TRAIL
 };
 
-static unsigned int values[] = {
+static unsigned int reg_values[] = {
 	[RESET_TYPE] = DSIM_SWRST,
 	[PLL_TIMER] = 500,
 	[STOP_STATE_CNT] = 0xf,
@@ -414,7 +414,7 @@ static unsigned int values[] = {
 	[PHYTIMING_HS_TRAIL] = DSIM_PHYTIMING2_HS_TRAIL(0x0b),
 };
 
-static unsigned int exynos5433_values[] = {
+static unsigned int exynos5433_reg_values[] = {
 	[RESET_TYPE] = DSIM_FUNCRST,
 	[PLL_TIMER] = 22200,
 	[STOP_STATE_CNT] = 0xa,
@@ -433,7 +433,7 @@ static unsigned int exynos5433_values[] = {
 };
 
 static struct exynos_dsi_driver_data exynos3_dsi_driver_data = {
-	.regs = regs,
+	.reg_ofs = exynos_reg_ofs,
 	.plltmr_reg = 0x50,
 	.has_freqband = 1,
 	.has_clklane_stop = 1,
@@ -441,11 +441,11 @@ static struct exynos_dsi_driver_data exynos3_dsi_driver_data = {
 	.max_freq = 1000,
 	.wait_for_reset = 1,
 	.num_bits_resol = 11,
-	.values = values,
+	.reg_values = reg_values,
 };
 
 static struct exynos_dsi_driver_data exynos4_dsi_driver_data = {
-	.regs = regs,
+	.reg_ofs = exynos_reg_ofs,
 	.plltmr_reg = 0x50,
 	.has_freqband = 1,
 	.has_clklane_stop = 1,
@@ -453,39 +453,39 @@ static struct exynos_dsi_driver_data exynos4_dsi_driver_data = {
 	.max_freq = 1000,
 	.wait_for_reset = 1,
 	.num_bits_resol = 11,
-	.values = values,
+	.reg_values = reg_values,
 };
 
 static struct exynos_dsi_driver_data exynos4415_dsi_driver_data = {
-	.regs = regs,
+	.reg_ofs = exynos_reg_ofs,
 	.plltmr_reg = 0x58,
 	.has_clklane_stop = 1,
 	.num_clks = 2,
 	.max_freq = 1000,
 	.wait_for_reset = 1,
 	.num_bits_resol = 11,
-	.values = values,
+	.reg_values = reg_values,
 };
 
 static struct exynos_dsi_driver_data exynos5_dsi_driver_data = {
-	.regs = regs,
+	.reg_ofs = exynos_reg_ofs,
 	.plltmr_reg = 0x58,
 	.num_clks = 2,
 	.max_freq = 1000,
 	.wait_for_reset = 1,
 	.num_bits_resol = 11,
-	.values = values,
+	.reg_values = reg_values,
 };
 
 static struct exynos_dsi_driver_data exynos5433_dsi_driver_data = {
-	.regs = exynos5433_regs,
+	.reg_ofs = exynos5433_reg_ofs,
 	.plltmr_reg = 0xa0,
 	.has_clklane_stop = 1,
 	.num_clks = 5,
 	.max_freq = 1500,
 	.wait_for_reset = 0,
 	.num_bits_resol = 12,
-	.values = exynos5433_values,
+	.reg_values = exynos5433_reg_values,
 };
 
 static struct of_device_id exynos_dsi_of_match[] = {
@@ -521,10 +521,10 @@ static void exynos_dsi_wait_for_reset(struct exynos_dsi *dsi)
 
 static void exynos_dsi_reset(struct exynos_dsi *dsi)
 {
-	struct exynos_dsi_driver_data *driver_data = dsi->driver_data;
+	u32 reset_val = dsi->driver_data->reg_values[RESET_TYPE];
 
 	reinit_completion(&dsi->completed);
-	exynos_dsi_write(dsi, DSIM_SWRST_REG, driver_data->values[RESET_TYPE]);
+	exynos_dsi_write(dsi, DSIM_SWRST_REG, reset_val);
 }
 
 #ifndef MHZ
@@ -604,7 +604,7 @@ static unsigned long exynos_dsi_set_pll(struct exynos_dsi *dsi,
 	}
 	dev_dbg(dsi->dev, "PLL freq %lu, (p %d, m %d, s %d)\n", fout, p, m, s);
 
-	writel(driver_data->values[PLL_TIMER],
+	writel(driver_data->reg_values[PLL_TIMER],
 			dsi->reg_base + driver_data->plltmr_reg);
 
 	reg = DSIM_PLL_EN | DSIM_PLL_P(p) | DSIM_PLL_M(m) | DSIM_PLL_S(s);
@@ -683,15 +683,15 @@ static int exynos_dsi_enable_clock(struct exynos_dsi *dsi)
 static void exynos_dsi_set_phy_ctrl(struct exynos_dsi *dsi)
 {
 	struct exynos_dsi_driver_data *driver_data = dsi->driver_data;
-	unsigned int *values = driver_data->values;
+	unsigned int *reg_values = driver_data->reg_values;
 	u32 reg;
 
 	if (driver_data->has_freqband)
 		return;
 
 	/* B D-PHY: D-PHY Master & Slave Analog Block control */
-	reg = values[PHYCTRL_ULPS_EXIT] | values[PHYCTRL_VREG_LP] |
-		values[PHYCTRL_SLEW_UP];
+	reg = reg_values[PHYCTRL_ULPS_EXIT] | reg_values[PHYCTRL_VREG_LP] |
+		reg_values[PHYCTRL_SLEW_UP];
 	exynos_dsi_write(dsi, DSIM_PHYCTRL_REG, reg);
 
 	/*
@@ -699,7 +699,7 @@ static void exynos_dsi_set_phy_ctrl(struct exynos_dsi *dsi)
 	 * T HS-EXIT: Time that the transmitter drives LP-11 following a HS
 	 *	burst
 	 */
-	reg = values[PHYTIMING_LPX] | values[PHYTIMING_HS_EXIT];
+	reg = reg_values[PHYTIMING_LPX] | reg_values[PHYTIMING_HS_EXIT];
 	exynos_dsi_write(dsi, DSIM_PHYTIMING_REG, reg);
 
 	/*
@@ -715,8 +715,8 @@ static void exynos_dsi_set_phy_ctrl(struct exynos_dsi *dsi)
 	 * T CLK-TRAIL: Time that the transmitter drives the HS-0 state after
 	 *	the last payload clock bit of a HS transmission burst
 	 */
-	reg = values[PHYTIMING_CLK_PREPARE] | values[PHYTIMING_CLK_ZERO] |
-		values[PHYTIMING_CLK_POST] | values[PHYTIMING_CLK_TRAIL];
+	reg = reg_values[PHYTIMING_CLK_PREPARE] | reg_values[PHYTIMING_CLK_ZERO] |
+		reg_values[PHYTIMING_CLK_POST] | reg_values[PHYTIMING_CLK_TRAIL];
 
 	exynos_dsi_write(dsi, DSIM_PHYTIMING1_REG, reg);
 
@@ -729,8 +729,8 @@ static void exynos_dsi_set_phy_ctrl(struct exynos_dsi *dsi)
 	 * T HS-TRAIL: Time that the transmitter drives the flipped differential
 	 *	state after last payload data bit of a HS transmission burst
 	 */
-	reg = values[PHYTIMING_HS_PREPARE] | values[PHYTIMING_HS_ZERO] |
-		values[PHYTIMING_HS_TRAIL];
+	reg = reg_values[PHYTIMING_HS_PREPARE] | reg_values[PHYTIMING_HS_ZERO] |
+		reg_values[PHYTIMING_HS_TRAIL];
 	exynos_dsi_write(dsi, DSIM_PHYTIMING2_REG, reg);
 }
 
@@ -861,7 +861,7 @@ static int exynos_dsi_init_link(struct exynos_dsi *dsi)
 
 	reg = exynos_dsi_read(dsi, DSIM_ESCMODE_REG);
 	reg &= ~DSIM_STOP_STATE_CNT_MASK;
-	reg |= DSIM_STOP_STATE_CNT(driver_data->values[STOP_STATE_CNT]);
+	reg |= DSIM_STOP_STATE_CNT(driver_data->reg_values[STOP_STATE_CNT]);
 	exynos_dsi_write(dsi, DSIM_ESCMODE_REG, reg);
 
 	reg = DSIM_BTA_TIMEOUT(0xff) | DSIM_LPDR_TIMEOUT(0xffff);
@@ -1307,7 +1307,7 @@ static int exynos_dsi_init(struct exynos_dsi *dsi)
 	exynos_dsi_reset(dsi);
 	exynos_dsi_enable_irq(dsi);
 
-	if (driver_data->values[RESET_TYPE] == DSIM_FUNCRST)
+	if (driver_data->reg_values[RESET_TYPE] == DSIM_FUNCRST)
 		exynos_dsi_enable_lane(dsi, BIT(dsi->lanes) - 1);
 
 	exynos_dsi_enable_clock(dsi);
