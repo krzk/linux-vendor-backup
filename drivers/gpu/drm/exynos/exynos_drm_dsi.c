@@ -209,7 +209,7 @@
 #define DSI_XFER_TIMEOUT_MS		100
 #define DSI_RX_FIFO_EMPTY		0x30800002
 
-#define OLD_SCLK_MIPI_CLK_NAME	"pll_clk"
+#define OLD_SCLK_MIPI_CLK_NAME "pll_clk"
 
 static char *clk_names[5] = { "bus_clk", "sclk_mipi",
 	"phyclk_mipidphy0_bitclkdiv8", "phyclk_mipidphy0_rxclkesc0",
@@ -745,8 +745,10 @@ static void exynos_dsi_set_phy_ctrl(struct exynos_dsi *dsi)
 	 * T CLK-TRAIL: Time that the transmitter drives the HS-0 state after
 	 *	the last payload clock bit of a HS transmission burst
 	 */
-	reg = reg_values[PHYTIMING_CLK_PREPARE] | reg_values[PHYTIMING_CLK_ZERO] |
-		reg_values[PHYTIMING_CLK_POST] | reg_values[PHYTIMING_CLK_TRAIL];
+	reg = reg_values[PHYTIMING_CLK_PREPARE] |
+		reg_values[PHYTIMING_CLK_ZERO] |
+		reg_values[PHYTIMING_CLK_POST] |
+		reg_values[PHYTIMING_CLK_TRAIL];
 
 	exynos_dsi_write(dsi, DSIM_PHYTIMING1_REG, reg);
 
@@ -1888,7 +1890,7 @@ static int exynos_dsi_probe(struct platform_device *pdev)
 			}
 
 			dev_info(dev, "failed to get the clock: %s\n",
-								clk_names[i]);
+					clk_names[i]);
 			return PTR_ERR(dsi->clks[i]);
 		}
 	}
