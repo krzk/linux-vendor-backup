@@ -37,7 +37,7 @@ struct kdbus_reply *kdbus_reply_new(struct kdbus_conn *reply_src,
 				    bool sync)
 {
 	struct kdbus_reply *r;
-	int ret = 0;
+	int ret;
 
 	if (atomic_inc_return(&reply_dst->request_count) >
 	    KDBUS_CONN_MAX_REQUESTS_PENDING) {
@@ -64,13 +64,11 @@ struct kdbus_reply *kdbus_reply_new(struct kdbus_conn *reply_src,
 		r->waiting = true;
 	}
 
-exit_dec_request_count:
-	if (ret < 0) {
-		atomic_dec(&reply_dst->request_count);
-		return ERR_PTR(ret);
-	}
-
 	return r;
+
+exit_dec_request_count:
+	atomic_dec(&reply_dst->request_count);
+	return ERR_PTR(ret);
 }
 
 static void __kdbus_reply_free(struct kref *kref)
@@ -140,8 +138,7 @@ void kdbus_reply_unlink(struct kdbus_reply *r)
  * @reply:	The reply object
  * @err:	Error code to set on the remote side
  *
- * Remove the synchronous reply object from its connection reply_list, and
- * wake up remote peer (method origin) with the appropriate synchronous reply
+ * Wake up remote peer (method origin) with the appropriate synchronous reply
  * code.
  */
 void kdbus_sync_reply_wakeup(struct kdbus_reply *reply, int err)
@@ -172,17 +169,15 @@ struct kdbus_reply *kdbus_reply_find(struct kdbus_conn *replying,
 				     struct kdbus_conn *reply_dst,
 				     u64 cookie)
 {
-	struct kdbus_reply *r, *reply = NULL;
+	struct kdbus_reply *r;
 
 	list_for_each_entry(r, &reply_dst->reply_list, entry) {
 		if (r->cookie == cookie &&
-		    (!replying || r->reply_src == replying)) {
-			reply = r;
-			break;
-		}
+		    (!replying || r->reply_src == replying))
+			return r;
 	}
 
-	return reply;
+	return NULL;
 }
 
 /**

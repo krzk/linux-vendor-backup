@@ -45,13 +45,18 @@ struct kdbus_arg {
  * @argv:		array of items this command supports
  * @user:		set by parser to user-space location of current command
  * @cmd:		set by parser to kernel copy of command payload
+ * @cmd_buf:		inline buf to avoid kmalloc() on small cmds
  * @items:		points to item array in @cmd
  * @items_size:		size of @items in bytes
+ * @is_cmd:		whether this is a command-payload or msg-payload
  *
  * This structure is used to parse ioctl command payloads on each invocation.
  * The ioctl handler has to pre-fill the flags and allowed items before passing
  * the object to kdbus_args_parse(). The parser will copy the command payload
  * into kernel-space and verify the correctness of the data.
+ *
+ * We use a 256 bytes buffer for small command payloads, to be allocated on
+ * stack on syscall entrance.
  */
 struct kdbus_args {
 	u64 allowed_flags;
@@ -60,12 +65,14 @@ struct kdbus_args {
 
 	struct kdbus_cmd __user *user;
 	struct kdbus_cmd *cmd;
+	u8 cmd_buf[256];
 
 	struct kdbus_item *items;
 	size_t items_size;
+	bool is_cmd : 1;
 };
 
-int __kdbus_args_parse(struct kdbus_args *args, void __user *argp,
+int __kdbus_args_parse(struct kdbus_args *args, bool is_cmd, void __user *argp,
 		       size_t type_size, size_t items_offset, void **out);
 int kdbus_args_clear(struct kdbus_args *args, int ret);
 
@@ -77,7 +84,18 @@ int kdbus_args_clear(struct kdbus_args *args, int ret);
 			     offsetof(struct kdbus_cmd, flags));        \
 		BUILD_BUG_ON(offsetof(typeof(**(_v)), return_flags) !=  \
 			     offsetof(struct kdbus_cmd, return_flags)); \
-		__kdbus_args_parse((_args), (_argp), sizeof(**(_v)),    \
+		__kdbus_args_parse((_args), 1, (_argp), sizeof(**(_v)), \
+				   offsetof(typeof(**(_v)), items),     \
+				   (void **)(_v));                      \
+	})
+
+#define kdbus_args_parse_msg(_args, _argp, _v)                          \
+	({                                                              \
+		BUILD_BUG_ON(offsetof(typeof(**(_v)), size) !=          \
+			     offsetof(struct kdbus_cmd, size));         \
+		BUILD_BUG_ON(offsetof(typeof(**(_v)), flags) !=         \
+			     offsetof(struct kdbus_cmd, flags));        \
+		__kdbus_args_parse((_args), 0, (_argp), sizeof(**(_v)), \
 				   offsetof(typeof(**(_v)), items),     \
 				   (void **)(_v));                      \
 	})

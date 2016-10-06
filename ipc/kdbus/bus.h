@@ -29,7 +29,7 @@
 
 struct kdbus_conn;
 struct kdbus_domain;
-struct kdbus_kmsg;
+struct kdbus_staging;
 struct kdbus_user;
 
 /**
@@ -37,7 +37,6 @@ struct kdbus_user;
  * @node:		kdbus_node
  * @id:			ID of this bus in the domain
  * @bus_flags:		Simple pass-through flags from userspace to userspace
- * @attach_flags_req:	KDBUS_ATTACH_* flags required by connecting peers
  * @attach_flags_owner:	KDBUS_ATTACH_* flags of bus creator that other
  *			connections can see or query
  * @id128:		Unique random 128 bit ID of this bus
@@ -45,6 +44,7 @@ struct kdbus_user;
  * @domain:		Domain of this bus
  * @creator:		Creator of the bus
  * @creator_meta:	Meta information about the bus creator
+ * @last_message_id:	Last used message id
  * @policy_db:		Policy database for this bus
  * @name_registry:	Name registry of this bus
  * @conn_rwlock:	Read/Write lock for all lists of child connections
@@ -60,7 +60,6 @@ struct kdbus_bus {
 	/* static */
 	u64 id;
 	u64 bus_flags;
-	u64 attach_flags_req;
 	u64 attach_flags_owner;
 	u8 id128[16];
 	struct kdbus_bloom_parameter bloom;
@@ -69,6 +68,7 @@ struct kdbus_bus {
 	struct kdbus_meta_proc *creator_meta;
 
 	/* protected by own locks */
+	atomic64_t last_message_id;
 	struct kdbus_policy_db policy_db;
 	struct kdbus_name_registry *name_registry;
 
@@ -89,10 +89,10 @@ struct kdbus_bus *kdbus_bus_unref(struct kdbus_bus *bus);
 struct kdbus_conn *kdbus_bus_find_conn_by_id(struct kdbus_bus *bus, u64 id);
 void kdbus_bus_broadcast(struct kdbus_bus *bus,
 			 struct kdbus_conn *conn_src,
-			 struct kdbus_kmsg *kmsg);
+			 struct kdbus_staging *staging);
 void kdbus_bus_eavesdrop(struct kdbus_bus *bus,
 			 struct kdbus_conn *conn_src,
-			 struct kdbus_kmsg *kmsg);
+			 struct kdbus_staging *staging);
 
 struct kdbus_bus *kdbus_cmd_bus_make(struct kdbus_domain *domain,
 				     void __user *argp);

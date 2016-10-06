@@ -78,7 +78,7 @@ static void kdbus_ep_release(struct kdbus_node *node, bool was_active)
  * @gid:		The gid of the node
  * @is_custom:		Whether this is a custom endpoint
  *
- * This function will create a new enpoint with the given
+ * This function will create a new endpoint with the given
  * name and properties for a given bus.
  *
  * Return: a new kdbus_ep on success, ERR_PTR on failure.
@@ -184,11 +184,39 @@ struct kdbus_ep *kdbus_ep_unref(struct kdbus_ep *ep)
 }
 
 /**
+ * kdbus_ep_is_privileged() - check whether a file is privileged
+ * @ep:		endpoint to operate on
+ * @file:	file to test
+ *
+ * Return: True if @file is privileged in the domain of @ep.
+ */
+bool kdbus_ep_is_privileged(struct kdbus_ep *ep, struct file *file)
+{
+	return !ep->user &&
+		file_ns_capable(file, ep->bus->domain->user_namespace,
+				CAP_IPC_OWNER);
+}
+
+/**
+ * kdbus_ep_is_owner() - check whether a file should be treated as bus owner
+ * @ep:		endpoint to operate on
+ * @file:	file to test
+ *
+ * Return: True if @file should be treated as bus owner on @ep
+ */
+bool kdbus_ep_is_owner(struct kdbus_ep *ep, struct file *file)
+{
+	return !ep->user &&
+		(uid_eq(file->f_cred->euid, ep->bus->node.uid) ||
+		 kdbus_ep_is_privileged(ep, file));
+}
+
+/**
  * kdbus_cmd_ep_make() - handle KDBUS_CMD_ENDPOINT_MAKE
  * @bus:		bus to operate on
  * @argp:		command payload
  *
- * Return: Newly created endpoint on success, ERR_PTR on failure.
+ * Return: NULL or newly created endpoint on success, ERR_PTR on failure.
  */
 struct kdbus_ep *kdbus_cmd_ep_make(struct kdbus_bus *bus, void __user *argp)
 {
@@ -247,7 +275,7 @@ exit:
  * @ep:			endpoint to operate on
  * @argp:		command payload
  *
- * Return: Newly created endpoint on success, ERR_PTR on failure.
+ * Return: >=0 on success, negative error code on failure.
  */
 int kdbus_cmd_ep_update(struct kdbus_ep *ep, void __user *argp)
 {

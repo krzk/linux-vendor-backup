@@ -25,7 +25,7 @@ struct kdbus_bus;
 struct kdbus_user;
 
 /**
- * struct kdbus_ep - enpoint to access a bus
+ * struct kdbus_ep - endpoint to access a bus
  * @node:		The kdbus node
  * @lock:		Endpoint data lock
  * @bus:		Bus behind this endpoint
@@ -33,7 +33,7 @@ struct kdbus_user;
  * @policy_db:		Uploaded policy
  * @conn_list:		Connections of this endpoint
  *
- * An enpoint offers access to a bus; the default endpoint node name is "bus".
+ * An endpoint offers access to a bus; the default endpoint node name is "bus".
  * Additional custom endpoints to the same bus can be created and they can
  * carry their own policies/filters.
  */
@@ -60,6 +60,9 @@ struct kdbus_ep *kdbus_ep_new(struct kdbus_bus *bus, const char *name,
 			      bool policy);
 struct kdbus_ep *kdbus_ep_ref(struct kdbus_ep *ep);
 struct kdbus_ep *kdbus_ep_unref(struct kdbus_ep *ep);
+
+bool kdbus_ep_is_privileged(struct kdbus_ep *ep, struct file *file);
+bool kdbus_ep_is_owner(struct kdbus_ep *ep, struct file *file);
 
 struct kdbus_ep *kdbus_cmd_ep_make(struct kdbus_bus *bus, void __user *argp);
 int kdbus_cmd_ep_update(struct kdbus_ep *ep, void __user *argp);

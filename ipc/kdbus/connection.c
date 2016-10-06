@@ -53,11 +53,12 @@
 #define KDBUS_CONN_ACTIVE_NEW	(INT_MIN + 1)
 
 /* Disable internal kdbus policy - possibilities of connections to own, see and
- * talk to names are restricted by libdbuspolicy library
+ * talk to names are restricted by libdbuspolicy library and LSM hooks
  */
 #define DISABLE_KDBUS_POLICY
 
-static struct kdbus_conn *kdbus_conn_new(struct kdbus_ep *ep, bool privileged,
+static struct kdbus_conn *kdbus_conn_new(struct kdbus_ep *ep,
+					 struct file *file,
 					 struct kdbus_cmd_hello *hello,
 					 const char *name,
 					 const struct kdbus_creds *creds,
@@ -77,6 +78,8 @@ static struct kdbus_conn *kdbus_conn_new(struct kdbus_ep *ep, bool privileged,
 	bool is_policy_holder;
 	bool is_activator;
 	bool is_monitor;
+	bool privileged;
+	bool owner;
 	struct kvec kvec;
 	int ret;
 
@@ -85,6 +88,9 @@ static struct kdbus_conn *kdbus_conn_new(struct kdbus_ep *ep, bool privileged,
 		u64 type;
 		struct kdbus_bloom_parameter bloom;
 	} bloom_item;
+
+	privileged = kdbus_ep_is_privileged(ep, file);
+	owner = kdbus_ep_is_owner(ep, file);
 
 	is_monitor = hello->flags & KDBUS_HELLO_MONITOR;
 	is_activator = hello->flags & KDBUS_HELLO_ACTIVATOR;
@@ -102,9 +108,9 @@ static struct kdbus_conn *kdbus_conn_new(struct kdbus_ep *ep, bool privileged,
 		return ERR_PTR(-EINVAL);
 	if (is_monitor && ep->user)
 		return ERR_PTR(-EOPNOTSUPP);
-	if (!privileged && (is_activator || is_policy_holder || is_monitor))
+	if (!owner && (is_activator || is_policy_holder || is_monitor))
 		return ERR_PTR(-EPERM);
-	if ((creds || pids || seclabel) && !privileged)
+	if (!owner && (creds || pids || seclabel))
 		return ERR_PTR(-EPERM);
 
 	ret = kdbus_sanitize_attach_flags(hello->attach_flags_send,
@@ -117,10 +123,6 @@ static struct kdbus_conn *kdbus_conn_new(struct kdbus_ep *ep, bool privileged,
 	if (ret < 0)
 		return ERR_PTR(ret);
 
-	/* The attach flags must always satisfy the bus requirements. */
-	if (bus->attach_flags_req & ~attach_flags_send)
-		return ERR_PTR(-ECONNREFUSED);
-
 	conn = kzalloc(sizeof(*conn), GFP_KERNEL);
 	if (!conn)
 		return ERR_PTR(-ENOMEM);
@@ -132,16 +134,17 @@ static struct kdbus_conn *kdbus_conn_new(struct kdbus_ep *ep, bool privileged,
 #endif
 	mutex_init(&conn->lock);
 	INIT_LIST_HEAD(&conn->names_list);
-	INIT_LIST_HEAD(&conn->names_queue_list);
 	INIT_LIST_HEAD(&conn->reply_list);
-	atomic_set(&conn->name_count, 0);
 	atomic_set(&conn->request_count, 0);
 	atomic_set(&conn->lost_count, 0);
 	INIT_DELAYED_WORK(&conn->work, kdbus_reply_list_scan_work);
-	conn->cred = get_current_cred();
+	conn->cred = get_cred(file->f_cred);
+	conn->pid = get_pid(task_pid(current));
+	get_fs_root(current->fs, &conn->root_path);
 	init_waitqueue_head(&conn->wait);
 	kdbus_queue_init(&conn->queue);
 	conn->privileged = privileged;
+	conn->owner = owner;
 	conn->ep = kdbus_ep_ref(ep);
 	conn->id = atomic64_inc_return(&bus->domain->last_id);
 	conn->flags = hello->flags;
@@ -178,22 +181,28 @@ static struct kdbus_conn *kdbus_conn_new(struct kdbus_ep *ep, bool privileged,
 	BUILD_BUG_ON(sizeof(bus->id128) != sizeof(hello->id128));
 	memcpy(hello->id128, bus->id128, sizeof(hello->id128));
 
-	conn->meta = kdbus_meta_proc_new();
-	if (IS_ERR(conn->meta)) {
-		ret = PTR_ERR(conn->meta);
-		conn->meta = NULL;
-		goto exit_unref;
-	}
-
 	/* privileged processes can impersonate somebody else */
 	if (creds || pids || seclabel) {
-		ret = kdbus_meta_proc_fake(conn->meta, creds, pids, seclabel);
+		conn->meta_fake = kdbus_meta_fake_new();
+		if (IS_ERR(conn->meta_fake)) {
+			ret = PTR_ERR(conn->meta_fake);
+			conn->meta_fake = NULL;
+			goto exit_unref;
+		}
+
+		ret = kdbus_meta_fake_collect(conn->meta_fake,
+					      creds, pids, seclabel);
 		if (ret < 0)
 			goto exit_unref;
-
-		conn->faked_meta = true;
 	} else {
-		ret = kdbus_meta_proc_collect(conn->meta,
+		conn->meta_proc = kdbus_meta_proc_new();
+		if (IS_ERR(conn->meta_proc)) {
+			ret = PTR_ERR(conn->meta_proc);
+			conn->meta_proc = NULL;
+			goto exit_unref;
+		}
+
+		ret = kdbus_meta_proc_collect(conn->meta_proc,
 					      KDBUS_ATTACH_CREDS |
 					      KDBUS_ATTACH_PIDS |
 					      KDBUS_ATTACH_AUXGROUPS |
@@ -215,11 +224,21 @@ static struct kdbus_conn *kdbus_conn_new(struct kdbus_ep *ep, bool privileged,
 	 * Note that limits are always accounted against the real UID, not
 	 * the effective UID (cred->user always points to the accounting of
 	 * cred->uid, not cred->euid).
+	 * In case the caller is privileged, we allow changing the accounting
+	 * to the faked user.
 	 */
 	if (ep->user) {
 		conn->user = kdbus_user_ref(ep->user);
 	} else {
-		conn->user = kdbus_user_lookup(ep->bus->domain, current_uid());
+		kuid_t uid;
+
+		if (conn->meta_fake && uid_valid(conn->meta_fake->uid) &&
+		    conn->privileged)
+			uid = conn->meta_fake->uid;
+		else
+			uid = conn->cred->uid;
+
+		conn->user = kdbus_user_lookup(ep->bus->domain, uid);
 		if (IS_ERR(conn->user)) {
 			ret = PTR_ERR(conn->user);
 			conn->user = NULL;
@@ -268,7 +287,6 @@ static void __kdbus_conn_free(struct kref *kref)
 	WARN_ON(delayed_work_pending(&conn->work));
 	WARN_ON(!list_empty(&conn->queue.msg_list));
 	WARN_ON(!list_empty(&conn->names_list));
-	WARN_ON(!list_empty(&conn->names_queue_list));
 	WARN_ON(!list_empty(&conn->reply_list));
 
 	if (conn->user) {
@@ -276,10 +294,13 @@ static void __kdbus_conn_free(struct kref *kref)
 		kdbus_user_unref(conn->user);
 	}
 
-	kdbus_meta_proc_unref(conn->meta);
+	kdbus_meta_fake_free(conn->meta_fake);
+	kdbus_meta_proc_unref(conn->meta_proc);
 	kdbus_match_db_free(conn->match_db);
 	kdbus_pool_free(conn->pool);
 	kdbus_ep_unref(conn->ep);
+	path_put(&conn->root_path);
+	put_pid(conn->pid);
 	put_cred(conn->cred);
 	kfree(conn->description);
 	kfree(conn->quota);
@@ -437,7 +458,7 @@ static int kdbus_conn_connect(struct kdbus_conn *conn, const char *name)
 	 * directly, and won't cause any notifications.
 	 */
 	if (!kdbus_conn_is_monitor(conn)) {
-		ret = kdbus_notify_id_change(conn->ep->bus, KDBUS_ITEM_ID_ADD,
+		ret = kdbus_notify_id_change(bus, KDBUS_ITEM_ID_ADD,
 					     conn->id, conn->flags);
 		if (ret < 0)
 			goto exit_disconnect;
@@ -564,17 +585,16 @@ int kdbus_conn_disconnect(struct kdbus_conn *conn, bool ensure_queue_empty)
 	hash_for_each(bus->conn_hash, i, c, hentry) {
 		mutex_lock(&c->lock);
 		list_for_each_entry_safe(r, r_tmp, &c->reply_list, entry) {
-			if (r->reply_src == conn) {
-				if (r->sync) {
-					kdbus_sync_reply_wakeup(r, -EPIPE);
-					kdbus_reply_unlink(r);
-					continue;
-				}
+			if (r->reply_src != conn)
+				continue;
 
+			if (r->sync)
+				kdbus_sync_reply_wakeup(r, -EPIPE);
+			else
 				/* send a 'connection dead' notification */
 				kdbus_notify_reply_dead(bus, c->id, r->cookie);
-				kdbus_reply_unlink(r);
-			}
+
+			kdbus_reply_unlink(r);
 		}
 		mutex_unlock(&c->lock);
 	}
@@ -600,21 +620,22 @@ int kdbus_conn_disconnect(struct kdbus_conn *conn, bool ensure_queue_empty)
  */
 bool kdbus_conn_has_name(struct kdbus_conn *conn, const char *name)
 {
-	struct kdbus_name_entry *e;
+	struct kdbus_name_owner *owner;
 
 	lockdep_assert_held(&conn->ep->bus->name_registry->rwlock);
 
-	list_for_each_entry(e, &conn->names_list, conn_entry)
-		if (strcmp(e->name, name) == 0)
+	list_for_each_entry(owner, &conn->names_list, conn_entry)
+		if (!(owner->flags & KDBUS_NAME_IN_QUEUE) &&
+		    !strcmp(name, owner->name->name))
 			return true;
 
 	return false;
 }
 
 struct kdbus_quota {
-	uint32_t memory;
-	uint16_t msgs;
-	uint8_t fds;
+	u32 memory;
+	u16 msgs;
+	u8 fds;
 };
 
 /**
@@ -652,7 +673,7 @@ int kdbus_conn_quota_inc(struct kdbus_conn *c, struct kdbus_user *u,
 	 * allocation schemes. Furthermore, resource utilization should be
 	 * maximized, so only minimal resources stay reserved. However, we need
 	 * to adapt to a dynamic number of users, as we cannot know how many
-	 * users will talk to a connection. Therefore, the current allocations
+	 * users will talk to a connection. Therefore, the current allocation
 	 * works like this:
 	 * We limit the number of bytes in a destination's pool per sending
 	 * user. The space available for a user is 33% of the unused pool space
@@ -694,7 +715,7 @@ int kdbus_conn_quota_inc(struct kdbus_conn *c, struct kdbus_user *u,
 
 	/*
 	 * Pool owner slices are un-accounted slices; they can claim more
-	 * than 50% of the queue. However, the slice we're dealing with here
+	 * than 50% of the queue. However, the slices we're dealing with here
 	 * belong to the incoming queue, hence they are 'accounted' slices
 	 * to which the 50%-limit applies.
 	 */
@@ -758,7 +779,7 @@ void kdbus_conn_quota_dec(struct kdbus_conn *c, struct kdbus_user *u,
  *
  * kdbus is reliable. That means, we try hard to never lose messages. However,
  * memory is limited, so we cannot rely on transmissions to never fail.
- * Therefore, we use quota-limits to let callers know if there unicast message
+ * Therefore, we use quota-limits to let callers know if their unicast message
  * cannot be transmitted to a peer. This works fine for unicasts, but for
  * broadcasts we cannot make the caller handle the transmission failure.
  * Instead, we must let the destination know that it couldn't receive a
@@ -776,12 +797,10 @@ void kdbus_conn_lost_message(struct kdbus_conn *c)
 
 /* Callers should take the conn_dst lock */
 static struct kdbus_queue_entry *
-kdbus_conn_entry_make(struct kdbus_conn *conn_dst,
-		      const struct kdbus_kmsg *kmsg,
-		      struct kdbus_user *user)
+kdbus_conn_entry_make(struct kdbus_conn *conn_src,
+		      struct kdbus_conn *conn_dst,
+		      struct kdbus_staging *staging)
 {
-	struct kdbus_queue_entry *entry;
-
 	/* The remote connection was disconnected */
 	if (!kdbus_conn_active(conn_dst))
 		return ERR_PTR(-ECONNRESET);
@@ -795,14 +814,10 @@ kdbus_conn_entry_make(struct kdbus_conn *conn_dst,
 	 */
 	if (!kdbus_conn_is_monitor(conn_dst) &&
 	    !(conn_dst->flags & KDBUS_HELLO_ACCEPT_FD) &&
-	    kmsg->res && kmsg->res->fds_count > 0)
+	    staging->gaps && staging->gaps->n_fds > 0)
 		return ERR_PTR(-ECOMM);
 
-	entry = kdbus_queue_entry_new(conn_dst, kmsg, user);
-	if (IS_ERR(entry))
-		return entry;
-
-	return entry;
+	return kdbus_queue_entry_new(conn_src, conn_dst, staging);
 }
 
 /*
@@ -811,12 +826,11 @@ kdbus_conn_entry_make(struct kdbus_conn *conn_dst,
  * The connection's queue will never get to see it.
  */
 static int kdbus_conn_entry_sync_attach(struct kdbus_conn *conn_dst,
-					const struct kdbus_kmsg *kmsg,
+					struct kdbus_staging *staging,
 					struct kdbus_reply *reply_wake)
 {
 	struct kdbus_queue_entry *entry;
-	int remote_ret;
-	int ret = 0;
+	int remote_ret, ret = 0;
 
 	mutex_lock(&reply_wake->reply_dst->lock);
 
@@ -825,8 +839,8 @@ static int kdbus_conn_entry_sync_attach(struct kdbus_conn *conn_dst,
 	 * entry and attach it to the reply object
 	 */
 	if (reply_wake->waiting) {
-		entry = kdbus_conn_entry_make(conn_dst, kmsg,
-					      reply_wake->reply_src->user);
+		entry = kdbus_conn_entry_make(reply_wake->reply_src, conn_dst,
+					      staging);
 		if (IS_ERR(entry))
 			ret = PTR_ERR(entry);
 		else
@@ -867,23 +881,24 @@ static int kdbus_conn_entry_sync_attach(struct kdbus_conn *conn_dst,
  * kdbus_conn_entry_insert() - enqueue a message into the receiver's pool
  * @conn_src:		The sending connection
  * @conn_dst:		The connection to queue into
- * @kmsg:		The kmsg to queue
+ * @staging:		Message to send
  * @reply:		The reply tracker to attach to the queue entry
+ * @name:		Destination name this msg is sent to, or NULL
  *
  * Return: 0 on success. negative error otherwise.
  */
 int kdbus_conn_entry_insert(struct kdbus_conn *conn_src,
 			    struct kdbus_conn *conn_dst,
-			    const struct kdbus_kmsg *kmsg,
-			    struct kdbus_reply *reply)
+			    struct kdbus_staging *staging,
+			    struct kdbus_reply *reply,
+			    const struct kdbus_name_entry *name)
 {
 	struct kdbus_queue_entry *entry;
 	int ret;
 
 	kdbus_conn_lock2(conn_src, conn_dst);
 
-	entry = kdbus_conn_entry_make(conn_dst, kmsg,
-				      conn_src ? conn_src->user : NULL);
+	entry = kdbus_conn_entry_make(conn_src, conn_dst, staging);
 	if (IS_ERR(entry)) {
 		ret = PTR_ERR(entry);
 		goto exit_unlock;
@@ -894,6 +909,14 @@ int kdbus_conn_entry_insert(struct kdbus_conn *conn_src,
 		if (!reply->sync)
 			schedule_delayed_work(&conn_src->work, 0);
 	}
+
+	/*
+	 * Record the sequence number of the registered name; it will
+	 * be remembered by the queue, in case messages addressed to a
+	 * name need to be moved from or to an activator.
+	 */
+	if (name)
+		entry->dst_name_id = name->name_id;
 
 	kdbus_queue_entry_enqueue(entry, reply);
 	wake_up_interruptible(&conn_dst->wait);
@@ -1027,22 +1050,19 @@ static int kdbus_conn_wait_reply(struct kdbus_conn *conn_src,
 }
 
 static int kdbus_pin_dst(struct kdbus_bus *bus,
-			 struct kdbus_kmsg *kmsg,
+			 struct kdbus_staging *staging,
 			 struct kdbus_name_entry **out_name,
 			 struct kdbus_conn **out_dst)
 {
-	struct kdbus_msg_resources *res = kmsg->res;
+	const struct kdbus_msg *msg = staging->msg;
+	struct kdbus_name_owner *owner = NULL;
 	struct kdbus_name_entry *name = NULL;
 	struct kdbus_conn *dst = NULL;
-	struct kdbus_msg *msg = &kmsg->msg;
 	int ret;
-
-	if (WARN_ON(!res))
-		return -EINVAL;
 
 	lockdep_assert_held(&bus->name_registry->rwlock);
 
-	if (!res->dst_name) {
+	if (!staging->dst_name) {
 		dst = kdbus_bus_find_conn_by_id(bus, msg->dst_id);
 		if (!dst)
 			return -ENXIO;
@@ -1053,8 +1073,10 @@ static int kdbus_pin_dst(struct kdbus_bus *bus,
 		}
 	} else {
 		name = kdbus_name_lookup_unlocked(bus->name_registry,
-						  res->dst_name);
-		if (!name)
+						  staging->dst_name);
+		if (name)
+			owner = kdbus_name_get_owner(name);
+		if (!owner)
 			return -ESRCH;
 
 		/*
@@ -1066,26 +1088,14 @@ static int kdbus_pin_dst(struct kdbus_bus *bus,
 		 * owns the given name.
 		 */
 		if (msg->dst_id != KDBUS_DST_ID_NAME &&
-		    msg->dst_id != name->conn->id)
+		    msg->dst_id != owner->conn->id)
 			return -EREMCHG;
 
-		if (!name->conn && name->activator)
-			dst = kdbus_conn_ref(name->activator);
-		else
-			dst = kdbus_conn_ref(name->conn);
-
 		if ((msg->flags & KDBUS_MSG_NO_AUTO_START) &&
-		    kdbus_conn_is_activator(dst)) {
-			ret = -EADDRNOTAVAIL;
-			goto error;
-		}
+		    kdbus_conn_is_activator(owner->conn))
+			return -EADDRNOTAVAIL;
 
-		/*
-		 * Record the sequence number of the registered name; it will
-		 * be passed on to the queue, in case messages addressed to a
-		 * name need to be moved from or to an activator.
-		 */
-		kmsg->dst_name_id = name->name_id;
+		dst = kdbus_conn_ref(owner->conn);
 	}
 
 	*out_name = name;
@@ -1097,18 +1107,19 @@ error:
 	return ret;
 }
 
-static int kdbus_conn_reply(struct kdbus_conn *src, struct kdbus_kmsg *kmsg)
+static int kdbus_conn_reply(struct kdbus_conn *src,
+			    struct kdbus_staging *staging)
 {
+	const struct kdbus_msg *msg = staging->msg;
 	struct kdbus_name_entry *name = NULL;
 	struct kdbus_reply *reply, *wake = NULL;
 	struct kdbus_conn *dst = NULL;
 	struct kdbus_bus *bus = src->ep->bus;
-	u64 attach;
 	int ret;
 
-	if (WARN_ON(kmsg->msg.dst_id == KDBUS_DST_ID_BROADCAST) ||
-	    WARN_ON(kmsg->msg.flags & KDBUS_MSG_EXPECT_REPLY) ||
-	    WARN_ON(kmsg->msg.flags & KDBUS_MSG_SIGNAL))
+	if (WARN_ON(msg->dst_id == KDBUS_DST_ID_BROADCAST) ||
+	    WARN_ON(msg->flags & KDBUS_MSG_EXPECT_REPLY) ||
+	    WARN_ON(msg->flags & KDBUS_MSG_SIGNAL))
 		return -EINVAL;
 
 	/* name-registry must be locked for lookup *and* collecting data */
@@ -1116,12 +1127,12 @@ static int kdbus_conn_reply(struct kdbus_conn *src, struct kdbus_kmsg *kmsg)
 
 	/* find and pin destination */
 
-	ret = kdbus_pin_dst(bus, kmsg, &name, &dst);
+	ret = kdbus_pin_dst(bus, staging, &name, &dst);
 	if (ret < 0)
 		goto exit;
 
 	mutex_lock(&dst->lock);
-	reply = kdbus_reply_find(src, dst, kmsg->msg.cookie_reply);
+	reply = kdbus_reply_find(src, dst, msg->cookie_reply);
 	if (reply) {
 		if (reply->sync)
 			wake = kdbus_reply_ref(reply);
@@ -1129,28 +1140,19 @@ static int kdbus_conn_reply(struct kdbus_conn *src, struct kdbus_kmsg *kmsg)
 	}
 	mutex_unlock(&dst->lock);
 
-	/* attach metadata */
-
-	attach = kdbus_meta_calc_attach_flags(src, dst);
-
-	if (!src->faked_meta) {
-		ret = kdbus_meta_proc_collect(kmsg->proc_meta, attach);
-		if (ret < 0)
-			goto exit;
-	}
-
-	ret = kdbus_meta_conn_collect(kmsg->conn_meta, kmsg, src, attach);
-	if (ret < 0)
+	if (!reply) {
+		ret = -EBADSLT;
 		goto exit;
+	}
 
 	/* send message */
 
-	kdbus_bus_eavesdrop(bus, src, kmsg);
+	kdbus_bus_eavesdrop(bus, src, staging);
 
 	if (wake)
-		ret = kdbus_conn_entry_sync_attach(dst, kmsg, wake);
+		ret = kdbus_conn_entry_sync_attach(dst, staging, wake);
 	else
-		ret = kdbus_conn_entry_insert(src, dst, kmsg, NULL);
+		ret = kdbus_conn_entry_insert(src, dst, staging, NULL, name);
 
 exit:
 	up_read(&bus->name_registry->rwlock);
@@ -1160,25 +1162,25 @@ exit:
 }
 
 static struct kdbus_reply *kdbus_conn_call(struct kdbus_conn *src,
-					   struct kdbus_kmsg *kmsg,
+					   struct kdbus_staging *staging,
 					   ktime_t exp)
 {
+	const struct kdbus_msg *msg = staging->msg;
 	struct kdbus_name_entry *name = NULL;
 	struct kdbus_reply *wait = NULL;
 	struct kdbus_conn *dst = NULL;
 	struct kdbus_bus *bus = src->ep->bus;
-	u64 attach;
 	int ret;
 
-	if (WARN_ON(kmsg->msg.dst_id == KDBUS_DST_ID_BROADCAST) ||
-	    WARN_ON(kmsg->msg.flags & KDBUS_MSG_SIGNAL) ||
-	    WARN_ON(!(kmsg->msg.flags & KDBUS_MSG_EXPECT_REPLY)))
+	if (WARN_ON(msg->dst_id == KDBUS_DST_ID_BROADCAST) ||
+	    WARN_ON(msg->flags & KDBUS_MSG_SIGNAL) ||
+	    WARN_ON(!(msg->flags & KDBUS_MSG_EXPECT_REPLY)))
 		return ERR_PTR(-EINVAL);
 
 	/* resume previous wait-context, if available */
 
 	mutex_lock(&src->lock);
-	wait = kdbus_reply_find(NULL, src, kmsg->msg.cookie);
+	wait = kdbus_reply_find(NULL, src, msg->cookie);
 	if (wait) {
 		if (wait->interrupted) {
 			kdbus_reply_ref(wait);
@@ -1200,44 +1202,27 @@ static struct kdbus_reply *kdbus_conn_call(struct kdbus_conn *src,
 
 	/* find and pin destination */
 
-	ret = kdbus_pin_dst(bus, kmsg, &name, &dst);
+	ret = kdbus_pin_dst(bus, staging, &name, &dst);
 	if (ret < 0)
 		goto exit;
 
-	/* Disable internal kdbus policy - possibilities of connections to own,
-	 * see and talk to well-known names are restricted by libdbuspolicy
 	if (!kdbus_conn_policy_talk(src, current_cred(), dst)) {
 		ret = -EPERM;
 		goto exit;
 	}
-	*/
 
-	wait = kdbus_reply_new(dst, src, &kmsg->msg, name, true);
+	wait = kdbus_reply_new(dst, src, msg, name, true);
 	if (IS_ERR(wait)) {
 		ret = PTR_ERR(wait);
 		wait = NULL;
 		goto exit;
 	}
 
-	/* attach metadata */
-
-	attach = kdbus_meta_calc_attach_flags(src, dst);
-
-	if (!src->faked_meta) {
-		ret = kdbus_meta_proc_collect(kmsg->proc_meta, attach);
-		if (ret < 0)
-			goto exit;
-	}
-
-	ret = kdbus_meta_conn_collect(kmsg->conn_meta, kmsg, src, attach);
-	if (ret < 0)
-		goto exit;
-
 	/* send message */
 
-	kdbus_bus_eavesdrop(bus, src, kmsg);
+	kdbus_bus_eavesdrop(bus, src, staging);
 
-	ret = kdbus_conn_entry_insert(src, dst, kmsg, wait);
+	ret = kdbus_conn_entry_insert(src, dst, staging, wait, name);
 	if (ret < 0)
 		goto exit;
 
@@ -1253,19 +1238,20 @@ exit:
 	return wait;
 }
 
-static int kdbus_conn_unicast(struct kdbus_conn *src, struct kdbus_kmsg *kmsg)
+static int kdbus_conn_unicast(struct kdbus_conn *src,
+			      struct kdbus_staging *staging)
 {
+	const struct kdbus_msg *msg = staging->msg;
 	struct kdbus_name_entry *name = NULL;
 	struct kdbus_reply *wait = NULL;
 	struct kdbus_conn *dst = NULL;
 	struct kdbus_bus *bus = src->ep->bus;
-	bool is_signal = (kmsg->msg.flags & KDBUS_MSG_SIGNAL);
-	u64 attach;
+	bool is_signal = (msg->flags & KDBUS_MSG_SIGNAL);
 	int ret = 0;
 
-	if (WARN_ON(kmsg->msg.dst_id == KDBUS_DST_ID_BROADCAST) ||
-	    WARN_ON(!(kmsg->msg.flags & KDBUS_MSG_EXPECT_REPLY) &&
-		    kmsg->msg.cookie_reply != 0))
+	if (WARN_ON(msg->dst_id == KDBUS_DST_ID_BROADCAST) ||
+	    WARN_ON(!(msg->flags & KDBUS_MSG_EXPECT_REPLY) &&
+		    msg->cookie_reply != 0))
 		return -EINVAL;
 
 	/* name-registry must be locked for lookup *and* collecting data */
@@ -1273,23 +1259,23 @@ static int kdbus_conn_unicast(struct kdbus_conn *src, struct kdbus_kmsg *kmsg)
 
 	/* find and pin destination */
 
-	ret = kdbus_pin_dst(bus, kmsg, &name, &dst);
+	ret = kdbus_pin_dst(bus, staging, &name, &dst);
 	if (ret < 0)
 		goto exit;
 
 	if (is_signal) {
 		/* like broadcasts we eavesdrop even if the msg is dropped */
-		kdbus_bus_eavesdrop(bus, src, kmsg);
+		kdbus_bus_eavesdrop(bus, src, staging);
 
 		/* drop silently if peer is not interested or not privileged */
-		if (!kdbus_match_db_match_kmsg(dst->match_db, src, kmsg) ||
+		if (!kdbus_match_db_match_msg(dst->match_db, src, staging) ||
 		    !kdbus_conn_policy_talk(dst, NULL, src))
 			goto exit;
 	} else if (!kdbus_conn_policy_talk(src, current_cred(), dst)) {
 		ret = -EPERM;
 		goto exit;
-	} else if (kmsg->msg.flags & KDBUS_MSG_EXPECT_REPLY) {
-		wait = kdbus_reply_new(dst, src, &kmsg->msg, name, false);
+	} else if (msg->flags & KDBUS_MSG_EXPECT_REPLY) {
+		wait = kdbus_reply_new(dst, src, msg, name, false);
 		if (IS_ERR(wait)) {
 			ret = PTR_ERR(wait);
 			wait = NULL;
@@ -1297,26 +1283,12 @@ static int kdbus_conn_unicast(struct kdbus_conn *src, struct kdbus_kmsg *kmsg)
 		}
 	}
 
-	/* attach metadata */
-
-	attach = kdbus_meta_calc_attach_flags(src, dst);
-
-	if (!src->faked_meta) {
-		ret = kdbus_meta_proc_collect(kmsg->proc_meta, attach);
-		if (ret < 0 && !is_signal)
-			goto exit;
-	}
-
-	ret = kdbus_meta_conn_collect(kmsg->conn_meta, kmsg, src, attach);
-	if (ret < 0 && !is_signal)
-		goto exit;
-
 	/* send message */
 
 	if (!is_signal)
-		kdbus_bus_eavesdrop(bus, src, kmsg);
+		kdbus_bus_eavesdrop(bus, src, staging);
 
-	ret = kdbus_conn_entry_insert(src, dst, kmsg, wait);
+	ret = kdbus_conn_entry_insert(src, dst, staging, wait, name);
 	if (ret < 0 && !is_signal)
 		goto exit;
 
@@ -1386,7 +1358,7 @@ void kdbus_conn_move_messages(struct kdbus_conn *conn_dst,
 			continue;
 
 		if (!(conn_dst->flags & KDBUS_HELLO_ACCEPT_FD) &&
-		    e->msg_res && e->msg_res->fds_count > 0) {
+		    e->gaps && e->gaps->n_fds > 0) {
 			kdbus_conn_lost_message(conn_dst);
 			kdbus_queue_entry_free(e);
 			continue;
@@ -1412,7 +1384,7 @@ static bool kdbus_conn_policy_query_all(struct kdbus_conn *conn,
 					struct kdbus_conn *whom,
 					unsigned int access)
 {
-	struct kdbus_name_entry *ne;
+	struct kdbus_name_owner *owner;
 	bool pass = false;
 	int res;
 
@@ -1421,10 +1393,14 @@ static bool kdbus_conn_policy_query_all(struct kdbus_conn *conn,
 	down_read(&db->entries_rwlock);
 	mutex_lock(&whom->lock);
 
-	list_for_each_entry(ne, &whom->names_list, conn_entry) {
-		res = kdbus_policy_query_unlocked(db, conn_creds ? : conn->cred,
-						  ne->name,
-						  kdbus_strhash(ne->name));
+	list_for_each_entry(owner, &whom->names_list, conn_entry) {
+		if (owner->flags & KDBUS_NAME_IN_QUEUE)
+			continue;
+
+		res = kdbus_policy_query_unlocked(db,
+					conn_creds ? : conn->cred,
+					owner->name->name,
+					kdbus_strhash(owner->name->name));
 		if (res >= (int)access) {
 			pass = true;
 			break;
@@ -1468,7 +1444,7 @@ bool kdbus_conn_policy_own_name(struct kdbus_conn *conn,
 			return false;
 	}
 
-	if (conn->privileged)
+	if (conn->owner)
 		return true;
 
 	res = kdbus_policy_query(&conn->ep->bus->policy_db, conn_creds,
@@ -1503,7 +1479,7 @@ bool kdbus_conn_policy_talk(struct kdbus_conn *conn,
 					 to, KDBUS_POLICY_TALK))
 		return false;
 
-	if (conn->privileged)
+	if (conn->owner)
 		return true;
 	if (uid_eq(conn_creds->euid, to->cred->uid))
 		return true;
@@ -1588,19 +1564,16 @@ static bool kdbus_conn_policy_see(struct kdbus_conn *conn,
  *					  receive a given kernel notification
  * @conn:		Connection
  * @conn_creds:		Credentials of @conn to use for policy check
- * @kmsg:		The message carrying the notification
+ * @msg:		Notification message
  *
- * This checks whether @conn is allowed to see the kernel notification @kmsg.
+ * This checks whether @conn is allowed to see the kernel notification.
  *
  * Return: true if allowed, false if not.
  */
 bool kdbus_conn_policy_see_notification(struct kdbus_conn *conn,
 					const struct cred *conn_creds,
-					const struct kdbus_kmsg *kmsg)
+					const struct kdbus_msg *msg)
 {
-	if (WARN_ON(kmsg->msg.src_id != KDBUS_SRC_ID_KERNEL))
-		return false;
-
 	/*
 	 * Depending on the notification type, broadcasted kernel notifications
 	 * have to be filtered:
@@ -1609,26 +1582,24 @@ bool kdbus_conn_policy_see_notification(struct kdbus_conn *conn,
 	 *     to a peer if, and only if, that peer can see the name this
 	 *     notification is for.
 	 *
-	 * KDBUS_ITEM_ID_{ADD,REMOVE}: As new peers cannot have names, and all
-	 *     names are dropped before a peer is removed, those notifications
-	 *     cannot be seen on custom endpoints. Thus, we only pass them
-	 *     through on default endpoints.
+	 * KDBUS_ITEM_ID_{ADD,REMOVE}: Notifications for ID changes are
+	 *     broadcast to everyone, to allow tracking peers.
 	 */
 
-	switch (kmsg->notify_type) {
+	switch (msg->items[0].type) {
 	case KDBUS_ITEM_NAME_ADD:
 	case KDBUS_ITEM_NAME_REMOVE:
 	case KDBUS_ITEM_NAME_CHANGE:
 		return kdbus_conn_policy_see_name(conn, conn_creds,
-						  kmsg->notify_name);
+					msg->items[0].name_change.name);
 
 	case KDBUS_ITEM_ID_ADD:
 	case KDBUS_ITEM_ID_REMOVE:
-		return !conn->ep->user;
+		return true;
 
 	default:
 		WARN(1, "Invalid type for notification broadcast: %llu\n",
-		     (unsigned long long)kmsg->notify_type);
+		     (unsigned long long)msg->items[0].type);
 		return false;
 	}
 }
@@ -1636,12 +1607,12 @@ bool kdbus_conn_policy_see_notification(struct kdbus_conn *conn,
 /**
  * kdbus_cmd_hello() - handle KDBUS_CMD_HELLO
  * @ep:			Endpoint to operate on
- * @privileged:		Whether the caller is privileged
+ * @file:		File this connection is opened on
  * @argp:		Command payload
  *
- * Return: Newly created connection on success, ERR_PTR on failure.
+ * Return: NULL or newly created connection on success, ERR_PTR on failure.
  */
-struct kdbus_conn *kdbus_cmd_hello(struct kdbus_ep *ep, bool privileged,
+struct kdbus_conn *kdbus_cmd_hello(struct kdbus_ep *ep, struct file *file,
 				   void __user *argp)
 {
 	struct kdbus_cmd_hello *cmd;
@@ -1676,7 +1647,7 @@ struct kdbus_conn *kdbus_cmd_hello(struct kdbus_ep *ep, bool privileged,
 
 	item_name = argv[1].item ? argv[1].item->str : NULL;
 
-	c = kdbus_conn_new(ep, privileged, cmd, item_name,
+	c = kdbus_conn_new(ep, file, cmd, item_name,
 			   argv[2].item ? &argv[2].item->creds : NULL,
 			   argv[3].item ? &argv[3].item->pids : NULL,
 			   argv[4].item ? argv[4].item->str : NULL,
@@ -1726,7 +1697,7 @@ exit:
  *
  * The caller must not hold any active reference to @conn or this will deadlock.
  *
- * Return: 0 on success, negative error code on failure.
+ * Return: >=0 on success, negative error code on failure.
  */
 int kdbus_cmd_byebye_unlocked(struct kdbus_conn *conn, void __user *argp)
 {
@@ -1758,21 +1729,23 @@ int kdbus_cmd_byebye_unlocked(struct kdbus_conn *conn, void __user *argp)
  * @conn:		connection to operate on
  * @argp:		command payload
  *
- * Return: 0 on success, negative error code on failure.
+ * Return: >=0 on success, negative error code on failure.
  */
 int kdbus_cmd_conn_info(struct kdbus_conn *conn, void __user *argp)
 {
 	struct kdbus_meta_conn *conn_meta = NULL;
 	struct kdbus_pool_slice *slice = NULL;
 	struct kdbus_name_entry *entry = NULL;
+	struct kdbus_name_owner *owner = NULL;
 	struct kdbus_conn *owner_conn = NULL;
+	struct kdbus_item *meta_items = NULL;
 	struct kdbus_info info = {};
 	struct kdbus_cmd_info *cmd;
 	struct kdbus_bus *bus = conn->ep->bus;
-	struct kvec kvec;
-	size_t meta_size;
+	struct kvec kvec[3];
+	size_t meta_size, cnt = 0;
 	const char *name;
-	u64 attach_flags;
+	u64 attach_flags, size = 0;
 	int ret;
 
 	struct kdbus_arg argv[] = {
@@ -1800,15 +1773,17 @@ int kdbus_cmd_conn_info(struct kdbus_conn *conn, void __user *argp)
 
 	if (name) {
 		entry = kdbus_name_lookup_unlocked(bus->name_registry, name);
-		if (!entry || !entry->conn ||
+		if (entry)
+			owner = kdbus_name_get_owner(entry);
+		if (!owner ||
 		    !kdbus_conn_policy_see_name(conn, current_cred(), name) ||
-		    (cmd->id != 0 && entry->conn->id != cmd->id)) {
+		    (cmd->id != 0 && owner->conn->id != cmd->id)) {
 			/* pretend a name doesn't exist if you cannot see it */
 			ret = -ESRCH;
 			goto exit;
 		}
 
-		owner_conn = kdbus_conn_ref(entry->conn);
+		owner_conn = kdbus_conn_ref(owner->conn);
 	} else if (cmd->id > 0) {
 		owner_conn = kdbus_bus_find_conn_by_id(bus, cmd->id);
 		if (!owner_conn || !kdbus_conn_policy_see(conn, current_cred(),
@@ -1822,10 +1797,6 @@ int kdbus_cmd_conn_info(struct kdbus_conn *conn, void __user *argp)
 		goto exit;
 	}
 
-	info.id = owner_conn->id;
-	info.flags = owner_conn->flags;
-	kdbus_kvec_set(&kvec, &info, sizeof(info), &info.size);
-
 	attach_flags &= atomic64_read(&owner_conn->attach_flags_send);
 
 	conn_meta = kdbus_meta_conn_new();
@@ -1835,32 +1806,35 @@ int kdbus_cmd_conn_info(struct kdbus_conn *conn, void __user *argp)
 		goto exit;
 	}
 
-	ret = kdbus_meta_conn_collect(conn_meta, NULL, owner_conn,
-				      attach_flags);
+	ret = kdbus_meta_conn_collect(conn_meta, owner_conn, 0, attach_flags);
 	if (ret < 0)
 		goto exit;
 
-	ret = kdbus_meta_export_prepare(owner_conn->meta, conn_meta,
-					&attach_flags, &meta_size);
+	ret = kdbus_meta_emit(owner_conn->meta_proc, owner_conn->meta_fake,
+			      conn_meta, conn, attach_flags,
+			      &meta_items, &meta_size);
 	if (ret < 0)
 		goto exit;
 
-	slice = kdbus_pool_slice_alloc(conn->pool,
-				       info.size + meta_size, false);
+	info.id = owner_conn->id;
+	info.flags = owner_conn->flags;
+
+	kdbus_kvec_set(&kvec[cnt++], &info, sizeof(info), &size);
+	if (meta_size > 0) {
+		kdbus_kvec_set(&kvec[cnt++], meta_items, meta_size, &size);
+		cnt += !!kdbus_kvec_pad(&kvec[cnt], &size);
+	}
+
+	info.size = size;
+
+	slice = kdbus_pool_slice_alloc(conn->pool, size, false);
 	if (IS_ERR(slice)) {
 		ret = PTR_ERR(slice);
 		slice = NULL;
 		goto exit;
 	}
 
-	ret = kdbus_meta_export(owner_conn->meta, conn_meta, attach_flags,
-				slice, sizeof(info), &meta_size);
-	if (ret < 0)
-		goto exit;
-
-	info.size += meta_size;
-
-	ret = kdbus_pool_slice_copy_kvec(slice, 0, &kvec, 1, sizeof(info));
+	ret = kdbus_pool_slice_copy_kvec(slice, 0, kvec, cnt, size);
 	if (ret < 0)
 		goto exit;
 
@@ -1878,6 +1852,7 @@ int kdbus_cmd_conn_info(struct kdbus_conn *conn, void __user *argp)
 exit:
 	up_read(&bus->name_registry->rwlock);
 	kdbus_pool_slice_release(slice);
+	kfree(meta_items);
 	kdbus_meta_conn_unref(conn_meta);
 	kdbus_conn_unref(owner_conn);
 	return kdbus_args_clear(&args, ret);
@@ -1888,11 +1863,10 @@ exit:
  * @conn:		connection to operate on
  * @argp:		command payload
  *
- * Return: 0 on success, negative error code on failure.
+ * Return: >=0 on success, negative error code on failure.
  */
 int kdbus_cmd_update(struct kdbus_conn *conn, void __user *argp)
 {
-	struct kdbus_bus *bus = conn->ep->bus;
 	struct kdbus_item *item_policy;
 	u64 *item_attach_send = NULL;
 	u64 *item_attach_recv = NULL;
@@ -1933,11 +1907,6 @@ int kdbus_cmd_update(struct kdbus_conn *conn, void __user *argp)
 						  &attach_send);
 		if (ret < 0)
 			goto exit;
-
-		if (bus->attach_flags_req & ~attach_send) {
-			ret = -EINVAL;
-			goto exit;
-		}
 	}
 
 	if (item_attach_recv) {
@@ -1985,15 +1954,17 @@ exit:
  * @f:			file this command was called on
  * @argp:		command payload
  *
- * Return: 0 on success, negative error code on failure.
+ * Return: >=0 on success, negative error code on failure.
  */
 int kdbus_cmd_send(struct kdbus_conn *conn, struct file *f, void __user *argp)
 {
 	struct kdbus_cmd_send *cmd;
-	struct kdbus_kmsg *kmsg = NULL;
+	struct kdbus_staging *staging = NULL;
+	struct kdbus_msg *msg = NULL;
 	struct file *cancel_fd = NULL;
-	int ret;
+	int ret, ret2;
 
+	/* command arguments */
 	struct kdbus_arg argv[] = {
 		{ .type = KDBUS_ITEM_NEGOTIATE },
 		{ .type = KDBUS_ITEM_CANCEL_FD },
@@ -2005,12 +1976,48 @@ int kdbus_cmd_send(struct kdbus_conn *conn, struct file *f, void __user *argp)
 		.argc = ARRAY_SIZE(argv),
 	};
 
+	/* message arguments */
+	struct kdbus_arg msg_argv[] = {
+		{ .type = KDBUS_ITEM_NEGOTIATE },
+		{ .type = KDBUS_ITEM_PAYLOAD_VEC, .multiple = true },
+		{ .type = KDBUS_ITEM_PAYLOAD_MEMFD, .multiple = true },
+		{ .type = KDBUS_ITEM_FDS },
+		{ .type = KDBUS_ITEM_BLOOM_FILTER },
+		{ .type = KDBUS_ITEM_DST_NAME },
+	};
+	struct kdbus_args msg_args = {
+		.allowed_flags = KDBUS_FLAG_NEGOTIATE |
+				 KDBUS_MSG_EXPECT_REPLY |
+				 KDBUS_MSG_NO_AUTO_START |
+				 KDBUS_MSG_SIGNAL,
+		.argv = msg_argv,
+		.argc = ARRAY_SIZE(msg_argv),
+	};
+
 	if (!kdbus_conn_is_ordinary(conn))
 		return -EOPNOTSUPP;
 
+	/* make sure to parse both, @cmd and @msg on negotiation */
+
 	ret = kdbus_args_parse(&args, argp, &cmd);
-	if (ret != 0)
-		return ret;
+	if (ret < 0)
+		goto exit;
+	else if (ret > 0 && !cmd->msg_address) /* negotiation without msg */
+		goto exit;
+
+	ret2 = kdbus_args_parse_msg(&msg_args, KDBUS_PTR(cmd->msg_address),
+				    &msg);
+	if (ret2 < 0) { /* cannot parse message */
+		ret = ret2;
+		goto exit;
+	} else if (ret2 > 0 && !ret) { /* msg-negot implies cmd-negot */
+		ret = -EINVAL;
+		goto exit;
+	} else if (ret > 0) { /* negotiation */
+		goto exit;
+	}
+
+	/* here we parsed both, @cmd and @msg, and neither wants negotiation */
 
 	cmd->reply.return_flags = 0;
 	kdbus_pool_publish_empty(conn->pool, &cmd->reply.offset,
@@ -2029,23 +2036,30 @@ int kdbus_cmd_send(struct kdbus_conn *conn, struct file *f, void __user *argp)
 		}
 	}
 
-	kmsg = kdbus_kmsg_new_from_cmd(conn, cmd);
-	if (IS_ERR(kmsg)) {
-		ret = PTR_ERR(kmsg);
-		kmsg = NULL;
+	/* patch-in the source of this message */
+	if (msg->src_id > 0 && msg->src_id != conn->id) {
+		ret = -EINVAL;
+		goto exit;
+	}
+	msg->src_id = conn->id;
+
+	staging = kdbus_staging_new_user(conn->ep->bus, cmd, msg);
+	if (IS_ERR(staging)) {
+		ret = PTR_ERR(staging);
+		staging = NULL;
 		goto exit;
 	}
 
-	if (kmsg->msg.dst_id == KDBUS_DST_ID_BROADCAST) {
+	if (msg->dst_id == KDBUS_DST_ID_BROADCAST) {
 		down_read(&conn->ep->bus->name_registry->rwlock);
-		kdbus_bus_broadcast(conn->ep->bus, conn, kmsg);
+		kdbus_bus_broadcast(conn->ep->bus, conn, staging);
 		up_read(&conn->ep->bus->name_registry->rwlock);
 	} else if (cmd->flags & KDBUS_SEND_SYNC_REPLY) {
 		struct kdbus_reply *r;
 		ktime_t exp;
 
-		exp = ns_to_ktime(kmsg->msg.timeout_ns);
-		r = kdbus_conn_call(conn, kmsg, exp);
+		exp = ns_to_ktime(msg->timeout_ns);
+		r = kdbus_conn_call(conn, staging, exp);
 		if (IS_ERR(r)) {
 			ret = PTR_ERR(r);
 			goto exit;
@@ -2055,13 +2069,13 @@ int kdbus_cmd_send(struct kdbus_conn *conn, struct file *f, void __user *argp)
 		kdbus_reply_unref(r);
 		if (ret < 0)
 			goto exit;
-	} else if ((kmsg->msg.flags & KDBUS_MSG_EXPECT_REPLY) ||
-		   kmsg->msg.cookie_reply == 0) {
-		ret = kdbus_conn_unicast(conn, kmsg);
+	} else if ((msg->flags & KDBUS_MSG_EXPECT_REPLY) ||
+		   msg->cookie_reply == 0) {
+		ret = kdbus_conn_unicast(conn, staging);
 		if (ret < 0)
 			goto exit;
 	} else {
-		ret = kdbus_conn_reply(conn, kmsg);
+		ret = kdbus_conn_reply(conn, staging);
 		if (ret < 0)
 			goto exit;
 	}
@@ -2072,7 +2086,8 @@ int kdbus_cmd_send(struct kdbus_conn *conn, struct file *f, void __user *argp)
 exit:
 	if (cancel_fd)
 		fput(cancel_fd);
-	kdbus_kmsg_free(kmsg);
+	kdbus_staging_free(staging);
+	ret = kdbus_args_clear(&msg_args, ret);
 	return kdbus_args_clear(&args, ret);
 }
 
@@ -2081,7 +2096,7 @@ exit:
  * @conn:		connection to operate on
  * @argp:		command payload
  *
- * Return: 0 on success, negative error code on failure.
+ * Return: >=0 on success, negative error code on failure.
  */
 int kdbus_cmd_recv(struct kdbus_conn *conn, void __user *argp)
 {
@@ -2204,7 +2219,7 @@ exit:
  * @conn:		connection to operate on
  * @argp:		command payload
  *
- * Return: 0 on success, negative error code on failure.
+ * Return: >=0 on success, negative error code on failure.
  */
 int kdbus_cmd_free(struct kdbus_conn *conn, void __user *argp)
 {

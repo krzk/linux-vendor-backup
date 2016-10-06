@@ -19,9 +19,6 @@
 /* maximum size of message header and items */
 #define KDBUS_MSG_MAX_SIZE		SZ_8K
 
-/* maximum number of message items */
-#define KDBUS_MSG_MAX_ITEMS		128
-
 /* maximum number of memfd items per message */
 #define KDBUS_MSG_MAX_MEMFD_ITEMS	16
 
@@ -53,7 +50,7 @@
 #define KDBUS_CONN_MAX_NAMES			256
 
 /* maximum number of queued requests waiting for a reply */
-#define KDBUS_CONN_MAX_REQUESTS_PENDING		1024	/* 128 -> 1024 */
+#define KDBUS_CONN_MAX_REQUESTS_PENDING		1024
 
 /* maximum number of connections per user in one domain */
 #define KDBUS_USER_MAX_CONN			1024
