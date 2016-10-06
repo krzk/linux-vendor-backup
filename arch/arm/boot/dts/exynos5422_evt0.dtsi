@@ -944,8 +944,14 @@
 		reg = <0x11800000 0x5000>;
 		interrupts = <0 219 0>, <0 74 0>, <0 117 0>;
 		interrupt-names = "JOB", "MMU", "GPU";
-		clocks = <&clock 1376>;
-		clock-names = "clk_mali";
+		clocks = <&clock 10>, <&clock 2007>, <&clock 2002>,
+			<&clock 2056>, <&clock 4018>, <&clock 2070>,
+			<&clock 2080>, <&clock 1376>, <&clock 1>,
+			<&clock 2136>;
+		clock-names = "fout_vpll", "mout_vpll_ctrl", "mout_dpll_ctrl",
+			"mout_aclk_g3d", "dout_aclk_g3d", "mout_aclk_g3d_sw",
+			"mout_aclk_g3d_user", "clk_g3d_ip", "fin_pll",
+			"armclk";
 		samsung,power-domain = <&pd_g3d>;
 	};
 
