@@ -130,8 +130,8 @@ install -m 644 COPYING %{_builddir}/boot/
 make INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=%{_builddir} modules_install
 
 # 2-5. Install uapi headers
-find uapi-headers/usr/include -name ".install" | xargs rm -f
-find uapi-headers/usr/include -name "..install.cmd" | xargs rm -f
+find uapi-headers/usr/include -name ".install" -delete
+find uapi-headers/usr/include -name "..install.cmd" -delete
 rm -f uapi-headers/usr/include/asm*/atomic.h
 rm -f uapi-headers/usr/include/asm*/io.h
 mv uapi-headers/usr %{_builddir}/
@@ -143,19 +143,19 @@ rm -rf vmlinux*
 rm -rf kernel.img
 rm -rf uapi-headers
 rm -f tools/mkimage*
-find %{_builddir}/linux-kernel-%{version} -name ".tmp_vmlinux*" -exec rm -f {} \;
-find %{_builddir}/linux-kernel-%{version} -name ".gitignore" -exec rm -f {} \;
-find %{_builddir}/linux-kernel-%{version} -name "\.*dtb*tmp" -exec rm -f {} \;
-find %{_builddir}/linux-kernel-%{version} -name "\.*dtb" -exec rm -f {} \;
-find %{_builddir}/linux-kernel-%{version} -name "*\.*tmp" -exec rm -f {} \;
-find %{_builddir}/linux-kernel-%{version} -name "vmlinux" -exec rm -f {} \;
-find %{_builddir}/linux-kernel-%{version} -name "Image" -exec rm -f {} \;
-find %{_builddir}/linux-kernel-%{version} -name "Image.gz" -exec rm -f {} \;
-find %{_builddir}/linux-kernel-%{version} -name "*.cmd" -exec rm -f {} \;
-find %{_builddir}/linux-kernel-%{version} -name "*\.ko" -exec rm -f {} \;
-find %{_builddir}/linux-kernel-%{version} -name "*\.o" -exec rm -f {} \;
-find %{_builddir}/linux-kernel-%{version} -name "*\.S" -exec rm -f {} \;
-find %{_builddir}/linux-kernel-%{version} -name "*\.c" -not -path "%{_builddir}/linux-kernel-%{version}/scripts/*" -exec rm -f {} \;
+find %{_builddir}/linux-kernel-%{version} -name ".tmp_vmlinux*" -delete
+find %{_builddir}/linux-kernel-%{version} -name ".gitignore" -delete
+find %{_builddir}/linux-kernel-%{version} -name "\.*dtb*tmp" -delete
+find %{_builddir}/linux-kernel-%{version} -name "\.*dtb" -delete
+find %{_builddir}/linux-kernel-%{version} -name "*\.*tmp" -delete
+find %{_builddir}/linux-kernel-%{version} -name "vmlinux" -delete
+find %{_builddir}/linux-kernel-%{version} -name "Image" -delete
+find %{_builddir}/linux-kernel-%{version} -name "Image.gz" -delete
+find %{_builddir}/linux-kernel-%{version} -name "*.cmd" -delete
+find %{_builddir}/linux-kernel-%{version} -name "*\.ko" -delete
+find %{_builddir}/linux-kernel-%{version} -name "*\.o" -delete
+find %{_builddir}/linux-kernel-%{version} -name "*\.S" -delete
+find %{_builddir}/linux-kernel-%{version} -name "*\.c" -not -path "%{_builddir}/linux-kernel-%{version}/scripts/*" -delete
 
 # 3-2. move files for devel package
 cd %{_builddir}

@@ -86,7 +86,7 @@ rm -rf %{buildroot}/System.map*
 rm -rf %{buildroot}/vmlinux*
 
 # 7. Update file permisions
-find %{buildroot}/lib/modules/ -name "*.ko"                                     -type f -exec chmod 755 {} \;
+find %{buildroot}/lib/modules/ -name "*.ko" -type f -print0 | xargs -0 chmod 755
 
 # 8. Create symbolic links
 rm -f %{buildroot}/lib/modules/%{fullVersion}/build
