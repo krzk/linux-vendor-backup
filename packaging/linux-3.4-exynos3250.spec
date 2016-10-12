@@ -107,18 +107,18 @@ make modules
 make modules_install INSTALL_MOD_PATH=%{_builddir}/mod_%{MODEL}
 
 # prepare for devel package
-find %{_builddir}/%{name}-%{version} -name ".tmp_vmlinux*" -exec rm -f {} \;
-find %{_builddir}/%{name}-%{version} -name "\.*dtb*tmp" -exec rm -f {} \;
-find %{_builddir}/%{name}-%{version} -name "*\.*tmp" -exec rm -f {} \;
-find %{_builddir}/%{name}-%{version} -name "vmlinux" -exec rm -f {} \;
-find %{_builddir}/%{name}-%{version} -name "bzImage" -exec rm -f {} \;
-find %{_builddir}/%{name}-%{version} -name "zImage" -exec rm -f {} \;
-find %{_builddir}/%{name}-%{version} -name "dzImage" -exec rm -f {} \;
-find %{_builddir}/%{name}-%{version} -name "*.cmd" -exec rm -f {} \;
-find %{_builddir}/%{name}-%{version} -name "*\.ko" -exec rm -f {} \;
-find %{_builddir}/%{name}-%{version} -name "*\.o" -exec rm -f {} \;
-find %{_builddir}/%{name}-%{version} -name "*\.S" -exec rm -f {} \;
-find %{_builddir}/%{name}-%{version} -name "*\.c" -not -path "%{_builddir}/%{name}-%{version}/scripts/*" -exec rm -f {} \;
+find %{_builddir}/%{name}-%{version} -name ".tmp_vmlinux*" -delete
+find %{_builddir}/%{name}-%{version} -name "\.*dtb*tmp" -delete
+find %{_builddir}/%{name}-%{version} -name "*\.*tmp" -delete
+find %{_builddir}/%{name}-%{version} -name "vmlinux" -delete
+find %{_builddir}/%{name}-%{version} -name "bzImage" -delete
+find %{_builddir}/%{name}-%{version} -name "zImage" -delete
+find %{_builddir}/%{name}-%{version} -name "dzImage" -delete
+find %{_builddir}/%{name}-%{version} -name "*.cmd" -delete
+find %{_builddir}/%{name}-%{version} -name "*\.ko" -delete
+find %{_builddir}/%{name}-%{version} -name "*\.o" -delete
+find %{_builddir}/%{name}-%{version} -name "*\.S" -delete
+find %{_builddir}/%{name}-%{version} -name "*\.c" -not -path "%{_builddir}/%{name}-%{version}/scripts/*" -delete
 
 #remove all changed source codes for next build
 cd %_builddir
@@ -132,8 +132,8 @@ make mrproper
 make headers_check
 make headers_install INSTALL_HDR_PATH=%{buildroot}/usr
 
-find  %{buildroot}/usr/include -name ".install" | xargs rm -f
-find  %{buildroot}/usr/include -name "..install.cmd" | xargs rm -f
+find  %{buildroot}/usr/include -name ".install" -delete
+find  %{buildroot}/usr/include -name "..install.cmd" -delete
 rm -rf %{buildroot}/usr/include/scsi
 rm -f %{buildroot}/usr/include/asm*/atomic.h
 rm -f %{buildroot}/usr/include/asm*/io.h
@@ -158,7 +158,7 @@ mv %_builddir/kernel-devel-%{MODEL} %{buildroot}/boot/kernel/devel/kernel-devel-
 
 ln -s kernel-devel-%{MODEL} %{buildroot}/boot/kernel/devel/tizen-devel
 
-find %{buildroot}/boot/kernel/ -name "*.h" -exec chmod 644 {} \;
+find %{buildroot}/boot/kernel/ -name "*.h" -print0 | xargs -0 chmod 644
 
 find %{buildroot}/boot/kernel/ -name 'System.map' > develfiles.pre # for secure storage
 find %{buildroot}/boot/kernel/ -name 'vmlinux' >> develfiles.pre   # for TIMA
