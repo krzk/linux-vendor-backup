@@ -311,7 +311,7 @@ static int kdbus_meta_proc_collect_cmdline(struct kdbus_meta_proc *mp)
 	if (!mm)
 		return 0;
 
-	if (!mm->arg_end) {
+	if (mm->arg_start >= mm->arg_end) {
 		mmput(mm);
 		return 0;
 	}
