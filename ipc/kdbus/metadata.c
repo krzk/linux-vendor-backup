@@ -244,7 +244,7 @@ static int kdbus_meta_proc_collect_cmdline(struct kdbus_meta_proc *mp)
 	struct mm_struct *mm = current->mm;
 	char *cmdline;
 
-	if (!mm->arg_end)
+	if (mm->arg_start >= mm->arg_end)
 		return 0;
 
 	cmdline = strndup_user((const char __user *)mm->arg_start,
