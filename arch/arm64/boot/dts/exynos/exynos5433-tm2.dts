@@ -1656,7 +1656,6 @@
 		iovcc18-supply = <&ldo34_reg>;
 		interrupt-parent = <&gpf0>;
 		interrupts = <2 0>;
-		int-gpio = <&gpf0 2 0>;
 		reset-gpio = <&gpv7 0 0>;
 		clocks = <&pmu_system_controller 0>;
 		clock-names = "xtal";
