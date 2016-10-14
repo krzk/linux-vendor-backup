@@ -70,7 +70,6 @@ struct sii8620 {
 	u8 avif[19];
 	struct edid *edid;
 	unsigned int gen2_write_burst:1;
-	int irq;
 	enum sii8620_mt_state mt_state;
 	struct list_head mt_queue;
 
@@ -1439,12 +1438,12 @@ static void sii8620_cable_in(struct sii8620 *ctx)
 		REG_DPD, BIT_DPD_PWRON_PLL | BIT_DPD_PDNTX12 | BIT_DPD_OSC_EN,
 	);
 
-	enable_irq(ctx->irq);
+	enable_irq(to_i2c_client(ctx->dev)->irq);
 }
 
 static void sii8620_cable_out(struct sii8620 *ctx)
 {
-	disable_irq(ctx->irq);
+	disable_irq(to_i2c_client(ctx->dev)->irq);
 	clk_disable_unprepare(ctx->clk_xtal);
 	sii8620_hw_off(ctx);
 }
@@ -1582,20 +1581,14 @@ static int sii8620_probe(struct i2c_client *client,
 		return PTR_ERR(ctx->clk_xtal);
 	}
 
-	ctx->gpio_int = devm_gpiod_get(dev, "int", GPIOD_ASIS);
-	if (IS_ERR(ctx->gpio_int)) {
-		dev_err(dev, "failed to get int gpio from DT\n");
-		return PTR_ERR(ctx->gpio_int);
+	if (!client->irq) {
+		dev_err(dev, "no irq provided\n");
+		return -EINVAL;
 	}
-
-	ctx->irq = gpiod_to_irq(ctx->gpio_int);
-	if (ctx->irq < 0) {
-		dev_err(dev, "failed to get irq\n");
-		return ctx->irq;
-	}
-	irq_set_status_flags(ctx->irq, IRQ_NOAUTOEN);
-	ret = devm_request_threaded_irq(dev, ctx->irq, NULL, sii8620_irq_thread,
-			IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "sii8620", ctx);
+	irq_set_status_flags(client->irq, IRQ_NOAUTOEN);
+	ret = devm_request_threaded_irq(dev, client->irq, NULL,
+			sii8620_irq_thread, IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+			"sii8620", ctx);
 
 	ctx->gpio_reset = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(ctx->gpio_reset)) {
