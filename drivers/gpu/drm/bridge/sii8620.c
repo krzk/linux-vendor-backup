@@ -45,6 +45,12 @@ enum sii8620_sink_type {
 	SINK_DVI
 };
 
+enum sii8620_mt_state {
+	MT_STATE_READY,
+	MT_STATE_BUSY,
+	MT_STATE_DONE
+};
+
 struct sii8620 {
 	struct drm_bridge bridge;
 	struct device *dev;
@@ -52,8 +58,8 @@ struct sii8620 {
 	struct gpio_desc *gpio_reset;
 	struct gpio_desc *gpio_int;
 	struct regulator_bulk_data supplies[2];
-	struct mutex lock; /* context lock */
-	int i2c_error;
+	struct mutex lock; /* context lock, protects fields below */
+	int error;
 	enum sii8620_mode mode;
 	enum sii8620_sink_type sink_type;
 	u8 cbus_status;
@@ -64,9 +70,8 @@ struct sii8620 {
 	u8 avif[19];
 	struct edid *edid;
 	unsigned int gen2_write_burst:1;
-	unsigned int mt_ready:1;
-	unsigned int mt_done:1;
 	int irq;
+	enum sii8620_mt_state mt_state;
 	struct list_head mt_queue;
 
 	/* extcon features */
@@ -76,17 +81,17 @@ struct sii8620 {
 	struct extcon_dev *edev;
 };
 
-struct sii8620_msc_msg;
+struct sii8620_mt_msg;
 
-typedef void (*sii8620_msc_msg_cb)(struct sii8620 *ctx,
-				   struct sii8620_msc_msg *msg);
+typedef void (*sii8620_mt_msg_cb)(struct sii8620 *ctx,
+				  struct sii8620_mt_msg *msg);
 
-struct sii8620_msc_msg {
+struct sii8620_mt_msg {
 	struct list_head node;
 	u8 reg[4];
 	u8 ret;
-	sii8620_msc_msg_cb send;
-	sii8620_msc_msg_cb recv;
+	sii8620_mt_msg_cb send;
+	sii8620_mt_msg_cb recv;
 };
 
 static const u8 sii8620_i2c_page[] = {
@@ -102,9 +107,9 @@ static const u8 sii8620_i2c_page[] = {
 
 static int sii8620_clear_error(struct sii8620 *ctx)
 {
-	int ret = ctx->i2c_error;
+	int ret = ctx->error;
 
-	ctx->i2c_error = 0;
+	ctx->error = 0;
 	return ret;
 }
 
@@ -129,7 +134,7 @@ static void sii8620_read_buf(struct sii8620 *ctx, u16 addr, u8 *buf, int len)
 	};
 	int ret;
 
-	if (ctx->i2c_error)
+	if (ctx->error)
 		return;
 
 	ret = i2c_transfer(client->adapter, msg, 2);
@@ -139,7 +144,7 @@ static void sii8620_read_buf(struct sii8620 *ctx, u16 addr, u8 *buf, int len)
 	if (ret != 2) {
 		dev_err(dev, "I2C read of [%#06x] failed with code %d.\n",
 			addr, ret);
-		ctx->i2c_error = ret < 0 ? ret : -EIO;
+		ctx->error = ret < 0 ? ret : -EIO;
 	}
 }
 
@@ -164,13 +169,13 @@ static void sii8620_write_buf(struct sii8620 *ctx, u16 addr, const u8 *buf,
 	};
 	int ret;
 
-	if (ctx->i2c_error)
+	if (ctx->error)
 		return;
 
 	if (len > 1) {
 		msg.buf = kmalloc(len + 1, GFP_KERNEL);
 		if (!msg.buf) {
-			ctx->i2c_error = -ENOMEM;
+			ctx->error = -ENOMEM;
 			return;
 		}
 		memcpy(msg.buf + 1, buf, len);
@@ -188,7 +193,7 @@ static void sii8620_write_buf(struct sii8620 *ctx, u16 addr, const u8 *buf,
 	if (ret != 1) {
 		dev_err(dev, "I2C write [%#06x]=%*ph failed with code %d.\n",
 			addr, len, buf, ret);
-		ctx->i2c_error = ret ?: -EIO;
+		ctx->error = ret ?: -EIO;
 	}
 
 	if (len > 1)
@@ -224,34 +229,31 @@ static void sii8620_setbits(struct sii8620 *ctx, u16 addr, u8 mask, u8 val)
 
 static void sii8620_msc_work(struct sii8620 *ctx)
 {
-	struct sii8620_msc_msg *msg;
+	struct sii8620_mt_msg *msg;
 
 	if (list_empty(&ctx->mt_queue))
 		return;
 
-	if (ctx->mt_done) {
-		msg = list_first_entry(&ctx->mt_queue, struct sii8620_msc_msg,
+	if (ctx->mt_state == MT_STATE_DONE) {
+		msg = list_first_entry(&ctx->mt_queue, struct sii8620_mt_msg,
 				       node);
-
 		if (msg->recv)
 			msg->recv(ctx, msg);
 		list_del(&msg->node);
 		kfree(msg);
-		ctx->mt_done = 0;
 	}
 
-	if (!ctx->mt_ready || list_empty(&ctx->mt_queue))
+	if (ctx->mt_state != MT_STATE_READY || list_empty(&ctx->mt_queue))
 		return;
 
-	msg = list_first_entry(&ctx->mt_queue, struct sii8620_msc_msg, node);
-
+	ctx->mt_state = MT_STATE_BUSY;
+	msg = list_first_entry(&ctx->mt_queue, struct sii8620_mt_msg, node);
 	if (msg->send)
 		msg->send(ctx, msg);
-	ctx->mt_ready = 0;
 }
 
 static void sii8620_mt_msc_cmd_send(struct sii8620 *ctx,
-				       struct sii8620_msc_msg *msg)
+				       struct sii8620_mt_msg *msg)
 {
 	static const struct {
 		u8 cmd, beg, cnt;
@@ -278,12 +280,12 @@ static void sii8620_mt_msc_cmd_send(struct sii8620 *ctx,
 	sii8620_write(ctx, REG_MSC_COMMAND_START, p->cmd);
 }
 
-static struct sii8620_msc_msg *sii8620_msg_new(struct sii8620 *ctx)
+static struct sii8620_mt_msg *sii8620_msg_new(struct sii8620 *ctx)
 {
-	struct sii8620_msc_msg *msg = kzalloc(sizeof(*msg), GFP_KERNEL);
+	struct sii8620_mt_msg *msg = kzalloc(sizeof(*msg), GFP_KERNEL);
 
 	if (!msg)
-		ctx->i2c_error = -ENOMEM;
+		ctx->error = -ENOMEM;
 	else
 		list_add_tail(&msg->node, &ctx->mt_queue);
 
@@ -292,7 +294,7 @@ static struct sii8620_msc_msg *sii8620_msg_new(struct sii8620 *ctx)
 
 static void sii8620_mt_write_stat(struct sii8620 *ctx, u8 reg, u8 val)
 {
-	struct sii8620_msc_msg *msg = sii8620_msg_new(ctx);
+	struct sii8620_mt_msg *msg = sii8620_msg_new(ctx);
 
 	if (!msg)
 		return;
@@ -305,7 +307,7 @@ static void sii8620_mt_write_stat(struct sii8620 *ctx, u8 reg, u8 val)
 
 static inline void sii8620_mt_set_int(struct sii8620 *ctx, u8 irq, u8 mask)
 {
-	struct sii8620_msc_msg *msg = sii8620_msg_new(ctx);
+	struct sii8620_mt_msg *msg = sii8620_msg_new(ctx);
 
 	if (!msg)
 		return;
@@ -318,7 +320,7 @@ static inline void sii8620_mt_set_int(struct sii8620 *ctx, u8 irq, u8 mask)
 
 static void sii8620_write_msc_msg(struct sii8620 *ctx, u8 cmd, u8 data)
 {
-	struct sii8620_msc_msg *msg = sii8620_msg_new(ctx);
+	struct sii8620_mt_msg *msg = sii8620_msg_new(ctx);
 
 	if (!msg)
 		return;
@@ -335,7 +337,7 @@ static void sii8620_write_rap(struct sii8620 *ctx, u8 code)
 }
 
 static void sii8620_mt_read_devcap_send(struct sii8620 *ctx,
-					struct sii8620_msc_msg *msg)
+					struct sii8620_mt_msg *msg)
 {
 	u8 ctrl = VAL_EDID_CTRL_EDID_PRIME_VALID_DISABLE
 			| VAL_EDID_CTRL_DEVCAP_SELECT_DEVCAP
@@ -407,7 +409,7 @@ static void sii8620_mr_xdevcap(struct sii8620 *ctx)
 }
 
 static void sii8620_mt_read_devcap_recv(struct sii8620 *ctx,
-					struct sii8620_msc_msg *msg)
+					struct sii8620_mt_msg *msg)
 {
 	u8 ctrl = VAL_EDID_CTRL_EDID_PRIME_VALID_DISABLE
 			| VAL_EDID_CTRL_DEVCAP_SELECT_DEVCAP
@@ -432,10 +434,10 @@ static void sii8620_mt_read_devcap_recv(struct sii8620 *ctx,
 
 static void sii8620_mt_read_devcap(struct sii8620 *ctx, bool xdevcap)
 {
-	struct sii8620_msc_msg *msg = kzalloc(sizeof(*msg), GFP_KERNEL);
+	struct sii8620_mt_msg *msg = kzalloc(sizeof(*msg), GFP_KERNEL);
 
 	if (!msg) {
-		ctx->i2c_error = -ENOMEM;
+		ctx->error = -ENOMEM;
 		return;
 	}
 
@@ -482,7 +484,7 @@ static void sii8620_fetch_edid(struct sii8620 *ctx)
 #define FETCH_SIZE 16
 	edid = kmalloc(EDID_LENGTH, GFP_KERNEL);
 	if (!edid) {
-		ctx->i2c_error = -ENOMEM;
+		ctx->error = -ENOMEM;
 		return;
 	}
 
@@ -962,8 +964,6 @@ static void sii8620_mhl_init(struct sii8620 *ctx)
 			      MHL_DST_CONN_DCAP_RDY | MHL_DST_CONN_XDEVCAPP_SUPP
 			      | MHL_DST_CONN_POW_STAT);
 	sii8620_mt_set_int(ctx, MHL_INT_REG(RCHANGE), MHL_INT_RC_DCAP_CHG);
-
-	ctx->mt_ready = 1;
 }
 
 static void sii8620_set_mode(struct sii8620 *ctx, enum sii8620_mode mode)
@@ -1190,7 +1190,7 @@ static void sii8620_msc_mr_set_int(struct sii8620 *ctx)
 	sii8620_write_buf(ctx, REG_MHL_INT_0, ints, MHL_INT_SIZE);
 }
 
-static struct sii8620_msc_msg *sii8620_msc_msg_first(struct sii8620 *ctx)
+static struct sii8620_mt_msg *sii8620_msc_msg_first(struct sii8620 *ctx)
 {
 	struct device *dev = ctx->dev;
 
@@ -1199,24 +1199,23 @@ static struct sii8620_msc_msg *sii8620_msc_msg_first(struct sii8620 *ctx)
 		return NULL;
 	}
 
-	return list_first_entry(&ctx->mt_queue, struct sii8620_msc_msg, node);
+	return list_first_entry(&ctx->mt_queue, struct sii8620_mt_msg, node);
 }
 
 static void sii8620_msc_mt_done(struct sii8620 *ctx)
 {
-	struct sii8620_msc_msg *msg = sii8620_msc_msg_first(ctx);
+	struct sii8620_mt_msg *msg = sii8620_msc_msg_first(ctx);
 
 	if (!msg)
 		return;
 
 	msg->ret = sii8620_readb(ctx, REG_MSC_MT_RCVD_DATA0);
-	ctx->mt_done = 1;
-	ctx->mt_ready = 1;
+	ctx->mt_state = MT_STATE_DONE;
 }
 
 static void sii8620_msc_mr_msc_msg(struct sii8620 *ctx)
 {
-	struct sii8620_msc_msg *msg = sii8620_msc_msg_first(ctx);
+	struct sii8620_mt_msg *msg = sii8620_msc_msg_first(ctx);
 	u8 buf[2];
 
 	if (!msg)
@@ -1227,8 +1226,7 @@ static void sii8620_msc_mr_msc_msg(struct sii8620 *ctx)
 	switch (buf[0]) {
 	case MHL_MSC_MSG_RAPK:
 		msg->ret = buf[1];
-		ctx->mt_done = 1;
-		ctx->mt_ready = 1;
+		ctx->mt_state = MT_STATE_DONE;
 		break;
 	default:
 		dev_err(ctx->dev, "%s message type %d,%d not supported",
@@ -1286,12 +1284,10 @@ static void sii8620_irq_edid(struct sii8620 *ctx)
 {
 	u8 stat = sii8620_readb(ctx, REG_INTR9);
 
-	if (stat & BIT_INTR9_DEVCAP_DONE) {
-		ctx->mt_done = 1;
-		ctx->mt_ready = 1;
-	}
-
 	sii8620_write(ctx, REG_INTR9, stat);
+
+	if (stat & BIT_INTR9_DEVCAP_DONE)
+		ctx->mt_state = MT_STATE_DONE;
 }
 
 static void sii8620_scdt_high(struct sii8620 *ctx)
