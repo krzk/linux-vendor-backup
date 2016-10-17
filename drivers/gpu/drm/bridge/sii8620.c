@@ -301,43 +301,32 @@ static struct sii8620_mt_msg *sii8620_mt_msg_new(struct sii8620 *ctx)
 	return msg;
 }
 
-static void sii8620_mt_write_stat(struct sii8620 *ctx, u8 reg, u8 val)
+static void sii8620_mt_msc_cmd(struct sii8620 *ctx, u8 cmd, u8 arg1, u8 arg2)
 {
 	struct sii8620_mt_msg *msg = sii8620_mt_msg_new(ctx);
 
 	if (!msg)
 		return;
 
-	msg->reg[0] = MHL_WRITE_STAT;
-	msg->reg[1] = reg;
-	msg->reg[2] = val;
+	msg->reg[0] = cmd;
+	msg->reg[1] = arg1;
+	msg->reg[2] = arg2;
 	msg->send = sii8620_mt_msc_cmd_send;
+}
+
+static void sii8620_mt_write_stat(struct sii8620 *ctx, u8 reg, u8 val)
+{
+	sii8620_mt_msc_cmd(ctx, MHL_WRITE_STAT, reg, val);
 }
 
 static inline void sii8620_mt_set_int(struct sii8620 *ctx, u8 irq, u8 mask)
 {
-	struct sii8620_mt_msg *msg = sii8620_mt_msg_new(ctx);
-
-	if (!msg)
-		return;
-
-	msg->reg[0] = MHL_SET_INT;
-	msg->reg[1] = irq;
-	msg->reg[2] = mask;
-	msg->send = sii8620_mt_msc_cmd_send;
+	sii8620_mt_msc_cmd(ctx, MHL_SET_INT, irq, mask);
 }
 
 static void sii8620_mt_msc_msg(struct sii8620 *ctx, u8 cmd, u8 data)
 {
-	struct sii8620_mt_msg *msg = sii8620_mt_msg_new(ctx);
-
-	if (!msg)
-		return;
-
-	msg->reg[0] = MHL_MSC_MSG;
-	msg->reg[1] = cmd;
-	msg->reg[2] = data;
-	msg->send = sii8620_mt_msc_cmd_send;
+	sii8620_mt_msc_cmd(ctx, MHL_MSC_MSG, cmd, data);
 }
 
 static void sii8620_mt_rap(struct sii8620 *ctx, u8 code)
