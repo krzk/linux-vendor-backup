@@ -205,7 +205,7 @@ static void sii8620_write_buf(struct sii8620 *ctx, u16 addr, const u8 *buf,
 	sii8620_write_buf(ctx, addr, d, ARRAY_SIZE(d)); \
 })
 
-static void _sii8620_write_seq(struct sii8620 *ctx, u16 *seq, int len)
+static void __sii8620_write_seq(struct sii8620 *ctx, const u16 *seq, int len)
 {
 	int i;
 
@@ -215,14 +215,19 @@ static void _sii8620_write_seq(struct sii8620 *ctx, u16 *seq, int len)
 
 #define sii8620_write_seq(ctx, seq...) \
 ({\
-	u16 d[] = { seq }; \
-	_sii8620_write_seq(ctx, d, ARRAY_SIZE(d)); \
+	const u16 d[] = { seq }; \
+	__sii8620_write_seq(ctx, d, ARRAY_SIZE(d)); \
+})
+
+#define sii8620_write_seq_static(ctx, seq...) \
+({\
+	static const u16 d[] = { seq }; \
+	__sii8620_write_seq(ctx, d, ARRAY_SIZE(d)); \
 })
 
 static void sii8620_setbits(struct sii8620 *ctx, u16 addr, u8 mask, u8 val)
 {
-	val &= mask;
-	val |= sii8620_readb(ctx, addr) & ~mask;
+	val = (val & mask) | (sii8620_readb(ctx, addr) & ~mask);
 	sii8620_write(ctx, addr, val);
 }
 
