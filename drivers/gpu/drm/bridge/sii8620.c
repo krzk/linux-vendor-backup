@@ -229,6 +229,17 @@ static void sii8620_setbits(struct sii8620 *ctx, u16 addr, u8 mask, u8 val)
 	sii8620_write(ctx, addr, val);
 }
 
+static void sii8620_mt_cleanup(struct sii8620 *ctx)
+{
+	struct sii8620_mt_msg *msg, *n;
+
+	list_for_each_entry_safe(msg, n, &ctx->mt_queue, node) {
+		list_del(&msg->node);
+		kfree(msg);
+	}
+	ctx->mt_state = MT_STATE_READY;
+}
+
 static void sii8620_mt_work(struct sii8620 *ctx)
 {
 	struct sii8620_mt_msg *msg;
@@ -1085,6 +1096,7 @@ static void sii8620_disconnect(struct sii8620 *ctx)
 	ctx->sink_type = SINK_NONE;
 	kfree(ctx->edid);
 	ctx->edid = NULL;
+	sii8620_mt_cleanup(ctx);
 }
 
 static void sii8620_mhl_disconnected(struct sii8620 *ctx)
