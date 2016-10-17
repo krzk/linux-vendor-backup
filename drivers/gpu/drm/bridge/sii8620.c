@@ -229,7 +229,7 @@ static void sii8620_setbits(struct sii8620 *ctx, u16 addr, u8 mask, u8 val)
 	sii8620_write(ctx, addr, val);
 }
 
-static void sii8620_msc_work(struct sii8620 *ctx)
+static void sii8620_mt_work(struct sii8620 *ctx)
 {
 	struct sii8620_mt_msg *msg;
 
@@ -275,7 +275,7 @@ static void sii8620_mt_msc_cmd_send(struct sii8620 *ctx,
 	}
 }
 
-static struct sii8620_mt_msg *sii8620_msg_new(struct sii8620 *ctx)
+static struct sii8620_mt_msg *sii8620_mt_msg_new(struct sii8620 *ctx)
 {
 	struct sii8620_mt_msg *msg = kzalloc(sizeof(*msg), GFP_KERNEL);
 
@@ -289,7 +289,7 @@ static struct sii8620_mt_msg *sii8620_msg_new(struct sii8620 *ctx)
 
 static void sii8620_mt_write_stat(struct sii8620 *ctx, u8 reg, u8 val)
 {
-	struct sii8620_mt_msg *msg = sii8620_msg_new(ctx);
+	struct sii8620_mt_msg *msg = sii8620_mt_msg_new(ctx);
 
 	if (!msg)
 		return;
@@ -302,7 +302,7 @@ static void sii8620_mt_write_stat(struct sii8620 *ctx, u8 reg, u8 val)
 
 static inline void sii8620_mt_set_int(struct sii8620 *ctx, u8 irq, u8 mask)
 {
-	struct sii8620_mt_msg *msg = sii8620_msg_new(ctx);
+	struct sii8620_mt_msg *msg = sii8620_mt_msg_new(ctx);
 
 	if (!msg)
 		return;
@@ -313,9 +313,9 @@ static inline void sii8620_mt_set_int(struct sii8620 *ctx, u8 irq, u8 mask)
 	msg->send = sii8620_mt_msc_cmd_send;
 }
 
-static void sii8620_write_msc_msg(struct sii8620 *ctx, u8 cmd, u8 data)
+static void sii8620_mt_msc_msg(struct sii8620 *ctx, u8 cmd, u8 data)
 {
-	struct sii8620_mt_msg *msg = sii8620_msg_new(ctx);
+	struct sii8620_mt_msg *msg = sii8620_mt_msg_new(ctx);
 
 	if (!msg)
 		return;
@@ -326,9 +326,9 @@ static void sii8620_write_msc_msg(struct sii8620 *ctx, u8 cmd, u8 data)
 	msg->send = sii8620_mt_msc_cmd_send;
 }
 
-static void sii8620_write_rap(struct sii8620 *ctx, u8 code)
+static void sii8620_mt_rap(struct sii8620 *ctx, u8 code)
 {
-	sii8620_write_msc_msg(ctx, MHL_MSC_MSG_RAP, code);
+	sii8620_mt_msc_msg(ctx, MHL_MSC_MSG_RAP, code);
 }
 
 static void sii8620_mt_read_devcap_send(struct sii8620 *ctx,
@@ -376,7 +376,7 @@ static void sii8620_mr_devcap(struct sii8620 *ctx)
 			 MHL_DCAP_SIZE);
 	sii8620_update_array(ctx->devcap, dcap, MHL_DCAP_SIZE);
 
-	if (!(dcap[MHL_DCAP_DEV_CAT] & MHL_DCAP_CAT_SINK))
+	if (!(dcap[MHL_DCAP_CAT] & MHL_DCAP_CAT_SINK))
 		return;
 
 	sii8620_fetch_edid(ctx);
@@ -400,7 +400,7 @@ static void sii8620_mr_xdevcap(struct sii8620 *ctx)
 
 	sii8620_mt_write_stat(ctx, MHL_XDS_REG(CURR_ECBUS_MODE),
 			      MHL_XDS_ECBUS_S | MHL_XDS_SLOT_MODE_8BIT);
-	sii8620_write_rap(ctx, MHL_RAP_CBUS_MODE_UP);
+	sii8620_mt_rap(ctx, MHL_RAP_CBUS_MODE_UP);
 }
 
 static void sii8620_mt_read_devcap_recv(struct sii8620 *ctx,
@@ -768,7 +768,7 @@ static void sii8620_enable_gen2_write_burst(struct sii8620 *ctx)
 
 	sii8620_write_seq_static(ctx,
 		REG_MDT_RCV_TIMEOUT, 100,
-		REG_MDT_RCV_CONTROL, BIT_MDT_RCV_CONTROL_MDT_RCV_EN
+		REG_MDT_RCV_CTRL, BIT_MDT_RCV_CTRL_MDT_RCV_EN
 	);
 	ctx->gen2_write_burst = 1;
 }
@@ -779,8 +779,8 @@ static void sii8620_disable_gen2_write_burst(struct sii8620 *ctx)
 		return;
 
 	sii8620_write_seq_static(ctx,
-		REG_MDT_XMIT_CONTROL, 0,
-		REG_MDT_RCV_CONTROL, 0
+		REG_MDT_XMIT_CTRL, 0,
+		REG_MDT_RCV_CTRL, 0
 	);
 	ctx->gen2_write_burst = 0;
 }
@@ -855,7 +855,7 @@ static void sii8620_peer_specific_init(struct sii8620 *ctx)
 			REG_HDCP2X_INTR0, 0xFF,
 			REG_INTR1, 0xFF,
 			REG_SYS_CTRL1, BIT_SYS_CTRL1_BLOCK_DDC_BY_HPD
-				| BIT_SYS_CTRL1_TX_CONTROL_HDMI
+				| BIT_SYS_CTRL1_TX_CTRL_HDMI
 		);
 }
 
@@ -865,9 +865,9 @@ static void sii8620_peer_specific_init(struct sii8620 *ctx)
 
 static void sii8620_set_dev_cap(struct sii8620 *ctx)
 {
-	static const u8 dev_cap[MHL_DCAP_SIZE] = {
+	static const u8 devcap[MHL_DCAP_SIZE] = {
 		[MHL_DCAP_MHL_VERSION] = SII8620_MHL_VERSION,
-		[MHL_DCAP_DEV_CAT] = MHL_DCAP_CAT_SOURCE | MHL_DCAP_CAT_POWER,
+		[MHL_DCAP_CAT] = MHL_DCAP_CAT_SOURCE | MHL_DCAP_CAT_POWER,
 		[MHL_DCAP_ADOPTER_ID_H] = 0x01,
 		[MHL_DCAP_ADOPTER_ID_L] = 0x41,
 		[MHL_DCAP_VID_LINK_MODE] = MHL_DCAP_VID_LINK_RGB444
@@ -883,7 +883,7 @@ static void sii8620_set_dev_cap(struct sii8620 *ctx)
 		[MHL_DCAP_SCRATCHPAD_SIZE] = SII8620_SCRATCHPAD_SIZE,
 		[MHL_DCAP_INT_STAT_SIZE] = SII8620_INT_STAT_SIZE,
 	};
-	static const u8 xdev_cap[MHL_XDC_SIZE] = {
+	static const u8 xdcap[MHL_XDC_SIZE] = {
 		[MHL_XDC_ECBUS_SPEEDS] = MHL_XDC_ECBUS_S_075
 			| MHL_XDC_ECBUS_S_8BIT,
 		[MHL_XDC_TMDS_SPEEDS] = MHL_XDC_TMDS_150
@@ -892,16 +892,16 @@ static void sii8620_set_dev_cap(struct sii8620 *ctx)
 		[MHL_XDC_LOG_DEV_MAPX] = MHL_XDC_LD_PHONE,
 	};
 
-	sii8620_write_buf(ctx, REG_MHL_DEVCAP_0, dev_cap, ARRAY_SIZE(dev_cap));
-	sii8620_write_buf(ctx, REG_MHL_EXTDEVCAP_0, xdev_cap, ARRAY_SIZE(xdev_cap));
+	sii8620_write_buf(ctx, REG_MHL_DEVCAP_0, devcap, ARRAY_SIZE(devcap));
+	sii8620_write_buf(ctx, REG_MHL_EXTDEVCAP_0, xdcap, ARRAY_SIZE(xdcap));
 }
 
 static void sii8620_mhl_init(struct sii8620 *ctx)
 {
 	sii8620_write_seq_static(ctx,
 		REG_DISC_CTRL4, VAL_DISC_CTRL4(VAL_PUP_OFF, VAL_PUP_20K),
-		REG_CBUS_MSC_COMPATIBILITY_CONTROL,
-			BIT_CBUS_MSC_COMPATIBILITY_CONTROL_XDEVCAP_EN,
+		REG_CBUS_MSC_COMPAT_CTRL,
+			BIT_CBUS_MSC_COMPAT_CTRL_XDEVCAP_EN,
 	);
 
 	sii8620_peer_specific_init(ctx);
@@ -929,10 +929,10 @@ static void sii8620_mhl_init(struct sii8620 *ctx)
 	sii8620_set_dev_cap(ctx);
 	sii8620_write_seq_static(ctx,
 		REG_MDT_XMIT_TIMEOUT, 100,
-		REG_MDT_XMIT_CONTROL, 0x03,
+		REG_MDT_XMIT_CTRL, 0x03,
 		REG_MDT_XFIFO_STAT, 0x00,
 		REG_MDT_RCV_TIMEOUT, 100,
-		REG_CBUS_LINK_CONTROL_8, 0x1D,
+		REG_CBUS_LINK_CTRL_8, 0x1D,
 	);
 
 	sii8620_start_gen2_write_burst(ctx);
@@ -949,7 +949,7 @@ static void sii8620_mhl_init(struct sii8620 *ctx)
 		REG_MHL_COC_CTL3, BIT_MHL_COC_CTL3_COC_AECHO_EN,
 		REG_MHL_COC_CTL4, 0x2D,
 		REG_MHL_COC_CTL5, 0xF9,
-		REG_MSC_HEARTBEAT_CONTROL, 0x27,
+		REG_MSC_HEARTBEAT_CTRL, 0x27,
 	);
 	sii8620_disable_gen2_write_burst(ctx);
 
@@ -971,7 +971,7 @@ static void sii8620_set_mode(struct sii8620 *ctx, enum sii8620_mode mode)
 	switch (mode) {
 	case CM_MHL1:
 		sii8620_write_seq_static(ctx,
-			REG_CBUS_MSC_COMPATIBILITY_CONTROL, 0x02,
+			REG_CBUS_MSC_COMPAT_CTRL, 0x02,
 			REG_M3_CTRL, VAL_M3_CTRL_MHL1_2_VALUE,
 			REG_DPD, BIT_DPD_PWRON_PLL | BIT_DPD_PDNTX12
 				| BIT_DPD_OSC_EN,
@@ -1042,7 +1042,7 @@ static void sii8620_disconnect(struct sii8620 *ctx)
 		REG_DISC_CTRL9, BIT_DISC_CTRL9_WAKE_DRVFLT
 			| BIT_DISC_CTRL9_WAKE_PULSE_BYPASS,
 		REG_INT_CTRL, 0x00,
-		REG_MSC_HEARTBEAT_CONTROL, 0x27,
+		REG_MSC_HEARTBEAT_CTRL, 0x27,
 		REG_DISC_CTRL1, 0x25,
 		REG_CBUS_DISC_INTR0, (u8)~BIT_RGND_READY_INT,
 		REG_CBUS_DISC_INTR0_MASK, BIT_RGND_READY_INT,
@@ -1091,8 +1091,8 @@ static void sii8620_mhl_disconnected(struct sii8620 *ctx)
 {
 	sii8620_write_seq_static(ctx,
 		REG_DISC_CTRL4, VAL_DISC_CTRL4(VAL_PUP_OFF, VAL_PUP_20K),
-		REG_CBUS_MSC_COMPATIBILITY_CONTROL,
-			BIT_CBUS_MSC_COMPATIBILITY_CONTROL_XDEVCAP_EN
+		REG_CBUS_MSC_COMPAT_CTRL,
+			BIT_CBUS_MSC_COMPAT_CTRL_XDEVCAP_EN
 	);
 	sii8620_disconnect(ctx);
 }
@@ -1386,7 +1386,7 @@ static irqreturn_t sii8620_irq_thread(int irq, void *data)
 		if (sii8620_test_bit(irq_vec[i].bit, stats))
 			irq_vec[i].handler(ctx);
 
-	sii8620_msc_work(ctx);
+	sii8620_mt_work(ctx);
 
 	mutex_unlock(&ctx->lock);
 

@@ -50,7 +50,7 @@
 #define BIT_SYS_CTRL1_BLOCK_DDC_BY_HPD              (0x10)
 #define BIT_SYS_CTRL1_OTP2XVOVR_EN                  (0x08)
 #define BIT_SYS_CTRL1_OTP2XAOVR_EN                  (0x04)
-#define BIT_SYS_CTRL1_TX_CONTROL_HDMI               (0x02)
+#define BIT_SYS_CTRL1_TX_CTRL_HDMI                  (0x02)
 #define BIT_SYS_CTRL1_OTPAMUTEOVR_SET               (0x01)
 
 /* 0x0B System Control DPD                                 (Default: 0x90)    */
@@ -1232,79 +1232,79 @@
 
 /* 0x11 CoC 2nd Ctl Register                               (Default: 0x0A)    */
 #define REG_COC_CTL1                                (0x0711)
-#define MSK_COC_CTL1_COC_CONTROL1_7_6               (0xC0)
-#define MSK_COC_CTL1_COC_CONTROL1_5_0               (0x3F)
+#define MSK_COC_CTL1_COC_CTRL1_7_6                  (0xC0)
+#define MSK_COC_CTL1_COC_CTRL1_5_0                  (0x3F)
 
 /* 0x12 CoC 3rd Ctl Register                               (Default: 0x14)    */
 #define REG_COC_CTL2                                (0x0712)
-#define MSK_COC_CTL2_COC_CONTROL2_7_6               (0xC0)
-#define MSK_COC_CTL2_COC_CONTROL2_5_0               (0x3F)
+#define MSK_COC_CTL2_COC_CTRL2_7_6                  (0xC0)
+#define MSK_COC_CTL2_COC_CTRL2_5_0                  (0x3F)
 
 /* 0x13 CoC 4th Ctl Register                               (Default: 0x40)    */
 #define REG_COC_CTL3                                (0x0713)
-#define BIT_COC_CTL3_COC_CONTROL3_7                 (0x80)
-#define MSK_COC_CTL3_COC_CONTROL3_6_0               (0x7F)
+#define BIT_COC_CTL3_COC_CTRL3_7                    (0x80)
+#define MSK_COC_CTL3_COC_CTRL3_6_0                  (0x7F)
 
 /* 0x16 CoC 7th Ctl Register                               (Default: 0x00)    */
 #define REG_COC_CTL6                                (0x0716)
-#define BIT_COC_CTL6_COC_CONTROL6_7                 (0x80)
-#define BIT_COC_CTL6_COC_CONTROL6_6                 (0x40)
-#define MSK_COC_CTL6_COC_CONTROL6_5_0               (0x3F)
+#define BIT_COC_CTL6_COC_CTRL6_7                    (0x80)
+#define BIT_COC_CTL6_COC_CTRL6_6                    (0x40)
+#define MSK_COC_CTL6_COC_CTRL6_5_0                  (0x3F)
 
 /* 0x17 CoC 8th Ctl Register                               (Default: 0x06)    */
 #define REG_COC_CTL7                                (0x0717)
-#define BIT_COC_CTL7_COC_CONTROL7_7                 (0x80)
-#define BIT_COC_CTL7_COC_CONTROL7_6                 (0x40)
-#define BIT_COC_CTL7_COC_CONTROL7_5                 (0x20)
-#define MSK_COC_CTL7_COC_CONTROL7_4_3               (0x18)
-#define MSK_COC_CTL7_COC_CONTROL7_2_0               (0x07)
+#define BIT_COC_CTL7_COC_CTRL7_7                    (0x80)
+#define BIT_COC_CTL7_COC_CTRL7_6                    (0x40)
+#define BIT_COC_CTL7_COC_CTRL7_5                    (0x20)
+#define MSK_COC_CTL7_COC_CTRL7_4_3                  (0x18)
+#define MSK_COC_CTL7_COC_CTRL7_2_0                  (0x07)
 
 /* 0x19 CoC 10th Ctl Register                              (Default: 0x00)    */
 #define REG_COC_CTL9                                (0x0719)
-#define MSK_COC_CTL9_COC_CONTROL9                   (0xFF)
+#define MSK_COC_CTL9_COC_CTRL9                      (0xFF)
 
 /* 0x1A CoC 11th Ctl Register                              (Default: 0x00)    */
 #define REG_COC_CTLA                                (0x071A)
-#define MSK_COC_CTLA_COC_CONTROLA                   (0xFF)
+#define MSK_COC_CTLA_COC_CTRLA                      (0xFF)
 
 /* 0x1B CoC 12th Ctl Register                              (Default: 0x00)    */
 #define REG_COC_CTLB                                (0x071B)
-#define MSK_COC_CTLB_COC_CONTROLB                   (0xFF)
+#define MSK_COC_CTLB_COC_CTRLB                      (0xFF)
 
 /* 0x1C CoC 13th Ctl Register                              (Default: 0x0F)    */
 #define REG_COC_CTLC                                (0x071C)
-#define MSK_COC_CTLC_COC_CONTROLC                   (0xFF)
+#define MSK_COC_CTLC_COC_CTRLC                      (0xFF)
 
 /* 0x1D CoC 14th Ctl Register                              (Default: 0x0A)    */
 #define REG_COC_CTLD                                (0x071D)
-#define BIT_COC_CTLD_COC_CONTROLD_7                 (0x80)
-#define MSK_COC_CTLD_COC_CONTROLD_6_0               (0x7F)
+#define BIT_COC_CTLD_COC_CTRLD_7                    (0x80)
+#define MSK_COC_CTLD_COC_CTRLD_6_0                  (0x7F)
 
 /* 0x1E CoC 15th Ctl Register                              (Default: 0x0A)    */
 #define REG_COC_CTLE                                (0x071E)
-#define BIT_COC_CTLE_COC_CONTROLE_7                 (0x80)
-#define MSK_COC_CTLE_COC_CONTROLE_6_0               (0x7F)
+#define BIT_COC_CTLE_COC_CTRLE_7                    (0x80)
+#define MSK_COC_CTLE_COC_CTRLE_6_0                  (0x7F)
 
 /* 0x1F CoC 16th Ctl Register                              (Default: 0x00)    */
 #define REG_COC_CTLF                                (0x071F)
-#define MSK_COC_CTLF_COC_CONTROLF_7_3               (0xF8)
-#define MSK_COC_CTLF_COC_CONTROLF_2_0               (0x07)
+#define MSK_COC_CTLF_COC_CTRLF_7_3                  (0xF8)
+#define MSK_COC_CTLF_COC_CTRLF_2_0                  (0x07)
 
 /* 0x21 CoC 18th Ctl Register                              (Default: 0x32)    */
 #define REG_COC_CTL11                               (0x0721)
-#define MSK_COC_CTL11_COC_CONTROL11_7_4             (0xF0)
-#define MSK_COC_CTL11_COC_CONTROL11_3_0             (0x0F)
+#define MSK_COC_CTL11_COC_CTRL11_7_4                (0xF0)
+#define MSK_COC_CTL11_COC_CTRL11_3_0                (0x0F)
 
 /* 0x24 CoC 21st Ctl Register                              (Default: 0x00)    */
 #define REG_COC_CTL14                               (0x0724)
-#define MSK_COC_CTL14_COC_CONTROL14_7_4             (0xF0)
-#define MSK_COC_CTL14_COC_CONTROL14_3_0             (0x0F)
+#define MSK_COC_CTL14_COC_CTRL14_7_4                (0xF0)
+#define MSK_COC_CTL14_COC_CTRL14_3_0                (0x0F)
 
 /* 0x25 CoC 22nd Ctl Register                              (Default: 0x00)    */
 #define REG_COC_CTL15                               (0x0725)
-#define BIT_COC_CTL15_COC_CONTROL15_7               (0x80)
-#define MSK_COC_CTL15_COC_CONTROL15_6_4             (0x70)
-#define MSK_COC_CTL15_COC_CONTROL15_3_0             (0x0F)
+#define BIT_COC_CTL15_COC_CTRL15_7                  (0x80)
+#define MSK_COC_CTL15_COC_CTRL15_6_4                (0x70)
+#define MSK_COC_CTL15_COC_CTRL15_3_0                (0x0F)
 
 /* 0x26 CoC Interrupt Register                             (Default: 0x00)    */
 #define REG_COC_INTR                                (0x0726)
@@ -1320,23 +1320,23 @@
 
 /* 0x2A CoC 24th Ctl Register                              (Default: 0x00)    */
 #define REG_COC_CTL17                               (0x072A)
-#define MSK_COC_CTL17_COC_CONTROL17_7_4             (0xF0)
-#define MSK_COC_CTL17_COC_CONTROL17_3_0             (0x0F)
+#define MSK_COC_CTL17_COC_CTRL17_7_4                (0xF0)
+#define MSK_COC_CTL17_COC_CTRL17_3_0                (0x0F)
 
 /* 0x2B CoC 25th Ctl Register                              (Default: 0x00)    */
 #define REG_COC_CTL18                               (0x072B)
-#define MSK_COC_CTL18_COC_CONTROL18_7_4             (0xF0)
-#define MSK_COC_CTL18_COC_CONTROL18_3_0             (0x0F)
+#define MSK_COC_CTL18_COC_CTRL18_7_4                (0xF0)
+#define MSK_COC_CTL18_COC_CTRL18_3_0                (0x0F)
 
 /* 0x2C CoC 26th Ctl Register                              (Default: 0x00)    */
 #define REG_COC_CTL19                               (0x072C)
-#define MSK_COC_CTL19_COC_CONTROL19_7_4             (0xF0)
-#define MSK_COC_CTL19_COC_CONTROL19_3_0             (0x0F)
+#define MSK_COC_CTL19_COC_CTRL19_7_4                (0xF0)
+#define MSK_COC_CTL19_COC_CTRL19_3_0                (0x0F)
 
 /* 0x2D CoC 27th Ctl Register                              (Default: 0x00)    */
 #define REG_COC_CTL1A                               (0x072D)
-#define MSK_COC_CTL1A_COC_CONTROL1A_7_2             (0xFC)
-#define MSK_COC_CTL1A_COC_CONTROL1A_1_0             (0x03)
+#define MSK_COC_CTL1A_COC_CTRL1A_7_2                (0xFC)
+#define MSK_COC_CTL1A_COC_CTRL1A_1_0                (0x03)
 
 /* 0x40 DoC 9th Status Register                            (Default: 0x00)    */
 #define REG_DOC_STAT_8                              (0x0740)
@@ -1355,40 +1355,40 @@
 
 /* 0x57 DoC 7th Ctl Register                               (Default: 0x00)    */
 #define REG_DOC_CTL6                                (0x0757)
-#define BIT_DOC_CTL6_DOC_CONTROL6_7                 (0x80)
-#define BIT_DOC_CTL6_DOC_CONTROL6_6                 (0x40)
-#define MSK_DOC_CTL6_DOC_CONTROL6_5_4               (0x30)
-#define MSK_DOC_CTL6_DOC_CONTROL6_3_0               (0x0F)
+#define BIT_DOC_CTL6_DOC_CTRL6_7                    (0x80)
+#define BIT_DOC_CTL6_DOC_CTRL6_6                    (0x40)
+#define MSK_DOC_CTL6_DOC_CTRL6_5_4                  (0x30)
+#define MSK_DOC_CTL6_DOC_CTRL6_3_0                  (0x0F)
 
 /* 0x58 DoC 8th Ctl Register                               (Default: 0x00)    */
 #define REG_DOC_CTL7                                (0x0758)
-#define BIT_DOC_CTL7_DOC_CONTROL7_7                 (0x80)
-#define BIT_DOC_CTL7_DOC_CONTROL7_6                 (0x40)
-#define BIT_DOC_CTL7_DOC_CONTROL7_5                 (0x20)
-#define MSK_DOC_CTL7_DOC_CONTROL7_4_3               (0x18)
-#define MSK_DOC_CTL7_DOC_CONTROL7_2_0               (0x07)
+#define BIT_DOC_CTL7_DOC_CTRL7_7                    (0x80)
+#define BIT_DOC_CTL7_DOC_CTRL7_6                    (0x40)
+#define BIT_DOC_CTL7_DOC_CTRL7_5                    (0x20)
+#define MSK_DOC_CTL7_DOC_CTRL7_4_3                  (0x18)
+#define MSK_DOC_CTL7_DOC_CTRL7_2_0                  (0x07)
 
 /* 0x6C DoC 9th Ctl Register                               (Default: 0x00)    */
 #define REG_DOC_CTL8                                (0x076C)
-#define BIT_DOC_CTL8_DOC_CONTROL8_7                 (0x80)
-#define MSK_DOC_CTL8_DOC_CONTROL8_6_4               (0x70)
-#define MSK_DOC_CTL8_DOC_CONTROL8_3_2               (0x0C)
-#define MSK_DOC_CTL8_DOC_CONTROL8_1_0               (0x03)
+#define BIT_DOC_CTL8_DOC_CTRL8_7                    (0x80)
+#define MSK_DOC_CTL8_DOC_CTRL8_6_4                  (0x70)
+#define MSK_DOC_CTL8_DOC_CTRL8_3_2                  (0x0C)
+#define MSK_DOC_CTL8_DOC_CTRL8_1_0                  (0x03)
 
 /* 0x6D DoC 10th Ctl Register                              (Default: 0x00)    */
 #define REG_DOC_CTL9                                (0x076D)
-#define MSK_DOC_CTL9_DOC_CONTROL9                   (0xFF)
+#define MSK_DOC_CTL9_DOC_CTRL9                      (0xFF)
 
 /* 0x6E DoC 11th Ctl Register                              (Default: 0x00)    */
 #define REG_DOC_CTLA                                (0x076E)
-#define MSK_DOC_CTLA_DOC_CONTROLA                   (0xFF)
+#define MSK_DOC_CTLA_DOC_CTRLA                      (0xFF)
 
 /* 0x72 DoC 15th Ctl Register                              (Default: 0x00)    */
 #define REG_DOC_CTLE                                (0x0772)
-#define BIT_DOC_CTLE_DOC_CONTROLE_7                 (0x80)
-#define BIT_DOC_CTLE_DOC_CONTROLE_6                 (0x40)
-#define MSK_DOC_CTLE_DOC_CONTROLE_5_4               (0x30)
-#define MSK_DOC_CTLE_DOC_CONTROLE_3_0               (0x0F)
+#define BIT_DOC_CTLE_DOC_CTRLE_7                    (0x80)
+#define BIT_DOC_CTLE_DOC_CTRLE_6                    (0x40)
+#define MSK_DOC_CTLE_DOC_CTRLE_5_4                  (0x30)
+#define MSK_DOC_CTLE_DOC_CTRLE_3_0                  (0x0F)
 
 /* Registers in TX_PAGE_5 (0x00-0xFF)                                         */
 
@@ -1413,29 +1413,29 @@
 #define MSK_MDT_XMIT_TIMEOUT_MDT_XMIT_TIMEOUT_MAX_MSB (0xFF)
 
 /* 0x86 MDT Receive Control Register                       (Default: 0x00)    */
-#define REG_MDT_RCV_CONTROL                         (0x0586)
-#define BIT_MDT_RCV_CONTROL_MDT_RCV_EN              (0x80)
-#define BIT_MDT_RCV_CONTROL_MDT_DELAY_RCV_EN        (0x40)
-#define BIT_MDT_RCV_CONTROL_MDT_RFIFO_OVER_WR_EN    (0x10)
-#define BIT_MDT_RCV_CONTROL_MDT_XFIFO_OVER_WR_EN    (0x08)
-#define BIT_MDT_RCV_CONTROL_MDT_DISABLE             (0x04)
-#define BIT_MDT_RCV_CONTROL_MDT_RFIFO_CLR_ALL       (0x02)
-#define BIT_MDT_RCV_CONTROL_MDT_RFIFO_CLR_CUR       (0x01)
+#define REG_MDT_RCV_CTRL                            (0x0586)
+#define BIT_MDT_RCV_CTRL_MDT_RCV_EN                 (0x80)
+#define BIT_MDT_RCV_CTRL_MDT_DELAY_RCV_EN           (0x40)
+#define BIT_MDT_RCV_CTRL_MDT_RFIFO_OVER_WR_EN       (0x10)
+#define BIT_MDT_RCV_CTRL_MDT_XFIFO_OVER_WR_EN       (0x08)
+#define BIT_MDT_RCV_CTRL_MDT_DISABLE                (0x04)
+#define BIT_MDT_RCV_CTRL_MDT_RFIFO_CLR_ALL          (0x02)
+#define BIT_MDT_RCV_CTRL_MDT_RFIFO_CLR_CUR          (0x01)
 
 /* 0x87 MDT Receive Read Port                              (Default: 0x00)    */
 #define REG_MDT_RCV_READ_PORT                       (0x0587)
 #define MSK_MDT_RCV_READ_PORT_MDT_RFIFO_DATA        (0xFF)
 
 /* 0x88 MDT Transmit Control Register                      (Default: 0x70)    */
-#define REG_MDT_XMIT_CONTROL                        (0x0588)
-#define BIT_MDT_XMIT_CONTROL_MDT_XMIT_EN            (0x80)
-#define BIT_MDT_XMIT_CONTROL_MDT_XMIT_CMD_MERGE_EN  (0x40)
-#define BIT_MDT_XMIT_CONTROL_MDT_XMIT_FIXED_BURST_LEN (0x20)
-#define BIT_MDT_XMIT_CONTROL_MDT_XMIT_FIXED_AID     (0x10)
-#define BIT_MDT_XMIT_CONTROL_MDT_XMIT_SINGLE_RUN_EN (0x08)
-#define BIT_MDT_XMIT_CONTROL_MDT_CLR_ABORT_WAIT     (0x04)
-#define BIT_MDT_XMIT_CONTROL_MDT_XFIFO_CLR_ALL      (0x02)
-#define BIT_MDT_XMIT_CONTROL_MDT_XFIFO_CLR_CUR      (0x01)
+#define REG_MDT_XMIT_CTRL                           (0x0588)
+#define BIT_MDT_XMIT_CTRL_MDT_XMIT_EN               (0x80)
+#define BIT_MDT_XMIT_CTRL_MDT_XMIT_CMD_MERGE_EN     (0x40)
+#define BIT_MDT_XMIT_CTRL_MDT_XMIT_FIXED_BURST_LEN  (0x20)
+#define BIT_MDT_XMIT_CTRL_MDT_XMIT_FIXED_AID        (0x10)
+#define BIT_MDT_XMIT_CTRL_MDT_XMIT_SINGLE_RUN_EN    (0x08)
+#define BIT_MDT_XMIT_CTRL_MDT_CLR_ABORT_WAIT        (0x04)
+#define BIT_MDT_XMIT_CTRL_MDT_XFIFO_CLR_ALL         (0x02)
+#define BIT_MDT_XMIT_CTRL_MDT_XFIFO_CLR_CUR         (0x01)
 
 /* 0x89 MDT Receive WRITE Port                             (Default: 0x00)    */
 #define REG_MDT_XMIT_WRITE_PORT                     (0x0589)
@@ -1534,8 +1534,8 @@
 #define REG_CBUS_RX_DISC_INT0_MASK                  (0x059F)
 
 /* 0xA7 CBUS_Link_Layer Control #8 Register                (Default: 0x00)    */
-#define REG_CBUS_LINK_CONTROL_8                     (0x05A7)
-#define MSK_CBUS_LINK_CONTROL_8_LNK_XMIT_BIT_TIME   (0xFF)
+#define REG_CBUS_LINK_CTRL_8                        (0x05A7)
+#define MSK_CBUS_LINK_CTRL_8_LNK_XMIT_BIT_TIME      (0xFF)
 
 /* 0xB5 MDT State Machine Status Register                  (Default: 0x00)    */
 #define REG_MDT_SM_STAT                             (0x05B5)
@@ -1567,18 +1567,18 @@
 #define REG_MSC_MR_MSC_MSG_RCVD_2ND_DATA            (0x05C0)
 
 /* 0xC4 CBUS MSC Heartbeat Control Register                (Default: 0x27)    */
-#define REG_MSC_HEARTBEAT_CONTROL                   (0x05C4)
-#define BIT_MSC_HEARTBEAT_CONTROL_MSC_HB_EN         (0x80)
-#define MSK_MSC_HEARTBEAT_CONTROL_MSC_HB_FAIL_LIMIT (0x70)
-#define MSK_MSC_HEARTBEAT_CONTROL_MSC_HB_PERIOD_MSB (0x0F)
+#define REG_MSC_HEARTBEAT_CTRL                      (0x05C4)
+#define BIT_MSC_HEARTBEAT_CTRL_MSC_HB_EN            (0x80)
+#define MSK_MSC_HEARTBEAT_CTRL_MSC_HB_FAIL_LIMIT    (0x70)
+#define MSK_MSC_HEARTBEAT_CTRL_MSC_HB_PERIOD_MSB    (0x0F)
 
 /* 0xC7 CBUS MSC Compatibility Control Register            (Default: 0x02)    */
-#define REG_CBUS_MSC_COMPATIBILITY_CONTROL          (0x05C7)
-#define BIT_CBUS_MSC_COMPATIBILITY_CONTROL_XDEVCAP_EN (0x80)
-#define BIT_CBUS_MSC_COMPATIBILITY_CONTROL_DISABLE_MSC_ON_CBUS (0x40)
-#define BIT_CBUS_MSC_COMPATIBILITY_CONTROL_DISABLE_DDC_ON_CBUS (0x20)
-#define BIT_CBUS_MSC_COMPATIBILITY_CONTROL_DISABLE_GET_DDC_ERRORCODE (0x08)
-#define BIT_CBUS_MSC_COMPATIBILITY_CONTROL_DISABLE_GET_VS1_ERRORCODE (0x04)
+#define REG_CBUS_MSC_COMPAT_CTRL                    (0x05C7)
+#define BIT_CBUS_MSC_COMPAT_CTRL_XDEVCAP_EN         (0x80)
+#define BIT_CBUS_MSC_COMPAT_CTRL_DISABLE_MSC_ON_CBUS (0x40)
+#define BIT_CBUS_MSC_COMPAT_CTRL_DISABLE_DDC_ON_CBUS (0x20)
+#define BIT_CBUS_MSC_COMPAT_CTRL_DISABLE_GET_DDC_ERRORCODE (0x08)
+#define BIT_CBUS_MSC_COMPAT_CTRL_DISABLE_GET_VS1_ERRORCODE (0x04)
 
 /* 0xDC CBUS3 Converter Control Register                   (Default: 0x24)    */
 #define REG_CBUS3_CNVT                              (0x05DC)
