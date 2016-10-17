@@ -244,10 +244,13 @@ static void sii8620_mt_work(struct sii8620 *ctx)
 {
 	struct sii8620_mt_msg *msg;
 
-	if (list_empty(&ctx->mt_queue))
+	if (ctx->error)
+		return;
+	if (ctx->mt_state == MT_STATE_BUSY || list_empty(&ctx->mt_queue))
 		return;
 
 	if (ctx->mt_state == MT_STATE_DONE) {
+		ctx->mt_state = MT_STATE_READY;
 		msg = list_first_entry(&ctx->mt_queue, struct sii8620_mt_msg,
 				       node);
 		if (msg->recv)
