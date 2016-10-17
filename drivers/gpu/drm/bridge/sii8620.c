@@ -104,6 +104,8 @@ static const u8 sii8620_i2c_page[] = {
 	0x61, /* eCBUS-S, eCBUS-D */
 };
 
+static void sii8620_mhl_disconnected(struct sii8620 *ctx);
+
 static int sii8620_clear_error(struct sii8620 *ctx)
 {
 	int ret = ctx->error;
@@ -367,31 +369,41 @@ static void sii8620_update_array(u8 *dst, u8 *src, int count)
 
 static void sii8620_mr_devcap(struct sii8620 *ctx)
 {
-	static const char *sink_str[] = {
+	static const char * const sink_str[] = {
 		[SINK_NONE] = "NONE",
 		[SINK_HDMI] = "HDMI",
 		[SINK_DVI] = "DVI"
 	};
 
 	u8 dcap[MHL_DCAP_SIZE];
+	struct device *dev = ctx->dev;
 
-	sii8620_read_buf(ctx, REG_EDID_FIFO_RD_DATA, dcap,
-			 MHL_DCAP_SIZE);
+	sii8620_read_buf(ctx, REG_EDID_FIFO_RD_DATA, dcap, MHL_DCAP_SIZE);
+	if (ctx->error < 0)
+		return;
+
+	dev_info(dev, "detected dongle MHL %d.%d, ChipID %02x%02x:%02x%02x\n",
+		dcap[MHL_DCAP_MHL_VERSION] / 16, dcap[MHL_DCAP_MHL_VERSION] % 16,
+		dcap[MHL_DCAP_ADOPTER_ID_H], dcap[MHL_DCAP_ADOPTER_ID_L],
+		dcap[MHL_DCAP_DEVICE_ID_H], dcap[MHL_DCAP_DEVICE_ID_L]);
 	sii8620_update_array(ctx->devcap, dcap, MHL_DCAP_SIZE);
 
 	if (!(dcap[MHL_DCAP_CAT] & MHL_DCAP_CAT_SINK))
 		return;
 
 	sii8620_fetch_edid(ctx);
+	if (!ctx->edid) {
+		dev_err(ctx->dev, "Cannot fetch EDID\n");
+		sii8620_mhl_disconnected(ctx);
+		return;
+	}
+
 	if (drm_detect_hdmi_monitor(ctx->edid))
 		ctx->sink_type = SINK_HDMI;
 	else
 		ctx->sink_type = SINK_DVI;
 
-	dev_info(ctx->dev, "detected dongle: %s, ppixel: %d\n",
-		 sink_str[ctx->sink_type],
-		 !!(ctx->devcap[MHL_DCAP_VID_LINK_MODE]
-		    & MHL_DCAP_VID_LINK_PPIXEL));
+	dev_info(dev, "detected sink(type: %s)\n", sink_str[ctx->sink_type]);
 	sii8620_set_upstream_edid(ctx);
 	sii8620_enable_hpd(ctx);
 }
