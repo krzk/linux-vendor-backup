@@ -257,29 +257,22 @@ static void sii8620_msc_work(struct sii8620 *ctx)
 static void sii8620_mt_msc_cmd_send(struct sii8620 *ctx,
 				       struct sii8620_mt_msg *msg)
 {
-	static const struct {
-		u8 cmd, beg, cnt;
-	} v[] = {
-		{ BIT_MSC_COMMAND_START_WRITE_STAT, 1, 2 },
-		{ BIT_MSC_COMMAND_START_MSC_MSG, 0, 3 },
-	}, *p;
-
 	switch (msg->reg[0]) {
 	case MHL_WRITE_STAT:
 	case MHL_SET_INT:
-		p = &v[0];
+		sii8620_write_buf(ctx, REG_MSC_CMD_OR_OFFSET, msg->reg + 1, 2);
+		sii8620_write(ctx, REG_MSC_COMMAND_START,
+			      BIT_MSC_COMMAND_START_WRITE_STAT);
 		break;
 	case MHL_MSC_MSG:
-		p = &v[1];
+		sii8620_write_buf(ctx, REG_MSC_CMD_OR_OFFSET, msg->reg, 3);
+		sii8620_write(ctx, REG_MSC_COMMAND_START,
+			      BIT_MSC_COMMAND_START_MSC_MSG);
 		break;
 	default:
-		dev_err(ctx->dev, "%s: command %d not supported\n", __func__,
+		dev_err(ctx->dev, "%s: command %#x not supported\n", __func__,
 			msg->reg[0]);
-		return;
 	}
-
-	sii8620_write_buf(ctx, REG_MSC_CMD_OR_OFFSET, msg->reg + p->beg, p->cnt);
-	sii8620_write(ctx, REG_MSC_COMMAND_START, p->cmd);
 }
 
 static struct sii8620_mt_msg *sii8620_msg_new(struct sii8620 *ctx)
