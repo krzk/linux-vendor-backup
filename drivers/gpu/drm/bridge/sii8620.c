@@ -137,12 +137,11 @@ static void sii8620_read_buf(struct sii8620 *ctx, u16 addr, u8 *buf, int len)
 		return;
 
 	ret = i2c_transfer(client->adapter, msg, 2);
-	pr_debug("MHLR %02x:%02x %*ph, %d\n", msg[0].addr, addr & 0xff, len,
-		 buf, ret);
+	dev_dbg(dev, "read at %04x: %*ph, %d\n", addr, len, buf, ret);
 
 	if (ret != 2) {
-		dev_err(dev, "I2C read of [%#06x] failed with code %d.\n",
-			addr, ret);
+		dev_err(dev, "Read at %#06x of %d bytes failed with code %d.\n",
+			addr, len, ret);
 		ctx->error = ret < 0 ? ret : -EIO;
 	}
 }
@@ -186,11 +185,10 @@ static void sii8620_write_buf(struct sii8620 *ctx, u16 addr, const u8 *buf,
 	msg.buf[0] = addr;
 
 	ret = i2c_transfer(client->adapter, &msg, 1);
-	pr_debug("MHLW %02x:%02x %*ph, %d\n", msg.addr, addr & 0xff, len, buf,
-		 ret);
+	dev_dbg(dev, "write at %04x: %*ph, %d\n", addr, len, buf, ret);
 
 	if (ret != 1) {
-		dev_err(dev, "I2C write [%#06x]=%*ph failed with code %d.\n",
+		dev_err(dev, "Write at %#06x of %*ph failed with code %d.\n",
 			addr, len, buf, ret);
 		ctx->error = ret ?: -EIO;
 	}
