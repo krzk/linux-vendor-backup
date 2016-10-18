@@ -551,10 +551,6 @@ end:
 	ctx->edid = (struct edid *)edid;
 }
 
-static inline unsigned int sii8620_edid_size(struct edid *edid) {
-	return (edid->extensions + 1) * EDID_LENGTH;
-}
-
 static void sii8620_set_upstream_edid(struct sii8620 *ctx)
 {
 	sii8620_setbits(ctx, REG_DPD, BIT_DPD_PDNRX12 | BIT_DPD_PDIDCK_N
@@ -577,7 +573,7 @@ static void sii8620_set_upstream_edid(struct sii8620 *ctx)
 	);
 
 	sii8620_write_buf(ctx, REG_EDID_FIFO_WR_DATA, (u8 *)ctx->edid,
-			  sii8620_edid_size(ctx->edid));
+			(ctx->edid->extensions + 1) * EDID_LENGTH);
 
 	sii8620_write_seq_static(ctx,
 		REG_EDID_CTRL, BIT_EDID_CTRL_EDID_PRIME_VALID
