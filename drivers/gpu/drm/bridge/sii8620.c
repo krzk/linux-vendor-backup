@@ -339,10 +339,9 @@ static void sii8620_mt_rap(struct sii8620 *ctx, u8 code)
 static void sii8620_mt_read_devcap_send(struct sii8620 *ctx,
 					struct sii8620_mt_msg *msg)
 {
-	u8 ctrl = VAL_EDID_CTRL_EDID_PRIME_VALID_DISABLE
-			| VAL_EDID_CTRL_DEVCAP_SELECT_DEVCAP
-			| VAL_EDID_CTRL_EDID_FIFO_ADDR_AUTO_ENABLE
-			| VAL_EDID_CTRL_EDID_MODE_EN_ENABLE;
+	u8 ctrl = BIT_EDID_CTRL_DEVCAP_SELECT_DEVCAP
+			| BIT_EDID_CTRL_EDID_FIFO_ADDR_AUTO
+			| BIT_EDID_CTRL_EDID_MODE_EN;
 
 	if (msg->reg[0] == MHL_READ_XDEVCAP)
 		ctrl |= BIT_EDID_CTRL_XDEVCAP_EN;
@@ -421,10 +420,9 @@ static void sii8620_mr_xdevcap(struct sii8620 *ctx)
 static void sii8620_mt_read_devcap_recv(struct sii8620 *ctx,
 					struct sii8620_mt_msg *msg)
 {
-	u8 ctrl = VAL_EDID_CTRL_EDID_PRIME_VALID_DISABLE
-			| VAL_EDID_CTRL_DEVCAP_SELECT_DEVCAP
-			| VAL_EDID_CTRL_EDID_FIFO_ADDR_AUTO_ENABLE
-			| VAL_EDID_CTRL_EDID_MODE_EN_ENABLE;
+	u8 ctrl = BIT_EDID_CTRL_DEVCAP_SELECT_DEVCAP
+		| BIT_EDID_CTRL_EDID_FIFO_ADDR_AUTO
+		| BIT_EDID_CTRL_EDID_MODE_EN;
 
 	if (msg->reg[0] == MHL_READ_XDEVCAP)
 		ctrl |= BIT_EDID_CTRL_XDEVCAP_EN;
@@ -474,10 +472,10 @@ static void sii8620_fetch_edid(struct sii8620 *ctx)
 
 	sii8620_write_seq(ctx,
 		REG_INTR9_MASK, 0,
-		REG_EDID_CTRL, VAL_EDID_CTRL_EDID_FIFO_ADDR_AUTO_ENABLE,
+		REG_EDID_CTRL, BIT_EDID_CTRL_EDID_FIFO_ADDR_AUTO,
 		REG_HDCP2X_POLL_CS, 0x71,
 		REG_HDCP2X_CTRL_0, BIT_HDCP2X_CTRL_0_HDCP2X_HDCPTX,
-		REG_LM_DDC, lm_ddc | VAL_LM_DDC_SW_TPI_EN_DISABLED,
+		REG_LM_DDC, lm_ddc | BIT_LM_DDC_SW_TPI_EN_DISABLED,
 	);
 
 	for (i = 0; i < 256; ++i) {
@@ -573,10 +571,8 @@ static void sii8620_set_upstream_edid(struct sii8620 *ctx)
 			BIT_RX_HDMI_CLR_BUFFER_VSI_CLR_EN, 0xff);
 
 	sii8620_write_seq_static(ctx,
-		REG_EDID_CTRL, VAL_EDID_CTRL_EDID_PRIME_VALID_DISABLE
-			| VAL_EDID_CTRL_DEVCAP_SELECT_EDID
-			| VAL_EDID_CTRL_EDID_FIFO_ADDR_AUTO_ENABLE
-			| VAL_EDID_CTRL_EDID_MODE_EN_ENABLE,
+		REG_EDID_CTRL, BIT_EDID_CTRL_EDID_FIFO_ADDR_AUTO
+			| BIT_EDID_CTRL_EDID_MODE_EN,
 		REG_EDID_FIFO_ADDR, 0,
 	);
 
@@ -584,10 +580,9 @@ static void sii8620_set_upstream_edid(struct sii8620 *ctx)
 			  sii8620_edid_size(ctx->edid));
 
 	sii8620_write_seq_static(ctx,
-		REG_EDID_CTRL, VAL_EDID_CTRL_EDID_PRIME_VALID_ENABLE
-			| VAL_EDID_CTRL_DEVCAP_SELECT_EDID
-			| VAL_EDID_CTRL_EDID_FIFO_ADDR_AUTO_ENABLE
-			| VAL_EDID_CTRL_EDID_MODE_EN_ENABLE,
+		REG_EDID_CTRL, BIT_EDID_CTRL_EDID_PRIME_VALID
+			| BIT_EDID_CTRL_EDID_FIFO_ADDR_AUTO
+			| BIT_EDID_CTRL_EDID_MODE_EN,
 		REG_INTR5_MASK, BIT_INTR_SCDT_CHANGE,
 		REG_INTR9_MASK, 0
 	);
@@ -695,13 +690,13 @@ static void sii8620_stop_video(struct sii8620 *ctx)
 	case SINK_NONE:
 		return;
 	case SINK_DVI:
-		val = VAL_TPI_SC_REG_TMDS_OE_POWER_DOWN
-			| VAL_TPI_SC_TPI_AV_MUTE_MUTED;
+		val = BIT_TPI_SC_REG_TMDS_OE_POWER_DOWN
+			| BIT_TPI_SC_TPI_AV_MUTE;
 		break;
 	case SINK_HDMI:
-		val = VAL_TPI_SC_REG_TMDS_OE_POWER_DOWN
-			| VAL_TPI_SC_TPI_AV_MUTE_MUTED
-			| VAL_TPI_SC_TPI_OUTPUT_MODE_0_HDMI;
+		val = BIT_TPI_SC_REG_TMDS_OE_POWER_DOWN
+			| BIT_TPI_SC_TPI_AV_MUTE
+			| BIT_TPI_SC_TPI_OUTPUT_MODE_0_HDMI;
 		break;
 	}
 
@@ -715,7 +710,7 @@ static void sii8620_start_hdmi(struct sii8620 *ctx)
 			| BIT_RX_HDMI_CTRL2_USE_AV_MUTE,
 		REG_VID_OVRRD, BIT_VID_OVRRD_PP_AUTO_DISABLE
 			| BIT_VID_OVRRD_M1080P_OVRRD,
-		REG_VID_MODE, VAL_VID_MODE_M1080P_DISABLE,
+		REG_VID_MODE, 0,
 		REG_MHL_TOP_CTL, 0x1,
 		REG_MHLTX_CTL6, 0xa0,
 		REG_TPI_INPUT, VAL_TPI_FORMAT(RGB, FULL),
@@ -727,7 +722,7 @@ static void sii8620_start_hdmi(struct sii8620 *ctx)
 
 	sii8620_set_auto_zone(ctx);
 
-	sii8620_write(ctx, REG_TPI_SC, VAL_TPI_SC_TPI_OUTPUT_MODE_0_HDMI);
+	sii8620_write(ctx, REG_TPI_SC, BIT_TPI_SC_TPI_OUTPUT_MODE_0_HDMI);
 
 	sii8620_write_buf(ctx, REG_TPI_AVI_CHSUM, ctx->avif, ARRAY_SIZE(ctx->avif));
 
@@ -772,7 +767,7 @@ static void sii8620_enable_hpd(struct sii8620 *ctx)
 			| BIT_TMDS_CSTAT_P3_CLR_AVI, ~0);
 	sii8620_write_seq_static(ctx,
 		REG_HPD_CTRL, BIT_HPD_CTRL_HPD_OUT_OVR_EN
-			| VAL_HPD_CTRL_HPD_HIGH,
+			| BIT_HPD_CTRL_HPD_HIGH,
 	);
 }
 
@@ -924,7 +919,7 @@ static void sii8620_mhl_init(struct sii8620 *ctx)
 	sii8620_disable_hpd(ctx);
 
 	sii8620_write_seq_static(ctx,
-		REG_EDID_CTRL, VAL_EDID_CTRL_EDID_FIFO_ADDR_AUTO_ENABLE,
+		REG_EDID_CTRL, BIT_EDID_CTRL_EDID_FIFO_ADDR_AUTO,
 		REG_DISC_CTRL9, BIT_DISC_CTRL9_WAKE_DRVFLT
 			| BIT_DISC_CTRL9_WAKE_PULSE_BYPASS,
 		REG_TMDS0_CCTRL1, 0x90,
@@ -934,8 +929,7 @@ static void sii8620_mhl_init(struct sii8620 *ctx)
 		REG_ALICE0_ZONE_CTRL, 0xE8,
 		REG_ALICE0_MODE_CTRL, 0x04,
 	);
-	sii8620_setbits(ctx, REG_LM_DDC, BIT_LM_DDC_SW_TPI_EN,
-			VAL_LM_DDC_SW_TPI_EN_ENABLED);
+	sii8620_setbits(ctx, REG_LM_DDC, BIT_LM_DDC_SW_TPI_EN_DISABLED, 0);
 	sii8620_write_seq_static(ctx,
 		REG_TPI_HW_OPT3, 0x76,
 		REG_TMDS_CCTRL, BIT_TMDS_CCTRL_TMDS_OE,
@@ -1305,7 +1299,7 @@ static void sii8620_scdt_high(struct sii8620 *ctx)
 {
 	sii8620_write_seq_static(ctx,
 		REG_INTR8_MASK, BIT_CEA_NEW_AVI | BIT_CEA_NEW_VSI,
-		REG_TPI_SC, VAL_TPI_SC_TPI_OUTPUT_MODE_0_HDMI,
+		REG_TPI_SC, BIT_TPI_SC_TPI_OUTPUT_MODE_0_HDMI,
 	);
 }
 
@@ -1342,7 +1336,7 @@ static void sii8620_new_vsi(struct sii8620 *ctx)
 
 	sii8620_write(ctx, REG_RX_HDMI_CTRL2,
 		       VAL_RX_HDMI_CTRL2_DEFVAL
-		       | VAL_RX_HDMI_CTRL2_VSI_MON_SEL_VSI);
+		       | BIT_RX_HDMI_CTRL2_VSI_MON_SEL_VSI);
 	sii8620_read_buf(ctx, REG_RX_HDMI_MON_PKT_HEADER1, vsif, ARRAY_SIZE(vsif));
 }
 

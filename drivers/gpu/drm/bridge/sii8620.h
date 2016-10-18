@@ -187,7 +187,7 @@
 
 #define BIT_HPD_CTRL_HPD_OUT_OVR_VAL                (0x20)
 #define VAL_HPD_CTRL_HPD_LOW                        (0x00)
-#define VAL_HPD_CTRL_HPD_HIGH                       (0x20)
+#define BIT_HPD_CTRL_HPD_HIGH                       (0x20)
 
 #define BIT_HPD_CTRL_HPD_OUT_OVR_EN                 (0x10)
 #define VAL_HPD_CTRL_HPD_OUT_OVR_EN_OFF             (0x00)
@@ -271,7 +271,7 @@
 #define REG_LM_DDC                                  (0x00C7)
 #define BIT_LM_DDC_SW_TPI_EN                        (0x80)
 #define VAL_LM_DDC_SW_TPI_EN_ENABLED                (0x00)
-#define VAL_LM_DDC_SW_TPI_EN_DISABLED               (0x80)
+#define BIT_LM_DDC_SW_TPI_EN_DISABLED               (0x80)
 
 #define BIT_LM_DDC_VIDEO_MUTE_EN                    (0x20)
 #define BIT_LM_DDC_DDC_TPI_SW                       (0x04)
@@ -615,7 +615,7 @@
 #define VAL_RX_HDMI_CTRL2_USE_AV_MUTE_ENABLE        (0x08)
 #define BIT_RX_HDMI_CTRL2_VSI_MON_SEL               (0x01)
 #define VAL_RX_HDMI_CTRL2_VSI_MON_SEL_AVI           (0x00)
-#define VAL_RX_HDMI_CTRL2_VSI_MON_SEL_VSI           (0x01)
+#define BIT_RX_HDMI_CTRL2_VSI_MON_SEL_VSI           (0x01)
 
 /* 0xA4 RX_HDMI Control Register3                          (Default: 0x0F)    */
 #define REG_RX_HDMI_CTRL3                           (0x02A4)
@@ -673,7 +673,7 @@
 #define BIT_EDID_CTRL_XDEVCAP_EN                    (0x40)
 #define BIT_EDID_CTRL_DEVCAP_SEL                    (0x20)
 #define VAL_EDID_CTRL_DEVCAP_SELECT_EDID            (0x00)
-#define VAL_EDID_CTRL_DEVCAP_SELECT_DEVCAP          (0x20)
+#define BIT_EDID_CTRL_DEVCAP_SELECT_DEVCAP          (0x20)
 
 #define BIT_EDID_CTRL_EDID_FIFO_ADDR_AUTO           (0x10)
 #define VAL_EDID_CTRL_EDID_FIFO_ADDR_AUTO_DISABLE   (0x00)
@@ -1125,7 +1125,7 @@
 #define BIT_TPI_SC_TPI_OUTPUT_MODE_1                (0x20)
 #define BIT_TPI_SC_REG_TMDS_OE                      (0x10)
 #define VAL_TPI_SC_REG_TMDS_OE_ACTIVE               (0x00)
-#define VAL_TPI_SC_REG_TMDS_OE_POWER_DOWN           (0x10)
+#define BIT_TPI_SC_REG_TMDS_OE_POWER_DOWN           (0x10)
 #define BIT_TPI_SC_TPI_AV_MUTE                      (0x08)
 #define VAL_TPI_SC_TPI_AV_MUTE_NORMAL               (0x00)
 #define VAL_TPI_SC_TPI_AV_MUTE_MUTED                (0x08)
@@ -1133,7 +1133,7 @@
 #define BIT_TPI_SC_DDC_TPI_SW                       (0x02)
 #define BIT_TPI_SC_TPI_OUTPUT_MODE_0                (0x01)
 #define VAL_TPI_SC_TPI_OUTPUT_MODE_0_DVI            (0x00)
-#define VAL_TPI_SC_TPI_OUTPUT_MODE_0_HDMI           (0x01)
+#define BIT_TPI_SC_TPI_OUTPUT_MODE_0_HDMI           (0x01)
 
 /* 0x29 TPI COPP Query Data Register                       (Default: 0x00)    */
 #define REG_TPI_COPP_DATA1                          (0x0629)
