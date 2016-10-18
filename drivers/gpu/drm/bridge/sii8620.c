@@ -454,14 +454,10 @@ static void sii8620_mt_read_devcap(struct sii8620 *ctx, bool xdevcap)
 
 static void sii8620_fetch_edid(struct sii8620 *ctx)
 {
-	u8 lm_ddc;
-	u8 ddc_cmd;
-	u8 int3;
-	u8 cbus;
-	int i;
-	u8 *edid;
+	u8 lm_ddc, ddc_cmd, int3, cbus;
+	int fetched, i;
 	int edid_len = EDID_LENGTH;
-	int fetched;
+	u8 *edid;
 
 	sii8620_readb(ctx, REG_CBUS_STATUS);
 	lm_ddc = sii8620_readb(ctx, REG_LM_DDC);
@@ -486,13 +482,13 @@ static void sii8620_fetch_edid(struct sii8620 *ctx)
 
 	sii8620_write(ctx, REG_DDC_ADDR, 0x50 << 1);
 
-#define FETCH_SIZE 16
 	edid = kmalloc(EDID_LENGTH, GFP_KERNEL);
 	if (!edid) {
 		ctx->error = -ENOMEM;
 		return;
 	}
 
+#define FETCH_SIZE 16
 	for (fetched = 0; fetched < edid_len; fetched += FETCH_SIZE) {
 		sii8620_readb(ctx, REG_DDC_STATUS);
 		sii8620_write_seq(ctx,
@@ -517,7 +513,8 @@ static void sii8620_fetch_edid(struct sii8620 *ctx)
 
 			if (!(cbus & BIT_CBUS_STATUS_CBUS_CONNECTED)) {
 				kfree(edid);
-				return;
+				edid = NULL;
+				goto end;
 			}
 		} while (1);
 
@@ -530,21 +527,27 @@ static void sii8620_fetch_edid(struct sii8620 *ctx)
 			u8 ext = ((struct edid *)edid)->extensions;
 
 			if (ext) {
+				u8 *new_edid;
+
 				edid_len += ext * EDID_LENGTH;
-				edid = krealloc(edid, edid_len, GFP_KERNEL);
+				new_edid = krealloc(edid, edid_len, GFP_KERNEL);
+				if (!new_edid) {
+					kfree(edid);
+					ctx->error = -ENOMEM;
+					return;
+				}
+				edid = new_edid;
 			}
 		}
 
 		if (fetched + FETCH_SIZE == edid_len)
-
-		sii8620_write(ctx, REG_INTR3, int3);
+			sii8620_write(ctx, REG_INTR3, int3);
 	}
 
 	sii8620_write(ctx, REG_LM_DDC, lm_ddc);
 
-	if (ctx->edid)
-		kfree(ctx->edid);
-
+end:
+	kfree(ctx->edid);
 	ctx->edid = (struct edid *)edid;
 }
 
