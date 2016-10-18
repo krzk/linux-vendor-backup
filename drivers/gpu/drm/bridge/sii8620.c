@@ -442,17 +442,14 @@ static void sii8620_mt_read_devcap_recv(struct sii8620 *ctx,
 
 static void sii8620_mt_read_devcap(struct sii8620 *ctx, bool xdevcap)
 {
-	struct sii8620_mt_msg *msg = kzalloc(sizeof(*msg), GFP_KERNEL);
+	struct sii8620_mt_msg *msg = sii8620_mt_msg_new(ctx);
 
-	if (!msg) {
-		ctx->error = -ENOMEM;
+	if (!msg)
 		return;
-	}
 
 	msg->reg[0] = xdevcap ? MHL_READ_XDEVCAP : MHL_READ_DEVCAP;
 	msg->send = sii8620_mt_read_devcap_send;
 	msg->recv = sii8620_mt_read_devcap_recv;
-	list_add_tail(&msg->node, &ctx->mt_queue);
 }
 
 static void sii8620_fetch_edid(struct sii8620 *ctx)
