@@ -11,6 +11,7 @@
 
 /dts-v1/;
 #include "exynos5433.dtsi"
+#include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 
 / {
@@ -1656,7 +1657,7 @@
 		iovcc18-supply = <&ldo34_reg>;
 		interrupt-parent = <&gpf0>;
 		interrupts = <2 0>;
-		reset-gpio = <&gpv7 0 0>;
+		reset-gpios = <&gpv7 0 GPIO_ACTIVE_LOW>;
 		clocks = <&pmu_system_controller 0>;
 		clock-names = "xtal";
 		assigned-clocks = <&pmu_system_controller 0>;

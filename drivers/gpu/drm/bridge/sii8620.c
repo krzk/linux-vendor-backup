@@ -620,27 +620,24 @@ static int sii8620_hw_on(struct sii8620 *ctx)
 	if (ret)
 		return ret;
 
-	gpiod_set_value(ctx->gpio_reset, 1);
-
 	return 0;
 }
 
 static int sii8620_hw_off(struct sii8620 *ctx)
 {
-	gpiod_set_value(ctx->gpio_reset, 0);
-
+	gpiod_set_value(ctx->gpio_reset, 1);
 	return regulator_bulk_disable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
 }
 
 static void sii8620_hw_reset(struct sii8620 *ctx)
 {
 	usleep_range(10000, 20000);
-	gpiod_set_value(ctx->gpio_reset, 1);
-	usleep_range(5000, 20000);
 	gpiod_set_value(ctx->gpio_reset, 0);
-	usleep_range(10000, 20000);
+	usleep_range(5000, 20000);
 	gpiod_set_value(ctx->gpio_reset, 1);
-	msleep(30);
+	usleep_range(10000, 20000);
+	gpiod_set_value(ctx->gpio_reset, 0);
+	msleep(300);
 }
 
 static void sii8620_cbus_reset(struct sii8620 *ctx)
