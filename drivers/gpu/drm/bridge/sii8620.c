@@ -1,5 +1,5 @@
 /*
- * Driver for Silicon Image SiL8620 Mobile HD Transmitter
+ * Silicon Image SiI8620 HDMI/MHL bridge driver
  *
  * Copyright (C) 2015, Samsung Electronics Co., Ltd.
  * Andrzej Hajda <a.hajda@samsung.com>
@@ -104,6 +104,9 @@ static const u8 sii8620_i2c_page[] = {
 	0x61, /* eCBUS-S, eCBUS-D */
 };
 
+static void sii8620_fetch_edid(struct sii8620 *ctx);
+static void sii8620_set_upstream_edid(struct sii8620 *ctx);
+static void sii8620_enable_hpd(struct sii8620 *ctx);
 static void sii8620_mhl_disconnected(struct sii8620 *ctx);
 
 static int sii8620_clear_error(struct sii8620 *ctx)
@@ -352,10 +355,6 @@ static void sii8620_mt_read_devcap_send(struct sii8620 *ctx,
 		REG_TPI_CBUS_START, BIT_TPI_CBUS_START_GET_DEVCAP_START
 	);
 }
-
-static void sii8620_fetch_edid(struct sii8620 *ctx);
-static void sii8620_set_upstream_edid(struct sii8620 *ctx);
-static void sii8620_enable_hpd(struct sii8620 *ctx);
 
 /* copy src to dst and set changed bits in src */
 static void sii8620_update_array(u8 *dst, u8 *src, int count)
@@ -672,7 +671,6 @@ static void sii8620_stop_video(struct sii8620 *ctx)
 {
 	u8 uninitialized_var(val);
 
-	/* TODO: add MHL3 and DVI support  */
 	sii8620_write_seq_static(ctx,
 		REG_TPI_INTR_EN, 0,
 		REG_HDCP2X_INTR0_MASK, 0,
@@ -681,8 +679,6 @@ static void sii8620_stop_video(struct sii8620 *ctx)
 	);
 
 	switch (ctx->sink_type) {
-	case SINK_NONE:
-		return;
 	case SINK_DVI:
 		val = BIT_TPI_SC_REG_TMDS_OE_POWER_DOWN
 			| BIT_TPI_SC_TPI_AV_MUTE;
@@ -692,6 +688,8 @@ static void sii8620_stop_video(struct sii8620 *ctx)
 			| BIT_TPI_SC_TPI_AV_MUTE
 			| BIT_TPI_SC_TPI_OUTPUT_MODE_0_HDMI;
 		break;
+	default:
+		return;
 	}
 
 	sii8620_write(ctx, REG_TPI_SC, val);
@@ -718,14 +716,10 @@ static void sii8620_start_hdmi(struct sii8620 *ctx)
 
 	sii8620_write(ctx, REG_TPI_SC, BIT_TPI_SC_TPI_OUTPUT_MODE_0_HDMI);
 
-	sii8620_write_buf(ctx, REG_TPI_AVI_CHSUM, ctx->avif, ARRAY_SIZE(ctx->avif));
+	sii8620_write_buf(ctx, REG_TPI_AVI_CHSUM, ctx->avif,
+			  ARRAY_SIZE(ctx->avif));
 
 	sii8620_write(ctx, REG_PKT_FILTER_0, 0xa1, 0x2);
-}
-
-static void sii8620_start_dvi(struct sii8620 *ctx)
-{
-	/* TODO */
 }
 
 static void sii8620_start_video(struct sii8620 *ctx)
@@ -738,10 +732,8 @@ static void sii8620_start_video(struct sii8620 *ctx)
 		sii8620_start_hdmi(ctx);
 		break;
 	case SINK_DVI:
-		sii8620_start_dvi(ctx);
-		break;
 	default:
-		return;
+		break;
 	}
 }
 
@@ -1331,7 +1323,8 @@ static void sii8620_new_vsi(struct sii8620 *ctx)
 	sii8620_write(ctx, REG_RX_HDMI_CTRL2,
 		       VAL_RX_HDMI_CTRL2_DEFVAL
 		       | BIT_RX_HDMI_CTRL2_VSI_MON_SEL_VSI);
-	sii8620_read_buf(ctx, REG_RX_HDMI_MON_PKT_HEADER1, vsif, ARRAY_SIZE(vsif));
+	sii8620_read_buf(ctx, REG_RX_HDMI_MON_PKT_HEADER1, vsif,
+			 ARRAY_SIZE(vsif));
 }
 
 static void sii8620_new_avi(struct sii8620 *ctx)
