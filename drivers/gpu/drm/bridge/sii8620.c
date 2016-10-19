@@ -1381,7 +1381,7 @@ static irqreturn_t sii8620_irq_thread(int irq, void *data)
 	};
 	struct sii8620 *ctx = data;
 	u8 stats[LEN_FAST_INTR_STAT];
-	int i;
+	int i, ret;
 
 	mutex_lock(&ctx->lock);
 
@@ -1392,6 +1392,11 @@ static irqreturn_t sii8620_irq_thread(int irq, void *data)
 
 	sii8620_mt_work(ctx);
 
+	ret = sii8620_clear_error(ctx);
+	if (ret) {
+		dev_err(ctx->dev, "Error during IRQ handling, %d.\n", ret);
+		sii8620_mhl_disconnected(ctx);
+	}
 	mutex_unlock(&ctx->lock);
 
 	return IRQ_HANDLED;
@@ -1403,7 +1408,11 @@ static void sii8620_cable_in(struct sii8620 *ctx)
 	u8 ver[5];
 	int ret;
 
-	sii8620_hw_on(ctx);
+	ret = sii8620_hw_on(ctx);
+	if (ret) {
+		dev_err(dev, "Error powering on, %d.\n", ret);
+		return;
+	}
 	sii8620_hw_reset(ctx);
 	msleep(100);
 
@@ -1436,6 +1445,12 @@ static void sii8620_cable_in(struct sii8620 *ctx)
 		REG_MHL_CBUS_CTL1, VAL_MHL_CBUS_CTL1_1115_OHM,
 		REG_DPD, BIT_DPD_PWRON_PLL | BIT_DPD_PDNTX12 | BIT_DPD_OSC_EN,
 	);
+
+	ret = sii8620_clear_error(ctx);
+	if (ret) {
+		dev_err(dev, "Error accessing I2C bus, %d.\n", ret);
+		return;
+	}
 
 	enable_irq(to_i2c_client(ctx->dev)->irq);
 }
