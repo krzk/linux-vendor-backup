@@ -1,5 +1,19 @@
-#ifndef LINUX_MHL_H
-#define LINUX_MHL_H
+/*
+ * Defines for Mobile High-Definition Link (MHL) interface
+ *
+ * Copyright (C) 2015, Samsung Electronics, Co., Ltd.
+ * Andrzej Hajda <a.hajda@samsung.com>
+ *
+ * Based on MHL driver for Android devices.
+ * Copyright (C) 2013-2014 Silicon Image, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#ifndef __MHL_H__
+#define __MHL_H__
 
 /* Device Capabilities Registers */
 enum {
@@ -38,13 +52,6 @@ enum {
 #define MHL_DCAP_AUD_LINK_2CH			0x01
 #define MHL_DCAP_AUD_LINK_8CH			0x02
 
-#define MHL_DCAP_FEATURE_RCP_SUPPORT		0x01
-#define MHL_DCAP_FEATURE_RAP_SUPPORT		0x02
-#define MHL_DCAP_FEATURE_SP_SUPPORT		0x04
-#define MHL_DCAP_FEATURE_UCP_SEND_SUPPOR	0x08
-#define MHL_DCAP_FEATURE_UCP_RECV_SUPPORT	0x10
-#define MHL_DCAP_FEATURE_RBP_SUPPORT		0x40
-
 #define MHL_DCAP_VT_GRAPHICS			0x00
 #define MHL_DCAP_VT_PHOTO			0x02
 #define MHL_DCAP_VT_CINEMA			0x04
@@ -61,6 +68,13 @@ enum {
 #define MHL_DCAP_LD_GUI				0x80
 #define MHL_DCAP_LD_ALL				0xFF
 
+#define MHL_DCAP_FEATURE_RCP_SUPPORT		0x01
+#define MHL_DCAP_FEATURE_RAP_SUPPORT		0x02
+#define MHL_DCAP_FEATURE_SP_SUPPORT		0x04
+#define MHL_DCAP_FEATURE_UCP_SEND_SUPPOR	0x08
+#define MHL_DCAP_FEATURE_UCP_RECV_SUPPORT	0x10
+#define MHL_DCAP_FEATURE_RBP_SUPPORT		0x40
+
 /* Extended Device Capabilities Registers */
 enum {
 	MHL_XDC_ECBUS_SPEEDS,
@@ -70,14 +84,12 @@ enum {
 	MHL_XDC_SIZE
 };
 
-/* MHL_XDC_ECBUS_SPEEDS flags */
 #define MHL_XDC_ECBUS_S_075			0x01
 #define MHL_XDC_ECBUS_S_8BIT			0x02
 #define MHL_XDC_ECBUS_S_12BIT			0x04
 #define MHL_XDC_ECBUS_D_150			0x10
 #define MHL_XDC_ECBUS_D_8BIT			0x20
 
-/* MHL_XDC_TMDS_SPEEDS flags */
 #define MHL_XDC_TMDS_000			0x00
 #define MHL_XDC_TMDS_150			0x01
 #define MHL_XDC_TMDS_300			0x02
@@ -118,27 +130,6 @@ enum {
 #define MHL_DST_LM_PATH_DISABLED		0x00
 #define MHL_DST_LM_MUTED_MASK			0x10
 
-/* Interrupt Registers */
-enum {
-	MHL_INT_RCHANGE,
-	MHL_INT_DCHANGE,
-	MHL_INT_SIZE
-};
-
-/* Offset of DEVSTAT registers */
-#define MHL_INT_OFFSET				0x20
-#define MHL_INT_REG(name) (MHL_INT_OFFSET + MHL_INT_##name)
-
-#define	MHL_INT_RC_DCAP_CHG			0x01
-#define MHL_INT_RC_DSCR_CHG			0x02
-#define MHL_INT_RC_REQ_WRT			0x04
-#define MHL_INT_RC_GRT_WRT			0x08
-#define MHL_INT_RC_3D_REQ			0x10
-#define MHL_INT_RC_FEAT_REQ			0x20
-#define MHL_INT_RC_FEAT_COMPLETE		0x40
-
-#define MHL_INT_DC_EDID_CHG			0x02
-
 /* Extended Device Status Registers */
 enum {
 	MHL_XDS_CURR_ECBUS_MODE,
@@ -163,19 +154,16 @@ enum {
 #define MHL_XDS_LINK_CLOCK_300MHZ		0x20
 #define MHL_XDS_LINK_CLOCK_600MHZ		0x30
 
-/* MHL_XDS_REG_AVLINK_MODE_STATUS flags */
 #define MHL_XDS_LINK_STATUS_NO_SIGNAL		0x00
 #define MHL_XDS_LINK_STATUS_CRU_LOCKED		0x01
 #define MHL_XDS_LINK_STATUS_TMDS_NORMAL		0x02
 #define MHL_XDS_LINK_STATUS_TMDS_RESERVED	0x03
 
-/* MHL_XDS_REG_AVLINK_MODE_CONTROL flags */
 #define MHL_XDS_LINK_RATE_1_5_GBPS		0x00
 #define MHL_XDS_LINK_RATE_3_0_GBPS		0x01
 #define MHL_XDS_LINK_RATE_6_0_GBPS		0x02
 #define MHL_XDS_ATT_CAPABLE			0x08
 
-/* MHL_XDS_REG_MULTI_SINK_STATUS flags */
 #define MHL_XDS_SINK_STATUS_1_HPD_LOW		0x00
 #define MHL_XDS_SINK_STATUS_1_HPD_HIGH		0x01
 #define MHL_XDS_SINK_STATUS_2_HPD_LOW		0x00
@@ -185,47 +173,49 @@ enum {
 #define MHL_XDS_SINK_STATUS_4_HPD_LOW		0x00
 #define MHL_XDS_SINK_STATUS_4_HPD_HIGH		0x40
 
+/* Interrupt Registers */
 enum {
-	/* Command or Data byte acknowledge */
-	MHL_ACK = 0x33,
-	/* Command or Data byte not acknowledge */
-	MHL_NACK = 0x34,
-	/* Transaction abort */
-	MHL_ABORT = 0x35,
-	/* Write one status register strip top bit */
-	MHL_WRITE_STAT = 0x60 | 0x80,
-	/* Write one interrupt register */
-	MHL_SET_INT = 0x60,
-	/* Read one register */
-	MHL_READ_DEVCAP_REG = 0x61,
-	/* Read CBUS revision level from follower */
-	MHL_GET_STATE = 0x62,
-	/* Read vendor ID value from follower */
-	MHL_GET_VENDOR_ID = 0x63,
-	/* Set Hot Plug Detect in follower */
-	MHL_SET_HPD = 0x64,
-	/* Clear Hot Plug Detect in follower */
-	MHL_CLR_HPD = 0x65,
-	/* Set Capture ID for downstream device */
-	MHL_SET_CAP_ID = 0x66,
-	/* Get Capture ID from downstream device */
-	MHL_GET_CAP_ID = 0x67,
-	/* VS command to send RCP sub-commands */
-	MHL_MSC_MSG = 0x68,
-	/* Get Vendor-Specific command error code */
-	MHL_GET_SC1_ERRORCODE = 0x69,
-	/* Get DDC channel command error code */
-	MHL_GET_DDC_ERRORCODE = 0x6A,
-	/* Get MSC command error code */
-	MHL_GET_MSC_ERRORCODE = 0x6B,
-	/* Write 1-16 bytes to responder's scratchpad */
-	MHL_WRITE_BURST = 0x6C,
-	/* Get channel 3 command error code */
-	MHL_GET_SC3_ERRORCODE = 0x6D,
-	/* Write one extended status register */
-	MHL_WRITE_XSTAT = 0x70,
-	/* Read one extended devcap register */
-	MHL_READ_XDEVCAP_REG = 0x71,
+	MHL_INT_RCHANGE,
+	MHL_INT_DCHANGE,
+	MHL_INT_SIZE
+};
+
+/* Offset of DEVSTAT registers */
+#define MHL_INT_OFFSET				0x20
+#define MHL_INT_REG(name) (MHL_INT_OFFSET + MHL_INT_##name)
+
+#define	MHL_INT_RC_DCAP_CHG			0x01
+#define MHL_INT_RC_DSCR_CHG			0x02
+#define MHL_INT_RC_REQ_WRT			0x04
+#define MHL_INT_RC_GRT_WRT			0x08
+#define MHL_INT_RC_3D_REQ			0x10
+#define MHL_INT_RC_FEAT_REQ			0x20
+#define MHL_INT_RC_FEAT_COMPLETE		0x40
+
+#define MHL_INT_DC_EDID_CHG			0x02
+
+enum {
+
+	MHL_ACK = 0x33, /* Command or Data byte acknowledge */
+	MHL_NACK = 0x34, /* Command or Data byte not acknowledge */
+	MHL_ABORT = 0x35, /* Transaction abort */
+	MHL_WRITE_STAT = 0xe0, /* Write one status register */
+	MHL_SET_INT = 0x60, /* Write one interrupt register */
+	MHL_READ_DEVCAP_REG = 0x61, /* Read one register */
+	MHL_GET_STATE = 0x62, /* Read CBUS revision level from follower */
+	MHL_GET_VENDOR_ID = 0x63, /* Read vendor ID value from follower */
+	MHL_SET_HPD = 0x64, /* Set Hot Plug Detect in follower */
+	MHL_CLR_HPD = 0x65, /* Clear Hot Plug Detect in follower */
+	MHL_SET_CAP_ID = 0x66, /* Set Capture ID for downstream device */
+	MHL_GET_CAP_ID = 0x67, /* Get Capture ID from downstream device */
+	MHL_MSC_MSG = 0x68, /* VS command to send RCP sub-commands */
+	MHL_GET_SC1_ERRORCODE = 0x69, /* Get Vendor-Specific error code */
+	MHL_GET_DDC_ERRORCODE = 0x6A, /* Get DDC channel command error code */
+	MHL_GET_MSC_ERRORCODE = 0x6B, /* Get MSC command error code */
+	MHL_WRITE_BURST = 0x6C, /* Write 1-16 bytes to responder's scratchpad */
+	MHL_GET_SC3_ERRORCODE = 0x6D, /* Get channel 3 command error code */
+	MHL_WRITE_XSTAT = 0x70, /* Write one extended status register */
+	MHL_READ_XDEVCAP_REG = 0x71, /* Read one extended devcap register */
 	/* let the rest of these float, they are software specific */
 	MHL_READ_EDID_BLOCK,
 	MHL_SEND_3D_REQ_OR_FEAT_REQ,
@@ -235,22 +225,22 @@ enum {
 
 /* MSC message types */
 enum {
-	MHL_MSC_MSG_RCP = 0x10,  /* RCP sub-command */
+	MHL_MSC_MSG_RCP = 0x10, /* RCP sub-command */
 	MHL_MSC_MSG_RCPK = 0x11, /* RCP Acknowledge sub-command */
 	MHL_MSC_MSG_RCPE = 0x12, /* RCP Error sub-command */
-	MHL_MSC_MSG_RAP = 0x20,  /* Mode Change Warning sub-command */
+	MHL_MSC_MSG_RAP = 0x20, /* Mode Change Warning sub-command */
 	MHL_MSC_MSG_RAPK = 0x21, /* MCW Acknowledge sub-command */
-	MHL_MSC_MSG_RBP = 0x22,  /* Remote Button Protocol sub-command */
+	MHL_MSC_MSG_RBP = 0x22, /* Remote Button Protocol sub-command */
 	MHL_MSC_MSG_RBPK = 0x23, /* RBP Acknowledge sub-command */
 	MHL_MSC_MSG_RBPE = 0x24, /* RBP Error sub-command */
-	MHL_MSC_MSG_UCP = 0x30,  /* UCP sub-command */
+	MHL_MSC_MSG_UCP = 0x30, /* UCP sub-command */
 	MHL_MSC_MSG_UCPK = 0x31, /* UCP Acknowledge sub-command */
 	MHL_MSC_MSG_UCPE = 0x32, /* UCP Error sub-command */
 	MHL_MSC_MSG_RUSB = 0x40, /* Request USB host role */
 	MHL_MSC_MSG_RUSBK = 0x41, /* Acknowledge request for USB host role */
 	MHL_MSC_MSG_RHID = 0x42, /* Request HID host role */
 	MHL_MSC_MSG_RHIDK = 0x43, /* Acknowledge request for HID host role */
-	MHL_MSC_MSG_ATT = 0x50,	/* Request attention sub-command */
+	MHL_MSC_MSG_ATT = 0x50, /* Request attention sub-command */
 	MHL_MSC_MSG_ATTK = 0x51, /* ATT Acknowledge sub-command */
 	MHL_MSC_MSG_BIST_TRIGGER = 0x60,
 	MHL_MSC_MSG_BIST_REQUEST_STAT = 0x61,
@@ -299,4 +289,4 @@ enum {
 /* Unsupported/unrecognized key code */
 #define MHL_UCPE_STATUS_INEFFECTIVE_KEY_CODE	0x01
 
-#endif /* LINUX_MHL_H */
+#endif /* __MHL_H__ */
