@@ -9,11 +9,13 @@
  * published by the Free Software Foundation.
  */
 
+#include <drm/bridge/mhl.h>
 #include <drm/drm_crtc.h>
 #include <drm/drm_edid.h>
 
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/extcon.h>
 #include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
 #include <linux/interrupt.h>
@@ -25,9 +27,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 
-#include <linux/extcon.h>
-#include <linux/mhl.h>
-#include "sii8620.h"
+#include "sil-sii8620.h"
 
 #define VAL_RX_HDMI_CTRL2_DEFVAL	VAL_RX_HDMI_CTRL2_IDLE_CNT(3)
 
