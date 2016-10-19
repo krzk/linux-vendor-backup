@@ -619,12 +619,13 @@ static int sii8620_hw_on(struct sii8620 *ctx)
 	ret = regulator_bulk_enable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
 	if (ret)
 		return ret;
-
-	return 0;
+	usleep_range(10000, 20000);
+	return clk_prepare_enable(ctx->clk_xtal);
 }
 
 static int sii8620_hw_off(struct sii8620 *ctx)
 {
+	clk_disable_unprepare(ctx->clk_xtal);
 	gpiod_set_value(ctx->gpio_reset, 1);
 	return regulator_bulk_disable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
 }
@@ -1403,7 +1404,6 @@ static void sii8620_cable_in(struct sii8620 *ctx)
 	int ret;
 
 	sii8620_hw_on(ctx);
-	clk_prepare_enable(ctx->clk_xtal);
 	sii8620_hw_reset(ctx);
 	msleep(100);
 
@@ -1443,7 +1443,6 @@ static void sii8620_cable_in(struct sii8620 *ctx)
 static void sii8620_cable_out(struct sii8620 *ctx)
 {
 	disable_irq(to_i2c_client(ctx->dev)->irq);
-	clk_disable_unprepare(ctx->clk_xtal);
 	sii8620_hw_off(ctx);
 }
 
