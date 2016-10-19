@@ -1645,7 +1645,7 @@ static const struct of_device_id sii8620_dt_match[] = {
 MODULE_DEVICE_TABLE(of, sii8620_dt_match);
 
 static const struct i2c_device_id sii8620_id[] = {
-	{ "SII8620", 0 },
+	{ "sii8620", 0 },
 	{ },
 };
 
