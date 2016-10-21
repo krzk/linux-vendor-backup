@@ -1118,6 +1118,9 @@ void sco_connect_set_gw_nbc(struct hci_dev *hdev)
 	hci_send_cmd(hdev, HCI_OP_WRITE_VOICE_SETTING, sizeof(cp1), &cp1);
 	hdev->voice_setting = cpu_to_le16(0x0060);
 
+	if (hdev->manufacturer != 0x000F)
+		return;
+
 	cp2.role = 0x00;  /* WbDisable */
 	cp2.pkt_type = cpu_to_le16(0x0002);
 	hci_send_cmd(hdev, HCI_BCM_ENABLE_WBS_REQ, sizeof(cp2), &cp2);
@@ -1147,6 +1150,9 @@ void sco_connect_set_gw_wbc(struct hci_dev *hdev)
 	cp1.voice_setting = cpu_to_le16(0x0003 | 0x0060);
 	hci_send_cmd(hdev, HCI_OP_WRITE_VOICE_SETTING, sizeof(cp1), &cp1);
 	hdev->voice_setting = cpu_to_le16(0x0003 | 0x0060);
+
+	if (hdev->manufacturer != 0x000F)
+		return;
 
 	cp2.role = 0x01; /* Enable */
 	cp2.pkt_type = cpu_to_le16(0x0002);
@@ -1179,6 +1185,9 @@ void sco_connect_set_nbc(struct hci_dev *hdev)
 	hci_send_cmd(hdev, HCI_OP_WRITE_VOICE_SETTING, sizeof(cp1), &cp1);
 	hdev->voice_setting = cpu_to_le16(0x0060);
 
+	if (hdev->manufacturer != 0x000F)
+		return;
+
 	cp2.role = 0x00; /* WbDisable */
 	cp2.pkt_type = cpu_to_le16(0x0002);
 	hci_send_cmd(hdev, HCI_BCM_ENABLE_WBS_REQ, sizeof(cp2), &cp2);
@@ -1208,6 +1217,9 @@ void sco_connect_set_wbc(struct hci_dev *hdev)
 	cp1.voice_setting = cpu_to_le16(0x0003 | 0x0060);
 	hci_send_cmd(hdev, HCI_OP_WRITE_VOICE_SETTING, sizeof(cp1), &cp1);
 	hdev->voice_setting = cpu_to_le16(0x0003 | 0x0060);
+
+	if (hdev->manufacturer != 0x000F)
+		return;
 
 	cp2.role = 0x01; /* Enable */
 	cp2.pkt_type = cpu_to_le16(0x0002);
@@ -1260,6 +1272,9 @@ int sco_connect_ind(struct hci_dev *hdev, bdaddr_t *bdaddr, __u8 *flags)
 	read_unlock(&sco_sk_list.lock);
 
 #ifdef TIZEN_BT
+	if (hdev->manufacturer != 0x000F)
+		return lm;
+
 	/* WBC/NBC feature */
 	if ((lm & HCI_LM_ACCEPT) && !hci_conn_hash_lookup_sco(hdev)) {
 		struct hci_conn *hcon_acl;
@@ -1308,7 +1323,8 @@ static void sco_connect_cfm(struct hci_conn *hcon, __u8 status)
 
 #ifdef TIZEN_BT
 		/* Link policy */
-		hci_write_acl_link_policy(hcon, HCI_LP_RSWITCH);
+		if (hcon->hdev->manufacturer == 0x000F)
+			hci_write_acl_link_policy(hcon, HCI_LP_RSWITCH);
 #endif
 	} else
 		sco_conn_del(hcon, bt_to_errno(status));
@@ -1323,7 +1339,8 @@ static void sco_disconn_cfm(struct hci_conn *hcon, __u8 reason)
 
 #ifdef TIZEN_BT
 	/* Link policy */
-	hci_write_acl_link_policy(hcon, HCI_LP_SNIFF | HCI_LP_RSWITCH);
+	if (hcon->hdev->manufacturer == 0x000F)
+		hci_write_acl_link_policy(hcon, HCI_LP_SNIFF | HCI_LP_RSWITCH);
 #endif
 
 	sco_conn_del(hcon, bt_to_errno(reason));
