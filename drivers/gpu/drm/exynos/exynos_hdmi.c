@@ -1659,10 +1659,6 @@ static void hdmi_v13_mode_apply(struct hdmi_context *hdata)
 	hdmi_reg_writev(hdata, HDMI_TG_VSYNC_BOT_HDMI_L, 2, 0x233);
 	hdmi_reg_writev(hdata, HDMI_TG_FIELD_TOP_HDMI_L, 2, 0x1);
 	hdmi_reg_writev(hdata, HDMI_TG_FIELD_BOT_HDMI_L, 2, 0x233);
-
-
-	/* enable HDMI and timing generator */
-	hdmi_start(hdata, true);
 }
 
 static void hdmi_v14_mode_apply(struct hdmi_context *hdata)
@@ -1782,9 +1778,6 @@ static void hdmi_v14_mode_apply(struct hdmi_context *hdata)
 
 	if (hdata->drv_data == &exynos5430_hdmi_driver_data)
 		hdmi_reg_writeb(hdata, HDMI_TG_DECON_EN, 1);
-
-	/* enable HDMI and timing generator */
-	hdmi_start(hdata, true);
 }
 
 static void hdmi_mode_apply(struct hdmi_context *hdata)
@@ -1793,6 +1786,8 @@ static void hdmi_mode_apply(struct hdmi_context *hdata)
 		hdmi_v13_mode_apply(hdata);
 	else
 		hdmi_v14_mode_apply(hdata);
+
+	hdmi_start(hdata, true);
 }
 
 static void hdmiphy_conf_reset(struct hdmi_context *hdata)
