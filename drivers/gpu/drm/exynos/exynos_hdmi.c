@@ -81,12 +81,12 @@ enum hdmi_type {
 	HDMI_TYPE14,
 };
 
-struct str_array_spec {
+struct string_array_spec {
 	int count;
-	const char **ptr;
+	const char * const *data;
 };
 
-#define INIT_ARRAY_SPEC(a) { .count = ARRAY_SIZE(a), .ptr = a }
+#define INIT_ARRAY_SPEC(a) { .count = ARRAY_SIZE(a), .data = a }
 
 struct hdmi_driver_data {
 	unsigned int type;
@@ -98,8 +98,8 @@ struct hdmi_driver_data {
 	u8 phy_mode_set_done;
 	u32 phy_status;
 	u32 sysreg_clksel;
-	struct str_array_spec clk_gates;
-	struct str_array_spec clk_muxes;
+	struct string_array_spec clk_gates;
+	struct string_array_spec clk_muxes;
 };
 
 struct hdmi_resources {
@@ -1534,7 +1534,7 @@ static int hdmi_clk_enable_gates(struct hdmi_context *hdata)
 		ret = clk_prepare_enable(hdata->res.clk_gates[i]);
 		if (ret)
 			dev_err(hdata->dev, "Cannot enable clock '%s', %d\n",
-				hdata->drv_data->clk_gates.ptr[i], ret);
+				hdata->drv_data->clk_gates.data[i], ret);
 	}
 
 	return ret;
@@ -1562,8 +1562,8 @@ static int hdmi_clk_set_parents(struct hdmi_context *hdata, bool to_phy)
 		ret = clk_set_parent(c[2], c[to_phy]);
 		if (ret)
 			dev_err(dev, "Cannot set clock parent of '%s' to '%s', %d\n",
-				hdata->drv_data->clk_muxes.ptr[i + 2],
-				hdata->drv_data->clk_muxes.ptr[i + to_phy],
+				hdata->drv_data->clk_muxes.data[i + 2],
+				hdata->drv_data->clk_muxes.data[i + to_phy],
 				ret);
 	}
 
@@ -2097,18 +2097,19 @@ static irqreturn_t hdmi_irq_thread(int irq, void *arg)
 }
 
 static int hdmi_clks_get(struct hdmi_context *hdata,
-	struct str_array_spec *names, struct clk **clks)
+			 const struct string_array_spec *names,
+			 struct clk **clks)
 {
 	struct device *dev = hdata->dev;
 	int i;
 
 	for (i = 0; i < names->count; ++i) {
-		struct clk *clk = devm_clk_get(dev, names->ptr[i]);
+		struct clk *clk = devm_clk_get(dev, names->data[i]);
 
 		if (IS_ERR(clk)) {
 			int ret = PTR_ERR(clk);
 
-			dev_err(dev, "Cannot get clock %s, %d\n", names->ptr[i],
+			dev_err(dev, "Cannot get clock %s, %d\n", names->data[i],
 				ret);
 
 			return ret;
