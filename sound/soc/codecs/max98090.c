@@ -24,7 +24,27 @@
 #include <sound/soc.h>
 #include <sound/tlv.h>
 #include <sound/max98090.h>
+#include <linux/extcon.h>
 #include "max98090.h"
+
+const char *max98090_extcon_cable[] = {
+	"Microphone",
+	"Headphone",
+	NULL,
+};
+
+static void max98090_extcon_jack_report(struct max98090_priv *max98090,
+					int prev_state, int status)
+{
+	struct extcon_dev *edev = max98090->edev;
+	int mic_state = status & SND_JACK_MICROPHONE;
+
+	/* report mic state if it is available, or connected previously */
+	if (mic_state || prev_state == M98090_JACK_STATE_HEADSET)
+		extcon_set_cable_state(edev, "Microphone", mic_state);
+
+	extcon_set_cable_state(edev, "Headphone", status & SND_JACK_HEADPHONE);
+}
 
 /* Allows for sparsely populated register maps */
 static struct reg_default max98090_reg[] = {
@@ -2188,7 +2208,7 @@ static void max98090_jack_work(struct work_struct *work)
 		jack_work.work);
 	struct snd_soc_codec *codec = max98090->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
-	int status = 0;
+	int prev_state, status = 0;
 	int reg;
 
 	/* Read a second time */
@@ -2208,6 +2228,8 @@ static void max98090_jack_work(struct work_struct *work)
 	} else {
 		reg = snd_soc_read(codec, M98090_REG_JACK_STATUS);
 	}
+
+	prev_state = max98090->jack_state;
 
 	reg = snd_soc_read(codec, M98090_REG_JACK_STATUS);
 
@@ -2266,6 +2288,10 @@ static void max98090_jack_work(struct work_struct *work)
 
 	snd_soc_jack_report(max98090->jack, status,
 			    SND_JACK_HEADSET | SND_JACK_BTN_0);
+
+	/* only reports jack connection state with extcon */
+	if (!(status & SND_JACK_BTN_0))
+		max98090_extcon_jack_report(max98090, prev_state, status);
 
 	snd_soc_dapm_sync(dapm);
 }
@@ -2651,6 +2677,19 @@ static int max98090_i2c_probe(struct i2c_client *i2c,
 	if (ret < 0) {
 		dev_err(&i2c->dev, "request_irq failed: %d\n",
 			ret);
+		return ret;
+	}
+
+	max98090->edev = devm_extcon_dev_allocate(&i2c->dev,
+							max98090_extcon_cable);
+	if (IS_ERR(max98090->edev))
+		return PTR_ERR(max98090->edev);
+
+	max98090->edev->name = "Headset Jack";
+
+	ret = devm_extcon_dev_register(&i2c->dev, max98090->edev);
+	if (ret < 0) {
+		dev_err(&i2c->dev, "extcon_dev_register() failed: %d\n", ret);
 		return ret;
 	}
 
