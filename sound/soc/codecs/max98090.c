@@ -2270,6 +2270,39 @@ static void max98090_jack_work(struct work_struct *work)
 	snd_soc_dapm_sync(dapm);
 }
 
+static int max98090_jack_status_changed(int prev_state, int status)
+{
+	int disconnected;
+
+	/*
+	 * Jack status register includes two bits LSNS and JKSNS, and they
+	 * indicate the jack state as below:
+	 *
+	 * |    LSNS	| JKSNS	|    STATE	|
+	 * |	 1	|   1	| No jack	|
+	 * |	 0	|   1	| Headset(MIC)	|
+	 * |	 0	|   0	| Headphone	|
+	 * |	 1	|   0	| Not Possible	|
+	 *
+	 * It means that the jack is in disconnected state only if both LSNS
+	 * and JKSNS are set, otherwise it is in connected state. Leveraging
+	 * this, the change can be recognized by comparing the current state
+	 * with the previous.
+	 */
+	disconnected =
+		(status & M98090_LSNS_MASK) && (status & M98090_JKSNS_MASK);
+
+	/* jack_state is transited from "Connected" into "No Jack" */
+	if (prev_state != M98090_JACK_STATE_NO_HEADSET && disconnected)
+		return true;
+	/* jack_state is transited from "No Jack" into "Connected" */
+	else if (prev_state == M98090_JACK_STATE_NO_HEADSET && !disconnected)
+		return true;
+	/* if no transition in jack_state */
+	else
+		return false;
+}
+
 static irqreturn_t max98090_interrupt(int irq, void *data)
 {
 	struct max98090_priv *max98090 = data;
@@ -2307,8 +2340,31 @@ static irqreturn_t max98090_interrupt(int irq, void *data)
 
 	active &= mask;
 
-	if (!active)
-		return IRQ_NONE;
+	/* As described in datasheet, if this handler is triggered by jack
+	 * detection interrupt, the JDET bit of DEVICE STATUS register
+	 * should be set. However, it doesn't work for unknown reason.
+	 *
+	 * To this end, if interrupt is generated but status register is
+	 * not set, check the change in jack status and set JDET bit forcibly.
+	 */
+	if (!active) {
+		int jack_status;
+
+		ret = regmap_read(max98090->regmap,
+				  M98090_REG_JACK_STATUS, &jack_status);
+		if (ret != 0) {
+			dev_err(max98090->codec->dev,
+				"failed to read M98090_REG_JACK_STATUS: %d\n",
+				ret);
+			return IRQ_NONE;
+		}
+
+		if (max98090_jack_status_changed(max98090->jack_state,
+						 jack_status))
+			active |= M98090_JDET_MASK;
+		else
+			return IRQ_NONE;
+	}
 
 	if (active & M98090_CLD_MASK)
 		dev_err(codec->dev, "M98090_CLD_MASK\n");
