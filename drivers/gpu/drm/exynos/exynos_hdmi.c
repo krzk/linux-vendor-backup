@@ -639,24 +639,24 @@ static const struct hdmiphy_config hdmiphy_5430_configs[] = {
 	},
 };
 
-static const char *hdmi_clk_gates4[] = {
+static const char * const hdmi_clk_gates4[] = {
 	"hdmi", "sclk_hdmi"
 };
 
-static const char *hdmi_clk_muxes4[] = {
+static const char * const hdmi_clk_muxes4[] = {
 	"sclk_pixel", "sclk_hdmiphy", "mout_hdmi"
 };
 
-static const char *hdmi_clk_gates5430[] = {
+static const char * const hdmi_clk_gates5430[] = {
 	"hdmi_pclk", "hdmi_i_pclk", "i_tmds_clk", "i_pixel_clk", "i_spdif_clk"
 };
 
-static const char *hdmi_clk_muxes5430[] = {
+static const char * const hdmi_clk_muxes5430[] = {
 	"oscclk", "tmds_clko", "tmds_clko_user",
 	"oscclk", "pixel_clko", "pixel_clko_user"
 };
 
-static struct hdmi_driver_data exynos5430_hdmi_driver_data = {
+static const struct hdmi_driver_data exynos5430_hdmi_driver_data = {
 	.type		= HDMI_TYPE14,
 	.phy_confs	= hdmiphy_5430_configs,
 	.phy_conf_count	= ARRAY_SIZE(hdmiphy_5430_configs),
@@ -669,7 +669,7 @@ static struct hdmi_driver_data exynos5430_hdmi_driver_data = {
 	.phy_mode_set_done = HDMIPHY5433_MODE_SET_DONE,
 };
 
-static struct hdmi_driver_data exynos5420_hdmi_driver_data = {
+static const struct hdmi_driver_data exynos5420_hdmi_driver_data = {
 	.type		= HDMI_TYPE14,
 	.phy_confs	= hdmiphy_5420_configs,
 	.phy_conf_count	= ARRAY_SIZE(hdmiphy_5420_configs),
@@ -679,7 +679,7 @@ static struct hdmi_driver_data exynos5420_hdmi_driver_data = {
 	.phy_mode_set_done = HDMIPHY_MODE_SET_DONE,
 };
 
-static struct hdmi_driver_data exynos4212_hdmi_driver_data = {
+static const struct hdmi_driver_data exynos4212_hdmi_driver_data = {
 	.type		= HDMI_TYPE14,
 	.phy_confs	= hdmiphy_v14_configs,
 	.phy_conf_count	= ARRAY_SIZE(hdmiphy_v14_configs),
@@ -689,7 +689,7 @@ static struct hdmi_driver_data exynos4212_hdmi_driver_data = {
 	.phy_mode_set_done = HDMIPHY_MODE_SET_DONE,
 };
 
-static struct hdmi_driver_data exynos4210_hdmi_driver_data = {
+static const struct hdmi_driver_data exynos4210_hdmi_driver_data = {
 	.type		= HDMI_TYPE13,
 	.phy_confs	= hdmiphy_v13_configs,
 	.phy_conf_count	= ARRAY_SIZE(hdmiphy_v13_configs),
@@ -699,7 +699,7 @@ static struct hdmi_driver_data exynos4210_hdmi_driver_data = {
 	.phy_mode_set_done = HDMIPHY_MODE_SET_DONE,
 };
 
-static struct hdmi_driver_data exynos5_hdmi_driver_data = {
+static const struct hdmi_driver_data exynos5_hdmi_driver_data = {
 	.type		= HDMI_TYPE14,
 	.phy_confs	= hdmiphy_v13_configs,
 	.phy_conf_count	= ARRAY_SIZE(hdmiphy_v13_configs),
