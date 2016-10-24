@@ -141,7 +141,6 @@ struct hdmi_context {
 	struct drm_connector		connector;
 	struct drm_encoder		*encoder;
 	struct drm_bridge		*bridge;
-	bool				hpd;
 	bool				powered;
 	bool				phy_enabled;
 	bool				dvi_mode;
