@@ -79,6 +79,21 @@
 enum hdmi_type {
 	HDMI_TYPE13,
 	HDMI_TYPE14,
+	HDMI_TYPE_COUNT
+};
+
+#define HDMI_MAPPED_BASE 0xffff0000
+
+enum hdmi_mapped_regs {
+	HDMI_PHY_STATUS = HDMI_MAPPED_BASE,
+	HDMI_PHY_RSTOUT,
+	HDMI_ACR_CON,
+};
+
+static const u32 hdmi_reg_map[][HDMI_TYPE_COUNT] = {
+	{ HDMI_V13_PHY_STATUS, HDMI_PHY_STATUS_0 },
+	{ HDMI_V13_PHY_RSTOUT, HDMI_V14_PHY_RSTOUT },
+	{ HDMI_V13_ACR_CON, HDMI_V14_ACR_CON },
 };
 
 struct string_array_spec {
@@ -96,7 +111,6 @@ struct hdmi_driver_data {
 	unsigned int has_sysreg:1;
 	unsigned int has_phy_power:1;
 	u8 phy_mode_set_done;
-	u32 phy_status;
 	u32 sysreg_clksel;
 	struct string_array_spec clk_gates;
 	struct string_array_spec clk_muxes;
@@ -654,7 +668,6 @@ static struct hdmi_driver_data exynos5430_hdmi_driver_data = {
 	.clk_gates	= INIT_ARRAY_SPEC(hdmi_clk_gates5430),
 	.clk_muxes	= INIT_ARRAY_SPEC(hdmi_clk_muxes5430),
 	.phy_mode_set_done = HDMIPHY5433_MODE_SET_DONE,
-	.phy_status	= HDMI_V14_PHY_STATUS_0,
 };
 
 static struct hdmi_driver_data exynos5420_hdmi_driver_data = {
@@ -665,7 +678,6 @@ static struct hdmi_driver_data exynos5420_hdmi_driver_data = {
 	.clk_gates	= INIT_ARRAY_SPEC(hdmi_clk_gates4),
 	.clk_muxes	= INIT_ARRAY_SPEC(hdmi_clk_muxes4),
 	.phy_mode_set_done = HDMIPHY_MODE_SET_DONE,
-	.phy_status	= HDMI_V14_PHY_STATUS_0,
 };
 
 static struct hdmi_driver_data exynos4212_hdmi_driver_data = {
@@ -676,7 +688,6 @@ static struct hdmi_driver_data exynos4212_hdmi_driver_data = {
 	.clk_gates	= INIT_ARRAY_SPEC(hdmi_clk_gates4),
 	.clk_muxes	= INIT_ARRAY_SPEC(hdmi_clk_muxes4),
 	.phy_mode_set_done = HDMIPHY_MODE_SET_DONE,
-	.phy_status	= HDMI_V14_PHY_STATUS_0,
 };
 
 static struct hdmi_driver_data exynos4210_hdmi_driver_data = {
@@ -687,7 +698,6 @@ static struct hdmi_driver_data exynos4210_hdmi_driver_data = {
 	.clk_gates	= INIT_ARRAY_SPEC(hdmi_clk_gates4),
 	.clk_muxes	= INIT_ARRAY_SPEC(hdmi_clk_muxes4),
 	.phy_mode_set_done = HDMIPHY_MODE_SET_DONE,
-	.phy_status	= HDMI_V13_PHY_STATUS,
 };
 
 static struct hdmi_driver_data exynos5_hdmi_driver_data = {
@@ -698,23 +708,31 @@ static struct hdmi_driver_data exynos5_hdmi_driver_data = {
 	.clk_gates	= INIT_ARRAY_SPEC(hdmi_clk_gates4),
 	.clk_muxes	= INIT_ARRAY_SPEC(hdmi_clk_muxes4),
 	.phy_mode_set_done = HDMIPHY_MODE_SET_DONE,
-	.phy_status	= HDMI_V14_PHY_STATUS_0,
 };
+
+static inline u32 hdmi_map_reg(struct hdmi_context *hdata, u32 reg_id)
+{
+	if ((reg_id & 0xffff0000) == HDMI_MAPPED_BASE)
+		return hdmi_reg_map[reg_id & 0xffff][hdata->drv_data->type];
+	return reg_id;
+}
 
 static inline u32 hdmi_reg_read(struct hdmi_context *hdata, u32 reg_id)
 {
-	return readl(hdata->regs + reg_id);
+	return readl(hdata->regs + hdmi_map_reg(hdata, reg_id));
 }
 
 static inline void hdmi_reg_writeb(struct hdmi_context *hdata,
 				 u32 reg_id, u8 value)
 {
-	writel(value, hdata->regs + reg_id);
+	writel(value, hdata->regs + hdmi_map_reg(hdata, reg_id));
 }
 
 static inline void hdmi_reg_writev(struct hdmi_context *hdata, u32 reg_id,
 				   int bytes, u32 val)
 {
+	reg_id = hdmi_map_reg(hdata, reg_id);
+
 	while (--bytes >= 0) {
 		writel(val & 0xff, hdata->regs + reg_id);
 		val >>= 8;
@@ -725,7 +743,10 @@ static inline void hdmi_reg_writev(struct hdmi_context *hdata, u32 reg_id,
 static inline void hdmi_reg_writemask(struct hdmi_context *hdata,
 				 u32 reg_id, u32 value, u32 mask)
 {
-	u32 old = readl(hdata->regs + reg_id);
+	u32 old;
+
+	reg_id = hdmi_map_reg(hdata, reg_id);
+	old = readl(hdata->regs + reg_id);
 	value = (value & mask) | (old & ~mask);
 	writel(value, hdata->regs + reg_id);
 }
@@ -876,7 +897,7 @@ static void hdmi_v14_regs_dump(struct hdmi_context *hdata, char *prefix)
 	DUMPREG(HDMI_PHY_STATUS_0);
 	DUMPREG(HDMI_PHY_STATUS_PLL);
 	DUMPREG(HDMI_PHY_CON_0);
-	DUMPREG(HDMI_PHY_RSTOUT);
+	DUMPREG(HDMI_V14_PHY_RSTOUT);
 	DUMPREG(HDMI_PHY_VPLL);
 	DUMPREG(HDMI_PHY_CMU);
 	DUMPREG(HDMI_CORE_RSTOUT);
@@ -1356,11 +1377,7 @@ static void hdmi_reg_acr(struct hdmi_context *hdata, u8 *acr)
 	hdmi_reg_writeb(hdata, HDMI_ACR_CTS0, acr[3]);
 	hdmi_reg_writeb(hdata, HDMI_ACR_CTS1, acr[2]);
 	hdmi_reg_writeb(hdata, HDMI_ACR_CTS2, acr[1]);
-
-	if (hdata->drv_data->type == HDMI_TYPE13)
-		hdmi_reg_writeb(hdata, HDMI_V13_ACR_CON, 4);
-	else
-		hdmi_reg_writeb(hdata, HDMI_ACR_CON, 4);
+	hdmi_reg_writeb(hdata, HDMI_ACR_CON, 4);
 }
 
 static void hdmi_audio_init(struct hdmi_context *hdata)
@@ -1769,23 +1786,16 @@ static void hdmi_mode_apply(struct hdmi_context *hdata)
 
 static void hdmiphy_conf_reset(struct hdmi_context *hdata)
 {
-	u32 reg;
-
 	hdmi_clk_set_parents(hdata, false);
 
 	/* operation mode */
 	hdmiphy_reg_writeb(hdata, HDMIPHY_MODE_SET_DONE,
 				HDMI_PHY_ENABLE_MODE_SET);
 
-	if (hdata->drv_data->type == HDMI_TYPE13)
-		reg = HDMI_V13_PHY_RSTOUT;
-	else
-		reg = HDMI_PHY_RSTOUT;
-
 	/* reset hdmiphy */
-	hdmi_reg_writemask(hdata, reg, ~0, HDMI_PHY_SW_RSTOUT);
+	hdmi_reg_writemask(hdata, HDMI_PHY_RSTOUT, ~0, HDMI_PHY_SW_RSTOUT);
 	usleep_range(10000, 12000);
-	hdmi_reg_writemask(hdata, reg,  0, HDMI_PHY_SW_RSTOUT);
+	hdmi_reg_writemask(hdata, HDMI_PHY_RSTOUT,  0, HDMI_PHY_SW_RSTOUT);
 	usleep_range(10000, 12000);
 }
 
@@ -1821,7 +1831,7 @@ static void hdmiphy_wait_for_pll(struct hdmi_context *hdata)
 	int tries;
 
 	for (tries = 0; tries < 100; ++tries) {
-		u32 val = hdmi_reg_read(hdata, hdata->drv_data->phy_status);
+		u32 val = hdmi_reg_read(hdata, HDMI_PHY_STATUS);
 
 		if (val & HDMI_PHY_STATUS_READY) {
 			DRM_DEBUG_KMS("PLL stabilized after %d tries", tries);
