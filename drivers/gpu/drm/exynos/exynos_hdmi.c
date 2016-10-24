@@ -2150,19 +2150,15 @@ static int hdmi_resources_init(struct hdmi_context *hdata)
 		return ret;
 	}
 
-	hdata->reg_hdmi_en = devm_regulator_get(dev, "hdmi-en");
-	if (IS_ERR(hdata->reg_hdmi_en) && PTR_ERR(hdata->reg_hdmi_en) != -ENOENT) {
-		DRM_ERROR("failed to get hdmi-en regulator\n");
-		return PTR_ERR(hdata->reg_hdmi_en);
-	}
-	if (!IS_ERR(hdata->reg_hdmi_en)) {
+	hdata->reg_hdmi_en = devm_regulator_get_optional(dev, "hdmi-en");
+	if (PTR_ERR(hdata->reg_hdmi_en) != -ENODEV) {
+		if (IS_ERR(hdata->reg_hdmi_en))
+			return PTR_ERR(hdata->reg_hdmi_en);
+
 		ret = regulator_enable(hdata->reg_hdmi_en);
-		if (ret) {
+		if (ret)
 			DRM_ERROR("failed to enable hdmi-en regulator\n");
-			return ret;
-		}
-	} else
-		hdata->reg_hdmi_en = NULL;
+	}
 
 	return hdmi_bridge_init(hdata);
 }
@@ -2417,7 +2413,7 @@ static int hdmi_remove(struct platform_device *pdev)
 
 	pm_runtime_disable(&pdev->dev);
 
-	if (hdata->reg_hdmi_en)
+	if (!IS_ERR(hdata->reg_hdmi_en))
 		regulator_disable(hdata->reg_hdmi_en);
 
 	if (hdata->hdmiphy_port)
