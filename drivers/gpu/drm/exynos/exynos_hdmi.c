@@ -792,6 +792,54 @@ static int hdmiphy_reg_write_buf(struct hdmi_context *hdata,
 	}
 }
 
+static int hdmi_clk_enable_gates(struct hdmi_context *hdata)
+{
+	int i, ret;
+
+	for (i = 0; i < hdata->drv_data->clk_gates.count; ++i) {
+		ret = clk_prepare_enable(hdata->clk_gates[i]);
+		if (!ret)
+			continue;
+
+		dev_err(hdata->dev, "Cannot enable clock '%s', %d\n",
+			hdata->drv_data->clk_gates.data[i], ret);
+		while (i--)
+			clk_disable_unprepare(hdata->clk_gates[i]);
+		return ret;
+	}
+
+	return 0;
+}
+
+static void hdmi_clk_disable_gates(struct hdmi_context *hdata)
+{
+	int i = hdata->drv_data->clk_gates.count;
+
+	while (i--)
+		clk_disable_unprepare(hdata->clk_gates[i]);
+}
+
+static int hdmi_clk_set_parents(struct hdmi_context *hdata, bool to_phy)
+{
+	struct device *dev = hdata->dev;
+	int ret = 0;
+	int i;
+
+	for (i = 0; i < hdata->drv_data->clk_muxes.count; i += 3) {
+		struct clk **c = &hdata->clk_muxes[i];
+
+		ret = clk_set_parent(c[2], c[to_phy]);
+		if (!ret)
+			continue;
+
+		dev_err(dev, "Cannot set clock parent of '%s' to '%s', %d\n",
+			hdata->drv_data->clk_muxes.data[i + 2],
+			hdata->drv_data->clk_muxes.data[i + to_phy], ret);
+	}
+
+	return ret;
+}
+
 static u8 hdmi_chksum(struct hdmi_context *hdata,
 			u32 start, u8 len, u32 hdr_sum)
 {
@@ -1228,51 +1276,6 @@ static void hdmi_conf_init(struct hdmi_context *hdata)
 		/* enable AVI packet every vsync, fixes purple line problem */
 		hdmi_reg_writemask(hdata, HDMI_CON_1, 2, 3 << 5);
 	}
-}
-
-static int hdmi_clk_enable_gates(struct hdmi_context *hdata)
-{
-	int ret = 0;
-	int i;
-
-	for (i = 0; i < hdata->drv_data->clk_gates.count; ++i) {
-		ret = clk_prepare_enable(hdata->clk_gates[i]);
-		if (ret)
-			dev_err(hdata->dev, "Cannot enable clock '%s', %d\n",
-				hdata->drv_data->clk_gates.data[i], ret);
-	}
-
-	return ret;
-}
-
-static void hdmi_clk_disable_gates(struct hdmi_context *hdata)
-{
-	int i;
-
-	i = hdata->drv_data->clk_gates.count;
-
-	while (i--)
-		clk_disable_unprepare(hdata->clk_gates[i]);
-}
-
-static int hdmi_clk_set_parents(struct hdmi_context *hdata, bool to_phy)
-{
-	struct device *dev = hdata->dev;
-	int ret = 0;
-	int i;
-
-	for (i = 0; i < hdata->drv_data->clk_muxes.count; i += 3) {
-		struct clk **c = &hdata->clk_muxes[i];
-
-		ret = clk_set_parent(c[2], c[to_phy]);
-		if (ret)
-			dev_err(dev, "Cannot set clock parent of '%s' to '%s', %d\n",
-				hdata->drv_data->clk_muxes.data[i + 2],
-				hdata->drv_data->clk_muxes.data[i + to_phy],
-				ret);
-	}
-
-	return ret;
 }
 
 static void hdmi_v13_mode_apply(struct hdmi_context *hdata)
@@ -1802,8 +1805,8 @@ static int hdmi_clks_get(struct hdmi_context *hdata,
 		if (IS_ERR(clk)) {
 			int ret = PTR_ERR(clk);
 
-			dev_err(dev, "Cannot get clock %s, %d\n", names->data[i],
-				ret);
+			dev_err(dev, "Cannot get clock %s, %d\n",
+				names->data[i], ret);
 
 			return ret;
 		}
