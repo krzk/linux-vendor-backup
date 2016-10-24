@@ -102,6 +102,12 @@ static const u32 hdmi_reg_map[][HDMI_TYPE_COUNT] = {
 	{ HDMI_V13_ACR_N0, HDMI_V14_ACR_N0 },
 };
 
+static const char * const supply[] = {
+	"vdd",
+	"vdd_osc",
+	"vdd_pll",
+};
+
 struct string_array_spec {
 	int count;
 	const char * const *data;
@@ -149,8 +155,7 @@ struct hdmi_context {
 	struct regmap			*sysreg;
 	struct clk			**clk_gates;
 	struct clk			**clk_muxes;
-	int				regul_count;
-	struct regulator_bulk_data	*regul_bulk;
+	struct regulator_bulk_data	regul_bulk[ARRAY_SIZE(supply)];
 	struct regulator		*reg_hdmi_en;
 };
 
@@ -1860,7 +1865,7 @@ static void hdmiphy_enable(struct hdmi_context *hdata)
 
 	hdmi_clk_set_parents(hdata, false);
 
-	if (regulator_bulk_enable(hdata->regul_count, hdata->regul_bulk))
+	if (regulator_bulk_enable(ARRAY_SIZE(supply), hdata->regul_bulk))
 		DRM_DEBUG_KMS("failed to enable regulator bulk\n");
 
 	regmap_update_bits(hdata->pmureg, PMU_HDMI_PHY_CONTROL,
@@ -1964,7 +1969,7 @@ static void hdmi_poweroff(struct hdmi_context *hdata)
 	regmap_update_bits(hdata->pmureg, PMU_HDMI_PHY_CONTROL,
 			PMU_HDMI_PHY_ENABLE_BIT, 0);
 
-	regulator_bulk_disable(hdata->regul_count, hdata->regul_bulk);
+	regulator_bulk_disable(ARRAY_SIZE(supply), hdata->regul_bulk);
 
 	pm_runtime_put_sync(hdata->dev);
 
@@ -2127,11 +2132,6 @@ static int hdmi_bridge_init(struct hdmi_context *hdata)
 static int hdmi_resources_init(struct hdmi_context *hdata)
 {
 	struct device *dev = hdata->dev;
-	static char *supply[] = {
-		"vdd",
-		"vdd_osc",
-		"vdd_pll",
-	};
 	int i, ret;
 
 	DRM_DEBUG_KMS("HDMI resource init\n");
@@ -2139,11 +2139,6 @@ static int hdmi_resources_init(struct hdmi_context *hdata)
 	ret = hdmi_clk_init(hdata);
 	if (ret)
 		return ret;
-
-	hdata->regul_bulk = devm_kzalloc(dev, ARRAY_SIZE(supply) *
-		sizeof(hdata->regul_bulk[0]), GFP_KERNEL);
-	if (!hdata->regul_bulk)
-		return -ENOMEM;
 
 	for (i = 0; i < ARRAY_SIZE(supply); ++i) {
 		hdata->regul_bulk[i].supply = supply[i];
@@ -2154,7 +2149,6 @@ static int hdmi_resources_init(struct hdmi_context *hdata)
 		DRM_ERROR("failed to get regulators\n");
 		return ret;
 	}
-	hdata->regul_count = ARRAY_SIZE(supply);
 
 	hdata->reg_hdmi_en = devm_regulator_get(dev, "hdmi-en");
 	if (IS_ERR(hdata->reg_hdmi_en) && PTR_ERR(hdata->reg_hdmi_en) != -ENOENT) {
