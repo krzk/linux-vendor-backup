@@ -204,7 +204,7 @@ void bbd_update_stat(int idx, unsigned int count)
 void bbd_enable_stat(void)
 {
 	if (stat1hz.enabled) {
-		printk("%s() 1HZ stat already enable. skipping.\n", __func__);
+		pr_info("%s() 1HZ stat already enable. skipping.\n", __func__);
 		return;
 	}
 
@@ -217,7 +217,7 @@ void bbd_enable_stat(void)
 void bbd_disable_stat(void)
 {
 	if (!stat1hz.enabled) {
-		printk("%s() 1HZ stat already disabled. skipping.\n", __func__);
+		pr_info("%s() 1HZ stat already disabled. skipping.\n", __func__);
 		return;
 	}
 	del_timer_sync(&stat1hz.timer);
@@ -720,7 +720,7 @@ skip:
 
 ssize_t bbd_request_mcu(bool on)
 {
-	printk("%s(%s) called", __func__, (on)?"On":"Off");
+	pr_info("%s(%s) called\n", __func__, (on)?"On":"Off");
 	if (on)
 		return bbd_on_read(BBD_MINOR_CONTROL, GPSD_SENSOR_ON, strlen(GPSD_SENSOR_ON)+1);
 	else {
@@ -770,12 +770,12 @@ static int bbd_notifier(struct notifier_block *nb, unsigned long event, void * d
 	pm_message_t state = {0};
         switch (event) {
 		case PM_SUSPEND_PREPARE:
-			printk("%s going to sleep", __func__);
+			pr_info("%s going to sleep\n", __func__);
 			state.event = event;
 			bbd_suspend(state);
 			break;
 		case PM_POST_SUSPEND:
-			printk("%s waking up", __func__);
+			pr_info("%s waking up\n", __func__);
 			bbd_resume();
 			break;
 	}
