@@ -29,6 +29,7 @@
 #include <linux/delay.h>
 #include <linux/pm_runtime.h>
 #include <linux/clk.h>
+#include <linux/gpio/consumer.h>
 #include <linux/regulator/consumer.h>
 #include <linux/io.h>
 #include <linux/of_address.h>
@@ -45,9 +46,6 @@
 #include "exynos_drm_drv.h"
 #include "exynos_drm_crtc.h"
 #include "exynos_mixer.h"
-
-#include <linux/gpio.h>
-#include <media/s5p_hdmi.h>
 
 #define ctx_from_connector(c)	container_of(c, struct hdmi_context, connector)
 
@@ -149,7 +147,7 @@ struct hdmi_context {
 	void __iomem			*regs_hdmiphy;
 	struct i2c_client		*hdmiphy_port;
 	struct i2c_adapter		*ddc_adpt;
-	int				hpd_gpio;
+	struct gpio_desc		*hpd_gpio;
 	int				irq;
 	struct regmap			*pmureg;
 	struct regmap			*sysreg;
@@ -893,10 +891,10 @@ static enum drm_connector_status hdmi_detect(struct drm_connector *connector,
 {
 	struct hdmi_context *hdata = ctx_from_connector(connector);
 
-	hdata->hpd = gpio_get_value(hdata->hpd_gpio);
+	if (gpiod_get_value(hdata->hpd_gpio))
+		return connector_status_connected;
 
-	return hdata->hpd ? connector_status_connected :
-			connector_status_disconnected;
+	return connector_status_disconnected;
 }
 
 static void hdmi_connector_destroy(struct drm_connector *connector)
@@ -1877,6 +1875,18 @@ static int hdmi_resources_init(struct hdmi_context *hdata)
 
 	DRM_DEBUG_KMS("HDMI resource init\n");
 
+	hdata->hpd_gpio = devm_gpiod_get(dev, "hpd", GPIOD_IN);
+	if (IS_ERR(hdata->hpd_gpio)) {
+		DRM_ERROR("cannot get hpd gpio property\n");
+		return PTR_ERR(hdata->hpd_gpio);
+	}
+
+	hdata->irq = gpiod_to_irq(hdata->hpd_gpio);
+	if (hdata->irq < 0) {
+		DRM_ERROR("failed to get GPIO irq\n");
+		return  hdata->irq;
+	}
+
 	ret = hdmi_clk_init(hdata);
 	if (ret)
 		return ret;
@@ -1902,30 +1912,6 @@ static int hdmi_resources_init(struct hdmi_context *hdata)
 	}
 
 	return hdmi_bridge_init(hdata);
-}
-
-static struct s5p_hdmi_platform_data *drm_hdmi_dt_parse_pdata
-					(struct device *dev)
-{
-	struct device_node *np = dev->of_node;
-	struct s5p_hdmi_platform_data *pd;
-	u32 value;
-
-	pd = devm_kzalloc(dev, sizeof(*pd), GFP_KERNEL);
-	if (!pd)
-		goto err_data;
-
-	if (!of_find_property(np, "hpd-gpio", &value)) {
-		DRM_ERROR("no hpd gpio property found\n");
-		goto err_data;
-	}
-
-	pd->hpd_gpio = of_get_named_gpio(np, "hpd-gpio", 0);
-
-	return pd;
-
-err_data:
-	return NULL;
 }
 
 static struct of_device_id hdmi_match_types[] = {
@@ -1991,7 +1977,6 @@ static struct device_node *hdmi_legacy_phy_dt_binding(struct device *dev)
 static int hdmi_probe(struct platform_device *pdev)
 {
 	struct device_node *ddc_node, *phy_node;
-	struct s5p_hdmi_platform_data *pdata;
 	const struct of_device_id *match;
 	struct device *dev = &pdev->dev;
 	struct hdmi_context *hdata;
@@ -2000,10 +1985,6 @@ static int hdmi_probe(struct platform_device *pdev)
 
 	if (!dev->of_node)
 		return -ENODEV;
-
-	pdata = drm_hdmi_dt_parse_pdata(dev);
-	if (!pdata)
-		return -EINVAL;
 
 	hdata = devm_kzalloc(dev, sizeof(struct hdmi_context), GFP_KERNEL);
 	if (!hdata)
@@ -2019,7 +2000,6 @@ static int hdmi_probe(struct platform_device *pdev)
 		return -ENODEV;
 	hdata->drv_data = match->data;
 
-	hdata->hpd_gpio = pdata->hpd_gpio;
 	hdata->dev = dev;
 
 	ret = hdmi_resources_init(hdata);
@@ -2032,12 +2012,6 @@ static int hdmi_probe(struct platform_device *pdev)
 	hdata->regs = devm_ioremap_resource(dev, res);
 	if (IS_ERR(hdata->regs)) {
 		ret = PTR_ERR(hdata->regs);
-		return ret;
-	}
-
-	ret = devm_gpio_request(dev, hdata->hpd_gpio, "HPD");
-	if (ret) {
-		DRM_ERROR("failed to request HPD gpio\n");
 		return ret;
 	}
 
@@ -2086,13 +2060,6 @@ out_get_phy_port:
 			ret = -EPROBE_DEFER;
 			goto err_ddc;
 		}
-	}
-
-	hdata->irq = gpio_to_irq(hdata->hpd_gpio);
-	if (hdata->irq < 0) {
-		DRM_ERROR("failed to get GPIO irq\n");
-		ret = hdata->irq;
-		goto err_hdmiphy;
 	}
 
 	INIT_DELAYED_WORK(&hdata->hotplug_work, hdmi_hotplug_work_func);
