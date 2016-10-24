@@ -818,7 +818,7 @@
 
 			buck3_reg: BUCK3 {
 				regulator-name = "VDD_KFC_1.0V_AP";
-				regulator-min-microvolt = <900000>;
+				regulator-min-microvolt = <750000>;
 				regulator-max-microvolt = <1200000>;
 				regulator-always-on;
 				regulator-state-mem {
