@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2016 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -16,11 +16,11 @@
 
 
 #include <linux/ioport.h>
+#include <linux/thermal.h>
 #include <mali_kbase.h>
 #include <mali_kbase_defs.h>
 #include <mali_kbase_config.h>
-
-#include "../mali_kbase_power_actor.h"
+#include <mali_kbase_smc.h>
 
 /* Versatile Express (VE) Juno Development Platform */
 
@@ -58,65 +58,87 @@ static void pm_callback_power_off(struct kbase_device *kbdev)
 #endif
 }
 
-static struct kbase_pm_callback_conf pm_callbacks = {
+struct kbase_pm_callback_conf pm_callbacks = {
 	.power_on_callback = pm_callback_power_on,
 	.power_off_callback = pm_callback_power_off,
 	.power_suspend_callback  = NULL,
 	.power_resume_callback = NULL
 };
 
-static unsigned long juno_model_static_power(unsigned long voltage, unsigned long temperature)
+/*
+ * Juno Protected Mode integration
+ */
+
+/* SMC Function Numbers */
+#define JUNO_SMC_PROTECTED_ENTER_FUNC  0xff06
+#define JUNO_SMC_PROTECTED_RESET_FUNC 0xff07
+
+static int juno_protected_mode_enter(struct kbase_device *kbdev)
 {
-	/* Calculate power, corrected for voltage.
-	 * Shifts are done to avoid overflow. */
-	const unsigned long coefficient = (410UL << 20) / (729000000UL >> 10);
-	const unsigned long voltage_cubed = (voltage * voltage * voltage) >> 10;
-
-	/* Calculate the temperature scaling factor. To be applied to the
-	 * voltage scaled power. */
-	const unsigned long temp = temperature / 1000;
-	const unsigned long temp_squared = temp * temp;
-	const unsigned long temp_cubed = temp_squared * temp;
-	const unsigned long temp_scaling_factor =
-			(2 * temp_cubed)
-			- (80 * temp_squared)
-			+ (4700 * temp)
-			+ 32000;
-
-	return (((coefficient * voltage_cubed) >> 20) * temp_scaling_factor) / 1000000;
+	/* T62X in SoC detected */
+	u64 ret = kbase_invoke_smc(SMC_OEN_SIP,
+		JUNO_SMC_PROTECTED_ENTER_FUNC, false,
+		0, 0, 0);
+	return ret;
 }
 
-static unsigned long juno_model_dynamic_power(unsigned long freq,
-		unsigned long voltage)
+/* TODO: Remove these externs, reset should should be done by the firmware */
+extern void kbase_reg_write(struct kbase_device *kbdev, u16 offset, u32 value,
+						struct kbase_context *kctx);
+
+extern u32 kbase_reg_read(struct kbase_device *kbdev, u16 offset,
+						struct kbase_context *kctx);
+
+static int juno_protected_mode_reset(struct kbase_device *kbdev)
 {
-	/* The inputs: freq (f) is in Hz, and voltage (v) in mV.
-	 * The coefficient (c) is in mW/(MHz mV mV).
+
+	/* T62X in SoC detected */
+	u64 ret = kbase_invoke_smc(SMC_OEN_SIP,
+		JUNO_SMC_PROTECTED_RESET_FUNC, false,
+		0, 0, 0);
+
+	/* TODO: Remove this reset, it should be done by the firmware */
+	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_COMMAND),
+						GPU_COMMAND_HARD_RESET, NULL);
+
+	while ((kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_IRQ_RAWSTAT), NULL)
+			& RESET_COMPLETED) != RESET_COMPLETED)
+		;
+
+	return ret;
+}
+
+static bool juno_protected_mode_supported(struct kbase_device *kbdev)
+{
+	u32 gpu_id = kbdev->gpu_props.props.raw_props.gpu_id;
+
+	/*
+	 * Protected mode is only supported for the built in GPU
+	 * _and_ only if the right firmware is running.
 	 *
-	 * This function calculates the dynamic power after this formula:
-	 * Pdyn (mW) = c (mW/(MHz*mV*mV)) * v (mV) * v (mV) * f (MHz)
+	 * Given that at init time the GPU is not powered up the
+	 * juno_protected_mode_reset function can't be used as
+	 * is needs to access GPU registers.
+	 * However, although we don't want the GPU to boot into
+	 * protected mode we know a GPU reset will be done after
+	 * this function is called so although we set the GPU to
+	 * protected mode it will exit protected mode before the
+	 * driver is ready to run work.
 	 */
-	const unsigned long v2 = (voltage * voltage) / 1000; /* m*(V*V) */
-	const unsigned long f_mhz = freq / 1000000; /* MHz */
-	const unsigned long coefficient = 3600; /* mW/(MHz*mV*mV) */
+	if (gpu_id == GPU_ID_MAKE(GPU_ID_PI_T62X, 0, 1, 0) &&
+			(kbdev->reg_start == 0x2d000000))
+		return juno_protected_mode_enter(kbdev) == 0;
 
-	return (coefficient * v2 * f_mhz) / 1000000; /* mW */
+	return false;
 }
 
-static struct mali_pa_model_ops juno_model_ops = {
-	.get_static_power = juno_model_static_power,
-	.get_dynamic_power = juno_model_dynamic_power,
-};
-
-static struct kbase_attribute config_attributes[] = {
-	{ KBASE_CONFIG_ATTR_JS_RESET_TIMEOUT_MS, 500 },
-	{ KBASE_CONFIG_ATTR_POWER_MANAGEMENT_CALLBACKS, ((uintptr_t)&pm_callbacks) },
-	{ KBASE_CONFIG_ATTR_POWER_MODEL_CALLBACKS, ((uintptr_t)&juno_model_ops) },
-
-	{ KBASE_CONFIG_ATTR_END, 0 }
+struct kbase_protected_ops juno_protected_ops = {
+	.protected_mode_enter = juno_protected_mode_enter,
+	.protected_mode_reset = juno_protected_mode_reset,
+	.protected_mode_supported = juno_protected_mode_supported,
 };
 
 static struct kbase_platform_config versatile_platform_config = {
-	.attributes = config_attributes,
 #ifndef CONFIG_OF
 	.io_resources = &io_resources
 #endif

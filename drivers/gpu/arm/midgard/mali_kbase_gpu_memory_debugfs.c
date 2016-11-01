@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2016 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -15,7 +15,7 @@
 
 
 
-#include <mali_kbase_gpu_memory_debugfs.h>
+#include <mali_kbase.h>
 
 #ifdef CONFIG_DEBUG_FS
 /** Show callback for the @c gpu_memory debugfs file.
@@ -32,9 +32,9 @@
 
 static int kbasep_gpu_memory_seq_show(struct seq_file *sfile, void *data)
 {
-	ssize_t ret = 0;
 	struct list_head *entry;
 	const struct list_head *kbdev_list;
+
 	kbdev_list = kbase_dev_list_get();
 	list_for_each(entry, kbdev_list) {
 		struct kbase_device *kbdev = NULL;
@@ -42,28 +42,28 @@ static int kbasep_gpu_memory_seq_show(struct seq_file *sfile, void *data)
 
 		kbdev = list_entry(entry, struct kbase_device, entry);
 		/* output the total memory usage and cap for this device */
-		ret = seq_printf(sfile, "%-16s  %10u\n", \
-				kbdev->devname, \
+		seq_printf(sfile, "%-16s  %10u\n",
+				kbdev->devname,
 				atomic_read(&(kbdev->memdev.used_pages)));
 		mutex_lock(&kbdev->kctx_list_lock);
 		list_for_each_entry(element, &kbdev->kctx_list, link) {
 			/* output the memory usage and cap for each kctx
 			* opened on this device */
-			ret = seq_printf(sfile, "  %s-0x%p %10u\n", \
+			seq_printf(sfile, "  %s-0x%p %10u\n",
 				"kctx",
-				element->kctx, \
+				element->kctx,
 				atomic_read(&(element->kctx->used_pages)));
 		}
 		mutex_unlock(&kbdev->kctx_list_lock);
 	}
 	kbase_dev_list_put(kbdev_list);
-	return ret;
+	return 0;
 }
 
 /*
  *  File operations related to debugfs entry for gpu_memory
  */
-STATIC int kbasep_gpu_memory_debugfs_open(struct inode *in, struct file *file)
+static int kbasep_gpu_memory_debugfs_open(struct inode *in, struct file *file)
 {
 	return single_open(file, kbasep_gpu_memory_seq_show , NULL);
 }
@@ -72,41 +72,26 @@ static const struct file_operations kbasep_gpu_memory_debugfs_fops = {
 	.open = kbasep_gpu_memory_debugfs_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = seq_release_private,
+	.release = single_release,
 };
 
 /*
  *  Initialize debugfs entry for gpu_memory
  */
-mali_error kbasep_gpu_memory_debugfs_init(struct kbase_device *kbdev)
+void kbasep_gpu_memory_debugfs_init(struct kbase_device *kbdev)
 {
-	kbdev->gpu_memory_dentry = debugfs_create_file("gpu_memory", \
-					S_IRUGO, \
-					kbdev->mali_debugfs_directory, \
-					NULL, \
-					&kbasep_gpu_memory_debugfs_fops);
-	if (IS_ERR(kbdev->gpu_memory_dentry))
-		return MALI_ERROR_FUNCTION_FAILED;
-
-	return MALI_ERROR_NONE;
+	debugfs_create_file("gpu_memory", S_IRUGO,
+			kbdev->mali_debugfs_directory, NULL,
+			&kbasep_gpu_memory_debugfs_fops);
+	return;
 }
 
-/*
- *  Terminate debugfs entry for gpu_memory
- */
-void kbasep_gpu_memory_debugfs_term(struct kbase_device *kbdev)
-{
-	debugfs_remove(kbdev->gpu_memory_dentry);
-}
 #else
 /*
  * Stub functions for when debugfs is disabled
  */
-mali_error kbasep_gpu_memory_debugfs_init(struct kbase_device *kbdev)
+void kbasep_gpu_memory_debugfs_init(struct kbase_device *kbdev)
 {
-	return MALI_ERROR_NONE;
-}
-void kbasep_gpu_memory_debugfs_term(struct kbase_device *kbdev)
-{
+	return;
 }
 #endif

@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2011-2015 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2016 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -40,7 +40,7 @@
  * calling this.
  *
  * The following locking conditions are made on the caller:
- * - it must hold the kbasep_js_device_data::runpoool_irq::lock
+ * - it must hold the hwaccess_lock
  */
 void kbase_job_submit_nolock(struct kbase_device *kbdev,
 					struct kbase_jd_atom *katom, int js);
@@ -74,7 +74,7 @@ static inline char *kbasep_make_job_slot_string(int js, char *js_string)
  * calling this.
  *
  * The following locking conditions are made on the caller:
- * - it must hold the kbasep_js_device_data::runpoool_irq::lock
+ * - it must hold the hwaccess_lock
  */
 void kbase_job_hw_submit(struct kbase_device *kbdev,
 				struct kbase_jd_atom *katom,
@@ -91,12 +91,12 @@ void kbase_job_hw_submit(struct kbase_device *kbdev,
  * @target_katom:	Atom to stop
  *
  * The following locking conditions are made on the caller:
- * - it must hold the kbasep_js_device_data::runpool_irq::lock
+ * - it must hold the hwaccess_lock
  */
 void kbasep_job_slot_soft_or_hard_stop_do_action(struct kbase_device *kbdev,
 					int js,
 					u32 action,
-					u16 core_reqs,
+					base_jd_core_req core_reqs,
 					struct kbase_jd_atom *target_katom);
 
 /**
@@ -151,35 +151,5 @@ void kbase_job_slot_halt(struct kbase_device *kbdev);
  * Called on driver termination
  */
 void kbase_job_slot_term(struct kbase_device *kbdev);
-
-#if KBASE_GPU_RESET_EN
-/**
- * kbase_prepare_to_reset_gpu_locked - Prepare for resetting the GPU.
- * @kbdev: Device pointer
- *
- * This function just soft-stops all the slots to ensure that as many jobs as
- * possible are saved.
- *
- * Return: a boolean which should be interpreted as follows:
- * - true  - Prepared for reset, kbase_reset_gpu should be called.
- * - false - Another thread is performing a reset, kbase_reset_gpu should
- *                not be called.
- */
-bool kbase_prepare_to_reset_gpu_locked(struct kbase_device *kbdev);
-
-/**
- * kbase_reset_gpu_locked - Reset the GPU
- * @kbdev: Device pointer
- *
- * This function should be called after kbase_prepare_to_reset_gpu if it
- * returns true. It should never be called without a corresponding call to
- * kbase_prepare_to_reset_gpu.
- *
- * After this function is called (or not called if kbase_prepare_to_reset_gpu
- * returned false), the caller should wait for kbdev->reset_waitq to be
- * signalled to know when the reset has completed.
- */
-void kbase_reset_gpu_locked(struct kbase_device *kbdev);
-#endif
 
 #endif /* _KBASE_JM_HWACCESS_H_ */

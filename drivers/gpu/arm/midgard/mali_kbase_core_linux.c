@@ -1,7 +1,6 @@
-
 /*
  *
- * (C) COPYRIGHT ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2016 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -16,12 +15,6 @@
 
 
 
-
-/**
- * @file mali_kbase_core_linux.c
- * Base kernel driver init.
- */
-
 #include <mali_kbase.h>
 #include <mali_kbase_config_defaults.h>
 #include <mali_kbase_uku.h>
@@ -29,13 +22,22 @@
 #include <mali_kbase_gator.h>
 #include <mali_kbase_mem_linux.h>
 #ifdef CONFIG_MALI_DEVFREQ
-#include "mali_kbase_devfreq.h"
+#include <backend/gpu/mali_kbase_devfreq.h>
 #endif /* CONFIG_MALI_DEVFREQ */
-#include <mali_kbase_cpuprops.h>
 #ifdef CONFIG_MALI_NO_MALI
 #include "mali_kbase_model_linux.h"
 #endif /* CONFIG_MALI_NO_MALI */
 #include "mali_kbase_mem_profile_debugfs_buf_size.h"
+#include "mali_kbase_debug_mem_view.h"
+#include "mali_kbase_mem.h"
+#include "mali_kbase_mem_pool_debugfs.h"
+#if !MALI_CUSTOMER_RELEASE
+#include "mali_kbase_regs_dump_debugfs.h"
+#endif /* !MALI_CUSTOMER_RELEASE */
+#include "mali_kbase_regs_history_debugfs.h"
+#include <mali_kbase_hwaccess_backend.h>
+#include <mali_kbase_hwaccess_jm.h>
+#include <backend/gpu/mali_kbase_device_internal.h>
 
 #ifdef CONFIG_KDS
 #include <linux/kds.h>
@@ -56,12 +58,18 @@
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #include <linux/interrupt.h>
-#include <linux/io.h>
 #include <linux/mm.h>
 #include <linux/compat.h>	/* is_compat_task */
+#include <linux/mman.h>
 #include <linux/version.h>
+#ifdef CONFIG_MALI_PLATFORM_DEVICETREE
+#include <linux/pm_runtime.h>
+#endif /* CONFIG_MALI_PLATFORM_DEVICETREE */
 #include <mali_kbase_hw.h>
 #include <platform/mali_kbase_platform_common.h>
+#ifdef CONFIG_MALI_PLATFORM_FAKE
+#include <platform/mali_kbase_platform_fake.h>
+#endif /*CONFIG_MALI_PLATFORM_FAKE */
 #ifdef CONFIG_SYNC
 #include <mali_kbase_sync.h>
 #endif /* CONFIG_SYNC */
@@ -69,354 +77,286 @@
 #include <linux/devfreq.h>
 #endif /* CONFIG_PM_DEVFREQ */
 #include <linux/clk.h>
-#include <linux/regulator/consumer.h>
+#include <linux/delay.h>
 
-/*
- * This file is included since when we support device tree we don't
- * use the platform fake code for registering the kbase config attributes.
- */
-#ifdef CONFIG_OF
 #include <mali_kbase_config.h>
+
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 13, 0))
+#include <linux/pm_opp.h>
+#else
+#include <linux/opp.h>
 #endif
 
-#ifdef CONFIG_MACH_MANTA
-#include <plat/devs.h>
-#endif
+#include <mali_kbase_tlstream.h>
+
+#include <mali_kbase_as_fault_debugfs.h>
 
 /* GPU IRQ Tags */
 #define	JOB_IRQ_TAG	0
 #define MMU_IRQ_TAG	1
 #define GPU_IRQ_TAG	2
 
-
-struct kbase_irq_table {
-	u32 tag;
-	irq_handler_t handler;
-};
 #if MALI_UNIT_TEST
 static struct kbase_exported_test_data shared_kernel_test_data;
 EXPORT_SYMBOL(shared_kernel_test_data);
 #endif /* MALI_UNIT_TEST */
 
-#define KBASE_DRV_NAME "mali"
-
-static const char kbase_drv_name[] = KBASE_DRV_NAME;
-
 static int kbase_dev_nr;
 
-static DEFINE_SEMAPHORE(kbase_dev_list_lock);
+static DEFINE_MUTEX(kbase_dev_list_lock);
 static LIST_HEAD(kbase_dev_list);
 
-KBASE_EXPORT_TEST_API(kbase_dev_list_lock)
-KBASE_EXPORT_TEST_API(kbase_dev_list)
 #define KERNEL_SIDE_DDK_VERSION_STRING "K:" MALI_RELEASE_NAME "(GPL)"
-static INLINE void __compile_time_asserts(void)
+static inline void __compile_time_asserts(void)
 {
 	CSTD_COMPILE_TIME_ASSERT(sizeof(KERNEL_SIDE_DDK_VERSION_STRING) <= KBASE_GET_VERSION_BUFFER_SIZE);
 }
 
-#ifdef CONFIG_KDS
+static void kbase_create_timeline_objects(struct kbase_context *kctx)
+{
+	struct kbase_device             *kbdev = kctx->kbdev;
+	unsigned int                    lpu_id;
+	unsigned int                    as_nr;
+	struct kbasep_kctx_list_element *element;
 
-struct kbasep_kds_resource_set_file_data {
-	struct kds_resource_set *lock;
+	/* Create LPU objects. */
+	for (lpu_id = 0; lpu_id < kbdev->gpu_props.num_job_slots; lpu_id++) {
+		u32 *lpu =
+			&kbdev->gpu_props.props.raw_props.js_features[lpu_id];
+		kbase_tlstream_tl_summary_new_lpu(lpu, lpu_id, *lpu);
+	}
+
+	/* Create Address Space objects. */
+	for (as_nr = 0; as_nr < kbdev->nr_hw_address_spaces; as_nr++)
+		kbase_tlstream_tl_summary_new_as(&kbdev->as[as_nr], as_nr);
+
+	/* Create GPU object and make it retain all LPUs and address spaces. */
+	kbase_tlstream_tl_summary_new_gpu(
+			kbdev,
+			kbdev->gpu_props.props.raw_props.gpu_id,
+			kbdev->gpu_props.num_cores);
+
+	for (lpu_id = 0; lpu_id < kbdev->gpu_props.num_job_slots; lpu_id++) {
+		void *lpu =
+			&kbdev->gpu_props.props.raw_props.js_features[lpu_id];
+		kbase_tlstream_tl_summary_lifelink_lpu_gpu(lpu, kbdev);
+	}
+	for (as_nr = 0; as_nr < kbdev->nr_hw_address_spaces; as_nr++)
+		kbase_tlstream_tl_summary_lifelink_as_gpu(
+				&kbdev->as[as_nr],
+				kbdev);
+
+	/* Create object for each known context. */
+	mutex_lock(&kbdev->kctx_list_lock);
+	list_for_each_entry(element, &kbdev->kctx_list, link) {
+		kbase_tlstream_tl_summary_new_ctx(
+				element->kctx,
+				(u32)(element->kctx->id),
+				(u32)(element->kctx->tgid));
+	}
+	/* Before releasing the lock, reset body stream buffers.
+	 * This will prevent context creation message to be directed to both
+	 * summary and body stream. */
+	kbase_tlstream_reset_body_streams();
+	mutex_unlock(&kbdev->kctx_list_lock);
+	/* Static object are placed into summary packet that needs to be
+	 * transmitted first. Flush all streams to make it available to
+	 * user space. */
+	kbase_tlstream_flush_streams();
+}
+
+static void kbase_api_handshake(struct uku_version_check_args *version)
+{
+	switch (version->major) {
+#ifdef BASE_LEGACY_UK6_SUPPORT
+	case 6:
+		/* We are backwards compatible with version 6,
+		 * so pretend to be the old version */
+		version->major = 6;
+		version->minor = 1;
+		break;
+#endif /* BASE_LEGACY_UK6_SUPPORT */
+#ifdef BASE_LEGACY_UK7_SUPPORT
+	case 7:
+		/* We are backwards compatible with version 7,
+		 * so pretend to be the old version */
+		version->major = 7;
+		version->minor = 1;
+		break;
+#endif /* BASE_LEGACY_UK7_SUPPORT */
+#ifdef BASE_LEGACY_UK8_SUPPORT
+	case 8:
+		/* We are backwards compatible with version 8,
+		 * so pretend to be the old version */
+		version->major = 8;
+		version->minor = 4;
+		break;
+#endif /* BASE_LEGACY_UK8_SUPPORT */
+#ifdef BASE_LEGACY_UK9_SUPPORT
+	case 9:
+		/* We are backwards compatible with version 9,
+		 * so pretend to be the old version */
+		version->major = 9;
+		version->minor = 0;
+		break;
+#endif /* BASE_LEGACY_UK8_SUPPORT */
+	case BASE_UK_VERSION_MAJOR:
+		/* set minor to be the lowest common */
+		version->minor = min_t(int, BASE_UK_VERSION_MINOR,
+				(int)version->minor);
+		break;
+	default:
+		/* We return our actual version regardless if it
+		 * matches the version returned by userspace -
+		 * userspace can bail if it can't handle this
+		 * version */
+		version->major = BASE_UK_VERSION_MAJOR;
+		version->minor = BASE_UK_VERSION_MINOR;
+		break;
+	}
+}
+
+/**
+ * enum mali_error - Mali error codes shared with userspace
+ *
+ * This is subset of those common Mali errors that can be returned to userspace.
+ * Values of matching user and kernel space enumerators MUST be the same.
+ * MALI_ERROR_NONE is guaranteed to be 0.
+ */
+enum mali_error {
+	MALI_ERROR_NONE = 0,
+	MALI_ERROR_OUT_OF_GPU_MEMORY,
+	MALI_ERROR_OUT_OF_MEMORY,
+	MALI_ERROR_FUNCTION_FAILED,
 };
 
-static int kds_resource_release(struct inode *inode, struct file *file);
-
-static const struct file_operations kds_resource_fops = {
-	.release = kds_resource_release
+enum {
+	inited_mem = (1u << 0),
+	inited_js = (1u << 1),
+	inited_pm_runtime_init = (1u << 2),
+#ifdef CONFIG_MALI_DEVFREQ
+	inited_devfreq = (1u << 3),
+#endif /* CONFIG_MALI_DEVFREQ */
+	inited_tlstream = (1u << 4),
+	inited_backend_early = (1u << 5),
+	inited_backend_late = (1u << 6),
+	inited_device = (1u << 7),
+	inited_vinstr = (1u << 8),
+#ifndef CONFIG_MALI_PRFCNT_SET_SECONDARY
+	inited_ipa = (1u << 9),
+#endif /* CONFIG_MALI_PRFCNT_SET_SECONDARY */
+	inited_job_fault = (1u << 10),
+	inited_misc_register = (1u << 11),
+	inited_get_device = (1u << 12),
+	inited_sysfs_group = (1u << 13),
+	inited_dev_list = (1u << 14),
+	inited_debugfs = (1u << 15),
+	inited_gpu_device = (1u << 16),
+	inited_registers_map = (1u << 17),
+	inited_io_history = (1u << 18),
+	inited_power_control = (1u << 19),
+	inited_buslogger = (1u << 20)
 };
 
-struct kbase_kds_resource_list_data {
-	struct kds_resource **kds_resources;
-	unsigned long *kds_access_bitmap;
-	int num_elems;
-};
 
-static int kds_resource_release(struct inode *inode, struct file *file)
+#ifdef CONFIG_MALI_DEBUG
+#define INACTIVE_WAIT_MS (5000)
+
+void kbase_set_driver_inactive(struct kbase_device *kbdev, bool inactive)
 {
-	struct kbasep_kds_resource_set_file_data *data;
+	kbdev->driver_inactive = inactive;
+	wake_up(&kbdev->driver_inactive_wait);
 
-	data = (struct kbasep_kds_resource_set_file_data *)file->private_data;
-	if (NULL != data) {
-		if (NULL != data->lock)
-			kds_resource_set_release(&data->lock);
-
-		kfree(data);
-	}
-	return 0;
+	/* Wait for any running IOCTLs to complete */
+	if (inactive)
+		msleep(INACTIVE_WAIT_MS);
 }
+KBASE_EXPORT_TEST_API(kbase_set_driver_inactive);
+#endif /* CONFIG_MALI_DEBUG */
 
-static mali_error kbasep_kds_allocate_resource_list_data(struct kbase_context *kctx, struct base_external_resource *ext_res, int num_elems, struct kbase_kds_resource_list_data *resources_list)
-{
-	struct base_external_resource *res = ext_res;
-	int res_id;
-
-	/* assume we have to wait for all */
-
-	KBASE_DEBUG_ASSERT(0 != num_elems);
-	resources_list->kds_resources = kmalloc_array(num_elems,
-			sizeof(struct kds_resource *), GFP_KERNEL);
-
-	if (NULL == resources_list->kds_resources)
-		return MALI_ERROR_OUT_OF_MEMORY;
-
-	KBASE_DEBUG_ASSERT(0 != num_elems);
-	resources_list->kds_access_bitmap = kzalloc(
-			sizeof(unsigned long) *
-			((num_elems + BITS_PER_LONG - 1) / BITS_PER_LONG),
-			GFP_KERNEL);
-
-	if (NULL == resources_list->kds_access_bitmap) {
-		kfree(resources_list->kds_access_bitmap);
-		return MALI_ERROR_OUT_OF_MEMORY;
-	}
-
-	kbase_gpu_vm_lock(kctx);
-	for (res_id = 0; res_id < num_elems; res_id++, res++) {
-		int exclusive;
-		struct kbase_va_region *reg;
-		struct kds_resource *kds_res = NULL;
-
-		exclusive = res->ext_resource & BASE_EXT_RES_ACCESS_EXCLUSIVE;
-		reg = kbase_region_tracker_find_region_enclosing_address(kctx, res->ext_resource & ~BASE_EXT_RES_ACCESS_EXCLUSIVE);
-
-		/* did we find a matching region object? */
-		if (NULL == reg || (reg->flags & KBASE_REG_FREE))
-			break;
-
-		/* no need to check reg->alloc as only regions with an alloc has
-		 * a size, and kbase_region_tracker_find_region_enclosing_address
-		 * only returns regions with size > 0 */
-		switch (reg->alloc->type) {
-#if defined(CONFIG_UMP) && defined(CONFIG_KDS)
-		case KBASE_MEM_TYPE_IMPORTED_UMP:
-			kds_res = ump_dd_kds_resource_get(reg->alloc->imported.ump_handle);
-			break;
-#endif /* defined(CONFIG_UMP) && defined(CONFIG_KDS) */
-		default:
-			break;
-		}
-
-		/* no kds resource for the region ? */
-		if (!kds_res)
-			break;
-
-		resources_list->kds_resources[res_id] = kds_res;
-
-		if (exclusive)
-			set_bit(res_id, resources_list->kds_access_bitmap);
-	}
-	kbase_gpu_vm_unlock(kctx);
-
-	/* did the loop run to completion? */
-	if (res_id == num_elems)
-		return MALI_ERROR_NONE;
-
-	/* Clean up as the resource list is not valid. */
-	kfree(resources_list->kds_resources);
-	kfree(resources_list->kds_access_bitmap);
-
-	return MALI_ERROR_FUNCTION_FAILED;
-}
-
-static mali_bool kbasep_validate_kbase_pointer(
-		struct kbase_context *kctx, union kbase_pointer *p)
-{
-	if (kctx->is_compat) {
-		if (p->compat_value == 0)
-			return MALI_FALSE;
-	} else {
-		if (NULL == p->value)
-			return MALI_FALSE;
-	}
-	return MALI_TRUE;
-}
-
-static mali_error kbase_external_buffer_lock(struct kbase_context *kctx, struct kbase_uk_ext_buff_kds_data *args, u32 args_size)
-{
-	struct base_external_resource *ext_res_copy;
-	size_t ext_resource_size;
-	mali_error return_error = MALI_ERROR_FUNCTION_FAILED;
-	int fd;
-
-	if (args_size != sizeof(struct kbase_uk_ext_buff_kds_data))
-		return MALI_ERROR_FUNCTION_FAILED;
-
-	/* Check user space has provided valid data */
-	if (!kbasep_validate_kbase_pointer(kctx, &args->external_resource) ||
-			!kbasep_validate_kbase_pointer(kctx, &args->file_descriptor) ||
-			(0 == args->num_res) ||
-			(args->num_res > KBASE_MAXIMUM_EXT_RESOURCES))
-		return MALI_ERROR_FUNCTION_FAILED;
-
-	ext_resource_size = sizeof(struct base_external_resource) * args->num_res;
-
-	KBASE_DEBUG_ASSERT(0 != ext_resource_size);
-	ext_res_copy = kmalloc(ext_resource_size, GFP_KERNEL);
-
-	if (NULL != ext_res_copy) {
-		struct base_external_resource __user *ext_res_user;
-		int __user *file_descriptor_user;
-#ifdef CONFIG_COMPAT
-		if (kctx->is_compat) {
-			ext_res_user = compat_ptr(args->external_resource.compat_value);
-			file_descriptor_user = compat_ptr(args->file_descriptor.compat_value);
-		} else {
-#endif /* CONFIG_COMPAT */
-			ext_res_user = args->external_resource.value;
-			file_descriptor_user = args->file_descriptor.value;
-#ifdef CONFIG_COMPAT
-		}
-#endif /* CONFIG_COMPAT */
-
-		/* Copy the external resources to lock from user space */
-		if (0 == copy_from_user(ext_res_copy, ext_res_user, ext_resource_size)) {
-			struct kbasep_kds_resource_set_file_data *fdata;
-
-			/* Allocate data to be stored in the file */
-			fdata = kmalloc(sizeof(*fdata), GFP_KERNEL);
-
-			if (NULL != fdata) {
-				struct kbase_kds_resource_list_data resource_list_data;
-				/* Parse given elements and create resource and access lists */
-				return_error = kbasep_kds_allocate_resource_list_data(kctx, ext_res_copy, args->num_res, &resource_list_data);
-				if (MALI_ERROR_NONE == return_error) {
-					long err;
-
-					fdata->lock = NULL;
-
-					fd = anon_inode_getfd("kds_ext", &kds_resource_fops, fdata, 0);
-
-					err = copy_to_user(file_descriptor_user, &fd, sizeof(fd));
-
-					/* If the file descriptor was valid and we successfully copied it to user space, then we
-					 * can try and lock the requested kds resources.
-					 */
-					if ((fd >= 0) && (0 == err)) {
-						struct kds_resource_set *lock;
-
-						lock = kds_waitall(args->num_res, resource_list_data.kds_access_bitmap,
-								resource_list_data.kds_resources,
-								KDS_WAIT_BLOCKING);
-
-						if (IS_ERR_OR_NULL(lock)) {
-							return_error = MALI_ERROR_FUNCTION_FAILED;
-						} else {
-							return_error = MALI_ERROR_NONE;
-							fdata->lock = lock;
-						}
-					} else {
-						return_error = MALI_ERROR_FUNCTION_FAILED;
-					}
-
-					kfree(resource_list_data.kds_resources);
-					kfree(resource_list_data.kds_access_bitmap);
-				}
-
-				if (MALI_ERROR_NONE != return_error) {
-					/* If the file was opened successfully then close it which will clean up
-					 * the file data, otherwise we clean up the file data ourself. */
-					if (fd >= 0)
-						sys_close(fd);
-					else
-						kfree(fdata);
-				}
-			} else {
-				return_error = MALI_ERROR_OUT_OF_MEMORY;
-			}
-		}
-		kfree(ext_res_copy);
-	}
-	return return_error;
-}
-#endif /* CONFIG_KDS */
-
-static mali_error kbase_dispatch(struct kbase_context *kctx, void * const args, u32 args_size)
+static int kbase_dispatch(struct kbase_context *kctx, void * const args, u32 args_size)
 {
 	struct kbase_device *kbdev;
 	union uk_header *ukh = args;
 	u32 id;
+	int ret = 0;
 
 	KBASE_DEBUG_ASSERT(ukh != NULL);
 
 	kbdev = kctx->kbdev;
 	id = ukh->id;
-	ukh->ret = MALI_ERROR_NONE;	/* Be optimistic */
+	ukh->ret = MALI_ERROR_NONE; /* Be optimistic */
+
+#ifdef CONFIG_MALI_DEBUG
+	wait_event(kbdev->driver_inactive_wait,
+			kbdev->driver_inactive == false);
+#endif /* CONFIG_MALI_DEBUG */
 
 	if (UKP_FUNC_ID_CHECK_VERSION == id) {
-		if (args_size == sizeof(struct uku_version_check_args)) {
-			struct uku_version_check_args *version_check = (struct uku_version_check_args *)args;
+		struct uku_version_check_args *version_check;
 
-			switch (version_check->major) {
-#ifdef BASE_LEGACY_UK6_SUPPORT
-			case 6:
-				/* We are backwards compatible with version 6,
-				 * so pretend to be the old version */
-				version_check->major = 6;
-				version_check->minor = 1;
-				break;
-#endif /* BASE_LEGACY_UK6_SUPPORT */
-#ifdef BASE_LEGACY_UK7_SUPPORT
-			case 7:
-				/* We are backwards compatible with version 7,
-				 * so pretend to be the old version */
-				version_check->major = 7;
-				version_check->minor = 1;
-				break;
-#endif /* BASE_LEGACY_UK7_SUPPORT */
-			default:
-				/* We return our actual version regardless if it
-				 * matches the version returned by userspace -
-				 * userspace can bail if it can't handle this
-				 * version */
-				version_check->major = BASE_UK_VERSION_MAJOR;
-				version_check->minor = BASE_UK_VERSION_MINOR;
-			}
-
-			ukh->ret = MALI_ERROR_NONE;
-		} else {
+		if (args_size != sizeof(struct uku_version_check_args)) {
 			ukh->ret = MALI_ERROR_FUNCTION_FAILED;
+			return 0;
 		}
-		return MALI_ERROR_NONE;
+		version_check = (struct uku_version_check_args *)args;
+		kbase_api_handshake(version_check);
+		/* save the proposed version number for later use */
+		kctx->api_version = KBASE_API_VERSION(version_check->major,
+				version_check->minor);
+		ukh->ret = MALI_ERROR_NONE;
+		return 0;
 	}
 
+	/* block calls until version handshake */
+	if (kctx->api_version == 0)
+		return -EINVAL;
 
 	if (!atomic_read(&kctx->setup_complete)) {
-		/* setup pending, try to signal that we'll do the setup */
-		if (atomic_cmpxchg(&kctx->setup_in_progress, 0, 1)) {
-			/* setup was already in progress, err this call */
-			return MALI_ERROR_FUNCTION_FAILED;
-		}
+		struct kbase_uk_set_flags *kbase_set_flags;
 
-		/* we're the one doing setup */
+		/* setup pending, try to signal that we'll do the setup,
+		 * if setup was already in progress, err this call
+		 */
+		if (atomic_cmpxchg(&kctx->setup_in_progress, 0, 1) != 0)
+			return -EINVAL;
 
-		/* is it the only call we accept? */
-		if (id == KBASE_FUNC_SET_FLAGS) {
-			struct kbase_uk_set_flags *kbase_set_flags = (struct kbase_uk_set_flags *)args;
+		/* if unexpected call, will stay stuck in setup mode
+		 * (is it the only call we accept?)
+		 */
+		if (id != KBASE_FUNC_SET_FLAGS)
+			return -EINVAL;
 
-			if (sizeof(*kbase_set_flags) != args_size) {
-				/* not matching the expected call, stay stuck in setup mode */
-				goto bad_size;
-			}
+		kbase_set_flags = (struct kbase_uk_set_flags *)args;
 
-			if (MALI_ERROR_NONE != kbase_context_set_create_flags(kctx, kbase_set_flags->create_flags)) {
-				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
-				/* bad flags, will stay stuck in setup mode */
-				return MALI_ERROR_NONE;
-			} else {
-				/* we've done the setup, all OK */
-				atomic_set(&kctx->setup_complete, 1);
-				return MALI_ERROR_NONE;
-			}
-		} else {
-			/* unexpected call, will stay stuck in setup mode */
-			return MALI_ERROR_FUNCTION_FAILED;
-		}
+		/* if not matching the expected call, stay in setup mode */
+		if (sizeof(*kbase_set_flags) != args_size)
+			goto bad_size;
+
+		/* if bad flags, will stay stuck in setup mode */
+		if (kbase_context_set_create_flags(kctx,
+				kbase_set_flags->create_flags) != 0)
+			ukh->ret = MALI_ERROR_FUNCTION_FAILED;
+
+		atomic_set(&kctx->setup_complete, 1);
+		return 0;
 	}
 
 	/* setup complete, perform normal operation */
 	switch (id) {
+	case KBASE_FUNC_MEM_JIT_INIT:
+		{
+			struct kbase_uk_mem_jit_init *jit_init = args;
+
+			if (sizeof(*jit_init) != args_size)
+				goto bad_size;
+
+			if (kbase_region_tracker_init_jit(kctx,
+					jit_init->va_pages))
+				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
+			break;
+		}
 	case KBASE_FUNC_MEM_ALLOC:
 		{
 			struct kbase_uk_mem_alloc *mem = args;
@@ -425,44 +365,51 @@ static mali_error kbase_dispatch(struct kbase_context *kctx, void * const args, 
 			if (sizeof(*mem) != args_size)
 				goto bad_size;
 
-			reg = kbase_mem_alloc(kctx, mem->va_pages, mem->commit_pages, mem->extent, &mem->flags, &mem->gpu_va, &mem->va_alignment);
+#if defined(CONFIG_64BIT)
+			if (!kbase_ctx_flag(kctx, KCTX_COMPAT)) {
+				/* force SAME_VA if a 64-bit client */
+				mem->flags |= BASE_MEM_SAME_VA;
+			}
+#endif
+
+			reg = kbase_mem_alloc(kctx, mem->va_pages,
+					mem->commit_pages, mem->extent,
+					&mem->flags, &mem->gpu_va,
+					&mem->va_alignment);
 			if (!reg)
 				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
 			break;
 		}
-	case KBASE_FUNC_MEM_IMPORT:
-		{
+	case KBASE_FUNC_MEM_IMPORT: {
 			struct kbase_uk_mem_import *mem_import = args;
-			int __user *phandle;
-			int handle;
+			void __user *phandle;
 
 			if (sizeof(*mem_import) != args_size)
 				goto bad_size;
 #ifdef CONFIG_COMPAT
-			if (kctx->is_compat)
+			if (kbase_ctx_flag(kctx, KCTX_COMPAT))
 				phandle = compat_ptr(mem_import->phandle.compat_value);
 			else
 #endif
 				phandle = mem_import->phandle.value;
 
-			switch (mem_import->type) {
-			case BASE_MEM_IMPORT_TYPE_UMP:
-				get_user(handle, phandle);
-				break;
-			case BASE_MEM_IMPORT_TYPE_UMM:
-				get_user(handle, phandle);
-				break;
-			default:
-				goto bad_type;
+			if (mem_import->type == BASE_MEM_IMPORT_TYPE_INVALID) {
+				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
 				break;
 			}
 
-			if (kbase_mem_import(kctx, mem_import->type, handle, &mem_import->gpu_va, &mem_import->va_pages, &mem_import->flags)) {
-bad_type:
+			if (kbase_mem_import(kctx,
+					(enum base_mem_import_type)
+					mem_import->type,
+					phandle,
+					&mem_import->gpu_va,
+					&mem_import->va_pages,
+					&mem_import->flags)) {
+				mem_import->type = BASE_MEM_IMPORT_TYPE_INVALID;
 				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
 			}
 			break;
-		}
+	}
 	case KBASE_FUNC_MEM_ALIAS: {
 			struct kbase_uk_mem_alias *alias = args;
 			struct base_mem_aliasing_info __user *user_ai;
@@ -475,9 +422,13 @@ bad_type:
 				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
 				break;
 			}
+			if (!alias->nents) {
+				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
+				break;
+			}
 
 #ifdef CONFIG_COMPAT
-			if (kctx->is_compat)
+			if (kbase_ctx_flag(kctx, KCTX_COMPAT))
 				user_ai = compat_ptr(alias->ai.compat_value);
 			else
 #endif
@@ -524,7 +475,8 @@ copy_failed:
 
 			if (kbase_mem_commit(kctx, commit->gpu_addr,
 					commit->pages,
-					(base_backing_threshold_status *)&commit->result_subcode))
+					(base_backing_threshold_status *)
+					&commit->result_subcode) != 0)
 				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
 
 			break;
@@ -550,7 +502,11 @@ copy_failed:
 				break;
 			}
 
-			ukh->ret = kbase_mem_query(kctx, query->gpu_addr, query->query, &query->value);
+			if (kbase_mem_query(kctx, query->gpu_addr,
+					query->query, &query->value) != 0)
+				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
+			else
+				ukh->ret = MALI_ERROR_NONE;
 			break;
 		}
 		break;
@@ -568,7 +524,8 @@ copy_failed:
 				break;
 			}
 
-			if (kbase_mem_flags_change(kctx, fc->gpu_va, fc->flags, fc->mask))
+			if (kbase_mem_flags_change(kctx, fc->gpu_va,
+					fc->flags, fc->mask) != 0)
 				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
 
 			break;
@@ -586,7 +543,7 @@ copy_failed:
 				break;
 			}
 
-			if (kbase_mem_free(kctx, mem->gpu_addr))
+			if (kbase_mem_free(kctx, mem->gpu_addr) != 0)
 				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
 			break;
 		}
@@ -599,9 +556,9 @@ copy_failed:
 				goto bad_size;
 
 #ifdef BASE_LEGACY_UK6_SUPPORT
-			if (MALI_ERROR_NONE != kbase_jd_submit(kctx, job, 0))
+			if (kbase_jd_submit(kctx, job, 0) != 0)
 #else
-			if (MALI_ERROR_NONE != kbase_jd_submit(kctx, job))
+			if (kbase_jd_submit(kctx, job) != 0)
 #endif /* BASE_LEGACY_UK6_SUPPORT */
 				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
 			break;
@@ -615,7 +572,7 @@ copy_failed:
 			if (sizeof(*job) != args_size)
 				goto bad_size;
 
-			if (MALI_ERROR_NONE != kbase_jd_submit(kctx, job, 1))
+			if (kbase_jd_submit(kctx, job, 1) != 0)
 				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
 			break;
 		}
@@ -628,14 +585,16 @@ copy_failed:
 			if (sizeof(*sn) != args_size)
 				goto bad_size;
 
-			if (sn->sset.basep_sset.mem_handle & ~PAGE_MASK) {
+			if (sn->sset.basep_sset.mem_handle.basep.handle & ~PAGE_MASK) {
 				dev_warn(kbdev->dev, "kbase_dispatch case KBASE_FUNC_SYNC: sn->sset.basep_sset.mem_handle: passed parameter is invalid");
 				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
 				break;
 			}
 
-			if (MALI_ERROR_NONE != kbase_sync_now(kctx, &sn->sset))
+#ifndef CONFIG_MALI_COH_USER
+			if (kbase_sync_now(kctx, &sn->sset) != 0)
 				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
+#endif
 			break;
 		}
 
@@ -664,40 +623,49 @@ copy_failed:
 			if (sizeof(*setup) != args_size)
 				goto bad_size;
 
-			if (MALI_ERROR_NONE != kbase_instr_hwcnt_setup(kctx, setup))
+			mutex_lock(&kctx->vinstr_cli_lock);
+			if (kbase_vinstr_legacy_hwc_setup(kbdev->vinstr_ctx,
+					&kctx->vinstr_cli, setup) != 0)
 				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
+			mutex_unlock(&kctx->vinstr_cli_lock);
 			break;
 		}
 
 	case KBASE_FUNC_HWCNT_DUMP:
 		{
 			/* args ignored */
-			if (MALI_ERROR_NONE != kbase_instr_hwcnt_dump(kctx))
+			mutex_lock(&kctx->vinstr_cli_lock);
+			if (kbase_vinstr_hwc_dump(kctx->vinstr_cli,
+					BASE_HWCNT_READER_EVENT_MANUAL) != 0)
 				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
+			mutex_unlock(&kctx->vinstr_cli_lock);
 			break;
 		}
 
 	case KBASE_FUNC_HWCNT_CLEAR:
 		{
 			/* args ignored */
-			if (MALI_ERROR_NONE != kbase_instr_hwcnt_clear(kctx))
+			mutex_lock(&kctx->vinstr_cli_lock);
+			if (kbase_vinstr_hwc_clear(kctx->vinstr_cli) != 0)
 				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
+			mutex_unlock(&kctx->vinstr_cli_lock);
 			break;
 		}
 
-#ifdef BASE_LEGACY_UK7_SUPPORT
-	case KBASE_FUNC_CPU_PROPS_REG_DUMP_OBSOLETE:
+	case KBASE_FUNC_HWCNT_READER_SETUP:
 		{
-			struct kbase_uk_cpuprops *setup = args;
+			struct kbase_uk_hwcnt_reader_setup *setup = args;
 
 			if (sizeof(*setup) != args_size)
 				goto bad_size;
 
-			if (MALI_ERROR_NONE != kbase_cpuprops_uk_get_props(kctx, setup))
+			mutex_lock(&kctx->vinstr_cli_lock);
+			if (kbase_vinstr_hwcnt_reader_setup(kbdev->vinstr_ctx,
+					setup) != 0)
 				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
+			mutex_unlock(&kctx->vinstr_cli_lock);
 			break;
 		}
-#endif /* BASE_LEGACY_UK7_SUPPORT */
 
 	case KBASE_FUNC_GPU_PROPS_REG_DUMP:
 		{
@@ -706,7 +674,7 @@ copy_failed:
 			if (sizeof(*setup) != args_size)
 				goto bad_size;
 
-			if (MALI_ERROR_NONE != kbase_gpuprops_uk_get_props(kctx, setup))
+			if (kbase_gpuprops_uk_get_props(kctx, setup) != 0)
 				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
 			break;
 		}
@@ -725,7 +693,7 @@ copy_failed:
 			if (find->size > SIZE_MAX || find->cpu_addr > ULONG_MAX) {
 				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
 			} else {
-				mali_error err;
+				int err;
 
 				err = kbasep_find_enclosing_cpu_mapping_offset(
 						kctx,
@@ -734,7 +702,7 @@ copy_failed:
 						(size_t) find->size,
 						&find->offset);
 
-				if (err != MALI_ERROR_NONE)
+				if (err)
 					ukh->ret = MALI_ERROR_FUNCTION_FAILED;
 			}
 			break;
@@ -766,7 +734,10 @@ copy_failed:
 				break;
 			}
 
-			ukh->ret = kbase_stream_create(screate->name, &screate->fd);
+			if (kbase_stream_create(screate->name, &screate->fd) != 0)
+				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
+			else
+				ukh->ret = MALI_ERROR_NONE;
 #else /* CONFIG_SYNC */
 			ukh->ret = MALI_ERROR_FUNCTION_FAILED;
 #endif /* CONFIG_SYNC */
@@ -780,16 +751,11 @@ copy_failed:
 			if (sizeof(*fence_validate) != args_size)
 				goto bad_size;
 
-			ukh->ret = kbase_fence_validate(fence_validate->fd);
+			if (kbase_fence_validate(fence_validate->fd) != 0)
+				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
+			else
+				ukh->ret = MALI_ERROR_NONE;
 #endif /* CONFIG_SYNC */
-			break;
-		}
-
-	case KBASE_FUNC_EXT_BUFFER_LOCK:
-		{
-#ifdef CONFIG_KDS
-			ukh->ret = kbase_external_buffer_lock(kctx, (struct kbase_uk_ext_buff_kds_data *)args, args_size);
-#endif /* CONFIG_KDS */
 			break;
 		}
 
@@ -814,7 +780,10 @@ copy_failed:
 
 			/*mutex lock */
 			spin_lock_irqsave(&kbdev->reg_op_lock, flags);
-			ukh->ret = job_atom_inject_error(&params);
+			if (job_atom_inject_error(&params) != 0)
+				ukh->ret = MALI_ERROR_OUT_OF_MEMORY;
+			else
+				ukh->ret = MALI_ERROR_NONE;
 			spin_unlock_irqrestore(&kbdev->reg_op_lock, flags);
 			/*mutex unlock */
 #endif /* CONFIG_MALI_ERROR_INJECT */
@@ -830,37 +799,24 @@ copy_failed:
 
 			/*mutex lock */
 			spin_lock_irqsave(&kbdev->reg_op_lock, flags);
-			ukh->ret = midg_model_control(kbdev->model, &params);
+			if (gpu_model_control(kbdev->model, &params) != 0)
+				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
+			else
+				ukh->ret = MALI_ERROR_NONE;
 			spin_unlock_irqrestore(&kbdev->reg_op_lock, flags);
 			/*mutex unlock */
 #endif /* CONFIG_MALI_NO_MALI */
 			break;
 		}
 
+#ifdef BASE_LEGACY_UK8_SUPPORT
 	case KBASE_FUNC_KEEP_GPU_POWERED:
 		{
-			struct kbase_uk_keep_gpu_powered *kgp =
-					(struct kbase_uk_keep_gpu_powered *)args;
-
-			/* A suspend won't happen here, because we're in a syscall from a
-			 * userspace thread.
-			 *
-			 * Nevertheless, we'd get the wrong pm_context_active/idle counting
-			 * here if a suspend did happen, so let's assert it won't: */
-			KBASE_DEBUG_ASSERT(!kbase_pm_is_suspending(kbdev));
-
-			if (kgp->enabled && !kctx->keep_gpu_powered) {
-				kbase_pm_context_active(kbdev);
-				atomic_inc(&kbdev->keep_gpu_powered_count);
-				kctx->keep_gpu_powered = MALI_TRUE;
-			} else if (!kgp->enabled && kctx->keep_gpu_powered) {
-				atomic_dec(&kbdev->keep_gpu_powered_count);
-				kbase_pm_context_idle(kbdev);
-				kctx->keep_gpu_powered = MALI_FALSE;
-			}
-
+			dev_warn(kbdev->dev, "kbase_dispatch case KBASE_FUNC_KEEP_GPU_POWERED: function is deprecated and disabled\n");
+			ukh->ret = MALI_ERROR_FUNCTION_FAILED;
 			break;
 		}
+#endif /* BASE_LEGACY_UK8_SUPPORT */
 
 	case KBASE_FUNC_GET_PROFILING_CONTROLS:
 		{
@@ -904,19 +860,19 @@ copy_failed:
 				goto bad_size;
 
 			if (add_data->len > KBASE_MEM_PROFILE_MAX_BUF_SIZE) {
-				dev_err(kbdev->dev, "buffer too big");
+				dev_err(kbdev->dev, "buffer too big\n");
 				goto out_bad;
 			}
 
 #ifdef CONFIG_COMPAT
-			if (kctx->is_compat)
+			if (kbase_ctx_flag(kctx, KCTX_COMPAT))
 				user_buf = compat_ptr(add_data->buf.compat_value);
 			else
 #endif
 				user_buf = add_data->buf.value;
 
 			buf = kmalloc(add_data->len, GFP_KERNEL);
-			if (!buf)
+			if (ZERO_OR_NULL_PTR(buf))
 				goto out_bad;
 
 			if (0 != copy_from_user(buf, user_buf, add_data->len)) {
@@ -924,23 +880,153 @@ copy_failed:
 				kfree(buf);
 				goto out_bad;
 			}
-			kbasep_mem_profile_debugfs_insert(kctx, buf,
-					add_data->len);
+
+			if (kbasep_mem_profile_debugfs_insert(kctx, buf,
+							add_data->len)) {
+				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
+				kfree(buf);
+				goto out_bad;
+			}
+
+			break;
+		}
+
+#ifdef CONFIG_MALI_NO_MALI
+	case KBASE_FUNC_SET_PRFCNT_VALUES:
+		{
+
+			struct kbase_uk_prfcnt_values *params =
+			  ((struct kbase_uk_prfcnt_values *)args);
+			gpu_model_set_dummy_prfcnt_sample(params->data,
+					params->size);
+
+			break;
+		}
+#endif /* CONFIG_MALI_NO_MALI */
+#ifdef BASE_LEGACY_UK10_4_SUPPORT
+	case KBASE_FUNC_TLSTREAM_ACQUIRE_V10_4:
+		{
+			struct kbase_uk_tlstream_acquire_v10_4 *tlstream_acquire
+					= args;
+
+			if (sizeof(*tlstream_acquire) != args_size)
+				goto bad_size;
+
+			if (0 != kbase_tlstream_acquire(
+						kctx,
+						&tlstream_acquire->fd, 0)) {
+				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
+			} else if (0 <= tlstream_acquire->fd) {
+				/* Summary stream was cleared during acquire.
+				 * Create static timeline objects that will be
+				 * read by client. */
+				kbase_create_timeline_objects(kctx);
+			}
+			break;
+		}
+#endif /* BASE_LEGACY_UK10_4_SUPPORT */
+	case KBASE_FUNC_TLSTREAM_ACQUIRE:
+		{
+			struct kbase_uk_tlstream_acquire *tlstream_acquire =
+				args;
+
+			if (sizeof(*tlstream_acquire) != args_size)
+				goto bad_size;
+
+			if (tlstream_acquire->flags & ~BASE_TLSTREAM_FLAGS_MASK)
+				goto out_bad;
+
+			if (0 != kbase_tlstream_acquire(
+						kctx,
+						&tlstream_acquire->fd,
+						tlstream_acquire->flags)) {
+				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
+			} else if (0 <= tlstream_acquire->fd) {
+				/* Summary stream was cleared during acquire.
+				 * Create static timeline objects that will be
+				 * read by client. */
+				kbase_create_timeline_objects(kctx);
+			}
+			break;
+		}
+	case KBASE_FUNC_TLSTREAM_FLUSH:
+		{
+			struct kbase_uk_tlstream_flush *tlstream_flush =
+				args;
+
+			if (sizeof(*tlstream_flush) != args_size)
+				goto bad_size;
+
+			kbase_tlstream_flush_streams();
+			break;
+		}
+#if MALI_UNIT_TEST
+	case KBASE_FUNC_TLSTREAM_TEST:
+		{
+			struct kbase_uk_tlstream_test *tlstream_test = args;
+
+			if (sizeof(*tlstream_test) != args_size)
+				goto bad_size;
+
+			kbase_tlstream_test(
+					tlstream_test->tpw_count,
+					tlstream_test->msg_delay,
+					tlstream_test->msg_count,
+					tlstream_test->aux_msg);
+			break;
+		}
+	case KBASE_FUNC_TLSTREAM_STATS:
+		{
+			struct kbase_uk_tlstream_stats *tlstream_stats = args;
+
+			if (sizeof(*tlstream_stats) != args_size)
+				goto bad_size;
+
+			kbase_tlstream_stats(
+					&tlstream_stats->bytes_collected,
+					&tlstream_stats->bytes_generated);
+			break;
+		}
+#endif /* MALI_UNIT_TEST */
+
+	case KBASE_FUNC_GET_CONTEXT_ID:
+		{
+			struct kbase_uk_context_id *info = args;
+
+			info->id = kctx->id;
+			break;
+		}
+
+	case KBASE_FUNC_SOFT_EVENT_UPDATE:
+		{
+			struct kbase_uk_soft_event_update *update = args;
+
+			if (sizeof(*update) != args_size)
+				goto bad_size;
+
+			if (((update->new_status != BASE_JD_SOFT_EVENT_SET) &&
+			    (update->new_status != BASE_JD_SOFT_EVENT_RESET)) ||
+			    (update->flags != 0))
+				goto out_bad;
+
+			if (kbase_soft_event_update(kctx, update->evt,
+						update->new_status))
+				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
 
 			break;
 		}
 
 	default:
-		dev_err(kbdev->dev, "unknown ioctl %u", id);
+		dev_err(kbdev->dev, "unknown ioctl %u\n", id);
 		goto out_bad;
 	}
 
-	return MALI_ERROR_NONE;
+	return ret;
 
  bad_size:
 	dev_err(kbdev->dev, "Wrong syscall size (%d) for %08x\n", args_size, id);
  out_bad:
-	return MALI_ERROR_FUNCTION_FAILED;
+	return -EINVAL;
 }
 
 static struct kbase_device *to_kbase_device(struct device *dev)
@@ -948,30 +1034,73 @@ static struct kbase_device *to_kbase_device(struct device *dev)
 	return dev_get_drvdata(dev);
 }
 
+static int assign_irqs(struct platform_device *pdev)
+{
+	struct kbase_device *kbdev = to_kbase_device(&pdev->dev);
+	int i;
+
+	if (!kbdev)
+		return -ENODEV;
+
+	/* 3 IRQ resources */
+	for (i = 0; i < 3; i++) {
+		struct resource *irq_res;
+		int irqtag;
+
+		irq_res = platform_get_resource(pdev, IORESOURCE_IRQ, i);
+		if (!irq_res) {
+			dev_err(kbdev->dev, "No IRQ resource at index %d\n", i);
+			return -ENOENT;
+		}
+
+#ifdef CONFIG_OF
+		if (!strcmp(irq_res->name, "JOB")) {
+			irqtag = JOB_IRQ_TAG;
+		} else if (!strcmp(irq_res->name, "MMU")) {
+			irqtag = MMU_IRQ_TAG;
+		} else if (!strcmp(irq_res->name, "GPU")) {
+			irqtag = GPU_IRQ_TAG;
+		} else {
+			dev_err(&pdev->dev, "Invalid irq res name: '%s'\n",
+				irq_res->name);
+			return -EINVAL;
+		}
+#else
+		irqtag = i;
+#endif /* CONFIG_OF */
+		kbdev->irqs[irqtag].irq = irq_res->start;
+		kbdev->irqs[irqtag].flags = irq_res->flags & IRQF_TRIGGER_MASK;
+	}
+
+	return 0;
+}
+
 /*
- * API to acquire device list semaphore and
+ * API to acquire device list mutex and
  * return pointer to the device list head
  */
 const struct list_head *kbase_dev_list_get(void)
 {
-	down(&kbase_dev_list_lock);
+	mutex_lock(&kbase_dev_list_lock);
 	return &kbase_dev_list;
 }
+KBASE_EXPORT_TEST_API(kbase_dev_list_get);
 
-/* API to release the device list semaphore */
+/* API to release the device list mutex */
 void kbase_dev_list_put(const struct list_head *dev_list)
 {
-	up(&kbase_dev_list_lock);
+	mutex_unlock(&kbase_dev_list_lock);
 }
+KBASE_EXPORT_TEST_API(kbase_dev_list_put);
 
 /* Find a particular kbase device (as specified by minor number), or find the "first" device if -1 is specified */
 struct kbase_device *kbase_find_device(int minor)
 {
 	struct kbase_device *kbdev = NULL;
 	struct list_head *entry;
+	const struct list_head *dev_list = kbase_dev_list_get();
 
-	down(&kbase_dev_list_lock);
-	list_for_each(entry, &kbase_dev_list) {
+	list_for_each(entry, dev_list) {
 		struct kbase_device *tmp;
 
 		tmp = list_entry(entry, struct kbase_device, entry);
@@ -981,7 +1110,7 @@ struct kbase_device *kbase_find_device(int minor)
 			break;
 		}
 	}
-	up(&kbase_dev_list_lock);
+	kbase_dev_list_put(dev_list);
 
 	return kbdev;
 }
@@ -993,11 +1122,71 @@ void kbase_release_device(struct kbase_device *kbdev)
 }
 EXPORT_SYMBOL(kbase_release_device);
 
+#if KERNEL_VERSION(4, 6, 0) > LINUX_VERSION_CODE
+/*
+ * Older versions, before v4.6, of the kernel doesn't have
+ * kstrtobool_from_user().
+ */
+static int kstrtobool_from_user(const char __user *s, size_t count, bool *res)
+{
+	char buf[32];
+
+	count = min(sizeof(buf), count);
+
+	if (copy_from_user(buf, s, count))
+		return -EFAULT;
+	buf[count] = '\0';
+
+	return strtobool(buf, res);
+}
+#endif
+
+static ssize_t write_ctx_infinite_cache(struct file *f, const char __user *ubuf, size_t size, loff_t *off)
+{
+	struct kbase_context *kctx = f->private_data;
+	int err;
+	bool value;
+
+	err = kstrtobool_from_user(ubuf, size, &value);
+	if (err)
+		return err;
+
+	if (value)
+		kbase_ctx_flag_set(kctx, KCTX_INFINITE_CACHE);
+	else
+		kbase_ctx_flag_clear(kctx, KCTX_INFINITE_CACHE);
+
+	return size;
+}
+
+static ssize_t read_ctx_infinite_cache(struct file *f, char __user *ubuf, size_t size, loff_t *off)
+{
+	struct kbase_context *kctx = f->private_data;
+	char buf[32];
+	int count;
+	bool value;
+
+	value = kbase_ctx_flag(kctx, KCTX_INFINITE_CACHE);
+
+	count = scnprintf(buf, sizeof(buf), "%s\n", value ? "Y" : "N");
+
+	return simple_read_from_buffer(ubuf, size, off, buf, count);
+}
+
+static const struct file_operations kbase_infinite_cache_fops = {
+	.open = simple_open,
+	.write = write_ctx_infinite_cache,
+	.read = read_ctx_infinite_cache,
+};
+
 static int kbase_open(struct inode *inode, struct file *filp)
 {
 	struct kbase_device *kbdev = NULL;
 	struct kbase_context *kctx;
 	int ret = 0;
+#ifdef CONFIG_DEBUG_FS
+	char kctx_name[64];
+#endif
 
 	kbdev = kbase_find_device(iminor(inode));
 
@@ -1012,6 +1201,42 @@ static int kbase_open(struct inode *inode, struct file *filp)
 
 	init_waitqueue_head(&kctx->event_queue);
 	filp->private_data = kctx;
+	kctx->filp = filp;
+
+	if (kbdev->infinite_cache_active_default)
+		kbase_ctx_flag_set(kctx, KCTX_INFINITE_CACHE);
+
+#ifdef CONFIG_DEBUG_FS
+	snprintf(kctx_name, 64, "%d_%d", kctx->tgid, kctx->id);
+
+	kctx->kctx_dentry = debugfs_create_dir(kctx_name,
+			kbdev->debugfs_ctx_directory);
+
+	if (IS_ERR_OR_NULL(kctx->kctx_dentry)) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+#ifdef CONFIG_MALI_COH_USER
+	 /* if cache is completely coherent at hardware level, then remove the
+	  * infinite cache control support from debugfs.
+	  */
+#else
+	debugfs_create_file("infinite_cache", 0644, kctx->kctx_dentry,
+			    kctx, &kbase_infinite_cache_fops);
+#endif /* CONFIG_MALI_COH_USER */
+
+	mutex_init(&kctx->mem_profile_lock);
+
+	kbasep_jd_debugfs_ctx_init(kctx);
+	kbase_debug_mem_view_init(filp);
+
+	kbase_debug_job_fault_context_init(kctx);
+
+	kbase_mem_pool_debugfs_init(kctx->kctx_dentry, &kctx->mem_pool);
+
+	kbase_jit_debugfs_init(kctx);
+#endif /* CONFIG_DEBUG_FS */
 
 	dev_dbg(kbdev->dev, "created base context\n");
 
@@ -1023,6 +1248,10 @@ static int kbase_open(struct inode *inode, struct file *filp)
 			mutex_lock(&kbdev->kctx_list_lock);
 			element->kctx = kctx;
 			list_add(&element->link, &kbdev->kctx_list);
+			kbase_tlstream_tl_new_ctx(
+					element->kctx,
+					(u32)(element->kctx->id),
+					(u32)(element->kctx->tgid));
 			mutex_unlock(&kbdev->kctx_list_lock);
 		} else {
 			/* we don't treat this as a fail - just warn about it */
@@ -1041,14 +1270,22 @@ static int kbase_release(struct inode *inode, struct file *filp)
 	struct kbase_context *kctx = filp->private_data;
 	struct kbase_device *kbdev = kctx->kbdev;
 	struct kbasep_kctx_list_element *element, *tmp;
-	mali_bool found_element = MALI_FALSE;
+	bool found_element = false;
+
+	kbase_tlstream_tl_del_ctx(kctx);
+
+#ifdef CONFIG_DEBUG_FS
+	debugfs_remove_recursive(kctx->kctx_dentry);
+	kbasep_mem_profile_debugfs_remove(kctx);
+	kbase_debug_job_fault_context_term(kctx);
+#endif
 
 	mutex_lock(&kbdev->kctx_list_lock);
 	list_for_each_entry_safe(element, tmp, &kbdev->kctx_list, link) {
 		if (element->kctx == kctx) {
 			list_del(&element->link);
 			kfree(element);
-			found_element = MALI_TRUE;
+			found_element = true;
 		}
 	}
 	mutex_unlock(&kbdev->kctx_list_lock);
@@ -1056,6 +1293,19 @@ static int kbase_release(struct inode *inode, struct file *filp)
 		dev_warn(kbdev->dev, "kctx not in kctx_list\n");
 
 	filp->private_data = NULL;
+
+	mutex_lock(&kctx->vinstr_cli_lock);
+	/* If this client was performing hwcnt dumping and did not explicitly
+	 * detach itself, remove it from the vinstr core now */
+	if (kctx->vinstr_cli) {
+		struct kbase_uk_hwcnt_setup setup;
+
+		setup.dump_buffer = 0llu;
+		kbase_vinstr_legacy_hwc_setup(
+				kbdev->vinstr_ctx, &kctx->vinstr_cli, &setup);
+	}
+	mutex_unlock(&kctx->vinstr_cli_lock);
+
 	kbase_destroy_context(kctx);
 
 	dev_dbg(kbdev->dev, "deleted base context\n");
@@ -1079,7 +1329,7 @@ static long kbase_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		return -EFAULT;
 	}
 
-	if (MALI_ERROR_NONE != kbase_dispatch(kctx, &msg, size))
+	if (kbase_dispatch(kctx, &msg, size) != 0)
 		return -EFAULT;
 
 	if (0 != copy_to_user((void __user *)arg, &msg, size)) {
@@ -1106,7 +1356,8 @@ static ssize_t kbase_read(struct file *filp, char __user *buf, size_t count, lof
 			if (filp->f_flags & O_NONBLOCK)
 				return -EAGAIN;
 
-			if (wait_event_interruptible(kctx->event_queue, kbase_event_pending(kctx)))
+			if (wait_event_interruptible(kctx->event_queue,
+					kbase_event_pending(kctx)) != 0)
 				return -ERESTARTSYS;
 		}
 		if (uevent.event_code == BASE_JD_EVENT_DRV_TERMINATED) {
@@ -1115,7 +1366,7 @@ static ssize_t kbase_read(struct file *filp, char __user *buf, size_t count, lof
 			goto out;
 		}
 
-		if (copy_to_user(buf, &uevent, sizeof(uevent)))
+		if (copy_to_user(buf, &uevent, sizeof(uevent)) != 0)
 			return -EFAULT;
 
 		buf += sizeof(uevent);
@@ -1145,7 +1396,7 @@ void kbase_event_wakeup(struct kbase_context *kctx)
 	wake_up_interruptible(&kctx->event_queue);
 }
 
-KBASE_EXPORT_TEST_API(kbase_event_wakeup)
+KBASE_EXPORT_TEST_API(kbase_event_wakeup);
 
 static int kbase_check_flags(int flags)
 {
@@ -1158,99 +1409,155 @@ static int kbase_check_flags(int flags)
 	return 0;
 }
 
+#ifdef CONFIG_64BIT
+/* The following function is taken from the kernel and just
+ * renamed. As it's not exported to modules we must copy-paste it here.
+ */
+
+static unsigned long kbase_unmapped_area_topdown(struct vm_unmapped_area_info
+		*info)
+{
+	struct mm_struct *mm = current->mm;
+	struct vm_area_struct *vma;
+	unsigned long length, low_limit, high_limit, gap_start, gap_end;
+
+	/* Adjust search length to account for worst case alignment overhead */
+	length = info->length + info->align_mask;
+	if (length < info->length)
+		return -ENOMEM;
+
+	/*
+	 * Adjust search limits by the desired length.
+	 * See implementation comment at top of unmapped_area().
+	 */
+	gap_end = info->high_limit;
+	if (gap_end < length)
+		return -ENOMEM;
+	high_limit = gap_end - length;
+
+	if (info->low_limit > high_limit)
+		return -ENOMEM;
+	low_limit = info->low_limit + length;
+
+	/* Check highest gap, which does not precede any rbtree node */
+	gap_start = mm->highest_vm_end;
+	if (gap_start <= high_limit)
+		goto found_highest;
+
+	/* Check if rbtree root looks promising */
+	if (RB_EMPTY_ROOT(&mm->mm_rb))
+		return -ENOMEM;
+	vma = rb_entry(mm->mm_rb.rb_node, struct vm_area_struct, vm_rb);
+	if (vma->rb_subtree_gap < length)
+		return -ENOMEM;
+
+	while (true) {
+		/* Visit right subtree if it looks promising */
+		gap_start = vma->vm_prev ? vma->vm_prev->vm_end : 0;
+		if (gap_start <= high_limit && vma->vm_rb.rb_right) {
+			struct vm_area_struct *right =
+				rb_entry(vma->vm_rb.rb_right,
+					 struct vm_area_struct, vm_rb);
+			if (right->rb_subtree_gap >= length) {
+				vma = right;
+				continue;
+			}
+		}
+
+check_current:
+		/* Check if current node has a suitable gap */
+		gap_end = vma->vm_start;
+		if (gap_end < low_limit)
+			return -ENOMEM;
+		if (gap_start <= high_limit && gap_end - gap_start >= length)
+			goto found;
+
+		/* Visit left subtree if it looks promising */
+		if (vma->vm_rb.rb_left) {
+			struct vm_area_struct *left =
+				rb_entry(vma->vm_rb.rb_left,
+					 struct vm_area_struct, vm_rb);
+			if (left->rb_subtree_gap >= length) {
+				vma = left;
+				continue;
+			}
+		}
+
+		/* Go back up the rbtree to find next candidate node */
+		while (true) {
+			struct rb_node *prev = &vma->vm_rb;
+			if (!rb_parent(prev))
+				return -ENOMEM;
+			vma = rb_entry(rb_parent(prev),
+				       struct vm_area_struct, vm_rb);
+			if (prev == vma->vm_rb.rb_right) {
+				gap_start = vma->vm_prev ?
+					vma->vm_prev->vm_end : 0;
+				goto check_current;
+			}
+		}
+	}
+
+found:
+	/* We found a suitable gap. Clip it with the original high_limit. */
+	if (gap_end > info->high_limit)
+		gap_end = info->high_limit;
+
+found_highest:
+	/* Compute highest gap address at the desired alignment */
+	gap_end -= info->length;
+	gap_end -= (gap_end - info->align_offset) & info->align_mask;
+
+	VM_BUG_ON(gap_end < info->low_limit);
+	VM_BUG_ON(gap_end < gap_start);
+	return gap_end;
+}
+
+
 static unsigned long kbase_get_unmapped_area(struct file *filp,
 		const unsigned long addr, const unsigned long len,
 		const unsigned long pgoff, const unsigned long flags)
 {
-#ifdef CONFIG_64BIT
 	/* based on get_unmapped_area, but simplified slightly due to that some
 	 * values are known in advance */
 	struct kbase_context *kctx = filp->private_data;
+	struct mm_struct *mm = current->mm;
+	struct vm_unmapped_area_info info;
 
-	if (!kctx->is_compat && !addr &&
-		kbase_hw_has_feature(kctx->kbdev, BASE_HW_FEATURE_33BIT_VA)) {
-		struct mm_struct *mm = current->mm;
-		struct vm_area_struct *vma;
-		unsigned long low_limit, high_limit, gap_start, gap_end;
+	/* err on fixed address */
+	if ((flags & MAP_FIXED) || addr)
+		return -EINVAL;
 
-		/* Hardware has smaller VA than userspace, ensure the page
-		 * comes from a VA which can be used on the GPU */
+	/* too big? */
+	if (len > TASK_SIZE - SZ_2M)
+		return -ENOMEM;
 
-		gap_end = (1UL<<33);
-		if (gap_end < len)
-			return -ENOMEM;
-		high_limit = gap_end - len;
-		low_limit = PAGE_SIZE + len;
+	if (kbase_ctx_flag(kctx, KCTX_COMPAT))
+		return current->mm->get_unmapped_area(filp, addr, len, pgoff,
+				flags);
 
-		gap_start = mm->highest_vm_end;
-		if (gap_start <= high_limit)
-			goto found_highest;
-
-		if (RB_EMPTY_ROOT(&mm->mm_rb))
-			return -ENOMEM;
-		vma = rb_entry(mm->mm_rb.rb_node, struct vm_area_struct, vm_rb);
-		if (vma->rb_subtree_gap < len)
-			return -ENOMEM;
-
-		while (true) {
-			gap_start = vma->vm_prev ? vma->vm_prev->vm_end : 0;
-			if (gap_start <= high_limit && vma->vm_rb.rb_right) {
-				struct vm_area_struct *right =
-					rb_entry(vma->vm_rb.rb_right,
-						 struct vm_area_struct, vm_rb);
-				if (right->rb_subtree_gap >= len) {
-					vma = right;
-					continue;
-				}
-			}
-check_current:
-			gap_end = vma->vm_start;
-			if (gap_end < low_limit)
-				return -ENOMEM;
-			if (gap_start <= high_limit &&
-			    gap_end - gap_start >= len)
-				goto found;
-
-			if (vma->vm_rb.rb_left) {
-				struct vm_area_struct *left =
-					rb_entry(vma->vm_rb.rb_left,
-						 struct vm_area_struct, vm_rb);
-
-				if (left->rb_subtree_gap >= len) {
-					vma = left;
-					continue;
-				}
-			}
-			while (true) {
-				struct rb_node *prev = &vma->vm_rb;
-
-				if (!rb_parent(prev))
-					return -ENOMEM;
-				vma = rb_entry(rb_parent(prev),
-						struct vm_area_struct, vm_rb);
-				if (prev == vma->vm_rb.rb_right) {
-					gap_start = vma->vm_prev ?
-						vma->vm_prev->vm_end : 0;
-					goto check_current;
-				}
-			}
+	if (kbase_hw_has_feature(kctx->kbdev, BASE_HW_FEATURE_33BIT_VA)) {
+		info.high_limit = kctx->same_va_end << PAGE_SHIFT;
+		info.align_mask = 0;
+		info.align_offset = 0;
+	} else {
+		info.high_limit = min_t(unsigned long, mm->mmap_base,
+					(kctx->same_va_end << PAGE_SHIFT));
+		if (len >= SZ_2M) {
+			info.align_offset = SZ_2M;
+			info.align_mask = SZ_2M - 1;
+		} else {
+			info.align_mask = 0;
+			info.align_offset = 0;
 		}
-
-found:
-		if (gap_end > (1UL<<33))
-			gap_end = (1UL<<33);
-
-found_highest:
-		gap_end -= len;
-
-		VM_BUG_ON(gap_end < PAGE_SIZE);
-		VM_BUG_ON(gap_end < gap_start);
-		return gap_end;
 	}
-#endif
-	/* No special requirements - fallback to the default version */
-	return current->mm->get_unmapped_area(filp, addr, len, pgoff, flags);
+
+	info.flags = 0;
+	info.length = len;
+	info.low_limit = SZ_2M;
+	return kbase_unmapped_area_topdown(&info);
 }
+#endif
 
 static const struct file_operations kbase_fops = {
 	.owner = THIS_MODULE,
@@ -1262,7 +1569,9 @@ static const struct file_operations kbase_fops = {
 	.compat_ioctl = kbase_ioctl,
 	.mmap = kbase_mmap,
 	.check_flags = kbase_check_flags,
+#ifdef CONFIG_64BIT
 	.get_unmapped_area = kbase_get_unmapped_area,
+#endif
 };
 
 #ifndef CONFIG_MALI_NO_MALI
@@ -1275,415 +1584,8 @@ u32 kbase_os_reg_read(struct kbase_device *kbdev, u16 offset)
 {
 	return readl(kbdev->reg + offset);
 }
-#endif
+#endif /* !CONFIG_MALI_NO_MALI */
 
-#ifndef CONFIG_MALI_NO_MALI
-
-static void *kbase_tag(void *ptr, u32 tag)
-{
-	return (void *)(((uintptr_t) ptr) | tag);
-}
-
-static void *kbase_untag(void *ptr)
-{
-	return (void *)(((uintptr_t) ptr) & ~3);
-}
-
-
-
-
-static irqreturn_t kbase_job_irq_handler(int irq, void *data)
-{
-	unsigned long flags;
-	struct kbase_device *kbdev = kbase_untag(data);
-	u32 val;
-
-	spin_lock_irqsave(&kbdev->pm.gpu_powered_lock, flags);
-
-	if (!kbdev->pm.gpu_powered) {
-		/* GPU is turned off - IRQ is not for us */
-		spin_unlock_irqrestore(&kbdev->pm.gpu_powered_lock, flags);
-		return IRQ_NONE;
-	}
-
-	val = kbase_reg_read(kbdev, JOB_CONTROL_REG(JOB_IRQ_STATUS), NULL);
-
-#ifdef CONFIG_MALI_DEBUG
-	if (!kbdev->pm.driver_ready_for_irqs)
-		dev_warn(kbdev->dev, "%s: irq %d irqstatus 0x%x before driver is ready\n",
-				__func__, irq, val);
-#endif /* CONFIG_MALI_DEBUG */
-	spin_unlock_irqrestore(&kbdev->pm.gpu_powered_lock, flags);
-
-	if (!val)
-		return IRQ_NONE;
-
-	dev_dbg(kbdev->dev, "%s: irq %d irqstatus 0x%x\n", __func__, irq, val);
-
-	kbase_job_done(kbdev, val);
-
-	return IRQ_HANDLED;
-}
-
-KBASE_EXPORT_TEST_API(kbase_job_irq_handler);
-
-static irqreturn_t kbase_mmu_irq_handler(int irq, void *data)
-{
-	unsigned long flags;
-	struct kbase_device *kbdev = kbase_untag(data);
-	u32 val;
-
-	spin_lock_irqsave(&kbdev->pm.gpu_powered_lock, flags);
-
-	if (!kbdev->pm.gpu_powered) {
-		/* GPU is turned off - IRQ is not for us */
-		spin_unlock_irqrestore(&kbdev->pm.gpu_powered_lock, flags);
-		return IRQ_NONE;
-	}
-
-	val = kbase_reg_read(kbdev, MMU_REG(MMU_IRQ_STATUS), NULL);
-
-#ifdef CONFIG_MALI_DEBUG
-	if (!kbdev->pm.driver_ready_for_irqs)
-		dev_warn(kbdev->dev, "%s: irq %d irqstatus 0x%x before driver is ready\n",
-				__func__, irq, val);
-#endif /* CONFIG_MALI_DEBUG */
-	spin_unlock_irqrestore(&kbdev->pm.gpu_powered_lock, flags);
-
-	if (!val)
-		return IRQ_NONE;
-
-	dev_dbg(kbdev->dev, "%s: irq %d irqstatus 0x%x\n", __func__, irq, val);
-
-	kbase_mmu_interrupt(kbdev, val);
-
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t kbase_gpu_irq_handler(int irq, void *data)
-{
-	unsigned long flags;
-	struct kbase_device *kbdev = kbase_untag(data);
-	u32 val;
-
-	spin_lock_irqsave(&kbdev->pm.gpu_powered_lock, flags);
-
-	if (!kbdev->pm.gpu_powered) {
-		/* GPU is turned off - IRQ is not for us */
-		spin_unlock_irqrestore(&kbdev->pm.gpu_powered_lock, flags);
-		return IRQ_NONE;
-	}
-
-	val = kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_IRQ_STATUS), NULL);
-
-#ifdef CONFIG_MALI_DEBUG
-	if (!kbdev->pm.driver_ready_for_irqs)
-		dev_dbg(kbdev->dev, "%s: irq %d irqstatus 0x%x before driver is ready\n",
-				__func__, irq, val);
-#endif /* CONFIG_MALI_DEBUG */
-	spin_unlock_irqrestore(&kbdev->pm.gpu_powered_lock, flags);
-
-	if (!val)
-		return IRQ_NONE;
-
-	dev_dbg(kbdev->dev, "%s: irq %d irqstatus 0x%x\n", __func__, irq, val);
-
-	kbase_gpu_interrupt(kbdev, val);
-
-	return IRQ_HANDLED;
-}
-static irq_handler_t kbase_handler_table[] = {
-	[JOB_IRQ_TAG] = kbase_job_irq_handler,
-	[MMU_IRQ_TAG] = kbase_mmu_irq_handler,
-	[GPU_IRQ_TAG] = kbase_gpu_irq_handler,
-};
-
-
-#ifdef CONFIG_MALI_DEBUG
-#define  JOB_IRQ_HANDLER JOB_IRQ_TAG
-#define  MMU_IRQ_HANDLER MMU_IRQ_TAG
-#define  GPU_IRQ_HANDLER GPU_IRQ_TAG
-
-/**
- * @brief Registers given interrupt handler for requested interrupt type
- *        Case irq handler is not specified default handler shall be registered
- *
- * @param[in] kbdev           - Device for which the handler is to be registered
- * @param[in] custom_handler  - Handler to be registered
- * @param[in] irq_type        - Interrupt type
- * @return	MALI_ERROR_NONE case success, MALI_ERROR_FUNCTION_FAILED otherwise
- */
-static mali_error kbase_set_custom_irq_handler(struct kbase_device *kbdev, irq_handler_t custom_handler, int irq_type)
-{
-	mali_error result = MALI_ERROR_NONE;
-	irq_handler_t requested_irq_handler = NULL;
-
-	KBASE_DEBUG_ASSERT((JOB_IRQ_HANDLER <= irq_type) && (GPU_IRQ_HANDLER >= irq_type));
-
-	/* Release previous handler */
-	if (kbdev->irqs[irq_type].irq)
-		free_irq(kbdev->irqs[irq_type].irq, kbase_tag(kbdev, irq_type));
-
-	requested_irq_handler = (NULL != custom_handler) ? custom_handler : kbase_handler_table[irq_type];
-
-	if (0 != request_irq(kbdev->irqs[irq_type].irq,
-			requested_irq_handler,
-			kbdev->irqs[irq_type].flags | IRQF_SHARED,
-			dev_name(kbdev->dev), kbase_tag(kbdev, irq_type))) {
-		result = MALI_ERROR_FUNCTION_FAILED;
-		dev_err(kbdev->dev, "Can't request interrupt %d (index %d)\n", kbdev->irqs[irq_type].irq, irq_type);
-#ifdef CONFIG_SPARSE_IRQ
-		dev_err(kbdev->dev, "You have CONFIG_SPARSE_IRQ support enabled - is the interrupt number correct for this configuration?\n");
-#endif /* CONFIG_SPARSE_IRQ */
-	}
-
-	return result;
-}
-
-KBASE_EXPORT_TEST_API(kbase_set_custom_irq_handler)
-
-/* test correct interrupt assigment and reception by cpu */
-struct kbasep_irq_test {
-	struct hrtimer timer;
-	wait_queue_head_t wait;
-	int triggered;
-	u32 timeout;
-};
-
-static struct kbasep_irq_test kbasep_irq_test_data;
-
-#define IRQ_TEST_TIMEOUT    500
-
-static irqreturn_t kbase_job_irq_test_handler(int irq, void *data)
-{
-	unsigned long flags;
-	struct kbase_device *kbdev = kbase_untag(data);
-	u32 val;
-
-	spin_lock_irqsave(&kbdev->pm.gpu_powered_lock, flags);
-
-	if (!kbdev->pm.gpu_powered) {
-		/* GPU is turned off - IRQ is not for us */
-		spin_unlock_irqrestore(&kbdev->pm.gpu_powered_lock, flags);
-		return IRQ_NONE;
-	}
-
-	val = kbase_reg_read(kbdev, JOB_CONTROL_REG(JOB_IRQ_STATUS), NULL);
-
-	spin_unlock_irqrestore(&kbdev->pm.gpu_powered_lock, flags);
-
-	if (!val)
-		return IRQ_NONE;
-
-	dev_dbg(kbdev->dev, "%s: irq %d irqstatus 0x%x\n", __func__, irq, val);
-
-	kbasep_irq_test_data.triggered = 1;
-	wake_up(&kbasep_irq_test_data.wait);
-
-	kbase_reg_write(kbdev, JOB_CONTROL_REG(JOB_IRQ_CLEAR), val, NULL);
-
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t kbase_mmu_irq_test_handler(int irq, void *data)
-{
-	unsigned long flags;
-	struct kbase_device *kbdev = kbase_untag(data);
-	u32 val;
-
-	spin_lock_irqsave(&kbdev->pm.gpu_powered_lock, flags);
-
-	if (!kbdev->pm.gpu_powered) {
-		/* GPU is turned off - IRQ is not for us */
-		spin_unlock_irqrestore(&kbdev->pm.gpu_powered_lock, flags);
-		return IRQ_NONE;
-	}
-
-	val = kbase_reg_read(kbdev, MMU_REG(MMU_IRQ_STATUS), NULL);
-
-	spin_unlock_irqrestore(&kbdev->pm.gpu_powered_lock, flags);
-
-	if (!val)
-		return IRQ_NONE;
-
-	dev_dbg(kbdev->dev, "%s: irq %d irqstatus 0x%x\n", __func__, irq, val);
-
-	kbasep_irq_test_data.triggered = 1;
-	wake_up(&kbasep_irq_test_data.wait);
-
-	kbase_reg_write(kbdev, MMU_REG(MMU_IRQ_CLEAR), val, NULL);
-
-	return IRQ_HANDLED;
-}
-
-static enum hrtimer_restart kbasep_test_interrupt_timeout(struct hrtimer *timer)
-{
-	struct kbasep_irq_test *test_data = container_of(timer, struct kbasep_irq_test, timer);
-
-	test_data->timeout = 1;
-	test_data->triggered = 1;
-	wake_up(&test_data->wait);
-	return HRTIMER_NORESTART;
-}
-
-static mali_error kbasep_common_test_interrupt(struct kbase_device * const kbdev, u32 tag)
-{
-	mali_error err = MALI_ERROR_NONE;
-	irq_handler_t test_handler;
-
-	u32 old_mask_val;
-	u16 mask_offset;
-	u16 rawstat_offset;
-
-	switch (tag) {
-	case JOB_IRQ_TAG:
-		test_handler = kbase_job_irq_test_handler;
-		rawstat_offset = JOB_CONTROL_REG(JOB_IRQ_RAWSTAT);
-		mask_offset = JOB_CONTROL_REG(JOB_IRQ_MASK);
-		break;
-	case MMU_IRQ_TAG:
-		test_handler = kbase_mmu_irq_test_handler;
-		rawstat_offset = MMU_REG(MMU_IRQ_RAWSTAT);
-		mask_offset = MMU_REG(MMU_IRQ_MASK);
-		break;
-	case GPU_IRQ_TAG:
-		/* already tested by pm_driver - bail out */
-	default:
-		return MALI_ERROR_NONE;
-	}
-
-	/* store old mask */
-	old_mask_val = kbase_reg_read(kbdev, mask_offset, NULL);
-	/* mask interrupts */
-	kbase_reg_write(kbdev, mask_offset, 0x0, NULL);
-
-	if (kbdev->irqs[tag].irq) {
-		/* release original handler and install test handler */
-		if (MALI_ERROR_NONE != kbase_set_custom_irq_handler(kbdev, test_handler, tag)) {
-			err = MALI_ERROR_FUNCTION_FAILED;
-		} else {
-			kbasep_irq_test_data.timeout = 0;
-			hrtimer_init(&kbasep_irq_test_data.timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-			kbasep_irq_test_data.timer.function = kbasep_test_interrupt_timeout;
-
-			/* trigger interrupt */
-			kbase_reg_write(kbdev, mask_offset, 0x1, NULL);
-			kbase_reg_write(kbdev, rawstat_offset, 0x1, NULL);
-
-			hrtimer_start(&kbasep_irq_test_data.timer, HR_TIMER_DELAY_MSEC(IRQ_TEST_TIMEOUT), HRTIMER_MODE_REL);
-
-			wait_event(kbasep_irq_test_data.wait, kbasep_irq_test_data.triggered != 0);
-
-			if (kbasep_irq_test_data.timeout != 0) {
-				dev_err(kbdev->dev, "Interrupt %d (index %d) didn't reach CPU.\n", kbdev->irqs[tag].irq, tag);
-				err = MALI_ERROR_FUNCTION_FAILED;
-			} else {
-				dev_dbg(kbdev->dev, "Interrupt %d (index %d) reached CPU.\n", kbdev->irqs[tag].irq, tag);
-			}
-
-			hrtimer_cancel(&kbasep_irq_test_data.timer);
-			kbasep_irq_test_data.triggered = 0;
-
-			/* mask interrupts */
-			kbase_reg_write(kbdev, mask_offset, 0x0, NULL);
-
-			/* release test handler */
-			free_irq(kbdev->irqs[tag].irq, kbase_tag(kbdev, tag));
-		}
-
-		/* restore original interrupt */
-		if (request_irq(kbdev->irqs[tag].irq, kbase_handler_table[tag], kbdev->irqs[tag].flags | IRQF_SHARED, dev_name(kbdev->dev), kbase_tag(kbdev, tag))) {
-			dev_err(kbdev->dev, "Can't restore original interrupt %d (index %d)\n", kbdev->irqs[tag].irq, tag);
-			err = MALI_ERROR_FUNCTION_FAILED;
-		}
-	}
-	/* restore old mask */
-	kbase_reg_write(kbdev, mask_offset, old_mask_val, NULL);
-
-	return err;
-}
-
-static mali_error kbasep_common_test_interrupt_handlers(struct kbase_device * const kbdev)
-{
-	mali_error err;
-
-	init_waitqueue_head(&kbasep_irq_test_data.wait);
-	kbasep_irq_test_data.triggered = 0;
-
-	/* A suspend won't happen during startup/insmod */
-	kbase_pm_context_active(kbdev);
-
-	err = kbasep_common_test_interrupt(kbdev, JOB_IRQ_TAG);
-	if (MALI_ERROR_NONE != err) {
-		dev_err(kbdev->dev, "Interrupt JOB_IRQ didn't reach CPU. Check interrupt assignments.\n");
-		goto out;
-	}
-
-	err = kbasep_common_test_interrupt(kbdev, MMU_IRQ_TAG);
-	if (MALI_ERROR_NONE != err) {
-		dev_err(kbdev->dev, "Interrupt MMU_IRQ didn't reach CPU. Check interrupt assignments.\n");
-		goto out;
-	}
-
-	dev_dbg(kbdev->dev, "Interrupts are correctly assigned.\n");
-
- out:
-	kbase_pm_context_idle(kbdev);
-
-	return err;
-}
-#endif /* CONFIG_MALI_DEBUG */
-
-static int kbase_install_interrupts(struct kbase_device *kbdev)
-{
-	u32 nr = ARRAY_SIZE(kbase_handler_table);
-	int err;
-	u32 i;
-
-	for (i = 0; i < nr; i++) {
-		err = request_irq(kbdev->irqs[i].irq, kbase_handler_table[i], kbdev->irqs[i].flags | IRQF_SHARED, dev_name(kbdev->dev), kbase_tag(kbdev, i));
-		if (err) {
-			dev_err(kbdev->dev, "Can't request interrupt %d (index %d)\n", kbdev->irqs[i].irq, i);
-#ifdef CONFIG_SPARSE_IRQ
-			dev_err(kbdev->dev, "You have CONFIG_SPARSE_IRQ support enabled - is the interrupt number correct for this configuration?\n");
-#endif /* CONFIG_SPARSE_IRQ */
-			goto release;
-		}
-	}
-
-	return 0;
-
- release:
-	while (i-- > 0)
-		free_irq(kbdev->irqs[i].irq, kbase_tag(kbdev, i));
-
-	return err;
-}
-
-static void kbase_release_interrupts(struct kbase_device *kbdev)
-{
-	u32 nr = ARRAY_SIZE(kbase_handler_table);
-	u32 i;
-
-	for (i = 0; i < nr; i++) {
-		if (kbdev->irqs[i].irq)
-			free_irq(kbdev->irqs[i].irq, kbase_tag(kbdev, i));
-	}
-}
-
-void kbase_synchronize_irqs(struct kbase_device *kbdev)
-{
-	u32 nr = ARRAY_SIZE(kbase_handler_table);
-	u32 i;
-
-	for (i = 0; i < nr; i++) {
-		if (kbdev->irqs[i].irq)
-			synchronize_irq(kbdev->irqs[i].irq);
-	}
-}
-#endif /* CONFIG_MALI_NO_MALI */
-
-#if KBASE_PM_EN
 /** Show callback for the @c power_policy sysfs file.
  *
  * This function is called to get the contents of the @c power_policy sysfs
@@ -1909,8 +1811,18 @@ static ssize_t show_core_mask(struct device *dev, struct device_attribute *attr,
 	if (!kbdev)
 		return -ENODEV;
 
-	ret += scnprintf(buf + ret, PAGE_SIZE - ret, "Current core mask : 0x%llX\n", kbdev->pm.debug_core_mask);
-	ret += scnprintf(buf + ret, PAGE_SIZE - ret, "Available core mask : 0x%llX\n", kbdev->shader_present_bitmap);
+	ret += scnprintf(buf + ret, PAGE_SIZE - ret,
+			"Current core mask (JS0) : 0x%llX\n",
+			kbdev->pm.debug_core_mask[0]);
+	ret += scnprintf(buf + ret, PAGE_SIZE - ret,
+			"Current core mask (JS1) : 0x%llX\n",
+			kbdev->pm.debug_core_mask[1]);
+	ret += scnprintf(buf + ret, PAGE_SIZE - ret,
+			"Current core mask (JS2) : 0x%llX\n",
+			kbdev->pm.debug_core_mask[2]);
+	ret += scnprintf(buf + ret, PAGE_SIZE - ret,
+			"Available core mask : 0x%llX\n",
+			kbdev->gpu_props.props.raw_props.shader_present);
 
 	return ret;
 }
@@ -1929,36 +1841,62 @@ static ssize_t show_core_mask(struct device *dev, struct device_attribute *attr,
 static ssize_t set_core_mask(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct kbase_device *kbdev;
-	u64 new_core_mask;
-	int rc;
+	u64 new_core_mask[3];
+	int items;
 
 	kbdev = to_kbase_device(dev);
 
 	if (!kbdev)
 		return -ENODEV;
 
-	rc = kstrtoull(buf, 16, &new_core_mask);
-	if (rc)
-		return rc;
+	items = sscanf(buf, "%llx %llx %llx",
+			&new_core_mask[0], &new_core_mask[1],
+			&new_core_mask[2]);
 
-	if ((new_core_mask & kbdev->shader_present_bitmap) != new_core_mask ||
-	    !(new_core_mask & kbdev->gpu_props.props.coherency_info.group[0].core_mask)) {
-		dev_err(dev, "power_policy: invalid core specification\n");
-		return -EINVAL;
+	if (items == 1)
+		new_core_mask[1] = new_core_mask[2] = new_core_mask[0];
+
+	if (items == 1 || items == 3) {
+		u64 shader_present =
+				kbdev->gpu_props.props.raw_props.shader_present;
+		u64 group0_core_mask =
+				kbdev->gpu_props.props.coherency_info.group[0].
+				core_mask;
+
+		if ((new_core_mask[0] & shader_present) != new_core_mask[0] ||
+				!(new_core_mask[0] & group0_core_mask) ||
+			(new_core_mask[1] & shader_present) !=
+						new_core_mask[1] ||
+				!(new_core_mask[1] & group0_core_mask) ||
+			(new_core_mask[2] & shader_present) !=
+						new_core_mask[2] ||
+				!(new_core_mask[2] & group0_core_mask)) {
+			dev_err(dev, "power_policy: invalid core specification\n");
+			return -EINVAL;
+		}
+
+		if (kbdev->pm.debug_core_mask[0] != new_core_mask[0] ||
+				kbdev->pm.debug_core_mask[1] !=
+						new_core_mask[1] ||
+				kbdev->pm.debug_core_mask[2] !=
+						new_core_mask[2]) {
+			unsigned long flags;
+
+			spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+
+			kbase_pm_set_debug_core_mask(kbdev, new_core_mask[0],
+					new_core_mask[1], new_core_mask[2]);
+
+			spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+		}
+
+		return count;
 	}
 
-	if (kbdev->pm.debug_core_mask != new_core_mask) {
-		unsigned long flags;
-
-		spin_lock_irqsave(&kbdev->pm.power_change_lock, flags);
-
-		kbdev->pm.debug_core_mask = new_core_mask;
-		kbase_pm_update_cores_state_nolock(kbdev);
-
-		spin_unlock_irqrestore(&kbdev->pm.power_change_lock, flags);
-	}
-
-	return count;
+	dev_err(kbdev->dev, "Couldn't process set_core_mask write operation.\n"
+		"Use format <core_mask>\n"
+		"or <core_mask_js0> <core_mask_js1> <core_mask_js2>\n");
+	return -EINVAL;
 }
 
 /** The sysfs file @c core_mask.
@@ -1968,132 +1906,98 @@ static ssize_t set_core_mask(struct device *dev, struct device_attribute *attr, 
  * Writing to it will set the current core mask.
  */
 static DEVICE_ATTR(core_mask, S_IRUGO | S_IWUSR, show_core_mask, set_core_mask);
-#endif /* KBASE_PM_EN */
-
-#ifdef CONFIG_MALI_DEBUG_SHADER_SPLIT_FS
-/* Import the external affinity mask variables */
-extern u64 mali_js0_affinity_mask;
-extern u64 mali_js1_affinity_mask;
-extern u64 mali_js2_affinity_mask;
 
 /**
- * Structure containing a single shader affinity split configuration.
- */
-struct sc_split_config {
-	char const *tag;
-	char const *human_readable;
-	u64          js0_mask;
-	u64          js1_mask;
-	u64          js2_mask;
-};
-
-/**
- * Array of available shader affinity split configurations.
- */
-static struct sc_split_config const sc_split_configs[] = {
-	/* All must be the first config (default). */
-	{
-		"all", "All cores",
-		0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFULL
-	},
-	{
-		"mp1", "MP1 shader core",
-		0x1, 0x1, 0x1
-	},
-	{
-		"mp2", "MP2 shader core",
-		0x3, 0x3, 0x3
-	},
-	{
-		"mp4", "MP4 shader core",
-		0xF, 0xF, 0xF
-	},
-	{
-		"mp1_vf", "MP1 vertex + MP1 fragment shader core",
-		0x2, 0x1, 0xFFFFFFFFFFFFFFFFULL
-	},
-	{
-		"mp2_vf", "MP2 vertex + MP2 fragment shader core",
-		0xA, 0x5, 0xFFFFFFFFFFFFFFFFULL
-	},
-	/* This must be the last config. */
-	{
-		NULL, NULL,
-		0x0, 0x0, 0x0
-	},
-};
-
-/* Pointer to the currently active shader split configuration. */
-static struct sc_split_config const *current_sc_split_config = &sc_split_configs[0];
-
-/** Show callback for the @c sc_split sysfs file
+ * set_soft_job_timeout() - Store callback for the soft_job_timeout sysfs
+ * file.
  *
- * Returns the current shader core affinity policy.
+ * @dev: The device this sysfs file is for.
+ * @attr: The attributes of the sysfs file.
+ * @buf: The value written to the sysfs file.
+ * @count: The number of bytes written to the sysfs file.
+ *
+ * This allows setting the timeout for software jobs. Waiting soft event wait
+ * jobs will be cancelled after this period expires, while soft fence wait jobs
+ * will print debug information if the fence debug feature is enabled.
+ *
+ * This is expressed in milliseconds.
+ *
+ * Return: count if the function succeeded. An error code on failure.
  */
-static ssize_t show_split(struct device *dev, struct device_attribute *attr, char * const buf)
+static ssize_t set_soft_job_timeout(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t count)
 {
-	ssize_t ret;
-	/* We know we are given a buffer which is PAGE_SIZE long. Our strings are all guaranteed
-	 * to be shorter than that at this time so no length check needed. */
-	ret = scnprintf(buf, PAGE_SIZE, "Current sc_split: '%s'\n", current_sc_split_config->tag);
-	return ret;
+	struct kbase_device *kbdev;
+	int soft_job_timeout_ms;
+
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	if ((kstrtoint(buf, 0, &soft_job_timeout_ms) != 0) ||
+	    (soft_job_timeout_ms <= 0))
+		return -EINVAL;
+
+	atomic_set(&kbdev->js_data.soft_job_timeout_ms,
+		   soft_job_timeout_ms);
+
+	return count;
 }
 
-/** Store callback for the @c sc_split sysfs file.
+/**
+ * show_soft_job_timeout() - Show callback for the soft_job_timeout sysfs
+ * file.
  *
- * This function is called when the @c sc_split sysfs file is written to
- * It modifies the system shader core affinity configuration to allow
- * system profiling with different hardware configurations.
+ * This will return the timeout for the software jobs.
  *
- * @param dev	The device with sysfs file is for
- * @param attr	The attributes of the sysfs file
- * @param buf	The value written to the sysfs file
- * @param count	The number of bytes written to the sysfs file
+ * @dev: The device this sysfs file is for.
+ * @attr: The attributes of the sysfs file.
+ * @buf: The output buffer for the sysfs file contents.
  *
- * @return @c count if the function succeeded. An error code on failure.
+ * Return: The number of bytes output to buf.
  */
-static ssize_t set_split(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t show_soft_job_timeout(struct device *dev,
+				       struct device_attribute *attr,
+				       char * const buf)
 {
-	struct sc_split_config const *config = &sc_split_configs[0];
+	struct kbase_device *kbdev;
 
-	/* Try to match: loop until we hit the last "NULL" entry */
-	while (config->tag) {
-		if (sysfs_streq(config->tag, buf)) {
-			current_sc_split_config = config;
-			mali_js0_affinity_mask  = config->js0_mask;
-			mali_js1_affinity_mask  = config->js1_mask;
-			mali_js2_affinity_mask  = config->js2_mask;
-			dev_dbg(dev, "Setting sc_split: '%s'\n", config->tag);
-			return count;
-		}
-		config++;
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	return scnprintf(buf, PAGE_SIZE, "%i\n",
+			 atomic_read(&kbdev->js_data.soft_job_timeout_ms));
+}
+
+static DEVICE_ATTR(soft_job_timeout, S_IRUGO | S_IWUSR,
+		   show_soft_job_timeout, set_soft_job_timeout);
+
+static u32 timeout_ms_to_ticks(struct kbase_device *kbdev, long timeout_ms,
+				int default_ticks, u32 old_ticks)
+{
+	if (timeout_ms > 0) {
+		u64 ticks = timeout_ms * 1000000ULL;
+		do_div(ticks, kbdev->js_data.scheduling_period_ns);
+		if (!ticks)
+			return 1;
+		return ticks;
+	} else if (timeout_ms < 0) {
+		return default_ticks;
+	} else {
+		return old_ticks;
 	}
-
-	/* No match found in config list */
-	dev_err(dev, "sc_split: invalid value\n");
-	dev_err(dev, "  Possible settings: mp[1|2|4], mp[1|2]_vf\n");
-	return -ENOENT;
 }
 
-/** The sysfs file @c sc_split
- *
- * This is used for configuring/querying the current shader core work affinity
- * configuration.
- */
-static DEVICE_ATTR(sc_split, S_IRUGO|S_IWUSR, show_split, set_split);
-#endif /* CONFIG_MALI_DEBUG_SHADER_SPLIT_FS */
-
-
-#if !MALI_CUSTOMER_RELEASE
 /** Store callback for the @c js_timeouts sysfs file.
  *
  * This function is called to get the contents of the @c js_timeouts sysfs
  * file. This file contains five values separated by whitespace. The values
- * are basically the same as KBASE_CONFIG_ATTR_JS_SOFT_STOP_TICKS,
- * KBASE_CONFIG_ATTR_JS_HARD_STOP_TICKS_SS, KBASE_CONFIG_ATTR_JS_HARD_STOP_TICKS_NSS,
- * KBASE_CONFIG_ATTR_JS_RESET_TICKS_SS, BASE_CONFIG_ATTR_JS_RESET_TICKS_NSS
+ * are basically the same as JS_SOFT_STOP_TICKS, JS_HARD_STOP_TICKS_SS,
+ * JS_HARD_STOP_TICKS_DUMPING, JS_RESET_TICKS_SS, JS_RESET_TICKS_DUMPING
  * configuration values (in that order), with the difference that the js_timeout
- * valus are expressed in MILLISECONDS.
+ * values are expressed in MILLISECONDS.
  *
  * The js_timeouts sysfile file allows the current values in
  * use by the job scheduler to get override. Note that a value needs to
@@ -2110,82 +2014,91 @@ static ssize_t set_js_timeouts(struct device *dev, struct device_attribute *attr
 {
 	struct kbase_device *kbdev;
 	int items;
-	unsigned long js_soft_stop_ms;
-	unsigned long js_soft_stop_ms_cl;
-	unsigned long js_hard_stop_ms_ss;
-	unsigned long js_hard_stop_ms_cl;
-	unsigned long js_hard_stop_ms_nss;
-	unsigned long js_reset_ms_ss;
-	unsigned long js_reset_ms_cl;
-	unsigned long js_reset_ms_nss;
+	long js_soft_stop_ms;
+	long js_soft_stop_ms_cl;
+	long js_hard_stop_ms_ss;
+	long js_hard_stop_ms_cl;
+	long js_hard_stop_ms_dumping;
+	long js_reset_ms_ss;
+	long js_reset_ms_cl;
+	long js_reset_ms_dumping;
 
 	kbdev = to_kbase_device(dev);
 	if (!kbdev)
 		return -ENODEV;
 
-	items = sscanf(buf, "%lu %lu %lu %lu %lu %lu %lu %lu",
+	items = sscanf(buf, "%ld %ld %ld %ld %ld %ld %ld %ld",
 			&js_soft_stop_ms, &js_soft_stop_ms_cl,
 			&js_hard_stop_ms_ss, &js_hard_stop_ms_cl,
-			&js_hard_stop_ms_nss, &js_reset_ms_ss,
-			&js_reset_ms_cl, &js_reset_ms_nss);
+			&js_hard_stop_ms_dumping, &js_reset_ms_ss,
+			&js_reset_ms_cl, &js_reset_ms_dumping);
 
 	if (items == 8) {
-		u64 ticks;
+		struct kbasep_js_device_data *js_data = &kbdev->js_data;
+		unsigned long flags;
 
-		ticks = js_soft_stop_ms * 1000000ULL;
-		do_div(ticks, kbdev->js_data.scheduling_tick_ns);
-		kbdev->js_soft_stop_ticks = ticks;
+		spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 
-		ticks = js_soft_stop_ms_cl * 1000000ULL;
-		do_div(ticks, kbdev->js_data.scheduling_tick_ns);
-		kbdev->js_soft_stop_ticks_cl = ticks;
+#define UPDATE_TIMEOUT(ticks_name, ms_name, default) do {\
+	js_data->ticks_name = timeout_ms_to_ticks(kbdev, ms_name, \
+			default, js_data->ticks_name); \
+	dev_dbg(kbdev->dev, "Overriding " #ticks_name \
+			" with %lu ticks (%lu ms)\n", \
+			(unsigned long)js_data->ticks_name, \
+			ms_name); \
+	} while (0)
 
-		ticks = js_hard_stop_ms_ss * 1000000ULL;
-		do_div(ticks, kbdev->js_data.scheduling_tick_ns);
-		kbdev->js_hard_stop_ticks_ss = ticks;
+		UPDATE_TIMEOUT(soft_stop_ticks, js_soft_stop_ms,
+				DEFAULT_JS_SOFT_STOP_TICKS);
+		UPDATE_TIMEOUT(soft_stop_ticks_cl, js_soft_stop_ms_cl,
+				DEFAULT_JS_SOFT_STOP_TICKS_CL);
+		UPDATE_TIMEOUT(hard_stop_ticks_ss, js_hard_stop_ms_ss,
+				kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_8408) ?
+				DEFAULT_JS_HARD_STOP_TICKS_SS_8408 :
+				DEFAULT_JS_HARD_STOP_TICKS_SS);
+		UPDATE_TIMEOUT(hard_stop_ticks_cl, js_hard_stop_ms_cl,
+				DEFAULT_JS_HARD_STOP_TICKS_CL);
+		UPDATE_TIMEOUT(hard_stop_ticks_dumping,
+				js_hard_stop_ms_dumping,
+				DEFAULT_JS_HARD_STOP_TICKS_DUMPING);
+		UPDATE_TIMEOUT(gpu_reset_ticks_ss, js_reset_ms_ss,
+				kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_8408) ?
+				DEFAULT_JS_RESET_TICKS_SS_8408 :
+				DEFAULT_JS_RESET_TICKS_SS);
+		UPDATE_TIMEOUT(gpu_reset_ticks_cl, js_reset_ms_cl,
+				DEFAULT_JS_RESET_TICKS_CL);
+		UPDATE_TIMEOUT(gpu_reset_ticks_dumping, js_reset_ms_dumping,
+				DEFAULT_JS_RESET_TICKS_DUMPING);
 
-		ticks = js_hard_stop_ms_cl * 1000000ULL;
-		do_div(ticks, kbdev->js_data.scheduling_tick_ns);
-		kbdev->js_hard_stop_ticks_cl = ticks;
+		kbase_js_set_timeouts(kbdev);
 
-		ticks = js_hard_stop_ms_nss * 1000000ULL;
-		do_div(ticks, kbdev->js_data.scheduling_tick_ns);
-		kbdev->js_hard_stop_ticks_nss = ticks;
-
-		ticks = js_reset_ms_ss * 1000000ULL;
-		do_div(ticks, kbdev->js_data.scheduling_tick_ns);
-		kbdev->js_reset_ticks_ss = ticks;
-
-		ticks = js_reset_ms_cl * 1000000ULL;
-		do_div(ticks, kbdev->js_data.scheduling_tick_ns);
-		kbdev->js_reset_ticks_cl = ticks;
-
-		ticks = js_reset_ms_nss * 1000000ULL;
-		do_div(ticks, kbdev->js_data.scheduling_tick_ns);
-		kbdev->js_reset_ticks_nss = ticks;
-
-		dev_dbg(kbdev->dev, "Overriding KBASE_CONFIG_ATTR_JS_SOFT_STOP_TICKS with %lu ticks (%lu ms)\n", (unsigned long)kbdev->js_soft_stop_ticks, js_soft_stop_ms);
-		dev_dbg(kbdev->dev, "Overriding KBASE_CONFIG_ATTR_JS_SOFT_STOP_TICKS_CL with %lu ticks (%lu ms)\n", (unsigned long)kbdev->js_soft_stop_ticks_cl, js_soft_stop_ms_cl);
-		dev_dbg(kbdev->dev, "Overriding KBASE_CONFIG_ATTR_JS_HARD_STOP_TICKS_SS with %lu ticks (%lu ms)\n", (unsigned long)kbdev->js_hard_stop_ticks_ss, js_hard_stop_ms_ss);
-		dev_dbg(kbdev->dev, "Overriding KBASE_CONFIG_ATTR_JS_HARD_STOP_TICKS_CL with %lu ticks (%lu ms)\n", (unsigned long)kbdev->js_hard_stop_ticks_cl, js_hard_stop_ms_cl);
-		dev_dbg(kbdev->dev, "Overriding KBASE_CONFIG_ATTR_JS_HARD_STOP_TICKS_NSS with %lu ticks (%lu ms)\n", (unsigned long)kbdev->js_hard_stop_ticks_nss, js_hard_stop_ms_nss);
-		dev_dbg(kbdev->dev, "Overriding KBASE_CONFIG_ATTR_JS_RESET_TICKS_SS with %lu ticks (%lu ms)\n", (unsigned long)kbdev->js_reset_ticks_ss, js_reset_ms_ss);
-		dev_dbg(kbdev->dev, "Overriding KBASE_CONFIG_ATTR_JS_RESET_TICKS_CL with %lu ticks (%lu ms)\n", (unsigned long)kbdev->js_reset_ticks_cl, js_reset_ms_cl);
-		dev_dbg(kbdev->dev, "Overriding KBASE_CONFIG_ATTR_JS_RESET_TICKS_NSS with %lu ticks (%lu ms)\n", (unsigned long)kbdev->js_reset_ticks_nss, js_reset_ms_nss);
+		spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
 		return count;
-	} else {
-		dev_err(kbdev->dev, "Couldn't process js_timeouts write operation.\nUse format " "<soft_stop_ms> <hard_stop_ms_ss> <hard_stop_ms_nss> <reset_ms_ss> <reset_ms_nss>\n");
-		return -EINVAL;
 	}
+
+	dev_err(kbdev->dev, "Couldn't process js_timeouts write operation.\n"
+			"Use format <soft_stop_ms> <soft_stop_ms_cl> <hard_stop_ms_ss> <hard_stop_ms_cl> <hard_stop_ms_dumping> <reset_ms_ss> <reset_ms_cl> <reset_ms_dumping>\n"
+			"Write 0 for no change, -1 to restore default timeout\n");
+	return -EINVAL;
+}
+
+static unsigned long get_js_timeout_in_ms(
+		u32 scheduling_period_ns,
+		u32 ticks)
+{
+	u64 ms = (u64)ticks * scheduling_period_ns;
+
+	do_div(ms, 1000000UL);
+	return ms;
 }
 
 /** Show callback for the @c js_timeouts sysfs file.
  *
  * This function is called to get the contents of the @c js_timeouts sysfs
  * file. It returns the last set values written to the js_timeouts sysfs file.
- * If the file didn't get written yet, the values will be 0.
- *
+ * If the file didn't get written yet, the values will be current setting in
+ * use.
  * @param dev	The device this sysfs file is for
  * @param attr	The attributes of the sysfs file
  * @param buf	The output buffer for the sysfs file contents
@@ -2196,57 +2109,42 @@ static ssize_t show_js_timeouts(struct device *dev, struct device_attribute *att
 {
 	struct kbase_device *kbdev;
 	ssize_t ret;
-	u64 ms;
 	unsigned long js_soft_stop_ms;
 	unsigned long js_soft_stop_ms_cl;
 	unsigned long js_hard_stop_ms_ss;
 	unsigned long js_hard_stop_ms_cl;
-	unsigned long js_hard_stop_ms_nss;
+	unsigned long js_hard_stop_ms_dumping;
 	unsigned long js_reset_ms_ss;
 	unsigned long js_reset_ms_cl;
-	unsigned long js_reset_ms_nss;
+	unsigned long js_reset_ms_dumping;
+	u32 scheduling_period_ns;
 
 	kbdev = to_kbase_device(dev);
 	if (!kbdev)
 		return -ENODEV;
 
-	ms = (u64) kbdev->js_soft_stop_ticks * kbdev->js_data.scheduling_tick_ns;
-	do_div(ms, 1000000UL);
-	js_soft_stop_ms = (unsigned long)ms;
+	scheduling_period_ns = kbdev->js_data.scheduling_period_ns;
 
-	ms = (u64) kbdev->js_soft_stop_ticks_cl * kbdev->js_data.scheduling_tick_ns;
-	do_div(ms, 1000000UL);
-	js_soft_stop_ms_cl = (unsigned long)ms;
+#define GET_TIMEOUT(name) get_js_timeout_in_ms(\
+		scheduling_period_ns, \
+		kbdev->js_data.name)
 
-	ms = (u64) kbdev->js_hard_stop_ticks_ss * kbdev->js_data.scheduling_tick_ns;
-	do_div(ms, 1000000UL);
-	js_hard_stop_ms_ss = (unsigned long)ms;
+	js_soft_stop_ms = GET_TIMEOUT(soft_stop_ticks);
+	js_soft_stop_ms_cl = GET_TIMEOUT(soft_stop_ticks_cl);
+	js_hard_stop_ms_ss = GET_TIMEOUT(hard_stop_ticks_ss);
+	js_hard_stop_ms_cl = GET_TIMEOUT(hard_stop_ticks_cl);
+	js_hard_stop_ms_dumping = GET_TIMEOUT(hard_stop_ticks_dumping);
+	js_reset_ms_ss = GET_TIMEOUT(gpu_reset_ticks_ss);
+	js_reset_ms_cl = GET_TIMEOUT(gpu_reset_ticks_cl);
+	js_reset_ms_dumping = GET_TIMEOUT(gpu_reset_ticks_dumping);
 
-	ms = (u64) kbdev->js_hard_stop_ticks_cl * kbdev->js_data.scheduling_tick_ns;
-	do_div(ms, 1000000UL);
-	js_hard_stop_ms_cl = (unsigned long)ms;
-
-	ms = (u64) kbdev->js_hard_stop_ticks_nss * kbdev->js_data.scheduling_tick_ns;
-	do_div(ms, 1000000UL);
-	js_hard_stop_ms_nss = (unsigned long)ms;
-
-	ms = (u64) kbdev->js_reset_ticks_ss * kbdev->js_data.scheduling_tick_ns;
-	do_div(ms, 1000000UL);
-	js_reset_ms_ss = (unsigned long)ms;
-
-	ms = (u64) kbdev->js_reset_ticks_cl * kbdev->js_data.scheduling_tick_ns;
-	do_div(ms, 1000000UL);
-	js_reset_ms_cl = (unsigned long)ms;
-
-	ms = (u64) kbdev->js_reset_ticks_nss * kbdev->js_data.scheduling_tick_ns;
-	do_div(ms, 1000000UL);
-	js_reset_ms_nss = (unsigned long)ms;
+#undef GET_TIMEOUT
 
 	ret = scnprintf(buf, PAGE_SIZE, "%lu %lu %lu %lu %lu %lu %lu %lu\n",
 			js_soft_stop_ms, js_soft_stop_ms_cl,
 			js_hard_stop_ms_ss, js_hard_stop_ms_cl,
-			js_hard_stop_ms_nss, js_reset_ms_ss,
-			js_reset_ms_cl, js_reset_ms_nss);
+			js_hard_stop_ms_dumping, js_reset_ms_ss,
+			js_reset_ms_cl, js_reset_ms_dumping);
 
 	if (ret >= PAGE_SIZE) {
 		buf[PAGE_SIZE - 2] = '\n';
@@ -2260,19 +2158,143 @@ static ssize_t show_js_timeouts(struct device *dev, struct device_attribute *att
 /** The sysfs file @c js_timeouts.
  *
  * This is used to override the current job scheduler values for
- * KBASE_CONFIG_ATTR_JS_STOP_STOP_TICKS_SS
- * KBASE_CONFIG_ATTR_JS_STOP_STOP_TICKS_CL
- * KBASE_CONFIG_ATTR_JS_HARD_STOP_TICKS_SS
- * KBASE_CONFIG_ATTR_JS_HARD_STOP_TICKS_CL
- * KBASE_CONFIG_ATTR_JS_HARD_STOP_TICKS_NSS
- * KBASE_CONFIG_ATTR_JS_RESET_TICKS_SS
- * KBASE_CONFIG_ATTR_JS_RESET_TICKS_CL
- * KBASE_CONFIG_ATTR_JS_RESET_TICKS_NSS.
+ * JS_STOP_STOP_TICKS_SS
+ * JS_STOP_STOP_TICKS_CL
+ * JS_HARD_STOP_TICKS_SS
+ * JS_HARD_STOP_TICKS_CL
+ * JS_HARD_STOP_TICKS_DUMPING
+ * JS_RESET_TICKS_SS
+ * JS_RESET_TICKS_CL
+ * JS_RESET_TICKS_DUMPING.
  */
 static DEVICE_ATTR(js_timeouts, S_IRUGO | S_IWUSR, show_js_timeouts, set_js_timeouts);
 
+static u32 get_new_js_timeout(
+		u32 old_period,
+		u32 old_ticks,
+		u32 new_scheduling_period_ns)
+{
+	u64 ticks = (u64)old_period * (u64)old_ticks;
+	do_div(ticks, new_scheduling_period_ns);
+	return ticks?ticks:1;
+}
 
+/**
+ * set_js_scheduling_period - Store callback for the js_scheduling_period sysfs
+ *                            file
+ * @dev:   The device the sysfs file is for
+ * @attr:  The attributes of the sysfs file
+ * @buf:   The value written to the sysfs file
+ * @count: The number of bytes written to the sysfs file
+ *
+ * This function is called when the js_scheduling_period sysfs file is written
+ * to. It checks the data written, and if valid updates the js_scheduling_period
+ * value
+ *
+ * Return: @c count if the function succeeded. An error code on failure.
+ */
+static ssize_t set_js_scheduling_period(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct kbase_device *kbdev;
+	int ret;
+	unsigned int js_scheduling_period;
+	u32 new_scheduling_period_ns;
+	u32 old_period;
+	struct kbasep_js_device_data *js_data;
+	unsigned long flags;
 
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	js_data = &kbdev->js_data;
+
+	ret = kstrtouint(buf, 0, &js_scheduling_period);
+	if (ret || !js_scheduling_period) {
+		dev_err(kbdev->dev, "Couldn't process js_scheduling_period write operation.\n"
+				"Use format <js_scheduling_period_ms>\n");
+		return -EINVAL;
+	}
+
+	new_scheduling_period_ns = js_scheduling_period * 1000000;
+
+	/* Update scheduling timeouts */
+	mutex_lock(&js_data->runpool_mutex);
+	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+
+	/* If no contexts have been scheduled since js_timeouts was last written
+	 * to, the new timeouts might not have been latched yet. So check if an
+	 * update is pending and use the new values if necessary. */
+
+	/* Use previous 'new' scheduling period as a base if present. */
+	old_period = js_data->scheduling_period_ns;
+
+#define SET_TIMEOUT(name) \
+		(js_data->name = get_new_js_timeout(\
+				old_period, \
+				kbdev->js_data.name, \
+				new_scheduling_period_ns))
+
+	SET_TIMEOUT(soft_stop_ticks);
+	SET_TIMEOUT(soft_stop_ticks_cl);
+	SET_TIMEOUT(hard_stop_ticks_ss);
+	SET_TIMEOUT(hard_stop_ticks_cl);
+	SET_TIMEOUT(hard_stop_ticks_dumping);
+	SET_TIMEOUT(gpu_reset_ticks_ss);
+	SET_TIMEOUT(gpu_reset_ticks_cl);
+	SET_TIMEOUT(gpu_reset_ticks_dumping);
+
+#undef SET_TIMEOUT
+
+	js_data->scheduling_period_ns = new_scheduling_period_ns;
+
+	kbase_js_set_timeouts(kbdev);
+
+	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+	mutex_unlock(&js_data->runpool_mutex);
+
+	dev_dbg(kbdev->dev, "JS scheduling period: %dms\n",
+			js_scheduling_period);
+
+	return count;
+}
+
+/**
+ * show_js_scheduling_period - Show callback for the js_scheduling_period sysfs
+ *                             entry.
+ * @dev:  The device this sysfs file is for.
+ * @attr: The attributes of the sysfs file.
+ * @buf:  The output buffer to receive the GPU information.
+ *
+ * This function is called to get the current period used for the JS scheduling
+ * period.
+ *
+ * Return: The number of bytes output to buf.
+ */
+static ssize_t show_js_scheduling_period(struct device *dev,
+		struct device_attribute *attr, char * const buf)
+{
+	struct kbase_device *kbdev;
+	u32 period;
+	ssize_t ret;
+
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	period = kbdev->js_data.scheduling_period_ns;
+
+	ret = scnprintf(buf, PAGE_SIZE, "%d\n",
+			period / 1000000);
+
+	return ret;
+}
+
+static DEVICE_ATTR(js_scheduling_period, S_IRUGO | S_IWUSR,
+		show_js_scheduling_period, set_js_scheduling_period);
+
+#if !MALI_CUSTOMER_RELEASE
 /** Store callback for the @c force_replay sysfs file.
  *
  * @param dev	The device with sysfs file is for
@@ -2295,19 +2317,19 @@ static ssize_t set_force_replay(struct device *dev, struct device_attribute *att
 		int items = sscanf(buf, "limit=%u", &force_replay_limit);
 
 		if (items == 1) {
-			kbdev->force_replay_random = MALI_FALSE;
+			kbdev->force_replay_random = false;
 			kbdev->force_replay_limit = force_replay_limit;
 			kbdev->force_replay_count = 0;
 
 			return count;
 		}
 	} else if (!strncmp("random_limit", buf, MIN(12, count))) {
-		kbdev->force_replay_random = MALI_TRUE;
+		kbdev->force_replay_random = true;
 		kbdev->force_replay_count = 0;
 
 		return count;
 	} else if (!strncmp("norandom_limit", buf, MIN(14, count))) {
-		kbdev->force_replay_random = MALI_FALSE;
+		kbdev->force_replay_random = false;
 		kbdev->force_replay_limit = KBASEP_FORCE_REPLAY_DISABLED;
 		kbdev->force_replay_count = 0;
 
@@ -2338,7 +2360,8 @@ static ssize_t set_force_replay(struct device *dev, struct device_attribute *att
  *
  * @return The number of bytes output to @c buf.
  */
-static ssize_t show_force_replay(struct device *dev, struct device_attribute *attr, char * const buf)
+static ssize_t show_force_replay(struct device *dev,
+		struct device_attribute *attr, char * const buf)
 {
 	struct kbase_device *kbdev;
 	ssize_t ret;
@@ -2369,32 +2392,38 @@ static ssize_t show_force_replay(struct device *dev, struct device_attribute *at
 /** The sysfs file @c force_replay.
  *
  */
-static DEVICE_ATTR(force_replay, S_IRUGO | S_IWUSR, show_force_replay, set_force_replay);
+static DEVICE_ATTR(force_replay, S_IRUGO | S_IWUSR, show_force_replay,
+		set_force_replay);
 #endif /* !MALI_CUSTOMER_RELEASE */
 
 #ifdef CONFIG_MALI_DEBUG
-static ssize_t set_js_softstop_always(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t set_js_softstop_always(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct kbase_device *kbdev;
-	int items;
+	int ret;
 	int softstop_always;
 
 	kbdev = to_kbase_device(dev);
 	if (!kbdev)
 		return -ENODEV;
 
-	items = sscanf(buf, "%d", &softstop_always);
-	if ((items == 1) && ((softstop_always == 0) || (softstop_always == 1))) {
-		kbdev->js_data.softstop_always = (mali_bool) softstop_always;
-		dev_dbg(kbdev->dev, "Support for softstop on a single context: %s\n", (kbdev->js_data.softstop_always == MALI_FALSE) ? "Disabled" : "Enabled");
-		return count;
-	} else {
-		dev_err(kbdev->dev, "Couldn't process js_softstop_always write operation.\nUse format " "<soft_stop_always>\n");
+	ret = kstrtoint(buf, 0, &softstop_always);
+	if (ret || ((softstop_always != 0) && (softstop_always != 1))) {
+		dev_err(kbdev->dev, "Couldn't process js_softstop_always write operation.\n"
+				"Use format <soft_stop_always>\n");
 		return -EINVAL;
 	}
+
+	kbdev->js_data.softstop_always = (bool) softstop_always;
+	dev_dbg(kbdev->dev, "Support for softstop on a single context: %s\n",
+			(kbdev->js_data.softstop_always) ?
+			"Enabled" : "Disabled");
+	return count;
 }
 
-static ssize_t show_js_softstop_always(struct device *dev, struct device_attribute *attr, char * const buf)
+static ssize_t show_js_softstop_always(struct device *dev,
+		struct device_attribute *attr, char * const buf)
 {
 	struct kbase_device *kbdev;
 	ssize_t ret;
@@ -2414,7 +2443,7 @@ static ssize_t show_js_softstop_always(struct device *dev, struct device_attribu
 	return ret;
 }
 
-/**
+/*
  * By default, soft-stops are disabled when only a single context is present. The ability to
  * enable soft-stop when only a single context is present can be used for debug and unit-testing purposes.
  * (see CL t6xx_stress_1 unit-test as an example whereby this feature is used.)
@@ -2524,6 +2553,404 @@ static ssize_t issue_debug(struct device *dev, struct device_attribute *attr, co
 static DEVICE_ATTR(debug_command, S_IRUGO | S_IWUSR, show_debug, issue_debug);
 #endif /* CONFIG_MALI_DEBUG */
 
+/**
+ * kbase_show_gpuinfo - Show callback for the gpuinfo sysfs entry.
+ * @dev: The device this sysfs file is for.
+ * @attr: The attributes of the sysfs file.
+ * @buf: The output buffer to receive the GPU information.
+ *
+ * This function is called to get a description of the present Mali
+ * GPU via the gpuinfo sysfs entry.  This includes the GPU family, the
+ * number of cores, the hardware version and the raw product id.  For
+ * example:
+ *
+ *    Mali-T60x MP4 r0p0 0x6956
+ *
+ * Return: The number of bytes output to buf.
+ */
+static ssize_t kbase_show_gpuinfo(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	static const struct gpu_product_id_name {
+		unsigned id;
+		char *name;
+	} gpu_product_id_names[] = {
+		{ .id = GPU_ID_PI_T60X, .name = "Mali-T60x" },
+		{ .id = GPU_ID_PI_T62X, .name = "Mali-T62x" },
+		{ .id = GPU_ID_PI_T72X, .name = "Mali-T72x" },
+		{ .id = GPU_ID_PI_T76X, .name = "Mali-T76x" },
+		{ .id = GPU_ID_PI_T82X, .name = "Mali-T82x" },
+		{ .id = GPU_ID_PI_T83X, .name = "Mali-T83x" },
+		{ .id = GPU_ID_PI_T86X, .name = "Mali-T86x" },
+		{ .id = GPU_ID_PI_TFRX, .name = "Mali-T88x" },
+		{ .id = GPU_ID2_PRODUCT_TMIX >> GPU_ID_VERSION_PRODUCT_ID_SHIFT,
+		  .name = "Mali-G71" },
+		{ .id = GPU_ID2_PRODUCT_THEX >> GPU_ID_VERSION_PRODUCT_ID_SHIFT,
+		  .name = "Mali-THEx" },
+	};
+	const char *product_name = "(Unknown Mali GPU)";
+	struct kbase_device *kbdev;
+	u32 gpu_id;
+	unsigned product_id, product_id_mask;
+	unsigned i;
+	bool is_new_format;
+
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	gpu_id = kbdev->gpu_props.props.raw_props.gpu_id;
+	product_id = gpu_id >> GPU_ID_VERSION_PRODUCT_ID_SHIFT;
+	is_new_format = GPU_ID_IS_NEW_FORMAT(product_id);
+	product_id_mask =
+		(is_new_format ?
+			GPU_ID2_PRODUCT_MODEL :
+			GPU_ID_VERSION_PRODUCT_ID) >>
+		GPU_ID_VERSION_PRODUCT_ID_SHIFT;
+
+	for (i = 0; i < ARRAY_SIZE(gpu_product_id_names); ++i) {
+		const struct gpu_product_id_name *p = &gpu_product_id_names[i];
+
+		if ((GPU_ID_IS_NEW_FORMAT(p->id) == is_new_format) &&
+		    (p->id & product_id_mask) ==
+		    (product_id & product_id_mask)) {
+			product_name = p->name;
+			break;
+		}
+	}
+
+	return scnprintf(buf, PAGE_SIZE, "%s MP%d r%dp%d 0x%04X\n",
+		product_name, kbdev->gpu_props.num_cores,
+		(gpu_id & GPU_ID_VERSION_MAJOR) >> GPU_ID_VERSION_MAJOR_SHIFT,
+		(gpu_id & GPU_ID_VERSION_MINOR) >> GPU_ID_VERSION_MINOR_SHIFT,
+		product_id);
+}
+static DEVICE_ATTR(gpuinfo, S_IRUGO, kbase_show_gpuinfo, NULL);
+
+/**
+ * set_dvfs_period - Store callback for the dvfs_period sysfs file.
+ * @dev:   The device with sysfs file is for
+ * @attr:  The attributes of the sysfs file
+ * @buf:   The value written to the sysfs file
+ * @count: The number of bytes written to the sysfs file
+ *
+ * This function is called when the dvfs_period sysfs file is written to. It
+ * checks the data written, and if valid updates the DVFS period variable,
+ *
+ * Return: @c count if the function succeeded. An error code on failure.
+ */
+static ssize_t set_dvfs_period(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct kbase_device *kbdev;
+	int ret;
+	int dvfs_period;
+
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	ret = kstrtoint(buf, 0, &dvfs_period);
+	if (ret || dvfs_period <= 0) {
+		dev_err(kbdev->dev, "Couldn't process dvfs_period write operation.\n"
+				"Use format <dvfs_period_ms>\n");
+		return -EINVAL;
+	}
+
+	kbdev->pm.dvfs_period = dvfs_period;
+	dev_dbg(kbdev->dev, "DVFS period: %dms\n", dvfs_period);
+
+	return count;
+}
+
+/**
+ * show_dvfs_period - Show callback for the dvfs_period sysfs entry.
+ * @dev:  The device this sysfs file is for.
+ * @attr: The attributes of the sysfs file.
+ * @buf:  The output buffer to receive the GPU information.
+ *
+ * This function is called to get the current period used for the DVFS sample
+ * timer.
+ *
+ * Return: The number of bytes output to buf.
+ */
+static ssize_t show_dvfs_period(struct device *dev,
+		struct device_attribute *attr, char * const buf)
+{
+	struct kbase_device *kbdev;
+	ssize_t ret;
+
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	ret = scnprintf(buf, PAGE_SIZE, "%d\n", kbdev->pm.dvfs_period);
+
+	return ret;
+}
+
+static DEVICE_ATTR(dvfs_period, S_IRUGO | S_IWUSR, show_dvfs_period,
+		set_dvfs_period);
+
+/**
+ * set_pm_poweroff - Store callback for the pm_poweroff sysfs file.
+ * @dev:   The device with sysfs file is for
+ * @attr:  The attributes of the sysfs file
+ * @buf:   The value written to the sysfs file
+ * @count: The number of bytes written to the sysfs file
+ *
+ * This function is called when the pm_poweroff sysfs file is written to.
+ *
+ * This file contains three values separated by whitespace. The values
+ * are gpu_poweroff_time (the period of the poweroff timer, in ns),
+ * poweroff_shader_ticks (the number of poweroff timer ticks before an idle
+ * shader is powered off), and poweroff_gpu_ticks (the number of poweroff timer
+ * ticks before the GPU is powered off), in that order.
+ *
+ * Return: @c count if the function succeeded. An error code on failure.
+ */
+static ssize_t set_pm_poweroff(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct kbase_device *kbdev;
+	int items;
+	s64 gpu_poweroff_time;
+	int poweroff_shader_ticks, poweroff_gpu_ticks;
+
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	items = sscanf(buf, "%llu %u %u", &gpu_poweroff_time,
+			&poweroff_shader_ticks,
+			&poweroff_gpu_ticks);
+	if (items != 3) {
+		dev_err(kbdev->dev, "Couldn't process pm_poweroff write operation.\n"
+				"Use format <gpu_poweroff_time_ns> <poweroff_shader_ticks> <poweroff_gpu_ticks>\n");
+		return -EINVAL;
+	}
+
+	kbdev->pm.gpu_poweroff_time = HR_TIMER_DELAY_NSEC(gpu_poweroff_time);
+	kbdev->pm.poweroff_shader_ticks = poweroff_shader_ticks;
+	kbdev->pm.poweroff_gpu_ticks = poweroff_gpu_ticks;
+
+	return count;
+}
+
+/**
+ * show_pm_poweroff - Show callback for the pm_poweroff sysfs entry.
+ * @dev:  The device this sysfs file is for.
+ * @attr: The attributes of the sysfs file.
+ * @buf:  The output buffer to receive the GPU information.
+ *
+ * This function is called to get the current period used for the DVFS sample
+ * timer.
+ *
+ * Return: The number of bytes output to buf.
+ */
+static ssize_t show_pm_poweroff(struct device *dev,
+		struct device_attribute *attr, char * const buf)
+{
+	struct kbase_device *kbdev;
+	ssize_t ret;
+
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	ret = scnprintf(buf, PAGE_SIZE, "%llu %u %u\n",
+			ktime_to_ns(kbdev->pm.gpu_poweroff_time),
+			kbdev->pm.poweroff_shader_ticks,
+			kbdev->pm.poweroff_gpu_ticks);
+
+	return ret;
+}
+
+static DEVICE_ATTR(pm_poweroff, S_IRUGO | S_IWUSR, show_pm_poweroff,
+		set_pm_poweroff);
+
+/**
+ * set_reset_timeout - Store callback for the reset_timeout sysfs file.
+ * @dev:   The device with sysfs file is for
+ * @attr:  The attributes of the sysfs file
+ * @buf:   The value written to the sysfs file
+ * @count: The number of bytes written to the sysfs file
+ *
+ * This function is called when the reset_timeout sysfs file is written to. It
+ * checks the data written, and if valid updates the reset timeout.
+ *
+ * Return: @c count if the function succeeded. An error code on failure.
+ */
+static ssize_t set_reset_timeout(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct kbase_device *kbdev;
+	int ret;
+	int reset_timeout;
+
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	ret = kstrtoint(buf, 0, &reset_timeout);
+	if (ret || reset_timeout <= 0) {
+		dev_err(kbdev->dev, "Couldn't process reset_timeout write operation.\n"
+				"Use format <reset_timeout_ms>\n");
+		return -EINVAL;
+	}
+
+	kbdev->reset_timeout_ms = reset_timeout;
+	dev_dbg(kbdev->dev, "Reset timeout: %dms\n", reset_timeout);
+
+	return count;
+}
+
+/**
+ * show_reset_timeout - Show callback for the reset_timeout sysfs entry.
+ * @dev:  The device this sysfs file is for.
+ * @attr: The attributes of the sysfs file.
+ * @buf:  The output buffer to receive the GPU information.
+ *
+ * This function is called to get the current reset timeout.
+ *
+ * Return: The number of bytes output to buf.
+ */
+static ssize_t show_reset_timeout(struct device *dev,
+		struct device_attribute *attr, char * const buf)
+{
+	struct kbase_device *kbdev;
+	ssize_t ret;
+
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	ret = scnprintf(buf, PAGE_SIZE, "%d\n", kbdev->reset_timeout_ms);
+
+	return ret;
+}
+
+static DEVICE_ATTR(reset_timeout, S_IRUGO | S_IWUSR, show_reset_timeout,
+		set_reset_timeout);
+
+
+
+static ssize_t show_mem_pool_size(struct device *dev,
+		struct device_attribute *attr, char * const buf)
+{
+	struct kbase_device *kbdev;
+	ssize_t ret;
+
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	ret = scnprintf(buf, PAGE_SIZE, "%zu\n",
+			kbase_mem_pool_size(&kbdev->mem_pool));
+
+	return ret;
+}
+
+static ssize_t set_mem_pool_size(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct kbase_device *kbdev;
+	size_t new_size;
+	int err;
+
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	err = kstrtoul(buf, 0, (unsigned long *)&new_size);
+	if (err)
+		return err;
+
+	kbase_mem_pool_trim(&kbdev->mem_pool, new_size);
+
+	return count;
+}
+
+static DEVICE_ATTR(mem_pool_size, S_IRUGO | S_IWUSR, show_mem_pool_size,
+		set_mem_pool_size);
+
+static ssize_t show_mem_pool_max_size(struct device *dev,
+		struct device_attribute *attr, char * const buf)
+{
+	struct kbase_device *kbdev;
+	ssize_t ret;
+
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	ret = scnprintf(buf, PAGE_SIZE, "%zu\n",
+			kbase_mem_pool_max_size(&kbdev->mem_pool));
+
+	return ret;
+}
+
+static ssize_t set_mem_pool_max_size(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct kbase_device *kbdev;
+	size_t new_max_size;
+	int err;
+
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	err = kstrtoul(buf, 0, (unsigned long *)&new_max_size);
+	if (err)
+		return -EINVAL;
+
+	kbase_mem_pool_set_max_size(&kbdev->mem_pool, new_max_size);
+
+	return count;
+}
+
+static DEVICE_ATTR(mem_pool_max_size, S_IRUGO | S_IWUSR, show_mem_pool_max_size,
+		set_mem_pool_max_size);
+
+
+static int kbasep_protected_mode_enter(struct kbase_device *kbdev)
+{
+	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_COMMAND),
+		GPU_COMMAND_SET_PROTECTED_MODE, NULL);
+	return 0;
+}
+
+static bool kbasep_protected_mode_supported(struct kbase_device *kbdev)
+{
+	return true;
+}
+
+static struct kbase_protected_ops kbasep_protected_ops = {
+	.protected_mode_enter = kbasep_protected_mode_enter,
+	.protected_mode_reset = NULL,
+	.protected_mode_supported = kbasep_protected_mode_supported,
+};
+
+static void kbasep_protected_mode_init(struct kbase_device *kbdev)
+{
+	kbdev->protected_ops = NULL;
+
+	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_PROTECTED_MODE)) {
+		/* Use native protected ops */
+		kbdev->protected_ops = &kbasep_protected_ops;
+	}
+#ifdef PROTECTED_CALLBACKS
+	else
+		kbdev->protected_ops = PROTECTED_CALLBACKS;
+#endif
+
+	if (kbdev->protected_ops)
+		kbdev->protected_mode_support =
+				kbdev->protected_ops->protected_mode_supported(kbdev);
+	else
+		kbdev->protected_mode_support = false;
+}
 
 #ifdef CONFIG_MALI_NO_MALI
 static int kbase_common_reg_map(struct kbase_device *kbdev)
@@ -2538,8 +2965,7 @@ static int kbase_common_reg_map(struct kbase_device *kbdev)
 {
 	int err = -ENOMEM;
 
-	kbdev->reg_res = request_mem_region(kbdev->reg_start, kbdev->reg_size, dev_name(kbdev->dev));
-	if (!kbdev->reg_res) {
+	if (!request_mem_region(kbdev->reg_start, kbdev->reg_size, dev_name(kbdev->dev))) {
 		dev_err(kbdev->dev, "Register window unavailable\n");
 		err = -EIO;
 		goto out_region;
@@ -2555,566 +2981,808 @@ static int kbase_common_reg_map(struct kbase_device *kbdev)
 	return 0;
 
  out_ioremap:
-	release_resource(kbdev->reg_res);
-	kfree(kbdev->reg_res);
+	release_mem_region(kbdev->reg_start, kbdev->reg_size);
  out_region:
 	return err;
 }
 
 static void kbase_common_reg_unmap(struct kbase_device * const kbdev)
 {
-	iounmap(kbdev->reg);
-	release_resource(kbdev->reg_res);
-	kfree(kbdev->reg_res);
+	if (kbdev->reg) {
+		iounmap(kbdev->reg);
+		release_mem_region(kbdev->reg_start, kbdev->reg_size);
+		kbdev->reg = NULL;
+		kbdev->reg_start = 0;
+		kbdev->reg_size = 0;
+	}
 }
 #endif /* CONFIG_MALI_NO_MALI */
 
-static int kbase_common_device_init(struct kbase_device *kbdev)
+static int registers_map(struct kbase_device * const kbdev)
 {
-	int err = -ENOMEM;
-	mali_error mali_err;
-	enum {
-		inited_mem = (1u << 0),
-		inited_job_slot = (1u << 1),
-		inited_pm = (1u << 2),
-		inited_js = (1u << 3),
-		inited_irqs = (1u << 4),
-		inited_debug = (1u << 5),
-		inited_js_softstop = (1u << 6),
-#if !MALI_CUSTOMER_RELEASE
-		inited_js_timeouts = (1u << 7),
-		inited_force_replay = (1u << 13),
-#endif /* !MALI_CUSTOMER_RELEASE */
-		inited_pm_runtime_init = (1u << 8),
-#ifdef CONFIG_DEBUG_FS
-		inited_gpu_memory = (1u << 9),
-#endif /* CONFIG_DEBUG_FS */
-#ifdef CONFIG_MALI_DEBUG_SHADER_SPLIT_FS
-		inited_sc_split = (1u << 11),
-#endif /* CONFIG_MALI_DEBUG_SHADER_SPLIT_FS */
-#ifdef CONFIG_MALI_TRACE_TIMELINE
-		inited_timeline = (1u << 12),
-#endif /* CONFIG_MALI_TRACE_LINE */
-		inited_pm_powerup = (1u << 14),
-	};
 
-	int inited = 0;
+		/* the first memory resource is the physical address of the GPU
+		 * registers */
+		struct platform_device *pdev = to_platform_device(kbdev->dev);
+		struct resource *reg_res;
+		int err;
 
-	dev_set_drvdata(kbdev->dev, kbdev);
-
-	kbdev->mdev.minor = MISC_DYNAMIC_MINOR;
-	kbdev->mdev.name = kbdev->devname;
-	kbdev->mdev.fops = &kbase_fops;
-	kbdev->mdev.parent = get_device(kbdev->dev);
-
-	kbase_disjoint_init(kbdev);
-
-	scnprintf(kbdev->devname, DEVNAME_SIZE, "%s%d", kbase_drv_name, kbase_dev_nr++);
-
-	if (misc_register(&kbdev->mdev)) {
-		dev_err(kbdev->dev, "Couldn't register misc dev %s\n", kbdev->devname);
-		err = -EINVAL;
-		goto out_misc;
-	}
-#if KBASE_PM_EN
-	if (device_create_file(kbdev->dev, &dev_attr_power_policy)) {
-		dev_err(kbdev->dev, "Couldn't create power_policy sysfs file\n");
-		goto out_file;
-	}
-
-	if (device_create_file(kbdev->dev, &dev_attr_core_availability_policy)) {
-		dev_err(kbdev->dev, "Couldn't create core_availability_policy sysfs file\n");
-		goto out_file_core_availability_policy;
-	}
-
-	if (device_create_file(kbdev->dev, &dev_attr_core_mask)) {
-		dev_err(kbdev->dev, "Couldn't create core_mask sysfs file\n");
-		goto out_file_core_mask;
-	}
-#endif /* KBASE_PM_EN */
-	down(&kbase_dev_list_lock);
-	list_add(&kbdev->entry, &kbase_dev_list);
-	up(&kbase_dev_list_lock);
-	dev_info(kbdev->dev, "Probed as %s\n", dev_name(kbdev->mdev.this_device));
-
-	mali_err = kbase_pm_init(kbdev);
-	if (MALI_ERROR_NONE != mali_err)
-		goto out_partial;
-
-	inited |= inited_pm;
-
-	if (kbdev->pm.callback_power_runtime_init) {
-		mali_err = kbdev->pm.callback_power_runtime_init(kbdev);
-		if (MALI_ERROR_NONE != mali_err)
-			goto out_partial;
-
-		inited |= inited_pm_runtime_init;
-	}
-
-	mali_err = kbase_mem_init(kbdev);
-	if (MALI_ERROR_NONE != mali_err)
-		goto out_partial;
-
-	inited |= inited_mem;
-
-	mali_err = kbase_job_slot_init(kbdev);
-	if (MALI_ERROR_NONE != mali_err)
-		goto out_partial;
-
-	inited |= inited_job_slot;
-
-	mali_err = kbasep_js_devdata_init(kbdev);
-	if (MALI_ERROR_NONE != mali_err)
-		goto out_partial;
-
-	inited |= inited_js;
-
-	err = kbase_install_interrupts(kbdev);
-	if (err)
-		goto out_partial;
-
-	inited |= inited_irqs;
-
-#ifdef CONFIG_MALI_DEBUG_SHADER_SPLIT_FS
-	if (device_create_file(kbdev->dev, &dev_attr_sc_split)) {
-		dev_err(kbdev->dev, "Couldn't create sc_split sysfs file\n");
-		goto out_partial;
-	}
-
-	inited |= inited_sc_split;
-#endif /* CONFIG_MALI_DEBUG_SHADER_SPLIT_FS */
-
-#ifdef CONFIG_DEBUG_FS
-	if (kbasep_gpu_memory_debugfs_init(kbdev)) {
-		dev_err(kbdev->dev, "Couldn't create gpu_memory debugfs file\n");
-		goto out_partial;
-	}
-	inited |= inited_gpu_memory;
-#endif /* CONFIG_DEBUG_FS */
-
-#ifdef CONFIG_MALI_DEBUG
-
-	if (device_create_file(kbdev->dev, &dev_attr_debug_command)) {
-		dev_err(kbdev->dev, "Couldn't create debug_command sysfs file\n");
-		goto out_partial;
-	}
-	inited |= inited_debug;
-
-	if (device_create_file(kbdev->dev, &dev_attr_js_softstop_always)) {
-		dev_err(kbdev->dev, "Couldn't create js_softstop_always sysfs file\n");
-		goto out_partial;
-	}
-	inited |= inited_js_softstop;
-#endif /* CONFIG_MALI_DEBUG */
-
-#if !MALI_CUSTOMER_RELEASE
-	if (device_create_file(kbdev->dev, &dev_attr_js_timeouts)) {
-		dev_err(kbdev->dev, "Couldn't create js_timeouts sysfs file\n");
-		goto out_partial;
-	}
-	inited |= inited_js_timeouts;
-
-	if (device_create_file(kbdev->dev, &dev_attr_force_replay)) {
-		dev_err(kbdev->dev, "Couldn't create force_replay sysfs file\n");
-		goto out_partial;
-	}
-	inited |= inited_force_replay;
-#endif /* !MALI_CUSTOMER_RELEASE */
-
-#ifdef CONFIG_MALI_TRACE_TIMELINE
-	if (kbasep_trace_timeline_debugfs_init(kbdev)) {
-		dev_err(kbdev->dev, "Couldn't create mali_timeline_defs debugfs file\n");
-		goto out_partial;
-	}
-	inited |= inited_timeline;
-#endif /* CONFIG_MALI_TRACE_TIMELINE */
-
-#ifdef CONFIG_MALI_DEVFREQ
-	kbase_devfreq_init(kbdev);
-#endif
-
-	mali_err = kbase_pm_powerup(kbdev);
-	if (MALI_ERROR_NONE == mali_err) {
-		inited |= inited_pm_powerup;
-#ifdef CONFIG_MALI_DEBUG
-#if !defined(CONFIG_MALI_NO_MALI)
-		if (MALI_ERROR_NONE != kbasep_common_test_interrupt_handlers(kbdev)) {
-			dev_err(kbdev->dev, "Interrupt assigment check failed.\n");
-			err = -EINVAL;
-			goto out_partial;
+		reg_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		if (!reg_res) {
+			dev_err(kbdev->dev, "Invalid register resource\n");
+			return -ENOENT;
 		}
-#endif /* CONFIG_MALI_NO_MALI */
-#endif /* CONFIG_MALI_DEBUG */
-		/* intialise the kctx list */
-		mutex_init(&kbdev->kctx_list_lock);
-		INIT_LIST_HEAD(&kbdev->kctx_list);
-		return 0;
-	} else {
-		/* Failed to power up the GPU. */
-		dev_err(kbdev->dev, "GPU power up failed.\n");
-		err = -ENODEV;
-	}
 
- out_partial:
-#ifdef CONFIG_MALI_TRACE_TIMELINE
-	if (inited & inited_timeline)
-		kbasep_trace_timeline_debugfs_term(kbdev);
-#endif /* CONFIG_MALI_TRACE_TIMELINE */
-#if !MALI_CUSTOMER_RELEASE
-	if (inited & inited_force_replay)
-		device_remove_file(kbdev->dev, &dev_attr_force_replay);
-	if (inited & inited_js_timeouts)
-		device_remove_file(kbdev->dev, &dev_attr_js_timeouts);
-#endif /* !MALI_CUSTOMER_RELEASE */
-#ifdef CONFIG_MALI_DEBUG
-	if (inited & inited_js_softstop)
-		device_remove_file(kbdev->dev, &dev_attr_js_softstop_always);
+		kbdev->reg_start = reg_res->start;
+		kbdev->reg_size = resource_size(reg_res);
 
-	if (inited & inited_debug)
-		device_remove_file(kbdev->dev, &dev_attr_debug_command);
+		err = kbase_common_reg_map(kbdev);
+		if (err) {
+			dev_err(kbdev->dev, "Failed to map registers\n");
+			return err;
+		}
 
-#endif /* CONFIG_MALI_DEBUG */
-
-#ifdef CONFIG_DEBUG_FS
-	if (inited & inited_gpu_memory)
-		kbasep_gpu_memory_debugfs_term(kbdev);
-#endif /* CONFIG_DEBUG_FS */
-
-#ifdef CONFIG_MALI_DEBUG_SHADER_SPLIT_FS
-	if (inited & inited_sc_split)
-		device_remove_file(kbdev->dev, &dev_attr_sc_split);
-#endif /* CONFIG_MALI_DEBUG_SHADER_SPLIT_FS */
-
-	if (inited & inited_js)
-		kbasep_js_devdata_halt(kbdev);
-
-	if (inited & inited_job_slot)
-		kbase_job_slot_halt(kbdev);
-
-	if (inited & inited_mem)
-		kbase_mem_halt(kbdev);
-
-	if (inited & inited_pm_powerup)
-		kbase_pm_halt(kbdev);
-
-	if (inited & inited_irqs)
-		kbase_release_interrupts(kbdev);
-
-	if (inited & inited_js)
-		kbasep_js_devdata_term(kbdev);
-
-	if (inited & inited_job_slot)
-		kbase_job_slot_term(kbdev);
-
-	if (inited & inited_mem)
-		kbase_mem_term(kbdev);
-
-	if (inited & inited_pm_runtime_init) {
-		if (kbdev->pm.callback_power_runtime_term)
-			kbdev->pm.callback_power_runtime_term(kbdev);
-	}
-
-	if (inited & inited_pm)
-		kbase_pm_term(kbdev);
-
-	down(&kbase_dev_list_lock);
-	list_del(&kbdev->entry);
-	up(&kbase_dev_list_lock);
-#if KBASE_PM_EN
-	device_remove_file(kbdev->dev, &dev_attr_core_mask);
- out_file_core_mask:
-	device_remove_file(kbdev->dev, &dev_attr_core_availability_policy);
- out_file_core_availability_policy:
-	device_remove_file(kbdev->dev, &dev_attr_power_policy);
- out_file:
-#endif /*KBASE_PM_EN*/
-	misc_deregister(&kbdev->mdev);
- out_misc:
-	put_device(kbdev->dev);
-	return err;
+	return 0;
 }
 
-
-static int kbase_platform_device_probe(struct platform_device *pdev)
+static void registers_unmap(struct kbase_device *kbdev)
 {
-	struct kbase_device *kbdev;
-	struct resource *reg_res;
-	struct kbase_attribute *platform_data;
-	int err;
-	int i;
-	struct mali_base_gpu_core_props *core_props;
-#ifdef CONFIG_MALI_NO_MALI
-	mali_error mali_err;
-#endif /* CONFIG_MALI_NO_MALI */
-#ifdef CONFIG_OF
-#ifdef CONFIG_MALI_PLATFORM_FAKE
-	struct kbase_platform_config *config;
-	int attribute_count;
+	kbase_common_reg_unmap(kbdev);
+}
 
-	config = kbase_get_platform_config();
-	attribute_count = kbasep_get_config_attribute_count(config->attributes);
+static int power_control_init(struct platform_device *pdev)
+{
+	struct kbase_device *kbdev = to_kbase_device(&pdev->dev);
+	int err = 0;
 
-	err = platform_device_add_data(pdev, config->attributes,
-			attribute_count * sizeof(config->attributes[0]));
-	if (err)
-		return err;
-#endif /* CONFIG_MALI_PLATFORM_FAKE */
-#endif /* CONFIG_OF */
+	if (!kbdev)
+		return -ENODEV;
 
-	kbdev = kbase_device_alloc();
-	if (!kbdev) {
-		dev_err(&pdev->dev, "Can't allocate device\n");
-		err = -ENOMEM;
-		goto out;
-	}
-#ifdef CONFIG_MALI_NO_MALI
-	mali_err = midg_device_create(kbdev);
-	if (MALI_ERROR_NONE != mali_err) {
-		dev_err(&pdev->dev, "Can't initialize dummy model\n");
-		err = -ENOMEM;
-		goto out_midg;
-	}
-#endif /* CONFIG_MALI_NO_MALI */
-
-	kbdev->dev = &pdev->dev;
-	platform_data = (struct kbase_attribute *)kbdev->dev->platform_data;
-
-	if (NULL == platform_data) {
-		dev_err(kbdev->dev, "Platform data not specified\n");
-		err = -ENOENT;
-		goto out_free_dev;
-	}
-
-	if (MALI_TRUE != kbasep_validate_configuration_attributes(kbdev, platform_data)) {
-		dev_err(kbdev->dev, "Configuration attributes failed to validate\n");
-		err = -EINVAL;
-		goto out_free_dev;
-	}
-	kbdev->config_attributes = platform_data;
-
-	/* 3 IRQ resources */
-	for (i = 0; i < 3; i++) {
-		struct resource *irq_res;
-		int irqtag;
-
-		irq_res = platform_get_resource(pdev, IORESOURCE_IRQ, i);
-		if (!irq_res) {
-			dev_err(kbdev->dev, "No IRQ resource at index %d\n", i);
-			err = -ENOENT;
-			goto out_free_dev;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0)) && defined(CONFIG_OF) \
+			&& defined(CONFIG_REGULATOR)
+	kbdev->regulator = regulator_get_optional(kbdev->dev, "mali");
+	if (IS_ERR_OR_NULL(kbdev->regulator)) {
+		err = PTR_ERR(kbdev->regulator);
+		kbdev->regulator = NULL;
+		if (err == -EPROBE_DEFER) {
+			dev_err(&pdev->dev, "Failed to get regulator\n");
+			return err;
 		}
-
-#ifdef CONFIG_OF
-		if (!strcmp(irq_res->name, "JOB")) {
-			irqtag = JOB_IRQ_TAG;
-		} else if (!strcmp(irq_res->name, "MMU")) {
-			irqtag = MMU_IRQ_TAG;
-		} else if (!strcmp(irq_res->name, "GPU")) {
-			irqtag = GPU_IRQ_TAG;
-		} else {
-			dev_err(&pdev->dev, "Invalid irq res name: '%s'\n",
-				irq_res->name);
-			err = -EINVAL;
-			goto out_free_dev;
-		}
-#else
-		irqtag = i;
-#endif /* CONFIG_OF */
-		kbdev->irqs[irqtag].irq = irq_res->start;
-		kbdev->irqs[irqtag].flags = (irq_res->flags & IRQF_TRIGGER_MASK);
+		dev_info(kbdev->dev,
+			"Continuing without Mali regulator control\n");
+		/* Allow probe to continue without regulator */
 	}
-
-	/* the first memory resource is the physical address of the GPU registers */
-	reg_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!reg_res) {
-		dev_err(kbdev->dev, "Invalid register resource\n");
-		err = -ENOENT;
-		goto out_free_dev;
-	}
-
-	kbdev->reg_start = reg_res->start;
-	kbdev->reg_size = resource_size(reg_res);
-
-	err = kbase_common_reg_map(kbdev);
-	if (err)
-		goto out_free_dev;
+#endif /* LINUX_VERSION_CODE >= 3, 12, 0 */
 
 	kbdev->clock = clk_get(kbdev->dev, "clk_mali");
 	if (IS_ERR_OR_NULL(kbdev->clock)) {
-		dev_info(kbdev->dev, "Continuing without Mali clock control\n");
+		err = PTR_ERR(kbdev->clock);
 		kbdev->clock = NULL;
+		if (err == -EPROBE_DEFER) {
+			dev_err(&pdev->dev, "Failed to get clock\n");
+			goto fail;
+		}
+		dev_info(kbdev->dev, "Continuing without Mali clock control\n");
 		/* Allow probe to continue without clock. */
 	} else {
 		err = clk_prepare_enable(kbdev->clock);
 		if (err) {
 			dev_err(kbdev->dev,
-				"Failed to prepare and enable clock (%d)\n", err);
-			goto out_clock_get;
+				"Failed to prepare and enable clock (%d)\n",
+				err);
+			goto fail;
 		}
 	}
 
-#ifdef CONFIG_DEBUG_FS
-	kbdev->mali_debugfs_directory = debugfs_create_dir("mali", NULL);
-	if (NULL == kbdev->mali_debugfs_directory) {
-		dev_err(kbdev->dev, "Couldn't create mali debugfs directory\n");
-		goto out_clock_enable;
-	}
-	kbdev->memory_profile_directory = debugfs_create_dir("mem",
-			kbdev->mali_debugfs_directory);
-	if (NULL == kbdev->memory_profile_directory) {
-		dev_err(kbdev->dev, "Couldn't create mali mem debugfs directory\n");
-		goto out_mali_debugfs_remove;
-	}
-	if (kbasep_jd_debugfs_init(kbdev)) {
-		dev_err(kbdev->dev, "Couldn't create mali jd debugfs entries\n");
-		goto out_mem_profile_remove;
-	}
-#endif /* CONFIG_DEBUG_FS */
+#if defined(CONFIG_OF) && defined(CONFIG_PM_OPP)
+	/* Register the OPPs if they are available in device tree */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0)) \
+	|| defined(LSK_OPPV2_BACKPORT)
+	err = dev_pm_opp_of_add_table(kbdev->dev);
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0))
+	err = of_init_opp_table(kbdev->dev);
+#else
+	err = 0;
+#endif /* LINUX_VERSION_CODE */
+	if (err)
+		dev_dbg(kbdev->dev, "OPP table not found\n");
+#endif /* CONFIG_OF && CONFIG_PM_OPP */
 
-	kbdev->vdd = devm_regulator_get(kbdev->dev, "vdd_g3d");
-	if (IS_ERR(kbdev->vdd)) {
-		dev_err(kbdev->dev, "Failed to get vdd_g3d regulator\n");
-		err = PTR_ERR(kbdev->vdd);
-		goto out_debugfs_remove;
-	}
-
-	err = regulator_enable(kbdev->vdd);
-	if (err < 0) {
-		dev_err(kbdev->dev, "Failed to enable vdd_g3d regulator\n");
-		goto out_debugfs_remove;
-	}
-
-	err = kbase_device_init(kbdev);
-	if (err < 0 || MALI_ERROR_NONE != err) {
-		dev_err(kbdev->dev, "Can't initialize device\n");
-
-		if (err > MALI_ERROR_NONE)
-			err = -ENOMEM;
-		goto out_regulator_disable;
-	}
-
-	/* obtain min/max configured gpu frequencies */
-	core_props = &(kbdev->gpu_props.props.core_props);
-	core_props->gpu_freq_khz_min = GPU_FREQ_KHZ_MIN;
-	core_props->gpu_freq_khz_max = GPU_FREQ_KHZ_MAX;
-	kbdev->gpu_props.irq_throttle_time_us = DEFAULT_IRQ_THROTTLE_TIME_US;
-
-	err = kbase_common_device_init(kbdev);
-	if (err) {
-		dev_err(kbdev->dev, "Failed kbase_common_device_init\n");
-		goto out_term_dev;
-	}
 	return 0;
 
-out_term_dev:
-	kbase_device_term(kbdev);
-out_regulator_disable:
-	regulator_disable(kbdev->vdd);
-out_debugfs_remove:
-#ifdef CONFIG_DEBUG_FS
-	kbasep_jd_debugfs_term(kbdev);
-out_mem_profile_remove:
-	debugfs_remove(kbdev->memory_profile_directory);
-out_mali_debugfs_remove:
-	debugfs_remove(kbdev->mali_debugfs_directory);
-out_clock_enable:
-#endif /* CONFIG_DEBUG_FS */
-	clk_disable_unprepare(kbdev->clock);
-out_clock_get:
+fail:
+
+if (kbdev->clock != NULL) {
 	clk_put(kbdev->clock);
-	kbase_common_reg_unmap(kbdev);
-out_free_dev:
-#ifdef CONFIG_MALI_NO_MALI
-	midg_device_destroy(kbdev);
-out_midg:
-#endif /* CONFIG_MALI_NO_MALI */
-	kbase_device_free(kbdev);
-out:
+	kbdev->clock = NULL;
+}
+
+#ifdef CONFIG_REGULATOR
+	if (NULL != kbdev->regulator) {
+		regulator_put(kbdev->regulator);
+		kbdev->regulator = NULL;
+	}
+#endif
+
 	return err;
 }
 
-static int kbase_common_device_remove(struct kbase_device *kbdev)
+static void power_control_term(struct kbase_device *kbdev)
 {
-#ifdef CONFIG_MALI_DEVFREQ
-	kbase_devfreq_term(kbdev);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0))
+	dev_pm_opp_of_remove_table(kbdev->dev);
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0))
+	of_free_opp_table(kbdev->dev);
 #endif
 
-	if (kbdev->pm.callback_power_runtime_term)
-		kbdev->pm.callback_power_runtime_term(kbdev);
-#if KBASE_PM_EN
-	/* Remove the sys power policy file */
-	device_remove_file(kbdev->dev, &dev_attr_power_policy);
-	device_remove_file(kbdev->dev, &dev_attr_core_availability_policy);
-	device_remove_file(kbdev->dev, &dev_attr_core_mask);
-#endif
-#ifdef CONFIG_MALI_TRACE_TIMELINE
-	kbasep_trace_timeline_debugfs_term(kbdev);
-#endif /* CONFIG_MALI_TRACE_TIMELINE */
-
-#ifdef CONFIG_MALI_DEBUG
-	device_remove_file(kbdev->dev, &dev_attr_js_softstop_always);
-	device_remove_file(kbdev->dev, &dev_attr_debug_command);
-#endif /* CONFIG_MALI_DEBUG */
-#if !MALI_CUSTOMER_RELEASE
-	device_remove_file(kbdev->dev, &dev_attr_js_timeouts);
-	device_remove_file(kbdev->dev, &dev_attr_force_replay);
-#endif /* !MALI_CUSTOMER_RELEASE */
-#ifdef CONFIG_DEBUG_FS
-	kbasep_gpu_memory_debugfs_term(kbdev);
-#endif
-
-#ifdef CONFIG_MALI_DEBUG_SHADER_SPLIT_FS
-	device_remove_file(kbdev->dev, &dev_attr_sc_split);
-#endif /* CONFIG_MALI_DEBUG_SHADER_SPLIT_FS */
-
-	kbasep_js_devdata_halt(kbdev);
-	kbase_job_slot_halt(kbdev);
-	kbase_mem_halt(kbdev);
-	kbase_pm_halt(kbdev);
-
-	kbase_release_interrupts(kbdev);
-
-	kbasep_js_devdata_term(kbdev);
-	kbase_job_slot_term(kbdev);
-	kbase_mem_term(kbdev);
-	kbase_pm_term(kbdev);
-
-	down(&kbase_dev_list_lock);
-	list_del(&kbdev->entry);
-	up(&kbase_dev_list_lock);
-
-	misc_deregister(&kbdev->mdev);
-	put_device(kbdev->dev);
-	kbase_common_reg_unmap(kbdev);
-	kbase_device_term(kbdev);
-	regulator_disable(kbdev->vdd);
-#ifdef CONFIG_DEBUG_FS
-	kbasep_jd_debugfs_term(kbdev);
-	debugfs_remove(kbdev->memory_profile_directory);
-	debugfs_remove(kbdev->mali_debugfs_directory);
-#endif /* CONFIG_DEBUG_FS */
 	if (kbdev->clock) {
 		clk_disable_unprepare(kbdev->clock);
 		clk_put(kbdev->clock);
 		kbdev->clock = NULL;
 	}
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0)) && defined(CONFIG_OF) \
+			&& defined(CONFIG_REGULATOR)
+	if (kbdev->regulator) {
+		regulator_put(kbdev->regulator);
+		kbdev->regulator = NULL;
+	}
+#endif /* LINUX_VERSION_CODE >= 3, 12, 0 */
+}
+
+#ifdef CONFIG_DEBUG_FS
+
+#if KBASE_GPU_RESET_EN
+#include <mali_kbase_hwaccess_jm.h>
+
+static void trigger_quirks_reload(struct kbase_device *kbdev)
+{
+	kbase_pm_context_active(kbdev);
+	if (kbase_prepare_to_reset_gpu(kbdev))
+		kbase_reset_gpu(kbdev);
+	kbase_pm_context_idle(kbdev);
+}
+
+#define MAKE_QUIRK_ACCESSORS(type) \
+static int type##_quirks_set(void *data, u64 val) \
+{ \
+	struct kbase_device *kbdev; \
+	kbdev = (struct kbase_device *)data; \
+	kbdev->hw_quirks_##type = (u32)val; \
+	trigger_quirks_reload(kbdev); \
+	return 0;\
+} \
+\
+static int type##_quirks_get(void *data, u64 *val) \
+{ \
+	struct kbase_device *kbdev;\
+	kbdev = (struct kbase_device *)data;\
+	*val = kbdev->hw_quirks_##type;\
+	return 0;\
+} \
+DEFINE_SIMPLE_ATTRIBUTE(fops_##type##_quirks, type##_quirks_get,\
+		type##_quirks_set, "%llu\n")
+
+MAKE_QUIRK_ACCESSORS(sc);
+MAKE_QUIRK_ACCESSORS(tiler);
+MAKE_QUIRK_ACCESSORS(mmu);
+
+#endif /* KBASE_GPU_RESET_EN */
+
+/**
+ * debugfs_protected_debug_mode_read - "protected_debug_mode" debugfs read
+ * @file: File object to read is for
+ * @buf:  User buffer to populate with data
+ * @len:  Length of user buffer
+ * @ppos: Offset within file object
+ *
+ * Retrieves the current status of protected debug mode
+ * (0 = disabled, 1 = enabled)
+ *
+ * Return: Number of bytes added to user buffer
+ */
+static ssize_t debugfs_protected_debug_mode_read(struct file *file,
+				char __user *buf, size_t len, loff_t *ppos)
+{
+	struct kbase_device *kbdev = (struct kbase_device *)file->private_data;
+	u32 gpu_status;
+	ssize_t ret_val;
+
+	kbase_pm_context_active(kbdev);
+	gpu_status = kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_STATUS), NULL);
+	kbase_pm_context_idle(kbdev);
+
+	if (gpu_status & GPU_DBGEN)
+		ret_val = simple_read_from_buffer(buf, len, ppos, "1\n", 2);
+	else
+		ret_val = simple_read_from_buffer(buf, len, ppos, "0\n", 2);
+
+	return ret_val;
+}
+
+/*
+ * struct fops_protected_debug_mode - "protected_debug_mode" debugfs fops
+ *
+ * Contains the file operations for the "protected_debug_mode" debugfs file
+ */
+static const struct file_operations fops_protected_debug_mode = {
+	.open = simple_open,
+	.read = debugfs_protected_debug_mode_read,
+	.llseek = default_llseek,
+};
+
+static int kbase_device_debugfs_init(struct kbase_device *kbdev)
+{
+	struct dentry *debugfs_ctx_defaults_directory;
+	int err;
+
+	kbdev->mali_debugfs_directory = debugfs_create_dir(kbdev->devname,
+			NULL);
+	if (!kbdev->mali_debugfs_directory) {
+		dev_err(kbdev->dev, "Couldn't create mali debugfs directory\n");
+		err = -ENOMEM;
+		goto out;
+	}
+
+	kbdev->debugfs_ctx_directory = debugfs_create_dir("ctx",
+			kbdev->mali_debugfs_directory);
+	if (!kbdev->debugfs_ctx_directory) {
+		dev_err(kbdev->dev, "Couldn't create mali debugfs ctx directory\n");
+		err = -ENOMEM;
+		goto out;
+	}
+
+	debugfs_ctx_defaults_directory = debugfs_create_dir("defaults",
+			kbdev->debugfs_ctx_directory);
+	if (!debugfs_ctx_defaults_directory) {
+		dev_err(kbdev->dev, "Couldn't create mali debugfs ctx defaults directory\n");
+		err = -ENOMEM;
+		goto out;
+	}
+
+#if !MALI_CUSTOMER_RELEASE
+	kbasep_regs_dump_debugfs_init(kbdev);
+#endif /* !MALI_CUSTOMER_RELEASE */
+	kbasep_regs_history_debugfs_init(kbdev);
+
+	kbase_debug_job_fault_debugfs_init(kbdev);
+	kbasep_gpu_memory_debugfs_init(kbdev);
+	kbase_as_fault_debugfs_init(kbdev);
+#if KBASE_GPU_RESET_EN
+	debugfs_create_file("quirks_sc", 0644,
+			kbdev->mali_debugfs_directory, kbdev,
+			&fops_sc_quirks);
+	debugfs_create_file("quirks_tiler", 0644,
+			kbdev->mali_debugfs_directory, kbdev,
+			&fops_tiler_quirks);
+	debugfs_create_file("quirks_mmu", 0644,
+			kbdev->mali_debugfs_directory, kbdev,
+			&fops_mmu_quirks);
+#endif /* KBASE_GPU_RESET_EN */
+
+#ifndef CONFIG_MALI_COH_USER
+	debugfs_create_bool("infinite_cache", 0644,
+			debugfs_ctx_defaults_directory,
+			&kbdev->infinite_cache_active_default);
+#endif /* CONFIG_MALI_COH_USER */
+
+	debugfs_create_size_t("mem_pool_max_size", 0644,
+			debugfs_ctx_defaults_directory,
+			&kbdev->mem_pool_max_size_default);
+
+	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_PROTECTED_DEBUG_MODE)) {
+		debugfs_create_file("protected_debug_mode", S_IRUGO,
+				kbdev->mali_debugfs_directory, kbdev,
+				&fops_protected_debug_mode);
+	}
+
+#if KBASE_TRACE_ENABLE
+	kbasep_trace_debugfs_init(kbdev);
+#endif /* KBASE_TRACE_ENABLE */
+
+#ifdef CONFIG_MALI_TRACE_TIMELINE
+	kbasep_trace_timeline_debugfs_init(kbdev);
+#endif /* CONFIG_MALI_TRACE_TIMELINE */
+
+	return 0;
+
+out:
+	debugfs_remove_recursive(kbdev->mali_debugfs_directory);
+	return err;
+}
+
+static void kbase_device_debugfs_term(struct kbase_device *kbdev)
+{
+	debugfs_remove_recursive(kbdev->mali_debugfs_directory);
+}
+
+#else /* CONFIG_DEBUG_FS */
+static inline int kbase_device_debugfs_init(struct kbase_device *kbdev)
+{
+	return 0;
+}
+
+static inline void kbase_device_debugfs_term(struct kbase_device *kbdev) { }
+#endif /* CONFIG_DEBUG_FS */
+
+static void kbase_device_coherency_init(struct kbase_device *kbdev, u32 gpu_id)
+{
+#ifdef CONFIG_OF
+	u32 supported_coherency_bitmap =
+		kbdev->gpu_props.props.raw_props.coherency_mode;
+	const void *coherency_override_dts;
+	u32 override_coherency;
+#endif /* CONFIG_OF */
+
+	kbdev->system_coherency = COHERENCY_NONE;
+
+	/* device tree may override the coherency */
+#ifdef CONFIG_OF
+	coherency_override_dts = of_get_property(kbdev->dev->of_node,
+						"system-coherency",
+						NULL);
+	if (coherency_override_dts) {
+
+		override_coherency = be32_to_cpup(coherency_override_dts);
+
+		if ((override_coherency <= COHERENCY_NONE) &&
+			(supported_coherency_bitmap &
+			 COHERENCY_FEATURE_BIT(override_coherency))) {
+
+			kbdev->system_coherency = override_coherency;
+
+			dev_info(kbdev->dev,
+				"Using coherency mode %u set from dtb",
+				override_coherency);
+		} else
+			dev_warn(kbdev->dev,
+				"Ignoring unsupported coherency mode %u set from dtb",
+				override_coherency);
+	}
+
+#endif /* CONFIG_OF */
+
+	kbdev->gpu_props.props.raw_props.coherency_mode =
+		kbdev->system_coherency;
+}
+
+#ifdef CONFIG_MALI_FPGA_BUS_LOGGER
+
+/* Callback used by the kbase bus logger client, to initiate a GPU reset
+ * when the bus log is restarted.  GPU reset is used as reference point
+ * in HW bus log analyses.
+ */
+static void kbase_logging_started_cb(void *data)
+{
+	struct kbase_device *kbdev = (struct kbase_device *)data;
+
+	if (kbase_prepare_to_reset_gpu(kbdev))
+		kbase_reset_gpu(kbdev);
+	dev_info(kbdev->dev, "KBASE - Bus logger restarted\n");
+}
+#endif
+
+static struct attribute *kbase_attrs[] = {
+#ifdef CONFIG_MALI_DEBUG
+	&dev_attr_debug_command.attr,
+	&dev_attr_js_softstop_always.attr,
+#endif
+#if !MALI_CUSTOMER_RELEASE
+	&dev_attr_force_replay.attr,
+#endif
+	&dev_attr_js_timeouts.attr,
+	&dev_attr_soft_job_timeout.attr,
+	&dev_attr_gpuinfo.attr,
+	&dev_attr_dvfs_period.attr,
+	&dev_attr_pm_poweroff.attr,
+	&dev_attr_reset_timeout.attr,
+	&dev_attr_js_scheduling_period.attr,
+	&dev_attr_power_policy.attr,
+	&dev_attr_core_availability_policy.attr,
+	&dev_attr_core_mask.attr,
+	&dev_attr_mem_pool_size.attr,
+	&dev_attr_mem_pool_max_size.attr,
+	NULL
+};
+
+static const struct attribute_group kbase_attr_group = {
+	.attrs = kbase_attrs,
+};
+
+static int kbase_platform_device_remove(struct platform_device *pdev)
+{
+	struct kbase_device *kbdev = to_kbase_device(&pdev->dev);
+	const struct list_head *dev_list;
+
+	if (!kbdev)
+		return -ENODEV;
+
+#ifdef CONFIG_MALI_FPGA_BUS_LOGGER
+	if (kbdev->inited_subsys & inited_buslogger) {
+		bl_core_client_unregister(kbdev->buslogger);
+		kbdev->inited_subsys &= ~inited_buslogger;
+	}
+#endif
+
+	if (kbdev->inited_subsys & inited_sysfs_group) {
+		sysfs_remove_group(&kbdev->dev->kobj, &kbase_attr_group);
+		kbdev->inited_subsys &= ~inited_sysfs_group;
+	}
+
+	if (kbdev->inited_subsys & inited_dev_list) {
+		dev_list = kbase_dev_list_get();
+		list_del(&kbdev->entry);
+		kbase_dev_list_put(dev_list);
+		kbdev->inited_subsys &= ~inited_dev_list;
+	}
+
+	if (kbdev->inited_subsys & inited_misc_register) {
+		misc_deregister(&kbdev->mdev);
+		kbdev->inited_subsys &= ~inited_misc_register;
+	}
+
+	if (kbdev->inited_subsys & inited_get_device) {
+		put_device(kbdev->dev);
+		kbdev->inited_subsys &= ~inited_get_device;
+	}
+
+	if (kbdev->inited_subsys & inited_debugfs) {
+		kbase_device_debugfs_term(kbdev);
+		kbdev->inited_subsys &= ~inited_debugfs;
+	}
+
+	if (kbdev->inited_subsys & inited_job_fault) {
+		kbase_debug_job_fault_dev_term(kbdev);
+		kbdev->inited_subsys &= ~inited_job_fault;
+	}
+
+#ifndef CONFIG_MALI_PRFCNT_SET_SECONDARY
+	if (kbdev->inited_subsys & inited_ipa) {
+		kbase_ipa_term(kbdev->ipa_ctx);
+		kbdev->inited_subsys &= ~inited_ipa;
+	}
+#endif /* CONFIG_MALI_PRFCNT_SET_SECONDARY */
+
+	if (kbdev->inited_subsys & inited_vinstr) {
+		kbase_vinstr_term(kbdev->vinstr_ctx);
+		kbdev->inited_subsys &= ~inited_vinstr;
+	}
+
+#ifdef CONFIG_MALI_DEVFREQ
+	if (kbdev->inited_subsys & inited_devfreq) {
+		kbase_devfreq_term(kbdev);
+		kbdev->inited_subsys &= ~inited_devfreq;
+	}
+#endif
+
+	if (kbdev->inited_subsys & inited_backend_late) {
+		kbase_backend_late_term(kbdev);
+		kbdev->inited_subsys &= ~inited_backend_late;
+	}
+
+	if (kbdev->inited_subsys & inited_tlstream) {
+		kbase_tlstream_term();
+		kbdev->inited_subsys &= ~inited_tlstream;
+	}
+
+	/* Bring job and mem sys to a halt before we continue termination */
+
+	if (kbdev->inited_subsys & inited_js)
+		kbasep_js_devdata_halt(kbdev);
+
+	if (kbdev->inited_subsys & inited_mem)
+		kbase_mem_halt(kbdev);
+
+	if (kbdev->inited_subsys & inited_js) {
+		kbasep_js_devdata_term(kbdev);
+		kbdev->inited_subsys &= ~inited_js;
+	}
+
+	if (kbdev->inited_subsys & inited_mem) {
+		kbase_mem_term(kbdev);
+		kbdev->inited_subsys &= ~inited_mem;
+	}
+
+	if (kbdev->inited_subsys & inited_pm_runtime_init) {
+		kbdev->pm.callback_power_runtime_term(kbdev);
+		kbdev->inited_subsys &= ~inited_pm_runtime_init;
+	}
+
+	if (kbdev->inited_subsys & inited_device) {
+		kbase_device_term(kbdev);
+		kbdev->inited_subsys &= ~inited_device;
+	}
+
+	if (kbdev->inited_subsys & inited_backend_early) {
+		kbase_backend_early_term(kbdev);
+		kbdev->inited_subsys &= ~inited_backend_early;
+	}
+
+	if (kbdev->inited_subsys & inited_io_history) {
+		kbase_io_history_term(&kbdev->io_history);
+		kbdev->inited_subsys &= ~inited_io_history;
+	}
+
+	if (kbdev->inited_subsys & inited_power_control) {
+		power_control_term(kbdev);
+		kbdev->inited_subsys &= ~inited_power_control;
+	}
+
+	if (kbdev->inited_subsys & inited_registers_map) {
+		registers_unmap(kbdev);
+		kbdev->inited_subsys &= ~inited_registers_map;
+	}
+
 #ifdef CONFIG_MALI_NO_MALI
-	midg_device_destroy(kbdev);
+	if (kbdev->inited_subsys & inited_gpu_device) {
+		gpu_device_destroy(kbdev);
+		kbdev->inited_subsys &= ~inited_gpu_device;
+	}
 #endif /* CONFIG_MALI_NO_MALI */
+
+	if (kbdev->inited_subsys != 0)
+		dev_err(kbdev->dev, "Missing sub system termination\n");
+
 	kbase_device_free(kbdev);
 
 	return 0;
 }
 
-static int kbase_platform_device_remove(struct platform_device *pdev)
+
+/* Number of register accesses for the buffer that we allocate during
+ * initialization time. The buffer size can be changed later via debugfs. */
+#define KBASEP_DEFAULT_REGISTER_HISTORY_SIZE ((u16)512)
+
+static int kbase_platform_device_probe(struct platform_device *pdev)
 {
-	struct kbase_device *kbdev = to_kbase_device(&pdev->dev);
+	struct kbase_device *kbdev;
+	struct mali_base_gpu_core_props *core_props;
+	u32 gpu_id;
+	const struct list_head *dev_list;
+	int err = 0;
 
-	if (!kbdev)
-		return -ENODEV;
+#ifdef CONFIG_OF
+	err = kbase_platform_early_init();
+	if (err) {
+		dev_err(&pdev->dev, "Early platform initialization failed\n");
+		kbase_platform_device_remove(pdev);
+		return err;
+	}
+#endif
 
-	return kbase_common_device_remove(kbdev);
+	kbdev = kbase_device_alloc();
+	if (!kbdev) {
+		dev_err(&pdev->dev, "Allocate device failed\n");
+		kbase_platform_device_remove(pdev);
+		return -ENOMEM;
+	}
+
+	kbdev->dev = &pdev->dev;
+	dev_set_drvdata(kbdev->dev, kbdev);
+
+#ifdef CONFIG_MALI_NO_MALI
+	err = gpu_device_create(kbdev);
+	if (err) {
+		dev_err(&pdev->dev, "Dummy model initialization failed\n");
+		kbase_platform_device_remove(pdev);
+		return err;
+	}
+	kbdev->inited_subsys |= inited_gpu_device;
+#endif /* CONFIG_MALI_NO_MALI */
+
+	err = assign_irqs(pdev);
+	if (err) {
+		dev_err(&pdev->dev, "IRQ search failed\n");
+		kbase_platform_device_remove(pdev);
+		return err;
+	}
+
+	err = registers_map(kbdev);
+	if (err) {
+		dev_err(&pdev->dev, "Register map failed\n");
+		kbase_platform_device_remove(pdev);
+		return err;
+	}
+	kbdev->inited_subsys |= inited_registers_map;
+
+	err = power_control_init(pdev);
+	if (err) {
+		dev_err(&pdev->dev, "Power control initialization failed\n");
+		kbase_platform_device_remove(pdev);
+		return err;
+	}
+	kbdev->inited_subsys |= inited_power_control;
+
+	err = kbase_io_history_init(&kbdev->io_history,
+			KBASEP_DEFAULT_REGISTER_HISTORY_SIZE);
+	if (err) {
+		dev_err(&pdev->dev, "Register access history initialization failed\n");
+		kbase_platform_device_remove(pdev);
+		return -ENOMEM;
+	}
+	kbdev->inited_subsys |= inited_io_history;
+
+	err = kbase_backend_early_init(kbdev);
+	if (err) {
+		dev_err(kbdev->dev, "Early backend initialization failed\n");
+		kbase_platform_device_remove(pdev);
+		return err;
+	}
+	kbdev->inited_subsys |= inited_backend_early;
+
+	scnprintf(kbdev->devname, DEVNAME_SIZE, "%s%d", kbase_drv_name,
+			kbase_dev_nr);
+
+	kbase_disjoint_init(kbdev);
+
+	/* obtain min/max configured gpu frequencies */
+	core_props = &(kbdev->gpu_props.props.core_props);
+	core_props->gpu_freq_khz_min = GPU_FREQ_KHZ_MIN;
+	core_props->gpu_freq_khz_max = GPU_FREQ_KHZ_MAX;
+
+	kbdev->gpu_props.irq_throttle_time_us = DEFAULT_IRQ_THROTTLE_TIME_US;
+
+	err = kbase_device_init(kbdev);
+	if (err) {
+		dev_err(kbdev->dev, "Device initialization failed (%d)\n", err);
+		kbase_platform_device_remove(pdev);
+		return err;
+	}
+	kbdev->inited_subsys |= inited_device;
+
+	if (kbdev->pm.callback_power_runtime_init) {
+		err = kbdev->pm.callback_power_runtime_init(kbdev);
+		if (err) {
+			dev_err(kbdev->dev,
+				"Runtime PM initialization failed\n");
+			kbase_platform_device_remove(pdev);
+			return err;
+		}
+		kbdev->inited_subsys |= inited_pm_runtime_init;
+	}
+
+	err = kbase_mem_init(kbdev);
+	if (err) {
+		dev_err(kbdev->dev, "Memory subsystem initialization failed\n");
+		kbase_platform_device_remove(pdev);
+		return err;
+	}
+	kbdev->inited_subsys |= inited_mem;
+
+	gpu_id = kbdev->gpu_props.props.raw_props.gpu_id;
+	gpu_id &= GPU_ID_VERSION_PRODUCT_ID;
+	gpu_id = gpu_id >> GPU_ID_VERSION_PRODUCT_ID_SHIFT;
+
+	kbase_device_coherency_init(kbdev, gpu_id);
+
+	kbasep_protected_mode_init(kbdev);
+
+	err = kbasep_js_devdata_init(kbdev);
+	if (err) {
+		dev_err(kbdev->dev, "Job JS devdata initialization failed\n");
+		kbase_platform_device_remove(pdev);
+		return err;
+	}
+	kbdev->inited_subsys |= inited_js;
+
+	err = kbase_tlstream_init();
+	if (err) {
+		dev_err(kbdev->dev, "Timeline stream initialization failed\n");
+		kbase_platform_device_remove(pdev);
+		return err;
+	}
+	kbdev->inited_subsys |= inited_tlstream;
+
+	err = kbase_backend_late_init(kbdev);
+	if (err) {
+		dev_err(kbdev->dev, "Late backend initialization failed\n");
+		kbase_platform_device_remove(pdev);
+		return err;
+	}
+	kbdev->inited_subsys |= inited_backend_late;
+
+#ifdef CONFIG_MALI_DEVFREQ
+	err = kbase_devfreq_init(kbdev);
+	if (err) {
+		dev_err(kbdev->dev, "Fevfreq initialization failed\n");
+		kbase_platform_device_remove(pdev);
+		return err;
+	}
+	kbdev->inited_subsys |= inited_devfreq;
+#endif /* CONFIG_MALI_DEVFREQ */
+
+	kbdev->vinstr_ctx = kbase_vinstr_init(kbdev);
+	if (!kbdev->vinstr_ctx) {
+		dev_err(kbdev->dev,
+			"Virtual instrumentation initialization failed\n");
+		kbase_platform_device_remove(pdev);
+		return -EINVAL;
+	}
+	kbdev->inited_subsys |= inited_vinstr;
+
+#ifndef CONFIG_MALI_PRFCNT_SET_SECONDARY
+	kbdev->ipa_ctx = kbase_ipa_init(kbdev);
+	if (!kbdev->ipa_ctx) {
+		dev_err(kbdev->dev, "IPA initialization failed\n");
+		kbase_platform_device_remove(pdev);
+		return -EINVAL;
+	}
+
+	kbdev->inited_subsys |= inited_ipa;
+#endif  /* CONFIG_MALI_PRFCNT_SET_SECONDARY */
+
+	err = kbase_debug_job_fault_dev_init(kbdev);
+	if (err) {
+		dev_err(kbdev->dev, "Job fault debug initialization failed\n");
+		kbase_platform_device_remove(pdev);
+		return err;
+	}
+	kbdev->inited_subsys |= inited_job_fault;
+
+	err = kbase_device_debugfs_init(kbdev);
+	if (err) {
+		dev_err(kbdev->dev, "DebugFS initialization failed");
+		kbase_platform_device_remove(pdev);
+		return err;
+	}
+	kbdev->inited_subsys |= inited_debugfs;
+
+	/* initialize the kctx list */
+	mutex_init(&kbdev->kctx_list_lock);
+	INIT_LIST_HEAD(&kbdev->kctx_list);
+
+	kbdev->mdev.minor = MISC_DYNAMIC_MINOR;
+	kbdev->mdev.name = kbdev->devname;
+	kbdev->mdev.fops = &kbase_fops;
+	kbdev->mdev.parent = get_device(kbdev->dev);
+	kbdev->inited_subsys |= inited_get_device;
+
+	err = misc_register(&kbdev->mdev);
+	if (err) {
+		dev_err(kbdev->dev, "Misc device registration failed for %s\n",
+			kbdev->devname);
+		kbase_platform_device_remove(pdev);
+		return err;
+	}
+	kbdev->inited_subsys |= inited_misc_register;
+
+	dev_list = kbase_dev_list_get();
+	list_add(&kbdev->entry, &kbase_dev_list);
+	kbase_dev_list_put(dev_list);
+	kbdev->inited_subsys |= inited_dev_list;
+
+	err = sysfs_create_group(&kbdev->dev->kobj, &kbase_attr_group);
+	if (err) {
+		dev_err(&pdev->dev, "SysFS group creation failed\n");
+		kbase_platform_device_remove(pdev);
+		return err;
+	}
+	kbdev->inited_subsys |= inited_sysfs_group;
+
+#ifdef CONFIG_MALI_FPGA_BUS_LOGGER
+	err = bl_core_client_register(kbdev->devname,
+						kbase_logging_started_cb,
+						kbdev, &kbdev->buslogger,
+						THIS_MODULE, NULL);
+	if (err == 0) {
+		kbdev->inited_subsys |= inited_buslogger;
+		bl_core_set_threshold(kbdev->buslogger, 1024*1024*1024);
+	} else {
+		dev_warn(kbdev->dev, "Bus log client registration failed\n");
+		err = 0;
+	}
+#endif
+
+	dev_info(kbdev->dev,
+			"Probed as %s\n", dev_name(kbdev->mdev.this_device));
+
+	kbase_dev_nr++;
+
+	return err;
 }
+
+#undef KBASEP_DEFAULT_REGISTER_HISTORY_SIZE
+
 
 /** Suspend callback from the OS.
  *
@@ -3173,6 +3841,7 @@ static int kbase_device_resume(struct device *dev)
  *
  * @return A standard Linux error code
  */
+#ifdef KBASE_PM_RUNTIME
 static int kbase_device_runtime_suspend(struct device *dev)
 {
 	struct kbase_device *kbdev = to_kbase_device(dev);
@@ -3185,12 +3854,13 @@ static int kbase_device_runtime_suspend(struct device *dev)
 	devfreq_suspend_device(kbdev->devfreq);
 #endif
 
-	if (kbdev->pm.callback_power_runtime_off) {
-		kbdev->pm.callback_power_runtime_off(kbdev);
+	if (kbdev->pm.backend.callback_power_runtime_off) {
+		kbdev->pm.backend.callback_power_runtime_off(kbdev);
 		dev_dbg(dev, "runtime suspend\n");
 	}
 	return 0;
 }
+#endif /* KBASE_PM_RUNTIME */
 
 /** Runtime resume callback from the OS.
  *
@@ -3201,7 +3871,8 @@ static int kbase_device_runtime_suspend(struct device *dev)
  * @return A standard Linux error code
  */
 
-int kbase_device_runtime_resume(struct device *dev)
+#ifdef KBASE_PM_RUNTIME
+static int kbase_device_runtime_resume(struct device *dev)
 {
 	int ret = 0;
 	struct kbase_device *kbdev = to_kbase_device(dev);
@@ -3209,8 +3880,8 @@ int kbase_device_runtime_resume(struct device *dev)
 	if (!kbdev)
 		return -ENODEV;
 
-	if (kbdev->pm.callback_power_runtime_on) {
-		ret = kbdev->pm.callback_power_runtime_on(kbdev);
+	if (kbdev->pm.backend.callback_power_runtime_on) {
+		ret = kbdev->pm.backend.callback_power_runtime_on(kbdev);
 		dev_dbg(dev, "runtime resume\n");
 	}
 
@@ -3221,33 +3892,45 @@ int kbase_device_runtime_resume(struct device *dev)
 
 	return ret;
 }
+#endif /* KBASE_PM_RUNTIME */
 
-/** Runtime idle callback from the OS.
+
+#ifdef KBASE_PM_RUNTIME
+/**
+ * kbase_device_runtime_idle - Runtime idle callback from the OS.
+ * @dev: The device to suspend
  *
- * This is called by Linux when the device appears to be inactive and it might be
- * placed into a low power state
+ * This is called by Linux when the device appears to be inactive and it might
+ * be placed into a low power state.
  *
- * @param dev  The device to suspend
- *
- * @return A standard Linux error code
+ * Return: 0 if device can be suspended, non-zero to avoid runtime autosuspend,
+ * otherwise a standard Linux error code
  */
-
 static int kbase_device_runtime_idle(struct device *dev)
 {
-	/* Avoid pm_runtime_suspend being called */
-	return 1;
+	struct kbase_device *kbdev = to_kbase_device(dev);
+
+	if (!kbdev)
+		return -ENODEV;
+
+	/* Use platform specific implementation if it exists. */
+	if (kbdev->pm.backend.callback_power_runtime_idle)
+		return kbdev->pm.backend.callback_power_runtime_idle(kbdev);
+
+	return 0;
 }
+#endif /* KBASE_PM_RUNTIME */
 
 /** The power management operations for the platform driver.
  */
 static const struct dev_pm_ops kbase_pm_ops = {
 	.suspend = kbase_device_suspend,
 	.resume = kbase_device_resume,
-#ifdef CONFIG_PM
+#ifdef KBASE_PM_RUNTIME
 	.runtime_suspend = kbase_device_runtime_suspend,
 	.runtime_resume = kbase_device_runtime_resume,
 	.runtime_idle = kbase_device_runtime_idle,
-#endif /* CONFIG_PM */
+#endif /* KBASE_PM_RUNTIME */
 };
 
 #ifdef CONFIG_OF
@@ -3276,14 +3959,7 @@ static struct platform_driver kbase_platform_driver = {
  */
 #ifdef CONFIG_OF
 module_platform_driver(kbase_platform_driver);
-#else /* CONFIG_MALI_PLATFORM_FAKE */
-
-extern int kbase_platform_early_init(void);
-
-#ifdef CONFIG_MALI_PLATFORM_FAKE
-extern int kbase_platform_fake_register(void);
-extern void kbase_platform_fake_unregister(void);
-#endif
+#else
 
 static int __init kbase_driver_init(void)
 {
@@ -3303,7 +3979,6 @@ static int __init kbase_driver_init(void)
 	if (ret)
 		kbase_platform_fake_unregister();
 #endif
-
 	return ret;
 }
 
@@ -3321,7 +3996,9 @@ module_exit(kbase_driver_exit);
 #endif /* CONFIG_OF */
 
 MODULE_LICENSE("GPL");
-MODULE_VERSION(MALI_RELEASE_NAME);
+MODULE_VERSION(MALI_RELEASE_NAME " (UK version " \
+		__stringify(BASE_UK_VERSION_MAJOR) "." \
+		__stringify(BASE_UK_VERSION_MINOR) ")");
 
 #if defined(CONFIG_MALI_GATOR_SUPPORT) || defined(CONFIG_MALI_SYSTEM_TRACE)
 #define CREATE_TRACE_POINTS
@@ -3330,6 +4007,15 @@ MODULE_VERSION(MALI_RELEASE_NAME);
 #ifdef CONFIG_MALI_GATOR_SUPPORT
 /* Create the trace points (otherwise we just get code to call a tracepoint) */
 #include "mali_linux_trace.h"
+
+EXPORT_TRACEPOINT_SYMBOL_GPL(mali_job_slots_event);
+EXPORT_TRACEPOINT_SYMBOL_GPL(mali_pm_status);
+EXPORT_TRACEPOINT_SYMBOL_GPL(mali_pm_power_on);
+EXPORT_TRACEPOINT_SYMBOL_GPL(mali_pm_power_off);
+EXPORT_TRACEPOINT_SYMBOL_GPL(mali_page_fault_insert_pages);
+EXPORT_TRACEPOINT_SYMBOL_GPL(mali_mmu_as_in_use);
+EXPORT_TRACEPOINT_SYMBOL_GPL(mali_mmu_as_released);
+EXPORT_TRACEPOINT_SYMBOL_GPL(mali_total_alloc_pages_change);
 
 void kbase_trace_mali_pm_status(u32 event, u64 value)
 {
