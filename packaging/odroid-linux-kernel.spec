@@ -21,7 +21,7 @@ BuildRequires: module-init-tools
 BuildRequires: u-boot-tools
 BuildRequires: bc
 
-%if "%{?tizen_target_name}" == "TM1" || "%{?profile}" == "wearable"
+%if "%{?tizen_target_name}" == "TM1"
 ExcludeArch: %{arm}
 %endif
 
@@ -31,11 +31,14 @@ The Linux Kernel, the operating system core itself
 %package -n %{variant}-linux-kernel
 Summary: Tizen kernel for %{target_board}
 Group: System/Kernel
-Provides: %{variant}-odroid-kernel-profile-%{profile} = %{version}-%{release}
+Provides: %{variant}-odroid-kernel-profile_common = %{version}-%{release}
+Provides: %{variant}-odroid-kernel-profile_mobile = %{version}-%{release}
+Provides: %{variant}-odroid-kernel-profile_tv = %{version}-%{release}
+Provides: %{variant}-odroid-kernel-profile_ivi = %{version}-%{release}
 Provides: %{variant}-kernel-uname-r = %{fullVersion}
 
 %description -n %{variant}-linux-kernel
-This package contains the Linux kernel for Tizen (%{profile} profile, arch %{buildarch}, target board %{target_board})
+This package contains the Linux kernel for Tizen (common/mobile/tv/ivi profile, arch %{buildarch}, target board %{target_board})
 
 %package -n %{variant}-linux-kernel-modules
 Summary: Kernel modules for %{target_board}
