@@ -30,11 +30,11 @@ The Linux Kernel, the operating system core itself
 License: GPL-2.0
 Summary: Tizen kernel for %{target_board}
 Group: System/Kernel
-Provides: %{variant}-kernel-profile-%{profile} = %{version}-%{release}
+Provides: %{variant}-kernel-profile-mobile = %{version}-%{release}
 Provides: %{variant}-kernel-uname-r = %{fullVersion}
 
 %description -n %{variant}-linux-kernel
-This package contains the Linux kernel for Tizen (%{profile} profile, arch %{buildarch}, target board %{target_board})
+This package contains the Linux kernel for Tizen (mobile profile, arch %{buildarch}, target board %{target_board})
 
 %package -n %{variant}-linux-kernel-modules
 Summary: Kernel modules for %{target_board}
