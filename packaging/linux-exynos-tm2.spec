@@ -23,10 +23,6 @@ BuildRequires: bc
 BuildRequires: module-init-tools
 BuildRequires: u-boot-tools >= 2016.03
 
-%if "%{?profile}" != "mobile"
-ExcludeArch: aarch64
-%endif
-
 %description
 The Linux Kernel, the operating system core itself
 
