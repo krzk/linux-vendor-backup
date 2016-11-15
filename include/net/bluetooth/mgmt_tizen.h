@@ -220,6 +220,13 @@ struct mgmt_rp_le_set_data_length {
 } __packed;
 #define MGMT_LE_SET_DATA_LENGTH_RSP_SIZE		3
 
+#define MGMT_OP_SET_DEV_RPA_RES_SUPPORT		(TIZEN_OP_CODE_BASE + 0x19)
+struct mgmt_cp_set_dev_rpa_res_support {
+	struct	mgmt_addr_info addr;
+	__u8	res_support;
+} __packed;
+#define MGMT_OP_SET_DEV_RPA_RES_SUPPORT_SIZE	8
+
 /* BEGIN TIZEN_Bluetooth :: name update changes */
 #define MGMT_EV_DEVICE_NAME_UPDATE		(TIZEN_EV_BASE + 0x01)
 struct mgmt_ev_device_name_update {

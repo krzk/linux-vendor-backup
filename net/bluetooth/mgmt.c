@@ -5221,6 +5221,46 @@ done:
 	hci_dev_unlock(hdev);
 	return err;
 }
+
+static int set_dev_rpa_res_support(struct sock *sk, struct hci_dev *hdev,
+				   void *data, u16 len)
+{
+	struct mgmt_cp_set_dev_rpa_res_support *cp = data;
+	int err;
+
+	BT_DBG("Set resolve RPA as %u for %s", cp->res_support, hdev->name);
+
+	hci_dev_lock(hdev);
+
+	if (!lmp_le_capable(hdev)) {
+		err = cmd_status(sk, hdev->id,
+				 MGMT_OP_SET_DEV_RPA_RES_SUPPORT,
+				 MGMT_STATUS_NOT_SUPPORTED);
+		goto unlocked;
+	}
+
+	if (!hdev_is_powered(hdev)) {
+		err = cmd_status(sk, hdev->id,
+				 MGMT_OP_SET_DEV_RPA_RES_SUPPORT,
+				 MGMT_STATUS_REJECTED);
+		goto unlocked;
+	}
+
+	if (hci_set_rpa_res_support(hdev, &cp->addr.bdaddr, cp->addr.type,
+				    cp->res_support)) {
+		err = cmd_complete(sk, hdev->id,
+				   MGMT_OP_SET_DEV_RPA_RES_SUPPORT,
+				   MGMT_STATUS_NOT_PAIRED, NULL, 0);
+		goto unlocked;
+	}
+
+	err = cmd_complete(sk, hdev->id, MGMT_OP_SET_DEV_RPA_RES_SUPPORT,
+			   MGMT_STATUS_SUCCESS, NULL, 0);
+
+unlocked:
+	hci_dev_unlock(hdev);
+	return err;
+}
 /* END TIZEN_Bluetooth */
 #endif
 
@@ -8436,6 +8476,7 @@ static const struct mgmt_handler tizen_mgmt_handlers[] = {
 				   MGMT_LE_READ_HOST_SUGGESTED_DATA_LENGTH_SIZE },
 	{ set_le_data_length_params, false,
 				   MGMT_LE_SET_DATA_LENGTH_SIZE },
+	{ set_dev_rpa_res_support, false, MGMT_OP_SET_DEV_RPA_RES_SUPPORT_SIZE },
 };
 #endif
 

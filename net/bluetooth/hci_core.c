@@ -2569,6 +2569,20 @@ void hci_remove_irk(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 addr_type)
 }
 
 #ifdef CONFIG_TIZEN_WIP
+int hci_set_rpa_res_support(struct hci_dev *hdev, bdaddr_t *bdaddr,
+			    u8 addr_type, u8 enabled)
+{
+	struct smp_irk *irk;
+
+	irk = hci_find_irk_by_addr(hdev, bdaddr, addr_type);
+	if (!irk)
+		return -ENOENT;
+
+	irk->rpa_res_support = enabled;
+
+	return 0;
+}
+
 /* Timeout Error Event is being handled */
 static void hci_tx_timeout_error_evt(struct hci_dev *hdev)
 {

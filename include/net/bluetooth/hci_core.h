@@ -134,6 +134,9 @@ struct smp_irk {
 	bdaddr_t bdaddr;
 	u8 addr_type;
 	u8 val[16];
+#ifdef CONFIG_TIZEN_WIP
+	u8 rpa_res_support;
+#endif
 };
 
 struct link_key {
@@ -1063,6 +1066,8 @@ int hci_get_dev_list(void __user *arg);
 int hci_get_dev_info(void __user *arg);
 int hci_get_conn_list(void __user *arg);
 #ifdef CONFIG_TIZEN_WIP
+int hci_set_rpa_res_support(struct hci_dev *hdev, bdaddr_t *bdaddr,
+			    u8 addr_type, u8 enabled);
 u32 get_link_mode(struct hci_conn *conn);
 #endif
 int hci_get_conn_info(struct hci_dev *hdev, void __user *arg);
