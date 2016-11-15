@@ -222,6 +222,12 @@ struct mgmt_rp_le_set_data_length {
 } __packed;
 #define MGMT_LE_SET_DATA_LENGTH_RSP_SIZE	3
 
+#define MGMT_OP_SET_IRK				(TIZEN_OP_CODE_BASE + 0x19)
+struct mgmt_cp_set_irk {
+	uint8_t	irk[16];
+} __packed;
+#define MGMT_SET_IRK_SIZE			16
+
 /* EVENTS */
 
 /* For device name update changes */
