@@ -228,6 +228,13 @@ struct mgmt_cp_set_irk {
 } __packed;
 #define MGMT_SET_IRK_SIZE			16
 
+#define MGMT_OP_SET_DEV_RPA_RES_SUPPORT		(TIZEN_OP_CODE_BASE + 0x1a)
+struct mgmt_cp_set_dev_rpa_res_support {
+	struct	mgmt_addr_info addr;
+	__u8	res_support;
+} __packed;
+#define MGMT_OP_SET_DEV_RPA_RES_SUPPORT_SIZE	8
+
 /* EVENTS */
 
 /* For device name update changes */

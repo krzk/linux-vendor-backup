@@ -724,13 +724,22 @@ static void hci_req_add_le_create_conn(struct hci_request *req,
 	conn->state = BT_CONNECT;
 }
 
+#ifdef TIZEN_BT
+static void hci_req_directed_advertising(struct hci_request *req,
+					 struct hci_conn *conn,
+					 u8 rpa_res_support)
+#else
 static void hci_req_directed_advertising(struct hci_request *req,
 					 struct hci_conn *conn)
+#endif
 {
 	struct hci_dev *hdev = req->hdev;
 	struct hci_cp_le_set_adv_param cp;
 	u8 own_addr_type;
 	u8 enable;
+#ifdef TIZEN_BT
+	bool require_privacy;
+#endif
 
 	/* Clear the HCI_LE_ADV bit temporarily so that the
 	 * hci_update_random_address knows that it's safe to go ahead
@@ -739,11 +748,26 @@ static void hci_req_directed_advertising(struct hci_request *req,
 	 */
 	hci_dev_clear_flag(hdev, HCI_LE_ADV);
 
+#ifdef TIZEN_BT
+	/* Set require_privacy to true if remote device is able to
+	 * resolve RPA (As per BT spec 4.2 & Enhanced privacy feature)
+	 * otherwise, set require_privacy to false so that the remote
+	 * device has a chance of identifying us.
+	 */
+	if (rpa_res_support)
+		require_privacy = true;
+	else
+		require_privacy = false;
+
+	if (hci_update_random_address(req, require_privacy, &own_addr_type) < 0)
+		return;
+#else
 	/* Set require_privacy to false so that the remote device has a
 	 * chance of identifying us.
 	 */
 	if (hci_update_random_address(req, false, &own_addr_type) < 0)
 		return;
+#endif
 
 	memset(&cp, 0, sizeof(cp));
 	cp.type = LE_ADV_DIRECT_IND;
@@ -854,7 +878,11 @@ struct hci_conn *hci_connect_le(struct hci_dev *hdev, bdaddr_t *dst,
 			return ERR_PTR(-EBUSY);
 		}
 
+#ifdef TIZEN_BT
+		hci_req_directed_advertising(&req, conn, irk->rpa_res_support);
+#else
 		hci_req_directed_advertising(&req, conn);
+#endif
 		goto create_conn;
 	}
 

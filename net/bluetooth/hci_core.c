@@ -2545,6 +2545,21 @@ void hci_remove_irk(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 addr_type)
 	}
 }
 
+#ifdef TIZEN_BT
+int hci_set_rpa_res_support(struct hci_dev *hdev, bdaddr_t *bdaddr,
+			    u8 addr_type, u8 enabled)
+{
+	struct smp_irk *irk;
+
+	irk = hci_find_irk_by_addr(hdev, bdaddr, addr_type);
+	if (!irk)
+		return -ENOENT;
+
+	irk->rpa_res_support = enabled;
+
+	return 0;
+}
+#endif
 bool hci_bdaddr_is_paired(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 type)
 {
 	struct smp_ltk *k;
