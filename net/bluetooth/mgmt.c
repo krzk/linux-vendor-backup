@@ -5261,6 +5261,31 @@ unlocked:
 	hci_dev_unlock(hdev);
 	return err;
 }
+
+static int set_irk(struct sock *sk, struct hci_dev *hdev, void *cp_data,
+		   u16 len)
+{
+	struct mgmt_cp_set_irk *cp = cp_data;
+	int err;
+
+	BT_DBG("request for %s", hdev->name);
+
+	hci_dev_lock(hdev);
+
+	if (!lmp_le_capable(hdev)) {
+		err = cmd_status(sk, hdev->id, MGMT_OP_SET_IRK,
+				 MGMT_STATUS_NOT_SUPPORTED);
+		goto unlocked;
+	}
+
+	memcpy(hdev->irk, cp->irk, sizeof(hdev->irk));
+
+	err = cmd_complete(sk, hdev->id, MGMT_OP_SET_IRK, 0, NULL, 0);
+
+unlocked:
+	hci_dev_unlock(hdev);
+	return err;
+}
 /* END TIZEN_Bluetooth */
 #endif
 
@@ -8477,6 +8502,7 @@ static const struct mgmt_handler tizen_mgmt_handlers[] = {
 	{ set_le_data_length_params, false,
 				   MGMT_LE_SET_DATA_LENGTH_SIZE },
 	{ set_dev_rpa_res_support, false, MGMT_OP_SET_DEV_RPA_RES_SUPPORT_SIZE },
+	{ set_irk,                 false, MGMT_SET_IRK_SIZE },
 };
 #endif
 

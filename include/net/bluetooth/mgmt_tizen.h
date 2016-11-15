@@ -227,6 +227,12 @@ struct mgmt_cp_set_dev_rpa_res_support {
 } __packed;
 #define MGMT_OP_SET_DEV_RPA_RES_SUPPORT_SIZE	8
 
+#define MGMT_OP_SET_IRK				(TIZEN_OP_CODE_BASE + 0x1A)
+struct mgmt_cp_set_irk {
+	uint8_t	irk[16];
+} __packed;
+#define MGMT_SET_IRK_SIZE			16
+
 /* BEGIN TIZEN_Bluetooth :: name update changes */
 #define MGMT_EV_DEVICE_NAME_UPDATE		(TIZEN_EV_BASE + 0x01)
 struct mgmt_ev_device_name_update {
