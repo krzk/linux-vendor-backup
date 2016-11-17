@@ -118,6 +118,9 @@ static int exynos_cpu_suspend(unsigned long arg)
 	flush_cache_all();
 	outer_flush_all();
 
+	/* FIXME */
+	exynos_smc(-101, ((0x1 << 30) | ((0x02020028) >> 2)), 0, 0);
+
 	exynos_smc(SMC_CMD_SLEEP, 0, 0, 0);
 
 	pr_info("Failed to suspend the system\n");
