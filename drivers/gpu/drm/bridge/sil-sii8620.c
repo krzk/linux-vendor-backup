@@ -29,7 +29,9 @@
 
 #include "sil-sii8620.h"
 
-#define VAL_RX_HDMI_CTRL2_DEFVAL	VAL_RX_HDMI_CTRL2_IDLE_CNT(3)
+#define VAL_RX_HDMI_CTRL2_DEFVAL VAL_RX_HDMI_CTRL2_IDLE_CNT(3)
+#define MHL1_MAX_CLOCK 74250
+#define MHL3_MAX_CLOCK 300000
 
 enum sii8620_mode {
 	CM_DISCONNECTED,
@@ -1468,24 +1470,10 @@ bool sii8620_mode_fixup(struct drm_bridge *bridge,
 		   const struct drm_display_mode *mode,
 		   struct drm_display_mode *adjusted_mode)
 {
-	struct sii8620 *ctx = bridge_to_sii8620(bridge);
-	bool ret = false;
-	int max_clock = 74250;
-
-	mutex_lock(&ctx->lock);
-
 	if (mode->flags & DRM_MODE_FLAG_INTERLACE)
-		goto out;
+		return false;
 
-	if (ctx->devcap[MHL_DCAP_VID_LINK_MODE] & MHL_DCAP_VID_LINK_PPIXEL)
-		max_clock = 300000;
-
-	ret = mode->clock <= max_clock;
-
-out:
-	mutex_unlock(&ctx->lock);
-
-	return ret;
+	return mode->clock <= MHL1_MAX_CLOCK;
 }
 
 static void sii8620_mhl_worker(struct work_struct *work)
