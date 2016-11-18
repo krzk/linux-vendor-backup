@@ -1438,11 +1438,6 @@ static int ipp_send_event(struct exynos_drm_ippdrv *ippdrv,
 		return -EINVAL;
 	}
 
-	if (!property) {
-		DRM_ERROR("failed to get property.\n");
-		return -EINVAL;
-	}
-
 	mutex_lock(&c_node->event_lock);
 	if (list_empty(&c_node->event_list)) {
 		DRM_DEBUG_KMS("event list is empty.\n");
@@ -1559,16 +1554,16 @@ err_event_unlock:
 
 void ipp_sched_event(struct work_struct *work)
 {
-	struct drm_exynos_ipp_event_work *event_work =
-		container_of(work, struct drm_exynos_ipp_event_work, work);
+	struct drm_exynos_ipp_event_work *event_work;
 	struct exynos_drm_ippdrv *ippdrv;
 	struct drm_exynos_ipp_cmd_node *c_node;
 	int ret;
 
-	if (!event_work) {
-		DRM_ERROR("failed to get event_work.\n");
+	if (!work) {
+		DRM_ERROR("work is NULL\n");
 		return;
 	}
+	event_work = container_of(work, struct drm_exynos_ipp_event_work, work);
 
 	DRM_DEBUG_KMS("buf_id[%d]\n", event_work->buf_id[EXYNOS_DRM_OPS_DST]);
 
