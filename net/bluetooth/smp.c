@@ -59,6 +59,11 @@
 /* Maximum message length that can be passed to aes_cmac */
 #define CMAC_MSG_MAX	80
 
+#ifdef TIZEN_BT
+#define ZERO_KEY "\x00\x00\x00\x00\x00\x00\x00\x00" \
+		 "\x00\x00\x00\x00\x00\x00\x00\x00"
+#endif
+
 enum {
 	SMP_FLAG_TK_VALID,
 	SMP_FLAG_CFM_PENDING,
@@ -660,8 +665,13 @@ static void build_pairing_cmd(struct l2cap_conn *conn,
 	if (hci_dev_test_flag(hdev, HCI_RPA_RESOLVING))
 		remote_dist |= SMP_DIST_ID_KEY;
 
+#ifdef TIZEN_BT
+	if (memcmp(hdev->irk, ZERO_KEY, 16))
+		local_dist |= SMP_DIST_ID_KEY;
+#else
 	if (hci_dev_test_flag(hdev, HCI_PRIVACY))
 		local_dist |= SMP_DIST_ID_KEY;
+#endif
 
 	if (hci_dev_test_flag(hdev, HCI_SC_ENABLED) &&
 	    (authreq & SMP_AUTH_SC)) {
