@@ -525,6 +525,11 @@ static int sec_pmic_suspend(struct device *dev)
 {
 	struct i2c_client *i2c = to_i2c_client(dev);
 	struct sec_pmic_dev *sec_pmic = i2c_get_clientdata(i2c);
+	unsigned int val;
+
+	regmap_read(sec_pmic->regmap_pmic, 0x1, &val);
+	regmap_read(sec_pmic->regmap_pmic, 0x2, &val);
+	regmap_read(sec_pmic->regmap_pmic, 0x3, &val);
 
 	if (device_may_wakeup(dev))
 		enable_irq_wake(sec_pmic->irq);
