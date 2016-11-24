@@ -871,7 +871,6 @@ static int kdbus_conn_entry_sync_attach(struct kdbus_conn *conn_dst,
 		remote_ret = -EREMOTEIO;
 
 	kdbus_sync_reply_wakeup(reply_wake, remote_ret);
-	kdbus_reply_unlink(reply_wake);
 	mutex_unlock(&reply_wake->reply_dst->lock);
 
 	return ret;
