@@ -59,7 +59,6 @@ obj-$(CONFIG_MCU_IPC)		+= mcu_ipc/
 obj-$(CONFIG_SEC_MODEM_V2)	+= modem_v2/
 obj-$(CONFIG_SEC_MODEM_V1)	+= modem_v1/
 obj-$(CONFIG_SEC_MODEM_IF)	+= modem_if/
-obj-$(CONFIG_SLP_GLOBAL_LOCK)	+= slp_global_lock.o
 obj-$(CONFIG_TGL)		+= tizen_global_lock.o
 obj-$(CONFIG_CLK_MON)                   += clkmon/
 obj-$(CONFIG_SEC_MISC_PARAM)	+= sec_param_slp.o
