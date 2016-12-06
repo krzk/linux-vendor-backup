@@ -1825,12 +1825,12 @@ static inline struct sii8620 *bridge_to_sii8620(struct drm_bridge *bridge)
 	return container_of(bridge, struct sii8620, bridge);
 }
 
-void sii8620_bridge_dummy(struct drm_bridge *bridge)
+static void sii8620_bridge_dummy(struct drm_bridge *bridge)
 {
 
 }
 
-bool sii8620_mode_fixup(struct drm_bridge *bridge,
+static bool sii8620_mode_fixup(struct drm_bridge *bridge,
 		   const struct drm_display_mode *mode,
 		   struct drm_display_mode *adjusted_mode)
 {
