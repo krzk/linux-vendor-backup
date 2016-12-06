@@ -479,6 +479,10 @@ static void sii8620_sink_detected(struct sii8620 *ctx, int ret)
 		ctx->sink_type = SINK_DVI;
 
 	dev_info(dev, "detected sink(type: %s)\n", sink_str[ctx->sink_type]);
+}
+
+static void sii8620_edid_read(struct sii8620 *ctx, int ret)
+{
 	sii8620_set_upstream_edid(ctx);
 	sii8620_enable_hpd(ctx);
 }
@@ -784,12 +788,12 @@ static void sii8620_fetch_edid(struct sii8620 *ctx)
 				edid = new_edid;
 			}
 		}
-
-		if (fetched + FETCH_SIZE == edid_len)
-			sii8620_write(ctx, REG_INTR3, int3);
 	}
 
-	sii8620_write(ctx, REG_LM_DDC, lm_ddc);
+	sii8620_write_seq(ctx,
+		REG_INTR3_MASK, BIT_DDC_CMD_DONE,
+		REG_LM_DDC, lm_ddc
+	);
 
 end:
 	kfree(ctx->edid);
@@ -1699,6 +1703,21 @@ static void sii8620_irq_block(struct sii8620 *ctx)
 	sii8620_write(ctx, REG_EMSCINTR, stat);
 }
 
+static void sii8620_irq_ddc(struct sii8620 *ctx)
+{
+	u8 stat = sii8620_readb(ctx, REG_INTR3);
+
+	if (stat & BIT_DDC_CMD_DONE) {
+		sii8620_write(ctx, REG_INTR3_MASK, 0);
+		if (ctx->mode > CM_MHL1)
+			sii8620_mt_set_int(ctx, MHL_INT_REG(RCHANGE),
+					   MHL_INT_RC_FEAT_REQ);
+		else
+			sii8620_edid_read(ctx, 0);
+	}
+	sii8620_write(ctx, REG_INTR3, stat);
+}
+
 /* endian agnostic, non-volatile version of test_bit */
 static bool sii8620_test_bit(unsigned int nr, const u8 *addr)
 {
@@ -1719,6 +1738,7 @@ static irqreturn_t sii8620_irq_thread(int irq, void *data)
 		{ BIT_FAST_INTR_STAT_MERR, sii8620_irq_merr },
 		{ BIT_FAST_INTR_STAT_BLOCK, sii8620_irq_block },
 		{ BIT_FAST_INTR_STAT_EDID, sii8620_irq_edid },
+		{ BIT_FAST_INTR_STAT_DDC, sii8620_irq_ddc },
 		{ BIT_FAST_INTR_STAT_SCDT, sii8620_irq_scdt },
 		{ BIT_FAST_INTR_STAT_INFR, sii8620_irq_infr },
 	};
