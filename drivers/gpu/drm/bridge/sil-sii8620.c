@@ -1048,7 +1048,7 @@ static void sii8620_mhl_discover(struct sii8620 *ctx)
 
 static void sii8620_peer_specific_init(struct sii8620 *ctx)
 {
-	if (ctx->mode == CM_MHL3)
+	if (ctx->mode >= CM_MHL3)
 		sii8620_write_seq_static(ctx,
 			REG_SYS_CTRL1, BIT_SYS_CTRL1_BLOCK_DDC_BY_HPD,
 			REG_EMSCINTRMASK1,
