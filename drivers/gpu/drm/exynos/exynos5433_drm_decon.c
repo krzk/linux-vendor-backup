@@ -221,10 +221,12 @@ static void decon_commit(struct exynos_drm_crtc *crtc)
 	writel(val, ctx->addr + DECON_VIDTCON2);
 
 	if (!ctx->i80_if) {
-		val = VIDTCON00_VBPD_F(
-				mode->crtc_vtotal - mode->crtc_vsync_end - 1) |
-			VIDTCON00_VFPD_F(
-				mode->crtc_vsync_start - mode->crtc_vdisplay - 1);
+		int vbp = mode->crtc_vtotal - mode->crtc_vsync_end;
+		int vfp = mode->crtc_vsync_start - mode->crtc_vdisplay;
+
+		if (interlaced)
+			vbp = vbp / 2 - 1;
+		val = VIDTCON00_VBPD_F(vbp - 1) | VIDTCON00_VFPD_F(vfp - 1);
 		writel(val, ctx->addr + DECON_VIDTCON00);
 
 		val = VIDTCON01_VSPW_F(
