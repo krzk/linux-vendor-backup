@@ -2091,9 +2091,6 @@ static bool sii8620_mode_fixup(struct drm_bridge *bridge,
 	int max_lclk;
 	bool ret = true;
 
-	if (adjusted_mode->flags & DRM_MODE_FLAG_INTERLACE)
-		return false;
-
 	mutex_lock(&ctx->lock);
 
 	max_lclk = ctx->mode < CM_MHL3 ? MHL1_MAX_LCLK : MHL3_MAX_LCLK;
