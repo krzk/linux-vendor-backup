@@ -90,6 +90,7 @@
 #define VIDCON0_SWRESET			(1 << 28)
 
 /* VIDOUTCON0 */
+#define VIDOUT_INTERLACE_FIELD_F	(1 << 29)
 #define VIDOUT_INTERLACE_EN_F		(1 << 28)
 #define VIDOUT_LCD_ON			(1 << 24)
 #define VIDOUT_IF_F_MASK		(0x3 << 20)

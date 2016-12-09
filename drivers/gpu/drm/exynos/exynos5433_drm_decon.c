@@ -756,6 +756,13 @@ static irqreturn_t decon_irq_handler(int irq, void *dev_id)
 	val &= ctx->i80_if ? VIDINTCON1_INTFRMDONEPEND : VIDINTCON1_INTFRMPEND;
 	if (val) {
 		writel(val, ctx->addr + DECON_VIDINTCON1);
+		if (!ctx->i80_if) {
+			val = readl(ctx->addr + DECON_VIDOUTCON0);
+			val &= VIDOUT_INTERLACE_EN_F | VIDOUT_INTERLACE_FIELD_F;
+			if (val ==
+			    (VIDOUT_INTERLACE_EN_F | VIDOUT_INTERLACE_FIELD_F))
+				return IRQ_HANDLED;
+		}
 		drm_handle_vblank(ctx->drm_dev, ctx->pipe);
 		exynos_drm_crtc_finish_pageflip(ctx->drm_dev, ctx->pipe);
 	}
