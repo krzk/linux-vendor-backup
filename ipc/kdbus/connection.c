@@ -57,6 +57,8 @@
  */
 #define DISABLE_KDBUS_POLICY
 
+static int kdbus_conn_meta_update(struct kdbus_conn *conn, bool first_time);
+
 static struct kdbus_conn *kdbus_conn_new(struct kdbus_ep *ep,
 					 struct file *file,
 					 struct kdbus_cmd_hello *hello,
@@ -195,25 +197,7 @@ static struct kdbus_conn *kdbus_conn_new(struct kdbus_ep *ep,
 		if (ret < 0)
 			goto exit_unref;
 	} else {
-		conn->meta_proc = kdbus_meta_proc_new();
-		if (IS_ERR(conn->meta_proc)) {
-			ret = PTR_ERR(conn->meta_proc);
-			conn->meta_proc = NULL;
-			goto exit_unref;
-		}
-
-		ret = kdbus_meta_proc_collect(conn->meta_proc,
-					      KDBUS_ATTACH_CREDS |
-					      KDBUS_ATTACH_PIDS |
-					      KDBUS_ATTACH_AUXGROUPS |
-					      KDBUS_ATTACH_TID_COMM |
-					      KDBUS_ATTACH_PID_COMM |
-					      KDBUS_ATTACH_EXE |
-					      KDBUS_ATTACH_CMDLINE |
-					      KDBUS_ATTACH_CGROUP |
-					      KDBUS_ATTACH_CAPS |
-					      KDBUS_ATTACH_SECLABEL |
-					      KDBUS_ATTACH_AUDIT);
+		ret = kdbus_conn_meta_update(conn, 1);
 		if (ret < 0)
 			goto exit_unref;
 	}
@@ -1734,6 +1718,7 @@ int kdbus_cmd_conn_info(struct kdbus_conn *conn, void __user *argp)
 	struct kdbus_name_owner *owner = NULL;
 	struct kdbus_conn *owner_conn = NULL;
 	struct kdbus_item *meta_items = NULL;
+	struct kdbus_meta_proc *meta_proc = NULL;
 	struct kdbus_info info = {};
 	struct kdbus_cmd_info *cmd;
 	struct kdbus_bus *bus = conn->ep->bus;
@@ -1805,7 +1790,13 @@ int kdbus_cmd_conn_info(struct kdbus_conn *conn, void __user *argp)
 	if (ret < 0)
 		goto exit;
 
-	ret = kdbus_meta_emit(owner_conn->meta_proc, owner_conn->meta_fake,
+	if (!owner_conn->meta_fake) {
+		rcu_read_lock();
+		meta_proc = rcu_dereference(owner_conn->meta_proc);
+		kdbus_meta_proc_ref(meta_proc);
+		rcu_read_unlock();
+	}
+	ret = kdbus_meta_emit(meta_proc, owner_conn->meta_fake,
 			      conn_meta, conn, attach_flags,
 			      &meta_items, &meta_size);
 	if (ret < 0)
@@ -1849,6 +1840,7 @@ exit:
 	kdbus_pool_slice_release(slice);
 	kfree(meta_items);
 	kdbus_meta_conn_unref(conn_meta);
+	kdbus_meta_proc_unref(meta_proc);
 	kdbus_conn_unref(owner_conn);
 	return kdbus_args_clear(&args, ret);
 }
@@ -2242,4 +2234,57 @@ int kdbus_cmd_free(struct kdbus_conn *conn, void __user *argp)
 	ret = kdbus_pool_release_offset(conn->pool, cmd->offset);
 
 	return kdbus_args_clear(&args, ret);
+}
+
+static int kdbus_conn_meta_update(struct kdbus_conn *conn, bool first_time)
+{
+	int ret;
+	struct kdbus_meta_proc *mp = kdbus_meta_proc_new();
+
+	if (IS_ERR(mp))
+		return PTR_ERR(mp);
+
+	ret = kdbus_meta_proc_collect(mp,
+					  KDBUS_ATTACH_CREDS |
+					  KDBUS_ATTACH_PIDS |
+					  KDBUS_ATTACH_AUXGROUPS |
+					  KDBUS_ATTACH_TID_COMM |
+					  KDBUS_ATTACH_PID_COMM |
+					  KDBUS_ATTACH_EXE |
+					  KDBUS_ATTACH_CMDLINE |
+					  KDBUS_ATTACH_CGROUP |
+					  KDBUS_ATTACH_CAPS |
+					  KDBUS_ATTACH_SECLABEL |
+					  KDBUS_ATTACH_AUDIT);
+	if (ret < 0) {
+		kdbus_meta_proc_free(&mp->kref);
+		return ret;
+	}
+
+	if (first_time)
+		conn->meta_proc = mp;
+	else {
+		struct kdbus_meta_proc *old_meta;
+		mutex_lock(&conn->lock);
+		old_meta = conn->meta_proc;
+		rcu_assign_pointer(conn->meta_proc, mp);
+		synchronize_rcu();
+		mutex_unlock(&conn->lock);
+		kdbus_meta_proc_unref(old_meta);
+	}
+
+	return 0;
+}
+
+/**
+ * kdbus_cmd_update_metadata() - handle KDBUS_CMD_UPDATE_METADATA
+ * @conn:              connection to operate on
+ *
+ * Return: >=0 on success, negative error code on failure.
+ */
+int kdbus_cmd_update_metadata(struct kdbus_conn *conn)
+{
+	if (conn->meta_fake)
+		return -EOPNOTSUPP;
+	return kdbus_conn_meta_update(conn, 0);
 }

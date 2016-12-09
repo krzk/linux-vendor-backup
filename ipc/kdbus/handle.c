@@ -498,6 +498,9 @@ static long kdbus_handle_ioctl_connected(struct file *file,
 	case KDBUS_CMD_UPDATE:
 		ret = kdbus_cmd_update(conn, buf);
 		break;
+	case KDBUS_CMD_UPDATE_METADATA:
+		ret = kdbus_cmd_update_metadata(conn);
+		break;
 	case KDBUS_CMD_MATCH_ADD:
 		ret = kdbus_cmd_match_add(conn, buf);
 		break;
@@ -576,6 +579,7 @@ static long kdbus_handle_ioctl(struct file *file, unsigned int cmd,
 	case KDBUS_CMD_NAME_ACQUIRE:
 	case KDBUS_CMD_NAME_RELEASE:
 	case KDBUS_CMD_LIST:
+	case KDBUS_CMD_UPDATE_METADATA:
 	case KDBUS_CMD_CONN_INFO:
 	case KDBUS_CMD_BUS_CREATOR_INFO:
 	case KDBUS_CMD_UPDATE:

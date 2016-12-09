@@ -19,9 +19,7 @@
 #include <linux/file.h>
 #include <linux/fs_struct.h>
 #include <linux/init.h>
-#include <linux/kref.h>
 #include <linux/mutex.h>
-#include <linux/sched.h>
 #include <linux/security.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
@@ -37,65 +35,6 @@
 #include "message.h"
 #include "metadata.h"
 #include "names.h"
-
-/**
- * struct kdbus_meta_proc - Process metadata
- * @kref:		Reference counting
- * @lock:		Object lock
- * @collected:		Bitmask of collected items
- * @valid:		Bitmask of collected and valid items
- * @cred:		Credentials
- * @pid:		PID of process
- * @tgid:		TGID of process
- * @ppid:		PPID of process
- * @tid_comm:		TID comm line
- * @pid_comm:		PID comm line
- * @exe_path:		Executable path
- * @root_path:		Root-FS path
- * @cmdline:		Command-line
- * @cgroup:		Full cgroup path
- * @seclabel:		Seclabel
- * @audit_loginuid:	Audit login-UID
- * @audit_sessionid:	Audit session-ID
- */
-struct kdbus_meta_proc {
-	struct kref kref;
-	struct mutex lock;
-	u64 collected;
-	u64 valid;
-
-	/* KDBUS_ITEM_CREDS */
-	/* KDBUS_ITEM_AUXGROUPS */
-	/* KDBUS_ITEM_CAPS */
-	const struct cred *cred;
-
-	/* KDBUS_ITEM_PIDS */
-	struct pid *pid;
-	struct pid *tgid;
-	struct pid *ppid;
-
-	/* KDBUS_ITEM_TID_COMM */
-	char tid_comm[TASK_COMM_LEN];
-	/* KDBUS_ITEM_PID_COMM */
-	char pid_comm[TASK_COMM_LEN];
-
-	/* KDBUS_ITEM_EXE */
-	struct path exe_path;
-	struct path root_path;
-
-	/* KDBUS_ITEM_CMDLINE */
-	char *cmdline;
-
-	/* KDBUS_ITEM_CGROUP */
-	char *cgroup;
-
-	/* KDBUS_ITEM_SECLABEL */
-	char *seclabel;
-
-	/* KDBUS_ITEM_AUDIT */
-	kuid_t audit_loginuid;
-	unsigned int audit_sessionid;
-};
 
 /**
  * struct kdbus_meta_conn
@@ -152,7 +91,7 @@ struct kdbus_meta_proc *kdbus_meta_proc_new(void)
 	return mp;
 }
 
-static void kdbus_meta_proc_free(struct kref *kref)
+void kdbus_meta_proc_free(struct kref *kref)
 {
 	struct kdbus_meta_proc *mp = container_of(kref, struct kdbus_meta_proc,
 						  kref);
