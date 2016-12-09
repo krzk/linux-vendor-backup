@@ -117,7 +117,7 @@ void kdbus_reply_link(struct kdbus_reply *r)
 	if (WARN_ON(!list_empty(&r->entry)))
 		return;
 
-	list_add(&r->entry, &r->reply_dst->reply_list);
+	list_add_tail(&r->entry, &r->reply_dst->reply_list);
 	kdbus_reply_ref(r);
 }
 
