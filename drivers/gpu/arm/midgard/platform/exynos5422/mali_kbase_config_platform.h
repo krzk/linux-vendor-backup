@@ -8,7 +8,7 @@
 
 #include <mali_kbase_config.h>
 
-#define GPU_FREQ_KHZ_MAX    600000
+#define GPU_FREQ_KHZ_MAX    543000
 #define GPU_FREQ_KHZ_MIN    177000
 
 extern int get_cpu_clock_speed(u32 *cpu_clock);
