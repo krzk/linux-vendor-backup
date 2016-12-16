@@ -467,8 +467,8 @@ static int __init exynos_pcie_probe(struct platform_device *pdev)
 	if (ret)
 		goto fail_clk;
 
-	/* Application Register */
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	/* External Local Bus interface(ELBI) Register */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "elbi");
 	exynos_pcie->elbi_base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(exynos_pcie->elbi_base)) {
 		ret = PTR_ERR(exynos_pcie->elbi_base);
@@ -476,16 +476,16 @@ static int __init exynos_pcie_probe(struct platform_device *pdev)
 	}
 
 	/* Physical Layer Register */
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "phy");
 	exynos_pcie->phy_base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(exynos_pcie->phy_base)) {
 		ret = PTR_ERR(exynos_pcie->phy_base);
 		goto fail_bus_clk;
 	}
 
-	/* Workaround Block register(System register) */
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
-	exynos_pcie->block_base = devm_ioremap_resource(&pdev->dev, res);
+	/* Data Bus Interface(DBI) Register */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dbi");
+	pp->dbi_base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(exynos_pcie->block_base))
 		goto fail_bus_clk;
 
