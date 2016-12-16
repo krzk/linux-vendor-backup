@@ -58,6 +58,7 @@ struct exynos_pcie {
 #define IRQ_MSI_ENABLE			BIT(2)
 #define PCIE_IRQ_EN_SPECIAL		0x014
 #define PCIE_SW_WAKE			0x018
+#define PCIE_BUS_EN			BIT(1)
 #define PCIE_APP_INIT_RESET		0x028
 #define PCIE_APP_LTSSM_ENABLE		0x02c
 #define PCIE_ELBI_LTSSM_DISABLE		0x0
@@ -66,6 +67,7 @@ struct exynos_pcie {
 #define PCIE_APP_REQ_EXIT_L1		0x040
 #define PCIE_APPS_PM_XMT_TURNOFF	0x04c
 #define PCIE_ELBI_RDLH_LINKUP		0x074
+#define PCIE_ELBI_XMLH_LINKUP		BIT(4)
 #define PCIE_AUX_PM_EN			0x0A4
 #define AUX_PM_DISABLE			0x0
 #define AUX_PM_ENABLE			0x1
@@ -266,7 +268,7 @@ static void exynos_pcie_assert_phy_reset(struct pcie_port *pp)
 
 
 	val = exynos_pcie_readl(ep->elbi_base, PCIE_SW_WAKE);
-	val &= ~(0x1 << 1);
+	val &= ~PCIE_BUS_EN;
 	exynos_pcie_writel(ep->elbi_base, val, PCIE_SW_WAKE);
 }
 
@@ -353,12 +355,8 @@ static int exynos_pcie_link_up(struct pcie_port *pp)
 	u32 val;
 
 	val = exynos_pcie_readl(ep->elbi_base, PCIE_ELBI_RDLH_LINKUP);
-	val &= 0x1f;
 
-	if (val >= 0x0d && val <= 0x15)
-		return 1;
-
-	return 0;
+	return (val & PCIE_ELBI_XMLH_LINKUP);
 }
 
 static int exynos_pcie_host_init(struct pcie_port *pp)
