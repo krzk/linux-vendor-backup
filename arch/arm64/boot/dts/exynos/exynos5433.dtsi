@@ -1874,6 +1874,11 @@
 			reg = <0x145F0000 0x1038>;
 		};
 
+		syscon_fsys: syscon@156F0000 {
+			compatible = "samsung,exynos5433-sysreg", "syscon";
+			reg = <0x156F0000 0x1050>;
+		};
+
 		adc: adc@14d10000 {
 			compatible = "samsung,exynos7-adc";
 			reg = <0x14d10000 0x100>;
@@ -2628,8 +2633,9 @@
 			assigned-clock-rates = <0>, <100000000>;
 			interrupts = <0 245 0>;
 			num-lanes = <1>;
-			reg = <0x156b0000 0x1000>, <0x15680000 0x1000>, <0x156f0000 0x2000>;
-			reg-names = "elbi", "phy", "block";
+			reg = <0x156b0000 0x1000>, <0x15680000 0x1000>, <0x15700000 0x1000>;
+			reg-names = "elbi", "phy", "dbi";
+			samsung,fsys-sysreg = <&syscon_fsys>;
 			reset-gpio = <&gpr3 5 1>;
 			wlanen-gpio = <&gpj2 0 1>;
 			samsung,pmureg-phandle = <&pmu_system_controller>;
