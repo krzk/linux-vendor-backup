@@ -38,6 +38,7 @@ struct exynos_pcie {
 	struct clk		*bus_clk;
 	struct pcie_port	pp;
 	struct regmap		*pmureg;
+	struct regmap		*fsysreg;
 	/* workaround */
 	int			wlanen_gpio;
 };
@@ -83,6 +84,7 @@ struct exynos_pcie {
 
 /* Workaround : Sysreg Fsys register offset and bit */
 #define PCIE_PHY_MAC_RESET		0x208
+#define PCIE_MAC_RESET_MASK		0xFF
 #define PCIE_MAC_RESET			BIT(4)
 #define PCIE_L1SUB_CM_CON		0x1010
 #define PCIE_REFCLK_GATING_EN		BIT(0)
@@ -238,39 +240,29 @@ static void exynos_pcie_assert_phy_reset(struct pcie_port *pp)
 	struct exynos_pcie *ep = to_exynos_pcie(pp);
 	u32 val;
 
-	val = exynos_pcie_readl(ep->block_base, PCIE_PHY_COMMON_RESET);
-	val |= PCIE_PHY_RESET;
-	exynos_pcie_writel(ep->block_base, val, PCIE_PHY_COMMON_RESET);
-
-	/* PHY Mac Reset */
-	val = exynos_pcie_readl(ep->block_base, PCIE_PHY_MAC_RESET);
-	val &= ~PCIE_MAC_RESET;
-	exynos_pcie_writel(ep->block_base, val, PCIE_PHY_MAC_RESET);
-
-
-	/* PHY refclk 24MHz */
-	val = exynos_pcie_readl(ep->block_base, PCIE_PHY_GLOBAL_RESET);
-	val &= ~PCIE_REFCLK_MASK;
-	val |= PCIE_REFCLK;
-	exynos_pcie_writel(ep->block_base, val, PCIE_PHY_GLOBAL_RESET);
-
-	/* PHY Global Reset */
-	val = exynos_pcie_readl(ep->block_base, PCIE_PHY_GLOBAL_RESET);
-	val &= ~PCIE_GLOBAL_RESET;
-	exynos_pcie_writel(ep->block_base, val, PCIE_PHY_GLOBAL_RESET);
+	if (ep->fsysreg) {
+		regmap_update_bits(ep->fsysreg, PCIE_PHY_COMMON_RESET,
+				PCIE_PHY_RESET, 1);
+		regmap_update_bits(ep->fsysreg, PCIE_PHY_MAC_RESET,
+				PCIE_MAC_RESET, 0);
+		/* PHY refclk 24MHz */
+		regmap_update_bits(ep->fsysreg, PCIE_PHY_GLOBAL_RESET,
+				PCIE_REFCLK_MASK, PCIE_REFCLK);
+		regmap_update_bits(ep->fsysreg, PCIE_PHY_GLOBAL_RESET,
+				PCIE_GLOBAL_RESET, 0);
+	}
 
 	/* initialize phy */
 	exynos_pcie_init_phy(pp);
 
-	/* PHY Common Reset */
-	val = exynos_pcie_readl(ep->block_base, PCIE_PHY_COMMON_RESET);
-	val &= ~PCIE_PHY_RESET;
-	exynos_pcie_writel(ep->block_base, val, PCIE_PHY_COMMON_RESET);
-
-	/* PHY Mac Reset */
-	val = exynos_pcie_readl(ep->block_base, PCIE_PHY_MAC_RESET);
-	val |= PCIE_MAC_RESET;
-	exynos_pcie_writel(ep->block_base, val, PCIE_PHY_MAC_RESET);
+	if (ep->fsysreg) {
+		/* PHY Common Reset */
+		regmap_update_bits(ep->fsysreg, PCIE_PHY_COMMON_RESET,
+				PCIE_PHY_RESET, 0);
+		/* PHY Mac Reset */
+		regmap_update_bits(ep->fsysreg, PCIE_PHY_MAC_RESET,
+				PCIE_MAC_RESET_MASK, PCIE_MAC_RESET);
+	}
 
 
 	val = exynos_pcie_readl(ep->elbi_base, PCIE_SW_WAKE);
@@ -307,7 +299,6 @@ static int exynos_pcie_reset(struct pcie_port *pp)
 static int exynos_pcie_establish_link(struct pcie_port *pp)
 {
 	struct exynos_pcie *ep = to_exynos_pcie(pp);
-	u32 val;
 	int count = 10, ret;
 
 	if (dw_pcie_link_up(pp)) {
@@ -321,13 +312,12 @@ static int exynos_pcie_establish_link(struct pcie_port *pp)
 			dev_warn(pp->dev, "Failed to update regmap bit.\n");
 	}
 
-	val = exynos_pcie_readl(ep->block_base, PCIE_PHY_GLOBAL_RESET);
-	val &= ~PCIE_APP_REQ_EXIT_L1_MODE;
-	exynos_pcie_writel(ep->block_base, val, PCIE_PHY_GLOBAL_RESET);
-
-	val = exynos_pcie_readl(ep->block_base, PCIE_L1SUB_CM_CON);
-	val &= ~PCIE_REFCLK_GATING_EN;
-	exynos_pcie_writel(ep->block_base, val, PCIE_L1SUB_CM_CON);
+	if (ep->fsysreg) {
+		regmap_update_bits(ep->fsysreg, PCIE_PHY_GLOBAL_RESET,
+				PCIE_APP_REQ_EXIT_L1_MODE, 0);
+		regmap_update_bits(ep->fsysreg, PCIE_L1SUB_CM_CON,
+				PCIE_REFCLK_GATING_EN, 0);
+	}
 
 	exynos_pcie_assert_phy_reset(pp);
 
@@ -506,6 +496,13 @@ static int __init exynos_pcie_probe(struct platform_device *pdev)
 		exynos_pcie->pmureg = NULL;
 	}
 
+	exynos_pcie->fsysreg = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
+			"samsung,fsys-sysreg");
+	if (IS_ERR(exynos_pcie->fsysreg)) {
+		dev_warn(&pdev->dev, "Fsysreg syscon regmap lookup failed.\n");
+		exynos_pcie->fsysreg = NULL;
+	}
+
 	/* Workaround code to use broadcom device driver */
 	g_pcie = exynos_pcie;
 
@@ -616,9 +613,10 @@ static int exynos_pcie_suspend_noirq(struct device *dev)
 	exynos_pcie_writel(ep->elbi_base, VEN_MSG_REQ_DISABLE,
 			PCIE_VEN_MSG_REQ);
 
-	val = exynos_pcie_readl(ep->block_base, PCIE_PHY_GLOBAL_RESET);
-	val |= PCIE_APP_REQ_EXIT_L1_MODE;
-	exynos_pcie_writel(ep->block_base, val, PCIE_PHY_GLOBAL_RESET);
+	if (ep->fsysreg) {
+		regmap_update_bits(ep->fsysreg, PCIE_PHY_GLOBAL_RESET,
+				PCIE_APP_REQ_EXIT_L1_MODE, 1);
+	}
 
 	exynos_pcie_writel(ep->elbi_base, 0x1, PCIE_APP_REQ_EXIT_L1);
 	exynos_pcie_writel(ep->elbi_base, 0x1, PCIE_VEN_MSG_FMT);
@@ -670,13 +668,12 @@ static int exynos_pcie_resume_noirq(struct device *dev)
 				dev_warn(pp->dev, "Failed to update regmap bit.\n");
 		}
 
-		val = exynos_pcie_readl(ep->block_base, PCIE_PHY_GLOBAL_RESET);
-		val &= ~PCIE_APP_REQ_EXIT_L1_MODE;
-		exynos_pcie_writel(ep->block_base, val, PCIE_PHY_GLOBAL_RESET);
-
-		val = exynos_pcie_readl(ep->block_base, PCIE_L1SUB_CM_CON);
-		val &= ~PCIE_REFCLK_GATING_EN;
-		exynos_pcie_writel(ep->block_base, val, PCIE_L1SUB_CM_CON);
+		if (ep->fsysreg) {
+			regmap_update_bits(ep->fsysreg, PCIE_PHY_GLOBAL_RESET,
+					PCIE_APP_REQ_EXIT_L1_MODE, 1);
+			regmap_update_bits(ep->fsysreg, PCIE_L1SUB_CM_CON,
+					PCIE_REFCLK_GATING_EN, 0);
+		}
 
 		exynos_pcie_assert_phy_reset(pp);
 
