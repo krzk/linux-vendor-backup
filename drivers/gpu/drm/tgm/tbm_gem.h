@@ -43,6 +43,12 @@ struct tbm_gem_info_data {
 	struct seq_file *m;
 };
 
+struct tbm_gem_buf *tbm_init_buf(struct drm_device *dev,
+				unsigned int size);
+struct tbm_gem_object *tbm_gem_obj_init(struct drm_device *dev,
+				unsigned long size);
+void tbm_fini_buf(struct drm_device *dev,
+				struct tbm_gem_buf *buffer);
 int tbm_gem_create_ioctl(struct drm_device *dev, void *data,
 				struct drm_file *file_priv);
 int tbm_gem_mmap_ioctl(struct drm_device *dev, void *data,

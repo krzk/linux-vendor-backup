@@ -170,10 +170,125 @@ out:
 struct drm_gem_object *tbm_gem_ion_prime_import(struct drm_device *dev,
 					 struct dma_buf *dma_buf)
 {
-	DRM_INFO("%s\n",  __func__);
+	struct tgm_drv_private *dev_priv = dev->dev_private;
+	struct tbm_private *tbm_priv = dev_priv->tbm_priv;
+	struct gem_private *gem_priv = tbm_priv->gem_priv;
+	struct tbm_gem_object *tbm_gem_obj;
+	struct tbm_gem_buf *buf;
+	struct drm_gem_object *obj;
+	struct ion_handle *ion_handle;
+	struct scatterlist *sg = NULL;
+	unsigned long size, sgt_size;
+	unsigned int i = 0, nr_pages = 0, heap_id;
+	int ret = 0;
 
-	/* ToDo */
-	return NULL;
+	ion_handle = get_ion_handle_from_dmabuf(gem_priv->tbm_ion_client,
+			dma_buf);
+	if (IS_ERR_OR_NULL(ion_handle)) {
+		DRM_ERROR("Unable to import dmabuf\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	ion_handle_get_size(gem_priv->tbm_ion_client,
+					ion_handle, &size, &heap_id);
+	if (size == 0) {
+		DRM_ERROR(
+			"cannot create GEM object from zero size ION buffer\n");
+		ret = -EINVAL;
+		goto err;
+	}
+
+	obj = ion_get_client_object(gem_priv->tbm_ion_client, ion_handle);
+	if (obj) {
+		tbm_gem_obj = to_tbm_gem_obj(obj);
+		if (tbm_gem_obj->buffer->ion_handle != ion_handle) {
+			DRM_ERROR("Unable get GEM object from ion\n");
+			ret = -EINVAL;
+			goto err;
+		}
+
+		drm_gem_object_reference(obj);
+		ion_free(gem_priv->tbm_ion_client, ion_handle);
+		goto out;
+	}
+
+	buf = tbm_init_buf(dev, size);
+	if (!buf) {
+		DRM_ERROR("Unable to allocate the GEM buffer\n");
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	tbm_gem_obj = tbm_gem_obj_init(dev, size);
+	if (!tbm_gem_obj) {
+		DRM_ERROR("Unable to initialize GEM object\n");
+		ret = -ENOMEM;
+		goto err_fini_buf;
+	}
+
+	tbm_gem_obj->buffer = buf;
+	tbm_gem_obj->flags = TBM_BO_NONCONTIG;
+	if (ion_is_cached(gem_priv->tbm_ion_client, ion_handle))
+		tbm_gem_obj->flags |= TBM_BO_CACHABLE;
+	obj = &tbm_gem_obj->base;
+
+	buf->ion_handle = ion_handle;
+	buf->sgt = ion_sg_table(gem_priv->tbm_ion_client, buf->ion_handle);
+	if (!buf->sgt) {
+		DRM_ERROR("failed to get sg table.\n");
+		ret = -ENOMEM;
+		goto err_gem_obj;
+	}
+
+	buf->dma_addr = sg_dma_address(buf->sgt->sgl);
+	if (!buf->dma_addr) {
+		DRM_ERROR("failed to get dma addr.\n");
+		ret = -EINVAL;
+		goto err_gem_obj;
+	}
+
+	for_each_sg(buf->sgt->sgl, sg, buf->sgt->nents, i)
+		nr_pages++;
+
+	sgt_size = sizeof(struct page) * nr_pages;
+	buf->pages = kzalloc(sgt_size, GFP_KERNEL | __GFP_NOWARN |
+				__GFP_NORETRY);
+	if (!buf->pages) {
+		unsigned int order;
+
+		order = get_order(sgt_size);
+		DRM_INFO("%s:order:%d, trying vzalloc\n",
+					__func__, order);
+		buf->pages = vzalloc(sgt_size);
+		if (!buf->pages) {
+			DRM_ERROR("failed to allocate pages.\n");
+			ret = -ENOMEM;
+			goto err_buf;
+		}
+	}
+
+	for_each_sg(buf->sgt->sgl, sg, buf->sgt->nents, i) {
+		buf->pages[i] = phys_to_page(sg_dma_address(sg));
+		buf->page_size = sg->length;
+	}
+
+out:
+	return obj;
+err_buf:
+	buf->dma_addr = (dma_addr_t)NULL;
+	buf->sgt = NULL;
+err_gem_obj:
+	tbm_gem_obj->buffer = NULL;
+	/* release file pointer to gem object. */
+	drm_gem_object_release(obj);
+	kfree(tbm_gem_obj);
+	tbm_gem_obj = NULL;
+err_fini_buf:
+	tbm_fini_buf(dev, buf);
+err:
+	ion_free(gem_priv->tbm_ion_client, ion_handle);
+
+	return ERR_PTR(ret);
 }
 
  int tbm_gem_ion_init(struct drm_device *drm_dev)
