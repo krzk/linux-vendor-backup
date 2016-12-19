@@ -852,28 +852,6 @@ int ion_phys(struct ion_client *client, struct ion_handle *handle,
 }
 EXPORT_SYMBOL(ion_phys);
 
-#ifdef CONFIG_DRM_TBM_GEM_ION
-int ion_set_client_ops(struct ion_client *client,
-		struct ion_handle *handle, void *client_ops, void *client_obj)
-{
-	if (!client_ops || !client_obj)
-		return -EINVAL;
-
-	mutex_lock(&client->lock);
-	if (!ion_handle_validate(client, handle)) {
-		mutex_unlock(&client->lock);
-		return -EINVAL;
-	}
-
-	handle->buffer->private_ops = client_ops;
-	handle->buffer->private_obj = client_obj;
-	mutex_unlock(&client->lock);
-
-	return 0;
-}
-EXPORT_SYMBOL(ion_set_client_ops);
-#endif
-
 static void *ion_buffer_kmap_get(struct ion_buffer *buffer)
 {
 	void *vaddr;
@@ -1494,6 +1472,138 @@ static struct dma_buf_ops dma_buf_ops = {
 	.kmap = ion_dma_buf_kmap,
 	.kunmap = ion_dma_buf_kunmap,
 };
+
+#ifdef CONFIG_DRM_TBM_GEM_ION
+int ion_set_client_ops(struct ion_client *client,
+		struct ion_handle *handle, void *client_ops, void *client_obj)
+{
+	if (!client_ops || !client_obj)
+		return -EINVAL;
+
+	mutex_lock(&client->lock);
+	if (!ion_handle_validate(client, handle)) {
+		mutex_unlock(&client->lock);
+		return -EINVAL;
+	}
+
+	handle->buffer->private_ops = client_ops;
+	handle->buffer->private_obj = client_obj;
+	pr_debug("%s:ih[%p]obj[%p]\n", __func__, handle,
+		handle->buffer->private_obj);
+	mutex_unlock(&client->lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(ion_set_client_ops);
+
+void *ion_get_client_object(struct ion_client *client,
+		struct ion_handle *handle)
+{
+	mutex_lock(&client->lock);
+	if (!ion_handle_validate(client, handle))
+		goto out;
+
+	if (handle && handle->buffer) {
+		pr_debug("%s:ih[%p]obj[%p]\n", __func__, handle,
+			handle->buffer->private_obj);
+		mutex_unlock(&client->lock);
+		return handle->buffer->private_obj;
+	}
+
+out:
+	pr_err("%s:failed to get object:handle[%p]\n", __func__, handle);
+	mutex_unlock(&client->lock);
+	return NULL;
+}
+EXPORT_SYMBOL(ion_get_client_object);
+
+struct ion_handle *get_ion_handle_from_dmabuf(struct ion_client *client,
+		struct dma_buf *dmabuf)
+{
+	struct ion_buffer *buffer;
+	struct ion_handle *handle;
+	int ret;
+
+	/* if this memory came from ion */
+	if (dmabuf->ops != &dma_buf_ops) {
+		pr_err("%s: can not import dmabuf from another exporter\n",
+			__func__);
+		return ERR_PTR(-EINVAL);
+	}
+	buffer = dmabuf->priv;
+
+	mutex_lock(&client->lock);
+	/* if a handle exists for this buffer just take a reference to it */
+	handle = ion_handle_lookup(client, buffer);
+	if (!IS_ERR(handle)) {
+		ion_handle_get(handle);
+		mutex_unlock(&client->lock);
+		goto end;
+	}
+	mutex_unlock(&client->lock);
+
+	handle = ion_handle_create(client, buffer);
+	if (IS_ERR(handle))
+		goto end;
+
+	mutex_lock(&client->lock);
+	ret = ion_handle_add(client, handle);
+	mutex_unlock(&client->lock);
+	if (ret) {
+		ion_handle_put(client, handle);
+		handle = ERR_PTR(ret);
+	}
+
+end:
+	return handle;
+}
+EXPORT_SYMBOL(get_ion_handle_from_dmabuf);
+
+int ion_handle_get_size(struct ion_client *client, struct ion_handle *handle,
+			unsigned long *size, unsigned int *heap_id)
+{
+	struct ion_buffer *buffer;
+	struct ion_heap *heap;
+
+	mutex_lock(&client->lock);
+	if (!ion_handle_validate(client, handle)) {
+		pr_err("%s: invalid handle passed to %s.\n",
+			__func__, __func__);
+		mutex_unlock(&client->lock);
+		return -EINVAL;
+	}
+	buffer = handle->buffer;
+	mutex_lock(&buffer->lock);
+	heap = buffer->heap;
+	*heap_id = (1 << heap->id);
+	*size = buffer->size;
+	mutex_unlock(&buffer->lock);
+	mutex_unlock(&client->lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(ion_handle_get_size);
+
+int ion_is_cached(struct ion_client *client, struct ion_handle *handle)
+{
+	struct ion_buffer *buffer;
+	int cached;
+
+	mutex_lock(&client->lock);
+	if (!ion_handle_validate(client, handle)) {
+		mutex_unlock(&client->lock);
+		return -EINVAL;
+	}
+
+	buffer = handle->buffer;
+
+	cached = ion_buffer_cached(buffer);
+	mutex_unlock(&client->lock);
+
+	return cached;
+}
+EXPORT_SYMBOL(ion_is_cached);
+#endif
 
 struct dma_buf *ion_share_dma_buf(struct ion_client *client,
 						struct ion_handle *handle)

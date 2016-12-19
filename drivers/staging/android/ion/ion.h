@@ -20,6 +20,9 @@
 #include <linux/types.h>
 
 #include <uapi/linux/ion.h>
+#ifdef CONFIG_DRM_TBM_GEM_ION
+#include <linux/dma-buf.h>
+#endif
 
 struct ion_handle;
 struct ion_device;
@@ -149,6 +152,17 @@ int ion_phys(struct ion_client *client, struct ion_handle *handle,
 #ifdef CONFIG_DRM_TBM_GEM_ION
 int ion_set_client_ops(struct ion_client *client,
 		struct ion_handle *handle, void *client_ops, void *client_obj);
+
+void *ion_get_client_object(struct ion_client *client,
+		struct ion_handle *handle);
+
+struct ion_handle *get_ion_handle_from_dmabuf(struct ion_client *client,
+		struct dma_buf *dmabuf);
+
+int ion_handle_get_size(struct ion_client *client, struct ion_handle *handle,
+		unsigned long *size, unsigned int *heap_id);
+
+int ion_is_cached(struct ion_client *client, struct ion_handle *handle);
 #endif
 /**
  * ion_map_dma - return an sg_table describing a handle
