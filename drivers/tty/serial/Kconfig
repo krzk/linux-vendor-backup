@@ -1498,6 +1498,14 @@ config SERIAL_RP2_NR_UARTS
 	  If multiple cards are present, the default limit of 32 ports may
 	  need to be increased.
 
+config SERIAL_XR20M117X
+	tristate "SERIAL_XR20M117X serial support"
+	depends on I2C
+	select SERIAL_CORE
+	select REGMAP_I2C if I2C
+	help
+	  This selects support for SERIAL_XR20M117X serial ports.
+
 endmenu
 
 endif # TTY
