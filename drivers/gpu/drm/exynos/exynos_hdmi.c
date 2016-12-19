@@ -1929,6 +1929,8 @@ err_disable_pm_runtime:
 err_hdmiphy:
 	if (hdata->hdmiphy_port)
 		put_device(&hdata->hdmiphy_port->dev);
+	if (hdata->regs_hdmiphy)
+		iounmap(hdata->regs_hdmiphy);
 err_ddc:
 	put_device(&hdata->ddc_adpt->dev);
 
@@ -1950,6 +1952,9 @@ static int hdmi_remove(struct platform_device *pdev)
 
 	if (hdata->hdmiphy_port)
 		put_device(&hdata->hdmiphy_port->dev);
+
+	if (hdata->regs_hdmiphy)
+		iounmap(hdata->regs_hdmiphy);
 
 	put_device(&hdata->ddc_adpt->dev);
 
