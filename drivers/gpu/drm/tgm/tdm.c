@@ -250,7 +250,7 @@ static void tdm_set_dpms(struct tdm_private *tdm_priv, enum tdm_crtc_id crtc_id,
 	}
 
 	tdm_priv->dpms[crtc_id] = mode;
-	DRM_INFO("%s:crtc_id[%d]mode[%d]done\n", __func__, crtc_id, mode);
+	DRM_INFO("%s:crtc_id[%d]dpms[%d]done\n", __func__, crtc_id, tdm_priv->dpms[crtc_id]);
 
 	return;
 }
