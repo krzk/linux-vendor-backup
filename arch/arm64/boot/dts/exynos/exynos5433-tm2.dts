@@ -379,9 +379,9 @@
 		wlf,micd-force-micbias;
 
 		wlf,micd-ranges = <
-			139 0x101
-			295 0x102
-			752 0x103
+			139 226
+			295 115
+			752 114
 			1257 0x104
 		>;
 		wlf,micd-configs = <
