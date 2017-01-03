@@ -774,7 +774,7 @@
 	i2c_gpio1: i2c@2d {
 		compatible = "i2c-gpio";
 		gpios = <&gpf0 4 0 &gpf0 5 0>;
-		i2c-gpio,delay-us = <2>;    /* ~100kHz */
+		i2c-gpio,delay-us = <0>;    /* Max Speed */
 		#address-cells = <1>;
 		#size-cells = <0>;
 		status = "okay";
