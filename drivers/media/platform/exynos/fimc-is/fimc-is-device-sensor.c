@@ -1289,7 +1289,7 @@ module_retry:
 		pm_qos_add_request(&exynos_sensor_qos_int,
 			PM_QOS_DEVICE_THROUGHPUT, 400000);
 		pm_qos_add_request(&exynos_sensor_qos_mem,
-			PM_QOS_BUS_THROUGHPUT, 633000);
+			PM_QOS_BUS_THROUGHPUT, 825000);
 		pm_qos_add_request(&exynos_sensor_qos_cam,
 			PM_QOS_CAM_THROUGHPUT, 333000);
 	}
@@ -1328,7 +1328,12 @@ module_retry:
 			goto p_err;
 		}
 	}
-
+#if defined(CONFIG_PM_DEVFREQ)
+	if (test_bit(FIMC_IS_SENSOR_DRIVING, &device->state) &&
+		(device->pdata->scenario == SENSOR_SCENARIO_EXTERNAL)) {
+		pm_qos_update_request(&exynos_sensor_qos_mem, 633000);
+	}
+#endif
 p_err:
 
 	minfo("[SEN:D] %s(%d, %d, %d)\n", device, __func__, input, scenario, ret);
