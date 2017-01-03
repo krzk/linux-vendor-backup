@@ -199,7 +199,7 @@ static int i2c_gpio_probe(struct platform_device *pdev)
 	else if (pdata->scl_is_output_only)
 		bit_data->udelay = 50;			/* 10 kHz */
 	else
-		bit_data->udelay = 5;			/* 100 kHz */
+		bit_data->udelay = 0;			/* Max Speed */
 
 	if (pdata->timeout)
 		bit_data->timeout = pdata->timeout;
