@@ -202,12 +202,12 @@ static void cpufreq_interactive_timer_resched(
 				  tunables->io_is_busy);
 	pcpu->cputime_speedadj = 0;
 	pcpu->cputime_speedadj_timestamp = pcpu->time_in_idle_timestamp;
-	expires = jiffies + usecs_to_jiffies(tunables->timer_rate);
+	expires = jiffies + tunables->timer_rate;
 	mod_timer_pinned(&pcpu->cpu_timer, expires);
 
 	if (tunables->timer_slack_val >= 0 &&
 	    pcpu->target_freq > pcpu->policy->min) {
-		expires += usecs_to_jiffies(tunables->timer_slack_val);
+		expires += tunables->timer_slack_val;
 		mod_timer_pinned(&pcpu->cpu_slack_timer, expires);
 	}
 
@@ -222,8 +222,7 @@ static void cpufreq_interactive_timer_start(
 	struct cpufreq_interactive_tunables *tunables, int cpu)
 {
 	struct cpufreq_interactive_cpuinfo *pcpu = &per_cpu(cpuinfo, cpu);
-	unsigned long expires = jiffies +
-		usecs_to_jiffies(tunables->timer_rate);
+	unsigned long expires = jiffies + tunables->timer_rate;
 	unsigned long flags;
 
 	if (!tunables->speedchange_task)
@@ -233,7 +232,7 @@ static void cpufreq_interactive_timer_start(
 	add_timer_on(&pcpu->cpu_timer, cpu);
 	if (tunables->timer_slack_val >= 0 &&
 	    pcpu->target_freq > pcpu->policy->min) {
-		expires += usecs_to_jiffies(tunables->timer_slack_val);
+		expires += tunables->timer_slack_val;
 		pcpu->cpu_slack_timer.expires = expires;
 		add_timer_on(&pcpu->cpu_slack_timer, cpu);
 	}
@@ -948,7 +947,7 @@ static ssize_t store_min_sample_time(struct cpufreq_interactive_tunables
 static ssize_t show_timer_rate(struct cpufreq_interactive_tunables *tunables,
 		char *buf)
 {
-	return sprintf(buf, "%lu\n", tunables->timer_rate);
+	return sprintf(buf, "%u\n", jiffies_to_usecs(tunables->timer_rate));
 }
 
 static ssize_t store_timer_rate(struct cpufreq_interactive_tunables *tunables,
@@ -967,7 +966,7 @@ static ssize_t store_timer_rate(struct cpufreq_interactive_tunables *tunables,
 static ssize_t show_timer_slack(struct cpufreq_interactive_tunables *tunables,
 		char *buf)
 {
-	return sprintf(buf, "%d\n", tunables->timer_slack_val);
+	return sprintf(buf, "%u\n", jiffies_to_usecs(tunables->timer_slack_val));
 }
 
 static ssize_t store_timer_slack(struct cpufreq_interactive_tunables *tunables,
@@ -980,7 +979,7 @@ static ssize_t store_timer_slack(struct cpufreq_interactive_tunables *tunables,
 	if (ret < 0)
 		return ret;
 
-	tunables->timer_slack_val = val;
+	tunables->timer_slack_val = usecs_to_jiffies(val);
 	return count;
 }
 
@@ -1304,9 +1303,9 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			tunables->target_loads = default_target_loads;
 			tunables->ntarget_loads = ARRAY_SIZE(default_target_loads);
 			tunables->min_sample_time = DEFAULT_MIN_SAMPLE_TIME;
-			tunables->timer_rate = DEFAULT_TIMER_RATE;
+			tunables->timer_rate = usecs_to_jiffies(DEFAULT_TIMER_RATE);
 			tunables->boostpulse_duration_val = DEFAULT_MIN_SAMPLE_TIME;
-			tunables->timer_slack_val = DEFAULT_TIMER_SLACK;
+			tunables->timer_slack_val = usecs_to_jiffies(DEFAULT_TIMER_SLACK);
 		} else {
 			memcpy(tunables, tuned_parameters[policy->cpu], sizeof(*tunables));
 			kfree(tuned_parameters[policy->cpu]);
