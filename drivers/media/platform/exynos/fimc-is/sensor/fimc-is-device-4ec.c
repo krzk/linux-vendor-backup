@@ -1846,8 +1846,6 @@ static int sensor_4ec_init(struct v4l2_subdev *subdev, u32 val)
 	if (ret < 0)
 		cam_err("set focus mode fail.\n");
 
-	flush_work(&s5k4ec_state->set_focus_mode_work);
-
 	cam_info("(%d)\n", val);
 
 p_err:
