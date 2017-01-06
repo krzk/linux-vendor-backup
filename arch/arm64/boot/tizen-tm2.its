@@ -1,0 +1,55 @@
+/dts-v1/;
+/ {
+	description = "Combined kernel and dtbs image for Tizen TM2 board";
+	#address-cells = <1>;
+	images {
+		kernel@0 {
+			description = "Linux kernel for arm64 exynos5433";
+			data = /incbin/("Image.gz");
+			type = "kernel";
+			arch = "arm64";
+			os = "linux";
+			compression = "gzip";
+			load = <0x20080000>;
+			entry = <0x20080000>;
+			hash@1 {
+				algo = "crc32";
+			};
+		};
+		fdt@0 {
+			description = "exynos5433-tm2.dtb";
+			data = /incbin/("dts/exynos/exynos5433-tm2.dtb");
+			type = "flat_dt";
+			arch = "arm64";
+			compression = "none";
+			load = <0x24000000>;
+			hash@1 {
+				algo = "crc32";
+			};
+		};
+		fdt@1 {
+			description = "exynos5433-tm2e.dtb";
+			data = /incbin/("dts/exynos/exynos5433-tm2e.dtb");
+			type = "flat_dt";
+			arch = "arm64";
+			compression = "none";
+			load = <0x24000000>;
+			hash@1 {
+				algo = "crc32";
+			};
+		};
+	};
+	configurations {
+		default = "tm2@0";
+		tm2@0 {
+			description = "Linux kernel with exynos5433-tm2.dtb";
+			kernel = "kernel@0";
+			fdt = "fdt@0";
+		};
+		tm2e@1 {
+			description = "Linux kernel with exynos5433-tm2e.dtb";
+			kernel = "kernel@0";
+			fdt = "fdt@1";
+		};
+	};
+};
