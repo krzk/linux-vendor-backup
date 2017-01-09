@@ -123,7 +123,7 @@ static int exynos_drm_fbdev_update(struct drm_fb_helper *helper,
 	unsigned int size = fb->width * fb->height * (fb->bits_per_pixel >> 3);
 	unsigned long offset;
 	
-	if(fb->width == 1024)
+	if(fb->width == 1024 || fb->width == 1280)
 		num_buffers = 1;
 
 	drm_fb_helper_fill_fix(fbi, fb->pitches[0], fb->depth);
@@ -186,7 +186,8 @@ static int exynos_drm_fbdev_create(struct drm_fb_helper *helper,
 			sizes->surface_width, sizes->surface_height,
 			sizes->surface_bpp);
 			
-	if(sizes->surface_width == 1024 && sizes->surface_height == 768)
+	if((sizes->surface_width == 1024 && sizes->surface_height == 768) ||
+		(sizes->surface_width == 1280 && sizes->surface_height == 720))
 		num_buffers = 1;
 
 	mode_cmd.width = sizes->surface_width;
