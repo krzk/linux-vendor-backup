@@ -21,10 +21,6 @@ BuildRequires: module-init-tools
 BuildRequires: u-boot-tools
 BuildRequires: bc
 
-%if "%{?tizen_target_name}" == "TM1"
-ExcludeArch: %{arm}
-%endif
-
 %description
 The Linux Kernel, the operating system core itself
 
