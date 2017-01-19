@@ -868,6 +868,25 @@ static struct fbtft_device_display displays[] = {
 			}
 		}
 	}, {
+		.name = "odroid32",
+		.spi = &(struct spi_board_info) {
+			.modalias = "fb_ili9340",
+			.max_speed_hz = 32000000,
+			.mode = SPI_MODE_0,
+			.controller_data = &hktft9340_controller_data,
+			.platform_data = &(struct fbtft_platform_data) {
+				.display = {
+					.buswidth = 8,
+				},
+				.bgr = true,
+				.gpios = (const struct fbtft_gpio []) {
+					{ "reset", 21 },
+					{ "dc", 22 },
+					{},
+				},
+			}
+		}
+	}, {
 		.name = "piscreen",
 		.spi = &(struct spi_board_info) {
 			.modalias = "fb_ili9486",
@@ -1606,6 +1625,11 @@ static int __init fbtft_device_init(void)
 static void __exit fbtft_device_exit(void)
 {
 	if (spi_device) {
+		if (spi_device->controller_data) {
+			struct s3c64xx_spi_csinfo *cs = spi_device->controller_data;
+			if (cs->line)
+				gpio_free(cs->line);
+		}
 		device_del(&spi_device->dev);
 		kfree(spi_device);
 	}

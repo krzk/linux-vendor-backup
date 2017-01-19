@@ -812,6 +812,10 @@ static int spidev_remove(struct spi_device *spi)
 	/* make sure ops on existing fds can abort cleanly */
 	spin_lock_irq(&spidev->spi_lock);
 	spidev->spi = NULL;
+
+	if(spi->master->cleanup)
+		spi->master->cleanup(spi);
+
 	spin_unlock_irq(&spidev->spi_lock);
 
 	/* prevent new opens */
