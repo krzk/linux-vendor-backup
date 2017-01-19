@@ -48,6 +48,37 @@
 	dr_mode = "host";
 };
 
+/* i2c@12C70000 */
+&i2c_1 {
+	status = "okay";
+	samsung,i2c-max-bus-freq = <400000>;
+};
+
+/* i2c@12cb0000 */
+&hsi2c_5 {
+	status = "okay";
+	samsung,hs-mode;
+	clock-frequency = <400000>;
+
+	/* Hardkernel I2C 3.5" Touchscreen */
+	/* drivers/input/sx865x.c */
+	sx865x: sx865x@49	{
+		status = "okay";
+		compatible = "semtech,sx8650";
+		reg = <0x49>;
+		#clock-cells = <0>;
+
+		/* H/W Pin control setup */
+		gpio-pendown = <&gpx3 1 GPIO_ACTIVE_HIGH>;
+		gpio-reset   = <&gpx2 5 GPIO_ACTIVE_LOW>;
+
+		/* platform data setup */
+		invert-x = <0>;
+		invert-y = <1>;
+		swap-xy = <1>;
+	};
+};
+
 &adc {
 	status = "okay";
 	vdd-supply = <&ldo4_reg>;
