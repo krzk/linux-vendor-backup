@@ -549,20 +549,22 @@ static struct fbtft_device_display displays[] = {
 			.dev = {
 			.release = fbtft_device_pdev_release,
 			.platform_data = &(struct fbtft_platform_data) {
+				/* for ODROID TFT35(ili9488) */
+				.bgr = true,
 				.gpios = (const struct fbtft_gpio []) {
-					{ "reset", 17 },
-					{ "dc", 1 },
-					{ "wr", 0 },
-					{ "cs", 21 },
-					{ "db00", 9 },
-					{ "db01", 11 },
-					{ "db02", 18 },
-					{ "db03", 23 },
-					{ "db04", 24 },
-					{ "db05", 25 },
-					{ "db06", 8 },
-					{ "db07", 7 },
-					{ "led", 4 },
+					{ "reset", 174 }, /* GPA0.3 */
+					{ "dc",    28  }, /* GPX2.4 */
+					{ "wr",    190 }, /* GPA2.5 */
+					{ "cs",    173 }, /* GPA0.2 */
+					{ "db00",  23  }, /* GPX1.7 */
+					{ "db01",  24  }, /* GPX2.0 */
+					{ "db02",  19  }, /* GPX1.3 */
+					{ "db03",  189 }, /* GPA2.4 */
+					{ "db04",  191 }, /* GPA2.6 */
+					{ "db05",  192 }, /* GPA2.7 */
+					{ "db06",  22  }, /* GPX1.6 */
+					{ "db07",  21  }, /* GPX1.5 */
+					{ "led",   31  }, /* GPX2.7 */
 					{},
 				},
 			},

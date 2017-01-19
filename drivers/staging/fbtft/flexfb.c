@@ -126,6 +126,23 @@ static int ssd1351_init[] = { -1, 0xfd, 0x12, -1, 0xfd, 0xb1, -1, 0xae, -1, 0xb3
 			      -1, 0xab, 0x01, -1, 0xb1, 0x32, -1, 0xb4, 0xa0, 0xb5, 0x55, -1, 0xbb, 0x17, -1, 0xbe, 0x05,
 			      -1, 0xc1, 0xc8, 0x80, 0xc8, -1, 0xc7, 0x0f, -1, 0xb6, 0x01, -1, 0xa6, -1, 0xaf, -3 };
 
+/* for ODROID TFT35 LCD */
+static int ili9488_init[] = {
+	-1, 0xB0,0x00,
+	-1, 0x11,
+	-2, 120,
+	-1, 0x3A,0x55,
+	-1, 0xC2,0x33,
+	-1, 0xC5,0x00,0x1E,0x80,
+	-1, 0x36,0x28,
+	-1, 0xB1,0xB0,
+	-1, 0xE0,0x00,0x04,0x0E,0x08,0x17,0x0A,0x40,0x79,0x4D,0x07,0x0E,0x0A,0x1A,0x1D,0x0F,
+	-1, 0xE1,0x00,0x1B,0x1F,0x02,0x10,0x05,0x32,0x34,0x43,0x02,0x0A,0x09,0x33,0x37,0x0F,
+	-1, 0x11,
+	-1, 0x29,
+	-3
+};
+
 /**
  * struct flexfb_lcd_controller - Describes the LCD controller properties
  * @name: Model name of the chip
@@ -227,7 +244,117 @@ static const struct flexfb_lcd_controller flexfb_chip_table[] = {
 		.init_seq = ssd1351_init,
 		.init_seq_sz = ARRAY_SIZE(ssd1351_init),
 	},
+	/* for ODROID TFT35 LCD */
+	{
+		.name = "ili9488",
+		.width = 320,
+		.height = 480,
+		.setaddrwin = 0,
+		.init_seq = ili9488_init,
+		.init_seq_sz = ARRAY_SIZE(ili9488_init),
+	},
 };
+
+/* for ODROID TFT32 LCD(ili9488) */
+#define	ODROIDXU3_GPX1_REG	0x13400C24
+#define	ODROIDXU3_GPX2_REG	0x13400C44
+#define	ODROIDXU3_GPA2_REG	0x14010044
+
+union	reg_bitfield {
+	unsigned int	wvalue;
+	struct {
+		unsigned int	bit0 : 1;
+		unsigned int	bit1 : 1;
+		unsigned int	bit2 : 1;
+		unsigned int	bit3 : 1;
+		unsigned int	bit4 : 1;
+		unsigned int	bit5 : 1;
+		unsigned int	bit6 : 1;
+		unsigned int	bit7 : 1;
+		unsigned int	bit8_bit31 : 24;
+	} bits;
+};
+
+volatile void __iomem *reg_gpx1;
+volatile void __iomem *reg_gpx2;
+volatile void __iomem *reg_gpa2;
+
+static int write_reg_wr_ili9488(struct fbtft_par *par, void *buf, size_t len)
+{
+	u8 	data;
+	union	reg_bitfield	gpx1, gpx2, gpa2;
+
+	if ((reg_gpx1 == NULL) || (reg_gpx2 == NULL) || (reg_gpa2 == NULL)) {
+		pr_err("%s : ioremap gpio register fail!\n", __func__);
+		return	0;
+	}
+
+	gpx1.wvalue = ioread32(reg_gpx1);
+	gpx2.wvalue = ioread32(reg_gpx2);
+	gpa2.wvalue = ioread32(reg_gpa2);
+
+	while (len--) {
+		data = *(u8 *) buf;
+		gpx1.bits.bit7 = (data & 0x01) ? 1 : 0;
+		gpx2.bits.bit0 = (data & 0x02) ? 1 : 0;
+		gpx1.bits.bit3 = (data & 0x04) ? 1 : 0;
+		gpa2.bits.bit4 = (data & 0x08) ? 1 : 0;
+		gpa2.bits.bit6 = (data & 0x10) ? 1 : 0;
+		gpa2.bits.bit7 = (data & 0x20) ? 1 : 0;
+		gpx1.bits.bit6 = (data & 0x40) ? 1 : 0;
+		gpx1.bits.bit5 = (data & 0x80) ? 1 : 0;
+		/* Start writing by pulling down /WR */
+		gpa2.bits.bit5 = 0;
+		iowrite32(gpx1.wvalue, reg_gpx1);
+		iowrite32(gpx2.wvalue, reg_gpx2);
+		iowrite32(gpa2.wvalue, reg_gpa2);
+		gpa2.bits.bit5 = 1;
+		iowrite32(gpa2.wvalue, reg_gpa2);
+
+		buf++;
+	}
+
+	return 0;
+}
+
+static void set_addr_win_ili9488(struct fbtft_par *par, int xs, int ys, int xe, int ye)
+{
+	/* Column address */
+	write_reg(par, 0x2A, xs >> 8, xs & 0xFF, xe >> 8, xe & 0xFF);
+
+	/* Row adress */
+	write_reg(par, 0x2B, ys >> 8, ys & 0xFF, ye >> 8, ye & 0xFF);
+
+	/* Memory write */
+	write_reg(par, 0x2C);
+}
+
+#define ODROID_TFT35_MACTL_MV  0x20
+#define ODROID_TFT35_MACTL_MX  0x40
+#define ODROID_TFT35_MACTL_MY  0x80
+
+static int set_var_ili9488(struct fbtft_par *par)
+{
+	u8 val;
+
+	switch (par->info->var.rotate) {
+	case 270:
+		val = ODROID_TFT35_MACTL_MV;
+		break;
+	case 180:
+		val = ODROID_TFT35_MACTL_MY;
+		break;
+	case 90:
+		val = ODROID_TFT35_MACTL_MV | ODROID_TFT35_MACTL_MX | ODROID_TFT35_MACTL_MY;
+		break;
+	default:
+		val = ODROID_TFT35_MACTL_MX;
+		break;
+	}
+	/* Memory Access Control  */
+	write_reg(par, 0x36, val | (par->bgr << 3));
+	return	0;
+}
 
 /* ili9320, ili9325 */
 static void flexfb_set_addr_win_1(struct fbtft_par *par,
@@ -518,6 +645,21 @@ static int flexfb_probe_common(struct spi_device *sdev,
 	if (!nobacklight)
 		par->fbtftops.register_backlight = fbtft_register_backlight;
 
+	/* for ODROID TFT35 LCD(ili9488) */
+	if (!strcmp(chip, "ili9488")) {
+		reg_gpx1 = ioremap(ODROIDXU3_GPX1_REG, 4);
+		reg_gpx2 = ioremap(ODROIDXU3_GPX2_REG, 4);
+		reg_gpa2 = ioremap(ODROIDXU3_GPA2_REG, 4);
+		if ((reg_gpx1 == NULL) || (reg_gpx2 == NULL) || (reg_gpa2 == NULL))
+			pr_err("%s : ioremap gpiox register error!\n", __func__);
+		else {
+			pr_err("%s : ioremap gpiox register success!\n", __func__);
+			par->fbtftops.write = write_reg_wr_ili9488;
+			par->fbtftops.set_addr_win = set_addr_win_ili9488;
+			par->fbtftops.set_var = set_var_ili9488;
+		}
+	}
+
 	ret = fbtft_register_framebuffer(info);
 	if (ret < 0)
 		goto out_release;
@@ -540,6 +682,13 @@ static int flexfb_remove_common(struct device *dev, struct fb_info *info)
 	if (par)
 		fbtft_par_dbg(DEBUG_DRIVER_INIT_FUNCTIONS, par, "%s()\n",
 			      __func__);
+
+	if (!strcmp(chip, "ili9488")) {
+		if (reg_gpx1)	iounmap(reg_gpx1);
+		if (reg_gpx2)	iounmap(reg_gpx2);
+		if (reg_gpa2)	iounmap(reg_gpa2);
+	}
+
 	fbtft_unregister_framebuffer(info);
 	fbtft_framebuffer_release(info);
 
