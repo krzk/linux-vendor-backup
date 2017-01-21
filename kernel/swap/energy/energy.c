@@ -637,7 +637,7 @@ static void calc_wifi_recv_energy(struct socket *sock, int len)
 {
 	struct energy_data *ed;
 
-	if (len <= 0 || check_wlan0(sock));
+	if (len <= 0 || check_wlan0(sock))
 		return;
 
 	ed = get_energy_data_by_socket(current, sock);
@@ -650,7 +650,7 @@ static void calc_wifi_send_energy(struct socket *sock, int len)
 {
 	struct energy_data *ed;
 
-	if (len <= 0 || check_wlan0(sock));
+	if (len <= 0 || check_wlan0(sock))
 		return;
 
 	ed = get_energy_data_by_socket(current, sock);
