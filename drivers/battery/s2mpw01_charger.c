@@ -1186,9 +1186,10 @@ static void s2mpw01_muic_detect_handler(struct s2mpw01_charger_data *charger, bo
 				if ((chg_sts2 & USB_BOOT_ON_STATUS_MASK) ||
 					(chg_sts2 & USB_BOOT_OFF_STATUS_MASK)) {
 #if defined(CONFIG_MUIC_NOTIFIER)
-					if (charger->is_usb_ready)
+					if (charger->is_usb_ready) {
 						charger->muic_dev = ATTACHED_DEV_JIG_USB_ON_MUIC;
 						muic_notifier_attach_attached_dev(charger->muic_dev);
+					}
 #endif
 					pr_info(" USB_BOOT_ON_STATUS_MASK USB_BOOT_OFF_STATUS_MASK.\n");
 					pr_info("%s: JIG_ID USB ON ( 301K ) connected \n", __func__);

@@ -174,7 +174,7 @@ static void p61_update_access_state(struct pn5xx_dev *pn5xx_dev, p61_access_stat
         if(set){
             if(pn5xx_dev->p61_current_state == P61_STATE_IDLE)
 			pn5xx_dev->p61_current_state = P61_STATE_INVALID;
-			pn5xx_dev->p61_current_state |= current_state;
+		pn5xx_dev->p61_current_state |= current_state;
         }
         else{
             pn5xx_dev->p61_current_state ^= current_state;
