@@ -83,13 +83,13 @@ fi
 
 DTC_PATH="scripts/dtc/"
 
-dtbtool -o ${BOOT_PATH}/merged-dtb -p ${DTC_PATH} -v ${BOOT_PATH}/dts/
+./scripts/exynos_dtbtool.sh -o ${BOOT_PATH}/merged-dtb -p ${DTC_PATH} -v ${BOOT_PATH}/dts/
 if [ "$?" != "0" ]; then
 	echo "Failed to make merged-dtb"
 	exit 1
 fi
 
-mkdzimage -o ${BOOT_PATH}/${DZIMAGE} -k ${BOOT_PATH}/${IMAGE} -d ${BOOT_PATH}/merged-dtb
+./scripts/exynos_mkdzimage.sh -o ${BOOT_PATH}/${DZIMAGE} -k ${BOOT_PATH}/${IMAGE} -d ${BOOT_PATH}/merged-dtb
 if [ "$?" != "0" ]; then
 	echo "Failed to make mkdzImage"
 	exit 1
