@@ -32,6 +32,7 @@ Provides: %{variant}-odroid-kernel-profile_mobile = %{version}-%{release}
 Provides: %{variant}-odroid-kernel-profile_tv = %{version}-%{release}
 Provides: %{variant}-odroid-kernel-profile_ivi = %{version}-%{release}
 Provides: %{variant}-kernel-uname-r = %{fullVersion}
+Provides: linux-kernel = %{version}-%{release}
 
 %description -n %{variant}-linux-kernel
 This package contains the Linux kernel for Tizen (common/mobile/tv/ivi profile, arch %{buildarch}, target board %{target_board})

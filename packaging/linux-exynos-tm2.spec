@@ -32,6 +32,7 @@ Summary: Tizen kernel for %{target_board}
 Group: System/Kernel
 Provides: %{variant}-kernel-profile-mobile = %{version}-%{release}
 Provides: %{variant}-kernel-uname-r = %{fullVersion}
+Provides: linux-kernel = %{version}-%{release}
 
 %description -n %{variant}-linux-kernel
 This package contains the Linux kernel for Tizen (mobile profile, arch %{buildarch}, target board %{target_board})
