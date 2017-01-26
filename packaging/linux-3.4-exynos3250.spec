@@ -35,6 +35,7 @@ License: GPL-2.0
 Summary: Linux support headers for userspace development
 Group: System/Kernel
 Requires(post): coreutils
+Provides: linux-kernel = %{KERNEL_VERSION}
 
 %files -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}
 /boot/kernel/mod_%{MODEL}
