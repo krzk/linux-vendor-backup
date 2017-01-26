@@ -118,6 +118,7 @@ static inline unsigned long __raw_spin_lock_irqsave(raw_spinlock_t *lock)
 #else
 	do_raw_spin_lock_flags(lock, &flags);
 #endif
+	exynos_ss_spinlock(lock, 1);
 	return flags;
 }
 
@@ -127,6 +128,7 @@ static inline void __raw_spin_lock_irq(raw_spinlock_t *lock)
 	preempt_disable();
 	spin_acquire(&lock->dep_map, 0, 0, _RET_IP_);
 	LOCK_CONTENDED(lock, do_raw_spin_trylock, do_raw_spin_lock);
+	exynos_ss_spinlock(lock, 1);
 }
 
 static inline void __raw_spin_lock_bh(raw_spinlock_t *lock)
@@ -157,6 +159,7 @@ static inline void __raw_spin_unlock_irqrestore(raw_spinlock_t *lock,
 {
 	spin_release(&lock->dep_map, 1, _RET_IP_);
 	do_raw_spin_unlock(lock);
+	exynos_ss_spinlock(lock, 3);
 	local_irq_restore(flags);
 	preempt_enable();
 }
@@ -165,6 +168,7 @@ static inline void __raw_spin_unlock_irq(raw_spinlock_t *lock)
 {
 	spin_release(&lock->dep_map, 1, _RET_IP_);
 	do_raw_spin_unlock(lock);
+	exynos_ss_spinlock(lock, 3);
 	local_irq_enable();
 	preempt_enable();
 }

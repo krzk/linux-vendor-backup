@@ -493,6 +493,14 @@ config I2C_EXYNOS5
 	help
 	  High-speed I2C controller on Exynos5 based Samsung SoCs.
 
+config EXYNOS_SPEEDY
+        tristate "SAMSUNG EXYNOS SPEEDY driver"
+        depends on ARCH_EXYNOS && OF
+        default y
+        help
+          Serial Protocol in an EffEctive Digital waY controller
+	  on Exynos based Samsung SoCs.
+
 config I2C_GPIO
 	tristate "GPIO-based bitbanging I2C"
 	depends on GPIOLIB

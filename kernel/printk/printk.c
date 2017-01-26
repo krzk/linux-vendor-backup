@@ -48,12 +48,17 @@
 #include <linux/ctype.h>
 
 #include <asm/uaccess.h>
+#include <asm/cputype.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/printk.h>
 
 #include "console_cmdline.h"
 #include "braille.h"
+
+#ifdef CONFIG_EARLY_PRINTK_DIRECT
+extern void printascii(char *);
+#endif
 
 int console_printk[4] = {
 	CONSOLE_LOGLEVEL_DEFAULT,	/* console_loglevel */
@@ -223,6 +228,12 @@ struct printk_log {
 	u8 facility;		/* syslog facility */
 	u8 flags:5;		/* internal record flags */
 	u8 level:3;		/* syslog level */
+#ifdef CONFIG_PRINTK_PROCESS
+	char process[16];	/* process name */
+	pid_t pid;		/* process id */
+	u8 cpu;			/* cpu id */
+	u8 in_interrupt;	/* interrupt context */
+#endif
 };
 
 /*
@@ -257,7 +268,11 @@ static enum log_flags console_prev;
 static u64 clear_seq;
 static u32 clear_idx;
 
+#ifdef CONFIG_PRINTK_PROCESS
+#define PREFIX_MAX		48
+#else
 #define PREFIX_MAX		32
+#endif
 #define LOG_LINE_MAX		(1024 - PREFIX_MAX)
 
 /* record buffer */
@@ -381,6 +396,69 @@ static u32 msg_used_size(u16 text_len, u16 dict_len, u32 *pad_len)
 	return size;
 }
 
+#ifdef CONFIG_PRINTK_PROCESS
+static bool printk_process = 1;
+static size_t print_process(const struct printk_log *msg, char *buf)
+
+{
+	if (!printk_process)
+		return 0;
+
+	if (!buf)
+		return snprintf(NULL, 0, "%c[%1d:%15s:%5d] ", ' ', 0, " ", 0);
+
+	return sprintf(buf, "%c[%1d:%15s:%5d] ",
+			msg->in_interrupt ? 'I' : ' ',
+			msg->cpu,
+			msg->process,
+			msg->pid);
+}
+#else
+static bool printk_process = 0;
+static size_t print_process(const struct printk_log *msg, char *buf)
+{
+	return 0;
+}
+#endif
+module_param_named(process, printk_process, bool, S_IRUGO | S_IWUSR);
+
+#ifdef CONFIG_EXYNOS_SNAPSHOT
+static size_t hook_size;
+static char hook_text[LOG_LINE_MAX + PREFIX_MAX];
+static void (*func_hook_logbuf)(const char *buf, size_t size);
+static size_t msg_print_text(const struct printk_log *msg, enum log_flags prev,
+				bool syslog, char *buf, size_t size);
+void register_hook_logbuf(void (*func)(const char *buf, size_t size))
+{
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&logbuf_lock, flags);
+	/*
+	 * In register hooking function,  we should check messages already
+	 * printed on log_buf. If so, they will be copyied to backup
+	 * exynos log buffer
+	 * */
+	if (log_first_seq != log_next_seq) {
+		unsigned int step_seq, step_idx, start, end;
+		struct printk_log *msg;
+		start = log_first_seq;
+		end = log_next_seq;
+		step_idx = log_first_idx;
+		for (step_seq = start; step_seq < end; step_seq++) {
+			msg = (struct printk_log *)(log_buf + step_idx);
+			hook_size = msg_print_text(msg, msg->flags,
+					true, hook_text, LOG_LINE_MAX + PREFIX_MAX);
+			func(hook_text, hook_size);
+			step_idx = log_next(step_idx);
+		}
+	}
+	func_hook_logbuf = func;
+	raw_spin_unlock_irqrestore(&logbuf_lock, flags);
+}
+EXPORT_SYMBOL(register_hook_logbuf);
+#endif
+
+
 /*
  * Define how much of the log buffer we could take at maximum. The value
  * must be greater than two. Note that only half of the buffer is available
@@ -459,6 +537,21 @@ static int log_store(int facility, int level,
 	memset(log_dict(msg) + dict_len, 0, pad_len);
 	msg->len = size;
 
+#ifdef CONFIG_PRINTK_PROCESS
+	if (printk_process) {
+		strncpy(msg->process, current->comm, sizeof(msg->process));
+		msg->pid = task_pid_nr(current);
+		msg->cpu = smp_processor_id();
+		msg->in_interrupt = in_interrupt() ? 1 : 0;
+	}
+#endif
+#ifdef CONFIG_EXYNOS_SNAPSHOT
+	if (func_hook_logbuf) {
+		hook_size = msg_print_text(msg, msg->flags,
+				true, hook_text, LOG_LINE_MAX + PREFIX_MAX);
+		func_hook_logbuf(hook_text, hook_size);
+	}
+#endif
 	/* insert message */
 	log_next_idx += msg->len;
 	log_next_seq++;
@@ -1035,6 +1128,7 @@ static size_t print_prefix(const struct printk_log *msg, bool syslog, char *buf)
 	}
 
 	len += print_time(msg->ts_nsec, buf ? buf + len : NULL);
+	len += print_process(msg, buf ? buf + len : NULL);
 	return len;
 }
 
@@ -1592,6 +1686,8 @@ static size_t cont_print_text(char *text, size_t size)
 
 	if (cont.cons == 0 && (console_prev & LOG_NEWLINE)) {
 		textlen += print_time(cont.ts_nsec, text);
+		*(text+textlen) = ' ';
+		textlen += print_process(NULL, NULL);
 		size -= textlen;
 	}
 
@@ -1626,6 +1722,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 	int this_cpu;
 	int printed_len = 0;
 	bool in_sched = false;
+
 	/* cpu currently holding logbuf_lock in this function */
 	static volatile unsigned int logbuf_cpu = UINT_MAX;
 
@@ -1709,6 +1806,10 @@ asmlinkage int vprintk_emit(int facility, int level,
 			text = (char *)end_of_header;
 		}
 	}
+
+#ifdef CONFIG_EARLY_PRINTK_DIRECT
+	printascii(text);
+#endif
 
 	if (level == -1)
 		level = default_message_loglevel;
@@ -1901,6 +2002,198 @@ asmlinkage __visible void early_printk(const char *fmt, ...)
 }
 #endif
 
+#ifdef CONFIG_PRINTK_BOOTLOG
+#define BOOTLOG_LINE_MAX (512 - PREFIX_MAX)
+static phys_addr_t bootlog_phys_addr;
+static size_t      bootlog_size;
+static uint32_t    bootlog_start, bootlog_end;
+static char *BOOTLOG_END = "End of bootloader logs!\n";
+
+static size_t __init bootlog_get_text_len(char *buf, uint32_t start, uint32_t end,
+		enum log_flags *flags)
+{
+	size_t log_len;
+	size_t text_len;
+	char  *newline;
+
+	if (end < start)
+		log_len = bootlog_size - (start - end);
+	else
+		log_len = end - start;
+
+	text_len = min(log_len, (size_t)BOOTLOG_LINE_MAX);
+
+	if (start + text_len > bootlog_size)
+		text_len = bootlog_size - start;
+
+	newline = memrchr(&buf[start], '\n', text_len);
+	if (newline)
+		text_len = (newline + 1) - &buf[start];
+
+	if (flags)
+		*flags = (newline) ? LOG_NEWLINE : LOG_CONT;
+
+	return text_len;
+}
+
+static inline size_t __init bootlog_get_pad_len(size_t text_len)
+{
+	return (-text_len) & (LOG_ALIGN - 1);
+}
+
+static size_t __init bootlog_get_total_size(char *buf, uint32_t start, uint32_t end)
+{
+	size_t total_size = 0;
+	size_t log_len;
+	size_t text_len, pad_len;
+
+	if (end < start)
+		log_len = bootlog_size - (start - end);
+	else
+		log_len = end - start;
+
+	while (log_len > 0) {
+		text_len = bootlog_get_text_len(buf, start, end, NULL);
+		pad_len  = bootlog_get_pad_len(text_len);
+
+		total_size += sizeof(struct printk_log) + text_len + pad_len;
+		start    = (start + text_len) % bootlog_size;
+		log_len -= text_len;
+	}
+
+	text_len = strlen(BOOTLOG_END);
+	pad_len  = bootlog_get_pad_len(text_len);
+	total_size += sizeof(struct printk_log) + text_len + pad_len;
+
+	return total_size;
+}
+
+static void __init bootlog_insert_log(uint32_t *idx, char *buf, size_t text_len,
+		enum log_flags flags)
+{
+	struct printk_log *msg;
+	size_t pad_len;
+
+	msg = (struct printk_log *)(__log_buf + *idx);
+
+	pad_len = bootlog_get_pad_len(text_len);
+
+	/* Exclude newline character from end of text */
+	if (flags & LOG_NEWLINE) {
+		text_len--;
+		pad_len++;
+	}
+
+	msg->ts_nsec  = 0;
+	msg->len      = sizeof(struct printk_log) + text_len + pad_len;
+	msg->text_len = text_len;
+	msg->dict_len = 0;
+	msg->facility = 0;
+	msg->flags    = LOG_NOCONS | flags;
+	msg->level    = MESSAGE_LOGLEVEL_DEFAULT;
+#ifdef CONFIG_PRINTK_PROCESS
+	snprintf(msg->process, sizeof(msg->process) - 1, "bootloader");
+	msg->pid = 0;
+	msg->cpu = 0;
+	msg->in_interrupt = 0;
+#else
+	msg->cpu = 0;
+#endif
+
+	memcpy((u8 *)msg + sizeof(*msg), buf, text_len);
+
+	*idx += msg->len;
+
+	log_next_idx += msg->len;
+	log_next_seq++;
+}
+
+static int __init bootlog_init(void)
+{
+	char  *bootlog_buf;
+	size_t buf_size;
+	size_t bootlog_len;
+	size_t total_size = 0;
+	size_t start, end;
+	uint32_t log_idx = 0;
+	uint64_t log_seq = 0;
+	enum log_flags flags;
+
+	if (!bootlog_phys_addr || !bootlog_size || (bootlog_start == bootlog_end))
+		return 0;
+
+#if 0
+	bootlog_buf = (char *)ioremap(bootlog_phys_addr, PAGE_ALIGN(bootlog_size));
+#endif
+#ifdef CONFIG_TIMA_RKP
+	bootlog_buf = (char *)phys_to_virt(bootlog_phys_addr);
+#else
+	bootlog_buf = (char *)__phys_to_coherent_virt(bootlog_phys_addr);
+#endif
+	if (!bootlog_buf) {
+		pr_info("%s: Failed to ioremap 0x%llx\n", __func__, bootlog_phys_addr);
+		return -ENOMEM;
+	}
+
+	buf_size = bootlog_size;
+	start    = bootlog_start % buf_size;
+	end      = bootlog_end   % buf_size;
+
+	if (end < start)
+		bootlog_len = buf_size - (start - end);
+	else
+		bootlog_len = end - start;
+
+	total_size = bootlog_get_total_size(bootlog_buf, start, end);
+
+	pr_info("%s: 0x%lx to 0x%lx len: %ld\n", __func__, start, end, bootlog_len);
+
+	raw_spin_lock(&logbuf_lock);
+
+	/* Move exist kernel logs to the end of boot logs */
+	memmove((__log_buf + total_size), __log_buf, log_next_idx);
+	memset(__log_buf, 0, total_size);
+
+	while (bootlog_len > 0) {
+		size_t text_len = bootlog_get_text_len(bootlog_buf, start, end, &flags);
+
+		bootlog_insert_log(&log_idx, &bootlog_buf[start], text_len, flags);
+
+		bootlog_len -= text_len;
+		start = (start + text_len) % buf_size;
+		log_seq++;
+	}
+
+	bootlog_insert_log(&log_idx, BOOTLOG_END, strlen(BOOTLOG_END), 0);
+	log_seq++;
+
+	console_seq = log_seq;
+	console_idx = log_idx;
+
+	raw_spin_unlock(&logbuf_lock);
+
+	iounmap((void *)bootlog_buf);
+
+	return 0;
+}
+early_initcall(bootlog_init);
+
+static int __init bootlog_setup(char *cmdline)
+{
+	/* bootloader.log={base_addr},{size},{start_idx},{end_idx} */
+	if (get_option(&cmdline, (int *)&bootlog_phys_addr) == 2 &&
+		get_option(&cmdline, (int *)&bootlog_size)  == 2 &&
+		get_option(&cmdline, (int *)&bootlog_start) == 2)
+		get_option(&cmdline, (int *)&bootlog_end);
+
+	pr_info("%s: base: 0x%llx, size: 0x%lx, idx: 0x%x to 0x%x\n", __func__,
+			bootlog_phys_addr, bootlog_size, bootlog_start, bootlog_end);
+
+	return 1;
+}
+__setup("tizenboot.log=", bootlog_setup);
+#endif /* CONFIG_PRINTK_BOOTLOG */
+
 static int __add_preferred_console(char *name, int idx, char *options,
 				   char *brl_options)
 {
@@ -2050,6 +2343,20 @@ void resume_console(void)
 }
 
 /**
+ * console_flush - flush dmesg if console isn't suspended
+ *
+ * console_unlock always flushes the dmesg buffer, so just try to
+ * grab&drop the console lock. If that fails we know that the current
+ * holder will eventually drop the console lock and so flush the dmesg
+ * buffers at the earliest possible time.
+ */
+void console_flush(void)
+{
+	if (console_trylock())
+		console_unlock();
+}
+
+/**
  * console_cpu_notify - print deferred console messages after CPU hotplug
  * @self: notifier struct
  * @action: CPU hotplug event
@@ -2068,8 +2375,7 @@ static int console_cpu_notify(struct notifier_block *self,
 	case CPU_DEAD:
 	case CPU_DOWN_FAILED:
 	case CPU_UP_CANCELED:
-		console_lock();
-		console_unlock();
+		console_flush();
 	}
 	return NOTIFY_OK;
 }
@@ -3029,12 +3335,22 @@ void __init dump_stack_set_arch_desc(const char *fmt, ...)
  */
 void dump_stack_print_info(const char *log_lvl)
 {
+#ifdef CONFIG_ARM64
+	printk("%sCPU: %d MPIDR: %llx PID: %d Comm: %.20s %s %s %.*s\n",
+	       log_lvl, raw_smp_processor_id(), read_cpuid_mpidr(),
+	       current->pid, current->comm,
+	       print_tainted(), init_utsname()->release,
+	       (int)strcspn(init_utsname()->version, " "),
+	       init_utsname()->version);
+
+#else
 	printk("%sCPU: %d PID: %d Comm: %.20s %s %s %.*s\n",
 	       log_lvl, raw_smp_processor_id(), current->pid, current->comm,
 	       print_tainted(), init_utsname()->release,
 	       (int)strcspn(init_utsname()->version, " "),
 	       init_utsname()->version);
 
+#endif
 	if (dump_stack_arch_desc_str[0] != '\0')
 		printk("%sHardware name: %s\n",
 		       log_lvl, dump_stack_arch_desc_str);

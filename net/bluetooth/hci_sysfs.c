@@ -49,7 +49,18 @@ static struct attribute *bt_link_attrs[] = {
 	NULL
 };
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)
+static struct attribute_group bt_link_group = {
+	.attrs = bt_link_attrs,
+};
+
+static const struct attribute_group *bt_link_groups[] = {
+	&bt_link_group,
+	NULL
+};
+#else
 ATTRIBUTE_GROUPS(bt_link);
+#endif
 
 static void bt_link_release(struct device *dev)
 {
@@ -175,7 +186,18 @@ static struct attribute *bt_host_attrs[] = {
 	NULL
 };
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)
+static struct attribute_group bt_host_group = {
+	.attrs = bt_host_attrs,
+};
+
+static const struct attribute_group *bt_host_groups[] = {
+	&bt_host_group,
+	NULL
+};
+#else
 ATTRIBUTE_GROUPS(bt_host);
+#endif
 
 static void bt_host_release(struct device *dev)
 {
@@ -204,8 +226,12 @@ void hci_init_sysfs(struct hci_dev *hdev)
 int __init bt_sysfs_init(void)
 {
 	bt_class = class_create(THIS_MODULE, "bluetooth");
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 11, 0)
+	return PTR_RET(bt_class);
+#else
 	return PTR_ERR_OR_ZERO(bt_class);
+#endif
+
 }
 
 void bt_sysfs_cleanup(void)

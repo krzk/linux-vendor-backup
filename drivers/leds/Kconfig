@@ -505,6 +505,35 @@ config LEDS_VERSATILE
 	  This option enabled support for the LEDs on the ARM Versatile
 	  and RealView boards. Say Y to enabled these.
 
+config LEDS_S2MPB02
+	bool "LED support for the S2MPB02"
+	depends on LEDS_CLASS
+	help
+	  This option enables support for the LEDs on the S2MPB02.
+
+config LEDS_S2MU003
+	bool "LED support for the S2MU003"
+	depends on LEDS_CLASS
+	help
+	  This option enables support for the LEDs on the S2MU003.
+
+config S2MU003_LEDS_I2C
+	bool "LED support for the S2MU003"
+	depends on LEDS_S2MU003
+	help
+	  This option enables support for the LEDs on the S2MU003.
+
+config LEDS_S2MU005_FLASH
+	bool "LED support for the S2MU005"
+	depends on LEDS_CLASS
+	help
+	  This option enables support for the LEDs on the S2MU005.
+
+config S2MU005_LEDS_I2C
+	bool "LED support for the S2MU005"
+	help
+	  This option enables support for the LEDs on the S2MU003.
+
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 

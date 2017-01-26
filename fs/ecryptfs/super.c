@@ -132,7 +132,38 @@ static int ecryptfs_statfs(struct dentry *dentry, struct kstatfs *buf)
  */
 static void ecryptfs_evict_inode(struct inode *inode)
 {
+#if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
+	struct inode *lower_inode;
+	struct ecryptfs_mount_crypt_stat *mount_crypt_stat =
+		&ecryptfs_superblock_to_private(inode->i_sb)->mount_crypt_stat;
+#endif
 	truncate_inode_pages_final(&inode->i_data);
+#if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
+	if (mount_crypt_stat->flags & ECRYPTFS_USE_FMP) {
+		lower_inode = ecryptfs_inode_to_lower(inode);
+		for(;;) {
+			if (!lower_inode)
+				break;
+
+			if (!strcmp("ext4", lower_inode->i_sb->s_type->name)) {
+				truncate_inode_pages(&lower_inode->i_data, 0);
+				lower_inode->i_mapping->iv = NULL;
+				lower_inode->i_mapping->key = NULL;
+				lower_inode->i_mapping->key_length = 0;
+				lower_inode->i_mapping->sensitive_data_index = 0;
+				lower_inode->i_mapping->alg = NULL;
+				lower_inode->i_mapping-> hash_tfm = NULL;
+#ifdef CONFIG_CRYPTO_FIPS
+				lower_inode->i_mapping->cc_enable = 0;
+#endif
+				break;
+			} else {
+				printk("%s: lower inode err: %s\n", __func__, lower_inode->i_sb->s_type->name);
+				break;
+			}
+		}
+	}
+#endif
 	clear_inode(inode);
 	iput(ecryptfs_inode_to_lower(inode));
 }
@@ -161,8 +192,14 @@ static int ecryptfs_show_options(struct seq_file *m, struct dentry *root)
 	}
 	mutex_unlock(&mount_crypt_stat->global_auth_tok_list_mutex);
 
-	seq_printf(m, ",ecryptfs_cipher=%s",
-		mount_crypt_stat->global_default_cipher_name);
+#if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
+	if (mount_crypt_stat->cipher_code == RFC2440_CIPHER_AES_XTS_256)
+		seq_printf(m, ",ecryptfs_cipher=%s",
+			"aesxts");
+	else
+#endif
+		seq_printf(m, ",ecryptfs_cipher=%s",
+			mount_crypt_stat->global_default_cipher_name);
 
 	if (mount_crypt_stat->global_default_cipher_key_size)
 		seq_printf(m, ",ecryptfs_key_bytes=%zd",
@@ -177,6 +214,10 @@ static int ecryptfs_show_options(struct seq_file *m, struct dentry *root)
 		seq_printf(m, ",ecryptfs_unlink_sigs");
 	if (mount_crypt_stat->flags & ECRYPTFS_GLOBAL_MOUNT_AUTH_TOK_ONLY)
 		seq_printf(m, ",ecryptfs_mount_auth_tok_only");
+#if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
+	if (mount_crypt_stat->flags & ECRYPTFS_USE_FMP)
+		seq_printf(m, ",ecryptfs_use_fmp");
+#endif
 
 	return 0;
 }

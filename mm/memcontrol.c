@@ -4040,6 +4040,31 @@ static inline u64 mem_cgroup_usage(struct mem_cgroup *memcg, bool swap)
 	return val << PAGE_SHIFT;
 }
 
+#ifdef CONFIG_MEMCG_SWAP
+static int mem_cgroup_force_reclaim(struct cgroup_subsys_state *css,
+			       struct cftype *cft, u64 val)
+{
+	struct mem_cgroup *memcg = mem_cgroup_from_css(css);
+	unsigned long nr_to_reclaim = val;
+	unsigned long total = 0;
+	int loop;
+
+	for (loop = 0; loop < MEM_CGROUP_MAX_RECLAIM_LOOPS; loop++) {
+		total += try_to_free_mem_cgroup_pages(memcg, nr_to_reclaim,
+						GFP_KERNEL, true);
+
+		/*
+		 * If nothing was reclaimed after two attempts, there
+		 * may be no reclaimable pages in this hierarchy.
+		 * If more than nr_to_reclaim pages were already reclaimed,
+		 * finish force reclaim.
+		 */
+		if (loop && (!total || total > nr_to_reclaim))
+			break;
+	}
+	return total;
+}
+#endif
 
 static u64 mem_cgroup_read_u64(struct cgroup_subsys_state *css,
 			       struct cftype *cft)
@@ -5133,6 +5158,12 @@ static struct cftype mem_cgroup_files[] = {
 		.private = MEMFILE_PRIVATE(_MEM, RES_USAGE),
 		.read_u64 = mem_cgroup_read_u64,
 	},
+#ifdef CONFIG_MEMCG_SWAP
+	{
+		.name = "force_reclaim",
+		.write_u64 = mem_cgroup_force_reclaim,
+	},
+#endif
 	{
 		.name = "max_usage_in_bytes",
 		.private = MEMFILE_PRIVATE(_MEM, RES_MAX_USAGE),
@@ -6001,6 +6032,12 @@ static int mem_cgroup_can_attach(struct cgroup_subsys_state *css,
 	return ret;
 }
 
+static int mem_cgroup_allow_attach(struct cgroup_subsys_state *css,
+				   struct cgroup_taskset *tset)
+{
+	return subsys_cgroup_allow_attach(css, tset);
+}
+
 static void mem_cgroup_cancel_attach(struct cgroup_subsys_state *css,
 				     struct cgroup_taskset *tset)
 {
@@ -6169,6 +6206,11 @@ static int mem_cgroup_can_attach(struct cgroup_subsys_state *css,
 {
 	return 0;
 }
+static int mem_cgroup_allow_attach(struct cgroup_subsys_state *css,
+				   struct cgroup_taskset *tset)
+{
+	return 0;
+}
 static void mem_cgroup_cancel_attach(struct cgroup_subsys_state *css,
 				     struct cgroup_taskset *tset)
 {
@@ -6204,6 +6246,7 @@ struct cgroup_subsys memory_cgrp_subsys = {
 	.can_attach = mem_cgroup_can_attach,
 	.cancel_attach = mem_cgroup_cancel_attach,
 	.attach = mem_cgroup_move_task,
+	.allow_attach = mem_cgroup_allow_attach,
 	.bind = mem_cgroup_bind,
 	.legacy_cftypes = mem_cgroup_files,
 	.early_init = 0,

@@ -49,6 +49,7 @@ static DECLARE_WAIT_QUEUE_HEAD(alarm_wait_queue);
 static uint32_t alarm_pending;
 static uint32_t alarm_enabled;
 static uint32_t wait_pending;
+int system_tz;
 
 struct devalarm {
 	union {
@@ -103,12 +104,15 @@ static void alarm_clear(enum android_alarm_type alarm_type)
 	spin_lock_irqsave(&alarm_slock, flags);
 	alarm_dbg(IO, "alarm %d clear\n", alarm_type);
 	devalarm_try_to_cancel(&alarms[alarm_type]);
-	if (alarm_pending) {
+	if (alarm_pending)
 		alarm_pending &= ~alarm_type_mask;
-		if (!alarm_pending && !wait_pending)
-			__pm_relax(&alarm_wake_lock);
-	}
+
 	alarm_enabled &= ~alarm_type_mask;
+	if (!alarm_pending && !wait_pending) {
+		__pm_relax(&alarm_wake_lock);
+		alarm_dbg(INFO, "%s: wakeup_event cleared\n", __func__);
+	}
+
 	spin_unlock_irqrestore(&alarm_slock, flags);
 }
 
@@ -168,7 +172,8 @@ static int alarm_set_rtc(struct timespec *ts)
 		rv = rtc_set_time(rtc_dev, &new_rtc_tm);
 
 	spin_lock_irqsave(&alarm_slock, flags);
-	alarm_pending |= ANDROID_ALARM_TIME_CHANGE_MASK;
+	/* Don't set alarm_pending flag in case of SET_RTC */
+	/* alarm_pending |= ANDROID_ALARM_TIME_CHANGE_MASK; */
 	wake_up(&alarm_wait_queue);
 	spin_unlock_irqrestore(&alarm_slock, flags);
 
@@ -197,6 +202,21 @@ static int alarm_get_time(enum android_alarm_type alarm_type,
 	}
 	return rv;
 }
+
+static void alarm_set_tz(int tz_offset)
+{
+	/* Set system timezone from user space */
+	system_tz = tz_offset;
+	pr_info("%s : %d\n", __func__, system_tz);
+}
+#ifdef CONFIG_SUPPORT_ALARM_TIMEZONE_DST
+int alarm_get_tz(void)
+{
+	pr_info("%s : %d\n", __func__, system_tz);
+	return system_tz;
+}
+#endif
+EXPORT_SYMBOL(alarm_get_tz);
 
 static long alarm_do_ioctl(struct file *file, unsigned int cmd,
 							struct timespec *ts)
@@ -254,6 +274,7 @@ static long alarm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 
 	struct timespec ts;
+	int tz_offset;
 	int rv;
 
 	switch (ANDROID_ALARM_BASE_CMD(cmd)) {
@@ -262,12 +283,19 @@ static long alarm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case ANDROID_ALARM_SET_RTC:
 		if (copy_from_user(&ts, (void __user *)arg, sizeof(ts)))
 			return -EFAULT;
+
+		rv = alarm_do_ioctl(file, cmd, &ts);
+		if (rv)
+			return rv;
+		break;
+	case ANDROID_ALARM_SET_TZ:
+		pr_info("%s SET Timezone\n", __func__);
+		if (copy_from_user(&tz_offset, (void __user *)arg, sizeof(tz_offset)))
+			return -EFAULT;
+
+		alarm_set_tz(tz_offset);
 		break;
 	}
-
-	rv = alarm_do_ioctl(file, cmd, &ts);
-	if (rv)
-		return rv;
 
 	switch (ANDROID_ALARM_BASE_CMD(cmd)) {
 	case ANDROID_ALARM_GET_TIME(0):
@@ -283,11 +311,18 @@ static long alarm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 static long alarm_compat_ioctl(struct file *file, unsigned int cmd,
 							unsigned long arg)
 {
-
 	struct timespec ts;
+	int tz_offset;
 	int rv;
 
 	switch (ANDROID_ALARM_BASE_CMD(cmd)) {
+	case ANDROID_ALARM_SET_TZ:
+		pr_info("%s SET Timezone\n", __func__);
+		if (copy_from_user(&tz_offset, (void __user *)arg, sizeof(tz_offset)))
+			return -EFAULT;
+
+		alarm_set_tz(tz_offset);
+		break;
 	case ANDROID_ALARM_SET_AND_WAIT_COMPAT(0):
 	case ANDROID_ALARM_SET_COMPAT(0):
 	case ANDROID_ALARM_SET_RTC_COMPAT:
@@ -363,7 +398,7 @@ static void devalarm_triggered(struct devalarm *alarm)
 	alarm_dbg(INT, "%s: type %d\n", __func__, alarm->type);
 	spin_lock_irqsave(&alarm_slock, flags);
 	if (alarm_enabled & alarm_type_mask) {
-		__pm_wakeup_event(&alarm_wake_lock, 5000); /* 5secs */
+		__pm_wakeup_event(&alarm_wake_lock, 2000); /* 2 secs */
 		alarm_enabled &= ~alarm_type_mask;
 		alarm_pending |= alarm_type_mask;
 		wake_up(&alarm_wait_queue);

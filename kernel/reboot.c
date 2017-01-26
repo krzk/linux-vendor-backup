@@ -213,6 +213,9 @@ void migrate_to_reboot_cpu(void)
  */
 void kernel_restart(char *cmd)
 {
+	pr_info("%s: cmd: %s (curr: %s)\n", __func__,
+			(cmd)? cmd : "NULL", current->comm);
+
 	kernel_restart_prepare(cmd);
 	migrate_to_reboot_cpu();
 	syscore_shutdown();
@@ -256,6 +259,8 @@ EXPORT_SYMBOL_GPL(kernel_halt);
  */
 void kernel_power_off(void)
 {
+	pr_info("%s: (curr: %s)\n", __func__, current->comm);
+
 	kernel_shutdown_prepare(SYSTEM_POWER_OFF);
 	if (pm_power_off_prepare)
 		pm_power_off_prepare();

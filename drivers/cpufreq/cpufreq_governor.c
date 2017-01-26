@@ -22,6 +22,13 @@
 
 #include "cpufreq_governor.h"
 
+#ifdef CONFIG_CPU_THERMAL_IPA
+#include "cpu_load_metric.h"
+#endif
+#if defined(CONFIG_SYSTEM_LOAD_ANALYZER)
+#include <linux/load_analyzer.h>
+#endif
+
 static struct attribute_group *get_sysfs_attr(struct dbs_data *dbs_data)
 {
 	if (have_governor_per_policy())
@@ -40,6 +47,9 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 	unsigned int max_load = 0;
 	unsigned int ignore_nice;
 	unsigned int j;
+#if defined(CONFIG_SYSTEM_LOAD_ANALYZER)
+	unsigned int cpuload[CPU_NUM] = {0};
+#endif
 
 	if (dbs_data->cdata->governor == GOV_ONDEMAND) {
 		struct od_cpu_dbs_info_s *od_dbs_info =
@@ -152,9 +162,21 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 			j_cdbs->prev_load = load;
 		}
 
+#if defined(CONFIG_SYSTEM_LOAD_ANALYZER)
+		cpuload[j] = load;
+#endif
+
 		if (load > max_load)
 			max_load = load;
+
+#ifdef CONFIG_CPU_THERMAL_IPA
+		update_cpu_metric(j, cur_wall_time, idle_time, wall_time, policy);
+#endif
 	}
+
+#if defined(CONFIG_SYSTEM_LOAD_ANALYZER)
+	store_cpu_load(cpuload);
+#endif
 
 	dbs_data->cdata->gov_check_cpu(cpu, max_load);
 }

@@ -479,6 +479,8 @@ void i2c_unlock_adapter(struct i2c_adapter *);
 #define I2C_CLIENT_PEC	0x04		/* Use Packet Error Checking */
 #define I2C_CLIENT_TEN	0x10		/* we have a ten bit chip address */
 					/* Must equal I2C_M_TEN below */
+#define I2C_CLIENT_SPEEDY	0x20	/* 12 bit of slave address for speedy */
+					/* 4bit(device id) + 8bit(register offet) */
 #define I2C_CLIENT_WAKE	0x80		/* for board_info; true iff can wake */
 #define I2C_CLIENT_SCCB	0x9000		/* Use Omnivision SCCB protocol */
 					/* Must match I2C_M_STOP|IGNORE_NAK */

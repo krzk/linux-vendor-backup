@@ -32,6 +32,7 @@
 #include <net/bluetooth/hci_core.h>
 #include <net/bluetooth/l2cap.h>
 #include <net/bluetooth/rfcomm.h>
+#include <swap/swap_energy_hooks.h>
 
 static const struct proto_ops rfcomm_sock_ops;
 
@@ -54,7 +55,12 @@ static void rfcomm_sk_data_ready(struct rfcomm_dlc *d, struct sk_buff *skb)
 
 	atomic_add(skb->len, &sk->sk_rmem_alloc);
 	skb_queue_tail(&sk->sk_receive_queue, skb);
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
+	sk->sk_data_ready(sk, skb->len);
+#else
 	sk->sk_data_ready(sk);
+#endif
 
 	if (atomic_read(&sk->sk_rmem_alloc) >= sk->sk_rcvbuf)
 		rfcomm_dlc_throttle(d);
@@ -84,7 +90,12 @@ static void rfcomm_sk_state_change(struct rfcomm_dlc *d, int err)
 			sock_set_flag(sk, SOCK_ZAPPED);
 			bt_accept_unlink(sk);
 		}
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
+		parent->sk_data_ready(parent, 0);
+#else
 		parent->sk_data_ready(parent);
+#endif
+
 	} else {
 		if (d->state == BT_CONNECTED)
 			rfcomm_session_getaddr(d->session,
@@ -109,7 +120,12 @@ static struct sock *__rfcomm_get_listen_sock_by_addr(u8 channel, bdaddr_t *src)
 {
 	struct sock *sk = NULL;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
 	sk_for_each(sk, &rfcomm_sk_list.head) {
+#else
+	struct hlist_node *node;
+	sk_for_each(sk, node, &rfcomm_sk_list.head) {
+#endif
 		if (rfcomm_pi(sk)->channel != channel)
 			continue;
 
@@ -120,7 +136,11 @@ static struct sock *__rfcomm_get_listen_sock_by_addr(u8 channel, bdaddr_t *src)
 			break;
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
 	return sk ? sk : NULL;
+#else
+	return node ? sk : NULL;
+#endif
 }
 
 /* Find socket with channel and source bdaddr.
@@ -129,10 +149,17 @@ static struct sock *__rfcomm_get_listen_sock_by_addr(u8 channel, bdaddr_t *src)
 static struct sock *rfcomm_get_sock_by_channel(int state, u8 channel, bdaddr_t *src)
 {
 	struct sock *sk = NULL, *sk1 = NULL;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
+	struct hlist_node *node;
+#endif
 
 	read_lock(&rfcomm_sk_list.lock);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
 	sk_for_each(sk, &rfcomm_sk_list.head) {
+#else
+	sk_for_each(sk, node, &rfcomm_sk_list.head) {
+#endif
 		if (state && sk->sk_state != state)
 			continue;
 
@@ -149,7 +176,11 @@ static struct sock *rfcomm_get_sock_by_channel(int state, u8 channel, bdaddr_t *
 
 	read_unlock(&rfcomm_sk_list.lock);
 
-	return sk ? sk : sk1;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
+	return sk ? sk : NULL;
+#else
+	return node ? sk : NULL;
+#endif
 }
 
 static void rfcomm_sock_destruct(struct sock *sk)
@@ -269,12 +300,15 @@ static struct proto rfcomm_proto = {
 	.obj_size	= sizeof(struct rfcomm_pinfo)
 };
 
-static struct sock *rfcomm_sock_alloc(struct net *net, struct socket *sock, int proto, gfp_t prio)
+static struct sock *rfcomm_sock_alloc(struct net *net, struct socket *sock, int proto, gfp_t prio, int kern)
 {
 	struct rfcomm_dlc *d;
 	struct sock *sk;
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0)
 	sk = sk_alloc(net, PF_BLUETOOTH, prio, &rfcomm_proto);
+#else
+	sk = sk_alloc(net, PF_BLUETOOTH, prio, &rfcomm_proto, kern);
+#endif
 	if (!sk)
 		return NULL;
 
@@ -324,7 +358,7 @@ static int rfcomm_sock_create(struct net *net, struct socket *sock,
 
 	sock->ops = &rfcomm_sock_ops;
 
-	sk = rfcomm_sock_alloc(net, sock, protocol, GFP_ATOMIC);
+	sk = rfcomm_sock_alloc(net, sock, protocol, GFP_ATOMIC, kern);
 	if (!sk)
 		return -ENOMEM;
 
@@ -334,15 +368,18 @@ static int rfcomm_sock_create(struct net *net, struct socket *sock,
 
 static int rfcomm_sock_bind(struct socket *sock, struct sockaddr *addr, int addr_len)
 {
-	struct sockaddr_rc *sa = (struct sockaddr_rc *) addr;
+	struct sockaddr_rc sa;
 	struct sock *sk = sock->sk;
-	int chan = sa->rc_channel;
-	int err = 0;
-
-	BT_DBG("sk %p %pMR", sk, &sa->rc_bdaddr);
+	int len, err = 0;
 
 	if (!addr || addr->sa_family != AF_BLUETOOTH)
 		return -EINVAL;
+
+	memset(&sa, 0, sizeof(sa));
+	len = min_t(unsigned int, sizeof(sa), addr_len);
+	memcpy(&sa, addr, len);
+
+	BT_DBG("sk %p %pMR", sk, &sa.rc_bdaddr);
 
 	lock_sock(sk);
 
@@ -358,12 +395,13 @@ static int rfcomm_sock_bind(struct socket *sock, struct sockaddr *addr, int addr
 
 	write_lock(&rfcomm_sk_list.lock);
 
-	if (chan && __rfcomm_get_listen_sock_by_addr(chan, &sa->rc_bdaddr)) {
+	if (sa.rc_channel &&
+	    __rfcomm_get_listen_sock_by_addr(sa.rc_channel, &sa.rc_bdaddr)) {
 		err = -EADDRINUSE;
 	} else {
 		/* Save source address */
-		bacpy(&rfcomm_pi(sk)->src, &sa->rc_bdaddr);
-		rfcomm_pi(sk)->channel = chan;
+		bacpy(&rfcomm_pi(sk)->src, &sa.rc_bdaddr);
+		rfcomm_pi(sk)->channel = sa.rc_channel;
 		sk->sk_state = BT_BOUND;
 	}
 
@@ -468,7 +506,11 @@ done:
 
 static int rfcomm_sock_accept(struct socket *sock, struct socket *newsock, int flags)
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
 	DECLARE_WAITQUEUE(wait, current);
+#else
+	DEFINE_WAIT_FUNC(wait, woken_wake_function);
+#endif
 	struct sock *sk = sock->sk, *nsk;
 	long timeo;
 	int err = 0;
@@ -487,7 +529,9 @@ static int rfcomm_sock_accept(struct socket *sock, struct socket *newsock, int f
 	/* Wait for an incoming connection. (wake-one). */
 	add_wait_queue_exclusive(sk_sleep(sk), &wait);
 	while (1) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
 		set_current_state(TASK_INTERRUPTIBLE);
+#endif
 
 		if (sk->sk_state != BT_LISTEN) {
 			err = -EBADFD;
@@ -509,10 +553,17 @@ static int rfcomm_sock_accept(struct socket *sock, struct socket *newsock, int f
 		}
 
 		release_sock(sk);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
 		timeo = schedule_timeout(timeo);
+#else
+		timeo = wait_woken(&wait, TASK_INTERRUPTIBLE, timeo);
+#endif
+
 		lock_sock_nested(sk, SINGLE_DEPTH_NESTING);
 	}
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
 	__set_current_state(TASK_RUNNING);
+#endif
 	remove_wait_queue(sk_sleep(sk), &wait);
 
 	if (err)
@@ -550,8 +601,13 @@ static int rfcomm_sock_getname(struct socket *sock, struct sockaddr *addr, int *
 	return 0;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0)
 static int rfcomm_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
 			       struct msghdr *msg, size_t len)
+#else
+static int rfcomm_sock_sendmsg(struct socket *sock, struct msghdr *msg,
+			       size_t len)
+#endif
 {
 	struct sock *sk = sock->sk;
 	struct rfcomm_dlc *d = rfcomm_pi(sk)->dlc;
@@ -587,8 +643,11 @@ static int rfcomm_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
 			break;
 		}
 		skb_reserve(skb, RFCOMM_SKB_HEAD_RESERVE);
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0)
 		err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
+#else
+		err = memcpy_from_msg(skb_put(skb, size), msg, size);
+#endif
 		if (err) {
 			kfree_skb(skb);
 			if (sent == 0)
@@ -612,12 +671,18 @@ static int rfcomm_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
 
 done:
 	release_sock(sk);
+	swap_bt_sendmsg(sock, sent);
 
 	return sent;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0)
 static int rfcomm_sock_recvmsg(struct kiocb *iocb, struct socket *sock,
 			       struct msghdr *msg, size_t size, int flags)
+#else
+static int rfcomm_sock_recvmsg(struct socket *sock, struct msghdr *msg,
+			       size_t size, int flags)
+#endif
 {
 	struct sock *sk = sock->sk;
 	struct rfcomm_dlc *d = rfcomm_pi(sk)->dlc;
@@ -628,7 +693,7 @@ static int rfcomm_sock_recvmsg(struct kiocb *iocb, struct socket *sock,
 		return 0;
 	}
 
-	len = bt_sock_stream_recvmsg(iocb, sock, msg, size, flags);
+	len = bt_sock_stream_recvmsg(sock, msg, size, flags);
 
 	lock_sock(sk);
 	if (!(flags & MSG_PEEK) && len > 0)
@@ -637,6 +702,7 @@ static int rfcomm_sock_recvmsg(struct kiocb *iocb, struct socket *sock,
 	if (atomic_read(&sk->sk_rmem_alloc) <= (sk->sk_rcvbuf >> 2))
 		rfcomm_dlc_unthrottle(rfcomm_pi(sk)->dlc);
 	release_sock(sk);
+	swap_bt_recvmsg(sock, len);
 
 	return len;
 }
@@ -970,7 +1036,7 @@ int rfcomm_connect_ind(struct rfcomm_session *s, u8 channel, struct rfcomm_dlc *
 		goto done;
 	}
 
-	sk = rfcomm_sock_alloc(sock_net(parent), NULL, BTPROTO_RFCOMM, GFP_ATOMIC);
+	sk = rfcomm_sock_alloc(sock_net(parent), NULL, BTPROTO_RFCOMM, GFP_ATOMIC, 0);
 	if (!sk)
 		goto done;
 
@@ -1000,10 +1066,17 @@ done:
 static int rfcomm_sock_debugfs_show(struct seq_file *f, void *p)
 {
 	struct sock *sk;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
+	struct hlist_node *node;
+#endif
 
 	read_lock(&rfcomm_sk_list.lock);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
 	sk_for_each(sk, &rfcomm_sk_list.head) {
+#else
+	sk_for_each(sk, node, &rfcomm_sk_list.head) {
+#endif
 		seq_printf(f, "%pMR %pMR %d %d\n",
 			   &rfcomm_pi(sk)->src, &rfcomm_pi(sk)->dst,
 			   sk->sk_state, rfcomm_pi(sk)->channel);
@@ -1057,6 +1130,8 @@ static const struct net_proto_family rfcomm_sock_family_ops = {
 int __init rfcomm_init_sockets(void)
 {
 	int err;
+
+	BUILD_BUG_ON(sizeof(struct sockaddr_rc) > sizeof(struct sockaddr));
 
 	err = proto_register(&rfcomm_proto, 0);
 	if (err < 0)

@@ -121,6 +121,20 @@ struct drm_gem_object {
 	struct dma_buf_attachment *import_attach;
 };
 
+#define GEM_DEBUG_LOG
+#ifdef GEM_DEBUG_LOG
+enum gem_log_state {
+	GEM_CREATE,
+	GEM_OPEN,
+	GEM_PRIME,
+	GEM_CLOSE,
+	GEM_DESTROY,
+	GEM_LOG_MAX,
+};
+
+void gem_save_info(enum gem_log_state log_state, struct drm_gem_object *obj);
+#endif
+
 void drm_gem_object_release(struct drm_gem_object *obj);
 void drm_gem_object_free(struct kref *kref);
 int drm_gem_object_init(struct drm_device *dev,

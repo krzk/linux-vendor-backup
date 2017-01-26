@@ -18,6 +18,9 @@
  */
 
 struct rtc_time {
+#ifdef CONFIG_RTC_DRV_S2MPW01_HR
+	int tm_usec;
+#endif
 	int tm_sec;
 	int tm_min;
 	int tm_hour;

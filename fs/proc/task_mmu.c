@@ -111,6 +111,56 @@ static void release_task_mempolicy(struct proc_maps_private *priv)
 }
 #endif
 
+static void seq_print_vma_name(struct seq_file *m, struct vm_area_struct *vma)
+{
+	const char __user *name = vma_get_anon_name(vma);
+	struct mm_struct *mm = vma->vm_mm;
+
+	unsigned long page_start_vaddr;
+	unsigned long page_offset;
+	unsigned long num_pages;
+	unsigned long max_len = NAME_MAX;
+	int i;
+
+	page_start_vaddr = (unsigned long)name & PAGE_MASK;
+	page_offset = (unsigned long)name - page_start_vaddr;
+	num_pages = DIV_ROUND_UP(page_offset + max_len, PAGE_SIZE);
+
+	seq_puts(m, "[anon:");
+
+	for (i = 0; i < num_pages; i++) {
+		int len;
+		int write_len;
+		const char *kaddr;
+		long pages_pinned;
+		struct page *page;
+
+		pages_pinned = get_user_pages(current, mm, page_start_vaddr,
+				1, 0, 0, &page, NULL);
+		if (pages_pinned < 1) {
+			seq_puts(m, "<fault>]");
+			return;
+		}
+
+		kaddr = (const char *)kmap(page);
+		len = min(max_len, PAGE_SIZE - page_offset);
+		write_len = strnlen(kaddr + page_offset, len);
+		seq_write(m, kaddr + page_offset, write_len);
+		kunmap(page);
+		put_page(page);
+
+		/* if strnlen hit a null terminator then we're done */
+		if (write_len != len)
+			break;
+
+		max_len -= len;
+		page_offset = 0;
+		page_start_vaddr += PAGE_SIZE;
+	}
+
+	seq_putc(m, ']');
+}
+
 static void vma_stop(struct proc_maps_private *priv)
 {
 	struct mm_struct *mm = priv->mm;
@@ -346,6 +396,12 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 				seq_pad(m, ' ');
 				seq_printf(m, "[stack:%d]", tid);
 			}
+			goto done;
+		}
+
+		if (vma_get_anon_name(vma)) {
+			seq_pad(m, ' ');
+			seq_print_vma_name(m, vma);
 		}
 	}
 
@@ -602,6 +658,12 @@ static int show_smap(struct seq_file *m, void *v, int is_pid)
 
 	show_map_vma(m, vma, is_pid);
 
+	if (vma_get_anon_name(vma)) {
+		seq_puts(m, "Name:           ");
+		seq_print_vma_name(m, vma);
+		seq_putc(m, '\n');
+	}
+
 	seq_printf(m,
 		   "Size:           %8lu kB\n"
 		   "Rss:            %8lu kB\n"
@@ -642,6 +704,77 @@ static int show_smap(struct seq_file *m, void *v, int is_pid)
 	return 0;
 }
 
+static void add_smaps_sum(struct mem_size_stats *mss,
+		struct mem_size_stats *mss_sum)
+{
+	mss_sum->resident += mss->resident;
+	mss_sum->pss += mss->pss;
+	mss_sum->shared_clean += mss->shared_clean;
+	mss_sum->shared_dirty += mss->shared_dirty;
+	mss_sum->private_clean += mss->private_clean;
+	mss_sum->private_dirty += mss->private_dirty;
+	mss_sum->referenced += mss->referenced;
+	mss_sum->anonymous += mss->anonymous;
+	mss_sum->anonymous_thp += mss->anonymous_thp;
+	mss_sum->swap += mss->swap;
+}
+
+static int totmaps_proc_show(struct seq_file *m, void *data)
+{
+	struct proc_maps_private *priv = m->private;
+	struct mm_struct *mm = priv->mm;
+	struct vm_area_struct *vma;
+	struct mem_size_stats mss_sum;
+
+	memset(&mss_sum, 0, sizeof(mss_sum));
+	down_read(&mm->mmap_sem);
+	hold_task_mempolicy(priv);
+
+	for (vma = mm->mmap; vma != priv->tail_vma; vma = vma->vm_next) {
+		struct mem_size_stats mss;
+		struct mm_walk smaps_walk = {
+			.pmd_entry = smaps_pte_range,
+			.mm = vma->vm_mm,
+			.private = &mss,
+		};
+
+		if (vma->vm_mm && !is_vm_hugetlb_page(vma)) {
+			memset(&mss, 0, sizeof(mss));
+			mss.vma = vma;
+			walk_page_range(vma->vm_start, vma->vm_end,
+					&smaps_walk);
+			add_smaps_sum(&mss, &mss_sum);
+		}
+	}
+
+	release_task_mempolicy(priv);
+	up_read(&mm->mmap_sem);
+
+	seq_printf(m,
+		   "Rss:            %8lu kB\n"
+		   "Pss:            %8lu kB\n"
+		   "Shared_Clean:   %8lu kB\n"
+		   "Shared_Dirty:   %8lu kB\n"
+		   "Private_Clean:  %8lu kB\n"
+		   "Private_Dirty:  %8lu kB\n"
+		   "Referenced:     %8lu kB\n"
+		   "Anonymous:      %8lu kB\n"
+		   "AnonHugePages:  %8lu kB\n"
+		   "Swap:           %8lu kB\n",
+		   mss_sum.resident >> 10,
+		   (unsigned long)(mss_sum.pss >> (10 + PSS_SHIFT)),
+		   mss_sum.shared_clean  >> 10,
+		   mss_sum.shared_dirty  >> 10,
+		   mss_sum.private_clean >> 10,
+		   mss_sum.private_dirty >> 10,
+		   mss_sum.referenced >> 10,
+		   mss_sum.anonymous >> 10,
+		   mss_sum.anonymous_thp >> 10,
+		   mss_sum.swap >> 10);
+
+	return 0;
+}
+
 static int show_pid_smap(struct seq_file *m, void *v)
 {
 	return show_smap(m, v, 1);
@@ -651,6 +784,35 @@ static int show_tid_smap(struct seq_file *m, void *v)
 {
 	return show_smap(m, v, 0);
 }
+
+static void *m_totmaps_start(struct seq_file *m, loff_t *ppos)
+{
+	struct proc_maps_private *priv = m->private;
+	struct mm_struct *mm;
+
+	mm = priv->mm;
+	if (!mm || !atomic_inc_not_zero(&mm->mm_users))
+		return NULL;
+
+	return NULL + (*ppos == 0);
+}
+
+static void *m_totmaps_next(struct seq_file *p, void *v, loff_t *pos)
+{
+	++*pos;
+	return NULL;
+}
+
+static void m_totmaps_stop(struct seq_file *p, void *v)
+{
+}
+
+static const struct seq_operations proc_totmaps_op = {
+	.start	= m_totmaps_start,
+	.next	= m_totmaps_next,
+	.stop	= m_totmaps_stop,
+	.show	= totmaps_proc_show
+};
 
 static const struct seq_operations proc_pid_smaps_op = {
 	.start	= m_start,
@@ -676,6 +838,48 @@ static int tid_smaps_open(struct inode *inode, struct file *file)
 	return do_maps_open(inode, file, &proc_tid_smaps_op);
 }
 
+static int totmaps_open(struct inode *inode, struct file *file)
+{
+	struct proc_maps_private *priv = NULL;
+	struct seq_file *seq;
+	int ret;
+
+	ret = do_maps_open(inode, file, &proc_totmaps_op);
+	if (ret)
+		return ret;
+
+	/*
+	 * We need to grab references to the task_struct
+	 * at open time, because there's a potential information
+	 * leak where the totmaps file is opened and held open
+	 * while the underlying pid to task mapping changes
+	 * underneath it
+	 */
+	seq = file->private_data;
+	priv = seq->private;
+	priv->task = get_proc_task(inode);
+	if (!priv->task) {
+		ret = -ESRCH;
+		goto error_free;
+	}
+
+	return 0;
+
+error_free:
+	proc_map_release(inode, file);
+	return ret;
+}
+
+static int totmaps_release(struct inode *inode, struct file *file)
+{
+	struct seq_file *seq = file->private_data;
+	struct proc_maps_private *priv = seq->private;
+
+	put_task_struct(priv->task);
+
+	return proc_map_release(inode, file);
+}
+
 const struct file_operations proc_pid_smaps_operations = {
 	.open		= pid_smaps_open,
 	.read		= seq_read,
@@ -688,6 +892,13 @@ const struct file_operations proc_tid_smaps_operations = {
 	.read		= seq_read,
 	.llseek		= seq_lseek,
 	.release	= proc_map_release,
+};
+
+const struct file_operations proc_totmaps_operations = {
+	.open		= totmaps_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= totmaps_release,
 };
 
 /*
@@ -712,6 +923,7 @@ enum clear_refs_types {
 	CLEAR_REFS_ANON,
 	CLEAR_REFS_MAPPED,
 	CLEAR_REFS_SOFT_DIRTY,
+	CLEAR_REFS_MM_HIWATER_RSS,
 	CLEAR_REFS_LAST,
 };
 
@@ -826,6 +1038,18 @@ static ssize_t clear_refs_write(struct file *file, const char __user *buf,
 			.mm = mm,
 			.private = &cp,
 		};
+
+		if (type == CLEAR_REFS_MM_HIWATER_RSS) {
+			/*
+			 * Writing 5 to /proc/pid/clear_refs resets the peak
+			 * resident set size to this mm's current rss value.
+			 */
+			down_write(&mm->mmap_sem);
+			reset_mm_hiwater_rss(mm);
+			up_write(&mm->mmap_sem);
+			goto out_mm;
+		}
+
 		down_read(&mm->mmap_sem);
 		if (type == CLEAR_REFS_SOFT_DIRTY) {
 			for (vma = mm->mmap; vma; vma = vma->vm_next) {
@@ -868,6 +1092,7 @@ static ssize_t clear_refs_write(struct file *file, const char __user *buf,
 			mmu_notifier_invalidate_range_end(mm, 0, -1);
 		flush_tlb_mm(mm);
 		up_read(&mm->mmap_sem);
+out_mm:
 		mmput(mm);
 	}
 	put_task_struct(task);

@@ -27,7 +27,7 @@
 #include "u_ether_configfs.h"
 #include "u_rndis.h"
 #include "rndis.h"
-#include "configfs.h"
+#include "../configfs.h"
 
 /*
  * This function is an RNDIS Ethernet port -- a Microsoft protocol that's
@@ -69,6 +69,20 @@
  *
  *   - MS-Windows drivers sometimes emit undocumented requests.
  */
+
+#ifdef CONFIG_USB_RNDIS_MULTIPACKET
+static unsigned int rndis_dl_max_pkt_per_xfer = 10;
+#else
+static unsigned int rndis_dl_max_pkt_per_xfer = 3;
+#endif
+module_param(rndis_dl_max_pkt_per_xfer, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(rndis_dl_max_pkt_per_xfer,
+	"Maximum packets per transfer for DL aggregation");
+
+static unsigned int rndis_ul_max_pkt_per_xfer = 3;
+module_param(rndis_ul_max_pkt_per_xfer, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(rndis_ul_max_pkt_per_xfer,
+       "Maximum packets per transfer for UL aggregation");
 
 struct f_rndis {
 	struct gether			port;
@@ -451,6 +465,7 @@ static void rndis_command_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct f_rndis			*rndis = req->context;
 	int				status;
+	rndis_init_msg_type		*buf;
 
 	/* received RNDIS command from USB_CDC_SEND_ENCAPSULATED_COMMAND */
 //	spin_lock(&dev->lock);
@@ -458,6 +473,21 @@ static void rndis_command_complete(struct usb_ep *ep, struct usb_request *req)
 	if (status < 0)
 		pr_err("RNDIS command error %d, %d/%d\n",
 			status, req->actual, req->length);
+
+	buf = (rndis_init_msg_type *)req->buf;
+
+	if (buf->MessageType == RNDIS_MSG_INIT) {
+		if (buf->MaxTransferSize > 2048)
+			rndis->port.multi_pkt_xfer = 1;
+		else
+			rndis->port.multi_pkt_xfer = 0;
+		pr_info("%s: MaxTransferSize: %d : Multi_pkt_txr: %s\n",
+				__func__, buf->MaxTransferSize,
+				rndis->port.multi_pkt_xfer ? "enabled" :
+							    "disabled");
+		if (rndis_dl_max_pkt_per_xfer <= 1)
+			rndis->port.multi_pkt_xfer = 0;
+	}
 //	spin_unlock(&dev->lock);
 }
 
@@ -707,15 +737,20 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 		rndis_opts->bound = true;
 	}
 
-	us = usb_gstrings_attach(cdev, rndis_strings,
-				 ARRAY_SIZE(rndis_string_defs));
-	if (IS_ERR(us)) {
-		status = PTR_ERR(us);
-		goto fail;
+	/* HACK: To prevent malloc again when a fi reused */
+	if (!rndis_opts->us) {
+		us = usb_gstrings_attach(cdev, rndis_strings,
+					 ARRAY_SIZE(rndis_string_defs));
+		if (IS_ERR(us)) {
+			status = PTR_ERR(us);
+			goto fail;
+		}
+		rndis_control_intf.iInterface = us[0].id;
+		rndis_data_intf.iInterface = us[1].id;
+		rndis_iad_descriptor.iFunction = us[2].id;
+
+		rndis_opts->us = us;
 	}
-	rndis_control_intf.iInterface = us[0].id;
-	rndis_data_intf.iInterface = us[1].id;
-	rndis_iad_descriptor.iFunction = us[2].id;
 
 	/* allocate instance-specific interface IDs */
 	status = usb_interface_id(c, f);
@@ -799,6 +834,7 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 
 	rndis_set_param_medium(rndis->config, RNDIS_MEDIUM_802_3, 0);
 	rndis_set_host_mac(rndis->config, rndis->ethaddr);
+	rndis_set_max_pkt_xfer(rndis->config, rndis_ul_max_pkt_per_xfer);
 
 	if (rndis->manufacturer && rndis->vendorID &&
 			rndis_set_param_vendor(rndis->config, rndis->vendorID,
@@ -921,7 +957,12 @@ static struct usb_function_instance *rndis_alloc_inst(void)
 
 	mutex_init(&opts->lock);
 	opts->func_inst.free_func_inst = rndis_free_inst;
+#ifdef CONFIG_USB_G_SLP
+	/* Tizen platform wants to use the kernel.org style by "usbxx" netname */
 	opts->net = gether_setup_default();
+#else
+	opts->net = gether_setup_name_default("rndis");
+#endif
 	if (IS_ERR(opts->net)) {
 		struct net_device *net = opts->net;
 		kfree(opts);
@@ -935,6 +976,14 @@ static struct usb_function_instance *rndis_alloc_inst(void)
 				       names, THIS_MODULE);
 	config_group_init_type_name(&opts->func_inst.group, "",
 				    &rndis_func_type);
+
+	/* Tizen HACK:
+	 * To override rndis_iad_descritor & rndis_control_intf by user space
+	 * Tizen platform wants to use different values
+	 * CAUTION : All instance has same reference !!
+	 */
+	opts->iad = &rndis_iad_descriptor;
+	opts->ctl_intf = &rndis_control_intf;
 
 	return &opts->func_inst;
 }
@@ -956,6 +1005,10 @@ static void rndis_free(struct usb_function *f)
 static void rndis_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct f_rndis		*rndis = func_to_rndis(f);
+#ifdef CONFIG_USB_CONFIGFS_UEVENT
+	struct f_rndis_opts	*opts;
+	struct usb_composite_dev *cdev = f->config->cdev;
+#endif
 
 	kfree(f->os_desc_table);
 	f->os_desc_n = 0;
@@ -963,6 +1016,89 @@ static void rndis_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	kfree(rndis->notify_req->buf);
 	usb_ep_free_request(rndis->notify, rndis->notify_req);
+
+#ifdef CONFIG_USB_CONFIGFS_UEVENT
+	opts = container_of(f->fi, struct f_rndis_opts, func_inst);
+	if (!opts->borrowed_net) {
+		if (opts->bound)
+			gether_cleanup(netdev_priv(opts->net));
+		else
+			free_netdev(opts->net);
+	}
+
+	opts->net = gether_setup_name_default("rndis");
+	if (IS_ERR(opts->net)) {
+		ERROR(cdev, "%s: failed to setup ethernet\n", f->name);
+		return;
+	}
+
+	gether_get_host_addr_u8(opts->net, rndis->ethaddr);
+	rndis->port.ioport = netdev_priv(opts->net);
+
+	opts->bound = false;
+#endif
+}
+
+int
+rndis_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
+		u32 vendorID, const char *manufacturer, struct eth_dev *dev)
+{
+	struct f_rndis	*rndis;
+	int		status;
+
+	if (!can_support_rndis(c) || !ethaddr)
+		return -EINVAL;
+
+	/* setup RNDIS itself */
+	status = rndis_init();
+	if (status < 0)
+		return status;
+
+	if (rndis_string_defs[0].id == 0) {
+		status = usb_string_ids_tab(c->cdev, rndis_string_defs);
+		if (status)
+			return status;
+
+		rndis_control_intf.iInterface = rndis_string_defs[0].id;
+		rndis_data_intf.iInterface = rndis_string_defs[1].id;
+		rndis_iad_descriptor.iFunction = rndis_string_defs[2].id;
+	}
+
+	/* allocate and initialize one new instance */
+	status = -ENOMEM;
+	rndis = kzalloc(sizeof *rndis, GFP_KERNEL);
+	if (!rndis)
+		goto fail;
+
+	memcpy(rndis->ethaddr, ethaddr, ETH_ALEN);
+	rndis->vendorID = vendorID;
+	rndis->manufacturer = manufacturer;
+
+	rndis->port.ioport = dev;
+	/* RNDIS activates when the host changes this filter */
+	rndis->port.cdc_filter = 0;
+
+	/* RNDIS has special (and complex) framing */
+	rndis->port.header_len = sizeof(struct rndis_packet_msg_type);
+	rndis->port.wrap = rndis_add_header;
+	rndis->port.unwrap = rndis_rm_hdr;
+
+	rndis->port.func.name = "rndis";
+	rndis->port.func.strings = rndis_strings;
+	/* descriptors are per-instance copies */
+	rndis->port.func.bind = rndis_bind;
+	rndis->port.func.unbind = rndis_unbind;
+	rndis->port.func.set_alt = rndis_set_alt;
+	rndis->port.func.setup = rndis_setup;
+	rndis->port.func.disable = rndis_disable;
+
+	status = usb_add_function(c, &rndis->port.func);
+	if (status) {
+		kfree(rndis);
+fail:
+		rndis_exit();
+	}
+	return status;
 }
 
 static struct usb_function *rndis_alloc(struct usb_function_instance *fi)
@@ -993,6 +1129,8 @@ static struct usb_function *rndis_alloc(struct usb_function_instance *fi)
 	rndis->port.header_len = sizeof(struct rndis_packet_msg_type);
 	rndis->port.wrap = rndis_add_header;
 	rndis->port.unwrap = rndis_rm_hdr;
+	rndis->port.ul_max_pkts_per_xfer = rndis_ul_max_pkt_per_xfer;
+	rndis->port.dl_max_pkts_per_xfer = rndis_dl_max_pkt_per_xfer;
 
 	rndis->port.func.name = "rndis";
 	/* descriptors are per-instance copies */

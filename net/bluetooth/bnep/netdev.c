@@ -136,7 +136,11 @@ static u16 bnep_net_eth_proto(struct sk_buff *skb)
 	struct ethhdr *eh = (void *) skb->data;
 	u16 proto = ntohs(eh->h_proto);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 9, 0)
 	if (proto >= ETH_P_802_3_MIN)
+#else
+	if (proto >= 1536)
+#endif
 		return proto;
 
 	if (get_unaligned((__be16 *) skb->data) == htons(0xFFFF))
@@ -217,8 +221,11 @@ static const struct net_device_ops bnep_netdev_ops = {
 
 void bnep_net_setup(struct net_device *dev)
 {
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)
+	eth_broadcast_addr(dev->broadcast);
+#else
 	memset(dev->broadcast, 0xff, ETH_ALEN);
+#endif
 	dev->addr_len = ETH_ALEN;
 
 	ether_setup(dev);

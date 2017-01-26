@@ -314,6 +314,12 @@ config ISL29003
 	  This driver can also be built as a module.  If so, the module
 	  will be called isl29003.
 
+config KNOX_KAP
+       bool "Enable KNOX KAP mode"
+       default n
+       help
+              Knox Active Protection mode
+
 config ISL29020
 	tristate "Intersil ISL29020 ambient light sensor"
 	depends on I2C
@@ -402,6 +408,10 @@ config TI_DAC7512
 	  This driver can also be built as a module. If so, the module
 	  will be called ti_dac7512.
 
+config UID_STAT
+	bool "UID based statistics tracking exported to /proc/uid_stat"
+	default n
+
 config VMWARE_BALLOON
 	tristate "VMware Balloon Driver"
 	depends on X86 && HYPERVISOR_GUEST
@@ -486,6 +496,12 @@ config USB_SWITCH_FSA9480
 	  stereo and mono audio, video, microphone and UART data to use
 	  a common connector port.
 
+config MUIC_SM5502
+	bool "SILICON MITUS MUIC 5502"
+	default n
+	help
+		This option enables SILICON MITUS MUIC 5502.
+
 config LATTICE_ECP3_CONFIG
 	tristate "Lattice ECP3 FPGA bitstream configuration via SPI"
 	depends on SPI && SYSFS
@@ -515,6 +531,37 @@ config VEXPRESS_SYSCFG
 	  bus. System Configuration interface is one of the possible means
 	  of generating transactions on this bus.
 
+config UID_CPUTIME
+	tristate "Per-UID cpu time statistics"
+	depends on PROFILING
+	help
+	  Per UID based cpu time statistics exported to /proc/uid_cputime
+
+config SAP_PID_STAT
+	bool "PID based statistics tracking for SAP resource exported to /proc/sap_pid_stat"
+	default n
+
+config PID_STAT
+	bool "PID based statistics tracking for TCP resource exported to /proc/pid_stat"
+	default n
+
+config SENSORHUB_STAT
+	bool "SensorHub lib type based statistics tracking for SensorHub resource exported to /proc/sensorhub_stat"
+	default n
+
+config TIMA_LOG
+	tristate "TIMA log dump support"
+	depends on TIMA
+	default y
+	help
+	  This option enables support for dumping TIMA log
+
+config KNOX_GEARPAY
+        bool "Gear Samsung Pay KNOX protection"
+        default n
+        ---help---
+          This enables KNOX protection for Samsung Pay on Gear
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -528,4 +575,10 @@ source "drivers/misc/mic/Kconfig"
 source "drivers/misc/genwqe/Kconfig"
 source "drivers/misc/echo/Kconfig"
 source "drivers/misc/cxl/Kconfig"
+source "drivers/misc/mcu_ipc/Kconfig"
+source "drivers/misc/uart_sel/Kconfig"
+source "drivers/misc/modem_v1/Kconfig"
+source "drivers/misc/modem_if/Kconfig"
+source "drivers/misc/gnss_if/Kconfig"
+source "drivers/misc/samsung/Kconfig"
 endmenu

@@ -373,12 +373,26 @@ extern int unregister_pm_notifier(struct notifier_block *nb);
 extern bool events_check_enabled;
 
 extern bool pm_wakeup_pending(void);
+
+#ifdef CONFIG_SLEEP_MONITOR
+#include <linux/vmalloc.h>
+#include <linux/slab.h>
+#include <linux/power/slp_mon_ws_dev.h>
+extern int sleep_monitor_wakeup_sources(char name[][SLEEP_MON_WS_NAME_LENGTH], ktime_t *prevent_time);
+#endif
+
+#if defined(CONFIG_PM_SLEEP_HISTORY) || defined(CONFIG_SLEEP_MONITOR)
+extern void pm_del_prevent_sleep_time(void);
+#endif
+
 extern void pm_system_wakeup(void);
 extern void pm_wakeup_clear(void);
+extern void pm_get_inpr_count(unsigned int *count, unsigned int *in_progress);
 extern bool pm_get_wakeup_count(unsigned int *count, bool block);
 extern bool pm_save_wakeup_count(unsigned int count);
 extern void pm_wakep_autosleep_enabled(bool set);
 extern void pm_print_active_wakeup_sources(void);
+extern void pm_get_active_wakeup_sources(char *pending_sources, size_t max);
 
 static inline void lock_system_sleep(void)
 {

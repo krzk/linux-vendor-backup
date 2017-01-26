@@ -21,6 +21,12 @@
 
 #include "uapi/android_alarm.h"
 
+#ifdef CONFIG_SUPPORT_ALARM_TIMEZONE_DST
+extern int alarm_get_tz(void);
+#else
+static inline int alarm_get_tz(void){return 0;}
+#endif
+
 #ifdef CONFIG_COMPAT
 #define ANDROID_ALARM_SET_COMPAT(type)		ALARM_IOW(2, type, \
 							struct compat_timespec)

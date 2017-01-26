@@ -537,6 +537,15 @@ enum rpm_request {
 	RPM_REQ_RESUME,
 };
 
+#ifdef CONFIG_DISPLAY_EARLY_DPMS
+enum early_comp_level {
+	EARLY_COMP_NONE,
+	EARLY_COMP_SLAVE,
+	EARLY_COMP_MASTER,
+	EARLY_COMP_MAX,
+};
+#endif
+
 struct wakeup_source;
 
 struct pm_domain_data {
@@ -561,6 +570,7 @@ struct dev_pm_info {
 	unsigned int		async_suspend:1;
 	bool			is_prepared:1;	/* Owned by the PM core */
 	bool			is_suspended:1;	/* Ditto */
+	bool			is_completed:1;
 	bool			is_noirq_suspended:1;
 	bool			is_late_suspended:1;
 	bool			ignore_children:1;
@@ -602,6 +612,10 @@ struct dev_pm_info {
 	unsigned long		active_jiffies;
 	unsigned long		suspended_jiffies;
 	unsigned long		accounting_timestamp;
+#endif
+#ifdef CONFIG_DISPLAY_EARLY_DPMS
+	enum early_comp_level	early_comp_level;
+	struct list_head	early_comp_entry;
 #endif
 	struct pm_subsys_data	*subsys_data;  /* Owned by the subsystem. */
 	void (*set_latency_tolerance)(struct device *, s32);
@@ -773,6 +787,7 @@ enum dpm_order {
 	DPM_ORDER_DEV_AFTER_PARENT,
 	DPM_ORDER_PARENT_BEFORE_DEV,
 	DPM_ORDER_DEV_LAST,
+	DPM_ORDER_DEV_FIRST,
 };
 
 #endif /* _LINUX_PM_H */

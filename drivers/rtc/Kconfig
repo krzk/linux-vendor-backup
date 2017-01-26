@@ -62,6 +62,12 @@ config RTC_DEBUG
 	  Say yes here to enable debugging support in the RTC framework
 	  and individual RTC drivers.
 
+config RTC_TEE_TIMESTAMP
+	bool "RTC support in Trustzone"
+	default n
+	help
+	  Say yes here if you want to get real time timestamp in Trustzone.
+
 comment "RTC interfaces"
 
 config RTC_INTF_SYSFS
@@ -1032,6 +1038,42 @@ config RTC_DRV_S3C
 
 	  This driver can also be build as a module. If so, the module
 	  will be called rtc-s3c.
+
+config RTC_DRV_SEC
+	tristate "Samsung PMIC series RTC"
+	depends on MFD_SEC_CORE
+	help
+	  If you say yes here you will get support for the
+	  RTC of Samsung PMIC series.
+	  This driver can also be built as a module. If so, the module
+	  will be called rtc-sec.
+
+config RTC_DRV_S2MP
+	tristate "Samsung PMIC series RTC"
+	depends on MFD_S2MPU06
+	help
+	  If you say yes here you will get support for the
+	  RTC of Samsung PMIC series.
+	  This driver can also be built as a module. If so, the module
+	  will be called rtc-s2mp.
+
+config RTC_DRV_S2MPW01
+	tristate "Samsung PMIC S2MPW01 RTC"
+	depends on MFD_S2MPW01
+	help
+	  If you say yes here you will get support for the
+	  RTC of Samsung PMIC S2MPW01.
+	  This driver can also be built as a module. If so, the module
+	  will be called rtc-s2mpw01.
+
+config RTC_DRV_S2MPW01_HR
+	bool "Supports the high resolution rtc. (above the S2MPW01 EVT 3 revision.)"
+	depends on RTC_DRV_S2MPW01
+	help
+	  If you say yes here you will get support for the
+	  high resolution rtc function, that is implemented from the S2MPW01 EVT 3 revision.
+	  The hr rtc is supporting 4-bit register,
+	  which means 1/16 second is available for users to apply.
 
 config RTC_DRV_EP93XX
 	tristate "Cirrus Logic EP93XX"

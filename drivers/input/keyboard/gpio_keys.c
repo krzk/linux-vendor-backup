@@ -30,6 +30,13 @@
 #include <linux/of_platform.h>
 #include <linux/of_gpio.h>
 #include <linux/spinlock.h>
+#include <linux/exynos-ss.h>
+#include <linux/wakelock.h>
+#ifdef CONFIG_SEC_SYSFS
+#include <linux/sec_sysfs.h>
+#endif
+
+#define WAKELOCK_TIME		HZ/10
 
 struct gpio_button_data {
 	const struct gpio_keys_button *button;
@@ -41,14 +48,41 @@ struct gpio_button_data {
 	spinlock_t lock;
 	bool disabled;
 	bool key_pressed;
+	bool isr_status;
+	bool key_state;
 };
 
 struct gpio_keys_drvdata {
 	const struct gpio_keys_platform_data *pdata;
+	struct device *sec_key;
 	struct input_dev *input;
 	struct mutex disable_lock;
+	struct wake_lock key_wake_lock;
 	struct gpio_button_data data[0];
 };
+
+struct gpio_button_data *global_button_data;
+void gpio_keys_send_fake_powerkey(int value)
+{
+	const struct gpio_keys_button *button = global_button_data->button;
+	struct input_dev *input = global_button_data->input;
+	unsigned int type = button->type ?: EV_KEY;
+	struct irq_desc *desc = irq_to_desc(gpio_to_irq(button->gpio));
+
+	if (!desc) {
+		pr_err("%s: irq_desc is null!! (gpio=%d)\n", __func__, button->gpio);
+		return;
+	}
+
+	input_event(input, type, button->code, value);
+	input_sync(input);
+
+	dev_info(&input->dev,
+		"%s: [%s][%s]\n", __func__, value ? "P":"R", button->desc);
+
+	return;
+}
+EXPORT_SYMBOL(gpio_keys_send_fake_powerkey);
 
 /*
  * SYSFS interface for enabling/disabling keys and switches:
@@ -323,19 +357,62 @@ static struct attribute_group gpio_keys_attr_group = {
 	.attrs = gpio_keys_attrs,
 };
 
+static ssize_t key_pressed_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct gpio_keys_drvdata *ddata = dev_get_drvdata(dev);
+	const struct gpio_keys_platform_data *pdata = ddata->pdata;
+	int i, keystate = 0;
+
+	for (i = 0; i < pdata->nbuttons; i++) {
+		struct gpio_button_data *bdata = &ddata->data[i];
+		keystate |= bdata->key_state;
+	}
+
+	if (keystate)
+		sprintf(buf, "PRESS");
+	else
+		sprintf(buf, "RELEASE");
+
+	return strlen(buf);
+}
+
+static DEVICE_ATTR(sec_key_pressed, 0664, key_pressed_show, NULL);
+static struct attribute *sec_key_attrs[] = {
+	&dev_attr_sec_key_pressed.attr,
+	NULL,
+};
+
+static struct attribute_group sec_key_attr_group = {
+	.attrs = sec_key_attrs,
+};
 static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 {
 	const struct gpio_keys_button *button = bdata->button;
 	struct input_dev *input = bdata->input;
+	struct gpio_keys_drvdata *ddata = input_get_drvdata(input);
 	unsigned int type = button->type ?: EV_KEY;
 	int state = (gpio_get_value_cansleep(button->gpio) ? 1 : 0) ^ button->active_low;
+	struct irq_desc *desc = irq_to_desc(gpio_to_irq(button->gpio));
+
+	if (!desc) {
+		pr_err("%s: irq_desc is null!! (gpio=%d)\n", __func__, button->gpio);
+		return;
+	}
+
+	wake_lock_timeout(&ddata->key_wake_lock, WAKELOCK_TIME);
+	exynos_ss_check_crash_key(button->code, state);
 
 	if (type == EV_ABS) {
 		if (state)
 			input_event(input, type, button->code, button->value);
-	} else {
+	} else
 		input_event(input, type, button->code, !!state);
-	}
+
+	pr_info("%s: [%s]%s[%s]\n", __func__,
+		state ? "P":"R", button->desc, bdata->isr_status ? "I":"R");
+
+	bdata->key_state = !!state;
 	input_sync(input);
 }
 
@@ -344,10 +421,15 @@ static void gpio_keys_gpio_work_func(struct work_struct *work)
 	struct gpio_button_data *bdata =
 		container_of(work, struct gpio_button_data, work);
 
+	bdata->isr_status = true;
+
 	gpio_keys_gpio_report_event(bdata);
+
+	bdata->isr_status = false;
 
 	if (bdata->button->wakeup)
 		pm_relax(bdata->input->dev.parent);
+
 }
 
 static void gpio_keys_gpio_timer(unsigned long _data)
@@ -480,6 +562,7 @@ static int gpio_keys_setup_key(struct platform_device *pdev,
 		bdata->irq = irq;
 
 		INIT_WORK(&bdata->work, gpio_keys_gpio_work_func);
+		enable_irq_wake(bdata->irq);
 		setup_timer(&bdata->timer,
 			    gpio_keys_gpio_timer, (unsigned long)bdata);
 
@@ -526,6 +609,9 @@ static int gpio_keys_setup_key(struct platform_device *pdev,
 	 */
 	if (!button->can_disable)
 		irqflags |= IRQF_SHARED;
+
+	if (button->wakeup)
+		irqflags |= IRQF_NO_SUSPEND;
 
 	error = devm_request_any_context_irq(&pdev->dev, bdata->irq,
 					     isr, irqflags, desc, bdata);
@@ -714,6 +800,8 @@ static int gpio_keys_probe(struct platform_device *pdev)
 	ddata->pdata = pdata;
 	ddata->input = input;
 	mutex_init(&ddata->disable_lock);
+	wake_lock_init(&ddata->key_wake_lock,
+			WAKE_LOCK_SUSPEND, "gpio-keys_wake_lock");
 
 	platform_set_drvdata(pdev, ddata);
 	input_set_drvdata(input, ddata);
@@ -737,9 +825,10 @@ static int gpio_keys_probe(struct platform_device *pdev)
 		const struct gpio_keys_button *button = &pdata->buttons[i];
 		struct gpio_button_data *bdata = &ddata->data[i];
 
+		global_button_data = bdata;
 		error = gpio_keys_setup_key(pdev, input, bdata, button);
 		if (error)
-			return error;
+			goto err_remove_wake_lock;
 
 		if (button->wakeup)
 			wakeup = 1;
@@ -749,29 +838,74 @@ static int gpio_keys_probe(struct platform_device *pdev)
 	if (error) {
 		dev_err(dev, "Unable to export keys/switches, error: %d\n",
 			error);
-		return error;
+		goto err_remove_wake_lock;
+	}
+
+#ifdef CONFIG_SEC_SYSFS
+	ddata->sec_key = sec_device_create(ddata, "sec_key");
+	if (IS_ERR(ddata->sec_key)) {
+		dev_err(dev, "%s:Failed to create sec_device_create\n", __func__);
+		goto err_remove_group;
+	}
+#else
+	if (sec_class) {
+		ddata->sec_key =
+		    device_create(sec_class, NULL, 0, ddata, "sec_key");
+		if (IS_ERR(ddata->sec_key)) {
+			dev_err(dev, "%s: Failed to create sec_key device\n", __func__);
+			goto err_remove_group
+		}
+	} else {
+		dev_err(sfd->dev, "%s: sec_class is NULL\n", __func__);
+		goto err_remove_group;
+	}
+#endif
+	error = sysfs_create_group(&ddata->sec_key->kobj, &sec_key_attr_group);
+	if (error) {
+		dev_err(dev, "Failed to create the test sysfs: %d\n",
+			error);
+		goto err_remove_key_attr;
 	}
 
 	error = input_register_device(input);
 	if (error) {
 		dev_err(dev, "Unable to register input device, error: %d\n",
 			error);
-		goto err_remove_group;
+		goto err_register_device;
 	}
 
 	device_init_wakeup(&pdev->dev, wakeup);
 
 	return 0;
 
+err_register_device:
+	sysfs_remove_group(&ddata->sec_key->kobj, &sec_key_attr_group);
+err_remove_key_attr:
+#ifdef CONFIG_SEC_SYSFS
+	sec_device_destroy(ddata->sec_key->devt);
+#else
+	device_destroy(sec_class, ddata->sec_key->devt);
+#endif
 err_remove_group:
 	sysfs_remove_group(&pdev->dev.kobj, &gpio_keys_attr_group);
+err_remove_wake_lock:
+	wake_lock_destroy(&ddata->key_wake_lock);
+
 	return error;
 }
 
 static int gpio_keys_remove(struct platform_device *pdev)
 {
-	sysfs_remove_group(&pdev->dev.kobj, &gpio_keys_attr_group);
+	struct gpio_keys_drvdata *ddata = platform_get_drvdata(pdev);
 
+	sysfs_remove_group(&ddata->sec_key->kobj, &sec_key_attr_group);
+	sysfs_remove_group(&pdev->dev.kobj, &gpio_keys_attr_group);
+#ifdef CONFIG_SEC_SYSFS
+	sec_device_destroy(ddata->sec_key->devt);
+#else
+	device_destroy(sec_class, ddata->sec_key->devt);
+#endif
+	wake_lock_destroy(&ddata->key_wake_lock);
 	device_init_wakeup(&pdev->dev, 0);
 
 	return 0;
@@ -782,15 +916,8 @@ static int gpio_keys_suspend(struct device *dev)
 {
 	struct gpio_keys_drvdata *ddata = dev_get_drvdata(dev);
 	struct input_dev *input = ddata->input;
-	int i;
 
-	if (device_may_wakeup(dev)) {
-		for (i = 0; i < ddata->pdata->nbuttons; i++) {
-			struct gpio_button_data *bdata = &ddata->data[i];
-			if (bdata->button->wakeup)
-				enable_irq_wake(bdata->irq);
-		}
-	} else {
+	if (!device_may_wakeup(dev)) {
 		mutex_lock(&input->mutex);
 		if (input->users)
 			gpio_keys_close(input);
@@ -805,15 +932,8 @@ static int gpio_keys_resume(struct device *dev)
 	struct gpio_keys_drvdata *ddata = dev_get_drvdata(dev);
 	struct input_dev *input = ddata->input;
 	int error = 0;
-	int i;
 
-	if (device_may_wakeup(dev)) {
-		for (i = 0; i < ddata->pdata->nbuttons; i++) {
-			struct gpio_button_data *bdata = &ddata->data[i];
-			if (bdata->button->wakeup)
-				disable_irq_wake(bdata->irq);
-		}
-	} else {
+	if (!device_may_wakeup(dev)) {
 		mutex_lock(&input->mutex);
 		if (input->users)
 			error = gpio_keys_open(input);

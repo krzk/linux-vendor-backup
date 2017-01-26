@@ -22,6 +22,12 @@
 #include <linux/workqueue.h>
 
 #include "rtc-core.h"
+#ifdef CONFIG_RTC_TEE_TIMESTAMP
+#include <linux/smc.h>
+#endif
+
+
+#define CONFIG_RTC_TIME_DEBUG
 
 
 static DEFINE_IDA(rtc_ida);
@@ -46,7 +52,10 @@ int rtc_hctosys_ret = -ENODEV;
  */
 
 static struct timespec old_rtc, old_system, old_delta;
-
+#ifdef CONFIG_RTC_TIME_DEBUG
+static struct timespec old_system_debug, now_system;
+static int rtc_debug_count;
+#endif
 
 static int rtc_suspend(struct device *dev)
 {
@@ -69,6 +78,10 @@ static int rtc_suspend(struct device *dev)
 	}
 
 	getnstimeofday(&old_system);
+#ifdef CONFIG_RTC_TIME_DEBUG
+	old_system_debug = old_system;
+#endif
+
 	rtc_tm_to_time(&tm, &old_rtc.tv_sec);
 
 
@@ -145,6 +158,17 @@ static int rtc_resume(struct device *dev)
 	if (sleep_time.tv_sec >= 0)
 		timekeeping_inject_sleeptime(&sleep_time);
 	rtc_hctosys_ret = 0;
+#ifdef CONFIG_RTC_TEE_TIMESTAMP
+	if (exynos_smc(0x83000071, sleep_time.tv_sec, sleep_time.tv_nsec, 0))
+		pr_err("%s: timestamp smc failed\n", dev_name(&rtc->dev));
+#endif
+
+#ifdef CONFIG_RTC_TIME_DEBUG
+	rtc_debug_count ++;
+	getnstimeofday(&now_system);
+	printk("RTC_DBG [%04d] from /%lu/%lu/ to /%lu/%lu/%lu/, inject /%lu/ ",rtc_debug_count, old_rtc.tv_sec, old_system_debug.tv_sec, new_rtc.tv_sec, new_system.tv_sec, now_system.tv_sec, sleep_time.tv_sec);
+#endif
+
 	return 0;
 }
 

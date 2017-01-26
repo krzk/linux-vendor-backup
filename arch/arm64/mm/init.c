@@ -114,9 +114,11 @@ static void __init zone_sizes_init(unsigned long min, unsigned long max)
 }
 
 #ifdef CONFIG_HAVE_ARCH_PFN_VALID
+#define PFN_MASK ((1UL << (64 - PAGE_SHIFT)) - 1)
+
 int pfn_valid(unsigned long pfn)
 {
-	return memblock_is_memory(pfn << PAGE_SHIFT);
+	return (pfn & PFN_MASK) == pfn && memblock_is_memory(pfn << PAGE_SHIFT);
 }
 EXPORT_SYMBOL(pfn_valid);
 #endif
@@ -281,6 +283,9 @@ void __init mem_init(void)
 		  "    fixed   : 0x%16lx - 0x%16lx   (%6ld KB)\n"
 		  "    modules : 0x%16lx - 0x%16lx   (%6ld MB)\n"
 		  "    memory  : 0x%16lx - 0x%16lx   (%6ld MB)\n"
+#ifndef CONFIG_TIMA_RKP
+		  "    coherent: 0x%16lx - 0x%16lx   (%6ld MB)\n"
+#endif
 		  "      .init : 0x%p" " - 0x%p" "   (%6ld KB)\n"
 		  "      .text : 0x%p" " - 0x%p" "   (%6ld KB)\n"
 		  "      .data : 0x%p" " - 0x%p" "   (%6ld KB)\n",
@@ -295,6 +300,10 @@ void __init mem_init(void)
 		  MLK(FIXADDR_START, FIXADDR_TOP),
 		  MLM(MODULES_VADDR, MODULES_END),
 		  MLM(PAGE_OFFSET, (unsigned long)high_memory),
+#ifndef CONFIG_TIMA_RKP
+		  MLM(PAGE_OFFSET_COHERENT,
+			(unsigned long)__virt_to_coherent_virt(high_memory)),
+#endif
 		  MLK_ROUNDUP(__init_begin, __init_end),
 		  MLK_ROUNDUP(_text, _etext),
 		  MLK_ROUNDUP(_sdata, _edata));
@@ -327,6 +336,12 @@ void free_initmem(void)
 {
 	free_initmem_default(0);
 	free_alternatives_memory();
+#ifdef CONFIG_TIMA_RKP
+#ifdef CONFIG_KNOX_KAP
+	if (boot_mode_security)
+#endif
+		rkp_call(RKP_DEF_INIT, 0, 0, 0, 0, 0);
+#endif
 }
 
 #ifdef CONFIG_BLK_DEV_INITRD

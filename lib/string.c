@@ -787,6 +787,20 @@ void *memchr(const void *s, int c, size_t n)
 EXPORT_SYMBOL(memchr);
 #endif
 
+#ifndef __HAVE_ARCH_MEMRCHR
+void *memrchr(const void *s, int c, size_t n)
+{
+	const unsigned char *sp = (const unsigned char *)s + n - 1;
+	while (n--) {
+		if (*sp == (unsigned char)c)
+			return (void *)sp;
+		sp--;
+	}
+	return NULL;
+}
+EXPORT_SYMBOL(memrchr);
+#endif
+
 static void *check_bytes8(const u8 *start, u8 value, unsigned int bytes)
 {
 	while (bytes) {

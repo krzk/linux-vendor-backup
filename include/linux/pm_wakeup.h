@@ -54,6 +54,9 @@ struct wakeup_source {
 	ktime_t last_time;
 	ktime_t start_prevent_time;
 	ktime_t prevent_sleep_time;
+#if defined (CONFIG_PM_SLEEP_HISTORY) || defined (CONFIG_SLEEP_MONITOR)
+	ktime_t prevent_time;
+#endif
 	unsigned long		event_count;
 	unsigned long		active_count;
 	unsigned long		relax_count;

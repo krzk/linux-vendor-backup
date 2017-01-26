@@ -62,8 +62,21 @@
 #include <asm/psci.h>
 #include <asm/efi.h>
 
+#if defined(CONFIG_ECT)
+#include <soc/samsung/ect_parser.h>
+#endif
+
 unsigned int processor_id;
 EXPORT_SYMBOL(processor_id);
+
+unsigned int system_rev;
+EXPORT_SYMBOL(system_rev);
+
+unsigned int system_serial_low;
+EXPORT_SYMBOL(system_serial_low);
+
+unsigned int system_serial_high;
+EXPORT_SYMBOL(system_serial_high);
 
 unsigned long elf_hwcap __read_mostly;
 EXPORT_SYMBOL_GPL(elf_hwcap);
@@ -83,6 +96,7 @@ unsigned int compat_elf_hwcap2 __read_mostly;
 DECLARE_BITMAP(cpu_hwcaps, NCAPS);
 
 static const char *cpu_name;
+static const char *machine_name;
 phys_addr_t __fdt_pointer __initdata;
 
 /*
@@ -127,6 +141,32 @@ void __init smp_setup_processor_id(void)
 	 */
 	set_my_cpu_offset(0);
 }
+
+#if defined(CONFIG_ECT)
+int __init early_init_dt_scan_ect(unsigned long node, const char *uname,
+		int depth, void *data)
+{
+	int address = 0, size = 0;
+	const __be32 *paddr, *psize;
+
+	if (depth != 1 || (strcmp(uname, "ect") != 0))
+		return 0;
+
+	paddr = of_get_flat_dt_prop(node, "parameter_address", &address);
+	if (paddr == NULL)
+		return 0;
+
+	psize = of_get_flat_dt_prop(node, "parameter_size", &size);
+	if (psize == NULL)
+		return -1;
+
+	pr_info("[ECT] Address %x, Size %x\b", be32_to_cpu(*paddr), be32_to_cpu(*psize));
+	memblock_reserve(be32_to_cpu(*paddr), be32_to_cpu(*psize));
+	ect_init(be32_to_cpu(*paddr), be32_to_cpu(*psize));
+
+	return 1;
+}
+#endif
 
 bool arch_match_cpu_phys_id(int cpu, u64 phys_id)
 {
@@ -314,6 +354,14 @@ static void __init setup_machine_fdt(phys_addr_t dt_phys)
 		while (true)
 			cpu_relax();
 	}
+
+	machine_name = of_flat_dt_get_machine_name();
+	dump_stack_set_arch_desc("%s (DT)", of_flat_dt_get_machine_name());
+
+#if defined(CONFIG_ECT)
+	/* Scan dvfs paramter information, address that loaded on DRAM and size */
+	of_scan_flat_dt(early_init_dt_scan_ect, NULL);
+#endif
 }
 
 /*
@@ -535,6 +583,10 @@ static int c_show(struct seq_file *m, void *v)
 		seq_printf(m, "CPU revision\t: %d\n\n", MIDR_REVISION(midr));
 	}
 
+	seq_printf(m, "Hardware\t: %s\n", machine_name);
+	seq_printf(m, "Revision\t: %04x\n", system_rev);
+	seq_printf(m, "Serial\t\t: %08x%08x\n",
+                   system_serial_high, system_serial_low);
 	return 0;
 }
 

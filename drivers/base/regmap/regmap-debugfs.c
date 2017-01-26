@@ -261,7 +261,11 @@ static ssize_t regmap_map_read_file(struct file *file, char __user *user_buf,
 				   count, ppos);
 }
 
+#ifdef CONFIG_TIZEN_SEC_KERNEL_ENG
+#define REGMAP_ALLOW_WRITE_DEBUGFS
+#else
 #undef REGMAP_ALLOW_WRITE_DEBUGFS
+#endif
 #ifdef REGMAP_ALLOW_WRITE_DEBUGFS
 /*
  * This can be dangerous especially when we have clients such as

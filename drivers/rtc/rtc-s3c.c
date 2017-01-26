@@ -489,7 +489,9 @@ static int s3c_rtc_probe(struct platform_device *pdev)
 	struct s3c_rtc *info = NULL;
 	struct rtc_time rtc_tm;
 	struct resource *res;
+	struct device_node *np = pdev->dev.of_node;
 	int ret;
+	u32 con;
 
 	info = devm_kzalloc(&pdev->dev, sizeof(*info), GFP_KERNEL);
 	if (!info)
@@ -528,7 +530,7 @@ static int s3c_rtc_probe(struct platform_device *pdev)
 	if (IS_ERR(info->base))
 		return PTR_ERR(info->base);
 
-	info->rtc_clk = devm_clk_get(&pdev->dev, "rtc");
+	info->rtc_clk = devm_clk_get(&pdev->dev, "gate_rtc");
 	if (IS_ERR(info->rtc_clk)) {
 		dev_err(&pdev->dev, "failed to find rtc clock\n");
 		return PTR_ERR(info->rtc_clk);
@@ -553,6 +555,12 @@ static int s3c_rtc_probe(struct platform_device *pdev)
 		 readw(info->base + S3C2410_RTCCON));
 
 	device_init_wakeup(&pdev->dev, 1);
+
+	con = readl(info->base + S3C2410_RTCCON);
+	if (of_property_read_bool(np, "samsung,use_tick"))
+		writel(con | S3C64XX_RTCCON_TICEN, info->base + S3C2410_RTCCON);
+	else
+		writel(con & ~S3C64XX_RTCCON_TICEN, info->base + S3C2410_RTCCON);
 
 	/* register RTC and exit */
 	info->rtc = devm_rtc_device_register(&pdev->dev, "s3c", &s3c_rtcops,
@@ -849,7 +857,6 @@ static struct s3c_rtc_data const s3c2443_rtc_data = {
 
 static struct s3c_rtc_data const s3c6410_rtc_data = {
 	.max_user_freq		= 32768,
-	.needs_src_clk		= true,
 	.irq_handler		= s3c6410_rtc_irq,
 	.set_freq		= s3c6410_rtc_setfreq,
 	.enable_tick		= s3c6410_rtc_enable_tick,

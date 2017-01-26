@@ -18,6 +18,13 @@
 
 #include "power.h"
 
+#ifdef CONFIG_SLEEP_MONITOR
+#include <linux/power/sleep_monitor.h>
+#endif
+#ifdef CONFIG_SLEEP_MONITOR_SLAVE_WAKELOCK
+#include <linux/power/slave_wakelock.h>
+#endif
+
 DEFINE_MUTEX(pm_mutex);
 
 #ifdef CONFIG_PM_SLEEP
@@ -46,7 +53,7 @@ int pm_notifier_call_chain(unsigned long val)
 }
 
 /* If set, devices may be suspended and resumed asynchronously. */
-int pm_async_enabled = 1;
+int pm_async_enabled = 0;
 
 static ssize_t pm_async_show(struct kobject *kobj, struct kobj_attribute *attr,
 			     char *buf)
@@ -65,7 +72,7 @@ static ssize_t pm_async_store(struct kobject *kobj, struct kobj_attribute *attr,
 	if (val > 1)
 		return -EINVAL;
 
-	pm_async_enabled = val;
+	pm_async_enabled = 0;
 	return n;
 }
 
@@ -366,6 +373,23 @@ static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
 power_attr(state);
 
 #ifdef CONFIG_PM_SLEEP
+static ssize_t combined_event_count_show(struct kobject *kobj,
+				struct kobj_attribute *attr, char *buf)
+{
+	unsigned int cnt, inpr;
+
+	pm_get_inpr_count(&cnt, &inpr);
+
+	return sprintf(buf, "total: %u, in_progress: %u\n", cnt, inpr);
+}
+
+static ssize_t combined_event_count_store(struct kobject *kobj,
+				struct kobj_attribute *attr, const char *buf, size_t n)
+{
+	return 0;
+}
+power_attr(combined_event_count);
+
 /*
  * The 'wakeup_count' attribute, along with the functions defined in
  * drivers/base/power/wakeup.c, provides a means by which wakeup events can be
@@ -556,8 +580,59 @@ pm_trace_dev_match_store(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 power_attr(pm_trace_dev_match);
-
 #endif /* CONFIG_PM_TRACE */
+
+#ifdef CONFIG_SLEEP_MONITOR
+char slp_mon_req_str[64];
+static ssize_t slp_mon_save_req_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	int ret = 0;
+	ret += sprintf(buf, "%s\n", slp_mon_req_str);
+	return ret;
+}
+
+static ssize_t slp_mon_save_req_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t n)
+{
+	strcpy(slp_mon_req_str, buf);
+	sleep_monitor_update_req();
+	return n;
+}
+power_attr(slp_mon_save_req);
+#endif
+
+#ifdef CONFIG_SLEEP_MONITOR_SLAVE_WAKELOCK
+static ssize_t slave_wake_lock_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return 0;
+}
+
+static ssize_t slave_wake_lock_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t n)
+{
+	int error = slave_wake_lock(buf);
+	return error ? error : n;
+}
+
+power_attr(slave_wake_lock);
+
+static ssize_t slave_wake_unlock_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return 0;
+}
+
+static ssize_t slave_wake_unlock_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t n)
+{
+	int error = slave_wake_unlock(buf);
+	return error ? error : n;
+}
+
+power_attr(slave_wake_unlock);
+#endif
 
 #ifdef CONFIG_FREEZER
 static ssize_t pm_freeze_timeout_show(struct kobject *kobj,
@@ -592,6 +667,7 @@ static struct attribute * g[] = {
 #ifdef CONFIG_PM_SLEEP
 	&pm_async_attr.attr,
 	&wakeup_count_attr.attr,
+	&combined_event_count_attr.attr,
 #ifdef CONFIG_PM_AUTOSLEEP
 	&autosleep_attr.attr,
 #endif
@@ -604,6 +680,13 @@ static struct attribute * g[] = {
 #endif
 #ifdef CONFIG_PM_SLEEP_DEBUG
 	&pm_print_times_attr.attr,
+#endif
+#ifdef CONFIG_SLEEP_MONITOR
+	&slp_mon_save_req_attr.attr,
+#endif
+#ifdef CONFIG_SLEEP_MONITOR_SLAVE_WAKELOCK
+	&slave_wake_lock_attr.attr,
+	&slave_wake_unlock_attr.attr,
 #endif
 #endif
 #ifdef CONFIG_FREEZER

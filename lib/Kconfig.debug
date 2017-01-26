@@ -1,5 +1,13 @@
 menu "printk and dmesg options"
 
+config TIZEN_SEC_KERNEL_ENG
+	bool "Enable TIZEN kernel ENG binary options"
+	help
+	  Selecting this option could enable some debugging
+	  features which has choosen for TIZEN SEC target.
+	  Say 'Y' to turn on this feature for ENG binary.
+	  If you want the USR kernel binary version, say N.
+
 config PRINTK_TIME
 	bool "Show timing information on printks"
 	depends on PRINTK
@@ -14,6 +22,22 @@ config PRINTK_TIME
 
 	  The behavior is also controlled by the kernel command line
 	  parameter printk.time=1. See Documentation/kernel-parameters.txt
+
+config PRINTK_PROCESS
+	bool "Show process information on printks"
+	depends on PRINTK
+	help
+	  Selecting this option causes process to be
+	  included in printk output. Or add printk.process=1 at boot-time.
+
+config PRINTK_BOOTLOG
+	bool "Insert bootloader logs into kernel log buffer"
+	depends on PRINTK
+	help
+	  If you say Y here, insert bootloader logs into the head of printk
+	  log buffer at init time to show booting information.
+	  Bootloader log address is passed from Kernel command line argument
+	  "bootloader.log={base_addr},{size},{start_idx},{end_idx}"
 
 config MESSAGE_LOGLEVEL_DEFAULT
 	int "Default message log level (1-7)"
@@ -668,14 +692,26 @@ config LOCKUP_DETECTOR
 	  The overhead should be minimal.  A periodic hrtimer runs to
 	  generate interrupts and kick the watchdog task every 4 seconds.
 	  An NMI is generated every 10 seconds or so to check for hardlockups.
+	  If NMIs are not available on the platform, every 12 seconds the
+	  hrtimer interrupt on one cpu will be used to check for hardlockups
+	  on the next cpu.
 
 	  The frequency of hrtimer and NMI events and the soft and hard lockup
 	  thresholds can be controlled through the sysctl watchdog_thresh.
 
-config HARDLOCKUP_DETECTOR
+config HARDLOCKUP_DETECTOR_NMI
 	def_bool y
 	depends on LOCKUP_DETECTOR && !HAVE_NMI_WATCHDOG
 	depends on PERF_EVENTS && HAVE_PERF_EVENTS_NMI
+
+config HARDLOCKUP_DETECTOR_OTHER_CPU
+	def_bool y
+	depends on LOCKUP_DETECTOR && SMP
+	depends on !HARDLOCKUP_DETECTOR_NMI && !HAVE_NMI_WATCHDOG
+
+config HARDLOCKUP_DETECTOR
+	def_bool y
+	depends on HARDLOCKUP_DETECTOR_NMI || HARDLOCKUP_DETECTOR_OTHER_CPU
 
 config BOOTPARAM_HARDLOCKUP_PANIC
 	bool "Panic (Reboot) On Hard Lockups"
@@ -1711,6 +1747,29 @@ config TEST_UDELAY
 
 	  If unsure, say N.
 
+config TIME_HISTORY
+	bool "Collect kernel time setting and alarm infomation"
+	depends on DEBUG_KERNEL && PROC_FS
+	help
+	  If you say Y here, additional code will be inserted into the
+	  time/alarm routines to collect history about kernel time/alarms.
+	  The alarm history can be read from /sys/kernel/debug/alarm_history.
+	  This feature is useful to debug time/alarm.
+
+config TIME_HISTORY_SAVE_BOOTTIME
+	bool "Save log boot time"
+	depends on TIME_HISTORY
+	default n
+	help
+	 If you say Y hear, save boottime of logs.
+	 It uses additional 8bytes memory space for each log entry
+
+config TIME_HISTORY_LOG_FILTER
+	depends on TIME_HISTORY
+	bool "Filtering specific logs"
+	default y
+	help
+	 If you say Y hear, do not save specific logs
 source "samples/Kconfig"
 
 source "lib/Kconfig.kgdb"

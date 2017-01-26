@@ -35,6 +35,8 @@
 #include <linux/freezer.h>
 #include <linux/ftrace.h>
 #include <linux/ratelimit.h>
+#include <linux/compaction.h>
+#include "internal.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/oom.h>
@@ -385,9 +387,28 @@ static void dump_tasks(const struct mem_cgroup *memcg, const nodemask_t *nodemas
 	rcu_read_unlock();
 }
 
+static BLOCKING_NOTIFIER_HEAD(oomdebug_notify_list);
+
+int register_oomdebug_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&oomdebug_notify_list, nb);
+}
+EXPORT_SYMBOL_GPL(register_oomdebug_notifier);
+
+int unregister_oomdebug_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&oomdebug_notify_list, nb);
+}
+EXPORT_SYMBOL_GPL(unregister_oomdebug_notifier);
+
 static void dump_header(struct task_struct *p, gfp_t gfp_mask, int order,
 			struct mem_cgroup *memcg, const nodemask_t *nodemask)
 {
+	struct zone *zone;
+	struct zoneref *z;
+	int alloc_flags = 0;
+	int ret = 0;
+
 	task_lock(current);
 	pr_warning("%s invoked oom-killer: gfp_mask=0x%x, order=%d, "
 		"oom_score_adj=%hd\n",
@@ -398,10 +419,30 @@ static void dump_header(struct task_struct *p, gfp_t gfp_mask, int order,
 	dump_stack();
 	if (memcg)
 		mem_cgroup_print_oom_info(memcg, p);
-	else
+	else {
 		show_mem(SHOW_MEM_FILTER_NODES);
+#ifdef CONFIG_CMA
+		if (gfpflags_to_migratetype(gfp_mask) == MIGRATE_MOVABLE)
+			alloc_flags |= ALLOC_CMA;
+#endif
+		for_each_zone_zonelist_nodemask(zone, z, node_zonelist(0,
+					gfp_mask), gfp_zone(gfp_mask), NULL) {
+			pr_info("%s: HIGH wmark ok? (%s)"
+				" LOW wmark ok? %s)"
+				" MIN wmark ok? (%s)"
+				" compaction_suitable %lu\n", zone->name,
+			(zone_watermark_ok(zone, order,
+			high_wmark_pages(zone), 0, alloc_flags) ? "yes" : "no"),
+			(zone_watermark_ok(zone, order,
+			low_wmark_pages(zone), 0, alloc_flags) ? "yes" : "no"),
+			(zone_watermark_ok(zone, order,
+			min_wmark_pages(zone), 0, alloc_flags) ? "yes" : "no"),
+			compaction_suitable(zone, order));
+		}
+	}
 	if (sysctl_oom_dump_tasks)
 		dump_tasks(memcg, nodemask);
+	blocking_notifier_call_chain(&oomdebug_notify_list, 0, &ret);
 }
 
 /*

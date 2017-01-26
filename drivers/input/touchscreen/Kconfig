@@ -416,6 +416,18 @@ config TOUCHSCREEN_MMS114
 	  To compile this driver as a module, choose M here: the
 	  module will be called mms114.
 
+config TOUCHSCREEN_MMS144
+	tristate "Melfas MMS144 Touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have Melfas MMS144 series I2C touchscreen,
+	  connected to your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called mms_ts.
+
 config TOUCHSCREEN_MTOUCH
 	tristate "MicroTouch serial touchscreens"
 	select SERIO
@@ -962,4 +974,17 @@ config TOUCHSCREEN_ZFORCE
 	  To compile this driver as a module, choose M here: the
 	  module will be called zforce_ts.
 
+config TOUCHSCREEN_MXT540E
+       tristate "Atmel MXT540E Touchscreen Interface"
+       depends on I2C
+       help
+         Say Y here if you want support for atmel_MXT540E touchscreen controllers.
+         To compile this driver as a module, choose M here: the
+         module will be called mxt540e.
+
+source "drivers/input/touchscreen/imagis_30xxc/Kconfig"
+source "drivers/input/touchscreen/cyttsp5/Kconfig"
+source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
+source "drivers/input/touchscreen/melfas_mms400/Kconfig"
+source "drivers/input/touchscreen/stm/Kconfig"
 endif

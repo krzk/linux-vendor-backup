@@ -31,6 +31,7 @@
 #include <linux/ima.h>
 #include <linux/dnotify.h>
 #include <linux/compat.h>
+#include <swap/swap_fops.h>
 
 #include "internal.h"
 
@@ -1050,6 +1051,8 @@ int filp_close(struct file *filp, fl_owner_t id)
 		printk(KERN_ERR "VFS: Close: file count is 0\n");
 		return 0;
 	}
+
+	swap_fops_filp_close(filp);
 
 	if (filp->f_op->flush)
 		retval = filp->f_op->flush(filp, id);

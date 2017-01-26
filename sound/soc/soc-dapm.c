@@ -1659,10 +1659,19 @@ static void dapm_widget_set_power(struct snd_soc_dapm_widget *w, bool power,
 		break;
 	}
 
-	if (power)
+	if (power) {
 		dapm_seq_insert(w, up_list, true);
-	else
+#ifdef CONFIG_TIZEN_SEC_KERNEL_ENG
+		dev_info(w->dapm->dev,
+			"dapm: power up widget %s\n", w->name);
+#endif
+	} else {
 		dapm_seq_insert(w, down_list, false);
+#ifdef CONFIG_TIZEN_SEC_KERNEL_ENG
+		dev_info(w->dapm->dev,
+			"dapm: power down widget %s\n", w->name);
+#endif
+	}
 }
 
 static void dapm_power_one_widget(struct snd_soc_dapm_widget *w,

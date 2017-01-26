@@ -55,8 +55,13 @@ time_show(struct device *dev, struct device_attribute *attr, char *buf)
 
 	retval = rtc_read_time(to_rtc_device(dev), &tm);
 	if (retval == 0) {
+#ifdef CONFIG_RTC_DRV_S2MPW01_HR
+		retval = sprintf(buf, "%02d:%02d:%02d:%03d\n",
+			tm.tm_hour, tm.tm_min, tm.tm_sec, tm.tm_usec);
+#else
 		retval = sprintf(buf, "%02d:%02d:%02d\n",
 			tm.tm_hour, tm.tm_min, tm.tm_sec);
+#endif
 	}
 
 	return retval;

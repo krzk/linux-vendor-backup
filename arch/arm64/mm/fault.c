@@ -37,6 +37,8 @@
 #include <asm/pgtable.h>
 #include <asm/tlbflush.h>
 
+#include <swap/swap_us_hooks.h>
+
 static const char *fault_name(unsigned int esr);
 
 /*
@@ -279,6 +281,7 @@ retry:
 			 * starvation.
 			 */
 			mm_flags &= ~FAULT_FLAG_ALLOW_RETRY;
+			mm_flags |= FAULT_FLAG_TRIED;
 			goto retry;
 		}
 	}
@@ -289,8 +292,10 @@ retry:
 	 * Handle the "normal" case first - VM_FAULT_MAJOR / VM_FAULT_MINOR
 	 */
 	if (likely(!(fault & (VM_FAULT_ERROR | VM_FAULT_BADMAP |
-			      VM_FAULT_BADACCESS))))
+			      VM_FAULT_BADACCESS)))) {
+		suh_page_fault(addr);
 		return 0;
+	}
 
 	/*
 	 * If we are in kernel mode at this point, we have no context to

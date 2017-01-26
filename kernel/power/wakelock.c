@@ -17,6 +17,9 @@
 #include <linux/list.h>
 #include <linux/rbtree.h>
 #include <linux/slab.h>
+#ifdef CONFIG_ENERGY_MONITOR
+#include <linux/power/energy_monitor.h>
+#endif
 
 #include "power.h"
 
@@ -210,6 +213,11 @@ int pm_wake_lock(const char *buf)
 
 	mutex_lock(&wakelocks_lock);
 
+#ifdef CONFIG_ENERGY_MONITOR
+	if (!strncmp(buf, "displock", sizeof("displock")))
+		energy_monitor_record_disp_time(ENERGY_MON_DISP_ON);
+#endif
+
 	wl = wakelock_lookup_add(buf, len, true);
 	if (IS_ERR(wl)) {
 		ret = PTR_ERR(wl);
@@ -251,6 +259,11 @@ int pm_wake_unlock(const char *buf)
 		return -EINVAL;
 
 	mutex_lock(&wakelocks_lock);
+
+#ifdef CONFIG_ENERGY_MONITOR
+	if (!strncmp(buf, "displock", sizeof("displock")))
+		energy_monitor_record_disp_time(ENERGY_MON_DISP_OFF);
+#endif
 
 	wl = wakelock_lookup_add(buf, len, false);
 	if (IS_ERR(wl)) {

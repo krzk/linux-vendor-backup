@@ -107,6 +107,7 @@
 #include <linux/atalk.h>
 #include <net/busy_poll.h>
 #include <linux/errqueue.h>
+#include <swap/swap_energy_hooks.h>
 
 #ifdef CONFIG_NET_RX_BUSY_POLL
 unsigned int sysctl_net_busy_read __read_mostly;
@@ -662,6 +663,7 @@ int sock_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
 	ret = __sock_sendmsg(&iocb, sock, msg, size);
 	if (-EIOCBQUEUED == ret)
 		ret = wait_on_sync_kiocb(&iocb);
+	swap_wifi_sendmsg(sock, ret);
 	return ret;
 }
 EXPORT_SYMBOL(sock_sendmsg);
@@ -810,6 +812,7 @@ int sock_recvmsg(struct socket *sock, struct msghdr *msg,
 	ret = __sock_recvmsg(&iocb, sock, msg, size, flags);
 	if (-EIOCBQUEUED == ret)
 		ret = wait_on_sync_kiocb(&iocb);
+	swap_wifi_recvmsg(sock, ret);
 	return ret;
 }
 EXPORT_SYMBOL(sock_recvmsg);
@@ -923,6 +926,7 @@ static ssize_t sock_aio_read(struct kiocb *iocb, const struct iovec *iov,
 				unsigned long nr_segs, loff_t pos)
 {
 	struct sock_iocb siocb, *x;
+	ssize_t res;
 
 	if (pos != 0)
 		return -ESPIPE;
@@ -934,7 +938,9 @@ static ssize_t sock_aio_read(struct kiocb *iocb, const struct iovec *iov,
 	x = alloc_sock_iocb(iocb, &siocb);
 	if (!x)
 		return -ENOMEM;
-	return do_sock_read(&x->async_msg, iocb, iocb->ki_filp, iov, nr_segs);
+	res = do_sock_read(&x->async_msg, iocb, iocb->ki_filp, iov, nr_segs);
+	swap_wifi_recvmsg(iocb->ki_filp->private_data, (int)res);
+	return res;
 }
 
 static ssize_t do_sock_write(struct msghdr *msg, struct kiocb *iocb,
@@ -965,6 +971,7 @@ static ssize_t sock_aio_write(struct kiocb *iocb, const struct iovec *iov,
 			  unsigned long nr_segs, loff_t pos)
 {
 	struct sock_iocb siocb, *x;
+	ssize_t res;
 
 	if (pos != 0)
 		return -ESPIPE;
@@ -972,8 +979,9 @@ static ssize_t sock_aio_write(struct kiocb *iocb, const struct iovec *iov,
 	x = alloc_sock_iocb(iocb, &siocb);
 	if (!x)
 		return -ENOMEM;
-
-	return do_sock_write(&x->async_msg, iocb, iocb->ki_filp, iov, nr_segs);
+	res = do_sock_write(&x->async_msg, iocb, iocb->ki_filp, iov, nr_segs);
+	swap_wifi_sendmsg(iocb->ki_filp->private_data, (int)res);
+	return res;
 }
 
 /*
@@ -1790,6 +1798,8 @@ SYSCALL_DEFINE6(sendto, int, fd, void __user *, buff, size_t, len,
 
 	if (len > INT_MAX)
 		len = INT_MAX;
+	if (unlikely(!access_ok(VERIFY_READ, buff, len)))
+		return -EFAULT;
 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
 	if (!sock)
 		goto out;
@@ -1849,6 +1859,8 @@ SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, ubuf, size_t, size,
 
 	if (size > INT_MAX)
 		size = INT_MAX;
+	if (unlikely(!access_ok(VERIFY_WRITE, ubuf, size)))
+		return -EFAULT;
 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
 	if (!sock)
 		goto out;
@@ -2414,31 +2426,31 @@ int __sys_recvmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
 			break;
 	}
 
+	if (err == 0)
+		goto out_put;
+
+	if (datagrams == 0) {
+		datagrams = err;
+		goto out_put;
+	}
+
+	/*
+	 * We may return less entries than requested (vlen) if the
+	 * sock is non block and there aren't enough datagrams...
+	 */
+	if (err != -EAGAIN) {
+		/*
+		 * ... or  if recvmsg returns an error after we
+		 * received some datagrams, where we record the
+		 * error to return on the next call or if the
+		 * app asks about it using getsockopt(SO_ERROR).
+		 */
+		sock->sk->sk_err = -err;
+	}
 out_put:
 	fput_light(sock->file, fput_needed);
 
-	if (err == 0)
-		return datagrams;
-
-	if (datagrams != 0) {
-		/*
-		 * We may return less entries than requested (vlen) if the
-		 * sock is non block and there aren't enough datagrams...
-		 */
-		if (err != -EAGAIN) {
-			/*
-			 * ... or  if recvmsg returns an error after we
-			 * received some datagrams, where we record the
-			 * error to return on the next call or if the
-			 * app asks about it using getsockopt(SO_ERROR).
-			 */
-			sock->sk->sk_err = -err;
-		}
-
-		return datagrams;
-	}
-
-	return err;
+	return datagrams;
 }
 
 SYSCALL_DEFINE5(recvmmsg, int, fd, struct mmsghdr __user *, mmsg,

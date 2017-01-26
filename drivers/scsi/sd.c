@@ -176,8 +176,7 @@ cache_type_store(struct device *dev, struct device_attribute *attr,
 
 	for (i = 0; i < ARRAY_SIZE(sd_cache_types); i++) {
 		len = strlen(sd_cache_types[i]);
-		if (strncmp(sd_cache_types[i], buf, len) == 0 &&
-		    buf[len] == '\n') {
+		if (strncmp(sd_cache_types[i], buf, len) == 0) {
 			ct = i;
 			break;
 		}
@@ -1320,7 +1319,7 @@ static int sd_ioctl(struct block_device *bdev, fmode_t mode,
 	struct scsi_device *sdp = sdkp->device;
 	void __user *p = (void __user *)arg;
 	int error;
-    
+
 	SCSI_LOG_IOCTL(1, sd_printk(KERN_INFO, sdkp, "sd_ioctl: disk=%s, "
 				    "cmd=0x%x\n", disk->disk_name, cmd));
 
@@ -1347,6 +1346,8 @@ static int sd_ioctl(struct block_device *bdev, fmode_t mode,
 	switch (cmd) {
 		case SCSI_IOCTL_GET_IDLUN:
 		case SCSI_IOCTL_GET_BUS_NUMBER:
+		case SCSI_IOCTL_SECURITY_PROTOCOL_IN:
+		case SCSI_IOCTL_SECURITY_PROTOCOL_OUT:
 			error = scsi_ioctl(sdp, cmd, p);
 			break;
 		default:
@@ -3170,6 +3171,9 @@ static int sd_start_stop_device(struct scsi_disk *sdkp, int start)
 static void sd_shutdown(struct device *dev)
 {
 	struct scsi_disk *sdkp = scsi_disk_get_from_dev(dev);
+	struct scsi_device *sdp = to_scsi_device(dev);
+	struct request_queue *q = sdp->request_queue;
+	unsigned long flags;
 
 	if (!sdkp)
 		return;         /* this can happen */
@@ -3188,6 +3192,10 @@ static void sd_shutdown(struct device *dev)
 	}
 
 exit:
+	spin_lock_irqsave(q->queue_lock, flags);
+	blk_stop_queue(q);
+	spin_unlock_irqrestore(q->queue_lock, flags);
+
 	scsi_disk_put(sdkp);
 }
 

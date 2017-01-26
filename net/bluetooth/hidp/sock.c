@@ -235,7 +235,11 @@ static int hidp_sock_create(struct net *net, struct socket *sock, int protocol,
 	if (sock->type != SOCK_RAW)
 		return -ESOCKTNOSUPPORT;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0)
 	sk = sk_alloc(net, PF_BLUETOOTH, GFP_ATOMIC, &hidp_proto);
+#else
+	sk = sk_alloc(net, PF_BLUETOOTH, GFP_ATOMIC, &hidp_proto, kern);
+#endif
 	if (!sk)
 		return -ENOMEM;
 

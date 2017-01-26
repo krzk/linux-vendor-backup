@@ -503,6 +503,16 @@ config KEYBOARD_SAMSUNG
 	  To compile this driver as a module, choose M here: the
 	  module will be called samsung-keypad.
 
+config KEYBOARD_S2MPU06
+	tristate "Samsung Electronics S2MPU06 Key Switch Controller"
+	depends on I2C
+	depends on MFD_S2MPU06
+
+config KEYBOARD_S2MPW01
+	tristate "Samsung Electronics S2MPW01 Key Switch Controller"
+	depends on I2C
+	depends on MFD_S2MPW01
+
 config KEYBOARD_GOLDFISH_EVENTS
 	depends on GOLDFISH
 	tristate "Generic Input Event device for Goldfish"

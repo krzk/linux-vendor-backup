@@ -246,6 +246,12 @@ config S3C2410_WATCHDOG
 	  The driver can be built as a module by choosing M, and will
 	  be called s3c2410_wdt
 
+config SEC_WATCHDOG_RESET
+	bool "Panic when timerqueue corruption detected"
+	default n
+	help
+	  Use watchdog reset to exit from lockup
+
 config SA1100_WATCHDOG
 	tristate "SA1100/PXA2xx watchdog"
 	depends on ARCH_SA1100 || ARCH_PXA

@@ -89,6 +89,11 @@
 #include <asm/smp.h>
 #endif
 
+#ifdef CONFIG_TIMA_RKP
+#include <linux/vmm.h>
+#include <linux/rkp_entry.h>
+#endif
+
 static int kernel_init(void *);
 
 extern void init_IRQ(void);
@@ -97,7 +102,10 @@ extern void radix_tree_init(void);
 #ifndef CONFIG_DEBUG_RODATA
 static inline void mark_rodata_ro(void) { }
 #endif
-
+#ifdef CONFIG_KNOX_KAP
+int boot_mode_security;
+EXPORT_SYMBOL(boot_mode_security);
+#endif
 /*
  * Debug helper: via this flag we know that we are in 'early bootup code'
  * where only the boot processor is running with IRQ disabled.  This means
@@ -433,6 +441,15 @@ static int __init do_early_param(char *param, char *val, const char *unused)
 		}
 	}
 	/* We accept everything at this stage. */
+#ifdef CONFIG_KNOX_KAP
+	if ((strncmp(param, "tizenboot.security_mode", 24) == 0)) {
+		pr_warn("val = %d\n",*val);
+	        if ((strncmp(val, "1526595585", 10) == 0)) {
+				pr_info("Security Boot Mode \n");
+				boot_mode_security = 1;
+			}
+	}
+#endif
 	return 0;
 }
 
@@ -496,6 +513,41 @@ static void __init mm_init(void)
 	pgtable_init();
 	vmalloc_init();
 }
+#ifdef	CONFIG_TIMA_RKP
+extern void* vmm_extra_mem;
+u8 rkp_started = 0;
+static void rkp_init(void)
+{
+	rkp_init_t init;
+	init.magic = RKP_INIT_MAGIC;
+	init.vmalloc_start = VMALLOC_START;
+	init.vmalloc_end = (u64)high_memory;
+	init.init_mm_pgd = (u64)__pa(swapper_pg_dir);
+	init.id_map_pgd = (u64)__pa(idmap_pg_dir);
+	init.rkp_pgt_bitmap = (u64)__pa(rkp_pgt_bitmap);
+	init.rkp_map_bitmap = (u64)__pa(rkp_map_bitmap);
+	init.rkp_pgt_bitmap_size = RKP_PGT_BITMAP_LEN;
+	init.zero_pg_addr = page_to_phys(empty_zero_page);
+	init._text = (u64) _text;
+	init._etext = (u64) _etext;
+	if (!vmm_extra_mem) {
+		printk(KERN_ERR"Disable RKP: Failed to allocate extra mem\n");
+		return;
+	}
+	init.extra_memory_addr = __pa(vmm_extra_mem);
+	init.extra_memory_size = 0x600000;
+	init._srodata = (u64) __start_rodata;
+	init._erodata =(u64) __end_rodata;
+#if defined(CONFIG_USE_HOST_FD_LIBRARY)
+	init.large_memory = (u32) virt_to_phys(fd_vaddr);
+#else
+	init.large_memory = 0;
+#endif
+	rkp_call(RKP_INIT, (u64)&init, 0, 0, 0, 0);
+	rkp_started = 1;
+	return;
+}
+#endif
 
 asmlinkage __visible void __init start_kernel(void)
 {
@@ -547,6 +599,17 @@ asmlinkage __visible void __init start_kernel(void)
 	if (!IS_ERR_OR_NULL(after_dashes))
 		parse_args("Setting init args", after_dashes, NULL, 0, -1, -1,
 			   set_init_arg);
+
+#ifdef CONFIG_TIMA_RKP
+#ifdef CONFIG_KNOX_KAP
+	if (boot_mode_security)
+		vmm_init();
+	else
+		vmm_disable();
+#else
+	vmm_init();
+#endif //CONFIG_KNOX_KAP
+#endif //CONFIG_TIMA_RKP
 
 	jump_label_init();
 
@@ -648,6 +711,14 @@ asmlinkage __visible void __init start_kernel(void)
 	init_espfix_bsp();
 #endif
 	thread_info_cache_init();
+#ifdef CONFIG_TIMA_RKP
+
+#ifdef CONFIG_KNOX_KAP
+	if (boot_mode_security)
+#endif
+		rkp_init();
+
+#endif /* CONFIG_TIMA_RKP */
 	cred_init();
 	fork_init(totalram_pages);
 	proc_caches_init();
@@ -925,6 +996,10 @@ static int try_to_run_init_process(const char *init_filename)
 	return ret;
 }
 
+#ifdef CONFIG_SEC_GPIO_DVS
+extern void gpio_dvs_check_initgpio(void);
+#endif
+
 static noinline void __init kernel_init_freeable(void);
 
 static int __ref kernel_init(void *unused)
@@ -932,6 +1007,15 @@ static int __ref kernel_init(void *unused)
 	int ret;
 
 	kernel_init_freeable();
+#ifdef CONFIG_SEC_GPIO_DVS
+	/************************ Caution !!! ****************************/
+	/* This function must be located in appropriate INIT position
+	 * in accordance with the specification of each BB vendor.
+	 */
+	/************************ Caution !!! ****************************/
+	gpio_dvs_check_initgpio();
+#endif
+
 	/* need to finish all async __init code before freeing the memory */
 	async_synchronize_full();
 	free_initmem();

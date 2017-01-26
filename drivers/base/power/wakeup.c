@@ -14,7 +14,13 @@
 #include <linux/suspend.h>
 #include <linux/seq_file.h>
 #include <linux/debugfs.h>
+#include <linux/types.h>
 #include <trace/events/power.h>
+#ifdef CONFIG_SLEEP_MONITOR
+#include <linux/power/sleep_monitor.h>
+#include <linux/power/slp_mon_ws_dev.h>
+#include <linux/ktime.h>
+#endif
 
 #include "power.h"
 
@@ -66,6 +72,9 @@ static DECLARE_WAIT_QUEUE_HEAD(wakeup_count_wait_queue);
  */
 void wakeup_source_prepare(struct wakeup_source *ws, const char *name)
 {
+	static int init_count = 0;
+	printk("%s:[%03d] name=%s\n", __func__, init_count++, name);
+
 	if (ws) {
 		memset(ws, 0, sizeof(*ws));
 		ws->name = name;
@@ -153,6 +162,9 @@ EXPORT_SYMBOL_GPL(wakeup_source_add);
 void wakeup_source_remove(struct wakeup_source *ws)
 {
 	unsigned long flags;
+
+	static int destroy_count = 0;
+	printk("%s:[%03d] name=%s\n", __func__, destroy_count++, ws->name);
 
 	if (WARN_ON(!ws))
 		return;
@@ -406,6 +418,9 @@ static void wakeup_source_activate(struct wakeup_source *ws)
 	/* Increment the counter of events in progress. */
 	cec = atomic_inc_return(&combined_event_count);
 
+	if (ws->name == NULL)
+		WARN_ON(1);
+
 	trace_wakeup_source_activate(ws->name, cec);
 }
 
@@ -476,6 +491,9 @@ static void update_prevent_sleep_time(struct wakeup_source *ws, ktime_t now)
 {
 	ktime_t delta = ktime_sub(now, ws->start_prevent_time);
 	ws->prevent_sleep_time = ktime_add(ws->prevent_sleep_time, delta);
+#if defined(CONFIG_PM_SLEEP_HISTORY) || defined(CONFIG_SLEEP_MONITOR)
+	ws->prevent_time = delta;
+#endif
 }
 #else
 static inline void update_prevent_sleep_time(struct wakeup_source *ws,
@@ -668,6 +686,37 @@ void pm_wakeup_event(struct device *dev, unsigned int msec)
 }
 EXPORT_SYMBOL_GPL(pm_wakeup_event);
 
+void pm_get_active_wakeup_sources(char *pending_wakeup_source, size_t max)
+{
+	struct wakeup_source *ws, *last_active_ws = NULL;
+	int len = 0;
+	bool active = false;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(ws, &wakeup_sources, entry) {
+		if (ws->active) {
+			if (!active)
+				len += scnprintf(pending_wakeup_source, max,
+						"Pending Wakeup Sources: ");
+			len += scnprintf(pending_wakeup_source + len, max - len,
+				"%s ", ws->name);
+			active = true;
+		} else if (!active &&
+			   (!last_active_ws ||
+			    ktime_to_ns(ws->last_time) >
+			    ktime_to_ns(last_active_ws->last_time))) {
+			last_active_ws = ws;
+		}
+	}
+	if (!active && last_active_ws) {
+		scnprintf(pending_wakeup_source, max,
+				"Last active Wakeup Source: %s",
+				last_active_ws->name);
+	}
+	rcu_read_unlock();
+}
+EXPORT_SYMBOL_GPL(pm_get_active_wakeup_sources);
+
 void pm_print_active_wakeup_sources(void)
 {
 	struct wakeup_source *ws;
@@ -725,6 +774,88 @@ bool pm_wakeup_pending(void)
 	return ret || pm_abort_suspend;
 }
 
+#ifdef CONFIG_SLEEP_MONITOR
+int sleep_monitor_wakeup_sources(char name[][SLEEP_MON_WS_NAME_LENGTH], ktime_t *prevent_time)
+{
+	struct wakeup_source *ws;
+	struct wakeup_source *temp_ws;
+	const int ws_count = 4;
+	int active_count = 0, array_count = 0;
+	int i = 0, min_idx = 0, min_val = 0;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(ws, &wakeup_sources, entry) {
+		WARN_ON(!ws);
+		if (ws) {
+			if (ws->active && active_count < ws_count) {
+				prevent_time[active_count] = ws->prevent_time;
+				strncpy(name[active_count], ws->name, SLEEP_MON_WS_NAME_LENGTH);
+				name[active_count++][SLEEP_MON_WS_NAME_LENGTH - 1] = 0;
+				break;
+			}
+		}
+	}
+	rcu_read_unlock();
+
+	array_count = active_count;
+
+	if (active_count < ws_count) {
+		rcu_read_lock();
+		list_for_each_entry_rcu(ws, &wakeup_sources, entry) {
+			WARN_ON(!ws);
+			if (ws) {
+				if (!ws->active && (ktime_to_ms(ws->prevent_time) != 0)) {
+					if (array_count < ws_count) {
+						prevent_time[array_count] = ws->prevent_time;
+						strncpy(name[array_count], ws->name, SLEEP_MON_WS_NAME_LENGTH);
+						name[array_count++][SLEEP_MON_WS_NAME_LENGTH - 1] = 0;
+					} else {
+						temp_ws = ws;
+						min_idx = active_count;
+						min_val = ktime_to_ms(prevent_time[min_idx]);
+
+						for (i = active_count + 1; i < ws_count; i++) {
+							if (min_val > ktime_to_ms(prevent_time[i])) {
+								min_idx = i;
+								min_val = ktime_to_ms(prevent_time[i]);
+							}
+						}
+
+						if (min_val < ktime_to_ms(temp_ws->prevent_time)) {
+							prevent_time[min_idx] = temp_ws->prevent_time;
+							strncpy(name[min_idx], temp_ws->name, SLEEP_MON_WS_NAME_LENGTH);
+							name[min_idx][SLEEP_MON_WS_NAME_LENGTH - 1] = 0;
+						}
+					}
+				}
+			}
+		}
+		rcu_read_unlock();
+	}
+
+	return (array_count > ws_count) ? ws_count : array_count;
+}
+#endif
+
+#if defined(CONFIG_PM_SLEEP_HISTORY) || defined(CONFIG_SLEEP_MONITOR)
+void pm_del_prevent_sleep_time(void)
+{
+	struct wakeup_source *ws;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(ws, &wakeup_sources, entry) {
+		WARN_ON(!ws);
+		if (ws) {
+			if (!ws->active)
+				ws->prevent_time  =  ktime_set(0, 0);
+		}
+	}
+	rcu_read_unlock();
+
+	return;
+}
+#endif
+
 void pm_system_wakeup(void)
 {
 	pm_abort_suspend = true;
@@ -734,6 +865,15 @@ void pm_system_wakeup(void)
 void pm_wakeup_clear(void)
 {
 	pm_abort_suspend = false;
+}
+
+void pm_get_inpr_count(unsigned int *count, unsigned int *in_progress)
+{
+	unsigned int cnt, inpr;
+
+	split_counters(&cnt, &inpr);
+	*count = cnt;
+	*in_progress = inpr;
 }
 
 /**

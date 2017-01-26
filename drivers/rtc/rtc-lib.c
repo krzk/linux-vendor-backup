@@ -87,6 +87,9 @@ void rtc_time_to_tm(unsigned long time, struct rtc_time *tm)
 	tm->tm_sec = time - tm->tm_min * 60;
 
 	tm->tm_isdst = 0;
+#ifdef CONFIG_RTC_DRV_S2MPW01_HR
+	tm->tm_usec = 0;
+#endif
 }
 EXPORT_SYMBOL(rtc_time_to_tm);
 
@@ -101,7 +104,11 @@ int rtc_valid_tm(struct rtc_time *tm)
 		|| tm->tm_mday > rtc_month_days(tm->tm_mon, tm->tm_year + 1900)
 		|| ((unsigned)tm->tm_hour) >= 24
 		|| ((unsigned)tm->tm_min) >= 60
-		|| ((unsigned)tm->tm_sec) >= 60)
+		|| ((unsigned)tm->tm_sec) >= 60
+#ifdef CONFIG_RTC_DRV_S2MPW01_HR
+		|| ((unsigned)tm->tm_usec) >= 1000000
+#endif
+		)
 		return -EINVAL;
 
 	return 0;

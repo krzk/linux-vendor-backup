@@ -2,7 +2,7 @@ VERSION = 3
 PATCHLEVEL = 18
 SUBLEVEL = 14
 EXTRAVERSION =
-NAME = Diseased Newt
+NAME = Shuffling Zombie Juror
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
@@ -369,6 +369,11 @@ PERL		= perl
 PYTHON		= python
 CHECK		= sparse
 
+ifeq ($(CONFIG_FIPS_FMP),)
+    READELF        = $(CROSS_COMPILE)readelf
+    export READELF
+endif
+
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 CFLAGS_MODULE   =
@@ -402,6 +407,7 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
+		   -Werror \
 		   -std=gnu89
 
 KBUILD_AFLAGS_KERNEL :=

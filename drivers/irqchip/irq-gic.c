@@ -45,6 +45,16 @@
 #include <asm/exception.h>
 #include <asm/smp_plat.h>
 
+#if defined(CONFIG_PM_SLEEP_HISTORY) || defined(CONFIG_SLEEP_MONITOR)
+#include <linux/syscore_ops.h>
+#endif
+#ifdef CONFIG_PM_SLEEP_HISTORY
+#include <linux/power/sleep_history.h>
+#endif
+#ifdef CONFIG_SLEEP_MONITOR
+#include <linux/power/slp_mon_irq_dev.h>
+#endif
+
 #include "irq-gic-common.h"
 #include "irqchip.h"
 
@@ -67,6 +77,11 @@ struct gic_chip_data {
 	unsigned int gic_irqs;
 #ifdef CONFIG_GIC_NON_BANKED
 	void __iomem *(*get_base)(union gic_base *);
+#endif
+#if defined(CONFIG_PM_SLEEP_HISTORY) || defined(CONFIG_SLEEP_MONITOR)
+	unsigned int max_irq;
+	unsigned int wakeup_irqs[32];
+	unsigned int enabled_irqs[32];
 #endif
 };
 
@@ -173,6 +188,89 @@ static void gic_unmask_irq(struct irq_data *d)
 	raw_spin_unlock(&irq_controller_lock);
 }
 
+#if defined(CONFIG_PM_SLEEP_HISTORY) || defined(CONFIG_SLEEP_MONITOR)
+static int gic_suspend_one(struct gic_chip_data *gic)
+{
+	unsigned int i;
+	void __iomem *base = gic_data_dist_base(gic);
+
+	for (i = 0; i * 32 < gic->max_irq; i++) {
+		gic->enabled_irqs[i]
+			= readl_relaxed(base + GIC_DIST_ENABLE_SET + i * 4);
+	}
+	mb();
+	return 0;
+}
+
+static int gic_suspend(void)
+{
+	int i;
+	for (i = 0; i < MAX_GIC_NR; i++)
+		gic_suspend_one(&gic_data[i]);
+	return 0;
+}
+
+static void gic_show_resume_irq(struct gic_chip_data *gic)
+{
+	unsigned int i, irq = 0;
+	u32 enabled;
+	unsigned long pending[32];
+	void __iomem *base = gic_data_dist_base(gic);
+
+	raw_spin_lock(&irq_controller_lock);
+	pr_info("%s: ", __func__);
+	for (i = 0; i * 32 < gic->max_irq; i++) {
+		enabled = readl_relaxed(base + GIC_DIST_ENABLE_CLEAR + i * 4);
+		pending[i] = readl_relaxed(base + GIC_DIST_PENDING_SET + i * 4);
+		pr_cont("[%d]0x%x:0x%lx ", i, enabled, pending[i]);
+		pending[i] &= enabled;
+	}
+	pr_cont("\n");
+	raw_spin_unlock(&irq_controller_lock);
+
+	for (i = 0; i * 32 < gic->max_irq; i++) {
+		irq = find_first_bit(pending + i, 32);
+		while (irq < 32 && irq + i * 32 > 48) {
+			pr_warning("%s: %d triggered\n", __func__, irq + i * 32);
+#ifdef CONFIG_PM_SLEEP_HISTORY
+			sleep_history_marker(SLEEP_HISTORY_WAKEUP_IRQ, NULL, NULL,
+								 irq + i * 32, "UNKNOWN");
+#endif
+#ifdef CONFIG_SLEEP_MONITOR
+			add_slp_mon_irq_list(irq + i * 32, "UNKNOWN");
+#endif
+			irq = find_next_bit(pending + i, 32, irq + 1);
+		}
+		irq = 0;
+	}
+}
+
+static void gic_resume_one(struct gic_chip_data *gic)
+{
+	gic_show_resume_irq(gic);
+	mb();
+}
+
+static void gic_resume(void)
+{
+	int i;
+	for (i = 0; i < MAX_GIC_NR; i++)
+		gic_resume_one(&gic_data[i]);
+}
+
+static struct syscore_ops gic_syscore_ops = {
+	.suspend = gic_suspend,
+	.resume = gic_resume,
+};
+
+static int __init gic_init_sys(void)
+{
+	register_syscore_ops(&gic_syscore_ops);
+	return 0;
+}
+arch_initcall(gic_init_sys);
+#endif
+
 static void gic_eoi_irq(struct irq_data *d)
 {
 	if (gic_arch_extn.irq_eoi) {
@@ -225,22 +323,42 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 	unsigned int cpu, shift = (gic_irq(d) % 4) * 8;
 	u32 val, mask, bit;
 
-	if (!force)
-		cpu = cpumask_any_and(mask_val, cpu_online_mask);
-	else
-		cpu = cpumask_first(mask_val);
-
-	if (cpu >= NR_GIC_CPU_IF || cpu >= nr_cpu_ids)
-		return -EINVAL;
-
 	raw_spin_lock(&irq_controller_lock);
+	if (unlikely(d->state_use_accessors & IRQD_GIC_MULTI_TARGET)) {
+		struct cpumask temp_mask;
+
+		bit = 0;
+		if (!cpumask_and(&temp_mask, mask_val, cpu_online_mask))
+			goto err_out;
+
+		for_each_cpu_mask(cpu, temp_mask) {
+			if (cpu >= NR_GIC_CPU_IF || cpu >= nr_cpu_ids)
+				goto err_out;
+			if (cpu < 4)
+				bit |= gic_cpu_map[cpu];
+		}
+		bit <<= shift;
+	} else {
+		if (!force)
+			cpu = cpumask_any_and(mask_val, cpu_online_mask);
+		else
+			cpu = cpumask_first(mask_val);
+
+		if (cpu >= NR_GIC_CPU_IF || cpu >= nr_cpu_ids)
+			goto err_out;
+
+		bit = gic_cpu_map[cpu] << shift;
+	}
 	mask = 0xff << shift;
-	bit = gic_cpu_map[cpu] << shift;
 	val = readl_relaxed(reg) & ~mask;
 	writel_relaxed(val | bit, reg);
 	raw_spin_unlock(&irq_controller_lock);
 
 	return IRQ_SET_MASK_OK;
+
+err_out:
+	raw_spin_unlock(&irq_controller_lock);
+	return -EINVAL;
 }
 #endif
 
@@ -248,6 +366,20 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 static int gic_set_wake(struct irq_data *d, unsigned int on)
 {
 	int ret = -ENXIO;
+	unsigned int reg_offset, bit_offset;
+	unsigned int gicirq = gic_irq(d);
+	struct gic_chip_data *gic_data = irq_data_get_irq_chip_data(d);
+
+	/* per-cpu interrupts cannot be wakeup interrupts */
+	WARN_ON(gicirq < 32);
+
+	reg_offset = gicirq / 32;
+	bit_offset = gicirq % 32;
+
+	if (on)
+		gic_data->wakeup_irqs[reg_offset] |=  1 << bit_offset;
+	else
+		gic_data->wakeup_irqs[reg_offset] &=  ~(1 << bit_offset);
 
 	if (gic_arch_extn.irq_set_wake)
 		ret = gic_arch_extn.irq_set_wake(d, on);
@@ -313,6 +445,8 @@ static void gic_handle_cascade_irq(unsigned int irq, struct irq_desc *desc)
 
 static struct irq_chip gic_chip = {
 	.name			= "GIC",
+	.irq_disable		= gic_mask_irq,
+	.irq_enable		= gic_unmask_irq,
 	.irq_mask		= gic_mask_irq,
 	.irq_unmask		= gic_unmask_irq,
 	.irq_eoi		= gic_eoi_irq,
@@ -384,6 +518,8 @@ static void __init gic_dist_init(struct gic_chip_data *gic)
 	cpumask |= cpumask << 16;
 	for (i = 32; i < gic_irqs; i += 4)
 		writel_relaxed(cpumask, base + GIC_DIST_TARGET + i * 4 / 4);
+
+	gic->max_irq = gic_irqs;
 
 	gic_dist_config(base, gic_irqs, NULL);
 

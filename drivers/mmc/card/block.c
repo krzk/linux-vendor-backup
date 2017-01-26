@@ -36,11 +36,15 @@
 #include <linux/compat.h>
 #include <linux/pm_runtime.h>
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/mmc.h>
+
 #include <linux/mmc/ioctl.h>
 #include <linux/mmc/card.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/sd.h>
+#include <linux/rpmb.h>
 
 #include <asm/uaccess.h>
 
@@ -67,6 +71,10 @@ MODULE_ALIAS("mmc:block");
 				  (rq_data_dir(req) == WRITE))
 #define PACKED_CMD_VER	0x01
 #define PACKED_CMD_WR	0x02
+
+#define MMC_BLK_GEN_ERR	1<<0
+#define MMC_BLK_CMD_ERR	1<<1
+#define MMC_BLK_WP_VIOL 1<<2
 
 static DEFINE_MUTEX(block_mutex);
 
@@ -109,6 +117,7 @@ struct mmc_blk_data {
 #define MMC_BLK_WRITE		BIT(1)
 #define MMC_BLK_DISCARD		BIT(2)
 #define MMC_BLK_SECDISCARD	BIT(3)
+#define MMC_BLK_RPMB		BIT(4)
 
 	/*
 	 * Only set in main mmc_blk_data associated
@@ -166,11 +175,7 @@ static struct mmc_blk_data *mmc_blk_get(struct gendisk *disk)
 
 static inline int mmc_get_devidx(struct gendisk *disk)
 {
-	int devmaj = MAJOR(disk_devt(disk));
-	int devidx = MINOR(disk_devt(disk)) / perdev_minors;
-
-	if (!devmaj)
-		devidx = disk->first_minor / perdev_minors;
+	int devidx = disk->first_minor / perdev_minors;
 	return devidx;
 }
 
@@ -425,9 +430,11 @@ static int ioctl_do_sanitize(struct mmc_card *card)
 	pr_debug("%s: %s - SANITIZE IN PROGRESS...\n",
 		mmc_hostname(card->host), __func__);
 
+	trace_mmc_blk_erase_start(EXT_CSD_SANITIZE_START, 0, 0);
 	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 					EXT_CSD_SANITIZE_START, 1,
 					MMC_SANITIZE_REQ_TIMEOUT);
+	trace_mmc_blk_erase_end(EXT_CSD_SANITIZE_START, 0, 0);
 
 	if (err)
 		pr_err("%s: %s - EXT_CSD_SANITIZE_START failed. err=%d\n",
@@ -736,8 +743,30 @@ static int get_card_status(struct mmc_card *card, u32 *status, int retries)
 	return err;
 }
 
+static int send_stop_raw(struct mmc_card *card, u32 *status)
+{
+	struct mmc_command cmd = {0};
+	int err;
+
+	cmd.opcode = MMC_STOP_TRANSMISSION;
+	cmd.flags = MMC_RSP_SPI_R1B | MMC_RSP_R1B | MMC_CMD_AC;
+	err = mmc_wait_for_cmd(card->host, &cmd, 5);
+	if (err == 0)
+		*status = cmd.resp[0];
+	return err;
+}
+
+
+#define CMD_ERRORS							\
+	(R1_OUT_OF_RANGE |	/* Command argument out of range */	\
+	 R1_ADDRESS_ERROR |	/* Misaligned address */		\
+	 R1_BLOCK_LEN_ERROR |	/* Transferred block length incorrect */\
+	 R1_WP_VIOLATION |	/* Tried to write to protected block */	\
+	 R1_CC_ERROR |		/* Card controller error */		\
+	 R1_ERROR)		/* General/unknown error */
+
 static int card_busy_detect(struct mmc_card *card, unsigned int timeout_ms,
-		bool hw_busy_detect, struct request *req, int *gen_err)
+		bool hw_busy_detect, struct request *req, unsigned int *gen_err)
 {
 	unsigned long timeout = jiffies + msecs_to_jiffies(timeout_ms);
 	int err = 0;
@@ -754,8 +783,25 @@ static int card_busy_detect(struct mmc_card *card, unsigned int timeout_ms,
 		if (status & R1_ERROR) {
 			pr_err("%s: %s: error sending status cmd, status %#x\n",
 				req->rq_disk->disk_name, __func__, status);
-			*gen_err = 1;
+			*gen_err |= MMC_BLK_GEN_ERR;
 		}
+
+		/* added to support WP violation */
+		if (status & CMD_ERRORS) {
+			pr_err("%s: %s: error sending status cmd, status %#x\n",
+					req->rq_disk->disk_name, __func__, status);
+			*gen_err |= MMC_BLK_CMD_ERR;
+			if (status & R1_WP_VIOLATION)
+				*gen_err |= MMC_BLK_WP_VIOL;
+
+			if ((R1_CURRENT_STATE(status) == R1_STATE_RCV) ||
+					(R1_CURRENT_STATE(status) == R1_STATE_DATA)) {
+				err = send_stop_raw(card, &status);
+				if (err)
+					return err;
+			}
+		}
+		/* added to support WP violation */
 
 		/* We may rely on the host hw to handle busy detection.*/
 		if ((card->host->caps & MMC_CAP_WAIT_WHILE_BUSY) &&
@@ -785,7 +831,7 @@ static int card_busy_detect(struct mmc_card *card, unsigned int timeout_ms,
 }
 
 static int send_stop(struct mmc_card *card, unsigned int timeout_ms,
-		struct request *req, int *gen_err, u32 *stop_status)
+		struct request *req, unsigned int *gen_err, u32 *stop_status)
 {
 	struct mmc_host *host = card->host;
 	struct mmc_command cmd = {0};
@@ -823,7 +869,7 @@ static int send_stop(struct mmc_card *card, unsigned int timeout_ms,
 		(*stop_status & R1_ERROR)) {
 		pr_err("%s: %s: general error sending stop command, resp %#x\n",
 			req->rq_disk->disk_name, __func__, *stop_status);
-		*gen_err = 1;
+		*gen_err |= MMC_BLK_GEN_ERR;
 	}
 
 	return card_busy_detect(card, timeout_ms, use_r1b_resp, req, gen_err);
@@ -850,18 +896,22 @@ static int mmc_blk_cmd_error(struct request *req, const char *name, int error,
 			req->rq_disk->disk_name, "timed out", name, status);
 
 		/* If the status cmd initially failed, retry the r/w cmd */
-		if (!status_valid)
+		if (!status_valid) {
+			pr_err("%s: status not valid, retrying timeout\n", req->rq_disk->disk_name);
 			return ERR_RETRY;
-
+		}
 		/*
 		 * If it was a r/w cmd crc error, or illegal command
 		 * (eg, issued in wrong state) then retry - we should
 		 * have corrected the state problem above.
 		 */
-		if (status & (R1_COM_CRC_ERROR | R1_ILLEGAL_COMMAND))
+		if (status & (R1_COM_CRC_ERROR | R1_ILLEGAL_COMMAND)) {
+			pr_err("%s: command error, retrying timeout\n", req->rq_disk->disk_name);
 			return ERR_RETRY;
+		}
 
 		/* Otherwise abort the command */
+		pr_err("%s: not retrying timeout\n", req->rq_disk->disk_name);
 		return ERR_ABORT;
 
 	default:
@@ -891,7 +941,7 @@ static int mmc_blk_cmd_error(struct request *req, const char *name, int error,
  * Otherwise we don't understand what happened, so abort.
  */
 static int mmc_blk_cmd_recovery(struct mmc_card *card, struct request *req,
-	struct mmc_blk_request *brq, int *ecc_err, int *gen_err)
+	struct mmc_blk_request *brq, int *ecc_err, unsigned int *gen_err)
 {
 	bool prev_cmd_status_valid = true;
 	u32 status, stop_status = 0;
@@ -936,7 +986,7 @@ static int mmc_blk_cmd_recovery(struct mmc_card *card, struct request *req,
 			pr_err("%s: %s: general error sending stop or status command, stop cmd response %#x, card status %#x\n",
 			       req->rq_disk->disk_name, __func__,
 			       brq->stop.resp[0], status);
-			*gen_err = 1;
+			*gen_err |= MMC_BLK_GEN_ERR;
 		}
 
 	/*
@@ -1023,6 +1073,301 @@ static int mmc_blk_reset(struct mmc_blk_data *md, struct mmc_host *host,
 static inline void mmc_blk_reset_success(struct mmc_blk_data *md, int type)
 {
 	md->reset_done &= ~type;
+}
+
+int mmc_access_rpmb(struct mmc_queue *mq)
+{
+	struct mmc_blk_data *md = mq->data;
+	/*
+	 * If this is a RPMB partition access, return ture
+	 */
+	if (md && md->part_type == EXT_CSD_PART_CONFIG_ACC_RPMB)
+		return true;
+
+	return false;
+}
+
+static int mmc_rpmb_send_cmd(struct mmc_card *card,
+			     u16 rpmb_type, int data_type,
+			     u8 *buf, u16 blks)
+{
+	struct mmc_command sbc = {
+		.opcode = MMC_SET_BLOCK_COUNT,
+		.flags  = MMC_RSP_SPI_R1 | MMC_RSP_R1 | MMC_CMD_AC,
+	};
+
+	struct mmc_command cmd = {
+		.flags = MMC_RSP_SPI_R1 | MMC_RSP_R1 | MMC_CMD_ADTC,
+	};
+
+	struct mmc_data data = {
+		.blksz = 512,
+	};
+	struct mmc_request mrq = {
+		.sbc    = &sbc,
+		.cmd    = &cmd,
+		.data   = &data,
+		.stop   = NULL,
+	};
+	struct scatterlist sg;
+	bool do_rel_wr;
+
+	/*  set CMD23 */
+	sbc.arg = blks & 0x0000FFFF;
+	do_rel_wr = (rpmb_type == RPMB_WRITE_DATA ||
+		     rpmb_type == RPMB_PROGRAM_KEY);
+
+	if (do_rel_wr)
+		sbc.arg |= MMC_CMD23_ARG_REL_WR;
+
+	/*  set CMD25/18 */
+	cmd.opcode = (data_type == MMC_DATA_WRITE) ?
+		MMC_WRITE_MULTIPLE_BLOCK : MMC_READ_MULTIPLE_BLOCK;
+
+	sg_init_one(&sg, buf, 512 * blks);
+
+	data.blocks = blks;
+	data.sg     = &sg;
+	data.sg_len = 1;
+	data.flags  = data_type;
+	mmc_set_data_timeout(&data, card);
+
+	mmc_wait_for_req(card->host, &mrq);
+
+	if (cmd.error) {
+		pr_err("%s: %s cmd error (%d)\n",
+			mmc_hostname(card->host), __func__, cmd.error);
+		return cmd.error;
+	}
+	if (data.error) {
+		pr_err("%s: %s data error (%d)\n",
+			mmc_hostname(card->host), __func__, data.error);
+		return data.error;
+	}
+	return 0;
+}
+
+static int mmc_blk_rpmb_sequence(struct mmc_card *card,
+			    struct rpmb_data *rpmbd)
+{
+	struct rpmb_frame *in_frames, *out_frames;
+	u8 *in_buf, *out_buf;
+	u16 blks;
+	u16 type;
+	int err;
+
+	in_frames = rpmbd->in_frames;
+	out_frames = rpmbd->out_frames;
+	in_buf = (u8 *)in_frames;
+	out_buf = (u8 *)out_frames;
+
+	type = rpmbd->req_type;
+	blks = be16_to_cpu(in_frames[0].block_count);
+
+	switch (type) {
+	case RPMB_PROGRAM_KEY:
+		blks = 1;
+		/* fall through */
+	case RPMB_WRITE_DATA:
+		/* STEP 1: send request to RPMB partition */
+		err = mmc_rpmb_send_cmd(card, type, MMC_DATA_WRITE,
+					in_buf, blks);
+		if (err) {
+			pr_err("%s: mmc_rpmb_send_cmd failed(%d)\n",
+				mmc_hostname(card->host), err);
+			goto out;
+		}
+
+		/* STEP 2: check write result (reuse out_frames) */
+		memset(out_frames, 0, 512);
+		out_frames[0].req_resp = cpu_to_be16(RPMB_RESULT_READ);
+		err = mmc_rpmb_send_cmd(card,
+			RPMB_RESULT_READ, MMC_DATA_WRITE, out_buf, 1);
+		if (err) {
+			pr_err("%s: mmc_rpmb_send_cmd failed(%d)\n",
+				mmc_hostname(card->host), err);
+			goto out;
+		}
+
+		/* STEP 3: get response from RPMB partition */
+		err = mmc_rpmb_send_cmd(card,
+			RPMB_READ_DATA, MMC_DATA_READ, out_buf, 1);
+
+		if (err) {
+			pr_err("%s: mmc_rpmb_send_cmd failed(%d)\n",
+				mmc_hostname(card->host), err);
+			goto out;
+		}
+		break;
+
+	case RPMB_GET_WRITE_COUNTER:
+		blks = 1;
+		/* fall through */
+	case RPMB_READ_DATA:
+		/* STEP 1: send request to RPMB partition */
+		err = mmc_rpmb_send_cmd(card, type, MMC_DATA_WRITE, in_buf, 1);
+		if (err) {
+			pr_err("%s: mmc_rpmb_send_cmd failed(%d)\n",
+				mmc_hostname(card->host), err);
+			goto out;
+		}
+
+		/* STEP 3: get response from RPMB partition */
+		err = mmc_rpmb_send_cmd(card, type, MMC_DATA_READ,
+					out_buf, blks);
+		if (err) {
+			pr_err("%s: mmc_rpmb_send_cmd failed(%d)\n",
+				mmc_hostname(card->host), err);
+			goto out;
+		}
+		break;
+
+	default:
+		err = -EINVAL;
+		goto out;
+	}
+out:
+	return err;
+}
+
+static int mmc_blk_rpmb_req_process(struct mmc_blk_data *md,
+				    struct rpmb_data *rpmbd)
+{
+	struct mmc_card *card;
+	int ret;
+
+	if (WARN_ON(!md || !rpmbd))
+		return -EINVAL;
+
+	if (!(md->flags & MMC_BLK_CMD23) ||
+	     (md->part_type != EXT_CSD_PART_CONFIG_ACC_RPMB))
+		return -EOPNOTSUPP;
+
+	card = md->queue.card;
+	if (!card || !mmc_card_mmc(card))
+		return -ENODEV;
+
+
+	pr_debug("%s rpmb request type = 0x%1x\n",
+		md->disk->disk_name, rpmbd->req_type);
+
+	mmc_get_card(card);
+
+	/* switch to RPMB partition */
+	ret = mmc_blk_part_switch(card, md);
+	if (ret) {
+		pr_err("%s: Invalid RPMB partition switch (%d)!\n",
+			mmc_hostname(card->host), ret);
+		/*
+		 * In case partition is not in user data area, make
+		 * a force partition switch.
+		 * we need reset eMMC card at here
+		 */
+		ret = mmc_blk_reset(md, card->host, MMC_BLK_RPMB);
+		if (!ret)
+			mmc_blk_reset_success(md, MMC_BLK_RPMB);
+		else
+			pr_err("%s: eMMC card reset failed (%d)\n",
+				mmc_hostname(card->host), ret);
+		goto out;
+	}
+
+	ret = mmc_blk_rpmb_sequence(card, rpmbd);
+	if (ret)
+		pr_err("%s: failed (%d) to handle RPMB request type %d!\n",
+			mmc_hostname(card->host), ret, rpmbd->req_type);
+out:
+	mmc_put_card(card);
+	return ret;
+}
+
+static int mmc_blk_rpmb_send_req(struct device *dev, struct rpmb_data *req)
+{
+	struct mmc_blk_data *md = mmc_blk_get(dev_to_disk(dev));
+	int ret;
+
+	if (!md)
+		return -ENODEV;
+
+	ret = mmc_blk_rpmb_req_process(md, req);
+
+	mmc_blk_put(md);
+
+	return ret;
+}
+
+static struct rpmb_ops mmc_rpmb_dev_ops = {
+	.send_rpmb_req = mmc_blk_rpmb_send_req,
+	.type = RPMB_TYPE_EMMC,
+};
+
+static struct mmc_blk_data *mmc_blk_rpmb_part_get(struct mmc_blk_data *md)
+{
+	struct mmc_blk_data *part_md;
+
+	if (!md)
+		return NULL;
+
+	list_for_each_entry(part_md, &md->part, part) {
+		if (part_md->area_type == MMC_BLK_DATA_AREA_RPMB)
+			return part_md;
+	}
+
+	return NULL;
+}
+
+static void mmc_blk_rpmb_unset_dev_id(struct rpmb_ops *ops)
+{
+	kfree(ops->dev_id);
+	ops->dev_id = NULL;
+}
+
+static int mmc_blk_rpmb_set_dev_id(struct rpmb_ops *ops, struct mmc_card *card)
+{
+	char *id;
+
+	id = kmalloc(sizeof(card->raw_cid), GFP_KERNEL);
+	if (!id)
+		return -ENOMEM;
+
+	memcpy(id, card->raw_cid, sizeof(card->raw_cid));
+	ops->dev_id = id;
+	ops->dev_id_len = sizeof(card->raw_cid);
+
+	return 0;
+}
+
+static void mmc_blk_rpmb_add(struct mmc_card *card)
+{
+	struct mmc_blk_data *md = dev_get_drvdata(&card->dev);
+	struct mmc_blk_data *part_md = mmc_blk_rpmb_part_get(md);
+	struct rpmb_dev *rdev;
+
+	if (!part_md)
+		return;
+
+	mmc_blk_rpmb_set_dev_id(&mmc_rpmb_dev_ops, card);
+
+	/* RPMB blocks are written in half sectors hence '* 2' */
+	mmc_rpmb_dev_ops.reliable_wr_cnt = card->ext_csd.rel_sectors * 2;
+
+	rdev = rpmb_dev_register(disk_to_dev(part_md->disk),
+				  &mmc_rpmb_dev_ops);
+	if (IS_ERR(rdev)) {
+		pr_warn("%s: cannot register to rpmb %ld\n",
+			part_md->disk->disk_name, PTR_ERR(rdev));
+	}
+}
+
+static void mmc_blk_rpmb_remove(struct mmc_card *card)
+{
+	struct mmc_blk_data *md = dev_get_drvdata(&card->dev);
+	struct mmc_blk_data *part_md = mmc_blk_rpmb_part_get(md);
+
+	if (part_md)
+		rpmb_dev_unregister(disk_to_dev(part_md->disk));
+
+	mmc_blk_rpmb_unset_dev_id(&mmc_rpmb_dev_ops);
 }
 
 static int mmc_blk_issue_discard_rq(struct mmc_queue *mq, struct request *req)
@@ -1173,14 +1518,6 @@ static inline void mmc_apply_rel_rw(struct mmc_blk_request *brq,
 	}
 }
 
-#define CMD_ERRORS							\
-	(R1_OUT_OF_RANGE |	/* Command argument out of range */	\
-	 R1_ADDRESS_ERROR |	/* Misaligned address */		\
-	 R1_BLOCK_LEN_ERROR |	/* Transferred block length incorrect */\
-	 R1_WP_VIOLATION |	/* Tried to write to protected block */	\
-	 R1_CC_ERROR |		/* Card controller error */		\
-	 R1_ERROR)		/* General/unknown error */
-
 static int mmc_blk_err_check(struct mmc_card *card,
 			     struct mmc_async_req *areq)
 {
@@ -1188,7 +1525,8 @@ static int mmc_blk_err_check(struct mmc_card *card,
 						    mmc_active);
 	struct mmc_blk_request *brq = &mq_mrq->brq;
 	struct request *req = mq_mrq->req;
-	int ecc_err = 0, gen_err = 0;
+	int ecc_err = 0;
+	unsigned int gen_err = 0;
 
 	/*
 	 * sbc.error indicates a problem with the set block count
@@ -1238,20 +1576,20 @@ static int mmc_blk_err_check(struct mmc_card *card,
 			pr_err("%s: %s: general error sending stop command, stop cmd response %#x\n",
 			       req->rq_disk->disk_name, __func__,
 			       brq->stop.resp[0]);
-			gen_err = 1;
+			gen_err |= MMC_BLK_GEN_ERR;
 		}
 
 		err = card_busy_detect(card, MMC_BLK_TIMEOUT_MS, false, req,
 					&gen_err);
+
+		if (gen_err & MMC_BLK_CMD_ERR) {
+			if (!(gen_err & MMC_BLK_WP_VIOL))
+				brq->data.error = -EIO;
+			else
+				return MMC_BLK_ABORT;
+		}
 		if (err)
 			return MMC_BLK_CMD_ERR;
-	}
-
-	/* if general error occurs, retry the write operation. */
-	if (gen_err) {
-		pr_warn("%s: retrying write for general error\n",
-				req->rq_disk->disk_name);
-		return MMC_BLK_RETRY;
 	}
 
 	if (brq->data.error) {
@@ -2136,6 +2474,7 @@ static struct mmc_blk_data *mmc_blk_alloc_req(struct mmc_card *card,
 	md->disk->queue = md->queue.queue;
 	md->disk->driverfs_dev = parent;
 	set_disk_ro(md->disk, md->read_only || default_ro);
+	md->disk->flags = GENHD_FL_EXT_DEVT;
 	if (area_type & (MMC_BLK_DATA_AREA_RPMB | MMC_BLK_DATA_AREA_BOOT))
 		md->disk->flags |= GENHD_FL_NO_PART_SCAN;
 
@@ -2461,6 +2800,8 @@ static int mmc_blk_probe(struct mmc_card *card)
 			goto out;
 	}
 
+	mmc_blk_rpmb_add(card);
+
 	pm_runtime_set_autosuspend_delay(&card->dev, 3000);
 	pm_runtime_use_autosuspend(&card->dev);
 
@@ -2485,6 +2826,7 @@ static void mmc_blk_remove(struct mmc_card *card)
 {
 	struct mmc_blk_data *md = mmc_get_drvdata(card);
 
+	mmc_blk_rpmb_remove(card);
 	mmc_blk_remove_parts(card, md);
 	pm_runtime_get_sync(&card->dev);
 	mmc_claim_host(card->host);
@@ -2513,6 +2855,7 @@ static int _mmc_blk_suspend(struct mmc_card *card)
 
 static void mmc_blk_shutdown(struct mmc_card *card)
 {
+	mmc_blk_rpmb_remove(card);
 	_mmc_blk_suspend(card);
 }
 

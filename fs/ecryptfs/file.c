@@ -147,6 +147,7 @@ static int read_or_initialize_metadata(struct dentry *dentry)
 						inode->i_sb)->mount_crypt_stat;
 	mutex_lock(&crypt_stat->cs_mutex);
 
+
 	if (crypt_stat->flags & ECRYPTFS_POLICY_APPLIED &&
 	    crypt_stat->flags & ECRYPTFS_KEY_VALID) {
 		rc = 0;
@@ -177,6 +178,95 @@ out:
 	return rc;
 }
 
+#if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
+static void ecryptfs_set_rapages(struct file *file, unsigned int flag)
+{
+	if (!flag)
+		file->f_ra.ra_pages = 0;
+	else
+		file->f_ra.ra_pages = (unsigned int)file->f_mapping->backing_dev_info->ra_pages;
+}
+
+static int ecryptfs_set_fmpinfo(struct file *file, struct inode *inode, unsigned int set_flag)
+{
+	struct address_space *mapping = file->f_mapping;
+
+	if (set_flag) {
+		struct ecryptfs_crypt_stat *crypt_stat =
+			&ecryptfs_inode_to_private(inode)->crypt_stat;
+		struct ecryptfs_mount_crypt_stat *mount_crypt_stat =
+			&ecryptfs_superblock_to_private(inode->i_sb)->mount_crypt_stat;
+
+		if (strncmp(crypt_stat->cipher, "aesxts", sizeof("aesxts"))
+			&& strncmp(crypt_stat->cipher, "aes", sizeof("aes"))) {
+			if (!(crypt_stat->flags & ECRYPTFS_ENCRYPTED)) {
+				mapping->plain_text = 1;
+				return 0;
+			} else {
+				ecryptfs_printk(KERN_ERR,
+						"%s: Error invalid file encryption algorithm, inode %lu, filename %s alg %s\n"
+						, __func__, inode->i_ino,  file->f_dentry->d_name.name, crypt_stat->cipher);
+				return -EINVAL;
+			}
+		}
+		mapping->iv = crypt_stat->root_iv;
+		mapping->key = crypt_stat->key;
+		mapping->sensitive_data_index = crypt_stat->metadata_size/4096;
+		if (mount_crypt_stat->cipher_code == RFC2440_CIPHER_AES_XTS_256) {
+			mapping->key_length = crypt_stat->key_size * 2;
+			mapping->alg = "aesxts";
+		} else {
+			mapping->key_length = crypt_stat->key_size;
+			mapping->alg = crypt_stat->cipher;
+		}
+		mapping->hash_tfm = crypt_stat->hash_tfm;
+#ifdef CONFIG_CRYPTO_FIPS
+		mapping->cc_enable =
+			(mount_crypt_stat->flags & ECRYPTFS_ENABLE_CC)?1:0;
+#endif
+	} else {
+		mapping->iv = NULL;
+		mapping->key = NULL;
+		mapping->key_length = 0;
+		mapping->sensitive_data_index = 0;
+		mapping->alg = NULL;
+		mapping->hash_tfm = NULL;
+#ifdef CONFIG_CRYPTO_FIPS
+		mapping->cc_enable = 0;
+#endif
+		mapping->plain_text = 0;
+	}
+
+	return 0;
+}
+
+void ecryptfs_propagate_rapages(struct file *file, unsigned int flag)
+{
+	struct file *f = file;
+
+	do {
+		if (!f)
+			return;
+		ecryptfs_set_rapages(f, flag);
+	} while(f->f_op->get_lower_file && (f = f->f_op->get_lower_file(f)));
+
+}
+
+int ecryptfs_propagate_fmpinfo(struct inode *inode, unsigned int flag)
+{
+	struct file *f = ecryptfs_inode_to_private(inode)->lower_file;
+
+	do {
+		if (!f)
+			return 0;
+		if (ecryptfs_set_fmpinfo(f, inode, flag))
+			return -EINVAL;
+	} while(f->f_op->get_lower_file && (f = f->f_op->get_lower_file(f)));
+
+	return 0;
+}
+#endif
+
 /**
  * ecryptfs_open
  * @inode: inode speciying file to open
@@ -191,6 +281,9 @@ static int ecryptfs_open(struct inode *inode, struct file *file)
 	int rc = 0;
 	struct ecryptfs_crypt_stat *crypt_stat = NULL;
 	struct dentry *ecryptfs_dentry = file->f_path.dentry;
+#if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
+	struct ecryptfs_mount_crypt_stat *mount_crypt_stat;
+#endif
 	/* Private value of ecryptfs_dentry allocated in
 	 * ecryptfs_lookup() */
 	struct ecryptfs_file_info *file_info;
@@ -239,6 +332,17 @@ static int ecryptfs_open(struct inode *inode, struct file *file)
 		goto out;
 	}
 	rc = read_or_initialize_metadata(ecryptfs_dentry);
+	if (rc)
+		goto out_put;
+
+#if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
+	mount_crypt_stat = &ecryptfs_superblock_to_private(
+						inode->i_sb)->mount_crypt_stat;
+	if (mount_crypt_stat->flags & ECRYPTFS_USE_FMP)
+		rc = ecryptfs_propagate_fmpinfo(inode, FMPINFO_SET);
+	else
+		rc = ecryptfs_propagate_fmpinfo(inode, FMPINFO_CLEAR);
+#endif
 	if (rc)
 		goto out_put;
 	ecryptfs_printk(KERN_DEBUG, "inode w/ addr = [0x%p], i_ino = "

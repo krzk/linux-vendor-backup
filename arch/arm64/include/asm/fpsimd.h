@@ -39,6 +39,8 @@ struct fpsimd_state {
 	};
 	/* the id of the last cpu to have restored this state */
 	unsigned int cpu;
+	/* this kernel thread will use FP/SIMD registers */
+	u32 using;
 };
 
 /*
@@ -80,6 +82,8 @@ extern void fpsimd_flush_task_state(struct task_struct *target);
 extern void fpsimd_save_partial_state(struct fpsimd_partial_state *state,
 				      u32 num_regs);
 extern void fpsimd_load_partial_state(struct fpsimd_partial_state *state);
+
+void fpsimd_set_as_user(struct task_struct *task);
 
 #endif
 

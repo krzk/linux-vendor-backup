@@ -1,0 +1,32 @@
+#
+# General SWAP options
+#
+
+
+menu "SWAP_DA"
+
+config SWAP_NO_KPROBES
+	bool "SWAP don't use kprobes"
+
+config SWAP_TD_HOOKS
+	bool "SWAP TD hooks"
+
+config SWAP_US_HOOKS
+	bool "SWAP US hooks"
+	depends on ARM64
+	select SWAP_TD_HOOKS
+
+config SWAP_SYSHOOK
+	bool "SWAP syscall hook"
+	depends on ARM64
+
+config SWAP_CONTEXT_HOOKS
+	bool "SWAP context hooks"
+
+config SWAP_ENERGY_HOOKS
+	bool "SWAP energy estimation hooks"
+
+config SWAP_FOPS_HOOKS
+	bool "SWAP file operations hooks"
+
+endmenu # "SWAP_DA"

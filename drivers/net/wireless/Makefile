@@ -60,3 +60,10 @@ obj-$(CONFIG_BRCMSMAC)	+= brcm80211/
 
 obj-$(CONFIG_CW1200)	+= cw1200/
 obj-$(CONFIG_RSI_91X)	+= rsi/
+
+obj-$(CONFIG_SCSC_WLAN)   += scsc/
+
+obj-$(CONFIG_BCM43012)	+= bcmdhd/
+
+obj-$(CONFIG_BCM43012)	+= bcmdhd/dhd_custom_exynos.o
+obj-$(CONFIG_BCM43012)	+= bcmdhd/dhd_custom_memprealloc.o

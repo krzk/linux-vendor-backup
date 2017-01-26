@@ -152,7 +152,12 @@ struct input_keymap_entry {
 #define EVIOCGEFFECTS		_IOR('E', 0x84, int)			/* Report number of effects playable at the same time */
 
 #define EVIOCGRAB		_IOW('E', 0x90, int)			/* Grab/Release device */
-#define EVIOCREVOKE		_IOW('E', 0x91, int)			/* Revoke device access */
+
+/* HACK: disable conflicting EVIOCREVOKE until Android userspace stops using EVIOCSSUSPENDBLOCK */
+/*#define EVIOCREVOKE		_IOW('E', 0x91, int)*/			/* Revoke device access */
+
+#define EVIOCGSUSPENDBLOCK	_IOR('E', 0x91, int)			/* get suspend block enable */
+#define EVIOCSSUSPENDBLOCK	_IOW('E', 0x91, int)			/* set suspend block enable */
 
 #define EVIOCSCLOCKID		_IOW('E', 0xa0, int)			/* Set clockid to be used for timestamps */
 
@@ -416,6 +421,7 @@ struct input_keymap_entry {
 #define KEY_PAUSECD		201
 #define KEY_PROG3		202
 #define KEY_PROG4		203
+#define KEY_VOICE_WAKEUP        KEY_PROG4       /* Samsung Voice Wakeup */
 #define KEY_DASHBOARD		204	/* AL Dashboard */
 #define KEY_SUSPEND		205
 #define KEY_CLOSE		206	/* AC Close */
@@ -859,6 +865,8 @@ struct input_keymap_entry {
 #define ABS_MT_TOOL_X		0x3c	/* Center X tool position */
 #define ABS_MT_TOOL_Y		0x3d	/* Center Y tool position */
 
+#define ABS_MT_PALM		0x3e	/* palm touch */
+#define ABS_MT_GRIP             0x3f    /* grip touch */
 
 #define ABS_MAX			0x3f
 #define ABS_CNT			(ABS_MAX+1)

@@ -56,6 +56,7 @@
 #include <linux/pipe_fs_i.h>
 #include <linux/oom.h>
 #include <linux/compat.h>
+#include <swap/swap_us_hooks.h>
 
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>
@@ -979,6 +980,7 @@ static int de_thread(struct task_struct *tsk)
 		write_unlock_irq(&tasklist_lock);
 		threadgroup_change_end(tsk);
 
+		suh_change_leader(leader, tsk);
 		release_task(leader);
 	}
 
@@ -1049,6 +1051,7 @@ void __set_task_comm(struct task_struct *tsk, const char *buf, bool exec)
 	strlcpy(tsk->comm, buf, sizeof(tsk->comm));
 	task_unlock(tsk);
 	perf_event_comm(tsk, exec);
+	suh_set_comm(tsk);
 }
 
 int flush_old_exec(struct linux_binprm * bprm)

@@ -46,4 +46,10 @@ struct sco_conninfo {
 	__u8  dev_class[3];
 };
 
+#ifdef CONFIG_TIZEN_WIP
+void sco_connect_set_gw_nbc(struct hci_dev *hdev);
+void sco_connect_set_gw_wbc(struct hci_dev *hdev);
+void sco_connect_set_nbc(struct hci_dev *hdev);
+void sco_connect_set_wbc(struct hci_dev *hdev);
+#endif
 #endif /* __SCO_H */

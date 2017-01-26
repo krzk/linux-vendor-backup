@@ -717,6 +717,8 @@ int do_settimeofday(const struct timespec *tv)
 	if (!timespec_valid_strict(tv))
 		return -EINVAL;
 
+	printk("%s: time is changed comm=%s sec%ld\n",
+			__func__, current->comm, tv->tv_sec);
 	raw_spin_lock_irqsave(&timekeeper_lock, flags);
 	write_seqcount_begin(&tk_core.seq);
 

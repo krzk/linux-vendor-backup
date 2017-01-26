@@ -42,6 +42,14 @@ EXPORT_SYMBOL(fb_unregister_client);
  */
 int fb_notifier_call_chain(unsigned long val, void *v)
 {
-	return blocking_notifier_call_chain(&fb_notifier_list, val, v);
+	int ret;
+
+	pr_info("%s:val[0x%lx]\n", __func__, val);
+
+	ret = blocking_notifier_call_chain(&fb_notifier_list, val, v);
+
+	pr_info("%s:val[0x%lx]ret[%d]\n", __func__, val, ret);
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(fb_notifier_call_chain);

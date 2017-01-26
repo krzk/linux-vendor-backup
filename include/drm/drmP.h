@@ -174,7 +174,7 @@ void drm_err(const char *func, const char *format, ...);
 })
 
 #define DRM_INFO(fmt, ...)				\
-	printk(KERN_INFO "[" DRM_NAME "] " fmt, ##__VA_ARGS__)
+	printk(KERN_INFO fmt, ##__VA_ARGS__)
 
 #define DRM_INFO_ONCE(fmt, ...)				\
 	printk_once(KERN_INFO "[" DRM_NAME "] " fmt, ##__VA_ARGS__)
@@ -389,6 +389,7 @@ struct drm_driver {
 	int (*dma_quiescent) (struct drm_device *);
 	int (*context_dtor) (struct drm_device *dev, int context);
 	int (*set_busid)(struct drm_device *dev, struct drm_master *master);
+	int (*get_irq)(struct drm_device *dev);
 
 	/**
 	 * get_vblank_counter - get raw hardware vblank counter
@@ -408,6 +409,15 @@ struct drm_driver {
 	 * Raw vblank counter value.
 	 */
 	u32 (*get_vblank_counter) (struct drm_device *dev, int crtc);
+
+	/**
+	 * prepare_vblank - prepare wating vblank
+	 * @dev: DRM device
+	 * @crtc: which irq to enable
+	 *
+	 * Prepare vblank waiting @crtc.
+	 */
+	int (*prepare_vblank) (struct drm_device *dev, int crtc, struct drm_file *file_priv);
 
 	/**
 	 * enable_vblank - enable vblank interrupt events
@@ -831,6 +841,11 @@ static __inline__ int drm_core_check_feature(struct drm_device *dev,
 	return ((dev->driver->driver_features & feature) ? 1 : 0);
 }
 
+static inline int drm_dev_to_irq(struct drm_device *dev)
+{
+	return dev->driver->get_irq(dev);
+}
+
 static inline void drm_device_set_unplugged(struct drm_device *dev)
 {
 	smp_wmb();
@@ -1042,6 +1057,7 @@ extern int drm_pcie_get_speed_cap_mask(struct drm_device *dev, u32 *speed_mask);
 /* platform section */
 extern int drm_platform_init(struct drm_driver *driver, struct platform_device *platform_device);
 extern int drm_platform_set_busid(struct drm_device *d, struct drm_master *m);
+extern int drm_platform_get_irq(struct drm_device *d);
 
 /* returns true if currently okay to sleep */
 static __inline__ bool drm_can_sleep(void)

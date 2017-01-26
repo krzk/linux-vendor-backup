@@ -474,7 +474,7 @@ enum drm_vblank_seq_type {
 
 #define _DRM_VBLANK_TYPES_MASK (_DRM_VBLANK_ABSOLUTE | _DRM_VBLANK_RELATIVE)
 #define _DRM_VBLANK_FLAGS_MASK (_DRM_VBLANK_EVENT | _DRM_VBLANK_SIGNAL | \
-				_DRM_VBLANK_SECONDARY | _DRM_VBLANK_NEXTONMISS)
+				_DRM_VBLANK_SECONDARY | _DRM_VBLANK_NEXTONMISS | _DRM_VBLANK_FLIP)
 
 struct drm_wait_vblank_request {
 	enum drm_vblank_seq_type type;
