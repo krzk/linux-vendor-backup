@@ -4,7 +4,7 @@
 
 Name: linux-%{KERNEL_VERSION}-%{CHIPSET}
 Summary: The Linux Kernel
-Version: Tizen_exynos7270
+Version: 3.18.14
 Release: 1
 License: GPL-2.0
 Group: System/Kernel
