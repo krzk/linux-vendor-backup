@@ -1417,7 +1417,7 @@ static int p9220_chg_get_property(struct power_supply *psy,
 	switch (psp) {
 		case POWER_SUPPLY_PROP_STATUS:
 			ret = p9220_get_firmware_version(charger, P9220_RX_FIRMWARE);
-			pr_info("%s rx major firmware version 0x%x \n", __func__, ret);
+			pr_debug("%s rx major firmware version 0x%x \n", __func__, ret);
 
 			if (ret >= 0)
 				val->intval = 1;
@@ -1444,7 +1444,7 @@ static int p9220_chg_get_property(struct power_supply *psy,
 			break;	
 #if defined(CONFIG_WIRELESS_FIRMWARE_UPDATE)
 		case POWER_SUPPLY_PROP_MANUFACTURER:
-			pr_info("%s POWER_SUPPLY_PROP_MANUFACTURER =%d \n ", __func__, val->intval);
+			pr_debug("%s POWER_SUPPLY_PROP_MANUFACTURER =%d \n ", __func__, val->intval);
 			val->intval = 0;
 			break;
 			if (val->intval == SEC_WIRELESS_OTP_FIRM_RESULT) {
@@ -1499,7 +1499,7 @@ static int p9220_chg_get_property(struct power_supply *psy,
 			break;
 		default:
 			pr_debug("%s default================== =%d \n ", __func__, val->intval);
-			return -EINVAL;
+			return -ENODATA;
 	}
 	return 0;
 }

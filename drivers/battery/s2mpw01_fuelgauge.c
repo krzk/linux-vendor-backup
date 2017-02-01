@@ -156,7 +156,7 @@ static void s2mpw01_fg_test_read(struct i2c_client *i2c)
 	s2mpw01_fg_read_reg_byte(i2c, 0x23, &data);
 	sprintf(str+strlen(str), "ADCMX_0x23 :0x%02x, ", data);
 
-	pr_err("[DEBUG]%s: %s\n", __func__, str);
+	pr_debug("[DEBUG]%s: %s\n", __func__, str);
 }
 
 static void s2mpw01_restart_gauging(struct s2mpw01_fuelgauge_data *fuelgauge)
@@ -408,7 +408,7 @@ static int s2mpw01_get_current(struct s2mpw01_fuelgauge_data *fuelgauge)
 		curr = (curr * (-1000)) >> 12;
 	}
 
-	dev_info(&fuelgauge->i2c->dev, "%s: current (%d)mA\n", __func__, curr);
+	dev_dbg(&fuelgauge->i2c->dev, "%s: current (%d)mA\n", __func__, curr);
 
 	return curr;
 }
@@ -449,7 +449,7 @@ static int s2mpw01_get_vbat(struct s2mpw01_fuelgauge_data *fuelgauge)
 		pr_err("%s: 0x46 read error\n", __func__);
 		return ret;
 	}
-	dev_info(&fuelgauge->i2c->dev, "%s: 0x46: (0x%x)\n", __func__, val);
+	dev_dbg(&fuelgauge->i2c->dev, "%s: 0x46: (0x%x)\n", __func__, val);
 
 	return vbat;
 }
@@ -472,7 +472,7 @@ static int s2mpw01_get_avgvbat(struct s2mpw01_fuelgauge_data *fuelgauge)
 			old_vbat = new_vbat / 2 + old_vbat / 2;
 	}
 
-	dev_info(&fuelgauge->i2c->dev, "%s: avgvbat (%d)\n", __func__, old_vbat);
+	dev_dbg(&fuelgauge->i2c->dev, "%s: avgvbat (%d)\n", __func__, old_vbat);
 
 	return old_vbat;
 }
@@ -573,7 +573,7 @@ static void s2mpw01_fg_get_scaled_capacity(
 		0 : ((val->intval - fuelgauge->pdata->capacity_min) * 1000 /
 		(fuelgauge->capacity_max - fuelgauge->pdata->capacity_min));
 
-	dev_err(fuelgauge->dev, "%s: scaled capacity (%d.%d)\n",
+	dev_dbg(fuelgauge->dev, "%s: scaled capacity (%d.%d)\n",
 			__func__, val->intval/10, val->intval%10);
 }
 
@@ -745,8 +745,6 @@ static int s2mpw01_fg_get_property(struct power_supply *psy,
 	struct s2mpw01_fuelgauge_data *fuelgauge =
 		container_of(psy, struct s2mpw01_fuelgauge_data, psy_fg);
 
-	pr_info("%s %d psp=%d\n",__FUNCTION__, __LINE__ ,psp);
-
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
@@ -840,7 +838,7 @@ static int s2mpw01_fg_get_property(struct power_supply *psy,
 		val->intval = fuelgauge->capacity_max;
 		break;
 	default:
-		return -EINVAL;
+		return -ENODATA;
 	}
 
 	return 0;

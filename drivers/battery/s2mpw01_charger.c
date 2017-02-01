@@ -581,7 +581,7 @@ static int s2mpw01_get_charging_status(struct s2mpw01_charger_data *charger)
 	ret = s2mpw01_read_reg(charger->client, S2MPW01_CHG_REG_STATUS1, &chg_sts);
 	if (ret < 0)
 		return status;
-	dev_info(charger->dev, "%s : charger status : 0x%x\n", __func__, chg_sts);
+	dev_dbg(charger->dev, "%s : charger status : 0x%x\n", __func__, chg_sts);
 
 	if (charger->full_charged) {
 			dev_info(charger->dev, "%s : POWER_SUPPLY_STATUS_FULL : 0x%x\n", __func__, chg_sts);
@@ -653,14 +653,13 @@ static int s2mpw01_get_charging_health(struct s2mpw01_charger_data *charger)
 	ret = s2mpw01_read_reg(charger->client, S2MPW01_CHG_REG_STATUS1, &data);
 	s2mpw01_read_reg(charger->iodev->pmic, S2MPW01_PMIC_REG_STATUS1, &data1);
 
-	pr_info("[%s] chg_status1: 0x%x, pm_status1: 0x%x\n " , __func__, data, data1);
+	pr_debug("[%s] chg_status1: 0x%x, pm_status1: 0x%x\n " , __func__, data, data1);
 	if (ret < 0)
 		return POWER_SUPPLY_HEALTH_UNKNOWN;
 
 	if (data & (1 << CHG_STATUS1_CHGVIN)) {
 		charger->ovp = false;
 		charger->unhealth_cnt = 0;
-		pr_info("[%s] POWER_SUPPLY_HEALTH_GOOD\n " , __func__);
 		return POWER_SUPPLY_HEALTH_GOOD;
 	}
 
@@ -731,7 +730,7 @@ static int s2mpw01_chg_get_property(struct power_supply *psy,
 		val->intval = charger->tx_type;
 		break;
 	default:
-		return -EINVAL;
+		return -ENODATA;
 	}
 
 	return 0;
