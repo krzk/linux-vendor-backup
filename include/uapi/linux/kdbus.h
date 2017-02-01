@@ -979,6 +979,9 @@ enum kdbus_ioctl_type {
 					     struct kdbus_cmd_match),
 	KDBUS_CMD_MATCH_REMOVE =	_IOW(KDBUS_IOCTL_MAGIC, 0xb1,
 					     struct kdbus_cmd_match),
+
+	/* Tizen */
+	KDBUS_CMD_UPDATE_METADATA = _IO(KDBUS_IOCTL_MAGIC, 0xd0),
 };
 
 #endif /* _UAPI_KDBUS_H_ */
