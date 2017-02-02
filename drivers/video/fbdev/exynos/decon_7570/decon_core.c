@@ -2294,8 +2294,9 @@ static void decon_update_regs_handler(struct kthread_work *work)
 	struct decon_reg_data *data, *next;
 	struct list_head saved_list;
 
-	if (decon->state == DECON_STATE_LPD)
-		decon_warn("%s: LPD state: %d\n", __func__, decon_get_lpd_block_cnt(decon));
+	if (decon->state == DECON_STATE_LPD || decon->state == DECON_STATE_INIT)
+		decon_warn("%s: %d state: %d\n",
+			   __func__, decon->state, decon_get_lpd_block_cnt(decon));
 
 	mutex_lock(&decon->update_regs_list_lock);
 	saved_list = decon->update_regs_list;
@@ -2867,6 +2868,7 @@ static int decon_suspend(struct device *dev)
 			break;
 		case DECON_STATE_LPD:
 		case DECON_STATE_OFF:
+		case DECON_STATE_INIT:
 			break;
 		default:
 			ret = -EBUSY;
