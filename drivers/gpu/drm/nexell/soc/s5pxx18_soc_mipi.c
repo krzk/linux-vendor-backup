@@ -29,12 +29,14 @@ static struct nx_mipi_register_set *__g_pregister[NUMBER_OF_MIPI_MODULE];
 static u32 __mipi_phys = PHY_BASEADDR_MIPI_MODULE;
 
 #define	__writel(v, a)	\
-	write_sec_reg((void *)(__mipi_phys +	\
-		(long)((void *)a - (void *)__g_pregister[0])), v)
+	write_sec_reg_by_id((void *)(__mipi_phys +	\
+		(long)((void *)a - (void *)__g_pregister[0])), v,\
+			NEXELL_MIPI_SEC_ID)
 
 #define	__readl(a)	\
-	read_sec_reg((void *)(__mipi_phys +	\
-		(long)((void *)a - (void *)__g_pregister[0])))
+	read_sec_reg_by_id((void *)(__mipi_phys +	\
+		(long)((void *)a - (void *)__g_pregister[0])),\
+			NEXELL_MIPI_SEC_ID)
 #else
 #define	__writel(v, a)	writel(v, a)
 #define	__readl(a)	readl(a)
