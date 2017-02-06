@@ -1194,6 +1194,12 @@ static long tzio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			break;
 		}
 
+	case TZIO_SYNC_TIME:
+		{
+			scm_sync_kernel_time();
+			break;
+		}
+
 	default:
 		tzlog_print(TZLOG_ERROR, "Unknown TZIO Command: %d\n", cmd);
 		ret = -EINVAL;
@@ -1223,7 +1229,7 @@ static int tzio_mmap(struct file *file, struct vm_area_struct *vma)
 
 static int tzio_release(struct inode *inode, struct file *filp)
 {
-	tzlog_print(TZLOG_ERROR,
+	tzlog_print(TZLOG_INFO,
 		    "tzdaemon has been crashed,start notify secure os\n");
 	tzio_file_closed(filp);
 	scm_tzdaemon_dead(0);
@@ -1846,8 +1852,8 @@ extern struct miscdevice tzrsrc;
 static struct device *tzcma_dev;
 struct tzcma_info {
 	int chan_id;
-	size_t size;
-	unsigned long virtAddr;
+	u64 size;
+	u64 virtAddr;
 };
 struct tzcma_info g_tzcmas[TZCMA_ALLOC_MAX_COUNT];
 struct dma_chan *g_tzcma_channels[TZCMA_ALLOC_MAX_COUNT];
@@ -1939,8 +1945,10 @@ static int tzcma_alloc(int idx, size_t size)
 
 	dma_alloc_size = round_up(size, PAGE_SIZE) +
 				TZCMA_LLI_TBL_PAGE * PAGE_SIZE;
+
 	cpuAddr = dma_alloc_writecombine(tzcma_dev, dma_alloc_size,
 			&phyAddr, GFP_KERNEL | GFP_DMA);
+
 	if (cpuAddr == NULL) {
 		tzlog_print(TZLOG_ERROR, "dma alloc failed\n");
 		return -ENOMEM;
@@ -2110,6 +2118,7 @@ static int tzcma_init(void)
 	}
 
 	tzcma_dev = tzcma.this_device;
+	tzcma_dev->coherent_dma_mask = ~0;
 
 	/*
 	 * if you want using tzdev module,
