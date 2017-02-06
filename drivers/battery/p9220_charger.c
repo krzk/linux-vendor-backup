@@ -1479,7 +1479,7 @@ static int p9220_chg_get_property(struct power_supply *psy,
 			break;
 #endif
 		case POWER_SUPPLY_PROP_ENERGY_NOW: /* vout */
-			pr_info("%s POWER_SUPPLY_PROP_MANUFACTURER =%d \n ", __func__, val->intval);
+			pr_debug("%s POWER_SUPPLY_PROP_ENERGY_NOW =%d \n ", __func__, val->intval);
 			val->intval = 0;
 			break;
 			if(charger->pdata->ic_on_mode || charger->pdata->is_charging) {
@@ -1489,7 +1489,7 @@ static int p9220_chg_get_property(struct power_supply *psy,
 			break;
 
 		case POWER_SUPPLY_PROP_ENERGY_AVG: /* vrect */
-			pr_info("%s POWER_SUPPLY_PROP_MANUFACTURER =%d \n ", __func__, val->intval);
+			pr_debug("%s POWER_SUPPLY_PROP_ENERGY_AVG =%d \n ", __func__, val->intval);
 			val->intval = 0;
 			break;
 			if(charger->pdata->ic_on_mode || charger->pdata->is_charging) {
