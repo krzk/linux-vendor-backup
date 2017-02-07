@@ -409,9 +409,6 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 	} else
 		input_event(input, type, button->code, !!state);
 
-	pr_info("%s: [%s]%s[%s]\n", __func__,
-		state ? "P":"R", button->desc, bdata->isr_status ? "I":"R");
-
 	bdata->key_state = !!state;
 	input_sync(input);
 }

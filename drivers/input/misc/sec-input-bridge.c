@@ -252,13 +252,8 @@ static void input_bridge_payment_timer(unsigned long data)
 	struct sec_input_bridge *sec_bridge =
 		(struct sec_input_bridge *)data;
 
-	if (sec_bridge->payment_flag) {
-		dev_info(&sec_bridge->dev->dev,
-			"%s: LONG PRESS IS DETECTED.\n", __func__);
+	if (sec_bridge->payment_flag)
 		schedule_work(&sec_bridge->payment_work);
-	} else
-		dev_info(&sec_bridge->dev->dev,
-			"%s: LONG PRESS IS FAILED.\n", __func__);
 
 	return;
 }
@@ -273,12 +268,8 @@ static void input_bridge_check_payment(struct input_handle *handle,
 		sec_bridge->payment_flag = true;
 		mod_timer(&sec_bridge->payment_timer,\
 				jiffies + msecs_to_jiffies(PAYMENT_TIMEOUT));
-		dev_info(&sec_bridge->dev->dev, "%s: timer is set. (%dms)\n",
-					__func__, PAYMENT_TIMEOUT);
 	} else {
 		sec_bridge->payment_flag = false;
-		dev_info(&sec_bridge->dev->dev,
-			"%s: payment is released.\n", __func__);
 	}
 }
 #endif

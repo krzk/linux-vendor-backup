@@ -220,8 +220,6 @@ static irqreturn_t s2mpw01_irq_thread(int irq, void *data)
 		return IRQ_NONE;
 	}
 
-	dev_info(dev, "%s() intrrupt source(0x%02x)\n", __func__, irq_src);
-
 	if (irq_src & S2MPW01_IRQSRC_PMIC) {
 		/* PMIC_INT */
 		ret = s2mpw01_bulk_read(s2mpw01->pmic, S2MPW01_PMIC_REG_INT1,
@@ -232,8 +230,6 @@ static irqreturn_t s2mpw01_irq_thread(int irq, void *data)
 			return IRQ_NONE;
 		}
 
-		dev_info(dev, "%s() pmic intrrupt(0x%02x, 0x%02x, 0x%02x)\n", __func__,
-			irq_reg[PMIC_INT1], irq_reg[PMIC_INT2], irq_reg[PMIC_INT3]);
 #if defined(CONFIG_CHARGER_S2MPW01)
 		if ((irq_reg[PMIC_INT1] & 0x30) == 0x30) {
 			s2mpw01_read_reg(s2mpw01->charger, S2MPW01_CHG_REG_STATUS1, &chg_st1);
@@ -319,7 +315,6 @@ static irqreturn_t s2mpw01_irq_thread(int irq, void *data)
 	g_check_pmic_int = 0;
 
 	s2mpw01_read_reg(s2mpw01->charger, S2MPW01_CHG_REG_INT1M, &chg_st1);
-	pr_info("%s : CHG_INT1 ---> 0x%x, topoff_status %d \n", __func__, chg_st1, s2mpw01->topoff_mask_status);
 
 	return IRQ_HANDLED;
 }

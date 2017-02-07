@@ -521,9 +521,6 @@ static void power_keys_power_report_event(struct power_button_data *bdata)
 	}
 	input_sync(input);
 
-	printk(KERN_INFO "%s: [%s]%s[%s]\n",
-			__func__, (!!state) ? "P" : "R", button->desc, bdata->isr_status ? "I":"R");
-
 #ifdef CONFIG_SLEEP_MONITOR
 	if ((ddata->press_cnt < CNT_MARK) && (bdata->isr_status) && (!!state))
 		ddata->press_cnt++;

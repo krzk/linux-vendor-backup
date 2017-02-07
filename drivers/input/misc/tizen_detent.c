@@ -135,8 +135,6 @@ static irqreturn_t hall_sensor_detect_handler(int irq, void *dev_id)
 	if (value)
 		ddata->last_status = value;
 
-	dev_info(&input_dev->dev, "%s: s=[%d], d=[%d], irq=[%d]\n", __func__, value, direction, irq);
-
 	mutex_unlock(&ddata->hall_lock);
 
 	wake_lock_timeout(&ddata->wake_lock, WAKELOCK_TIME);

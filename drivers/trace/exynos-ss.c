@@ -1313,9 +1313,6 @@ static int exynos_ss_check_crash_key_by_type(enum crash_key_type key_type,
 
 				pressed_time[end] = time;
 
-				pr_info("exynos-snapshot: crash-key: Pressed %d times during %lldms\n",
-						key_cnt + 1, (pressed_time[end] - pressed_time[start]));
-
 				if ((pressed_time[end] - pressed_time[prev]) > KEY_TIMEOUT_MS ||
 					(pressed_time[end] - pressed_time[start]) > KEY_TIMEOUT_MS) {
 					start = end;
@@ -1348,9 +1345,6 @@ void exynos_ss_check_crash_key(unsigned int code, int value)
 	enum crash_key_type key_type = CRASH_KEY_TYPE_VOLDOWN_POWER;
 #endif
 	int debug_enable;
-
-	if (code == KEY_POWER)
-		pr_info("exynos-snapshot: POWER-KEY %s\n", value ? "pressed" : "released");
 
 	debug_enable = sec_debug_get_debug_level();
 	if (!debug_enable)
