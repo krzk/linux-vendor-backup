@@ -9,8 +9,7 @@ IMAGE="Image"
 DZIMAGE="dzImage"
 DTC_PATH="scripts/dtc/"
 
-make ARCH=${ARM} tizen_solis_defconfig \
-	  VARIANT_DEFCONFIG=tizen_solis_lte_eur_defconfig
+make ARCH=${ARM} tizen_tw2_defconfig
 if [ "$?" != "0" ]; then
 	echo "Failed to make defconfig :"${ARCH}
 	exit 1
