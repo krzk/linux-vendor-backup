@@ -17,12 +17,6 @@ Provides: linux-%{KERNEL_VERSION}
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
 %define debug_package %{nil}
 
-BuildRequires: lzop
-BuildRequires: binutils-devel
-BuildRequires: module-init-tools
-BuildRequires: python
-BuildRequires: gcc
-BuildRequires: bash
 BuildRequires: bc
 
 %description
