@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 ## Functions
 function write_to_4bytes_binary()
 {

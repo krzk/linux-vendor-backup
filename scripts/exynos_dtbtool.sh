@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 ## Functions
 function write_hex_to_4bytes_binary()
 {
