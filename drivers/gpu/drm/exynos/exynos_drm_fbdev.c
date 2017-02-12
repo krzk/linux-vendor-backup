@@ -187,6 +187,7 @@ static int exynos_drm_fbdev_create(struct drm_fb_helper *helper,
 			sizes->surface_bpp);
 			
 	if((sizes->surface_width == 1024 && sizes->surface_height == 768) ||
+		(sizes->surface_width == 1280 && sizes->surface_height == 1024) ||
 		(sizes->surface_width == 1280 && sizes->surface_height == 720))
 		num_buffers = 1;
 
