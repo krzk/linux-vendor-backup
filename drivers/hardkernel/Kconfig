@@ -6,5 +6,13 @@ config ODROID_EXYNOS5_SP
 	default n
 	---help---
 		Enables the INA231 Sensor on ODROID-EXYNOS5
+
+config ODROID_EXYNOS5_IOBOARD
+	tristate "Enable the ODROID EXYNOS5 IOBOARD Drivers"
+	depends on ARCH_EXYNOS5
+	default n
+	---help---
+		Enables the IO-Expansion BOARD Drivers
+
 endmenu
 
