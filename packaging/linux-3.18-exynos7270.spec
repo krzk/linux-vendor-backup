@@ -7,6 +7,7 @@ Summary: The Linux Kernel
 Version: 3.18.14
 Release: 1
 License: GPL-2.0
+ExclusiveArch: aarch64
 Group: System/Kernel
 Vendor: The Linux Community
 URL: http://www.kernel.org
