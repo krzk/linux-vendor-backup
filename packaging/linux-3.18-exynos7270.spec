@@ -1,6 +1,6 @@
 %define CHIPSET exynos7270
 %define KERNEL_VERSION 3.18
-%define MODEL tizen_tw2
+%define MODEL tw2
 
 Name: linux-%{KERNEL_VERSION}-%{CHIPSET}
 Summary: The Linux Kernel
@@ -23,62 +23,62 @@ BuildRequires: bc
 %description
 The Linux Kernel, the operating system core itself
 
-%package -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}
+%package -n linux-%{CHIPSET}-%{MODEL}
 License: GPL-2.0
 Summary: Linux support headers for userspace development
 Group: System/Kernel
 Requires(post): coreutils
 
-%files -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}
+%files -n linux-%{CHIPSET}-%{MODEL}
 /boot/kernel/mod_%{MODEL}
 /boot/kernel/kernel-%{MODEL}/dzImage
 
-%post -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}
+%post -n linux-%{CHIPSET}-%{MODEL}
 mv /boot/kernel/mod_%{MODEL}/lib/modules/* /lib/modules/.
 mv /boot/kernel/kernel-%{MODEL}/dzImage /boot/kernel/.
 
-%description -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}
+%description -n linux-%{CHIPSET}-%{MODEL}
 This package provides the %{CHIPSET}_eur linux kernel image & module.img.
 
-%package -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}-debuginfo
+%package -n linux-%{CHIPSET}-%{MODEL}-debuginfo
 License: GPL-2.0
 Summary: Linux support debug symbol
 Group: System/Kernel
 
-%files -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}-debuginfo
+%files -n linux-%{CHIPSET}-%{MODEL}-debuginfo
 /boot/kernel/mod_%{MODEL}
 /boot/kernel/kernel-%{MODEL}
 
-%description -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}-debuginfo
+%description -n linux-%{CHIPSET}-%{MODEL}-debuginfo
 This package provides the %{CHIPSET}_eur linux kernel's debugging files.
 
-%package -n kernel-headers-%{KERNEL_VERSION}-%{CHIPSET}
+%package -n kernel-headers-%{CHIPSET}-%{MODEL}
 License: GPL-2.0
 Summary: Linux support headers for userspace development
 Group: System/Kernel
 Provides: kernel-headers-tizen-dev
 
-%description -n kernel-headers-%{KERNEL_VERSION}-%{CHIPSET}
+%description -n kernel-headers-%{CHIPSET}-%{MODEL}
 This package provides userspaces headers from the Linux kernel. These
 headers are used by the installed headers for GNU glibc and other system
  libraries.
 
-%package -n kernel-devel-%{KERNEL_VERSION}-%{CHIPSET}
+%package -n kernel-devel-%{CHIPSET}-%{MODEL}
 License: GPL-2.0
 Summary: Linux support kernel map and etc for other package
 Group: System/Kernel
 Provides: kernel-devel-tizen-dev
 Provides: kernel-devel-tizen
 
-%description -n kernel-devel-%{KERNEL_VERSION}-%{CHIPSET}
+%description -n kernel-devel-%{CHIPSET}-%{MODEL}
 This package provides kernel map and etc information.
 
-%package -n linux-kernel-license
+%package -n linux-kernel-license-%{CHIPSET}-%{MODEL}
 License: GPL-2.0
 Summary: Linux support kernel license file
 Group: System/Kernel
 
-%description -n linux-kernel-license
+%description -n linux-kernel-license-%{CHIPSET}-%{MODEL}
 This package provides kernel license file.
 
 %prep
@@ -160,11 +160,11 @@ cat develfiles.pre | sed -e "s#%{buildroot}##g" | uniq | sort > develfiles
 %clean
 rm -rf %_builddir
 
-%files -n kernel-headers-%{KERNEL_VERSION}-%{CHIPSET}
+%files -n kernel-headers-%{CHIPSET}-%{MODEL}
 /usr/include/*
 
-%files -n linux-kernel-license
+%files -n linux-kernel-license-%{CHIPSET}-%{MODEL}
 /usr/share/license/*
 
-%files -n kernel-devel-%{KERNEL_VERSION}-%{CHIPSET} -f develfiles
+%files -n kernel-devel-%{CHIPSET}-%{MODEL} -f develfiles
 /boot/kernel/devel/*
