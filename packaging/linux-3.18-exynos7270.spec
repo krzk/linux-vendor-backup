@@ -30,10 +30,7 @@ Group: System/Kernel
 Requires(post): coreutils
 
 %files -n linux-%{CHIPSET}-%{MODEL}
-/boot/kernel/kernel-%{MODEL}/dzImage
-
-%post -n linux-%{CHIPSET}-%{MODEL}
-mv /boot/kernel/kernel-%{MODEL}/dzImage /boot/kernel/.
+/boot/kernel/dzImage
 
 %description -n linux-%{CHIPSET}-%{MODEL}
 This package provides the %{CHIPSET}_eur linux kernel image.
@@ -133,9 +130,9 @@ mkdir -p %{buildroot}/boot/kernel/devel
 mkdir -p %{buildroot}/boot/kernel/kernel-%{MODEL}
 mkdir -p %{buildroot}/boot/kernel/license-%{MODEL}
 
+mv %_builddir/dzImage.%{MODEL} %{buildroot}/boot/kernel/dzImage
 mv %_builddir/Image.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/Image
 mv %_builddir/merged-dtb.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/merged-dtb
-mv %_builddir/dzImage.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/dzImage
 
 mv %_builddir/System.map.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/System.map
 mv %_builddir/config.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/config
