@@ -82,6 +82,10 @@ This package provides kernel license file.
 
 make distclean
 
+chmod a+x release_obs.sh
+chmod a+x ./scripts/exynos_dtbtool.sh
+chmod a+x ./scripts/exynos_mkdzimage.sh
+
 ./release_obs.sh
 
 cp -f arch/arm64/boot/Image %{_builddir}/Image.%{MODEL}
