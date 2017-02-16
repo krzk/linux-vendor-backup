@@ -30,15 +30,13 @@ Group: System/Kernel
 Requires(post): coreutils
 
 %files -n linux-%{CHIPSET}-%{MODEL}
-/boot/kernel/mod_%{MODEL}
 /boot/kernel/kernel-%{MODEL}/dzImage
 
 %post -n linux-%{CHIPSET}-%{MODEL}
-mv /boot/kernel/mod_%{MODEL}/lib/modules/* /lib/modules/.
 mv /boot/kernel/kernel-%{MODEL}/dzImage /boot/kernel/.
 
 %description -n linux-%{CHIPSET}-%{MODEL}
-This package provides the %{CHIPSET}_eur linux kernel image & module.img.
+This package provides the %{CHIPSET}_eur linux kernel image.
 
 %package -n linux-%{CHIPSET}-%{MODEL}-debuginfo
 License: GPL-2.0
@@ -46,7 +44,6 @@ Summary: Linux support debug symbol
 Group: System/Kernel
 
 %files -n linux-%{CHIPSET}-%{MODEL}-debuginfo
-/boot/kernel/mod_%{MODEL}
 /boot/kernel/kernel-%{MODEL}
 
 %description -n linux-%{CHIPSET}-%{MODEL}-debuginfo
@@ -86,7 +83,6 @@ This package provides kernel license file.
 
 %build
 
-mkdir -p %{_builddir}/mod_%{MODEL}
 make distclean
 
 ./release_obs.sh
@@ -136,8 +132,6 @@ cp -vf COPYING %{buildroot}/usr/share/license/linux-kernel
 mkdir -p %{buildroot}/boot/kernel/devel
 mkdir -p %{buildroot}/boot/kernel/kernel-%{MODEL}
 mkdir -p %{buildroot}/boot/kernel/license-%{MODEL}
-
-mv %_builddir/mod_%{MODEL} %{buildroot}/boot/kernel/mod_%{MODEL}
 
 mv %_builddir/Image.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/Image
 mv %_builddir/merged-dtb.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/merged-dtb
