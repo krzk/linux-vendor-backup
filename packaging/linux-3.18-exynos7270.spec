@@ -29,9 +29,6 @@ Summary: Linux support headers for userspace development
 Group: System/Kernel
 Requires(post): coreutils
 
-%files -n linux-%{CHIPSET}-%{MODEL}
-/boot/kernel/dzImage
-
 %description -n linux-%{CHIPSET}-%{MODEL}
 This package provides the %{CHIPSET}_eur linux kernel image.
 
@@ -39,9 +36,6 @@ This package provides the %{CHIPSET}_eur linux kernel image.
 License: GPL-2.0
 Summary: Linux support debug symbol
 Group: System/Kernel
-
-%files -n linux-%{CHIPSET}-%{MODEL}-debuginfo
-/boot/kernel/kernel-%{MODEL}
 
 %description -n linux-%{CHIPSET}-%{MODEL}-debuginfo
 This package provides the %{CHIPSET}_eur linux kernel's debugging files.
@@ -86,16 +80,36 @@ chmod a+x release_obs.sh
 chmod a+x ./scripts/exynos_dtbtool.sh
 chmod a+x ./scripts/exynos_mkdzimage.sh
 
+# 1. make kernel image
 ./release_obs.sh
 
-cp -f arch/arm64/boot/Image %{_builddir}/Image.%{MODEL}
-cp -f arch/arm64/boot/merged-dtb %{_builddir}/merged-dtb.%{MODEL}
-cp -f arch/arm64/boot/dzImage %{_builddir}/dzImage.%{MODEL}
-cp -f System.map %{_builddir}/System.map.%{MODEL}
-cp -f .config %{_builddir}/config.%{MODEL}
-cp -f vmlinux %{_builddir}/vmlinux.%{MODEL}
+%install
 
-# prepare for devel package
+# 2. copy to buildroot
+mkdir -p %{buildroot}/usr
+mkdir -p %{buildroot}/usr/share/license
+mkdir -p %{buildroot}/boot/kernel/devel
+
+cp -f arch/arm64/boot/dzImage  %{buildroot}/boot/kernel/dzImage
+cp -f arch/arm64/boot/merged-dtb  %{buildroot}/boot/kernel/merged-dtb
+cp -f arch/arm64/boot/Image  %{buildroot}/boot/kernel/Image
+cp -f System.map  %{buildroot}/boot/kernel/System.map
+cp -f .config  %{buildroot}/boot/kernel/config
+cp -f vmlinux  %{buildroot}/boot/kernel/vmlinux
+cp -f COPYING %{buildroot}/usr/share/license/linux-kernel
+
+# 3. make kernel header
+make mrproper
+make headers_check
+make headers_install INSTALL_HDR_PATH=%{buildroot}/usr
+
+# 4. remove unnecessary files.
+find  %{buildroot}/usr/include -name ".install" -delete
+find  %{buildroot}/usr/include -name "..install.cmd" -delete
+rm -rf %{buildroot}/usr/include/scsi
+rm -f %{buildroot}/usr/include/asm*/atomic.h
+rm -f %{buildroot}/usr/include/asm*/io.h
+
 find %{_builddir}/%{name}-%{version} -name ".tmp_vmlinux*" -delete
 find %{_builddir}/%{name}-%{version} -name "\.*dtb*tmp" -delete
 find %{_builddir}/%{name}-%{version} -name "*\.*tmp" -delete
@@ -109,57 +123,28 @@ find %{_builddir}/%{name}-%{version} -name "*\.o" -delete
 find %{_builddir}/%{name}-%{version} -name "*\.S" -delete
 find %{_builddir}/%{name}-%{version} -name "*\.c" -not -path "%{_builddir}/%{name}-%{version}/scripts/*" -delete
 
-#remove all changed source codes for next build
-cd %_builddir
-mv %{name}-%{version} kernel-devel-%{MODEL}
-/bin/tar -xf %{SOURCE0}
-cd %{name}-%{version}
-
-%install
-mkdir -p %{buildroot}/usr
-make mrproper
-make headers_check
-make headers_install INSTALL_HDR_PATH=%{buildroot}/usr
-
-find  %{buildroot}/usr/include -name ".install" -delete
-find  %{buildroot}/usr/include -name "..install.cmd" -delete
-rm -rf %{buildroot}/usr/include/scsi
-rm -f %{buildroot}/usr/include/asm*/atomic.h
-rm -f %{buildroot}/usr/include/asm*/io.h
-
-mkdir -p %{buildroot}/usr/share/license
-cp -vf COPYING %{buildroot}/usr/share/license/linux-kernel
-
-mkdir -p %{buildroot}/boot/kernel/devel
-mkdir -p %{buildroot}/boot/kernel/kernel-%{MODEL}
-mkdir -p %{buildroot}/boot/kernel/license-%{MODEL}
-
-mv %_builddir/dzImage.%{MODEL} %{buildroot}/boot/kernel/dzImage
-mv %_builddir/Image.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/Image
-mv %_builddir/merged-dtb.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/merged-dtb
-
-mv %_builddir/System.map.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/System.map
-mv %_builddir/config.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/config
-mv %_builddir/vmlinux.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/vmlinux
-mv %_builddir/kernel-devel-%{MODEL} %{buildroot}/boot/kernel/devel/kernel-devel-%{MODEL}
-
+# 5. make kernel-devel
+mv %{_builddir}/%{name}-%{version} %{buildroot}/boot/kernel/devel/kernel-devel-%{MODEL}
+mkdir -p %{_builddir}/%{name}-%{version}
 ln -s kernel-devel-%{MODEL} %{buildroot}/boot/kernel/devel/tizen-devel
 
-find %{buildroot}/boot/kernel/ -name "*.h" -print0 | xargs -0 chmod 644
-find %{buildroot}/boot/kernel/ -name 'System.map' > develfiles.pre # for secure storage
-find %{buildroot}/boot/kernel/ -name 'vmlinux' >> develfiles.pre   # for TIMA
-find %{buildroot}/boot/kernel/ -name '*.ko' >> develfiles.pre      # for TIMA
-find %{buildroot}/boot/kernel/ -name '*Image' >> develfiles.pre   # for Trusted Boot
-cat develfiles.pre | sed -e "s#%{buildroot}##g" | uniq | sort > develfiles
+%files -n linux-%{CHIPSET}-%{MODEL}
+/boot/kernel/dzImage
 
-%clean
-rm -rf %_builddir
+%files -n linux-%{CHIPSET}-%{MODEL}-debuginfo
+/boot/kernel/config
+/boot/kernel/Image
+/boot/kernel/merged-dtb
+/boot/kernel/System.map
+/boot/kernel/vmlinux
 
 %files -n kernel-headers-%{CHIPSET}-%{MODEL}
+%defattr(644,root,root,-)
 /usr/include/*
 
 %files -n linux-kernel-license-%{CHIPSET}-%{MODEL}
 /usr/share/license/*
 
-%files -n kernel-devel-%{CHIPSET}-%{MODEL} -f develfiles
+%files -n kernel-devel-%{CHIPSET}-%{MODEL}
+%defattr(644,root,root,-)
 /boot/kernel/devel/*
