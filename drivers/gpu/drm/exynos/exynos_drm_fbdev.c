@@ -123,7 +123,7 @@ static int exynos_drm_fbdev_update(struct drm_fb_helper *helper,
 	unsigned int size = fb->width * fb->height * (fb->bits_per_pixel >> 3);
 	unsigned long offset;
 	
-	if(fb->width == 1024 || fb->width == 1280)
+	if(fb->width == 1024 || ((fb->width == 1280) && (fb->height == 720)))
 		num_buffers = 1;
 
 	drm_fb_helper_fill_fix(fbi, fb->pitches[0], fb->depth);
