@@ -449,7 +449,11 @@ static void rtk_vendor_cmd_to_fw(uint16_t opcode, uint8_t parameter_len,
 #if HCI_VERSION_CODE < KERNEL_VERSION(4, 4, 0)
 	bt_cb(skb)->req.start = true;
 #else
-	bt_cb(skb)->hci.req_start = true;
+	#if 0
+		bt_cb(skb)->hci.req_start = true;
+	#else
+		bt_cb(skb)->hci.req_flags |= HCI_REQ_START;
+	#endif
 #endif
 #endif
 	RTKBT_DBG("%s: opcode 0x%x", __func__, opcode);
