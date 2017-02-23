@@ -209,6 +209,22 @@ static int xhci_plat_probe(struct platform_device *pdev)
 		if (priv_match)
 			*priv = *priv_match;
 	}
+	
+	hcd->usb_phy = devm_usb_get_phy_by_phandle(&pdev->dev, "usb-phy", 0);
+	if (IS_ERR(hcd->usb_phy)) {
+		ret = PTR_ERR(hcd->usb_phy);
+		if (ret == -EPROBE_DEFER)
+			goto put_usb3_hcd;
+		hcd->usb_phy = NULL;
+	} else {
+		ret = usb_phy_init(hcd->usb_phy);
+		if (ret)
+			goto put_usb3_hcd;
+	}
+
+	ret = usb_add_hcd(hcd, irq, IRQF_SHARED);
+	if (ret)
+		goto disable_usb_phy;
 
 	device_wakeup_enable(hcd->self.controller);
 
@@ -226,22 +242,6 @@ static int xhci_plat_probe(struct platform_device *pdev)
 
 	if (HCC_MAX_PSA(xhci->hcc_params) >= 4)
 		xhci->shared_hcd->can_do_streams = 1;
-
-	hcd->usb_phy = devm_usb_get_phy_by_phandle(&pdev->dev, "usb-phy", 0);
-	if (IS_ERR(hcd->usb_phy)) {
-		ret = PTR_ERR(hcd->usb_phy);
-		if (ret == -EPROBE_DEFER)
-			goto put_usb3_hcd;
-		hcd->usb_phy = NULL;
-	} else {
-		ret = usb_phy_init(hcd->usb_phy);
-		if (ret)
-			goto put_usb3_hcd;
-	}
-
-	ret = usb_add_hcd(hcd, irq, IRQF_SHARED);
-	if (ret)
-		goto disable_usb_phy;
 
 	/* Get possile USB 3.0 type PHY (PIPE3) available with xhci */
 	xhci->shared_hcd->phy = devm_phy_get(pdev->dev.parent, "usb3-phy");
