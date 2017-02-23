@@ -111,6 +111,7 @@ static struct device_attribute sec_battery_attrs[] = {
 	SEC_BATTERY_ATTR(chg_extreme_onoff),
 	SEC_BATTERY_ATTR(chg_extreme_mode),
 	SEC_BATTERY_ATTR(chg_on),
+	SEC_BATTERY_ATTR(disable_charge),
 };
 
 static enum power_supply_property sec_battery_props[] = {
@@ -216,6 +217,11 @@ static int sec_bat_set_charge(
 
 	if (battery->factory_mode || battery->is_jig_on) {
 		pr_info("%s: skip charger op %d \n", __func__, enable);
+		return 0;
+	}
+
+	if (battery->disable_charge && enable) {
+		dev_warn(battery->dev, "charging is disabled explicitly.\n");
 		return 0;
 	}
 
@@ -678,6 +684,10 @@ static bool sec_bat_get_cable_type(
 static void sec_bat_set_charging_status(struct sec_battery_info *battery,
 		int status) {
 	union power_supply_propval value;
+
+	if (battery->disable_charge && status == POWER_SUPPLY_STATUS_CHARGING)
+		return;
+
 	switch (status) {
 	case POWER_SUPPLY_STATUS_NOT_CHARGING:
 	case POWER_SUPPLY_STATUS_DISCHARGING:
@@ -3952,6 +3962,10 @@ ssize_t sec_bat_show_attrs(struct device *dev,
 		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
 			(battery->charging_block == false) ? 1 : 0);
 		break;
+	case BATT_DISABLE_CHARGE:
+		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
+			(battery->disable_charge) ? 1 : 0);
+		break;
 	default:
 		i = -EINVAL;
 	}
@@ -4603,6 +4617,37 @@ ssize_t sec_bat_store_attrs(
 			}
 			ret = count;
 		}
+		break;
+	case BATT_DISABLE_CHARGE:
+		if (sscanf(buf, "%d\n", &x) != 1)
+			break;
+		if (!!x) {
+			/* force disabling battery charge */
+			battery->disable_charge = 1;
+			sec_bat_set_charging_status(battery,
+					POWER_SUPPLY_STATUS_DISCHARGING);
+			sec_bat_set_charge(battery, false);
+			power_supply_changed(&battery->psy_bat);
+		} else {
+			union power_supply_propval value;
+
+			battery->disable_charge = 0;
+			sec_bat_get_cable_type(battery,
+					battery->pdata->cable_source_type);
+
+			/* enable charger if connected */
+			if (battery->cable_type != POWER_SUPPLY_TYPE_BATTERY &&
+			    battery->cable_type != POWER_SUPPLY_TYPE_OTG) {
+				sec_bat_set_charge(battery, true);
+				psy_do_property(battery->pdata->charger_name,
+						get, POWER_SUPPLY_PROP_STATUS,
+						value);
+				sec_bat_set_charging_status(battery,
+								value.intval);
+				power_supply_changed(&battery->psy_bat);
+			}
+		}
+		ret = count;
 		break;
 	default:
 		ret = -EINVAL;

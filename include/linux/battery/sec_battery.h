@@ -226,6 +226,7 @@ struct sec_battery_info {
 #if defined(CONFIG_AFC_CHARGER_MODE)
 	char *hv_chg_name;
 #endif
+	int disable_charge;
 };
 
 ssize_t sec_bat_show_attrs(struct device *dev,
@@ -348,6 +349,7 @@ enum {
 	CHG_EXTREME_ONOFF,
 	CHG_EXTREME_MODE,
 	CHG_ON,
+	BATT_DISABLE_CHARGE,
 };
 
 #ifdef CONFIG_OF
