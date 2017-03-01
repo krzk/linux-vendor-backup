@@ -135,7 +135,9 @@ static int qxl_palette_create_1bit(struct qxl_bo *palette_bo,
 	static uint64_t unique; /* we make no attempt to actually set this
 				 * correctly globaly, since that would require
 				 * tracking all of our palettes. */
+
 	ret = qxl_bo_kmap(palette_bo, (void **)&pal);
+
 	pal->num_ents = 2;
 	pal->unique = unique++;
 	if (visual == FB_VISUAL_TRUECOLOR || visual == FB_VISUAL_DIRECTCOLOR) {
