@@ -42,7 +42,7 @@
 #include "exynos_mixer.h"
 
 #define MIXER_WIN_NR		3
-#define MIXER_DEFAULT_WIN	0
+#define MIXER_DEFAULT_WIN	1
 #define VP_DEFAULT_WIN		2
 
 /* The pixelformats that are natively supported by the mixer. */
@@ -354,24 +354,24 @@ static void mixer_cfg_layer(struct mixer_context *ctx, unsigned int win,
 	switch (win) {
 	case 0:
 		mixer_reg_writemask(res, MXR_CFG, val, MXR_CFG_GRP0_ENABLE);
-		break;
-	case 1:
-		mixer_reg_writemask(res, MXR_CFG, val, MXR_CFG_GRP1_ENABLE);
-		/* FIXME: workaround to change default layer priority */
+		/* FIXME: workaround to control blending with below layer */
 		if (ctx->mxr_ver == MXR_VER_128_0_0_184) {
 			if (enable) {
-				/* control blending of graphic layer 0 */
-				mixer_reg_writemask(res, MXR_GRAPHIC_CFG(0),
+				/* control blending of graphic layer 1 */
+				mixer_reg_writemask(res, MXR_GRAPHIC_CFG(1),
 						val,
 						MXR_GRP_CFG_BLEND_PRE_MUL |
 						MXR_GRP_CFG_PIXEL_BLEND_EN);
 			} else {
-				mixer_reg_writemask(res, MXR_GRAPHIC_CFG(0), 0,
+				mixer_reg_writemask(res, MXR_GRAPHIC_CFG(1), 0,
 						MXR_GRP_CFG_BLEND_PRE_MUL |
 						MXR_GRP_CFG_PIXEL_BLEND_EN);
 			}
 		}
 
+		break;
+	case 1:
+		mixer_reg_writemask(res, MXR_CFG, val, MXR_CFG_GRP1_ENABLE);
 		break;
 	case 2:
 		if (ctx->vp_enabled) {
@@ -688,15 +688,8 @@ static void mixer_win_reset(struct mixer_context *ctx)
 	 * layer0 - framebuffer
 	 * video - video overlay
 	 */
-
-	/* FIXME: workaround to change default layer priority */
-	if (ctx->mxr_ver == MXR_VER_128_0_0_184) {
-		val = MXR_LAYER_CFG_GRP1_VAL(2);
-		val |= MXR_LAYER_CFG_GRP0_VAL(3);
-	} else {
-		val = MXR_LAYER_CFG_GRP1_VAL(3);
-		val |= MXR_LAYER_CFG_GRP0_VAL(2);
-	}
+	val = MXR_LAYER_CFG_GRP1_VAL(3);
+	val |= MXR_LAYER_CFG_GRP0_VAL(2);
 
 	if (ctx->vp_enabled)
 		val |= MXR_LAYER_CFG_VP_VAL(1);
@@ -716,11 +709,8 @@ static void mixer_win_reset(struct mixer_context *ctx)
 	mixer_reg_write(res, MXR_GRAPHIC_CFG(0), val);
 
 	/* Blend layer 1 into layer 0 */
-	/* FIXME: workaround to change default layer as unused video overlay */
-	if (ctx->mxr_ver != MXR_VER_128_0_0_184) {
-		val |= MXR_GRP_CFG_BLEND_PRE_MUL;
-		val |= MXR_GRP_CFG_PIXEL_BLEND_EN;
-	}
+	val |= MXR_GRP_CFG_BLEND_PRE_MUL;
+	val |= MXR_GRP_CFG_PIXEL_BLEND_EN;
 	mixer_reg_write(res, MXR_GRAPHIC_CFG(1), val);
 
 	/* setting video layers */
