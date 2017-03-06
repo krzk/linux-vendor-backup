@@ -7,7 +7,7 @@ Summary: The Linux Kernel
 Version: 3.18.14
 Release: 1
 License: GPL-2.0
-ExclusiveArch: aarch64
+ExclusiveArch: %{arm} aarch64
 Group: System/Kernel
 Vendor: The Linux Community
 URL: http://www.kernel.org
@@ -23,6 +23,7 @@ BuildRequires: bc
 %description
 The Linux Kernel, the operating system core itself
 
+%ifarch aarch64
 %package -n linux-%{CHIPSET}-%{MODEL}
 License: GPL-2.0
 Summary: Linux support headers for userspace development
@@ -39,17 +40,6 @@ Group: System/Kernel
 
 %description -n linux-%{CHIPSET}-%{MODEL}-debuginfo
 This package provides the %{CHIPSET}_eur linux kernel's debugging files.
-
-%package -n kernel-headers-%{CHIPSET}-%{MODEL}
-License: GPL-2.0
-Summary: Linux support headers for userspace development
-Group: System/Kernel
-Provides: kernel-headers-tizen-dev
-
-%description -n kernel-headers-%{CHIPSET}-%{MODEL}
-This package provides userspaces headers from the Linux kernel. These
-headers are used by the installed headers for GNU glibc and other system
- libraries.
 
 %package -n kernel-devel-%{CHIPSET}-%{MODEL}
 License: GPL-2.0
@@ -68,6 +58,18 @@ Group: System/Kernel
 
 %description -n linux-kernel-license-%{CHIPSET}-%{MODEL}
 This package provides kernel license file.
+%endif
+
+%package -n kernel-headers-%{CHIPSET}-%{MODEL}
+License: GPL-2.0
+Summary: Linux support headers for userspace development
+Group: System/Kernel
+Provides: kernel-headers-tizen-dev
+
+%description -n kernel-headers-%{CHIPSET}-%{MODEL}
+This package provides userspaces headers from the Linux kernel. These
+headers are used by the installed headers for GNU glibc and other system
+ libraries.
 
 %prep
 %setup -q
@@ -75,18 +77,20 @@ This package provides kernel license file.
 %build
 
 make distclean
-
+%ifarch aarch64
 chmod a+x release_obs.sh
 chmod a+x ./scripts/exynos_dtbtool.sh
 chmod a+x ./scripts/exynos_mkdzimage.sh
 
 # 1. make kernel image
 ./release_obs.sh
+%endif
 
 %install
 
 # 2. copy to buildroot
 mkdir -p %{buildroot}/usr
+%ifarch aarch64
 mkdir -p %{buildroot}/usr/share/license
 mkdir -p %{buildroot}/boot/kernel/devel
 
@@ -97,8 +101,15 @@ cp -f System.map  %{buildroot}/boot/kernel/System.map
 cp -f .config  %{buildroot}/boot/kernel/config
 cp -f vmlinux  %{buildroot}/boot/kernel/vmlinux
 cp -f COPYING %{buildroot}/usr/share/license/linux-kernel
+%endif
 
 # 3. make kernel header
+%ifarch aarch64
+export ARCH=arm64
+%else
+export ARCH=arm
+%endif
+
 make mrproper
 make headers_check
 make headers_install INSTALL_HDR_PATH=%{buildroot}/usr
@@ -110,6 +121,7 @@ rm -rf %{buildroot}/usr/include/scsi
 rm -f %{buildroot}/usr/include/asm*/atomic.h
 rm -f %{buildroot}/usr/include/asm*/io.h
 
+%ifarch aarch64
 find %{_builddir}/%{name}-%{version} -name ".tmp_vmlinux*" -delete
 find %{_builddir}/%{name}-%{version} -name "\.*dtb*tmp" -delete
 find %{_builddir}/%{name}-%{version} -name "*\.*tmp" -delete
@@ -138,13 +150,14 @@ ln -s kernel-devel-%{MODEL} %{buildroot}/boot/kernel/devel/tizen-devel
 /boot/kernel/System.map
 /boot/kernel/vmlinux
 
-%files -n kernel-headers-%{CHIPSET}-%{MODEL}
-%defattr(644,root,root,-)
-/usr/include/*
-
 %files -n linux-kernel-license-%{CHIPSET}-%{MODEL}
 /usr/share/license/*
 
 %files -n kernel-devel-%{CHIPSET}-%{MODEL}
 %defattr(644,root,root,-)
 /boot/kernel/devel/*
+%endif
+
+%files -n kernel-headers-%{CHIPSET}-%{MODEL}
+%defattr(644,root,root,-)
+/usr/include/*
