@@ -64,7 +64,7 @@ MODULE_LICENSE("GPL");
 
 #define TV_CLK_GET_WITH_ERR_CHECK(clk, pdev, clk_name)			\
 		do {							\
-			clk = clk_get(&pdev->dev, clk_name);		\
+			clk = devm_clk_get(&pdev->dev, clk_name);	\
 			if (IS_ERR(clk)) {				\
 				tvout_dbg(				\
 				"failed to find clock %s\n", clk_name);	\
@@ -116,7 +116,6 @@ static int s5p_cec_release(struct inode *inode, struct file *file)
 	s5p_cec_mask_rx_interrupts();
 
 	clk_disable_unprepare(hdmi_cec_clk);
-	clk_put(hdmi_cec_clk);
 
 	return 0;
 }
