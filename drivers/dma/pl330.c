@@ -2254,10 +2254,7 @@ static int dmac_alloc_resources(struct pl330_dmac *pl330)
 	if (pi->dev->of_node) {
 		addr = of_dma_get_mcode_addr(pi->dev->of_node);
 		if (addr) {
-			if (soc_is_exynos5430()) {
-				set_dma_ops(pi->dev, &arm_exynos_dma_mcode_ops);
-				pl330->mcode_bus = addr;
-			} else if(soc_is_exynos5422()){
+			if (soc_is_exynos5422()) {
 				pl330->mcode_bus_sram = addr;
 				pl330->mcode_cpu_sram = ioremap(addr, chans * pi->mcbufsz);
 			}
