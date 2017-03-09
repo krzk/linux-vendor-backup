@@ -17,8 +17,8 @@
  *
  *********************************************************/
 
-#ifndef TRUSTZONE_SHARED_INCLUDE_TRUSTWAREOS_PRIVATE_SMC_INTERFACE_H_
-#define TRUSTZONE_SHARED_INCLUDE_TRUSTWAREOS_PRIVATE_SMC_INTERFACE_H_
+#ifndef __TRUSTZONE_SHARED_INCLUDE_TRUSTWAREOS_PRIVATE_SMC_INTERFACE_H__
+#define __TRUSTZONE_SHARED_INCLUDE_TRUSTWAREOS_PRIVATE_SMC_INTERFACE_H__
 
 /* R1 - size of kern info buffer */
 /* R2 - virtual address of kern info buffer */
@@ -45,6 +45,10 @@
 #define SMC_IRQ_RESUME				13
 
 #define SMC_STD_REGISTER_PHYS_WSM	14
+/* R1 - CMD, R2 - wsm_id (only for register cmd) */
+#define SMC_STD_RESOURCE_MONITOR	15
+
+#define SMC_STD_SYNC_KERNEL_TIME	16
 
 /* TODO: this should be sent to PSCI */
 #define SMC_PM_CPU_OFF			0
@@ -54,12 +58,14 @@
 #define SMC_PM_SYSTEM_RESET		4
 
 #ifndef CONFIG_PSCI
-#define SMC_CPU_SUSPEND				12
-#define SMC_CPU_SUSPEND_SYS			13
-#define SMC_CPU_RESUME_SYS			14
-#define SMC_CPU_RESUME				15
+#define SMC_CPU_SUSPEND				17
+#define SMC_CPU_SUSPEND_SYS			18
+#define SMC_CPU_RESUME_SYS			19
+#define SMC_CPU_RESUME				20
 #endif /* !CONFIG_PSCI */
+
+#define SMC_STD_PLAT_SMC			21
 
 #define SMC_STD_GET_UUID			0xFF01
 
-#endif /* TRUSTZONE_SHARED_INCLUDE_TRUSTWAREOS_PRIVATE_SMC_INTERFACE_H_ */
+#endif /* __TRUSTZONE_SHARED_INCLUDE_TRUSTWAREOS_PRIVATE_SMC_INTERFACE_H__ */

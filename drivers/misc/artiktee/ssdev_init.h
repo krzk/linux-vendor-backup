@@ -16,28 +16,12 @@
  *
  *********************************************************/
 
-#ifndef SOURCE_TZDEV_SSTRANSACTION_H_
-#define SOURCE_TZDEV_SSTRANSACTION_H_
+#ifndef __SECURE_STORAGE_H__
+#define __SECURE_STORAGE_H__
 
-#include <linux/kernel.h>
+#include "tzdev.h"
 
-typedef struct SSTransaction_s SSTransaction_t;
+int __init init_storage(void);
+int storage_path_init(void);
 
-#define SSTRANSACTION_NUM_ARGS		8
-
-void sstransaction_complete(SSTransaction_t *tsx, int code);
-int sstransaction_add(const void *buffer, size_t size);
-
-int sstransaction_get_next_completion(void *buffer,
-				      size_t avail_size,
-				      size_t *remaining_size,
-				      size_t *obj_size);
-
-uint32_t sstransaction_get_arg(SSTransaction_t *tsx, int arg);
-uint32_t sstransaction_get_command(SSTransaction_t *tsx);
-void sstransaction_set_arg(SSTransaction_t *tsx, int arg, uint32_t value);
-void *sstransaction_payload_ptr(SSTransaction_t *tsx);
-unsigned int sstransaction_wsm_offset(SSTransaction_t *tsx, size_t *p_size);
-int sstransaction_count_completions(void);
-
-#endif /* SOURCE_TZDEV_SSTRANSACTION_H_ */
+#endif /* __SECURE_STORAGE_H__ */

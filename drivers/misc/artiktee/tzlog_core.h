@@ -16,14 +16,30 @@
  *
  *********************************************************/
 
-#ifndef __SOURCE_TZDEV_INIT_H__
-#define __SOURCE_TZDEV_INIT_H__
+#include <linux/kthread.h>
+#include <linux/freezer.h>
+#include <linux/semaphore.h>
+#include <linux/miscdevice.h>
+#include <linux/fs.h>
+#include <linux/wait.h>
+#include <linux/poll.h>
+#include <linux/namei.h>
+#include <linux/dcache.h>
+#include <linux/path.h>
 
-void tzsys_init(void);
-void tzmem_init(void);
-void tzio_link_init(void);
+#ifndef __TZLOG_CORE_H__
+#define __TZLOG_CORE_H__
 
-int nsrpc_init_early(void);
-int nsrpc_init(void);
+typedef struct tzlog_data {
+	int log_wsm_id;
+	struct chimera_ring_buffer *ring;
+	struct semaphore sem;
+	struct task_struct *task;
+	struct mutex lock;
+	struct page *log_page;
+} s_tzlog_data;
 
-#endif /* __SOURCE_TZDEV_INIT_H__ */
+void tzlog_notify(void);
+void tzlog_init(char *default_msg);
+
+#endif /* __TZLOG_CORE_H__ */

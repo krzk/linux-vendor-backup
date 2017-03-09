@@ -17,8 +17,8 @@
  *********************************************************/
 
 
-#ifndef SOURCE_TZDEV_TZDEV_INTERNAL_H_
-#define SOURCE_TZDEV_TZDEV_INTERNAL_H_
+#ifndef __SOURCE_TZDEV_TZDEV_INTERNAL_H__
+#define __SOURCE_TZDEV_TZDEV_INTERNAL_H__
 
 #define SCM_RESULT_DENIED       1
 #define SCM_RESULT_INTERRUPTED  4
@@ -56,36 +56,6 @@ struct scm_mux_link {
 
 #define WSM_FLAG_PERSIST	0x00000001
 
-#define TZLOG_ERROR	1		/* Error condition */
-#define TZLOG_WARNING	2	/* Warning condition */
-#define TZLOG_INFO	3		/* Informational */
-#define TZLOG_DEBUG	4		/* Debug-level message */
-
-#define tzlog_print(lvl, fmt, ...) \
-	do { \
-		if (lvl <= tzlog_loglevel) { \
-			switch (lvl) { \
-			case TZLOG_ERROR: \
-				printk(KERN_ERR "[TZDEV_ERR]%s:"fmt, __func__, ##__VA_ARGS__); \
-				break; \
-			case TZLOG_WARNING: \
-				printk(KERN_WARNING "[TZDEV_WARN]%s:"fmt, __func__, ##__VA_ARGS__); \
-				break; \
-			case TZLOG_INFO: \
-				printk(KERN_INFO "[TZDEV_INFO]%s:"fmt, __func__, ##__VA_ARGS__); \
-				break; \
-			case TZLOG_DEBUG: \
-				printk(KERN_DEBUG "[TZDEV_DBG]%s:"fmt, __func__, ##__VA_ARGS__); \
-				break; \
-			default: \
-				break; \
-			} \
-		} \
-	} while (0)
-
-extern int tzlog_loglevel;
-
-void tzlog_notify(void);
 void tzsys_crash_check(void);
 
 struct secos_syspage {
@@ -113,20 +83,32 @@ struct tzio_link {
 
 struct secos_kern_info {
 	/* Sent from SecureOS */
-	uint32_t			size;
-	uint32_t			abi;
-	uint64_t			shmem_base;
-	uint64_t			shmem_size;
+	uint32_t size;
+	uint32_t abi;
+	uint64_t shmem_base;
+	uint64_t shmem_size;
 
 	/* Check if timer management needs linux assistance */
-	uint32_t			soft_timer;
+	uint32_t soft_timer;
 
 	/* Send to SecureOS */
-	uint32_t			ipi_fiq;
+	uint32_t ipi_fiq;
+
+	/* Secos machine name */
+	char machine_name[32];
+
+	/* Secos build id */
+	char build_id[42];
+
+	/* Secos build type */
+	char build_type[32];
+
+	/* Secos build info */
+	char build_info[256];
 };
 
 #define SECOS_KERN_INFO_V1      (sizeof(struct secos_kern_info))
-#define SECOS_ABI_VERSION       10
+#define SECOS_ABI_VERSION       11
 
 struct secos_register_wsm_args {
 	uint64_t va;
@@ -151,11 +133,30 @@ struct scm_msg_link {
 
 struct tzio_link *tzio_acquire_link(gfp_t gfp);
 void tzio_release_link(struct tzio_link *link);
-int tzswm_register_tzdev_memory(uint64_t ctx_id, struct page **pages, size_t num_pages, gfp_t gfp, int for_kernel);
+int tzwsm_register_tzdev_memory(
+		uint64_t ctx_id,
+		struct page **pages,
+		phys_addr_t *pfns,
+		size_t num_pages,
+		gfp_t gfp,
+		int for_kernel);
 int tzwsm_register_kernel_memory(const void *ptr, size_t size, gfp_t gfp);
-int tzwsm_register_user_memory(uint64_t ctx_id, const void *__user ptr, size_t size, int rw, gfp_t gfp, struct page ***p_pages, size_t *p_num_pages);
+int tzwsm_register_user_memory(
+		uint64_t ctx_id,
+		const void *__user ptr,
+		size_t size,
+		int rw,
+		gfp_t gfp,
+		struct page ***p_pages,
+		phys_addr_t **p_pfns,
+		size_t *p_num_pages);
 void tzwsm_unregister_kernel_memory(int wsmid);
 
-#endif
+void tzwsm_unregister_user_memory(
+		int wsmid,
+		struct page **pages,
+		phys_addr_t *pfns,
+		size_t num_pages);
 
-#endif /* SOURCE_TZDEV_TZDEV_INTERNAL_H_ */
+#endif /* __SecureOS__ */
+#endif /* __SOURCE_TZDEV_TZDEV_INTERNAL_H__ */

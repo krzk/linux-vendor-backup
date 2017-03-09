@@ -20,8 +20,8 @@
 #include "circular_buffer.h"
 #include "tzdev.h"
 #include "tzdev_internal.h"
-#include "tzpage.h"
 #include "tzdev_smc.h"
+#include "tzlog_print.h"
 
 static DEFINE_SPINLOCK(tzio_free_lock);
 static LIST_HEAD(tzio_free_links);
@@ -47,7 +47,7 @@ static struct tzio_link *tzio_alloc_link(gfp_t gfp)
 	}
 
 	link->mux_link = page_address(link->pg);
-	link->id = tzswm_register_tzdev_memory(0, &link->pg, 1, gfp, 1);
+	link->id = tzwsm_register_tzdev_memory(0, &link->pg, NULL, 1, gfp, 1);
 
 	if (link->id < 0) {
 		tzlog_print(TZLOG_ERROR,
@@ -70,9 +70,10 @@ struct tzio_link *tzio_acquire_link(gfp_t gfp)
 	for (try = 0; try < 2; ++try) {
 		spin_lock_irqsave(&tzio_free_lock, flags);
 
-		link =
-		    list_first_entry_or_null(&tzio_free_links, struct tzio_link,
-					     list);
+		link = list_first_entry_or_null(
+				&tzio_free_links,
+				struct tzio_link,
+				list);
 
 		if (link) {
 			list_del(&link->list);

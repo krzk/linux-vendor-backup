@@ -16,14 +16,13 @@
  *
  *********************************************************/
 
-#ifndef __SOURCE_TZDEV_INIT_H__
-#define __SOURCE_TZDEV_INIT_H__
+#ifndef __TZLOG_PROCESS_H__
+#define __TZLOG_PROCESS_H__
 
-void tzsys_init(void);
-void tzmem_init(void);
-void tzio_link_init(void);
+#include "tzlog_core.h"
 
-int nsrpc_init_early(void);
-int nsrpc_init(void);
+int init_log_processing_resources(void);
+void tzlog_transfer_to_tzdaemon(s_tzlog_data *src_data, int src_buffer_size);
+void tzlog_transfer_to_local(s_tzlog_data *src_data, int src_buffer_size);
 
-#endif /* __SOURCE_TZDEV_INIT_H__ */
+#endif /* __TZLOG_PROCESS_H__ */

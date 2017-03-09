@@ -1,5 +1,5 @@
 /*********************************************************
- * Copyright (C) 2011 - 2015 Samsung Electronics Co., Ltd All Rights Reserved
+ * Copyright (C) 2011 - 2016 Samsung Electronics Co., Ltd All Rights Reserved
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,15 +16,17 @@
  *
  *********************************************************/
 
-#ifndef __SECURE_FILE_H__
-#define __SECURE_FILE_H__
+#ifndef __TZLOG_PRINT_H__
+#define __TZLOG_PRINT_H__
 
-int ss_file_read_object(char *path, char *buf, size_t size, off_t offset);
-int ss_file_create_object(char *path, char *buf, size_t size);
-int ss_file_append_object(char *path, char *buf, size_t size);
+#include "log_level_ree.h"
 
-void ss_file_delete_object(char *path);
-int ss_file_object_exist(char *path);
-int ss_file_object_size(char *path);
+extern kernel_log_level default_tzdev_local_log_level; /* OutPut */
 
-#endif
+void tzlog_print(uint32_t level, const char *fmt, ...);
+void tzlog_print_for_tee(
+		uint32_t level,
+		const char *label,
+		const char *fmt, ...);
+
+#endif /* __TZLOG_PRINT_H__ */

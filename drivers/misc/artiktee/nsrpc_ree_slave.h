@@ -16,21 +16,28 @@
  *
  *********************************************************/
 
-#ifndef __TRUSTZONE_SHARED_INCLUDE_TRUSTWAREOS_PRIVATE_WSM_H__
-#define __TRUSTZONE_SHARED_INCLUDE_TRUSTWAREOS_PRIVATE_WSM_H__
+#ifndef __SOURCE_TZDEV_NSRPC_REE_SLAVE_H__
+#define __SOURCE_TZDEV_NSRPC_REE_SLAVE_H__
 
-typedef uint64_t		ns_phys_addr_t;
+#include <linux/kernel.h>
 
-#define NS_PAGES_PER_LEVEL			((PAGE_SIZE - 16) / sizeof(ns_phys_addr_t))
-#define NS_PHYS_ADDR_IS_LEVEL_1		0x1UL
+typedef struct NSRPCTransaction_s NSRPCTransaction_t;
 
-struct ns_level_registration {
-	uint32_t		num_pfns;
-	uint32_t		flags;
-	uint64_t		ctx_id;
-	ns_phys_addr_t	address[NS_PAGES_PER_LEVEL];
-};
+#define NSRPC_NUM_ARGS		8
 
-#define NS_WSM_FLAG_KERNEL		1
+void nsrpc_complete(NSRPCTransaction_t *tsx, int code);
+int nsrpc_add(const void *buffer, size_t size);
 
-#endif /* __TRUSTZONE_SHARED_INCLUDE_TRUSTWAREOS_PRIVATE_WSM_H__ */
+int nsrpc_get_next_completion(void *buffer,
+				      size_t avail_size,
+				      size_t *remaining_size,
+				      size_t *obj_size);
+
+uint32_t nsrpc_get_arg(NSRPCTransaction_t *tsx, int arg);
+uint32_t nsrpc_get_command(NSRPCTransaction_t *tsx);
+void nsrpc_set_arg(NSRPCTransaction_t *tsx, int arg, uint32_t value);
+void *nsrpc_payload_ptr(NSRPCTransaction_t *tsx);
+unsigned int nsrpc_wsm_offset(NSRPCTransaction_t *tsx, size_t *p_size);
+int nsrpc_count_completions(void);
+
+#endif /* __SOURCE_TZDEV_NSRPC_REE_SLAVE_H__ */

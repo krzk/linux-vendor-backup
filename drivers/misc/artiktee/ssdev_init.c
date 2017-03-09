@@ -33,10 +33,10 @@
 #include <linux/time.h>
 #include <linux/semaphore.h>
 
-#include "ss_rpmb.h"
-#include "ss_core.h"
-#include "ss_dev.h"
-#include "tzdev_internal.h"
+#include "ssdev_rpmb.h"
+#include "ssdev_core.h"
+#include "ssdev_init.h"
+#include "tzlog_print.h"
 
 #ifndef CONFIG_SECOS_NO_SECURE_STORAGE
 
@@ -67,7 +67,7 @@ struct semaphore ssdev_sem;
 #define SS_CHECK_TIME_DECLARE()
 #define SS_CHECK_TIME_BEGIN()
 #define SS_CHECK_TIME_END()
-#endif
+#endif /* SSDEV_MEASURE_TIME */
 
 static long storage_ioctl(struct file *file, unsigned int cmd,
 			  unsigned long arg)
@@ -96,6 +96,9 @@ static const struct file_operations storage_fops = {
 	.release = storage_release,
 	.mmap = storage_mmap,
 	.unlocked_ioctl = storage_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = storage_ioctl,
+#endif
 };
 
 static struct miscdevice storage = {
@@ -120,7 +123,6 @@ int __init init_storage(void)
 
 	tzlog_print(TZLOG_INFO, "storage driver version [%s.%s]\n",
 			SS_MAJOR_VERSION, SS_MINOR_VERSION);
-	/* VD Change */
 
 	return 0;
 }

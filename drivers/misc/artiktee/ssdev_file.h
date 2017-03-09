@@ -1,5 +1,5 @@
 /*********************************************************
- * Copyright (C) 2011 - 2016 Samsung Electronics Co., Ltd All Rights Reserved
+ * Copyright (C) 2011 - 2015 Samsung Electronics Co., Ltd All Rights Reserved
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,14 +16,15 @@
  *
  *********************************************************/
 
-#ifndef __SOURCE_TZDEV_INIT_H__
-#define __SOURCE_TZDEV_INIT_H__
+#ifndef __SECURE_FILE_H__
+#define __SECURE_FILE_H__
 
-void tzsys_init(void);
-void tzmem_init(void);
-void tzio_link_init(void);
+int ss_file_read_object(char *path, char *buf, size_t size, off_t offset);
+int ss_file_create_object(char *path, char *buf, size_t size);
+int ss_file_append_object(char *path, char *buf, size_t size);
 
-int nsrpc_init_early(void);
-int nsrpc_init(void);
+void ss_file_delete_object(char *path);
+int ss_file_object_exist(char *path);
+int ss_file_object_size(char *path);
 
-#endif /* __SOURCE_TZDEV_INIT_H__ */
+#endif /* __SECURE_FILE_H__ */

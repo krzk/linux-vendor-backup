@@ -29,10 +29,10 @@
 
 #ifndef CONFIG_SECOS_NO_SECURE_STORAGE
 
-#if defined(CONFIG_MMC) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0))
+#if defined(CONFIG_MMC)
 
-#include "ss_rpmb.h"
-#include "tzdev_internal.h"
+#include "ssdev_rpmb.h"
+#include "tzlog_print.h"
 
 #define RPMB_DEVICE         "mmcblk0rpmb"
 
@@ -441,7 +441,7 @@ exit:
 	return result;
 }
 
-#endif
+#endif /* defined(CONFIG_MMC) */
 
-#endif
-#endif
+#endif /* CONFIG_SECOS_NO_SECURE_STORAGE */
+#endif /* CONFIG_SECOS_NO_RPMB */
