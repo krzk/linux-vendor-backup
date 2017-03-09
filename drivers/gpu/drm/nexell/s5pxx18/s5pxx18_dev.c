@@ -27,12 +27,14 @@
 #include <linux/io.h>
 #include <linux/reset.h>
 
-#include "s5pxx18_dp_dev.h"
+#include "s5pxx18_drv.h"
 
 #define	WAIT_VBLANK(m, n, o)
 #define	LAYER_VIDEO		PLANE_VIDEO_NUM
 
 #define	LAYER_VIDEO_FMT_MASK	0xffffff
+
+static struct plane_top_format top_format[2];
 
 /* 12345'678'[8] -> 12345 [5], 123456'78'[8] -> 123456[6] */
 static inline u_short R8G8B8toR5G6B5(unsigned int RGB)
@@ -142,19 +144,21 @@ void nx_soc_dp_cont_top_clk_on(int id)
 	nx_disp_top_clkgen_set_clock_pclk_mode(id, nx_pclkmode_always);
 }
 
-void nx_soc_dp_cont_dpc_clk_on(struct dp_control_dev *dpc)
+void nx_soc_dp_cont_dpc_clk_on(struct nx_control_dev *control)
 {
-	int module = dpc->module;
+	int module = control->module;
 
-	pr_debug("%s: dev.%d DONE\n", __func__, module);
+	pr_debug("%s: %s dev.%d\n", __func__,
+		nx_panel_get_name(control->panel_type), module);
+
 	nx_dpc_set_clock_pclk_mode(module, nx_pclkmode_always);
 }
 
-int nx_soc_dp_cont_prepare(struct dp_control_dev *dpc)
+int nx_soc_dp_cont_prepare(struct nx_control_dev *control)
 {
-	struct dp_sync_info *sync = &dpc->sync;
-	struct dp_ctrl_info *ctl = &dpc->ctrl;
-	int module = dpc->module;
+	struct nx_sync_info *sync = &control->sync;
+	struct nx_control_info *ctl = &control->ctrl;
+	int module = control->module;
 	unsigned int out_format = ctl->out_format;
 	unsigned int delay_mask = ctl->delay_mask;
 	int rgb_pvd = 0, hsync_cp1 = 7, vsync_fram = 7, de_cp2 = 7;
@@ -170,17 +174,35 @@ int nx_soc_dp_cont_prepare(struct dp_control_dev *dpc)
 
 	enum nx_dpc_dither r_dither, g_dither, b_dither;
 	int rgb_mode = 0;
-	bool lcd_rgb = dpc->panel_type == dp_panel_type_rgb ?
+	bool lcd_rgb = control->panel_type == NX_PANEL_TYPE_RGB ?
 			true : false;
 
+#ifdef CONFIG_DRM_CHECK_PRE_INIT
+	bool poweron = false;
+
+	/*
+	 * check only boot time to prevent flick.
+	 * no recheck power status to support HDMI's resolution change
+	 */
+	if (!control->bootup) {
+		poweron = nx_dpc_get_dpc_enable(module) ? true : false;
+		pr_debug("%s: %s dev.%d prepare power [%s]\n",
+			__func__, nx_panel_get_name(control->panel_type),
+			module, poweron ? "enabled" : "disabled");
+	}
+
+	if (poweron)
+		return 0;
+#endif
+
 	/* set delay mask */
-	if (delay_mask & DP_SYNC_DELAY_RGB_PVD)
+	if (delay_mask & DPC_SYNC_DELAY_RGB_PVD)
 		rgb_pvd = ctl->d_rgb_pvd;
-	if (delay_mask & DP_SYNC_DELAY_HSYNC_CP1)
+	if (delay_mask & DPC_SYNC_DELAY_HSYNC_CP1)
 		hsync_cp1 = ctl->d_hsync_cp1;
-	if (delay_mask & DP_SYNC_DELAY_VSYNC_FRAM)
+	if (delay_mask & DPC_SYNC_DELAY_VSYNC_FRAM)
 		vsync_fram = ctl->d_vsync_fram;
-	if (delay_mask & DP_SYNC_DELAY_DE_CP)
+	if (delay_mask & DPC_SYNC_DELAY_DE_CP)
 		de_cp2 = ctl->d_de_cp2;
 
 	if (ctl->vs_start_offset != 0 ||
@@ -264,7 +286,7 @@ int nx_soc_dp_cont_prepare(struct dp_control_dev *dpc)
 		nx_dpc_set_quantization_mode(module, qmode_256, qmode_256);
 	}
 
-	pr_debug("%s: %s\n", __func__, dp_panel_type_name(dpc->panel_type));
+	pr_debug("%s: %s\n", __func__, nx_panel_get_name(control->panel_type));
 	pr_debug("dev.%d (x=%4d, hfp=%3d, hbp=%3d, hsw=%3d, hi=%d)\n",
 		 module, sync->h_active_len, sync->h_front_porch,
 		 sync->h_back_porch, sync->h_sync_width, sync->h_sync_invert);
@@ -283,27 +305,52 @@ int nx_soc_dp_cont_prepare(struct dp_control_dev *dpc)
 	return 0;
 }
 
-int nx_soc_dp_cont_power_status(struct dp_control_dev *dpc)
+int nx_soc_dp_cont_power_status(struct nx_control_dev *control)
 {
 	return 0;
 }
 
-void nx_soc_dp_cont_power_on(struct dp_control_dev *dpc, bool on)
+void nx_soc_dp_cont_power_on(struct nx_control_dev *control, bool on)
 {
-	int module = dpc->module;
+	int module = control->module;
 	int count = 200;
+	bool poweron = false;
 	int vbl;
 
-	pr_debug("%s: %s dev.%d power %s\n",
-		__func__, dp_panel_type_name(dpc->panel_type),
-		module, on ? "on" : "off");
+#ifdef CONFIG_DRM_CHECK_PRE_INIT
+	poweron = nx_dpc_get_dpc_enable(module) ? true : false;
+	/*
+	 * check only boot time to prevent flick.
+	 * no recheck power status to support HDMI's resolution change
+	 */
+	if (control->bootup)
+		poweron = false;
+
+	control->bootup = true;
+#endif
+
+	pr_debug("%s: %s dev.%d power %s [%s]\n",
+		__func__, nx_panel_get_name(control->panel_type),
+		module, on ? "on" : "off", poweron ? "enabled" : "disabled");
 
 	nx_dpc_clear_interrupt_pending_all(module);
 
 	if (on) {
-		nx_dpc_set_reg_flush(module);	/* for HDMI */
-		nx_dpc_set_dpc_enable(module, 1);
-		nx_dpc_set_clock_divisor_enable(module, 1);
+		if (!poweron) {
+			nx_dpc_set_reg_flush(module);	/* for HDMI */
+
+			if (control->cluster) {
+				if (module == 0)
+					nx_dpc_set_enable(module,
+								1, 1, 1, 0, 0);
+				if (module == 1)
+					nx_dpc_set_dpc_enable(module, 1);
+			} else {
+				nx_dpc_set_dpc_enable(module, 1);
+			}
+
+			nx_dpc_set_clock_divisor_enable(module, 1);
+		}
 	} else {
 		nx_dpc_set_dpc_enable(module, 0);
 		nx_dpc_set_clock_divisor_enable(module, 0);
@@ -340,7 +387,7 @@ void nx_soc_dp_cont_irq_done(int module)
 	nx_dpc_clear_interrupt_pending_all(module);
 }
 
-void nx_soc_dp_plane_top_prepare(struct dp_plane_top *top)
+void nx_soc_dp_plane_top_prepare(struct nx_top_plane *top)
 {
 	int module = top->module;
 
@@ -349,13 +396,46 @@ void nx_soc_dp_plane_top_prepare(struct dp_plane_top *top)
 	nx_mlc_set_clock_bclk_mode(module, nx_bclkmode_always);
 }
 
-void nx_soc_dp_plane_top_set_format(struct dp_plane_top *top,
+void nx_soc_dp_plane_top_prev_format(struct plane_top_format *format)
+{
+	struct plane_top_format *topform;
+	int module = format->module;
+
+	if (module > (ARRAY_SIZE(top_format) - 1)) {
+		pr_err("Failed, not support top module %d (0,1)\n", module);
+		return;
+	}
+
+	topform = &top_format[module];
+	topform->mask = format->mask;
+
+	if (format->mask & NX_PLANE_FORMAT_SCREEN_SIZE) {
+		nx_mlc_set_screen_size(module, format->width, format->height);
+		topform->width = format->width;
+		topform->height = format->height;
+	}
+
+	if (format->mask & NX_PLANE_FORMAT_VIDEO_PRIORITY) {
+		nx_mlc_set_layer_priority(module, format->video_priority);
+		topform->video_priority = format->video_priority;
+	}
+
+	if (format->mask & NX_PLANE_FORMAT_BACK_COLOR) {
+		nx_mlc_set_background(module, format->bgcolor & 0x00FFFFFF);
+		topform->bgcolor = format->bgcolor;
+	}
+}
+
+void nx_soc_dp_plane_top_set_format(struct nx_top_plane *top,
 			int width, int height)
 {
+	struct plane_top_format *topform;
 	int module = top->module;
 	enum nx_mlc_priority priority;
-	int prior = top->video_prior;
+	int prior = top->video_priority;
 	unsigned int bgcolor = top->back_color;
+
+	topform = &top_format[module];
 
 	switch (prior) {
 	case 0:
@@ -372,7 +452,7 @@ void nx_soc_dp_plane_top_set_format(struct dp_plane_top *top,
 		break;	/* PRIORITY-0>1>2>video */
 	default:
 		pr_err(
-			"fail : not support video priority num(0~3),(%d)\n",
+			"Failed, not support video priority num(0~3),(%d)\n",
 		    prior);
 		return;
 	}
@@ -383,13 +463,19 @@ void nx_soc_dp_plane_top_set_format(struct dp_plane_top *top,
 	pr_debug("%s: crtc.%d, %d by %d, prior %d, bg 0x%x\n",
 		__func__, module, top->width, top->height, prior, bgcolor);
 
-	nx_mlc_set_screen_size(module, top->width, top->height);
-	nx_mlc_set_background(module, bgcolor & 0x00FFFFFF);
-	nx_mlc_set_layer_priority(module, priority);
+	if (!(topform->mask & NX_PLANE_FORMAT_SCREEN_SIZE))
+		nx_mlc_set_screen_size(module, top->width, top->height);
+
+	if (!(topform->mask & NX_PLANE_FORMAT_VIDEO_PRIORITY))
+		nx_mlc_set_layer_priority(module, priority);
+
+	if (!(topform->mask & NX_PLANE_FORMAT_BACK_COLOR))
+		nx_mlc_set_background(module, bgcolor & 0x00FFFFFF);
+
 	nx_mlc_set_top_dirty_flag(module);
 }
 
-void nx_soc_dp_plane_top_set_bg_color(struct dp_plane_top *top)
+void nx_soc_dp_plane_top_set_bg_color(struct nx_top_plane *top)
 {
 	int module = top->module;
 	unsigned int bgcolor = top->back_color;
@@ -401,9 +487,9 @@ void nx_soc_dp_plane_top_set_bg_color(struct dp_plane_top *top)
 	nx_mlc_set_top_dirty_flag(module);
 }
 
-int nx_soc_dp_plane_top_set_enable(struct dp_plane_top *top, bool on)
+int nx_soc_dp_plane_top_set_enable(struct nx_top_plane *top, bool on)
 {
-	struct dp_plane_layer *layer;
+	struct nx_plane_layer *layer;
 	int module = top->module;
 
 	pr_debug("%s: crtc.%d, %s %dx%d\n",
@@ -450,7 +536,7 @@ int nx_soc_dp_plane_top_set_enable(struct dp_plane_top *top, bool on)
 	return 0;
 }
 
-int nx_soc_dp_plane_rgb_set_format(struct dp_plane_layer *layer,
+int nx_soc_dp_plane_rgb_set_format(struct nx_plane_layer *layer,
 			unsigned int format, int pixelbyte, bool adjust)
 {
 	int module = layer->module;
@@ -479,6 +565,11 @@ int nx_soc_dp_plane_rgb_set_format(struct dp_plane_layer *layer,
 	    format == nx_mlc_rgbfmt_a8b8g8r8)
 		en_alpha = 1;
 
+	if (layer->is_bgr) {
+		format |= 1<<31;
+		pr_debug("%s: BGR plane fmt:0x%x\n", __func__, format);
+	}
+
 	/* nx_mlc_set_transparency(module,layer,0,layer->color.transcolor); */
 	nx_mlc_set_lock_size(module, layer->num, m_lock_size);
 	nx_mlc_set_color_inversion(module, num, 0, layer->color.invertcolor);
@@ -492,7 +583,7 @@ int nx_soc_dp_plane_rgb_set_format(struct dp_plane_layer *layer,
 	return 0;
 }
 
-int nx_soc_dp_plane_rgb_set_position(struct dp_plane_layer *layer,
+int nx_soc_dp_plane_rgb_set_position(struct nx_plane_layer *layer,
 			int src_x, int src_y, int src_w, int src_h,
 			int dst_x, int dst_y, int dst_w, int dst_h,
 			bool adjust)
@@ -500,50 +591,48 @@ int nx_soc_dp_plane_rgb_set_position(struct dp_plane_layer *layer,
 {
 	int module = layer->module;
 	int num = layer->num;
+	int sx, sy, ex, ey;
 
-	int sx = src_x;
-	int sy = src_y;
-	int sw = src_w;
-	int sh = src_h;
-	int w, h;
-
-	if (layer->left == sx && layer->top == sy &&
-	layer->width == sw && layer->height == sh &&
+	if (layer->left == src_x && layer->top == src_y &&
+	layer->width == src_w && layer->height == src_h &&
 	layer->dst_left == dst_x && layer->dst_top == dst_y &&
 	layer->dst_width == dst_w && layer->dst_height == dst_h)
 		return 0;
 
-	layer->left = sx;
-	layer->top = sy;
-	layer->width = sw;
-	layer->height = sh;
+	/* source */
+	layer->left = src_x;
+	layer->top = src_y;
+	layer->width = src_w;
+	layer->height = src_h;
 
+	/* hw layer */
 	layer->dst_left = dst_x;
 	layer->dst_top = dst_y;
 	layer->dst_width = dst_w;
 	layer->dst_height = dst_h;
 
-	w = dst_x + sw;
-	h = dst_y + sh;
+	sx = dst_x, sy = dst_y;
+	ex = dst_x + dst_w;
+	ey = dst_y + dst_h;
 
 	/* max rectangle 2048 */
-	if (w > 2048)
-		w = 2048;
+	if (ex > 2048)
+		ex = 2048;
 
-	if (h > 2048)
-		h = 2048;
+	if (ey > 2048)
+		ey = 2048;
 
 	pr_debug("%s: %s, (%d, %d, %d, %d) to (%d, %d, %d, %d) adjust=%d\n",
-		 __func__, layer->name, sx, sy, sw, sh,
-		 dst_x, dst_y, w, h, adjust);
+		 __func__, layer->name, src_x, src_y, src_w, src_h,
+		 sx, sy, ex, ey, adjust);
 
-	nx_mlc_set_position(module, num, dst_x, dst_y, w - 1, h - 1);
+	nx_mlc_set_position(module, num, sx, sy, ex - 1, ey - 1);
 	dp_plane_adjust(module, num, adjust);
 
 	return 0;
 }
 
-void nx_soc_dp_plane_rgb_set_address(struct dp_plane_layer *layer,
+void nx_soc_dp_plane_rgb_set_address(struct nx_plane_layer *layer,
 			unsigned int addr, unsigned int pixelbyte,
 			unsigned int stride, int align, bool adjust)
 {
@@ -551,7 +640,7 @@ void nx_soc_dp_plane_rgb_set_address(struct dp_plane_layer *layer,
 	int num = layer->num;
 	int cl = layer->left, ct = layer->top;
 
-	unsigned int phys = addr + (cl*pixelbyte) + (ct * stride);
+	unsigned int phys = addr + (cl * pixelbyte) + (ct * stride);
 
 	if (align)
 		phys = ALIGN(phys, align);
@@ -559,7 +648,8 @@ void nx_soc_dp_plane_rgb_set_address(struct dp_plane_layer *layer,
 	pr_debug("%s: %s, pa=0x%x, hs=%d, vs=%d, l:%d, t:%d, adjust=%d\n",
 		__func__, layer->name, phys, pixelbyte, stride, cl, ct, adjust);
 	pr_debug("%s: %s, pa=0x%x -> 0x%x aligned %d\n",
-		__func__, layer->name, (addr + (cl*pixelbyte) + (ct * stride)),
+		__func__, layer->name,
+		(addr + (cl * pixelbyte) + (ct * stride)),
 		phys, align);
 
 	if (adjust)
@@ -570,7 +660,7 @@ void nx_soc_dp_plane_rgb_set_address(struct dp_plane_layer *layer,
 	dp_plane_adjust(module, num, adjust);
 }
 
-void nx_soc_dp_plane_rgb_set_enable(struct dp_plane_layer *layer,
+void nx_soc_dp_plane_rgb_set_enable(struct nx_plane_layer *layer,
 			bool on, bool adjust)
 {
 	int module = layer->module;
@@ -599,7 +689,7 @@ void nx_soc_dp_plane_rgb_set_enable(struct dp_plane_layer *layer,
 	}
 }
 
-void nx_soc_dp_plane_rgb_set_color(struct dp_plane_layer *layer,
+void nx_soc_dp_plane_rgb_set_color(struct nx_plane_layer *layer,
 			unsigned int type, unsigned int color,
 			bool on, bool adjust)
 {
@@ -611,7 +701,7 @@ void nx_soc_dp_plane_rgb_set_color(struct dp_plane_layer *layer,
 		on ? "on" : "off");
 
 	switch (type) {
-	case dp_color_alpha:
+	case NX_COLOR_ALPHA:
 		if (color <= 0)
 			color = 0;
 		if (color >= 15)
@@ -625,32 +715,31 @@ void nx_soc_dp_plane_rgb_set_color(struct dp_plane_layer *layer,
 		dp_plane_adjust(module, num, adjust);
 		break;
 
-	case dp_color_transp:
-		if (1 == layer->pixelbyte) {
+	case NX_COLOR_TRANS:
+		if (layer->pixelbyte == 1) {
 			color = R8G8B8toR3G3B2((unsigned int)color);
 			color = R3G3B2toR8G8B8((u8) color);
 		}
 
-		if (2 == layer->pixelbyte) {
+		if (layer->pixelbyte == 2) {
 			color = R8G8B8toR5G6B5((unsigned int)color);
 			color = R5G6B5toR8G8B8((u_short) color);
 		}
 
 		layer->color.transcolor = (on ? color : 0);
-
 		nx_mlc_set_transparency(module, num,
 			(on ? 1 : 0), (u32)(color & 0x00FFFFFF));
 
 		dp_plane_adjust(module, num, adjust);
 		break;
 
-	case dp_color_invert:
-		if (1 == layer->pixelbyte) {
+	case NX_COLOR_INVERT:
+		if (layer->pixelbyte == 1) {
 			color = R8G8B8toR3G3B2((unsigned int)color);
 			color = R3G3B2toR8G8B8((u8) color);
 		}
 
-		if (2 == layer->pixelbyte) {
+		if (layer->pixelbyte == 2) {
 			color = R8G8B8toR5G6B5((unsigned int)color);
 			color = R5G6B5toR8G8B8((u_short) color);
 		}
@@ -668,7 +757,7 @@ void nx_soc_dp_plane_rgb_set_color(struct dp_plane_layer *layer,
 	}
 }
 
-int nx_soc_dp_plane_video_set_format(struct dp_plane_layer *layer,
+int nx_soc_dp_plane_video_set_format(struct nx_plane_layer *layer,
 			unsigned int format, bool adjust)
 {
 	int module = layer->module;
@@ -690,29 +779,25 @@ int nx_soc_dp_plane_video_set_format(struct dp_plane_layer *layer,
 	return 0;
 }
 
-int nx_soc_dp_plane_video_set_position(struct dp_plane_layer *layer,
+int nx_soc_dp_plane_video_set_position(struct nx_plane_layer *layer,
 			int src_x, int src_y, int src_w, int src_h,
 			int dst_x, int dst_y, int dst_w, int dst_h,
 			bool adjust)
 {
 	int module = layer->module;
-	int sx = src_x, sy = src_y;
-	int sw = src_w, sh = src_h;
-	int dx = dst_x, dy = dst_y;
-	int dw = dst_w, dh = dst_h;
+	int sx, sy, ex, ey;
 	int hf = 1, vf = 1;
-	int w = 0, h = 0;
 
-	if (layer->left == sx && layer->top == sy &&
-	layer->width == sw && layer->height == sh &&
+	if (layer->left == src_x && layer->top == src_y &&
+	layer->width == src_w && layer->height == src_h &&
 	layer->dst_left == dst_x && layer->dst_top == dst_y &&
 	layer->dst_width == dst_w && layer->dst_height == dst_h)
 		return 0;
 
-	layer->left = sx;
-	layer->top = sy;
-	layer->width = sw;
-	layer->height = sh;
+	layer->left = src_x;
+	layer->top = src_y;
+	layer->width = src_w;
+	layer->height = src_h;
 
 	layer->dst_left = dst_x;
 	layer->dst_top = dst_y;
@@ -723,41 +808,45 @@ int nx_soc_dp_plane_video_set_position(struct dp_plane_layer *layer,
 	 * max scale size 2048
 	 * if ove scale size, fix max
 	 */
-	if (dw > 2048)
-		dw = 2048;
+	if (dst_w > 2048)
+		dst_w = 2048;
 
-	if (dh > 2048)
-		dh = 2048;
+	if (dst_h > 2048)
+		dst_h = 2048;
 
-	w = dx + dw;
-	h = dy + dh;
+	sx = dst_x, sy = dst_y;
+	ex = dst_x + dst_w;
+	ey = dst_y + dst_h;
 
 	/* max rectangle 2048 */
-	if (w > 2048)
-		w = 2048;
+	if (ex > 2048)
+		ex = 2048;
 
-	if (h > 2048)
-		h = 2048;
+	if (ey > 2048)
+		ey = 2048;
 
-	pr_debug("%s: %s, (%d, %d, %d, %d) to (%d, %d, %d, %d, %d, %d) adjust=%d\n",
-		 __func__, layer->name, sx, sy, sw, sh,
-		 dx, dy, dw, dh, w, h, adjust);
+	pr_debug("%s: %s, (%d, %d, %d, %d) to (%d, %d, %d, %d, %d, %d)\n",
+		 __func__, layer->name, src_x, src_y, src_w, src_h,
+		 sx, sy, ex, ey, dst_w, dst_h);
 
-	if (sw == dw && sh == dh)
+	if (ex == 0 || ey == 0 ||
+		(src_w == dst_w && src_h == dst_h))
 		hf = 0, vf = 0;
 
 	layer->h_filter = hf;
 	layer->v_filter = vf;
 
 	/* set scale and position */
-	nx_mlc_set_video_layer_scale(module, sw, sh, dw, dh, hf, hf, vf, vf);
-	nx_mlc_set_position(module, LAYER_VIDEO, dx, dy, w - 1, h - 1);
+	nx_mlc_set_position(module, LAYER_VIDEO, sx, sy,
+			ex ? ex - 1 : ex, ey ? ey - 1 : ey);
+	nx_mlc_set_video_layer_scale(module, src_w, src_h,
+			dst_w, dst_h, hf, hf, vf, vf);
 	dp_plane_adjust(module, LAYER_VIDEO, adjust);
 
 	return 0;
 }
 
-void nx_soc_dp_plane_video_set_address_1p(struct dp_plane_layer *layer,
+void nx_soc_dp_plane_video_set_address_1p(struct nx_plane_layer *layer,
 			unsigned int addr, unsigned int stride,
 			bool adjust)
 {
@@ -772,7 +861,7 @@ void nx_soc_dp_plane_video_set_address_1p(struct dp_plane_layer *layer,
 	dp_plane_adjust(module, LAYER_VIDEO, adjust);
 }
 
-void nx_soc_dp_plane_video_set_address_3p(struct dp_plane_layer *layer,
+void nx_soc_dp_plane_video_set_address_3p(struct nx_plane_layer *layer,
 			unsigned int lu_a, unsigned int lu_s,
 			unsigned int cb_a, unsigned int cb_s,
 			unsigned int cr_a, unsigned int cr_s,
@@ -814,7 +903,7 @@ void nx_soc_dp_plane_video_set_address_3p(struct dp_plane_layer *layer,
 	dp_plane_adjust(module, LAYER_VIDEO, adjust);
 }
 
-void nx_soc_dp_plane_video_set_enable(struct dp_plane_layer *layer,
+void nx_soc_dp_plane_video_set_enable(struct nx_plane_layer *layer,
 			bool on, bool adjust)
 {
 	int module = layer->module;
@@ -857,10 +946,10 @@ void nx_soc_dp_plane_video_set_enable(struct dp_plane_layer *layer,
 	}
 }
 
-void nx_soc_dp_plane_video_set_priority(struct dp_plane_layer *layer,
+void nx_soc_dp_plane_video_set_priority(struct nx_plane_layer *layer,
 			int priority)
 {
-	struct dp_plane_top *top = layer->plane_top;
+	struct nx_top_plane *top = layer->top_plane;
 	int module = layer->module;
 
 	switch (priority) {
@@ -878,11 +967,11 @@ void nx_soc_dp_plane_video_set_priority(struct dp_plane_layer *layer,
 		break;	/* PRIORITY-0>1>2>video */
 	default:
 		pr_err(
-			"fail : not support video priority num(0~3),(%d)\n",
+			"Failed, not support video priority num(0~3),(%d)\n",
 		    priority);
 		return;
 	}
-	top->video_prior = priority;
+	top->video_priority = priority;
 
 	pr_debug("%s: crtc.%d, priority:%d\n", __func__, module, priority);
 

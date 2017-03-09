@@ -14,6 +14,19 @@ config DRM_NX
 	  management to userspace. If M is selected the module
 	  will be called nexell drm.
 
+choice
+	prompt "Support DRM"
+
+config DRM_NX_S5PXX18
+	bool "S5PXX18"
+	depends on DRM_NX
+	help
+	 This selects support for S5PXX18 SoC DRM driver.
+	 If you want to enable S5PXX18 SoC DRM display,
+	 you should selet this option.
+
+endchoice
+
 config DRM_NX_RGB
 	bool "RGB LCD support"
 	depends on DRM_NX
