@@ -8322,7 +8322,7 @@ static const struct wiphy_wowlan_support brcm_wowlan_support = {
  * Fixed the WiFi disconnection issue during suspend when AP is connected
  * Refer to commit 6abb9cb99f33b20c
  */
-static struct cfg80211_wowlan brcm_wowlan_config = {
+static const struct cfg80211_wowlan brcm_wowlan_config = {
 	.any = true,
 };
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0) */
@@ -8331,6 +8331,11 @@ static struct cfg80211_wowlan brcm_wowlan_config = {
 static s32 wl_setup_wiphy(struct wireless_dev *wdev, struct device *sdiofunc_dev, void *context)
 {
 	s32 err = 0;
+#if defined(CONFIG_PM) && defined(WL_CFG80211_P2P_DEV_IF)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0))
+	struct cfg80211_wowlan *wowlan_config;
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 10) */
+#endif /* CONFIG_PM && WL_CFG80211_P2P_DEV_IF */
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 0) || defined(WL_COMPAT_WIRELESS))
 	dhd_pub_t *dhd = (dhd_pub_t *)context;
 	BCM_REFERENCE(dhd);
@@ -8458,7 +8463,15 @@ static s32 wl_setup_wiphy(struct wireless_dev *wdev, struct device *sdiofunc_dev
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0))
 	wdev->wiphy->wowlan = &brcm_wowlan_support;
-	wdev->wiphy->wowlan_config = &brcm_wowlan_config;
+
+	wowlan_config = kmemdup(&brcm_wowlan_config, sizeof(brcm_wowlan_config),
+				GFP_KERNEL);
+	if (!wowlan_config) {
+		wiphy_free(wdev->wiphy);
+		return -ENOMEM;
+	}
+
+	wdev->wiphy->wowlan_config = wowlan_config;
 #else
 	wdev->wiphy->wowlan.flags = WIPHY_WOWLAN_ANY;
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 10) */
@@ -8482,6 +8495,11 @@ static s32 wl_setup_wiphy(struct wireless_dev *wdev, struct device *sdiofunc_dev
 	err = wiphy_register(wdev->wiphy);
 	if (unlikely(err < 0)) {
 		WL_ERR(("Couldn not register wiphy device (%d)\n", err));
+#if defined(CONFIG_PM) && defined(WL_CFG80211_P2P_DEV_IF)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0))
+		kfree(wdev->wiphy->wowlan_config);
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 10) */
+#endif /* CONFIG_PM && WL_CFG80211_P2P_DEV_IF */
 		wiphy_free(wdev->wiphy);
 	}
 
