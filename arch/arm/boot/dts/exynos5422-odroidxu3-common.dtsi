@@ -57,8 +57,6 @@
 		pinctrl-0 = <&gpio_power_key>;
 
 		power_key {
-			interrupt-parent = <&gpx0>;
-			interrupts = <3 0>;
 			gpios = <&gpx0 3 GPIO_ACTIVE_LOW>;
 			linux,code = <KEY_POWER>;
 			label = "power key";
