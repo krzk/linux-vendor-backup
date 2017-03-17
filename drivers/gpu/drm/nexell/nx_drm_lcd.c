@@ -374,15 +374,10 @@ static int panel_mipi_detach(struct mipi_dsi_host *host,
 			container_of(host, struct mipi_resource, mipi_host);
 	struct lcd_context *ctx = container_of(mipi, struct lcd_context, mipi);
 	struct nx_drm_display *display = ctx_to_display(ctx);
-	struct drm_connector *connector = &ctx->connector.connector;
 
 	DRM_DEBUG_KMS("enter\n");
 
 	display->panel_node = NULL;
-
-	if (connector->dev)
-		drm_helper_hpd_irq_event(connector->dev);
-
 	display->panel = NULL;
 
 	return 0;
