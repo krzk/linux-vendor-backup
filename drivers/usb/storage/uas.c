@@ -42,7 +42,6 @@ struct uas_dev_info {
 	int qdepth, resetting;
 	unsigned cmd_pipe, status_pipe, data_in_pipe, data_out_pipe;
 	unsigned use_streams:1;
-	unsigned shutdown:1;
 	struct scsi_cmnd *cmnd[MAX_CMNDS];
 	spinlock_t lock;
 	struct work_struct work;
@@ -956,7 +955,6 @@ static int uas_probe(struct usb_interface *intf, const struct usb_device_id *id)
 	devinfo->intf = intf;
 	devinfo->udev = udev;
 	devinfo->resetting = 0;
-	devinfo->shutdown = 0;
 	devinfo->flags = dev_flags;
 	init_usb_anchor(&devinfo->cmd_urbs);
 	init_usb_anchor(&devinfo->sense_urbs);
@@ -1046,9 +1044,6 @@ static int uas_pre_reset(struct usb_interface *intf)
 	struct uas_dev_info *devinfo = (struct uas_dev_info *)shost->hostdata;
 	unsigned long flags;
 
-	if (devinfo->shutdown)
-		return 0;
-
 	/* Block new requests */
 	spin_lock_irqsave(shost->host_lock, flags);
 	scsi_block_requests(shost);
@@ -1071,9 +1066,6 @@ static int uas_post_reset(struct usb_interface *intf)
 	struct uas_dev_info *devinfo = (struct uas_dev_info *)shost->hostdata;
 	unsigned long flags;
 	int err;
-
-	if (devinfo->shutdown)
-		return 0;
 
 	err = uas_configure_endpoints(devinfo);
 	if (err) {
@@ -1153,27 +1145,6 @@ static void uas_disconnect(struct usb_interface *intf)
 	scsi_host_put(shost);
 }
 
-/*
- * Put the device back in usb-storage mode on shutdown, as some BIOS-es
- * hang on reboot when the device is still in uas mode. Note the reset is
- * necessary as some devices won't revert to usb-storage mode without it.
- */
-static void uas_shutdown(struct device *dev)
-{
-	struct usb_interface *intf = to_usb_interface(dev);
-	struct usb_device *udev = interface_to_usbdev(intf);
-	struct Scsi_Host *shost = usb_get_intfdata(intf);
-	struct uas_dev_info *devinfo = (struct uas_dev_info *)shost->hostdata;
-
-	if (system_state != SYSTEM_RESTART)
-		return;
-
-	devinfo->shutdown = 1;
-	uas_free_streams(devinfo);
-	usb_set_interface(udev, intf->altsetting[0].desc.bInterfaceNumber, 0);
-	usb_reset_device(udev);
-}
-
 static struct usb_driver uas_driver = {
 	.name = "uas",
 	.probe = uas_probe,
@@ -1183,7 +1154,6 @@ static struct usb_driver uas_driver = {
 	.suspend = uas_suspend,
 	.resume = uas_resume,
 	.reset_resume = uas_reset_resume,
-	.drvwrap.driver.shutdown = uas_shutdown,
 	.id_table = uas_usb_ids,
 };
 
