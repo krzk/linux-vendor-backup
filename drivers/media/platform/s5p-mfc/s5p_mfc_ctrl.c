@@ -27,7 +27,6 @@
 int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 {
 	struct s5p_mfc_priv_buf *fw_buf = &dev->fw_buf;
-	int err;
 
 	fw_buf->size = dev->variant->buf_size->fw;
 
@@ -36,10 +35,11 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 		return -ENOMEM;
 	}
 
-	err = s5p_mfc_alloc_priv_buf(dev, BANK1_CTX, &dev->fw_buf);
-	if (err) {
+	fw_buf->virt = dma_alloc_coherent(dev->mem_dev[BANK1_CTX], fw_buf->size,
+					 &fw_buf->dma, GFP_KERNEL);
+	if (!fw_buf->virt) {
 		mfc_err("Allocating bitprocessor buffer failed\n");
-		return err;
+		return -ENOMEM;
 	}
 
 	return 0;
@@ -92,7 +92,11 @@ int s5p_mfc_release_firmware(struct s5p_mfc_dev *dev)
 {
 	/* Before calling this function one has to make sure
 	 * that MFC is no longer processing */
-	s5p_mfc_release_priv_buf(dev, &dev->fw_buf);
+	if (!dev->fw_buf.virt)
+		return -EINVAL;
+	dma_free_coherent(dev->mem_dev[BANK1_CTX], dev->fw_buf.size,
+			  dev->fw_buf.virt, dev->fw_buf.dma);
+	dev->fw_buf.virt = NULL;
 	return 0;
 }
 
