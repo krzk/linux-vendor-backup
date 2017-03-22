@@ -1123,8 +1123,7 @@ static int s5p_mfc_configure_dma_memory(struct s5p_mfc_dev *mfc_dev)
 		int ret = exynos_configure_iommu(dev, S5P_MFC_IOMMU_DMA_BASE,
 						 S5P_MFC_IOMMU_DMA_SIZE);
 		if (ret == 0)
-			mfc_dev->mem_dev[BANK1_CTX] =
-				mfc_dev->mem_dev[BANK2_CTX] = dev;
+			mfc_dev->mem_dev_l = mfc_dev->mem_dev_r = dev;
 		return ret;
 	}
 
@@ -1132,14 +1131,14 @@ static int s5p_mfc_configure_dma_memory(struct s5p_mfc_dev *mfc_dev)
 	 * Create and initialize virtual devices for accessing
 	 * reserved memory regions.
 	 */
-	mfc_dev->mem_dev[BANK1_CTX] = s5p_mfc_alloc_memdev(dev, "left",
-							   BANK1_CTX);
-	if (!mfc_dev->mem_dev[BANK1_CTX])
+	mfc_dev->mem_dev_l = s5p_mfc_alloc_memdev(dev, "left",
+						  MFC_BANK1_ALLOC_CTX);
+	if (!mfc_dev->mem_dev_l)
 		return -ENODEV;
-	mfc_dev->mem_dev[BANK2_CTX] = s5p_mfc_alloc_memdev(dev, "right",
-							   BANK2_CTX);
-	if (!mfc_dev->mem_dev[BANK2_CTX]) {
-		device_unregister(mfc_dev->mem_dev[BANK1_CTX]);
+	mfc_dev->mem_dev_r = s5p_mfc_alloc_memdev(dev, "right",
+						  MFC_BANK2_ALLOC_CTX);
+	if (!mfc_dev->mem_dev_r) {
+		device_unregister(mfc_dev->mem_dev_l);
 		return -ENODEV;
 	}
 
@@ -1155,8 +1154,8 @@ static void s5p_mfc_unconfigure_dma_memory(struct s5p_mfc_dev *mfc_dev)
 		return;
 	}
 
-	device_unregister(mfc_dev->mem_dev[BANK1_CTX]);
-	device_unregister(mfc_dev->mem_dev[BANK2_CTX]);
+	device_unregister(mfc_dev->mem_dev_l);
+	device_unregister(mfc_dev->mem_dev_r);
 }
 
 /* MFC probe function */
@@ -1214,10 +1213,8 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 		goto err_dma;
 	}
 
-	vb2_dma_contig_set_max_seg_size(dev->mem_dev[BANK1_CTX],
-					DMA_BIT_MASK(32));
-	vb2_dma_contig_set_max_seg_size(dev->mem_dev[BANK2_CTX],
-					DMA_BIT_MASK(32));
+	vb2_dma_contig_set_max_seg_size(dev->mem_dev_l, DMA_BIT_MASK(32));
+	vb2_dma_contig_set_max_seg_size(dev->mem_dev_r, DMA_BIT_MASK(32));
 
 	mutex_init(&dev->mfc_mutex);
 	init_waitqueue_head(&dev->queue);
@@ -1351,8 +1348,8 @@ static int s5p_mfc_remove(struct platform_device *pdev)
 	v4l2_device_unregister(&dev->v4l2_dev);
 	s5p_mfc_release_firmware(dev);
 	s5p_mfc_unconfigure_dma_memory(dev);
-	vb2_dma_contig_clear_max_seg_size(dev->mem_dev[BANK1_CTX]);
-	vb2_dma_contig_clear_max_seg_size(dev->mem_dev[BANK2_CTX]);
+	vb2_dma_contig_clear_max_seg_size(dev->mem_dev_l);
+	vb2_dma_contig_clear_max_seg_size(dev->mem_dev_r);
 
 	s5p_mfc_final_pm(dev);
 	return 0;
