@@ -50,14 +50,6 @@ Provides: kernel-devel-tizen
 
 %description -n kernel-devel-%{CHIPSET}-%{MODEL}
 This package provides kernel map and etc information.
-
-%package -n linux-kernel-license-%{CHIPSET}-%{MODEL}
-License: GPL-2.0
-Summary: Linux support kernel license file
-Group: System/Kernel
-
-%description -n linux-kernel-license-%{CHIPSET}-%{MODEL}
-This package provides kernel license file.
 %endif
 
 %package -n kernel-headers-%{CHIPSET}-%{MODEL}
@@ -91,7 +83,6 @@ chmod a+x ./scripts/exynos_mkdzimage.sh
 # 2. copy to buildroot
 mkdir -p %{buildroot}/usr
 %ifarch aarch64
-mkdir -p %{buildroot}/usr/share/license
 mkdir -p %{buildroot}/boot/kernel/devel
 
 cp -f arch/arm64/boot/dzImage  %{buildroot}/boot/kernel/dzImage
@@ -100,7 +91,7 @@ cp -f arch/arm64/boot/Image  %{buildroot}/boot/kernel/Image
 cp -f System.map  %{buildroot}/boot/kernel/System.map
 cp -f .config  %{buildroot}/boot/kernel/config
 cp -f vmlinux  %{buildroot}/boot/kernel/vmlinux
-cp -f COPYING %{buildroot}/usr/share/license/linux-kernel
+cp -f COPYING %{buildroot}/
 %endif
 
 # 3. make kernel header
@@ -138,9 +129,11 @@ find %{_builddir}/%{name}-%{version} -name "*\.c" -not -path "%{_builddir}/%{nam
 # 5. make kernel-devel
 mv %{_builddir}/%{name}-%{version} %{buildroot}/boot/kernel/devel/kernel-devel-%{MODEL}
 mkdir -p %{_builddir}/%{name}-%{version}
+mv %{buildroot}/COPYING %{_builddir}/%{name}-%{version}/
 ln -s kernel-devel-%{MODEL} %{buildroot}/boot/kernel/devel/tizen-devel
 
 %files -n linux-%{CHIPSET}-%{MODEL}
+%license COPYING
 /boot/kernel/dzImage
 
 %files -n linux-%{CHIPSET}-%{MODEL}-debuginfo
@@ -149,9 +142,6 @@ ln -s kernel-devel-%{MODEL} %{buildroot}/boot/kernel/devel/tizen-devel
 /boot/kernel/merged-dtb
 /boot/kernel/System.map
 /boot/kernel/vmlinux
-
-%files -n linux-kernel-license-%{CHIPSET}-%{MODEL}
-/usr/share/license/*
 
 %files -n kernel-devel-%{CHIPSET}-%{MODEL}
 %defattr(644,root,root,-)
