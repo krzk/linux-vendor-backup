@@ -346,7 +346,7 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
 
 	skb = alloc_skb(size, GFP_ATOMIC);
 	if (!skb)
-		return NULL;
+		goto nlmsg_failure;
 
 	old_tail = skb->tail;
 	nlh = nlmsg_put(skb, 0, 0,
@@ -354,7 +354,7 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
 			sizeof(struct nfgenmsg), 0);
 	if (!nlh) {
 		kfree_skb(skb);
-		return NULL;
+		goto nlmsg_failure;
 	}
 	nfmsg = nlmsg_data(nlh);
 	nfmsg->nfgen_family = entry->pf;
@@ -488,6 +488,8 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
 		goto nla_put_failure;
 
 	nlh->nlmsg_len = skb->tail - old_tail;
+	if (seclen)
+		security_release_secctx(secdata, seclen);
 	return skb;
 
 nla_put_failure:
@@ -495,6 +497,9 @@ nla_put_failure:
 		kfree_skb(skb);
 	if (net_ratelimit())
 		printk(KERN_ERR "nf_queue: error creating packet message\n");
+nlmsg_failure:
+	if (seclen)
+		security_release_secctx(secdata, seclen);
 	return NULL;
 }
 
