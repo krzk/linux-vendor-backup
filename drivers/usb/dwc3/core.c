@@ -616,6 +616,49 @@ err0:
 	return ret;
 }
 
+static void dwc3_shutdown(struct platform_device *pdev)
+{
+	struct dwc3	*dwc = platform_get_drvdata(pdev);
+
+	usb_phy_set_suspend(dwc->usb2_phy, 1);
+	usb_phy_set_suspend(dwc->usb3_phy, 1);
+
+	if (dwc->dr_mode != USB_DR_MODE_OTG)
+		pm_runtime_put(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
+
+	dwc3_debugfs_exit(dwc);
+
+	switch (dwc->dr_mode) {
+	case USB_DR_MODE_PERIPHERAL:
+		dwc3_gadget_exit(dwc);
+		break;
+	case USB_DR_MODE_HOST:
+		dwc3_host_exit(dwc);
+		break;
+	case USB_DR_MODE_OTG:
+		dwc3_otg_stop(dwc);
+		dwc3_host_exit(dwc);
+		dwc3_gadget_exit(dwc);
+		dwc3_otg_exit(dwc);
+		break;
+	default:
+		/* do nothing */
+		break;
+	}
+
+	dwc3_event_buffers_cleanup(dwc);
+	dwc3_free_event_buffers(dwc);
+
+	usb_phy_set_suspend(dwc->usb2_phy, 1);
+	usb_phy_set_suspend(dwc->usb3_phy, 1);
+
+	dwc3_core_exit(dwc);
+
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
+}
+
 static int dwc3_remove(struct platform_device *pdev)
 {
 	struct dwc3	*dwc = platform_get_drvdata(pdev);
@@ -811,6 +854,7 @@ MODULE_DEVICE_TABLE(of, of_dwc3_match);
 static struct platform_driver dwc3_driver = {
 	.probe		= dwc3_probe,
 	.remove		= dwc3_remove,
+	.shutdown	= dwc3_shutdown,
 	.driver		= {
 		.name	= "dwc3",
 		.of_match_table	= of_match_ptr(of_dwc3_match),

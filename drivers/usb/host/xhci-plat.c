@@ -14,6 +14,7 @@
 #include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/phy/phy.h>
 
 #include "xhci.h"
 
@@ -188,9 +189,13 @@ static int xhci_plat_remove(struct platform_device *dev)
 	struct usb_hcd	*hcd = platform_get_drvdata(dev);
 	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
 
+	phy_power_off(xhci->shared_hcd->phy);
+	phy_exit(xhci->shared_hcd->phy);
 	usb_remove_hcd(xhci->shared_hcd);
 	usb_put_hcd(xhci->shared_hcd);
 
+	phy_power_off(hcd->phy);
+	phy_exit(hcd->phy);
 	usb_remove_hcd(hcd);
 	iounmap(hcd->regs);
 	release_mem_region(hcd->rsrc_start, hcd->rsrc_len);
