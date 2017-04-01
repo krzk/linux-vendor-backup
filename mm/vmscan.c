@@ -270,15 +270,15 @@ unsigned long shrink_slab(struct shrink_control *shrink,
 	list_for_each_entry(shrinker, &shrinker_list, list) {
 		unsigned long long delta;
 		long total_scan, pages_got;
-		long max_pass;
+		long freeable;
 		int shrink_ret = 0;
 		long nr;
 		long new_nr;
 		long batch_size = shrinker->batch ? shrinker->batch
 						  : SHRINK_BATCH;
 
-		max_pass = do_shrinker_shrink(shrinker, shrink, 0);
-		if (max_pass <= 0)
+		freeable = do_shrinker_shrink(shrinker, shrink, 0);
+		if (freeable <= 0)
 			continue;
 
 		/*
@@ -290,14 +290,14 @@ unsigned long shrink_slab(struct shrink_control *shrink,
 
 		total_scan = nr;
 		delta = (4 * nr_pages_scanned) / shrinker->seeks;
-		delta *= max_pass;
+		delta *= freeable;
 		do_div(delta, lru_pages + 1);
 		total_scan += delta;
 		if (total_scan < 0) {
 			printk(KERN_ERR "shrink_slab: %pF negative objects to "
 			       "delete nr=%ld\n",
 			       shrinker->shrink, total_scan);
-			total_scan = max_pass;
+			total_scan = freeable;
 		}
 
 		/*
@@ -306,26 +306,26 @@ unsigned long shrink_slab(struct shrink_control *shrink,
 		 * shrinkers to return -1 all the time. This results in a large
 		 * nr being built up so when a shrink that can do some work
 		 * comes along it empties the entire cache due to nr >>>
-		 * max_pass.  This is bad for sustaining a working set in
+		 * freeable.  This is bad for sustaining a working set in
 		 * memory.
 		 *
 		 * Hence only allow the shrinker to scan the entire cache when
 		 * a large delta change is calculated directly.
 		 */
-		if (delta < max_pass / 4)
-			total_scan = min(total_scan, max_pass / 2);
+		if (delta < freeable / 4)
+			total_scan = min(total_scan, freeable / 2);
 
 		/*
 		 * Avoid risking looping forever due to too large nr value:
 		 * never try to free more than twice the estimate number of
 		 * freeable entries.
 		 */
-		if (total_scan > max_pass * 2)
-			total_scan = max_pass * 2;
+		if (total_scan > freeable * 2)
+			total_scan = freeable * 2;
 
 		trace_mm_shrink_slab_start(shrinker, shrink, nr,
 					nr_pages_scanned, lru_pages,
-					max_pass, delta, total_scan);
+					freeable, delta, total_scan);
 
 		while (total_scan >= batch_size) {
 			int nr_before;
