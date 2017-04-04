@@ -124,15 +124,15 @@ static void kbase_create_timeline_objects(struct kbase_context *kctx)
 	for (lpu_id = 0; lpu_id < kbdev->gpu_props.num_job_slots; lpu_id++) {
 		u32 *lpu =
 			&kbdev->gpu_props.props.raw_props.js_features[lpu_id];
-		kbase_tlstream_tl_summary_new_lpu(lpu, lpu_id, *lpu);
+		KBASE_TLSTREAM_TL_SUMMARY_NEW_LPU(lpu, lpu_id, *lpu);
 	}
 
 	/* Create Address Space objects. */
 	for (as_nr = 0; as_nr < kbdev->nr_hw_address_spaces; as_nr++)
-		kbase_tlstream_tl_summary_new_as(&kbdev->as[as_nr], as_nr);
+		KBASE_TLSTREAM_TL_SUMMARY_NEW_AS(&kbdev->as[as_nr], as_nr);
 
 	/* Create GPU object and make it retain all LPUs and address spaces. */
-	kbase_tlstream_tl_summary_new_gpu(
+	KBASE_TLSTREAM_TL_SUMMARY_NEW_GPU(
 			kbdev,
 			kbdev->gpu_props.props.raw_props.gpu_id,
 			kbdev->gpu_props.num_cores);
@@ -140,17 +140,17 @@ static void kbase_create_timeline_objects(struct kbase_context *kctx)
 	for (lpu_id = 0; lpu_id < kbdev->gpu_props.num_job_slots; lpu_id++) {
 		void *lpu =
 			&kbdev->gpu_props.props.raw_props.js_features[lpu_id];
-		kbase_tlstream_tl_summary_lifelink_lpu_gpu(lpu, kbdev);
+		KBASE_TLSTREAM_TL_SUMMARY_LIFELINK_LPU_GPU(lpu, kbdev);
 	}
 	for (as_nr = 0; as_nr < kbdev->nr_hw_address_spaces; as_nr++)
-		kbase_tlstream_tl_summary_lifelink_as_gpu(
+		KBASE_TLSTREAM_TL_SUMMARY_LIFELINK_AS_GPU(
 				&kbdev->as[as_nr],
 				kbdev);
 
 	/* Create object for each known context. */
 	mutex_lock(&kbdev->kctx_list_lock);
 	list_for_each_entry(element, &kbdev->kctx_list, link) {
-		kbase_tlstream_tl_summary_new_ctx(
+		KBASE_TLSTREAM_TL_SUMMARY_NEW_CTX(
 				element->kctx,
 				(u32)(element->kctx->id),
 				(u32)(element->kctx->tgid));
@@ -223,6 +223,11 @@ static void kbase_api_handshake(struct uku_version_check_args *version)
  * This is subset of those common Mali errors that can be returned to userspace.
  * Values of matching user and kernel space enumerators MUST be the same.
  * MALI_ERROR_NONE is guaranteed to be 0.
+ *
+ * @MALI_ERROR_NONE: Success
+ * @MALI_ERROR_OUT_OF_GPU_MEMORY: Not used in the kernel driver
+ * @MALI_ERROR_OUT_OF_MEMORY: Memory allocation failure
+ * @MALI_ERROR_FUNCTION_FAILED: Generic error code
  */
 enum mali_error {
 	MALI_ERROR_NONE = 0,
@@ -243,9 +248,7 @@ enum {
 	inited_backend_late = (1u << 6),
 	inited_device = (1u << 7),
 	inited_vinstr = (1u << 8),
-#ifndef CONFIG_MALI_PRFCNT_SET_SECONDARY
-	inited_ipa = (1u << 9),
-#endif /* CONFIG_MALI_PRFCNT_SET_SECONDARY */
+
 	inited_job_fault = (1u << 10),
 	inited_misc_register = (1u << 11),
 	inited_get_device = (1u << 12),
@@ -374,8 +377,9 @@ static int kbase_dispatch(struct kbase_context *kctx, void * const args, u32 arg
 
 			reg = kbase_mem_alloc(kctx, mem->va_pages,
 					mem->commit_pages, mem->extent,
-					&mem->flags, &mem->gpu_va,
-					&mem->va_alignment);
+					&mem->flags, &mem->gpu_va);
+			mem->va_alignment = 0;
+
 			if (!reg)
 				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
 			break;
@@ -697,9 +701,8 @@ copy_failed:
 
 				err = kbasep_find_enclosing_cpu_mapping_offset(
 						kctx,
-						find->gpu_addr,
-						(uintptr_t) find->cpu_addr,
-						(size_t) find->size,
+						find->cpu_addr,
+						find->size,
 						&find->offset);
 
 				if (err)
@@ -1054,11 +1057,11 @@ static int assign_irqs(struct platform_device *pdev)
 		}
 
 #ifdef CONFIG_OF
-		if (!strcmp(irq_res->name, "JOB")) {
+		if (!strncmp(irq_res->name, "JOB", 4)) {
 			irqtag = JOB_IRQ_TAG;
-		} else if (!strcmp(irq_res->name, "MMU")) {
+		} else if (!strncmp(irq_res->name, "MMU", 4)) {
 			irqtag = MMU_IRQ_TAG;
-		} else if (!strcmp(irq_res->name, "GPU")) {
+		} else if (!strncmp(irq_res->name, "GPU", 4)) {
 			irqtag = GPU_IRQ_TAG;
 		} else {
 			dev_err(&pdev->dev, "Invalid irq res name: '%s'\n",
@@ -1248,7 +1251,7 @@ static int kbase_open(struct inode *inode, struct file *filp)
 			mutex_lock(&kbdev->kctx_list_lock);
 			element->kctx = kctx;
 			list_add(&element->link, &kbdev->kctx_list);
-			kbase_tlstream_tl_new_ctx(
+			KBASE_TLSTREAM_TL_NEW_CTX(
 					element->kctx,
 					(u32)(element->kctx->id),
 					(u32)(element->kctx->tgid));
@@ -1272,10 +1275,9 @@ static int kbase_release(struct inode *inode, struct file *filp)
 	struct kbasep_kctx_list_element *element, *tmp;
 	bool found_element = false;
 
-	kbase_tlstream_tl_del_ctx(kctx);
+	KBASE_TLSTREAM_TL_DEL_CTX(kctx);
 
 #ifdef CONFIG_DEBUG_FS
-	debugfs_remove_recursive(kctx->kctx_dentry);
 	kbasep_mem_profile_debugfs_remove(kctx);
 	kbase_debug_job_fault_context_term(kctx);
 #endif
@@ -1409,13 +1411,56 @@ static int kbase_check_flags(int flags)
 	return 0;
 }
 
-#ifdef CONFIG_64BIT
+
+/**
+ * align_and_check - Align the specified pointer to the provided alignment and
+ *                   check that it is still in range.
+ * @gap_end:        Highest possible start address for allocation (end of gap in
+ *                  address space)
+ * @gap_start:      Start address of current memory area / gap in address space
+ * @info:           vm_unmapped_area_info structure passed to caller, containing
+ *                  alignment, length and limits for the allocation
+ * @is_shader_code: True if the allocation is for shader code (which has
+ *                  additional alignment requirements)
+ *
+ * Return: true if gap_end is now aligned correctly and is still in range,
+ *         false otherwise
+ */
+static bool align_and_check(unsigned long *gap_end, unsigned long gap_start,
+		struct vm_unmapped_area_info *info, bool is_shader_code)
+{
+	/* Compute highest gap address at the desired alignment */
+	(*gap_end) -= info->length;
+	(*gap_end) -= (*gap_end - info->align_offset) & info->align_mask;
+
+	if (is_shader_code) {
+		/* Check for 4GB boundary */
+		if (0 == (*gap_end & BASE_MEM_MASK_4GB))
+			(*gap_end) -= (info->align_offset ? info->align_offset :
+					info->length);
+		if (0 == ((*gap_end + info->length) & BASE_MEM_MASK_4GB))
+			(*gap_end) -= (info->align_offset ? info->align_offset :
+					info->length);
+
+		if (!(*gap_end & BASE_MEM_MASK_4GB) || !((*gap_end +
+				info->length) & BASE_MEM_MASK_4GB))
+			return false;
+	}
+
+
+	if ((*gap_end < info->low_limit) || (*gap_end < gap_start))
+		return false;
+
+
+	return true;
+}
+
 /* The following function is taken from the kernel and just
  * renamed. As it's not exported to modules we must copy-paste it here.
  */
 
 static unsigned long kbase_unmapped_area_topdown(struct vm_unmapped_area_info
-		*info)
+		*info, bool is_shader_code)
 {
 	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
@@ -1441,8 +1486,10 @@ static unsigned long kbase_unmapped_area_topdown(struct vm_unmapped_area_info
 
 	/* Check highest gap, which does not precede any rbtree node */
 	gap_start = mm->highest_vm_end;
-	if (gap_start <= high_limit)
-		goto found_highest;
+	if (gap_start <= high_limit) {
+		if (align_and_check(&gap_end, gap_start, info, is_shader_code))
+			return gap_end;
+	}
 
 	/* Check if rbtree root looks promising */
 	if (RB_EMPTY_ROOT(&mm->mm_rb))
@@ -1469,8 +1516,16 @@ check_current:
 		gap_end = vma->vm_start;
 		if (gap_end < low_limit)
 			return -ENOMEM;
-		if (gap_start <= high_limit && gap_end - gap_start >= length)
-			goto found;
+		if (gap_start <= high_limit && gap_end - gap_start >= length) {
+			/* We found a suitable gap. Clip it with the original
+			 * high_limit. */
+			if (gap_end > info->high_limit)
+				gap_end = info->high_limit;
+
+			if (align_and_check(&gap_end, gap_start, info,
+					is_shader_code))
+				return gap_end;
+		}
 
 		/* Visit left subtree if it looks promising */
 		if (vma->vm_rb.rb_left) {
@@ -1498,21 +1553,8 @@ check_current:
 		}
 	}
 
-found:
-	/* We found a suitable gap. Clip it with the original high_limit. */
-	if (gap_end > info->high_limit)
-		gap_end = info->high_limit;
-
-found_highest:
-	/* Compute highest gap address at the desired alignment */
-	gap_end -= info->length;
-	gap_end -= (gap_end - info->align_offset) & info->align_mask;
-
-	VM_BUG_ON(gap_end < info->low_limit);
-	VM_BUG_ON(gap_end < gap_start);
-	return gap_end;
+	return -ENOMEM;
 }
-
 
 static unsigned long kbase_get_unmapped_area(struct file *filp,
 		const unsigned long addr, const unsigned long len,
@@ -1523,41 +1565,74 @@ static unsigned long kbase_get_unmapped_area(struct file *filp,
 	struct kbase_context *kctx = filp->private_data;
 	struct mm_struct *mm = current->mm;
 	struct vm_unmapped_area_info info;
+	unsigned long align_offset = 0;
+	unsigned long align_mask = 0;
+	unsigned long high_limit = mm->mmap_base;
+	unsigned long low_limit = PAGE_SIZE;
+	int cpu_va_bits = BITS_PER_LONG;
+	int gpu_pc_bits =
+	      kctx->kbdev->gpu_props.props.core_props.log2_program_counter_size;
+	bool is_shader_code = false;
 
 	/* err on fixed address */
 	if ((flags & MAP_FIXED) || addr)
 		return -EINVAL;
 
+#ifdef CONFIG_64BIT
 	/* too big? */
 	if (len > TASK_SIZE - SZ_2M)
 		return -ENOMEM;
 
-	if (kbase_ctx_flag(kctx, KCTX_COMPAT))
-		return current->mm->get_unmapped_area(filp, addr, len, pgoff,
-				flags);
+	if (!kbase_ctx_flag(kctx, KCTX_COMPAT)) {
 
-	if (kbase_hw_has_feature(kctx->kbdev, BASE_HW_FEATURE_33BIT_VA)) {
-		info.high_limit = kctx->same_va_end << PAGE_SHIFT;
-		info.align_mask = 0;
-		info.align_offset = 0;
-	} else {
-		info.high_limit = min_t(unsigned long, mm->mmap_base,
-					(kctx->same_va_end << PAGE_SHIFT));
-		if (len >= SZ_2M) {
-			info.align_offset = SZ_2M;
-			info.align_mask = SZ_2M - 1;
+		if (kbase_hw_has_feature(kctx->kbdev,
+						BASE_HW_FEATURE_33BIT_VA)) {
+			high_limit = kctx->same_va_end << PAGE_SHIFT;
 		} else {
-			info.align_mask = 0;
-			info.align_offset = 0;
+			high_limit = min_t(unsigned long, mm->mmap_base,
+					(kctx->same_va_end << PAGE_SHIFT));
+			if (len >= SZ_2M) {
+				align_offset = SZ_2M;
+				align_mask = SZ_2M - 1;
+			}
 		}
+
+		low_limit = SZ_2M;
+	} else {
+		cpu_va_bits = 32;
+	}
+#endif /* CONFIG_64BIT */
+	if ((PFN_DOWN(BASE_MEM_COOKIE_BASE) <= pgoff) &&
+		(PFN_DOWN(BASE_MEM_FIRST_FREE_ADDRESS) > pgoff)) {
+			int cookie = pgoff - PFN_DOWN(BASE_MEM_COOKIE_BASE);
+
+			if (!kctx->pending_regions[cookie])
+				return -EINVAL;
+
+			if (!(kctx->pending_regions[cookie]->flags &
+							KBASE_REG_GPU_NX)) {
+				if (cpu_va_bits > gpu_pc_bits) {
+					align_offset = 1ULL << gpu_pc_bits;
+					align_mask = align_offset - 1;
+					is_shader_code = true;
+				}
+			}
+#ifndef CONFIG_64BIT
+	} else {
+		return current->mm->get_unmapped_area(filp, addr, len, pgoff,
+						      flags);
+#endif
 	}
 
 	info.flags = 0;
 	info.length = len;
-	info.low_limit = SZ_2M;
-	return kbase_unmapped_area_topdown(&info);
+	info.low_limit = low_limit;
+	info.high_limit = high_limit;
+	info.align_offset = align_offset;
+	info.align_mask = align_mask;
+
+	return kbase_unmapped_area_topdown(&info, is_shader_code);
 }
-#endif
 
 static const struct file_operations kbase_fops = {
 	.owner = THIS_MODULE,
@@ -1569,9 +1644,7 @@ static const struct file_operations kbase_fops = {
 	.compat_ioctl = kbase_ioctl,
 	.mmap = kbase_mmap,
 	.check_flags = kbase_check_flags,
-#ifdef CONFIG_64BIT
 	.get_unmapped_area = kbase_get_unmapped_area,
-#endif
 };
 
 #ifndef CONFIG_MALI_NO_MALI
@@ -1586,17 +1659,18 @@ u32 kbase_os_reg_read(struct kbase_device *kbdev, u16 offset)
 }
 #endif /* !CONFIG_MALI_NO_MALI */
 
-/** Show callback for the @c power_policy sysfs file.
+/**
+ * show_policy - Show callback for the power_policy sysfs file.
  *
- * This function is called to get the contents of the @c power_policy sysfs
+ * This function is called to get the contents of the power_policy sysfs
  * file. This is a list of the available policies with the currently active one
  * surrounded by square brackets.
  *
- * @param dev	The device this sysfs file is for
- * @param attr	The attributes of the sysfs file
- * @param buf	The output buffer for the sysfs file contents
+ * @dev:	The device this sysfs file is for
+ * @attr:	The attributes of the sysfs file
+ * @buf:	The output buffer for the sysfs file contents
  *
- * @return The number of bytes output to @c buf.
+ * Return: The number of bytes output to @buf.
  */
 static ssize_t show_policy(struct device *dev, struct device_attribute *attr, char *const buf)
 {
@@ -1634,19 +1708,20 @@ static ssize_t show_policy(struct device *dev, struct device_attribute *attr, ch
 	return ret;
 }
 
-/** Store callback for the @c power_policy sysfs file.
+/**
+ * set_policy - Store callback for the power_policy sysfs file.
  *
- * This function is called when the @c power_policy sysfs file is written to.
+ * This function is called when the power_policy sysfs file is written to.
  * It matches the requested policy against the available policies and if a
- * matching policy is found calls @ref kbase_pm_set_policy to change the
+ * matching policy is found calls kbase_pm_set_policy() to change the
  * policy.
  *
- * @param dev	The device with sysfs file is for
- * @param attr	The attributes of the sysfs file
- * @param buf	The value written to the sysfs file
- * @param count	The number of bytes written to the sysfs file
+ * @dev:	The device with sysfs file is for
+ * @attr:	The attributes of the sysfs file
+ * @buf:	The value written to the sysfs file
+ * @count:	The number of bytes written to the sysfs file
  *
- * @return @c count if the function succeeded. An error code on failure.
+ * Return: @count if the function succeeded. An error code on failure.
  */
 static ssize_t set_policy(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -1680,7 +1755,8 @@ static ssize_t set_policy(struct device *dev, struct device_attribute *attr, con
 	return count;
 }
 
-/** The sysfs file @c power_policy.
+/*
+ * The sysfs file power_policy.
  *
  * This is used for obtaining information about the available policies,
  * determining which policy is currently active, and changing the active
@@ -1688,17 +1764,18 @@ static ssize_t set_policy(struct device *dev, struct device_attribute *attr, con
  */
 static DEVICE_ATTR(power_policy, S_IRUGO | S_IWUSR, show_policy, set_policy);
 
-/** Show callback for the @c core_availability_policy sysfs file.
+/**
+ * show_ca_policy - Show callback for the core_availability_policy sysfs file.
  *
- * This function is called to get the contents of the @c core_availability_policy
+ * This function is called to get the contents of the core_availability_policy
  * sysfs file. This is a list of the available policies with the currently
  * active one surrounded by square brackets.
  *
- * @param dev	The device this sysfs file is for
- * @param attr	The attributes of the sysfs file
- * @param buf	The output buffer for the sysfs file contents
+ * @dev:	The device this sysfs file is for
+ * @attr:	The attributes of the sysfs file
+ * @buf:	The output buffer for the sysfs file contents
  *
- * @return The number of bytes output to @c buf.
+ * Return: The number of bytes output to @buf.
  */
 static ssize_t show_ca_policy(struct device *dev, struct device_attribute *attr, char * const buf)
 {
@@ -1736,19 +1813,20 @@ static ssize_t show_ca_policy(struct device *dev, struct device_attribute *attr,
 	return ret;
 }
 
-/** Store callback for the @c core_availability_policy sysfs file.
+/**
+ * set_ca_policy - Store callback for the core_availability_policy sysfs file.
  *
- * This function is called when the @c core_availability_policy sysfs file is
+ * This function is called when the core_availability_policy sysfs file is
  * written to. It matches the requested policy against the available policies
- * and if a matching policy is found calls @ref kbase_pm_set_policy to change
+ * and if a matching policy is found calls kbase_pm_set_policy() to change
  * the policy.
  *
- * @param dev	The device with sysfs file is for
- * @param attr	The attributes of the sysfs file
- * @param buf	The value written to the sysfs file
- * @param count	The number of bytes written to the sysfs file
+ * @dev:	The device with sysfs file is for
+ * @attr:	The attributes of the sysfs file
+ * @buf:	The value written to the sysfs file
+ * @count:	The number of bytes written to the sysfs file
  *
- * @return @c count if the function succeeded. An error code on failure.
+ * Return: @count if the function succeeded. An error code on failure.
  */
 static ssize_t set_ca_policy(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -1782,7 +1860,8 @@ static ssize_t set_ca_policy(struct device *dev, struct device_attribute *attr, 
 	return count;
 }
 
-/** The sysfs file @c core_availability_policy
+/*
+ * The sysfs file core_availability_policy
  *
  * This is used for obtaining information about the available policies,
  * determining which policy is currently active, and changing the active
@@ -1790,16 +1869,16 @@ static ssize_t set_ca_policy(struct device *dev, struct device_attribute *attr, 
  */
 static DEVICE_ATTR(core_availability_policy, S_IRUGO | S_IWUSR, show_ca_policy, set_ca_policy);
 
-/** Show callback for the @c core_mask sysfs file.
+/*
+ * show_core_mask - Show callback for the core_mask sysfs file.
  *
- * This function is called to get the contents of the @c core_mask sysfs
- * file.
+ * This function is called to get the contents of the core_mask sysfs file.
  *
- * @param dev	The device this sysfs file is for
- * @param attr	The attributes of the sysfs file
- * @param buf	The output buffer for the sysfs file contents
+ * @dev:	The device this sysfs file is for
+ * @attr:	The attributes of the sysfs file
+ * @buf:	The output buffer for the sysfs file contents
  *
- * @return The number of bytes output to @c buf.
+ * Return: The number of bytes output to @buf.
  */
 static ssize_t show_core_mask(struct device *dev, struct device_attribute *attr, char * const buf)
 {
@@ -1827,16 +1906,17 @@ static ssize_t show_core_mask(struct device *dev, struct device_attribute *attr,
 	return ret;
 }
 
-/** Store callback for the @c core_mask sysfs file.
+/**
+ * set_core_mask - Store callback for the core_mask sysfs file.
  *
- * This function is called when the @c core_mask sysfs file is written to.
+ * This function is called when the core_mask sysfs file is written to.
  *
- * @param dev	The device with sysfs file is for
- * @param attr	The attributes of the sysfs file
- * @param buf	The value written to the sysfs file
- * @param count	The number of bytes written to the sysfs file
+ * @dev:	The device with sysfs file is for
+ * @attr:	The attributes of the sysfs file
+ * @buf:	The value written to the sysfs file
+ * @count:	The number of bytes written to the sysfs file
  *
- * @return @c count if the function succeeded. An error code on failure.
+ * Return: @count if the function succeeded. An error code on failure.
  */
 static ssize_t set_core_mask(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -1899,7 +1979,8 @@ static ssize_t set_core_mask(struct device *dev, struct device_attribute *attr, 
 	return -EINVAL;
 }
 
-/** The sysfs file @c core_mask.
+/*
+ * The sysfs file core_mask.
  *
  * This is used to restrict shader core availability for debugging purposes.
  * Reading it will show the current core mask and the mask of cores available.
@@ -1908,7 +1989,7 @@ static ssize_t set_core_mask(struct device *dev, struct device_attribute *attr, 
 static DEVICE_ATTR(core_mask, S_IRUGO | S_IWUSR, show_core_mask, set_core_mask);
 
 /**
- * set_soft_job_timeout() - Store callback for the soft_job_timeout sysfs
+ * set_soft_job_timeout - Store callback for the soft_job_timeout sysfs
  * file.
  *
  * @dev: The device this sysfs file is for.
@@ -1946,7 +2027,7 @@ static ssize_t set_soft_job_timeout(struct device *dev,
 }
 
 /**
- * show_soft_job_timeout() - Show callback for the soft_job_timeout sysfs
+ * show_soft_job_timeout - Show callback for the soft_job_timeout sysfs
  * file.
  *
  * This will return the timeout for the software jobs.
@@ -1990,12 +2071,13 @@ static u32 timeout_ms_to_ticks(struct kbase_device *kbdev, long timeout_ms,
 	}
 }
 
-/** Store callback for the @c js_timeouts sysfs file.
+/**
+ * set_js_timeouts - Store callback for the js_timeouts sysfs file.
  *
- * This function is called to get the contents of the @c js_timeouts sysfs
+ * This function is called to get the contents of the js_timeouts sysfs
  * file. This file contains five values separated by whitespace. The values
- * are basically the same as JS_SOFT_STOP_TICKS, JS_HARD_STOP_TICKS_SS,
- * JS_HARD_STOP_TICKS_DUMPING, JS_RESET_TICKS_SS, JS_RESET_TICKS_DUMPING
+ * are basically the same as %JS_SOFT_STOP_TICKS, %JS_HARD_STOP_TICKS_SS,
+ * %JS_HARD_STOP_TICKS_DUMPING, %JS_RESET_TICKS_SS, %JS_RESET_TICKS_DUMPING
  * configuration values (in that order), with the difference that the js_timeout
  * values are expressed in MILLISECONDS.
  *
@@ -2003,12 +2085,12 @@ static u32 timeout_ms_to_ticks(struct kbase_device *kbdev, long timeout_ms,
  * use by the job scheduler to get override. Note that a value needs to
  * be other than 0 for it to override the current job scheduler value.
  *
- * @param dev	The device with sysfs file is for
- * @param attr	The attributes of the sysfs file
- * @param buf	The value written to the sysfs file
- * @param count	The number of bytes written to the sysfs file
+ * @dev:	The device with sysfs file is for
+ * @attr:	The attributes of the sysfs file
+ * @buf:	The value written to the sysfs file
+ * @count:	The number of bytes written to the sysfs file
  *
- * @return @c count if the function succeeded. An error code on failure.
+ * Return: @count if the function succeeded. An error code on failure.
  */
 static ssize_t set_js_timeouts(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -2093,17 +2175,18 @@ static unsigned long get_js_timeout_in_ms(
 	return ms;
 }
 
-/** Show callback for the @c js_timeouts sysfs file.
+/**
+ * show_js_timeouts - Show callback for the js_timeouts sysfs file.
  *
- * This function is called to get the contents of the @c js_timeouts sysfs
+ * This function is called to get the contents of the js_timeouts sysfs
  * file. It returns the last set values written to the js_timeouts sysfs file.
  * If the file didn't get written yet, the values will be current setting in
  * use.
- * @param dev	The device this sysfs file is for
- * @param attr	The attributes of the sysfs file
- * @param buf	The output buffer for the sysfs file contents
+ * @dev:	The device this sysfs file is for
+ * @attr:	The attributes of the sysfs file
+ * @buf:	The output buffer for the sysfs file contents
  *
- * @return The number of bytes output to @c buf.
+ * Return: The number of bytes output to @buf.
  */
 static ssize_t show_js_timeouts(struct device *dev, struct device_attribute *attr, char * const buf)
 {
@@ -2155,7 +2238,8 @@ static ssize_t show_js_timeouts(struct device *dev, struct device_attribute *att
 	return ret;
 }
 
-/** The sysfs file @c js_timeouts.
+/*
+ * The sysfs file js_timeouts.
  *
  * This is used to override the current job scheduler values for
  * JS_STOP_STOP_TICKS_SS
@@ -2191,7 +2275,7 @@ static u32 get_new_js_timeout(
  * to. It checks the data written, and if valid updates the js_scheduling_period
  * value
  *
- * Return: @c count if the function succeeded. An error code on failure.
+ * Return: @count if the function succeeded. An error code on failure.
  */
 static ssize_t set_js_scheduling_period(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
@@ -2270,7 +2354,7 @@ static ssize_t set_js_scheduling_period(struct device *dev,
  * This function is called to get the current period used for the JS scheduling
  * period.
  *
- * Return: The number of bytes output to buf.
+ * Return: The number of bytes output to @buf.
  */
 static ssize_t show_js_scheduling_period(struct device *dev,
 		struct device_attribute *attr, char * const buf)
@@ -2295,14 +2379,15 @@ static DEVICE_ATTR(js_scheduling_period, S_IRUGO | S_IWUSR,
 		show_js_scheduling_period, set_js_scheduling_period);
 
 #if !MALI_CUSTOMER_RELEASE
-/** Store callback for the @c force_replay sysfs file.
+/**
+ * set_force_replay - Store callback for the force_replay sysfs file.
  *
- * @param dev	The device with sysfs file is for
- * @param attr	The attributes of the sysfs file
- * @param buf	The value written to the sysfs file
- * @param count	The number of bytes written to the sysfs file
+ * @dev:	The device with sysfs file is for
+ * @attr:	The attributes of the sysfs file
+ * @buf:	The value written to the sysfs file
+ * @count:	The number of bytes written to the sysfs file
  *
- * @return @c count if the function succeeded. An error code on failure.
+ * Return: @count if the function succeeded. An error code on failure.
  */
 static ssize_t set_force_replay(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -2348,17 +2433,18 @@ static ssize_t set_force_replay(struct device *dev, struct device_attribute *att
 	return -EINVAL;
 }
 
-/** Show callback for the @c force_replay sysfs file.
+/**
+ * show_force_replay - Show callback for the force_replay sysfs file.
  *
- * This function is called to get the contents of the @c force_replay sysfs
+ * This function is called to get the contents of the force_replay sysfs
  * file. It returns the last set value written to the force_replay sysfs file.
  * If the file didn't get written yet, the values will be 0.
  *
- * @param dev	The device this sysfs file is for
- * @param attr	The attributes of the sysfs file
- * @param buf	The output buffer for the sysfs file contents
+ * @dev:	The device this sysfs file is for
+ * @attr:	The attributes of the sysfs file
+ * @buf:	The output buffer for the sysfs file contents
  *
- * @return The number of bytes output to @c buf.
+ * Return: The number of bytes output to @buf.
  */
 static ssize_t show_force_replay(struct device *dev,
 		struct device_attribute *attr, char * const buf)
@@ -2389,8 +2475,8 @@ static ssize_t show_force_replay(struct device *dev,
 	return ret;
 }
 
-/** The sysfs file @c force_replay.
- *
+/*
+ * The sysfs file force_replay.
  */
 static DEVICE_ATTR(force_replay, S_IRUGO | S_IWUSR, show_force_replay,
 		set_force_replay);
@@ -2444,8 +2530,9 @@ static ssize_t show_js_softstop_always(struct device *dev,
 }
 
 /*
- * By default, soft-stops are disabled when only a single context is present. The ability to
- * enable soft-stop when only a single context is present can be used for debug and unit-testing purposes.
+ * By default, soft-stops are disabled when only a single context is present.
+ * The ability to enable soft-stop when only a single context is present can be
+ * used for debug and unit-testing purposes.
  * (see CL t6xx_stress_1 unit-test as an example whereby this feature is used.)
  */
 static DEVICE_ATTR(js_softstop_always, S_IRUGO | S_IWUSR, show_js_softstop_always, set_js_softstop_always);
@@ -2466,7 +2553,7 @@ struct kbasep_debug_command {
 	kbasep_debug_command_func *func;
 };
 
-/** Debug commands supported by the driver */
+/* Debug commands supported by the driver */
 static const struct kbasep_debug_command debug_commands[] = {
 	{
 	 .str = "dumptrace",
@@ -2474,16 +2561,17 @@ static const struct kbasep_debug_command debug_commands[] = {
 	 }
 };
 
-/** Show callback for the @c debug_command sysfs file.
+/**
+ * show_debug - Show callback for the debug_command sysfs file.
  *
- * This function is called to get the contents of the @c debug_command sysfs
+ * This function is called to get the contents of the debug_command sysfs
  * file. This is a list of the available debug commands, separated by newlines.
  *
- * @param dev	The device this sysfs file is for
- * @param attr	The attributes of the sysfs file
- * @param buf	The output buffer for the sysfs file contents
+ * @dev:	The device this sysfs file is for
+ * @attr:	The attributes of the sysfs file
+ * @buf:	The output buffer for the sysfs file contents
  *
- * @return The number of bytes output to @c buf.
+ * Return: The number of bytes output to @buf.
  */
 static ssize_t show_debug(struct device *dev, struct device_attribute *attr, char * const buf)
 {
@@ -2508,19 +2596,20 @@ static ssize_t show_debug(struct device *dev, struct device_attribute *attr, cha
 	return ret;
 }
 
-/** Store callback for the @c debug_command sysfs file.
+/**
+ * issue_debug - Store callback for the debug_command sysfs file.
  *
- * This function is called when the @c debug_command sysfs file is written to.
+ * This function is called when the debug_command sysfs file is written to.
  * It matches the requested command against the available commands, and if
  * a matching command is found calls the associated function from
- * @ref debug_commands to issue the command.
+ * @debug_commands to issue the command.
  *
- * @param dev	The device with sysfs file is for
- * @param attr	The attributes of the sysfs file
- * @param buf	The value written to the sysfs file
- * @param count	The number of bytes written to the sysfs file
+ * @dev:	The device with sysfs file is for
+ * @attr:	The attributes of the sysfs file
+ * @buf:	The value written to the sysfs file
+ * @count:	The number of bytes written to the sysfs file
  *
- * @return @c count if the function succeeded. An error code on failure.
+ * Return: @count if the function succeeded. An error code on failure.
  */
 static ssize_t issue_debug(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -2544,7 +2633,7 @@ static ssize_t issue_debug(struct device *dev, struct device_attribute *attr, co
 	return -EINVAL;
 }
 
-/** The sysfs file @c debug_command.
+/* The sysfs file debug_command.
  *
  * This is used to issue general debug commands to the device driver.
  * Reading it will produce a list of debug commands, separated by newlines.
@@ -2562,11 +2651,11 @@ static DEVICE_ATTR(debug_command, S_IRUGO | S_IWUSR, show_debug, issue_debug);
  * This function is called to get a description of the present Mali
  * GPU via the gpuinfo sysfs entry.  This includes the GPU family, the
  * number of cores, the hardware version and the raw product id.  For
- * example:
+ * example
  *
  *    Mali-T60x MP4 r0p0 0x6956
  *
- * Return: The number of bytes output to buf.
+ * Return: The number of bytes output to @buf.
  */
 static ssize_t kbase_show_gpuinfo(struct device *dev,
 				  struct device_attribute *attr, char *buf)
@@ -2587,6 +2676,8 @@ static ssize_t kbase_show_gpuinfo(struct device *dev,
 		  .name = "Mali-G71" },
 		{ .id = GPU_ID2_PRODUCT_THEX >> GPU_ID_VERSION_PRODUCT_ID_SHIFT,
 		  .name = "Mali-THEx" },
+		{ .id = GPU_ID2_PRODUCT_TSIX >> GPU_ID_VERSION_PRODUCT_ID_SHIFT,
+		  .name = "Mali-G51" },
 	};
 	const char *product_name = "(Unknown Mali GPU)";
 	struct kbase_device *kbdev;
@@ -2619,7 +2710,7 @@ static ssize_t kbase_show_gpuinfo(struct device *dev,
 		}
 	}
 
-	return scnprintf(buf, PAGE_SIZE, "%s MP%d r%dp%d 0x%04X\n",
+	return scnprintf(buf, PAGE_SIZE, "%s %d cores r%dp%d 0x%04X\n",
 		product_name, kbdev->gpu_props.num_cores,
 		(gpu_id & GPU_ID_VERSION_MAJOR) >> GPU_ID_VERSION_MAJOR_SHIFT,
 		(gpu_id & GPU_ID_VERSION_MINOR) >> GPU_ID_VERSION_MINOR_SHIFT,
@@ -2637,7 +2728,7 @@ static DEVICE_ATTR(gpuinfo, S_IRUGO, kbase_show_gpuinfo, NULL);
  * This function is called when the dvfs_period sysfs file is written to. It
  * checks the data written, and if valid updates the DVFS period variable,
  *
- * Return: @c count if the function succeeded. An error code on failure.
+ * Return: @count if the function succeeded. An error code on failure.
  */
 static ssize_t set_dvfs_period(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
@@ -2672,7 +2763,7 @@ static ssize_t set_dvfs_period(struct device *dev,
  * This function is called to get the current period used for the DVFS sample
  * timer.
  *
- * Return: The number of bytes output to buf.
+ * Return: The number of bytes output to @buf.
  */
 static ssize_t show_dvfs_period(struct device *dev,
 		struct device_attribute *attr, char * const buf)
@@ -2707,7 +2798,7 @@ static DEVICE_ATTR(dvfs_period, S_IRUGO | S_IWUSR, show_dvfs_period,
  * shader is powered off), and poweroff_gpu_ticks (the number of poweroff timer
  * ticks before the GPU is powered off), in that order.
  *
- * Return: @c count if the function succeeded. An error code on failure.
+ * Return: @count if the function succeeded. An error code on failure.
  */
 static ssize_t set_pm_poweroff(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
@@ -2746,7 +2837,7 @@ static ssize_t set_pm_poweroff(struct device *dev,
  * This function is called to get the current period used for the DVFS sample
  * timer.
  *
- * Return: The number of bytes output to buf.
+ * Return: The number of bytes output to @buf.
  */
 static ssize_t show_pm_poweroff(struct device *dev,
 		struct device_attribute *attr, char * const buf)
@@ -2779,7 +2870,7 @@ static DEVICE_ATTR(pm_poweroff, S_IRUGO | S_IWUSR, show_pm_poweroff,
  * This function is called when the reset_timeout sysfs file is written to. It
  * checks the data written, and if valid updates the reset timeout.
  *
- * Return: @c count if the function succeeded. An error code on failure.
+ * Return: @count if the function succeeded. An error code on failure.
  */
 static ssize_t set_reset_timeout(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
@@ -2813,7 +2904,7 @@ static ssize_t set_reset_timeout(struct device *dev,
  *
  * This function is called to get the current reset timeout.
  *
- * Return: The number of bytes output to buf.
+ * Return: The number of bytes output to @buf.
  */
 static ssize_t show_reset_timeout(struct device *dev,
 		struct device_attribute *attr, char * const buf)
@@ -2913,6 +3004,130 @@ static ssize_t set_mem_pool_max_size(struct device *dev,
 static DEVICE_ATTR(mem_pool_max_size, S_IRUGO | S_IWUSR, show_mem_pool_max_size,
 		set_mem_pool_max_size);
 
+#ifdef CONFIG_DEBUG_FS
+
+/* Number of entries in serialize_jobs_settings[] */
+#define NR_SERIALIZE_JOBS_SETTINGS 5
+/* Maximum string length in serialize_jobs_settings[].name */
+#define MAX_SERIALIZE_JOBS_NAME_LEN 16
+
+static struct
+{
+	char *name;
+	u8 setting;
+} serialize_jobs_settings[NR_SERIALIZE_JOBS_SETTINGS] = {
+	{"none", 0},
+	{"intra-slot", KBASE_SERIALIZE_INTRA_SLOT},
+	{"inter-slot", KBASE_SERIALIZE_INTER_SLOT},
+	{"full", KBASE_SERIALIZE_INTRA_SLOT | KBASE_SERIALIZE_INTER_SLOT},
+	{"full-reset", KBASE_SERIALIZE_INTRA_SLOT | KBASE_SERIALIZE_INTER_SLOT |
+			KBASE_SERIALIZE_RESET}
+};
+
+/**
+ * kbasep_serialize_jobs_seq_show - Show callback for the serialize_jobs debugfs
+ *                                  file
+ * @sfile: seq_file pointer
+ * @data:  Private callback data
+ *
+ * This function is called to get the contents of the serialize_jobs debugfs
+ * file. This is a list of the available settings with the currently active one
+ * surrounded by square brackets.
+ *
+ * Return: 0 on success, or an error code on error
+ */
+static int kbasep_serialize_jobs_seq_show(struct seq_file *sfile, void *data)
+{
+	struct kbase_device *kbdev = sfile->private;
+	int i;
+
+	CSTD_UNUSED(data);
+
+	for (i = 0; i < NR_SERIALIZE_JOBS_SETTINGS; i++) {
+		if (kbdev->serialize_jobs == serialize_jobs_settings[i].setting)
+			seq_printf(sfile, "[%s] ",
+					serialize_jobs_settings[i].name);
+		else
+			seq_printf(sfile, "%s ",
+					serialize_jobs_settings[i].name);
+	}
+
+	seq_puts(sfile, "\n");
+
+	return 0;
+}
+
+/**
+ * kbasep_serialize_jobs_debugfs_write - Store callback for the serialize_jobs
+ *                                       debugfs file.
+ * @file:  File pointer
+ * @ubuf:  User buffer containing data to store
+ * @count: Number of bytes in user buffer
+ * @ppos:  File position
+ *
+ * This function is called when the serialize_jobs debugfs file is written to.
+ * It matches the requested setting against the available settings and if a
+ * matching setting is found updates kbdev->serialize_jobs.
+ *
+ * Return: @count if the function succeeded. An error code on failure.
+ */
+static ssize_t kbasep_serialize_jobs_debugfs_write(struct file *file,
+		const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct kbase_device *kbdev = s->private;
+	char buf[MAX_SERIALIZE_JOBS_NAME_LEN];
+	int i;
+	bool valid = false;
+
+	CSTD_UNUSED(ppos);
+
+	count = min_t(size_t, sizeof(buf) - 1, count);
+	if (copy_from_user(buf, ubuf, count))
+		return -EFAULT;
+
+	buf[count] = 0;
+
+	for (i = 0; i < NR_SERIALIZE_JOBS_SETTINGS; i++) {
+		if (sysfs_streq(serialize_jobs_settings[i].name, buf)) {
+			kbdev->serialize_jobs =
+					serialize_jobs_settings[i].setting;
+			valid = true;
+			break;
+		}
+	}
+
+	if (!valid) {
+		dev_err(kbdev->dev, "serialize_jobs: invalid setting\n");
+		return -EINVAL;
+	}
+
+	return count;
+}
+
+/**
+ * kbasep_serialize_jobs_debugfs_open - Open callback for the serialize_jobs
+ *                                     debugfs file
+ * @in:   inode pointer
+ * @file: file pointer
+ *
+ * Return: Zero on success, error code on failure
+ */
+static int kbasep_serialize_jobs_debugfs_open(struct inode *in,
+		struct file *file)
+{
+	return single_open(file, kbasep_serialize_jobs_seq_show, in->i_private);
+}
+
+static const struct file_operations kbasep_serialize_jobs_debugfs_fops = {
+	.open = kbasep_serialize_jobs_debugfs_open,
+	.read = seq_read,
+	.write = kbasep_serialize_jobs_debugfs_write,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+#endif /* CONFIG_DEBUG_FS */
 
 static int kbasep_protected_mode_enter(struct kbase_device *kbdev)
 {
@@ -3284,6 +3499,12 @@ static int kbase_device_debugfs_init(struct kbase_device *kbdev)
 	kbasep_trace_timeline_debugfs_init(kbdev);
 #endif /* CONFIG_MALI_TRACE_TIMELINE */
 
+#ifdef CONFIG_DEBUG_FS
+	debugfs_create_file("serialize_jobs", S_IRUGO | S_IWUSR,
+			kbdev->mali_debugfs_directory, kbdev,
+			&kbasep_serialize_jobs_debugfs_fops);
+#endif /* CONFIG_DEBUG_FS */
+
 	return 0;
 
 out:
@@ -3305,13 +3526,27 @@ static inline int kbase_device_debugfs_init(struct kbase_device *kbdev)
 static inline void kbase_device_debugfs_term(struct kbase_device *kbdev) { }
 #endif /* CONFIG_DEBUG_FS */
 
-static void kbase_device_coherency_init(struct kbase_device *kbdev, u32 gpu_id)
+static void kbase_device_coherency_init(struct kbase_device *kbdev,
+		unsigned prod_id)
 {
 #ifdef CONFIG_OF
 	u32 supported_coherency_bitmap =
 		kbdev->gpu_props.props.raw_props.coherency_mode;
 	const void *coherency_override_dts;
 	u32 override_coherency;
+
+	/* Only for tMIx :
+	 * (COHERENCY_ACE_LITE | COHERENCY_ACE) was incorrectly
+	 * documented for tMIx so force correct value here.
+	 */
+	if (GPU_ID_IS_NEW_FORMAT(prod_id) &&
+		   (GPU_ID2_MODEL_MATCH_VALUE(prod_id) ==
+				   GPU_ID2_PRODUCT_TMIX))
+		if (supported_coherency_bitmap ==
+				COHERENCY_FEATURE_BIT(COHERENCY_ACE))
+			supported_coherency_bitmap |=
+				COHERENCY_FEATURE_BIT(COHERENCY_ACE_LITE);
+
 #endif /* CONFIG_OF */
 
 	kbdev->system_coherency = COHERENCY_NONE;
@@ -3435,14 +3670,6 @@ static int kbase_platform_device_remove(struct platform_device *pdev)
 		kbase_debug_job_fault_dev_term(kbdev);
 		kbdev->inited_subsys &= ~inited_job_fault;
 	}
-
-#ifndef CONFIG_MALI_PRFCNT_SET_SECONDARY
-	if (kbdev->inited_subsys & inited_ipa) {
-		kbase_ipa_term(kbdev->ipa_ctx);
-		kbdev->inited_subsys &= ~inited_ipa;
-	}
-#endif /* CONFIG_MALI_PRFCNT_SET_SECONDARY */
-
 	if (kbdev->inited_subsys & inited_vinstr) {
 		kbase_vinstr_term(kbdev->vinstr_ctx);
 		kbdev->inited_subsys &= ~inited_vinstr;
@@ -3538,6 +3765,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	struct kbase_device *kbdev;
 	struct mali_base_gpu_core_props *core_props;
 	u32 gpu_id;
+	unsigned prod_id;
 	const struct list_head *dev_list;
 	int err = 0;
 
@@ -3549,7 +3777,6 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 		return err;
 	}
 #endif
-
 	kbdev = kbase_device_alloc();
 	if (!kbdev) {
 		dev_err(&pdev->dev, "Allocate device failed\n");
@@ -3559,6 +3786,10 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 
 	kbdev->dev = &pdev->dev;
 	dev_set_drvdata(kbdev->dev, kbdev);
+
+#ifdef CONFIG_DEVFREQ_THERMAL
+	INIT_LIST_HEAD(&kbdev->ipa_power_models);
+#endif
 
 #ifdef CONFIG_MALI_NO_MALI
 	err = gpu_device_create(kbdev);
@@ -3651,11 +3882,16 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 
 	gpu_id = kbdev->gpu_props.props.raw_props.gpu_id;
 	gpu_id &= GPU_ID_VERSION_PRODUCT_ID;
-	gpu_id = gpu_id >> GPU_ID_VERSION_PRODUCT_ID_SHIFT;
+	prod_id = gpu_id >> GPU_ID_VERSION_PRODUCT_ID_SHIFT;
 
-	kbase_device_coherency_init(kbdev, gpu_id);
+	kbase_device_coherency_init(kbdev, prod_id);
 
 	kbasep_protected_mode_init(kbdev);
+
+	dev_list = kbase_dev_list_get();
+	list_add(&kbdev->entry, &kbase_dev_list);
+	kbase_dev_list_put(dev_list);
+	kbdev->inited_subsys |= inited_dev_list;
 
 	err = kbasep_js_devdata_init(kbdev);
 	if (err) {
@@ -3684,7 +3920,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 #ifdef CONFIG_MALI_DEVFREQ
 	err = kbase_devfreq_init(kbdev);
 	if (err) {
-		dev_err(kbdev->dev, "Fevfreq initialization failed\n");
+		dev_err(kbdev->dev, "Devfreq initialization failed\n");
 		kbase_platform_device_remove(pdev);
 		return err;
 	}
@@ -3699,17 +3935,6 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 	kbdev->inited_subsys |= inited_vinstr;
-
-#ifndef CONFIG_MALI_PRFCNT_SET_SECONDARY
-	kbdev->ipa_ctx = kbase_ipa_init(kbdev);
-	if (!kbdev->ipa_ctx) {
-		dev_err(kbdev->dev, "IPA initialization failed\n");
-		kbase_platform_device_remove(pdev);
-		return -EINVAL;
-	}
-
-	kbdev->inited_subsys |= inited_ipa;
-#endif  /* CONFIG_MALI_PRFCNT_SET_SECONDARY */
 
 	err = kbase_debug_job_fault_dev_init(kbdev);
 	if (err) {
@@ -3746,10 +3971,6 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	}
 	kbdev->inited_subsys |= inited_misc_register;
 
-	dev_list = kbase_dev_list_get();
-	list_add(&kbdev->entry, &kbase_dev_list);
-	kbase_dev_list_put(dev_list);
-	kbdev->inited_subsys |= inited_dev_list;
 
 	err = sysfs_create_group(&kbdev->dev->kobj, &kbase_attr_group);
 	if (err) {
@@ -3784,13 +4005,14 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 #undef KBASEP_DEFAULT_REGISTER_HISTORY_SIZE
 
 
-/** Suspend callback from the OS.
+/**
+ * kbase_device_suspend - Suspend callback from the OS.
  *
  * This is called by Linux when the device should suspend.
  *
- * @param dev  The device to suspend
+ * @dev:  The device to suspend
  *
- * @return A standard Linux error code
+ * Return: A standard Linux error code
  */
 static int kbase_device_suspend(struct device *dev)
 {
@@ -3808,13 +4030,14 @@ static int kbase_device_suspend(struct device *dev)
 	return 0;
 }
 
-/** Resume callback from the OS.
+/**
+ * kbase_device_resume - Resume callback from the OS.
  *
  * This is called by Linux when the device should resume from suspension.
  *
- * @param dev  The device to resume
+ * @dev:  The device to resume
  *
- * @return A standard Linux error code
+ * Return: A standard Linux error code
  */
 static int kbase_device_resume(struct device *dev)
 {
@@ -3832,14 +4055,16 @@ static int kbase_device_resume(struct device *dev)
 	return 0;
 }
 
-/** Runtime suspend callback from the OS.
+/**
+ * kbase_device_runtime_suspend - Runtime suspend callback from the OS.
  *
- * This is called by Linux when the device should prepare for a condition in which it will
- * not be able to communicate with the CPU(s) and RAM due to power management.
+ * This is called by Linux when the device should prepare for a condition in
+ * which it will not be able to communicate with the CPU(s) and RAM due to
+ * power management.
  *
- * @param dev  The device to suspend
+ * @dev:  The device to suspend
  *
- * @return A standard Linux error code
+ * Return: A standard Linux error code
  */
 #ifdef KBASE_PM_RUNTIME
 static int kbase_device_runtime_suspend(struct device *dev)
@@ -3862,13 +4087,14 @@ static int kbase_device_runtime_suspend(struct device *dev)
 }
 #endif /* KBASE_PM_RUNTIME */
 
-/** Runtime resume callback from the OS.
+/**
+ * kbase_device_runtime_resume - Runtime resume callback from the OS.
  *
  * This is called by Linux when the device should go into a fully active state.
  *
- * @param dev  The device to suspend
+ * @dev:  The device to suspend
  *
- * @return A standard Linux error code
+ * Return: A standard Linux error code
  */
 
 #ifdef KBASE_PM_RUNTIME
@@ -3921,7 +4147,7 @@ static int kbase_device_runtime_idle(struct device *dev)
 }
 #endif /* KBASE_PM_RUNTIME */
 
-/** The power management operations for the platform driver.
+/* The power management operations for the platform driver.
  */
 static const struct dev_pm_ops kbase_pm_ops = {
 	.suspend = kbase_device_suspend,

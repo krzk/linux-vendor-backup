@@ -113,7 +113,10 @@ kbase_create_context(struct kbase_device *kbdev, bool is_compat)
 				MIDGARD_MMU_BOTTOMLEVEL);
 		if (err)
 			goto pgd_no_mem;
+
+		mutex_lock(&kctx->mmu_lock);
 		kctx->pgd = kbase_mmu_alloc_pgd(kctx);
+		mutex_unlock(&kctx->mmu_lock);
 	} while (!kctx->pgd);
 
 	kctx->aliasing_sink_page = kbase_mem_alloc_page(kctx->kbdev);
@@ -221,6 +224,14 @@ void kbase_destroy_context(struct kbase_context *kctx)
 	kbase_pm_context_active(kbdev);
 
 	kbase_jd_zap_context(kctx);
+
+#ifdef CONFIG_DEBUG_FS
+	/* Removing the rest of the debugfs entries here as we want to keep the
+	 * atom debugfs interface alive until all atoms have completed. This
+	 * is useful for debugging hung contexts. */
+	debugfs_remove_recursive(kctx->kctx_dentry);
+#endif
+
 	kbase_event_cleanup(kctx);
 
 	/*
