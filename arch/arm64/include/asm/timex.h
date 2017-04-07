@@ -25,8 +25,6 @@
 extern u64 (*arch_timer_read_counter)(void);
 #define get_cycles()	arch_counter_get_cntvct()
 
-#define get_cycles()	arch_timer_read_counter()
-
 #include <asm-generic/timex.h>
 
 #endif

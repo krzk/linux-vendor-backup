@@ -1045,17 +1045,6 @@ static void hub_activate(struct usb_hub *hub, enum hub_activation_type type)
 	}
 	kref_get(&hub->kref);
 
-		/* Was the hub disconnected while we were waiting? */
-		if (hub->disconnected) {
-			device_unlock(hub->intfdev);
-			kref_put(&hub->kref, hub_release);
-			return;
-		}
-		if (type == HUB_INIT2)
-			goto init2;
-		goto init3;
-	}
-	kref_get(&hub->kref);
 	/* The superspeed hub except for root hub has to use Hub Depth
 	 * value as an offset into the route string to locate the bits
 	 * it uses to determine the downstream port number. So hub driver
