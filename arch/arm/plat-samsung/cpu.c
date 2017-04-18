@@ -18,6 +18,8 @@
 #include <plat/map-base.h>
 #include <plat/cpu.h>
 
+#include <asm/system_info.h>
+
 unsigned long samsung_cpu_id;
 static unsigned int samsung_cpu_rev;
 
@@ -48,6 +50,9 @@ void __init s5p_init_cpu(const void __iomem *cpuid_addr)
 {
 	samsung_cpu_id = readl_relaxed(cpuid_addr);
 	samsung_cpu_rev = samsung_cpu_id & 0xFF;
+
+	system_serial_low = __raw_readl(cpuid_addr + 0x14);
+	system_serial_high = __raw_readl(cpuid_addr + 0x18);
 
 	pr_info("Samsung CPU ID: 0x%08lx\n", samsung_cpu_id);
 }
