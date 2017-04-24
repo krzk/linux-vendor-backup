@@ -123,7 +123,7 @@ static const struct dwc2_core_params params_nexell = {
 	.otg_cap			= 0,	/* HNP/SRP capable */
 	.otg_ver			= 0,	/* 1.3 */
 	.dma_enable			= 1,
-	.dma_desc_enable		= 0,
+	.dma_desc_enable		= 1,
 	.speed				= 0,	/* High Speed */
 	.enable_dynamic_fifo		= 1,
 	.en_multiple_tx_fifo		= 1,
@@ -132,7 +132,7 @@ static const struct dwc2_core_params params_nexell = {
 	.host_perio_tx_fifo_size	= 512,	/* 512 DWORDs */
 	.max_transfer_size		= 65535,
 	.max_packet_count		= 511,
-	.host_channels			= 8,
+	.host_channels			= 16,
 	.phy_type			= 1,	/* UTMI */
 	.phy_utmi_width			= 16,	/* 16 bits */
 	.phy_ulpi_ddr			= 0,	/* Single */
@@ -143,8 +143,9 @@ static const struct dwc2_core_params params_nexell = {
 	.host_ls_low_power_phy_clk	= 0,	/* 48 MHz */
 	.ts_dline			= 0,
 	.reload_ctl			= 0,
-	.ahbcfg				= 0x3,  /* INCR4 */
-	.uframe_sched			= 0,
+	.ahbcfg				= GAHBCFG_HBSTLEN_INCR16 <<
+					  GAHBCFG_HBSTLEN_SHIFT,
+	.uframe_sched			= 1,
 	.external_id_pin_ctl		= -1,
 	.hibernation			= -1,
 };
@@ -442,6 +443,7 @@ static int dwc2_driver_probe(struct platform_device *dev)
 		return retval;
 
 	spin_lock_init(&hsotg->lock);
+	spin_lock_init(&hsotg->channel_lock);
 
 	hsotg->core_params = devm_kzalloc(&dev->dev,
 				sizeof(*hsotg->core_params), GFP_KERNEL);
