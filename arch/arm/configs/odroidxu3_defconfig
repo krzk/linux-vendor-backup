@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 4.9.20 Kernel Configuration
+# Linux/arm 4.9.23 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_ARM_HAS_SG_CHAIN=y
@@ -2449,7 +2449,7 @@ CONFIG_I2C_ALGOBIT=y
 # CONFIG_I2C_EMEV2 is not set
 CONFIG_I2C_EXYNOS5=y
 CONFIG_I2C_GPIO=y
-# CONFIG_I2C_GPIO_CUSTOM is not set
+CONFIG_I2C_GPIO_CUSTOM=m
 # CONFIG_I2C_NOMADIK is not set
 # CONFIG_I2C_OCORES is not set
 # CONFIG_I2C_PCA_PLATFORM is not set
