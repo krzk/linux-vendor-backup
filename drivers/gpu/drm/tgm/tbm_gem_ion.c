@@ -126,6 +126,61 @@ err:
 	buf->sgt = NULL;
 }
 
+void *tbm_gem_ion_get_dma_addr(struct drm_device *drm_dev,
+		struct device *dev, unsigned int gem_handle,
+		struct drm_file *filp)
+{
+	struct tbm_gem_object *tbm_gem_obj;
+	struct drm_gem_object *obj;
+	struct tbm_gem_buf	*buffer;
+
+	obj = drm_gem_object_lookup(drm_dev, filp, gem_handle);
+	if (!obj) {
+		DRM_ERROR("failed to lookup gem object.\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	tbm_gem_obj = to_tbm_gem_obj(obj);
+	buffer = tbm_gem_obj->buffer;
+	buffer->iova =  iovmm_map(dev, buffer->sgt->sgl, 0, buffer->size,
+		DMA_TO_DEVICE, 0);
+
+	DRM_DEBUG("%s:h[%d]obj[%p]a[0x%x]\n", __func__, gem_handle,
+		obj, (int)buffer->iova);
+
+	return &buffer->iova;
+}
+
+void tbm_gem_ion_put_dma_addr(struct drm_device *drm_dev,
+		struct device *dev, unsigned int gem_handle,
+		struct drm_file *filp)
+{
+	struct tbm_gem_object *tbm_gem_obj;
+	struct drm_gem_object *obj;
+	struct tbm_gem_buf	*buffer;
+
+	obj = drm_gem_object_lookup(drm_dev, filp, gem_handle);
+	if (!obj) {
+		DRM_ERROR("failed to lookup gem object.\n");
+		return;
+	}
+
+	tbm_gem_obj = to_tbm_gem_obj(obj);
+	buffer = tbm_gem_obj->buffer;
+
+	DRM_DEBUG("%s:h[%d]obj[%p]a[0x%x]\n", __func__, gem_handle,
+		obj, (int)buffer->iova);
+
+	iovmm_unmap(dev, buffer->iova);
+	drm_gem_object_unreference_unlocked(obj);
+
+	/*
+	 * decrease obj->refcount one more time because we has already
+	 * increased it at exynos_drm_gem_get_dma_addr().
+	 */
+	drm_gem_object_unreference_unlocked(obj);
+}
+
 struct dma_buf *tbm_gem_ion_prime_export(struct drm_device *dev,
 				  struct drm_gem_object *obj, int flags)
 {
@@ -316,6 +371,8 @@ err:
 	tbm_priv->gem_priv = gem_priv;
 	tbm_priv->gem_bufer_alloc = tbm_gem_ion_buffer_alloc;
 	tbm_priv->gem_bufer_dealloc = tbm_gem_ion_buffer_dealloc;
+	tbm_priv->gem_get_dma_addr = tbm_gem_ion_get_dma_addr;
+	tbm_priv->gem_put_dma_addr = tbm_gem_ion_put_dma_addr;
 
 	return 0;
 }

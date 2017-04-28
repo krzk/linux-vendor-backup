@@ -625,6 +625,33 @@ int tbm_gem_object_unreference(struct drm_gem_object *obj)
 	return 0;
 }
 
+dma_addr_t *tbm_gem_get_dma_addr(struct drm_device *drm_dev,
+		struct device *dev, unsigned int gem_handle,
+		struct drm_file *filp)
+{
+	struct tgm_drv_private *dev_priv = drm_dev->dev_private;
+	struct tbm_private *tbm_priv = dev_priv->tbm_priv;
+	dma_addr_t *addr = NULL;
+
+	if (tbm_priv->gem_get_dma_addr)
+		addr = tbm_priv->gem_get_dma_addr(drm_dev, dev,
+			gem_handle, filp);
+
+	return addr;
+}
+
+void tbm_gem_put_dma_addr(struct drm_device *drm_dev,
+		struct device *dev, unsigned int gem_handle,
+		struct drm_file *filp)
+{
+	struct tgm_drv_private *dev_priv = drm_dev->dev_private;
+	struct tbm_private *tbm_priv = dev_priv->tbm_priv;
+
+	if (tbm_priv->gem_put_dma_addr)
+		tbm_priv->gem_put_dma_addr(drm_dev, dev,
+			gem_handle, filp);
+}
+
 static int tbm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
 	DRM_INFO("%s\n", __func__);

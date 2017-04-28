@@ -56,6 +56,12 @@ int tbm_gem_mmap_ioctl(struct drm_device *dev, void *data,
 int tbm_gem_get_ioctl(struct drm_device *dev, void *data,
 				      struct drm_file *file_priv);
 int tbm_gem_info(struct seq_file *m, void *data);
+dma_addr_t *tbm_gem_get_dma_addr(struct drm_device *drm_dev,
+		struct device *dev, unsigned int gem_handle,
+		struct drm_file *filp);
+void tbm_gem_put_dma_addr(struct drm_device *drm_dev,
+		struct device *dev, unsigned int gem_handle,
+		struct drm_file *filp);
 int tbm_gem_init(struct drm_device *drm_dev);
 int tbm_gem_prime_fd_to_handle(struct drm_device *dev,
 		struct drm_file *file_priv, int prime_fd, uint32_t *handle);

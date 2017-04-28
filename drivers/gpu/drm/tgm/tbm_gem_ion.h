@@ -17,6 +17,7 @@
 #include <linux/kernel.h>
 #include <linux/dma-buf.h>
 #include <linux/exynos_ion.h>
+#include <linux/exynos_iovmm.h>
 #include <linux/ion.h>
 #include <drm/drmP.h>
 #include <tgm_drv.h>
@@ -35,6 +36,7 @@ struct tbm_gem_buf {
 	bool			pfnmap;
 	unsigned int		bufcount;
 	struct drm_gem_object *obj;
+	dma_addr_t		iova;
 };
 
  int tbm_gem_ion_init(struct drm_device *drm_dev);
