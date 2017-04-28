@@ -30,6 +30,113 @@ struct component_dev {
 	struct device *irq_dev;
 };
 
+static LIST_HEAD(tgm_subdrv_list);
+
+int tgm_subdrv_register(struct tgm_subdrv *subdrv)
+{
+	if (!subdrv)
+		return -EINVAL;
+
+	list_add_tail(&subdrv->list, &tgm_subdrv_list);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(tgm_subdrv_register);
+
+int tgm_subdrv_unregister(struct tgm_subdrv *subdrv)
+{
+	if (!subdrv)
+		return -EINVAL;
+
+	list_del(&subdrv->list);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(tgm_subdrv_unregister);
+
+int tgm_device_subdrv_probe(struct drm_device *dev)
+{
+	struct tgm_subdrv *subdrv, *n;
+	int err;
+
+	if (!dev)
+		return -EINVAL;
+
+	list_for_each_entry_safe(subdrv, n, &tgm_subdrv_list, list) {
+		if (subdrv->probe) {
+			subdrv->drm_dev = dev;
+
+			/*
+			 * this probe callback would be called by sub driver
+			 * after setting of all resources to this sub driver,
+			 * such as clock, irq and register map are done.
+			 */
+			err = subdrv->probe(dev, subdrv->dev);
+			if (err) {
+				DRM_DEBUG("exynos drm subdrv probe failed.\n");
+				list_del(&subdrv->list);
+				continue;
+			}
+		}
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(tgm_device_subdrv_probe);
+
+int tgm_device_subdrv_remove(struct drm_device *dev)
+{
+	struct tgm_subdrv *subdrv;
+
+	if (!dev) {
+		WARN(1, "Unexpected drm device unregister!\n");
+		return -EINVAL;
+	}
+
+	list_for_each_entry(subdrv, &tgm_subdrv_list, list) {
+		if (subdrv->remove)
+			subdrv->remove(dev, subdrv->dev);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(tgm_device_subdrv_remove);
+
+int tgm_subdrv_open(struct drm_device *dev, struct drm_file *file)
+{
+	struct tgm_subdrv *subdrv;
+	int ret;
+
+	list_for_each_entry(subdrv, &tgm_subdrv_list, list) {
+		if (subdrv->open) {
+			ret = subdrv->open(dev, subdrv->dev, file);
+			if (ret)
+				goto err;
+		}
+	}
+
+	return 0;
+
+err:
+	list_for_each_entry_reverse(subdrv, &subdrv->list, list) {
+		if (subdrv->close)
+			subdrv->close(dev, subdrv->dev, file);
+	}
+	return ret;
+}
+EXPORT_SYMBOL_GPL(tgm_subdrv_open);
+
+void tgm_subdrv_close(struct drm_device *dev, struct drm_file *file)
+{
+	struct tgm_subdrv *subdrv;
+
+	list_for_each_entry(subdrv, &tgm_subdrv_list, list) {
+		if (subdrv->close)
+			subdrv->close(dev, subdrv->dev, file);
+	}
+}
+EXPORT_SYMBOL_GPL(tgm_subdrv_close);
+
 static int tgm_drv_load(struct drm_device *drm_dev, unsigned long flags)
 {
 	struct tgm_drv_private *dev_priv;
