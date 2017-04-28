@@ -30,6 +30,12 @@ config DRM_TDM_DPMS_CTRL
        help
        Choose this option if you want to use dpms ioctl.
 
+config DRM_TDM_PP
+	bool "Supports PP feature"
+	depends on DRM_TDM
+	help
+	  Supports post-processing feature.
+
 config DRM_TBM
 	bool "TBM allocates graphics buffer"
 	depends on DRM_TGM

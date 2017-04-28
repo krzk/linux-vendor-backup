@@ -16,7 +16,9 @@
 
 #include <tgm_drv.h>
 #include <drm/tgm_drm.h>
-
+#ifdef CONFIG_DRM_TDM_PP
+#include <tdm_pp.h>
+#endif
 #ifdef CONFIG_DRM_DMA_SYNC
 #include <drm/drm_sync_helper.h>
 #endif

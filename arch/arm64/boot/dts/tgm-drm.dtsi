@@ -22,4 +22,8 @@
 		tgm,drv_patchlevel = <0>;
 		tgm,num_crtcs = <1>;
 	};
+
+	tdm: tdm_pp {
+		compatible = "tdm,tdm_pp";
+	};
 };

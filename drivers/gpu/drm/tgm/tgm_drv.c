@@ -171,6 +171,12 @@ static int tgm_drv_load(struct drm_device *drm_dev, unsigned long flags)
 		return -EINVAL;
 	}
 
+	ret = tgm_device_subdrv_probe(drm_dev);
+	if (ret) {
+		DRM_ERROR("failed to probe subdrv.\n");
+		return -EINVAL;
+	}
+
 	ret = drm_debugfs_create_files(tgm_debugfs_list,
 			TGM_DEBUGFS_ENTRIES,
 			minor->debugfs_root, minor);
@@ -182,6 +188,7 @@ static int tgm_drv_unload(struct drm_device *drm_dev)
 {
 	DRM_INFO("%s\n", __func__);
 
+	tgm_device_subdrv_remove(drm_dev);
 	component_unbind_all(drm_dev->dev, drm_dev);
 	drm_debugfs_remove_files(tgm_debugfs_list,
 			TGM_DEBUGFS_ENTRIES, drm_dev->primary);
@@ -201,13 +208,15 @@ static int tgm_drv_open(struct drm_device *dev, struct drm_file *file)
 
 	file->driver_priv = file_priv;
 
-	return 0;
+	return tgm_subdrv_open(dev, file);
 }
 
 static void tgm_drv_preclose(struct drm_device *dev,
 					struct drm_file *file)
 {
 	DRM_DEBUG("%s\n", __func__);
+
+	tgm_subdrv_close(dev, file);
 }
 
 static void tgm_drv_postclose(struct drm_device *dev, struct drm_file *file)
@@ -237,6 +246,16 @@ static struct drm_ioctl_desc tgm_ioctls[] = {
 			DRM_UNLOCKED | DRM_AUTH),
 	DRM_IOCTL_DEF_DRV(TBM_GEM_CPU_FINI, tbm_gem_cpu_fini_ioctl,
 			DRM_UNLOCKED | DRM_AUTH),
+#ifdef CONFIG_DRM_TDM_PP
+	DRM_IOCTL_DEF_DRV(TDM_PP_GET_PROPERTY,
+			tdm_pp_get_property, DRM_UNLOCKED | DRM_AUTH),
+	DRM_IOCTL_DEF_DRV(TDM_PP_SET_PROPERTY,
+			tdm_pp_set_property, DRM_UNLOCKED | DRM_AUTH),
+	DRM_IOCTL_DEF_DRV(TDM_PP_QUEUE_BUF,
+			tdm_pp_queue_buf, DRM_UNLOCKED | DRM_AUTH),
+	DRM_IOCTL_DEF_DRV(TDM_PP_CMD_CTRL,
+			tdm_pp_cmd_ctrl, DRM_UNLOCKED | DRM_AUTH),
+#endif
 #ifdef CONFIG_DRM_TDM_DPMS_CTRL
 	DRM_IOCTL_DEF_DRV(TDM_DPMS_CONTROL, tdm_dpms_ioctl,
 			DRM_MASTER),
@@ -585,6 +604,12 @@ static int __init tgm_drv_init(void)
 
 	DRM_DEBUG("%s\n", __func__);
 
+#ifdef CONFIG_DRM_TDM_PP
+	ret = platform_driver_register(&pp_driver);
+	if (ret < 0)
+		goto out_pp_driver;
+#endif
+
 	ret = platform_driver_register(&tgm_driver);
 	if (ret)
 		goto out_tgm_drv;
@@ -592,7 +617,10 @@ static int __init tgm_drv_init(void)
 	return 0;
 
 out_tgm_drv:
-
+#ifdef CONFIG_DRM_TDM_PP
+	platform_driver_unregister(&pp_driver);
+out_pp_driver:
+#endif
 	return ret;
 }
 
@@ -601,7 +629,12 @@ static void __exit tgm_drv_exit(void)
 	DRM_INFO("%s\n", __func__);
 
 	platform_driver_unregister(&tgm_driver);
+
+#ifdef CONFIG_DRM_TDM_PP
+	platform_driver_unregister(&pp_driver);
+#endif
 }
+
 
 late_initcall(tgm_drv_init);
 module_exit(tgm_drv_exit);

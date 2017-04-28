@@ -31,6 +31,7 @@ struct tgm_drv_private {
 struct tgm_drv_file_private {
 	pid_t pid;
 	pid_t tgid;
+	struct device   *pp_dev;
 };
 
 struct tgm_subdrv {
@@ -58,4 +59,5 @@ int tgm_device_subdrv_remove(struct drm_device *dev);
 int tgm_subdrv_open(struct drm_device *dev, struct drm_file *file);
 void tgm_subdrv_close(struct drm_device *dev, struct drm_file *file);
 
+extern struct platform_driver pp_driver;
 #endif /* _TGM_DRV_H_ */
