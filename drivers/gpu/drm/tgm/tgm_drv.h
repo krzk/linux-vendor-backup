@@ -60,4 +60,5 @@ int tgm_subdrv_open(struct drm_device *dev, struct drm_file *file);
 void tgm_subdrv_close(struct drm_device *dev, struct drm_file *file);
 
 extern struct platform_driver pp_driver;
+extern struct platform_driver pp_msc_driver;
 #endif /* _TGM_DRV_H_ */

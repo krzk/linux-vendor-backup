@@ -604,6 +604,11 @@ static int __init tgm_drv_init(void)
 
 	DRM_DEBUG("%s\n", __func__);
 
+#ifdef CONFIG_DRM_TDM_PP_MSC
+	ret = platform_driver_register(&pp_msc_driver);
+	if (ret < 0)
+		return ret;
+#endif
 #ifdef CONFIG_DRM_TDM_PP
 	ret = platform_driver_register(&pp_driver);
 	if (ret < 0)
@@ -621,6 +626,9 @@ out_tgm_drv:
 	platform_driver_unregister(&pp_driver);
 out_pp_driver:
 #endif
+#ifdef CONFIG_DRM_TDM_PP_MSC
+	platform_driver_unregister(&pp_msc_driver);
+#endif
 	return ret;
 }
 
@@ -632,6 +640,10 @@ static void __exit tgm_drv_exit(void)
 
 #ifdef CONFIG_DRM_TDM_PP
 	platform_driver_unregister(&pp_driver);
+#endif
+
+#ifdef CONFIG_DRM_TDM_PP_MSC
+	platform_driver_unregister(&pp_msc_driver);
 #endif
 }
 

@@ -36,6 +36,12 @@ config DRM_TDM_PP
 	help
 	  Supports post-processing feature.
 
+config DRM_TDM_PP_MSC
+	bool "TDM PP MSC"
+	depends on DRM_TDM_PP
+	help
+	  Choose this option if you want to use MSC for PP.
+
 config DRM_TBM
 	bool "TBM allocates graphics buffer"
 	depends on DRM_TGM
