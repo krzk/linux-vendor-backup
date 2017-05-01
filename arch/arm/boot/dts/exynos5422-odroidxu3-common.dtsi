@@ -78,7 +78,7 @@
 		cooling-min-state = <0>;
 		cooling-max-state = <3>;
 		#cooling-cells = <2>;
-		cooling-levels = <0 110 170 230>;
+		cooling-levels = <0 150 190 252>;
 	};
 	
 	mali: mali@0x11800000 {
