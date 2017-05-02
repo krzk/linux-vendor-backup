@@ -58,14 +58,6 @@ UNUSUAL_DEV(0x0bc2, 0x2312, 0x0000, 0x9999,
 		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
 		US_FL_NO_ATA_1X),
 
-/* https://forum.odroid.com/viewtopic.php?f=146&t=26016 */
-UNUSUAL_DEV(0x0bc2, 0x2322, 0x0000, 0x9999,
-		"Seagate",
-		"Expansion",
-		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
-		US_FL_NO_ATA_1X),
-
-
 /* https://bbs.archlinux.org/viewtopic.php?id=183190 */
 UNUSUAL_DEV(0x0bc2, 0x3312, 0x0000, 0x9999,
 		"Seagate",
@@ -84,13 +76,6 @@ UNUSUAL_DEV(0x0bc2, 0x331a, 0x0000, 0x9999,
 UNUSUAL_DEV(0x0bc2, 0x3320, 0x0000, 0x9999,
 		"Seagate",
 		"Expansion Desk",
-		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
-		US_FL_NO_ATA_1X),
-
-/* https://forum.odroid.com/viewtopic.php?f=146&t=26016 */
-UNUSUAL_DEV(0x0bc2, 0x3321, 0x0000, 0x9999,
-		"Seagate",
-		"Expansion",
 		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
 		US_FL_NO_ATA_1X),
 
