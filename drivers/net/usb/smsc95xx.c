@@ -87,6 +87,10 @@ static char *macaddr = ":";
 module_param(macaddr, charp, 0);
 MODULE_PARM_DESC(macaddr, "MAC address");
 
+static void smsc95xx_netconsole(struct net_device *netdev)
+{
+}
+
 static int __must_check __smsc95xx_read_reg(struct usbnet *dev, u32 index,
 					    u32 *data, int in_pm)
 {
@@ -1309,6 +1313,7 @@ static const struct net_device_ops smsc95xx_netdev_ops = {
 	.ndo_do_ioctl 		= smsc95xx_ioctl,
 	.ndo_set_rx_mode	= smsc95xx_set_multicast,
 	.ndo_set_features	= smsc95xx_set_features,
+        .ndo_poll_controller    = smsc95xx_netconsole,
 };
 
 static int smsc95xx_bind(struct usbnet *dev, struct usb_interface *intf)
