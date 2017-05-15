@@ -1,9 +1,9 @@
 /*
- * Copyright (C) 2011-2012 ARM Limited. All rights reserved.
- *
+ * Copyright (C) 2010-2014, 2016 ARM Limited. All rights reserved.
+ * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- *
+ * 
  * A copy of the licence is included with the program, and can also be obtained from Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
@@ -16,18 +16,21 @@
 #include <asm/uaccess.h>
 #include <asm/cacheflush.h>
 #include <linux/sched.h>
+#include <linux/seq_file.h>
 #include <linux/module.h>
 #include "mali_osk.h"
 
-void _mali_osk_dbgmsg( const char *fmt, ... )
+#if !defined(CONFIG_MALI_QUIET)
+void _mali_osk_dbgmsg(const char *fmt, ...)
 {
-    va_list args;
-    va_start(args, fmt);
-    vprintk(fmt, args);
+	va_list args;
+	va_start(args, fmt);
+	vprintk(fmt, args);
 	va_end(args);
 }
+#endif /* !defined(CONFIG_MALI_QUIET) */
 
-u32 _mali_osk_snprintf( char *buf, u32 size, const char *fmt, ... )
+u32 _mali_osk_snprintf(char *buf, u32 size, const char *fmt, ...)
 {
 	int res;
 	va_list args;
@@ -57,8 +60,22 @@ u32 _mali_osk_get_pid(void)
 	return (u32)current->tgid;
 }
 
+char *_mali_osk_get_comm(void)
+{
+	return (char *)current->comm;
+}
+
+
 u32 _mali_osk_get_tid(void)
 {
 	/* pid is actually identifying the thread on Linux */
-	return (u32)current->pid;
+	u32 tid = current->pid;
+
+	/* If the pid is 0 the core was idle.  Instead of returning 0 we return a special number
+	 * identifying which core we are on. */
+	if (0 == tid) {
+		tid = -(1 + raw_smp_processor_id());
+	}
+
+	return tid;
 }

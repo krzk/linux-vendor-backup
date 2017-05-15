@@ -5,17 +5,27 @@ menu "ARTIK TEE(Trusted Execution Environment)"
 
 config ARTIK_TRUSTZONE_DRIVER
 	tristate "ARTIK TrustZone driver"
-	depends on (ARM_TRUSTZONE && (SOC_EXYNOS3250 || SOC_EXYNOS5422))
+	depends on ((ARM_TRUSTZONE && (SOC_EXYNOS3250 || SOC_EXYNOS5422)) ||\
+				ARCH_S5P6818 || ARCH_S5P4418)
 	default y
 	help
 	  This driver allows you can communicate with ARTIK Secure OS.
 	  When you use this driver, the platform has to support Secure OS.
 
-config ARTIK_FETCH_TEE_INFO
-	bool "ARTIK Fetch TEE information"
-	depends on (ARTIK_TRUSTZONE_DRIVER)
+config ARTIK_USE_TZCMA_FOR_CRYPTO
+	bool "ARTIK Uses TZCMA for crypto operation on ARTIK"
+	depends on (ARTIK_TRUSTZONE_DRIVER && (SOC_EXYNOS3250 ||\
+				ARCH_S5P6818 || ARCH_S5P4418))
+	default y
+	help
+	  This driver supports to use continuous memory which is allocated
+	  by cma(continuous memory allocator) for crypto operation on artik.
+
+config ARTIK_USE_DMA
+	bool "ARTIK Uses DMA for crypto operation on ARTIK"
+	depends on (ARTIK_USE_TZCMA_FOR_CRYPTO && (ARCH_S5P6818 ||\
+				ARCH_S5P4418))
 	default n
 	help
-	  This driver supports to fetch information in TEE side for ARTIK.
-	  If Secure OS is built in Debug mode, you can use this feature.
+	  This driver supports to use dma for crypto operation on artik.
 endmenu

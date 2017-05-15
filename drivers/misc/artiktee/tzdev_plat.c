@@ -18,7 +18,6 @@
 
 #include <linux/pm_qos.h>
 #include "tzdev_plat.h"
-#include "tzdev_internal.h"
 
 static struct pm_qos_request min_cpu_qos;
 
@@ -36,7 +35,7 @@ int plat_preprocess(void)
 	int ret = 0;
 
 	if (pm_qos_request_active(&min_cpu_qos))
-		pm_qos_update_request(&min_cpu_qos, 1000000);
+		pm_qos_update_request(&min_cpu_qos, 1200000);
 
 	return ret;
 }
@@ -51,7 +50,7 @@ int plat_postprocess(void)
 	return ret;
 }
 
-int plat_dump_postprocess(char *uuid)
+int plat_dump_postprocess(char *name)
 {
 	return 0;
 }

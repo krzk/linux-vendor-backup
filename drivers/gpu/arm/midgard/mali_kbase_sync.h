@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2016 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -26,7 +26,24 @@
 #define MALI_KBASE_SYNC_H
 
 #include "sync.h"
-#include <malisw/mali_malisw.h>
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
+/* For backwards compatiblility with kernels before 3.17. After 3.17
+ * sync_pt_parent is included in the kernel. */
+static inline struct sync_timeline *sync_pt_parent(struct sync_pt *pt)
+{
+	return pt->parent;
+}
+#endif
+
+static inline int kbase_fence_get_status(struct sync_fence *fence)
+{
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
+	return fence->status;
+#else
+	return atomic_read(&fence->status);
+#endif
+}
 
 /*
  * Create a stream object.
@@ -36,7 +53,7 @@
  * - dup to add a ref
  * - close to remove a ref
  */
-mali_error kbase_stream_create(const char *name, int *const out_fd);
+int kbase_stream_create(const char *name, int *const out_fd);
 
 /*
  * Create a fence in a stream object
@@ -50,7 +67,7 @@ int kbase_stream_create_fence(int tl_fd);
  * This function is only usable to catch unintentional user errors early,
  * it does not stop malicious code changing the fd after this function returns.
  */
-mali_error kbase_fence_validate(int fd);
+int kbase_fence_validate(int fd);
 
 /* Returns true if the specified timeline is allocated by Mali */
 int kbase_sync_timeline_is_ours(struct sync_timeline *timeline);
@@ -79,5 +96,13 @@ struct sync_pt *kbase_sync_pt_alloc(struct sync_timeline *parent);
  * result can be negative to indicate error, any other value is interpreted as success.
  */
 void kbase_sync_signal_pt(struct sync_pt *pt, int result);
+
+/**
+ * kbase_sync_status_string() - Get string matching @status
+ * @status: Value of fence status.
+ *
+ * Return: Pointer to string describing @status.
+ */
+const char *kbase_sync_status_string(int status);
 
 #endif

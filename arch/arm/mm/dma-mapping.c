@@ -157,50 +157,6 @@ struct dma_map_ops arm_coherent_dma_ops = {
 };
 EXPORT_SYMBOL(arm_coherent_dma_ops);
 
-static void *arm_exynos_dma_mcode_alloc(struct device *dev, size_t size,
-	dma_addr_t *handle, gfp_t gfp, struct dma_attrs *attrs);
-static void arm_exynos_dma_mcode_free(struct device *dev, size_t size, void *cpu_addr,
-				  dma_addr_t handle, struct dma_attrs *attrs);
-
-struct dma_map_ops arm_exynos_dma_mcode_ops = {
-	.alloc			= arm_exynos_dma_mcode_alloc,
-	.free			= arm_exynos_dma_mcode_free,
-	.mmap			= arm_dma_mmap,
-	.get_sgtable		= arm_dma_get_sgtable,
-	.map_page		= arm_dma_map_page,
-	.unmap_page		= arm_dma_unmap_page,
-	.map_sg			= arm_dma_map_sg,
-	.unmap_sg		= arm_dma_unmap_sg,
-	.sync_single_for_cpu	= arm_dma_sync_single_for_cpu,
-	.sync_single_for_device	= arm_dma_sync_single_for_device,
-	.sync_sg_for_cpu	= arm_dma_sync_sg_for_cpu,
-	.sync_sg_for_device	= arm_dma_sync_sg_for_device,
-	.set_dma_mask		= arm_dma_set_mask,
-};
-EXPORT_SYMBOL(arm_exynos_dma_mcode_ops);
-
-static void *arm_exynos_dma_alloc(struct device *dev, size_t size,
-	dma_addr_t *handle, gfp_t gfp, struct dma_attrs *attrs);
-static void arm_exynos_dma_free(struct device *dev, size_t size, void *cpu_addr,
-				  dma_addr_t handle, struct dma_attrs *attrs);
-
-struct dma_map_ops arm_exynos_dma_ops = {
-	.alloc			= arm_exynos_dma_alloc,
-	.free			= arm_exynos_dma_free,
-	.mmap			= arm_dma_mmap,
-	.get_sgtable		= arm_dma_get_sgtable,
-	.map_page		= arm_dma_map_page,
-	.unmap_page		= arm_dma_unmap_page,
-	.map_sg			= arm_dma_map_sg,
-	.unmap_sg		= arm_dma_unmap_sg,
-	.sync_single_for_cpu	= arm_dma_sync_single_for_cpu,
-	.sync_single_for_device	= arm_dma_sync_single_for_device,
-	.sync_sg_for_cpu	= arm_dma_sync_sg_for_cpu,
-	.sync_sg_for_device	= arm_dma_sync_sg_for_device,
-	.set_dma_mask		= arm_dma_set_mask,
-};
-EXPORT_SYMBOL(arm_exynos_dma_ops);
-
 static u64 get_coherent_dma_mask(struct device *dev)
 {
 	u64 mask = (u64)arm_dma_limit;
@@ -382,7 +338,6 @@ void __init init_dma_coherent_pool_size(unsigned long size)
 /*
  * Initialise the coherent pool for atomic allocations.
  */
-__attribute__ ((unused))
 static int __init atomic_pool_init(void)
 {
 	struct dma_pool *pool = &atomic_pool;
@@ -434,57 +389,7 @@ no_bitmap:
 	return -ENOMEM;
 }
 
-static int __init exynos_atomic_pool_init(void)
-{
-	struct dma_pool *pool = &atomic_pool;
-	pgprot_t prot = pgprot_dmacoherent(pgprot_kernel);
-	gfp_t gfp = GFP_KERNEL | GFP_DMA;
-	unsigned long nr_pages = pool->size >> PAGE_SHIFT;
-	unsigned long *bitmap;
-	struct page *page;
-	struct page **pages;
-	void *ptr;
-	int bitmap_size = BITS_TO_LONGS(nr_pages) * sizeof(long);
-
-	bitmap = kzalloc(bitmap_size, GFP_KERNEL);
-	if (!bitmap)
-		goto no_bitmap;
-
-	pages = kzalloc(nr_pages * sizeof(struct page *), GFP_KERNEL);
-	if (!pages)
-		goto no_pages;
-
-	ptr = __alloc_remap_buffer(NULL, pool->size, gfp, prot, &page,
-					   exynos_atomic_pool_init);
-	if (ptr) {
-		int i;
-
-		for (i = 0; i < nr_pages; i++)
-			pages[i] = page + i;
-
-		spin_lock_init(&pool->lock);
-		pool->vaddr = ptr;
-		pool->pages = pages;
-		pool->bitmap = bitmap;
-		pool->nr_pages = nr_pages;
-		pr_info("DMA: preallocated %u KiB pool for atomic coherent allocations\n",
-		       (unsigned)pool->size / 1024);
-		return 0;
-	}
-
-	kfree(pages);
-no_pages:
-	kfree(bitmap);
-no_bitmap:
-	pr_err("DMA: failed to allocate %u KiB pool for atomic coherent allocation\n",
-	       (unsigned)pool->size / 1024);
-	return -ENOMEM;
-}
-/*
- * CMA is activated by core_initcall, so we must be called after it.
- */
-
-postcore_initcall(exynos_atomic_pool_init);
+postcore_initcall(atomic_pool_init);
 
 struct dma_contig_early_reserve {
 	phys_addr_t base;
@@ -813,62 +718,6 @@ static void *arm_coherent_dma_alloc(struct device *dev, size_t size,
 			   __builtin_return_address(0));
 }
 
-static void *arm_exynos_dma_mcode_alloc(struct device *dev, size_t size,
-	dma_addr_t *handle, gfp_t gfp, struct dma_attrs *attrs)
-{
-	void *addr;
-
-	if (!*handle)
-		return NULL;
-
-	addr = ioremap(*handle, size);
-
-	return addr;
-}
-
-static void *arm_exynos_dma_alloc(struct device *dev, size_t size,
-	dma_addr_t *handle, gfp_t gfp, struct dma_attrs *attrs)
-{
-	pgprot_t prot = __get_dma_pgprot(attrs, pgprot_kernel);
-	struct page *page = NULL;
-	void *addr;
-	void *memory;
-	u64 mask = get_coherent_dma_mask(dev);
-
-#ifdef CONFIG_DMA_API_DEBUG
-	u64 limit = (mask + 1) & ~mask;
-	if (limit && size >= limit) {
-		dev_warn(dev, "coherent allocation too big (requested %#x mask %#llx)\n",
-			size, mask);
-		return NULL;
-	}
-#endif
-
-	if (!mask)
-		return NULL;
-
-	if (dma_alloc_from_coherent(dev, size, handle, &memory))
-		return memory;
-
-	if (mask < 0xffffffffULL)
-		gfp |= GFP_DMA;
-
-	gfp &= ~(__GFP_COMP);
-
-	*handle = DMA_ERROR_CODE;
-	size = PAGE_ALIGN(size);
-
-	if (!(gfp & __GFP_WAIT))
-		addr = __alloc_from_pool(size, &page);
-	else
-		addr = __alloc_remap_buffer(dev, size, gfp, prot, &page,
-				__builtin_return_address(0));
-	if (addr)
-		*handle = pfn_to_dma(dev, page_to_pfn(page));
-
-	return addr;
-}
-
 /*
  * Create userspace mapping for the DMA-coherent memory.
  */
@@ -939,30 +788,6 @@ static void arm_coherent_dma_free(struct device *dev, size_t size, void *cpu_add
 				  dma_addr_t handle, struct dma_attrs *attrs)
 {
 	__arm_dma_free(dev, size, cpu_addr, handle, attrs, true);
-}
-
-static void arm_exynos_dma_mcode_free(struct device *dev, size_t size, void *cpu_addr,
-				  dma_addr_t handle, struct dma_attrs *attrs)
-{
-	iounmap(cpu_addr);
-}
-
-static void arm_exynos_dma_free(struct device *dev, size_t size, void *cpu_addr,
-				  dma_addr_t handle, struct dma_attrs *attrs)
-{
-	struct page *page = pfn_to_page(dma_to_pfn(dev, handle));
-
-	if (dma_release_from_coherent(dev, get_order(size), cpu_addr))
-		return;
-
-	size = PAGE_ALIGN(size);
-
-	if (__free_from_pool(cpu_addr, size)) {
-		return;
-	} else {
-		__dma_free_remap(cpu_addr, size);
-		__dma_free_buffer(page, size);
-	}
 }
 
 int arm_dma_get_sgtable(struct device *dev, struct sg_table *sgt,
@@ -1528,11 +1353,18 @@ static int arm_iommu_mmap_attrs(struct device *dev, struct vm_area_struct *vma,
 	unsigned long uaddr = vma->vm_start;
 	unsigned long usize = vma->vm_end - vma->vm_start;
 	struct page **pages = __iommu_get_pages(cpu_addr, attrs);
+	unsigned long nr_pages = PAGE_ALIGN(size) >> PAGE_SHIFT;
+	unsigned long off = vma->vm_pgoff;
 
 	vma->vm_page_prot = __get_dma_pgprot(attrs, vma->vm_page_prot);
 
 	if (!pages)
 		return -ENXIO;
+
+	if (off >= nr_pages || (usize >> PAGE_SHIFT) > nr_pages - off)
+		return -ENXIO;
+
+	pages += off;
 
 	do {
 		int ret = vm_insert_page(vma, uaddr, *pages++);

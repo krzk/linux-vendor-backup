@@ -45,12 +45,10 @@
 #define SMC_IRQ_RESUME				13
 
 #define SMC_STD_REGISTER_PHYS_WSM	14
-// R1 - CMD, R2 - wsm_id (only for register cmd)
+/* R1 - CMD, R2 - wsm_id (only for register cmd) */
 #define SMC_STD_RESOURCE_MONITOR	15
 
-#ifdef CONFIG_FETCH_TEE_INFO
-#define SMC_STD_FETCH_TEE_INFO		16
-#endif /* !CONFIG_FETCH_TEE_INFO */
+#define SMC_STD_SYNC_KERNEL_TIME	16
 
 /* TODO: this should be sent to PSCI */
 #define SMC_PM_CPU_OFF			0
@@ -65,6 +63,8 @@
 #define SMC_CPU_RESUME_SYS			19
 #define SMC_CPU_RESUME				20
 #endif /* !CONFIG_PSCI */
+
+#define SMC_STD_PLAT_SMC			21
 
 #define SMC_STD_GET_UUID			0xFF01
 

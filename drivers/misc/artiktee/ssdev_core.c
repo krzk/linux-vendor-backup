@@ -35,7 +35,6 @@
 #include "ssdev_file.h"
 
 #include "tzdev.h"
-#include "tzpage.h"
 #include "tzdev_internal.h"
 #include "tzdev_smc.h"
 #include "nsrpc_ree_slave.h"
@@ -100,10 +99,10 @@ enum ss_sub_cmd_type {
 
 	/*for file update */
 	SS_SUB_CMD_FILE_UPDATE_OBJECT_PREPARE,
-	SS_SUB_CMD_FILE_UDPATE_OBJECT_START,
-	SS_SUB_CMD_FILE_UDPATE_OBJECT,
-	SS_SUB_CMD_FILE_UDPATE_OBJECT_END,
-	SS_SUB_CMD_FILE_UDPATE_OBJECT_POST,
+	SS_SUB_CMD_FILE_UPDATE_OBJECT_START,
+	SS_SUB_CMD_FILE_UPDATE_OBJECT,
+	SS_SUB_CMD_FILE_UPDATE_OBJECT_END,
+	SS_SUB_CMD_FILE_UPDATE_OBJECT_POST,
 
 	/*for rpmb load */
 	SS_SUB_CMD_RPMB_LOAD_OBJECT_PREPARE,
@@ -115,15 +114,15 @@ enum ss_sub_cmd_type {
 	/*for rpmb update */
 	SS_SUB_CMD_RPMB_UPDATE_OBJECT_PREPARE,
 
-	SS_SUB_CMD_RPMB_UDPATE_OBJECT_START,
-	SS_SUB_CMD_RPMB_UDPATE_OBJECT_DATA,
-	SS_SUB_CMD_RPMB_UDPATE_OBJECT_VERIFY,
-	SS_SUB_CMD_RPMB_UDPATE_OBJECT_END,
+	SS_SUB_CMD_RPMB_UPDATE_OBJECT_START,
+	SS_SUB_CMD_RPMB_UPDATE_OBJECT_DATA,
+	SS_SUB_CMD_RPMB_UPDATE_OBJECT_VERIFY,
+	SS_SUB_CMD_RPMB_UPDATE_OBJECT_END,
 
 	SS_SUB_CMD_RPMB_UPDATE_OBJECT_ENTRY_START,
 	SS_SUB_CMD_RPMB_UPDATE_OBJECT_ENTRY_END,
 
-	SS_SUB_CMD_RPMB_UDPATE_OBJECT_POST,
+	SS_SUB_CMD_RPMB_UPDATE_OBJECT_POST,
 
 	/*for rpmb header */
 	SS_SUB_CMD_RPMB_HEADER_QUERY,
@@ -135,7 +134,7 @@ enum ss_sub_cmd_type {
 enum ss_file_main_back {
 	SS_MAIN_OBJECT_FILE,
 	SS_BAKE_OBJECT_FILE,
-	SS_INVALIDE_OBJECT_FILE,
+	SS_INVALID_OBJECT_FILE,
 };
 
 #ifdef CONFIG_TEE_LIBRARY_PROVISION
@@ -155,9 +154,9 @@ enum {
 #define RPMB_HEADER_STATE_OK            (0)
 #define RPMB_HEADER_STATE_UPDATE        (1)
 
-#define OBJECT_FILE_PATH     "/opt/usr/apps/tee/data/."
-#define OBJECT_FILE_MAIN_POSTFIX  ".dat"
-#define OBJECT_FILE_BACK_POSTFIX  ".bak"
+#define SS_PATH_PREFIX		"tee/storage/"
+#define SS_FILE_MAIN_EXT	".dat"
+#define SS_FILE_BACK_EXT	".bak"
 
 /* 1217 defined in tzdev */
 /* 1220 rollbacked tzdev */
@@ -168,6 +167,15 @@ static struct ss_wsm ss_wsm_channel;
 #ifdef CONFIG_TEE_LIBRARY_PROVISION
 static struct ss_wsm libprov_wsm_channel;
 #endif
+
+#define ssdev_filename_create(_buf, _sz, _ext, _p)	\
+do{	\
+	snprintf(_buf, _sz, "%s/%s.%08x%08x%08x%08x%08x%08x%08x%08x%s",		\
+			tzpath_buf, SS_PATH_PREFIX,		\
+		  *_p, *(_p + 1), *(_p + 2), *(_p + 3), *(_p + 4), *(_p + 5),	\
+		  *(_p + 6), *(_p + 7), _ext);		\
+}while(0)
+
 
 static void ssdev_query_object(NSRPCTransaction_t *tsx)
 {
@@ -183,21 +191,18 @@ static void ssdev_query_object(NSRPCTransaction_t *tsx)
 	if (nsrpc_get_arg(tsx, 0) ==
 			TEE_STORAGE_PRIVATE) {
 		/*PATH + 64 Bytes UUID hash name + ".dat" + NULL */
-		char file_main[128] = { 0 };
-		char file_back[128] = { 0 };
+		char file_main[200] = { 0 };
+		char file_back[200] = { 0 };
 		int *p = NULL;
 		int file_size;
 
 		p = (int *)nsrpc_payload_ptr(tsx);
 
-		snprintf(file_main, sizeof(file_main),
-			 OBJECT_FILE_PATH "%08x%08x%08x%08x%08x%08x%08x%08x"
-			 OBJECT_FILE_MAIN_POSTFIX, *p, *(p + 1), *(p + 2),
-			 *(p + 3), *(p + 4), *(p + 5), *(p + 6), *(p + 7));
-		snprintf(file_back, sizeof(file_back),
-			 OBJECT_FILE_PATH "%08x%08x%08x%08x%08x%08x%08x%08x"
-			 OBJECT_FILE_BACK_POSTFIX, *p, *(p + 1), *(p + 2),
-			 *(p + 3), *(p + 4), *(p + 5), *(p + 6), *(p + 7));
+		ssdev_filename_create(file_main, sizeof(file_main),
+				SS_FILE_MAIN_EXT, p);
+
+		ssdev_filename_create(file_back, sizeof(file_back),
+				SS_FILE_BACK_EXT, p);
 
 		tzlog_print(TZLOG_DEBUG, "file_main:%s\n", file_main);
 		tzlog_print(TZLOG_DEBUG, "file_back:%s\n", file_back);
@@ -284,22 +289,19 @@ static int ssdev_file_copy_object(char *dest, char *src)
 
 static void ssdev_file_load_object(NSRPCTransaction_t *tsx)
 {
-	char file_main[128] = { 0 };
-	char file_back[128] = { 0 };
+	char file_main[200] = { 0 };
+	char file_back[200] = { 0 };
 	int index;
 	ssize_t obj_size;
 
 	char *paths[] = { file_main, file_back };
 	int *p = (int *)nsrpc_payload_ptr(tsx);
 
-	snprintf(file_main, sizeof(file_main),
-		 OBJECT_FILE_PATH "%08x%08x%08x%08x%08x%08x%08x%08x"
-		 OBJECT_FILE_MAIN_POSTFIX, *p, *(p + 1), *(p + 2), *(p + 3),
-		 *(p + 4), *(p + 5), *(p + 6), *(p + 7));
-	snprintf(file_back, sizeof(file_back),
-		 OBJECT_FILE_PATH "%08x%08x%08x%08x%08x%08x%08x%08x"
-		 OBJECT_FILE_BACK_POSTFIX, *p, *(p + 1), *(p + 2), *(p + 3),
-		 *(p + 4), *(p + 5), *(p + 6), *(p + 7));
+	ssdev_filename_create(file_main, sizeof(file_main),
+			SS_FILE_MAIN_EXT, p);
+
+	ssdev_filename_create(file_back, sizeof(file_back),
+			SS_FILE_BACK_EXT, p);
 
 	for (index = 0; index < 2; ++index) {
 		tzlog_print(TZLOG_DEBUG, "Check if file exists '%s'\n",
@@ -384,24 +386,21 @@ static void ssdev_file_delete_file(NSRPCTransaction_t *tsx)
 static void ssdev_file_create_data(NSRPCTransaction_t *tsx)
 {
 	/*PATH + 32 Bytes UUID hash + ".dat" + NULL */
-	char file_main[128] = { 0 };
-	char file_back[128] = { 0 };
+	char file_main[200] = { 0 };
+	char file_back[200] = { 0 };
 	int *p = (int *)nsrpc_payload_ptr(tsx);
 	size_t wsm_size = 0;
 	int ret;
 	int file_size;
 	void *wsm_buffer =
-	    (char *)ss_wsm_channel.payload + nsrpc_wsm_offset(tsx,
+		(char *)ss_wsm_channel.payload + nsrpc_wsm_offset(tsx,
 								&wsm_size);
 
-	snprintf(file_main, sizeof(file_main),
-		 OBJECT_FILE_PATH "%08x%08x%08x%08x%08x%08x%08x%08x"
-		 OBJECT_FILE_MAIN_POSTFIX, *p, *(p + 1), *(p + 2), *(p + 3),
-		 *(p + 4), *(p + 5), *(p + 6), *(p + 7));
-	snprintf(file_back, sizeof(file_back),
-		 OBJECT_FILE_PATH "%08x%08x%08x%08x%08x%08x%08x%08x"
-		 OBJECT_FILE_BACK_POSTFIX, *p, *(p + 1), *(p + 2), *(p + 3),
-		 *(p + 4), *(p + 5), *(p + 6), *(p + 7));
+	ssdev_filename_create(file_main, sizeof(file_main),
+			SS_FILE_MAIN_EXT, p);
+
+	ssdev_filename_create(file_back, sizeof(file_back),
+			SS_FILE_BACK_EXT, p);
 
 	tzlog_print(TZLOG_DEBUG,
 		    "Create data, file_main '%s', file back '%s'\n", file_main,
@@ -446,7 +445,7 @@ static void ssdev_file_create_data(NSRPCTransaction_t *tsx)
 static void ssdev_file_append_data(NSRPCTransaction_t *tsx)
 {
 	/*PATH + 32 Bytes UUID hash + ".dat" + NULL */
-	char file_main[128] = { 0 };
+	char file_main[200] = { 0 };
 	int *p = (int *)nsrpc_payload_ptr(tsx);
 	size_t wsm_size = 0;
 	int ret;
@@ -454,10 +453,8 @@ static void ssdev_file_append_data(NSRPCTransaction_t *tsx)
 	    (char *)ss_wsm_channel.payload + nsrpc_wsm_offset(tsx,
 								&wsm_size);
 
-	snprintf(file_main, sizeof(file_main),
-		 OBJECT_FILE_PATH "%08x%08x%08x%08x%08x%08x%08x%08x"
-		 OBJECT_FILE_MAIN_POSTFIX, *p, *(p + 1), *(p + 2), *(p + 3),
-		 *(p + 4), *(p + 5), *(p + 6), *(p + 7));
+	ssdev_filename_create(file_main, sizeof(file_main),
+			SS_FILE_MAIN_EXT, p);
 
 	tzlog_print(TZLOG_DEBUG,
 		    "append file object '%s' with buffer %p and size %zd\n",
@@ -485,18 +482,15 @@ static void ssdev_file_append_data(NSRPCTransaction_t *tsx)
 static void ssdev_file_delete_data(NSRPCTransaction_t *tsx)
 {
 	/*PATH + 32 Bytes UUID hash + ".dat" + NULL */
-	char file_main[128] = { 0 };
-	char file_back[128] = { 0 };
+	char file_main[200] = { 0 };
+	char file_back[200] = { 0 };
 	int *p = (int *)nsrpc_payload_ptr(tsx);
 
-	snprintf(file_main, sizeof(file_main),
-		 OBJECT_FILE_PATH "%08x%08x%08x%08x%08x%08x%08x%08x"
-		 OBJECT_FILE_MAIN_POSTFIX, *p, *(p + 1), *(p + 2), *(p + 3),
-		 *(p + 4), *(p + 5), *(p + 6), *(p + 7));
-	snprintf(file_back, sizeof(file_back),
-		 OBJECT_FILE_PATH "%08x%08x%08x%08x%08x%08x%08x%08x"
-		 OBJECT_FILE_BACK_POSTFIX, *p, *(p + 1), *(p + 2), *(p + 3),
-		 *(p + 4), *(p + 5), *(p + 6), *(p + 7));
+	ssdev_filename_create(file_main, sizeof(file_main),
+			SS_FILE_MAIN_EXT, p);
+
+	ssdev_filename_create(file_back, sizeof(file_back),
+			SS_FILE_BACK_EXT, p);
 
 	tzlog_print(TZLOG_DEBUG, "file_main:%s\n", file_main);
 	tzlog_print(TZLOG_DEBUG, "file_back:%s\n", file_back);
@@ -509,13 +503,9 @@ static void ssdev_file_delete_data(NSRPCTransaction_t *tsx)
 #ifndef CONFIG_SECOS_NO_RPMB
 static void ssdev_rpmb_get_write_counter(NSRPCTransaction_t *tsx)
 {
+#if defined(CONFIG_MMC)
 	u32 write_counter = 0;
-
-#if defined(CONFIG_MMC) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0))
 	int ret = ss_rpmb_get_wctr(&write_counter);
-#else
-	int ret = -EIO;
-#endif /* defined(CONFIG_MMC) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0)) */
 
 	if (ret < 0) {
 		tzlog_print(TZLOG_ERROR,
@@ -530,11 +520,14 @@ static void ssdev_rpmb_get_write_counter(NSRPCTransaction_t *tsx)
 		nsrpc_set_arg(tsx, 0, write_counter);
 		nsrpc_complete(tsx, 0);
 	}
+#else
+	nsrpc_complete(tsx, -EIO);
+#endif
 }
 
 static void ssdev_rpmb_load_frames(NSRPCTransaction_t *tsx)
 {
-#if defined(CONFIG_MMC) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0))
+#if defined(CONFIG_MMC)
 	const size_t blk_nums = nsrpc_get_arg(tsx, 0);
 	const size_t object_size = blk_nums * RPMB_SECOTR;
 	const size_t piece_size = RPMB_SECOTR * RPMB_READ_BLOCKS_UNIT;
@@ -612,12 +605,12 @@ static void ssdev_rpmb_load_frames(NSRPCTransaction_t *tsx)
 	nsrpc_complete(tsx, 0);
 #else
 	nsrpc_complete(tsx, -EIO);
-#endif /* defined(CONFIG_MMC) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0)) */
+#endif /* defined(CONFIG_MMC) */
 }
 
 static void ssdev_rpmb_store_frames(NSRPCTransaction_t *tsx)
 {
-#if defined(CONFIG_MMC) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0))
+#if defined(CONFIG_MMC)
 	const size_t blk_nums = nsrpc_get_arg(tsx, 0);
 	size_t wsm_size = 0;
 	void *wsm_buffer =
@@ -673,9 +666,20 @@ static void ssdev_rpmb_store_frames(NSRPCTransaction_t *tsx)
 	nsrpc_complete(tsx, 0);
 #else
 	nsrpc_complete(tsx, -EIO);
-#endif /* defined(CONFIG_MMC) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0)) */
+#endif /* defined(CONFIG_MMC) */
 }
 #endif /*CONFIG_SECOS_NO_RPMB*/
+
+int storage_path_init(void)
+{
+	int ret;
+
+	ret = tzpath_fullpath_create(SS_PATH_PREFIX);
+	if( ret != 0 )
+		tzlog_print(K_ERR, "Failed to create secure storage path\n");
+
+	return ret;
+}
 
 int storage_register_wsm(void)
 {
@@ -803,7 +807,7 @@ int libprov_register_wsm(void *addr, size_t size)
 void *libprov_load_file(const char *libname, size_t *ret_size)
 {
 	char path[MAX_PATH_LEN];
-	unsigned int filesize, offset, read_size;
+	unsigned int filesize, offset = 0, read_size;
 	struct trm_ta_image *ta_image = NULL;
 	struct file *file;
 
@@ -894,4 +898,4 @@ int libprov_handler(NSRPCTransaction_t *txn_object)
 
 	return 0;
 }
-#endif
+#endif /* CONFIG_TEE_LIBRARY_PROVISION */

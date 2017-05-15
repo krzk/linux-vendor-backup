@@ -16,14 +16,15 @@
  *
  *********************************************************/
 
+#include <linux/limits.h>
+#include <linux/vmalloc.h>
+
+#include "tzdev.h"
 #include "dumpdev_core.h"
 
 #include "circular_buffer.h"
 #include "ssdev_file.h"
 #include "tzdev_plat.h"
-
-#include <linux/limits.h>
-#include <linux/vmalloc.h>
 
 #if defined(CONFIG_INSTANCE_DEBUG) && defined(CONFIG_USB_DUMP)
 #include "usb_dump.h"
@@ -31,19 +32,17 @@
 
 extern char *get_minidump_buf(void);
 extern uint get_minidump_buf_size(void);
-extern int tzlog_create_dir_full_path(char *dir_full_path);
 
 /* TODO : will be remove this declare. and should be share tzsys.c's dump path */
-#define ERROR_DUMP_DIR_PATH  "/opt/usr/apps/save_error_log/error_log/secureos_dump/"
+#define ERROR_DUMP_DIR_PATH  "/save_error_log/error_log/secureos_dump/"
 
-static char* get_file_full_path(char *file_name, char *dst_buf, int dst_buf_len)
+static char *get_file_full_path(char *file_name, char *dst_buf, int dst_buf_len)
 {
 	if (file_name == NULL)
 		return NULL;
 
 	snprintf(dst_buf, dst_buf_len,
-		"%s%s.elf",
-		ERROR_DUMP_DIR_PATH, file_name);
+		 "%s/%s%s.elf", tzpath_buf, ERROR_DUMP_DIR_PATH, file_name);
 
 	return dst_buf;
 }
@@ -72,8 +71,7 @@ static int copy_to_file_from_ring(
 						iov[i].iov_len);
 				break;
 			}
-		}
-		else {
+		} else {
 			if (ss_file_append_object(file_full_path,
 					iov[i].iov_base,
 					iov[i].iov_len) != iov[i].iov_len) {
@@ -88,7 +86,6 @@ static int copy_to_file_from_ring(
 	return n_written;
 }
 
-
 void dumpdev_handler(NSRPCTransaction_t *txn_object)
 {
 	int ret = 0;
@@ -101,7 +98,7 @@ void dumpdev_handler(NSRPCTransaction_t *txn_object)
 
 	dumpdev_ctrl = (pss_dump_ctrl)nsrpc_payload_ptr(txn_object);
 	ring_size = get_minidump_buf_size();
-	ring = (struct chimera_ring_buffer*)get_minidump_buf();
+	ring = (struct chimera_ring_buffer *)get_minidump_buf();
 	if (ring == NULL || ring_size == 0) {
 		tzlog_print(K_ERR, "NSRPC: can not process : ring : %p ring_size : %d\n",
 			    ring, ring_size);
@@ -109,8 +106,8 @@ void dumpdev_handler(NSRPCTransaction_t *txn_object)
 		goto exit_dumpdev_handler;
 	}
 
-	if (tzlog_create_dir_full_path(ERROR_DUMP_DIR_PATH) != 0) {
-		tzlog_print(K_ERR, "NSRPC: tzlog_create_dir_full_path\n");
+	if (tzpath_fullpath_create(ERROR_DUMP_DIR_PATH) != 0) {
+		tzlog_print(K_ERR, "Failed to create error dump path\n");
 		ret = -1;
 		goto exit_dumpdev_handler;
 	}

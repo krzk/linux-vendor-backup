@@ -312,6 +312,13 @@ static struct exynos_ss_interface ess_info;
 static struct exynos_ss_base ess_base;
 static struct exynos_ss_log *ess_log = NULL;
 
+enum ess_cause_emerg_events {
+	CAUSE_INVALID_DUMP = 0x00000000,
+	CAUSE_KERNEL_PANIC = 0x00000001,
+	CAUSE_FORCE_DUMP   = 0x0000000D,
+	CAUSE_FORCE_REBOOT = 0x000000FF,
+};
+
 DEFINE_PER_CPU(struct pt_regs *, ess_core_reg);
 DEFINE_PER_CPU(struct exynos_ss_mmu_reg *, ess_mmu_reg);
 DEFINE_PER_CPU(enum ess_cause_emerg_events, ess_cause_emerg);
@@ -552,13 +559,6 @@ static inline void exynos_ss_hook_logbuf(const char *buf, u64 ts_nsec, size_t si
 	}
 }
 #endif
-
-enum ess_cause_emerg_events {
-	CAUSE_INVALID_DUMP = 0x00000000,
-	CAUSE_KERNEL_PANIC = 0x00000001,
-	CAUSE_FORCE_DUMP   = 0x0000000D,
-	CAUSE_FORCE_REBOOT = 0x000000FF,
-};
 
 static void exynos_ss_scratch_reg(unsigned int val)
 {

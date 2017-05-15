@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2015 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -40,6 +40,16 @@ struct kbase_device;
 void kbase_gpuprops_set(struct kbase_device *kbdev);
 
 /**
+ * kbase_gpuprops_set_features - Set up Kbase GPU properties
+ * @kbdev:   Device pointer
+ *
+ * This function sets up GPU properties that are dependent on the hardware
+ * features bitmask. This function must be preceeded by a call to
+ * kbase_hw_set_features_mask().
+ */
+void kbase_gpuprops_set_features(struct kbase_device *kbdev);
+
+/**
  * @brief Provide GPU properties to userside through UKU call.
  *
  * Fill the struct kbase_uk_gpuprops with values from GPU configuration registers.
@@ -47,8 +57,8 @@ void kbase_gpuprops_set(struct kbase_device *kbdev);
  * @param kctx		The struct kbase_context structure
  * @param kbase_props	A copy of the struct kbase_uk_gpuprops structure from userspace
  *
- * @return MALI_ERROR_NONE on success. Any other value indicates failure.
+ * @return 0 on success. Any other value indicates failure.
  */
-mali_error kbase_gpuprops_uk_get_props(struct kbase_context *kctx, struct kbase_uk_gpuprops * const kbase_props);
+int kbase_gpuprops_uk_get_props(struct kbase_context *kctx, struct kbase_uk_gpuprops * const kbase_props);
 
 #endif				/* _KBASE_GPUPROPS_H_ */

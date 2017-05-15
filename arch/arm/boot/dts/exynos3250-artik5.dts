@@ -26,6 +26,7 @@
 
 	aliases {
 		i2c8 = &i2c_gpio0;
+		spi2 = &spi_gpio0;
 	};
 
 	fixed-rate-clocks {
@@ -479,6 +480,20 @@
 			samsung,pin-con-pdn = <2>;
 			samsung,pin-pud-pdn = <1>;
 		};
+
+		xr20m1172_int: xm20m1172-int {
+			samsung,pins = "gpx2-4";
+			samsung,pin-function = <0xf>;
+			samsung,pin-pud = <3>;
+			samsung,pin-drv = <0>;
+		};
+
+		xr20m1172_reset: xm20m1172-int {
+			samsung.pins = "gpx2-2";
+			samsung,pin-function = <0x1>;
+			samsung,pin-pud = <3>;
+			samsung,pin-drv = <0>;
+		};
 	};
 
 	wlan {
@@ -654,6 +669,29 @@
 		i2c_addr = <0x20>;
 		is_bns = <0>;
 		status = "okay";
+	};
+
+	spi_gpio0: spi-gpio0 {
+		compatible = "spi-gpio";
+		status = "okay";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		spi-max-frequency = <4000000>;
+		gpio-sck = <&gpm3 4 0>;
+		gpio-mosi = <&gpm3 5 0>;
+		gpio-miso = <&gpm3 6 0>;
+		cs-gpios = <&gpm3 7 0>;
+		num-chipselects = <1>;
+
+		xr20m1172 {
+			compatible = "exar,xrm117x";
+			interrupt-parent = <&gpx2>;
+			interrupts = <4 0 0>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&xr20m1172_int &xr20m1172_reset>;
+			spi-max-frequency = <4000000>;
+			reg = <0>;
+		};
 	};
 };
 

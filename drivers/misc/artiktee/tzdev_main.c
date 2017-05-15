@@ -39,26 +39,34 @@
 #include <linux/sched.h>
 #include <linux/errno.h>
 #include <linux/slab.h>
+#include <linux/dcache.h>
+#include <linux/vmalloc.h>
+#ifdef CONFIG_ARTIK_USE_TZCMA_FOR_CRYPTO
+#include <linux/dma-contiguous.h>
+#include <linux/dma-mapping.h>
+#include <linux/sizes.h>
+#endif /* CONFIG_ARTIK_USE_TZCMA_FOR_CRYPTO */
+#ifdef CONFIG_ARTIK_USE_DMA
+#include <linux/dmaengine.h>
+#include <linux/property.h>
+#endif /* CONFIG_ARTIK_USE_DMA */
 
 #include "tzdev.h"
 #include "tzdev_init.h"
 #include "tzdev_internal.h"
 #include "nsrpc_ree_slave.h"
-#include "tzpage.h"
 #include "tzdev_smc.h"
 #include "tzdev_plat.h"
 
 #include "ssdev_init.h"
 
-#ifdef CONFIG_FETCH_TEE_INFO
-#include "tzinfo.h"
-#endif /* !CONFIG_FETCH_TEE_INFO */
 #include "tzlog_core.h"
 #include "tzlog_print.h"
 #include "tzrsrc_msg.h"
 
 #define TZDEV_MAJOR_VERSION  "007"
 #define TZDEV_MINOR_VERSION  "0"
+#define TZDEV_DEFAULT_TZPATH "/opt/usr/apps/"
 
 MODULE_PARM_DESC(default_tzdev_local_log_level,
 		 "Loglevel of tz driver (7 - debug, 6 - info, 5 - notice, 4 - warning, 3 - error, ...)");
@@ -67,6 +75,8 @@ MODULE_PARM_DESC(default_tzdev_local_log_level,
 #ifdef CONFIG_TZDEV_CPU_IDLE
 void sdp_cpuidle_enable_c1(void);
 #endif
+
+char *tzpath_buf;
 
 static int debugging_started;
 
@@ -221,11 +231,11 @@ struct tzio_context *tzio_context_get(int id)
 	return ctx;
 }
 
-#ifndef CONFIG_PSCI
+#ifndef CONFIG_ARM_PSCI
 static DEFINE_PER_CPU(unsigned int, cpu_offline);
 #define CPU_OFF_LINE  0x1
 #define CPU_IDLE_LINE 0x2
-#endif /* !CONFIG_PSCI */
+#endif /* !CONFIG_ARM_PSCI */
 
 /* tzdev scm_watch
 */
@@ -244,7 +254,7 @@ int tzdev_scm_watch(unsigned long dev_id, unsigned long func_id,
 
 	cpu = get_cpu();
 
-#ifndef CONFIG_PSCI
+#ifndef CONFIG_ARM_PSCI
 	if (per_cpu(cpu_offline, cpu) & CPU_OFF_LINE
 	    || per_cpu(cpu_offline, cpu) & CPU_IDLE_LINE) {
 		put_cpu();
@@ -255,7 +265,7 @@ int tzdev_scm_watch(unsigned long dev_id, unsigned long func_id,
 			    (unsigned int)dev_id, (unsigned int)func_id);
 		return -EPERM;
 	}
-#endif /* !CONFIG_PSCI */
+#endif /* !CONFIG_ARM_PSCI */
 
 	put_cpu();
 
@@ -297,7 +307,7 @@ static inline void tzio_flushd_notify(void)
 	wake_up_all(&oom_waitq);
 }
 
-#ifndef CONFIG_PSCI
+#ifndef CONFIG_ARM_PSCI
 static void tzio_reset_softlock_timer(int cpu)
 {
 	unsigned long flags;
@@ -310,7 +320,7 @@ static void tzio_reset_softlock_timer(int cpu)
 	}
 	spin_unlock_irqrestore(&tzio_context_slock, flags);
 }
-#endif /* !CONFIG_PSCI */
+#endif /* !CONFIG_ARM_PSCI */
 
 void tzio_init_context(struct tzio_context *ctx, struct file *filp,
 		       void *payload, uint32_t seconds)
@@ -812,10 +822,11 @@ int tzio_message_wait(struct tzio_message *__user msg,
 				}
 
 				if ((context->timeout_seconds > 0) &&
-					(context->softlock_timer > context->timeout_seconds)) {
+					(context->softlock_timer >
+						context->timeout_seconds)) {
 					tzlog_print(TZLOG_ERROR,
-							"TA %u timed out. Killing all requests\n",
-							context->remote_id);
+						"TA %u timed out. Killing all requests\n",
+						context->remote_id);
 					tzio_connection_closed(context->remote_id);
 					break;
 				}
@@ -1160,6 +1171,41 @@ static long tzio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		debugging_started = arg;
 		break;
 
+	case TZIO_GET_INFO:
+		{
+			struct secos_kern_info kinfo = {};
+			struct tzio_info tz_info = {};
+			kinfo.size = sizeof(kinfo);
+			kinfo.abi = SECOS_ABI_VERSION;
+			ret = scm_query_kernel_info(&kinfo);
+			strncpy(tz_info.secos_build_id, kinfo.build_id,
+				sizeof(tz_info.secos_build_id) - 1);
+#ifdef CONFIG_MODULE_BUILD_VCS_ID
+			strncpy(tz_info.linux_module_build_id,
+				CONFIG_MODULE_BUILD_VCS_ID,
+				sizeof(tz_info.linux_module_build_id) - 1);
+#endif
+			strncpy(tz_info.machine_name, kinfo.machine_name,
+				sizeof(tz_info.machine_name) - 1);
+			strncpy(tz_info.secos_build_type, kinfo.build_type,
+				sizeof(tz_info.secos_build_type) - 1);
+#ifdef CONFIG_MODULE_BUILD_TYPE
+			strncpy(tz_info.linux_module_build_type,
+				CONFIG_MODULE_BUILD_TYPE,
+				sizeof(tz_info.linux_module_build_type) - 1);
+#endif
+
+			ret = copy_to_user((void *)arg, &tz_info,
+					sizeof(tz_info));
+			break;
+		}
+
+	case TZIO_SYNC_TIME:
+		{
+			scm_sync_kernel_time();
+			break;
+		}
+
 	default:
 		tzlog_print(TZLOG_ERROR, "Unknown TZIO Command: %d\n", cmd);
 		ret = -EINVAL;
@@ -1189,7 +1235,7 @@ static int tzio_mmap(struct file *file, struct vm_area_struct *vma)
 
 static int tzio_release(struct inode *inode, struct file *filp)
 {
-	tzlog_print(TZLOG_ERROR,
+	tzlog_print(TZLOG_INFO,
 		    "tzdaemon has been crashed,start notify secure os\n");
 	tzio_file_closed(filp);
 	scm_tzdaemon_dead(0);
@@ -1235,7 +1281,7 @@ static ssize_t tzlog_write(struct file *filp, const char *buf, size_t count,
 	return 0;
 }
 
-#ifndef CONFIG_PSCI
+#ifndef CONFIG_ARM_PSCI
 static int scm_cpu_shutdown(unsigned long cpu)
 {
 	int error = 0;
@@ -1406,7 +1452,7 @@ static struct notifier_block tzdev_cpu_idle_block = {
 	.notifier_call = tzdev_cpu_idle_notify
 };
 #endif
-#endif /* !CONFIG_PSCI */
+#endif /* !CONFIG_ARM_PSCI */
 
 static const struct file_operations tzdev_fops = {
 	.owner = THIS_MODULE,
@@ -1439,7 +1485,7 @@ static struct miscdevice tzdev = {
 	.fops = &tzdev_fops,
 };
 
-#ifndef CONFIG_PSCI
+#ifndef CONFIG_ARM_PSCI
 static ssize_t tzpm_show(struct kobject *kobj, struct kobj_attribute *attr,
 			 char *buf)
 {
@@ -1465,7 +1511,116 @@ static ssize_t tzpm_store(struct kobject *kobj, struct kobj_attribute *attr,
 
 	return count;
 }
-#endif /* !CONFIG_PSCI */
+#endif /* !CONFIG_ARM_PSCI */
+
+static int tzpath_subpath_create(const char *dir_full_path)
+{
+	struct dentry *dentry;
+	struct path p;
+	int err;
+	struct inode *inode;
+
+	dentry =
+	    kern_path_create(AT_FDCWD, dir_full_path, &p, LOOKUP_DIRECTORY);
+
+	if (IS_ERR(dentry))
+		return PTR_ERR(dentry);
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0))
+	inode = p.dentry->d_inode;
+#else
+	inode = d_inode(p.dentry);
+#endif
+
+	err = vfs_mkdir(inode, dentry, S_IRWXU | S_IRWXG | S_IRWXO);
+
+	done_path_create(&p, dentry);
+	return err;
+}
+
+int tzpath_fullpath_create(const char *dir_path)
+{
+	int ret = 0;
+	int index = 0;
+	int all_len = 0;
+	char *full_path = NULL;
+	char *parent_dir = NULL;
+
+	if (tzpath_buf == NULL) {
+		tzlog_print(K_ERR,
+			"Failed to create tzpath, tz rootpath is NULL\n");
+		return -EINVAL;
+	}
+
+	if (dir_path == NULL) {
+		tzlog_print(K_ERR, "dir_path param is NULL\n");
+		return -EINVAL;
+	}
+
+	parent_dir = kmalloc(PATH_MAX, GFP_KERNEL);
+	if (parent_dir == NULL) {
+		tzlog_print(K_ERR, "vmalloc failed\n");
+		ret = -ENOMEM;
+		goto error_exit;
+	}
+
+	full_path = kmalloc(PATH_MAX, GFP_KERNEL);
+	if (full_path == NULL) {
+		tzlog_print(K_ERR, "vmalloc failed\n");
+		ret = -ENOMEM;
+		goto error_exit;
+	}
+
+	snprintf(full_path, PATH_MAX, "%s/%s", tzpath_buf, dir_path);
+	all_len = strlen(full_path);
+
+	for (index = 0; index < all_len; index++) {
+		if (full_path[index] == '/' && index != 0) {
+			memset(parent_dir, 0, PATH_MAX);
+			memcpy(parent_dir, full_path, index);
+			ret = tzpath_subpath_create(parent_dir);
+		}
+	}
+
+	if (ret != 0 && ret != -EEXIST)
+		tzlog_print(K_ERR,
+				"Failed to mkdir fullpath, path : %s, err: %d",
+				full_path, ret);
+	else
+		ret = 0;
+
+error_exit:
+	kfree(full_path);
+	kfree(parent_dir);
+
+	return ret;
+}
+
+
+static int tzpath_alloc(const char *path, ssize_t sz)
+{
+	int ret;
+	char *old_tzpath = tzpath_buf;
+
+	if (path == NULL)
+		return -EINVAL;
+
+	tzpath_buf = kstrndup(path, sz, GFP_KERNEL);
+
+	if (tzpath_buf == NULL) {
+		ret = -ENOMEM;
+		goto error;
+		return -ENOMEM;
+	}
+
+	kfree(old_tzpath);
+
+	return 0;
+
+error:
+	tzpath_buf = old_tzpath;
+	return ret;
+}
 
 static ssize_t tzdev_show(struct kobject *kobj, struct kobj_attribute *attr,
 			  char *buf)
@@ -1489,6 +1644,72 @@ static ssize_t tzdev_store(struct kobject *kobj, struct kobj_attribute *attr,
 	return 0;
 #endif
 }
+
+static int check_privilege(void)
+{
+	if (!uid_eq(current_euid(), GLOBAL_ROOT_UID))
+		return -1;
+
+	if (strncmp(current->comm, "tzdaemon", 9) != 0)
+		return -1;
+
+	return 0;
+}
+
+static ssize_t tzpath_show(struct kobject *kobj, struct kobj_attribute *attr,
+			  char *buf)
+{
+	int len;
+
+	len = strlen(tzpath_buf);
+
+	return sprintf(buf, "%s\n", tzpath_buf);
+}
+
+static ssize_t tzpath_store(struct kobject *kobj, struct kobj_attribute *attr,
+			   const char *buf, size_t count)
+{
+	int rc;
+	struct path file_path;
+
+	if (buf == NULL || count > 128)
+		return -EINVAL;
+
+	if (check_privilege() != 0) {
+		tzlog_print(TZLOG_ERROR, "Permission denied\n");
+		return -EPERM;
+	}
+
+	rc = kern_path(buf, LOOKUP_FOLLOW, &file_path);
+
+	if (rc < 0) {
+		tzlog_print(TZLOG_ERROR, "Failed to open path : %s err:%d\n",
+			buf, rc);
+		return rc;
+	}
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(3, 15, 0))
+	if (!d_is_dir(file_path.dentry)) {
+		tzlog_print(TZLOG_ERROR, "Failed to access path : %s\n", buf);
+		path_put(&file_path);
+		return -ENOENT;
+	}
+#endif
+
+	path_put(&file_path);
+
+	rc = tzpath_alloc(buf, count);
+	if (rc != 0) {
+		tzlog_print(TZLOG_ERROR, "Failed to setup tzpath : %s\n", buf);
+		return -EINVAL;
+	}
+
+	if (storage_path_init() != 0)
+		return -EIO;
+
+	return count;
+}
+
+
 
 static ssize_t tzlog_show(struct kobject *kobj, struct kobj_attribute *attr,
 			  char *buf)
@@ -1516,22 +1737,6 @@ static ssize_t tzmem_show(struct kobject *kobj, struct kobj_attribute *attr,
 	return snprintf(buf, 256, "TZMEM Show Test\n");
 }
 
-#ifdef CONFIG_FETCH_TEE_INFO
-static ssize_t tzinfo_show(struct kobject *kobj, struct kobj_attribute *attr,
-			  char *buf)
-{
-		int ret;
-		char *info;
-
-		ret = tzinfo_fetch_info(&info);
-
-		if (ret >= PAGE_SIZE)
-			tzlog_print(TZLOG_WARNING,
-				"Extracted TEE information is suppressed");
-
-		return snprintf(buf, PAGE_SIZE, "%s\n", info);
-}
-#endif /* !CONFIG_FETCH_TEE_INFO */
 
 static ssize_t tzmem_store(struct kobject *kobj, struct kobj_attribute *attr,
 			   const char *buf, size_t count)
@@ -1576,26 +1781,22 @@ __ATTR(tzlog, 0660, tzlog_show, tzlog_store);
 static struct kobj_attribute tzmem_attr =
 __ATTR(tzmem, 0660, tzmem_show, tzmem_store);
 
-#ifdef CONFIG_FETCH_TEE_INFO
-static struct kobj_attribute tzinfo_attr =
-__ATTR(tzinfo, 0440, tzinfo_show, NULL);
-#endif /* !CONFIG_FETCH_TEE_INFO */
+static struct kobj_attribute tzpath_attr =
+__ATTR(tzpath, 0600, tzpath_show, tzpath_store);
 
-#ifndef CONFIG_PSCI
+#ifndef CONFIG_ARM_PSCI
 static struct kobj_attribute tzpm_attr =
 __ATTR(tzpm, 0660, tzpm_show, tzpm_store);
-#endif /* !CONFIG_PSCI */
+#endif /* !CONFIG_ARM_PSCI */
 
 static struct attribute *tzdev_attrs[] = {
 	&tzdev_attr.attr,
 	&tzlog_attr.attr,
 	&tzmem_attr.attr,
-#ifdef CONFIG_FETCH_TEE_INFO
-	&tzinfo_attr.attr,
-#endif /* !CONFIG_FETCH_TEE_INFO */
-#ifndef CONFIG_PSCI
+	&tzpath_attr.attr,
+#ifndef CONFIG_ARM_PSCI
 	&tzpm_attr.attr,
-#endif /* !CONFIG_PSCI */
+#endif /* !CONFIG_ARM_PSCI */
 	NULL,
 };
 
@@ -1628,26 +1829,336 @@ static int fetch_kernel_info(void)
 		return rc;
 
 	if (kinfo.size != sizeof(kinfo)) {
-		tzlog_print(TZLOG_WARNING,
+		tzlog_print(TZLOG_INFO,
 			    "Kernel info size mismatch detected\n");
 		return -EINVAL;
 	}
 
 	if (kinfo.abi != SECOS_ABI_VERSION) {
-		tzlog_print(TZLOG_WARNING,
+		tzlog_print(TZLOG_INFO,
 			    "Unsupported ABI version. Outdated tzdev\n");
 		return -EINVAL;
 	}
 
 	memcpy(&secos_kernel_info, &kinfo, sizeof(kinfo));
-	if (kinfo.shmem_base && kinfo.shmem_size)
-		tzpage_init(kinfo.shmem_base, kinfo.shmem_size);
 
 	return rc;
 }
 
 extern struct miscdevice tzmem;
 extern struct miscdevice tzrsrc;
+
+#ifdef CONFIG_ARTIK_USE_TZCMA_FOR_CRYPTO
+#define TZCMA_MEMORY_ALLOC	0
+#define TZCMA_MEMORY_FREE	1
+#define TZCMA_LLI_TBL_PAGE	4
+#define TZCMA_ALLOC_MAX_COUNT	4
+#define TZCMA_MAX_SUPPORT_SIZE	SZ_4M
+#define TZCMA_UNMMAPED	0
+#define TZCMA_MMAPED	1
+
+static struct device *tzcma_dev;
+struct tzcma_info {
+	int chan_id;
+	u64 size;
+	u64 virtAddr;
+};
+struct tzcma_info g_tzcmas[TZCMA_ALLOC_MAX_COUNT];
+struct dma_chan *g_tzcma_channels[TZCMA_ALLOC_MAX_COUNT];
+
+struct tzcma_info_internal {
+	int is_mmaped;
+	dma_addr_t phyAddr;
+	void *cpuAddr;
+};
+static struct tzcma_info_internal g_tzcmas_internal[TZCMA_ALLOC_MAX_COUNT];
+
+int g_tzcma_alloc_cnt;
+bool g_tzcma_state_opened;
+
+#ifdef CONFIG_ARTIK_USE_DMA
+static bool tzcma_filter(struct dma_chan *chan, void *param)
+{
+	if (strcmp(dev_name(chan->device->dev), "c0001000.pl08xdma") == 0
+			&& (strcmp(dma_chan_name(chan), "dma2chan0") == 0
+				|| strcmp(dma_chan_name(chan), "dma2chan1") == 0
+				|| strcmp(dma_chan_name(chan), "dma2chan2") == 0
+				|| strcmp(dma_chan_name(chan), "dma2chan3") == 0
+				|| strcmp(dma_chan_name(chan), "dma2chan4") == 0
+				|| strcmp(dma_chan_name(chan), "dma2chan5") == 0
+				|| strcmp(dma_chan_name(chan), "dma2chan6") == 0
+				|| strcmp(dma_chan_name(chan), "dma2chan7") == 0
+			   ))
+		return true;
+	return false;
+}
+#endif /* CONFIG_ARTIK_USE_DMA*/
+
+static int tzcma_get_alloc_idx(void)
+{
+	int i;
+
+	for (i = 0; i < TZCMA_ALLOC_MAX_COUNT; i++) {
+		if (g_tzcmas_internal[i].phyAddr == 0)
+			return i;
+	}
+	return -1;
+}
+
+static int tzcma_get_free_idx(struct tzcma_info mem)
+{
+	int i;
+
+	for (i = 0; i < TZCMA_ALLOC_MAX_COUNT; i++) {
+		if (g_tzcmas[i].chan_id == mem.chan_id
+			&& g_tzcmas[i].size == mem.size)
+			return i;
+	}
+	return -1;
+}
+
+static void tzcma_free(int idx)
+{
+	int dma_free_size;
+
+	if (idx < 0 || idx >= TZCMA_ALLOC_MAX_COUNT) {
+		tzlog_print(TZLOG_ERROR,
+				"tzcma_free invaild index\n");
+		return;
+	}
+
+	dma_free_size = round_up(g_tzcmas[idx].size, PAGE_SIZE) +
+				TZCMA_LLI_TBL_PAGE * PAGE_SIZE;
+	dma_free_writecombine(tzcma_dev, dma_free_size,
+		g_tzcmas_internal[idx].cpuAddr, g_tzcmas_internal[idx].phyAddr);
+
+#ifdef CONFIG_ARTIK_USE_DMA
+	if (g_tzcma_channels[idx] != NULL) {
+		dma_release_channel(g_tzcma_channels[idx]);
+		g_tzcma_channels[idx] = NULL;
+	}
+#endif /* CONFIG_ARTIK_USE_DMA*/
+
+	memset(&g_tzcmas[idx], 0, sizeof(struct tzcma_info));
+	memset(&g_tzcmas_internal[idx], 0, sizeof(struct tzcma_info_internal));
+}
+
+static int tzcma_alloc(int idx, size_t size)
+{
+	int ret = 0;
+	int dma_alloc_size;
+	void *cpuAddr;
+	dma_addr_t phyAddr;
+
+#ifdef CONFIG_ARTIK_USE_DMA
+	dma_cap_mask_t mask;
+#endif /* CONFIG_ARTIK_USE_DMA*/
+
+	if (idx < 0 || idx >= TZCMA_ALLOC_MAX_COUNT) {
+		tzlog_print(TZLOG_ERROR,
+				"tzcma_alloc invaild index\n");
+		return -EINVAL;
+	}
+
+	dma_alloc_size = round_up(size, PAGE_SIZE) +
+				TZCMA_LLI_TBL_PAGE * PAGE_SIZE;
+
+	cpuAddr = dma_alloc_writecombine(tzcma_dev, dma_alloc_size,
+			&phyAddr, GFP_KERNEL | GFP_DMA);
+
+	if (cpuAddr == NULL) {
+		tzlog_print(TZLOG_ERROR, "dma alloc failed\n");
+		return -ENOMEM;
+	}
+	g_tzcmas[idx].size = size;
+	g_tzcmas_internal[idx].is_mmaped = TZCMA_UNMMAPED;
+	g_tzcmas_internal[idx].phyAddr = phyAddr;
+	g_tzcmas_internal[idx].cpuAddr = cpuAddr;
+
+#ifdef CONFIG_ARTIK_USE_DMA
+	dma_cap_zero(mask);
+	dma_cap_set(DMA_MEMCPY, mask);
+	g_tzcma_channels[idx] = dma_request_channel(mask, tzcma_filter, NULL);
+	if (g_tzcma_channels[idx] == NULL) {
+		tzlog_print(TZLOG_ERROR, "dma request channel failed\n");
+		tzcma_free(idx);
+		return -ENODEV;
+	}
+	g_tzcmas[idx].chan_id = g_tzcma_channels[idx]->chan_id;
+#endif /* CONFIG_ARTIK_USE_DMA*/
+
+	return ret;
+}
+
+static int tzcma_open(struct inode *inode, struct file *file)
+{
+	int i;
+	int ret = 0;
+
+	if (g_tzcma_state_opened) {
+		tzlog_print(TZLOG_ERROR, "tzcma already opened\n");
+		return -EMFILE;
+	}
+
+	g_tzcma_state_opened = true;
+	for (i = 0; i < TZCMA_ALLOC_MAX_COUNT; i++) {
+		memset(&g_tzcmas[i], 0, sizeof(struct tzcma_info));
+		memset(&g_tzcmas_internal[i], 0,
+				sizeof(struct tzcma_info_internal));
+#ifdef CONFIG_ARTIK_USE_DMA
+		g_tzcma_channels[i] = NULL;
+#endif /* CONFIG_ARTIK_USE_DMA*/
+	}
+	g_tzcma_alloc_cnt = 0;
+	return ret;
+}
+
+static int tzcma_mmap(struct file *file, struct vm_area_struct *vma)
+{
+	int i;
+	int idx = -1;
+	int ret = 0;
+	void *cpu_addr;
+	dma_addr_t dma_addr;
+	size_t size;
+
+	size = vma->vm_end - vma->vm_start;
+
+	for (i = 0; i < TZCMA_ALLOC_MAX_COUNT; i++) {
+		if ((g_tzcmas_internal[i].is_mmaped == TZCMA_UNMMAPED)
+			&& (size == round_up(g_tzcmas[i].size, PAGE_SIZE))) {
+			g_tzcmas_internal[i].is_mmaped = TZCMA_MMAPED;
+			idx = i;
+			break;
+		}
+	}
+	if (idx < 0 || idx >= TZCMA_ALLOC_MAX_COUNT) {
+		tzlog_print(TZLOG_ERROR, "address is not allocated\n");
+		return -ENXIO;
+	}
+
+	cpu_addr = g_tzcmas_internal[idx].cpuAddr;
+	dma_addr = g_tzcmas_internal[idx].phyAddr;
+	ret = dma_mmap_writecombine(tzcma_dev, vma, cpu_addr, dma_addr, size);
+
+	return ret;
+}
+
+static long tzcma_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	int idx, ret = 0;
+	struct tzcma_info mem, *argp;
+
+	argp = (struct tzcma_info *)arg;
+	if (copy_from_user(&mem, argp, sizeof(struct tzcma_info))) {
+		tzlog_print(TZLOG_ERROR,
+			"copy_from_user error\n");
+		return -EFAULT;
+	}
+
+	switch (cmd) {
+	case TZCMA_MEMORY_ALLOC:
+		if (g_tzcma_alloc_cnt >= TZCMA_ALLOC_MAX_COUNT) {
+			tzlog_print(TZLOG_ERROR,
+				"can't cma memory allocated\n");
+			return -ENOMEM;
+		}
+		if (mem.size > TZCMA_MAX_SUPPORT_SIZE) {
+			tzlog_print(TZLOG_ERROR,
+				"can't support 4MB over size\n");
+			return -EINVAL;
+		}
+		idx = tzcma_get_alloc_idx();
+		ret = tzcma_alloc(idx, mem.size);
+		if (ret >= 0) {
+			if (copy_to_user(argp, &g_tzcmas[idx],
+					sizeof(struct tzcma_info))) {
+				tzlog_print(TZLOG_ERROR,
+					"copy_to_user error\n");
+				return -EFAULT;
+			}
+		}
+		g_tzcma_alloc_cnt++;
+		break;
+	case TZCMA_MEMORY_FREE:
+		if (g_tzcma_alloc_cnt < 0) {
+			tzlog_print(TZLOG_ERROR,
+				"no cma memory allocated\n");
+			return -EFAULT;
+		}
+		tzcma_free(tzcma_get_free_idx(mem));
+		g_tzcma_alloc_cnt--;
+		break;
+	default:
+		return ret;
+	}
+	return ret;
+}
+
+static int tzcma_release(struct inode *inode, struct file *file)
+{
+	int i;
+	int ret = 0;
+
+	for (i = 0; i < TZCMA_ALLOC_MAX_COUNT; i++) {
+		if (g_tzcmas_internal[i].phyAddr != 0)
+			tzcma_free(i);
+	}
+	g_tzcma_alloc_cnt = 0;
+	g_tzcma_state_opened = false;
+	return ret;
+}
+
+static const struct file_operations tzcma_fops = {
+	.owner = THIS_MODULE,
+	.open = tzcma_open,
+	.mmap = tzcma_mmap,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = tzcma_ioctl,
+#endif
+	.unlocked_ioctl = tzcma_ioctl,
+	.release = tzcma_release,
+};
+
+static struct miscdevice tzcma = {
+	.name = "tzcma",
+	.minor = MISC_DYNAMIC_MINOR,
+	.fops = &tzcma_fops,
+};
+
+static int tzcma_init(void)
+{
+	int ret = -1;
+
+	g_tzcma_state_opened = false;
+
+	ret = misc_register(&tzcma);
+	if (unlikely(ret)) {
+		pr_err("failed to register tzcma device!\n");
+		goto tzcma_out;
+	}
+
+	tzcma_dev = tzcma.this_device;
+	tzcma_dev->coherent_dma_mask = ~0;
+
+#ifdef CONFIG_ARTIK_USE_DMA
+	/*
+	 * if you want using tzdev module,
+	 * It should be modified as follows.
+	 * adding EXPORT_SYMBOL_GPL(arch_setup_dma_ops);
+	 * in linux-artik7/arch/arm64/mm/dma-mapping.c
+	*/
+	arch_setup_dma_ops(tzcma_dev, 0, 0, NULL, 0);
+#endif /* CONFIG_ARTIK_USE_DMA*/
+
+	return ret;
+
+tzcma_out:
+	misc_deregister(&tzcma);
+
+	return ret;
+}
+#endif /* CONFIG_ARTIK_USE_TZCMA_FOR_CRYPTO */
 
 static int __init init_tzdev(void)
 {
@@ -1660,14 +2171,14 @@ static int __init init_tzdev(void)
 
 	rc = smc_init_monitor();
 	if (rc < 0) {
-		tzlog_print(TZLOG_WARNING,
+		tzlog_print(TZLOG_INFO,
 		       "Unable to initialize monitor connection\n");
 		return rc;
 	}
 
 	rc = fetch_kernel_info();
 	if (unlikely(rc)) {
-		tzlog_print(TZLOG_WARNING,
+		tzlog_print(TZLOG_INFO,
 			    "Failed to fetch kernel info. Probably incorrect SwD version\n");
 		return rc;
 	}
@@ -1676,14 +2187,28 @@ static int __init init_tzdev(void)
 	if (unlikely(rc))
 		goto err1;
 
+	rc = tzpath_alloc(TZDEV_DEFAULT_TZPATH, strlen(TZDEV_DEFAULT_TZPATH));
+	if (unlikely(rc))
+		goto tzpath_out;
+
+	if (storage_path_init() != 0) {
+		rc = -EIO;
+		goto tzpath_out;
+	}
+
 	rc = misc_register(&tzmem);
 	if (unlikely(rc))
 		goto tzdev_out;
 
+#ifdef CONFIG_RESOURCE_MONITOR
 	rc = misc_register(&tzrsrc);
 	if (unlikely(rc)) {
 		goto tzdev_out;
 	}
+#endif
+#ifdef CONFIG_ARTIK_USE_TZCMA_FOR_CRYPTO
+	tzcma_init();
+#endif
 
 	tzlog_print(TZLOG_INFO, "tzdev version [%s.%s]\n",
 			TZDEV_MAJOR_VERSION, TZDEV_MINOR_VERSION);
@@ -1722,7 +2247,7 @@ static int __init init_tzdev(void)
 		rc = PTR_ERR(tzdev_ipc.kthread);
 		goto sysfs_out;
 	}
-#ifndef CONFIG_PSCI
+#ifndef CONFIG_ARM_PSCI
 	register_syscore_ops(&tzdev_pm_syscore_ops);
 
 	register_cpu_notifier(&tzdev_cpu_block);
@@ -1730,7 +2255,7 @@ static int __init init_tzdev(void)
 #ifdef CONFIG_TZDEV_CPU_IDLE
 	cpu_pm_register_notifier(&tzdev_cpu_idle_block);
 #endif
-#endif /* !CONFIG_PSCI */
+#endif /* !CONFIG_ARM_PSCI */
 
 #ifdef CONFIG_TZDEV_EVENT_FORWARD
 	secos_hook = tzdev_ipc_notify;
@@ -1742,15 +2267,6 @@ static int __init init_tzdev(void)
 
 #ifndef CONFIG_SECOS_NO_SECURE_STORAGE
 	init_storage();
-#endif
-
-#ifdef CONFIG_FETCH_TEE_INFO
-	rc = tzinfo_init();
-	if (rc != 0) {
-		sysfs_remove_file(tzdev_kobj, &tzinfo_attr.attr);
-
-		tzlog_print(TZLOG_WARNING, "Failed to register tzinfo node\n");
-	}
 #endif
 
 	nsrpc_init();
@@ -1768,7 +2284,7 @@ static int __init init_tzdev(void)
 		wake_up_process(thr);
 	}
 
-	tzlog_init();
+	tzlog_init(secos_kernel_info.build_info);
 
 	plat_init();
 
@@ -1789,6 +2305,8 @@ tzmem_out:
 tzdev_out:
 	misc_deregister(&tzdev);
 
+tzpath_out:
+	kfree(tzpath_buf);
 err1:
 
 	return rc;

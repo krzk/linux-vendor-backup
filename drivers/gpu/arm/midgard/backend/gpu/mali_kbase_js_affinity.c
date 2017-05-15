@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2010-2015 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2016 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -17,13 +17,13 @@
 
 
 
-/**
- * @file mali_kbase_js_affinity.c
+/*
  * Base kernel affinity manager APIs
  */
 
 #include <mali_kbase.h>
 #include "mali_kbase_js_affinity.h"
+#include "mali_kbase_hw.h"
 
 #include <backend/gpu/mali_kbase_pm_internal.h>
 
@@ -94,9 +94,8 @@ bool kbase_js_choose_affinity(u64 * const affinity,
 	base_jd_core_req core_req = katom->core_req;
 	unsigned int num_core_groups = kbdev->gpu_props.num_core_groups;
 	u64 core_availability_mask;
-	unsigned long flags;
 
-	spin_lock_irqsave(&kbdev->pm.power_change_lock, flags);
+	lockdep_assert_held(&kbdev->hwaccess_lock);
 
 	core_availability_mask = kbase_pm_ca_get_core_mask(kbdev);
 
@@ -105,7 +104,6 @@ bool kbase_js_choose_affinity(u64 * const affinity,
 	 * transitioning) then fail.
 	 */
 	if (0 == core_availability_mask) {
-		spin_unlock_irqrestore(&kbdev->pm.power_change_lock, flags);
 		*affinity = 0;
 		return false;
 	}
@@ -114,16 +112,21 @@ bool kbase_js_choose_affinity(u64 * const affinity,
 
 	if ((core_req & (BASE_JD_REQ_FS | BASE_JD_REQ_CS | BASE_JD_REQ_T)) ==
 								BASE_JD_REQ_T) {
-		spin_unlock_irqrestore(&kbdev->pm.power_change_lock, flags);
-		/* Tiler only job, bit 0 needed to enable tiler but no shader
-		 * cores required */
-		*affinity = 1;
+		 /* If the hardware supports XAFFINITY then we'll only enable
+		  * the tiler (which is the default so this is a no-op),
+		  * otherwise enable shader core 0. */
+		if (!kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_XAFFINITY))
+			*affinity = 1;
+		else
+			*affinity = 0;
+
 		return true;
 	}
 
 	if (1 == kbdev->gpu_props.num_cores) {
 		/* trivial case only one core, nothing to do */
-		*affinity = core_availability_mask;
+		*affinity = core_availability_mask &
+				kbdev->pm.debug_core_mask[js];
 	} else {
 		if ((core_req & (BASE_JD_REQ_COHERENT_GROUP |
 					BASE_JD_REQ_SPECIFIC_COHERENT_GROUP))) {
@@ -132,7 +135,8 @@ bool kbase_js_choose_affinity(u64 * const affinity,
 				 * the first core group */
 				*affinity =
 				kbdev->gpu_props.props.coherency_info.group[0].core_mask
-						& core_availability_mask;
+						& core_availability_mask &
+						kbdev->pm.debug_core_mask[js];
 			} else {
 				/* js[1], js[2] use core groups 0, 1 for
 				 * dual-core-group systems */
@@ -142,7 +146,8 @@ bool kbase_js_choose_affinity(u64 * const affinity,
 							num_core_groups);
 				*affinity =
 				kbdev->gpu_props.props.coherency_info.group[core_group_idx].core_mask
-						& core_availability_mask;
+						& core_availability_mask &
+						kbdev->pm.debug_core_mask[js];
 
 				/* If the job is specifically targeting core
 				 * group 1 and the core availability policy is
@@ -156,11 +161,10 @@ bool kbase_js_choose_affinity(u64 * const affinity,
 		} else {
 			/* All cores are available when no core split is
 			 * required */
-			*affinity = core_availability_mask;
+			*affinity = core_availability_mask &
+					kbdev->pm.debug_core_mask[js];
 		}
 	}
-
-	spin_unlock_irqrestore(&kbdev->pm.power_change_lock, flags);
 
 	/*
 	 * If no cores are currently available in the desired core group(s)
@@ -169,9 +173,12 @@ bool kbase_js_choose_affinity(u64 * const affinity,
 	if (*affinity == 0)
 		return false;
 
-	/* Enable core 0 if tiler required */
-	if (core_req & BASE_JD_REQ_T)
-		*affinity = *affinity | 1;
+	/* Enable core 0 if tiler required for hardware without XAFFINITY
+	 * support (notes above) */
+	if (core_req & BASE_JD_REQ_T) {
+		if (!kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_XAFFINITY))
+			*affinity = *affinity | 1;
+	}
 
 	return true;
 }

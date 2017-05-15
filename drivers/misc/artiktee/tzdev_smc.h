@@ -22,8 +22,8 @@
 #define SMC_STANDARD_CALL		0x00000000
 #define SMC_FAST_CALL			0x80000000
 
-#define SMC_32CALL			0x00000000
-#define SMC_64CALL			0x40000000
+#define SMC_32CALL				0x00000000
+#define SMC_64CALL				0x40000000
 
 #define SMC_ENTITY_MASK			0x3F000000
 #define SMC_ENTITY_SHIFT		24
@@ -83,6 +83,7 @@ void init_smc_status(void);
 
 int smc_init_monitor(void);
 int scm_query_kernel_info(struct secos_kern_info *kinfo);
+int scm_sync_kernel_time(void);
 int scm_syscrash_register(int wsm_id);
 int scm_minidump_register(int wsm_id);
 int scm_register_wsm(const void *addr, size_t size, unsigned int flags,
@@ -98,16 +99,17 @@ int scm_watch(unsigned long devfn, unsigned long a0, unsigned long a1,
 	      unsigned long a2);
 int scm_register_phys_wsm(phys_addr_t arg_pfn);
 
-#ifdef CONFIG_FETCH_TEE_INFO
-int scm_fetch_tzinfo(int cmd, int arg);
-#endif /* !CONFIG_FETCH_TEE_INFO */
-
-#ifndef CONFIG_PSCI
+#ifndef CONFIG_ARM_PSCI
 int scm_cpu_suspend(void);
 int scm_cpu_resume(void);
 int scm_sys_suspend(void);
 int scm_sys_resume(void);
-#endif /* !CONFIG_PSCI */
+#endif /* !CONFIG_ARM_PSCI */
 
+#ifdef CONFIG_RESOURCE_MONITOR
 int scm_resource_monitor_cmd(uint32_t cmd, uint32_t arg0);
+#endif
+
+int scm_plat_smc(uint32_t x0, uint32_t x1, uint32_t x2, uint32_t x3);
+
 #endif /* __TRUSTZONE_REE_SOURCE_TZDEV_TZDEV_SMC_H__ */
