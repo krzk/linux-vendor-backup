@@ -1251,9 +1251,10 @@ static void rtk_notify_info_to_wifi(uint8_t reason, uint8_t length,
 	uint8_t para_length = 4 + length;
 	char buf[para_length + HCI_CMD_PREAMBLE_SIZE];
 	char *p = buf;
-	struct rtl_btinfo *report = (struct rtl_btinfo *)report_info;
+	struct rtl_btinfo *report;
 
 	if (length) {
+		report = (struct rtl_btinfo *)report_info;
 		RTKBT_DBG("bt info: cmd %2.2X", report->cmd);
 		RTKBT_DBG("bt info: len %2.2X", report->len);
 		RTKBT_DBG("bt info: data %2.2X %2.2X %2.2X %2.2X %2.2X %2.2X",
@@ -1288,7 +1289,7 @@ static void rtk_notify_regester_to_wifi(uint8_t * reg_value)
 	uint8_t para_length = 9;
 	char p_buf[para_length + HCI_CMD_PREAMBLE_SIZE];
 	char *p = p_buf;
-	hci_mailbox_register *reg = (hci_mailbox_register *) reg_value;
+	hci_mailbox_register *reg;
 
 	if (!btrtl_coex.wifi_on)
 		return;
@@ -1297,6 +1298,7 @@ static void rtk_notify_regester_to_wifi(uint8_t * reg_value)
 	*p++ = para_length;
 	memcpy(p, reg_value, para_length);
 
+	reg = (hci_mailbox_register *) reg_value;
 	RTKBT_DBG("bt register, register type is %x", reg->type);
 	RTKBT_DBG("bt register, register offset is %x", reg->offset);
 	RTKBT_DBG("bt register, register value is %x", reg->value);
