@@ -233,6 +233,21 @@ struct device_node *_of_get_opp_desc_node(struct device *dev)
  * -ENOMEM	Memory allocation failure
  * -EINVAL	Failed parsing the OPP node
  */
+
+/*----------------------------------------------------------------------------*/
+/*
+	- Exynos5422(ODROID) ASV control function -
+	arch/arm/exynos/exynos5422-asv.c
+	arch/arm/exynos/exynos5422-asv.h
+*/
+/*----------------------------------------------------------------------------*/
+extern int is_odroid(void);
+extern int opp_update_for_odroid(unsigned int opp_freq,
+	unsigned int opp_volt, const char *node_name);
+extern int find_device_id(const char *node_str);
+/*----------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
+
 static int _opp_add_static_v2(struct device *dev, struct device_node *np)
 {
 	struct opp_table *opp_table;
@@ -281,6 +296,21 @@ static int _opp_add_static_v2(struct device *dev, struct device_node *np)
 	if (ret)
 		goto free_opp;
 
+/*----------------------------------------------------------------------------*/
+	/* Exynos5422(ODROID) ASV Table check & Update OPP Table */
+	if (is_odroid() && (find_device_id(np->full_name) != -1)) {
+		unsigned int update_volt;
+
+		update_volt =
+			opp_update_for_odroid(new_opp->rate / 1000,
+					new_opp->u_volt, np->full_name);
+		if (update_volt) {
+			new_opp->u_volt = update_volt;
+			new_opp->u_volt_min = update_volt;
+			new_opp->u_volt_max = update_volt;
+		}
+	}
+/*----------------------------------------------------------------------------*/
 	ret = _opp_add(dev, new_opp, opp_table);
 	if (ret)
 		goto free_opp;
