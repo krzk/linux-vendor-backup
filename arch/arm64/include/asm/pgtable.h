@@ -181,6 +181,7 @@ static inline pte_t pte_mkspecial(pte_t pte)
 	pte_val(pte) |= PTE_SPECIAL;
 	return pte;
 }
+
 static inline void set_pte(pte_t *ptep, pte_t pte)
 {
 	*ptep = pte;
@@ -292,6 +293,7 @@ extern pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
 
 static inline void set_pmd(pmd_t *pmdp, pmd_t pmd)
 {
+	*pmdp = pmd;
 	dsb(ishst);
 }
 

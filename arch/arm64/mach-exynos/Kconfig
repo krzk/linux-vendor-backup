@@ -345,9 +345,3 @@ config TIMA_LKMAUTH
 	help
 	  TIMA authenticates loaded kernel modules. Disable it if you don't
 	  want TIMA enabled.
-
-config TIMA_TEST_INFRA
-	tristate "Testing infrastructure for TIMA"
-	default n
-	help
-	  Kernel bits of the TIMA test infrastructure

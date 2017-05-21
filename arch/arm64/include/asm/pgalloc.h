@@ -35,6 +35,7 @@ static inline pmd_t *pmd_alloc_one(struct mm_struct *mm, unsigned long addr)
 
 static inline void pmd_free(struct mm_struct *mm, pmd_t *pmd)
 {
+	BUG_ON((unsigned long)pmd & (PAGE_SIZE-1));
 	free_page((unsigned long)pmd);
 }
 
