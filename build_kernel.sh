@@ -14,7 +14,7 @@ case "$1" in
 	    VARIANT="j7elte"
 	    ;;
 
-	twrp-a3)
+    twrp-a3)
 	    VARIANT="twrp_a3"
 	    ;;
 
@@ -29,7 +29,7 @@ if [ ! -d $(pwd)/output ];
     fi
 
 make -C $(pwd) O=output ARCH=arm64 "lineageos_"$VARIANT"_defconfig"
-make -j5 -C $(pwd) O=output ARCH=arm64
+make -j7 -C $(pwd) O=output ARCH=arm64
 
 $(pwd)/dtbTool  -o "$(pwd)/output/arch/arm64/boot/dt.img" -s 2048 -d "$(pwd)/output/arch/arm64/boot/dts/" --platform $DTBH_PLATFORM_CODE --subtype $DTBH_SUBTYPE_CODE
 cp output/arch/arm64/boot/Image  output/arch/arm64/boot/boot.img-kernel
