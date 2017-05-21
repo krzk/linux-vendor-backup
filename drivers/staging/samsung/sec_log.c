@@ -418,8 +418,6 @@ static int __init sec_tima_log_setup(char *str)
 	}
 	pr_info("tima :%s, base:%lx, size:%x \n", __func__,base, size);
 
-	if( !tima_setup_rkp_mem())  goto out; 
-
 	return 1;
 out:
 	return 0;
