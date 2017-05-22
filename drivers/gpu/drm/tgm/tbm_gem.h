@@ -57,6 +57,8 @@ int tbm_gem_get_ioctl(struct drm_device *dev, void *data,
 				      struct drm_file *file_priv);
 int tbm_gem_info(struct seq_file *m, void *data);
 int tbm_gem_init(struct drm_device *drm_dev);
+int tbm_gem_prime_fd_to_handle(struct drm_device *dev,
+		struct drm_file *file_priv, int prime_fd, uint32_t *handle);
 int tbm_gem_cpu_prep_ioctl(struct drm_device *dev, void *data,
 				  struct drm_file *file);
 int tbm_gem_cpu_fini_ioctl(struct drm_device *dev, void *data,

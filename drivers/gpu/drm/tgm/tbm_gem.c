@@ -127,6 +127,25 @@ void tbm_fini_buf(struct drm_device *dev,
 	buffer = NULL;
 }
 
+static void tbm_gem_register_pid(struct drm_file *file_priv)
+{
+	struct tgm_drv_file_private *driver_priv = file_priv->driver_priv;
+
+	if (!driver_priv->pid && !driver_priv->tgid) {
+		driver_priv->pid = task_pid_nr(current);
+		driver_priv->tgid = task_tgid_nr(current);
+	} else {
+		if (driver_priv->pid != task_pid_nr(current))
+			DRM_DEBUG_KMS("wrong pid: %ld, %ld\n",
+					(unsigned long)driver_priv->pid,
+					(unsigned long)task_pid_nr(current));
+		if (driver_priv->tgid != task_tgid_nr(current))
+			DRM_DEBUG_KMS("wrong tgid: %ld, %ld\n",
+					(unsigned long)driver_priv->tgid,
+					(unsigned long)task_tgid_nr(current));
+	}
+}
+
 struct tbm_gem_object *tbm_gem_create_obj(struct drm_device *dev,
 						unsigned int flags,
 						unsigned long size)
@@ -247,6 +266,8 @@ int tbm_gem_create_ioctl(struct drm_device *dev, void *data,
 		tbm_gem_destroy(tbm_gem_obj);
 		return ret;
 	}
+
+	tbm_gem_register_pid(file_priv);
 
 #ifdef GEM_DEBUG_LOG
 	gem_save_info(GEM_CREATE, obj);
@@ -401,6 +422,22 @@ int tbm_gem_get_ioctl(struct drm_device *dev, void *data,
 
 	return 0;
 }
+
+int tbm_gem_prime_fd_to_handle(struct drm_device *dev,
+		struct drm_file *file_priv, int prime_fd, uint32_t *handle)
+{
+	int ret;
+
+	ret = drm_gem_prime_fd_to_handle(dev, file_priv, prime_fd, handle);
+	if (ret < 0)
+		goto out;
+
+	tbm_gem_register_pid(file_priv);
+
+out:
+	return ret;
+}
+
 
 int tbm_gem_cpu_prep_ioctl(struct drm_device *dev, void *data,
 				  struct drm_file *file)
@@ -696,6 +733,8 @@ static int tbm_gem_dumb_destroy(struct drm_file *file_priv,
 	 */
 	ret = drm_gem_handle_delete(file_priv, handle);
 
+	tbm_gem_register_pid(file_priv);
+
 	DRM_INFO("%s:h[%d]ret[%d]\n", __func__, handle, ret);
 
 	return ret;
@@ -705,7 +744,6 @@ static int tbm_gem_one_info(int id, void *ptr, void *data)
 {
 	struct drm_gem_object *obj = (struct drm_gem_object *)ptr;
 	struct tbm_gem_info_data *gem_info_data = data;
-	struct pid *pid = gem_info_data->filp->pid;
 	struct tgm_drv_file_private *file_priv =
 			gem_info_data->filp->driver_priv;
 	struct tbm_gem_object *tbm_gem_obj;
@@ -724,7 +762,7 @@ static int tbm_gem_one_info(int id, void *ptr, void *data)
 	seq_printf(gem_info_data->m,
 			"%5d\t%5d\t%4d\t%4d\t\t%4d\t0x%08lx\t0x%x\t%4d\t%4d\t\t"
 			"%4d\t\t0x%p\t%6d\n",
-				pid_nr(pid),
+				file_priv->pid,
 				file_priv->tgid,
 				id,
 				atomic_read(&obj->refcount.refcount) - 1,
@@ -784,7 +822,7 @@ int tbm_gem_init(struct drm_device *drm_dev)
 	drm_drv->dumb_map_offset = tbm_gem_dumb_map_offset;
 	drm_drv->dumb_destroy = tbm_gem_dumb_destroy;
 	drm_drv->prime_handle_to_fd = drm_gem_prime_handle_to_fd,
-	drm_drv->prime_fd_to_handle = drm_gem_prime_fd_to_handle,
+	drm_drv->prime_fd_to_handle = tbm_gem_prime_fd_to_handle,
 #ifdef CONFIG_DRM_DMA_SYNC
 	tbm_priv->gem_fence_context = fence_context_alloc(1);
 	atomic_set(&tbm_priv->gem_fence_seqno, 0);

@@ -92,7 +92,6 @@ static int tgm_drv_open(struct drm_device *dev, struct drm_file *file)
 	if (!file_priv)
 		return -ENOMEM;
 
-	file_priv->tgid = task_tgid_nr(current);
 	file->driver_priv = file_priv;
 
 	return 0;

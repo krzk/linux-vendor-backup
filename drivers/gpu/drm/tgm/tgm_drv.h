@@ -29,6 +29,7 @@ struct tgm_drv_private {
 };
 
 struct tgm_drv_file_private {
+	pid_t pid;
 	pid_t tgid;
 };
 
