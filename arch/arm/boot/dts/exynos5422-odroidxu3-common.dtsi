@@ -672,3 +672,34 @@
 	vdd33-supply = <&ldo9_reg>;
 	vdd10-supply = <&ldo11_reg>;
 };
+
+&bus_wcore_opp_table {
+	opp05 {
+		opp-hz = /bits/ 64 <420000000>;
+		opp-microvolt = <975000>;
+	};
+	opp06 {
+		opp-hz = /bits/ 64 <440000000>;
+		opp-microvolt = <975000>;
+	};
+	opp06 {
+		opp-hz = /bits/ 64 <440000000>;
+		opp-microvolt = <975000>;
+	};
+	opp07 {
+		opp-hz = /bits/ 64 <460000000>;
+		opp-microvolt = <975000>;
+	};
+	opp08 {
+		opp-hz = /bits/ 64 <480000000>;
+		opp-microvolt = <975000>;
+	};
+	opp09 {
+		opp-hz = /bits/ 64 <500000000>;
+		opp-microvolt = <975000>;
+	};
+	opp10 {
+		opp-hz = /bits/ 64 <600000000>;
+		opp-microvolt = <987500>;
+	};
+};
