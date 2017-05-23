@@ -171,6 +171,8 @@ static int __init hdmi_hpd_enable(char *str)
 	if (!strcmp(str, "false")) {
 		gEnableHPD = false;
 	}
+
+	return 0;
 }
 __setup("HPD=", hdmi_hpd_enable);
 
