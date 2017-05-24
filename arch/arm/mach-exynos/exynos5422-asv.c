@@ -41,7 +41,6 @@
 enum {
 	DEVICE_ID_ARM = 0,
 	DEVICE_ID_KFC,
-	DEVICE_ID_INT,
 	DEVICE_ID_MAX
 };
 
@@ -57,6 +56,8 @@ struct exynos_asv {
 	unsigned char		is_odroid;
 	unsigned char		is_bin2;
 	unsigned char		is_special_lot;
+	unsigned char		hpm;
+	unsigned char		ids;
 	unsigned char		group;
 	unsigned char		table;
 
@@ -78,7 +79,6 @@ EXPORT_SYMBOL(is_odroid);
 /*----------------------------------------------------------------------------*/
 const unsigned char DEVICE_ID_ARM_STR[] = "/soc/opp_table0/";
 const unsigned char DEVICE_ID_KFC_STR[] = "/soc/opp_table1/";
-const unsigned char DEVICE_ID_INT_STR[] = "/soc/opp_table2/";
 
 int find_device_id(const char *node_str)
 {
@@ -86,8 +86,6 @@ int find_device_id(const char *node_str)
 		return	DEVICE_ID_ARM;
 	if (!strncmp(DEVICE_ID_KFC_STR, node_str, sizeof(DEVICE_ID_KFC_STR)-1))
 		return	DEVICE_ID_KFC;
-	if (!strncmp(DEVICE_ID_INT_STR, node_str, sizeof(DEVICE_ID_INT_STR)-1))
-		return	DEVICE_ID_INT;
 
 	return	-1;
 }
@@ -170,35 +168,6 @@ static unsigned int kfc_asv_func(unsigned int freq, unsigned int volt)
 	}
 
 	return	asv_apply_volt(&exynos5422_asv->device[DEVICE_ID_KFC],
-				asv_table,
-				freq,
-				volt);
-}
-
-/*----------------------------------------------------------------------------*/
-static unsigned int int_asv_func(unsigned int freq, unsigned int volt)
-{
-	const unsigned int (*asv_table)[EXYNOS5422_ASV_NR +1];
-
-	if (exynos5422_asv->is_bin2)
-		asv_table = INT_INFO_BIN2;
-	else {
-		switch(exynos5422_asv->table) {
-			default:
-			case	0:
-			case	1:
-				asv_table = INT_INFO_TABLE01;
-				break;
-			case	2:
-				asv_table = INT_INFO_TABLE2;
-				break;
-			case	3:
-				asv_table = INT_INFO_TABLE3;
-				break;
-		}
-	}
-
-	return	asv_apply_volt(&exynos5422_asv->device[DEVICE_ID_INT],
 				asv_table,
 				freq,
 				volt);
@@ -333,12 +302,10 @@ static void asv_offset_volt_setup(void)
 	if (exynos5422_asv->is_bin2) {
 		exynos5422_asv->device[DEVICE_ID_ARM].dvfs_nr = ARM_BIN2_DVFS_NR;
 		exynos5422_asv->device[DEVICE_ID_KFC].dvfs_nr = KFC_BIN2_DVFS_NR;
-		exynos5422_asv->device[DEVICE_ID_INT].dvfs_nr = INT_BIN2_DVFS_NR;
 	}
 	else {
 		exynos5422_asv->device[DEVICE_ID_ARM].dvfs_nr = ARM_DVFS_NR;
 		exynos5422_asv->device[DEVICE_ID_KFC].dvfs_nr = KFC_DVFS_NR;
-		exynos5422_asv->device[DEVICE_ID_INT].dvfs_nr = INT_DVFS_NR;
 	}
 
 	/* ARM Offset Volt setup */
@@ -363,18 +330,6 @@ static void asv_offset_volt_setup(void)
 
 	value = (chip_id4 >> EXYNOS5422_KFC_DN_OFFSET) & EXYNOS5422_KFC_DN_MASK;
 	exynos5422_asv->device[DEVICE_ID_KFC].offset_volt_l =
-		exynos5422_offset_volt(value);
-
-	/* INT Offset Volt setup */
-	exynos5422_asv->device[DEVICE_ID_INT].asv_func = int_asv_func;
-	exynos5422_asv->device[DEVICE_ID_INT].base_volt = 900000;
-
-	value = (chip_id4 >> EXYNOS5422_INT_UP_OFFSET) & EXYNOS5422_INT_UP_MASK;
-	exynos5422_asv->device[DEVICE_ID_INT].offset_volt_h =
-		exynos5422_offset_volt(value);
-
-	value = (chip_id4 >> EXYNOS5422_INT_DN_OFFSET) & EXYNOS5422_INT_DN_MASK;
-	exynos5422_asv->device[DEVICE_ID_INT].offset_volt_l =
 		exynos5422_offset_volt(value);
 }
 
@@ -409,8 +364,7 @@ static int __init exynos5422_asv_init(void)
 {
 	unsigned int chip_id3 = __raw_readl(CHIP_ID3_REG);
 	unsigned int chip_id4 = __raw_readl(CHIP_ID4_REG);
-	unsigned int i, hpm, ids;
-
+		
 	pr_err("======================================================================\n");
 	pr_err("DEBUG FOR ASV TABLE\n");
 	pr_err("======================================================================\n");
@@ -419,22 +373,21 @@ static int __init exynos5422_asv_init(void)
 	
 	pr_err("charles(%s) : is_odroid = %d\n", __func__, exynos5422_asv->is_odroid);
 	pr_err("charles(%s) : is_bin2 = %d\n", __func__,  exynos5422_asv->is_bin2);
-	pr_err("charles(%s) : is_bin2(chip id) = %d\n", __func__,
-			(chip_id3 >> EXYNOS5422_BIN2_OFFSET) & EXYNOS5422_BIN2_MASK);
 	pr_err("charles(%s) : is_special_lot = %d\n", __func__,  exynos5422_asv->is_special_lot);
-
-	hpm = (chip_id4 >> EXYNOS5422_TMCB_OFFSET) & EXYNOS5422_TMCB_MASK;
-	ids = (chip_id3 >> EXYNOS5422_IDS_OFFSET) & EXYNOS5422_IDS_MASK;
-	pr_err("charles(%s) : hpm = %d, ids = %d\n", __func__, hpm, ids);
 	pr_err("charles(%s) : asv_group_no = %d\n", __func__,  exynos5422_asv->group);
 	pr_err("charles(%s) : asv_table_no = %d\n", __func__,  exynos5422_asv->table);
 
-	for (i = 0; i < DEVICE_ID_MAX; i++) {
-		pr_err("charles(%s) : ID = %d offset Volt H = %d\n",
-			__func__, i, exynos5422_asv->device[i].offset_volt_h);
-		pr_err("charles(%s) : ID = %d offset Volt L = %d\n",
-			__func__, i, exynos5422_asv->device[i].offset_volt_l);
-	}
+	pr_err("charles(%s) : ARM offset Volt H = %d\n",
+		exynos5422_asv->device[DEVICE_ID_ARM].offset_volt_h);
+
+	pr_err("charles(%s) : ARM offset Volt L = %d\n",
+		exynos5422_asv->device[DEVICE_ID_ARM].offset_volt_l);
+
+	pr_err("charles(%s) : KFC offset Volt H = %d\n",
+		exynos5422_asv->device[DEVICE_ID_KFC].offset_volt_h);
+
+	pr_err("charles(%s) : KFC offset Volt L = %d\n",
+		exynos5422_asv->device[DEVICE_ID_KFC].offset_volt_l);
 
 	pr_err("======================================================================\n");
 	pr_err("======================================================================\n");
