@@ -67,6 +67,7 @@ headers are used by the installed headers for GNU glibc and other system
 %setup -q
 
 %build
+%{?asan:/usr/bin/gcc-unforce-options}
 
 make distclean
 %ifarch aarch64
