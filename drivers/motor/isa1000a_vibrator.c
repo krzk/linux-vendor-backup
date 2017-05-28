@@ -185,7 +185,6 @@ void vibtonz_en(bool en)
 	if (en) {
 #ifdef CONFIG_MACH_WC1
 		regulator_set_voltage(g_hap_data->regulator, MOTOR_VDD, MOTOR_VDD);
-		regulator_enable(g_hap_data->regulator);
 
 		s3c_gpio_cfgpin(GPIO_MOTOR_EN, S3C_GPIO_OUTPUT);
 		s3c_gpio_setpull(GPIO_MOTOR_EN, S3C_GPIO_PULL_NONE);
@@ -209,10 +208,9 @@ void vibtonz_en(bool en)
 		if (ret)
 			goto error_reg_enable;
 		g_hap_data->running = true;
-		} else {
+	} else {
 #ifdef CONFIG_MACH_WC1
 		regulator_set_voltage(g_hap_data->regulator, MOTOR_VDD, MOTOR_VDD);
-		regulator_disable(g_hap_data->regulator);
 
 		s3c_gpio_cfgpin(GPIO_MOTOR_EN, S3C_GPIO_OUTPUT);
 		s3c_gpio_setpull(GPIO_MOTOR_EN, S3C_GPIO_PULL_NONE);
