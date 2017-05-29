@@ -143,38 +143,55 @@ err_clk_get:
 	return -EINVAL;
 }
 
+static void isa1000a_vibrator_enable(struct isa1000a_vibrator_data *hap_data,
+					bool config, int duty, int period)
+{
+	int ret;
+
+	if (hap_data->running)
+		return;
+
+	if (config)
+		pwm_config(hap_data->pwm, duty, period);
+
+	pwm_enable(hap_data->pwm);
+	ret = regulator_enable(hap_data->regulator);
+	if (ret) {
+		pwm_disable(hap_data->pwm);
+		printk(KERN_ERR "%s: Failed to control vdd.\n", __func__);
+		return;
+	}
+
+	hap_data->running = true;
+}
+
+static void isa1000a_vibrator_disable(struct isa1000a_vibrator_data *hap_data)
+{
+	if (!hap_data->running)
+		return;
+
+	regulator_disable(hap_data->regulator);
+	pwm_disable(hap_data->pwm);
+
+	hap_data->running = false;
+}
+
 static void haptic_work(struct work_struct *work)
 {
 	struct isa1000a_vibrator_data *hap_data
 		= container_of(work, struct isa1000a_vibrator_data, work);
-	int ret;
-	if (hap_data->timeout == 0) {
-		if (!hap_data->running)
-			return;
-		hap_data->running = false;
-		regulator_disable(hap_data->regulator);
-		pwm_disable(hap_data->pwm);
-	} else {
-		if (hap_data->running)
-			return;
-		pwm_config(hap_data->pwm, hap_data->pdata->duty,
-			   hap_data->pdata->period);
-		pwm_enable(hap_data->pwm);
-		ret = regulator_enable(hap_data->regulator);
-		if (ret)
-			goto error_reg_enable;
-		hap_data->running = true;
-	}
-	return;
-error_reg_enable:
-	printk(KERN_ERR "%s: Failed to enable vdd.\n", __func__);
+
+	if (hap_data->timeout == 0)
+		isa1000a_vibrator_disable(hap_data);
+	else
+		isa1000a_vibrator_enable(hap_data, true,
+						hap_data->pdata->period,
+						hap_data->pdata->period);
 }
 
 #ifdef CONFIG_VIBETONZ
 void vibtonz_en(bool en)
 {
-	int ret;
-
 	pr_info("[VIB] %s %s\n", __func__, en ? "on" : "off");
 
 	if (g_hap_data == NULL) {
@@ -195,19 +212,13 @@ void vibtonz_en(bool en)
 		gpio_set_value(GPIO_MOTOR_EN, 1);
 		/* vibtonz_pwm(127); */
 #endif
-		if (g_hap_data->running)
-			return;
-		/* must set pwm after resume. this may be workaround.. */
 		if (g_hap_data->resumed) {
-			pwm_config(g_hap_data->pwm, g_hap_data->pdata->period/2, g_hap_data->pdata->period);
 			g_hap_data->resumed = false;
-		}
-
-		pwm_enable(g_hap_data->pwm);
-		ret = regulator_enable(g_hap_data->regulator);
-		if (ret)
-			goto error_reg_enable;
-		g_hap_data->running = true;
+			isa1000a_vibrator_enable(g_hap_data, true,
+						g_hap_data->pdata->period/2,
+						g_hap_data->pdata->period);
+		} else
+			isa1000a_vibrator_enable(g_hap_data, false, 0, 0);
 	} else {
 #ifdef CONFIG_MACH_WC1
 		regulator_set_voltage(g_hap_data->regulator, MOTOR_VDD, MOTOR_VDD);
@@ -221,15 +232,9 @@ void vibtonz_en(bool en)
 		gpio_set_value(GPIO_MOTOR_EN, 0);
 		/* vibtonz_pwm(127); */
 #endif
-		if (!g_hap_data->running)
-			return;
-		regulator_disable(g_hap_data->regulator);
-		pwm_disable(g_hap_data->pwm);
-		g_hap_data->running = false;
+		isa1000a_vibrator_disable(g_hap_data);
 	}
 	return;
-error_reg_enable:
-	printk(KERN_ERR "%s: Failed to enable vdd.\n", __func__);
 }
 EXPORT_SYMBOL(vibtonz_en);
 
