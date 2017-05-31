@@ -7070,6 +7070,10 @@ static int rtl8152_change_mtu(struct net_device *dev, int new_mtu)
 	return ret;
 }
 
+static void rtl8152_netconsole(struct net_device *netdev)
+{
+}
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,29)
 static const struct net_device_ops rtl8152_netdev_ops = {
 	.ndo_open		= rtl8152_open,
@@ -7086,6 +7090,7 @@ static const struct net_device_ops rtl8152_netdev_ops = {
 	.ndo_set_mac_address	= rtl8152_set_mac_address,
 	.ndo_change_mtu		= rtl8152_change_mtu,
 	.ndo_validate_addr	= eth_validate_addr,
+	.ndo_poll_controller    = rtl8152_netconsole,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,4)
 	.ndo_features_check	= rtl8152_features_check,
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,4) */
