@@ -181,6 +181,25 @@ void tbm_gem_ion_put_dma_addr(struct drm_device *drm_dev,
 	drm_gem_object_unreference_unlocked(obj);
 }
 
+void *tbm_gem_ion_get_dma_buf(struct drm_device *drm_dev,
+		struct device *dev, unsigned int gem_handle,
+		struct drm_file *filp)
+{
+	struct drm_gem_object *obj;
+
+	obj = drm_gem_object_lookup(drm_dev, filp, gem_handle);
+	if (!obj) {
+		DRM_ERROR("failed to lookup gem object.\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	DRM_DEBUG("%s:h[%d]obj[%p]buf[%p]\n", __func__, gem_handle,
+		obj, obj->dma_buf);
+	drm_gem_object_unreference_unlocked(obj);
+
+	return obj->dma_buf;
+}
+
 struct dma_buf *tbm_gem_ion_prime_export(struct drm_device *dev,
 				  struct drm_gem_object *obj, int flags)
 {
@@ -373,6 +392,9 @@ err:
 	tbm_priv->gem_bufer_dealloc = tbm_gem_ion_buffer_dealloc;
 	tbm_priv->gem_get_dma_addr = tbm_gem_ion_get_dma_addr;
 	tbm_priv->gem_put_dma_addr = tbm_gem_ion_put_dma_addr;
+#ifdef CONFIG_DRM_DMA_SYNC
+	tbm_priv->gem_get_dma_buf = tbm_gem_ion_get_dma_buf;
+#endif
 
 	return 0;
 }

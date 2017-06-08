@@ -611,6 +611,23 @@ int tbm_gem_cpu_fini_ioctl(struct drm_device *dev, void *data,
 	return 0;
 }
 
+struct dma_buf  *tbm_gem_get_dma_buf(struct drm_device *drm_dev,
+		struct device *dev, unsigned int gem_handle,
+		struct drm_file *filp)
+{
+	struct tgm_drv_private *dev_priv = drm_dev->dev_private;
+	struct tbm_private *tbm_priv = dev_priv->tbm_priv;
+	struct dma_buf  *dma_buf = NULL;
+
+	if (tbm_priv->gem_get_dma_buf)
+		dma_buf = tbm_priv->gem_get_dma_buf(drm_dev, dev,
+			gem_handle, filp);
+
+	DRM_DEBUG("%s:h[%d]buf[%p]\n", __func__, gem_handle, dma_buf);
+
+	return dma_buf;
+}
+
 int tbm_gem_object_unreference(struct drm_gem_object *obj)
 {
 	DRM_DEBUG("%s:obj[%p]\n", __func__, obj);

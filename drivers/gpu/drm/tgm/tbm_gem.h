@@ -69,5 +69,8 @@ int tbm_gem_cpu_prep_ioctl(struct drm_device *dev, void *data,
 				  struct drm_file *file);
 int tbm_gem_cpu_fini_ioctl(struct drm_device *dev, void *data,
 				  struct drm_file *file);
+struct dma_buf  *tbm_gem_get_dma_buf(struct drm_device *drm_dev,
+		struct device *dev, unsigned int gem_handle,
+		struct drm_file *filp);
 int tbm_gem_object_unreference(struct drm_gem_object *obj);
 #endif /* _TBM_GEM_H_ */

@@ -35,6 +35,9 @@ struct tbm_private {
 	void (*gem_put_dma_addr)(struct drm_device *drm_dev,
 		struct device *dev, unsigned int gem_handle,
 		struct drm_file *filp);
+	void * (*gem_get_dma_buf)(struct drm_device *drm_dev,
+		struct device *dev, unsigned int gem_handle,
+		struct drm_file *filp);
 #ifdef CONFIG_DRM_DMA_SYNC
 	unsigned gem_fence_context;
 	atomic_t gem_fence_seqno;
