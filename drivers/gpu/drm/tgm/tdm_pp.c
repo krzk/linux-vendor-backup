@@ -63,6 +63,9 @@ struct tdm_pp_mem_node {
 	u32	prop_id;
 	u32	buf_id;
 	struct tdm_pp_buf_info	buf_info;
+#ifdef CONFIG_DRM_DMA_SYNC
+	struct fence *fence;
+#endif
 };
 
 /*
@@ -470,6 +473,13 @@ static int pp_put_mem_node(struct drm_device *drm_dev,
 
 	DRM_DEBUG_KMS("ops_id[%d]\n", m_node->ops_id);
 
+#ifdef CONFIG_DRM_DMA_SYNC
+	if (m_node->ops_id == TDM_OPS_SRC) {
+		if (!IS_ERR(m_node->fence))
+			tdm_fence_signal(drm_dev, m_node->fence);
+	}
+#endif
+
 	/* put gem buffer */
 	for_each_pp_planar(i) {
 		unsigned long handle = m_node->buf_info.handles[i];
@@ -738,14 +748,29 @@ static int pp_set_mem_node(struct tdm_ppdrv *ppdrv,
 		return -EFAULT;
 	}
 
+
+	if (!ops->set_addr) {
+		DRM_ERROR("not support set_addr.\n");
+		return -EFAULT;
+	}
+
+#ifdef CONFIG_DRM_DMA_SYNC
+	if (m_node->ops_id == TDM_OPS_SRC) {
+		struct dma_buf *dma_buf;
+
+		dma_buf = tbm_gem_get_dma_buf(ppdrv->drm_dev, ppdrv->dev,
+				m_node->buf_info.handles[0], c_node->filp);
+		if (!IS_ERR(dma_buf))
+			m_node->fence = tdm_fence(ppdrv->drm_dev, dma_buf);
+	}
+#endif
+
 	/* set address and enable irq */
-	if (ops->set_addr) {
-		ret = ops->set_addr(ppdrv->dev, &m_node->buf_info,
-			m_node->buf_id, PP_BUF_ENQUEUE);
-		if (ret) {
-			DRM_ERROR("failed to set addr.\n");
-			return ret;
-		}
+	ret = ops->set_addr(ppdrv->dev, &m_node->buf_info,
+		m_node->buf_id, PP_BUF_ENQUEUE);
+	if (ret) {
+		DRM_ERROR("failed to set addr.\n");
+		return ret;
 	}
 
 	return ret;
