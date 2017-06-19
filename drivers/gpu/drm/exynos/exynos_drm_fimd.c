@@ -1221,7 +1221,7 @@ static void fimd_lpmode_work(struct work_struct *work)
 
 	fimd_set_lp_mode(ctx, set_lpm);
 
-	DRM_INFO("[%s]done:dpms[%d]lpm[%d]\n",
+	DRM_DEBUG("[%s]done:dpms[%d]lpm[%d]\n",
 		set_lpm ? "set_lpm" : "unset_lpm",
 		ctx->dpms, fimd_is_lpm(ctx));
 
@@ -1259,7 +1259,7 @@ static int fimd_enable_vblank(struct device *dev)
 			ctx->lpm_work))
 		DRM_INFO("%s:busy to queue_work.\n", __func__);
 
-	DRM_INFO("[on_vbl]r[%d]dpms[%d]lpm[%d]\n",
+	DRM_DEBUG("[on_vbl]r[%d]dpms[%d]lpm[%d]\n",
 		atomic_read(&drm_dev->vblank_refcount[ctx->pipe]),
 		ctx->dpms, fimd_is_lpm(ctx));
 
@@ -1273,7 +1273,7 @@ static void fimd_disable_vblank(struct device *dev)
 	struct fimd_lpm_work *lpm_work = ctx->lpm_work;
 
 	if (!ctx->bl_on) {
-		DRM_INFO("[off_vbl]r[%d]bypass:bl_off\n",
+		DRM_DEBUG("[off_vbl]r[%d]bypass:bl_off\n",
 			atomic_read(&drm_dev->vblank_refcount[ctx->pipe]));
 		return;
 	}
@@ -1287,7 +1287,7 @@ static void fimd_disable_vblank(struct device *dev)
 			ctx->lpm_work))
 		DRM_INFO("%s:busy to queue_work.\n", __func__);
 
-	DRM_INFO("[off_vbl]r[%d]dpms[%d]lpm[%d]\n",
+	DRM_DEBUG("[off_vbl]r[%d]dpms[%d]lpm[%d]\n",
 		atomic_read(&drm_dev->vblank_refcount[ctx->pipe]),
 		ctx->dpms, fimd_is_lpm(ctx));
 
@@ -1392,7 +1392,7 @@ static int fimd_te_handler(struct device *dev)
 	spin_lock_irqsave(&ctx->win_updated_lock, flags);
 
        if (ctx->dbg_cnt) {
-	   	DRM_INFO("te_irq:c[%d]\n", ctx->dbg_cnt--);
+		DRM_DEBUG("te_irq:c[%d]\n", ctx->dbg_cnt--);
 		fimd_check_event(ctx, "te_irq");
        }
 
@@ -1443,7 +1443,7 @@ static int fimd_te_handler(struct device *dev)
 			fimd_trigger(ctx->dev);
 			spin_unlock_irqrestore(&dsim->bus_lock, bus_lock_flags);
 		} else
-			DRM_INFO("%s:wait_done[%d]\n", __func__, wait_done);
+			DRM_DEBUG("%s:wait_done[%d]\n", __func__, wait_done);
 
 		spin_lock_irqsave(&ctx->win_updated_lock, flags);
 	}

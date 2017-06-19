@@ -683,7 +683,7 @@ void exynos_drm_crtc_disable_vblank(struct drm_device *dev, int crtc)
 	DRM_DEBUG_KMS("%s\n", __FILE__);
 
 	if (exynos_crtc->dpms > DRM_MODE_DPMS_STANDBY) {
-		DRM_INFO("[off_vbl_%d]r[%d]invalid dpms[%d]\n",
+		DRM_DEBUG("[off_vbl_%d]r[%d]invalid dpms[%d]\n",
 			crtc, atomic_read(&dev->vblank_refcount[crtc]),
 			exynos_crtc->dpms);
 		return;
