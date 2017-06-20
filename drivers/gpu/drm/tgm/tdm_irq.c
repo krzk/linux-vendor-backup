@@ -197,6 +197,14 @@ static irqreturn_t tdm_irq_handler(int irq, void *dev_id)
 
 	DRM_DEBUG("%s\n", __func__);
 
+#ifdef CONFIG_ENABLE_DEFAULT_TRACERS
+	if (tracing_is_on()) {
+		static bool t;
+
+		__trace_printk(0, "C|-50|VSYNC|%d\n", t ? --t : ++t);
+	}
+#endif
+
 	spin_lock_irqsave(&drm_dev->vblank_time_lock, irqflags);
 	vblank = &drm_dev->vblank[crtc];
 
