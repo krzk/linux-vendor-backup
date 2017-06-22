@@ -423,9 +423,6 @@ void ist30xx_gesture_cmd(struct ist30xx_data *data, int cmd)
 /* dt2wake */
 DEFINE_MUTEX(dt2w_lock);
 u32 last_x,last_y;
-#ifndef CONFIG_POWERSUSPEND
-bool screen_is_off;
-#endif
 u32 distance_between(u32 x1, u32 x2, u32 y1, u32 y2) {
        u32 distance = int_sqrt(((x2 - x1) * (x2 - x1)) + ((y2 - y1) * (y2 - y1)));
        tsp_noti("distance between points (%u,%u) and (%u,%u) is %u\n", x1, x2, y1, y2, distance);
@@ -468,8 +465,6 @@ void print_tsp_event(struct ist30xx_data *data, finger_info *finger, u32 z_value
 #endif
 #ifdef CONFIG_POWERSUSPEND
 			if (data->dt2w_enable && power_suspend_active && finger->bit_field.id == 1) {
-#else
-			if (data->dt2w_enable && screen_is_off && finger->bit_field.id == 1) {
 #endif
 				if (current_time - last_input_time > 350000) {
 					data->dt2w_count = 0;
@@ -1011,11 +1006,7 @@ static int ist30xx_suspend(struct device *dev)
 	ist30xx_disable_irq(data);
 	ist30xx_internal_suspend(data);
 	clear_input_data(data);
-#ifdef CONFIG_POWERSUSPEND
-	power_suspend_active = true;
-#else
-	screen_is_off = true;
-#endif
+
 #if IST30XX_GESTURE
 	if (data->gesture) {
 		ist30xx_start(data);
@@ -1040,11 +1031,6 @@ static int ist30xx_resume(struct device *dev)
 	ist30xx_start(data);
 	ist30xx_enable_irq(data);
 	mutex_unlock(&ist30xx_mutex);
-#ifdef CONFIG_POWERSUSPEND
-	power_suspend_active = false;
-#else
-	screen_is_off = false;
-#endif
 
 	return 0;
 }
