@@ -27,6 +27,7 @@
 #include <linux/videodev2_exynos_camera.h>
 #include <linux/v4l2-mediabus.h>
 #include <linux/bug.h>
+#include <linux/fimc-is-metadata.h>
 
 #include "fimc-is-core.h"
 #include "fimc-is-param.h"
@@ -34,7 +35,6 @@
 #include "fimc-is-regs.h"
 #include "fimc-is-err.h"
 #include "fimc-is-video.h"
-#include "fimc-is-metadata.h"
 
 extern struct fimc_is_from_info		*sysfs_finfo;
 extern struct fimc_is_from_info		*sysfs_pinfo;

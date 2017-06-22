@@ -2,11 +2,11 @@
 #define FIMC_IS_VIDEO_H
 
 #include <linux/version.h>
+#include <linux/fimc-is-metadata.h>
 #include <media/v4l2-ioctl.h>
 #include "fimc-is-type.h"
 #include "fimc-is-mem.h"
 #include "fimc-is-framemgr.h"
-#include "fimc-is-metadata.h"
 #include "fimc-is-config.h"
 
 /* configuration by linux kernel version */

@@ -27,6 +27,7 @@
 #include <linux/videodev2_exynos_camera.h>
 #include <linux/v4l2-mediabus.h>
 #include <linux/bug.h>
+#include <linux/fimc-is-metadata.h>
 
 #include <media/videobuf2-core.h>
 #include <media/v4l2-ctrls.h>
@@ -40,7 +41,6 @@
 #include "fimc-is-regs.h"
 #include "fimc-is-err.h"
 #include "fimc-is-video.h"
-#include "fimc-is-metadata.h"
 
 const struct v4l2_file_operations fimc_is_3aa_video_fops;
 const struct v4l2_ioctl_ops fimc_is_3aa_video_ioctl_ops;

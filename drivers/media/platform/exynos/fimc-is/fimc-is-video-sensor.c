@@ -27,6 +27,7 @@
 #include <linux/videodev2_exynos_camera.h>
 #include <linux/v4l2-mediabus.h>
 #include <linux/bug.h>
+#include <linux/fimc-is-metadata.h>
 
 #include "fimc-is-device-sensor.h"
 #include "fimc-is-param.h"
@@ -34,7 +35,6 @@
 #include "fimc-is-regs.h"
 #include "fimc-is-err.h"
 #include "fimc-is-video.h"
-#include "fimc-is-metadata.h"
 #include "fimc-is-core.h"
 
 const struct v4l2_file_operations fimc_is_sen_video_fops;

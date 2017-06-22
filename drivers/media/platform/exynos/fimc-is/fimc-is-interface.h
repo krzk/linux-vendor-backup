@@ -14,7 +14,8 @@
 #ifndef FIMC_IS_INTERFACE_H
 #define FIMC_IS_INTERFACE_H
 
-#include "fimc-is-metadata.h"
+#include <linux/fimc-is-metadata.h>
+
 #include "fimc-is-framemgr.h"
 #include "fimc-is-video.h"
 #include "fimc-is-time.h"
