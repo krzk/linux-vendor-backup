@@ -1164,12 +1164,8 @@ static struct page **__iommu_alloc_buffer(struct device *dev, size_t size,
 			outer_flush_all();
 		}
 
-		for (i = 0; i < count; i++) {
+		for (i = 0; i < count; i++)
 			pages[i] = page + i;
-			/* SLP: charging allocated pages */
-			mem_cgroup_newpage_charge(pages[i], current->mm,
-						pages[i]->flags);
-		}
 
 		return pages;
 	}
@@ -1182,12 +1178,8 @@ static struct page **__iommu_alloc_buffer(struct device *dev, size_t size,
 			goto error;
 
 		j = 1 << order;
-		while (--j) {
+		while (--j)
 			pages[i + j] = pages[i] + j;
-			/* SLP: charging allocated pages */
-			mem_cgroup_newpage_charge(pages[i + j], current->mm,
-						pages[i + j]->flags);
-		}
 
 		if (size < SZ_1M) {
 			if (!dma_get_attr(DMA_ATTR_SKIP_BUFFER_CLEAR, attrs))
@@ -1233,11 +1225,8 @@ static int __iommu_free_buffer(struct device *dev, struct page **pages,
 		dma_release_from_contiguous(dev, pages[0], count);
 	} else {
 		for (i = 0; i < count; i++)
-			if (pages[i]) {
-				/* SLP: uncharging allocated pages */
-				mem_cgroup_uncharge_page(pages[i]);
+			if (pages[i])
 				__iommu_free_chunk(pages[i], dev, 0);
-			}
 	}
 
 	if (array_size <= PAGE_SIZE)

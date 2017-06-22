@@ -197,10 +197,6 @@ static u32 _kernel_page_allocate(void)
 
 /* MALI_SEC */
 #ifdef CONFIG_SLP
-	/* SLP: charging 3D allocated page */
-	mem_cgroup_newpage_charge(new_page, current->mm, GFP_HIGHUSER |
-	__GFP_ZERO | __GFP_REPEAT | __GFP_NOWARN | __GFP_COLD);
-
 #ifdef CONFIG_SLP_LOWMEM_NOTIFY
 	inc_mm_counter(current->mm, MM_ANONPAGES);
 #endif
@@ -223,9 +219,6 @@ static void _kernel_page_release(u32 physical_address)
 	MALI_DEBUG_ASSERT_POINTER( unmap_page );
 /* MALI_SEC */
 #ifdef CONFIG_SLP
-	/* SLP: uncharging 3D allocated page */
-	mem_cgroup_uncharge_page(unmap_page);
-
 #ifdef CONFIG_SLP_LOWMEM_NOTIFY
 	if (current && current->mm)
 		dec_mm_counter(current->mm, MM_ANONPAGES);
