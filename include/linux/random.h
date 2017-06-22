@@ -26,6 +26,7 @@ extern void del_random_ready_callback(struct random_ready_callback *rdy);
 extern void get_random_bytes_arch(void *buf, int nbytes);
 void generate_random_uuid(unsigned char uuid_out[16]);
 extern int random_int_secret_init(void);
+extern void erandom_get_random_bytes(char *buf, size_t count);
 
 #ifndef MODULE
 extern const struct file_operations random_fops, urandom_fops;
