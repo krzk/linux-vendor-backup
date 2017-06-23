@@ -1006,6 +1006,9 @@ static int ist30xx_suspend(struct device *dev)
 	ist30xx_disable_irq(data);
 	ist30xx_internal_suspend(data);
 	clear_input_data(data);
+#ifdef CONFIG_POWERSUSPEND
+	power_suspend_active = true;
+#endif
 
 #if IST30XX_GESTURE
 	if (data->gesture) {
@@ -1031,6 +1034,9 @@ static int ist30xx_resume(struct device *dev)
 	ist30xx_start(data);
 	ist30xx_enable_irq(data);
 	mutex_unlock(&ist30xx_mutex);
+#ifdef CONFIG_POWERSUSPEND
+	power_suspend_active = false;
+#endif
 
 	return 0;
 }
