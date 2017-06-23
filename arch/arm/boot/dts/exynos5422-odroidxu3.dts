@@ -65,5 +65,6 @@
 };
 
 &usbdrd_dwc3_1 {
-	dr_mode = "peripheral";
+	dr_mode = "otg";
+	extcon = <&extcon_usbdrd>;
 };

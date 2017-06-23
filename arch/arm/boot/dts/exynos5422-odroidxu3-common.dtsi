@@ -339,6 +339,14 @@
 			};
 		};
 	};
+
+	extcon_usbdrd: extcon_usbdrd {
+		compatible = "linux,extcon-usb-gpio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&usbdrd_id &usbdrd_vbus>;
+		id-gpios = <&gpx1 1 GPIO_ACTIVE_HIGH>;
+		vbus-gpios = <&gpx3 4 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &adc {
@@ -405,6 +413,20 @@
 		samsung,pins = "gpx3-7";
 		samsung,pin-function = <EXYNOS_PIN_FUNC_INPUT>;
 		samsung,pin-pud = <EXYNOS_PIN_PULL_DOWN>;
+		samsung,pin-drv = <EXYNOS5420_PIN_DRV_LV1>;
+	};
+
+	usbdrd_id: usbdrd_id {
+		samsung,pins = "gpx1-1";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_F>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+		samsung,pin-drv = <EXYNOS5420_PIN_DRV_LV1>;
+	};
+
+	usbdrd_vbus: usbdrd_vbus {
+		samsung,pins = "gpx3-4";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_F>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
 		samsung,pin-drv = <EXYNOS5420_PIN_DRV_LV1>;
 	};
 };
