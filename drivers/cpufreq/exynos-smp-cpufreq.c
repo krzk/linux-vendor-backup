@@ -941,6 +941,8 @@ static int exynos_cpufreq_init(struct cpufreq_policy *policy)
 		sync_frequency = exynos_cpufreq_get(0);
 	}
 
+	policy->user_min = policy->min;
+	policy->user_max = policy->max;
 	dev_info(cpu_dev, "%s: CPU %d initialized\n", __func__, policy->cpu);
 	return 0;
 }
