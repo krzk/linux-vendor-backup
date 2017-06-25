@@ -457,8 +457,54 @@ static ssize_t store_##file_name					\
 
 store_one(policy_min_freq, min);
 store_one(policy_max_freq, max);
-store_one(scaling_min_freq, user_min);
-store_one(scaling_max_freq, user_max);
+//store_one(scaling_min_freq, user_min);
+static ssize_t store_scaling_min_freq(struct cpufreq_policy *policy,
+					const char *buf, size_t count)
+{
+	unsigned int ret;
+	struct cpufreq_policy new_policy;
+
+	ret = cpufreq_get_policy(&new_policy, policy->cpu);
+	if (ret)
+		return -EINVAL;
+
+	ret = sscanf(buf, "%u", &new_policy.user_min);
+	if (ret != 1)
+		return -EINVAL;
+	ret = sscanf(buf, "%u", &new_policy.min);
+	if (ret != 1)
+		return -EINVAL;
+
+	ret = __cpufreq_set_policy(policy, &new_policy);
+	policy->user_policy.user_min = policy->user_min;
+	policy->user_policy.min = policy->min;
+
+	return ret ? ret : count;
+}
+//store_one(scaling_max_freq, user_max);
+static ssize_t store_scaling_max_freq(struct cpufreq_policy *policy,
+					const char *buf, size_t count)
+{
+	unsigned int ret;
+	struct cpufreq_policy new_policy;
+
+	ret = cpufreq_get_policy(&new_policy, policy->cpu);
+	if (ret)
+		return -EINVAL;
+
+	ret = sscanf(buf, "%u", &new_policy.user_max);
+	if (ret != 1)
+		return -EINVAL;
+	ret = sscanf(buf, "%u", &new_policy.max);
+	if (ret != 1)
+		return -EINVAL;
+
+	ret = __cpufreq_set_policy(policy, &new_policy);
+	policy->user_policy.user_max = policy->user_max;
+	policy->user_policy.max = policy->max;
+
+	return ret ? ret : count;
+}
 
 /**
  * show_cpuinfo_cur_freq - current CPU frequency as detected by hardware
@@ -981,11 +1027,15 @@ static int cpufreq_add_dev(struct device *dev, struct subsys_interface *sif)
 	 */
 	cpumask_and(policy->cpus, policy->cpus, cpu_online_mask);
 
-	if (last_min > -1)
+	if (last_min > -1) {
 		policy->min = last_min;
-	
-	if (last_max > -1)
+		policy->user_min = last_min;
+	}
+
+	if (last_max > -1) {
 		policy->max = last_max;
+		policy->user_max = last_max;
+	}
 
 	policy->user_policy.min = policy->min;
 	policy->user_policy.max = policy->max;
@@ -1809,6 +1859,8 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 
 	data->min = policy->min;
 	data->max = policy->max;
+	data->user_min = policy->user_min;
+	data->user_max = policy->user_max;
 
 	pr_debug("new min and max freqs are %u - %u kHz\n",
 					data->min, data->max);
