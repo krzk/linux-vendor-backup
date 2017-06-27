@@ -29,6 +29,7 @@
 #include <linux/of_irq.h>
 #include <linux/of.h>
 #include <linux/delay.h>
+#include <linux/mutex.h>
 #ifdef CONFIG_MACH_WC1
 #include <plat/gpio-cfg.h>
 #include <mach/regs-gpio.h>
@@ -52,6 +53,7 @@ struct isa1000a_vibrator_data {
 	unsigned int timeout;
 	struct work_struct work;
 	spinlock_t lock;
+	struct mutex mutex;
 	bool running;
 	bool resumed;
 };
@@ -148,8 +150,11 @@ static void isa1000a_vibrator_enable(struct isa1000a_vibrator_data *hap_data,
 {
 	int ret;
 
-	if (hap_data->running)
+	mutex_lock(&hap_data->mutex);
+	if (hap_data->running) {
+		mutex_unlock(&hap_data->mutex);
 		return;
+	}
 
 	if (config)
 		pwm_config(hap_data->pwm, duty, period);
@@ -158,22 +163,28 @@ static void isa1000a_vibrator_enable(struct isa1000a_vibrator_data *hap_data,
 	ret = regulator_enable(hap_data->regulator);
 	if (ret) {
 		pwm_disable(hap_data->pwm);
+		mutex_unlock(&hap_data->mutex);
 		printk(KERN_ERR "%s: Failed to control vdd.\n", __func__);
 		return;
 	}
 
 	hap_data->running = true;
+	mutex_unlock(&hap_data->mutex);
 }
 
 static void isa1000a_vibrator_disable(struct isa1000a_vibrator_data *hap_data)
 {
-	if (!hap_data->running)
+	mutex_lock(&hap_data->mutex);
+	if (!hap_data->running) {
+		mutex_unlock(&hap_data->mutex);
 		return;
+	}
 
 	regulator_disable(hap_data->regulator);
 	pwm_disable(hap_data->pwm);
 
 	hap_data->running = false;
+	mutex_unlock(&hap_data->mutex);
 }
 
 static void haptic_work(struct work_struct *work)
@@ -391,6 +402,7 @@ static int isa1000a_vibrator_probe(struct platform_device *pdev)
 	hap_data->dev = &pdev->dev;
 	INIT_WORK(&(hap_data->work), haptic_work);
 	spin_lock_init(&(hap_data->lock));
+	mutex_init(&hap_data->mutex);
 	hap_data->pwm = pwm_request(hap_data->pdata->pwm_id, "vibrator");
 	if (IS_ERR(hap_data->pwm)) {
 		pr_err("[VIB] Failed to request pwm\n");
