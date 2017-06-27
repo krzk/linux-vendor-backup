@@ -1353,7 +1353,7 @@ static int exynos_smp_probe(struct platform_device *pdev)
 	of_node_put(np);
 
 	if (soc_is_exynos7580_v1()) {
-		pm_qos_add_request(&pm_qos_mif, PM_QOS_BUS_THROUGHPUT, exynos_bus_table[ARRAY_SIZE(apll_freq) - 2]);
+		pm_qos_add_request(&pm_qos_mif, PM_QOS_BUS_THROUGHPUT, exynos_bus_table[ARRAY_SIZE(apll_freq) - 1]);
 		pm_qos_add_request(&cluster_qos_max[CL_ZERO], PM_QOS_CLUSTER0_FREQ_MAX, apll_freq[1].freq / 1000);
 #ifndef CONFIG_EXYNOS7580_QUAD
 		pm_qos_add_request(&cluster_qos_max[CL_ONE], PM_QOS_CLUSTER1_FREQ_MAX, apll_freq[0].freq / 1000);
