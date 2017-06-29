@@ -488,7 +488,7 @@ static int sc_sw_reset(struct sc_context *ctx)
 {
 	u32 cfg;
 
-	DRM_INFO("%s\n", __func__);
+	DRM_DEBUG("%s\n", __func__);
 
 	/* s/w reset */
 	cfg = sc_read(SCALER_CFG);
@@ -502,7 +502,7 @@ static void sc_handle_irq(struct sc_context *ctx, bool enable)
 {
 	u32 cfg;
 
-	DRM_INFO("%s:enable[%d]\n", __func__, enable);
+	DRM_DEBUG("%s:enable[%d]\n", __func__, enable);
 
 	cfg = sc_read(SCALER_INT_EN);
 
@@ -537,7 +537,7 @@ static int sc_src_set_fmt_nplanar(struct sc_context *ctx, u32 fmt)
 {
 	struct tdm_ppdrv *ppdrv = &ctx->ppdrv;
 
-	DRM_INFO("%s:fmt[0x%x]\n", __func__, fmt);
+	DRM_DEBUG("%s:fmt[0x%x]\n", __func__, fmt);
 
 	switch (fmt) {
 	case DRM_FORMAT_RGB565:
@@ -576,7 +576,7 @@ static int sc_src_set_fmt(struct device *dev, u32 fmt)
 	struct tdm_ppdrv *ppdrv = &ctx->ppdrv;
 	u32 cfg;
 
-	DRM_INFO("%s:fmt[0x%x]\n", __func__, fmt);
+	DRM_DEBUG("%s:fmt[0x%x]\n", __func__, fmt);
 
 	cfg = sc_read(SCALER_SRC_CFG);
 	cfg &= ~(SCALER_CFG_TILE_EN|SCALER_CFG_FMT_MASK);
@@ -648,7 +648,7 @@ static int sc_src_set_transf(struct device *dev,
 	struct tdm_ppdrv *ppdrv = &ctx->ppdrv;
 	u32 cfg;
 
-	DRM_INFO("%s:degree[%d]flip[0x%x]\n", __func__,
+	DRM_DEBUG("%s:degree[%d]flip[0x%x]\n", __func__,
 		degree, flip);
 
 	cfg = sc_read(SCALER_ROT_CFG);
@@ -701,7 +701,7 @@ static int sc_src_set_size(struct device *dev, int swap,
 		img_pos.h = pos->w;
 	}
 
-	DRM_INFO("%s:x[%d]y[%d]w[%d]h[%d]\n",
+	DRM_DEBUG("%s:x[%d]y[%d]w[%d]h[%d]\n",
 		__func__, pos->x, pos->y, pos->w, pos->h);
 
 	/* pixel offset */
@@ -714,7 +714,7 @@ static int sc_src_set_size(struct device *dev, int swap,
 		SCALER_SRC_H(pos->h));
 	sc_write(cfg, SCALER_SRC_WH);
 
-	DRM_INFO("%s:swap[%d]hsize[%d]vsize[%d]\n",
+	DRM_DEBUG("%s:swap[%d]hsize[%d]vsize[%d]\n",
 		__func__, swap, sz->hsize, sz->vsize);
 
 	/* span size */
@@ -756,7 +756,7 @@ static int sc_src_set_addr(struct device *dev,
 		return -EINVAL;
 	}
 
-	DRM_INFO("%s:prop_id[%d]buf_id[%d]buf_type[%d]\n", __func__,
+	DRM_DEBUG("%s:prop_id[%d]buf_id[%d]buf_type[%d]\n", __func__,
 		property->prop_id, buf_id, buf_type);
 
 	/* Set current buf_id */
@@ -801,7 +801,7 @@ static int sc_dst_set_fmt_nplanar(struct sc_context *ctx, u32 fmt)
 	struct tdm_ppdrv *ppdrv = &ctx->ppdrv;
 	u32 cfg;
 
-	DRM_INFO("%s:fmt[0x%x]\n", __func__, fmt);
+	DRM_DEBUG("%s:fmt[0x%x]\n", __func__, fmt);
 
 	switch (fmt) {
 	case DRM_FORMAT_RGB565:
@@ -845,7 +845,7 @@ static int sc_dst_set_fmt(struct device *dev, u32 fmt)
 	struct tdm_ppdrv *ppdrv = &ctx->ppdrv;
 	u32 cfg;
 
-	DRM_INFO("%s:fmt[0x%x]\n", __func__, fmt);
+	DRM_DEBUG("%s:fmt[0x%x]\n", __func__, fmt);
 
 	cfg = sc_read(SCALER_DST_CFG);
 	cfg &= ~(SCALER_CFG_SWAP_MASK|SCALER_CFG_FMT_MASK);
@@ -918,7 +918,7 @@ static int sc_dst_set_transf(struct device *dev,
 	struct tdm_ppdrv *ppdrv = &ctx->ppdrv;
 	u32 cfg;
 
-	DRM_INFO("%s:degree[%d]flip[0x%x]\n", __func__,
+	DRM_DEBUG("%s:degree[%d]flip[0x%x]\n", __func__,
 		degree, flip);
 
 	cfg = sc_read(SCALER_ROT_CFG);
@@ -968,7 +968,7 @@ static int sc_set_csc_coef(struct sc_context *ctx, struct sc_scaler *sc,
 	u32 cfg;
 	bool itu_709;
 
-	DRM_INFO("%s:sfmt[0x%x]dfmt[0x%x]range[%d]width[%d]\n", __func__,
+	DRM_DEBUG("%s:sfmt[0x%x]dfmt[0x%x]range[%d]width[%d]\n", __func__,
 		fmt[TDM_OPS_SRC], fmt[TDM_OPS_DST],
 		sc->range, width);
 
@@ -1023,7 +1023,7 @@ static void sc_set_scaler_ratio(struct sc_context *ctx, struct sc_scaler *sc)
 {
 	u32 cfg;
 
-	DRM_INFO("%s:hratio[%ld]vratio[%ld]\n",
+	DRM_DEBUG("%s:hratio[%ld]vratio[%ld]\n",
 		__func__, sc->hratio, sc->vratio);
 
 	cfg = sc_read(SCALER_H_RATIO);
@@ -1042,7 +1042,7 @@ static void sc_set_h_coef(struct sc_context *ctx, int coef)
 	u32 phase, tab, cnt = 0;
 	u32 cfg, val_h, val_l;
 
-	DRM_INFO("%s:coef[%d]\n", __func__, coef);
+	DRM_DEBUG("%s:coef[%d]\n", __func__, coef);
 
 	for (phase = 0; phase < SC_COEF_PHASE; phase++) {
 		for (tab = SC_COEF_H_8T; tab > 0; tab -= 2, cnt++) {
@@ -1060,7 +1060,7 @@ static void sc_set_v_coef(struct sc_context *ctx, int coef)
 	u32 phase, tab, cnt = 0;
 	u32 cfg, val_h, val_l;
 
-	DRM_INFO("%s:coef[%d]\n", __func__, coef);
+	DRM_DEBUG("%s:coef[%d]\n", __func__, coef);
 
 	for (phase = 0; phase < SC_COEF_PHASE; phase++) {
 		for (tab = SC_COEF_V_4T; tab > 0; tab -= 2, cnt++) {
@@ -1099,7 +1099,7 @@ static int sc_set_scaler_coef(struct sc_context *ctx, struct sc_scaler *sc)
 {
 	int hcoef, vcoef;
 
-	DRM_INFO("%s\n", __func__);
+	DRM_DEBUG("%s\n", __func__);
 
 	hcoef = sc_get_scale_filter(sc->hratio);
 	vcoef = sc_get_scale_filter(sc->vratio);
@@ -1113,7 +1113,7 @@ static int sc_set_scaler_coef(struct sc_context *ctx, struct sc_scaler *sc)
 static int sc_set_scaler(struct sc_context *ctx, struct sc_scaler *sc,
 		struct tdm_pos *src, struct tdm_pos *dst)
 {
-	DRM_INFO("%s\n", __func__);
+	DRM_DEBUG("%s\n", __func__);
 
 	if (ctx->rotation) {
 		sc->hratio = SC_RATIO(src->h, dst->w);
@@ -1123,7 +1123,7 @@ static int sc_set_scaler(struct sc_context *ctx, struct sc_scaler *sc,
 		sc->vratio = SC_RATIO(src->h, dst->h);
 	}
 
-	DRM_INFO("%s:hratio[%ld]vratio[%ld]\n",
+	DRM_DEBUG("%s:hratio[%ld]vratio[%ld]\n",
 		__func__, sc->hratio, sc->vratio);
 
 	sc_set_scaler_coef(ctx, &ctx->sc);
@@ -1139,7 +1139,7 @@ static int sc_dst_set_size(struct device *dev, int swap,
 	struct tdm_pos img_pos = *pos;
 	u32 cfg;
 
-	DRM_INFO("%s:swap[%d]x[%d]y[%d]w[%d]h[%d]\n",
+	DRM_DEBUG("%s:swap[%d]x[%d]y[%d]w[%d]h[%d]\n",
 		__func__, swap, pos->x, pos->y, pos->w, pos->h);
 
 	if (swap) {
@@ -1156,7 +1156,7 @@ static int sc_dst_set_size(struct device *dev, int swap,
 	cfg = (SCALER_DST_W(pos->w) | SCALER_DST_H(pos->h));
 	sc_write(cfg, SCALER_DST_WH);
 
-	DRM_INFO("%s:hsize[%d]vsize[%d]\n",
+	DRM_DEBUG("%s:hsize[%d]vsize[%d]\n",
 		__func__, sz->hsize, sz->vsize);
 
 	/* span size */
@@ -1194,7 +1194,7 @@ static int sc_dst_set_addr(struct device *dev,
 
 	property = &c_node->property;
 
-	DRM_INFO("%s:prop_id[%d]buf_id[%d]buf_type[%d]\n", __func__,
+	DRM_DEBUG("%s:prop_id[%d]buf_id[%d]buf_type[%d]\n", __func__,
 		property->prop_id, buf_id, buf_type);
 
 	/* Set current buf_id */
@@ -1298,7 +1298,7 @@ static irqreturn_t sc_irq_handler(int irq, void *dev_id)
 	u32 cfg;
 	int *buf_id = ctx->cur_buf_id;
 
-	DRM_INFO("%s\n", __func__);
+	DRM_DEBUG("%s\n", __func__);
 
 #ifdef DEBUG
 	sc_print_reg(ctx);
@@ -1313,7 +1313,7 @@ static irqreturn_t sc_irq_handler(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	}
 
-	DRM_INFO("%s:src buf_id[%d]dst buf_id[%d]\n", __func__,
+	DRM_DEBUG("%s:src buf_id[%d]dst buf_id[%d]\n", __func__,
 		buf_id[TDM_OPS_SRC], buf_id[TDM_OPS_DST]);
 
 	event_work->ppdrv = ppdrv;
@@ -1389,7 +1389,7 @@ static int sc_ppdrv_reset(struct device *dev)
 	struct sc_scaler *sc = &ctx->sc;
 	int ret;
 
-	DRM_INFO("%s\n", __func__);
+	DRM_DEBUG("%s\n", __func__);
 
 	/* reset h/w block */
 	ret = sc_sw_reset(ctx);
@@ -1407,7 +1407,7 @@ static int sc_ppdrv_reset(struct device *dev)
 
 static int sc_check_prepare(struct sc_context *ctx)
 {
-	DRM_INFO("%s\n", __func__);
+	DRM_DEBUG("%s\n", __func__);
 
 	return 0;
 }
@@ -1424,7 +1424,7 @@ static int sc_ppdrv_start(struct device *dev, enum tdm_pp_cmd cmd)
 	u32 cfg;
 	int ret, i;
 
-	DRM_INFO("%s:cmd[%d]\n", __func__, cmd);
+	DRM_DEBUG("%s:cmd[%d]\n", __func__, cmd);
 
 	if (!c_node) {
 		DRM_ERROR("failed to get c_node.\n");
@@ -1481,7 +1481,7 @@ static void sc_ppdrv_stop(struct device *dev, enum tdm_pp_cmd cmd)
 	struct sc_context *ctx = get_sc_context(dev);
 	u32 cfg;
 
-	DRM_INFO("%s:cmd[%d]\n", __func__, cmd);
+	DRM_DEBUG("%s:cmd[%d]\n", __func__, cmd);
 
 	switch (cmd) {
 	case PP_CMD_M2M:

@@ -409,8 +409,6 @@ int tdm_pp_set_property(struct drm_device *drm_dev, void *data,
 			DRM_ERROR("failed to create stop work.\n");
 			goto err_free_start;
 		}
-
-		init_completion(&c_node->stop_complete);
 	}
 
 	c_node->event_work = pp_create_event_work();
@@ -422,7 +420,8 @@ int tdm_pp_set_property(struct drm_device *drm_dev, void *data,
 	mutex_init(&c_node->lock);
 	mutex_init(&c_node->mem_lock);
 	mutex_init(&c_node->event_lock);
-	init_completion(&c_node->start_complete);
+	init_completion(&c_node->cmd_complete);
+	complete(&c_node->cmd_complete);
 
 	for_each_pp_ops(i)
 		INIT_LIST_HEAD(&c_node->mem_list[i]);
@@ -837,8 +836,6 @@ static int pp_queue_buf_with_run(struct device *dev,
 		} else {
 			mutex_lock(&ppdrv->drv_lock);
 
-			reinit_completion(&c_node->start_complete);
-
 			ret = pp_start_property(ppdrv, c_node);
 			if (ret) {
 				DRM_INFO("%s:failed to start property:id[%d]\n"
@@ -899,7 +896,7 @@ int tdm_pp_queue_buf(struct drm_device *drm_dev, void *data,
 		return -EINVAL;
 	}
 
-	DRM_INFO("%s:prop_id[%d]ops_id[%s]buf_id[%d][%s]\n",
+	DRM_DEBUG("%s:prop_id[%d]ops_id[%s]buf_id[%d][%s]\n",
 		__func__, qbuf->prop_id, qbuf->ops_id ? "dst" : "src",
 		qbuf->buf_id, qbuf->buf_type ? "dq" : "eq");
 
@@ -1070,8 +1067,6 @@ int tdm_pp_cmd_ctrl(struct drm_device *drm_dev, void *data,
 		} else {
 			mutex_lock(&ppdrv->drv_lock);
 
-			reinit_completion(&c_node->start_complete);
-
 			ret = pp_start_property(ppdrv, c_node);
 			if (ret) {
 				DRM_INFO("%s:failed to start property:id[%d]\n"
@@ -1087,12 +1082,6 @@ int tdm_pp_cmd_ctrl(struct drm_device *drm_dev, void *data,
 			cmd_work = c_node->stop_work;
 			cmd_work->ctrl = cmd_ctrl->ctrl;
 			pp_handle_cmd_work(dev, ppdrv, cmd_work, c_node);
-
-			if (!wait_for_completion_timeout(&c_node->stop_complete,
-			    msecs_to_jiffies(300))) {
-				DRM_ERROR("timeout stop:prop_id[%d]\n",
-					c_node->property.prop_id);
-			}
 		} else {
 			ret = pp_stop_property(ppdrv->drm_dev, ppdrv,
 				c_node);
@@ -1116,12 +1105,6 @@ int tdm_pp_cmd_ctrl(struct drm_device *drm_dev, void *data,
 			cmd_work = c_node->stop_work;
 			cmd_work->ctrl = cmd_ctrl->ctrl;
 			pp_handle_cmd_work(dev, ppdrv, cmd_work, c_node);
-
-			if (!wait_for_completion_timeout(&c_node->stop_complete,
-			    msecs_to_jiffies(300))) {
-				DRM_ERROR("timeout stop:prop_id[%d]\n",
-					c_node->property.prop_id);
-			}
 		} else {
 			ret = pp_stop_property(ppdrv->drm_dev, ppdrv,
 				c_node);
@@ -1142,8 +1125,6 @@ int tdm_pp_cmd_ctrl(struct drm_device *drm_dev, void *data,
 			pp_handle_cmd_work(dev, ppdrv, cmd_work, c_node);
 		} else {
 			mutex_lock(&ppdrv->drv_lock);
-
-			reinit_completion(&c_node->start_complete);
 
 			ret = pp_start_property(ppdrv, c_node);
 			if (ret) {
@@ -1242,6 +1223,20 @@ static int pp_set_property(struct tdm_ppdrv *ppdrv,
 	return 0;
 }
 
+void pp_wait_completion(struct tdm_pp_cmd_node *c_node)
+{
+	int ret;
+
+	DRM_DEBUG("%s\n", __func__);
+
+	ret = wait_for_completion_timeout(
+		&c_node->cmd_complete, msecs_to_jiffies(120));
+	if (ret < 0)
+		DRM_ERROR("failed to wait completion:ret[%d]\n", ret);
+	else if (!ret)
+		DRM_ERROR("timeout\n");
+}
+
 int pp_start_property(struct tdm_ppdrv *ppdrv,
 		struct tdm_pp_cmd_node *c_node)
 {
@@ -1261,6 +1256,8 @@ int pp_start_property(struct tdm_ppdrv *ppdrv,
 		ret = -ENOMEM;
 		goto err_unlock;
 	}
+
+	reinit_completion(&c_node->cmd_complete);
 
 	/* set current property in ppdrv */
 	ret = pp_set_property(ppdrv, property);
@@ -1332,6 +1329,8 @@ int pp_start_property(struct tdm_ppdrv *ppdrv,
 		}
 	}
 
+	pp_wait_completion(c_node);
+
 	return 0;
 
 err_unlock:
@@ -1348,6 +1347,8 @@ int pp_stop_property(struct drm_device *drm_dev,
 	int i;
 
 	DRM_DEBUG_KMS("prop_id[%d]\n", property->prop_id);
+
+	pp_wait_completion(c_node);
 
 	/* stop operations */
 	if (ppdrv->stop)
@@ -1405,37 +1406,16 @@ void pp_sched_cmd(struct work_struct *work)
 	case PP_CTRL_PLAY:
 	case PP_CTRL_RESUME:
 		ret = pp_start_property(ppdrv, c_node);
-		if (ret) {
+		if (ret)
 			DRM_ERROR("failed to start property:prop_id[%d]\n",
 				c_node->property.prop_id);
-			goto err_unlock;
-		}
-
-		/*
-		 * M2M case supports wait_completion of transfer.
-		 * because M2M case supports single unit operation
-		 * with multiple queue.
-		 * M2M need to wait completion of data transfer.
-		 */
-		if (pp_is_m2m_cmd(property->cmd)) {
-			if (!wait_for_completion_timeout
-			    (&c_node->start_complete, msecs_to_jiffies(200))) {
-				DRM_ERROR("timeout event:prop_id[%d]\n",
-					c_node->property.prop_id);
-				goto err_unlock;
-			}
-		}
 		break;
 	case PP_CTRL_STOP:
 	case PP_CTRL_PAUSE:
 		ret = pp_stop_property(ppdrv->drm_dev, ppdrv,
 			c_node);
-		if (ret) {
+		if (ret)
 			DRM_ERROR("failed to stop property.\n");
-			goto err_unlock;
-		}
-
-		complete(&c_node->stop_complete);
 		break;
 	default:
 		DRM_ERROR("unknown control type\n");
@@ -1444,7 +1424,6 @@ void pp_sched_cmd(struct work_struct *work)
 
 	DRM_DEBUG_KMS("ctrl[%d] done.\n", cmd_work->ctrl);
 
-err_unlock:
 	mutex_unlock(&c_node->lock);
 	mutex_unlock(&ppdrv->drv_lock);
 }
@@ -1637,7 +1616,7 @@ void pp_sched_event(struct work_struct *work)
 
 err_completion:
 	if (pp_is_m2m_cmd(c_node->property.cmd))
-		complete(&c_node->start_complete);
+		complete_all(&c_node->cmd_complete);
 }
 
 static int pp_subdrv_probe(struct drm_device *drm_dev, struct device *dev)

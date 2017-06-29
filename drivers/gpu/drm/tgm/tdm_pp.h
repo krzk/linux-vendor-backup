@@ -53,8 +53,7 @@ struct tdm_pp_cmd_work {
  * @lock: lock for synchronization of access to ioctl.
  * @mem_lock: lock for synchronization of access to memory nodes.
  * @event_lock: lock for synchronization of access to scheduled event.
- * @start_complete: completion of start of command.
- * @stop_complete: completion of stop of command.
+ * @cmd_complete: completion of command.
  * @property: property information.
  * @start_work: start command work structure.
  * @stop_work: stop command work structure.
@@ -69,8 +68,7 @@ struct tdm_pp_cmd_node {
 	struct mutex	lock;
 	struct mutex	mem_lock;
 	struct mutex	event_lock;
-	struct completion	start_complete;
-	struct completion	stop_complete;
+	struct completion	cmd_complete;
 	struct tdm_pp_property	property;
 	struct tdm_pp_cmd_work *start_work;
 	struct tdm_pp_cmd_work *stop_work;
