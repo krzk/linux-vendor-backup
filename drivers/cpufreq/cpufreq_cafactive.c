@@ -39,6 +39,8 @@
 #endif
 #include <asm/cputime.h>
 
+#include "cpufreq_governor.h"
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/cpufreq_cafactive.h>
 
