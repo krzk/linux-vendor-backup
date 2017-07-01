@@ -905,7 +905,7 @@ static ssize_t store_hispeed_freq(struct cpufreq_cafactive_tunables *tunables,
 	return count;
 }
 
-#define show_store_one(file_name)					\
+#define show_store_one_caf(file_name)					\
 static ssize_t show_##file_name(					\
 	struct cpufreq_cafactive_tunables *tunables, char *buf)	\
 {									\
@@ -924,8 +924,8 @@ static ssize_t store_##file_name(					\
 	tunables->file_name = val;					\
 	return count;							\
 }
-show_store_one(max_freq_hysteresis);
-show_store_one(align_windows);
+show_store_one_caf(max_freq_hysteresis);
+show_store_one_caf(align_windows);
 
 static ssize_t show_go_hispeed_load(struct cpufreq_cafactive_tunables
 		*tunables, char *buf)
