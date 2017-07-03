@@ -1353,12 +1353,17 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c1_bus>;
 };
-
+/*
 &i2c_2 {
 	clocks = <&clock CLK_I2C2>;
 	clock-names = "i2c";
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c2_bus>;
+};
+*/
+&i2c_2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&hdmi_i2c_bus>;
 };
 
 &i2c_3 {
