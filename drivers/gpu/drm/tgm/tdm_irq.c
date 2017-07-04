@@ -43,13 +43,19 @@ static int tdm_irq_prepare_vblank(struct drm_device *drm_dev, int crtc, struct d
 {
 	struct tgm_drv_private *dev_priv = drm_dev->dev_private;
 	struct tdm_private *tdm_priv = dev_priv->tdm_priv;
+	unsigned long irqflags;
+	bool enabled;
 
 	if (crtc >= TDM_CRTC_MAX) {
 		DRM_ERROR("crtc[%d]\n", crtc);
 		return -EINVAL;
 	}
 
-	if (!file_priv->is_master && !drm_dev->vblank[crtc].enabled) {
+	spin_lock_irqsave(&drm_dev->vbl_lock, irqflags);
+	enabled = drm_dev->vblank[crtc].enabled;
+	spin_unlock_irqrestore(&drm_dev->vbl_lock, irqflags);
+
+	if (!file_priv->is_master && !enabled) {
 		DRM_DEBUG("[pre_vbl_%d]r[%d]p[%d]VBL_OFF\n", crtc,
 			atomic_read(&drm_dev->vblank[crtc].refcount),
 			atomic_read(&tdm_priv->vbl_permission[crtc]));
@@ -61,8 +67,7 @@ static int tdm_irq_prepare_vblank(struct drm_device *drm_dev, int crtc, struct d
 	else
 		atomic_inc(&tdm_priv->vbl_permission[crtc]);
 
-	DRM_DEBUG("[pre_vbl_%d]en[%d]r[%d]p[%d]\n", crtc,
-		drm_dev->vblank[crtc].enabled,
+	DRM_DEBUG("[pre_vbl_%d]en[%d]r[%d]p[%d]\n", crtc, enabled,
 		atomic_read(&drm_dev->vblank[crtc].refcount),
 		atomic_read(&tdm_priv->vbl_permission[crtc]));
 
@@ -73,7 +78,7 @@ static int tdm_irq_prepare_vblank(struct drm_device *drm_dev, int crtc, struct d
 		return -EACCES;
 	}
 
-	if (!drm_dev->vblank[crtc].enabled) {
+	if (!enabled) {
 		int ret, wait = !completion_done(&tdm_priv->vbl_comp);
 
 		if (wait)

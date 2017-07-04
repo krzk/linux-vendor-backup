@@ -241,11 +241,11 @@ static void tdm_set_dpms(struct tdm_private *tdm_priv, enum tdm_crtc_id crtc_id,
 	case DRM_MODE_DPMS_STANDBY:
 		drm_vblank_on(tdm_priv->drm_dev, crtc_id);
 		break;
-	case DRM_MODE_DPMS_SUSPEND:
 	case DRM_MODE_DPMS_OFF:
 		drm_vblank_off(tdm_priv->drm_dev, crtc_id);
 		break;
 	default:
+		DRM_ERROR("invalid mode[%d]\n", mode);
 		break;
 	}
 
