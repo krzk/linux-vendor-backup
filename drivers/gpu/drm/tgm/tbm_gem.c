@@ -669,6 +669,25 @@ void tbm_gem_put_dma_addr(struct drm_device *drm_dev,
 			gem_handle, filp);
 }
 
+unsigned long tbm_gem_get_size(struct drm_device *drm_dev,
+						unsigned int gem_handle,
+						struct drm_file *filp)
+{
+	struct tbm_gem_object *tbm_gem_obj;
+	struct drm_gem_object *obj;
+
+	obj = drm_gem_object_lookup(drm_dev, filp, gem_handle);
+	if (!obj) {
+		DRM_ERROR("failed to lookup gem object.\n");
+		return 0;
+	}
+
+	tbm_gem_obj = to_tbm_gem_obj(obj);
+	drm_gem_object_unreference_unlocked(obj);
+
+	return tbm_gem_obj->buffer->size;
+}
+
 static int tbm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
 	DRM_INFO("%s\n", __func__);
