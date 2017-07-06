@@ -4212,6 +4212,12 @@ static int rtl8152_change_mtu(struct net_device *dev, int new_mtu)
 	return ret;
 }
 
+static void rtl8152_fake_poll(struct net_device *netdev)
+{
+	// NADA
+}
+
+
 static const struct net_device_ops rtl8152_netdev_ops = {
 	.ndo_open		= rtl8152_open,
 	.ndo_stop		= rtl8152_close,
@@ -4224,6 +4230,7 @@ static const struct net_device_ops rtl8152_netdev_ops = {
 	.ndo_change_mtu		= rtl8152_change_mtu,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_features_check	= rtl8152_features_check,
+	.ndo_poll_controller = rtl8152_fake_poll,
 };
 
 static void r8152b_get_version(struct r8152 *tp)
