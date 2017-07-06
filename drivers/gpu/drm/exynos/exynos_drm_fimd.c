@@ -3298,8 +3298,7 @@ static int __devinit fimd_probe(struct platform_device *pdev)
 #endif
 
 	for (win = 0; win < WINDOWS_NR; win++)
-		if (win != ctx->default_win)
-			fimd_clear_win(ctx, win);
+		fimd_clear_win(ctx, win);
 
 	exynos_drm_subdrv_register(subdrv);
 
