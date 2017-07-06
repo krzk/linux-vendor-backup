@@ -450,6 +450,111 @@ err_clear:
 	return ret;
 }
 
+static int pp_set_planar_addr(struct tdm_pp_buf_info *buf_info,
+		u32 fmt, struct tdm_sz *sz)
+{
+	dma_addr_t *base[TDM_PLANAR_MAX];
+	uint64_t size[TDM_PLANAR_MAX];
+	uint64_t ofs[TDM_PLANAR_MAX];
+	bool bypass = false;
+	uint64_t tsize = 0;
+	int i;
+
+	for_each_pp_planar(i) {
+		base[i] = &buf_info->base[i];
+		size[i] = buf_info->size[i];
+		ofs[i] = 0;
+		tsize += size[i];
+		if (size[i])
+			DRM_DEBUG_KMS("%s:base[%d][0x%llx]s[%d][%llu]\n",
+				__func__, i, *base[i], i, size[i]);
+	}
+
+	if (!tsize) {
+		DRM_INFO("%s:failed to get buffer size.\n", __func__);
+		return 0;
+	}
+
+	switch (fmt) {
+	case DRM_FORMAT_NV12:
+	case DRM_FORMAT_NV21:
+	case DRM_FORMAT_NV16:
+	case DRM_FORMAT_NV61:
+		ofs[0] = sz->hsize * sz->vsize;
+		ofs[1] = ofs[0] >> 1;
+		if (*base[0] && *base[1]) {
+			if (size[0] + size[1] < ofs[0] + ofs[1])
+				goto err_info;
+			bypass = true;
+		}
+		break;
+	case DRM_FORMAT_NV12MT:
+		ofs[0] = ALIGN(ALIGN(sz->hsize, 128) *
+				ALIGN(sz->vsize, 32), SZ_8K);
+		ofs[1] = ALIGN(ALIGN(sz->hsize, 128) *
+				ALIGN(sz->vsize >> 1, 32), SZ_8K);
+		if (*base[0] && *base[1]) {
+			if (size[0] + size[1] < ofs[0] + ofs[1])
+				goto err_info;
+			bypass = true;
+		}
+		break;
+	case DRM_FORMAT_YUV410:
+	case DRM_FORMAT_YVU410:
+	case DRM_FORMAT_YUV411:
+	case DRM_FORMAT_YVU411:
+	case DRM_FORMAT_YUV420:
+	case DRM_FORMAT_YVU420:
+	case DRM_FORMAT_YUV422:
+	case DRM_FORMAT_YVU422:
+	case DRM_FORMAT_YUV444:
+	case DRM_FORMAT_YVU444:
+		ofs[0] = sz->hsize * sz->vsize;
+		ofs[1] = ofs[2] = ofs[0] >> 2;
+		if (*base[0] && *base[1] && *base[2]) {
+			if (size[0]+size[1]+size[2] < ofs[0]+ofs[1]+ofs[2])
+				goto err_info;
+			bypass = true;
+		}
+		break;
+	case DRM_FORMAT_XRGB8888:
+		ofs[0] = sz->hsize * sz->vsize << 2;
+		if (*base[0]) {
+			if (size[0] < ofs[0])
+				goto err_info;
+		}
+		bypass = true;
+		break;
+	default:
+		bypass = true;
+		break;
+	}
+
+	if (!bypass) {
+		*base[1] = *base[0] + ofs[0];
+		if (ofs[1] && ofs[2])
+			*base[2] = *base[1] + ofs[1];
+	}
+
+	DRM_DEBUG_KMS("%s:y[0x%llx],cb[0x%llx],cr[0x%llx]\n", __func__,
+		*base[0], *base[1], *base[2]);
+
+	return 0;
+
+err_info:
+	DRM_ERROR("invalid size for fmt[0x%x]\n", fmt);
+
+	for_each_pp_planar(i) {
+		base[i] = &buf_info->base[i];
+		size[i] = buf_info->size[i];
+
+		DRM_ERROR("base[%d][0x%llx]s[%d][%llu]ofs[%d][%llu]\n",
+			i, *base[i], i, size[i], i, ofs[i]);
+	}
+
+	return -EINVAL;
+}
+
 static int pp_put_mem_node(struct drm_device *drm_dev,
 		struct tdm_pp_cmd_node *c_node,
 		struct tdm_pp_mem_node *m_node)
@@ -502,7 +607,8 @@ static struct tdm_pp_mem_node
 	struct tdm_pp_mem_node *m_node;
 	struct tdm_pp_buf_info *buf_info;
 	struct tdm_ppdrv *ppdrv;
-	int i;
+	struct tdm_sz *sz;
+	int i, fmt;
 
 	ppdrv = pp_find_drv_by_handle(qbuf->prop_id);
 	if (IS_ERR(ppdrv)) {
@@ -556,6 +662,15 @@ static struct tdm_pp_mem_node
 				      (int)buf_info->base[i],
 				      buf_info->handles[i], buf_info->size[i]);
 		}
+	}
+
+	fmt = c_node->property.config[qbuf->ops_id].fmt;
+	sz = &c_node->property.config[qbuf->ops_id].sz;
+
+	if (pp_set_planar_addr(buf_info, fmt, sz)) {
+		DRM_ERROR("failed to set planar addr\n");
+		pp_put_mem_node(drm_dev, c_node, m_node);
+		return ERR_PTR(-EINVAL);
 	}
 
 	mutex_lock(&c_node->mem_lock);
