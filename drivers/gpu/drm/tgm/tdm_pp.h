@@ -82,10 +82,12 @@ struct tdm_pp_cmd_node {
  *
  * @handles: Y, Cb, Cr each gem object handle.
  * @base: Y, Cb, Cr each planar address.
+ * @size: Y, Cb, Cr each planar size.
  */
 struct tdm_pp_buf_info {
 	unsigned long	handles[TDM_PLANAR_MAX];
 	dma_addr_t	base[TDM_PLANAR_MAX];
+	unsigned long	size[TDM_PLANAR_MAX];
 };
 
 /*

@@ -531,6 +531,7 @@ static struct tdm_pp_mem_node
 		/* get dma address by handle */
 		if (qbuf->handle[i]) {
 			dma_addr_t *addr;
+			unsigned long size;
 
 			addr = tbm_gem_get_dma_addr(drm_dev, ppdrv->dev,
 					qbuf->handle[i], c_node->filp);
@@ -540,11 +541,20 @@ static struct tdm_pp_mem_node
 				return ERR_PTR(-EFAULT);
 			}
 
+			size = tbm_gem_get_size(drm_dev,
+						qbuf->handle[i], c_node->filp);
+			if (!size) {
+				DRM_ERROR("failed to get size.\n");
+				pp_put_mem_node(drm_dev, c_node, m_node);
+				return ERR_PTR(-EINVAL);
+			}
+
 			buf_info->handles[i] = qbuf->handle[i];
 			buf_info->base[i] = *addr;
-			DRM_DEBUG_KMS("i[%d]base[0x%x]hdl[%ld]\n", i,
+			buf_info->size[i] = size;
+			DRM_DEBUG_KMS("i[%d]base[0x%x]hdl[%ld]sz[%ld]\n", i,
 				      (int)buf_info->base[i],
-				      buf_info->handles[i]);
+				      buf_info->handles[i], buf_info->size[i]);
 		}
 	}
 
@@ -1029,9 +1039,6 @@ int tdm_pp_cmd_ctrl(struct drm_device *drm_dev, void *data,
 		return -EINVAL;
 	}
 
-	DRM_INFO("%s:ctrl[%d]prop_id[%d]\n", __func__,
-		cmd_ctrl->ctrl, cmd_ctrl->prop_id);
-
 	ppdrv = pp_find_drv_by_handle(cmd_ctrl->prop_id);
 	if (IS_ERR(ppdrv)) {
 		DRM_ERROR("failed to get pp driver.\n");
@@ -1055,6 +1062,9 @@ int tdm_pp_cmd_ctrl(struct drm_device *drm_dev, void *data,
 
 	switch (cmd_ctrl->ctrl) {
 	case PP_CTRL_PLAY:
+		DRM_INFO("%s:PLAY:prop_id[%d]\n", __func__,
+			cmd_ctrl->prop_id);
+
 		if (pm_runtime_suspended(ppdrv->dev))
 			pm_runtime_get_sync(ppdrv->dev);
 
@@ -1078,6 +1088,8 @@ int tdm_pp_cmd_ctrl(struct drm_device *drm_dev, void *data,
 		}
 		break;
 	case PP_CTRL_STOP:
+		DRM_INFO("%s:STOP:prop_id[%d]\n", __func__,
+			cmd_ctrl->prop_id);
 		if (property->type & PP_EVENT_DRIVEN) {
 			cmd_work = c_node->stop_work;
 			cmd_work->ctrl = cmd_ctrl->ctrl;
