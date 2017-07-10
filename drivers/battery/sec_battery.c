@@ -1560,11 +1560,12 @@ static bool sec_bat_time_management(
 			if (battery->pdata->full_condition_type &
 				SEC_BATTERY_FULL_CONDITION_NOTIMEFULL) {
 				if (battery->capacity >=
-					battery->pdata->full_condition_soc)
+					battery->pdata->full_condition_soc) {
 					battery->status =
 						POWER_SUPPLY_STATUS_FULL;
 					battery->charging_mode =
 						SEC_BATTERY_CHARGING_NONE;
+				}
 			} else
 				battery->charging_mode =
 					SEC_BATTERY_CHARGING_ABS;
