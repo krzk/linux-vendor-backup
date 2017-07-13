@@ -150,6 +150,13 @@
 			#undef CPU_THERMAL_ZONE_NUM
 		};
 	};
+	onewire: 1-wire {
+		compatible = "w1-gpio";
+		gpios = <&gpx2 0 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_1wire>;
+		status = "okay";
+	};
 };
 
 &bus_wcore {
@@ -595,6 +602,13 @@
 		samsung,pin-function = <EXYNOS_PIN_FUNC_F>;
 		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
 		samsung,pin-drv = <EXYNOS5420_PIN_DRV_LV1>;
+	};
+
+	pinctrl_1wire: pinctrl_1wire {
+		samsung,pins = "gpx2-0";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_INPUT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_UP>;
+		samsung,pin-drv = <EXYNOS5420_PIN_DRV_LV2>;
 	};
 };
 
