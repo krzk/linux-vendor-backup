@@ -783,7 +783,8 @@ dtb-$(CONFIG_ARCH_S5P4418) += \
 	s5p4418-artik530-raptor-rev03.dtb \
 	s5p4418-artik530-explorer.dtb \
 	s5p4418-artik533-raptor-rev00.dtb \
-	s5p4418-artik305-raptor-rev00.dtb
+	s5p4418-artik305-raptor-rev00.dtb \
+	s5p4418-artik305-raptor-rev04.dtb
 endif
 
 dtstree		:= $(srctree)/$(src)
