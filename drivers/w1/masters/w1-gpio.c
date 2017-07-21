@@ -106,10 +106,11 @@ static int w1_gpio_probe_dt(struct platform_device *pdev)
 	/* ignore other errors as the pullup gpio is optional */
 	pdata->ext_pullup_enable_pin = gpio;
 
+#if defined(CONFIG_ARCH_EXYNOS)
 	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
 	if (IS_ERR(pinctrl))
 		dev_err(&pdev->dev, "failed to set default pinctrl");
-
+#endif
 	pdev->dev.platform_data = pdata;
 
 	return 0;
