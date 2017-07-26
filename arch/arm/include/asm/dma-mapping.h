@@ -5,7 +5,9 @@
 
 #include <linux/mm_types.h>
 #include <linux/scatterlist.h>
+#include <linux/device.h>
 #include <linux/dma-debug.h>
+#include <linux/dma-direction.h>
 
 #include <asm/memory.h>
 

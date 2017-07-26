@@ -13,12 +13,14 @@
 #include <linux/init.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/sizes.h>
 
 #include <asm/cacheflush.h>
 #include <asm/cputype.h>
 #include <asm/firmware.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/suspend.h>
+#include <asm/dma-mapping.h>
 
 #include "common.h"
 #include "smc.h"
@@ -225,6 +227,8 @@ void __init exynos_firmware_init(void)
 		outer_cache.write_sec = exynos_l2_write_sec;
 		outer_cache.configure = exynos_l2_configure;
 	}
+
+	init_dma_coherent_pool_size(SZ_1M);
 }
 
 #define REG_CPU_STATE_ADDR	(sysram_ns_base_addr + 0x28)
