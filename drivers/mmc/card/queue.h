@@ -68,7 +68,7 @@ struct mmc_queue {
 extern int mmc_init_queue(struct mmc_queue *, struct mmc_card *, spinlock_t *,
 			  const char *);
 extern void mmc_cleanup_queue(struct mmc_queue *);
-extern void mmc_queue_suspend(struct mmc_queue *);
+extern int mmc_queue_suspend(struct mmc_queue *, int);
 extern void mmc_queue_resume(struct mmc_queue *);
 
 extern unsigned int mmc_queue_map_sg(struct mmc_queue *,
@@ -80,6 +80,5 @@ extern int mmc_packed_init(struct mmc_queue *, struct mmc_card *);
 extern void mmc_packed_clean(struct mmc_queue *);
 
 extern void mmc_wait_cmdq_empty(struct mmc_host *);
-extern int mmc_access_rpmb(struct mmc_queue *);
 
 #endif
