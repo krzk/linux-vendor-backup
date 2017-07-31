@@ -306,14 +306,14 @@ config BOARD_A3XELTE
 	bool "SAMSUNG SM-A310F board using device tree"
 	default n
 	help
-	  Machine support for Samsung SM-A310F machine with device tree enabled.
+	  Machine support for Samsung SM-A310F board with device tree enabled.
 	  Select this if a specific fdt blob is available for the SM-A310F board
 
 config BOARD_A5XELTE
 	bool "SAMSUNG SM-A510F board using device tree"
 	default n
 	help
-	  Machine support for Samsung SM-A510F machine with device tree enabled.
+	  Machine support for Samsung SM-A510F board with device tree enabled.
 	  Select this if a specific fdt blob is available for the SM-A510F board
 
 config BOARD_J7ELTE
@@ -322,6 +322,13 @@ config BOARD_J7ELTE
 	help
 	  Machine support for Samsung SM-J700F board with device tree enabled.
 	  Select this if a specific fdt blob is available for the SM-J700F board
+
+config BOARD_S5NEOLTE
+	bool "SAMSUNG SM-G903F board using device tree"
+	default n
+	help
+	  Machine support for Samsung SM-G903F board with device tree enabled.
+	  Select this if a specific fdt blob is available for the SM-G903F board
 
 config SEC_FACTORY
 	bool "SAMSUNG Factory build option"
