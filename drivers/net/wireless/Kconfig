@@ -1,5 +1,4 @@
-#
-# Wireless LAN device configuration
+#Wireless LAN device configuration
 #
 
 menuconfig WLAN
@@ -293,5 +292,6 @@ source "drivers/net/wireless/ti/Kconfig"
 source "drivers/net/wireless/zd1211rw/Kconfig"
 source "drivers/net/wireless/mwifiex/Kconfig"
 source "drivers/net/wireless/bcmdhd/Kconfig"
+source "drivers/net/wireless/bcmdhd_mm/Kconfig"
 
 endif # WLAN
