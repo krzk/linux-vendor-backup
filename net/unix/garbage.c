@@ -125,9 +125,11 @@ struct sock *unix_get_socket(struct file *filp)
 void unix_inflight(struct user_struct *user, struct file *fp)
 {
 	struct sock *s = unix_get_socket(fp);
+
+	spin_lock(&unix_gc_lock);
+
 	if (s) {
 		struct unix_sock *u = unix_sk(s);
-		spin_lock(&unix_gc_lock);
 
 		if (atomic_long_inc_return(&u->inflight) == 1) {
 			BUG_ON(!list_empty(&u->link));
@@ -144,9 +146,11 @@ void unix_inflight(struct user_struct *user, struct file *fp)
 void unix_notinflight(struct user_struct *user, struct file *fp)
 {
 	struct sock *s = unix_get_socket(fp);
+
+	spin_lock(&unix_gc_lock);
+
 	if (s) {
 		struct unix_sock *u = unix_sk(s);
-		spin_lock(&unix_gc_lock);
 
 		BUG_ON(list_empty(&u->link));
 		if (atomic_long_dec_and_test(&u->inflight))
