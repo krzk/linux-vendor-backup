@@ -10,8 +10,16 @@ case "$1" in
 	    VARIANT="a3xelte"
 	    ;;
 
+	a5)
+	    VARIANT="a5xelte"
+	    ;;
+
 	j7)
 	    VARIANT="j7elte"
+	    ;;
+
+	s5)
+	    VARIANT="s5neolte"
 	    ;;
 
     twrp-a3)
