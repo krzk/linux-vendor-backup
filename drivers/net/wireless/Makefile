@@ -69,7 +69,7 @@ endif
 
 ifneq ($(CONFIG_BCM43455),)
 obj-$(CONFIG_BCM43455)  += bcmdhd_mm/
-obj-$(CONFIG_MACH_UNIVERSAL7580) += bcmdhd/dhd_custom_exynos.o
+obj-$(CONFIG_MACH_UNIVERSAL7580) += bcmdhd_mm/dhd_custom_exynos.o
 endif
 
 obj-$(CONFIG_BRCMFMAC)	+= brcm80211/
