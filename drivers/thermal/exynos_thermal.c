@@ -151,7 +151,7 @@ static struct cpumask mp_cluster_cpus[CA_END];
 #if defined(CONFIG_SOC_EXYNOS5430_REV_1)
 #define PANIC_ZONE      			10
 #else
-#define PANIC_ZONE      			6
+#define PANIC_ZONE      			5
 #endif
 #define WARN_ZONE       			3
 #define MONITOR_ZONE    			2
@@ -212,19 +212,10 @@ static struct cpumask mp_cluster_cpus[CA_END];
 #define CA15_POLICY_CORE 	((exynos_boot_cluster == CA15) ? 0 : 4)
 #define CS_POLICY_CORE		0
 
-#if defined(CONFIG_SOC_EXYNOS5430)
-#define CPU_HOTPLUG_IN_TEMP	95
-#define CPU_HOTPLUG_OUT_TEMP	110
-#elif defined(CONFIG_SOC_EXYNOS5422)
-#define CPU_HOTPLUG_IN_TEMP	95
-#define CPU_HOTPLUG_OUT_TEMP	100
-#endif
-
 static enum tmu_noti_state_t tmu_old_state = TMU_NORMAL;
 static enum gpu_noti_state_t gpu_old_state = GPU_NORMAL;
 static enum mif_noti_state_t mif_old_state = MIF_TH_LV1;
 static bool is_suspending;
-static bool is_cpu_hotplugged_out;
 
 static unsigned long ctmu_normal, ctmu_cold, ctmu_hot, ctmu_critical, throttle_cpu;
 
@@ -669,51 +660,6 @@ static int exynos_get_trend(struct thermal_zone_device *thermal,
 	return 0;
 }
 
-#if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5422)
-static int __ref exynos_throttle_cpu_hotplug(struct thermal_zone_device *thermal)
-{
-	int ret = 0;
-	int cur_temp = 0;
-
-	if (!thermal->temperature)
-		return -EINVAL;
-
-	cur_temp = thermal->temperature / MCELSIUS;
-
-	if (is_cpu_hotplugged_out) {
-		if (cur_temp < CPU_HOTPLUG_IN_TEMP) {
-			/*
-			 * If current temperature is lower than low threshold,
-			 * call big_cores_hotplug(false) for hotplugged out cpus.
-			 */
-			throttle_cpu++;
-			ret = big_cores_hotplug(false);
-			if (ret)
-				pr_err("%s: failed big cores hotplug in\n",
-							__func__);
-			else
-				is_cpu_hotplugged_out = false;
-		}
-	} else {
-		if (cur_temp >= CPU_HOTPLUG_OUT_TEMP) {
-			/*
-			 * If current temperature is higher than high threshold,
-			 * call big_cores_hotplug(true) to hold temperature down.
-			 */
-			throttle_cpu++;
-			ret = big_cores_hotplug(true);
-			if (ret)
-				pr_err("%s: failed big cores hotplug out\n",
-							__func__);
-			else
-				is_cpu_hotplugged_out = true;
-		}
-	}
-
-	return ret;
-}
-#endif
-
 /* Operation callback functions for thermal zone */
 static struct thermal_zone_device_ops const exynos_dev_ops = {
 	.bind = exynos_bind,
@@ -726,9 +672,6 @@ static struct thermal_zone_device_ops const exynos_dev_ops = {
 	.get_trip_type = exynos_get_trip_type,
 	.get_trip_temp = exynos_get_trip_temp,
 	.get_crit_temp = exynos_get_crit_temp,
-#if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5422)
-	.throttle_cpu_hotplug = exynos_throttle_cpu_hotplug,
-#endif
 };
 
 /*
@@ -1629,9 +1572,9 @@ static struct exynos_tmu_platform_data const exynos5430_tmu_data = {
 #if defined(CONFIG_SOC_EXYNOS5422)
 static struct exynos_tmu_platform_data const exynos5_tmu_data = {
 	.threshold_falling = 2,
-	.trigger_levels[0] = 95,
-	.trigger_levels[1] = 100,
-	.trigger_levels[2] = 105,
+	.trigger_levels[0] = 90,
+	.trigger_levels[1] = 95,
+	.trigger_levels[2] = 100,
 	.trigger_levels[3] = 110,
 	.trigger_level0_en = 1,
 	.trigger_level1_en = 1,
@@ -1651,16 +1594,27 @@ static struct exynos_tmu_platform_data const exynos5_tmu_data = {
 #ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
 		.freq_clip_max_kfc = 1500 * 1000,
 #endif
-		.temp_level = 95,
+		.temp_level = 90,
 #ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
 		.mask_val = &mp_cluster_cpus[CA15],
 		.mask_val_kfc = &mp_cluster_cpus[CA7],
 #endif
 	},
 	.freq_tab[1] = {
-		.freq_clip_max = 800 * 1000,
+		.freq_clip_max = 200 * 1000,
 #ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
 		.freq_clip_max_kfc = 1200 * 1000,
+#endif
+		.temp_level = 95,
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+		.mask_val = &mp_cluster_cpus[CA15],
+		.mask_val_kfc = &mp_cluster_cpus[CA7],
+#endif
+	},
+	.freq_tab[2] = {
+		.freq_clip_max = 200 * 1000,
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+		.freq_clip_max_kfc = 200 * 1000,
 #endif
 		.temp_level = 100,
 #ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
@@ -1668,20 +1622,20 @@ static struct exynos_tmu_platform_data const exynos5_tmu_data = {
 		.mask_val_kfc = &mp_cluster_cpus[CA7],
 #endif
 	},
-	.freq_tab[2] = {
-		.freq_clip_max = 800 * 1000,
+	.freq_tab[3] = {
+		.freq_clip_max = 200 * 1000,
 #ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
-		.freq_clip_max_kfc = 1200 * 1000,
+		.freq_clip_max_kfc = 200 * 1000,
 #endif
-		.temp_level = 105,
+		.temp_level = 110,
 #ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
 		.mask_val = &mp_cluster_cpus[CA15],
 		.mask_val_kfc = &mp_cluster_cpus[CA7],
 #endif
 	},
 	.size[THERMAL_TRIP_ACTIVE] = 1,
-	.size[THERMAL_TRIP_PASSIVE] = 2,
-	.freq_tab_count = 3,
+	.size[THERMAL_TRIP_PASSIVE] = 3,
+	.freq_tab_count = 4,
 	.type = SOC_ARCH_EXYNOS,
 	.clock_count = 2,
 	.clk_name[0] = "tmu",
@@ -2114,8 +2068,6 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 	ret = sysfs_create_group(&pdev->dev.kobj, &exynos_thermal_sensor_attr_group);
 	if (ret)
 		dev_err(&exynos_tmu_pdev->dev, "cannot create thermal sensor attributes\n");
-
-	is_cpu_hotplugged_out = false;
 
 	return 0;
 
