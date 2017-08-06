@@ -80,9 +80,9 @@ static cpumask_t speedchange_cpumask;
 static spinlock_t speedchange_cpumask_lock;
 static struct mutex gov_lock;
 
-static int set_window_count;
-static int migration_register_count;
-static struct mutex sched_lock;
+//static int set_window_count;
+//static int migration_register_count;
+//static struct mutex sched_lock;
 
 #ifdef CONFIG_POWERSUSPEND
 /* boolean for determining screen on/off state */
