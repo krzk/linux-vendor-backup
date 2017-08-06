@@ -658,60 +658,6 @@ static ssize_t mdnie_ldu_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct mdnie_info *mdnie = dev_get_drvdata(dev);
-
-	return sprintf(buf, "%d %d %d\n", mdnie->white_balance_r, mdnie->white_balance_g, mdnie->white_balance_b);
-}
-
-static ssize_t whiteRGB_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
-{
-	struct mdnie_info *mdnie = dev_get_drvdata(dev);
-	mdnie_t *wbuf;
-	u8 mode, scenario;
-	int white_red, white_green, white_blue;
-	int ret;
-	struct mdnie_scr_info *scr_info = mdnie->tune->scr_info;
-
-	ret = sscanf(buf, "%d %d %d",
-		&white_red, &white_green, &white_blue);
-	if (ret < 0)
-		return ret;
-
-	dev_info(dev, "%s, white_r %d, white_g %d, white_b %d\n",
-		__func__, white_red, white_green, white_blue);
-
-	if((white_red <= 0 && white_red >= -19) && (white_green <= 0 && white_green >= -19) && (white_blue <= 0 && white_blue >= -19)) {
-		mutex_lock(&mdnie->lock);
-
-		for (mode = 0; mode < MODE_MAX; mode++) {
-			if(mode == AUTO) {
-				for (scenario = 0; scenario <= EMAIL_MODE; scenario++) {
-					wbuf = mdnie->tune->main_table[scenario][mode].seq[scr_info->index].cmd;
-					if (IS_ERR_OR_NULL(wbuf))
-						continue;
-					if (scenario != EBOOK_MODE) {
-						wbuf[scr_info->white_r] = (unsigned char)(mdnie->white_default_r + white_red);
-						wbuf[scr_info->white_g] = (unsigned char)(mdnie->white_default_g + white_green);
-						wbuf[scr_info->white_b] = (unsigned char)(mdnie->white_default_b + white_blue);
-						mdnie->white_balance_r = white_red;
-						mdnie->white_balance_g = white_green;
-						mdnie->white_balance_b = white_blue;
-					}
-				}
-			}
-		}
-		mdnie->white_rgb_enabled = 1;
-		mutex_unlock(&mdnie->lock);
-		mdnie_update(mdnie);
-	}
-
-	return count;
-}
-
-static ssize_t mdnie_ldu_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct mdnie_info *mdnie = dev_get_drvdata(dev);
 	return sprintf(buf, "%d %d %d\n", mdnie->white_r,
 		mdnie->white_g, mdnie->white_b);
 }
