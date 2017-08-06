@@ -91,10 +91,14 @@ struct cod3022x_priv {
 	bool update_fw;
 	int vol_hpl;
 	int vol_hpr;
+	atomic_t adc_mute_use_count;
 	int adc_mix_reg_val;
 	bool use_auto_mic_power_on;
 	struct delayed_work jack_det_work;
 	struct workqueue_struct *jack_det_wq;
+	struct work_struct adc_mute_work;
+	struct workqueue_struct *adc_mute_wq;
+	struct mutex adc_mute_lock;
 /*todo.. add structure members according to the need*/
 };
 
