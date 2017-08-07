@@ -61,6 +61,7 @@
 #define SC_COEF_H_8T	8
 #define SC_COEF_V_4T	4
 #define SC_COEF_DEPTH	3
+#define SC_POS_ALIGN	2
 #define SC_UP_MAX		SC_RATIO(1, 16)
 #define SC_DOWN_MIN		SC_RATIO(4, 1)
 #define SC_DOWN_SWMIN		SC_RATIO(16, 1)
@@ -86,6 +87,7 @@
 container_of(ppdrv, struct sc_context, ppdrv)
 #define sc_read(offset)		readl(ctx->regs + (offset))
 #define sc_write(cfg, offset)	writel(cfg, ctx->regs + (offset))
+#define ROUNDUP(x, y)		((((x) + ((y) - 1)) / (y)) * (y))
 
 /* definition of csc type */
 enum sc_csc_type {
@@ -1380,6 +1382,28 @@ static inline bool sc_check_fmt_limit(struct tdm_pp_property *property)
 static int sc_ppdrv_check_property(struct device *dev,
 		struct tdm_pp_property *property)
 {
+	struct tdm_pp_config *config;
+	struct tdm_pos *pos;
+	struct tdm_sz *sz;
+	int i;
+
+	DRM_DEBUG("%s\n", __func__);
+
+	for_each_pp_ops(i) {
+		config = &property->config[i];
+		pos = &config->pos;
+		pos->w = ROUNDUP(pos->w, SC_POS_ALIGN);
+		pos->h = ROUNDUP(pos->h, SC_POS_ALIGN);
+		sz = &config->sz;
+
+		DRM_DEBUG("sc:prop_id[%d]ops[%s]fmt[0x%x]\n",
+			property->prop_id, i ? "dst" : "src", config->fmt);
+
+		DRM_DEBUG("sc:pos[%d %d %d %d]sz[%d %d]f[%d]r[%d]\n",
+			pos->x, pos->y, pos->w, pos->h,
+			sz->hsize, sz->vsize, config->flip, config->degree);
+	}
+
 	return 0;
 }
 
