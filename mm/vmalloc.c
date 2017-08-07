@@ -1085,7 +1085,7 @@ void vm_unmap_ram(const void *mem, unsigned int count)
 	BUG_ON(!addr);
 	BUG_ON(addr < VMALLOC_START);
 	BUG_ON(addr > VMALLOC_END);
-	BUG_ON(addr & (PAGE_SIZE-1));
+	BUG_ON(!PAGE_ALIGNED(addr));
 
 	debug_check_no_locks_freed(mem, size);
 	vmap_debug_free_range(addr, addr+size);
@@ -1472,10 +1472,9 @@ static void __vunmap(const void *addr, int deallocate_pages)
 	if (!addr)
 		return;
 
-	if ((PAGE_SIZE-1) & (unsigned long)addr) {
-		WARN(1, KERN_ERR "Trying to vfree() bad address (%p)\n", addr);
+	if (WARN(!PAGE_ALIGNED(addr), "Trying to vfree() bad address (%p)\n",
+			addr))
 		return;
-	}
 
 	area = remove_vm_area(addr);
 	if (unlikely(!area)) {
@@ -2164,7 +2163,7 @@ int remap_vmalloc_range(struct vm_area_struct *vma, void *addr,
 	unsigned long uaddr = vma->vm_start;
 	unsigned long usize = vma->vm_end - vma->vm_start;
 
-	if ((PAGE_SIZE-1) & (unsigned long)addr)
+	if (!PAGE_ALIGNED(uaddr) || !PAGE_ALIGNED(addr))
 		return -EINVAL;
 
 	area = find_vm_area(addr);

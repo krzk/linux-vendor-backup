@@ -26,6 +26,9 @@
 #include <linux/device.h>
 #include <linux/mutex.h>
 #include <linux/input/mt.h>
+#ifdef CONFIG_POWERSUSPEND
+#include <linux/powersuspend.h>
+#endif
 
 #include "ist30xxc.h"
 #include "ist30xxc_update.h"
@@ -47,6 +50,8 @@
 #if IST30XX_CMCS_TEST
 #include "ist30xxc_cmcs.h"
 #endif
+
+#include <linux/i2c/ist30xxc.h>
 
 #define MAX_ERR_CNT			(100)
 #define EVENT_TIMER_INTERVAL		(HZ * timer_period_ms / 1000)
@@ -120,11 +125,13 @@ int ist30xx_intr_wait(struct ist30xx_data *data, long ms)
 
 void ist30xx_disable_irq(struct ist30xx_data *data)
 {
-	if (likely(data->irq_enabled)) {
+	if (!data->dt2w_enable && likely(data->irq_enabled)) {
 		ist30xx_tracking(TRACK_INTR_DISABLE);
 		disable_irq(data->client->irq);
 		data->irq_enabled = 0;
 		data->status.event_mode = false;
+	} else {
+		enable_irq_wake(data->client->irq);
 	}
 }
 
@@ -136,6 +143,8 @@ void ist30xx_enable_irq(struct ist30xx_data *data)
 		ist30xx_delay(10);
 		data->irq_enabled = 1;
 		data->status.event_mode = true;
+	} else {
+		disable_irq_wake(data->client->irq);
 	}
 }
 
@@ -411,6 +420,21 @@ void ist30xx_gesture_cmd(struct ist30xx_data *data, int cmd)
 }
 #endif
 
+/* dt2wake */
+DEFINE_MUTEX(dt2w_lock);
+u32 last_x,last_y;
+u32 distance_between(u32 x1, u32 x2, u32 y1, u32 y2) {
+       u32 distance = int_sqrt(((x2 - x1) * (x2 - x1)) + ((y2 - y1) * (y2 - y1)));
+       tsp_noti("distance between points (%u,%u) and (%u,%u) is %u\n", x1, x2, y1, y2, distance);
+       return distance;
+}
+
+u64 last_input_time = 0;
+inline u64 get_last_input_time() {
+	return last_input_time;
+}
+
+
 #define PRESS_MSG_MASK		(0x01)
 #define MULTI_MSG_MASK		(0x02)
 #define TOUCH_DOWN_MESSAGE	("p")
@@ -421,10 +445,12 @@ void print_tsp_event(struct ist30xx_data *data, finger_info *finger, u32 z_value
 {
 	int idx = finger->bit_field.id - 1;
 	bool press;
+	u64 current_time;
 
 	press = PRESSED_FINGER(data->t_status, finger->bit_field.id);
 
 	if (press) {
+		current_time = ktime_to_us(ktime_get());
 		input_report_key(data->input_dev, BTN_TOUCH, 1);
 		input_report_key(data->input_dev, BTN_TOOL_FINGER, 1);
 		if (tsp_touched[idx] == false) {
@@ -437,6 +463,31 @@ void print_tsp_event(struct ist30xx_data *data, finger_info *finger, u32 z_value
 #else
 			tsp_noti("%s%d fw:%x\n", TOUCH_DOWN_MESSAGE, finger->bit_field.id, data->fw.cur.fw_ver);
 #endif
+#ifdef CONFIG_POWERSUSPEND
+			if (data->dt2w_enable && power_suspend_active && finger->bit_field.id == 1) {
+#endif
+				if (current_time - last_input_time > 350000) {
+					data->dt2w_count = 0;
+				}
+				data->dt2w_count = data->dt2w_count + 1;
+				if (data->dt2w_count >= 2 &&
+					finger->bit_field.y > 950 &&
+					distance_between(finger->bit_field.x, last_x, finger->bit_field.y, last_y) <= 50) {
+					if(mutex_trylock(&dt2w_lock)) {
+						tsp_noti("pressing KEY_POWER\n");
+						data->dt2w_count = 0;
+						input_event(data->input_dev, EV_KEY, KEY_POWER, 1);
+						input_event(data->input_dev, EV_SYN, 0, 0);
+						msleep(125);
+						input_event(data->input_dev, EV_KEY, KEY_POWER, 0);
+						input_event(data->input_dev, EV_SYN, 0, 0);
+						mutex_unlock(&dt2w_lock);
+					}
+				}
+				last_x = finger->bit_field.x;
+				last_y = finger->bit_field.y;
+				tsp_noti("count is %u\n", data->dt2w_count);
+			}
 #if defined(CONFIG_INPUT_BOOSTER)
 			input_booster_send_event(BOOSTER_DEVICE_TOUCH, BOOSTER_MODE_ON);
 #endif
@@ -452,6 +503,8 @@ void print_tsp_event(struct ist30xx_data *data, finger_info *finger, u32 z_value
 
 		data->lx[idx] = finger->bit_field.x;
 		data->ly[idx] = finger->bit_field.y;
+
+		last_input_time = current_time;
 	} else {
 		if (tsp_touched[idx] == true) {
 			/* touch up */
@@ -661,6 +714,7 @@ static void report_input_data(struct ist30xx_data *data, int finger_counts,
 	data->irq_err_cnt = 0;
 	data->scan_retry = 0;
 
+	last_input_time = ktime_to_us(ktime_get());
 	input_sync(data->input_dev);
 }
 
@@ -915,8 +969,10 @@ irq_ic_err:
 static int ist30xx_pinctrl_configure(struct ist30xx_data *data, bool active)
 {
 	struct pinctrl_state *set_state;
-
 	int retval;
+
+	active = (data->dt2w_enable) ? true : active;
+
 	tsp_err("%s: %s\n", __func__, active ? "ACTIVE" : "SUSPEND");
 
 	set_state = pinctrl_lookup_state(data->pinctrl, active ? "on_state" : "off_state");
@@ -941,13 +997,19 @@ static int ist30xx_suspend(struct device *dev)
 	struct ist30xx_data *data = i2c_get_clientdata(client);
 
 	del_timer(&event_timer);
-	cancel_delayed_work_sync(&data->work_noise_protect);
-	cancel_delayed_work_sync(&data->work_reset_check);
-	cancel_delayed_work_sync(&data->work_debug_algorithm);
+	if (!data->dt2w_enable) {
+		cancel_delayed_work_sync(&data->work_noise_protect);
+		cancel_delayed_work_sync(&data->work_reset_check);
+		cancel_delayed_work_sync(&data->work_debug_algorithm);
+	}
 	mutex_lock(&ist30xx_mutex);
 	ist30xx_disable_irq(data);
 	ist30xx_internal_suspend(data);
 	clear_input_data(data);
+#ifdef CONFIG_POWERSUSPEND
+	power_suspend_active = true;
+#endif
+
 #if IST30XX_GESTURE
 	if (data->gesture) {
 		ist30xx_start(data);
@@ -972,6 +1034,9 @@ static int ist30xx_resume(struct device *dev)
 	ist30xx_start(data);
 	ist30xx_enable_irq(data);
 	mutex_unlock(&ist30xx_mutex);
+#ifdef CONFIG_POWERSUSPEND
+	power_suspend_active = false;
+#endif
 
 	return 0;
 }
@@ -1005,8 +1070,7 @@ static void  ist30xx_ts_close(struct input_dev *dev)
 	tsp_info("%s\n", __func__);
 	data->touch_stopped = true;
 	ist30xx_suspend(&data->client->dev);
-
-	if (data->pinctrl) {
+	if (data->pinctrl && !data->dt2w_enable) {
 		int ret = ist30xx_pinctrl_configure(data, false);
 		if (ret)
 			tsp_err("%s: cannot set pinctrl state\n", __func__);
@@ -1551,6 +1615,7 @@ static int ist30xx_probe(struct i2c_client *client,
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
+	data->dt2w_enable = false;
 
 #ifdef CONFIG_OF
 	data->dt_data = NULL;
@@ -1613,6 +1678,8 @@ static int ist30xx_probe(struct i2c_client *client,
 	input_dev->open = ist30xx_ts_open;
 	input_dev->close = ist30xx_ts_close;
 
+	input_set_capability(data->input_dev, EV_KEY, KEY_POWER);
+	device_init_wakeup(&data->client->dev, 1);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	data->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;

@@ -15,6 +15,8 @@
 #include <linux/init.h>
 #include <linux/unistd.h>
 #include <linux/module.h>
+#include <linux/mm.h>
+#include <linux/vmacache.h>
 #include <linux/vmalloc.h>
 #include <linux/completion.h>
 #include <linux/personality.h>
@@ -389,7 +391,7 @@ static int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
 
 	mm->locked_vm = 0;
 	mm->mmap = NULL;
-	mm->mmap_cache = NULL;
+	vmacache_invalidate(mm);
 	mm->free_area_cache = oldmm->mmap_base;
 	mm->cached_hole_size = ~0UL;
 	mm->map_count = 0;
@@ -1300,6 +1302,7 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 
 	p->utime = p->stime = p->gtime = 0;
 	p->utimescaled = p->stimescaled = 0;
+	p->cpu_power = 0;
 #ifndef CONFIG_VIRT_CPU_ACCOUNTING_NATIVE
 	p->prev_cputime.utime = p->prev_cputime.stime = 0;
 #endif

@@ -32,6 +32,10 @@
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 #include <linux/of_gpio.h>
+#include <linux/irq.h>
+#ifdef CONFIG_POWERSUSPEND
+#include <linux/powersuspend.h>
+#endif
 
 #include <mach/regs-clock.h>
 #include <mach/exynos-pm.h>
@@ -935,7 +939,6 @@ int decon_enable(struct decon_device *decon)
 			goto err;
 		}
 	} else if (decon->out_type == DECON_OUT_DSI) {
-		decon->force_fullupdate = 0;
 		pm_stay_awake(decon->dev);
 		dev_warn(decon->dev, "pm_stay_awake");
 		ret = v4l2_subdev_call(decon->output_sd, video, s_stream, 1);
@@ -1151,6 +1154,9 @@ static int decon_blank(int blank_mode, struct fb_info *info)
 			decon_err("failed to disable decon\n");
 			goto blank_exit;
 		}
+#ifdef CONFIG_POWERSUSPEND
+		set_power_suspend_state_panel_hook(POWER_SUSPEND_ACTIVE);
+#endif
 		break;
 	case FB_BLANK_UNBLANK:
 		DISP_SS_EVENT_LOG(DISP_EVT_UNBLANK, &decon->sd, ktime_set(0, 0));
@@ -1159,6 +1165,9 @@ static int decon_blank(int blank_mode, struct fb_info *info)
 			decon_err("failed to enable decon\n");
 			goto blank_exit;
 		}
+#ifdef CONFIG_POWERSUSPEND
+		set_power_suspend_state_panel_hook(POWER_SUSPEND_INACTIVE);
+#endif
 		break;
 	case FB_BLANK_VSYNC_SUSPEND:
 	case FB_BLANK_HSYNC_SUSPEND:
@@ -1780,11 +1789,6 @@ static void decon_set_win_update_config(struct decon_device *decon,
 	struct decon_win_config temp_config;
 	struct decon_rect r1, r2;
 	struct decon_lcd *lcd_info = decon->lcd_info;
-
-	if (decon->out_type == DECON_OUT_DSI) {
-		if (decon->force_fullupdate)
-			memset(update_config, 0, sizeof(struct decon_win_config));
-	}
 
 	decon_calibrate_win_update_size(decon, win_config, update_config);
 
@@ -4024,13 +4028,12 @@ static int decon_esd_panel_reset(struct decon_device *decon)
 		decon->ignore_vsync = false;
 
 #ifdef CONFIG_FB_WINDOW_UPDATE
-	decon->need_update = true;
+	decon->need_update = false;
 	decon->update_win.x = 0;
 	decon->update_win.y = 0;
 	decon->update_win.w = decon->lcd_info->xres;
 	decon->update_win.h = decon->lcd_info->yres;
 #endif
-	decon->force_fullupdate = 1;
 #if 0
 	if (decon->pdata->trig_mode == DECON_HW_TRIG)
 		decon_reg_set_trigger(decon->id, decon->pdata->dsi_mode,
@@ -4731,7 +4734,6 @@ decon_init_done:
 		if (!decon->cam_status[0])
 			decon_info("Failed to get CAM0-STAT Reg\n");
 	}
-	decon->force_fullupdate = 0;
 
 #ifdef CONFIG_CPU_IDLE
 	decon->lpc_nb = exynos_decon_lpc_nb;

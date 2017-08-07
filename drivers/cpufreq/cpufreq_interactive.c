@@ -33,6 +33,7 @@
 #include <linux/slab.h>
 #include <linux/kernel_stat.h>
 #include <linux/pm_qos.h>
+#include <linux/powersuspend.h>
 #include <asm/cputime.h>
 #ifdef CONFIG_ANDROID
 #include <asm/uaccess.h>
@@ -73,6 +74,9 @@ static DEFINE_PER_CPU(struct cpufreq_interactive_cpuinfo, cpuinfo);
 static cpumask_t speedchange_cpumask;
 static spinlock_t speedchange_cpumask_lock;
 static struct mutex gov_lock;
+
+/* boolean for determining screen on/off state */
+static bool suspended = false;
 
 /* Target load.  Lower values result in higher CPU speeds. */
 #define DEFAULT_TARGET_LOAD 90
@@ -166,6 +170,9 @@ static inline cputime64_t get_cpu_idle_time(
 	unsigned int cpu,
 	cputime64_t *wall,
 	bool io_is_busy)
+
+#define DOWN_LOW_LOAD_THRESHOLD 5
+
 {
 	u64 idle_time = get_cpu_idle_time_us(cpu, wall);
 
@@ -195,12 +202,12 @@ static void cpufreq_interactive_timer_resched(
 				  tunables->io_is_busy);
 	pcpu->cputime_speedadj = 0;
 	pcpu->cputime_speedadj_timestamp = pcpu->time_in_idle_timestamp;
-	expires = jiffies + usecs_to_jiffies(tunables->timer_rate);
+	expires = jiffies + tunables->timer_rate;
 	mod_timer_pinned(&pcpu->cpu_timer, expires);
 
 	if (tunables->timer_slack_val >= 0 &&
 	    pcpu->target_freq > pcpu->policy->min) {
-		expires += usecs_to_jiffies(tunables->timer_slack_val);
+		expires += tunables->timer_slack_val;
 		mod_timer_pinned(&pcpu->cpu_slack_timer, expires);
 	}
 
@@ -215,8 +222,7 @@ static void cpufreq_interactive_timer_start(
 	struct cpufreq_interactive_tunables *tunables, int cpu)
 {
 	struct cpufreq_interactive_cpuinfo *pcpu = &per_cpu(cpuinfo, cpu);
-	unsigned long expires = jiffies +
-		usecs_to_jiffies(tunables->timer_rate);
+	unsigned long expires = jiffies + tunables->timer_rate;
 	unsigned long flags;
 
 	if (!tunables->speedchange_task)
@@ -226,7 +232,7 @@ static void cpufreq_interactive_timer_start(
 	add_timer_on(&pcpu->cpu_timer, cpu);
 	if (tunables->timer_slack_val >= 0 &&
 	    pcpu->target_freq > pcpu->policy->min) {
-		expires += usecs_to_jiffies(tunables->timer_slack_val);
+		expires += tunables->timer_slack_val;
 		pcpu->cpu_slack_timer.expires = expires;
 		add_timer_on(&pcpu->cpu_slack_timer, cpu);
 	}
@@ -304,7 +310,7 @@ static unsigned int choose_freq(struct cpufreq_interactive_cpuinfo *pcpu,
 
 		if (cpufreq_frequency_table_target(
 			    pcpu->policy, pcpu->freq_table, loadadjfreq / tl,
-			    CPUFREQ_RELATION_L, &index))
+			    CPUFREQ_RELATION_C, &index))
 			break;
 		freq = pcpu->freq_table[index].frequency;
 
@@ -346,7 +352,7 @@ static unsigned int choose_freq(struct cpufreq_interactive_cpuinfo *pcpu,
 				 */
 				if (cpufreq_frequency_table_target(
 					    pcpu->policy, pcpu->freq_table,
-					    freqmin + 1, CPUFREQ_RELATION_L,
+					    freqmin + 1, CPUFREQ_RELATION_C,
 					    &index))
 					break;
 				freq = pcpu->freq_table[index].frequency;
@@ -432,7 +438,7 @@ static void cpufreq_interactive_timer(unsigned long data)
 	cpu_load = loadadjfreq / pcpu->policy->cur;
 	boosted = tunables->boost_val || now < tunables->boostpulse_endtime;
 
-	if (cpu_load >= tunables->go_hispeed_load || boosted) {
+	if ((cpu_load >= tunables->go_hispeed_load && !suspended) || boosted) {
 		if (pcpu->target_freq < tunables->hispeed_freq) {
 			new_freq = tunables->hispeed_freq;
 		} else {
@@ -441,6 +447,8 @@ static void cpufreq_interactive_timer(unsigned long data)
 			if (new_freq < tunables->hispeed_freq)
 				new_freq = tunables->hispeed_freq;
 		}
+	} else if (cpu_load <= DOWN_LOW_LOAD_THRESHOLD) {
+		new_freq = pcpu->policy->cpuinfo.min_freq;
 	} else {
 		new_freq = choose_freq(pcpu, loadadjfreq);
 		if (new_freq > tunables->hispeed_freq &&
@@ -462,7 +470,7 @@ static void cpufreq_interactive_timer(unsigned long data)
 	pcpu->hispeed_validate_time = now;
 
 	if (cpufreq_frequency_table_target(pcpu->policy, pcpu->freq_table,
-					   new_freq, CPUFREQ_RELATION_L,
+					   new_freq, CPUFREQ_RELATION_C,
 					   &index)) {
 		spin_unlock_irqrestore(&pcpu->target_freq_lock, flags);
 		goto rearm;
@@ -514,7 +522,7 @@ static void cpufreq_interactive_timer(unsigned long data)
 	spin_lock_irqsave(&speedchange_cpumask_lock, flags);
 	cpumask_set_cpu(data, &speedchange_cpumask);
 	spin_unlock_irqrestore(&speedchange_cpumask_lock, flags);
-	wake_up_process(tunables->speedchange_task);
+	wake_up_process_no_notif(tunables->speedchange_task);
 
 rearm_if_notmax:
 	/*
@@ -717,7 +725,7 @@ static int cpufreq_interactive_notifier(
 	int cpu;
 	unsigned long flags;
 
-	if (val == CPUFREQ_POSTCHANGE) {
+	if (val == CPUFREQ_PRECHANGE) {
 		pcpu = &per_cpu(cpuinfo, freq->cpu);
 		if (!down_read_trylock(&pcpu->enable_sem))
 			return 0;
@@ -861,13 +869,22 @@ static ssize_t store_above_hispeed_delay(
 	struct cpufreq_interactive_tunables *tunables,
 	const char *buf, size_t count)
 {
-	int ntokens;
+	int ntokens, i;
 	unsigned int *new_above_hispeed_delay = NULL;
 	unsigned long flags;
 
 	new_above_hispeed_delay = get_tokenized_data(buf, &ntokens);
 	if (IS_ERR(new_above_hispeed_delay))
 		return PTR_RET(new_above_hispeed_delay);
+
+	/* Make sure frequencies are in ascending order. */
+	for (i = 3; i < ntokens; i += 2) {
+		if (new_above_hispeed_delay[i] <=
+		    new_above_hispeed_delay[i - 2]) {
+			kfree(new_above_hispeed_delay);
+			return -EINVAL;
+		}
+	}
 
 	spin_lock_irqsave(&tunables->above_hispeed_delay_lock, flags);
 	if (tunables->above_hispeed_delay != default_above_hispeed_delay)
@@ -939,7 +956,7 @@ static ssize_t store_min_sample_time(struct cpufreq_interactive_tunables
 static ssize_t show_timer_rate(struct cpufreq_interactive_tunables *tunables,
 		char *buf)
 {
-	return sprintf(buf, "%lu\n", tunables->timer_rate);
+	return sprintf(buf, "%u\n", jiffies_to_usecs(tunables->timer_rate));
 }
 
 static ssize_t store_timer_rate(struct cpufreq_interactive_tunables *tunables,
@@ -958,7 +975,7 @@ static ssize_t store_timer_rate(struct cpufreq_interactive_tunables *tunables,
 static ssize_t show_timer_slack(struct cpufreq_interactive_tunables *tunables,
 		char *buf)
 {
-	return sprintf(buf, "%d\n", tunables->timer_slack_val);
+	return sprintf(buf, "%u\n", jiffies_to_usecs(tunables->timer_slack_val));
 }
 
 static ssize_t store_timer_slack(struct cpufreq_interactive_tunables *tunables,
@@ -971,7 +988,7 @@ static ssize_t store_timer_slack(struct cpufreq_interactive_tunables *tunables,
 	if (ret < 0)
 		return ret;
 
-	tunables->timer_slack_val = val;
+	tunables->timer_slack_val = usecs_to_jiffies(val);
 	return count;
 }
 
@@ -1295,9 +1312,9 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			tunables->target_loads = default_target_loads;
 			tunables->ntarget_loads = ARRAY_SIZE(default_target_loads);
 			tunables->min_sample_time = DEFAULT_MIN_SAMPLE_TIME;
-			tunables->timer_rate = DEFAULT_TIMER_RATE;
+			tunables->timer_rate = usecs_to_jiffies(DEFAULT_TIMER_RATE);
 			tunables->boostpulse_duration_val = DEFAULT_MIN_SAMPLE_TIME;
-			tunables->timer_slack_val = DEFAULT_TIMER_SLACK;
+			tunables->timer_slack_val = usecs_to_jiffies(DEFAULT_TIMER_SLACK);
 		} else {
 			memcpy(tunables, tuned_parameters[policy->cpu], sizeof(*tunables));
 			kfree(tuned_parameters[policy->cpu]);
@@ -1406,7 +1423,7 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 #endif
 
 		/* NB: wake up so the thread does not look hung to the freezer */
-		wake_up_process(tunables->speedchange_task);
+		wake_up_process_no_notif(tunables->speedchange_task);
 
 		mutex_unlock(&gov_lock);
 		break;
@@ -1432,12 +1449,8 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
-		if (policy->max < policy->cur)
-			__cpufreq_driver_target(policy,
-					policy->max, CPUFREQ_RELATION_H);
-		else if (policy->min > policy->cur)
-			__cpufreq_driver_target(policy,
-					policy->min, CPUFREQ_RELATION_L);
+		__cpufreq_driver_target(policy,
+				policy->cur, CPUFREQ_RELATION_L);
 		for_each_cpu(j, policy->cpus) {
 			pcpu = &per_cpu(cpuinfo, j);
 
@@ -1484,7 +1497,7 @@ static
 struct cpufreq_governor cpufreq_gov_interactive = {
 	.name = "interactive",
 	.governor = cpufreq_governor_interactive,
-	.max_transition_latency = 10000000,
+	.max_transition_latency = 100000,
 	.owner = THIS_MODULE,
 };
 
@@ -1551,7 +1564,7 @@ static int cpufreq_interactive_cluster1_min_qos_handler(struct notifier_block *b
 		spin_unlock_irqrestore(&speedchange_cpumask_lock, flags);
 
 		if (tunables->speedchange_task)
-			wake_up_process(tunables->speedchange_task);
+			wake_up_process_no_notif(tunables->speedchange_task);
 	}
 exit:
 	mutex_unlock(&gov_lock);
@@ -1602,7 +1615,7 @@ static int cpufreq_interactive_cluster1_max_qos_handler(struct notifier_block *b
 		spin_unlock_irqrestore(&speedchange_cpumask_lock, flags);
 
 		if (tunables->speedchange_task)
-			wake_up_process(tunables->speedchange_task);
+			wake_up_process_no_notif(tunables->speedchange_task);
 	}
 exit:
 	mutex_unlock(&gov_lock);
@@ -1651,7 +1664,7 @@ static int cpufreq_interactive_cluster0_min_qos_handler(struct notifier_block *b
 		spin_unlock_irqrestore(&speedchange_cpumask_lock, flags);
 
 		if (tunables->speedchange_task)
-			wake_up_process(tunables->speedchange_task);
+			wake_up_process_no_notif(tunables->speedchange_task);
 	}
 exit:
 	mutex_unlock(&gov_lock);
@@ -1697,7 +1710,7 @@ static int cpufreq_interactive_cluster0_max_qos_handler(struct notifier_block *b
 		spin_unlock_irqrestore(&speedchange_cpumask_lock, flags);
 
 		if (tunables->speedchange_task)
-			wake_up_process(tunables->speedchange_task);
+			wake_up_process_no_notif(tunables->speedchange_task);
 	}
 exit:
 	mutex_unlock(&gov_lock);
@@ -1708,6 +1721,25 @@ static struct notifier_block cpufreq_interactive_cluster0_max_qos_notifier = {
 	.notifier_call = cpufreq_interactive_cluster0_max_qos_handler,
 };
 #endif
+
+static void interactive_early_suspend(struct power_suspend *handler)
+{
+	suspended = true;
+
+	return;
+}
+
+static void interactive_late_resume(struct power_suspend *handler)
+{
+	suspended = false;
+
+	return;
+}
+
+static struct power_suspend interactive_suspend = {
+	.suspend = interactive_early_suspend,
+	.resume = interactive_late_resume,
+};
 
 static int __init cpufreq_interactive_init(void)
 {
@@ -1726,6 +1758,8 @@ static int __init cpufreq_interactive_init(void)
 		spin_lock_init(&pcpu->target_freq_lock);
 		init_rwsem(&pcpu->enable_sem);
 	}
+
+	register_power_suspend(&interactive_suspend);
 
 	spin_lock_init(&speedchange_cpumask_lock);
 	mutex_init(&gov_lock);

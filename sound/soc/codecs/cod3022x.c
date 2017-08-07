@@ -666,8 +666,31 @@ static int dac_ev(struct snd_soc_dapm_widget *w, struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int cod3022x_adc_mute_use_count(struct snd_soc_codec *codec, bool on)
+{
+	struct cod3022x_priv *cod3022x = snd_soc_codec_get_drvdata(codec);
+	int process_event = 0;
+
+	if(on) {
+		atomic_inc(&cod3022x->adc_mute_use_count);
+		if(atomic_read(&cod3022x->adc_mute_use_count) == 1)
+			process_event = 1;
+	} else {
+		atomic_dec(&cod3022x->adc_mute_use_count);
+		if(atomic_read(&cod3022x->adc_mute_use_count) == 0)
+			process_event = 1;
+	}
+
+	dev_dbg(codec->dev, "%s called, mute process_evnet = %d\n", __func__, process_event);
+	return process_event;
+}
+
 static void cod3022x_adc_digital_mute(struct snd_soc_codec *codec, bool on)
 {
+	dev_dbg(codec->dev, "%s called, on = %d\n", __func__, on);
+	if(!cod3022x_adc_mute_use_count(codec, on))
+		return;
+
 	if (on)
 		snd_soc_update_bits(codec, COD3022X_42_ADC1,
 				ADC1_MUTE_AD_EN_MASK, ADC1_MUTE_AD_EN_MASK);
@@ -1733,6 +1756,26 @@ static int epdrv_ev(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(w->codec, COD3022X_13_PD_DA1,
 					RESETB_DCTL_MASK, RESETB_DCTL_MASK);
 
+		snd_soc_update_bits(w->codec, COD3022X_DC_CTRL_EPS,
+					CTMI_EP_A_MASK, CTMI_EP_A_MASK);
+
+		snd_soc_update_bits(w->codec, COD3022X_15_PD_DA3,
+					PDB_EP_CORE_MASK, PDB_EP_CORE_MASK);
+
+		snd_soc_update_bits(w->codec, COD3022X_15_PD_DA3,
+					PDB_EP_DRV_MASK, PDB_EP_DRV_MASK);
+		msleep(50);
+
+		snd_soc_update_bits(w->codec, COD3022X_15_PD_DA3,
+					PDB_EP_CORE_MASK, 0x00);
+
+		snd_soc_update_bits(w->codec, COD3022X_15_PD_DA3,
+					PDB_EP_DRV_MASK, 0x00);
+
+		snd_soc_update_bits(w->codec, COD3022X_DC_CTRL_EPS,
+				CTMI_EP_A_MASK,
+				(CTMI_EP_A_2_UA << CTMI_EP_A_SHIFT));
+
 		snd_soc_update_bits(w->codec, COD3022X_15_PD_DA3,
 					PDB_DOUBLER_MASK | PDB_CP_MASK,
 					PDB_DOUBLER_MASK | PDB_CP_MASK);
@@ -1774,7 +1817,11 @@ static int epdrv_ev(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(w->codec, COD3022X_50_DAC1,
 			DAC1_SOFT_MUTE_MASK, DAC1_SOFT_MUTE_MASK);
 		msleep(24);
-			
+
+		snd_soc_update_bits(w->codec, COD3022X_D8_CTRL_CP2,
+			CTMD_CP_H2L_MASK,
+			VIDD_HALF_VDD_DELAY_32MS << CTMD_CP_H2L_SHIFT);
+
 		snd_soc_update_bits(w->codec, COD3022X_D7_CTRL_CP1,
 			CTRV_CP_NEGREF_MASK, 0x0f);
 
@@ -1782,6 +1829,7 @@ static int epdrv_ev(struct snd_soc_dapm_widget *w,
 					CTMV_CP_MODE_MASK,
 					CTMV_CP_MODE_HALF_VDD << CTMV_CP_MODE_SHIFT);
 
+		msleep(150);
 		snd_soc_update_bits(w->codec, COD3022X_37_MIX_DA2,
 				EN_EP_MIX_DCTL_MASK | EN_EP_MIX_DCTR_MASK, 0x0);
 		cod3022x_usleep(100);
@@ -1804,6 +1852,10 @@ static int epdrv_ev(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(w->codec, COD3022X_33_CTRL_EP,
 					CTMV_CP_MODE_MASK,
 					CTMV_CP_MODE_ANALOG << CTMV_CP_MODE_SHIFT);
+
+		snd_soc_update_bits(w->codec, COD3022X_D8_CTRL_CP2,
+				CTMD_CP_H2L_MASK,
+				VIDD_HALF_VDD_DELAY_64MS << CTMD_CP_H2L_SHIFT);
 
 		/* disable_soft_mute */
 		snd_soc_update_bits(w->codec, COD3022X_50_DAC1,
@@ -1831,11 +1883,15 @@ static int mic2_pga_ev(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		cod3022x_adc_digital_mute(w->codec, true);
 		cod3022_power_on_mic2(w->codec);
+		cod3022x_adc_digital_mute(w->codec, false);
 		break;
 
 	case SND_SOC_DAPM_PRE_PMD:
+		cod3022x_adc_digital_mute(w->codec, true);
 		cod3022_power_off_mic2(w->codec);
+		cod3022x_adc_digital_mute(w->codec, false);
 		break;
 	default:
 		break;
@@ -1860,11 +1916,15 @@ static int mic1_pga_ev(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		cod3022x_adc_digital_mute(w->codec, true);
 		cod3022_power_on_mic1(w->codec);
+		cod3022x_adc_digital_mute(w->codec, false);
 		break;
 
 	case SND_SOC_DAPM_PRE_PMD:
+		cod3022x_adc_digital_mute(w->codec, true);
 		cod3022_power_off_mic1(w->codec);
+		cod3022x_adc_digital_mute(w->codec, false);
 		break;
 
 	default:
@@ -1890,11 +1950,15 @@ static int linein_pga_ev(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		cod3022x_adc_digital_mute(w->codec, true);
 		cod3022_power_on_linein(w->codec);
+		cod3022x_adc_digital_mute(w->codec, false);
 		break;
 
 	case SND_SOC_DAPM_PRE_PMD:
+		cod3022x_adc_digital_mute(w->codec, true);
 		cod3022_power_off_linein(w->codec);
+		cod3022x_adc_digital_mute(w->codec, false);
 		break;
 
 	default:

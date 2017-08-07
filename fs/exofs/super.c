@@ -787,7 +787,7 @@ static int exofs_fill_super(struct super_block *sb, void *data, int silent)
 	}
 
 	/* start generation numbers from a random point */
-	get_random_bytes(&sbi->s_next_generation, sizeof(u32));
+	erandom_get_random_bytes((char *)&sbi->s_next_generation, sizeof(u32));
 	spin_lock_init(&sbi->s_next_gen_lock);
 
 	table_count = le64_to_cpu(fscb.s_dev_table_count);

@@ -11,10 +11,15 @@
  *  Richard Purdie <rpurdie@openedhand.com>
  */
 
-
+#if 1 && (defined(__arm__) && ((__LINUX_ARM_ARCH__ >= 6) || defined(__ARM_FEATURE_UNALIGNED))) || defined(__aarch64__)
+#define CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS 1
+#define COPY4(dst, src)	\
+		* (u32 *) (void *) (dst) = * (const u32 *) (const void *) (src)
+#else
 #define COPY4(dst, src)	\
 		put_unaligned(get_unaligned((const u32 *)(src)), (u32 *)(dst))
-#if defined(__x86_64__)
+#endif
+#if defined(__x86_64__) || defined(__aarch64__)
 #define COPY8(dst, src)	\
 		put_unaligned(get_unaligned((const u64 *)(src)), (u64 *)(dst))
 #else
@@ -24,7 +29,7 @@
 
 #if defined(__BIG_ENDIAN) && defined(__LITTLE_ENDIAN)
 #error "conflicting endian definitions"
-#elif defined(__x86_64__)
+#elif defined(__x86_64__) || defined(__aarch64__)
 #define LZO_USE_CTZ64	1
 #define LZO_USE_CTZ32	1
 #elif defined(__i386__) || defined(__powerpc__)

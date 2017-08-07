@@ -24,6 +24,14 @@
 #include "gpu_dvfs_handler.h"
 #include "gpu_control.h"
 
+#ifdef CONFIG_POWERSUSPEND
+#include <linux/powersuspend.h>
+
+unsigned int gpu_min_override = 160;
+unsigned int gpu_max_override = 800;
+unsigned int gpu_max_override_screen_off = 0;
+#endif
+
 static struct gpu_control_ops *ctr_ops;
 
 #ifdef CONFIG_MALI_RT_PM
@@ -110,6 +118,18 @@ int gpu_control_set_clock(struct kbase_device *kbdev, int clock)
 		GPU_LOG(DVFS_ERROR, DUMMY, 0u, 0u, "%s: platform context is null\n", __func__);
 		return -ENODEV;
 	}
+
+#ifdef CONFIG_POWERSUSPEND
+	if (clock < gpu_min_override)
+		clock = gpu_min_override;
+	if (!power_suspend_active || gpu_max_override_screen_off == 0) {
+		if (clock > gpu_max_override)
+			clock = gpu_max_override;
+	} else {
+		if (clock > gpu_max_override_screen_off)
+			clock = gpu_max_override_screen_off;
+	}
+#endif
 
 	if (platform->dvs_is_enabled) {
 		GPU_LOG(DVFS_INFO, DUMMY, 0u, 0u,

@@ -41,7 +41,7 @@ do { \
 
 #define EXYNOS7580_REVISION_0		(0x0)
 #define EXYNOS7580_REVISION_0_1		(0x01)
-#define GPU_MAX_CLOCK_REVISION_0	668
+#define GPU_MAX_CLOCK_REVISION_0	800
 
 #define BMAX_RETRY_CNT 10
 
@@ -110,6 +110,7 @@ typedef enum {
 	GPU_MAX_CLOCK = 0,
 	GPU_MAX_CLOCK_LIMIT,
 	GPU_MIN_CLOCK,
+	GPU_MIN_CLOCK_LIMIT,
 	GPU_DVFS_START_CLOCK,
 	GPU_DVFS_BL_CONFIG_CLOCK,
 	GPU_GOVERNOR_TYPE,
@@ -323,6 +324,7 @@ struct exynos_context {
 	int gpu_max_clock;
 	int gpu_max_clock_limit;
 	int gpu_min_clock;
+	int gpu_min_clock_limit;
 	int gpu_dvfs_start_clock;
 	int gpu_dvfs_config_clock;
 

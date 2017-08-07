@@ -716,7 +716,6 @@ struct decon_device {
 	bool	ignore_vsync;
 	struct esd_protect esd;
 	struct decon_regs_data win_regs;
-	unsigned int force_fullupdate;
 	int		trigger_enable;
 
 #if defined(CONFIG_EXYNOS_DECON_DPU)
