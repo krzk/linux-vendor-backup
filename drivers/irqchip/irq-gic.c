@@ -311,7 +311,7 @@ static asmlinkage void __exception_irq_entry gic_handle_irq(struct pt_regs *regs
 	} while (1);
 }
 
-static void gic_handle_cascade_irq(unsigned int irq, struct irq_desc *desc)
+static bool  gic_handle_cascade_irq(unsigned int irq, struct irq_desc *desc)
 {
 	struct gic_chip_data *chip_data = irq_get_handler_data(irq);
 	struct irq_chip *chip = irq_get_chip(irq);
@@ -336,6 +336,8 @@ static void gic_handle_cascade_irq(unsigned int irq, struct irq_desc *desc)
 
  out:
 	chained_irq_exit(chip, desc);
+
+	return true;
 }
 
 static struct irq_chip gic_chip = {
