@@ -75,8 +75,6 @@ headers are used by the installed headers for GNU glibc and other system
 License: GPL-2.0
 Summary: Linux support kernel map and etc for other package
 Group: System/Kernel
-Provides: kernel-devel-tizen-dev
-Provides: kernel-devel-tizen
 
 %description -n kernel-devel-%{KERNEL_VERSION}-%{CHIPSET}
 This package provides kernel map and etc information.
@@ -109,6 +107,7 @@ make modules
 make modules_install INSTALL_MOD_PATH=%{_builddir}/mod_%{MODEL}
 
 # prepare for devel package
+find %{_builddir}/%{name}-%{version} -name "*\.HEX" -type f -delete
 find %{_builddir}/%{name}-%{version} -name ".tmp_vmlinux*" -delete
 find %{_builddir}/%{name}-%{version} -name "\.*dtb*tmp" -delete
 find %{_builddir}/%{name}-%{version} -name "*\.*tmp" -delete
@@ -157,8 +156,6 @@ mv %_builddir/config.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/config
 mv %_builddir/vmlinux.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/vmlinux
 
 mv %_builddir/kernel-devel-%{MODEL} %{buildroot}/boot/kernel/devel/kernel-devel-%{MODEL}
-
-ln -s kernel-devel-%{MODEL} %{buildroot}/boot/kernel/devel/tizen-devel
 
 find %{buildroot}/boot/kernel/ -name "*.h" -print0 | xargs -0 chmod 644
 
