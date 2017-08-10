@@ -45,8 +45,6 @@ This package provides the %{CHIPSET}_eur linux kernel's debugging files.
 License: GPL-2.0
 Summary: Linux support kernel map and etc for other package
 Group: System/Kernel
-Provides: kernel-devel-tizen-dev
-Provides: kernel-devel-tizen
 
 %description -n kernel-devel-%{CHIPSET}-%{MODEL}
 This package provides kernel map and etc information.
@@ -114,6 +112,7 @@ rm -f %{buildroot}/usr/include/asm*/atomic.h
 rm -f %{buildroot}/usr/include/asm*/io.h
 
 %ifarch aarch64
+find %{_builddir}/%{name}-%{version} -name "*\.HEX" -type f -delete
 find %{_builddir}/%{name}-%{version} -name ".tmp_vmlinux*" -delete
 find %{_builddir}/%{name}-%{version} -name "\.*dtb*tmp" -delete
 find %{_builddir}/%{name}-%{version} -name "*\.*tmp" -delete
@@ -131,7 +130,6 @@ find %{_builddir}/%{name}-%{version} -name "*\.c" -not -path "%{_builddir}/%{nam
 mv %{_builddir}/%{name}-%{version} %{buildroot}/boot/kernel/devel/kernel-devel-%{MODEL}
 mkdir -p %{_builddir}/%{name}-%{version}
 mv %{buildroot}/COPYING %{_builddir}/%{name}-%{version}/
-ln -s kernel-devel-%{MODEL} %{buildroot}/boot/kernel/devel/tizen-devel
 
 %files -n linux-%{CHIPSET}-%{MODEL}
 %license COPYING
