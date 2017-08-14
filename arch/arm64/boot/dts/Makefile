@@ -9,8 +9,8 @@ dtb-$(CONFIG_BOARD_A3XELTE) += exynos7580-a3xelte_eur_open_00.dtb exynos7580-a3x
 dtb-$(CONFIG_BOARD_A5XELTE) += exynos7580-a5xelte_eur_open_00.dts exynos7580-a5xelte_eur_open_01.dts exynos7580-a5xelte_eur_open_02.dts \
 				exynos7580-a5xelte_eur_open_03.dts exynos7580-a5xelte_eur_open_08.dts exynos7580-a5xelte_eur_open_09.dts
 dtb-$(CONFIG_BOARD_J7ELTE) += exynos7580-j7elte_rev00.dtb exynos7580-j7elte_rev04.dtb exynos7580-j7elte_rev06.dtb
-dtb-$(CONFIG_BOARD_S5NEOLTE) += exynos7580-s5neo_rev00.dts exynos7580-s5neo_rev06.dts exynos7580-s5neo_rev07.dts exynos7580-s5neo_rev08.dts \
-				exynos7580-s5neo_rev09.dts exynos7580-s5neo_rev11.dts
+dtb-$(CONFIG_BOARD_S5NEOLTE) += exynos7580-s5neo_rev00.dtb exynos7580-s5neo_rev06.dtb exynos7580-s5neo_rev07.dtb exynos7580-s5neo_rev08.dtb \
+				exynos7580-s5neo_rev09.dtb exynos7580-s5neo_rev11.dtb
 
 dtb-$(CONFIG_MACH_UNIVERSAL5433) += exynos5433-universal5433_rev02.dtb exynos5433-universal5433.dtb
 targets += dtbs
