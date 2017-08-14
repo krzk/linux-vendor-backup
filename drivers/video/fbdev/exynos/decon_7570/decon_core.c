@@ -296,7 +296,7 @@ static u32 decon_red_length(int format)
 		return 0;
 
 	default:
-		decon_warn("unrecognized pixel format %u\n", format);
+		decon_warn("%s:unrecognized pix fmt %u\n", __func__, format);
 		return 0;
 	}
 }
@@ -332,7 +332,7 @@ static u32 decon_red_offset(int format)
 		return 0;
 
 	default:
-		decon_warn("unrecognized pixel format %u\n", format);
+		decon_warn("%s:unrecognized pix fmt %u\n", __func__, format);
 		return 0;
 	}
 }
@@ -364,7 +364,7 @@ static u32 decon_green_length(int format)
 		return 0;
 
 	default:
-		decon_warn("unrecognized pixel format %u\n", format);
+		decon_warn("%s:unrecognized pix fmt %u\n", __func__, format);
 		return 0;
 	}
 }
@@ -396,7 +396,7 @@ static u32 decon_green_offset(int format)
 		return 0;
 
 	default:
-		decon_warn("unrecognized pixel format %u\n", format);
+		decon_warn("%s:unrecognized pix fmt %u\n", __func__, format);
 		return 0;
 	}
 }
@@ -437,7 +437,7 @@ static u32 decon_blue_offset(int format)
 		return 0;
 
 	default:
-		decon_warn("unrecognized pixel format %u\n", format);
+		decon_warn("%s:unrecognized pix fmt %u\n", __func__, format);
 		return 0;
 	}
 }
@@ -447,11 +447,13 @@ static u32 decon_transp_length(int format)
 	switch (format) {
 	case DECON_PIXEL_FORMAT_RGBA_8888:
 	case DECON_PIXEL_FORMAT_BGRA_8888:
+	case DECON_PIXEL_FORMAT_ARGB_8888:
 		return 8;
 
 	case DECON_PIXEL_FORMAT_RGBA_5551:
 		return 1;
 
+	case DECON_PIXEL_FORMAT_XRGB_8888:
 	case DECON_PIXEL_FORMAT_RGBX_8888:
 	case DECON_PIXEL_FORMAT_RGB_565:
 	case DECON_PIXEL_FORMAT_BGRX_8888:
@@ -465,7 +467,7 @@ static u32 decon_transp_length(int format)
 		return 0;
 
 	default:
-		decon_warn("unrecognized pixel format %u\n", format);
+		decon_warn("%s:unrecognized pix fmt %u\n", __func__, format);
 		return 0;
 	}
 }
@@ -486,6 +488,8 @@ static u32 decon_transp_offset(int format)
 	case DECON_PIXEL_FORMAT_BGRX_8888:
 		return decon_red_offset(format);
 
+	case DECON_PIXEL_FORMAT_ARGB_8888:
+	case DECON_PIXEL_FORMAT_XRGB_8888:
 	case DECON_PIXEL_FORMAT_RGB_565:
 		return 0;
 
@@ -497,7 +501,7 @@ static u32 decon_transp_offset(int format)
 		return 0;
 
 	default:
-		decon_warn("unrecognized pixel format %u\n", format);
+		decon_warn("%s:unrecognized pix fmt %u\n", __func__, format);
 		return 0;
 	}
 }
@@ -505,10 +509,12 @@ static u32 decon_transp_offset(int format)
 static u32 decon_padding(int format)
 {
 	switch (format) {
+	case DECON_PIXEL_FORMAT_XRGB_8888:
 	case DECON_PIXEL_FORMAT_RGBX_8888:
 	case DECON_PIXEL_FORMAT_BGRX_8888:
 		return 8;
 
+	case DECON_PIXEL_FORMAT_ARGB_8888:
 	case DECON_PIXEL_FORMAT_RGBA_8888:
 	case DECON_PIXEL_FORMAT_RGBA_5551:
 	case DECON_PIXEL_FORMAT_RGB_565:
@@ -523,7 +529,7 @@ static u32 decon_padding(int format)
 		return 0;
 
 	default:
-		decon_warn("unrecognized pixel format %u\n", format);
+		decon_warn("%s:unrecognized pix fmt %u\n", __func__, format);
 		return 0;
 	}
 
@@ -535,23 +541,23 @@ static u32 decon_rgborder(int format)
 {
 	switch (format) {
 	case DECON_PIXEL_FORMAT_RGBA_8888:
-		return WINCON_BPPMODE_ABGR8888;
+		return WINCON_BPPMODE_RGBA8888;
 	case DECON_PIXEL_FORMAT_RGBX_8888:
-		return WINCON_BPPMODE_XBGR8888;
+		return WINCON_BPPMODE_RGBX8888;
 	case DECON_PIXEL_FORMAT_RGB_565:
 		return WINCON_BPPMODE_RGB565;
 	case DECON_PIXEL_FORMAT_BGRA_8888:
-		return WINCON_BPPMODE_ARGB8888;
-	case DECON_PIXEL_FORMAT_BGRX_8888:
-		return WINCON_BPPMODE_XRGB8888;
-	case DECON_PIXEL_FORMAT_ARGB_8888:
 		return WINCON_BPPMODE_BGRA8888;
-	case DECON_PIXEL_FORMAT_ABGR_8888:
-		return WINCON_BPPMODE_RGBA8888;
-	case DECON_PIXEL_FORMAT_XRGB_8888:
+	case DECON_PIXEL_FORMAT_BGRX_8888:
 		return WINCON_BPPMODE_BGRX8888;
+	case DECON_PIXEL_FORMAT_ARGB_8888:
+		return WINCON_BPPMODE_ARGB8888;
+	case DECON_PIXEL_FORMAT_ABGR_8888:
+		return WINCON_BPPMODE_ABGR8888;
+	case DECON_PIXEL_FORMAT_XRGB_8888:
+		return WINCON_BPPMODE_XRGB8888;
 	case DECON_PIXEL_FORMAT_XBGR_8888:
-		return WINCON_BPPMODE_RGBX8888;
+		return WINCON_BPPMODE_XBGR8888;
 
 	case DECON_PIXEL_FORMAT_NV12:
 	case DECON_PIXEL_FORMAT_NV21:
@@ -561,7 +567,7 @@ static u32 decon_rgborder(int format)
 		return 0;
 
 	default:
-		decon_warn("unrecognized pixel format %u\n", format);
+		decon_warn("%s:unrecognized pix fmt %u\n", __func__, format);
 		return 0;
 	}
 }
