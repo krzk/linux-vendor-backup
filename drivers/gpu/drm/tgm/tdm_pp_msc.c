@@ -62,6 +62,7 @@
 #define SC_COEF_V_4T	4
 #define SC_COEF_DEPTH	3
 #define SC_POS_ALIGN	2
+#define SC_FMT_SHIFT	1
 #define SC_UP_MAX		SC_RATIO(1, 16)
 #define SC_DOWN_MIN		SC_RATIO(4, 1)
 #define SC_DOWN_SWMIN		SC_RATIO(16, 1)
@@ -710,6 +711,10 @@ static int sc_src_set_size(struct device *dev, int swap,
 	cfg = (SCALER_SRC_YX(pos->x) |
 		SCALER_SRC_YY(pos->y));
 	sc_write(cfg, SCALER_SRC_Y_POS);
+
+	cfg = (SCALER_SRC_YX(pos->x >> SC_FMT_SHIFT) |
+		SCALER_SRC_YY(pos->y >> SC_FMT_SHIFT));
+	sc_write(cfg, SCALER_SRC_C_POS);
 
 	/* cropped size */
 	cfg = (SCALER_SRC_W(pos->w) |
