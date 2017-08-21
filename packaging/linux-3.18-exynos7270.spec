@@ -68,19 +68,32 @@ headers are used by the installed headers for GNU glibc and other system
 %{?asan:/usr/bin/gcc-unforce-options}
 
 make distclean
+
+# 1. make kernel header
+%ifarch aarch64
+export ARCH=arm64
+%else
+export ARCH=arm
+%endif
+
+mkdir -p uapi-headers/usr
+make mrproper
+make headers_check
+make headers_install INSTALL_HDR_PATH=uapi-headers/usr
+
 %ifarch aarch64
 chmod a+x release_obs.sh
 chmod a+x ./scripts/exynos_dtbtool.sh
 chmod a+x ./scripts/exynos_mkdzimage.sh
 
-# 1. make kernel image
+# 2. make kernel image
 ./release_obs.sh
 %endif
 
 %install
 
-# 2. copy to buildroot
-mkdir -p %{buildroot}/usr
+# 3. copy to buildroot
+mv uapi-headers/usr %{buildroot}/
 %ifarch aarch64
 mkdir -p %{buildroot}/boot/kernel/devel
 
@@ -93,23 +106,13 @@ cp -f vmlinux  %{buildroot}/boot/kernel/vmlinux
 cp -f COPYING %{buildroot}/
 %endif
 
-# 3. make kernel header
-%ifarch aarch64
-export ARCH=arm64
-%else
-export ARCH=arm
-%endif
-
-make mrproper
-make headers_check
-make headers_install INSTALL_HDR_PATH=%{buildroot}/usr
-
 # 4. remove unnecessary files.
 find  %{buildroot}/usr/include -name ".install" -delete
 find  %{buildroot}/usr/include -name "..install.cmd" -delete
 rm -rf %{buildroot}/usr/include/scsi
 rm -f %{buildroot}/usr/include/asm*/atomic.h
 rm -f %{buildroot}/usr/include/asm*/io.h
+rm -rf uapi-headers
 
 %ifarch aarch64
 find %{_builddir}/%{name}-%{version} -name "*\.HEX" -type f -delete
