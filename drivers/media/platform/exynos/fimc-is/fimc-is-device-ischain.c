@@ -1356,9 +1356,9 @@ static int fimc_is_itf_s_param(struct fimc_is_device_ischain *device,
 	BUG_ON(!device);
 
 	if (frame) {
-		if (!test_bit(FIMC_IS_ISHCAIN_START, &device->state)) {
+		if (WARN_ON(!test_bit(FIMC_IS_ISHCAIN_START, &device->state))) {
 			merr("s_param failed, device already is stopped", device);
-			BUG();
+			return -EINVAL;
 		}
 
 		dst_base = &device->is_region->parameter;
