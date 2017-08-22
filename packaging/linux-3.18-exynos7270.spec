@@ -115,10 +115,11 @@ rm -f %{buildroot}/usr/include/asm*/io.h
 find %{_builddir}/%{name}-%{version} -name "*\.HEX" -type f -delete
 find %{_builddir}/%{name}-%{version} -name ".tmp_vmlinux*" -delete
 find %{_builddir}/%{name}-%{version} -name "\.*dtb*tmp" -delete
+find %{_builddir}/%{name}-%{version} -name "merged-dtb" -delete
 find %{_builddir}/%{name}-%{version} -name "*\.*tmp" -delete
 find %{_builddir}/%{name}-%{version} -name "vmlinux" -delete
-find %{_builddir}/%{name}-%{version} -name "bzImage" -delete
-find %{_builddir}/%{name}-%{version} -name "zImage" -delete
+find %{_builddir}/%{name}-%{version} -name "Image" -delete
+find %{_builddir}/%{name}-%{version} -name "Image.gz" -delete
 find %{_builddir}/%{name}-%{version} -name "dzImage" -delete
 find %{_builddir}/%{name}-%{version} -name "*.cmd" -delete
 find %{_builddir}/%{name}-%{version} -name "*\.ko" -delete
