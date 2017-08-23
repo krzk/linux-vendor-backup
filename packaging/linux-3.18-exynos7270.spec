@@ -147,7 +147,6 @@ mv %{buildroot}/COPYING %{_builddir}/%{name}-%{version}/
 /boot/kernel/vmlinux
 
 %files -n kernel-devel-%{CHIPSET}-%{MODEL}
-%defattr(644,root,root,-)
 /boot/kernel/devel/*
 %endif
 
