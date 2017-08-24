@@ -8,24 +8,6 @@ config ANDROID
 
 if ANDROID
 
-config ANDROID_BINDER_IPC
-	bool "Android Binder IPC Driver"
-	default n
-	---help---
-	  Binder is used in Android for both communication between processes,
-	  and remote method invocation.
-
-	  This means one Android process can call a method/routine in another
-	  Android process, using Binder to identify, invoke and pass arguments
-	  between said processes.
-
-config ANDROID_BINDER_IPC_32BIT
-	bool "Use old 32-bit binder api"
-        default y
-	---help---
-	  Enable to support an old 32-bit Android user-space. Breaks the new
-	  Android user-space.
-
 config ANDROID_BINDER_DEVICES
 	string "Android Binder devices"
 	depends on ANDROID_BINDER_IPC
@@ -37,6 +19,19 @@ config ANDROID_BINDER_DEVICES
 	  that specifies the names of the binder device nodes that will be
 	  created. Each binder device has its own context manager, and is
 	  therefore logically separated from the other devices.
+
+config ANDROID_BINDER_IPC_32BIT
+	bool
+	depends on ANDROID_BINDER_IPC
+	default y
+	---help---
+	  The Binder API has been changed to support both 32 and 64bit
+	  applications in a mixed environment.
+
+	  Enable this to support an old 32-bit Android user-space (v4.4 and
+	  earlier).
+
+	  Note that enabling this will break newer Android user-space.
 
 config ASHMEM
 	bool "Enable the Anonymous Shared Memory Subsystem"
@@ -129,16 +124,16 @@ config SW_SYNC_USER
 	  drivers from userspace.
 
 config SEC_OOM_KILLER
-	bool "Android OOM Killer"
-	default n
-	help
-  	  klaatu@samsung
-	  This enables 'Android-Style oom-killer'
-	  The way to select victim by oom-killer provided by
-	  linux kernel is totally different from android policy.
-	  Hence, it makes more sense that we select the oom victim
-	  as android does when LMK is invoked.
-	  
+        bool "Android OOM Killer"
+        default n
+        help
+          klaatu@samsung
+          This enables 'Android-Style oom-killer'
+          The way to select victim by oom-killer provided by
+          linux kernel is totally different from android policy.
+          Hence, it makes more sense that we select the oom victim
+          as android does when LMK is invoked.
+
 source "drivers/staging/android/ion/Kconfig"
 
 source "drivers/staging/android/fiq_debugger/Kconfig"

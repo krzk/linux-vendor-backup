@@ -23,7 +23,6 @@
 struct binder_buffer;
 struct binder_node;
 struct binder_proc;
-struct binder_ref;
 struct binder_alloc;
 struct binder_ref_data;
 struct binder_thread;

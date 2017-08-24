@@ -182,3 +182,6 @@ obj-$(CONFIG_SENSORS_SSP)       += sensorhub/
 
 #Fingerprint
 obj-$(CONFIG_SENSORS_FINGERPRINT)       += fingerprint/
+
+# Android non-staging drivers
+obj-$(CONFIG_ANDROID)	+= android/
