@@ -194,4 +194,5 @@ source "drivers/sensorhub/stm/Kconfig"
 
 source "drivers/fingerprint/Kconfig"
 
+source "drivers/android/Kconfig"
 endmenu
