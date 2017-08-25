@@ -66,6 +66,7 @@ headers are used by the installed headers for GNU glibc and other system
 
 %build
 %{?asan:/usr/bin/gcc-unforce-options}
+%{?ubsan:/usr/bin/gcc-unforce-options}
 
 make distclean
 
