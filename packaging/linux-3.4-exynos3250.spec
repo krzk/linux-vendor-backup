@@ -92,6 +92,7 @@ This package provides kernel license file.
 
 %build
 %{?asan:/usr/bin/gcc-unforce-options}
+%{?ubsan:/usr/bin/gcc-unforce-options}
 
 mkdir -p %{_builddir}/mod_%{MODEL}
 make distclean
