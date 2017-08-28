@@ -755,6 +755,13 @@ static bool sec_bat_ovp_uvlo_result(
 			   when over-voltage status is detected	 */
 			wake_lock_timeout(&battery->vbus_wake_lock, HZ * 10);
 			break;
+		case POWER_SUPPLY_HEALTH_WATCHDOG_TIMER_EXPIRE:
+			dev_info(battery->dev,
+				"%s: Watchdog Expired, Restart charger (%d)\n",
+				__func__, health);
+			sec_bat_set_charge(battery, true);
+			battery->health = POWER_SUPPLY_HEALTH_GOOD;
+			break;
 		}
 		power_supply_changed(&battery->psy_bat);
 		return true;
@@ -780,7 +787,8 @@ static bool sec_bat_ovp_uvlo(struct sec_battery_info *battery)
 
 	if (battery->health != POWER_SUPPLY_HEALTH_GOOD &&
 		battery->health != POWER_SUPPLY_HEALTH_OVERVOLTAGE &&
-		battery->health != POWER_SUPPLY_HEALTH_UNDERVOLTAGE) {
+		battery->health != POWER_SUPPLY_HEALTH_UNDERVOLTAGE &&
+		battery->health != POWER_SUPPLY_HEALTH_WATCHDOG_TIMER_EXPIRE) {
 		dev_dbg(battery->dev, "%s: No need to check\n", __func__);
 		return false;
 	}
@@ -3774,6 +3782,7 @@ ssize_t sec_bat_store_attrs(
 			}
 
 			wake_lock(&battery->siop_wake_lock);
+
 			if (battery->cable_type == POWER_SUPPLY_TYPE_WIRELESS)
 				queue_delayed_work_on(0, battery->monitor_wqueue, &battery->siop_work,
 					msecs_to_jiffies(1200));
@@ -6075,7 +6084,7 @@ static int __devinit sec_battery_probe(struct platform_device *pdev)
 #endif
 	/* create work queue */
 	battery->monitor_wqueue =
-	    alloc_workqueue(dev_name(&pdev->dev), WQ_MEM_RECLAIM, 1);
+		create_singlethread_workqueue(dev_name(&pdev->dev));
 	if (!battery->monitor_wqueue) {
 		dev_err(battery->dev,
 			"%s: Fail to Create Workqueue\n", __func__);
@@ -6243,6 +6252,9 @@ static int __devinit sec_battery_probe(struct platform_device *pdev)
 
 	dev_info(battery->dev,
 		"%s: SEC Battery Driver Loaded\n", __func__);
+
+	charger_control_init(battery);
+
 	return 0;
 
 err_req_irq:

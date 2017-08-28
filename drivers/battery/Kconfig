@@ -564,3 +564,9 @@ config LOWTEMP_VBAT_DROP_PREVENT
 	help
 	  This option prevent vbat drop when low temerature thereby setting cpu clock
           max lock.
+
+config SEC_BATTERY_CHARGE_CONTROL
+	bool "Charge control interface for Samsung devices"
+	default y
+	help
+	  Allows configuration of AC, USB and Wireless charging levels

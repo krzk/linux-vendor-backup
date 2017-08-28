@@ -2590,6 +2590,10 @@ static int sm5705_fuelgauge_suspend(struct device *dev)
 
 static int sm5705_fuelgauge_resume(struct device *dev)
 {
+	struct sec_fuelgauge_info *fuelgauge = dev_get_drvdata(dev);
+
+	fuelgauge->initial_update_of_soc = true;
+
 	return 0;
 }
 
