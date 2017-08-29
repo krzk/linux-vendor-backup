@@ -799,11 +799,18 @@ static int s3c24xx_i2c_xfer(struct i2c_adapter *adap,
 	if (ret)
 		return ret;
 
+#if defined(CONFIG_ARM_S5Pxx18_DEVFREQ)
+	nx_bus_qos_lock();
+#endif
+
 	for (retry = 0; retry < adap->retries; retry++) {
 
 		ret = s3c24xx_i2c_doxfer(i2c, msgs, num);
 
 		if (ret != -EAGAIN) {
+#if defined(CONFIG_ARM_S5Pxx18_DEVFREQ)
+			nx_bus_qos_unlock();
+#endif
 			clk_disable(i2c->clk);
 			pm_runtime_put(&adap->dev);
 			return ret;
@@ -813,6 +820,10 @@ static int s3c24xx_i2c_xfer(struct i2c_adapter *adap,
 
 		udelay(100);
 	}
+
+#if defined(CONFIG_ARM_S5Pxx18_DEVFREQ)
+	nx_bus_qos_unlock();
+#endif
 
 	clk_disable(i2c->clk);
 	pm_runtime_put(&adap->dev);
@@ -1072,10 +1083,7 @@ static int s3c24xx_i2c_cpufreq_transition(struct notifier_block *nb,
 		dev_dbg(i2c->dev, "Changed source clk from %lu -> %lu\n",
 			 i2c->clk_in, freq);
 
-		i2c_lock_adapter(&i2c->adap);
 		ret = s3c24xx_i2c_clockrate_by_clkin(i2c, freq, &got);
-		i2c_unlock_adapter(&i2c->adap);
-
 		if (ret < 0) {
 			dev_err(i2c->dev, "cannot find frequency\n");
 		} else {
@@ -1097,7 +1105,6 @@ static inline int s3c24xx_i2c_register_cpufreq(struct s3c24xx_i2c *i2c)
 static inline void s3c24xx_i2c_deregister_cpufreq(struct s3c24xx_i2c *i2c)
 {
 	nx_bus_remove_notifier(&i2c->freq_transition);
-	pm_qos_remove_notifier(PM_QOS_BUS_THROUGHPUT, &i2c->freq_transition);
 }
 #else
 static inline int s3c24xx_i2c_register_cpufreq(struct s3c24xx_i2c *i2c)
