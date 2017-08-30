@@ -34,6 +34,7 @@
 			cci-control-port = <&cci_control1>;
 			operating-points-v2 = <&cluster_a15_opp_table>;
 			#cooling-cells = <2>; /* min followed by max */
+			capacity-dmips-mhz = <1024>;
 		};
 
 		cpu1: cpu@1 {
@@ -44,6 +45,7 @@
 			cci-control-port = <&cci_control1>;
 			operating-points-v2 = <&cluster_a15_opp_table>;
 			#cooling-cells = <2>; /* min followed by max */
+			capacity-dmips-mhz = <1024>;
 		};
 
 		cpu2: cpu@2 {
@@ -54,6 +56,7 @@
 			cci-control-port = <&cci_control1>;
 			operating-points-v2 = <&cluster_a15_opp_table>;
 			#cooling-cells = <2>; /* min followed by max */
+			capacity-dmips-mhz = <1024>;
 		};
 
 		cpu3: cpu@3 {
@@ -64,6 +67,7 @@
 			cci-control-port = <&cci_control1>;
 			operating-points-v2 = <&cluster_a15_opp_table>;
 			#cooling-cells = <2>; /* min followed by max */
+			capacity-dmips-mhz = <1024>;
 		};
 
 		cpu4: cpu@100 {
@@ -75,6 +79,7 @@
 			cci-control-port = <&cci_control0>;
 			operating-points-v2 = <&cluster_a7_opp_table>;
 			#cooling-cells = <2>; /* min followed by max */
+			capacity-dmips-mhz = <539>;
 		};
 
 		cpu5: cpu@101 {
@@ -85,6 +90,7 @@
 			cci-control-port = <&cci_control0>;
 			operating-points-v2 = <&cluster_a7_opp_table>;
 			#cooling-cells = <2>; /* min followed by max */
+			capacity-dmips-mhz = <539>;
 		};
 
 		cpu6: cpu@102 {
@@ -95,6 +101,7 @@
 			cci-control-port = <&cci_control0>;
 			operating-points-v2 = <&cluster_a7_opp_table>;
 			#cooling-cells = <2>; /* min followed by max */
+			capacity-dmips-mhz = <539>;
 		};
 
 		cpu7: cpu@103 {
@@ -105,6 +112,7 @@
 			cci-control-port = <&cci_control0>;
 			operating-points-v2 = <&cluster_a7_opp_table>;
 			#cooling-cells = <2>; /* min followed by max */
+			capacity-dmips-mhz = <539>;
 		};
 	};
 };
