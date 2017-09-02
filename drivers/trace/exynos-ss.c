@@ -36,9 +36,15 @@
 #include <plat/cpu.h>
 #include <plat/map-base.h>
 #include <mach/pmu.h>
+#include <linux/platform_device.h>
+#include <linux/pstore_ram.h>
 
 #ifdef CONFIG_SEC_DEBUG
 #include <linux/sec_debug.h>
+#endif
+
+#ifdef CONFIG_SEC_BSP
+#include <linux/sec_bsp.h>
 #endif
 
 #ifdef CONFIG_SEC_PM_DEBUG
@@ -333,8 +339,10 @@ struct exynos_ss_interface {
 };
 #ifdef CONFIG_S3C2410_WATCHDOG
 extern int s3c2410wdt_set_emergency_stop(void);
+extern int s3c2410wdt_keepalive_emergency(void);
 #else
 #define s3c2410wdt_set_emergency_stop()	(-1)
+#define s3c2410wdt_keepalive_emergency()	do { } while(0)
 #endif
 extern void *return_address(int);
 extern void (*arm_pm_restart)(char str, const char *cmd);
@@ -347,6 +355,9 @@ extern void register_hook_logbuf(void (*)(const char));
 extern void register_hook_logbuf(void (*)(const char *, size_t));
 #endif
 extern void register_hook_logger(void (*)(const char *, const char *, size_t));
+#ifdef CONFIG_ANDROID_LOGGER
+extern void register_hook_logger_sec(void (*)(const char *, const char *, size_t));
+#endif
 
 static DEFINE_SPINLOCK(ess_lock);
 static unsigned ess_callstack = CONFIG_EXYNOS_SNAPSHOT_CALLSTACK;
@@ -376,10 +387,19 @@ static struct exynos_ss_item ess_items[] = {
 	{"log_kevents",	{SZ_8M,		0, 0, true}, NULL ,NULL},
 	{"log_kernel",	{SZ_2M,		0, 0, true}, NULL ,NULL},
 #ifdef CONFIG_EXYNOS_SNAPSHOT_HOOK_LOGGER
+#ifndef CONFIG_EXYNOS_SNAPSHOT_MINIMIZED_MODE
 	{"log_main",	{SZ_4M,		0, 0, true}, NULL ,NULL},
+#ifdef CONFIG_ANDROID_LOGGER
 	{"log_radio",	{SZ_2M,		0, 0, true}, NULL ,NULL},
 #endif
-#ifdef CONFIG_EXYNOS_CORESIGHT_ETM
+#else
+	{"log_main",	{SZ_2M,		0, 0, true}, NULL ,NULL},
+#endif
+#endif
+#ifdef CONFIG_EXYNOS_SNAPSHOT_PSTORE
+	{"log_pstore",	{SZ_2M,		0, 0, true}, NULL ,NULL},
+#endif
+#ifdef CONFIG_EXYNOS_CORESIGHT_ETR
 	{"log_etm",		{SZ_16M,	0, 0, true}, NULL ,NULL},
 #endif
 };
@@ -593,6 +613,11 @@ EXPORT_SYMBOL(exynos_ss_set_hardlockup);
 int exynos_ss_prepare_panic(void)
 {
 	unsigned cpu;
+	/*
+	 * kick watchdog to prevent unexpected reset during panic sequence
+	 * and it prevents the hang during panic sequence by watchedog
+	 */
+	s3c2410wdt_keepalive_emergency();
 
 	for (cpu = 0; cpu < ESS_NR_CPUS; cpu++) {
 		if (exynos_cpu.power_state(cpu))
@@ -600,9 +625,7 @@ int exynos_ss_prepare_panic(void)
 		else
 			exynos_ss_core_power_stat(ESS_SIGN_DEAD, cpu);
 	}
-	/* stop to watchdog for preventing unexpected reset
-	 * during printing panic message */
-	no_wdt_dev = s3c2410wdt_set_emergency_stop();
+
 	return 0;
 }
 EXPORT_SYMBOL(exynos_ss_prepare_panic);
@@ -932,8 +955,14 @@ static void exynos_ss_dump_one_task_info(struct task_struct *tsk, bool is_main)
 		idx++;
 		state >>= 1;
 	}
-
+	
+	/*
+	 * kick watchdog to prevent unexpected reset during panic sequence
+	 * and it prevents the hang during panic sequence by watchedog
+	 */
 	touch_softlockup_watchdog();
+	s3c2410wdt_keepalive_emergency();
+	
 	pr_info("%8d %8d %8d %16lld %c(%d) %3d  %16zx %16zx  %16zx %c %16s [%s]\n",
 			tsk->pid, (int)(tsk->utime), (int)(tsk->stime),
 			tsk->se.exec_start, state_array[idx], (int)(tsk->state),
@@ -1107,6 +1136,12 @@ static int __init exynos_ss_setup(char *str)
 		ess_base.vaddr = exynos_ss_remap(base,size);
 		ess_base.size = size;
 		ess_base.enabled = false;
+
+#ifdef CONFIG_S3C2410_WATCHDOG
+		no_wdt_dev = false;
+#else
+		no_wdt_dev = true;
+#endif
 
 		pr_info("exynos-snapshot: memory reserved complete : 0x%zx, 0x%zx\n",
 			base, size);
@@ -1305,7 +1340,12 @@ static int __init exynos_ss_init(void)
 		register_hook_logbuf(exynos_ss_hook_logbuf);
 
 #ifdef CONFIG_EXYNOS_SNAPSHOT_HOOK_LOGGER
+#ifdef CONFIG_ANDROID_LOGGER
+		register_hook_logger_sec(exynos_ss_hook_logger);
+#endif
+#ifdef CONFIG_EXYNOS_SNAPSHOT_PSTORE
 		register_hook_logger(exynos_ss_hook_logger);
+#endif
 #endif
 		register_reboot_notifier(&nb_reboot_block);
 		atomic_notifier_chain_register(&panic_notifier_list, &nb_panic_block);
@@ -1812,6 +1852,297 @@ void exynos_ss_printkl(size_t msg, size_t val)
 	}
 }
 #endif
+
+/* This defines are for PSTORE */
+#define ESS_LOGGER_LEVEL_HEADER 	(1)
+#define ESS_LOGGER_LEVEL_PREFIX 	(2)
+#define ESS_LOGGER_LEVEL_TEXT		(3)
+#define ESS_LOGGER_LEVEL_MAX		(4)
+#define ESS_LOGGER_SKIP_COUNT		(4)
+#define ESS_LOGGER_STRING_PAD		(1)
+#define ESS_LOGGER_HEADER_SIZE		(68)
+
+#define ESS_LOG_ID_MAIN 		(0)
+#define ESS_LOG_ID_RADIO		(1)
+#define ESS_LOG_ID_EVENTS		(2)
+#define ESS_LOG_ID_SYSTEM		(3)
+#define ESS_LOG_ID_CRASH		(4)
+#define ESS_LOG_ID_KERNEL		(5)
+
+typedef struct __attribute__((__packed__)) {
+    uint8_t magic;
+    uint16_t len;
+    uint16_t uid;
+    uint16_t pid;
+} ess_pmsg_log_header_t;
+
+typedef struct __attribute__((__packed__)) {
+	unsigned char id;
+	uint16_t tid;
+	int32_t tv_sec;
+	int32_t tv_nsec;
+} ess_android_log_header_t;
+
+#ifdef CONFIG_EXYNOS_SNAPSHOT_PSTORE
+typedef struct ess_logger {
+	uint16_t	len;
+	uint16_t	id;
+	uint16_t	pid;
+	uint16_t	tid;
+	uint16_t	uid;
+	uint16_t	level;
+	int32_t		tv_sec;
+	int32_t		tv_nsec;
+	char		msg[0];
+	char*		buffer;
+	void		(*func_hook_logger)(const char*, const char*, size_t);
+} __attribute__((__packed__)) ess_logger;
+
+static ess_logger logger;
+
+void register_hook_logger(void (*func)(const char *name, const char *buf, size_t size))
+{
+	logger.func_hook_logger = func;
+	logger.buffer = vmalloc(PAGE_SIZE * 3);
+
+	if (logger.buffer)
+		pr_info("exynos-snapshot: logger buffer alloc address: 0x%p\n", logger.buffer);
+}
+EXPORT_SYMBOL(register_hook_logger);
+
+static int exynos_ss_combine_pmsg(char *buffer, size_t count, unsigned int level)
+{
+	char *logbuf = logger.buffer;
+	if (!logbuf)
+		return -ENOMEM;
+
+	switch(level) {
+	case ESS_LOGGER_LEVEL_HEADER:
+		{
+			struct tm tmBuf;
+			u64 tv_kernel;
+			unsigned int logbuf_len;
+			unsigned long rem_nsec;
+
+#ifndef CONFIG_SEC_EVENT_LOG
+			if (logger.id == ESS_LOG_ID_EVENTS)
+				break;
+#endif
+
+			tv_kernel = local_clock();
+			rem_nsec = do_div(tv_kernel, 1000000000);
+			time_to_tm(logger.tv_sec, 0, &tmBuf);
+
+			logbuf_len = snprintf(logbuf, ESS_LOGGER_HEADER_SIZE,
+					"\n[%5lu.%06lu][%d:%16s] %02d-%02d %02d:%02d:%02d.%03d %5d %5d  ",
+					(unsigned long)tv_kernel, rem_nsec / 1000,
+					raw_smp_processor_id(), current->comm,
+					tmBuf.tm_mon + 1, tmBuf.tm_mday,
+					tmBuf.tm_hour, tmBuf.tm_min, tmBuf.tm_sec,
+					logger.tv_nsec / 1000000, logger.pid, logger.tid);
+
+			logger.func_hook_logger("log_main", logbuf, logbuf_len - 1);
+		}
+		break;
+	case ESS_LOGGER_LEVEL_PREFIX:
+		{
+			static const char* kPrioChars = "!.VDIWEFS";
+			unsigned char prio = logger.msg[0];
+
+			if (logger.id == ESS_LOG_ID_EVENTS)
+				break;
+
+			logbuf[0] = prio < strlen(kPrioChars) ? kPrioChars[prio] : '?';
+			logbuf[1] = ' ';
+
+#ifdef CONFIG_SEC_EVENT_LOG
+			logger.msg[0] = 0xff;
+#endif
+			logger.func_hook_logger("log_main", logbuf, ESS_LOGGER_LEVEL_PREFIX);
+		}
+		break;
+	case ESS_LOGGER_LEVEL_TEXT:
+		{
+			char *eatnl = buffer + count - ESS_LOGGER_STRING_PAD;
+
+			if (logger.id == ESS_LOG_ID_EVENTS)
+			{
+#ifdef CONFIG_SEC_EVENT_LOG
+				unsigned int buf_len;
+				char buf[64] = {0};
+				int tag_id = *(int *)buffer;
+				const char * tag_name  = NULL;
+				
+				if ( count == 4 && (tag_name = find_tag_name_from_id(tag_id)) != NULL )
+				{					
+					buf_len = snprintf(buf, 64, "# %s ", tag_name);
+					logger.func_hook_logger("log_main", buf, buf_len - 1);
+				}
+				else
+				{
+					// SINGLE ITEM
+					// logger.msg[0] => count == 1 , if event log, it is type.
+					if ( logger.msg[0] == EVENT_TYPE_LONG || logger.msg[0] == EVENT_TYPE_INT || logger.msg[0] == EVENT_TYPE_FLOAT )
+						parse_buffer(buffer, logger.msg[0]);
+					else if ( count > 6 ) // TYPE(1) + ITEMS(1) + SINGLEITEM(5) or STRING(2+4+1>..)
+					// CASE 2,3:
+					// STRING OR LIST ITEM
+					{
+						if ( *buffer == EVENT_TYPE_LIST )
+						{
+							unsigned char items = *(buffer+1);
+							unsigned char i = 0;
+							buffer+=2;
+							
+							logger.func_hook_logger("log_main", "[", 1);
+							
+							for (;i<items;++i)
+							{
+								unsigned char type = *buffer;
+								buffer++;
+								buffer = parse_buffer(buffer, type);
+								logger.func_hook_logger("log_main", ":", 1);
+							}
+							
+							logger.func_hook_logger("log_main", "]", 1);
+		
+						}
+						else if ( *buffer == EVENT_TYPE_STRING )
+							parse_buffer(buffer+1, EVENT_TYPE_STRING);
+					}
+						
+					logger.msg[0]=0xff; // dummy value;	
+				}
+#else
+				break;
+#endif
+			}
+			else
+			{
+				if (count == ESS_LOGGER_SKIP_COUNT && *eatnl != '\0')
+					break;
+
+				memcpy((void *)logbuf, buffer, count);
+				eatnl = logbuf + count - ESS_LOGGER_STRING_PAD;
+
+				/* Mark End of String for safe to buffer */
+				*eatnl = '\0';
+				while (--eatnl >= logbuf) {
+					if (*eatnl == '\n' || *eatnl == '\0')
+						*eatnl = ' ';
+				};
+
+				logger.func_hook_logger("log_main", logbuf, count);
+#ifdef CONFIG_SEC_EXT
+				if (count > 1 && strncmp(logbuf, "!@", 2) == 0) {
+					logbuf[count-1] = '\0';
+					pr_info("%s\n", logbuf);
+#ifdef CONFIG_SEC_BSP
+					if (count > 5 && strncmp(logbuf, "!@Boot", 6) == 0){
+						sec_boot_stat_add(logbuf);
+					}
+#endif /* CONFIG_SEC_BOOTSTAT */
+				}
+#endif /* CONFIG_SEC_EXT */
+			}
+		}
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
+int exynos_ss_hook_pmsg(char *buffer, size_t count)
+{
+	ess_android_log_header_t header;
+	ess_pmsg_log_header_t pmsg_header;
+
+	if (!logger.buffer)
+		return -ENOMEM;
+
+	switch(count) {
+	case sizeof(pmsg_header):
+		memcpy((void *)&pmsg_header, buffer, count);
+		if (pmsg_header.magic != 'l') {
+			exynos_ss_combine_pmsg(buffer, count, ESS_LOGGER_LEVEL_TEXT);
+		} else {
+			/* save logger data */
+			logger.pid = pmsg_header.pid;
+			logger.uid = pmsg_header.uid;
+			logger.len = pmsg_header.len;
+		}
+		break;
+	case sizeof(header):
+		/* save logger data */
+		memcpy((void *)&header, buffer, count);
+		logger.id = header.id;
+		logger.tid = header.tid;
+		logger.tv_sec = header.tv_sec;
+		logger.tv_nsec  = header.tv_nsec;
+		if (logger.id < 0 || logger.id > 7) {
+			/* write string */
+			exynos_ss_combine_pmsg(buffer, count, ESS_LOGGER_LEVEL_TEXT);
+		} else {
+			/* write header */
+			exynos_ss_combine_pmsg(buffer, count, ESS_LOGGER_LEVEL_HEADER);
+		}
+		break;
+	case sizeof(unsigned char):
+		logger.msg[0] = buffer[0];
+		/* write char for prefix */
+		exynos_ss_combine_pmsg(buffer, count, ESS_LOGGER_LEVEL_PREFIX);
+		break;
+	default:
+		/* write string */
+		exynos_ss_combine_pmsg(buffer, count, ESS_LOGGER_LEVEL_TEXT);
+		break;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(exynos_ss_hook_pmsg);
+
+/*
+ *  To support pstore/pmsg/pstore_ram, following is implementation for exynos-snapshot
+ *  ess_ramoops platform_device is used by pstore fs.
+ */
+
+static struct ramoops_platform_data ess_ramoops_data = {
+	.record_size	= SZ_512K,
+	.console_size	= SZ_512K,
+	.ftrace_size	= SZ_512K,
+	.pmsg_size	= SZ_512K,
+	.dump_oops	= 1,
+};
+
+static struct platform_device ess_ramoops = {
+	.name = "ramoops",
+	.dev = {
+		.platform_data = &ess_ramoops_data,
+	},
+};
+
+static int __init ess_pstore_init(void)
+{
+	if (exynos_ss_get_enable("base") && exynos_ss_get_enable("log_pstore")) {
+		ess_ramoops_data.mem_size = exynos_ss_get_item_size("log_pstore");
+		ess_ramoops_data.mem_address = exynos_ss_get_item_paddr("log_pstore");
+	}
+	return platform_device_register(&ess_ramoops);
+}
+
+static void __exit ess_pstore_exit(void)
+{
+	platform_device_unregister(&ess_ramoops);
+}
+module_init(ess_pstore_init);
+module_exit(ess_pstore_exit);
+
+MODULE_DESCRIPTION("Exynos Snapshot pstore module");
+MODULE_LICENSE("GPL");
+#endif
+
 
 /*
  *  sysfs implementation for exynos-snapshot

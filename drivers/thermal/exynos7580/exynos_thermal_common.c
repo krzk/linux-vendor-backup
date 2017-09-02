@@ -39,6 +39,10 @@ struct exynos_thermal_zone {
 	bool bind;
 };
 
+#if defined(CONFIG_MALI_DEBUG_KERNEL_SYSFS)
+struct thermal_zone_device *gpu_thermal_device_ptr = NULL;
+#endif
+
 static DEFINE_MUTEX(thermal_suspend_lock);
 static bool suspended;
 
@@ -500,6 +504,14 @@ int exynos_register_thermal(struct thermal_sensor_conf *sensor_conf)
 	th_zone->mode = THERMAL_DEVICE_ENABLED;
 	sensor_conf->pzone_data = th_zone;
 
+#if defined(CONFIG_MALI_DEBUG_KERNEL_SYSFS)
+	if (sensor_conf->cooling_data.freq_clip_count > 0) {
+		if (sensor_conf->d_type == GPU) {
+			gpu_thermal_device_ptr = th_zone->therm_dev;
+		}
+	}
+#endif
+
 	if (sensor_conf->id == 0)
 		register_pm_notifier(&exynos_tmu_pm_notifier);
 
@@ -525,6 +537,12 @@ void exynos_unregister_thermal(struct thermal_sensor_conf *sensor_conf)
 	}
 
 	th_zone = sensor_conf->pzone_data;
+
+#if defined(CONFIG_MALI_DEBUG_KERNEL_SYSFS)
+	if (sensor_conf->d_type == GPU) {
+		gpu_thermal_device_ptr = NULL;
+	}
+#endif
 
 	if (th_zone->therm_dev)
 		thermal_zone_device_unregister(th_zone->therm_dev);

@@ -83,6 +83,7 @@ static struct clk	*rate_wdt_clock;
 static struct clk	*wdt_clock;
 static void __iomem	*wdt_base;
 static unsigned int	 wdt_count;
+static unsigned long	wdt_freq;
 static DEFINE_SPINLOCK(wdt_lock);
 
 #ifdef CONFIG_OF
@@ -183,7 +184,7 @@ static inline int s3c2410wdt_is_running(void)
 
 static int s3c2410wdt_set_min_max_timeout(struct watchdog_device *wdd)
 {
-	unsigned int freq = (unsigned int)clk_get_rate(rate_wdt_clock);
+	unsigned int freq = (unsigned int)wdt_freq;
 
 	if(freq == 0) {
 		dev_err(wdd->dev, "failed to get platdata\n");
@@ -199,7 +200,7 @@ static int s3c2410wdt_set_min_max_timeout(struct watchdog_device *wdd)
 
 static int s3c2410wdt_set_heartbeat(struct watchdog_device *wdd, unsigned timeout)
 {
-	unsigned int freq = (unsigned int)clk_get_rate(rate_wdt_clock);
+	unsigned int freq = (unsigned int)wdt_freq;
 	unsigned int count;
 	unsigned int divisor = 1;
 	unsigned long wtcon;
@@ -318,6 +319,16 @@ int s3c2410wdt_set_emergency_stop(void)
 	return 0;
 }
 
+int s3c2410wdt_keepalive_emergency(void)
+{
+	if (!s3c2410_wdd.dev)
+		return -ENODEV;
+
+	/* This Function must be called during panic sequence only */
+	writel(wdt_count, wdt_base + S3C2410_WTCNT);
+	return 0;
+}
+
 #ifdef CONFIG_EXYNOS_SNAPSHOT_WATCHDOG_RESET
 static int s3c2410wdt_panic_handler(struct notifier_block *nb,
 				   unsigned long l, void *buf)
@@ -333,8 +344,13 @@ static int s3c2410wdt_panic_handler(struct notifier_block *nb,
 		dev_emerg(wdt_dev, "watchdog reset is started on panic after 5secs\n");
 
 		/* set watchdog timer is started and  set by 5 seconds*/
-		s3c2410wdt_start(&s3c2410_wdd);
 		s3c2410wdt_set_heartbeat(&s3c2410_wdd, 5);
+		s3c2410wdt_start(&s3c2410_wdd);
+	} else {
+		/*
+		 * kick watchdog to prevent unexpected reset during panic sequence
+		 * and it prevents the hang during panic sequence by watchedog
+		 */
 		s3c2410wdt_keepalive(&s3c2410_wdd);
 	}
 
@@ -402,6 +418,7 @@ static int s3c2410wdt_probe(struct platform_device *pdev)
 	}
 
 	clk_prepare_enable(wdt_clock);
+	wdt_freq = clk_get_rate(wdt_clock);
 
 	/* Enable pmu watchdog reset control */
 	if (pdata != NULL && pdata->pmu_wdt_control != NULL) {
