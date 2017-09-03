@@ -162,7 +162,7 @@ static void sdcardfs_evict_inode(struct inode *inode)
 {
 	struct inode *lower_inode;
 
-	truncate_inode_pages_final(&inode->i_data);
+	truncate_inode_pages(&inode->i_data, 0);
 	clear_inode(inode);
 	/*
 	 * Decrement a reference to a lower_inode, which was incremented

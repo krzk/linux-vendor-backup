@@ -804,14 +804,16 @@ void nilfs_evict_inode(struct inode *inode)
 	int ret;
 
 	if (inode->i_nlink || !ii->i_root || unlikely(is_bad_inode(inode))) {
-		truncate_inode_pages_final(&inode->i_data);
+		if (inode->i_data.nrpages)
+			truncate_inode_pages(&inode->i_data, 0);
 		clear_inode(inode);
 		nilfs_clear_inode(inode);
 		return;
 	}
 	nilfs_transaction_begin(sb, &ti, 0); /* never fails */
 
-	truncate_inode_pages_final(&inode->i_data);
+	if (inode->i_data.nrpages)
+		truncate_inode_pages(&inode->i_data, 0);
 
 	/* TODO: some of the following operations may fail.  */
 	nilfs_truncate_bmap(ii, 0);

@@ -78,7 +78,8 @@ void ext2_evict_inode(struct inode * inode)
 		dquot_drop(inode);
 	}
 
-	truncate_inode_pages_final(&inode->i_data);
+	truncate_inode_pages(&inode->i_data, 0);
+
 	if (want_delete) {
 		sb_start_intwrite(inode->i_sb);
 		/* set dtime */

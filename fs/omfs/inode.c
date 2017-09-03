@@ -183,7 +183,7 @@ int omfs_sync_inode(struct inode *inode)
  */
 static void omfs_evict_inode(struct inode *inode)
 {
-	truncate_inode_pages_final(&inode->i_data);
+	truncate_inode_pages(&inode->i_data, 0);
 	clear_inode(inode);
 
 	if (inode->i_nlink)
