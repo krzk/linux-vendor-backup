@@ -135,7 +135,7 @@
  * =================================================================================================
  */
 
-#define FW_SUSPEND_RESUME
+/* #define FW_SUSPEND_RESUME */
 #define ENABLE_CLOCK_GATE
 #define HAS_FW_CLOCK_GATE
 /* #define ENABLE_CACHE */

@@ -271,6 +271,9 @@ int fimc_is_sensor_write8(struct i2c_client *client,
 int fimc_is_sensor_write16(struct i2c_client *client,
 	u16 addr, u16 val);
 
+int fimc_is_sensor_mclk_on(struct fimc_is_device_sensor *device, u32 scenario, u32 channel);
+int fimc_is_sensor_mclk_off(struct fimc_is_device_sensor *device, u32 scenario, u32 channel);
+
 #define CALL_MOPS(s, op, args...) (((s)->ops->op) ? ((s)->ops->op(args)) : 0)
 
 #endif

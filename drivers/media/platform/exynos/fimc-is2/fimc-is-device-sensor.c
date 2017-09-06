@@ -326,12 +326,10 @@ static int get_sensor_mode(struct fimc_is_sensor_cfg *cfg,
 	return mode;
 }
 
-static int fimc_is_sensor_mclk_on(struct fimc_is_device_sensor *device)
+int fimc_is_sensor_mclk_on(struct fimc_is_device_sensor *device, u32 scenario, u32 channel)
 {
 	int ret = 0;
 	struct exynos_platform_fimc_is_sensor *pdata;
-	struct exynos_platform_fimc_is_module *module_pdata;
-	struct fimc_is_module_enum *module = NULL;
 
 	BUG_ON(!device);
 	BUG_ON(!device->pdev);
@@ -350,15 +348,7 @@ static int fimc_is_sensor_mclk_on(struct fimc_is_device_sensor *device)
 		goto p_err;
 	}
 
-	ret = fimc_is_sensor_g_module(device, &module);
-	if (ret) {
-		merr("fimc_is_sensor_g_module is fail(%d)", device, ret);
-		goto p_err;
-	}
-
-	module_pdata = module->pdata;
-
-	ret = pdata->mclk_on(device->pdev, pdata->scenario, module_pdata->mclk_ch);
+	ret = pdata->mclk_on(device->pdev, scenario, channel);
 	if (ret) {
 		merr("mclk_on is fail(%d)", device, ret);
 		goto p_err;
@@ -370,12 +360,10 @@ p_err:
 	return ret;
 }
 
-int fimc_is_sensor_mclk_off(struct fimc_is_device_sensor *device)
+int fimc_is_sensor_mclk_off(struct fimc_is_device_sensor *device, u32 scenario, u32 channel)
 {
 	int ret = 0;
 	struct exynos_platform_fimc_is_sensor *pdata;
-	struct exynos_platform_fimc_is_module *module_pdata;
-	struct fimc_is_module_enum *module = NULL;
 
 	BUG_ON(!device);
 	BUG_ON(!device->pdev);
@@ -394,15 +382,7 @@ int fimc_is_sensor_mclk_off(struct fimc_is_device_sensor *device)
 		goto p_err;
 	}
 
-	ret = fimc_is_sensor_g_module(device, &module);
-	if (ret) {
-		merr("fimc_is_sensor_g_module is fail(%d)", device, ret);
-		goto p_err;
-	}
-
-	module_pdata = module->pdata;
-
-	ret = pdata->mclk_off(device->pdev, pdata->scenario, module_pdata->mclk_ch);
+	ret = pdata->mclk_off(device->pdev, scenario, channel);
 	if (ret) {
 		merr("mclk_off is fail(%d)", device, ret);
 		goto p_err;
@@ -1431,7 +1411,7 @@ int fimc_is_sensor_s_input(struct fimc_is_device_sensor *device,
 		pm_qos_add_request(&exynos_sensor_qos_mem, PM_QOS_BUS_THROUGHPUT, 632000);
 	}
 #endif
-	ret = fimc_is_sensor_mclk_on(device);
+	ret = fimc_is_sensor_mclk_on(device, device->pdata->scenario, module->pdata->mclk_ch);
 	if (ret) {
 		merr("fimc_is_sensor_mclk_on is fail(%d)", device, ret);
 		goto p_err;
@@ -2240,6 +2220,8 @@ int fimc_is_sensor_runtime_suspend(struct device *dev)
 	int ret = 0;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct fimc_is_device_sensor *device;
+	struct exynos_platform_fimc_is_module *module_pdata;
+	struct fimc_is_module_enum *module;
 	struct v4l2_subdev *subdev_csi;
 
 	BUG_ON(!pdev);
@@ -2271,7 +2253,15 @@ int fimc_is_sensor_runtime_suspend(struct device *dev)
 	if (ret)
 		mwarn("fimc_is_sensor_iclk_off is fail(%d)", device, ret);
 
-	ret = fimc_is_sensor_mclk_off(device);
+	ret = fimc_is_sensor_g_module(device, &module);
+	if (ret) {
+		merr("fimc_is_sensor_g_module is fail(%d)", device, ret);
+		goto p_err;
+	}
+
+	module_pdata = module->pdata;
+
+	ret = fimc_is_sensor_mclk_off(device, device->pdata->scenario, module_pdata->mclk_ch);
 	if (ret)
 		mwarn("fimc_is_sensor_mclk_off is fail(%d)", device, ret);
 
@@ -2293,6 +2283,7 @@ int fimc_is_sensor_runtime_suspend(struct device *dev)
 
 	clear_bit(FIMC_IS_SENSOR_POWER_ON, &device->state);
 
+p_err:
 	info("[SEN:D:%d] %s():%d\n", device->instance, __func__, ret);
 	return 0;
 }

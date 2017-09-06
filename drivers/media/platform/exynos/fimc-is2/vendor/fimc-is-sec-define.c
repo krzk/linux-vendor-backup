@@ -21,6 +21,9 @@
 #if defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR) || defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
 #include <linux/i2c.h>
 #include "fimc-is-device-eeprom.h"
+#if defined(CONFIG_CAMERA_OTPROM_SUPPORT_REAR) || defined(CONFIG_CAMERA_OTPROM_SUPPORT_FRONT)
+#include "fimc-is-device-sensor.h"
+#endif
 #endif
 bool crc32_fw_check = true;
 bool crc32_setfile_check = true;
@@ -1165,6 +1168,9 @@ int fimc_is_sec_rom_power_on(struct fimc_is_core *core, int position)
 	struct fimc_is_module_enum *module = NULL;
 	int sensor_id = 0;
 	int i = 0;
+#if defined(CONFIG_CAMERA_OTPROM_SUPPORT_REAR) || defined(CONFIG_CAMERA_OTPROM_SUPPORT_FRONT)
+	struct fimc_is_device_sensor *device_sensor;
+#endif
 
 	info("%s: Sensor position = %d.", __func__, position);
 
@@ -1175,8 +1181,12 @@ int fimc_is_sec_rom_power_on(struct fimc_is_core *core, int position)
 
 	for (i = 0; i < FIMC_IS_SENSOR_COUNT; i++) {
 		fimc_is_search_sensor_module(&core->sensor[i], sensor_id, &module);
-		if (module)
+		if (module) {
+#if defined(CONFIG_CAMERA_OTPROM_SUPPORT_REAR) || defined(CONFIG_CAMERA_OTPROM_SUPPORT_FRONT)
+			device_sensor = &core->sensor[i];
+#endif
 			break;
+		}
 	}
 
 	if (!module) {
@@ -1192,6 +1202,14 @@ int fimc_is_sec_rom_power_on(struct fimc_is_core *core, int position)
 		ret = -EINVAL;
 		goto p_err;
 	}
+
+#if defined(CONFIG_CAMERA_OTPROM_SUPPORT_REAR) || defined(CONFIG_CAMERA_OTPROM_SUPPORT_FRONT)
+	ret = fimc_is_sensor_mclk_on(device_sensor, GPIO_SCENARIO_ON, module_pdata->mclk_ch);
+	if (ret) {
+		err("mclk_on is fail(%d)", ret);
+		goto p_err;
+	}
+#endif
 
 	ret = module_pdata->gpio_cfg(module->pdev, SENSOR_SCENARIO_READ_ROM, GPIO_SCENARIO_ON);
 	if (ret) {
@@ -1210,6 +1228,9 @@ int fimc_is_sec_rom_power_off(struct fimc_is_core *core, int position)
 	struct fimc_is_module_enum *module = NULL;
 	int sensor_id = 0;
 	int i = 0;
+#if defined(CONFIG_CAMERA_OTPROM_SUPPORT_REAR) || defined(CONFIG_CAMERA_OTPROM_SUPPORT_FRONT)
+	struct fimc_is_device_sensor *device_sensor;
+#endif
 
 	info("%s: Sensor position = %d.", __func__, position);
 
@@ -1220,8 +1241,12 @@ int fimc_is_sec_rom_power_off(struct fimc_is_core *core, int position)
 
 	for (i = 0; i < FIMC_IS_SENSOR_COUNT; i++) {
 		fimc_is_search_sensor_module(&core->sensor[i], sensor_id, &module);
-		if (module)
+		if (module) {
+#if defined(CONFIG_CAMERA_OTPROM_SUPPORT_REAR) || defined(CONFIG_CAMERA_OTPROM_SUPPORT_FRONT)
+			device_sensor = &core->sensor[i];
+#endif
 			break;
+		};
 	}
 
 	if (!module) {
@@ -1243,6 +1268,13 @@ int fimc_is_sec_rom_power_off(struct fimc_is_core *core, int position)
 		err("gpio_cfg is fail(%d)", ret);
 		goto p_err;
 	}
+#if defined(CONFIG_CAMERA_OTPROM_SUPPORT_REAR) || defined(CONFIG_CAMERA_OTPROM_SUPPORT_FRONT)
+	ret = fimc_is_sensor_mclk_off(device_sensor, GPIO_SCENARIO_OFF, module_pdata->mclk_ch);
+	if (ret) {
+		err("mclk_on is fail(%d)", ret);
+		goto p_err;
+	}
+#endif
 
 p_err:
 	return ret;

@@ -801,15 +801,29 @@ static irqreturn_t jpeg_hx_irq(int irq, void *priv)
 			return IRQ_HANDLED;
 		default:
 			jpeg->irq_ret = ERR_UNKNOWN;
+			dev_err(&jpeg->plat_dev->dev,
+				"%s: Unexpected interrupt %#x\n",
+				__func__, int_status);
 			break;
 		}
 	} else {
 		jpeg->irq_ret = ERR_UNKNOWN;
 	}
 
-	if (jpeg->irq_ret !=  OK_ENC_OR_DEC) {
-		dev_err(&jpeg->plat_dev->dev, "%s: Error interrupt %#x\n",
+	if ((int_status & (1 << 4)) != 0) {
+		dev_err(&jpeg->plat_dev->dev,
+			"%s: Unexpected incomplete interrupt %#x\n",
 			__func__, int_status);
+		int_status = jpeg_hx_int_pending(jpeg);
+
+		if ((int_status & (1 << 11)) != 0)
+			jpeg->irq_ret = OK_ENC_OR_DEC;
+
+		jpeg_hx_clear_int_status(jpeg->reg_base, int_status);
+
+	}
+
+	if (jpeg->irq_ret !=  OK_ENC_OR_DEC) {
 		printk("dumping registers\n");
 		print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
 			jpeg->reg_base, 0x0280, false);

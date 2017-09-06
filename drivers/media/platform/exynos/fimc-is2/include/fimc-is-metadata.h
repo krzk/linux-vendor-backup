@@ -1498,6 +1498,7 @@ enum camera2_vt_mode {
 	VT_MODE_2,   /* qvga ~ vga*/
 	VT_MODE_3,   /* reserved : smart stay */
 	VT_MODE_4,   /* vga ~ hd  */
+	VT_MODE_5,   /* vga ~ hd 20Fps */
 };
 /** \brief
   User-defined control area.

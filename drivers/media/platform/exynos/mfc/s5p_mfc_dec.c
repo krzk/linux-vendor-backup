@@ -1727,6 +1727,12 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 		mfc_err_ctx("Call on QBUF after unrecoverable error.\n");
 		return -EIO;
 	}
+	
+
+	if (V4L2_TYPE_IS_MULTIPLANAR(buf->type) && !buf->length) {
+		mfc_err_ctx("multiplanar but length is zero\n");
+		return -EIO;
+	}
 
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		if (buf->m.planes[0].bytesused > ctx->vq_src.plane_sizes[0]) {
@@ -1787,7 +1793,13 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 		ret = vb2_dqbuf(&ctx->vq_src, buf, file->f_flags & O_NONBLOCK);
 	} else {
 		ret = vb2_dqbuf(&ctx->vq_dst, buf, file->f_flags & O_NONBLOCK);
+
 		/* Memcpy from dec->ref_info to shared memory */
+		if (buf->index >= MFC_MAX_DPBS) {
+			mfc_err_ctx("buffer index[%d] range over\n", buf->index);
+			return -EINVAL;
+		}
+
 		srcBuf = &dec->ref_info[buf->index];
 		for (ncount = 0; ncount < MFC_MAX_DPBS; ncount++) {
 			if (srcBuf->dpb[ncount].fd[0] == MFC_INFO_INIT_FD)
