@@ -9,7 +9,7 @@
  * published by the Free Software Foundation.
  */
 
-/memreserve/ 0xBE800000 0x1800000;       /* EL3 monitor, secure intepreter */
+/memreserve/ 0xBEE00000 0x1200000;       /* EL3 monitor, secure intepreter */
 /memreserve/ 0xB0000000 0x7800000;	/* CP memory(128MB) + AP-CP shared memory(8MB) */
 
 / {
