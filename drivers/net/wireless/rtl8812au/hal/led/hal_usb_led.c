@@ -3413,7 +3413,7 @@ SwLedControlMode10(
 			if (pLed->bLedWPSBlinkInProgress == _TRUE || pLed1->bLedWPSBlinkInProgress == _TRUE)
 				;
 			else {
-				if (pHalData->CurrentBandType == BAND_ON_2_4G)
+				if (pHalData->current_band_type == BAND_ON_2_4G)
 					/* LED0 settings */
 				{
 					pLed->CurrLedState = RTW_LED_ON;
@@ -3427,7 +3427,7 @@ SwLedControlMode10(
 					pLed1->CurrLedState = RTW_LED_OFF;
 					pLed1->BlinkingLedState = RTW_LED_OFF;
 					_set_timer(&(pLed1->BlinkTimer), 0);
-				} else if (pHalData->CurrentBandType == BAND_ON_5G)
+				} else if (pHalData->current_band_type == BAND_ON_5G)
 					/* LED1 settings */
 				{
 					pLed1->CurrLedState = RTW_LED_ON;
@@ -3523,7 +3523,7 @@ SwLedControlMode10(
 		break;
 
 	case LED_CTL_STOP_WPS:	/* WPS connect success */
-		if (pHalData->CurrentBandType == BAND_ON_2_4G)
+		if (pHalData->current_band_type == BAND_ON_2_4G)
 			/* LED0 settings */
 		{
 			pLed->bLedWPSBlinkInProgress = _FALSE;
@@ -3538,7 +3538,7 @@ SwLedControlMode10(
 			pLed1->CurrLedState = RTW_LED_OFF;
 			pLed1->BlinkingLedState = RTW_LED_OFF;
 			_set_timer(&(pLed1->BlinkTimer), 0);
-		} else if (pHalData->CurrentBandType == BAND_ON_5G)
+		} else if (pHalData->current_band_type == BAND_ON_5G)
 			/* LED1 settings */
 		{
 			pLed1->bLedWPSBlinkInProgress = _FALSE;
@@ -4267,7 +4267,7 @@ InitLed(
 	pLed->LedPin = LedPin;
 
 	ResetLedStatus(pLed);
-	_init_timer(&(pLed->BlinkTimer), padapter->pnetdev, BlinkTimerCallback, pLed);
+	rtw_init_timer(&(pLed->BlinkTimer), padapter, BlinkTimerCallback, pLed);
 	_init_workitem(&(pLed->BlinkWorkItem), BlinkWorkItemCallback, pLed);
 }
 
