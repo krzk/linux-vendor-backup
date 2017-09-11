@@ -322,6 +322,15 @@ static void nx_drm_postclose(struct drm_device *drm, struct drm_file *file)
 	spin_unlock_irqrestore(&drm->event_lock, flags);
 }
 
+static struct dma_buf *__drm_gem_prime_export(struct drm_device *drm,
+			struct drm_gem_object *obj, int flags)
+{
+	/* we want to be able to write in mmapped buffer */
+	flags |= O_RDWR;
+
+	return drm_gem_prime_export(drm, obj, flags);
+}
+
 static struct drm_driver nx_drm_driver = {
 	.driver_features = DRIVER_MODESET |
 		DRIVER_GEM | DRIVER_PRIME | DRIVER_ATOMIC,
@@ -338,8 +347,11 @@ static struct drm_driver nx_drm_driver = {
 	.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
 	.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
 	.gem_free_object = nx_drm_gem_free_object,
-	.gem_prime_export = nx_drm_gem_prime_export,
+	.gem_prime_export = __drm_gem_prime_export,
 	.gem_prime_import = drm_gem_prime_import,
+	.gem_prime_mmap	= nx_drm_gem_prime_mmap,
+	.gem_prime_vmap = nx_drm_gem_prime_vmap,
+	.gem_prime_vunmap = nx_drm_gem_prime_vunmap,
 	.gem_prime_get_sg_table = nx_drm_gem_prime_get_sg_table,
 	.gem_prime_import_sg_table = nx_drm_gem_prime_import_sg_table,
 	.dumb_create = nx_drm_gem_dumb_create,
