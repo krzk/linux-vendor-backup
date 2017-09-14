@@ -335,41 +335,15 @@ inline struct sk_buff *_rtw_pskb_copy(struct sk_buff *skb)
 
 inline int _rtw_netif_rx(_nic_hdl ndev, struct sk_buff *skb)
 {
-#if defined(PLATFORM_LINUX)
+#ifdef PLATFORM_LINUX
 	skb->dev = ndev;
 	return netif_rx(skb);
-#elif defined(PLATFORM_FREEBSD)
+#endif /* PLATFORM_LINUX */
+
+#ifdef PLATFORM_FREEBSD
 	return (*ndev->if_input)(ndev, skb);
-#else
-	rtw_warn_on(1);
-	return -1;
-#endif
+#endif /* PLATFORM_FREEBSD */
 }
-
-#ifdef CONFIG_RTW_NAPI
-inline int _rtw_netif_receive_skb(_nic_hdl ndev, struct sk_buff *skb)
-{
-#if defined(PLATFORM_LINUX)
-	skb->dev = ndev;
-	return netif_receive_skb(skb);
-#else
-	rtw_warn_on(1);
-	return -1;
-#endif
-}
-
-#ifdef CONFIG_RTW_GRO
-inline gro_result_t _rtw_napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
-{
-#if defined(PLATFORM_LINUX)
-	return napi_gro_receive(napi, skb);
-#else
-	rtw_warn_on(1);
-	return -1;
-#endif
-}
-#endif /* CONFIG_RTW_GRO */
-#endif /* CONFIG_RTW_NAPI */
 
 void _rtw_skb_queue_purge(struct sk_buff_head *list)
 {
@@ -776,48 +750,6 @@ inline int dbg_rtw_netif_rx(_nic_hdl ndev, struct sk_buff *skb, const enum mstat
 	return ret;
 }
 
-#ifdef CONFIG_RTW_NAPI
-inline int dbg_rtw_netif_receive_skb(_nic_hdl ndev, struct sk_buff *skb, const enum mstat_f flags, const char *func, int line)
-{
-	int ret;
-	unsigned int truesize = skb->truesize;
-
-	if (match_mstat_sniff_rules(flags, truesize))
-		RTW_INFO("DBG_MEM_ALLOC %s:%d %s, truesize=%u\n", func, line, __FUNCTION__, truesize);
-
-	ret = _rtw_netif_receive_skb(ndev, skb);
-
-	rtw_mstat_update(
-		flags
-		, MSTAT_FREE
-		, truesize
-	);
-
-	return ret;
-}
-
-#ifdef CONFIG_RTW_GRO
-inline gro_result_t dbg_rtw_napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb, const enum mstat_f flags, const char *func, int line)
-{
-	int ret;
-	unsigned int truesize = skb->truesize;
-
-	if (match_mstat_sniff_rules(flags, truesize))
-		RTW_INFO("DBG_MEM_ALLOC %s:%d %s, truesize=%u\n", func, line, __FUNCTION__, truesize);
-
-	ret = _rtw_napi_gro_receive(napi, skb);
-
-	rtw_mstat_update(
-		flags
-		, MSTAT_FREE
-		, truesize
-	);
-
-	return ret;
-}
-#endif /* CONFIG_RTW_GRO */
-#endif /* CONFIG_RTW_NAPI */
-
 inline void dbg_rtw_skb_queue_purge(struct sk_buff_head *list, enum mstat_f flags, const char *func, int line)
 {
 	struct sk_buff *skb;
@@ -1066,18 +998,18 @@ void rtw_list_insert_tail(_list *plist, _list *phead)
 
 }
 
-void rtw_init_timer(_timer *ptimer, void *padapter, void *pfunc, void *ctx)
+void rtw_init_timer(_timer *ptimer, void *padapter, void *pfunc)
 {
 	_adapter *adapter = (_adapter *)padapter;
 
 #ifdef PLATFORM_LINUX
-	_init_timer(ptimer, adapter->pnetdev, pfunc, ctx);
+	_init_timer(ptimer, adapter->pnetdev, pfunc, adapter);
 #endif
 #ifdef PLATFORM_FREEBSD
-	_init_timer(ptimer, adapter->pifp, pfunc, ctx);
+	_init_timer(ptimer, adapter->pifp, pfunc, adapter->mlmepriv.nic_hdl);
 #endif
 #ifdef PLATFORM_WINDOWS
-	_init_timer(ptimer, adapter->hndis_adapter, pfunc, ctx);
+	_init_timer(ptimer, adapter->hndis_adapter, pfunc, adapter->mlmepriv.nic_hdl);
 #endif
 }
 
@@ -1176,43 +1108,7 @@ u32 _rtw_down_sema(_sema *sema)
 #endif
 }
 
-inline void thread_exit(_completion *comp)
-{
-#ifdef PLATFORM_LINUX
-	complete_and_exit(comp, 0);
-#endif
 
-#ifdef PLATFORM_FREEBSD
-	printf("%s", "RTKTHREAD_exit");
-#endif
-
-#ifdef PLATFORM_OS_CE
-	ExitThread(STATUS_SUCCESS);
-#endif
-
-#ifdef PLATFORM_OS_XP
-	PsTerminateSystemThread(STATUS_SUCCESS);
-#endif
-}
-
-inline void _rtw_init_completion(_completion *comp)
-{
-#ifdef PLATFORM_LINUX
-	init_completion(comp);
-#endif
-}
-inline void _rtw_wait_for_comp_timeout(_completion *comp)
-{
-#ifdef PLATFORM_LINUX
-	wait_for_completion_timeout(comp, msecs_to_jiffies(3000));
-#endif
-}
-inline void _rtw_wait_for_comp(_completion *comp)
-{
-#ifdef PLATFORM_LINUX
-	wait_for_completion(comp);
-#endif
-}
 
 void	_rtw_mutex_init(_mutex *pmutex)
 {
@@ -1986,7 +1882,7 @@ inline int ATOMIC_DEC_RETURN(ATOMIC_T *v)
 * @param mode please refer to linux document
 * @return Linux specific error code
 */
-static int openFile(struct file **fpp, const char *path, int flag, int mode)
+static int openFile(struct file **fpp, char *path, int flag, int mode)
 {
 	struct file *fp;
 
@@ -2063,11 +1959,10 @@ static int writeFile(struct file *fp, char *buf, int len)
 
 /*
 * Test if the specifi @param path is a file and readable
-* If readable, @param sz is got
 * @param path the path of the file to test
 * @return Linux specific error code
 */
-static int isFileReadable(const char *path, u32 *sz)
+static int isFileReadable(char *path)
 {
 	struct file *fp;
 	int ret = 0;
@@ -2084,14 +1979,6 @@ static int isFileReadable(const char *path, u32 *sz)
 		if (1 != readFile(fp, &buf, 1))
 			ret = PTR_ERR(fp);
 
-		if (ret == 0 && sz) {
-			#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0))
-			*sz = i_size_read(fp->f_path.dentry->d_inode);
-			#else
-			*sz = i_size_read(fp->f_dentry->d_inode);
-			#endif
-		}
-
 		set_fs(oldfs);
 		filp_close(fp, NULL);
 	}
@@ -2105,7 +1992,7 @@ static int isFileReadable(const char *path, u32 *sz)
 * @param sz how many bytes to read at most
 * @return the byte we've read, or Linux specific error code
 */
-static int retriveFromFile(const char *path, u8 *buf, u32 sz)
+static int retriveFromFile(char *path, u8 *buf, u32 sz)
 {
 	int ret = -1;
 	mm_segment_t oldfs;
@@ -2140,7 +2027,7 @@ static int retriveFromFile(const char *path, u8 *buf, u32 sz)
 * @param sz how many bytes to write at most
 * @return the byte we've written, or Linux specific error code
 */
-static int storeToFile(const char *path, u8 *buf, u32 sz)
+static int storeToFile(char *path, u8 *buf, u32 sz)
 {
 	int ret = 0;
 	mm_segment_t oldfs;
@@ -2174,29 +2061,10 @@ static int storeToFile(const char *path, u8 *buf, u32 sz)
 * @param path the path of the file to test
 * @return _TRUE or _FALSE
 */
-int rtw_is_file_readable(const char *path)
+int rtw_is_file_readable(char *path)
 {
 #ifdef PLATFORM_LINUX
-	if (isFileReadable(path, NULL) == 0)
-		return _TRUE;
-	else
-		return _FALSE;
-#else
-	/* Todo... */
-	return _FALSE;
-#endif
-}
-
-/*
-* Test if the specifi @param path is a file and readable.
-* If readable, @param sz is got
-* @param path the path of the file to test
-* @return _TRUE or _FALSE
-*/
-int rtw_is_file_readable_with_size(const char *path, u32 *sz)
-{
-#ifdef PLATFORM_LINUX
-	if (isFileReadable(path, sz) == 0)
+	if (isFileReadable(path) == 0)
 		return _TRUE;
 	else
 		return _FALSE;
@@ -2213,7 +2081,7 @@ int rtw_is_file_readable_with_size(const char *path, u32 *sz)
 * @param sz how many bytes to read at most
 * @return the byte we've read
 */
-int rtw_retrieve_from_file(const char *path, u8 *buf, u32 sz)
+int rtw_retrieve_from_file(char *path, u8 *buf, u32 sz)
 {
 #ifdef PLATFORM_LINUX
 	int ret = retriveFromFile(path, buf, sz);
@@ -2231,7 +2099,7 @@ int rtw_retrieve_from_file(const char *path, u8 *buf, u32 sz)
 * @param sz how many bytes to write at most
 * @return the byte we've written
 */
-int rtw_store_to_file(const char *path, u8 *buf, u32 sz)
+int rtw_store_to_file(char *path, u8 *buf, u32 sz)
 {
 #ifdef PLATFORM_LINUX
 	int ret = storeToFile(path, buf, sz);
@@ -2309,19 +2177,20 @@ RETURN:
 	return;
 }
 
+/*
+* Jeff: this function should be called under ioctl (rtnl_lock is accquired) while
+* LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 26)
+*/
 int rtw_change_ifname(_adapter *padapter, const char *ifname)
 {
-	struct dvobj_priv *dvobj;
 	struct net_device *pnetdev;
 	struct net_device *cur_pnetdev;
 	struct rereg_nd_name_data *rereg_priv;
 	int ret;
-	u8 rtnl_lock_needed;
 
 	if (!padapter)
 		goto error;
 
-	dvobj = adapter_to_dvobj(padapter);
 	cur_pnetdev = padapter->pnetdev;
 	rereg_priv = &padapter->rereg_nd_name_priv;
 
@@ -2331,11 +2200,11 @@ int rtw_change_ifname(_adapter *padapter, const char *ifname)
 		rereg_priv->old_pnetdev = NULL;
 	}
 
-	rtnl_lock_needed = rtw_rtnl_lock_needed(dvobj);
-
-	if (rtnl_lock_needed)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26))
+	if (!rtnl_is_locked())
 		unregister_netdev(cur_pnetdev);
 	else
+#endif
 		unregister_netdevice(cur_pnetdev);
 
 	rereg_priv->old_pnetdev = cur_pnetdev;
@@ -2352,9 +2221,11 @@ int rtw_change_ifname(_adapter *padapter, const char *ifname)
 
 	_rtw_memcpy(pnetdev->dev_addr, adapter_mac_addr(padapter), ETH_ALEN);
 
-	if (rtnl_lock_needed)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26))
+	if (!rtnl_is_locked())
 		ret = register_netdev(pnetdev);
 	else
+#endif
 		ret = register_netdevice(pnetdev);
 
 	if (ret != 0) {
@@ -2720,57 +2591,6 @@ u8 map_read8(const struct map_t *map, u16 offset)
 
 exit:
 	return val;
-}
-
-/**
-* is_null -
-*
-* Return	TRUE if c is null character
-*		FALSE otherwise.
-*/
-inline BOOLEAN is_null(char c)
-{
-	if (c == '\0')
-		return _TRUE;
-	else
-		return _FALSE;
-}
-
-inline BOOLEAN is_all_null(char *c, int len)
-{
-	for (; len > 0; len--)
-		if (c[len - 1] != '\0')
-			return _FALSE;
-
-	return _TRUE;
-}
-
-/**
-* is_eol -
-*
-* Return	TRUE if c is represent for EOL (end of line)
-*		FALSE otherwise.
-*/
-inline BOOLEAN is_eol(char c)
-{
-	if (c == '\r' || c == '\n')
-		return _TRUE;
-	else
-		return _FALSE;
-}
-
-/**
-* is_space -
-*
-* Return	TRUE if c is represent for space
-*		FALSE otherwise.
-*/
-inline BOOLEAN is_space(char c)
-{
-	if (c == ' ' || c == '\t')
-		return _TRUE;
-	else
-		return _FALSE;
 }
 
 /**

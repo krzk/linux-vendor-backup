@@ -249,27 +249,82 @@ dm_InitGPIOSetting(
 static void Init_ODM_ComInfo_8812(PADAPTER	Adapter)
 {
 	PHAL_DATA_TYPE	pHalData = GET_HAL_DATA(Adapter);
-	struct PHY_DM_STRUCT		*pDM_Odm = &(pHalData->odmpriv);
+	PDM_ODM_T		pDM_Odm = &(pHalData->odmpriv);
+	u32 SupportAbility = 0;
 	u8	cut_ver, fab_ver;
 
 	Init_ODM_ComInfo(Adapter);
 
 	fab_ver = ODM_TSMC;
-	if (IS_A_CUT(pHalData->version_id))
+	if (IS_A_CUT(pHalData->VersionID))
 		cut_ver = ODM_CUT_A;
-	else if (IS_B_CUT(pHalData->version_id))
+	else if (IS_B_CUT(pHalData->VersionID))
 		cut_ver = ODM_CUT_B;
-	else if (IS_C_CUT(pHalData->version_id))
+	else if (IS_C_CUT(pHalData->VersionID))
 		cut_ver = ODM_CUT_C;
-	else if (IS_D_CUT(pHalData->version_id))
+	else if (IS_D_CUT(pHalData->VersionID))
 		cut_ver = ODM_CUT_D;
-	else if (IS_E_CUT(pHalData->version_id))
+	else if (IS_E_CUT(pHalData->VersionID))
 		cut_ver = ODM_CUT_E;
 	else
 		cut_ver = ODM_CUT_A;
 
-	odm_cmn_info_init(pDM_Odm, ODM_CMNINFO_FAB_VER, fab_ver);
-	odm_cmn_info_init(pDM_Odm, ODM_CMNINFO_CUT_VER, cut_ver);
+	ODM_CmnInfoInit(pDM_Odm, ODM_CMNINFO_FAB_VER, fab_ver);
+	ODM_CmnInfoInit(pDM_Odm, ODM_CMNINFO_CUT_VER, cut_ver);
+
+#ifdef CONFIG_DISABLE_ODM
+	SupportAbility = 0;
+#else
+	SupportAbility =	ODM_RF_CALIBRATION	|
+				ODM_RF_TX_PWR_TRACK
+				;
+#endif
+
+	ODM_CmnInfoUpdate(pDM_Odm, ODM_CMNINFO_ABILITY, SupportAbility);
+
+}
+static void Update_ODM_ComInfo_8812(PADAPTER	Adapter)
+{
+	PHAL_DATA_TYPE	pHalData = GET_HAL_DATA(Adapter);
+	PDM_ODM_T		pDM_Odm = &(pHalData->odmpriv);
+	u32 SupportAbility = 0;
+
+	SupportAbility = 0
+			 | ODM_BB_DIG
+			 | ODM_BB_RA_MASK
+			 | ODM_BB_FA_CNT
+			 | ODM_BB_RSSI_MONITOR
+			 | ODM_BB_CFO_TRACKING
+			 | ODM_RF_TX_PWR_TRACK
+			 | ODM_MAC_EDCA_TURBO
+			 | ODM_BB_NHM_CNT
+			 /*		| ODM_BB_PWR_TRAIN */
+			 ;
+
+	if (rtw_odm_adaptivity_needed(Adapter) == _TRUE) {
+		rtw_odm_adaptivity_config_msg(RTW_DBGDUMP, Adapter);
+		SupportAbility |= ODM_BB_ADAPTIVITY;
+	}
+
+#ifdef CONFIG_ANTENNA_DIVERSITY
+	if (pHalData->AntDivCfg)
+		SupportAbility |= ODM_BB_ANT_DIV;
+#endif
+
+#if (MP_DRIVER == 1)
+	if (Adapter->registrypriv.mp_mode == 1) {
+		SupportAbility = 0
+				 | ODM_RF_CALIBRATION
+				 | ODM_RF_TX_PWR_TRACK
+				 ;
+	}
+#endif/* (MP_DRIVER==1) */
+
+#ifdef CONFIG_DISABLE_ODM
+	SupportAbility = 0;
+#endif/* CONFIG_DISABLE_ODM */
+
+	ODM_CmnInfoUpdate(pDM_Odm, ODM_CMNINFO_ABILITY, SupportAbility);
 }
 
 void
@@ -278,13 +333,20 @@ rtl8812_InitHalDm(
 )
 {
 	PHAL_DATA_TYPE	pHalData = GET_HAL_DATA(Adapter);
-	struct PHY_DM_STRUCT		*pDM_Odm = &(pHalData->odmpriv);
+	PDM_ODM_T		pDM_Odm = &(pHalData->odmpriv);
+	u8	i;
 
 #ifdef CONFIG_USB_HCI
 	dm_InitGPIOSetting(Adapter);
 #endif
-	odm_dm_init(pDM_Odm);
+
+	pHalData->DM_Type = DM_Type_ByDriver;
+
+	Update_ODM_ComInfo_8812(Adapter);
+	ODM_DMInit(pDM_Odm);
+
 	/* Adapter->fix_rate = 0xFF; */
+
 }
 
 
@@ -296,7 +358,7 @@ rtl8812_HalDmWatchDog(
 	BOOLEAN		bFwCurrentInPSMode = _FALSE;
 	BOOLEAN		bFwPSAwake = _TRUE;
 	PHAL_DATA_TYPE	pHalData = GET_HAL_DATA(Adapter);
-	struct PHY_DM_STRUCT		*pDM_Odm = &(pHalData->odmpriv);
+	PDM_ODM_T		pDM_Odm = &(pHalData->odmpriv);
 
 
 	if (!rtw_is_hw_init_completed(Adapter))
@@ -344,7 +406,7 @@ rtl8812_HalDmWatchDog(
 		u8	bBtDisabled = _TRUE;
 
 #ifdef CONFIG_DISABLE_ODM
-		pHalData->odmpriv.support_ability = 0;
+		pHalData->odmpriv.SupportAbility = 0;
 #endif
 
 		if (rtw_mi_check_status(Adapter, MI_ASSOC)) {
@@ -353,15 +415,15 @@ rtl8812_HalDmWatchDog(
 				bsta_state = _TRUE;
 		}
 
-		odm_cmn_info_update(&pHalData->odmpriv , ODM_CMNINFO_LINK, bLinked);
-		odm_cmn_info_update(&pHalData->odmpriv , ODM_CMNINFO_STATION_STATE, bsta_state);
+		ODM_CmnInfoUpdate(&pHalData->odmpriv , ODM_CMNINFO_LINK, bLinked);
+		ODM_CmnInfoUpdate(&pHalData->odmpriv , ODM_CMNINFO_STATION_STATE, bsta_state);
 
 #ifdef CONFIG_BT_COEXIST
 		bBtDisabled = rtw_btcoex_IsBtDisabled(Adapter);
 #endif /* CONFIG_BT_COEXIST */
-		odm_cmn_info_update(&pHalData->odmpriv, ODM_CMNINFO_BT_ENABLED, ((bBtDisabled == _TRUE) ? _FALSE : _TRUE));
+		ODM_CmnInfoUpdate(&pHalData->odmpriv, ODM_CMNINFO_BT_ENABLED, ((bBtDisabled == _TRUE) ? _FALSE : _TRUE));
 
-		odm_dm_watchdog(&pHalData->odmpriv);
+		ODM_DMWatchdog(&pHalData->odmpriv);
 
 	}
 
@@ -378,7 +440,7 @@ skip_dm:
 void rtl8812_init_dm_priv(IN PADAPTER Adapter)
 {
 	PHAL_DATA_TYPE	pHalData = GET_HAL_DATA(Adapter);
-	struct PHY_DM_STRUCT		*podmpriv = &pHalData->odmpriv;
+	PDM_ODM_T		podmpriv = &pHalData->odmpriv;
 
 	/* _rtw_spinlock_init(&(pHalData->odm_stainfo_lock)); */
 
@@ -394,13 +456,13 @@ void rtl8812_init_dm_priv(IN PADAPTER Adapter)
 #endif
 
 	Init_ODM_ComInfo_8812(Adapter);
-	odm_init_all_timers(podmpriv);
+	ODM_InitAllTimers(podmpriv);
 }
 
 void rtl8812_deinit_dm_priv(IN PADAPTER Adapter)
 {
 	PHAL_DATA_TYPE	pHalData = GET_HAL_DATA(Adapter);
-	struct PHY_DM_STRUCT		*podmpriv = &pHalData->odmpriv;
+	PDM_ODM_T		podmpriv = &pHalData->odmpriv;
 	/* _rtw_spinlock_free(&pHalData->odm_stainfo_lock); */
-	odm_cancel_all_timers(podmpriv);
+	ODM_CancelAllTimers(podmpriv);
 }
