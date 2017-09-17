@@ -112,7 +112,7 @@ struct cpufreq_interactive_tunables {
 	 * The sample rate of the timer used to increase frequency
 	 */
 	unsigned long timer_rate;
-	unsigned long preg_timer_rate;
+	unsigned long prev_timer_rate;
 	/*
 	 * Wait this long before raising speed above hispeed, by default a
 	 * single timer interval.
