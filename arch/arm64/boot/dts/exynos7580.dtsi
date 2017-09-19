@@ -1112,7 +1112,7 @@
 			"d_pclk_disp", "pclk_decon0", "mif_pll";
 
 		ip_ver = <4>;
-		max_win = <3>;
+		max_win = <7>;
 		n_sink_pad = <3>;
 		n_src_pad = <1>;
 		default_win = <0>;
