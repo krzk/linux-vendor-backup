@@ -78,6 +78,7 @@ static bool arch_counter_suspend_stop;
 static bool vdso_default = true;
 
 static bool evtstrm_enable = IS_ENABLED(CONFIG_ARM_ARCH_TIMER_EVTSTREAM);
+static bool mct_enable = IS_ENABLED(CONFIG_CLKSRC_EXYNOS_MCT);
 
 static int __init early_evtstrm_cfg(char *buf)
 {
@@ -1018,12 +1019,25 @@ static int __init arch_timer_register(void)
 		goto out_unreg_notify;
 
 
-	/* Register and immediately configure the timer on the boot CPU */
-	err = cpuhp_setup_state(CPUHP_AP_ARM_ARCH_TIMER_STARTING,
-				"clockevents/arm/arch_timer:starting",
-				arch_timer_starting_cpu, arch_timer_dying_cpu);
-	if (err)
-		goto out_unreg_cpupm;
+	if (mct_enable) {
+		/*
+		 * FIXME: The arm64 architecture enables the arm_arch_timer always
+		 * even if arm_arch_timer is not stable. When Exynos5433 uses the
+		 * arm_arch_timer, it fails to enable/disble the secondary cpu.
+		 * To fix the hotplug issue of secondary cpu, if Exynos's MCT timer
+		 * is enabled, arm_arch_timer doesn't register the clockevent
+		 * for Per-CPU.
+		 */
+		return 0;
+	} else {
+		/* Register and immediately configure the timer on the boot CPU */
+		err = cpuhp_setup_state(CPUHP_AP_ARM_ARCH_TIMER_STARTING,
+					"clockevents/arm/arch_timer:starting",
+					arch_timer_starting_cpu, arch_timer_dying_cpu);
+		if (err)
+			goto out_unreg_cpupm;
+	}
+
 	return 0;
 
 out_unreg_cpupm:
