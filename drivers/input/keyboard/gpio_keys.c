@@ -454,6 +454,14 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 	} else if ((button->code == KEY_HOMEPAGE)) {
 		printk(KERN_INFO "GPIO-KEY : HOME key is %s[%d]\n",
 					state ? "pressed" : "released", irqd_is_wakeup_set(&desc->irq_data));
+        	printk(KERN_INFO "GPIO-KEY: Sending KEY_WAKEUP (%s)", state ? "pressed" : "released");
+		if (state > 0) {
+			input_report_key(input, KEY_WAKEUP, 1);
+			input_sync(input);
+        	} else {
+			input_report_key(input, KEY_WAKEUP, 0);
+			input_sync(input);
+		}
 	} else if ((button->code == KEY_VOLUMEUP)) {
 		printk(KERN_INFO "GPIO-KEY : VOL_UP key is %s[%d]\n",
 					state ? "pressed" : "released", irqd_is_wakeup_set(&desc->irq_data));
@@ -966,6 +974,8 @@ static int gpio_keys_probe(struct platform_device *pdev)
 		dev_info(dev, "%s(%d) , gpio_val(%d)",
 			code_name ? code_name : "", bdata->button->code, gpio_get_value(bdata->button->gpio));
 	}
+
+	set_bit(KEY_WAKEUP, input->keybit);
 
 	return 0;
 
