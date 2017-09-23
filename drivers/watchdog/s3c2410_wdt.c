@@ -66,7 +66,7 @@
 #define S3C2410_WTCON_PRESCALE_MAX	0xff
 
 #define CONFIG_S3C2410_WATCHDOG_ATBOOT		(0)
-#define CONFIG_S3C2410_WATCHDOG_DEFAULT_TIME	(15)
+#define CONFIG_S3C2410_WATCHDOG_DEFAULT_TIME	(30)
 
 #define EXYNOS5_RST_STAT_REG_OFFSET		0x0404
 #define EXYNOS5_WDT_DISABLE_REG_OFFSET		0x0408
@@ -80,7 +80,7 @@
 						 QUIRK_HAS_RST_STAT)
 
 static bool nowayout	= WATCHDOG_NOWAYOUT;
-static int tmr_margin;
+static int tmr_margin	= CONFIG_S3C2410_WATCHDOG_DEFAULT_TIME;
 static int tmr_atboot	= CONFIG_S3C2410_WATCHDOG_ATBOOT;
 static int soft_noboot;
 static int debug;
@@ -770,7 +770,17 @@ static struct platform_driver s3c2410wdt_driver = {
 	},
 };
 
-module_platform_driver(s3c2410wdt_driver);
+static int __init s3c2410_wdt_init(void)
+{
+	return platform_driver_register(&s3c2410wdt_driver);
+}
+subsys_initcall(s3c2410_wdt_init);
+
+static void __exit s3c2410_wdt_exit(void)
+{
+	platform_driver_unregister(&s3c2410wdt_driver);
+}
+module_exit(s3c2410_wdt_exit);
 
 MODULE_AUTHOR("Ben Dooks <ben@simtec.co.uk>, "
 	      "Dimitry Andric <dimitry.andric@tomtom.com>");
