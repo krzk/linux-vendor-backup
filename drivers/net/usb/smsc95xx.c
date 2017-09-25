@@ -1313,7 +1313,9 @@ static const struct net_device_ops smsc95xx_netdev_ops = {
 	.ndo_do_ioctl 		= smsc95xx_ioctl,
 	.ndo_set_rx_mode	= smsc95xx_set_multicast,
 	.ndo_set_features	= smsc95xx_set_features,
+#ifdef CONFIG_NET_POLL_CONTROLLER
         .ndo_poll_controller    = smsc95xx_netconsole,
+#endif
 };
 
 static int smsc95xx_bind(struct usbnet *dev, struct usb_interface *intf)
