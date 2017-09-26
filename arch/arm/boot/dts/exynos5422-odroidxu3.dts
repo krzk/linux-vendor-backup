@@ -31,6 +31,10 @@
 		};
 	};
 
+	watchdog {
+		status = "okay";
+	};
+
 	rtc {
 		status = "okay";
 	};
