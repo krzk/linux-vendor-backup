@@ -4230,7 +4230,9 @@ static const struct net_device_ops rtl8152_netdev_ops = {
 	.ndo_change_mtu		= rtl8152_change_mtu,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_features_check	= rtl8152_features_check,
+#ifdef CONFIG_NET_POLL_CONTROLLER
 	.ndo_poll_controller = rtl8152_fake_poll,
+#endif
 };
 
 static void r8152b_get_version(struct r8152 *tp)
