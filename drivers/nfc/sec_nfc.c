@@ -863,7 +863,7 @@ err_pdata:
 	return ret;
 }
 
-static int __devexit __sec_nfc_remove(struct device *dev)
+static int __sec_nfc_remove(struct device *dev)
 {
 	struct sec_nfc_info *info = dev_get_drvdata(dev);
 	struct sec_nfc_platform_data *pdata = info->pdata;

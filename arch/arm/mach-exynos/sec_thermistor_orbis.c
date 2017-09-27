@@ -371,7 +371,7 @@ static inline void sec_therm_slp_mon_enable(struct sec_therm_info *info) { }
 static inline void sec_therm_slp_mon_disable(void) { }
 #endif
 
-static __init int sec_therm_probe(struct platform_device *pdev)
+static __devinit int sec_therm_probe(struct platform_device *pdev)
 {
 	struct sec_therm_info *info;
 	struct sec_therm_adc_info *adc_list;

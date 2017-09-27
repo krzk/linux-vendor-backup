@@ -242,7 +242,7 @@ extern int dma_declare_contiguous(struct device *dev, unsigned long size,
 
 extern void __init exynos3_universal3250_gpio_init(void);
 
-static inline void exynos_reserve_mem(void)
+static inline void __init exynos_reserve_mem(void)
 {
 #ifndef CONFIG_ARM_DMA_USE_IOMMU
 	if (dma_declare_contiguous(&exynos_drm_device.dev,

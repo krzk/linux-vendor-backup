@@ -733,7 +733,7 @@ int needed_cpu_online(unsigned int cpu_load[], unsigned int cpu_freq_mhz)
 extern int hardkey_boosting;
 #endif
 
-static void cpu_sim_hotplug_work(struct work_struct *work)
+static void __ref cpu_sim_hotplug_work(struct work_struct *work)
 {
 #if defined(HARD_KEY_BOOSTER)
 	if (hardkey_boosting)

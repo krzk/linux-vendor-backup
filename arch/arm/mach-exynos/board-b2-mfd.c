@@ -187,7 +187,7 @@ static int enable_mode[] = {
 };
 #endif /* CONFIG_REGULATOR_MAX77836 */
 
-static struct max14577_platform_data b2_mfd_pdata = {
+static struct max14577_platform_data __initdata b2_mfd_pdata = {
 	.irq_base		= IRQ_BOARD_IFIC_START,
 	.irq_gpio		= GPIO_IF_PMIC_IRQ,
 	.wakeup			= true,
