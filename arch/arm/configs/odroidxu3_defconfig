@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 4.9.44 Kernel Configuration
+# Linux/arm 4.9.54 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_ARM_HAS_SG_CHAIN=y
@@ -3892,8 +3892,8 @@ CONFIG_HID_GENERIC=y
 #
 CONFIG_HID_A4TECH=m
 # CONFIG_HID_ACRUX is not set
-# CONFIG_HID_APPLE is not set
-# CONFIG_HID_APPLEIR is not set
+CONFIG_HID_APPLE=m
+CONFIG_HID_APPLEIR=m
 # CONFIG_HID_AUREAL is not set
 CONFIG_HID_BELKIN=m
 # CONFIG_HID_BETOP_FF is not set
