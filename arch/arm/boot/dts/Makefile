@@ -789,8 +789,13 @@ dtb-$(CONFIG_ARCH_S5P4418) += \
 	s5p4418-artik533-compy.dtb
 endif
 
+ifeq ($(CONFIG_ARCH_S5P4418),y)
+	DTC_FLAGS	?= -@ -H epapr
+endif
+
 dtstree		:= $(srctree)/$(src)
 dtb-$(CONFIG_OF_ALL_DTBS) := $(patsubst $(dtstree)/%.dts,%.dtb, $(wildcard $(dtstree)/*.dts))
 
 always		:= $(dtb-y)
 clean-files	:= *.dtb
+subdir-y	:= overlays
