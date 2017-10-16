@@ -40,10 +40,12 @@ Provides: linux-kernel = %{KERNEL_VERSION}
 %files -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}
 /boot/kernel/mod_%{MODEL}
 /boot/kernel/kernel-%{MODEL}/zImage
+/boot/kernel/kernel-%{MODEL}/zImage-recovery
 
 %post -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}
 mv /boot/kernel/mod_%{MODEL}/lib/modules/* /lib/modules/.
 mv /boot/kernel/kernel-%{MODEL}/zImage /boot/kernel/.
+mv /boot/kernel/kernel-%{MODEL}/zImage-recovery /boot/kernel/.
 
 %description -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}
 This package provides the %{CHIPSET}_eur linux kernel image & module.img.
@@ -100,6 +102,7 @@ make distclean
 ./release_obs.sh %{MODEL}
 
 cp -f arch/arm/boot/zImage %{_builddir}/zImage.%{MODEL}
+cp -f arch/arm/boot/zImage %{_builddir}/zImage-recovery.%{MODEL}
 cp -f System.map %{_builddir}/System.map.%{MODEL}
 cp -f .config %{_builddir}/config.%{MODEL}
 cp -f vmlinux %{_builddir}/vmlinux.%{MODEL}
@@ -151,6 +154,7 @@ mkdir -p %{buildroot}/boot/kernel/license-%{MODEL}
 mv %_builddir/mod_%{MODEL} %{buildroot}/boot/kernel/mod_%{MODEL}
 
 mv %_builddir/zImage.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/zImage
+mv %_builddir/zImage-recovery.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/zImage-recovery
 
 mv %_builddir/System.map.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/System.map
 mv %_builddir/config.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/config
