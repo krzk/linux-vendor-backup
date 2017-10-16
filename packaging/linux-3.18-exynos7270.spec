@@ -99,6 +99,7 @@ mv uapi-headers/usr %{buildroot}/
 mkdir -p %{buildroot}/boot/kernel/devel
 
 cp -f arch/arm64/boot/dzImage  %{buildroot}/boot/kernel/dzImage
+cp -f arch/arm64/boot/dzImage  %{buildroot}/boot/kernel/dzImage-recovery
 cp -f arch/arm64/boot/merged-dtb  %{buildroot}/boot/kernel/merged-dtb
 cp -f arch/arm64/boot/Image  %{buildroot}/boot/kernel/Image
 cp -f System.map  %{buildroot}/boot/kernel/System.map
@@ -139,6 +140,7 @@ mv %{buildroot}/COPYING %{_builddir}/%{name}-%{version}/
 %files -n linux-%{CHIPSET}-%{MODEL}
 %license COPYING
 /boot/kernel/dzImage
+/boot/kernel/dzImage-recovery
 
 %files -n linux-%{CHIPSET}-%{MODEL}-debuginfo
 /boot/kernel/config
