@@ -40,6 +40,7 @@
 #include <linux/component.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
+#include <linux/extcon-provider.h>
 #include <sound/hdmi-codec.h>
 #include <drm/exynos_drm.h>
 
@@ -127,6 +128,7 @@ struct hdmi_context {
 	struct delayed_work		hotplug_work;
 	struct cec_notifier		*notifier;
 	const struct hdmi_driver_data	*drv_data;
+	struct extcon_dev		*edev;
 
 	void __iomem			*regs;
 	void __iomem			*regs_hdmiphy;
@@ -147,6 +149,11 @@ struct hdmi_context {
 	struct mutex			mutex;
 	struct hdmi_audio		audio;
 	bool				powered;
+};
+
+static const unsigned int extcon_cable_list[] = {
+	EXTCON_DISP_HDMI,
+	EXTCON_NONE,
 };
 
 static inline struct hdmi_context *encoder_to_hdmi(struct drm_encoder *e)
@@ -1637,11 +1644,28 @@ static int hdmi_register_audio_device(struct hdmi_context *hdata)
 	return PTR_ERR_OR_ZERO(hdata->audio.pdev);
 }
 
+static void hdmi_extcon_notify(struct hdmi_context *hdata)
+{
+	enum drm_connector_status plug;
+
+	if (!hdata->edev)
+		return;
+
+	plug = hdmi_detect(&hdata->connector, false);
+
+	if (plug == connector_status_connected)
+		extcon_set_state_sync(hdata->edev, EXTCON_DISP_HDMI, true);
+	else if (plug == connector_status_disconnected)
+		extcon_set_state_sync(hdata->edev, EXTCON_DISP_HDMI, false);
+}
+
 static void hdmi_hotplug_work_func(struct work_struct *work)
 {
 	struct hdmi_context *hdata;
 
 	hdata = container_of(work, struct hdmi_context, hotplug_work.work);
+
+	hdmi_extcon_notify(hdata);
 
 	if (hdata->drm_dev)
 		drm_helper_hpd_irq_event(hdata->drm_dev);
@@ -1928,6 +1952,25 @@ out:
 	return ret;
 }
 
+static int hdmi_extcon_init(struct hdmi_context *hdata)
+{
+	struct device *dev = hdata->dev;
+	struct extcon_dev *edev;
+	int ret;
+
+	edev = devm_extcon_dev_allocate(dev, extcon_cable_list);
+	if (IS_ERR(edev))
+		return PTR_ERR(edev);
+
+	ret = devm_extcon_dev_register(dev, edev);
+	if (ret)
+		return ret;
+
+	hdata->edev = edev;
+
+	return 0;
+}
+
 static int hdmi_probe(struct platform_device *pdev)
 {
 	struct hdmi_audio_infoframe *audio_infoframe;
@@ -1961,6 +2004,10 @@ static int hdmi_probe(struct platform_device *pdev)
 		ret = PTR_ERR(hdata->regs);
 		return ret;
 	}
+
+	ret = hdmi_extcon_init(hdata);
+	if (ret)
+		DRM_INFO("extcon notify won't be supported due to init. fail");
 
 	ret = hdmi_get_ddc_adapter(hdata);
 	if (ret)
