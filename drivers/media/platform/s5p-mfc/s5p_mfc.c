@@ -755,6 +755,7 @@ static int s5p_mfc_open(struct file *file)
 	struct s5p_mfc_dev *dev = video_drvdata(file);
 	struct s5p_mfc_ctx *ctx = NULL;
 	struct vb2_queue *q;
+	unsigned int io_modes;
 	int ret = 0;
 
 	mfc_debug_enter();
@@ -840,16 +841,25 @@ static int s5p_mfc_open(struct file *file)
 		if (ret)
 			goto err_init_hw;
 	}
+
+	io_modes = VB2_MMAP;
+	if (exynos_is_iommu_available(&dev->plat_dev->dev) || !IS_TWOPORT(dev))
+		io_modes |= VB2_USERPTR | VB2_DMABUF;
+
 	/* Init videobuf2 queue for CAPTURE */
 	q = &ctx->vq_dst;
 	q->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+	q->io_modes = io_modes;
+	/*
+	 * Destination buffers are always bidirectional, they use used as
+	 * reference data, which require READ access
+	 */
+	q->bidirectional = true;
 	q->drv_priv = &ctx->fh;
 	q->lock = &dev->mfc_mutex;
 	if (vdev == dev->vfd_dec) {
-		q->io_modes = VB2_MMAP;
 		q->ops = get_dec_queue_ops();
 	} else if (vdev == dev->vfd_enc) {
-		q->io_modes = VB2_MMAP | VB2_USERPTR;
 		q->ops = get_enc_queue_ops();
 	} else {
 		ret = -ENOENT;
@@ -870,13 +880,18 @@ static int s5p_mfc_open(struct file *file)
 	/* Init videobuf2 queue for OUTPUT */
 	q = &ctx->vq_src;
 	q->type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+	q->io_modes = io_modes;
+	/*
+	 * MFV v5 performs write operations on source data, so make queue
+	 * bidirectional to avoid IOMMU protection fault.
+	 */
+	if (!IS_MFCV6_PLUS(dev))
+		q->bidirectional = true;
 	q->drv_priv = &ctx->fh;
 	q->lock = &dev->mfc_mutex;
 	if (vdev == dev->vfd_dec) {
-		q->io_modes = VB2_MMAP;
 		q->ops = get_dec_queue_ops();
 	} else if (vdev == dev->vfd_enc) {
-		q->io_modes = VB2_MMAP | VB2_USERPTR;
 		q->ops = get_enc_queue_ops();
 	} else {
 		ret = -ENOENT;

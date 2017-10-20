@@ -546,14 +546,27 @@ static int reqbufs_capture(struct s5p_mfc_dev *dev, struct s5p_mfc_ctx *ctx,
 			goto out;
 		}
 
-		WARN_ON(ctx->dst_bufs_cnt != ctx->total_dpb_count);
-		ctx->capture_state = QUEUE_BUFS_MMAPED;
+		if (reqbufs->memory == V4L2_MEMORY_MMAP) {
+			if (ctx->dst_bufs_cnt == ctx->total_dpb_count) {
+				ctx->capture_state = QUEUE_BUFS_MMAPED;
+			} else {
+				mfc_err("Not all buffers passed to buf_init\n");
+				reqbufs->count = 0;
+				ret = vb2_reqbufs(&ctx->vq_dst, reqbufs);
+				s5p_mfc_hw_call(dev->mfc_ops,
+						release_codec_buffers, ctx);
+				ret = -ENOMEM;
+				goto out;
+			}
+		}
 
 		if (s5p_mfc_ctx_ready(ctx))
 			set_work_bit_irqsave(ctx);
 		s5p_mfc_hw_call(dev->mfc_ops, try_run, dev);
-		s5p_mfc_wait_for_done_ctx(ctx, S5P_MFC_R2H_CMD_INIT_BUFFERS_RET,
-					  0);
+		if (reqbufs->memory == V4L2_MEMORY_MMAP) {
+			s5p_mfc_wait_for_done_ctx(ctx,
+					 S5P_MFC_R2H_CMD_INIT_BUFFERS_RET, 0);
+		}
 	} else {
 		mfc_err("Buffers have already been requested\n");
 		ret = -EINVAL;
@@ -571,15 +584,19 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 {
 	struct s5p_mfc_dev *dev = video_drvdata(file);
 	struct s5p_mfc_ctx *ctx = fh_to_ctx(priv);
-
-	if (reqbufs->memory != V4L2_MEMORY_MMAP) {
-		mfc_debug(2, "Only V4L2_MEMORY_MMAP is supported\n");
-		return -EINVAL;
-	}
+	int ret;
 
 	if (reqbufs->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		ret = vb2_verify_memory_type(&ctx->vq_src, reqbufs->memory,
+					     reqbufs->type);
+		if (ret)
+			return ret;
 		return reqbufs_output(dev, ctx, reqbufs);
 	} else if (reqbufs->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		ret = vb2_verify_memory_type(&ctx->vq_dst, reqbufs->memory,
+					     reqbufs->type);
+		if (ret)
+			return ret;
 		return reqbufs_capture(dev, ctx, reqbufs);
 	} else {
 		mfc_err("Invalid type requested\n");
@@ -595,16 +612,20 @@ static int vidioc_querybuf(struct file *file, void *priv,
 	int ret;
 	int i;
 
-	if (buf->memory != V4L2_MEMORY_MMAP) {
-		mfc_err("Only mmaped buffers can be used\n");
-		return -EINVAL;
-	}
 	mfc_debug(2, "State: %d, buf->type: %d\n", ctx->state, buf->type);
 	if (ctx->state == MFCINST_GOT_INST &&
 			buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		ret = vb2_verify_memory_type(&ctx->vq_src, buf->memory,
+					     buf->type);
+		if (ret)
+			return ret;
 		ret = vb2_querybuf(&ctx->vq_src, buf);
 	} else if (ctx->state == MFCINST_RUNNING &&
 			buf->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		ret = vb2_verify_memory_type(&ctx->vq_dst, buf->memory,
+					     buf->type);
+		if (ret)
+			return ret;
 		ret = vb2_querybuf(&ctx->vq_dst, buf);
 		for (i = 0; i < buf->length; i++)
 			buf->m.planes[i].m.mem_offset += DST_QUEUE_OFF_BASE;
@@ -935,10 +956,12 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 		else
 			alloc_devs[0] = ctx->dev->mem_dev[BANK_R_CTX];
 		alloc_devs[1] = ctx->dev->mem_dev[BANK_L_CTX];
+		memset(ctx->dst_bufs, 0, sizeof(ctx->dst_bufs));
 	} else if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
 		   ctx->state == MFCINST_INIT) {
 		psize[0] = ctx->dec_src_buf_size;
 		alloc_devs[0] = ctx->dev->mem_dev[BANK_L_CTX];
+		memset(ctx->src_bufs, 0, sizeof(ctx->src_bufs));
 	} else {
 		mfc_err("This video node is dedicated to decoding. Decoding not initialized\n");
 		return -EINVAL;
@@ -954,30 +977,35 @@ static int s5p_mfc_buf_init(struct vb2_buffer *vb)
 	unsigned int i;
 
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		dma_addr_t luma, chroma;
+
 		if (ctx->capture_state == QUEUE_BUFS_MMAPED)
 			return 0;
-		for (i = 0; i < ctx->dst_fmt->num_planes; i++) {
-			if (IS_ERR_OR_NULL(ERR_PTR(
-					vb2_dma_contig_plane_dma_addr(vb, i)))) {
-				mfc_err("Plane mem not allocated\n");
-				return -EINVAL;
-			}
-		}
-		if (vb2_plane_size(vb, 0) < ctx->luma_size ||
-			vb2_plane_size(vb, 1) < ctx->chroma_size) {
-			mfc_err("Plane buffer (CAPTURE) is too small\n");
+
+		luma = vb2_dma_contig_plane_dma_addr(vb, 0);
+		chroma = vb2_dma_contig_plane_dma_addr(vb, 1);
+		if (!luma || !chroma) {
+			mfc_err("Plane mem not allocated\n");
 			return -EINVAL;
 		}
+
 		i = vb->index;
+		if ((ctx->dst_bufs[i].cookie.raw.luma &&
+		     ctx->dst_bufs[i].cookie.raw.luma != luma) ||
+		    (ctx->dst_bufs[i].cookie.raw.chroma &&
+		     ctx->dst_bufs[i].cookie.raw.chroma != chroma)) {
+			mfc_err("Changing CAPTURE buffer address during straming is not possible\n");
+			return -EINVAL;
+		}
+
 		ctx->dst_bufs[i].b = vbuf;
-		ctx->dst_bufs[i].cookie.raw.luma =
-					vb2_dma_contig_plane_dma_addr(vb, 0);
-		ctx->dst_bufs[i].cookie.raw.chroma =
-					vb2_dma_contig_plane_dma_addr(vb, 1);
+		ctx->dst_bufs[i].cookie.raw.luma = luma;
+		ctx->dst_bufs[i].cookie.raw.chroma = chroma;
 		ctx->dst_bufs_cnt++;
 	} else if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		if (IS_ERR_OR_NULL(ERR_PTR(
-					vb2_dma_contig_plane_dma_addr(vb, 0)))) {
+		dma_addr_t stream = vb2_dma_contig_plane_dma_addr(vb, 0);
+
+		if (!stream) {
 			mfc_err("Plane memory not allocated\n");
 			return -EINVAL;
 		}
@@ -987,9 +1015,14 @@ static int s5p_mfc_buf_init(struct vb2_buffer *vb)
 		}
 
 		i = vb->index;
+		if (ctx->src_bufs[i].cookie.stream &&
+		     ctx->src_bufs[i].cookie.stream != stream) {
+			mfc_err("Changing OUTPUT buffer address during straming is not possible\n");
+			return -EINVAL;
+		}
+
 		ctx->src_bufs[i].b = vbuf;
-		ctx->src_bufs[i].cookie.stream =
-					vb2_dma_contig_plane_dma_addr(vb, 0);
+		ctx->src_bufs[i].cookie.stream = stream;
 		ctx->src_bufs_cnt++;
 	} else {
 		mfc_err("s5p_mfc_buf_init: unknown queue type\n");
@@ -1066,6 +1099,7 @@ static void s5p_mfc_buf_queue(struct vb2_buffer *vb)
 	struct s5p_mfc_dev *dev = ctx->dev;
 	unsigned long flags;
 	struct s5p_mfc_buf *mfc_buf;
+	int wait_flag = 0;
 
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		mfc_buf = &ctx->src_bufs[vb->index];
@@ -1083,12 +1117,25 @@ static void s5p_mfc_buf_queue(struct vb2_buffer *vb)
 		list_add_tail(&mfc_buf->list, &ctx->dst_queue);
 		ctx->dst_queue_cnt++;
 		spin_unlock_irqrestore(&dev->irqlock, flags);
+		if ((vq->memory == V4L2_MEMORY_USERPTR ||
+			vq->memory == V4L2_MEMORY_DMABUF) &&
+			ctx->dst_queue_cnt == ctx->total_dpb_count)
+			ctx->capture_state = QUEUE_BUFS_MMAPED;
 	} else {
 		mfc_err("Unsupported buffer type (%d)\n", vq->type);
 	}
-	if (s5p_mfc_ctx_ready(ctx))
+	if (s5p_mfc_ctx_ready(ctx)) {
 		set_work_bit_irqsave(ctx);
+		if ((vq->memory == V4L2_MEMORY_USERPTR ||
+			vq->memory == V4L2_MEMORY_DMABUF) &&
+			ctx->state == MFCINST_HEAD_PARSED &&
+			ctx->capture_state == QUEUE_BUFS_MMAPED)
+			wait_flag = 1;
+	}
 	s5p_mfc_hw_call(dev->mfc_ops, try_run, dev);
+	if (wait_flag)
+		s5p_mfc_wait_for_done_ctx(ctx,
+				S5P_MFC_R2H_CMD_INIT_BUFFERS_RET, 0);
 }
 
 static struct vb2_ops s5p_mfc_dec_qops = {

@@ -1130,11 +1130,11 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 	struct s5p_mfc_ctx *ctx = fh_to_ctx(priv);
 	int ret = 0;
 
-	/* if memory is not mmp or userptr return error */
-	if ((reqbufs->memory != V4L2_MEMORY_MMAP) &&
-		(reqbufs->memory != V4L2_MEMORY_USERPTR))
-		return -EINVAL;
 	if (reqbufs->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		ret = vb2_verify_memory_type(&ctx->vq_dst, reqbufs->memory,
+					     reqbufs->type);
+		if (ret)
+			return ret;
 		if (reqbufs->count == 0) {
 			mfc_debug(2, "Freeing buffers\n");
 			ret = vb2_reqbufs(&ctx->vq_dst, reqbufs);
@@ -1164,6 +1164,10 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 			return -ENOMEM;
 		}
 	} else if (reqbufs->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		ret = vb2_verify_memory_type(&ctx->vq_src, reqbufs->memory,
+					     reqbufs->type);
+		if (ret)
+			return ret;
 		if (reqbufs->count == 0) {
 			mfc_debug(2, "Freeing buffers\n");
 			ret = vb2_reqbufs(&ctx->vq_src, reqbufs);
@@ -1195,6 +1199,8 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 			mfc_err("error in vb2_reqbufs() for E(S)\n");
 			return ret;
 		}
+		if (reqbufs->memory != V4L2_MEMORY_MMAP)
+			ctx->src_bufs_cnt = reqbufs->count;
 		ctx->output_state = QUEUE_BUFS_REQUESTED;
 	} else {
 		mfc_err("invalid buf type\n");
@@ -1209,11 +1215,11 @@ static int vidioc_querybuf(struct file *file, void *priv,
 	struct s5p_mfc_ctx *ctx = fh_to_ctx(priv);
 	int ret = 0;
 
-	/* if memory is not mmp or userptr return error */
-	if ((buf->memory != V4L2_MEMORY_MMAP) &&
-		(buf->memory != V4L2_MEMORY_USERPTR))
-		return -EINVAL;
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		ret = vb2_verify_memory_type(&ctx->vq_dst, buf->memory,
+					     buf->type);
+		if (ret)
+			return ret;
 		if (ctx->state != MFCINST_GOT_INST) {
 			mfc_err("invalid context state: %d\n", ctx->state);
 			return -EINVAL;
@@ -1225,6 +1231,10 @@ static int vidioc_querybuf(struct file *file, void *priv,
 		}
 		buf->m.planes[0].m.mem_offset += DST_QUEUE_OFF_BASE;
 	} else if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		ret = vb2_verify_memory_type(&ctx->vq_src, buf->memory,
+					     buf->type);
+		if (ret)
+			return ret;
 		ret = vb2_querybuf(&ctx->vq_src, buf);
 		if (ret != 0) {
 			mfc_err("error in vb2_querybuf() for E(S)\n");
@@ -1833,6 +1843,7 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 			*buf_count = MFC_MAX_BUFFERS;
 		psize[0] = ctx->enc_dst_buf_size;
 		alloc_devs[0] = ctx->dev->mem_dev[BANK_L_CTX];
+		memset(ctx->dst_bufs, 0, sizeof(ctx->dst_bufs));
 	} else if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		if (ctx->src_fmt)
 			*plane_count = ctx->src_fmt->num_planes;
@@ -1854,6 +1865,7 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 			alloc_devs[0] = ctx->dev->mem_dev[BANK_R_CTX];
 			alloc_devs[1] = ctx->dev->mem_dev[BANK_R_CTX];
 		}
+		memset(ctx->src_bufs, 0, sizeof(ctx->src_bufs));
 	} else {
 		mfc_err("invalid queue type: %d\n", vq->type);
 		return -EINVAL;
@@ -1870,25 +1882,47 @@ static int s5p_mfc_buf_init(struct vb2_buffer *vb)
 	int ret;
 
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		dma_addr_t stream;
+
 		ret = check_vb_with_fmt(ctx->dst_fmt, vb);
 		if (ret < 0)
 			return ret;
+
+		stream = vb2_dma_contig_plane_dma_addr(vb, 0);
 		i = vb->index;
+		if (ctx->dst_bufs[i].cookie.stream &&
+		    ctx->src_bufs[i].cookie.stream != stream) {
+			mfc_err("Changing CAPTURE buffer address during straming is not possible\n");
+			return -EINVAL;
+		}
+
 		ctx->dst_bufs[i].b = vbuf;
-		ctx->dst_bufs[i].cookie.stream =
-					vb2_dma_contig_plane_dma_addr(vb, 0);
+		ctx->dst_bufs[i].cookie.stream = stream;
 		ctx->dst_bufs_cnt++;
 	} else if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		dma_addr_t luma, chroma;
+
 		ret = check_vb_with_fmt(ctx->src_fmt, vb);
 		if (ret < 0)
 			return ret;
+
+		luma = vb2_dma_contig_plane_dma_addr(vb, 0);
+		chroma = vb2_dma_contig_plane_dma_addr(vb, 1);
+
 		i = vb->index;
+		if ((ctx->src_bufs[i].cookie.raw.luma &&
+		     ctx->src_bufs[i].cookie.raw.luma != luma) ||
+		    (ctx->src_bufs[i].cookie.raw.chroma &&
+		     ctx->src_bufs[i].cookie.raw.chroma != chroma)) {
+			mfc_err("Changing OUTPUT buffer address during straming is not possible\n");
+			return -EINVAL;
+		}
+
 		ctx->src_bufs[i].b = vbuf;
-		ctx->src_bufs[i].cookie.raw.luma =
-					vb2_dma_contig_plane_dma_addr(vb, 0);
-		ctx->src_bufs[i].cookie.raw.chroma =
-					vb2_dma_contig_plane_dma_addr(vb, 1);
-		ctx->src_bufs_cnt++;
+		ctx->src_bufs[i].cookie.raw.luma = luma;
+		ctx->src_bufs[i].cookie.raw.chroma = chroma;
+		if (vb->memory == V4L2_MEMORY_MMAP)
+			ctx->src_bufs_cnt++;
 	} else {
 		mfc_err("invalid queue type: %d\n", vq->type);
 		return -EINVAL;
