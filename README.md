@@ -13,7 +13,7 @@ The artik710 and artik530 kernel is based on is based on linux-4.4.43.
 ---
 ## 2. Build guide
 ### 2.1 Install cross compiler
-#### ARTIK710
+#### ARTIK710/710S
 You'll need an arm64 cross compiler
 ```
 sudo apt-get install gcc-aarch64-linux-gnu
@@ -26,7 +26,7 @@ export PATH=~/gcc-linaro-5.4.1-2017.05-x86_64_aarch64-linux-gnu/bin:$PATH
 ```
 You can the path permernently through adding it into ~/.bashrc
 
-#### ARTIK5, ARTIK10 and ARTIK530
+#### ARTIK5, ARTIK10, ARTIK530(S) and ARTIK533S
 ```
 sudo apt-get install gcc-arm-linux-gnueabihf
 ```
@@ -51,12 +51,30 @@ cd build-artik
 ./build_kernel.sh -b artik710
 ```
 You can find the u-boot binaries from the build-artik/output/images/artik710/
+#### ARTIK710S
+```
+cd build-artik
+./build_kernel.sh -b artik710s
+```
+You can find the u-boot binaries from the build-artik/output/images/artik710s/
 #### ARTIK530
 ```
 cd build-artik
 ./build_kernel.sh -b artik530
 ```
 You can find the u-boot binaries from the build-artik/output/images/artik530/
+#### ARTIK530S
+```
+cd build-artik
+./build_kernel.sh -b artik530s
+```
+You can find the u-boot binaries from the build-artik/output/images/artik530s/
+#### ARTIK533S
+```
+cd build-artik
+./build_kernel.sh -b artik533s
+```
+You can find the u-boot binaries from the build-artik/output/images/artik533s/
 #### ARTIK5
 ```
 cd build-artik
@@ -71,7 +89,7 @@ cd build-artik
 You can find the u-boot binaries from the build-artik/output/images/artik10/
 
 ### 2.3 Build the u-boot with manual way
-#### ARTIK710
+#### ARTIK710/710S
 ```
 make ARCH=arm64 artik710_raptor_defconfig
 ```
@@ -91,7 +109,7 @@ make_ext4fs -b 4096 -L modules \
 	usr/modules/lib/modules/
 rm -rf usr/modules
 ```
-#### ARTIK530
+#### ARTIK530/530S/533S
 ```
 make ARCH=arm artik530_raptor_defconfig
 ```
@@ -143,7 +161,7 @@ make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- exynos5422-artik10.dtb
 ## 3. Update Guide
 Copy compiled binaries into your board.
 
-#### ARTIK710
+#### ARTIK710/710S
 ```
 scp arch/arm64/boot/Image root@{YOUR_BOARD_IP}:/root
 scp arch/arm64/boot/dts/nexell/*.dtb root@{YOUR_BOARD_IP}:/root
@@ -160,7 +178,7 @@ sync
 reboot
 ```
 
-#### ARTIK530
+#### ARTIK530/530S/533S
 ```
 scp arch/arm/boot/zImage root@{YOUR_BOARD_IP}:/root
 scp arch/arm/boot/dts/s5p4418*.dtb root@{YOUR_BOARD_IP}:/root
