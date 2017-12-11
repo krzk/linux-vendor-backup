@@ -330,6 +330,11 @@
 	clock-names = "fin_pll", "mct";
 };
 
+&prng {
+	clocks = <&clock CLK_SSS>;
+	clock-names = "secss";
+};
+
 &pwm {
 	clocks = <&clock CLK_PWM>;
 	clock-names = "timers";
