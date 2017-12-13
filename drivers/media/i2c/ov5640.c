@@ -2330,13 +2330,8 @@ static int ov5640_probe(struct i2c_client *client,
 	sensor->ae_target = 52;
 
 	/* get system clock (xclk) */
-	sensor->xclk = devm_clk_get(dev, "xclk");
-	if (IS_ERR(sensor->xclk)) {
-		dev_err(dev, "failed to get xclk\n");
-		return PTR_ERR(sensor->xclk);
-	}
+	sensor->xclk_freq = OV5640_XCLK_MAX;
 
-	sensor->xclk_freq = clk_get_rate(sensor->xclk);
 	if (sensor->xclk_freq < OV5640_XCLK_MIN ||
 	    sensor->xclk_freq > OV5640_XCLK_MAX) {
 		dev_err(dev, "xclk frequency out of range: %d Hz\n",
