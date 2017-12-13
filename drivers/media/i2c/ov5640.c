@@ -1796,8 +1796,10 @@ static int ov5640_set_fmt(struct v4l2_subdev *sd,
 		struct v4l2_mbus_framefmt *fmt =
 			v4l2_subdev_get_try_format(sd, cfg, 0);
 
-		*fmt = format->format;
-		goto out;
+		if (fmt) {
+			*fmt = format->format;
+			goto out;
+		}
 	}
 
 	sensor->current_mode = new_mode;
