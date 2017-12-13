@@ -1534,9 +1534,8 @@ static int ov5640_set_mode(struct ov5640_dev *sensor,
 		 */
 		ret = ov5640_set_mode_direct(sensor, mode);
 	}
-
 	if (ret < 0)
-		return ret;
+		return 0;
 
 	ret = ov5640_set_ae_target(sensor, sensor->ae_target);
 	if (ret < 0)
