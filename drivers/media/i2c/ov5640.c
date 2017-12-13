@@ -1634,6 +1634,8 @@ static int ov5640_set_power(struct ov5640_dev *sensor, bool on)
 		if (ret)
 			goto power_off;
 
+		msleep(100);
+
 		return 0;
 	}
 
@@ -2252,6 +2254,12 @@ static int ov5640_s_stream(struct v4l2_subdev *sd, int enable)
 
 	mutex_lock(&sensor->lock);
 
+	if (enable == 1) {
+		mutex_unlock(&sensor->lock);
+		ov5640_s_power(&sensor->sd, 1);
+		mutex_lock(&sensor->lock);
+	}
+
 	if (sensor->streaming == !enable) {
 		if (enable && sensor->pending_mode_change) {
 			ret = ov5640_set_mode(sensor, sensor->current_mode);
@@ -2262,6 +2270,12 @@ static int ov5640_s_stream(struct v4l2_subdev *sd, int enable)
 		ret = ov5640_set_stream(sensor, enable);
 		if (!ret)
 			sensor->streaming = enable;
+	}
+
+	if (enable == 0) {
+		mutex_unlock(&sensor->lock);
+		ov5640_s_power(&sensor->sd, 0);
+		mutex_lock(&sensor->lock);
 	}
 out:
 	mutex_unlock(&sensor->lock);
