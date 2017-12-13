@@ -1716,7 +1716,13 @@ static int ov5640_try_frame_interval(struct ov5640_dev *sensor,
 	ret = (fi->denominator == minfps) ? OV5640_15_FPS : OV5640_30_FPS;
 
 	mode = ov5640_find_mode(sensor, ret, width, height, false);
-	return mode ? ret : -EINVAL;
+
+	if (mode) {
+		sensor->current_mode = mode;
+		return ret;
+	} else {
+		return -EINVAL;
+	}
 }
 
 static int ov5640_get_fmt(struct v4l2_subdev *sd,
@@ -2282,6 +2288,35 @@ out:
 	return ret;
 }
 
+static int ov5640_s_param(struct v4l2_subdev *sd,
+	struct v4l2_streamparm *param)
+{
+	struct ov5640_dev *sensor = to_ov5640_dev(sd);
+	int ret = 0;
+	struct v4l2_captureparm *cp;
+	struct v4l2_subdev_frame_interval fi;
+
+	WARN_ON(!sd);
+	WARN_ON(!param);
+
+	dev_info(&sensor->i2c_client->dev, "%s\n", __func__);
+
+	cp = &param->parm.capture;
+	fi.interval = cp->timeperframe;
+	fi.pad = 0;
+
+	if (!fi.interval.numerator) {
+		dev_err(&sensor->i2c_client->dev, "numerator is 0");
+		ret = -EINVAL;
+		goto p_err;
+	}
+
+	ov5640_s_frame_interval(sd, &fi);
+
+p_err:
+	return ret;
+}
+
 static const struct v4l2_subdev_core_ops ov5640_core_ops = {
 	.s_power = ov5640_s_power,
 };
@@ -2290,6 +2325,7 @@ static const struct v4l2_subdev_video_ops ov5640_video_ops = {
 	.g_frame_interval = ov5640_g_frame_interval,
 	.s_frame_interval = ov5640_s_frame_interval,
 	.s_stream = ov5640_s_stream,
+	.s_parm = ov5640_s_param,
 };
 
 static const struct v4l2_subdev_pad_ops ov5640_pad_ops = {
