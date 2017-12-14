@@ -1597,6 +1597,22 @@ static void ov5640_reset(struct ov5640_dev *sensor)
 	usleep_range(5000, 10000);
 }
 
+static int ov5640_read_chip_id(struct ov5640_dev *sensor)
+{
+	int ret;
+	u16 chip_id;
+
+	ret = ov5640_read_reg16(sensor, OV5640_REG_CHIP_ID, &chip_id);
+	if (ret) {
+		dev_err(&sensor->i2c_client->dev, "%s failed\n", __func__);
+		return ret;
+	}
+
+	dev_info(&sensor->i2c_client->dev, "%s CHIP_ID=%04x\n",
+				__func__, chip_id);
+	return 0;
+}
+
 static int ov5640_set_power(struct ov5640_dev *sensor, bool on)
 {
 	int ret = 0;
@@ -1615,6 +1631,10 @@ static int ov5640_set_power(struct ov5640_dev *sensor, bool on)
 		ov5640_power(sensor, true);
 
 		ret = ov5640_init_slave_id(sensor);
+		if (ret)
+			goto power_off;
+
+		ret = ov5640_read_chip_id(sensor);
 		if (ret)
 			goto power_off;
 
@@ -2262,7 +2282,9 @@ static int ov5640_s_stream(struct v4l2_subdev *sd, int enable)
 
 	if (enable == 1) {
 		mutex_unlock(&sensor->lock);
-		ov5640_s_power(&sensor->sd, 1);
+		ret = ov5640_s_power(&sensor->sd, 1);
+		if (ret)
+			goto out;
 		mutex_lock(&sensor->lock);
 	}
 
@@ -2280,7 +2302,9 @@ static int ov5640_s_stream(struct v4l2_subdev *sd, int enable)
 
 	if (enable == 0) {
 		mutex_unlock(&sensor->lock);
-		ov5640_s_power(&sensor->sd, 0);
+		ret = ov5640_s_power(&sensor->sd, 0);
+		if (ret)
+			goto out;
 		mutex_lock(&sensor->lock);
 	}
 out:
