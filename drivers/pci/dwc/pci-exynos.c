@@ -110,7 +110,7 @@ static int exynos5440_pcie_get_mem_resources(struct platform_device *pdev,
 	return 0;
 }
 
-static int exynos5440_pcie_get_clk_resources(struct exynos_pcie *ep)
+static int exynos_pcie_get_clk_resources(struct exynos_pcie *ep)
 {
 	struct dw_pcie *pci = ep->pci;
 	struct device *dev = pci->dev;
@@ -134,7 +134,7 @@ static int exynos5440_pcie_get_clk_resources(struct exynos_pcie *ep)
 	return 0;
 }
 
-static int exynos5440_pcie_init_clk_resources(struct exynos_pcie *ep)
+static int exynos_pcie_init_clk_resources(struct exynos_pcie *ep)
 {
 	struct dw_pcie *pci = ep->pci;
 	struct device *dev = pci->dev;
@@ -160,7 +160,7 @@ err_bus_clk:
 	return ret;
 }
 
-static void exynos5440_pcie_deinit_clk_resources(struct exynos_pcie *ep)
+static void exynos_pcie_deinit_clk_resources(struct exynos_pcie *ep)
 {
 	clk_disable_unprepare(ep->clk_res->bus_clk);
 	clk_disable_unprepare(ep->clk_res->clk);
@@ -168,9 +168,9 @@ static void exynos5440_pcie_deinit_clk_resources(struct exynos_pcie *ep)
 
 static const struct exynos_pcie_ops exynos5440_pcie_ops = {
 	.get_mem_resources	= exynos5440_pcie_get_mem_resources,
-	.get_clk_resources	= exynos5440_pcie_get_clk_resources,
-	.init_clk_resources	= exynos5440_pcie_init_clk_resources,
-	.deinit_clk_resources	= exynos5440_pcie_deinit_clk_resources,
+	.get_clk_resources	= exynos_pcie_get_clk_resources,
+	.init_clk_resources	= exynos_pcie_init_clk_resources,
+	.deinit_clk_resources	= exynos_pcie_deinit_clk_resources,
 };
 
 static int exynos5433_pcie_get_mem_resources(struct platform_device *pdev,
@@ -199,68 +199,11 @@ static int exynos5433_pcie_get_mem_resources(struct platform_device *pdev,
 	return 0;
 }
 
-static int exynos5433_pcie_get_clk_resources(struct exynos_pcie *ep)
-{
-	struct dw_pcie *pci = ep->pci;
-	struct device *dev = pci->dev;
-
-	ep->clk_res = devm_kzalloc(dev, sizeof(*ep->clk_res), GFP_KERNEL);
-	if (!ep->clk_res)
-		return -ENOMEM;
-
-	ep->clk_res->clk = devm_clk_get(dev, "pcie");
-	if (IS_ERR(ep->clk_res->clk)) {
-		dev_err(dev, "Failed to get pcie rc clock\n");
-		return PTR_ERR(ep->clk_res->clk);
-	}
-
-	ep->clk_res->bus_clk = devm_clk_get(dev, "pcie_bus");
-	if (IS_ERR(ep->clk_res->bus_clk)) {
-		dev_err(dev, "Failed to get pcie bus clock\n");
-		return PTR_ERR(ep->clk_res->bus_clk);
-	}
-
-	return 0;
-}
-
-static void exynos5433_pcie_deinit_clk_resources(struct exynos_pcie *ep)
-{
-	clk_disable_unprepare(ep->clk_res->bus_clk);
-	clk_disable_unprepare(ep->clk_res->clk);
-}
-
-
-static int exynos5433_pcie_init_clk_resources(struct exynos_pcie *ep)
-{
-	struct dw_pcie *pci = ep->pci;
-	struct device *dev = pci->dev;
-	int ret;
-
-	ret = clk_prepare_enable(ep->clk_res->clk);
-	if (ret) {
-		dev_err(dev, "cannot enable pcie rc clock");
-		return ret;
-	}
-
-	ret = clk_prepare_enable(ep->clk_res->bus_clk);
-	if (ret) {
-		dev_err(dev, "cannot enable pcie bus clock");
-		goto err_bus_clk;
-	}
-
-	return 0;
-
-err_bus_clk:
-	clk_disable_unprepare(ep->clk_res->clk);
-
-	return ret;
-}
-
 static const struct exynos_pcie_ops exynos5433_pcie_ops = {
 	.get_mem_resources	= exynos5433_pcie_get_mem_resources,
-	.get_clk_resources	= exynos5433_pcie_get_clk_resources,
-	.init_clk_resources	= exynos5433_pcie_init_clk_resources,
-	.deinit_clk_resources	= exynos5433_pcie_deinit_clk_resources,
+	.get_clk_resources	= exynos_pcie_get_clk_resources,
+	.init_clk_resources	= exynos_pcie_init_clk_resources,
+	.deinit_clk_resources	= exynos_pcie_deinit_clk_resources,
 };
 
 static void exynos_pcie_writel(void __iomem *base, u32 val, u32 reg)
@@ -553,7 +496,7 @@ static int __init exynos_add_pcie_port(struct exynos_pcie *ep,
 		ret = devm_request_irq(dev, pp->msi_irq,
 					exynos_pcie_msi_irq_handler,
 					IRQF_SHARED | IRQF_NO_THREAD,
-					"exynos-pcie", ep);
+					"exynos-pcie-msi", ep);
 		if (ret) {
 			dev_err(dev, "failed to request msi irq\n");
 			return ret;
@@ -646,6 +589,8 @@ fail_probe:
 static int __exit exynos_pcie_remove(struct platform_device *pdev)
 {
 	struct exynos_pcie *ep = platform_get_drvdata(pdev);
+
+	phy_exit(ep->phy);
 
 	if (ep->ops && ep->ops->deinit_clk_resources)
 		ep->ops->deinit_clk_resources(ep);
