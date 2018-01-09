@@ -100,6 +100,7 @@
 			linux,code = <KEY_POWER>;
 			label = "power key";
 			debounce-interval = <10>;
+			wakeup-source;
 		};
 
 		volume-up-key {
