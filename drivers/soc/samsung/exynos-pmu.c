@@ -93,6 +93,7 @@ static const struct of_device_id exynos_pmu_of_device_ids[] = {
 		.data = exynos_pmu_data_arm_ptr(exynos5420_pmu_data),
 	}, {
 		.compatible = "samsung,exynos5433-pmu",
+		.data = exynos_pmu_data_arm_ptr(exynos5433_pmu_data),
 	},
 	{ /*sentinel*/ },
 };
