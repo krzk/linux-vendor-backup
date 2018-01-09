@@ -265,6 +265,20 @@
 			interrupt-affinity = <&cpu4>, <&cpu5>, <&cpu6>, <&cpu7>;
 		};
 
+		sysram@2020000 {
+			compatible = "mmio-sram";
+			reg = <0x02020000 0x5c000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0 0x02020000 0x5c000>;
+			status = "okay";
+
+			smp-sysram@5b000 {
+				compatible = "samsung,exynos4210-sysram-ns";
+				reg = <0x5b000 0x1000>;
+			};
+		};
+
 		chipid@10000000 {
 			compatible = "samsung,exynos4210-chipid";
 			reg = <0x10000000 0x100>;
