@@ -298,7 +298,7 @@ static int alc5658_probe(struct platform_device *pdev)
 
 	/* set I2S name */
 	of_property_read_u32(pdev->dev.of_node, "ch", &ch);
-	sprintf(str_dai_name, "%x%s",
+	snprintf(str_dai_name, sizeof(str_dai_name), "%x%s",
 	 (I2S_BASEADDR + (ch * I2S_CH_OFFSET)), ".i2s");
 	of_property_read_u32(pdev->dev.of_node, "sample-rate", &rates);
 	format_name = of_get_property(pdev->dev.of_node, "format", NULL);
