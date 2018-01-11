@@ -671,6 +671,7 @@ static void *nxp_cpufreq_make_table(struct platform_device *pdev,
 			id++;
 		}
 	} else {
+	    if (plat_tbs) {
 		for (id = 0; tb_size > id; id++) {
 			dvfs_tables[id][0] = plat_tbs[id][0];
 			dvfs_tables[id][1] = plat_tbs[id][1];
@@ -678,6 +679,7 @@ static void *nxp_cpufreq_make_table(struct platform_device *pdev,
 			pr_info("DTB %2d = %8ldkhz, %8ld uV\n",
 			       id, dvfs_tables[id][0], dvfs_tables[id][1]);
 		}
+	    }
 	}
 
 	/* End table */
