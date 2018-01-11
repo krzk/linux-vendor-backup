@@ -36,6 +36,7 @@
 #include <linux/soc/nexell/cpufreq.h>
 
 #define DEV_NAME_CPUFREQ	"nexell-cpufreq"
+#define ENTRY_LEN		(9)
 
 /*
  * DVFS info
@@ -270,6 +271,7 @@ static int nxp_cpufreq_pm_notify(struct notifier_block *this,
 	return 0;
 }
 
+
 /*
  * Attribute sys interfaces
  */
@@ -291,10 +293,10 @@ static ssize_t show_speed_duration(struct cpufreq_policy *policy, char *buf)
 	}
 
 	for (; dvfs->table_size > i; i++)
-		count += sprintf(&buf[count], "%8ld ",
+		count += snprintf(&buf[count], ENTRY_LEN, "%8ld ",
 				 dvfs->time_stamp[i].duration);
 
-	count += sprintf(&buf[count], "\n");
+	count += snprintf(&buf[count], 1, "\n");
 	return count;
 }
 
@@ -341,10 +343,10 @@ static ssize_t show_available_voltages(struct cpufreq_policy *policy, char *buf)
 
 		if (dvfs->asv_ops->get_voltage)
 			uV = dvfs->asv_ops->get_voltage(dvfs_table[i][0]);
-		count += sprintf(&buf[count], "%ld ", uV);
+		count += snprintf(&buf[count], ENTRY_LEN, "%8ld ", uV);
 	}
 
-	count += sprintf(&buf[count], "\n");
+	count += snprintf(&buf[count], 1, "\n");
 	return count;
 }
 
@@ -356,9 +358,10 @@ static ssize_t show_cur_voltages(struct cpufreq_policy *policy, char *buf)
 	int i = 0;
 
 	for (; dvfs->table_size > i; i++)
-		count += sprintf(&buf[count], "%ld ", dvfs_table[i][1]);
+		count += snprintf(&buf[count], ENTRY_LEN, "%8ld ",
+			dvfs_table[i][1]);
 
-	count += sprintf(&buf[count], "\n");
+	count += snprintf(&buf[count], 1, "\n");
 	return count;
 }
 
@@ -799,7 +802,7 @@ static int nxp_cpufreq_probe(struct platform_device *pdev)
 	struct cpufreq_dvfs_info *dvfs = NULL;
 	struct cpufreq_frequency_table *freq_table = NULL;
 	int cpu = raw_smp_processor_id();
-	char name[16];
+	char name[4];
 	int table_size = 0, ret = 0;
 
 	dvfs = kzalloc(sizeof(*dvfs), GFP_KERNEL);
@@ -821,7 +824,7 @@ static int nxp_cpufreq_probe(struct platform_device *pdev)
 	if (!freq_table)
 		goto err_free_table;
 
-	sprintf(name, "pll%d", pdata->pll_dev);
+	snprintf(name, sizeof(name), "pll%d", pdata->pll_dev);
 	dvfs->clk = clk_get(NULL, name);
 	if (IS_ERR(dvfs->clk))
 		goto err_free_table;

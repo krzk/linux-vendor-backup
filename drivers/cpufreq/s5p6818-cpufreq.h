@@ -26,6 +26,8 @@
 #define	FREQ_ARRAY_SIZE		(13)
 #define	UV(v)				(v*1000)
 
+#define ASV_LEVEL_LEN		(14)
+
 struct asv_tb_info {
 	int ids;
 	int ro;
@@ -280,11 +282,11 @@ static int s5p6818_asv_current_label(char *buf)
 
 	if (s && p_asv_table) {
 		if (!asv_param.flag) {
-			s += sprintf(s, "%d:%dmA,%d\n",
+			s += snprintf(s, ASV_LEVEL_LEN, "%03d:%03dmA,%03d\n",
 				     asv_param.level, asv_param.ids,
 				     asv_param.ro);
 		} else {
-			s += sprintf(s, "%d:G%d,S%d\n",
+			s += snprintf(s, ASV_LEVEL_LEN, "%03d:G%03d,S%03d\n",
 				     asv_param.level, asv_param.group,
 				     asv_param.shift);
 		}
