@@ -283,7 +283,46 @@
 			samsung,pin-drv = <0>;
 		};
 	};
+	
+	pinctrl@139B0000 {
+	cfg_wlanhostwake: cfg-wlanhostwake {
+                	samsung,pins = "gpa2-3";
+                	samsung,pin-function = <1>;
+                	samsung,pin-pud = <1>;
+                };
+	
+	};
+	
+    pinctrl@13750000 {
+		sd1_cmd: sd1-cmd {
+			samsung,pins = "gpr2-1";
+			samsung,pin-function = <2>;
+			samsung,pin-pud = <0>;
+			samsung,pin-drv = <2>;
+			samsung,pin-con-pdn = <2>;
+			samsung,pin-pud-pdn = <3>;
+		};
 
+		sd1_bus1: sd1-bus-width1 {
+			samsung,pins = "gpr3-0";
+			samsung,pin-function = <2>;
+			samsung,pin-pud = <0>;
+			samsung,pin-drv = <2>;
+			samsung,pin-con-pdn = <2>;
+			samsung,pin-pud-pdn = <3>;
+		};
+
+		sd1_bus4: sd1-bus-width4 {
+			samsung,pins = "gpr3-1", "gpr3-2", "gpr3-3";
+			samsung,pin-function = <2>;
+			samsung,pin-pud = <0>;
+			samsung,pin-drv = <2>;
+			samsung,pin-con-pdn = <2>;
+			samsung,pin-pud-pdn = <3>;
+		};
+
+	};
+	
 	pinctrl@139C0000 {
 		optical: optical {
 			samsung,pins = "gpb2-0", "gpb2-1";
@@ -440,9 +479,10 @@
 		status = "okay";
 
 		touchkey@20 {
-			pinctrl-names = "on_irq","off_irq";
+			pinctrl-names = "default","on_irq","off_irq";
 			pinctrl-0 = <&cfg_irq>;
-			pinctrl-1 = <&cfg_input>;
+			pinctrl-1 = <&cfg_irq>;
+			pinctrl-2 = <&cfg_input>;
 			compatible = "coreriver,tc300-keypad";
 			reg = <0x20>;
 			interrupts = <3 0 0>;
@@ -1431,13 +1471,23 @@
 		status = "okay";
 	};
 
+	pinctrl@138D0000 {
+        bt_en2: bt-en2 {
+            samsung,pins ="gpc4-2";
+            samsung,pin-function = <1>;
+            samsung,pin-pud = <0>;
+            samsung,pin-con-pdn = <3>;
+            samsung,pin-pud-pdn = <0>;
+        };
+    };
+
 	bluetooth {
 		compatible = "broadcom,bcm43xx";
 		gpios = <&gpc4 2 0x1	/*BT_EN*/
 				&gpa2 2 0x1	/*BT_WAKE*/
 				&gpa2 6 0xF	/*BT_HOST_WAKE*/ >;
 		pinctrl-names = "default";
-		pinctrl-0=<&bt_hostwake &bt_btwake &bt_en>;
+		pinctrl-0=<&bt_hostwake &bt_btwake &bt_en2>;
 		status = "okay";
 	};
 
