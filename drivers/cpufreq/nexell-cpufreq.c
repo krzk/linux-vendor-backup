@@ -36,7 +36,7 @@
 #include <linux/soc/nexell/cpufreq.h>
 
 #define DEV_NAME_CPUFREQ	"nexell-cpufreq"
-#define ENTRY_LEN		(9)
+#define ENTRY_LEN		(10)
 
 /*
  * DVFS info
@@ -296,7 +296,7 @@ static ssize_t show_speed_duration(struct cpufreq_policy *policy, char *buf)
 		count += snprintf(&buf[count], ENTRY_LEN, "%8ld ",
 				 dvfs->time_stamp[i].duration);
 
-	count += snprintf(&buf[count], 1, "\n");
+	count += snprintf(&buf[count], 2, "\n");
 	return count;
 }
 
@@ -346,7 +346,7 @@ static ssize_t show_available_voltages(struct cpufreq_policy *policy, char *buf)
 		count += snprintf(&buf[count], ENTRY_LEN, "%8ld ", uV);
 	}
 
-	count += snprintf(&buf[count], 1, "\n");
+	count += snprintf(&buf[count], 2, "\n");
 	return count;
 }
 
@@ -361,7 +361,7 @@ static ssize_t show_cur_voltages(struct cpufreq_policy *policy, char *buf)
 		count += snprintf(&buf[count], ENTRY_LEN, "%8ld ",
 			dvfs_table[i][1]);
 
-	count += snprintf(&buf[count], 1, "\n");
+	count += snprintf(&buf[count], 2, "\n");
 	return count;
 }
 
@@ -804,7 +804,7 @@ static int nxp_cpufreq_probe(struct platform_device *pdev)
 	struct cpufreq_dvfs_info *dvfs = NULL;
 	struct cpufreq_frequency_table *freq_table = NULL;
 	int cpu = raw_smp_processor_id();
-	char name[4];
+	char name[16];
 	int table_size = 0, ret = 0;
 
 	dvfs = kzalloc(sizeof(*dvfs), GFP_KERNEL);
