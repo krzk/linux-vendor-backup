@@ -126,6 +126,14 @@ enum {
 	STATE_RUNNING = (1 << 0),
 };
 
+enum {
+	HSSETTLE_VGA = 0,
+	HSSETTLE_HD,
+	HSSETTLE_FHD,
+	HSSETTLE_5M,
+	HSSETTLE_MAX,
+};
+
 struct nx_csi {
 	u32 module;
 	void *base;
@@ -139,7 +147,7 @@ struct nx_csi {
 	u32 swap_clocklane;
 	u32 swap_datalane;
 	u32 pllval;
-	u32 hssettle;
+	u32 hssettle[HSSETTLE_MAX];
 
 	struct reset_control *rst_mipi;
 	struct reset_control *rst_csi;
@@ -308,6 +316,25 @@ static void nx_mipi_set_base_address(u32 module_index, void *base_address)
 		(struct nx_mipi_register_set *)base_address;
 }
 
+static int nx_mipi_find_hssettle(struct nx_csi *me)
+{
+	int ret;
+
+	if (me->width <= 640 && me->height <= 480)
+		ret = me->hssettle[HSSETTLE_VGA];
+	else if (me->width <= 1280 && me->height <= 720)
+		ret = me->hssettle[HSSETTLE_HD];
+	else if (me->width <= 1920 && me->height <= 1080)
+		ret = me->hssettle[HSSETTLE_FHD];
+	else
+		ret = me->hssettle[HSSETTLE_5M];
+
+	dev_info(me->dev, "hssettle found (%dx%d)=%d\n",
+			me->width, me->height, ret);
+
+	return ret;
+}
+
 static int nx_mipi_open_module(struct nx_csi *me)
 {
 	register struct nx_mipi_register_set *pregister;
@@ -318,7 +345,7 @@ static int nx_mipi_open_module(struct nx_csi *me)
 	pregister = __g_pregister[module_index];
 
 	write_reg_wrapper(0, &pregister->csis_dphyctrl_1);
-	write_reg_wrapper(me->hssettle << CSIS_DPHYCTRL_HSSETTLE,
+	write_reg_wrapper(nx_mipi_find_hssettle(me) << CSIS_DPHYCTRL_HSSETTLE,
 			  &pregister->csis_dphyctrl);
 
 	return true;
@@ -1022,8 +1049,9 @@ static int nx_csi_parse_dt(struct platform_device *pdev, struct nx_csi *me)
 		return -EINVAL;
 	}
 
-	if (of_property_read_u32(np, "hssettle", &me->hssettle)) {
-		dev_err(dev, "failed to get dt hssettle\n");
+	if (of_property_read_u32_array(np, "hssettle", me->hssettle,
+					HSSETTLE_MAX)) {
+		dev_err(dev, "failed to get dt hssettle array\n");
 		return -EINVAL;
 	}
 
