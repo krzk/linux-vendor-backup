@@ -144,6 +144,7 @@ struct ov5640_mode_info {
 	u32 height;
 	const struct reg_value *reg_data;
 	u32 reg_data_size;
+	const char *mode_name;
 };
 
 struct ov5640_ctrls {
@@ -707,6 +708,7 @@ static const struct reg_value ov5640_setting_15fps_QSXGA_2592_1944[] = {
 static const struct ov5640_mode_info ov5640_mode_init_data = {
 	0, SUBSAMPLING, 640, 480, ov5640_init_setting_30fps_VGA,
 	ARRAY_SIZE(ov5640_init_setting_30fps_VGA),
+	"init_setting_30fps_VGA"
 };
 
 static const struct ov5640_mode_info
@@ -714,57 +716,74 @@ ov5640_mode_data[OV5640_NUM_FRAMERATES][OV5640_NUM_MODES] = {
 	{
 		{OV5640_MODE_QCIF_176_144, SUBSAMPLING, 176, 144,
 		 ov5640_setting_15fps_QCIF_176_144,
-		 ARRAY_SIZE(ov5640_setting_15fps_QCIF_176_144)},
+		 ARRAY_SIZE(ov5640_setting_15fps_QCIF_176_144),
+		 "15fps_QCIF_176_144"},
 		{OV5640_MODE_QVGA_320_240, SUBSAMPLING, 320,  240,
 		 ov5640_setting_15fps_QVGA_320_240,
-		 ARRAY_SIZE(ov5640_setting_15fps_QVGA_320_240)},
+		 ARRAY_SIZE(ov5640_setting_15fps_QVGA_320_240),
+		 "15fps_QVGA_320_240"},
 		{OV5640_MODE_VGA_640_480, SUBSAMPLING, 640,  480,
 		 ov5640_setting_15fps_VGA_640_480,
-		 ARRAY_SIZE(ov5640_setting_15fps_VGA_640_480)},
+		 ARRAY_SIZE(ov5640_setting_15fps_VGA_640_480),
+		 "15fps_VGA_640_480"},
 		{OV5640_MODE_NTSC_720_480, SUBSAMPLING, 720, 480,
 		 ov5640_setting_15fps_NTSC_720_480,
-		 ARRAY_SIZE(ov5640_setting_15fps_NTSC_720_480)},
+		 ARRAY_SIZE(ov5640_setting_15fps_NTSC_720_480),
+		 "15fps_NTSC_720_480"},
 		{OV5640_MODE_PAL_720_576, SUBSAMPLING, 720, 576,
 		 ov5640_setting_15fps_PAL_720_576,
-		 ARRAY_SIZE(ov5640_setting_15fps_PAL_720_576)},
+		 ARRAY_SIZE(ov5640_setting_15fps_PAL_720_576),
+		 "15fps_PAL_720_576"},
 		{OV5640_MODE_XGA_1024_768, SUBSAMPLING, 1024, 768,
 		 ov5640_setting_15fps_XGA_1024_768,
-		 ARRAY_SIZE(ov5640_setting_15fps_XGA_1024_768)},
+		 ARRAY_SIZE(ov5640_setting_15fps_XGA_1024_768),
+		 "15fps_XGA_1024_768"},
 		{OV5640_MODE_720P_1280_720, SUBSAMPLING, 1280, 720,
 		 ov5640_setting_15fps_720P_1280_720,
-		 ARRAY_SIZE(ov5640_setting_15fps_720P_1280_720)},
+		 ARRAY_SIZE(ov5640_setting_15fps_720P_1280_720),
+		 "15fps_720P_1280_720"},
 		{OV5640_MODE_1080P_1920_1080, SCALING, 1920, 1080,
 		 ov5640_setting_15fps_1080P_1920_1080,
-		 ARRAY_SIZE(ov5640_setting_15fps_1080P_1920_1080)},
+		 ARRAY_SIZE(ov5640_setting_15fps_1080P_1920_1080),
+		 "15fps_1080P_1920_1080"},
 		{OV5640_MODE_QSXGA_2592_1944, SCALING, 2592, 1944,
 		 ov5640_setting_15fps_QSXGA_2592_1944,
-		 ARRAY_SIZE(ov5640_setting_15fps_QSXGA_2592_1944)},
+		 ARRAY_SIZE(ov5640_setting_15fps_QSXGA_2592_1944),
+		 "15fps_QSXGA_2592_1944"},
 	}, {
 		{OV5640_MODE_QCIF_176_144, SUBSAMPLING, 176, 144,
 		 ov5640_setting_30fps_QCIF_176_144,
-		 ARRAY_SIZE(ov5640_setting_30fps_QCIF_176_144)},
+		 ARRAY_SIZE(ov5640_setting_30fps_QCIF_176_144),
+		 "30fps_QCIF_176_144"},
 		{OV5640_MODE_QVGA_320_240, SUBSAMPLING, 320,  240,
 		 ov5640_setting_30fps_QVGA_320_240,
-		 ARRAY_SIZE(ov5640_setting_30fps_QVGA_320_240)},
+		 ARRAY_SIZE(ov5640_setting_30fps_QVGA_320_240),
+		 "30fps_QVGA_320_240"},
 		{OV5640_MODE_VGA_640_480, SUBSAMPLING, 640,  480,
 		 ov5640_setting_30fps_VGA_640_480,
-		 ARRAY_SIZE(ov5640_setting_30fps_VGA_640_480)},
+		 ARRAY_SIZE(ov5640_setting_30fps_VGA_640_480),
+		 "30fps_VGA_640_480"},
 		{OV5640_MODE_NTSC_720_480, SUBSAMPLING, 720, 480,
 		 ov5640_setting_30fps_NTSC_720_480,
-		 ARRAY_SIZE(ov5640_setting_30fps_NTSC_720_480)},
+		 ARRAY_SIZE(ov5640_setting_30fps_NTSC_720_480),
+		 "30fps_NTSC_720_480"},
 		{OV5640_MODE_PAL_720_576, SUBSAMPLING, 720, 576,
 		 ov5640_setting_30fps_PAL_720_576,
-		 ARRAY_SIZE(ov5640_setting_30fps_PAL_720_576)},
+		 ARRAY_SIZE(ov5640_setting_30fps_PAL_720_576),
+		 "30fps_PAL_720_576"},
 		{OV5640_MODE_XGA_1024_768, SUBSAMPLING, 1024, 768,
 		 ov5640_setting_30fps_XGA_1024_768,
-		 ARRAY_SIZE(ov5640_setting_30fps_XGA_1024_768)},
+		 ARRAY_SIZE(ov5640_setting_30fps_XGA_1024_768),
+		 "30fps_XGA_1024_768"},
 		{OV5640_MODE_720P_1280_720, SUBSAMPLING, 1280, 720,
 		 ov5640_setting_30fps_720P_1280_720,
-		 ARRAY_SIZE(ov5640_setting_30fps_720P_1280_720)},
+		 ARRAY_SIZE(ov5640_setting_30fps_720P_1280_720),
+		 "30fps_720P_1280_720"},
 		{OV5640_MODE_1080P_1920_1080, SCALING, 1920, 1080,
 		 ov5640_setting_30fps_1080P_1920_1080,
-		 ARRAY_SIZE(ov5640_setting_30fps_1080P_1920_1080)},
-		{OV5640_MODE_QSXGA_2592_1944, -1, 0, 0, NULL, 0},
+		 ARRAY_SIZE(ov5640_setting_30fps_1080P_1920_1080),
+		 "30fps_1080P_1920_1080"},
+		{OV5640_MODE_QSXGA_2592_1944, -1, 0, 0, NULL, 0, NULL},
 	},
 };
 
@@ -905,8 +924,8 @@ static int ov5640_load_regs(struct ov5640_dev *sensor,
 	u8 mask, val;
 	int ret = 0;
 
-	dev_info(&sensor->i2c_client->dev, "%s size=%d\n", __func__,
-					mode->reg_data_size);
+	dev_info(&sensor->i2c_client->dev, "%s %s\n", __func__,
+					mode->mode_name);
 
 	for (i = 0; i < mode->reg_data_size; ++i, ++regs) {
 		delay_ms = regs->delay_ms;
