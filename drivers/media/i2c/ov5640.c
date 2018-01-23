@@ -1547,13 +1547,15 @@ static int ov5640_set_mode(struct ov5640_dev *sensor,
 		 * go through exposure calucation
 		 */
 		ret = ov5640_set_mode_exposure_calc(sensor, mode);
-	} else {
-		/*
-		 * change inside subsampling or scaling
-		 * download firmware directly
-		 */
-		ret = ov5640_set_mode_direct(sensor, mode);
+		if (ret < 0)
+			return 0;
 	}
+
+	/*
+	 * change inside subsampling or scaling
+	 * download firmware directly
+	 */
+	ret = ov5640_set_mode_direct(sensor, mode);
 	if (ret < 0)
 		return 0;
 
