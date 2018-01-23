@@ -2319,6 +2319,9 @@ static int ov5640_s_stream(struct v4l2_subdev *sd, int enable)
 				goto out;
 		}
 
+		if (enable)
+			msleep(200);
+
 		ret = ov5640_set_stream(sensor, enable);
 		if (!ret)
 			sensor->streaming = enable;
