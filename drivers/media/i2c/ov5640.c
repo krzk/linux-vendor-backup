@@ -2029,8 +2029,6 @@ static int ov5640_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 
 	/* v4l2_ctrl_lock() locks our own mutex */
 
-	dev_info(&sensor->i2c_client->dev, "%s %x\n", __func__, ctrl->id);
-
 	switch (ctrl->id) {
 	case V4L2_CID_AUTOGAIN:
 		if (!ctrl->val)
@@ -2058,8 +2056,6 @@ static int ov5640_s_ctrl(struct v4l2_ctrl *ctrl)
 	struct v4l2_subdev *sd = ctrl_to_sd(ctrl);
 	struct ov5640_dev *sensor = to_ov5640_dev(sd);
 	int ret;
-
-	dev_info(&sensor->i2c_client->dev, "%s %x\n", __func__, ctrl->id);
 
 	/* v4l2_ctrl_lock() locks our own mutex */
 
