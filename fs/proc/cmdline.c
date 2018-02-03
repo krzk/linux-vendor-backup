@@ -2,20 +2,13 @@
 #include <linux/init.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
-
-#ifdef CONFIG_SECURITY_SELINUX_PERMISSIVE
 #include <asm/setup.h>
 
-static char proc_cmdline[COMMAND_LINE_SIZE];
-#endif
+static char updated_command_line[COMMAND_LINE_SIZE];
 
 static int cmdline_proc_show(struct seq_file *m, void *v)
 {
-#ifdef CONFIG_SECURITY_SELINUX_PERMISSIVE
-	seq_printf(m, "%s\n", proc_cmdline);
-#else
-	seq_printf(m, "%s\n", saved_command_line);
-#endif
+	seq_printf(m, "%s\n", updated_command_line);
 	return 0;
 }
 
@@ -31,25 +24,36 @@ static const struct file_operations cmdline_proc_fops = {
 	.release	= single_release,
 };
 
-static int __init proc_cmdline_init(void)
+static void __maybe_unused proc_cmdline_set(char *name, char *value)
 {
-#ifdef CONFIG_SECURITY_SELINUX_PERMISSIVE
-	char *a1, *a2;
+	char *flag_pos, *flag_after;
+	char flag_pos_str[COMMAND_LINE_SIZE];
 
-	a1 = strstr(saved_command_line, "androidboot.selinux=");
-	if (a1) {
-		a1 = strchr(a1, '=');
-		a2 = strchr(a1, ' ');
-		if (!a2) /* last argument on the cmdline */
-			a2 = "";
+	scnprintf(flag_pos_str, COMMAND_LINE_SIZE, "%s=", name);
+	
+	flag_pos = strstr(updated_command_line, flag_pos_str);
+	if (flag_pos) {
+		flag_after = strchr(flag_pos, ' ');
+		if (!flag_after)
+			flag_after = "";
 
-		scnprintf(proc_cmdline, COMMAND_LINE_SIZE, "%.*spermissive%s",
-				(int)(a1 - saved_command_line + 1),
-				saved_command_line, a2);
+		scnprintf(updated_command_line, COMMAND_LINE_SIZE, "%.*s%s=%s%s",
+				(int)(flag_pos - updated_command_line + 1),
+				updated_command_line, name, value, flag_after);
 	}
 	else {
-		strncpy(proc_cmdline, saved_command_line, COMMAND_LINE_SIZE);
+		// flag was not found, insert it
+		scnprintf(updated_command_line, COMMAND_LINE_SIZE, "%s %s=%s", updated_command_line, name, value);
 	}
+}
+
+static int __init proc_cmdline_init(void)
+{
+	// copy it only once
+	strncpy(updated_command_line, saved_command_line, COMMAND_LINE_SIZE);
+
+#ifdef CONFIG_SECURITY_SELINUX_PERMISSIVE
+	proc_cmdline_set("androidboot.selinux", "permissive");
 #endif
 
 	proc_create("cmdline", 0, NULL, &cmdline_proc_fops);
