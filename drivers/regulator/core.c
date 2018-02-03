@@ -2510,12 +2510,19 @@ static int _regulator_do_set_voltage(struct regulator_dev *rdev,
  */
 int regulator_set_voltage(struct regulator *regulator, int min_uV, int max_uV)
 {
-	struct regulator_dev *rdev = regulator->rdev;
+	struct regulator_dev *rdev;
 	int ret = 0;
 	int old_min_uV, old_max_uV;
 
-	mutex_lock(&rdev->mutex);
+	if (regulator == NULL) {
+		pr_warn("%s: regulator == NULL\n", __func__);
+		return -EINVAL;
+	}
 
+	rdev = regulator->rdev;
+
+	mutex_lock(&rdev->mutex);
+	
 	/* If we're setting the same range as last time the change
 	 * should be a noop (some cpufreq implementations use the same
 	 * voltage for multiple frequencies, for example).
