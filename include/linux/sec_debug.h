@@ -64,9 +64,9 @@ extern void tsp_dump(void);
 #endif
 
 #ifdef CONFIG_SEC_DEBUG_LAST_KMSG
-extern void sec_debug_save_last_kmsg(unsigned char* head_ptr, unsigned char* curr_ptr);
+extern void sec_debug_save_last_kmsg(unsigned char* head_ptr, unsigned char* curr_ptr, size_t log_size);
 #else
-#define sec_debug_save_last_kmsg(a, b)		do { } while(0)
+#define sec_debug_save_last_kmsg(a, b, c)		do { } while(0)
 #endif
 
 enum sec_debug_upload_cause_t {
