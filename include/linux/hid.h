@@ -168,6 +168,9 @@ struct hid_item {
 #define HID_UP_CUSTOM		0x00ff0000
 #define HID_UP_LOGIVENDOR	0xffbc0000
 #define HID_UP_SENSOR		0x00200000
+#ifdef CONFIG_USB_HMT_SAMSUNG_INPUT
+#define HID_UP_HMTVENDOR	0xff020000
+#endif
 
 #define HID_USAGE		0x0000ffff
 
@@ -486,6 +489,9 @@ struct hid_device {							/* device report descriptor */
 	struct list_head inputs;					/* The list of inputs */
 	void *hiddev;							/* The hiddev structure */
 	void *hidraw;
+#ifdef CONFIG_HID_OVR
+	void *hidovr;
+#endif
 	int minor;							/* Hiddev minor number */
 
 	int open;							/* is the device open by anyone? */
