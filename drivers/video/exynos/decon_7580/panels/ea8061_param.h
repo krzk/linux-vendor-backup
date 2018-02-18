@@ -34,12 +34,12 @@ enum {
 };
 
 #define POWER_IS_ON(pwr)			(pwr <= FB_BLANK_NORMAL)
-#define LEVEL_IS_HBM(level)			(level >= 6)
-#define LEVEL_IS_CAPS_OFF(level)	(level <= 19)
+#define LEVEL_IS_HBM(brightness)		(brightness == EXTEND_BRIGHTNESS)
 #define UNDER_MINUS_20(temperature)	(temperature <= -20)
-#define ACL_IS_ON(nit)			(nit < 350)
+#define ACL_IS_ON(nit)			(nit != 350)
 
 #define NORMAL_TEMPERATURE			25	/* 25 degrees Celsius */
+#define EXTEND_BRIGHTNESS	355
 #define UI_MAX_BRIGHTNESS	255
 #define UI_MIN_BRIGHTNESS	0
 #define UI_DEFAULT_BRIGHTNESS	134
@@ -63,7 +63,6 @@ enum {
 #define EA8061_COORDINATE_LEN		4
 #define EA8061_HBMGAMMA_REG		0xB4
 #define EA8061_HBMGAMMA_LEN		31
-#define HBM_INDEX					65
 #define EA8061_CODE_REG			0xD6
 #define EA8061_CODE_LEN			5
 #define TSET_REG			0xB8

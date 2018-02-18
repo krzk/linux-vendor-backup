@@ -40,6 +40,10 @@ config PANEL_S6E3FA3_A5XE
 config PANEL_S6E3FA3_A7XE
 	depends on EXYNOS_DECON_LCD && EXYNOS_MIPI_DSI
 	tristate "S6E3FA3 A7XE LCD driver"
+	
+config PANEL_S6E3FA3_J7XE
+	depends on EXYNOS_DECON_LCD && EXYNOS_MIPI_DSI
+	tristate "S6E3FA3 J7XE LCD driver"
 
 config LCD_HMT
 	depends on EXYNOS_DECON_LCD

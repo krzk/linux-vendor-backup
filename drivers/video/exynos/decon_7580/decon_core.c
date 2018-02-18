@@ -49,6 +49,7 @@
 #include "decon_helper.h"
 #include "dpu_common.h"
 #include "regs-dpu.h"
+#include "panels/dsim_panel.h"
 
 #include "../../../staging/android/sw_sync.h"
 
@@ -939,6 +940,7 @@ int decon_enable(struct decon_device *decon)
 			goto err;
 		}
 	} else if (decon->out_type == DECON_OUT_DSI) {
+		decon->force_fullupdate = 0;
 		pm_stay_awake(decon->dev);
 		dev_warn(decon->dev, "pm_stay_awake");
 		ret = v4l2_subdev_call(decon->output_sd, video, s_stream, 1);
@@ -1155,7 +1157,7 @@ static int decon_blank(int blank_mode, struct fb_info *info)
 			goto blank_exit;
 		}
 #ifdef CONFIG_POWERSUSPEND
-		set_power_suspend_state_panel_hook(POWER_SUSPEND_ACTIVE);
+               set_power_suspend_state_panel_hook(POWER_SUSPEND_ACTIVE);
 #endif
 		break;
 	case FB_BLANK_UNBLANK:
@@ -1166,7 +1168,7 @@ static int decon_blank(int blank_mode, struct fb_info *info)
 			goto blank_exit;
 		}
 #ifdef CONFIG_POWERSUSPEND
-		set_power_suspend_state_panel_hook(POWER_SUSPEND_INACTIVE);
+               set_power_suspend_state_panel_hook(POWER_SUSPEND_INACTIVE);
 #endif
 		break;
 	case FB_BLANK_VSYNC_SUSPEND:
@@ -1177,7 +1179,7 @@ static int decon_blank(int blank_mode, struct fb_info *info)
 
 blank_exit:
 	decon_lpd_unblock(decon);
-	decon_info("%s -- blank_mode : %d \n", __func__, blank_mode);
+	decon_info("%s -- blank_mode : %d, %d\n", __func__, blank_mode, ret);
 	return ret;
 }
 
@@ -1790,6 +1792,11 @@ static void decon_set_win_update_config(struct decon_device *decon,
 	struct decon_rect r1, r2;
 	struct decon_lcd *lcd_info = decon->lcd_info;
 
+	if (decon->out_type == DECON_OUT_DSI) {
+		if (decon->force_fullupdate)
+			memset(update_config, 0, sizeof(struct decon_win_config));
+	}
+
 	decon_calibrate_win_update_size(decon, win_config, update_config);
 
 	/* if the current mode is not WINDOW_UPDATE, set the config as WINDOW_UPDATE */
@@ -2023,12 +2030,10 @@ static int decon_prevent_size_mismatch
 {
 	unsigned long delay_time = 100;
 	unsigned long cnt = timeout / delay_time;
-	u32 decon_line = 0, dsim_line = 0;
-	u32 decon_hoz = 0, dsim_hoz = 0;
-#ifdef CONFIG_DECON_EVENT_LOG
+	u32 decon_line, dsim_line;
+	u32 decon_hoz, dsim_hoz;
 	u32 need_save = true;
 	struct disp_ss_size_info info;
-#endif
 
 	if (decon->pdata->psr_mode == DECON_VIDEO_MODE)
 		return 0;
@@ -2045,7 +2050,6 @@ static int decon_prevent_size_mismatch
 		if (decon_line == dsim_line && decon_hoz == dsim_hoz)
 			goto wait_done;
 
-#ifdef CONFIG_DECON_EVENT_LOG
 		if (need_save) {
 			/* TODO: Save a err data */
 			info.w_in = decon_hoz;
@@ -2055,7 +2059,6 @@ static int decon_prevent_size_mismatch
 			DISP_SS_EVENT_SIZE_ERR_LOG(&decon->sd, &info);
 			need_save = false;
 		}
-#endif
 
 		udelay(delay_time);
 	}
@@ -2198,15 +2201,29 @@ static int decon_set_win_config(struct decon_device *decon,
 	struct decon_reg_data *regs;
 	struct sync_fence *fence;
 	struct sync_pt *pt;
-	int fd;
+	int fd, unused_fd[3] = {0}, fd_idx = 0;
 	int plane_cnt = 0;
 	unsigned int bw = 0;
 
-	fd = get_unused_fd();
-	if (fd < 0)
-		return fd;
-
 	mutex_lock(&decon->output_lock);
+	fd = get_unused_fd();
+	if (fd < 0) {
+		mutex_unlock(&decon->output_lock);
+		return -EINVAL;
+	}
+
+	if (fd < 3) {
+		/* If fd from get_unused_fd() has value between 0 and 2,
+		 * fd is tried to get value again using dup() except current fd vlaue.
+		 */
+		while (fd < 3) {
+			unused_fd[fd_idx++] = fd;
+			fd = get_unused_fd();
+		}
+
+		while (fd_idx-- > 0)
+			put_unused_fd(unused_fd[fd_idx]);
+	}
 
 	if ((decon->state == DECON_STATE_OFF) || (decon->ignore_vsync == true)
 		|| (decon->out_type == DECON_OUT_TUI)) {
@@ -2356,11 +2373,18 @@ static ssize_t decon_fb_read(struct fb_info *info, char __user *buf,
 	return 0;
 }
 
+static ssize_t decon_fb_write(struct fb_info *info, const char __user *buf,
+		size_t count, loff_t *ppos)
+{
+	return 0;
+}
+
 static int decon_ioctl(struct fb_info *info, unsigned int cmd,
 			unsigned long arg)
 {
 	struct decon_win *win = info->par;
 	struct decon_device *decon = win->decon;
+	struct decon_win_config_data win_data = { 0 };
 	int ret = 0;
 	u32 crtc;
 
@@ -2431,9 +2455,9 @@ static int decon_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 
 	case S3CFB_WIN_CONFIG:
-		if (copy_from_user(&decon->ioctl_data.win_data,
+		if (copy_from_user(&win_data,
 				   (struct decon_win_config_data __user *)arg,
-				   sizeof(decon->ioctl_data.win_data))) {
+				   sizeof(struct decon_win_config_data))) {
 			ret = -EFAULT;
 			break;
 		}
@@ -2443,13 +2467,12 @@ static int decon_ioctl(struct fb_info *info, unsigned int cmd,
 		else
 			DISP_SS_EVENT_LOG(DISP_EVT_WIN_CONFIG, &decon->sd, ktime_set(0, 0));
 
-		ret = decon_set_win_config(decon, &decon->ioctl_data.win_data);
+		ret = decon_set_win_config(decon, &win_data);
 		if (ret)
 			break;
 
 		if (copy_to_user(&((struct decon_win_config_data __user *)arg)->fence,
-				 &decon->ioctl_data.win_data.fence,
-				 sizeof(decon->ioctl_data.win_data.fence))) {
+				 &win_data.fence, sizeof(int))) {
 			ret = -EFAULT;
 			break;
 		}
@@ -2495,6 +2518,7 @@ static struct fb_ops decon_fb_ops = {
 	.fb_ioctl	= decon_ioctl,
 	.fb_compat_ioctl = decon_compat_ioctl,
 	.fb_read	= decon_fb_read,
+	.fb_write	= decon_fb_write,
 	.fb_pan_display	= decon_pan_display,
 	.fb_mmap	= decon_mmap,
 	.fb_release	= decon_release,
@@ -4028,12 +4052,13 @@ static int decon_esd_panel_reset(struct decon_device *decon)
 		decon->ignore_vsync = false;
 
 #ifdef CONFIG_FB_WINDOW_UPDATE
-	decon->need_update = false;
+	decon->need_update = true;
 	decon->update_win.x = 0;
 	decon->update_win.y = 0;
 	decon->update_win.w = decon->lcd_info->xres;
 	decon->update_win.h = decon->lcd_info->yres;
 #endif
+	decon->force_fullupdate = 1;
 #if 0
 	if (decon->pdata->trig_mode == DECON_HW_TRIG)
 		decon_reg_set_trigger(decon->id, decon->pdata->dsi_mode,
@@ -4245,7 +4270,7 @@ static int decon_register_esd_funcion(struct decon_device *decon)
 			(det_irqf_type == IRQF_TRIGGER_RISING) ? "rising" : "falling");
 		ret++;
 
-		if (esd->err_pin_active == gpio_get_value(esd->disp_det_gpio)) {
+		if (esd->det_pin_active == gpio_get_value(esd->disp_det_gpio)) {
 			decon_info("%s: det(%d) is already %s(%d)\n", __func__, esd->disp_det_gpio,
 				(esd->det_pin_active) ? "high" : "low", gpio_get_value(esd->disp_det_gpio));
 		}
@@ -4273,7 +4298,7 @@ static int decon_register_esd_funcion(struct decon_device *decon)
 	if (esd->err_irq) {
 		if (devm_request_irq(dev, esd->err_irq, decon_esd_err_handler,
 				err_irqf_type, "err-irq", decon)) {
-			dsim_err("%s : faield to request irq for err_fg\n", __func__);
+			dsim_err("%s : failed to request irq for err_fg\n", __func__);
 			esd->err_irq = 0;
 			ret--;
 		}
@@ -4282,7 +4307,7 @@ static int decon_register_esd_funcion(struct decon_device *decon)
 	if (esd->disp_det_irq) {
 		if (devm_request_irq(dev, esd->disp_det_irq, decon_disp_det_handler,
 				det_irqf_type, "display-det", decon)) {
-			dsim_err("%s : faied to request irq for display det\n", __func__);
+			dsim_err("%s : failed to request irq for display det\n", __func__);
 			esd->disp_det_irq = 0;
 			ret--;
 		}
@@ -4379,7 +4404,7 @@ static int decon_probe(struct platform_device *pdev)
 	struct decon_init_param p;
 	struct decon_regs_data win_regs;
 	struct dsim_device *dsim = NULL;
-	struct panel_private *panel = NULL;
+	struct panel_private *priv = NULL;
 	struct exynos_md *md;
 	struct device_node *cam_stat;
 	int win_idx = 0;
@@ -4708,12 +4733,12 @@ decon_init_done:
 		dsim = container_of(decon->output_sd, struct dsim_device, sd);
 
 	if (dsim) {
-		panel = &dsim->priv;
-		if ((panel) && (!panel->lcdConnected)) {
-			dsim_info("decon does not found panel\n");
+		priv = &dsim->priv;
+		if ((priv) && (!priv->lcdConnected)) {
+			decon_info("decon does not found panel\n");
 			decon->ignore_vsync = true;
 		}
-		dsim_info("panel id : %x : %x : %x\n", panel->id[0], panel->id[1], panel->id[2]);
+		decon_info("panel id : %x\n", lcdtype);
 	}
 
 #ifdef CONFIG_DECON_MIPI_DSI_PKTGO
@@ -4723,6 +4748,13 @@ decon_init_done:
 		decon_err("Failed to call DSIM packet go enable\n");
 #endif
 	decon->state = DECON_STATE_INIT;
+
+	/* [W/A] prevent sleep enter during LCD on */
+	ret = device_init_wakeup(decon->dev, true);
+	if (ret) {
+		dev_err(decon->dev, "failed to init wakeup device\n");
+		goto fail_thread;
+	}
 
 	pm_stay_awake(decon->dev);
 	dev_warn(decon->dev, "pm_stay_awake");
@@ -4734,6 +4766,7 @@ decon_init_done:
 		if (!decon->cam_status[0])
 			decon_info("Failed to get CAM0-STAT Reg\n");
 	}
+	decon->force_fullupdate = 0;
 
 #ifdef CONFIG_CPU_IDLE
 	decon->lpc_nb = exynos_decon_lpc_nb;
@@ -4746,7 +4779,7 @@ decon_init_done:
 #endif
 	decon_esd_enable_interrupt(decon);
 
-	decon_info("decon registered successfully");
+	decon_info("decon registered successfully\n");
 
 	return 0;
 
