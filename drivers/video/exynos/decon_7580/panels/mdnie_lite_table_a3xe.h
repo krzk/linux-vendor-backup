@@ -6,10 +6,10 @@
 /* SCR Position can be different each panel */
 static struct mdnie_scr_info scr_info = {
 	.index = 1,
-	.color_blind = 63,	/* ASCR_WIDE_CR[7:0] */
-	.white_r = 81,		/* ASCR_WIDE_WR[7:0] */
-	.white_g = 83,		/* ASCR_WIDE_WG[7:0] */
-	.white_b = 85		/* ASCR_WIDE_WB[7:0] */
+	.cr = 63,		/* ASCR_WIDE_CR[7:0] */
+	.wr = 81,		/* ASCR_WIDE_WR[7:0] */
+	.wg = 83,		/* ASCR_WIDE_WG[7:0] */
+	.wb = 85		/* ASCR_WIDE_WB[7:0] */
 };
 
 static inline int color_offset_f1(int x, int y)
@@ -92,6 +92,22 @@ static unsigned char *adjust_ldu_data[MODE_MAX] = {
 	adjust_ldu_data_1,
 };
 
+static inline int get_hbm_index(int idx)
+{
+	int i = 0;
+	int idx_list[] = {
+		40000	/* idx < 40000: HBM_OFF */
+				/* idx >= 40000: HBM_ON */
+	};
+
+	while (i < ARRAY_SIZE(idx_list)) {
+		if (idx < idx_list[i])
+			break;
+		i++;
+	}
+
+	return i;
+}
 
 static unsigned char GRAYSCALE_1[] = {
 	0xDE,
@@ -4901,105 +4917,6 @@ static unsigned char LOCAL_CE_2[] = {
 	0x0f, //ascr algo 1010
 };
 
-static unsigned char LOCAL_CE_TEXT_1[] = {
-	0xDE,
-	0x03, //de cs gamma 000
-	0x00, //de_gain 10
-	0x00,
-	0x07, //de_maxplus 11
-	0xff,
-	0x07, //de_maxminus 11
-	0xff,
-	0x01, //cs_gain 10
-	0x20,
-	0x00, //curve_0
-	0x21, //curve_1
-	0x38, //curve_2
-	0x4c, //curve_3
-	0x5d, //curve_4
-	0x6e, //curve_5
-	0x7d, //curve_6
-	0x8c, //curve_7
-	0x9a, //curve_8
-	0xa8, //curve_9
-	0xb5, //curve_10
-	0xc2, //curve_11
-	0xcf, //curve_12
-	0xdc, //curve_13
-	0xe8, //curve_14
-	0xf5, //curve_15
-	0x01, //curve_16
-	0x00,
-	0x00, //curve_offset
-	0x00,
-	0x00, //curve_low_x
-	0x00, //curve_low_y
-	0x00, //linear_on ascr_skin_on strength 0 0 00000
-	0x67, //ascr_skin_cb
-	0xa9, //ascr_skin_cr
-	0x0c, //ascr_dist_up
-	0x0c, //ascr_dist_down
-	0x0c, //ascr_dist_right
-	0x0c, //ascr_dist_left
-	0x00, //ascr_div_up 20
-	0xaa,
-	0xab,
-	0x00, //ascr_div_down
-	0xaa,
-	0xab,
-	0x00, //ascr_div_right
-	0xaa,
-	0xab,
-	0x00, //ascr_div_left
-	0xaa,
-	0xab,
-	0xff, //ascr_skin_Rr
-	0x00, //ascr_skin_Rg
-	0x00, //ascr_skin_Rb
-	0xff, //ascr_skin_Yr
-	0xff, //ascr_skin_Yg
-	0x00, //ascr_skin_Yb
-	0xff, //ascr_skin_Mr
-	0x00, //ascr_skin_Mg
-	0xff, //ascr_skin_Mb
-	0xff, //ascr_skin_Wr
-	0xff, //ascr_skin_Wg
-	0xff, //ascr_skin_Wb
-	0x00, //ascr_Cr
-	0xff, //ascr_Rr
-	0xff, //ascr_Cg
-	0x00, //ascr_Rg
-	0xff, //ascr_Cb
-	0x00, //ascr_Rb
-	0xff, //ascr_Mr
-	0x00, //ascr_Gr
-	0x00, //ascr_Mg
-	0xff, //ascr_Gg
-	0xff, //ascr_Mb
-	0x00, //ascr_Gb
-	0xff, //ascr_Yr
-	0x00, //ascr_Br
-	0xff, //ascr_Yg
-	0x00, //ascr_Bg
-	0x00, //ascr_Yb
-	0xff, //ascr_Bb
-	0xff, //ascr_Wr
-	0x00, //ascr_Kr
-	0xff, //ascr_Wg
-	0x00, //ascr_Kg
-	0xff, //ascr_Wb
-	0x00, //ascr_Kb
-	0x00, //trans_on
-	0x00, //trans_slope 0000
-	0x00, //trans_interval
-};
-
-static unsigned char LOCAL_CE_TEXT_2[] = {
-	0xDD,
-	0x01, //mdnie_en
-	0x00, //mask 000
-	0x0f, //ascr algo 1010
-};
 
 static unsigned char LEVEL_UNLOCK[] = {
 	0xF0,
@@ -5036,8 +4953,7 @@ static struct mdnie_table accessibility_table[ACCESSIBILITY_MAX] = {
 };
 
 static struct mdnie_table hbm_table[HBM_MAX] = {
-	[HBM_ON] = MDNIE_SET(LOCAL_CE),
-	MDNIE_SET(LOCAL_CE_TEXT)
+	[HBM_ON] = MDNIE_SET(LOCAL_CE)
 };
 
 static struct mdnie_table dmb_table[MODE_MAX] = {
@@ -5122,9 +5038,9 @@ static struct mdnie_tune tune_info = {
 
 	.coordinate_table = coordinate_data,
 	.adjust_ldu_table = adjust_ldu_data,
-	.max_adjust_ldu = 6,
 	.scr_info = &scr_info,
-	.color_offset = {color_offset_f1, color_offset_f2, color_offset_f3, color_offset_f4}
+	.get_hbm_index = get_hbm_index,
+	.color_offset = {NULL, color_offset_f1, color_offset_f2, color_offset_f3, color_offset_f4}
 };
 
 #endif

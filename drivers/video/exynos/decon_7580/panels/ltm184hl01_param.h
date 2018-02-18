@@ -13,9 +13,9 @@ struct lcd_seq_info {
 
 #define POWER_IS_ON(pwr)			(pwr <= FB_BLANK_NORMAL)
 #define UNDER_MINUS_20(temperature)	(temperature <= -20)
+#define LEVEL_IS_HBM(brightness)		(brightness == EXTEND_BRIGHTNESS)
 
-#define NORMAL_TEMPERATURE			25	/* 25 degrees Celsius */
-#define UI_MAX_BRIGHTNESS 	255
+#define EXTEND_BRIGHTNESS	306
 #define UI_MIN_BRIGHTNESS 	0
 #define UI_DEFAULT_BRIGHTNESS 134
 

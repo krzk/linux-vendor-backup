@@ -46,10 +46,6 @@ struct dynamic_aid_info {
 };
 
 #define MUL_100(x)		(x*100)
-#define MUL_1000(x)		(x*1000)
-#define MUL_10000(x)		(x*10000)
-#define DIV_10(x)		((x+5)/10)
-#define DIV_100(x)		((x+50)/100)
 
 static int calc_point_voltages(struct dynamic_aid_info d_aid)
 {
