@@ -495,7 +495,7 @@ extern void raise_softirq(unsigned int nr);
 
 DECLARE_PER_CPU(struct task_struct *, ksoftirqd);
 
-DECLARE_PER_CPU(__u32, active_softirqs)
+DECLARE_PER_CPU(__u32, active_softirqs);
 
 static inline struct task_struct *this_cpu_ksoftirqd(void)
 {
