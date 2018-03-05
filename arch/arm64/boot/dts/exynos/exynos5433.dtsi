@@ -995,6 +995,42 @@
 			reg = <0x145f0000 0x1038>;
 		};
 
+		mali: mali@14AC0000 {
+			compatible = "arm,mali-midgard";
+			reg = <0x14AC0000 0x5000>;
+			interrupts = <GIC_SPI 282 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI 283 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI 281 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "JOB", "MMU", "GPU";
+			clocks = <&cmu_g3d CLK_ACLK_G3D>;
+			clock-names = "clk_mali";
+			power-domains = <&pd_g3d>;
+			status = "disabled";
+
+			assigned-clocks = <&cmu_g3d CLK_FOUT_G3D_PLL>;
+			assigned-clock-rates = <160000000>;
+
+			#cooling-cells = <2>;
+
+			operating-points = <
+				700000 1150000
+				600000 1150000
+				550000 1125000
+				500000 1075000
+				420000 1025000
+				350000 1025000
+				266000 1000000
+				160000 1000000
+			>;
+			power_model {
+				compatible = "arm,mali-simple-power-model";
+				voltage = <800>;
+				frequency = <500>;
+				static-power = <500>;
+				dynamic-power = <1500>;
+				ts = <20000 2000 (-20) 2>;
+				thermal-zone = "g3d-thermal";
+			};
+		};
+
 		gsc_0: video-scaler@13c00000 {
 			compatible = "samsung,exynos5433-gsc";
 			reg = <0x13c00000 0x1000>;
