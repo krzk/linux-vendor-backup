@@ -1,0 +1,1 @@
+obj-$(CONFIG_MALI_VER_R12P0_04REL0) += r12p0_04rel0/
