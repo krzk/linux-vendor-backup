@@ -863,7 +863,7 @@ bool jd_submit_atom(struct kbase_context *kctx,
 
 	core_req = user_atom->core_req;
 
-	katom->start_timestamp.tv64 = 0;
+	katom->start_timestamp = 0;
 	katom->time_spent_us = 0;
 	katom->udata = user_atom->udata;
 	katom->kctx = kctx;
