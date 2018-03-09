@@ -1,5 +1,5 @@
 obj-$(CONFIG_EXYNOS_CHIPID)	+= exynos-chipid.o
-obj-$(CONFIG_EXYNOS_PMU)	+= exynos-pmu.o
+obj-$(CONFIG_EXYNOS_PMU)	+= exynos-pmu.o exynos-pm.o
 
 obj-$(CONFIG_EXYNOS_ASV)	+= exynos-asv.o
 
