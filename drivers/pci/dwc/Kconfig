@@ -65,7 +65,7 @@ config PCIE_DW_PLAT
 config PCI_EXYNOS
 	bool "Samsung Exynos PCIe controller"
 	depends on PCI
-	depends on SOC_EXYNOS5440
+	depends on ARCH_EXYNOS
 	depends on PCI_MSI_IRQ_DOMAIN
 	select PCIEPORTBUS
 	select PCIE_DW_HOST
