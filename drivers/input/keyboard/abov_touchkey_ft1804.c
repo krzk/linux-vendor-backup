@@ -3030,7 +3030,7 @@ static int __init get_bootloader(char *bootloader)
 {
 	is_ft1604_chip = false;
 
-	if (strstr(bootloader, "A510M")) {
+	if (strstr(bootloader, "A510M") || strstr(bootloader, "A510Y")) {
 		is_ft1604_chip = true;
 		fw_path = "abov/abov_ft1604_a5_ltn.fw";
 	}
