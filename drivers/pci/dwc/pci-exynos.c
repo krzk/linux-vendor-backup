@@ -42,18 +42,27 @@
 #define PCIE_IRQ_EN_LEVEL		0x010
 #define IRQ_MSI_ENABLE			BIT(2)
 #define PCIE_IRQ_EN_SPECIAL		0x014
-#define PCIE_PWR_RESET			0x018
+#define PCIE_SW_WAKE			0x018
+#define PCIE_BUS_EN			BIT(1)
 #define PCIE_CORE_RESET			0x01c
 #define PCIE_CORE_RESET_ENABLE		BIT(0)
 #define PCIE_STICKY_RESET		0x020
 #define PCIE_NONSTICKY_RESET		0x024
 #define PCIE_APP_INIT_RESET		0x028
 #define PCIE_APP_LTSSM_ENABLE		0x02c
-#define PCIE_ELBI_RDLH_LINKUP		0x064
+#define PCIE_ELBI_RDLH_LINKUP		0x074
+#define PCIE_ELBI_XMLH_LINKUP		BIT(4)
 #define PCIE_ELBI_LTSSM_ENABLE		0x1
 #define PCIE_ELBI_SLV_AWMISC		0x11c
 #define PCIE_ELBI_SLV_ARMISC		0x120
 #define PCIE_ELBI_SLV_DBI_ENABLE	BIT(21)
+
+/* Exynos5440 */
+#define EXYNOS5440_PCIE_PWR_RESET		0x018
+#define EXYNOS5440_PCIE_ELBI_RDLH_LINKUP	0x064
+/* DBI register */
+#define PCIE_MISC_CONTROL_1_OFF		0x8BC
+#define DBI_RO_WR_EN			BIT(0)
 
 struct exynos_pcie_mem_res {
 	void __iomem *elbi_base;   /* DT 0th resource: PCIe CTRL */
@@ -164,6 +173,96 @@ static const struct exynos_pcie_ops exynos5440_pcie_ops = {
 	.deinit_clk_resources	= exynos5440_pcie_deinit_clk_resources,
 };
 
+static int exynos5433_pcie_get_mem_resources(struct platform_device *pdev,
+					     struct exynos_pcie *ep)
+{
+	struct dw_pcie *pci = ep->pci;
+	struct device *dev = pci->dev;
+	struct resource *res;
+
+	ep->mem_res = devm_kzalloc(dev, sizeof(*ep->mem_res), GFP_KERNEL);
+	if (!ep->mem_res)
+		return -ENOMEM;
+
+	/* External Local Bus interface(ELBI) Register */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "elbi");
+	ep->mem_res->elbi_base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(ep->mem_res->elbi_base))
+		return PTR_ERR(ep->mem_res->elbi_base);
+
+	/* Data Bus Interface(DBI) Register */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dbi");
+	pci->dbi_base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(pci->dbi_base))
+		return PTR_ERR(pci->dbi_base);
+
+	return 0;
+}
+
+static int exynos5433_pcie_get_clk_resources(struct exynos_pcie *ep)
+{
+	struct dw_pcie *pci = ep->pci;
+	struct device *dev = pci->dev;
+
+	ep->clk_res = devm_kzalloc(dev, sizeof(*ep->clk_res), GFP_KERNEL);
+	if (!ep->clk_res)
+		return -ENOMEM;
+
+	ep->clk_res->clk = devm_clk_get(dev, "pcie");
+	if (IS_ERR(ep->clk_res->clk)) {
+		dev_err(dev, "Failed to get pcie rc clock\n");
+		return PTR_ERR(ep->clk_res->clk);
+	}
+
+	ep->clk_res->bus_clk = devm_clk_get(dev, "pcie_bus");
+	if (IS_ERR(ep->clk_res->bus_clk)) {
+		dev_err(dev, "Failed to get pcie bus clock\n");
+		return PTR_ERR(ep->clk_res->bus_clk);
+	}
+
+	return 0;
+}
+
+static void exynos5433_pcie_deinit_clk_resources(struct exynos_pcie *ep)
+{
+	clk_disable_unprepare(ep->clk_res->bus_clk);
+	clk_disable_unprepare(ep->clk_res->clk);
+}
+
+
+static int exynos5433_pcie_init_clk_resources(struct exynos_pcie *ep)
+{
+	struct dw_pcie *pci = ep->pci;
+	struct device *dev = pci->dev;
+	int ret;
+
+	ret = clk_prepare_enable(ep->clk_res->clk);
+	if (ret) {
+		dev_err(dev, "cannot enable pcie rc clock");
+		return ret;
+	}
+
+	ret = clk_prepare_enable(ep->clk_res->bus_clk);
+	if (ret) {
+		dev_err(dev, "cannot enable pcie bus clock");
+		goto err_bus_clk;
+	}
+
+	return 0;
+
+err_bus_clk:
+	clk_disable_unprepare(ep->clk_res->clk);
+
+	return ret;
+}
+
+static const struct exynos_pcie_ops exynos5433_pcie_ops = {
+	.get_mem_resources	= exynos5433_pcie_get_mem_resources,
+	.get_clk_resources	= exynos5433_pcie_get_clk_resources,
+	.init_clk_resources	= exynos5433_pcie_init_clk_resources,
+	.deinit_clk_resources	= exynos5433_pcie_deinit_clk_resources,
+};
+
 static void exynos_pcie_writel(void __iomem *base, u32 val, u32 reg)
 {
 	writel(val, base + reg);
@@ -205,7 +304,9 @@ static void exynos_pcie_assert_core_reset(struct exynos_pcie *ep)
 	val = exynos_pcie_readl(ep->mem_res->elbi_base, PCIE_CORE_RESET);
 	val &= ~PCIE_CORE_RESET_ENABLE;
 	exynos_pcie_writel(ep->mem_res->elbi_base, val, PCIE_CORE_RESET);
-	exynos_pcie_writel(ep->mem_res->elbi_base, 0, PCIE_PWR_RESET);
+	if (of_device_is_compatible(ep->pci->dev->of_node,"samsung,exynos5440-pcie"))
+		exynos_pcie_writel(ep->mem_res->elbi_base, 0,
+				EXYNOS5440_PCIE_PWR_RESET);
 	exynos_pcie_writel(ep->mem_res->elbi_base, 0, PCIE_STICKY_RESET);
 	exynos_pcie_writel(ep->mem_res->elbi_base, 0, PCIE_NONSTICKY_RESET);
 }
@@ -239,6 +340,7 @@ static int exynos_pcie_establish_link(struct exynos_pcie *ep)
 	struct dw_pcie *pci = ep->pci;
 	struct pcie_port *pp = &pci->pp;
 	struct device *dev = pci->dev;
+	u32 val;
 
 	if (dw_pcie_link_up(pci)) {
 		dev_err(dev, "Link already up\n");
@@ -249,13 +351,25 @@ static int exynos_pcie_establish_link(struct exynos_pcie *ep)
 
 	phy_reset(ep->phy);
 
-	exynos_pcie_writel(ep->mem_res->elbi_base, 1,
-			PCIE_PWR_RESET);
+	if (of_device_is_compatible(ep->pci->dev->of_node,"samsung,exynos5440-pcie"))
+		exynos_pcie_writel(ep->mem_res->elbi_base, 1,
+				EXYNOS5440_PCIE_PWR_RESET);
 
 	phy_power_on(ep->phy);
 	phy_init(ep->phy);
 
 	exynos_pcie_deassert_core_reset(ep);
+
+	val = exynos_pcie_readl(ep->mem_res->elbi_base, PCIE_SW_WAKE);
+	val &= ~PCIE_BUS_EN;
+	exynos_pcie_writel(ep->mem_res->elbi_base, val, PCIE_SW_WAKE);
+
+	/*
+	 * Enable DBI_RO_WR_EN bit.
+	 * - When set to 1, some RO and HWinit bits are wriatble from
+	 *   the local application through the DBI.
+	 */
+	dw_pcie_writel_dbi(pci, PCIE_MISC_CONTROL_1_OFF, DBI_RO_WR_EN);
 	dw_pcie_setup_rc(pp);
 	exynos_pcie_assert_reset(ep);
 
@@ -277,16 +391,6 @@ static void exynos_pcie_clear_irq_pulse(struct exynos_pcie *ep)
 
 	val = exynos_pcie_readl(ep->mem_res->elbi_base, PCIE_IRQ_PULSE);
 	exynos_pcie_writel(ep->mem_res->elbi_base, val, PCIE_IRQ_PULSE);
-}
-
-static void exynos_pcie_enable_irq_pulse(struct exynos_pcie *ep)
-{
-	u32 val;
-
-	/* enable INTX interrupt */
-	val = IRQ_INTA_ASSERT | IRQ_INTB_ASSERT |
-		IRQ_INTC_ASSERT | IRQ_INTD_ASSERT;
-	exynos_pcie_writel(ep->mem_res->elbi_base, val, PCIE_IRQ_EN_PULSE);
 }
 
 static irqreturn_t exynos_pcie_irq_handler(int irq, void *arg)
@@ -320,12 +424,20 @@ static void exynos_pcie_msi_init(struct exynos_pcie *ep)
 	exynos_pcie_writel(ep->mem_res->elbi_base, val, PCIE_IRQ_EN_LEVEL);
 }
 
-static void exynos_pcie_enable_interrupts(struct exynos_pcie *ep)
+static void exynos_pcie_enable_irq_pulse(struct exynos_pcie *ep)
 {
-	exynos_pcie_enable_irq_pulse(ep);
+	u32 val;
+	val = IRQ_INTA_ASSERT | IRQ_INTB_ASSERT |
+		IRQ_INTC_ASSERT | IRQ_INTD_ASSERT;
+	exynos_pcie_writel(ep->mem_res->elbi_base, val, PCIE_IRQ_EN_PULSE);
 
-	if (IS_ENABLED(CONFIG_PCI_MSI))
-		exynos_pcie_msi_init(ep);
+	exynos_pcie_writel(ep->mem_res->elbi_base, 0, PCIE_IRQ_EN_LEVEL);
+	exynos_pcie_writel(ep->mem_res->elbi_base, 0, PCIE_IRQ_EN_SPECIAL);
+
+	if (!of_device_is_compatible(ep->pci->dev->of_node,
+				"samsung,exynos5433-pcie") &&
+			IS_ENABLED(CONFIG_PCI_MSI))
+	exynos_pcie_msi_init(ep);
 }
 
 static u32 exynos_pcie_read_dbi(struct dw_pcie *pci, void __iomem *base,
@@ -381,11 +493,18 @@ static int exynos_pcie_link_up(struct dw_pcie *pci)
 	struct exynos_pcie *ep = to_exynos_pcie(pci);
 	u32 val;
 
-	val = exynos_pcie_readl(ep->mem_res->elbi_base, PCIE_ELBI_RDLH_LINKUP);
-	if (val == PCIE_ELBI_LTSSM_ENABLE)
-		return 1;
+	if (of_device_is_compatible(pci->dev->of_node,
+				"samsung,exynos5440-pcie")) {
+		val = exynos_pcie_readl(ep->mem_res->elbi_base,
+				EXYNOS5440_PCIE_ELBI_RDLH_LINKUP);
+		if (val == PCIE_ELBI_LTSSM_ENABLE)
+			return 1;
+		return 0;
+	}
 
-	return 0;
+	val = exynos_pcie_readl(ep->mem_res->elbi_base,
+			PCIE_ELBI_RDLH_LINKUP);
+	return (val & PCIE_ELBI_XMLH_LINKUP);
 }
 
 static int exynos_pcie_host_init(struct pcie_port *pp)
@@ -393,10 +512,8 @@ static int exynos_pcie_host_init(struct pcie_port *pp)
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
 	struct exynos_pcie *ep = to_exynos_pcie(pci);
 
-	exynos_pcie_establish_link(ep);
-	exynos_pcie_enable_interrupts(ep);
-
-	return 0;
+	exynos_pcie_enable_irq_pulse(ep);
+	return exynos_pcie_establish_link(ep);
 }
 
 static const struct dw_pcie_host_ops exynos_pcie_host_ops = {
@@ -412,8 +529,9 @@ static int __init exynos_add_pcie_port(struct exynos_pcie *ep,
 	struct pcie_port *pp = &pci->pp;
 	struct device *dev = &pdev->dev;
 	int ret;
+	int count = platform_irq_count(pdev);
 
-	pp->irq = platform_get_irq(pdev, 1);
+	pp->irq = platform_get_irq(pdev, --count);
 	if (pp->irq < 0) {
 		dev_err(dev, "failed to get irq\n");
 		return pp->irq;
@@ -425,8 +543,8 @@ static int __init exynos_add_pcie_port(struct exynos_pcie *ep,
 		return ret;
 	}
 
-	if (IS_ENABLED(CONFIG_PCI_MSI)) {
-		pp->msi_irq = platform_get_irq(pdev, 0);
+	if (IS_ENABLED(CONFIG_PCI_MSI) && --count >= 0) {
+		pp->msi_irq = platform_get_irq(pdev, count);
 		if (pp->msi_irq < 0) {
 			dev_err(dev, "failed to get msi irq\n");
 			return pp->msi_irq;
@@ -538,23 +656,21 @@ static int __exit exynos_pcie_remove(struct platform_device *pdev)
 static const struct of_device_id exynos_pcie_of_match[] = {
 	{
 		.compatible = "samsung,exynos5440-pcie",
-		.data = &exynos5440_pcie_ops
+		.data = &exynos5440_pcie_ops,
+	}, {
+		.compatible = "samsung,exynos5433-pcie",
+		.data = &exynos5433_pcie_ops,
 	},
 	{},
 };
 
 static struct platform_driver exynos_pcie_driver = {
+	.probe		= exynos_pcie_probe,
 	.remove		= __exit_p(exynos_pcie_remove),
 	.driver = {
 		.name	= "exynos-pcie",
 		.of_match_table = exynos_pcie_of_match,
 	},
 };
+builtin_platform_driver(exynos_pcie_driver);
 
-/* Exynos PCIe driver does not allow module unload */
-
-static int __init exynos_pcie_init(void)
-{
-	return platform_driver_probe(&exynos_pcie_driver, exynos_pcie_probe);
-}
-subsys_initcall(exynos_pcie_init);
