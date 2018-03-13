@@ -61,13 +61,6 @@ config BCM4334W
 	  This module adds support for wireless adapters based on
 	  Broadcom 4334W chipset.
 
-config BROADCOM_WIFI
-	bool "Broadcom WiFi Driver"
-	depends on (BCM4330 || BCM4334 || BCM43241)
-	default y
-	---help---
-		This is a configuration for broadcom WLAN driver.
-
 config BCMDHD_FW_PATH
 	depends on WLAN
 	string "Firmware path"
