@@ -141,13 +141,13 @@
 /* #define ENABLE_CACHE */
 #define ENABLE_FULL_BYPASS
 #define ENABLE_ONE_SLOT
-/* #define ENABLE_FAST_SHOT */
+#define ENABLE_FAST_SHOT
 #define ENABLE_FAULT_HANDLER
 /* #define ENABLE_MIF_400 */
 #define ENABLE_DTP
-/* #define USE_ION_ALLOC */
+#define USE_ION_ALLOC
 /* #define ENABLE_SETFILE */
-#define ENABLE_FLITE_OVERFLOW_STOP
+//#define ENABLE_FLITE_OVERFLOW_STOP
 #define ENABLE_DBG_FS
 #define ENABLE_RESERVED_MEM
 #if defined(CONFIG_PM_DEVFREQ)
@@ -207,7 +207,7 @@
  */
 
 #define DEBUG_LOG_MEMORY
-/* #define DEBUG */
+//#define DEBUG
 #define DBG_VIDEO
 #define DBG_DEVICE
 #define DBG_PER_FRAME

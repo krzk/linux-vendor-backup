@@ -536,7 +536,7 @@ void exynos_set_ema(enum asv_type_id type, unsigned int volt)
 
 unsigned int exynos_get_asv_info(int id)
 {
-	return cal_get_asv_info(id);
+	return 0;
 }
 
 unsigned int exynos_get_table_ver(void)
