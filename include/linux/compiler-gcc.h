@@ -183,7 +183,10 @@
 
 #if GCC_VERSION >= 40600
 /*
- * Tell the optimizer that something else uses this function or variable.
+ * When used with Link Time Optimization, gcc can optimize away C functions or
+ * variables which are referenced only from assembly code.  __visible tells the
+ * optimizer that something else uses this function or variable, thus preventing
+ * this.
  */
 #define __visible	__attribute__((externally_visible))
 #endif
@@ -208,6 +211,12 @@
 #define __HAVE_BUILTIN_BSWAP16__
 #endif
 #endif /* CONFIG_ARCH_USE_BUILTIN_BSWAP */
+
+#if GCC_VERSION >= 50000
+#define KASAN_ABI_VERSION 4
+#elif GCC_VERSION >= 40902
+#define KASAN_ABI_VERSION 3
+#endif
 
 #endif	/* gcc version >= 40000 specific checks */
 
