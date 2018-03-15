@@ -1,14 +1,14 @@
 /*
  * DHD debugability packet logging support
  *
- * Copyright (C) 1999-2017, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2018, Broadcom.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
  * following added to such license:
- * 
+ *
  *      As a special exception, the copyright holders of this software give you
  * permission to link this software with independent modules, and to copy and
  * distribute the resulting executable under terms of your choice, provided that
@@ -16,7 +16,7 @@
  * the license of that module.  An independent module is a module which is not
  * derived from this software.  The special exception does not apply to any
  * modifications of the software.
- * 
+ *
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
@@ -24,7 +24,7 @@
  *
  * <<Broadcom-WL-IPTag/Open:>>
  *
- * $Id: dhd_pktlog.c 735507 2017-12-11 01:31:34Z $
+ * $Id: dhd_pktlog.c 737760 2017-12-22 07:59:12Z $
  */
 
 #include <typedefs.h>
@@ -34,11 +34,12 @@
 #include <dhd.h>
 #include <dhd_dbg.h>
 #include <dhd_pktlog.h>
+#include <linux/rtc.h>
 
 #ifdef DHD_PKT_LOGGING
 #ifndef strtoul
 #define strtoul(nptr, endptr, base) bcm_strtoul((nptr), (endptr), (base))
-#endif
+#endif // endif
 extern int wl_pattern_atoh(char *src, char *dst);
 extern uint32 __dhd_dbg_pkt_hash(uintptr_t pkt, uint32 pktid);
 extern wifi_tx_packet_fate __dhd_dbg_map_tx_status_to_pkt_fate(uint16 status);
@@ -62,24 +63,18 @@ dhd_os_attach_pktlog(dhd_pub_t *dhdp)
 	if (unlikely(!pktlog)) {
 		DHD_ERROR(("%s(): could not allocate memory for - "
 					"dhd_pktlog_t\n", __FUNCTION__));
-		goto fail;
+		return BCME_ERROR;
 	}
 
 	dhdp->pktlog = pktlog;
 
-	dhdp->pktlog->tx_pktlog_ring = dhd_pktlog_ring_init(MAX_PKT_LOG_LEN);
-	dhdp->pktlog->rx_pktlog_ring = dhd_pktlog_ring_init(MAX_PKT_LOG_LEN);
+	dhdp->pktlog->tx_pktlog_ring = dhd_pktlog_ring_init(dhdp, MIN_PKTLOG_LEN);
+	dhdp->pktlog->rx_pktlog_ring = dhd_pktlog_ring_init(dhdp, MIN_PKTLOG_LEN);
 	dhdp->pktlog->pktlog_filter = dhd_pktlog_filter_init(MAX_DHD_PKTLOG_FILTER_LEN);
 
 	DHD_ERROR(("%s(): dhd_os_attach_pktlog attach\n", __FUNCTION__));
 
 	return BCME_OK;
-fail:
-	if (pktlog) {
-		kfree(pktlog);
-	}
-
-	return BCME_ERROR;
 }
 
 int
@@ -93,7 +88,6 @@ dhd_os_detach_pktlog(dhd_pub_t *dhdp)
 
 	dhd_pktlog_ring_deinit(dhdp->pktlog->tx_pktlog_ring);
 	dhd_pktlog_ring_deinit(dhdp->pktlog->rx_pktlog_ring);
-
 	dhd_pktlog_filter_deinit(dhdp->pktlog->pktlog_filter);
 
 	DHD_ERROR(("%s(): dhd_os_attach_pktlog detach\n", __FUNCTION__));
@@ -104,12 +98,17 @@ dhd_os_detach_pktlog(dhd_pub_t *dhdp)
 }
 
 dhd_pktlog_ring_t*
-dhd_pktlog_ring_init(int size)
+dhd_pktlog_ring_init(dhd_pub_t *dhdp, int size)
 {
 	gfp_t kflags;
 	uint32 alloc_len;
 	dhd_pktlog_ring_t *ring;
 	dhd_pktlog_ring_info_t *ring_info = NULL;
+
+	if (!dhdp) {
+		DHD_ERROR(("%s(): dhdp is NULL\n", __FUNCTION__));
+		return NULL;
+	}
 
 	kflags = in_atomic() ? GFP_ATOMIC : GFP_KERNEL;
 
@@ -138,15 +137,14 @@ dhd_pktlog_ring_init(int size)
 
 	ring->start = TRUE;
 	ring->pktlog_minmize = FALSE;
+	ring->pktlog_len = size;
+	ring->dhdp = dhdp;
+	spin_lock_init(&ring->pktlog_ring_lock);
 
 	DHD_ERROR(("%s(): pktlog ring init success\n", __FUNCTION__));
 
 	return ring;
 fail:
-	if (ring_info) {
-		kfree(ring_info);
-	}
-
 	if (ring) {
 		kfree(ring);
 	}
@@ -158,16 +156,42 @@ int
 dhd_pktlog_ring_deinit(dhd_pktlog_ring_t *ring)
 {
 	int ret = BCME_OK;
+	void *data = NULL;
+	dhd_pktlog_ring_info_t *ring_info;
 
 	if (!ring) {
 		DHD_ERROR(("%s(): ring is NULL\n", __FUNCTION__));
 		return -EINVAL;
 	}
 
+	if (!ring->dhdp) {
+		DHD_ERROR(("%s(): dhdp is NULL\n", __FUNCTION__));
+		return -EINVAL;
+	}
+
+	/* stop pkt log */
+	ring->start = FALSE;
+
+	/* free ring_info->info.pkt */
+	if (dhd_pktlog_ring_set_nextpos(ring) == BCME_OK) {
+		while (dhd_pktlog_ring_get_nextbuf(ring, &data) == BCME_OK) {
+			ring_info = (dhd_pktlog_ring_info_t *)data;
+
+			if (ring_info && ring_info->info.pkt) {
+				PKTFREE(ring->dhdp->osh, ring_info->info.pkt, TRUE);
+				DHD_PKT_LOG(("%s(): pkt free pos %d\n",
+					__FUNCTION__, ring->next_pos));
+				ring_info->info.pkt = NULL;
+			}
+		}
+	}
+
 	if (ring->pktlog_ring_info) {
 		kfree(ring->pktlog_ring_info);
+		ring->pktlog_ring_info = NULL;
 	}
 	kfree(ring);
+	ring = NULL;
 
 	DHD_ERROR(("%s(): pktlog ring deinit\n", __FUNCTION__));
 
@@ -178,13 +202,13 @@ int
 dhd_pktlog_ring_set_nextpos(dhd_pktlog_ring_t *ringbuf)
 {
 	if  (!ringbuf) {
-		DHD_PKT_LOG(("%s(): ringbuf is  NULL\n", __FUNCTION__));
+		DHD_ERROR(("%s(): ringbuf is  NULL\n", __FUNCTION__));
 		return BCME_ERROR;
 	}
 
 	/* ring buffer is empty */
 	if (ringbuf->front ==  ringbuf->rear) {
-		DHD_PKT_LOG(("%s(): ringbuf empty\n", __FUNCTION__));
+		DHD_ERROR(("%s(): ringbuf empty\n", __FUNCTION__));
 		return BCME_ERROR;
 	}
 
@@ -233,7 +257,7 @@ dhd_pktlog_ring_get_nextbuf(dhd_pktlog_ring_t *ringbuf, void **data)
 		return BCME_ERROR;
 	}
 
-	ringbuf->next_pos = (ringbuf->next_pos + 1) % MAX_PKT_LOG_LEN;
+	ringbuf->next_pos = (ringbuf->next_pos + 1) % ringbuf->pktlog_len;
 
 	DHD_PKT_LOG(("%s(): ringbuf next next pos %d\n",
 		__FUNCTION__, ringbuf->next_pos));
@@ -255,7 +279,7 @@ dhd_pktlog_ring_set_prevpos(dhd_pktlog_ring_t *ringbuf)
 		return BCME_ERROR;
 	}
 
-	ringbuf->prev_pos = (ringbuf->rear + MAX_PKT_LOG_LEN - 1) % MAX_PKT_LOG_LEN;
+	ringbuf->prev_pos = (ringbuf->rear + ringbuf->pktlog_len - 1) % ringbuf->pktlog_len;
 
 	return BCME_OK;
 }
@@ -304,7 +328,7 @@ dhd_pktlog_ring_get_prevbuf(dhd_pktlog_ring_t *ringbuf, void **data)
 		return BCME_ERROR;
 	}
 
-	ringbuf->prev_pos  = (ringbuf->prev_pos + MAX_PKT_LOG_LEN - 1) % MAX_PKT_LOG_LEN;
+	ringbuf->prev_pos  = (ringbuf->prev_pos + ringbuf->pktlog_len - 1) % ringbuf->pktlog_len;
 
 	DHD_PKT_LOG(("%s(): ringbuf next prev pos %d\n", __FUNCTION__, ringbuf->prev_pos));
 
@@ -317,6 +341,7 @@ dhd_pktlog_ring_get_writebuf(dhd_pktlog_ring_t *ringbuf, void **data)
 	dhd_pktlog_ring_info_t *ring_info;
 	uint16 write_pos = 0;
 	uint16 next_write_pos = 0;
+	unsigned long flags = 0;
 
 	if  (!ringbuf || !data) {
 		DHD_PKT_LOG(("%s(): ringbuf=%p data=%p\n",
@@ -324,11 +349,15 @@ dhd_pktlog_ring_get_writebuf(dhd_pktlog_ring_t *ringbuf, void **data)
 		return BCME_ERROR;
 	}
 
+	/* PKTLOG Ring Lock */
+	spin_lock_irqsave(&ringbuf->pktlog_ring_lock, flags);
 	write_pos = ringbuf->rear;
-	next_write_pos = (ringbuf->rear + 1) % MAX_PKT_LOG_LEN;
+	next_write_pos = (ringbuf->rear + 1) % ringbuf->pktlog_len;
 	*data = ((dhd_pktlog_ring_info_t *)ringbuf->pktlog_ring_info) + write_pos;
 	if (*data == NULL) {
 		DHD_PKT_LOG(("%s(): write_pos %d data NULL\n", __FUNCTION__, write_pos));
+		/* PKTLOG Ring Unlock */
+		spin_unlock_irqrestore(&ringbuf->pktlog_ring_lock, flags);
 		return BCME_ERROR;
 	}
 
@@ -342,11 +371,17 @@ dhd_pktlog_ring_get_writebuf(dhd_pktlog_ring_t *ringbuf, void **data)
 			PKTFREE(ringbuf->dhdp->osh, ring_info->info.pkt, TRUE);
 			DHD_PKT_LOG(("%s(): ringbuf full next write %d pkt free\n",
 				__FUNCTION__, next_write_pos));
+			ring_info->info.pkt = NULL;
+		} else {
+			DHD_PKT_LOG(("%s(): invalid index : front<%u>, next_pos<%d> \n",
+				__FUNCTION__, ringbuf->front, next_write_pos));
 		}
-		ringbuf->front = (ringbuf->front + 1) % MAX_PKT_LOG_LEN;
+		ringbuf->front = (ringbuf->front + 1) % ringbuf->pktlog_len;
 	}
 
 	ringbuf->rear = next_write_pos;
+	/* PKTLOG Ring Unlock */
+	spin_unlock_irqrestore(&ringbuf->pktlog_ring_lock, flags);
 
 	DHD_PKT_LOG(("%s(): next write pos %d front %d \n",
 		__FUNCTION__, next_write_pos, ringbuf->front));
@@ -580,10 +615,6 @@ dhd_pktlog_filter_init(int size)
 
 	return filter;
 fail:
-	if (filter_info) {
-		kfree(filter_info);
-	}
-
 	if (filter) {
 		kfree(filter);
 	}
@@ -721,8 +752,10 @@ dhd_pktlog_filter_add(dhd_pktlog_filter_t *filter, char *arg)
 		return BCME_ERROR;
 	}
 
-	prhex("filter", (char *)&filter->info[filter->list_cnt].pattern[0],
-			(pattern_size * 2));
+	prhex("mask", (char *)&filter->info[filter->list_cnt].mask[0],
+			mask_size);
+	prhex("pattern", (char *)&filter->info[filter->list_cnt].pattern[0],
+			pattern_size);
 
 	if (mask_size != pattern_size) {
 		DHD_ERROR(("%s(): Mask and pattern not the same size\n", __FUNCTION__));
@@ -958,7 +991,6 @@ dhd_pktlog_pkts_write_file(dhd_pktlog_ring_t *ringbuf, struct file *w_pcap_fp, i
 	}
 
 	if (dhd_pktlog_ring_set_nextpos(ringbuf) != BCME_OK) {
-		DHD_ERROR(("%s(): fail set next pos\n", __FUNCTION__));
 		return BCME_ERROR;
 	}
 
@@ -1076,7 +1108,6 @@ dhd_pktlog_write_file(dhd_pub_t *dhdp)
 	mm_segment_t old_fs;
 	uint32 file_mode;
 	char dump_path[128];
-	struct timeval curtime;
 	int ret = BCME_OK;
 	dhd_pktlog_ring_t *tx_pktlog_ring;
 	dhd_pktlog_ring_t *rx_pktlog_ring;
@@ -1114,12 +1145,31 @@ dhd_pktlog_write_file(dhd_pub_t *dhdp)
 	set_fs(KERNEL_DS);
 
 	memset(dump_path, 0, sizeof(dump_path));
-	do_gettimeofday(&curtime);
-	snprintf(dump_path, sizeof(dump_path), "%s_%ld.%ld.pcap",
-			DHD_PKTLOG_DUMP_PATH "pktlog_dump",
-			(unsigned long)curtime.tv_sec, (unsigned long)curtime.tv_usec);
+	get_debug_dump_time(dhdp->debug_dump_time_pktlog_str);
+	if (dhdp->memdump_type == DUMP_TYPE_BY_SYSDUMP) {
+		if (dhdp->debug_dump_subcmd == CMD_UNWANTED) {
+			snprintf(dump_path, sizeof(dump_path), "%s",
+				DHD_PKTLOG_DUMP_PATH DHD_PKTLOG_DUMP_TYPE
+				DHD_DUMP_SUBSTR_UNWANTED);
+		} else if (dhdp->debug_dump_subcmd == CMD_DISCONNECTED) {
+			snprintf(dump_path, sizeof(dump_path), "%s",
+				DHD_PKTLOG_DUMP_PATH DHD_PKTLOG_DUMP_TYPE
+				DHD_DUMP_SUBSTR_DISCONNECTED);
+		} else {
+			snprintf(dump_path, sizeof(dump_path), "%s",
+				DHD_PKTLOG_DUMP_PATH DHD_PKTLOG_DUMP_TYPE);
+		}
+	} else {
+		snprintf(dump_path, sizeof(dump_path), "%s",
+			DHD_PKTLOG_DUMP_PATH DHD_PKTLOG_DUMP_TYPE);
 
+	}
+	snprintf(dump_path, sizeof(dump_path), "%s_" "%s"
+			".pcap", dump_path,
+			dhdp->debug_dump_time_pktlog_str);
 	file_mode = O_CREAT | O_WRONLY;
+
+	clear_debug_dump_time(dhdp->debug_dump_time_pktlog_str);
 
 	DHD_ERROR(("pktlog_dump_pcap = %s\n", dump_path));
 
@@ -1175,6 +1225,55 @@ fail:
 
 	DHD_ERROR(("pktlog write file is end, err = %d\n", ret));
 
+#ifdef DHD_DUMP_MNGR
+	if (ret >= 0) {
+		dhd_dump_file_manage_enqueue(dhdp, dump_path, DHD_PKTLOG_DUMP_TYPE);
+	}
+#endif /* DHD_DUMP_MNGR */
+
 	return ret;
+}
+
+dhd_pktlog_ring_t*
+dhd_pktlog_ring_change_size(dhd_pktlog_ring_t *ringbuf, int size)
+{
+	uint32 alloc_len;
+	uint32 pktlog_start;
+	uint32 pktlog_minmize;
+	dhd_pktlog_ring_t *pktlog_ring;
+	dhd_pub_t *dhdp;
+
+	if  (!ringbuf) {
+		DHD_ERROR(("%s(): ringbuf is NULL\n", __FUNCTION__));
+		return NULL;
+	}
+
+	alloc_len = size;
+	if (alloc_len < MIN_PKTLOG_LEN) {
+		alloc_len = MIN_PKTLOG_LEN;
+	}
+	if (alloc_len > MAX_PKTLOG_LEN) {
+		alloc_len = MAX_PKTLOG_LEN;
+	}
+	DHD_ERROR(("ring size requested: %d alloc: %d\n", size, alloc_len));
+
+	/* backup variable */
+	pktlog_start = ringbuf->start;
+	pktlog_minmize = ringbuf->pktlog_minmize;
+	dhdp = ringbuf->dhdp;
+
+	/* free ring_info */
+	dhd_pktlog_ring_deinit(ringbuf);
+
+	/* alloc ring_info */
+	pktlog_ring = dhd_pktlog_ring_init(dhdp, alloc_len);
+
+	/* restore variable */
+	if (pktlog_ring) {
+		pktlog_ring->start = pktlog_start;
+		pktlog_ring->pktlog_minmize = pktlog_minmize;
+	}
+
+	return pktlog_ring;
 }
 #endif /* DHD_PKT_LOGGING */

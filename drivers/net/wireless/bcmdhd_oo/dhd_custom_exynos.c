@@ -1,14 +1,14 @@
 /*
  * Platform Dependent file for Samsung Exynos
  *
- * Copyright (C) 1999-2017, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2018, Broadcom.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
  * following added to such license:
- * 
+ *
  *      As a special exception, the copyright holders of this software give you
  * permission to link this software with independent modules, and to copy and
  * distribute the resulting executable under terms of your choice, provided that
@@ -16,14 +16,14 @@
  * the license of that module.  An independent module is a module which is not
  * derived from this software.  The special exception does not apply to any
  * modifications of the software.
- * 
+ *
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
  * <<Broadcom-WL-IPTag/Open:>>
  *
- * $Id: dhd_custom_exynos.c 731653 2017-11-14 03:29:19Z $
+ * $Id: dhd_custom_exynos.c 729025 2017-10-30 03:31:19Z $
  */
 #include <linux/device.h>
 #include <linux/gpio.h>
@@ -47,9 +47,9 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/wlan_plat.h>
-#if defined(CONFIG_SOC_EXYNOS8895)
+#if defined(CONFIG_SOC_EXYNOS8895) || defined(CONFIG_SOC_EXYNOS9810)
 #include <linux/exynos-pci-ctrl.h>
-#endif /* CONFIG_SOC_EXYNOS8895 */
+#endif /* CONFIG_SOC_EXYNOS8895 || defined(CONFIG_SOC_EXYNOS9810) */
 
 #if defined(CONFIG_64BIT)
 #include <asm-generic/gpio.h>
@@ -63,7 +63,6 @@
 	defined(CONFIG_MACH_UNIVERSAL5422)
 #include <mach/irqs.h>
 #endif /* CONFIG_MACH_UNIVERSAL7580 || CONFIG_MACH_UNIVERSAL5430 || CONFIG_MACH_UNIVERSAL5422 */
-
 #include <linux/sec_sysfs.h>
 
 #ifdef CONFIG_MACH_A7LTE
@@ -92,31 +91,26 @@ extern struct device *mmc_dev_for_wlan;
 #ifdef EXYNOS_PCIE_RC_ONOFF
 #ifdef CONFIG_MACH_UNIVERSAL5433
 #define SAMSUNG_PCIE_CH_NUM
-#elif defined(CONFIG_MACH_UNIVERSAL7420)
+#elif defined(CONFIG_MACH_UNIVERSAL7420) || defined(CONFIG_MACH_EXSOM7420)
 #define SAMSUNG_PCIE_CH_NUM 1
-#elif defined(CONFIG_MACH_EXSOM7420)
-#define SAMSUNG_PCIE_CH_NUM 1
-#elif defined(CONFIG_SOC_EXYNOS8890)
+#elif defined(CONFIG_SOC_EXYNOS8890)|| defined(CONFIG_SOC_EXYNOS8895) || \
+	defined(CONFIG_SOC_EXYNOS9810)
 #define SAMSUNG_PCIE_CH_NUM 0
-#elif defined(CONFIG_SOC_EXYNOS8895)
-#define SAMSUNG_PCIE_CH_NUM 0
-#endif
+#endif // endif
 #ifdef CONFIG_MACH_UNIVERSAL5433
-extern void exynos_pcie_poweron(void);
-extern void exynos_pcie_poweroff(void);
+extern void exynos_pcie_pm_resume(void);
+extern void exynos_pcie_pm_suspend(void);
 #else
-extern void exynos_pcie_poweron(int);
-extern void exynos_pcie_poweroff(int);
+extern void exynos_pcie_pm_resume(int);
+extern void exynos_pcie_pm_suspend(int);
 #endif /* CONFIG_MACH_UNIVERSAL5433 */
 #endif /* EXYNOS_PCIE_RC_ONOFF */
 
 #if (defined(CONFIG_MACH_UNIVERSAL3475) || defined(CONFIG_SOC_EXYNOS7870) || \
-	defined(CONFIG_MACH_UNIVERSAL7580) || defined(CONFIG_SOC_EXYNOS7885))
+	defined(CONFIG_MACH_UNIVERSAL7580))
 extern struct mmc_host *wlan_mmc;
 extern void mmc_ctrl_power(struct mmc_host *host, bool onoff);
-#endif /* MACH_UNIVERSAL3475 || SOC_EXYNOS7870 ||
-	* MACH_UNIVERSAL7580 || SOC_EXYNOS7885
-	*/
+#endif /* MACH_UNIVERSAL3475 || SOC_EXYNOS7870 || MACH_UNIVERSAL7580 */
 
 static int
 dhd_wlan_power(int onoff)
@@ -131,7 +125,7 @@ dhd_wlan_power(int onoff)
 
 #ifdef EXYNOS_PCIE_RC_ONOFF
 	if (!onoff) {
-		exynos_pcie_poweroff(SAMSUNG_PCIE_CH_NUM);
+		exynos_pcie_pm_suspend(SAMSUNG_PCIE_CH_NUM);
 	}
 
 	if (gpio_direction_output(wlan_pwr_on, onoff)) {
@@ -141,11 +135,11 @@ dhd_wlan_power(int onoff)
 	}
 
 	if (onoff) {
-#if defined(CONFIG_SOC_EXYNOS8895)
+#if defined(CONFIG_SOC_EXYNOS8895) || defined(CONFIG_SOC_EXYNOS9810)
 		printk(KERN_ERR "%s Disable L1ss EP side\n", __FUNCTION__);
 		exynos_pcie_l1ss_ctrl(0, PCIE_L1SS_CTRL_WIFI);
-#endif /* CONFIG_SOC_EXYNOS8895 */
-		exynos_pcie_poweron(SAMSUNG_PCIE_CH_NUM);
+#endif /* CONFIG_SOC_EXYNOS8895 || CONFIG_SOC_EXYNOS9810 */
+		exynos_pcie_pm_resume(SAMSUNG_PCIE_CH_NUM);
 	}
 #else
 #ifdef CONFIG_MACH_A7LTE
@@ -171,12 +165,10 @@ dhd_wlan_power(int onoff)
 	}
 #endif /* CONFIG_MACH_A7LTE */
 #if (defined(CONFIG_MACH_UNIVERSAL3475) || defined(CONFIG_SOC_EXYNOS7870) || \
-	defined(CONFIG_MACH_UNIVERSAL7580) || defined(CONFIG_SOC_EXYNOS7885))
+	defined(CONFIG_MACH_UNIVERSAL7580))
 	if (wlan_mmc)
 		mmc_ctrl_power(wlan_mmc, onoff);
-#endif /* MACH_UNIVERSAL3475 || SOC_EXYNOS7870 ||
-	* MACH_UNIVERSAL7580 || SOC_EXYNOS7885
-	*/
+#endif /* MACH_UNIVERSAL3475 || SOC_EXYNOS7870 || MACH_UNIVERSAL7580 */
 #endif /* EXYNOS_PCIE_RC_ONOFF */
 	return 0;
 }
@@ -206,32 +198,6 @@ dhd_wlan_set_carddetect(int val)
 	return 0;
 }
 #endif /* !CONFIG_BCMDHD_PCIE */
-
-#ifdef SUPPORT_MULTIPLE_BOARD_REV_FROM_DT
-int
-dhd_get_system_rev(void)
-{
-	const char *wlan_node = "samsung,brcm-wlan";
-	struct device_node *root_node = NULL;
-	unsigned int base_system_rev_for_nv = 0;
-	int ret;
-
-	root_node = of_find_compatible_node(NULL, NULL, wlan_node);
-	if (!root_node) {
-		printk(KERN_ERR "couldn't get root node\n");
-		return -ENODEV;
-	}
-
-	ret = of_property_read_u32(root_node, "base_system_rev_for_nv",
-		&base_system_rev_for_nv);
-	if (ret) {
-		printk(KERN_INFO "couldn't get base_system_rev_for_nv\n");
-		return -ENODEV;
-	}
-
-	return base_system_rev_for_nv;
-}
-#endif /* SUPPORT_MULTIPLE_BOARD_REV_FROM_DT */
 
 int __init
 dhd_wlan_init_gpio(void)
@@ -273,7 +239,7 @@ dhd_wlan_init_gpio(void)
 		gpio_export_link(wlan_dev, "WLAN_REG_ON", wlan_pwr_on);
 
 #ifdef EXYNOS_PCIE_RC_ONOFF
-	exynos_pcie_poweron(SAMSUNG_PCIE_CH_NUM);
+	exynos_pcie_pm_resume(SAMSUNG_PCIE_CH_NUM);
 #endif /* EXYNOS_PCIE_RC_ONOFF */
 
 #ifdef CONFIG_BCMDHD_OOB_HOST_WAKE
@@ -386,7 +352,7 @@ fail:
 }
 
 #if defined(CONFIG_MACH_UNIVERSAL7420) || defined(CONFIG_SOC_EXYNOS8890) || \
-	defined(CONFIG_SOC_EXYNOS8895)
+	defined(CONFIG_SOC_EXYNOS8895) || defined(CONFIG_SOC_EXYNOS9810)
 #if defined(CONFIG_DEFERRED_INITCALLS)
 deferred_module_init(dhd_wlan_init);
 #else
@@ -395,5 +361,5 @@ late_initcall(dhd_wlan_init);
 #else
 device_initcall(dhd_wlan_init);
 #endif /* CONFIG_MACH_UNIVERSAL7420 || CONFIG_SOC_EXYNOS8890 || \
-		  CONFIG_SOC_EXYNOS8895
+		  CONFIG_SOC_EXYNOS8895 || CONFIG_SOC_EXYNOS9810
 		*/

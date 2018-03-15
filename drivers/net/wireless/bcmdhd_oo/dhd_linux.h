@@ -1,14 +1,14 @@
 /*
  * DHD Linux header file (dhd_linux exports for cfg80211 and other components)
  *
- * Copyright (C) 1999-2017, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2018, Broadcom.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
  * following added to such license:
- * 
+ *
  *      As a special exception, the copyright holders of this software give you
  * permission to link this software with independent modules, and to copy and
  * distribute the resulting executable under terms of your choice, provided that
@@ -16,7 +16,7 @@
  * the license of that module.  An independent module is a module which is not
  * derived from this software.  The special exception does not apply to any
  * modifications of the software.
- * 
+ *
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
@@ -24,7 +24,7 @@
  *
  * <<Broadcom-WL-IPTag/Open:>>
  *
- * $Id: dhd_linux.h 733907 2017-11-30 12:20:38Z $
+ * $Id: dhd_linux.h 701006 2017-05-23 08:25:04Z $
  */
 
 /* wifi platform functions for power, interrupt and pre-alloc, either
@@ -49,7 +49,7 @@
 #endif /* defined(CONFIG_HAS_EARLYSUSPEND) && defined(DHD_USE_EARLYSUSPEND) */
 #if defined(CONFIG_WIFI_CONTROL_FUNC)
 #include <linux/wlan_plat.h>
-#endif
+#endif // endif
 
 #if !defined(CONFIG_WIFI_CONTROL_FUNC)
 #define WLAN_PLAT_NODFS_FLAG	0x01
@@ -126,24 +126,10 @@ bool dhd_update_fw_nv_path(struct dhd_info *dhdinfo);
 int dhd_net_bus_get(struct net_device *dev);
 int dhd_net_bus_put(struct net_device *dev);
 #endif /* BT_OVER_SDIO */
-#ifdef HOFFLOAD_MODULES
-extern void dhd_free_module_memory(struct dhd_bus *bus, struct module_metadata *hmem);
-extern void* dhd_alloc_module_memory(struct dhd_bus *bus, uint32_t size,
-	struct module_metadata *hmem);
-#endif /* HOFFLOAD_MODULES */
 #if defined(WLADPS) || defined(WLADPS_PRIVATE_CMD)
 #define ADPS_ENABLE	1
 #define ADPS_DISABLE	0
-typedef struct bcm_iov_buf {
-	uint16 version;
-	uint16 len;
-	uint16 id;
-	uint16 data[1];
-} bcm_iov_buf_t;
 
 int dhd_enable_adps(dhd_pub_t *dhd, uint8 on);
 #endif /* WLADPS || WLADPS_PRIVATE_CMD */
-#ifdef DHD_DISABLE_VHTMODE
-void dhd_disable_vhtmode(dhd_pub_t *dhd);
-#endif /* DHD_DISABLE_VHTMODE */
 #endif /* __DHD_LINUX_H__ */

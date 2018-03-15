@@ -2,14 +2,14 @@
  * Process CIS information from OTP for customer platform
  * (Handle the MAC address and module information)
  *
- * Copyright (C) 1999-2017, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2018, Broadcom.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
  * following added to such license:
- * 
+ *
  *      As a special exception, the copyright holders of this software give you
  * permission to link this software with independent modules, and to copy and
  * distribute the resulting executable under terms of your choice, provided that
@@ -17,7 +17,7 @@
  * the license of that module.  An independent module is a module which is not
  * derived from this software.  The special exception does not apply to any
  * modifications of the software.
- * 
+ *
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
@@ -25,7 +25,7 @@
  *
  * <<Broadcom-WL-IPTag/Open:>>
  *
- * $Id: dhd_custom_cis.c 699163 2017-05-12 05:18:23Z $
+ * $Id: dhd_custom_cis.c 734083 2017-12-01 05:44:24Z $
  */
 
 #include <typedefs.h>
@@ -47,14 +47,11 @@
 #ifdef DHD_USE_CISINFO
 
 /* File Location to keep each information */
-#define MACINFO	PLATFORM_PATH".mac.info"
-#define CIDINFO	PLATFORM_PATH".cid.info"
-#define	REVINFO	PLATFORM_PATH".rev"
-#ifdef PLATFORM_SLP
-#define MACINFO_EFS "/csa/.mac.info"
-#else
+#define MACINFO "/data/.mac.info"
 #define MACINFO_EFS "/efs/wifi/.mac.info"
-#endif /* PLATFORM_SLP */
+#define CIDINFO "/data/misc/conn/.cid.info"
+#define CIDINFO_DATA "/data/.cid.info"
+#define REVINFO "/data/.rev"
 
 /* Definitions for MAC address */
 #define MAC_BUF_SIZE 20
@@ -62,17 +59,13 @@
 #define MAC_OUTPUT_FORMAT	"%02X:%02X:%02X:%02X:%02X:%02X\n"
 
 /* Definitions for CIS information */
-#ifdef BCM4330_CHIP
-#define CIS_BUF_SIZE            128
-#elif defined(BCM4334_CHIP)
-#define CIS_BUF_SIZE            256
-#elif defined(BCM4359_CHIP)
+#if defined(BCM4359_CHIP)
 #define CIS_BUF_SIZE            1280
 #elif defined(BCM4361_CHIP)
 #define CIS_BUF_SIZE            1280
 #else
 #define CIS_BUF_SIZE            512
-#endif /* BCM4330_CHIP */
+#endif /* BCM4359_CHIP */
 
 #define CIS_TUPLE_TAG_START		0x80
 #define CIS_TUPLE_TAG_VENDOR		0x81
@@ -309,10 +302,6 @@ dhd_set_macaddr_from_file(dhd_pub_t *dhdp)
 		return BCME_ERROR;
 	}
 
-	if (!filepath_efs) {
-		filepath_efs = MACINFO;
-	}
-
 	memset(mac_buf, 0, sizeof(mac_buf));
 
 	/* Read MAC address from the specified file */
@@ -435,10 +424,6 @@ dhd_check_module_mac(dhd_pub_t *dhdp)
 
 	mac = &dhdp->mac;
 	memset(otp_mac_buf, 0, sizeof(otp_mac_buf));
-
-	if (!filepath_efs) {
-		filepath_efs = MACINFO;
-	}
 
 	if (!g_have_cis_dump) {
 		DHD_INFO(("%s: Couldn't read CIS information\n", __FUNCTION__));
@@ -621,20 +606,7 @@ typedef struct {
 	char cid_info[MAX_VNAME_LEN];
 } vid_info_t;
 
-#if defined(BCM4330_CHIP)
-vid_info_t vid_info[] = {
-	{ 6, { 0x00, 0x20, 0xc7, 0x00, 0x00, }, { "murata" } },
-	{ 2, { 0x99, }, { "semcove" } },
-	{ 0, { 0x00, }, { "samsung" } }
-};
-#elif defined(BCM4334_CHIP)
-vid_info_t vid_info[] = {
-	{ 6, { 0x00, 0x00, 0x00, 0x33, 0x33, }, { "semco" } },
-	{ 6, { 0x00, 0x00, 0x00, 0xfb, 0x50, }, { "semcosh" } },
-	{ 6, { 0x00, 0x20, 0xc7, 0x00, 0x00, }, { "murata" } },
-	{ 0, { 0x00, }, { "murata" } }
-};
-#elif defined(BCM4335_CHIP)
+#if defined(BCM4335_CHIP)
 vid_info_t vid_info[] = {
 	{ 3, { 0x33, 0x66, }, { "semcosh" } },		/* B0 Sharp 5G-FEM */
 	{ 3, { 0x33, 0x33, }, { "semco" } },		/* B0 Skyworks 5G-FEM and A0 chip */
@@ -728,6 +700,8 @@ vid_info_t vid_info[] = {
 	{ 3, { 0x71, 0x33, }, { "semco_sky_r01h_e32_b0" } },
 	{ 3, { 0x81, 0x33, }, { "semco_sem_r01i_e32_b0" } },
 	{ 3, { 0x82, 0x33, }, { "semco_sem_r02j_e32_b0" } },
+	{ 3, { 0x91, 0x33, }, { "semco_sem_r02a_e32a_b2" } },
+	{ 3, { 0xa1, 0x33, }, { "semco_sem_r02b_e32a_b2" } },
 	{ 3, { 0x12, 0x22, }, { "murata_nxp_r012_1kl_a1" } },
 	{ 3, { 0x13, 0x22, }, { "murata_mur_r013_1kl_b0" } },
 	{ 3, { 0x14, 0x22, }, { "murata_mur_r014_1kl_b0" } },
@@ -742,6 +716,12 @@ vid_info_t vid_info[] = {
 	{ 3, { 0x32, 0x22, }, { "murata_mur_r032_1kl_b0" } },
 	{ 3, { 0x33, 0x22, }, { "murata_mur_r033_1kl_b0" } },
 	{ 3, { 0x34, 0x22, }, { "murata_mur_r034_1kl_b0" } },
+	{ 3, { 0x50, 0x22, }, { "murata_mur_r020_1qw_b2" } },
+	{ 3, { 0x51, 0x22, }, { "murata_mur_r021_1qw_b2" } },
+	{ 3, { 0x52, 0x22, }, { "murata_mur_r022_1qw_b2" } },
+	{ 3, { 0x61, 0x22, }, { "murata_mur_r031_1qw_b2" } },
+	{ 3, { 0x62, 0x22, }, { "murata_mur_r032_1qw_b2" } },
+	{ 3, { 0x71, 0x22, }, { "murata_mur_r041_1qw_b2" } },
 	{ 0, { 0x00, }, { "samsung" } }           /* Default: Not specified yet */
 #endif /* SUPPORT_BCM4359_MIXED_MODULES */
 };
@@ -812,16 +792,10 @@ dhd_check_module_cid(dhd_pub_t *dhdp)
 	unsigned char *btype_start;
 	unsigned char boardtype_len = 0;
 #endif /* SUPPORT_MULTIPLE_BOARDTYPE */
-#if defined(BCM4334_CHIP) || defined(BCM4335_CHIP)
+#if defined(BCM4335_CHIP)
 	const char *revfilepath = REVINFO;
-#ifdef BCM4334_CHIP
-	unsigned char otp_buf[CIS_BUF_SIZE];
-	cis_rw_t *cish;
-	int flag_b3;
-#else
 	char rev_str[10] = {0};
-#endif /* BCM4334_CHIP */
-#endif /* BCM4334_CHIP || BCM4335_CHIP */
+#endif /* BCM4335_CHIP */
 
 	/* Try reading out from CIS */
 	if (!g_have_cis_dump) {
@@ -927,33 +901,6 @@ write_cid:
 	DHD_INFO(("%s: CIS MATCH FOUND : %s\n", __FUNCTION__, cid_info));
 	dhd_write_file(cidfilepath, cid_info, strlen(cid_info) + 1);
 
-#ifdef BCM4334_CHIP
-	/* Try reading out from OTP to distinguish B2 or B3 */
-	memset(otp_buf, 0, sizeof(otp_buf));
-	cish = (cis_rw_t *)&otp_buf[8];
-
-	cish->source = 0;
-	cish->byteoff = 0;
-	cish->nbytes = sizeof(otp_buf);
-
-	strcpy(otp_buf, "otpdump");
-	ret = dhd_wl_ioctl_cmd(dhdp, WLC_GET_VAR, otp_buf,
-		sizeof(otp_buf), 0, 0);
-	if (ret < 0) {
-		DHD_ERROR(("%s: OTP reading failed, err=%d\n",
-			__FUNCTION__, ret));
-		return ret;
-	}
-
-	/* otp 33th character is identifier for 4334B3 */
-	otp_buf[34] = '\0';
-	flag_b3 = bcm_atoi(&otp_buf[33]);
-	if (flag_b3 & 0x1) {
-		DHD_ERROR(("%s: REV MATCH FOUND : 4334B3, %c\n",
-			__FUNCTION__, otp_buf[33]));
-		dhd_write_cid_file(revfilepath, "4334B3", 6);
-	}
-#endif /* BCM4334_CHIP */
 #ifdef BCM4335_CHIP
 	DHD_TRACE(("%s: BCM4335 Multiple Revision Check\n", __FUNCTION__));
 	if (concate_revision(dhdp->bus, rev_str, rev_str) < 0) {

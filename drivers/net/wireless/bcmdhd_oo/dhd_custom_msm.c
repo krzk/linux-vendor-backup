@@ -1,14 +1,14 @@
 /*
  * Platform Dependent file for Qualcomm MSM/APQ
  *
- * Copyright (C) 1999-2017, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2018, Broadcom.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
  * following added to such license:
- * 
+ *
  *      As a special exception, the copyright holders of this software give you
  * permission to link this software with independent modules, and to copy and
  * distribute the resulting executable under terms of your choice, provided that
@@ -16,14 +16,14 @@
  * the license of that module.  An independent module is a module which is not
  * derived from this software.  The special exception does not apply to any
  * modifications of the software.
- * 
+ *
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
  * <<Broadcom-WL-IPTag/Open:>>
  *
- * $Id: dhd_custom_msm.c 714138 2017-08-03 08:55:55Z $
+ * $Id: dhd_custom_msm.c 717191 2017-08-23 12:04:52Z $
  *
  */
 
@@ -40,9 +40,10 @@
 #include <linux/fcntl.h>
 #include <linux/fs.h>
 #include <linux/of_gpio.h>
-#if defined(CONFIG_ARCH_MSM8996) || defined(CONFIG_ARCH_MSM8998)
+#if defined(CONFIG_ARCH_MSM8996) || defined(CONFIG_ARCH_MSM8998) || \
+	defined(CONFIG_ARCH_SDM845)
 #include <linux/msm_pcie.h>
-#endif /* CONFIG_ARCH_MSM8996 || CONFIG_ARCH_MSM8998 */
+#endif /* CONFIG_ARCH_MSM8996 || CONFIG_ARCH_MSM8998 || CONFIG_ARCH_SDM845 */
 
 #ifdef CONFIG_BROADCOM_WIFI_RESERVED_MEM
 extern int dhd_init_wlan_mem(void);
@@ -54,11 +55,12 @@ static int wlan_reg_on = -1;
 #define DHD_DT_COMPAT_ENTRY		"android,bcmdhd_wlan"
 #define WIFI_WL_REG_ON_PROPNAME		"wlan-en-gpio"
 
-#if defined(CONFIG_ARCH_MSM8996) || defined(CONFIG_ARCH_MSM8998)
+#if defined(CONFIG_ARCH_MSM8996) || defined(CONFIG_ARCH_MSM8998) || \
+	defined(CONFIG_ARCH_SDM845)
 #define MSM_PCIE_CH_NUM			0
 #else
 #define MSM_PCIE_CH_NUM			1
-#endif /* CONFIG_ARCH_MSM8996 || CONFIG_ARCH_MSM8998 */
+#endif /* CONFIG_ARCH_MSM8996 || CONFIG_ARCH_MSM8998 || CONFIG_ARCH_SDM845 */
 
 #ifdef CONFIG_BCMDHD_OOB_HOST_WAKE
 static int wlan_host_wake_up = -1;
@@ -110,7 +112,7 @@ dhd_wifi_init_gpio(void)
 	printk(KERN_INFO "%s: gpio_wlan_host_wake : %d\n", __FUNCTION__, wlan_host_wake_up);
 
 	if (gpio_request_one(wlan_host_wake_up, GPIOF_IN, "WLAN_HOST_WAKE")) {
-		printk(KERN_ERR "%s: Failed to request gpio %d for WLAN_HOST_WAKE\n",
+		printk(KERN_ERR "%s: Faiiled to request gpio %d for WLAN_HOST_WAKE\n",
 			__FUNCTION__, wlan_host_wake_up);
 			return -ENODEV;
 	} else {
@@ -232,7 +234,8 @@ fail:
 	printk(KERN_INFO"%s: FINISH.......\n", __FUNCTION__);
 	return ret;
 }
-#if defined(CONFIG_ARCH_MSM8996) || defined(CONFIG_ARCH_MSM8998)
+#if defined(CONFIG_ARCH_MSM8996) || defined(CONFIG_ARCH_MSM8998) || \
+	defined(CONFIG_ARCH_SDM845)
 #if defined(CONFIG_DEFERRED_INITCALLS)
 deferred_module_init(dhd_wlan_init);
 #else
@@ -240,4 +243,4 @@ late_initcall(dhd_wlan_init);
 #endif /* CONFIG_DEFERRED_INITCALLS */
 #else
 device_initcall(dhd_wlan_init);
-#endif /* CONFIG_ARCH_MSM8996 || CONFIG_ARCH_MSM8998 */
+#endif /* CONFIG_ARCH_MSM8996 || CONFIG_ARCH_MSM8998 || CONFIG_ARCH_SDM845 */
