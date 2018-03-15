@@ -407,6 +407,41 @@ static void lazyplug_work_fn(struct work_struct *work)
 		msecs_to_jiffies(sampling_time));
 }
 
+static void lazyplug_suspend(void)
+{
+	if (lazyplug_active) {
+		pr_info("lazyplug: screen-off, turn off cores\n");
+		flush_workqueue(lazyplug_wq);
+
+		mutex_lock(&lazyplug_mutex);
+		suspended = true;
+		mutex_unlock(&lazyplug_mutex);
+
+		/* put rest of the cores to sleep unconditionally! */
+		cac_bool = false;
+		queue_delayed_work_on(0, lazyplug_wq, &lazyplug_cac,
+			msecs_to_jiffies(0));
+	}
+}
+
+static void lazyplug_resume(void)
+{
+	if (lazyplug_active) {
+		pr_info("lazyplug: screen-on, turn on cores\n");
+		mutex_lock(&lazyplug_mutex);
+		/* keep cores awake long enough for faster wake up */
+		persist_count = BUSY_PERSISTENCE;
+		suspended = false;
+		mutex_unlock(&lazyplug_mutex);
+
+		cac_bool = true;
+		queue_delayed_work_on(0, lazyplug_wq, &lazyplug_cac,
+			msecs_to_jiffies(10));
+	}
+	queue_delayed_work_on(0, lazyplug_wq, &lazyplug_work,
+		msecs_to_jiffies(0));
+}
+
 static unsigned int Lnr_run_profile_sel = 0;
 static unsigned int Ltouch_boost_active = true;
 void lazyplug_enter_lazy(bool enter)
@@ -517,7 +552,6 @@ static struct input_handler lazyplug_input_handler = {
 	.id_table       = lazyplug_ids,
 };
 
-
 static int fb_state_change(struct notifier_block *nb,
 		unsigned long event, void *data)
 {
@@ -528,37 +562,12 @@ static int fb_state_change(struct notifier_block *nb,
 		switch (*blank) {
 		case FB_BLANK_POWERDOWN:
 			lcd_on = false;
-			if (lazyplug_active) {
-				pr_info("lazyplug: screen-off, turn off cores\n");
-				flush_workqueue(lazyplug_wq);
-
-				mutex_lock(&lazyplug_mutex);
-				suspended = true;
-				mutex_unlock(&lazyplug_mutex);
-
-				/* put rest of the cores to sleep unconditionally! */
-				cac_bool = false;
-				queue_delayed_work_on(0, lazyplug_wq, &lazyplug_cac,
-				    msecs_to_jiffies(0));
-			}
+			lazyplug_suspend();
 			break;
 		case FB_BLANK_UNBLANK:
 			lcd_on = true;
 			idle_count = 0;
-			if (lazyplug_active) {
-				pr_info("lazyplug: screen-on, turn on cores\n");
-				mutex_lock(&lazyplug_mutex);
-				/* keep cores awake long enough for faster wake up */
-				persist_count = BUSY_PERSISTENCE;
-				suspended = false;
-				mutex_unlock(&lazyplug_mutex);
-
-				cac_bool = true;
-				queue_delayed_work_on(0, lazyplug_wq, &lazyplug_cac,
-				    msecs_to_jiffies(10));
-			}
-			queue_delayed_work_on(0, lazyplug_wq, &lazyplug_work,
-				    msecs_to_jiffies(0));
+			lazyplug_resume();
 			break;
 		}
 	}
