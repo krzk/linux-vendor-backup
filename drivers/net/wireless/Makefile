@@ -56,15 +56,15 @@ obj-$(CONFIG_WL_TI)	+= ti/
 obj-$(CONFIG_MWIFIEX)	+= mwifiex/
 
 ifneq ($(CONFIG_BCM4343),)
-obj-$(CONFIG_BCM4343)  += bcmdhd_mm/
-obj-$(CONFIG_MACH_UNIVERSAL3475) += bcmdhd_mm/dhd_custom_exynos.o
-obj-$(CONFIG_MACH_UNIVERSAL7580) += bcmdhd_mm/dhd_custom_exynos.o
+obj-$(CONFIG_BCM4343)  += bcmdhd_oo/
+obj-$(CONFIG_MACH_UNIVERSAL7580) += bcmdhd_oo/dhd_custom_exynos.o
+obj-$(CONFIG_MACH_UNIVERSAL7580) += bcmdhd_oo/dhd_custom_memprealloc.o
 endif
 
 ifneq ($(CONFIG_BCM43454),)
-obj-$(CONFIG_BCM43454)  += bcmdhd_mm/
-obj-$(CONFIG_MACH_UNIVERSAL3475) += bcmdhd_mm/dhd_custom_exynos.o/
-obj-$(CONFIG_MACH_UNIVERSAL7580) += bcmdhd_mm/dhd_custom_exynos.o
+obj-$(CONFIG_BCM43454)  += bcmdhd_oo/
+obj-$(CONFIG_MACH_UNIVERSAL7580) += bcmdhd_oo/dhd_custom_exynos.o
+obj-$(CONFIG_MACH_UNIVERSAL7580) += bcmdhd_oo/dhd_custom_memprealloc.o
 endif
 
 ifneq ($(CONFIG_BCM43455),)
