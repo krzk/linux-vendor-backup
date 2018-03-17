@@ -741,6 +741,9 @@ static int dhd_bcmsdh_send_buffer(void *bus, uint8 *frame, uint16 len);
 static int dhdsdio_set_sdmode(dhd_bus_t *bus, int32 sd_mode);
 static int dhdsdio_sdclk(dhd_bus_t *bus, bool on);
 static void dhdsdio_advertise_bus_cleanup(dhd_pub_t *dhdp);
+#ifdef SUPPORT_MULTIPLE_BOARD_REV_FROM_DT
+int dhd_get_system_rev(void);
+#endif /* SUPPORT_MULTIPLE_BOARD_REV_FROM_DT */
 
 #if defined(BT_OVER_SDIO)
 static int extract_hex_field(char * line, uint16 start_pos, uint16 num_chars, uint16 * value);
