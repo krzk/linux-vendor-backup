@@ -148,13 +148,12 @@ struct inodes_stat_t {
 #define BLKZEROOUT _IO(0x12,127)
 
 #define BMAP_IOCTL 1		/* obsolete - kept for compatibility */
-#define FIBMAP	   _IO(0x00,1)	/* bmap access */
-#define FIGETBSZ   _IO(0x00,2)	/* get the block size used for bmap */
+#define FIBMAP		_IO(0x00,1)	/* bmap access */
+#define FIGETBSZ	_IO(0x00,2)	/* get the block size used for bmap */
 #define FIFREEZE	_IOWR('X', 119, int)	/* Freeze */
 #define FITHAW		_IOWR('X', 120, int)	/* Thaw */
 #define FITRIM		_IOWR('X', 121, struct fstrim_range)	/* Trim */
-
-#define FIDTRIM	_IOWR('f', 128, struct fstrim_range)	/* Deep discard trim */
+#define FIDTRIM		_IOWR('f', 128, struct fstrim_range)	/* Deep discard trim */
 
 #define	FS_IOC_GETFLAGS			_IOR('f', 1, long)
 #define	FS_IOC_SETFLAGS			_IOW('f', 2, long)
@@ -165,8 +164,8 @@ struct inodes_stat_t {
 #define FS_IOC32_SETFLAGS		_IOW('f', 2, int)
 #define FS_IOC32_GETVERSION		_IOR('v', 1, int)
 #define FS_IOC32_SETVERSION		_IOW('v', 2, int)
-
 #define FS_IOC_INVAL_MAPPING		_IO('f', 13)
+
 /*
  * File system encryption support
  */
@@ -189,11 +188,11 @@ struct inodes_stat_t {
 
 
 struct fscrypt_policy {
-	char version;
-	char contents_encryption_mode;
-	char filenames_encryption_mode;
-	char flags;
-	char master_key_descriptor[FS_KEY_DESCRIPTOR_SIZE];
+	__u8 version;
+	__u8 contents_encryption_mode;
+	__u8 filenames_encryption_mode;
+	__u8 flags;
+	__u8 master_key_descriptor[FS_KEY_DESCRIPTOR_SIZE];
 } __packed;
 
 #define FS_IOC_SET_ENCRYPTION_POLICY	_IOR('f', 19, struct fscrypt_policy)

@@ -29,9 +29,7 @@
  * playback, turning on all CPU cores is not battery friendly. So Lazyplug
  * *does* actually turns off CPU cores, but only when idle state is long
  * enough(to reduce the number of CPU core switchings) and when the device
- * has its screen off(determination is done via earlysuspend or
- * powersuspend because framebuffer API causes troubles on hotplugging CPU
- * cores).
+ * has its screen off (determination is done via framebuffer API).
  *
  * Basic methodology :
  * Lazyplug uses majority of the codes from intelli_plug by faux123 to
@@ -74,14 +72,6 @@
 #include <linux/slab.h>
 #include <linux/input.h>
 #include <linux/cpufreq.h>
-
-#ifdef CONFIG_POWERSUSPEND
-#include <linux/powersuspend.h>
-#endif
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-#include <linux/earlysuspend.h>
-#endif
 
 //#define DEBUG_LAZYPLUG
 #undef DEBUG_LAZYPLUG
@@ -296,13 +286,6 @@ static void lazyplug_cac_fn(struct work_struct *work)
 	cpu_all_ctrl(cac_bool);
 }
 
-/*
-static int cmp_nr_running(const void *a, const void *b)
-{
-	return *(unsigned long *)a - *(unsigned long *)b;
-}
-*/
-
 static void update_per_cpu_stat(void)
 {
 	unsigned int cpu;
@@ -424,12 +407,7 @@ static void lazyplug_work_fn(struct work_struct *work)
 		msecs_to_jiffies(sampling_time));
 }
 
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
-#ifdef CONFIG_POWERSUSPEND
-static void lazyplug_suspend(struct power_suspend *handler)
-#else
-static void lazyplug_suspend(struct early_suspend *handler)
-#endif
+static void lazyplug_suspend(void)
 {
 	if (lazyplug_active) {
 		pr_info("lazyplug: screen-off, turn off cores\n");
@@ -439,18 +417,14 @@ static void lazyplug_suspend(struct early_suspend *handler)
 		suspended = true;
 		mutex_unlock(&lazyplug_mutex);
 
-		// put rest of the cores to sleep unconditionally!
+		/* put rest of the cores to sleep unconditionally! */
 		cac_bool = false;
 		queue_delayed_work_on(0, lazyplug_wq, &lazyplug_cac,
 			msecs_to_jiffies(0));
 	}
 }
 
-#ifdef CONFIG_POWERSUSPEND
-static void lazyplug_resume(struct power_suspend *handler)
-#else
-static void lazyplug_resume(struct early_suspend *handler)
-#endif
+static void lazyplug_resume(void)
 {
 	if (lazyplug_active) {
 		pr_info("lazyplug: screen-on, turn on cores\n");
@@ -467,22 +441,6 @@ static void lazyplug_resume(struct early_suspend *handler)
 	queue_delayed_work_on(0, lazyplug_wq, &lazyplug_work,
 		msecs_to_jiffies(0));
 }
-#endif
-
-#ifdef CONFIG_POWERSUSPEND
-static struct power_suspend lazyplug_power_suspend_driver = {
-	.suspend = lazyplug_suspend,
-	.resume = lazyplug_resume,
-};
-#endif  /* CONFIG_POWERSUSPEND */
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static struct early_suspend lazyplug_early_suspend_driver = {
-        .level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 10,
-        .suspend = lazyplug_suspend,
-        .resume = lazyplug_resume,
-};
-#endif	/* CONFIG_HAS_EARLYSUSPEND */
 
 static unsigned int Lnr_run_profile_sel = 0;
 static unsigned int Ltouch_boost_active = true;
@@ -594,7 +552,6 @@ static struct input_handler lazyplug_input_handler = {
 	.id_table       = lazyplug_ids,
 };
 
-
 static int fb_state_change(struct notifier_block *nb,
 		unsigned long event, void *data)
 {
@@ -605,12 +562,12 @@ static int fb_state_change(struct notifier_block *nb,
 		switch (*blank) {
 		case FB_BLANK_POWERDOWN:
 			lcd_on = false;
+			lazyplug_suspend();
 			break;
 		case FB_BLANK_UNBLANK:
 			lcd_on = true;
 			idle_count = 0;
-			cac_bool = true;
-			queue_delayed_work_on(0, lazyplug_wq, &lazyplug_cac,msecs_to_jiffies(0));
+			lazyplug_resume();
 			break;
 		}
 	}
@@ -641,18 +598,10 @@ int __init lazyplug_init(void)
 
 	rc = input_register_handler(&lazyplug_input_handler);
 
-#ifdef CONFIG_POWERSUSPEND
-	register_power_suspend(&lazyplug_power_suspend_driver);
-#endif
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	register_early_suspend(&lazyplug_early_suspend_driver);
-#endif
-
 	ret = fb_register_client(&fb_block);
 	if (ret) {
 		pr_err("Failed to register fb notifier\n");
 	}
-
 
 	lazyplug_wq = alloc_workqueue("lazyplug", WQ_FREEZABLE, 1);
 	lazyplug_cac_wq = alloc_workqueue("lplug_cac", WQ_FREEZABLE, 1);
