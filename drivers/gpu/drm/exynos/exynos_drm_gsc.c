@@ -465,6 +465,7 @@ static void gsc_src_set_fmt(struct gsc_context *ctx, u32 fmt)
 		cfg |= GSC_IN_RGB565;
 		break;
 	case DRM_FORMAT_XRGB8888:
+	case DRM_FORMAT_ARGB8888:
 		cfg |= GSC_IN_XRGB8888;
 		break;
 	case DRM_FORMAT_BGRX8888:
@@ -647,8 +648,9 @@ static void gsc_dst_set_fmt(struct gsc_context *ctx, u32 fmt)
 	case DRM_FORMAT_RGB565:
 		cfg |= GSC_OUT_RGB565;
 		break;
+	case DRM_FORMAT_ARGB8888:
 	case DRM_FORMAT_XRGB8888:
-		cfg |= GSC_OUT_XRGB8888;
+		cfg |= (GSC_OUT_XRGB8888 | GSC_OUT_GLOBAL_ALPHA(0xff));
 		break;
 	case DRM_FORMAT_BGRX8888:
 		cfg |= (GSC_OUT_XRGB8888 | GSC_OUT_RB_SWAP);
@@ -1191,6 +1193,7 @@ static const struct component_ops gsc_component_ops = {
 };
 
 static const unsigned int gsc_formats[] = {
+	DRM_FORMAT_ARGB8888,
 	DRM_FORMAT_XRGB8888, DRM_FORMAT_RGB565, DRM_FORMAT_BGRX8888,
 	DRM_FORMAT_NV12, DRM_FORMAT_NV16, DRM_FORMAT_NV21, DRM_FORMAT_NV61,
 	DRM_FORMAT_UYVY, DRM_FORMAT_VYUY, DRM_FORMAT_YUYV, DRM_FORMAT_YVYU,
