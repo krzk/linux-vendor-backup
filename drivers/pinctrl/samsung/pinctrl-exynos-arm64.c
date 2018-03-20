@@ -130,7 +130,6 @@ static const struct samsung_pin_bank_data exynos5433_pin_banks9[] __initconst = 
 
 /* PMU pin retention groups registers for Exynos5433 (without audio & fsys) */
 static const u32 exynos5433_retention_regs[] = {
-	EXYNOS5433_PAD_RETENTION_LPDDR3_OPTION,
 	EXYNOS5433_PAD_RETENTION_TOP_OPTION,
 	EXYNOS5433_PAD_RETENTION_UART_OPTION,
 	EXYNOS5433_PAD_RETENTION_EBIA_OPTION,
