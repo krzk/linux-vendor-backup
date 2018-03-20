@@ -127,6 +127,15 @@
 		regulator-name = "irda_regulator";
 	};
 
+	rfkill-bcm {
+		compatible = "brcm,bcm4358";
+		rfkill-name = "bcm4358-bt";
+		rfkill-type = <2>;
+		shutdown-gpios = <&gpd4 0 GPIO_ACTIVE_HIGH>;
+		wake-gpios = <&gpr3 7 GPIO_ACTIVE_HIGH>;
+		host-wake-gpios = <&gpa2 2 GPIO_ACTIVE_HIGH>;
+	};
+
 	sound {
 		compatible = "samsung,tm2-audio";
 		audio-codec = <&wm5110>, <&hdmi>;
@@ -1214,6 +1223,10 @@
 };
 
 &serial_1 {
+	status = "okay";
+};
+
+&serial_3 {
 	status = "okay";
 };
 
