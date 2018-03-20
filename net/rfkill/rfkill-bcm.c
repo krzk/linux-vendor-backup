@@ -24,8 +24,6 @@
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
 
-#include <linux/rfkill-gpio.h>
-
 struct bt_lpm_timer {
 	struct hrtimer htimer;
 	ktime_t sleep_delay;
@@ -90,6 +88,7 @@ static int bt_lpm_init(struct rfkill_bcm_data *rfkill)
 	return 0;
 }
 
+#if 0
 static int rfkill_bcm_hci_event(struct notifier_block *this,
 				 unsigned long event, void *data)
 {
@@ -122,6 +121,7 @@ static int rfkill_bcm_hci_event(struct notifier_block *this,
 static struct notifier_block hci_event_nblock = {
 	.notifier_call = rfkill_bcm_hci_event,
 };
+#endif
 
 static int rfkill_bcm_set_power(void *data, bool blocked)
 {
@@ -154,28 +154,19 @@ static int rfkill_bcm_dt_probe(struct device *dev,
 {
 	struct device_node *np = dev->of_node;
 	struct gpio_desc *gpio;
-	int ret;
 
 	rfkill->name = np->name;
 	of_property_read_string(np, "rfkill-name", &rfkill->name);
 	of_property_read_u32(np, "rfkill-type", &rfkill->type);
 	of_property_read_string(np, "clock-names", &rfkill->clk_name);
 
-	gpio = devm_gpiod_get_index(dev, "wake", 0);
-	if (!IS_ERR(gpio)) {
-		ret = gpiod_direction_output(gpio, 0);
-		if (ret)
-			return ret;
+	gpio = devm_gpiod_get(dev, "wake", GPIOD_OUT_LOW);
+	if (!IS_ERR(gpio))
 		rfkill->wake_gpio = gpio;
-	}
 
-	gpio = devm_gpiod_get_index(dev, "host-wake", 0);
-	if (!IS_ERR(gpio)) {
-		ret = gpiod_direction_input(gpio);
-		if (ret)
-			return ret;
+	gpio = devm_gpiod_get(dev, "host-wake", GPIOD_IN);
+	if (!IS_ERR(gpio))
 		rfkill->host_wake_gpio = gpio;
-	}
 
 	return 0;
 }
@@ -210,7 +201,6 @@ static irqreturn_t rfkill_bcm_irq_handler(int irq, void *data)
 
 static int rfkill_bcm_probe(struct platform_device *pdev)
 {
-	struct rfkill_gpio_platform_data *pdata = pdev->dev.platform_data;
 	struct rfkill_bcm_data *rfkill;
 	struct gpio_desc *gpio;
 	int ret;
@@ -225,30 +215,19 @@ static int rfkill_bcm_probe(struct platform_device *pdev)
 		ret = rfkill_bcm_dt_probe(&pdev->dev, rfkill);
 		if (ret)
 			return ret;
-	} else if (pdata) {
-		rfkill->name = pdata->name;
-		rfkill->type = pdata->type;
 	} else {
 		return -ENODEV;
 	}
 
 	rfkill->clk = devm_clk_get(&pdev->dev, rfkill->clk_name);
 
-	gpio = devm_gpiod_get_index(&pdev->dev, "reset", 0);
-	if (!IS_ERR(gpio)) {
-		ret = gpiod_direction_output(gpio, 0);
-		if (ret)
-			return ret;
+	gpio = devm_gpiod_get(&pdev->dev, "reset", GPIOD_OUT_LOW);
+	if (!IS_ERR(gpio))
 		rfkill->reset_gpio = gpio;
-	}
 
-	gpio = devm_gpiod_get_index(&pdev->dev, "shutdown", 0);
-	if (!IS_ERR(gpio)) {
-		ret = gpiod_direction_output(gpio, 0);
-		if (ret)
-			return ret;
+	gpio = devm_gpiod_get(&pdev->dev, "shutdown", GPIOD_OUT_LOW);
+	if (!IS_ERR(gpio))
 		rfkill->shutdown_gpio = gpio;
-	}
 
 	/* Make sure at-least one of the GPIO is defined and that
 	 * a name is specified for this instance
@@ -295,7 +274,9 @@ static int rfkill_bcm_probe(struct platform_device *pdev)
 	if (rfkill->type == 2) {
 		bt_data = rfkill;
 		bt_lpm_init(rfkill);
+#if 0
 		hci_register_notifier(&hci_event_nblock);
+#endif
 	}
 
 	dev_info(&pdev->dev, "%s device registered.\n", rfkill->name);
@@ -309,7 +290,9 @@ static int rfkill_bcm_remove(struct platform_device *pdev)
 
 	/* bluetooth hci event unregistration */
 	if (rfkill->type == 2) {
+#if 0
 		hci_unregister_notifier(&hci_event_nblock);
+#endif
 		bt_data = NULL;
 	}
 
