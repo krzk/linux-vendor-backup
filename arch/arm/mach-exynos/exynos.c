@@ -16,7 +16,6 @@
 #include <linux/of_fdt.h>
 #include <linux/platform_device.h>
 #include <linux/irqchip.h>
-#include <linux/soc/samsung/exynos-pm.h>
 #include <linux/soc/samsung/exynos-regs-pmu.h>
 
 #include <asm/cacheflush.h>
@@ -45,6 +44,28 @@ static struct platform_device exynos_cpuidle = {
 #endif
 	.id                = -1,
 };
+
+void __iomem *sysram_base_addr __ro_after_init;
+void __iomem *sysram_ns_base_addr __ro_after_init;
+
+void __init exynos_sysram_init(void)
+{
+	struct device_node *node;
+
+	for_each_compatible_node(node, NULL, "samsung,exynos4210-sysram") {
+		if (!of_device_is_available(node))
+			continue;
+		sysram_base_addr = of_iomap(node, 0);
+		break;
+	}
+
+	for_each_compatible_node(node, NULL, "samsung,exynos4210-sysram-ns") {
+		if (!of_device_is_available(node))
+			continue;
+		sysram_ns_base_addr = of_iomap(node, 0);
+		break;
+	}
+}
 
 static void __init exynos_init_late(void)
 {
