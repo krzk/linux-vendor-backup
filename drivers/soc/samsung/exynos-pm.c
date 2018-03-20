@@ -12,7 +12,6 @@
 #include <linux/regulator/machine.h>
 #include <linux/syscore_ops.h>
 #include <linux/suspend.h>
-#include <linux/psci.h>
 
 #include <asm/cpuidle.h>
 #include <asm/io.h>
@@ -122,44 +121,7 @@ static void exynos_pm_finish(void)
 #define exynos_pm_data_arm_ptr(data)	NULL
 #endif
 
-static int exynos5433_pm_suspend(unsigned long unused)
-{
-	/*
-	 * Exynos5433 uses PSCI v0.1 which provides the only one
-	 * entry point (psci_ops.cpu_suspend) for both cpuidle and
-	 * suspend-to-RAM. Also, PSCI v0.1 needs the specific 'power_state'
-	 * parameter for the suspend mode. In order to enter suspend mode,
-	 * Exynos5433 calls the 'psci_ops.cpu_suspend' with '0x3010000'
-	 * power_state parameter.
-	 *
-	 * '0x3010000' means that both cluster and system are going to enter
-	 * the power-down state as following:
-	 * - [25:24] 0x3 : Indicate the cluster and system.
-	 * - [16]    0x1 : Indicate power-down state.
-	 */
-	return psci_ops.cpu_suspend(0x3010000, __pa_symbol(cpu_resume));
-}
-
-static int exynos5433_pm_suspend_enter(suspend_state_t state)
-{
-	if (!sysram_ns_base_addr)
-		return -EINVAL;
-
-	__raw_writel(virt_to_phys(cpu_resume), sysram_ns_base_addr + 0x8);
-	__raw_writel(EXYNOS_SLEEP_MAGIC, sysram_ns_base_addr + 0xc);
-
-	return cpu_suspend(0, exynos5433_pm_suspend);
-}
-
-const struct exynos_pm_data exynos5433_pm_data = {
-	.enter		= exynos5433_pm_suspend_enter,
-};
-
 static const struct of_device_id exynos_pm_of_device_ids[] = {
-	{
-		.compatible = "samsung,exynos5433-pmu",
-		.data = exynos_pm_data_arm_ptr(exynos5433_pm_data),
-	},
 	{ /*sentinel*/ },
 };
 
