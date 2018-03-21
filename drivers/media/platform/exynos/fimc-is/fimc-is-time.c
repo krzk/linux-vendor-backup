@@ -28,7 +28,7 @@ uint64_t fimc_is_get_timestamp(void)
 {
 	struct timespec curtime;
 
-	do_posix_clock_monotonic_gettime(&curtime);
+	ktime_get_ts(&curtime);
 
 	return (uint64_t)curtime.tv_sec*1000000000 + curtime.tv_nsec;
 }
