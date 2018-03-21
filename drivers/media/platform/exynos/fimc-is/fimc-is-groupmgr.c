@@ -17,6 +17,7 @@
 #include <linux/interrupt.h>
 #include <linux/device.h>
 #include <linux/platform_device.h>
+#include <linux/sched/types.h>
 #include <linux/slab.h>
 #include <asm/cacheflush.h>
 #include <asm/pgtable.h>
@@ -26,7 +27,6 @@
 #include <linux/videodev2.h>
 #include <linux/v4l2-mediabus.h>
 #include <linux/bug.h>
-
 
 #include "fimc-is-core.h"
 #include "fimc-is-err.h"
@@ -523,7 +523,7 @@ static void fimc_is_group_start_trigger(struct fimc_is_groupmgr *groupmgr,
 	BUG_ON(!frame);
 
 	atomic_inc(&group->rcount);
-	queue_kthread_work(group->worker, &frame->work);
+	kthread_queue_work(group->worker, &frame->work);
 }
 
 static void fimc_is_group_pump(struct kthread_work *work)
@@ -626,7 +626,7 @@ int fimc_is_group_open(struct fimc_is_groupmgr *groupmgr,
 
 	/* 1. start kthread */
 	if (!test_bit(FIMC_IS_GGROUP_START, &groupmgr->group_state[id])) {
-		init_kthread_worker(&groupmgr->group_worker[id]);
+		kthread_init_worker(&groupmgr->group_worker[id]);
 		snprintf(name, sizeof(name), "fimc_is_gworker%d", id);
 		groupmgr->group_task[id] = kthread_run(kthread_worker_fn,
 			&groupmgr->group_worker[id], name);
@@ -647,7 +647,7 @@ int fimc_is_group_open(struct fimc_is_groupmgr *groupmgr,
 
 	group->worker = &groupmgr->group_worker[id];
 	for (i = 0; i < FRAMEMGR_MAX_REQUEST; ++i)
-		init_kthread_work(&framemgr->frame[i].work, fimc_is_group_pump);
+		kthread_init_work(&framemgr->frame[i].work, fimc_is_group_pump);
 
 	/* 2. Init Group */
 	clear_bit(FIMC_IS_GROUP_REQUEST_FSTOP, &group->state);
