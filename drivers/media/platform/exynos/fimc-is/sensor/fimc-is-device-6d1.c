@@ -352,20 +352,26 @@ p_err:
 	return ret;
 }
 
-static int sensor_6d1_s_format(struct v4l2_subdev *subdev, struct v4l2_mbus_framefmt *fmt)
+static int sensor_6d1_set_format(struct v4l2_subdev *sd,
+				 struct v4l2_subdev_pad_config *cfg,
+				 struct v4l2_subdev_format *format)
 {
 	/* TODO */
 	return 0;
 }
 
+static const struct v4l2_subdev_pad_ops pad_ops = {
+	.set_fmt = sensor_6d1_set_format
+};
+
 static const struct v4l2_subdev_video_ops video_ops = {
 	.s_stream = sensor_6d1_s_stream,
 	.s_parm = sensor_6d1_s_param,
-	.s_mbus_fmt = sensor_6d1_s_format
 };
 
 static const struct v4l2_subdev_ops subdev_ops = {
 	.core = &core_ops,
+	.pad = &pad_ops,
 	.video = &video_ops
 };
 

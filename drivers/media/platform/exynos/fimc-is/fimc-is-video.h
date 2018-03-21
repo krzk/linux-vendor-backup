@@ -40,6 +40,7 @@
 #define FIMC_IS_VIDEO_VDC_NAME			FIMC_IS_VIDEO_NAME("vdisc")
 #define FIMC_IS_VIDEO_VDO_NAME			FIMC_IS_VIDEO_NAME("vdiso")
 
+struct device;
 struct fimc_is_device_ischain;
 struct fimc_is_subdev;
 struct fimc_is_queue;
@@ -132,7 +133,7 @@ struct fimc_is_video {
 	struct video_device		vd;
 	struct media_pad		pads;
 	const struct fimc_is_vb2	*vb2;
-	void				*alloc_ctx;
+	struct device			*alloc_dev;
 };
 
 struct fimc_is_core *fimc_is_video_ctx_2_core(struct fimc_is_video_ctx *vctx);
@@ -147,11 +148,10 @@ int close_vctx(struct file *file,
 	struct fimc_is_video_ctx *vctx);
 
 /* queue operation */
-int fimc_is_queue_setup(struct fimc_is_queue *queue,
-	void *alloc_ctx,
-	unsigned int *num_planes,
-	unsigned int sizes[],
-	void *allocators[]);
+int fimc_is_queue_setup(struct fimc_is_queue *queue, void *alloc_ctx,
+			unsigned int *num_planes, unsigned int sizes[],
+			struct device *alloc_devs[]);
+
 int fimc_is_queue_buffer_queue(struct fimc_is_queue *queue,
 	const struct fimc_is_vb2 *vb2,
 	struct vb2_buffer *vb);

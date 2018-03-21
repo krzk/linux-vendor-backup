@@ -47,12 +47,6 @@ static void * plane_kvaddr(struct vb2_buffer *vb, u32 plane_no)
 	return kvaddr;
 }
 
-
-static void *fimc_is_dma_contig_init(struct platform_device *pdev)
-{
-	return vb2_dma_contig_init_ctx(&pdev->dev);
-}
-
 int vb2_null_attach_iommu(void *alloc_ctx)
 {
 	return 0;
@@ -73,9 +67,8 @@ void vb2_null_destroy_context(void *ctx)
 
 }
 
-const struct fimc_is_vb2 fimc_is_vb2_dc = {
+static const struct fimc_is_vb2 fimc_is_vb2_dc = {
 	.ops		= &vb2_dma_contig_memops,
-	.init		= fimc_is_dma_contig_init,
 	.cleanup	= vb2_null_destroy_context,
 	.plane_addr	= plane_addr,
 	.plane_kvaddr	= plane_kvaddr,
@@ -83,21 +76,11 @@ const struct fimc_is_vb2 fimc_is_vb2_dc = {
 	.suspend	= vb2_null_detach_iommu,
 	.set_cacheable	= vb2_null_set_cached,
 };
-#define fimc_is_vb2_allocator (&fimc_is_vb2_dc)
 
-int fimc_is_mem_probe(struct fimc_is_mem *this,
-	struct platform_device *pdev)
+int fimc_is_mem_probe(struct fimc_is_mem *this, struct platform_device *pdev)
 {
-	u32 ret = 0;
+	this->vb2 = &fimc_is_vb2_dc;
 
-	this->vb2 = fimc_is_vb2_allocator;
-
-	this->alloc_ctx = this->vb2->init(pdev);
-	if (IS_ERR(this->alloc_ctx)) {
-		ret = PTR_ERR(this->alloc_ctx);
-		goto p_err;
-	}
-
-p_err:
-	return ret;
+	this->pdev = pdev;
+	return 0;
 }

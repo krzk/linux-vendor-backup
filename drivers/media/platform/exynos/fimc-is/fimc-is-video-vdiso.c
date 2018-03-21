@@ -427,10 +427,9 @@ const struct v4l2_ioctl_ops fimc_is_vdo_video_ioctl_ops = {
 };
 
 static int fimc_is_vdo_queue_setup(struct vb2_queue *vbq,
-	const struct v4l2_format *fmt,
 	unsigned int *num_buffers, unsigned int *num_planes,
 	unsigned int sizes[],
-	void *allocators[])
+	struct device *alloc_devs[])
 {
 	int ret = 0;
 	struct fimc_is_video_ctx *vctx = vbq->drv_priv;
@@ -445,11 +444,8 @@ static int fimc_is_vdo_queue_setup(struct vb2_queue *vbq,
 	queue = GET_SRC_QUEUE(vctx);
 	video = vctx->video;
 
-	ret = fimc_is_queue_setup(queue,
-		video->alloc_ctx,
-		num_planes,
-		sizes,
-		allocators);
+	ret = fimc_is_queue_setup(queue, video->alloc_dev,
+				  num_planes, sizes, alloc_devs);
 	if (ret)
 		merr("fimc_is_queue_setup failed(%d)", vctx, ret);
 
@@ -531,7 +527,7 @@ static void fimc_is_vdo_buffer_queue(struct vb2_buffer *vb)
 	struct fimc_is_device_ischain *device;
 
 	BUG_ON(!vctx);
-	index = vb->v4l2_buf.index;
+	index = vb->index;
 
 #ifdef DBG_STREAMING
 	dbg_vdiso("%s(%d)\n", __func__, index);
@@ -560,10 +556,10 @@ static void fimc_is_vdo_buffer_finish(struct vb2_buffer *vb)
 	struct fimc_is_device_ischain *device = vctx->device;
 
 #ifdef DBG_STREAMING
-	mdbgv_vdo("%s(%d)\n", vctx, __func__, vb->v4l2_buf.index);
+	mdbgv_vdo("%s(%d)\n", vctx, __func__, vb->index);
 #endif
 
-	fimc_is_ischain_vdo_buffer_finish(device, vb->v4l2_buf.index);
+	fimc_is_ischain_vdo_buffer_finish(device, vb->index);
 }
 
 const struct vb2_ops fimc_is_vdo_qops = {

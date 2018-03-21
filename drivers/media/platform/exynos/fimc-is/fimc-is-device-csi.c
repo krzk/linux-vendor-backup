@@ -280,19 +280,23 @@ static int csi_s_param(struct v4l2_subdev *subdev, struct v4l2_streamparm *param
 	return ret;
 }
 
-static int csi_s_format(struct v4l2_subdev *subdev, struct v4l2_mbus_framefmt *fmt)
+static int csi_set_format(struct v4l2_subdev *sd,
+			  struct v4l2_subdev_pad_config *cfg,
+			  struct v4l2_subdev_format *format)
 {
-	int ret = 0;
 	struct fimc_is_device_csi *csi;
+	struct v4l2_mbus_framefmt *fmt;
 
-	BUG_ON(!subdev);
-	BUG_ON(!fmt);
+	BUG_ON(!sd);
+	BUG_ON(!format);
 
-	csi = v4l2_get_subdevdata(subdev);
+	csi = v4l2_get_subdevdata(sd);
 	if (!csi) {
 		err("csi is NULL");
 		return -EINVAL;
 	}
+
+	fmt = &format->format;
 
 	csi->image.window.offs_h = 0;
 	csi->image.window.offs_v = 0;
@@ -303,19 +307,24 @@ static int csi_s_format(struct v4l2_subdev *subdev, struct v4l2_mbus_framefmt *f
 	csi->image.format.pixelformat = fmt->code;
 	csi->image.format.field = fmt->field;
 
-	mdbgd_front("%s(%dx%d, %X)\n", csi, __func__, fmt->width, fmt->height, fmt->code);
-	return ret;
+	mdbgd_front("%s(%dx%d, %X)\n", csi, __func__, fmt->width,fmt->height,
+		    fmt->code);
+	return 0;
 }
+
+static const struct v4l2_subdev_pad_ops pad_ops = {
+	.set_fmt = csi_set_format
+};
 
 static const struct v4l2_subdev_video_ops video_ops = {
 	.s_stream = csi_s_stream,
 	.s_parm = csi_s_param,
-	.s_mbus_fmt = csi_s_format
 };
 
 static const struct v4l2_subdev_ops subdev_ops = {
 	.core = &core_ops,
-	.video = &video_ops
+	.pad = &pad_ops,
+	.video = &video_ops,
 };
 
 #ifdef DBG_CSIISR

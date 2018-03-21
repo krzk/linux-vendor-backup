@@ -1176,7 +1176,7 @@ int fimc_is_sensor_s_format(struct fimc_is_device_sensor *device,
 	struct v4l2_subdev *subdev_csi;
 	struct v4l2_subdev *subdev_flite;
 	struct fimc_is_module_enum *module;
-	struct v4l2_mbus_framefmt subdev_format;
+	struct v4l2_subdev_format subdev_format;
 
 	BUG_ON(!device);
 	BUG_ON(!device->subdev_module);
@@ -1209,26 +1209,27 @@ int fimc_is_sensor_s_format(struct fimc_is_device_sensor *device,
 	device->image.window.height = height;
 	device->image.window.o_height = height;
 
-	subdev_format.code = format->pixelformat;
-	subdev_format.field = format->field;
-	subdev_format.width = width;
-	subdev_format.height = height;
+	subdev_format.format.code = format->pixelformat;
+	subdev_format.format.field = format->field;
+	subdev_format.format.width = width;
+	subdev_format.format.height = height;
 
 	if (test_bit(FIMC_IS_SENSOR_DRIVING, &device->state)) {
-		ret = v4l2_subdev_call(subdev_module, video, s_mbus_fmt, &subdev_format);
+		ret = v4l2_subdev_call(subdev_module, pad, set_fmt, NULL,
+				       &subdev_format);
 		if (ret) {
 			merr("v4l2_module_call(s_format) failed(%d)", device, ret);
 			goto p_err;
 		}
 	}
 
-	ret = v4l2_subdev_call(subdev_csi, video, s_mbus_fmt, &subdev_format);
+	ret = v4l2_subdev_call(subdev_csi, pad, set_fmt, NULL, &subdev_format);
 	if (ret) {
 		merr("v4l2_csi_call(s_format) failed(%d)", device, ret);
 		goto p_err;
 	}
 
-	ret = v4l2_subdev_call(subdev_flite, video, s_mbus_fmt, &subdev_format);
+	ret = v4l2_subdev_call(subdev_flite, pad, set_fmt, NULL, &subdev_format);
 	if (ret) {
 		merr("v4l2_flite_call(s_format) failed(%d)", device, ret);
 		goto p_err;
@@ -1340,23 +1341,18 @@ p_err:
 int fimc_is_sensor_s_ctrl(struct fimc_is_device_sensor *device,
 	struct v4l2_control *ctrl)
 {
-	int ret = 0;
-	struct v4l2_subdev *subdev_module;
+	int ret;
 
 	BUG_ON(!device);
 	BUG_ON(!device->subdev_module);
 	BUG_ON(!device->subdev_csi);
 	BUG_ON(!ctrl);
 
-	subdev_module = device->subdev_module;
+	ret = v4l2_subdev_call(device->subdev_module, core, ioctl,
+			       FIMC_IS_IOCTL_S_CTRL, ctrl);
+	if (ret)
+		err("FIMC_IS_IOCTL_S_CTRL failed: %d", ret);
 
-	ret = v4l2_subdev_call(subdev_module, core, s_ctrl, ctrl);
-	if (ret) {
-		err("s_ctrl failed(%d)", ret);
-		goto p_err;
-	}
-
-p_err:
 	return ret;
 }
 
@@ -1468,25 +1464,20 @@ p_err:
 }
 
 int fimc_is_sensor_g_ctrl(struct fimc_is_device_sensor *device,
-	struct v4l2_control *ctrl)
+			  struct v4l2_control *ctrl)
 {
-	int ret = 0;
-	struct v4l2_subdev *subdev_module;
+	int ret;
 
 	BUG_ON(!device);
 	BUG_ON(!device->subdev_module);
 	BUG_ON(!device->subdev_csi);
 	BUG_ON(!ctrl);
 
-	subdev_module = device->subdev_module;
+	ret = v4l2_subdev_call(device->subdev_module, core, ioctl,
+			       FIMC_IS_IOCTL_G_CTRL, ctrl);
+	if (ret)
+		err("FIMC_IS_IOCTL_G_CTRL failed: %d", ret);
 
-	ret = v4l2_subdev_call(subdev_module, core, g_ctrl, ctrl);
-	if (ret) {
-		err("g_ctrl failed(%d)", ret);
-		goto p_err;
-	}
-
-p_err:
 	return ret;
 }
 

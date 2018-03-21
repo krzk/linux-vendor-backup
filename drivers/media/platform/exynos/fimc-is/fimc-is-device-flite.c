@@ -1494,26 +1494,48 @@ p_err:
 	return ret;
 }
 
-/* value : csi ch */
-static long flite_init(struct v4l2_subdev *subdev, unsigned int cmd,
-		       void *value)
+/* cmd: 0, value : csi ch */
+static long flite_subdev_ioctl(struct v4l2_subdev *subdev, unsigned int cmd,
+			       void *value)
 {
-	int ret = 0;
 	struct fimc_is_device_flite *flite;
+	struct v4l2_control *ctrl;
+	u32 width, height, ratio;
 
 	BUG_ON(!subdev);
 
 	flite = v4l2_get_subdevdata(subdev);
 	if (!flite) {
 		err("flite is NULL");
-		ret = -EINVAL;
-		goto p_err;
+		return -EINVAL;
 	}
 
-	flite->csi = (long)value;
+	switch (cmd) {
+	case 0:
+		flite->csi = (long)value;
+		break;
 
-p_err:
-	return ret;
+	case FIMC_IS_IOCTL_S_CTRL:
+		ctrl = value;
+		if (ctrl->id == V4L2_CID_IS_S_BNS) {
+			width = flite->image.window.width;
+			height = flite->image.window.height;
+			ratio = ctrl->value;
+
+			flite->image.window.otf_width
+				= rounddown((width * 1000 / ratio), 4);
+			flite->image.window.otf_height
+				= rounddown((height * 1000 / ratio), 2);
+		} else {
+			err("Unsupported ctrl->id: %#x", ctrl->id);
+		}
+		break;
+	default:
+		err("Unsupported ioctl: %#x", cmd);
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 static int flite_stream_on(struct v4l2_subdev *subdev,
@@ -1774,15 +1796,20 @@ p_err:
 	return 0;
 }
 
-static int flite_s_format(struct v4l2_subdev *subdev, struct v4l2_mbus_framefmt *fmt)
+static int flite_set_format(struct v4l2_subdev *sd,
+			    struct v4l2_subdev_pad_config *cfg,
+			    struct v4l2_subdev_format *format)
 {
 	int ret = 0;
 	struct fimc_is_device_flite *flite;
+	struct v4l2_mbus_framefmt *fmt;
 
-	BUG_ON(!subdev);
-	BUG_ON(!fmt);
+	BUG_ON(!sd);
+	BUG_ON(!format);
 
-	flite = v4l2_get_subdevdata(subdev);
+	fmt = &format->format;
+
+	flite = v4l2_get_subdevdata(sd);
 	if (!flite) {
 		err("flite is NULL");
 		ret = -EINVAL;
@@ -1802,58 +1829,21 @@ p_err:
 	return ret;
 }
 
-static int flite_s_ctrl(struct v4l2_subdev *subdev, struct v4l2_control *ctrl)
-{
-	int ret = 0;
-	struct fimc_is_device_flite *flite;
-
-	BUG_ON(!subdev);
-	BUG_ON(!ctrl);
-
-	flite = v4l2_get_subdevdata(subdev);
-	if (!flite) {
-		err("flite is NULL");
-		ret = -EINVAL;
-		goto p_err;
-	}
-
-	switch (ctrl->id) {
-	case V4L2_CID_IS_S_BNS:
-		{
-			u32 width, height, ratio;
-
-			width = flite->image.window.width;
-			height = flite->image.window.height;
-			ratio = ctrl->value;
-
-			flite->image.window.otf_width
-				= rounddown((width * 1000 / ratio), 4);
-			flite->image.window.otf_height
-				= rounddown((height * 1000 / ratio), 2);
-		}
-		break;
-	default:
-		err("unsupported ioctl(%d)\n", ctrl->id);
-		ret = -EINVAL;
-		break;
-	}
-
-p_err:
-	return ret;
-}
-
 static const struct v4l2_subdev_core_ops core_ops = {
-	.ioctl = flite_init,
-	.s_ctrl = flite_s_ctrl,
+	.ioctl = flite_subdev_ioctl,
+};
+
+static const struct v4l2_subdev_pad_ops pad_ops = {
+	.set_fmt = flite_set_format
 };
 
 static const struct v4l2_subdev_video_ops video_ops = {
 	.s_stream = flite_s_stream,
-	.s_mbus_fmt = flite_s_format
 };
 
 static const struct v4l2_subdev_ops subdev_ops = {
 	.core = &core_ops,
+	.pad = &pad_ops,
 	.video = &video_ops
 };
 

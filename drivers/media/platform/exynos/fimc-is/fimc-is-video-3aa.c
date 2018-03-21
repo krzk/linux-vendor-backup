@@ -777,11 +777,10 @@ const struct v4l2_ioctl_ops fimc_is_3aa_video_ioctl_ops = {
 };
 
 static int fimc_is_3aa_queue_setup(struct vb2_queue *vbq,
-	const struct v4l2_format *fmt,
 	unsigned int *num_buffers,
 	unsigned int *num_planes,
 	unsigned int sizes[],
-	void *allocators[])
+	struct device *alloc_devs[])
 {
 	int ret = 0;
 	struct fimc_is_video_ctx *vctx = vbq->drv_priv;
@@ -796,11 +795,8 @@ static int fimc_is_3aa_queue_setup(struct vb2_queue *vbq,
 	queue = GET_VCTX_QUEUE(vctx, vbq);
 	video = vctx->video;
 
-	ret = fimc_is_queue_setup(queue,
-		video->alloc_ctx,
-		num_planes,
-		sizes,
-		allocators);
+	ret = fimc_is_queue_setup(queue, video->alloc_dev,
+				  num_planes, sizes, alloc_devs);
 	if (ret)
 		merr("fimc_is_queue_setup failed(%d)", vctx, ret);
 
@@ -893,17 +889,17 @@ static void fimc_is_3aa_buffer_queue(struct vb2_buffer *vb)
 	struct fimc_is_queue *queue;
 
 	BUG_ON(!vctx);
-	index = vb->v4l2_buf.index;
+	index = vb->index;
 
 #ifdef DBG_STREAMING
-	mdbgv_3aa("%s(%02d:%d)\n", vctx, __func__, vb->v4l2_buf.type, index);
+	mdbgv_3aa("%s(%02d:%d)\n", vctx, __func__, vb->type, index);
 #endif
 
 	video = vctx->video;
 	device = vctx->device;
 	leader = &device->group_3aa.leader;
 
-	if (V4L2_TYPE_IS_OUTPUT(vb->v4l2_buf.type)) {
+	if (V4L2_TYPE_IS_OUTPUT(vb->type)) {
 		queue = GET_SRC_QUEUE(vctx);
 		ret = fimc_is_queue_buffer_queue(queue, video->vb2, vb);
 		if (ret) {
@@ -934,7 +930,7 @@ static void fimc_is_3aa_buffer_queue(struct vb2_buffer *vb)
 
 static void fimc_is_3aa_buffer_finish(struct vb2_buffer *vb)
 {
-	u32 index = vb->v4l2_buf.index;
+	u32 index = vb->index;
 	struct fimc_is_video_ctx *vctx = vb->vb2_queue->drv_priv;
 	struct fimc_is_device_ischain *device = vctx->device;
 	struct fimc_is_group *group = &device->group_3aa;
@@ -945,10 +941,10 @@ static void fimc_is_3aa_buffer_finish(struct vb2_buffer *vb)
 	BUG_ON(!device);
 
 #ifdef DBG_STREAMING
-	mdbgv_3aa("%s(%02d:%d)\n", vctx, __func__, vb->v4l2_buf.type, index);
+	mdbgv_3aa("%s(%02d:%d)\n", vctx, __func__, vb->type, index);
 #endif
 
-	if (V4L2_TYPE_IS_OUTPUT(vb->v4l2_buf.type)) {
+	if (V4L2_TYPE_IS_OUTPUT(vb->type)) {
 		queue = vctx->q_src;
 		fimc_is_ischain_3aa_buffer_finish(device, index);
 	} else {

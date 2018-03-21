@@ -48,12 +48,12 @@ struct fimc_is_fmt fimc_is_formats[] = {
 		.name		= "YUV 4:2:2 packed, YCbYCr",
 		.pixelformat	= V4L2_PIX_FMT_YUYV,
 		.num_planes	= 1 + SPARE_PLANE,
-		.mbus_code	= V4L2_MBUS_FMT_YUYV8_2X8,
+		.mbus_code	= MEDIA_BUS_FMT_YUYV8_2X8,
 	}, {
 		.name		= "YUV 4:2:2 packed, CbYCrY",
 		.pixelformat	= V4L2_PIX_FMT_UYVY,
 		.num_planes	= 1 + SPARE_PLANE,
-		.mbus_code	= V4L2_MBUS_FMT_UYVY8_2X8,
+		.mbus_code	= MEDIA_BUS_FMT_UYVY8_2X8,
 	}, {
 		.name		= "YUV 4:2:2 planar, Y/Cb/Cr",
 		.pixelformat	= V4L2_PIX_FMT_YUV422P,
@@ -110,7 +110,7 @@ struct fimc_is_fmt fimc_is_formats[] = {
 		.name		= "JPEG",
 		.pixelformat	= V4L2_PIX_FMT_JPEG,
 		.num_planes	= 1 + SPARE_PLANE,
-		.mbus_code	= V4L2_MBUS_FMT_JPEG_1X8,
+		.mbus_code	= MEDIA_BUS_FMT_JPEG_1X8,
 	}
 };
 
@@ -300,6 +300,7 @@ static int queue_init(void *priv, struct vb2_queue *vbq_src,
 		vbq_src->drv_priv	= vctx;
 		vbq_src->ops		= vctx->vb2_ops;
 		vbq_src->mem_ops	= vctx->mem_ops;
+		vbq_src->dev		= vctx->video->alloc_dev;
 		vbq_src->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 		vbq_src->allow_zero_bytesused = 1;
 
@@ -317,6 +318,7 @@ static int queue_init(void *priv, struct vb2_queue *vbq_src,
 		vbq_dst->drv_priv	= vctx;
 		vbq_dst->ops		= vctx->vb2_ops;
 		vbq_dst->mem_ops	= vctx->mem_ops;
+		vbq_dst->dev		= vctx->video->alloc_dev;
 		vbq_dst->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 
 		ret = vb2_queue_init(vbq_dst);
@@ -510,31 +512,28 @@ p_err:
 	return ret;
 }
 
-int fimc_is_queue_setup(struct fimc_is_queue *queue,
-	void *alloc_ctx,
-	unsigned int *num_planes,
-	unsigned int sizes[],
-	void *allocators[])
+int fimc_is_queue_setup(struct fimc_is_queue *queue, void *alloc_dev,
+			unsigned int *num_planes, unsigned int sizes[],
+			struct device *alloc_devs[])
 {
-	u32 ret = 0;
 	u32 plane;
 
 	BUG_ON(!queue);
-	BUG_ON(!alloc_ctx);
+	BUG_ON(!alloc_dev);
 	BUG_ON(!num_planes);
 	BUG_ON(!sizes);
-	BUG_ON(!allocators);
+	BUG_ON(!alloc_devs);
 
 	*num_planes = (queue->framecfg.format.num_planes);
 	fimc_is_set_plane_size(&queue->framecfg, sizes);
 
 	for (plane = 0; plane < *num_planes; plane++) {
-		allocators[plane] = alloc_ctx;
+		alloc_devs[plane] = alloc_dev;
 		queue->framecfg.size[plane] = sizes[plane];
 		mdbgv_vid("queue[%d] size : %d\n", plane, sizes[plane]);
 	}
 
-	return ret;
+	return 0;
 }
 
 int fimc_is_queue_buffer_queue(struct fimc_is_queue *queue,
@@ -548,7 +547,7 @@ int fimc_is_queue_buffer_queue(struct fimc_is_queue *queue,
 	struct fimc_is_framemgr *framemgr;
 	struct fimc_is_frame *frame;
 
-	index = vb->v4l2_buf.index;
+	index = vb->index;
 	framemgr = &queue->framemgr;
 
 	BUG_ON(framemgr->id == FRAMEMGR_ID_INVALID);
@@ -777,7 +776,7 @@ int fimc_is_video_probe(struct fimc_is_video *video,
 	snprintf(video->vd.name, sizeof(video->vd.name), "%s", video_name);
 	video->id		= video_number;
 	video->vb2		= mem->vb2;
-	video->alloc_ctx	= mem->alloc_ctx;
+	video->alloc_dev	= &mem->pdev->dev;
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0))
 	video->vd.vfl_dir	= vfl_dir;
 #endif

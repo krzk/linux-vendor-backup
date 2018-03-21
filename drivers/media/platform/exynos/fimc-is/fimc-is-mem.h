@@ -55,8 +55,6 @@ struct fimc_is_vb2 {
 
 struct fimc_is_mem {
 	struct platform_device		*pdev;
-	struct vb2_alloc_ctx		*alloc_ctx;
-
 	const struct fimc_is_vb2	*vb2;
 };
 

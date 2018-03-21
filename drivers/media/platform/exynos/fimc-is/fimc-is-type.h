@@ -22,7 +22,7 @@ struct fimc_is_window {
 
 struct fimc_is_fmt {
 	char				*name;
-	enum v4l2_mbus_pixelcode	mbus_code;
+	u32				mbus_code;
 	u32				pixelformat;
 	u32				field;
 	u32				num_planes;

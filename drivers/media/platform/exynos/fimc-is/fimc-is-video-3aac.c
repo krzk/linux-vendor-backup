@@ -560,11 +560,10 @@ const struct v4l2_ioctl_ops fimc_is_3aac_video_ioctl_ops = {
 };
 
 static int fimc_is_3aac_queue_setup(struct vb2_queue *vbq,
-	const struct v4l2_format *fmt,
 	unsigned int *num_buffers,
 	unsigned int *num_planes,
 	unsigned int sizes[],
-	void *allocators[])
+	struct device *alloc_devs[])
 {
 	int ret = 0;
 	struct fimc_is_video_ctx *vctx = vbq->drv_priv;
@@ -579,11 +578,8 @@ static int fimc_is_3aac_queue_setup(struct vb2_queue *vbq,
 	queue = GET_VCTX_QUEUE(vctx, vbq);
 	video = vctx->video;
 
-	ret = fimc_is_queue_setup(queue,
-		video->alloc_ctx,
-		num_planes,
-		sizes,
-		allocators);
+	ret = fimc_is_queue_setup(queue, video->alloc_dev,
+				  num_planes, sizes, alloc_devs);
 	if (ret)
 		merr("fimc_is_queue_setup failed(%d)", vctx, ret);
 
@@ -664,7 +660,7 @@ static void fimc_is_3aac_buffer_queue(struct vb2_buffer *vb)
 	BUG_ON(!vctx);
 
 #ifdef DBG_STREAMING
-	mdbgv_3aac("%s(%d)\n", vctx, __func__, vb->v4l2_buf.index);
+	mdbgv_3aac("%s(%d)\n", vctx, __func__, vb->index);
 #endif
 
 	queue = GET_DST_QUEUE(vctx);
@@ -678,7 +674,7 @@ static void fimc_is_3aac_buffer_queue(struct vb2_buffer *vb)
 		return;
 	}
 
-	ret = fimc_is_subdev_buffer_queue(subdev, vb->v4l2_buf.index);
+	ret = fimc_is_subdev_buffer_queue(subdev, vb->index);
 	if (ret) {
 		merr("fimc_is_subdev_buffer_queue failed(%d)", vctx, ret);
 		return;
@@ -692,10 +688,10 @@ static void fimc_is_3aac_buffer_finish(struct vb2_buffer *vb)
 	struct fimc_is_subdev *subdev = &ischain->taac;
 
 #ifdef DBG_STREAMING
-	mdbgv_3aac("%s(%d)\n", vctx, __func__, vb->v4l2_buf.index);
+	mdbgv_3aac("%s(%d)\n", vctx, __func__, vb->index);
 #endif
 
-	fimc_is_subdev_buffer_finish(subdev, vb->v4l2_buf.index);
+	fimc_is_subdev_buffer_finish(subdev, vb->index);
 }
 
 const struct vb2_ops fimc_is_3aac_qops = {
