@@ -852,10 +852,8 @@ static int fimc_is_probe(struct platform_device *pdev)
 	}
 
 	core = kzalloc(sizeof(struct fimc_is_core), GFP_KERNEL);
-	if (!core) {
-		err("core is NULL");
+	if (!core)
 		return -ENOMEM;
-	}
 
 	fimc_is_parse_children_dt(&pdev->dev, core);
 
