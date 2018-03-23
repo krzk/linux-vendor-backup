@@ -101,6 +101,14 @@
 		};
 	};
 
+	gps {
+		compatible = "samsung,exynos54xx-bcm4753";
+		gpios = <&gpg2 0 0x1 &gpa1 0 0xf>;
+		status = "okay";
+		pinctrl-names ="default";
+		pinctrl-0 = <&ssp_gps_pwr_en &ssp_host_wake>;
+	};
+
 	i2c_max98504: i2c-gpio-0 {
 		compatible = "i2c-gpio";
 		gpios = <&gpd0 1 GPIO_ACTIVE_HIGH /* SPK_AMP_SDA */
@@ -1014,7 +1022,6 @@
 		PIN(INPUT, gpa0-6, NONE, FAST_SR1);
 		PIN(INPUT, gpa0-7, NONE, FAST_SR1);
 
-		PIN(INPUT, gpa1-0, UP, FAST_SR1);
 		PIN(INPUT, gpa1-1, UP, FAST_SR1);
 		PIN(INPUT, gpa1-2, NONE, FAST_SR1);
 		PIN(INPUT, gpa1-3, DOWN, FAST_SR1);
@@ -1035,7 +1042,6 @@
 		PIN(INPUT, gpa3-0, DOWN, FAST_SR1);
 		PIN(INPUT, gpa3-1, DOWN, FAST_SR1);
 		PIN(INPUT, gpa3-2, NONE, FAST_SR1);
-		PIN(INPUT, gpa3-3, DOWN, FAST_SR1);
 		PIN(INPUT, gpa3-4, NONE, FAST_SR1);
 		PIN(INPUT, gpa3-5, DOWN, FAST_SR1);
 		PIN(INPUT, gpa3-6, DOWN, FAST_SR1);
@@ -1051,8 +1057,6 @@
 
 		PIN(INPUT, gpf2-0, DOWN, FAST_SR1);
 		PIN(INPUT, gpf2-1, DOWN, FAST_SR1);
-		PIN(INPUT, gpf2-2, DOWN, FAST_SR1);
-		PIN(INPUT, gpf2-3, DOWN, FAST_SR1);
 
 		PIN(INPUT, gpf3-0, DOWN, FAST_SR1);
 		PIN(INPUT, gpf3-1, DOWN, FAST_SR1);
@@ -1076,6 +1080,34 @@
 		PIN(INPUT, gpf5-5, DOWN, FAST_SR1);
 		PIN(INPUT, gpf5-6, DOWN, FAST_SR1);
 		PIN(INPUT, gpf5-7, DOWN, FAST_SR1);
+	};
+
+	ssp_irq: ssp-irq {
+		samsung,pins = "gpa3-3";
+		samsung,pin-function = <0xf>;
+		samsung,pin-pud = <1>;
+		samsung,pin-drv = <3>;
+	};
+
+	ssp_mcu_req: ssp-mcu-req {
+		samsung,pins = "gpf2-3";
+		samsung,pin-function = <1>;
+		samsung,pin-pud = <1>;
+		samsung,pin-drv = <3>;
+	};
+
+	ssp_mcu_resp: ssp-mcu-resp {
+		samsung,pins = "gpf2-2";
+		samsung,pin-function = <0>;
+		samsung,pin-pud = <3>;
+		samsung,pin-drv = <3>;
+	};
+
+	ssp_host_wake: ssp-host-wake {
+		samsung,pins = "gpa1-0";
+		samsung,pin-function = <0>;
+		samsung,pin-pud = <3>;
+		samsung,pin-drv = <3>;
 	};
 
 	te_irq: te_irq {
@@ -1196,6 +1228,13 @@
 		PIN(INPUT, gpg3-1, DOWN, FAST_SR1);
 		PIN(INPUT, gpg3-5, DOWN, FAST_SR1);
 	};
+
+	ssp_gps_pwr_en: ssp-gps-pwr-en {
+		samsung,pins = "gpg2-0";
+		samsung,pin-function = <1>;
+		samsung,pin-pud = <1>;
+		samsung,pin-drv = <3>;
+	};
 };
 
 &pinctrl_touch {
@@ -1228,6 +1267,41 @@
 
 &serial_3 {
 	status = "okay";
+};
+
+&spi_0 {
+	cs-gpios = <&gpd8 1 0>;
+	status = "okay";
+
+	bcm4773@0 {
+		compatible = "ssp,BCM4773";
+		reg = <0>;
+		spi-max-frequency = <26000000>;
+		spi-cpol;
+		spi-cpha;
+
+		clocks = <&s2mps13_osc 0>;
+		clock-names = "xtal";
+
+		pinctrl-names ="default";
+		pinctrl-0 = <&ssp_irq &ssp_mcu_req &ssp_mcu_resp>;
+
+		ssp-irq = <&gpa3 3 0x01>;
+		ssp-mcu-req = <&gpf2 3 0x01>;
+		ssp-mcu-resp = <&gpf2 2 0x00>;
+		ssp-acc-position = <5>;
+		ssp-mag-position = <3>;
+		ssp-sns-combination = <0>;
+		ssp,prox-hi_thresh = <130>;
+		ssp,prox-low_thresh = <90>;
+		ssp-ap-rev = <1>;
+		ssp-mag-array = <10196 176 (-21) 516 10378 20 (-774) 1027 9454>;
+		ssp-hw-rev = <9>;
+
+		controller-data {
+			samsung,spi-feedback-delay = <0>;
+		};
+	};
 };
 
 &spi_1 {
