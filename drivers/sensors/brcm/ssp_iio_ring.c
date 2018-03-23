@@ -50,10 +50,8 @@ int ssp_iio_configure_ring(struct iio_dev *indio_dev)
 	if (!ring)
 		return -ENOMEM;
 
-	ring->bytes_per_datum = 8;
 	indio_dev->buffer = ring;
 	/* setup ring buffer */
-	ring->scan_timestamp = true;
 	indio_dev->setup_ops = &ssp_iio_ring_setup_ops;
 	/* scan count double count timestamp. should subtract 1. but
 	 * number of channels still includes timestamp
