@@ -560,8 +560,7 @@ static int exynos_drm_ipp_check_scale_limits(
 	return 0;
 }
 
-static int exynos_drm_ipp_task_check(struct exynos_drm_ipp_task *task,
-				     struct drm_file *filp)
+static int exynos_drm_ipp_task_check(struct exynos_drm_ipp_task *task)
 {
 	struct exynos_drm_ipp *ipp = task->ipp;
 	const struct exynos_drm_ipp_formats *src_fmt, *dst_fmt;
@@ -642,6 +641,19 @@ static int exynos_drm_ipp_task_check(struct exynos_drm_ipp_task *task,
 	if (ret)
 		return ret;
 
+	DRM_DEBUG_DRIVER("Task %pK: all checks done.\n", task);
+
+	return ret;
+}
+
+static int exynos_drm_ipp_task_setup_buffers(struct exynos_drm_ipp_task *task,
+				     struct drm_file *filp)
+{
+	struct exynos_drm_ipp_buffer *src = &task->src, *dst = &task->dst;
+	int ret = 0;
+
+	DRM_DEBUG_DRIVER("Setting buffer for task %pK\n", task);
+
 	ret = exynos_drm_ipp_task_setup_buffer(src, filp);
 	if (ret) {
 		DRM_DEBUG_DRIVER("Task %pK: src buffer setup failed\n", task);
@@ -653,7 +665,7 @@ static int exynos_drm_ipp_task_check(struct exynos_drm_ipp_task *task,
 		return ret;
 	}
 
-	DRM_DEBUG_DRIVER("Task %pK: all checks done.\n", task);
+	DRM_DEBUG_DRIVER("Task %pK: buffers prepared.\n", task);
 
 	return ret;
 }
@@ -859,7 +871,11 @@ int exynos_drm_ipp_commit_ioctl(struct drm_device *dev, void *data,
 	if (ret)
 		goto free;
 
-	ret = exynos_drm_ipp_task_check(task, file_priv);
+	ret = exynos_drm_ipp_task_check(task);
+	if (ret)
+		goto free;
+
+	ret = exynos_drm_ipp_task_setup_buffers(task, file_priv);
 	if (ret || arg->flags & DRM_EXYNOS_IPP_FLAG_TEST_ONLY)
 		goto free;
 
