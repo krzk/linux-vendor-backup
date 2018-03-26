@@ -608,9 +608,9 @@
 			};
 
 			ldo23_reg: LDO23 {
-				regulator-name = "CAM_SEN_CORE_1.05V_AP";
+				regulator-name = "CAM_SEN_CORE_1.2V_AP";
 				regulator-min-microvolt = <1050000>;
-				regulator-max-microvolt = <1050000>;
+				regulator-max-microvolt = <1200000>;
 			};
 
 			ldo24_reg: LDO24 {
