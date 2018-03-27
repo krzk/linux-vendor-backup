@@ -27,7 +27,7 @@ static const char * const panel_type_names[] = {
 	[NX_PANEL_TYPE_LVDS] = "LVDS",
 	[NX_PANEL_TYPE_MIPI] = "MIPI",
 	[NX_PANEL_TYPE_HDMI] = "HDMI",
-	[NX_PANEL_TYPE_TV] = "TV",
+	[NX_PANEL_TYPE_TVOUT] = "TV",
 	[NX_PANEL_TYPE_CLUSTER_LCD] = "CLUSTER-LCD",
 };
 
@@ -180,7 +180,7 @@ int nx_drm_connector_attach(struct drm_device *drm,
 		enc_type = DRM_MODE_ENCODER_TMDS;
 		interlace_allowed = true;
 		break;
-	case NX_PANEL_TYPE_TV:
+	case NX_PANEL_TYPE_TVOUT:
 		con_type = DRM_MODE_CONNECTOR_TV;
 		enc_type = DRM_MODE_ENCODER_TVDAC;
 		interlace_allowed = true;

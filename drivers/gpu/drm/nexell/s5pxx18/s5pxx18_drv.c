@@ -1433,6 +1433,11 @@ struct nx_drm_display *nx_drm_display_get(struct device *dev,
 		control = nx_drm_display_hdmi_get(dev, node, display);
 		break;
 	#endif
+	#ifdef CONFIG_DRM_NX_TVOUT
+	case NX_PANEL_TYPE_TVOUT:
+		control = nx_drm_display_tvout_get(dev, node, display);
+		break;
+	#endif
 	default:
 		DRM_ERROR("not support panel type [%d] !!!\n", type);
 		break;

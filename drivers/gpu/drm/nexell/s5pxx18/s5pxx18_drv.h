@@ -339,6 +339,8 @@ void *nx_drm_display_mipi_get(struct device *dev, struct device_node *node,
 			struct nx_drm_display *display);
 void *nx_drm_display_hdmi_get(struct device *dev,
 			struct device_node *np, struct nx_drm_display *display);
+void *nx_drm_display_tvout_get(struct device *dev,
+			struct device_node *np, struct nx_drm_display *display);
 
 void nx_display_mode_to_sync(struct drm_display_mode *mode,
 			struct nx_drm_display *display);

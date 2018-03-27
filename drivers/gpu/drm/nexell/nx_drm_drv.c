@@ -409,6 +409,7 @@ static const char *const drm_panel_names[] = {
 	"display_drm_lvds",
 	"display_drm_mipi",
 	"display_drm_hdmi",
+	"display_drm_tvout",
 };
 
 static struct drm_panel_driver {
@@ -429,6 +430,13 @@ static struct drm_panel_driver {
 		.name = "hdmi",
 		.init = panel_hdmi_init,
 		.exit = panel_hdmi_exit,
+	},
+#endif
+#if defined(CONFIG_DRM_NX_TVOUT)
+	{
+		.name = "tvout",
+		.init = panel_tvout_init,
+		.exit = panel_tvout_exit,
 	},
 #endif
 };
