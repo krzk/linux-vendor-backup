@@ -21,13 +21,13 @@ config CAMERA_EEPROM_SUPPORT_FRONT
 config COMPANION_USE
         bool "Enable to companion"
         depends on VIDEO_EXYNOS_FIMC_IS
-        default n
+        default y
         help
           Enable to companion.
 config OIS_USE
         bool "Enable to ois"
         depends on VIDEO_EXYNOS_FIMC_IS
-        default n
+        default y
         help
           Enable to ois.
 config OIS_FW_UPDATE_THREAD_USE
@@ -39,24 +39,24 @@ config OIS_FW_UPDATE_THREAD_USE
 config AF_HOST_CONTROL
         bool "Enable to af control"
         depends on VIDEO_EXYNOS_FIMC_IS
-        default n
+        default y
         help
           Enable to af control.
 config USE_VENDER_FEATURE
         bool "Use vendor specific features"
         depends on VIDEO_EXYNOS_FIMC_IS
-        default n
+        default y
         help
           Enable to use the vender.
 config CAMERA_SENSOR_6D1_OBJ
         bool "Use 6D1 camera sensor"
         depends on VIDEO_EXYNOS_FIMC_IS
-        default n
+        default y
         help
           Use to build 6D1 camera sensor.
 config CAMERA_SENSOR_IMX240_OBJ
         bool "Use IMX240 camera sensor"
         depends on VIDEO_EXYNOS_FIMC_IS
-        default n
+        default y
         help
           Use to build IMX240 camera sensor.
