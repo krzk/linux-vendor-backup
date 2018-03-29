@@ -49,6 +49,7 @@ struct exynos_drm_gem {
 	unsigned long		size;
 	void			*cookie;
 	void __iomem		*kvaddr;
+	unsigned int		kvmap_count;
 	dma_addr_t		dma_addr;
 	unsigned long		dma_attrs;
 	struct page		**pages;

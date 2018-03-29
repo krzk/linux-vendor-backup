@@ -119,6 +119,12 @@ static void exynos_drm_free_buf(struct exynos_drm_gem *exynos_gem)
 	DRM_DEBUG_KMS("dma_addr(0x%lx), size(0x%lx)\n",
 			(unsigned long)exynos_gem->dma_addr, exynos_gem->size);
 
+	WARN_ON(exynos_gem->kvmap_count != 0);
+	if (exynos_gem->kvaddr) {
+		vunmap(exynos_gem->kvaddr);
+		exynos_gem->kvaddr = NULL;
+	}
+
 	dma_free_attrs(to_dma_dev(dev), exynos_gem->size, exynos_gem->cookie,
 			(dma_addr_t)exynos_gem->dma_addr,
 			exynos_gem->dma_attrs);
@@ -587,12 +593,27 @@ err:
 
 void *exynos_drm_gem_prime_vmap(struct drm_gem_object *obj)
 {
-	return NULL;
+	struct exynos_drm_gem *exynos_gem = to_exynos_gem(obj);
+	int nr_pages = exynos_gem->size >> PAGE_SHIFT;
+
+	if (!exynos_gem->kvaddr) {
+		exynos_gem->kvaddr = (void __iomem *) vmap(exynos_gem->pages,
+			nr_pages, VM_MAP,
+			pgprot_writecombine(PAGE_KERNEL));
+		if (!exynos_gem->kvaddr) {
+			DRM_ERROR("failed to map pages to kernel space.\n");
+			return ERR_PTR(-EIO);
+		}
+	}
+	exynos_gem->kvmap_count++;
+	return exynos_gem->kvaddr;
 }
 
 void exynos_drm_gem_prime_vunmap(struct drm_gem_object *obj, void *vaddr)
 {
-	/* Nothing to do */
+	struct exynos_drm_gem *exynos_gem = to_exynos_gem(obj);
+
+	WARN_ON(--exynos_gem->kvmap_count < 0);
 }
 
 int exynos_drm_gem_prime_mmap(struct drm_gem_object *obj,
