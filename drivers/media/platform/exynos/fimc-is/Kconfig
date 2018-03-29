@@ -30,12 +30,6 @@ config OIS_USE
         default y
         help
           Enable to ois.
-config OIS_FW_UPDATE_THREAD_USE
-        bool "Enable to ois fw update thread"
-        depends on OIS_USE
-        default n
-        help
-          Enable to ois fw update thread.
 config AF_HOST_CONTROL
         bool "Enable to af control"
         depends on VIDEO_EXYNOS_FIMC_IS
