@@ -33,9 +33,16 @@
 
 #define DRIVER_NAME	"exynos"
 #define DRIVER_DESC	"Samsung SoC DRM"
-#define DRIVER_DATE	"20110530"
+#define DRIVER_DATE	"20180330"
+
+/*
+ * Interface history:
+ *
+ * 1.0 - Original version
+ * 1.1 - Upgrade IPP driver to version 2.0
+*/
 #define DRIVER_MAJOR	1
-#define DRIVER_MINOR	0
+#define DRIVER_MINOR	1
 
 int exynos_atomic_check(struct drm_device *dev,
 			struct drm_atomic_state *state)
