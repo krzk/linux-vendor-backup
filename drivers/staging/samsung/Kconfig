@@ -54,14 +54,14 @@ menuconfig SEC_BSP
 
 comment "Samsung TN logging feature"
 config SEC_AVC_LOG
-	default y
+	default n
 	bool "Enable avc audit log support" if EMBEDDED
 	depends on SEC_EXT
 	help
 	  This option enables additional log buffer for audit log.
 
 config SEC_DEBUG_TSP_LOG
-	default y
+	default n
 	bool "Enable tsp log support" if EMBEDDED
 	depends on SEC_EXT
 	help
@@ -75,7 +75,7 @@ config SEC_DEBUG_LAST_KMSG
 	  This option enables /proc/last_kmsg support.
 
 config SEC_DEBUG_TIMA_LOG
-	default y
+	default n
 	bool "Enable tima log support" if EMBEDDED
 	depends on SEC_DEBUG
 	help
