@@ -777,9 +777,7 @@ int fimc_is_video_probe(struct fimc_is_video *video,
 	video->id		= video_number;
 	video->vb2		= mem->vb2;
 	video->alloc_dev	= &mem->pdev->dev;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0))
 	video->vd.vfl_dir	= vfl_dir;
-#endif
 	video->vd.v4l2_dev	= v4l2_dev;
 	video->vd.fops		= fops;
 	video->vd.ioctl_ops	= ioctl_ops;

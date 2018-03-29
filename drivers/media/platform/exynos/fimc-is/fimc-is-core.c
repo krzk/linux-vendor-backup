@@ -51,10 +51,6 @@
 #include "fimc-is-device-ois.h"
 #include "fimc-is-device-af.h"
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0))
-#define PM_QOS_CAM_THROUGHPUT	PM_QOS_RESERVED
-#endif
-
 struct fimc_is_from_info *sysfs_finfo = NULL;
 struct fimc_is_from_info *sysfs_pinfo = NULL;
 
