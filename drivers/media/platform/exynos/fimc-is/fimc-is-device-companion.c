@@ -510,6 +510,12 @@ static int fimc_is_companion_probe(struct platform_device *pdev)
 		goto p_err;
 	}
 
+	ret = fimc_is_mem_probe(&device->mem, core->pdev);
+	if (ret) {
+		err("fimc_is_mem_probe failed(%d)", ret);
+		goto p_err;
+	}
+
 	ret = fimc_is_comp_video_probe(device);
 	if (ret) {
 		err("fimc_is_companion_video_probe failed(%d)", ret);
