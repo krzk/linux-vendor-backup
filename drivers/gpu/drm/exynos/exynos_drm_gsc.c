@@ -532,12 +532,11 @@ static void gsc_src_set_transf(struct gsc_context *ctx, unsigned int rotation)
 			cfg |= GSC_IN_ROT_YFLIP;
 		break;
 	case DRM_MODE_ROTATE_90:
+		cfg |= GSC_IN_ROT_90;
 		if (rotation & DRM_MODE_REFLECT_Y)
-			cfg |= GSC_IN_ROT_90_XFLIP;
-		else if (rotation & DRM_MODE_REFLECT_X)
-			cfg |= GSC_IN_ROT_90_YFLIP;
-		else
-			cfg |= GSC_IN_ROT_90;
+			cfg |= GSC_IN_ROT_XFLIP;
+		if (rotation & DRM_MODE_REFLECT_X)
+			cfg |= GSC_IN_ROT_YFLIP;
 		break;
 	case DRM_MODE_ROTATE_180:
 		cfg |= GSC_IN_ROT_180;
