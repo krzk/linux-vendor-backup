@@ -375,6 +375,8 @@ static int __init do_mount_root(char *name, char *fs, int flags, void *data)
 	       s->s_type->name,
 	       sb_rdonly(s) ? " readonly" : "",
 	       MAJOR(ROOT_DEV), MINOR(ROOT_DEV));
+	device_block_probing();
+	device_unblock_probing();
 	return 0;
 }
 

@@ -130,8 +130,6 @@ extern void driver_remove_groups(struct device_driver *drv,
 extern char *make_class_name(const char *name, struct kobject *kobj);
 
 extern int devres_release_all(struct device *dev);
-extern void device_block_probing(void);
-extern void device_unblock_probing(void);
 
 /* /sys/devices directory */
 extern struct kset *devices_kset;

@@ -1239,6 +1239,8 @@ extern int (*platform_notify)(struct device *dev);
 
 extern int (*platform_notify_remove)(struct device *dev);
 
+extern void device_block_probing(void);
+extern void device_unblock_probing(void);
 
 /*
  * get_device - atomically increment the reference count for the device.

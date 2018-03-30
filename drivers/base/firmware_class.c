@@ -32,6 +32,7 @@
 #include <linux/syscore_ops.h>
 #include <linux/reboot.h>
 #include <linux/security.h>
+#include <linux/root_dev.h>
 
 #include <generated/utsrelease.h>
 
@@ -391,6 +392,9 @@ fw_get_filesystem_firmware(struct device *device, struct firmware_buf *buf)
 	char *path;
 	enum kernel_read_file_id id = READING_FIRMWARE;
 	size_t msize = INT_MAX;
+
+	if (ROOT_DEV == 0)
+		return -EPROBE_DEFER;
 
 	/* Already populated data member means we're loading into a buffer */
 	if (buf->data) {
@@ -1400,6 +1404,9 @@ request_firmware_nowait(
 	void (*cont)(const struct firmware *fw, void *context))
 {
 	struct firmware_work *fw_work;
+
+	if (ROOT_DEV == 0)
+		return -EPROBE_DEFER;
 
 	fw_work = kzalloc(sizeof(struct firmware_work), gfp);
 	if (!fw_work)
