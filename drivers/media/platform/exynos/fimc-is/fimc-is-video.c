@@ -303,6 +303,7 @@ static int queue_init(void *priv, struct vb2_queue *vbq_src,
 		vbq_src->dev		= vctx->video->alloc_dev;
 		vbq_src->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 		vbq_src->allow_zero_bytesused = 1;
+		vbq_src->bidirectional	= 1;
 
 		ret = vb2_queue_init(vbq_src);
 		if (ret) {
@@ -320,6 +321,7 @@ static int queue_init(void *priv, struct vb2_queue *vbq_src,
 		vbq_dst->mem_ops	= vctx->mem_ops;
 		vbq_dst->dev		= vctx->video->alloc_dev;
 		vbq_dst->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
+		vbq_dst->bidirectional	= 1;
 
 		ret = vb2_queue_init(vbq_dst);
 		if (ret) {
@@ -338,6 +340,7 @@ static int queue_init(void *priv, struct vb2_queue *vbq_src,
 		vbq_src->mem_ops	= vctx->mem_ops;
 		vbq_src->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 		vbq_src->allow_zero_bytesused = 1;
+		vbq_src->bidirectional	= 1;
 
 		ret = vb2_queue_init(vbq_src);
 		if (ret) {
@@ -352,6 +355,7 @@ static int queue_init(void *priv, struct vb2_queue *vbq_src,
 		vbq_dst->ops		= vctx->vb2_ops;
 		vbq_dst->mem_ops	= vctx->mem_ops;
 		vbq_dst->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
+		vbq_dst->bidirectional	= 1;
 
 		ret = vb2_queue_init(vbq_dst);
 		if (ret) {
