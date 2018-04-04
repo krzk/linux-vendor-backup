@@ -990,6 +990,18 @@
 	bus-width = <4>;
 };
 
+&pcie {
+	status = "okay";
+	assigned-clocks = <&cmu_fsys CLK_MOUT_SCLK_PCIE_100_USER>,
+			<&cmu_top CLK_MOUT_SCLK_PCIE_100>;
+	assigned-clock-parents = <&cmu_top CLK_SCLK_PCIE_100_FSYS>,
+			<&cmu_top CLK_MOUT_BUS_PLL_USER>;
+	assigned-clock-rates = <0>, <100000000>;
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0 0 0 0>;
+	interrupt-map = <0 0 0 0 &gic GIC_SPI 245 IRQ_TYPE_LEVEL_HIGH>;
+};
+
 &ppmu_d0_general {
 	status = "okay";
 	events {
@@ -1131,7 +1143,6 @@
 	pinctrl-0 = <&initial_ese>;
 
 	initial_ese: initial-state {
-		PIN(INPUT, gpj2-0, DOWN, FAST_SR1);
 		PIN(INPUT, gpj2-1, DOWN, FAST_SR1);
 		PIN(INPUT, gpj2-2, DOWN, FAST_SR1);
 	};
@@ -1146,7 +1157,6 @@
 		PIN(INPUT, gpr3-1, DOWN, FAST_SR1);
 		PIN(INPUT, gpr3-2, DOWN, FAST_SR1);
 		PIN(INPUT, gpr3-3, DOWN, FAST_SR1);
-		PIN(INPUT, gpr3-7, NONE, FAST_SR1);
 	};
 };
 
