@@ -41,22 +41,27 @@ int exynos_fimc_is_print_cfg(struct device *dev, u32 channel)
 int fimc_is_set_parent_dt(struct device *dev, const char *child,
 			  const char *parent)
 {
-	struct clk *p;
-	struct clk *c;
+	struct clk *p, *c;
+	int ret;
 
-	p = devm_clk_get(dev, parent);
+	p = clk_get(dev, parent);
 	if (IS_ERR(p)) {
 		pr_err("%s: could not lookup clock : %s\n", __func__, parent);
 		return -EINVAL;
 	}
 
-	c = devm_clk_get(dev, child);
+	c = clk_get(dev, child);
 	if (IS_ERR(c)) {
+		clk_put(p);
 		pr_err("%s: could not lookup clock : %s\n", __func__, child);
 		return -EINVAL;
 	}
 
-	return clk_set_parent(c, p);
+	ret = clk_set_parent(c, p);
+
+	clk_put(p);
+	clk_put(c);
+	return ret;
 }
 
 /* utility function to set rate with DT */
@@ -64,14 +69,18 @@ int fimc_is_set_rate_dt(struct device *dev, const char *conid,
 			unsigned int rate)
 {
 	struct clk *target;
+	int ret;
 
-	target = devm_clk_get(dev, conid);
+	target = clk_get(dev, conid);
 	if (IS_ERR(target)) {
 		pr_err("%s: could not lookup clock : %s\n", __func__, conid);
 		return -EINVAL;
 	}
 
-	return clk_set_rate(target, rate);
+	ret = clk_set_rate(target, rate);
+	clk_put(target);
+
+	return ret;
 }
 
 /* utility function to get rate with DT */
@@ -80,7 +89,7 @@ unsigned int fimc_is_get_rate_dt(struct device *dev, const char *conid)
 	struct clk *target;
 	unsigned int rate_target;
 
-	target = devm_clk_get(dev, conid);
+	target = clk_get(dev, conid);
 	if (IS_ERR(target)) {
 		pr_err("%s: could not lookup clock : %s\n", __func__, conid);
 		return -EINVAL;
@@ -89,6 +98,8 @@ unsigned int fimc_is_get_rate_dt(struct device *dev, const char *conid)
 	rate_target = clk_get_rate(target);
 	pr_info("%s : %d\n", conid, rate_target);
 
+	clk_put(target);
+
 	return rate_target;
 }
 
@@ -96,16 +107,18 @@ unsigned int fimc_is_get_rate_dt(struct device *dev, const char *conid)
 unsigned int fimc_is_enable_dt(struct device *dev, const char *conid)
 {
 	struct clk *target;
+	int ret;
 
-	target = devm_clk_get(dev, conid);
+	target = clk_get(dev, conid);
 	if (IS_ERR(target)) {
 		pr_err("%s: could not lookup clock : %s\n", __func__, conid);
 		return -EINVAL;
 	}
 
-	clk_prepare(target);
+	ret = clk_prepare_enable(target);
+	clk_put(target);
 
-	return clk_enable(target);
+	return ret;
 }
 
 /* utility function to disable with DT */
@@ -113,13 +126,13 @@ void  fimc_is_disable_dt(struct device *dev, const char *conid)
 {
 	struct clk *target;
 
-	target = devm_clk_get(dev, conid);
+	target = clk_get(dev, conid);
 	if (IS_ERR(target)) {
 		pr_err("%s: could not lookup clock : %s\n", __func__, conid);
 	}
 
-	clk_disable(target);
-	clk_unprepare(target);
+	clk_disable_unprepare(target);
+	clk_put(target);
 }
 
 static int exynos5430_cfg_clk_isp_pll_on(struct device *dev)
