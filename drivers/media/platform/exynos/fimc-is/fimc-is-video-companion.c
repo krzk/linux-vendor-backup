@@ -62,7 +62,7 @@ int fimc_is_comp_video_probe(void *data)
 		number,
 		VFL_DIR_RX,
 		&device->mem,
-		&device->v4l2_dev,
+		device->v4l2_dev,
 		&video->lock,
 		&fimc_is_comp_video_fops,
 		&fimc_is_comp_video_ioctl_ops);

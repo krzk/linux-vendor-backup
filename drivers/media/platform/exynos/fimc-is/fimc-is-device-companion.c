@@ -501,11 +501,7 @@ static int fimc_is_companion_probe(struct platform_device *pdev)
 	clear_bit(FIMC_IS_COMPANION_ICLK_ON, &device->state);
 	clear_bit(FIMC_IS_COMPANION_GPIO_ON, &device->state);
 
-	ret = v4l2_device_register(&pdev->dev, &device->v4l2_dev);
-	if (ret) {
-		err("v4l2_device_register failed(%d)", ret);
-		goto p_err;
-	}
+	device->v4l2_dev = &core->v4l2_dev;
 
 	ret = fimc_is_mem_probe(&device->mem, core->pdev);
 	if (ret) {

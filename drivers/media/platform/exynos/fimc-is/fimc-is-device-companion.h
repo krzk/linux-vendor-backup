@@ -34,7 +34,7 @@ enum fimc_is_companion_status {
 };
 
 struct fimc_is_device_companion {
-	struct v4l2_device				v4l2_dev;
+	struct v4l2_device				*v4l2_dev;
 	struct platform_device				*pdev;
 	void __iomem					*regs;
 	struct fimc_is_mem				mem;
