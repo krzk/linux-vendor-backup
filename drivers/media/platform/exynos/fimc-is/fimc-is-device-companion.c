@@ -64,14 +64,12 @@ static void fimc_is_companion_wakeup(struct fimc_is_device_companion *device)
 static int fimc_is_companion_mclk_on(struct fimc_is_device_companion *device)
 {
 	int ret = 0;
-	struct platform_device *pdev;
 	struct exynos_platform_fimc_is_sensor *pdata;
 
 	BUG_ON(!device);
-	BUG_ON(!device->pdev);
+	BUG_ON(!device->dev);
 	BUG_ON(!device->pdata);
 
-	pdev = device->pdev;
 	pdata = device->pdata;
 
 	if (test_bit(FIMC_IS_COMPANION_MCLK_ON, &device->state)) {
@@ -85,7 +83,7 @@ static int fimc_is_companion_mclk_on(struct fimc_is_device_companion *device)
 		goto p_err;
 	}
 
-	ret = pdata->mclk_on(&pdev->dev, pdata->scenario, pdata->mclk_ch);
+	ret = pdata->mclk_on(device->dev, pdata->scenario, pdata->mclk_ch);
 	if (ret) {
 		err("mclk_on failed(%d)", ret);
 		goto p_err;
@@ -100,14 +98,12 @@ p_err:
 static int fimc_is_companion_mclk_off(struct fimc_is_device_companion *device)
 {
 	int ret = 0;
-	struct platform_device *pdev;
 	struct exynos_platform_fimc_is_sensor *pdata;
 
 	BUG_ON(!device);
-	BUG_ON(!device->pdev);
+	BUG_ON(!device->dev);
 	BUG_ON(!device->pdata);
 
-	pdev = device->pdev;
 	pdata = device->pdata;
 
 	if (!test_bit(FIMC_IS_COMPANION_MCLK_ON, &device->state)) {
@@ -121,7 +117,7 @@ static int fimc_is_companion_mclk_off(struct fimc_is_device_companion *device)
 		goto p_err;
 	}
 
-	ret = pdata->mclk_off(&pdev->dev, pdata->scenario, pdata->mclk_ch);
+	ret = pdata->mclk_off(device->dev, pdata->scenario, pdata->mclk_ch);
 	if (ret) {
 		err("mclk_off failed(%d)", ret);
 		goto p_err;
@@ -135,15 +131,13 @@ p_err:
 
 static int fimc_is_companion_iclk_on(struct fimc_is_device_companion *device)
 {
-	int ret = 0;
-	struct platform_device *pdev;
 	struct exynos_platform_fimc_is_sensor *pdata;
+	int ret = 0;
 
 	BUG_ON(!device);
-	BUG_ON(!device->pdev);
+	BUG_ON(!device->dev);
 	BUG_ON(!device->pdata);
 
-	pdev = device->pdev;
 	pdata = device->pdata;
 
 	if (test_bit(FIMC_IS_COMPANION_ICLK_ON, &device->state)) {
@@ -163,13 +157,13 @@ static int fimc_is_companion_iclk_on(struct fimc_is_device_companion *device)
 		goto p_err;
 	}
 
-	ret = pdata->iclk_cfg(&pdev->dev, pdata->scenario, 0);
+	ret = pdata->iclk_cfg(device->dev, pdata->scenario, 0);
 	if (ret) {
 		err("iclk_cfg failed(%d)", ret);
 		goto p_err;
 	}
 
-	ret = pdata->iclk_on(&pdev->dev, pdata->scenario, 0);
+	ret = pdata->iclk_on(device->dev, pdata->scenario, 0);
 	if (ret) {
 		err("iclk_on failed(%d)", ret);
 		goto p_err;
@@ -183,15 +177,13 @@ p_err:
 
 static int fimc_is_companion_iclk_off(struct fimc_is_device_companion *device)
 {
-	int ret = 0;
-	struct platform_device *pdev;
 	struct exynos_platform_fimc_is_sensor *pdata;
+	int ret = 0;
 
 	BUG_ON(!device);
-	BUG_ON(!device->pdev);
+	BUG_ON(!device->dev);
 	BUG_ON(!device->pdata);
 
-	pdev = device->pdev;
 	pdata = device->pdata;
 
 	if (!test_bit(FIMC_IS_COMPANION_ICLK_ON, &device->state)) {
@@ -205,7 +197,7 @@ static int fimc_is_companion_iclk_off(struct fimc_is_device_companion *device)
 		goto p_err;
 	}
 
-	ret = pdata->iclk_off(&pdev->dev, pdata->scenario, 0);
+	ret = pdata->iclk_off(device->dev, pdata->scenario, 0);
 	if (ret) {
 		err("iclk_off failed(%d)", ret);
 		goto p_err;
@@ -226,7 +218,7 @@ static int fimc_is_companion_gpio_on(struct fimc_is_device_companion *device)
 	struct fimc_is_core *core;
 
 	BUG_ON(!device);
-	BUG_ON(!device->pdev);
+	BUG_ON(!device->dev);
 	BUG_ON(!device->pdata);
 
 	pdata = device->pdata;
@@ -269,7 +261,7 @@ static int fimc_is_companion_gpio_on(struct fimc_is_device_companion *device)
 		}
 	}
 
-	ret = pdata->gpio_cfg(device->pdev, pdata->scenario, GPIO_SCENARIO_ON);
+	ret = pdata->gpio_cfg(device->dev, pdata->scenario, GPIO_SCENARIO_ON);
 	if (ret) {
 		err("gpio_cfg failed(%d)", ret);
 		goto p_err;
@@ -288,7 +280,7 @@ static int fimc_is_companion_gpio_off(struct fimc_is_device_companion *device)
 	struct fimc_is_core *core = dev_get_drvdata(fimc_is_dev);
 
 	BUG_ON(!device);
-	BUG_ON(!device->pdev);
+	BUG_ON(!device->dev);
 	BUG_ON(!device->pdata);
 
 	pdata = device->pdata;
@@ -304,7 +296,7 @@ static int fimc_is_companion_gpio_off(struct fimc_is_device_companion *device)
 		goto p_err;
 	}
 
-	ret = pdata->gpio_cfg(device->pdev, pdata->scenario, GPIO_SCENARIO_OFF);
+	ret = pdata->gpio_cfg(device->dev, pdata->scenario, GPIO_SCENARIO_OFF);
 	if (ret) {
 		err("gpio_cfg failed(%d)", ret);
 		goto p_err;
@@ -344,13 +336,14 @@ int fimc_is_companion_open(struct fimc_is_device_companion *device)
 
 	device->companion_status = FIMC_IS_COMPANION_OPENNING;
 	core->running_rear_camera = true;
-	pm_runtime_get_sync(&device->pdev->dev);
-	ret = fimc_is_sec_fw_sel(core, &device->pdev->dev, fw_name, setf_name, false);
+	pm_runtime_get_sync(device->dev);
+	ret = fimc_is_sec_fw_sel(core, device->dev, fw_name, setf_name, false);
 	if (ret < 0) {
 		err("failed to select firmware (%d)", ret);
 		goto p_err_pm;
 	}
-	ret = fimc_is_sec_concord_fw_sel(core, &device->pdev->dev, companion_fw_name, master_setf_name, mode_setf_name);
+	ret = fimc_is_sec_concord_fw_sel(core, device->dev, companion_fw_name,
+					 master_setf_name, mode_setf_name);
 
 	/* TODO: loading firmware */
 	fimc_is_s_int_comb_isp(core, false, INTMR2_INTMCIS(22));
@@ -393,7 +386,7 @@ int fimc_is_companion_open(struct fimc_is_device_companion *device)
 	return ret;
 
 p_err_pm:
-	pm_runtime_put_sync(&device->pdev->dev);
+	pm_runtime_put_sync(device->dev);
 
 p_err:
 	err("[COMP:D] open fail(%d)status(%d)", ret, device->companion_status);
@@ -404,6 +397,7 @@ int fimc_is_companion_close(struct fimc_is_device_companion *device)
 {
 	int ret = 0;
 	struct fimc_is_core *core = dev_get_drvdata(fimc_is_dev);
+
 	if (!core) {
 		err("core is NULL");
 		return -EINVAL;
@@ -417,7 +411,7 @@ int fimc_is_companion_close(struct fimc_is_device_companion *device)
 		goto p_err;
 	}
 
-	pm_runtime_put_sync(&device->pdev->dev);
+	pm_runtime_put_sync(device->dev);
 #if 0
 	if (core != NULL && !test_bit(FIMC_IS_ISCHAIN_POWER_ON, &core->state)) {
 		u32 timeout;
@@ -486,7 +480,7 @@ static int fimc_is_companion_probe(struct platform_device *pdev)
 		goto p_err;
 	}
 
-	device->pdev = pdev;
+	device->dev = &pdev->dev;
 	device->private_data = core;
 	device->regs = core->regs;
 	device->pdata = pdata;

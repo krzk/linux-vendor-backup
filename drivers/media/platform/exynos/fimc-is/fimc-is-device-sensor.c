@@ -336,7 +336,8 @@ static int fimc_is_sensor_gpio_on(struct fimc_is_device_sensor *device)
 		core->running_front_camera = true;
 	}
 
-	ret = pdata->gpio_cfg(device->pdev, pdata->scenario, GPIO_SCENARIO_ON);
+	ret = pdata->gpio_cfg(&device->pdev->dev, pdata->scenario,
+			      GPIO_SCENARIO_ON);
 	if (ret) {
 		merr("gpio_cfg failed(%d)", device, ret);
 		goto p_err;
@@ -371,7 +372,8 @@ static int fimc_is_sensor_gpio_off(struct fimc_is_device_sensor *device)
 		goto p_err;
 	}
 
-	ret = pdata->gpio_cfg(device->pdev, pdata->scenario, GPIO_SCENARIO_OFF);
+	ret = pdata->gpio_cfg(&device->pdev->dev, pdata->scenario,
+			      GPIO_SCENARIO_OFF);
 	if (ret) {
 		merr("gpio_cfg failed(%d)", device, ret);
 		goto p_err;
@@ -1875,7 +1877,8 @@ int fimc_is_sensor_gpio_off_softlanding(struct fimc_is_device_sensor *device)
 		goto p_err;
 	}
 
-	ret = pdata->gpio_cfg(device->pdev, pdata->scenario, GPIO_SCENARIO_OFF);
+	ret = pdata->gpio_cfg(&device->pdev->dev, pdata->scenario,
+			      GPIO_SCENARIO_OFF);
 	if (ret) {
 		merr("gpio_cfg failed(%d)", device, ret);
 		goto p_err;

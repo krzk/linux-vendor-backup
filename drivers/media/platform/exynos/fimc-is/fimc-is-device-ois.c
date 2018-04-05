@@ -253,7 +253,7 @@ int fimc_is_ois_gpio_on(struct fimc_is_device_companion *device)
 	struct exynos_platform_fimc_is_sensor *pdata;
 
 	BUG_ON(!device);
-	BUG_ON(!device->pdev);
+	BUG_ON(!device->dev);
 	BUG_ON(!device->pdata);
 
 	pdata = device->pdata;
@@ -264,7 +264,8 @@ int fimc_is_ois_gpio_on(struct fimc_is_device_companion *device)
 		goto p_err;
 	}
 
-	ret = pdata->gpio_cfg(device->pdev, SENSOR_SCENARIO_OIS_FACTORY, GPIO_SCENARIO_ON);
+	ret = pdata->gpio_cfg(device->dev, SENSOR_SCENARIO_OIS_FACTORY,
+			      GPIO_SCENARIO_ON);
 	if (ret) {
 		err("gpio_cfg failed(%d)", ret);
 		goto p_err;
@@ -280,7 +281,7 @@ int fimc_is_ois_gpio_off(struct fimc_is_device_companion *device)
 	struct exynos_platform_fimc_is_sensor *pdata;
 
 	BUG_ON(!device);
-	BUG_ON(!device->pdev);
+	BUG_ON(!device->dev);
 	BUG_ON(!device->pdata);
 
 	pdata = device->pdata;
@@ -291,7 +292,8 @@ int fimc_is_ois_gpio_off(struct fimc_is_device_companion *device)
 		goto p_err;
 	}
 
-	ret = pdata->gpio_cfg(device->pdev, SENSOR_SCENARIO_OIS_FACTORY, GPIO_SCENARIO_OFF);
+	ret = pdata->gpio_cfg(device->dev, SENSOR_SCENARIO_OIS_FACTORY,
+			      GPIO_SCENARIO_OFF);
 	if (ret) {
 		err("gpio_cfg failed(%d)", ret);
 		goto p_err;
@@ -932,10 +934,10 @@ request_fw:
 		snprintf(fw_name, sizeof(fw_name), "%s", name);
 		set_fs(old_fs);
 		retry_count = 3;
-		ret = request_firmware(&fw_blob, fw_name, &core->companion->pdev->dev);
+		ret = request_firmware(&fw_blob, fw_name, core->companion->dev);
 		while (--retry_count && ret == -EAGAIN) {
 			err("request_firmware retry(count:%d)", retry_count);
-			ret = request_firmware(&fw_blob, fw_name, &core->companion->pdev->dev);
+			ret = request_firmware(&fw_blob, fw_name, core->companion->dev);
 		}
 
 		if (ret) {

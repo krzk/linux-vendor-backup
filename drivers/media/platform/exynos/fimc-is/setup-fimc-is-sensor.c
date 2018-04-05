@@ -26,7 +26,7 @@
 #include "exynos-fimc-is.h"
 #include "exynos-fimc-is-sensor.h"
 
-static int exynos_fimc_is_sensor_pin_control(struct platform_device *pdev,
+static int exynos_fimc_is_sensor_pin_control(struct device *dev,
 	struct pinctrl *pinctrl, struct exynos_sensor_pin *pin_ctrls, int channel)
 {
 	int ret = 0;
@@ -90,7 +90,7 @@ static int exynos_fimc_is_sensor_pin_control(struct platform_device *pdev,
 		{
 			struct regulator *regulator = NULL;
 
-			regulator = regulator_get(&pdev->dev, name);
+			regulator = regulator_get(dev, name);
 			if (IS_ERR_OR_NULL(regulator)) {
 				pr_err("%s : regulator_get(%s) failed\n", __func__, name);
 				return PTR_ERR(regulator);
@@ -117,7 +117,7 @@ static int exynos_fimc_is_sensor_pin_control(struct platform_device *pdev,
 		{
 			struct regulator *regulator = NULL;
 
-			regulator = regulator_get(&pdev->dev, name);
+			regulator = regulator_get(dev, name);
 			if (IS_ERR_OR_NULL(regulator)) {
 				pr_err("%s : regulator_get(%s) fail\n", __func__, name);
 				return PTR_ERR(regulator);
@@ -140,21 +140,20 @@ static int exynos_fimc_is_sensor_pin_control(struct platform_device *pdev,
 	return ret;
 }
 
-int exynos_fimc_is_sensor_pins_cfg(struct platform_device *pdev,
-	u32 scenario,
-	u32 enable)
+int exynos_fimc_is_sensor_pins_cfg(struct device *dev, u32 scenario,
+				   u32 enable)
 {
 	int ret = 0;
 	u32 i = 0;
 	struct exynos_sensor_pin (*pin_ctrls)[2][GPIO_CTRL_MAX];
 	struct exynos_platform_fimc_is_sensor *pdata;
 
-	BUG_ON(!pdev);
-	BUG_ON(!pdev->dev.platform_data);
+	BUG_ON(!dev);
+	BUG_ON(!dev->platform_data);
 	BUG_ON(enable > 1);
 	BUG_ON(scenario > SENSOR_SCENARIO_MAX);
 
-	pdata = pdev->dev.platform_data;
+	pdata = dev->platform_data;
 	pin_ctrls = pdata->pin_ctrls;
 
 	for (i = 0; i < GPIO_CTRL_MAX; ++i) {
@@ -163,7 +162,7 @@ int exynos_fimc_is_sensor_pins_cfg(struct platform_device *pdev,
 			break;
 		}
 
-		ret = exynos_fimc_is_sensor_pin_control(pdev,
+		ret = exynos_fimc_is_sensor_pin_control(dev,
 			pdata->pinctrl,
 			&pin_ctrls[scenario][enable][i],
 			pdata->csi_ch);

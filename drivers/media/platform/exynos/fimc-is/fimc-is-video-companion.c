@@ -51,12 +51,6 @@ int fimc_is_comp_video_probe(void *data)
 	snprintf(name, sizeof(name), "%s%d", FIMC_IS_VIDEO_SENSOR_NAME, 9);
 	number = FIMC_IS_VIDEO_SS0_NUM + 9;
 
-	if (!device->pdev) {
-		err("pdev is NULL");
-		ret = -EINVAL;
-		goto p_err;
-	}
-
 	ret = fimc_is_video_probe(video,
 		name,
 		number,
@@ -67,9 +61,8 @@ int fimc_is_comp_video_probe(void *data)
 		&fimc_is_comp_video_fops,
 		&fimc_is_comp_video_ioctl_ops);
 	if (ret)
-		dev_err(&device->pdev->dev, "%s failed(%d)\n", __func__, ret);
+		dev_err(device->dev, "%s failed(%d)\n", __func__, ret);
 
-p_err:
 	info("[CP%d:V:X] %s(%d)\n", number, __func__, ret);
 	return ret;
 }
@@ -88,8 +81,8 @@ static int fimc_is_comp_video_s_ctrl(struct file *file, void *priv,
 	video = video_drvdata(file);
 	device = container_of(video, struct fimc_is_device_companion, video);
 
-	if (!device->pdev) {
-		err("pdev is NULL");
+	if (!device->dev) {
+		err("dev is NULL");
 		ret = -EINVAL;
 		goto p_err;
 	}

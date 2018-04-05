@@ -253,7 +253,7 @@ struct exynos_sensor_pin {
  * struct exynos_platform_fimc_is_sensor - platform data for exynos_sensor driver
  */
 struct exynos_platform_fimc_is_sensor {
-	int (*gpio_cfg)(struct platform_device *pdev, u32 scenario, u32 enable);
+	int (*gpio_cfg)(struct device *pdev, u32 scenario, u32 enable);
 	int (*iclk_cfg)(struct device *dev, u32 scenario, u32 channel);
 	int (*iclk_on)(struct device *dev,u32 scenario, u32 channel);
 	int (*iclk_off)(struct device *dev, u32 scenario, u32 channel);
@@ -278,7 +278,7 @@ struct exynos_platform_fimc_is_sensor {
 	struct pinctrl *pinctrl;
 };
 
-extern int exynos_fimc_is_sensor_pins_cfg(struct platform_device *pdev,
+extern int exynos_fimc_is_sensor_pins_cfg(struct device *dev,
 	u32 scenario,
 	u32 enable);
 extern int exynos_fimc_is_sensor_iclk_cfg(struct device *dev,

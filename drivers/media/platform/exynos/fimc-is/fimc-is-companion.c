@@ -391,7 +391,7 @@ static int fimc_is_comp_load_binary(struct fimc_is_core *core, char *name)
 	BUG_ON(!core);
 	BUG_ON(!core->pdev);
 	BUG_ON(!core->companion);
-	BUG_ON(!core->companion->pdev);
+	BUG_ON(!core->companion->dev);
 	BUG_ON(!name);
 	fimc_is_sec_get_sysfs_finfo(&sysfs_finfo);
 
@@ -430,10 +430,10 @@ request_fw:
 		snprintf(fw_name, sizeof(fw_name), "%s", name);
 		set_fs(old_fs);
 		retry_count = 3;
-		ret = request_firmware(&fw_blob, fw_name, &core->companion->pdev->dev);
+		ret = request_firmware(&fw_blob, fw_name, core->companion->dev);
 		while (--retry_count && ret == -EAGAIN) {
 			err("request_firmware retry(count:%d)", retry_count);
-			ret = request_firmware(&fw_blob, fw_name, &core->companion->pdev->dev);
+			ret = request_firmware(&fw_blob, fw_name, core->companion->dev);
 		}
 
 		if (ret) {
