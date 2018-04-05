@@ -319,102 +319,6 @@
 		phys = <&mipi_phy 2>;
 		phy-names = "csis";
 	};
-
-	fimc_is_companion: fimc_is_companion@14180000 {
-		compatible = "samsung,exynos5-fimc-is-companion";
-		power-domains = <&pd_cam1>;
-		clock-names =
-				/* SENSOR0 MCLK */
-				"sclk_isp_sensor0",
-				"mout_sclk_isp_sensor0",
-				"dout_sclk_isp_sensor0_a",
-				"dout_sclk_isp_sensor0_b",
-
-				"mout_bus_pll_user",
-				"oscclk",
-
-				/* SPI-ISP */
-				"sclk_isp_spi0_top",
-				"sclk_isp_spi1_top",
-				"mout_sclk_isp_spi0",
-				"mout_sclk_isp_spi1",
-
-				"gate_isp_spi1",
-				"gate_isp_spi0",
-				"dout_sclk_isp_spi0_a",
-				"dout_sclk_isp_spi0_b",
-				"dout_sclk_isp_spi1_a",
-				"dout_sclk_isp_spi1_b",
-
-				"mout_sclk_isp_spi0_user",
-				"mout_sclk_isp_spi1_user",
-
-				/* CMU TOP */
-				"dout_aclk_cam1_333",
-
-				/* USER_MUX_SEL */
-				"aclk_cam1_333",
-				"mout_aclk_cam1_333_user",
-
-				/* MPWM */
-				"dout_pclk_cam1_166",
-				"dout_pclk_cam1_83",
-				"dout_sclk_isp_mpwm";
-		clocks =
-				/* SENSOR0 MCLK */
-				<&cmu_top CLK_SCLK_ISP_SENSOR0>,
-				<&cmu_top CLK_MOUT_SCLK_ISP_SENSOR0>,
-				<&cmu_top CLK_DIV_SCLK_ISP_SENSOR0_A>,
-				<&cmu_top CLK_DIV_SCLK_ISP_SENSOR0_B>,
-
-				<&cmu_top CLK_MOUT_BUS_PLL_USER>,
-				<&xxti>,
-
-				<&cmu_top CLK_SCLK_ISP_SPI0_CAM1>,
-				<&cmu_top CLK_SCLK_ISP_SPI1_CAM1>,
-				<&cmu_top CLK_MOUT_SCLK_ISP_SPI0>,
-				<&cmu_top CLK_MOUT_SCLK_ISP_SPI1>,
-
-				<&cmu_cam1 CLK_ISP_SPI1>,
-				<&cmu_cam1 CLK_ISP_SPI0>,
-
-				<&cmu_top CLK_DIV_SCLK_ISP_SPI0_A>,
-				<&cmu_top CLK_DIV_SCLK_ISP_SPI0_B>,
-				<&cmu_top CLK_DIV_SCLK_ISP_SPI1_A>,
-				<&cmu_top CLK_DIV_SCLK_ISP_SPI1_B>,
-
-				<&cmu_cam1 CLK_MOUT_SCLK_ISP_SPI0_USER>,
-				<&cmu_cam1 CLK_MOUT_SCLK_ISP_SPI1_USER>,
-
-				<&cmu_top CLK_DIV_ACLK_CAM1_333>,
-
-				/* USER_MUX_SEL */
-				<&cmu_top CLK_ACLK_CAM1_333>,
-				<&cmu_cam1 CLK_MOUT_ACLK_CAM1_333_USER>,
-
-				/* MPWM */
-				<&cmu_cam1 CLK_DIV_PCLK_CAM1_166>,
-				<&cmu_cam1 CLK_DIV_PCLK_CAM1_83>,
-				<&cmu_cam1 CLK_DIV_SCLK_ISP_MPWM>;
-
-		pinctrl-names ="default", "ch0", "af0", "off0";
-		pinctrl-0 = <&fimc_is_ch0_mclk_off>;
-		pinctrl-1 = <&fimc_is_ch0_mclk>;
-		pinctrl-2 = <&fimc_is_ch0_mclk>;
-		pinctrl-3 = <&fimc_is_ch0_mclk_off>;
-
-		scenario = <0>;
-		mclk_ch = <0>;
-		sensor_id = <104>;
-
-		gpios_cam_en = <&gpf4 7 0x1>;
-		gpio_reset = <&gpc0 4 0x1>;
-		gpios_comp_en = <&gpf1 7 0x1>; /* COMP_EN */
-		gpios_comp_reset = <&gpf5 7 0x1>; /* COMP_RSTN */
-		gpios_ois_en = <&gpf4 6 0>; /* OIS_EN*/
-
-		status = "okay";
-	};
 };
 
 &adc {
@@ -1236,9 +1140,101 @@
 };
 
 &ispi2c_0 {
-	fimc_is_i2c0@3d {
-		compatible = "samsung,fimc_is_i2c0";
+	fimc_is_companion: sensor@3d {
+		compatible = "samsung,s5c73c1";
 		reg = <0x3d>;
+		power-domains = <&pd_cam1>;
+		clock-names =
+				/* SENSOR0 MCLK */
+				"sclk_isp_sensor0",
+				"mout_sclk_isp_sensor0",
+				"dout_sclk_isp_sensor0_a",
+				"dout_sclk_isp_sensor0_b",
+
+				"mout_bus_pll_user",
+				"oscclk",
+
+				/* SPI-ISP */
+				"sclk_isp_spi0_top",
+				"sclk_isp_spi1_top",
+				"mout_sclk_isp_spi0",
+				"mout_sclk_isp_spi1",
+
+				"gate_isp_spi1",
+				"gate_isp_spi0",
+				"dout_sclk_isp_spi0_a",
+				"dout_sclk_isp_spi0_b",
+				"dout_sclk_isp_spi1_a",
+				"dout_sclk_isp_spi1_b",
+
+				"mout_sclk_isp_spi0_user",
+				"mout_sclk_isp_spi1_user",
+
+				/* CMU TOP */
+				"dout_aclk_cam1_333",
+
+				/* USER_MUX_SEL */
+				"aclk_cam1_333",
+				"mout_aclk_cam1_333_user",
+
+				/* MPWM */
+				"dout_pclk_cam1_166",
+				"dout_pclk_cam1_83",
+				"dout_sclk_isp_mpwm";
+		clocks =
+				/* SENSOR0 MCLK */
+				<&cmu_top CLK_SCLK_ISP_SENSOR0>,
+				<&cmu_top CLK_MOUT_SCLK_ISP_SENSOR0>,
+				<&cmu_top CLK_DIV_SCLK_ISP_SENSOR0_A>,
+				<&cmu_top CLK_DIV_SCLK_ISP_SENSOR0_B>,
+
+				<&cmu_top CLK_MOUT_BUS_PLL_USER>,
+				<&xxti>,
+
+				<&cmu_top CLK_SCLK_ISP_SPI0_CAM1>,
+				<&cmu_top CLK_SCLK_ISP_SPI1_CAM1>,
+				<&cmu_top CLK_MOUT_SCLK_ISP_SPI0>,
+				<&cmu_top CLK_MOUT_SCLK_ISP_SPI1>,
+
+				<&cmu_cam1 CLK_ISP_SPI1>,
+				<&cmu_cam1 CLK_ISP_SPI0>,
+
+				<&cmu_top CLK_DIV_SCLK_ISP_SPI0_A>,
+				<&cmu_top CLK_DIV_SCLK_ISP_SPI0_B>,
+				<&cmu_top CLK_DIV_SCLK_ISP_SPI1_A>,
+				<&cmu_top CLK_DIV_SCLK_ISP_SPI1_B>,
+
+				<&cmu_cam1 CLK_MOUT_SCLK_ISP_SPI0_USER>,
+				<&cmu_cam1 CLK_MOUT_SCLK_ISP_SPI1_USER>,
+
+				<&cmu_top CLK_DIV_ACLK_CAM1_333>,
+
+				/* USER_MUX_SEL */
+				<&cmu_top CLK_ACLK_CAM1_333>,
+				<&cmu_cam1 CLK_MOUT_ACLK_CAM1_333_USER>,
+
+				/* MPWM */
+				<&cmu_cam1 CLK_DIV_PCLK_CAM1_166>,
+				<&cmu_cam1 CLK_DIV_PCLK_CAM1_83>,
+				<&cmu_cam1 CLK_DIV_SCLK_ISP_MPWM>;
+
+		pinctrl-names ="default", "ch0", "af0", "off0";
+		pinctrl-0 = <&fimc_is_ch0_mclk_off>;
+		pinctrl-1 = <&fimc_is_ch0_mclk>;
+		pinctrl-2 = <&fimc_is_ch0_mclk>;
+		pinctrl-3 = <&fimc_is_ch0_mclk_off>;
+
+		scenario = <0>;
+		mclk_ch = <0>;
+		sensor_id = <104>;
+
+		gpios_cam_en = <&gpf4 7 0x1>;
+		gpio_reset = <&gpc0 4 0x1>;
+		gpios_comp_en = <&gpf1 7 0x1>; /* COMP_EN */
+		gpios_comp_reset = <&gpf5 7 0x1>; /* COMP_RSTN */
+		gpios_ois_en = <&gpf4 6 0>; /* OIS_EN*/
+
+		status = "okay";
 	};
 };
 
