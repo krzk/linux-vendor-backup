@@ -2125,8 +2125,8 @@ static void interface_timer(unsigned long data)
 				atomic_read(&itf->sensor_check[i]));
 
 			/* print sensor clk , pwr state */
-			CALL_POPS(core, print_clk, device->pdev);
-			CALL_POPS(core, print_pwr, device->pdev);
+			CALL_POPS(core, print_clk, &device->pdev->dev);
+			CALL_POPS(core, print_pwr, &device->pdev->dev);
 
 			/* print sensor info */
 			merr("sensor fcount : %d , framerate : %d\n", sensor,

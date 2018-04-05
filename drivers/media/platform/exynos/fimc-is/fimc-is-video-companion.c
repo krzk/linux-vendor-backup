@@ -125,15 +125,13 @@ static int fimc_is_comp_video_open(struct file *file)
 	struct fimc_is_video *video;
 	struct fimc_is_video_ctx *vctx;
 	struct fimc_is_device_companion *device;
-	struct platform_device *fimc_is_pdev;
 	struct fimc_is_core *core;
 
 	/* HACK: ugly workaround to prevent systemd/udev messing in driver state */
 	if (strcmp("v4l_id", current->comm) == 0)
 		return -EINVAL;
 
-	fimc_is_pdev = to_platform_device(fimc_is_dev);
-	exynos_fimc_is_cfg_cam_clk(fimc_is_pdev);
+	exynos_fimc_is_cfg_cam_clk(fimc_is_dev);
 
 	vctx = NULL;
 	video = video_drvdata(file);

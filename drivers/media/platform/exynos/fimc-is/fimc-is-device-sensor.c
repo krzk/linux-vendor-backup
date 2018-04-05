@@ -175,7 +175,7 @@ static int fimc_is_sensor_mclk_on(struct fimc_is_device_sensor *device)
 		goto p_err;
 	}
 
-	ret = pdata->mclk_on(device->pdev, pdata->scenario, pdata->mclk_ch);
+	ret = pdata->mclk_on(&device->pdev->dev, pdata->scenario, pdata->mclk_ch);
 	if (ret) {
 		merr("mclk_on failed(%d)", device, ret);
 		goto p_err;
@@ -209,7 +209,7 @@ static int fimc_is_sensor_mclk_off(struct fimc_is_device_sensor *device)
 		goto p_err;
 	}
 
-	ret = pdata->mclk_off(device->pdev, pdata->scenario, pdata->mclk_ch);
+	ret = pdata->mclk_off(&device->pdev->dev, pdata->scenario, pdata->mclk_ch);
 	if (ret) {
 		merr("mclk_off failed(%d)", device, ret);
 		goto p_err;
@@ -252,13 +252,13 @@ static int fimc_is_sensor_iclk_on(struct fimc_is_device_sensor *device)
 		goto p_err;
 	}
 
-	ret = pdata->iclk_cfg(core->pdev, pdata->scenario, pdata->csi_ch);
+	ret = pdata->iclk_cfg(&core->pdev->dev, pdata->scenario, pdata->csi_ch);
 	if (ret) {
 		merr("iclk_cfg failed(%d)", device, ret);
 		goto p_err;
 	}
 
-	ret = pdata->iclk_on(core->pdev, pdata->scenario, pdata->csi_ch);
+	ret = pdata->iclk_on(&core->pdev->dev, pdata->scenario, pdata->csi_ch);
 	if (ret) {
 		merr("iclk_on failed(%d)", device, ret);
 		goto p_err;
@@ -295,7 +295,7 @@ static int fimc_is_sensor_iclk_off(struct fimc_is_device_sensor *device)
 		goto p_err;
 	}
 
-	ret = pdata->iclk_off(core->pdev, pdata->scenario, pdata->csi_ch);
+	ret = pdata->iclk_off(&core->pdev->dev, pdata->scenario, pdata->csi_ch);
 	if (ret) {
 		merr("iclk_off failed(%d)", device, ret);
 		goto p_err;

@@ -169,13 +169,13 @@ struct exynos_fimc_is_subip_info {
 struct exynos_platform_fimc_is {
 	int	hw_ver;
 	struct exynos_fimc_is_subip_info *subip_info;
-	int	(*cfg_gpio)(struct platform_device *pdev, int channel, bool flag_on);
-	int	(*clk_cfg)(struct platform_device *pdev);
-	int	(*clk_on)(struct platform_device *pdev);
-	int	(*clk_off)(struct platform_device *pdev);
-	int	(*print_clk)(struct platform_device *pdev);
-	int	(*print_cfg)(struct platform_device *pdev, u32 channel);
-	int	(*print_pwr)(struct platform_device *pdev);
+	int	(*cfg_gpio)(struct device *dev, int channel, bool flag_on);
+	int	(*clk_cfg)(struct device *dev);
+	int	(*clk_on)(struct device *dev);
+	int	(*clk_off)(struct device *dev);
+	int	(*print_clk)(struct device *dev);
+	int	(*print_cfg)(struct device *dev, u32 channel);
+	int	(*print_pwr)(struct device *dev);
 
 	u32	companion_spi_channel;
 	bool	use_two_spi_line;
@@ -187,27 +187,22 @@ struct exynos_platform_fimc_is {
 
 extern struct device *fimc_is_dev;
 
-extern void exynos_fimc_is_set_platdata(struct exynos_platform_fimc_is *pd);
-
-int fimc_is_set_parent_dt(struct platform_device *pdev,
-	const char *child, const char *parent);
-int fimc_is_set_rate_dt(struct platform_device *pdev,
-	const char *conid, unsigned int rate);
-unsigned int  fimc_is_get_rate_dt(struct platform_device *pdev,
-	const char *conid);
-unsigned int  fimc_is_enable_dt(struct platform_device *pdev,
-	const char *conid);
-void  fimc_is_disable_dt(struct platform_device *pdev,
-	const char *conid);
+int fimc_is_set_parent_dt(struct device *dev, const char *child,
+			  const char *parent);
+int fimc_is_set_rate_dt(struct device *dev, const char *conid,
+			unsigned int rate);
+unsigned int fimc_is_get_rate_dt(struct device *dev, const char *conid);
+unsigned int fimc_is_enable_dt(struct device *dev, const char *conid);
+void fimc_is_disable_dt(struct device *dev, const char *conid);
 
 /* platform specific clock functions */
 /* exynos 5 */
-extern int exynos_fimc_is_cfg_clk(struct platform_device *pdev);
-extern int exynos_fimc_is_cfg_cam_clk(struct platform_device *pdev);
-extern int exynos_fimc_is_clk_on(struct platform_device *pdev);
-extern int exynos_fimc_is_clk_off(struct platform_device *pdev);
-extern int exynos_fimc_is_print_clk(struct platform_device *pdev);
+extern int exynos_fimc_is_cfg_clk(struct device *dev);
+extern int exynos_fimc_is_cfg_cam_clk(struct device *dev);
+extern int exynos_fimc_is_clk_on(struct device *dev);
+extern int exynos_fimc_is_clk_off(struct device *dev);
+extern int exynos_fimc_is_print_clk(struct device *dev);
 
-extern int exynos_fimc_is_print_cfg(struct platform_device *pdev, u32 channel);
-extern int exynos_fimc_is_print_pwr(struct platform_device *pdev);
+extern int exynos_fimc_is_print_cfg(struct device *dev, u32 channel);
+extern int exynos_fimc_is_print_pwr(struct device *dev);
 #endif /* EXYNOS_FIMC_IS_H_ */

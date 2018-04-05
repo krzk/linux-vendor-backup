@@ -26,71 +26,67 @@
 #include "exynos-fimc-is.h"
 #include "exynos-fimc-is-sensor.h"
 
-int exynos5430_fimc_is_companion_iclk_div_max(struct platform_device *pdev)
+int exynos5430_fimc_is_companion_iclk_div_max(struct device *dev)
 {
 	/* SCLK */
 	/* SCLK_SPI0 */
-	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_spi0", "oscclk");
-	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_spi0_a", 1);
-	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_spi0_b", 1);
-	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_spi0_user", "oscclk");
+	fimc_is_set_parent_dt(dev, "mout_sclk_isp_spi0", "oscclk");
+	fimc_is_set_rate_dt(dev, "dout_sclk_isp_spi0_a", 1);
+	fimc_is_set_rate_dt(dev, "dout_sclk_isp_spi0_b", 1);
+	fimc_is_set_parent_dt(dev, "mout_sclk_isp_spi0_user", "oscclk");
 
 	return 0;
 }
 
-int exynos5430_fimc_is_companion_iclk_cfg(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
+int exynos5430_fimc_is_companion_iclk_cfg(struct device *dev, u32 scenario,
+					  u32 channel)
 {
 	int ret = 0;
 
 	pr_info("clk_cfg:(ch%d),scenario(%d)\n", channel, scenario);
 
 	/* SCLK_SPI0_ISP */
-	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_spi0", "mout_bus_pll_user");
-	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_spi0_a", 200 * 1000000);
-	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_spi0_b", 100 * 1000000);
-	fimc_is_set_parent_dt(pdev, "mout_sclk_isp_spi0_user", "sclk_isp_spi0_top");
+	fimc_is_set_parent_dt(dev, "mout_sclk_isp_spi0", "mout_bus_pll_user");
+	fimc_is_set_rate_dt(dev, "dout_sclk_isp_spi0_a", 200 * 1000000);
+	fimc_is_set_rate_dt(dev, "dout_sclk_isp_spi0_b", 100 * 1000000);
+	fimc_is_set_parent_dt(dev, "mout_sclk_isp_spi0_user", "sclk_isp_spi0_top");
 
 	/* I2C */
 	/* CMU TOP */
-	fimc_is_set_rate_dt(pdev, "dout_aclk_cam1_333", 333 * 1000000);
+	fimc_is_set_rate_dt(dev, "dout_aclk_cam1_333", 333 * 1000000);
 
 	/* USER_MUX_SEL */
-	fimc_is_set_parent_dt(pdev, "mout_aclk_cam1_333_user", "aclk_cam1_333");
+	fimc_is_set_parent_dt(dev, "mout_aclk_cam1_333_user", "aclk_cam1_333");
 	/* MPWM */
-	fimc_is_set_rate_dt(pdev, "dout_pclk_cam1_166", 167 * 1000000);
-	fimc_is_set_rate_dt(pdev, "dout_pclk_cam1_83", 84 * 1000000);
-	fimc_is_set_rate_dt(pdev, "dout_sclk_isp_mpwm", 84 * 1000000);
+	fimc_is_set_rate_dt(dev, "dout_pclk_cam1_166", 167 * 1000000);
+	fimc_is_set_rate_dt(dev, "dout_pclk_cam1_83", 84 * 1000000);
+	fimc_is_set_rate_dt(dev, "dout_sclk_isp_mpwm", 84 * 1000000);
 
 	return ret;
 }
 
-int exynos5430_fimc_is_companion_iclk_on(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
+int exynos5430_fimc_is_companion_iclk_on(struct device *dev, u32 scenario,
+					 u32 channel)
 {
 	/* SCLK clock enable */
-	fimc_is_enable_dt(pdev, "gate_isp_spi0");
+	fimc_is_enable_dt(dev, "gate_isp_spi0");
 
 	return 0;
 }
 
-int exynos5430_fimc_is_companion_iclk_off(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
+int exynos5430_fimc_is_companion_iclk_off(struct device *dev, u32 scenario,
+					  u32 channel)
 {
-	exynos5430_fimc_is_companion_iclk_div_max(pdev);
+	exynos5430_fimc_is_companion_iclk_div_max(dev);
 
 	/* SCLK clock disable */
-	fimc_is_disable_dt(pdev, "gate_isp_spi0");
+	fimc_is_disable_dt(dev, "gate_isp_spi0");
 
 	return 0;
 }
 
-int exynos5430_fimc_is_companion_mclk_on(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
+int exynos5430_fimc_is_companion_mclk_on(struct device *dev, u32 scenario,
+					 u32 channel)
 {
 	u32 frequency;
 	char mux_name[30];
@@ -105,19 +101,18 @@ int exynos5430_fimc_is_companion_mclk_on(struct platform_device *pdev,
 	snprintf(div_b_name, sizeof(div_b_name), "dout_sclk_isp_sensor%d_b", channel);
 	snprintf(sclk_name, sizeof(sclk_name), "sclk_isp_sensor%d", channel);
 
-	fimc_is_set_parent_dt(pdev, mux_name, "oscclk");
-	fimc_is_set_rate_dt(pdev, div_a_name, 24 * 1000000);
-	fimc_is_set_rate_dt(pdev, div_b_name, 24 * 1000000);
-	frequency = fimc_is_get_rate_dt(pdev, sclk_name);
+	fimc_is_set_parent_dt(dev, mux_name, "oscclk");
+	fimc_is_set_rate_dt(dev, div_a_name, 24 * 1000000);
+	fimc_is_set_rate_dt(dev, div_b_name, 24 * 1000000);
+	frequency = fimc_is_get_rate_dt(dev, sclk_name);
 
 	pr_info("%s(%d, mclk : %d)\n", __func__, channel, frequency);
 
 	return 0;
 }
 
-int exynos5430_fimc_is_companion_mclk_off(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
+int exynos5430_fimc_is_companion_mclk_off(struct device *dev, u32 scenario,
+					  u32 channel)
 {
 	pr_debug("%s\n", __func__);
 
@@ -125,42 +120,37 @@ int exynos5430_fimc_is_companion_mclk_off(struct platform_device *pdev,
 }
 
 /* Wrapper functions */
-int exynos_fimc_is_companion_iclk_cfg(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
+int exynos_fimc_is_companion_iclk_cfg(struct device *dev, u32 scenario,
+				      u32 channel)
 {
-	exynos5430_fimc_is_companion_iclk_cfg(pdev, scenario, channel);
+	exynos5430_fimc_is_companion_iclk_cfg(dev, scenario, channel);
 	return 0;
 }
 
-int exynos_fimc_is_companion_iclk_on(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
+int exynos_fimc_is_companion_iclk_on(struct device *dev, u32 scenario,
+				     u32 channel)
 {
-	exynos5430_fimc_is_companion_iclk_on(pdev, scenario, channel);
+	exynos5430_fimc_is_companion_iclk_on(dev, scenario, channel);
 	return 0;
 }
 
-int exynos_fimc_is_companion_iclk_off(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
+int exynos_fimc_is_companion_iclk_off(struct device *dev, u32 scenario,
+				      u32 channel)
 {
-	exynos5430_fimc_is_companion_iclk_off(pdev, scenario, channel);
+	exynos5430_fimc_is_companion_iclk_off(dev, scenario, channel);
 	return 0;
 }
 
-int exynos_fimc_is_companion_mclk_on(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
+int exynos_fimc_is_companion_mclk_on(struct device *dev, u32 scenario,
+				     u32 channel)
 {
-	exynos5430_fimc_is_companion_mclk_on(pdev, scenario, channel);
+	exynos5430_fimc_is_companion_mclk_on(dev, scenario, channel);
 	return 0;
 }
 
-int exynos_fimc_is_companion_mclk_off(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
+int exynos_fimc_is_companion_mclk_off(struct device *dev, u32 scenario,
+				      u32 channel)
 {
-	exynos5430_fimc_is_companion_mclk_off(pdev, scenario, channel);
+	exynos5430_fimc_is_companion_mclk_off(dev, scenario, channel);
 	return 0;
 }

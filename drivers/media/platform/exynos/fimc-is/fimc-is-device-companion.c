@@ -85,7 +85,7 @@ static int fimc_is_companion_mclk_on(struct fimc_is_device_companion *device)
 		goto p_err;
 	}
 
-	ret = pdata->mclk_on(pdev, pdata->scenario, pdata->mclk_ch);
+	ret = pdata->mclk_on(&pdev->dev, pdata->scenario, pdata->mclk_ch);
 	if (ret) {
 		err("mclk_on failed(%d)", ret);
 		goto p_err;
@@ -121,7 +121,7 @@ static int fimc_is_companion_mclk_off(struct fimc_is_device_companion *device)
 		goto p_err;
 	}
 
-	ret = pdata->mclk_off(pdev, pdata->scenario, pdata->mclk_ch);
+	ret = pdata->mclk_off(&pdev->dev, pdata->scenario, pdata->mclk_ch);
 	if (ret) {
 		err("mclk_off failed(%d)", ret);
 		goto p_err;
@@ -163,13 +163,13 @@ static int fimc_is_companion_iclk_on(struct fimc_is_device_companion *device)
 		goto p_err;
 	}
 
-	ret = pdata->iclk_cfg(pdev, pdata->scenario, 0);
+	ret = pdata->iclk_cfg(&pdev->dev, pdata->scenario, 0);
 	if (ret) {
 		err("iclk_cfg failed(%d)", ret);
 		goto p_err;
 	}
 
-	ret = pdata->iclk_on(pdev, pdata->scenario, 0);
+	ret = pdata->iclk_on(&pdev->dev, pdata->scenario, 0);
 	if (ret) {
 		err("iclk_on failed(%d)", ret);
 		goto p_err;
@@ -205,7 +205,7 @@ static int fimc_is_companion_iclk_off(struct fimc_is_device_companion *device)
 		goto p_err;
 	}
 
-	ret = pdata->iclk_off(pdev, pdata->scenario, 0);
+	ret = pdata->iclk_off(&pdev->dev, pdata->scenario, 0);
 	if (ret) {
 		err("iclk_off failed(%d)", ret);
 		goto p_err;
@@ -465,12 +465,9 @@ static int fimc_is_companion_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-
 	device = kzalloc(sizeof(struct fimc_is_device_companion), GFP_KERNEL);
-	if (!device) {
-		err("fimc_is_device_companion is NULL");
+	if (!device)
 		return -ENOMEM;
-	}
 
 	init_waitqueue_head(&device->init_wait_queue);
 

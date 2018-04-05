@@ -183,9 +183,8 @@ p_err:
 
 }
 
-int exynos5430_fimc_is_sensor_iclk_cfg(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
+int exynos5430_fimc_is_sensor_iclk_cfg(struct device *dev, u32 scenario,
+				       u32 channel)
 {
 	int ret = 0;
 
@@ -197,139 +196,139 @@ int exynos5430_fimc_is_sensor_iclk_cfg(struct platform_device *pdev,
 	switch (channel) {
 	case 0:
 		/* USER_MUX_SEL */
-		fimc_is_set_parent_dt(pdev, "mout_aclk_cam0_552_user", "oscclk");
-		fimc_is_set_parent_dt(pdev, "mout_aclk_cam0_400_user", "oscclk");
-		fimc_is_set_parent_dt(pdev, "mout_aclk_cam0_333_user", "oscclk");
+		fimc_is_set_parent_dt(dev, "mout_aclk_cam0_552_user", "oscclk");
+		fimc_is_set_parent_dt(dev, "mout_aclk_cam0_400_user", "oscclk");
+		fimc_is_set_parent_dt(dev, "mout_aclk_cam0_333_user", "oscclk");
 
 		/* MIPI-CSIS PHY */
-		fimc_is_set_parent_dt(pdev, "mout_phyclk_rxbyteclkhs0_s4", "oscclk");
+		fimc_is_set_parent_dt(dev, "mout_phyclk_rxbyteclkhs0_s4", "oscclk");
 
 		/* MIPI-CSIS0 */
-		fimc_is_set_rate_dt(pdev, "dout_aclk_csis0", 1);
+		fimc_is_set_rate_dt(dev, "dout_aclk_csis0", 1);
 
 		/* FIMC-LITE0 */
-		fimc_is_set_rate_dt(pdev, "dout_aclk_lite_a", 1);
-		fimc_is_set_rate_dt(pdev, "dout_pclk_lite_a", 1);
+		fimc_is_set_rate_dt(dev, "dout_aclk_lite_a", 1);
+		fimc_is_set_rate_dt(dev, "dout_pclk_lite_a", 1);
 
 		/* FIMC-LITE3 */
-		fimc_is_set_rate_dt(pdev, "dout_aclk_lite_d", 1);
-		fimc_is_set_rate_dt(pdev, "dout_pclk_lite_d", 1);
+		fimc_is_set_rate_dt(dev, "dout_aclk_lite_d", 1);
+		fimc_is_set_rate_dt(dev, "dout_pclk_lite_d", 1);
 
 		/* ASYNC, FLITE, 3AA, SMMU, QE ... */
-		fimc_is_set_rate_dt(pdev, "dout_aclk_cam0_400", 1);
-		fimc_is_set_rate_dt(pdev, "dout_aclk_cam0_200", 1);
-		fimc_is_set_rate_dt(pdev, "dout_pclk_cam0_50", 1);
+		fimc_is_set_rate_dt(dev, "dout_aclk_cam0_400", 1);
+		fimc_is_set_rate_dt(dev, "dout_aclk_cam0_200", 1);
+		fimc_is_set_rate_dt(dev, "dout_pclk_cam0_50", 1);
 
 		/* USER_MUX_SEL */
-		fimc_is_set_parent_dt(pdev, "mout_aclk_cam0_552_user", "aclk_cam0_552");
-		fimc_is_set_parent_dt(pdev, "mout_aclk_cam0_400_user", "aclk_cam0_400");
-		fimc_is_set_parent_dt(pdev, "mout_aclk_cam0_333_user", "aclk_cam0_333");
+		fimc_is_set_parent_dt(dev, "mout_aclk_cam0_552_user", "aclk_cam0_552");
+		fimc_is_set_parent_dt(dev, "mout_aclk_cam0_400_user", "aclk_cam0_400");
+		fimc_is_set_parent_dt(dev, "mout_aclk_cam0_333_user", "aclk_cam0_333");
 
 		/* MIPI-CSIS PHY */
-		fimc_is_set_parent_dt(pdev, "mout_phyclk_rxbyteclkhs0_s4", "phyclk_rxbyteclkhs0_s4");
+		fimc_is_set_parent_dt(dev, "mout_phyclk_rxbyteclkhs0_s4", "phyclk_rxbyteclkhs0_s4");
 
 		/* MIPI-CSIS0 */
-		fimc_is_set_parent_dt(pdev, "mout_aclk_csis0_a", "mout_aclk_cam0_552_user");
-		fimc_is_set_parent_dt(pdev, "mout_aclk_csis0_b", "mout_aclk_csis0_a");
-		fimc_is_set_rate_dt(pdev, "dout_aclk_csis0", 552 * 1000000);
+		fimc_is_set_parent_dt(dev, "mout_aclk_csis0_a", "mout_aclk_cam0_552_user");
+		fimc_is_set_parent_dt(dev, "mout_aclk_csis0_b", "mout_aclk_csis0_a");
+		fimc_is_set_rate_dt(dev, "dout_aclk_csis0", 552 * 1000000);
 
 		/* FIMC-LITE0 */
-		fimc_is_set_parent_dt(pdev, "mout_aclk_lite_a_a", "mout_aclk_cam0_552_user");
-		fimc_is_set_parent_dt(pdev, "mout_aclk_lite_a_b", "mout_aclk_lite_a_a");
-		fimc_is_set_rate_dt(pdev, "dout_aclk_lite_a", 552 * 1000000);
-		fimc_is_set_rate_dt(pdev, "dout_pclk_lite_a", 276 * 1000000);
+		fimc_is_set_parent_dt(dev, "mout_aclk_lite_a_a", "mout_aclk_cam0_552_user");
+		fimc_is_set_parent_dt(dev, "mout_aclk_lite_a_b", "mout_aclk_lite_a_a");
+		fimc_is_set_rate_dt(dev, "dout_aclk_lite_a", 552 * 1000000);
+		fimc_is_set_rate_dt(dev, "dout_pclk_lite_a", 276 * 1000000);
 
 		/* FIMC-LITE3 */
-		fimc_is_set_parent_dt(pdev, "mout_aclk_lite_d_a", "mout_aclk_cam0_552_user");
-		fimc_is_set_parent_dt(pdev, "mout_aclk_lite_d_b", "mout_aclk_lite_d_a");
-		fimc_is_set_rate_dt(pdev, "dout_aclk_lite_d", 552 * 1000000);
-		fimc_is_set_rate_dt(pdev, "dout_pclk_lite_d", 276 * 1000000);
+		fimc_is_set_parent_dt(dev, "mout_aclk_lite_d_a", "mout_aclk_cam0_552_user");
+		fimc_is_set_parent_dt(dev, "mout_aclk_lite_d_b", "mout_aclk_lite_d_a");
+		fimc_is_set_rate_dt(dev, "dout_aclk_lite_d", 552 * 1000000);
+		fimc_is_set_rate_dt(dev, "dout_pclk_lite_d", 276 * 1000000);
 
 		/* ASYNC, FLITE, 3AA, SMMU, QE ... */
-		fimc_is_set_parent_dt(pdev, "mout_aclk_cam0_400", "mout_aclk_cam0_400_user");
-		fimc_is_set_rate_dt(pdev, "dout_aclk_cam0_400", 400 * 1000000);
-		fimc_is_set_rate_dt(pdev, "dout_aclk_cam0_200", 200 * 1000000);
-		fimc_is_set_rate_dt(pdev, "dout_pclk_cam0_50", 50 * 1000000);
+		fimc_is_set_parent_dt(dev, "mout_aclk_cam0_400", "mout_aclk_cam0_400_user");
+		fimc_is_set_rate_dt(dev, "dout_aclk_cam0_400", 400 * 1000000);
+		fimc_is_set_rate_dt(dev, "dout_aclk_cam0_200", 200 * 1000000);
+		fimc_is_set_rate_dt(dev, "dout_pclk_cam0_50", 50 * 1000000);
 
 		/* FIMC-LITE2 PIXELASYNC */
-		fimc_is_set_rate_dt(pdev, "dout_sclk_pixelasync_lite_c_init", 1);
-		fimc_is_set_rate_dt(pdev, "dout_pclk_pixelasync_lite_c", 1);
-		fimc_is_set_rate_dt(pdev, "dout_sclk_pixelasync_lite_c", 1);
+		fimc_is_set_rate_dt(dev, "dout_sclk_pixelasync_lite_c_init", 1);
+		fimc_is_set_rate_dt(dev, "dout_pclk_pixelasync_lite_c", 1);
+		fimc_is_set_rate_dt(dev, "dout_sclk_pixelasync_lite_c", 1);
 
 		/* FIMC-LITE2 PIXELASYNC */
-		fimc_is_set_parent_dt(pdev, "mout_sclk_pixelasync_lite_c_init_a", "mout_aclk_cam0_552_user");
-		fimc_is_set_parent_dt(pdev, "mout_sclk_pixelasync_lite_c_init_b", "mout_sclk_pixelasync_lite_c_init_a");
-		fimc_is_set_rate_dt(pdev, "dout_sclk_pixelasync_lite_c_init", 552 * 1000000);
-		fimc_is_set_rate_dt(pdev, "dout_pclk_pixelasync_lite_c", 276 * 1000000);
+		fimc_is_set_parent_dt(dev, "mout_sclk_pixelasync_lite_c_init_a", "mout_aclk_cam0_552_user");
+		fimc_is_set_parent_dt(dev, "mout_sclk_pixelasync_lite_c_init_b", "mout_sclk_pixelasync_lite_c_init_a");
+		fimc_is_set_rate_dt(dev, "dout_sclk_pixelasync_lite_c_init", 552 * 1000000);
+		fimc_is_set_rate_dt(dev, "dout_pclk_pixelasync_lite_c", 276 * 1000000);
 
-		fimc_is_set_parent_dt(pdev, "mout_sclk_pixelasync_lite_c_a", "mout_aclk_cam0_552_user");
-		fimc_is_set_parent_dt(pdev, "mout_sclk_pixelasync_lite_c_b", "mout_aclk_cam0_333_user");
-		fimc_is_set_rate_dt(pdev, "dout_sclk_pixelasync_lite_c", 333 * 1000000);
+		fimc_is_set_parent_dt(dev, "mout_sclk_pixelasync_lite_c_a", "mout_aclk_cam0_552_user");
+		fimc_is_set_parent_dt(dev, "mout_sclk_pixelasync_lite_c_b", "mout_aclk_cam0_333_user");
+		fimc_is_set_rate_dt(dev, "dout_sclk_pixelasync_lite_c", 333 * 1000000);
 
 		break;
 	case 1:
 		/* USER_MUX_SEL */
-		fimc_is_set_parent_dt(pdev, "mout_aclk_cam0_552_user", "oscclk");
-		fimc_is_set_parent_dt(pdev, "mout_aclk_cam0_400_user", "oscclk");
-		fimc_is_set_parent_dt(pdev, "mout_aclk_cam0_333_user", "oscclk");
+		fimc_is_set_parent_dt(dev, "mout_aclk_cam0_552_user", "oscclk");
+		fimc_is_set_parent_dt(dev, "mout_aclk_cam0_400_user", "oscclk");
+		fimc_is_set_parent_dt(dev, "mout_aclk_cam0_333_user", "oscclk");
 
 		/* MIPI-CSIS PHY */
-		fimc_is_set_parent_dt(pdev, "mout_phyclk_rxbyteclkhs0_s2a", "oscclk");
+		fimc_is_set_parent_dt(dev, "mout_phyclk_rxbyteclkhs0_s2a", "oscclk");
 
 		/* MIPI-CSIS1 */
-		fimc_is_set_rate_dt(pdev, "dout_aclk_csis1", 1);
+		fimc_is_set_rate_dt(dev, "dout_aclk_csis1", 1);
 
 		/* FIMC-LITE1 */
-		fimc_is_set_rate_dt(pdev, "dout_aclk_lite_b", 1);
-		fimc_is_set_rate_dt(pdev, "dout_pclk_lite_b", 1);
+		fimc_is_set_rate_dt(dev, "dout_aclk_lite_b", 1);
+		fimc_is_set_rate_dt(dev, "dout_pclk_lite_b", 1);
 
 		/* USER_MUX_SEL */
-		fimc_is_set_parent_dt(pdev, "mout_aclk_cam0_552_user", "aclk_cam0_552");
-		fimc_is_set_parent_dt(pdev, "mout_aclk_cam0_400_user", "aclk_cam0_400");
-		fimc_is_set_parent_dt(pdev, "mout_aclk_cam0_333_user", "aclk_cam0_333");
+		fimc_is_set_parent_dt(dev, "mout_aclk_cam0_552_user", "aclk_cam0_552");
+		fimc_is_set_parent_dt(dev, "mout_aclk_cam0_400_user", "aclk_cam0_400");
+		fimc_is_set_parent_dt(dev, "mout_aclk_cam0_333_user", "aclk_cam0_333");
 
 		/* MIPI-CSIS PHY */
-		fimc_is_set_parent_dt(pdev, "mout_phyclk_rxbyteclkhs0_s2a", "phyclk_rxbyteclkhs0_s2a");
+		fimc_is_set_parent_dt(dev, "mout_phyclk_rxbyteclkhs0_s2a", "phyclk_rxbyteclkhs0_s2a");
 
 		/* MIPI-CSIS1 */
-		fimc_is_set_parent_dt(pdev, "mout_aclk_csis1_a", "mout_aclk_cam0_400_user");
-		fimc_is_set_parent_dt(pdev, "mout_aclk_csis1_b", "mout_aclk_csis1_a");
-		fimc_is_set_rate_dt(pdev, "dout_aclk_csis1", 552 * 1000000);
+		fimc_is_set_parent_dt(dev, "mout_aclk_csis1_a", "mout_aclk_cam0_400_user");
+		fimc_is_set_parent_dt(dev, "mout_aclk_csis1_b", "mout_aclk_csis1_a");
+		fimc_is_set_rate_dt(dev, "dout_aclk_csis1", 552 * 1000000);
 
 		/* FIMC-LITE1 */
-		fimc_is_set_parent_dt(pdev, "mout_aclk_lite_b_a", "mout_aclk_cam0_400_user");
-		fimc_is_set_parent_dt(pdev, "mout_aclk_lite_b_b", "mout_aclk_lite_b_a");
-		fimc_is_set_rate_dt(pdev, "dout_aclk_lite_b", 552 * 1000000);
-		fimc_is_set_rate_dt(pdev, "dout_pclk_lite_b", 276 * 1000000);
+		fimc_is_set_parent_dt(dev, "mout_aclk_lite_b_a", "mout_aclk_cam0_400_user");
+		fimc_is_set_parent_dt(dev, "mout_aclk_lite_b_b", "mout_aclk_lite_b_a");
+		fimc_is_set_rate_dt(dev, "dout_aclk_lite_b", 552 * 1000000);
+		fimc_is_set_rate_dt(dev, "dout_pclk_lite_b", 276 * 1000000);
 		break;
 	case 2:
 		/* USER_MUX_SEL */
-		fimc_is_set_parent_dt(pdev, "mout_aclk_cam1_552_user", "oscclk");
-		fimc_is_set_parent_dt(pdev, "mout_aclk_cam1_400_user", "oscclk");
-		fimc_is_set_parent_dt(pdev, "mout_aclk_cam1_333_user", "oscclk");
+		fimc_is_set_parent_dt(dev, "mout_aclk_cam1_552_user", "oscclk");
+		fimc_is_set_parent_dt(dev, "mout_aclk_cam1_400_user", "oscclk");
+		fimc_is_set_parent_dt(dev, "mout_aclk_cam1_333_user", "oscclk");
 
 		/* MIPI-CSIS PHY */
-		fimc_is_set_parent_dt(pdev, "mout_phyclk_rxbyteclkhs0_s2b", "oscclk");
+		fimc_is_set_parent_dt(dev, "mout_phyclk_rxbyteclkhs0_s2b", "oscclk");
 
 		/*  MIPI-CSIS2 */
-		fimc_is_set_rate_dt(pdev, "dout_aclk_csis2_a", 1);
+		fimc_is_set_rate_dt(dev, "dout_aclk_csis2_a", 1);
 
 		/* FIMC-LITE2 */
-		fimc_is_set_rate_dt(pdev, "dout_aclk_lite_c", 1);
-		fimc_is_set_rate_dt(pdev, "dout_pclk_lite_c", 1);
+		fimc_is_set_rate_dt(dev, "dout_aclk_lite_c", 1);
+		fimc_is_set_rate_dt(dev, "dout_pclk_lite_c", 1);
 
 		/* USER_MUX_SEL */
-		fimc_is_set_parent_dt(pdev, "mout_aclk_cam1_552_user", "aclk_cam1_552");
-		fimc_is_set_parent_dt(pdev, "mout_aclk_cam1_400_user", "aclk_cam1_400");
-		fimc_is_set_parent_dt(pdev, "mout_aclk_cam1_333_user", "aclk_cam1_333");
+		fimc_is_set_parent_dt(dev, "mout_aclk_cam1_552_user", "aclk_cam1_552");
+		fimc_is_set_parent_dt(dev, "mout_aclk_cam1_400_user", "aclk_cam1_400");
+		fimc_is_set_parent_dt(dev, "mout_aclk_cam1_333_user", "aclk_cam1_333");
 
 		/* MIPI-CSIS PHY */
-		fimc_is_set_parent_dt(pdev, "mout_phyclk_rxbyteclkhs0_s2b", "phyclk_rxbyteclkhs0_s2b");
+		fimc_is_set_parent_dt(dev, "mout_phyclk_rxbyteclkhs0_s2b", "phyclk_rxbyteclkhs0_s2b");
 
 		/*  MIPI-CSIS2 */
-		fimc_is_set_parent_dt(pdev, "mout_aclk_csis2_a", "mout_aclk_cam1_400_user");
-		fimc_is_set_parent_dt(pdev, "mout_aclk_csis2_b", "mout_aclk_cam1_333_user");
-		fimc_is_set_rate_dt(pdev, "dout_aclk_csis2_a", 333 * 1000000);
+		fimc_is_set_parent_dt(dev, "mout_aclk_csis2_a", "mout_aclk_cam1_400_user");
+		fimc_is_set_parent_dt(dev, "mout_aclk_csis2_b", "mout_aclk_cam1_333_user");
+		fimc_is_set_rate_dt(dev, "dout_aclk_csis2_a", 333 * 1000000);
 		break;
 	default:
 		pr_err("channel is invalid(%d)\n", channel);
@@ -339,25 +338,24 @@ int exynos5430_fimc_is_sensor_iclk_cfg(struct platform_device *pdev,
 	return ret;
 }
 
-int exynos5430_fimc_is_sensor_iclk_on(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
+int exynos5430_fimc_is_sensor_iclk_on(struct device *dev, u32 scenario,
+				      u32 channel)
 {
 	switch (channel) {
 	case 0:
-		fimc_is_enable_dt(pdev, "aclk_csis0");
-		fimc_is_enable_dt(pdev, "pclk_csis0");
-		fimc_is_enable_dt(pdev, "gate_lite_a");
-		fimc_is_enable_dt(pdev, "gate_lite_d");
+		fimc_is_enable_dt(dev, "aclk_csis0");
+		fimc_is_enable_dt(dev, "pclk_csis0");
+		fimc_is_enable_dt(dev, "gate_lite_a");
+		fimc_is_enable_dt(dev, "gate_lite_d");
 		break;
 	case 1:
-		fimc_is_enable_dt(pdev, "aclk_csis1");
-		fimc_is_enable_dt(pdev, "pclk_csis1");
-		fimc_is_enable_dt(pdev, "gate_lite_b");
+		fimc_is_enable_dt(dev, "aclk_csis1");
+		fimc_is_enable_dt(dev, "pclk_csis1");
+		fimc_is_enable_dt(dev, "gate_lite_b");
 		break;
 	case 2:
-		fimc_is_enable_dt(pdev, "gate_csis2");
-		fimc_is_enable_dt(pdev, "gate_lite_c");
+		fimc_is_enable_dt(dev, "gate_csis2");
+		fimc_is_enable_dt(dev, "gate_lite_c");
 		break;
 	default:
 		pr_err("channel is invalid(%d)\n", channel);
@@ -367,25 +365,24 @@ int exynos5430_fimc_is_sensor_iclk_on(struct platform_device *pdev,
 	return 0;
 }
 
-int exynos5430_fimc_is_sensor_iclk_off(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
+int exynos5430_fimc_is_sensor_iclk_off(struct device *dev, u32 scenario,
+				       u32 channel)
 {
 	switch (channel) {
 	case 0:
-		fimc_is_disable_dt(pdev, "aclk_csis0");
-		fimc_is_disable_dt(pdev, "pclk_csis0");
-		fimc_is_disable_dt(pdev, "gate_lite_a");
-		fimc_is_disable_dt(pdev, "gate_lite_d");
+		fimc_is_disable_dt(dev, "aclk_csis0");
+		fimc_is_disable_dt(dev, "pclk_csis0");
+		fimc_is_disable_dt(dev, "gate_lite_a");
+		fimc_is_disable_dt(dev, "gate_lite_d");
 		break;
 	case 1:
-		fimc_is_disable_dt(pdev, "aclk_csis1");
-		fimc_is_disable_dt(pdev, "pclk_csis1");
-		fimc_is_disable_dt(pdev, "gate_lite_b");
+		fimc_is_disable_dt(dev, "aclk_csis1");
+		fimc_is_disable_dt(dev, "pclk_csis1");
+		fimc_is_disable_dt(dev, "gate_lite_b");
 		break;
 	case 2:
-		fimc_is_disable_dt(pdev, "gate_csis2");
-		fimc_is_disable_dt(pdev, "gate_lite_c");
+		fimc_is_disable_dt(dev, "gate_csis2");
+		fimc_is_disable_dt(dev, "gate_lite_c");
 		break;
 	default:
 		pr_err("channel is invalid(%d)\n", channel);
@@ -395,9 +392,8 @@ int exynos5430_fimc_is_sensor_iclk_off(struct platform_device *pdev,
 	return 0;
 }
 
-int exynos5430_fimc_is_sensor_mclk_on(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
+int exynos5430_fimc_is_sensor_mclk_on(struct device *dev, u32 scenario,
+				      u32 channel)
 {
 	u32 frequency;
 	char mux_name[30];
@@ -412,19 +408,18 @@ int exynos5430_fimc_is_sensor_mclk_on(struct platform_device *pdev,
 	snprintf(div_b_name, sizeof(div_b_name), "dout_sclk_isp_sensor%d_b", channel);
 	snprintf(sclk_name, sizeof(sclk_name), "sclk_isp_sensor%d", channel);
 
-	fimc_is_set_parent_dt(pdev, mux_name, "oscclk");
-	fimc_is_set_rate_dt(pdev, div_a_name, 24 * 1000000);
-	fimc_is_set_rate_dt(pdev, div_b_name, 24 * 1000000);
-	frequency = fimc_is_get_rate_dt(pdev, sclk_name);
+	fimc_is_set_parent_dt(dev, mux_name, "oscclk");
+	fimc_is_set_rate_dt(dev, div_a_name, 24 * 1000000);
+	fimc_is_set_rate_dt(dev, div_b_name, 24 * 1000000);
+	frequency = fimc_is_get_rate_dt(dev, sclk_name);
 
 	pr_info("%s(%d, mclk : %d)\n", __func__, channel, frequency);
 
 	return 0;
 }
 
-int exynos5430_fimc_is_sensor_mclk_off(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
+int exynos5430_fimc_is_sensor_mclk_off(struct device *dev, u32 scenario,
+				       u32 channel)
 {
 	char mux_name[30];
 	char div_a_name[30];
@@ -438,51 +433,46 @@ int exynos5430_fimc_is_sensor_mclk_off(struct platform_device *pdev,
 	snprintf(div_b_name, sizeof(div_b_name), "dout_sclk_isp_sensor%d_b", channel);
 	snprintf(sclk_name, sizeof(sclk_name), "sclk_isp_sensor%d", channel);
 
-	fimc_is_set_parent_dt(pdev, mux_name, "oscclk");
-	fimc_is_set_rate_dt(pdev, div_a_name, 24 * 1000000);
-	fimc_is_set_rate_dt(pdev, div_b_name, 24 * 1000000);
-	fimc_is_get_rate_dt(pdev, sclk_name);
+	fimc_is_set_parent_dt(dev, mux_name, "oscclk");
+	fimc_is_set_rate_dt(dev, div_a_name, 24 * 1000000);
+	fimc_is_set_rate_dt(dev, div_b_name, 24 * 1000000);
+	fimc_is_get_rate_dt(dev, sclk_name);
 
 	return 0;
 }
 
 /* Wrapper functions */
-int exynos_fimc_is_sensor_iclk_cfg(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
+int exynos_fimc_is_sensor_iclk_cfg(struct device *dev, u32 scenario,
+				   u32 channel)
 {
-	exynos5430_fimc_is_sensor_iclk_cfg(pdev, scenario, channel);
+	exynos5430_fimc_is_sensor_iclk_cfg(dev, scenario, channel);
 	return 0;
 }
 
-int exynos_fimc_is_sensor_iclk_on(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
+int exynos_fimc_is_sensor_iclk_on(struct device *dev, u32 scenario,
+				  u32 channel)
 {
-	exynos5430_fimc_is_sensor_iclk_on(pdev, scenario, channel);
+	exynos5430_fimc_is_sensor_iclk_on(dev, scenario, channel);
 	return 0;
 }
 
-int exynos_fimc_is_sensor_iclk_off(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
+int exynos_fimc_is_sensor_iclk_off(struct device *dev, u32 scenario,
+				   u32 channel)
 {
-	exynos5430_fimc_is_sensor_iclk_off(pdev, scenario, channel);
+	exynos5430_fimc_is_sensor_iclk_off(dev, scenario, channel);
 	return 0;
 }
 
-int exynos_fimc_is_sensor_mclk_on(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
+int exynos_fimc_is_sensor_mclk_on(struct device *dev, u32 scenario,
+				  u32 channel)
 {
-	exynos5430_fimc_is_sensor_mclk_on(pdev, scenario, channel);
+	exynos5430_fimc_is_sensor_mclk_on(dev, scenario, channel);
 	return 0;
 }
 
-int exynos_fimc_is_sensor_mclk_off(struct platform_device *pdev,
-	u32 scenario,
-	u32 channel)
+int exynos_fimc_is_sensor_mclk_off(struct device *dev, u32 scenario,
+				   u32 channel)
 {
-	exynos5430_fimc_is_sensor_mclk_off(pdev, scenario, channel);
+	exynos5430_fimc_is_sensor_mclk_off(dev, scenario, channel);
 	return 0;
 }

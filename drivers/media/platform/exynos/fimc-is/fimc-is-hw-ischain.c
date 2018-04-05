@@ -61,17 +61,14 @@ int fimc_is_runtime_suspend_post(struct device *dev)
 
 int fimc_is_runtime_suspend(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct fimc_is_core *core
-		= (struct fimc_is_core *)platform_get_drvdata(pdev);
+	struct fimc_is_core *core = dev_get_drvdata(dev);
 
 	BUG_ON(!core);
 	BUG_ON(!core->pdata);
 	BUG_ON(!core->pdata->clk_off);
 
 	pr_info("FIMC_IS runtime suspend in\n");
-
-	if (CALL_POPS(core, clk_off, pdev) < 0)
+	if (CALL_POPS(core, clk_off, dev) < 0)
 		warn("clk_off failed\n");
 
 	pr_info("FIMC_IS runtime suspend out\n");
@@ -82,10 +79,8 @@ int fimc_is_runtime_suspend(struct device *dev)
 
 int fimc_is_runtime_resume(struct device *dev)
 {
+	struct fimc_is_core *core = dev_get_drvdata(dev);
 	int ret = 0;
-	struct platform_device *pdev = to_platform_device(dev);
-	struct fimc_is_core *core
-		= (struct fimc_is_core *)platform_get_drvdata(pdev);
 
 	pm_stay_awake(dev);
 	pr_info("FIMC_IS runtime resume in\n");
@@ -95,14 +90,14 @@ int fimc_is_runtime_resume(struct device *dev)
 	 */
 
 	/* Low clock setting */
-	if (CALL_POPS(core, clk_cfg, core->pdev) < 0) {
+	if (CALL_POPS(core, clk_cfg, dev) < 0) {
 		err("clk_cfg failed\n");
 		ret = -EINVAL;
 		goto p_err;
 	}
 
 	/* Clock on */
-	if (CALL_POPS(core, clk_on, core->pdev) < 0) {
+	if (CALL_POPS(core, clk_on, dev) < 0) {
 		err("clk_on failed\n");
 		ret = -EINVAL;
 		goto p_err;

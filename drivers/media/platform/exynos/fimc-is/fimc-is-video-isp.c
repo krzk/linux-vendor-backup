@@ -508,7 +508,7 @@ static int fimc_is_isp_video_s_ctrl(struct file *file, void *priv,
 		if (device != NULL) {
 			fimc_is_hw_logdump(device->interface);
 			fimc_is_hw_regdump(device->interface);
-			CALL_POPS(device, print_clk, device->pdev);
+			CALL_POPS(device, print_clk, &device->pdev->dev);
 		}
 		if (ctrl->value) {
 			err("BUG_ON from HAL");

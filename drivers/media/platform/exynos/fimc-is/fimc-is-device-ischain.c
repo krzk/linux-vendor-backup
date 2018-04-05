@@ -1732,8 +1732,8 @@ static int fimc_is_itf_enum(struct fimc_is_device_ischain *device)
 	ret = fimc_is_hw_enum(device->interface);
 	if (ret) {
 		merr("fimc_is_itf_enum failed(%d)", device, ret);
-		CALL_POPS(device, print_pwr, device->pdev);
-		CALL_POPS(device, print_clk, device->pdev);
+		CALL_POPS(device, print_pwr, &device->pdev->dev);
+		CALL_POPS(device, print_clk, &device->pdev->dev);
 	}
 
 	return ret;
@@ -1772,7 +1772,7 @@ static int fimc_is_itf_open(struct fimc_is_device_ischain *device,
 		&device->margin_height);
 	if (ret) {
 		merr("fimc_is_hw_open failed", device);
-		CALL_POPS(device, print_cfg, device->pdev,
+		CALL_POPS(device, print_cfg, &device->pdev->dev,
 				fimc_is_sensor_g_instance(device->sensor));
 		ret = -EINVAL;
 		goto p_err;
@@ -1971,7 +1971,7 @@ int fimc_is_itf_stream_on(struct fimc_is_device_ischain *device)
 	ret = fimc_is_hw_stream_on(device->interface, device->instance);
 	if (ret) {
 		merr("fimc_is_hw_stream_on failed(%d)", device, ret);
-		CALL_POPS(device, print_clk, device->pdev);
+		CALL_POPS(device, print_clk, &device->pdev->dev);
 	}
 
 p_err:

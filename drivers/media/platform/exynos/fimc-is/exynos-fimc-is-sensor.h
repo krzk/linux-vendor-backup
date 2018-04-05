@@ -254,11 +254,11 @@ struct exynos_sensor_pin {
  */
 struct exynos_platform_fimc_is_sensor {
 	int (*gpio_cfg)(struct platform_device *pdev, u32 scenario, u32 enable);
-	int (*iclk_cfg)(struct platform_device *pdev, u32 scenario, u32 channel);
-	int (*iclk_on)(struct platform_device *pdev,u32 scenario, u32 channel);
-	int (*iclk_off)(struct platform_device *pdev, u32 scenario, u32 channel);
-	int (*mclk_on)(struct platform_device *pdev, u32 scenario, u32 channel);
-	int (*mclk_off)(struct platform_device *pdev, u32 scenario, u32 channel);
+	int (*iclk_cfg)(struct device *dev, u32 scenario, u32 channel);
+	int (*iclk_on)(struct device *dev,u32 scenario, u32 channel);
+	int (*iclk_off)(struct device *dev, u32 scenario, u32 channel);
+	int (*mclk_on)(struct device *dev, u32 scenario, u32 channel);
+	int (*mclk_off)(struct device *dev, u32 scenario, u32 channel);
 	struct exynos_sensor_pin pin_ctrls[SENSOR_SCENARIO_MAX][GPIO_SCENARIO_MAX][GPIO_CTRL_MAX];
 	char sensor_name[FIMC_IS_MAX_NAME_LEN];
 	u32 scenario;
@@ -281,35 +281,35 @@ struct exynos_platform_fimc_is_sensor {
 extern int exynos_fimc_is_sensor_pins_cfg(struct platform_device *pdev,
 	u32 scenario,
 	u32 enable);
-extern int exynos_fimc_is_sensor_iclk_cfg(struct platform_device *pdev,
+extern int exynos_fimc_is_sensor_iclk_cfg(struct device *dev,
 	u32 scenario,
 	u32 channel);
-extern int exynos_fimc_is_sensor_iclk_on(struct platform_device *pdev,
+extern int exynos_fimc_is_sensor_iclk_on(struct device *dev,
 	u32 scenario,
 	u32 channel);
-extern int exynos_fimc_is_sensor_iclk_off(struct platform_device *pdev,
+extern int exynos_fimc_is_sensor_iclk_off(struct device *dev,
 	u32 scenario,
 	u32 channel);
-extern int exynos_fimc_is_sensor_mclk_on(struct platform_device *pdev,
+extern int exynos_fimc_is_sensor_mclk_on(struct device *dev,
 	u32 scenario,
 	u32 channel);
-extern int exynos_fimc_is_sensor_mclk_off(struct platform_device *pdev,
+extern int exynos_fimc_is_sensor_mclk_off(struct device *dev,
 	u32 scenario,
 	u32 channel);
 
-extern int exynos_fimc_is_companion_iclk_cfg(struct platform_device *pdev,
+extern int exynos_fimc_is_companion_iclk_cfg(struct device *dev,
 	u32 scenario,
 	u32 channel);
-extern int exynos_fimc_is_companion_iclk_on(struct platform_device *pdev,
+extern int exynos_fimc_is_companion_iclk_on(struct device *dev,
 	u32 scenario,
 	u32 channel);
-extern int exynos_fimc_is_companion_iclk_off(struct platform_device *pdev,
+extern int exynos_fimc_is_companion_iclk_off(struct device *dev,
 	u32 scenario,
 	u32 channel);
-extern int exynos_fimc_is_companion_mclk_on(struct platform_device *pdev,
+extern int exynos_fimc_is_companion_mclk_on(struct device *dev,
 	u32 scenario,
 	u32 channel);
-extern int exynos_fimc_is_companion_mclk_off(struct platform_device *pdev,
+extern int exynos_fimc_is_companion_mclk_off(struct device *dev,
 	u32 scenario,
 	u32 channel);
 
