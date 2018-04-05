@@ -148,24 +148,20 @@ p_err:
 	return ret;
 }
 
-int fimc_is_companion_parse_dt(struct platform_device *pdev)
+int fimc_is_companion_parse_dt(struct device *dev)
 {
-	int ret = 0;
 	struct exynos_platform_fimc_is_sensor *pdata;
 	struct device_node *dnode;
-	struct device *dev;
+	int ret = 0;
 
-	BUG_ON(!pdev);
-	BUG_ON(!pdev->dev.of_node);
+	if (WARN_ON(!dev->of_node))
+		return -EINVAL;
 
-	dev = &pdev->dev;
 	dnode = dev->of_node;
 
-	pdata = kzalloc(sizeof(struct exynos_platform_fimc_is_sensor), GFP_KERNEL);
-	if (!pdata) {
-		pr_err("%s: no memory for platform data\n", __func__);
+	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata)
 		return -ENOMEM;
-	}
 
 	pdata->gpio_cfg = exynos_fimc_is_sensor_pins_cfg;
 	pdata->iclk_cfg = exynos_fimc_is_companion_iclk_cfg;
@@ -177,13 +173,13 @@ int fimc_is_companion_parse_dt(struct platform_device *pdev)
 	ret = of_property_read_u32(dnode, "scenario", &pdata->scenario);
 	if (ret) {
 		err("scenario read failed(%d)", ret);
-		goto p_err;
+		return ret;
 	}
 
 	ret = of_property_read_u32(dnode, "mclk_ch", &pdata->mclk_ch);
 	if (ret) {
 		err("mclk_ch read failed(%d)", ret);
-		goto p_err;
+		return ret;
 	}
 
 	pdata->companion_use_pmic = of_property_read_bool(dnode, "companion_use_pmic");
@@ -194,7 +190,7 @@ int fimc_is_companion_parse_dt(struct platform_device *pdev)
 	ret = of_property_read_u32(dnode, "sensor_id", &pdata->sensor_id);
 	if (ret) {
 		err("sensor_id read failed(%d)", ret);
-		goto p_err;
+		return ret;
 	}
 
 	dev->platform_data = pdata;
@@ -206,18 +202,12 @@ int fimc_is_companion_parse_dt(struct platform_device *pdev)
 	pdata->pinctrl = devm_pinctrl_get(dev);
 	if (IS_ERR(pdata->pinctrl)) {
 		err("devm_pinctrl_get failed");
-		goto p_err;
 	} else {
 		ret = get_pin_lookup_state(dev, pdata);
-		if (ret < 0) {
+		if (ret < 0)
 			err("fimc_is_get_pin_lookup_state failed");
-			goto p_err;
-		}
 	}
 
-	return ret;
-p_err:
-	kfree(pdata);
 	return ret;
 }
 

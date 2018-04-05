@@ -14,6 +14,7 @@
 
 #include "exynos-fimc-is-sensor.h"
 #include <linux/interrupt.h>
+#include <linux/i2c.h>
 #include "fimc-is-video.h"
 
 struct fimc_is_video_ctx;
@@ -36,6 +37,7 @@ enum fimc_is_companion_status {
 struct fimc_is_device_companion {
 	struct v4l2_device				*v4l2_dev;
 	struct device					*dev;
+	struct i2c_client				*i2c_client;
 	void __iomem					*regs;
 	struct fimc_is_mem				mem;
 

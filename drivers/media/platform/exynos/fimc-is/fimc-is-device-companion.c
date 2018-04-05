@@ -16,19 +16,13 @@
 #include <linux/errno.h>
 #include <linux/interrupt.h>
 #include <linux/device.h>
-#include <linux/platform_device.h>
 #include <linux/slab.h>
-#include <asm/cacheflush.h>
-#include <asm/pgtable.h>
 #include <linux/firmware.h>
-#include <linux/dma-mapping.h>
-#include <linux/scatterlist.h>
 #include <linux/videodev2.h>
 #include <linux/videodev2_exynos_camera.h>
 #include <linux/v4l2-mediabus.h>
 #include <linux/bug.h>
 #include <linux/i2c.h>
-
 
 #include "fimc-is-video.h"
 #include "fimc-is-dt.h"
@@ -36,6 +30,7 @@
 #include "fimc-is-sec-define.h"
 #include "fimc-is-device-ois.h"
 #include "fimc-is-companion-dt.h"
+
 extern int fimc_is_comp_video_probe(void *data);
 
 int fimc_is_companion_wait(struct fimc_is_device_companion *device)
@@ -438,119 +433,23 @@ p_err:
 	return ret;
 }
 
-static int fimc_is_companion_probe(struct platform_device *pdev)
-{
-	int ret = 0;
-	struct fimc_is_core *core;
-	struct fimc_is_device_companion *device;
-	void *pdata;
-
-	BUG_ON(!pdev);
-
-	if (fimc_is_dev == NULL) {
-		warn("fimc_is_dev is not yet probed");
-		pdev->dev.init_name = FIMC_IS_COMPANION_DEV_NAME;
-		return -EPROBE_DEFER;
-	}
-
-	core = dev_get_drvdata(fimc_is_dev);
-	if (!core) {
-		err("core is NULL");
-		return -EINVAL;
-	}
-
-	device = kzalloc(sizeof(struct fimc_is_device_companion), GFP_KERNEL);
-	if (!device)
-		return -ENOMEM;
-
-	init_waitqueue_head(&device->init_wait_queue);
-
-	device->companion_status = FIMC_IS_COMPANION_IDLE;
-
-	ret = fimc_is_companion_parse_dt(pdev);
-	if (ret) {
-		err("parsing device tree failed(%d)", ret);
-		goto p_err;
-	}
-
-	pdata = dev_get_platdata(&pdev->dev);
-	if (!pdata) {
-		err("pdata is NULL");
-		ret = -EINVAL;
-		goto p_err;
-	}
-
-	device->dev = &pdev->dev;
-	device->private_data = core;
-	device->regs = core->regs;
-	device->pdata = pdata;
-	platform_set_drvdata(pdev, device);
-	device_init_wakeup(&pdev->dev, true);
-	core->companion = device;
-	core->pin_ois_en = device->pdata->pin_ois_en;
-
-	/* init state */
-	clear_bit(FIMC_IS_COMPANION_OPEN, &device->state);
-	clear_bit(FIMC_IS_COMPANION_MCLK_ON, &device->state);
-	clear_bit(FIMC_IS_COMPANION_ICLK_ON, &device->state);
-	clear_bit(FIMC_IS_COMPANION_GPIO_ON, &device->state);
-
-	device->v4l2_dev = &core->v4l2_dev;
-
-	ret = fimc_is_mem_probe(&device->mem, core->pdev);
-	if (ret) {
-		err("fimc_is_mem_probe failed(%d)", ret);
-		goto p_err;
-	}
-
-	ret = fimc_is_comp_video_probe(device);
-	if (ret) {
-		err("fimc_is_companion_video_probe failed(%d)", ret);
-		goto p_err;
-	}
-
-	pm_runtime_enable(&pdev->dev);
-
-	info("[COMP:D] %s(%d)\n", __func__, ret);
-
-	return ret;
-
-p_err:
-	kfree(device);
-	return ret;
-}
-
-static int fimc_is_companion_remove(struct platform_device *pdev)
-{
-	int ret = 0;
-
-	info("%s\n", __func__);
-
-	return ret;
-}
-
 static int fimc_is_companion_suspend(struct device *dev)
 {
-	int ret = 0;
-
 	info("%s\n", __func__);
 
-	return ret;
+	return 0;
 }
 
 static int fimc_is_companion_resume(struct device *dev)
 {
-	int ret = 0;
-
 	info("%s\n", __func__);
 
-	return ret;
+	return 0;
 }
 
 int fimc_is_companion_runtime_suspend(struct device *dev)
 {
 	int ret = 0;
-	struct platform_device *pdev = to_platform_device(dev);
 	struct fimc_is_device_companion *device;
 	struct fimc_is_core *core;
 
@@ -561,7 +460,7 @@ int fimc_is_companion_runtime_suspend(struct device *dev)
 		err("core is NULL");
 		return -EINVAL;
 	}
-	device = platform_get_drvdata(pdev);
+	device = dev_get_drvdata(dev);
 	if (!device) {
 		err("device is NULL");
 		ret = -EINVAL;
@@ -597,17 +496,16 @@ err_dev_null:
 
 int fimc_is_companion_runtime_resume(struct device *dev)
 {
-	int ret = 0;
-	struct platform_device *pdev = to_platform_device(dev);
 	struct fimc_is_device_companion *device;
 	struct fimc_is_core *core;
+	int ret = 0;
 
 	core = dev_get_drvdata(fimc_is_dev);
 	if (!core) {
 		err("core is NULL");
 		return -EINVAL;
 	}
-	device = platform_get_drvdata(pdev);
+	device = dev_get_drvdata(dev);
 	if (!device) {
 		err("device is NULL");
 		return -EINVAL;
@@ -645,26 +543,106 @@ static const struct dev_pm_ops fimc_is_companion_pm_ops = {
 	.runtime_resume		= fimc_is_companion_runtime_resume,
 };
 
-static const struct of_device_id exynos_fimc_is_companion_match[] = {
-	{
-		.compatible = "samsung,exynos5-fimc-is-companion",
-	},
-	{},
-};
-MODULE_DEVICE_TABLE(of, exynos_fimc_is_companion_match);
+static int fimc_is_companion_probe(struct i2c_client *client)
+{
+	static bool probe_retried = false;
+	struct device *dev = &client->dev;
+	struct fimc_is_device_companion *device;
+	struct fimc_is_core *core;
+	int ret;
 
-static struct platform_driver fimc_is_companion_driver = {
-	.probe	= fimc_is_companion_probe,
-	.remove	= fimc_is_companion_remove,
-	.driver = {
-		.name	= FIMC_IS_COMPANION_DEV_NAME,
-		.owner	= THIS_MODULE,
-		.pm	= &fimc_is_companion_pm_ops,
-		.of_match_table = exynos_fimc_is_companion_match,
+	if (!fimc_is_dev)
+		goto probe_defer;
+
+	core = dev_get_drvdata(fimc_is_dev);
+	if (!core)
+		goto probe_defer;
+
+	device = devm_kzalloc(dev, sizeof(*device), GFP_KERNEL);
+	if (!device)
+		return -ENOMEM;
+
+	init_waitqueue_head(&device->init_wait_queue);
+
+	device->companion_status = FIMC_IS_COMPANION_IDLE;
+
+	ret = fimc_is_companion_parse_dt(dev);
+	if (ret) {
+		err("parsing device tree failed(%d)", ret);
+		goto probe_defer;
 	}
-};
 
-module_platform_driver(fimc_is_companion_driver);
+	device->dev = dev;
+	device->i2c_client = client;
+	device->private_data = core;
+	device->regs = core->regs;
+	device->pdata = dev_get_platdata(dev);
+	dev_set_drvdata(dev, device);
+	device_init_wakeup(dev, true);
+	core->companion = device;
+	core->pin_ois_en = device->pdata->pin_ois_en;
+
+	/* init state */
+	clear_bit(FIMC_IS_COMPANION_OPEN, &device->state);
+	clear_bit(FIMC_IS_COMPANION_MCLK_ON, &device->state);
+	clear_bit(FIMC_IS_COMPANION_ICLK_ON, &device->state);
+	clear_bit(FIMC_IS_COMPANION_GPIO_ON, &device->state);
+
+	device->v4l2_dev = &core->v4l2_dev;
+
+	ret = fimc_is_mem_probe(&device->mem, core->pdev);
+	if (ret) {
+		err("fimc_is_mem_probe failed(%d)", ret);
+		goto probe_defer;
+	}
+
+	ret = fimc_is_comp_video_probe(device);
+	if (ret) {
+		err("fimc_is_companion_video_probe failed(%d)", ret);
+		goto probe_defer;
+	}
+
+	pm_runtime_enable(dev);
+
+	info("[COMP:D] %s(%d)\n", __func__, ret);
+
+	pr_info("%s %s: fimc_is_i2c0 driver probed!\n",
+		dev_driver_string(&client->dev), dev_name(&client->dev));
+
+	return 0;
+
+probe_defer:
+	if (probe_retried) {
+		err("probe has already been retried!!");
+		BUG();
+	}
+
+	probe_retried = true;
+	err("core device is not yet probed");
+	return -EPROBE_DEFER;
+}
+
+static int fimc_is_companion_remove(struct i2c_client *client)
+{
+	return 0;
+}
+
+static struct of_device_id fimc_is_companion_of_match[] = {
+	{ .compatible = "samsung,s5c73c1" },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, fimc_is_i2c0_dt_ids);
+
+static struct i2c_driver fimc_is_i2c0_driver = {
+	.driver = {
+		.name = "fimc-is-companion",
+		.of_match_table = fimc_is_companion_of_match,
+		.pm = &fimc_is_companion_pm_ops,
+	},
+	.probe_new = fimc_is_companion_probe,
+	.remove = fimc_is_companion_remove,
+};
+module_i2c_driver(fimc_is_i2c0_driver);
 
 MODULE_AUTHOR("Wooki Min<wooki.min@samsung.com>");
 MODULE_DESCRIPTION("Exynos FIMC_IS_COMPANION driver");

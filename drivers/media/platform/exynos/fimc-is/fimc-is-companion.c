@@ -209,7 +209,7 @@ static int fimc_is_comp_i2c_write(struct i2c_client *client ,u16 addr, u16 data)
 
 static int fimc_is_comp_single_write(struct fimc_is_core *core , u16 addr, u16 data)
 {
-	struct i2c_client *client = core->client0;
+	struct i2c_client *client = core->companion->i2c_client;
 	int ret;
 
 	/* interrupt on */

@@ -1302,66 +1302,6 @@ static const struct dev_pm_ops fimc_is_pm_ops = {
 	.runtime_resume		= fimc_is_runtime_resume,
 };
 
-static int fimc_is_i2c0_probe(struct i2c_client *client,
-				  const struct i2c_device_id *id)
-{
-	struct fimc_is_core *core;
-	static bool probe_retried = false;
-
-	if (!fimc_is_dev)
-		goto probe_defer;
-
-	core = dev_get_drvdata(fimc_is_dev);
-	if (!core)
-		goto probe_defer;
-
-	core->client0 = client;
-
-	pr_info("%s %s: fimc_is_i2c0 driver probed!\n",
-		dev_driver_string(&client->dev), dev_name(&client->dev));
-
-	return 0;
-
-probe_defer:
-	if (probe_retried) {
-		err("probe has already been retried!!");
-		BUG();
-	}
-
-	probe_retried = true;
-	err("core device is not yet probed");
-	return -EPROBE_DEFER;
-}
-
-static int fimc_is_i2c0_remove(struct i2c_client *client)
-{
-	return 0;
-}
-
-static struct of_device_id fimc_is_i2c0_dt_ids[] = {
-	{ .compatible = "samsung,fimc_is_i2c0",},
-	{},
-};
-MODULE_DEVICE_TABLE(of, fimc_is_i2c0_dt_ids);
-
-static const struct i2c_device_id fimc_is_i2c0_id[] = {
-	{"fimc_is_i2c0", 0},
-	{}
-};
-MODULE_DEVICE_TABLE(i2c, fimc_is_i2c0_id);
-
-static struct i2c_driver fimc_is_i2c0_driver = {
-	.driver = {
-		.name = "fimc_is_i2c0",
-		.owner	= THIS_MODULE,
-		.of_match_table = fimc_is_i2c0_dt_ids,
-	},
-	.probe = fimc_is_i2c0_probe,
-	.remove = fimc_is_i2c0_remove,
-	.id_table = fimc_is_i2c0_id,
-};
-module_i2c_driver(fimc_is_i2c0_driver);
-
 static int of_fimc_is_spi_dt(struct device *dev, struct fimc_is_spi_gpio *spi_gpio, struct fimc_is_core *core)
 {
 	struct device_node *np;

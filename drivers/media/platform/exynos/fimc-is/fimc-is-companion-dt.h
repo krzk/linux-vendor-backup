@@ -12,7 +12,10 @@
 #ifndef FIMC_IS_COMPANION_DT_H
 #define FIMC_IS_COMPANION_DT_H
 
+struct device;
+struct platform_device;
+
 int fimc_is_sensor_parse_dt_with_companion(struct platform_device *pdev);
-int fimc_is_companion_parse_dt(struct platform_device *pdev);
+int fimc_is_companion_parse_dt(struct device *dev);
 #endif
 
