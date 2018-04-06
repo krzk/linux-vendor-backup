@@ -3016,11 +3016,17 @@ static void dwc2_set_param_hibernation(struct dwc2_hsotg *hsotg,
 void dwc2_set_parameters(struct dwc2_hsotg *hsotg,
 			 const struct dwc2_core_params *params)
 {
+	struct device_node *np = hsotg->dev->of_node;
+	int dma_desc = 0;
+
 	dev_dbg(hsotg->dev, "%s()\n", __func__);
 
 	dwc2_set_param_otg_cap(hsotg, params->otg_cap);
 	dwc2_set_param_dma_enable(hsotg, params->dma_enable);
-	dwc2_set_param_dma_desc_enable(hsotg, params->dma_desc_enable);
+	if (!of_property_read_u32(np, "dma-desc-enable", &dma_desc))
+		dwc2_set_param_dma_desc_enable(hsotg, !!dma_desc);
+	else
+		dwc2_set_param_dma_desc_enable(hsotg, 0);
 	dwc2_set_param_host_support_fs_ls_low_power(hsotg,
 			params->host_support_fs_ls_low_power);
 	dwc2_set_param_enable_dynamic_fifo(hsotg,
