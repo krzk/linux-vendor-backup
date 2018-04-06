@@ -298,8 +298,6 @@ int fimc_is_init_set(struct fimc_is_core *dev , u32 val);
 int fimc_is_load_fw(struct fimc_is_core *dev);
 int fimc_is_load_setfile(struct fimc_is_core *dev);
 int fimc_is_otf_close(struct fimc_is_device_ischain *ischain);
-int fimc_is_spi_reset(void *buf, u32 rx_addr, size_t size);
-int fimc_is_spi_read(void *buf, u32 rx_addr, size_t size);
 int fimc_is_runtime_suspend(struct device *dev);
 int fimc_is_runtime_resume(struct device *dev);
 
