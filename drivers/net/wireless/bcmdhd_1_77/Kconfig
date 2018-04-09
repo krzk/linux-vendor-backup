@@ -124,10 +124,10 @@ config BROADCOM_WIFI_RESERVED_MEM
 	  This is a configuration for Broadcom WLAN driver.
 
 config WIFI_BROADCOM_COB
-	bool "BROADCOM WIFI COB"
-	depends on (BCM43455 || BCM4343 || BCM43454 || BCM43012)
-	---help---
-	  This is a configuration for Broadcom WIFI COB Type.
+        bool "BROADCOM WIFI COB"
+        depends on (BCM43455 || BCM4343 || BCM43454 || BCM43012)
+        ---help---
+          This is a configuration for Broadcom WIFI COB Type.
 
 config BCM4335BT
 	bool "BROADCOM BTLOCK Enable"
@@ -193,7 +193,6 @@ config BCMDHD_PREALLOC_MEMDUMP
 config BCMDHD_OOB_HOST_WAKE
 	bool "Use the external WLAN_HOST_WAKE pin"
 	depends on BROADCOM_WIFI
-	default y
 	---help---
 	  Use the external GPIO pin to wake up host
 

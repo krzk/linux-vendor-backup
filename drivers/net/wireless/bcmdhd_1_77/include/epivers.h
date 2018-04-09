@@ -33,19 +33,19 @@
 
 #define	EPI_MINOR_VERSION	77
 
-#define	EPI_RC_NUMBER		11
+#define	EPI_RC_NUMBER		22
 
 #define	EPI_INCREMENTAL_NUMBER	0
 
 #define	EPI_BUILD_NUMBER	0
 
-#define	EPI_VERSION		1, 77, 11, 0
+#define	EPI_VERSION		1, 77, 22, 0
 
-#define	EPI_VERSION_NUM		0x014d0b00
+#define	EPI_VERSION_NUM		0x014d1600
 
-#define EPI_VERSION_DEV		1.77.11
+#define EPI_VERSION_DEV		1.77.22
 
 /* Driver Version String, ASCII, 32 chars max */
-#define	EPI_VERSION_STR		"1.77.11 (r)"
+#define	EPI_VERSION_STR		"1.77.22 (r)"
 
 #endif /* _epivers_h_ */

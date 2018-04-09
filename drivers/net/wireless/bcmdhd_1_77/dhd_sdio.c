@@ -24,7 +24,7 @@
  *
  * <<Broadcom-WL-IPTag/Open:>>
  *
- * $Id: dhd_sdio.c 685082 2017-02-15 10:04:17Z $
+ * $Id: dhd_sdio.c 699163 2017-05-12 05:18:23Z $
  */
 
 #include <typedefs.h>
@@ -754,6 +754,11 @@ static int _dhdsdio_download_btfw(struct dhd_bus *bus);
 #include <dhd_ulp.h>
 static int dhd_bus_ulp_reinit_fw(dhd_bus_t *bus);
 #endif /* DHD_ULP */
+
+#ifdef DHD_WAKE_STATUS
+int bcmsdh_get_total_wake(bcmsdh_info_t *bcmsdh);
+int bcmsdh_set_get_wake(bcmsdh_info_t *bcmsdh, int flag);
+#endif /* DHD_WAKE_STATUS */
 
 static void
 dhdsdio_tune_fifoparam(struct dhd_bus *bus)
@@ -2960,7 +2965,6 @@ enum {
 	IOV_SDREG,
 	IOV_SBREG,
 	IOV_SDCIS,
-	IOV_MEMBYTES,
 	IOV_RAMSIZE,
 	IOV_RAMSTART,
 #ifdef DHD_DEBUG
@@ -3015,7 +3019,6 @@ const bcm_iovar_t dhdsdio_iovars[] = {
 	{"idletime",	IOV_IDLETIME,	0, 0,	IOVT_INT32,	0 },
 	{"idleclock",	IOV_IDLECLOCK,	0, 0,	IOVT_INT32,	0 },
 	{"sd1idle",	IOV_SD1IDLE,	0, 0,	IOVT_BOOL,	0 },
-	{"membytes",	IOV_MEMBYTES,	0, 0,	IOVT_BUFFER,	2 * sizeof(int) },
 	{"ramsize",	IOV_RAMSIZE,	0, 0,	IOVT_UINT32,	0 },
 	{"ramstart",	IOV_RAMSTART,	0, 0,	IOVT_UINT32,	0 },
 	{"dwnldstate",	IOV_SET_DOWNLOAD_STATE,	0, 0,	IOVT_BOOL,	0 },
@@ -4000,94 +4003,6 @@ dhdsdio_doiovar(dhd_bus_t *bus, const bcm_iovar_t *vi, uint32 actionid, const ch
 		break;
 
 
-	case IOV_SVAL(IOV_MEMBYTES):
-	case IOV_GVAL(IOV_MEMBYTES):
-	{
-		uint32 address;
-		uint size, dsize;
-		uint8 *data;
-
-		bool set = (actionid == IOV_SVAL(IOV_MEMBYTES));
-
-		ASSERT(plen >= 2*sizeof(int));
-
-		address = (uint32)int_val;
-		bcopy((char *)params + sizeof(int_val), &int_val, sizeof(int_val));
-		size = (uint)int_val;
-
-		/* Do some validation */
-		dsize = set ? plen - (2 * sizeof(int)) : len;
-		if (dsize < size) {
-			DHD_ERROR(("%s: error on %s membytes, addr 0x%08x size %d dsize %d\n",
-			           __FUNCTION__, (set ? "set" : "get"), address, size, dsize));
-			bcmerror = BCME_BADARG;
-			break;
-		}
-
-		DHD_INFO(("%s: Request to %s %d bytes at address 0x%08x\n", __FUNCTION__,
-		          (set ? "write" : "read"), size, address));
-
-		/* check if CR4 */
-		if (si_setcore(bus->sih, ARMCR4_CORE_ID, 0)) {
-			/*
-			 * If address is start of RAM (i.e. a downloaded image),
-			 * store the reset instruction to be written in 0
-			 */
-			if (set && address == bus->dongle_ram_base) {
-				bus->resetinstr = *(((uint32*)params) + 2);
-			}
-		} else {
-		/* If we know about SOCRAM, check for a fit */
-		if ((bus->orig_ramsize) &&
-		    ((address > bus->orig_ramsize) || (address + size > bus->orig_ramsize)))
-		{
-			uint8 enable, protect, remap;
-			si_socdevram(bus->sih, FALSE, &enable, &protect, &remap);
-			if (!enable || protect) {
-				DHD_ERROR(("%s: ramsize 0x%08x doesn't have %d bytes at 0x%08x\n",
-					__FUNCTION__, bus->orig_ramsize, size, address));
-				DHD_ERROR(("%s: socram enable %d, protect %d\n",
-					__FUNCTION__, enable, protect));
-				bcmerror = BCME_BADARG;
-				break;
-			}
-
-			if (!REMAP_ENAB(bus) && (address >= SOCDEVRAM_ARM_ADDR)) {
-				uint32 devramsize = si_socdevram_size(bus->sih);
-				if ((address < SOCDEVRAM_ARM_ADDR) ||
-					(address + size > (SOCDEVRAM_ARM_ADDR + devramsize))) {
-					DHD_ERROR(("%s: bad address 0x%08x, size 0x%08x\n",
-						__FUNCTION__, address, size));
-					DHD_ERROR(("%s: socram range 0x%08x,size 0x%08x\n",
-						__FUNCTION__, SOCDEVRAM_ARM_ADDR, devramsize));
-					bcmerror = BCME_BADARG;
-					break;
-				}
-				/* move it such that address is real now */
-				address -= SOCDEVRAM_ARM_ADDR;
-				address += SOCDEVRAM_BP_ADDR;
-				DHD_INFO(("%s: Request to %s %d bytes @ Mapped address 0x%08x\n",
-					__FUNCTION__, (set ? "write" : "read"), size, address));
-			} else if (REMAP_ENAB(bus) && REMAP_ISADDR(bus, address) && remap) {
-				/* Can not access remap region while devram remap bit is set
-				 * ROM content would be returned in this case
-				 */
-				DHD_ERROR(("%s: Need to disable remap for address 0x%08x\n",
-					__FUNCTION__, address));
-				bcmerror = BCME_ERROR;
-				break;
-			}
-		}
-		}
-
-		/* Generate the actual data pointer */
-		data = set ? (uint8*)params + 2 * sizeof(int): (uint8*)arg;
-
-		/* Call to do the transfer */
-		bcmerror = dhdsdio_membytes(bus, set, address, data, size);
-
-		break;
-	}
 
 	case IOV_GVAL(IOV_RAMSIZE):
 		int_val = (int32)bus->ramsize;
@@ -4979,7 +4894,6 @@ dhd_txglom_enable(dhd_pub_t *dhdp, bool enable)
 	 */
 	dhd_bus_t *bus = dhdp->bus;
 #ifdef BCMSDIOH_TXGLOM
-	char buf[256];
 	uint32 rxglom;
 	int32 ret;
 
@@ -4992,9 +4906,8 @@ dhd_txglom_enable(dhd_pub_t *dhdp, bool enable)
 
 	if (enable) {
 		rxglom = 1;
-		memset(buf, 0, sizeof(buf));
-		bcm_mkiovar("bus:rxglom", (void *)&rxglom, 4, buf, sizeof(buf));
-		ret = dhd_wl_ioctl_cmd(dhdp, WLC_SET_VAR, buf, sizeof(buf), TRUE, 0);
+		ret = dhd_iovar(dhdp, 0, "bus:rxglom", (char *)&rxglom, sizeof(rxglom), NULL, 0,
+				TRUE);
 		if (ret >= 0)
 			bus->txglom_enable = TRUE;
 		else {
@@ -5360,13 +5273,8 @@ int
 dhd_process_pkt_reorder_info(dhd_pub_t *dhd, uchar *reorder_info_buf, uint reorder_info_len,
 	void **pkt, uint32 *pkt_count);
 
-#ifdef DHD_WAKE_STATUS
-static uint8
-dhdsdio_rxglom(dhd_bus_t *bus, uint8 rxseq, int pkt_wake)
-#else
 static uint8
 dhdsdio_rxglom(dhd_bus_t *bus, uint8 rxseq)
-#endif /* DHD_WAKE_STATUS */
 {
 	uint16 dlen, totlen;
 	uint8 *dptr, num = 0;
@@ -5777,13 +5685,7 @@ dhdsdio_rxglom(dhd_bus_t *bus, uint8 rxseq)
 				} while (temp);
 				if (cnt) {
 					dhd_os_sdunlock(bus->dhd);
-#ifdef DHD_WAKE_STATUS
-					dhd_rx_frame(bus->dhd, idx, list_head[idx], cnt, 0,
-						pkt_wake, &bus->wake_counts);
-					pkt_wake = 0;
-#else
 					dhd_rx_frame(bus->dhd, idx, list_head[idx], cnt, 0);
-#endif /* DHD_WAKE_STATUS */
 					dhd_os_sdlock(bus->dhd);
 				}
 			}
@@ -5827,10 +5729,6 @@ dhdsdio_readframes(dhd_bus_t *bus, uint maxframes, bool *finished)
 
 #if defined(DHD_DEBUG) || defined(SDTEST)
 	bool sdtest = FALSE;	/* To limit message spew from test mode */
-#endif
-
-#ifdef DHD_WAKE_STATUS
-	int pkt_wake = bcmsdh_set_get_wake(bus->sdh, 0);
 #endif
 
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
@@ -5926,12 +5824,7 @@ dhdsdio_readframes(dhd_bus_t *bus, uint maxframes, bool *finished)
 			uint8 cnt;
 			DHD_GLOM(("%s: calling rxglom: glomd %p, glom %p\n",
 			          __FUNCTION__, bus->glomd, bus->glom));
-#ifdef DHD_WAKE_STATUS
-			cnt = dhdsdio_rxglom(bus, rxseq, pkt_wake);
-			pkt_wake = 0;
-#else
 			cnt = dhdsdio_rxglom(bus, rxseq);
-#endif /* DHD_WAKE_STATUS */
 			DHD_GLOM(("%s: rxglom returned %d\n", __FUNCTION__, cnt));
 			rxseq += cnt - 1;
 			rxleft = (rxleft > cnt) ? (rxleft - cnt) : 1;
@@ -6521,12 +6414,7 @@ deliver:
 
 		/* Unlock during rx call */
 		dhd_os_sdunlock(bus->dhd);
-#ifdef DHD_WAKE_STATUS
-		dhd_rx_frame(bus->dhd, ifidx, pkt, pkt_count, chan, pkt_wake, &bus->wake_counts);
-		pkt_wake = 0;
-#else
 		dhd_rx_frame(bus->dhd, ifidx, pkt, pkt_count, chan);
-#endif /* DHD_WAKE_STATUS */
 		dhd_os_sdlock(bus->dhd);
 	}
 	rxcount = maxframes - rxleft;
@@ -10041,6 +9929,37 @@ concate_revision_bcm43455(dhd_bus_t *bus, char *fw_path, char *nv_path)
 }
 #endif /* SUPPORT_MULTIPLE_CHIP_4345X */
 
+static int
+concate_revision_bcm43430(dhd_bus_t *bus, char *fw_path, char *nv_path)
+{
+    uint chipver;
+    char chipver_tag[4] = {0, };
+
+    DHD_TRACE(("%s: BCM43430 Multiple Revision Check\n", __FUNCTION__));
+    if (bus->sih->chip != BCM43430_CHIP_ID) {
+	DHD_ERROR(("%s:Chip is not BCM43430\n", __FUNCTION__));
+	return BCME_ERROR;
+    }
+    chipver = bus->sih->chiprev;
+    DHD_ERROR(("CHIP VER = [0x%x]\n", chipver));
+    if (chipver == 0x0) {
+	DHD_ERROR(("----- CHIP bcm4343S -----\n"));
+	strcat(chipver_tag, "_3s");
+    } else if (chipver == 0x1) {
+	DHD_ERROR(("----- CHIP bcm43438 -----\n"));
+    } else if (chipver == 0x2) {
+	DHD_ERROR(("----- CHIP bcm43436L -----\n"));
+	strcat(chipver_tag, "_36");
+    } else {
+	DHD_ERROR(("----- CHIP bcm43430 unknown revision %d -----\n",
+		    chipver));
+    }
+
+    strcat(fw_path, chipver_tag);
+    strcat(nv_path, chipver_tag);
+    return 0;
+}
+
 int
 concate_revision(dhd_bus_t *bus, char *fw_path, char *nv_path)
 {
@@ -10089,6 +10008,9 @@ concate_revision(dhd_bus_t *bus, char *fw_path, char *nv_path)
 		res = concate_revision_bcm43455(bus, fw_path, nv_path);
 		break;
 #endif /* SUPPORT_MULTIPLE_CHIP_4345X */
+	case BCM43430_CHIP_ID:
+		res = concate_revision_bcm43430(bus, fw_path, nv_path);
+		break;
 	default:
 		DHD_ERROR(("REVISION SPECIFIC feature is not required\n"));
 		return res;
@@ -10657,3 +10579,19 @@ int dhd_get_idletime(dhd_pub_t *dhd)
 {
 	return dhd->bus->idletime;
 }
+
+#ifdef DHD_WAKE_STATUS
+wake_counts_t*
+dhd_bus_get_wakecount(dhd_pub_t *dhd)
+{
+	if (!dhd->bus) {
+		return NULL;
+	}
+	return &dhd->bus->wake_counts;
+}
+int
+dhd_bus_get_bus_wake(dhd_pub_t *dhd)
+{
+	return bcmsdh_set_get_wake(dhd->bus->sdh, 0);
+}
+#endif /* DHD_WAKE_STATUS */

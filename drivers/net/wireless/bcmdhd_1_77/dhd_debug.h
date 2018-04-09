@@ -23,7 +23,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_debug.h 674228 2016-12-07 12:21:41Z $
+ * $Id: dhd_debug.h 698998 2017-05-11 11:00:28Z $
  */
 
 #ifndef _dhd_debug_h_
@@ -344,7 +344,7 @@ enum {
 };
 
 typedef struct dhd_dbg_ring_entry {
-	uint32 len; /* payload length excluding the header */
+	uint16 len; /* payload length excluding the header */
 	uint8 flags;
 	uint8 type; /* Per ring specific */
 	uint64 timestamp; /* present if has_timestamp bit is set. */
@@ -353,6 +353,8 @@ typedef struct dhd_dbg_ring_entry {
 #define DBG_RING_ENTRY_SIZE (sizeof(dhd_dbg_ring_entry_t))
 
 #define ENTRY_LENGTH(hdr) ((hdr)->len + DBG_RING_ENTRY_SIZE)
+
+#define PAYLOAD_MAX_LEN 65535
 
 typedef struct dhd_dbg_ring_status {
 	uint8 name[DBGRING_NAME_MAX];

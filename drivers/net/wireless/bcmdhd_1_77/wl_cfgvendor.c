@@ -24,7 +24,7 @@
  *
  * <<Broadcom-WL-IPTag/Open:>>
  *
- * $Id: wl_cfgvendor.c 681171 2017-01-25 05:27:08Z $
+ * $Id: wl_cfgvendor.c 699225 2017-05-12 08:51:47Z $
  */
 
 /*
@@ -1178,6 +1178,74 @@ static int wl_cfgvendor_set_tcpack_sup_mode(struct wiphy *wiphy,
 }
 #endif /* DHDTCPACK_SUPPRESS */
 
+#ifdef DHD_WAKE_STATUS
+static int
+wl_cfgvendor_get_wake_reason_stats(struct wiphy *wiphy,
+	struct wireless_dev *wdev, const void *data, int len)
+{
+	struct net_device *ndev = wdev_to_ndev(wdev);
+	wake_counts_t *pwake_count_info;
+	int ret, mem_needed;
+#if defined(DHD_WAKE_EVENT_STATUS) && defined(DHD_DEBUG)
+	int flowid;
+#endif	/* DHD_WAKE_EVENT_STATUS && DHD_DEBUG */
+	struct sk_buff *skb;
+	dhd_pub_t *dhdp = wl_cfg80211_get_dhdp(ndev);
+
+	WL_DBG(("Recv get wake status info cmd.\n"));
+
+	pwake_count_info = dhd_get_wakecount(dhdp);
+	mem_needed =  VENDOR_REPLY_OVERHEAD + (ATTRIBUTE_U32_LEN * 20) +
+		(WLC_E_LAST * sizeof(uint));
+
+	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, mem_needed);
+	if (unlikely(!skb)) {
+		WL_ERR(("%s: can't allocate %d bytes\n", __FUNCTION__, mem_needed));
+		return -ENOMEM;
+		goto exit;
+	}
+#ifdef DHD_WAKE_EVENT_STATUS
+	WL_ERR(("pwake_count_info->rcwake %d\n", pwake_count_info->rcwake));
+	nla_put_u32(skb, WAKE_STAT_ATTRIBUTE_TOTAL_CMD_EVENT, pwake_count_info->rcwake);
+	nla_put_u32(skb, WAKE_STAT_ATTRIBUTE_CMD_EVENT_COUNT_USED, WLC_E_LAST);
+	nla_put(skb, WAKE_STAT_ATTRIBUTE_CMD_EVENT_WAKE, (WLC_E_LAST * sizeof(uint)),
+		pwake_count_info->rc_event);
+#ifdef DHD_DEBUG
+	for (flowid = 0; flowid < WLC_E_LAST; flowid++) {
+		if (pwake_count_info->rc_event[flowid] != 0) {
+			WL_ERR((" %s = %u\n", bcmevent_get_name(flowid),
+				pwake_count_info->rc_event[flowid]));
+		}
+	}
+#endif /* DHD_DEBUG */
+#endif /* DHD_WAKE_EVENT_STATUS */
+#ifdef DHD_WAKE_RX_STATUS
+	WL_ERR(("pwake_count_info->rxwake %d\n", pwake_count_info->rxwake));
+	nla_put_u32(skb, WAKE_STAT_ATTRIBUTE_TOTAL_RX_DATA_WAKE, pwake_count_info->rxwake);
+	nla_put_u32(skb, WAKE_STAT_ATTRIBUTE_RX_UNICAST_COUNT, pwake_count_info->rx_ucast);
+	nla_put_u32(skb, WAKE_STAT_ATTRIBUTE_RX_MULTICAST_COUNT, pwake_count_info->rx_mcast);
+	nla_put_u32(skb, WAKE_STAT_ATTRIBUTE_RX_BROADCAST_COUNT, pwake_count_info->rx_bcast);
+	nla_put_u32(skb, WAKE_STAT_ATTRIBUTE_RX_ICMP_PKT, pwake_count_info->rx_arp);
+	nla_put_u32(skb, WAKE_STAT_ATTRIBUTE_RX_ICMP6_PKT, pwake_count_info->rx_icmpv6);
+	nla_put_u32(skb, WAKE_STAT_ATTRIBUTE_RX_ICMP6_RA, pwake_count_info->rx_icmpv6_ra);
+	nla_put_u32(skb, WAKE_STAT_ATTRIBUTE_RX_ICMP6_NA, pwake_count_info->rx_icmpv6_na);
+	nla_put_u32(skb, WAKE_STAT_ATTRIBUTE_RX_ICMP6_NS, pwake_count_info->rx_icmpv6_ns);
+	nla_put_u32(skb, WAKE_STAT_ATTRIBUTE_IPV4_RX_MULTICAST_ADD_CNT,
+		pwake_count_info->rx_multi_ipv4);
+	nla_put_u32(skb, WAKE_STAT_ATTRIBUTE_IPV6_RX_MULTICAST_ADD_CNT,
+		pwake_count_info->rx_multi_ipv6);
+	nla_put_u32(skb, WAKE_STAT_ATTRIBUTE_OTHER_RX_MULTICAST_ADD_CNT,
+		pwake_count_info->rx_multi_other);
+#endif /* #ifdef DHD_WAKE_RX_STATUS */
+	ret = cfg80211_vendor_cmd_reply(skb);
+	if (unlikely(ret)) {
+		WL_ERR(("Vendor cmd reply for -get wake status failed:%d \n", ret));
+	}
+exit:
+	return ret;
+}
+#endif /* DHD_WAKE_STATUS */
+
 #ifdef RTT_SUPPORT
 void
 wl_cfgvendor_rtt_evt(void *ctx, void *rtt_data)
@@ -2224,7 +2292,6 @@ static int wl_cfgvendor_lstats_get_info(struct wiphy *wiphy,
 
 	memset(&scbval, 0, sizeof(scb_val_t));
 	memset(outdata, 0, WLC_IOCTL_MAXLEN);
-	memset(iovar_buf, 0, WLC_IOCTL_MAXLEN);
 	output = outdata;
 
 	err = wldev_iovar_getbuf(bcmcfg_to_prmry_ndev(cfg), "radiostat", NULL, 0,
@@ -2285,7 +2352,6 @@ static int wl_cfgvendor_lstats_get_info(struct wiphy *wiphy,
 		wl_wme_cnt->tx_failed[WIFI_AC_BK].packets);
 
 
-	memset(iovar_buf, 0, WLC_IOCTL_MAXLEN);
 	err = wldev_iovar_getbuf(bcmcfg_to_prmry_ndev(cfg), "counters", NULL, 0,
 		iovar_buf, WLC_IOCTL_MAXLEN, NULL);
 	if (unlikely(err)) {
@@ -2348,7 +2414,6 @@ static int wl_cfgvendor_lstats_get_info(struct wiphy *wiphy,
 		output += (sizeof(iface) - sizeof(wifi_rate_stat));
 	}
 
-	memset(iovar_buf, 0, WLC_IOCTL_MAXLEN);
 	err = wldev_iovar_getbuf(bcmcfg_to_prmry_ndev(cfg), "ratestat", NULL, 0,
 		iovar_buf, WLC_IOCTL_MAXLEN, NULL);
 	if (err != BCME_OK && err != BCME_UNSUPPORTED) {
@@ -2512,9 +2577,9 @@ wl_cfgvendor_dbg_get_mem_dump(struct wiphy *wiphy,
 {
 	int ret = BCME_OK, rem, type;
 	int buf_len = 0;
-	void __user *user_buf = NULL;
+	uintptr_t user_buf = (uintptr_t)NULL;
 	const struct nlattr *iter;
-	char *mem_buf;
+	char *mem_buf = NULL;
 	struct sk_buff *skb;
 	struct bcm_cfg80211 *cfg = wiphy_priv(wiphy);
 
@@ -2522,10 +2587,24 @@ wl_cfgvendor_dbg_get_mem_dump(struct wiphy *wiphy,
 		type = nla_type(iter);
 		switch (type) {
 			case DEBUG_ATTRIBUTE_FW_DUMP_LEN:
-				buf_len = nla_get_u32(iter);
+				/* Check if the iter is valid and
+				 * buffer length is not already initialized.
+				 */
+				if ((nla_len(iter) == sizeof(uint32)) &&
+					!buf_len) {
+					buf_len = nla_get_u32(iter);
+				} else {
+					ret = BCME_ERROR;
+					goto exit;
+				}
 				break;
 			case DEBUG_ATTRIBUTE_FW_DUMP_DATA:
-				user_buf = (void __user *)(unsigned long) nla_get_u64(iter);
+				if (nla_len(iter) != sizeof(uint64)) {
+					WL_ERR(("Invalid len\n"));
+					ret = BCME_ERROR;
+					goto exit;
+				}
+				user_buf = (uintptr_t)nla_get_u64(iter);
 				break;
 			default:
 				WL_ERR(("Unknown type: %d\n", type));
@@ -2557,7 +2636,7 @@ wl_cfgvendor_dbg_get_mem_dump(struct wiphy *wiphy,
 		else
 #endif /* CONFIG_COMPAT */
 		{
-			ret = copy_to_user(user_buf, mem_buf, buf_len);
+			ret = copy_to_user((void*)user_buf, mem_buf, buf_len);
 			if (ret) {
 				WL_ERR(("failed to copy memdump into user buffer : %d\n", ret));
 				goto free_mem;
@@ -3568,8 +3647,18 @@ static const struct wiphy_vendor_command wl_vendor_cmds [] = {
 		},
 		.flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 		.doit = wl_cfgvendor_set_tcpack_sup_mode
-	}
+	},
 #endif /* DHDTCPACK_SUPPRESS */
+#ifdef DHD_WAKE_STATUS
+	{
+		{
+			.vendor_id = OUI_GOOGLE,
+			.subcmd = DEBUG_GET_WAKE_REASON_STATS
+		},
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+		.doit = wl_cfgvendor_get_wake_reason_stats
+	}
+#endif /* DHD_WAKE_STATUS */
 };
 
 static const struct  nl80211_vendor_cmd_info wl_vendor_events [] = {

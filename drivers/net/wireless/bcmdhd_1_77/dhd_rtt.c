@@ -817,7 +817,7 @@ dhd_rtt_common_set_handler(dhd_pub_t *dhd, const ftm_subcmd_info_t *p_subcmd_inf
 		return BCME_NOMEM;
 
 	/* no TLV to pack, simply issue a set-proxd iovar */
-	ret = dhd_iovar(dhd, 0, "proxd", (void *) p_proxd_iov, proxd_iovsize, 1);
+	ret = dhd_iovar(dhd, 0, "proxd", (char *)p_proxd_iov, proxd_iovsize, NULL, 0, TRUE);
 #ifdef RTT_DEBUG
 	if (ret != BCME_OK) {
 		DHD_RTT(("error: IOVAR failed, status=%d\n", ret));
@@ -1100,7 +1100,7 @@ dhd_rtt_ftm_config(dhd_pub_t *dhd, wl_proxd_session_id_t session_id,
 		all_tlvsize = (bufsize - buf_space_left);
 		p_proxd_iov->len = htol16(all_tlvsize + WL_PROXD_IOV_HDR_SIZE);
 		ret = dhd_iovar(dhd, 0, "proxd", (char *)p_proxd_iov,
-			all_tlvsize + WL_PROXD_IOV_HDR_SIZE, 1);
+				all_tlvsize + WL_PROXD_IOV_HDR_SIZE, NULL, 0, TRUE);
 		if (ret != BCME_OK) {
 			DHD_ERROR(("%s : failed to set config\n", __FUNCTION__));
 		}
@@ -1331,11 +1331,11 @@ dhd_rtt_start(dhd_pub_t *dhd)
 		DHD_RTT(("RTT is stopped\n"));
 		goto exit;
 	}
-	err = wldev_ioctl(dev, WLC_GET_PM, &rtt_status->pm, sizeof(rtt_status->pm), false);
+	err = wldev_ioctl_get(dev, WLC_GET_PM, &rtt_status->pm, sizeof(rtt_status->pm));
 	if (err) {
 		DHD_ERROR(("Failed to get the PM value\n"));
 	} else {
-		err = wldev_ioctl(dev, WLC_SET_PM, &pm, sizeof(pm), true);
+		err = wldev_ioctl_set(dev, WLC_SET_PM, &pm, sizeof(pm));
 		if (err) {
 			DHD_ERROR(("Failed to set the PM\n"));
 			rtt_status->pm_restore = FALSE;
@@ -1497,7 +1497,7 @@ exit:
 			DHD_ERROR(("pm_restore =%d func =%s \n",
 				rtt_status->pm_restore, __FUNCTION__));
 			pm = PM_FAST;
-			err = wldev_ioctl(dev, WLC_SET_PM, &pm, sizeof(pm), true);
+			err = wldev_ioctl_set(dev, WLC_SET_PM, &pm, sizeof(pm));
 			if (err) {
 				DHD_ERROR(("Failed to set PM \n"));
 			} else {
@@ -2201,12 +2201,12 @@ dhd_rtt_enable_responder(dhd_pub_t *dhd, wifi_channel_info *channel_info)
 			DHD_ERROR(("Failed to set the chanspec \n"));
 		}
 	}
-	err = wldev_ioctl(dev, WLC_GET_PM, &rtt_status->pm, sizeof(rtt_status->pm), false);
+	err = wldev_ioctl_get(dev, WLC_GET_PM, &rtt_status->pm, sizeof(rtt_status->pm));
 	DHD_RTT(("Current PM value read %d\n", rtt_status->pm));
 	if (err) {
 		DHD_ERROR(("Failed to get the PM value \n"));
 	} else {
-		err = wldev_ioctl(dev, WLC_SET_PM, &pm, sizeof(pm), true);
+		err = wldev_ioctl_set(dev, WLC_SET_PM, &pm, sizeof(pm));
 		if (err) {
 			DHD_ERROR(("Failed to set the PM \n"));
 			rtt_status->pm_restore = FALSE;
@@ -2240,7 +2240,7 @@ exit:
 		DHD_RTT(("restoring the PM value \n"));
 		if (rtt_status->pm_restore) {
 			pm = PM_FAST;
-			err = wldev_ioctl(dev, WLC_SET_PM, &pm, sizeof(pm), true);
+			err = wldev_ioctl_set(dev, WLC_SET_PM, &pm, sizeof(pm));
 			if (err) {
 				DHD_ERROR(("Failed to restore PM \n"));
 			} else {
@@ -2270,7 +2270,7 @@ dhd_rtt_cancel_responder(dhd_pub_t *dhd)
 	if (rtt_status->pm_restore) {
 		pm = PM_FAST;
 		DHD_RTT(("pm_restore =%d \n", rtt_status->pm_restore));
-		err = wldev_ioctl(dev, WLC_SET_PM, &pm, sizeof(pm), true);
+		err = wldev_ioctl_set(dev, WLC_SET_PM, &pm, sizeof(pm));
 		if (err) {
 			DHD_ERROR(("Failed to restore PM \n"));
 		} else {

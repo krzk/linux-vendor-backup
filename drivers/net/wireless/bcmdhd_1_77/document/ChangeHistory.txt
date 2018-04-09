@@ -1,10 +1,93 @@
-BCM4361 DHD 1.77.11 for Android Dream & J5/J7 & BCM43438 NOS Project
+BCM4361 DHD 1.77.22 for Android Great/Dream & J5/J7 & BCM43438 NOS Project
 (Notes: 1.77.x is twigged off from 1.579.235.9)
+
+DHD 1.77.22 - 2017.05.25
+Kernel Panic
+ - CS2714944 Fixed the Kernel Panic during dynamic TCP ACK suppress mode change in SDIO platform
+
+Others
+ - CS2595140 Added an Android private command for setting ADPS
+ - CS2675989 Fixed reverse-order of EAP-Failure and deauth packet
+ - 11kv - Fixed BTM capability check
+ - Unified one DHD for Dream & Great Project with CONFIG_WLAN_GREAT define
+
+
+DHD 1.77.21 - 2017.05.19
+New Feature
+ - CS2459522 Disabled GEN_SOFTAP_INFO_FILE feature in Makefile
+ - Comment out ADPS define at Makefile
+
+Kernel Panic
+ - CS2472525 Avoid to trigger Kernel panic on abnormal devices during device initialization
+ - CS2716890 Fixed Scan timeout issue with blocking suspend during P2P scan
+
+Security Patch
+ - CS2642368 Fixed type casting issue in wl_android_send_action_frame()
+ - CVE-2017-0633 Enhanced wrong buffer usage in IOCTL path
+
+Others
+ - CS2454032 Changed to implement wake stat support
+ - CS2460373 Added WIFI_LOGGER feature in Makefile
+ - CS2472434 Fixed roam failure on PMF required APs
+ - CS2475910 Print last roaming event log when link down is happened
+ - CS2761292 Added dhd rxq sdlock operation
+ - CS2769153 Fixed compile error on exymos5433 sdio model
+ - CS2791743 Fixed duplicated tx_error counter summation
+ - CS2793328 Relocated WLAN onoff delay on dhd_wlan_init_gpio()
+ - Added max payload length check in dhd_dbg_msgtrace_log_parser() function
+ - Changed the nvram file name to nvram.txt to support single nvram file
+ - Fixed assoc state sync issue between wpa_supplicant & DHD driver
+ - Fixed SoftAP interface delete issue observed while running APSTA stability test
+ - Fixed the spinlock related problem in the DHD_WAKE_STATUS feature
+
+
+DHD 1.77.16 - 2017.05.01
+New Feature
+ - CS2459522 Created .softap.info file when boot-up time for SoftAP information
+
+Kernel Panic
+ - CS2471281 Fixed null pointer reference exception during interface down
+ - CS2472873 Fixed to prevent accessing  CPU hotplug call back before initialization
+ - CS2477559 Implement exception handling routines if DMA mapping error for TX data packet is happened
+
+Others
+ - CS2456626 Enabled SETBAND API
+ - CS2470635 Enabled frameburst on SDIO platform
+ - CS2471300 Fixed Buffer overflow issue
+ - CS2473469 Added force disconnect when continuously update DPM event
+ - CS2474767 Fixed compile error for Dream project
+ - CS2476640 Added to control tcpack_suppress as throughput on BCM43455
+ - CS2555123 Fixed page fault issue in dhd_wl_ioctl()
+ - CVE-2017-0568 Fixed vulnerability issues
+ - CVE-2017-0570 Fixed vulnerability issues
+ - CVE-2017-0574 Fixed vulnerability issues
+ - Enabled CAC by default and modified CAC dynamically based on the interface
+ - Enabled Random MAC address scan by default for all WIFI chip
+ - Fixed length variable overflow issue
+ - Fixed wrong event message print log issue
+
+
+DHD 1.77.12.1 - 2017.03.27
+Others
+ - CSP:1138026 Fixed compile error for Dream project
+
+
+DHD 1.77.12 - 2017.03.22
+Others
+ - CSP:1122174 Fixed to clean up dongle arp table when using arp request host offloading option
+ - CSP:1136579 Removed gtk_key_info set fail error log
+ - Fixed memory buffer overrun with interworking IE
+
 
 DHD 1.77.11 - 2017.03.17
 Others
  - Removed unnecessary country code list in translate_custom_table
  - Supported A3 project for BCM43438
+
+
+DHD 1.77.9.1 - 2017.03.28
+Kernel Panic
+ - CSP:1139481 Fixed null pointer reference exception during interface down
 
 
 DHD 1.77.9 - 2017.03.14
@@ -90,6 +173,11 @@ New Feature
 Kernel Panic
  - Fixed Kernel Panic during STA-GO connection test case
 
+11kv
+ - Fixed to send BTM query in dongle
+ - Override WNM Max Idle period to keep alive period
+ - Update RCC with channels in neighbor report response
+
 Others
  - CSP:1104911 Added to get hostapd_cli STA_INFO command
  - CSP:1111618 Disabled WLADPS_SEAK_AP_WAR feature
@@ -103,11 +191,6 @@ Others
  - Added Private command for LQCM
  - Added to control scan suppress during RF test mode
  - Enhanced more for nested connection case handling
-
-11kv
- - Fixed to send BTM query in dongle
- - Override WNM Max Idle period to keep alive period
- - Update RCC with channels in neighbor report response
 
 
 DHD 1.579.235.7 - 2017.01.19

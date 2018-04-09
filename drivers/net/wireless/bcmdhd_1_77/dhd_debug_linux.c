@@ -23,7 +23,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_debug_linux.c 669249 2016-11-08 16:53:57Z $
+ * $Id: dhd_debug_linux.c 699163 2017-05-12 05:18:23Z $
  */
 
 #include <typedefs.h>
@@ -288,7 +288,8 @@ dhd_os_suppress_logging(dhd_pub_t *dhdp, bool suppress)
 		os_priv[FW_EVENT_RING_ID].log_level);
 	if (max_log_level == SUPPRESS_LOG_LEVEL) {
 		/* suppress the logging in FW not to wake up host while device in suspend mode */
-		ret = dhd_iovar(dhdp, 0, "logtrace", (char *)&enable, sizeof(enable), 1);
+		ret = dhd_iovar(dhdp, 0, "logtrace", (char *)&enable, sizeof(enable), NULL, 0,
+				TRUE);
 		if (ret < 0 && (ret != BCME_UNSUPPORTED)) {
 			DHD_ERROR(("logtrace is failed : %d\n", ret));
 		}

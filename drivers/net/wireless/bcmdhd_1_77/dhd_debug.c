@@ -23,7 +23,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_debug.c 669249 2016-11-08 16:53:57Z $
+ * $Id: dhd_debug.c 698998 2017-05-11 11:00:28Z $
  */
 
 #include <typedefs.h>
@@ -233,6 +233,7 @@ dhd_dbg_ring_pull_single(dhd_pub_t *dhdp, int ring_id, void *data, uint32 buf_le
 		ASSERT(0);
 		return 0;
 	}
+
 	memcpy(data, buf, rlen);
 	/* update ring context */
 	ring->rp += ENTRY_LENGTH(r_entry);
@@ -967,6 +968,14 @@ dhd_dbg_msgtrace_log_parser(dhd_pub_t *dhdp, void *event_data,
 	logentry_header->buf_size = datalen;
 	logentry_header->seq_num = hdr->seqnum;
 	msg_hdr.type = DBG_RING_ENTRY_DATA_TYPE;
+
+	if ((sizeof(*logentry_header) + datalen) > PAYLOAD_MAX_LEN) {
+		DHD_ERROR(("%s:Payload len=%u exceeds max len\n", __FUNCTION__,
+			((uint)sizeof(*logentry_header) + datalen)));
+		VMFREE(dhdp->osh, logbuf, sizeof(*logentry_header) + datalen);
+		return;
+	}
+
 	msg_hdr.len = sizeof(*logentry_header) + datalen;
 	memcpy(logbuf + sizeof(*logentry_header), data, datalen);
 	dhd_dbg_ring_push(dhdp, FW_VERBOSE_RING_ID, &msg_hdr, logbuf);

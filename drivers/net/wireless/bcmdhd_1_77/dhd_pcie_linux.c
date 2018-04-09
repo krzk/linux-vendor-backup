@@ -24,7 +24,7 @@
  *
  * <<Broadcom-WL-IPTag/Open:>>
  *
- * $Id: dhd_pcie_linux.c 688366 2017-03-06 06:58:55Z $
+ * $Id: dhd_pcie_linux.c 699311 2017-05-12 16:48:13Z $
  */
 
 
@@ -1256,6 +1256,11 @@ int dhdpcie_init(struct pci_dev *pdev)
 			break;
 		}
 #endif /* USE_SMMU_ARCH_MSM */
+
+#ifdef DHD_WAKE_STATUS
+		/* Initialize pcie_lock */
+		spin_lock_init(&dhdpcie_info->pcie_lock);
+#endif /* DHD_WAKE_STATUS */
 
 		/* Find the PCI resources, verify the  */
 		/* vendor and device ID, map BAR regions and irq,  update in structures */
