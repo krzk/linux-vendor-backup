@@ -83,11 +83,11 @@ config BCM43241
 	  Broadcom 43241 chipset.
 
 config BCM43455
-        tristate "Broadcom 43455 wireless cards support"
-        depends on BROADCOM_WIFI
-        ---help---
-          This module adds support for wireless adapters based on
-          Broadcom 43455 chipset.
+	tristate "Broadcom 43455 wireless cards support"
+	depends on BROADCOM_WIFI
+	---help---
+	  This module adds support for wireless adapters based on
+	  Broadcom 43455 chipset.
 	  
 config BCM4334W
 	tristate "Broadcom 4334W wireless cards support"
@@ -97,11 +97,11 @@ config BCM4334W
 	  Broadcom 4334W chipset.
 
 config BCM43454
-        tristate "Broadcom 43454 wireless cards support"
-        depends on BROADCOM_WIFI
-        ---help---
-          This module adds support for wireless adapters based on
-          Broadcom 43454 chipset.
+	tristate "Broadcom 43454 wireless cards support"
+	depends on BROADCOM_WIFI
+	---help---
+	  This module adds support for wireless adapters based on
+	  Broadcom 43454 chipset.
 
 config BCMDHD_FW_PATH
 	depends on BROADCOM_WIFI
@@ -124,10 +124,10 @@ config BROADCOM_WIFI_RESERVED_MEM
 	  This is a configuration for Broadcom WLAN driver.
 
 config WIFI_BROADCOM_COB
-        bool "BROADCOM WIFI COB"
-        depends on (BCM43455 || BCM4343 || BCM43454 || BCM43012)
-        ---help---
-          This is a configuration for Broadcom WIFI COB Type.
+	bool "BROADCOM WIFI COB"
+	depends on (BCM43455 || BCM4343 || BCM43454 || BCM43012)
+	---help---
+	  This is a configuration for Broadcom WIFI COB Type.
 
 config BCM4335BT
 	bool "BROADCOM BTLOCK Enable"
