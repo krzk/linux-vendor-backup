@@ -1493,21 +1493,7 @@ static struct spi_driver fimc_is_spi0_driver = {
 	.probe	= fimc_is_spi_probe,
 	.remove	= fimc_is_spi_remove,
 };
-
 module_spi_driver(fimc_is_spi0_driver);
-
-static struct spi_driver fimc_is_spi1_driver = {
-	.driver = {
-		.name = "fimc_is_spi1",
-		.bus = &spi_bus_type,
-		.owner = THIS_MODULE,
-		.of_match_table = exynos_fimc_is_match,
-	},
-	.probe	= fimc_is_spi_probe,
-	.remove = fimc_is_spi_remove,
-};
-
-module_spi_driver(fimc_is_spi1_driver);
 
 static struct of_device_id fan53555_dt_ids[] = {
         { .compatible = "samsung,fimc_is_fan53555",},
