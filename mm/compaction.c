@@ -16,6 +16,9 @@
 #include <linux/sysfs.h>
 #include <linux/balloon_compaction.h>
 #include <linux/page-isolation.h>
+#ifdef CONFIG_POWERSUSPEND
+#include <linux/powersuspend.h>
+#endif
 #include "internal.h"
 
 #ifdef CONFIG_COMPACTION
@@ -1135,6 +1138,31 @@ unsigned long try_to_compact_pages(struct zonelist *zonelist,
 	return rc;
 }
 
+#ifdef CONFIG_POWERSUSPEND
+static void compact_nodes(void);
+
+static void compact_power_suspend(struct power_suspend *handler)
+{
+	/* No point in being gun shy here since compact_zone()
+	 * will check suitability of compaction run per zone.
+	 * This takes about 150ms for 2GB memory configuration,
+	 * but the benefit is a better memory situation on wakeup.
+	 * The user isn't doing anything useful anyway, and the
+	 * screen is off so there's no perceived user impact.
+         */
+	compact_nodes();
+}
+
+static void compact_power_resume(struct power_suspend *handler)
+{
+	//nothing to do
+}
+
+static struct power_suspend compact_suspend = {
+	.suspend = compact_power_suspend,
+	.resume = compact_power_resume,
+};
+#endif
 
 /* Compact all zones within a node */
 static void __compact_pgdat(pg_data_t *pgdat, struct compact_control *cc)
@@ -1268,4 +1296,12 @@ void compaction_unregister_node(struct node *node)
 }
 #endif /* CONFIG_SYSFS && CONFIG_NUMA */
 
+#ifdef CONFIG_POWERSUSPEND
+static int  __init mem_compaction_init(void)
+{
+	register_power_suspend(&compact_suspend);
+	return 0;
+}
+late_initcall(mem_compaction_init);
+#endif
 #endif /* CONFIG_COMPACTION */
