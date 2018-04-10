@@ -1989,7 +1989,7 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 
 static void decon_fence_wait(struct sync_fence *fence)
 {
-	int err = sync_fence_wait(fence, 900);
+	int err = sync_fence_wait(fence, 3500);
 	if (err >= 0)
 		return;
 
@@ -2004,7 +2004,7 @@ void decon_set_qos(struct decon_device *decon, struct decon_reg_data *regs,
 	u64 req_bandwidth;
 
 	req_bandwidth = regs ? (is_default_qos ? 0 : regs->bandwidth) :
-			(decon->max_win_bw * 3);
+			(decon->max_win_bw * decon->pdata->max_win);
 
 	if (decon->prev_bw == req_bandwidth)
 		return;
