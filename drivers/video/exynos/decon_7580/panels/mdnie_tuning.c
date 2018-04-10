@@ -163,6 +163,8 @@ static int mdnie_request_firmware(char *path, char *name, unsigned int **buf)
 		ptr = (name) ? strstr(ptr, name) : ptr;
 		while ((token = strsep(&ptr, "\n")) != NULL) {
 			ret = sscanf(token, "%i, %i", &data[0], &data[1]);
+			if (ret < 0)
+				goto exit;
 			pr_info("sscanf: %2d, strlen: %2d, %s\n", ret, (int)strlen(token), token);
 			if (!ret && strlen(token) <= 1) {
 				dp[count] = 0xffff;
@@ -181,6 +183,7 @@ static int mdnie_request_firmware(char *path, char *name, unsigned int **buf)
 	for (i = 0; i < count; i++)
 		pr_info("[%4d] %04x\n", i, dp[i]);
 
+exit:
 	kfree(ptr);
 
 	return count;

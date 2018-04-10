@@ -12,6 +12,8 @@ static struct mdnie_scr_info scr_info = {
 	.wb = 85		/* ASCR_WIDE_WB[7:0] */
 };
 
+static struct mdnie_trans_info trans_info;
+
 static inline int color_offset_f1(int x, int y)
 {
 	return ((y << 10) - (((x << 10) * 43) / 40) + (45 << 10)) >> 10;
@@ -3214,6 +3216,106 @@ static unsigned char COLOR_BLIND_2[] = {
 	0x0e, //ascr algo 1010
 };
 
+static unsigned char LIGHT_NOTIFICATION_1[] = {
+	0xDE,
+	0x00, //de cs gamma 000
+	0x00, //de_gain 10
+	0x00,
+	0x07, //de_maxplus 11
+	0xff,
+	0x07, //de_maxminus 11
+	0xff,
+	0x01, //cs_gain 10
+	0x00,
+	0x00, //curve_0
+	0x10, //curve_1
+	0x20, //curve_2
+	0x30, //curve_3
+	0x40, //curve_4
+	0x50, //curve_5
+	0x60, //curve_6
+	0x70, //curve_7
+	0x80, //curve_8
+	0x90, //curve_9
+	0xa0, //curve_10
+	0xb0, //curve_11
+	0xc0, //curve_12
+	0xd0, //curve_13
+	0xe0, //curve_14
+	0xf0, //curve_15
+	0x01, //curve_16
+	0x00,
+	0x00, //curve_offset
+	0x00,
+	0x00, //curve_low_x
+	0x00, //curve_low_y
+	0x00, //linear_on ascr_skin_on strength 0 0 00000
+	0x67, //ascr_skin_cb
+	0xa9, //ascr_skin_cr
+	0x0c, //ascr_dist_up
+	0x0c, //ascr_dist_down
+	0x0c, //ascr_dist_right
+	0x0c, //ascr_dist_left
+	0x00, //ascr_div_up 20
+	0xaa,
+	0xab,
+	0x00, //ascr_div_down
+	0xaa,
+	0xab,
+	0x00, //ascr_div_right
+	0xaa,
+	0xab,
+	0x00, //ascr_div_left
+	0xaa,
+	0xab,
+	0xff, //ascr_skin_Rr
+	0x00, //ascr_skin_Rg
+	0x00, //ascr_skin_Rb
+	0xff, //ascr_skin_Yr
+	0xff, //ascr_skin_Yg
+	0x00, //ascr_skin_Yb
+	0xff, //ascr_skin_Mr
+	0x00, //ascr_skin_Mg
+	0xff, //ascr_skin_Mb
+	0xff, //ascr_skin_Wr
+	0xff, //ascr_skin_Wg
+	0xff, //ascr_skin_Wb
+	0x66, //ascr_Cr
+	0xff, //ascr_Rr
+	0xf9, //ascr_Cg
+	0x60, //ascr_Rg
+	0xac, //ascr_Cb
+	0x13, //ascr_Rb
+	0xff, //ascr_Mr
+	0x66, //ascr_Gr
+	0x60, //ascr_Mg
+	0xf9, //ascr_Gg
+	0xac, //ascr_Mb
+	0x13, //ascr_Gb
+	0xff, //ascr_Yr
+	0x66, //ascr_Br
+	0xf9, //ascr_Yg
+	0x60, //ascr_Bg
+	0x13, //ascr_Yb
+	0xac, //ascr_Bb
+	0xff, //ascr_Wr
+	0x66, //ascr_Kr
+	0xf9, //ascr_Wg
+	0x60, //ascr_Kg
+	0xac, //ascr_Wb
+	0x13, //ascr_Kb
+	0x00, //trans_on
+	0x00, //trans_slope 0000
+	0x00, //trans_interval
+};
+
+static unsigned char LIGHT_NOTIFICATION_2[] = {
+	0xDD,
+	0x01, //mdnie_en
+	0x00, //mask 000
+	0x0e, //ascr algo 1010
+};
+
 ////////////////// BROWSER /////////////////////
 static unsigned char STANDARD_BROWSER_1[] = {
 	0xDE,
@@ -4944,6 +5046,10 @@ static struct mdnie_table bypass_table[BYPASS_MAX] = {
 	[BYPASS_ON] = MDNIE_SET(BYPASS)
 };
 
+struct mdnie_table light_notification_table[LIGHT_NOTIFICATION_MAX] = {
+	[LIGHT_NOTIFICATION_ON] = MDNIE_SET(LIGHT_NOTIFICATION)
+};
+
 static struct mdnie_table accessibility_table[ACCESSIBILITY_MAX] = {
 	[NEGATIVE] = MDNIE_SET(NEGATIVE),
 	MDNIE_SET(COLOR_BLIND),
@@ -5032,6 +5138,7 @@ static struct mdnie_table main_table[SCENARIO_MAX][MODE_MAX] = {
 static struct mdnie_tune tune_info = {
 	.bypass_table = bypass_table,
 	.accessibility_table = accessibility_table,
+	.light_notification_table = light_notification_table,
 	.hbm_table = hbm_table,
 	.dmb_table = dmb_table,
 	.main_table = main_table,
@@ -5040,6 +5147,7 @@ static struct mdnie_tune tune_info = {
 	.adjust_ldu_table = adjust_ldu_data,
 	.scr_info = &scr_info,
 	.get_hbm_index = get_hbm_index,
+	.trans_info = &trans_info,
 	.color_offset = {NULL, color_offset_f1, color_offset_f2, color_offset_f3, color_offset_f4}
 };
 

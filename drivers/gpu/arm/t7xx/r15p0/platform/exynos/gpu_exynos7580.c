@@ -131,6 +131,14 @@ static gpu_attribute gpu_config_attributes[] = {
 	{GPU_TRACE_LEVEL, TRACE_ALL},
 };
 
+extern void preload_balance_init(struct kbase_device *kbdev);
+int gpu_device_specific_init(struct kbase_device *kbdev)
+{
+	preload_balance_init(kbdev);
+
+	return 1;
+}
+
 #define G3D_CORE_MASK_EFUSE_OFFSET	0x1DC
 #define G3D_CORE_MASK_EFUSE_OFFSET2	0x1D4
 #define G3D_CORE_MASK_EFUSE_OFFSET3	0x16C
