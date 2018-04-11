@@ -193,9 +193,6 @@ struct decon_dma_buf_data {
 	struct dma_buf_attachment	*attachment;
 	struct sg_table			*sg_table;
 	dma_addr_t			dma_addr;
-#ifdef CONFIG_SYNC
-	struct sync_fence		*fence;
-#endif
 #ifdef CONFIG_DRM_DMA_SYNC
 	struct fence		*fence;
 #endif
@@ -646,10 +643,6 @@ struct decon_device {
 	atomic_t			lpd_block_cnt;
 
 	struct ion_client		*ion_client;
-#ifdef CONFIG_SYNC
-	struct sw_sync_timeline		*timeline;
-	int				timeline_max;
-#endif
 #ifdef CONFIG_DRM_DMA_SYNC
 	struct notifier_block		nb_ctrl;
 	void		*fence_dev;
@@ -854,11 +847,7 @@ static inline bool decon_lpd_enter_cond(struct decon_device *decon)
 
 static inline bool is_any_pending_frames(struct decon_device *decon)
 {
-#ifdef CONFIG_SYNC
-	return ((decon->timeline_max - decon->timeline->value) > 1);
-#else
 	return false;
-#endif
 }
 
 /* IOCTL commands */

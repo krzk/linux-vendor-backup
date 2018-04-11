@@ -40,7 +40,6 @@
 #include "dsim.h"
 #include "decon_helper.h"
 #include "./panels/lcd_ctrl.h"
-#include "../../../../staging/android/sw_sync.h"
 #ifdef CONFIG_DRM_DMA_SYNC
 #include <linux/fdtable.h>
 #include "tdm.h"
@@ -1322,9 +1321,6 @@ static unsigned int decon_map_ion_handle(struct decon_device *decon,
 		struct device *dev, struct decon_dma_buf_data *dma,
 		struct ion_handle *ion_handle, struct dma_buf *buf, int win_no)
 {
-#ifdef CONFIG_SYNC
-	dma->fence = NULL;
-#endif
 	dma->dma_buf = buf;
 
 	dma->attachment = dma_buf_attach(dma->dma_buf, dev);
@@ -1371,10 +1367,6 @@ static void decon_free_dma_buf(struct decon_device *decon,
 {
 	if (!dma->dma_addr)
 		return;
-#ifdef CONFIG_SYNC
-	if (dma->fence)
-		sync_fence_put(dma->fence);
-#endif
 	ion_iovmm_unmap(dma->attachment, dma->dma_addr);
 
 	dma_buf_unmap_attachment(dma->attachment, dma->sg_table,
@@ -1672,18 +1664,7 @@ static int decon_set_win_buffer(struct decon_device *decon, struct decon_win *wi
 		handle = NULL;
 		buf[i] = NULL;
 	}
-#ifdef CONFIG_SYNC
-	if (win_config->fence_fd >= 0) {
-		dma_buf_data[0].fence = sync_fence_fdget(win_config->fence_fd);
-		if (!dma_buf_data[0].fence) {
-			decon_err("failed to import fence fd\n");
-			ret = -EINVAL;
-			goto err_offset;
-		}
-		decon_dbg("%s(%d): fence_fd(%d), fence(%lx)\n", __func__, __LINE__,
-				win_config->fence_fd, (ulong)dma_buf_data[0].fence);
-	}
-#endif
+
 	if (format <= DECON_PIXEL_FORMAT_RGB_565) {
 		window_size = win_config->dst.w * win_config->dst.h *
 			win->fbinfo->var.bits_per_pixel / 8;
@@ -2012,20 +1993,6 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 #endif
 }
 
-
-#ifdef CONFIG_SYNC
-static void decon_fence_wait(struct sync_fence *fence)
-{
-	/* change the fence time-out for G3D performance */
-	int err = sync_fence_wait(fence, 3500);
-	if (err >= 0)
-		return;
-
-	if (err < 0)
-		decon_warn("error waiting on acquire fence: %d\n", err);
-}
-#endif
-
 #ifdef CONFIG_DECON_DEVFREQ
 void decon_set_qos(struct decon_device *decon, struct decon_reg_data *regs,
 			bool is_after, bool is_default_qos)
@@ -2135,11 +2102,6 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 		for (j = 0; j < MAX_BUF_PLANE_CNT; ++j)
 			old_dma_bufs[i][j] = decon->windows[i]->dma_buf_data[j];
 
-#ifdef CONFIG_SYNC
-		if (regs->dma_buf_data[i][0].fence) {
-			decon_fence_wait(regs->dma_buf_data[i][0].fence);
-		}
-#endif
 #ifdef CONFIG_DRM_DMA_SYNC
 		if (regs->dma_buf_data[i][0].dma_buf) {
 			regs->dma_buf_data[i][0].fence = tdm_fence(decon->fence_dev,
@@ -2207,10 +2169,6 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 		for (j = 0; j < MAX_BUF_PLANE_CNT; ++j)
 			decon_free_dma_buf(decon, &old_dma_bufs[i][j]);
 	}
-
-#ifdef CONFIG_SYNC
-	sw_sync_timeline_inc(decon->timeline, 1);
-#endif
 
 #ifdef CONFIG_DRM_DMA_SYNC
 	{
@@ -2324,33 +2282,13 @@ static int decon_set_win_config(struct decon_device *decon,
 	int ret = 0;
 	unsigned short i, j;
 	struct decon_reg_data *regs;
-#ifdef CONFIG_SYNC
-	struct sync_fence *fence;
-	struct sync_pt *pt;
-	int fd;
-#endif
 	int plane_cnt = 0;
 	unsigned int bw = 0;
 	bool flush = false;
 
-#ifdef CONFIG_SYNC
-	fd = get_unused_fd();
-	if (fd < 0)
-		return fd;
-#endif
-
 	mutex_lock(&decon->output_lock);
 
 	if (decon->state == DECON_STATE_OFF) {
-#ifdef CONFIG_SYNC
-		decon->timeline_max++;
-		pt = sw_sync_pt_create(decon->timeline, decon->timeline_max);
-		fence = sync_fence_create("display", pt);
-		sync_fence_install(fence, fd);
-		win_data->fence = fd;
-
-		sw_sync_timeline_inc(decon->timeline, 1);
-#endif
 		decon_err("%s:off state\n", __func__);
 		goto err;
 	}
@@ -2500,30 +2438,10 @@ static int decon_set_win_config(struct decon_device *decon,
 			for (j = 0; j < plane_cnt; ++j)
 				decon_free_dma_buf(decon, &regs->dma_buf_data[i][j]);
 		}
-#ifdef CONFIG_SYNC
-		put_unused_fd(fd);
-#endif
 		kfree(regs);
 	} else if (decon->out_type == DECON_OUT_DSI) {
 		decon_lpd_block(decon);
 		mutex_lock(&decon->update_regs_list_lock);
-#ifdef CONFIG_SYNC
-		decon->timeline_max++;
-		if (regs->num_of_window) {
-			pt = sw_sync_pt_create(decon->timeline, decon->timeline_max);
-			fence = sync_fence_create("display", pt);
-			sync_fence_install(fence, fd);
-			win_data->fence = fd;
-		} else {
-			/* return fence fd as -1, in case of no buffers to display
-			 * in the current winconfig
-			 */
-			win_data->fence = -1;
-
-			/* put the acquired free fd */
-			put_unused_fd(fd);
-		}
-#endif
 
 		list_add_tail(&regs->list, &decon->update_regs_list);
 		mutex_unlock(&decon->update_regs_list_lock);
@@ -2689,15 +2607,6 @@ static int decon_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = decon_set_win_config(decon, &decon->ioctl_data.win_data);
 		if (ret)
 			break;
-
-#ifdef CONFIG_SYNC
-		if (copy_to_user(&((struct decon_win_config_data __user *)arg)->fence,
-				 &decon->ioctl_data.win_data.fence,
-				 sizeof(decon->ioctl_data.win_data.fence))) {
-			ret = -EFAULT;
-			break;
-		}
-#endif
 		break;
 
 	case S3CFB_METADATA_SET: {
@@ -3144,10 +3053,6 @@ static int decon_fb_alloc_memory(struct decon_device *decon, struct decon_win *w
 
 	fbi->screen_base = vaddr;
 
-#ifdef CONFIG_SYNC
-	win->dma_buf_data[1].fence = NULL;
-	win->dma_buf_data[2].fence = NULL;
-#endif
 	ret = decon_map_ion_handle(decon, decon->dev, &win->dma_buf_data[0],
 			handle, buf, win->index);
 	if (!ret)
@@ -3766,10 +3671,6 @@ static int decon_probe(struct platform_device *pdev)
 	mutex_init(&decon->vsync_info.irq_lock);
 
 	snprintf(device_name, MAX_NAME_SIZE, "decon%d", DECON_INT);
-#ifdef CONFIG_SYNC
-	decon->timeline = sw_sync_timeline_create(device_name);
-	decon->timeline_max = 1;
-#endif
 
 	/* Get IRQ resource and register IRQ, create thread */
 	ret = decon_int_register_irq(pdev, decon);
