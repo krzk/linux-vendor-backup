@@ -23,9 +23,6 @@ enum SCENARIO {
 	BROWSER_MODE,
 	EBOOK_MODE,
 	EMAIL_MODE,
-	GAME_LOW_MODE,
-	GAME_MID_MODE,
-	GAME_HIGH_MODE,
 	HMT_8_MODE,
 	HMT_16_MODE,
 	SCENARIO_MAX,
@@ -37,12 +34,6 @@ enum BYPASS {
 	BYPASS_OFF,
 	BYPASS_ON,
 	BYPASS_MAX
-};
-
-enum LIGHT_NOTIFICATION {
-	LIGHT_NOTIFICATION_OFF,
-	LIGHT_NOTIFICATION_ON,
-	LIGHT_NOTIFICATION_MAX
 };
 
 enum ACCESSIBILITY {
@@ -80,12 +71,6 @@ enum hmt_mode {
 	HMT_MDNIE_MAX
 };
 
-enum NIGHT_MODE {
-	NIGHT_MODE_OFF,
-	NIGHT_MODE_ON,
-	NIGHT_MODE_MAX
-};
-
 struct mdnie_seq_info {
 	mdnie_t *cmd;
 	unsigned int len;
@@ -94,8 +79,8 @@ struct mdnie_seq_info {
 
 struct mdnie_table {
 	char *name;
-	unsigned int update_flag[8];
-	struct mdnie_seq_info seq[8 + 1];
+	unsigned int update_flag[4];
+	struct mdnie_seq_info seq[4 + 1];
 };
 
 struct mdnie_scr_info {
@@ -106,33 +91,17 @@ struct mdnie_scr_info {
 	u32 wb;
 };
 
-struct mdnie_trans_info {
-	u32 index;
-	u32 offset;
-	u32 enable;
-};
-
-struct mdnie_night_info {
-	u32 max_w;
-	u32 max_h;
-};
-
 struct mdnie_tune {
 	struct mdnie_table	*bypass_table;
-	struct mdnie_table	*light_notification_table;
 	struct mdnie_table	*accessibility_table;
 	struct mdnie_table	*hbm_table;
 	struct mdnie_table	*hmt_table;
 	struct mdnie_table	(*main_table)[MODE_MAX];
 	struct mdnie_table	*dmb_table;
-	struct mdnie_table	*night_table;
 
 	struct mdnie_scr_info	*scr_info;
-	struct mdnie_trans_info	*trans_info;
-	struct mdnie_night_info	*night_info;
 	unsigned char **coordinate_table;
 	unsigned char **adjust_ldu_table;
-	unsigned char *night_mode_table;
 	int (*get_hbm_index)(int);
 	int (*color_offset[])(int, int);
 };
@@ -166,8 +135,6 @@ struct mdnie_info {
 	enum BYPASS		bypass;
 	enum HBM		hbm;
 	enum hmt_mode		hmt_mode;
-	enum NIGHT_MODE	night_mode;
-	enum LIGHT_NOTIFICATION		light_notification;
 
 	unsigned int		tuning;
 	unsigned int		accessibility;
@@ -181,18 +148,8 @@ struct mdnie_info {
 	struct mdnie_ops	ops;
 
 	struct notifier_block	fb_notif;
-#ifdef CONFIG_DISPLAY_USE_INFO
-	struct notifier_block	dpui_notif;
-#endif
 
 	struct rgb_info		wrgb_current;
-	struct rgb_info		wrgb_default;
-	struct rgb_info		wrgb_balance;
-	struct rgb_info		wrgb_ldu;
-
-	unsigned int disable_trans_dimming;
-	unsigned int night_mode_level;
-	unsigned int ldu;
 
 	struct mdnie_table table_buffer;
 	mdnie_t sequence_buffer[256];
