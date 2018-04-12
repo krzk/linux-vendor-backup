@@ -36,7 +36,6 @@ int fimc_is_spi_reset_by_core(struct spi_device *spi, void *buf, u32 rx_addr, si
 
 	t_c.tx_buf = req_rst;
 	t_c.len = 1;
-	t_c.cs_change = 0;
 
 	spi_message_init(&m);
 	spi_message_add_tail(&t_c, &m);
@@ -70,12 +69,10 @@ int fimc_is_spi_read_by_core(struct spi_device *spi, void *buf, u32 rx_addr, siz
 
 	t_c.tx_buf = req_data;
 	t_c.len = 4;
-	t_c.cs_change = 1;
 	t_c.bits_per_word = 32;
 
 	t_r.rx_buf = buf;
 	t_r.len = size;
-	t_r.cs_change = 0;
 	t_r.bits_per_word = 32;
 
 	spi_message_init(&m);
@@ -111,7 +108,6 @@ int fimc_is_spi_read_module_id(struct spi_device *spi, void *buf, u16 rx_addr, s
 
 	t_c.tx_buf = req_data;
 	t_c.len = 4;
-	t_c.cs_change = 1;
 	t_c.bits_per_word = 32;
 
 	t_r.rx_buf = buf;

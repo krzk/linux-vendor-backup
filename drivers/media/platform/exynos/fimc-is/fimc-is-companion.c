@@ -69,7 +69,6 @@ static int fimc_is_comp_spi_read(struct spi_device *spi,
 
 	t_c.tx_buf = req_data;
 	t_c.len = 4;
-	t_c.cs_change = 1;
 	t_c.bits_per_word = 32;
 
 	t_r.rx_buf = buf;
