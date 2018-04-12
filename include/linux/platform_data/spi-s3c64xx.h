@@ -32,6 +32,7 @@ struct s3c64xx_spi_csinfo {
 /**
  * struct s3c64xx_spi_info - SPI Controller defining structure
  * @src_clk_nr: Clock source index for the CLK_CFG[SPI_CLKSEL] field.
+ * @byte_swap: Enable RX/TX data byte swapping in H/W
  * @num_cs: Number of CS this controller emulates.
  * @cfg_gpio: Configure pins for this SPI controller.
  */
@@ -39,6 +40,7 @@ struct s3c64xx_spi_info {
 	int src_clk_nr;
 	int num_cs;
 	bool no_cs;
+	bool byte_swap;
 	int (*cfg_gpio)(void);
 };
 
