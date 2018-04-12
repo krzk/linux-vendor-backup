@@ -51,18 +51,13 @@ static u32 concord_fw_size;
 char companion_crc[10];
 
 static int fimc_is_comp_spi_read(struct spi_device *spi,
-		void *buf, u16 rx_addr, size_t size)
+				 void *buf, u16 rx_addr, size_t size)
 {
-	unsigned char req_data[4] = { 0x03,  };
-	int ret;
-
-	struct spi_transfer t_c;
-	struct spi_transfer t_r;
-
+	unsigned char req_data[4] = { 0x03 };
+	struct spi_transfer t_c = { 0 };
+	struct spi_transfer t_r = { 0 };
 	struct spi_message m;
-
-	memset(&t_c, 0x00, sizeof(t_c));
-	memset(&t_r, 0x00, sizeof(t_r));
+	int ret;
 
 	req_data[1] = (rx_addr & 0xFF00) >> 8;
 	req_data[2] = (rx_addr & 0xFF);
@@ -79,11 +74,10 @@ static int fimc_is_comp_spi_read(struct spi_device *spi,
 	spi_message_add_tail(&t_r, &m);
 
 	ret = spi_sync(spi, &m);
-	if (ret) {
+	if (ret)
 		err("spi sync error - can't read data");
-		return -EIO;
-	} else
-		return 0;
+
+	return ret;
 }
 
 static int fimc_is_comp_spi_single_write(struct spi_device *spi, u16 addr, u16 data)
@@ -137,7 +131,7 @@ static int fimc_is_comp_spi_burst_write(struct spi_device *spi,
 		ret = spi_write(spi, &tx_buf[0], j + 3);
 		if (ret) {
 			err("spi write error - can't write data");
-			goto p_err;
+			return ret;
 		}
 	}
 
@@ -159,8 +153,6 @@ static int fimc_is_comp_spi_burst_write(struct spi_device *spi,
 	if (ret)
 		err("spi write error - can't write data");
 
-
-p_err:
 	return ret;
 }
 

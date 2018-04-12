@@ -315,13 +315,13 @@ extern int fimc_is_spi_read_module_id(struct spi_device *spi, void *buf, u16 rx_
 
 int fimc_is_sec_read_from_header(struct device *dev)
 {
-	int ret = 0;
 	struct fimc_is_core *core = dev_get_drvdata(dev);
-	u8 header_version[12] = {0, };
+	u8 header_version[12] = { 0 };
+	int ret = 0;
 
 	ret = fimc_is_spi_read_by_core(core->spi0, header_version, 0x40, 0x0B);
 	if (ret < 0) {
-		printk(KERN_ERR "failed to fimc_is_spi_read for header version (%d)\n", ret);
+		printk(KERN_ERR "failed to read FROM header version: %d\n", ret);
 		ret = -EINVAL;
 	}
 
@@ -1075,14 +1075,15 @@ exit:
 	if (core->use_module_check) {
 		if (sysfs_finfo.header_ver[3] != 'L') {
 			pr_err("Not supported module. Module ver = %s", sysfs_finfo.header_ver);
-			return  -EIO;
+			return -EIO;
 		}
 	}
 
 	return ret;
 }
 
-void fimc_is_set_spi_config(struct fimc_is_spi_gpio *spi_gpio, int func, bool ssn) {
+void fimc_is_set_spi_config(struct fimc_is_spi_gpio *spi_gpio, int func, bool ssn)
+{
 #if 0
 	pin_config_set(FIMC_IS_SPI_PINNAME, spi_gpio->spi_sclk,
 			PINCFG_PACK(PINCFG_TYPE_FUNC, func));

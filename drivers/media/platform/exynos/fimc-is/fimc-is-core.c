@@ -1344,8 +1344,8 @@ static int of_fimc_is_spi_dt(struct device *dev, struct fimc_is_spi_gpio *spi_gp
 
 static int fimc_is_spi_probe(struct spi_device *spi)
 {
-	int ret = 0;
 	struct fimc_is_core *core;
+	int ret = 0;
 
 	BUG_ON(!fimc_is_dev);
 
@@ -1361,8 +1361,7 @@ static int fimc_is_spi_probe(struct spi_device *spi)
 	/* spi->bits_per_word = 16; */
 	if (spi_setup(spi)) {
 		pr_err("failed to setup spi for fimc_is_spi\n");
-		ret = -EINVAL;
-		goto exit;
+		return -EINVAL;
 	}
 
 	if (!strncmp(spi->modalias, "fimc_is_spi0", 12))
@@ -1371,13 +1370,10 @@ static int fimc_is_spi_probe(struct spi_device *spi)
 	if (!strncmp(spi->modalias, "fimc_is_spi1", 12)) {
 		core->spi1 = spi;
 		ret = of_fimc_is_spi_dt(&spi->dev,&core->spi_gpio, core);
-		if (ret) {
+		if (ret)
 			pr_err("[%s] of_fimc_is_spi_dt parse dt failed\n", __func__);
-			return ret;
-		}
 	}
 
-exit:
 	return ret;
 }
 

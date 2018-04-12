@@ -24,15 +24,9 @@
 int fimc_is_spi_reset_by_core(struct spi_device *spi, void *buf, u32 rx_addr, size_t size)
 {
 	unsigned char req_rst[1] = { 0x99 };
-	int ret;
-
-	struct spi_transfer t_c;
-	struct spi_transfer t_r;
-
+	struct spi_transfer t_c = { 0 };
 	struct spi_message m;
-
-	memset(&t_c, 0x00, sizeof(t_c));
-	memset(&t_r, 0x00, sizeof(t_r));
+	int ret;
 
 	t_c.tx_buf = req_rst;
 	t_c.len = 1;
@@ -41,31 +35,24 @@ int fimc_is_spi_reset_by_core(struct spi_device *spi, void *buf, u32 rx_addr, si
 	spi_message_add_tail(&t_c, &m);
 
 	ret = spi_sync(spi, &m);
-	if (ret) {
+	if (ret)
 		err("spi sync error - can't get device information");
-		return -EIO;
-	}
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(fimc_is_spi_reset_by_core);
 
 int fimc_is_spi_read_by_core(struct spi_device *spi, void *buf, u32 rx_addr, size_t size)
 {
-	unsigned char req_data[4] = { 0x03,  };
+	unsigned char req_data[4] = { 0x03 };
+	struct spi_transfer t_c = { 0 };
+	struct spi_transfer t_r = { 0 };
+	struct spi_message m;
 	int ret;
 
-	struct spi_transfer t_c;
-	struct spi_transfer t_r;
-
-	struct spi_message m;
-
-	memset(&t_c, 0x00, sizeof(t_c));
-	memset(&t_r, 0x00, sizeof(t_r));
-
-	req_data[1] = (rx_addr & 0xFF0000) >> 16;
-	req_data[2] = (rx_addr & 0xFF00) >> 8;
-	req_data[3] = (rx_addr & 0xFF);
+	req_data[1] = (rx_addr & 0xff0000) >> 16;
+	req_data[2] = (rx_addr & 0xff00) >> 8;
+	req_data[3] = (rx_addr & 0xff);
 
 	t_c.tx_buf = req_data;
 	t_c.len = 4;
@@ -80,28 +67,22 @@ int fimc_is_spi_read_by_core(struct spi_device *spi, void *buf, u32 rx_addr, siz
 	spi_message_add_tail(&t_r, &m);
 
 	spi->max_speed_hz = 48000000;
+
 	ret = spi_sync(spi, &m);
-	if (ret) {
+	if (ret)
 		err("spi sync error - can't read data");
-		return -EIO;
-	} else {
-		return 0;
-	}
+
+	return ret;
 }
 EXPORT_SYMBOL(fimc_is_spi_read_by_core);
 
 int fimc_is_spi_read_module_id(struct spi_device *spi, void *buf, u16 rx_addr, size_t size)
 {
 	unsigned char req_data[4] = { 0x90,  };
+	struct spi_transfer t_c = { 0 };
+	struct spi_transfer t_r = { 0 };
 	int ret;
-
-	struct spi_transfer t_c;
-	struct spi_transfer t_r;
-
 	struct spi_message m;
-
-	memset(&t_c, 0x00, sizeof(t_c));
-	memset(&t_r, 0x00, sizeof(t_r));
 
 	req_data[1] = (rx_addr & 0xFF00) >> 8;
 	req_data[2] = (rx_addr & 0xFF);
@@ -114,16 +95,15 @@ int fimc_is_spi_read_module_id(struct spi_device *spi, void *buf, u16 rx_addr, s
 	t_r.len = size;
 
 	spi_message_init(&m);
+
 	spi_message_add_tail(&t_c, &m);
 	spi_message_add_tail(&t_r, &m);
 
 	spi->max_speed_hz = 48000000;
 	ret = spi_sync(spi, &m);
-	if (ret) {
+	if (ret)
 		err("spi sync error - can't read data");
-		return -EIO;
-	} else {
-		return 0;
-	}
+
+	return ret;
 }
 EXPORT_SYMBOL(fimc_is_spi_read_module_id);
