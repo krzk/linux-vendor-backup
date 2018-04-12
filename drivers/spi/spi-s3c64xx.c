@@ -29,9 +29,10 @@
 
 #include <linux/platform_data/spi-s3c64xx.h>
 
-#define MAX_SPI_PORTS		6
+#define MAX_SPI_PORTS			7
 #define S3C64XX_SPI_QUIRK_POLL		(1 << 0)
 #define S3C64XX_SPI_QUIRK_CS_AUTO	(1 << 1)
+#define S3C64XX_SPI_QUIRK_SW_RESET	(1 << 2)
 #define AUTOSUSPEND_TIMEOUT	2000
 
 /* Registers and bit-fields */
@@ -1363,6 +1364,19 @@ static int s3c64xx_spi_runtime_resume(struct device *dev)
 	ret = clk_prepare_enable(sdd->clk);
 	if (ret != 0)
 		goto err_disable_src_clk;
+	/*
+	 *  A workaround to prevent issues in the H/W handover between this
+	 *  driver and the FIMC-IS firmware.
+	 */
+	if (sdd->port_conf->quirks & S3C64XX_SPI_QUIRK_SW_RESET) {
+		u32 val = readl(sdd->regs + S3C64XX_SPI_CH_CFG);
+
+		val |= S3C64XX_SPI_CH_SW_RST;
+		writel(val, sdd->regs + S3C64XX_SPI_CH_CFG);
+
+		val &= ~S3C64XX_SPI_CH_SW_RST;
+		writel(val, sdd->regs + S3C64XX_SPI_CH_CFG);
+	}
 
 	s3c64xx_spi_hwinit(sdd);
 
@@ -1439,6 +1453,14 @@ static struct s3c64xx_spi_port_config exynos5433_spi_port_config = {
 	.quirks		= S3C64XX_SPI_QUIRK_CS_AUTO,
 };
 
+static struct s3c64xx_spi_port_config exynos5433_isp_spi_port_config = {
+	.fifo_lvl_mask	= { 0x1ff, 0x7f, 0x7f, 0x7f, 0x7f, 0x1ff, 0x1ff },
+	.rx_lvl_offset	= 15,
+	.tx_st_done	= 25,
+	.high_speed	= true,
+	.clk_from_cmu	= true,
+	.quirks		= S3C64XX_SPI_QUIRK_POLL | S3C64XX_SPI_QUIRK_SW_RESET,
+};
 static const struct platform_device_id s3c64xx_spi_driver_ids[] = {
 	{
 		.name		= "s3c2443-spi",
@@ -1471,6 +1493,9 @@ static const struct of_device_id s3c64xx_spi_dt_match[] = {
 	},
 	{ .compatible = "samsung,exynos5433-spi",
 			.data = (void *)&exynos5433_spi_port_config,
+	},
+	{ .compatible = "samsung,exynos5433-isp-spi",
+			.data = (void *)&exynos5433_isp_spi_port_config,
 	},
 	{ },
 };
