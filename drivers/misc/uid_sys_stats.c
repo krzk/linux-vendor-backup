@@ -123,7 +123,11 @@ static int uid_cputime_show(struct seq_file *m, void *v)
 				task_uid(task)));
 			return -ENOMEM;
 		}
-
+		/* if this task is exiting, we have already accounted for the
+		 * time and power.
+		 */
+		if (task->cpu_power == ULLONG_MAX)
+			continue;
 		task_cputime_adjusted(task, &utime, &stime);
 		uid_entry->active_utime += utime;
 		uid_entry->active_stime += stime;
