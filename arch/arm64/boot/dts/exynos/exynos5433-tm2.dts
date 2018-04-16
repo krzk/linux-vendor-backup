@@ -18,6 +18,12 @@
 	compatible = "samsung,tm2", "samsung,exynos5433";
 };
 
+&serial_3 {
+	assigned-clocks = <&cmu_aud CLK_MOUT_AUD_PLL_USER>;
+	assigned-clock-parents = <&cmu_top CLK_FOUT_AUD_PLL>;
+	status = "okay";
+};
+
 &cmu_disp {
 	/*
 	 * TM2 and TM2e differ only by DISP_PLL rate, but define all assigned
