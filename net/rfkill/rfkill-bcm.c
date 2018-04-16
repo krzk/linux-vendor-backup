@@ -66,6 +66,7 @@ static enum hrtimer_restart bt_lpm_sleep(struct hrtimer *htimer)
 	return HRTIMER_NORESTART;
 }
 
+#if 0
 static void bt_lpm_wake(struct rfkill_bcm_data *rfkill)
 {
 	struct hrtimer *htimer = &rfkill->timer.htimer;
@@ -76,6 +77,7 @@ static void bt_lpm_wake(struct rfkill_bcm_data *rfkill)
 		gpiod_set_value(rfkill->wake_gpio, 1);
 	hrtimer_start(htimer, rfkill->timer.sleep_delay, HRTIMER_MODE_REL);
 }
+#endif
 
 static int bt_lpm_init(struct rfkill_bcm_data *rfkill)
 {
