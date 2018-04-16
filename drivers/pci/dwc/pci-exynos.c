@@ -521,7 +521,7 @@ static const struct dw_pcie_ops dw_pcie_ops = {
 	.link_up = exynos_pcie_link_up,
 };
 
-static int __init exynos_pcie_probe(struct platform_device *pdev)
+static int exynos_pcie_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct dw_pcie *pci;
