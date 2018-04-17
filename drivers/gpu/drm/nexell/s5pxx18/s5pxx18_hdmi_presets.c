@@ -1225,7 +1225,7 @@ int hdmi_get_closest_timing(int pixelclock, u32 *htotal,
 		return -EINVAL;
 	}
 
-	for (i = 0; i <= num_dynamic_clock_tries; i++) {
+	for (i = 0; i < num_dynamic_clock_tries; i++) {
 		if (hdmi_vic_conf[i].pixelclock >= pixelclock) {
 			memcpy(hdmiphy_dynamic_preset,
 					hdmi_vic_conf[i].hdmiphy_preset, 32);
