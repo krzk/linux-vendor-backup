@@ -39,23 +39,27 @@
 #define L2CONFIG_MO_1BY2			(0b1111)
 #define L2CONFIG_MO_NO_RESTRICT			(0)
 
+#ifdef CONFIG_MALI_DVFS
 #define CPU_MAX PM_QOS_CLUSTER1_FREQ_MAX_DEFAULT_VALUE
+#else
+#define CPU_MAX -1
+#endif
 
 /*  clk,vol,abb,min,max,down stay, pm_qos mem,
 	pm_qos int, pm_qos cpu_kfc_min, pm_qos cpu_egl_max */
 static gpu_dvfs_info gpu_dvfs_table_default[] = {
-	{800, 1100000, 0,  85, 100, 1, 0, 825000, 400000,  1200000, 1600000},
-	{734, 1000000, 0,  75,  90, 1, 0, 825000, 400000,  1000000, 1600000},
-	{668, 100000, 0,  60,  85, 1, 0, 825000, 400000,   800000, 1600000},
-	{534, 950000, 0,  55,  85, 1, 0, 728000, 334000,   500000, 1600000},
-	{440, 900000, 0,  50,  85, 1, 0, 667000, 267000,   500000, 1600000},
-	{350, 800000, 0,  45,  85, 1, 0, 559000, 267000,   500000, 1600000},
-	{266,  800000, 0,  40,  85, 1, 0, 416000, 200000,   	 0, 1600000},
-	{160,  800000, 0,  35,  80, 1, 0, 416000, 200000,   	 0, 1600000},
+	{800, 1100000, 0,  85, 100, 1, 0, 825000, 400000,  1200000, CPU_MAX},
+	{734, 1000000, 0,  75,  90, 1, 0, 825000, 400000,  1000000, CPU_MAX},
+	{668, 100000, 0,  60,  85, 1, 0, 825000, 400000,   800000, CPU_MAX},
+	{534, 950000, 0,  55,  85, 1, 0, 728000, 334000,   500000, CPU_MAX},
+	{440, 900000, 0,  50,  85, 1, 0, 667000, 267000,   500000, CPU_MAX},
+	{350, 800000, 0,  45,  85, 1, 0, 559000, 267000,   500000, CPU_MAX},
+	{266,  800000, 0,  40,  85, 1, 0, 416000, 200000,   	 0, CPU_MAX},
+	{160,  800000, 0,  35,  80, 1, 0, 416000, 200000,   	 0, CPU_MAX},
 };
 
 static int mif_min_table[] = {
-	200000, 273000, 228000,
+	200000, 273000, 338000,
 	416000, 559000, 667000,
 	728000, 741000, 825000,
 };
@@ -64,13 +68,13 @@ static gpu_attribute gpu_config_attributes[] = {
 	{GPU_MAX_CLOCK, 800},
 	{GPU_MAX_CLOCK_LIMIT, 800},
 	{GPU_MIN_CLOCK, 160},
-	{GPU_DVFS_START_CLOCK, 266},
-	{GPU_DVFS_BL_CONFIG_CLOCK, 266},
+	{GPU_DVFS_START_CLOCK, 160},
+	{GPU_DVFS_BL_CONFIG_CLOCK, 160},
 	{GPU_GOVERNOR_TYPE, G3D_DVFS_GOVERNOR_INTERACTIVE},
-	{GPU_GOVERNOR_START_CLOCK_DEFAULT, 266},
-	{GPU_GOVERNOR_START_CLOCK_INTERACTIVE, 266},
-	{GPU_GOVERNOR_START_CLOCK_STATIC, 266},
-	{GPU_GOVERNOR_START_CLOCK_BOOSTER, 266},
+	{GPU_GOVERNOR_START_CLOCK_DEFAULT, 160},
+	{GPU_GOVERNOR_START_CLOCK_INTERACTIVE, 160},
+	{GPU_GOVERNOR_START_CLOCK_STATIC, 160},
+	{GPU_GOVERNOR_START_CLOCK_BOOSTER, 160},
 	{GPU_GOVERNOR_TABLE_DEFAULT, (uintptr_t)&gpu_dvfs_table_default},
 	{GPU_GOVERNOR_TABLE_INTERACTIVE, (uintptr_t)&gpu_dvfs_table_default},
 	{GPU_GOVERNOR_TABLE_STATIC, (uintptr_t)&gpu_dvfs_table_default},
@@ -83,7 +87,7 @@ static gpu_attribute gpu_config_attributes[] = {
 		GPU_DVFS_TABLE_LIST_SIZE(gpu_dvfs_table_default)},
 	{GPU_GOVERNOR_TABLE_SIZE_BOOSTER,
 		GPU_DVFS_TABLE_LIST_SIZE(gpu_dvfs_table_default)},
-	{GPU_GOVERNOR_INTERACTIVE_HIGHSPEED_CLOCK, 420},
+	{GPU_GOVERNOR_INTERACTIVE_HIGHSPEED_CLOCK, 668},
 	{GPU_GOVERNOR_INTERACTIVE_HIGHSPEED_LOAD, 95},
 	{GPU_GOVERNOR_INTERACTIVE_HIGHSPEED_DELAY, 0},
 	{GPU_DEFAULT_VOLTAGE, 700000},
@@ -107,12 +111,12 @@ static gpu_attribute gpu_config_attributes[] = {
 	{GPU_EARLY_CLK_GATING, 0},
 	{GPU_DVS, 0},
 	{GPU_PERF_GATHERING, 0},
-#ifdef CONFIG_MALI_SEC_HWCNT
-	{GPU_HWCNT_GATHERING, 0},
+#ifdef MALI_SEC_HWCNT
+	{GPU_HWCNT_GATHERING, 1},
 	{GPU_HWCNT_POLLING_TIME, 90},
 	{GPU_HWCNT_UP_STEP, 3},
 	{GPU_HWCNT_DOWN_STEP, 2},
-	{GPU_HWCNT_GPR, 0},
+	{GPU_HWCNT_GPR, 1},
 	{GPU_HWCNT_DUMP_PERIOD, 50}, /* ms */
 	{GPU_HWCNT_CHOOSE_JM , 0},
 	{GPU_HWCNT_CHOOSE_SHADER , 0x5FF}, /* since TEX_ISSUES offset is 29 so we need non-zero values from 27-30 offset
@@ -121,11 +125,11 @@ static gpu_attribute gpu_config_attributes[] = {
 	{GPU_HWCNT_CHOOSE_L3_CACHE , 0},
 	{GPU_HWCNT_CHOOSE_MMU_L2 , 0},
 #endif
-	{GPU_RUNTIME_PM_DELAY_TIME, 50},
-	{GPU_DVFS_POLLING_TIME, 30},
+	{GPU_RUNTIME_PM_DELAY_TIME, 30},
+	{GPU_DVFS_POLLING_TIME, 15},
 	{GPU_PMQOS_INT_DISABLE, 0},
 	{GPU_PMQOS_MIF_MAX_CLOCK, 825000},
-	{GPU_PMQOS_MIF_MAX_CLOCK_BASE, 534},
+	{GPU_PMQOS_MIF_MAX_CLOCK_BASE, 800},
 	{GPU_CL_DVFS_START_BASE, 600},
 	{GPU_DEBUG_LEVEL, DVFS_WARNING},
 	{GPU_TRACE_LEVEL, TRACE_ALL},
@@ -707,8 +711,8 @@ int gpu_regulator_disable(struct exynos_context *platform) {
 }
 
 int gpu_regulator_init(struct exynos_context *platform) {
-	
-        g3d_regulator = regulator_get(NULL, "vdd_g3d");
+
+	g3d_regulator = regulator_get(NULL, "vdd_g3d");
 	if (IS_ERR(g3d_regulator) || (g3d_regulator == NULL)) {
 		GPU_LOG(DVFS_ERROR, DUMMY, 0u, 0u,
 			"%s: failed to get vdd_g3d regulator, 0x%p\n", __func__,
