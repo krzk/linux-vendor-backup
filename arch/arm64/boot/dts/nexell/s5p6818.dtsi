@@ -794,7 +794,7 @@
 			status = "disabled";
 		};
 
-		clipper_2:clipper2@c0064000 {
+		clipper_2:clipper2@c0099000 {
 			compatible = "nexell,nx-clipper";
 			module = <2>;
 			status = "disabled";
