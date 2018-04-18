@@ -42,6 +42,18 @@
 				nexell,pin-strength = <NX_PIN_STR0>;
 			};
 		};
+
+		i2c_gpio12: i2c@12 {
+			compatible = "i2c-gpio";
+			gpios = <&gpio_a 26 0	/* sda */
+				&gpio_a 27 0	/* scl */
+				>;
+
+			i2c-gpio,delay-us = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+		};
 	};	/* soc */
 
 	artik_bt_control {

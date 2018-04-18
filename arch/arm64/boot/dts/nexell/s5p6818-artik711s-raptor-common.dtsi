@@ -46,6 +46,8 @@
 		i2c9 = &i2c_gpio9;
 		i2c10 = &i2c_gpio10;
 		i2c11 = &i2c_gpio11;
+		i2c12 = &i2c_gpio12;
+		i2c13 = &i2c_gpio13;
 	};
 
 	nx-v4l2 {
@@ -61,6 +63,8 @@
 
 		clocks {
 			vip0:vip@c00c1000 { clock-frequency = <300000000>;};
+			vip1:vip@c00c2000 { src-force = <5>;};
+			vip2:vip@c009a000 { src-force = <4>;};
 			sdhc0:sdhc@c00c5000 {
 			      clk-input = <(I_PLL2 | I_GATE_PCLK)>;
 			};
@@ -242,8 +246,40 @@
 			status = "okay";
 		};
 
+		vip_1:vip@c0064000 {
+			status = "okay";
+		};
+
+		vip_2:vip@c0099000 {
+			status = "okay";
+		};
+
 		i2c_0:i2c@c00a4000 {
 			samsung,i2c-max-bus-freq = <400000>;
+			status = "okay";
+		};
+
+		i2c_gpio12: i2c@12 {
+			compatible = "i2c-gpio";
+			gpios = <&gpio_b 11 0	/* sda */
+				&gpio_b 18 0	/* scl */
+				>;
+
+			i2c-gpio,delay-us = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+		};
+
+		i2c_gpio13: i2c@13 {
+			compatible = "i2c-gpio";
+			gpios = <&gpio_a 0 0	/* sda */
+				&gpio_a 25 0	/* scl */
+				>;
+
+			i2c-gpio,delay-us = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			status = "okay";
 		};
 
@@ -276,6 +312,59 @@
 					NX_ACTION_START NX_ACTION_TYPE_GPIO 0 0 1 NX_ACTION_END
 					NX_ACTION_START NX_ACTION_TYPE_GPIO 1 0 1 NX_ACTION_END
 					NX_ACTION_START NX_ACTION_TYPE_GPIO 2 0 2 NX_ACTION_END
+				>;
+			};
+		};
+
+		clipper_1:clipper1@c0064000 {
+			compatible = "nexell,nx-clipper";
+			interface_type = <NX_CAPTURE_INTERFACE_PARALLEL>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&vid2_data_clk &vid2_sync> ;
+			port = <1>;
+			external_sync = <0>;
+
+			data_order = <NX_VIN_CBY0CRY1>;
+			interlace = <0>;
+
+			gpios = <&gpio_b 12 1 &gpio_b 22 1>;
+			status = "disabled";
+
+			sensor {
+				type = <NX_CAPTURE_SENSOR_I2C>;
+				i2c_name = "ZN240";
+				i2c_adapter = <13>;
+				addr = <0x6C>;
+			};
+			power {
+				enable_seq = <
+					NX_ACTION_START NX_ACTION_TYPE_GPIO 0 1 1 NX_ACTION_END
+					NX_ACTION_START NX_ACTION_TYPE_GPIO 1 1 1 NX_ACTION_END
+				>;
+			};
+		};
+
+		clipper_2:clipper2@c0099000 {
+			compatible = "nexell,nx-clipper";
+			interface_type = <NX_CAPTURE_INTERFACE_PARALLEL>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&vid0_data_clk &vid0_sync> ;
+			port = <0>;
+			external_sync = <0>;
+			data_order = <NX_VIN_CBY0CRY1>;
+			interlace = <0>;
+			gpios = <&gpio_b 27 1 &gpio_b 23 1>;
+			status = "okay";
+			sensor {
+				type = <NX_CAPTURE_SENSOR_I2C>;
+				i2c_name = "ZN240";
+				i2c_adapter = <12>;
+				addr = <0x6C>;
+			};
+			power {
+				enable_seq = <
+					NX_ACTION_START NX_ACTION_TYPE_GPIO 0 1 1 NX_ACTION_END
+					NX_ACTION_START NX_ACTION_TYPE_GPIO 1 1 1 NX_ACTION_END
 				>;
 			};
 		};
