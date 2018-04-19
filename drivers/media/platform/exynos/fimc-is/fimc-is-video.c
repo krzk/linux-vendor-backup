@@ -1176,6 +1176,7 @@ int fimc_is_video_dqbuf(struct file *file,
 	bool blocking;
 	struct fimc_is_queue *queue;
 	struct fimc_is_framemgr *framemgr;
+	unsigned long flags;
 
 	BUG_ON(!file);
 	BUG_ON(!vctx);
@@ -1204,11 +1205,11 @@ int fimc_is_video_dqbuf(struct file *file,
 		goto p_err;
 	}
 
-	framemgr_e_barrier_irq(framemgr, 0);
+	framemgr_e_barrier_irqs(framemgr, 0, flags);
 	qcount = framemgr->frame_req_cnt +
 		framemgr->frame_pro_cnt +
 		framemgr->frame_com_cnt;
-	framemgr_x_barrier_irq(framemgr, 0);
+	framemgr_x_barrier_irqr(framemgr, 0, flags);
 
 	if (qcount <= 0) {
 		/* HACK : this log is commented until timeout issue fixed */
@@ -1269,6 +1270,7 @@ int fimc_is_video_streamoff(struct file *file,
 	struct fimc_is_queue *queue;
 	struct vb2_queue *vbq;
 	struct fimc_is_framemgr *framemgr;
+	unsigned long flags;
 
 	BUG_ON(!file);
 	BUG_ON(!vctx);
@@ -1282,11 +1284,11 @@ int fimc_is_video_streamoff(struct file *file,
 		goto p_err;
 	}
 
-	framemgr_e_barrier_irq(framemgr, 0);
+	framemgr_e_barrier_irqs(framemgr, 0, flags);
 	qcount = framemgr->frame_req_cnt +
 		framemgr->frame_pro_cnt +
 		framemgr->frame_com_cnt;
-	framemgr_x_barrier_irq(framemgr, 0);
+	framemgr_x_barrier_irqr(framemgr, 0, flags);
 
 	if (qcount > 0)
 		mwarn("video%d stream off : queued buffer is not empty(%d)", vctx,

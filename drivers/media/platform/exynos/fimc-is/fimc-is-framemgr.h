@@ -66,10 +66,7 @@
 	spin_lock_irqsave(&this->slock, flag)
 #define framemgr_x_barrier_irqr(this, index, flag) \
 	spin_unlock_irqrestore(&this->slock, flag)
-#define framemgr_e_barrier_irq(this, index) \
-	spin_lock_irq(&this->slock)
-#define framemgr_x_barrier_irq(this, index) \
-	spin_unlock_irq(&this->slock)
+
 #define framemgr_e_barrier(this, index) \
 	spin_lock(&this->slock)
 #define framemgr_x_barrier(this, index) \

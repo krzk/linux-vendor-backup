@@ -191,6 +191,7 @@ int fimc_is_subdev_buffer_finish(struct fimc_is_subdev *subdev,
 	int ret = 0;
 	struct fimc_is_framemgr *framemgr;
 	struct fimc_is_frame *frame;
+	unsigned long flags;
 
 	BUG_ON(!subdev);
 	BUG_ON(index >= FRAMEMGR_MAX_REQUEST);
@@ -202,7 +203,7 @@ int fimc_is_subdev_buffer_finish(struct fimc_is_subdev *subdev,
 		goto p_err;
 	}
 
-	framemgr_e_barrier_irq(framemgr, index);
+	framemgr_e_barrier_irqs(framemgr, index, flags);
 
 	fimc_is_frame_complete_head(framemgr, &frame);
 	if (frame) {
@@ -220,7 +221,7 @@ int fimc_is_subdev_buffer_finish(struct fimc_is_subdev *subdev,
 		ret = -EINVAL;
 	}
 
-	framemgr_x_barrier_irq(framemgr, index);
+	framemgr_x_barrier_irqr(framemgr, index, flags);
 
 p_err:
 	return ret;
