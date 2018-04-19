@@ -733,7 +733,8 @@ int fimc_is_queue_stop_streaming(struct fimc_is_queue *queue,
 	struct fimc_is_subdev *subdev,
 	struct fimc_is_video_ctx *vctx)
 {
-	int ret = 0;
+	struct vb2_queue *vbq = queue->vbq;
+	int ret, i;
 
 	BUG_ON(!queue);
 	BUG_ON(!device);
@@ -758,6 +759,15 @@ p_err:
 	clear_bit(FIMC_IS_QUEUE_STREAM_ON, &queue->state);
 	clear_bit(FIMC_IS_QUEUE_BUFFER_READY, &queue->state);
 	clear_bit(FIMC_IS_QUEUE_BUFFER_PREPARED, &queue->state);
+
+	/*
+	 * Any buffers still owned by the driver will be released with the
+	 * VB2_BUF_STATE_ERROR flag set.
+	 */
+	for (i = 0; i < vbq->num_buffers; i++) {
+		if (vbq->bufs[i]->state == VB2_BUF_STATE_ACTIVE)
+			vb2_buffer_done(vbq->bufs[i], VB2_BUF_STATE_ERROR);
+	}
 
 	return ret;
 }
