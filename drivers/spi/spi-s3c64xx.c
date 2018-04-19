@@ -1204,7 +1204,15 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 		}
 	}
 
-	pm_runtime_set_autosuspend_delay(&pdev->dev, AUTOSUSPEND_TIMEOUT);
+	/*
+	 * A workaround for FIMC-IS, to make sure the ISP SPI controller is
+	 * reconfigured properly in each camera device close/open cycle.
+	 */
+	if (sdd->port_conf->quirks & S3C64XX_SPI_QUIRK_SW_RESET)
+		pm_runtime_set_autosuspend_delay(&pdev->dev, 100);
+	else
+		pm_runtime_set_autosuspend_delay(&pdev->dev, AUTOSUSPEND_TIMEOUT);
+
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
