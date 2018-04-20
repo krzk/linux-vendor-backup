@@ -150,6 +150,11 @@ static int crypto_report_one(struct crypto_alg *alg,
 			goto nla_put_failure;
 
 		break;
+	case CRYPTO_ALG_TYPE_ACOMPRESS:
+		if (crypto_report_acomp(skb, alg))
+			goto nla_put_failure;
+
+		break;
 	}
 
 out:
