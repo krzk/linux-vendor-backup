@@ -793,10 +793,10 @@ static int fimc_is_sen_start_streaming(struct vb2_queue *q,
 
 static void fimc_is_sen_stop_streaming(struct vb2_queue *q)
 {
-	int ret = 0;
 	struct fimc_is_video_ctx *vctx = q->drv_priv;
 	struct fimc_is_queue *queue;
 	struct fimc_is_device_sensor *device;
+	int i;
 
 	BUG_ON(!vctx);
 
@@ -809,9 +809,19 @@ static void fimc_is_sen_stop_streaming(struct vb2_queue *q)
 		clear_bit(FIMC_IS_QUEUE_STREAM_ON, &queue->state);
 		clear_bit(FIMC_IS_QUEUE_BUFFER_READY, &queue->state);
 		clear_bit(FIMC_IS_QUEUE_BUFFER_PREPARED, &queue->state);
-		ret = fimc_is_sensor_back_stop(device);
+
+		fimc_is_sensor_back_stop(device);
 	} else {
 		err("already stream off");
+	}
+
+	/*
+	 * Any buffers still owned by the driver will be released with the
+	 * VB2_BUF_STATE_ERROR flag set.
+	 */
+	for (i = 0; i < q->num_buffers; i++) {
+		if (q->bufs[i]->state == VB2_BUF_STATE_ACTIVE)
+			vb2_buffer_done(q->bufs[i], VB2_BUF_STATE_ERROR);
 	}
 }
 
