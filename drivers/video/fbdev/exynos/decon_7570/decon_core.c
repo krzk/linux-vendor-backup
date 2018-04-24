@@ -940,7 +940,7 @@ int decon_enable(struct decon_device *decon)
 #if defined (CONFIG_EXYNOS7570_DISPLAY_TE_IRQ_GPIO) || defined (CONFIG_EXYNOS7570_DISPLAY_TE_IRQ_GIC)
 		if (!decon->eint_en_status) {
 			enable_irq(decon->irq);
-			decon_info("on_te[%d]\n", decon->state);
+			decon_dbg("on_te[%d]\n", decon->state);
 			decon->eint_en_status = true;
 		}
 #endif
@@ -987,7 +987,7 @@ int decon_disable(struct decon_device *decon)
 #if defined (CONFIG_EXYNOS7570_DISPLAY_TE_IRQ_GPIO) || defined (CONFIG_EXYNOS7570_DISPLAY_TE_IRQ_GIC)
 		if ((decon->vsync_info.irq_refcount <= 0) &&
 			decon->eint_en_status) {
-			decon_info("off_te[%d]\n", decon->state);
+			decon_dbg("off_te[%d]\n", decon->state);
 			disable_irq(decon->irq);
 			decon->eint_en_status = false;
 		}
