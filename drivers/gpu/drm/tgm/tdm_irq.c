@@ -150,7 +150,7 @@ static int tdm_irq_enable_vblank(struct drm_device *drm_dev, int crtc)
 		break;
 	}
 
-	DRM_INFO("[on_vbl_%d]r[%d]%s\n", crtc,
+	DRM_DEBUG("[on_vbl_%d]r[%d]%s\n", crtc,
 		atomic_read(&drm_dev->vblank[crtc].refcount), ret ? "[busy]" : "");
 
 	return ret;
@@ -177,7 +177,7 @@ static void tdm_irq_disable_vblank(struct drm_device *drm_dev, int crtc)
 		break;
 	}
 
-	DRM_INFO("[off_vbl_%d]r[%d]%s\n", crtc,
+	DRM_DEBUG("[off_vbl_%d]r[%d]%s\n", crtc,
 		atomic_read(&drm_dev->vblank[crtc].refcount), ret ? "[busy]" : "");
 
 	return;
