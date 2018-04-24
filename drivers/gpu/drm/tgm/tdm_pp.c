@@ -55,7 +55,7 @@ struct tdm_pp_send_event {
  * @prop_id: id of property.
  * @buf_id: id of buffer.
  * @buf_info: gem objects and dma address, size.
- * @filp: a pointer to drm_file.
+ * @ppdrv: ppdrv for the memory.
  */
 struct tdm_pp_mem_node {
 	struct list_head	list;
@@ -66,6 +66,7 @@ struct tdm_pp_mem_node {
 #ifdef CONFIG_DRM_DMA_SYNC
 	struct fence *fence;
 #endif
+	struct tdm_ppdrv *ppdrv;
 };
 
 /*
@@ -559,19 +560,12 @@ static int pp_put_mem_node(struct drm_device *drm_dev,
 		struct tdm_pp_cmd_node *c_node,
 		struct tdm_pp_mem_node *m_node)
 {
-	struct tdm_ppdrv *ppdrv;
 	int i;
 
 	DRM_DEBUG_KMS("node[%p]\n", m_node);
 
 	if (!m_node) {
 		DRM_ERROR("invalid dequeue node.\n");
-		return -EFAULT;
-	}
-
-	ppdrv = pp_find_drv_by_handle(m_node->prop_id);
-	if (IS_ERR(ppdrv)) {
-		DRM_ERROR("failed to get pp driver.\n");
 		return -EFAULT;
 	}
 
@@ -589,7 +583,7 @@ static int pp_put_mem_node(struct drm_device *drm_dev,
 		unsigned long handle = m_node->buf_info.handles[i];
 
 		if (handle)
-			tbm_gem_put_dma_addr(drm_dev, ppdrv->dev,
+			tbm_gem_put_dma_addr(drm_dev, m_node->ppdrv->dev,
 				handle, c_node->filp);
 	}
 
@@ -626,6 +620,7 @@ static struct tdm_pp_mem_node
 	m_node->ops_id = qbuf->ops_id;
 	m_node->prop_id = qbuf->prop_id;
 	m_node->buf_id = qbuf->buf_id;
+	m_node->ppdrv = ppdrv;
 	INIT_LIST_HEAD(&m_node->list);
 
 	DRM_DEBUG_KMS("m_node[%p]ops_id[%d]\n", m_node, qbuf->ops_id);
