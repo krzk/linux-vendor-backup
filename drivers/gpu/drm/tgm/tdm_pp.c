@@ -954,6 +954,7 @@ static int pp_queue_buf_with_run(struct device *dev,
 			cmd_work->ctrl = PP_CTRL_PLAY;
 			pp_handle_cmd_work(dev, ppdrv, cmd_work, c_node);
 		} else {
+			mutex_unlock(&c_node->mem_lock);
 			mutex_lock(&ppdrv->drv_lock);
 
 			ret = pp_start_property(ppdrv, c_node);
@@ -964,6 +965,7 @@ static int pp_queue_buf_with_run(struct device *dev,
 			}
 
 			mutex_unlock(&ppdrv->drv_lock);
+			mutex_lock(&c_node->mem_lock);
 		}
 	} else {
 		ret = pp_set_mem_node(ppdrv, c_node, m_node);
