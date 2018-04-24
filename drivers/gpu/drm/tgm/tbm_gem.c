@@ -225,7 +225,7 @@ void tbm_gem_destroy(struct tbm_gem_object *tbm_gem_obj)
 
 	gv_gem_alloc_size -= (int)tbm_gem_obj->buffer->size;
 
-	DRM_INFO("%s:obj[%p]sz[%d]to[%d]\n", "gf", obj,
+	DRM_DEBUG("%s:obj[%p]sz[%d]to[%d]\n", "gf", obj,
 		(int)tbm_gem_obj->buffer->size, gv_gem_alloc_size);
 
 #ifdef GEM_DEBUG_LOG
@@ -275,7 +275,7 @@ int tbm_gem_create_ioctl(struct drm_device *dev, void *data,
 
 	gv_gem_alloc_size += (int)tbm_gem_obj->buffer->size;
 
-	DRM_INFO("%s:sz[%d %d]f[0x%x]h[%d]obj[%p]to[%d]\n",
+	DRM_DEBUG("%s:sz[%d %d]f[0x%x]h[%d]obj[%p]to[%d]\n",
 		"ga", (int)args->size, (int)tbm_gem_obj->buffer->size,
 		args->flags, args->handle, obj, gv_gem_alloc_size);
 
