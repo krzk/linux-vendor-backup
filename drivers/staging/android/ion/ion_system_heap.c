@@ -203,7 +203,7 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 
 	gv_ion_alloc_size += (int)buffer->size;
 
-	pr_info("ia:buf[%p]sz[%d]to[%d]\n", buffer, (int)buffer->size, gv_ion_alloc_size);
+	pr_debug("ia:buf[%p]sz[%d]to[%d]\n", buffer, (int)buffer->size, gv_ion_alloc_size);
 	return 0;
 
 free_table:
@@ -229,7 +229,7 @@ static void ion_system_heap_free(struct ion_buffer *buffer)
 
 	gv_ion_alloc_size -= (int)buffer->size;
 
-	pr_info("if:buf[%p]sz[%d]to[%d]\n", buffer, (int)buffer->size, gv_ion_alloc_size);
+	pr_debug("if:buf[%p]sz[%d]to[%d]\n", buffer, (int)buffer->size, gv_ion_alloc_size);
 
 	/* pages come from the page pools, zero them before returning
 	   for security purposes (other allocations are zerod at alloc time */
