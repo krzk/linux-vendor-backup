@@ -77,6 +77,10 @@
 	};
 };
 
+&ldo25_reg {
+	regulator-name = "CAM_SEN_A2.8V_AP";
+};
+
 &ldo31_reg {
 	regulator-name = "TSP_VDD_1.8V_AP";
 	regulator-min-microvolt = <1800000>;
