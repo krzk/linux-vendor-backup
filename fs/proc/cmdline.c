@@ -50,6 +50,9 @@ static int __init proc_cmdline_init(void)
 #ifdef CONFIG_SECURITY_SELINUX_PERMISSIVE
 	proc_cmdline_set("androidboot.selinux", "permissive");
 #endif
+#ifdef CONFIG_CAMERA_GV
+	proc_cmdline_set("androidboot.hardware", "samsungexynos7580");
+#endif
 
 	proc_create("cmdline", 0, NULL, &cmdline_proc_fops);
 	return 0;
