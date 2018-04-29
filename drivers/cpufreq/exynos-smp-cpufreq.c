@@ -95,6 +95,8 @@ static struct {
 	 * clock divider for SCLK_CPU_PLL, SCLK_HPM_CPU
 	 * PLL M, P, S
 	 */
+	//APLL_FREQ(1800000, 0, 0, 7, 7, 2, 7, 3, 7, 7, 276, 4, 0),             // gives random reboots, probably caused by overheat
+	APLL_FREQ(1700000, 0, 0, 7, 7, 2, 7, 3, 7, 7, 262, 4, 0),
 	APLL_FREQ(1600000, 0, 0, 7, 7, 2, 7, 3, 7, 7, 246, 4, 0),
 	APLL_FREQ(1500000, 0, 0, 7, 7, 2, 7, 3, 7, 7, 230, 4, 0),
 	APLL_FREQ(1400000, 0, 0, 7, 7, 2, 7, 3, 7, 7, 216, 4, 0),
@@ -109,13 +111,17 @@ static struct {
 	APLL_FREQ(500000,  0, 0, 7, 7, 2, 7, 3, 2, 7, 312, 4, 2),
 	APLL_FREQ(400000,  0, 0, 7, 7, 2, 7, 3, 2, 7, 248, 4, 2),
 	APLL_FREQ(300000,  0, 0, 7, 7, 2, 7, 3, 1, 7, 368, 4, 3),
+	APLL_FREQ(200000,  0, 0, 7, 7, 2, 7, 3, 1, 7, 256, 4, 3),
+	APLL_FREQ(100000,  0, 0, 7, 7, 2, 7, 3, 1, 7, 240, 4, 4),
 };
 
 static unsigned int exynos_bus_table[] = {
+	//825000, /* 1.8GHz */
+	825000, /* 1.7GHz */
 	825000, /* 1.6GHz */
 	825000, /* 1.5GHz */
-	825000, /* 1.4GHz */
-	825000, /* 1.3GHz */
+	741000, /* 1.4GHz */
+	741000, /* 1.3GHz */
 	728000, /* 1.2GHz */
 	728000, /* 1.1GHz */
 	667000, /* 1.0GHz */
@@ -123,9 +129,11 @@ static unsigned int exynos_bus_table[] = {
 	559000, /* 800MHz */
 	416000, /* 700MHz */
 	416000, /* 600MHz */
-	416000, /* 500MHz */
-	0,	/* 400MHz */
-	0,	/* 300MHz */
+	338000, /* 500MHz */
+	338000, /* 400MHz */
+	273000, /* 300MHz */
+	273000, /* 200MHz */
+	200000, /* 100MHz */
 };
 
 static unsigned int voltage_tolerance;	/* in percentage */
@@ -914,8 +922,8 @@ static int exynos_cpufreq_init(struct cpufreq_policy *policy)
 	voltage_tolerance = exynos_get_voltage_tolerance(cpu_dev);
 	policy->cur = exynos_cpufreq_get(policy->cpu);
 	/* Later this code will be removed. This is for first lot */
-	policy->cpuinfo.max_freq = 1600000;
-	policy->cpuinfo.min_freq = 300000;
+	policy->cpuinfo.max_freq = 1700000;
+	policy->cpuinfo.min_freq = 200000;
 
 	if (samsung_rev() == EXYNOS7580_REV_0)
 		if (!support_full_frequency())
