@@ -93,7 +93,7 @@
 	samsung,vbus-gpio = <&gpx3 5 1>;
 	status = "okay";
 
-	port@1{
+	port@1 {
 		status = "okay";
 	};
 	port@2 {
