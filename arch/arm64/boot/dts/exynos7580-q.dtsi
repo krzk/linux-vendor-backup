@@ -25,6 +25,18 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 
+	arm-pmu {
+		compatible = "arm,armv8-pmuv3";
+		interrupts = <0 34 4>,
+			     <0 35 4>,
+			     <0 36 4>,
+			     <0 37 4>,
+			     <0 50 4>,
+			     <0 51 4>,
+			     <0 52 4>,
+			     <0 53 4>;
+	};
+
 	aliases {
 		decon0 = &decon_0;
 		dsim0 = &dsim_0;
