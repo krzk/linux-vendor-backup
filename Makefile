@@ -384,6 +384,8 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fdiagnostics-show-option -Werror \
 		   -std=gnu89
 
+KBUILD_CFLAGS   += -mcpu=cortex-a53
+
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
 KBUILD_AFLAGS   := -D__ASSEMBLY__
