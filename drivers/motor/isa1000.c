@@ -272,7 +272,10 @@ static ssize_t pwm_value_show(struct device *dev,
 	struct isa1000_ddata *drvdata
 		= container_of(tdev, struct isa1000_ddata, dev);
 
-	return sprintf(buf, "%d\n", drvdata->intensity);
+	if(drvdata->intensity > 0)
+		return sprintf(buf, "%d\n", drvdata->intensity);
+	
+	return sprintf(buf, "%d\n", MAX_INTENSITY / 2);
 }
 
 static DEVICE_ATTR(pwm_value, S_IRUGO | S_IWUSR, pwm_value_show, pwm_value_store);
@@ -308,14 +311,14 @@ static struct isa1000_pdata *
 
 	child_node = of_get_next_child(node, child_node);
 	if (!child_node) {
-		pr_err("failed to get dt node\n");
+		pr_err("[VIB] failed to get dt node\n");
 		ret = -EINVAL;
 		goto err_out;
 	}
 
 	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
-		pr_err("failed to alloc\n");
+		pr_err("[VIB] failed to alloc\n");
 		ret = -ENOMEM;
 		goto err_out;
 	}
@@ -361,18 +364,18 @@ static int isa1000_probe(struct platform_device *pdev)
 #if defined(CONFIG_OF)
 		pdata = isa1000_get_devtree_pdata(&pdev->dev);
 		if (IS_ERR(pdata)) {
-			pr_err("there is no device tree!\n");
+			pr_err("[VIB] there is no device tree!\n");
 			ret = -ENODEV;
 			goto err_pdata;
 		}
 #else
-		pr_err("there is no platform data!\n");
+		pr_err("[VIB] there is no platform data!\n");
 #endif
 	}
 
 	ddata = kzalloc(sizeof(*ddata), GFP_KERNEL);
 	if (!ddata) {
-		pr_err("failed to alloc\n");
+		pr_err("[VIB] failed to alloc\n");
 		ret = -ENOMEM;
 		goto err_alloc;
 	}
@@ -385,7 +388,7 @@ static int isa1000_probe(struct platform_device *pdev)
 	kworker_task = kthread_run(kthread_worker_fn,
 			&ddata->kworker, "isa1000_vib");
 	if(IS_ERR(kworker_task)) {
-		pr_err("Failed to create message pump task\n");
+		pr_err("[VIB] Failed to create message pump task\n");
 		ret = -ENOMEM;
 		goto err_kthread;
 	}
@@ -395,7 +398,7 @@ static int isa1000_probe(struct platform_device *pdev)
 	ddata->timer.function = isa1000_timer_func;
 	ddata->pwm = pwm_request(ddata->pdata->pwm_id, "vibrator");
 	if (IS_ERR(ddata->pwm)) {
-		pr_err("failed to request pwm\n");
+		pr_err("[VIB] failed to request pwm\n");
 		ret = -EFAULT;
 		goto err_pwm_request;
 	}
