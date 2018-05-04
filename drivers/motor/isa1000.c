@@ -2,6 +2,8 @@
 
  * Copyright (C) 2014 Samsung Electronics Co. Ltd. All Rights Reserved.
  *
+ * Portions Copyright (c) 2018 Niklas Reimer <info@nr23730.de>
+ *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
  * may be copied, distributed, and modified under those terms.
@@ -111,9 +113,9 @@ static void isa1000_en(struct isa1000_ddata *ddata, bool en)
 		ret = regulator_disable(ddata->pdata->regulator);
 
 	if (ret < 0)
-		pr_err("failed to regulator %sable", en ? "en" : "dis");
+		pr_err("[VIB] failed to regulator %sable", en ? "en" : "dis");
 #endif
-	pr_info("%s\n", en ? "on" : "off");
+	pr_info("[VIB] %s\n", en ? "on" : "off");
 
 	if (ddata->pdata->gpio_en)
 		gpio_direction_output(ddata->pdata->gpio_en, en);
@@ -135,7 +137,7 @@ static void isa1000_enable(struct timed_output_dev *dev, int value)
 	ddata->timeout = value;
 	if (value > 0 ) {
 		if (!ddata->running) {
-			pr_info("%u %ums\n", ddata->duty, ddata->timeout);
+			pr_info("[VIB] %u %ums\n", ddata->duty, ddata->timeout);
 			ddata->running = true;
 			isa1000_pwm_config(ddata, ddata->duty);
 			isa1000_pwm_en(ddata, true);
@@ -165,7 +167,7 @@ static void isa1000_work_func(struct kthread_work *work)
 	return;
 }
 
-static ssize_t intensity_store(struct device *dev,
+static ssize_t pwm_value_store(struct device *dev,
 	struct device_attribute *devattr, const char *buf, size_t count)
 {
 	struct timed_output_dev *tdev = dev_get_drvdata(dev);
@@ -177,7 +179,7 @@ static ssize_t intensity_store(struct device *dev,
 	ret = kstrtoint(buf, 0, &intensity);
 
 	if (intensity < 0 || MAX_INTENSITY < intensity) {
-		pr_err("out of rage\n");
+		pr_err("[VIB] out of range\n");
 		return -EINVAL;
 	}
 
@@ -197,6 +199,87 @@ static ssize_t intensity_store(struct device *dev,
 
 	return count;
 }
+
+static ssize_t intensity_store(struct device *dev,
+	struct device_attribute *devattr, const char *buf, size_t count)
+{
+	struct timed_output_dev *tdev = dev_get_drvdata(dev);
+	struct isa1000_ddata *drvdata
+		= container_of(tdev, struct isa1000_ddata, dev);
+	int duty = drvdata->pdata->period >> 1;
+	int intensity = 0, ret = 0;
+
+	ret = kstrtoint(buf, 0, &intensity);
+
+	if (intensity < 0 || MAX_INTENSITY < intensity) {
+		pr_err("out of range\n");
+		return -EINVAL;
+	}
+
+	if (MAX_INTENSITY == intensity)
+		duty = drvdata->pdata->duty;
+	else if (0 != intensity) {
+		long long tmp = drvdata->pdata->duty >> 1;
+
+		tmp *= (intensity / 100);
+		duty += (int)(tmp / 100);
+	}
+
+	drvdata->intensity = intensity;
+	drvdata->duty = duty;
+
+	pwm_config(drvdata->pwm, duty, drvdata->pdata->period);
+
+	return count;
+}
+
+static ssize_t pwm_max_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", MAX_INTENSITY);
+}
+
+static DEVICE_ATTR(pwm_max, S_IRUGO | S_IWUSR, pwm_max_show, NULL);
+
+static ssize_t pwm_min_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", 0);
+}
+
+static DEVICE_ATTR(pwm_min, S_IRUGO | S_IWUSR, pwm_min_show, NULL);
+
+static ssize_t pwm_default_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", MAX_INTENSITY / 2);
+}
+
+static DEVICE_ATTR(pwm_default, S_IRUGO | S_IWUSR, pwm_default_show, NULL);
+
+static ssize_t pwm_threshold_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", MAX_INTENSITY / 2 + MAX_INTENSITY / 4);
+}
+
+static DEVICE_ATTR(pwm_threshold, S_IRUGO | S_IWUSR, pwm_threshold_show, NULL);
+
+static ssize_t pwm_value_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct timed_output_dev *tdev = dev_get_drvdata(dev);
+	struct isa1000_ddata *drvdata
+		= container_of(tdev, struct isa1000_ddata, dev);
+
+	if(drvdata->intensity > 0)
+		return sprintf(buf, "%d\n", drvdata->intensity);
+	
+	return sprintf(buf, "%d\n", MAX_INTENSITY / 2);
+}
+
+static DEVICE_ATTR(pwm_value, S_IRUGO | S_IWUSR, pwm_value_show, pwm_value_store);
+
 
 static ssize_t intensity_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
@@ -228,14 +311,14 @@ static struct isa1000_pdata *
 
 	child_node = of_get_next_child(node, child_node);
 	if (!child_node) {
-		pr_err("failed to get dt node\n");
+		pr_err("[VIB] failed to get dt node\n");
 		ret = -EINVAL;
 		goto err_out;
 	}
 
 	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
-		pr_err("failed to alloc\n");
+		pr_err("[VIB] failed to alloc\n");
 		ret = -ENOMEM;
 		goto err_out;
 	}
@@ -281,18 +364,18 @@ static int isa1000_probe(struct platform_device *pdev)
 #if defined(CONFIG_OF)
 		pdata = isa1000_get_devtree_pdata(&pdev->dev);
 		if (IS_ERR(pdata)) {
-			pr_err("there is no device tree!\n");
+			pr_err("[VIB] there is no device tree!\n");
 			ret = -ENODEV;
 			goto err_pdata;
 		}
 #else
-		pr_err("there is no platform data!\n");
+		pr_err("[VIB] there is no platform data!\n");
 #endif
 	}
 
 	ddata = kzalloc(sizeof(*ddata), GFP_KERNEL);
 	if (!ddata) {
-		pr_err("failed to alloc\n");
+		pr_err("[VIB] failed to alloc\n");
 		ret = -ENOMEM;
 		goto err_alloc;
 	}
@@ -305,7 +388,7 @@ static int isa1000_probe(struct platform_device *pdev)
 	kworker_task = kthread_run(kthread_worker_fn,
 			&ddata->kworker, "isa1000_vib");
 	if(IS_ERR(kworker_task)) {
-		pr_err("Failed to create message pump task\n");
+		pr_err("[VIB] Failed to create message pump task\n");
 		ret = -ENOMEM;
 		goto err_kthread;
 	}
@@ -315,7 +398,7 @@ static int isa1000_probe(struct platform_device *pdev)
 	ddata->timer.function = isa1000_timer_func;
 	ddata->pwm = pwm_request(ddata->pdata->pwm_id, "vibrator");
 	if (IS_ERR(ddata->pwm)) {
-		pr_err("failed to request pwm\n");
+		pr_err("[VIB] failed to request pwm\n");
 		ret = -EFAULT;
 		goto err_pwm_request;
 	}
@@ -326,14 +409,49 @@ static int isa1000_probe(struct platform_device *pdev)
 
 	ret = timed_output_dev_register(&ddata->dev);
 	if (ret < 0) {
-		pr_err("failed to register timed output\n");
+		pr_err("[VIB]Failed to register timed output\n");
 		goto err_dev_reg;
 	}
 
 	ret = sysfs_create_file(&ddata->dev.dev->kobj,
 				&dev_attr_intensity.attr);
 	if (ret < 0) {
-		pr_err("Failed to register sysfs : %d\n", ret);
+		pr_err("[VIB]Failed to register sysfs : %d\n", ret);
+		goto err_dev_reg;
+	}
+	
+		ret = sysfs_create_file(&ddata->dev.dev->kobj,
+				&dev_attr_pwm_value.attr);
+	if (ret < 0) {
+		pr_err("[VIB]Failed to register sysfs : pwm_value\n");
+		goto err_dev_reg;
+	}
+	
+		ret = sysfs_create_file(&ddata->dev.dev->kobj,
+				&dev_attr_pwm_max.attr);
+	if (ret < 0) {
+		pr_err("[VIB]Failed to register sysfs : pwm_max\n");
+		goto err_dev_reg;
+	}
+	
+		ret = sysfs_create_file(&ddata->dev.dev->kobj,
+				&dev_attr_pwm_min.attr);
+	if (ret < 0) {
+		pr_err("[VIB]Failed to register sysfs : pwm_min\n");
+		goto err_dev_reg;
+	}
+	
+		ret = sysfs_create_file(&ddata->dev.dev->kobj,
+				&dev_attr_pwm_default.attr);
+	if (ret < 0) {
+		pr_err("[VIB]Failed to register sysfs : pwm_default\n");
+		goto err_dev_reg;
+	}
+	
+		ret = sysfs_create_file(&ddata->dev.dev->kobj,
+				&dev_attr_pwm_threshold.attr);
+	if (ret < 0) {
+		pr_err("[VIB]Failed to register sysfs : pwm_threshold\n");
 		goto err_dev_reg;
 	}
 
