@@ -25,16 +25,15 @@
 #include <linux/rwsem.h>
 #include <linux/sched.h>
 #include <linux/sched/rt.h>
-#include <linux/tick.h>
 #include <linux/time.h>
 #include <linux/timer.h>
 #include <linux/workqueue.h>
 #include <linux/kthread.h>
 #include <linux/slab.h>
-#include <linux/kernel_stat.h>
 #include <linux/pm_qos.h>
+#if defined(CONFIG_POWERSUSPEND)
 #include <linux/powersuspend.h>
-#include <asm/cputime.h>
+#endif
 #ifdef CONFIG_ANDROID
 #include <asm/uaccess.h>
 #include <linux/syscalls.h>
@@ -75,21 +74,19 @@ static cpumask_t speedchange_cpumask;
 static spinlock_t speedchange_cpumask_lock;
 static struct mutex gov_lock;
 
-/* boolean for determining screen on/off state */
-static bool suspended = false;
-
 /* Target load.  Lower values result in higher CPU speeds. */
 #define DEFAULT_TARGET_LOAD 90
 static unsigned int default_target_loads[] = {DEFAULT_TARGET_LOAD};
 
 #define DEFAULT_TIMER_RATE (20 * USEC_PER_MSEC)
-#define SCREEN_OFF_TIMER_RATE ((unsigned long)(60 * USEC_PER_MSEC))
 #define DEFAULT_ABOVE_HISPEED_DELAY DEFAULT_TIMER_RATE
 static unsigned int default_above_hispeed_delay[] = {
 	DEFAULT_ABOVE_HISPEED_DELAY };
 
+#if defined(CONFIG_POWERSUSPEND)
 #define DEFAULT_SCREEN_OFF_MAX 1000000
 static unsigned long screen_off_max = DEFAULT_SCREEN_OFF_MAX;
+#endif
 
 struct cpufreq_interactive_tunables {
 	int usage_count;
@@ -398,16 +395,6 @@ static void cpufreq_interactive_timer(unsigned long data)
 	now = update_load(data);
 	delta_time = (unsigned int)(now - pcpu->cputime_speedadj_timestamp);
 	cputime_speedadj = pcpu->cputime_speedadj;
-	if (suspended == false
-	    	&& tunables->timer_rate != tunables->prev_timer_rate)
-		tunables->timer_rate = tunables->prev_timer_rate;
-	else if (suspended == true
-		&& tunables->timer_rate != SCREEN_OFF_TIMER_RATE ) {
-		tunables->prev_timer_rate = tunables->timer_rate;
-		tunables->timer_rate
-			= max(tunables->timer_rate,
-				SCREEN_OFF_TIMER_RATE);
-	}
 	spin_unlock_irqrestore(&pcpu->load_lock, flags);
 
 	if (WARN_ON_ONCE(!delta_time))
@@ -419,7 +406,11 @@ static void cpufreq_interactive_timer(unsigned long data)
 	cpu_load = loadadjfreq / pcpu->policy->cur;
 	boosted = tunables->boost_val || now < tunables->boostpulse_endtime;
 
-	if ((cpu_load >= tunables->go_hispeed_load && !suspended) || boosted) {
+#if defined(CONFIG_POWERSUSPEND)
+	if ((cpu_load >= tunables->go_hispeed_load && !power_suspend_active) || boosted) {
+#else
+	if ((cpu_load >= tunables->go_hispeed_load) || boosted) {
+#endif
 		if (pcpu->target_freq < tunables->hispeed_freq) {
 			new_freq = tunables->hispeed_freq;
 		} else {
@@ -647,9 +638,11 @@ static int cpufreq_interactive_speedchange_task(void *data)
 				if (pjcpu->target_freq > max_freq)
 					max_freq = pjcpu->target_freq;
 			}
-			
-			if (suspended == true)
-				if (max_freq > screen_off_max) max_freq = screen_off_max;
+
+#if defined(CONFIG_POWERSUSPEND)
+			if (power_suspend_active && max_freq > screen_off_max)
+				max_freq = screen_off_max;
+#endif
 
 			if (max_freq != pcpu->policy->cur)
 				__cpufreq_driver_target(pcpu->policy,
@@ -969,7 +962,6 @@ static ssize_t store_timer_rate(struct cpufreq_interactive_tunables *tunables,
 	if (ret < 0)
 		return ret;
 	tunables->timer_rate = val;
-	tunables->prev_timer_rate = val;
 	return count;
 }
 
@@ -1360,7 +1352,6 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			tunables->ntarget_loads = ARRAY_SIZE(default_target_loads);
 			tunables->min_sample_time = DEFAULT_MIN_SAMPLE_TIME;
 			tunables->timer_rate = usecs_to_jiffies(DEFAULT_TIMER_RATE);
-			tunables->prev_timer_rate = DEFAULT_TIMER_RATE;
 			tunables->boostpulse_duration_val = DEFAULT_MIN_SAMPLE_TIME;
 			tunables->timer_slack_val = usecs_to_jiffies(DEFAULT_TIMER_SLACK);
 			tunables->freq_min = policy->min;
@@ -1506,7 +1497,7 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 
 	case CPUFREQ_GOV_LIMITS:
 		__cpufreq_driver_target(policy,
-				policy->cur, CPUFREQ_RELATION_L);
+				policy->cur, CPUFREQ_RELATION_C);
 		for_each_cpu(j, policy->cpus) {
 			pcpu = &per_cpu(cpuinfo, j);
 
@@ -1778,25 +1769,6 @@ static struct notifier_block cpufreq_interactive_cluster0_max_qos_notifier = {
 };
 #endif
 
-static void interactive_early_suspend(struct power_suspend *handler)
-{
-	suspended = true;
-
-	return;
-}
-
-static void interactive_late_resume(struct power_suspend *handler)
-{
-	suspended = false;
-
-	return;
-}
-
-static struct power_suspend interactive_suspend = {
-	.suspend = interactive_early_suspend,
-	.resume = interactive_late_resume,
-};
-
 static int __init cpufreq_interactive_init(void)
 {
 	unsigned int i;
@@ -1814,8 +1786,6 @@ static int __init cpufreq_interactive_init(void)
 		spin_lock_init(&pcpu->target_freq_lock);
 		init_rwsem(&pcpu->enable_sem);
 	}
-
-	register_power_suspend(&interactive_suspend);
 
 	spin_lock_init(&speedchange_cpumask_lock);
 	mutex_init(&gov_lock);
