@@ -407,9 +407,9 @@ static void cpufreq_interactive_timer(unsigned long data)
 	boosted = tunables->boost_val || now < tunables->boostpulse_endtime;
 
 #if defined(CONFIG_POWERSUSPEND)
-	if ((cpu_load >= tunables->go_hispeed_load && !power_suspend_active) || boosted) {
+	if ((cpu_load >= tunables->go_hispeed_load || boosted) && !power_suspend_active) {
 #else
-	if ((cpu_load >= tunables->go_hispeed_load) || boosted) {
+	if (cpu_load >= tunables->go_hispeed_load || boosted) {
 #endif
 		if (pcpu->target_freq < tunables->hispeed_freq) {
 			new_freq = tunables->hispeed_freq;
