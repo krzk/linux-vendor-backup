@@ -80,15 +80,6 @@ static cpumask_t speedchange_cpumask;
 static spinlock_t speedchange_cpumask_lock;
 static struct mutex gov_lock;
 
-//static int set_window_count;
-//static int migration_register_count;
-//static struct mutex sched_lock;
-
-#ifdef CONFIG_POWERSUSPEND
-/* boolean for determining screen on/off state */
-static bool suspended = false;
-#endif
-
 /* Target load.  Lower values result in higher CPU speeds. */
 #define DEFAULT_TARGET_LOAD 90
 static unsigned int default_target_loads[] = {DEFAULT_TARGET_LOAD};
@@ -439,16 +430,18 @@ static void __cpufreq_cafactive_timer(unsigned long data, bool is_notif)
 	now = update_load(data);
 	delta_time = (unsigned int)(now - pcpu->cputime_speedadj_timestamp);
 	cputime_speedadj = pcpu->cputime_speedadj;
-	if (suspended == false
+#ifdef CONFIG_POWERSUSPEND
+	if (power_suspend_active
 		&& tunables->timer_rate != tunables->prev_timer_rate)
 		tunables->timer_rate = tunables->prev_timer_rate;
-	else if (suspended == true
+	else if (!power_suspend_active
 		&& tunables->timer_rate != SCREEN_OFF_TIMER_RATE ) {
 		tunables->prev_timer_rate = tunables->timer_rate;
 		tunables->timer_rate
 			= max(tunables->timer_rate,
 				SCREEN_OFF_TIMER_RATE);
 	}
+#endif
 	pcpu->last_evaluated_jiffy = get_jiffies_64();
 	spin_unlock_irqrestore(&pcpu->load_lock, flags);
 
@@ -469,7 +462,7 @@ static void __cpufreq_cafactive_timer(unsigned long data, bool is_notif)
 	tunables->boosted = tunables->boost_val || now < tunables->boostpulse_endtime;
 
 #ifdef CONFIG_POWERSUSPEND
-	if ((cpu_load >= tunables->go_hispeed_load || tunables->boosted) && !suspended) {
+	if ((cpu_load >= tunables->go_hispeed_load || tunables->boosted) && !power_suspend_active) {
 #else
 	if (cpu_load >= tunables->go_hispeed_load || tunables->boosted) {
 #endif
@@ -665,7 +658,7 @@ static int cpufreq_cafactive_speedchange_task(void *data)
 				pjcpu->floor_validate_time = fvt;
 			}
 			
-			if (suspended == true)
+			if (power_suspend_active)
 				if (max_freq > screen_off_max) max_freq = screen_off_max;
 
 			if (max_freq != pcpu->policy->cur) {
@@ -1518,25 +1511,6 @@ static void cpufreq_cafactive_nop_timer(unsigned long data)
 {
 }
 
-#ifdef CONFIG_POWERSUSPEND
-static void cafactive_early_suspend(struct power_suspend *handler)
-{
-	suspended = true;
-	return;
-}
-
-static void cafactive_late_resume(struct power_suspend *handler)
-{
-	suspended = false;
-	return;
-}
-
-static struct power_suspend cafactive_suspend = {
-	.suspend = cafactive_early_suspend,
-	.resume = cafactive_late_resume,
-};
-#endif
-
 static int __init cpufreq_cafactive_init(void)
 {
 	unsigned int i;
@@ -1555,10 +1529,6 @@ static int __init cpufreq_cafactive_init(void)
 		spin_lock_init(&pcpu->target_freq_lock);
 		init_rwsem(&pcpu->enable_sem);
 	}
-
-#ifdef CONFIG_POWERSUSPEND
-	register_power_suspend(&cafactive_suspend);
-#endif
 
 	spin_lock_init(&speedchange_cpumask_lock);
 	mutex_init(&gov_lock);
