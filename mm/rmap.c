@@ -1535,11 +1535,6 @@ static int rmap_walk_file(struct page *page, int (*rmap_one)(struct page *,
 		if (ret != SWAP_AGAIN)
 			break;
 	}
-	/*
-	 * No nonlinear handling: being always shared, nonlinear vmas
-	 * never contain migration ptes.  Decide what to do about this
-	 * limitation to linear when we need rmap_walk() on nonlinear.
-	 */
 	mutex_unlock(&mapping->i_mmap_mutex);
 	return ret;
 }
