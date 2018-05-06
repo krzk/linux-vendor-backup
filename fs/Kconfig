@@ -273,6 +273,16 @@ endif # NETWORK_FILESYSTEMS
 source "fs/nls/Kconfig"
 source "fs/dlm/Kconfig"
 
+config BH_LRU_SIZE
+	int "buffer head per-CPU LRU size"
+	range 8 64
+	default "16"
+	help
+	 This sets the per-CPU LRU size for buffer heads in memory.
+	 More complex filesystems may be modiyfing multiple blocks
+	 within a single transaction, so keeping the buffer heads in
+	 CPU-local cache speeds up modifations significantly.
+
 config DYNAMIC_FSYNC
 	bool "dynamic file sync control"
 	default y
