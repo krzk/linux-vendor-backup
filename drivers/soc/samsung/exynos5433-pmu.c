@@ -13,6 +13,7 @@
 
 static struct exynos_pmu_conf exynos5433_pmu_config[] = {
 	/* { .offset = address,	.val = { AFTR, LPA, SLEEP } } */
+	{ EXYNOS5433_AUD_CONFIGURATION,				{ 0xf, 0xf, 0xf } },
 	{ EXYNOS5433_ATLAS_CPU0_SYS_PWR_REG,			{ 0x0, 0x0, 0x8 } },
 	{ EXYNOS5433_DIS_IRQ_ATLAS_CPU0_CENTRAL_SYS_PWR_REG,	{ 0x0, 0x0, 0x0 } },
 	{ EXYNOS5433_ATLAS_CPU1_SYS_PWR_REG,			{ 0x0, 0x0, 0x8 } },
