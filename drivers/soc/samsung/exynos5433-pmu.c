@@ -130,6 +130,7 @@ static void exynos5433_set_wakeupmask(enum sys_powerdown mode)
 
 	pmu_raw_writel(0xFFFF0000, EXYNOS5433_WAKEUP_MASK2);
 	pmu_raw_writel(0xFFFF0000, EXYNOS5433_WAKEUP_MASK3);
+	pmu_raw_writel(0xFFFFFFFF, EXYNOS5433_EINT_WAKEUP_MASK1);
 }
 
 static void exynos5433_pmu_central_seq(bool enable)
