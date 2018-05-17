@@ -194,7 +194,7 @@ static int exynos_drm_suspend(struct device *dev)
 	return 0;
 }
 
-static int exynos_drm_resume(struct device *dev)
+static void exynos_drm_resume(struct device *dev)
 {
 	struct drm_device *drm_dev = dev_get_drvdata(dev);
 	struct exynos_drm_private *private;
@@ -206,13 +206,12 @@ static int exynos_drm_resume(struct device *dev)
 	drm_atomic_helper_resume(drm_dev, private->suspend_state);
 	exynos_drm_fbdev_resume(drm_dev);
 	drm_kms_helper_poll_enable(drm_dev);
-
-	return 0;
 }
 #endif
 
 static const struct dev_pm_ops exynos_drm_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(exynos_drm_suspend, exynos_drm_resume)
+	.prepare = exynos_drm_suspend,
+	.complete = exynos_drm_resume,
 };
 
 /* forward declaration */
