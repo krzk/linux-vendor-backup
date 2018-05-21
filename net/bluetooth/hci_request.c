@@ -1440,6 +1440,9 @@ int hci_update_random_address(struct hci_request *req, bool require_privacy,
 		to = msecs_to_jiffies(hdev->rpa_timeout * 1000);
 		queue_delayed_work(hdev->workqueue, &hdev->rpa_expired, to);
 
+#ifdef CONFIG_TIZEN_WIP
+		mgmt_rpa_updated_evt(hdev, &hdev->rpa);
+#endif
 		return 0;
 	}
 

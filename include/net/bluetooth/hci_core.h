@@ -1746,6 +1746,7 @@ int mgmt_le_conn_updated(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 type,
 		u16 supervision_timeout);
 int mgmt_le_conn_update_failed(struct hci_dev *hdev, bdaddr_t *bdaddr,
 		u8 link_type, u8 addr_type, u8 status);
+void mgmt_rpa_updated_evt(struct hci_dev *hdev, bdaddr_t *rpa);
 #endif
 bool mgmt_get_connectable(struct hci_dev *hdev);
 void mgmt_set_connectable_complete(struct hci_dev *hdev, u8 status);

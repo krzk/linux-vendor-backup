@@ -4684,6 +4684,19 @@ done:
 	hci_dev_unlock(hdev);
 	return err;
 }
+
+void mgmt_rpa_updated_evt(struct hci_dev *hdev, bdaddr_t *rpa)
+{
+	struct mgmt_ev_rpa_changed mgmt_ev;
+
+	BT_DBG("RPA updated");
+
+	bacpy(&mgmt_ev.bdaddr, rpa);
+
+	mgmt_event(MGMT_EV_RPA_CHANGED, hdev, &mgmt_ev,
+				sizeof(struct mgmt_ev_rpa_changed), NULL);
+}
+
 static int connect_bt_6lowpan(struct sock *sk, struct hci_dev *hdev,
 			void *data, u16 len)
 {
