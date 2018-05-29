@@ -38,6 +38,8 @@
 
 #include "thermal_core.h"
 
+static int max_correct_temp = 0;
+
 MODULE_AUTHOR("Zhang Rui");
 MODULE_DESCRIPTION("Generic thermal management sysfs support");
 MODULE_LICENSE("GPL v2");
@@ -408,6 +410,16 @@ int thermal_zone_get_temp(struct thermal_zone_device *tz, unsigned long *temp)
 		*temp = tz->emul_temperature;
 skip_emul:
 #endif
+	if (*temp <= 100000 && *temp > max_correct_temp && tz->id != 4)
+		max_correct_temp = *temp;
+	/*
+	 * This case is that the thermal sensor is broken.
+	 * That's not real temperature. Set the fake temperature value in order to
+	 * avoid reaching the ciritical temperature.
+	 */
+	if (*temp >= 200000 || (*temp - max_correct_temp) >= 10000)
+		*temp = max_correct_temp;
+
 	mutex_unlock(&tz->lock);
 exit:
 	return ret;
