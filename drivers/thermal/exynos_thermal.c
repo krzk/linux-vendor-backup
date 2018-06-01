@@ -1142,7 +1142,7 @@ static void exynos_tmu_control(struct platform_device *pdev, int id, bool on)
 static int exynos_tmu_read(struct exynos_tmu_data *data)
 {
 	u8 temp_code, status;
-	int temp, i, max = INT_MIN, min = INT_MAX, gpu_temp = 0;
+	int temp, i, max = INT_MIN, min = INT_MAX, gpu_temp = 0, broken_count = 0;
 	int alltemp[EXYNOS_TMU_COUNT] = {0, };
 	int timeout = 20000;
 
@@ -1173,12 +1173,17 @@ static int exynos_tmu_read(struct exynos_tmu_data *data)
 		if (i == EXYNOS_GPU_NUMBER) {
 			gpu_temp = temp;
 		} else {
-			if (temp > max)
-				max = temp;
-			if (temp < min)
-				min = temp;
+			if (temp < 110 ) {
+				if (temp > max)
+					max = temp;
+				if (temp < min)
+					min = temp;
+			} else {
+				broken_count++;
+				if (broken_count >= 4)
+					max = 125;
+			}
 		}
-
 	}
 	exynos_check_tmu_noti_state(min, max);
 	exynos_check_mif_noti_state(max);
@@ -1190,8 +1195,8 @@ static int exynos_tmu_read(struct exynos_tmu_data *data)
 #if defined(CONFIG_CPU_THERMAL_IPA)
 	check_switch_ipa_on(max);
 #endif
-	pr_debug("[TMU] TMU0 = %d, TMU1 = %d, TMU2 = %d, TMU3 = %d, TMU4 = %d    MAX = %d, GPU = %d\n",
-			alltemp[0], alltemp[1], alltemp[2], alltemp[3], alltemp[4], max, gpu_temp);
+	pr_debug("[TMU] TMU0 = %d, TMU1 = %d, TMU2 = %d, TMU3 = %d, TMU4 = %d, MAX = %d, GPU = %d, TMU-broken = %d\n",
+			alltemp[0], alltemp[1], alltemp[2], alltemp[3], alltemp[4], max, gpu_temp, broken_count);
 
 	return max;
 }
