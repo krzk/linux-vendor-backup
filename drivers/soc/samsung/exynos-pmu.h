@@ -38,6 +38,9 @@ extern const struct exynos_pmu_data exynos4210_pmu_data;
 extern const struct exynos_pmu_data exynos4412_pmu_data;
 extern const struct exynos_pmu_data exynos5250_pmu_data;
 extern const struct exynos_pmu_data exynos5420_pmu_data;
+#endif
+
+#ifdef CONFIG_EXYNOS_PMU_ARM64_DRIVERS
 extern const struct exynos_pmu_data exynos5433_pmu_data;
 #endif
 

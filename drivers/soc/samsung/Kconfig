@@ -20,10 +20,16 @@ config EXYNOS_PMU
 	bool "Exynos PMU controller driver" if COMPILE_TEST
 	depends on ARCH_EXYNOS || ((ARM || ARM64) && COMPILE_TEST)
 	select EXYNOS_PMU_ARM_DRIVERS if ARM && ARCH_EXYNOS
+	select EXYNOS_PMU_ARM64_DRIVERS if ARM64 && ARCH_EXYNOS
 
 # There is no need to enable these drivers for ARMv8
 config EXYNOS_PMU_ARM_DRIVERS
 	bool "Exynos PMU ARMv7-specific driver extensions" if COMPILE_TEST
+	depends on EXYNOS_PMU
+
+# There is no need to enable these drivers for ARMv7
+config EXYNOS_PMU_ARM64_DRIVERS
+	bool "Exynos PMU ARMv8-specific driver extensions" if COMPILE_TEST
 	depends on EXYNOS_PMU
 
 config EXYNOS_PM_DOMAINS

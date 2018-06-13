@@ -6,8 +6,11 @@
 //
 // EXYNOS5433 - CPU PMU (Power Management Unit) support
 
+#include <linux/io.h>
+
 #include <linux/soc/samsung/exynos-regs-pmu.h>
 #include <linux/soc/samsung/exynos-pmu.h>
+#include <linux/soc/samsung/exynos-pm.h>
 
 #include "exynos-pmu.h"
 

@@ -13,6 +13,7 @@
 #include <linux/init.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/soc/samsung/exynos-pm.h>
 
 #include <asm/cacheflush.h>
 #include <asm/cputype.h>

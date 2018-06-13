@@ -72,6 +72,12 @@ void exynos_sys_powerdown_conf(enum sys_powerdown mode)
 #define exynos_pmu_data_arm_ptr(data)	NULL
 #endif
 
+#ifdef CONFIG_EXYNOS_PMU_ARM64_DRIVERS
+#define exynos_pmu_data_arm64_ptr(data)	(&data)
+#else
+#define exynos_pmu_data_arm64_ptr(data)	NULL
+#endif
+
 /*
  * PMU platform driver and devicetree bindings.
  */
@@ -93,7 +99,7 @@ static const struct of_device_id exynos_pmu_of_device_ids[] = {
 		.data = exynos_pmu_data_arm_ptr(exynos5420_pmu_data),
 	}, {
 		.compatible = "samsung,exynos5433-pmu",
-		.data = exynos_pmu_data_arm_ptr(exynos5433_pmu_data),
+		.data = exynos_pmu_data_arm64_ptr(exynos5433_pmu_data),
 	},
 	{ /*sentinel*/ },
 };

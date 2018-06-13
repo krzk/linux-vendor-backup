@@ -39,9 +39,6 @@ static struct platform_suspend_ops exynos_pm_suspend_ops;
 static struct syscore_ops exynos_pm_syscore_ops;
 static const struct exynos_pm_data *pm_data  __ro_after_init;
 
-void __iomem *sysram_base_addr __ro_after_init;
-void __iomem *sysram_ns_base_addr __ro_after_init;
-
 static int exynos_pm_prepare(void)
 {
 	int ret;
@@ -116,7 +113,7 @@ static void exynos_pm_finish(void)
  * Split the data between ARM architectures because it is relatively big
  * and useless on other arch.
  */
-#ifdef CONFIG_EXYNOS_PMU_ARM_DRIVERS
+#ifdef CONFIG_EXYNOS_PMU_ARM64_DRIVERS
 #define exynos_pm_data_arm_ptr(data)	(&data)
 #else
 #define exynos_pm_data_arm_ptr(data)	NULL
@@ -162,25 +159,6 @@ static const struct of_device_id exynos_pm_of_device_ids[] = {
 	},
 	{ /*sentinel*/ },
 };
-
-void __init exynos_sysram_init(void)
-{
-	struct device_node *np;
-
-	for_each_compatible_node(np, NULL, "samsung,exynos4210-sysram") {
-		if (!of_device_is_available(np))
-			continue;
-		sysram_base_addr = of_iomap(np, 0);
-		break;
-	}
-
-	for_each_compatible_node(np, NULL, "samsung,exynos4210-sysram-ns") {
-		if (!of_device_is_available(np))
-			continue;
-		sysram_ns_base_addr = of_iomap(np, 0);
-		break;
-	}
-}
 
 static int __init exynos_pm_init(void)
 {
