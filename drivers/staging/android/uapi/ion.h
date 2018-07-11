@@ -114,6 +114,13 @@ struct ion_fd_data {
 	int fd;
 };
 
+struct ion_fd_partial_data {
+	ion_user_handle_t handle;
+	int fd;
+	off_t offset;
+	size_t len;
+};
+
 /**
  * struct ion_handle_data - a handle passed to/from the kernel
  * @handle:	a handle
@@ -212,7 +219,8 @@ struct ion_preload_data {
  * If necessary should be used after touching a cached buffer from the cpu,
  * this will make the buffer in memory coherent.
  */
-#define ION_IOC_SYNC		_IOWR(ION_IOC_MAGIC, 7, struct ion_fd_data)
+#define ION_IOC_SYNC		    _IOWR(ION_IOC_MAGIC, 7, struct ion_fd_data)
+#define ION_IOC_SYNC_PARTIAL	_IOWR(ION_IOC_MAGIC, 9, struct ion_fd_partial_data)
 
 /**
  * DOC: ION_IOC_PRELOAD_ALLOC - prefetches pages to page pool
