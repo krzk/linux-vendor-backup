@@ -1782,13 +1782,13 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (copy_to_user((void __user *)arg, &data, _IOC_SIZE(cmd))) {
 			if (cleanup_handle) {
 				ion_free(client, cleanup_handle);
-				ion_handle_put(cleanup_handle);
+				ion_handle_put(client, cleanup_handle);
 			}
 			return -EFAULT;
 		}
 	}
 	if (cleanup_handle)
-		ion_handle_put(cleanup_handle);
+		ion_handle_put(client, cleanup_handle);
 	return ret;
 }
 
