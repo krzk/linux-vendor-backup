@@ -24,7 +24,7 @@
  *
  * <<Broadcom-WL-IPTag/Open:>>
  *
- * $Id: dhd_sdio.c 699163 2017-05-12 05:18:23Z $
+ * $Id: dhd_sdio.c 705650 2017-06-19 03:00:50Z $
  */
 
 #include <typedefs.h>
@@ -4855,8 +4855,10 @@ dhd_bus_stop(struct dhd_bus *bus, bool enforce_mutex)
 		 */
 		dhd_tcpack_info_tbl_clean(bus->dhd);
 #endif /* DHDTCPACK_SUPPRESS */
+		dhd_os_sdlock_txq(bus->dhd);
 		/* Clear the data packet queues */
 		pktq_flush(osh, &bus->txq, TRUE);
+		dhd_os_sdunlock_txq(bus->dhd);
 	}
 
 	/* Clear any held glomming stuff */
@@ -9932,32 +9934,33 @@ concate_revision_bcm43455(dhd_bus_t *bus, char *fw_path, char *nv_path)
 static int
 concate_revision_bcm43430(dhd_bus_t *bus, char *fw_path, char *nv_path)
 {
-    uint chipver;
-    char chipver_tag[4] = {0, };
 
-    DHD_TRACE(("%s: BCM43430 Multiple Revision Check\n", __FUNCTION__));
-    if (bus->sih->chip != BCM43430_CHIP_ID) {
-	DHD_ERROR(("%s:Chip is not BCM43430\n", __FUNCTION__));
-	return BCME_ERROR;
-    }
-    chipver = bus->sih->chiprev;
-    DHD_ERROR(("CHIP VER = [0x%x]\n", chipver));
-    if (chipver == 0x0) {
-	DHD_ERROR(("----- CHIP bcm4343S -----\n"));
-	strcat(chipver_tag, "_3s");
-    } else if (chipver == 0x1) {
-	DHD_ERROR(("----- CHIP bcm43438 -----\n"));
-    } else if (chipver == 0x2) {
-	DHD_ERROR(("----- CHIP bcm43436L -----\n"));
-	strcat(chipver_tag, "_36");
-    } else {
-	DHD_ERROR(("----- CHIP bcm43430 unknown revision %d -----\n",
-		    chipver));
-    }
+	uint chipver;
+	char chipver_tag[4] = {0, };
 
-    strcat(fw_path, chipver_tag);
-    strcat(nv_path, chipver_tag);
-    return 0;
+	DHD_TRACE(("%s: BCM43430 Multiple Revision Check\n", __FUNCTION__));
+	if (bus->sih->chip != BCM43430_CHIP_ID) {
+		DHD_ERROR(("%s:Chip is not BCM43430\n", __FUNCTION__));
+		return BCME_ERROR;
+	}
+	chipver = bus->sih->chiprev;
+	DHD_ERROR(("CHIP VER = [0x%x]\n", chipver));
+	if (chipver == 0x0) {
+		DHD_ERROR(("----- CHIP bcm4343S -----\n"));
+		strcat(chipver_tag, "_3s");
+	} else if (chipver == 0x1) {
+		DHD_ERROR(("----- CHIP bcm43438 -----\n"));
+	} else if (chipver == 0x2) {
+		DHD_ERROR(("----- CHIP bcm43436L -----\n"));
+		strcat(chipver_tag, "_36");
+	} else {
+		DHD_ERROR(("----- CHIP bcm43430 unknown revision %d -----\n",
+			chipver));
+	}
+
+	strcat(fw_path, chipver_tag);
+	strcat(nv_path, chipver_tag);
+	return 0;
 }
 
 int

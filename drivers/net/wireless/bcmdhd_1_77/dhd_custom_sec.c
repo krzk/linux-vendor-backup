@@ -42,11 +42,11 @@
 #include <linux/fcntl.h>
 #include <linux/fs.h>
 
-#if defined(ARGOS_CPU_SCHEDULER)
+#if defined(ARGOS_CPU_SCHEDULER) && !defined(DHD_LB_IRQSET)
 extern int argos_irq_affinity_setup_label(unsigned int irq, const char *label,
 	struct cpumask *affinity_cpu_mask,
 	struct cpumask *default_cpu_mask);
-#endif /* ARGOS_CPU_SCHEDULER */
+#endif /* ARGOS_CPU_SCHEDULER && !DHD_LB_IRQSET */
 
 const struct cntry_locales_custom translate_custom_table[] = {
 #if defined(BCM4330_CHIP) || defined(BCM4334_CHIP) || defined(BCM43241_CHIP)
@@ -97,6 +97,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"",   "XZ", 1},	/* Universal if Country code is unknown or empty */
 	{"IR", "XZ", 1},	/* Universal if Country code is IRAN, (ISLAMIC REPUBLIC OF) */
 	{"SD", "XZ", 1},	/* Universal if Country code is SUDAN */
+	{"SY", "XZ", 1},	/* Universal if Country code is SYRIAN ARAB REPUBLIC */
 	{"GL", "XZ", 1},	/* Universal if Country code is GREENLAND */
 	{"PS", "XZ", 1},	/* Universal if Country code is PALESTINIAN TERRITORY, OCCUPIED */
 	{"TL", "XZ", 1},	/* Universal if Country code is TIMOR-LESTE (EAST TIMOR) */
@@ -141,6 +142,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"",   "XZ", 11},	/* Universal if Country code is unknown or empty */
 	{"IR", "XZ", 11},	/* Universal if Country code is IRAN, (ISLAMIC REPUBLIC OF) */
 	{"SD", "XZ", 11},	/* Universal if Country code is SUDAN */
+	{"SY", "XZ", 11},	/* Universal if Country code is SYRIAN ARAB REPUBLIC */
 	{"GL", "XZ", 11},	/* Universal if Country code is GREENLAND */
 	{"PS", "XZ", 11},	/* Universal if Country code is PALESTINIAN TERRITORY, OCCUPIED */
 	{"TL", "XZ", 11},	/* Universal if Country code is TIMOR-LESTE (EAST TIMOR) */
@@ -170,6 +172,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"",   "XZ", 11},	/* Universal if Country code is unknown or empty */
 	{"IR", "XZ", 11},	/* Universal if Country code is IRAN, (ISLAMIC REPUBLIC OF) */
 	{"SD", "XZ", 11},	/* Universal if Country code is SUDAN */
+	{"SY", "XZ", 11},	/* Universal if Country code is SYRIAN ARAB REPUBLIC */
 	{"PS", "XZ", 11},	/* Universal if Country code is PALESTINIAN TERRITORY, OCCUPIED */
 	{"TL", "XZ", 11},	/* Universal if Country code is TIMOR-LESTE (EAST TIMOR) */
 	{"MH", "XZ", 11},	/* Universal if Country code is MARSHALL ISLANDS */
@@ -948,7 +951,8 @@ dhd_force_disable_singlcore_scan(dhd_pub_t *dhd)
 }
 #endif /* FORCE_DISABLE_SINGLECORE_SCAN */
 
-#if defined(ARGOS_CPU_SCHEDULER) && defined(CONFIG_SCHED_HMP)
+#if defined(ARGOS_CPU_SCHEDULER) && defined(CONFIG_SCHED_HMP) && \
+	!defined(DHD_LB_IRQSET)
 void
 set_irq_cpucore(unsigned int irq, cpumask_var_t default_cpu_mask,
 	cpumask_var_t affinity_cpu_mask)
@@ -1101,16 +1105,6 @@ uint32 sec_save_softap_info(void)
 
 	DHD_TRACE(("[WIFI_SEC] %s: Entered.\n", __FUNCTION__));
 	memset(temp_buf, 0, sizeof(temp_buf));
-
-	fp = filp_open(filepath, O_RDONLY, 0);
-	if (IS_ERR(fp) || (fp == NULL)) {
-		DHD_ERROR(("[WIFI_SEC] %s: %s File open failed.(%ld)\n",
-			SOFTAPINFO, __FUNCTION__, PTR_ERR(fp)));
-	} else {
-		filp_close(fp, NULL);
-		DHD_ERROR(("[WIFI_SEC] %s already saved.\n", SOFTAPINFO));
-		return 0;
-	}
 
 	pos = temp_buf;
 	rem = sizeof(temp_buf);

@@ -24,7 +24,7 @@
  *
  * <<Broadcom-WL-IPTag/Open:>>
  *
- * $Id: dhd_common.c 699163 2017-05-12 05:18:23Z $
+ * $Id: dhd_common.c 719896 2017-09-07 04:13:03Z $
  */
 #include <typedefs.h>
 #include <osl.h>
@@ -110,7 +110,8 @@ extern int is_wlc_event_frame(void *pktdata, uint pktlen, uint16 exp_usr_subtype
 
 #if defined(CUSTOMER_HW4)
 /* For CUSTOMER_HW4 do not enable DHD_EVENT_VAL and DHD_ERROR_MEM_VAL */
-int dhd_msg_level = DHD_ERROR_VAL | DHD_MSGTRACE_VAL | DHD_FWLOG_VAL | DHD_EVENT_VAL;
+int dhd_msg_level = DHD_ERROR_VAL | DHD_MSGTRACE_VAL | DHD_FWLOG_VAL | DHD_EVENT_VAL |
+	DHD_PKT_MON_VAL;
 #else
 /* By default all logs are enabled */
 int dhd_msg_level = DHD_ERROR_VAL | DHD_MSGTRACE_VAL | DHD_FWLOG_VAL | DHD_EVENT_VAL |
@@ -447,19 +448,22 @@ dhd_sssr_mempool_deinit(dhd_pub_t *dhd)
 int
 dhd_get_sssr_reg_info(dhd_pub_t *dhd)
 {
-	int ret;
+	int ret = BCME_ERROR;
+
+	DHD_ERROR(("%s: get sssr_reg_info\n", __FUNCTION__));
 	/* get sssr_reg_info from firmware */
 	memset((void *)&dhd->sssr_reg_info, 0, sizeof(dhd->sssr_reg_info));
-	bcm_mkiovar("sssr_reg_info", 0, 0, (char *)&dhd->sssr_reg_info,
-		sizeof(dhd->sssr_reg_info));
-	if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_GET_VAR, &dhd->sssr_reg_info,
-		sizeof(dhd->sssr_reg_info), FALSE, 0)) < 0) {
-		DHD_ERROR(("%s: sssr_reg_info failed (error=%d)\n",
-			__FUNCTION__, ret));
-		return BCME_ERROR;
+	if (bcm_mkiovar("sssr_reg_info", 0, 0, (char *)&dhd->sssr_reg_info,
+		sizeof(dhd->sssr_reg_info))) {
+		if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_GET_VAR, &dhd->sssr_reg_info,
+			sizeof(dhd->sssr_reg_info), FALSE, 0)) < 0) {
+			DHD_ERROR(("%s: dhd_wl_ioctl_cmd failed (error=%d)\n", __FUNCTION__, ret));
+		}
+	} else {
+			DHD_ERROR(("%s: bcm_mkiovar failed\n", __FUNCTION__));
 	}
 
-	return BCME_OK;
+	return ret;
 }
 
 uint32
@@ -803,9 +807,8 @@ dhd_wl_ioctl(dhd_pub_t *dhd_pub, int ifidx, wl_ioctl_t *ioc, void *buf, int len)
 	if (dhd_os_proto_block(dhd_pub))
 	{
 #ifdef DHD_LOG_DUMP
-		int slen, i, val, rem, lval, min_len;
-		char *pval, *pos, *msg;
-		char tmp[64];
+		int slen, val, lval, min_len;
+		char *msg, tmp[64];
 
 		/* WLC_GET_VAR */
 		if (ioc->cmd == WLC_GET_VAR) {
@@ -881,6 +884,9 @@ dhd_wl_ioctl(dhd_pub_t *dhd_pub, int ifidx, wl_ioctl_t *ioc, void *buf, int len)
 					bcopy((msg + slen), &lval, min_len);
 				}
 			}
+			if (!strncmp(msg, "cur_etheraddr", strlen("cur_etheraddr"))) {
+				lval = 0;
+			}
 			DHD_ERROR_MEM(("%s: cmd: %d, msg: %s, val: 0x%x, len: %d, set: %d\n",
 				ioc->cmd == WLC_GET_VAR ? "WLC_GET_VAR" : "WLC_SET_VAR",
 				ioc->cmd, msg, lval, ioc->len, ioc->set));
@@ -888,23 +894,10 @@ dhd_wl_ioctl(dhd_pub_t *dhd_pub, int ifidx, wl_ioctl_t *ioc, void *buf, int len)
 			slen = ioc->len;
 			if (buf != NULL) {
 				val = *(int*)buf;
-				pval = (char*)buf;
-				pos = tmp;
-				rem = sizeof(tmp);
-				memset(tmp, 0, sizeof(tmp));
-				for (i = 0; i < slen; i++) {
-					if (rem <= 3) {
-						/* At least 2 byte required + 1 byte(NULL) */
-						break;
-					}
-					pos += snprintf(pos, rem, "%02x ", pval[i]);
-					rem = sizeof(tmp) - (int)(pos - tmp);
-				}
 				/* Do not dump for WLC_GET_MAGIC and WLC_GET_VERSION */
 				if (ioc->cmd != WLC_GET_MAGIC && ioc->cmd != WLC_GET_VERSION)
-					DHD_ERROR_MEM(("WLC_IOCTL: cmd: %d, val: %d(%s), "
-						"len: %d, set: %d\n",
-						ioc->cmd, val, tmp, ioc->len, ioc->set));
+					DHD_ERROR_MEM(("WLC_IOCTL: cmd: %d, val: %d, len: %d, "
+					"set: %d\n", ioc->cmd, val, ioc->len, ioc->set));
 			} else {
 				DHD_ERROR_MEM(("WLC_IOCTL: cmd: %d, buf is NULL\n", ioc->cmd));
 			}
@@ -2228,13 +2221,7 @@ wl_show_host_event(dhd_pub_t *dhd_pub, wl_event_msg_t *event, void *event_data,
 	datalen = ntoh32(event->datalen);
 
 	/* debug dump of event messages */
-	snprintf(eabuf, sizeof(eabuf), "%02x:%02x:%02x:%02x:%02x:%02x",
-	        (uchar)event->addr.octet[0]&0xff,
-	        (uchar)event->addr.octet[1]&0xff,
-	        (uchar)event->addr.octet[2]&0xff,
-	        (uchar)event->addr.octet[3]&0xff,
-	        (uchar)event->addr.octet[4]&0xff,
-	        (uchar)event->addr.octet[5]&0xff);
+	snprintf(eabuf, sizeof(eabuf), MACDBG, MAC2STRDBG(event->addr.octet));
 
 	event_name = bcmevent_get_name(event_type);
 	BCM_REFERENCE(event_name);
@@ -2381,7 +2368,6 @@ wl_show_host_event(dhd_pub_t *dhd_pub, wl_event_msg_t *event, void *event_data,
 	case WLC_E_PFN_SCAN_NONE:
 	case WLC_E_PFN_SCAN_ALLGONE:
 	case WLC_E_PFN_GSCAN_FULL_RESULT:
-	case WLC_E_PFN_SWC:
 	case WLC_E_PFN_SSID_EXT:
 		DHD_EVENT(("PNOEVENT: %s\n", event_name));
 		break;
@@ -2687,9 +2673,6 @@ wl_process_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata, uint pktlen
 	uint evlen;
 	int ret;
 	uint16 usr_subtype;
-	char macstr[ETHER_ADDR_STR_LEN];
-
-	BCM_REFERENCE(macstr);
 
 	ret = wl_host_event_get_data(pktdata, pktlen, &evu);
 	if (ret != BCME_OK) {
@@ -2929,8 +2912,8 @@ wl_process_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata, uint pktlen
 				__FUNCTION__, type, flags, status, role, del_sta));
 
 			if (del_sta) {
-				DHD_MAC_TO_STR((event->addr.octet), macstr);
-				DHD_EVENT(("%s: Deleting STA %s\n", __FUNCTION__, macstr));
+				DHD_EVENT(("%s: Deleting STA " MACDBG "\n",
+					__FUNCTION__, MAC2STRDBG(event->addr.octet)));
 
 				dhd_del_sta(dhd_pub, dhd_ifname2idx(dhd_pub->info,
 					event->ifname), &event->addr.octet);
@@ -3013,9 +2996,9 @@ dhd_print_buf(void *pbuf, int len, int bytes_per_line)
 #define strtoul(nptr, endptr, base) bcm_strtoul((nptr), (endptr), (base))
 #endif
 
-#ifdef PKT_FILTER_SUPPORT
+#if defined(PKT_FILTER_SUPPORT) || defined(DHD_PKT_LOGGING)
 /* Convert user's input in hex pattern to byte-size mask */
-static int
+int
 wl_pattern_atoh(char *src, char *dst)
 {
 	int i;
@@ -3038,7 +3021,9 @@ wl_pattern_atoh(char *src, char *dst)
 	}
 	return i;
 }
+#endif /* PKT_FILTER_SUPPORT || DHD_PKT_LOGGING */
 
+#ifdef PKT_FILTER_SUPPORT
 void
 dhd_pktfilter_offload_enable(dhd_pub_t * dhd, char *arg, int enable, int master_mode)
 {
@@ -4135,7 +4120,7 @@ dhd_get_suspend_bcn_li_dtim(dhd_pub_t *dhd, int *dtim_period, int *bcn_interval)
 		}
 	}
 
-	DHD_INFO(("%s beacon=%d bcn_li_dtim=%d DTIM=%d Listen=%d\n",
+	DHD_ERROR(("%s beacon=%d bcn_li_dtim=%d DTIM=%d Listen=%d\n",
 		__FUNCTION__, *bcn_interval, bcn_li_dtim, *dtim_period, CUSTOM_LISTEN_INTERVAL));
 
 	return bcn_li_dtim;
@@ -4206,7 +4191,7 @@ dhd_get_suspend_bcn_li_dtim(dhd_pub_t *dhd)
 		}
 	}
 
-	DHD_INFO(("%s beacon=%d bcn_li_dtim=%d DTIM=%d Listen=%d\n",
+	DHD_ERROR(("%s beacon=%d bcn_li_dtim=%d DTIM=%d Listen=%d\n",
 		__FUNCTION__, ap_beacon, bcn_li_dtim, dtim_period, CUSTOM_LISTEN_INTERVAL));
 
 exit:
@@ -4807,7 +4792,7 @@ dhd_apply_default_clm(dhd_pub_t *dhd, char *clm_path)
 		clm_blob_path = clm_path;
 		DHD_TRACE(("clm path from module param:%s\n", clm_path));
 	} else {
-		clm_blob_path = CONFIG_BCMDHD_CLM_PATH;
+		clm_blob_path = VENDOR_PATH CONFIG_BCMDHD_CLM_PATH;
 	}
 
 	/* If CLM blob file is found on the filesystem, download the file.

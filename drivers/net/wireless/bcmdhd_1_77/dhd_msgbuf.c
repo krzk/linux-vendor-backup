@@ -26,7 +26,7 @@
  *
  * <<Broadcom-WL-IPTag/Open:>>
  *
- * $Id: dhd_msgbuf.c 698895 2017-05-11 02:55:17Z $
+ * $Id: dhd_msgbuf.c 704361 2017-06-13 08:50:38Z $
  */
 
 
@@ -66,6 +66,10 @@
 
 #include <hnd_debug.h>
 #include <hnd_armtrap.h>
+
+#ifdef DHD_PKT_LOGGING
+#include <dhd_pktlog.h>
+#endif /* DHD_PKT_LOGGING */
 
 extern char dhd_version[];
 extern char fw_version[];
@@ -4998,7 +5002,7 @@ workq_ring_full:
 		dhd->dma_stats.txdata--;
 		dhd->dma_stats.txdata_sz -= len;
 #endif /* DMAMAP_STATS */
-#ifdef DBG_PKT_MON
+#if defined(DBG_PKT_MON) || defined(DHD_PKT_LOGGING)
 		if (dhd->d11_tx_status) {
 			uint16 tx_status;
 
@@ -5007,9 +5011,11 @@ workq_ring_full:
 			pkt_fate = (tx_status == WLFC_CTL_PKTFLAG_DISCARD) ? TRUE : FALSE;
 
 			DHD_DBG_PKT_MON_TX_STATUS(dhd, pkt, pktid, tx_status);
+#ifdef DHD_PKT_LOGGING
+			DHD_PKTLOG_TXS(dhd, pkt, pktid, tx_status);
+#endif /* DHD_PKT_LOGGING */
 		}
-#endif /* DBG_PKT_MON */
-
+#endif /* DBG_PKT_MON || DHD_PKT_LOGGING */
 #if defined(BCMPCIE)
 		dhd_txcomplete(dhd, pkt, pkt_fate);
 #endif 
@@ -5242,6 +5248,9 @@ dhd_prot_txdata(dhd_pub_t *dhd, void *PKTBUF, uint8 ifidx)
 #ifdef DBG_PKT_MON
 	DHD_DBG_PKT_MON_TX(dhd, PKTBUF, pktid);
 #endif /* DBG_PKT_MON */
+#ifdef DHD_PKT_LOGGING
+	DHD_PKTLOG_TX(dhd, PKTBUF, pktid);
+#endif /* DHD_PKT_LOGGING */
 
 
 	/* Extract the data pointer and length information */
