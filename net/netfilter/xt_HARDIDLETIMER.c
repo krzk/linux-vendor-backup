@@ -6,7 +6,7 @@
  *
  * Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, 2017 The Linux Foundation. All rights reserved.
  *
  * Written by Timo Teras <ext-timo.teras@nokia.com>
  *
@@ -187,6 +187,8 @@ static int hardidletimer_tg_create(struct hardidletimer_tg_info *info)
 		pr_debug("couldn't add file to sysfs");
 		goto out_free_attr;
 	}
+	/*  notify userspace  */
+	kobject_uevent(hardidletimer_tg_kobj, KOBJ_ADD);
 
 	list_add(&info->timer->entry, &hardidletimer_tg_list);
 
