@@ -30,7 +30,6 @@ struct exynos_pmu_data {
 };
 
 extern void __iomem *pmu_base_addr;
-extern u32 exynos_get_eint_wake_mask(void);
 
 #ifdef CONFIG_EXYNOS_PMU_ARM_DRIVERS
 /* list of all exported SoC specific data */
