@@ -963,7 +963,8 @@ static ssize_t store_timer_rate(struct cpufreq_interactive_tunables *tunables,
 	ret = strict_strtoul(buf, 0, &val);
 	if (ret < 0)
 		return ret;
-	tunables->timer_rate = val;
+
+	tunables->timer_rate = usecs_to_jiffies(val);
 	return count;
 }
 
