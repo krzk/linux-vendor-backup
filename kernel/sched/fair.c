@@ -6425,7 +6425,9 @@ out:
 	return ld_moved;
 }
 
+#ifdef CONFIG_SCHED_HMP
 static unsigned int hmp_idle_pull(int this_cpu);
+#endif
 
 /*
  * idle_balance is called by schedule() if this_cpu is about to become
@@ -6472,10 +6474,12 @@ void idle_balance(int this_cpu, struct rq *this_rq)
 	}
 	rcu_read_unlock();
 
+#ifdef CONFIG_SCHED_HMP
 	// implement idle pull for HMP
 	if (!pulled_task) {
 		pulled_task = hmp_idle_pull(this_cpu);
 	}
+#endif
 
 	raw_spin_lock(&this_rq->lock);
 
@@ -7458,8 +7462,6 @@ done:
 	spin_unlock(&hmp_force_migration);
 	return force;
 }
-#else
-static unsigned int hmp_idle_pull(int this_cpu) { return 0; }
 #endif /* CONFIG_SCHED_HMP */
 
 /*
@@ -8166,7 +8168,7 @@ core_initcall(register_sched_cpufreq_notifier);
 
 #endif /* CONFIG_HMP_FREQUENCY_INVARIANT_SCALE */
 
-#ifdef BOOT_BOOST_DURATION
+#ifdef CONFIG_SCHED_HMP
 static int __init hmp_boot_boost(void)
 {
 	hmp_boostpulse_endtime = ktime_to_us(ktime_get()) + BOOT_BOOST_DURATION;
