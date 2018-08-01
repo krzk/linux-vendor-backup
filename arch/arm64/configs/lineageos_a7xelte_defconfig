@@ -2580,7 +2580,7 @@ CONFIG_HID_ZEROPLUS=y
 # CONFIG_ZEROPLUS_FF is not set
 CONFIG_HID_ZYDACRON=y
 # CONFIG_HID_SENSOR_HUB is not set
-# CONFIG_HID_OVR is not ste
+# CONFIG_HID_OVR is not set
 
 #
 # USB HID support
