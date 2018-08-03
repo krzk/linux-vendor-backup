@@ -10,7 +10,7 @@
  * published by the Free Software Foundation.
  */
 
-#define DEBUG
+//#define DEBUG
 
 #include <linux/battery/fuelgauge/s2mu003_fuelgauge.h>
 #include <linux/of_gpio.h>
