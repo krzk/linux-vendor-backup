@@ -1,7 +1,7 @@
 /*
  * Linux cfg80211 driver
  *
- * Copyright (C) 1999-2017, Broadcom Corporation
+ * Copyright (C) 1999-2018, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -24,7 +24,7 @@
  *
  * <<Broadcom-WL-IPTag/Open:>>
  *
- * $Id: wl_cfg80211.h 720601 2017-09-11 13:06:44Z $
+ * $Id: wl_cfg80211.h 750618 2018-03-07 11:14:10Z $
  */
 
 /**
@@ -251,6 +251,10 @@ do {									\
 
 #ifndef WL_SCB_MAX_PROBE
 #define WL_SCB_MAX_PROBE	3
+#endif
+
+#ifndef WL_PSPRETEND_RETRY_LIMIT
+#define WL_PSPRETEND_RETRY_LIMIT 1
 #endif
 
 #ifndef WL_MIN_PSPRETEND_THRESHOLD
@@ -697,6 +701,12 @@ typedef struct wl_rssi_ant_mimo {
 #define GET_BSS_INFO_LEN 90
 #endif /* DHD_ENABLE_BIGDATA_LOGGING */
 
+#ifdef DHD_LB_IRQSET
+#if defined(CONFIG_ARCH_MSM8998) || defined(CONFIG_ARCH_SDM845)
+#define WL_IRQSET
+#endif /* CONFIG_ARCH_MSM8998 | CONFIG_ARCH_SDM845) */
+#endif /* DHD_LB_IRQSET */
+
 #ifdef WES_SUPPORT
 #ifdef CUSTOMER_SCAN_TIMEOUT_SETTING
 #define CUSTOMER_WL_SCAN_TIMER_INTERVAL_MS	25000 /* Scan timeout */
@@ -825,6 +835,9 @@ struct bcm_cfg80211 {
 	struct mutex event_sync;	/* maily for up/down synchronization */
 	bool disable_roam_event;
 	struct delayed_work pm_enable_work;
+#ifdef WL_IRQSET
+	struct delayed_work irq_set_work;
+#endif /* WL_IRQSET */
 	struct workqueue_struct *event_workq;   /* workqueue for event */
 	struct work_struct event_work;		/* work item for event */
 	struct mutex pm_sync;	/* mainly for pm work synchronization */
@@ -907,10 +920,12 @@ struct bcm_cfg80211 {
 #endif /* WBTEXT */
 	struct list_head vndr_oui_list;
 	spinlock_t vndr_oui_sync;	/* to protect vndr_oui_list */
-
 #ifdef STAT_REPORT
 	void *stat_report_info;
 #endif
+#ifdef SUPPORT_CUSTOM_SET_CAC
+	int enable_cac;
+#endif	/* SUPPORT_CUSTOM_SET_CAC */
 };
 
 #if defined(STRICT_GCC_WARNINGS) && defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == \
@@ -1737,7 +1752,7 @@ extern void wl_cfg80211_del_p2p_wdev(struct net_device *dev);
 #endif /* WL_CFG80211_P2P_DEV_IF */
 #if defined(WL_SUPPORT_AUTO_CHANNEL)
 extern int wl_cfg80211_set_spect(struct net_device *dev, int spect);
-extern int wl_cfg80211_get_sta_channel(struct net_device *dev);
+extern int wl_cfg80211_get_sta_channel(struct bcm_cfg80211 *cfg);
 #endif /* WL_SUPPORT_AUTO_CHANNEL */
 
 #ifdef P2P_LISTEN_OFFLOADING
@@ -1781,8 +1796,35 @@ int wl_get_rssi_logging(struct net_device *dev, void *param);
 int wl_set_rssi_logging(struct net_device *dev, void *param);
 int wl_get_rssi_per_ant(struct net_device *dev, char *ifname, char *peer_mac, void *param);
 #endif /* SUPPORT_RSSI_SUM_REPORT */
+#ifdef DYNAMIC_MUMIMO_CONTROL
+void wl_set_murx_block_eapol_status(struct bcm_cfg80211 *cfg, int enable);
+bool wl_get_murx_reassoc_status(struct bcm_cfg80211 *cfg);
+void wl_set_murx_reassoc_status(struct bcm_cfg80211 *cfg, int enable);
+int wl_check_bss_support_mumimo(struct net_device *dev);
+int wl_get_murx_bfe_cap(struct net_device *dev, int *cap);
+int wl_set_murx_bfe_cap(struct net_device *dev, int val, bool reassoc_req);
+#endif /* DYNAMIC_MUMIMO_CONTROL */
 int wl_cfg80211_iface_count(struct net_device *dev);
 struct net_device* wl_get_ap_netdev(struct bcm_cfg80211 *cfg, char *ifname);
 struct net_device* wl_get_netdev_by_name(struct bcm_cfg80211 *cfg, char *ifname);
 int wl_cfg80211_get_vndr_ouilist(struct bcm_cfg80211 *cfg, uint8 *buf, int max_cnt);
+#ifdef SUPPORT_SET_CAC
+extern int wl_cfg80211_enable_cac(struct net_device *dev, int enable);
+#endif /* SUPPORT_SET_CAC */
+#ifdef DHD_USE_CHECK_DONGLE_IDLE
+int wl_check_dongle_idle(struct wiphy *wiphy);
+#else
+static inline int wl_check_dongle_idle(struct wiphy *wiphy)
+{
+	return TRUE;
+}
+#endif /* DHD_USE_CHECK_DONGLE_IDLE */
+#ifdef DHD_ABORT_SCAN_CREATE_INTERFACE
+extern int wl_abort_scan_and_check(struct bcm_cfg80211 *cfg);
+#else
+static inline int wl_abort_scan_and_check(struct bcm_cfg80211 *cfg)
+{
+	return TRUE;
+}
+#endif /* DHD_ABORT_SCAN_CREATE_INTERFACE */
 #endif /* _wl_cfg80211_h_ */
