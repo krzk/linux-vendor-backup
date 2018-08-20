@@ -982,7 +982,6 @@ static irqreturn_t nx_clipper_irq_handler(void *data)
 					done_buf->cb_buf_done(done_buf);
 				}
 			} else {
-				nx_vip_stop(me->module, VIP_CLIPPER);
 				me->buffer_underrun = true;
 			}
 		}
@@ -1017,9 +1016,7 @@ static int clipper_buffer_queue(struct nx_video_buffer *buf, void *data)
 	nx_video_add_buffer(&me->vbuf_obj, buf);
 
 	if (me->buffer_underrun) {
-		pr_debug("%s: rerun vip\n", __func__);
 		me->buffer_underrun = false;
-		nx_vip_run(me->module, VIP_CLIPPER);
 	}
 	return 0;
 }
