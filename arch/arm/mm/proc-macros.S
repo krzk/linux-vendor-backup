@@ -256,13 +256,14 @@
 	mcr	p15, 0, ip, c7, c10, 4		@ data write barrier
 	.endm
 
-.macro define_processor_functions name:req, dabort:req, pabort:req, nommu=0, suspend=0
+.macro define_processor_functions name:req, dabort:req, pabort:req, nommu=0, suspend=0, bugs=0
 	.type	\name\()_processor_functions, #object
 	.align 2
 ENTRY(\name\()_processor_functions)
 	.word	\dabort
 	.word	\pabort
 	.word	cpu_\name\()_proc_init
+	.word	\bugs
 	.word	cpu_\name\()_proc_fin
 	.word	cpu_\name\()_reset
 	.word	cpu_\name\()_do_idle
@@ -327,4 +328,9 @@ ENTRY(\name\()_tlb_fns)
 		.long	\flags_up
 	.endif
 	.size	\name\()_tlb_fns, . - \name\()_tlb_fns
+.endm
+
+.macro globl_equ x, y
+	.globl	\x
+	.equ	\x, \y
 .endm
