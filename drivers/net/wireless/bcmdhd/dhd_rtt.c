@@ -978,6 +978,7 @@ dhd_rtt_get_version(dhd_pub_t *dhd, int *out_version)
 	subcmd_info.name = "ver";
 	subcmd_info.cmdid = WL_PROXD_CMD_GET_VERSION;
 	subcmd_info.handler = NULL;
+	subcmd_info.version = 0;
 	ret = dhd_rtt_common_get_handler(dhd, &subcmd_info,
 			WL_PROXD_METHOD_FTM, WL_PROXD_SESSION_ID_GLOBAL);
 	*out_version = (ret == BCME_OK) ? subcmd_info.version : 0;
