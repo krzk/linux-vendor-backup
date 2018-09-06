@@ -141,7 +141,7 @@
 #define NO_WAKEUP_LOCK
 #define FREQ_MAX_LV		(40)
 
-static const char const *dev_format_str[] = {
+static const char *dev_format_str[] = {
 	[IPC_FMT]	= "FMT",
 	[IPC_RAW]	= "RAW",
 	[IPC_RFS]	= "RFS",
@@ -182,7 +182,7 @@ enum modem_state {
 #endif
 };
 
-static const char const *cp_state_str[] = {
+static const char *cp_state_str[] = {
 	[STATE_OFFLINE]		= "OFFLINE",
 	[STATE_CRASH_RESET]	= "CRASH_RESET",
 	[STATE_CRASH_EXIT]	= "CRASH_EXIT",
@@ -465,7 +465,7 @@ enum iod_rx_state {
 	MAX_IOD_RX_STATE
 };
 
-static const char const *rx_state_str[] = {
+static const char *rx_state_str[] = {
 	[IOD_RX_ON_STANDBY]	= "RX_ON_STANDBY",
 	[IOD_RX_HEADER]		= "RX_HEADER",
 	[IOD_RX_PAYLOAD]	= "RX_PAYLOAD",

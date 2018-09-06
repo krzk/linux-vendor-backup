@@ -128,7 +128,7 @@ static inline int ns2ms(long ns)
 	return (ns > 0) ? (ns / 1000000) : 0;
 }
 
-static const char const *exynos_layer_string[] = {
+static const char *exynos_layer_string[] = {
 	[LINK] = "LNK",
 	[IODEV] = "IOD",
 	[APP] = "APP",
@@ -156,7 +156,7 @@ static inline enum direction direction_opposite(enum direction dir)
 	return (dir == TX) ? RX : TX;
 }
 
-static const char const *direction_string[] = {
+static const char *direction_string[] = {
 	[TX] = "TX",
 	[RX] = "RX"
 };
@@ -169,7 +169,7 @@ static const inline char *dir_str(enum direction dir)
 		return direction_string[dir];
 }
 
-static const char const *ipc_direction_string[] = {
+static const char *ipc_direction_string[] = {
 	[TX] = "AP->CP",
 	[RX] = "AP<-CP"
 };
@@ -182,7 +182,7 @@ static const inline char *ipc_dir(enum direction dir)
 		return ipc_direction_string[dir];
 }
 
-static const char const *arrow_direction[] = {
+static const char *arrow_direction[] = {
 	[TX] = "->",
 	[RX] = "<-"
 };
