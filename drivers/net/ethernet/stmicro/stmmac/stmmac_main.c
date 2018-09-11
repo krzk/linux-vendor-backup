@@ -83,7 +83,7 @@ static void qos_request_work(struct work_struct *work)
 }
 #endif
 
-#define STMMAC_ALIGN(x)	L1_CACHE_ALIGN(x)
+#define	STMMAC_ALIGN(x)		__ALIGN_KERNEL(x, SMP_CACHE_BYTES)
 
 /* Module parameters */
 #define TX_TIMEO	5000
