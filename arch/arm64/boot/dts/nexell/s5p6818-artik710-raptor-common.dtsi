@@ -222,6 +222,9 @@
 				PIN_IN(gpioa-10, FUNC0, NONE, STR0);
 				PIN_IN(gpioa-11, FUNC0, NONE, STR0);
 				PIN_IN(gpiod-8, FUNC0, NONE, STR0);
+
+				/* Enable LDO for MIPI Camera module */
+				PIN_OUT(gpioa-6, HIGH, FUNC0, NONE, STR0);
 			};
 
 			key_pwr:key_pwr {
@@ -302,32 +305,32 @@
 		mipi_csi:mipi_csi@c00d0000 {
 			data_lane = <2>;
 			pllval = <750>;
-			hssettle = <7 7 7 7>;
+			hssettle = <2 7 15 7>;
 			status = "okay";
 		};
 
 		clipper_0:clipper0@c0063000 {
 			interface_type = <NX_CAPTURE_INTERFACE_MIPI_CSI>;
-			gpios = <&gpio_a 17 0 &gpio_a 3 0 &gpio_a 6 0>;
+			gpios = <&gpio_a 17 0 &gpio_a 3 0>;
 			data_order = <NX_VIN_Y0CBY1CR>;
 			status = "okay";
 			sensor {
 				type = <NX_CAPTURE_SENSOR_I2C>;
-				i2c_name = "S5K4ECGA";
+				i2c_name = "ov5640";
 				i2c_adapter = <0>;
-				addr = <0x56>;
+				addr = <0x3C>;
 			};
 			power {
 				enable_seq = <
-					NX_ACTION_START NX_ACTION_TYPE_GPIO 2 1 2 NX_ACTION_END
-					NX_ACTION_START NX_ACTION_TYPE_GPIO 1 1 1 NX_ACTION_END
-					NX_ACTION_START NX_ACTION_TYPE_GPIO 0 1 1 NX_ACTION_END
+					NX_ACTION_START NX_ACTION_TYPE_GPIO 1 1 0 NX_ACTION_END
+					NX_ACTION_START NX_ACTION_TYPE_GPIO 0 0 5 NX_ACTION_END
+					NX_ACTION_START NX_ACTION_TYPE_GPIO 1 0 10 NX_ACTION_END
+					NX_ACTION_START NX_ACTION_TYPE_GPIO 0 1 50 NX_ACTION_END
 				>;
 
 				disable_seq = <
 					NX_ACTION_START NX_ACTION_TYPE_GPIO 0 0 1 NX_ACTION_END
-					NX_ACTION_START NX_ACTION_TYPE_GPIO 1 0 1 NX_ACTION_END
-					NX_ACTION_START NX_ACTION_TYPE_GPIO 2 0 2 NX_ACTION_END
+					NX_ACTION_START NX_ACTION_TYPE_GPIO 1 1 1 NX_ACTION_END
 				>;
 			};
 		};
