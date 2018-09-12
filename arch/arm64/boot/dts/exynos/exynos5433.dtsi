@@ -186,6 +186,7 @@
 		opp-1200000000 {
 			opp-hz = /bits/ 64 <1200000000>;
 			opp-microvolt = <1112500>;
+			opp-suspend;
 		};
 		opp-1300000000 {
 			opp-hz = /bits/ 64 <1300000000>;
@@ -228,6 +229,7 @@
 		opp-1200000000 {
 			opp-hz = /bits/ 64 <1200000000>;
 			opp-microvolt = <1037500>;
+			opp-suspend;
 		};
 		opp-1300000000 {
 			opp-hz = /bits/ 64 <1300000000>;
