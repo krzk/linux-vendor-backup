@@ -573,7 +573,7 @@ static int pp_put_mem_node(struct drm_device *drm_dev,
 
 #ifdef CONFIG_DRM_DMA_SYNC
 	if (m_node->ops_id == TDM_OPS_SRC) {
-		if (!IS_ERR(m_node->fence))
+		if (!IS_ERR_OR_NULL(m_node->fence))
 			tdm_fence_signal(drm_dev, m_node->fence);
 	}
 #endif
@@ -879,7 +879,7 @@ static int pp_set_mem_node(struct tdm_ppdrv *ppdrv,
 
 		dma_buf = tbm_gem_get_dma_buf(ppdrv->drm_dev, ppdrv->dev,
 				m_node->buf_info.handles[0], c_node->filp);
-		if (!IS_ERR(dma_buf))
+		if (!IS_ERR_OR_NULL(dma_buf))
 			m_node->fence = tdm_fence(ppdrv->drm_dev, dma_buf);
 	}
 #endif
