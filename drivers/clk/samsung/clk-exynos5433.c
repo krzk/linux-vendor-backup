@@ -5623,6 +5623,24 @@ static int __maybe_unused exynos5433_cmu_resume(struct device *dev)
 	return 0;
 }
 
+/*
+ * late_suspend and early_resume callbacks are required to balance
+ * pm_runtime_disable and pm_runtime_enable calls in device_suspend_late
+ * and device_resume_early core functions to keep runtime enabled for
+ * CMU device during noirq sleep phase.
+ */
+static int __maybe_unused exynos5433_late_suspend(struct device *dev)
+{
+	pm_runtime_enable(dev);
+	return 0;
+}
+
+static int __maybe_unused exynos5433_early_resume(struct device *dev)
+{
+	pm_runtime_disable(dev);
+	return 0;
+}
+
 static int __init exynos5433_cmu_probe(struct platform_device *pdev)
 {
 	const struct samsung_cmu_info *info;
@@ -5760,6 +5778,8 @@ static const struct of_device_id exynos5433_cmu_of_match[] = {
 static const struct dev_pm_ops exynos5433_cmu_pm_ops = {
 	SET_RUNTIME_PM_OPS(exynos5433_cmu_suspend, exynos5433_cmu_resume,
 			   NULL)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(exynos5433_late_suspend,
+				     exynos5433_early_resume)
 	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
 				     pm_runtime_force_resume)
 };
