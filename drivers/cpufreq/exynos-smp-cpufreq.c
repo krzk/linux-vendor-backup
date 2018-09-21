@@ -914,16 +914,21 @@ static int exynos_cpufreq_init(struct cpufreq_policy *policy)
 	voltage_tolerance = exynos_get_voltage_tolerance(cpu_dev);
 	policy->cur = exynos_cpufreq_get(policy->cpu);
 	/* Later this code will be removed. This is for first lot */
-	policy->cpuinfo.max_freq = 1600000;
-	policy->cpuinfo.min_freq = 300000;
+	policy->cpuinfo.min_freq = 400000;
+	freq_table[cur_cluster][13].frequency = CPUFREQ_ENTRY_INVALID;
 
-	if (samsung_rev() == EXYNOS7580_REV_0)
+	if (samsung_rev() == EXYNOS7580_REV_0) {
 		if (!support_full_frequency())
 			policy->cpuinfo.max_freq = 800000;
+		else
+			policy->cpuinfo.max_freq = 1400000;
+	} else if (soc_is_exynos7580_v1()) {
+		policy->cpuinfo.max_freq = 1500000;
+		freq_table[cur_cluster][0].frequency = CPUFREQ_ENTRY_INVALID;
+	}
 
-	/* CPU min and max freq policies upon boot */
-	policy->max = 1500000;
-	policy->min = 400000;
+	if (soc_is_exynos7580_v1())
+		policy->cpuinfo.max_freq = 1500000;
 
 	cpumask_copy(policy->cpus, topology_core_cpumask(policy->cpu));
 
