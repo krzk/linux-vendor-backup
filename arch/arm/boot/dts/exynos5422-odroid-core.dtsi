@@ -422,6 +422,8 @@
 
 &mali {
 	mali-supply = <&buck4_reg>;
+	assigned-clocks = <&clock CLK_FOUT_VPLL>;
+	assigned-clock-rates = <600000000>;
 	status = "okay";
 };
 
