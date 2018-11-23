@@ -122,6 +122,11 @@
 	status = "okay";
 };
 
+&clock {
+	assigned-clocks = <&clock CLK_FOUT_BPLL>;
+	assigned-clock-rates = <933000000>;
+};
+
 &cpu0 {
 	cpu-supply = <&buck6_reg>;
 };
