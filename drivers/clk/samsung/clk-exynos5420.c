@@ -657,7 +657,7 @@ static const struct samsung_mux_clock exynos5x_mux_clks[] __initconst = {
 	MUX(0, "mout_aclk66", mout_group1_p, SRC_TOP1, 8, 2),
 	MUX(0, "mout_aclk166", mout_group1_p, SRC_TOP1, 24, 2),
 
-	MUX(0, "mout_aclk_g3d", mout_group5_p, SRC_TOP2, 16, 1),
+	MUX(CLK_MOUT_ACLK_G3D, "mout_aclk_g3d", mout_group5_p, SRC_TOP2, 16, 1),
 
 	MUX(0, "mout_user_aclk400_isp", mout_user_aclk400_isp_p,
 			SRC_TOP3, 0, 1),
@@ -715,7 +715,7 @@ static const struct samsung_mux_clock exynos5x_mux_clks[] __initconst = {
 	MUX(0, "mout_sclk_rpll", mout_rpll_p, SRC_TOP6, 16, 1),
 	MUX_F(CLK_MOUT_EPLL, "mout_sclk_epll", mout_epll_p, SRC_TOP6, 20, 1,
 			CLK_SET_RATE_PARENT, 0),
-	MUX(0, "mout_sclk_dpll", mout_dpll_p, SRC_TOP6, 24, 1),
+	MUX(CLK_MOUT_DPLL, "mout_sclk_dpll", mout_dpll_p, SRC_TOP6, 24, 1),
 	MUX(0, "mout_sclk_cpll", mout_cpll_p, SRC_TOP6, 28, 1),
 
 	MUX(0, "mout_sw_aclk400_isp", mout_sw_aclk400_isp_p,
