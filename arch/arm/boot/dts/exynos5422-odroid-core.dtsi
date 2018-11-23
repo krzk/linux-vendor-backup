@@ -422,8 +422,6 @@
 
 &mali {
 	mali-supply = <&buck4_reg>;
-	assigned-clocks = <&clock CLK_MOUT_ACLK_G3D>;
-	assigned-clock-parents = <&clock CLK_MOUT_DPLL>;
 	status = "okay";
 };
 
