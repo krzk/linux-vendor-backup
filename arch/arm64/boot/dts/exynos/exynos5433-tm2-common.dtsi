@@ -179,6 +179,8 @@
 		shutdown-gpios = <&gpd4 0 GPIO_ACTIVE_HIGH>;
 		wake-gpios = <&gpr3 7 GPIO_ACTIVE_HIGH>;
 		host-wake-gpios = <&gpa2 2 GPIO_ACTIVE_HIGH>;
+		clocks = <&s2mps13_osc S2MPS11_CLK_BT>;
+		clock-names = "clk32k";
 	};
 
 	sound {
@@ -1448,6 +1450,7 @@
 		PIN(INPUT, gpr3-1, DOWN, FAST_SR1);
 		PIN(INPUT, gpr3-2, DOWN, FAST_SR1);
 		PIN(INPUT, gpr3-3, DOWN, FAST_SR1);
+		PIN(INPUT, gpr3-7, NONE, FAST_SR1);
 	};
 };
 
