@@ -366,6 +366,13 @@
 	};
 };
 
+&mali {
+	mali-supply = <&buck4_reg>;
+	assigned-clocks = <&clock CLK_FOUT_VPLL>;
+	assigned-clock-rates = <600000000>;
+	status = "okay";
+};
+
 &mmc_2 {
 	status = "okay";
 	card-detect-delay = <200>;
@@ -423,13 +430,6 @@
 
 &tmu_gpu {
 	vtmu-supply = <&ldo7_reg>;
-};
-
-&mali {
-	mali-supply = <&buck4_reg>;
-	assigned-clocks = <&clock CLK_FOUT_VPLL>;
-	assigned-clock-rates = <600000000>;
-	status = "okay";
 };
 
 &rtc {
