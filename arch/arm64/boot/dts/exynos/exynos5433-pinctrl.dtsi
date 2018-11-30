@@ -22,6 +22,13 @@
 		samsung,pin-drv = <EXYNOS5433_PIN_DRV_ ##_drv>;		\
 	}
 
+#define PIN_SLP(_pin, _mode, _pull)					\
+	_pin {								\
+		samsung,pins = #_pin;					\
+		samsung,pin-con-pdn = <EXYNOS_PIN_PDN_ ##_mode>;	\
+		samsung,pin-pud-pdn = <EXYNOS_PIN_PULL_ ##_pull>;	\
+	}
+
 &pinctrl_alive {
 	gpa0: gpa0 {
 		gpio-controller;
