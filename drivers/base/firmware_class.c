@@ -30,6 +30,7 @@
 #include <linux/syscore_ops.h>
 #include <linux/reboot.h>
 #include <linux/security.h>
+#include <linux/delay.h>
 
 #include <generated/utsrelease.h>
 
@@ -314,6 +315,20 @@ static void fw_finish_direct_load(struct device *device,
 	mutex_unlock(&fw_lock);
 }
 
+
+#define REQUEST_FIRMWARE_RETRY 
+ 
+#ifdef REQUEST_FIRMWARE_RETRY
+#define ROOTFS_WAIT_TIMES 200
+#endif
+
+
+#define REQUEST_FIRMWARE_RETRY 
+ 
+#ifdef REQUEST_FIRMWARE_RETRY
+#define ROOTFS_WAIT_TIMES 200
+#endif
+
 static int
 fw_get_filesystem_firmware(struct device *device, struct firmware_buf *buf)
 {
@@ -335,9 +350,35 @@ fw_get_filesystem_firmware(struct device *device, struct firmware_buf *buf)
 		return -ENOMEM;
 
 	for (i = 0; i < ARRAY_SIZE(fw_path); i++) {
+
+ #ifdef REQUEST_FIRMWARE_RETRY
+   struct file *mount;
+ #endif   
 		/* skip the unset customized path */
 		if (!fw_path[i][0])
 			continue;
+
+#ifdef REQUEST_FIRMWARE_RETRY
+		if (!strcmp(fw_path[i], "/lib/firmware")) {
+		/* wait until ro partition mount */
+		    int wait = 0;
+				            
+			while (wait++ < ROOTFS_WAIT_TIMES) {
+				mount = filp_open("/lib/firmware/",O_RDONLY, 0);
+				if (IS_ERR(mount)) {
+				    msleep_interruptible(100);
+					continue;
+				} else {
+			        pr_info("%s: done\n", __func__);
+					break;
+				}
+			}
+			if (!IS_ERR(mount))
+				filp_close(mount, NULL);
+			
+		}
+#endif
+
 
 		len = snprintf(path, PATH_MAX, "%s/%s",
 			       fw_path[i], buf->fw_id);

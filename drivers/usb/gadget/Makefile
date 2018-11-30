@@ -8,5 +8,8 @@ ccflags-y				+= -I$(srctree)/drivers/usb/gadget/udc
 obj-$(CONFIG_USB_LIBCOMPOSITE)	+= libcomposite.o
 libcomposite-y			:= usbstring.o config.o epautoconf.o
 libcomposite-y			+= composite.o functions.o configfs.o u_f.o
+ifneq ($(CONFIG_USB_G_SLP), y)
+libcomposite-y			+= configfs.o
+endif
 
 obj-$(CONFIG_USB_GADGET)	+= udc/ function/ legacy/

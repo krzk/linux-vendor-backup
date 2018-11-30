@@ -1,0 +1,25 @@
+menuconfig SEC_MODEM_IF
+	bool "Samsung Mobile SIT Modem Interface"
+	default n
+	---help---
+	  Samsung Modem Interface Driver
+
+config LINK_DEVICE_SHMEM
+	bool "modem driver link device shared memory"
+	depends on SEC_MODEM_IF
+	default y
+
+config CP_SECURE_BOOT
+	bool "Support CP Secure Boot"
+	depends on SEC_MODEM_IF
+	default y
+
+config DEBUG_MODEM_IF
+	bool "enable modem if debug option"
+	depends on SEC_MODEM_IF
+	default n
+
+config SIM_DETECT
+	bool "SIM_DETECT pin"
+	depends on SEC_MODEM_IF
+	default n

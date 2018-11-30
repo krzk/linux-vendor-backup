@@ -553,6 +553,12 @@ config CRYPTO_DEV_ROCKCHIP
 	  This driver interfaces with the hardware crypto accelerator.
 	  Supporting cbc/ecb chainmode, and aes/des/des3_ede cipher mode.
 
+config CRYPTO_DEV_FMP
+	bool "FMP diskcipher engine driver"
+	depends on CRYPTO_DISKCIPHER && EXYNOS_FMP
+	default y
+
 source "drivers/crypto/chelsio/Kconfig"
+source "drivers/crypto/fmp/Kconfig"
 
 endif # CRYPTO_HW

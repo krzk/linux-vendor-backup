@@ -31,6 +31,7 @@
 #include <crypto/skcipher.h>
 
 #include <linux/device-mapper.h>
+#include <crypto/diskcipher.h>
 
 #define DM_MSG_PREFIX "crypt"
 
@@ -141,6 +142,8 @@ struct crypt_config {
 	char *cipher;
 	char *cipher_string;
 
+	/* hardware acceleration. 0 : no, 1 : yes */
+
 	struct crypt_iv_operations *iv_gen_ops;
 	union {
 		struct iv_essiv_private essiv;
@@ -154,6 +157,9 @@ struct crypt_config {
 	/* ESSIV: struct crypto_cipher *essiv_tfm */
 	void *iv_private;
 	struct crypto_skcipher **tfms;
+#ifdef CONFIG_CRYPTO_DISKCIPHER
+	struct crypto_diskcipher *dtfm;
+#endif
 	unsigned tfms_count;
 
 	/*
@@ -1111,13 +1117,13 @@ static void crypt_endio(struct bio *clone)
 	/*
 	 * free the processed pages
 	 */
-	if (rw == WRITE)
+	if (cc->tfms && (rw == WRITE))
 		crypt_free_buffer_pages(cc, clone);
 
 	error = clone->bi_error;
 	bio_put(clone);
 
-	if (rw == READ && !error) {
+	if (cc->tfms && (rw == READ) && !error) {
 		kcryptd_queue_crypt(io);
 		return;
 	}
@@ -1156,6 +1162,11 @@ static int kcryptd_io_read(struct dm_crypt_io *io, gfp_t gfp)
 	crypt_inc_pending(io);
 
 	clone_init(io, clone);
+
+#ifdef CONFIG_CRYPTO_DISKCIPHER
+	if (cc->dtfm)
+		crypto_diskcipher_set(clone, cc->dtfm);
+#endif
 	clone->bi_iter.bi_sector = cc->start + io->sector;
 
 	generic_make_request(clone);
@@ -1436,6 +1447,14 @@ static void crypt_free_tfms(struct crypt_config *cc)
 {
 	unsigned i;
 
+#ifdef CONFIG_CRYPTO_DISKCIPHER
+	if (cc->dtfm) {
+		crypto_diskcipher_clearkey(cc->dtfm);
+		crypto_free_diskcipher(cc->dtfm);
+		return;
+	}
+#endif
+
 	if (!cc->tfms)
 		return;
 
@@ -1475,6 +1494,12 @@ static int crypt_setkey_allcpus(struct crypt_config *cc)
 {
 	unsigned subkey_size;
 	int err = 0, i, r;
+
+#ifdef CONFIG_CRYPTO_DISKCIPHER
+	if (cc->dtfm)
+		return crypto_diskcipher_setkey(cc->dtfm, cc->key,
+						cc->key_size, 1);
+#endif
 
 	/* Ignore extra keys (which are used for IV etc) */
 	subkey_size = (cc->key_size - cc->key_extra_size) >> ilog2(cc->tfms_count);
@@ -1542,6 +1567,7 @@ static void crypt_dtr(struct dm_target *ti)
 
 	if (cc->io_queue)
 		destroy_workqueue(cc->io_queue);
+
 	if (cc->crypt_queue)
 		destroy_workqueue(cc->crypt_queue);
 
@@ -1550,8 +1576,11 @@ static void crypt_dtr(struct dm_target *ti)
 	if (cc->bs)
 		bioset_free(cc->bs);
 
-	mempool_destroy(cc->page_pool);
-	mempool_destroy(cc->req_pool);
+	if (cc->page_pool)
+		mempool_destroy(cc->page_pool);
+
+	if (cc->req_pool)
+		mempool_destroy(cc->req_pool);
 
 	if (cc->iv_gen_ops && cc->iv_gen_ops->dtr)
 		cc->iv_gen_ops->dtr(cc);
@@ -1639,7 +1668,37 @@ static int crypt_ctr_cipher(struct dm_target *ti,
 		goto bad_mem;
 	}
 
+	if (!cipher) {
+		ti->error = "Error Invalid cipher";
+		ret = -EINVAL;
+		goto bad;
+	}
+
 	/* Allocate cipher */
+#if defined(CONFIG_CRYPTO_DISKCIPHER)
+	if (ivmode && (!strcmp(ivmode, "disk"))) {
+		cc->dtfm = crypto_alloc_diskcipher(cipher_api, 0, 0, 1);
+		if (cc->dtfm && !IS_ERR(cc->dtfm)) {
+			/* Initialize max_io_len */
+			ret = dm_set_target_max_io_len(ti, 1024);
+			if (!ret) {
+				/* Initialize and set key */
+				ret = crypt_set_key(cc, key);
+				if (!ret) {
+					/* use diskcipher. skip skcipher */
+					pr_info("%s diskcipher on\n", __func__);
+					cc->tfms = NULL;
+					goto bad;
+				}
+			}
+			/* free diskcipher with error */
+			crypto_free_diskcipher(cc->dtfm);
+		}
+		pr_warn("Fails to get diskcipher %p, ret %d\n",
+			cc->dtfm, ret);
+		cc->dtfm = NULL;
+	}
+#endif
 	ret = crypt_alloc_tfms(cc, cipher_api);
 	if (ret < 0) {
 		ti->error = "Error allocating crypto tfm";
@@ -1765,40 +1824,45 @@ static int crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	if (ret < 0)
 		goto bad;
 
-	cc->dmreq_start = sizeof(struct skcipher_request);
-	cc->dmreq_start += crypto_skcipher_reqsize(any_tfm(cc));
-	cc->dmreq_start = ALIGN(cc->dmreq_start, __alignof__(struct dm_crypt_request));
+	if (cc->tfms) {
+		cc->dmreq_start = sizeof(struct skcipher_request);
+		cc->dmreq_start += crypto_skcipher_reqsize(any_tfm(cc));
+		cc->dmreq_start = ALIGN(cc->dmreq_start, __alignof__(struct dm_crypt_request));
 
-	if (crypto_skcipher_alignmask(any_tfm(cc)) < CRYPTO_MINALIGN) {
-		/* Allocate the padding exactly */
-		iv_size_padding = -(cc->dmreq_start + sizeof(struct dm_crypt_request))
-				& crypto_skcipher_alignmask(any_tfm(cc));
+		if (crypto_skcipher_alignmask(any_tfm(cc)) < CRYPTO_MINALIGN) {
+			/* Allocate the padding exactly */
+			iv_size_padding = -(cc->dmreq_start + sizeof(struct dm_crypt_request))
+					& crypto_skcipher_alignmask(any_tfm(cc));
+		} else {
+			/*
+			 * If the cipher requires greater alignment than kmalloc
+			 * alignment, we don't know the exact position of the
+			 * initialization vector. We must assume worst case.
+			 */
+			iv_size_padding = crypto_skcipher_alignmask(any_tfm(cc));
+		}
+
+		ret = -ENOMEM;
+		cc->req_pool = mempool_create_kmalloc_pool(MIN_IOS, cc->dmreq_start +
+				sizeof(struct dm_crypt_request) + iv_size_padding + cc->iv_size);
+		if (!cc->req_pool) {
+			ti->error = "Cannot allocate crypt request mempool";
+			goto bad;
+		}
+
+		cc->per_bio_data_size = ti->per_io_data_size =
+			ALIGN(sizeof(struct dm_crypt_io) + cc->dmreq_start +
+			      sizeof(struct dm_crypt_request) + iv_size_padding + cc->iv_size,
+			      ARCH_KMALLOC_MINALIGN);
+
+		cc->page_pool = mempool_create_page_pool(BIO_MAX_PAGES, 0);
+		if (!cc->page_pool) {
+			ti->error = "Cannot allocate page mempool";
+			goto bad;
+		}
 	} else {
-		/*
-		 * If the cipher requires greater alignment than kmalloc
-		 * alignment, we don't know the exact position of the
-		 * initialization vector. We must assume worst case.
-		 */
-		iv_size_padding = crypto_skcipher_alignmask(any_tfm(cc));
-	}
-
-	ret = -ENOMEM;
-	cc->req_pool = mempool_create_kmalloc_pool(MIN_IOS, cc->dmreq_start +
-			sizeof(struct dm_crypt_request) + iv_size_padding + cc->iv_size);
-	if (!cc->req_pool) {
-		ti->error = "Cannot allocate crypt request mempool";
-		goto bad;
-	}
-
-	cc->per_bio_data_size = ti->per_io_data_size =
-		ALIGN(sizeof(struct dm_crypt_io) + cc->dmreq_start +
-		      sizeof(struct dm_crypt_request) + iv_size_padding + cc->iv_size,
-		      ARCH_KMALLOC_MINALIGN);
-
-	cc->page_pool = mempool_create_page_pool(BIO_MAX_PAGES, 0);
-	if (!cc->page_pool) {
-		ti->error = "Cannot allocate page mempool";
-		goto bad;
+		cc->per_bio_data_size = ti->per_io_data_size =
+			ALIGN(sizeof(struct dm_crypt_io), ARCH_KMALLOC_MINALIGN);
 	}
 
 	cc->bs = bioset_create(MIN_IOS, 0);
@@ -1866,36 +1930,49 @@ static int crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	}
 
 	ret = -ENOMEM;
-	cc->io_queue = alloc_workqueue("kcryptd_io", WQ_MEM_RECLAIM, 1);
+
+	cc->io_queue = alloc_workqueue("kcryptd_io",
+				       WQ_HIGHPRI |
+				       WQ_MEM_RECLAIM,
+				       1);
+
 	if (!cc->io_queue) {
 		ti->error = "Couldn't create kcryptd io queue";
 		goto bad;
 	}
 
-	if (test_bit(DM_CRYPT_SAME_CPU, &cc->flags))
-		cc->crypt_queue = alloc_workqueue("kcryptd", WQ_CPU_INTENSIVE | WQ_MEM_RECLAIM, 1);
-	else
-		cc->crypt_queue = alloc_workqueue("kcryptd", WQ_CPU_INTENSIVE | WQ_MEM_RECLAIM | WQ_UNBOUND,
-						  num_online_cpus());
-	if (!cc->crypt_queue) {
-		ti->error = "Couldn't create kcryptd queue";
-		goto bad;
-	}
+	if (cc->tfms) {
+		if (test_bit(DM_CRYPT_SAME_CPU, &cc->flags))
+			cc->crypt_queue = alloc_workqueue("kcryptd",
+							  WQ_HIGHPRI |
+							  WQ_MEM_RECLAIM, 1);
+		else
+			cc->crypt_queue = alloc_workqueue("kcryptd",
+							  WQ_HIGHPRI |
+							  WQ_MEM_RECLAIM |
+							  WQ_UNBOUND,
+							  num_online_cpus());
+		if (!cc->crypt_queue) {
+			ti->error = "Couldn't create kcryptd queue";
+			goto bad;
+		}
 
-	init_waitqueue_head(&cc->write_thread_wait);
-	cc->write_tree = RB_ROOT;
+		init_waitqueue_head(&cc->write_thread_wait);
+		cc->write_tree = RB_ROOT;
 
-	cc->write_thread = kthread_create(dmcrypt_write, cc, "dmcrypt_write");
-	if (IS_ERR(cc->write_thread)) {
-		ret = PTR_ERR(cc->write_thread);
-		cc->write_thread = NULL;
-		ti->error = "Couldn't spawn write thread";
-		goto bad;
+		cc->write_thread = kthread_create(dmcrypt_write, cc, "dmcrypt_write");
+		if (IS_ERR(cc->write_thread)) {
+			ret = PTR_ERR(cc->write_thread);
+			cc->write_thread = NULL;
+			ti->error = "Couldn't spawn write thread";
+			goto bad;
+		}
+		wake_up_process(cc->write_thread);
 	}
-	wake_up_process(cc->write_thread);
 
 	ti->num_flush_bios = 1;
 	ti->discard_zeroes_data_unsupported = true;
+	ti->num_discard_bios = 1;
 
 	return 0;
 
@@ -1934,11 +2011,18 @@ static int crypt_map(struct dm_target *ti, struct bio *bio)
 	crypt_io_init(io, cc, bio, dm_target_offset(ti, bio->bi_iter.bi_sector));
 	io->ctx.req = (struct skcipher_request *)(io + 1);
 
-	if (bio_data_dir(io->base_bio) == READ) {
+
+
+	if (cc->tfms) {
+		if (bio_data_dir(io->base_bio) == READ) {
+			if (kcryptd_io_read(io, GFP_NOWAIT))
+				kcryptd_queue_read(io);
+		} else
+			kcryptd_queue_crypt(io);
+	} else {
 		if (kcryptd_io_read(io, GFP_NOWAIT))
 			kcryptd_queue_read(io);
-	} else
-		kcryptd_queue_crypt(io);
+	}
 
 	return DM_MAPIO_SUBMITTED;
 }
@@ -2060,6 +2144,8 @@ static int crypt_iterate_devices(struct dm_target *ti,
 
 static void crypt_io_hints(struct dm_target *ti, struct queue_limits *limits)
 {
+	struct crypt_config *cc = ti->private;
+
 	/*
 	 * Unfortunate constraint that is required to avoid the potential
 	 * for exceeding underlying device's max_segments limits -- due to
@@ -2067,6 +2153,10 @@ static void crypt_io_hints(struct dm_target *ti, struct queue_limits *limits)
 	 * bio that are not as physically contiguous as the original bio.
 	 */
 	limits->max_segment_size = PAGE_SIZE;
+
+	if (!cc->tfms)
+	/* set logical block size into page size for aes-xts chaining encrypt */
+		limits->logical_block_size = PAGE_SIZE;
 }
 
 static struct target_type crypt_target = {

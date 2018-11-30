@@ -54,12 +54,31 @@ obj-$(CONFIG_VEXPRESS_SYSCFG)	+= vexpress-syscfg.o
 obj-$(CONFIG_CXL_BASE)		+= cxl/
 obj-$(CONFIG_PANEL)             += panel.o
 
+obj-$(CONFIG_NET_STAT_TIZEN) += net_stat_tizen.o
+obj-$(CONFIG_UID_SYS_STATS)	+= uid_sys_stats.o
+obj-$(CONFIG_SID_SYS_STATS)     += sid_sys_stats.o
+obj-$(CONFIG_MCU_IPC)           += mcu_ipc/
+obj-$(CONFIG_UART_SEL)		+= uart_sel/
+obj-$(CONFIG_SEC_SIPC_MODEM_IF) += modem_v1/
+obj-$(CONFIG_SEC_MODEM_IF) 	+= modem_if/
+obj-$(CONFIG_GNSS_SHMEM_IF) 	+= gnss_if/
+obj-$(CONFIG_MEMORY_STATE_TIME)	+= memory_state_time.o
+
+obj-$(CONFIG_SAP_PID_STAT)	+= sap_pid_stat.o
+obj-$(CONFIG_PID_STAT)		+= pid_stat.o
+obj-$(CONFIG_SENSORHUB_STAT)		+= sensorhub_stat.o
+obj-$(CONFIG_FF_STAT_TIZEN)          += ff_stat_tizen.o
+obj-$(CONFIG_TIMA_LOG)		+= tima_debug_log.o
+
+obj-$(CONFIG_KNOX_GEARPAY)      += knox_gearlock.o
+
 lkdtm-$(CONFIG_LKDTM)		+= lkdtm_core.o
 lkdtm-$(CONFIG_LKDTM)		+= lkdtm_bugs.o
 lkdtm-$(CONFIG_LKDTM)		+= lkdtm_heap.o
 lkdtm-$(CONFIG_LKDTM)		+= lkdtm_perms.o
 lkdtm-$(CONFIG_LKDTM)		+= lkdtm_rodata_objcopy.o
 lkdtm-$(CONFIG_LKDTM)		+= lkdtm_usercopy.o
+
 
 OBJCOPYFLAGS :=
 OBJCOPYFLAGS_lkdtm_rodata_objcopy.o := \

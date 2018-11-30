@@ -766,6 +766,74 @@ config PANEL_BOOT_MESSAGE
 	  An empty message will only clear the display at driver init time. Any other
 	  printf()-formatted message is valid with newline and escape codes.
 
+config UID_SYS_STATS
+	bool "Per-UID statistics"
+	depends on PROFILING && TASK_XACCT && TASK_IO_ACCOUNTING
+	help
+	  Per UID based cpu time statistics exported to /proc/uid_cputime
+	  Per UID based io statistics exported to /proc/uid_io
+	  Per UID based procstat control in /proc/uid_procstat
+
+config UID_SYS_STATS_DEBUG
+	bool "Per-TASK statistics"
+	depends on UID_SYS_STATS
+	default n
+	help
+	  Per TASK based io statistics exported to /proc/uid_io
+
+config SID_SYS_STATS
+        bool "Per-SID statistics"
+        depends on PROFILING && TASK_XACCT && TASK_IO_ACCOUNTING
+        help
+          Per SID based cpu time statistics exported to /proc/sid_cputime
+          Per SID based io statistics exported to /proc/sid_io
+
+config MEMORY_STATE_TIME
+	tristate "Memory freq/bandwidth time statistics"
+	depends on PROFILING
+	help
+	  Memory time statistics exported to /sys/kernel/memory_state_time
+
+config SAP_PID_STAT
+	bool "PID based statistics tracking for SAP resource exported to /proc/sap_pid_stat"
+	default n
+
+config PID_STAT
+	bool "PID based statistics tracking for TCP resource exported to /proc/pid_stat"
+	default n
+
+config TIMA_LOG
+	tristate "TIMA log dump support"
+	depends on TIMA
+	default y
+	help
+	  This option enables support for dumping TIMA log
+
+config SENSORHUB_STAT
+	bool "SensorHub lib type based statistics tracking for SensorHub resource exported to /proc/sensorhub_stat"
+	default n
+
+config FF_STAT_TIZEN
+        bool "Tizen FF statistics exported to /sys/kernel/debug/ff_stat"
+        depends on (INPUT_FF_MEMLESS || INPUT_FF_MEMLESS_HRTIMER)
+        default n
+
+config NET_STAT_TIZEN
+        bool "net devices statistics exported to /sys/kernel/debug/net_stat_tizen"
+        default n
+
+config KNOX_GEARPAY
+        bool "Gear Samsung Pay KNOX protection"
+        default n
+        ---help---
+          This enables KNOX protection for Samsung Pay on Gear
+
+config KNOX_KAP
+	bool "Enable KNOX KAP mode"
+	default n
+	help
+	  Knox Active Protection mode
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -778,4 +846,9 @@ source "drivers/misc/mic/Kconfig"
 source "drivers/misc/genwqe/Kconfig"
 source "drivers/misc/echo/Kconfig"
 source "drivers/misc/cxl/Kconfig"
+source "drivers/misc/mcu_ipc/Kconfig"
+source "drivers/misc/uart_sel/Kconfig"
+source "drivers/misc/modem_v1/Kconfig"
+source "drivers/misc/modem_if/Kconfig"
+source "drivers/misc/gnss_if/Kconfig"
 endmenu

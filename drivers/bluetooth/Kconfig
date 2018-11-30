@@ -203,6 +203,40 @@ config BT_HCIBCM203X
 	  Say Y here to compile support for HCI BCM203x devices into the
 	  kernel or say M to compile it as module (bcm203x).
 
+#BEGIN: CONFIG_TIZEN_WIP
+config BT_BRCM_43012
+	bool "BRCM BCM43012 power driver"
+	help
+	  Bluetooth BRCM BCM43012 power driver.
+	  This driver provides the power control mechanism for the Broadcom
+	  Blutonium based devices.
+
+	  Say Y here to compile support for HCI BCM43012 devices into the
+	  kernel or say M to compile it as module (BCM43012).
+
+config BT_OVER_SDIO
+	bool "BRCM BT SDIO driver"
+	help
+	  BRCM Bluetooth HCI SDIO driver.
+	  This driver is required if you want to use Bluetooth device with
+	  SDIO interface.
+
+	  Say Y here to compile support for BRCM Bluetooth SDIO devices into the
+	  kernel or say M to compile it as module (brcmbtsdio).
+
+config BCMDHD_BTFW_PATH
+       depends on BT_OVER_SDIO
+       string "BT FW path"
+       ---help---
+         Path to the brcm bt fw path.
+
+config BCMDHD_SHARING_WIFI_OOB
+       depends on BT_OVER_SDIO
+       string "BT SHARE HOST WAKE UP"
+       ---help---
+         Disable host wake up pin due to sharing Wi-Fi host wake up pin.
+#END: CONFIG_TIZEN_WIP
+
 config BT_HCIBPA10X
 	tristate "HCI BPA10x USB driver"
 	depends on USB && BT_HCIUART
@@ -353,5 +387,21 @@ config BT_QCOMSMD
 
 	  Say Y here to compile support for HCI over Qualcomm SMD into the
 	  kernel or say M to compile as a module.
+
+#BEGIN: CONFIG_TIZEN_WIP
+config BT_BCM43XX
+	bool "Enable BCM43XX driver"
+	default n
+	help
+	  Adds BCM43XX RFKILL driver for Broadcom BCM43xx chipset for exynos.
+	  default is n.
+
+config BT_UART_PORT
+	int "Bluetooth UART port selection in system"
+	depends on TTY
+	default 1
+	help
+	  Select the UART port for Bluetooth.
+#END: CONFIG_TIZEN_WIP
 
 endmenu

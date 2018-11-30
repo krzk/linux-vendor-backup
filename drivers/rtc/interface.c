@@ -16,6 +16,7 @@
 #include <linux/module.h>
 #include <linux/log2.h>
 #include <linux/workqueue.h>
+#include "../staging/android/alarm_history.h"
 
 static int rtc_timer_enqueue(struct rtc_device *rtc, struct rtc_timer *timer);
 static void rtc_timer_remove(struct rtc_device *rtc, struct rtc_timer *timer);
@@ -575,6 +576,7 @@ void rtc_update_irq(struct rtc_device *rtc,
 	if (IS_ERR_OR_NULL(rtc))
 		return;
 
+	alarm_history_set_rtc_irq();
 	pm_stay_awake(rtc->dev.parent);
 	schedule_work(&rtc->irqwork);
 }

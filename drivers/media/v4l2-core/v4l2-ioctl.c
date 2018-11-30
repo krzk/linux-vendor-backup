@@ -1288,7 +1288,16 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 		case V4L2_PIX_FMT_SE401:	descr = "GSPCA SE401"; break;
 		case V4L2_PIX_FMT_S5C_UYVY_JPG:	descr = "S5C73MX interleaved UYVY/JPEG"; break;
 		default:
-			WARN(1, "Unknown pixelformat 0x%08x\n", fmt->pixelformat);
+			// 2018-03-12: Originally WARN, without checking a condition, was used.
+			//WARN(1, "Unknown pixelformat 0x%08x\n", fmt->pixelformat);
+			// The following line is used instead, to avoid unnecessary call-stack printing.
+			pr_info("[V4l2-ioctl] Non-supported \"fmt->pixelformat\": %c%c%c%c%s\n",
+				(char)(fmt->pixelformat & 0x7f),
+				(char)((fmt->pixelformat >> 8) & 0x7f),
+				(char)((fmt->pixelformat >> 16) & 0x7f),
+				(char)((fmt->pixelformat >> 24) & 0x7f),
+				(fmt->pixelformat & (1 << 31)) ? "-BE" : "");
+				
 			if (fmt->description[0])
 				return;
 			flags = 0;
@@ -1504,7 +1513,7 @@ static int v4l_s_fmt(const struct v4l2_ioctl_ops *ops,
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		if (unlikely(!is_rx || !is_vid || !ops->vidioc_s_fmt_vid_cap_mplane))
 			break;
-		CLEAR_AFTER_FIELD(p, fmt.pix_mp.xfer_func);
+		CLEAR_AFTER_FIELD(p, fmt.pix_mp);
 		return ops->vidioc_s_fmt_vid_cap_mplane(file, fh, arg);
 	case V4L2_BUF_TYPE_VIDEO_OVERLAY:
 		if (unlikely(!is_rx || !is_vid || !ops->vidioc_s_fmt_vid_overlay))
@@ -1532,7 +1541,7 @@ static int v4l_s_fmt(const struct v4l2_ioctl_ops *ops,
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		if (unlikely(!is_tx || !is_vid || !ops->vidioc_s_fmt_vid_out_mplane))
 			break;
-		CLEAR_AFTER_FIELD(p, fmt.pix_mp.xfer_func);
+		CLEAR_AFTER_FIELD(p, fmt.pix_mp);
 		return ops->vidioc_s_fmt_vid_out_mplane(file, fh, arg);
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_OVERLAY:
 		if (unlikely(!is_tx || !is_vid || !ops->vidioc_s_fmt_vid_out_overlay))

@@ -16,3 +16,9 @@ config FS_ENCRYPTION
 	  feature is similar to ecryptfs, but it is more memory
 	  efficient since it avoids caching the encrypted and
 	  decrypted pages in the page cache.
+
+config FS_PRIVATE_ENCRYPTION
+	tristate "FS Private Encryption"
+	depends on FS_ENCRYPTION && EXYNOS_FMP
+	help
+	  Enable private encryption of ext4 files and difectories.

@@ -1,0 +1,60 @@
+/*
+ * SAMSUNG EXYNOS device tree source for reserved-memory
+ *
+ * Copyright (c) 2018 Samsung Electronics Co., Ltd.
+ *		http://www.samsung.com
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include <dt-bindings/soc/samsung/exynos-ss-table.h>
+
+/ {
+	reserved_memory: reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <1>;
+		ranges;
+
+		abox_rmem: abox_rmem@0x99200000 {
+			compatible = "exynos,abox_rmem";
+			reg = <0x0 0x8D800000 0x180000>;
+		};
+
+		modem_if {
+			compatible = "exynos,modem_if";
+			reg = <0x0 0x90c00000 0x5c00000>;
+		};
+
+		exynos_ss {
+			compatible = "exynos,exynos_ss";
+			reg = <0x0 ESS_START_ADDR ESS_TOTAL_SIZE>;
+			#address-cells = <2>;
+			#size-cells = <1>;
+
+			header {
+				compatible = "exynos_ss,header";
+				reg = <0 ESS_HEADER_ADDR ESS_HEADER_SIZE>;
+			};
+			log_kernel {
+				compatible = "exynos_ss,log_kernel";
+				reg = <0 ESS_LOG_KERNEL_ADDR ESS_LOG_KERNEL_SIZE>;
+			};
+			log_kevents {
+				compatible = "exynos_ss,log_kevents";
+				reg = <0 ESS_LOG_KEVENTS_ADDR ESS_LOG_KEVENTS_SIZE>;
+			};
+		};
+
+		/* rkp_region */
+		rkp_region {
+			compatible = "exynos,rkp_region";
+			reg = <0x0 0xA0000000 0xB00000>;
+		};
+		seclog_mem {
+			compatible = "exynos,seclog";
+			reg = <0x0 0x9EDE0000 0x20000>;
+		};
+	};
+};

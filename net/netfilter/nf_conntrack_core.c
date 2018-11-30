@@ -1023,7 +1023,7 @@ static void gc_worker(struct work_struct *work)
 
 	next_run = gc_work->next_gc_run;
 	gc_work->last_bucket = i;
-	queue_delayed_work(system_long_wq, &gc_work->dwork, next_run);
+	queue_delayed_work_on(0, system_long_wq, &gc_work->dwork, next_run);
 }
 
 static void conntrack_gc_work_init(struct conntrack_gc_work *gc_work)

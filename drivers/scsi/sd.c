@@ -69,6 +69,9 @@
 #include "sd.h"
 #include "scsi_priv.h"
 #include "scsi_logging.h"
+#if defined(CONFIG_UFS_SRPMB)
+#include "scsi_srpmb.h"
+#endif
 
 MODULE_AUTHOR("Eric Youngdale");
 MODULE_DESCRIPTION("SCSI disk (sd) driver");
@@ -1351,6 +1354,8 @@ static int sd_ioctl(struct block_device *bdev, fmode_t mode,
 	switch (cmd) {
 		case SCSI_IOCTL_GET_IDLUN:
 		case SCSI_IOCTL_GET_BUS_NUMBER:
+		case SCSI_IOCTL_SECURITY_PROTOCOL_IN:
+		case SCSI_IOCTL_SECURITY_PROTOCOL_OUT:
 			error = scsi_ioctl(sdp, cmd, p);
 			break;
 		default:
@@ -2888,10 +2893,10 @@ static int sd_revalidate_disk(struct gendisk *disk)
 	if (sdkp->opt_xfer_blocks &&
 	    sdkp->opt_xfer_blocks <= dev_max &&
 	    sdkp->opt_xfer_blocks <= SD_DEF_XFER_BLOCKS &&
-	    logical_to_bytes(sdp, sdkp->opt_xfer_blocks) >= PAGE_SIZE) {
-		q->limits.io_opt = logical_to_bytes(sdp, sdkp->opt_xfer_blocks);
-		rw_max = logical_to_sectors(sdp, sdkp->opt_xfer_blocks);
-	} else
+	    sdkp->opt_xfer_blocks * sdp->sector_size >= PAGE_SIZE)
+		rw_max = q->limits.io_opt =
+			sdkp->opt_xfer_blocks * sdp->sector_size;
+	else
 		rw_max = min_not_zero(logical_to_sectors(sdp, dev_max),
 				      (sector_t)BLK_DEF_MAX_SECTORS);
 
@@ -3133,6 +3138,16 @@ static int sd_probe(struct device *dev)
 	get_device(&sdkp->dev);	/* prevent release before async_schedule */
 	async_schedule_domain(sd_probe_async, sdkp, &scsi_sd_probe_domain);
 
+#if defined(CONFIG_UFS_SRPMB)
+	/* rpmb operation for LDFW */
+	if (strncmp(dev_name(dev), IS_INCLUDE_RPMB_DEVICE,
+				sizeof(IS_INCLUDE_RPMB_DEVICE)) == 0) {
+		int ret;
+		ret = init_wsm(dev);
+		if (ret)
+			printk("srpmb init_wsm failed: %x\n", ret);
+	}
+#endif
 	return 0;
 
  out_free_index:

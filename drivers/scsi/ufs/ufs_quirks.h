@@ -27,6 +27,11 @@
 #define UFS_VENDOR_SAMSUNG     0x1CE
 #define UFS_VENDOR_SKHYNIX     0x1AD
 
+/*uniqueu number*/
+#define	UFS_UN_16_DIGITS 16
+#define UFS_UN_18_DIGITS 18
+#define UFS_UN_MAX_DIGITS 19 //current max digit + 1
+
 /**
  * ufs_device_info - ufs device details
  * @wmanufacturerid: card details
@@ -65,6 +70,7 @@ struct ufs_dev_fix {
  * TX_LCC_ENABLE attribute of host to 0).
  */
 #define UFS_DEVICE_QUIRK_BROKEN_LCC (1 << 0)
+#define UFS_DEVICE_QUIRK_BROKEN_LINEREST	UFS_BIT(1)
 
 /*
  * Some UFS devices don't need VCCQ rail for device operations. Enabling this
@@ -128,23 +134,8 @@ struct ufs_dev_fix {
  */
 #define UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM	(1 << 6)
 
-/*
- * Some UFS devices require host PA_TACTIVATE to be lower than device
- * PA_TACTIVATE, enabling this quirk ensure this.
- */
-#define UFS_DEVICE_QUIRK_HOST_PA_TACTIVATE	(1 << 7)
-
-/*
- * The max. value PA_SaveConfigTime is 250 (10us) but this is not enough for
- * some vendors.
- * Gear switch from PWM to HS may fail even with this max. PA_SaveConfigTime.
- * Gear switch can be issued by host controller as an error recovery and any
- * software delay will not help on this case so we need to increase
- * PA_SaveConfigTime to >32us as per vendor recommendation.
- */
-#define UFS_DEVICE_QUIRK_HOST_PA_SAVECONFIGTIME	(1 << 8)
-
 struct ufs_hba;
 void ufs_advertise_fixup_device(struct ufs_hba *hba);
+
 
 #endif /* UFS_QUIRKS_H_ */

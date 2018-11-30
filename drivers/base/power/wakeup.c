@@ -15,7 +15,15 @@
 #include <linux/seq_file.h>
 #include <linux/debugfs.h>
 #include <linux/pm_wakeirq.h>
+#include <linux/types.h>
 #include <trace/events/power.h>
+#ifdef CONFIG_WS_HISTORY
+#include <linux/power/ws_history.h>
+#endif
+#ifdef CONFIG_ENERGY_MONITOR
+#include <linux/sort.h>
+#include <linux/power/energy_monitor.h>
+#endif
 
 #include "power.h"
 
@@ -133,9 +141,15 @@ static void wakeup_source_record(struct wakeup_source *ws)
 		deleted_ws.prevent_sleep_time =
 			ktime_add(deleted_ws.prevent_sleep_time,
 				  ws->prevent_sleep_time);
-		deleted_ws.max_time =
-			ktime_compare(deleted_ws.max_time, ws->max_time) > 0 ?
-				deleted_ws.max_time : ws->max_time;
+#ifdef CONFIG_ENERGY_MONITOR
+		deleted_ws.emon_total_time =
+			ktime_add(deleted_ws.emon_total_time,
+				  ws->emon_total_time);
+#endif
+		if (ktime_compare(deleted_ws.max_time, ws->max_time) <= 0) {
+			deleted_ws.max_time =  ws->max_time;
+			deleted_ws.max_time_stamp = ws->max_time_stamp;
+		}
 		deleted_ws.event_count += ws->event_count;
 		deleted_ws.active_count += ws->active_count;
 		deleted_ws.relax_count += ws->relax_count;
@@ -179,6 +193,9 @@ void wakeup_source_add(struct wakeup_source *ws)
 	setup_timer(&ws->timer, pm_wakeup_timer_fn, (unsigned long)ws);
 	ws->active = false;
 	ws->last_time = ktime_get();
+#ifdef CONFIG_ENERGY_MONITOR
+	ws->emon_last_time = ws->last_time;
+#endif
 
 	spin_lock_irqsave(&events_lock, flags);
 	list_add_rcu(&ws->entry, &wakeup_sources);
@@ -536,6 +553,9 @@ static void wakeup_source_activate(struct wakeup_source *ws)
 	ws->active = true;
 	ws->active_count++;
 	ws->last_time = ktime_get();
+#ifdef CONFIG_ENERGY_MONITOR
+	ws->emon_last_time = ws->last_time;
+#endif
 	if (ws->autosleep_enabled)
 		ws->start_prevent_time = ws->last_time;
 
@@ -612,6 +632,9 @@ static void update_prevent_sleep_time(struct wakeup_source *ws, ktime_t now)
 {
 	ktime_t delta = ktime_sub(now, ws->start_prevent_time);
 	ws->prevent_sleep_time = ktime_add(ws->prevent_sleep_time, delta);
+#ifdef CONFIG_WS_HISTORY
+	add_ws_history(ws->name, delta);
+#endif
 }
 #else
 static inline void update_prevent_sleep_time(struct wakeup_source *ws,
@@ -652,8 +675,14 @@ static void wakeup_source_deactivate(struct wakeup_source *ws)
 	now = ktime_get();
 	duration = ktime_sub(now, ws->last_time);
 	ws->total_time = ktime_add(ws->total_time, duration);
-	if (ktime_to_ns(duration) > ktime_to_ns(ws->max_time))
+#ifdef CONFIG_ENERGY_MONITOR
+	ws->emon_total_time = ktime_add(ws->emon_total_time, duration);
+	ws->emon_last_time = now;
+#endif
+	if (ktime_to_ns(duration) > ktime_to_ns(ws->max_time)) {
 		ws->max_time = duration;
+		ws->max_time_stamp = now;
+	}
 
 	ws->last_time = now;
 	del_timer(&ws->timer);
@@ -803,6 +832,37 @@ void pm_wakeup_event(struct device *dev, unsigned int msec)
 	spin_unlock_irqrestore(&dev->power.lock, flags);
 }
 EXPORT_SYMBOL_GPL(pm_wakeup_event);
+
+void pm_get_active_wakeup_sources(char *pending_wakeup_source, size_t max)
+{
+	struct wakeup_source *ws, *last_active_ws = NULL;
+	int len = 0;
+	bool active = false;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(ws, &wakeup_sources, entry) {
+		if (ws->active && len < max) {
+			if (!active)
+				len += scnprintf(pending_wakeup_source, max,
+						"Pending Wakeup Sources: ");
+			len += scnprintf(pending_wakeup_source + len, max - len,
+				"%s ", ws->name);
+			active = true;
+		} else if (!active &&
+			   (!last_active_ws ||
+			    ktime_to_ns(ws->last_time) >
+			    ktime_to_ns(last_active_ws->last_time))) {
+			last_active_ws = ws;
+		}
+	}
+	if (!active && last_active_ws) {
+		scnprintf(pending_wakeup_source, max,
+				"Last active Wakeup Source: %s",
+				last_active_ws->name);
+	}
+	rcu_read_unlock();
+}
+EXPORT_SYMBOL_GPL(pm_get_active_wakeup_sources);
 
 void pm_print_active_wakeup_sources(void)
 {
@@ -973,6 +1033,106 @@ void pm_wakep_autosleep_enabled(bool set)
 }
 #endif /* CONFIG_PM_AUTOSLEEP */
 
+#ifdef CONFIG_ENERGY_MONITOR
+static int pm_emon_cmp_func(const void *a, const void *b)
+{
+	struct emon_wakeup_source *pa = (struct emon_wakeup_source *)(a);
+	struct emon_wakeup_source *pb = (struct emon_wakeup_source *)(b);
+	return ktime_compare(pb->emon_total_time, pa->emon_total_time);
+}
+
+void pm_get_large_wakeup_sources(int type,
+				struct emon_wakeup_source *ws_array,  size_t n)
+{
+	int i;
+	struct wakeup_source *ws;
+	ktime_t emon_total_time;
+	ktime_t active_time;
+	ktime_t zero = ktime_set(0, 0);
+	ktime_t now;
+
+	if (!ws_array)
+		return;
+
+	for (i = 0; i < n; i++) {
+		memset(ws_array[i].name, 0, WS_NAME_SIZE);
+		ws_array[i].emon_total_time = zero;
+	}
+
+	i = 0;
+	rcu_read_lock();
+	list_for_each_entry_rcu(ws, &wakeup_sources, entry) {
+		if (!ws->active &&
+			ktime_to_ms(ws->emon_total_time) == ktime_to_ms(zero))
+			continue;
+
+		now = ktime_get();
+		emon_total_time = ws->emon_total_time;
+		if (ws->active) {
+			active_time = ktime_sub(now, ws->emon_last_time);
+			emon_total_time = ktime_add(emon_total_time, active_time);
+		}
+		pr_debug("%s: name=%s active=%d total_time=%lld\n",
+			__func__, ws->name, ws->active, ktime_to_ms(emon_total_time));
+
+		if (i < n) {
+			memcpy(ws_array[i].name, ws->name, WS_NAME_SIZE-1);
+			ws_array[i].emon_total_time = emon_total_time;
+			i++;
+			if (i == n)
+				sort(&ws_array[0],
+					n,
+					sizeof(struct emon_wakeup_source),
+					pm_emon_cmp_func, NULL);
+		} else {
+			if (ktime_compare(emon_total_time,
+					ws_array[n-1].emon_total_time) == 1) {
+				memcpy(ws_array[n-1].name, ws->name, WS_NAME_SIZE-1);
+				ws_array[n-1].emon_total_time = emon_total_time;
+				sort(&ws_array[0],
+					n,
+					sizeof(struct emon_wakeup_source),
+					pm_emon_cmp_func, NULL);
+			}
+		}
+		if (type != ENERGY_MON_TYPE_DUMP) {
+			ws->emon_total_time = zero;
+			ws->emon_last_time = now;
+		}
+	}
+	rcu_read_unlock();
+
+	if (i < n && i != 0)
+		sort(&ws_array[0],
+			n,
+			sizeof(struct emon_wakeup_source),
+			pm_emon_cmp_func, NULL);
+}
+
+ktime_t pm_get_total_active_time(char *wakeup_source_name)
+{
+	struct wakeup_source *ws;
+	ktime_t total_time;
+	ktime_t active_time;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(ws, &wakeup_sources, entry) {
+		if (!strcmp(ws->name, wakeup_source_name)) {
+			total_time = ws->total_time;
+			if (ws->active) {
+				ktime_t now = ktime_get();
+
+				active_time = ktime_sub(now, ws->last_time);
+				total_time = ktime_add(total_time, active_time);
+			}
+		}
+	}
+	rcu_read_unlock();
+
+	return total_time;
+}
+#endif
+
 static struct dentry *wakeup_sources_stats_dentry;
 
 /**
@@ -986,14 +1146,22 @@ static int print_wakeup_source_stats(struct seq_file *m,
 	unsigned long flags;
 	ktime_t total_time;
 	ktime_t max_time;
+	ktime_t max_time_stamp;
 	unsigned long active_count;
 	ktime_t active_time;
 	ktime_t prevent_sleep_time;
+#ifdef CONFIG_ENERGY_MONITOR
+	ktime_t emon_total_time;
+#endif
 
 	spin_lock_irqsave(&ws->lock, flags);
 
 	total_time = ws->total_time;
+#ifdef CONFIG_ENERGY_MONITOR
+	emon_total_time = ws->emon_total_time;
+#endif
 	max_time = ws->max_time;
+	max_time_stamp = ws->max_time_stamp;
 	prevent_sleep_time = ws->prevent_sleep_time;
 	active_count = ws->active_count;
 	if (ws->active) {
@@ -1001,8 +1169,13 @@ static int print_wakeup_source_stats(struct seq_file *m,
 
 		active_time = ktime_sub(now, ws->last_time);
 		total_time = ktime_add(total_time, active_time);
-		if (active_time.tv64 > max_time.tv64)
+#ifdef CONFIG_ENERGY_MONITOR
+		emon_total_time = ktime_add(emon_total_time, active_time);
+#endif
+		if (active_time.tv64 > max_time.tv64) {
 			max_time = active_time;
+			max_time_stamp = now;
+		}
 
 		if (ws->autosleep_enabled)
 			prevent_sleep_time = ktime_add(prevent_sleep_time,
@@ -1011,12 +1184,20 @@ static int print_wakeup_source_stats(struct seq_file *m,
 		active_time = ktime_set(0, 0);
 	}
 
-	seq_printf(m, "%-12s\t%lu\t\t%lu\t\t%lu\t\t%lu\t\t%lld\t\t%lld\t\t%lld\t\t%lld\t\t%lld\n",
+	seq_printf(m, "%-32s\t%lu\t\t%lu\t\t%lu\t\t%lu\t\t%lld\t\t%lld\t\t%lld\t\t%lld\t\t%lld\t\t%lld"
+#ifdef CONFIG_ENERGY_MONITOR
+		   "\t\t\t%lld"
+#endif
+		   "\n",
 		   ws->name, active_count, ws->event_count,
 		   ws->wakeup_count, ws->expire_count,
 		   ktime_to_ms(active_time), ktime_to_ms(total_time),
-		   ktime_to_ms(max_time), ktime_to_ms(ws->last_time),
-		   ktime_to_ms(prevent_sleep_time));
+		   ktime_to_ms(max_time), ktime_to_ms(max_time_stamp),
+		   ktime_to_ms(ws->last_time), ktime_to_ms(prevent_sleep_time)
+#ifdef CONFIG_ENERGY_MONITOR
+		   , ktime_to_ms(emon_total_time)
+#endif
+		   );
 
 	spin_unlock_irqrestore(&ws->lock, flags);
 
@@ -1032,9 +1213,13 @@ static int wakeup_sources_stats_show(struct seq_file *m, void *unused)
 	struct wakeup_source *ws;
 	int srcuidx;
 
-	seq_puts(m, "name\t\tactive_count\tevent_count\twakeup_count\t"
-		"expire_count\tactive_since\ttotal_time\tmax_time\t"
-		"last_change\tprevent_suspend_time\n");
+	seq_puts(m, "name\t\t\t\t\tactive_count\tevent_count\twakeup_count\t"
+		"expire_count\tactive_since\ttotal_time\tmax_time\tmax_time_stamp\t"
+		"last_change\tprevent_suspend_time"
+#ifdef CONFIG_ENERGY_MONITOR
+		"\temon_prevent_suspend_time"
+#endif
+		"\n");
 
 	srcuidx = srcu_read_lock(&wakeup_srcu);
 	list_for_each_entry_rcu(ws, &wakeup_sources, entry)

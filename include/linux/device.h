@@ -968,6 +968,53 @@ static inline void dev_pm_syscore_device(struct device *dev, bool val)
 #endif
 }
 
+#ifdef CONFIG_DISPLAY_EARLY_DPMS
+extern struct list_head dpm_early_comp_list;
+static inline bool pm_try_early_complete(void)
+{
+	struct device *dev;
+
+	if (list_empty(&dpm_early_comp_list)) {
+		pr_info("[%s]bypass:list_empty\n", __func__);
+		return false;
+	}
+
+	list_for_each_entry(dev, &dpm_early_comp_list, power.early_comp_entry) {
+		if ((dev->power.early_comp_level == EARLY_COMP_MASTER) &&
+			(!dev->power.is_completed)) {
+			if (dev->power.syscore) {
+				pr_info("[%s]syscore[%s]\n", __func__, dev_name(dev));
+				continue;
+			}
+			pr_info("[%s]bypass[%s]lv[%d]state[%d %d %d]\n",  __func__, dev_name(dev),
+				dev->power.early_comp_level, dev->power.is_prepared,
+				dev->power.is_suspended, dev->power.is_completed);
+			return false;
+		}
+	}
+
+	pr_info("[%s]done\n", __func__);
+	return true;
+}
+
+static inline void device_set_early_complete(struct device *dev, enum early_comp_level level)
+{
+	INIT_LIST_HEAD(&dev->power.early_comp_entry);
+
+	if (level == EARLY_COMP_MASTER)
+		list_add_tail(&dev->power.early_comp_entry, &dpm_early_comp_list);
+	else if (level == EARLY_COMP_SLAVE)
+		list_add(&dev->power.early_comp_entry, &dpm_early_comp_list);
+	else {
+		pr_err("[%s][%s]invalid level[%d]\n", __func__, dev_name(dev), level);
+		return;
+	}
+
+	dev->power.early_comp_level = level;
+	pr_info("[%s][%s]level[%d]\n", __func__, dev_name(dev), level);
+}
+#endif
+
 static inline void device_lock(struct device *dev)
 {
 	mutex_lock(&dev->mutex);

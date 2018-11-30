@@ -2236,8 +2236,7 @@ write_tag_3_packet(char *dest, size_t *remaining_bytes,
 		crypt_stat->key_size =
 			mount_crypt_stat->global_default_cipher_key_size;
 	if (auth_tok->session_key.encrypted_key_size == 0)
-		auth_tok->session_key.encrypted_key_size =
-			crypt_stat->key_size;
+		auth_tok->session_key.encrypted_key_size = crypt_stat->key_size;
 	if (crypt_stat->key_size == 24
 	    && strcmp("aes", crypt_stat->cipher) == 0) {
 		memset((crypt_stat->key + 24), 0, 8);

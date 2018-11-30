@@ -81,6 +81,10 @@ struct hci_uart {
 	unsigned long		flags;
 	unsigned long		hdev_flags;
 
+#ifdef CONFIG_TIZEN_WIP
+	struct workqueue_struct *workqueue;
+	bool workqueue_valid;
+#endif
 	struct work_struct	init_ready;
 	struct work_struct	write_work;
 

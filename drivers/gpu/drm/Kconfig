@@ -7,11 +7,11 @@
 menuconfig DRM
 	tristate "Direct Rendering Manager (XFree86 4.1.0 and higher DRI support)"
 	depends on (AGP || AGP=n) && !EMULATED_CMPXCHG && MMU && HAS_DMA
-	select HDMI
 	select FB_CMDLINE
 	select I2C
 	select I2C_ALGOBIT
 	select DMA_SHARED_BUFFER
+	select SYNC_FILE
 	help
 	  Kernel-level support for the Direct Rendering Infrastructure (DRI)
 	  introduced in XFree86 4.0. If you say Y here, you need to select
@@ -106,6 +106,14 @@ config DRM_KMS_CMA_HELPER
 	help
 	  Choose this if you need the KMS CMA helper functions
 
+config DRM_DMA_SYNC
+        bool "DRM DMA Sync"
+        depends on DRM && DMA_SHARED_BUFFER
+        default n
+        help
+          Choose this option if you want to use fences and reservations for
+          synchronization of shared dma-buf access between different drivers.
+
 source "drivers/gpu/drm/i2c/Kconfig"
 
 source "drivers/gpu/drm/arm/Kconfig"
@@ -160,6 +168,7 @@ config DRM_VGEM
 	  as used by Mesa's software renderer for enhanced performance.
 	  If M is selected the module will be called vgem.
 
+source "drivers/gpu/drm/tgm/Kconfig"
 
 source "drivers/gpu/drm/exynos/Kconfig"
 

@@ -38,6 +38,10 @@
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
 
+#ifndef CONFIG_TIZEN_WIP
+#include <linux/gpio/consumer.h>
+#endif
+
 #include "btbcm.h"
 #include "hci_uart.h"
 
@@ -73,6 +77,9 @@ struct bcm_data {
 	struct sk_buff_head	txq;
 
 	struct bcm_device	*dev;
+#ifdef CONFIG_TIZEN_WIP
+	int error_cnt;
+#endif
 };
 
 /* List of BCM BT UART devices */
@@ -85,6 +92,7 @@ static int bcm_set_baudrate(struct hci_uart *hu, unsigned int speed)
 	struct sk_buff *skb;
 	struct bcm_update_uart_baud_rate param;
 
+#ifndef CONFIG_TIZEN_WIP
 	if (speed > 3000000) {
 		struct bcm_write_uart_clock_setting clock;
 
@@ -105,7 +113,7 @@ static int bcm_set_baudrate(struct hci_uart *hu, unsigned int speed)
 
 		kfree_skb(skb);
 	}
-
+#endif
 	bt_dev_dbg(hdev, "Set Controller UART speed to %d bit/s", speed);
 
 	param.zero = cpu_to_le16(0);
@@ -128,6 +136,7 @@ static int bcm_set_baudrate(struct hci_uart *hu, unsigned int speed)
 	return 0;
 }
 
+#ifndef CONFIG_TIZEN_WIP
 /* bcm_device_exists should be protected by bcm_device_lock */
 static bool bcm_device_exists(struct bcm_device *device)
 {
@@ -158,8 +167,10 @@ static int bcm_gpio_set_power(struct bcm_device *dev, bool powered)
 
 	return 0;
 }
+#endif
 
-#ifdef CONFIG_PM
+/* #ifdef CONFIG_PM */
+#if defined(CONFIG_PM) && !defined(CONFIG_TIZEN_WIP)
 static irqreturn_t bcm_host_wake(int irq, void *data)
 {
 	struct bcm_device *bdev = data;
@@ -246,7 +257,45 @@ static int bcm_setup_sleep(struct hci_uart *hu)
 }
 #else
 static inline int bcm_request_irq(struct bcm_data *bcm) { return 0; }
+
+#ifdef CONFIG_TIZEN_WIP
+static const struct bcm_set_sleep_mode default_sleep_params = {
+	.sleep_mode = 1,	/* 0=Disabled, 1=UART, 2=Reserved, 3=USB */
+	.idle_host = 0xa,	/* idle threshold HOST, in 125ms(0xa * 12.5 ms)*/
+	.idle_dev = 0xa,	/* idle threshold device, in 125ms(0xa * 12.5ms)*/
+	.bt_wake_active = 1,	/* BT_WAKE active mode: 1 = high, 0 = low */
+	.host_wake_active = 1,	/* HOST_WAKE active mode: 1 = high, 0 = low */
+	.allow_host_sleep = 1,	/* Allow host sleep in SCO flag */
+	.combine_modes = 1,	/* Combine sleep and LPM flag */
+	.tristate_control = 0,	/* Allow tri-state control of UART tx flag */
+	/* Irrelevant USB flags */
+	.usb_auto_sleep = 0,
+	.usb_resume_timeout = 0,
+	.pulsed_host_wake = 0,
+	.break_to_host = 0
+};
+
+static int bcm_setup_sleep(struct hci_uart *hu)
+{
+	struct sk_buff *skb;
+	struct bcm_set_sleep_mode sleep_params = default_sleep_params;
+
+	skb = __hci_cmd_sync(hu->hdev, 0xfc27, sizeof(sleep_params),
+			     &sleep_params, HCI_INIT_TIMEOUT);
+	if (IS_ERR(skb)) {
+		int err = PTR_ERR(skb);
+		bt_dev_err(hu->hdev, "Sleep VSC failed (%d)", err);
+		return err;
+	}
+	kfree_skb(skb);
+
+	bt_dev_dbg(hu->hdev, "Set Sleep Parameters VSC succeeded");
+
+	return 0;
+}
+#else
 static inline int bcm_setup_sleep(struct hci_uart *hu) { return 0; }
+#endif
 #endif
 
 static int bcm_set_diag(struct hci_dev *hdev, bool enable)
@@ -301,10 +350,12 @@ static int bcm_open(struct hci_uart *hu)
 		if (hu->tty->dev->parent == dev->pdev->dev.parent) {
 			bcm->dev = dev;
 			hu->init_speed = dev->init_speed;
+#ifndef CONFIG_TIZEN_WIP
 #ifdef CONFIG_PM
 			dev->hu = hu;
 #endif
 			bcm_gpio_set_power(bcm->dev, true);
+#endif
 			break;
 		}
 	}
@@ -317,10 +368,12 @@ out:
 static int bcm_close(struct hci_uart *hu)
 {
 	struct bcm_data *bcm = hu->priv;
+#ifndef CONFIG_TIZEN_WIP
 	struct bcm_device *bdev = bcm->dev;
-
+#endif
 	bt_dev_dbg(hu->hdev, "hu %p", hu);
 
+#ifndef CONFIG_TIZEN_WIP
 	/* Protect bcm->dev against removal of the device or driver */
 	mutex_lock(&bcm_device_lock);
 	if (bcm_device_exists(bdev)) {
@@ -338,7 +391,7 @@ static int bcm_close(struct hci_uart *hu)
 #endif
 	}
 	mutex_unlock(&bcm_device_lock);
-
+#endif
 	skb_queue_purge(&bcm->txq);
 	kfree_skb(bcm->rx_skb);
 	kfree(bcm);
@@ -358,9 +411,149 @@ static int bcm_flush(struct hci_uart *hu)
 	return 0;
 }
 
+#ifdef CONFIG_TIZEN_WIP
+
+#define TIZEN_BLUETOOTH_CSA	"/csa/bluetooth/.bd_addr"
+#define TIZEN_BLUETOOTH_CSA_SIZE	14
+
+static int bcmbtsdio_read_bt_macaddr(bdaddr_t *bdaddr)
+{
+	char *filepath_csa       = TIZEN_BLUETOOTH_CSA;
+	char buf[TIZEN_BLUETOOTH_CSA_SIZE+1]         = {0};
+	struct file *fp      = NULL;
+	int ret = 0;
+	int n = 0;
+
+	fp = filp_open(filepath_csa, O_RDONLY, 0);
+	if (IS_ERR(fp)) {
+		BT_ERR("File open error(%s)", filepath_csa);
+		return PTR_ERR(fp);
+	}
+
+
+	ret = kernel_read(fp, 0, buf, TIZEN_BLUETOOTH_CSA_SIZE + 1);
+	if (ret) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
+		/* %02hhx is not working in linux-3.4-exynos code I guess
+		 * lib/vsprintf.c might have the bug.
+		 * it read more than 2 byte though we request 2 byte
+		 * like the below
+		 */
+		n = sscanf(buf, "%02hhx%02hhx\n%02hhx\n%02hhx%02hhx%02hhx",
+				&bdaddr->b[5], &bdaddr->b[4], &bdaddr->b[3],
+				&bdaddr->b[2], &bdaddr->b[1], &bdaddr->b[0]);
+#else
+		int pos = 0;
+		int idx = 5;
+		char *buf_ptr;
+
+		buf_ptr = buf;
+
+		while (pos < TIZEN_BLUETOOTH_CSA_SIZE && idx >= 0) {
+			char tmp;
+			int del = pos + 2;
+
+			if (buf[pos] == '\n') {
+				pos++;
+				continue;
+			}
+
+			if (del < TIZEN_BLUETOOTH_CSA_SIZE) {
+				tmp = buf[del];
+				buf[del] = '\0';
+			}
+
+			n += sscanf(buf_ptr + pos, "%hhx", &(bdaddr->b[idx--]));
+
+			if (del < TIZEN_BLUETOOTH_CSA_SIZE)
+				buf[del] = tmp;
+
+			pos += 2;
+		}
+#endif
+		if (n < 6) {
+			filp_close(fp, NULL);
+			BT_ERR("Fail to read proper BT address(%d):%d", ret, n);
+			return -EINVAL;
+		}
+	} else {
+		BT_ERR("read fail");
+	}
+
+#ifdef CONFIG_TIZEN_SEC_KERNEL_ENG
+	BT_INFO("Read address is %pMR from csa", bdaddr);
+#else
+	BT_INFO("Read address is done from csa");
+#endif
+
+	if (fp)
+		filp_close(fp, NULL);
+
+	return 0;
+}
+
+static int bcmbtsdio_set_bdaddr(struct hci_dev *hdev, const bdaddr_t *bdaddr)
+{
+	struct sk_buff *skb;
+	int err;
+
+	skb = __hci_cmd_sync(hdev, 0xfc01, 6, bdaddr, HCI_INIT_TIMEOUT);
+	if (IS_ERR(skb)) {
+		err = PTR_ERR(skb);
+		BT_ERR("%s: BCM: Change address command failed (%d)",
+				hdev->name, err);
+		return err;
+	}
+	kfree_skb(skb);
+
+	return 0;
+}
+#endif
+
+#ifdef CONFIG_TIZEN_WIP
+extern int bcm43xx_power_on_reset(void );
+extern void hci_cmd_reset_error_ignore(bool ignore);
+
+static bool hci_reset_repetition(struct hci_dev *hdev)
+{
+	const int max_repetition = 5;
+	bool success = false;
+
+	struct sk_buff *skb;
+	int err;
+	int i;
+
+	BT_INFO("[%s(%d)] max repetition: %d", __FUNCTION__, __LINE__, max_repetition);
+
+	for(i = 0; i < max_repetition; i++)
+	{
+		skb = __hci_cmd_sync(hdev, HCI_OP_RESET, 0, NULL, (HCI_CMD_TIMEOUT + msecs_to_jiffies(1000)));
+		if (IS_ERR(skb)) {
+			err = PTR_ERR(skb);
+			BT_ERR("%s: BCM: Reset failed (%d), Try again,...", hdev->name, err);
+
+			bcm43xx_power_on_reset();
+		}
+		else {
+			success = true;
+			break;
+		}
+	}
+
+	if(success)
+		kfree_skb(skb);
+
+	return success;
+}
+#endif
+
 static int bcm_setup(struct hci_uart *hu)
 {
+#ifndef CONFIG_TIZEN_WIP
 	struct bcm_data *bcm = hu->priv;
+#else
+	struct hci_dev	*hdev = hu->hdev;
+#endif
 	char fw_name[64];
 	const struct firmware *fw;
 	unsigned int speed;
@@ -371,9 +564,33 @@ static int bcm_setup(struct hci_uart *hu)
 	hu->hdev->set_diag = bcm_set_diag;
 	hu->hdev->set_bdaddr = btbcm_set_bdaddr;
 
+#ifdef CONFIG_TIZEN_WIP
+	hci_cmd_reset_error_ignore(true);
+
+	hci_reset_repetition(hu->hdev);
+
+	hci_cmd_reset_error_ignore(false);
+#endif
+
 	err = btbcm_initialize(hu->hdev, fw_name, sizeof(fw_name));
 	if (err)
 		return err;
+
+#ifdef CONFIG_TIZEN_WIP
+	/* Operational speed if any */
+	if (hu->oper_speed)
+		speed = hu->oper_speed;
+	else if (hu->proto->oper_speed)
+		speed = hu->proto->oper_speed;
+	else
+		speed = 0;
+
+	if (speed) {
+		err = bcm_set_baudrate(hu, speed);
+		if (!err)
+			hci_uart_set_baudrate(hu, speed);
+	}
+#endif
 
 	err = request_firmware(&fw, fw_name, &hu->hdev->dev);
 	if (err < 0) {
@@ -415,6 +632,7 @@ static int bcm_setup(struct hci_uart *hu)
 finalize:
 	release_firmware(fw);
 
+#ifndef CONFIG_TIZEN_WIP
 	err = btbcm_finalize(hu->hdev);
 	if (err)
 		return err;
@@ -422,7 +640,29 @@ finalize:
 	err = bcm_request_irq(bcm);
 	if (!err)
 		err = bcm_setup_sleep(hu);
+#else
+	err = bcmbtsdio_read_bt_macaddr(&hdev->public_addr);
+	if (err < 0) {
+		BT_ERR("Fail to read BT address from CSA(%d)", err);
+		return err;
+	}
 
+	err = bcmbtsdio_set_bdaddr(hdev, &hdev->public_addr);
+	if (err < 0) {
+		BT_ERR("Fail to write BT address to controller(%d)", err);
+		return err;
+	}
+
+	/* Reset */
+	err = btbcm_reset(hdev);
+	if (err)
+		return err;
+
+	err = bcm_setup_sleep(hu);
+
+	if (!err)
+		BT_INFO("BCM: Setup Completed");
+#endif
 	return err;
 }
 
@@ -442,6 +682,10 @@ static const struct h4_recv_pkt bcm_recv_pkts[] = {
 
 static int bcm_recv(struct hci_uart *hu, const void *data, int count)
 {
+#ifdef CONFIG_TIZEN_WIP
+	static u64 prev_jiffies = 0;
+	u64 cur_jiffies;
+#endif
 	struct bcm_data *bcm = hu->priv;
 
 	if (!test_bit(HCI_UART_REGISTERED, &hu->flags))
@@ -451,10 +695,28 @@ static int bcm_recv(struct hci_uart *hu, const void *data, int count)
 				  bcm_recv_pkts, ARRAY_SIZE(bcm_recv_pkts));
 	if (IS_ERR(bcm->rx_skb)) {
 		int err = PTR_ERR(bcm->rx_skb);
+#ifdef CONFIG_TIZEN_WIP
+		++bcm->error_cnt;
+
+		cur_jiffies = get_jiffies_64();
+		if(time_before_eq64(prev_jiffies + HZ/10, cur_jiffies)) {
+			bt_dev_err(hu->hdev, "Frame reassembly failed (%d) err_cnt(%d)",
+							err, bcm->error_cnt);
+
+			prev_jiffies = cur_jiffies;
+		}
+#else
 		bt_dev_err(hu->hdev, "Frame reassembly failed (%d)", err);
+#endif
 		bcm->rx_skb = NULL;
+
+#ifdef CONFIG_TIZEN_WIP
+		if (bcm->error_cnt == 100)
+			hci_reset_dev(hu->hdev);
+#endif
 		return err;
 	} else if (!bcm->rx_skb) {
+#ifndef CONFIG_TIZEN_WIP
 		/* Delay auto-suspend when receiving completed packet */
 		mutex_lock(&bcm_device_lock);
 		if (bcm->dev && bcm_device_exists(bcm->dev)) {
@@ -463,6 +725,7 @@ static int bcm_recv(struct hci_uart *hu, const void *data, int count)
 			pm_runtime_put_autosuspend(&bcm->dev->pdev->dev);
 		}
 		mutex_unlock(&bcm_device_lock);
+#endif
 	}
 
 	return count;
@@ -485,28 +748,33 @@ static struct sk_buff *bcm_dequeue(struct hci_uart *hu)
 {
 	struct bcm_data *bcm = hu->priv;
 	struct sk_buff *skb = NULL;
+#ifndef CONFIG_TIZEN_WIP
 	struct bcm_device *bdev = NULL;
+#endif
 
 	mutex_lock(&bcm_device_lock);
 
+#ifndef CONFIG_TIZEN_WIP
 	if (bcm_device_exists(bcm->dev)) {
 		bdev = bcm->dev;
 		pm_runtime_get_sync(&bdev->pdev->dev);
 		/* Shall be resumed here */
 	}
-
+#endif
 	skb = skb_dequeue(&bcm->txq);
 
+#ifndef CONFIG_TIZEN_WIP
 	if (bdev) {
 		pm_runtime_mark_last_busy(&bdev->pdev->dev);
 		pm_runtime_put_autosuspend(&bdev->pdev->dev);
 	}
-
+#endif
 	mutex_unlock(&bcm_device_lock);
 
 	return skb;
 }
 
+#ifndef CONFIG_TIZEN_WIP
 #ifdef CONFIG_PM
 static int bcm_suspend_device(struct device *dev)
 {
@@ -806,13 +1074,18 @@ static int bcm_remove(struct platform_device *pdev)
 
 	return 0;
 }
+#endif /* CONFIG_TIZEN_WIP */
 
 static const struct hci_uart_proto bcm_proto = {
 	.id		= HCI_UART_BCM,
 	.name		= "Broadcom",
 	.manufacturer	= 15,
 	.init_speed	= 115200,
+#ifdef CONFIG_TIZEN_WIP
+	.oper_speed	= 3000000,
+#else
 	.oper_speed	= 4000000,
+#endif
 	.open		= bcm_open,
 	.close		= bcm_close,
 	.flush		= bcm_flush,
@@ -823,6 +1096,7 @@ static const struct hci_uart_proto bcm_proto = {
 	.dequeue	= bcm_dequeue,
 };
 
+#ifndef CONFIG_TIZEN_WIP
 #ifdef CONFIG_ACPI
 static const struct acpi_device_id bcm_acpi_match[] = {
 	{ "BCM2E1A", 0 },
@@ -859,17 +1133,21 @@ static struct platform_driver bcm_driver = {
 		.pm = &bcm_pm_ops,
 	},
 };
+#endif
 
 int __init bcm_init(void)
 {
+#ifndef CONFIG_TIZEN_WIP
 	platform_driver_register(&bcm_driver);
+#endif
 
 	return hci_uart_register_proto(&bcm_proto);
 }
 
 int __exit bcm_deinit(void)
 {
+#ifndef CONFIG_TIZEN_WIP
 	platform_driver_unregister(&bcm_driver);
-
+#endif
 	return hci_uart_unregister_proto(&bcm_proto);
 }

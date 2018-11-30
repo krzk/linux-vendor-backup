@@ -154,6 +154,9 @@ static int mmc_bus_suspend(struct device *dev)
 	if (ret)
 		return ret;
 
+	if (mmc_bus_needs_resume(host))
+		return 0;
+
 	ret = host->bus_ops->suspend(host);
 	return ret;
 }
@@ -164,10 +167,14 @@ static int mmc_bus_resume(struct device *dev)
 	struct mmc_host *host = card->host;
 	int ret;
 
-	ret = host->bus_ops->resume(host);
-	if (ret)
-		pr_warn("%s: error %d during resume (card was removed?)\n",
-			mmc_hostname(host), ret);
+	if (mmc_bus_manual_resume(host)) {
+		host->bus_resume_flags |= MMC_BUSRESUME_NEEDS_RESUME;
+	} else {
+		ret = host->bus_ops->resume(host);
+		if (ret)
+			pr_warn("%s: error %d during resume (card was removed?)\n",
+					mmc_hostname(host), ret);
+	}
 
 	ret = pm_generic_resume(dev);
 	return ret;

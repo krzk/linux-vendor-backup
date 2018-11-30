@@ -32,6 +32,14 @@
 #include <linux/of_gpio.h>
 #include <linux/of_irq.h>
 #include <linux/spinlock.h>
+#include <linux/exynos-ss.h>
+#ifdef CONFIG_SEC_SYSFS
+#include <linux/sec_sysfs.h>
+#endif
+#ifdef CONFIG_DISPLAY_EARLY_DPMS
+#include <drm/tgm_drm.h>
+#endif
+#include <linux/trm.h>
 
 struct gpio_button_data {
 	const struct gpio_keys_button *button;
@@ -48,14 +56,44 @@ struct gpio_button_data {
 	spinlock_t lock;
 	bool disabled;
 	bool key_pressed;
+	bool isr_status;
+	bool key_state;
+	u32 key_pressed_cnt;
 };
 
 struct gpio_keys_drvdata {
 	const struct gpio_keys_platform_data *pdata;
+	struct device *sec_key;
 	struct input_dev *input;
 	struct mutex disable_lock;
+#ifdef CONFIG_DISPLAY_EARLY_DPMS
+	bool resume_state;
+#endif
 	struct gpio_button_data data[0];
 };
+
+static struct gpio_button_data *global_button_data;
+void gpio_keys_send_fake_powerkey(int value)
+{
+	const struct gpio_keys_button *button = global_button_data->button;
+	struct input_dev *input = global_button_data->input;
+	unsigned int type = button->type ?: EV_KEY;
+	struct irq_desc *desc = irq_to_desc(gpio_to_irq(button->gpio));
+
+	if (!desc) {
+		pr_err("%s: irq_desc is null!! (gpio=%d)\n", __func__, button->gpio);
+		return;
+	}
+
+	input_event(input, type, button->code, value);
+	input_sync(input);
+
+	dev_info(&input->dev,
+		"%s: [%s][%s]\n", __func__, value ? "P":"R", button->desc);
+
+	return;
+}
+EXPORT_SYMBOL(gpio_keys_send_fake_powerkey);
 
 /*
  * SYSFS interface for enabling/disabling keys and switches:
@@ -355,12 +393,69 @@ static struct attribute_group gpio_keys_attr_group = {
 	.attrs = gpio_keys_attrs,
 };
 
+static ssize_t key_pressed_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct gpio_keys_drvdata *ddata = dev_get_drvdata(dev);
+	const struct gpio_keys_platform_data *pdata = ddata->pdata;
+	int i, keystate = 0;
+
+	for (i = 0; i < pdata->nbuttons; i++) {
+		struct gpio_button_data *bdata = &ddata->data[i];
+		keystate |= bdata->key_state;
+	}
+
+	if (keystate)
+		sprintf(buf, "PRESS");
+	else
+		sprintf(buf, "RELEASE");
+
+	return strlen(buf);
+}
+static DEVICE_ATTR(sec_key_pressed, 0664, key_pressed_show, NULL);
+
+static ssize_t key_pressed_cnt_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct gpio_keys_drvdata *ddata = dev_get_drvdata(dev);
+	const struct gpio_keys_platform_data *pdata = ddata->pdata;
+	int i, length = 0;
+
+	for (i = 0; i < pdata->nbuttons; i++) {
+		struct gpio_button_data *bdata = &ddata->data[i];
+		const struct gpio_keys_button *button = bdata->button;
+		length += sprintf(buf, "%s:%d\n", button->desc, bdata->key_pressed_cnt);
+		pr_info("%s: %s:[ %d]\n", __func__, button->desc, bdata->key_pressed_cnt);
+		bdata->key_pressed_cnt = 0;
+	}
+
+	return length;
+}
+static DEVICE_ATTR(key_pressed_count, 0664, key_pressed_cnt_show, NULL);
+
+static struct attribute *sec_key_attrs[] = {
+	&dev_attr_sec_key_pressed.attr,
+	&dev_attr_key_pressed_count.attr,
+	NULL,
+};
+
+static struct attribute_group sec_key_attr_group = {
+	.attrs = sec_key_attrs,
+};
 static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 {
 	const struct gpio_keys_button *button = bdata->button;
 	struct input_dev *input = bdata->input;
 	unsigned int type = button->type ?: EV_KEY;
 	int state;
+	int key_pressed;
+	struct irq_desc *desc = irq_to_desc(gpio_to_irq(button->gpio));
+
+	if (!desc) {
+		dev_err(input->dev.parent, "irq_desc is null! (gpio=%d)\n",
+				button->gpio);
+		return;
+	}
 
 	state = gpiod_get_value_cansleep(bdata->gpiod);
 	if (state < 0) {
@@ -368,14 +463,51 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 			"failed to get gpio state: %d\n", state);
 		return;
 	}
-
+#ifdef CONFIG_EXYNOS_SNAPSHOT_CRASH_KEY
+	exynos_ss_check_crash_key(button->code, state);
+#endif
 	if (type == EV_ABS) {
+		key_pressed = button->value;
 		if (state)
 			input_event(input, type, button->code, button->value);
 	} else {
-		input_event(input, type, button->code, state);
+		key_pressed = irqd_is_wakeup_set(&desc->irq_data) ? 1 : state;
+		input_event(input, type, button->code,
+				irqd_is_wakeup_set(&desc->irq_data) ? 1 : state);
 	}
 	input_sync(input);
+
+#ifdef CONFIG_DISPLAY_EARLY_DPMS
+	if (key_pressed == 1)
+	{
+		struct input_dev *input = bdata->input;
+		struct gpio_keys_drvdata *ddata = input_get_drvdata(input);
+		struct display_early_dpms_nb_event event;
+
+		if (!ddata->resume_state) {
+			event.id = DISPLAY_EARLY_DPMS_ID_PRIMARY;
+			event.data = (void *)true;
+			display_early_dpms_nb_send_event
+				(DISPLAY_EARLY_DPMS_MODE_SET,
+				(void *)&event);
+		}
+	}
+#endif
+
+#if defined(BACK_KEY_BOOSTER)
+	if ((button->code == KEY_BACK) && (bdata->isr_status)) {
+		back_key_booster_turn_on();
+	}
+#endif
+
+	if (!bdata->isr_status)
+		pr_info("%s: [%s]%s[%s]\n", __func__,
+			state ? "P":"R", button->desc, bdata->isr_status ? "I":"R");
+
+	bdata->key_state = !!state;
+
+	if (state && bdata->isr_status)
+		bdata->key_pressed_cnt++;
 }
 
 static void gpio_keys_gpio_work_func(struct work_struct *work)
@@ -383,7 +515,11 @@ static void gpio_keys_gpio_work_func(struct work_struct *work)
 	struct gpio_button_data *bdata =
 		container_of(work, struct gpio_button_data, work.work);
 
+	bdata->isr_status = true;
+
 	gpio_keys_gpio_report_event(bdata);
+
+	bdata->isr_status = false;
 
 	if (bdata->button->wakeup)
 		pm_relax(bdata->input->dev.parent);
@@ -571,6 +707,9 @@ static int gpio_keys_setup_key(struct platform_device *pdev,
 	 */
 	if (!button->can_disable)
 		irqflags |= IRQF_SHARED;
+
+	if (button->wakeup)
+		irqflags |= IRQF_NO_SUSPEND;
 
 	error = devm_request_any_context_irq(&pdev->dev, bdata->irq,
 					     isr, irqflags, desc, bdata);
@@ -789,6 +928,7 @@ static int gpio_keys_probe(struct platform_device *pdev)
 		const struct gpio_keys_button *button = &pdata->buttons[i];
 		struct gpio_button_data *bdata = &ddata->data[i];
 
+		global_button_data = bdata;
 		error = gpio_keys_setup_key(pdev, input, bdata, button);
 		if (error)
 			return error;
@@ -801,29 +941,77 @@ static int gpio_keys_probe(struct platform_device *pdev)
 	if (error) {
 		dev_err(dev, "Unable to export keys/switches, error: %d\n",
 			error);
-		return error;
+		goto err_create_group;
+	}
+
+#ifdef CONFIG_SEC_SYSFS
+	ddata->sec_key = sec_device_create(ddata, "sec_key");
+	if (IS_ERR(ddata->sec_key)) {
+		dev_err(dev, "%s:Failed to create sec_device_create\n", __func__);
+		goto err_remove_group;
+	}
+#else
+	if (sec_class) {
+		ddata->sec_key =
+		    device_create(sec_class, NULL, 0, ddata, "sec_key");
+		if (IS_ERR(ddata->sec_key)) {
+			dev_err(dev, "%s: Failed to create sec_key device\n", __func__);
+			goto err_remove_group
+		}
+	} else {
+		dev_err(sfd->dev, "%s: sec_class is NULL\n", __func__);
+		goto err_remove_group;
+	}
+#endif
+	error = sysfs_create_group(&ddata->sec_key->kobj, &sec_key_attr_group);
+	if (error) {
+		dev_err(dev, "Failed to create the test sysfs: %d\n",
+			error);
+		goto err_remove_key_attr;
 	}
 
 	error = input_register_device(input);
 	if (error) {
 		dev_err(dev, "Unable to register input device, error: %d\n",
 			error);
-		goto err_remove_group;
+		goto err_register_device;
 	}
+
+#ifdef CONFIG_DISPLAY_EARLY_DPMS
+	ddata->resume_state = true;
+	device_set_early_complete(&pdev->dev, EARLY_COMP_SLAVE);
+#endif
 
 	device_init_wakeup(&pdev->dev, wakeup);
 
 	return 0;
 
+err_register_device:
+	sysfs_remove_group(&ddata->sec_key->kobj, &sec_key_attr_group);
+err_remove_key_attr:
+#ifdef CONFIG_SEC_SYSFS
+	sec_device_destroy(ddata->sec_key->devt);
+#else
+	device_destroy(sec_class, ddata->sec_key->devt);
+#endif
 err_remove_group:
 	sysfs_remove_group(&pdev->dev.kobj, &gpio_keys_attr_group);
+err_create_group:
+
 	return error;
 }
 
 static int gpio_keys_remove(struct platform_device *pdev)
 {
-	sysfs_remove_group(&pdev->dev.kobj, &gpio_keys_attr_group);
+	struct gpio_keys_drvdata *ddata = platform_get_drvdata(pdev);
 
+	sysfs_remove_group(&ddata->sec_key->kobj, &sec_key_attr_group);
+	sysfs_remove_group(&pdev->dev.kobj, &gpio_keys_attr_group);
+#ifdef CONFIG_SEC_SYSFS
+	sec_device_destroy(ddata->sec_key->devt);
+#else
+	device_destroy(sec_class, ddata->sec_key->devt);
+#endif
 	device_init_wakeup(&pdev->dev, 0);
 
 	return 0;
@@ -848,6 +1036,10 @@ static int gpio_keys_suspend(struct device *dev)
 			gpio_keys_close(input);
 		mutex_unlock(&input->mutex);
 	}
+
+#ifdef CONFIG_DISPLAY_EARLY_DPMS
+	ddata->resume_state = false;
+#endif
 
 	return 0;
 }
@@ -876,6 +1068,10 @@ static int gpio_keys_resume(struct device *dev)
 		return error;
 
 	gpio_keys_report_state(ddata);
+
+#ifdef CONFIG_DISPLAY_EARLY_DPMS
+	ddata->resume_state = true;
+#endif
 	return 0;
 }
 #endif

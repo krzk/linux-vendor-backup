@@ -369,6 +369,9 @@ struct drm_pending_event {
 	struct drm_file *file_priv;
 	pid_t pid; /* pid of requester, no guarantee it's valid by the time
 		      we deliver the event, for tracing only */
+#ifdef CONFIG_DRM_TGM
+	void (*destroy)(struct drm_pending_event *event);
+#endif
 };
 
 struct drm_prime_file_private {
@@ -476,6 +479,9 @@ struct drm_driver {
 	int (*dma_quiescent) (struct drm_device *);
 	int (*context_dtor) (struct drm_device *dev, int context);
 	int (*set_busid)(struct drm_device *dev, struct drm_master *master);
+#ifdef CONFIG_DRM_TGM	
+	int (*get_irq)(struct drm_device *dev);
+#endif
 
 	/**
 	 * get_vblank_counter - get raw hardware vblank counter
@@ -907,6 +913,13 @@ static __inline__ int drm_core_check_feature(struct drm_device *dev,
 	return ((dev->driver->driver_features & feature) ? 1 : 0);
 }
 
+#ifdef CONFIG_DRM_TGM
+static inline int drm_dev_to_irq(struct drm_device *dev)
+{
+	return dev->driver->get_irq(dev);
+}
+#endif
+
 static inline void drm_device_set_unplugged(struct drm_device *dev)
 {
 	smp_wmb();
@@ -1104,7 +1117,10 @@ extern int drm_pcie_get_max_link_width(struct drm_device *dev, u32 *mlw);
 
 /* platform section */
 extern int drm_platform_init(struct drm_driver *driver, struct platform_device *platform_device);
-
+#ifdef CONFIG_DRM_TGM
+extern int drm_platform_set_busid(struct drm_device *d, struct drm_master *m);
+extern int drm_platform_get_irq(struct drm_device *d);
+#endif
 /* returns true if currently okay to sleep */
 static __inline__ bool drm_can_sleep(void)
 {

@@ -402,9 +402,22 @@ static void dump_tasks(struct mem_cgroup *memcg, const nodemask_t *nodemask)
 	rcu_read_unlock();
 }
 
+static BLOCKING_NOTIFIER_HEAD(oomdebug_notify_list);
+
+int register_oomdebug_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&oomdebug_notify_list, nb);
+}
+
+int unregister_oomdebug_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&oomdebug_notify_list, nb);
+}
+
 static void dump_header(struct oom_control *oc, struct task_struct *p)
 {
 	nodemask_t *nm = (oc->nodemask) ? oc->nodemask : &cpuset_current_mems_allowed;
+	int v = 0;
 
 	pr_warn("%s invoked oom-killer: gfp_mask=%#x(%pGg), nodemask=%*pbl, order=%d, oom_score_adj=%hd\n",
 		current->comm, oc->gfp_mask, &oc->gfp_mask,
@@ -421,6 +434,8 @@ static void dump_header(struct oom_control *oc, struct task_struct *p)
 		show_mem(SHOW_MEM_FILTER_NODES);
 	if (sysctl_oom_dump_tasks)
 		dump_tasks(oc->memcg, oc->nodemask);
+
+	blocking_notifier_call_chain(&oomdebug_notify_list, 0, &v);
 }
 
 /*

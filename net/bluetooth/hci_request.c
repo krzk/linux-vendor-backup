@@ -431,7 +431,9 @@ static void __hci_update_background_scan(struct hci_request *req)
 			return;
 
 		hci_req_add_le_scan_disable(req);
-
+#ifdef CONFIG_TIZEN_WIP
+		hci_le_discovery_set_state(hdev, DISCOVERY_STOPPED);
+#endif
 		BT_DBG("%s stopping background scanning", hdev->name);
 	} else {
 		/* If there is at least one pending LE connection, we should
@@ -623,6 +625,16 @@ static void create_eir(struct hci_dev *hdev, u8 *data)
 	ptr = create_uuid16_list(hdev, ptr, HCI_MAX_EIR_LENGTH - (ptr - data));
 	ptr = create_uuid32_list(hdev, ptr, HCI_MAX_EIR_LENGTH - (ptr - data));
 	ptr = create_uuid128_list(hdev, ptr, HCI_MAX_EIR_LENGTH - (ptr - data));
+
+#ifdef CONFIG_TIZEN_WIP
+	if (hdev->manufacturer_len > 0 &&
+			ptr - data + hdev->manufacturer_len + 2 <= HCI_MAX_EIR_LENGTH) {
+		ptr[0] = hdev->manufacturer_len + 1;
+		ptr[1] = EIR_MANUFACTURER_DATA;
+		memcpy(ptr + 2, hdev->manufacturer_data, hdev->manufacturer_len);
+		ptr += hdev->manufacturer_len + 2;
+	}
+#endif
 }
 
 void __hci_req_update_eir(struct hci_request *req)
@@ -921,7 +933,42 @@ void __hci_req_enable_advertising(struct hci_request *req)
 	u32 flags;
 
 	if (hci_conn_num(hdev, LE_LINK) > 0)
+	{
+#ifdef CONFIG_TIZEN_WIP
+		/* Link layer supports combination states given
+		 * in the 'combination A' and 'combination B'.
+		 */
+		if (hdev->conn_hash.le_num_slave > 0) {
+
+			/* Below combination states shall be supported :
+			 *  non-connectable adv. state and slave connection state
+			 *  scannable adv. state and slave connection state
+			 *  connectable adv. state and slave connection state
+			 */
+			if ((hdev->adv_type == LE_ADV_NONCONN_IND && !(hdev->le_states[2] & 0x10))
+				|| (hdev->adv_type == LE_ADV_SCAN_IND && !(hdev->le_states[2] & 0x20))
+				|| (hdev->adv_type == LE_ADV_IND && !(hdev->le_states[4] & 0x40)))
+				BT_INFO("%d: not supported combination state", __LINE__);
+				return;
+		}
+
+		if (hci_conn_num(hdev, LE_LINK) > hdev->conn_hash.le_num_slave) {
+
+			/* Below combination states shall be supported :
+			 *  non-connectable adv. state and master connection state
+			 *  scannable adv. state and master connection state
+			 *  connectable adv. state and master connection state
+			 */
+			if ((hdev->adv_type == LE_ADV_NONCONN_IND && !(hdev->le_states[2] & 0x04))
+				|| (hdev->adv_type == LE_ADV_SCAN_IND && !(hdev->le_states[2] & 0x08))
+				|| (hdev->adv_type == LE_ADV_IND && !(hdev->le_states[4] & 0x08)))
+				BT_INFO("%d: not supported combination state", __LINE__);
+				return;
+		}
+#else
 		return;
+#endif
+	}
 
 	if (hci_dev_test_flag(hdev, HCI_LE_ADV))
 		__hci_req_disable_advertising(req);
@@ -934,6 +981,11 @@ void __hci_req_enable_advertising(struct hci_request *req)
 	hci_dev_clear_flag(hdev, HCI_LE_ADV);
 
 	flags = get_adv_instance_flags(hdev, hdev->cur_adv_instance);
+
+#ifdef CONFIG_TIZEN_WIP
+	if (hdev->adv_type == LE_ADV_IND)
+		flags |= MGMT_ADV_FLAG_CONNECTABLE;
+#endif
 
 	/* If the "connectable" instance flag was not set, then choose between
 	 * ADV_IND and ADV_NONCONN_IND based on the global connectable setting.
@@ -1011,6 +1063,7 @@ static u8 append_appearance(struct hci_dev *hdev, u8 *ptr, u8 ad_len)
 	return eir_append_le16(ptr, ad_len, EIR_APPEARANCE, hdev->appearance);
 }
 
+#ifndef CONFIG_TIZEN_WIP
 static u8 create_default_scan_rsp_data(struct hci_dev *hdev, u8 *ptr)
 {
 	u8 scan_rsp_len = 0;
@@ -1021,6 +1074,7 @@ static u8 create_default_scan_rsp_data(struct hci_dev *hdev, u8 *ptr)
 
 	return append_local_name(hdev, ptr, scan_rsp_len);
 }
+#endif
 
 static u8 create_instance_scan_rsp_data(struct hci_dev *hdev, u8 instance,
 					u8 *ptr)
@@ -1064,7 +1118,14 @@ void __hci_req_update_scan_rsp_data(struct hci_request *req, u8 instance)
 	if (instance)
 		len = create_instance_scan_rsp_data(hdev, instance, cp.data);
 	else
+#ifdef CONFIG_TIZEN_WIP
+		/* Instance 0 is reserved by higher layer in Tizen.
+		 * Clear it initially and don't modify it again here.
+		 */
+		len = 0;
+#else
 		len = create_default_scan_rsp_data(hdev, cp.data);
+#endif
 
 	if (hdev->scan_rsp_data_len == len &&
 	    !memcmp(cp.data, hdev->scan_rsp_data, len))
@@ -1090,6 +1151,14 @@ static u8 create_instance_adv_data(struct hci_dev *hdev, u8 instance, u8 *ptr)
 		if (!adv_instance)
 			return 0;
 	}
+#ifdef CONFIG_TIZEN_WIP
+	else {
+		/* Instance 0 is reserved by higher layer in Tizen.
+		 * Clear it initially and don't modify it again here.
+		 */
+		return 0;
+	}
+#endif
 
 	instance_flags = get_adv_instance_flags(hdev, instance);
 
@@ -1428,6 +1497,10 @@ int hci_update_random_address(struct hci_request *req, bool require_privacy,
 		to = msecs_to_jiffies(hdev->rpa_timeout * 1000);
 		queue_delayed_work(hdev->workqueue, &hdev->rpa_expired, to);
 
+#ifdef CONFIG_TIZEN_WIP
+		mgmt_rpa_updated_evt(hdev, &hdev->rpa);
+#endif
+
 		return 0;
 	}
 
@@ -1458,6 +1531,7 @@ int hci_update_random_address(struct hci_request *req, bool require_privacy,
 		return 0;
 	}
 
+#ifndef CONFIG_TIZEN_WIP
 	/* If forcing static address is in use or there is no public
 	 * address use the static address as random address (but skip
 	 * the HCI command if the current random address is already the
@@ -1477,6 +1551,26 @@ int hci_update_random_address(struct hci_request *req, bool require_privacy,
 				    &hdev->static_addr);
 		return 0;
 	}
+#else
+	/* If forcing static address is in use or there is no public
+	 * address use the static address as random address (but skip
+	 * the HCI command if the current random address is already the
+	 * static one.
+	 *
+	 * In case a static address has been configured, then use that
+	 * address instead of the public BR/EDR address.
+	 */
+	if (hci_dev_test_flag(hdev, HCI_FORCE_STATIC_ADDR) ||
+	    !bacmp(&hdev->bdaddr, BDADDR_ANY) ||
+	    bacmp(&hdev->static_addr, BDADDR_ANY)) {
+		*own_addr_type = ADDR_LE_DEV_RANDOM;
+		if (bacmp(&hdev->static_addr, &hdev->random_addr))
+			hci_req_add(req, HCI_OP_LE_SET_RANDOM_ADDR, 6,
+				    &hdev->static_addr);
+		return 0;
+	}
+
+#endif
 
 	/* Neither privacy nor static address is being used so use a
 	 * public address.

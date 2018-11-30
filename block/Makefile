@@ -5,11 +5,11 @@
 obj-$(CONFIG_BLOCK) := bio.o elevator.o blk-core.o blk-tag.o blk-sysfs.o \
 			blk-flush.o blk-settings.o blk-ioc.o blk-map.o \
 			blk-exec.o blk-merge.o blk-softirq.o blk-timeout.o \
-			blk-lib.o blk-mq.o blk-mq-tag.o \
-			blk-mq-sysfs.o blk-mq-cpumap.o ioctl.o \
+			blk-lib.o blk-mq-tag.o blk-mq-cpumap.o ioctl.o \
 			genhd.o scsi_ioctl.o partition-generic.o ioprio.o \
 			badblocks.o partitions/
 
+obj-$(CONFIG_BLOCK) += blk-exynos-mq.o blk-exynos-mq-sysfs.o
 obj-$(CONFIG_BOUNCE)	+= bounce.o
 obj-$(CONFIG_BLK_DEV_BSG)	+= bsg.o
 obj-$(CONFIG_BLK_DEV_BSGLIB)	+= bsg-lib.o

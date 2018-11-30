@@ -734,4 +734,9 @@ config KEYBOARD_BCM
 	  To compile this driver as a module, choose M here: the
 	  module will be called bcm-keypad.
 
+config KEYBOARD_S2MPW02
+	tristate "Samsung Electronics S2MPW02 Powerkey Controller"
+	depends on I2C
+	depends on MFD_S2MPW02
+
 endif

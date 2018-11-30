@@ -1,0 +1,24 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "exynos9110-tizen_galileo_small_bt-r10.dtsi"
+
+/ {
+        model = "GALILEO-SMALL-BT";
+        compatible = "samsung,exynos9110";
+        samsung,exynos-id = <0x00009110 10 0>;
+        samsung,borad-id = <0x00009110 0>;
+};
+

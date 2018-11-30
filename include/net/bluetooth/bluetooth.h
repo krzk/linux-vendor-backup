@@ -37,6 +37,12 @@
 #define PF_BLUETOOTH	AF_BLUETOOTH
 #endif
 
+/* To enable tizen specific fixes in kernel*/
+#define CONFIG_TIZEN_WIP
+#ifdef CONFIG_TIZEN_WIP
+#include <linux/version.h>
+#endif
+
 /* Bluetooth versions */
 #define BLUETOOTH_VER_1_1	1
 #define BLUETOOTH_VER_1_2	2
@@ -122,6 +128,16 @@ struct bt_voice {
 #define BT_SNDMTU		12
 #define BT_RCVMTU		13
 
+#ifdef CONFIG_TIZEN_WIP
+#define BT_LE_CONN_PARAM	14
+struct le_conn_param {
+	__u16 min;
+	__u16 max;
+	__u16 latency;
+	__u16 to_multiplier;
+};
+#endif
+
 __printf(1, 2)
 void bt_info(const char *fmt, ...);
 __printf(1, 2)
@@ -192,6 +208,10 @@ typedef struct {
 	__u8 b[6];
 } __packed bdaddr_t;
 
+#ifdef CONFIG_TIZEN_WIP
+/* automatically enable sniff mode for connection */
+#define TIZEN_SNIFF_TIMEOUT	2	/*2 second*/
+#endif
 /* BD Address type */
 #define BDADDR_BREDR		0x00
 #define BDADDR_LE_PUBLIC	0x01
@@ -402,6 +422,11 @@ static inline int sco_init(void)
 static inline void sco_exit(void)
 {
 }
+#endif
+
+#ifdef CONFIG_TIZEN_WIP
+void bt_6lowpan_enable(void);
+void bt_6lowpan_disable(void);
 #endif
 
 int mgmt_init(void);

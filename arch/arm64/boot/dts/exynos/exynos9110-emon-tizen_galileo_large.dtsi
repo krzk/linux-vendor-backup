@@ -1,0 +1,103 @@
+/*
+ * Tizen Energy Monitor device tree source
+ *
+ * Copyright (c) 2017 Samsung Electronics Co., Ltd.
+ *		http://www.samsung.com
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/ {
+	tizen_energy_monitor {
+		unit_bat_capacity = <16920>;	/* 470mAh * 3600 / 100 */
+
+		use_raw_soc = <1>;			/* battery support raw soc */
+
+		ps_raw_soc = "sec-fuelgauge";		/* power supply for raw soc */
+		ps_hw_suspend_energy = "sec-fuelgauge";		/* power supply for hw suspend energy */
+
+		threshold_time = <2400>;		/* sec */
+		threshold_batt = <25000>;		/* uA */
+		threshold_disp = <4500>;		/* uAh */
+		threshold_gps = <500>;		/* %% */
+		threshold_lbs = <0>;			/* %% */
+		threshold_cpuidle = <100>;		/* %% */
+		threshold_cpufreq = <8100>;	/* uAh */
+		threshold_gpufreq = <8100>;	/* uAh */
+		threshold_ws = <500>;			/* %% */
+		threshold_slwl = <500>;		/* %% */
+		threshold_sid = <2700>;	/* uAh */
+
+		irq_map_table {
+			irq-name = "sec_touchscreen",	/* wakeup-idx = 0 */
+				  "KEY_BACK",			/* wakeup-idx = 0 */
+				  "pwronr-irq",			/* wakeup-idx = 0 */
+				  "pwronf-irq",				/* wakeup-idx = 0 */
+				  "hall_a_status",			/* wakeup-idx = 0 */
+				  "hall_b_status",			/* wakeup-idx = 0 */
+				  "hall_c_status",			/* wakeup-idx = 0 */
+				  "ttyBCM",				/* wakeup-idx = 1 */
+				  "rtc-alarm0",			/* wakeup-idx = 2 */
+				  "muic-jigon",			/* wakeup-idx = 2 */
+				  "bt_host_wake",			/* wakeup-idx = 3 */
+				  "WIFI",					/* wakeup-idx = 4 */
+				  "CP";					/* wakeup-idx = 5 */
+
+			wakeup-idx = <0>,  <0>,  <0>,  <0>,  <0>,  <0>,  <0>,  <1>,  <2>,  <2>,  <3>,  <4>, <5>;
+		};
+
+		power_value {
+			ff = <52>;
+			gps = <25>;
+			hr = <1>;
+
+			disp {
+				aod = <6>;
+				on = <12170>, <12170>, <10540>, <9000>, <8830>, <7990>, <8820>, <8510>, <8470>, <8470>;
+				brightness = <100>, <95>, <90>, <80>, <70>, <60>, <50>, <40>, <20>, <1>;
+			};
+
+			cpu {
+				idle = <1>;
+				lpm = <3>;
+				awake = <10>;
+				active = <60>, <55>, <50>, <45>, <40>, <35>, <30>, <25>, <20>;
+				speed = <1144000>, <1099000>, <1014000>, <904000>, <839000>, <754000>, <676000>, <598000>, <449000>;
+				whitelist = <5>, <13>, <14>, <15>, <18>, <21>;
+			};
+
+			gpu {
+				active = <40>,  <35>,  <30>,  <25>,  <20>;
+				speed = <667>,  <533>,  <400>,  <200>,  <100>;
+			};
+
+			wifi {
+				scan = <55>;
+			};
+
+			bt {
+				active = <3>;
+				tx = <0>;
+				rx = <0>;
+				ws_active = "BT_sniff_wake";
+				ws_tx = "BT_tx_wake";
+				ws_rx = "BT_rx_wake";
+			};
+		};
+	};
+
+	disp_stat {
+		br_lv_table = <100>, <95>, <90>, <80>, <70>, <60>, <50>, <40>, <20>, <1>;
+	};
+
+	net_stat_tizen {
+		support-dev = "rmnet0",
+			  "rmnet1",
+			  "rmnet2",
+			  "rmnet3",
+			  "dummy0",
+			  "wlan0";
+	};
+};

@@ -9,6 +9,9 @@
 #include <linux/device.h>
 #include <linux/mutex.h>
 #include <linux/pm_wakeup.h>
+#ifdef CONFIG_WS_HISTORY
+#include <linux/power/ws_history.h>
+#endif
 
 #include "power.h"
 
@@ -38,6 +41,9 @@ static void try_to_suspend(struct work_struct *work)
 		goto out;
 	}
 
+#ifdef CONFIG_WS_HISTORY
+	update_ws_history_prv_time();
+#endif
 	if (autosleep_state == PM_SUSPEND_ON) {
 		mutex_unlock(&autosleep_lock);
 		return;

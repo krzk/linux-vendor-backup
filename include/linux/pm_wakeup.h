@@ -60,9 +60,14 @@ struct wakeup_source {
 	unsigned long		timer_expires;
 	ktime_t total_time;
 	ktime_t max_time;
+	ktime_t max_time_stamp;
 	ktime_t last_time;
 	ktime_t start_prevent_time;
 	ktime_t prevent_sleep_time;
+#ifdef CONFIG_ENERGY_MONITOR
+	ktime_t emon_total_time;
+	ktime_t emon_last_time;
+#endif
 	unsigned long		event_count;
 	unsigned long		active_count;
 	unsigned long		relax_count;
@@ -71,6 +76,15 @@ struct wakeup_source {
 	bool			active:1;
 	bool			autosleep_enabled:1;
 };
+
+#ifdef CONFIG_ENERGY_MONITOR
+#define WS_NAME_SIZE 15
+
+struct emon_wakeup_source {
+	char name[WS_NAME_SIZE];
+	ktime_t emon_total_time;
+};
+#endif
 
 #ifdef CONFIG_PM_SLEEP
 

@@ -97,6 +97,9 @@ struct fscrypt_ctx *fscrypt_get_ctx(struct inode *inode, gfp_t gfp_flags)
 	if (ci == NULL)
 		return ERR_PTR(-ENOKEY);
 
+	if (fscrypt_disk_encrypted(inode))
+		return NULL;
+
 	/*
 	 * We first try getting the ctx from a free list because in
 	 * the common case the ctx will have an allocated and
@@ -236,6 +239,9 @@ struct page *fscrypt_encrypt_page(struct inode *inode,
 
 	BUG_ON(!PageLocked(plaintext_page));
 
+	if (fscrypt_disk_encrypted(inode))
+		return NULL;
+
 	ctx = fscrypt_get_ctx(inode, gfp_flags);
 	if (IS_ERR(ctx))
 		return (struct page *)ctx;
@@ -278,6 +284,9 @@ int fscrypt_decrypt_page(struct page *page)
 {
 	BUG_ON(!PageLocked(page));
 
+	if (fscrypt_disk_encrypted(page->mapping->host))
+		return 0;
+
 	return do_page_crypto(page->mapping->host,
 			FS_DECRYPT, page->index, page, page, GFP_NOFS);
 }
@@ -286,29 +295,43 @@ EXPORT_SYMBOL(fscrypt_decrypt_page);
 int fscrypt_zeroout_range(struct inode *inode, pgoff_t lblk,
 				sector_t pblk, unsigned int len)
 {
-	struct fscrypt_ctx *ctx;
+	struct fscrypt_ctx *ctx = NULL;
 	struct page *ciphertext_page = NULL;
 	struct bio *bio;
 	int ret, err = 0;
 
 	BUG_ON(inode->i_sb->s_blocksize != PAGE_SIZE);
 
-	ctx = fscrypt_get_ctx(inode, GFP_NOFS);
-	if (IS_ERR(ctx))
-		return PTR_ERR(ctx);
+	if (fscrypt_disk_encrypted(inode)) {
+		ciphertext_page =
+		    mempool_alloc(fscrypt_bounce_page_pool, GFP_NOWAIT);
+		if (IS_ERR(ciphertext_page)) {
+			err = PTR_ERR(ciphertext_page);
+			goto errout;
+		}
 
-	ciphertext_page = alloc_bounce_page(ctx, GFP_NOWAIT);
-	if (IS_ERR(ciphertext_page)) {
-		err = PTR_ERR(ciphertext_page);
-		goto errout;
+		memset(page_address(ciphertext_page), 0, PAGE_SIZE);
+		ciphertext_page->mapping = inode->i_mapping;
+	} else {
+		ctx = fscrypt_get_ctx(inode, GFP_NOFS);
+		if (IS_ERR(ctx))
+			return PTR_ERR(ctx);
+
+		ciphertext_page = alloc_bounce_page(ctx, GFP_NOWAIT);
+		if (IS_ERR(ciphertext_page)) {
+			err = PTR_ERR(ciphertext_page);
+			goto errout;
+		}
 	}
 
 	while (len--) {
-		err = do_page_crypto(inode, FS_ENCRYPT, lblk,
-					ZERO_PAGE(0), ciphertext_page,
-					GFP_NOFS);
-		if (err)
-			goto errout;
+		if (ctx) {
+			err = do_page_crypto(inode, FS_ENCRYPT, lblk,
+						ZERO_PAGE(0), ciphertext_page,
+						GFP_NOFS);
+			if (err)
+				goto errout;
+		}
 
 		bio = bio_alloc(GFP_NOWAIT, 1);
 		if (!bio) {
@@ -328,6 +351,10 @@ int fscrypt_zeroout_range(struct inode *inode, pgoff_t lblk,
 			err = -EIO;
 			goto errout;
 		}
+#ifdef CONFIG_CRYPTO_DISKCIPHER
+		if (fscrypt_disk_encrypted(inode))
+			crypto_diskcipher_set(bio, inode->i_crypt_info->ci_dtfm);
+#endif
 		err = submit_bio_wait(bio);
 		if ((err == 0) && bio->bi_error)
 			err = -EIO;
@@ -339,7 +366,11 @@ int fscrypt_zeroout_range(struct inode *inode, pgoff_t lblk,
 	}
 	err = 0;
 errout:
-	fscrypt_release_ctx(ctx);
+	if (!ctx && ciphertext_page)
+		mempool_free(ciphertext_page, fscrypt_bounce_page_pool);
+	else
+		fscrypt_release_ctx(ctx);
+
 	return err;
 }
 EXPORT_SYMBOL(fscrypt_zeroout_range);

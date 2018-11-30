@@ -87,7 +87,7 @@
 # define SLAB_FAILSLAB		0x00000000UL
 #endif
 #if defined(CONFIG_MEMCG) && !defined(CONFIG_SLOB)
-# define SLAB_ACCOUNT		0x04000000UL	/* Account to memcg */
+# define SLAB_ACCOUNT		0x00000000UL	/* Account to memcg */
 #else
 # define SLAB_ACCOUNT		0x00000000UL
 #endif

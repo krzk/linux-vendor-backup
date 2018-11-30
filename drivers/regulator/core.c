@@ -33,6 +33,10 @@
 #include <linux/regulator/machine.h>
 #include <linux/module.h>
 
+#ifdef CONFIG_SLEEP_MONITOR
+#include <linux/power/sleep_monitor.h>
+#endif
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/regulator.h>
 
@@ -52,6 +56,7 @@
 
 static DEFINE_MUTEX(regulator_list_mutex);
 static LIST_HEAD(regulator_map_list);
+static LIST_HEAD(regulator_list);
 static LIST_HEAD(regulator_ena_gpio_list);
 static LIST_HEAD(regulator_supply_alias_list);
 static bool has_full_constraints;
@@ -4447,6 +4452,52 @@ static int __init regulator_init(void)
 /* init early to allow our consumers to complete system booting */
 core_initcall(regulator_init);
 
+#ifdef CONFIG_SLEEP_MONITOR
+#define REGULATOR_PRETTY_OFFSET 10
+#define REGULATOR_MAX_NUM 64
+int regulator_sleep_monitor_read64(void *priv, long long *raw_val,
+		int check_level, int caller_type)
+{
+	struct regulator_dev *rdev;
+	int temp, idx = 0, i, enabled_num = 0;
+	long long orig_value = 0, reverse_value = 0;
+
+
+	mutex_lock(&regulator_list_mutex);
+	list_for_each_entry(rdev, &regulator_list, list) {
+		mutex_lock(&rdev->mutex);
+		temp = _regulator_is_enabled(rdev);
+		mutex_unlock(&rdev->mutex);
+
+		enabled_num += temp;
+		orig_value += ((long long)temp) << idx++;
+		if(idx == REGULATOR_MAX_NUM)
+			break;
+	}
+	mutex_unlock(&regulator_list_mutex);
+
+	/* Rearrange bit order to place regulator.0 to bit 0 */
+	for (i = 0; i < idx; i++) {
+		reverse_value |= ((orig_value & (long long)1 << i) >> i) << (idx - 1 - i);
+	}
+
+	*raw_val = reverse_value;
+
+	if (enabled_num > REGULATOR_PRETTY_OFFSET) {
+		if (enabled_num >= REGULATOR_PRETTY_OFFSET + DEVICE_UNKNOWN)
+			return DEVICE_UNKNOWN - 1;
+		else
+			return enabled_num - REGULATOR_PRETTY_OFFSET;
+	}
+	else /* If enabled regulator is less than REGULATOR_PRETTY_OFFSET, return 0 */
+		return 0;
+}
+
+static struct sleep_monitor_ops regulator_sleep_monitor_ops = {
+	.read64_cb_func = regulator_sleep_monitor_read64,
+};
+#endif
+
 static int __init regulator_late_cleanup(struct device *dev, void *data)
 {
 	struct regulator_dev *rdev = dev_to_rdev(dev);
@@ -4489,6 +4540,10 @@ static int __init regulator_late_cleanup(struct device *dev, void *data)
 		 */
 		rdev_warn(rdev, "incomplete constraints, leaving on\n");
 	}
+#ifdef CONFIG_SLEEP_MONITOR
+	sleep_monitor_register_ops(NULL, &regulator_sleep_monitor_ops,
+					SLEEP_MONITOR_REGULATOR);
+#endif
 
 unlock:
 	mutex_unlock(&rdev->mutex);

@@ -20,6 +20,11 @@
 struct f_serial_opts {
 	struct usb_function_instance func_inst;
 	u8 port_num;
+
+	/* In old style tizne slp_gadget, to prevent
+     * re-alloc memory by the re-using intacne & function
+     */
+	struct usb_string	*us;
 };
 
 /*

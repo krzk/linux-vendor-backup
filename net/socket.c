@@ -107,6 +107,7 @@
 #include <linux/atalk.h>
 #include <net/busy_poll.h>
 #include <linux/errqueue.h>
+#include <swap/hook_energy.h>
 
 #ifdef CONFIG_NET_RX_BUSY_POLL
 unsigned int sysctl_net_busy_read __read_mostly;
@@ -533,8 +534,22 @@ static ssize_t sockfs_listxattr(struct dentry *dentry, char *buffer,
 	return used;
 }
 
+static int sockfs_setattr(struct dentry *dentry, struct iattr *iattr)
+{
+	int err = simple_setattr(dentry, iattr);
+
+	if (!err && (iattr->ia_valid & ATTR_UID)) {
+		struct socket *sock = SOCKET_I(d_inode(dentry));
+
+		sock->sk->sk_uid = iattr->ia_uid;
+	}
+
+	return err;
+}
+
 static const struct inode_operations sockfs_inode_ops = {
 	.listxattr = sockfs_listxattr,
+	.setattr = sockfs_setattr,
 };
 
 /**
@@ -628,7 +643,9 @@ int sock_sendmsg(struct socket *sock, struct msghdr *msg)
 	int err = security_socket_sendmsg(sock, msg,
 					  msg_data_left(msg));
 
-	return err ?: sock_sendmsg_nosec(sock, msg);
+	err = err ?: sock_sendmsg_nosec(sock, msg);
+	swap_sock_sendmsg(sock, err);
+	return err;
 }
 EXPORT_SYMBOL(sock_sendmsg);
 
@@ -727,7 +744,9 @@ int sock_recvmsg(struct socket *sock, struct msghdr *msg, int flags)
 {
 	int err = security_socket_recvmsg(sock, msg, msg_data_left(msg), flags);
 
-	return err ?: sock_recvmsg_nosec(sock, msg, flags);
+	err = err ?: sock_recvmsg_nosec(sock, msg, flags);
+	swap_sock_recvmsg(sock, err);
+	return err;
 }
 EXPORT_SYMBOL(sock_recvmsg);
 
@@ -806,6 +825,9 @@ static ssize_t sock_read_iter(struct kiocb *iocb, struct iov_iter *to)
 
 	res = sock_recvmsg(sock, &msg, msg.msg_flags);
 	*to = msg.msg_iter;
+
+	swap_sock_recvmsg(sock, (int)res);
+
 	return res;
 }
 
@@ -828,6 +850,9 @@ static ssize_t sock_write_iter(struct kiocb *iocb, struct iov_iter *from)
 
 	res = sock_sendmsg(sock, &msg);
 	*from = msg.msg_iter;
+
+	swap_sock_sendmsg(sock, (int)res);
+
 	return res;
 }
 

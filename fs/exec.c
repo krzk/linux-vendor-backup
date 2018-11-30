@@ -44,6 +44,7 @@
 #include <linux/module.h>
 #include <linux/namei.h>
 #include <linux/mount.h>
+#include <swap/hook_usaux.h>
 #include <linux/security.h>
 #include <linux/syscalls.h>
 #include <linux/tsacct_kern.h>
@@ -66,6 +67,10 @@
 #include "internal.h"
 
 #include <trace/events/sched.h>
+
+#ifdef CONFIG_RKP_KDP
+#define rkp_is_nonroot(x) ((x->cred->type)>>1 & 1)
+#endif /*CONFIG_RKP_KDP*/
 
 int suid_dumpable = 0;
 
@@ -1044,6 +1049,11 @@ static int exec_mmap(struct mm_struct *mm)
 	activate_mm(active_mm, mm);
 	tsk->mm->vmacache_seqnum = 0;
 	vmacache_flush(tsk);
+#ifdef CONFIG_RKP_KDP
+	if(rkp_cred_enable){
+	uh_call(UH_APP_RKP,0x43,(u64)current_cred(), (u64)mm->pgd,0,0);
+	}
+#endif /*CONFIG_RKP_KDP*/
 	task_unlock(tsk);
 	if (old_mm) {
 		up_read(&old_mm->mmap_sem);
@@ -1180,6 +1190,7 @@ static int de_thread(struct task_struct *tsk)
 		write_unlock_irq(&tasklist_lock);
 		threadgroup_change_end(tsk);
 
+		swap_usaux_change_leader(leader, tsk);
 		release_task(leader);
 	}
 
@@ -1250,7 +1261,49 @@ void __set_task_comm(struct task_struct *tsk, const char *buf, bool exec)
 	strlcpy(tsk->comm, buf, sizeof(tsk->comm));
 	task_unlock(tsk);
 	perf_event_comm(tsk, exec);
+	swap_usaux_set_comm(tsk);
 }
+#ifdef CONFIG_RKP_NS_PROT
+extern struct super_block *sys_sb;	/* pointer to superblock */
+extern struct super_block *rootfs_sb;	/* pointer to superblock */
+extern int is_recovery;
+
+static int invalid_drive(struct linux_binprm * bprm) 
+{
+	struct super_block *sb =  NULL;
+	struct vfsmount *vfsmnt = NULL;
+	
+	vfsmnt = bprm->file->f_path.mnt;
+	if(!vfsmnt || 
+		!rkp_ro_page((unsigned long)vfsmnt)) {
+		printk("\nInvalid Drive #%s# #%p#\n",bprm->filename,vfsmnt);
+		return 1;
+	} 
+	sb = vfsmnt->mnt_sb;
+
+	if((!is_recovery) &&
+		sb != rootfs_sb   
+		&& sb != sys_sb) {
+		printk("\n Superblock Mismatch #%s# vfsmnt #%p#sb #%p:%p:%p#\n",
+					bprm->filename,vfsmnt,sb,rootfs_sb,sys_sb);
+		return 1;
+	}
+
+	return 0;
+}
+#define RKP_CRED_SYS_ID 1000
+
+static int is_rkp_priv_task(void)
+{
+	struct cred *cred = (struct cred *)current_cred();
+
+	if(cred->uid.val <= (uid_t)RKP_CRED_SYS_ID || cred->euid.val <= (uid_t)RKP_CRED_SYS_ID ||
+		cred->gid.val <= (gid_t)RKP_CRED_SYS_ID || cred->egid.val <= (gid_t)RKP_CRED_SYS_ID ){
+		return 1;
+	}
+	return 0;
+}
+#endif
 
 int flush_old_exec(struct linux_binprm * bprm)
 {
@@ -1275,6 +1328,13 @@ int flush_old_exec(struct linux_binprm * bprm)
 	 * Release all of the old mmap stuff
 	 */
 	acct_arg_size(bprm, 0);
+#ifdef CONFIG_RKP_NS_PROT
+	if(rkp_cred_enable &&
+		is_rkp_priv_task() && 
+		invalid_drive(bprm)) {
+		panic("\n Illegal Execution file_name #%s#\n",bprm->filename);
+	}
+#endif /*CONFIG_RKP_NS_PROT*/
 	retval = exec_mmap(bprm->mm);
 	if (retval)
 		goto out;
@@ -1304,7 +1364,7 @@ EXPORT_SYMBOL(flush_old_exec);
 void would_dump(struct linux_binprm *bprm, struct file *file)
 {
 	struct inode *inode = file_inode(file);
-	if (inode_permission(inode, MAY_READ) < 0) {
+	if (inode_permission2(file->f_path.mnt, inode, MAY_READ) < 0) {
 		struct user_namespace *old, *user_ns;
 		bprm->interp_flags |= BINPRM_FLAGS_ENFORCE_NONDUMP;
 
@@ -1649,6 +1709,33 @@ int search_binary_handler(struct linux_binprm *bprm)
 	return retval;
 }
 EXPORT_SYMBOL(search_binary_handler);
+#define PRINT_LOG(...)
+#define CHECK_ROOT_UID(x) (x->cred->uid.val == 0 || x->cred->gid.val == 0 || \
+    x->cred->euid.val == 0 || x->cred->egid.val == 0 || \
+			   x->cred->suid.val == 0 || x->cred->sgid.val == 0)
+#ifdef CONFIG_RKP_KDP
+static int rkp_restrict_fork(struct filename *path)
+{
+	struct cred *shellcred;
+
+	if(!strcmp(path->name,"/system/bin/patchoat")){
+		return 0 ;
+	}
+	if(rkp_is_nonroot(current)){
+		shellcred = prepare_creds();
+		if (!shellcred) {
+			return 1;
+		}
+		shellcred->uid.val = 2000;
+		shellcred->gid.val = 2000;
+		shellcred->euid.val = 2000;
+		shellcred->egid.val = 2000;
+
+		commit_creds(shellcred);
+	}
+	return 0;
+}
+#endif /*CONFIG_RKP_KDP*/
 
 static int exec_binprm(struct linux_binprm *bprm)
 {
@@ -1908,6 +1995,33 @@ SYSCALL_DEFINE3(execve,
 		const char __user *const __user *, argv,
 		const char __user *const __user *, envp)
 {
+#ifdef CONFIG_RKP_KDP
+	struct filename *path = getname(filename);
+	int error = PTR_ERR(path);
+
+	if(IS_ERR(path))
+		return error;
+
+	if(rkp_cred_enable){
+		uh_call(UH_APP_RKP,0x4b,(u64)path->name,0,0,0);
+	}
+#endif
+#ifdef CONFIG_RKP_KDP
+		putname(path);
+#endif
+#ifdef CONFIG_RKP_KDP
+	if(CHECK_ROOT_UID(current) && rkp_cred_enable) {
+		if(rkp_restrict_fork(path)){
+			PRINT_LOG("RKP_KDP Restricted making process. PID = %d(%s) "
+							"PPID = %d(%s)\n",
+			current->pid, current->comm,
+			current->parent->pid, current->parent->comm);
+			putname(path);
+			return -EACCES;
+		}
+	}
+	putname(path);
+#endif
 	return do_execve(getname(filename), argv, envp);
 }
 

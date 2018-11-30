@@ -37,6 +37,7 @@
 #include <linux/rtnetlink.h>
 #include <net/rtnetlink.h>
 #include <linux/u64_stats_sync.h>
+#include <linux/net_stat_tizen.h>
 
 #define DRV_NAME	"dummy"
 #define DRV_VERSION	"1.0"
@@ -190,6 +191,7 @@ static int __init dummy_init_one(void)
 	err = register_netdevice(dev_dummy);
 	if (err < 0)
 		goto err;
+	net_stat_tizen_register(dev_dummy);
 	return 0;
 
 err:

@@ -1,0 +1,21 @@
+/* SAMSUNG UNIVERSAL9110 device tree source for abos vss
+*
+* Copyright (c) 2013 Samsung Electronics Co., Ltd.
+*			   http://www.samsung.com
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*/
+
+/ {
+	abox: abox@0x14A50000 {
+		samsung,abox-bootargs = "init=ab0x vss=1";
+		
+		abox_vss: abox_vss@0 {
+			compatible = "samsung,abox-vss";
+			magic_offset = <0x300000>;
+			reg = <0x0 0x0 0x0>;
+		};
+	};
+};

@@ -1,0 +1,73 @@
+config CONTEXTHUB
+	tristate "Contexthub"
+	default N
+	help
+	  Enable support for the contexthub driver.
+
+config NANOHUB
+	tristate "Nanohub"
+	default N
+	select IIO
+	select CONTEXTHUB
+	help
+	  Enable support for the nanohub sensorhub driver.
+
+	  This driver supports the android nanohub sensorhub.
+
+	  If in doubt, say N here.
+
+config CONTEXTHUB_DRV
+	tristate "Contexthub driver"
+	default N
+	select CONTEXTHUB
+	select CONTEXTHUB_IPC
+	help
+	  Enable support for legacy contexthub driver.
+
+config CONTEXTHUB_IPC
+	tristate "contexthub IPC driver"
+	default N
+	help
+	  Enable support for the IPC between AP and contexthub.
+
+config CONTEXTHUB_DEBUG
+	bool "Contexthub debug"
+	default y
+	depends on CONTEXTHUB_IPC
+	help
+	  Eanble nanohub device debug message
+
+if NANOHUB
+
+config NANOHUB_SPI
+	bool "Nanohub SPI"
+	default N
+	help
+	  Enable nanohub SPI support.
+
+	  Either this or NANOHUB_I2C should be selected.
+
+	  If in doubt, say Y here.
+
+config NANOHUB_I2C
+	bool "Nanohub I2C"
+	default N
+	help
+	  Enable nanohub I2C support.
+
+	  Either this or NANOHUB_SPI should be selected.
+
+	  If in doubt, say N here.
+
+config NANOHUB_MAILBOX
+	bool "Nanohub Mailbox"
+	default Y
+	select CONTEXTHUB_IPC
+	help
+	  Enable nanohub Mailbox support.
+
+	  Either this or NANOHUB_MAILBOX should be selected.
+
+	  If in doubt, say N here.
+
+endif # NANOHUB

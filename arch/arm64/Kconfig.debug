@@ -1,5 +1,6 @@
 menu "Kernel hacking"
 
+source "kernel/swap/Kconfig"
 source "lib/Kconfig.debug"
 
 config ARM64_PTDUMP

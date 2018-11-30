@@ -42,9 +42,16 @@
 #include "smp.h"
 #include "leds.h"
 
+#ifdef CONFIG_TIZEN_WIP
+extern int bt_sent_reset_request_flag;
+#endif
+
 static void hci_rx_work(struct work_struct *work);
 static void hci_cmd_work(struct work_struct *work);
 static void hci_tx_work(struct work_struct *work);
+#if defined(CONFIG_BT_HCI_TRACE) && defined(CONFIG_TIZEN_WIP)
+const char* hci_get_cmd_string(u16 opcode);
+#endif /* */
 
 /* HCI device list */
 LIST_HEAD(hci_dev_list);
@@ -56,6 +63,33 @@ DEFINE_MUTEX(hci_cb_list_lock);
 
 /* HCI ID Numbering */
 static DEFINE_IDA(hci_index_ida);
+
+
+/* ---- HCI notifications ---- */
+
+#ifdef CONFIG_TIZEN_WIP
+static BLOCKING_NOTIFIER_HEAD(hci_notifier);
+
+int hci_register_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&hci_notifier, nb);
+}
+
+int hci_unregister_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&hci_notifier, nb);
+}
+
+/* ---- HCI notifications ---- */
+
+static void hci_notify(struct hci_dev *hdev, int event)
+{
+	hci_sock_dev_event(hdev, event);
+	if (event == HCI_DEV_REG || event == HCI_DEV_UNREG
+			|| event == HCI_DEV_WRITE)
+		blocking_notifier_call_chain(&hci_notifier, event, hdev);
+}
+#endif
 
 /* ---- HCI debugfs entries ---- */
 
@@ -385,9 +419,10 @@ static void hci_setup_event_mask(struct hci_request *req)
 		events[5] |= 0x10; /* Synchronous Connection Changed */
 	}
 
+#ifndef CONFIG_TIZEN_WIP
 	if (lmp_sniffsubr_capable(hdev))
 		events[5] |= 0x20; /* Sniff Subrating */
-
+#endif
 	if (lmp_pause_enc_capable(hdev))
 		events[5] |= 0x80; /* Encryption Key Refresh Complete */
 
@@ -474,6 +509,9 @@ static int hci_init2_req(struct hci_request *req, unsigned long opt)
 	if (lmp_inq_rssi_capable(hdev) ||
 	    test_bit(HCI_QUIRK_FIXUP_INQUIRY_MODE, &hdev->quirks)) {
 		u8 mode;
+#ifdef CONFIG_TIZEN_WIP
+		u8 scan_type;
+#endif
 
 		/* If Extended Inquiry Result events are supported, then
 		 * they are clearly preferred over Inquiry Result with RSSI
@@ -482,6 +520,10 @@ static int hci_init2_req(struct hci_request *req, unsigned long opt)
 		mode = lmp_ext_inq_capable(hdev) ? 0x02 : 0x01;
 
 		hci_req_add(req, HCI_OP_WRITE_INQUIRY_MODE, 1, &mode);
+#ifdef CONFIG_TIZEN_WIP
+		scan_type = INQUIRY_SCAN_TYPE_INTERLACED;
+		hci_req_add(req, HCI_OP_WRITE_INQUIRY_SCAN_TYPE, 1, &scan_type);
+#endif
 	}
 
 	if (lmp_inq_tx_pwr_capable(hdev))
@@ -634,6 +676,13 @@ static int hci_init3_req(struct hci_request *req, unsigned long opt)
 			events[1] |= 0x04;	/* LE Direct Advertising
 						 * Report
 						 */
+#ifdef CONFIG_TIZEN_WIP
+		/* If the controller supports Channel Selection Algorithm #2
+		 * feature, enable the corresponding event.
+		 */
+		if (hdev->le_features[1] & HCI_LE_CHAN_SEL_ALG2)
+			events[2] |= 0x08;	/* LE Channel Selection Algorithm */
+#endif
 
 		/* If the controller supports the LE Set Scan Enable command,
 		 * enable the corresponding advertising report event.
@@ -676,6 +725,14 @@ static int hci_init3_req(struct hci_request *req, unsigned long opt)
 		 */
 		if (hdev->commands[34] & 0x04)
 			events[1] |= 0x01;	/* LE Generate DHKey Complete */
+
+#ifdef CONFIG_TIZEN_WIP
+		/* If the controller supports the LE Set Default PHY or
+		 * LE Set PHY commands, enable the corresponding event.
+		 */
+		if (hdev->commands[35] & (0x20 | 0x40))
+			events[1] |= 0x08;	/* LE PHY Update Complete */
+#endif
 
 		hci_req_add(req, HCI_OP_LE_SET_EVENT_MASK, sizeof(events),
 			    events);
@@ -762,6 +819,18 @@ static int hci_init4_req(struct hci_request *req, unsigned long opt)
 	if (lmp_sync_train_capable(hdev))
 		hci_req_add(req, HCI_OP_READ_SYNC_TRAIN_PARAMS, 0, NULL);
 
+/* Disable Secure connection implementation now */
+#ifdef CONFIG_TIZEN_WIP
+	/* Enable Secure Connections if supported and configured */
+	if ((lmp_sc_capable(hdev) ||
+	     hci_dev_test_flag(hdev, HCI_FORCE_BREDR_SMP)) &&
+	    hci_dev_test_flag(hdev, HCI_SC_ENABLED)) {
+		u8 support = 0x01;
+
+		hci_req_add(req, HCI_OP_WRITE_SC_SUPPORT,
+			    sizeof(support), &support);
+	}
+#endif
 	/* Enable Secure Connections if supported and configured */
 	if (hci_dev_test_flag(hdev, HCI_SSP_ENABLED) &&
 	    bredr_sc_enabled(hdev)) {
@@ -771,6 +840,21 @@ static int hci_init4_req(struct hci_request *req, unsigned long opt)
 			    sizeof(support), &support);
 	}
 
+#ifdef CONFIG_TIZEN_WIP
+	/* Set Default PHY parameters if command is supported */
+	if (hdev->commands[35] & 0x20) {
+		struct hci_cp_le_set_default_phy cp;
+
+		/* The host prefers to use the LE 1M tx/rx PHY.
+		 * It can be change to use the LE 2M PHY in the future.
+		 */
+		cp.all_phys = 0x00;
+		cp.tx_phys = 0x01;
+		cp.rx_phys = 0x01;
+
+		hci_req_add(req, HCI_OP_LE_SET_DEFAULT_PHY, sizeof(cp), &cp);
+	}
+#endif
 	return 0;
 }
 
@@ -979,6 +1063,51 @@ void hci_discovery_set_state(struct hci_dev *hdev, int state)
 		break;
 	}
 }
+#ifdef CONFIG_TIZEN_WIP
+/* BEGIN TIZEN_Bluetooth :: Seperate LE discovery */
+bool hci_le_discovery_active(struct hci_dev *hdev)
+{
+	struct discovery_state *discov = &hdev->le_discovery;
+
+	switch (discov->state) {
+	case DISCOVERY_FINDING:
+	case DISCOVERY_RESOLVING:
+		return true;
+
+	default:
+		return false;
+	}
+}
+
+void hci_le_discovery_set_state(struct hci_dev *hdev, int state)
+{
+	BT_DBG("%s state %u -> %u", hdev->name, hdev->le_discovery.state, state);
+
+	if (hdev->le_discovery.state == state)
+		return;
+
+	switch (state) {
+	case DISCOVERY_STOPPED:
+		hci_update_background_scan(hdev);
+
+		if (hdev->le_discovery.state != DISCOVERY_STARTING)
+			mgmt_le_discovering(hdev, 0);
+		break;
+	case DISCOVERY_STARTING:
+		break;
+	case DISCOVERY_FINDING:
+		mgmt_le_discovering(hdev, 1);
+		break;
+	case DISCOVERY_RESOLVING:
+		break;
+	case DISCOVERY_STOPPING:
+		break;
+	}
+
+	hdev->le_discovery.state = state;
+}
+/* END TIZEN_Bluetooth */
+#endif
 
 void hci_inquiry_cache_flush(struct hci_dev *hdev)
 {
@@ -2201,6 +2330,11 @@ static bool hci_persistent_key(struct hci_dev *hdev, struct hci_conn *conn,
 	if (conn->remote_auth == 0x02 || conn->remote_auth == 0x03)
 		return true;
 
+#ifdef CONFIG_TIZEN_WIP
+	/* In case of auth_type '0x01'. It is authenticated by MITM, so store it */
+	if (key_type == HCI_LK_AUTH_COMBINATION_P192)
+		return true;
+#endif
 	/* If none of the above criteria match, then don't store the key
 	 * persistently */
 	return false;
@@ -2429,6 +2563,22 @@ void hci_remove_irk(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 addr_type)
 	}
 }
 
+#ifdef CONFIG_TIZEN_WIP
+int hci_set_rpa_res_support(struct hci_dev *hdev, bdaddr_t *bdaddr,
+			    u8 addr_type, u8 enabled)
+{
+	struct smp_irk *irk;
+
+	irk = hci_find_irk_by_addr(hdev, bdaddr, addr_type);
+	if (!irk)
+		return -ENOENT;
+
+	irk->rpa_res_support = enabled;
+
+	return 0;
+}
+#endif
+
 bool hci_bdaddr_is_paired(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 type)
 {
 	struct smp_ltk *k;
@@ -2465,6 +2615,28 @@ bool hci_bdaddr_is_paired(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 type)
 	return false;
 }
 
+#ifdef CONFIG_TIZEN_WIP
+/* Timeout Error Event is being handled */
+static void hci_tx_timeout_error_evt(struct hci_dev *hdev, u16 opcode)
+{
+	if(opcode == HCI_OP_VENDOR_BCM_TRIGGER_EXCEPTION) {
+		BT_ERR("[%s(%d)] %s: BRCM Trigger Exception command(0x%4.4x) doesn't expect a response from Controller!", __FUNCTION__, __LINE__, hdev->name, opcode);
+		return;
+	}
+
+	BT_ERR("%s H/W TX Timeout error", hdev->name);
+
+	mgmt_tx_timeout_error(hdev);
+}
+
+static bool hci_reset_error_ignore = false;
+void hci_cmd_reset_error_ignore(bool ignore)
+{
+	hci_reset_error_ignore = ignore;
+}
+EXPORT_SYMBOL_GPL(hci_cmd_reset_error_ignore);
+#endif
+
 /* HCI command timer function */
 static void hci_cmd_timeout(struct work_struct *work)
 {
@@ -2475,11 +2647,45 @@ static void hci_cmd_timeout(struct work_struct *work)
 		struct hci_command_hdr *sent = (void *) hdev->sent_cmd->data;
 		u16 opcode = __le16_to_cpu(sent->opcode);
 
+#if defined(CONFIG_BT_HCI_TRACE) && defined(CONFIG_TIZEN_WIP)
+		BT_ERR("[%s: %s(%d)] %s command 0x%4.4x(%s) tx timeout", __FILE__, __FUNCTION__, __LINE__, hdev->name, opcode, hci_get_cmd_string(opcode));
+#else
 		BT_ERR("%s command 0x%4.4x tx timeout", hdev->name, opcode);
+#endif /* */
+
+#if defined(CONFIG_BT_DQA_SUPPORT) && defined(CONFIG_TIZEN_WIP)
+		hdev->hci_cmd_tx_timeout_cnt++;
+		hdev->hci_cmd_tx_timeout_opcode = opcode;	//most recent opcode
+#endif /* */
 	} else {
+#if defined(CONFIG_BT_HCI_TRACE) && defined(CONFIG_TIZEN_WIP)
+		BT_ERR("[%s: %s(%d)] %s command tx timeout", __FILE__, __FUNCTION__, __LINE__, hdev->name);
+#else
 		BT_ERR("%s command tx timeout", hdev->name);
+#endif /* */
+
+#if defined(CONFIG_BT_DQA_SUPPORT) && defined(CONFIG_TIZEN_WIP)
+		hdev->hci_cmd_tx_timeout_cnt++;
+#endif /* */
 	}
 
+#ifdef CONFIG_TIZEN_WIP
+	if (hdev->cmd_timeout)
+		hdev->cmd_timeout(hdev);
+
+	if(hdev->sent_cmd) {
+		struct hci_command_hdr *sent = (void *) hdev->sent_cmd->data;
+		u16 opcode = __le16_to_cpu(sent->opcode);
+
+		if(opcode == HCI_OP_RESET && hci_reset_error_ignore)
+			BT_INFO("[%s(%d)] %s command 0x%4.4x is not delivered to a upper layer!", __FUNCTION__, __LINE__, hdev->name, opcode);
+		else
+			hci_tx_timeout_error_evt(hdev, opcode);
+	}
+	else {
+		hci_tx_timeout_error_evt(hdev, 0x0000);
+	}
+#endif
 	atomic_set(&hdev->cmd_cnt, 1);
 	queue_work(hdev->workqueue, &hdev->cmd_work);
 }
@@ -2948,12 +3154,35 @@ struct hci_dev *hci_alloc_dev(void)
 	hdev->le_adv_channel_map = 0x07;
 	hdev->le_adv_min_interval = 0x0800;
 	hdev->le_adv_max_interval = 0x0800;
+
+#ifdef CONFIG_TIZEN_WIP
+	hdev->sniff_max_interval = 800;
+	hdev->sniff_min_interval = 400;
+
+	/* automatically enable sniff mode for connection */
+	hdev->idle_timeout = TIZEN_SNIFF_TIMEOUT * 1000; /* 2 Second */
+
+	hdev->adv_filter_policy = 0x00;
+	hdev->adv_type = 0x00;
+#endif
 	hdev->le_scan_interval = 0x0060;
 	hdev->le_scan_window = 0x0030;
+#ifdef CONFIG_TIZEN_WIP
+	/* Default connection interval is used for service discovery.
+	 * Old one is too slow to discover all iOS GATT services.
+	 * Once GATT service discovery procedure is done,
+	 * service daemons will control it as per their needs.
+	 */
+	hdev->le_conn_min_interval = 0x0014;	/* 25 ms */
+	hdev->le_conn_max_interval = 0x001c;	/* 35 ms */
+	hdev->le_conn_latency = 0x0000;
+	hdev->le_supv_timeout = 0x0258;		/* 6000 msec */
+#else
 	hdev->le_conn_min_interval = 0x0028;
 	hdev->le_conn_max_interval = 0x0038;
 	hdev->le_conn_latency = 0x0000;
-	hdev->le_supv_timeout = 0x002a;
+	hdev->le_supv_timeout = 0x002a;		/* 420 msec */
+#endif
 	hdev->le_def_tx_len = 0x001b;
 	hdev->le_def_tx_time = 0x0148;
 	hdev->le_max_tx_len = 0x001b;
@@ -3109,6 +3338,22 @@ int hci_register_dev(struct hci_dev *hdev)
 	hci_sock_dev_event(hdev, HCI_DEV_REG);
 	hci_dev_hold(hdev);
 
+#ifdef CONFIG_TIZEN_WIP
+	snprintf(hdev->hci_tx_wake_lock_name,
+		sizeof(hdev->hci_tx_wake_lock_name), "BT_tx_wake");
+	wake_lock_init(&hdev->hci_tx_wake_lock, WAKE_LOCK_SUSPEND,
+			hdev->hci_tx_wake_lock_name);
+
+	snprintf(hdev->hci_rx_wake_lock_name,
+		sizeof(hdev->hci_rx_wake_lock_name), "BT_rx_wake");
+	wake_lock_init(&hdev->hci_rx_wake_lock, WAKE_LOCK_SUSPEND,
+			hdev->hci_rx_wake_lock_name);
+
+	snprintf(hdev->hci_sniff_wake_lock_name,
+		sizeof(hdev->hci_sniff_wake_lock_name), "BT_sniff_wake");
+	wake_lock_init(&hdev->hci_sniff_wake_lock, WAKE_LOCK_SUSPEND,
+			hdev->hci_sniff_wake_lock_name);
+#endif
 	queue_work(hdev->req_workqueue, &hdev->power_on);
 
 	return id;
@@ -3187,6 +3432,11 @@ void hci_unregister_dev(struct hci_dev *hdev)
 	hci_dev_put(hdev);
 
 	ida_simple_remove(&hci_index_ida, id);
+#ifdef CONFIG_TIZEN_WIP
+	wake_lock_destroy(&hdev->hci_tx_wake_lock);
+	wake_lock_destroy(&hdev->hci_rx_wake_lock);
+	wake_lock_destroy(&hdev->hci_sniff_wake_lock);
+#endif
 }
 EXPORT_SYMBOL(hci_unregister_dev);
 
@@ -3209,8 +3459,19 @@ EXPORT_SYMBOL(hci_resume_dev);
 /* Reset HCI device */
 int hci_reset_dev(struct hci_dev *hdev)
 {
-	const u8 hw_err[] = { HCI_EV_HARDWARE_ERROR, 0x01, 0x00 };
+	const u8 hw_err[] = { HCI_EV_HARDWARE_ERROR, 0x01, 0x00 }; /* 0x01 is length, 0x00 is error code */
 	struct sk_buff *skb;
+
+#ifdef CONFIG_TIZEN_WIP
+	if(!bt_sent_reset_request_flag) {
+		bt_sent_reset_request_flag = 1;
+		BT_INFO("[%s(%d)] Send reset request to upper stack(Generate a self HCI Event which is hardware error)", __FUNCTION__, __LINE__);
+	}
+	else {
+		BT_ERR("[%s(%d)] Reset request to upper stack was already sent!", __FUNCTION__, __LINE__);
+		return 0;
+	}
+#endif
 
 	skb = bt_skb_alloc(3, GFP_ATOMIC);
 	if (!skb)
@@ -3338,6 +3599,9 @@ static void hci_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 	/* Get rid of skb owner, prior to sending to the driver. */
 	skb_orphan(skb);
 
+#ifdef CONFIG_TIZEN_WIP
+	hci_notify(hdev, HCI_DEV_WRITE);
+#endif
 	if (!test_bit(HCI_RUNNING, &hdev->flags)) {
 		kfree_skb(skb);
 		return;
@@ -3662,8 +3926,15 @@ static struct hci_chan *hci_chan_sent(struct hci_dev *hdev, __u8 type,
 
 	switch (chan->conn->type) {
 	case ACL_LINK:
+#ifdef CONFIG_TIZEN_WIP
+		cnt = hdev->acl_cnt - hdev->streaming_cnt;
+		if (cnt <= 0)
+			return NULL;
+		break;
+#else
 		cnt = hdev->acl_cnt;
 		break;
+#endif
 	case AMP_LINK:
 		cnt = hdev->block_cnt;
 		break;
@@ -3752,6 +4023,70 @@ static void __check_timeout(struct hci_dev *hdev, unsigned int cnt)
 	}
 }
 
+#ifdef CONFIG_TIZEN_WIP
+static void hci_sched_streaming_conn(struct hci_dev *hdev)
+{
+	struct hci_conn *conn = hdev->streaming_conn;
+
+	if (conn->state != BT_CONNECTED && conn->state != BT_CONFIG)
+		return;
+
+	while (hdev->streaming_cnt && hdev->acl_cnt) {
+		struct hci_chan *tmp;
+		struct sk_buff *skb;
+		struct hci_chan *chan = NULL;
+		unsigned int priority = 0;
+
+		rcu_read_lock();
+
+		list_for_each_entry_rcu(tmp, &conn->chan_list, list) {
+			if (skb_queue_empty(&tmp->data_q))
+				continue;
+
+			skb = skb_peek(&tmp->data_q);
+			if (skb->priority < priority)
+				continue;
+
+			if (skb->priority > priority) {
+				chan = tmp;
+				priority = skb->priority;
+			} else if (chan == NULL) {
+				chan = tmp;
+				priority = skb->priority;
+			}
+		}
+
+		rcu_read_unlock();
+
+		if (!chan)
+			break;
+
+		while (hdev->streaming_cnt && hdev->acl_cnt &&
+		       (skb = skb_peek(&chan->data_q))) {
+
+			/* Stop if priority has changed */
+			if (skb->priority < priority)
+				break;
+
+			skb = skb_dequeue(&chan->data_q);
+
+			hci_conn_enter_active_mode(chan->conn,
+						   bt_cb(skb)->force_active);
+
+			hci_send_frame(hdev, skb);
+			hdev->acl_last_tx = jiffies;
+
+			hdev->acl_cnt--;
+			hdev->streaming_cnt--;
+			chan->sent++;
+
+			conn->streaming_sent++;
+			conn->sent++;
+		}
+	}
+}
+#endif
+
 static void hci_sched_acl_pkt(struct hci_dev *hdev)
 {
 	unsigned int cnt = hdev->acl_cnt;
@@ -3761,8 +4096,13 @@ static void hci_sched_acl_pkt(struct hci_dev *hdev)
 
 	__check_timeout(hdev, cnt);
 
+#ifdef CONFIG_TIZEN_WIP
+	while (hdev->acl_cnt > hdev->streaming_cnt &&
+	       (chan = hci_chan_sent(hdev, ACL_LINK, &quote))) {
+#else
 	while (hdev->acl_cnt &&
 	       (chan = hci_chan_sent(hdev, ACL_LINK, &quote))) {
+#endif
 		u32 priority = (skb_peek(&chan->data_q))->priority;
 		while (quote-- && (skb = skb_peek(&chan->data_q))) {
 			BT_DBG("chan %p skb %p len %d priority %u", chan, skb,
@@ -3785,6 +4125,11 @@ static void hci_sched_acl_pkt(struct hci_dev *hdev)
 			chan->conn->sent++;
 		}
 	}
+
+#ifdef CONFIG_TIZEN_WIP
+	if (hdev->streaming_conn)
+		hci_sched_streaming_conn(hdev);
+#endif
 
 	if (cnt != hdev->acl_cnt)
 		hci_prio_recalculate(hdev, ACL_LINK);
@@ -4159,6 +4504,10 @@ static void hci_rx_work(struct work_struct *work)
 	BT_DBG("%s", hdev->name);
 
 	while ((skb = skb_dequeue(&hdev->rx_q))) {
+
+#ifdef CONFIG_TIZEN_WIP
+	wake_lock_timeout(&hdev->hci_rx_wake_lock, HZ/2);
+#endif
 		/* Send copy to monitor */
 		hci_send_to_monitor(hdev, skb);
 
@@ -4225,6 +4574,9 @@ static void hci_cmd_work(struct work_struct *work)
 		hdev->sent_cmd = skb_clone(skb, GFP_KERNEL);
 		if (hdev->sent_cmd) {
 			atomic_dec(&hdev->cmd_cnt);
+#if defined(CONFIG_BT_HCI_TRACE) && defined(CONFIG_TIZEN_WIP)
+			BT_INFO("[%s: %s(%d)] %s cmd 0x%4.4x(%s)", __FILE__, __FUNCTION__, __LINE__, hdev->name, hci_skb_opcode(skb), hci_get_cmd_string(hci_skb_opcode(skb)));
+#endif /* */
 			hci_send_frame(hdev, skb);
 			if (test_bit(HCI_RESET, &hdev->flags))
 				cancel_delayed_work(&hdev->cmd_timer);
@@ -4237,3 +4589,529 @@ static void hci_cmd_work(struct work_struct *work)
 		}
 	}
 }
+
+#if defined(CONFIG_BT_HCI_TRACE) && defined(CONFIG_TIZEN_WIP)
+/* close to hci_cmd_work to prevent cache miss!!! */
+const char* hci_get_cmd_string(u16 opcode)
+{
+	const char* hci_cmd_str = NULL;
+
+	switch (opcode)
+	{
+		case HCI_OP_NOP:
+			hci_cmd_str = "HCI_OP_NOP";
+			break;
+		case HCI_OP_INQUIRY:
+			hci_cmd_str = "HCI_OP_INQUIRY";
+			break;
+		case HCI_OP_INQUIRY_CANCEL:
+			hci_cmd_str = "HCI_OP_INQUIRY_CANCEL";
+			break;
+		case HCI_OP_PERIODIC_INQ:
+			hci_cmd_str = "HCI_OP_PERIODIC_INQ";
+			break;
+		case HCI_OP_EXIT_PERIODIC_INQ:
+			hci_cmd_str = "HCI_OP_EXIT_PERIODIC_INQ";
+			break;
+		case HCI_OP_CREATE_CONN:
+			hci_cmd_str = "HCI_OP_CREATE_CONN";
+			break;
+		case HCI_OP_DISCONNECT:
+			hci_cmd_str = "HCI_OP_DISCONNECT";
+			break;
+		case HCI_OP_ADD_SCO:
+			hci_cmd_str = "HCI_OP_ADD_SCO";
+			break;
+		case HCI_OP_CREATE_CONN_CANCEL:
+			hci_cmd_str = "HCI_OP_CREATE_CONN_CANCEL";
+			break;
+		case HCI_OP_ACCEPT_CONN_REQ:
+			hci_cmd_str = "HCI_OP_ACCEPT_CONN_REQ";
+			break;
+		case HCI_OP_REJECT_CONN_REQ:
+			hci_cmd_str = "HCI_OP_REJECT_CONN_REQ";
+			break;
+		case HCI_OP_LINK_KEY_REPLY:
+			hci_cmd_str = "HCI_OP_LINK_KEY_REPLY";
+			break;
+		case HCI_OP_LINK_KEY_NEG_REPLY:
+			hci_cmd_str = "HCI_OP_LINK_KEY_NEG_REPLY";
+			break;
+		case HCI_OP_PIN_CODE_REPLY:
+			hci_cmd_str = "HCI_OP_PIN_CODE_REPLY";
+			break;
+		case HCI_OP_PIN_CODE_NEG_REPLY:
+			hci_cmd_str = "HCI_OP_PIN_CODE_NEG_REPLY";
+			break;
+		case HCI_OP_CHANGE_CONN_PTYPE:
+			hci_cmd_str = "HCI_OP_CHANGE_CONN_PTYPE";
+			break;
+		case HCI_OP_AUTH_REQUESTED:
+			hci_cmd_str = "HCI_OP_AUTH_REQUESTED";
+			break;
+		case HCI_OP_SET_CONN_ENCRYPT:
+			hci_cmd_str = "HCI_OP_SET_CONN_ENCRYPT";
+			break;
+		case HCI_OP_CHANGE_CONN_LINK_KEY:
+			hci_cmd_str = "HCI_OP_CHANGE_CONN_LINK_KEY";
+			break;
+		case HCI_OP_REMOTE_NAME_REQ:
+			hci_cmd_str = "HCI_OP_REMOTE_NAME_REQ";
+			break;
+		case HCI_OP_REMOTE_NAME_REQ_CANCEL:
+			hci_cmd_str = "HCI_OP_REMOTE_NAME_REQ_CANCEL";
+			break;
+		case HCI_OP_READ_REMOTE_FEATURES:
+			hci_cmd_str = "HCI_OP_READ_REMOTE_FEATURES";
+			break;
+		case HCI_OP_READ_REMOTE_EXT_FEATURES:
+			hci_cmd_str = "HCI_OP_READ_REMOTE_EXT_FEATURES";
+			break;
+		case HCI_OP_READ_REMOTE_VERSION:
+			hci_cmd_str = "HCI_OP_READ_REMOTE_VERSION";
+			break;
+		case HCI_OP_READ_CLOCK_OFFSET:
+			hci_cmd_str = "HCI_OP_READ_CLOCK_OFFSET";
+			break;
+		case HCI_OP_SETUP_SYNC_CONN:
+			hci_cmd_str = "HCI_OP_SETUP_SYNC_CONN";
+			break;
+		case HCI_OP_ACCEPT_SYNC_CONN_REQ:
+			hci_cmd_str = "HCI_OP_ACCEPT_SYNC_CONN_REQ";
+			break;
+		case HCI_OP_REJECT_SYNC_CONN_REQ:
+			hci_cmd_str = "HCI_OP_REJECT_SYNC_CONN_REQ";
+			break;
+		case HCI_OP_IO_CAPABILITY_REPLY:
+			hci_cmd_str = "HCI_OP_IO_CAPABILITY_REPLY";
+			break;
+		case HCI_OP_USER_CONFIRM_REPLY:
+			hci_cmd_str = "HCI_OP_USER_CONFIRM_REPLY";
+			break;
+		case HCI_OP_USER_CONFIRM_NEG_REPLY:
+			hci_cmd_str = "HCI_OP_USER_CONFIRM_NEG_REPLY";
+			break;
+		case HCI_OP_USER_PASSKEY_REPLY:
+			hci_cmd_str = "HCI_OP_USER_PASSKEY_REPLY";
+			break;
+		case HCI_OP_USER_PASSKEY_NEG_REPLY:
+			hci_cmd_str = "HCI_OP_USER_PASSKEY_NEG_REPLY";
+			break;
+		case HCI_OP_REMOTE_OOB_DATA_REPLY:
+			hci_cmd_str = "HCI_OP_REMOTE_OOB_DATA_REPLY";
+			break;
+		case HCI_OP_REMOTE_OOB_DATA_NEG_REPLY:
+			hci_cmd_str = "HCI_OP_REMOTE_OOB_DATA_NEG_REPLY";
+			break;
+		case HCI_OP_IO_CAPABILITY_NEG_REPLY:
+			hci_cmd_str = "HCI_OP_IO_CAPABILITY_NEG_REPLY";
+			break;
+		case HCI_OP_CREATE_PHY_LINK:
+			hci_cmd_str = "HCI_OP_CREATE_PHY_LINK";
+			break;
+		case HCI_OP_ACCEPT_PHY_LINK:
+			hci_cmd_str = "HCI_OP_ACCEPT_PHY_LINK";
+			break;
+		case HCI_OP_DISCONN_PHY_LINK:
+			hci_cmd_str = "HCI_OP_DISCONN_PHY_LINK";
+			break;
+		case HCI_OP_CREATE_LOGICAL_LINK:
+			hci_cmd_str = "HCI_OP_CREATE_LOGICAL_LINK";
+			break;
+		case HCI_OP_ACCEPT_LOGICAL_LINK:
+			hci_cmd_str = "HCI_OP_ACCEPT_LOGICAL_LINK";
+			break;
+		case HCI_OP_DISCONN_LOGICAL_LINK:
+			hci_cmd_str = "HCI_OP_DISCONN_LOGICAL_LINK";
+			break;
+		case HCI_OP_LOGICAL_LINK_CANCEL:
+			hci_cmd_str = "HCI_OP_LOGICAL_LINK_CANCEL";
+			break;
+		case HCI_OP_SET_CSB:
+			hci_cmd_str = "HCI_OP_SET_CSB";
+			break;
+		case HCI_OP_START_SYNC_TRAIN:
+			hci_cmd_str = "HCI_OP_START_SYNC_TRAIN";
+			break;
+		case HCI_OP_REMOTE_OOB_EXT_DATA_REPLY:
+			hci_cmd_str = "HCI_OP_REMOTE_OOB_EXT_DATA_REPLY";
+			break;
+		case HCI_OP_SNIFF_MODE:
+			hci_cmd_str = "HCI_OP_SNIFF_MODE";
+			break;
+		case HCI_OP_EXIT_SNIFF_MODE:
+			hci_cmd_str = "HCI_OP_EXIT_SNIFF_MODE";
+			break;
+		case HCI_OP_ROLE_DISCOVERY:
+			hci_cmd_str = "HCI_OP_ROLE_DISCOVERY";
+			break;
+		case HCI_OP_SWITCH_ROLE:
+			hci_cmd_str = "HCI_OP_SWITCH_ROLE";
+			break;
+		case HCI_OP_READ_LINK_POLICY:
+			hci_cmd_str = "HCI_OP_READ_LINK_POLICY";
+			break;
+		case HCI_OP_WRITE_LINK_POLICY:
+			hci_cmd_str = "HCI_OP_WRITE_LINK_POLICY";
+			break;
+		case HCI_OP_READ_DEF_LINK_POLICY:
+			hci_cmd_str = "HCI_OP_READ_DEF_LINK_POLICY";
+			break;
+		case HCI_OP_WRITE_DEF_LINK_POLICY:
+			hci_cmd_str = "HCI_OP_WRITE_DEF_LINK_POLICY";
+			break;
+		case HCI_OP_SNIFF_SUBRATE:
+			hci_cmd_str = "HCI_OP_SNIFF_SUBRATE";
+			break;
+		case HCI_OP_SET_EVENT_MASK:
+			hci_cmd_str = "HCI_OP_SET_EVENT_MASK";
+			break;
+		case HCI_OP_RESET:
+			hci_cmd_str = "HCI_OP_RESET";
+			break;
+		case HCI_OP_SET_EVENT_FLT:
+			hci_cmd_str = "HCI_OP_SET_EVENT_FLT";
+			break;
+		case HCI_OP_READ_STORED_LINK_KEY:
+			hci_cmd_str = "HCI_OP_READ_STORED_LINK_KEY";
+			break;
+		case HCI_OP_DELETE_STORED_LINK_KEY:
+			hci_cmd_str = "HCI_OP_DELETE_STORED_LINK_KEY";
+			break;
+		case HCI_OP_WRITE_LOCAL_NAME:
+			hci_cmd_str = "HCI_OP_WRITE_LOCAL_NAME";
+			break;
+		case HCI_OP_READ_LOCAL_NAME:
+			hci_cmd_str = "HCI_OP_READ_LOCAL_NAME";
+			break;
+		case HCI_OP_WRITE_CA_TIMEOUT:
+			hci_cmd_str = "HCI_OP_WRITE_CA_TIMEOUT";
+			break;
+		case HCI_OP_WRITE_PG_TIMEOUT:
+			hci_cmd_str = "HCI_OP_WRITE_PG_TIMEOUT";
+			break;
+		case HCI_OP_WRITE_SCAN_ENABLE:
+			hci_cmd_str = "HCI_OP_WRITE_SCAN_ENABLE";
+			break;
+		case HCI_OP_READ_AUTH_ENABLE:
+			hci_cmd_str = "HCI_OP_READ_AUTH_ENABLE";
+			break;
+		case HCI_OP_WRITE_AUTH_ENABLE:
+			hci_cmd_str = "HCI_OP_WRITE_AUTH_ENABLE";
+			break;
+		case HCI_OP_READ_ENCRYPT_MODE:
+			hci_cmd_str = "HCI_OP_READ_ENCRYPT_MODE";
+			break;
+		case HCI_OP_WRITE_ENCRYPT_MODE:
+			hci_cmd_str = "HCI_OP_WRITE_ENCRYPT_MODE";
+			break;
+		case HCI_OP_READ_CLASS_OF_DEV:
+			hci_cmd_str = "HCI_OP_READ_CLASS_OF_DEV";
+			break;
+		case HCI_OP_WRITE_CLASS_OF_DEV:
+			hci_cmd_str = "HCI_OP_WRITE_CLASS_OF_DEV";
+			break;
+		case HCI_OP_READ_VOICE_SETTING:
+			hci_cmd_str = "HCI_OP_READ_VOICE_SETTING";
+			break;
+		case HCI_OP_WRITE_VOICE_SETTING:
+			hci_cmd_str = "HCI_OP_WRITE_VOICE_SETTING";
+			break;
+		case HCI_OP_HOST_BUFFER_SIZE:
+			hci_cmd_str = "HCI_OP_HOST_BUFFER_SIZE";
+			break;
+		case HCI_OP_WRITE_LINK_SUPERVISION_TIMEOUT:
+			hci_cmd_str = "HCI_OP_WRITE_LINK_SUPERVISION_TIMEOUT";
+			break;
+		case HCI_OP_READ_NUM_SUPPORTED_IAC:
+			hci_cmd_str = "HCI_OP_READ_NUM_SUPPORTED_IAC";
+			break;
+		case HCI_OP_READ_CURRENT_IAC_LAP:
+			hci_cmd_str = "HCI_OP_READ_CURRENT_IAC_LAP";
+			break;
+		case HCI_OP_WRITE_CURRENT_IAC_LAP:
+			hci_cmd_str = "HCI_OP_WRITE_CURRENT_IAC_LAP";
+			break;
+		case HCI_OP_WRITE_INQUIRY_SCAN_TYPE:
+			hci_cmd_str = "HCI_OP_WRITE_INQUIRY_SCAN_TYPE";
+			break;
+		case HCI_OP_WRITE_INQUIRY_MODE:
+			hci_cmd_str = "HCI_OP_WRITE_INQUIRY_MODE";
+			break;
+		case HCI_OP_WRITE_EIR:
+			hci_cmd_str = "HCI_OP_WRITE_EIR";
+			break;
+		case HCI_OP_READ_SSP_MODE:
+			hci_cmd_str = "HCI_OP_READ_SSP_MODE";
+			break;
+		case HCI_OP_WRITE_SSP_MODE:
+			hci_cmd_str = "HCI_OP_WRITE_SSP_MODE";
+			break;
+		case HCI_OP_READ_LOCAL_OOB_DATA:
+			hci_cmd_str = "HCI_OP_READ_LOCAL_OOB_DATA";
+			break;
+		case HCI_OP_READ_INQ_RSP_TX_POWER:
+			hci_cmd_str = "HCI_OP_READ_INQ_RSP_TX_POWER";
+			break;
+		case HCI_OP_SET_EVENT_MASK_PAGE_2:
+			hci_cmd_str = "HCI_OP_SET_EVENT_MASK_PAGE_2";
+			break;
+		case HCI_OP_READ_LOCATION_DATA:
+			hci_cmd_str = "HCI_OP_READ_LOCATION_DATA";
+			break;
+		case HCI_OP_READ_FLOW_CONTROL_MODE:
+			hci_cmd_str = "HCI_OP_READ_FLOW_CONTROL_MODE";
+			break;
+		case HCI_OP_WRITE_LE_HOST_SUPPORTED:
+			hci_cmd_str = "HCI_OP_WRITE_LE_HOST_SUPPORTED";
+			break;
+		case HCI_OP_SET_RESERVED_LT_ADDR:
+			hci_cmd_str = "HCI_OP_SET_RESERVED_LT_ADDR";
+			break;
+		case HCI_OP_DELETE_RESERVED_LT_ADDR:
+			hci_cmd_str = "HCI_OP_DELETE_RESERVED_LT_ADDR";
+			break;
+		case HCI_OP_SET_CSB_DATA:
+			hci_cmd_str = "HCI_OP_SET_CSB_DATA";
+			break;
+		case HCI_OP_READ_SYNC_TRAIN_PARAMS:
+			hci_cmd_str = "HCI_OP_READ_SYNC_TRAIN_PARAMS";
+			break;
+		case HCI_OP_WRITE_SYNC_TRAIN_PARAMS:
+			hci_cmd_str = "HCI_OP_WRITE_SYNC_TRAIN_PARAMS";
+			break;
+		case HCI_OP_READ_SC_SUPPORT:
+			hci_cmd_str = "HCI_OP_READ_SC_SUPPORT";
+			break;
+		case HCI_OP_WRITE_SC_SUPPORT:
+			hci_cmd_str = "HCI_OP_WRITE_SC_SUPPORT";
+			break;
+		case HCI_OP_READ_LOCAL_OOB_EXT_DATA:
+			hci_cmd_str = "HCI_OP_READ_LOCAL_OOB_EXT_DATA";
+			break;
+		case HCI_OP_READ_LOCAL_VERSION:
+			hci_cmd_str = "HCI_OP_READ_LOCAL_VERSION";
+			break;
+		case HCI_OP_READ_LOCAL_COMMANDS:
+			hci_cmd_str = "HCI_OP_READ_LOCAL_COMMANDS";
+			break;
+		case HCI_OP_READ_LOCAL_FEATURES:
+			hci_cmd_str = "HCI_OP_READ_LOCAL_FEATURES";
+			break;
+		case HCI_OP_READ_LOCAL_EXT_FEATURES:
+			hci_cmd_str = "HCI_OP_READ_LOCAL_EXT_FEATURES";
+			break;
+		case HCI_OP_READ_BUFFER_SIZE:
+			hci_cmd_str = "HCI_OP_READ_BUFFER_SIZE";
+			break;
+		case HCI_OP_READ_BD_ADDR:
+			hci_cmd_str = "HCI_OP_READ_BD_ADDR";
+			break;
+		case HCI_OP_READ_DATA_BLOCK_SIZE:
+			hci_cmd_str = "HCI_OP_READ_DATA_BLOCK_SIZE";
+			break;
+		case HCI_OP_READ_LOCAL_CODECS:
+			hci_cmd_str = "HCI_OP_READ_LOCAL_CODECS";
+			break;
+		case HCI_OP_READ_PAGE_SCAN_ACTIVITY:
+			hci_cmd_str = "HCI_OP_READ_PAGE_SCAN_ACTIVITY";
+			break;
+		case HCI_OP_WRITE_PAGE_SCAN_ACTIVITY:
+			hci_cmd_str = "HCI_OP_WRITE_PAGE_SCAN_ACTIVITY";
+			break;
+		case HCI_OP_READ_TX_POWER:
+			hci_cmd_str = "HCI_OP_READ_TX_POWER";
+			break;
+		case HCI_OP_READ_PAGE_SCAN_TYPE:
+			hci_cmd_str = "HCI_OP_READ_PAGE_SCAN_TYPE";
+			break;
+		case HCI_OP_WRITE_PAGE_SCAN_TYPE:
+			hci_cmd_str = "HCI_OP_WRITE_PAGE_SCAN_TYPE";
+			break;
+		case HCI_OP_READ_RSSI:
+			hci_cmd_str = "HCI_OP_READ_RSSI";
+			break;
+		case HCI_OP_READ_CLOCK:
+			hci_cmd_str = "HCI_OP_READ_CLOCK";
+			break;
+		case HCI_OP_READ_LOCAL_AMP_INFO:
+			hci_cmd_str = "HCI_OP_READ_LOCAL_AMP_INFO";
+			break;
+		case HCI_OP_READ_LOCAL_AMP_ASSOC:
+			hci_cmd_str = "HCI_OP_READ_LOCAL_AMP_ASSOC";
+			break;
+		case HCI_OP_WRITE_REMOTE_AMP_ASSOC:
+			hci_cmd_str = "HCI_OP_WRITE_REMOTE_AMP_ASSOC";
+			break;
+		case HCI_OP_GET_MWS_TRANSPORT_CONFIG:
+			hci_cmd_str = "HCI_OP_GET_MWS_TRANSPORT_CONFIG";
+			break;
+		case HCI_OP_ENABLE_DUT_MODE:
+			hci_cmd_str = "HCI_OP_ENABLE_DUT_MODE";
+			break;
+		case HCI_OP_WRITE_SSP_DEBUG_MODE:
+			hci_cmd_str = "HCI_OP_WRITE_SSP_DEBUG_MODE";
+			break;
+		case HCI_OP_LE_SET_EVENT_MASK:
+			hci_cmd_str = "HCI_OP_LE_SET_EVENT_MASK";
+			break;
+		case HCI_OP_LE_READ_BUFFER_SIZE:
+			hci_cmd_str = "HCI_OP_LE_READ_BUFFER_SIZE";
+			break;
+		case HCI_OP_LE_READ_LOCAL_FEATURES:
+			hci_cmd_str = "HCI_OP_LE_READ_LOCAL_FEATURES";
+			break;
+		case HCI_OP_LE_SET_RANDOM_ADDR:
+			hci_cmd_str = "HCI_OP_LE_SET_RANDOM_ADDR";
+			break;
+		case HCI_OP_LE_SET_ADV_PARAM:
+			hci_cmd_str = "HCI_OP_LE_SET_ADV_PARAM";
+			break;
+		case HCI_OP_LE_READ_ADV_TX_POWER:
+			hci_cmd_str = "HCI_OP_LE_READ_ADV_TX_POWER";
+			break;
+		case HCI_OP_LE_SET_ADV_DATA:
+			hci_cmd_str = "HCI_OP_LE_SET_ADV_DATA";
+			break;
+		case HCI_OP_LE_SET_SCAN_RSP_DATA:
+			hci_cmd_str = "HCI_OP_LE_SET_SCAN_RSP_DATA";
+			break;
+		case HCI_OP_LE_SET_ADV_ENABLE:
+			hci_cmd_str = "HCI_OP_LE_SET_ADV_ENABLE";
+			break;
+		case HCI_OP_LE_SET_SCAN_PARAM:
+			hci_cmd_str = "HCI_OP_LE_SET_SCAN_PARAM";
+			break;
+#if 0
+		case HCI_OP_LE_CLEAR_DEV_WHITE_LIST:
+			hci_cmd_str = "HCI_OP_LE_CLEAR_DEV_WHITE_LIST";
+			break;
+		case HCI_OP_LE_ADD_DEV_WHITE_LIST:
+			hci_cmd_str = "HCI_OP_LE_ADD_DEV_WHITE_LIST";
+			break;
+		case HCI_OP_LE_REMOVE_FROM_DEV_WHITE_LIST:
+			hci_cmd_str = "HCI_OP_LE_REMOVE_FROM_DEV_WHITE_LIST";
+			break;
+#endif /* duplicate */
+		case HCI_OP_LE_SET_SCAN_ENABLE:
+			hci_cmd_str = "HCI_OP_LE_SET_SCAN_ENABLE";
+			break;
+		case HCI_OP_LE_CREATE_CONN:
+			hci_cmd_str = "HCI_OP_LE_CREATE_CONN";
+			break;
+		case HCI_OP_LE_CREATE_CONN_CANCEL:
+			hci_cmd_str = "HCI_OP_LE_CREATE_CONN_CANCEL";
+			break;
+		case HCI_OP_LE_READ_WHITE_LIST_SIZE:
+			hci_cmd_str = "HCI_OP_LE_READ_WHITE_LIST_SIZE";
+			break;
+		case HCI_OP_LE_CLEAR_WHITE_LIST:
+			hci_cmd_str = "HCI_OP_LE_CLEAR_WHITE_LIST";
+			break;
+		case HCI_OP_LE_ADD_TO_WHITE_LIST:
+			hci_cmd_str = "HCI_OP_LE_ADD_TO_WHITE_LIST";
+			break;
+		case HCI_OP_LE_DEL_FROM_WHITE_LIST:
+			hci_cmd_str = "HCI_OP_LE_DEL_FROM_WHITE_LIST";
+			break;
+		case HCI_OP_LE_CONN_UPDATE:
+			hci_cmd_str = "HCI_OP_LE_CONN_UPDATE";
+			break;
+		case HCI_OP_LE_READ_REMOTE_FEATURES:
+			hci_cmd_str = "HCI_OP_LE_READ_REMOTE_FEATURES";
+			break;
+		case HCI_OP_LE_START_ENC:
+			hci_cmd_str = "HCI_OP_LE_START_ENC";
+			break;
+		case HCI_OP_LE_LTK_REPLY:
+			hci_cmd_str = "HCI_OP_LE_LTK_REPLY";
+			break;
+		case HCI_OP_LE_LTK_NEG_REPLY:
+			hci_cmd_str = "HCI_OP_LE_LTK_NEG_REPLY";
+			break;
+		case HCI_OP_LE_READ_SUPPORTED_STATES:
+			hci_cmd_str = "HCI_OP_LE_READ_SUPPORTED_STATES";
+			break;
+		case HCI_OP_LE_CONN_PARAM_REQ_REPLY:
+			hci_cmd_str = "HCI_OP_LE_CONN_PARAM_REQ_REPLY";
+			break;
+		case HCI_OP_LE_CONN_PARAM_REQ_NEG_REPLY:
+			hci_cmd_str = "HCI_OP_LE_CONN_PARAM_REQ_NEG_REPLY";
+			break;
+		case HCI_OP_LE_SET_DATA_LEN:
+			hci_cmd_str = "HCI_OP_LE_SET_DATA_LEN";
+			break;
+		case HCI_OP_LE_READ_DEF_DATA_LEN:
+			hci_cmd_str = "HCI_OP_LE_READ_DEF_DATA_LEN";
+			break;
+		case HCI_OP_LE_WRITE_DEF_DATA_LEN:
+			hci_cmd_str = "HCI_OP_LE_WRITE_DEF_DATA_LEN";
+			break;
+		case HCI_OP_LE_READ_MAX_DATA_LEN:
+			hci_cmd_str = "HCI_OP_LE_READ_MAX_DATA_LEN";
+			break;
+		case HCI_BCM_SCO_PCM_REQ:
+			hci_cmd_str = "HCI_BCM_SCO_PCM_REQ";
+			break;
+		case HCI_BCM_PCM_FORMAT_REQ:
+			hci_cmd_str = "HCI_BCM_PCM_FORMAT_REQ";
+			break;
+		case HCI_OP_GET_RAW_RSSI:
+			hci_cmd_str = "HCI_OP_GET_RAW_RSSI";
+			break;
+		case HCI_BCM_I2S_PCM_REQ:
+			hci_cmd_str = "HCI_BCM_I2S_PCM_REQ";
+			break;
+		case HCI_BCM_ENABLE_WBS_REQ:
+			hci_cmd_str = "HCI_BCM_ENABLE_WBS_REQ";
+			break;
+		case HCI_OP_ENABLE_RSSI:
+			hci_cmd_str = "HCI_OP_ENABLE_RSSI";
+			break;
+		case HCI_OP_VENDOR_BCM_LE_GET_CAP:
+			hci_cmd_str = "HCI_OP_VENDOR_BCM_LE_GET_CAP";
+			break;
+		case HCI_OP_VENDOR_BCM_LE_MULTI_ADV:
+			hci_cmd_str = "HCI_OP_VENDOR_BCM_LE_MULTI_ADV";
+			break;
+		case HCI_OP_VENDOR_BCM_LE_RPA_OFFLOAD	:
+			hci_cmd_str = "HCI_OP_VENDOR_BCM_LE_RPA_OFFLOAD";
+			break;
+		case HCI_OP_VENDOR_BCM_LE_SCAN_FILTER:
+			hci_cmd_str = "HCI_OP_VENDOR_BCM_LE_SCAN_FILTER";
+			break;
+		case 0xfc01:
+			hci_cmd_str = "HCI_OP_VENDOR_BCM_SET_BD_ADDR";
+			break;
+		case 0xfc18:
+			hci_cmd_str = "HCI_OP_VENDOR_BCM_CHANGE_UART_BAUDRATE";
+			break;
+		case 0xfc27:
+			hci_cmd_str = "HCI_OP_VENDOR_BCM_SETUP_SLEEP";
+			break;
+		case 0xfc2e:
+			hci_cmd_str = "HCI_OP_VENDOR_BCM_START_DOWNLOAD";
+			break;
+		case 0xfc4c:
+			hci_cmd_str = "HCI_OP_VENDOR_BCM_WRITE_RAM";
+			break;
+		case 0xfc4e:
+			hci_cmd_str = "HCI_OP_VENDOR_BCM_LAUNCH_RAM";
+			break;
+		case HCI_OP_LE_READ_PHY:
+			hci_cmd_str = "HCI_OP_LE_READ_PHY";
+			break;
+		case HCI_OP_LE_SET_DEFAULT_PHY:
+			hci_cmd_str = "HCI_OP_LE_SET_DEFAULT_PHY";
+			break;
+		case HCI_OP_LE_SET_PHY:
+			hci_cmd_str = "HCI_OP_LE_SET_PHY";
+			break;
+		default:
+			hci_cmd_str = "Not Defined";
+			break;
+	}
+
+	return hci_cmd_str;
+}
+#endif /* */

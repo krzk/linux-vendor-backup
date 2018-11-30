@@ -48,6 +48,11 @@
 #define HCI_DEV_CLOSE			8
 #define HCI_DEV_SETUP			9
 
+#ifdef CONFIG_TIZEN_WIP
+/* This HCI_DEV event is made for bluesleep kernel(3.4-msm8x26) */
+#define HCI_DEV_WRITE			255
+#endif
+
 /* HCI notify events */
 #define HCI_NOTIFY_CONN_ADD		1
 #define HCI_NOTIFY_CONN_DEL		2
@@ -264,16 +269,39 @@ enum {
 	__HCI_NUM_FLAGS,
 };
 
+#ifdef CONFIG_TIZEN_WIP
+/* DBFW+ Event Code */
+enum {
+	DBFW_PLUS_LINK_LOSS_INFO_EVENT_CODE = 0x10,
+	DBFW_PLUS_LINK_LOSS_CLOCK_INFO_EVENT_CODE,
+	DBFW_PLUS_A2DP_INFO_EVENT_CODE = 0x20,
+	DBFW_PLUS_HFP_INFO_EVENT_CODE = 0x31,
+	DBFW_PLUS_HFP_SCO_PACKET_TYPE_INFO_EVENT_CODE,
+};
+#endif
+
 /* HCI timeouts */
 #define HCI_DISCONN_TIMEOUT	msecs_to_jiffies(2000)	/* 2 seconds */
 #define HCI_PAIRING_TIMEOUT	msecs_to_jiffies(60000)	/* 60 seconds */
 #define HCI_INIT_TIMEOUT	msecs_to_jiffies(10000)	/* 10 seconds */
+#ifdef CONFIG_TIZEN_WIP
+#define HCI_CMD_TIMEOUT		msecs_to_jiffies(5000)	/* 5 seconds */
+#else
 #define HCI_CMD_TIMEOUT		msecs_to_jiffies(2000)	/* 2 seconds */
+#endif
 #define HCI_ACL_TX_TIMEOUT	msecs_to_jiffies(45000)	/* 45 seconds */
+#ifdef CONFIG_TIZEN_WIP
+#define HCI_AUTO_OFF_TIMEOUT	msecs_to_jiffies(5000)	/* 5 seconds */
+#else
 #define HCI_AUTO_OFF_TIMEOUT	msecs_to_jiffies(2000)	/* 2 seconds */
+#endif
 #define HCI_POWER_OFF_TIMEOUT	msecs_to_jiffies(5000)	/* 5 seconds */
 #define HCI_LE_CONN_TIMEOUT	msecs_to_jiffies(20000)	/* 20 seconds */
+#ifdef CONFIG_TIZEN_WIP
+#define HCI_LE_AUTOCONN_TIMEOUT	msecs_to_jiffies(10000)	/* 10 seconds */
+#else
 #define HCI_LE_AUTOCONN_TIMEOUT	msecs_to_jiffies(2000)	/* 2 seconds */
+#endif
 
 /* HCI data types */
 #define HCI_COMMAND_PKT		0x01
@@ -399,6 +427,9 @@ enum {
 #define HCI_LE_PING			0x10
 #define HCI_LE_DATA_LEN_EXT		0x20
 #define HCI_LE_EXT_SCAN_POLICY		0x80
+#ifdef CONFIG_TIZEN_WIP
+#define HCI_LE_CHAN_SEL_ALG2		0x40
+#endif
 
 /* Connection modes */
 #define HCI_CM_ACTIVE	0x0000
@@ -497,6 +528,11 @@ enum {
 #define EIR_SSP_RAND_R256	0x1E /* Simple Pairing Rand R-256 */
 #define EIR_LE_SC_CONFIRM	0x22 /* LE SC Confirmation Value */
 #define EIR_LE_SC_RANDOM	0x23 /* LE SC Random Value */
+#ifdef CONFIG_TIZEN_WIP
+#define EIR_SOLICIT_UUID16	0x14 /* 16-bit Solicitation UUID */
+#define EIR_MANUFACTURER_DATA	0XFF /*Manufacturer Specific Data*/
+#define EIR_GAP_APPEARANCE      0x19 /* GAP appearance */
+#endif
 
 /* Low Energy Advertising Flags */
 #define LE_AD_LIMITED		0x01 /* Limited Discoverable */
@@ -553,6 +589,40 @@ struct hci_cp_accept_conn_req {
 	bdaddr_t bdaddr;
 	__u8     role;
 } __packed;
+
+#ifdef CONFIG_TIZEN_WIP /* WBC/NBC feature */
+#define HCI_BCM_ENABLE_WBS_REQ		0xfc7e /* 0x3f7e */
+struct hci_cp_bcm_wbs_req {
+	__u8     wbs_enable;
+	__le16   pkt_type;
+} __packed;
+
+#define HCI_BCM_I2S_PCM_REQ		0xfc6d /* 0x3f6d */
+struct hci_cp_i2S_pcm_req {
+	__u8     i2S_enable;
+	__u8     is_master;
+	__u8     sample_rate;
+	__u8     clock_rate;
+} __packed;
+
+#define HCI_BCM_SCO_PCM_REQ		0xfc1c /* 0x3f1c */
+struct hci_cp_sco_pcm_req {
+	__u8     sco_routing;
+	__u8     clock_rate;
+	__u8     frame_type;
+	__u8     sync_mode;
+	__u8     clock_mode;
+} __packed;
+
+#define HCI_BCM_PCM_FORMAT_REQ          0xfc1e
+struct hci_cp_pcm_format_req {
+        __u8    lsb_first;
+        __u8    fill_bits;
+        __u8    fill_method;
+        __u8    fill_num;
+        __u8    right_justify;
+} __packed;
+#endif /* WBC/NBC feature */
 
 #define HCI_OP_REJECT_CONN_REQ		0x040a
 struct hci_cp_reject_conn_req {
@@ -983,6 +1053,21 @@ struct hci_cp_host_buffer_size {
 	__le16   sco_max_pkt;
 } __packed;
 
+#ifdef CONFIG_TIZEN_WIP
+/* BEGIN TIZEN_Bluetooth :: Set Link supervision timeout */
+#define HCI_OP_WRITE_LINK_SUPERVISION_TIMEOUT  0x0c37
+struct hci_cp_write_link_supervision_timeout {
+	__le16   handle;
+	__le16   timeout;
+} __packed;
+
+struct hci_rp_write_link_supervision_timeout {
+	__u8     status;
+	__le16   handle;
+} __packed;
+/* END TIZEN_Bluetooth */
+#endif
+
 #define HCI_OP_READ_NUM_SUPPORTED_IAC	0x0c38
 struct hci_rp_read_num_supported_iac {
 	__u8	status;
@@ -998,6 +1083,12 @@ struct hci_cp_write_current_iac_lap {
 } __packed;
 
 #define HCI_OP_WRITE_INQUIRY_MODE	0x0c45
+
+#ifdef CONFIG_TIZEN_WIP
+#define HCI_OP_WRITE_INQUIRY_SCAN_TYPE	0x0c43
+	#define INQUIRY_SCAN_TYPE_STANDARD	0x00
+	#define INQUIRY_SCAN_TYPE_INTERLACED	0x01
+#endif
 
 #define HCI_MAX_EIR_LENGTH		240
 
@@ -1347,6 +1438,22 @@ struct hci_cp_le_set_scan_param {
 	__u8    filter_policy;
 } __packed;
 
+#ifdef CONFIG_TIZEN_WIP
+#define HCI_OP_LE_CLEAR_DEV_WHITE_LIST	0x2010
+
+#define HCI_OP_LE_ADD_DEV_WHITE_LIST	0x2011
+struct hci_cp_le_add_dev_white_list {
+	__u8 bdaddr_type;
+	bdaddr_t bdaddr;
+} __packed;
+
+#define HCI_OP_LE_REMOVE_FROM_DEV_WHITE_LIST	0x2012
+struct hci_cp_le_remove_dev_from_white_list {
+	__u8 bdaddr_type;
+	bdaddr_t bdaddr;
+} __packed;
+#endif
+
 #define LE_SCAN_DISABLE			0x00
 #define LE_SCAN_ENABLE			0x01
 #define LE_SCAN_FILTER_DUP_DISABLE	0x00
@@ -1465,6 +1572,58 @@ struct hci_cp_le_conn_param_req_neg_reply {
 	__u8	reason;
 } __packed;
 
+#ifdef CONFIG_TIZEN_WIP
+/** Vendor Specific HCI Command
+ * Vendor: Broadcom
+ * Purpose: This HCI is used to enable RSSI monitoring and setting
+ * Threshold Values for LE Link
+ **/
+#define HCI_OP_ENABLE_RSSI		0xfce9
+
+struct hci_cp_set_enable_rssi {
+	__u8    hci_le_ext_opcode;
+	__u8    le_enable_cs_Features;
+	__u8    data[3];
+} __packed;
+
+struct hci_cp_set_rssi_threshold {
+	__u8    hci_le_ext_opcode;
+	__u8    mode;
+	__le16  conn_handle;
+	__u8    alert_mask;
+	__u8    low_th;
+	__u8    in_range_th;
+	__u8    high_th;
+} __packed;
+
+struct hci_cc_rsp_enable_rssi {
+	__u8     status;
+	__u8     le_ext_opcode;
+} __packed;
+
+struct hci_ev_vendor_specific_rssi_alert {
+	__le16   conn_handle ;
+	__s8     alert_type;
+	__s8     rssi_dbm;
+} __packed;
+
+/** Vendor Specific HCI Command
+ * Vendor: Broadcom
+ * Purpose: This HCI is used to get Raw RSSI value for a Link
+ **/
+#define HCI_OP_GET_RAW_RSSI		0xfc48
+
+struct hci_cp_get_raw_rssi {
+	__le16   conn_handle;
+} __packed;
+
+struct hci_cc_rp_get_raw_rssi {
+	__u8     status;
+	__le16   conn_handle;
+	__s8     rssi_dbm;
+} __packed;
+#endif
+
 #define HCI_OP_LE_SET_DATA_LEN		0x2022
 struct hci_cp_le_set_data_len {
 	__le16	handle;
@@ -1497,6 +1656,66 @@ struct hci_rp_le_read_max_data_len {
 	__le16	rx_len;
 	__le16	rx_time;
 } __packed;
+
+#ifdef CONFIG_TIZEN_WIP
+#define HCI_OP_LE_READ_PHY	0x2030
+struct hci_cp_le_read_phy {
+	__le16 handle;
+} __packed;
+
+struct hci_rp_le_read_phy {
+	__u8	status;
+	__le16	handle;
+	__u8	tx_phy;
+	__u8	rx_phy;
+} __packed;
+
+#define HCI_OP_LE_SET_DEFAULT_PHY	0x2031
+struct hci_cp_le_set_default_phy {
+	__u8    all_phys;
+	__u8    tx_phys;
+	__u8    rx_phys;
+} __packed;
+
+struct hci_rp_le_set_default_phy {
+	__u8	status;
+} __packed;
+
+#define HCI_OP_LE_SET_PHY	0x2032
+struct hci_cp_le_set_phy {
+	__le16	handle;
+	__u8    all_phys;
+	__u8    tx_phys;
+	__u8    rx_phys;
+	__le16	phy_opt;
+} __packed;
+
+struct hci_rp_le_set_phy {
+	__u8	status;
+} __packed;
+
+/* DBFW+ VSC */
+#define HCI_OP_DBFW_PLUS_LINKLOSS	0xFDF1
+struct hci_cp_dbfw_plus_linkloss {
+	__u8	subcommand;
+	__u8	enable;
+	__le16	handle;
+} __packed;
+
+#endif
+
+#ifdef CONFIG_TIZEN_WIP
+/*
+ * Vendor Specific HCI Command
+ * Vendor: Broadcom
+ */
+#define HCI_OP_VENDOR_BCM_TRIGGER_EXCEPTION		0xfd1c
+
+#define HCI_OP_VENDOR_BCM_LE_GET_CAP		0xfd53	/* Get Capabilities */
+#define HCI_OP_VENDOR_BCM_LE_MULTI_ADV		0xfd54	/* Multiple Advertisement */
+#define HCI_OP_VENDOR_BCM_LE_RPA_OFFLOAD	0xfd55	/* Resolvable Private Address(RPA) offloading */
+#define HCI_OP_VENDOR_BCM_LE_SCAN_FILTER	0xfd57	/* Advertising Packet Content Filter(APCF) for scan */
+#endif /* */
 
 /* ---- HCI Events ---- */
 #define HCI_EV_INQUIRY_COMPLETE		0x01
@@ -1866,6 +2085,57 @@ struct hci_ev_sync_train_complete {
 
 #define HCI_EV_SLAVE_PAGE_RESP_TIMEOUT	0x54
 
+#ifdef CONFIG_TIZEN_WIP
+/** Vendor Specific HCI Event
+ * Vendor: Broadcom
+ * Purpose: This HCI Event gives RSSI Alerts for monitored LE Link
+ **/
+#define HCI_EV_VENDOR_SPECIFIC		0xFF
+
+struct hci_ev_vendor_specific {
+	__u8     event_sub_code;
+} __packed;
+
+struct hci_ev_ext_vendor_specific {
+	__u8     event_le_ext_sub_code;
+} __packed;
+
+#define LE_META_VENDOR_SPECIFIC_GROUP_EVENT 0xE9
+#define LE_RSSI_LINK_ALERT 0x02
+
+#define LE_MULTI_ADV_STATE_CHANGE_SUB_EVENT 0x55
+struct hci_ev_vendor_specific_multi_adv_state {
+	__u8     adv_instance;
+	__u8     state_change_reason;
+	__le16     connection_handle;
+} __packed;
+
+#define SEC_BRCM_LINK_LOSS_DBG_INFO_EVENT 0x76
+struct hci_vse_sec_brcm_link_loss_dbg_info{
+	__u8	linklost_status;
+	__u8	conn_handle;
+	__s8	trans_pwr;
+	__s8	rssi;
+	__u8	ch_map[10];
+	__u8	lmp_cmd[4];
+} __packed;
+
+#define SEC_BRCM_DBFW_DUMP_EVENT 0x1B
+struct hci_vse_dbfw_info {
+	__u8	dump_type;
+	__u8	length;
+	__u8	checksum;
+	__s8	core_dump_type;
+} __packed;
+
+#define SEC_BRCM_DBFW_PLUS_DUMP_EVENT 0x90
+struct hci_vse_dbfw_plus_event {
+	__u8	evt_code;
+	__u8	data[256];
+} __packed;
+
+#endif
+
 #define HCI_EV_LE_CONN_COMPLETE		0x01
 struct hci_ev_le_conn_complete {
 	__u8     status;
@@ -1888,6 +2158,10 @@ struct hci_ev_le_conn_complete {
 
 #define ADDR_LE_DEV_PUBLIC	0x00
 #define ADDR_LE_DEV_RANDOM	0x01
+#ifdef CONFIG_TIZEN_WIP
+#define ADDR_LE_DEV_RESOLVED_PUBLIC	0x02
+#define ADDR_LE_DEV_RESOLVED_RANDOM	0x03
+#endif
 
 #define HCI_EV_LE_ADVERTISING_REPORT	0x02
 struct hci_ev_le_advertising_info {
@@ -1948,6 +2222,16 @@ struct hci_ev_le_direct_adv_info {
 	bdaddr_t direct_addr;
 	__s8	 rssi;
 } __packed;
+
+#ifdef CONFIG_TIZEN_WIP
+#define HCI_EV_LE_PHY_UPDATE_COMPLETE	0x0C
+struct hci_ev_le_phy_update_complete {
+	__u8	status;
+	__le16	handle;
+	__u8	tx_phys;
+	__u8	rx_phys;
+} __packed;
+#endif
 
 /* Internal events generated by Bluetooth stack */
 #define HCI_EV_STACK_INTERNAL	0xfd

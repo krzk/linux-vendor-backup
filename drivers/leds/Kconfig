@@ -659,6 +659,24 @@ config LEDS_MLXCPLD
 	  This option enabled support for the LEDs on the Mellanox
 	  boards. Say Y to enabled these.
 
+config LEDS_S2MPB02
+	bool "LED support for the S2MPB02"
+	depends on LEDS_CLASS
+	help
+	  This option enables support for the LEDs on the S2MPB02.
+
+config LEDS_IRIS_IRLED_SUPPORT
+	bool "IRLED support for IRIS"
+	depends on LEDS_CLASS
+	help
+	  This option enables support for the IR-LED.
+
+config LEDS_IRIS_IRLED_CERTIFICATE_SUPPORT
+	bool "LED support for the S2MPB02"
+	depends on LEDS_CLASS
+	help
+	  This option enables support for the LEDs on the S2MPB02.
+
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 

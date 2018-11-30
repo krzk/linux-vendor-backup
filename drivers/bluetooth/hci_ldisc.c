@@ -130,7 +130,14 @@ int hci_uart_tx_wakeup(struct hci_uart *hu)
 
 	BT_DBG("");
 
+#ifdef CONFIG_TIZEN_WIP
+	if(hu->workqueue_valid)
+		queue_work(hu->workqueue, &hu->write_work);
+	else
+		BT_ERR("[%s: %s(%d)] 'hu->workqueue' is already destroyed!", __FILE__, __FUNCTION__, __LINE__);
+#else
 	schedule_work(&hu->write_work);
+#endif
 
 	return 0;
 }
@@ -146,6 +153,9 @@ static void hci_uart_write_work(struct work_struct *work)
 	 * and error value ?
 	 */
 
+#ifdef CONFIG_TIZEN_WIP
+	wake_lock(&hdev->hci_tx_wake_lock);
+#endif
 restart:
 	clear_bit(HCI_UART_TX_WAKEUP, &hu->tx_state);
 
@@ -170,6 +180,10 @@ restart:
 		goto restart;
 
 	clear_bit(HCI_UART_SENDING, &hu->tx_state);
+
+#ifdef CONFIG_TIZEN_WIP
+	wake_lock_timeout(&hdev->hci_tx_wake_lock, HZ / 2);
+#endif
 }
 
 static void hci_uart_init_work(struct work_struct *work)
@@ -251,6 +265,9 @@ static int hci_uart_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 	BT_DBG("%s: type %d len %d", hdev->name, hci_skb_pkt_type(skb),
 	       skb->len);
 
+#ifdef CONFIG_TIZEN_WIP
+	wake_lock(&hdev->hci_tx_wake_lock);
+#endif
 	hu->proto->enqueue(hu, skb);
 
 	hci_uart_tx_wakeup(hu);
@@ -359,7 +376,9 @@ static int hci_uart_setup(struct hci_dev *hdev)
 	struct hci_rp_read_local_version *ver;
 	struct sk_buff *skb;
 	unsigned int speed;
+#ifndef CONFIG_TIZEN_WIP
 	int err;
+#endif
 
 	/* Init speed if any */
 	if (hu->init_speed)
@@ -372,6 +391,8 @@ static int hci_uart_setup(struct hci_dev *hdev)
 	if (speed)
 		hci_uart_set_baudrate(hu, speed);
 
+#ifndef CONFIG_TIZEN_WIP
+	/* This should be set right before Download Firmware */
 	/* Operational speed if any */
 	if (hu->oper_speed)
 		speed = hu->oper_speed;
@@ -385,7 +406,7 @@ static int hci_uart_setup(struct hci_dev *hdev)
 		if (!err)
 			hci_uart_set_baudrate(hu, speed);
 	}
-
+#endif
 	if (hu->proto->setup)
 		return hu->proto->setup(hu);
 
@@ -459,6 +480,18 @@ static int hci_uart_tty_open(struct tty_struct *tty)
 	hu->tty = tty;
 	tty->receive_room = 65536;
 
+#ifdef CONFIG_TIZEN_WIP
+	hu->workqueue = alloc_ordered_workqueue("hci_ldisc_wq", WQ_HIGHPRI);
+
+	if (!hu->workqueue) {
+		BT_ERR("hci_ldisc Workqueue not initialized properly");
+		kfree(hu);
+		return -ENOMEM;
+	}
+
+	hu->workqueue_valid = true;
+#endif
+
 	INIT_WORK(&hu->init_ready, hci_uart_init_work);
 	INIT_WORK(&hu->write_work, hci_uart_write_work);
 
@@ -491,6 +524,11 @@ static void hci_uart_tty_close(struct tty_struct *tty)
 		hci_uart_close(hdev);
 
 	cancel_work_sync(&hu->write_work);
+
+#ifdef CONFIG_TIZEN_WIP
+	hu->workqueue_valid = false;
+	destroy_workqueue(hu->workqueue);
+#endif
 
 	if (test_and_clear_bit(HCI_UART_PROTO_READY, &hu->flags)) {
 		if (hdev) {

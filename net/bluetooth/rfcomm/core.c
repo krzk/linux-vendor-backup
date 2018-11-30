@@ -783,7 +783,31 @@ failed:
 
 void rfcomm_session_getaddr(struct rfcomm_session *s, bdaddr_t *src, bdaddr_t *dst)
 {
+#ifdef CONFIG_TIZEN_WIP
+	struct l2cap_chan *chan;
+
+	if(!s) {
+		BT_ERR("[%s(%d)] s is NULL!", __FUNCTION__, __LINE__);
+		return;
+	}
+	if(!s->sock) {
+		BT_ERR("[%s(%d)] s->sock is NULL!", __FUNCTION__, __LINE__);
+		return;
+	}
+	if(!s->sock->sk) {
+		BT_ERR("[%s(%d)] s->sock->sk is NULL!", __FUNCTION__, __LINE__);
+		return;
+	}
+
+	chan = l2cap_pi(s->sock->sk)->chan;
+
+	if(!chan) {
+		BT_ERR("[%s(%d)] chan is NULL!", __FUNCTION__, __LINE__);
+		return;
+	}
+#else
 	struct l2cap_chan *chan = l2cap_pi(s->sock->sk)->chan;
+#endif
 	if (src)
 		bacpy(src, &chan->src);
 	if (dst)
@@ -814,7 +838,11 @@ static int rfcomm_send_sabm(struct rfcomm_session *s, u8 dlci)
 {
 	struct rfcomm_cmd cmd;
 
+#ifdef CONFIG_TIZEN_WIP
+	BT_INFO("[%s(%d)] session: %p, state: %s(%ld), channel: %d", __FUNCTION__, __LINE__, s, state_to_string(s->state), s->state, __srv_channel(dlci));
+#else
 	BT_DBG("%p dlci %d", s, dlci);
+#endif
 
 	cmd.addr = __addr(s->initiator, dlci);
 	cmd.ctrl = __ctrl(RFCOMM_SABM, 1);
@@ -828,7 +856,11 @@ static int rfcomm_send_ua(struct rfcomm_session *s, u8 dlci)
 {
 	struct rfcomm_cmd cmd;
 
+#ifdef CONFIG_TIZEN_WIP
+	BT_INFO("[%s(%d)] session: %p, state: %s(%ld), channel: %d", __FUNCTION__, __LINE__, s, state_to_string(s->state), s->state, __srv_channel(dlci));
+#else
 	BT_DBG("%p dlci %d", s, dlci);
+#endif
 
 	cmd.addr = __addr(!s->initiator, dlci);
 	cmd.ctrl = __ctrl(RFCOMM_UA, 1);
@@ -842,7 +874,11 @@ static int rfcomm_send_disc(struct rfcomm_session *s, u8 dlci)
 {
 	struct rfcomm_cmd cmd;
 
+#ifdef CONFIG_TIZEN_WIP
+	BT_INFO("[%s(%d)] session: %p, state: %s(%ld), channel: %d", __FUNCTION__, __LINE__, s, state_to_string(s->state), s->state, __srv_channel(dlci));
+#else
 	BT_DBG("%p dlci %d", s, dlci);
+#endif
 
 	cmd.addr = __addr(s->initiator, dlci);
 	cmd.ctrl = __ctrl(RFCOMM_DISC, 1);
@@ -857,7 +893,11 @@ static int rfcomm_queue_disc(struct rfcomm_dlc *d)
 	struct rfcomm_cmd *cmd;
 	struct sk_buff *skb;
 
+#ifdef CONFIG_TIZEN_WIP
+	BT_INFO("[%s(%d)] dlc: %p, channel: %d", __FUNCTION__, __LINE__, d, __srv_channel(d->dlci));
+#else
 	BT_DBG("dlc %p dlci %d", d, d->dlci);
+#endif
 
 	skb = alloc_skb(sizeof(*cmd), GFP_KERNEL);
 	if (!skb)
@@ -878,7 +918,11 @@ static int rfcomm_send_dm(struct rfcomm_session *s, u8 dlci)
 {
 	struct rfcomm_cmd cmd;
 
+#ifdef CONFIG_TIZEN_WIP
+	BT_INFO("[%s(%d)] session: %p, state: %s(%ld), channel: %d", __FUNCTION__, __LINE__, s, state_to_string(s->state), s->state, __srv_channel(dlci));
+#else
 	BT_DBG("%p dlci %d", s, dlci);
+#endif
 
 	cmd.addr = __addr(!s->initiator, dlci);
 	cmd.ctrl = __ctrl(RFCOMM_DM, 1);
@@ -1165,7 +1209,11 @@ static void rfcomm_make_uih(struct sk_buff *skb, u8 addr)
 /* ---- RFCOMM frame reception ---- */
 static struct rfcomm_session *rfcomm_recv_ua(struct rfcomm_session *s, u8 dlci)
 {
+#ifdef CONFIG_TIZEN_WIP
+	BT_INFO("[%s(%d)] session: %p, state: %s(%ld), channel: %d", __FUNCTION__, __LINE__, s, state_to_string(s->state), s->state, __srv_channel(dlci));
+#else
 	BT_DBG("session %p state %ld dlci %d", s, s->state, dlci);
+#endif
 
 	if (dlci) {
 		/* Data channel */
@@ -1219,7 +1267,11 @@ static struct rfcomm_session *rfcomm_recv_dm(struct rfcomm_session *s, u8 dlci)
 {
 	int err = 0;
 
+#ifdef CONFIG_TIZEN_WIP
+	BT_INFO("[%s(%d)] session: %p, state: %s(%ld), channel: %d", __FUNCTION__, __LINE__, s, state_to_string(s->state), s->state, __srv_channel(dlci));
+#else
 	BT_DBG("session %p state %ld dlci %d", s, s->state, dlci);
+#endif
 
 	if (dlci) {
 		/* Data DLC */
@@ -1249,7 +1301,11 @@ static struct rfcomm_session *rfcomm_recv_disc(struct rfcomm_session *s,
 {
 	int err = 0;
 
+#ifdef CONFIG_TIZEN_WIP
+	BT_INFO("[%s(%d)] session: %p, state: %s(%ld), channel: %d", __FUNCTION__, __LINE__, s, state_to_string(s->state), s->state, __srv_channel(dlci));
+#else
 	BT_DBG("session %p state %ld dlci %d", s, s->state, dlci);
+#endif
 
 	if (dlci) {
 		struct rfcomm_dlc *d = rfcomm_dlc_get(s, dlci);
@@ -1325,7 +1381,11 @@ static int rfcomm_recv_sabm(struct rfcomm_session *s, u8 dlci)
 	struct rfcomm_dlc *d;
 	u8 channel;
 
+#ifdef CONFIG_TIZEN_WIP
+	BT_INFO("[%s(%d)] session: %p, state: %s(%ld), channel: %d", __FUNCTION__, __LINE__, s, state_to_string(s->state), s->state, __srv_channel(dlci));
+#else
 	BT_DBG("session %p state %ld dlci %d", s, s->state, dlci);
+#endif
 
 	if (!dlci) {
 		rfcomm_send_ua(s, 0);

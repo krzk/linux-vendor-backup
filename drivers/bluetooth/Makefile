@@ -2,6 +2,12 @@
 # Makefile for the Linux Bluetooth HCI device drivers.
 #
 
+#BEGIN: CONFIG_TIZEN_WIP
+ifdef CONFIG_BT_BRCM_43012
+EXTRA_CFLAGS += -DBT_LPM_ENABLE -DCUSTOMER_HW4 -DCUSTOMER_HW4_DEBUG -Idrivers/net/wireless/bcmdhd/
+endif
+#END: CONFIG_TIZEN_WIP
+
 obj-$(CONFIG_BT_HCIVHCI)	+= hci_vhci.o
 obj-$(CONFIG_BT_HCIUART)	+= hci_uart.o
 obj-$(CONFIG_BT_HCIBCM203X)	+= bcm203x.o
@@ -24,6 +30,12 @@ obj-$(CONFIG_BT_QCOMSMD)	+= btqcomsmd.o
 obj-$(CONFIG_BT_BCM)		+= btbcm.o
 obj-$(CONFIG_BT_RTL)		+= btrtl.o
 obj-$(CONFIG_BT_QCA)		+= btqca.o
+
+#BEGIN: CONFIG_TIZEN_WIP
+obj-$(CONFIG_BT_BCM43XX)	   += bcm43xx.o
+obj-$(CONFIG_BT_BRCM_43012)    += bluetooth-bcm43012.o
+obj-$(CONFIG_BT_OVER_SDIO)     += bcmbtsdio.o
+#END: CONFIG_TIZEN_WIP
 
 btmrvl-y			:= btmrvl_main.o
 btmrvl-$(CONFIG_DEBUG_FS)	+= btmrvl_debugfs.o

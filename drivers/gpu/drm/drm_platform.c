@@ -27,7 +27,9 @@
 
 #include <linux/export.h>
 #include <drm/drmP.h>
-
+#ifdef CONFIG_DRM_TGM
+#include <drm/drm_auth.h>
+#endif
 /*
  * Register.
  *
@@ -67,6 +69,32 @@ err_free:
 	drm_dev_unref(dev);
 	return ret;
 }
+
+#ifdef CONFIG_DRM_TGM
+int drm_platform_set_busid(struct drm_device *dev, struct drm_master *master)
+{
+	int id;
+
+	id = dev->platformdev->id;
+	if (id < 0)
+		id = 0;
+
+	master->unique = kasprintf(GFP_KERNEL, "platform:%s:%02d",
+						dev->platformdev->name, id);
+	if (!master->unique)
+		return -ENOMEM;
+
+	master->unique_len = strlen(master->unique);
+	return 0;
+}
+EXPORT_SYMBOL(drm_platform_set_busid);
+
+int drm_platform_get_irq(struct drm_device *dev)
+{
+	return platform_get_irq(dev->platformdev, 0);
+}
+EXPORT_SYMBOL(drm_platform_get_irq);
+#endif
 
 /**
  * drm_platform_init - Register a platform device with the DRM subsystem

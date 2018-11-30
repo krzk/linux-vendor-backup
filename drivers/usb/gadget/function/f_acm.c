@@ -21,7 +21,9 @@
 #include <linux/err.h>
 
 #include "u_serial.h"
-
+#ifdef CONFIG_USB_DUN_SUPPORT
+#include "serial_acm_slp.c"
+#endif
 
 /*
  * This CDC ACM function support just wraps control functions and
@@ -392,6 +394,9 @@ static int acm_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		 * that bit, we should return to that no-flow state.
 		 */
 		acm->port_handshake_bits = w_value;
+#ifdef CONFIG_USB_DUN_SUPPORT
+		notify_control_line_state((unsigned long)w_value);
+#endif
 		break;
 
 	default:
@@ -570,6 +575,50 @@ static void acm_cdc_notify_complete(struct usb_ep *ep, struct usb_request *req)
 		acm_notify_serial_state(acm);
 }
 
+#ifdef CONFIG_USB_DUN_SUPPORT
+static int acm_notify(void *dev, u16 state)
+{
+	struct f_acm    *acm;
+	int status = 0;
+	unsigned long	flags;
+
+	if (dev) {
+		acm = (struct f_acm *)dev;
+		if (acm->notify->enabled) {
+			acm->serial_state = state;
+
+			/* Some udc worked irq-handler based (not threaded) so
+			 * it makes a change to IRQ-context by udc-irq but,
+			 * this function could be called from user-context and
+			 * spin_lock also could be called again in ISR-context
+			 * By this reason, dead-lock situation happened.
+			 * To avoid dead-lock situation, use spin_lock_irqsave
+			 */
+
+			spin_lock_irqsave(&acm->lock, flags);
+			if (acm->notify_req) {
+				status = acm_cdc_notify(acm,
+					USB_CDC_NOTIFY_SERIAL_STATE,
+					0, &acm->serial_state,
+					sizeof(acm->serial_state));
+			} else {
+				acm->pending = true;
+				status = 0;
+			}
+			spin_unlock_irqrestore(&acm->lock, flags);
+		} else {
+			pr_debug("usb: %s not enabled\n", __func__);
+			return -ENODEV;
+		}
+	} else {
+		pr_debug("usb: %s not ready\n", __func__);
+		return -EAGAIN;
+	}
+
+	return status;
+}
+#endif /* CONFIG_USB_DUN_SUPPORT */
+
 /* connect == the TTY link is open */
 
 static void acm_connect(struct gserial *port)
@@ -613,19 +662,28 @@ acm_bind(struct usb_configuration *c, struct usb_function *f)
 	struct usb_string	*us;
 	int			status;
 	struct usb_ep		*ep;
+	struct f_serial_opts *serial_opts;
 
 	/* REVISIT might want instance-specific strings to help
 	 * distinguish instances ...
 	 */
 
-	/* maybe allocate device-global string IDs, and patch descriptors */
-	us = usb_gstrings_attach(cdev, acm_strings,
-			ARRAY_SIZE(acm_string_defs));
-	if (IS_ERR(us))
-		return PTR_ERR(us);
-	acm_control_interface_desc.iInterface = us[ACM_CTRL_IDX].id;
-	acm_data_interface_desc.iInterface = us[ACM_DATA_IDX].id;
-	acm_iad_descriptor.iFunction = us[ACM_IAD_IDX].id;
+	/* To prevent re-alloc memory in old style slp_gadget driver */
+	serial_opts = container_of(f->fi, struct f_serial_opts, func_inst);
+	if (!serial_opts->us) {
+		/* maybe allocated device-global string IDs,
+		 * and patch descriptors
+		 */
+		us = usb_gstrings_attach(cdev, acm_strings,
+				ARRAY_SIZE(acm_string_defs));
+		if (IS_ERR(us))
+			return PTR_ERR(us);
+		acm_control_interface_desc.iInterface = us[ACM_CTRL_IDX].id;
+		acm_data_interface_desc.iInterface = us[ACM_DATA_IDX].id;
+		acm_iad_descriptor.iFunction = us[ACM_IAD_IDX].id;
+
+		serial_opts->us = us;
+	}
 
 	/* allocate instance-specific interface IDs, and patch descriptors */
 	status = usb_interface_id(c, f);
@@ -698,6 +756,10 @@ acm_bind(struct usb_configuration *c, struct usb_function *f)
 		gadget_is_dualspeed(c->cdev->gadget) ? "dual" : "full",
 		acm->port.in->name, acm->port.out->name,
 		acm->notify->name);
+
+#ifdef CONFIG_USB_DUN_SUPPORT
+	modem_register(acm);
+#endif
 	return 0;
 
 fail:
@@ -717,6 +779,10 @@ static void acm_unbind(struct usb_configuration *c, struct usb_function *f)
 	usb_free_all_descriptors(f);
 	if (acm->notify_req)
 		gs_free_req(acm->notify, acm->notify_req);
+
+#ifdef CONFIG_USB_DUN_SUPPORT
+	modem_unregister();
+#endif
 }
 
 static void acm_free_func(struct usb_function *f)
@@ -819,5 +885,34 @@ static struct usb_function_instance *acm_alloc_instance(void)
 			&acm_func_type);
 	return &opts->func_inst;
 }
+
+#ifdef CONFIG_USB_DUN_SUPPORT
+DECLARE_USB_FUNCTION(acm, acm_alloc_instance, acm_alloc_func);
+
+static int __init acm_init(void)
+{
+	int err;
+
+	err = modem_misc_register();
+	if (err) {
+		pr_err("usb: %s modem misc register is failed\n",
+				__func__);
+		return err;
+	}
+
+	return usb_function_register(&acmusb_func);
+}
+
+static void __exit acm_exit(void)
+{
+	modem_misc_unregister();
+	return usb_function_unregister(&acmusb_func);
+}
+
+module_init(acm_init);
+module_exit(acm_exit);
+
+#else
 DECLARE_USB_FUNCTION_INIT(acm, acm_alloc_instance, acm_alloc_func);
+#endif
 MODULE_LICENSE("GPL");

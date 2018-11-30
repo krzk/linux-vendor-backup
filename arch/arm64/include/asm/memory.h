@@ -66,6 +66,7 @@
 #define VA_BITS			(CONFIG_ARM64_VA_BITS)
 #define VA_START		(UL(0xffffffffffffffff) << VA_BITS)
 #define PAGE_OFFSET		(UL(0xffffffffffffffff) << (VA_BITS - 1))
+#define PAGE_OFFSET_COHERENT	(UL(0xffffffffffffffff) << (VA_BITS - 2))
 #define KIMAGE_VADDR		(MODULES_END)
 #define MODULES_END		(MODULES_VADDR + MODULES_VSIZE)
 #define MODULES_VADDR		(VA_START + KASAN_SHADOW_SIZE)
@@ -110,6 +111,14 @@
 	phys_addr_t __x = (phys_addr_t)(x);				\
 	__x & BIT(VA_BITS - 1) ? (__x & ~PAGE_OFFSET) + PHYS_OFFSET :	\
 				 (__x - kimage_voffset); })
+#ifndef CONFIG_TIMA_RKP
+#define __phys_to_coherent_virt(x) \
+		((unsigned long)((x) - PHYS_OFFSET + PAGE_OFFSET_COHERENT))
+#define __virt_to_coherent_virt(x) \
+		((phys_addr_t)(x) - PAGE_OFFSET + PAGE_OFFSET_COHERENT)
+#define __coherent_virt_to_virt(x) \
+		((phys_addr_t)(x) + PAGE_OFFSET - PAGE_OFFSET_COHERENT)
+#endif
 
 #define __phys_to_virt(x)	((unsigned long)((x) - PHYS_OFFSET) | PAGE_OFFSET)
 #define __phys_to_kimg(x)	((unsigned long)((x) + kimage_voffset))
@@ -230,6 +239,14 @@ static inline void *phys_to_virt(phys_addr_t x)
 #define _virt_addr_is_linear(kaddr)	(((u64)(kaddr)) >= PAGE_OFFSET)
 #define virt_addr_valid(kaddr)		(_virt_addr_is_linear(kaddr) && \
 					 _virt_addr_valid(kaddr))
+
+#define ZONE_MOVABLE_SIZE_BYTES	0
+
+#if defined(CONFIG_ZONE_MOVABLE) && defined(CONFIG_ZONE_MOVABLE_SIZE_MBYTES) \
+					&& (CONFIG_ZONE_MOVABLE_SIZE_MBYTES > 0)
+#undef ZONE_MOVABLE_SIZE_BYTES
+#define ZONE_MOVABLE_SIZE_BYTES	((u32)(CONFIG_ZONE_MOVABLE_SIZE_MBYTES << 20))
+#endif
 
 #include <asm-generic/memory_model.h>
 

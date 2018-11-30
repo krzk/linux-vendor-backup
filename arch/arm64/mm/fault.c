@@ -24,12 +24,14 @@
 #include <linux/hardirq.h>
 #include <linux/init.h>
 #include <linux/kprobes.h>
+#include <swap/hook_usaux.h>
 #include <linux/uaccess.h>
 #include <linux/page-flags.h>
 #include <linux/sched.h>
 #include <linux/highmem.h>
 #include <linux/perf_event.h>
 #include <linux/preempt.h>
+#include <linux/exynos-ss.h>
 
 #include <asm/bug.h>
 #include <asm/cpufeature.h>
@@ -40,6 +42,10 @@
 #include <asm/system_misc.h>
 #include <asm/pgtable.h>
 #include <asm/tlbflush.h>
+
+#include <soc/samsung/exynos-condbg.h>
+
+static int safe_fault_in_progress = 0;
 
 struct fault_info {
 	int	(*fn)(unsigned long addr, unsigned int esr,
@@ -167,6 +173,18 @@ int ptep_set_access_flags(struct vm_area_struct *vma,
 	return 1;
 }
 #endif
+static int __do_kernel_fault_safe(struct mm_struct *mm, unsigned long addr,
+		unsigned int esr, struct pt_regs *regs)
+{
+	safe_fault_in_progress = 0xFAFADEAD;
+
+	exynos_ss_panic_handler_safe();
+	exynos_ss_printkl(safe_fault_in_progress,safe_fault_in_progress);
+	while(1)
+		wfi();
+
+	return 0;
+}
 
 static bool is_el1_instruction_abort(unsigned int esr)
 {
@@ -185,6 +203,10 @@ static void __do_kernel_fault(struct mm_struct *mm, unsigned long addr,
 	 */
 	if (!is_el1_instruction_abort(esr) && fixup_exception(regs))
 		return;
+	if (safe_fault_in_progress) {
+		exynos_ss_printkl(safe_fault_in_progress, safe_fault_in_progress);
+		return;
+	}
 
 	/*
 	 * No handler, we'll have to terminate things with extreme prejudice.
@@ -286,13 +308,19 @@ out:
 	return fault;
 }
 
-static inline bool is_permission_fault(unsigned int esr)
+static inline bool is_permission_fault(unsigned int esr, struct pt_regs *regs)
 {
 	unsigned int ec       = ESR_ELx_EC(esr);
 	unsigned int fsc_type = esr & ESR_ELx_FSC_TYPE;
 
-	return (ec == ESR_ELx_EC_DABT_CUR && fsc_type == ESR_ELx_FSC_PERM) ||
-	       (ec == ESR_ELx_EC_IABT_CUR && fsc_type == ESR_ELx_FSC_PERM);
+	if (ec != ESR_ELx_EC_DABT_CUR && ec != ESR_ELx_EC_IABT_CUR)
+		return false;
+
+	if (system_uses_ttbr0_pan())
+		return fsc_type == ESR_ELx_FSC_FAULT &&
+			(regs->pstate & PSR_PAN_BIT);
+	else
+		return fsc_type == ESR_ELx_FSC_PERM;
 }
 
 static bool is_el0_instruction_abort(unsigned int esr)
@@ -332,7 +360,7 @@ static int __kprobes do_page_fault(unsigned long addr, unsigned int esr,
 		mm_flags |= FAULT_FLAG_WRITE;
 	}
 
-	if (is_permission_fault(esr) && (addr < USER_DS)) {
+	if (addr < USER_DS && is_permission_fault(esr, regs)) {
 		/* regs->orig_addr_limit may be 0 if we entered from EL0 */
 		if (regs->orig_addr_limit == KERNEL_DS)
 			die("Accessing user space memory with fs=KERNEL_DS", regs, esr);
@@ -413,8 +441,10 @@ retry:
 	 * Handle the "normal" case first - VM_FAULT_MAJOR
 	 */
 	if (likely(!(fault & (VM_FAULT_ERROR | VM_FAULT_BADMAP |
-			      VM_FAULT_BADACCESS))))
+			      VM_FAULT_BADACCESS)))) {
+		swap_usaux_page_fault(addr);
 		return 0;
+	}
 
 	/*
 	 * If we are in kernel mode at this point, we have no context to
@@ -458,6 +488,8 @@ no_context:
 	return 0;
 }
 
+#define thread_virt_addr_valid(xaddr)	pfn_valid(__pa(xaddr) >> PAGE_SHIFT)
+
 /*
  * First Level Translation Fault Handler
  *
@@ -479,6 +511,10 @@ static int __kprobes do_translation_fault(unsigned long addr,
 					  unsigned int esr,
 					  struct pt_regs *regs)
 {
+	/* We may have invalid '*current' due to a stack overflow. */
+	if (!thread_virt_addr_valid(current_thread_info()) || !thread_virt_addr_valid(current))
+		__do_kernel_fault_safe(NULL, addr, esr, regs);
+
 	if (addr < TASK_SIZE)
 		return do_page_fault(addr, esr, regs);
 
@@ -498,7 +534,7 @@ static int do_alignment_fault(unsigned long addr, unsigned int esr,
  */
 static int do_bad(unsigned long addr, unsigned int esr, struct pt_regs *regs)
 {
-	return 1;
+	return ecd_do_bad(addr, regs);
 }
 
 static const struct fault_info fault_info[] = {
@@ -560,7 +596,7 @@ static const struct fault_info fault_info[] = {
 	{ do_bad,		SIGBUS,  0,		"unknown 55"			},
 	{ do_bad,		SIGBUS,  0,		"unknown 56"			},
 	{ do_bad,		SIGBUS,  0,		"unknown 57"			},
-	{ do_bad,		SIGBUS,  0,		"unknown 58" 			},
+	{ do_bad,		SIGBUS,  0,		"unknown 58"			},
 	{ do_bad,		SIGBUS,  0,		"unknown 59"			},
 	{ do_bad,		SIGBUS,  0,		"unknown 60"			},
 	{ do_bad,		SIGBUS,  0,		"section domain fault"		},
@@ -580,8 +616,18 @@ asmlinkage void __exception do_mem_abort(unsigned long addr, unsigned int esr,
 	if (!inf->fn(addr, esr, regs))
 		return;
 
-	pr_alert("Unhandled fault: %s (0x%08x) at 0x%016lx\n",
-		 inf->name, esr, addr);
+	/* Synchronous external abort only */
+	if ((esr & 63) == 0x10) {
+		if (esr & BIT(10)) {
+			/* FnV = 1, FAR is not valid for custom core */
+			pr_alert("Unhandled fault: %s (0x%08x) at 0x%016lx (PA)\n",
+					inf->name, esr, addr & 0xFFFFFFFFFUL);
+		} else {
+			/* FnV = 0, FAR valid for ARM core */
+			pr_alert("Unhandled fault: %s (0x%08x) at 0x%016lx (VA)\n",
+					inf->name, esr, addr);
+		}
+	}
 
 	info.si_signo = inf->sig;
 	info.si_errno = 0;

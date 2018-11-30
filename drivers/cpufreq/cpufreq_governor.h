@@ -113,6 +113,9 @@ struct cpu_dbs_info {
 	u64 prev_cpu_idle;
 	u64 prev_update_time;
 	u64 prev_cpu_nice;
+#if defined(CONFIG_CPU_FREQ_DEFAULT_GOV_TIZEN_MORION)
+	u64 prev_cpu_iowait;
+#endif
 	/*
 	 * Used to keep track of load in the previous interval. However, when
 	 * explicitly set to zero, it is used as a flag to ensure that we copy
@@ -123,6 +126,8 @@ struct cpu_dbs_info {
 	struct update_util_data update_util;
 	struct policy_dbs_info *policy_dbs;
 };
+
+DECLARE_PER_CPU(struct cpu_dbs_info, cpu_dbs);
 
 /* Common Governor data across policies */
 struct dbs_governor {
@@ -172,6 +177,13 @@ struct od_ops {
 	unsigned int (*powersave_bias_target)(struct cpufreq_policy *policy,
 			unsigned int freq_next, unsigned int relation);
 };
+#if defined(CONFIG_CPU_FREQ_DEFAULT_GOV_TIZEN_MORION)
+/* Tizen Morion Governor specific operations */
+struct morion_ops {
+	unsigned int (*powersave_bias_target)(struct cpufreq_policy *policy,
+			unsigned int freq_next, unsigned int relation);
+};
+#endif
 
 unsigned int dbs_update(struct cpufreq_policy *policy);
 void od_register_powersave_bias_handler(unsigned int (*f)

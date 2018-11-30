@@ -112,6 +112,10 @@ int btbcm_patchram(struct hci_dev *hdev, const struct firmware *fw)
 	u16 opcode;
 	int err = 0;
 
+#ifdef CONFIG_TIZEN_WIP
+	/* 100 msec delay before Download Minidrv completes */
+	msleep(100);
+#endif
 	/* Start Download */
 	skb = __hci_cmd_sync(hdev, 0xfc2e, 0, NULL, HCI_INIT_TIMEOUT);
 	if (IS_ERR(skb)) {
@@ -122,9 +126,10 @@ int btbcm_patchram(struct hci_dev *hdev, const struct firmware *fw)
 	}
 	kfree_skb(skb);
 
+#ifndef CONFIG_TIZEN_WIP
 	/* 50 msec delay after Download Minidrv completes */
 	msleep(50);
-
+#endif
 	fw_ptr = fw->data;
 	fw_size = fw->size;
 
@@ -158,15 +163,24 @@ int btbcm_patchram(struct hci_dev *hdev, const struct firmware *fw)
 		kfree_skb(skb);
 	}
 
+#ifdef CONFIG_TIZEN_WIP
+	/* 100 msec delay after Launch Ram completes */
+	msleep(100);
+#else
 	/* 250 msec delay after Launch Ram completes */
 	msleep(250);
+#endif
 
 done:
 	return err;
 }
 EXPORT_SYMBOL(btbcm_patchram);
 
+#ifdef CONFIG_TIZEN_WIP
+int btbcm_reset(struct hci_dev *hdev)
+#else
 static int btbcm_reset(struct hci_dev *hdev)
+#endif
 {
 	struct sk_buff *skb;
 
@@ -180,6 +194,9 @@ static int btbcm_reset(struct hci_dev *hdev)
 
 	return 0;
 }
+#ifdef CONFIG_TIZEN_WIP
+EXPORT_SYMBOL(btbcm_reset);
+#endif
 
 static struct sk_buff *btbcm_read_local_name(struct hci_dev *hdev)
 {
@@ -223,6 +240,7 @@ static struct sk_buff *btbcm_read_local_version(struct hci_dev *hdev)
 	return skb;
 }
 
+#ifndef CONFIG_TIZEN_WIP
 static struct sk_buff *btbcm_read_verbose_config(struct hci_dev *hdev)
 {
 	struct sk_buff *skb;
@@ -273,13 +291,33 @@ static const struct {
 	{ 0x610c, "BCM4354"	},	/* 003.001.012 */
 	{ }
 };
+#else
+static const struct {
+	const char *rom_name;
+	const char *market_name;
+} bcm_chip_name_table[] = {
+	{ "BCM43430B0", "bcm43436l"	},
+	{ "BCM43012B0", "bcm43012"	},
+	{ }
+};
+#endif
 
 int btbcm_initialize(struct hci_dev *hdev, char *fw_name, size_t len)
 {
+#ifndef CONFIG_TIZEN_WIP
 	u16 subver, rev;
+#endif
 	const char *hw_name = NULL;
 	struct sk_buff *skb;
+#ifdef CONFIG_TIZEN_WIP
+	struct hci_rp_read_local_name *rp;
+#if defined(CONFIG_BCM43012)
+	u8 data0[8] = {0x88, 0x00, 0x60, 0x00, 0x23, 0x00, 0x00, 0x00};
+	u8 data1[8] = {0x24, 0x40, 0x65, 0x00, 0x9f, 0x46, 0x06, 0x00};
+#endif
+#else
 	struct hci_rp_read_local_version *ver;
+#endif
 	int i, err;
 
 	/* Reset */
@@ -287,6 +325,58 @@ int btbcm_initialize(struct hci_dev *hdev, char *fw_name, size_t len)
 	if (err)
 		return err;
 
+#ifdef CONFIG_TIZEN_WIP
+	/* Based on BRCM suggest we would refer to the BT rom name
+	 * instead of LMP subversion which is used by upstream*/
+
+	/* Read Local Name */
+	skb = btbcm_read_local_name(hdev);
+	if (IS_ERR(skb))
+		return PTR_ERR(skb);
+
+	rp = (struct hci_rp_read_local_name *)skb->data;
+
+	BT_INFO("BCM: rom name %s", rp->name);
+
+	for (i = 0; bcm_chip_name_table[i].rom_name; i++) {
+		if (!strncmp(bcm_chip_name_table[i].rom_name, rp->name,
+				strlen(bcm_chip_name_table[i].rom_name))) {
+			hw_name = bcm_chip_name_table[i].market_name;
+			break;
+		}
+	}
+	snprintf(fw_name, len, "%s.hcd", hw_name ? : "BCM");
+
+	BT_INFO("BCM: firmware: %s", fw_name);
+
+	kfree_skb(skb);
+
+#if defined(CONFIG_BCM43012)
+	skb = __hci_cmd_sync(hdev, 0xfc4c, sizeof(data0), &data0,
+			     HCI_INIT_TIMEOUT);
+
+	if (IS_ERR(skb)) {
+		int err = PTR_ERR(skb);
+		bt_dev_err(hdev, "BCM: failed to send clock0 setting (%d)",
+			   err);
+		return err;
+	}
+
+	kfree_skb(skb);
+
+	skb = __hci_cmd_sync(hdev, 0xfc4c, sizeof(data1), &data1,
+			     HCI_INIT_TIMEOUT);
+
+	if (IS_ERR(skb)) {
+		int err = PTR_ERR(skb);
+		bt_dev_err(hdev, "BCM: failed to send clock1 setting (%d)",
+			   err);
+		return err;
+	}
+
+	kfree_skb(skb);
+#endif
+#else
 	/* Read Local Version Info */
 	skb = btbcm_read_local_version(hdev);
 	if (IS_ERR(skb))
@@ -325,6 +415,7 @@ int btbcm_initialize(struct hci_dev *hdev, char *fw_name, size_t len)
 	BT_INFO("%s: %s (%3.3u.%3.3u.%3.3u) build %4.4u", hdev->name,
 		hw_name ? : "BCM", (subver & 0xe000) >> 13,
 		(subver & 0x1f00) >> 8, (subver & 0x00ff), rev & 0x0fff);
+#endif
 
 	return 0;
 }
@@ -364,6 +455,7 @@ int btbcm_finalize(struct hci_dev *hdev)
 }
 EXPORT_SYMBOL_GPL(btbcm_finalize);
 
+#ifndef CONFIG_TIZEN_WIP
 static const struct {
 	u16 subver;
 	const char *name;
@@ -549,6 +641,7 @@ int btbcm_setup_apple(struct hci_dev *hdev)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(btbcm_setup_apple);
+#endif
 
 MODULE_AUTHOR("Marcel Holtmann <marcel@holtmann.org>");
 MODULE_DESCRIPTION("Bluetooth support for Broadcom devices ver " VERSION);

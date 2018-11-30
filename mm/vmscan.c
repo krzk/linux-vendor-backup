@@ -59,6 +59,13 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/vmscan.h>
 
+#include <linux/load_analyzer.h>
+
+#if defined(CONFIG_KSWAPD_WAKEUP_DEBUGS)
+unsigned long kswapd_count = 0;
+unsigned long run_time = 0;
+#endif
+
 struct scan_control {
 	/* How many pages shrink_list() should reclaim */
 	unsigned long nr_to_reclaim;
@@ -3414,6 +3421,9 @@ static int kswapd(void *p)
 	unsigned int alloc_order, reclaim_order, classzone_idx;
 	pg_data_t *pgdat = (pg_data_t*)p;
 	struct task_struct *tsk = current;
+#if defined(CONFIG_KSWAPD_WAKEUP_DEBUGS)
+	unsigned long long time_begin = 0;
+#endif
 
 	struct reclaim_state reclaim_state = {
 		.reclaimed_slab = 0,
@@ -3477,7 +3487,17 @@ kswapd_try_sleep:
 		 */
 		trace_mm_vmscan_kswapd_wake(pgdat->node_id, classzone_idx,
 						alloc_order);
+
+		pr_info("%s: [Mem_reclaim] Kswapd woken up start reclaiming\n", __func__);
+
+#if defined(CONFIG_KSWAPD_WAKEUP_DEBUGS)
+		time_begin = jiffies;
+#endif
 		reclaim_order = balance_pgdat(pgdat, alloc_order, classzone_idx);
+#if defined(CONFIG_KSWAPD_WAKEUP_DEBUGS)
+		kswapd_count++;
+		run_time += jiffies - time_begin;
+#endif
 		if (reclaim_order < alloc_order)
 			goto kswapd_try_sleep;
 

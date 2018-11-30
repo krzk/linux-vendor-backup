@@ -1,6 +1,10 @@
 #ifndef _SCSI_DISK_H
 #define _SCSI_DISK_H
 
+#if defined(CONFIG_UFS_SRPMB)
+#include "scsi_srpmb.h"
+#endif
+
 /*
  * More than enough for everybody ;)  The huge number of majors
  * is a leftover from 16bit dev_t days, we don't really need that
@@ -94,6 +98,9 @@ struct scsi_disk {
 	unsigned	lbpvpd : 1;
 	unsigned	ws10 : 1;
 	unsigned	ws16 : 1;
+#if defined(CONFIG_UFS_SRPMB)
+	struct rpmb_irq_ctx *rpmb_ctx;
+#endif
 };
 #define to_scsi_disk(obj) container_of(obj,struct scsi_disk,dev)
 
@@ -149,11 +156,6 @@ static inline int scsi_medium_access_command(struct scsi_cmnd *scmd)
 static inline sector_t logical_to_sectors(struct scsi_device *sdev, sector_t blocks)
 {
 	return blocks << (ilog2(sdev->sector_size) - 9);
-}
-
-static inline unsigned int logical_to_bytes(struct scsi_device *sdev, sector_t blocks)
-{
-	return blocks * sdev->sector_size;
 }
 
 /*

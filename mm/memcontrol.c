@@ -2774,6 +2774,36 @@ static unsigned long mem_cgroup_usage(struct mem_cgroup *memcg, bool swap)
 	return val;
 }
 
+#ifdef CONFIG_MEMCG_SWAP
+static int mem_cgroup_force_reclaim(struct cgroup_subsys_state *css,
+			       struct cftype *cft, u64 val)
+{
+	struct mem_cgroup *memcg = mem_cgroup_from_css(css);
+	unsigned long nr_to_reclaim = val;
+	unsigned long total = 0;
+	int loop;
+
+	for (loop = 0; loop < MEM_CGROUP_MAX_RECLAIM_LOOPS; loop++) {
+		total += try_to_free_mem_cgroup_pages(memcg, nr_to_reclaim,
+						GFP_KERNEL, true);
+
+		/*
+		 * If nothing was reclaimed after two attempts, there
+		 * may be no reclaimable pages in this hierarchy.
+		 * If more than nr_to_reclaim pages were already reclaimed,
+		 * finish force reclaim.
+		 */
+		if (loop && (!total || total > nr_to_reclaim))
+			break;
+	}
+
+	pr_info("%s: [Mem_reclaim] Loop: %d - Total_reclaimed: %lu - nr_to_reclaim: %lu\n",
+		__func__, loop, total, nr_to_reclaim);
+
+	return total;
+}
+#endif
+
 enum {
 	RES_USAGE,
 	RES_LIMIT,
@@ -6102,6 +6132,10 @@ static struct cftype memsw_cgroup_files[] = {
 		.private = MEMFILE_PRIVATE(_MEMSWAP, RES_FAILCNT),
 		.write = mem_cgroup_reset,
 		.read_u64 = mem_cgroup_read_u64,
+	},
+	{
+		.name = "force_reclaim",
+		.write_u64 = mem_cgroup_force_reclaim,
 	},
 	{ },	/* terminate */
 };

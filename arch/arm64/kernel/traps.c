@@ -31,6 +31,7 @@
 #include <linux/init.h>
 #include <linux/sched.h>
 #include <linux/syscalls.h>
+#include <linux/exynos-ss.h>
 
 #include <asm/atomic.h>
 #include <asm/bug.h>
@@ -42,6 +43,10 @@
 #include <asm/exception.h>
 #include <asm/system_misc.h>
 #include <asm/sysreg.h>
+#include <soc/samsung/exynos-condbg.h>
+#ifdef CONFIG_SEC_DEBUG
+#include <linux/sec_debug.h>
+#endif
 
 static const char *handler[]= {
 	"Synchronous Abort",
@@ -136,6 +141,25 @@ static void dump_instr(const char *lvl, struct pt_regs *regs)
 	}
 }
 
+static bool on_valid_stack(struct task_struct *tsk, unsigned long sp, unsigned long irq_sp)
+{
+	unsigned long low = (unsigned long)task_stack_page(tsk);
+	unsigned long high = low + THREAD_SIZE;
+
+	if (low <= sp && sp < high)
+		return true;
+
+	if (irq_sp) {
+		low = irq_sp - IRQ_STACK_SIZE;
+		high = irq_sp;
+
+		if (low <= sp && sp < high)
+			return true;
+	}
+
+	return false;
+}
+
 static void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 {
 	struct stackframe frame;
@@ -182,6 +206,9 @@ static void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 		/* skip until specified stack frame */
 		if (!skip) {
 			dump_backtrace_entry(where);
+#if 0
+			exynos_ss_save_log(raw_smp_processor_id(), where);
+#endif
 		} else if (frame.fp == regs->regs[29]) {
 			skip = 0;
 			/*
@@ -192,6 +219,9 @@ static void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 			 * instead.
 			 */
 			dump_backtrace_entry(regs->pc);
+#if 0
+			exynos_ss_save_log(raw_smp_processor_id(), regs->pc);
+#endif
 		}
 		ret = unwind_frame(tsk, &frame);
 		if (ret < 0)
@@ -208,8 +238,9 @@ static void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 			    (stack + sizeof(struct pt_regs)) > irq_stack_ptr)
 				stack = IRQ_STACK_TO_TASK_STACK(irq_stack_ptr);
 
-			dump_mem("", "Exception stack", stack,
-				 stack + sizeof(struct pt_regs));
+			if (on_valid_stack(tsk, stack, irq_stack_ptr))
+				dump_mem("", "Exception stack", stack,
+					 stack + sizeof(struct pt_regs));
 		}
 	}
 }
@@ -234,6 +265,7 @@ static int __die(const char *str, int err, struct thread_info *thread,
 	static int die_counter;
 	int ret;
 
+	ecd_printf("%s\n", str);
 	pr_emerg("Internal error: %s: %x [#%d]" S_PREEMPT S_SMP "\n",
 		 str, err, ++die_counter);
 
@@ -272,6 +304,9 @@ void die(const char *str, struct pt_regs *regs, int err)
 	raw_spin_lock_irq(&die_lock);
 	console_verbose();
 	bust_spinlocks(1);
+#ifdef CONFIG_SEC_DUMP_SUMMARY
+	sec_debug_save_die_info(str, regs);
+#endif
 	ret = __die(str, err, thread, regs);
 
 	if (regs && kexec_should_crash(thread->task))
@@ -282,10 +317,29 @@ void die(const char *str, struct pt_regs *regs, int err)
 	raw_spin_unlock_irq(&die_lock);
 	oops_exit();
 
+#if defined(CONFIG_SEC_DEBUG)
+	if (in_interrupt()) {
+		if (regs)
+			panic("%s\nPC is at %pS\nLR is at %pS",
+					"Fatal exception in interrupt", (void *)(regs)->pc,
+					(compat_user_mode(regs)) ? (void *)regs->compat_lr : (void *)regs->regs[30]);
+		else
+			panic("Fatal exception in interrupt");
+	}
+	if (panic_on_oops) {
+		if (regs)
+			panic("%s\nPC is at %pS\nLR is at %pS",
+					"Fatal exception", (void *)(regs)->pc,
+					(compat_user_mode(regs)) ? (void *)regs->compat_lr : (void *)regs->regs[30]);
+		else
+			panic("Fatal exception");
+	}
+#else
 	if (in_interrupt())
 		panic("Fatal exception in interrupt");
 	if (panic_on_oops)
 		panic("Fatal exception");
+#endif
 	if (ret != NOTIFY_STOP)
 		do_exit(SIGSEGV);
 }
@@ -366,7 +420,7 @@ exit:
 }
 
 static void force_signal_inject(int signal, int code, struct pt_regs *regs,
-				unsigned long address)
+				unsigned long address, unsigned int esr)
 {
 	siginfo_t info;
 	void __user *pc = (void __user *)instruction_pointer(regs);
@@ -386,8 +440,8 @@ static void force_signal_inject(int signal, int code, struct pt_regs *regs,
 
 	if (unhandled_signal(current, signal) &&
 	    show_unhandled_signals_ratelimited()) {
-		pr_info("%s[%d]: %s: pc=%p\n",
-			current->comm, task_pid_nr(current), desc, pc);
+		pr_info("%s[%d]: %s: pc=%p (esr=0x%x)\n",
+			current->comm, task_pid_nr(current), desc, pc, esr);
 		dump_instr(KERN_INFO, regs);
 	}
 
@@ -396,7 +450,7 @@ static void force_signal_inject(int signal, int code, struct pt_regs *regs,
 	info.si_code  = code;
 	info.si_addr  = pc;
 
-	arm64_notify_die(desc, regs, &info, 0);
+	arm64_notify_die(desc, regs, &info, esr);
 }
 
 /*
@@ -413,10 +467,10 @@ void arm64_notify_segfault(struct pt_regs *regs, unsigned long addr)
 		code = SEGV_ACCERR;
 	up_read(&current->mm->mmap_sem);
 
-	force_signal_inject(SIGSEGV, code, regs, addr);
+	force_signal_inject(SIGSEGV, code, regs, addr, 0);
 }
 
-asmlinkage void __exception do_undefinstr(struct pt_regs *regs)
+asmlinkage void __exception do_undefinstr(struct pt_regs *regs, unsigned int esr)
 {
 	/* check for AArch32 breakpoint instructions */
 	if (!aarch32_break_handler(regs))
@@ -425,7 +479,9 @@ asmlinkage void __exception do_undefinstr(struct pt_regs *regs)
 	if (call_undef_hook(regs) == 0)
 		return;
 
-	force_signal_inject(SIGILL, ILL_ILLOPC, regs, 0);
+	dump_instr(KERN_EMERG, regs);
+
+	force_signal_inject(SIGILL, ILL_ILLOPC, regs, 0, esr);
 }
 
 int cpu_enable_cache_maint_trap(void *__unused)
@@ -435,9 +491,10 @@ int cpu_enable_cache_maint_trap(void *__unused)
 }
 
 #define __user_cache_maint(insn, address, res)			\
-	if (address >= user_addr_max())				\
+	if (address >= user_addr_max()) {			\
 		res = -EFAULT;					\
-	else							\
+	} else {						\
+		uaccess_ttbr0_enable();				\
 		asm volatile (					\
 			"1:	" insn ", %1\n"			\
 			"	mov	%w0, #0\n"		\
@@ -449,7 +506,9 @@ int cpu_enable_cache_maint_trap(void *__unused)
 			"	.popsection\n"			\
 			_ASM_EXTABLE(1b, 3b)			\
 			: "=r" (res)				\
-			: "r" (address), "i" (-EFAULT) )
+			: "r" (address), "i" (-EFAULT));	\
+		uaccess_ttbr0_disable();			\
+	}
 
 static void user_cache_maint_handler(unsigned int esr, struct pt_regs *regs)
 {
@@ -474,7 +533,7 @@ static void user_cache_maint_handler(unsigned int esr, struct pt_regs *regs)
 		__user_cache_maint("ic ivau", address, ret);
 		break;
 	default:
-		force_signal_inject(SIGILL, ILL_ILLOPC, regs, 0);
+		force_signal_inject(SIGILL, ILL_ILLOPC, regs, 0, esr);
 		return;
 	}
 
@@ -523,7 +582,7 @@ asmlinkage void __exception do_sysinstr(unsigned int esr, struct pt_regs *regs)
 			return;
 		}
 
-	force_signal_inject(SIGILL, ILL_ILLOPC, regs, 0);
+	force_signal_inject(SIGILL, ILL_ILLOPC, regs, 0, esr);
 }
 
 long compat_arm_syscall(struct pt_regs *regs);
@@ -675,6 +734,12 @@ static int bug_handler(struct pt_regs *regs, unsigned int esr)
 {
 	if (user_mode(regs))
 		return DBG_HOOK_ERROR;
+
+	/*
+	 * If recalling hardlockup core has been run before,
+	 * PC value must be replaced to real PC value.
+	 */
+	exynos_ss_hook_hardlockup_entry((void *)regs);
 
 	switch (report_bug(regs->pc, regs)) {
 	case BUG_TRAP_TYPE_BUG:

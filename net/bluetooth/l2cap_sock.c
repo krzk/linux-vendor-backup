@@ -935,6 +935,42 @@ static int l2cap_sock_setsockopt(struct socket *sock, int level, int optname,
 		chan->imtu = opt;
 		break;
 
+#ifdef CONFIG_TIZEN_WIP
+	case BT_LE_CONN_PARAM: {
+		struct hci_dev *hdev;
+		struct le_conn_param param;
+		int err;
+
+		len = min_t(unsigned int, sizeof(param), optlen);
+		if (copy_from_user((char *) &param, optval, len)) {
+			err = -EFAULT;
+			break;
+		}
+
+		err = hci_check_conn_params(param.min, param.max,
+				param.latency, param.to_multiplier);
+		if (err < 0)
+			break;
+
+		conn = chan->conn;
+		hdev = conn->hcon->hdev;
+		if (conn->hcon->out ||
+		    (hdev->le_features[0] & HCI_LE_CONN_PARAM_REQ_PROC &&
+		     conn->hcon->features[0][0] & HCI_LE_CONN_PARAM_REQ_PROC)) {
+			BT_DBG("use hci_le_conn_update");
+			err = hci_le_conn_update(conn->hcon, param.min,
+						 param.max, param.latency,
+						 param.to_multiplier);
+			break;
+		}
+
+		BT_DBG("use l2cap conn_update");
+		err = l2cap_update_connection_param(conn, param.min,
+				param.max, param.latency, param.to_multiplier);
+		break;
+	}
+#endif
+
 	default:
 		err = -ENOPROTOOPT;
 		break;

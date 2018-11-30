@@ -32,6 +32,7 @@
 #include <linux/spinlock.h>
 #include <linux/jiffies.h>
 #include <linux/fixp-arith.h>
+#include <linux/ff-memless_notify.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Anssi Hannula <anssi.hannula@gmail.com>");
@@ -448,6 +449,7 @@ static int ml_ff_playback(struct input_dev *dev, int effect_id, int value)
 {
 	struct ml_device *ml = dev->ff->private;
 	struct ml_effect_state *state = &ml->states[effect_id];
+	struct ff_effect *ff_effect = state->effect;
 
 	if (value > 0) {
 		pr_debug("initiated play\n");
@@ -460,6 +462,7 @@ static int ml_ff_playback(struct input_dev *dev, int effect_id, int value)
 				 msecs_to_jiffies(state->effect->replay.length);
 		state->adj_at = state->play_at;
 
+		ff_memless_notifier_call_chain(FF_MEMLESS_EVENT_PLAY, ff_effect);
 	} else {
 		pr_debug("initiated stop\n");
 
@@ -467,6 +470,8 @@ static int ml_ff_playback(struct input_dev *dev, int effect_id, int value)
 			__set_bit(FF_EFFECT_ABORTING, &state->flags);
 		else
 			__clear_bit(FF_EFFECT_STARTED, &state->flags);
+
+		ff_memless_notifier_call_chain(FF_MEMLESS_EVENT_STOP, ff_effect);
 	}
 
 	ml_play_effects(ml);

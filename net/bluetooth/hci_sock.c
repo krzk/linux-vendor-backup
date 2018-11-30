@@ -33,7 +33,9 @@
 #include <net/bluetooth/hci_core.h>
 #include <net/bluetooth/hci_mon.h>
 #include <net/bluetooth/mgmt.h>
-
+#ifdef CONFIG_TIZEN_WIP
+#include <net/bluetooth/mgmt_tizen.h>
+#endif
 #include "mgmt_util.h"
 
 static LIST_HEAD(mgmt_chan_list);
@@ -251,14 +253,21 @@ void hci_send_to_sock(struct hci_dev *hdev, struct sk_buff *skb)
 }
 
 /* Send frame to sockets with specific channel */
+#ifdef CONFIG_TIZEN_WIP
+void __hci_send_to_channel(unsigned short channel, struct sk_buff *skb,
+			 int flag, struct sock *skip_sk)
+#else
 void hci_send_to_channel(unsigned short channel, struct sk_buff *skb,
 			 int flag, struct sock *skip_sk)
+#endif
 {
 	struct sock *sk;
 
 	BT_DBG("channel %u len %d", channel, skb->len);
 
+#ifndef CONFIG_TIZEN_WIP
 	read_lock(&hci_sk_list.lock);
+#endif
 
 	sk_for_each(sk, &hci_sk_list.head) {
 		struct sk_buff *nskb;
@@ -285,8 +294,20 @@ void hci_send_to_channel(unsigned short channel, struct sk_buff *skb,
 			kfree_skb(nskb);
 	}
 
+#ifndef CONFIG_TIZEN_WIP
+	read_unlock(&hci_sk_list.lock);
+#endif
+}
+
+#ifdef CONFIG_TIZEN_WIP
+void hci_send_to_channel(unsigned short channel, struct sk_buff *skb,
+			 int flag, struct sock *skip_sk)
+{
+	read_lock(&hci_sk_list.lock);
+	__hci_send_to_channel(channel, skb, flag, skip_sk);
 	read_unlock(&hci_sk_list.lock);
 }
+#endif
 
 /* Send frame to monitor socket */
 void hci_send_to_monitor(struct hci_dev *hdev, struct sk_buff *skb)
@@ -388,8 +409,13 @@ void hci_send_monitor_ctrl_event(struct hci_dev *hdev, u16 event,
 		hdr->index = index;
 		hdr->len = cpu_to_le16(skb->len - HCI_MON_HDR_SIZE);
 
+#ifdef CONFIG_TIZEN_WIP
+		__hci_send_to_channel(HCI_CHANNEL_MONITOR, skb,
+				    HCI_SOCK_TRUSTED, NULL);
+#else
 		hci_send_to_channel(HCI_CHANNEL_MONITOR, skb,
 				    HCI_SOCK_TRUSTED, NULL);
+#endif
 		kfree_skb(skb);
 	}
 
@@ -1509,6 +1535,16 @@ static int hci_mgmt_cmd(struct hci_mgmt_chan *chan, struct sock *sk,
 
 	if (opcode >= chan->handler_count ||
 	    chan->handlers[opcode].func == NULL) {
+#ifdef CONFIG_TIZEN_WIP
+		u16 tizen_opcode = opcode - TIZEN_OP_CODE_BASE;
+		if (tizen_opcode > 0 &&
+		    tizen_opcode < chan->tizen_handler_count &&
+		    chan->tizen_handlers[tizen_opcode].func) {
+
+		    handler = &chan->tizen_handlers[tizen_opcode];
+		    goto handle_mgmt;
+		}
+#endif
 		BT_DBG("Unknown op %u", opcode);
 		err = mgmt_cmd_status(sk, index, opcode,
 				      MGMT_STATUS_UNKNOWN_COMMAND);
@@ -1523,7 +1559,9 @@ static int hci_mgmt_cmd(struct hci_mgmt_chan *chan, struct sock *sk,
 				      MGMT_STATUS_PERMISSION_DENIED);
 		goto done;
 	}
-
+#ifdef CONFIG_TIZEN_WIP
+handle_mgmt:
+#endif
 	if (index != MGMT_INDEX_NONE) {
 		hdev = hci_dev_get(index);
 		if (!hdev) {

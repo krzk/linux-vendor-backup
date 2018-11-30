@@ -1,5 +1,13 @@
 menu "printk and dmesg options"
 
+config TIZEN_SEC_KERNEL_ENG
+	bool "Enable TIZEN kernel ENG binary options"
+	help
+	  Selecting this option could enable some debugging
+	  features which has choosen for TIZEN SEC target.
+	  Say 'Y' to turn on this feature for ENG binary.
+	  If you want the USR kernel binary version, say N.
+
 config PRINTK_TIME
 	bool "Show timing information on printks"
 	depends on PRINTK
@@ -14,6 +22,22 @@ config PRINTK_TIME
 
 	  The behavior is also controlled by the kernel command line
 	  parameter printk.time=1. See Documentation/kernel-parameters.txt
+
+config PRINTK_PROCESS
+	bool "Show process information on printks"
+	depends on PRINTK
+	help
+	  Selecting this option causes process to be
+	  included in printk output. Or add printk.process=1 at boot-time.
+
+config PRINTK_BOOTLOG
+	bool "Insert bootloader logs into kernel log buffer"
+	depends on PRINTK
+	help
+	  If you say Y here, insert bootloader logs into the head of printk
+	  log buffer at init time to show booting information.
+	  Bootloader log address is passed from Kernel command line argument
+	  "bootloader.log={base_addr},{size},{start_idx},{end_idx}"
 
 config MESSAGE_LOGLEVEL_DEFAULT
 	int "Default message log level (1-7)"
@@ -773,9 +797,14 @@ config HARDLOCKUP_DETECTOR
 	depends on LOCKUP_DETECTOR && !HAVE_NMI_WATCHDOG
 	depends on PERF_EVENTS && HAVE_PERF_EVENTS_NMI
 
+config HARDLOCKUP_DETECTOR_OTHER_CPU
+	def_bool y
+	depends on LOCKUP_DETECTOR && !HAVE_NMI_WATCHDOG
+	depends on !HARDLOCKUP_DETECTOR
+
 config BOOTPARAM_HARDLOCKUP_PANIC
 	bool "Panic (Reboot) On Hard Lockups"
-	depends on HARDLOCKUP_DETECTOR
+	depends on HARDLOCKUP_DETECTOR || HARDLOCKUP_DETECTOR_OTHER_CPU
 	help
 	  Say Y here to enable the kernel to panic on "hard lockups",
 	  which are bugs that cause the kernel to loop in kernel
@@ -786,7 +815,7 @@ config BOOTPARAM_HARDLOCKUP_PANIC
 
 config BOOTPARAM_HARDLOCKUP_PANIC_VALUE
 	int
-	depends on HARDLOCKUP_DETECTOR
+	depends on HARDLOCKUP_DETECTOR || HARDLOCKUP_DETECTOR_OTHER_CPU
 	range 0 1
 	default 0 if !BOOTPARAM_HARDLOCKUP_PANIC
 	default 1 if BOOTPARAM_HARDLOCKUP_PANIC
@@ -922,6 +951,15 @@ config SCHED_DEBUG
 config SCHED_INFO
 	bool
 	default n
+
+config PANIC_ON_RT_THROTTLING
+	bool "Panic on RT throttling"
+	help
+	  Say Y here to enable the kernel to panic when a realtime
+	  runqueue is throttled. This may be useful for detecting
+	  and debugging RT throttling issues.
+
+	  Say N if unsure.
 
 config SCHEDSTATS
 	bool "Collect scheduler statistics"

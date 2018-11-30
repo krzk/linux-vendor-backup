@@ -1,0 +1,43 @@
+#
+# General SWAP options
+#
+
+menuconfig SWAP_DA
+	bool "System Wide Analysis of Performance"
+	select KALLSYMS
+	select DEBUG_FS
+	help
+	  SWAP is a profiling tool.
+
+	  If unsure, say Y.
+
+if SWAP_DA
+
+config SWAP_KERNEL_IMMUTABLE
+	bool "SWAP cannot modify kernel"
+
+config SWAP_HOOK_TASKDATA
+	bool "SWAP TD hooks"
+
+config SWAP_HOOK_USAUX
+	bool "SWAP US hooks"
+	depends on ARM64
+	select SWAP_HOOK_TASKDATA
+
+config SWAP_HOOK_SYSCALL
+	bool "SWAP syscall hooks"
+	depends on ARM64
+
+config SWAP_HOOK_SWITCH_TO
+	bool "SWAP context hooks"
+
+config SWAP_HOOK_ENERGY
+	bool "SWAP energy estimation hooks"
+
+config SWAP_HOOK_FILE_OPS
+	bool "SWAP file operations hooks"
+
+config SWAP_HOOK_SIGNAL
+	bool "SWAP signal hooks"
+
+endif # SWAP_DA

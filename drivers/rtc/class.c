@@ -22,7 +22,9 @@
 #include <linux/workqueue.h>
 
 #include "rtc-core.h"
-
+#ifdef CONFIG_RTC_TEE_TIMESTAMP
+#include <linux/smc.h>
+#endif
 
 static DEFINE_IDA(rtc_ida);
 struct class *rtc_class;
@@ -141,6 +143,11 @@ static int rtc_resume(struct device *dev)
 	if (sleep_time.tv_sec >= 0)
 		timekeeping_inject_sleeptime64(&sleep_time);
 	rtc_hctosys_ret = 0;
+#ifdef CONFIG_RTC_TEE_TIMESTAMP
+	if (exynos_smc(0x83000071, sleep_time.tv_sec, sleep_time.tv_nsec, 0))
+		pr_err("%s: timestamp smc failed\n", dev_name(&rtc->dev));
+#endif
+	
 	return 0;
 }
 

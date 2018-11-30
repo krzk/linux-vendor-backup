@@ -434,6 +434,12 @@ extern bool pm_get_wakeup_count(unsigned int *count, bool block);
 extern bool pm_save_wakeup_count(unsigned int count);
 extern void pm_wakep_autosleep_enabled(bool set);
 extern void pm_print_active_wakeup_sources(void);
+extern void pm_get_active_wakeup_sources(char *pending_sources, size_t max);
+#ifdef CONFIG_ENERGY_MONITOR
+extern void pm_get_large_wakeup_sources(int type,
+					struct emon_wakeup_source *ws_array,  size_t n);
+extern ktime_t pm_get_total_active_time(char *wakeup_source_name);
+#endif
 
 static inline void lock_system_sleep(void)
 {

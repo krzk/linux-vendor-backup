@@ -40,6 +40,25 @@ struct sco_param {
 	u16 max_latency;
 	u8  retrans_effort;
 };
+#ifdef CONFIG_TIZEN_WIP
+static const struct sco_param esco_param_cvsd[] = {
+	{ (EDR_ESCO_MASK & ~ESCO_2EV3) | SCO_ESCO_MASK | ESCO_EV3 , 0x000a, 0x01 }, /* S3 */
+	{ EDR_ESCO_MASK & ~ESCO_2EV3, 0x0007,	0x01 }, /* S2 */
+	{ EDR_ESCO_MASK | ESCO_EV3,   0x0007,	0x01 }, /* S1 */
+	{ EDR_ESCO_MASK | ESCO_HV3,   0xffff,	0x01 }, /* D1 */
+	{ EDR_ESCO_MASK | ESCO_HV1,   0xffff,	0x01 }, /* D0 */
+};
+
+static const struct sco_param sco_param_cvsd[] = {
+	{ EDR_ESCO_MASK | ESCO_HV3,   0xffff,	0xff }, /* D1 */
+	{ EDR_ESCO_MASK | ESCO_HV1,   0xffff,	0xff }, /* D0 */
+};
+
+static const struct sco_param esco_param_msbc[] = {
+	{ (EDR_ESCO_MASK & ~ESCO_2EV3) | ESCO_EV3, 0x000d, 0x02 }, /* T2 */
+	{ EDR_ESCO_MASK | ESCO_EV3,   0x0008,	0x02 }, /* T1 */
+};
+#else
 
 static const struct sco_param esco_param_cvsd[] = {
 	{ EDR_ESCO_MASK & ~ESCO_2EV3, 0x000a,	0x01 }, /* S3 */
@@ -58,6 +77,7 @@ static const struct sco_param esco_param_msbc[] = {
 	{ EDR_ESCO_MASK & ~ESCO_2EV3, 0x000d,	0x02 }, /* T2 */
 	{ EDR_ESCO_MASK | ESCO_EV3,   0x0008,	0x02 }, /* T1 */
 };
+#endif
 
 /* This function requires the caller holds hdev->lock */
 static void hci_connect_le_scan_cleanup(struct hci_conn *conn)
@@ -122,6 +142,11 @@ static void hci_conn_cleanup(struct hci_conn *conn)
 
 	hci_conn_hash_del(hdev, conn);
 
+#ifdef CONFIG_TIZEN_WIP
+	BT_INFO("%s(%d): %02X-%02X(%d) handle(0x%4.4x) acl_num(%d) le_num(%d) le_num_slave(%d)", __FUNCTION__, __LINE__,
+            conn->dst.b[1], conn->dst.b[0], conn->dst_type, conn->handle, hdev->conn_hash.acl_num, hdev->conn_hash.le_num, hdev->conn_hash.le_num_slave);
+#endif
+
 	if (hdev->notify)
 		hdev->notify(hdev, HCI_NOTIFY_CONN_DEL);
 
@@ -163,7 +188,11 @@ static void le_scan_cleanup(struct work_struct *work)
 	hci_conn_put(conn);
 }
 
+#ifdef CONFIG_TIZEN_WIP
+void hci_connect_le_scan_remove(struct hci_conn *conn)
+#else
 static void hci_connect_le_scan_remove(struct hci_conn *conn)
+#endif
 {
 	BT_DBG("%s hcon %p", conn->hdev->name, conn);
 
@@ -318,6 +347,34 @@ bool hci_setup_sync(struct hci_conn *conn, __u16 handle)
 	return true;
 }
 
+#ifdef CONFIG_TIZEN_WIP
+int hci_le_set_data_length(struct hci_conn *conn,
+				u16 tx_octets, u16 tx_time)
+{
+	struct hci_dev *hdev = conn->hdev;
+	struct hci_conn_params *params;
+	struct hci_cp_le_set_data_len cp;
+
+	params = hci_conn_params_lookup(hdev, &conn->dst, conn->dst_type);
+	if (params) {
+		params->max_tx_octets = tx_octets;
+		params->max_tx_time = tx_time;
+	}
+
+	memset(&cp, 0, sizeof(cp));
+	cp.handle = cpu_to_le16(conn->handle);
+	cp.tx_len = cpu_to_le16(tx_octets);
+	cp.tx_time = cpu_to_le16(tx_time);
+
+	hci_send_cmd(hdev, HCI_OP_LE_SET_DATA_LEN, sizeof(cp), &cp);
+
+	if (params)
+		return 0x01;
+
+	return 0x00;
+}
+#endif
+
 u8 hci_le_conn_update(struct hci_conn *conn, u16 min, u16 max, u16 latency,
 		      u16 to_multiplier)
 {
@@ -343,9 +400,17 @@ u8 hci_le_conn_update(struct hci_conn *conn, u16 min, u16 max, u16 latency,
 	cp.conn_interval_max	= cpu_to_le16(max);
 	cp.conn_latency		= cpu_to_le16(latency);
 	cp.supervision_timeout	= cpu_to_le16(to_multiplier);
+#ifdef CONFIG_TIZEN_WIP
+	cp.min_ce_len		= cpu_to_le16(0x0009);
+	cp.max_ce_len		= cpu_to_le16(0x0009);
+#else
 	cp.min_ce_len		= cpu_to_le16(0x0000);
 	cp.max_ce_len		= cpu_to_le16(0x0000);
+#endif
 
+#ifdef CONFIG_TIZEN_WIP
+	BT_INFO("[%s(%d)] Sent to Remote - Min Connection Interval: %u (in slots), Max Connection Interval: %u (in slots)", __FUNCTION__, __LINE__, min, max);
+#endif
 	hci_send_cmd(hdev, HCI_OP_LE_CONN_UPDATE, sizeof(cp), &cp);
 
 	if (params)
@@ -353,6 +418,85 @@ u8 hci_le_conn_update(struct hci_conn *conn, u16 min, u16 max, u16 latency,
 
 	return 0x00;
 }
+
+#ifdef CONFIG_TIZEN_WIP
+bool hci_le_read_phy(struct hci_conn *conn)
+{
+	struct hci_dev *hdev = conn->hdev;
+	struct hci_cp_le_read_phy cp;
+
+	memset(&cp, 0, sizeof(cp));
+	cp.handle = cpu_to_le16(conn->handle);
+
+	hci_send_cmd(hdev, HCI_OP_LE_READ_PHY, sizeof(cp), &cp);
+
+	return true;
+}
+
+bool hci_le_set_default_phy(struct hci_dev *hdev,
+				u8 all_phys, u8 tx_phys, u8 rx_phys)
+{
+	struct hci_cp_le_set_default_phy cp;
+	__u8 phys_mask;
+
+	phys_mask = (true << 0) | ((!!(hdev->le_features[1] & 0x01)) << 1)
+				| ((!!(hdev->le_features[1] & 0x08)) << 2);
+
+	if (all_phys > 0x03)
+		return false;
+
+	/* Transmitter PHYs preferences */
+	if (!(all_phys & 0x01)) {
+		/* At least one preference bit shall be set to 1 */
+		if (!tx_phys)
+			return false;
+
+		if (tx_phys & ~phys_mask)
+			return false;
+
+		cp.tx_phys = tx_phys;
+	} else
+		cp.tx_phys = 0x00;
+
+	/* Transmitter PHYs preferences */
+	if (!(all_phys & 0x02)) {
+		/* At least one preference bit shall be set to 1 */
+		if (!rx_phys)
+			return false;
+
+		if (rx_phys & ~phys_mask)
+			return false;
+
+		cp.rx_phys = rx_phys;
+	} else
+		cp.rx_phys = 0x00;
+
+	cp.all_phys = all_phys;
+
+	hci_send_cmd(hdev, HCI_OP_LE_SET_DEFAULT_PHY, sizeof(cp), &cp);
+
+	return true;
+
+}
+
+bool hci_le_set_phy(struct hci_conn *conn,
+				u8 tx_phy, u8 rx_phy, u16 phy_opt)
+{
+	struct hci_dev *hdev = conn->hdev;
+	struct hci_cp_le_set_phy cp;
+
+	memset(&cp, 0, sizeof(cp));
+	cp.handle = cpu_to_le16(conn->handle);
+	cp.tx_phys = tx_phy;
+	cp.rx_phys = rx_phy;
+	cp.phy_opt = cpu_to_le16(phy_opt);
+
+	hci_send_cmd(hdev, HCI_OP_LE_SET_PHY, sizeof(cp), &cp);
+
+	return true;
+}
+
+#endif
 
 void hci_le_start_enc(struct hci_conn *conn, __le16 ediv, __le64 rand,
 		      __u8 ltk[16], __u8 key_size)
@@ -438,6 +582,7 @@ static void hci_conn_idle(struct work_struct *work)
 	if (conn->mode != HCI_CM_ACTIVE || !(conn->link_policy & HCI_LP_SNIFF))
 		return;
 
+#ifndef CONFIG_TIZEN_WIP
 	if (lmp_sniffsubr_capable(hdev) && lmp_sniffsubr_capable(conn)) {
 		struct hci_cp_sniff_subrate cp;
 		cp.handle             = cpu_to_le16(conn->handle);
@@ -446,6 +591,7 @@ static void hci_conn_idle(struct work_struct *work)
 		cp.min_local_timeout  = cpu_to_le16(0);
 		hci_send_cmd(hdev, HCI_OP_SNIFF_SUBRATE, sizeof(cp), &cp);
 	}
+#endif
 
 	if (!test_and_set_bit(HCI_CONN_MODE_CHANGE_PEND, &conn->flags)) {
 		struct hci_cp_sniff_mode cp;
@@ -517,6 +663,11 @@ struct hci_conn *hci_conn_add(struct hci_dev *hdev, int type, bdaddr_t *dst,
 	conn->tx_power = HCI_TX_POWER_INVALID;
 	conn->max_tx_power = HCI_TX_POWER_INVALID;
 
+#ifdef CONFIG_TIZEN_WIP
+	/* enable sniff mode for incoming connection */
+	conn->link_policy = hdev->link_policy;
+#endif
+
 	set_bit(HCI_CONN_POWER_SAVE, &conn->flags);
 	conn->disc_timeout = HCI_DISCONN_TIMEOUT;
 
@@ -558,6 +709,13 @@ struct hci_conn *hci_conn_add(struct hci_dev *hdev, int type, bdaddr_t *dst,
 	hci_dev_hold(hdev);
 
 	hci_conn_hash_add(hdev, conn);
+
+#ifdef CONFIG_TIZEN_WIP
+	BT_INFO("%s(%d): %02X-%02X(%d) acl(%d) le(%d) le_slave(%d)", __FUNCTION__, __LINE__,
+			conn->dst.b[1],conn->dst.b[0],conn->dst_type,hdev->conn_hash.acl_num,
+			hdev->conn_hash.le_num, hdev->conn_hash.le_num_slave);
+#endif
+
 	if (hdev->notify)
 		hdev->notify(hdev, HCI_NOTIFY_CONN_ADD);
 
@@ -583,6 +741,12 @@ int hci_conn_del(struct hci_conn *conn)
 
 		/* Unacked frames */
 		hdev->acl_cnt += conn->sent;
+#ifdef CONFIG_TIZEN_WIP
+		if (hdev->streaming_conn == conn) {
+			hdev->streaming_conn = NULL;
+			hdev->streaming_cnt = 0;
+		}
+#endif
 	} else if (conn->type == LE_LINK) {
 		cancel_delayed_work(&conn->le_conn_timeout);
 
@@ -769,16 +933,28 @@ static void hci_req_add_le_create_conn(struct hci_request *req,
 	 */
 	cp.scan_interval = cpu_to_le16(hdev->le_scan_interval);
 	cp.scan_window = cp.scan_interval;
-
+#ifdef CONFIG_TIZEN_WIP
+/* LE auto connect */
+	if (!bacmp(&conn->dst, BDADDR_ANY))
+		cp.filter_policy = 0x1;
+	else
+		bacpy(&cp.peer_addr, &conn->dst);
+#else
 	bacpy(&cp.peer_addr, &conn->dst);
+#endif
 	cp.peer_addr_type = conn->dst_type;
 	cp.own_address_type = own_addr_type;
 	cp.conn_interval_min = cpu_to_le16(conn->le_conn_min_interval);
 	cp.conn_interval_max = cpu_to_le16(conn->le_conn_max_interval);
 	cp.conn_latency = cpu_to_le16(conn->le_conn_latency);
 	cp.supervision_timeout = cpu_to_le16(conn->le_supv_timeout);
+#ifdef CONFIG_TIZEN_WIP
+	cp.min_ce_len = cpu_to_le16(0x0009);
+	cp.max_ce_len = cpu_to_le16(0x0009);
+#else
 	cp.min_ce_len = cpu_to_le16(0x0000);
 	cp.max_ce_len = cpu_to_le16(0x0000);
+#endif
 
 	hci_req_add(req, HCI_OP_LE_CREATE_CONN, sizeof(cp), &cp);
 
@@ -786,13 +962,22 @@ static void hci_req_add_le_create_conn(struct hci_request *req,
 	clear_bit(HCI_CONN_SCANNING, &conn->flags);
 }
 
+#ifdef CONFIG_TIZEN_WIP
+static void hci_req_directed_advertising(struct hci_request *req,
+					 struct hci_conn *conn,
+					 u8 rpa_res_support)
+#else
 static void hci_req_directed_advertising(struct hci_request *req,
 					 struct hci_conn *conn)
+#endif
 {
 	struct hci_dev *hdev = req->hdev;
 	struct hci_cp_le_set_adv_param cp;
 	u8 own_addr_type;
 	u8 enable;
+#ifdef CONFIG_TIZEN_WIP
+	bool require_privacy;
+#endif
 
 	/* Clear the HCI_LE_ADV bit temporarily so that the
 	 * hci_update_random_address knows that it's safe to go ahead
@@ -801,12 +986,28 @@ static void hci_req_directed_advertising(struct hci_request *req,
 	 */
 	hci_dev_clear_flag(hdev, HCI_LE_ADV);
 
+#ifdef CONFIG_TIZEN_WIP
+	/* Set require_privacy to true if remote device is able to
+	 * resolve RPA (As per BT spec 4.2 & Enhanced privacy feature)
+	 * otherwise, set require_privacy to false so that the remote
+	 * device has a chance of identifying us.
+	 */
+	if (rpa_res_support)
+		require_privacy = true;
+	else
+		require_privacy = false;
+
+	if (hci_update_random_address(req, require_privacy, conn_use_rpa(conn),
+				      &own_addr_type) < 0)
+		return;
+#else
 	/* Set require_privacy to false so that the remote device has a
 	 * chance of identifying us.
 	 */
 	if (hci_update_random_address(req, false, conn_use_rpa(conn),
 				      &own_addr_type) < 0)
 		return;
+#endif
 
 	memset(&cp, 0, sizeof(cp));
 	cp.type = LE_ADV_DIRECT_IND;
@@ -912,7 +1113,14 @@ struct hci_conn *hci_connect_le(struct hci_dev *hdev, bdaddr_t *dst,
 			return ERR_PTR(-EBUSY);
 		}
 
+#ifdef CONFIG_TIZEN_WIP
+		if (irk)
+			hci_req_directed_advertising(&req, conn, irk->rpa_res_support);
+		else
+			hci_req_directed_advertising(&req, conn, false);
+#else
 		hci_req_directed_advertising(&req, conn);
+#endif
 		goto create_conn;
 	}
 
@@ -1294,7 +1502,22 @@ int hci_conn_check_secure(struct hci_conn *conn, __u8 sec_level)
 	return 0;
 }
 EXPORT_SYMBOL(hci_conn_check_secure);
+#ifdef CONFIG_TIZEN_WIP
+/* Change link key */
+int hci_conn_change_link_key(struct hci_conn *conn)
+{
+	BT_DBG("hcon %p", conn);
 
+	if (!test_and_set_bit(HCI_CONN_AUTH_PEND, &conn->flags)) {
+		struct hci_cp_change_conn_link_key cp;
+		cp.handle = cpu_to_le16(conn->handle);
+		hci_send_cmd(conn->hdev, HCI_OP_CHANGE_CONN_LINK_KEY,
+			     sizeof(cp), &cp);
+	}
+
+	return 0;
+}
+#endif
 /* Switch role */
 int hci_conn_switch_role(struct hci_conn *conn, __u8 role)
 {
@@ -1313,6 +1536,30 @@ int hci_conn_switch_role(struct hci_conn *conn, __u8 role)
 	return 0;
 }
 EXPORT_SYMBOL(hci_conn_switch_role);
+
+#ifdef CONFIG_TIZEN_WIP
+/* Change supervision timeout */
+int hci_conn_change_supervision_timeout(struct hci_conn *conn, __u16 timeout)
+{
+	struct hci_cp_write_link_supervision_timeout cp;
+
+	if (!((get_link_mode(conn)) & HCI_LM_MASTER))
+		return 1;
+
+	if (conn->handle == 0)
+		return 1;
+
+	memset(&cp, 0, sizeof(cp));
+	cp.handle  = cpu_to_le16(conn->handle);
+	cp.timeout = cpu_to_le16(timeout);
+
+	if (hci_send_cmd(conn->hdev, HCI_OP_WRITE_LINK_SUPERVISION_TIMEOUT,
+		     sizeof(cp), &cp) < 0)
+		BT_ERR("HCI_OP_WRITE_LINK_SUPERVISION_TIMEOUT is failed");
+
+	return 0;
+}
+#endif
 
 /* Enter active mode */
 void hci_conn_enter_active_mode(struct hci_conn *conn, __u8 force_active)
@@ -1334,9 +1581,20 @@ void hci_conn_enter_active_mode(struct hci_conn *conn, __u8 force_active)
 	}
 
 timer:
+#ifdef CONFIG_TIZEN_WIP /* Sniff timer cancel */
+	if (hdev->idle_timeout > 0 && conn->type != LE_LINK) {
+		cancel_delayed_work(&conn->idle_work);
+		queue_delayed_work(hdev->workqueue, &conn->idle_work,
+				   msecs_to_jiffies(hdev->idle_timeout));
+
+		wake_lock_timeout(&hdev->hci_sniff_wake_lock,
+					msecs_to_jiffies(hdev->idle_timeout));
+	}
+#else
 	if (hdev->idle_timeout > 0)
 		queue_delayed_work(hdev->workqueue, &conn->idle_work,
 				   msecs_to_jiffies(hdev->idle_timeout));
+#endif /* Sniff timer cancel */
 }
 
 /* Drop all connection on the device */
@@ -1371,7 +1629,11 @@ void hci_conn_check_pending(struct hci_dev *hdev)
 	hci_dev_unlock(hdev);
 }
 
+#ifndef CONFIG_TIZEN_WIP
 static u32 get_link_mode(struct hci_conn *conn)
+#else
+u32 get_link_mode(struct hci_conn *conn)
+#endif
 {
 	u32 link_mode = 0;
 
@@ -1580,3 +1842,44 @@ struct hci_chan *hci_chan_lookup_handle(struct hci_dev *hdev, __u16 handle)
 
 	return hchan;
 }
+
+#ifdef CONFIG_TIZEN_WIP
+int hci_conn_streaming_mode(struct hci_conn *conn, bool streaming_mode)
+{
+	struct hci_dev *hdev = conn->hdev;
+
+	if (streaming_mode &&
+	    conn->state != BT_CONNECTED && conn->state != BT_CONFIG)
+		return -ENOTCONN;
+
+	if (conn->type != ACL_LINK)
+		return -EOPNOTSUPP;
+
+	if (hdev->acl_pkts < STREAMING_RESERVED_SLOTS * 2)
+		return -EOPNOTSUPP;
+
+	if (streaming_mode) {
+		if (hdev->streaming_conn) {
+			if (hdev->streaming_conn == conn)
+				return 0;
+
+			BT_ERR("already set [%p], request conn [%p]",
+			       hdev->streaming_conn, conn);
+			return -EOPNOTSUPP;
+		}
+
+		hdev->streaming_cnt = STREAMING_RESERVED_SLOTS;
+		conn->streaming_sent = 0;
+		hdev->streaming_conn = conn;
+	} else {
+		if (hdev->streaming_conn != conn)
+			return -ENOENT;
+
+		hdev->streaming_conn = NULL;
+		hdev->streaming_cnt = 0;
+		conn->streaming_sent = 0;
+	}
+
+	return 0;
+}
+#endif

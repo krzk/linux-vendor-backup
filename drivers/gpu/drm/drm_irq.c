@@ -1696,7 +1696,7 @@ int drm_wait_vblank(struct drm_device *dev, void *data,
 	ret = drm_vblank_get(dev, pipe);
 	if (ret) {
 		DRM_DEBUG("failed to acquire vblank counter, %d\n", ret);
-		return ret;
+		goto out;
 	}
 	seq = drm_vblank_count(dev, pipe);
 
@@ -1720,7 +1720,8 @@ int drm_wait_vblank(struct drm_device *dev, void *data,
 		/* must hold on to the vblank ref until the event fires
 		 * drm_vblank_put will be called asynchronously
 		 */
-		return drm_queue_vblank_event(dev, pipe, vblwait, file_priv);
+		ret = drm_queue_vblank_event(dev, pipe, vblwait, file_priv);
+                goto out;
 	}
 
 	DRM_DEBUG("waiting on vblank count %u, crtc %u\n",
@@ -1746,6 +1747,7 @@ int drm_wait_vblank(struct drm_device *dev, void *data,
 
 done:
 	drm_vblank_put(dev, pipe);
+out:
 	return ret;
 }
 
@@ -1762,8 +1764,11 @@ static void drm_handle_vblank_events(struct drm_device *dev, unsigned int pipe)
 	list_for_each_entry_safe(e, t, &dev->vblank_event_list, base.link) {
 		if (e->pipe != pipe)
 			continue;
-		if ((seq - e->event.sequence) > (1<<23))
-			continue;
+		if ((seq - e->event.sequence) > (1<<23)) {
+                        DRM_DEBUG("%s:seq[%d %d]\n",
+				  __func__, seq, e->event.sequence);
+			seq = e->event.sequence;
+		}
 
 		DRM_DEBUG("vblank event on %u, current %u\n",
 			  e->event.sequence, seq);

@@ -252,6 +252,11 @@ struct l2cap_conn_rsp {
 #define L2CAP_PSM_3DSP		0x0021
 #define L2CAP_PSM_IPSP		0x0023 /* 6LoWPAN */
 
+#ifdef CONFIG_TIZEN_WIP
+#define L2CAP_PSM_HID_CONTROL		0x0011
+#define L2CAP_PSM_HID_INTERRUPT	0x0013
+#endif
+
 #define L2CAP_PSM_DYN_START	0x1001
 #define L2CAP_PSM_DYN_END	0xffff
 #define L2CAP_PSM_AUTO_END	0x10ff
@@ -282,7 +287,7 @@ struct l2cap_conn_rsp {
 #define L2CAP_CR_BAD_KEY_SIZE	0x0007
 #define L2CAP_CR_ENCRYPTION	0x0008
 #define L2CAP_CR_INVALID_SCID	0x0009
-#define L2CAP_CR_SCID_IN_USE	0x0010
+#define L2CAP_CR_SCID_IN_USE	0x000A
 
 /* connect/create channel status */
 #define L2CAP_CS_NO_INFO	0x0000
@@ -948,4 +953,11 @@ void l2cap_conn_put(struct l2cap_conn *conn);
 int l2cap_register_user(struct l2cap_conn *conn, struct l2cap_user *user);
 void l2cap_unregister_user(struct l2cap_conn *conn, struct l2cap_user *user);
 
+#ifdef CONFIG_TIZEN_WIP
+int l2cap_update_connection_param(struct l2cap_conn *conn, u16 min, u16 max,
+				  u16 latency, u16 to_multiplier);
+int _bt_6lowpan_connect(bdaddr_t *addr, u8 dst_type);
+
+int _bt_6lowpan_disconnect(struct l2cap_conn *conn, u8 dst_type);
+#endif
 #endif /* __L2CAP_H */

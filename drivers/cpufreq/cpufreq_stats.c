@@ -15,8 +15,13 @@
 #include <linux/slab.h>
 #include <linux/cputime.h>
 
+#if defined(CONFIG_SYSTEM_LOAD_ANALYZER)
+#include <linux/load_analyzer.h>
+#endif
+
 static DEFINE_SPINLOCK(cpufreq_stats_lock);
 
+#ifndef CONFIG_CPU_FREQ_STAT_TIZEN
 struct cpufreq_stats {
 	unsigned int total_trans;
 	unsigned long long last_time;
@@ -29,17 +34,74 @@ struct cpufreq_stats {
 	unsigned int *trans_table;
 #endif
 };
+#endif
 
-static int cpufreq_stats_update(struct cpufreq_stats *stats)
+#if defined(CONFIG_CHECK_TIME_IN_STATE)
+static struct cpufreq_stats *la_stats_cpufreq;
+#endif
+
+#ifdef CONFIG_CPU_FREQ_STAT_TIZEN
+int cpufreq_stats_update(struct cpufreq_stats *stats)
 {
 	unsigned long long cur_time = get_jiffies_64();
+#if defined(CONFIG_CHECK_TIME_IN_STATE)
+	static unsigned long long time_state_a = 0;
+	int i;
+#endif
 
 	spin_lock(&cpufreq_stats_lock);
 	stats->time_in_state[stats->last_index] += cur_time - stats->last_time;
 	stats->last_time = cur_time;
 	spin_unlock(&cpufreq_stats_lock);
+#if defined(CONFIG_CHECK_TIME_IN_STATE)
+	if (jiffies_64_to_clock_t(cur_time -time_state_a )  * 1000 / CLOCKS_PER_SEC >= TIME_IN_STATE_INTERVAL) {
+		for (i = 0; i < stats->state_num; i++) {
+			la_get_time_in_state(i,stats->freq_table[i],(unsigned long long)
+				(jiffies_64_to_clock_t(stats->time_in_state[i]) * 1000 / CLOCKS_PER_SEC),"LA_CPU");
+		}
+		time_state_a = cur_time;
+	}
+	la_stats_cpufreq = stats;
+#endif
 	return 0;
 }
+#else
+static int cpufreq_stats_update(struct cpufreq_stats *stats)
+{
+	unsigned long long cur_time = get_jiffies_64();
+#if defined(CONFIG_CHECK_TIME_IN_STATE)
+	static unsigned long long time_state_a = 0;
+	int i;
+#endif
+
+	spin_lock(&cpufreq_stats_lock);
+	stats->time_in_state[stats->last_index] += cur_time - stats->last_time;
+	stats->last_time = cur_time;
+	spin_unlock(&cpufreq_stats_lock);
+#if defined(CONFIG_CHECK_TIME_IN_STATE)
+	if (jiffies_64_to_clock_t(cur_time -time_state_a )  * 1000 / CLOCKS_PER_SEC >= TIME_IN_STATE_INTERVAL) {
+		for (i = 0; i < stats->state_num; i++) {
+			la_get_time_in_state(i,stats->freq_table[i], (unsigned long long)
+				(jiffies_64_to_clock_t(stats->time_in_state[i]) * 1000 / CLOCKS_PER_SEC),"LA_CPU");
+		}
+		time_state_a = cur_time;
+	}
+	la_stats_cpufreq = policy->stats;
+#endif
+	return 0;
+}
+#endif
+
+#if defined(CONFIG_CHECK_TIME_IN_STATE)
+void la_cpufreq_stats_update(void)
+{
+	if (la_stats_cpufreq == NULL)
+		return;
+
+	cpufreq_stats_update(la_stats_cpufreq);
+}
+EXPORT_SYMBOL(la_cpufreq_stats_update);
+#endif
 
 static ssize_t show_total_trans(struct cpufreq_policy *policy, char *buf)
 {

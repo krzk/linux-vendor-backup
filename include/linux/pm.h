@@ -540,6 +540,15 @@ enum rpm_request {
 	RPM_REQ_RESUME,
 };
 
+#ifdef CONFIG_DISPLAY_EARLY_DPMS
+enum early_comp_level {
+	EARLY_COMP_NONE,
+	EARLY_COMP_SLAVE,
+	EARLY_COMP_MASTER,
+	EARLY_COMP_MAX,
+};
+#endif
+
 struct wakeup_source;
 struct wake_irq;
 struct pm_domain_data;
@@ -561,6 +570,9 @@ struct dev_pm_info {
 	unsigned int		async_suspend:1;
 	bool			is_prepared:1;	/* Owned by the PM core */
 	bool			is_suspended:1;	/* Ditto */
+#ifdef CONFIG_DISPLAY_EARLY_DPMS
+	bool			is_completed:1;
+#endif
 	bool			is_noirq_suspended:1;
 	bool			is_late_suspended:1;
 	bool			early_init:1;	/* Owned by the PM core */
@@ -573,6 +585,7 @@ struct dev_pm_info {
 	bool			wakeup_path:1;
 	bool			syscore:1;
 	bool			no_pm_callbacks:1;	/* Owned by the PM core */
+	bool			is_suspend_aborted:1;	/* Owned by the PM core */
 #else
 	unsigned int		should_wakeup:1;
 #endif
@@ -604,6 +617,10 @@ struct dev_pm_info {
 	unsigned long		active_jiffies;
 	unsigned long		suspended_jiffies;
 	unsigned long		accounting_timestamp;
+#endif
+#ifdef CONFIG_DISPLAY_EARLY_DPMS
+	enum early_comp_level	early_comp_level;
+	struct list_head	early_comp_entry;
 #endif
 	struct pm_subsys_data	*subsys_data;  /* Owned by the subsystem. */
 	void (*set_latency_tolerance)(struct device *, s32);

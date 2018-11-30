@@ -35,7 +35,7 @@ struct vm_area_struct;
 #define ___GFP_HARDWALL		0x20000u
 #define ___GFP_THISNODE		0x40000u
 #define ___GFP_ATOMIC		0x80000u
-#define ___GFP_ACCOUNT		0x100000u
+#define ___GFP_ACCOUNT          0x00u
 #define ___GFP_NOTRACK		0x200000u
 #define ___GFP_DIRECT_RECLAIM	0x400000u
 #define ___GFP_OTHER_NODE	0x800000u
@@ -548,12 +548,23 @@ static inline bool pm_suspended_storage(void)
 /* The below functions must be run on a range from a single zone. */
 extern int alloc_contig_range(unsigned long start, unsigned long end,
 			      unsigned migratetype);
+extern int alloc_contig_range_fast(unsigned long start, unsigned long end,
+			      unsigned migratetype);
 extern void free_contig_range(unsigned long pfn, unsigned nr_pages);
 #endif
 
 #ifdef CONFIG_CMA
 /* CMA stuff */
 extern void init_cma_reserved_pageblock(struct page *page);
+#endif
+
+#ifdef CONFIG_HPA
+int alloc_pages_highorder(int order, struct page **pages, int nents);
+#else
+static inline int alloc_pages_highorder(int order, struct page **pages, int nents)
+{
+	return 0;
+}
 #endif
 
 #endif /* __LINUX_GFP_H */

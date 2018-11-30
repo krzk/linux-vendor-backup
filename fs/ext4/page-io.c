@@ -388,6 +388,11 @@ submit_and_retry:
 		ret = io_submit_init_bio(io, bh);
 		if (ret)
 			return ret;
+#if defined(CONFIG_EXT4_FS_ENCRYPTION) && defined(CONFIG_CRYPTO_DISKCIPHER)
+		if (ext4_encrypted_inode(inode) && S_ISREG(inode->i_mode) &&
+			fscrypt_disk_encrypted(inode))
+			crypto_diskcipher_set(io->io_bio, inode->i_crypt_info->ci_dtfm);
+#endif
 	}
 	ret = bio_add_page(io->io_bio, page, bh->b_size, bh_offset(bh));
 	if (ret != bh->b_size)

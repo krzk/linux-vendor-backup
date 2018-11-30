@@ -262,6 +262,15 @@ static void dwc3_ep0_stall_and_restart(struct dwc3 *dwc)
 {
 	struct dwc3_ep		*dep;
 
+	if (dwc->eps[1]->endpoint.desc == NULL) {
+		dev_err(dwc->dev, "EP1 was disabled: DESC NULL\n");
+		return;
+	}
+	if (dwc->eps[0]->endpoint.desc == NULL) {
+		dev_err(dwc->dev, "EP0 was disabled: DESC NULL\n");
+		return;
+	}
+
 	/* reinitialize physical ep1 */
 	dep = dwc->eps[1];
 	dep->flags = DWC3_EP_ENABLED;
@@ -406,7 +415,6 @@ static int dwc3_ep0_handle_feature(struct dwc3 *dwc,
 	u32			recip;
 	u32			wValue;
 	u32			wIndex;
-	u32			reg;
 	int			ret;
 	enum usb_device_state	state;
 
@@ -432,12 +440,11 @@ static int dwc3_ep0_handle_feature(struct dwc3 *dwc,
 			    (dwc->speed != DWC3_DSTS_SUPERSPEED_PLUS))
 				return -EINVAL;
 
-			reg = dwc3_readl(dwc->regs, DWC3_DCTL);
-			if (set)
-				reg |= DWC3_DCTL_INITU1ENA;
-			else
-				reg &= ~DWC3_DCTL_INITU1ENA;
-			dwc3_writel(dwc->regs, DWC3_DCTL, reg);
+			/* see NEGATIVE RX DETECTION comment */
+			if (set && dwc->revision < DWC3_REVISION_230A)
+				return 0;
+
+			/* Disable U1/U2 mode */
 			break;
 
 		case USB_DEVICE_U2_ENABLE:
@@ -447,12 +454,11 @@ static int dwc3_ep0_handle_feature(struct dwc3 *dwc,
 			    (dwc->speed != DWC3_DSTS_SUPERSPEED_PLUS))
 				return -EINVAL;
 
-			reg = dwc3_readl(dwc->regs, DWC3_DCTL);
-			if (set)
-				reg |= DWC3_DCTL_INITU2ENA;
-			else
-				reg &= ~DWC3_DCTL_INITU2ENA;
-			dwc3_writel(dwc->regs, DWC3_DCTL, reg);
+			/* see NEGATIVE RX DETECTION comment */
+			if (set && dwc->revision < DWC3_REVISION_230A)
+				return 0;
+
+			/* Disable U1/U2 mode */
 			break;
 
 		case USB_DEVICE_LTM_ENABLE:
@@ -591,11 +597,20 @@ static int dwc3_ep0_set_config(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 						USB_STATE_CONFIGURED);
 
 			/*
-			 * Enable transition to U1/U2 state when
-			 * nothing is pending from application.
+			 * NEGATIVE RX DETECTION
+			 * Some host controllers (e.g. Intel) perform far-end
+			 * receiver termination _negative_ detection while link
+			 * is in U2 state. Synopsys PIPE PHY considers this
+			 * signalling as U2 LFPS exit, moves to Recovery state
+			 * and waits for training sequence which never comes.
+			 * This finally leads to reconnection. Starting from
+			 * DWC3 core 2.30a, GCTL register has bit U2EXIT_LFPS,
+			 * which improves interoperability with such HCs.
 			 */
+
+			/* Disable U1/U2 mode */
 			reg = dwc3_readl(dwc->regs, DWC3_DCTL);
-			reg |= (DWC3_DCTL_ACCEPTU1ENA | DWC3_DCTL_ACCEPTU2ENA);
+			reg &= ~(DWC3_DCTL_INITU2ENA | DWC3_DCTL_INITU1ENA);
 			dwc3_writel(dwc->regs, DWC3_DCTL, reg);
 		}
 		break;

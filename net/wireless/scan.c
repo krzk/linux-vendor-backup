@@ -70,7 +70,7 @@ module_param(bss_entries_limit, int, 0644);
 MODULE_PARM_DESC(bss_entries_limit,
                  "limit to number of scan BSS entries (per wiphy, default 1000)");
 
-#define IEEE80211_SCAN_RESULT_EXPIRE	(30 * HZ)
+#define IEEE80211_SCAN_RESULT_EXPIRE	(7 * HZ)
 
 static void bss_free(struct cfg80211_internal_bss *bss)
 {
@@ -492,8 +492,10 @@ static int cmp_bss(struct cfg80211_bss *a,
 	const u8 *ie2 = NULL;
 	int i, r;
 
+	#if !(defined(CONFIG_BCM43012))
 	if (a->channel != b->channel)
 		return b->channel->center_freq - a->channel->center_freq;
+	#endif /* CONFIG_BCM43012 */
 
 	a_ies = rcu_access_pointer(a->ies);
 	if (!a_ies)
@@ -532,6 +534,10 @@ static int cmp_bss(struct cfg80211_bss *a,
 	r = memcmp(a->bssid, b->bssid, sizeof(a->bssid));
 	if (r)
 		return r;
+	#if defined(CONFIG_BCM43012)
+	if (a->channel != b->channel)
+		return b->channel->center_freq - a->channel->center_freq;
+	#endif /* CONFIG_BCM43012 */
 
 	ie1 = cfg80211_find_ie(WLAN_EID_SSID, a_ies->data, a_ies->len);
 	ie2 = cfg80211_find_ie(WLAN_EID_SSID, b_ies->data, b_ies->len);

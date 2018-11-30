@@ -269,6 +269,9 @@
 #include <linux/err.h>
 #include <linux/time.h>
 #include <linux/slab.h>
+#ifdef CONFIG_PID_STAT
+#include <linux/pid_stat.h>
+#endif
 
 #include <net/icmp.h>
 #include <net/inet_common.h>
@@ -1324,6 +1327,11 @@ out:
 		tcp_push(sk, flags, mss_now, tp->nonagle, size_goal);
 out_nopush:
 	release_sock(sk);
+
+#ifdef CONFIG_PID_STAT
+	if (copied + copied_syn)
+		pid_stat_tcp_snd(current->pid, copied + copied_syn);
+#endif
 	return copied + copied_syn;
 
 do_fault:
@@ -1596,6 +1604,9 @@ int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
 	if (copied > 0) {
 		tcp_recv_skb(sk, seq, &offset);
 		tcp_cleanup_rbuf(sk, copied);
+#ifdef CONFIG_PID_STAT
+		pid_stat_tcp_rcv(current->pid, copied);
+#endif
 	}
 	return copied;
 }
@@ -1937,6 +1948,10 @@ skip_copy:
 	tcp_cleanup_rbuf(sk, copied);
 
 	release_sock(sk);
+#ifdef CONFIG_PID_STAT
+	if (copied > 0)
+		pid_stat_tcp_rcv(current->pid, copied);
+#endif
 	return copied;
 
 out:
@@ -1945,6 +1960,10 @@ out:
 
 recv_urg:
 	err = tcp_recv_urg(sk, msg, len, flags);
+#ifdef CONFIG_PID_STAT
+	if (err > 0)
+		pid_stat_tcp_rcv(current->pid, err);
+#endif
 	goto out;
 
 recv_sndq:

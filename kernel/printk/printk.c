@@ -56,6 +56,10 @@
 #include "braille.h"
 #include "internal.h"
 
+#ifdef CONFIG_EARLY_PRINTK_DIRECT
+extern void printascii(char *);
+#endif
+
 int console_printk[4] = {
 	CONSOLE_LOGLEVEL_DEFAULT,	/* console_loglevel */
 	MESSAGE_LOGLEVEL_DEFAULT,	/* default_message_loglevel */
@@ -338,6 +342,12 @@ struct printk_log {
 	u8 facility;		/* syslog facility */
 	u8 flags:5;		/* internal record flags */
 	u8 level:3;		/* syslog level */
+#ifdef CONFIG_PRINTK_PROCESS
+	char process[16];	/* process name */
+	pid_t pid;		/* process id */
+	u8 cpu;			/* cpu id */
+	u8 in_interrupt;	/* interrupt context */
+#endif
 }
 #ifdef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
 __packed __aligned(4)
@@ -376,7 +386,11 @@ static enum log_flags console_prev;
 static u64 clear_seq;
 static u32 clear_idx;
 
+#ifdef CONFIG_PRINTK_PROCESS
+#define PREFIX_MAX		48
+#else
 #define PREFIX_MAX		32
+#endif
 #define LOG_LINE_MAX		(1024 - PREFIX_MAX)
 
 #define LOG_LEVEL(v)		((v) & 0x07)
@@ -503,6 +517,69 @@ static u32 msg_used_size(u16 text_len, u16 dict_len, u32 *pad_len)
 	return size;
 }
 
+#ifdef CONFIG_PRINTK_PROCESS
+static bool printk_process = 1;
+static size_t print_process(const struct printk_log *msg, char *buf)
+
+{
+	if (!printk_process)
+		return 0;
+
+	if (!buf)
+		return snprintf(NULL, 0, "%c[%1d:%15s:%5d] ", ' ', 0, " ", 0);
+
+	return sprintf(buf, "%c[%1d:%15s:%5d] ",
+			msg->in_interrupt ? 'I' : ' ',
+			msg->cpu,
+			msg->process,
+			msg->pid);
+}
+#else
+static bool printk_process = 0;
+static size_t print_process(const struct printk_log *msg, char *buf)
+{
+	return 0;
+}
+#endif
+module_param_named(process, printk_process, bool, S_IRUGO | S_IWUSR);
+
+#ifdef CONFIG_EXYNOS_SNAPSHOT
+static size_t hook_size;
+static char hook_text[LOG_LINE_MAX + PREFIX_MAX];
+static void (*func_hook_logbuf)(const char *buf, size_t size);
+static size_t msg_print_text(const struct printk_log *msg, enum log_flags prev,
+				bool syslog, char *buf, size_t size);
+void register_hook_logbuf(void (*func)(const char *buf, size_t size))
+{
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&logbuf_lock, flags);
+	/*
+	 * In register hooking function,  we should check messages already
+	 * printed on log_buf. If so, they will be copyied to backup
+	 * exynos log buffer
+	 * */
+	if (log_first_seq != log_next_seq) {
+		unsigned int step_seq, step_idx, start, end;
+		struct printk_log *msg;
+		start = log_first_seq;
+		end = log_next_seq;
+		step_idx = log_first_idx;
+		for (step_seq = start; step_seq < end; step_seq++) {
+			msg = (struct printk_log *)(log_buf + step_idx);
+			hook_size = msg_print_text(msg, msg->flags,
+					true, hook_text, LOG_LINE_MAX + PREFIX_MAX);
+			func(hook_text, hook_size);
+			step_idx = log_next(step_idx);
+		}
+	}
+	func_hook_logbuf = func;
+	raw_spin_unlock_irqrestore(&logbuf_lock, flags);
+}
+EXPORT_SYMBOL(register_hook_logbuf);
+#endif
+
+
 /*
  * Define how much of the log buffer we could take at maximum. The value
  * must be greater than two. Note that only half of the buffer is available
@@ -581,6 +658,22 @@ static int log_store(int facility, int level,
 	memset(log_dict(msg) + dict_len, 0, pad_len);
 	msg->len = size;
 
+#ifdef CONFIG_PRINTK_PROCESS
+	if (printk_process) {
+		strncpy(msg->process, current->comm, sizeof(msg->process) - 1);
+		msg->process[sizeof(msg->process) - 1] = '\0';
+		msg->pid = task_pid_nr(current);
+		msg->cpu = smp_processor_id();
+		msg->in_interrupt = in_interrupt() ? 1 : 0;
+	}
+#endif
+#ifdef CONFIG_EXYNOS_SNAPSHOT
+	if (func_hook_logbuf) {
+		hook_size = msg_print_text(msg, msg->flags,
+				true, hook_text, LOG_LINE_MAX + PREFIX_MAX);
+		func_hook_logbuf(hook_text, hook_size);
+	}
+#endif
 	/* insert message */
 	log_next_idx += msg->len;
 	log_next_seq++;
@@ -1207,6 +1300,7 @@ static size_t print_prefix(const struct printk_log *msg, bool syslog, char *buf)
 	}
 
 	len += print_time(msg->ts_nsec, buf ? buf + len : NULL);
+	len += print_process(msg, buf ? buf + len : NULL);
 	return len;
 }
 
@@ -1714,6 +1808,8 @@ static size_t cont_print_text(char *text, size_t size)
 
 	if (cont.cons == 0 && (console_prev & LOG_NEWLINE)) {
 		textlen += print_time(cont.ts_nsec, text);
+		*(text+textlen) = ' ';
+		textlen += print_process(NULL, NULL);
 		size -= textlen;
 	}
 
@@ -1778,6 +1874,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 	int printed_len = 0;
 	int nmi_message_lost;
 	bool in_sched = false;
+
 	/* cpu currently holding logbuf_lock in this function */
 	static unsigned int logbuf_cpu = UINT_MAX;
 
@@ -1869,6 +1966,10 @@ asmlinkage int vprintk_emit(int facility, int level,
 			text += 2;
 		}
 	}
+
+#ifdef CONFIG_EARLY_PRINTK_DIRECT
+	printascii(text);
+#endif
 
 	if (level == LOGLEVEL_DEFAULT)
 		level = default_message_loglevel;
@@ -2034,6 +2135,130 @@ asmlinkage __visible void early_printk(const char *fmt, ...)
 }
 #endif
 
+#ifdef CONFIG_PRINTK_BOOTLOG
+static phys_addr_t bootlog_phys_addr;
+static size_t      bootlog_buf_size;
+static uint32_t    bootlog_start, bootlog_end;
+
+static int __init bootlog_init(void)
+{
+	char  *bootlog_buf, *klog_backup_ptr;
+	size_t bootlog_len,  klog_backup_len;
+	int    blog_idx, klog_idx;
+	uint64_t klog_seq = 0;
+
+	if (!bootlog_phys_addr || !bootlog_buf_size || (bootlog_start == bootlog_end))
+		return 0;
+
+#if 0
+	bootlog_buf = (char *)ioremap(bootlog_phys_addr, PAGE_ALIGN(bootlog_buf_size));
+#endif
+	bootlog_buf = (char *)phys_to_virt(bootlog_phys_addr);
+	if (!bootlog_buf) {
+		pr_info("%s: Failed to ioremap 0x%llx\n", __func__, bootlog_phys_addr);
+		return -ENOMEM;
+	}
+
+	bootlog_start %= bootlog_buf_size;
+	bootlog_end   %= bootlog_buf_size;
+
+	if (bootlog_end < bootlog_start)
+		bootlog_len = bootlog_buf_size - (bootlog_start - bootlog_end);
+	else
+		bootlog_len = bootlog_end - bootlog_start;
+
+	pr_info("%s: 0x%x to 0x%x len: %ld\n",
+			__func__, bootlog_start, bootlog_end, bootlog_len);
+
+	raw_spin_lock(&logbuf_lock);
+
+	/* backup existed kernel logs to  end of the kernel log buffer temporarily */
+	klog_backup_ptr = __log_buf + sizeof(__log_buf) - log_next_idx;
+	klog_backup_len = log_next_idx;
+	memmove(klog_backup_ptr, __log_buf, klog_backup_len);
+
+	blog_idx = bootlog_start;
+	klog_idx = 0;
+
+	while (bootlog_len > 0) {
+		struct printk_log *msg = NULL;
+		u32 pad_len = 0;
+
+		while (bootlog_len && bootlog_buf[blog_idx] == '\n') {
+			blog_idx = (blog_idx + 1) % bootlog_buf_size;
+			bootlog_len--;
+		}
+
+		if (bootlog_len <= 0)
+			break;
+
+		msg = (struct printk_log *)(__log_buf + klog_idx);
+		memset(msg, 0, sizeof(*msg));
+		klog_idx += sizeof(*msg);
+
+		while (bootlog_buf[blog_idx] != '\n') {
+			__log_buf[klog_idx] = bootlog_buf[blog_idx];
+			klog_idx++;
+			blog_idx = (blog_idx + 1) % bootlog_buf_size;
+			msg->text_len++;
+			bootlog_len--;
+		}
+
+		msg->ts_nsec  = 0;
+		msg->dict_len = 0;
+		msg->len      = msg_used_size(msg->text_len, msg->dict_len, &pad_len);
+		msg->facility = 0;
+		msg->flags    = LOG_NOCONS;
+		msg->level    = MESSAGE_LOGLEVEL_DEFAULT;
+#ifdef CONFIG_PRINTK_PROCESS
+		snprintf(msg->process, sizeof(msg->process) - 1, "bootloader");
+		msg->pid = 0;
+		msg->cpu = 0;
+		msg->in_interrupt = 0;
+#else
+		msg->cpu = 0;
+#endif
+
+		memset(__log_buf + klog_idx, 0, pad_len);
+		klog_idx += pad_len;
+		klog_seq++;
+
+		log_next_idx += msg->len;
+		log_next_seq++;
+	}
+
+	/* append existed kernel logs to end of the bootlog */
+	memmove(__log_buf + klog_idx, klog_backup_ptr, klog_backup_len);
+	memset(klog_backup_ptr, 0, klog_backup_len);
+
+	/* console log starts from kernel logs */
+	console_idx = klog_idx;
+	console_seq = klog_seq;
+
+	raw_spin_unlock(&logbuf_lock);
+
+	iounmap((void *)bootlog_buf);
+
+	return 0;
+}
+early_initcall(bootlog_init);
+
+static int __init bootlog_setup(char *cmdline)
+{
+	/* bootloader.log={base_addr},{size},{start_idx},{end_idx} */
+	if (get_option(&cmdline, (int *)&bootlog_phys_addr) == 2 &&
+		get_option(&cmdline, (int *)&bootlog_buf_size)  == 2 &&
+		get_option(&cmdline, (int *)&bootlog_start) == 2)
+		get_option(&cmdline, (int *)&bootlog_end);
+
+	pr_info("%s: base: 0x%llx, size: 0x%lx, idx: 0x%x to 0x%x\n", __func__,
+			bootlog_phys_addr, bootlog_buf_size, bootlog_start, bootlog_end);
+
+	return 1;
+}
+__setup("tizenboot.log=", bootlog_setup);
+#endif /* CONFIG_PRINTK_BOOTLOG */
+
 static int __add_preferred_console(char *name, int idx, char *options,
 				   char *brl_options)
 {
@@ -2183,8 +2408,8 @@ static int console_cpu_notify(struct notifier_block *self,
 	case CPU_DEAD:
 	case CPU_DOWN_FAILED:
 	case CPU_UP_CANCELED:
-		console_lock();
-		console_unlock();
+		if (console_trylock())
+			console_unlock();
 	}
 	return NOTIFY_OK;
 }

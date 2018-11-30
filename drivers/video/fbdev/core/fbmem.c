@@ -1632,9 +1632,12 @@ static int do_register_framebuffer(struct fb_info *fb_info)
 		return -ENXIO;
 
 	num_registered_fb++;
-	for (i = 0 ; i < FB_MAX; i++)
+	i = 0;
+	while (i < FB_MAX) {
 		if (!registered_fb[i])
 			break;
+		i++;
+	}
 	fb_info->node = i;
 	atomic_set(&fb_info->count, 1);
 	mutex_init(&fb_info->lock);

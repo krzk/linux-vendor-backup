@@ -17,6 +17,7 @@
 #include <linux/dcache.h>
 #include <crypto/skcipher.h>
 #include <uapi/linux/fs.h>
+#include <crypto/diskcipher.h>
 
 #define FS_KEY_DERIVATION_NONCE_SIZE		16
 #define FS_ENCRYPTION_CONTEXT_FORMAT_V1		1
@@ -79,6 +80,9 @@ struct fscrypt_info {
 	u8 ci_filename_mode;
 	u8 ci_flags;
 	struct crypto_skcipher *ci_ctfm;
+#ifdef CONFIG_CRYPTO_DISKCIPHER
+	struct crypto_diskcipher *ci_dtfm;
+#endif
 	u8 ci_master_key[FS_KEY_DESCRIPTOR_SIZE];
 };
 
@@ -271,6 +275,17 @@ extern int fscrypt_fname_disk_to_usr(struct inode *, u32, u32,
 extern int fscrypt_fname_usr_to_disk(struct inode *, const struct qstr *,
 			struct fscrypt_str *);
 #endif
+
+static inline int fscrypt_disk_encrypted(struct inode *inode)
+{
+#if IS_ENABLED(CONFIG_FS_ENCRYPTION)
+#if IS_ENABLED(CONFIG_CRYPTO_DISKCIPHER)
+	if (inode && inode->i_crypt_info)
+		return (inode->i_crypt_info->ci_dtfm != NULL);
+#endif
+#endif
+	return 0;
+}
 
 /* crypto.c */
 static inline struct fscrypt_ctx *fscrypt_notsupp_get_ctx(struct inode *i,

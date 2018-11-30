@@ -367,6 +367,17 @@ config INPUT_ATI_REMOTE2
 	  To compile this driver as a module, choose M here: the module will be
 	  called ati_remote2.
 
+config INPUT_KEYCHORD
+	tristate "Key chord input driver support"
+	help
+	  Say Y here if you want to enable the key chord driver
+	  accessible at /dev/keychord.  This driver can be used
+	  for receiving notifications when client specified key
+	  combinations are pressed.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called keychord.
+
 config INPUT_KEYSPAN_REMOTE
 	tristate "Keyspan DMR USB remote control"
 	depends on USB_ARCH_HAS_HCD
@@ -534,6 +545,11 @@ config INPUT_SGI_BTNS
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called sgi_btns.
+
+config INPUT_GPIO
+	tristate "GPIO driver support"
+	help
+	  Say Y here if you want to support gpio based keys, wheels etc...
 
 config HP_SDC_RTC
 	tristate "HP SDC Real Time Clock"
@@ -831,4 +847,37 @@ config INPUT_HISI_POWERKEY
 	  To compile this driver as a module, choose M here: the
 	  module will be called hisi_powerkey.
 
+config INPUT_TIZEN_BEZEL
+        tristate "tizen bezel device support"
+        default n
+        help
+          Say Y here if you want to use tizen detent as a rotary detector
+
+          To compile this driver as a module, choose M here: the
+          module will be called tizen_detent
+
+config INPUT_ASSISTANT
+        default n
+        bool "Enable input assistant support"
+        help
+          Say Y here if you want to enable input assistant.
+          If unsure, say N.
+
+config INPUT_SECBRIDGE
+        default n
+        bool "Enable input bridge support"
+        help
+          Say Y here if you want to enable input bridge.
+          This is useful for enabling different operation
+          according to key combinations.
+          If unsure, say N.
+
+config INPUT_SEC_AUTO_INPUT
+        default n
+        bool "Enable sec auto input support"
+        help
+          Say Y here if you want to enable sec auto input.
+          This is useful for enabling different operation
+          according to key combinations.
+          If unsure, say N.
 endif

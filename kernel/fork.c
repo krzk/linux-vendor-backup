@@ -58,6 +58,9 @@
 #include <linux/tsacct_kern.h>
 #include <linux/cn_proc.h>
 #include <linux/freezer.h>
+#include <swap/hook_syscall_priv.h>
+#include <swap/hook_taskdata.h>
+#include <swap/hook_usaux.h>
 #include <linux/delayacct.h>
 #include <linux/taskstats_kern.h>
 #include <linux/random.h>
@@ -383,6 +386,7 @@ void __put_task_struct(struct task_struct *tsk)
 	WARN_ON(atomic_read(&tsk->usage));
 	WARN_ON(tsk == current);
 
+	swap_taskdata_put_task(tsk);
 	cgroup_free(tsk);
 	task_numa_free(tsk);
 	security_task_free(tsk);
@@ -1075,6 +1079,8 @@ static int wait_for_vfork_done(struct task_struct *child,
  */
 void mm_release(struct task_struct *tsk, struct mm_struct *mm)
 {
+	swap_usaux_mm_release(tsk);
+
 	/* Get rid of any futexes when releasing the mm */
 #ifdef CONFIG_FUTEX
 	if (unlikely(tsk->robust_list)) {
@@ -1442,6 +1448,16 @@ static void posix_cpu_timers_init(struct task_struct *tsk)
 	INIT_LIST_HEAD(&tsk->cpu_timers[1]);
 	INIT_LIST_HEAD(&tsk->cpu_timers[2]);
 }
+
+#ifdef CONFIG_RKP_KDP
+void rkp_assign_pgd(struct task_struct *p)
+{
+	u64 pgd;
+	pgd = (u64)(p->mm ? p->mm->pgd :swapper_pg_dir);
+
+	uh_call(UH_APP_RKP,0x43,(u64)p->cred, (u64)pgd,0,0);
+}
+#endif /*CONFIG_RKP_KDP*/
 
 static inline void
 init_task_pid(struct task_struct *task, enum pid_type type, struct pid *pid)
@@ -1826,6 +1842,7 @@ static __latent_entropy struct task_struct *copy_process(
 	total_forks++;
 	spin_unlock(&current->sighand->siglock);
 	syscall_tracepoint_update(p);
+	swap_hook_syscall_update(p);
 	write_unlock_irq(&tasklist_lock);
 
 	proc_fork_connector(p);
@@ -1835,7 +1852,10 @@ static __latent_entropy struct task_struct *copy_process(
 
 	trace_task_newtask(p, clone_flags);
 	uprobe_copy_process(p, clone_flags);
-
+#ifdef CONFIG_RKP_KDP
+	if(rkp_cred_enable)
+		rkp_assign_pgd(p);
+#endif/*CONFIG_RKP_KDP*/
 	return p;
 
 bad_fork_cancel_cgroup:
@@ -1946,8 +1966,10 @@ long _do_fork(unsigned long clone_flags,
 			trace = 0;
 	}
 
+	swap_usaux_copy_process_pre();
 	p = copy_process(clone_flags, stack_start, stack_size,
 			 child_tidptr, NULL, trace, tls, NUMA_NO_NODE);
+	swap_usaux_copy_process_post(p);
 	add_latent_entropy();
 	/*
 	 * Do this prior waking up the new thread - the thread pointer

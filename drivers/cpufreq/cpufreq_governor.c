@@ -23,7 +23,11 @@
 
 #include "cpufreq_governor.h"
 
-static DEFINE_PER_CPU(struct cpu_dbs_info, cpu_dbs);
+#if defined(CONFIG_CPU_FREQ_DEFAULT_GOV_TIZEN_MORION)
+#define LATENCY_MULTIPLIER		(500)
+#endif
+
+DEFINE_PER_CPU(struct cpu_dbs_info, cpu_dbs);
 
 static DEFINE_MUTEX(gov_dbs_data_mutex);
 

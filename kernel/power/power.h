@@ -308,3 +308,11 @@ extern int pm_wake_lock(const char *buf);
 extern int pm_wake_unlock(const char *buf);
 
 #endif /* !CONFIG_PM_WAKELOCKS */
+
+#ifdef CONFIG_SYSSLEEP_CHECK
+
+/* kernel/power/syssleep_check.c */
+extern ssize_t show_syssleep_check(char *buf);
+extern int store_syssleep_check(const char *buf);
+
+#endif /* !CONFIG_SYSSLEEP_CHECK */

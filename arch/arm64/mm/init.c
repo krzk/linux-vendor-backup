@@ -139,15 +139,33 @@ static void __init zone_sizes_init(unsigned long min, unsigned long max)
 		}
 	}
 
+	if (ZONE_MOVABLE_SIZE_BYTES > 0) {
+		int zidx;
+
+		for (zidx = ZONE_MOVABLE - 1; zidx >= 0; zidx--) {
+			if (zone_size[zidx] > 0)
+				break;
+		}
+
+		BUG_ON(zidx == -1);
+
+		zone_size[ZONE_MOVABLE] = ZONE_MOVABLE_SIZE_BYTES >> PAGE_SHIFT;
+		BUG_ON(zone_size[ZONE_MOVABLE] >= zone_size[zidx]);
+		zone_size[zidx] -= zone_size[ZONE_MOVABLE];
+		zhole_size[ZONE_MOVABLE] = 0;
+	}
+
 	free_area_init_node(0, zone_size, min, zhole_size);
 }
 
 #endif /* CONFIG_NUMA */
 
 #ifdef CONFIG_HAVE_ARCH_PFN_VALID
+#define PFN_MASK ((1UL << (64 - PAGE_SHIFT)) - 1)
+
 int pfn_valid(unsigned long pfn)
 {
-	return memblock_is_map_memory(pfn << PAGE_SHIFT);
+	return (pfn & PFN_MASK) == pfn && memblock_is_map_memory(pfn << PAGE_SHIFT);
 }
 EXPORT_SYMBOL(pfn_valid);
 #endif
@@ -294,6 +312,9 @@ void __init arm64_memblock_init(void)
 	/* 4GB maximum for 32-bit only capable devices */
 	if (IS_ENABLED(CONFIG_ZONE_DMA))
 		arm64_dma_phys_limit = max_zone_dma_phys();
+	else if (ZONE_MOVABLE_SIZE_BYTES > 0)
+		arm64_dma_phys_limit =
+			memblock_end_of_DRAM() - ZONE_MOVABLE_SIZE_BYTES;
 	else
 		arm64_dma_phys_limit = PHYS_MASK + 1;
 	dma_contiguous_reserve(arm64_dma_phys_limit);
@@ -494,6 +515,9 @@ void free_initmem(void)
 	 * is not supported by kallsyms.
 	 */
 	unmap_kernel_range((u64)__init_begin, (u64)(__init_end - __init_begin));
+#ifdef CONFIG_UH_RKP
+	uh_call(UH_APP_RKP, RKP_DEFERRED_START, 0, 0, 0, 0);
+#endif
 }
 
 #ifdef CONFIG_BLK_DEV_INITRD
@@ -502,8 +526,10 @@ static int keep_initrd __initdata;
 
 void __init free_initrd_mem(unsigned long start, unsigned long end)
 {
-	if (!keep_initrd)
+	if (!keep_initrd) {
 		free_reserved_area((void *)start, (void *)end, 0, "initrd");
+		memblock_free(__virt_to_phys(start), end - start);
+	}
 }
 
 static int __init keepinitrd_setup(char *__unused)

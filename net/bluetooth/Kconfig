@@ -113,4 +113,16 @@ config BT_DEBUGFS
 	  Provide extensive information about internal Bluetooth states
 	  in debugfs.
 
+#BEGIN: CONFIG_TIZEN_WIP
+config BT_DQA_SUPPORT
+	bool "Support DQA(Device Quality Analysis)"
+	depends on BT
+	default n
+
+config BT_HCI_TRACE
+	bool "Trace HCI command and event"
+	depends on BT
+	default n
+#END: CONFIG_TIZEN_WIP
+
 source "drivers/bluetooth/Kconfig"

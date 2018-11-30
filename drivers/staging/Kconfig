@@ -104,6 +104,12 @@ source "drivers/staging/ks7010/Kconfig"
 
 source "drivers/staging/greybus/Kconfig"
 
+source "drivers/staging/tizen/Kconfig"
+
 source "drivers/staging/vc04_services/Kconfig"
+
+source "drivers/staging/samsung/Kconfig"
+
+source "drivers/staging/nanohub/Kconfig"
 
 endif # STAGING

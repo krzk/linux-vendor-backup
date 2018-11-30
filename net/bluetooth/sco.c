@@ -32,6 +32,10 @@
 #include <net/bluetooth/hci_core.h>
 #include <net/bluetooth/sco.h>
 
+#ifdef CONFIG_TIZEN_WIP
+#include <net/bluetooth/mgmt.h>
+#include <net/bluetooth/mgmt_tizen.h>
+#endif
 static bool disable_esco;
 
 static const struct proto_ops sco_sock_ops;
@@ -628,7 +632,11 @@ done:
 static int sco_sock_accept(struct socket *sock, struct socket *newsock,
 			   int flags)
 {
+#ifdef CONFIG_TIZEN_WIP
+	DECLARE_WAITQUEUE(wait, current);
+#else
 	DEFINE_WAIT_FUNC(wait, woken_wake_function);
+#endif
 	struct sock *sk = sock->sk, *ch;
 	long timeo;
 	int err = 0;
@@ -662,8 +670,11 @@ static int sco_sock_accept(struct socket *sock, struct socket *newsock,
 		}
 
 		release_sock(sk);
-
+#ifdef CONFIG_TIZEN_WIP
+		timeo = schedule_timeout(timeo);
+#else
 		timeo = wait_woken(&wait, TASK_INTERRUPTIBLE, timeo);
+#endif
 		lock_sock(sk);
 	}
 	remove_wait_queue(sk_sleep(sk), &wait);
@@ -838,8 +849,13 @@ static int sco_sock_setsockopt(struct socket *sock, int level, int optname,
 		}
 
 		/* Explicitly check for these values */
+#ifdef CONFIG_TIZEN_WIP /* Codec defer accept */
+		if (voice.setting != (BT_VOICE_TRANSPARENT | BT_VOICE_CVSD_16BIT) &&
+		    voice.setting != BT_VOICE_CVSD_16BIT) {
+#else
 		if (voice.setting != BT_VOICE_TRANSPARENT &&
 		    voice.setting != BT_VOICE_CVSD_16BIT) {
+#endif /* Codec defer accept */
 			err = -EINVAL;
 			break;
 		}
@@ -1014,7 +1030,10 @@ static int sco_sock_release(struct socket *sock)
 		err = bt_sock_wait_state(sk, BT_CLOSED, sk->sk_lingertime);
 		release_sock(sk);
 	}
-
+/* SCO kernel panic fix */
+#ifdef CONFIG_TIZEN_WIP
+	bt_sock_unlink(&sco_sk_list, sk);
+#endif
 	sock_orphan(sk);
 	sco_sock_kill(sk);
 	return err;
@@ -1040,8 +1059,11 @@ static void sco_conn_ready(struct sco_conn *conn)
 			sco_conn_unlock(conn);
 			return;
 		}
-
+#ifdef CONFIG_TIZEN_WIP /* Multiple SCO accept feature */
+		parent = sco_get_sock_listen(&conn->hcon->dst);
+#else
 		parent = sco_get_sock_listen(&conn->hcon->src);
+#endif  /* Multiple SCO accept feature */
 		if (!parent) {
 			sco_conn_unlock(conn);
 			return;
@@ -1079,6 +1101,106 @@ static void sco_conn_ready(struct sco_conn *conn)
 	}
 }
 
+#ifdef CONFIG_TIZEN_WIP /* WBC/NBC feature & Link policy */
+static int hci_write_acl_link_policy(struct hci_conn *hcon, uint16_t policy)
+{
+	struct hci_conn *hcon_acl;
+	struct hci_cp_write_link_policy cp;
+
+	BT_DBG("Write link Policy %d", policy);
+	hcon_acl = hci_conn_hash_lookup_ba(hcon->hdev, ACL_LINK, &hcon->dst);
+	if (hcon_acl ==  NULL) {
+		BT_ERR("ACL does not alive");
+		return -1;
+	}
+	memset(&cp, 0, sizeof(cp));
+	cp.handle = __cpu_to_le16(hcon_acl->handle);
+	cp.policy = __cpu_to_le16(policy);
+
+	hci_send_cmd(hcon_acl->hdev, HCI_OP_WRITE_LINK_POLICY, sizeof(cp), &cp);
+
+	return 0;
+}
+
+void sco_connect_set_nbc(struct hci_dev *hdev)
+{
+	struct hci_cp_write_voice_setting cp1;
+	struct hci_cp_bcm_wbs_req cp2;
+	struct hci_cp_i2S_pcm_req cp3;
+	struct hci_cp_sco_pcm_req cp4;
+	struct hci_cp_pcm_format_req cp5;
+
+	BT_DBG("Setting the NBC params, hdev = %p", hdev);
+
+	cp2.wbs_enable = 0x00; /* WbDisable */
+	cp2.pkt_type = cpu_to_le16(0x0002);
+	hci_send_cmd(hdev, HCI_BCM_ENABLE_WBS_REQ, sizeof(cp2), &cp2);
+
+	cp1.voice_setting = cpu_to_le16(0x0060);
+	hci_send_cmd(hdev, HCI_OP_WRITE_VOICE_SETTING, sizeof(cp1), &cp1);
+	hdev->voice_setting = cpu_to_le16(0x0060);
+
+	cp3.i2S_enable = 0x01;
+	cp3.is_master = 0x00;
+	cp3.sample_rate = 0x00;
+	cp3.clock_rate = 0x01;
+	hci_send_cmd(hdev, HCI_BCM_I2S_PCM_REQ, sizeof(cp3), &cp3);
+
+	cp4.sco_routing = 0x00;
+	cp4.clock_rate = 0x01;
+	cp4.frame_type = 0x00;
+	cp4.sync_mode = 0x00;
+	cp4.clock_mode = 0x00;
+	hci_send_cmd(hdev, HCI_BCM_SCO_PCM_REQ, sizeof(cp4), &cp4);
+
+	cp5.lsb_first = 0x00;
+	cp5.fill_bits = 0x00;
+	cp5.fill_method = 0x03;
+	cp5.fill_num = 0x00;
+	cp5.right_justify = 0x00;
+	hci_send_cmd(hdev, HCI_BCM_PCM_FORMAT_REQ, sizeof(cp5), &cp5);
+
+}
+
+void sco_connect_set_wbc(struct hci_dev *hdev)
+{
+	struct hci_cp_write_voice_setting cp1;
+	struct hci_cp_bcm_wbs_req cp2;
+	struct hci_cp_i2S_pcm_req cp3;
+	struct hci_cp_sco_pcm_req cp4;
+	struct hci_cp_pcm_format_req cp5;
+
+	BT_DBG("Setting the WBC params, hdev = %p", hdev);
+	cp2.wbs_enable = 0x01; /* Enable */
+	cp2.pkt_type = cpu_to_le16(0x0002);
+	hci_send_cmd(hdev, HCI_BCM_ENABLE_WBS_REQ, sizeof(cp2), &cp2);
+
+	cp1.voice_setting = cpu_to_le16(0x0003 | 0x0060);
+	hci_send_cmd(hdev, HCI_OP_WRITE_VOICE_SETTING, sizeof(cp1), &cp1);
+	hdev->voice_setting = cpu_to_le16(0x0003 | 0x0060);
+
+	cp3.i2S_enable = 0x01;
+	cp3.is_master = 0x00;
+	cp3.sample_rate = 0x01;
+	cp3.clock_rate = 0x02;
+	hci_send_cmd(hdev, HCI_BCM_I2S_PCM_REQ, sizeof(cp3), &cp3);
+
+	cp4.sco_routing = 0x00;
+	cp4.clock_rate = 0x02;
+	cp4.frame_type = 0x00;
+	cp4.sync_mode = 0x00;
+	cp4.clock_mode = 0x00;
+	hci_send_cmd(hdev, HCI_BCM_SCO_PCM_REQ, sizeof(cp4), &cp4);
+
+	cp5.lsb_first = 0x00;
+	cp5.fill_bits = 0x00;
+	cp5.fill_method = 0x03;
+	cp5.fill_num = 0x00;
+	cp5.right_justify = 0x00;
+	hci_send_cmd(hdev, HCI_BCM_PCM_FORMAT_REQ, sizeof(cp5), &cp5);
+}
+#endif /* WBC/NBC feature */
+
 /* ----- SCO interface with lower layer (HCI) ----- */
 int sco_connect_ind(struct hci_dev *hdev, bdaddr_t *bdaddr, __u8 *flags)
 {
@@ -1093,7 +1215,11 @@ int sco_connect_ind(struct hci_dev *hdev, bdaddr_t *bdaddr, __u8 *flags)
 		if (sk->sk_state != BT_LISTEN)
 			continue;
 
+#ifdef CONFIG_TIZEN_WIP /* Multiple SCO accept feature */
+		if (!bacmp(&sco_pi(sk)->src, bdaddr) ||
+#else
 		if (!bacmp(&sco_pi(sk)->src, &hdev->bdaddr) ||
+#endif  /* Multiple SCO accept feature */
 		    !bacmp(&sco_pi(sk)->src, BDADDR_ANY)) {
 			lm |= HCI_LM_ACCEPT;
 
@@ -1103,6 +1229,35 @@ int sco_connect_ind(struct hci_dev *hdev, bdaddr_t *bdaddr, __u8 *flags)
 		}
 	}
 	read_unlock(&sco_sk_list.lock);
+
+#ifdef CONFIG_TIZEN_WIP /* WBC/NBC feature */
+	if ((lm & HCI_LM_ACCEPT) && !hci_conn_hash_lookup_sco(hdev)) {
+		struct hci_conn *hcon_acl;
+
+		hcon_acl = hci_conn_hash_lookup_ba(hdev, ACL_LINK, bdaddr);
+		if (hcon_acl == NULL) {
+			BT_ERR("ACL doesn't alive. Use 0x%X",
+				hdev->voice_setting);
+
+			if (hdev->voice_setting == 0x0063)
+				sco_connect_set_wbc(hdev);
+			else
+				sco_connect_set_nbc(hdev);
+		} else if (hcon_acl->sco_role == MGMT_SCO_ROLE_HANDSFREE) {
+			BT_DBG("Handsfree SCO 0x%X", hcon_acl->voice_setting);
+			if (hcon_acl->voice_setting == 0x0063)
+				sco_connect_set_wbc(hdev);
+			else
+				sco_connect_set_nbc(hdev);
+		} else {
+			BT_DBG("Gateway SCO 0x%X", hcon_acl->voice_setting);
+			if (hcon_acl->voice_setting == 0x0063)
+				sco_connect_set_wbc(hdev);
+			else
+				sco_connect_set_nbc(hdev);
+		}
+	}
+#endif /* WBC/NBC feature */
 
 	return lm;
 }
@@ -1120,6 +1275,9 @@ static void sco_connect_cfm(struct hci_conn *hcon, __u8 status)
 		conn = sco_conn_add(hcon);
 		if (conn)
 			sco_conn_ready(conn);
+#ifdef CONFIG_TIZEN_WIP /* Link policy */
+			hci_write_acl_link_policy(hcon, HCI_LP_RSWITCH);
+#endif /* Link policy */
 	} else
 		sco_conn_del(hcon, bt_to_errno(status));
 }
@@ -1130,6 +1288,10 @@ static void sco_disconn_cfm(struct hci_conn *hcon, __u8 reason)
 		return;
 
 	BT_DBG("hcon %p reason %d", hcon, reason);
+
+#ifdef CONFIG_TIZEN_WIP /* Link policy */
+	hci_write_acl_link_policy(hcon, HCI_LP_SNIFF | HCI_LP_RSWITCH);
+#endif /* Link policy */
 
 	sco_conn_del(hcon, bt_to_errno(reason));
 }

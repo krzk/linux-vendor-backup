@@ -64,6 +64,11 @@
 /* Maximum message length that can be passed to aes_cmac */
 #define CMAC_MSG_MAX	80
 
+#ifdef CONFIG_TIZEN_WIP
+#define ZERO_KEY "\x00\x00\x00\x00\x00\x00\x00\x00" \
+		 "\x00\x00\x00\x00\x00\x00\x00\x00"
+#endif
+
 enum {
 	SMP_FLAG_TK_VALID,
 	SMP_FLAG_CFM_PENDING,
@@ -661,18 +666,32 @@ static void build_pairing_cmd(struct l2cap_conn *conn,
 	if (hci_dev_test_flag(hdev, HCI_RPA_RESOLVING))
 		remote_dist |= SMP_DIST_ID_KEY;
 
+#ifdef CONFIG_TIZEN_WIP
+	if (memcmp(hdev->irk, ZERO_KEY, 16))
+		local_dist |= SMP_DIST_ID_KEY;
+#else
 	if (hci_dev_test_flag(hdev, HCI_PRIVACY))
 		local_dist |= SMP_DIST_ID_KEY;
+#endif
 
 	if (hci_dev_test_flag(hdev, HCI_SC_ENABLED) &&
 	    (authreq & SMP_AUTH_SC)) {
 		struct oob_data *oob_data;
 		u8 bdaddr_type;
 
+#ifdef CONFIG_TIZEN_WIP
+		if (hci_dev_test_flag(hdev, HCI_SSP_ENABLED) &&
+		    bredr_sc_enabled(hdev) &&
+		    !bacmp(&hdev->static_addr, BDADDR_ANY)) {
+			local_dist |= SMP_DIST_LINK_KEY;
+			remote_dist |= SMP_DIST_LINK_KEY;
+		}
+#else
 		if (hci_dev_test_flag(hdev, HCI_SSP_ENABLED)) {
 			local_dist |= SMP_DIST_LINK_KEY;
 			remote_dist |= SMP_DIST_LINK_KEY;
 		}
+#endif
 
 		if (hcon->dst_type == ADDR_LE_DEV_PUBLIC)
 			bdaddr_type = BDADDR_LE_PUBLIC;
@@ -1092,8 +1111,23 @@ static void smp_notify_keys(struct l2cap_conn *conn)
 		else
 			type = HCI_LK_UNAUTH_COMBINATION_P256;
 
+#ifdef CONFIG_TIZEN_WIP
+		/* Fix for Model:Orbis WC1 (Gear S2)
+		 * If Link key is already exist for the same
+		 * device(shared on BREDR transport) then no need
+		 * to overwrite with new link key.
+		 */
+		key = hci_find_link_key(hdev, &hcon->dst);
+		if (key)
+	                key = hci_add_link_key(hdev, smp->conn->hcon, &hcon->dst,
+                                       key->val, type, 0, &persistent);
+		else
 		key = hci_add_link_key(hdev, smp->conn->hcon, &hcon->dst,
 				       smp->link_key, type, 0, &persistent);
+#else
+		key = hci_add_link_key(hdev, smp->conn->hcon, &hcon->dst,
+				       smp->link_key, type, 0, &persistent);
+#endif
 		if (key) {
 			mgmt_new_link_key(hdev, key, persistent);
 
@@ -1210,14 +1244,23 @@ static void smp_distribute_keys(struct smp_chan *smp)
 	rsp = (void *) &smp->prsp[1];
 
 	/* The responder sends its keys first */
+#ifndef CONFIG_TIZEN_WIP
 	if (hcon->out && (smp->remote_key_dist & KEY_DIST_MASK)) {
+#else
+	if (hcon->role != HCI_ROLE_SLAVE &&
+	    (smp->remote_key_dist & KEY_DIST_MASK)) {
+#endif
 		smp_allow_key_dist(smp);
 		return;
 	}
 
 	req = (void *) &smp->preq[1];
 
+#ifndef CONFIG_TIZEN_WIP
 	if (hcon->out) {
+#else
+	if (hcon->role != HCI_ROLE_SLAVE) {
+#endif
 		keydist = &rsp->init_key_dist;
 		*keydist &= req->init_key_dist;
 	} else {
@@ -1280,6 +1323,26 @@ static void smp_distribute_keys(struct smp_chan *smp)
 
 		smp_send_cmd(conn, SMP_CMD_IDENT_INFO, sizeof(idinfo), &idinfo);
 
+#ifdef CONFIG_TIZEN_WIP
+		if (hcon->type == LE_LINK &&
+		    bacmp(&hdev->static_addr, BDADDR_ANY)) {
+			/* When BLE static random address is configured,
+			 * it is always correct to use BLE static random address
+			 * as the local identity address.
+			 */
+			bacpy(&addrinfo.bdaddr, &hdev->static_addr);
+			addrinfo.addr_type = ADDR_LE_DEV_RANDOM;
+		} else {
+			/* The hci_conn contains the local identity address
+			 * after the connection has been established.
+			 *
+			 * This is true even when the connection has been
+			 * established using a resolvable random address.
+			 */
+			bacpy(&addrinfo.bdaddr, &hcon->src);
+			addrinfo.addr_type = hcon->src_type;
+		}
+#else
 		/* The hci_conn contains the local identity address
 		 * after the connection has been established.
 		 *
@@ -1288,6 +1351,7 @@ static void smp_distribute_keys(struct smp_chan *smp)
 		 */
 		bacpy(&addrinfo.bdaddr, &hcon->src);
 		addrinfo.addr_type = hcon->src_type;
+#endif
 
 		smp_send_cmd(conn, SMP_CMD_IDENT_ADDR_INFO, sizeof(addrinfo),
 			     &addrinfo);

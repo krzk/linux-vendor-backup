@@ -843,12 +843,89 @@ static void dwc3_debugfs_create_endpoint_dirs(struct dwc3 *dwc,
 	}
 }
 
+#ifdef CONFIG_USB_G_SLP
+static const char *const max_speed_str[] = {
+	[USB_SPEED_UNKNOWN] = "UNKNOWN",
+	[USB_SPEED_LOW] = "low-speed",
+	[USB_SPEED_FULL] = "full-speed",
+	[USB_SPEED_HIGH] = "high-speed",
+};
+
+static int dwc3_max_speed_show(struct seq_file *s, void *unused)
+{
+	struct dwc3		*dwc = s->private;
+	unsigned long		flags;
+	u32 max_speed;
+
+	spin_lock_irqsave(&dwc->lock, flags);
+	max_speed = dwc->maximum_speed;
+	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	if (max_speed <= USB_SPEED_HIGH)
+		seq_printf(s, "%s\n", max_speed_str[max_speed]);
+	else
+		seq_printf(s, "UNSUPPORT %d\n", max_speed);
+
+	return 0;
+}
+
+static int dwc3_max_speed_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, dwc3_max_speed_show, inode->i_private);
+}
+
+static ssize_t dwc3_max_speed_write(struct file *file,
+		const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file		*s = file->private_data;
+	struct dwc3		*dwc = s->private;
+	unsigned long		flags;
+	char			buf[32] = {'\0',};
+	int i, max_speed_idx = USB_SPEED_UNKNOWN;
+
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	pr_info("[%s] input speed :%s\n", __func__, buf);
+
+	for (i = 0; i < ARRAY_SIZE(max_speed_str); i++) {
+		if (strncmp(buf, max_speed_str[i],
+				strlen(max_speed_str[i])) == 0) {
+			max_speed_idx = i;
+			break;
+		}
+	}
+
+	if (max_speed_idx == USB_SPEED_UNKNOWN)
+		return -EINVAL;
+
+	spin_lock_irqsave(&dwc->lock, flags);
+	dwc->maximum_speed = max_speed_idx;
+	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	return count;
+}
+
+static const struct file_operations dwc3_max_speed_fops = {
+	.open			= dwc3_max_speed_open,
+	.write			= dwc3_max_speed_write,
+	.read			= seq_read,
+	.llseek			= seq_lseek,
+	.release		= single_release,
+};
+#endif
+
 void dwc3_debugfs_init(struct dwc3 *dwc)
 {
 	struct dentry		*root;
 	struct dentry           *file;
 
+#ifdef CONFIG_USB_G_SLP
+	root = debugfs_create_dir("dwc3", NULL);
+#else
 	root = debugfs_create_dir(dev_name(dwc->dev), NULL);
+#endif
+
 	if (IS_ERR_OR_NULL(root)) {
 		if (!root)
 			dev_err(dwc->dev, "Can't create debugfs root\n");
@@ -891,6 +968,17 @@ void dwc3_debugfs_init(struct dwc3 *dwc)
 
 		dwc3_debugfs_create_endpoint_dirs(dwc, root);
 	}
+
+#ifdef CONFIG_USB_G_SLP
+	if (IS_ENABLED(CONFIG_USB_DWC3_DUAL_ROLE) ||
+			IS_ENABLED(CONFIG_USB_DWC3_GADGET)) {
+		file = debugfs_create_file("max_speed", S_IRUGO | S_IWUSR, root,
+				dwc, &dwc3_max_speed_fops);
+		if (!file) {
+			dev_dbg(dwc->dev, "Can't create debugfs max_speede\n");
+		}
+	}
+#endif
 }
 
 void dwc3_debugfs_exit(struct dwc3 *dwc)

@@ -1,0 +1,263 @@
+/*
+ * Copyright (c) 2018 Samsung Electronics Co., Ltd.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * Device Tree binding constants for Exynos9110 clock controller.
+ */
+
+#ifndef _DT_BINDINGS_CLOCK_EXYNOS_9110_H
+#define _DT_BINDINGS_CLOCK_EXYNOS_9110_H
+
+#define NONE							(0 + 0)
+#define OSCCLK							(0 + 1)
+
+/* NUMBER FOR MFCMSCL DRIVER STARTS FROM 10 */
+
+/* BLK_APM */
+#define	CLK_APM_BASE				(10)
+#define	UMUX_CLKCMU_APM_BUS			(CLK_APM_BASE + 0)
+#define	GATE_APM_CMU_APM			(CLK_APM_BASE + 1)
+#define	GATE_DTZPC_APM				(CLK_APM_BASE + 2)
+#define	GATE_MAILBOX_APM_AP			(CLK_APM_BASE + 3)
+#define	GATE_MAILBOX_APM_CHUB			(CLK_APM_BASE + 4)
+#define	GATE_MAILBOX_APM_CP			(CLK_APM_BASE + 5)
+#define	GATE_MAILBOX_APM_GNSS			(CLK_APM_BASE + 6)
+#define	GATE_MAILBOX_APM_VTS			(CLK_APM_BASE + 7)
+#define	GATE_MAILBOX_APM_WLBT			(CLK_APM_BASE + 8)
+#define	GATE_SPEEDY_APM				(CLK_APM_BASE + 9)
+#define	GATE_WDT_APM				(CLK_APM_BASE + 10)
+#define	APM_BUS					(CLK_APM_BASE + 11)
+
+/* BLK_CMGP */
+#define	CLK_CMGP_BASE				(30)
+#define DOUT_CLK_CMGP_BUS			(CLK_CMGP_BASE + 0)
+#define UMUX_CLK_CMGP_I2C0			(CLK_CMGP_BASE + 1)
+#define UMUX_CLK_CMGP_USI0              	(CLK_CMGP_BASE + 2)
+#define UMUX_CLK_CMGP_USI1              	(CLK_CMGP_BASE + 3)
+#define UMUX_CLK_CMGP_USI2              	(CLK_CMGP_BASE + 4)
+#define UMUX_CLK_CMGP_USI3              	(CLK_CMGP_BASE + 5)
+#define UMUX_CLK_CMGP_I2C1              	(CLK_CMGP_BASE + 6)
+#define UMUX_CLK_CMGP_I2C2              	(CLK_CMGP_BASE + 7)
+#define UMUX_CLK_CMGP_I2C3              	(CLK_CMGP_BASE + 8)
+
+#define	GATE_ADC_CMGP_S0			(CLK_CMGP_BASE + 10)
+#define	GATE_ADC_CMGP_S1			(CLK_CMGP_BASE + 11)
+#define	GATE_ADC_CMGP_ADC			(CLK_CMGP_BASE + 12)
+#define	GATE_CMGP_CMU_CMGP			(CLK_CMGP_BASE + 13)
+#define	GATE_DTZPC_CMGP				(CLK_CMGP_BASE + 14)
+#define	GATE_GPIO_CMGP				(CLK_CMGP_BASE + 15)
+#define	GATE_I2C_CMGP0				(CLK_CMGP_BASE + 16)
+#define	GATE_I2C_CMGP1				(CLK_CMGP_BASE + 17)
+#define	GATE_I2C_CMGP2				(CLK_CMGP_BASE + 18)
+#define	GATE_I2C_CMGP3				(CLK_CMGP_BASE + 19)
+#define	GATE_I2C_CMGP4				(CLK_CMGP_BASE + 20)
+#define	GATE_I2C_CMGP5				(CLK_CMGP_BASE + 21)
+#define	GATE_I2C_CMGP6				(CLK_CMGP_BASE + 22)
+#define	GATE_USI_CMGP0				(CLK_CMGP_BASE + 23)
+#define	GATE_USI_CMGP1				(CLK_CMGP_BASE + 24)
+#define	GATE_USI_CMGP2				(CLK_CMGP_BASE + 25)
+#define	GATE_USI_CMGP3				(CLK_CMGP_BASE + 26)
+
+#define	CMGP_ADC  				(CLK_CMGP_BASE + 31)
+#define	CMGP_I2C0 				(CLK_CMGP_BASE + 32)
+#define	CMGP_USI0 				(CLK_CMGP_BASE + 33)
+#define	CMGP_USI1 				(CLK_CMGP_BASE + 34)
+#define	CMGP_USI2 				(CLK_CMGP_BASE + 35)
+#define	CMGP_USI3 				(CLK_CMGP_BASE + 36)
+#define	CMGP_I2C1 				(CLK_CMGP_BASE + 37)
+#define	CMGP_I2C2				(CLK_CMGP_BASE + 38)
+#define	CMGP_I2C3				(CLK_CMGP_BASE + 39)
+#define CMGP_BUS				(CLK_CMGP_BASE + 40)
+
+/* BLK_IS */
+#define	CLK_IS_BASE				(80)
+#define	UMUX_CLKCMU_IS_BUS			(CLK_IS_BASE + 0)
+#define	UMUX_CLKCMU_IS_VRA			(CLK_IS_BASE + 1)
+
+#define	GATE_D_TZPC_IS				(CLK_IS_BASE + 2)
+#define	GATE_IS_CMU_IS				(CLK_IS_BASE + 3)
+#define	GATE_IS3P21P0_IS_S_ISP_ISP		(CLK_IS_BASE + 4)
+#define	GATE_IS3P21P0_IS_S_ISP_VRA		(CLK_IS_BASE + 5)
+#define	GATE_IS3P21P0_IS_S_ISP_SMMU_IS		(CLK_IS_BASE + 6)
+#define	GATE_IS3P21P0_IS_S_ISP_MCSC		(CLK_IS_BASE + 7)
+#define	GATE_IS3P21P0_IS_S_ISP_PPMU_IS		(CLK_IS_BASE + 8)
+#define	GATE_IS3P21P0_IS_S_ISP_CSIS		(CLK_IS_BASE + 9)
+#define	GATE_IS3P21P0_IS_S_ISP_CSIS_DMA		(CLK_IS_BASE + 10)
+
+#define	CIS_CLK0				(CLK_IS_BASE + 11)
+#define	CIS_CLK1				(CLK_IS_BASE + 12)
+#define	IS_BUS					(CLK_IS_BASE + 13)
+#define	IS_VRA					(CLK_IS_BASE + 14)
+
+/* BLK_CMU */
+#define	CLK_CMU_BASE				(110)
+#define	GATE_CMU_TOP_CMUREF			(CLK_CMU_BASE + 0)
+#define	GATE_DFTMUX_TOP				(CLK_CSIS0_CLK_CMU_BASE + 1)
+
+/* BLK_DISPAUD */
+#define	CLK_DISPAUD_BASE			(140)
+#define	UMUX_CLKCMU_DISPAUD_DISP		(CLK_DISPAUD_BASE + 0)
+
+#define	GATE_ABOX_CPU				(CLK_DISPAUD_BASE + 2)
+#define	GATE_ABOX_S_ACLK			(CLK_DISPAUD_BASE + 3)
+#define	GATE_ABOX_S_BCLK0			(CLK_DISPAUD_BASE + 4)
+#define	GATE_ABOX_S_BCLK1			(CLK_DISPAUD_BASE + 5)
+#define	GATE_ABOX_S_BCLK2			(CLK_DISPAUD_BASE + 6)
+#define	GATE_ABOX_FM				(CLK_DISPAUD_BASE + 7)
+#define	GATE_ABOX_S_IRQ				(CLK_DISPAUD_BASE + 8)
+
+#define	GATE_DISPAUD_CMU_DISPAUD		(CLK_DISPAUD_BASE + 9)
+#define	GATE_DPU_S_DPP				(CLK_DISPAUD_BASE + 10)
+#define	GATE_DPU_S_DMA				(CLK_DISPAUD_BASE + 11)
+#define	GATE_DPU_S_DECON			(CLK_DISPAUD_BASE + 12)
+#define	GATE_D_TZPC_DISPAUD			(CLK_DISPAUD_BASE + 13)
+#define	GATE_PPMU_ABOX				(CLK_DISPAUD_BASE + 14)
+#define	GATE_PPMU_DPU				(CLK_DISPAUD_BASE + 15)
+#define	GATE_SMMU_ABOX				(CLK_DISPAUD_BASE + 16)
+#define	GATE_SMMU_DPU				(CLK_DISPAUD_BASE + 17)
+#define	GATE_WDT_AUD				(CLK_DISPAUD_BASE + 18)
+#define	GATE_MAILBOX_ABOX_VTS			(CLK_DISPAUD_BASE + 19)
+#define DISPAUD_DISP				(CLK_DISPAUD_BASE + 20)
+#define PLL_OUT_AUD				(CLK_DISPAUD_BASE + 21)
+
+#define DOUT_AUD_AUDIF				(CLK_DISPAUD_BASE + 22)
+#define DOUT_AUD_ACLK				(CLK_DISPAUD_BASE + 23)
+#define DOUT_AUD_UAIF0				(CLK_DISPAUD_BASE + 24)
+#define DOUT_AUD_UAIF1				(CLK_DISPAUD_BASE + 25)
+
+/* BLK_CHUB */
+#define	CLK_CHUB_BASE				(170)
+#define UMUX_CLK_CHUB_BUS 			(CLK_CHUB_BASE + 1)
+#define UMUX_CLK_CHUB_USI0			(CLK_CHUB_BASE + 2)
+#define UMUX_CLK_CHUB_I2C0			(CLK_CHUB_BASE + 3)
+#define UMUX_CLK_CHUB_I2C1			(CLK_CHUB_BASE + 4)
+
+#define GATE_USI_CHUB00				(CLK_CHUB_BASE + 5)
+#define GATE_I2C_CHUB00				(CLK_CHUB_BASE + 6)
+#define GATE_I2C_CHUB01				(CLK_CHUB_BASE + 7)
+#define GATE_TIMER_CHUB				(CLK_CHUB_BASE + 8)
+#define GATE_WDT_CHUB				(CLK_CHUB_BASE + 9)
+
+#define	CHUB_BUS 				(CLK_CHUB_BASE + 10)
+#define	CHUB_USI0 				(CLK_CHUB_BASE + 11)
+#define	CHUB_I2C0 				(CLK_CHUB_BASE + 12)
+#define	CHUB_I2C1 				(CLK_CHUB_BASE + 13)
+
+/* BLK_FSYS */
+#define	CLK_FSYS_BASE				(200)
+#define	UMUX_CLKCMU_FSYS_BUS			(CLK_FSYS_BASE + 0)
+#define	UMUX_CLKCMU_FSYS_MMC_CARD		(CLK_FSYS_BASE + 1)
+#define	UMUX_CLKCMU_FSYS_MMC_EMBD		(CLK_FSYS_BASE + 2)
+#define	UMUX_CLKCMU_FSYS_USB20DRD		(CLK_FSYS_BASE + 3)
+
+#define	GATE_MMC_CARD				(CLK_FSYS_BASE + 10)
+#define	GATE_MMC_EMBD				(CLK_FSYS_BASE + 11)
+#define	GATE_USB20DRD_TOP_LINK			(CLK_FSYS_BASE + 14)
+#define	GATE_USB20DRD_TOP_20CTRL		(CLK_FSYS_BASE + 15)
+#define	GATE_USB20DRD_TOP_REFCLK		(CLK_FSYS_BASE + 16)
+
+#define	FSYS_BUS				(CLK_FSYS_BASE + 17)
+#define	FSYS_MMC_EMBD 				(CLK_FSYS_BASE + 18)
+#define	FSYS_USB20DRD 				(CLK_FSYS_BASE + 19)
+#define	FSYS_MMC_CARD				(CLK_FSYS_BASE + 20)
+
+/* BLK_G3D */
+#define	CLK_G3D_BASE				(250)
+#define	GATE_D_TZPC_G3D				(CLK_G3D_BASE + 0)
+#define	GATE_G3D				(CLK_G3D_BASE + 1)
+#define	GATE_G3D_CMU_G3D			(CLK_G3D_BASE + 2)
+
+/* BLK_MFCSCLK */
+#define	CLK_MFCMSCLK_BASE			(300)
+#define	UMUX_CLKCMU_MFCMSCL_MSCL		(CLK_MFCMSCLK_BASE + 0)
+#define	UMUX_CLKCMU_MFCMSCL_MFC			(CLK_MFCMSCLK_BASE + 1)
+
+#define	GATE_D_TZPC_MFCMSCL			(CLK_MFCMSCLK_BASE + 2)
+#define	GATE_JPEG				(CLK_MFCMSCLK_BASE + 3)
+#define	GATE_M2M				(CLK_MFCMSCLK_BASE + 4)
+#define	GATE_MCSC				(CLK_MFCMSCLK_BASE + 5)
+#define	GATE_MFC				(CLK_MFCMSCLK_BASE + 6)
+#define	GATE_MFCMSCL_CMU_MFCMSCL		(CLK_MFCMSCLK_BASE + 7)
+#define	GATE_PPMU_MFCMSCL			(CLK_MFCMSCLK_BASE + 8)
+#define	GATE_SYSMMU_MFCMSCL			(CLK_MFCMSCLK_BASE + 9)
+
+/* BLK_MIF */
+#define	CLK_MIF_BASE				(330)
+#define	GATE_CMU_MIF_CMUREF			(CLK_MIF_BASE + 0)
+#define	GATE_DMC				(CLK_MIF_BASE + 1)
+#define	GATE_D_TZPC_MIF				(CLK_MIF_BASE + 2)
+#define	GATE_MIF_CMU_MIF			(CLK_MIF_BASE + 3)
+#define	GATE_PPMU_DMC_CPU			(CLK_MIF_BASE + 4)
+#define	GATE_QE_DMC_CPU				(CLK_MIF_BASE + 5)
+#define	GATE_SYSREG_MIF				(CLK_MIF_BASE + 6)
+
+/* BLK_CORE */
+#define	CLK_CORE_BASE				(350)
+#define UMUX_CLKCMU_CORE_BUS			(CLK_CORE_BASE + 0)
+#define GATE_PDMA_CORE				(CLK_CORE_BASE + 1)
+
+/* BLK_PERI */
+#define	CLK_PERI_BASE				(360)
+#define	UMUX_CLKCMU_PERI_BUS			(CLK_PERI_BASE + 1)
+#define	UMUX_CLKCMU_PERI_IP			(CLK_PERI_BASE + 2)
+#define	UMUX_CLKCMU_PERI_UART			(CLK_PERI_BASE + 3)
+
+#define	GATE_I2C_0				(CLK_PERI_BASE + 10)
+#define	GATE_I2C_1				(CLK_PERI_BASE + 11)
+#define	GATE_I2C_2				(CLK_PERI_BASE + 12)
+#define	GATE_MCT				(CLK_PERI_BASE + 13)
+#define	GATE_OTP_CON_TOP			(CLK_PERI_BASE + 14)
+#define	GATE_PERI_CMU_PERI			(CLK_PERI_BASE + 15)
+#define	GATE_PWM_MOTOR				(CLK_PERI_BASE + 16)
+#define	GATE_SYSREG_PERI			(CLK_PERI_BASE + 17)
+#define	GATE_USI00_I2C				(CLK_PERI_BASE + 18)
+#define	GATE_USI00_USI				(CLK_PERI_BASE + 19)
+#define	GATE_USI_I2C_0				(CLK_PERI_BASE + 20)
+#define	GATE_USI_SPI				(CLK_PERI_BASE + 21)
+#define	GATE_USI_UART				(CLK_PERI_BASE + 22)
+#define	GATE_WDT_CLUSTER0			(CLK_PERI_BASE + 23)
+
+#define PERI_BUS				(CLK_PERI_BASE + 31)
+#define PERI_UART				(CLK_PERI_BASE + 32)
+#define PERI_HSI2C				(CLK_PERI_BASE + 33)
+#define PERI_SPI				(CLK_PERI_BASE + 34)
+#define PERI_USI00_I2C				(CLK_PERI_BASE + 35)
+#define PERI_USI00_USI				(CLK_PERI_BASE + 36)
+
+/* BLK_VTS */
+#define	CLK_VTS_BASE				(400)
+#define CLK_VTS_DMIC_IF				(CLK_VTS_BASE + 0)
+#define CLK_VTS_DMIC				(CLK_VTS_BASE + 1)
+#define CLK_VTS_DMIC_IF_DIV2			(CLK_VTS_BASE + 2)
+#define UMUX_CLKCMU_VTS_BUS			(CLK_VTS_BASE + 3)
+#define GATE_VTS_CPU				(CLK_VTS_BASE + 4)
+#define GATE_VTS_DMIC_IF			(CLK_VTS_BASE + 5)
+#define GATE_HWACG_SYS_DMIC0 			(CLK_VTS_BASE + 6)
+#define GATE_HWACG_SYS_DMIC1 			(CLK_VTS_BASE + 7)
+#define GATE_WDT_VTS				(CLK_VTS_BASE + 8)
+#define GATE_U_DMIC_CLK_MUX			(CLK_VTS_BASE + 9)
+
+
+/* NUMBER FOR CLKOUT PORT STARTS FROM 330 */
+#define CLK_CLKOUT_BASE				(415)
+#define OSCCLK_AUD				(CLK_CLKOUT_BASE + 0)
+
+/* NUMBER OF DVFS DRIVER STARTS FROM 340 */
+#define CLK_DVFS_BASE				(420)
+
+/* must be greater than maximal clock id */
+#define CLK_NR_CLKS				(425 + 1)
+
+#define ACPM_DVFS_MIF				(0x0B040000)
+#define ACPM_DVFS_INT				(0x0B040001)
+#define ACPM_DVFS_CPUCL0			(0x0B040002)
+#define ACPM_DVFS_G3D				(0x0B040003)
+#define ACPM_DVFS_CAM				(0x0B040004)
+#define ACPM_DVFS_DISP				(0x0B040005)
+#define ACPM_DVFS_AUD				(0x0B040006)
+#define ACPM_DVFS_CP				(0x0B040007)
+
+#endif	/* _DT_BINDINGS_CLOCK_EXYNOS_9110_H */

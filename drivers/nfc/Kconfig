@@ -5,6 +5,46 @@
 menu "Near Field Communication (NFC) devices"
 	depends on NFC
 
+config NFC_NXP
+	bool "NFC_NXP"
+	default n
+	help
+	  This adds support for nxp 67t chip based I2C devices. Select this if you
+	  will use an NXP NFC driver for an nfc chip.
+	  It supports card emual and tag read/write.
+
+	  If unsure, say N.
+
+config NFC_P61
+	bool "NXP P61 eSE driver"
+	depends on SPI
+	default n
+	help
+	This adds support for P73N2M0 eSE chip based SPI interface.
+
+config ESE_SECURE_ENABLE
+         bool "eSE PIN Protection"
+         depends on !TIZEN_SEC_KERNEL_ENG
+         default n
+
+config ESE_SECURE_GPIO
+         string "eSE GPIO Group"
+
+config ESE_SECURE_SPI_PORT
+         int "eSE SPI port number"
+         default 99
+
+config ESE_SECURE_USI_MODE
+         int "ese usi id"
+         default 99
+
+config ESE_SECURE_SPI_CLK_ENG
+        bool "eSE Secure SPI CLK Configuration"
+        depends on TIZEN_SEC_KERNEL_ENG
+        default n
+        help
+	This adds support for Secure SPI on KERNEL_ENG
+
 config NFC_WILINK
 	tristate "Texas Instruments NFC WiLink driver"
 	depends on TI_ST && NFC_NCI

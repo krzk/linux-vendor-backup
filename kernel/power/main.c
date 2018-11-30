@@ -18,6 +18,13 @@
 
 #include "power.h"
 
+#ifdef CONFIG_ENERGY_MONITOR
+#include <linux/power/energy_monitor.h>
+#endif
+#ifdef CONFIG_SLAVE_WAKELOCK
+#include <linux/power/slave_wakelock.h>
+#endif
+
 DEFINE_MUTEX(pm_mutex);
 
 #ifdef CONFIG_PM_SLEEP
@@ -528,6 +535,25 @@ static ssize_t wake_unlock_store(struct kobject *kobj,
 power_attr(wake_unlock);
 
 #endif /* CONFIG_PM_WAKELOCKS */
+
+#ifdef CONFIG_SYSSLEEP_CHECK
+static ssize_t syssleep_check_show(struct kobject *kobj,
+			      struct kobj_attribute *attr,
+			      char *buf)
+{
+	return show_syssleep_check(buf);
+}
+
+static ssize_t syssleep_check_store(struct kobject *kobj,
+			       struct kobj_attribute *attr,
+			       const char *buf, size_t n)
+{
+	int error = store_syssleep_check(buf);
+	return error ? error : n;
+}
+
+power_attr(syssleep_check);
+#endif /* CONFIG_SYSSLEEP_CHECK */
 #endif /* CONFIG_PM_SLEEP */
 
 #ifdef CONFIG_PM_TRACE
@@ -569,6 +595,59 @@ power_attr_ro(pm_trace_dev_match);
 
 #endif /* CONFIG_PM_TRACE */
 
+#ifdef CONFIG_ENERGY_MONITOR
+char emon_penalty_score_str[64];
+static ssize_t emon_penalty_score_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	int ret = 0;
+
+	ret += snprintf(buf, sizeof(emon_penalty_score_str),
+			"%s\n", emon_penalty_score_str);
+	return ret;
+}
+
+static ssize_t emon_penalty_score_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t n)
+{
+	strncpy(emon_penalty_score_str, buf, sizeof(emon_penalty_score_str));
+	energy_monitor_penalty_score_notify();
+	return n;
+}
+power_attr(emon_penalty_score);
+#endif
+
+#ifdef CONFIG_SLAVE_WAKELOCK
+static ssize_t slave_wake_lock_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return 0;
+}
+
+static ssize_t slave_wake_lock_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t n)
+{
+	int error = slave_wake_lock(buf);
+	return error ? error : n;
+}
+power_attr(slave_wake_lock);
+
+static ssize_t slave_wake_unlock_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return 0;
+}
+
+static ssize_t slave_wake_unlock_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t n)
+{
+	int error = slave_wake_unlock(buf);
+	return error ? error : n;
+}
+
+power_attr(slave_wake_unlock);
+#endif
+
 #ifdef CONFIG_FREEZER
 static ssize_t pm_freeze_timeout_show(struct kobject *kobj,
 				      struct kobj_attribute *attr, char *buf)
@@ -609,12 +688,22 @@ static struct attribute * g[] = {
 	&wake_lock_attr.attr,
 	&wake_unlock_attr.attr,
 #endif
+#ifdef CONFIG_SYSSLEEP_CHECK
+	&syssleep_check_attr.attr,
+#endif
 #ifdef CONFIG_PM_DEBUG
 	&pm_test_attr.attr,
 #endif
 #ifdef CONFIG_PM_SLEEP_DEBUG
 	&pm_print_times_attr.attr,
 	&pm_wakeup_irq_attr.attr,
+#endif
+#ifdef CONFIG_ENERGY_MONITOR
+	&emon_penalty_score_attr.attr,
+#endif
+#ifdef CONFIG_SLAVE_WAKELOCK
+	&slave_wake_lock_attr.attr,
+	&slave_wake_unlock_attr.attr,
 #endif
 #endif
 #ifdef CONFIG_FREEZER

@@ -193,5 +193,10 @@ config HIGH_RES_TIMERS
 	  hardware is not capable then this option only increases
 	  the size of the kernel image.
 
+config TIME_HISTORY
+	bool "time history"
+	help
+	 Say Y to anable time history func
+
 endmenu
 endif
