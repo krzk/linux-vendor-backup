@@ -9,12 +9,6 @@ ARM=arm64
 BOOT_PATH="arch/${ARM}/boot"
 IMAGE="Image"
 DZIMAGE="dzImage"
-MODEL=${1}
-SIZE=${2}
-CARRIER=${3}
-REGION=${4}
-OPERATOR=${5}
-TIZEN_MODEL=tizen_${MODEL}
 
 HOST_OS=`uname -m`
 if [ $HOST_OS = "x86_64" ]; then
@@ -25,39 +19,8 @@ else
 	exit 0
 fi
 
-if [ "${MODEL}" = "" ]; then
-	echo "Warnning: failed to get machine id."
-	echo "ex)./release.sh model_name region_name"
-	echo "ex)--------------------------------------------------"
-	echo "ex)./release.sh galileo large"
-	echo "ex)./release.sh galileo large lte na"
-	echo "ex)./release.sh galileo large lte kor"
-	echo "ex)./release.sh galileo large lte eur"
-	echo "ex)./release.sh galileo large lte chn"
-	echo "ex)./release.sh galileo small"
-	echo "ex)./release.sh galileo small lte na"
-	echo "ex)./release.sh galileo small lte kor"
-	echo "ex)./release.sh galileo small lte eur"
-	exit
-fi
-
-if [ "${SIZE}" != "" ]; then
-	VARIANT="${SIZE}"
-	if [ "${CARRIER}" != "" ]; then
-		VARIANT="${VARIANT}_${CARRIER}"
-	fi
-else
-	if [ "${MODEL}" = "galileo" ]; then
-		VARIANT="large_lte"
-	fi
-fi
-
 if ! [ -e .config ] ; then
-	if [ "${VARIANT}" = "" ]; then
-		make ARCH=${ARM} ${TIZEN_MODEL}_defconfig
-	else
-		make ARCH=${ARM} ${TIZEN_MODEL}_defconfig VARIANT_DEFCONFIG=${TIZEN_MODEL}_${VARIANT}_defconfig
-	fi
+	make ARCH=${ARM} tizen_tw3_defconfig
 fi
 
 if [ "$?" != "0" ]; then
@@ -89,15 +52,7 @@ if [ "$?" != "0" ]; then
 	exit 1
 fi
 
-if [ "${REGION}" != "" ]; then
-    VARIANT="${VARIANT}_${REGION}"
-fi
-
-if [ "${VARIANT}" != "" ]; then
-	RELEASE_IMAGE=System_${TIZEN_MODEL}_${VARIANT}_${RELEASE_DATE}-${COMMIT_ID}.tar
-else
-	RELEASE_IMAGE=System_${TIZEN_MODEL}_${RELEASE_DATE}-${COMMIT_ID}.tar
-fi
+RELEASE_IMAGE=System_tizen_tw3_${RELEASE_DATE}-${COMMIT_ID}.tar
 
 tar cf ${RELEASE_IMAGE} -C ${BOOT_PATH} ${DZIMAGE}
 if [ "$?" != "0" ]; then
