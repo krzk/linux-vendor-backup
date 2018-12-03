@@ -19,7 +19,7 @@ TIZEN_MODEL=tizen_${MODEL}
 HOST_OS=`uname -m`
 if [ $HOST_OS = "x86_64" ]; then
 	#toolchain for 64bit HOST OS
-	export CROSS_COMPILE="/opt/toolchain-aarch64/bin/aarch64-tizen-linux-gnu-"
+	export CROSS_COMPILE="/usr/bin/aarch64-linux-gnu-"
 else
 	echo "Tizen4.0 only support 64bit environment. Please try to build with 64bit environment"
 	exit 0
@@ -52,10 +52,12 @@ else
 	fi
 fi
 
-if [ "${VARIANT}" = "" ]; then
-	make ARCH=${ARM} ${TIZEN_MODEL}_defconfig
-else
-	make ARCH=${ARM} ${TIZEN_MODEL}_defconfig VARIANT_DEFCONFIG=${TIZEN_MODEL}_${VARIANT}_defconfig
+if ! [ -e .config ] ; then
+	if [ "${VARIANT}" = "" ]; then
+		make ARCH=${ARM} ${TIZEN_MODEL}_defconfig
+	else
+		make ARCH=${ARM} ${TIZEN_MODEL}_defconfig VARIANT_DEFCONFIG=${TIZEN_MODEL}_${VARIANT}_defconfig
+	fi
 fi
 
 if [ "$?" != "0" ]; then
@@ -75,56 +77,16 @@ fi
 
 DTC_PATH="scripts/dtc/"
 
-dtbtool -o ${BOOT_PATH}/merged-dtb -p ${DTC_PATH} -v ${BOOT_PATH}/dts/exynos/
+./scripts/exynos_dtbtool.sh -o ${BOOT_PATH}/merged-dtb -p ${DTC_PATH} -v ${BOOT_PATH}/dts/exynos/
 if [ "$?" != "0" ]; then
 	echo "Failed to make merged-dtb"
 	exit 1
 fi
 
-mkdzimage -o ${BOOT_PATH}/${DZIMAGE} -k ${BOOT_PATH}/${IMAGE} -d ${BOOT_PATH}/merged-dtb
+./scripts/exynos_mkdzimage.sh -o ${BOOT_PATH}/${DZIMAGE} -k ${BOOT_PATH}/${IMAGE} -d ${BOOT_PATH}/merged-dtb
 if [ "$?" != "0" ]; then
 	echo "Failed to make mkdzImage"
 	exit 1
-fi
-
-if [ "${MODEL}" = "galileo" ]; then
-	mv ${BOOT_PATH}/${DZIMAGE} ${BOOT_PATH}/${DZIMAGE}.u
-	dd if=/dev/zero of=${BOOT_PATH}/dummy bs=1 count=272
-	cat ${BOOT_PATH}/dummy >> ${BOOT_PATH}/${DZIMAGE}.u
-	rm ${BOOT_PATH}/dummy
-	if [ "${SIZE}" = "large" ]; then
-		if [ "${CARRIER}" = "lte" ]; then
-			if [ "${REGION}" = "na" ]; then
-				java -jar ./scripts/signclient.jar -runtype ss_exynos40_all -model SM-R805U_NA_USA_USA0 -input ${BOOT_PATH}/${DZIMAGE}.u -output ${BOOT_PATH}/${DZIMAGE}
-			elif [ "${REGION}" = "kor" ]; then
-				java -jar ./scripts/signclient.jar -runtype ss_exynos40_all -model SM-R805N_KOR_SKC_KOR0 -input ${BOOT_PATH}/${DZIMAGE}.u -output ${BOOT_PATH}/${DZIMAGE}
-			elif [ "${REGION}" = "eur" ]; then
-				java -jar ./scripts/signclient.jar -runtype ss_exynos40_all -model SM-R805F_EUR_XX_EUR0 -input ${BOOT_PATH}/${DZIMAGE}.u -output ${BOOT_PATH}/${DZIMAGE}
-			elif [ "${REGION}" = "chn" ]; then
-				java -jar ./scripts/signclient.jar -runtype ss_exynos40_all -model SM-R8050_CHN_CHN_CHN0 -input ${BOOT_PATH}/${DZIMAGE}.u -output ${BOOT_PATH}/${DZIMAGE}
-			else
-				# default SM-R805U_NA_USA
-				java -jar ./scripts/signclient.jar -runtype ss_exynos40_all -model SM-R805U_NA_USA_USA0 -input ${BOOT_PATH}/${DZIMAGE}.u -output ${BOOT_PATH}/${DZIMAGE}
-			fi
-		else
-			java -jar ./scripts/signclient.jar -runtype ss_exynos40_all -model SM-R800_NA_USA_USA0 -input ${BOOT_PATH}/${DZIMAGE}.u -output ${BOOT_PATH}/${DZIMAGE}
-		fi
-	elif [ "${SIZE}" = "small" ]; then
-		if [ "${CARRIER}" = "lte" ]; then
-			if [ "${REGION}" = "na" ]; then
-				java -jar ./scripts/signclient.jar -runtype ss_exynos40_all -model SM-R815U_NA_USA_USA0 -input ${BOOT_PATH}/${DZIMAGE}.u -output ${BOOT_PATH}/${DZIMAGE}
-			elif [ "${REGION}" = "kor" ]; then
-				java -jar ./scripts/signclient.jar -runtype ss_exynos40_all -model SM-R815N_KOR_SKC_KOR0 -input ${BOOT_PATH}/${DZIMAGE}.u -output ${BOOT_PATH}/${DZIMAGE}
-			elif [ "${REGION}" = "eur" ]; then
-				java -jar ./scripts/signclient.jar -runtype ss_exynos40_all -model SM-R815F_EUR_XX_EUR0 -input ${BOOT_PATH}/${DZIMAGE}.u -output ${BOOT_PATH}/${DZIMAGE}
-			else
-				# default SM-R815U_NA_USA
-				java -jar ./scripts/signclient.jar -runtype ss_exynos40_all -model SM-R815U_NA_USA_USA0 -input ${BOOT_PATH}/${DZIMAGE}.u -output ${BOOT_PATH}/${DZIMAGE}
-			fi
-		else
-			java -jar ./scripts/signclient.jar -runtype ss_exynos40_all -model SM-R810_NA_USA_USA0 -input ${BOOT_PATH}/${DZIMAGE}.u -output ${BOOT_PATH}/${DZIMAGE}
-		fi
-	fi
 fi
 
 if [ "${REGION}" != "" ]; then
