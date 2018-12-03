@@ -1,12 +1,11 @@
 %define CHIPSET exynos9110
 %define KERNEL_VERSION 4.9
 %define ARM arm64
-%define IMAGE Image
-%define DZIMAGE dzImage
+%define MODEL tw3
 
 Name: linux-%{KERNEL_VERSION}-%{CHIPSET}
 Summary: The Linux Kernel
-Version: Tizen_exynos9110_20180625_1_3676fc77
+Version: 4.9.59
 Release: 1
 License: GPL-2.0
 Group: System/Kernel
@@ -19,202 +18,141 @@ Provides: linux-%{KERNEL_VERSION}
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
 %define debug_package %{nil}
 
-BuildRequires: lzop
-BuildRequires: binutils-devel
-BuildRequires: module-init-tools
-BuildRequires: python
-BuildRequires: gcc
-BuildRequires: bash
-BuildRequires: system-tools
-BuildRequires: sec-product-features
 BuildRequires: bc
-BuildRequires: openssl
-BuildRequires: build-info
-BuildRequires: cross-aarch64-gcc-x86-arm
-BuildRequires: cross-aarch64-binutils-x86-arm
-ExclusiveArch: %arm
 
 %description
 The Linux Kernel, the operating system core itself
 
-%if "%{?sec_product_feature_kernel_defconfig}" == "undefined"
-%define MODEL tizen_galileo
-%else
-%define MODEL tizen_%{?sec_product_feature_kernel_defconfig}
-%endif
-
-%if "%{?sec_product_feature_system_target_size}" == "undefined"
-%define SIZE ""
-%else
-%define SIZE %{?sec_product_feature_system_target_size}
-%endif
-
-%if "%{?sec_product_feature_system_carrier_type}" == "undefined"
-%define CARRIER ""
-%else
-%define CARRIER %{?sec_product_feature_system_carrier_type}
-%endif
-
-%if "%{?sec_product_feature_system_region_name}" == "undefined"
-%define REGION ""
-%else
-%define REGION %{?sec_product_feature_system_region_name}
-%endif
-
-%if "%{?sec_product_feature_system_operator_name}" == "undefined"
-%define OPERATOR ""
-%else
-%define OPERATOR %{?sec_product_feature_system_operator_name}
-%endif
-
-%if "%{?sec_product_feature_showcase_enable}" == "1"
-%define SHOWCASE ifa
-%else
-%define SHOWCASE na
-%endif
-
-
-%package -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}
+%ifarch aarch64
+%package -n linux-%{CHIPSET}-%{MODEL}
 License: GPL-2.0
 Summary: Linux support headers for userspace development
 Group: System/Kernel
 Requires(post): coreutils
 
-%files -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}
-/boot/kernel/mod_%{MODEL}
-/boot/kernel/kernel-%{MODEL}/%{DZIMAGE}
-/boot/kernel/kernel-%{MODEL}/%{DZIMAGE}-recovery
+%description -n linux-%{CHIPSET}-%{MODEL}
+This package provides the %{CHIPSET}_eur linux kernel image.
 
-%post -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}
-mv /boot/kernel/mod_%{MODEL}/lib/modules/* /lib/modules/.
-mv /boot/kernel/kernel-%{MODEL}/%{DZIMAGE} /boot/kernel/.
-mv /boot/kernel/kernel-%{MODEL}/%{DZIMAGE}-recovery /boot/kernel/.
-
-%description -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}
-This package provides the %{CHIPSET}_eur linux kernel image & module.img.
-
-%package -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}-debuginfo
+%package -n linux-%{CHIPSET}-%{MODEL}-debuginfo
 License: GPL-2.0
 Summary: Linux support debug symbol
 Group: System/Kernel
 
-%files -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}-debuginfo
-/boot/kernel/mod_%{MODEL}
-/boot/kernel/kernel-%{MODEL}
-
-%description -n linux-%{KERNEL_VERSION}-%{CHIPSET}_%{MODEL}-debuginfo
+%description -n linux-%{CHIPSET}-%{MODEL}-debuginfo
 This package provides the %{CHIPSET}_eur linux kernel's debugging files.
 
-%package -n kernel-headers-%{KERNEL_VERSION}-%{CHIPSET}
-License: GPL-2.0
-Summary: Linux support headers for userspace development
-Group: System/Kernel
-Provides: linux-glibc-devel, kernel-headers-tizen-dev
-Obsoletes: linux-glibc-devel
-
-%description -n kernel-headers-%{KERNEL_VERSION}-%{CHIPSET}
-This package provides userspaces headers from the Linux kernel. These
-headers are used by the installed headers for GNU glibc and other system
- libraries.
-
-%package -n kernel-devel-%{KERNEL_VERSION}-%{CHIPSET}
+%package -n kernel-devel-%{CHIPSET}-%{MODEL}
 License: GPL-2.0
 Summary: Linux support kernel map and etc for other package
 Group: System/Kernel
-Provides: kernel-devel-tizen-dev
 
-%description -n kernel-devel-%{KERNEL_VERSION}-%{CHIPSET}
+%description -n kernel-devel-%{CHIPSET}-%{MODEL}
 This package provides kernel map and etc information.
+%endif
 
-%package -n linux-kernel-license
+%package -n kernel-headers-%{CHIPSET}-%{MODEL}
 License: GPL-2.0
-Summary: Linux support kernel license file
+Summary: Linux support headers for userspace development
 Group: System/Kernel
+Provides: kernel-headers-tizen-dev
 
-%description -n linux-kernel-license
-This package provides kernel license file.
+%description -n kernel-headers-%{CHIPSET}-%{MODEL}
+This package provides userspaces headers from the Linux kernel. These
+headers are used by the installed headers for GNU glibc and other system
+ libraries.
 
 %prep
 %setup -q
 
 %build
-unset LDFLAGS
-export PATH=/opt/cross/bin:$PATH
-export CROSS_COMPILE=aarch64-tizen-linux-gnu-
-export OBS_BUILD_VERSION=%{sec_build_option_version}
-export OBS_BUILD_COMMIT=`echo %{vcs}|tr '#' ' '|awk '{print $2}'|head -c 7`
+%{?asan:/usr/bin/gcc-unforce-options}
+%{?ubsan:/usr/bin/gcc-unforce-options}
 
-%if 0%{?tizen_build_binary_release_type_factory}
-%define RELEASE factory
-%else
-%if 0%{?tizen_build_binary_release_type_eng}
-%define RELEASE eng
-%else
-%define RELEASE usr
-%endif
-%endif
-
-mkdir -p %{_builddir}/mod_%{MODEL}
 make distclean
 
-./release_obs.sh %{RELEASE} %{MODEL} %{SIZE} %{CARRIER} %{REGION} %{OPERATOR} %{SHOWCASE}
+# 1. make kernel header
+%ifarch aarch64
+export ARCH=arm64
+%else
+export ARCH=arm
+%endif
 
-cp -f arch/%{ARM}/boot/%{IMAGE} %{_builddir}/%{IMAGE}.%{MODEL}
-cp -f arch/%{ARM}/boot/merged-dtb %{_builddir}/merged-dtb.%{MODEL}
-cp -f arch/%{ARM}/boot/%{DZIMAGE} %{_builddir}/%{DZIMAGE}.%{MODEL}
-cp -f arch/%{ARM}/boot/%{DZIMAGE} %{_builddir}/%{DZIMAGE}-recovery.%{MODEL}
-cp -f System.map %{_builddir}/System.map.%{MODEL}
-cp -f .config %{_builddir}/config.%{MODEL}
-cp -f vmlinux %{_builddir}/vmlinux.%{MODEL}
-
-#remove all changed source codes for next build
-cd %_builddir
-rm -rf %{name}-%{version}
-/bin/tar -xf %{SOURCE0}
-cd %{name}-%{version}
-
-%install
-mkdir -p %{buildroot}/usr
+mkdir -p uapi-headers/usr
 make mrproper
 make headers_check
-make headers_install INSTALL_HDR_PATH=%{buildroot}/usr
+make headers_install INSTALL_HDR_PATH=uapi-headers/usr
 
-find  %{buildroot}/usr/include -name ".install" | xargs rm -f
-find  %{buildroot}/usr/include -name "..install.cmd" | xargs rm -f
+%ifarch aarch64
+chmod a+x release_obs.sh
+chmod a+x ./scripts/exynos_dtbtool.sh
+chmod a+x ./scripts/exynos_mkdzimage.sh
+
+# 2. make kernel image
+./release_obs.sh
+%endif
+
+%install
+
+# 3. copy to buildroot
+mv uapi-headers/usr %{buildroot}/
+%ifarch aarch64
+mkdir -p %{buildroot}/boot/kernel/devel
+
+cp -f arch/arm64/boot/dzImage  %{buildroot}/boot/kernel/dzImage
+cp -f arch/arm64/boot/dzImage  %{buildroot}/boot/kernel/dzImage-recovery
+cp -f arch/arm64/boot/merged-dtb  %{buildroot}/boot/kernel/merged-dtb
+cp -f arch/arm64/boot/Image  %{buildroot}/boot/kernel/Image
+cp -f System.map  %{buildroot}/boot/kernel/System.map
+cp -f .config  %{buildroot}/boot/kernel/config
+cp -f vmlinux  %{buildroot}/boot/kernel/vmlinux
+cp -f COPYING %{buildroot}/
+%endif
+
+# 4. remove unnecessary files.
+find  %{buildroot}/usr/include -name ".install" -delete
+find  %{buildroot}/usr/include -name "..install.cmd" -delete
 rm -rf %{buildroot}/usr/include/scsi
 rm -f %{buildroot}/usr/include/asm*/atomic.h
 rm -f %{buildroot}/usr/include/asm*/io.h
+rm -rf uapi-headers
 
-mkdir -p %{buildroot}/usr/share/license
-cp -vf COPYING %{buildroot}/usr/share/license/linux-kernel
+%ifarch aarch64
+find %{_builddir}/%{name}-%{version} -name "*\.HEX" -type f -delete
+find %{_builddir}/%{name}-%{version} -name ".tmp_vmlinux*" -delete
+find %{_builddir}/%{name}-%{version} -name "\.*dtb*tmp" -delete
+find %{_builddir}/%{name}-%{version} -name "merged-dtb" -delete
+find %{_builddir}/%{name}-%{version} -name "*\.*tmp" -delete
+find %{_builddir}/%{name}-%{version} -name "vmlinux" -delete
+find %{_builddir}/%{name}-%{version} -name "Image" -delete
+find %{_builddir}/%{name}-%{version} -name "Image.gz" -delete
+find %{_builddir}/%{name}-%{version} -name "dzImage" -delete
+find %{_builddir}/%{name}-%{version} -name "*.cmd" -delete
+find %{_builddir}/%{name}-%{version} -name "*\.ko" -delete
+find %{_builddir}/%{name}-%{version} -name "*\.o" -delete
+find %{_builddir}/%{name}-%{version} -name "*\.S" -delete
+find %{_builddir}/%{name}-%{version} -name "*\.c" -not -path "%{_builddir}/%{name}-%{version}/scripts/*" -delete
 
-mkdir -p %{buildroot}/boot/kernel/kernel-%{MODEL}
-mkdir -p %{buildroot}/boot/kernel/license-%{MODEL}
+# 5. make kernel-devel
+mv %{_builddir}/%{name}-%{version} %{buildroot}/boot/kernel/devel/kernel-devel-%{MODEL}
+mkdir -p %{_builddir}/%{name}-%{version}
+mv %{buildroot}/COPYING %{_builddir}/%{name}-%{version}/
 
-mv %_builddir/mod_%{MODEL} %{buildroot}/boot/kernel/mod_%{MODEL}
+%files -n linux-%{CHIPSET}-%{MODEL}
+%license COPYING
+/boot/kernel/dzImage
+/boot/kernel/dzImage-recovery
 
-mv %_builddir/%{IMAGE}.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/%{IMAGE}
-mv %_builddir/merged-dtb.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/merged-dtb
-mv %_builddir/%{DZIMAGE}.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/%{DZIMAGE}
-mv %_builddir/%{DZIMAGE}-recovery.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/%{DZIMAGE}-recovery
+%files -n linux-%{CHIPSET}-%{MODEL}-debuginfo
+/boot/kernel/config
+/boot/kernel/Image
+/boot/kernel/merged-dtb
+/boot/kernel/System.map
+/boot/kernel/vmlinux
 
-mv %_builddir/System.map.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/System.map
-mv %_builddir/config.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/config
-mv %_builddir/vmlinux.%{MODEL} %{buildroot}/boot/kernel/kernel-%{MODEL}/vmlinux
+%files -n kernel-devel-%{CHIPSET}-%{MODEL}
+/boot/kernel/devel/*
+%endif
 
-find %{buildroot}/boot/kernel/ -name 'System.map' > develfiles.pre # for secure storage
-find %{buildroot}/boot/kernel/ -name 'vmlinux' >> develfiles.pre   # for TIMA
-find %{buildroot}/boot/kernel/ -name '*.ko' >> develfiles.pre      # for TIMA
-find %{buildroot}/boot/kernel/ -name '*%{IMAGE}' >> develfiles.pre   # for Trusted Boot
-cat develfiles.pre | sed -e "s#%{buildroot}##g" | uniq | sort > develfiles
-
-%clean
-rm -rf %_builddir
-
-%files -n kernel-headers-%{KERNEL_VERSION}-%{CHIPSET}
+%files -n kernel-headers-%{CHIPSET}-%{MODEL}
+%defattr(644,root,root,-)
 /usr/include/*
-
-%files -n linux-kernel-license
-/usr/share/license/*
-
-%files -n kernel-devel-%{KERNEL_VERSION}-%{CHIPSET} -f develfiles
