@@ -492,10 +492,10 @@ CONFIG_ARM64_UAO=y
 #
 # Boot options
 #
-CONFIG_CMDLINE="console=ttySAC0,115200 loglevel=7 bootmode=ramdisk root=/dev/ram0 rw model=SM-R800 boot_ver=R800XXE1ARGC hw_rev=11 sec_debug.enable=1 sec_debug.enable_user=0 tizenboot.sec_atd.tty=/dev/ttySAC0 tizenboot.emmc_checksum=3 tizenboot.dram_info=01,06,00,0.75G tizenboot.serialno=41000ba9c8e66597 tizenboot.log=0x9b010000,0x200000,0x0,0x2e3b tizenboot.boottime=2586ms tizenboot.sales_code=XAR warrantybit=1 sec_debug.bin=W lcdtype=0x407052 cordon=e4d2153b4d56a0796ba25007a12c0386 connie=SM-R800_BT_LAR_0c4137acc53d9f4ee9fddf5deb9c10ac ess_setup=0x9b000000 sec_last_kmsg=0x200000@0x9ae00000 sec_tima_log=0x200000@0x87c00000 DynSysLog=1 uart_sel=AP pmic_info=11 oops=panic tizenboot.recovery_offset=7347968 tizenboot.carrierid_offset=7340612 tizenboot.carrierid= tizenboot.sysscope=0xee000000 sec_debug.reset_reason=7 sec_reset.reset_reason=7 mem=768M"
-# CONFIG_CMDLINE_FROM_BOOTLOADER is not set
+CONFIG_CMDLINE=""
+CONFIG_CMDLINE_FROM_BOOTLOADER=y
 # CONFIG_CMDLINE_EXTEND is not set
-CONFIG_CMDLINE_FORCE=y
+# CONFIG_CMDLINE_FORCE is not set
 # CONFIG_EFI is not set
 CONFIG_TIMA=y
 # CONFIG_TIMA_LKMAUTH is not set
