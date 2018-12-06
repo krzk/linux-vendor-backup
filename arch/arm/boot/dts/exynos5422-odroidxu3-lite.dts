@@ -21,6 +21,52 @@
 	compatible = "hardkernel,odroid-xu3-lite", "samsung,exynos5800", "samsung,exynos5";
 };
 
+/*
+ * Odroid XU3-Lite board uses SoC revision with lower maximum frequencies
+ * than Odroid XU3/XU4 boards: 1.8 GHz for A15 cores & 1.3 GHz for A7 cores.
+ * Therefore we need to update OPPs tables and thermal maps accordingly.
+ */
+&cluster_a15_opp_table {
+	/delete-node/opp-2000000000;
+	/delete-node/opp-1900000000;
+};
+
+&cluster_a7_opp_table {
+	/delete-node/opp-1400000000;
+};
+
+&cooling0_map5 {
+	cooling-device = <&cpu0 3 7>;
+};
+
+&cooling0_map6 {
+	cooling-device = <&cpu4 3 11>;
+};
+
+&cooling1_map5 {
+	cooling-device = <&cpu0 3 7>;
+};
+
+&cooling1_map6 {
+	cooling-device = <&cpu4 3 11>;
+};
+
+&cooling2_map5 {
+	cooling-device = <&cpu0 3 7>;
+};
+
+&cooling2_map6 {
+	cooling-device = <&cpu4 3 11>;
+};
+
+&cooling3_map5 {
+	cooling-device = <&cpu0 3 7>;
+};
+
+&cooling3_map6 {
+	cooling-device = <&cpu4 3 11>;
+};
+
 &pwm {
 	/*
 	 * PWM 0 -- fan
