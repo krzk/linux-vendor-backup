@@ -97,6 +97,8 @@ static inline bool pci_has_subordinate(struct pci_dev *pci_dev)
 
 static inline bool pci_power_manageable(struct pci_dev *pci_dev)
 {
+	/* WIFI TM2 workaround */
+	return false;
 	/*
 	 * Currently we allow normal PCI devices and PCI bridges transition
 	 * into D3 if their bridge_d3 is set.
