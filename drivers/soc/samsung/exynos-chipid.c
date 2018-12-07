@@ -16,10 +16,7 @@
 #include <linux/slab.h>
 #include <linux/sys_soc.h>
 
-#define EXYNOS_SUBREV_MASK	(0xF << 4)
-#define EXYNOS_MAINREV_MASK	(0xF << 0)
-#define EXYNOS_REV_MASK		(EXYNOS_SUBREV_MASK | EXYNOS_MAINREV_MASK)
-#define EXYNOS_MASK		0xFFFFF000
+#include "exynos-chipid.h"
 
 static const struct exynos_soc_id {
 	const char *name;
@@ -40,6 +37,13 @@ static const struct exynos_soc_id {
 	{ "EXYNOS5433", 0xE5433000 },
 };
 
+static void __iomem *exynos_chipid_base;
+
+unsigned int exynos_chipid_read(unsigned int offset)
+{
+	return readl_relaxed(exynos_chipid_base + offset);
+}
+
 static const char * __init product_id_to_soc_id(unsigned int product_id)
 {
 	int i;
@@ -53,7 +57,6 @@ static const char * __init product_id_to_soc_id(unsigned int product_id)
 int __init exynos_chipid_early_init(void)
 {
 	struct soc_device_attribute *soc_dev_attr;
-	void __iomem *exynos_chipid_base;
 	struct soc_device *soc_dev;
 	struct device_node *root;
 	struct device_node *np;
@@ -73,9 +76,8 @@ int __init exynos_chipid_early_init(void)
 		return -ENXIO;
 	}
 
-	product_id = readl_relaxed(exynos_chipid_base);
+	product_id = exynos_chipid_read(EXYNOS_CHIPID_REG_PRO_ID);
 	revision = product_id & EXYNOS_REV_MASK;
-	iounmap(exynos_chipid_base);
 
 	soc_dev_attr = kzalloc(sizeof(*soc_dev_attr), GFP_KERNEL);
 	if (!soc_dev_attr)
