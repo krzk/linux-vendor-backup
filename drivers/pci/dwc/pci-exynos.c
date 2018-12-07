@@ -598,6 +598,32 @@ static int __exit exynos_pcie_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int __maybe_unused exynos_pcie_suspend_noirq(struct device *dev)
+{
+	struct exynos_pcie *ep = dev_get_drvdata(dev);
+
+	phy_power_off(ep->phy);
+	phy_exit(ep->phy);
+
+	return 0;
+}
+
+static int __maybe_unused exynos_pcie_resume_noirq(struct device *dev)
+{
+	struct exynos_pcie *ep = dev_get_drvdata(dev);
+	struct dw_pcie *pci = ep->pci;
+	struct pcie_port *pp = &pci->pp;
+
+	exynos_pcie_host_init(pp);
+
+	return 0;
+}
+
+static const struct dev_pm_ops exynos_pcie_pm_ops = {
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(exynos_pcie_suspend_noirq,
+				      exynos_pcie_resume_noirq)
+};
+
 static const struct of_device_id exynos_pcie_of_match[] = {
 	{
 		.compatible = "samsung,exynos5440-pcie",
@@ -615,6 +641,7 @@ static struct platform_driver exynos_pcie_driver = {
 	.driver = {
 		.name	= "exynos-pcie",
 		.of_match_table = exynos_pcie_of_match,
+		.pm		= &exynos_pcie_pm_ops,
 	},
 };
 builtin_platform_driver(exynos_pcie_driver);
