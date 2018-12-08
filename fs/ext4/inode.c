@@ -341,9 +341,9 @@ static int __check_block_validity(struct inode *inode, const char *func,
 						0, EXT4_INODE_SIZE(inode->i_sb));
 		/* for debugging */
 		ext4_error_inode(inode, func, line, map->m_pblk,
-				 "lblock %lu mapped to illegal pblock "
+				 "lblock %lu mapped to illegal pblock %llu"
 				 "(length %d)", (unsigned long) map->m_lblk,
-				 map->m_len);
+				 map->m_pblk, map->m_len);
 		return -EIO;
 	}
 	return 0;
@@ -3828,7 +3828,9 @@ struct inode *ext4_iget(struct super_block *sb, unsigned long ino)
 			__le32 *magic = (void *)raw_inode +
 					EXT4_GOOD_OLD_INODE_SIZE +
 					ei->i_extra_isize;
-			if (*magic == cpu_to_le32(EXT4_XATTR_MAGIC))
+			if (EXT4_GOOD_OLD_INODE_SIZE + ei->i_extra_isize +
+				sizeof(__le32) <= EXT4_INODE_SIZE(inode->i_sb) &&
+			    *magic == cpu_to_le32(EXT4_XATTR_MAGIC))
 				ext4_set_inode_state(inode, EXT4_STATE_XATTR);
 		}
 	} else
