@@ -520,7 +520,6 @@ static int sensor_motor_notifier_callback(struct notifier_block *self,
   effect = (struct ff_effect *)data;
 
 	switch (event) {
-	pr_info("[SSP Motor] %s: event:%ld length: %d\n", __func__, event, effect->replay.length);
 	case FF_MEMLESS_EVENT_PLAY:
 		ssp_data_info->motor_flag = FF_MEMLESS_EVENT_PLAY;
 		ssp_data_info->motor_duration = effect->replay.length;
