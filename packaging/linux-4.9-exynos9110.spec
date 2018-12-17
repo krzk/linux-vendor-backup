@@ -8,6 +8,7 @@ Summary: The Linux Kernel
 Version: 4.9.59
 Release: 1
 License: GPL-2.0
+ExclusiveArch: %{arm} aarch64
 Group: System/Kernel
 Vendor: The Linux Community
 URL: http://www.kernel.org
