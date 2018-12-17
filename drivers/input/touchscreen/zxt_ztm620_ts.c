@@ -3605,7 +3605,7 @@ static void run_sfr_h_gap_read(void *device_data)
 
 	set_default_result(finfo);
 
-	memset(raw_data->sfr_hgap_data, 0x00, TSP_CMD_NODE_NUM);
+	memset(raw_data->sfr_hgap_data, 0x00, sizeof(s16) * TSP_CMD_NODE_NUM);
 
 	dev_info(&client->dev, "%s: SFR H Gap start\n", __func__);
 
@@ -3903,7 +3903,7 @@ static void run_dnd_v_gap_read(void *device_data)
 	u16 touchkey_max = 0x0000;
 	set_default_result(finfo);
 
-	memset(raw_data->vgap_data, 0x00, TSP_CMD_NODE_NUM);
+	memset(raw_data->vgap_data, 0x00, sizeof(s16) * TSP_CMD_NODE_NUM);
 
 	dev_info(&client->dev, "%s: DND V Gap start\n", __func__);
 
@@ -3958,7 +3958,7 @@ static void run_dnd_h_gap_read(void *device_data)
 	u16 touchkey_max = 0x0000;
 	set_default_result(finfo);
 
-	memset(raw_data->hgap_data, 0x00, TSP_CMD_NODE_NUM);
+	memset(raw_data->hgap_data, 0x00, sizeof(s16) * TSP_CMD_NODE_NUM);
 
 	dev_info(&client->dev, "%s: DND H Gap start\n", __func__);
 
@@ -4204,7 +4204,7 @@ static void run_hfdnd_v_gap_read(void *device_data)
 
 	set_default_result(finfo);
 
-	memset(raw_data->hfvgap_data, 0x00, TSP_CMD_NODE_NUM);
+	memset(raw_data->hfvgap_data, 0x00, sizeof(s16) * TSP_CMD_NODE_NUM);
 
 	dev_info(&client->dev, "%s: HFDND V Gap start\n", __func__);
 
@@ -4289,7 +4289,7 @@ static void run_hfdnd_h_gap_read(void *device_data)
 
 	set_default_result(finfo);
 
-	memset(raw_data->hgap_data, 0x00, TSP_CMD_NODE_NUM);
+	memset(raw_data->hgap_data, 0x00, sizeof(s16) * TSP_CMD_NODE_NUM);
 
 	dev_info(&client->dev, "%s: HFDND H Gap start\n", __func__);
 
