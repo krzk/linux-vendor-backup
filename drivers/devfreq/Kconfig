@@ -113,6 +113,16 @@ config ARM_RK3399_DMC_DEVFREQ
           It sets the frequency for the memory controller and reads the usage counts
           from hardware.
 
+config ARM_EXYNOS_DMC_DEVFREQ
+	tristate "ARM EXYNOS DMC DEVFREQ Driver"
+	depends on ARCH_EXYNOS || COMPILE_TEST
+	select DEVFREQ_GOV_SIMPLE_ONDEMAND
+	select DEVFREQ_GOV_PASSIVE
+	select PM_DEVFREQ_EVENT
+	select PM_OPP
+	help
+	  This adds DEVFREQ driver for Exynos DMC (Dynamic Memory Controller).
+
 source "drivers/devfreq/event/Kconfig"
 
 endif # PM_DEVFREQ
