@@ -235,6 +235,7 @@
 #define CLK_MOUT_ACLK_G3D	661
 #define CLK_MOUT_SCLK_SPLL	662
 #define CLK_MOUT_MX_MSPLL_CCORE_PHY	663
+#define CLK_MOUT_WCORE		664
 
 /* divider clocks */
 #define CLK_DOUT_PIXEL		768
