@@ -45,6 +45,9 @@
 			<&nocp_mem1_0>, <&nocp_mem1_1>;
 	vdd-supply = <&buck3_reg>;
 	exynos,saturation-ratio = <100>;
+	assigned-clocks = <&clock CLK_MOUT_WCORE>;
+	assigned-clock-parents = <&clock CLK_FF_DOUT_SPLL2>;
+	assigned-clock-rates = <400000000>;
 	status = "okay";
 };
 
