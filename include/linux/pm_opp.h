@@ -106,7 +106,10 @@ void dev_pm_opp_put(struct dev_pm_opp *opp);
 
 int dev_pm_opp_add(struct device *dev, unsigned long freq,
 		   unsigned long u_volt);
+int devm_pm_opp_add(struct device *dev, unsigned long freq,
+		    unsigned long u_volt);
 void dev_pm_opp_remove(struct device *dev, unsigned long freq);
+void devm_pm_opp_remove(struct device *dev, unsigned long freq);
 
 int dev_pm_opp_enable(struct device *dev, unsigned long freq);
 
@@ -204,7 +207,17 @@ static inline int dev_pm_opp_add(struct device *dev, unsigned long freq,
 	return -ENOTSUPP;
 }
 
+static inline int devm_pm_opp_add(struct device *dev, unsigned long freq,
+					unsigned long u_volt)
+{
+	return -ENOTSUPP;
+}
+
 static inline void dev_pm_opp_remove(struct device *dev, unsigned long freq)
+{
+}
+
+static inline void devm_pm_opp_remove(struct device *dev, unsigned long freq)
 {
 }
 
