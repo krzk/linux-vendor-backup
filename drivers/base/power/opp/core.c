@@ -765,6 +765,17 @@ static struct opp_table *_allocate_opp_table(struct device *dev)
 	return opp_table;
 }
 
+struct opp_table *allocate_opp_table(struct device *dev)
+{
+	struct opp_table *opp_table;
+
+	mutex_lock(&opp_table_lock);
+	opp_table = _allocate_opp_table(dev);
+	mutex_unlock(&opp_table_lock);
+
+	return opp_table;
+}
+
 void _get_opp_table_kref(struct opp_table *opp_table)
 {
 	kref_get(&opp_table->kref);
