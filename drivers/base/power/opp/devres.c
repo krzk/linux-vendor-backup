@@ -18,6 +18,9 @@ void dev_pm_opp_put_opp_table(struct opp_table *opp_table);
 void _dev_pm_opp_remove_table(struct opp_table *opp_table, struct device *dev,
 			      bool remove_all);
 void dev_pm_opp_remove(struct device *dev, unsigned long freq);
+int dev_pm_opp_register_notifier(struct device *dev, struct notifier_block *nb);
+int dev_pm_opp_unregister_notifier(struct device *dev,
+				   struct notifier_block *nb);
 
 static void _devm_pm_remove_opp_table(struct device *dev, void *res)
 {
@@ -87,3 +90,63 @@ void devm_pm_opp_remove(struct device *dev, unsigned long freq)
 	dev_pm_opp_remove(dev, freq);
 }
 EXPORT_SYMBOL_GPL(devm_pm_opp_remove);
+
+struct _opp_notifier_match {
+	struct notifier_block *nb;
+};
+
+static int _devm_opp_match_notifier(struct device *dev, void *res, void *data)
+{
+	struct _opp_notifier_match *match = res;
+	struct _opp_notifier_match *target = data;
+
+	return match->nb == target->nb;
+}
+
+static void _devm_pm_opp_notifier_destroy(struct device *dev, void *res)
+{
+	struct _opp_notifier_match *match = res;
+
+	dev_dbg(dev, "OPP_DEVRES notifier destroyed\n");
+	dev_pm_opp_unregister_notifier(dev, match->nb);
+}
+
+int devm_pm_opp_register_notifier(struct device *dev, struct notifier_block *nb)
+{
+	int res;
+	struct _opp_notifier_match *match;
+
+	dev_dbg(dev, "OPP_DEVRES registering notifier\n");
+	match = devres_alloc(_devm_pm_opp_notifier_destroy,
+			   sizeof(struct _opp_notifier_match), GFP_KERNEL);
+	if (!match)
+		return -ENOMEM;
+
+	match->nb = nb;
+
+	res = dev_pm_opp_register_notifier(dev, nb);
+	if (res < 0) {
+		devres_free(match);
+		return res;
+	}
+
+	devres_add(dev, match);
+
+	return 0;
+}
+EXPORT_SYMBOL(devm_pm_opp_register_notifier);
+
+void devm_pm_opp_unregister_notifier(struct device *dev,
+				     struct notifier_block *nb)
+{
+	int res;
+	struct _opp_notifier_match match;
+
+	match.nb = nb;
+
+	res = devres_release(dev, _devm_pm_opp_notifier_destroy,
+			    _devm_opp_match_notifier, &match);
+	if (res != 0)
+		WARN_ON(res);
+}
+EXPORT_SYMBOL(devm_pm_opp_unregister_notifier);
