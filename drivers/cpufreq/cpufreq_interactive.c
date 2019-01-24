@@ -151,9 +151,6 @@ static void cpufreq_interactive_timer_resched(
 	unsigned long expires;
 	unsigned long flags;
 
-	if (!tunables->speedchange_task)
-		return;
-
 	spin_lock_irqsave(&pcpu->load_lock, flags);
 	pcpu->time_in_idle =
 		get_cpu_idle_time(smp_processor_id(),
@@ -183,9 +180,6 @@ static void cpufreq_interactive_timer_start(
 	struct cpufreq_interactive_cpuinfo *pcpu = &per_cpu(cpuinfo, cpu);
 	unsigned long expires = jiffies + tunables->timer_rate;
 	unsigned long flags;
-
-	if (!tunables->speedchange_task)
-		return;
 
 	pcpu->cpu_timer.expires = expires;
 	add_timer_on(&pcpu->cpu_timer, cpu);
