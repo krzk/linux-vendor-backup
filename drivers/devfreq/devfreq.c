@@ -23,6 +23,7 @@
 #include <linux/devfreq.h>
 #include <linux/workqueue.h>
 #include <linux/platform_device.h>
+#include <linux/syscore_ops.h>
 #include <linux/list.h>
 #include <linux/printk.h>
 #include <linux/hrtimer.h>
@@ -1421,6 +1422,10 @@ static struct attribute *devfreq_attrs[] = {
 };
 ATTRIBUTE_GROUPS(devfreq);
 
+static struct syscore_ops devfreq_syscore_ops = {
+	.shutdown = devfreq_suspend,
+};
+
 static int __init devfreq_init(void)
 {
 	devfreq_class = class_create(THIS_MODULE, "devfreq");
@@ -1436,6 +1441,8 @@ static int __init devfreq_init(void)
 		return -ENOMEM;
 	}
 	devfreq_class->dev_groups = devfreq_groups;
+
+	register_syscore_ops(&devfreq_syscore_ops);
 
 	return 0;
 }
