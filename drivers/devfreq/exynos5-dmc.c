@@ -434,12 +434,10 @@ static int exynos5_init_freq_table(struct device *dev, struct exynos5_dmc *dmc,
 	int i, ret;
 
 	for (i = 0; i < dmc->opp_count; i++) {
-		ret = dev_pm_opp_add(dev, dmc->opp[i].freq_khz,
-				     dmc->opp[i].volt_uv);
+		ret = devm_pm_opp_add(dev, dmc->opp[i].freq_khz,
+				      dmc->opp[i].volt_uv);
 		if (ret) {
 			dev_warn(dev, "failed to add opp %uHz %umV\n", 1, 1);
-			while (i-- > 0)
-				dev_pm_opp_remove(dev, dmc->opp[i].freq_khz);
 			return ret;
 		}
 	}
@@ -1229,13 +1227,13 @@ static int exynos5_dmc_probe(struct platform_device *pdev)
 	if (IS_ERR(dmc->vdd_mif)) {
 		ret = PTR_ERR(dmc->vdd_mif);
 		dev_warn(dev, "couldn't get regulator\n");
-		goto remove_opp_table;
+		goto init_failed;
 	}
 
 	ret = exynos5_dmc_init_clks(dev, dmc);
 	if (ret) {
 		dev_warn(dev, "couldn't initialize clocks\n");
-		goto remove_opp_table;
+		goto init_failed;
 	}
 
 	ret = exynos5_dmc_pause_on_switching(dmc, 1);
@@ -1280,10 +1278,9 @@ err_devfreq_add:
 remove_clocks:
 	clk_disable_unprepare(dmc->mout_mx_mspll_ccore);
 	clk_disable_unprepare(dmc->mout_spll);
-remove_opp_table:
-	dev_pm_opp_remove_table(&pdev->dev);
-
+init_failed:
 	dev_warn(&pdev->dev, "DMC init failed\n");
+
 	return ret;
 }
 
@@ -1304,7 +1301,6 @@ static int exynos5_dmc_remove(struct platform_device *pdev)
 	clk_disable_unprepare(dmc->mout_mx_mspll_ccore);
 	clk_disable_unprepare(dmc->mout_spll);
 
-	dev_pm_opp_remove_table(&pdev->dev);
 	sysfs_remove_group(&dmc->df->dev.kobj, &env_group);
 
 	dev_info(&pdev->dev, "DMC removed\n");
