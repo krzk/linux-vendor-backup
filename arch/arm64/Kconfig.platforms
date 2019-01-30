@@ -60,6 +60,7 @@ config ARCH_BRCMSTB
 
 config ARCH_EXYNOS
 	bool "ARMv8 based Samsung Exynos SoC family"
+	select EXYNOS_ASV if MTD
 	select COMMON_CLK_SAMSUNG
 	select EXYNOS_CHIPID
 	select EXYNOS_PM_DOMAINS if PM_GENERIC_DOMAINS
