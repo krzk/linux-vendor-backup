@@ -28,7 +28,6 @@ int exynos_asv_update_cpu_opp(struct device *cpu)
 	struct exynos_asv_subsys *subsys = NULL;
 	struct dev_pm_opp *opp;
 	unsigned int opp_freq;
-	int cpuid = cpu->id;
 	int i;
 
 	if (of_device_is_compatible(cpu->of_node,
@@ -51,7 +50,7 @@ int exynos_asv_update_cpu_opp(struct device *cpu)
 		opp = dev_pm_opp_find_freq_exact(cpu, opp_freq * 1000, true);
 		if (IS_ERR(opp)) {
 			pr_info("%s cpu%d opp%d, freq: %u missing\n",
-				__func__, cpuid, i, opp_freq);
+				__func__, cpu->id, i, opp_freq);
 
 			continue;
 		}
@@ -67,7 +66,7 @@ int exynos_asv_update_cpu_opp(struct device *cpu)
 		err = dev_pm_opp_add(cpu, opp_freq, new_voltage);
 		if (err < 0)
 			pr_err("%s: Failed to add OPP %u Hz/%u uV for cpu%d\n",
-			       __func__, opp_freq, new_voltage, cpuid);
+			       __func__, opp_freq, new_voltage, cpu->id);
 	}
 
 	return 0;
