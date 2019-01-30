@@ -78,8 +78,8 @@ int exynos_asv_update_cpu_opp(struct device *cpu)
 
 		err = dev_pm_opp_add(cpu, opp_freq, new_voltage);
 		if (err < 0)
-			pr_err("%s: Failed to add OPP %u Hz/%u uV for cpu%d\n",
-			       __func__, opp_freq, new_voltage, cpu->id);
+			pr_err("%s: Failed to add OPP %u Hz/%u uV for cpu%d (%d)\n",
+			       __func__, opp_freq, new_voltage, cpu->id, err);
 	}
 
 	return 0;
