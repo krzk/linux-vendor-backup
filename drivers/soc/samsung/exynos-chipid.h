@@ -48,3 +48,4 @@
 unsigned int exynos_chipid_read(unsigned int offset);
 unsigned int exynos_chipid_read_bits(unsigned int offset, unsigned int shift,
 					unsigned int mask);
+unsigned int exynos_chipid_abb_read(unsigned int offset);

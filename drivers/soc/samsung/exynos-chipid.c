@@ -37,6 +37,7 @@ static const struct exynos_soc_id {
 	{ "EXYNOS5433", 0xE5433000 },
 };
 
+static void __iomem *exynos_abb_base;
 static void __iomem *exynos_chipid_base;
 
 unsigned int exynos_chipid_read(unsigned int offset)
@@ -48,6 +49,14 @@ unsigned int exynos_chipid_read_bits(unsigned int offset, unsigned int shift,
 				     unsigned int mask)
 {
 	return (readl_relaxed(exynos_chipid_base + offset) >> shift) & mask;
+}
+
+unsigned int exynos_chipid_abb_read(unsigned int offset)
+{
+	if (WARN_ON(exynos_abb_base == NULL))
+		return 0;
+
+	return readl_relaxed(exynos_abb_base + offset);
 }
 
 static const char * __init product_id_to_soc_id(unsigned int product_id)
@@ -75,12 +84,21 @@ int __init exynos_chipid_early_init(void)
 		return -ENODEV;
 
 	exynos_chipid_base = of_iomap(np, 0);
-	of_node_put(np);
-
 	if (!exynos_chipid_base) {
-		pr_err("Failed to map SoC chipid\n");
+		of_node_put(np);
+		pr_err("Failed to map SoC CHIPID\n");
 		return -ENXIO;
 	}
+
+	if (of_device_is_compatible(np, "samsung,exynos5433-chipid")) {
+		exynos_abb_base = of_iomap(np, 1);
+		if (!exynos_abb_base) {
+			of_node_put(np);
+			pr_err("Failed to map SoC CHIPID/ABB\n");
+			return -ENXIO;
+		}
+	}
+	of_node_put(np);
 
 	product_id = exynos_chipid_read(EXYNOS_CHIPID_REG_PRO_ID);
 	revision = product_id & EXYNOS_REV_MASK;
