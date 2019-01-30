@@ -46,3 +46,5 @@
  #define EXYNOS5422_KFC_DN_MASK		0x03
 
 unsigned int exynos_chipid_read(unsigned int offset);
+unsigned int exynos_chipid_read_bits(unsigned int offset, unsigned int shift,
+					unsigned int mask);

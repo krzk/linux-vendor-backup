@@ -44,6 +44,12 @@ unsigned int exynos_chipid_read(unsigned int offset)
 	return readl_relaxed(exynos_chipid_base + offset);
 }
 
+unsigned int exynos_chipid_read_bits(unsigned int offset, unsigned int shift,
+				     unsigned int mask)
+{
+	return (readl_relaxed(exynos_chipid_base + offset) >> shift) & mask;
+}
+
 static const char * __init product_id_to_soc_id(unsigned int product_id)
 {
 	int i;
