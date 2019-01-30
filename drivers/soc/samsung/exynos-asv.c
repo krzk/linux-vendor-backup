@@ -20,6 +20,7 @@
 
 #include "exynos-asv.h"
 #include "exynos5422-asv.h"
+#include "exynos5433-asv.h"
 
 #ifndef MHZ
 #define MHZ 1000000U
@@ -128,6 +129,8 @@ static int __init exynos_asv_init(void)
 	if (of_machine_is_compatible("samsung,exynos5800") ||
 	    of_machine_is_compatible("samsung,exynos5420"))
 		ret = exynos5422_asv_init(exynos_asv);
+	else if (of_machine_is_compatible("samsung,exynos5433"))
+		ret = exynos5433_asv_init(exynos_asv);
 	else
 		return 0;
 
