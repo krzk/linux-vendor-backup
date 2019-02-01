@@ -20,6 +20,9 @@
 #include "exynos-asv.h"
 #include "exynos5422-asv.h"
 
+#ifndef MHZ
+#define MHZ 1000000U
+#endif
 
 static struct exynos_asv *exynos_asv;
 
@@ -47,7 +50,7 @@ int exynos_asv_update_cpu_opp(struct device *cpu)
 
 		opp_freq = subsys->asv_table[i][0];
 
-		opp = dev_pm_opp_find_freq_exact(cpu, opp_freq * 1000, true);
+		opp = dev_pm_opp_find_freq_exact(cpu, opp_freq * MHZ, true);
 		if (IS_ERR(opp)) {
 			pr_info("%s cpu%d opp%d, freq: %u missing\n",
 				__func__, cpu->id, i, opp_freq);
@@ -60,7 +63,7 @@ int exynos_asv_update_cpu_opp(struct device *cpu)
 							 voltage);
 		dev_pm_opp_put(opp);
 
-		opp_freq *= 1000;
+		opp_freq *= MHZ;
 		dev_pm_opp_remove(cpu, opp_freq);
 
 		err = dev_pm_opp_add(cpu, opp_freq, new_voltage);
