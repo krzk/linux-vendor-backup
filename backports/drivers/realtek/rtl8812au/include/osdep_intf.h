@@ -37,19 +37,19 @@ struct intf_priv {
 
 	void (*_bus_io)(u8 *priv);
 
-/*
-Under Sync. IRP (SDIO/USB)
-A protection mechanism is necessary for the io_rwmem(read/write protocol)
+	/*
+	Under Sync. IRP (SDIO/USB)
+	A protection mechanism is necessary for the io_rwmem(read/write protocol)
 
-Under Async. IRP (SDIO/USB)
-The protection mechanism is through the pending queue.
-*/
+	Under Async. IRP (SDIO/USB)
+	The protection mechanism is through the pending queue.
+	*/
 
 	_mutex ioctl_mutex;
 
 
 #ifdef PLATFORM_LINUX
-	#ifdef CONFIG_USB_HCI
+#ifdef CONFIG_USB_HCI
 	// when in USB, IO is through interrupt in/out endpoints
 	struct usb_device 	*udev;
 	PURB	piorw_urb;
@@ -59,27 +59,27 @@ The protection mechanism is through the pending queue.
 	_timer	io_timer;
 	u8 bio_irp_timeout;
 	u8 bio_timer_cancel;
-	#endif
+#endif
 #endif
 
 #ifdef PLATFORM_OS_XP
-	#ifdef CONFIG_SDIO_HCI
-		// below is for io_rwmem...
-		PMDL pmdl;
-		PSDBUS_REQUEST_PACKET  sdrp;
-		PSDBUS_REQUEST_PACKET  recv_sdrp;
-		PSDBUS_REQUEST_PACKET  xmit_sdrp;
+#ifdef CONFIG_SDIO_HCI
+	// below is for io_rwmem...
+	PMDL pmdl;
+	PSDBUS_REQUEST_PACKET  sdrp;
+	PSDBUS_REQUEST_PACKET  recv_sdrp;
+	PSDBUS_REQUEST_PACKET  xmit_sdrp;
 
-			PIRP		piorw_irp;
+	PIRP		piorw_irp;
 
-	#endif
-	#ifdef CONFIG_USB_HCI
-		PURB	piorw_urb;
-		PIRP		piorw_irp;
-		u8 io_irp_cnt;
-		u8 bio_irp_pending;
-		_sema io_retevt;
-	#endif
+#endif
+#ifdef CONFIG_USB_HCI
+	PURB	piorw_urb;
+	PIRP		piorw_irp;
+	u8 io_irp_cnt;
+	u8 bio_irp_pending;
+	_sema io_retevt;
+#endif
 #endif
 
 };
@@ -110,6 +110,7 @@ int rtw_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
 
 int rtw_init_netdev_name(struct net_device *pnetdev, const char *ifname);
 struct net_device *rtw_init_netdev(_adapter *padapter);
+void rtw_unregister_netdev(_adapter *adapter);
 void rtw_unregister_netdevs(struct dvobj_priv *dvobj);
 
 #if (LINUX_VERSION_CODE>=KERNEL_VERSION(2,6,35))
@@ -120,6 +121,11 @@ int rtw_ndev_notifier_register(void);
 void rtw_ndev_notifier_unregister(void);
 
 #include "../os_dep/linux/rtw_proc.h"
+
+#ifdef CONFIG_IOCTL_CFG80211
+#include "../os_dep/linux/ioctl_cfg80211.h"
+#endif //CONFIG_IOCTL_CFG80211
+
 #endif //PLATFORM_LINUX
 
 
@@ -128,11 +134,6 @@ extern int rtw_ioctl(struct ifnet * ifp, u_long cmd, caddr_t data);
 #endif
 
 void rtw_ips_dev_unload(_adapter *padapter);
-
-#ifdef CONFIG_RF_GAIN_OFFSET
-void rtw_bb_rf_gain_offset(_adapter *padapter);
-#endif //CONFIG_RF_GAIN_OFFSET
-
 
 #ifdef CONFIG_IPS
 int rtw_ips_pwr_up(_adapter *padapter);
@@ -155,11 +156,12 @@ void rtw_drv_free_vir_ifaces(struct dvobj_priv *dvobj);
 int rtw_drv_register_netdev(_adapter *padapter);
 void rtw_ndev_destructor(_nic_hdl ndev);
 
-#ifdef CONFIG_SUSPEND_REFINE
-int rtw_suspend_common(_adapter *padapter);
-int rtw_resume_common(_adapter *padapter);
+#ifdef CONFIG_ARP_KEEP_ALIVE
+int	rtw_gw_addr_query(_adapter *padapter);
 #endif
 
+int rtw_suspend_common(_adapter *padapter);
+int rtw_resume_common(_adapter *padapter);
 
 #endif	//_OSDEP_INTF_H_
 

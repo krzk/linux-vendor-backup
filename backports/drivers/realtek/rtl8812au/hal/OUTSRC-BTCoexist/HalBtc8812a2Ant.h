@@ -17,14 +17,14 @@
 
 #define		BTC_RSSI_COEX_THRESH_TOL_8812A_2ANT		2
 
-typedef enum _BT_INFO_SRC_8812A_2ANT{
+typedef enum _BT_INFO_SRC_8812A_2ANT {
 	BT_INFO_SRC_8812A_2ANT_WIFI_FW			= 0x0,
 	BT_INFO_SRC_8812A_2ANT_BT_RSP				= 0x1,
 	BT_INFO_SRC_8812A_2ANT_BT_ACTIVE_SEND		= 0x2,
 	BT_INFO_SRC_8812A_2ANT_MAX
-}BT_INFO_SRC_8812A_2ANT,*PBT_INFO_SRC_8812A_2ANT;
+} BT_INFO_SRC_8812A_2ANT,*PBT_INFO_SRC_8812A_2ANT;
 
-typedef enum _BT_8812A_2ANT_BT_STATUS{
+typedef enum _BT_8812A_2ANT_BT_STATUS {
 	BT_8812A_2ANT_BT_STATUS_NON_CONNECTED_IDLE	= 0x0,
 	BT_8812A_2ANT_BT_STATUS_CONNECTED_IDLE		= 0x1,
 	BT_8812A_2ANT_BT_STATUS_INQ_PAGE				= 0x2,
@@ -32,9 +32,9 @@ typedef enum _BT_8812A_2ANT_BT_STATUS{
 	BT_8812A_2ANT_BT_STATUS_SCO_BUSY				= 0x4,
 	BT_8812A_2ANT_BT_STATUS_ACL_SCO_BUSY			= 0x5,
 	BT_8812A_2ANT_BT_STATUS_MAX
-}BT_8812A_2ANT_BT_STATUS,*PBT_8812A_2ANT_BT_STATUS;
+} BT_8812A_2ANT_BT_STATUS,*PBT_8812A_2ANT_BT_STATUS;
 
-typedef enum _BT_8812A_2ANT_COEX_ALGO{
+typedef enum _BT_8812A_2ANT_COEX_ALGO {
 	BT_8812A_2ANT_COEX_ALGO_UNDEFINED		= 0x0,
 	BT_8812A_2ANT_COEX_ALGO_SCO				= 0x1,
 	BT_8812A_2ANT_COEX_ALGO_SCO_HID 		= 0x2,
@@ -49,9 +49,9 @@ typedef enum _BT_8812A_2ANT_COEX_ALGO{
 	BT_8812A_2ANT_COEX_ALGO_HID_A2DP_PANHS	= 0xb,
 	BT_8812A_2ANT_COEX_ALGO_HID_A2DP		= 0xc,
 	BT_8812A_2ANT_COEX_ALGO_MAX				= 0xd
-}BT_8812A_2ANT_COEX_ALGO,*PBT_8812A_2ANT_COEX_ALGO;
+} BT_8812A_2ANT_COEX_ALGO,*PBT_8812A_2ANT_COEX_ALGO;
 
-typedef struct _COEX_DM_8812A_2ANT{
+typedef struct _COEX_DM_8812A_2ANT {
 	// fw mechanism
 	u1Byte		preBtDecPwrLvl;
 	u1Byte		curBtDecPwrLvl;
@@ -119,12 +119,13 @@ typedef struct _COEX_DM_8812A_2ANT{
 	u1Byte		curAmpduTimeType;
 } COEX_DM_8812A_2ANT, *PCOEX_DM_8812A_2ANT;
 
-typedef struct _COEX_STA_8812A_2ANT{
+typedef struct _COEX_STA_8812A_2ANT {
 	BOOLEAN					bBtLinkExist;
 	BOOLEAN					bScoExist;
 	BOOLEAN					bA2dpExist;
 	BOOLEAN					bHidExist;
 	BOOLEAN					bPanExist;
+	BOOLEAN					bAclBusy;
 
 	BOOLEAN					bUnderLps;
 	BOOLEAN					bUnderIps;
@@ -142,72 +143,76 @@ typedef struct _COEX_STA_8812A_2ANT{
 	BOOLEAN					bC2hBtInquiryPage;
 	u1Byte					btRetryCnt;
 	u1Byte					btInfoExt;
-}COEX_STA_8812A_2ANT, *PCOEX_STA_8812A_2ANT;
+} COEX_STA_8812A_2ANT, *PCOEX_STA_8812A_2ANT;
 
 //===========================================
 // The following is interface which will notify coex module.
 //===========================================
 VOID
+EXhalbtc8812a2ant_PowerOnSetting(
+    IN	PBTC_COEXIST		pBtCoexist
+);
+VOID
 EXhalbtc8812a2ant_InitHwConfig(
-	IN	PBTC_COEXIST		pBtCoexist
-	);
+    IN	PBTC_COEXIST		pBtCoexist,
+    IN	BOOLEAN				bWifiOnly
+);
 VOID
 EXhalbtc8812a2ant_InitCoexDm(
-	IN	PBTC_COEXIST		pBtCoexist
-	);
+    IN	PBTC_COEXIST		pBtCoexist
+);
 VOID
 EXhalbtc8812a2ant_IpsNotify(
-	IN	PBTC_COEXIST		pBtCoexist,
-	IN	u1Byte			type
-	);
+    IN	PBTC_COEXIST		pBtCoexist,
+    IN	u1Byte			type
+);
 VOID
 EXhalbtc8812a2ant_LpsNotify(
-	IN	PBTC_COEXIST		pBtCoexist,
-	IN	u1Byte			type
-	);
+    IN	PBTC_COEXIST		pBtCoexist,
+    IN	u1Byte			type
+);
 VOID
 EXhalbtc8812a2ant_ScanNotify(
-	IN	PBTC_COEXIST		pBtCoexist,
-	IN	u1Byte			type
-	);
+    IN	PBTC_COEXIST		pBtCoexist,
+    IN	u1Byte			type
+);
 VOID
 EXhalbtc8812a2ant_ConnectNotify(
-	IN	PBTC_COEXIST		pBtCoexist,
-	IN	u1Byte			type
-	);
+    IN	PBTC_COEXIST		pBtCoexist,
+    IN	u1Byte			type
+);
 VOID
 EXhalbtc8812a2ant_MediaStatusNotify(
-	IN	PBTC_COEXIST			pBtCoexist,
-	IN	u1Byte				type
-	);
+    IN	PBTC_COEXIST			pBtCoexist,
+    IN	u1Byte				type
+);
 VOID
 EXhalbtc8812a2ant_SpecialPacketNotify(
-	IN	PBTC_COEXIST			pBtCoexist,
-	IN	u1Byte				type
-	);
+    IN	PBTC_COEXIST			pBtCoexist,
+    IN	u1Byte				type
+);
 VOID
 EXhalbtc8812a2ant_BtInfoNotify(
-	IN	PBTC_COEXIST		pBtCoexist,
-	IN	pu1Byte			tmpBuf,
-	IN	u1Byte			length
-	);
+    IN	PBTC_COEXIST		pBtCoexist,
+    IN	pu1Byte			tmpBuf,
+    IN	u1Byte			length
+);
 VOID
 EXhalbtc8812a2ant_HaltNotify(
-	IN	PBTC_COEXIST			pBtCoexist
-	);
+    IN	PBTC_COEXIST			pBtCoexist
+);
 VOID
 EXhalbtc8812a2ant_Periodical(
-	IN	PBTC_COEXIST			pBtCoexist
-	);
+    IN	PBTC_COEXIST			pBtCoexist
+);
 VOID
 EXhalbtc8812a2ant_DisplayCoexInfo(
-	IN	PBTC_COEXIST		pBtCoexist
-	);
+    IN	PBTC_COEXIST		pBtCoexist
+);
 VOID
 EXhalbtc8812a2ant_DbgControl(
-	IN	PBTC_COEXIST			pBtCoexist,
-	IN	u1Byte				opCode,
-	IN	u1Byte				opLen,
-	IN	pu1Byte 			pData
-	);
-
+    IN	PBTC_COEXIST			pBtCoexist,
+    IN	u1Byte				opCode,
+    IN	u1Byte				opLen,
+    IN	pu1Byte 			pData
+);

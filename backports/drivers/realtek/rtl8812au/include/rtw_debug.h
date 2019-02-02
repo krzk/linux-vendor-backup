@@ -70,129 +70,132 @@
 #undef _MODULE_DEFINE_
 
 #if defined _RTW_XMIT_C_
-	#define _MODULE_DEFINE_	_module_rtl871x_xmit_c_
+#define _MODULE_DEFINE_	_module_rtl871x_xmit_c_
 #elif defined _XMIT_OSDEP_C_
-	#define _MODULE_DEFINE_	_module_xmit_osdep_c_
+#define _MODULE_DEFINE_	_module_xmit_osdep_c_
 #elif defined _RTW_RECV_C_
-	#define _MODULE_DEFINE_	_module_rtl871x_recv_c_
+#define _MODULE_DEFINE_	_module_rtl871x_recv_c_
 #elif defined _RECV_OSDEP_C_
-	#define _MODULE_DEFINE_	_module_recv_osdep_c_
+#define _MODULE_DEFINE_	_module_recv_osdep_c_
 #elif defined _RTW_MLME_C_
-	#define _MODULE_DEFINE_	_module_rtl871x_mlme_c_
+#define _MODULE_DEFINE_	_module_rtl871x_mlme_c_
 #elif defined _MLME_OSDEP_C_
-	#define _MODULE_DEFINE_	_module_mlme_osdep_c_
+#define _MODULE_DEFINE_	_module_mlme_osdep_c_
 #elif defined _RTW_MLME_EXT_C_
-	#define _MODULE_DEFINE_ 1
+#define _MODULE_DEFINE_ 1
 #elif defined _RTW_STA_MGT_C_
-	#define _MODULE_DEFINE_	_module_rtl871x_sta_mgt_c_
+#define _MODULE_DEFINE_	_module_rtl871x_sta_mgt_c_
 #elif defined _RTW_CMD_C_
-	#define _MODULE_DEFINE_	_module_rtl871x_cmd_c_
+#define _MODULE_DEFINE_	_module_rtl871x_cmd_c_
 #elif defined _CMD_OSDEP_C_
-	#define _MODULE_DEFINE_	_module_cmd_osdep_c_
+#define _MODULE_DEFINE_	_module_cmd_osdep_c_
 #elif defined _RTW_IO_C_
-	#define _MODULE_DEFINE_	_module_rtl871x_io_c_
+#define _MODULE_DEFINE_	_module_rtl871x_io_c_
 #elif defined _IO_OSDEP_C_
-	#define _MODULE_DEFINE_	_module_io_osdep_c_
+#define _MODULE_DEFINE_	_module_io_osdep_c_
 #elif defined _OS_INTFS_C_
-	#define	_MODULE_DEFINE_	_module_os_intfs_c_
+#define	_MODULE_DEFINE_	_module_os_intfs_c_
 #elif defined _RTW_SECURITY_C_
-	#define	_MODULE_DEFINE_	_module_rtl871x_security_c_
+#define	_MODULE_DEFINE_	_module_rtl871x_security_c_
 #elif defined _RTW_EEPROM_C_
-	#define	_MODULE_DEFINE_	_module_rtl871x_eeprom_c_
+#define	_MODULE_DEFINE_	_module_rtl871x_eeprom_c_
 #elif defined _HAL_INTF_C_
-	#define	_MODULE_DEFINE_	_module_hal_init_c_
+#define	_MODULE_DEFINE_	_module_hal_init_c_
 #elif (defined _HCI_HAL_INIT_C_) || (defined _SDIO_HALINIT_C_)
-	#define	_MODULE_DEFINE_	_module_hci_hal_init_c_
+#define	_MODULE_DEFINE_	_module_hci_hal_init_c_
 #elif defined _RTL871X_IOCTL_C_
-	#define	_MODULE_DEFINE_	_module_rtl871x_ioctl_c_
+#define	_MODULE_DEFINE_	_module_rtl871x_ioctl_c_
 #elif defined _RTL871X_IOCTL_SET_C_
-	#define	_MODULE_DEFINE_	_module_rtl871x_ioctl_set_c_
+#define	_MODULE_DEFINE_	_module_rtl871x_ioctl_set_c_
 #elif defined _RTL871X_IOCTL_QUERY_C_
-	#define	_MODULE_DEFINE_	_module_rtl871x_ioctl_query_c_
+#define	_MODULE_DEFINE_	_module_rtl871x_ioctl_query_c_
 #elif defined _RTL871X_PWRCTRL_C_
-	#define	_MODULE_DEFINE_	_module_rtl871x_pwrctrl_c_
+#define	_MODULE_DEFINE_	_module_rtl871x_pwrctrl_c_
 #elif defined _RTW_PWRCTRL_C_
-	#define	_MODULE_DEFINE_	1
+#define	_MODULE_DEFINE_	1
 #elif defined _HCI_INTF_C_
-	#define	_MODULE_DEFINE_	_module_hci_intfs_c_
+#define	_MODULE_DEFINE_	_module_hci_intfs_c_
 #elif defined _HCI_OPS_C_
-	#define	_MODULE_DEFINE_	_module_hci_ops_c_
+#define	_MODULE_DEFINE_	_module_hci_ops_c_
 #elif defined _SDIO_OPS_C_
-	#define	_MODULE_DEFINE_ 1
+#define	_MODULE_DEFINE_ 1
 #elif defined _OSDEP_HCI_INTF_C_
-	#define	_MODULE_DEFINE_	_module_hci_intfs_c_
+#define	_MODULE_DEFINE_	_module_hci_intfs_c_
 #elif defined _OSDEP_SERVICE_C_
-	#define	_MODULE_DEFINE_	_module_osdep_service_c_
+#define	_MODULE_DEFINE_	_module_osdep_service_c_
 #elif defined _HCI_OPS_OS_C_
-	#define	_MODULE_DEFINE_	_module_hci_ops_os_c_
+#define	_MODULE_DEFINE_	_module_hci_ops_os_c_
 #elif defined _RTL871X_IOCTL_LINUX_C_
-	#define	_MODULE_DEFINE_	_module_rtl871x_ioctl_os_c
+#define	_MODULE_DEFINE_	_module_rtl871x_ioctl_os_c
 #elif defined _RTL8712_CMD_C_
-	#define	_MODULE_DEFINE_	_module_rtl8712_cmd_c_
+#define	_MODULE_DEFINE_	_module_rtl8712_cmd_c_
 #elif defined _RTL8192C_XMIT_C_
-	#define	_MODULE_DEFINE_	1
+#define	_MODULE_DEFINE_	1
 #elif defined _RTL8723AS_XMIT_C_
-	#define	_MODULE_DEFINE_	1
+#define	_MODULE_DEFINE_	1
 #elif defined _RTL8712_RECV_C_
-	#define	_MODULE_DEFINE_	_module_rtl8712_recv_c_
+#define	_MODULE_DEFINE_	_module_rtl8712_recv_c_
 #elif defined _RTL8192CU_RECV_C_
-	#define	_MODULE_DEFINE_	_module_rtl8712_recv_c_
+#define	_MODULE_DEFINE_	_module_rtl8712_recv_c_
 #elif defined _RTL871X_MLME_EXT_C_
-	#define _MODULE_DEFINE_	_module_mlme_osdep_c_
+#define _MODULE_DEFINE_	_module_mlme_osdep_c_
 #elif defined _RTW_MP_C_
-	#define	_MODULE_DEFINE_	_module_mp_
+#define	_MODULE_DEFINE_	_module_mp_
 #elif defined _RTW_MP_IOCTL_C_
-	#define	_MODULE_DEFINE_	_module_mp_
+#define	_MODULE_DEFINE_	_module_mp_
 #elif defined _RTW_EFUSE_C_
-	#define	_MODULE_DEFINE_	_module_efuse_
+#define	_MODULE_DEFINE_	_module_efuse_
 #endif
 
 #ifdef PLATFORM_OS_CE
 extern void rtl871x_cedbg(const char *fmt, ...);
 #endif
 
-#define RT_TRACE(_Comp, _Level, Fmt) do{}while(0)
+static inline void _DBG_NONE(const char *fmt, ...) {}
+#define RT_TRACE(_Comp, _Level, Fmt) do {_DBG_NONE Fmt;} while (0)
 #define _func_enter_ do{}while(0)
 #define _func_exit_ do{}while(0)
 #define RT_PRINT_DATA(_Comp, _Level, _TitleString, _HexData, _HexDataLen) do{}while(0)
 
 #ifdef PLATFORM_WINDOWS
-	#define DBG_871X do {} while(0)
-	#define MSG_8192C do {} while(0)
-	#define DBG_8192C do {} while(0)
-	#define DBG_871X_LEVEL do {} while(0)
+#define DBG_871X do {} while(0)
+#define MSG_8192C do {} while(0)
+#define DBG_8192C do {} while(0)
+#define DBG_871X_LEVEL do {} while(0)
 #else
-	#define DBG_871X(x, ...) do {} while(0)
-	#define MSG_8192C(x, ...) do {} while(0)
-	#define DBG_8192C(x,...) do {} while(0)
-	#define DBG_871X_LEVEL(x,...) do {} while(0)
+#define DBG_871X(...) _DBG_NONE(__VA_ARGS__)
+#define MSG_8192C(...) _DBG_NONE(__VA_ARGS__)
+#define DBG_8192C(...) _DBG_NONE(__VA_ARGS__)
+#define DBG_871X_LEVEL(...) _DBG_NONE(__VA_ARGS__)
 #endif
 
 #undef _dbgdump
 #undef _seqdump
 
 #ifndef _RTL871X_DEBUG_C_
-	extern u32 GlobalDebugLevel;
-	extern u64 GlobalDebugComponents;
+extern u32 GlobalDebugLevel;
+extern u64 GlobalDebugComponents;
 #endif
 
 #if defined(PLATFORM_WINDOWS) && defined(PLATFORM_OS_XP)
-	#define _dbgdump DbgPrint
-	#define _seqdump(sel, fmt, arg...) _dbgdump(fmt, ##arg)
+#define _dbgdump DbgPrint
+#define _seqdump(sel, fmt, arg...) _dbgdump(fmt, ##arg)
 #elif defined(PLATFORM_WINDOWS) && defined(PLATFORM_OS_CE)
-	#define _dbgdump rtl871x_cedbg
-	#define _seqdump(sel, fmt, arg...) _dbgdump(fmt, ##arg)
+#define _dbgdump rtl871x_cedbg
+#define _seqdump(sel, fmt, arg...) _dbgdump(fmt, ##arg)
 #elif defined PLATFORM_LINUX
-	#define _dbgdump printk
-	#define _seqdump seq_printf
+#define _dbgdump printk
+#define _seqdump seq_printf
 #elif defined PLATFORM_FREEBSD
-	#define _dbgdump printf
-	#define _seqdump(sel, fmt, arg...) _dbgdump(fmt, ##arg)
+#define _dbgdump printf
+#define _seqdump(sel, fmt, arg...) _dbgdump(fmt, ##arg)
 #endif
 
 #define DRIVER_PREFIX "RTL871X: "
 
 #if defined(_dbgdump)
+
+#define DBG_871X_EXP(level, EXP) do { if (level <= GlobalDebugLevel) EXP; } while (0)
 
 /* with driver-defined prefix */
 #undef DBG_871X_LEVEL
@@ -227,7 +230,7 @@ extern void rtl871x_cedbg(const char *fmt, ...);
 		if (sel == RTW_DBGDUMP)\
 			_DBG_871X_LEVEL(_drv_always_, fmt, ##arg); \
 		else {\
-			if(_seqdump(sel, fmt, ##arg)) /*rtw_warn_on(1)*/; \
+			_seqdump(sel, fmt, ##arg); \
 		} \
 	}while(0)
 
@@ -237,7 +240,7 @@ extern void rtl871x_cedbg(const char *fmt, ...);
 		if (sel == RTW_DBGDUMP)\
 			DBG_871X_LEVEL(_drv_always_, fmt, ##arg); \
 		else {\
-			if(_seqdump(sel, fmt, ##arg)) /*rtw_warn_on(1)*/; \
+			_seqdump(sel, fmt, ##arg); \
 		} \
 	}while(0)
 
@@ -247,18 +250,18 @@ extern void rtl871x_cedbg(const char *fmt, ...);
 
 #ifdef CONFIG_DEBUG
 #if	defined(_dbgdump)
-	#undef DBG_871X
-	#define DBG_871X(...)     do {\
+#undef DBG_871X
+#define DBG_871X(...)     do {\
 		_dbgdump(DRIVER_PREFIX __VA_ARGS__);\
 	}while(0)
 
-	#undef MSG_8192C
-	#define MSG_8192C(...)     do {\
+#undef MSG_8192C
+#define MSG_8192C(...)     do {\
 		_dbgdump(DRIVER_PREFIX __VA_ARGS__);\
 	}while(0)
 
-	#undef DBG_8192C
-	#define DBG_8192C(...)     do {\
+#undef DBG_8192C
+#define DBG_8192C(...)     do {\
 		_dbgdump(DRIVER_PREFIX __VA_ARGS__);\
 	}while(0)
 #endif /* defined(_dbgdump) */
@@ -268,8 +271,8 @@ extern void rtl871x_cedbg(const char *fmt, ...);
 
 #if	defined(_dbgdump) && defined(_MODULE_DEFINE_)
 
-	#undef RT_TRACE
-	#define RT_TRACE(_Comp, _Level, Fmt)\
+#undef RT_TRACE
+#define RT_TRACE(_Comp, _Level, Fmt)\
 	do {\
 		if((_Comp & GlobalDebugComponents) && (_Level <= GlobalDebugLevel)) {\
 			_dbgdump("%s [0x%08x,%d]", DRIVER_PREFIX, (unsigned int)_Comp, _Level);\
@@ -281,8 +284,8 @@ extern void rtl871x_cedbg(const char *fmt, ...);
 
 
 #if	defined(_dbgdump)
-	#undef  _func_enter_
-	#define _func_enter_ \
+#undef  _func_enter_
+#define _func_enter_ \
 	do {	\
 		if (GlobalDebugLevel >= _drv_debug_) \
 		{																	\
@@ -290,8 +293,8 @@ extern void rtl871x_cedbg(const char *fmt, ...);
 		}		\
 	} while(0)
 
-	#undef  _func_exit_
-	#define _func_exit_ \
+#undef  _func_exit_
+#define _func_exit_ \
 	do {	\
 		if (GlobalDebugLevel >= _drv_debug_) \
 		{																	\
@@ -299,8 +302,8 @@ extern void rtl871x_cedbg(const char *fmt, ...);
 		}	\
 	} while(0)
 
-	#undef RT_PRINT_DATA
-	#define RT_PRINT_DATA(_Comp, _Level, _TitleString, _HexData, _HexDataLen)			\
+#undef RT_PRINT_DATA
+#define RT_PRINT_DATA(_Comp, _Level, _TitleString, _HexData, _HexDataLen)			\
 		if(((_Comp) & GlobalDebugComponents) && (_Level <= GlobalDebugLevel))	\
 		{									\
 			int __i;								\
@@ -317,6 +320,12 @@ extern void rtl871x_cedbg(const char *fmt, ...);
 #endif /* defined(_dbgdump) */
 #endif /* CONFIG_DEBUG_RTL871X */
 
+#ifdef CONFIG_DBG_COUNTER
+#define DBG_COUNTER(counter) counter++
+#else
+#define DBG_COUNTER(counter) do {} while (0)
+#endif
+
 void dump_drv_version(void *sel);
 void dump_log_level(void *sel);
 
@@ -327,6 +336,16 @@ void sd_f0_reg_dump(void *sel, _adapter *adapter);
 void mac_reg_dump(void *sel, _adapter *adapter);
 void bb_reg_dump(void *sel, _adapter *adapter);
 void rf_reg_dump(void *sel, _adapter *adapter);
+
+bool rtw_fwdl_test_trigger_chksum_fail(void);
+bool rtw_fwdl_test_trigger_wintint_rdy_fail(void);
+bool rtw_del_rx_ampdu_test_trigger_no_tx_fail(void);
+
+u32 rtw_get_wait_hiq_empty_ms(void);
+void rtw_sink_rtp_seq_dbg( _adapter *adapter,_pkt *pkt);
+
+struct sta_info;
+void sta_rx_reorder_ctl_dump(void *sel, struct sta_info *sta);
 
 #ifdef CONFIG_PROC_DEBUG
 ssize_t proc_set_write_reg(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
@@ -346,14 +365,26 @@ ssize_t proc_set_roam_tgt_addr(struct file *file, const char __user *buffer, siz
 int proc_get_qos_option(struct seq_file *m, void *v);
 int proc_get_ht_option(struct seq_file *m, void *v);
 int proc_get_rf_info(struct seq_file *m, void *v);
+int proc_get_survey_info(struct seq_file *m, void *v);
 int proc_get_ap_info(struct seq_file *m, void *v);
 int proc_get_adapter_state(struct seq_file *m, void *v);
+ssize_t proc_reset_trx_info(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
 int proc_get_trx_info(struct seq_file *m, void *v);
 int proc_get_rate_ctl(struct seq_file *m, void *v);
+int proc_get_wifi_spec(struct seq_file *m, void *v);
 ssize_t proc_set_rate_ctl(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+#ifdef DBG_RX_COUNTER_DUMP
+int proc_get_rx_cnt_dump(struct seq_file *m, void *v);
+ssize_t proc_set_rx_cnt_dump(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+#endif
+int proc_get_dis_pwt(struct seq_file *m, void *v);
+ssize_t proc_set_dis_pwt(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+
 int proc_get_suspend_resume_info(struct seq_file *m, void *v);
 
 ssize_t proc_set_fwdl_test_case(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+ssize_t proc_set_del_rx_ampdu_test_case(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+ssize_t proc_set_wait_hiq_empty(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
 
 #ifdef CONFIG_AP_MODE
 int proc_get_all_sta_info(struct seq_file *m, void *v);
@@ -370,6 +401,7 @@ ssize_t proc_set_best_channel(struct file *file, const char __user *buffer, size
 
 int proc_get_rx_signal(struct seq_file *m, void *v);
 ssize_t proc_set_rx_signal(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+int proc_get_hw_status(struct seq_file *m, void *v);
 
 #ifdef CONFIG_80211N_HT
 int proc_get_ht_enable(struct seq_file *m, void *v);
@@ -386,14 +418,24 @@ ssize_t proc_set_rx_ampdu(struct file *file, const char __user *buffer, size_t c
 
 int proc_get_rx_stbc(struct seq_file *m, void *v);
 ssize_t proc_set_rx_stbc(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+
+
+int proc_get_rx_ampdu_factor(struct seq_file *m, void *v);
+ssize_t proc_set_rx_ampdu_factor(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+
+int proc_get_rx_ampdu_density(struct seq_file *m, void *v);
+ssize_t proc_set_rx_ampdu_density(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+
+int proc_get_tx_ampdu_density(struct seq_file *m, void *v);
+ssize_t proc_set_tx_ampdu_density(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
 #endif /* CONFIG_80211N_HT */
 
 int proc_get_en_fwps(struct seq_file *m, void *v);
 ssize_t proc_set_en_fwps(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
 
-int proc_get_two_path_rssi(struct seq_file *m, void *v);
-int proc_get_rssi_disp(struct seq_file *m, void *v);
-ssize_t proc_set_rssi_disp(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+//int proc_get_two_path_rssi(struct seq_file *m, void *v);
+//int proc_get_rssi_disp(struct seq_file *m, void *v);
+//ssize_t proc_set_rssi_disp(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
 
 #ifdef CONFIG_BT_COEXIST
 int proc_get_btcoex_dbg(struct seq_file *m, void *v);
@@ -413,6 +455,35 @@ ssize_t proc_set_odm_dbg_level(struct file *file, const char __user *buffer, siz
 
 int proc_get_odm_adaptivity(struct seq_file *m, void *v);
 ssize_t proc_set_odm_adaptivity(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+
+#ifdef CONFIG_DBG_COUNTER
+int proc_get_rx_logs(struct seq_file *m, void *v);
+int proc_get_tx_logs(struct seq_file *m, void *v);
+int proc_get_int_logs(struct seq_file *m, void *v);
+#endif
+
+#ifdef CONFIG_PCI_HCI
+int proc_get_rx_ring(struct seq_file *m, void *v);
+int proc_get_tx_ring(struct seq_file *m, void *v);
+#endif
+
+#ifdef CONFIG_P2P_WOWLAN
+int proc_get_p2p_wowlan_info(struct seq_file *m, void *v);
+#endif /* CONFIG_P2P_WOWLAN */
+
+int proc_get_new_bcn_max(struct seq_file *m, void *v);
+ssize_t proc_set_new_bcn_max(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+
+#ifdef CONFIG_POWER_SAVING
+int proc_get_ps_info(struct seq_file *m, void *v);
+#endif //CONFIG_POWER_SAVING
+
+#ifdef CONFIG_TDLS
+int proc_get_tdls_info(struct seq_file *m, void *v);
+#endif
+
+int proc_get_monitor(struct seq_file *m, void *v);
+ssize_t proc_set_monitor(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
 
 #endif /* CONFIG_PROC_DEBUG */
 

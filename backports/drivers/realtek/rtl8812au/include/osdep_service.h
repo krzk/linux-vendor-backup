@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2013 Realtek Corporation. All rights reserved.
- *                                        
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
  * published by the Free Software Foundation.
@@ -55,7 +55,7 @@
 //#include <rtw_byteorder.h>
 
 #ifndef BIT
-	#define BIT(x)	( 1 << (x))
+#define BIT(x)	( 1 << (x))
 #endif
 
 #define BIT0	0x00000001
@@ -118,13 +118,14 @@ enum mstat_f {
 	MSTAT_FUNC_RX_IO = 0x03<<8,
 	MSTAT_FUNC_TX = 0x04<<8,
 	MSTAT_FUNC_RX = 0x05<<8,
-	MSTAT_FUNC_MAX = 0x06<<8,
+	MSTAT_FUNC_CFG_VENDOR = 0x06<<8,
+	MSTAT_FUNC_MAX = 0x07<<8,
 };
 
 #define mstat_tf_idx(flags) ((flags)&0xff)
 #define mstat_ff_idx(flags) (((flags)&0xff00) >> 8)
 
-typedef enum mstat_status{
+typedef enum mstat_status {
 	MSTAT_ALLOC_SUCCESS = 0,
 	MSTAT_ALLOC_FAIL,
 	MSTAT_FREE
@@ -252,11 +253,11 @@ void _rtw_usb_buffer_free(struct usb_device *dev, size_t size, void *addr, dma_a
 #endif /* CONFIG_USB_HCI */
 #endif /* DBG_MEM_ALLOC */
 
-extern void*	rtw_malloc2d(int h, int w, int size);
+extern void*	rtw_malloc2d(int h, int w, size_t size);
 extern void	rtw_mfree2d(void *pbuf, int h, int w, int size);
 
-extern void	_rtw_memcpy(void* dec, void* sour, u32 sz);
-extern int	_rtw_memcmp(void *dst, void *src, u32 sz);
+extern void	_rtw_memcpy(void* dec, const void* sour, u32 sz);
+extern int	_rtw_memcmp(const void *dst, const void *src, u32 sz);
 extern void	_rtw_memset(void *pbuf, int c, u32 sz);
 
 extern void	_rtw_init_listhead(_list *list);
@@ -318,7 +319,11 @@ extern void rtw_init_timer(_timer *ptimer, void *padapter, void *pfunc);
 __inline static unsigned char _cancel_timer_ex(_timer *ptimer)
 {
 #ifdef PLATFORM_LINUX
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0))
+	return del_timer_sync(&ptimer->t);
+#else
 	return del_timer_sync(ptimer);
+#endif
 #endif
 #ifdef PLATFORM_FREEBSD
 	_cancel_timer(ptimer,0);
@@ -326,9 +331,9 @@ __inline static unsigned char _cancel_timer_ex(_timer *ptimer)
 #endif
 #ifdef PLATFORM_WINDOWS
 	u8 bcancelled;
-	
+
 	_cancel_timer(ptimer, &bcancelled);
-	
+
 	return bcancelled;
 #endif
 }
@@ -336,9 +341,9 @@ __inline static unsigned char _cancel_timer_ex(_timer *ptimer)
 static __inline void thread_enter(char *name)
 {
 #ifdef PLATFORM_LINUX
-	#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0))
 	daemonize("%s", name);
-	#endif
+#endif
 	allow_signal(SIGTERM);
 #endif
 #ifdef PLATFORM_FREEBSD
@@ -346,11 +351,10 @@ static __inline void thread_enter(char *name)
 #endif
 }
 
-__inline static void flush_signals_thread(void) 
+__inline static void flush_signals_thread(void)
 {
 #ifdef PLATFORM_LINUX
-	if (signal_pending (current)) 
-	{
+	if (signal_pending (current)) {
 		flush_signals(current);
 	}
 #endif
@@ -370,8 +374,8 @@ __inline static _OS_STATUS res_to_status(sint res)
 	else
 		return NDIS_STATUS_FAILURE;
 
-#endif	
-	
+#endif
+
 }
 
 __inline static void rtw_dump_stack(void)
@@ -387,18 +391,17 @@ __inline static void rtw_dump_stack(void)
 #define rtw_warn_on(condition) do {} while (0)
 #endif
 
-__inline static int rtw_bug_check(void *parg1, void *parg2, void *parg3, void *parg4)
+__inline static int rtw_bug_check(const void *parg1, const void *parg2, void *parg3, void *parg4)
 {
 	int ret = _TRUE;
 
 #ifdef PLATFORM_WINDOWS
-	if ( ((uint)parg1) <= 0x7fffffff || 
-	 	((uint)parg2) <= 0x7fffffff ||
-	 	((uint)parg3) <= 0x7fffffff ||
-	 	((uint)parg4) <= 0x7fffffff)
-	{
+	if ( ((uint)parg1) <= 0x7fffffff ||
+	     ((uint)parg2) <= 0x7fffffff ||
+	     ((uint)parg3) <= 0x7fffffff ||
+	     ((uint)parg4) <= 0x7fffffff) {
 		ret = _FALSE;
-		KeBugCheckEx(0x87110000, (ULONG_PTR)parg1, (ULONG_PTR)parg2, (ULONG_PTR)parg3, (ULONG_PTR)parg4);		
+		KeBugCheckEx(0x87110000, (ULONG_PTR)parg1, (ULONG_PTR)parg2, (ULONG_PTR)parg3, (ULONG_PTR)parg4);
 	}
 #endif
 
@@ -415,7 +418,7 @@ __inline static u32 _RND4(u32 sz)
 	u32	val;
 
 	val = ((sz >> 2) + ((sz & 3) ? 1: 0)) << 2;
-	
+
 	return val;
 
 }
@@ -426,7 +429,7 @@ __inline static u32 _RND8(u32 sz)
 	u32	val;
 
 	val = ((sz >> 3) + ((sz & 7) ? 1: 0)) << 3;
-	
+
 	return val;
 
 }
@@ -437,7 +440,7 @@ __inline static u32 _RND128(u32 sz)
 	u32	val;
 
 	val = ((sz >> 7) + ((sz & 127) ? 1: 0)) << 7;
-	
+
 	return val;
 
 }
@@ -448,7 +451,7 @@ __inline static u32 _RND256(u32 sz)
 	u32	val;
 
 	val = ((sz >> 8) + ((sz & 255) ? 1: 0)) << 8;
-	
+
 	return val;
 
 }
@@ -459,7 +462,7 @@ __inline static u32 _RND512(u32 sz)
 	u32	val;
 
 	val = ((sz >> 9) + ((sz & 511) ? 1: 0)) << 9;
-	
+
 	return val;
 
 }
@@ -473,6 +476,8 @@ __inline static u32 bitshift(u32 bitmask)
 
 	return i;
 }
+
+#define rtw_min(a, b) ((a>b)?b:a)
 
 #ifndef MAC_FMT
 #define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
@@ -541,7 +546,7 @@ extern u32 rtw_random32(void);
 	} while (0)
 
 #define RTW_GET_BE24(a) ((((u32) (a)[0]) << 16) | (((u32) (a)[1]) << 8) | \
-			 ((u32) (a)[2]))			 
+			 ((u32) (a)[2]))
 #define RTW_PUT_BE24(a, val)					\
 	do {							\
 		(a)[0] = (u8) ((((u32) (val)) >> 16) & 0xff);	\
@@ -550,7 +555,7 @@ extern u32 rtw_random32(void);
 	} while (0)
 
 #define RTW_GET_BE32(a) ((((u32) (a)[0]) << 24) | (((u32) (a)[1]) << 16) | \
-			 (((u32) (a)[2]) << 8) | ((u32) (a)[3]))			 
+			 (((u32) (a)[2]) << 8) | ((u32) (a)[3]))
 #define RTW_PUT_BE32(a, val)					\
 	do {							\
 		(a)[0] = (u8) ((((u32) (val)) >> 24) & 0xff);	\
@@ -560,7 +565,7 @@ extern u32 rtw_random32(void);
 	} while (0)
 
 #define RTW_GET_LE32(a) ((((u32) (a)[3]) << 24) | (((u32) (a)[2]) << 16) | \
-			 (((u32) (a)[1]) << 8) | ((u32) (a)[0]))			 
+			 (((u32) (a)[1]) << 8) | ((u32) (a)[0]))
 #define RTW_PUT_LE32(a, val)					\
 	do {							\
 		(a)[3] = (u8) ((((u32) (val)) >> 24) & 0xff);	\
@@ -572,7 +577,7 @@ extern u32 rtw_random32(void);
 #define RTW_GET_BE64(a) ((((u64) (a)[0]) << 56) | (((u64) (a)[1]) << 48) | \
 			 (((u64) (a)[2]) << 40) | (((u64) (a)[3]) << 32) | \
 			 (((u64) (a)[4]) << 24) | (((u64) (a)[5]) << 16) | \
-			 (((u64) (a)[6]) << 8) | ((u64) (a)[7]))			 
+			 (((u64) (a)[6]) << 8) | ((u64) (a)[7]))
 #define RTW_PUT_BE64(a, val)				\
 	do {						\
 		(a)[0] = (u8) (((u64) (val)) >> 56);	\
