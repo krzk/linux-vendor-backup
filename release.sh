@@ -11,13 +11,7 @@ IMAGE="Image"
 DZIMAGE="dzImage"
 
 HOST_OS=`uname -m`
-if [ $HOST_OS = "x86_64" ]; then
-	#toolchain for 64bit HOST OS
-	export CROSS_COMPILE="/usr/bin/aarch64-linux-gnu-"
-else
-	echo "Tizen4.0 only support 64bit environment. Please try to build with 64bit environment"
-	exit 0
-fi
+export CROSS_COMPILE="/usr/bin/aarch64-linux-gnu-"
 
 if ! [ -e .config ] ; then
 	make ARCH=${ARM} tizen_tw3_defconfig
