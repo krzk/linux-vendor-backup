@@ -5,7 +5,7 @@
 
 Name: %{target_board}-linux-kernel
 Summary: The Linux Kernel for TM2/TM2E board
-Version: 4.14.85
+Version: 4.14.99
 Release: 0
 License: GPL-2.0
 ExclusiveArch: %{arm} aarch64
