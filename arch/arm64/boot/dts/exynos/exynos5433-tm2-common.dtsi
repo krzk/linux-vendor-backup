@@ -17,6 +17,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/soc/exynos,boot-mode.h>
 #include <dt-bindings/sound/samsung-i2s.h>
 
 / {
@@ -1659,6 +1660,13 @@
 &pmu_system_controller {
 	assigned-clocks = <&pmu_system_controller 0>;
 	assigned-clock-parents = <&xxti>;
+
+	syscon-reboot-mode {
+		compatible = "syscon-reboot-mode";
+		offset = <0x80c>;
+		mode-normal = <BOOT_NORMAL>;
+		mode-download = <BOOT_BL_DOWNLOAD>;
+	};
 };
 
 &serial_1 {
