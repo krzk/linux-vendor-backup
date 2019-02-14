@@ -14,6 +14,7 @@
 #include "exynos4412-ppmu-common.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include "exynos-mfc-reserved-memory.dtsi"
+#include <dt-bindings/soc/exynos,boot-mode.h>
 
 / {
 	chosen {
@@ -521,6 +522,15 @@
 	samsung,dw-mshc-ddr-timing = <1 2>;
 	bus-width = <8>;
 	cap-mmc-highspeed;
+};
+
+&pmu_system_controller {
+	syscon-reboot-mode {
+		compatible = "syscon-reboot-mode";
+		offset = <0x808>;
+		mode-normal = <BOOT_NORMAL>;
+		mode-download = <BOOT_BL_DOWNLOAD>;
+	};
 };
 
 &rtc {
