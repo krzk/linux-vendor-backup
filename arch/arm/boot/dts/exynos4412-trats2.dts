@@ -19,6 +19,7 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/clock/maxim,max77686.h>
 #include <dt-bindings/pinctrl/samsung.h>
+#include <dt-bindings/soc/exynos,boot-mode.h>
 
 / {
 	model = "Samsung Trats 2 based on Exynos4412";
@@ -999,6 +1000,13 @@
 &pmu_system_controller {
 	assigned-clocks = <&pmu_system_controller 0>;
 	assigned-clock-parents =  <&clock CLK_XUSBXTI>;
+
+	syscon-reboot-mode {
+		compatible = "syscon-reboot-mode";
+		offset = <0x80c>;
+		mode-normal = <BOOT_NORMAL>;
+		mode-download = <BOOT_BL_DOWNLOAD>;
+	};
 };
 
 &pinctrl_0 {
