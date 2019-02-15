@@ -17,6 +17,11 @@
 #include <dt-bindings/soc/exynos,boot-mode.h>
 
 / {
+	aliases {
+		mmc0 = &mshc_0;		/* mmcblk0 for eMMC */
+		mmc1 = &sdhci_2;	/* mmcblk1 for SD */
+	};
+
 	chosen {
 		stdout-path = &serial_1;
 	};
