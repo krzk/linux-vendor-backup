@@ -42,6 +42,7 @@ struct builtin_fw {
 #if defined(CONFIG_FW_LOADER) || (defined(CONFIG_FW_LOADER_MODULE) && defined(MODULE))
 int request_firmware(const struct firmware **fw, const char *name,
 		     struct device *device);
+void retry_request_firmware(void);
 int request_firmware_nowait(
 	struct module *module, bool uevent,
 	const char *name, struct device *device, gfp_t gfp, void *context,
@@ -59,6 +60,11 @@ static inline int request_firmware(const struct firmware **fw,
 {
 	return -EINVAL;
 }
+
+static inline void retry_request_firmware(void)
+{
+}
+
 static inline int request_firmware_nowait(
 	struct module *module, bool uevent,
 	const char *name, struct device *device, gfp_t gfp, void *context,

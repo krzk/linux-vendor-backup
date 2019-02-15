@@ -32,6 +32,7 @@
 #include <linux/syscore_ops.h>
 #include <linux/reboot.h>
 #include <linux/security.h>
+#include <linux/root_dev.h>
 
 #include <generated/utsrelease.h>
 
@@ -391,6 +392,9 @@ fw_get_filesystem_firmware(struct device *device, struct firmware_buf *buf)
 	char *path;
 	enum kernel_read_file_id id = READING_FIRMWARE;
 	size_t msize = INT_MAX;
+
+	if (ROOT_DEV == 0)
+		return -EPROBE_DEFER;
 
 	/* Already populated data member means we're loading into a buffer */
 	if (buf->data) {
@@ -1351,23 +1355,52 @@ struct firmware_work {
 	void *context;
 	void (*cont)(const struct firmware *fw, void *context);
 	unsigned int opt_flags;
+	struct list_head node;
 };
+static LIST_HEAD(firmware_work_list);
+static DEFINE_SPINLOCK(firmware_work_list_lock);
 
 static void request_firmware_work_func(struct work_struct *work)
 {
 	struct firmware_work *fw_work;
 	const struct firmware *fw;
+	int err = 0;
 
 	fw_work = container_of(work, struct firmware_work, work);
 
-	_request_firmware(&fw, fw_work->name, fw_work->device, NULL, 0,
-			  fw_work->opt_flags);
+	err = _request_firmware(&fw, fw_work->name, fw_work->device, NULL, 0,
+			fw_work->opt_flags);
+	if (err == -EPROBE_DEFER) {
+		spin_lock(&firmware_work_list_lock);
+		list_add_tail(&fw_work->node, &firmware_work_list);
+		spin_unlock(&firmware_work_list_lock);
+		return;
+	}
+
 	fw_work->cont(fw, fw_work->context);
 	put_device(fw_work->device); /* taken in request_firmware_nowait() */
 
 	module_put(fw_work->module);
 	kfree_const(fw_work->name);
 	kfree(fw_work);
+}
+
+void retry_request_firmware(void)
+{
+	struct firmware_work *fw_work;
+
+	spin_lock(&firmware_work_list_lock);
+	while (!list_empty(&firmware_work_list)) {
+		fw_work = list_first_entry(&firmware_work_list,
+					   struct firmware_work, node);
+		list_del(&fw_work->node);
+		spin_unlock(&firmware_work_list_lock);
+
+		request_firmware_work_func(&fw_work->work);
+
+		spin_lock(&firmware_work_list_lock);
+	}
+	spin_unlock(&firmware_work_list_lock);
 }
 
 /**
@@ -1416,6 +1449,7 @@ request_firmware_nowait(
 	fw_work->cont = cont;
 	fw_work->opt_flags = FW_OPT_NOWAIT | FW_OPT_FALLBACK |
 		(uevent ? FW_OPT_UEVENT : FW_OPT_USERHELPER);
+	INIT_LIST_HEAD(&fw_work->node);
 
 	if (!try_module_get(module)) {
 		kfree_const(fw_work->name);
