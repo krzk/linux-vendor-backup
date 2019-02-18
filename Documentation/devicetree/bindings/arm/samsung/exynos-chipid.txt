@@ -1,9 +1,13 @@
-SAMSUNG Exynos SoCs Chipid driver.
+SAMSUNG Exynos SoC series CHIPID subsystem
 
 Required properties:
-- compatible : Should at least contain "samsung,exynos4210-chipid".
+- compatible : Should at least contain "samsung,exynos4210-chipid";
+  For Exynos5433 SoC should also contain "samsung,exynos5433-chipid".
 
-- reg: offset and length of the register set
+- reg: Offset and length of the register set. For "samsung,exynos5433-chipid"
+  compatible this property should contain at least two entries, i.e. it should
+  describe two IO register regions, where the second one corresponds to
+  the ABB registers region.
 
 Example:
 	chipid@10000000 {
