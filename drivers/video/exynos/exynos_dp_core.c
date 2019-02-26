@@ -392,7 +392,7 @@ static unsigned int exynos_dp_get_lane_link_training(
 				struct exynos_dp_device *dp,
 				int lane)
 {
-	u32 reg;
+	u32 reg = 0;
 
 	switch (lane) {
 	case 0:
@@ -489,12 +489,12 @@ static int exynos_dp_process_clock_recovery(struct exynos_dp_device *dp)
 				6, link_status);
 	lane_count = dp->link_train.lane_count;
 
+	adjust_request = link_status + (DPCD_ADDR_ADJUST_REQUEST_LANE0_1
+					- DPCD_ADDR_LANE0_1_STATUS);
+
 	if (exynos_dp_clock_recovery_ok(link_status, lane_count) == 0) {
 		/* set training pattern 2 for EQ */
 		exynos_dp_set_training_pattern(dp, TRAINING_PTN2);
-
-		adjust_request = link_status + (DPCD_ADDR_ADJUST_REQUEST_LANE0_1
-						- DPCD_ADDR_LANE0_1_STATUS);
 
 		exynos_dp_get_adjust_train(dp, adjust_request);
 

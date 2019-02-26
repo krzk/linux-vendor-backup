@@ -251,6 +251,16 @@ out:
 }
 
 /**
+ * devfreq_insert_pollig() - Insert polling event into devfreq workqueue
+ * @polling : the jiffies value used to insert polling event.
+ *
+ */
+void devfreq_insert_polling(unsigned long polling)
+{
+	queue_delayed_work(devfreq_wq, &devfreq_work, polling);
+}
+
+/**
  * devfreq_monitor() - Periodically poll devfreq objects.
  * @work: the work struct used to run devfreq_monitor periodically.
  *
@@ -283,7 +293,6 @@ static void devfreq_monitor(struct work_struct *work)
 			mutex_unlock(&devfreq->lock);
 			continue;
 		}
-		mutex_unlock(&devfreq_list_lock);
 
 		/*
 		 * Reduce more next_polling if devfreq_wq took an extra
@@ -304,7 +313,6 @@ static void devfreq_monitor(struct work_struct *work)
 				 * find_device_devfreq or others
 				 */
 				mutex_unlock(&devfreq->lock);
-				mutex_lock(&devfreq_list_lock);
 				/* Check if devfreq is already removed */
 				if (IS_ERR(find_device_devfreq(dev)))
 					continue;
@@ -323,7 +331,6 @@ static void devfreq_monitor(struct work_struct *work)
 					devfreq->next_polling : next_jiffies;
 
 		mutex_unlock(&devfreq->lock);
-		mutex_lock(&devfreq_list_lock);
 	}
 	wait_remove_device = NULL;
 	mutex_unlock(&devfreq_list_lock);
@@ -463,19 +470,19 @@ int devfreq_remove_device(struct devfreq *devfreq)
 static ssize_t show_governor(struct device *dev,
 			     struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%s\n", to_devfreq(dev)->governor->name);
+	return snprintf(buf, PAGE_SIZE, "%s\n", to_devfreq(dev)->governor->name);
 }
 
 static ssize_t show_freq(struct device *dev,
 			 struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%lu\n", to_devfreq(dev)->previous_freq);
+	return snprintf(buf, PAGE_SIZE, "%lu\n", to_devfreq(dev)->previous_freq);
 }
 
 static ssize_t show_polling_interval(struct device *dev,
 				     struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%d\n", to_devfreq(dev)->profile->polling_ms);
+	return snprintf(buf, PAGE_SIZE, "%d\n", to_devfreq(dev)->profile->polling_ms);
 }
 
 static ssize_t store_polling_interval(struct device *dev,
@@ -515,7 +522,7 @@ out:
 static ssize_t show_central_polling(struct device *dev,
 				    struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%d\n",
+	return snprintf(buf, PAGE_SIZE, "%d\n",
 		       !to_devfreq(dev)->governor->no_central_polling);
 }
 
@@ -550,7 +557,7 @@ out:
 static ssize_t show_min_freq(struct device *dev, struct device_attribute *attr,
 			     char *buf)
 {
-	return sprintf(buf, "%lu\n", to_devfreq(dev)->min_freq);
+	return snprintf(buf, PAGE_SIZE, "%lu\n", to_devfreq(dev)->min_freq);
 }
 
 static ssize_t store_max_freq(struct device *dev, struct device_attribute *attr,
@@ -584,7 +591,7 @@ out:
 static ssize_t show_max_freq(struct device *dev, struct device_attribute *attr,
 			     char *buf)
 {
-	return sprintf(buf, "%lu\n", to_devfreq(dev)->max_freq);
+	return snprintf(buf, PAGE_SIZE, "%lu\n", to_devfreq(dev)->max_freq);
 }
 
 static struct device_attribute devfreq_attrs[] = {
@@ -607,7 +614,7 @@ static int __init devfreq_start_polling(void)
 	mutex_lock(&devfreq_list_lock);
 	polling = false;
 	devfreq_wq = create_freezable_workqueue("devfreq_wq");
-	INIT_DELAYED_WORK_DEFERRABLE(&devfreq_work, devfreq_monitor);
+	INIT_DELAYED_WORK(&devfreq_work, devfreq_monitor);
 	mutex_unlock(&devfreq_list_lock);
 
 	devfreq_monitor(&devfreq_work.work);

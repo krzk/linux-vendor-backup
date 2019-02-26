@@ -249,6 +249,7 @@ static int amba_pm_restore(struct device *dev)
  * enable/disable the bus clock at runtime PM suspend/resume as this
  * does not result in loss of context.
  */
+#ifndef CONFIG_SOC_EXYNOS5260
 static int amba_pm_runtime_suspend(struct device *dev)
 {
 	struct amba_device *pcdev = to_amba_device(dev);
@@ -275,21 +276,24 @@ static int amba_pm_runtime_resume(struct device *dev)
 	return pm_generic_runtime_resume(dev);
 }
 #endif
+#endif
 
 #ifdef CONFIG_PM
 
 static const struct dev_pm_ops amba_pm = {
-	.suspend	= amba_pm_suspend,
-	.resume		= amba_pm_resume,
+	.suspend_noirq	= amba_pm_suspend,
+	.resume_noirq	= amba_pm_resume,
 	.freeze		= amba_pm_freeze,
 	.thaw		= amba_pm_thaw,
 	.poweroff	= amba_pm_poweroff,
 	.restore	= amba_pm_restore,
+#ifndef CONFIG_SOC_EXYNOS5260
 	SET_RUNTIME_PM_OPS(
 		amba_pm_runtime_suspend,
 		amba_pm_runtime_resume,
 		pm_generic_runtime_idle
 	)
+#endif
 };
 
 #define AMBA_PM (&amba_pm)

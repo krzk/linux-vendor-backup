@@ -31,9 +31,10 @@
 #include <linux/random.h>
 #include <linux/hw_breakpoint.h>
 #include <linux/cpuidle.h>
+#include <linux/console.h>
+#include <linux/cpufreq.h>
 
 #include <asm/cacheflush.h>
-#include <asm/leds.h>
 #include <asm/processor.h>
 #include <asm/thread_notify.h>
 #include <asm/stacktrace.h>
@@ -59,6 +60,18 @@ static const char *isa_modes[] = {
 extern void setup_mm_for_reboot(void);
 
 static volatile int hlt_counter;
+
+#ifdef CONFIG_SMP
+void arch_trigger_all_cpu_backtrace(void)
+{
+	smp_send_all_cpu_backtrace();
+}
+#else
+void arch_trigger_all_cpu_backtrace(void)
+{
+	dump_stack();
+}
+#endif
 
 void disable_hlt(void)
 {
@@ -91,6 +104,31 @@ __setup("hlt", hlt_setup);
 
 extern void call_with_stack(void (*fn)(void *), void *arg, void *sp);
 typedef void (*phys_reset_t)(unsigned long);
+
+#ifdef CONFIG_ARM_FLUSH_CONSOLE_ON_RESTART
+void arm_machine_flush_console(void)
+{
+	printk("\n");
+	pr_emerg("Restarting %s\n", linux_banner);
+	if (console_trylock()) {
+		console_unlock();
+		return;
+	}
+
+	mdelay(50);
+
+	local_irq_disable();
+	if (!console_trylock())
+		pr_emerg("arm_restart: Console was locked! Busting\n");
+	else
+		pr_emerg("arm_restart: Console was locked!\n");
+	console_unlock();
+}
+#else
+void arm_machine_flush_console(void)
+{
+}
+#endif
 
 /*
  * A temporary stack to use for CPU reset. This is static so that we
@@ -207,9 +245,9 @@ void cpu_idle(void)
 
 	/* endless idle loop with no priority at all */
 	while (1) {
+		idle_notifier_call_chain(IDLE_START);
 		tick_nohz_idle_enter();
 		rcu_idle_enter();
-		leds_event(led_idle_start);
 		while (!need_resched()) {
 #ifdef CONFIG_HOTPLUG_CPU
 			if (cpu_is_offline(smp_processor_id()))
@@ -240,9 +278,9 @@ void cpu_idle(void)
 			} else
 				local_irq_enable();
 		}
-		leds_event(led_idle_end);
 		rcu_idle_exit();
 		tick_nohz_idle_exit();
+		idle_notifier_call_chain(IDLE_END);
 		schedule_preempt_disabled();
 	}
 }
@@ -260,12 +298,22 @@ __setup("reboot=", reboot_setup);
 void machine_shutdown(void)
 {
 #ifdef CONFIG_SMP
+	/*
+	 * Disable preemption so we're guaranteed to
+	 * run to power off or reboot and prevent
+	 * the possibility of switching to another
+	 * thread that might wind up blocking on
+	 * one of the stopped CPUs.
+	 */
+	preempt_disable();
+
 	smp_send_stop();
 #endif
 }
 
 void machine_halt(void)
 {
+	local_irq_disable();
 	machine_shutdown();
 	local_irq_disable();
 	while (1);
@@ -273,6 +321,7 @@ void machine_halt(void)
 
 void machine_power_off(void)
 {
+	local_irq_disable();
 	machine_shutdown();
 	if (pm_power_off)
 		pm_power_off();
@@ -280,7 +329,12 @@ void machine_power_off(void)
 
 void machine_restart(char *cmd)
 {
+	local_irq_disable();
 	machine_shutdown();
+
+	/* Flush the console to make sure all the relevant messages make it
+	 * out to the console drivers */
+	arm_machine_flush_console();
 
 	arm_pm_restart(reboot_mode, cmd);
 
@@ -291,6 +345,77 @@ void machine_restart(char *cmd)
 	printk("Reboot failed -- System halted\n");
 	local_irq_disable();
 	while (1);
+}
+
+/*
+ * dump a block of kernel memory from around the given address
+ */
+static void show_data(unsigned long addr, int nbytes, const char *name)
+{
+	int	i, j;
+	int	nlines;
+	u32	*p;
+
+	/*
+	 * don't attempt to dump non-kernel addresses or
+	 * values that are probably just small negative numbers
+	 */
+	if (addr < PAGE_OFFSET || addr > -256UL)
+		return;
+
+	printk("\n%s: %#lx:\n", name, addr);
+
+	/*
+	 * round address down to a 32 bit boundary
+	 * and always dump a multiple of 32 bytes
+	 */
+	p = (u32 *)(addr & ~(sizeof(u32) - 1));
+	nbytes += (addr & (sizeof(u32) - 1));
+	nlines = (nbytes + 31) / 32;
+
+
+	for (i = 0; i < nlines; i++) {
+		/*
+		 * just display low 16 bits of address to keep
+		 * each line of the dump < 80 characters
+		 */
+		printk("%04lx ", (unsigned long)p & 0xffff);
+		for (j = 0; j < 8; j++) {
+			u32	data;
+			if (probe_kernel_address(p, data)) {
+				printk(" ********");
+			} else {
+				printk(" %08x", data);
+			}
+			++p;
+		}
+		printk("\n");
+	}
+}
+
+static void show_extra_register_data(struct pt_regs *regs, int nbytes)
+{
+	mm_segment_t fs;
+
+	fs = get_fs();
+	set_fs(KERNEL_DS);
+	show_data(regs->ARM_pc - nbytes, nbytes * 2, "PC");
+	show_data(regs->ARM_lr - nbytes, nbytes * 2, "LR");
+	show_data(regs->ARM_sp - nbytes, nbytes * 2, "SP");
+	show_data(regs->ARM_ip - nbytes, nbytes * 2, "IP");
+	show_data(regs->ARM_fp - nbytes, nbytes * 2, "FP");
+	show_data(regs->ARM_r0 - nbytes, nbytes * 2, "R0");
+	show_data(regs->ARM_r1 - nbytes, nbytes * 2, "R1");
+	show_data(regs->ARM_r2 - nbytes, nbytes * 2, "R2");
+	show_data(regs->ARM_r3 - nbytes, nbytes * 2, "R3");
+	show_data(regs->ARM_r4 - nbytes, nbytes * 2, "R4");
+	show_data(regs->ARM_r5 - nbytes, nbytes * 2, "R5");
+	show_data(regs->ARM_r6 - nbytes, nbytes * 2, "R6");
+	show_data(regs->ARM_r7 - nbytes, nbytes * 2, "R7");
+	show_data(regs->ARM_r8 - nbytes, nbytes * 2, "R8");
+	show_data(regs->ARM_r9 - nbytes, nbytes * 2, "R9");
+	show_data(regs->ARM_r10 - nbytes, nbytes * 2, "R10");
+	set_fs(fs);
 }
 
 void __show_regs(struct pt_regs *regs)
@@ -351,8 +476,151 @@ void __show_regs(struct pt_regs *regs)
 
 		printk("Control: %08x%s\n", ctrl, buf);
 	}
+
+#endif
+
+#ifdef CONFIG_CPU_CP15
+	{
+		unsigned long reg0, reg1, reg2, reg3;
+
+		asm ("mrc p15, 0, %0, c0, c0, 5\n": "=r" (reg0));
+		if (reg0 & (1 << 31))
+			/* MPIDR */
+			printk("CPU %ld / CLUSTER %ld\n",
+					reg0 & 0x3, (reg0 >> 8) & 0xF);
+
+		asm ("mrc p15, 0, %0, c5, c0, 0\n\t"
+		     "mrc p15, 0, %1, c5, c1, 0\n"
+		     : "=r" (reg0), "=r" (reg1));
+		asm ("mrc p15, 0, %0, c5, c0, 1\n\t"
+		     "mrc p15, 0, %1, c5, c1, 1\n"
+		     : "=r" (reg2), "=r" (reg3));
+		printk("DFSR: %08lx, ADFSR: %08lx, IFSR: %08lx, AIFSR: %08lx\n",
+			reg0, reg1, reg2, reg3);
+
+		asm ("mrc p15, 0, %0, c0, c0, 0\n": "=r" (reg0));
+		if (((reg0 >> 4) & 0xFFF) == 0xC0F) { /* Cortex-A15 */
+			asm ("mrrc p15, 0, %0, %1, c15\n\t"
+			     "mrrc p15, 1, %2, %3, c15\n"
+			     : "=r" (reg0), "=r" (reg1),
+			     "=r" (reg2), "=r" (reg3));
+			printk("CPUMERRSR: %08lx_%08lx, L2MERRSR: %08lx_%08lx\n",
+				reg1, reg0, reg3, reg2);
+		}
+	}
+#endif
+
+#ifdef CONFIG_ARM_EXYNOS5410_BUS_DEVFREQ
+	{
+		extern unsigned long curr_mif_freq;
+		printk("MIFFREQ: %ld KHz\n", curr_mif_freq);
+	}
+#endif
+
+	show_extra_register_data(regs, 128);
+}
+
+#if defined(CONFIG_SEC_DEBUG) && defined(CONFIG_SOC_EXYNOS5260)
+void __show_regs_except_extra_data(struct pt_regs *regs)
+{
+	unsigned long flags;
+	char buf[64];
+
+	printk("CPU: %d    %s  (%s %.*s)\n",
+		raw_smp_processor_id(), print_tainted(),
+		init_utsname()->release,
+		(int)strcspn(init_utsname()->version, " "),
+		init_utsname()->version);
+	print_symbol("PC is at %s\n", instruction_pointer(regs));
+	print_symbol("LR is at %s\n", regs->ARM_lr);
+	printk("pc : [<%08lx>]    lr : [<%08lx>]    psr: %08lx\n"
+	       "sp : %08lx  ip : %08lx  fp : %08lx\n",
+		regs->ARM_pc, regs->ARM_lr, regs->ARM_cpsr,
+		regs->ARM_sp, regs->ARM_ip, regs->ARM_fp);
+	printk("r10: %08lx  r9 : %08lx  r8 : %08lx\n",
+		regs->ARM_r10, regs->ARM_r9,
+		regs->ARM_r8);
+	printk("r7 : %08lx  r6 : %08lx  r5 : %08lx  r4 : %08lx\n",
+		regs->ARM_r7, regs->ARM_r6,
+		regs->ARM_r5, regs->ARM_r4);
+	printk("r3 : %08lx  r2 : %08lx  r1 : %08lx  r0 : %08lx\n",
+		regs->ARM_r3, regs->ARM_r2,
+		regs->ARM_r1, regs->ARM_r0);
+
+	flags = regs->ARM_cpsr;
+	buf[0] = flags & PSR_N_BIT ? 'N' : 'n';
+	buf[1] = flags & PSR_Z_BIT ? 'Z' : 'z';
+	buf[2] = flags & PSR_C_BIT ? 'C' : 'c';
+	buf[3] = flags & PSR_V_BIT ? 'V' : 'v';
+	buf[4] = '\0';
+
+	printk("Flags: %s  IRQs o%s  FIQs o%s  Mode %s  ISA %s  Segment %s\n",
+		buf, interrupts_enabled(regs) ? "n" : "ff",
+		fast_interrupts_enabled(regs) ? "n" : "ff",
+		processor_modes[processor_mode(regs)],
+		isa_modes[isa_mode(regs)],
+		get_fs() == get_ds() ? "kernel" : "user");
+#ifdef CONFIG_CPU_CP15
+	{
+		unsigned int ctrl;
+
+		buf[0] = '\0';
+#ifdef CONFIG_CPU_CP15_MMU
+		{
+			unsigned int transbase, dac;
+			asm("mrc p15, 0, %0, c2, c0\n\t"
+			    "mrc p15, 0, %1, c3, c0\n"
+			    : "=r" (transbase), "=r" (dac));
+			snprintf(buf, sizeof(buf), "  Table: %08x  DAC: %08x",
+				transbase, dac);
+		}
+#endif
+		asm("mrc p15, 0, %0, c1, c0\n" : "=r" (ctrl));
+
+		printk("Control: %08x%s\n", ctrl, buf);
+	}
+
+#endif
+
+#ifdef CONFIG_CPU_CP15
+	{
+		unsigned long reg0, reg1, reg2, reg3;
+
+		asm ("mrc p15, 0, %0, c0, c0, 5\n": "=r" (reg0));
+		if (reg0 & (1 << 31))
+			/* MPIDR */
+			printk("CPU %ld / CLUSTER %ld\n",
+					reg0 & 0x3, (reg0 >> 8) & 0xF);
+
+		asm ("mrc p15, 0, %0, c5, c0, 0\n\t"
+		     "mrc p15, 0, %1, c5, c1, 0\n"
+		     : "=r" (reg0), "=r" (reg1));
+		asm ("mrc p15, 0, %0, c5, c0, 1\n\t"
+		     "mrc p15, 0, %1, c5, c1, 1\n"
+		     : "=r" (reg2), "=r" (reg3));
+		printk("DFSR: %08lx, ADFSR: %08lx, IFSR: %08lx, AIFSR: %08lx\n",
+			reg0, reg1, reg2, reg3);
+
+		asm ("mrc p15, 0, %0, c0, c0, 0\n": "=r" (reg0));
+		if (((reg0 >> 4) & 0xFFF) == 0xC0F) { /* Cortex-A15 */
+			asm ("mrrc p15, 0, %0, %1, c15\n\t"
+			     "mrrc p15, 1, %2, %3, c15\n"
+			     : "=r" (reg0), "=r" (reg1),
+			     "=r" (reg2), "=r" (reg3));
+			printk("CPUMERRSR: %08lx_%08lx, L2MERRSR: %08lx_%08lx\n",
+				reg1, reg0, reg3, reg2);
+		}
+	}
+#endif
+
+#ifdef CONFIG_ARM_EXYNOS5410_BUS_DEVFREQ
+	{
+		extern unsigned long curr_mif_freq;
+		printk("MIFFREQ: %ld KHz\n", curr_mif_freq);
+	}
 #endif
 }
+#endif
 
 void show_regs(struct pt_regs * regs)
 {
@@ -503,6 +771,7 @@ EXPORT_SYMBOL(kernel_thread);
 unsigned long get_wchan(struct task_struct *p)
 {
 	struct stackframe frame;
+	unsigned long stack_page;
 	int count = 0;
 	if (!p || p == current || p->state == TASK_RUNNING)
 		return 0;
@@ -511,9 +780,11 @@ unsigned long get_wchan(struct task_struct *p)
 	frame.sp = thread_saved_sp(p);
 	frame.lr = 0;			/* recovered from the stack */
 	frame.pc = thread_saved_pc(p);
+	stack_page = (unsigned long)task_stack_page(p);
 	do {
-		int ret = unwind_frame(&frame);
-		if (ret < 0)
+		if (frame.sp < stack_page ||
+		    frame.sp >= stack_page + THREAD_SIZE ||
+		    unwind_frame(&frame) < 0)
 			return 0;
 		if (!in_sched_functions(frame.pc))
 			return frame.pc;

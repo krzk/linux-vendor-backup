@@ -961,8 +961,8 @@ void blk_add_driver_data(struct request_queue *q,
 		__blk_add_trace(bt, 0, blk_rq_bytes(rq), 0,
 				BLK_TA_DRV_DATA, rq->errors, len, data);
 	else
-		__blk_add_trace(bt, blk_rq_pos(rq), blk_rq_bytes(rq), 0,
-				BLK_TA_DRV_DATA, rq->errors, len, data);
+		__blk_add_trace(bt, blk_rq_pos(rq), blk_rq_bytes(rq),
+			rq->cmd_flags, BLK_TA_DRV_DATA, rq->errors, len, data);
 }
 EXPORT_SYMBOL_GPL(blk_add_driver_data);
 
@@ -1784,13 +1784,13 @@ void blk_fill_rwbs(char *rwbs, u32 rw, int bytes)
 	if (rw & REQ_FLUSH)
 		rwbs[i++] = 'F';
 
-	if (rw & WRITE)
-		rwbs[i++] = 'W';
-	else if (rw & REQ_DISCARD)
-		rwbs[i++] = 'D';
-	else if (bytes)
-		rwbs[i++] = 'R';
-	else
+        if (rw & REQ_DISCARD)
+                rwbs[i++] = 'D';
+        else if (rw & WRITE)
+                rwbs[i++] = 'W';
+        else if (bytes)
+                rwbs[i++] = 'R';
+        else
 		rwbs[i++] = 'N';
 
 	if (rw & REQ_FUA)

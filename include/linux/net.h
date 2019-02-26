@@ -61,6 +61,7 @@ typedef enum {
 #include <linux/fcntl.h>	/* For O_CLOEXEC and O_NONBLOCK */
 #include <linux/kmemcheck.h>
 #include <linux/rcupdate.h>
+#include <linux/sched.h>
 
 struct poll_table_struct;
 struct pipe_inode_info;
@@ -149,6 +150,8 @@ struct socket {
 
 	struct file		*file;
 	struct sock		*sk;
+	uid_t			knox_uid;
+	pid_t			knox_pid;
 	const struct proto_ops	*ops;
 };
 

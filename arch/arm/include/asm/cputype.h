@@ -25,6 +25,30 @@
 #define CPUID_EXT_ISAR4	"c2, 4"
 #define CPUID_EXT_ISAR5	"c2, 5"
 
+#define MPIDR_SMP_BITMASK (0x3 << 30)
+#define MPIDR_SMP_VALUE (0x2 << 30)
+
+#define MPIDR_MT_BITMASK (0x1 << 24)
+
+#define MPIDR_HWID_BITMASK 0xFFFFFF
+
+#define MPIDR_INVALID (~MPIDR_HWID_BITMASK)
+
+#define MPIDR_LEVEL0_MASK 0x3
+#define MPIDR_LEVEL0_SHIFT 0
+
+#define MPIDR_LEVEL1_MASK 0xF
+#define MPIDR_LEVEL1_SHIFT 8
+
+#define MPIDR_LEVEL2_MASK 0xFF
+#define MPIDR_LEVEL2_SHIFT 16
+
+#define MPIDR_LEVEL_BITS 8
+#define MPIDR_LEVEL_MASK ((1 << MPIDR_LEVEL_BITS) - 1)
+
+#define MPIDR_AFFINITY_LEVEL(mpidr, level) \
+	((mpidr >> (MPIDR_LEVEL_BITS * level)) & MPIDR_LEVEL_MASK)
+
 extern unsigned int processor_id;
 
 #ifdef CONFIG_CPU_CP15
@@ -51,6 +75,54 @@ extern unsigned int processor_id;
 #define read_cpuid_ext(reg) 0
 #endif
 
+#if defined(CONFIG_EXYNOS5_MP) || defined(CONFIG_BL_SWITCHER)
+static inline unsigned int read_cpuid_id(void)
+{
+	return read_cpuid(CPUID_ID);
+}
+
+static inline unsigned int read_cpuid_cachetype(void)
+{
+	return read_cpuid(CPUID_CACHETYPE);
+}
+
+static inline unsigned int read_cpuid_tcmstatus(void)
+{
+	return read_cpuid(CPUID_TCM);
+}
+
+static inline unsigned int read_cpuid_mpidr(void)
+{
+	return read_cpuid(CPUID_MPIDR);
+}
+
+#define CPU_NUM_IN_CLUSTER 4
+#define CLUSTER_NUM 2
+#include <mach/regs-pmu.h>
+#include <asm/io.h>
+
+static inline unsigned int cpuid_to_hw(int cpuid)
+{
+	return (cpuid + CPU_NUM_IN_CLUSTER) %
+		(CPU_NUM_IN_CLUSTER * CLUSTER_NUM);
+}
+
+static inline unsigned int is_cpu_on(int cpuid)
+{
+	return (__raw_readl(EXYNOS_ARM_CORE_STATUS
+			(cpuid_to_hw(cpuid))) & 0xf) ? 1 : 0;
+}
+
+static inline unsigned int get_clusterid(int cpuid)
+{
+	return (cpuid_to_hw(cpuid) < CPU_NUM_IN_CLUSTER) ? 0 : 1;
+}
+
+static inline unsigned int get_first_cpuid(int clusterid)
+{
+	return (clusterid == 0) ? CPU_NUM_IN_CLUSTER : 0;
+}
+#else
 /*
  * The CPU ID never changes at run time, so we might as well tell the
  * compiler that it's constant.  Use this function to read the CPU ID
@@ -75,6 +147,7 @@ static inline unsigned int __attribute_const__ read_cpuid_mpidr(void)
 {
 	return read_cpuid(CPUID_MPIDR);
 }
+#endif
 
 /*
  * Intel's XScale3 core supports some v6 features (supersections, L2)

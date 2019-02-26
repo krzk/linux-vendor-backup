@@ -13,6 +13,8 @@
 #include <linux/smp.h>
 #include <linux/cpu.h>
 
+#include <trace/events/ipi.h>
+
 #ifdef CONFIG_USE_GENERIC_SMP_HELPERS
 static struct {
 	struct list_head	queue;
@@ -217,7 +219,9 @@ void generic_smp_call_function_interrupt(void)
 			continue;
 
 		func = data->csd.func;		/* save for later warn */
+		trace_ipi_call_func_enter((unsigned int)func);
 		func(data->csd.info);
+		trace_ipi_call_func_exit(0);
 
 		/*
 		 * If the cpu mask is not still set then func enabled
@@ -279,7 +283,9 @@ void generic_smp_call_function_single_interrupt(void)
 		 */
 		data_flags = data->flags;
 
+		trace_ipi_call_func_enter((unsigned int)data->func);
 		data->func(data->info);
+		trace_ipi_call_func_exit(0);
 
 		/*
 		 * Unlocked CSDs are valid through generic_exec_single():

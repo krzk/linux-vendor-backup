@@ -53,6 +53,9 @@ enum dma_ch {
 	DMACH_AC97_MICIN,
 	DMACH_AC97_PCMIN,
 	DMACH_AC97_PCMOUT,
+	DMACH_AC_MICIN,
+	DMACH_AC_PCMIN,
+	DMACH_AC_PCMOUT,
 	DMACH_EXTERNAL,
 	DMACH_PWM,
 	DMACH_SPDIF,
@@ -90,6 +93,7 @@ enum dma_ch {
 	DMACH_MIPI_HSI5,
 	DMACH_MIPI_HSI6,
 	DMACH_MIPI_HSI7,
+	DMACH_DISP1,
 	DMACH_MTOM_0,
 	DMACH_MTOM_1,
 	DMACH_MTOM_2,
@@ -98,6 +102,29 @@ enum dma_ch {
 	DMACH_MTOM_5,
 	DMACH_MTOM_6,
 	DMACH_MTOM_7,
+	DMACH_PL080_I2S_TXP,
+	DMACH_PL080_I2S_TXS,
+	DMACH_PL080_I2S_RX,
+	DMACH_PL080_PCM_TX,
+	DMACH_PL080_PCM_RX,
+	DMACH_PL080_UART_TX,
+	DMACH_PL080_UART_RX,
+	DMACH_HSI2C0_RX,
+	DMACH_HSI2C0_TX,
+	DMACH_HSI2C1_RX,
+	DMACH_HSI2C1_TX,
+	DMACH_HSI2C2_RX,
+	DMACH_HSI2C2_TX,
+	DMACH_HSI2C3_RX,
+	DMACH_HSI2C3_TX,
+	DMACH_SLIMBUS_CH0,
+	DMACH_SLIMBUS_CH1,
+	DMACH_SLIMBUS_CH2,
+	DMACH_SLIMBUS_CH3,
+	DMACH_SLIMBUS_CH4,
+	DMACH_SLIMBUS_CH5,
+	DMACH_SLIMBUS_CH6,
+	DMACH_SLIMBUS_CH7,
 	/* END Marker, also used to denote a reserved channel */
 	DMACH_MAX,
 };
@@ -112,6 +139,11 @@ static inline bool samsung_dma_has_circular(void)
 }
 
 static inline bool samsung_dma_is_dmadev(void)
+{
+	return true;
+}
+
+static inline bool samsung_dma_has_infiniteloop(void)
 {
 	return true;
 }

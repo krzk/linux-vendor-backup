@@ -8,6 +8,8 @@ snd-soc-s3c-i2s-v2-objs := s3c-i2s-v2.o
 snd-soc-samsung-spdif-objs := spdif.o
 snd-soc-pcm-objs := pcm.o
 snd-soc-i2s-objs := i2s.o
+snd-soc-audss-objs := audss.o
+snd-soc-lpass-objs := lpass.o
 
 obj-$(CONFIG_SND_SOC_SAMSUNG) += snd-soc-s3c24xx.o
 obj-$(CONFIG_SND_S3C24XX_I2S) += snd-soc-s3c24xx-i2s.o
@@ -18,6 +20,9 @@ obj-$(CONFIG_SND_SAMSUNG_SPDIF) += snd-soc-samsung-spdif.o
 obj-$(CONFIG_SND_SAMSUNG_PCM) += snd-soc-pcm.o
 obj-$(CONFIG_SND_SAMSUNG_I2S) += snd-soc-i2s.o
 obj-$(CONFIG_SND_SAMSUNG_I2S) += snd-soc-idma.o
+obj-$(CONFIG_SND_SAMSUNG_AUDSS) += snd-soc-audss.o
+obj-$(CONFIG_SND_SAMSUNG_LPASS) += snd-soc-lpass.o
+obj-$(CONFIG_SND_SAMSUNG_ALP) += srp_alp/
 
 # S3C24XX Machine Support
 snd-soc-jive-wm8750-objs := jive_wm8750.o
@@ -32,6 +37,9 @@ snd-soc-h1940-uda1380-objs := h1940_uda1380.o
 snd-soc-rx1950-uda1380-objs := rx1950_uda1380.o
 snd-soc-smdk-wm8580-objs := smdk_wm8580.o
 snd-soc-smdk-wm8994-objs := smdk_wm8994.o
+snd-soc-xyref4415-es515-objs := xyref4415_es515.o
+snd-soc-universal4415-wm1811-slsi-objs := universal4415_wm1811_slsi.o
+snd-soc-xyref5260-es515-objs := xyref5260_es515.o
 snd-soc-smdk-wm9713-objs := smdk_wm9713.o
 snd-soc-s3c64xx-smartq-wm8987-objs := smartq_wm8987.o
 snd-soc-goni-wm8994-objs := goni_wm8994.o
@@ -42,7 +50,12 @@ snd-soc-speyside-objs := speyside.o
 snd-soc-tobermory-objs := tobermory.o
 snd-soc-lowland-objs := lowland.o
 snd-soc-littlemill-objs := littlemill.o
+snd-soc-adonisuniv-ymu831-objs := adonisuniv_ymu831.o
+snd-soc-adonisuniv-hdmi-objs := adonisuniv_hdmi.o
 
+obj-$(CONFIG_SND_SOC_SAMSUNG_XYREF4415_ES515) += snd-soc-xyref4415-es515.o
+obj-$(CONFIG_SND_SOC_SAMSUNG_UNIVERSAL4415_WM1811_SLSI) += universal4415_wm1811_slsi.o
+obj-$(CONFIG_SND_SOC_SAMSUNG_XYREF5260_ES515) += snd-soc-xyref5260-es515.o
 obj-$(CONFIG_SND_SOC_SAMSUNG_JIVE_WM8750) += snd-soc-jive-wm8750.o
 obj-$(CONFIG_SND_SOC_SAMSUNG_NEO1973_WM8753) += snd-soc-neo1973-wm8753.o
 obj-$(CONFIG_SND_SOC_SAMSUNG_SMDK2443_WM9710) += snd-soc-smdk2443-wm9710.o
@@ -65,3 +78,5 @@ obj-$(CONFIG_SND_SOC_SPEYSIDE) += snd-soc-speyside.o
 obj-$(CONFIG_SND_SOC_TOBERMORY) += snd-soc-tobermory.o
 obj-$(CONFIG_SND_SOC_LOWLAND) += snd-soc-lowland.o
 obj-$(CONFIG_SND_SOC_LITTLEMILL) += snd-soc-littlemill.o
+obj-$(CONFIG_SND_SOC_ADONISUNIV_YMU831) += snd-soc-adonisuniv-ymu831.o
+obj-$(CONFIG_SND_SOC_ADONISUNIV_HDMI) += snd-soc-adonisuniv-hdmi.o

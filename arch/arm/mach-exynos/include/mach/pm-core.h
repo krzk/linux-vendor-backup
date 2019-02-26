@@ -27,13 +27,19 @@ static inline void s3c_pm_debug_init_uart(void)
 
 static inline void s3c_pm_arch_prepare_irqs(void)
 {
-	unsigned int tmp;
-	tmp = __raw_readl(S5P_WAKEUP_MASK);
-	tmp &= ~(1 << 31);
-	__raw_writel(tmp, S5P_WAKEUP_MASK);
+	s3c_irqwake_intmask &= ~(1 << 31);
 
-	__raw_writel(s3c_irqwake_intmask, S5P_WAKEUP_MASK);
-	__raw_writel(s3c_irqwake_eintmask, S5P_EINT_WAKEUP_MASK);
+	/* Exynos5260 has different offset for EINT and WAKEUP Mask */
+#ifdef CONFIG_SOC_EXYNOS5260
+	if (soc_is_exynos5260()) {
+		__raw_writel(s3c_irqwake_intmask, EXYNOS5260_WAKEUP_MASK1);
+		__raw_writel(s3c_irqwake_eintmask, EXYNOS5260_EINT_WAKEUP_MASK);
+	} else
+#endif
+	{
+		__raw_writel(s3c_irqwake_intmask, EXYNOS_WAKEUP_MASK);
+		__raw_writel(s3c_irqwake_eintmask, EXYNOS_EINT_WAKEUP_MASK);
+	}
 }
 
 static inline void s3c_pm_arch_stop_clocks(void)

@@ -26,6 +26,10 @@
 #include <asm/system_info.h>
 #include <asm/tlbflush.h>
 
+#if defined(CONFIG_SEC_DEBUG) && defined(CONFIG_SOC_EXYNOS5260)
+#include <mach/sec_debug.h>
+#endif
+
 #include "fault.h"
 
 #ifdef CONFIG_MMU
@@ -268,6 +272,12 @@ do_page_fault(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 	if (notify_page_fault(regs, fsr))
 		return 0;
 
+#if defined(CONFIG_SEC_DEBUG) && defined(CONFIG_SOC_EXYNOS5260)
+	/* We may have invalid '*current' due to a stack overflow. */
+	if (!virt_addr_valid(current_thread_info() ) || !virt_addr_valid(current))
+		sec_debug_panic_handler_safe();
+#endif
+
 	tsk = current;
 	mm  = tsk->mm;
 
@@ -276,10 +286,10 @@ do_page_fault(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 		local_irq_enable();
 
 	/*
-	 * If we're in an interrupt or have no user
+	 * If we're in an interrupt, or have no irqs, or have no user
 	 * context, we must not take the fault..
 	 */
-	if (in_atomic() || !mm)
+	if (in_atomic() || irqs_disabled() || !mm)
 		goto no_context;
 
 	/*
@@ -555,7 +565,12 @@ do_DataAbort(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 	info.si_errno = 0;
 	info.si_code  = inf->code;
 	info.si_addr  = (void __user *)addr;
+#if defined(CONFIG_SEC_DEBUG) && defined(CONFIG_SOC_EXYNOS5260)
+	arm_notify_die("Unhandled fault", regs, &info, fsr, 0);
+#else
 	arm_notify_die("", regs, &info, fsr, 0);
+#endif
+
 }
 
 void __init

@@ -23,9 +23,20 @@
 #include <linux/init.h>
 #include <linux/nmi.h>
 #include <linux/dmi.h>
+#include "sched/sched.h"
+
+#ifdef CONFIG_EXYNOS_CORESIGHT_DEBUG
+#include <mach/coresight-debug.h>
+#endif
 
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
+#if defined(CONFIG_SOC_EXYNOS5260)
+extern void show_exynos_pmu(void);
+#endif
+
+/* Machine specific panic information string */
+char *mach_panic_string;
 
 int panic_on_oops;
 static unsigned long tainted_mask;
@@ -33,7 +44,10 @@ static int pause_on_oops;
 static int pause_on_oops_flag;
 static DEFINE_SPINLOCK(pause_on_oops_lock);
 
-int panic_timeout;
+#ifndef CONFIG_PANIC_TIMEOUT
+#define CONFIG_PANIC_TIMEOUT 0
+#endif
+int panic_timeout = CONFIG_PANIC_TIMEOUT;
 EXPORT_SYMBOL_GPL(panic_timeout);
 
 ATOMIC_NOTIFIER_HEAD(panic_notifier_list);
@@ -66,6 +80,20 @@ void __weak panic_smp_self_stop(void)
  *
  *	This function never returns.
  */
+#ifdef CONFIG_BL_SWITCHER
+#include <mach/debug-bL.h>
+
+void exynos_core_stat(void)
+{
+	char buf[72];
+
+	print_bL_state(buf, sizeof(buf));
+	buf[sizeof(buf) - 1] = '\0';
+
+	printk(KERN_EMERG "%s", buf);
+}
+#endif
+
 void panic(const char *fmt, ...)
 {
 	static DEFINE_SPINLOCK(panic_lock);
@@ -93,6 +121,9 @@ void panic(const char *fmt, ...)
 	vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
 	printk(KERN_EMERG "Kernel panic - not syncing: %s\n",buf);
+#ifdef CONFIG_BL_SWITCHER
+	exynos_core_stat();
+#endif
 #ifdef CONFIG_DEBUG_BUGVERBOSE
 	/*
 	 * Avoid nested stack-dumping if a panic occurs during oops processing
@@ -100,6 +131,21 @@ void panic(const char *fmt, ...)
 	if (!test_taint(TAINT_DIE) && oops_in_progress <= 1)
 		dump_stack();
 #endif
+
+#if defined(CONFIG_SOC_EXYNOS5260)
+	show_exynos_pmu();
+#endif
+
+#if defined(CONFIG_SOC_EXYNOS5260)
+	/* Excute kmsg_dump here to get backtrace in sec_dumper */
+	kmsg_dump(KMSG_DUMP_PANIC);
+#endif
+
+#ifdef CONFIG_EXYNOS_CORESIGHT_DEBUG
+	exynos_cs_show_pcval();
+#endif
+
+	sysrq_sched_debug_show();
 
 	/*
 	 * If we have crashed and we have a crash kernel loaded let it handle
@@ -115,7 +161,9 @@ void panic(const char *fmt, ...)
 	 */
 	smp_send_stop();
 
+#if !defined(CONFIG_SOC_EXYNOS5260)
 	kmsg_dump(KMSG_DUMP_PANIC);
+#endif
 
 	atomic_notifier_call_chain(&panic_notifier_list, 0, buf);
 
@@ -375,6 +423,11 @@ late_initcall(init_oops_id);
 void print_oops_end_marker(void)
 {
 	init_oops_id();
+
+	if (mach_panic_string)
+		printk(KERN_WARNING "Board Information: %s\n",
+		       mach_panic_string);
+
 	printk(KERN_WARNING "---[ end trace %016llx ]---\n",
 		(unsigned long long)oops_id);
 }

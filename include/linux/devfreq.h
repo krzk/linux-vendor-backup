@@ -38,8 +38,8 @@ struct devfreq;
  */
 struct devfreq_dev_status {
 	/* both since the last measure */
-	unsigned long total_time;
-	unsigned long busy_time;
+	unsigned long long total_time;
+	unsigned long long busy_time;
 	unsigned long current_frequency;
 	void *private_data;
 };
@@ -173,6 +173,8 @@ extern struct devfreq *devfreq_add_device(struct device *dev,
 				  void *data);
 extern int devfreq_remove_device(struct devfreq *devfreq);
 
+extern void devfreq_insert_polling(unsigned long polling);
+
 /* Helper functions for devfreq user device driver with OPP. */
 extern struct opp *devfreq_recommended_opp(struct device *dev,
 					   unsigned long *freq, u32 flags);
@@ -180,6 +182,13 @@ extern int devfreq_register_opp_notifier(struct device *dev,
 					 struct devfreq *devfreq);
 extern int devfreq_unregister_opp_notifier(struct device *dev,
 					   struct devfreq *devfreq);
+
+#if IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND) || IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_USAGE)
+struct devfreq_notifier_block {
+	struct notifier_block nb;
+	struct devfreq *df;
+};
+#endif
 
 #ifdef CONFIG_DEVFREQ_GOV_POWERSAVE
 extern const struct devfreq_governor devfreq_powersave;
@@ -206,11 +215,42 @@ extern const struct devfreq_governor devfreq_simple_ondemand;
  * the governor uses the default values.
  */
 struct devfreq_simple_ondemand_data {
+	unsigned int multiplication_weight;
 	unsigned int upthreshold;
 	unsigned int downdifferential;
+	unsigned long cal_qos_max;
+	int pm_qos_class;
 };
 #endif
 
+#ifdef CONFIG_DEVFREQ_GOV_SIMPLE_USAGE
+extern const struct devfreq_governor devfreq_simple_usage;
+
+struct devfreq_simple_usage_data {
+	unsigned int multiplication_weight;
+	unsigned int proportional;
+	unsigned int upthreshold;
+	unsigned int target_percentage;
+	int pm_qos_class;
+	unsigned long cal_qos_max;
+	bool en_monitoring;
+};
+#endif
+
+#ifdef CONFIG_DEVFREQ_GOV_PM_QOS
+extern const struct devfreq_governor devfreq_pm_qos;
+/**
+ * struct devfreq_pm_qos_data - void *data fed to struct devfreq
+ *	and devfreq_add_device
+ * @ bytes_per_sec_per_hz	Ratio to convert throughput request to devfreq
+ * 				frequency.
+ * @ pm_qos_class		pm_qos class to query for requested throughput
+ */
+struct devfreq_pm_qos_data {
+	unsigned int bytes_per_sec_per_hz;
+	int pm_qos_class;
+};
+#endif
 #else /* !CONFIG_PM_DEVFREQ */
 static struct devfreq *devfreq_add_device(struct device *dev,
 					  struct devfreq_dev_profile *profile,
@@ -247,6 +287,8 @@ static int devfreq_unregister_opp_notifier(struct device *dev,
 #define devfreq_performance	NULL
 #define devfreq_userspace	NULL
 #define devfreq_simple_ondemand	NULL
+#define devfreq_simple_usage	NULL
+#define devfreq_pm_qos		NULL
 
 #endif /* CONFIG_PM_DEVFREQ */
 

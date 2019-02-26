@@ -248,6 +248,7 @@ int mmc_app_send_scr(struct mmc_card *card, u32 *scr)
 	struct mmc_request mrq = {NULL};
 	struct mmc_command cmd = {0};
 	struct mmc_data data = {0};
+	struct mmc_command stop = {0};
 	struct scatterlist sg;
 	void *data_buf;
 
@@ -270,10 +271,15 @@ int mmc_app_send_scr(struct mmc_card *card, u32 *scr)
 
 	mrq.cmd = &cmd;
 	mrq.data = &data;
+	mrq.stop = &stop;
 
 	cmd.opcode = SD_APP_SEND_SCR;
 	cmd.arg = 0;
 	cmd.flags = MMC_RSP_SPI_R1 | MMC_RSP_R1 | MMC_CMD_ADTC;
+
+	stop.opcode = MMC_STOP_TRANSMISSION;
+	stop.arg = 0;
+	stop.flags = MMC_RSP_R1B | MMC_CMD_AC;
 
 	data.blksz = 8;
 	data.blocks = 1;

@@ -425,6 +425,9 @@ config SND_SOC_WM9712
 config SND_SOC_WM9713
 	tristate
 
+config SND_SOC_DUMMY_CODEC
+	tristate
+
 # Amp
 config SND_SOC_LM4857
 	tristate
@@ -437,3 +440,5 @@ config SND_SOC_MAX9877
 
 config SND_SOC_TPA6130A2
 	tristate
+
+source "sound/soc/codecs/ymu831/Kconfig"

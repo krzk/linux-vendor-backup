@@ -21,6 +21,10 @@
 #include <linux/notifier.h>
 #include <linux/spinlock.h>
 #include <linux/syscore_ops.h>
+#ifdef CONFIG_SEC_PM
+#include <mach/debug.h>
+#endif
+
 
 static DEFINE_RWLOCK(cpu_pm_notifier_lock);
 static RAW_NOTIFIER_HEAD(cpu_pm_notifier_chain);
@@ -204,11 +208,23 @@ EXPORT_SYMBOL_GPL(cpu_cluster_pm_exit);
 static int cpu_pm_suspend(void)
 {
 	int ret;
+	
+#if 0	// Block temporarily until debug_exynos5260.c is applied.
+#ifdef CONFIG_SEC_PM
+	if (FLAG_T32_EN)
+		goto out;
+#endif
+#endif
 
 	ret = cpu_pm_enter();
 	if (ret)
 		return ret;
 
+#if 0	// Block temporarily until debug_exynos5260.c is applied.
+#ifdef CONFIG_SEC_PM
+out:
+#endif
+#endif
 	ret = cpu_cluster_pm_enter();
 	return ret;
 }

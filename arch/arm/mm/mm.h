@@ -72,3 +72,4 @@ extern u32 arm_dma_limit;
 
 void __init bootmem_init(void);
 void arm_mm_memblock_reserve(void);
+void mark_data_noexec(void);

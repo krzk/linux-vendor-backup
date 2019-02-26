@@ -248,6 +248,11 @@ static int __die(const char *str, int err, struct thread_info *thread, struct pt
 		return ret;
 
 	print_modules();
+#if defined(CONFIG_SEC_DEBUG) && defined(CONFIG_SOC_EXYNOS5260)
+	if(!strcmp("Unhandled fault",str))
+		__show_regs_except_extra_data(regs);
+	else
+#endif
 	__show_regs(regs);
 	printk(KERN_EMERG "Process %.*s (pid: %d, stack limit = 0x%p)\n",
 		TASK_COMM_LEN, tsk->comm, task_pid_nr(tsk), thread + 1);

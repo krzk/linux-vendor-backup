@@ -205,6 +205,11 @@ config PL330_DMA
 	  You need to provide platform specific settings via
 	  platform_data for a dma-pl330 device.
 
+config ADMA_MCODE_BASE
+	hex "Adma micro code base address for pl330"
+	default 0
+	depends on PL330_DMA
+
 config PCH_DMA
 	tristate "Intel EG20T PCH / LAPIS Semicon IOH(ML7213/ML7223/ML7831) DMA"
 	depends on PCI && X86

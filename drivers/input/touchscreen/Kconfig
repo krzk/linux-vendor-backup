@@ -220,6 +220,16 @@ config TOUCHSCREEN_EETI
 	  To compile this driver as a module, choose M here: the
 	  module will be called eeti_ts.
 
+config TOUCHSCREEN_EGALAX_I2C
+	tristate "EETI eGalax multi-touch panel support with I2C"
+	depends on I2C
+	help
+	  Say Y here to enable support for I2C connected EETI
+	  eGalax multi-touch panels.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called egalax_ts.
+
 config TOUCHSCREEN_EGALAX
 	tristate "EETI eGalax multi-touch panel support"
 	depends on I2C
@@ -269,6 +279,11 @@ config TOUCHSCREEN_S3C2410
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called s3c2410_ts.
+
+config TOUCHSCREEN_COASIA
+	tristate "COASIA WXVGA 10.1\" touchscreen input driver"
+	help
+	  Say Y here if you have the CoAsia 10.1\" touchscreen.
 
 config TOUCHSCREEN_GUNZE
 	tristate "Gunze AHL-51S touchscreen"
@@ -450,6 +465,12 @@ config TOUCHSCREEN_TNETV107X
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called tnetv107x-ts.
+
+config TOUCHSCREEN_SYNAPTICS_I2C_RMI
+	tristate "Synaptics i2c touchscreen"
+	depends on I2C
+	help
+	  This enables support for Synaptics RMI over I2C based touchscreens.
 
 config TOUCHSCREEN_TOUCHRIGHT
 	tristate "Touchright serial touchscreen"
@@ -845,4 +866,67 @@ config TOUCHSCREEN_TPS6507X
 	  To compile this driver as a module, choose M here: the
 	  module will be called tps6507x_ts.
 
+config TOUCHSCREEN_MXT540E
+	tristate "Atmel MXT540E Touchscreen Interface"
+	depends on I2C
+	default n
+	help
+	  Say Y here if you want support for atmel_MXT540E touchscreen controllers.
+	  To compile this driver as a module, choose M here: the
+	  module will be called mxt540e.
+
+config TOUCHSCREEN_FT5X06
+	tristate "FocalTech ft5x0x TouchScreen driver"
+	depends on I2C
+	default n
+	help
+	  Say Y here if you want support for FocalTech ft5x0x TouchScreen controllers.
+	  To compile this driver as a module, choose M here: the
+	  module will be called ft5x06.
+
+config TOUCHSCREEN_MELFAS_NOTE
+	tristate "NOTE model MELFAS touchscreen driver"
+	depends on I2C
+	help
+	  Say Y here if you have NOTE models MELFAS touchscreen.
+
+	  If unsure, say N.
+	  To compile this driver as a module, choose M here: the
+	  module will be called mms_ts_note.
+
+config TOUCHSCREEN_FTS
+	tristate "STMicroelectronics i2c multitouch touchscreen with FingerTipS"
+	depends on I2C
+	help
+		Say Y here to enable STMicroelectronics touchscreen support.
+		If unsure, say N.
+		To compile this driver as a module, choose M here: the
+		module will be called STM_ts.
+
+config GLOVE_TOUCH
+	tristate "Glove touch to support a touch of high sensitivity"
+	help
+	  Say Y here if you want to support glove touch for the touch device such
+	  as touch, toucheky.
+
+config TOUCHSCREEN_MELFAS
+	tristate "MELFAS touchscreen driver"
+	depends on I2C
+	help
+	  Say Y here if you have a MELFAS touchscreen.
+	  If unsure, say N.
+
+config TOUCHSCREEN_MELFAS_M2
+	tristate "MELFAS touchscreen driver"
+	depends on I2C
+	help
+	  Say Y here if you have a MELFAS touchscreen.
+	  If unsure, say N.
+
+config TOUCHSCREEN_ZINITIX
+	tristate "ZINITIX touchscreen driver"
+	depends on I2C
+	help
+	  Say Y here if you have a ZINITIX touchscreen.
+	  If unsure, say N.
 endif

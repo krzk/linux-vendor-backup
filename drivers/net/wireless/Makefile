@@ -59,5 +59,13 @@ obj-$(CONFIG_IWM)	+= iwmc3200wifi/
 
 obj-$(CONFIG_MWIFIEX)	+= mwifiex/
 
+obj-$(CONFIG_BCMDHD)	+= bcmdhd/
+obj-$(CONFIG_BCM4334)	+= bcmdhd/
+obj-$(CONFIG_BCM4335)	+= bcmdhd/
+obj-$(CONFIG_BCM4339)	+= bcmdhd4339/
+
 obj-$(CONFIG_BRCMFMAC)	+= brcm80211/
 obj-$(CONFIG_BRCMSMAC)	+= brcm80211/
+
+obj-$(CONFIG_LGUIWLAN)	+= mwlan_aarp/
+obj-$(CONFIG_LGUIWLAN)	+= ipsecdrvtl/
