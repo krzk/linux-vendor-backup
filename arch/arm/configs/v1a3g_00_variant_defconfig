@@ -1,0 +1,3 @@
+# edit here
+# def/undef for local target
+v1a3g_chn_open="CONFIG_V1A_3G=y CONFIG_WLAN_REGION_CODE=300 CONFIG_TARGET_LOCALE_CHN=y"

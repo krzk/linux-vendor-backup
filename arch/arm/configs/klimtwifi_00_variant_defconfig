@@ -1,0 +1,5 @@
+# edit here
+# def/undef for local target
+klimtwifi_usa_open="CONFIG_TARGET_LOCALE_USA=y"
+klimtwifi_eur_demo="CONFIG_TARGET_LOCALE_DEMO=y"
+klimtwifi_chn_open="CONFIG_WLAN_REGION_CODE=300 CONFIG_TARGET_LOCALE_CHN=y"
