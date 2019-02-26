@@ -1,0 +1,4 @@
+# edit here
+# def/undef for local target
+v1awifi_usa_open="CONFIG_TARGET_LOCALE_USA=y"
+v1awifi_chn_open="CONFIG_V1A_WIFI=y CONFIG_WLAN_REGION_CODE=300 CONFIG_TARGET_LOCALE_CHN=y"

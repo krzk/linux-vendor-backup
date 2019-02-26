@@ -31,6 +31,10 @@
 
 #include "usb.h"
 
+#ifdef CONFIG_USB_HOST_NOTIFY
+#include "sec-dock.h"
+#endif
+
 /* if we are in debug mode, always announce new devices */
 #ifdef DEBUG
 #ifndef CONFIG_USB_ANNOUNCE_NEW_DEVICES
@@ -968,7 +972,11 @@ static void hub_activate(struct usb_hub *hub, enum hub_activation_type type)
 	 * If any port-status changes do occur during this delay, khubd
 	 * will see them later and handle them normally.
 	 */
+#if defined(CONFIG_LINK_DEVICE_HSIC)
+	if (need_debounce_delay && type != HUB_RESET_RESUME) {
+#else
 	if (need_debounce_delay) {
+#endif
 		delay = HUB_DEBOUNCE_STABLE;
 
 		/* Don't do a long sleep inside a workqueue routine */
@@ -1387,7 +1395,8 @@ static int hub_probe(struct usb_interface *intf, const struct usb_device_id *id)
 	hdev = interface_to_usbdev(intf);
 
 	/* Hubs have proper suspend/resume support. */
-	usb_enable_autosuspend(hdev);
+	if (!hdev->parent)
+		usb_enable_autosuspend(hdev);
 
 	if (hdev->level == MAX_TOPO_LEVEL) {
 		dev_err(&intf->dev,
@@ -1444,8 +1453,12 @@ descriptor_error:
 	if (hdev->speed == USB_SPEED_HIGH)
 		highspeed_hubs++;
 
-	if (hub_configure(hub, endpoint) >= 0)
+	if (hub_configure(hub, endpoint) >= 0) {
+#if defined(CONFIG_LINK_DEVICE_HSIC)
+		usb_detect_quirks(hdev);
+#endif
 		return 0;
+	}
 
 	hub_disconnect (intf);
 	return -ENODEV;
@@ -1739,6 +1752,9 @@ void usb_disconnect(struct usb_device **pdev)
 	dev_info(&udev->dev, "USB disconnect, device number %d\n",
 			udev->devnum);
 
+#ifdef CONFIG_USB_HOST_NOTIFY
+	call_battery_notify(udev, 0);
+#endif
 	usb_lock_device(udev);
 
 	/* Free up all the children before we remove this device */
@@ -2021,7 +2037,12 @@ int usb_new_device(struct usb_device *udev)
 	if (udev->manufacturer)
 		add_device_randomness(udev->manufacturer,
 				      strlen(udev->manufacturer));
-
+#ifdef CONFIG_USB_HOST_NOTIFY
+#if defined(CONFIG_MUIC_MAX77693_SUPPORT_OTG_AUDIO_DOCK)
+	call_audiodock_notify(udev);
+#endif
+	call_battery_notify(udev, 1);
+#endif
 	device_enable_async_suspend(&udev->dev);
 
 	/*
@@ -2793,6 +2814,9 @@ int usb_port_resume(struct usb_device *udev, pm_message_t msg)
 	}
 
  SuspendCleared:
+#if defined(CONFIG_LINK_DEVICE_HSIC) || defined(CONFIG_MDM_HSIC_PM)
+	pr_info("mif: %s: %d, %d\n", __func__, portstatus, portchange);
+#endif
 	if (status == 0) {
 		if (hub_is_superspeed(hub->hdev)) {
 			if (portchange & USB_PORT_STAT_C_LINK_STATE)
@@ -3463,9 +3487,23 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 			 * remote wakeup event.
 			 */
 			status = usb_remote_wakeup(udev);
+#if defined(CONFIG_LINK_DEVICE_HSIC) || defined(CONFIG_MDM_HSIC_PM)
+		} else if (udev->state == USB_STATE_CONFIGURED &&
+			udev->persist_enabled &&
+			udev->dev.power.runtime_status == RPM_RESUMING) {
+			/* usb 1-2 runtime resume was called by host wakeup
+			 * isr routine . Nothing to do */
+			pr_info("%s: aleady host-wakup resumed\n", __func__);
+			status = 0;
 #endif
-
+#endif
 		} else {
+#if defined(CONFIG_USB_SUSPEND) && defined(CONFIG_LINK_DEVICE_HSIC) || \
+			defined(CONFIG_MDM_HSIC_PM)
+			pr_info("%s: ENODEV, udev->state=%d, rpm=%d\n",
+				__func__, udev->state,
+				udev->dev.power.runtime_status);
+#endif
 			status = -ENODEV;	/* Don't resuscitate */
 		}
 		usb_unlock_device(udev);
@@ -3685,6 +3723,17 @@ static int hub_handle_remote_wakeup(struct usb_hub *hub, unsigned int port,
 	} else {
 		ret = -ENODEV;
 		hub_port_disable(hub, port, 1);
+#if defined(CONFIG_LINK_DEVICE_HSIC)
+		/* If port2 was not enumerated, clear the USB_PORT_FEAT_POWER,
+		 for getting out of the abnormal remote wakeup interrupt lockup.
+		 */
+		 if (port == 2) {
+			dev_dbg(hub->intfdev,
+				"ENODEV remote wakeup, clear Port%d POWER\n",
+				port);
+			clear_port_feature(hdev, port, USB_PORT_FEAT_POWER);
+		}
+#endif
 	}
 	dev_dbg(hub->intfdev, "resume on port %d, status %d\n",
 			port, ret);

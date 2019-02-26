@@ -1,0 +1,10 @@
+# edit here
+# def/undef for local target
+ha3gds="CONFIG_HA3G_DS=y \
+	CONFIG_SENSORS_SSP_SHTC1_VER=\"SM-N900H\""
+havelte="CONFIG_HAVE_LTE=y \
+	CONFIG_SENSORS_SSP_SHTC1_VER=\"SM-N901F\""
+#havelte_undef="SEC_MODEM"
+have3g="CONFIG_HAVE_3G=y \
+	CONFIG_SENSORS_SSP_SHTC1_VER=\"SM-N901H\""
+#have3g_undef="SEC_MODEM"
