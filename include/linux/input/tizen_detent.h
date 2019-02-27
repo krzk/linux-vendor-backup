@@ -41,6 +41,7 @@ struct hall_sensor_driverdata {
 	bool a_status;
 	bool b_status;
 	bool c_status;
+	bool open_state;
 	bool resume_state;
 	int last_status;
 	int last_value;

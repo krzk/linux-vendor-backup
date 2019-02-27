@@ -118,6 +118,9 @@ static irqreturn_t hall_sensor_detect_handler(int irq, void *dev_id)
 	if (!ddata->probe_done)
 		goto out;
 
+	if (!ddata->open_state)
+		goto out;
+
 	mutex_lock(&ddata->hall_lock);
 
 	value = hall_sensor_get_status(ddata);
@@ -212,7 +215,7 @@ static int hall_sensor_get_sleep_monitor_cb(void* priv, unsigned int *raw_val, i
 
 	if ((check_level == SLEEP_MONITOR_CHECK_SOFT) ||\
 	    (check_level == SLEEP_MONITOR_CHECK_HARD)){
-		if (ddata->resume_state)
+		if (ddata->open_state)
 			state = DEVICE_ON_ACTIVE1;
 		else
 			state = DEVICE_POWER_OFF;
@@ -343,6 +346,53 @@ static struct of_device_id hall_sensor_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, hall_sensor_of_match);
 
+static int detent_open(struct input_dev *input)
+{
+	struct device *dev = input->dev.parent;
+	struct hall_sensor_driverdata *ddata = dev_get_drvdata(dev);
+
+	if (!ddata->probe_done)
+		return 0;
+
+	hall_sensor_power_on(ddata);
+
+	enable_irq(ddata->hall_a_irq);
+	enable_irq(ddata->hall_b_irq);
+	enable_irq(ddata->hall_c_irq);
+	enable_irq_wake(ddata->hall_a_irq);
+	enable_irq_wake(ddata->hall_b_irq);
+	enable_irq_wake(ddata->hall_c_irq);
+
+	ddata->last_status = hall_sensor_get_status(ddata);
+	ddata->open_state = true;
+
+	dev_info(dev, "%s\n", __func__);
+
+	return 0;
+}
+
+static void detent_close(struct input_dev *input)
+{
+	struct device *dev = input->dev.parent;
+	struct hall_sensor_driverdata *ddata = dev_get_drvdata(dev);
+
+	if (!ddata->probe_done)
+		return;
+
+	ddata->open_state = false;
+
+	disable_irq_wake(ddata->hall_a_irq);
+	disable_irq_wake(ddata->hall_b_irq);
+	disable_irq_wake(ddata->hall_c_irq);
+	disable_irq(ddata->hall_a_irq);
+	disable_irq(ddata->hall_b_irq);
+	disable_irq(ddata->hall_c_irq);
+
+	hall_sensor_power_off(ddata);
+
+	dev_info(dev, "%s\n", __func__);
+}
+
 static int __devinit hall_sensor_probe(struct platform_device *pdev)
 {
 	struct hall_sensor_platform_data *pdata;
@@ -407,6 +457,8 @@ static int __devinit hall_sensor_probe(struct platform_device *pdev)
 	ddata->input_dev->id.vendor = 0x0001;
 	ddata->input_dev->id.product = 0x0001;
 	ddata->input_dev->id.version = 0x0100;
+	ddata->input_dev->open = detent_open;
+	ddata->input_dev->close = detent_close;
 
 	ret = hall_sensor_regulator_init(ddata);
 	if (ret) {
@@ -588,6 +640,7 @@ static int __devinit hall_sensor_probe(struct platform_device *pdev)
 		goto err_create_group;
 	}
 
+	ddata->open_state = true;
 	ddata->resume_state = true;
 	ddata->probe_done = true;
 
