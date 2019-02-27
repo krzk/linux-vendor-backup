@@ -618,11 +618,11 @@ static int i2s_set_sysclk(struct snd_soc_dai *dai, int clk_id, unsigned int rfs,
 	writel(mod, priv->addr + I2SMOD);
 	spin_unlock_irqrestore(&priv->lock, flags);
 done:
-	pm_runtime_put(dai->dev);
+	pm_runtime_put_sync(dai->dev);
 
 	return 0;
 err:
-	pm_runtime_put(dai->dev);
+	pm_runtime_put_sync(dai->dev);
 	return ret;
 }
 
@@ -706,7 +706,7 @@ static int i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	if (any_active(i2s) &&
 		((mod & (sdf_mask | lrp_rlow | mod_slave)) != tmp)) {
 		spin_unlock_irqrestore(&priv->lock, flags);
-		pm_runtime_put(dai->dev);
+		pm_runtime_put_sync(dai->dev);
 		dev_err(&i2s->pdev->dev,
 				"%s:%d Other DAI busy\n", __func__, __LINE__);
 		return -EAGAIN;
@@ -716,7 +716,7 @@ static int i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	mod |= tmp;
 	writel(mod, priv->addr + I2SMOD);
 	spin_unlock_irqrestore(&priv->lock, flags);
-	pm_runtime_put(dai->dev);
+	pm_runtime_put_sync(dai->dev);
 
 	return 0;
 }
@@ -867,7 +867,7 @@ static void i2s_shutdown(struct snd_pcm_substream *substream,
 
 	spin_unlock_irqrestore(&priv->pcm_lock, flags);
 
-	pm_runtime_put(dai->dev);
+	pm_runtime_put_sync(dai->dev);
 }
 
 static int config_setup(struct i2s_dai *i2s)
@@ -973,7 +973,7 @@ static int i2s_trigger(struct snd_pcm_substream *substream,
 		}
 
 		spin_unlock_irqrestore(&priv->lock, flags);
-		pm_runtime_put(dai->dev);
+		pm_runtime_put_sync(dai->dev);
 		break;
 	}
 
@@ -991,13 +991,13 @@ static int i2s_set_clkdiv(struct snd_soc_dai *dai,
 		pm_runtime_get_sync(dai->dev);
 		if ((any_active(i2s) && div && (get_bfs(i2s) != div))
 			|| (other && other->bfs && (other->bfs != div))) {
-			pm_runtime_put(dai->dev);
+			pm_runtime_put_sync(dai->dev);
 			dev_err(&i2s->pdev->dev,
 				"%s:%d Other DAI busy\n", __func__, __LINE__);
 			return -EAGAIN;
 		}
 		i2s->bfs = div;
-		pm_runtime_put(dai->dev);
+		pm_runtime_put_sync(dai->dev);
 		break;
 	default:
 		dev_err(&i2s->pdev->dev,
@@ -1083,7 +1083,7 @@ static int samsung_i2s_dai_probe(struct snd_soc_dai *dai)
 	if (!is_opened(other))
 		i2s_set_sysclk(dai, SAMSUNG_I2S_CDCLK,
 				0, SND_SOC_CLOCK_IN);
-	pm_runtime_put(dai->dev);
+	pm_runtime_put_sync(dai->dev);
 
 	return 0;
 }
@@ -1104,7 +1104,7 @@ static int samsung_i2s_dai_remove(struct snd_soc_dai *dai)
 		}
 	}
 
-	pm_runtime_put(dai->dev);
+	pm_runtime_put_sync(dai->dev);
 
 	return 0;
 }
