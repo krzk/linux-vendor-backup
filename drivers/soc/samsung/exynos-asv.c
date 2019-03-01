@@ -8,6 +8,7 @@
 
 #include <linux/bitrev.h>
 #include <linux/cpu.h>
+#include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/errno.h>
 #include <linux/init.h>
@@ -46,6 +47,7 @@ int exynos_asv_update_cpu_opp(struct device *cpu)
 	for (i = 0; i < subsys->dvfs_nr; i++) {
 		unsigned int new_voltage;
 		unsigned int voltage;
+		int timeout = 1000;
 		int err;
 
 		opp_freq = subsys->asv_table[i][0];
@@ -65,6 +67,14 @@ int exynos_asv_update_cpu_opp(struct device *cpu)
 
 		opp_freq *= MHZ;
 		dev_pm_opp_remove(cpu, opp_freq);
+
+		while (--timeout) {
+			opp = dev_pm_opp_find_freq_exact(cpu, opp_freq, true);
+			if (IS_ERR(opp))
+				break;
+			dev_pm_opp_put(opp);
+			msleep(1);
+		}
 
 		err = dev_pm_opp_add(cpu, opp_freq, new_voltage);
 		if (err < 0)
