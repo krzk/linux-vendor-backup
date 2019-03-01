@@ -320,6 +320,15 @@
 			reg = <0x10000000 0x4100>, <0x105D0000 0x100>;
 		};
 
+		flash@101E0000 {
+			label = "exynos5433-otp";
+			compatible = "samsung,exynos5433-otp";
+			reg = <0x101E0000 0x100>;
+			clocks = <&cmu_peris CLK_PCLK_OTP_CON_APBIF>,
+				 <&cmu_peris CLK_SCLK_OTP_CON>;
+			clock-names = "pclk", "sclk";
+		};
+
 		xxti: xxti {
 			compatible = "fixed-clock";
 			clock-output-names = "oscclk";
