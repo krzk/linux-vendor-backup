@@ -1460,7 +1460,7 @@ static const struct samsung_gate_clock mif_gate_clks[] __initconst = {
 	GATE(CLK_PCLK_GPIO_ALIVE, "pclk_gpio_alive", "div_aclk_mif_133",
 			ENABLE_PCLK_MIF, 8, CLK_IGNORE_UNUSED, 0),
 	GATE(CLK_PCLK_ABB, "pclk_abb", "div_aclk_mif_133",
-			ENABLE_PCLK_MIF, 7, 0, 0),
+			ENABLE_PCLK_MIF, 7, CLK_IGNORE_UNUSED, 0),
 	GATE(CLK_PCLK_PMU_APBIF, "pclk_pmu_apbif", "div_aclk_mif_133",
 			ENABLE_PCLK_MIF, 6, CLK_IGNORE_UNUSED, 0),
 	GATE(CLK_PCLK_DDR_PHY1, "pclk_ddr_phy1", "div_aclk_mif_133",
@@ -1894,7 +1894,7 @@ static const struct samsung_gate_clock peris_gate_clks[] __initconst = {
 
 	/* ENABLE_SCLK_PERIS */
 	GATE(CLK_SCLK_ASV_TB, "sclk_asv_tb", "oscclk_efuse_common",
-			ENABLE_SCLK_PERIS, 10, 0, 0),
+			ENABLE_SCLK_PERIS, 10, CLK_IGNORE_UNUSED, 0),
 	GATE(CLK_SCLK_TMU1, "sclk_tmu1", "oscclk_efuse_common",
 			ENABLE_SCLK_PERIS, 4, 0, 0),
 	GATE(CLK_SCLK_TMU0, "sclk_tmu0", "oscclk_efuse_common",
