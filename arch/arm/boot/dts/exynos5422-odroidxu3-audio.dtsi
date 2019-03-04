@@ -29,7 +29,8 @@
 			"Speakers", "SPKL",
 			"Speakers", "SPKR",
 			"I2S Playback", "Mixer DAI TX",
-			"HiFi Playback", "Mixer DAI TX";
+			"HiFi Playback", "Mixer DAI TX",
+			"Mixer DAI RX", "HiFi Capture";
 
 		assigned-clocks = <&i2s0 CLK_I2S_RCLK_SRC>,
 				<&clock CLK_MOUT_EPLL>,
