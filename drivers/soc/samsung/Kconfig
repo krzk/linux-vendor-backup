@@ -8,8 +8,20 @@ if SOC_SAMSUNG
 
 config EXYNOS_ASV
 	bool "Exynos Adaptive Supply Voltage support" if COMPILE_TEST
-	depends on ARCH_EXYNOS || COMPILE_TEST
+	depends on ARCH_EXYNOS || ((ARM || ARM64) && COMPILE_TEST)
 	depends on EXYNOS_CHIPID
+	select EXYNOS_ASV_ARM if ARM && ARCH_EXYNOS
+	select EXYNOS_ASV_ARM64 if ARM64 && ARCH_EXYNOS && MTD
+
+# There is no need to enable these drivers for ARMv8
+config EXYNOS_ASV_ARM
+	bool "Exynos ASV ARMv7-specific driver extensions" if COMPILE_TEST
+	depends on EXYNOS_ASV
+
+# There is no need to enable these drivers for ARMv7
+config EXYNOS_ASV_ARM64
+	bool "Exynos ASV ARMv8-specific driver extensions" if COMPILE_TEST
+	depends on EXYNOS_ASV
 
 config EXYNOS_CHIPID
 	bool "Exynos Chipid controller driver" if COMPILE_TEST

@@ -13,9 +13,18 @@
 #ifndef EXYNOS5433_ASV_H__
 #define EXYNOS5433_ASV_H__
 
+#include <linux/errno.h>
+
 struct exynos_asv;
 
+#ifdef CONFIG_EXYNOS_ASV_ARM64
 int exynos5433_asv_init(struct exynos_asv *asv);
+#else
+static inline int exynos5433_asv_init(struct exynos_asv *asv)
+{
+	return -ENOTSUPP;
+}
+#endif
 
 enum sysc_dvfs_level {
 	SYSC_DVFS_L0 = 0,
