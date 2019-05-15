@@ -141,9 +141,6 @@ static const struct snd_kcontrol_new abox_effect_controls[] = {
 
 static bool abox_effect_accessible_reg(struct device *dev, unsigned int reg)
 {
-#ifdef CONFIG_SOC_EXYNOS9110
-	return false;
-#else
 	return ABOX_EFFECT_ACCESSIABLE_REG(SA, reg)			||
 			ABOX_EFFECT_ACCESSIABLE_REG(MYSOUND, reg)	||
 			ABOX_EFFECT_ACCESSIABLE_REG(VSP, reg)		||
@@ -157,7 +154,6 @@ static bool abox_effect_accessible_reg(struct device *dev, unsigned int reg)
 			ABOX_EFFECT_ACCESSIABLE_REG(NXPRVB_PARAM, reg)	||
 			ABOX_EFFECT_ACCESSIABLE_REG(SB, reg)		||
 			ABOX_EFFECT_ACCESSIABLE_REG(UPSCALER, reg);
-#endif
 }
 
 #define ABOX_EFFECT_VOLATILE_REG(name, reg) (reg == name##_BASE)
@@ -280,7 +276,7 @@ static int samsung_abox_effect_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_enable(dev);
-	pm_runtime_set_autosuspend_delay(dev, 1000);
+	pm_runtime_set_autosuspend_delay(dev, 100);
 	pm_runtime_use_autosuspend(dev);
 
 	return devm_snd_soc_register_component(&pdev->dev, &abox_effect, NULL,

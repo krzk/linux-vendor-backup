@@ -1089,6 +1089,7 @@
 			"ABOX SIFS0 Capture", "VINPUTCALL";
 		samsung,codec = <&abox &abox_uaif_0 &abox_uaif_1 &abox_uaif_4 &vts>;
 		samsung,prefix = "ABOX", "ABOX", "ABOX", "ABOX", "VTS";
+		samsung,aux = <&abox_effect>;
 
 		rdma@0 {
 			cpu {

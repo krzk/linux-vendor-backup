@@ -2030,7 +2030,7 @@
 
 		abox_rdma_5: abox_rdma@0x14A51500 {
 			compatible = "samsung,abox-rdma";
-			reg = <0x0 0x14A51500 0x100>, <0x0 0x14B00600 0x70>;
+			reg = <0x0 0x14A51500 0x100>, <0x0 0x14B30600 0x70>;
 			id = <5>;
 			type = "compress";
 		};
@@ -2117,9 +2117,9 @@
 		};
 
 		abox_effect: abox_effect@0x14B2E000 {
-			status = "disabled";
+			status = "okay";
 			compatible = "samsung,abox-effect";
-			reg = <0x0 0x14B2E000 0x1000>;
+			reg = <0x0 0x14B21000 0x1000>;
 			reg-names = "reg";
 			abox = <&abox>;
 		};
