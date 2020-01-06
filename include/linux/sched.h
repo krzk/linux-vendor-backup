@@ -1254,6 +1254,9 @@ struct task_struct {
 #endif
 	int on_rq;
 
+	unsigned long                   last_sleep;
+	unsigned long                   last_runnable;
+
 	int prio, static_prio, normal_prio;
 	unsigned int rt_priority;
 	const struct sched_class *sched_class;
