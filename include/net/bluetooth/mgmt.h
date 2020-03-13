@@ -587,12 +587,19 @@ struct mgmt_rp_get_adv_size_info {
 
 #define MGMT_OP_START_LIMITED_DISCOVERY	0x0041
 
-#define MGMT_OP_SET_ADVERTISING_INTERVALS	0x0042
+/*
+ * Begin chromium only op_codes
+ */
+#define MGMT_OP_SET_ADVERTISING_INTERVALS	0x0060
 struct mgmt_cp_set_advertising_intervals {
 	__le16	min_interval;
 	__le16	max_interval;
 } __packed;
 #define MGMT_SET_ADVERTISING_INTERVALS_SIZE	4
+
+/*
+ * End chromium only op_codes
+ */
 
 #define MGMT_EV_CMD_COMPLETE		0x0001
 struct mgmt_ev_cmd_complete {
