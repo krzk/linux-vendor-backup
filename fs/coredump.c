@@ -109,10 +109,10 @@ static void cn_escape(char *str)
 			*str = '!';
 }
 
-static int cn_print_exe_file(struct core_name *cn)
+static int cn_print_exe_file(struct core_name *cn, bool name_only)
 {
 	struct file *exe_file;
-	char *pathbuf, *path;
+	char *pathbuf, *path, *ptr;
 	int ret;
 
 	exe_file = get_mm_exe_file(current->mm);
@@ -133,6 +133,12 @@ static int cn_print_exe_file(struct core_name *cn)
 	if (IS_ERR(path)) {
 		ret = PTR_ERR(path);
 		goto free_buf;
+	}
+
+	if (name_only) {
+		ptr = strrchr(path, '/');
+		if (ptr)
+			path = ptr + 1;
 	}
 
 	cn_escape(path);
@@ -225,15 +231,19 @@ static int format_corename(struct core_name *cn, struct coredump_params *cprm)
 				cn_escape(namestart);
 				break;
 			}
-			/* executable */
+			/* executable, could be changed by prctl PR_SET_NAME etc */
 			case 'e': {
 				char *commstart = cn->corename + cn->used;
 				err = cn_printf(cn, "%s", current->comm);
 				cn_escape(commstart);
 				break;
 			}
+			/* file name of executable */
+			case 'f':
+				err = cn_print_exe_file(cn, true);
+				break;
 			case 'E':
-				err = cn_print_exe_file(cn);
+				err = cn_print_exe_file(cn, false);
 				break;
 			/* core limit size */
 			case 'c':
