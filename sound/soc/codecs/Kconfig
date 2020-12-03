@@ -36,6 +36,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_WM8510 if SND_SOC_I2C_AND_SPI
 	select SND_SOC_WM8523 if I2C
 	select SND_SOC_WM8580 if I2C
+	select SND_SOC_WM8994 if I2C
 	select SND_SOC_WM8728 if SND_SOC_I2C_AND_SPI
 	select SND_SOC_WM8731 if SND_SOC_I2C_AND_SPI
 	select SND_SOC_WM8750 if SND_SOC_I2C_AND_SPI
@@ -205,6 +206,12 @@ config SND_SOC_WM8990
 config SND_SOC_WM8993
 	tristate
 
+config SND_SOC_WM8994
+	tristate
+
+config SND_SOC_WM8994_PCM
+	tristate
+
 config SND_SOC_WM9081
 	tristate
 
@@ -216,6 +223,11 @@ config SND_SOC_WM9712
 
 config SND_SOC_WM9713
 	tristate
+
+# latin_cam:kihyung.nam added for NMI625 sound [
+config SND_SOC_NMI625
+	tristate
+# latin_cam:kihyung.nam added for NMI625 sound ]
 
 # Amp
 config SND_SOC_MAX9877

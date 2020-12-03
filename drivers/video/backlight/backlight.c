@@ -228,8 +228,13 @@ static void bl_device_release(struct device *dev)
 
 static struct device_attribute bl_device_attributes[] = {
 	__ATTR(bl_power, 0644, backlight_show_power, backlight_store_power),
+#if defined(CONFIG_MACH_S5PC110_P1)
+	__ATTR(brightness, 0666, backlight_show_brightness,
+		     backlight_store_brightness),
+#else
 	__ATTR(brightness, 0644, backlight_show_brightness,
 		     backlight_store_brightness),
+#endif
 	__ATTR(actual_brightness, 0444, backlight_show_actual_brightness,
 		     NULL),
 	__ATTR(max_brightness, 0444, backlight_show_max_brightness, NULL),

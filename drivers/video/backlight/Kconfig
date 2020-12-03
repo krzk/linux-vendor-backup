@@ -262,3 +262,20 @@ config BACKLIGHT_ADP5520
 	  To compile this driver as a module, choose M here: the module will
 	  be called adp5520_bl.
 
+config BACKLIGHT_NT39411B
+        bool "NT39411 Backlight Driver"
+        depends on BACKLIGHT_CLASS_DEVICE && FB_S3C_LVDS
+        default y
+        help
+
+config BACKLIGHT_MDNIE_PWM
+        bool "mDNIe PWM Backlight Driver"
+        depends on BACKLIGHT_CLASS_DEVICE && FB_S3C_LVDS && FB_S3C_MDNIE
+        default y
+        help
+        
+config BACKLIGHT_CMC623_PWM
+        bool "CMC623 PWM Backlight Driver"
+        depends on BACKLIGHT_CLASS_DEVICE && FB_S3C_LVDS && FB_S3C_CMC623
+        default y
+        help

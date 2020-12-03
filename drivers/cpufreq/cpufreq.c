@@ -621,6 +621,25 @@ static ssize_t show_affected_cpus(struct cpufreq_policy *policy, char *buf)
 	return show_cpus(policy->cpus, buf);
 }
 
+extern int is_userspace_gov(void);
+ssize_t cpufreq_direct_store_scaling_setspeed(unsigned int cpu, const char *buf, size_t count)
+{
+	unsigned int freq = 0;
+	unsigned int ret;
+	struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
+	
+	if(!is_userspace_gov()) return -EINVAL;
+
+	ret = sscanf(buf, "%u", &freq);
+	if (ret != 1)
+		return -EINVAL;
+
+	policy->governor->store_setspeed(policy, freq);
+
+	return count;
+}
+EXPORT_SYMBOL(cpufreq_direct_store_scaling_setspeed);
+
 static ssize_t store_scaling_setspeed(struct cpufreq_policy *policy,
 					const char *buf, size_t count)
 {
@@ -1677,6 +1696,48 @@ int cpufreq_get_policy(struct cpufreq_policy *policy, unsigned int cpu)
 	return 0;
 }
 EXPORT_SYMBOL(cpufreq_get_policy);
+
+
+
+/**
+ * cpufreq_set_policy - get the current cpufreq_policy
+ * @policy: struct cpufreq_policy into which the current cpufreq_policy is written
+ *
+ * Writes appropriate cpufreq policy per request.
+ * by Anubis
+ */
+int cpufreq_direct_set_policy(unsigned int cpu, const char *buf)
+{
+	unsigned int ret = -EINVAL;
+	char	str_governor[16];
+	struct cpufreq_policy new_policy;
+	struct cpufreq_policy *data = cpufreq_cpu_get(cpu);
+
+	ret = cpufreq_get_policy(&new_policy, cpu);
+	if (ret)
+		return ret;
+
+	ret = sscanf (buf, "%15s", str_governor);
+	if (ret != 1)
+		return -EINVAL;
+
+	if (cpufreq_parse_governor(str_governor, &new_policy.policy,
+						&new_policy.governor))
+		return -EINVAL;
+
+	/* Do not use cpufreq_set_policy here or the user_policy.max
+	   will be wrongly overridden */
+	ret = __cpufreq_set_policy(data, &new_policy);
+
+	data->user_policy.policy = data->policy;
+	data->user_policy.governor = data->governor;
+
+	if (ret)
+		return ret;
+	else
+		return 0;
+}
+EXPORT_SYMBOL(cpufreq_direct_set_policy);
 
 
 /*

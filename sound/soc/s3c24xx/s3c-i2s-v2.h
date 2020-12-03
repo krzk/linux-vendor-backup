@@ -43,18 +43,24 @@ struct s3c_i2sv2_info {
 	struct device	*dev;
 	void __iomem	*regs;
 
-	struct clk	*iis_pclk;
+	struct clk	*sclk_audio;
+	struct clk	*iis_ipclk;
 	struct clk	*iis_cclk;
 	struct clk	*iis_clk;
+	struct clk	*iis_busclk;
 
 	unsigned char	 master;
 
-	struct s3c24xx_pcm_dma_params	*dma_playback;
-	struct s3c24xx_pcm_dma_params	*dma_capture;
+	struct s3c_dma_params	*dma_playback;
+	struct s3c_dma_params	*dma_capture;
 
 	u32		 suspend_iismod;
 	u32		 suspend_iiscon;
 	u32		 suspend_iispsr;
+	u32		 suspend_iisahb;
+	u32		 suspend_audss_clksrc;
+	u32      suspend_audss_clkdiv;
+	u32      suspend_audss_clkgate;
 };
 
 struct s3c_i2sv2_rate_calc {

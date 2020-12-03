@@ -248,8 +248,9 @@ int mmc_add_card(struct mmc_card *card)
 			mmc_hostname(card->host),
 			mmc_card_highspeed(card) ? "high speed " : "",
 			type);
-	} else {
-		printk(KERN_INFO "%s: new %s%s card at address %04x\n",
+	} else {		
+		/* make log level higher temporarily */
+		printk(KERN_ERR "%s: new %s%s card at address %04x\n",
 			mmc_hostname(card->host),
 			mmc_card_highspeed(card) ? "high speed " : "",
 			type, card->rca);
@@ -283,7 +284,8 @@ void mmc_remove_card(struct mmc_card *card)
 			printk(KERN_INFO "%s: SPI card removed\n",
 				mmc_hostname(card->host));
 		} else {
-			printk(KERN_INFO "%s: card %04x removed\n",
+			/* make log level higher temporarily */
+			printk(KERN_ERR "%s: card %04x removed\n",
 				mmc_hostname(card->host), card->rca);
 		}
 		device_del(&card->dev);

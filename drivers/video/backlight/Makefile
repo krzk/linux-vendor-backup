@@ -28,4 +28,7 @@ obj-$(CONFIG_BACKLIGHT_SAHARA)	+= kb3886_bl.o
 obj-$(CONFIG_BACKLIGHT_WM831X)	+= wm831x_bl.o
 obj-$(CONFIG_BACKLIGHT_ADX)    += adx_bl.o
 obj-$(CONFIG_BACKLIGHT_ADP5520)	+= adp5520_bl.o
+obj-$(CONFIG_BACKLIGHT_NT39411B)        += nt39411b_bl.o
+obj-$(CONFIG_BACKLIGHT_MDNIE_PWM)		+= mdnie_pwm_bl.o
+obj-$(CONFIG_BACKLIGHT_CMC623_PWM)		+= cmc623_pwm_bl.o
 

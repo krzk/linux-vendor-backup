@@ -81,6 +81,10 @@
 #include <asm/smp.h>
 #endif
 
+#ifdef CONFIG_KERNEL_DEBUG_SEC
+#include <linux/kernel_sec_common.h>
+#endif
+
 static int kernel_init(void *);
 
 extern void init_IRQ(void);
@@ -97,6 +101,16 @@ static inline void mark_rodata_ro(void) { }
 #ifdef CONFIG_TC
 extern void tc_init(void);
 #endif
+
+#ifdef CONFIG_SEC_LOG_BUF
+extern void sec_log_buf_init(void);
+#endif
+#ifdef CONFIG_TARGET_LOCALE_KOR // klaatu
+#ifdef CONFIG_KERNEL_DEBUG_SEC
+extern void debug_info_init(void);
+#endif /* CONFIG_KERNEL_DEBUG_SEC */
+#endif /* CONFIG_TARGET_LOCALE_KOR */
+
 
 enum system_states system_state __read_mostly;
 EXPORT_SYMBOL(system_state);
@@ -558,6 +572,14 @@ asmlinkage void __init start_kernel(void)
 	build_all_zonelists();
 	page_alloc_init();
 
+#ifdef CONFIG_SEC_LOG_BUF
+	sec_log_buf_init();
+#endif
+#ifdef CONFIG_TARGET_LOCALE_KOR // klaatu
+#ifdef CONFIG_KERNEL_DEBUG_SEC
+    debug_info_init();
+#endif /* CONFIG_KERNEL_DEBUG_SEC */
+#endif /* CONFIG_TARGET_LOCALE_KOR */
 	printk(KERN_NOTICE "Kernel command line: %s\n", boot_command_line);
 	parse_early_param();
 	parse_args("Booting kernel", static_command_line, __start___param,
@@ -682,6 +704,10 @@ asmlinkage void __init start_kernel(void)
 	sfi_init_late();
 
 	ftrace_init();
+
+#ifdef CONFIG_KERNEL_DEBUG_SEC
+	kernel_sec_init();
+#endif
 
 	/* Do the rest non-__init'ed, we're now alive */
 	rest_init();
@@ -890,6 +916,10 @@ static int __init kernel_init(void * unused)
 		ramdisk_execute_command = NULL;
 		prepare_namespace();
 	}
+
+#ifdef CONFIG_KERNEL_DEBUG_SEC
+	kernel_sec_set_build_info();
+#endif
 
 	/*
 	 * Ok, we have completed the initial bootup, and

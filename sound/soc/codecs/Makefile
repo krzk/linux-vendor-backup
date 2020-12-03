@@ -39,6 +39,11 @@ snd-soc-wm8974-objs := wm8974.o
 snd-soc-wm8988-objs := wm8988.o
 snd-soc-wm8990-objs := wm8990.o
 snd-soc-wm8993-objs := wm8993.o
+ifeq ($(CONFIG_TARGET_LOCALE_NTT),y)
+snd-soc-wm8994-objs := wm8994.o wm8994_p1ntt.o
+else
+snd-soc-wm8994-objs := wm8994.o wm8994_p1.o
+endif
 snd-soc-wm9081-objs := wm9081.o
 snd-soc-wm9705-objs := wm9705.o
 snd-soc-wm9712-objs := wm9712.o
@@ -47,6 +52,9 @@ snd-soc-wm-hubs-objs := wm_hubs.o
 
 # Amp
 snd-soc-max9877-objs := max9877.o
+
+# latin_cam:kihyung.nam added for NMI625 sound
+snd-soc-nmi625-objs := nmi625-snd.o
 
 obj-$(CONFIG_SND_SOC_AC97_CODEC)	+= snd-soc-ac97.o
 obj-$(CONFIG_SND_SOC_AD1836)	+= snd-soc-ad1836.o
@@ -89,6 +97,7 @@ obj-$(CONFIG_SND_SOC_WM8961)	+= snd-soc-wm8961.o
 obj-$(CONFIG_SND_SOC_WM8988)	+= snd-soc-wm8988.o
 obj-$(CONFIG_SND_SOC_WM8990)	+= snd-soc-wm8990.o
 obj-$(CONFIG_SND_SOC_WM8993)	+= snd-soc-wm8993.o
+obj-$(CONFIG_SND_SOC_WM8994)	+= snd-soc-wm8994.o
 obj-$(CONFIG_SND_SOC_WM9081)	+= snd-soc-wm9081.o
 obj-$(CONFIG_SND_SOC_WM9705)	+= snd-soc-wm9705.o
 obj-$(CONFIG_SND_SOC_WM9712)	+= snd-soc-wm9712.o
@@ -97,3 +106,6 @@ obj-$(CONFIG_SND_SOC_WM_HUBS)	+= snd-soc-wm-hubs.o
 
 # Amp
 obj-$(CONFIG_SND_SOC_MAX9877)	+= snd-soc-max9877.o
+
+# latin_cam:kihyung.nam added for NMI625 sound
+obj-$(CONFIG_SND_SOC_NMI625)	+= snd-soc-nmi625.o

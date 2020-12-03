@@ -147,6 +147,7 @@ static inline board_info_t *to_dm9000_board(struct net_device *dev)
 
 /* DM9000 network board routine ---------------------------- */
 
+#if !defined(CONFIG_MACH_SMDKV210) && !defined(CONFIG_MACH_VOGUEV210)
 static void
 dm9000_reset(board_info_t * db)
 {
@@ -158,6 +159,7 @@ dm9000_reset(board_info_t * db)
 	writeb(NCR_RST, db->io_data);
 	udelay(200);
 }
+#endif
 
 /*
  *   Read a byte from I/O port
@@ -179,6 +181,31 @@ iow(board_info_t * db, int reg, int value)
 	writeb(reg, db->io_addr);
 	writeb(value, db->io_data);
 }
+
+#if defined(CONFIG_MACH_SMDKV210) || defined(CONFIG_MACH_VOGUEV210)
+static void dm9000_reset(board_info_t *db)
+{
+	dev_dbg(db->dev, "resetting device\n");
+
+	iow(db, DM9000_GPCR, 0x0f);
+	iow(db, DM9000_GPR, 0);
+	iow(db, DM9000_NCR, 3);
+
+	do {
+		udelay(100);
+	} while (ior(db, DM9000_NCR) & 0x1);
+
+	iow(db, DM9000_NCR, 0);
+	iow(db, DM9000_NCR, 3);
+
+	do {
+		udelay(100);
+	} while (ior(db, DM9000_NCR) & 0x1);
+
+	if ((ior(db, DM9000_PIDL) != 0) || (ior(db, DM9000_PIDH) != 0x90))
+		printk(KERN_INFO "ERROR : resetting ");
+}
+#endif
 
 /* routines for sending block to chip */
 

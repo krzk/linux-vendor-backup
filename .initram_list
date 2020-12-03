@@ -1,0 +1,60 @@
+
+#####################
+# /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root
+# Last modified: 1293688488.0000000000
+
+file /init /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/init 755 0 0
+dir /proc 755 0 0
+dir /system 755 0 0
+dir /modules 755 0 0
+file /modules/s3c_bc.ko /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/modules/s3c_bc.ko 644 0 0
+file /modules/pvrsrvkm.ko /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/modules/pvrsrvkm.ko 644 0 0
+file /modules/s3c_lcd.ko /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/modules/s3c_lcd.ko 644 0 0
+dir /data 755 0 0
+dir /dev 755 0 0
+dir /lib 755 0 0
+dir /lib/modules 755 0 0
+file /lib/modules/dhd.ko /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/lib/modules/dhd.ko 644 0 0
+file /lib/modules/fsr_stl.ko /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/lib/modules/fsr_stl.ko 644 0 0
+file /lib/modules/rfs_glue.ko /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/lib/modules/rfs_glue.ko 644 0 0
+file /lib/modules/j4fs.ko /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/lib/modules/j4fs.ko 644 0 0
+file /lib/modules/storage.ko /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/lib/modules/storage.ko 644 0 0
+file /lib/modules/vibrator.ko /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/lib/modules/vibrator.ko 644 0 0
+file /lib/modules/bthid.ko /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/lib/modules/bthid.ko 644 0 0
+file /lib/modules/svnet.ko /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/lib/modules/svnet.ko 644 0 0
+file /lib/modules/param.ko /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/lib/modules/param.ko 644 0 0
+file /lib/modules/modemctl.ko /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/lib/modules/modemctl.ko 644 0 0
+file /lib/modules/fsr.ko /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/lib/modules/fsr.ko 644 0 0
+file /lib/modules/onedram.ko /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/lib/modules/onedram.ko 644 0 0
+file /lib/modules/rfs_fat.ko /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/lib/modules/rfs_fat.ko 644 0 0
+dir /sbin 755 0 0
+file /sbin/adbd /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/sbin/adbd 755 0 0
+file /recovery.rc /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/recovery.rc 755 0 0
+file /init.smdkc110.rc /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/init.smdkc110.rc 755 0 0
+file /fota.rc /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/fota.rc 755 0 0
+file /default.prop /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/default.prop 644 0 0
+dir /sys 755 0 0
+file /init.rc /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/init.rc 755 0 0
+dir /res 755 0 0
+file /res/keys /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/res/keys 644 0 0
+dir /res/images 755 0 0
+file /res/images/indeterminate6.png /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/res/images/indeterminate6.png 644 0 0
+file /res/images/indeterminate1.png /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/res/images/indeterminate1.png 644 0 0
+file /res/images/indeterminate4.png /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/res/images/indeterminate4.png 644 0 0
+file /res/images/icon_installing.png /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/res/images/icon_installing.png 755 0 0
+file /res/images/icon_firmware_install.png /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/res/images/icon_firmware_install.png 755 0 0
+file /res/images/progress_bar_empty.png /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/res/images/progress_bar_empty.png 755 0 0
+file /res/images/progress_fill.png /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/res/images/progress_fill.png 644 0 0
+file /res/images/progress_bar_fill.png /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/res/images/progress_bar_fill.png 755 0 0
+file /res/images/progress_bar_left_round.png /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/res/images/progress_bar_left_round.png 755 0 0
+file /res/images/icon_error.png /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/res/images/icon_error.png 755 0 0
+file /res/images/progress_empty.png /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/res/images/progress_empty.png 644 0 0
+file /res/images/indeterminate3.png /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/res/images/indeterminate3.png 644 0 0
+file /res/images/icon_firmware_error.png /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/res/images/icon_firmware_error.png 755 0 0
+file /res/images/indeterminate2.png /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/res/images/indeterminate2.png 644 0 0
+file /res/images/progress_bar_right_round.png /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/res/images/progress_bar_right_round.png 755 0 0
+file /res/images/progress_bar_empty_left_round.png /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/res/images/progress_bar_empty_left_round.png 755 0 0
+file /res/images/indeterminate5.png /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/res/images/indeterminate5.png 644 0 0
+file /res/images/progress_bar_empty_right_round.png /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/res/images/progress_bar_empty_right_round.png 755 0 0
+file /init.goldfish.rc /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/init.goldfish.rc 644 0 0
+file /lpm.rc /home/group1/yohwa/P1_MR/SECSYS/C110/../../Android/out/target/product/GT-P1000/root/lpm.rc 755 0 0

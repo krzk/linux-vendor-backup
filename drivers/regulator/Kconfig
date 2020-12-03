@@ -69,6 +69,25 @@ config REGULATOR_MAX1586
 	  regulator via I2C bus. The provided regulator is suitable
 	  for PXA27x chips to control VCC_CORE and VCC_USIM voltages.
 
+config REGULATOR_MAX8698
+	tristate "Maxim 8698 voltage regulator"
+	depends on I2C
+	default n
+	help
+	  This driver controls a Maxim 8698 voltage output
+	  regulator via I2C bus. The provided regulator is suitable
+	  for S5PV210 chips to control VCC_CORE and VCC_USIM voltages.
+
+config REGULATOR_MAX8998
+        tristate "Maxim 8998 voltage regulator"
+        depends on I2C
+        default n
+        help
+          This driver controls a Maxim 8998 voltage output
+          regulator via emulated gpio I2C . The provided regulator is suitable
+          for S5PC1XX chips to control VCC_CORE and VCC_USIM voltages.
+
+
 config REGULATOR_TWL4030
 	bool "TI TWL4030/TWL5030/TPS695x0 PMIC"
 	depends on TWL4030_CORE

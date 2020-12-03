@@ -193,8 +193,8 @@ static void tda8290_set_params(struct dvb_frontend *fe,
 	unsigned char addr_adc_sat  = 0x1a;
 	unsigned char addr_agc_stat = 0x1d;
 	unsigned char addr_pll_stat = 0x1b;
-	unsigned char adc_sat, agc_stat,
-		      pll_stat;
+	unsigned char adc_sat = 0, agc_stat = 0,
+		      pll_stat = 0;
 	int i;
 
 	set_audio(fe, params);

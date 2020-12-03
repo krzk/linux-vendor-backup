@@ -2032,6 +2032,27 @@ static int sd_format_disk_name(char *prefix, int index, char *buf, int buflen)
 	return 0;
 }
 
+// chul2
+#ifdef CONFIG_USB_S3C_OTG_HOST
+static char name_buf[40];
+static char state_buf[40];
+static char device_node[200];
+void sd_send_uevent(struct scsi_disk *sdev, int state)
+{
+	char *envp[4];
+	int env_offset = 0;
+
+	snprintf(name_buf, sizeof(name_buf), "SWITCH_NAME=scsi_disk");
+	envp[env_offset++] = name_buf;
+	snprintf(state_buf, sizeof(state_buf), "SWITCH_STATE=%s", state ? "otg online":"otg offline");
+	envp[env_offset++] = state_buf;
+	snprintf(device_node, sizeof(device_node), "DEVICE_NODE=%s", sdev->disk->disk_name);
+	envp[env_offset++] = device_node;
+	envp[env_offset] = NULL;
+	kobject_uevent_env(&sdev->dev.kobj, KOBJ_CHANGE, envp);
+}
+#endif
+
 /*
  * The asynchronous part of sd_probe
  */
@@ -2085,6 +2106,10 @@ static void sd_probe_async(void *data, async_cookie_t cookie)
 	sd_printk(KERN_NOTICE, sdkp, "Attached SCSI %sdisk\n",
 		  sdp->removable ? "removable " : "");
 	put_device(&sdkp->dev);
+
+#ifdef CONFIG_USB_S3C_OTG_HOST
+	sd_send_uevent(sdkp ,1);
+#endif
 }
 
 /**

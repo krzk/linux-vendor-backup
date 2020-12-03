@@ -773,6 +773,8 @@ static long wb_writeback(struct bdi_writeback *wb,
 	}
 
 	for (;;) {
+		long to_write = 0;
+
 		/*
 		 * Stop writeback when nr_pages has been consumed
 		 */
@@ -786,13 +788,18 @@ static long wb_writeback(struct bdi_writeback *wb,
 		if (args->for_background && !over_bground_thresh())
 			break;
 
+		if (args->sync_mode == WB_SYNC_ALL)
+			to_write = args->nr_pages;
+		if (!to_write)
+			to_write = MAX_WRITEBACK_PAGES;
+
 		wbc.more_io = 0;
 		wbc.encountered_congestion = 0;
-		wbc.nr_to_write = MAX_WRITEBACK_PAGES;
+		wbc.nr_to_write = to_write;
 		wbc.pages_skipped = 0;
 		writeback_inodes_wb(wb, &wbc);
-		args->nr_pages -= MAX_WRITEBACK_PAGES - wbc.nr_to_write;
-		wrote += MAX_WRITEBACK_PAGES - wbc.nr_to_write;
+		args->nr_pages -= to_write - wbc.nr_to_write;
+		wrote += to_write - wbc.nr_to_write;
 
 		/*
 		 * If we consumed everything, see if we have more
@@ -807,7 +814,7 @@ static long wb_writeback(struct bdi_writeback *wb,
 		/*
 		 * Did we write something? Try for more
 		 */
-		if (wbc.nr_to_write < MAX_WRITEBACK_PAGES)
+		if (wbc.nr_to_write < to_write)
 			continue;
 		/*
 		 * Nothing written. Wait for some inode to
@@ -1071,7 +1078,7 @@ void __mark_inode_dirty(struct inode *inode, int flags)
 	if ((inode->i_state & flags) == flags)
 		return;
 
-	if (unlikely(block_dump))
+	if (unlikely(block_dump > 1))
 		block_dump___mark_inode_dirty(inode);
 
 	spin_lock(&inode_lock);

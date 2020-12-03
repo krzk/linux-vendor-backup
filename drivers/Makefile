@@ -37,6 +37,7 @@ obj-$(CONFIG_FB_INTEL)          += video/intelfb/
 
 obj-y				+= serial/
 obj-$(CONFIG_PARPORT)		+= parport/
+obj-$(CONFIG_INPUT_KEYBOARD)	+= input/keyboard/
 obj-y				+= base/ block/ misc/ mfd/
 obj-$(CONFIG_NUBUS)		+= nubus/
 obj-y				+= macintosh/
@@ -45,6 +46,7 @@ obj-$(CONFIG_SCSI)		+= scsi/
 obj-$(CONFIG_ATA)		+= ata/
 obj-$(CONFIG_MTD)		+= mtd/
 obj-$(CONFIG_SPI)		+= spi/
+obj-$(CONFIG_SWI)		+= swi/
 obj-y				+= net/
 obj-$(CONFIG_ATM)		+= atm/
 obj-$(CONFIG_FUSION)		+= message/
@@ -66,7 +68,14 @@ obj-$(CONFIG_USB_OTG_UTILS)	+= usb/otg/
 obj-$(CONFIG_USB)		+= usb/
 obj-$(CONFIG_USB_MUSB_HDRC)	+= usb/musb/
 obj-$(CONFIG_PCI)		+= usb/
-obj-$(CONFIG_USB_GADGET)	+= usb/gadget/
+ifeq ($(CONFIG_USB_GADGET),y)
+obj-$(CONFIG_TARGET_LOCALE_EUR)	+= usb/gadget/
+obj-$(CONFIG_TARGET_LOCALE_HKTW) += usb/gadget/
+obj-$(CONFIG_TARGET_LOCALE_HKTW_FET) += usb/gadget/
+obj-$(CONFIG_TARGET_LOCALE_KOR)	+= usb/gadget/p1_kor/
+obj-$(CONFIG_TARGET_LOCALE_VZW)	+= usb/gadget/
+obj-$(CONFIG_TARGET_LOCALE_USAGSM) += usb/gadget/
+endif
 obj-$(CONFIG_SERIO)		+= input/serio/
 obj-$(CONFIG_GAMEPORT)		+= input/gameport/
 obj-$(CONFIG_INPUT)		+= input/
@@ -94,6 +103,14 @@ obj-y				+= idle/
 obj-$(CONFIG_MMC)		+= mmc/
 obj-$(CONFIG_MEMSTICK)		+= memstick/
 obj-$(CONFIG_NEW_LEDS)		+= leds/
+ifeq ($(CONFIG_SWITCH),y)
+obj-$(CONFIG_TARGET_LOCALE_EUR)		+= switch/
+obj-$(CONFIG_TARGET_LOCALE_HKTW)	+= switch/
+obj-$(CONFIG_TARGET_LOCALE_HKTW_FET)	+= switch/
+obj-$(CONFIG_TARGET_LOCALE_KOR)		+= switch/p1_kor/
+obj-$(CONFIG_TARGET_LOCALE_VZW)		+= switch/
+obj-$(CONFIG_TARGET_LOCALE_USAGSM)		+= switch/
+endif
 obj-$(CONFIG_INFINIBAND)	+= infiniband/
 obj-$(CONFIG_SGI_SN)		+= sn/
 obj-y				+= firmware/
@@ -109,5 +126,8 @@ obj-$(CONFIG_SSB)		+= ssb/
 obj-$(CONFIG_VIRTIO)		+= virtio/
 obj-$(CONFIG_VLYNQ)		+= vlynq/
 obj-$(CONFIG_STAGING)		+= staging/
+obj-$(CONFIG_SENSOR)		+= sensor/
 obj-y				+= platform/
 obj-y				+= ieee802154/
+obj-y   += level/
+

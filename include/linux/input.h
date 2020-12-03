@@ -107,7 +107,10 @@ struct input_absinfo {
 
 #define SYN_REPORT		0
 #define SYN_CONFIG		1
-#define SYN_MT_REPORT		2
+#define _SUPPORT_MULTITOUCH_
+#ifdef _SUPPORT_MULTITOUCH_
+#define SYN_MT_REPORT	2
+#endif
 
 /*
  * Keys and buttons

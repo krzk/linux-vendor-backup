@@ -1508,6 +1508,26 @@ static inline void usb_stop_pm(struct usb_device *udev)
 
 #endif
 
+// chul2
+#ifdef CONFIG_USB_S3C_OTG_HOST
+static char name_buf[40];
+static char state_buf[40];
+void usb_send_uevent(struct usb_device *pdev, int state)
+{
+	char *envp[3];
+	int env_offset = 0;
+
+	snprintf(name_buf, sizeof(name_buf), "SWITCH_NAME=scsi_disk");
+	envp[env_offset++] = name_buf;
+	snprintf(state_buf, sizeof(state_buf), "SWITCH_STATE=%s", state ? "otg online":"otg offline");
+	envp[env_offset++] = state_buf;
+	//snprintf(device_node, sizeof(device_node), "DEVICE_NODE=%s", sdev->disk->disk_name);
+	//envp[env_offset++] = device_node;
+	envp[env_offset] = NULL;
+	kobject_uevent_env(&pdev->dev.kobj, KOBJ_CHANGE, envp);
+}
+#endif
+
 /**
  * usb_disconnect - disconnect a device (usbcore-internal)
  * @pdev: pointer to device being disconnected
@@ -1533,6 +1553,10 @@ void usb_disconnect(struct usb_device **pdev)
 		pr_debug ("%s nodev\n", __func__);
 		return;
 	}
+
+#ifdef CONFIG_USB_S3C_OTG_HOST
+	usb_send_uevent(udev, 0);
+#endif
 
 	/* mark the device as inactive, so any further urb submissions for
 	 * this device (and any of its children) will fail immediately.

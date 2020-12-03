@@ -35,6 +35,9 @@ void mmc_set_bus_mode(struct mmc_host *host, unsigned int mode);
 void mmc_set_bus_width(struct mmc_host *host, unsigned int width);
 u32 mmc_select_voltage(struct mmc_host *host, u32 ocr);
 void mmc_set_timing(struct mmc_host *host, unsigned int timing);
+#ifdef CONFIG_MMC_SLC
+void mmc_power_reset(struct mmc_host *host, unsigned long delay);
+#endif /* CONFIG_MMC_SLC */
 
 static inline void mmc_delay(unsigned int ms)
 {

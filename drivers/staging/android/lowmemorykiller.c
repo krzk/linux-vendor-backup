@@ -34,6 +34,11 @@
 #include <linux/mm.h>
 #include <linux/oom.h>
 #include <linux/sched.h>
+#include <linux/notifier.h>
+
+
+#include <linux/time.h>	
+
 
 static uint32_t lowmem_debug_level = 2;
 static int lowmem_adj[6] = {
@@ -51,11 +56,52 @@ static size_t lowmem_minfree[6] = {
 };
 static int lowmem_minfree_size = 4;
 
+static struct task_struct *lowmem_deathpending;
+
 #define lowmem_print(level, x...)			\
 	do {						\
 		if (lowmem_debug_level >= (level))	\
 			printk(x);			\
 	} while (0)
+
+static int
+task_notify_func(struct notifier_block *self, unsigned long val, void *data);
+
+static struct notifier_block task_nb = {
+	.notifier_call	= task_notify_func,
+};
+
+static int
+task_notify_func(struct notifier_block *self, unsigned long val, void *data)
+{
+	struct task_struct *task = data;
+	if (task == lowmem_deathpending) {
+		lowmem_deathpending = NULL;
+		task_free_unregister(&task_nb);
+	}
+	return NOTIFY_OK;
+}
+
+
+
+#define PERFOMANCE_RESEARCH	0
+
+#if	PERFOMANCE_RESEARCH	
+
+int LMK_WorkCount	=	0;	
+struct timespec		LMK_PreviousWorkingTime={	
+												.tv_sec=0,		
+												.tv_nsec=0	
+											};	
+struct timespec		LMK_CurrentWorkingTime={	
+												.tv_sec=0,		
+												.tv_nsec=0	
+											};	
+int LMK_LastWorkNumberPossProcesses	=	0;	
+int LMK_TotalNUmberOfKilledProcesses=	0;	
+int LMK_TotalFreedMem				=	0;
+#endif
+
 
 static int lowmem_shrink(int nr_to_scan, gfp_t gfp_mask)
 {
@@ -69,19 +115,57 @@ static int lowmem_shrink(int nr_to_scan, gfp_t gfp_mask)
 	int selected_oom_adj;
 	int array_size = ARRAY_SIZE(lowmem_adj);
 	int other_free = global_page_state(NR_FREE_PAGES);
-	int other_file = global_page_state(NR_FILE_PAGES);
+//	int other_file = global_page_state(NR_FILE_PAGES);
+	int other_file = global_page_state(NR_INACTIVE_FILE) + global_page_state(NR_ACTIVE_FILE);
+	
+
+	/*
+	 * If we already have a death outstanding, then
+	 * bail out right away; indicating to vmscan
+	 * that we have nothing further to offer on
+	 * this pass.
+	 *
+	 */
+
+
+#if	PERFOMANCE_RESEARCH
+LMK_LastWorkNumberPossProcesses	=	0;
+LMK_PreviousWorkingTime	=	LMK_CurrentWorkingTime;	
+LMK_CurrentWorkingTime	=	current_kernel_time();
+printk("LowMemoryKiller has started!!!\n Worked <%d> times before PreviosWorkingTime<%ds><%dns>\n 	CurrentWorkingTime<%ds><%dns>\n", LMK_WorkCount++,LMK_PreviousWorkingTime.tv_sec,LMK_PreviousWorkingTime.tv_nsec,LMK_CurrentWorkingTime.tv_sec,LMK_CurrentWorkingTime.tv_nsec);
+#endif
+
+
+	
+	if (lowmem_deathpending)
+			{
+#if	PERFOMANCE_RESEARCH
+printk("LowMemoryKiller is going to exit because of lowmem_deathpending\n");
+#endif				
+				return 0;
+			}
+
 
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
 	if (lowmem_minfree_size < array_size)
 		array_size = lowmem_minfree_size;
 	for (i = 0; i < array_size; i++) {
+#if 1
+		if ((other_free + other_file) < lowmem_minfree[i])
+#else
 		if (other_free < lowmem_minfree[i] &&
-		    other_file < lowmem_minfree[i]) {
+		    other_file < lowmem_minfree[i]) 
+#endif
+		{
 			min_adj = lowmem_adj[i];
 			break;
 		}
 	}
+
+	if (min_adj == OOM_ADJUST_MAX + 1)
+		return 0;
+
 	if (nr_to_scan > 0)
 		lowmem_print(3, "lowmem_shrink %d, %x, ofree %d %d, ma %d\n",
 			     nr_to_scan, gfp_mask, other_free, other_file,
@@ -90,7 +174,14 @@ static int lowmem_shrink(int nr_to_scan, gfp_t gfp_mask)
 		global_page_state(NR_ACTIVE_FILE) +
 		global_page_state(NR_INACTIVE_ANON) +
 		global_page_state(NR_INACTIVE_FILE);
-	if (nr_to_scan <= 0 || min_adj == OOM_ADJUST_MAX + 1) {
+
+#if	PERFOMANCE_RESEARCH
+printk("LowMemoryKiller semi-data: %d %x %d %d %d %d\n",nr_to_scan,gfp_mask,other_free,other_file,min_adj,rem);
+#endif
+
+
+	
+	if (nr_to_scan <= 0) {
 		lowmem_print(5, "lowmem_shrink %d, %x, return %d\n",
 			     nr_to_scan, gfp_mask, rem);
 		return rem;
@@ -100,15 +191,17 @@ static int lowmem_shrink(int nr_to_scan, gfp_t gfp_mask)
 	read_lock(&tasklist_lock);
 	for_each_process(p) {
 		struct mm_struct *mm;
+		struct signal_struct *sig;
 		int oom_adj;
 
 		task_lock(p);
 		mm = p->mm;
-		if (!mm) {
+		sig = p->signal;
+		if (!mm || !sig) {
 			task_unlock(p);
 			continue;
 		}
-		oom_adj = mm->oom_adj;
+		oom_adj = sig->oom_adj;
 		if (oom_adj < min_adj) {
 			task_unlock(p);
 			continue;
@@ -129,17 +222,41 @@ static int lowmem_shrink(int nr_to_scan, gfp_t gfp_mask)
 		selected_oom_adj = oom_adj;
 		lowmem_print(2, "select %d (%s), adj %d, size %d, to kill\n",
 			     p->pid, p->comm, oom_adj, tasksize);
+
+#if	PERFOMANCE_RESEARCH
+LMK_LastWorkNumberPossProcesses++;	
+printk("LowMemoryKiller has found process for killing: pid=%d name=%s with oom_adj=%d\n", p->pid, p->comm,oom_adj);
+#endif
+
+		
 	}
 	if (selected) {
 		lowmem_print(1, "send sigkill to %d (%s), adj %d, size %d\n",
 			     selected->pid, selected->comm,
 			     selected_oom_adj, selected_tasksize);
+
+#if	PERFOMANCE_RESEARCH
+printk("LowMemoryKiller is going to KILL: pid=%d name=%s with oom_adj=%d with size=%d  (has chosen from %d)\n", selected->pid, selected->comm,selected_oom_adj, selected_tasksize,LMK_LastWorkNumberPossProcesses);	
+LMK_TotalNUmberOfKilledProcesses++;
+#endif
+
+		
+		lowmem_deathpending = selected;
+		task_free_register(&task_nb);
 		force_sig(SIGKILL, selected);
 		rem -= selected_tasksize;
 	}
 	lowmem_print(4, "lowmem_shrink %d, %x, return %d\n",
 		     nr_to_scan, gfp_mask, rem);
 	read_unlock(&tasklist_lock);
+
+
+#if	PERFOMANCE_RESEARCH
+LMK_TotalFreedMem+=selected_tasksize;
+printk("LowMemoryKiller : rem=%d, totalNumber=%d, selected_tasksize=%d, Totalfreed=%d ", rem, LMK_TotalNUmberOfKilledProcesses,selected_tasksize,LMK_TotalFreedMem);
+#endif
+
+	
 	return rem;
 }
 

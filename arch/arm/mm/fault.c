@@ -25,6 +25,10 @@
 
 #include "fault.h"
 
+#ifdef CONFIG_KERNEL_DEBUG_SEC
+#include <linux/kernel_sec_common.h>
+#endif
+
 /*
  * Fault status register encodings.  We steal bit 31 for our own purposes.
  */
@@ -37,6 +41,7 @@ static inline int fsr_fs(unsigned int fsr)
 {
 	return (fsr & FSR_FS3_0) | (fsr & FSR_FS4) >> 6;
 }
+extern int kernel_sec_check_debug_level_high(void);
 
 #ifdef CONFIG_MMU
 
@@ -164,6 +169,31 @@ __do_user_fault(struct task_struct *tsk, unsigned long addr,
 		show_pte(tsk->mm, addr);
 		show_regs(regs);
 	}
+#endif
+
+#ifdef CONFIG_TARGET_LOCALE_KOR 
+#ifdef CONFIG_KERNEL_DEBUG_SEC
+#define PLATFORM_UPLOAD_ADDR		(0xdeadafc1)	// android_dir/frameworks/base/core/jni/android_os_debug.cpp
+
+	if( 0 != strncmp( current->group_leader->comm, "playlogo", sizeof("playlogo")) ) // the process which is decided not to check.
+	{
+#if 0 // only param_high sends device into user fault.
+        if( 0xdeadd00d == addr )
+            printk("[DBG] User Fault Reason : dvmAbort \n"); 
+            ////////////////////////
+
+		if( KERNEL_SEC_DEBUG_LEVEL_MID == kernel_sec_get_debug_level() || KERNEL_SEC_DEBUG_LEVEL_HIGH == kernel_sec_get_debug_level() )
+	    {
+            if( 0 == strncmp( current->group_leader->comm, "system_server", sizeof("system_server") ) )
+                panic("[DBG] User Fault Reason : Platform Reset \n");
+			if ( PLATFORM_UPLOAD_ADDR == addr )
+				panic("[DBG] User Fault Reason : ANR \n");
+		}
+#endif
+		if(kernel_sec_check_debug_level_high()==1)
+			panic("[DBG] User Fault\n");
+	}
+#endif
 #endif
 
 	tsk->thread.address = addr;

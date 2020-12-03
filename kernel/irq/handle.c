@@ -24,6 +24,10 @@
 
 #include "internals.h"
 
+#if 0//def CONFIG_KERNEL_DEBUG_SEC
+#include <linux/kernel_sec_common.h>
+#endif
+
 /*
  * lockdep: we want to handle all irq_desc locks as a single lock-class:
  */
@@ -371,11 +375,21 @@ irqreturn_t handle_IRQ_event(unsigned int irq, struct irqaction *action)
 {
 	irqreturn_t ret, retval = IRQ_NONE;
 	unsigned int status = 0;
+#if 0 //def CONFIG_KERNEL_DEBUG_SEC // klaatu
+    int cpu;
+    cpu = smp_processor_id();
+#endif
 
 	if (!(action->flags & IRQF_DISABLED))
 		local_irq_enable_in_hardirq();
 
 	do {
+#if 0 //def CONFIG_KERNEL_DEBUG_SEC // klaatu
+        gExcpTaskLog[gExcpTaskLogIdx].time = cpu_clock(cpu);
+        gExcpTaskLog[gExcpTaskLogIdx].log.irq.dummy = 0;
+        gExcpTaskLog[gExcpTaskLogIdx].log.irq.fn = (void *)action->handler;
+        gExcpTaskLogIdx = (++gExcpTaskLogIdx >= SCHED_LOG_MAX)? 0:gExcpTaskLogIdx;
+#endif
 		trace_irq_handler_entry(irq, action);
 		ret = action->handler(irq, action->dev_id);
 		trace_irq_handler_exit(irq, action, ret);

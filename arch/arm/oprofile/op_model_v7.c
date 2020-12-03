@@ -371,6 +371,10 @@ static int irqs[] = {
 #ifdef CONFIG_ARCH_OMAP3
 	INT_34XX_BENCH_MPU_EMUL,
 #endif
+
+#ifdef CONFIG_ARCH_S5PV210
+        IRQ_CORTEX0
+#endif
 };
 
 static void armv7_pmnc_stop(void)

@@ -80,6 +80,9 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>
 
+#if 0//def CONFIG_KERNEL_DEBUG_SEC // klaatu
+#include <linux/kernel_sec_common.h>
+#endif
 /*
  * Convert user-nice values [ -20 ... 0 ... 19 ]
  * to static priority [ MAX_RT_PRIO..MAX_PRIO-1 ],
@@ -5485,6 +5488,11 @@ need_resched_nonpreemptible:
 		 */
 		cpu = smp_processor_id();
 		rq = cpu_rq(cpu);
+#if 0//def CONFIG_KERNEL_DEBUG_SEC // klaatu
+        gExcpTaskLog[gExcpTaskLogIdx].time = cpu_clock(cpu);
+        strcpy(gExcpTaskLog[gExcpTaskLogIdx].log.task,rq->curr->comm);
+        gExcpTaskLogIdx = (++gExcpTaskLogIdx >= SCHED_LOG_MAX)? 0:gExcpTaskLogIdx;
+#endif
 	} else
 		spin_unlock_irq(&rq->lock);
 
@@ -6899,7 +6907,7 @@ void sched_show_task(struct task_struct *p)
 	unsigned state;
 
 	state = p->state ? __ffs(p->state) + 1 : 0;
-	printk(KERN_INFO "%-13.13s %c", p->comm,
+	printk(KERN_INFO "%-15.15s %c", p->comm,
 		state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?');
 #if BITS_PER_LONG == 32
 	if (state == TASK_RUNNING)
@@ -9374,6 +9382,24 @@ void __init sched_init(void)
 	int i, j;
 	unsigned long alloc_size = 0, ptr;
 
+/*
+ *  Add GAForensic init for preventing symbol removal for optimization. (tkhwang)
+ */
+//{
+	GAFINFO.rq_struct_curr = offsetof(struct rq, curr);
+
+	 unsigned short *checksum	=	&(GAFINFO.GAFINFOCheckSum);
+	 unsigned char  *memory		=	&GAFINFO;
+	 unsigned char	address;
+	 for (*checksum=0,address = 0; address < (sizeof(GAFINFO)-sizeof(GAFINFO.GAFINFOCheckSum)); address++)
+	 {
+		if ((*checksum) & 0x8000)
+		(*checksum) = (((*checksum) << 1) | 1 ) ^ memory[address];
+		else
+		(*checksum) = ((*checksum) << 1) ^ memory[address];
+	 }
+//}	 
+	
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	alloc_size += 2 * nr_cpu_ids * sizeof(void **);
 #endif
@@ -9613,13 +9639,24 @@ static inline int preempt_count_equals(int preempt_offset)
 	return (nested == PREEMPT_INATOMIC_BASE + preempt_offset);
 }
 
+static int __might_sleep_init_called;
+int __init __might_sleep_init(void)
+{
+	__might_sleep_init_called = 1;
+	return 0;
+}
+early_initcall(__might_sleep_init);
+
 void __might_sleep(char *file, int line, int preempt_offset)
 {
 #ifdef in_atomic
 	static unsigned long prev_jiffy;	/* ratelimiting */
 
 	if ((preempt_count_equals(preempt_offset) && !irqs_disabled()) ||
-	    system_state != SYSTEM_RUNNING || oops_in_progress)
+	    oops_in_progress)
+		return;
+	if (system_state != SYSTEM_RUNNING &&
+	    (!__might_sleep_init_called || system_state != SYSTEM_BOOTING))
 		return;
 	if (time_before(jiffies, prev_jiffy + HZ) && prev_jiffy)
 		return;
@@ -10439,6 +10476,15 @@ cpu_cgroup_destroy(struct cgroup_subsys *ss, struct cgroup *cgrp)
 static int
 cpu_cgroup_can_attach_task(struct cgroup *cgrp, struct task_struct *tsk)
 {
+	if ((current != tsk) && (!capable(CAP_SYS_NICE))) {
+		const struct cred *cred = current_cred(), *tcred;
+
+		tcred = __task_cred(tsk);
+
+		if (cred->euid != tcred->uid && cred->euid != tcred->suid)
+			return -EPERM;
+	}
+
 #ifdef CONFIG_RT_GROUP_SCHED
 	if (!sched_rt_can_attach(cgroup_tg(cgrp), tsk))
 		return -EINVAL;

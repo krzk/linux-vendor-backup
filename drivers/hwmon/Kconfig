@@ -1008,6 +1008,12 @@ config SENSORS_APPLESMC
 	  Say Y here if you have an applicable laptop and want to experience
 	  the awesome power of applesmc.
 
+config SENSORS_BH1721
+	depends on I2C
+	tristate "BH1721fvc Ambient Light Sensor"
+	help
+	  This driver provides support for ROHM Ambient Light Sensor IC.
+
 if ACPI
 
 comment "ACPI drivers"

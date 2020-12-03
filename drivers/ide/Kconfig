@@ -292,6 +292,14 @@ config BLK_DEV_IDEPNP
 	  would like the kernel to automatically detect and activate
 	  it, say Y here.
 
+config BLK_DEV_IDE_S3C
+	tristate "Samsung SoC development board IDE Controller"
+	depends on ARCH_S5PV210
+	help
+	  Say Y here if you want to support using CF controller on Samsung
+	  development board (SMDK board).
+	  It will be configured for true IDE mode.
+
 config BLK_DEV_IDEDMA_SFF
 	bool
 
@@ -910,7 +918,7 @@ endif
 
 config BLK_DEV_IDEDMA
 	def_bool BLK_DEV_IDEDMA_SFF || \
-		 BLK_DEV_IDEDMA_ICS || BLK_DEV_IDE_AU1XXX_MDMA2_DBDMA
+		 BLK_DEV_IDEDMA_ICS || BLK_DEV_IDE_AU1XXX_MDMA2_DBDMA || BLK_DEV_IDE_S3C
 	select IDE_XFER_MODE
 
 endif # IDE

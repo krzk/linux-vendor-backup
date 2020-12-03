@@ -79,6 +79,7 @@ extern char core_pattern[];
 extern unsigned int core_pipe_limit;
 extern int pid_max;
 extern int min_free_kbytes;
+extern int min_free_order_shift;
 extern int pid_max_min, pid_max_max;
 extern int sysctl_drop_caches;
 extern int percpu_pagelist_fraction;
@@ -1229,6 +1230,14 @@ static struct ctl_table vm_table[] = {
 		.extra1		= &zero,
 	},
 	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "min_free_order_shift",
+		.data		= &min_free_order_shift,
+		.maxlen		= sizeof(min_free_order_shift),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec
+	},
+	{
 		.ctl_name	= VM_PERCPU_PAGELIST_FRACTION,
 		.procname	= "percpu_pagelist_fraction",
 		.data		= &percpu_pagelist_fraction,
@@ -1599,7 +1608,25 @@ static struct ctl_table fs_table[] = {
 	{ .ctl_name = 0 }
 };
 
+#ifdef CONFIG_KERNEL_DEBUG_SEC
+#ifdef CONFIG_TARGET_LOCALE_KOR 
+int gDvm_addr = 0;
+#endif /* CONFIG_TARGET_LOCALE_KOR */
+#endif /* CONFIG_KERNEL_DEBUG_SEC */
+
 static struct ctl_table debug_table[] = {
+#ifdef CONFIG_KERNEL_DEBUG_SEC
+#ifdef CONFIG_TARGET_LOCALE_KOR 
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "gDvm_addr",
+		.data		= &gDvm_addr,
+		.maxlen 	= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif /* CONFIG_TARGET_LOCALE_KOR */
+#endif /* CONFIG_KERNEL_DEBUG_SEC */
 #if defined(CONFIG_X86) || defined(CONFIG_PPC)
 	{
 		.ctl_name	= CTL_UNNUMBERED,

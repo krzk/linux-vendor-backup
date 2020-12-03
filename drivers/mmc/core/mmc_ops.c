@@ -461,3 +461,85 @@ int mmc_send_status(struct mmc_card *card, u32 *status)
 	return 0;
 }
 
+#ifdef CONFIG_MMC_SLC
+int mmc_set_slc(struct mmc_card *card)
+{
+    int err;
+    struct mmc_command cmd;	
+#if 0   /* ORG Setting */ 
+unsigned int area_arg[4] = { 0x03880000, 0x03890000, 0x038A0000, 0x038B0000};
+unsigned int size_mult_arg[3] = {0x038C0000, 0x038D0100, 0x038E0000 };
+#else	
+#if 0	/* VFX 8GB MLC + SLC */
+unsigned int area_arg[4] = { 0x03880000, 0x03898000, 0x038A6d00, 0x038B0000};
+unsigned int size_mult_arg[3] = {0x038Cf000, 0x038D0000, 0x038E0000 };
+#endif
+#if 0	/* VFX 16GB MLC + SLC */
+unsigned int area_arg[4] = { 0x03880000, 0x03898000, 0x038A5C00, 0x038B0100};
+unsigned int size_mult_arg[3] = {0x038Cf000, 0x038D0000, 0x038E0000 };
+#endif
+#if 1	/* INAND 16GB MLC + SLC */
+unsigned int area_arg[4] = { 0x03880000, 0x03890000, 0x038A6200, 0x038B0100};
+unsigned int size_mult_arg[3] = {0x038C0400, 0x038D0700, 0x038E0000 };
+#endif
+#if 0	/* INAND 16GB SLC */
+unsigned int area_arg[4] = { 0x03880000, 0x03890000, 0x038A0000, 0x038B0000};
+unsigned int size_mult_arg[3] = {0x038C0500, 0x038D1D00, 0x038E0000 };
+#endif
+#endif
+	int i;
+
+	BUG_ON(!card);
+	BUG_ON(!card->host);
+
+	memset(&cmd, 0, sizeof(struct mmc_command));
+
+	/* enable High-Density erase group definition */
+	cmd.opcode = MMC_SWITCH;
+	cmd.arg = 0x03AF0100;
+	cmd.flags = MMC_RSP_SPI_R1B | MMC_RSP_R1B | MMC_CMD_AC;
+	err = mmc_wait_for_cmd(card->host, &cmd, MMC_CMD_RETRIES);
+	if (err)
+		return err;
+
+	/* enhanced area start address */
+	cmd.opcode = MMC_SWITCH;
+	cmd.flags = MMC_RSP_SPI_R1B | MMC_RSP_R1B | MMC_CMD_AC;
+	for(i = 0; i < 4; i++) {
+		cmd.arg = area_arg[i];
+		err = mmc_wait_for_cmd(card->host, &cmd, MMC_CMD_RETRIES);
+		if (err)
+			return err;
+	}
+
+	/* enahnced size mult */
+	cmd.opcode = MMC_SWITCH;
+	cmd.flags = MMC_RSP_SPI_R1B | MMC_RSP_R1B | MMC_CMD_AC;
+	for(i = 0; i < 3; i++) {
+		cmd.arg = size_mult_arg[i];
+		err = mmc_wait_for_cmd(card->host, &cmd, MMC_CMD_RETRIES);
+		if (err)
+			return err;
+	}
+
+	/* parititon attribute */
+	cmd.opcode = MMC_SWITCH;
+	cmd.arg = 0x039C0100;
+	cmd.flags = MMC_RSP_SPI_R1B | MMC_RSP_R1B | MMC_CMD_AC;
+	err = mmc_wait_for_cmd(card->host, &cmd, MMC_CMD_RETRIES);
+	if (err)
+		return err;
+
+	cmd.opcode = MMC_SWITCH;
+	cmd.arg = 0x039B0100;
+	cmd.flags = MMC_RSP_SPI_R1B | MMC_RSP_R1B | MMC_CMD_AC;
+	err = mmc_wait_for_cmd(card->host, &cmd, MMC_CMD_RETRIES);
+	if (err)
+		return err;
+
+	mdelay(3);
+
+	return 0;
+}
+#endif /* CONFIG_MMC_SLC */
+

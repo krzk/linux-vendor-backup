@@ -15,10 +15,17 @@
 #include <linux/console.h>
 #include <linux/cpu.h>
 #include <linux/syscalls.h>
+#include <linux/cpufreq.h>
+#ifdef CONFIG_CPU_FREQ
+#include <plat/s5pc11x-dvfs.h>
+#endif
 
 #include "power.h"
 
 const char *const pm_states[PM_SUSPEND_MAX] = {
+#ifdef CONFIG_EARLYSUSPEND
+	[PM_SUSPEND_ON]		= "on",
+#endif
 	[PM_SUSPEND_STANDBY]	= "standby",
 	[PM_SUSPEND_MEM]	= "mem",
 };
@@ -251,15 +258,48 @@ static void suspend_finish(void)
  *	Then, do the setup for suspend, enter the state, and cleaup (after
  *	we've woken up).
  */
+
+#ifdef CONFIG_CPU_FREQ
+bool gbGovernorTransition = false;
+extern bool g_dvfs_fix_lock_limit;
+#endif
 int enter_state(suspend_state_t state)
 {
 	int error;
+	struct cpufreq_policy policy;
 
 	if (!valid_state(state))
 		return -ENODEV;
 
 	if (!mutex_trylock(&pm_mutex))
 		return -EBUSY;
+
+
+#ifdef CONFIG_CPU_FREQ
+#if 1
+	// change cpufreq governor to performance
+	// if conservative governor
+	if(is_conservative_gov()) {
+		/*Fix the upper transition scaling*/
+		g_dvfs_fix_lock_limit = true;
+		s5pc110_lock_dvfs_high_level(DVFS_LOCK_TOKEN_5, 0);
+		gbGovernorTransition = true;
+
+		error = cpufreq_get_policy(&policy, 0);
+		if(error)
+		{
+			printk("Failed to get policy\n");
+			goto Unlock;
+		}
+
+		cpufreq_driver_target(&policy, 800000, CPUFREQ_RELATION_L);
+	}
+	
+#else
+//	cpufreq_direct_set_policy(0, "userspace");
+//	cpufreq_direct_store_scaling_setspeed(0, "800000", 0);
+#endif
+#endif
 
 	printk(KERN_INFO "PM: Syncing filesystems ... ");
 	sys_sync();
@@ -281,6 +321,18 @@ int enter_state(suspend_state_t state)
 	suspend_finish();
  Unlock:
 	mutex_unlock(&pm_mutex);
+#ifdef CONFIG_CPU_FREQ
+#if 1
+	// change cpufreq to original one
+	if(gbGovernorTransition) {
+		g_dvfs_fix_lock_limit = false;
+		s5pc110_unlock_dvfs_high_level(DVFS_LOCK_TOKEN_5);
+		gbGovernorTransition = false;
+	}
+#else
+//	cpufreq_direct_set_policy(0, "conservative");
+#endif
+#endif
 	return error;
 }
 

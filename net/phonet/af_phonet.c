@@ -67,8 +67,8 @@ static int pn_socket_create(struct net *net, struct socket *sock, int protocol)
 	struct phonet_protocol *pnp;
 	int err;
 
-	if (!capable(CAP_SYS_ADMIN))
-		return -EPERM;
+//	if (!capable(CAP_SYS_ADMIN))
+//		return -EPERM;
 
 	if (protocol == 0) {
 		/* Default protocol selection */
@@ -376,11 +376,17 @@ static int phonet_rcv(struct sk_buff *skb, struct net_device *dev,
 
 		if (sk)
 			return sk_receive_skb(sk, skb, 0);
-
+		else {
+			// patch for VT call, do not response for un-opened socket resource
+			goto out;
+			// can never get this line
+		}
+#if 0		// do not make auto response
 		if (can_respond(skb)) {
 			send_obj_unreachable(skb);
 			send_reset_indications(skb);
 		}
+#endif		
 	}
 
 out:

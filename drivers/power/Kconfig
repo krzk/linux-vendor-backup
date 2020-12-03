@@ -22,6 +22,11 @@ config PDA_POWER
 	  one or two external power supplies (AC/USB) connected to main and
 	  backup batteries, and optional builtin charger.
 
+config BATTERY_S5PC110
+	tristate "Battery driver (S5PC110)"
+	help
+	  Say Y to enable support for batteries with s5pc110 chip.	  
+	  
 config APM_POWER
 	tristate "APM emulation for class batteries"
 	depends on APM_EMULATION

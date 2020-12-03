@@ -239,7 +239,12 @@ rx_submit(struct eth_dev *dev, struct usb_request *req, gfp_t gfp_flags)
 	size += out->maxpacket - 1;
 	size -= size % out->maxpacket;
 
+#ifdef CONFIG_USB_GADGET_S3C_OTGD_DMA_MODE
+	/* To fulfill double word alignment requirement*/
+	skb = alloc_skb(size + NET_IP_ALIGN + 6, gfp_flags);
+#else
 	skb = alloc_skb(size + NET_IP_ALIGN, gfp_flags);
+#endif
 	if (skb == NULL) {
 		DBG(dev, "no rx skb\n");
 		goto enomem;
@@ -249,7 +254,12 @@ rx_submit(struct eth_dev *dev, struct usb_request *req, gfp_t gfp_flags)
 	 * but on at least one, checksumming fails otherwise.  Note:
 	 * RNDIS headers involve variable numbers of LE32 values.
 	 */
+#ifdef CONFIG_USB_GADGET_S3C_OTGD_DMA_MODE
+	/* To fulfill double word alignment requirement*/
+	skb_reserve(skb, NET_IP_ALIGN + 6);
+#else
 	skb_reserve(skb, NET_IP_ALIGN);
+#endif
 
 	req->buf = skb->data;
 	req->length = size;
@@ -479,7 +489,10 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 	list_add(&req->list, &dev->tx_reqs);
 	spin_unlock(&dev->req_lock);
 	dev_kfree_skb_any(skb);
-
+#ifdef CONFIG_USB_GADGET_S3C_OTGD_DMA_MODE
+	if(req->buf != skb->data)
+		kfree(req->buf);
+#endif
 	atomic_dec(&dev->tx_qlen);
 	if (netif_carrier_ok(dev->net))
 		netif_wake_queue(dev->net);
@@ -573,7 +586,20 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 
 		length = skb->len;
 	}
+#ifdef CONFIG_USB_GADGET_S3C_OTGD_DMA_MODE
+	/* To fulfill double word alignment requirement*/
+	req->buf = kmalloc(skb->len, GFP_ATOMIC | GFP_DMA);
+	if(!req->buf) {
+		req->buf = skb->data;
+		printk("%s:: failed to kmalloc\n",__func__);
+	}
+	else {
+		memcpy((void *) req->buf,(void *) skb->data,skb->len);
+	}
+	
+#else
 	req->buf = skb->data;
+#endif
 	req->context = skb;
 	req->complete = tx_complete;
 
@@ -607,6 +633,10 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		dev_kfree_skb_any(skb);
 drop:
 		dev->net->stats.tx_dropped++;
+#ifdef CONFIG_USB_GADGET_S3C_OTGD_DMA_MODE
+		if(req->buf != skb->data)
+			kfree(req->buf);
+#endif
 		spin_lock_irqsave(&dev->req_lock, flags);
 		if (list_empty(&dev->tx_reqs))
 			netif_start_queue(net);
@@ -941,7 +971,6 @@ void gether_disconnect(struct gether *link)
 	struct eth_dev		*dev = link->ioport;
 	struct usb_request	*req;
 
-	WARN_ON(!dev);
 	if (!dev)
 		return;
 

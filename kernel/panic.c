@@ -22,6 +22,9 @@
 #include <linux/init.h>
 #include <linux/nmi.h>
 #include <linux/dmi.h>
+#ifdef CONFIG_KERNEL_DEBUG_SEC
+#include <linux/kernel_sec_common.h>
+#endif
 
 int panic_on_oops;
 static unsigned long tainted_mask;
@@ -29,7 +32,10 @@ static int pause_on_oops;
 static int pause_on_oops_flag;
 static DEFINE_SPINLOCK(pause_on_oops_lock);
 
-int panic_timeout;
+#ifndef CONFIG_PANIC_TIMEOUT
+#define CONFIG_PANIC_TIMEOUT 0
+#endif
+int panic_timeout = CONFIG_PANIC_TIMEOUT;
 
 ATOMIC_NOTIFIER_HEAD(panic_notifier_list);
 
@@ -57,6 +63,13 @@ NORET_TYPE void panic(const char * fmt, ...)
 	static char buf[1024];
 	va_list args;
 	long i;
+
+#ifdef CONFIG_KERNEL_DEBUG_SEC
+#ifdef CONFIG_TARGET_LOCALE_KOR 
+	local_irq_disable();
+	local_fiq_disable();
+#endif /* CONFIG_TARGET_LOCALE_KOR */
+#endif /* CONFIG_KERNEL_DEBUG_SEC */
 
 	/*
 	 * It's possible to come here directly from a panic-assertion and
@@ -102,12 +115,30 @@ NORET_TYPE void panic(const char * fmt, ...)
 		 */
 		printk(KERN_EMERG "Rebooting in %d seconds..", panic_timeout);
 
+#ifndef CONFIG_KERNEL_DEBUG_SEC
 		for (i = 0; i < panic_timeout*1000; ) {
 			touch_nmi_watchdog();
 			i += panic_blink(i);
 			mdelay(1);
 			i++;
 		}
+#else
+		/*
+		 * TODO : debugLevel considerationi should be done. (tkhwang)
+		 *        bluescreen display will be necessary.
+		 */
+		kernel_sec_set_cp_upload(); 
+		kernel_sec_save_final_context();
+#ifdef CONFIG_TARGET_LOCALE_KOR 
+		if ( 0 == strncmp("Fatal exception", fmt, sizeof("Fatal exception")) )
+			kernel_sec_set_upload_cause(UPLOAD_CAUSE_KERNEL_PANIC);
+		else
+			kernel_sec_set_upload_cause(UPLOAD_CAUSE_USER_FAULT);
+#else
+		kernel_sec_set_upload_cause(UPLOAD_CAUSE_KERNEL_PANIC);
+#endif
+		kernel_sec_hw_reset(false);
+#endif
 		/*
 		 * This will not be a clean reboot, with everything
 		 * shutting down.  But if there is a chance of
@@ -131,13 +162,33 @@ NORET_TYPE void panic(const char * fmt, ...)
 		disabled_wait(caller);
 	}
 #endif
+#ifndef CONFIG_KERNEL_DEBUG_SEC	
 	local_irq_enable();
-	for (i = 0; ; ) {
+
+	for (i = 0;;) {
 		touch_softlockup_watchdog();
 		i += panic_blink(i);
 		mdelay(1);
 		i++;
 	}
+#else
+	/*
+	 * TODO : debugLevel considerationi should be done. (tkhwang)
+	 *        bluescreen display will be necessary.
+	 */
+	kernel_sec_set_cp_upload(); 
+	kernel_sec_save_final_context();
+#ifdef CONFIG_TARGET_LOCALE_KOR 
+	if ( 0 == strncmp("Fatal exception", fmt, sizeof("Fatal exception")) )
+		kernel_sec_set_upload_cause(UPLOAD_CAUSE_KERNEL_PANIC);
+	else
+		kernel_sec_set_upload_cause(UPLOAD_CAUSE_USER_FAULT);
+#else
+	kernel_sec_set_upload_cause(UPLOAD_CAUSE_KERNEL_PANIC);
+#endif
+	kernel_sec_hw_reset(false);
+#endif		
+
 }
 
 EXPORT_SYMBOL(panic);

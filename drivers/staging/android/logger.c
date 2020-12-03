@@ -17,6 +17,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/sched.h>
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
@@ -26,6 +27,67 @@
 #include "logger.h"
 
 #include <asm/ioctls.h>
+
+#ifdef CONFIG_KERNEL_DEBUG_SEC
+#include <linux/kernel_sec_common.h>
+#endif
+
+/*
+ *  Mark for GetLog (tkhwang)
+ */ 
+
+struct struct_plat_log_mark  {
+	u32 special_mark_1;
+	u32 special_mark_2;
+	u32 special_mark_3;
+	u32 special_mark_4;
+	void *p_main;
+	void *p_radio;
+	void *p_events;
+	void *p_system;
+};
+
+static struct struct_plat_log_mark plat_log_mark =  {
+	.special_mark_1 = (('*' << 24) | ('^' << 16) | ('^' << 8) | ('*' << 0)),
+	.special_mark_2 = (('I' << 24) | ('n' << 16) | ('f' << 8) | ('o' << 0)),
+	.special_mark_3 = (('H' << 24) | ('e' << 16) | ('r' << 8) | ('e' << 0)),
+	.special_mark_4 = (('p' << 24) | ('l' << 16) | ('o' << 8) | ('g' << 0)),
+	.p_main = 0,
+	.p_radio = 0,
+	.p_events = 0,
+	.p_system = 0,
+};
+
+struct struct_marks_ver_mark {
+  u32 special_mark_1;
+  u32 special_mark_2;
+  u32 special_mark_3;
+  u32 special_mark_4;
+  u32 log_mark_version;
+  u32 framebuffer_mark_version;
+  void * this;                   /* 2개의 메모리를 구별하기 위해서 사용됩니다.*/
+  u32 first_size;                /* first memory block의  size */
+  u32 first_start_addr;          /* first memory  block의 Physical address */
+  u32 second_size;               /* second memory block의  size */
+  u32 second_start_addr;         /* second memory  block의 Physical address */
+};
+
+static struct struct_marks_ver_mark marks_ver_mark = {
+	.special_mark_1 = (('*' << 24) | ('^' << 16) | ('^' << 8) | ('*' << 0)),
+	.special_mark_2 = (('I' << 24) | ('n' << 16) | ('f' << 8) | ('o' << 0)),
+	.special_mark_3 = (('H' << 24) | ('e' << 16) | ('r' << 8) | ('e' << 0)),
+	.special_mark_4 = (('v' << 24) | ('e' << 16) | ('r' << 8) | ('s' << 0)),
+	.log_mark_version = 1,
+	.framebuffer_mark_version = 1,
+	.this=&marks_ver_mark,
+	.first_size=128*1024*1024,
+	.first_start_addr=0x30000000,
+//	.second_size=256*1024*1024,
+	.second_size=512*1024*1024,
+	.second_start_addr=0x40000000
+};
+
+static char klog_buf[256];
 
 /*
  * struct logger_log - represents a specific log, such as 'main' or 'radio'
@@ -309,6 +371,31 @@ static ssize_t do_write_log_from_user(struct logger_log *log,
 		if (copy_from_user(log->buffer, buf + len, count - len))
 			return -EFAULT;
 
+#if 1
+/* [LINUSYS] added by khoonk for calculating boot-time  on 20070508  */
+	memset(klog_buf,0,255);
+
+	if(strncmp(log->buffer  + log->w_off,  "!@", 2) == 0) {
+		if (count < 255)
+			memcpy(klog_buf,log->buffer  + log->w_off, count);			
+		else
+			memcpy(klog_buf,log->buffer  + log->w_off, 255);			
+
+		klog_buf[255]=0;
+
+/* In case when shutdown process is started, disable watching reset upload */
+#ifdef CONFIG_TARGET_LOCALE_KOR
+#ifdef CONFIG_KERNEL_DEBUG_SEC
+    	if(strncmp(log->buffer + log->w_off, "!@ Notifying thread to start radio shutdown", 30) == 0) {
+    		printk("Disable Reset Upload \n");
+            kernel_sec_clear_upload_magic_number();
+    	}
+#endif /* CONFIG_KERNEL_DEBUG_SEC */
+#endif /* CONFIG_TARGET_LOCALE_KOR */
+    }
+/* [LINUSYS] added by khoonk for calculating boot-time  on 20070508  */
+#endif
+
 	log->w_off = logger_offset(log->w_off + count);
 
 	return count;
@@ -375,6 +462,15 @@ ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 
 	/* wake up any blocked readers */
 	wake_up_interruptible(&log->wq);
+
+#if 1
+/* [LINUSYS] added by khoonk for calculating boot-time  on 20070508  */
+    if(strncmp(klog_buf, "!@", 2) == 0)
+	{
+		printk("%s\n",klog_buf);
+	}		
+/* [LINUSYS] added by khoonk for calculating boot-time  on 20070508  */
+#endif	
 
 	return ret;
 }
@@ -553,18 +649,21 @@ static struct logger_log VAR = { \
 	.size = SIZE, \
 };
 
-DEFINE_LOGGER_DEVICE(log_main, LOGGER_LOG_MAIN, 64*1024)
+DEFINE_LOGGER_DEVICE(log_main,   LOGGER_LOG_MAIN,   512*1024) /* Increased from 256 (tkhwang) */
 DEFINE_LOGGER_DEVICE(log_events, LOGGER_LOG_EVENTS, 256*1024)
-DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, 64*1024)
+DEFINE_LOGGER_DEVICE(log_radio,  LOGGER_LOG_RADIO,  256*1024)
+DEFINE_LOGGER_DEVICE(log_system, LOGGER_LOG_SYSTEM,  64*1024)
 
-static struct logger_log *get_log_from_minor(int minor)
+static struct logger_log * get_log_from_minor(int minor)
 {
 	if (log_main.misc.minor == minor)
 		return &log_main;
 	if (log_events.misc.minor == minor)
 		return &log_events;
 	if (log_radio.misc.minor == minor)
-		return &log_radio;
+		return &log_radio;	
+	if (log_system.misc.minor == minor)
+		return &log_system;
 	return NULL;
 }
 
@@ -589,6 +688,16 @@ static int __init logger_init(void)
 {
 	int ret;
 
+	/*
+	 *  Mark for GetLog (tkhwang)
+	 */
+	plat_log_mark.p_main   = _buf_log_main;
+	plat_log_mark.p_radio  = _buf_log_radio;
+	plat_log_mark.p_events = _buf_log_events;
+	plat_log_mark.p_system = _buf_log_system;
+
+	marks_ver_mark.log_mark_version = 1; 
+	
 	ret = init_log(&log_main);
 	if (unlikely(ret))
 		goto out;
@@ -598,6 +707,10 @@ static int __init logger_init(void)
 		goto out;
 
 	ret = init_log(&log_radio);
+	if (unlikely(ret))
+		goto out;
+
+	ret = init_log(&log_system);
 	if (unlikely(ret))
 		goto out;
 

@@ -142,4 +142,38 @@ config USB_DABUSB
 	  module will be called dabusb.
 endif # DAB
 
+if TARGET_LOCALE_KOR
+#klaatu TDMB
+config TDMB
+        tristate "T-DMB"
+        default y
+                ---help---
+                        This allows T-DMB support for Korea.
+                        This module is designed for SPI.
+
+if TDMB
+choice
+        prompt "Select TDMB chip"
+        default TDMB_T3700
+                ---help---
+                        This option selects TDMB Chip.
+                        You have to choose only one chip.
+
+config TDMB_GDM7024
+        boolean "GCT GDM7024 chip"
+        default n
+                ---help---
+                        This allows TDMB using GCT GDM7024.
+
+config TDMB_T3700
+        boolean "I&C T3700 chip"
+        default y
+                ---help---
+                        This allows TDMB using I&C T3700.
+
+endchoice
+endif # TDMB
+endif # TARGET_LOCALE_KOR
+
+
 endif # MEDIA_SUPPORT
