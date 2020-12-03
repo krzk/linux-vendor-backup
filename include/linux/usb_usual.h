@@ -114,10 +114,10 @@ enum { US_DO_ALL_FLAGS };
 /*
  */
 extern int usb_usual_ignore_device(struct usb_interface *intf);
-extern struct usb_device_id usb_storage_usb_ids[];
+
 
 #ifdef CONFIG_USB_LIBUSUAL
-
+extern struct usb_device_id usb_storage_usb_ids[];
 extern void usb_usual_set_present(int type);
 extern void usb_usual_clear_present(int type);
 extern int usb_usual_check_type(const struct usb_device_id *, int type);

@@ -1781,7 +1781,11 @@ int sdhci_add_host(struct sdhci_host *host)
 	else
 		mmc->f_min = host->max_clk / 256;
 	mmc->f_max = host->max_clk;
+#ifdef CONFIG_MMC_DISCARD
+	mmc->caps |= MMC_CAP_SDIO_IRQ | MMC_CAP_ERASE;
+#else /* CONFIG_MMC_DISCARD */
 	mmc->caps = MMC_CAP_SDIO_IRQ;
+#endif /* CONFIG_MMC_DISCARD */
 
 	if (!(host->quirks & SDHCI_QUIRK_FORCE_1_BIT_DATA))
 		mmc->caps |= MMC_CAP_4_BIT_DATA;

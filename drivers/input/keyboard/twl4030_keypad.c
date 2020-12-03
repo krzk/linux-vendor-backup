@@ -31,8 +31,11 @@
 #include <linux/interrupt.h>
 #include <linux/input.h>
 #include <linux/platform_device.h>
-#include <linux/i2c/twl4030.h>
+#include <linux/i2c/twl.h>
+#include <plat/keypad.h>
 
+void ( *onedram_cp_force_crash ) ( void );
+EXPORT_SYMBOL( onedram_cp_force_crash );
 
 /*
  * The TWL4030 family chips include a keypad controller that supports
@@ -53,16 +56,42 @@
 #define TWL4030_ROW_SHIFT	3
 #define TWL4030_KEYMAP_SIZE	(TWL4030_MAX_ROWS * TWL4030_MAX_COLS)
 
+extern void check_whether_x_is_fixed(void);
+
+#ifdef CONFIG_INPUT_HARD_RESET_KEY
+extern int home_key_press_status;
+#endif
+
 struct twl4030_keypad {
 	unsigned short	keymap[TWL4030_KEYMAP_SIZE];
 	u16		kp_state[TWL4030_MAX_ROWS];
 	unsigned	n_rows;
 	unsigned	n_cols;
 	unsigned	irq;
-
+	int keymapsize;
 	struct device *dbg_dev;
 	struct input_dev *input;
 };
+
+struct twl4030_keypad *g_kp;
+ssize_t matrixkey_pressed_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	unsigned int i, j;
+	u16 temp_state;
+	unsigned int count = 0;
+
+	for(i=0; i<TWL4030_MAX_ROWS; i++)
+	{
+		temp_state = g_kp->kp_state[i];
+		for( j=0; j<16; j++)
+		{
+			if(((temp_state>>j)&0x1) == 0x1) count++;
+		}
+	}
+	return sprintf(buf, "%u\n", count);
+}
+
+static DEVICE_ATTR(matrixkey_pressed, S_IRUGO | S_IWUSR | S_IWOTH | S_IXOTH, matrixkey_pressed_show, NULL);
 
 /*----------------------------------------------------------------------*/
 
@@ -104,6 +133,15 @@ struct twl4030_keypad {
 #define KEYP_CTRL_RP_EN			BIT(5)
 #define KEYP_CTRL_KBD_ON		BIT(6)
 
+#define PERSISTENT_KEY(col, row) (((col) << 28) | ((row) << 24) | \
+                                                KEY_PERSISTENT)
+
+//#define KEY(row, col, val)      (((row) << 28) | ((col) << 24) | (val))
+#define ROWCOL_MASK     KEY(0xf, 0xf, 0)
+//#define KEYNUM_MASK     ~PERSISTENT_KEY(0xf, 0xf)
+
+      
+
 /* KEYP_DEB, KEYP_LONG_KEY, KEYP_TIMEOUT_x*/
 #define KEYP_PERIOD_US(t, prescale)	((t) / (31 << (prescale + 1)) - 1)
 
@@ -127,13 +165,27 @@ struct twl4030_keypad {
 #define KEYP_EDR_MIS_FALLING		0x40
 #define KEYP_EDR_MIS_RISING		0x80
 
+static int twl4030_find_key(struct twl4030_keypad *kp, int col, int row)
+{
+        int i, rc;
+
+        rc = KEY(col, row, 0);
+        for (i = 0; i < kp->keymapsize; i++)
+                if ((kp->keymap[i] & ROWCOL_MASK) == rc)
+                        return kp->keymap[i] & (KEYNUM_MASK | KEY_PERSISTENT);
+
+        return -EINVAL;
+}
+
+
+
 
 /*----------------------------------------------------------------------*/
 
 static int twl4030_kpread(struct twl4030_keypad *kp,
 		u8 *data, u32 reg, u8 num_bytes)
 {
-	int ret = twl4030_i2c_read(TWL4030_MODULE_KEYPAD, data, reg, num_bytes);
+	int ret = twl_i2c_read(TWL4030_MODULE_KEYPAD, data, reg, num_bytes);
 
 	if (ret < 0)
 		dev_warn(kp->dbg_dev,
@@ -145,7 +197,7 @@ static int twl4030_kpread(struct twl4030_keypad *kp,
 
 static int twl4030_kpwrite_u8(struct twl4030_keypad *kp, u8 data, u32 reg)
 {
-	int ret = twl4030_i2c_write_u8(TWL4030_MODULE_KEYPAD, data, reg);
+	int ret = twl_i2c_write_u8(TWL4030_MODULE_KEYPAD, data, reg);
 
 	if (ret < 0)
 		dev_warn(kp->dbg_dev,
@@ -170,10 +222,26 @@ static inline u16 twl4030_col_xlate(struct twl4030_keypad *kp, u8 col)
 
 static int twl4030_read_kp_matrix_state(struct twl4030_keypad *kp, u16 *state)
 {
-	u8 new_state[TWL4030_MAX_ROWS];
+	u8 new_state[TWL4030_MAX_ROWS] = {0};
 	int row;
 	int ret = twl4030_kpread(kp, new_state,
 				 KEYP_FULL_CODE_7_0, kp->n_rows);
+
+
+#if defined(CONFIG_INPUT_HARD_RESET_KEY) && (CONFIG_SAMSUNG_KERNEL_DEBUG_USER)
+	if((new_state[1] == 1) && home_key_press_status)
+	{
+		printk(KERN_ERR "%s : Force Crash by keypad\n", __func__);
+		panic("__forced_upload");
+	}
+	else if( ( new_state[ 2 ] == 2 ) && home_key_press_status ) {
+		printk( KERN_ERR "%s : CP Force Crash by keypad\n", __func__ );
+
+		if( onedram_cp_force_crash )
+			onedram_cp_force_crash();
+	}
+#endif
+
 	if (ret >= 0)
 		for (row = 0; row < kp->n_rows; row++)
 			state[row] = twl4030_col_xlate(kp, new_state[row]);
@@ -202,7 +270,7 @@ static void twl4030_kp_scan(struct twl4030_keypad *kp, bool release_all)
 {
 	struct input_dev *input = kp->input;
 	u16 new_state[TWL4030_MAX_ROWS];
-	int col, row;
+	int col, row, key;
 
 	if (release_all)
 		memset(new_state, 0, sizeof(new_state));
@@ -230,12 +298,28 @@ static void twl4030_kp_scan(struct twl4030_keypad *kp, bool release_all)
 			if (!(changed & (1 << col)))
 				continue;
 
+#if defined(CONFIG_SAMSUNG_KERNEL_DEBUG_USER)
 			dev_dbg(kp->dbg_dev, "key [%d:%d] %s\n", row, col,
 				(new_state[row] & (1 << col)) ?
 				"press" : "release");
+#endif
+
+      		        key = twl4030_find_key(kp, col, row);
+			//printk("[KEY] [value = %d], status = %d]\n", key, new_state[row]); // klaatu log
+
+			{
+
+				if(key == 103 && new_state[row] == 2 )
+				{
+					//check_whether_x_is_fixed();
+				}
+			}
+
+
 
 			code = MATRIX_SCAN_CODE(row, col, TWL4030_ROW_SHIFT);
 			input_event(input, EV_MSC, MSC_SCAN, code);
+			printk("key[%d] : %d \n", code, kp->keymap[code]);
 			input_report_key(input, kp->keymap[code],
 					 new_state[row] & (1 << col));
 		}
@@ -250,8 +334,8 @@ static void twl4030_kp_scan(struct twl4030_keypad *kp, bool release_all)
 static irqreturn_t do_kp_irq(int irq, void *_kp)
 {
 	struct twl4030_keypad *kp = _kp;
-	u8 reg;
-	int ret;
+	u8 reg = 0;
+	int ret = 0;
 
 #ifdef CONFIG_LOCKDEP
 	/* WORKAROUND for lockdep forcing IRQF_DISABLED on us, which
@@ -334,11 +418,17 @@ static int __devinit twl4030_kp_program(struct twl4030_keypad *kp)
 static int __devinit twl4030_kp_probe(struct platform_device *pdev)
 {
 	struct twl4030_keypad_data *pdata = pdev->dev.platform_data;
-	const struct matrix_keymap_data *keymap_data = pdata->keymap_data;
+	const struct matrix_keymap_data *keymap_data;
 	struct twl4030_keypad *kp;
 	struct input_dev *input;
 	u8 reg;
 	int error;
+
+	if (!pdata) {
+		WARN_ON(1);
+		return -EINVAL;
+	}
+	keymap_data = pdata->keymap_data;
 
 	if (!pdata || !pdata->rows || !pdata->cols ||
 	    pdata->rows > TWL4030_MAX_ROWS || pdata->cols > TWL4030_MAX_COLS) {
@@ -353,6 +443,17 @@ static int __devinit twl4030_kp_probe(struct platform_device *pdev)
 		goto err1;
 	}
 
+	g_kp = kp;
+	struct kobject *matrixkey;
+	matrixkey = kobject_create_and_add("matrixkey", NULL);
+	if (!matrixkey) {
+		printk("Failed to create sysfs(matrixkey)!\n");
+		error = -ENOMEM;
+		goto err1;
+	}
+	if (sysfs_create_file(matrixkey, &dev_attr_matrixkey_pressed.attr)< 0)
+		printk("Failed to create device file(%s)!\n", dev_attr_matrixkey_pressed.attr.name);
+
 	/* Get the debug Device */
 	kp->dbg_dev = &pdev->dev;
 	kp->input = input;
@@ -365,8 +466,16 @@ static int __devinit twl4030_kp_probe(struct platform_device *pdev)
 	__set_bit(EV_KEY, input->evbit);
 
 	/* Enable auto repeat feature of Linux input subsystem */
-	if (pdata->rep)
-		__set_bit(EV_REP, input->evbit);
+//	if (pdata->rep)
+//		__set_bit(EV_REP, input->evbit);
+
+/* may have errors */
+	kp->input->name     = "TWL4030 Keypad";
+	kp->input->phys     = "twl4030_keypad/input0";
+	printk("kp->input->name :%s ",kp->input->name);
+	kp->input->dev.parent	= &pdev->dev;
+
+/*end of may have erros*/
 
 	input_set_capability(input, EV_MSC, MSC_SCAN);
 
@@ -397,6 +506,10 @@ static int __devinit twl4030_kp_probe(struct platform_device *pdev)
 	if (error)
 		goto err2;
 
+#ifdef CONFIG_CHN_KERNEL_STE_LATONA
+				kp->keymap[0] = KEY_VOLUMEUP; //volume up key -temporary hj0205.yang
+#endif	
+
 	/*
 	 * This ISR will always execute in kernel thread context because of
 	 * the need to access the TWL4030 over the I2C bus.
@@ -418,6 +531,7 @@ static int __devinit twl4030_kp_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, kp);
+
 	return 0;
 
 err4:
@@ -463,6 +577,7 @@ static struct platform_driver twl4030_kp_driver = {
 
 static int __init twl4030_kp_init(void)
 {
+	//printk(KERN_EMERG "$$$$    %s -  %i $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n", __FUNCTION__, __LINE__);
 	return platform_driver_register(&twl4030_kp_driver);
 }
 module_init(twl4030_kp_init);

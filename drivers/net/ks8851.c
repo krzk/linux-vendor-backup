@@ -76,6 +76,7 @@ union ks8851_tx_hdr {
  * @msg_enable: The message flags controlling driver output (see ethtool).
  * @fid: Incrementing frame id tag.
  * @rc_ier: Cached copy of KS_IER.
+ * @rc_ccr: Cached copy of KS_CCR.
  * @rc_rxqcr: Cached copy of KS_RXQCR.
  *
  * The @lock ensures that the chip is protected when certain operations are
@@ -107,6 +108,7 @@ struct ks8851_net {
 
 	u16			rc_ier;
 	u16			rc_rxqcr;
+	u16			rc_ccr;
 
 	struct mii_if_info	mii;
 	struct ks8851_rxctrl	rxctrl;
@@ -122,6 +124,8 @@ struct ks8851_net {
 	struct spi_transfer	spi_xfer1;
 	struct spi_transfer	spi_xfer2[2];
 };
+
+struct workqueue_struct *eth_wq;
 
 static int msg_enable;
 
@@ -365,20 +369,46 @@ static int ks8851_write_mac_addr(struct net_device *dev)
 }
 
 /**
+ * ks8851_read_mac_addr - read mac address from device registers
+ * @dev: The network device
+ *
+ * Update our copy of the KS8851 MAC address from the registers of @dev.
+*/
+static void ks8851_read_mac_addr(struct net_device *dev)
+{
+	struct ks8851_net *ks = netdev_priv(dev);
+	int i;
+
+	mutex_lock(&ks->lock);
+
+	for (i = 0; i < ETH_ALEN; i++)
+		dev->dev_addr[i] = ks8851_rdreg8(ks, KS_MAR(i));
+
+	mutex_unlock(&ks->lock);
+}
+
+/**
  * ks8851_init_mac - initialise the mac address
  * @ks: The device structure
  *
  * Get or create the initial mac address for the device and then set that
- * into the station address register. Currently we assume that the device
- * does not have a valid mac address in it, and so we use random_ether_addr()
+ * into the station address register. If there is an EEPROM present, then
+ * we try that. If no valid mac address is found we use random_ether_addr()
  * to create a new one.
- *
- * In future, the driver should check to see if the device has an EEPROM
- * attached and whether that has a valid ethernet address in it.
  */
 static void ks8851_init_mac(struct ks8851_net *ks)
 {
 	struct net_device *dev = ks->netdev;
+
+	/* first, try reading what we've got already */
+	if (ks->rc_ccr & CCR_EEPROM) {
+		ks8851_read_mac_addr(dev);
+		if (is_valid_ether_addr(dev->dev_addr))
+			return;
+
+		ks_err(ks, "invalid mac address read %pM\n",
+			dev->dev_addr);
+	}
 
 	random_ether_addr(dev->dev_addr);
 	ks8851_write_mac_addr(dev);
@@ -397,7 +427,7 @@ static irqreturn_t ks8851_irq(int irq, void *pw)
 	struct ks8851_net *ks = pw;
 
 	disable_irq_nosync(irq);
-	schedule_work(&ks->irq_work);
+	queue_work(eth_wq, &ks->irq_work);
 	return IRQ_HANDLED;
 }
 
@@ -722,12 +752,15 @@ static void ks8851_tx_work(struct work_struct *work)
 		txb = skb_dequeue(&ks->txq);
 		last = skb_queue_empty(&ks->txq);
 
-		ks8851_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr | RXQCR_SDA);
-		ks8851_wrpkt(ks, txb, last);
-		ks8851_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr);
-		ks8851_wrreg16(ks, KS_TXQCR, TXQCR_METFE);
+		if (txb != NULL) {
 
-		ks8851_done_tx(ks, txb);
+			ks8851_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr | RXQCR_SDA);
+			ks8851_wrpkt(ks, txb, last);
+			ks8851_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr);
+			ks8851_wrreg16(ks, KS_TXQCR, TXQCR_METFE);
+
+			ks8851_done_tx(ks, txb);
+		}
 	}
 
 	mutex_unlock(&ks->lock);
@@ -919,7 +952,7 @@ static netdev_tx_t ks8851_start_xmit(struct sk_buff *skb,
 	}
 
 	spin_unlock(&ks->statelock);
-	schedule_work(&ks->tx_work);
+	queue_work(eth_wq,&ks->tx_work);
 
 	return ret;
 }
@@ -999,7 +1032,7 @@ static void ks8851_set_rx_mode(struct net_device *dev)
 
 	if (memcmp(&rxctrl, &ks->rxctrl, sizeof(rxctrl)) != 0) {
 		memcpy(&ks->rxctrl, &rxctrl, sizeof(ks->rxctrl));
-		schedule_work(&ks->rxctrl_work);
+		queue_work(eth_wq, &ks->rxctrl_work);
 	}
 
 	spin_unlock(&ks->statelock);
@@ -1229,6 +1262,8 @@ static int __devinit ks8851_probe(struct spi_device *spi)
 	mutex_init(&ks->lock);
 	spin_lock_init(&ks->statelock);
 
+	eth_wq = create_workqueue("eth_workqueue");
+
 	INIT_WORK(&ks->tx_work, ks8851_tx_work);
 	INIT_WORK(&ks->irq_work, ks8851_irq_work);
 	INIT_WORK(&ks->rxctrl_work, ks8851_rxctrl_work);
@@ -1279,6 +1314,9 @@ static int __devinit ks8851_probe(struct spi_device *spi)
 		goto err_id;
 	}
 
+	/* cache the contents of the CCR register for EEPROM, etc. */
+	ks->rc_ccr = ks8851_rdreg16(ks, KS_CCR);
+
 	ks8851_read_selftest(ks);
 	ks8851_init_mac(ks);
 
@@ -1295,9 +1333,10 @@ static int __devinit ks8851_probe(struct spi_device *spi)
 		goto err_netdev;
 	}
 
-	dev_info(&spi->dev, "revision %d, MAC %pM, IRQ %d\n",
+	dev_info(&spi->dev, "revision %d, MAC %pM, IRQ %d, %s EEPROM\n",
 		 CIDER_REV_GET(ks8851_rdreg16(ks, KS_CIDER)),
-		 ndev->dev_addr, ndev->irq);
+		 ndev->dev_addr, ndev->irq,
+		 ks->rc_ccr & CCR_EEPROM ? "has" : "no");
 
 	return 0;
 
@@ -1325,6 +1364,18 @@ static int __devexit ks8851_remove(struct spi_device *spi)
 	return 0;
 }
 
+static int ks8851_suspend(struct spi_device *spi, pm_message_t message)
+{
+	disable_irq_nosync(spi->irq);
+	return 0;
+}
+
+static int ks8851_resume(struct spi_device *spi)
+{
+	enable_irq(spi->irq);
+	return 0;
+}
+
 static struct spi_driver ks8851_driver = {
 	.driver = {
 		.name = "ks8851",
@@ -1332,6 +1383,8 @@ static struct spi_driver ks8851_driver = {
 	},
 	.probe = ks8851_probe,
 	.remove = __devexit_p(ks8851_remove),
+	.suspend = ks8851_suspend,
+	.resume = ks8851_resume,
 };
 
 static int __init ks8851_init(void)
@@ -1341,6 +1394,7 @@ static int __init ks8851_init(void)
 
 static void __exit ks8851_exit(void)
 {
+	destroy_workqueue(eth_wq);
 	spi_unregister_driver(&ks8851_driver);
 }
 

@@ -200,11 +200,13 @@ static int snd_pcm_update_hw_ptr_post(struct snd_pcm_substream *substream,
 	if (runtime->status->state == SNDRV_PCM_STATE_DRAINING) {
 		if (avail >= runtime->buffer_size) {
 			snd_pcm_drain_done(substream);
+			printk("xrun!!!!\n");
 			return -EPIPE;
 		}
 	} else {
 		if (avail >= runtime->stop_threshold) {
 			xrun(substream);
+			printk("xrun!!!!\n");
 			return -EPIPE;
 		}
 	}
@@ -235,6 +237,7 @@ static int snd_pcm_update_hw_ptr_interrupt(struct snd_pcm_substream *substream)
 	pos = snd_pcm_update_hw_ptr_pos(substream, runtime);
 	if (pos == SNDRV_PCM_POS_XRUN) {
 		xrun(substream);
+		printk("xrun!!!!\n");
 		return -EPIPE;
 	}
 	if (xrun_debug(substream, 8)) {
@@ -367,6 +370,7 @@ int snd_pcm_update_hw_ptr(struct snd_pcm_substream *substream)
 	pos = snd_pcm_update_hw_ptr_pos(substream, runtime);
 	if (pos == SNDRV_PCM_POS_XRUN) {
 		xrun(substream);
+		printk("xrun!!!!\n");
 		return -EPIPE;
 	}
 	if (xrun_debug(substream, 16)) {
@@ -1689,11 +1693,15 @@ static int wait_for_avail_min(struct snd_pcm_substream *substream,
 			err = -ESTRPIPE;
 			goto _endloop;
 		case SNDRV_PCM_STATE_XRUN:
+			printk("xrun!!!!\n");
 			err = -EPIPE;
 			goto _endloop;
 		case SNDRV_PCM_STATE_DRAINING:
 			if (is_playback)
+			{
+				printk("xrun!!!!\n");
 				err = -EPIPE;
+			}
 			else 
 				avail = 0; /* indicate draining */
 			goto _endloop;
@@ -1766,6 +1774,7 @@ static snd_pcm_sframes_t snd_pcm_lib_write1(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_STATE_PAUSED:
 		break;
 	case SNDRV_PCM_STATE_XRUN:
+		printk("xrun!!!!\n");
 		err = -EPIPE;
 		goto _end_unlock;
 	case SNDRV_PCM_STATE_SUSPENDED:
@@ -1808,6 +1817,7 @@ static snd_pcm_sframes_t snd_pcm_lib_write1(struct snd_pcm_substream *substream,
 		snd_pcm_stream_lock_irq(substream);
 		switch (runtime->status->state) {
 		case SNDRV_PCM_STATE_XRUN:
+			printk("xrun!!!!\n");
 			err = -EPIPE;
 			goto _end_unlock;
 		case SNDRV_PCM_STATE_SUSPENDED:
@@ -1983,6 +1993,7 @@ static snd_pcm_sframes_t snd_pcm_lib_read1(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_STATE_PAUSED:
 		break;
 	case SNDRV_PCM_STATE_XRUN:
+		printk("xrun!!!!\n");
 		err = -EPIPE;
 		goto _end_unlock;
 	case SNDRV_PCM_STATE_SUSPENDED:
@@ -2032,6 +2043,7 @@ static snd_pcm_sframes_t snd_pcm_lib_read1(struct snd_pcm_substream *substream,
 		snd_pcm_stream_lock_irq(substream);
 		switch (runtime->status->state) {
 		case SNDRV_PCM_STATE_XRUN:
+			printk("xrun!!!!\n");
 			err = -EPIPE;
 			goto _end_unlock;
 		case SNDRV_PCM_STATE_SUSPENDED:

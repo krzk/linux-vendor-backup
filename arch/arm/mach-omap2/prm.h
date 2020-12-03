@@ -4,8 +4,8 @@
 /*
  * OMAP2/3 Power/Reset Management (PRM) register definitions
  *
- * Copyright (C) 2007 Texas Instruments, Inc.
- * Copyright (C) 2007 Nokia Corporation
+ * Copyright (C) 2007-2009 Texas Instruments, Inc.
+ * Copyright (C) 2009 Nokia Corporation
  *
  * Written by Paul Walmsley
  *
@@ -17,11 +17,17 @@
 #include "prcm-common.h"
 
 #define OMAP2420_PRM_REGADDR(module, reg)				\
-			OMAP2_IO_ADDRESS(OMAP2420_PRM_BASE + (module) + (reg))
+		OMAP2_L4_IO_ADDRESS(OMAP2420_PRM_BASE + (module) + (reg))
 #define OMAP2430_PRM_REGADDR(module, reg)				\
-			OMAP2_IO_ADDRESS(OMAP2430_PRM_BASE + (module) + (reg))
+		OMAP2_L4_IO_ADDRESS(OMAP2430_PRM_BASE + (module) + (reg))
 #define OMAP34XX_PRM_REGADDR(module, reg)				\
-			OMAP2_IO_ADDRESS(OMAP3430_PRM_BASE + (module) + (reg))
+		OMAP2_L4_IO_ADDRESS(OMAP3430_PRM_BASE + (module) + (reg))
+#define OMAP44XX_PRM_REGADDR(module, reg)				\
+		OMAP2_L4_IO_ADDRESS(OMAP4430_PRM_BASE + (module) + (reg))
+#define OMAP44XX_CHIRONSS_REGADDR(module, reg)				\
+		OMAP2_L4_IO_ADDRESS(OMAP4430_CHIRONSS_BASE + (module) + (reg))
+
+#include "prm44xx.h"
 
 /*
  * Architecture-specific global PRM registers
@@ -155,6 +161,10 @@
 #define OMAP3_PRM_VP2_STATUS_OFFSET	0x00e4
 #define OMAP3430_PRM_VP2_STATUS		OMAP34XX_PRM_REGADDR(OMAP3430_GR_MOD, 0x00e4)
 
+/* 36xx register offsets in GR_MOD */
+#define OMAP3_PRM_LDO_ABB_SETUP_OFFSET		0X00f0
+#define OMAP3_PRM_LDO_ABB_CTRL_OFFSET		0x00f4
+
 #define OMAP3_PRM_CLKSEL_OFFSET	0x0040
 #define OMAP3430_PRM_CLKSEL		OMAP34XX_PRM_REGADDR(OMAP3430_CCR_MOD, 0x0040)
 #define OMAP3_PRM_CLKOUT_CTRL_OFFSET	0x0070
@@ -173,9 +183,12 @@
 
 /* Registers appearing on both 24xx and 34xx */
 
-#define RM_RSTCTRL					0x0050
-#define RM_RSTTIME					0x0054
-#define RM_RSTST					0x0058
+#define OMAP2_RM_RSTCTRL				0x0050
+#define OMAP2_RM_RSTTIME				0x0054
+#define OMAP2_RM_RSTST					0x0058
+#define OMAP2_PM_PWSTCTRL				0x00e0
+#define OMAP2_PM_PWSTST					0x00e4
+#define OMAP2_PM_PREPWSTST				0x00e8
 
 #define PM_WKEN						0x00a0
 #define PM_WKEN1					PM_WKEN
@@ -185,8 +198,6 @@
 #define PM_EVGENCTRL					0x00d4
 #define PM_EVGENONTIM					0x00d8
 #define PM_EVGENOFFTIM					0x00dc
-#define PM_PWSTCTRL					0x00e0
-#define PM_PWSTST					0x00e4
 
 /* Omap2 specific registers */
 #define OMAP24XX_PM_WKEN2				0x00a4
@@ -214,6 +225,13 @@
 #define OMAP3430_PRM_IRQSTATUS_IVA2			0x00f8
 #define OMAP3430_PRM_IRQENABLE_IVA2			0x00fc
 
+/* Omap4 specific registers */
+#define OMAP4_RM_RSTCTRL				0x0000
+#define OMAP4_RM_RSTTIME				0x0004
+#define OMAP4_RM_RSTST					0x0008
+#define OMAP4_PM_PWSTCTRL				0x0000
+#define OMAP4_PM_PWSTST					0x0004
+
 
 #ifndef __ASSEMBLER__
 
@@ -221,6 +239,8 @@
 extern u32 prm_read_mod_reg(s16 module, u16 idx);
 extern void prm_write_mod_reg(u32 val, s16 module, u16 idx);
 extern u32 prm_rmw_mod_reg_bits(u32 mask, u32 bits, s16 module, s16 idx);
+extern u32 chiron_read_mod_reg(s16 module, u16 idx);
+extern void chiron_write_mod_reg(u32 val, s16 module, u16 idx);
 
 /* Read-modify-write bits in a PRM register (by domain) */
 static inline u32 prm_set_mod_reg_bits(u32 bits, s16 module, s16 idx)

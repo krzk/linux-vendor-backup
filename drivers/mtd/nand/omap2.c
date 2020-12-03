@@ -17,12 +17,14 @@
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
 #include <linux/io.h>
+#include <linux/sched.h>
 
-#include <mach/dma.h>
-#include <mach/gpmc.h>
-#include <mach/nand.h>
+#include <plat/dma.h>
+#include <plat/gpmc.h>
+#include <plat/nand.h>
 
-#define GPMC_IRQ_STATUS		0x18
+#define GPMC_IRQSTATUS		0x18
+#define GPMC_IRQENABLE		0x1C
 #define GPMC_ECC_CONFIG		0x1F4
 #define GPMC_ECC_CONTROL	0x1F8
 #define GPMC_ECC_SIZE_CONFIG	0x1FC
@@ -147,6 +149,42 @@ struct omap_nand_info {
 	void __iomem			*nand_pref_fifo_add;
 	struct completion		comp;
 	int				dma_ch;
+	bool				wait_for_rb;
+};
+
+static struct nand_ecclayout nand_x8_hw_romcode_oob_64 = {
+	.eccbytes = 12,
+	.eccpos = {
+		1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+	},
+	.oobfree = {
+		{.offset = 13,
+		.length = 51}
+	}
+};
+
+/* Define some generic bad / good block scan pattern which are used
+ *  * while scanning a device for factory marked good / bad blocks
+ *   */
+static uint8_t scan_ff_pattern[] = { 0xff };
+
+static struct
+nand_bbt_descr bb_descrip_flashbased = {
+	.options = NAND_BBT_SCANEMPTY | NAND_BBT_SCANALLPAGES,
+	.offs = 0,
+	.len = 1,
+	.pattern = scan_ff_pattern,
+};
+
+static struct nand_ecclayout nand_x16_hw_romcode_oob_64 = {
+	.eccbytes = 12,
+	.eccpos = {
+		2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+	},
+	.oobfree = {
+		{.offset = 14,
+		.length = 50}
+	}
 };
 
 /**
@@ -169,12 +207,34 @@ static void omap_nand_wp(struct mtd_info *mtd, int mode)
 	__raw_writel(config, (info->gpmc_baseaddr + GPMC_CONFIG));
 }
 
+static void omap_new_command(struct omap_nand_info *info, int cmd)
+{
+	if (__raw_readl(info->gpmc_baseaddr + GPMC_IRQSTATUS) & 0x100)
+		printk(KERN_ERR "%s: irqstatus set on cmd entry %x\n",
+		       DRIVER_NAME, cmd);
+
+	switch (cmd) {
+	case NAND_CMD_STATUS:
+	case NAND_CMD_STATUS_MULTI:
+	case NAND_CMD_READID:
+		break;
+	default:
+		__raw_writel(0x100, info->gpmc_baseaddr + GPMC_IRQSTATUS);
+		info->wait_for_rb = true;
+	}
+}
+
 /**
  * omap_hwcontrol - hardware specific access to control-lines
  * @mtd: MTD device structure
  * @cmd: command to device
  * @ctrl:
  * NAND_NCE: bit 0 -> don't care
+ * hardware specific access to control-lines
+ * NOTE: boards may use different bits for these!!
+ *
+ * ctrl:
+ * NAND_NCE: bit 0 - don't care
  * NAND_CLE: bit 1 -> Command Latch
  * NAND_ALE: bit 2 -> Address Latch
  *
@@ -207,8 +267,11 @@ static void omap_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ctrl)
 		break;
 	}
 
-	if (cmd != NAND_CMD_NONE)
+	if (cmd != NAND_CMD_NONE) {
+		if (ctrl & NAND_CLE)
+			omap_new_command(info, cmd);
 		__raw_writeb(cmd, info->nand.IO_ADDR_W);
+	}
 }
 
 /**
@@ -529,7 +592,6 @@ static int omap_verify_buf(struct mtd_info *mtd, const u_char * buf, int len)
 	return 0;
 }
 
-#ifdef CONFIG_MTD_NAND_OMAP_HWECC
 /**
  * omap_hwecc_init - Initialize the HW ECC for NAND flash in GPMC controller
  * @mtd: MTD device structure
@@ -687,7 +749,7 @@ static int omap_compare_ecc(u8 *ecc_data1,	/* read from NAND memory */
 
 		page_data[find_byte] ^= (1 << find_bit);
 
-		return 0;
+		return 1;
 	default:
 		if (isEccFF) {
 			if (ecc_data2[0] == 0 &&
@@ -716,7 +778,7 @@ static int omap_correct_data(struct mtd_info *mtd, u_char *dat,
 {
 	struct omap_nand_info *info = container_of(mtd, struct omap_nand_info,
 							mtd);
-	int blockCnt = 0, i = 0, ret = 0;
+	int blockCnt = 0, i = 0, corrected = 0, ret = 0;
 
 	/* Ex NAND_ECC_HW12_2048 */
 	if ((info->nand.ecc.mode == NAND_ECC_HW) &&
@@ -730,12 +792,15 @@ static int omap_correct_data(struct mtd_info *mtd, u_char *dat,
 			ret = omap_compare_ecc(read_ecc, calc_ecc, dat);
 			if (ret < 0)
 				return ret;
+			if (ret > 0)
+				corrected = 1;
 		}
 		read_ecc += 3;
 		calc_ecc += 3;
 		dat      += 512;
 	}
-	return 0;
+
+	return corrected;
 }
 
 /**
@@ -807,7 +872,6 @@ static void omap_enable_hwecc(struct mtd_info *mtd, int mode)
 
 	__raw_writel(val, info->gpmc_baseaddr + GPMC_ECC_CONFIG);
 }
-#endif
 
 /**
  * omap_wait - wait until the command is done
@@ -855,26 +919,29 @@ static int omap_wait(struct mtd_info *mtd, struct nand_chip *chip)
  */
 static int omap_dev_ready(struct mtd_info *mtd)
 {
-	struct omap_nand_info *info = container_of(mtd, struct omap_nand_info,
-							mtd);
-	unsigned int val = __raw_readl(info->gpmc_baseaddr + GPMC_IRQ_STATUS);
+	struct omap_nand_info *info;
+	unsigned long now, timeout = jiffies;
+	int ret;
+	timeout += (HZ * 400) / 1000 + 1;
 
-	if ((val & 0x100) == 0x100) {
-		/* Clear IRQ Interrupt */
-		val |= 0x100;
-		val &= ~(0x0);
-		__raw_writel(val, info->gpmc_baseaddr + GPMC_IRQ_STATUS);
-	} else {
-		unsigned int cnt = 0;
-		while (cnt++ < 0x1FF) {
-			if  ((val & 0x100) == 0x100)
-				return 0;
-			val = __raw_readl(info->gpmc_baseaddr +
-							GPMC_IRQ_STATUS);
-		}
-	}
+	info = container_of(mtd, struct omap_nand_info, mtd);
 
-	return 1;
+	if (!info->wait_for_rb)
+		return !!(__raw_readl(info->gpmc_baseaddr + GPMC_STATUS) &
+			  0x100);
+
+	do {
+		now = jiffies;
+		ret = __raw_readl(info->gpmc_baseaddr + GPMC_IRQSTATUS) & 0x100;
+	} while(!ret && time_before_eq(now, timeout));
+
+	if (ret) {
+		__raw_writel(0x100, info->gpmc_baseaddr + GPMC_IRQSTATUS);
+		info->wait_for_rb = false;
+	} else
+		printk(KERN_ERR "%s: timeout in dev ready cmd\n", DRIVER_NAME);
+
+	return !!ret;
 }
 
 static int __devinit omap_nand_probe(struct platform_device *pdev)
@@ -919,8 +986,9 @@ static int __devinit omap_nand_probe(struct platform_device *pdev)
 	/* Enable RD PIN Monitoring Reg */
 	if (pdata->dev_ready) {
 		val  = gpmc_cs_read_reg(info->gpmc_cs, GPMC_CS_CONFIG1);
-		val |= WR_RD_PIN_MONITORING;
+		val &= ~WR_RD_PIN_MONITORING;
 		gpmc_cs_write_reg(info->gpmc_cs, GPMC_CS_CONFIG1, val);
+		__raw_writel(0x100, info->gpmc_baseaddr + GPMC_IRQENABLE);
 	}
 
 	val  = gpmc_cs_read_reg(info->gpmc_cs, GPMC_CS_CONFIG7);
@@ -1001,20 +1069,25 @@ static int __devinit omap_nand_probe(struct platform_device *pdev)
 		}
 	}
 	info->nand.verify_buf = omap_verify_buf;
+	if (pdata->ecc_opt & 0x3) {
+		info->nand.ecc.bytes            = 3;
+		info->nand.ecc.size             = 512;
+		if (info->nand.options & NAND_BUSWIDTH_16) {
+			info->nand.ecc.layout   = &nand_x16_hw_romcode_oob_64;
+		} else {
+			info->nand.ecc.layout   = &nand_x8_hw_romcode_oob_64;
+			info->nand.badblock_pattern = &bb_descrip_flashbased;
+		}
+		info->nand.ecc.calculate        = omap_calculate_ecc;
+		info->nand.ecc.hwctl            = omap_enable_hwecc;
+		info->nand.ecc.correct          = omap_correct_data;
+		info->nand.ecc.mode             = NAND_ECC_HW;
+		/* init HW ECC */
+		omap_hwecc_init(&info->mtd);
+	} else {
+		info->nand.ecc.mode = NAND_ECC_SOFT;
+	}
 
-#ifdef CONFIG_MTD_NAND_OMAP_HWECC
-	info->nand.ecc.bytes		= 3;
-	info->nand.ecc.size		= 512;
-	info->nand.ecc.calculate	= omap_calculate_ecc;
-	info->nand.ecc.hwctl		= omap_enable_hwecc;
-	info->nand.ecc.correct		= omap_correct_data;
-	info->nand.ecc.mode		= NAND_ECC_HW;
-
-	/* init HW ECC */
-	omap_hwecc_init(&info->mtd);
-#else
-	info->nand.ecc.mode = NAND_ECC_SOFT;
-#endif
 
 	/* DIP switches on some boards change between 8 and 16 bit
 	 * bus widths for flash.  Try the other width if the first try fails.
@@ -1067,6 +1140,33 @@ static int omap_nand_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int omap_nand_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	struct mtd_info *info = platform_get_drvdata(pdev);
+	int ret = 0;
+
+	if (info && info->suspend)
+		ret = info->suspend(info);
+
+	return ret;
+}
+static int omap_nand_resume(struct platform_device *pdev)
+{
+	struct mtd_info *info = platform_get_drvdata(pdev);
+	int ret = 0;
+
+	if (info)
+		info->resume(info);
+
+	return ret;
+}
+
+#else
+# define omap_nand_suspend   NULL
+# define omap_nand_resume    NULL
+#endif                          /* CONFIG_PM */
+
 static struct platform_driver omap_nand_driver = {
 	.probe		= omap_nand_probe,
 	.remove		= omap_nand_remove,
@@ -1074,6 +1174,8 @@ static struct platform_driver omap_nand_driver = {
 		.name	= DRIVER_NAME,
 		.owner	= THIS_MODULE,
 	},
+	.suspend	= omap_nand_suspend,
+	.resume		= omap_nand_resume,
 };
 
 static int __init omap_nand_init(void)

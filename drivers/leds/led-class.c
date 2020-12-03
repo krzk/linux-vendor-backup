@@ -24,6 +24,130 @@
 
 static struct class *leds_class;
 
+#if 1 // Archer custom feature
+static void led_update_flashlight(struct led_classdev *led_cdev) 
+{
+    if (led_cdev->flashlight_get)
+    {
+    	led_cdev->hand_flash = led_cdev->flashlight_get(led_cdev);
+    }
+}
+
+static ssize_t  lcd_flashlight_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+
+	/* no lock needed for this */
+	led_update_flashlight(led_cdev);
+	return sprintf(buf, "%u\n", led_cdev->hand_flash); 
+}
+
+static ssize_t  lcd_flashlight_store(struct device *dev,struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	ssize_t ret = -EINVAL;
+	char    *after;
+	unsigned long state = simple_strtoul(buf, &after, 10);
+	size_t count = after - buf;
+
+	if (*after && isspace(*after))
+		count++;
+
+	if (count == size) 
+    {
+		ret = count;
+		led_set_flashlight(led_cdev, state);
+	}
+	return ret;
+}
+#endif 
+
+#if 1 
+static void led_update_lcd_gamma(struct led_classdev *led_cdev) // Archer_LSJ DA26
+{
+    if (led_cdev->lcd_gamma_get)
+    {
+    	led_cdev->lcd_gamma = led_cdev->lcd_gamma_get(led_cdev);
+    }
+}
+
+static ssize_t  lcd_gamma_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+
+	/* no lock needed for this */
+	led_update_lcd_gamma(led_cdev);  // Archer_LSJ DA26
+
+	return sprintf(buf, "%u\n", led_cdev->lcd_gamma); 
+}
+
+static ssize_t  lcd_gamma_store(struct device *dev,struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	ssize_t ret = -EINVAL;
+	char    *after;
+	unsigned long state = simple_strtoul(buf, &after, 10);
+	size_t count = after - buf;
+
+	if (*after && isspace(*after))
+		count++;
+
+	if (count == size) 
+    {
+		ret = count;
+
+		if (state == LED_OFF)
+        {
+			led_trigger_remove(led_cdev);
+        }
+		led_set_lcd_gamma(led_cdev, state);
+	}
+	return ret;
+}
+#endif 
+
+#ifdef SUPPORT_LCD_ACL_CTL
+static void lcd_update_ACL_state(struct led_classdev *led_cdev)
+{
+	if (led_cdev->lcd_ACL_get)
+	{
+		led_cdev->acl_state = led_cdev->lcd_ACL_get(led_cdev);
+	}
+}
+
+static ssize_t acl_state_show(struct device *dev, 
+		struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+
+	/* no lock needed for this */
+	lcd_update_ACL_state(led_cdev);
+
+	return sprintf(buf, "%u\n", led_cdev->acl_state);
+}
+
+static ssize_t acl_state_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	ssize_t ret = -EINVAL;
+	char    *after;
+	unsigned long state = simple_strtoul(buf, &after, 10);
+	size_t count = after - buf;
+
+	if (*after && isspace(*after))
+		count++;
+
+	if (count == size) 
+	{
+		ret = count;
+		led_set_lcd_ACL(led_cdev, state);
+	}
+
+	return ret;
+}
+#endif
+
 static void led_update_brightness(struct led_classdev *led_cdev)
 {
 	if (led_cdev->brightness_get)
@@ -72,6 +196,11 @@ static ssize_t led_max_brightness_show(struct device *dev,
 	return sprintf(buf, "%u\n", led_cdev->max_brightness);
 }
 
+static DEVICE_ATTR(hand_flash, 0666, lcd_flashlight_show, lcd_flashlight_store);  // Archer_LSJ DB10
+static DEVICE_ATTR(lcd_gamma,  0666, lcd_gamma_show,      lcd_gamma_store);  // Archer_LSJ DA25
+#ifdef SUPPORT_LCD_ACL_CTL
+static DEVICE_ATTR(acl_state,  0666, acl_state_show,      acl_state_store);	// ACL On/Off sysfs
+#endif
 static DEVICE_ATTR(brightness, 0644, led_brightness_show, led_brightness_store);
 static DEVICE_ATTR(max_brightness, 0444, led_max_brightness_show, NULL);
 #ifdef CONFIG_LEDS_TRIGGERS
@@ -164,17 +293,45 @@ int led_classdev_register(struct device *parent, struct led_classdev *led_cdev)
 	led_trigger_set_default(led_cdev);
 #endif
 
-	printk(KERN_INFO "Registered led device: %s\n",
-			led_cdev->name);
+    #if 1  // Archer custom feature
+	/* register the attributes */
+	rc = device_create_file(led_cdev->dev, &dev_attr_lcd_gamma);
+	if (rc)
+		goto err_out;
+    
+	led_update_lcd_gamma(led_cdev);
+
+
+#ifdef SUPPORT_LCD_ACL_CTL
+	/* register the attributes */
+	rc = device_create_file(led_cdev->dev, &dev_attr_acl_state);
+	if (rc)
+		goto err_out;
+    
+	lcd_update_ACL_state(led_cdev);
+#endif
+
+	rc = device_create_file(led_cdev->dev, &dev_attr_hand_flash);
+	if (rc)
+		goto err_out;
+    
+	led_update_flashlight(led_cdev);
+    #endif 
+	printk(KERN_INFO "Registered led device: %s\n",	led_cdev->name);
 
 	return 0;
 
 #ifdef CONFIG_LEDS_TRIGGERS
 err_out_led_list:
 	device_remove_file(led_cdev->dev, &dev_attr_max_brightness);
+
 #endif
 err_out_attr_max:
 	device_remove_file(led_cdev->dev, &dev_attr_brightness);
+	device_remove_file(led_cdev->dev, &dev_attr_lcd_gamma);
+#ifdef SUPPORT_LCD_ACL_CTL	
+	device_remove_file(led_cdev->dev, &dev_attr_acl_state);
+#endif	
 	list_del(&led_cdev->node);
 err_out:
 	device_unregister(led_cdev->dev);
@@ -192,6 +349,10 @@ void led_classdev_unregister(struct led_classdev *led_cdev)
 {
 	device_remove_file(led_cdev->dev, &dev_attr_max_brightness);
 	device_remove_file(led_cdev->dev, &dev_attr_brightness);
+	device_remove_file(led_cdev->dev, &dev_attr_lcd_gamma);
+#ifdef SUPPORT_LCD_ACL_CTL	
+	device_remove_file(led_cdev->dev, &dev_attr_acl_state);
+#endif
 #ifdef CONFIG_LEDS_TRIGGERS
 	device_remove_file(led_cdev->dev, &dev_attr_trigger);
 	down_write(&led_cdev->trigger_lock);

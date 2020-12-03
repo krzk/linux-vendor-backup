@@ -54,6 +54,15 @@
 
 #define UETH__VERSION	"29-May-2008"
 
+/*
+ * Override the NET_IP_ALIGN macro to 0 bytes to have destination buffer
+ * aligned at 4 bytes thereby getting alligned adress for DMA access
+ */
+#if defined(CONFIG_ARCH_OMAP3) || defined(CONFIG_ARCH_OMAP4)
+#undef NET_IP_ALIGN
+#define NET_IP_ALIGN  0
+#endif
+
 struct eth_dev {
 	/* lock is held while accessing port_usb
 	 * or updating its backlink port_usb->ioport
@@ -239,7 +248,12 @@ rx_submit(struct eth_dev *dev, struct usb_request *req, gfp_t gfp_flags)
 	size += out->maxpacket - 1;
 	size -= size % out->maxpacket;
 
+#ifdef CONFIG_USB_GADGET_S3C_OTGD_DMA_MODE
+	/* To fulfill double word alignment requirement*/
+	skb = alloc_skb(size + NET_IP_ALIGN + 6, gfp_flags);
+#else
 	skb = alloc_skb(size + NET_IP_ALIGN, gfp_flags);
+#endif
 	if (skb == NULL) {
 		DBG(dev, "no rx skb\n");
 		goto enomem;
@@ -249,7 +263,12 @@ rx_submit(struct eth_dev *dev, struct usb_request *req, gfp_t gfp_flags)
 	 * but on at least one, checksumming fails otherwise.  Note:
 	 * RNDIS headers involve variable numbers of LE32 values.
 	 */
+#ifdef CONFIG_USB_GADGET_S3C_OTGD_DMA_MODE
+	/* To fulfill double word alignment requirement*/
+	skb_reserve(skb, NET_IP_ALIGN + 6);
+#else
 	skb_reserve(skb, NET_IP_ALIGN);
+#endif
 
 	req->buf = skb->data;
 	req->length = size;
@@ -479,7 +498,10 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 	list_add(&req->list, &dev->tx_reqs);
 	spin_unlock(&dev->req_lock);
 	dev_kfree_skb_any(skb);
-
+#ifdef CONFIG_USB_GADGET_S3C_OTGD_DMA_MODE
+	if(req->buf != skb->data)
+		kfree(req->buf);
+#endif
 	atomic_dec(&dev->tx_qlen);
 	if (netif_carrier_ok(dev->net))
 		netif_wake_queue(dev->net);
@@ -573,7 +595,20 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 
 		length = skb->len;
 	}
+#ifdef CONFIG_USB_GADGET_S3C_OTGD_DMA_MODE
+	/* To fulfill double word alignment requirement*/
+	req->buf = kmalloc(skb->len, GFP_ATOMIC | GFP_DMA);
+	if(!req->buf) {
+		req->buf = skb->data;
+		printk("%s:: failed to kmalloc\n",__func__);
+	}
+	else {
+		memcpy((void *) req->buf,(void *) skb->data,skb->len);
+	}
+	
+#else
 	req->buf = skb->data;
+#endif
 	req->context = skb;
 	req->complete = tx_complete;
 
@@ -607,6 +642,10 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		dev_kfree_skb_any(skb);
 drop:
 		dev->net->stats.tx_dropped++;
+#ifdef CONFIG_USB_GADGET_S3C_OTGD_DMA_MODE
+		if(req->buf != skb->data)
+			kfree(req->buf);
+#endif
 		spin_lock_irqsave(&dev->req_lock, flags);
 		if (list_empty(&dev->tx_reqs))
 			netif_start_queue(net);
@@ -736,6 +775,9 @@ static int __init get_ether_addr(const char *str, u8 *dev_addr)
 }
 
 static struct eth_dev *the_dev;
+#if defined(CONFIG_USB_ANDROID_EEM) && defined(CONFIG_USB_ANDROID_RNDIS)
+static struct eth_dev *eem_dev;
+#endif
 
 static const struct net_device_ops eth_netdev_ops = {
 	.ndo_open		= eth_open,
@@ -822,6 +864,85 @@ int __init gether_setup(struct usb_gadget *g, u8 ethaddr[ETH_ALEN])
 
 	return status;
 }
+
+#if defined(CONFIG_USB_ANDROID_EEM) && defined(CONFIG_USB_ANDROID_RNDIS)
+/**
+ * eem_setup - initialize one eem link
+ * @g: gadget to associated with these links
+ * @ethaddr: NULL, or a buffer in which the ethernet address of the
+ *	host side of the link is recorded
+ * Context: may sleep
+ *
+ * This sets up the single network link that may be exported by a
+ * gadget driver using this framework.  The link layer addresses are
+ * set up using module parameters.
+ *
+ * Returns negative errno, or zero on success
+ */
+int __init geem_setup(struct usb_gadget *g, u8 ethaddr[ETH_ALEN])
+{
+	struct eth_dev		*dev;
+	struct net_device	*net;
+	int			status;
+
+	if (eem_dev)
+		return -EBUSY;
+
+	net = alloc_etherdev(sizeof *dev);
+	if (!net)
+		return -ENOMEM;
+
+	dev = netdev_priv(net);
+	spin_lock_init(&dev->lock);
+	spin_lock_init(&dev->req_lock);
+	INIT_WORK(&dev->work, eth_work);
+	INIT_LIST_HEAD(&dev->tx_reqs);
+	INIT_LIST_HEAD(&dev->rx_reqs);
+
+	skb_queue_head_init(&dev->rx_frames);
+
+	/* network device setup */
+	dev->net = net;
+	strcpy(net->name, "eem%d");
+
+	if (get_ether_addr(dev_addr, net->dev_addr))
+		dev_warn(&g->dev,
+			"using random %s ethernet address\n", "self");
+	if (get_ether_addr(host_addr, dev->host_mac))
+		dev_warn(&g->dev,
+			"using random %s ethernet address\n", "host");
+
+	if (ethaddr)
+		memcpy(ethaddr, dev->host_mac, ETH_ALEN);
+
+	net->netdev_ops = &eth_netdev_ops;
+
+	SET_ETHTOOL_OPS(net, &ops);
+
+	/* two kinds of host-initiated state changes:
+	 *  - iff DATA transfer is active, carrier is "on"
+	 *  - tx queueing enabled if open *and* carrier is "on"
+	 */
+	netif_stop_queue(net);
+	netif_carrier_off(net);
+
+	dev->gadget = g;
+	SET_NETDEV_DEV(net, &g->dev);
+
+	status = register_netdev(net);
+	if (status < 0) {
+		dev_dbg(&g->dev, "register_netdev failed, %d\n", status);
+		free_netdev(net);
+	} else {
+		INFO(dev, "MAC %pM\n", net->dev_addr);
+		INFO(dev, "HOST MAC %pM\n", dev->host_mac);
+
+		eem_dev = dev;
+	}
+
+	return status;
+}
+#endif
 
 /**
  * gether_cleanup - remove Ethernet-over-USB device
@@ -924,6 +1045,88 @@ fail0:
 	return dev->net;
 }
 
+#if defined(CONFIG_USB_ANDROID_EEM) && defined(CONFIG_USB_ANDROID_RNDIS)
+/**
+ * eem_connect - notify network layer that USB link is active
+ * @link: the USB link, set up with endpoints, descriptors matching
+ *	current device speed, and any framing wrapper(s) set up.
+ * Context: irqs blocked
+ *
+ * This is called to activate endpoints and let the network layer know
+ * the connection is active ("carrier detect").  It may cause the I/O
+ * queues to open and start letting network packets flow, but will in
+ * any case activate the endpoints so that they respond properly to the
+ * USB host.
+ *
+ * Verify net_device pointer returned using IS_ERR().  If it doesn't
+ * indicate some error code (negative errno), ep->driver_data values
+ * have been overwritten.
+ */
+struct net_device *geem_connect(struct gether *link)
+{
+	struct eth_dev		*dev = eem_dev;
+	int			result = 0;
+
+	if (!dev)
+		return ERR_PTR(-EINVAL);
+
+	link->in_ep->driver_data = dev;
+	result = usb_ep_enable(link->in_ep, link->in);
+	if (result != 0) {
+		DBG(dev, "enable %s --> %d\n",
+			link->in_ep->name, result);
+		goto fail0;
+	}
+
+	link->out_ep->driver_data = dev;
+	result = usb_ep_enable(link->out_ep, link->out);
+	if (result != 0) {
+		DBG(dev, "enable %s --> %d\n",
+			link->out_ep->name, result);
+		goto fail1;
+	}
+
+	if (result == 0)
+		result = alloc_requests(dev, link, qlen(dev->gadget));
+
+	if (result == 0) {
+		dev->zlp = link->is_zlp_ok;
+		DBG(dev, "qlen %d\n", qlen(dev->gadget));
+
+		dev->header_len = link->header_len;
+		dev->unwrap = link->unwrap;
+		dev->wrap = link->wrap;
+
+		spin_lock(&dev->lock);
+		dev->port_usb = link;
+		link->ioport = dev;
+		if (netif_running(dev->net)) {
+			if (link->open)
+				link->open(link);
+		} else {
+			if (link->close)
+				link->close(link);
+		}
+		spin_unlock(&dev->lock);
+
+		netif_carrier_on(dev->net);
+		if (netif_running(dev->net))
+			eth_start(dev, GFP_ATOMIC);
+
+	/* on error, disable any endpoints  */
+	} else {
+		(void) usb_ep_disable(link->out_ep);
+fail1:
+		(void) usb_ep_disable(link->in_ep);
+	}
+fail0:
+	/* caller is responsible for cleanup on error */
+	if (result < 0)
+		return ERR_PTR(result);
+	return dev->net;
+}
+#endif
+
 /**
  * gether_disconnect - notify network layer that USB link is inactive
  * @link: the USB link, on which gether_connect() was called
@@ -941,7 +1144,6 @@ void gether_disconnect(struct gether *link)
 	struct eth_dev		*dev = link->ioport;
 	struct usb_request	*req;
 
-	WARN_ON(!dev);
 	if (!dev)
 		return;
 

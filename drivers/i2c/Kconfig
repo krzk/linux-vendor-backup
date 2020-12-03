@@ -95,4 +95,8 @@ config I2C_DEBUG_CHIP
 	  a problem with I2C support and want to see more of what is going
 	  on.
 
+config USE_GPIO_I2C
+	bool "GPIO I2C emulation"
+	default "off"
+
 endif # I2C

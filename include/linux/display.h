@@ -38,6 +38,12 @@ struct display_driver {
 	int  max_contrast;
 };
 
+enum { 
+        OMAP_DSS_FR_60HZ = 1,
+        OMAP_DSS_FR_52HZ_CAM,
+        OMAP_DSS_FR_52HZ_VIDEO,
+        OMAP_DSS_FR_52HZ_SUSPEND,
+};
 struct display_device {
 	struct module *owner;			/* Owner module */
 	struct display_driver *driver;

@@ -34,6 +34,7 @@
 #include <linux/mm.h>
 #include <linux/oom.h>
 #include <linux/sched.h>
+#include <linux/notifier.h>
 
 static uint32_t lowmem_debug_level = 2;
 static int lowmem_adj[6] = {
@@ -51,11 +52,31 @@ static size_t lowmem_minfree[6] = {
 };
 static int lowmem_minfree_size = 4;
 
+static struct task_struct *lowmem_deathpending;
+
 #define lowmem_print(level, x...)			\
 	do {						\
 		if (lowmem_debug_level >= (level))	\
 			printk(x);			\
 	} while (0)
+
+static int
+task_notify_func(struct notifier_block *self, unsigned long val, void *data);
+
+static struct notifier_block task_nb = {
+	.notifier_call	= task_notify_func,
+};
+
+static int
+task_notify_func(struct notifier_block *self, unsigned long val, void *data)
+{
+	struct task_struct *task = data;
+	if (task == lowmem_deathpending) {
+		lowmem_deathpending = NULL;
+		task_free_unregister(&task_nb);
+	}
+	return NOTIFY_OK;
+}
 
 static int lowmem_shrink(int nr_to_scan, gfp_t gfp_mask)
 {
@@ -71,6 +92,16 @@ static int lowmem_shrink(int nr_to_scan, gfp_t gfp_mask)
 	int other_free = global_page_state(NR_FREE_PAGES);
 	int other_file = global_page_state(NR_FILE_PAGES);
 
+	/*
+	 * If we already have a death outstanding, then
+	 * bail out right away; indicating to vmscan
+	 * that we have nothing further to offer on
+	 * this pass.
+	 *
+	 */
+	if (lowmem_deathpending)
+		return 0;
+
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
 	if (lowmem_minfree_size < array_size)
@@ -82,6 +113,10 @@ static int lowmem_shrink(int nr_to_scan, gfp_t gfp_mask)
 			break;
 		}
 	}
+
+	if (min_adj == OOM_ADJUST_MAX + 1)
+		return 0;
+
 	if (nr_to_scan > 0)
 		lowmem_print(3, "lowmem_shrink %d, %x, ofree %d %d, ma %d\n",
 			     nr_to_scan, gfp_mask, other_free, other_file,
@@ -90,7 +125,7 @@ static int lowmem_shrink(int nr_to_scan, gfp_t gfp_mask)
 		global_page_state(NR_ACTIVE_FILE) +
 		global_page_state(NR_INACTIVE_ANON) +
 		global_page_state(NR_INACTIVE_FILE);
-	if (nr_to_scan <= 0 || min_adj == OOM_ADJUST_MAX + 1) {
+	if (nr_to_scan <= 0) {
 		lowmem_print(5, "lowmem_shrink %d, %x, return %d\n",
 			     nr_to_scan, gfp_mask, rem);
 		return rem;
@@ -100,15 +135,17 @@ static int lowmem_shrink(int nr_to_scan, gfp_t gfp_mask)
 	read_lock(&tasklist_lock);
 	for_each_process(p) {
 		struct mm_struct *mm;
+		struct signal_struct *sig;
 		int oom_adj;
 
 		task_lock(p);
 		mm = p->mm;
-		if (!mm) {
+		sig = p->signal;
+		if (!mm || !sig) {
 			task_unlock(p);
 			continue;
 		}
-		oom_adj = mm->oom_adj;
+		oom_adj = sig->oom_adj;
 		if (oom_adj < min_adj) {
 			task_unlock(p);
 			continue;
@@ -134,9 +171,13 @@ static int lowmem_shrink(int nr_to_scan, gfp_t gfp_mask)
 		lowmem_print(1, "send sigkill to %d (%s), adj %d, size %d\n",
 			     selected->pid, selected->comm,
 			     selected_oom_adj, selected_tasksize);
+		lowmem_deathpending = selected;
+		task_free_register(&task_nb);
 		force_sig(SIGKILL, selected);
 		rem -= selected_tasksize;
 	}
+        else
+            rem = -1;
 	lowmem_print(4, "lowmem_shrink %d, %x, return %d\n",
 		     nr_to_scan, gfp_mask, rem);
 	read_unlock(&tasklist_lock);

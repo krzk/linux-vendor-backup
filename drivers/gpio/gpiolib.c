@@ -1372,6 +1372,45 @@ void gpio_set_value_cansleep(unsigned gpio, int value)
 }
 EXPORT_SYMBOL_GPL(gpio_set_value_cansleep);
 
+//--- CMMB SPI issue workaround start
+static unsigned int mcspi_cmmb_channel_open = 0;
+static unsigned int mcspi_cmmb_channel_open_status = 0;
+
+unsigned int get_mcspi_cmmb_channel_open_status(void)
+{
+	return mcspi_cmmb_channel_open;
+}
+EXPORT_SYMBOL_GPL( get_mcspi_cmmb_channel_open_status);
+
+void set_mcspi_cmmb_channel_open_status(unsigned int onoff)
+{
+	int error_check = 0;
+	mcspi_cmmb_channel_open = onoff;
+
+	if(onoff == 1)
+	{
+		error_check = mcspi_remote_clock_enable();
+		if(error_check != 0)
+			printk("mcspi_remote_clock_enable - return value is not zero %d\n", error_check); 
+		mcspi_cmmb_channel_open_status = 1;
+	}
+	else if(onoff == 0)
+        {
+		if(mcspi_cmmb_channel_open_status == 1)
+		{
+			mcspi_remote_clock_disable();
+		}
+		else
+		{
+			printk("mcspi_cmmb_channel_open_status is not 1 - skip disable routine\n");
+		}
+		mcspi_cmmb_channel_open_status = 0;
+        }
+
+}
+
+EXPORT_SYMBOL_GPL(set_mcspi_cmmb_channel_open_status);
+//--- CMMB SPI issue workaround end
 
 #ifdef CONFIG_DEBUG_FS
 

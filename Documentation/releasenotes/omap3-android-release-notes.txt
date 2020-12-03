@@ -1,0 +1,263 @@
+# =====================================================================
+# L25.INC3.4 Froyo 2.2.1 Hand-off
+# =====================================================================
+
+Author: Leed Aguilar
+Date: October 21th 2010
+Target Release: L25.Inc3.4
+
+# =====================================================================
+# Configuration Settings
+# =====================================================================
+
+[KERNEL]
+Repo    : git://git.omapzoom.org/kernel/omap.git
+Branch  : p-android-omap-2.6.32
+Commit  : android-2.6.32-2.2-Inc3-4
+Config  : android_zoom3_defconfig
+
+[U-BOOT]
+Repo    : git://git.omapzoom.org/repo/u-boot.git
+Branch  : master
+Tag     : L25.I3.4
+Commit  : fbe4cef852de5a39412234b4acd47a830d0282a2
+Config  : omap3630zoom3_config
+
+[X-LOADER]
+Repo    : git://git.omapzoom.org/repo/x-loader.git
+Branch  : master
+Tag     : L25.I3.4
+Commit  : eb8b047c29a2027fbdd841cd1289fa27ddb22d72
+Config  : omap3630zoom3_config
+
+OS: Linux(r) 2.6.32
+Platform: ZOOM3 OMAP3630 ES1.1
+Toolchain: Android Froyo Toolchain : arm-eabi-4.4.0 (Using GCC4.4.0)
+Toolchain Path: <mydroid_location>/prebuilt/linux-x86/toolchain/arm-eabi-4.4.0/bin/arm-eabi-
+
+# =====================================================================
+# Cloning information
+# =====================================================================
+
+Kernel:
+-------
+git clone git://git.omapzoom.org/kernel/omap.git
+cd omap/
+git checkout --track -b p-android-omap-2.6.32 origin/p-android-omap-2.6.32
+git checkout -b L25.INC3.4 android-2.6.32-2.2-Inc3-4
+make ARCH=arm CROSS_COMPILE=arm-eabi- android_zoom3_defconfig
+make ARCH=arm CROSS_COMPILE=arm-eabi- uImage
+Output: uImage
+
+u-boot:
+-------
+git clone  git://git.omapzoom.org/repo/u-boot.git
+cd u-boot/
+git checkout -b L25.INC3.4 L25.I3.4
+make ARCH=arm CROSS_COMPILE=arm-eabi- omap3630zoom3_config
+make ARCH=arm CROSS_COMPILE=arm-eabi-
+Output: u-boot.bin
+
+x-loader:
+---------
+git clone git://git.omapzoom.org/repo/x-loader.git
+cd x-loader/
+git checkout -b L25.INC3.4 L25.I3.4
+make ARCH=arm CROSS_COMPILE=arm-eabi- omap3630zoom3_1G_config
+make ARCH=arm CROSS_COMPILE=arm-eabi- ift
+Output: MLO
+
+# =====================================================================
+# Known issues / Important Notes 
+# =====================================================================
+
+The L25.Inc3.x release family is intended to be used with Android Froyo 2.2.1
+
+For more information on how to compile the Android Filesystem visit:
+http://omappedia.org/wiki/Android_Getting_Started#Building_Android
+
+[BOOTARGS]
+
+The following bootargs were used for MMC booting:
+
+bootargs androidboot.console=ttyO3 console=ttyO3,115200n8 \
+root=/dev/mmcblk0p2 rw rootdelay=1 init=/init \
+omap_vout_mod.video1_numbuffers=6 omap_vout_mod.vid1_static_vrfb_alloc=y \
+omapfb.vram=0:4M
+
+[HIGHLIGHTS]
+
+- No major Change. This release was intentded for Defects resolution
+
+[ADB over USB SUPPORT]
+
+Linux PC:
+http://omappedia.com/wiki/Support_Tools#Android_Gadget_ADB:_Linux_PC_Host
+
+Windows PC:
+http://omappedia.com/wiki/Support_Tools#Android_Gadget_ADB:_Windows_PC_Host
+
+More info about ADB can be found here:
+http://omappedia.org/wiki/Support_Tools
+
+
+# =====================================================================
+# Open Defects / Known issues
+# =====================================================================
+
+OMAPS00217634	PPM: Power: Av Playback H264 720p with ACC/ACC+ does ...
+OMAPS00217638	PPM: Power: Battery Life for Av Playback WMV VC1 WVGA ...
+OMAPS00225793	PT:Robustness Automation: Open/Close image every 10 ...
+OMAPS00225764	PT:Robustness Automation: Lock/Unlock fails after ...
+OMAPS00225221	Suspend/Resume in OFF mode failed to resume back
+OMAPS00217632	PPM: Power: Battery Life Av Playback H264 720p with ...
+OMAPS00224993	Random firmware upload failure
+OMAPS00221760	Automated Test Cases are failing when driver ...
+OMAPS00226548	MA disaligned error message is generated while ...
+OMAPS00226556	spidev_test application fais while trying to open ...
+OMAPS00226552	System is going to suspend when the USB cable is ...
+
+# =====================================================================
+# Defects Resolved
+# =====================================================================
+
+OMAPS00218180	Blank screen is seen after rebooting while using ...
+OMAPS00218179	While executing scenario L_DD_MMC_0005_0001 the ...
+OMAPS00220530	MUSB: In host mode, unable to enumerate devices ...
+OMAPS00215579	GFX: Power Framework presents unstabilities during tests
+OMAPS00212636	System is not going to off mode after S/R ...
+OMAPS00220528	PT: Robustness Automation: Data transfer "Destination ...
+OMAPS00221191	PT:DB:Keypad is incorrectly mapped
+OMAPS00221806	T2 LED on zoom3 doesnt go off on calling S/R path
+OMAPS00210900	PT: Sometimes even after removing MMC/SD card, the ...
+OMAPS00216906	MMC booting is not possible
+OMAPS00221756	Battery charging on u-boot is not working
+OMAPS00217392	GPIO 64 Perturbation
+OMAPS00222704	Enabling OFF mode for power management from filesystem
+OMAPS00220522	Chip for page load does not meet validation criteria.
+OMAPS00223098	Power increase after applying some MMC patches
+OMAPS00222757	Can't disconnect softmodem properly
+OMAPS00217710	PT: USB transfer - AV streaming: While doing an AV ...
+OMAPS00222166	PPM: Power: Chip off does not meet chip target
+OMAPS00221448	When changing since Inc2.7, if connecting USB cable ...
+OMAPS00221445	At ZOOM3 board has too many VDD2 voltage compared with ...
+OMAPS00223384	Measured battery life duing audio playback on Zoom3
+OMAPS00223907	McBSP kernel panic
+OMAPS00223097	Android Gadget ACM Serial: Linux PC Host: Kernel dump ...
+OMAPS00213754	PT: PPM: Power: OS Idle doesn’t meet CHIP target
+OMAPS00219007	PPM: Power: Battery Life for Av Playback MPEG4 WVGA ...
+OMAPS00219008	PPM: Power: Battery Life for AV Playback H264 WVGA ...
+OMAPS00217911	PT: PPM: Power: AV Playback for H264 QVGA with ACC ...
+OMAPS00217950	PPM: Power: Battery Life for AV H264 QVGA does not ...
+OMAPS00219015	PT: PPM: Power: AV Playback for H264 WVGA with ACC+ ...
+OMAPS00215168	PT: PPM: Power: AV Playback for MPEG4 WVGA with ACC ...
+OMAPS00219011	PPM: Power: Battery Life for AV record for MPEG4 WVGA ...
+OMAPS00224943	Test Cases Procedure is not well defined
+OMAPS00219339	prcm_interrupt_handler should only clear the interrupts ...
+OMAPS00218176	Ethernet gadget of Android is not getting enumerated, ...
+OMAPS00218178	Evtest can not be run, as any of the android gadgets ...
+OMAPS00212716	DMA test cases failure
+OMAPS00218242	[OHCI] USB driver porting on  Android platform
+OMAPS00222074	The bit set of EN_IO_CHAIN in the register of PM_WKEN_WKUP
+OMAPS00221731	Zoom reboots every 10 seconds when on battery power
+OMAPS00221772	UART CTS wakeup support for Bluetooth Power management ...
+OMAPS00221759	While trying to create a parition or format the mmc ...
+OMAPS00223209	used GPIO to receive wake up event
+OMAPS00222798	Kernel Hang in PM mutex path
+OMAPS00209937	GFX_FIFO_UNDERFLOW happen while running alpha blending test
+OMAPS00211921	PT: Robustness Automation: Android fails to do warm reboot
+OMAPS00223299	MMC lock up during suspend
+OMAPS00223699	SD driver hang on card removal during system sleep
+OMAPS00216650	PT: PPM: Power:  Music Playback Battery Life for MP3 does ...
+OMAPS00224210	Abort while accessing CP15 register
+OMAPS00223850	System hang during USB compliance test "Class Request ...
+OMAPS00223888	Modification needed for SmartReflex recalibrations to ...
+OMAPS00223682	PT: PPM: Power: AV Record for MPEG4 WVGA with ACC ...
+OMAPS00225263	UART:Slowness after resume path
+OMAPS00224142	CONFIG_HAS_TLS_REG set to y in L25.INC3.x causes system ...
+OMAPS00221770	HFP streaming stop fails (exeception after stoping ...
+OMAPS00223069	[Serial driver] Issues prevent usage of any native ...
+OMAPS00225033	OMAP3630 ZOOM3: System freeze is seen when console ...
+OMAPS00217636	PPM: Power: Av Playback for Playback WMV VC1 WVGA with ...
+OMAPS00225484	DMA patches
+OMAPS00224942	SPI driver shall be provided as user-space driver
+OMAPS00225433	MCSPI Slave mode DMA FRAME_SYNC is not working
+
+
+# =====================================================================
+# Defects Rejected
+# =====================================================================
+
+OMAPS00223821	Kernel panic while aging test
+OMAPS00224295	PHY_PWR_CTRL is not controlled by regulator framework
+OMAPS00224138	SD card is sometime not recognised
+OMAPS00222815	Errors when SD card is removed during media playback
+OMAPS00224941	SDIO driver shall support enabling
+OMAPS00224932	PM: UART: console gets corrupted after suspend/resume
+OMAPS00224990	OMAP3630 MUSB driver fails to pass WHQL test
+OMAPS00224939	GPIO: The driver must reset the module at initialization.
+
+# =====================================================================
+# GERRIT IDs and Kernel Changelist
+# =====================================================================
+
+To obtains the Kernel Change stats from previous release run:
+
+$ git diff --stat android-2.6.32-2.2-Inc3-3..android-2.6.32-2.2-Inc3-4
+ 86 files changed, 2308 insertions(+), 1409 deletions(-)
+
+c5e0863 Revert "OMAP: SERIAL: Add uart3 cts/rts support"
+472bd05 Revert "OMAP3 : Fixes the OMAP UART Console hang issue for ...
+5e464c1 OMAP: SERIAL: Add uart3 cts/rts support
+d33db1b OMAP3 : Fixes the OMAP UART Console hang issue for Dynamic ...
+88d1337 OMAP3: QUART : Fix for access of QUART on platforms which ...
+cb2224b omap hsmmc: fix processing of all dma interrupts as block ...
+9f31b1d omap-dma: Additional guards for CCR DMA channel register
+bb82454 omap-dma: Explicitly clear PREFETCH channel setting
+68922bc OMAP4: lcd-backlight: removed references to OMAP4 from ...
+d579a11 OMAP4: lcd-backlight: removed references to OMAP4 from ...
+4e1fd6e OMAP: mailbox: write the mbox message to the hw when possible.
+94e7691 SGX-KM: Rebase to DDK 1.6 pvrversion 1.6.16.3924
+af79300 OMAP3:PM:Codying style Fixes in pm34xx.c file
+1ea2c49 OMAP3:PM:OPP table update Vsel values
+938066e OMAP3:PM:SR:VP update voltage through forceupdate method
+a0488b4 OMAP3HQ: omap34xxcam: Wakeup event queue when video buffer done
+fd3e0d2 OMAP3630: isp: Always clear ISP interrupt status register.
+2bbd298 OMAP3HQ: omap34xxcam: Use try_lock into omap34xxcam_poll function
+561b386 OMAP: MUX: Dont corrupt mux name
+37ccf06 OMAP3630: 720p WA: Slowdown ISP Resizer to reduce used memory
+f28b6a7 OMAP3:SMC 2.5.1:Fix invalid access to crypto accelerators
+661acb7 OMAP3:PM:SR:V2 modify errorgain and errmin values for 3630
+83d8544 OMAP3:PM:nohz: V2-Allow bypassing suppressing of ticks in idle
+8351873 OMAP3:PM:SR support for dynamic Vnom V5
+c22804c OMAP3630: isp: Enable HS_VS interrupts.
+99523ff OMAP3630: isppreview: Centring the Preview engine output frame.
+a86f97c mailbox: fix race condition between rx isr and workqueue
+ba5b7d9 DSPBRIDGE: overwrite DSP error codes
+d01acbe MMC: non dma polling mechanism for WLAN MMC controller
+6151770 OMAP3: Camera: Prevent disabling cam_mclk if already disabled
+ac3d6f2 OMAP3:HQ: isppreview: Noise filter fix.
+a370e7e OMAP3:HQ: Minimize input pixel losses for "ISP resizer" engine.
+be29435 OMAP3:HQ: Always configure the "Gama bypass" correction.
+da0664d OMAP3:HQ: Always configure the "Black adjust" correction.
+3d6b165 OMAP3630: imx046: Code style convention cleanup.
+39bc9e8 OMAP3630: imx046: Code cleanup
+00e9148 OMAP3: correct omap silicon rev detection for omap3630 es1.2
+8b7c7a0 OMAP3630: add es1.2 silicon revision detection
+03bbf00 OMAP3:PM:Save secure RAM over OFF in EMU
+ebd5b82 OMAP3: PM: WLAN don't allow MPU idle while Wlan active
+d57054f OMAP3: PM: disable USBTLL SAR mechanism for OMAP3630 ES1.0
+d645405 OMAP3: Remove duplicated OMAP3630 REV definitions
+a20e10f OMAP3: update CHIP_GE_OMAP3xxxx macros
+7aaeb1d OMAP3:PM:Console UART sluggish. add check for UART
+0b316e0 OMAP3: lcd-backlight: Added default macros to support ...
+f423cfa OMAP3: Backlight: Enable lcd-backlight sysfs support ...
+37af3b0 OMAP3: ID: dont set 1.0 flag for 1.1
+09cf83b Revert "OMAP3: Camera: Fix warning from disabling cam_mclk twice"
+18d3d02 OMAP3:DISPC:PM:L3 constraint at max for rotation usecase
+a9cff76 OMAP3: Camera: Fix warning from disabling cam_mclk twice
+75435ff K32: correct file permissions in C, H and TXT files
+8d10978 OMAP3: DSS2: Fix for low quality video playback due to ...
+
+# ======================================================================
+

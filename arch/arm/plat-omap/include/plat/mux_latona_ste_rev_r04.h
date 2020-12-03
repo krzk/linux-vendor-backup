@@ -1,0 +1,80 @@
+/*
+ * arch/arm/plat-omap/include/mach/mux_latona.h
+ *
+ */
+
+#ifndef _MUX_LATONA_H_
+#define _MUX_LATONA_H_
+
+#define OMAP_GPIO_USBSW_NINT				10
+#define OMAP_GPIO_LOW_BAT_DET			12
+#define OMAP_GPIO_NAND_INT				13
+#define OMAP_GPIO_ALARM_AP				14
+#define OMAP_GPIO_INT_ONEDRAM_AP		15
+#define OMAP_GPIO_SYS_DRM_MSECURE		22
+#define OMAP_GPIO_T_FLASH_DETECT			23
+#define OMAP_GPIO_KEY_PWRON				24
+#define OMAP_GPIO_EAR_KEY					26
+#define OMAP_GPIO_JACK_NINT				27
+#define OMAP_GPIO_LED_EN1_REV04			28
+#define OMAP_GPIO_LED_EN1					158
+#define OMAP_GPIO_AGPS_ONOFF			35
+#define OMAP_GPIO_GPS_EN					139
+#define OMAP_GPIO_GPS_CNTL				39
+#define OMAP_GPIO_ACC_SCL					37
+#define OMAP_GPIO_ACC_SDA					38
+#define OMAP_GPIO_GPS_NRST				36
+#define OMAP_GPIO_CMMB_PWR_EN			40
+#define OMAP_GPIO_CMMB_RST				41
+#define OMAP_GPIO_CMMB_INT				42
+#define OMAP_GPIO_CP_RST					43
+#define OMAP_GPIO_PS_VOUT					53
+#define OMAP_GPIO_JIG_ON18					54
+#define OMAP_GPIO_USBSW_BOOT				57
+#define OMAP_GPIO_EN_TEMP_VDD			58
+#define OMAP_GPIO_LED_EN2					60
+#define OMAP_GPIO_LCD_ID2					61
+#define OMAP_GPIO_LCD_ID1					62
+#define OMAP_GPIO_BT_NRST					63
+#define OMAP_GPIO_CAM_VGA_NRST			64
+#define OMAP_GPIO_KEY_HOME				65
+#define OMAP_GPIO_CAM_5M_NRST			98
+#define OMAP_GPIO_CAM_VGA_NSTBY			101
+#define OMAP_GPIO_EAR_MICBIAS_EN			102
+#define OMAP_GPIO_PDA_ACTIVE				111
+#define OMAP_GPIO_VF						112
+#define OMAP_GPIO_ACC_INT2					114
+#define OMAP_GPIO_ACC_INT1					115
+#define OMAP_GPIO_UART_SEL				126
+#define OMAP_GPIO_HW_REV1					127
+#define OMAP_GPIO_CMMB_SCS				135
+#define OMAP_GPIO_FUEL_SDA				136
+#define OMAP_GPIO_FUEL_SCL					137
+#define OMAP_GPIO_PHONE_ON				140
+#define OMAP_GPIO_VIBTONE_EN				141
+#define OMAP_GPIO_TOUCH_INT				142
+#define OMAP_GPIO_TOUCH_EN				143
+#define OMAP_GPIO_CON_CP_SEL				149
+#define OMAP_GPIO_AMP_SHDN				150
+#define OMAP_GPIO_CAM_EN2					152
+#define OMAP_GPIO_CAM_5M_NSTBY			153
+#define OMAP_GPIO_PHONE_ACTIVE			154
+#define OMAP_GPIO_CAM_EN1					156
+#define OMAP_GPIO_CAM_EN5					157
+#define OMAP_GPIO_CP_JIG_ON				159
+#define OMAP_GPIO_WLAN_EN					160
+#define OMAP_GPIO_CHG_EN					161
+#define OMAP_GPIO_HW_REV0					163
+#define OMAP_GPIO_MSENSE_NRST			164
+#define OMAP_GPIO_AP_I2C_SCL				168
+#define OMAP_GPIO_MLCD_RST				170
+#define OMAP_GPIO_CAM_EN4					177
+#define OMAP_GPIO_CS_LOAD					181
+#define OMAP_GPIO_AP_I2C_SDA				183
+#define OMAP_GPIO_CAM_EN3					186
+
+//for build
+#define OMAP_GPIO_CP_VBUS_EN				85//-1
+
+#endif
+

@@ -24,13 +24,13 @@
 #include <linux/io.h>
 #include <linux/bitops.h>
 
-#include <mach/clock.h>
-#include <mach/clockdomain.h>
-#include <mach/cpu.h>
-#include <mach/prcm.h>
+#include <plat/clock.h>
+#include <plat/clockdomain.h>
+#include <plat/cpu.h>
+#include <plat/prcm.h>
 #include <asm/div64.h>
 
-#include <mach/sdrc.h>
+#include <plat/sdrc.h>
 #include "sdrc.h"
 #include "clock.h"
 #include "prm.h"
@@ -40,7 +40,7 @@
 #include "cm-regbits-34xx.h"
 
 /* DPLL rate rounding: minimum DPLL multiplier, divider values */
-#define DPLL_MIN_MULTIPLIER		1
+#define DPLL_MIN_MULTIPLIER		2
 #define DPLL_MIN_DIVIDER		1
 
 /* Possible error results from _dpll_test_mult */
@@ -70,8 +70,40 @@
 u8 cpu_mask;
 
 /*-------------------------------------------------------------------------
- * OMAP2/3 specific clock functions
+ * OMAP2/3/4 specific clock functions
  *-------------------------------------------------------------------------*/
+
+void omap2_init_dpll_parent(struct clk *clk)
+{
+	u32 v;
+	struct dpll_data *dd;
+
+	dd = clk->dpll_data;
+	if (!dd)
+		return;
+
+	/* Return bypass rate if DPLL is bypassed */
+	v = __raw_readl(dd->control_reg);
+	v &= dd->enable_mask;
+	v >>= __ffs(dd->enable_mask);
+
+	/* Reparent in case the dpll is in bypass */
+	if (cpu_is_omap24xx()) {
+		if (v == OMAP2XXX_EN_DPLL_LPBYPASS ||
+		    v == OMAP2XXX_EN_DPLL_FRBYPASS)
+			clk_reparent(clk, dd->clk_bypass);
+	} else if (cpu_is_omap34xx()) {
+		if (v == OMAP3XXX_EN_DPLL_LPBYPASS ||
+		    v == OMAP3XXX_EN_DPLL_FRBYPASS)
+			clk_reparent(clk, dd->clk_bypass);
+	} else if (cpu_is_omap44xx()) {
+		if (v == OMAP4XXX_EN_DPLL_LPBYPASS ||
+		    v == OMAP4XXX_EN_DPLL_FRBYPASS ||
+		    v == OMAP4XXX_EN_DPLL_MNBYPASS)
+			clk_reparent(clk, dd->clk_bypass);
+	}
+	return;
+}
 
 /**
  * _omap2xxx_clk_commit - commit clock parent/rate changes in hardware
@@ -246,6 +278,11 @@ u32 omap2_get_dpll_rate(struct clk *clk)
 	} else if (cpu_is_omap34xx()) {
 		if (v == OMAP3XXX_EN_DPLL_LPBYPASS ||
 		    v == OMAP3XXX_EN_DPLL_FRBYPASS)
+			return dd->clk_bypass->rate;
+	} else if (cpu_is_omap44xx()) {
+		if (v == OMAP4XXX_EN_DPLL_LPBYPASS ||
+		    v == OMAP4XXX_EN_DPLL_FRBYPASS ||
+		    v == OMAP4XXX_EN_DPLL_MNBYPASS)
 			return dd->clk_bypass->rate;
 	}
 
@@ -1038,7 +1075,7 @@ void omap2_clk_disable_unused(struct clk *clk)
 		return;
 
 	printk(KERN_DEBUG "Disabling unused clock \"%s\"\n", clk->name);
-	if (cpu_is_omap34xx()) {
+	if (cpu_is_omap34xx() || cpu_is_omap44xx()) {
 		omap2_clk_enable(clk);
 		omap2_clk_disable(clk);
 	} else

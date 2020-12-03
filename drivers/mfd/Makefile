@@ -24,8 +24,10 @@ obj-$(CONFIG_MFD_WM8350_I2C)	+= wm8350-i2c.o
 obj-$(CONFIG_TPS65010)		+= tps65010.o
 obj-$(CONFIG_MENELAUS)		+= menelaus.o
 
-obj-$(CONFIG_TWL4030_CORE)	+= twl4030-core.o twl4030-irq.o
+obj-$(CONFIG_TWL4030_CORE)	+= twl-core.o twl4030-irq.o twl6030-irq.o
 obj-$(CONFIG_TWL4030_POWER)    += twl4030-power.o
+obj-$(CONFIG_TWL4030_CODEC)	+= twl4030-codec.o
+obj-$(CONFIG_TWL6030_GPADC)	+= twl6030-gpadc.o
 
 obj-$(CONFIG_MFD_MC13783)	+= mc13783-core.o
 
@@ -50,3 +52,14 @@ obj-$(CONFIG_PCF50633_ADC)	+= pcf50633-adc.o
 obj-$(CONFIG_PCF50633_GPIO)	+= pcf50633-gpio.o
 obj-$(CONFIG_AB3100_CORE)	+= ab3100-core.o
 obj-$(CONFIG_AB3100_OTP)	+= ab3100-otp.o
+
+cpcap-objs			:= cpcap-core.o \
+				   cpcap-irq.o \
+				   cpcap-regacc.o \
+				   cpcap-key.o \
+				   cpcap-usb-det.o \
+				   cpcap-adc.o \
+				   cpcap-uc.o \
+				   cpcap-3mm5.o
+
+obj-$(CONFIG_MFD_CPCAP)		+= cpcap.o

@@ -25,6 +25,7 @@
 #include <linux/resume-trace.h>
 #include <linux/rwsem.h>
 #include <linux/interrupt.h>
+#include <linux/timer.h>
 
 #include "../base.h"
 #include "power.h"
@@ -42,6 +43,9 @@
 LIST_HEAD(dpm_list);
 
 static DEFINE_MUTEX(dpm_list_mtx);
+
+static void dpm_drv_timeout(unsigned long data);
+static DEFINE_TIMER(dpm_drv_wd, dpm_drv_timeout, 0, 0);
 
 /*
  * Set once the preparation of devices for a PM transition has started, reset
@@ -432,6 +436,45 @@ static int device_resume(struct device *dev, pm_message_t state)
 }
 
 /**
+ *	dpm_drv_timeout - Driver suspend / resume watchdog handler
+ *	@data: struct device which timed out
+ *
+ * 	Called when a driver has timed out suspending or resuming.
+ * 	There's not much we can do here to recover so
+ * 	BUG() out for a crash-dump
+ *
+ */
+static void dpm_drv_timeout(unsigned long data)
+{
+	struct device *dev = (struct device *) data;
+
+	printk(KERN_EMERG "**** DPM device timeout: %s (%s)\n", dev_name(dev),
+	       (dev->driver ? dev->driver->name : "no driver"));
+	BUG();
+}
+
+/**
+ *	dpm_drv_wdset - Sets up driver suspend/resume watchdog timer.
+ *	@dev: struct device which we're guarding.
+ *
+ */
+static void dpm_drv_wdset(struct device *dev)
+{
+	dpm_drv_wd.data = (unsigned long) dev;
+	mod_timer(&dpm_drv_wd, jiffies + (HZ * 3));
+}
+
+/**
+ *	dpm_drv_wdclr - clears driver suspend/resume watchdog timer.
+ *	@dev: struct device which we're no longer guarding.
+ *
+ */
+static void dpm_drv_wdclr(struct device *dev)
+{
+	del_timer_sync(&dpm_drv_wd);
+}
+
+/**
  * dpm_resume - Execute "resume" callbacks for non-sysdev devices.
  * @state: PM transition of the system being carried out.
  *
@@ -444,8 +487,20 @@ static void dpm_resume(pm_message_t state)
 
 	INIT_LIST_HEAD(&list);
 	mutex_lock(&dpm_list_mtx);
+	
+#ifdef SUSPEND_DEBUG
+	printk(KERN_DEBUG "dpm_resume : ");
+#endif
+
 	while (!list_empty(&dpm_list)) {
 		struct device *dev = to_device(dpm_list.next);
+		
+#ifdef SUSPEND_DEBUG
+		if(dev != NULL && dev->driver != NULL && dev->driver->name != NULL)
+			printk(KERN_DEBUG "%s, ", dev->driver->name);
+		else
+			printk(KERN_DEBUG ".");
+#endif
 
 		get_device(dev);
 		if (dev->power.status >= DPM_OFF) {
@@ -467,6 +522,9 @@ static void dpm_resume(pm_message_t state)
 			list_move_tail(&dev->power.entry, &list);
 		put_device(dev);
 	}
+#ifdef SUSPEND_DEBUG
+	printk(KERN_DEBUG "$$\n");
+#endif
 	list_splice(&list, &dpm_list);
 	mutex_unlock(&dpm_list_mtx);
 }
@@ -683,13 +741,25 @@ static int dpm_suspend(pm_message_t state)
 
 	INIT_LIST_HEAD(&list);
 	mutex_lock(&dpm_list_mtx);
+
+#ifdef SUSPEND_DEBUG
+	printk(KERN_DEBUG "dpm_suspend : ");
+#endif
 	while (!list_empty(&dpm_list)) {
 		struct device *dev = to_device(dpm_list.prev);
 
+#ifdef SUSPEND_DEBUG
+		if(dev != NULL && dev->driver != NULL && dev->driver->name != NULL)
+			printk(KERN_DEBUG "%s, ", dev->driver->name);
+		else
+			printk(KERN_DEBUG ".");
+#endif
 		get_device(dev);
 		mutex_unlock(&dpm_list_mtx);
 
+		dpm_drv_wdset(dev);
 		error = device_suspend(dev, state);
+		dpm_drv_wdclr(dev);
 
 		mutex_lock(&dpm_list_mtx);
 		if (error) {
@@ -704,6 +774,9 @@ static int dpm_suspend(pm_message_t state)
 	}
 	list_splice(&list, dpm_list.prev);
 	mutex_unlock(&dpm_list_mtx);
+#ifdef SUSPEND_DEBUG
+	printk(KERN_DEBUG "$$\n");
+#endif
 	return error;
 }
 

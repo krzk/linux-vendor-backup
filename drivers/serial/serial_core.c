@@ -94,6 +94,9 @@ static void __uart_start(struct tty_struct *tty)
 	struct uart_state *state = tty->driver_data;
 	struct uart_port *port = state->uart_port;
 
+	if (port->ops->wake_peer)
+		port->ops->wake_peer(port);
+
 	if (!uart_circ_empty(&state->xmit) && state->xmit.buf &&
 	    !tty->stopped && !tty->hw_stopped)
 		port->ops->start_tx(port);
@@ -342,11 +345,11 @@ uart_get_baud_rate(struct uart_port *port, struct ktermios *termios,
 
 	if (flags == UPF_SPD_HI)
 		altbaud = 57600;
-	if (flags == UPF_SPD_VHI)
+	else if (flags == UPF_SPD_VHI)
 		altbaud = 115200;
-	if (flags == UPF_SPD_SHI)
+	else if (flags == UPF_SPD_SHI)
 		altbaud = 230400;
-	if (flags == UPF_SPD_WARP)
+	else if (flags == UPF_SPD_WARP)
 		altbaud = 460800;
 
 	for (try = 0; try < 2; try++) {
@@ -1217,9 +1220,8 @@ static void uart_set_termios(struct tty_struct *tty,
 	/* Handle transition to B0 status */
 	if ((old_termios->c_cflag & CBAUD) && !(cflag & CBAUD))
 		uart_clear_mctrl(state->uart_port, TIOCM_RTS | TIOCM_DTR);
-
 	/* Handle transition away from B0 status */
-	if (!(old_termios->c_cflag & CBAUD) && (cflag & CBAUD)) {
+	else if (!(old_termios->c_cflag & CBAUD) && (cflag & CBAUD)) {
 		unsigned int mask = TIOCM_DTR;
 		if (!(cflag & CRTSCTS) ||
 		    !test_bit(TTY_THROTTLED, &tty->flags))
@@ -1234,9 +1236,8 @@ static void uart_set_termios(struct tty_struct *tty,
 		__uart_start(tty);
 		spin_unlock_irqrestore(&state->uart_port->lock, flags);
 	}
-
 	/* Handle turning on CRTSCTS */
-	if (!(old_termios->c_cflag & CRTSCTS) && (cflag & CRTSCTS)) {
+	else if (!(old_termios->c_cflag & CRTSCTS) && (cflag & CRTSCTS)) {
 		spin_lock_irqsave(&state->uart_port->lock, flags);
 		if (!(state->uart_port->ops->get_mctrl(state->uart_port) & TIOCM_CTS)) {
 			tty->hw_stopped = 1;
@@ -2015,7 +2016,7 @@ int uart_suspend_port(struct uart_driver *drv, struct uart_port *uport)
 	}
 
 	tty_dev = device_find_child(uport->dev, &match, serial_match_port);
-	if (device_may_wakeup(tty_dev)) {
+	if (tty_dev && device_may_wakeup(tty_dev)) {
 		enable_irq_wake(uport->irq);
 		put_device(tty_dev);
 		mutex_unlock(&port->mutex);
@@ -2099,7 +2100,7 @@ int uart_resume_port(struct uart_driver *drv, struct uart_port *uport)
 	}
 
 	tty_dev = device_find_child(uport->dev, &match, serial_match_port);
-	if (!uport->suspended && device_may_wakeup(tty_dev)) {
+	if (tty_dev && !uport->suspended && device_may_wakeup(tty_dev)) {
 		disable_irq_wake(uport->irq);
 		mutex_unlock(&port->mutex);
 		return 0;
@@ -2354,13 +2355,12 @@ int uart_register_driver(struct uart_driver *drv)
 	 * we have a large number of ports to handle.
 	 */
 	drv->state = kzalloc(sizeof(struct uart_state) * drv->nr, GFP_KERNEL);
-	retval = -ENOMEM;
 	if (!drv->state)
 		goto out;
 
-	normal  = alloc_tty_driver(drv->nr);
+	normal = alloc_tty_driver(drv->nr);
 	if (!normal)
-		goto out;
+		goto out_kfree;
 
 	drv->tty_driver = normal;
 
@@ -2393,12 +2393,14 @@ int uart_register_driver(struct uart_driver *drv)
 	}
 
 	retval = tty_register_driver(normal);
- out:
-	if (retval < 0) {
-		put_tty_driver(normal);
-		kfree(drv->state);
-	}
-	return retval;
+	if (retval >= 0)
+		return retval;
+
+	put_tty_driver(normal);
+out_kfree:
+	kfree(drv->state);
+out:
+	return -ENOMEM;
 }
 
 /**

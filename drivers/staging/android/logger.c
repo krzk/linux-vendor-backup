@@ -17,6 +17,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/sched.h>
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
@@ -26,6 +27,157 @@
 #include "logger.h"
 
 #include <asm/ioctls.h>
+
+#ifdef CONFIG_SAMSUNG_ADD_GAFORENSICINFO
+//{{ Add GAForensicHELP -1/2
+#include <linux/sched.h>
+#include <linux/kthread.h>
+#include <linux/delay.h>
+
+extern struct GAForensicINFO GAFINFO;
+
+static struct GAForensicHELP{
+	unsigned int real_pc_from_context_sp;
+	unsigned int task_struct_of_gaf_proc;
+	unsigned int thread_info_of_gaf_proc;
+	unsigned int cpu_context_of_gaf_proc;
+}GAFHELP;
+
+DECLARE_MUTEX(g_gaf_mutex);
+
+int gaf_proc(void* data)
+{
+	volatile int stack[2];
+
+	stack[0] = (int)('_fag');
+	stack[1] = (int)('corp');
+
+	down_interruptible(&g_gaf_mutex);
+	return 1;
+}
+
+void gaf_helper(void)
+{
+	unsigned int *ptr_task_struct;
+	unsigned int *ptr_thread_info;
+	unsigned int *ptr_cpu_cntx;
+	unsigned int ptr_sp, context_sp;
+	unsigned int fn_down_interruptible = (unsigned int)down_interruptible;
+	unsigned int fn_down = (unsigned int)down;
+
+	down_interruptible(&g_gaf_mutex);
+	ptr_task_struct = kthread_create(gaf_proc, NULL, "gaf-proc");
+	wake_up_process(ptr_task_struct);
+	msleep(100);
+
+	ptr_thread_info = *(unsigned int*)((unsigned int)ptr_task_struct + GAFINFO.task_struct_struct_stack);
+	ptr_cpu_cntx = (unsigned int)ptr_thread_info + GAFINFO.thread_info_struct_cpu_context;
+
+	GAFHELP.task_struct_of_gaf_proc = ptr_task_struct;
+	GAFHELP.thread_info_of_gaf_proc = ptr_thread_info;
+	GAFHELP.cpu_context_of_gaf_proc = ptr_cpu_cntx;
+
+	printk(KERN_INFO "\n========== kernel thread : gaf-proc ==========\n");
+	printk(KERN_INFO "task_struct at %x\n", ptr_task_struct);
+	printk(KERN_INFO "thread_info at %x\n\n", ptr_thread_info);
+
+	printk(KERN_INFO "saved_cpu_context at %x\n", ptr_cpu_cntx);
+	printk(KERN_INFO "%08x r4 :%08x r5 :%08x r6 :%08x r7 :%08x\n", ((unsigned int)ptr_cpu_cntx + 0x00),
+		*(unsigned int*)((unsigned int)ptr_cpu_cntx + 0x00), *(unsigned int*)((unsigned int)ptr_cpu_cntx + 0x04), *(unsigned int*)((unsigned int)ptr_cpu_cntx + 0x08), *(unsigned int*)((unsigned int)ptr_cpu_cntx + 0x0c));
+	printk(KERN_INFO "%08x r8 :%08x r9 :%08x r10:%08x r11:%08x\n", ((unsigned int)ptr_cpu_cntx + 0x10),
+		*(unsigned int*)((unsigned int)ptr_cpu_cntx + 0x10), *(unsigned int*)((unsigned int)ptr_cpu_cntx + 0x14), *(unsigned int*)((unsigned int)ptr_cpu_cntx + 0x18), *(unsigned int*)((unsigned int)ptr_cpu_cntx + 0x1c));
+	printk(KERN_INFO "%08x sp :%08x pc :%08x \n\n", ((unsigned int)ptr_cpu_cntx + 0x20),
+		*(unsigned int*)((unsigned int)ptr_cpu_cntx + 0x20), *(unsigned int*)((unsigned int)ptr_cpu_cntx + 0x24));
+	ptr_sp = context_sp = *(unsigned int*)((unsigned int)ptr_cpu_cntx + GAFINFO.cpu_context_save_struct_sp);
+
+	printk(KERN_INFO "searching saved pc which is stopped in down_interruptible() from %08x to %08x\n", ptr_sp, (unsigned int)ptr_thread_info + THREAD_SIZE);
+	printk(KERN_INFO "down_interruptible() is from %08x to %08x\n\n", fn_down_interruptible, fn_down);
+
+	while(ptr_sp < (unsigned int)ptr_thread_info + THREAD_SIZE) {
+		//printk(KERN_INFO "%08x at %08x\n", *(unsigned int*)ptr_sp, ptr_sp);
+		if( fn_down_interruptible <= *(unsigned int*)ptr_sp && *(unsigned int*)ptr_sp < fn_down ) {
+			printk(KERN_INFO "pc (%08x) is found at %08x\n", *(unsigned int*)ptr_sp, ptr_sp);
+			break;
+		}
+		ptr_sp += 4;
+	}
+
+	if(ptr_sp < (unsigned int)ptr_thread_info + THREAD_SIZE ) {
+		GAFHELP.real_pc_from_context_sp = ptr_sp -context_sp;
+		printk(KERN_INFO "%08x r4 :xxxxxxxx r5 :%08x r6 :%08x r7 :%08x\n", (ptr_sp -0x2c),
+			*(unsigned int*)(ptr_sp -0x28), *(unsigned int*)(ptr_sp -0x24), *(unsigned int*)(ptr_sp -0x20));
+		printk(KERN_INFO "%08x r8 :%08x r9 :%08x r10:%08x r11:%08x\n", (ptr_sp -0x1c),
+			*(unsigned int*)(ptr_sp -0x1c), *(unsigned int*)(ptr_sp -0x18), *(unsigned int*)(ptr_sp -0x14), *(unsigned int*)(ptr_sp -0x10));
+		printk(KERN_INFO "%08x r12:%08x sp :%08x lr :%08x pc :%08x\n", (ptr_sp -0x0c),
+			*(unsigned int*)(ptr_sp -0x0c), *(unsigned int*)(ptr_sp -0x08), *(unsigned int*)(ptr_sp -0x04), *(unsigned int*)(ptr_sp -0x00));
+	} else {
+		GAFHELP.real_pc_from_context_sp = 0xFFFFFFFF;
+		printk(KERN_INFO "pc is not found\n");
+	}
+	printk(KERN_INFO "===================\n\n");
+}
+//}} Add GAForensicHELP -1/2
+#endif /* CONFIG_SAMSUNG_ADD_GAFORENSICINFO */
+
+#ifdef CONFIG_SAMSUNG_USE_GETLOG
+//{{ Mark for GetLog -1/2
+struct struct_plat_log_mark {
+	u32 special_mark_1;
+	u32 special_mark_2;
+	u32 special_mark_3;
+	u32 special_mark_4;
+	void *p_main;
+	void *p_radio;
+	void *p_events;
+	void *p_system;
+};
+
+static struct struct_plat_log_mark plat_log_mark = {
+	.special_mark_1 = (('*' << 24) | ('^' << 16) | ('^' << 8) | ('*' << 0)),
+	.special_mark_2 = (('I' << 24) | ('n' << 16) | ('f' << 8) | ('o' << 0)),
+	.special_mark_3 = (('H' << 24) | ('e' << 16) | ('r' << 8) | ('e' << 0)),
+	.special_mark_4 = (('p' << 24) | ('l' << 16) | ('o' << 8) | ('g' << 0)),
+	.p_main = 0,
+	.p_radio = 0,
+	.p_events = 0,
+	.p_system= 0,
+};
+
+struct struct_marks_ver_mark {
+	u32 special_mark_1;
+	u32 special_mark_2;
+	u32 special_mark_3;
+	u32 special_mark_4;
+	u32 log_mark_version;
+	u32 framebuffer_mark_version;
+	void * this;		/* this is used for addressing log buffer in 2 dump files*/
+	u32 first_size;		/* first memory block's size */
+	u32 first_start_addr;	/* first memory block'sPhysical address */
+	u32 second_size;	/* second memory block's size */
+	u32 second_start_addr;	/* second memory block'sPhysical address */
+};
+
+static struct struct_marks_ver_mark marks_ver_mark = {
+	.special_mark_1 = (('*' << 24) | ('^' << 16) | ('^' << 8) | ('*' << 0)),
+	.special_mark_2 = (('I' << 24) | ('n' << 16) | ('f' << 8) | ('o' << 0)),
+	.special_mark_3 = (('H' << 24) | ('e' << 16) | ('r' << 8) | ('e' << 0)),
+	.special_mark_4 = (('v' << 24) | ('e' << 16) | ('r' << 8) | ('s' << 0)),
+	.log_mark_version = 1,
+	.framebuffer_mark_version = 1,
+	.this=&marks_ver_mark,
+	.first_size=128*1024*1024,	// it has dependency on h/w
+	.first_start_addr=0x30000000,	// it has dependency on h/w
+	.second_size=512*1024*1024,	// it has dependency on h/w
+	.second_start_addr=0x40000000	// it has dependency on h/w
+};
+//}} Mark for GetLog -1/2
+#endif /* CONFIG_SAMSUNG_USE_GETLOG */
+
+#ifdef CONFIG_SAMSUNG_PASS_PLATFORM_LOG_TO_KERNEL
+//{{ pass platform log to kernel - 1/3
+static char klog_buf[256];
+//}} pass platform log to kernel - 1/3
+#endif /* CONFIG_SAMSUNG_PASS_PLATFORM_LOG_TO_KERNEL */
 
 /*
  * struct logger_log - represents a specific log, such as 'main' or 'radio'
@@ -288,6 +440,8 @@ static void do_write_log(struct logger_log *log, const void *buf, size_t count)
 
 }
 
+void (*rfs_debug_panic)(void);
+EXPORT_SYMBOL(rfs_debug_panic);
 /*
  * do_write_log_user - writes 'len' bytes from the user-space buffer 'buf' to
  * the log 'log'
@@ -308,6 +462,21 @@ static ssize_t do_write_log_from_user(struct logger_log *log,
 	if (count != len)
 		if (copy_from_user(log->buffer, buf + len, count - len))
 			return -EFAULT;
+
+#ifdef CONFIG_SAMSUNG_PASS_PLATFORM_LOG_TO_KERNEL
+	//{{ pass platform log (!@hello) to kernel - 2/3
+	memset(klog_buf,0,255);
+
+	if(strncmp(log->buffer  + log->w_off,  "!@", 2) == 0) {
+		if (count < 255)
+			memcpy(klog_buf,log->buffer  + log->w_off, count);
+		else
+			memcpy(klog_buf,log->buffer  + log->w_off, 255);
+
+		klog_buf[255]=0;
+	}
+	//}} pass platform log (!@hello) to kernel - 2/3
+#endif /* CONFIG_SAMSUNG_PASS_PLATFORM_LOG_TO_KERNEL */
 
 	log->w_off = logger_offset(log->w_off + count);
 
@@ -375,6 +544,15 @@ ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 
 	/* wake up any blocked readers */
 	wake_up_interruptible(&log->wq);
+
+#ifdef CONFIG_SAMSUNG_PASS_PLATFORM_LOG_TO_KERNEL
+	//{{ pass platform log (!@hello) to kernel - 3/3
+	if(strncmp(klog_buf, "!@", 2) == 0)
+	{
+		printk("%s\n",klog_buf);
+	}
+	//}} pass platform log (!@hello) to kernel - 3/3
+#endif /* CONFIG_SAMSUNG_PASS_PLATFORM_LOG_TO_KERNEL */
 
 	return ret;
 }
@@ -553,9 +731,10 @@ static struct logger_log VAR = { \
 	.size = SIZE, \
 };
 
-DEFINE_LOGGER_DEVICE(log_main, LOGGER_LOG_MAIN, 64*1024)
+DEFINE_LOGGER_DEVICE(log_main, LOGGER_LOG_MAIN, 512*1024)
 DEFINE_LOGGER_DEVICE(log_events, LOGGER_LOG_EVENTS, 256*1024)
-DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, 64*1024)
+DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, 256*1024)
+DEFINE_LOGGER_DEVICE(log_system, LOGGER_LOG_SYSTEM, 256*1024)
 
 static struct logger_log *get_log_from_minor(int minor)
 {
@@ -565,6 +744,8 @@ static struct logger_log *get_log_from_minor(int minor)
 		return &log_events;
 	if (log_radio.misc.minor == minor)
 		return &log_radio;
+	if (log_system.misc.minor == minor)
+		return &log_system;
 	return NULL;
 }
 
@@ -589,6 +770,22 @@ static int __init logger_init(void)
 {
 	int ret;
 
+#ifdef CONFIG_SAMSUNG_ADD_GAFORENSICINFO
+	//{{ Add GAForensicHELP - 2/2
+	gaf_helper();
+	//}} Add GAForensicHELP - 2/2
+#endif /* CONFIG_SAMSUNG_ADD_GAFORENSICINFO */
+
+#ifdef CONFIG_SAMSUNG_USE_GETLOG
+	//{{ Mark for GetLog -2/2
+	plat_log_mark.p_main = _buf_log_main;
+	plat_log_mark.p_radio = _buf_log_radio;
+	plat_log_mark.p_events = _buf_log_events;
+	plat_log_mark.p_system= _buf_log_system;
+	marks_ver_mark.log_mark_version = 1;
+	//}} Mark for GetLog -2/2
+#endif /* CONFIG_SAMSUNG_USE_GETLOG */
+
 	ret = init_log(&log_main);
 	if (unlikely(ret))
 		goto out;
@@ -598,6 +795,10 @@ static int __init logger_init(void)
 		goto out;
 
 	ret = init_log(&log_radio);
+	if (unlikely(ret))
+		goto out;
+
+	ret = init_log(&log_system);
 	if (unlikely(ret))
 		goto out;
 

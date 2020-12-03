@@ -39,6 +39,7 @@ obj-$(CONFIG_USB_SERIAL_MCT_U232)		+= mct_u232.o
 obj-$(CONFIG_USB_SERIAL_MOS7720)		+= mos7720.o
 obj-$(CONFIG_USB_SERIAL_MOS7840)		+= mos7840.o
 obj-$(CONFIG_USB_SERIAL_MOTOROLA)		+= moto_modem.o
+obj-$(CONFIG_USB_QSC6085_CDMA_MODEM)		+= qsc6085_modem.o
 obj-$(CONFIG_USB_SERIAL_NAVMAN)			+= navman.o
 obj-$(CONFIG_USB_SERIAL_OMNINET)		+= omninet.o
 obj-$(CONFIG_USB_SERIAL_OPTICON)		+= opticon.o
@@ -55,4 +56,4 @@ obj-$(CONFIG_USB_SERIAL_TI)			+= ti_usb_3410_5052.o
 obj-$(CONFIG_USB_SERIAL_VISOR)			+= visor.o
 obj-$(CONFIG_USB_SERIAL_WHITEHEAT)		+= whiteheat.o
 obj-$(CONFIG_USB_SERIAL_XIRCOM)			+= keyspan_pda.o
-
+obj-$(CONFIG_USB_SERIAL_MOTO_CDMA_FLASH)	+= moto_flashqsc.o

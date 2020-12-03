@@ -75,15 +75,37 @@ struct otg_transceiver {
 	/* start or continue HNP role switch */
 	int	(*start_hnp)(struct otg_transceiver *otg);
 
+	/* ask the link to save internal context */
+	void    (*link_save_context)(struct otg_transceiver *otg);
+
+	/* ask the link to restore internal context */
+	void    (*link_restore_context)(struct otg_transceiver *otg);
+
+	/* ask the link to always be in an active state */
+	void    (*link_force_active)(int enable);
+
+	/* pointer to the link driver */
+	void    *link;
+
 };
 
 
 /* for board-specific init logic */
 extern int otg_set_transceiver(struct otg_transceiver *);
 
+#if defined(CONFIG_NOP_USB_XCEIV)
 /* sometimes transceivers are accessed only through e.g. ULPI */
 extern void usb_nop_xceiv_register(void);
 extern void usb_nop_xceiv_unregister(void);
+#else
+static inline void usb_nop_xceiv_register(void)
+{
+}
+
+static inline void usb_nop_xceiv_unregister(void)
+{
+}
+#endif
 
 
 /* for usb host and peripheral controller drivers */

@@ -14,15 +14,15 @@
 #ifndef ARCH_ARM_MACH_OMAP2_SDRAM_QIMONDA_HYB18M512160AF6
 #define ARCH_ARM_MACH_OMAP2_SDRAM_QIMONDA_HYB18M512160AF6
 
-#include <mach/sdrc.h>
+#include <plat/sdrc.h>
 
 /* Qimonda HYB18M512160AF-6 */
 static struct omap_sdrc_params hyb18m512160af6_sdrc_params[] = {
 	[0] = {
 		.rate	     = 166000000,
-		.actim_ctrla = 0x629db4c6,
-		.actim_ctrlb = 0x00012214,
-		.rfr_ctrl    = 0x0004dc01,
+		.actim_ctrla = 0xA29DB485,
+		.actim_ctrlb = 0x00022514, //0x00011514,
+		.rfr_ctrl    = 0x0004E203,
 		.mr	     = 0x00000032,
 	},
 	[1] = {
@@ -37,7 +37,6 @@ static struct omap_sdrc_params hyb18m512160af6_sdrc_params[] = {
 		.actim_ctrla = 0x31512283,
 		.actim_ctrlb = 0x0001220a,
 		.rfr_ctrl    = 0x00025501,
-		.mr	     = 0x00000022,
 	},
 	[3] = {
 		.rate	     = 82970588,

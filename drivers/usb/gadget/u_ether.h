@@ -110,9 +110,12 @@ static inline bool can_support_ecm(struct usb_gadget *gadget)
 /* each configuration may bind one instance of an ethernet link */
 int geth_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN]);
 int ecm_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN]);
-int eem_bind_config(struct usb_configuration *c);
 
-#ifdef CONFIG_USB_ETH_RNDIS
+void rndis_function_enable(int enable);
+void ecm_function_enable(int enable);
+void geth_function_enable(int enable);
+
+#if defined(CONFIG_USB_ETH_RNDIS) || defined(CONFIG_USB_ANDROID_RNDIS)
 
 int rndis_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN]);
 

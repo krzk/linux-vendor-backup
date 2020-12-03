@@ -1,7 +1,7 @@
 /*
  * omap iommu: tlb and pagetable primitives
  *
- * Copyright (C) 2008-2009 Nokia Corporation
+ * Copyright (C) 2008-2010 Nokia Corporation
  *
  * Written by Hiroshi DOYU <Hiroshi.DOYU@nokia.com>,
  *		Paul Mundt and Toshihiro Kobayashi
@@ -12,17 +12,55 @@
  */
 
 #include <linux/err.h>
+#include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/device.h>
+#include <linux/file.h>
+#include <linux/poll.h>
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
 #include <linux/clk.h>
 #include <linux/platform_device.h>
+#include <linux/eventfd.h>
 
 #include <asm/cacheflush.h>
 
-#include <mach/iommu.h>
+#include <plat/iommu.h>
 
 #include "iopgtable.h"
+
+#include "../mach-omap2/cm.h"
+#include "../mach-omap2/prm.h"
+
+#define RM_M3_RST1ST				0x1
+#define RM_M3_RST2ST				0x2
+#define RM_M3_RST3ST				0x4
+#define RM_M3_MPU_ALL_RESETS			0x7
+#define RM_M3_REL_RST1_MASK			0x2
+#define RM_M3_REL_RST2_MASK			0x0
+#define RM_M3_REL_RST3_MASK			0x3
+#define RM_M3_AST_RST1_MASK			0x3
+#define RM_M3_AST_RST2_MASK			0x2
+#define RM_M3_AST_RST3_MASK			0x7
+
+#define OMAP4_RM_DUCATI_RSTCTRL_OFFSET		0x0210
+#define OMAP4_RM_DUCATI_RSTST_OFFSET		0x0214
+
+#define RM_TESLA_RST1ST				0x1
+#define RM_TESLA_RST2ST				0x2
+#define RM_TESLA_ALL_RESETS			0x3
+#define RM_TESLA_REL_RST1_MASK			0x0
+#define RM_TESLA_REL_RST2_MASK			0x1
+#define RM_TESLA_AST_RST1_MASK			0x1
+#define RM_TESLA_AST_RST2_MASK			0x3
+
+#define OMAP4_RM_TESLA_RSTCTRL_OFFSET		0x0010
+#define OMAP4_RM_TESLA_RSTST_OFFSET		0x0014
+
+#define for_each_iotlb_cr(obj, n, __i, cr)				\
+	for (__i = 0;							\
+	     (__i < (n)) && (cr = __iotlb_read_cr((obj), __i), true);	\
+	     __i++)
 
 /* accommodate the difference between omap1 and omap2/3 */
 static const struct iommu_functions *arch_iommu;
@@ -94,28 +132,142 @@ EXPORT_SYMBOL_GPL(iommu_arch_version);
 static int iommu_enable(struct iommu *obj)
 {
 	int err;
+	u32 reg;
 
 	if (!obj)
 		return -EINVAL;
 
-	clk_enable(obj->clk);
+	if (cpu_is_omap44xx() && !strcmp(obj->name, "ducati")) {
+		/* Check that releasing resets would indeed be effective */
+		reg = prm_read_mod_reg(OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTCTRL_OFFSET);
+		pr_info("iommu_enable: OMAP4_RM_DUCATI_RSTCTRL_OFFSET = 0x%x",
+			reg);
+		if ((reg & RM_M3_MPU_ALL_RESETS) != RM_M3_MPU_ALL_RESETS) {
+			pr_info("iommu_enable: Ducati Resets in not proper "
+				"state!\n");
+			pr_info("iommu_enable: Ducati Asserting RST1, RST2, "
+				"and RST3...\n");
+			prm_write_mod_reg(RM_M3_MPU_ALL_RESETS,
+					OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTCTRL_OFFSET);
+			while (prm_read_mod_reg(OMAP4430_PRM_CORE_MOD,
+				OMAP4_RM_DUCATI_RSTCTRL_OFFSET) !=
+						 RM_M3_MPU_ALL_RESETS);
+		}
+
+		/* De-assert RST3, and clear the Reset status */
+		pr_info("iommu_enable: De-assert Ducati RST3\n");
+		reg = prm_read_mod_reg(OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTCTRL_OFFSET);
+		pr_info("iommu_enable: Ducati RSTCTRL = 0x%x\n", reg);
+		prm_write_mod_reg(RM_M3_REL_RST3_MASK, OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTCTRL_OFFSET);
+		while (!(prm_read_mod_reg(OMAP4430_PRM_CORE_MOD,
+				OMAP4_RM_DUCATI_RSTST_OFFSET) & RM_M3_RST3ST));
+		pr_info("iommu_enable: Ducati RST3 released!");
+		prm_write_mod_reg(RM_M3_RST3ST, OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTST_OFFSET);
+		pr_info("iommu_enable: Ducati %s %d\n", __func__, __LINE__);
+	}
+	if (cpu_is_omap44xx() && !strcmp(obj->name, "tesla")) {
+		/* Check that releasing resets would indeed be effective */
+		reg = prm_read_mod_reg(OMAP4430_PRM_TESLA_MOD,
+					OMAP4_RM_TESLA_RSTCTRL_OFFSET);
+		pr_info("iommu_enable: OMAP4_RM_TESLA_RSTCTRL_OFFSET = 0x%x",
+			reg);
+		if ((reg & RM_TESLA_ALL_RESETS) != RM_TESLA_ALL_RESETS) {
+			pr_info("iommu_enable: Tesla Resets in not proper "
+				"state!\n");
+			pr_info("iommu_enable: Tesla Assert RST1 and RST2.n");
+			prm_write_mod_reg(RM_TESLA_ALL_RESETS,
+					OMAP4430_PRM_TESLA_MOD,
+					OMAP4_RM_TESLA_RSTCTRL_OFFSET);
+			while (prm_read_mod_reg(OMAP4430_PRM_TESLA_MOD,
+					OMAP4_RM_TESLA_RSTCTRL_OFFSET) !=
+					RM_TESLA_ALL_RESETS);
+		}
+
+		/* De-assert RST2, and clear the Reset status */
+		pr_info("iommu_enable: De-assert Tesla RST2\n");
+		reg = prm_read_mod_reg(OMAP4430_PRM_TESLA_MOD,
+					OMAP4_RM_TESLA_RSTCTRL_OFFSET);
+		pr_info("iommu_enable: Tesla RSTCTRL = 0x%x\n", reg);
+		prm_write_mod_reg(RM_TESLA_REL_RST2_MASK,
+					OMAP4430_PRM_TESLA_MOD,
+					OMAP4_RM_TESLA_RSTCTRL_OFFSET);
+		while (!(prm_read_mod_reg(OMAP4430_PRM_TESLA_MOD,
+				OMAP4_RM_TESLA_RSTST_OFFSET) &
+				RM_TESLA_RST2ST));
+		pr_info("iommu_enable: Tesla RST2 released!");
+		prm_write_mod_reg(RM_TESLA_RST2ST, OMAP4430_PRM_TESLA_MOD,
+					OMAP4_RM_TESLA_RSTST_OFFSET);
+		pr_info("iommu_enable: Tesla %s %d\n", __func__, __LINE__);
+	}
+
+	if (!cpu_is_omap44xx())
+		clk_enable(obj->clk);
 
 	err = arch_iommu->enable(obj);
 
-	clk_disable(obj->clk);
+	if (!cpu_is_omap44xx())
+		clk_disable(obj->clk);
+
 	return err;
 }
 
 static void iommu_disable(struct iommu *obj)
 {
+	u32 reg;
+
 	if (!obj)
 		return;
 
-	clk_enable(obj->clk);
+	if (cpu_is_omap44xx() && !strcmp(obj->name, "ducati")) {
+		reg = prm_read_mod_reg(OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTCTRL_OFFSET);
+		prm_write_mod_reg((reg | RM_M3_RST1ST | RM_M3_RST2ST),
+					OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTCTRL_OFFSET);
+	}
+	if (cpu_is_omap44xx() && !strcmp(obj->name, "tesla")) {
+		reg = prm_read_mod_reg(OMAP4430_PRM_TESLA_MOD,
+					OMAP4_RM_TESLA_RSTCTRL_OFFSET);
+		prm_write_mod_reg((reg | RM_TESLA_RST1ST),
+					OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_TESLA_RSTCTRL_OFFSET);
+	}
+
+	if (!cpu_is_omap44xx())
+		clk_enable(obj->clk);
 
 	arch_iommu->disable(obj);
 
-	clk_disable(obj->clk);
+	if (!cpu_is_omap44xx())
+		clk_disable(obj->clk);
+
+	if (cpu_is_omap44xx() && !strcmp(obj->name, "ducati")) {
+		pr_info("iommu_disable: Ducati Assert RST1, RST2 and RST3\n");
+		reg = prm_read_mod_reg(OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTCTRL_OFFSET);
+		prm_write_mod_reg((reg | RM_M3_MPU_ALL_RESETS),
+					OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTCTRL_OFFSET);
+		pr_info("iommu_disable: Ducati Reset Status RSTST = 0x%x\n",
+			prm_read_mod_reg(OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTST_OFFSET));
+	}
+	if (cpu_is_omap44xx() && !strcmp(obj->name, "tesla")) {
+		pr_info("iommu_disable: Tesla Assert DSP RST1 and RST2\n");
+		reg = prm_read_mod_reg(OMAP4430_PRM_TESLA_MOD,
+					OMAP4_RM_TESLA_RSTCTRL_OFFSET);
+		prm_write_mod_reg((reg | RM_TESLA_ALL_RESETS),
+					OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_TESLA_RSTCTRL_OFFSET);
+		pr_info("iommu_disable: Tesla Reset Status RSTST = 0x%x\n",
+			prm_read_mod_reg(OMAP4430_PRM_TESLA_MOD,
+					OMAP4_RM_TESLA_RSTST_OFFSET));
+	}
 }
 
 /*
@@ -171,14 +323,11 @@ static void iotlb_lock_get(struct iommu *obj, struct iotlb_lock *l)
 	l->base = MMU_LOCK_BASE(val);
 	l->vict = MMU_LOCK_VICT(val);
 
-	BUG_ON(l->base != 0); /* Currently no preservation is used */
 }
 
 static void iotlb_lock_set(struct iommu *obj, struct iotlb_lock *l)
 {
 	u32 val;
-
-	BUG_ON(l->base != 0); /* Currently no preservation is used */
 
 	val = (l->base << MMU_LOCK_BASE_SHIFT);
 	val |= (l->vict << MMU_LOCK_VICT_SHIFT);
@@ -228,40 +377,60 @@ int load_iotlb_entry(struct iommu *obj, struct iotlb_entry *e)
 	if (!obj || !obj->nr_tlb_entries || !e)
 		return -EINVAL;
 
-	clk_enable(obj->clk);
+	if (!cpu_is_omap44xx())
+		clk_enable(obj->clk);
 
-	for (i = 0; i < obj->nr_tlb_entries; i++) {
-		struct cr_regs tmp;
-
-		iotlb_lock_get(obj, &l);
-		l.vict = i;
-		iotlb_lock_set(obj, &l);
-		iotlb_read_cr(obj, &tmp);
-		if (!iotlb_cr_valid(&tmp))
-			break;
-	}
-
-	if (i == obj->nr_tlb_entries) {
-		dev_dbg(obj->dev, "%s: full: no entry\n", __func__);
+	iotlb_lock_get(obj, &l);
+	if (l.base == obj->nr_tlb_entries) {
+		dev_warn(obj->dev, "%s: preserve entries full\n", __func__);
 		err = -EBUSY;
 		goto out;
+	}
+	if (!e->prsvd) {
+		for (i = l.base; i < obj->nr_tlb_entries; i++) {
+			struct cr_regs tmp;
+
+			iotlb_lock_get(obj, &l);
+			l.vict = i;
+			iotlb_lock_set(obj, &l);
+			iotlb_read_cr(obj, &tmp);
+			if (!iotlb_cr_valid(&tmp))
+				break;
+		}
+		if (i == obj->nr_tlb_entries) {
+			dev_dbg(obj->dev, "%s: full: no entry\n", __func__);
+			err = -EBUSY;
+			goto out;
+		}
+	} else {
+		l.vict = l.base;
+		iotlb_lock_set(obj, &l);
 	}
 
 	cr = iotlb_alloc_cr(obj, e);
 	if (IS_ERR(cr)) {
-		clk_disable(obj->clk);
+
+		if (!cpu_is_omap44xx())
+			clk_disable(obj->clk);
 		return PTR_ERR(cr);
 	}
-
 	iotlb_load_cr(obj, cr);
 	kfree(cr);
 
+	/* Increment base number if preservation is set */
+	if (e->prsvd)
+		l.base++;
 	/* increment victim for next tlb load */
-	if (++l.vict == obj->nr_tlb_entries)
-		l.vict = 0;
+	if (++l.vict == obj->nr_tlb_entries) {
+		l.vict = l.base;
+		goto out;
+	}
+
 	iotlb_lock_set(obj, &l);
 out:
-	clk_disable(obj->clk);
+	if (!cpu_is_omap44xx())
+		clk_disable(obj->clk);
+
 	return err;
 }
 EXPORT_SYMBOL_GPL(load_iotlb_entry);
@@ -278,7 +447,8 @@ void flush_iotlb_page(struct iommu *obj, u32 da)
 	struct iotlb_lock l;
 	int i;
 
-	clk_enable(obj->clk);
+	if (!cpu_is_omap44xx())
+		clk_enable(obj->clk);
 
 	for (i = 0; i < obj->nr_tlb_entries; i++) {
 		struct cr_regs cr;
@@ -302,7 +472,8 @@ void flush_iotlb_page(struct iommu *obj, u32 da)
 			iommu_write_reg(obj, 1, MMU_FLUSH_ENTRY);
 		}
 	}
-	clk_disable(obj->clk);
+	if (!cpu_is_omap44xx())
+		clk_disable(obj->clk);
 
 	if (i == obj->nr_tlb_entries)
 		dev_dbg(obj->dev, "%s: no page for %08x\n", __func__, da);
@@ -337,7 +508,8 @@ void flush_iotlb_all(struct iommu *obj)
 {
 	struct iotlb_lock l;
 
-	clk_enable(obj->clk);
+	if (!cpu_is_omap44xx())
+		clk_enable(obj->clk);
 
 	l.base = 0;
 	l.vict = 0;
@@ -345,9 +517,31 @@ void flush_iotlb_all(struct iommu *obj)
 
 	iommu_write_reg(obj, 1, MMU_GFLUSH);
 
-	clk_disable(obj->clk);
+	if (!cpu_is_omap44xx())
+		clk_disable(obj->clk);
 }
 EXPORT_SYMBOL_GPL(flush_iotlb_all);
+
+/**
+ * iommu_set_twl - enable/disable table walking logic
+ * @obj:	target iommu
+ * @on:		enable/disable
+ *
+ * Function used to enable/disable TWL. If one wants to work
+ * exclusively with locked TLB entries and receive notifications
+ * for TLB miss then call this function to disable TWL.
+ */
+void iommu_set_twl(struct iommu *obj, bool on)
+{
+	if (!cpu_is_omap44xx())
+		clk_enable(obj->clk);
+
+	arch_iommu->set_twl(obj, on);
+
+	if (!cpu_is_omap44xx())
+		clk_disable(obj->clk);
+}
+EXPORT_SYMBOL_GPL(iommu_set_twl);
 
 #if defined(CONFIG_OMAP_IOMMU_DEBUG_MODULE)
 
@@ -355,12 +549,13 @@ ssize_t iommu_dump_ctx(struct iommu *obj, char *buf, ssize_t bytes)
 {
 	if (!obj || !buf)
 		return -EINVAL;
-
-	clk_enable(obj->clk);
+	if (!cpu_is_omap44xx())
+		clk_enable(obj->clk);
 
 	bytes = arch_iommu->dump_ctx(obj, buf, bytes);
 
-	clk_disable(obj->clk);
+	if (!cpu_is_omap44xx())
+		clk_disable(obj->clk);
 
 	return bytes;
 }
@@ -372,7 +567,8 @@ static int __dump_tlb_entries(struct iommu *obj, struct cr_regs *crs, int num)
 	struct iotlb_lock saved, l;
 	struct cr_regs *p = crs;
 
-	clk_enable(obj->clk);
+	if (!cpu_is_omap44xx())
+		clk_enable(obj->clk);
 
 	iotlb_lock_get(obj, &saved);
 	memcpy(&l, &saved, sizeof(saved));
@@ -390,7 +586,9 @@ static int __dump_tlb_entries(struct iommu *obj, struct cr_regs *crs, int num)
 		*p++ = tmp;
 	}
 	iotlb_lock_set(obj, &saved);
-	clk_disable(obj->clk);
+
+	if (!cpu_is_omap44xx())
+		clk_disable(obj->clk);
 
 	return  p - crs;
 }
@@ -436,22 +634,15 @@ EXPORT_SYMBOL_GPL(foreach_iommu_device);
  */
 static void flush_iopgd_range(u32 *first, u32 *last)
 {
-	/* FIXME: L2 cache should be taken care of if it exists */
-	do {
-		asm("mcr	p15, 0, %0, c7, c10, 1 @ flush_pgd"
-		    : : "r" (first));
-		first += L1_CACHE_BYTES / sizeof(*first);
-	} while (first <= last);
+	dmac_flush_range(first, last);
+	outer_flush_range(virt_to_phys(first), virt_to_phys(last));
 }
+
 
 static void flush_iopte_range(u32 *first, u32 *last)
 {
-	/* FIXME: L2 cache should be taken care of if it exists */
-	do {
-		asm("mcr	p15, 0, %0, c7, c10, 1 @ flush_pte"
-		    : : "r" (first));
-		first += L1_CACHE_BYTES / sizeof(*first);
-	} while (first <= last);
+	dmac_flush_range(first, last);
+	outer_flush_range(virt_to_phys(first), virt_to_phys(last));
 }
 
 static void iopte_free(u32 *iopte)
@@ -480,7 +671,7 @@ static u32 *iopte_alloc(struct iommu *obj, u32 *iopgd, u32 da)
 			return ERR_PTR(-ENOMEM);
 
 		*iopgd = virt_to_phys(iopte) | IOPGD_TABLE;
-		flush_iopgd_range(iopgd, iopgd);
+		flush_iopgd_range(iopgd, iopgd + 1);
 
 		dev_vdbg(obj->dev, "%s: a new pte:%p\n", __func__, iopte);
 	} else {
@@ -503,7 +694,7 @@ static int iopgd_alloc_section(struct iommu *obj, u32 da, u32 pa, u32 prot)
 	u32 *iopgd = iopgd_offset(obj, da);
 
 	*iopgd = (pa & IOSECTION_MASK) | prot | IOPGD_SECTION;
-	flush_iopgd_range(iopgd, iopgd);
+	flush_iopgd_range(iopgd, iopgd + 1);
 	return 0;
 }
 
@@ -514,7 +705,7 @@ static int iopgd_alloc_super(struct iommu *obj, u32 da, u32 pa, u32 prot)
 
 	for (i = 0; i < 16; i++)
 		*(iopgd + i) = (pa & IOSUPER_MASK) | prot | IOPGD_SUPER;
-	flush_iopgd_range(iopgd, iopgd + 15);
+	flush_iopgd_range(iopgd, iopgd + 16);
 	return 0;
 }
 
@@ -527,7 +718,7 @@ static int iopte_alloc_page(struct iommu *obj, u32 da, u32 pa, u32 prot)
 		return PTR_ERR(iopte);
 
 	*iopte = (pa & IOPAGE_MASK) | prot | IOPTE_SMALL;
-	flush_iopte_range(iopte, iopte);
+	flush_iopte_range(iopte, iopte + 1);
 
 	dev_vdbg(obj->dev, "%s: da:%08x pa:%08x pte:%p *pte:%08x\n",
 		 __func__, da, pa, iopte, *iopte);
@@ -546,7 +737,7 @@ static int iopte_alloc_large(struct iommu *obj, u32 da, u32 pa, u32 prot)
 
 	for (i = 0; i < 16; i++)
 		*(iopte + i) = (pa & IOLARGE_MASK) | prot | IOPTE_LARGE;
-	flush_iopte_range(iopte, iopte + 15);
+	flush_iopte_range(iopte, iopte + 16);
 	return 0;
 }
 
@@ -646,7 +837,7 @@ static size_t iopgtable_clear_entry_core(struct iommu *obj, u32 da)
 		if (*iopte & IOPTE_LARGE) {
 			nent *= 16;
 			/* rewind to the 1st entry */
-			iopte = (u32 *)((u32)iopte & IOLARGE_MASK);
+			iopte = iopte_offset(iopgd, (da & IOLARGE_MASK));
 		}
 		bytes *= nent;
 		memset(iopte, 0, nent * sizeof(*iopte));
@@ -667,7 +858,7 @@ static size_t iopgtable_clear_entry_core(struct iommu *obj, u32 da)
 		if ((*iopgd & IOPGD_SUPER) == IOPGD_SUPER) {
 			nent *= 16;
 			/* rewind to the 1st entry */
-			iopgd = (u32 *)((u32)iopgd & IOSUPER_MASK);
+			iopgd = iopgd_offset(obj, (da & IOSUPER_MASK));
 		}
 		bytes *= nent;
 	}
@@ -697,7 +888,7 @@ size_t iopgtable_clear_entry(struct iommu *obj, u32 da)
 }
 EXPORT_SYMBOL_GPL(iopgtable_clear_entry);
 
-static void iopgtable_clear_entry_all(struct iommu *obj)
+void iopgtable_clear_entry_all(struct iommu *obj)
 {
 	int i;
 
@@ -717,13 +908,43 @@ static void iopgtable_clear_entry_all(struct iommu *obj)
 			iopte_free(iopte_offset(iopgd, 0));
 
 		*iopgd = 0;
-		flush_iopgd_range(iopgd, iopgd);
+		flush_iopgd_range(iopgd, iopgd + 1);
 	}
 
 	flush_iotlb_all(obj);
 
 	spin_unlock(&obj->page_table_lock);
 }
+EXPORT_SYMBOL_GPL(iopgtable_clear_entry_all);
+
+void eventfd_notification(struct iommu *obj)
+{
+	struct iommu_event_ntfy *fd_reg;
+
+	list_for_each_entry(fd_reg, &obj->event_list, list)
+		eventfd_signal(fd_reg->evt_ctx, 1);
+}
+
+int iommu_notify_event(struct iommu *obj, int event, void *data)
+{
+	return blocking_notifier_call_chain(&obj->notifier, event, data);
+}
+
+int iommu_register_notifier(struct iommu *obj, struct notifier_block *nb)
+{
+	if (!nb)
+		return -EINVAL;
+	return blocking_notifier_chain_register(&obj->notifier, nb);
+}
+EXPORT_SYMBOL_GPL(iommu_register_notifier);
+
+int iommu_unregister_notifier(struct iommu *obj, struct notifier_block *nb)
+{
+	if (!nb)
+		return -EINVAL;
+	return blocking_notifier_chain_unregister(&obj->notifier, nb);
+}
+EXPORT_SYMBOL_GPL(iommu_unregister_notifier);
 
 /*
  *	Device IOMMU generic operations
@@ -738,16 +959,20 @@ static irqreturn_t iommu_fault_handler(int irq, void *data)
 	if (!obj->refcount)
 		return IRQ_NONE;
 
+	eventfd_notification(obj);
 	/* Dynamic loading TLB or PTE */
-	if (obj->isr)
-		err = obj->isr(obj);
+	err = iommu_notify_event(obj, IOMMU_FAULT, data);
 
-	if (!err)
+	if (err == NOTIFY_OK)
 		return IRQ_HANDLED;
 
-	clk_enable(obj->clk);
+	if (!cpu_is_omap44xx())
+		clk_enable(obj->clk);
+
 	stat = iommu_report_fault(obj, &da);
-	clk_disable(obj->clk);
+
+	if (!cpu_is_omap44xx())
+		clk_disable(obj->clk);
 	if (!stat)
 		return IRQ_HANDLED;
 
@@ -786,6 +1011,7 @@ struct iommu *iommu_get(const char *name)
 	int err = -ENOMEM;
 	struct device *dev;
 	struct iommu *obj;
+	int rev;
 
 	dev = driver_find_device(&omap_iommu_driver.driver, NULL, (void *)name,
 				 device_match_by_alias);
@@ -800,12 +1026,17 @@ struct iommu *iommu_get(const char *name)
 		err = iommu_enable(obj);
 		if (err)
 			goto err_enable;
+		if (!strcmp(obj->name, "ducati")) {
+			rev = GET_OMAP_REVISION();
+			if (rev == 0x0)
+				iommu_set_twl(obj, false);
+		}
+
 		flush_iotlb_all(obj);
 	}
 
 	if (!try_module_get(obj->owner))
 		goto err_module;
-
 	mutex_unlock(&obj->iommu_lock);
 
 	dev_dbg(obj->dev, "%s: %s\n", __func__, obj->name);
@@ -862,10 +1093,12 @@ static int __devinit omap_iommu_probe(struct platform_device *pdev)
 	if (!obj)
 		return -ENOMEM;
 
-	obj->clk = clk_get(&pdev->dev, pdata->clk_name);
-	if (IS_ERR(obj->clk))
-		goto err_clk;
-
+	/* FIX ME: OMAP4 PM framework not ready */
+	if (!cpu_is_omap44xx()) {
+		obj->clk = clk_get(&pdev->dev, pdata->clk_name);
+		if (IS_ERR(obj->clk))
+			goto err_clk;
+	}
 	obj->nr_tlb_entries = pdata->nr_tlb_entries;
 	obj->name = pdata->name;
 	obj->dev = &pdev->dev;
@@ -893,6 +1126,10 @@ static int __devinit omap_iommu_probe(struct platform_device *pdev)
 		err = -EIO;
 		goto err_mem;
 	}
+	spin_lock_init(&obj->event_lock);
+	INIT_LIST_HEAD(&obj->event_list);
+
+	BLOCKING_INIT_NOTIFIER_HEAD(&obj->notifier);
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
@@ -936,6 +1173,7 @@ static int __devexit omap_iommu_remove(struct platform_device *pdev)
 	int irq;
 	struct resource *res;
 	struct iommu *obj = platform_get_drvdata(pdev);
+	struct iommu_platform_data *pdata = pdev->dev.platform_data;
 
 	platform_set_drvdata(pdev, NULL);
 
@@ -966,6 +1204,7 @@ static void iopte_cachep_ctor(void *iopte)
 {
 	clean_dcache_area(iopte, IOPTE_TABLE_SIZE);
 }
+
 
 static int __init omap_iommu_init(void)
 {

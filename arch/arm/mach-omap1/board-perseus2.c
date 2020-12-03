@@ -19,6 +19,7 @@
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
 #include <linux/input.h>
+#include <linux/smc91x.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -26,14 +27,14 @@
 #include <asm/mach/flash.h>
 #include <asm/mach/map.h>
 
-#include <mach/tc.h>
+#include <plat/tc.h>
 #include <mach/gpio.h>
-#include <mach/mux.h>
-#include <mach/fpga.h>
-#include <mach/nand.h>
-#include <mach/keypad.h>
-#include <mach/common.h>
-#include <mach/board.h>
+#include <plat/mux.h>
+#include <plat/fpga.h>
+#include <plat/nand.h>
+#include <plat/keypad.h>
+#include <plat/common.h>
+#include <plat/board.h>
 
 static int p2_keymap[] = {
 	KEY(0,0,KEY_UP),
@@ -67,6 +68,12 @@ static int p2_keymap[] = {
 	0
 };
 
+static struct smc91x_platdata smc91x_info = {
+	.flags	= SMC91X_USE_16BIT | SMC91X_NOWAIT,
+	.leda	= RPC_LED_100_10,
+	.ledb	= RPC_LED_TX_RX,
+};
+
 static struct resource smc91x_resources[] = {
 	[0] = {
 		.start	= H2P2_DBG_FPGA_ETHR_START,	/* Physical */
@@ -74,7 +81,7 @@ static struct resource smc91x_resources[] = {
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-		.start	= INT_730_MPU_EXT_NIRQ,
+		.start	= INT_7XX_MPU_EXT_NIRQ,
 		.end	= 0,
 		.flags	= IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHEDGE,
 	},
@@ -157,14 +164,17 @@ static struct platform_device nand_device = {
 static struct platform_device smc91x_device = {
 	.name		= "smc91x",
 	.id		= 0,
+	.dev	= {
+		.platform_data	= &smc91x_info,
+	},
 	.num_resources	= ARRAY_SIZE(smc91x_resources),
 	.resource	= smc91x_resources,
 };
 
 static struct resource kp_resources[] = {
 	[0] = {
-		.start	= INT_730_MPUIO_KEYPAD,
-		.end	= INT_730_MPUIO_KEYPAD,
+		.start	= INT_7XX_MPUIO_KEYPAD,
+		.end	= INT_7XX_MPUIO_KEYPAD,
 		.flags	= IORESOURCE_IRQ,
 	},
 };
@@ -270,7 +280,7 @@ static void __init omap_perseus2_map_io(void)
 	/*
 	 * Hold GSM Reset until needed
 	 */
-	omap_writew(omap_readw(OMAP730_DSP_M_CTL) & ~1, OMAP730_DSP_M_CTL);
+	omap_writew(omap_readw(OMAP7XX_DSP_M_CTL) & ~1, OMAP7XX_DSP_M_CTL);
 
 	/*
 	 * UARTs -> done automagically by 8250 driver
@@ -281,21 +291,21 @@ static void __init omap_perseus2_map_io(void)
 	 */
 
 	/* Flash: CS0 timings setup */
-	omap_writel(0x0000fff3, OMAP730_FLASH_CFG_0);
-	omap_writel(0x00000088, OMAP730_FLASH_ACFG_0);
+	omap_writel(0x0000fff3, OMAP7XX_FLASH_CFG_0);
+	omap_writel(0x00000088, OMAP7XX_FLASH_ACFG_0);
 
 	/*
 	 * Ethernet support through the debug board
 	 * CS1 timings setup
 	 */
-	omap_writel(0x0000fff3, OMAP730_FLASH_CFG_1);
-	omap_writel(0x00000000, OMAP730_FLASH_ACFG_1);
+	omap_writel(0x0000fff3, OMAP7XX_FLASH_CFG_1);
+	omap_writel(0x00000000, OMAP7XX_FLASH_ACFG_1);
 
 	/*
 	 * Configure MPU_EXT_NIRQ IO in IO_CONF9 register,
 	 * It is used as the Ethernet controller interrupt
 	 */
-	omap_writel(omap_readl(OMAP730_IO_CONF_9) & 0x1FFFFFFF, OMAP730_IO_CONF_9);
+	omap_writel(omap_readl(OMAP7XX_IO_CONF_9) & 0x1FFFFFFF, OMAP7XX_IO_CONF_9);
 }
 
 MACHINE_START(OMAP_PERSEUS2, "OMAP730 Perseus2")

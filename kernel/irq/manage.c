@@ -915,7 +915,14 @@ static struct irqaction *__free_irq(unsigned int irq, void *dev_id)
 
 	return action;
 }
+//PHILL-IT 2009-12-19 baseporting
+int omap_setup_irq(unsigned int irq, struct irqaction *act)
+{
+	struct irq_desc *desc = irq_to_desc(irq);
 
+	return __setup_irq(irq, desc, act);
+}
+EXPORT_SYMBOL(omap_setup_irq);
 /**
  *	remove_irq - free an interrupt
  *	@irq: Interrupt line to free

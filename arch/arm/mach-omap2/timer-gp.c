@@ -37,7 +37,7 @@
 #include <linux/clockchips.h>
 
 #include <asm/mach/time.h>
-#include <mach/dmtimer.h>
+#include <plat/dmtimer.h>
 #include <asm/localtimer.h>
 
 /* MAX_GPTIMER_ID: number of GPTIMERs on the chip */
@@ -47,6 +47,7 @@ static struct omap_dm_timer *gptimer;
 static struct clock_event_device clockevent_gpt;
 static u8 __initdata gptimer_id = 1;
 static u8 __initdata inited;
+struct omap_dm_timer *gptimer_wakeup;
 
 static irqreturn_t omap2_gp_timer_interrupt(int irq, void *dev_id)
 {
@@ -63,6 +64,19 @@ static struct irqaction omap2_gp_timer_irq = {
 	.name		= "gp timer",
 	.flags		= IRQF_DISABLED | IRQF_TIMER | IRQF_IRQPOLL,
 	.handler	= omap2_gp_timer_interrupt,
+};
+
+static struct omap_dm_timer *gptimer2;
+static irqreturn_t gpt2_timer_interrupt(int irq, void *dev_id)
+{
+	omap_dm_timer_write_status(gptimer2, OMAP_TIMER_INT_OVERFLOW);
+	return IRQ_HANDLED;
+}
+
+static struct irqaction gpt2_timer_irq = {
+	.name		= "gpt2 timer",
+	.flags		= IRQF_DISABLED,
+	.handler	= gpt2_timer_interrupt,
 };
 
 static int omap2_gp_timer_set_next_event(unsigned long cycles,
@@ -134,6 +148,7 @@ static void __init omap2_gp_clockevent_init(void)
 
 	gptimer = omap_dm_timer_request_specific(gptimer_id);
 	BUG_ON(gptimer == NULL);
+	gptimer_wakeup = gptimer;
 
 #if defined(CONFIG_OMAP_32K_TIMER)
 	src = OMAP_TIMER_SRC_32_KHZ;
@@ -169,8 +184,29 @@ static void __init omap2_gp_clockevent_init(void)
 
 	clockevent_gpt.cpumask = cpumask_of(0);
 	clockevents_register_device(&clockevent_gpt);
+
 }
 
+static int __init omap4_setup_gpt2(void)
+{
+	/*  Set up GPT2 for the WA */
+	gptimer2 = omap_dm_timer_request_specific(2);
+	BUG_ON(gptimer2 == NULL);
+
+	printk(KERN_INFO " Enabling AXI2OCP errata Fix \n");
+	omap_dm_timer_set_source(gptimer2, OMAP_TIMER_SRC_32_KHZ);
+	gpt2_timer_irq.dev_id = (void *)gptimer2;
+	setup_irq(omap_dm_timer_get_irq(gptimer2), &gpt2_timer_irq);
+	omap_dm_timer_set_int_enable(gptimer2, OMAP_TIMER_INT_OVERFLOW);
+	/*
+	 * Timer reload value is used based on mpu @ 600 MHz
+	 * And hence bridge is at 300 MHz. 65K cycle = 216 uS
+	 * 6 * 1/32 kHz => ~187 us
+	 */
+	omap_dm_timer_set_load_start(gptimer2, 1, 0xffffff06);
+
+	return 0;
+}
 /* Clocksource code */
 
 #ifdef CONFIG_OMAP_32K_TIMER
@@ -231,12 +267,14 @@ static void __init omap2_gp_clocksource_init(void)
 static void __init omap2_gp_timer_init(void)
 {
 #ifdef CONFIG_LOCAL_TIMERS
-	twd_base = OMAP2_IO_ADDRESS(OMAP44XX_LOCAL_TWD_BASE);
+	twd_base = ioremap(OMAP44XX_LOCAL_TWD_BASE, SZ_256);
+	BUG_ON(!twd_base);
 #endif
-	omap_dm_timer_init();
-
 	omap2_gp_clockevent_init();
 	omap2_gp_clocksource_init();
+
+	if (omap_rev() == OMAP4430_REV_ES1_0)
+		omap4_setup_gpt2();
 }
 
 struct sys_timer omap_timer = {

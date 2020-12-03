@@ -19,7 +19,7 @@
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 #include <linux/delay.h>
-#include <linux/i2c/twl4030.h>
+#include <linux/i2c/twl.h>
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/io.h>
@@ -31,12 +31,12 @@
 #include <asm/mach/flash.h>
 
 #include <mach/gpio.h>
-#include <mach/mux.h>
-#include <mach/board.h>
-#include <mach/common.h>
-#include <mach/gpmc.h>
-#include <mach/usb.h>
-#include <mach/gpmc-smc91x.h>
+#include <plat/mux.h>
+#include <plat/board.h>
+#include <plat/common.h>
+#include <plat/gpmc.h>
+#include <plat/usb.h>
+#include <plat/gpmc-smc91x.h>
 
 #include "mmc-twl4030.h"
 
@@ -147,9 +147,8 @@ static void __init omap_2430sdp_init_irq(void)
 {
 	omap_board_config = sdp2430_config;
 	omap_board_config_size = ARRAY_SIZE(sdp2430_config);
-	omap2_init_common_hw(NULL, NULL);
 	omap_init_irq();
-	omap_gpio_init();
+	omap2_init_common_hw(NULL, NULL);
 }
 
 static struct twl4030_gpio_platform_data sdp2430_gpio_data = {
@@ -177,8 +176,8 @@ static struct i2c_board_info __initdata sdp2430_i2c_boardinfo[] = {
 
 static int __init omap2430_i2c_init(void)
 {
-	omap_register_i2c_bus(1, 400, NULL, 0);
-	omap_register_i2c_bus(2, 2600, sdp2430_i2c_boardinfo,
+	omap_register_i2c_bus(1, 400, NULL, NULL, 0);
+	omap_register_i2c_bus(2, 2600, NULL, sdp2430_i2c_boardinfo,
 			ARRAY_SIZE(sdp2430_i2c_boardinfo));
 	return 0;
 }
@@ -194,6 +193,12 @@ static struct twl4030_hsmmc_info mmc[] __initdata = {
 	{}	/* Terminator */
 };
 
+static struct omap_musb_board_data musb_board_data = {
+	.interface_type		= MUSB_INTERFACE_ULPI,
+	.mode			= MUSB_OTG,
+	.power			= 100,
+}
+
 static void __init omap_2430sdp_init(void)
 {
 	int ret;
@@ -203,7 +208,7 @@ static void __init omap_2430sdp_init(void)
 	platform_add_devices(sdp2430_devices, ARRAY_SIZE(sdp2430_devices));
 	omap_serial_init();
 	twl4030_mmc_init(mmc);
-	usb_musb_init();
+	usb_musb_init(&musb_board_data);
 	board_smc91x_init();
 
 	/* Turn off secondary LCD backlight */
@@ -221,7 +226,7 @@ static void __init omap_2430sdp_map_io(void)
 MACHINE_START(OMAP_2430SDP, "OMAP2430 sdp2430 board")
 	/* Maintainer: Syed Khasim - Texas Instruments Inc */
 	.phys_io	= 0x48000000,
-	.io_pg_offst	= ((0xd8000000) >> 18) & 0xfffc,
+	.io_pg_offst	= ((0xfa000000) >> 18) & 0xfffc,
 	.boot_params	= 0x80000100,
 	.map_io		= omap_2430sdp_map_io,
 	.init_irq	= omap_2430sdp_init_irq,

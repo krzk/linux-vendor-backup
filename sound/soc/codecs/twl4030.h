@@ -267,9 +267,22 @@
 
 #define TWL4030_DAI_HIFI		0
 #define TWL4030_DAI_VOICE		1
+#define TWL4030_DAI_CLOCK		2
 
-extern struct snd_soc_dai twl4030_dai[2];
+#define TWL4030_SAME_DEVICE	0x10
+#define VOICE_RECOGNITION		1
+
+extern struct snd_soc_dai twl4030_dai[];
 extern struct snd_soc_codec_device soc_codec_dev_twl4030;
+
+extern int twl4030_set_rate(struct snd_soc_codec *, struct snd_pcm_hw_params *);
+extern int twl4030_get_clock_divisor(struct snd_soc_codec *, struct snd_pcm_hw_params *);
+extern int twl4030_set_ext_clock(struct snd_soc_codec *codec, int);
+extern int twl4030_get_codec_mode(void);
+extern int twl4030_is_rec_8k_enable(void);
+extern int get_sec_gain_test_mode(void);
+int twl4030_write(struct snd_soc_codec *codec,	unsigned int reg, unsigned int value);
+int twl4030_modify(struct snd_soc_codec *codec, unsigned int reg, unsigned int value, unsigned int mask);
 
 struct twl4030_setup_data {
 	unsigned int ramp_delay_value;
@@ -277,5 +290,70 @@ struct twl4030_setup_data {
 	unsigned int hs_extmute:1;
 	void (*set_hs_extmute)(int mute);
 };
+
+typedef enum{
+	OFF=0,  
+	RCV,
+	SPK,
+	HP3P,
+	HP4P,
+	BT,
+	SPK_HP,
+	EXTRA_SPEAKER,
+}playback_device;
+
+typedef enum{
+	MIC_OFF=0,  
+	MAIN_MIC,
+	SUB_MIC,
+	HP_MIC,
+	BT_MIC,
+}capture_device;
+
+typedef enum{
+	PLAY_BACK = 0,
+	VOICE_CALL,
+	VOICE_MEMO,
+	VT_CALL,
+	VOIP_CALL,
+	FM_RADIO,
+	IDLE_MODE,
+	MIC_MUTE,   // hskwon-ss-db05, to support mic mute/unmute for CTS test
+	LOOP_BACK,
+#ifdef VOICE_RECOGNITION
+    VR_MODE,
+#endif
+}twl4030_path_mode;
+    
+typedef struct {
+    unsigned char reg;
+    unsigned char value;
+}twl4030_codec_setting;
+
+#if ( defined( CONFIG_MACH_SAMSUNG_LATONA ) && ( CONFIG_SAMSUNG_REL_HW_REV >= 1 ) ) //real 0.1
+#if ( defined( CONFIG_CHN_KERNEL_STE_LATONA))
+#define NO_USE_PCM_SEL
+#else
+#define USE_PCM_SEL
+#endif
+#endif
+
+#if ( defined( CONFIG_MACH_SAMSUNG_HERON ) && ( CONFIG_SAMSUNG_REL_HW_REV >= 1 ) ) //real 0.1
+#define USE_PCM_SEL
+#endif
+
+#ifdef USE_PCM_SEL
+//#define PCM_SEL OMAP_GPIO_PCM_SEL
+#define BT_SEL_PCM_MODE 1
+#define BT_SEL_I2S_MODE 2
+#define BT_SEL_LOW_MODE 3
+#endif
+
+//[for gain setting
+#define APPLY_AUDIOTEST_APP //for gain setting from ini file
+#define APPLY_GAIN_INIT_FROM_INI //for gain setting from ini file when boot up only
+#define GAIN_INIT_MUSIC_SPK	-11
+#define GAIN_INIT_MUSIC_EAR	-12
+//]
 
 #endif	/* End of __TWL4030_AUDIO_H__ */

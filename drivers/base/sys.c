@@ -392,13 +392,23 @@ int sysdev_suspend(pm_message_t state)
 
 	pr_debug("Suspending System Devices\n");
 
+#ifdef SUSPEND_DEBUG
+	printk(KERN_DEBUG "Suspend Sysdev : ");
+#endif
 	list_for_each_entry_reverse(cls, &system_kset->list, kset.kobj.entry) {
 		pr_debug("Suspending type '%s':\n",
 			 kobject_name(&cls->kset.kobj));
-
+#ifdef SUSPEND_DEBUG
+		printk(KERN_DEBUG "'%s' - ", kobject_name(&cls->kset.kobj));
+#endif
 		list_for_each_entry(sysdev, &cls->kset.list, kobj.entry) {
 			pr_debug(" %s\n", kobject_name(&sysdev->kobj));
-
+#ifdef SUSPEND_DEBUG
+			if(kobject_name(&sysdev->kobj))
+				printk(KERN_DEBUG "%s, ", kobject_name(&sysdev->kobj));
+			else
+				printk(KERN_DEBUG ".");
+#endif
 			/* Call auxillary drivers first */
 			list_for_each_entry(drv, &cls->drivers, entry) {
 				if (drv->suspend) {
@@ -422,6 +432,9 @@ int sysdev_suspend(pm_message_t state)
 			}
 		}
 	}
+#ifdef SUSPEND_DEBUG
+	printk(KERN_DEBUG "$$\n");
+#endif
 	return 0;
 	/* resume current sysdev */
 cls_driver:
@@ -475,19 +488,31 @@ int sysdev_resume(void)
 		"Interrupts enabled while resuming system devices\n");
 
 	pr_debug("Resuming System Devices\n");
-
+#ifdef SUSPEND_DEBUG
+	printk(KERN_DEBUG "Resume Sysdev : ");
+#endif
 	list_for_each_entry(cls, &system_kset->list, kset.kobj.entry) {
 		struct sys_device *sysdev;
 
 		pr_debug("Resuming type '%s':\n",
 			 kobject_name(&cls->kset.kobj));
-
+#ifdef SUSPEND_DEBUG
+		printk(KERN_DEBUG "'%s' - ", kobject_name(&cls->kset.kobj));
+#endif
 		list_for_each_entry(sysdev, &cls->kset.list, kobj.entry) {
 			pr_debug(" %s\n", kobject_name(&sysdev->kobj));
-
+#ifdef SUSPEND_DEBUG
+			if(kobject_name(&sysdev->kobj))
+				printk(KERN_DEBUG "%s,", kobject_name(&sysdev->kobj));	
+			else
+				printk(KERN_DEBUG ".");
+#endif
 			__sysdev_resume(sysdev);
 		}
 	}
+#ifdef SUSPEND_DEBUG
+	printk(KERN_DEBUG "$$\n");
+#endif
 	return 0;
 }
 EXPORT_SYMBOL_GPL(sysdev_resume);

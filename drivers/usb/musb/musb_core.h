@@ -47,6 +47,9 @@
 #include <linux/usb.h>
 #include <linux/usb/otg.h>
 #include <linux/usb/musb.h>
+#ifdef CONFIG_HAS_WAKELOCK
+#include <linux/wakelock.h>  
+#endif
 
 struct musb;
 struct musb_hw_ep;
@@ -204,7 +207,8 @@ enum musb_g_ep0_state {
  */
 
 #if defined(CONFIG_ARCH_DAVINCI) || defined(CONFIG_ARCH_OMAP2430) \
-		|| defined(CONFIG_ARCH_OMAP3430) || defined(CONFIG_BLACKFIN)
+		|| defined(CONFIG_ARCH_OMAP3430) || defined(CONFIG_BLACKFIN) \
+		|| defined(CONFIG_ARCH_OMAP4)
 /* REVISIT indexed access seemed to
  * misbehave (on DaVinci) for at least peripheral IN ...
  */
@@ -322,6 +326,14 @@ struct musb {
 	struct clk		*clock;
 	irqreturn_t		(*isr)(int, void *);
 	struct work_struct	irq_work;
+#define MUSB_HWVERS_MAJOR(x)   ((x >> 10) & 0x1f)
+#define MUSB_HWVERS_MINOR(x)   (x & 0x3ff)
+#define MUSB_HWVERS_RC         0x8000
+#define MUSB_HWVERS_1300       0x52C
+#define MUSB_HWVERS_1400       0x590
+#define MUSB_HWVERS_1800       0x720
+#define MUSB_HWVERS_2000       0x800
+	u16                     hwvers;
 
 /* this hub status bit is reserved by USB 2.0 and not seen by usbcore */
 #define MUSB_PORT_STAT_RESUME	(1 << 31)
@@ -451,6 +463,9 @@ struct musb {
 #ifdef MUSB_CONFIG_PROC_FS
 	struct proc_dir_entry *proc_entry;
 #endif
+#ifdef CONFIG_HAS_WAKELOCK
+struct wake_lock wake_lock;
+#endif
 };
 
 static inline void musb_set_vbus(struct musb *musb, int is_on)
@@ -546,6 +561,9 @@ extern void musb_load_testpacket(struct musb *);
 
 extern irqreturn_t musb_interrupt(struct musb *);
 
+extern void musb_platform_save_context(struct musb *musb);
+extern void musb_platform_restore_context(struct musb *musb);
+
 extern void musb_platform_enable(struct musb *musb);
 extern void musb_platform_disable(struct musb *musb);
 
@@ -554,7 +572,8 @@ extern void musb_hnp_stop(struct musb *musb);
 extern int musb_platform_set_mode(struct musb *musb, u8 musb_mode);
 
 #if defined(CONFIG_USB_TUSB6010) || defined(CONFIG_BLACKFIN) || \
-	defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP34XX)
+	defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP34XX) || \
+	defined(CONFIG_ARCH_OMAP4)
 extern void musb_platform_try_idle(struct musb *musb, unsigned long timeout);
 #else
 #define musb_platform_try_idle(x, y)		do {} while (0)
@@ -566,7 +585,11 @@ extern int musb_platform_get_vbus_status(struct musb *musb);
 #define musb_platform_get_vbus_status(x)	0
 #endif
 
-extern int __init musb_platform_init(struct musb *musb);
+extern int __init musb_platform_init(struct musb *musb, void *board_data);
 extern int musb_platform_exit(struct musb *musb);
+#ifdef CONFIG_MICROUSBIC_INTR
+extern void musb_platform_cable_mgr(bool inserted);              
+extern struct twl4030_usb *t2_transceiver;
+#endif
 
 #endif	/* __MUSB_CORE_H__ */

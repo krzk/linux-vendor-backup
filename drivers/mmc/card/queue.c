@@ -28,10 +28,17 @@
  */
 static int mmc_prep_request(struct request_queue *q, struct request *req)
 {
+#ifdef CONFIG_MMC_DISCARD
+	/*
+	 * We only like normal block requests and discards.
+	 */
+	if (!blk_fs_request(req) && !blk_discard_rq(req)) {
+#else /* CONFIG_MMC_DISCARD */
 	/*
 	 * We only like normal block requests.
 	 */
 	if (!blk_fs_request(req)) {
+#endif /* CONFIG_MMC_DISCARD */
 		blk_dump_rq_flags(req, "MMC bad request");
 		return BLKPREP_KILL;
 	}
@@ -129,6 +136,12 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card, spinlock_t *lock
 	blk_queue_prep_rq(mq->queue, mmc_prep_request);
 	blk_queue_ordered(mq->queue, QUEUE_ORDERED_DRAIN, NULL);
 	queue_flag_set_unlocked(QUEUE_FLAG_NONROT, mq->queue);
+#ifdef CONFIG_MMC_DISCARD
+	if (mmc_can_trim(card)) {
+		queue_flag_set_unlocked(QUEUE_FLAG_DISCARD, mq->queue);
+		mq->queue->limits.max_discard_sectors = UINT_MAX;
+	}
+#endif /* CONFIG_MMC_DISCARD */
 
 #ifdef CONFIG_MMC_BLOCK_BOUNCE
 	if (host->max_hw_segs == 1) {

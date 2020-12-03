@@ -32,6 +32,8 @@ obj-$(CONFIG_USB_LANGWELL)	+= langwell_udc.o
 #
 # USB gadget drivers
 #
+C_UTILS =	composite_usbmenu.o usbstring.o config.o epautoconf.o
+
 g_zero-objs			:= zero.o
 g_audio-objs			:= audio.o
 g_ether-objs			:= ether.o
@@ -41,7 +43,22 @@ gadgetfs-objs			:= inode.o
 g_file_storage-objs		:= file_storage.o
 g_printer-objs			:= printer.o
 g_cdc-objs			:= cdc2.o
+g_android_adb_ums_acm_eth_mtp-objs	:= adb_ums_acm_eth_mtp.o f_adb.o f_mass_storage.o u_serial.o f_acm.o\
+									u_ether.o f_mtp.o usb_menu_sel.o $(C_UTILS)
 
+ifeq ($(CONFIG_USB_ETH_RNDIS),y)
+	g_ether-objs		+= f_rndis.o rndis.o
+	g_android_adb_ums_acm_eth_mtp-objs		+= f_rndis.o rndis.o
+endif
+ifeq ($(CONFIG_USB_DUN_SUPPORT),y)
+	g_serial-objs		+= serial_acm.o	
+	g_cdc-objs			+= serial_acm.o
+	g_android_adb_ums_acm-objs			+= serial_acm.o
+	g_android_adb_acm-objs  += serial_acm.o
+	g_android_adb_ums_acm_eem-objs += serial_acm.o
+	g_android_adb_ums_acm_eth_mtp-objs	+= serial_acm.o
+endif
+ 
 obj-$(CONFIG_USB_ZERO)		+= g_zero.o
 obj-$(CONFIG_USB_AUDIO)		+= g_audio.o
 obj-$(CONFIG_USB_ETH)		+= g_ether.o
@@ -51,4 +68,11 @@ obj-$(CONFIG_USB_G_SERIAL)	+= g_serial.o
 obj-$(CONFIG_USB_G_PRINTER)	+= g_printer.o
 obj-$(CONFIG_USB_MIDI_GADGET)	+= g_midi.o
 obj-$(CONFIG_USB_CDC_COMPOSITE) += g_cdc.o
+obj-$(CONFIG_USB_ANDROID)	+= android.o
+obj-$(CONFIG_USB_ANDROID_ACM)	+= f_acm.o u_serial.o
+obj-$(CONFIG_USB_ANDROID_EEM)	+= f_eem.o u_ether.o
+obj-$(CONFIG_USB_ANDROID_ADB)	+= f_adb.o
+obj-$(CONFIG_USB_ANDROID_MASS_STORAGE)	+= f_mass_storage.o
+obj-$(CONFIG_USB_ANDROID_RNDIS)	+= f_rndis.o u_ether.o
+obj-$(CONFIG_USB_ANDROID_ADB_UMS_ACM_ETH_MTP)	+= g_android_adb_ums_acm_eth_mtp.o
 

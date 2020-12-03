@@ -96,6 +96,7 @@ extern void __show_regs(struct pt_regs *);
 
 extern int cpu_architecture(void);
 extern void cpu_init(void);
+extern void cpu_idle_wait(void);
 
 void arm_machine_restart(char mode, const char *cmd);
 extern void (*arm_pm_restart)(char str, const char *cmd);
@@ -138,21 +139,28 @@ extern unsigned int user_debug;
 #define dmb() __asm__ __volatile__ ("" : : : "memory")
 #endif
 
-#ifndef CONFIG_SMP
+#ifdef CONFIG_ARCH_HAS_BARRIERS
+#include <mach/barriers.h>
+#elif __LINUX_ARM_ARCH__ >= 7 || defined(CONFIG_SMP)
+#define mb()		dsb()
+#define rmb()		dmb()
+#define wmb()		dsb()
+#else
 #define mb()	do { if (arch_is_coherent()) dmb(); else barrier(); } while (0)
 #define rmb()	do { if (arch_is_coherent()) dmb(); else barrier(); } while (0)
 #define wmb()	do { if (arch_is_coherent()) dmb(); else barrier(); } while (0)
+#endif
+
+#ifndef CONFIG_SMP
 #define smp_mb()	barrier()
 #define smp_rmb()	barrier()
 #define smp_wmb()	barrier()
 #else
-#define mb()		dmb()
-#define rmb()		dmb()
-#define wmb()		dmb()
 #define smp_mb()	dmb()
 #define smp_rmb()	dmb()
 #define smp_wmb()	dmb()
 #endif
+
 #define read_barrier_depends()		do { } while(0)
 #define smp_read_barrier_depends()	do { } while(0)
 

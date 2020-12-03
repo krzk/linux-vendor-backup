@@ -20,6 +20,26 @@ struct device;
 /*
  * LED Core
  */
+#define SUPPORT_LCD_ACL_CTL
+enum led_gamma {
+        GAMMA_2_2       = 1,
+        GAMMA_1_9       = 2,
+        GAMMA_1_7       = 3,
+};
+
+#ifdef SUPPORT_LCD_ACL_CTL
+enum led_ACL {
+        ACL_OFF = 0,
+        ACL_ON   = 1,
+};
+#endif
+
+enum flashlight_level {       // Archer_LSJ DB10
+        flash_off       = 0,
+        flash_on        = 1,
+};
+
+
 
 enum led_brightness {
 	LED_OFF		= 0,
@@ -32,6 +52,13 @@ struct led_classdev {
 	int			 brightness;
 	int			 max_brightness;
 	int			 flags;
+
+	int                      lcd_gamma;     // Archer_LSJ DA25
+        int                      hand_flash;    // Archer_LSJ DB10
+	#ifdef SUPPORT_LCD_ACL_CTL
+        int                      acl_state;
+#endif
+
 
 	/* Lower 16 bits reflect status */
 #define LED_SUSPENDED		(1 << 0)
@@ -52,6 +79,18 @@ struct led_classdev {
 	int		(*blink_set)(struct led_classdev *led_cdev,
 				     unsigned long *delay_on,
 				     unsigned long *delay_off);
+
+
+	 void            (*lcd_gamma_set)(struct led_classdev *led_cdev, enum led_gamma gamma);   // Archer_LSJ DA25
+        enum led_gamma  (*lcd_gamma_get)(struct led_classdev *led_cdev);                         // Archer_LSJ DA25
+
+#ifdef SUPPORT_LCD_ACL_CTL
+        void            (*lcd_ACL_set)(struct led_classdev *led_cdev, enum led_ACL state);
+        enum led_ACL    (*lcd_ACL_get)(struct led_classdev *led_cdev);               /* Get ACL function On/Off state */
+#endif
+
+        void                  (*flashlight_set)(struct led_classdev *led_cdev, enum flashlight_level level);   // Archer_LSJ DB10
+        enum flashlight_level (*flashlight_get)(struct led_classdev *led_cdev);                                // Archer_LSJ DB10
 
 	struct device		*dev;
 	struct list_head	 node;			/* LED Device list */

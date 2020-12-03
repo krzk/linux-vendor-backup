@@ -23,6 +23,8 @@
 
 #include <media/videobuf-core.h>
 
+extern int stop_vsync_disable;
+
 #define MAGIC_BUFFER 0x20070728
 #define MAGIC_CHECK(is, should) do {					   \
 	if (unlikely((is) != (should))) {				   \
@@ -66,12 +68,16 @@ void *videobuf_alloc(struct videobuf_queue *q)
 	return vb;
 }
 
-#define WAITON_CONDITION (vb->state != VIDEOBUF_ACTIVE &&\
-				vb->state != VIDEOBUF_QUEUED)
+extern u8 Is_Omap34xxcam_Opened();
+#define WAITON_CONDITION ((vb->state != VIDEOBUF_ACTIVE &&\
+				vb->state != VIDEOBUF_QUEUED) || (stop_vsync_disable && !Is_Omap34xxcam_Opened()) )
+
 int videobuf_waiton(struct videobuf_buffer *vb, int non_blocking, int intr)
 {
 	MAGIC_CHECK(vb->magic, MAGIC_BUFFER);
 
+	int rval =0;
+	
 	if (non_blocking) {
 		if (WAITON_CONDITION)
 			return 0;
@@ -80,7 +86,26 @@ int videobuf_waiton(struct videobuf_buffer *vb, int non_blocking, int intr)
 	}
 
 	if (intr)
+	{
+#if 0 	/* [ Samsung ESD camera defense ] */
 		return wait_event_interruptible(vb->done, WAITON_CONDITION);
+#else
+
+if(!stop_vsync_disable || Is_Omap34xxcam_Opened())
+{
+		rval = wait_event_interruptible_timeout(vb->done, WAITON_CONDITION,msecs_to_jiffies(3000));
+		
+}		
+else
+	rval=1;
+
+		if(rval == 0)
+			rval = - ERESTARTSYS;
+		if(rval > 0)	
+			rval = 0;
+		return rval;
+#endif		
+	}
 	else
 		wait_event(vb->done, WAITON_CONDITION);
 
@@ -607,8 +632,18 @@ checks:
 			/* Checking list_empty and streaming is safe without
 			 * locks because we goto checks to validate while
 			 * holding locks before proceeding */
+			 
+#if 0		/* [ Samsung ESD camera defense ] */
 			retval = wait_event_interruptible(q->wait,
 				!list_empty(&q->stream) || !q->streaming);
+#else
+			retval = wait_event_interruptible_timeout(q->wait, 
+			  !list_empty(&q->stream) || !q->streaming, msecs_to_jiffies(3000));
+			if(retval == 0)
+			  retval = - ERESTARTSYS;
+			if(retval > 0)  
+			  retval = 0;
+#endif				
 			mutex_lock(&q->vb_lock);
 
 			if (retval)
@@ -671,7 +706,9 @@ int videobuf_dqbuf(struct videobuf_queue *q,
 		break;
 	case VIDEOBUF_DONE:
 		dprintk(1, "dqbuf: state is done\n");
-		CALL(q, sync, q, buf);
+		//Patch fro remove DMA sync call
+		//CALL(q, sync, q, buf);
+		//Patch fro remove DMA sync call
 		buf->state = VIDEOBUF_IDLE;
 		break;
 	default:

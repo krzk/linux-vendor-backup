@@ -34,15 +34,46 @@
 #include <linux/platform_device.h>
 #include <linux/mutex.h>
 #include <linux/errno.h>
+#include <linux/clk.h>
 #include <mach/gpio.h>
-#include <mach/keypad.h>
-#include <mach/menelaus.h>
+#include <plat/keypad.h>
+#include <plat/menelaus.h>
 #include <asm/irq.h>
 #include <mach/hardware.h>
 #include <asm/io.h>
-#include <mach/mux.h>
+#include <plat/mux.h>
 
 #undef NEW_BOARD_LEARNING_MODE
+
+#define OMAP4_KBDOCP_BASE		0x4A31C000
+#define OMAP4_KBD_REVISION		0x00
+#define OMAP4_KBD_SYSCONFIG		0x10
+#define OMAP4_KBD_SYSSTATUS		0x14
+#define OMAP4_KBD_IRQSTATUS		0x18
+#define OMAP4_KBD_IRQENABLE		0x1C
+#define OMAP4_KBD_WAKEUPENABLE		0x20
+#define OMAP4_KBD_PENDING		0x24
+#define OMAP4_KBD_CTRL			0x28
+#define OMAP4_KBD_DEBOUNCINGTIME	0x2C
+#define OMAP4_KBD_LONGKEYTIME		0x30
+#define OMAP4_KBD_TIMEOUT		0x34
+#define OMAP4_KBD_STATEMACHINE		0x38
+#define OMAP4_KBD_ROWINPUTS		0x3C
+#define OMAP4_KBD_COLUMNOUTPUTS		0x40
+#define OMAP4_KBD_FULLCODE31_0		0x44
+#define OMAP4_KBD_FULLCODE63_32		0x48
+
+#define OMAP4_KBD_SYSCONFIG_SOFTRST	(1 << 1)
+#define OMAP4_KBD_SYSCONFIG_ENAWKUP	(1 << 2)
+#define OMAP4_KBD_IRQENABLE_EVENTEN	(1 << 0)
+#define OMAP4_KBD_IRQENABLE_LONGKEY	(1 << 1)
+#define OMAP4_KBD_IRQENABLE_TIMEOUTEN	(1 << 2)
+#define OMAP4_KBD_CTRL_NOSOFTMODE	(1 << 1)
+#define OMAP4_KBD_CTRLPTVVALUE		(1 << 2)
+#define OMAP4_KBD_CTRLPTV		(1 << 1)
+#define OMAP4_KBD_IRQDISABLE		0x00
+
+#define OMAP4_KBD_IRQSTATUSDISABLE	0xffff
 
 static void omap_kp_tasklet(unsigned long);
 static void omap_kp_timer(unsigned long);
@@ -55,6 +86,7 @@ static int kp_cur_group = -1;
 struct omap_kp {
 	struct input_dev *input;
 	struct timer_list timer;
+	struct clk *cclk;
 	int irq;
 	unsigned int rows;
 	unsigned int cols;
@@ -114,6 +146,10 @@ static irqreturn_t omap_kp_interrupt(int irq, void *dev_id)
 			else
 				disable_irq(gpio_irq);
 		}
+	} else if (cpu_is_omap44xx()) {
+		/* disable keyboard interrupt and schedule for handling */
+		omap_writel(OMAP4_KBD_IRQDISABLE, OMAP4_KBDOCP_BASE +
+				OMAP4_KBD_IRQENABLE);
 	} else
 		/* disable keyboard interrupt and schedule for handling */
 		omap_writew(1, OMAP1_MPUIO_BASE + OMAP_MPUIO_KBD_MASKIT);
@@ -131,7 +167,7 @@ static void omap_kp_timer(unsigned long data)
 static void omap_kp_scan_keypad(struct omap_kp *omap_kp, unsigned char *state)
 {
 	int col = 0;
-
+	u32 *p = (u32 *) state;
 	/* read the keypad status */
 	if (cpu_is_omap24xx()) {
 		/* read the keypad status */
@@ -141,6 +177,10 @@ static void omap_kp_scan_keypad(struct omap_kp *omap_kp, unsigned char *state)
 		}
 		set_col_gpio_val(omap_kp, 0);
 
+	} else if (cpu_is_omap44xx()) {
+		*p = omap_readl(OMAP4_KBDOCP_BASE + OMAP4_KBD_FULLCODE31_0);
+		*(p + 1) = omap_readl(OMAP4_KBDOCP_BASE +
+					OMAP4_KBD_FULLCODE63_32);
 	} else {
 		/* disable keyboard interrupt and schedule for handling */
 		omap_writew(1, OMAP1_MPUIO_BASE + OMAP_MPUIO_KBD_MASKIT);
@@ -176,6 +216,7 @@ static void omap_kp_tasklet(unsigned long data)
 {
 	struct omap_kp *omap_kp_data = (struct omap_kp *) data;
 	unsigned char new_state[8], changed, key_down = 0;
+	long irq = omap_kp_data->irq;
 	int col, row;
 	int spurious = 0;
 
@@ -198,7 +239,12 @@ static void omap_kp_tasklet(unsigned long data)
 			       row, (new_state[col] & (1 << row)) ?
 			       "pressed" : "released");
 #else
-			key = omap_kp_find_key(col, row);
+			/* Keymappings have changed in omap4.*/
+			if (cpu_is_omap44xx())
+				key = omap_kp_find_key(row, col);
+			else
+				key = omap_kp_find_key(col, row);
+
 			if (key < 0) {
 				printk(KERN_WARNING
 				      "omap-keypad: Spurious key event %d-%d\n",
@@ -213,8 +259,9 @@ static void omap_kp_tasklet(unsigned long data)
 				continue;
 
 			kp_cur_group = key & GROUP_MASK;
-			input_report_key(omap_kp_data->input, key & ~GROUP_MASK,
-					 new_state[col] & (1 << row));
+			input_report_key(omap_kp_data->input,
+				key & ~GROUP_MASK, new_state[col]
+					 & (1 << row));
 #endif
 		}
 	}
@@ -233,11 +280,21 @@ static void omap_kp_tasklet(unsigned long data)
 			int i;
 			for (i = 0; i < omap_kp_data->rows; i++)
 				enable_irq(gpio_to_irq(row_gpios[i]));
+		} else if (cpu_is_omap44xx()) {
+				omap_writel(OMAP4_KBD_IRQENABLE_EVENTEN |
+					OMAP4_KBD_IRQENABLE_LONGKEY,
+					OMAP4_KBDOCP_BASE +
+					OMAP4_KBD_IRQENABLE);
+				kp_cur_group = -1;
 		} else {
 			omap_writew(0, OMAP1_MPUIO_BASE + OMAP_MPUIO_KBD_MASKIT);
 			kp_cur_group = -1;
 		}
 	}
+	enable_irq(irq);
+	/* now clear any pending interrupts */
+	omap_writel(omap_readl(OMAP4_KBDOCP_BASE + OMAP4_KBD_IRQSTATUS),
+				OMAP4_KBDOCP_BASE + OMAP4_KBD_IRQSTATUS);
 }
 
 static ssize_t omap_kp_enable_show(struct device *dev,
@@ -246,8 +303,8 @@ static ssize_t omap_kp_enable_show(struct device *dev,
 	return sprintf(buf, "%u\n", kp_enable);
 }
 
-static ssize_t omap_kp_enable_store(struct device *dev, struct device_attribute *attr,
-				    const char *buf, size_t count)
+static ssize_t omap_kp_enable_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
 {
 	int state;
 
@@ -270,7 +327,8 @@ static ssize_t omap_kp_enable_store(struct device *dev, struct device_attribute 
 	return strnlen(buf, count);
 }
 
-static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, omap_kp_enable_show, omap_kp_enable_store);
+static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, omap_kp_enable_show,
+		omap_kp_enable_store);
 
 #ifdef CONFIG_PM
 static int omap_kp_suspend(struct platform_device *dev, pm_message_t state)
@@ -311,12 +369,21 @@ static int __devinit omap_kp_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	if (cpu_is_omap44xx()) {
+		omap_kp->cclk = clk_get(NULL, "keyboard_ck");
+		if (IS_ERR(omap_kp->cclk))
+			goto err0;
+		ret = clk_enable(omap_kp->cclk);
+		if (ret)
+			printk(KERN_ERR " Unable to get keyboard_ck \n");
+	}
+
 	platform_set_drvdata(pdev, omap_kp);
 
 	omap_kp->input = input_dev;
 
 	/* Disable the interrupt for the MPUIO keyboard */
-	if (!cpu_is_omap24xx())
+	if (!cpu_is_omap24xx() && !cpu_is_omap44xx())
 		omap_writew(1, OMAP1_MPUIO_BASE + OMAP_MPUIO_KBD_MASKIT);
 
 	keymap = pdata->keymap;
@@ -375,6 +442,10 @@ static int __devinit omap_kp_probe(struct platform_device *pdev)
 	__set_bit(EV_KEY, input_dev->evbit);
 	for (i = 0; keymap[i] != 0; i++)
 		__set_bit(keymap[i] & KEY_MAX, input_dev->keybit);
+
+	if (cpu_is_omap44xx())
+		__set_bit(KEY_OK, input_dev->keybit);
+
 	input_dev->name = "omap-keypad";
 	input_dev->phys = "omap-keypad/input0";
 	input_dev->dev.parent = &pdev->dev;
@@ -390,19 +461,36 @@ static int __devinit omap_kp_probe(struct platform_device *pdev)
 		goto err3;
 	}
 
-	if (pdata->dbounce)
-		omap_writew(0xff, OMAP1_MPUIO_BASE + OMAP_MPUIO_GPIO_DEBOUNCING);
+	if (pdata->dbounce) {
+		if (cpu_is_omap44xx())
+			omap_writel(0xff, OMAP4_KBDOCP_BASE +
+					OMAP4_KBD_DEBOUNCINGTIME);
+		else
+			omap_writew(0xff, OMAP1_MPUIO_BASE +
+					OMAP_MPUIO_GPIO_DEBOUNCING);
+	}
 
 	/* scan current status and enable interrupt */
 	omap_kp_scan_keypad(omap_kp, keypad_state);
+
+
+	/* Configuring OMAP4 keypad registers */
+	if (cpu_is_omap44xx()) {
+		omap_writel(OMAP4_KBD_SYSCONFIG_SOFTRST |
+			OMAP4_KBD_SYSCONFIG_ENAWKUP, OMAP4_KBDOCP_BASE
+			+ OMAP4_KBD_SYSCONFIG);
+		omap_writel(0x1E, OMAP4_KBDOCP_BASE + OMAP4_KBD_CTRL);
+		omap_writel(0x7, OMAP4_KBDOCP_BASE + OMAP4_KBD_DEBOUNCINGTIME);
+	}
+
 	if (!cpu_is_omap24xx()) {
 		omap_kp->irq = platform_get_irq(pdev, 0);
-		if (omap_kp->irq >= 0) {
-			if (request_irq(omap_kp->irq, omap_kp_interrupt, 0,
+			if (request_irq(152, omap_kp_interrupt, 0,
 					"omap-keypad", omap_kp) < 0)
 				goto err4;
-		}
-		omap_writew(0, OMAP1_MPUIO_BASE + OMAP_MPUIO_KBD_MASKIT);
+		if (!cpu_is_omap44xx())
+			omap_writel(0, OMAP1_MPUIO_BASE +
+					OMAP_MPUIO_KBD_MASKIT);
 	} else {
 		for (irq_idx = 0; irq_idx < omap_kp->rows; irq_idx++) {
 			if (request_irq(gpio_to_irq(row_gpios[irq_idx]),
@@ -411,6 +499,13 @@ static int __devinit omap_kp_probe(struct platform_device *pdev)
 					"omap-keypad", omap_kp) < 0)
 				goto err5;
 		}
+	}
+	if (cpu_is_omap44xx()) {
+		omap_writel(OMAP4_KBD_IRQDISABLE,
+				OMAP4_KBDOCP_BASE + OMAP4_KBD_IRQSTATUS);
+		omap_writel(OMAP4_KBD_IRQENABLE_EVENTEN |
+				OMAP4_KBD_IRQENABLE_LONGKEY ,
+				OMAP4_KBDOCP_BASE + OMAP4_KBD_IRQENABLE);
 	}
 	return 0;
 err5:
@@ -427,7 +522,8 @@ err2:
 err1:
 	for (i = col_idx - 1; i >=0; i--)
 		gpio_free(col_gpios[i]);
-
+	clk_put(omap_kp->cclk);
+err0:
 	kfree(omap_kp);
 	input_free_device(input_dev);
 
@@ -440,7 +536,16 @@ static int __devexit omap_kp_remove(struct platform_device *pdev)
 
 	/* disable keypad interrupt handling */
 	tasklet_disable(&kp_tasklet);
-	if (cpu_is_omap24xx()) {
+	if (!cpu_is_omap24xx()) {
+		omap_kp->irq = platform_get_irq(pdev, 0);
+		if (!cpu_is_omap44xx()) {
+			omap_writew(1, OMAP1_MPUIO_BASE +
+					OMAP_MPUIO_KBD_MASKIT);
+			free_irq(omap_kp->irq, 0);
+		} else {
+			free_irq(152, omap_kp);
+		}
+	} else {
 		int i;
 		for (i = 0; i < omap_kp->cols; i++)
 			gpio_free(col_gpios[i]);
@@ -448,16 +553,20 @@ static int __devexit omap_kp_remove(struct platform_device *pdev)
 			gpio_free(row_gpios[i]);
 			free_irq(gpio_to_irq(row_gpios[i]), 0);
 		}
-	} else {
-		omap_writew(1, OMAP1_MPUIO_BASE + OMAP_MPUIO_KBD_MASKIT);
-		free_irq(omap_kp->irq, 0);
 	}
 
 	del_timer_sync(&omap_kp->timer);
 	tasklet_kill(&kp_tasklet);
 
+	if (cpu_is_omap44xx()) {
+		clk_disable(omap_kp->cclk);
+		clk_put(omap_kp->cclk);
+	}
+
 	/* unregister everything */
 	input_unregister_device(omap_kp->input);
+
+	device_remove_file(&pdev->dev, &dev_attr_enable);
 
 	kfree(omap_kp);
 

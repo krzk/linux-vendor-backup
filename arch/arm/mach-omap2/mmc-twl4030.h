@@ -21,6 +21,14 @@ struct twl4030_hsmmc_info {
 	int	ocr_mask;	/* temporary HACK */
 };
 
+extern unsigned get_last_off_on_transaction_id(struct device *dev);
+
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+int omap_wifi_status_register(void (*callback)(int card_present,
+       void *dev_id), void *dev_id);
+int omap_wifi_status(int irq);
+#endif
+
 #if defined(CONFIG_REGULATOR) && \
 	(defined(CONFIG_MMC_OMAP) || defined(CONFIG_MMC_OMAP_MODULE) || \
 	 defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE))

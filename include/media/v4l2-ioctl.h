@@ -21,6 +21,8 @@
 #include <linux/videodev2.h>
 #endif
 
+struct v4l2_fh;
+
 struct v4l2_ioctl_ops {
 	/* ioctl callbacks */
 
@@ -109,6 +111,16 @@ struct v4l2_ioctl_ops {
 	int (*vidioc_qbuf)    (struct file *file, void *fh, struct v4l2_buffer *b);
 	int (*vidioc_dqbuf)   (struct file *file, void *fh, struct v4l2_buffer *b);
 
+//[ZEUS_CAM+]
+
+	 int (*vidioc_s_strobe)         (struct file *file, void *fh,
+                                        struct v4l2_strobe *a);
+        int (*vidioc_g_strobe)   (struct file *file, void *fh,
+                                        struct v4l2_strobe *a);
+
+        int (*vidioc_g_exif)     (struct file *file, void *fh,
+                                        struct v4l2_exif *a);
+//[ZEUS_CAM-]
 
 	int (*vidioc_overlay) (struct file *file, void *fh, unsigned int i);
 #ifdef CONFIG_VIDEO_V4L1_COMPAT
@@ -239,9 +251,21 @@ struct v4l2_ioctl_ops {
 	int (*vidioc_enum_frameintervals) (struct file *file, void *fh,
 					   struct v4l2_frmivalenum *fival);
 
+	int (*vidioc_dqevent)	       (struct v4l2_fh *fh,
+					struct v4l2_event *ev);
+	int (*vidioc_subscribe_event)  (struct v4l2_fh *fh,
+					struct v4l2_event_subscription *sub);
+	int (*vidioc_unsubscribe_event) (struct v4l2_fh *fh,
+					 struct v4l2_event_subscription *sub);
+
 	/* For other private ioctls */
 	long (*vidioc_default)	       (struct file *file, void *fh,
 					int cmd, void *arg);
+
+	int (*vidioc_s_color_space_conv)(struct file *file, void *fh,
+					struct v4l2_color_space_conversion *a);
+	int (*vidioc_g_color_space_conv)(struct file *file, void *fh,
+					struct v4l2_color_space_conversion *a);
 };
 
 

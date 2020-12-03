@@ -24,7 +24,7 @@
 
 #include <linux/clk.h>
 #include <linux/platform_device.h>
-#include <linux/i2c/twl4030.h>
+#include <linux/i2c/twl.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
@@ -34,18 +34,35 @@
 #include <asm/mach-types.h>
 #include <mach/hardware.h>
 #include <mach/gpio.h>
-#include <mach/mcbsp.h>
+#include <plat/mcbsp.h>
+//#include <mach/mux.h>
+#include <plat/mux.h>
 
 #include "omap-mcbsp.h"
 #include "omap-pcm.h"
 #include "../codecs/twl4030.h"
 
-/* TWL4030 PMBR1 Register */
+#include <plat/omap-pm.h>  /* C2 OPP Patch */
+
+#ifdef CONFIG_SND_SOC_MAX97000
+#include "../codecs/max97000.h"
+#else if CONFIG_SND_SOC_MAX9877
+#include "../codecs/max9877.h"
+#endif
+
+
+//#define ZEUS_PCM_SELECT_GPIO	OMAP_GPIO_PCM_SEL
 #define TWL4030_INTBR_PMBR1		0x0D
 /* TWL4030 PMBR1 Register GPIO6 mux bit */
 #define TWL4030_GPIO6_PWM0_MUTE(value)	(value << 2)
 
+/* OPP frequency */
+#define VDD1_OPP2_FREQ         S600M
+#define VDD1_OPP1_FREQ         S300M
+
 static struct snd_soc_card snd_soc_sdp3430;
+static struct twl4030_setup_data twl4030_setup;
+
 
 static int sdp3430_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params)
@@ -55,11 +72,22 @@ static int sdp3430_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
 	int ret;
 
-	/* Set codec DAI configuration */
+
+#if 1	/* Set codec DAI configuration */
 	ret = snd_soc_dai_set_fmt(codec_dai,
 				  SND_SOC_DAIFMT_I2S |
 				  SND_SOC_DAIFMT_NB_NF |
 				  SND_SOC_DAIFMT_CBM_CFM);
+#else
+		ret = snd_soc_dai_set_fmt(codec_dai,
+ 				  SND_SOC_DAIFMT_I2S_1PHASE |  //Swap Fix:Changing this into single phase
+				  SND_SOC_DAIFMT_NB_NF |
+				  SND_SOC_DAIFMT_CBM_CFM);
+#endif
+	
+
+
+
 	if (ret < 0) {
 		printk(KERN_ERR "can't set codec DAI configuration\n");
 		return ret;
@@ -67,7 +95,7 @@ static int sdp3430_hw_params(struct snd_pcm_substream *substream,
 
 	/* Set cpu DAI configuration */
 	ret = snd_soc_dai_set_fmt(cpu_dai,
-				  SND_SOC_DAIFMT_I2S |
+				  SND_SOC_DAIFMT_I2S |  //Swap Fix:Changing this into single phase in McBSP Solves dynamic swaping.    
 				  SND_SOC_DAIFMT_NB_NF |
 				  SND_SOC_DAIFMT_CBM_CFM);
 	if (ret < 0) {
@@ -86,8 +114,75 @@ static int sdp3430_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static struct snd_soc_ops sdp3430_ops = {
-	.hw_params = sdp3430_hw_params,
+int sdp3430_hw_free(struct snd_pcm_substream *substream) 
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;     
+	int ret;        
+
+	/* Use function clock for mcBSP2 */     
+
+	ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_MCBSP_SYSCLK_CLKS_FCLK, 
+					0, SND_SOC_CLOCK_OUT);  
+
+	return 0; 
+}
+
+static int snd_hw_latency;
+extern void omap_dpll3_errat_wa(int disable);
+
+int sdp3430_i2s_startup(struct snd_pcm_substream *substream)
+{      
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+
+	/*        
+	  * Hold C2 as min latency constraint. Deeper states   
+	  * MPU RET/OFF is overhead and consume more power than    
+	  * savings.    
+	  * snd_hw_latency check takes care of playback and capture      
+	  * usecase.      
+	  */     
+
+	  if (!snd_hw_latency++) { 
+	  	omap_pm_set_max_mpu_wakeup_lat(rtd->socdev->dev, 18);        
+
+	  	/*           
+	  	  * As of now for MP3 playback case need to enable dpll3 
+	  	  * autoidle part of dpll3 lock errata.          
+	  	  * REVISIT: Remove this, Once the dpll3 lock errata is     
+	  	  * updated with with a new workaround without impacting mp3 usecase.          
+	  	  */              
+
+	  	omap_dpll3_errat_wa(0);  
+	  }      
+
+	  omap_pm_set_min_mpu_freq(rtd->socdev->dev, VDD1_OPP2_FREQ);
+	  	  
+	  return 0;
+}
+
+int sdp3430_i2s_shutdown(struct snd_pcm_substream *substream)
+{    
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;	
+
+	/* remove latency constraint */       
+	snd_hw_latency--;     
+
+	if (!snd_hw_latency) {   
+		omap_pm_set_max_mpu_wakeup_lat(rtd->socdev->dev, -1);     
+		omap_dpll3_errat_wa(1);    
+	}   
+
+	omap_pm_set_min_mpu_freq(rtd->socdev->dev, VDD1_OPP1_FREQ);
+		
+	return 0;
+}	
+
+static struct snd_soc_ops sdp3430_ops = {	
+	.startup = sdp3430_i2s_startup,	
+	.hw_params = sdp3430_hw_params,	
+	.hw_free = sdp3430_hw_free,	
+	.shutdown = sdp3430_i2s_shutdown,
 };
 
 static int sdp3430_hw_voice_params(struct snd_pcm_substream *substream,
@@ -133,6 +228,8 @@ static struct snd_soc_ops sdp3430_voice_ops = {
 	.hw_params = sdp3430_hw_voice_params,
 };
 
+#if 0
+
 /* Headset jack */
 static struct snd_soc_jack hs_jack;
 
@@ -148,15 +245,19 @@ static struct snd_soc_jack_pin hs_jack_pins[] = {
 	},
 };
 
+
 /* Headset jack detection gpios */
 static struct snd_soc_jack_gpio hs_jack_gpios[] = {
 	{
-		.gpio = (OMAP_MAX_GPIO_LINES + 2),
+	//	.gpio = (OMAP_MAX_GPIO_LINES + 2),
+       		.gpio = (ZEUS_EAR_DETECT_GPIO),
 		.name = "hsdet-gpio",
 		.report = SND_JACK_HEADSET,
 		.debounce_time = 200,
 	},
 };
+
+#endif
 
 /* SDP3430 machine DAPM */
 static const struct snd_soc_dapm_widget sdp3430_twl4030_dapm_widgets[] = {
@@ -190,11 +291,29 @@ static int sdp3430_twl4030_init(struct snd_soc_codec *codec)
 {
 	int ret;
 
+#if 0
+	#if TI_DEFAULT_MUX_CONFIG
+	omap_cfg_reg(H3_34XX_GPIO52_OUT);
+	#endif // TI_DEFAULT_MUX_CONFIG
+#endif
+
+
 	/* Add SDP3430 specific widgets */
 	ret = snd_soc_dapm_new_controls(codec, sdp3430_twl4030_dapm_widgets,
 				ARRAY_SIZE(sdp3430_twl4030_dapm_widgets));
 	if (ret)
 		return ret;
+#ifdef CONFIG_SND_SOC_MAX97000
+       /* add MAX97000 specific controls */
+	ret =max97000_add_controls(codec);
+#else if CONFIG_SND_SOC_MAX9877
+	ret =max9877_add_controls(codec);
+#endif
+	if (ret)
+	{
+		printk( "********** max audio amp add controls , %d\n", ret);
+	}
+
 
 	/* Set up SDP3430 specific audio path audio_map */
 	snd_soc_dapm_add_routes(codec, audio_map, ARRAY_SIZE(audio_map));
@@ -203,7 +322,11 @@ static int sdp3430_twl4030_init(struct snd_soc_codec *codec)
 	snd_soc_dapm_enable_pin(codec, "Ext Mic");
 	snd_soc_dapm_enable_pin(codec, "Ext Spk");
 	snd_soc_dapm_disable_pin(codec, "Headset Mic");
-	snd_soc_dapm_disable_pin(codec, "Headset Stereophone");
+	snd_soc_dapm_enable_pin(codec, "Headset Stereophone");
+	snd_soc_dapm_enable_pin(codec, "EARPIECE"); // reciever
+	snd_soc_dapm_enable_pin(codec, "PREDRIVEL");
+	snd_soc_dapm_enable_pin(codec, "PREDRIVER");
+
 
 	/* TWL4030 not connected pins */
 	snd_soc_dapm_nc_pin(codec, "AUXL");
@@ -214,15 +337,25 @@ static int sdp3430_twl4030_init(struct snd_soc_codec *codec)
 
 	snd_soc_dapm_nc_pin(codec, "OUTL");
 	snd_soc_dapm_nc_pin(codec, "OUTR");
-	snd_soc_dapm_nc_pin(codec, "EARPIECE");
-	snd_soc_dapm_nc_pin(codec, "PREDRIVEL");
-	snd_soc_dapm_nc_pin(codec, "PREDRIVER");
+//	snd_soc_dapm_nc_pin(codec, "EARPIECE");
+//	snd_soc_dapm_nc_pin(codec, "PREDRIVEL");
+//	snd_soc_dapm_nc_pin(codec, "PREDRIVER");
 	snd_soc_dapm_nc_pin(codec, "CARKITL");
 	snd_soc_dapm_nc_pin(codec, "CARKITR");
+	snd_soc_dapm_nc_pin(codec, "Ext Spk");
+
 
 	ret = snd_soc_dapm_sync(codec);
 	if (ret)
 		return ret;
+
+/*	if (gpio_request(ZEUS_PCM_SELECT_GPIO, "PCM_SEL") == 0) 
+	{
+		gpio_direction_output(ZEUS_PCM_SELECT_GPIO, 0);
+	}
+*/
+
+#if 0
 
 	/* Headset jack detection */
 	ret = snd_soc_jack_new(&snd_soc_sdp3430, "Headset Jack",
@@ -237,6 +370,7 @@ static int sdp3430_twl4030_init(struct snd_soc_codec *codec)
 
 	ret = snd_soc_jack_add_gpios(&hs_jack, ARRAY_SIZE(hs_jack_gpios),
 				hs_jack_gpios);
+#endif
 
 	return ret;
 }
@@ -282,12 +416,14 @@ static struct snd_soc_card snd_soc_sdp3430 = {
 	.num_links = ARRAY_SIZE(sdp3430_dai),
 };
 
+#if 1 
 /* twl4030 setup */
 static struct twl4030_setup_data twl4030_setup = {
 	.ramp_delay_value = 3,
 	.sysclk = 26000,
 	.hs_extmute = 1,
 };
+#endif
 
 /* Audio subsystem */
 static struct snd_soc_device sdp3430_snd_devdata = {
@@ -303,10 +439,14 @@ static int __init sdp3430_soc_init(void)
 	int ret;
 	u8 pin_mux;
 
+    printk(KERN_EMERG " %s : %s : %i \n", __FILE__, __FUNCTION__, __LINE__);
+
+	#if 0
 	if (!machine_is_omap_3430sdp()) {
 		pr_debug("Not SDP3430!\n");
 		return -ENODEV;
 	}
+	#endif
 	printk(KERN_INFO "SDP3430 SoC init\n");
 
 	sdp3430_snd_device = platform_device_alloc("soc-audio", -1);
@@ -321,20 +461,26 @@ static int __init sdp3430_soc_init(void)
 	*(unsigned int *)sdp3430_dai[1].cpu_dai->private_data = 2; /* McBSP3 */
 
 	/* Set TWL4030 GPIO6 as EXTMUTE signal */
-	twl4030_i2c_read_u8(TWL4030_MODULE_INTBR, &pin_mux,
+#if 0
+	twl_i2c_read_u8(TWL4030_MODULE_INTBR, &pin_mux,
 						TWL4030_INTBR_PMBR1);
 	pin_mux &= ~TWL4030_GPIO6_PWM0_MUTE(0x03);
 	pin_mux |= TWL4030_GPIO6_PWM0_MUTE(0x02);
-	twl4030_i2c_write_u8(TWL4030_MODULE_INTBR, pin_mux,
+	twl_i2c_write_u8(TWL4030_MODULE_INTBR, pin_mux,
 						TWL4030_INTBR_PMBR1);
-
+#endif
+	
 	ret = platform_device_add(sdp3430_snd_device);
 	if (ret)
 		goto err1;
+	else
+		printk(KERN_EMERG "platform_device_add success\n");	
 
 	return 0;
 
 err1:
+	
+	printk(KERN_EMERG " %s : %s : %i UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU\n", __FILE__, __FUNCTION__, __LINE__);
 	printk(KERN_ERR "Unable to add platform device\n");
 	platform_device_put(sdp3430_snd_device);
 
@@ -344,9 +490,10 @@ module_init(sdp3430_soc_init);
 
 static void __exit sdp3430_soc_exit(void)
 {
-	snd_soc_jack_free_gpios(&hs_jack, ARRAY_SIZE(hs_jack_gpios),
-				hs_jack_gpios);
+//	snd_soc_jack_free_gpios(&hs_jack, ARRAY_SIZE(hs_jack_gpios),
+//				hs_jack_gpios);
 
+//	gpio_free(ZEUS_PCM_SELECT_GPIO);
 	platform_device_unregister(sdp3430_snd_device);
 }
 module_exit(sdp3430_soc_exit);

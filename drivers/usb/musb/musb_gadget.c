@@ -91,6 +91,8 @@
 
 /* ----------------------------------------------------------------------- */
 
+static void stop_activity(struct musb *musb, struct usb_gadget_driver *driver);
+
 /*
  * Immediately complete a request.
  *
@@ -111,6 +113,10 @@ __acquires(ep->musb->lock)
 
 	req = to_musb_request(request);
 
+	if (!req) {
+		WARN_ON(1);
+		return;
+	}
 	list_del(&request->list);
 	if (req->request.status == -EINPROGRESS)
 		req->request.status = status;
@@ -309,7 +315,7 @@ static void txstate(struct musb *musb, struct musb_request *req)
 			size_t request_size;
 
 			/* setup DMA, then program endpoint CSR */
-			request_size = min(request->length,
+			request_size = min(request->length - request->actual,
 						musb_ep->dma->max_len);
 			if (request_size < musb_ep->packet_sz)
 				musb_ep->dma->desired_mode = 0;
@@ -319,7 +325,8 @@ static void txstate(struct musb *musb, struct musb_request *req)
 			use_dma = use_dma && c->channel_program(
 					musb_ep->dma, musb_ep->packet_sz,
 					musb_ep->dma->desired_mode,
-					request->dma, request_size);
+					request->dma + request->actual,
+					request_size);
 			if (use_dma) {
 				if (musb_ep->dma->desired_mode == 0) {
 					/*
@@ -392,6 +399,19 @@ static void txstate(struct musb *musb, struct musb_request *req)
 #endif
 
 	if (!use_dma) {
+		if (req->mapped) {
+			/* Unmap the buffer to use PIO */
+			dma_unmap_single(musb->controller,
+				req->request.dma,
+				req->request.length,
+				req->tx
+				? DMA_TO_DEVICE
+				: DMA_FROM_DEVICE);
+
+			req->request.dma = DMA_ADDR_INVALID;
+			req->mapped = 0;
+		}
+
 		musb_write_fifo(musb_ep->hw_ep, fifo_count,
 				(u8 *) (request->buf + request->actual));
 		request->actual += fifo_count;
@@ -573,6 +593,24 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 /*
  * Context: controller locked, IRQs blocked, endpoint selected
  */
+
+/*
+ * Enable DMA Mode 1 RX for g_file_storage and android usb_mass_storage. This
+ * will increase thpt performance by around 30% for mass-storage use cases.
+ * Check run-time for the type of gadget driver loaded and enable Mode 1 RX if
+ * its g_file_storage or android usb_mass_storage driver.
+ */
+
+static int use_dma_mode1_rx(struct musb *musb)
+{
+#ifdef CONFIG_USB_ANDROID_ADB
+	return !strcmp(musb->gadget_driver->driver.name, "g_file_storage");
+#else
+	return !strcmp(musb->gadget_driver->driver.name, "g_file_storage") ||
+	!strcmp(musb->gadget_driver->driver.name, "android_usb");
+#endif
+}
+
 static void rxstate(struct musb *musb, struct musb_request *req)
 {
 	const u8		epnum = req->epnum;
@@ -582,6 +620,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 	unsigned		fifo_count = 0;
 	u16			len = musb_ep->packet_sz;
 	u16			csr = musb_readw(epio, MUSB_RXCSR);
+	u8                      use_mode_1;
 
 	/* We shouldn't get here while DMA is active, but we do... */
 	if (dma_channel_status(musb_ep->dma) == MUSB_DMA_STATUS_BUSY) {
@@ -624,6 +663,16 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 
 	if (csr & MUSB_RXCSR_RXPKTRDY) {
 		len = musb_readw(epio, MUSB_RXCOUNT);
+
+		/*
+		 * Enable Mode 1 for RX transfers only for mass-storage case
+		 */
+
+		if (use_dma_mode1_rx(musb) && len == musb_ep->packet_sz)
+			use_mode_1 = 1;
+		else
+			use_mode_1 = 0;
+
 		if (request->actual < request->length) {
 #ifdef CONFIG_USB_INVENTRA_DMA
 			if (is_dma_capable() && musb_ep->dma) {
@@ -655,28 +704,35 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 	 * then becomes usable as a runtime "use mode 1" hint...
 	 */
 
-				csr |= MUSB_RXCSR_DMAENAB;
-#ifdef USE_MODE1
-				csr |= MUSB_RXCSR_AUTOCLEAR;
-				/* csr |= MUSB_RXCSR_DMAMODE; */
+	/* Experimental: Mode1 works with mass storage use cases
+	 */
+		if (use_mode_1) {
 
-				/* this special sequence (enabling and then
-				 * disabling MUSB_RXCSR_DMAMODE) is required
-				 * to get DMAReq to activate
-				 */
-				musb_writew(epio, MUSB_RXCSR,
-					csr | MUSB_RXCSR_DMAMODE);
-#endif
+			/* this special sequence (enabling and then
+			 * disabling MUSB_RXCSR_DMAMODE) is required
+			 * to get DMAReq to activate
+			 */
+				csr |= MUSB_RXCSR_AUTOCLEAR;
 				musb_writew(epio, MUSB_RXCSR, csr);
+				csr |= MUSB_RXCSR_DMAENAB;
+				musb_writew(epio, MUSB_RXCSR, csr);
+				csr |= MUSB_RXCSR_DMAMODE;
+				musb_writew(epio, MUSB_RXCSR, csr);
+				csr |= MUSB_RXCSR_DMAENAB;
+				musb_writew(epio, MUSB_RXCSR, csr);
+		} else {
+				csr |= MUSB_RXCSR_DMAENAB;
+				musb_writew(epio, MUSB_RXCSR, csr);
+		}
 
 				if (request->actual < request->length) {
 					int transfer_size = 0;
-#ifdef USE_MODE1
+		if (use_mode_1) {
 					transfer_size = min(request->length,
 							channel->max_len);
-#else
+		} else {
 					transfer_size = len;
-#endif
+		}
 					if (transfer_size <= musb_ep->packet_sz)
 						musb_ep->dma->desired_mode = 0;
 					else
@@ -691,8 +747,28 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 							transfer_size);
 				}
 
-				if (use_dma)
+				if (use_dma) {
 					return;
+				} else {
+					if (req->mapped) {
+						/* Unmap the buffer to use PIO */
+						dma_unmap_single(musb->controller,
+							req->request.dma,
+							req->request.length,
+							req->tx
+							 ? DMA_TO_DEVICE
+							: DMA_FROM_DEVICE);
+
+						req->request.dma = DMA_ADDR_INVALID;
+						req->mapped = 0;
+					}
+
+					/* Need to clear DMAENAB for the
+					 * backup PIO mode transfer to work
+					 */
+					csr &= ~MUSB_RXCSR_DMAENAB;
+					musb_writew(epio, MUSB_RXCSR, csr);
+				}
 			}
 #endif	/* Mentor's DMA */
 
@@ -799,7 +875,8 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 		musb_writew(epio, MUSB_RXCSR,
 			MUSB_RXCSR_P_WZC_BITS | csr);
 
-		request->actual += musb_ep->dma->actual_len;
+		if (request)
+			request->actual += musb_ep->dma->actual_len;
 
 		DBG(4, "RXCSR%d %04x, dma off, %04x, len %zu, req %p\n",
 			epnum, csr,
@@ -817,7 +894,7 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 		}
 
 		/* incomplete, and not short? wait for next IN packet */
-		if ((request->actual < request->length)
+		if (request && (request->actual < request->length)
 				&& (musb_ep->dma->actual_len
 					== musb_ep->packet_sz))
 			return;
@@ -999,6 +1076,10 @@ static int musb_gadget_disable(struct usb_ep *ep)
 	int		status = 0;
 
 	musb_ep = to_musb_ep(ep);
+	if (!musb_ep) {
+		WARN_ON(1);
+		return -EFAULT;
+	}
 	musb = musb_ep->musb;
 	epnum = musb_ep->current_epnum;
 	epio = musb->endpoints[epnum].regs;
@@ -1043,7 +1124,7 @@ struct usb_request *musb_alloc_request(struct usb_ep *ep, gfp_t gfp_flags)
 	struct musb_request	*request = NULL;
 
 	request = kzalloc(sizeof *request, gfp_flags);
-	if (request) {
+	if (request && musb_ep) {
 		INIT_LIST_HEAD(&request->request.list);
 		request->request.dma = DMA_ADDR_INVALID;
 		request->epnum = musb_ep->current_epnum;
@@ -1166,11 +1247,18 @@ cleanup:
 
 static int musb_gadget_dequeue(struct usb_ep *ep, struct usb_request *request)
 {
-	struct musb_ep		*musb_ep = to_musb_ep(ep);
+	struct musb_ep		*musb_ep;
 	struct usb_request	*r;
 	unsigned long		flags;
 	int			status = 0;
-	struct musb		*musb = musb_ep->musb;
+	struct musb		*musb;
+
+	musb_ep = to_musb_ep(ep);
+	if (!musb_ep) {
+		WARN_ON(1);
+		return -EFAULT;
+	}
+	musb = musb_ep->musb;
 
 	if (!ep || !request || to_musb_request(request)->ep != musb_ep)
 		return -EINVAL;
@@ -1222,15 +1310,24 @@ done:
  */
 int musb_gadget_set_halt(struct usb_ep *ep, int value)
 {
-	struct musb_ep		*musb_ep = to_musb_ep(ep);
-	u8			epnum = musb_ep->current_epnum;
-	struct musb		*musb = musb_ep->musb;
-	void __iomem		*epio = musb->endpoints[epnum].regs;
+	struct musb_ep		*musb_ep;
+	u8			epnum;
+	struct musb		*musb;
+	void __iomem		*epio;
 	void __iomem		*mbase;
 	unsigned long		flags;
 	u16			csr;
 	struct musb_request	*request;
 	int			status = 0;
+
+	musb_ep = to_musb_ep(ep);
+	if (!musb_ep) {
+		WARN_ON(1);
+		return -EFAULT;
+	}
+	epnum = musb_ep->current_epnum;
+	musb = musb_ep->musb;
+	epio = musb->endpoints[epnum].regs;
 
 	if (!ep)
 		return -EINVAL;
@@ -1304,8 +1401,14 @@ done:
 static int musb_gadget_fifo_status(struct usb_ep *ep)
 {
 	struct musb_ep		*musb_ep = to_musb_ep(ep);
-	void __iomem		*epio = musb_ep->hw_ep->regs;
+	void __iomem		*epio;
 	int			retval = -EINVAL;
+
+	if (!musb_ep) {
+		WARN_ON(1);
+		return -EFAULT;
+	}
+	epio = musb_ep->hw_ep->regs;
 
 	if (musb_ep->desc && !musb_ep->is_in) {
 		struct musb		*musb = musb_ep->musb;
@@ -1327,13 +1430,20 @@ static int musb_gadget_fifo_status(struct usb_ep *ep)
 static void musb_gadget_fifo_flush(struct usb_ep *ep)
 {
 	struct musb_ep	*musb_ep = to_musb_ep(ep);
-	struct musb	*musb = musb_ep->musb;
-	u8		epnum = musb_ep->current_epnum;
-	void __iomem	*epio = musb->endpoints[epnum].regs;
+	struct musb	*musb;
+	u8		epnum;
+	void __iomem	*epio;
 	void __iomem	*mbase;
 	unsigned long	flags;
 	u16		csr, int_txe;
 
+	if (!musb_ep) {
+		WARN_ON(1);
+		return;
+	}
+	musb = musb_ep->musb;
+	epnum = musb_ep->current_epnum;
+	epio = musb->endpoints[epnum].regs;
 	mbase = musb->mregs;
 
 	spin_lock_irqsave(&musb->lock, flags);
@@ -1513,10 +1623,15 @@ static int musb_gadget_pullup(struct usb_gadget *gadget, int is_on)
 	 * not pullup unless the B-session is active.
 	 */
 	spin_lock_irqsave(&musb->lock, flags);
-	if (is_on != musb->softconnect) {
-		musb->softconnect = is_on;
-		musb_pullup(musb, is_on);
-	}
+	if (is_on) {
+	    if (!musb->softconnect) {
+			musb_start(musb);
+			musb->softconnect = 1;
+			musb_pullup(musb, is_on);
+		}
+	} else
+		stop_activity(musb, musb->gadget_driver);
+
 	spin_unlock_irqrestore(&musb->lock, flags);
 	return 0;
 }
@@ -2029,4 +2144,7 @@ __acquires(musb->lock)
 	/* start with default limits on VBUS power draw */
 	(void) musb_gadget_vbus_draw(&musb->g,
 			is_otg_enabled(musb) ? 8 : 100);
+#if defined(CONFIG_HAS_WAKELOCK) && defined(CONFIG_MICROUSBIC_INTR)
+	wake_lock(&musb->wake_lock); /* wake lock for USB */
+#endif
 }

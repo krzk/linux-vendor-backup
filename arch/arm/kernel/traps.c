@@ -28,6 +28,7 @@
 #include <asm/unistd.h>
 #include <asm/traps.h>
 #include <asm/unwind.h>
+#include <asm/tlbflush.h>
 
 #include "ptrace.h"
 #include "signal.h"
@@ -438,7 +439,9 @@ do_cache_op(unsigned long start, unsigned long end, int flags)
 		if (end > vma->vm_end)
 			end = vma->vm_end;
 
-		flush_cache_user_range(vma, start, end);
+		up_read(&mm->mmap_sem);
+		flush_cache_user_range(start, end);
+		return;
 	}
 	up_read(&mm->mmap_sem);
 }
@@ -505,7 +508,8 @@ asmlinkage int arm_syscall(int no, struct pt_regs *regs)
 		thread->tp_value = regs->ARM_r0;
 #if defined(CONFIG_HAS_TLS_REG)
 		asm ("mcr p15, 0, %0, c13, c0, 3" : : "r" (regs->ARM_r0) );
-#elif !defined(CONFIG_TLS_REG_EMUL)
+/* #elif !defined(CONFIG_TLS_REG_EMUL) */
+#endif
 		/*
 		 * User space must never try to access this directly.
 		 * Expect your app to break eventually if you do so.
@@ -513,7 +517,7 @@ asmlinkage int arm_syscall(int no, struct pt_regs *regs)
 		 * (see entry-armv.S for details)
 		 */
 		*((unsigned int *)0xffff0ff0) = regs->ARM_r0;
-#endif
+/* #endif */
 		return 0;
 
 #ifdef CONFIG_NEEDS_SYSCALL_FOR_CMPXCHG
@@ -735,6 +739,16 @@ void __init early_trap_init(void)
 	extern char __vectors_start[], __vectors_end[];
 	extern char __kuser_helper_start[], __kuser_helper_end[];
 	int kuser_sz = __kuser_helper_end - __kuser_helper_start;
+#ifndef CONFIG_CPU_USE_DOMAINS
+	pgd_t *pgd = pgd_offset_k(vectors);
+	pmd_t *pmd = pmd_offset(pgd, vectors);
+	pte_t *pte = pte_offset_kernel(pmd, vectors);
+	pte_t entry = *pte;
+
+	/* allow writing to the vectors page */
+	set_pte_ext(pte, pte_mkwrite(entry), 0);
+	local_flush_tlb_kernel_page(vectors);
+#endif
 
 	/*
 	 * Copy the vectors, stubs and kuser helpers (in entry-armv.S)
@@ -753,6 +767,12 @@ void __init early_trap_init(void)
 	       sizeof(sigreturn_codes));
 	memcpy((void *)KERN_RESTART_CODE, syscall_restart_code,
 	       sizeof(syscall_restart_code));
+
+#ifndef CONFIG_CPU_USE_DOMAINS
+	/* restore the vectors page permissions */
+	set_pte_ext(pte, entry, 0);
+	local_flush_tlb_kernel_page(vectors);
+#endif
 
 	flush_icache_range(vectors, vectors + PAGE_SIZE);
 	modify_domain(DOMAIN_USER, DOMAIN_CLIENT);

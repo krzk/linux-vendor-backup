@@ -114,9 +114,9 @@ static int quiet_error(struct buffer_head *bh)
 static void buffer_io_error(struct buffer_head *bh)
 {
 	char b[BDEVNAME_SIZE];
-	printk(KERN_ERR "Buffer I/O error on device %s, logical block %Lu\n",
-			bdevname(bh->b_bdev, b),
-			(unsigned long long)bh->b_blocknr);
+	//printk(KERN_DEBUG "Buffer I/O error on device %s, logical block %Lu\n",
+	//		bdevname(bh->b_bdev, b),
+	//		(unsigned long long)bh->b_blocknr);
 }
 
 /*
@@ -158,9 +158,9 @@ void end_buffer_write_sync(struct buffer_head *bh, int uptodate)
 	} else {
 		if (!buffer_eopnotsupp(bh) && !quiet_error(bh)) {
 			buffer_io_error(bh);
-			printk(KERN_WARNING "lost page write due to "
-					"I/O error on %s\n",
-				       bdevname(bh->b_bdev, b));
+			//printk(KERN_WARNING "lost page write due to "
+			//		"I/O error on %s\n",
+			//	       bdevname(bh->b_bdev, b));
 		}
 		set_buffer_write_io_error(bh);
 		clear_buffer_uptodate(bh);
@@ -382,9 +382,9 @@ void end_buffer_async_write(struct buffer_head *bh, int uptodate)
 	} else {
 		if (!quiet_error(bh)) {
 			buffer_io_error(bh);
-			printk(KERN_WARNING "lost page write due to "
-					"I/O error on %s\n",
-			       bdevname(bh->b_bdev, b));
+			//printk(KERN_WARNING "lost page write due to "
+			//		"I/O error on %s\n",
+			//       bdevname(bh->b_bdev, b));
 		}
 		set_bit(AS_EIO, &page->mapping->flags);
 		set_buffer_write_io_error(bh);

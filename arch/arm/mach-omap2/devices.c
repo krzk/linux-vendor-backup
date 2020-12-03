@@ -20,12 +20,15 @@
 #include <asm/mach-types.h>
 #include <asm/mach/map.h>
 
-#include <mach/control.h>
-#include <mach/tc.h>
-#include <mach/board.h>
-#include <mach/mux.h>
+#include <plat/control.h>
+#include <plat/tc.h>
+#include <plat/board.h>
+#include <plat/mux.h>
 #include <mach/gpio.h>
-#include <mach/mmc.h>
+#include <plat/mmc.h>
+
+#include "mux.h"
+#define REVERSE_ORDER
 
 #if defined(CONFIG_VIDEO_OMAP2) || defined(CONFIG_VIDEO_OMAP2_MODULE)
 
@@ -112,6 +115,11 @@ static struct resource omap3isp_resources[] = {
 		.flags		= IORESOURCE_MEM,
 	},
 	{
+		.start 		= OMAP3430_ISP_CSI2PHY2_BASE,
+		.end 		= OMAP3430_ISP_CSI2PHY2_END,
+		.flags 		= IORESOURCE_MEM,
+	},
+	{
 		.start		= INT_34XX_CAM_IRQ,
 		.flags		= IORESOURCE_IRQ,
 	}
@@ -128,6 +136,33 @@ static inline void omap_init_camera(void)
 {
 	platform_device_register(&omap3isp_device);
 }
+
+#elif defined(CONFIG_VIDEO_OLDOMAP3) || defined(CONFIG_VIDEO_OLDOMAP3_MODULE)
+
+static struct resource cam_resources[] = {
+	{
+		.start		= OMAP34XX_CAMERA_BASE,
+		.end		= OMAP34XX_CAMERA_BASE + 0x1B70,
+		.flags		= IORESOURCE_MEM,
+	},
+	{
+		.start		= INT_34XX_CAM_IRQ,
+		.flags		= IORESOURCE_IRQ,
+	}
+};
+
+static struct platform_device omap_cam_device = {
+	.name		= "omap34xxcam",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(cam_resources),
+	.resource	= cam_resources,
+};
+
+static inline void omap_init_camera(void)
+{
+	platform_device_register(&omap_cam_device);
+}
+
 #else
 static inline void omap_init_camera(void)
 {
@@ -136,9 +171,10 @@ static inline void omap_init_camera(void)
 
 #if defined(CONFIG_OMAP_MBOX_FWK) || defined(CONFIG_OMAP_MBOX_FWK_MODULE)
 
-#define MBOX_REG_SIZE	0x120
+#define MBOX_REG_SIZE   0x120
 
-static struct resource omap2_mbox_resources[] = {
+#ifdef CONFIG_ARCH_OMAP2
+static struct resource omap_mbox_resources[] = {
 	{
 		.start		= OMAP24XX_MAILBOX_BASE,
 		.end		= OMAP24XX_MAILBOX_BASE + MBOX_REG_SIZE - 1,
@@ -153,8 +189,10 @@ static struct resource omap2_mbox_resources[] = {
 		.flags		= IORESOURCE_IRQ,
 	},
 };
+#endif
 
-static struct resource omap3_mbox_resources[] = {
+#ifdef CONFIG_ARCH_OMAP3
+static struct resource omap_mbox_resources[] = {
 	{
 		.start		= OMAP34XX_MAILBOX_BASE,
 		.end		= OMAP34XX_MAILBOX_BASE + MBOX_REG_SIZE - 1,
@@ -165,6 +203,24 @@ static struct resource omap3_mbox_resources[] = {
 		.flags		= IORESOURCE_IRQ,
 	},
 };
+#endif
+
+#ifdef CONFIG_ARCH_OMAP4
+
+#define OMAP4_MBOX_REG_SIZE	0x130
+static struct resource omap_mbox_resources[] = {
+	{
+		.start          = OMAP44XX_MAILBOX_BASE,
+		.end            = OMAP44XX_MAILBOX_BASE +
+					OMAP4_MBOX_REG_SIZE - 1,
+		.flags          = IORESOURCE_MEM,
+	},
+	{
+		.start          = INT_44XX_MAIL_U0_MPU,
+		.flags          = IORESOURCE_IRQ,
+	},
+};
+#endif
 
 static struct platform_device mbox_device = {
 	.name		= "omap2-mailbox",
@@ -173,12 +229,10 @@ static struct platform_device mbox_device = {
 
 static inline void omap_init_mbox(void)
 {
-	if (cpu_is_omap2420()) {
-		mbox_device.num_resources = ARRAY_SIZE(omap2_mbox_resources);
-		mbox_device.resource = omap2_mbox_resources;
-	} else if (cpu_is_omap3430()) {
-		mbox_device.num_resources = ARRAY_SIZE(omap3_mbox_resources);
-		mbox_device.resource = omap3_mbox_resources;
+	if (cpu_is_omap2420() || cpu_is_omap3430() || cpu_is_omap3630() ||
+							cpu_is_omap44xx()) {
+		mbox_device.num_resources = ARRAY_SIZE(omap_mbox_resources);
+		mbox_device.resource = omap_mbox_resources;
 	} else {
 		pr_err("%s: platform not supported\n", __func__);
 		return;
@@ -250,7 +304,7 @@ static inline void omap_init_sti(void) {}
 
 #if defined(CONFIG_SPI_OMAP24XX) || defined(CONFIG_SPI_OMAP24XX_MODULE)
 
-#include <mach/mcspi.h>
+#include <plat/mcspi.h>
 
 #define OMAP2_MCSPI1_BASE		0x48098000
 #define OMAP2_MCSPI2_BASE		0x4809a000
@@ -264,6 +318,7 @@ static inline void omap_init_sti(void) {}
 
 static struct omap2_mcspi_platform_config omap2_mcspi1_config = {
 	.num_cs		= 4,
+	.force_cs_mode	= 1,
 };
 
 static struct resource omap2_mcspi1_resources[] = {
@@ -286,6 +341,11 @@ static struct platform_device omap2_mcspi1 = {
 
 static struct omap2_mcspi_platform_config omap2_mcspi2_config = {
 	.num_cs		= 2,
+	.mode		= OMAP2_MCSPI_MASTER,
+	.dma_mode	= 1,
+	.force_cs_mode	= 1,//selwin
+	.fifo_depth	= 0, // fixed for CMMB SPI
+//	.fifo_depth	= 16, 
 };
 
 static struct resource omap2_mcspi2_resources[] = {
@@ -310,6 +370,11 @@ static struct platform_device omap2_mcspi2 = {
 	defined(CONFIG_ARCH_OMAP4)
 static struct omap2_mcspi_platform_config omap2_mcspi3_config = {
 	.num_cs		= 2,
+
+	.mode		= OMAP2_MCSPI_MASTER,
+	.dma_mode	= 0,
+	.force_cs_mode	= 1,
+	.fifo_depth	= 0,
 };
 
 static struct resource omap2_mcspi3_resources[] = {
@@ -575,29 +640,49 @@ static inline void omap2_mmc_mux(struct omap_mmc_platform_data *mmc_controller,
 		}
 	}
 
-	if (cpu_is_omap3430()) {
+	if (cpu_is_omap34xx()) {
+		u32 dev_conf = 0, v_shift = 0;
 		if (controller_nr == 0) {
-			omap_cfg_reg(N28_3430_MMC1_CLK);
-			omap_cfg_reg(M27_3430_MMC1_CMD);
-			omap_cfg_reg(N27_3430_MMC1_DAT0);
+#if !defined(CONFIG_MACH_OMAP_SAMSUNG)
+			omap_mux_init_signal("sdmmc1_clk",
+				OMAP_PIN_INPUT_PULLUP);
+			omap_mux_init_signal("sdmmc1_cmd",
+				OMAP_PIN_INPUT_PULLUP);
+			omap_mux_init_signal("sdmmc1_dat0",
+				OMAP_PIN_INPUT_PULLUP);
 			if (mmc_controller->slots[0].wires == 4 ||
 				mmc_controller->slots[0].wires == 8) {
-				omap_cfg_reg(N26_3430_MMC1_DAT1);
-				omap_cfg_reg(N25_3430_MMC1_DAT2);
-				omap_cfg_reg(P28_3430_MMC1_DAT3);
+				omap_mux_init_signal("sdmmc1_dat1",
+					OMAP_PIN_INPUT_PULLUP);
+				omap_mux_init_signal("sdmmc1_dat2",
+					OMAP_PIN_INPUT_PULLUP);
+				omap_mux_init_signal("sdmmc1_dat3",
+					OMAP_PIN_INPUT_PULLUP);
 			}
 			if (mmc_controller->slots[0].wires == 8) {
-				omap_cfg_reg(P27_3430_MMC1_DAT4);
-				omap_cfg_reg(P26_3430_MMC1_DAT5);
-				omap_cfg_reg(R27_3430_MMC1_DAT6);
-				omap_cfg_reg(R25_3430_MMC1_DAT7);
+				omap_mux_init_signal("sdmmc1_dat4",
+					OMAP_PIN_INPUT_PULLUP);
+				omap_mux_init_signal("sdmmc1_dat5",
+					OMAP_PIN_INPUT_PULLUP);
+				omap_mux_init_signal("sdmmc1_dat6",
+					OMAP_PIN_INPUT_PULLUP);
+				omap_mux_init_signal("sdmmc1_dat7",
+					OMAP_PIN_INPUT_PULLUP);
 			}
+#endif
+			dev_conf = OMAP2_CONTROL_DEVCONF0;
+			v_shift = OMAP2_MMCSDIO1ADPCLKISEL;
 		}
 		if (controller_nr == 1) {
+
+#if !defined(CONFIG_MACH_OMAP_SAMSUNG)
 			/* MMC2 */
-			omap_cfg_reg(AE2_3430_MMC2_CLK);
-			omap_cfg_reg(AG5_3430_MMC2_CMD);
-			omap_cfg_reg(AH5_3430_MMC2_DAT0);
+			omap_mux_init_signal("sdmmc2_clk",
+				OMAP_PIN_INPUT_PULLUP);
+			omap_mux_init_signal("sdmmc2_cmd",
+				OMAP_PIN_INPUT_PULLUP);
+			omap_mux_init_signal("sdmmc2_dat0",
+				OMAP_PIN_INPUT_PULLUP);
 
 			/*
 			 * For 8 wire configurations, Lines DAT4, 5, 6 and 7 need to be muxed
@@ -605,15 +690,41 @@ static inline void omap2_mmc_mux(struct omap_mmc_platform_data *mmc_controller,
 			 */
 			if (mmc_controller->slots[0].wires == 4 ||
 				mmc_controller->slots[0].wires == 8) {
-				omap_cfg_reg(AH4_3430_MMC2_DAT1);
-				omap_cfg_reg(AG4_3430_MMC2_DAT2);
-				omap_cfg_reg(AF4_3430_MMC2_DAT3);
+				omap_mux_init_signal("sdmmc2_dat1",
+					OMAP_PIN_INPUT_PULLUP);
+				omap_mux_init_signal("sdmmc2_dat2",
+					OMAP_PIN_INPUT_PULLUP);
+				omap_mux_init_signal("sdmmc2_dat3",
+					OMAP_PIN_INPUT_PULLUP);
 			}
+			if (mmc_controller->slots[0].wires == 8) {
+				omap_mux_init_signal("sdmmc2_dat4.sdmmc2_dat4",
+					OMAP_PIN_INPUT_PULLUP);
+				omap_mux_init_signal("sdmmc2_dat5.sdmmc2_dat5",
+					OMAP_PIN_INPUT_PULLUP);
+				omap_mux_init_signal("sdmmc2_dat6.sdmmc2_dat6",
+					OMAP_PIN_INPUT_PULLUP);
+				omap_mux_init_signal("sdmmc2_dat7.sdmmc2_dat7",
+					OMAP_PIN_INPUT_PULLUP);
+			}
+#endif
+			dev_conf = OMAP343X_CONTROL_DEVCONF1;
+			v_shift = OMAP2_MMCSDIO2ADPCLKISEL;
 		}
 
 		/*
 		 * For MMC3 the pins need to be muxed in the board-*.c files
 		 */
+
+		/*
+		 * Use internal loop-back in MMC/SDIO Module Input Clock
+		 * selection
+		 */
+		if (mmc_controller->slots[0].internal_clock && dev_conf) {
+			u32 v = omap_ctrl_readl(dev_conf);
+			v |= (1 << v_shift);
+			omap_ctrl_writel(v, dev_conf);
+		}
 	}
 }
 
@@ -623,62 +734,188 @@ void __init omap2_init_mmc(struct omap_mmc_platform_data **mmc_data,
 	int i;
 	char *name;
 
-	for (i = 0; i < nr_controllers; i++) {
-		unsigned long base, size;
-		unsigned int irq = 0;
+	if (cpu_is_omap44xx()) {
+		for (i = 1; i >= 0; i--) {
+			unsigned long base, size;
+			unsigned int irq = 0;
 
-		if (!mmc_data[i])
-			continue;
+			if (!mmc_data[i])
+				continue;
 
-		omap2_mmc_mux(mmc_data[i], i);
+			omap2_mmc_mux(mmc_data[i], i);
 
-		switch (i) {
-		case 0:
-			base = OMAP2_MMC1_BASE;
-			irq = INT_24XX_MMC_IRQ;
-			break;
-		case 1:
-			base = OMAP2_MMC2_BASE;
-			irq = INT_24XX_MMC2_IRQ;
-			break;
-		case 2:
-			if (!cpu_is_omap44xx() && !cpu_is_omap34xx())
-				return;
-			base = OMAP3_MMC3_BASE;
-			irq = INT_34XX_MMC3_IRQ;
-			break;
-		case 3:
-			if (!cpu_is_omap44xx())
-				return;
-			base = OMAP4_MMC4_BASE + OMAP4_MMC_REG_OFFSET;
-			irq = INT_44XX_MMC4_IRQ;
-			break;
-		case 4:
-			if (!cpu_is_omap44xx())
-				return;
-			base = OMAP4_MMC5_BASE + OMAP4_MMC_REG_OFFSET;
-			irq = INT_44XX_MMC5_IRQ;
-			break;
-		default:
-			continue;
+			switch (i) {
+			case 0:
+				base = OMAP2_MMC1_BASE;
+				irq = INT_24XX_MMC_IRQ;
+				break;
+			case 1:
+				base = OMAP2_MMC2_BASE;
+				irq = INT_24XX_MMC2_IRQ;
+				break;
+			default:
+				continue;
+			}
+
+			base += OMAP4_MMC_REG_OFFSET;
+			irq += IRQ_GIC_START;
+			size = OMAP4_HSMMC_SIZE;
+			name = "mmci-omap-hs";
+
+			omap_mmc_add(name, i, base, size, irq, mmc_data[i]);
 		}
 
-		if (cpu_is_omap2420()) {
-			size = OMAP2420_MMC_SIZE;
-			name = "mmci-omap";
-		} else if (cpu_is_omap44xx()) {
-			if (i < 3) {
+		for (i = 2; i < nr_controllers; i++) {
+			unsigned long base, size;
+			unsigned int irq = 0;
+
+			if (!mmc_data[i])
+				continue;
+
+			omap2_mmc_mux(mmc_data[i], i);
+
+			switch (i) {
+			case 2:
+				base = OMAP3_MMC3_BASE;
+				irq = INT_34XX_MMC3_IRQ;
+				break;
+			case 3:
+				base = OMAP4_MMC4_BASE + OMAP4_MMC_REG_OFFSET;
+				irq = INT_44XX_MMC4_IRQ;
+				break;
+			case 4:
+				base = OMAP4_MMC5_BASE + OMAP4_MMC_REG_OFFSET;
+				irq = INT_44XX_MMC5_IRQ;
+				break;
+			default:
+				continue;
+			}
+
+			if (i == 2) {
 				base += OMAP4_MMC_REG_OFFSET;
 				irq += IRQ_GIC_START;
 			}
 			size = OMAP4_HSMMC_SIZE;
 			name = "mmci-omap-hs";
-		} else {
-			size = OMAP3_HSMMC_SIZE;
-			name = "mmci-omap-hs";
+
+			omap_mmc_add(name, i, base, size, irq, mmc_data[i]);
 		}
-		omap_mmc_add(name, i, base, size, irq, mmc_data[i]);
-	};
+	}
+#ifdef REVERSE_ORDER
+ 	else {
+		printk("Reverse registration of MMC1 and MMC0 \n");
+		for (i = 1; i>= 0 ; i--) {
+			unsigned long base, size;
+			unsigned int irq = 0;
+
+			if (!mmc_data[i])
+				continue;
+
+			omap2_mmc_mux(mmc_data[i], i);
+
+			switch (i) {
+			case 0:
+				base = OMAP2_MMC1_BASE;
+				irq = INT_24XX_MMC_IRQ;
+				break;
+			case 1:
+				base = OMAP2_MMC2_BASE;
+				irq = INT_24XX_MMC2_IRQ;
+				break;
+			default:
+				continue;
+			}
+
+			if (cpu_is_omap2420()) {
+				size = OMAP2420_MMC_SIZE;
+				name = "mmci-omap";
+			} else {
+				size = OMAP3_HSMMC_SIZE;
+				if (mmc_data[i]->name)
+					name = mmc_data[i]->name;
+				else
+					name = "mmci-omap-hs";
+			}
+			omap_mmc_add(name, i, base, size, irq, mmc_data[i]);
+		}
+		for (i = 2; i < nr_controllers; i++) {
+			unsigned long base, size;
+			unsigned int irq = 0;
+
+			if (!mmc_data[i])
+				continue;
+
+			omap2_mmc_mux(mmc_data[i], i);
+
+			switch (i) {
+			case 2:
+				if (!cpu_is_omap34xx())
+					return;
+				base = OMAP3_MMC3_BASE;
+				irq = INT_34XX_MMC3_IRQ;
+				break;
+			default:
+				continue;
+			}
+
+			if (cpu_is_omap2420()) {
+				size = OMAP2420_MMC_SIZE;
+				name = "mmci-omap";
+			} else {
+				size = OMAP3_HSMMC_SIZE;
+				if (mmc_data[i]->name)
+					name = mmc_data[i]->name;
+				else
+					name = "mmci-omap-hs";
+			}
+
+			omap_mmc_add(name, i, base, size, irq, mmc_data[i]);
+		}
+	}
+#else 
+ 	else {
+		for (i = 0; i < nr_controllers; i++) {
+			unsigned long base, size;
+			unsigned int irq = 0;
+
+			if (!mmc_data[i])
+				continue;
+
+			omap2_mmc_mux(mmc_data[i], i);
+			switch (i) {
+			case 0:
+				base = OMAP2_MMC1_BASE;
+				irq = INT_24XX_MMC_IRQ;
+				break;
+			case 1:
+				base = OMAP2_MMC2_BASE;
+				irq = INT_24XX_MMC2_IRQ;
+				break;
+			case 2:
+				if (!cpu_is_omap34xx())
+					return;
+				base = OMAP3_MMC3_BASE;
+				irq = INT_34XX_MMC3_IRQ;
+				break;
+			default:
+				continue;
+			}
+
+			if (cpu_is_omap2420()) {
+				size = OMAP2420_MMC_SIZE;
+				name = "mmci-omap";
+			} else {
+				size = OMAP3_HSMMC_SIZE;
+				if (mmc_data[i]->name)
+					name = mmc_data[i]->name;
+				else
+					name = "mmci-omap-hs";
+			}
+
+			omap_mmc_add(name, i, base, size, irq, mmc_data[i]);
+		}
+	}
+#endif
 }
 
 #endif
@@ -686,9 +923,13 @@ void __init omap2_init_mmc(struct omap_mmc_platform_data **mmc_data,
 /*-------------------------------------------------------------------------*/
 
 #if defined(CONFIG_HDQ_MASTER_OMAP) || defined(CONFIG_HDQ_MASTER_OMAP_MODULE)
-#if defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP3430)
+#if defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP3430) || \
+	defined(CONFIG_ARCH_OMAP4)
 #define OMAP_HDQ_BASE	0x480B2000
 #endif
+
+#include <plat/hdq.h>
+
 static struct resource omap_hdq_resources[] = {
 	{
 		.start		= OMAP_HDQ_BASE,
@@ -700,7 +941,7 @@ static struct resource omap_hdq_resources[] = {
 		.flags		= IORESOURCE_IRQ,
 	},
 };
-static struct platform_device omap_hdq_dev = {
+struct platform_device omap_hdq_device = {
 	.name = "omap_hdq",
 	.id = 0,
 	.dev = {
@@ -709,15 +950,29 @@ static struct platform_device omap_hdq_dev = {
 	.num_resources	= ARRAY_SIZE(omap_hdq_resources),
 	.resource	= omap_hdq_resources,
 };
-static inline void omap_hdq_init(void)
-{
-	(void) platform_device_register(&omap_hdq_dev);
-}
-#else
-static inline void omap_hdq_init(void) {}
 #endif
 
 /*-------------------------------------------------------------------------*/
+
+#if defined(CONFIG_SGX530) || defined(CONFIG_SGX540)
+static struct platform_device omap_sgx_device = {
+	.name           = "pvrsrvkm",
+	.id             = -1,
+};
+
+static struct platform_device omap_omaplfb_device = {
+	.name		= "omaplfb",
+	.id		= -1,
+};
+
+static inline void omap_sgx_init(void)
+{
+	platform_device_register(&omap_sgx_device);
+	platform_device_register(&omap_omaplfb_device);
+}
+#else
+static inline void omap_sgx_init(void) { }
+#endif
 
 static int __init omap2_init_devices(void)
 {
@@ -728,9 +983,9 @@ static int __init omap2_init_devices(void)
 	omap_init_camera();
 	omap_init_mbox();
 	omap_init_mcspi();
-	omap_hdq_init();
 	omap_init_sti();
 	omap_init_sha1_md5();
+	omap_sgx_init();
 
 	return 0;
 }

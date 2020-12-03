@@ -28,13 +28,13 @@
 #include <linux/platform_device.h>
 #include <linux/bootmem.h>
 #include <linux/io.h>
+#include <linux/omapfb.h>
 
 #include <mach/hardware.h>
 #include <asm/mach/map.h>
 
-#include <mach/board.h>
-#include <mach/sram.h>
-#include <mach/omapfb.h>
+#include <plat/board.h>
+#include <plat/sram.h>
 
 #if defined(CONFIG_FB_OMAP) || defined(CONFIG_FB_OMAP_MODULE)
 
@@ -107,6 +107,10 @@ static int get_fbmem_region(int region_idx, struct omapfb_mem_region *rg)
 	 * address.
 	 */
 	memset(rg, 0, sizeof(*rg));
+#ifdef CONFIG_FB_OMAP2_32_BPP
+       rg->format = OMAPFB_COLOR_ARGB32;
+       rg->format_used = 1;
+#endif
 	rg->type = paddr & ~PAGE_MASK;
 	rg->paddr = paddr & PAGE_MASK;
 	rg->size = PAGE_ALIGN(conf->size);
@@ -327,7 +331,41 @@ static inline int omap_init_fb(void)
 
 arch_initcall(omap_init_fb);
 
-#else
+#elif defined(CONFIG_FB_OMAP2) || defined(CONFIG_FB_OMAP2_MODULE)
+
+static u64 omap_fb_dma_mask = ~(u32)0;
+static struct omapfb_platform_data omapfb_config;
+
+static struct platform_device omap_fb_device = {
+	.name		= "omapfb",
+	.id		= -1,
+	.dev = {
+		.dma_mask		= &omap_fb_dma_mask,
+		.coherent_dma_mask	= ~(u32)0,
+		.platform_data		= &omapfb_config,
+	},
+	.num_resources = 0,
+};
+
+void omapfb_set_platform_data(struct omapfb_platform_data *data)
+{
+	omapfb_config = *data;
+}
+
+static inline int omap_init_fb(void)
+{
+#ifdef CONFIG_FB_OMAP2_32_BPP
+	/*  add support for RGB32*/
+	int i;
+	for (i = 0; i < OMAPFB_PLANE_NUM; i++) {
+		omapfb_config.mem_desc.region[0].format_used = 1;
+		omapfb_config.mem_desc.region[0].format = OMAPFB_COLOR_ARGB32;
+	}
+#endif
+	return platform_device_register(&omap_fb_device);
+}
+
+arch_initcall(omap_init_fb);
 
 void omapfb_reserve_sdram(void) {}
 unsigned long omapfb_reserve_sram(unsigned long sram_pstart,
@@ -339,5 +377,16 @@ unsigned long omapfb_reserve_sram(unsigned long sram_pstart,
 	return 0;
 }
 
+#else
+
+void omapfb_reserve_sdram(void) {}
+unsigned long omapfb_reserve_sram(unsigned long sram_pstart,
+				  unsigned long sram_vstart,
+				  unsigned long sram_size,
+				  unsigned long start_avail,
+				  unsigned long size_avail)
+{
+	return 0;
+}
 
 #endif

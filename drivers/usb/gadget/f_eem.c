@@ -24,6 +24,11 @@
 #include <linux/device.h>
 #include <linux/etherdevice.h>
 #include <linux/crc32.h>
+#include <linux/usb/android_composite.h>
+#if defined(CONFIG_MACH_SAMSUNG)
+#include <linux/ip.h>
+#include <linux/udp.h>
+#endif
 
 #include "u_ether.h"
 
@@ -46,6 +51,113 @@ struct f_eem {
 	struct eem_ep_descs		fs;
 	struct eem_ep_descs		hs;
 };
+
+#if defined(CONFIG_MACH_SAMSUNG)
+static struct f_eem *_f_eem;
+
+static u8 hostaddr[ETH_ALEN];
+
+struct _bootp_pkt {		/* BOOTP packet format */
+	struct iphdr iph;	/* IP header */
+	struct udphdr udph;	/* UDP header */
+	u8 op;			/* 1=request, 2=reply */
+	u8 htype;		/* HW address type */
+	u8 hlen;		/* HW address length */
+	u8 hops;		/* Used only by gateways */
+	__be32 xid;		/* Transaction ID */
+	__be16 secs;		/* Seconds since we started */
+	__be16 flags;		/* Just what it says */
+	__be32 client_ip;		/* Client's IP address if known */
+	__be32 your_ip;		/* Assigned IP address */
+	__be32 server_ip;		/* (Next, e.g. NFS) Server's IP address */
+	__be32 relay_ip;		/* IP address of BOOTP relay */
+	u8 hw_addr[16];		/* Client's HW address */
+	u8 serv_name[64];	/* Server host name */
+	u8 boot_file[128];	/* Name of boot file */
+	u8 exten[312];		/* DHCP options / BOOTP vendor extensions */
+};
+
+static u32 your_client_ip;
+static unsigned char client_hw_addr[6];
+
+#if 1 // workaround that pc usb driver drop multicat packet
+static int multicast_to_unicast(struct sk_buff *skb)
+{
+	struct ethhdr *eth;
+	struct iphdr *iph;
+
+	eth = (struct ethhdr *)skb->data;
+	iph = (struct iphdr *)(skb->data + ETH_HLEN);
+
+	if(eth->h_dest[0] == 0x01) // if multicast
+	{
+		if(your_client_ip)
+		{
+			memcpy((void*)eth->h_dest, (void*)client_hw_addr, sizeof(client_hw_addr));
+		}
+	}
+
+	return 0;
+}
+#endif
+
+void save_bootp_client_ip(struct sk_buff *skb)
+{
+	struct _bootp_pkt *bootp;
+	u32 bootp_client_ip;
+
+	bootp = (struct _bootp_pkt *)(skb->data + ETH_HLEN);
+
+	if(bootp->iph.protocol == 0x11) // UDP
+	{
+		if(ntohs(bootp->udph.source) == 67) // bootps
+		{
+			if(bootp->op == 2) // boot reply
+			{
+				bootp_client_ip = ntohl(bootp->your_ip);
+
+				if((bootp_client_ip & 0xFFFFFF00) == 0xC0A8C800) // 192.168.200.X
+				{
+					memcpy((void*)client_hw_addr, (void*)bootp->hw_addr, sizeof(client_hw_addr));
+					your_client_ip = bootp_client_ip;
+					printk("[USB EEM] CLIENT ETH : %02X:%02X:%02X:%02X:%02X:%02X\n",
+							client_hw_addr[0], client_hw_addr[1], client_hw_addr[2],
+							client_hw_addr[3], client_hw_addr[4], client_hw_addr[5]);
+					printk("[USB EEM] DHCP REPLY IP : %08X\n", your_client_ip);
+				}
+			}
+		}
+	}
+
+	multicast_to_unicast(skb);
+}
+
+#ifdef CONFIG_PROC_FS
+#define EEM_PROC_ENTRY "driver/eem"
+
+static int eem_proc_read(char *page, char **start, off_t off,
+		int count, int *eof, void *data)
+{
+	int len;
+	char *p = page;
+
+	p += sprintf(p, "%d.%d.%d.%d\n",
+			(your_client_ip >> 24) & 0xFF,
+			(your_client_ip >> 16) & 0xFF,
+			(your_client_ip >> 8) & 0xFF,
+			(your_client_ip) & 0xFF);
+
+	len = (p - page) - off;
+	if (len < 0) {
+		len = 0;
+	}
+	*eof = (len <= count) ? 1 : 0;
+	*start = page + off;
+
+	return len;
+}
+#endif
+#endif
 
 static inline struct f_eem *func_to_eem(struct usb_function *f)
 {
@@ -189,7 +301,11 @@ static int eem_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		eem->port.is_zlp_ok = 1;
 		eem->port.cdc_filter = DEFAULT_FILTER;
 		DBG(cdev, "activate eem\n");
+#if defined(CONFIG_USB_ANDROID_EEM) && defined(CONFIG_USB_ANDROID_RNDIS)
+		net = geem_connect(&eem->port);
+#else
 		net = gether_connect(&eem->port);
+#endif
 		if (IS_ERR(net))
 			return PTR_ERR(net);
 	} else
@@ -327,6 +443,10 @@ static struct sk_buff *eem_wrap(struct gether *port, struct sk_buff *skb)
 	int		padlen = 0;
 	u16		len = skb->len;
 
+#ifdef CONFIG_MACH_SAMSUNG
+	save_bootp_client_ip(skb);
+#endif
+
 	if (!skb_cloned(skb)) {
 		int headroom = skb_headroom(skb);
 		int tailroom = skb_tailroom(skb);
@@ -358,7 +478,11 @@ done:
 	 * b15:		bmType (0 == data)
 	 */
 	len = skb->len;
+#if 0 // fixed bug
 	put_unaligned_le16((len & 0x3FFF) | BIT(14), skb_push(skb, 2));
+#else
+	put_unaligned_le16((len & 0x3FFF), skb_push(skb, 2));
+#endif
 
 	/* add a zero-length EEM packet, if needed */
 	if (padlen)
@@ -468,9 +592,15 @@ static int eem_unwrap(struct gether *port,
 			if (header & BIT(14)) {
 				crc = get_unaligned_le32(skb->data + len
 							- ETH_FCS_LEN);
+#if 1 // fixed bug
+				crc2 = ~crc32_le(~0,
+						skb->data,
+						len - ETH_FCS_LEN);
+#else
 				crc2 = ~crc32_le(~0,
 						skb->data,
 						skb->len - ETH_FCS_LEN);
+#endif
 			} else {
 				crc = get_unaligned_be32(skb->data + len
 							- ETH_FCS_LEN);
@@ -478,6 +608,13 @@ static int eem_unwrap(struct gether *port,
 			}
 			if (crc != crc2) {
 				DBG(cdev, "invalid EEM CRC\n");
+#if 1 // workaround for crc calculation bug of pc usb eem driver
+				crc2 = ~crc32_le(~0,
+						skb->data,
+						len - ETH_FCS_LEN);
+
+				if(crc != crc2)
+#endif
 				goto next;
 			}
 
@@ -559,4 +696,33 @@ int __init eem_bind_config(struct usb_configuration *c)
 		kfree(eem);
 	return status;
 }
+
+#ifdef CONFIG_USB_ANDROID_EEM
+
+static u8 hostaddr[ETH_ALEN];
+
+int eem_function_bind_config(struct usb_configuration *c)
+{
+	int ret;
+
+	ret = geem_setup(c->cdev->gadget, hostaddr);
+	if (ret == 0)
+		ret = eem_bind_config(c);
+	return ret;
+}
+
+static struct android_usb_function eem_function = {
+	.name = "eem",
+	.bind_config = eem_function_bind_config,
+};
+
+static int __init init(void)
+{
+	printk(KERN_INFO "f_eem init\n");
+	android_register_function(&eem_function);
+	return 0;
+}
+module_init(init);
+
+#endif /* CONFIG_USB_ANDROID_EEM */
 

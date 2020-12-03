@@ -1,0 +1,1 @@
+#ifndef __CAMSENSOR_TUNNER_32BIT_REG_H__#define __CAMSENSOR_TUNNER_32BIT_REG_H__void Load32BitTuningFile();void UnLoad32BitTuningFile();#endif //__CAMSENSOR_TUNNER_32BIT_REG_H__

@@ -180,6 +180,7 @@ int cpuidle_enable_device(struct cpuidle_device *dev)
 	}
 	dev->last_residency = 0;
 	dev->last_state = NULL;
+	dev->max_state = dev->state_count;
 
 	smp_wmb();
 
@@ -326,6 +327,10 @@ void cpuidle_unregister_device(struct cpuidle_device *dev)
 {
 	struct sys_device *sys_dev = get_cpu_sysdev((unsigned long)dev->cpu);
 
+	if (!sys_dev) {
+		WARN_ON(1);
+		return;
+	}
 	if (dev->registered == 0)
 		return;
 

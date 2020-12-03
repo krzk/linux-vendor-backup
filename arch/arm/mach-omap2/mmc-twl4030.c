@@ -18,22 +18,35 @@
 #include <linux/gpio.h>
 #include <linux/mmc/host.h>
 #include <linux/regulator/consumer.h>
+#include <plat/cpu.h>
 
 #include <mach/hardware.h>
-#include <mach/control.h>
-#include <mach/mmc.h>
-#include <mach/board.h>
+#include <plat/control.h>
+#include <plat/mmc.h>
+#include <plat/board.h>
+
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+#include <linux/mmc/sdio_ids.h>
+#include <linux/mmc/sdio_func.h>
+#endif
 
 #include "mmc-twl4030.h"
-
+#include <linux/i2c/twl.h>
 
 #if defined(CONFIG_REGULATOR) && \
 	(defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE))
 
 static u16 control_pbias_offset;
 static u16 control_devconf1_offset;
+static u16 control_mmc1;
 
-#define HSMMC_NAME_LEN	9
+#define HSMMC_NAME_LEN		9
+#define PHOENIX_MMC_CTRL	0xEE
+
+#define OMAP_GPIO_MASSMEMORY	159
+
+/* Hack :  Phoenix registers*/
+#define PHOENIX_CFG_INPUT_PUPD3	0xF2
 
 static struct twl_mmc_controller {
 	struct omap_mmc_platform_data	*mmc;
@@ -46,11 +59,13 @@ static struct twl_mmc_controller {
 	struct regulator		*vcc;
 	struct regulator		*vcc_aux;
 	char				name[HSMMC_NAME_LEN + 1];
-} hsmmc[OMAP34XX_NR_MMC];
+} hsmmc[OMAP44XX_NR_MMC];
 
 static int twl_mmc_card_detect(int irq)
 {
 	unsigned i;
+	u8 read_reg = 0;
+	unsigned res;
 
 	for (i = 0; i < ARRAY_SIZE(hsmmc); i++) {
 		struct omap_mmc_platform_data *mmc;
@@ -62,7 +77,21 @@ static int twl_mmc_card_detect(int irq)
 			continue;
 
 		/* NOTE: assumes card detect signal is active-low */
-		return !gpio_get_value_cansleep(mmc->slots[0].switch_pin);
+		if (!cpu_is_omap44xx()) {
+			return !gpio_get_value_cansleep
+					(mmc->slots[0].switch_pin);
+		} else {
+			/* BIT0 of REG_MMC_CTRL
+			 * 0 - Card not present
+			 * 1 - Card present
+			 */
+			if (mmc->slots[0].nonremovable)
+				return 1;
+			res = twl_i2c_read_u8(TWL4030_MODULE_INTBR,
+					&read_reg, PHOENIX_MMC_CTRL);
+			if (res >= 0)
+				return read_reg & 0x1;
+		}
 	}
 	return -ENOSYS;
 }
@@ -93,15 +122,16 @@ static int twl_mmc_late_init(struct device *dev)
 	int i;
 
 	/* MMC/SD/SDIO doesn't require a card detect switch */
-	if (gpio_is_valid(mmc->slots[0].switch_pin)) {
-		ret = gpio_request(mmc->slots[0].switch_pin, "mmc_cd");
-		if (ret)
-			goto done;
-		ret = gpio_direction_input(mmc->slots[0].switch_pin);
-		if (ret)
-			goto err;
+	if (!cpu_is_omap44xx()) {
+		if (gpio_is_valid(mmc->slots[0].switch_pin)) {
+			ret = gpio_request(mmc->slots[0].switch_pin, "mmc_cd");
+			if (ret)
+				goto done;
+			ret = gpio_direction_input(mmc->slots[0].switch_pin);
+			if (ret)
+				goto err;
+		}
 	}
-
 	/* require at least main regulator */
 	for (i = 0; i < ARRAY_SIZE(hsmmc); i++) {
 		if (hsmmc[i].name == mmc->slots[0].name) {
@@ -146,7 +176,23 @@ static int twl_mmc_late_init(struct device *dev)
 					regulator_disable(reg);
 				}
 			}
-
+			if (cpu_is_omap44xx()) {
+				if (twl_class_is_6030()) {
+					twl6030_interrupt_unmask
+						(TWL6030_MMCDETECT_INT_MASK,
+							REG_INT_MSK_LINE_B);
+					twl6030_interrupt_unmask
+						(TWL6030_MMCDETECT_INT_MASK,
+							REG_INT_MSK_STS_B);
+				}
+				/* Configure Phoenix for MMC1 Card detect */
+				if (i == 0) {
+					twl_i2c_write_u8(TWL4030_MODULE_INTBR,
+							0x04, PHOENIX_MMC_CTRL);
+					twl_i2c_write_u8(TWL4030_MODULE_INTBR,
+						0x11, PHOENIX_CFG_INPUT_PUPD3);
+				}
+			}
 			break;
 		}
 	}
@@ -200,10 +246,10 @@ static int twl_mmc_resume(struct device *dev, int slot)
 
 #if defined(CONFIG_ARCH_OMAP3) && defined(CONFIG_PM)
 
-static int twl4030_mmc_get_context_loss(struct device *dev)
+static unsigned twl4030_mmc_get_context_loss(struct device *dev)
 {
 	/* FIXME: PM DPS not implemented yet */
-	return 0;
+	return get_last_off_on_transaction_id(dev);;
 }
 
 #else
@@ -213,7 +259,7 @@ static int twl4030_mmc_get_context_loss(struct device *dev)
 static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 				int vdd)
 {
-	u32 reg;
+	u32 reg, prog_io;
 	int ret = 0;
 	struct twl_mmc_controller *c = &hsmmc[0];
 	struct omap_mmc_platform_data *mmc = dev->platform_data;
@@ -237,46 +283,161 @@ static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 				reg &= ~OMAP243X_MMC1_ACTIVE_OVERWRITE;
 			omap_ctrl_writel(reg, OMAP243X_CONTROL_DEVCONF1);
 		}
+		if (!cpu_is_omap44xx()) {
+			if (mmc->slots[0].internal_clock) {
+				reg = omap_ctrl_readl(OMAP2_CONTROL_DEVCONF0);
+				reg |= OMAP2_MMCSDIO1ADPCLKISEL;
+				omap_ctrl_writel(reg, OMAP2_CONTROL_DEVCONF0);
+			}
 
-		if (mmc->slots[0].internal_clock) {
-			reg = omap_ctrl_readl(OMAP2_CONTROL_DEVCONF0);
-			reg |= OMAP2_MMCSDIO1ADPCLKISEL;
-			omap_ctrl_writel(reg, OMAP2_CONTROL_DEVCONF0);
+			reg = omap_ctrl_readl(control_pbias_offset);
+			if (cpu_is_omap3630()) {
+				/* Set MMC I/O to 52Mhz */
+				prog_io = omap_ctrl_readl
+						(OMAP343X_CONTROL_PROG_IO1);
+				prog_io |= OMAP3630_PRG_SDMMC1_SPEEDCTRL;
+				omap_ctrl_writel
+					(prog_io, OMAP343X_CONTROL_PROG_IO1);
+			} else {
+				reg |= OMAP2_PBIASSPEEDCTRL0;
+			}
+			reg &= ~OMAP2_PBIASLITEPWRDNZ0;
+		} else {
+			reg = omap_ctrl_readl(control_pbias_offset);
+			reg &= ~(OMAP4_MMC1_PBIASLITE_PWRDNZ |
+						OMAP4_MMC1_PWRDWNZ);
 		}
+		omap_ctrl_writel(reg, control_pbias_offset);
 
 		reg = omap_ctrl_readl(control_pbias_offset);
-		reg |= OMAP2_PBIASSPEEDCTRL0;
-		reg &= ~OMAP2_PBIASLITEPWRDNZ0;
+		if (!cpu_is_omap44xx()) {
+			if ((1 << vdd) <= MMC_VDD_165_195)
+				reg &= ~OMAP2_PBIASLITEVMODE0;
+			else
+				reg |= OMAP2_PBIASLITEVMODE0;
+		} else {
+			if ((1 << vdd) <= MMC_VDD_165_195)
+				reg &= ~(OMAP4_MMC1_PBIASLITE_VMODE);
+			else
+				reg |= (OMAP4_MMC1_PBIASLITE_VMODE);
+		}
 		omap_ctrl_writel(reg, control_pbias_offset);
 
 		ret = mmc_regulator_set_ocr(c->vcc, vdd);
 
-		/* 100ms delay required for PBIAS configuration */
-		msleep(100);
-		reg = omap_ctrl_readl(control_pbias_offset);
-		reg |= (OMAP2_PBIASLITEPWRDNZ0 | OMAP2_PBIASSPEEDCTRL0);
-		if ((1 << vdd) <= MMC_VDD_165_195)
-			reg &= ~OMAP2_PBIASLITEVMODE0;
-		else
-			reg |= OMAP2_PBIASLITEVMODE0;
+		/* 1ms delay required for PBIAS configuration */
+		msleep(1);
+
+		if (!cpu_is_omap44xx()) {
+			reg = omap_ctrl_readl(control_pbias_offset);
+			reg |= (OMAP2_PBIASLITEPWRDNZ0 |
+						OMAP2_PBIASSPEEDCTRL0);
+		} else {
+			reg = omap_ctrl_readl(control_pbias_offset);
+			reg |= (OMAP4_MMC1_PBIASLITE_PWRDNZ |
+						OMAP4_MMC1_PWRDWNZ);
+		}
 		omap_ctrl_writel(reg, control_pbias_offset);
 	} else {
-		reg = omap_ctrl_readl(control_pbias_offset);
-		reg &= ~OMAP2_PBIASLITEPWRDNZ0;
+		if (!cpu_is_omap44xx()) {
+			reg = omap_ctrl_readl(control_pbias_offset);
+			reg &= ~OMAP2_PBIASLITEPWRDNZ0;
+		} else {
+			reg = omap_ctrl_readl(control_pbias_offset);
+			reg &= ~(OMAP4_MMC1_PBIASLITE_PWRDNZ |
+						OMAP4_MMC1_PWRDWNZ);
+		}
 		omap_ctrl_writel(reg, control_pbias_offset);
-
 		ret = mmc_regulator_set_ocr(c->vcc, 0);
 
-		/* 100ms delay required for PBIAS configuration */
-		msleep(100);
-		reg = omap_ctrl_readl(control_pbias_offset);
-		reg |= (OMAP2_PBIASSPEEDCTRL0 | OMAP2_PBIASLITEPWRDNZ0 |
-			OMAP2_PBIASLITEVMODE0);
+		/* 10ms delay required for PBIAS configuration */
+		msleep(10);
+		if (!cpu_is_omap44xx()) {
+			reg = omap_ctrl_readl(control_pbias_offset);
+			reg |= (OMAP2_PBIASSPEEDCTRL0 | OMAP2_PBIASLITEPWRDNZ0
+						| OMAP2_PBIASLITEVMODE0);
+		} else {
+			reg = omap_ctrl_readl(control_pbias_offset);
+			reg |= (OMAP4_MMC1_PBIASLITE_PWRDNZ |
+				OMAP4_MMC1_PBIASLITE_VMODE |
+				OMAP4_MMC1_PWRDWNZ);
+		}
 		omap_ctrl_writel(reg, control_pbias_offset);
 	}
 
 	return ret;
 }
+
+// TI Added to support Samsung Customisation 
+
+static int twl_iNand_set_power(struct device *dev, int slot, int power_on, int vdd)
+{
+	int ret = 0;
+	struct twl_mmc_controller *c = NULL;
+	struct omap_mmc_platform_data *mmc = dev->platform_data;
+	int i;
+
+	c = &hsmmc[1];
+	
+	if (c == NULL)
+		return -ENODEV;
+
+	
+	//if (!c->vcc)                // Vcc is Vmmc which is meaningless in Latona
+	//	return 0;
+
+	
+	if (power_on) {
+
+
+		if (!cpu_is_omap44xx()) {
+			/* only MMC2 supports a CLKIN */
+			if (mmc->slots[0].internal_clock) {
+				u32 reg;
+				reg = omap_ctrl_readl(control_devconf1_offset);
+				reg |= OMAP2_MMCSDIO2ADPCLKISEL;
+				omap_ctrl_writel(reg, control_devconf1_offset);
+			}
+
+        //Samsung needs to add the GPIO cntrolling mechanism here to turn ON externel LDO
+		omap_writew(0x1718, 0x48002158); //! CLK
+		omap_writew(0x1718, 0x4800215a); //! CMD
+		omap_writew(0x1718, 0x4800215c); //! DAT0
+		omap_writew(0x1718, 0x4800215e); //! DAT1
+		omap_writew(0x1718, 0x48002160); //! DAT2
+		omap_writew(0x1718, 0x48002162); //! DAT3
+		omap_writew(0x1718, 0x48002164); //! DAT4
+		omap_writew(0x1718, 0x48002166); //! DAT5
+		omap_writew(0x1718, 0x48002168); //! DAT6
+		omap_writew(0x1718, 0x4800216a); //! DAT7
+
+		printk("Turn ON External LDO ***** \n");
+		gpio_set_value(OMAP_GPIO_MASSMEMORY, 1);
+
+			
+		}
+	} else {
+
+		//Samsung needs to add the GPIO cntrolling mechanism here to turn OFF externel LDO
+		omap_writew(0x1708, 0x48002158); //! CLK
+		omap_writew(0x1708, 0x4800215a); //! CMD
+		omap_writew(0x1708, 0x4800215c); //! DAT0
+		omap_writew(0x1708, 0x4800215e); //! DAT1
+		omap_writew(0x1708, 0x48002160); //! DAT2
+		omap_writew(0x1708, 0x48002162); //! DAT3
+		omap_writew(0x1708, 0x48002164); //! DAT4
+		omap_writew(0x1708, 0x48002166); //! DAT5
+		omap_writew(0x1708, 0x48002168); //! DAT6
+		omap_writew(0x1708, 0x4800216a); //! DAT7
+
+	        printk("Turn OFF External LDO\n");
+		gpio_set_value(OMAP_GPIO_MASSMEMORY, 0);
+		}
+
+	return ret;
+}
+
+// TI Added to support Samsung Customisation 
 
 static int twl_mmc23_set_power(struct device *dev, int slot, int power_on, int vdd)
 {
@@ -284,6 +445,7 @@ static int twl_mmc23_set_power(struct device *dev, int slot, int power_on, int v
 	struct twl_mmc_controller *c = NULL;
 	struct omap_mmc_platform_data *mmc = dev->platform_data;
 	int i;
+
 
 	for (i = 1; i < ARRAY_SIZE(hsmmc); i++) {
 		if (mmc == hsmmc[i].mmc) {
@@ -315,13 +477,15 @@ static int twl_mmc23_set_power(struct device *dev, int slot, int power_on, int v
 	 * chips/cards need an interface voltage rail too.
 	 */
 	if (power_on) {
-		/* only MMC2 supports a CLKIN */
-		if (mmc->slots[0].internal_clock) {
-			u32 reg;
+		if (!cpu_is_omap44xx()) {
+			/* only MMC2 supports a CLKIN */
+			if (mmc->slots[0].internal_clock) {
+				u32 reg;
 
-			reg = omap_ctrl_readl(control_devconf1_offset);
-			reg |= OMAP2_MMCSDIO2ADPCLKISEL;
-			omap_ctrl_writel(reg, control_devconf1_offset);
+				reg = omap_ctrl_readl(control_devconf1_offset);
+				reg |= OMAP2_MMCSDIO2ADPCLKISEL;
+				omap_ctrl_writel(reg, control_devconf1_offset);
+			}
 		}
 		ret = mmc_regulator_set_ocr(c->vcc, vdd);
 		/* enable interface voltage rail, if needed */
@@ -355,6 +519,9 @@ static int twl_mmc23_set_sleep(struct device *dev, int slot, int sleep, int vdd,
 	struct twl_mmc_controller *c = NULL;
 	struct omap_mmc_platform_data *mmc = dev->platform_data;
 	int i, err, mode;
+
+	if (cpu_is_omap44xx())
+		return 0;
 
 	for (i = 1; i < ARRAY_SIZE(hsmmc); i++) {
 		if (mmc == hsmmc[i].mmc) {
@@ -395,20 +562,83 @@ static int twl_mmc23_set_sleep(struct device *dev, int slot, int sleep, int vdd,
 	return regulator_set_mode(c->vcc_aux, mode);
 }
 
-static struct omap_mmc_platform_data *hsmmc_data[OMAP34XX_NR_MMC] __initdata;
+/* TODO: Regulator Settings for MMC5 */
+static int twl_mmc5_set_power(struct device *dev, int slot, int power_on,
+				int vdd)
+{
+   return 0;
+}
+
+/* TODO: Needs to Update for MMC5 */
+static int twl_mmc5_set_sleep(struct device *dev, int slot, int sleep, int vdd,
+				int cardsleep)
+{
+   return 0;
+}
+
+
+static struct omap_mmc_platform_data *hsmmc_data[OMAP44XX_NR_MMC] __initdata;
+
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+static struct sdio_embedded_func wifi_func_array[] = {
+	{
+		.f_class        = SDIO_CLASS_BT_A,
+		.f_maxblksize   = 512,
+	},
+	{
+		.f_class        = SDIO_CLASS_WLAN,
+		.f_maxblksize   = 512,
+	},
+};
+
+static struct embedded_sdio_data omap_wifi_emb_data = {
+	.cis    = {
+		.vendor         = SDIO_VENDOR_ID_TI,
+		.device         = SDIO_DEVICE_ID_TI_WL12xx,
+		.blksize        = 512,
+		.max_dtr        = 24000000,
+	},
+	.cccr   = {
+		.multi_block    = 1,
+		.low_speed      = 0,
+		.wide_bus       = 1,
+		.high_power     = 0,
+		.high_speed     = 0,
+		.disable_cd = 1,
+	},
+	.funcs  = wifi_func_array,
+	.num_funcs = 2,
+
+};
+#endif
 
 void __init twl4030_mmc_init(struct twl4030_hsmmc_info *controllers)
 {
 	struct twl4030_hsmmc_info *c;
 	int nr_hsmmc = ARRAY_SIZE(hsmmc_data);
+	u32 reg;
 
-	if (cpu_is_omap2430()) {
-		control_pbias_offset = OMAP243X_CONTROL_PBIAS_LITE;
-		control_devconf1_offset = OMAP243X_CONTROL_DEVCONF1;
-		nr_hsmmc = 2;
+	if (!cpu_is_omap44xx()) {
+		if (cpu_is_omap2430()) {
+			control_pbias_offset = OMAP243X_CONTROL_PBIAS_LITE;
+			control_devconf1_offset = OMAP243X_CONTROL_DEVCONF1;
+			nr_hsmmc = 2;
+		} else {
+			control_pbias_offset = OMAP343X_CONTROL_PBIAS_LITE;
+			control_devconf1_offset = OMAP343X_CONTROL_DEVCONF1;
+		}
 	} else {
-		control_pbias_offset = OMAP343X_CONTROL_PBIAS_LITE;
-		control_devconf1_offset = OMAP343X_CONTROL_DEVCONF1;
+		control_pbias_offset = OMAP44XX_CONTROL_PBIAS_LITE;
+		control_mmc1 = OMAP44XX_CONTROL_MMC1;
+		reg = omap_ctrl_readl(control_mmc1);
+		reg |= (OMAP4_CONTROL_SDMMC1_PUSTRENGTHGRP0 |
+			OMAP4_CONTROL_SDMMC1_PUSTRENGTHGRP1);
+		reg &= ~(OMAP4_CONTROL_SDMMC1_PUSTRENGTHGRP2 |
+			OMAP4_CONTROL_SDMMC1_PUSTRENGTHGRP3);
+		reg |= (OMAP4_CONTROL_SDMMC1_DR0_SPEEDCTRL |
+			OMAP4_CONTROL_SDMMC1_DR1_SPEEDCTRL |
+			OMAP4_CONTROL_SDMMC1_DR2_SPEEDCTRL);
+		omap_ctrl_writel(reg, control_mmc1);
 	}
 
 	for (c = controllers; c->mmc; c++) {
@@ -435,6 +665,18 @@ void __init twl4030_mmc_init(struct twl4030_hsmmc_info *controllers)
 		else
 			snprintf(twl->name, ARRAY_SIZE(twl->name),
 				"mmc%islot%i", c->mmc, 1);
+
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+		if (c->mmc == CONFIG_TIWLAN_MMC_CONTROLLER) {
+			mmc->slots[0].embedded_sdio = &omap_wifi_emb_data;
+			mmc->slots[0].register_status_notify =
+				&omap_wifi_status_register;
+			mmc->slots[0].card_detect = &omap_wifi_status;
+		}
+#elif defined(CONFIG_TIWLAN_SDIO)
+		if (c->mmc == CONFIG_TIWLAN_MMC_CONTROLLER)
+			mmc->name = "TIWLAN_SDIO";
+#endif
 		mmc->slots[0].name = twl->name;
 		mmc->nr_slots = 1;
 		mmc->slots[0].wires = c->wires;
@@ -443,33 +685,51 @@ void __init twl4030_mmc_init(struct twl4030_hsmmc_info *controllers)
 		mmc->init = twl_mmc_late_init;
 
 		/* note: twl4030 card detect GPIOs can disable VMMCx ... */
-		if (gpio_is_valid(c->gpio_cd)) {
-			mmc->cleanup = twl_mmc_cleanup;
-			mmc->suspend = twl_mmc_suspend;
-			mmc->resume = twl_mmc_resume;
+		if (!cpu_is_omap44xx()) {
+			if (gpio_is_valid(c->gpio_cd)) {
+				mmc->cleanup = twl_mmc_cleanup;
+				mmc->suspend = twl_mmc_suspend;
+				mmc->resume = twl_mmc_resume;
 
-			mmc->slots[0].switch_pin = c->gpio_cd;
-			mmc->slots[0].card_detect_irq = gpio_to_irq(c->gpio_cd);
-			if (c->cover_only)
-				mmc->slots[0].get_cover_state = twl_mmc_get_cover_state;
+				mmc->slots[0].switch_pin = c->gpio_cd;
+				mmc->slots[0].card_detect_irq =
+							gpio_to_irq(c->gpio_cd);
+				if (c->cover_only)
+					mmc->slots[0].get_cover_state =
+							twl_mmc_get_cover_state;
+				else
+					mmc->slots[0].card_detect =
+							twl_mmc_card_detect;
+			} else
+				mmc->slots[0].switch_pin = -EINVAL;
+		} else {
+			/* HardCoding Phoenix number for only MMC1 of OMAP4 */
+			if (c->mmc == 1)
+				mmc->slots[0].card_detect_irq = 384;
 			else
-				mmc->slots[0].card_detect = twl_mmc_card_detect;
-		} else
-			mmc->slots[0].switch_pin = -EINVAL;
+				mmc->slots[0].card_detect_irq = 0;
+			if (c->cover_only)
+				mmc->slots[0].get_cover_state =
+						twl_mmc_get_cover_state;
+			else
+				mmc->slots[0].card_detect =
+						twl_mmc_card_detect;
+		}
 
 		mmc->get_context_loss_count =
 				twl4030_mmc_get_context_loss;
 
-		/* write protect normally uses an OMAP gpio */
-		if (gpio_is_valid(c->gpio_wp)) {
-			gpio_request(c->gpio_wp, "mmc_wp");
-			gpio_direction_input(c->gpio_wp);
+		if (!cpu_is_omap44xx()) {
+			/* write protect normally uses an OMAP gpio */
+			if (gpio_is_valid(c->gpio_wp)) {
+				gpio_request(c->gpio_wp, "mmc_wp");
+				gpio_direction_input(c->gpio_wp);
 
-			mmc->slots[0].gpio_wp = c->gpio_wp;
-			mmc->slots[0].get_ro = twl_mmc_get_ro;
-		} else
-			mmc->slots[0].gpio_wp = -EINVAL;
-
+				mmc->slots[0].gpio_wp = c->gpio_wp;
+				mmc->slots[0].get_ro = twl_mmc_get_ro;
+			} else
+				mmc->slots[0].gpio_wp = -EINVAL;
+		}
 		if (c->nonremovable)
 			mmc->slots[0].nonremovable = 1;
 
@@ -489,17 +749,45 @@ void __init twl4030_mmc_init(struct twl4030_hsmmc_info *controllers)
 			/* on-chip level shifting via PBIAS0/PBIAS1 */
 			mmc->slots[0].set_power = twl_mmc1_set_power;
 			mmc->slots[0].set_sleep = twl_mmc1_set_sleep;
+
+			/* Omap3630 HSMMC1 supports only 4-bit */
+			if (cpu_is_omap3630() && c->wires > 4) {
+				c->wires = 4;
+				mmc->slots[0].wires = c->wires;
+			}
 			break;
 		case 2:
 			if (c->ext_clock)
 				c->transceiver = 1;
 			if (c->transceiver && c->wires > 4)
 				c->wires = 4;
-			/* FALLTHROUGH */
+
+// TI Added to support Samsung Customisation 
+                    mmc->slots[0].set_power = twl_iNand_set_power;
+		    if(gpio_request(OMAP_GPIO_MASSMEMORY, "iNand_Power_source")< 0) {
+			printk(KERN_ERR "Failed to get OMAP_GPIO_MASSMEMORY_EN pin \n");
+			return;
+			}
+			gpio_direction_output(OMAP_GPIO_MASSMEMORY, 1);
+			//mmc->slots[0].set_sleep = twl_mmc23_set_sleep;
+// TI Added to support Samsung Customisation 			
+			break;
 		case 3:
 			/* off-chip level shifting, or none */
 			mmc->slots[0].set_power = twl_mmc23_set_power;
 			mmc->slots[0].set_sleep = twl_mmc23_set_sleep;
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+			mmc->slots[0].ocr_mask  = MMC_VDD_165_195;
+#endif
+			break;
+		case 4:
+		case 5:
+			/* FIXME :Adding dummy functions */
+			mmc->slots[0].set_power = twl_mmc5_set_power;
+			mmc->slots[0].set_sleep = twl_mmc5_set_sleep;
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+			mmc->slots[0].ocr_mask  = MMC_VDD_165_195;
+#endif
 			break;
 		default:
 			pr_err("MMC%d configuration not supported!\n", c->mmc);
@@ -509,7 +797,7 @@ void __init twl4030_mmc_init(struct twl4030_hsmmc_info *controllers)
 		hsmmc_data[c->mmc - 1] = mmc;
 	}
 
-	omap2_init_mmc(hsmmc_data, OMAP34XX_NR_MMC);
+	omap2_init_mmc(hsmmc_data, OMAP44XX_NR_MMC);
 
 	/* pass the device nodes back to board setup code */
 	for (c = controllers; c->mmc; c++) {

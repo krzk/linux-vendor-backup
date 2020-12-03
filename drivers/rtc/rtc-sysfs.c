@@ -206,7 +206,9 @@ rtc_sysfs_set_wakealarm(struct device *dev, struct device_attribute *attr,
 }
 static DEVICE_ATTR(wakealarm, S_IRUGO | S_IWUSR,
 		rtc_sysfs_show_wakealarm, rtc_sysfs_set_wakealarm);
-
+#if defined(CONFIG_MACH_TD_ALARM)
+static DEVICE_ATTR(bootalarm, S_IRUGO | S_IWUSR, NULL, NULL);
+#endif
 
 /* The reason to trigger an alarm with no process watching it (via sysfs)
  * is its side effect:  waking from a system state like suspend-to-RAM or
@@ -233,6 +235,12 @@ void rtc_sysfs_add_device(struct rtc_device *rtc)
 	if (err)
 		dev_err(rtc->dev.parent,
 			"failed to create alarm attribute, %d\n", err);
+#if defined(CONFIG_MACH_TD_ALARM)
+	err = device_create_file(&rtc->dev, &dev_attr_bootalarm);
+	if (err)
+		dev_err(rtc->dev.parent,
+			"failed to create AutoPowerup attribute, %d\n", err);
+#endif
 }
 
 void rtc_sysfs_del_device(struct rtc_device *rtc)

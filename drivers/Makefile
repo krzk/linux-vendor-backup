@@ -21,7 +21,7 @@ obj-$(CONFIG_XEN)		+= xen/
 
 # regulators early, since some subsystems rely on them to initialize
 obj-$(CONFIG_REGULATOR)		+= regulator/
-
+obj-$(CONFIG_SMC_DRIVER)	+= security/smc/
 # char/ comes before serial/ etc so that the VT console is the boot-time
 # default.
 obj-y				+= char/
@@ -44,6 +44,8 @@ obj-$(CONFIG_IDE)		+= ide/
 obj-$(CONFIG_SCSI)		+= scsi/
 obj-$(CONFIG_ATA)		+= ata/
 obj-$(CONFIG_MTD)		+= mtd/
+#obj-$(CONFIG_TINY_FSR)		+= tfsr/
+#obj-$(CONFIG_RFS_FSR)		+= fsr/
 obj-$(CONFIG_SPI)		+= spi/
 obj-y				+= net/
 obj-$(CONFIG_ATM)		+= atm/
@@ -72,7 +74,8 @@ obj-$(CONFIG_GAMEPORT)		+= input/gameport/
 obj-$(CONFIG_INPUT)		+= input/
 obj-$(CONFIG_I2O)		+= message/
 obj-$(CONFIG_RTC_LIB)		+= rtc/
-obj-y				+= i2c/ media/
+obj-y				+= i2c/ media/ cbus/
+obj-$(CONFIG_MPU_BRIDGE)        += dsp/bridge/
 obj-$(CONFIG_PPS)		+= pps/
 obj-$(CONFIG_W1)		+= w1/
 obj-$(CONFIG_POWER_SUPPLY)	+= power/
@@ -94,6 +97,7 @@ obj-y				+= idle/
 obj-$(CONFIG_MMC)		+= mmc/
 obj-$(CONFIG_MEMSTICK)		+= memstick/
 obj-$(CONFIG_NEW_LEDS)		+= leds/
+obj-$(CONFIG_SWITCH)		+= switch/
 obj-$(CONFIG_INFINIBAND)	+= infiniband/
 obj-$(CONFIG_SGI_SN)		+= sn/
 obj-y				+= firmware/
@@ -110,4 +114,15 @@ obj-$(CONFIG_VIRTIO)		+= virtio/
 obj-$(CONFIG_VLYNQ)		+= vlynq/
 obj-$(CONFIG_STAGING)		+= staging/
 obj-y				+= platform/
-obj-y				+= ieee802154/
+obj-$(CONFIG_DMM_OMAP)		+= media/
+obj-$(CONFIG_TILER_OMAP)	+= media/
+obj-$(CONFIG_SYSLINK_DUCATI_PM) += dsp/syslink/multicore_ipc/
+obj-$(CONFIG_MPU_SYSLINK_PLATFORM)   += dsp/syslink/multicore_ipc/
+obj-$(CONFIG_MPU_SYSLINK_IPC)   += dsp/syslink/multicore_ipc/
+obj-$(CONFIG_SYSLINK_PROC)      += dsp/syslink/procmgr/
+obj-$(CONFIG_SYSLINK_PROC4430)  += dsp/syslink/procmgr/proc4430/
+obj-$(CONFIG_OMAP_DEVICE_HANDLER)	+= dsp/syslink/devh/
+obj-$(CONFIG_OMAP_DEVICE_HANDLER)	+= dsp/syslink/devh/44xx/
+obj-$(CONFIG_SENSORS)		+= sensors/
+obj-$(CONFIG_SAMSUNG_PHONE_SVNET)	+= onedram_svn/
+obj-y				+= level/

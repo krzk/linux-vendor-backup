@@ -24,8 +24,16 @@
 #include <linux/delay.h>
 #include <linux/io.h>
 
-#include <mach/dma.h>
-#include <mach/mcbsp.h>
+#include <plat/dma.h>
+#include <plat/mcbsp.h>
+
+#define SIDLE_WA
+
+#ifdef SIDLE_WA
+/* save smart idle enable/disable status */
+static int sidle_status = 0;
+struct mutex sidle_mutex;
+#endif
 
 struct omap_mcbsp **mcbsp_ptr;
 int omap_mcbsp_count;
@@ -37,6 +45,7 @@ void omap_mcbsp_write(void __iomem *io_base, u16 reg, u32 val)
 	else
 		__raw_writel(val, io_base + reg);
 }
+EXPORT_SYMBOL(omap_mcbsp_write);
 
 int omap_mcbsp_read(void __iomem *io_base, u16 reg)
 {
@@ -45,6 +54,7 @@ int omap_mcbsp_read(void __iomem *io_base, u16 reg)
 	else
 		return __raw_readl(io_base + reg);
 }
+EXPORT_SYMBOL(omap_mcbsp_read);
 
 #define OMAP_MCBSP_READ(base, reg) \
 			omap_mcbsp_read(base, OMAP_MCBSP_REG_##reg)
@@ -194,22 +204,23 @@ void omap_mcbsp_config(unsigned int id, const struct omap_mcbsp_reg_cfg *config)
 	if (cpu_is_omap2430() || cpu_is_omap34xx() || cpu_is_omap44xx()) {
 		OMAP_MCBSP_WRITE(io_base, XCCR, config->xccr);
 		OMAP_MCBSP_WRITE(io_base, RCCR, config->rccr);
+		OMAP_MCBSP_WRITE(io_base, WAKEUPEN, config->wken);
 	}
 }
 EXPORT_SYMBOL(omap_mcbsp_config);
 
 #ifdef CONFIG_ARCH_OMAP34XX
 /*
- * omap_mcbsp_set_tx_threshold configures how to deal
- * with transmit threshold. the threshold value and handler can be
- * configure in here.
+ * omap_mcbsp_set_rx_threshold configures the transmit threshold in words.
+ * The threshold parameter is 1 based, and it is converted (threshold - 1)
+ * for the THRSH2 register.
  */
 void omap_mcbsp_set_tx_threshold(unsigned int id, u16 threshold)
 {
 	struct omap_mcbsp *mcbsp;
 	void __iomem *io_base;
 
-	if (!cpu_is_omap34xx())
+	if (!cpu_is_omap34xx() && !cpu_is_omap44xx())
 		return;
 
 	if (!omap_mcbsp_check_valid_id(id)) {
@@ -219,21 +230,22 @@ void omap_mcbsp_set_tx_threshold(unsigned int id, u16 threshold)
 	mcbsp = id_to_mcbsp_ptr(id);
 	io_base = mcbsp->io_base;
 
-	OMAP_MCBSP_WRITE(io_base, THRSH2, threshold);
+	if (threshold && threshold <= mcbsp->max_tx_thres)
+		OMAP_MCBSP_WRITE(io_base, THRSH2, threshold - 1);
 }
 EXPORT_SYMBOL(omap_mcbsp_set_tx_threshold);
 
 /*
- * omap_mcbsp_set_rx_threshold configures how to deal
- * with receive threshold. the threshold value and handler can be
- * configure in here.
+ * omap_mcbsp_set_rx_threshold configures the receive threshold in words.
+ * The threshold parameter is 1 based, and it is converted (threshold - 1)
+ * for the THRSH1 register.
  */
 void omap_mcbsp_set_rx_threshold(unsigned int id, u16 threshold)
 {
 	struct omap_mcbsp *mcbsp;
 	void __iomem *io_base;
 
-	if (!cpu_is_omap34xx())
+	if (!cpu_is_omap34xx() && !cpu_is_omap44xx())
 		return;
 
 	if (!omap_mcbsp_check_valid_id(id)) {
@@ -243,7 +255,8 @@ void omap_mcbsp_set_rx_threshold(unsigned int id, u16 threshold)
 	mcbsp = id_to_mcbsp_ptr(id);
 	io_base = mcbsp->io_base;
 
-	OMAP_MCBSP_WRITE(io_base, THRSH1, threshold);
+	if (threshold && threshold <= mcbsp->max_rx_thres)
+		OMAP_MCBSP_WRITE(io_base, THRSH1, threshold - 1);
 }
 EXPORT_SYMBOL(omap_mcbsp_set_rx_threshold);
 
@@ -283,6 +296,20 @@ u16 omap_mcbsp_get_max_rx_threshold(unsigned int id)
 }
 EXPORT_SYMBOL(omap_mcbsp_get_max_rx_threshold);
 
+u16 omap_mcbsp_get_fifo_size(unsigned int id)
+{
+	struct omap_mcbsp *mcbsp;
+
+	if (!omap_mcbsp_check_valid_id(id)) {
+		printk(KERN_ERR "%s: Invalid id (%d)\n", __func__, id + 1);
+		return -ENODEV;
+	}
+	mcbsp = id_to_mcbsp_ptr(id);
+
+	return mcbsp->pdata->buffer_size;
+}
+EXPORT_SYMBOL(omap_mcbsp_get_fifo_size);
+
 /*
  * omap_mcbsp_get_dma_op_mode just return the current configured
  * operating mode for the mcbsp channel
@@ -298,9 +325,7 @@ int omap_mcbsp_get_dma_op_mode(unsigned int id)
 	}
 	mcbsp = id_to_mcbsp_ptr(id);
 
-	spin_lock_irq(&mcbsp->lock);
 	dma_op_mode = mcbsp->dma_op_mode;
-	spin_unlock_irq(&mcbsp->lock);
 
 	return dma_op_mode;
 }
@@ -312,13 +337,12 @@ static inline void omap34xx_mcbsp_request(struct omap_mcbsp *mcbsp)
 	 * Enable wakup behavior, smart idle and all wakeups
 	 * REVISIT: some wakeups may be unnecessary
 	 */
-	if (cpu_is_omap34xx()) {
+	if (cpu_is_omap34xx() || cpu_is_omap44xx()) {
 		u16 syscon;
 
 		syscon = OMAP_MCBSP_READ(mcbsp->io_base, SYSCON);
 		syscon &= ~(ENAWAKEUP | SIDLEMODE(0x03) | CLOCKACTIVITY(0x03));
 
-		spin_lock_irq(&mcbsp->lock);
 		if (mcbsp->dma_op_mode == MCBSP_DMA_MODE_THRESHOLD) {
 			syscon |= (ENAWAKEUP | SIDLEMODE(0x02) |
 					CLOCKACTIVITY(0x02));
@@ -327,7 +351,6 @@ static inline void omap34xx_mcbsp_request(struct omap_mcbsp *mcbsp)
 		} else {
 			syscon |= SIDLEMODE(0x01);
 		}
-		spin_unlock_irq(&mcbsp->lock);
 
 		OMAP_MCBSP_WRITE(mcbsp->io_base, SYSCON, syscon);
 	}
@@ -338,7 +361,7 @@ static inline void omap34xx_mcbsp_free(struct omap_mcbsp *mcbsp)
 	/*
 	 * Disable wakup behavior, smart idle and all wakeups
 	 */
-	if (cpu_is_omap34xx()) {
+	if (cpu_is_omap34xx() || cpu_is_omap44xx()) {
 		u16 syscon;
 
 		syscon = OMAP_MCBSP_READ(mcbsp->io_base, SYSCON);
@@ -397,7 +420,7 @@ int omap_mcbsp_request(unsigned int id)
 {
 	struct omap_mcbsp *mcbsp;
 	int err;
-
+	
 	if (!omap_mcbsp_check_valid_id(id)) {
 		printk(KERN_ERR "%s: Invalid id (%d)\n", __func__, id + 1);
 		return -ENODEV;
@@ -421,8 +444,10 @@ int omap_mcbsp_request(unsigned int id)
 	clk_enable(mcbsp->iclk);
 	clk_enable(mcbsp->fclk);
 
+#ifndef SIDLE_WA
 	/* Do procedure specific to omap34xx arch, if applicable */
 	omap34xx_mcbsp_request(mcbsp);
+#endif
 
 	/*
 	 * Make sure that transmitter, receiver and sample-rate generator are
@@ -442,22 +467,51 @@ int omap_mcbsp_request(unsigned int id)
 					mcbsp->id);
 			return err;
 		}
-
-		init_completion(&mcbsp->rx_irq_completion);
-		err = request_irq(mcbsp->rx_irq, omap_mcbsp_rx_irq_handler,
+		if (mcbsp->rx_irq) {
+			init_completion(&mcbsp->rx_irq_completion);
+			err = request_irq(mcbsp->rx_irq,
+					omap_mcbsp_rx_irq_handler,
 					0, "McBSP", (void *)mcbsp);
-		if (err != 0) {
-			dev_err(mcbsp->dev, "Unable to request RX IRQ %d "
-					"for McBSP%d\n", mcbsp->rx_irq,
-					mcbsp->id);
-			free_irq(mcbsp->tx_irq, (void *)mcbsp);
-			return err;
+			if (err != 0) {
+				dev_err(mcbsp->dev, "Unable to request RX IRQ %d "
+						"for McBSP%d\n", mcbsp->rx_irq,
+						mcbsp->id);
+				free_irq(mcbsp->tx_irq, (void *)mcbsp);
+				return err;
+			}
 		}
 	}
 
 	return 0;
 }
 EXPORT_SYMBOL(omap_mcbsp_request);
+
+void omap_mcbsp_disable_fclk(unsigned int id)
+{
+	struct omap_mcbsp *mcbsp;
+
+	if (!omap_mcbsp_check_valid_id(id)) {
+		printk(KERN_ERR "%s: Invalid id (%d)\n", __func__, id + 1);
+		return;
+	}
+	mcbsp = id_to_mcbsp_ptr(id);
+	clk_disable(mcbsp->fclk);
+}
+EXPORT_SYMBOL(omap_mcbsp_disable_fclk);
+
+
+void omap_mcbsp_enable_fclk(unsigned int id)
+{
+	struct omap_mcbsp *mcbsp;
+
+	if (!omap_mcbsp_check_valid_id(id)) {
+		printk(KERN_ERR "%s: Invalid id (%d)\n", __func__, id + 1);
+		return;
+	}
+	mcbsp = id_to_mcbsp_ptr(id);
+	clk_enable(mcbsp->fclk);
+}
+EXPORT_SYMBOL(omap_mcbsp_enable_fclk);
 
 void omap_mcbsp_free(unsigned int id)
 {
@@ -472,15 +526,18 @@ void omap_mcbsp_free(unsigned int id)
 	if (mcbsp->pdata && mcbsp->pdata->ops && mcbsp->pdata->ops->free)
 		mcbsp->pdata->ops->free(id);
 
+#ifndef SIDLE_WA
 	/* Do procedure specific to omap34xx arch, if applicable */
 	omap34xx_mcbsp_free(mcbsp);
+#endif
 
 	clk_disable(mcbsp->fclk);
 	clk_disable(mcbsp->iclk);
 
 	if (mcbsp->io_type == OMAP_MCBSP_IRQ_IO) {
 		/* Free IRQs */
-		free_irq(mcbsp->rx_irq, (void *)mcbsp);
+		if (mcbsp->rx_irq)
+			free_irq(mcbsp->rx_irq, (void *)mcbsp);
 		free_irq(mcbsp->tx_irq, (void *)mcbsp);
 	}
 
@@ -516,6 +573,37 @@ void omap_mcbsp_start(unsigned int id, int tx, int rx)
 	mcbsp = id_to_mcbsp_ptr(id);
 	io_base = mcbsp->io_base;
 
+#ifdef SIDLE_WA
+	if(0 == sidle_status)
+	{
+		/*
+		 * Enable wakup behavior, smart idle and all wakeups
+		 * REVISIT: some wakeups may be unnecessary
+		 */
+		if (cpu_is_omap34xx() || cpu_is_omap44xx()) {
+			u16 syscon;
+
+			syscon = OMAP_MCBSP_READ(mcbsp->io_base, SYSCON);
+			syscon &= ~(ENAWAKEUP | SIDLEMODE(0x03) | CLOCKACTIVITY(0x03));
+
+			if (mcbsp->dma_op_mode == MCBSP_DMA_MODE_THRESHOLD) {
+				syscon |= (ENAWAKEUP | SIDLEMODE(0x01) |
+						CLOCKACTIVITY(0x02));
+				OMAP_MCBSP_WRITE(mcbsp->io_base, WAKEUPEN,
+						XRDYEN | RRDYEN);
+			} else {
+				syscon |= SIDLEMODE(0x01);
+			}
+
+			OMAP_MCBSP_WRITE(mcbsp->io_base, SYSCON, syscon);
+		}
+	}
+
+	mutex_lock(&sidle_mutex);
+	sidle_status++;
+	mutex_unlock(&sidle_mutex);
+#endif
+
 	mcbsp->rx_word_length = (OMAP_MCBSP_READ(io_base, RCR1) >> 5) & 0x7;
 	mcbsp->tx_word_length = (OMAP_MCBSP_READ(io_base, XCR1) >> 5) & 0x7;
 
@@ -531,11 +619,11 @@ void omap_mcbsp_start(unsigned int id, int tx, int rx)
 	/* Enable transmitter and receiver */
 	tx &= 1;
 	w = OMAP_MCBSP_READ(io_base, SPCR2);
-	OMAP_MCBSP_WRITE(io_base, SPCR2, w | tx);
+	OMAP_MCBSP_WRITE(io_base, SPCR2, w | 1);
 
 	rx &= 1;
 	w = OMAP_MCBSP_READ(io_base, SPCR1);
-	OMAP_MCBSP_WRITE(io_base, SPCR1, w | rx);
+	OMAP_MCBSP_WRITE(io_base, SPCR1, w | 1);
 
 	/*
 	 * Worst case: CLKSRG*2 = 8000khz: (1/8000) * 2 * 2 usec
@@ -551,7 +639,7 @@ void omap_mcbsp_start(unsigned int id, int tx, int rx)
 		OMAP_MCBSP_WRITE(io_base, SPCR2, w | (1 << 7));
 	}
 
-	if (cpu_is_omap2430() || cpu_is_omap34xx()) {
+	if (cpu_is_omap2430() || cpu_is_omap34xx() || cpu_is_omap44xx()) {
 		/* Release the transmitter and receiver */
 		w = OMAP_MCBSP_READ(io_base, XCCR);
 		w &= ~(tx ? XDISABLE : 0);
@@ -562,7 +650,7 @@ void omap_mcbsp_start(unsigned int id, int tx, int rx)
 	}
 
 	/* Dump McBSP Regs */
-	omap_mcbsp_dump_reg(id);
+	//omap_mcbsp_dump_reg(id);
 }
 EXPORT_SYMBOL(omap_mcbsp_start);
 
@@ -583,7 +671,7 @@ void omap_mcbsp_stop(unsigned int id, int tx, int rx)
 
 	/* Reset transmitter */
 	tx &= 1;
-	if (cpu_is_omap2430() || cpu_is_omap34xx()) {
+	if (cpu_is_omap2430() || cpu_is_omap34xx() || cpu_is_omap44xx()) {
 		w = OMAP_MCBSP_READ(io_base, XCCR);
 		w |= (tx ? XDISABLE : 0);
 		OMAP_MCBSP_WRITE(io_base, XCCR, w);
@@ -593,7 +681,7 @@ void omap_mcbsp_stop(unsigned int id, int tx, int rx)
 
 	/* Reset receiver */
 	rx &= 1;
-	if (cpu_is_omap2430() || cpu_is_omap34xx()) {
+	if (cpu_is_omap2430() || cpu_is_omap34xx() || cpu_is_omap44xx()) {
 		w = OMAP_MCBSP_READ(io_base, RCCR);
 		w |= (rx ? RDISABLE : 0);
 		OMAP_MCBSP_WRITE(io_base, RCCR, w);
@@ -609,6 +697,36 @@ void omap_mcbsp_stop(unsigned int id, int tx, int rx)
 		w = OMAP_MCBSP_READ(io_base, SPCR2);
 		OMAP_MCBSP_WRITE(io_base, SPCR2, w & ~(1 << 6));
 	}
+
+#ifdef SIDLE_WA
+	mutex_lock(&sidle_mutex);
+	--sidle_status;
+	mutex_unlock(&sidle_mutex);
+	
+	if(0 == sidle_status){
+		/*
+		 * Disable wakup behavior, smart idle and all wakeups
+		 */
+		if (cpu_is_omap34xx() || cpu_is_omap44xx()) {
+			u16 syscon;
+
+			syscon = OMAP_MCBSP_READ(mcbsp->io_base, SYSCON);
+			syscon &= ~(ENAWAKEUP | SIDLEMODE(0x03) | CLOCKACTIVITY(0x03));
+			/*
+			 * HW bug workaround - If no_idle mode is taken, we need to
+			 * go to smart_idle before going to always_idle, or the
+			 * device will not hit retention anymore.
+			 */
+			syscon |= SIDLEMODE(0x02);
+			OMAP_MCBSP_WRITE(mcbsp->io_base, SYSCON, syscon);
+
+			syscon &= ~(SIDLEMODE(0x03));
+			OMAP_MCBSP_WRITE(mcbsp->io_base, SYSCON, syscon);
+
+			OMAP_MCBSP_WRITE(mcbsp->io_base, WAKEUPEN, 0);
+		}
+	}
+#endif	
 }
 EXPORT_SYMBOL(omap_mcbsp_stop);
 
@@ -1145,9 +1263,7 @@ static ssize_t dma_op_mode_show(struct device *dev,
 	ssize_t len = 0;
 	const char * const *s;
 
-	spin_lock_irq(&mcbsp->lock);
 	dma_op_mode = mcbsp->dma_op_mode;
-	spin_unlock_irq(&mcbsp->lock);
 
 	for (s = &dma_op_modes[i]; i < ARRAY_SIZE(dma_op_modes); s++, i++) {
 		if (dma_op_mode == i)
@@ -1213,10 +1329,20 @@ static inline void __devexit omap_additional_remove(struct device *dev)
 
 static inline void __devinit omap34xx_device_init(struct omap_mcbsp *mcbsp)
 {
-	mcbsp->dma_op_mode = MCBSP_DMA_MODE_ELEMENT;
+	
 	if (cpu_is_omap34xx()) {
-		mcbsp->max_tx_thres = max_thres(mcbsp);
-		mcbsp->max_rx_thres = max_thres(mcbsp);
+		/*
+		 * Initially configure the maximum thresholds to a safe value.
+		 * The McBSP FIFO usage with these values should not go under
+		 * 16 locations.
+		 * If the whole FIFO without safety buffer is used, than there
+		 * is a possibility that the DMA will be not able to push the
+		 * new data on time, causing channel shifts in runtime.
+		 */
+		mcbsp->max_tx_thres = max_thres(mcbsp) - 0x10;
+		mcbsp->max_rx_thres = max_thres(mcbsp) - 0x10;
+		mcbsp->dma_op_mode = MCBSP_DMA_MODE_THRESHOLD;
+		
 		/*
 		 * REVISIT: Set dmap_op_mode to THRESHOLD as default
 		 * for mcbsp2 instances.
@@ -1227,7 +1353,14 @@ static inline void __devinit omap34xx_device_init(struct omap_mcbsp *mcbsp)
 	} else {
 		mcbsp->max_tx_thres = -EINVAL;
 		mcbsp->max_rx_thres = -EINVAL;
+		mcbsp->dma_op_mode = MCBSP_DMA_MODE_ELEMENT;
 	}
+
+#ifdef SIDLE_WA
+	/* initialize mutex */
+	mutex_init(&sidle_mutex);
+#endif
+
 }
 
 static inline void __devexit omap34xx_device_exit(struct omap_mcbsp *mcbsp)
@@ -1292,11 +1425,13 @@ static int __devinit omap_mcbsp_probe(struct platform_device *pdev)
 	mcbsp->dma_rx_sync = pdata->dma_rx_sync;
 	mcbsp->dma_tx_sync = pdata->dma_tx_sync;
 
-	mcbsp->iclk = clk_get(&pdev->dev, "ick");
-	if (IS_ERR(mcbsp->iclk)) {
-		ret = PTR_ERR(mcbsp->iclk);
-		dev_err(&pdev->dev, "unable to get ick: %d\n", ret);
-		goto err_iclk;
+	if (!cpu_is_omap44xx())	{
+		mcbsp->iclk = clk_get(&pdev->dev, "ick");
+		if (IS_ERR(mcbsp->iclk)) {
+			ret = PTR_ERR(mcbsp->iclk);
+			dev_err(&pdev->dev, "unable to get ick: %d\n", ret);
+			goto err_iclk;
+		}
 	}
 
 	mcbsp->fclk = clk_get(&pdev->dev, "fck");

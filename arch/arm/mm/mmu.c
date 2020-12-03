@@ -14,6 +14,7 @@
 #include <linux/bootmem.h>
 #include <linux/mman.h>
 #include <linux/nodemask.h>
+#include <linux/sort.h>
 
 #include <asm/cputype.h>
 #include <asm/mach-types.h>
@@ -420,6 +421,10 @@ static void __init build_mem_type_table(void)
 		user_pgprot |= L_PTE_SHARED;
 		kern_pgprot |= L_PTE_SHARED;
 		vecs_pgprot |= L_PTE_SHARED;
+		mem_types[MT_DEVICE_WC].prot_sect |= PMD_SECT_S;
+		mem_types[MT_DEVICE_WC].prot_pte |= L_PTE_SHARED;
+		mem_types[MT_DEVICE_CACHED].prot_sect |= PMD_SECT_S;
+		mem_types[MT_DEVICE_CACHED].prot_pte |= L_PTE_SHARED;
 		mem_types[MT_MEMORY].prot_sect |= PMD_SECT_S;
 		mem_types[MT_MEMORY_NONCACHED].prot_sect |= PMD_SECT_S;
 #endif
@@ -453,8 +458,7 @@ static void __init build_mem_type_table(void)
 
 	pgprot_user   = __pgprot(L_PTE_PRESENT | L_PTE_YOUNG | user_pgprot);
 	pgprot_kernel = __pgprot(L_PTE_PRESENT | L_PTE_YOUNG |
-				 L_PTE_DIRTY | L_PTE_WRITE |
-				 L_PTE_EXEC | kern_pgprot);
+				 L_PTE_DIRTY | L_PTE_WRITE | kern_pgprot);
 
 	mem_types[MT_LOW_VECTORS].prot_l1 |= ecc_mask;
 	mem_types[MT_HIGH_VECTORS].prot_l1 |= ecc_mask;
@@ -600,7 +604,7 @@ static void __init create_36bit_mapping(struct map_desc *md,
  * offsets, and we take full advantage of sections and
  * supersections.
  */
-void __init create_mapping(struct map_desc *md)
+static void __init create_mapping(struct map_desc *md)
 {
 	unsigned long phys, addr, length, end;
 	const struct mem_type *type;
@@ -1013,6 +1017,38 @@ static void __init kmap_init(void)
 #endif
 }
 
+static inline void map_memory_bank(struct membank *bank)
+{
+	struct map_desc map;
+
+	map.pfn = bank_pfn_start(bank);
+	map.virtual = __phys_to_virt(bank_phys_start(bank));
+	map.length = bank_phys_size(bank);
+	map.type = MT_MEMORY;
+	create_mapping(&map);
+}
+
+static void __init map_lowmem(void)
+{
+	struct meminfo *mi = &meminfo;
+	int i;
+
+	/* Map all the lowmem memory banks. */
+	for (i = 0; i < mi->nr_banks; i++) {
+		struct membank *bank = &mi->bank[i];
+
+		if (!bank->highmem)
+			map_memory_bank(bank);
+	}
+}
+
+static int __init meminfo_cmp(const void *_a, const void *_b)
+{
+      const struct membank *a = _a, *b = _b;
+      long cmp = bank_pfn_start(a) - bank_pfn_start(b);
+      return cmp < 0 ? -1 : cmp > 0 ? 1 : 0;
+}
+
 /*
  * paging_init() sets up the page tables, initialises the zone memory
  * maps, and sets up the zero page, bad page and bad page tables.
@@ -1021,9 +1057,12 @@ void __init paging_init(struct machine_desc *mdesc)
 {
 	void *zero_page;
 
+	sort(&meminfo.bank, meminfo.nr_banks, sizeof(meminfo.bank[0]), meminfo_cmp, NULL);
+
 	build_mem_type_table();
 	sanity_check_meminfo();
 	prepare_page_table();
+	map_lowmem();
 	bootmem_init();
 	devicemaps_init(mdesc);
 	kmap_init();
@@ -1036,7 +1075,7 @@ void __init paging_init(struct machine_desc *mdesc)
 	 */
 	zero_page = alloc_bootmem_low_pages(PAGE_SIZE);
 	empty_zero_page = virt_to_page(zero_page);
-	flush_dcache_page(empty_zero_page);
+	__flush_dcache_page(NULL, empty_zero_page);
 }
 
 /*

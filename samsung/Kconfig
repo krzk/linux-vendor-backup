@@ -1,0 +1,66 @@
+##
+# Copyright (C) 2010, Samsung Electronics Co., Ltd. All Rights Reserved.
+#  Written by System S/W Group, Open OS S/W R&D Team,
+#  Mobile Communication Division.
+##
+
+##
+# Project Name : Samsung Private Third-Party Device Drivers
+#
+# Project Description :
+#
+# Comments : tabstop = 8, shiftwidth = 8, noexpandtab
+##
+
+##
+# File Name : Kconfig
+#
+# File Description :
+#
+# Author : Joo, Young Jin (#4349, youngjin79.joo@samsung.com)
+# Dept : System S/W Group (Open OS S/W R&D Team)
+# Created Date : 09-Jul-2010
+# Version : Baby-Raccoon
+##
+
+menu "Samsung Private Third-Party Device Drviers"
+
+menu "FSR_1.2.1p1_b139_RC"
+source "samsung/rfs_fsr/drivers/tfsr/Kconfig"
+
+endmenu
+
+menu "Immersion touch sense driver(vibetonz)"
+source "samsung/vibetonz/Kconfig"
+endmenu
+
+menu "Samsung battery driver"
+source "samsung/battery/Kconfig"
+endmenu
+
+menu "Si4709 FM radio"
+source "samsung/fm_si4709/Kconfig"
+
+endmenu
+
+menu "Yamaha YAS529 Geomagnetic Sensor Support"
+source "samsung/yas529/Kconfig"
+endmenu
+
+menu "Bosch BMA222 Accelerometer Support"
+source "samsung/bma222/Kconfig"
+endmenu
+
+menu "Sharp GP2A proximity/light sensor"
+source "samsung/gp2a/Kconfig"
+endmenu
+
+menu "Orientation Sensor Support"
+source "samsung/orientation/Kconfig"
+endmenu
+
+menu "GPS Support"
+source "samsung/gps/Kconfig"
+endmenu
+
+endmenu

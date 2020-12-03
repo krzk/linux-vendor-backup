@@ -262,3 +262,8 @@ config BACKLIGHT_ADP5520
 	  To compile this driver as a module, choose M here: the module will
 	  be called adp5520_bl.
 
+config BACKLIGHT_AAT1402
+	bool "Backlight Driver for AAT1402"
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y to enable the backlight driver on Latona real board.

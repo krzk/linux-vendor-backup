@@ -52,7 +52,7 @@
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
 #include <asm/mach/time.h>
-#include <mach/dmtimer.h>
+#include <plat/dmtimer.h>
 
 struct sys_timer omap_timer;
 
@@ -198,9 +198,6 @@ static __init void omap_init_32k_timer(void)
  */
 static void __init omap_timer_init(void)
 {
-#ifdef CONFIG_OMAP_DM_TIMER
-	omap_dm_timer_init();
-#endif
 	omap_init_32k_timer();
 }
 

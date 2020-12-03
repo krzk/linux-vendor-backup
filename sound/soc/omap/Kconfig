@@ -6,6 +6,12 @@ config SND_OMAP_SOC_MCBSP
 	tristate
 	select OMAP_MCBSP
 
+config OMAP_MCPDM
+	tristate
+config SND_OMAP_SOC_ABE
+	tristate
+	select OMAP_MCPDM
+
 config SND_OMAP_SOC_N810
 	tristate "SoC Audio support for Nokia N810"
 	depends on SND_OMAP_SOC && MACH_NOKIA_N810 && I2C
@@ -68,12 +74,34 @@ config SND_OMAP_SOC_OMAP3EVM
 
 config SND_OMAP_SOC_SDP3430
 	tristate "SoC Audio support for Texas Instruments SDP3430"
-	depends on TWL4030_CORE && SND_OMAP_SOC && MACH_OMAP_3430SDP
+	depends on TWL4030_CORE && SND_OMAP_SOC && (MACH_OMAP_3430SDP || MACH_OMAP_SAMSUNG)
 	select SND_OMAP_SOC_MCBSP
 	select SND_SOC_TWL4030
 	help
 	  Say Y if you want to add support for SoC audio on Texas Instruments
 	  SDP3430.
+
+config SND_OMAP_SOC_SDP4430
+	tristate "SoC Audio support for Texas Instruments SDP4430"
+	depends on TWL4030_CORE && SND_OMAP_SOC && MACH_OMAP_4430SDP
+	select SND_OMAP_SOC_ABE
+	select SND_SOC_ABE_TWL6040
+	select SND_OMAP_SOC_MCBSP
+	help
+	  Say Y if you want to add support for SoC audio on Texas Instruments
+	  SDP4430.
+
+config SND_OMAP_SOC_HDMI
+	tristate "SoC Audio support for HDMI interface on SDP4430"
+	depends on SND_OMAP_SOC_SDP4430 && OMAP2_DSS_HDMI
+	help
+	  Say Y if you want to add support for HDMI interface on SDP4430
+
+config SND_OMAP_VOICE_TEST
+	bool "SoC Audio support for test Voice Call"
+	depends on TWL4030_CORE && SND_OMAP_SOC && MACH_OMAP_4430SDP
+	help
+	  Say Y if you want to test modem voice call
 
 config SND_OMAP_SOC_OMAP3_PANDORA
 	tristate "SoC Audio support for OMAP3 Pandora"
@@ -93,7 +121,7 @@ config SND_OMAP_SOC_OMAP3_BEAGLE
 
 config SND_OMAP_SOC_ZOOM2
 	tristate "SoC Audio support for Zoom2"
-	depends on TWL4030_CORE && SND_OMAP_SOC && MACH_OMAP_ZOOM2
+	depends on TWL4030_CORE && SND_OMAP_SOC && (MACH_OMAP_ZOOM2 || MACH_OMAP_ZOOM3)
 	select SND_OMAP_SOC_MCBSP
 	select SND_SOC_TWL4030
 	help

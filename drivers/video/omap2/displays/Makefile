@@ -1,0 +1,16 @@
+obj-$(CONFIG_PANEL_GENERIC) += panel-generic.o
+obj-$(CONFIG_PANEL_SAMSUNG_LTE430WQ_F0C) += panel-samsung-lte430wq-f0c.o
+obj-$(CONFIG_PANEL_SHARP_LS037V7DW01) += panel-sharp-ls037v7dw01.o
+obj-$(CONFIG_PANEL_PICO_DLP) +=  panel_picodlp.o
+
+obj-$(CONFIG_PANEL_TAAL) += panel-taal.o
+obj-$(CONFIG_LCD_4430SDP) += lcd_4430sdp.o
+obj-$(CONFIG_PANEL_4430SDP_TAAL) += panel-taal.o
+obj-$(CONFIG_PANEL_ZOOM2) += panel-zoom2.o
+obj-$(CONFIG_PANEL_SHOLES) += panel-sholes.o
+obj-$(CONFIG_PANEL_NEC) += panel-nec.o
+obj-$(CONFIG_PANEL_AMS) += panel-ams353.o
+obj-$(CONFIG_PANEL_SHARP_S6D16A) += panel-s6d16a0x21.o
+obj-$(CONFIG_PANEL_HYDIS) += panel-NT35510.o
+obj-$(CONFIG_CHN_LCD_PANEL_SHARP_S6D05A) += panel-sharp-s6d05a1x01.o
+

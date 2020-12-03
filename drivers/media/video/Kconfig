@@ -336,6 +336,77 @@ config VIDEO_TCM825X
 	  This is a driver for the Toshiba TCM825x VGA camera sensor.
 	  It is used for example in Nokia N800.
 
+#zeus camera support
+config VIDEO_CAM_PMIC
+	tristate "CAM PMIC"
+	#depends on I2C && VIDEO_V4L2
+	
+
+
+config VIDEO_CAM_ISX006
+	tristate "CAM ISX006"
+	depends on I2C && VIDEO_V4L2
+	---help---
+	  This is a Video4Linux2 sensor-level driver for the
+	  ISX006 camera.  It is to work with the TI OMAP3
+          camera controller.
+
+config VIDEO_CAM_CE147
+	tristate "CAM CE147"
+	depends on I2C && VIDEO_V4L2
+	---help---
+	  This is a Video4Linux2 sensor-level driver for the
+	  CE147 camera.  It is to work with the TI OMAP3
+          camera controller.
+
+config VIDEO_CAM_S5KA3DFX
+	tristate "CAM S5KA3DFX"
+	depends on I2C && VIDEO_V4L2
+	---help---
+	  This is a Video4Linux2 sensor-level driver for the
+	  S5KA3DFX camera.  It is to work with the TI OMAP3
+          camera controller.
+
+config CHN_CAM_S5K5CCGX
+	tristate "CAM S5K5CCGX"
+	depends on I2C && VIDEO_V4L2
+	---help---
+	  This is a Video4Linux2 sensor-level driver for the
+	  S5K5CCGX camera.  It is to work with the TI OMAP3
+          camera controller.
+
+config CHN_CAM_S5K4ECGX
+	tristate "CAM S5K4ECGX"
+	depends on I2C && VIDEO_V4L2
+	---help---
+	  This is a Video4Linux2 sensor-level driver for the
+	  S5K4ECGX camera.  It is to work with the TI OMAP3
+          camera controller.
+
+config CHN_CAM_SR030PC40
+        tristate "CAM SR030PC40"
+	depends on I2C && VIDEO_V4L2
+        ---help---
+	  This is a Video4Linux2 sensor-level driver for the
+	  SR030PC40 camera. It is to work with the TI OMAP3
+          camera controller.
+
+config VIDEO_IMX046
+	tristate "Sony IMX046 sensor driver (8MP)"
+	depends on I2C && VIDEO_V4L2
+	---help---
+	  This is a Video4Linux2 sensor-level driver for the Sony
+	  IMX046 camera.  It is currently working with the TI OMAP3
+          camera controller.
+
+config VIDEO_LV8093
+	tristate "Piezo Actuator Lens driver for LV8093"
+	depends on I2C && VIDEO_V4L2
+	---help---
+	  This is a Video4Linux2 lens driver for the Sanyo LV8093.
+	  It is currently working with the TI OMAP3 camera controller
+	  and Sony IMX046 sensor.
+
 config VIDEO_SAA7110
 	tristate "Philips SAA7110 video decoder"
 	depends on VIDEO_V4L2 && I2C
@@ -783,6 +854,10 @@ source "drivers/media/video/cx18/Kconfig"
 
 source "drivers/media/video/saa7164/Kconfig"
 
+source "drivers/media/video/omap-vout/Kconfig"
+
+source "drivers/media/video/omap/Kconfig"
+
 config VIDEO_M32R_AR
 	tristate "AR devices"
 	depends on M32R && VIDEO_V4L1
@@ -810,6 +885,17 @@ config VIDEO_CAFE_CCIC
 	  This is a video4linux2 driver for the Marvell 88ALP01 integrated
 	  CMOS camera controller.  This is the controller found on first-
 	  generation OLPC systems.
+
+config VIDEO_OMAP3
+        tristate "OMAP 3 Camera support"
+	select VIDEOBUF_GEN
+	select VIDEOBUF_DMA_SG
+	select OMAP_IOMMU
+	depends on VIDEO_V4L2 && ARCH_OMAP34XX
+	---help---
+	  Driver for an OMAP 3 camera controller.
+
+source "drivers/media/video/isp/Kconfig"
 
 config SOC_CAMERA
 	tristate "SoC camera support"

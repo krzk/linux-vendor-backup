@@ -20,7 +20,7 @@
  * the array in mach-omap2/powerdomains.h.
  */
 
-#include <mach/powerdomain.h>
+#include <plat/powerdomain.h>
 
 #include "prcm-common.h"
 #include "prm.h"
@@ -180,6 +180,7 @@ static struct powerdomain iva2_pwrdm = {
 		[2] = PWRSTS_OFF_ON,
 		[3] = PWRDM_POWER_ON,
 	},
+	.fclk_reg_amt	  = 1,
 };
 
 static struct powerdomain mpu_34xx_pwrdm = {
@@ -190,6 +191,7 @@ static struct powerdomain mpu_34xx_pwrdm = {
 	.wkdep_srcs	  = mpu_34xx_wkdeps,
 	.pwrsts		  = PWRSTS_OFF_RET_ON,
 	.pwrsts_logic_ret = PWRSTS_OFF_RET,
+	.flags		  = PWRDM_HAS_MPU_QUIRK,
 	.banks		  = 1,
 	.pwrsts_mem_ret	  = {
 		[0] = PWRSTS_OFF_RET,
@@ -205,7 +207,9 @@ static struct powerdomain core_34xx_pre_es3_1_pwrdm = {
 	.prcm_offs	  = CORE_MOD,
 	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP3430ES1 |
 					   CHIP_IS_OMAP3430ES2 |
-					   CHIP_IS_OMAP3430ES3_0),
+					   CHIP_IS_OMAP3430ES3_0 |
+					   CHIP_IS_OMAP3630ES1),
+
 	.pwrsts		  = PWRSTS_OFF_RET_ON,
 	.dep_bit	  = OMAP3430_EN_CORE_SHIFT,
 	.banks		  = 2,
@@ -219,11 +223,19 @@ static struct powerdomain core_34xx_pre_es3_1_pwrdm = {
 	},
 };
 
+/*
+ * The USBTLL Save-and-Restore mechanism is broken on
+ * 3430s upto ES3.0 and 3630ES1.0. Hence this feature
+ * needs to be disabled on these chips.
+ * Refer: 3430 errata ID i459 and 3630 errata ID i579
+ */
+
 /* No wkdeps or sleepdeps for 34xx core apparently */
 static struct powerdomain core_34xx_es3_1_pwrdm = {
 	.name		  = "core_pwrdm",
 	.prcm_offs	  = CORE_MOD,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_GE_OMAP3430ES3_1),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP3430ES3_1 |
+					CHIP_GE_OMAP3630ES1_1),
 	.pwrsts		  = PWRSTS_OFF_RET_ON,
 	.dep_bit	  = OMAP3430_EN_CORE_SHIFT,
 	.flags		  = PWRDM_HAS_HDWR_SAR, /* for USBTLL only */
@@ -236,6 +248,12 @@ static struct powerdomain core_34xx_es3_1_pwrdm = {
 		[0] = PWRSTS_OFF_RET_ON, /* MEM1ONSTATE */
 		[1] = PWRSTS_OFF_RET_ON, /* MEM2ONSTATE */
 	},
+	.fclk_reg_amt	  = 2,
+	.fclk_masks	  = {
+		[0] = OMAP3430_EN_UART2 | OMAP3430_EN_UART1,
+		[1] = 0,
+	},
+
 };
 
 /* Another case of bit name collisions between several registers: EN_DSS */
@@ -255,6 +273,7 @@ static struct powerdomain dss_pwrdm = {
 	.pwrsts_mem_on	  = {
 		[0] = PWRDM_POWER_ON,  /* MEMONSTATE */
 	},
+	.fclk_reg_amt	  = 1,
 };
 
 /*
@@ -278,6 +297,7 @@ static struct powerdomain sgx_pwrdm = {
 	.pwrsts_mem_on	  = {
 		[0] = PWRDM_POWER_ON,  /* MEMONSTATE */
 	},
+	.fclk_reg_amt	  = 1,
 };
 
 static struct powerdomain cam_pwrdm = {
@@ -295,6 +315,7 @@ static struct powerdomain cam_pwrdm = {
 	.pwrsts_mem_on	  = {
 		[0] = PWRDM_POWER_ON,  /* MEMONSTATE */
 	},
+	.fclk_reg_amt	  = 1,
 };
 
 static struct powerdomain per_pwrdm = {
@@ -312,6 +333,10 @@ static struct powerdomain per_pwrdm = {
 	},
 	.pwrsts_mem_on	  = {
 		[0] = PWRDM_POWER_ON,  /* MEMONSTATE */
+	},
+	.fclk_reg_amt	  = 1,
+	.fclk_masks	  = {
+		[0] = OMAP3430_EN_UART3,
 	},
 };
 
@@ -338,7 +363,14 @@ static struct powerdomain usbhost_pwrdm = {
 	.sleepdep_srcs	  = dss_per_usbhost_sleepdeps,
 	.pwrsts		  = PWRSTS_OFF_RET_ON,
 	.pwrsts_logic_ret = PWRDM_POWER_RET,
-	.flags		  = PWRDM_HAS_HDWR_SAR, /* for USBHOST ctrlr only */
+	/*
+	 * REVISIT: Enabling usb host save and restore mechanism seems to
+	 * leave the usb host domain permanently in ACTIVE mode after
+	 * changing the usb host power domain state from OFF to active once.
+	 * Disabling for now.
+	 */
+	/*.flags	  = PWRDM_HAS_HDWR_SAR,*/ /* for USBHOST ctrlr only */
+	.flags	  = PWRDM_HAS_HDWR_SAR, /* for USBHOST ctrlr only */
 	.banks		  = 1,
 	.pwrsts_mem_ret	  = {
 		[0] = PWRDM_POWER_RET, /* MEMRETSTATE */
@@ -346,6 +378,7 @@ static struct powerdomain usbhost_pwrdm = {
 	.pwrsts_mem_on	  = {
 		[0] = PWRDM_POWER_ON,  /* MEMONSTATE */
 	},
+	.fclk_reg_amt	  = 1,
 };
 
 static struct powerdomain dpll1_pwrdm = {

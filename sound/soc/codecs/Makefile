@@ -17,6 +17,7 @@ snd-soc-tlv320aic23-objs := tlv320aic23.o
 snd-soc-tlv320aic26-objs := tlv320aic26.o
 snd-soc-tlv320aic3x-objs := tlv320aic3x.o
 snd-soc-twl4030-objs := twl4030.o
+snd-soc-abe-twl6040-objs := abe-twl6040.o
 snd-soc-uda134x-objs := uda134x.o
 snd-soc-uda1380-objs := uda1380.o
 snd-soc-wm8350-objs := wm8350.o
@@ -47,6 +48,7 @@ snd-soc-wm-hubs-objs := wm_hubs.o
 
 # Amp
 snd-soc-max9877-objs := max9877.o
+snd-soc-max97000-objs := max97000.o
 
 obj-$(CONFIG_SND_SOC_AC97_CODEC)	+= snd-soc-ac97.o
 obj-$(CONFIG_SND_SOC_AD1836)	+= snd-soc-ad1836.o
@@ -67,6 +69,7 @@ obj-$(CONFIG_SND_SOC_TLV320AIC23)	+= snd-soc-tlv320aic23.o
 obj-$(CONFIG_SND_SOC_TLV320AIC26)	+= snd-soc-tlv320aic26.o
 obj-$(CONFIG_SND_SOC_TLV320AIC3X)	+= snd-soc-tlv320aic3x.o
 obj-$(CONFIG_SND_SOC_TWL4030)	+= snd-soc-twl4030.o
+obj-$(CONFIG_SND_SOC_ABE_TWL6040)	+= snd-soc-abe-twl6040.o abe/
 obj-$(CONFIG_SND_SOC_UDA134X)	+= snd-soc-uda134x.o
 obj-$(CONFIG_SND_SOC_UDA1380)	+= snd-soc-uda1380.o
 obj-$(CONFIG_SND_SOC_WM8350)	+= snd-soc-wm8350.o
@@ -97,3 +100,20 @@ obj-$(CONFIG_SND_SOC_WM_HUBS)	+= snd-soc-wm-hubs.o
 
 # Amp
 obj-$(CONFIG_SND_SOC_MAX9877)	+= snd-soc-max9877.o
+obj-$(CONFIG_SND_SOC_MAX97000)   += snd-soc-max97000.o   
+
+
+#for gain control each project.
+ifeq ($(CONFIG_MACH_SAMSUNG_LATONA), y)
+ifeq ($(CONFIG_CHN_KERNEL_STE_LATONA), y)
+  obj-y   += sec_gain_latona_ste.o
+else
+	obj-y   += sec_gain_latona.o
+endif	
+else ifeq ($(CONFIG_MACH_SAMSUNG_HERON), y)
+	obj-y   += sec_gain_heron.o	
+else
+	obj-y   += sec_gain_common.o
+endif
+obj-y   += sec_gain_dummy_driver.o
+

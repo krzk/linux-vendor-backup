@@ -916,6 +916,8 @@ struct net_device
 	/* max exchange id for FCoE LRO by ddp */
 	unsigned int		fcoe_ddp_xid;
 #endif
+
+	struct net_device_stats* (*get_stats)(struct net_device *dev);
 };
 #define to_net_dev(d) container_of(d, struct net_device, dev)
 

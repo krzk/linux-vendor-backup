@@ -780,6 +780,54 @@ config USB_G_PRINTER
 	  For more information, see Documentation/usb/gadget_printer.txt
 	  which includes sample code for accessing the device file.
 
+config USB_ANDROID
+	tristate "Android Gadget"
+	depends on SWITCH
+	help
+	  The Android gadget driver supports multiple USB functions.
+	  The functions can be configured via a board file and may be
+	  enabled and disabled dynamically.
+
+config USB_ANDROID_ACM
+	boolean "Android gadget ACM serial function"
+	depends on USB_ANDROID
+	help
+	  Provides ACM serial function for android gadget driver.
+
+config USB_ANDROID_EEM
+	boolean "Android gadget EEM ethernet function"
+	depends on USB_ANDROID
+	help
+	  Provides EEM ethernet function for android gadget driver.
+
+config USB_ANDROID_ADB
+	boolean "Android gadget adb function"
+	depends on USB_ANDROID
+	help
+	  Provides adb function for android gadget driver.
+
+config USB_ANDROID_MASS_STORAGE
+	boolean "Android gadget mass storage function"
+	depends on USB_ANDROID && SWITCH
+	help
+	  Provides USB mass storage function for android gadget driver.
+
+config USB_ANDROID_RNDIS
+	boolean "Android gadget RNDIS ethernet function"
+	depends on USB_ANDROID
+	help
+	  Provides RNDIS ethernet function for android gadget driver.
+
+config USB_ANDROID_RNDIS_WCEIS
+        boolean "Use Windows Internet Sharing Class/SubClass/Protocol"
+        depends on USB_ANDROID_RNDIS
+        help
+         Causes the driver to look like a Windows-compatible Internet
+         Sharing device, so Windows auto-detects it.
+
+         If you enable this option, the device is no longer CDC ethernet
+         compatible.
+
 config USB_CDC_COMPOSITE
 	tristate "CDC Composite Device (Ethernet and ACM)"
 	depends on NET
@@ -793,6 +841,33 @@ config USB_CDC_COMPOSITE
 
 	  Say "y" to link the driver statically, or "m" to build a
 	  dynamically linked module.
+	  
+config USB_ANDROID_ADB_UMS_ACM_ETH_MTP
+	bool "Android Composite(MTP + ACM + ADB) or UMS or RNDIS Gadget "
+	depends on SWITCH && NET
+	help
+	  The Android gadget provides mass storage and adb transport and acm.
+	  Additionally, it can switch Android UMS or Ethernet gadget.
+	  Say "y" to link the driver statically, not support dynamically linked module
+	  
+
+config USB_ETH_RNDIS
+	bool "RNDIS support"
+	depends on USB_ANDROID_ADB_UMS_ACM_ETH_MTP
+	default y
+	help
+	   Microsoft Windows XP bundles the "Remote NDIS" (RNDIS) protocol,
+	   and Microsoft provides redistributable binary RNDIS drivers for
+	   older versions of Windows.
+
+	   If you say "y" here, the Ethernet gadget driver will try to provide
+	   a second device configuration, supporting RNDIS to talk to such
+	   Microsoft USB hosts.
+	   
+	   To make MS-Windows work with this, use Documentation/usb/linux.inf
+	   as the "driver info file".  For versions of MS-Windows older than
+	   XP, you'll need to download drivers from Microsoft's website; a URL
+	   is given in comments found in that info file.
 
 # put drivers that need isochronous transfer support (for audio
 # or video class gadget drivers), or specific hardware, here.
@@ -800,5 +875,26 @@ config USB_CDC_COMPOSITE
 # - none yet
 
 endchoice
+
+config USB_DUN_SUPPORT
+	bool "ACM line state notification to support DUN"
+	depends on USB_ANDROID_ADB_UMS_ACM || USB_ANDROID_ADB_ACM || USB_ANDROID_ADB_UMS_ACM_EEM || USB_ANDROID_ADB_UMS_ACM_ETH_MTP
+	default y
+	help
+
+config SERIAL_GADGET_TTY_PREFIX
+	string "Serial Gadget TTY Prefix"
+	depends on USB_ANDROID_ADB_UMS_ACM || USB_ANDROID_ADB_ACM || USB_ANDROID_ADB_UMS_ACM_EEM || USB_ANDROID_ADB_UMS_ACM_ETH_MTP
+	default "ttygs"
+
+config SAMSUNG_KIES_UMS_SUPPORT
+	bool "Samsung Kies UMS support"
+	default y
+
+config USB_ANDROID_SAMSUNG_MENU_SEL
+	bool "Samsung USB Menu support"
+	default n
+	help
+ 	  This configuration for Samsung USB MENU Support.
 
 endif # USB_GADGET

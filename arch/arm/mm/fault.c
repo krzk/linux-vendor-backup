@@ -25,6 +25,10 @@
 
 #include "fault.h"
 
+#ifdef CONFIG_SAMSUNG_KERNEL_DEBUG
+#include <mach/sec_param.h>
+#endif
+
 /*
  * Fault status register encodings.  We steal bit 31 for our own purposes.
  */
@@ -145,6 +149,11 @@ __do_kernel_fault(struct mm_struct *mm, unsigned long addr, unsigned int fsr,
 	bust_spinlocks(0);
 	do_exit(SIGKILL);
 }
+
+#ifdef CONFIG_SAMSUNG_KERNEL_DEBUG
+extern void (*sec_set_param_value) (int idx, void *value);
+extern void (*sec_get_param_value) (int idx, void *value);
+#endif /* CONFIG_SAMSUNG_KERNEL_DEBUG */
 
 /*
  * Something tried to access memory that isn't in our memory map..
@@ -456,7 +465,7 @@ static struct fsr_info {
 	{ do_bad,		SIGILL,	 BUS_ADRALN,	"alignment exception"		   },
 	{ do_bad,		SIGKILL, 0,		"terminal exception"		   },
 	{ do_bad,		SIGILL,	 BUS_ADRALN,	"alignment exception"		   },
-	{ do_bad,		SIGBUS,	 0,		"external abort on linefetch"	   },
+	{ do_translation_fault,	SIGSEGV, SEGV_MAPERR,	"I-cache maintenance fault"	   },
 	{ do_translation_fault,	SIGSEGV, SEGV_MAPERR,	"section translation fault"	   },
 	{ do_bad,		SIGBUS,	 0,		"external abort on linefetch"	   },
 	{ do_page_fault,	SIGSEGV, SEGV_MAPERR,	"page translation fault"	   },

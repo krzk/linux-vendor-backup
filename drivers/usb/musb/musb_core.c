@@ -98,6 +98,8 @@
 #include <linux/kobject.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
+#include <linux/i2c/twl.h>
+#include <linux/delay.h>
 
 #ifdef	CONFIG_ARM
 #include <mach/hardware.h>
@@ -133,6 +135,10 @@ MODULE_DESCRIPTION(DRIVER_INFO);
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:" MUSB_DRIVER_NAME);
+#ifdef CONFIG_MICROUSBIC_INTR
+extern struct twl4030_usb *t2_transceiver;
+extern void musb_platform_cable_mgr(bool );               
+#endif
 
 
 /*-------------------------------------------------------------------------*/
@@ -796,6 +802,13 @@ static irqreturn_t musb_stage2_irq(struct musb *musb, u8 int_usb,
 		case OTG_STATE_B_PERIPHERAL:
 		case OTG_STATE_B_IDLE:
 			musb_g_disconnect(musb);
+#ifdef CONFIG_FSA9480_MICROUSB
+			{
+				extern void microusb_disconnect_notify(void);
+				microusb_disconnect_notify();
+			}
+#endif
+			printk("musb_disconnect \n");
 			break;
 #endif	/* GADGET */
 		default:
@@ -1000,7 +1013,8 @@ static void musb_shutdown(struct platform_device *pdev)
  * more than selecting one of a bunch of predefined configurations.
  */
 #if defined(CONFIG_USB_TUSB6010) || \
-	defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP34XX)
+	defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP34XX) \
+	|| defined(CONFIG_ARCH_OMAP4)
 static ushort __initdata fifo_mode = 4;
 #else
 static ushort __initdata fifo_mode = 2;
@@ -1391,11 +1405,13 @@ static int __init musb_core_init(u16 musb_type, struct musb *musb)
 	}
 
 	/* log release info */
-	hwvers = musb_read_hwvers(mbase);
+	musb->hwvers = musb_read_hwvers(mbase);
 	rev_major = (hwvers >> 10) & 0x1f;
 	rev_minor = hwvers & 0x3ff;
-	snprintf(aRevision, 32, "%d.%d%s", rev_major,
-		rev_minor, (hwvers & 0x8000) ? "RC" : "");
+
+	snprintf(aRevision, 32, "%d.%d%s", MUSB_HWVERS_MAJOR(musb->hwvers),
+		MUSB_HWVERS_MINOR(musb->hwvers),
+		(musb->hwvers & MUSB_HWVERS_RC) ? "RC" : "");
 	printk(KERN_DEBUG "%s: %sHDRC RTL version %s %s\n",
 			musb_driver_name, type, aRevision, aDate);
 
@@ -1476,7 +1492,8 @@ static int __init musb_core_init(u16 musb_type, struct musb *musb)
 
 /*-------------------------------------------------------------------------*/
 
-#if defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP3430)
+#if defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP3430) || \
+	defined(CONFIG_ARCH_OMAP4)
 
 static irqreturn_t generic_interrupt(int irq, void *__hci)
 {
@@ -1870,6 +1887,14 @@ static void musb_free(struct musb *musb)
 #endif
 }
 
+#define VUSB_CFG_STATE			0x72
+#define MISC2				0xE5
+#define CFG_LDO_PD2			0xF5
+#define VUSB_CFG_VOLTAGE		0x73
+#define VUSB_CFG_TRANS			0x71
+#define USB_VBUS_CTRL_SET		0x4
+#define USB_ID_CTRL_SET			0x6
+#define CHARGERUSB_CTRL1		0x8
 /*
  * Perform generic per-controller initialization.
  *
@@ -1895,12 +1920,65 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 	switch (plat->mode) {
 	case MUSB_HOST:
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
+
+	if (cpu_is_omap44xx()) {
+		/* Program CFG_LDO_PD2 register and set VUSB bit */
+		twl_i2c_write_u8(TWL4030_MODULE_INTBR , 0x1, CFG_LDO_PD2);
+
+		/* Program MISC2 register and set bit VUSB_IN_VBAT */
+		twl_i2c_write_u8(TWL4030_MODULE_INTBR , 0x10, MISC2);
+
+		/* Program the VUSB_CFG_VOLTAGE register to set the VUSB
+		 * voltage to 3.3V
+		 */
+		twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER, 0x18,
+							VUSB_CFG_VOLTAGE);
+
+		/* Program the VUSB_CFG_TRANS for ACTIVE state. */
+		twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER, 0x3F,
+							VUSB_CFG_TRANS);
+
+		/* Program the VUSB_CFG_STATE register to ON on all groups. */
+		twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER, 0xE1,
+							VUSB_CFG_STATE);
+
+		/* Program the USB_VBUS_CTRL_SET and set VBUS_ACT_COMP bit */
+		twl_i2c_write_u8(TWL_MODULE_USB, 0x4,USB_VBUS_CTRL_SET);
+
+		/* Program the USB_ID_CTRL_SET register to enable GND drive
+		 * and the ID comparators
+		 */
+		twl_i2c_write_u8(TWL_MODULE_USB, 0x24, USB_ID_CTRL_SET);
+
+		/* Enable VBUS Valid, BValid, AValid. Clear SESSEND.*/
+		omap_writel(0x00000005, 0x4A00233C);
+
+		/* Delay supply of VBUS. This fixes bootup enumeration issue */
+		mdelay(500);
+
+		/* Start driving VBUS. Set OPA_MODE bit in CHARGERUSB_CTRL1
+		 * register. This enables boost mode.
+		 */
+		twl_i2c_write_u8(TWL_MODULE_MAIN_CHARGE , 0x40,
+							CHARGERUSB_CTRL1);
+
+	}
 		break;
 #else
 		goto bad_config;
 #endif
 	case MUSB_PERIPHERAL:
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
+		/* FIXME */
+		/* TODO:- Phoenix Settings to be done from Phoenix Layer */
+	if (cpu_is_omap44xx()) {
+		twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER, 0x21,
+							VUSB_CFG_STATE);
+		twl_i2c_write_u8(TWL4030_MODULE_INTBR , 0x10,
+							MISC2);
+		omap_writel(0x00000015, 0x4A00233C);
+	}
+
 		break;
 #else
 		goto bad_config;
@@ -1955,7 +2033,7 @@ bad_config:
 	 * isp1504, non-OTG, etc) mostly hooking up through ULPI.
 	 */
 	musb->isr = generic_interrupt;
-	status = musb_platform_init(musb);
+	status = musb_platform_init(musb, plat->board_data);
 
 	if (status < 0)
 		goto fail;
@@ -2072,11 +2150,19 @@ bad_config:
 
 	}
 
+#ifdef CONFIG_HAS_WAKELOCK
+	wake_lock_init(&musb->wake_lock, WAKE_LOCK_SUSPEND,"musb_cable");
+#endif
 #ifdef CONFIG_SYSFS
 	status = device_create_file(dev, &dev_attr_mode);
 	status = device_create_file(dev, &dev_attr_vbus);
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
 	status = device_create_file(dev, &dev_attr_srp);
+
+	/* Android has hardcoded the sysfs path to "usb_mass_storage"
+	 * so we create a link to point to the actual path.
+	 */
+	sysfs_create_link( (dev->kobj).parent, &dev->kobj,"usb_mass_storage");
 #endif /* CONFIG_USB_GADGET_MUSB_HDRC */
 	status = 0;
 #endif
@@ -2178,6 +2264,8 @@ static int musb_suspend(struct device *dev)
 
 	spin_lock_irqsave(&musb->lock, flags);
 
+	musb_platform_save_context(musb);
+
 	if (is_peripheral_active(musb)) {
 		/* FIXME force disconnect unless we know USB will wake
 		 * the system up quickly enough to respond ...
@@ -2208,6 +2296,8 @@ static int musb_resume_noirq(struct device *dev)
 		musb->set_clock(musb->clock, 1);
 	else
 		clk_enable(musb->clock);
+
+	musb_platform_restore_context(musb);
 
 	/* for static cmos like DaVinci, register values were preserved
 	 * unless for some reason the whole soc powered down or the USB

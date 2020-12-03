@@ -6,13 +6,13 @@
  *
  * Written by Paul Walmsley
  *
+ * Added OMAP4 specific support by Abhijit Pagare <abhijitpagare@ti.com>
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-#ifdef CONFIG_OMAP_DEBUG_POWERDOMAIN
-# define DEBUG
-#endif
+#undef DEBUG
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -28,12 +28,14 @@
 
 #include "cm.h"
 #include "cm-regbits-34xx.h"
+#include "cm-regbits-44xx.h"
 #include "prm.h"
 #include "prm-regbits-34xx.h"
+#include "prm-regbits-44xx.h"
 
-#include <mach/cpu.h>
-#include <mach/powerdomain.h>
-#include <mach/clockdomain.h>
+#include <plat/cpu.h>
+#include <plat/powerdomain.h>
+#include <plat/clockdomain.h>
 
 #include "pm.h"
 
@@ -42,8 +44,45 @@ enum {
 	PWRDM_STATE_PREV,
 };
 
+/* Variable holding value of the CPU dependent PWRSTCTRL Register Offset */
+static u16 pwrstctrl_reg_offs;
+
+/* Variable holding value of the CPU dependent PWRSTST Register Offset */
+static u16 pwrstst_reg_offs;
+
+/* OMAP3 and OMAP4 specific register bit initialisations
+ * Notice that the names here are not according to each power
+ * domain but the bit mapping used applies to all of them
+ */
+
+/* OMAP3 and OMAP4 Memory Onstate Masks (common across all power domains) */
+#define OMAP_MEM0_ONSTATE_MASK OMAP3430_SHAREDL1CACHEFLATONSTATE_MASK
+#define OMAP_MEM1_ONSTATE_MASK OMAP3430_L1FLATMEMONSTATE_MASK
+#define OMAP_MEM2_ONSTATE_MASK OMAP3430_SHAREDL2CACHEFLATONSTATE_MASK
+#define OMAP_MEM3_ONSTATE_MASK OMAP3430_L2FLATMEMONSTATE_MASK
+#define OMAP_MEM4_ONSTATE_MASK OMAP4430_OCP_NRET_BANK_ONSTATE_MASK
+
+/* OMAP3 and OMAP4 Memory Retstate Masks (common across all power domains) */
+#define OMAP_MEM0_RETSTATE_MASK OMAP3430_SHAREDL1CACHEFLATRETSTATE
+#define OMAP_MEM1_RETSTATE_MASK OMAP3430_L1FLATMEMRETSTATE
+#define OMAP_MEM2_RETSTATE_MASK OMAP3430_SHAREDL2CACHEFLATRETSTATE
+#define OMAP_MEM3_RETSTATE_MASK OMAP3430_L2FLATMEMRETSTATE
+#define OMAP_MEM4_RETSTATE_MASK OMAP4430_OCP_NRET_BANK_RETSTATE_MASK
+
+/* OMAP3 and OMAP4 Memory Status bits */
+#define OMAP_MEM0_STATEST_MASK OMAP3430_SHAREDL1CACHEFLATSTATEST_MASK
+#define OMAP_MEM1_STATEST_MASK OMAP3430_L1FLATMEMSTATEST_MASK
+#define OMAP_MEM2_STATEST_MASK OMAP3430_SHAREDL2CACHEFLATSTATEST_MASK
+#define OMAP_MEM3_STATEST_MASK OMAP3430_L2FLATMEMSTATEST_MASK
+#define OMAP_MEM4_STATEST_MASK OMAP4430_OCP_NRET_BANK_STATEST_MASK
+
 /* pwrdm_list contains all registered struct powerdomains */
 static LIST_HEAD(pwrdm_list);
+
+/* Adding counters for power domain logic off and mem off
+ * during retention.
+ */
+static void _update_logic_membank_counters(struct powerdomain *pwrdm);
 
 /*
  * pwrdm_rwlock protects pwrdm_list add and del ops - also reused to
@@ -58,7 +97,12 @@ static u32 prm_read_mod_bits_shift(s16 domain, s16 idx, u32 mask)
 {
 	u32 v;
 
-	v = prm_read_mod_reg(domain, idx);
+	/* CHIRON CPU0/1 domains are not part of PRM */
+	if (cpu_is_omap44xx() && ((domain == OMAP4430_CHIRONSS_CHIRONSS_CPU0_MOD)
+			|| (domain == OMAP4430_CHIRONSS_CHIRONSS_CPU1_MOD)))
+		v = chiron_read_mod_reg(domain, idx);
+	else
+		v = prm_read_mod_reg(domain, idx);
 	v &= mask;
 	v >>= __ffs(mask);
 
@@ -128,6 +172,8 @@ static int _pwrdm_state_switch(struct powerdomain *pwrdm, int flag)
 		prev = pwrdm_read_prev_pwrst(pwrdm);
 		if (pwrdm->state != prev)
 			pwrdm->state_counter[prev]++;
+		if (prev == PWRDM_POWER_RET)
+			_update_logic_membank_counters(pwrdm);
 		break;
 	default:
 		return -EINVAL;
@@ -160,13 +206,40 @@ static __init void _pwrdm_setup(struct powerdomain *pwrdm)
 {
 	int i;
 
-	for (i = 0; i < 4; i++)
+	if(!pwrdm){
+		WARN_ON(1);
+		return ;
+	}
+	for (i = 0; i < PWRDM_MAX_PWRSTS; i++)
 		pwrdm->state_counter[i] = 0;
+
+	pwrdm->ret_logic_off_counter = 0;
+	for (i = 0; i < pwrdm->banks; i++)
+		pwrdm->ret_mem_off_counter[i] = 0;
 
 	pwrdm_wait_transition(pwrdm);
 	pwrdm->state = pwrdm_read_pwrst(pwrdm);
 	pwrdm->state_counter[pwrdm->state] = 1;
 
+}
+
+static void _update_logic_membank_counters(struct powerdomain *pwrdm)
+{
+	int i;
+	u8 prev_logic_pwrst, prev_mem_pwrst;
+
+	prev_logic_pwrst = pwrdm_read_prev_logic_pwrst(pwrdm);
+	if ((pwrdm->pwrsts_logic_ret == PWRSTS_OFF_RET) &&
+			(prev_logic_pwrst == PWRDM_POWER_OFF))
+		pwrdm->ret_logic_off_counter++;
+
+	for (i = 0; i < pwrdm->banks; i++) {
+		prev_mem_pwrst = pwrdm_read_prev_mem_pwrst(pwrdm, i);
+
+		if ((pwrdm->pwrsts_mem_ret[i] == PWRSTS_OFF_RET) &&
+				(prev_mem_pwrst == PWRDM_POWER_OFF))
+			pwrdm->ret_mem_off_counter[i]++;
+	}
 }
 
 /* Public functions */
@@ -182,6 +255,18 @@ static __init void _pwrdm_setup(struct powerdomain *pwrdm)
 void pwrdm_init(struct powerdomain **pwrdm_list)
 {
 	struct powerdomain **p = NULL;
+
+	if (cpu_is_omap24xx() || cpu_is_omap34xx()) {
+		pwrstctrl_reg_offs = OMAP2_PM_PWSTCTRL;
+		pwrstst_reg_offs = OMAP2_PM_PWSTST;
+	} else if (cpu_is_omap44xx()) {
+		pwrstctrl_reg_offs = OMAP4_PM_PWSTCTRL;
+		pwrstst_reg_offs = OMAP4_PM_PWSTST;
+	} else {
+		printk(KERN_ERR "Power Domain struct not supported for " \
+							"this CPU\n");
+		return;
+	}
 
 	if (pwrdm_list) {
 		for (p = pwrdm_list; *p; p++) {
@@ -480,7 +565,7 @@ int pwrdm_add_wkdep(struct powerdomain *pwrdm1, struct powerdomain *pwrdm2)
 	if (IS_ERR(p)) {
 		pr_debug("powerdomain: hardware cannot set/clear wake up of "
 			 "%s when %s wakes up\n", pwrdm1->name, pwrdm2->name);
-		return IS_ERR(p);
+		return PTR_ERR(p);
 	}
 
 	pr_debug("powerdomain: hardware will wake up %s when %s wakes up\n",
@@ -513,7 +598,7 @@ int pwrdm_del_wkdep(struct powerdomain *pwrdm1, struct powerdomain *pwrdm2)
 	if (IS_ERR(p)) {
 		pr_debug("powerdomain: hardware cannot set/clear wake up of "
 			 "%s when %s wakes up\n", pwrdm1->name, pwrdm2->name);
-		return IS_ERR(p);
+		return PTR_ERR(p);
 	}
 
 	pr_debug("powerdomain: hardware will no longer wake up %s after %s "
@@ -550,7 +635,7 @@ int pwrdm_read_wkdep(struct powerdomain *pwrdm1, struct powerdomain *pwrdm2)
 	if (IS_ERR(p)) {
 		pr_debug("powerdomain: hardware cannot set/clear wake up of "
 			 "%s when %s wakes up\n", pwrdm1->name, pwrdm2->name);
-		return IS_ERR(p);
+		return PTR_ERR(p);
 	}
 
 	return prm_read_mod_bits_shift(pwrdm1->prcm_offs, PM_WKDEP,
@@ -573,10 +658,10 @@ int pwrdm_add_sleepdep(struct powerdomain *pwrdm1, struct powerdomain *pwrdm2)
 {
 	struct powerdomain *p;
 
-	if (!pwrdm1)
+	if (!cpu_is_omap34xx())
 		return -EINVAL;
 
-	if (!cpu_is_omap34xx())
+	if (!pwrdm1)
 		return -EINVAL;
 
 	p = _pwrdm_deps_lookup(pwrdm2, pwrdm1->sleepdep_srcs);
@@ -584,7 +669,7 @@ int pwrdm_add_sleepdep(struct powerdomain *pwrdm1, struct powerdomain *pwrdm2)
 		pr_debug("powerdomain: hardware cannot set/clear sleep "
 			 "dependency affecting %s from %s\n", pwrdm1->name,
 			 pwrdm2->name);
-		return IS_ERR(p);
+		return PTR_ERR(p);
 	}
 
 	pr_debug("powerdomain: will prevent %s from sleeping if %s is active\n",
@@ -612,10 +697,10 @@ int pwrdm_del_sleepdep(struct powerdomain *pwrdm1, struct powerdomain *pwrdm2)
 {
 	struct powerdomain *p;
 
-	if (!pwrdm1)
+	if (!cpu_is_omap34xx())
 		return -EINVAL;
 
-	if (!cpu_is_omap34xx())
+	if (!pwrdm1)
 		return -EINVAL;
 
 	p = _pwrdm_deps_lookup(pwrdm2, pwrdm1->sleepdep_srcs);
@@ -623,7 +708,7 @@ int pwrdm_del_sleepdep(struct powerdomain *pwrdm1, struct powerdomain *pwrdm2)
 		pr_debug("powerdomain: hardware cannot set/clear sleep "
 			 "dependency affecting %s from %s\n", pwrdm1->name,
 			 pwrdm2->name);
-		return IS_ERR(p);
+		return PTR_ERR(p);
 	}
 
 	pr_debug("powerdomain: will no longer prevent %s from sleeping if "
@@ -655,10 +740,10 @@ int pwrdm_read_sleepdep(struct powerdomain *pwrdm1, struct powerdomain *pwrdm2)
 {
 	struct powerdomain *p;
 
-	if (!pwrdm1)
+	if (!cpu_is_omap34xx())
 		return -EINVAL;
 
-	if (!cpu_is_omap34xx())
+	if (!pwrdm1)
 		return -EINVAL;
 
 	p = _pwrdm_deps_lookup(pwrdm2, pwrdm1->sleepdep_srcs);
@@ -666,7 +751,7 @@ int pwrdm_read_sleepdep(struct powerdomain *pwrdm1, struct powerdomain *pwrdm2)
 		pr_debug("powerdomain: hardware cannot set/clear sleep "
 			 "dependency affecting %s from %s\n", pwrdm1->name,
 			 pwrdm2->name);
-		return IS_ERR(p);
+		return PTR_ERR(p);
 	}
 
 	return prm_read_mod_bits_shift(pwrdm1->prcm_offs, OMAP3430_CM_SLEEPDEP,
@@ -712,7 +797,7 @@ int pwrdm_set_next_pwrst(struct powerdomain *pwrdm, u8 pwrst)
 
 	prm_rmw_mod_reg_bits(OMAP_POWERSTATE_MASK,
 			     (pwrst << OMAP_POWERSTATE_SHIFT),
-			     pwrdm->prcm_offs, PM_PWSTCTRL);
+			     pwrdm->prcm_offs, pwrstctrl_reg_offs);
 
 	return 0;
 }
@@ -730,8 +815,8 @@ int pwrdm_read_next_pwrst(struct powerdomain *pwrdm)
 	if (!pwrdm)
 		return -EINVAL;
 
-	return prm_read_mod_bits_shift(pwrdm->prcm_offs, PM_PWSTCTRL,
-					OMAP_POWERSTATE_MASK);
+	return prm_read_mod_bits_shift(pwrdm->prcm_offs,
+				 pwrstctrl_reg_offs, OMAP_POWERSTATE_MASK);
 }
 
 /**
@@ -747,8 +832,8 @@ int pwrdm_read_pwrst(struct powerdomain *pwrdm)
 	if (!pwrdm)
 		return -EINVAL;
 
-	return prm_read_mod_bits_shift(pwrdm->prcm_offs, PM_PWSTST,
-					OMAP_POWERSTATEST_MASK);
+	return prm_read_mod_bits_shift(pwrdm->prcm_offs,
+				 pwrstst_reg_offs, OMAP_POWERSTATEST_MASK);
 }
 
 /**
@@ -798,7 +883,7 @@ int pwrdm_set_logic_retst(struct powerdomain *pwrdm, u8 pwrst)
 	 */
 	prm_rmw_mod_reg_bits(OMAP3430_LOGICL1CACHERETSTATE,
 			     (pwrst << __ffs(OMAP3430_LOGICL1CACHERETSTATE)),
-			     pwrdm->prcm_offs, PM_PWSTCTRL);
+				 pwrdm->prcm_offs, pwrstctrl_reg_offs);
 
 	return 0;
 }
@@ -841,16 +926,19 @@ int pwrdm_set_mem_onst(struct powerdomain *pwrdm, u8 bank, u8 pwrst)
 	 */
 	switch (bank) {
 	case 0:
-		m = OMAP3430_SHAREDL1CACHEFLATONSTATE_MASK;
+		m = OMAP_MEM0_ONSTATE_MASK;
 		break;
 	case 1:
-		m = OMAP3430_L1FLATMEMONSTATE_MASK;
+		m = OMAP_MEM1_ONSTATE_MASK;
 		break;
 	case 2:
-		m = OMAP3430_SHAREDL2CACHEFLATONSTATE_MASK;
+		m = OMAP_MEM2_ONSTATE_MASK;
 		break;
 	case 3:
-		m = OMAP3430_L2FLATMEMONSTATE_MASK;
+		m = OMAP_MEM3_ONSTATE_MASK;
+		break;
+	case 4:
+		m = OMAP_MEM4_ONSTATE_MASK;
 		break;
 	default:
 		WARN_ON(1); /* should never happen */
@@ -858,7 +946,7 @@ int pwrdm_set_mem_onst(struct powerdomain *pwrdm, u8 bank, u8 pwrst)
 	}
 
 	prm_rmw_mod_reg_bits(m, (pwrst << __ffs(m)),
-			     pwrdm->prcm_offs, PM_PWSTCTRL);
+			     pwrdm->prcm_offs, pwrstctrl_reg_offs);
 
 	return 0;
 }
@@ -902,16 +990,19 @@ int pwrdm_set_mem_retst(struct powerdomain *pwrdm, u8 bank, u8 pwrst)
 	 */
 	switch (bank) {
 	case 0:
-		m = OMAP3430_SHAREDL1CACHEFLATRETSTATE;
+		m = OMAP_MEM0_RETSTATE_MASK;
 		break;
 	case 1:
-		m = OMAP3430_L1FLATMEMRETSTATE;
+		m = OMAP_MEM1_RETSTATE_MASK;
 		break;
 	case 2:
-		m = OMAP3430_SHAREDL2CACHEFLATRETSTATE;
+		m = OMAP_MEM2_RETSTATE_MASK;
 		break;
 	case 3:
-		m = OMAP3430_L2FLATMEMRETSTATE;
+		m = OMAP_MEM3_RETSTATE_MASK;
+		break;
+	case 4:
+		m = OMAP_MEM4_RETSTATE_MASK;
 		break;
 	default:
 		WARN_ON(1); /* should never happen */
@@ -919,7 +1010,7 @@ int pwrdm_set_mem_retst(struct powerdomain *pwrdm, u8 bank, u8 pwrst)
 	}
 
 	prm_rmw_mod_reg_bits(m, (pwrst << __ffs(m)), pwrdm->prcm_offs,
-			     PM_PWSTCTRL);
+			     pwrstctrl_reg_offs);
 
 	return 0;
 }
@@ -938,8 +1029,8 @@ int pwrdm_read_logic_pwrst(struct powerdomain *pwrdm)
 	if (!pwrdm)
 		return -EINVAL;
 
-	return prm_read_mod_bits_shift(pwrdm->prcm_offs, PM_PWSTST,
-					OMAP3430_LOGICSTATEST);
+	return prm_read_mod_bits_shift(pwrdm->prcm_offs,
+				 pwrstst_reg_offs, OMAP3430_LOGICSTATEST);
 }
 
 /**
@@ -985,6 +1076,9 @@ int pwrdm_read_mem_pwrst(struct powerdomain *pwrdm, u8 bank)
 	if (pwrdm->banks < (bank + 1))
 		return -EEXIST;
 
+	if (pwrdm->flags & PWRDM_HAS_MPU_QUIRK)
+		bank = 1;
+
 	/*
 	 * The register bit names below may not correspond to the
 	 * actual names of the bits in each powerdomain's register,
@@ -993,23 +1087,27 @@ int pwrdm_read_mem_pwrst(struct powerdomain *pwrdm, u8 bank)
 	 */
 	switch (bank) {
 	case 0:
-		m = OMAP3430_SHAREDL1CACHEFLATSTATEST_MASK;
+		m = OMAP_MEM0_STATEST_MASK;
 		break;
 	case 1:
-		m = OMAP3430_L1FLATMEMSTATEST_MASK;
+		m = OMAP_MEM1_STATEST_MASK;
 		break;
 	case 2:
-		m = OMAP3430_SHAREDL2CACHEFLATSTATEST_MASK;
+		m = OMAP_MEM2_STATEST_MASK;
 		break;
 	case 3:
-		m = OMAP3430_L2FLATMEMSTATEST_MASK;
+		m = OMAP_MEM3_STATEST_MASK;
+		break;
+	case 4:
+		m = OMAP_MEM4_STATEST_MASK;
 		break;
 	default:
 		WARN_ON(1); /* should never happen */
 		return -EEXIST;
 	}
 
-	return prm_read_mod_bits_shift(pwrdm->prcm_offs, PM_PWSTST, m);
+	return prm_read_mod_bits_shift(pwrdm->prcm_offs,
+					 pwrstst_reg_offs, m);
 }
 
 /**
@@ -1031,6 +1129,9 @@ int pwrdm_read_prev_mem_pwrst(struct powerdomain *pwrdm, u8 bank)
 
 	if (pwrdm->banks < (bank + 1))
 		return -EEXIST;
+
+	if (pwrdm->flags & PWRDM_HAS_MPU_QUIRK)
+		bank = 1;
 
 	/*
 	 * The register bit names below may not correspond to the
@@ -1110,7 +1211,7 @@ int pwrdm_enable_hdwr_sar(struct powerdomain *pwrdm)
 		 pwrdm->name);
 
 	prm_rmw_mod_reg_bits(0, 1 << OMAP3430ES2_SAVEANDRESTORE_SHIFT,
-			     pwrdm->prcm_offs, PM_PWSTCTRL);
+			     pwrdm->prcm_offs, pwrstctrl_reg_offs);
 
 	return 0;
 }
@@ -1138,7 +1239,7 @@ int pwrdm_disable_hdwr_sar(struct powerdomain *pwrdm)
 		 pwrdm->name);
 
 	prm_rmw_mod_reg_bits(1 << OMAP3430ES2_SAVEANDRESTORE_SHIFT, 0,
-			     pwrdm->prcm_offs, PM_PWSTCTRL);
+			     pwrdm->prcm_offs, pwrstctrl_reg_offs);
 
 	return 0;
 }
@@ -1167,7 +1268,7 @@ bool pwrdm_has_hdwr_sar(struct powerdomain *pwrdm)
  */
 int pwrdm_wait_transition(struct powerdomain *pwrdm)
 {
-	u32 c = 0;
+	u32 c = 0, v;
 
 	if (!pwrdm)
 		return -EINVAL;
@@ -1179,10 +1280,25 @@ int pwrdm_wait_transition(struct powerdomain *pwrdm)
 	 */
 
 	/* XXX Is this udelay() value meaningful? */
-	while ((prm_read_mod_reg(pwrdm->prcm_offs, PM_PWSTST) &
-		OMAP_INTRANSITION) &&
-	       (c++ < PWRDM_TRANSITION_BAILOUT))
+
+	/* CHIRON CPU0/1 domains are not part of PRM */
+	if ( cpu_is_omap44xx() &&
+		((pwrdm->prcm_offs == OMAP4430_CHIRONSS_CHIRONSS_CPU0_MOD) ||
+		(pwrdm->prcm_offs == OMAP4430_CHIRONSS_CHIRONSS_CPU1_MOD)))
+		v = chiron_read_mod_reg(pwrdm->prcm_offs, pwrstst_reg_offs);
+	else
+		v = prm_read_mod_reg(pwrdm->prcm_offs, pwrstst_reg_offs);
+
+	while ((v & OMAP_INTRANSITION) && (c++ < PWRDM_TRANSITION_BAILOUT)) {
 		udelay(1);
+		if (cpu_is_omap44xx() &&
+			((pwrdm->prcm_offs == OMAP4430_CHIRONSS_CHIRONSS_CPU0_MOD) ||
+			(pwrdm->prcm_offs == OMAP4430_CHIRONSS_CHIRONSS_CPU1_MOD)))
+			v = chiron_read_mod_reg(pwrdm->prcm_offs, pwrstst_reg_offs);
+		else
+			v = prm_read_mod_reg(pwrdm->prcm_offs, pwrstst_reg_offs);
+	}
+
 
 	if (c > PWRDM_TRANSITION_BAILOUT) {
 		printk(KERN_ERR "powerdomain: waited too long for "
@@ -1194,6 +1310,42 @@ int pwrdm_wait_transition(struct powerdomain *pwrdm)
 
 	return 0;
 }
+
+/**
+ * pwrdm_can_idle - check if the powerdomain can enter idle
+ * @pwrdm: struct powerdomain * the powerdomain to check status of
+ *
+ * Does a functional clock check for the powerdomain and returns 1 if the
+ * powerdomain can enter idle, 0 if not.
+ */
+int pwrdm_can_idle(struct powerdomain *pwrdm)
+{
+	int i;
+	u32 cur_state;
+	const int fclk_regs[] = { CM_FCLKEN, OMAP3430ES2_CM_FCLKEN3 };
+
+	if (!pwrdm)
+		return -EINVAL;
+
+	/*
+	 * DSP bridge doesn't disable clk only autoidle.
+	 * Check IVA state instead.
+	 */
+	if (!strcmp(pwrdm->name, "iva2_pwrdm")) {
+		cur_state = pwrdm_read_next_pwrst(pwrdm);
+		if (cur_state == PWRDM_POWER_OFF)
+			return 1;
+		else
+			return 0;
+	}
+
+	for (i = 0; i < pwrdm->fclk_reg_amt; i++)
+		if (cm_read_mod_reg(pwrdm->prcm_offs, fclk_regs[i]) &
+				(0xffffffff ^ pwrdm->fclk_masks[i]))
+			return 0;
+	return 1;
+}
+
 
 int pwrdm_state_switch(struct powerdomain *pwrdm)
 {

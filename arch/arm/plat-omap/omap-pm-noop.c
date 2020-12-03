@@ -22,9 +22,9 @@
 #include <linux/device.h>
 
 /* Interface documentation is in mach/omap-pm.h */
-#include <mach/omap-pm.h>
+#include <plat/omap-pm.h>
 
-#include <mach/powerdomain.h>
+#include <plat/powerdomain.h>
 
 struct omap_opp *dsp_opps;
 struct omap_opp *mpu_opps;
@@ -158,14 +158,9 @@ const struct omap_opp *omap_pm_dsp_get_opp_table(void)
 	return NULL;
 }
 
-void omap_pm_dsp_set_min_opp(u8 opp_id)
+void omap_pm_dsp_set_min_opp(struct device *dev, unsigned long f)
 {
-	if (opp_id == 0) {
-		WARN_ON(1);
-		return;
-	}
-
-	pr_debug("OMAP PM: DSP requests minimum VDD1 OPP to be %d\n", opp_id);
+	pr_debug("OMAP PM: DSP requests minimum VDD1 OPP to be %ld Hz\n", f);
 
 	/*
 	 *
@@ -182,7 +177,6 @@ void omap_pm_dsp_set_min_opp(u8 opp_id)
 	 */
 }
 
-
 u8 omap_pm_dsp_get_opp(void)
 {
 	pr_debug("OMAP PM: DSP requests current DSP OPP ID\n");
@@ -193,6 +187,28 @@ u8 omap_pm_dsp_get_opp(void)
 	 * CDP12.14+:
 	 * Call clk_get_rate() on the OPP custom clock, map that to an
 	 * OPP ID using the tables defined in board-*.c/chip-*.c files.
+	 */
+
+	return 0;
+}
+
+u8 omap_pm_vdd1_get_opp(void)
+{
+	pr_debug("OMAP PM: User requests current VDD1 OPP\n");
+
+	/*
+	 * For l-o call resource_get_level of vdd1_opp resource.
+	 */
+
+	return 0;
+}
+
+u8 omap_pm_vdd2_get_opp(void)
+{
+	pr_debug("OMAP PM: User requests current VDD2 OPP\n");
+
+	/*
+	 * For l-o call resource_get_level of vdd2_opp resource.
 	 */
 
 	return 0;
@@ -255,6 +271,8 @@ unsigned long omap_pm_cpu_get_freq(void)
 
 int omap_pm_get_dev_context_loss_count(struct device *dev)
 {
+	static u32 counter = 0;
+
 	if (!dev) {
 		WARN_ON(1);
 		return -EINVAL;
@@ -268,7 +286,10 @@ int omap_pm_get_dev_context_loss_count(struct device *dev)
 	 * off counter.
 	 */
 
-	return 0;
+	/* For the noop case, we cannot know the off counter, so
+	 * return an increasing counter which will ensure that
+	 * context is always restored. */
+	return counter++;
 }
 
 

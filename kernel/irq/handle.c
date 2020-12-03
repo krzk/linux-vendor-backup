@@ -28,6 +28,41 @@
  * lockdep: we want to handle all irq_desc locks as a single lock-class:
  */
 struct lock_class_key irq_desc_lock_class;
+#ifdef CONFIG_SAMSUNG_KERNEL_DEBUG // klaatu
+#define SCHED_LOG_MAX 1000
+
+typedef struct {
+    void * dummy;
+    void * fn;
+}irq_log_t;
+
+typedef union {
+    char task[TASK_COMM_LEN];
+    irq_log_t irq;
+}task_log_t;
+
+typedef struct {
+    unsigned long long time;
+    task_log_t log;
+}sched_log_t;
+
+extern sched_log_t gExcpTaskLog[SCHED_LOG_MAX];
+extern unsigned int gExcpTaskLogIdx ;
+
+#endif /* CONFIG_SAMSUNG_KERNEL_DEBUG */
+
+#if 0 //def CONFIG_SAMSUNG_KERNEL_DEBUG // klaatu
+#define IRQ_LOG_MAX 1000
+
+typedef struct {
+    unsigned long long time;
+    void * fn;
+}irq_log_t;
+
+irq_log_t irq_log[IRQ_LOG_MAX];
+
+unsigned int irq_log_idx = 0;
+#endif /* CONFIG_SAMSUNG_KERNEL_DEBUG */
 
 /**
  * handle_bad_irq - handle spurious and unhandled irqs
@@ -371,12 +406,23 @@ irqreturn_t handle_IRQ_event(unsigned int irq, struct irqaction *action)
 {
 	irqreturn_t ret, retval = IRQ_NONE;
 	unsigned int status = 0;
+#ifdef CONFIG_SAMSUNG_KERNEL_DEBUG// klaatu
+    int cpu;
+    cpu = smp_processor_id();
+#endif
 
 	if (!(action->flags & IRQF_DISABLED))
 		local_irq_enable_in_hardirq();
 
 	do {
 		trace_irq_handler_entry(irq, action);
+
+#ifdef CONFIG_SAMSUNG_KERNEL_DEBUG// klaatu
+        gExcpTaskLog[gExcpTaskLogIdx].time = cpu_clock(cpu);
+        gExcpTaskLog[gExcpTaskLogIdx].log.irq.dummy = 0;
+        gExcpTaskLog[gExcpTaskLogIdx].log.irq.fn = (void *)action->handler;
+        gExcpTaskLogIdx = (++gExcpTaskLogIdx >= SCHED_LOG_MAX)? 0:gExcpTaskLogIdx;
+#endif
 		ret = action->handler(irq, action->dev_id);
 		trace_irq_handler_exit(irq, action, ret);
 

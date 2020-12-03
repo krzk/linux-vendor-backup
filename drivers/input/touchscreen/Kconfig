@@ -271,6 +271,12 @@ config TOUCHSCREEN_MIGOR
 	  To compile this driver as a module, choose M here: the
 	  module will be called migor_ts.
 
+config TOUCHSCREEN_SYNAPTICS_I2C_RMI
+	tristate "Synaptics i2c touchscreen"
+	depends on I2C
+	help
+	  This enables support for Synaptics RMI over I2C based touchscreens.
+
 config TOUCHSCREEN_TOUCHRIGHT
 	tristate "Touchright serial touchscreen"
 	select SERIO
@@ -530,4 +536,67 @@ config TOUCHSCREEN_PCAP
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called pcap_ts.
+
+config TOUCHSCREEN_QUANTUM_OBP
+	tristate "Quantum OBP based touchscreens"
+	depends on I2C
+	help
+	  Say Y here if you have a Quantum touchscreen that uses
+	  the Object Based Protocol based firmware.
+
+	  If unsure, say N.
+
+config TOUCHSCREEN_SYNTM12XX
+       tristate "Synaptic TM12xx touchscreen"
+       help
+         Say Y here to enable support for Synaptic TM12xx
+          series touchscreen controller.
+
+         If unsure, say N.
+
+         To compile this driver as module, choose M here: the
+         module will be called syntm12xx
+
+
+
+ config TOUCHSCREEN_AT42QT602240
+        tristate "Atmel AT42QT602240 based touchscreens"
+        depends on I2C
+        help
+          Say Y here if you have a Atmel AT42QT602240 based touchscreen.
+
+          If unsure, say N.
+
+          To compile this driver as a module, choose M here: the
+          module will be called atmel_touch_602240.
+ config DYNAMIC_TSP_SETTINGS_FOR_CHARGER_STATE
+        default n
+        bool "Dynamic  Atmel AT42QT602240 settings for charger state"
+        depends on TOUCHSCREEN_AT42QT602240
+ config TOUCHSCREEN_MELFAS
+        tristate "MELFAS based touchscreens"
+        depends on I2C
+        help
+          Say Y here if you have a Atmel MELFAS based touchscreen.
+
+          If unsure, say N.
+
+          To compile this driver as a module, choose M here: the
+          module will be called melfas.
+ config CHN_TSP_CYPRESS_CYTMA340
+        tristate "Cypress cytma340 based touchscreens"
+	default n
+        depends on I2C
+        help
+          Say Y here if you have a Cypress cytma340 based touchscreen.
+
+          If unsure, say N.
+
+          To compile this driver as a module, choose M here: the
+          module will be called CYTMA340.
+config TOUCHKEY_LOCK
+        default n
+        bool "Touch key lock when TSP is pressed"
+        depends on TOUCHSCREEN_MELFAS
+
 endif

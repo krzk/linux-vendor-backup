@@ -28,7 +28,11 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_TLV320AIC23 if I2C
 	select SND_SOC_TLV320AIC26 if SPI_MASTER
 	select SND_SOC_TLV320AIC3X if I2C
+	select SND_SOC_MAX9877 if I2C
+	select SND_SOC_MAX97000 if I2C
+	select CHN_SND_SOC_MAX97000_USE_GPIO_I2C if I2C
 	select SND_SOC_TWL4030 if TWL4030_CORE
+	select SND_SOC_ABE_TWL6040 if TWL4030_CORE
 	select SND_SOC_UDA134X
 	select SND_SOC_UDA1380 if I2C
 	select SND_SOC_WM8350 if MFD_WM8350
@@ -139,6 +143,9 @@ config SND_SOC_TLV320AIC3X
 config SND_SOC_TWL4030
 	tristate
 
+config SND_SOC_ABE_TWL6040
+	tristate
+
 config SND_SOC_UDA134X
        tristate
 
@@ -219,4 +226,15 @@ config SND_SOC_WM9713
 
 # Amp
 config SND_SOC_MAX9877
-	tristate
+        tristate "MAX9877 amp support"
+
+config SND_SOC_MAX97000
+        tristate "MAX97000 amp support"
+
+config CHN_SND_SOC_MAX97000_USE_GPIO_I2C
+        tristate "MAX97000 amp gpio i2c support"
+        
+#config SND_SOC_MAX9879
+#tristate "MAX9879 amp support"
+#help
+#If say Y MAX9877 driver convert to MAX9879 driver

@@ -68,6 +68,19 @@
 /* CM_CLKSEL1_PLL bit settings */
 #define CORE_DPLL_CLKOUT_DIV_SHIFT	0x1b
 
+#ifdef CONFIG_FB_OMAP2_32_BPP
+/* DSS registers */
+#define OMAP34XX_DISPC_BASE		0x48050400
+#define	DISPC_CTRL			0x040
+#define DISPC_IRQSTATUS			0x018
+#define DISPC_CONTROL_P			OMAP2_L4_IO_ADDRESS(OMAP34XX_DISPC_BASE + DISPC_CTRL)
+#define DISPC_IRQSTATUS_P		OMAP2_L4_IO_ADDRESS(OMAP34XX_DISPC_BASE + DISPC_IRQSTATUS)
+#define DISPC_LCD_EN			(1 << 0)
+#define DISPC_LCD_DS			~DISPC_LCD_EN
+#define DISPC_VSYNC_ST			(1 << 1)
+#define CM_DSS_ICLK_ST			(1 << 0)
+#endif
+
 /*
  * omap3_sram_configure_core_dpll - change DPLL3 M2 divider
  *
@@ -91,8 +104,19 @@
  *  new SDRC_ACTIM_CTRL_B_1 register contents
  *  new SDRC_MR_1 register value
  *
- * If the param SDRC_RFR_CTRL_1 is 0, the parameters
- *  are not programmed into the SDRC CS1 registers
+ * If the param SDRC_RFR_CTRL_1 is 0, the parameters are not programmed into
+ * the SDRC CS1 registers
+ *
+ * NOTE: This code no longer attempts to program the SDRC AC timing and MR
+ * registers.  This is because the code currently cannot ensure that all
+ * L3 initiators (e.g., sDMA, IVA, DSS DISPC, etc.) are not accessing the
+ * SDRAM when the registers are written.  If the registers are changed while
+ * an initiator is accessing SDRAM, memory can be corrupted and/or the SDRC
+ * may enter an unpredictable state.  In the future, the intent is to
+ * re-enable this code in cases where we can ensure that no initiators are
+ * touching the SDRAM.  Until that time, users who know that their use case
+ * can satisfy the above requirement can enable the CONFIG_OMAP3_SDRC_AC_TIMING
+ * option.
  */
 ENTRY(omap3_sram_configure_core_dpll)
 	stmfd	sp!, {r1-r12, lr}	@ store regs to stack
@@ -118,8 +142,33 @@ ENTRY(omap3_sram_configure_core_dpll)
 	ldr	r4, [sp, #80]
 	str     r4, omap_sdrc_mr_1_val
 skip_cs1_params:
+	mrc p15, 0, r8, c1, c0, 0	@ read aux ctrl register
+	bic r10, r8, #0x800		@ clear Z-bit, disable branch prediction
+	mcr p15, 0, r10, c1, c0, 0	@ write aux ctrl register
 	dsb				@ flush buffered writes to interconnect
-
+	isb				@ prevent speculative exec past here
+#ifdef CONFIG_FB_OMAP2_32_BPP
+	ldr	r11, omap3_cm_iclk_dss
+	ldr	r12, [r11]
+	and	r12, r12, #CM_DSS_ICLK_ST
+	cmp	r12, #CM_DSS_ICLK_ST	@ check if dss iclk is active
+	blne	configure_dpll
+	ldr	r11, omap3_dispc_ctrl
+	ldr	r12, [r11]
+	and	r12, r12, #DISPC_LCD_EN
+	cmp	r12, #DISPC_LCD_EN	@ check if lcd is enabled
+	blne	configure_dpll
+	ldr	r11, omap3_dispc_irq_st
+	ldr	r12, [r11]
+	and	r12, r12, #DISPC_VSYNC_ST	@ clear vsync
+	str	r12, [r11]
+wait_vsync_set:
+	ldr	r12, [r11]
+	and	r12, r12, #DISPC_VSYNC_ST
+	cmp	r12, #DISPC_VSYNC_ST
+	blne	wait_vsync_set		@ wait for vsync to be set.
+configure_dpll:
+#endif
 	cmp	r3, #1			@ if increasing SDRC clk rate,
 	bleq	configure_sdrc		@ program the SDRC regs early (for RFR)
 	cmp	r1, #SDRC_UNLOCK_DLL	@ set the intended DLL state
@@ -137,6 +186,7 @@ skip_cs1_params:
 	beq	return_to_sdram		@ return to SDRAM code, otherwise,
 	bl	configure_sdrc		@ reprogram SDRC regs now
 return_to_sdram:
+	mcr p15, 0, r8, c1, c0, 0	@ restore aux ctrl register
 	isb				@ prevent speculative exec past here
 	mov 	r0, #0 			@ return value
 	ldmfd	sp!, {r1-r12, pc}	@ restore regs and return
@@ -219,6 +269,7 @@ configure_sdrc:
 	ldr	r12, omap_sdrc_rfr_ctrl_0_val	@ fetch value from SRAM
 	ldr	r11, omap3_sdrc_rfr_ctrl_0	@ fetch addr from SRAM
 	str	r12, [r11]			@ store
+#ifdef CONFIG_OMAP3_SDRC_AC_TIMING
 	ldr	r12, omap_sdrc_actim_ctrl_a_0_val
 	ldr	r11, omap3_sdrc_actim_ctrl_a_0
 	str	r12, [r11]
@@ -228,11 +279,13 @@ configure_sdrc:
 	ldr	r12, omap_sdrc_mr_0_val
 	ldr	r11, omap3_sdrc_mr_0
 	str	r12, [r11]
+#endif
 	ldr	r12, omap_sdrc_rfr_ctrl_1_val
 	cmp	r12, #0			@ if SDRC_RFR_CTRL_1 is 0,
 	beq	skip_cs1_prog		@  do not program cs1 params
 	ldr	r11, omap3_sdrc_rfr_ctrl_1
 	str	r12, [r11]
+#ifdef CONFIG_OMAP3_SDRC_AC_TIMING
 	ldr	r12, omap_sdrc_actim_ctrl_a_1_val
 	ldr	r11, omap3_sdrc_actim_ctrl_a_1
 	str	r12, [r11]
@@ -242,6 +295,7 @@ configure_sdrc:
 	ldr	r12, omap_sdrc_mr_1_val
 	ldr	r11, omap3_sdrc_mr_1
 	str	r12, [r11]
+#endif
 skip_cs1_prog:
 	ldr	r12, [r11]		@ posted-write barrier for SDRC
 	bx	lr
@@ -294,6 +348,14 @@ omap3_sdrc_dlla_ctrl:
 	.word OMAP34XX_SDRC_REGADDR(SDRC_DLLA_CTRL)
 core_m2_mask_val:
 	.word 0x07FFFFFF
+omap3_cm_iclk_dss:
+	.word OMAP34XX_CM_REGADDR(OMAP3430_DSS_MOD, CM_ICLKEN)
+#ifdef CONFIG_FB_OMAP2_32_BPP
+omap3_dispc_ctrl:
+	.word DISPC_CONTROL_P
+omap3_dispc_irq_st:
+	.word DISPC_IRQSTATUS_P
+#endif
 
 ENTRY(omap3_sram_configure_core_dpll_sz)
 	.word	. - omap3_sram_configure_core_dpll

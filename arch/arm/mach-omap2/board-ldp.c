@@ -24,7 +24,7 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/ads7846.h>
 #include <linux/regulator/machine.h>
-#include <linux/i2c/twl4030.h>
+#include <linux/i2c/twl.h>
 #include <linux/io.h>
 #include <linux/smsc911x.h>
 
@@ -33,16 +33,17 @@
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 
-#include <mach/mcspi.h>
+#include <plat/mcspi.h>
 #include <mach/gpio.h>
-#include <mach/board.h>
-#include <mach/common.h>
-#include <mach/gpmc.h>
+#include <plat/board.h>
+#include <plat/common.h>
+#include <plat/gpmc.h>
 
 #include <asm/delay.h>
-#include <mach/control.h>
-#include <mach/usb.h>
+#include <plat/control.h>
+#include <plat/usb.h>
 
+#include "mux.h"
 #include "mmc-twl4030.h"
 
 #define LDP_SMSC911X_CS		1
@@ -289,9 +290,9 @@ static void __init omap_ldp_init_irq(void)
 {
 	omap_board_config = ldp_config;
 	omap_board_config_size = ARRAY_SIZE(ldp_config);
-	omap2_init_common_hw(NULL, NULL);
 	omap_init_irq();
-	omap_gpio_init();
+	omap2_init_common_hw(NULL, NULL);
+	omap2_init_common_hw(NULL, NULL, NULL, NULL, NULL);
 	ldp_init_smsc911x();
 }
 
@@ -351,10 +352,10 @@ static struct i2c_board_info __initdata ldp_i2c_boardinfo[] = {
 
 static int __init omap_i2c_init(void)
 {
-	omap_register_i2c_bus(1, 2600, ldp_i2c_boardinfo,
+	omap_register_i2c_bus(1, 2600, NULL, ldp_i2c_boardinfo,
 			ARRAY_SIZE(ldp_i2c_boardinfo));
-	omap_register_i2c_bus(2, 400, NULL, 0);
-	omap_register_i2c_bus(3, 400, NULL, 0);
+	omap_register_i2c_bus(2, 400, NULL, NULL, 0);
+	omap_register_i2c_bus(3, 400, NULL, NULL, 0);
 	return 0;
 }
 
@@ -374,8 +375,23 @@ static struct platform_device *ldp_devices[] __initdata = {
 	&ldp_gpio_keys_device,
 };
 
+#ifdef CONFIG_OMAP_MUX
+static struct omap_board_mux board_mux[] __initdata = {
+	{ .reg_offset = OMAP_MUX_TERMINATOR },
+};
+#else
+#define board_mux	NULL
+#endif
+
+static struct omap_musb_board_data musb_board_data = {
+	.interface_type		= MUSB_INTERFACE_ULPI,
+	.mode			= MUSB_OTG,
+	.power			= 100,
+};
+
 static void __init omap_ldp_init(void)
 {
+	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
 	omap_i2c_init();
 	platform_add_devices(ldp_devices, ARRAY_SIZE(ldp_devices));
 	ts_gpio = 54;
@@ -384,7 +400,7 @@ static void __init omap_ldp_init(void)
 				ARRAY_SIZE(ldp_spi_board_info));
 	ads7846_dev_init();
 	omap_serial_init();
-	usb_musb_init();
+	usb_musb_init(&musb_board_data);
 
 	twl4030_mmc_init(mmc);
 	/* link regulators to MMC adapters */
@@ -399,7 +415,7 @@ static void __init omap_ldp_map_io(void)
 
 MACHINE_START(OMAP_LDP, "OMAP LDP board")
 	.phys_io	= 0x48000000,
-	.io_pg_offst	= ((0xd8000000) >> 18) & 0xfffc,
+	.io_pg_offst	= ((0xfa000000) >> 18) & 0xfffc,
 	.boot_params	= 0x80000100,
 	.map_io		= omap_ldp_map_io,
 	.init_irq	= omap_ldp_init_irq,

@@ -87,8 +87,9 @@ struct ehci_hcd {			/* one per controller */
 	int			next_uframe;	/* scan periodic, start here */
 	unsigned		periodic_sched;	/* periodic activity count */
 
-	/* list of itds completed while clock_frame was still active */
+	/* list of itds & sitds completed while clock_frame was still active */
 	struct list_head	cached_itd_list;
+	struct list_head	cached_sitd_list;
 	unsigned		clock_frame;
 
 	/* per root hub port */
@@ -157,6 +158,7 @@ struct ehci_hcd {			/* one per controller */
 	struct dentry		*debug_periodic;
 	struct dentry		*debug_registers;
 #endif
+	struct ehci_hcd_omap *omap_p;
 };
 
 /* convert between an HCD pointer and the corresponding EHCI_HCD */
@@ -195,7 +197,7 @@ timer_action_done (struct ehci_hcd *ehci, enum ehci_timer_action action)
 	clear_bit (action, &ehci->actions);
 }
 
-static void free_cached_itd_list(struct ehci_hcd *ehci);
+static void free_cached_lists(struct ehci_hcd *ehci);
 
 /*-------------------------------------------------------------------------*/
 
@@ -394,9 +396,8 @@ struct ehci_iso_sched {
  * acts like a qh would, if EHCI had them for ISO.
  */
 struct ehci_iso_stream {
-	/* first two fields match QH, but info1 == 0 */
-	__hc32			hw_next;
-	__hc32			hw_info1;
+	/* first field matches ehci_hq, but is NULL */
+	struct ehci_qh_hw	*hw;
 
 	u32			refcount;
 	u8			bEndpointAddress;

@@ -24,7 +24,7 @@
 #include <linux/debugfs.h>
 #include <linux/io.h>
 
-#include <mach/clock.h>
+#include <plat/clock.h>
 
 static LIST_HEAD(clocks);
 static DEFINE_MUTEX(clocks_mutex);
@@ -40,36 +40,10 @@ static struct clk_functions *arch_clock;
  * clock framework is not up , it is defined here to avoid rework in
  * every driver. Also dummy prcm reset function is added */
 
-/* Dummy hooks only for OMAP4.For rest OMAPs, common clkdev is used */
-#if defined(CONFIG_ARCH_OMAP4)
-struct clk *clk_get(struct device *dev, const char *id)
-{
-	return NULL;
-}
-EXPORT_SYMBOL(clk_get);
-
-void clk_put(struct clk *clk)
-{
-}
-EXPORT_SYMBOL(clk_put);
-
-void omap2_clk_prepare_for_reboot(void)
-{
-}
-EXPORT_SYMBOL(omap2_clk_prepare_for_reboot);
-
-void omap_prcm_arch_reset(char mode)
-{
-}
-EXPORT_SYMBOL(omap_prcm_arch_reset);
-#endif
 int clk_enable(struct clk *clk)
 {
 	unsigned long flags;
 	int ret = 0;
-	if (cpu_is_omap44xx())
-		/* OMAP4 clk framework not supported yet */
-		return 0;
 
 	if (clk == NULL || IS_ERR(clk))
 		return -EINVAL;
@@ -91,12 +65,15 @@ void clk_disable(struct clk *clk)
 		return;
 
 	spin_lock_irqsave(&clockfw_lock, flags);
+
+#if 0 //TI Lewis.Byun 20101020 : to prevent the warning message. turning off again is not a problem for the project.
 	if (clk->usecount == 0) {
 		printk(KERN_ERR "Trying disable clock %s with 0 usecount\n",
 		       clk->name);
 		WARN_ON(1);
 		goto out;
 	}
+#endif  //TI Lewis.Byun 20101020
 
 	if (arch_clock->clk_disable)
 		arch_clock->clk_disable(clk);
@@ -333,6 +310,34 @@ void clk_enable_init_clocks(void)
 }
 EXPORT_SYMBOL(clk_enable_init_clocks);
 
+/**
+ * omap_clk_get_by_name - locate OMAP struct clk by its name
+ * @name: name of the struct clk to locate
+ *
+ * Locate an OMAP struct clk by its name.  Assumes that struct clk
+ * names are unique.  Returns NULL if not found or a pointer to the
+ * struct clk if found.
+ */
+struct clk *omap_clk_get_by_name(const char *name)
+{
+       struct clk *c;
+       struct clk *ret = NULL;
+
+       mutex_lock(&clocks_mutex);
+
+       list_for_each_entry(c, &clocks, node) {
+		if (!strcmp(c->name, name)) {
+			ret = c;
+			break;
+		}
+	}
+
+	mutex_unlock(&clocks_mutex);
+
+	return ret;
+}
+EXPORT_SYMBOL(omap_clk_get_by_name);
+
 /*
  * Low level helpers
  */
@@ -380,6 +385,21 @@ static int __init clk_disable_unused(void)
 
 		if (ck->usecount > 0 || ck->enable_reg == 0)
 			continue;
+
+		if (cpu_is_omap44xx()) {
+
+			if (!strcmp(ck->name, "uart3_ck"))
+				continue;
+
+			if (!strcmp(ck->name, "emif1_ck"))
+				continue;
+
+			if (!strcmp(ck->name, "emif2_ck"))
+				continue;
+
+			if (!strcmp(ck->name, "gptimer1_ck"))
+				continue;
+		}
 
 		spin_lock_irqsave(&clockfw_lock, flags);
 		if (arch_clock->clk_disable_unused)

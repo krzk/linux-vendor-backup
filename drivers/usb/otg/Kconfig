@@ -50,7 +50,18 @@ config TWL4030_USB
 	  family chips (including the TWL5030 and TPS659x0 devices).
 	  This transceiver supports high and full speed devices plus,
 	  in host mode, low speed.
+config ISP1301_HOST
+	bool "Philips ISP1301 in Host mode with OMAP3 OHCI"
+	depends on ARCH_OMAP_OTG && (MACH_OMAP_3430SDP || MACH_OMAP_3630SDP || MACH_OMAP_SAMSUNG)
+	default y
+	help
+	  If you say yes here you get support for the Philips ISP1301
+	  USB-On-The-Go transceiver working with the OMAP3 OHCI controller.
+	  The ISP1301 is used in products including the 3430SDP development
+	  boards for Texas Instruments OMAP3 processors.
 
+	  This driver can also be built as a module.  If so, the module
+	  will be called isp1301_host.
 config NOP_USB_XCEIV
 	tristate "NOP USB Transceiver Driver"
 	select USB_OTG_UTILS
@@ -59,4 +70,45 @@ config NOP_USB_XCEIV
 	 built-in with usb ip or which are autonomous and doesn't require any
 	 phy programming such as ISP1x04 etc.
 
+config CPCAP_USB
+	tristate "CPCAP USB Transceiver Driver"
+	select USB_OTG_UTILS
+	help
+	  Enable this to support the USB OTG transceiver on the
+	  Motorola CPCAP PMIC
+
+config MICROUSBIC_INTR
+	bool "MicroUSB IC interrupt handler"
+	depends on TWL4030_USB
+
+config SIDELOAD_EN
+	bool "Sideload enable"
+	depends on MACH_TICKERTAPE
+	default y
+
+config FSA9480_MICROUSB
+	bool "FSA9480 MicroUSB Driver"
+	depends on I2C && USB_GADGET
+
+config MAX14577_MICROUSB
+	bool "MAX14577 MicroUSB Driver"
+	depends on I2C && USB_GADGET
+
+config FSA9480_NOTIFY_USB_CONNECTION_STATE
+	bool "Notify USB Connection State"
+	depends on FSA9480_MICROUSB
+	default n
+	
+config FSA9480_GPIO_I2C
+	bool "FSA9480 MicroUSB for GPIO Emulation I2C"
+	depends on FSA9480_MICROUSB
+	
+config FSA9480_LINE_OUT
+	bool "FSA9480 MicroUSB for LINE OUT"
+        depends on FSA9480_MICROUSB
+
+config CHN_HERON_FSA9480
+	bool "FSA9480 communicate via I2C only Heron"
+	depends on FSA9480_MICROUSB
+	
 endif # USB || OTG

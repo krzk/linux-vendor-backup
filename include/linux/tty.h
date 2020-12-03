@@ -23,7 +23,7 @@
  */
 #define NR_UNIX98_PTY_DEFAULT	4096      /* Default maximum for Unix98 ptys */
 #define NR_UNIX98_PTY_MAX	(1 << MINORBITS) /* Absolute limit */
-#define NR_LDISCS		20
+#define NR_LDISCS		22
 
 /* line disciplines */
 #define N_TTY		0
@@ -46,8 +46,9 @@
 #define N_GIGASET_M101	16	/* Siemens Gigaset M101 serial DECT adapter */
 #define N_SLCAN		17	/* Serial / USB serial CAN Adaptors */
 #define N_PPS		18	/* Pulse per Second */
-
-#define N_V253		19	/* Codec control over voice modem */
+#define N_TS2710	19	/* 3GPP TS 27.010 MUX */
+#define N_V253		20	/* Codec control over voice modem */
+#define N_SHARED	21	/* for TI's WL7 connectivity chips */
 
 /*
  * This character is the same as _POSIX_VDISABLE: it cannot be used as
@@ -267,6 +268,11 @@ struct tty_struct {
 	struct list_head tty_files;
 
 #define N_TTY_BUF_SIZE 4096
+
+#ifdef CONFIG_MACH_SAMSUNG
+#undef N_TTY_BUF_SIZE
+#define N_TTY_BUF_SIZE 32768
+#endif
 
 	/*
 	 * The following is data for the N_TTY line discipline.  For

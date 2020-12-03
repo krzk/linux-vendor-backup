@@ -10,7 +10,8 @@ stkwebcam-objs	:=	stk-webcam.o stk-sensor.o
 
 omap2cam-objs	:=	omap24xxcam.o omap24xxcam-dma.o
 
-videodev-objs	:=	v4l2-dev.o v4l2-ioctl.o v4l2-device.o
+videodev-objs	:=	v4l2-dev.o v4l2-ioctl.o v4l2-device.o v4l2-fh.o \
+			v4l2-event.o
 
 # V4L2 core modules
 
@@ -71,6 +72,18 @@ obj-$(CONFIG_VIDEO_OV7670) 	+= ov7670.o
 obj-$(CONFIG_VIDEO_TCM825X) += tcm825x.o
 obj-$(CONFIG_VIDEO_TVEEPROM) += tveeprom.o
 obj-$(CONFIG_VIDEO_MT9V011) += mt9v011.o
+obj-$(CONFIG_VIDEO_IMX046)      += imx046.o
+obj-$(CONFIG_VIDEO_LV8093)      += lv8093.o
+
+obj-y				+= isp/
+
+obj-$(CONFIG_VIDEO_CAM_PMIC)     += cam_pmic.o
+obj-$(CONFIG_VIDEO_CAM_CE147)    += ce147_platform.o ce147.o
+obj-$(CONFIG_VIDEO_CAM_S5KA3DFX) += s5ka3dfx_platform.o s5ka3dfx.o
+obj-$(CONFIG_CHN_CAM_S5K5CCGX) += s5k5ccgx_platform.o s5k5ccgx.o Camsensor_tunner_32bits_reg.o
+obj-$(CONFIG_CHN_CAM_S5K4ECGX) += s5k4ecgx_platform.o s5k4ecgx.o Camsensor_tunner_32bits_reg.o
+obj-$(CONFIG_CHN_CAM_SR030PC40) += sr030pc40_platform.o sr030pc40.o Camsensor_tunner_16bits_reg.o
+obj-$(CONFIG_VIDEO_OMAP3) += omap34xxcam.o
 
 obj-$(CONFIG_SOC_CAMERA_MT9M001)	+= mt9m001.o
 obj-$(CONFIG_SOC_CAMERA_MT9M111)	+= mt9m111.o
@@ -118,6 +131,8 @@ obj-$(CONFIG_VIDEO_CX2341X) += cx2341x.o
 
 obj-$(CONFIG_VIDEO_CAFE_CCIC) += cafe_ccic.o
 
+obj-$(CONFIG_VIDEO_OMAP3_OUT) += omap/
+
 obj-$(CONFIG_USB_DABUSB)        += dabusb.o
 obj-$(CONFIG_USB_OV511)         += ov511.o
 obj-$(CONFIG_USB_SE401)         += se401.o
@@ -148,6 +163,13 @@ obj-$(CONFIG_VIDEO_CX23885) += cx23885/
 
 obj-$(CONFIG_VIDEO_OMAP2)		+= omap2cam.o
 obj-$(CONFIG_SOC_CAMERA)		+= soc_camera.o
+obj-$(CONFIG_VIDEO_OMAP_VIDEOOUT) += omap-vout/
+obj-$(CONFIG_SOC_CAMERA)	+= soc_camera.o
+obj-$(CONFIG_SOC_CAMERA_MT9M001)	+= mt9m001.o
+obj-$(CONFIG_SOC_CAMERA_MT9M111)	+= mt9m111.o
+obj-$(CONFIG_SOC_CAMERA_MT9T031)	+= mt9t031.o
+obj-$(CONFIG_SOC_CAMERA_MT9V022)	+= mt9v022.o
+obj-$(CONFIG_SOC_CAMERA_OV772X)		+= ov772x.o
 obj-$(CONFIG_SOC_CAMERA_PLATFORM)	+= soc_camera_platform.o
 # soc-camera host drivers have to be linked after camera drivers
 obj-$(CONFIG_VIDEO_MX1)			+= mx1_camera.o
@@ -164,8 +186,10 @@ obj-$(CONFIG_VIDEO_SAA7164)     += saa7164/
 
 obj-$(CONFIG_VIDEO_IR_I2C)  += ir-kbd-i2c.o
 
-obj-$(CONFIG_ARCH_DAVINCI)	+= davinci/
+obj-$(CONFIG_DMM_OMAP)  += dmm/
+obj-$(CONFIG_TILER_OMAP)  += tiler/
 
 EXTRA_CFLAGS += -Idrivers/media/dvb/dvb-core
 EXTRA_CFLAGS += -Idrivers/media/dvb/frontends
 EXTRA_CFLAGS += -Idrivers/media/common/tuners
+
