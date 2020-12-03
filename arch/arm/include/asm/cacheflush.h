@@ -381,7 +381,7 @@ extern void flush_ptrace_access(struct vm_area_struct *vma, struct page *page,
  * Harvard caches are synchronised for the user space address range.
  * This is used for the ARM private sys_cacheflush system call.
  */
-#define flush_cache_user_range(vma,start,end) \
+#define flush_cache_user_range(start,end) \
 	__cpuc_coherent_user_range((start) & PAGE_MASK, PAGE_ALIGN(end))
 
 /*
@@ -472,6 +472,17 @@ static inline void flush_ioremap_region(unsigned long phys, void __iomem *virt,
  */
 static inline void flush_cache_vmap(unsigned long start, unsigned long end)
 {
+#if defined(CONFIG_ARCH_S5PV210)
+/*
+ * SAMSUNG SoC(S5PV210) has a L2 cache. L2 cache type is
+ * VIPT type but L2 is PIPT type cache. If disabling L2 cache, this
+ * code works well. But enabling L2 cache, there is data corruption
+ * problem. In case of S5PV210, just call flush_cache_all() function
+ * like as 2.6.28 kernel.
+ * jc.lee@samsung.com
+ */
+	flush_cache_all();
+#else
 	if (!cache_is_vipt_nonaliasing())
 		flush_cache_all();
 	else
@@ -480,12 +491,17 @@ static inline void flush_cache_vmap(unsigned long start, unsigned long end)
 		 * have a DSB after cleaning the cache line.
 		 */
 		dsb();
+#endif
 }
 
 static inline void flush_cache_vunmap(unsigned long start, unsigned long end)
 {
+#if defined(CONFIG_ARCH_S5PV210)
+	flush_cache_all();
+#else
 	if (!cache_is_vipt_nonaliasing())
 		flush_cache_all();
+#endif
 }
 
 #endif

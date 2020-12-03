@@ -25,6 +25,10 @@
 #include <linux/rcupdate.h>
 #include <linux/smp_lock.h>
 
+#ifdef CONFIG_KERNEL_DEBUG_SEC
+#include <linux/kernel_sec_common.h>
+#endif
+
 MODULE_AUTHOR("Vojtech Pavlik <vojtech@suse.cz>");
 MODULE_DESCRIPTION("Input core");
 MODULE_LICENSE("GPL");
@@ -303,6 +307,95 @@ void input_event(struct input_dev *dev,
 		 unsigned int type, unsigned int code, int value)
 {
 	unsigned long flags;
+/*
+ *  Forced upload mode key string (tkhwang)
+ */
+     
+#ifdef CONFIG_KERNEL_DEBUG_SEC
+    static bool first=0, second=0, third = 0;
+    
+#if defined (CONFIG_KEYPAD_S3C)
+
+    if(strcmp(dev->name,"s3c-keypad")==0)
+    {
+        if(value)
+        {
+            if(code==KERNEL_SEC_FORCED_UPLOAD_1ST_KEY)
+            {
+                first =1;
+            }
+            if(first==1 && code==KERNEL_SEC_FORCED_UPLOAD_2ND_KEY)
+            {
+                if ( (KERNEL_SEC_DEBUG_LEVEL_MID == kernel_sec_get_debug_level()) ||
+                	    KERNEL_SEC_DEBUG_LEVEL_HIGH == kernel_sec_get_debug_level() )
+                {
+                    // Display the working callstack for the debugging.
+                    dump_stack();
+
+                    if (kernel_sec_viraddr_wdt_reset_reg)
+                    {
+                       kernel_sec_set_cp_upload();
+                       kernel_sec_save_final_context(); // Save theh final context.
+                       kernel_sec_set_upload_cause(UPLOAD_CAUSE_FORCED_UPLOAD);
+                       kernel_sec_hw_reset(false);      // Reboot.
+                    }
+                 }                
+            }                
+        }
+        else
+        {
+            if(code==KERNEL_SEC_FORCED_UPLOAD_1ST_KEY)
+            {
+                first = 0;
+            }
+        }
+    }
+#endif //CONFIG_KEYPAD_S3C
+
+#if defined (CONFIG_KEYBOARD_GPIO)    
+    if(strcmp(dev->name,"gpio-keys")==0)
+    {
+        if(value)
+        {
+            if(code == KEY_VOLUMEUP)
+                first = true;
+                
+            if(code == KEY_POWER)
+                second = true;
+
+		if(code == KEY_VOLUMEDOWN)
+                third = true;
+                
+            if(first&&second&&third)
+            {
+            
+                if (kernel_sec_viraddr_wdt_reset_reg)
+                {
+                printk("[%s][line:%d]\n",__func__, __LINE__);
+                      kernel_sec_set_cp_upload();
+                      kernel_sec_save_final_context(); // Save theh final context.
+                      kernel_sec_set_upload_cause(UPLOAD_CAUSE_FORCED_UPLOAD);
+                      kernel_sec_hw_reset(false);      // Reboot.
+                }
+            }
+        }
+        else
+        {
+            if(code == KEY_VOLUMEUP)
+                first = false;
+
+            if(code == KEY_POWER)
+                second = false;
+
+		if(code == KEY_VOLUMEDOWN)
+                third = false;
+		     
+        }
+    }
+#endif  //CONFIG_KEYBOARD_GPIO
+
+#endif // CONFIG_KERNEL_DEBUG_SEC
+
 
 	if (is_event_supported(type, dev->evbit, EV_MAX)) {
 

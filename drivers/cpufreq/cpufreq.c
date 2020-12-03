@@ -502,6 +502,62 @@ static ssize_t show_cpuinfo_cur_freq(struct cpufreq_policy *policy,
 }
 
 
+bool gbTransitionLogEnable = false;
+/**
+ * show_scaling_setlog - show the current logging policy for the specified CPU
+ */
+static ssize_t show_scaling_setlog(struct cpufreq_policy *policy, char *buf)
+{	
+	if(gbTransitionLogEnable == false)
+		return sprintf(buf, "disable\n");
+	else
+		return sprintf(buf, "enable\n");
+	return -EINVAL;
+}
+
+/**
+ * store_scaling_setlog - store the current logging policy for the specified CPU
+ */
+static ssize_t store_scaling_setlog(struct cpufreq_policy *policy, 
+					const char *buf, size_t count)
+{
+	if(!(strncmp(buf, "enable", count-1)))
+		gbTransitionLogEnable = true;
+	else if(!(strncmp(buf, "disable", count-1)))
+		gbTransitionLogEnable = false;
+	return -EINVAL;
+}
+
+#define SET_AUDIO_LOG
+
+#if defined SET_AUDIO_LOG
+unsigned int gbAudioLogEnable = false;
+/**
+ * show_set_audio_log - show the current logging policy for audio log.
+ */
+static ssize_t show_set_audio_log(struct cpufreq_policy *policy, char *buf)
+{
+	if(gbAudioLogEnable == false)
+		return sprintf(buf, "disable\n");
+	else
+		return sprintf(buf, "enable\n");
+	return -EINVAL;
+}
+
+/**
+ * store_set_audio_log - store the current logging policy for audio log.
+ */
+static ssize_t store_set_audio_log(struct cpufreq_policy *policy, 
+					const char *buf, size_t count)
+{
+	if(!(strncmp(buf, "enable", count-1)))
+		gbAudioLogEnable = true;
+	else if(!(strncmp(buf, "disable", count-1)))
+		gbAudioLogEnable = false;
+	return -EINVAL;
+}
+#endif
+
 /**
  * show_scaling_governor - show the current policy for the specified CPU
  */
@@ -621,6 +677,25 @@ static ssize_t show_affected_cpus(struct cpufreq_policy *policy, char *buf)
 	return show_cpus(policy->cpus, buf);
 }
 
+extern int is_userspace_gov(void);
+ssize_t cpufreq_direct_store_scaling_setspeed(unsigned int cpu, const char *buf, size_t count)
+{
+	unsigned int freq = 0;
+	unsigned int ret;
+	struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
+	
+	if(!is_userspace_gov()) return -EINVAL;
+
+	ret = sscanf(buf, "%u", &freq);
+	if (ret != 1)
+		return -EINVAL;
+
+	policy->governor->store_setspeed(policy, freq);
+
+	return count;
+}
+EXPORT_SYMBOL(cpufreq_direct_store_scaling_setspeed);
+
 static ssize_t store_scaling_setspeed(struct cpufreq_policy *policy,
 					const char *buf, size_t count)
 {
@@ -672,6 +747,10 @@ define_one_rw(scaling_min_freq);
 define_one_rw(scaling_max_freq);
 define_one_rw(scaling_governor);
 define_one_rw(scaling_setspeed);
+define_one_rw(scaling_setlog);
+#if defined SET_AUDIO_LOG
+define_one_rw(set_audio_log);
+#endif
 
 static struct attribute *default_attrs[] = {
 	&cpuinfo_min_freq.attr,
@@ -685,6 +764,10 @@ static struct attribute *default_attrs[] = {
 	&scaling_driver.attr,
 	&scaling_available_governors.attr,
 	&scaling_setspeed.attr,
+	&scaling_setlog.attr,
+#if defined SET_AUDIO_LOG
+	&set_audio_log.attr,
+#endif
 	NULL
 };
 
@@ -1677,6 +1760,48 @@ int cpufreq_get_policy(struct cpufreq_policy *policy, unsigned int cpu)
 	return 0;
 }
 EXPORT_SYMBOL(cpufreq_get_policy);
+
+
+
+/**
+ * cpufreq_set_policy - get the current cpufreq_policy
+ * @policy: struct cpufreq_policy into which the current cpufreq_policy is written
+ *
+ * Writes appropriate cpufreq policy per request.
+ * by Anubis
+ */
+int cpufreq_direct_set_policy(unsigned int cpu, const char *buf)
+{
+	unsigned int ret = -EINVAL;
+	char	str_governor[16];
+	struct cpufreq_policy new_policy;
+	struct cpufreq_policy *data = cpufreq_cpu_get(cpu);
+
+	ret = cpufreq_get_policy(&new_policy, cpu);
+	if (ret)
+		return ret;
+
+	ret = sscanf (buf, "%15s", str_governor);
+	if (ret != 1)
+		return -EINVAL;
+
+	if (cpufreq_parse_governor(str_governor, &new_policy.policy,
+						&new_policy.governor))
+		return -EINVAL;
+
+	/* Do not use cpufreq_set_policy here or the user_policy.max
+	   will be wrongly overridden */
+	ret = __cpufreq_set_policy(data, &new_policy);
+
+	data->user_policy.policy = data->policy;
+	data->user_policy.governor = data->governor;
+
+	if (ret)
+		return ret;
+	else
+		return 0;
+}
+EXPORT_SYMBOL(cpufreq_direct_set_policy);
 
 
 /*

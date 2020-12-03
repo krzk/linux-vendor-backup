@@ -159,6 +159,11 @@ config ARCH_MTD_XIP
 config GENERIC_HARDIRQS_NO__DO_IRQ
 	def_bool y
 
+config ARM_L1_CACHE_SHIFT_6
+	bool
+	help
+	  Setting ARM L1 cache line size to 64 Bytes.
+
 if OPROFILE
 
 config OPROFILE_ARMV6
@@ -619,13 +624,40 @@ config ARCH_S3C64XX
 	help
 	  Samsung S3C64XX series based systems
 
+config ARCH_S5P6440
+	bool "Samsung S5P6440"
+	select CPU_V6
+	select GENERIC_GPIO
+	select HAVE_CLK
+	help
+	  Samsung S5P6440 CPU based systems
+
+config ARCH_S5P6442
+	bool "Samsung S5P6442"
+	select CPU_V6
+	select GENERIC_GPIO
+	select HAVE_CLK
+	help
+	  Samsung S5P6442 CPU based systems
+
 config ARCH_S5PC1XX
 	bool "Samsung S5PC1XX"
 	select GENERIC_GPIO
 	select HAVE_CLK
 	select CPU_V7
+	select ARM_L1_CACHE_SHIFT_6
 	help
 	  Samsung S5PC1XX series based systems
+
+config ARCH_S5PV210
+	bool "Samsung S5PV210/S5PC110"
+	select CPU_V7
+	select GENERIC_GPIO
+	select HAVE_CLK
+	select ARCH_HAS_CPUFREQ
+	select ARM_L1_CACHE_SHIFT_6
+	help
+	  Samsung S5PV210/S5PC110 series based systems
 
 config ARCH_SHARK
 	bool "Shark"
@@ -747,9 +779,9 @@ source "arch/arm/mach-orion5x/Kconfig"
 
 source "arch/arm/mach-kirkwood/Kconfig"
 
+source "arch/arm/plat-samsung/Kconfig"
 source "arch/arm/plat-s3c24xx/Kconfig"
-source "arch/arm/plat-s3c64xx/Kconfig"
-source "arch/arm/plat-s3c/Kconfig"
+source "arch/arm/plat-s5p/Kconfig"
 source "arch/arm/plat-s5pc1xx/Kconfig"
 
 if ARCH_S3C2410
@@ -757,20 +789,24 @@ source "arch/arm/mach-s3c2400/Kconfig"
 source "arch/arm/mach-s3c2410/Kconfig"
 source "arch/arm/mach-s3c2412/Kconfig"
 source "arch/arm/mach-s3c2440/Kconfig"
-source "arch/arm/mach-s3c2442/Kconfig"
 source "arch/arm/mach-s3c2443/Kconfig"
 endif
 
 if ARCH_S3C64XX
-source "arch/arm/mach-s3c6400/Kconfig"
-source "arch/arm/mach-s3c6410/Kconfig"
+source "arch/arm/mach-s3c64xx/Kconfig"
 endif
 
 source "arch/arm/plat-stmp3xxx/Kconfig"
 
+source "arch/arm/mach-s5p6440/Kconfig"
+
+source "arch/arm/mach-s5p6442/Kconfig"
+
 if ARCH_S5PC1XX
 source "arch/arm/mach-s5pc100/Kconfig"
 endif
+
++source "arch/arm/mach-s5pv210/Kconfig"
 
 source "arch/arm/mach-lh7a40x/Kconfig"
 
@@ -948,6 +984,20 @@ source "drivers/pcmcia/Kconfig"
 
 endmenu
 
+menu "Samsung Kernel Debug Features"
+
+choice
+        prompt "Enable Samsung Kernel Debug Features"
+        default KERNEL_DEBUG_SEC
+
+config KERNEL_DEBUG_SEC
+        bool "KERNEL_DEBUG_SEC"
+
+endchoice
+
+endmenu
+
+
 menu "Kernel Features"
 
 source "kernel/time/Kconfig"
@@ -1041,7 +1091,8 @@ source kernel/Kconfig.preempt
 config HZ
 	int
 	default 128 if ARCH_L7200
-	default 200 if ARCH_EBSA110 || ARCH_S3C2410
+	default 200 if ARCH_EBSA110 || ARCH_S3C2410 || ARCH_S5P6440 || ARCH_S5P6442 || (ARCH_S5PV210 && !HRT_RTC)
+	default 256 if ARCH_S5PV210 && HRT_RTC
 	default OMAP_32K_TIMER_HZ if ARCH_OMAP && OMAP_32K_TIMER
 	default AT91_TIMER_HZ if ARCH_AT91
 	default 100
@@ -1136,6 +1187,13 @@ config HIGHPTE
 	bool "Allocate 2nd-level pagetables from highmem"
 	depends on HIGHMEM
 	depends on !OUTER_CACHE
+
+config VMALLOC_RESERVE
+    hex "Reserved vmalloc space"
+	default 0x08000000
+	depends on MMU
+	help
+	  Reserved vmalloc space if not specified on the kernel commandline.
 
 source "mm/Kconfig"
 
@@ -1404,6 +1462,10 @@ config CPU_FREQ_S3C24XX_DEBUGFS
 	depends on CPU_FREQ_S3C24XX && DEBUG_FS
 	help
 	  Export status information via debugfs.
+
+config CPU_FREQ_S5PV210
+	bool "CPUfreq support for Samsung S5PV210 CPUs"
+	depends on CPU_FREQ && MACH_SMDKC110
 
 endif
 

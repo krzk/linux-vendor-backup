@@ -293,6 +293,18 @@ static long s3c2410wdt_ioctl(struct file *file,	unsigned int cmd,
 		return put_user(tmr_margin, p);
 	case WDIOC_GETTIMEOUT:
 		return put_user(tmr_margin, p);
+		/* use Kernel/Documentation/watchdog/src/watchdog-test.c */
+	case WDIOC_SETOPTIONS:
+		if (arg & WDIOS_DISABLECARD) {
+			s3c2410wdt_stop();
+			return 0;
+		}
+
+		if (arg & WDIOS_ENABLECARD) {
+			s3c2410wdt_start();
+			return 0;
+		}
+
 	default:
 		return -ENOTTY;
 	}

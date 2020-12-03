@@ -2,7 +2,7 @@
  *
  * Driver core for Samsung SoC onboard UARTs.
  *
- * Ben Dooks, Copyright (c) 2003-2005,2008 Simtec Electronics
+ * Ben Dooks, Copyright (c) 2003-2008 Simtec Electronics
  *	http://armlinux.simtec.co.uk/
  *
  * This program is free software; you can redistribute it and/or modify
@@ -48,8 +48,11 @@
 
 #include <mach/hardware.h>
 #include <mach/map.h>
+#include <mach/gpio.h>
+#include <mach/regs-gpio.h>
 
 #include <plat/regs-serial.h>
+#include <plat/gpio-cfg.h>
 
 #include "samsung.h"
 
@@ -293,7 +296,7 @@ static irqreturn_t s3c24xx_serial_tx_chars(int irq, void *id)
 
 	/* if there isnt anything more to transmit, or the uart is now
 	 * stopped, disable the uart and exit
-	*/
+	 */
 
 	if (uart_circ_empty(xmit) || uart_tx_stopped(port)) {
 		s3c24xx_serial_stop_tx(port);
@@ -396,7 +399,7 @@ static int s3c24xx_serial_startup(struct uart_port *port)
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
 	int ret;
 
-	dbg("s3c24xx_serial_startup: port=%p (%08lx,%p)\n",
+	dbg("s3c24xx_serial_startup: port=%p (%p)\n",
 	    port->mapbase, port->membase);
 
 	rx_enabled(port) = 1;
@@ -677,7 +680,7 @@ static void s3c24xx_serial_set_termios(struct uart_port *port,
 	 * Ask the core to calculate the divisor for us.
 	 */
 
-	baud = uart_get_baud_rate(port, termios, old, 0, 115200*8);
+	baud = uart_get_baud_rate(port, termios, old, 0, 3000000);
 
 	if (baud == 38400 && (port->flags & UPF_SPD_MASK) == UPF_SPD_CUST)
 		quot = port->custom_divisor;
@@ -756,7 +759,7 @@ static void s3c24xx_serial_set_termios(struct uart_port *port,
 	wr_regl(port, S3C2410_UMCON, umcon);
 
 	if (ourport->info->has_divslot)
-		wr_regl(port, S3C2443_DIVSLOT, udivslot);
+		wr_regl(port, S3C2410_UDIVSLOT, udivslot);
 
 	dbg("uart: ulcon = 0x%08x, ucon = 0x%08x, ufcon = 0x%08x\n",
 	    rd_regl(port, S3C2410_ULCON),
@@ -1105,12 +1108,18 @@ static int s3c24xx_serial_init_port(struct s3c24xx_uart_port *ourport,
 		ourport->rx_irq = ret;
 		ourport->tx_irq = ret + 1;
 	}
-	
+
 	ret = platform_get_irq(platdev, 1);
 	if (ret > 0)
 		ourport->tx_irq = ret;
 
-	ourport->clk	= clk_get(&platdev->dev, "uart");
+	ourport->clk = clk_get(&platdev->dev, "uart");
+	if(ourport->clk == NULL || IS_ERR(ourport->clk)) {
+		dev_err(&platdev->dev, "cannot get clock\n");
+		return -ENODEV;
+	}
+
+	clk_enable(ourport->clk);
 
 	dbg("port: map=%08x, mem=%08x, irq=%d (%d,%d), clock=%ld\n",
 	    port->mapbase, port->membase, port->irq,
@@ -1118,6 +1127,11 @@ static int s3c24xx_serial_init_port(struct s3c24xx_uart_port *ourport,
 
 	/* reset the fifos (and setup the uart) */
 	s3c24xx_serial_resetport(port, cfg);
+
+	s3c_setup_uart_cfg_gpio(cfg->hwport);
+
+	clk_disable(ourport->clk);
+
 	return 0;
 }
 
@@ -1141,6 +1155,7 @@ int s3c24xx_serial_probe(struct platform_device *dev,
 			 struct s3c24xx_uart_info *info)
 {
 	struct s3c24xx_uart_port *ourport;
+	struct uart_port *port;
 	int ret;
 
 	dbg("s3c24xx_serial_probe(%p, %p) %d\n", dev, info, probe_index);
@@ -1148,6 +1163,7 @@ int s3c24xx_serial_probe(struct platform_device *dev,
 	ourport = &s3c24xx_serial_ports[probe_index];
 	probe_index++;
 
+	port = &ourport->port;
 	dbg("%s: initialising port %p...\n", __func__, ourport);
 
 	ret = s3c24xx_serial_init_port(ourport, info, dev);
@@ -1157,6 +1173,9 @@ int s3c24xx_serial_probe(struct platform_device *dev,
 	dbg("%s: adding port\n", __func__);
 	uart_add_one_port(&s3c24xx_uart_drv, &ourport->port);
 	platform_set_drvdata(dev, &ourport->port);
+
+	if(port->cons && port->cons->index == port->line)
+		clk_disable(ourport->clk);
 
 	ret = device_create_file(&dev->dev, &dev_attr_clock_source);
 	if (ret < 0)
@@ -1193,9 +1212,67 @@ EXPORT_SYMBOL_GPL(s3c24xx_serial_remove);
 
 #ifdef CONFIG_PM
 
+#include <plat/pm.h>
+
+#define SAVE_UART(va) \
+	SAVE_ITEM((va) + S3C2410_ULCON), \
+	SAVE_ITEM((va) + S3C2410_UCON), \
+	SAVE_ITEM((va) + S3C2410_UFCON), \
+	SAVE_ITEM((va) + S3C2410_UMCON), \
+	SAVE_ITEM((va) + S3C2410_UBRDIV), \
+	SAVE_ITEM((va) + S3C2410_UDIVSLOT), \
+	SAVE_ITEM((va) + S3C2410_UINTMSK)
+
+static struct sleep_save uart_save[] = {
+	SAVE_UART(S3C_VA_UARTx(0)),
+	SAVE_UART(S3C_VA_UARTx(1)),
+	SAVE_UART(S3C_VA_UARTx(2)),
+	SAVE_UART(S3C_VA_UARTx(3)),
+};
+
+#define SAVE_UART_PORT (ARRAY_SIZE(uart_save) / 4)
+
 static int s3c24xx_serial_suspend(struct platform_device *dev, pm_message_t state)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(&dev->dev);
+	unsigned int gpa0_bt_con;
+	unsigned int gpa0_bt_pud;
+	unsigned int gpa0_bt_dat;
+
+	if(port->line == 0) {
+		s3c_gpio_cfgpin(S5PV210_GPA0(3), S3C_GPIO_OUTPUT);
+		s3c_gpio_setpull(S5PV210_GPA0(3), S3C_GPIO_PULL_NONE);
+		gpa0_bt_dat = __raw_readl(S5PV210_GPA0DAT);
+		gpa0_bt_dat |= (1 << 3);
+		__raw_writel(gpa0_bt_dat, S5PV210_GPA0DAT);
+
+		gpa0_bt_con = __raw_readl(S5PV210_GPA0CONPDN);
+		gpa0_bt_con |= (1 << 6);
+		gpa0_bt_con &= ~(1 << 7);
+		__raw_writel(gpa0_bt_con, S5PV210_GPA0CONPDN);
+
+		gpa0_bt_pud = __raw_readl(S5PV210_GPA0PUDPDN);
+		gpa0_bt_pud &= ~(1 << 7 | 1 << 6);
+		__raw_writel(gpa0_bt_pud, S5PV210_GPA0PUDPDN);
+	}
+	else if(port->line == 1) {
+		s3c_gpio_cfgpin(S5PV210_GPA0(7), S3C_GPIO_OUTPUT);
+		s3c_gpio_setpull(S5PV210_GPA0(7), S3C_GPIO_PULL_NONE);
+		gpa0_bt_dat = __raw_readl(S5PV210_GPA0DAT);
+		gpa0_bt_dat |= (1 << 7);
+		__raw_writel(gpa0_bt_dat, S5PV210_GPA0DAT);
+
+		gpa0_bt_con = __raw_readl(S5PV210_GPA0CONPDN);
+		gpa0_bt_con |= (1 << 14);
+		gpa0_bt_con &= ~(1 << 15);
+		__raw_writel(gpa0_bt_con, S5PV210_GPA0CONPDN);
+
+		gpa0_bt_pud = __raw_readl(S5PV210_GPA0PUDPDN);
+		gpa0_bt_pud &= ~(1 << 15 | 1 << 14);
+		__raw_writel(gpa0_bt_pud, S5PV210_GPA0PUDPDN);
+	}
+
+	s3c_pm_do_save(uart_save + port->line * SAVE_UART_PORT, SAVE_UART_PORT);
 
 	if (port)
 		uart_suspend_port(&s3c24xx_uart_drv, port);
@@ -1207,13 +1284,33 @@ static int s3c24xx_serial_resume(struct platform_device *dev)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(&dev->dev);
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
+	unsigned int gpa0_bt_dat;
 
 	if (port) {
 		clk_enable(ourport->clk);
 		s3c24xx_serial_resetport(port, s3c24xx_port_to_cfg(port));
-		clk_disable(ourport->clk);
-
+		s3c_pm_do_restore(uart_save + port->line * SAVE_UART_PORT, SAVE_UART_PORT);
 		uart_resume_port(&s3c24xx_uart_drv, port);
+		clk_disable(ourport->clk);
+	}
+
+	if(port->line == 0) {
+		s3c_gpio_cfgpin(S5PV210_GPA0(3), S3C_GPIO_OUTPUT);
+		gpa0_bt_dat = __raw_readl(S5PV210_GPA0DAT);
+		gpa0_bt_dat &= ~(1 << 3);
+		__raw_writel(gpa0_bt_dat, S5PV210_GPA0DAT);
+
+		s3c_gpio_cfgpin(S5PV210_GPA0(3), S3C_GPIO_SFN(2));
+		s3c_gpio_setpull(S5PV210_GPA0(3), S3C_GPIO_PULL_NONE);
+	}
+	else if(port->line == 1) {
+		s3c_gpio_cfgpin(S5PV210_GPA0(7), S3C_GPIO_OUTPUT);
+		gpa0_bt_dat = __raw_readl(S5PV210_GPA0DAT);
+		gpa0_bt_dat &= ~(1 << 7);
+		__raw_writel(gpa0_bt_dat, S5PV210_GPA0DAT);
+
+		s3c_gpio_cfgpin(S5PV210_GPA0(7), S3C_GPIO_SFN(2));
+		s3c_gpio_setpull(S5PV210_GPA0(7), S3C_GPIO_PULL_NONE);
 	}
 
 	return 0;
@@ -1374,7 +1471,7 @@ s3c24xx_serial_get_options(struct uart_port *port, int *baud,
  * data.
 */
 
-static int s3c24xx_serial_init_ports(struct s3c24xx_uart_info *info)
+static int s3c24xx_serial_init_ports(struct s3c24xx_uart_info **info)
 {
 	struct s3c24xx_uart_port *ptr = s3c24xx_serial_ports;
 	struct platform_device **platdev_ptr;
@@ -1385,7 +1482,7 @@ static int s3c24xx_serial_init_ports(struct s3c24xx_uart_info *info)
 	platdev_ptr = s3c24xx_uart_devs;
 
 	for (i = 0; i < CONFIG_SERIAL_SAMSUNG_UARTS; i++, ptr++, platdev_ptr++) {
-		s3c24xx_serial_init_port(ptr, info, *platdev_ptr);
+		s3c24xx_serial_init_port(ptr, info[i], *platdev_ptr);
 	}
 
 	return 0;
@@ -1409,6 +1506,7 @@ s3c24xx_serial_console_setup(struct console *co, char *options)
 		co->index = 0;
 
 	port = &s3c24xx_serial_ports[co->index].port;
+	clk_enable(s3c24xx_serial_ports[co->index].clk);
 
 	/* is the port configured? */
 
@@ -1451,7 +1549,7 @@ static struct console s3c24xx_serial_console = {
 };
 
 int s3c24xx_serial_initconsole(struct platform_driver *drv,
-			       struct s3c24xx_uart_info *info)
+			       struct s3c24xx_uart_info **info)
 
 {
 	struct platform_device *dev = s3c24xx_uart_devs[0];

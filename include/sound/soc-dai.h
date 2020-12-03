@@ -211,6 +211,8 @@ struct snd_soc_dai {
 	unsigned char pop_wait:1;
 	void *dma_data;
 
+	unsigned int use_idma;  /* flag to use AUDSS-DMA */
+
 	/* DAI private data */
 	void *private_data;
 

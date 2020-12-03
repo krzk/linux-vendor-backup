@@ -12,8 +12,16 @@
 #include <linux/string.h>
 #include <linux/resume-trace.h>
 #include <linux/workqueue.h>
-
+//#ifdef CONFIG_CPU_FREQ
+#include <mach/cpu-freq-v210.h>
+//#endif
 #include "power.h"
+
+
+static void do_dvfsunlock_timer(struct work_struct *work);
+static DEFINE_MUTEX (dvfslock_ctrl_mutex);
+static DECLARE_DELAYED_WORK(dvfslock_crtl_unlock_work, do_dvfsunlock_timer);
+
 
 DEFINE_MUTEX(pm_mutex);
 
@@ -109,6 +117,83 @@ power_attr(pm_test);
 
 #endif /* CONFIG_PM_SLEEP */
 
+
+
+/**
+ * store_dvfslock_ctrl - make dvfs lock through application
+ */
+extern int g_dbs_timer_started;
+int dvfsctrl_locked;
+int gdDvfsctrl = 0;
+static ssize_t dvfslock_ctrl(const char *buf, size_t count)
+{
+	unsigned int ret = -EINVAL;
+	int dlevel;
+	int dtime_msec;
+
+	//mutex_lock(&dvfslock_ctrl_mutex);
+	ret = sscanf(buf, "%u", &gdDvfsctrl);
+	if (ret != 1)
+		return -EINVAL;
+	
+	if (!g_dbs_timer_started)	 return -EINVAL;
+	if (gdDvfsctrl == 0) {
+		if (dvfsctrl_locked) {
+			s5pc110_unlock_dvfs_high_level(DVFS_LOCK_TOKEN_6);
+			dvfsctrl_locked = 0;
+			return -EINVAL;		
+		} else {
+			return -EINVAL;		
+		}
+	}
+	
+	if (dvfsctrl_locked) return 0;
+		
+	dlevel = gdDvfsctrl & 0xffff0000;
+	dtime_msec = gdDvfsctrl & 0x0000ffff;
+	if (dtime_msec <16) dtime_msec=16;
+	
+	if (dtime_msec  == 0) return -EINVAL;
+	if(dlevel) dlevel = LEV_800MHZ;
+	else dlevel = LEV_1000MHZ;
+	
+	printk("+++++DBG dvfs lock level=%d, time=%d, scanVal=%08x\n",dlevel,dtime_msec, gdDvfsctrl);
+	s5pc110_lock_dvfs_high_level(DVFS_LOCK_TOKEN_6, dlevel);
+	dvfsctrl_locked=1;
+
+
+	schedule_delayed_work(&dvfslock_crtl_unlock_work, dtime_msec);
+
+	//mutex_unlock(&dvfslock_ctrl_mutex);
+
+	return -EINVAL;
+}
+
+static void do_dvfsunlock_timer(struct work_struct *work) {
+	//printk("----DBG dvfs unlock\n");
+	dvfsctrl_locked = 0;	
+	s5pc110_unlock_dvfs_high_level(DVFS_LOCK_TOKEN_6);
+}
+
+
+ssize_t dvfslock_ctrl_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "0x%08x\n", gdDvfsctrl);
+
+}
+
+ssize_t dvfslock_ctrl_store(
+	struct kobject *kobj, struct kobj_attribute *attr,
+	const char *buf, size_t n)
+{
+	dvfslock_ctrl(buf, 0);
+	return n;
+}
+
+
+
+
 struct kobject *power_kobj;
 
 /**
@@ -147,7 +232,11 @@ static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
 			   const char *buf, size_t n)
 {
 #ifdef CONFIG_SUSPEND
+#ifdef CONFIG_EARLYSUSPEND
+	suspend_state_t state = PM_SUSPEND_ON;
+#else
 	suspend_state_t state = PM_SUSPEND_STANDBY;
+#endif
 	const char * const *s;
 #endif
 	char *p;
@@ -169,7 +258,14 @@ static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
 			break;
 	}
 	if (state < PM_SUSPEND_MAX && *s)
+#ifdef CONFIG_EARLYSUSPEND
+		if (state == PM_SUSPEND_ON || valid_state(state)) {
+			error = 0;
+			request_suspend_state(state);
+		}
+#else
 		error = enter_state(state);
+#endif
 #endif
 
  Exit:
@@ -203,6 +299,12 @@ pm_trace_store(struct kobject *kobj, struct kobj_attribute *attr,
 power_attr(pm_trace);
 #endif /* CONFIG_PM_TRACE */
 
+#ifdef CONFIG_USER_WAKELOCK
+power_attr(wake_lock);
+power_attr(wake_unlock);
+#endif
+power_attr(dvfslock_ctrl);
+
 static struct attribute * g[] = {
 	&state_attr.attr,
 #ifdef CONFIG_PM_TRACE
@@ -211,6 +313,11 @@ static struct attribute * g[] = {
 #if defined(CONFIG_PM_SLEEP) && defined(CONFIG_PM_DEBUG)
 	&pm_test_attr.attr,
 #endif
+#ifdef CONFIG_USER_WAKELOCK
+	&wake_lock_attr.attr,
+	&wake_unlock_attr.attr,
+#endif
+	&dvfslock_ctrl_attr.attr,
 	NULL,
 };
 

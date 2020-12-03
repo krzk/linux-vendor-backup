@@ -57,7 +57,7 @@ int sysctl_tcp_mtu_probing __read_mostly = 0;
 int sysctl_tcp_base_mss __read_mostly = 512;
 
 /* By default, RFC2861 behavior.  */
-int sysctl_tcp_slow_start_after_idle __read_mostly = 1;
+int sysctl_tcp_slow_start_after_idle __read_mostly = 0;
 
 /* Account for new data that has been sent to the network. */
 static void tcp_event_new_data_sent(struct sock *sk, struct sk_buff *skb)
@@ -212,6 +212,13 @@ void tcp_select_initial_window(int __space, __u32 mss,
 		 */
 		space = max_t(u32, sysctl_tcp_rmem[2], sysctl_rmem_max);
 		space = min_t(u32, space, *window_clamp);
+
+		
+		if (sysctl_tcp_workaround_signed_windows)
+			(*rcv_wnd) = min(space, MAX_TCP_WINDOW);
+		else
+			(*rcv_wnd) = space;
+
 		while (space > 65535 && (*rcv_wscale) < 14) {
 			space >>= 1;
 			(*rcv_wscale)++;
@@ -222,6 +229,7 @@ void tcp_select_initial_window(int __space, __u32 mss,
 	 * following RFC2414. Senders, not following this RFC,
 	 * will be satisfied with 2.
 	 */
+/*	 
 	if (mss > (1 << *rcv_wscale)) {
 		int init_cwnd = 4;
 		if (mss > 1460 * 3)
@@ -231,7 +239,7 @@ void tcp_select_initial_window(int __space, __u32 mss,
 		if (*rcv_wnd > init_cwnd * mss)
 			*rcv_wnd = init_cwnd * mss;
 	}
-
+*/
 	/* Set the clamp no higher than max representable value */
 	(*window_clamp) = min(65535U << (*rcv_wscale), *window_clamp);
 }

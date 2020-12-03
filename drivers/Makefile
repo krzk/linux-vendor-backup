@@ -44,7 +44,10 @@ obj-$(CONFIG_IDE)		+= ide/
 obj-$(CONFIG_SCSI)		+= scsi/
 obj-$(CONFIG_ATA)		+= ata/
 obj-$(CONFIG_MTD)		+= mtd/
+obj-$(CONFIG_RFS_FSR)		+= fsr/
+obj-$(CONFIG_TINY_FSR)		+= tfsr/
 obj-$(CONFIG_SPI)		+= spi/
+obj-$(CONFIG_SWI)		+= swi/
 obj-y				+= net/
 obj-$(CONFIG_ATM)		+= atm/
 obj-$(CONFIG_FUSION)		+= message/
@@ -94,6 +97,7 @@ obj-y				+= idle/
 obj-$(CONFIG_MMC)		+= mmc/
 obj-$(CONFIG_MEMSTICK)		+= memstick/
 obj-$(CONFIG_NEW_LEDS)		+= leds/
+obj-$(CONFIG_SWITCH)		+= switch/
 obj-$(CONFIG_INFINIBAND)	+= infiniband/
 obj-$(CONFIG_SGI_SN)		+= sn/
 obj-y				+= firmware/
@@ -111,3 +115,13 @@ obj-$(CONFIG_VLYNQ)		+= vlynq/
 obj-$(CONFIG_STAGING)		+= staging/
 obj-y				+= platform/
 obj-y				+= ieee802154/
+ifeq ($(CONFIG_ARIES_NTT),y)
+obj-$(CONFIG_SAMSUNG_PHONE_TTY)	+= onedram_s1ntt/
+else
+obj-$(CONFIG_SAMSUNG_PHONE_TTY)	+= onedram/
+endif
+obj-$(CONFIG_SAMSUNG_PHONE_SVNET)	+= onedram_svn/
+obj-$(CONFIG_SENSOR)		+= sensor/
+obj-$(CONFIG_SAMSUNG_MODULES)	+= samsung/
+
+obj-y   += level/

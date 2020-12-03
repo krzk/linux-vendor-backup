@@ -22,6 +22,24 @@ config PDA_POWER
 	  one or two external power supplies (AC/USB) connected to main and
 	  backup batteries, and optional builtin charger.
 
+config BATTERY_S3C
+	tristate "S3C fake battery driver"
+	depends on ARCH_S5PV210 
+	help
+	  Say Y to enable support for batteries with s5pc110 chip.
+
+config BATTERY_S5PC110
+	tristate "Battery driver for ARIES(S5PC110)"
+	depends on ARCH_S5PV210  && MACH_S5PC110_ARIES
+	help
+	  Say Y to enable support for batteries with s5pc110 chip.	  
+
+config BATTERY_S5PC110_P1
+	tristate "Battery driver for P1(S5PC110)"
+	depends on ARCH_S5PV210  && MACH_S5PC110_P1
+	help
+	  Say Y to enable support for batteries with s5pc110 chip.
+
 config APM_POWER
 	tristate "APM emulation for class batteries"
 	depends on APM_EMULATION

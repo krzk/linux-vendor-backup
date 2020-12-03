@@ -35,7 +35,9 @@
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <sound/initval.h>
-
+#ifdef CONFIG_S5P_LPAUDIO
+#include <linux/wakelock.h>
+#endif
 static DEFINE_MUTEX(pcm_mutex);
 static DEFINE_MUTEX(io_mutex);
 static DECLARE_WAIT_QUEUE_HEAD(soc_pm_waitq);
@@ -128,7 +130,6 @@ static int soc_pcm_apply_symmetry(struct snd_pcm_substream *substream)
 	    machine->symmetric_rates) {
 		dev_dbg(card->dev, "Symmetry forces %dHz rate\n", 
 			machine->rate);
-
 		ret = snd_pcm_hw_constraint_minmax(substream->runtime,
 						   SNDRV_PCM_HW_PARAM_RATE,
 						   machine->rate,
@@ -265,10 +266,11 @@ static int soc_pcm_open(struct snd_pcm_substream *substream)
 	pr_debug("asoc: min rate %d max rate %d\n", runtime->hw.rate_min,
 		 runtime->hw.rate_max);
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		cpu_dai->playback.active = codec_dai->playback.active = 1;
-	else
+	} else {
 		cpu_dai->capture.active = codec_dai->capture.active = 1;
+	}
 	cpu_dai->active = codec_dai->active = 1;
 	cpu_dai->runtime = runtime;
 	card->codec->active++;
@@ -278,6 +280,7 @@ static int soc_pcm_open(struct snd_pcm_substream *substream)
 machine_err:
 	if (machine->ops && machine->ops->shutdown)
 		machine->ops->shutdown(substream);
+
 
 codec_dai_err:
 	if (platform->pcm_ops->close)
@@ -341,14 +344,14 @@ static int soc_codec_close(struct snd_pcm_substream *substream)
 	struct snd_soc_codec *codec = card->codec;
 
 	mutex_lock(&pcm_mutex);
-
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		cpu_dai->playback.active = codec_dai->playback.active = 0;
-	else
+	} else {
 		cpu_dai->capture.active = codec_dai->capture.active = 0;
+	}
 
-	if (codec_dai->playback.active == 0 &&
-		codec_dai->capture.active == 0) {
+	if(codec_dai->playback.active == 0 &&
+		codec_dai->capture.active == 0){
 		cpu_dai->active = codec_dai->active = 0;
 	}
 	codec->active--;
@@ -372,6 +375,7 @@ static int soc_codec_close(struct snd_pcm_substream *substream)
 		platform->pcm_ops->close(substream);
 	cpu_dai->runtime = NULL;
 
+
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		/* start delayed pop wq here for playback streams */
 		codec_dai->pop_wait = 1;
@@ -383,7 +387,6 @@ static int soc_codec_close(struct snd_pcm_substream *substream)
 			codec_dai->capture.stream_name,
 			SND_SOC_DAPM_STREAM_STOP);
 	}
-
 	mutex_unlock(&pcm_mutex);
 	return 0;
 }
@@ -608,6 +611,27 @@ static int soc_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	return 0;
 }
 
+static int soc_pcm_pointer(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_device *socdev = rtd->socdev;
+	struct snd_soc_card *card= socdev->card;
+	struct snd_soc_dai_link *machine = rtd->dai;
+	struct snd_soc_platform *platform = card->platform;
+	struct snd_soc_dai *cpu_dai = machine->cpu_dai;
+	struct snd_soc_dai *codec_dai = machine->codec_dai;
+	int ret;
+
+
+	if (platform->pcm_ops->pointer) {
+		ret = platform->pcm_ops->pointer(substream);
+		if (ret < 0)
+			return ret;
+	}
+
+	return ret;
+}
+
 /* ASoC PCM operations */
 static struct snd_pcm_ops soc_pcm_ops = {
 	.open		= soc_pcm_open,
@@ -616,6 +640,7 @@ static struct snd_pcm_ops soc_pcm_ops = {
 	.hw_free	= soc_pcm_hw_free,
 	.prepare	= soc_pcm_prepare,
 	.trigger	= soc_pcm_trigger,
+	.pointer	= soc_pcm_pointer,
 };
 
 #ifdef CONFIG_PM
@@ -630,6 +655,12 @@ static int soc_suspend(struct device *dev)
 	struct snd_soc_codec *codec = card->codec;
 	int i;
 
+#ifdef CONFIG_S5P_LPAUDIO
+	if (has_audio_wake_lock()) {
+		pr_debug("Inside --- %s---Audio Playing no suspend\n",__func__);
+		return 0;
+	}
+#endif
 	/* If the initialization of this soc device failed, there is no codec
 	 * associated with it. Just bail out in this case.
 	 */
@@ -718,7 +749,6 @@ static void soc_resume_deferred(struct work_struct *work)
 	 */
 
 	dev_dbg(socdev->dev, "starting resume work\n");
-
 	if (card->resume_pre)
 		card->resume_pre(pdev);
 
@@ -773,7 +803,12 @@ static int soc_resume(struct device *dev)
 	struct snd_soc_device *socdev = platform_get_drvdata(pdev);
 	struct snd_soc_card *card = socdev->card;
 	struct snd_soc_dai *cpu_dai = card->dai_link[0].cpu_dai;
-
+#ifdef CONFIG_S5P_LPAUDIO
+	if (has_audio_wake_lock()) {
+		pr_debug("Inside --- %s---Audio Playing no suspend\n",__func__);
+		return 0;
+	}
+#endif
 	/* AC97 devices might have other drivers hanging off them so
 	 * need to resume immediately.  Other drivers don't have that
 	 * problem and may take a substantial amount of time to resume
@@ -1108,7 +1143,7 @@ static int soc_new_pcm(struct snd_soc_device *socdev,
 	dai_link->pcm = pcm;
 	pcm->private_data = rtd;
 	soc_pcm_ops.mmap = platform->pcm_ops->mmap;
-	soc_pcm_ops.pointer = platform->pcm_ops->pointer;
+//	soc_pcm_ops.pointer = platform->pcm_ops->pointer;
 	soc_pcm_ops.ioctl = platform->pcm_ops->ioctl;
 	soc_pcm_ops.copy = platform->pcm_ops->copy;
 	soc_pcm_ops.silence = platform->pcm_ops->silence;

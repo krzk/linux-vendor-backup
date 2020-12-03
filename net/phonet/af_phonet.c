@@ -67,8 +67,10 @@ static int pn_socket_create(struct net *net, struct socket *sock, int protocol)
 	struct phonet_protocol *pnp;
 	int err;
 
+#if !defined (CONFIG_SAMSUNG_PHONE_SVNET) && !defined (CONFIG_SAMSUNG_PHONE_SVNET_MODULE)
 	if (!capable(CAP_SYS_ADMIN))
 		return -EPERM;
+#endif
 
 	if (protocol == 0) {
 		/* Default protocol selection */

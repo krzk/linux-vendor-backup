@@ -1563,7 +1563,9 @@ register_framebuffer(struct fb_info *fb_info)
 	event.info = fb_info;
 	if (!lock_fb_info(fb_info))
 		return -ENODEV;
+#if !defined(CONFIG_MACH_S5PC110_ARIES)
 	fb_notifier_call_chain(FB_EVENT_FB_REGISTERED, &event);
+#endif	/* CONFIG_MACH_S5PC110_ARIES */
 	unlock_fb_info(fb_info);
 	return 0;
 }

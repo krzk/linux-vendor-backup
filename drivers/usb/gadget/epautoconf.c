@@ -275,8 +275,58 @@ struct usb_ep * __init usb_ep_autoconfig (
 		ep = find_ep (gadget, "ep1-bulk");
 		if (ep && ep_matches (gadget, ep, desc))
 			return ep;
-	}
 
+	} else if (gadget_is_s3c(gadget)) {
+		if (USB_ENDPOINT_XFER_INT == type) {
+			/* single buffering is enough */
+			ep = find_ep (gadget, "ep3-int");
+			if (ep && ep_matches (gadget, ep, desc))
+				return ep;
+			ep = find_ep (gadget, "ep6-int");
+			if (ep && ep_matches (gadget, ep, desc))
+				return ep;
+			ep = find_ep (gadget, "ep9-int");
+			if (ep && ep_matches (gadget, ep, desc))
+				return ep;
+			ep = find_ep (gadget, "ep11-int");
+			if (ep && ep_matches (gadget, ep, desc))
+				return ep;
+		} else if (USB_ENDPOINT_XFER_BULK == type
+				&& (USB_DIR_IN & desc->bEndpointAddress)) {
+			ep = find_ep (gadget, "ep2-bulk");
+			if (ep && ep_matches (gadget, ep, desc))
+				return ep;
+			ep = find_ep (gadget, "ep5-bulk");
+			if (ep && ep_matches (gadget, ep, desc))
+				return ep;
+			ep = find_ep (gadget, "ep8-bulk");
+			if (ep && ep_matches (gadget, ep, desc))
+				return ep;
+			ep = find_ep (gadget, "ep12-bulk");
+			if (ep && ep_matches (gadget, ep, desc))
+				return ep;
+			ep = find_ep (gadget, "ep14-bulk");
+			if (ep && ep_matches (gadget, ep, desc))
+				return ep;
+		} else if (USB_ENDPOINT_XFER_BULK == type
+				&& !(USB_DIR_IN & desc->bEndpointAddress)) {
+			ep = find_ep (gadget, "ep1-bulk");
+			if (ep && ep_matches (gadget, ep, desc))
+				return ep;
+			ep = find_ep (gadget, "ep4-bulk");
+			if (ep && ep_matches (gadget, ep, desc))
+				return ep;
+			ep = find_ep (gadget, "ep7-bulk");
+			if (ep && ep_matches (gadget, ep, desc))
+				return ep;
+			ep = find_ep (gadget, "ep10-bulk");
+			if (ep && ep_matches (gadget, ep, desc))
+				return ep;
+			ep = find_ep (gadget, "ep13-bulk");
+			if (ep && ep_matches (gadget, ep, desc))
+				return ep;						
+		}
+	}
 	/* Second, look at endpoints until an unclaimed one looks usable */
 	list_for_each_entry (ep, &gadget->ep_list, ep_list) {
 		if (ep_matches (gadget, ep, desc))
@@ -286,6 +336,46 @@ struct usb_ep * __init usb_ep_autoconfig (
 	/* Fail */
 	return NULL;
 }
+
+
+struct usb_ep * __init usb_ep_mtpconfig (
+	struct usb_gadget		*gadget,
+	struct usb_endpoint_descriptor	*desc
+)
+{
+	struct usb_ep	*ep;
+	u8		type;
+
+	type = desc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
+
+	if (gadget_is_s3c(gadget)) {
+		if (USB_ENDPOINT_XFER_INT == type) {
+			ep = find_ep (gadget, "ep12-int");
+			if (ep && ep_matches (gadget, ep, desc))
+				return ep;
+		} else if (USB_ENDPOINT_XFER_BULK == type
+				&& (USB_DIR_IN & desc->bEndpointAddress)) {
+			ep = find_ep (gadget, "ep14-bulk");
+			if (ep && ep_matches (gadget, ep, desc))
+				return ep;
+		} else if (USB_ENDPOINT_XFER_BULK == type
+				&& !(USB_DIR_IN & desc->bEndpointAddress)) {
+			ep = find_ep (gadget, "ep13-bulk");
+			if (ep && ep_matches (gadget, ep, desc))
+				return ep;						
+		}
+	}
+	
+	/* Second, look at endpoints until an unclaimed one looks usable */
+	list_for_each_entry (ep, &gadget->ep_list, ep_list) {
+		if (ep_matches (gadget, ep, desc))
+			return ep;
+	}
+
+	/* Fail */
+	return NULL;
+}
+
 
 /**
  * usb_ep_autoconfig_reset - reset endpoint autoconfig state

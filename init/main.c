@@ -81,6 +81,10 @@
 #include <asm/smp.h>
 #endif
 
+#ifdef CONFIG_KERNEL_DEBUG_SEC
+#include <linux/kernel_sec_common.h>
+#endif
+
 static int kernel_init(void *);
 
 extern void init_IRQ(void);
@@ -683,6 +687,10 @@ asmlinkage void __init start_kernel(void)
 
 	ftrace_init();
 
+#ifdef CONFIG_KERNEL_DEBUG_SEC
+	kernel_sec_init();
+#endif
+
 	/* Do the rest non-__init'ed, we're now alive */
 	rest_init();
 }
@@ -890,6 +898,10 @@ static int __init kernel_init(void * unused)
 		ramdisk_execute_command = NULL;
 		prepare_namespace();
 	}
+
+#ifdef CONFIG_KERNEL_DEBUG_SEC
+	kernel_sec_set_build_info();
+#endif
 
 	/*
 	 * Ok, we have completed the initial bootup, and

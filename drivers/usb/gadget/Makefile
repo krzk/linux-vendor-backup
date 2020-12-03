@@ -15,6 +15,7 @@ obj-$(CONFIG_USB_GOKU)		+= goku_udc.o
 obj-$(CONFIG_USB_OMAP)		+= omap_udc.o
 obj-$(CONFIG_USB_LH7A40X)	+= lh7a40x_udc.o
 obj-$(CONFIG_USB_S3C2410)	+= s3c2410_udc.o
+obj-$(CONFIG_USB_S3C_OTGD)	+= s3c_udc_otg.o
 obj-$(CONFIG_USB_AT91)		+= at91_udc.o
 obj-$(CONFIG_USB_ATMEL_USBA)	+= atmel_usba_udc.o
 obj-$(CONFIG_USB_FSL_USB2)	+= fsl_usb2_udc.o
@@ -32,6 +33,9 @@ obj-$(CONFIG_USB_LANGWELL)	+= langwell_udc.o
 #
 # USB gadget drivers
 #
+
+C_UTILS =	composite.o usbstring.o config.o epautoconf.o
+
 g_zero-objs			:= zero.o
 g_audio-objs			:= audio.o
 g_ether-objs			:= ether.o
@@ -41,6 +45,11 @@ gadgetfs-objs			:= inode.o
 g_file_storage-objs		:= file_storage.o
 g_printer-objs			:= printer.o
 g_cdc-objs			:= cdc2.o
+ifeq ($(CONFIG_ARIES_NTT),y)
+g_android-objs			:= adb_ums_acm_mtp_rndis.o f_adb.o f_mass_storage.o u_serial.o f_acm.o serial_acm.o f_mtp.o fsa9480_i2c.o composite.o $(C_UTILS)
+else
+g_android-objs			:= adb_ums_acm_mtp_rndis.o f_adb.o f_mass_storage.o u_serial.o f_acm.o serial_acm.o u_ether.o	rndis.o	f_rndis.o	f_mtp.o fsa9480_i2c.o composite.o $(C_UTILS)
+endif
 
 obj-$(CONFIG_USB_ZERO)		+= g_zero.o
 obj-$(CONFIG_USB_AUDIO)		+= g_audio.o
@@ -51,4 +60,5 @@ obj-$(CONFIG_USB_G_SERIAL)	+= g_serial.o
 obj-$(CONFIG_USB_G_PRINTER)	+= g_printer.o
 obj-$(CONFIG_USB_MIDI_GADGET)	+= g_midi.o
 obj-$(CONFIG_USB_CDC_COMPOSITE) += g_cdc.o
+obj-$(CONFIG_USB_ANDROID)	+= g_android.o
 

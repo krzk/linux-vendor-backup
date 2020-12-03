@@ -316,7 +316,7 @@ static int __init eth_bind(struct usb_composite_dev *cdev)
 		device_desc.idVendor = cpu_to_le16(SIMPLE_VENDOR_NUM);
 		device_desc.idProduct = cpu_to_le16(SIMPLE_PRODUCT_NUM);
 		if (!has_rndis())
-			device_desc.bDeviceClass = USB_CLASS_VENDOR_SPEC;
+		device_desc.bDeviceClass = USB_CLASS_VENDOR_SPEC;
 	}
 
 	if (has_rndis()) {

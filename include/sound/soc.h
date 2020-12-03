@@ -352,7 +352,7 @@ struct snd_soc_pcm_stream {
 	unsigned int rate_max;		/* max rate */
 	unsigned int channels_min;	/* min channels */
 	unsigned int channels_max;	/* max channels */
-	unsigned int active:1;		/* stream is in use */
+	unsigned int active;		/* stream is in use */
 };
 
 /* SoC audio ops */

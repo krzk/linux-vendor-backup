@@ -20,6 +20,8 @@
 #include "bus.h"
 #include "mmc_ops.h"
 
+#define CONFIG_INAND_VERSION_PATCH
+
 static const unsigned int tran_exp[] = {
 	10000,		100000,		1000000,	10000000,
 	0,		0,		0,		0
@@ -121,7 +123,11 @@ static int mmc_decode_csd(struct mmc_card *card)
 	 * v1.2 has extra information in bits 15, 11 and 10.
 	 */
 	csd_struct = UNSTUFF_BITS(resp, 126, 2);
+#if defined(CONFIG_INAND_VERSION_PATCH)
+	if (csd_struct != 1 && csd_struct != 2 && csd_struct != 3) {
+#else
 	if (csd_struct != 1 && csd_struct != 2) {
+#endif
 		printk(KERN_ERR "%s: unrecognised CSD structure version %d\n",
 			mmc_hostname(card->host), csd_struct);
 		return -EINVAL;
@@ -207,7 +213,7 @@ static int mmc_read_ext_csd(struct mmc_card *card)
 	}
 
 	card->ext_csd.rev = ext_csd[EXT_CSD_REV];
-	if (card->ext_csd.rev > 3) {
+	if (card->ext_csd.rev > 5) {
 		printk(KERN_ERR "%s: unrecognised EXT_CSD structure "
 			"version %d\n", mmc_hostname(card->host),
 			card->ext_csd.rev);
@@ -221,11 +227,13 @@ static int mmc_read_ext_csd(struct mmc_card *card)
 			ext_csd[EXT_CSD_SEC_CNT + 1] << 8 |
 			ext_csd[EXT_CSD_SEC_CNT + 2] << 16 |
 			ext_csd[EXT_CSD_SEC_CNT + 3] << 24;
+#if !defined(CONFIG_INAND_VERSION_PATCH)
 		if (card->ext_csd.sectors)
 			mmc_card_set_blockaddr(card);
+#endif
 	}
 
-	switch (ext_csd[EXT_CSD_CARD_TYPE]) {
+	switch (ext_csd[EXT_CSD_CARD_TYPE] & EXT_CSD_CARD_TYPE_MASK) {
 	case EXT_CSD_CARD_TYPE_52 | EXT_CSD_CARD_TYPE_26:
 		card->ext_csd.hs_max_dtr = 52000000;
 		break;
@@ -237,7 +245,6 @@ static int mmc_read_ext_csd(struct mmc_card *card)
 		printk(KERN_WARNING "%s: card is mmc v4 but doesn't "
 			"support any high-speed modes.\n",
 			mmc_hostname(card->host));
-		goto out;
 	}
 
 	if (card->ext_csd.rev >= 3) {
@@ -305,6 +312,9 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	struct mmc_card *card;
 	int err;
 	u32 cid[4];
+#if defined(CONFIG_INAND_VERSION_PATCH)
+	u32 rocr[1];
+#endif
 	unsigned int max_dtr;
 
 	BUG_ON(!host);
@@ -319,7 +329,11 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	mmc_go_idle(host);
 
 	/* The extra bit indicates that we support high capacity */
+#if defined(CONFIG_INAND_VERSION_PATCH)		
+	err = mmc_send_op_cond(host, ocr | (1 << 30), rocr);
+#else
 	err = mmc_send_op_cond(host, ocr | (1 << 30), NULL);
+#endif
 	if (err)
 		goto err;
 
@@ -362,6 +376,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		card->type = MMC_TYPE_MMC;
 		card->rca = 1;
 		memcpy(card->raw_cid, cid, sizeof(card->raw_cid));
+		host->card = card;
 	}
 
 	/*
@@ -407,6 +422,10 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		err = mmc_read_ext_csd(card);
 		if (err)
 			goto free_card;
+#if defined(CONFIG_INAND_VERSION_PATCH)		
+		if (rocr[0] & 0x40000000)
+			mmc_card_set_blockaddr(card);
+#endif
 	}
 
 	/*
@@ -471,17 +490,19 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 			err = 0;
 		} else {
 			mmc_set_bus_width(card->host, bus_width);
+			printk(KERN_WARNING "%s: switch to bus width %d "
+			       , mmc_hostname(card->host),
+			       1 << bus_width);
 		}
 	}
-
-	if (!oldcard)
-		host->card = card;
 
 	return 0;
 
 free_card:
-	if (!oldcard)
+	if (!oldcard) {
 		mmc_remove_card(card);
+		host->card = NULL;
+	}
 err:
 
 	return err;

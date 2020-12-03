@@ -29,6 +29,32 @@ config TOUCHSCREEN_ADS7846
 	  To compile this driver as a module, choose M here: the
 	  module will be called ads7846.
 
+config TOUCHSCREEN_QT602240
+        tristate "quantum touchscreen driver"
+    	depends on MACH_S5PC110_ARIES
+        default N
+        help
+          Say Y here to enable the driver for the touchscreen on the
+          S3C spica board.
+
+          If unsure, say N.
+
+          To compile this driver as a module, choose M here: the
+          module will be called melfas_ts.
+
+config TOUCHSCREEN_QT602240_P1
+        tristate "quantum touchscreen driver(P1)"
+    	depends on MACH_S5PC110_P1
+        default N
+        help
+          Say Y here to enable the driver for the touchscreen on the
+          S3C spica board.
+
+          If unsure, say N.
+
+          To compile this driver as a module, choose M here: the
+          module will be called melfas_ts.
+
 config TOUCHSCREEN_AD7877
 	tristate "AD7877 based touchscreens"
 	depends on SPI_MASTER
@@ -102,6 +128,30 @@ config TOUCHSCREEN_CORGI
 
 	  NOTE: this driver is deprecated, try enable SPI and generic
 	  ADS7846-based touchscreen driver.
+
+config TOUCHSCREEN_S3C
+        tristate "S3C touchscreen driver"
+        depends on ARCH_S3C2410 || ARCH_S3C64XX || ARCH_S5PV2XX || ARCH_S5P64XX || CPU_S5PV210
+        default y
+        help
+          Say Y here to enable the driver for the touchscreen on the
+          S3C SMDK board.
+
+          If unsure, say N.
+
+          To compile this driver as a module, choose M here: the
+          module will be called s3c_ts.
+
+config TOUCHSCREEN_NEW
+        bool "new flip touch"
+        depends on TOUCHSCREEN_S3C
+        default y
+        help
+          Say Y here to enable the driver for the new version touchscreen on the
+          S3C SMDK board.
+
+          Say N here to enable the driver for the old version touchscreen on the
+          S3C SMDK board.
 
 config TOUCHSCREEN_DA9034
 	tristate "Touchscreen support for Dialog Semiconductor DA9034"
@@ -270,6 +320,12 @@ config TOUCHSCREEN_MIGOR
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called migor_ts.
+
+config TOUCHSCREEN_SYNAPTICS_I2C_RMI
+	tristate "Synaptics i2c touchscreen"
+	depends on I2C
+	help
+	  This enables support for Synaptics RMI over I2C based touchscreens.
 
 config TOUCHSCREEN_TOUCHRIGHT
 	tristate "Touchright serial touchscreen"
