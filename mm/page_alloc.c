@@ -192,6 +192,7 @@ static char * const zone_names[MAX_NR_ZONES] = {
 };
 
 int min_free_kbytes = 1024;
+int min_free_order_shift = 1;
 
 static unsigned long __meminitdata nr_kernel_pages;
 static unsigned long __meminitdata nr_all_pages;
@@ -579,7 +580,7 @@ static inline void __free_one_page(struct page *page,
 		combined_idx = buddy_idx & page_idx;
 		higher_page = page + (combined_idx - page_idx);
 		buddy_idx = __find_buddy_index(combined_idx, order + 1);
-		higher_buddy = page + (buddy_idx - combined_idx);
+		higher_buddy = higher_page + (buddy_idx - combined_idx);
 		if (page_is_buddy(higher_page, higher_buddy, order + 1)) {
 			list_add_tail(&page->lru,
 				&zone->free_area[order].free_list[migratetype]);
@@ -1565,7 +1566,7 @@ static bool __zone_watermark_ok(struct zone *z, int order, unsigned long mark,
 		free_pages -= z->free_area[o].nr_free << o;
 
 		/* Require fewer higher order pages to be free */
-		min >>= 1;
+		min >>= min_free_order_shift;
 
 		if (free_pages <= min)
 			return false;
@@ -2231,6 +2232,9 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
 	unsigned long did_some_progress;
 	bool sync_migration = false;
 	bool deferred_compaction = false;
+#ifdef CONFIG_ANDROID_WIP
+	unsigned long oom_invoke_timeout = jiffies + HZ/2;
+#endif
 
 	/*
 	 * In the slowpath, we sanity check order to avoid ever trying to
@@ -2340,7 +2344,12 @@ rebalance:
 	 * If we failed to make any progress reclaiming, then we are
 	 * running out of options and have to consider going OOM
 	 */
-	if (!did_some_progress) {
+#ifdef CONFIG_ANDROID_WIP
+#define SHOULD_CONSIDER_OOM !did_some_progress || time_after(jiffies, oom_invoke_timeout)
+#else
+#define SHOULD_CONSIDER_OOM !did_some_progress
+#endif
+	if (SHOULD_CONSIDER_OOM) {
 		if ((gfp_mask & __GFP_FS) && !(gfp_mask & __GFP_NORETRY)) {
 			if (oom_killer_disabled)
 				goto nopage;
@@ -2348,6 +2357,12 @@ rebalance:
 			if ((current->flags & PF_DUMPCORE) &&
 			    !(gfp_mask & __GFP_NOFAIL))
 				goto nopage;
+#ifdef CONFIG_ANDROID_WIP
+			if (did_some_progress)
+				pr_info("time's up : calling "
+						"__alloc_pages_may_oom(o:%d gfp:0x%x)\n", order, gfp_mask);
+
+#endif
 			page = __alloc_pages_may_oom(gfp_mask, order,
 					zonelist, high_zoneidx,
 					nodemask, preferred_zone,
@@ -2372,7 +2387,9 @@ rebalance:
 				if (high_zoneidx < ZONE_NORMAL)
 					goto nopage;
 			}
-
+#ifdef CONFIG_ANDROID_WIP
+			oom_invoke_timeout = jiffies + HZ/4;
+#endif
 			goto restart;
 		}
 	}

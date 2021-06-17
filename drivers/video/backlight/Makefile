@@ -14,7 +14,19 @@ obj-$(CONFIG_LCD_TOSA)		   += tosa_lcd.o
 obj-$(CONFIG_LCD_S6E63M0)	+= s6e63m0.o
 obj-$(CONFIG_LCD_LD9040)	+= ld9040.o
 obj-$(CONFIG_LCD_AMS369FG06)	+= ams369fg06.o
-
+obj-$(CONFIG_LCD_MIPI_S6E8AB0)  += s6e8ab0_mipi_lcd.o
+obj-$(CONFIG_LCD_MIPI_TC358764) += tc358764_mipi_lcd.o
+obj-$(CONFIG_LCD_MIPI_S6E8AA0)	+= s6e8aa0_mipi_lcd.o
+obj-$(CONFIG_LCD_LMS501KF03)       += lms501kf03.o
+obj-$(CONFIG_LCD_MIPI_AMS480GYXX)	+= ams480gyxx_mipi_lcd.o
+obj-$(CONFIG_LCD_MIPI_ER63311)		+= eR63311_mipi_lcd.o
+obj-$(CONFIG_LCD_MIPI_S6E8FA0)		+= s6e8fa0_mipi_lcd.o \
+					s6e8fa0_6P_mipi_lcd.o \
+					s6e8fa0_G_mipi_lcd.o \
+					s6e8fa0_I_mipi_lcd.o \
+					s6e8fa0_J_mipi_lcd.o \
+					ea8062_mipi_lcd.o dynamic_aid.o
+obj-$(CONFIG_LCD_MIPI_S6E3FA0)		+= s6e3fa0_mipi_lcd.o dynamic_aid.o
 obj-$(CONFIG_BACKLIGHT_CLASS_DEVICE) += backlight.o
 obj-$(CONFIG_BACKLIGHT_ATMEL_PWM)    += atmel-pwm-bl.o
 obj-$(CONFIG_BACKLIGHT_EP93XX)	+= ep93xx_bl.o
@@ -23,6 +35,7 @@ obj-$(CONFIG_BACKLIGHT_HP700)	+= jornada720_bl.o
 obj-$(CONFIG_BACKLIGHT_HP680)	+= hp680_bl.o
 obj-$(CONFIG_BACKLIGHT_LOCOMO)	+= locomolcd.o
 obj-$(CONFIG_BACKLIGHT_LP855X)	+= lp855x_bl.o
+obj-$(CONFIG_BACKLIGHT_LP8556)	+= lp8556_bl.o
 obj-$(CONFIG_BACKLIGHT_OMAP1)	+= omap1_bl.o
 obj-$(CONFIG_BACKLIGHT_PANDORA)	+= pandora_bl.o
 obj-$(CONFIG_BACKLIGHT_PROGEAR) += progear_bl.o
@@ -42,3 +55,4 @@ obj-$(CONFIG_BACKLIGHT_88PM860X) += 88pm860x_bl.o
 obj-$(CONFIG_BACKLIGHT_PCF50633)	+= pcf50633-backlight.o
 obj-$(CONFIG_BACKLIGHT_AAT2870) += aat2870_bl.o
 obj-$(CONFIG_BACKLIGHT_OT200) += ot200_bl.o
+obj-$(CONFIG_TCON_S6TNDR3X) += s6tndr3x_tcon.o

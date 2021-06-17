@@ -140,6 +140,32 @@ fw-shipped-$(CONFIG_USB_SERIAL_XIRCOM) += keyspan_pda/xircom_pgs.fw
 fw-shipped-$(CONFIG_USB_VICAM) += vicam/firmware.fw
 fw-shipped-$(CONFIG_VIDEO_CPIA2) += cpia2/stv0672_vp4.bin
 fw-shipped-$(CONFIG_YAM) += yam/1200.bin yam/9600.bin
+fw-shipped-$(CONFIG_EPEN_WACOM_G9PM) += epen/W9001_B887.bin epen/W9001_B911.bin
+fw-shipped-$(CONFIG_EPEN_WACOM_G9PL) += epen/W9002_B781.bin
+fw-shipped-$(CONFIG_EPEN_WACOM_G9PLL) += epen/W9007_B804.bin epen/W9007_B878.bin
+
+#for sensorhub
+
+fw-shipped-$(CONFIG_SENSORS_SSP) += ssp.fw
+fw-shipped-$(CONFIG_SENSORS_SSP) += ssp_crashed.fw
+TSPFIRMWARE_DIRECTORY = firmware/tsp_atmel
+ifeq ($(shell test -d $(TSPFIRMWARE_DIRECTORY) && echo yes),yes)
+fw-shipped-$(CONFIG_TOUCHSCREEN_ATMEL_MXT540E) += tsp_atmel/mXT540E.fw
+fw-shipped-$(CONFIG_TOUCHSCREEN_ATMEL_MXT540S) += tsp_atmel/mXT540Sg.fw tsp_atmel/mXT540Si.fw
+fw-shipped-$(CONFIG_TOUCHSCREEN_MXT768E) += tsp_atmel/mXT768E.fw
+fw-shipped-$(CONFIG_TOUCHSCREEN_ATMEL_MXT1664S) += tsp_atmel/mXT1664S_v.fw
+else
+$(warning '$(TSPFIRMWARE_DIRECTORY)' directory dose not exist)
+endif
+
+TSPFIRMWARE_DIRECTORY = firmware/tsp_synaptics
+ifeq ($(shell test -d $(TSPFIRMWARE_DIRECTORY) && echo yes),yes)
+fw-shipped-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI) += tsp_synaptics/synaptics_b0_h.fw \
+	tsp_synaptics/synaptics_b0_5_1.fw \
+	tsp_synaptics/synaptics_b0_fac.fw tsp_synaptics/synaptics_b0_5_1_fac.fw
+else
+$(warning '$(TSPFIRMWARE_DIRECTORY)' directory dose not exist)
+endif
 
 fw-shipped-all := $(fw-shipped-y) $(fw-shipped-m) $(fw-shipped-)
 
