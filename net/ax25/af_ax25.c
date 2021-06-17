@@ -509,6 +509,9 @@ ax25_cb *ax25_create_cb(void)
 {
 	ax25_cb *ax25;
 
+	if (protocol < 0 || protocol > SK_PROTOCOL_MAX)
+		return -EINVAL;
+
 	if ((ax25 = kzalloc(sizeof(*ax25), GFP_ATOMIC)) == NULL)
 		return NULL;
 

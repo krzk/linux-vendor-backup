@@ -81,7 +81,7 @@
 #define MAX_EXECVE_AUDIT_LEN 7500
 
 /* number of audit rules */
-int audit_n_rules;
+int audit_n_rules = 1;
 
 /* determines whether we collect data for signals sent */
 int audit_signals;
@@ -688,6 +688,22 @@ static enum audit_state audit_filter_task(struct task_struct *tsk, char **key)
 	return AUDIT_BUILD_CONTEXT;
 }
 
+static int audit_in_mask(const struct audit_krule *rule, unsigned long val)
+{
+	int word, bit;
+
+	if (val > 0xffffffff)
+		return false;
+
+	word = AUDIT_WORD(val);
+	if (word >= AUDIT_BITMASK_SIZE)
+		return false;
+
+	bit = AUDIT_BIT(val);
+
+	return rule->mask[word] & bit;
+}
+
 /* At syscall entry and exit time, this filter is called if the
  * audit_state is not low enough that auditing cannot take place, but is
  * also not high enough that we already know we have to write an audit
@@ -705,11 +721,8 @@ static enum audit_state audit_filter_syscall(struct task_struct *tsk,
 
 	rcu_read_lock();
 	if (!list_empty(list)) {
-		int word = AUDIT_WORD(ctx->major);
-		int bit  = AUDIT_BIT(ctx->major);
-
 		list_for_each_entry_rcu(e, list, list) {
-			if ((e->rule.mask[word] & bit) == bit &&
+			if (audit_in_mask(&e->rule, ctx->major) &&
 			    audit_filter_rules(tsk, &e->rule, ctx, NULL,
 					       &state, false)) {
 				rcu_read_unlock();
@@ -738,8 +751,6 @@ void audit_filter_inodes(struct task_struct *tsk, struct audit_context *ctx)
 
 	rcu_read_lock();
 	for (i = 0; i < ctx->name_count; i++) {
-		int word = AUDIT_WORD(ctx->major);
-		int bit  = AUDIT_BIT(ctx->major);
 		struct audit_names *n = &ctx->names[i];
 		int h = audit_hash_ino((u32)n->ino);
 		struct list_head *list = &audit_inode_hash[h];
@@ -748,7 +759,7 @@ void audit_filter_inodes(struct task_struct *tsk, struct audit_context *ctx)
 			continue;
 
 		list_for_each_entry_rcu(e, list, list) {
-			if ((e->rule.mask[word] & bit) == bit &&
+			if (audit_in_mask(&e->rule, ctx->major) &&
 			    audit_filter_rules(tsk, &e->rule, ctx, n,
 				    	       &state, false)) {
 				rcu_read_unlock();
@@ -1545,7 +1556,7 @@ static void audit_log_exit(struct audit_context *context, struct task_struct *ts
  *
  * Called from copy_process and do_exit
  */
-void audit_free(struct task_struct *tsk)
+void __audit_free(struct task_struct *tsk)
 {
 	struct audit_context *context;
 
@@ -1583,7 +1594,7 @@ void audit_free(struct task_struct *tsk)
  * will only be written if another part of the kernel requests that it
  * be written).
  */
-void audit_syscall_entry(int arch, int major,
+void __audit_syscall_entry(int arch, int major,
 			 unsigned long a1, unsigned long a2,
 			 unsigned long a3, unsigned long a4)
 {
@@ -1689,14 +1700,18 @@ void audit_finish_fork(struct task_struct *child)
  * message), then write out the syscall information.  In call cases,
  * free the names stored from getname().
  */
-void audit_syscall_exit(int valid, long return_code)
+void __audit_syscall_exit(int success, long return_code)
 {
 	struct task_struct *tsk = current;
 	struct audit_context *context;
 
-	context = audit_get_context(tsk, valid, return_code);
+	if (success)
+		success = AUDITSC_SUCCESS;
+	else
+		success = AUDITSC_FAILURE;
 
-	if (likely(!context))
+	context = audit_get_context(tsk, success, return_code);
+	if (!context)
 		return;
 
 	if (context->in_syscall && context->current_state == AUDIT_RECORD_CONTEXT)
@@ -2271,7 +2286,7 @@ void __audit_ipc_set_perm(unsigned long qbytes, uid_t uid, gid_t gid, mode_t mod
 	context->ipc.has_perm = 1;
 }
 
-int audit_bprm(struct linux_binprm *bprm)
+int __audit_bprm(struct linux_binprm *bprm)
 {
 	struct audit_aux_data_execve *ax;
 	struct audit_context *context = current->audit_context;
@@ -2299,7 +2314,7 @@ int audit_bprm(struct linux_binprm *bprm)
  * @args: args array
  *
  */
-void audit_socketcall(int nargs, unsigned long *args)
+void __audit_socketcall(int nargs, unsigned long *args)
 {
 	struct audit_context *context = current->audit_context;
 
@@ -2331,7 +2346,7 @@ void __audit_fd_pair(int fd1, int fd2)
  *
  * Returns 0 for success or NULL context or < 0 on error.
  */
-int audit_sockaddr(int len, void *a)
+int __audit_sockaddr(int len, void *a)
 {
 	struct audit_context *context = current->audit_context;
 
@@ -2541,7 +2556,15 @@ void audit_core_dumps(long signr)
 	audit_log_format(ab, " sig=%ld", signr);
 	audit_log_end(ab);
 }
+void __audit_seccomp(unsigned long syscall)
+{
+	struct audit_buffer *ab;
 
+	ab = audit_log_start(NULL, GFP_KERNEL, AUDIT_ANOM_ABEND);
+//	audit_log_abend(ab, "seccomp", SIGKILL);
+	audit_log_format(ab, " syscall=%ld", syscall);
+	audit_log_end(ab);
+}
 struct list_head *audit_killed_trees(void)
 {
 	struct audit_context *ctx = current->audit_context;

@@ -1,0 +1,1 @@
+cmd_drivers/gpu/mali400/r3p2/ump/built-in.o :=  rm -f drivers/gpu/mali400/r3p2/ump/built-in.o; /home/sag.lee/sag/T0_jbp43/android/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-ar rcs drivers/gpu/mali400/r3p2/ump/built-in.o
