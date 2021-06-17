@@ -85,6 +85,7 @@
 #include <asm/smp.h>
 #endif
 
+#include <asm/cp15.h> 
 static int kernel_init(void *);
 
 extern void init_IRQ(void);
@@ -99,6 +100,15 @@ static inline void mark_rodata_ro(void) { }
 #ifdef CONFIG_TC
 extern void tc_init(void);
 #endif
+
+#ifdef CONFIG_TIMA_RKP_30
+#define PGT_BIT_ARRAY_LENGTH 0x40000
+unsigned long pgt_bit_array[PGT_BIT_ARRAY_LENGTH];
+EXPORT_SYMBOL(pgt_bit_array);
+#endif
+
+int boot_mode_security;
+EXPORT_SYMBOL(boot_mode_security);
 
 /*
  * Debug helper: via this flag we know that we are in 'early bootup code'
@@ -122,6 +132,10 @@ extern void time_init(void);
 /* Default late time init is NULL. archs can override this later. */
 void (*__initdata late_time_init)(void);
 extern void softirq_init(void);
+
+#ifdef CONFIG_PTRACK_DEBUG
+extern void ptrack_init(void);
+#endif
 
 /* Untouched command line saved by arch-specific code. */
 char __initdata boot_command_line[COMMAND_LINE_SIZE];
@@ -350,6 +364,22 @@ static void __init setup_command_line(char *command_line)
 	strcpy (static_command_line, command_line);
 }
 
+#ifdef CONFIG_TIMA_RKP
+/* Block of Code for RKP initialization */
+static noinline void rkp_init(void)
+{
+#ifdef CONFIG_TIMA_RKP	
+#ifdef CONFIG_TIMA_RKP_30 
+	tima_send_cmd5((unsigned long)_stext, (unsigned long)init_mm.pgd, (unsigned long)__init_begin, (unsigned long)__init_end,(unsigned long)__pa(pgt_bit_array), 0xc);
+	tima_send_cmd((unsigned long)__pa((unsigned long)_text),0x28);
+#else
+	tima_send_cmd4((unsigned long)_stext, (unsigned long)init_mm.pgd, (unsigned long)__init_begin, (unsigned long)__init_end, 0xc);
+#endif
+#endif
+
+}
+#endif /*CONFIG_TIMA_RKP*/
+
 /*
  * We need to finalize in a non-__init function or else race conditions
  * between the root thread and the init thread may cause start_kernel to
@@ -364,6 +394,10 @@ static __initdata DECLARE_COMPLETION(kthreadd_done);
 static noinline void __init_refok rest_init(void)
 {
 	int pid;
+
+#ifdef CONFIG_TIMA_RKP
+	rkp_init();
+#endif
 
 	rcu_scheduler_starting();
 	/*
@@ -404,6 +438,12 @@ static int __init do_early_param(char *param, char *val, const char *unused)
 		}
 	}
 	/* We accept everything at this stage. */
+	if ((strncmp(param, "androidboot.security_mode", 26) == 0)) {
+	        if ((strncmp(val, "1", 1) == 0)) {
+				pr_info("Security Boot Mode \n");
+				boot_mode_security = 1;
+			}
+	}
 	return 0;
 }
 
@@ -466,6 +506,9 @@ static void __init mm_init(void)
 	percpu_init_late();
 	pgtable_cache_init();
 	vmalloc_init();
+#ifdef CONFIG_PTRACK_DEBUG
+	ptrack_init();
+#endif
 }
 
 asmlinkage void __init start_kernel(void)
@@ -806,14 +849,57 @@ static int run_init_process(const char *init_filename)
 		(const char __user *const __user *)envp_init);
 }
 
+#ifdef CONFIG_DEFERRED_INITCALLS
+extern initcall_t __deferred_initcall_start[], __deferred_initcall_end[];
+
+/* call deferred init routines */
+void __ref do_deferred_initcalls(void)
+{
+	initcall_t *call;
+	static int already_run=0;
+
+	if (already_run) {
+		printk("do_deferred_initcalls() has already run\n");
+		return;
+	}
+
+	already_run=1;
+
+	printk("Running do_deferred_initcalls()\n");
+
+	for(call = __deferred_initcall_start;
+	    call < __deferred_initcall_end; call++)
+		do_one_initcall(*call);
+
+	flush_scheduled_work();
+
+	free_initmem();
+}
+#endif
+
+#ifdef CONFIG_SEC_GPIO_DVS
+extern void gpio_dvs_check_initgpio(void);
+#endif
+
 static noinline void __init kernel_init_freeable(void);
 
 static int __ref kernel_init(void *unused)
 {
 	kernel_init_freeable();
+#ifdef CONFIG_SEC_GPIO_DVS
+	/************************ Caution !!! ****************************/
+	/* This function must be located in appropriate INIT position
+	 * in accordance with the specification of each BB vendor.
+	 */
+	/************************ Caution !!! ****************************/
+	pr_info("%s: GPIO DVS: check init gpio\n", __func__);
+	gpio_dvs_check_initgpio();
+#endif
 	/* need to finish all async __init code before freeing the memory */
 	async_synchronize_full();
+#ifndef CONFIG_DEFERRED_INITCALLS
 	free_initmem();
+#endif
 	mark_rodata_ro();
 	system_state = SYSTEM_RUNNING;
 	numa_default_policy();

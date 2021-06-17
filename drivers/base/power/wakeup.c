@@ -862,6 +862,7 @@ static int print_wakeup_source_stats(struct seq_file *m,
 static int wakeup_sources_stats_show(struct seq_file *m, void *unused)
 {
 	struct wakeup_source *ws;
+	unsigned int cnt, inpr;
 
 	seq_puts(m, "name\t\tactive_count\tevent_count\twakeup_count\t"
 		"expire_count\tactive_since\ttotal_time\tmax_time\t"
@@ -872,6 +873,9 @@ static int wakeup_sources_stats_show(struct seq_file *m, void *unused)
 		print_wakeup_source_stats(m, ws);
 	rcu_read_unlock();
 
+	split_counters(&cnt, &inpr);
+	seq_printf(m, "\nRegistered wakeup events: %u\n"
+			"Wakeup events in progress: %u\n", cnt, inpr);
 	return 0;
 }
 
@@ -896,3 +900,44 @@ static int __init wakeup_sources_debugfs_init(void)
 }
 
 postcore_initcall(wakeup_sources_debugfs_init);
+
+
+int active_wakelock_stats_show(struct seq_file *m, void *unused)
+{
+	struct wakeup_source *ws;
+	unsigned long flags;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(ws, &wakeup_sources, entry) {
+		spin_lock_irqsave(&ws->lock, flags);
+		if (ws->active)
+		     seq_printf(m, "~~%s", ws->name);
+		spin_unlock_irqrestore(&ws->lock, flags);
+	}
+	rcu_read_unlock();
+
+	return 0;
+
+}
+static int active_wakelock_stats_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, active_wakelock_stats_show, NULL);
+}
+
+static const struct file_operations active_wakelock_stats_fops = {
+	.owner = THIS_MODULE,
+	.open = active_wakelock_stats_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static int __init active_wakelock_debugfs_init(void)
+{
+	debugfs_create_file("active_wakelocks",
+			S_IRUGO, NULL, NULL, &active_wakelock_stats_fops);
+	return 0;
+}
+
+postcore_initcall(active_wakelock_debugfs_init);
+
