@@ -42,9 +42,10 @@ enum {
 	MUIC_DOCK_DETACHED	= 0,
 	MUIC_DOCK_DESKDOCK	= 1,
 	MUIC_DOCK_CARDOCK	= 2,
-	MUIC_DOCK_AUDIODOCK	= 7,
-	MUIC_DOCK_SMARTDOCK	= 8,
-	MUIC_DOCK_HMT		= 11,
+	MUIC_DOCK_AUDIODOCK	= 101,
+	MUIC_DOCK_SMARTDOCK	= 102,
+	MUIC_DOCK_HMT		= 105,
+	MUIC_DOCK_ABNORMAL	= 106,
 };
 
 /* MUIC Path */
@@ -168,9 +169,6 @@ struct muic_platform_data {
 	/* muic current USB/UART path */
 	int usb_path;
 	int uart_path;
-
-	/* muic path status value (suspend/resume) for rustproof */
-	u8 path_status;
 
 	bool rustproof_on;
 	bool afc_disable;

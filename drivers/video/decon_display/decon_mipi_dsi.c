@@ -519,6 +519,7 @@ int s5p_mipi_dsi_rd_data(struct mipi_dsim_device *dsim, u32 data_id,
 		dev_dbg(dsim->dev, "Short Packet was received from LCD module.\n");
 		for (i = 0; i <= count; i++)
 			buf[i] = (rx_fifo >> (8 + i * 8)) & 0xff;
+		rx_size = count;
 		break;
 	case MIPI_DSI_RX_DCS_LONG_READ_RESPONSE:
 	case MIPI_DSI_RX_GENERIC_LONG_READ_RESPONSE:
@@ -526,6 +527,9 @@ int s5p_mipi_dsi_rd_data(struct mipi_dsim_device *dsim, u32 data_id,
 		rx_size = (rx_fifo & 0x00ffff00) >> 8;
 		dev_info(dsim->dev, "rx fifo : %8x, response : %x, rx_size : %d\n",
 				rx_fifo, rx_fifo & 0xff, rx_size);
+		/* prevent Stack crash */
+		if(rx_size > count)
+			rx_size = count;
 		/* Read data from RX packet payload */
 		for (i = 0; i < rx_size >> 2; i++) {
 			rx_fifo = readl(dsim->reg_base + S5P_DSIM_RXFIFO);
@@ -1335,7 +1339,7 @@ int s5p_mipi_dsi_disable(struct mipi_dsim_device *dsim)
 
 	/* make CLK/DATA Lane as LP00 */
 	s5p_mipi_dsi_enable_lane(dsim, DSIM_LANE_CLOCK, 0);
-        s5p_mipi_dsi_enable_lane(dsim, dsim->data_lane, 0);
+	s5p_mipi_dsi_enable_lane(dsim, dsim->data_lane, 0);
 
 	s5p_mipi_dsi_set_clock(dsim, dsim->dsim_config->e_byte_clk, 0);
 
@@ -1602,6 +1606,13 @@ int create_mipi_dsi_controller(struct platform_device *pdev)
 	s5p_mipi_dsi_set_data_transfer_mode(dsim, 0);
 	s5p_mipi_dsi_set_display_mode(dsim, dsim->dsim_config);
 	s5p_mipi_dsi_set_hs_enable(dsim);
+
+	/*
+	 * dsim sfr access function must be called after s5p_mipi_dsi_init_dsim
+	 * function. Because dsim sw reset function in s5p_mipi_dsi_init_dsim
+	 * initializes all dsim sfr
+	 */
+	s5p_mipi_dsi_set_interrupt(dsim, true);
 
 	dsim->dsim_lcd_drv->probe(dsim);
 	dsim->dsim_lcd_drv->displayon(dsim);

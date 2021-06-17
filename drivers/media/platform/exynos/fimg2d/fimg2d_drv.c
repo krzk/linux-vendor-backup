@@ -435,6 +435,7 @@ static long fimg2d_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	struct fimg2d_context *ctx;
 	struct mm_struct *mm;
 	struct fimg2d_dma *usr_dst;
+	struct fimg2d_bltcmd *bltcmd;
 
 	ctx = file->private_data;
 
@@ -471,6 +472,9 @@ static long fimg2d_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		usr_dst = kzalloc(sizeof(struct fimg2d_dma), GFP_KERNEL);
 		if (!usr_dst) {
 			fimg2d_err("failed to allocate memory for fimg2d_dma\n");
+			bltcmd = fimg2d_get_first_command(ctrl);
+			if (bltcmd)
+				fimg2d_del_command(ctrl, bltcmd);
 			g2d_unlock(&ctrl->drvlock);
 			mmput(mm);
 			return -ENOMEM;
@@ -479,6 +483,9 @@ static long fimg2d_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		ret = store_user_dst((struct fimg2d_blit __user *)arg, usr_dst);
 		if (ret) {
 			fimg2d_err("store_user_dst() not allowed.\n");
+			bltcmd = fimg2d_get_first_command(ctrl);
+			if (bltcmd)
+				fimg2d_del_command(ctrl, bltcmd);
 			g2d_unlock(&ctrl->drvlock);
 			kfree(usr_dst);
 			mmput(mm);
@@ -534,6 +541,13 @@ static long fimg2d_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 
 		g2d_lock(&ctrl->drvlock);
+		if (atomic_read(&ctrl->drvact) == act) {
+			fimg2d_info("Duplicated %s request is ignored\n",
+				act == DRV_ACT ? "DRV_ACT" : "DRV_DEACT");
+			g2d_unlock(&ctrl->drvlock);
+			break;
+		}
+
 		atomic_set(&ctrl->drvact, act);
 		if (act == DRV_ACT) {
 			fimg2d_power_control(ctrl, FIMG2D_PW_OFF);

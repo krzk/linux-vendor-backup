@@ -56,6 +56,8 @@ struct pcie_host_ops {
 extern unsigned long global_io_offset;
 void exynos_pcie_poweron(void);
 void exynos_pcie_poweroff(void);
+void exynos_pcie_pm_suspend(void);
+void exynos_pcie_pm_resume(void);
 
 int cfg_read(void *addr, int where, int size, u32 *val);
 int cfg_write(void *addr, int where, int size, u32 val);

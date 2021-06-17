@@ -2,7 +2,7 @@
  * Broadcom PCIE
  * Software-specific definitions shared between device and host side
  * Explains the shared area between host and dongle
- * Copyright (C) 1999-2014, Broadcom Corporation
+ * Copyright (C) 1999-2016, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -22,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmpcie.h 501162 2014-09-08 03:52:30Z $
+ * $Id: bcmpcie.h 533992 2015-02-12 06:55:52Z $
  */
 
 #ifndef	_bcmpcie_h_
@@ -181,11 +181,17 @@ typedef struct {
 #define H2D_HOST_DS_ACK		0x00000002
 #define H2D_HOST_CONS_INT	0x80000000	/* h2d int for console cmds  */
 
+#define H2D_HOST_D0_INFORM_IN_USE	0x00000008
+#define H2D_HOST_D0_INFORM		0x00000010
+
 /* D2H mail box Data */
 #define D2H_DEV_D3_ACK		0x00000001
 #define D2H_DEV_DS_ENTER_REQ	0x00000002
 #define D2H_DEV_DS_EXIT_NOTE	0x00000004
 #define D2H_DEV_FWHALT		0x10000000
+#define D2H_DEV_MB_MASK		(D2H_DEV_D3_ACK | D2H_DEV_DS_ENTER_REQ | \
+				D2H_DEV_DS_EXIT_NOTE | D2H_DEV_FWHALT)
+#define D2H_DEV_MB_INVALIDATED(x)	((!x) || (x & ~D2H_DEV_MB_MASK))
 
 
 extern pciedev_shared_t pciedev_shared;

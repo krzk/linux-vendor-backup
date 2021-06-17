@@ -1,6 +1,6 @@
 /*
  * Broadcom Dongle Host Driver (DHD), Flow ring specific code at top level
- * Copyright (C) 1999-2014, Broadcom Corporation
+ * Copyright (C) 1999-2016, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -57,7 +57,11 @@ int BCMFASTPATH dhd_flow_queue_overflow(flow_queue_t *queue, void *pkt);
 #define FLOW_QUEUE_PKT_NEXT(p)          PKTLINK(p)
 #define FLOW_QUEUE_PKT_SETNEXT(p, x)    PKTSETLINK((p), (x))
 
+#ifdef DHD_LOSSLESS_ROAMING
+const uint8 prio2ac[8] = { 0, 1, 1, 0, 2, 2, 3, 7 };
+#else
 const uint8 prio2ac[8] = { 0, 1, 1, 0, 2, 2, 3, 3 };
+#endif
 const uint8 prio2tid[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
 
 int BCMFASTPATH
@@ -163,7 +167,7 @@ dhd_flow_rings_init(dhd_pub_t *dhdp, uint32 num_flow_rings)
 {
 	uint32 idx;
 	uint32 flow_ring_table_sz;
-	uint32 if_flow_lkup_sz;
+	uint32 if_flow_lkup_sz = 0;
 	void * flowid_allocator;
 	flow_ring_table_t *flow_ring_table;
 	if_flow_lkup_t *if_flow_lkup = NULL;
@@ -231,7 +235,9 @@ dhd_flow_rings_init(dhd_pub_t *dhdp, uint32 num_flow_rings)
 
 	dhdp->flow_prio_map_type = DHD_FLOW_PRIO_AC_MAP;
 	bcopy(prio2ac, dhdp->flow_prio_map, sizeof(uint8) * NUMPRIO);
-
+#ifdef DHD_LOSSLESS_ROAMING
+	dhdp->dequeue_prec_map = ALLPRIO;
+#endif
 	/* Now populate into dhd pub */
 	DHD_FLOWID_LOCK(lock, flags);
 	dhdp->num_flow_rings = num_flow_rings;
@@ -245,10 +251,8 @@ dhd_flow_rings_init(dhd_pub_t *dhdp, uint32 num_flow_rings)
 	return BCME_OK;
 
 fail:
-	if (lock != NULL)
-		dhd_os_spin_lock_deinit(dhdp->osh, lock);
 	/* Destruct the per interface flow lkup table */
-	if (dhdp->if_flow_lkup != NULL) {
+	if (if_flow_lkup != NULL) {
 		DHD_OS_PREFREE(dhdp, if_flow_lkup, if_flow_lkup_sz);
 	}
 	if (flow_ring_table != NULL) {
@@ -774,7 +778,7 @@ int dhd_update_flow_prio_map(dhd_pub_t *dhdp, uint8 map)
 	uint16 flowid;
 	flow_ring_node_t *flow_ring_node;
 
-	if (map > DHD_FLOW_PRIO_TID_MAP)
+	if (map > DHD_FLOW_PRIO_LLR_MAP)
 		return BCME_BADOPTION;
 
 	/* Check if we need to change prio map */

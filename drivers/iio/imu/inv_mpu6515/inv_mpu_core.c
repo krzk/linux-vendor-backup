@@ -61,8 +61,13 @@ static __s8 orientation_map[8][9] = {
 s64 get_time_ns(void)
 {
 	struct timespec ts;
-	ktime_get_ts(&ts);
-	return timespec_to_ns(&ts);
+	s64 timestamp;
+	ts = ktime_to_timespec(ktime_get_boottime());
+	timestamp = ts.tv_sec * 1000000000ULL + ts.tv_nsec;
+	if (timestamp < 0)
+		pr_err("[INV] %s invalid time = %lld\n", __func__, timestamp);
+
+	return timestamp;
 }
 
 s64 get_time_timeofday(void)
@@ -240,8 +245,7 @@ static int accel_open_calibration(struct inv_mpu_state *st)
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 
-	cal_filp = filp_open(MPU6500_ACCEL_CAL_PATH,
-		O_RDONLY, S_IRUGO | S_IWUSR | S_IWGRP);
+	cal_filp = filp_open(MPU6500_ACCEL_CAL_PATH, O_RDONLY, 0);
 	if (IS_ERR(cal_filp)) {
 		pr_err("%s: Can't open calibration file\n", __func__);
 		set_fs(old_fs);
@@ -276,8 +280,7 @@ static int gyro_open_calibration(struct inv_mpu_state *st)
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 
-	cal_filp = filp_open(MPU6500_GYRO_CAL_PATH,
-		O_RDONLY, S_IRUGO | S_IWUSR | S_IWGRP);
+	cal_filp = filp_open(MPU6500_GYRO_CAL_PATH, O_RDONLY, 0);
 	if (IS_ERR(cal_filp)) {
 		pr_err("[SENSOR] %s: - Can't open calibration file\n", __func__);
 		set_fs(old_fs);
@@ -320,8 +323,7 @@ static int gyro_do_calibrate(struct inv_mpu_state *st)
 	set_fs(KERNEL_DS);
 
 	cal_filp = filp_open(MPU6500_GYRO_CAL_PATH,
-			O_CREAT | O_TRUNC | O_WRONLY,
-			S_IRUGO | S_IWUSR | S_IWGRP);
+			O_CREAT | O_TRUNC | O_WRONLY, 0660);
 	if (IS_ERR(cal_filp)) {
 		pr_err("[SENSOR] %s: - Can't open calibration file\n", __func__);
 		set_fs(old_fs);
@@ -516,7 +518,8 @@ static int inv_init_config(struct iio_dev *indio_dev)
 		st->tap.thresh = INIT_TAP_THRESHOLD;
 		st->tap.min_count = INIT_TAP_MIN_COUNT;
 		st->sample_divider = INIT_SAMPLE_DIVIDER;
-		st->smd.threshold = MPU_INIT_SMD_THLD;
+
+		st->smd.threshold = 0;
 		st->smd.delay     = MPU_INIT_SMD_DELAY_THLD;
 		st->smd.delay2    = MPU_INIT_SMD_DELAY2_THLD;
 		st->ped.int_thresh = INIT_PED_INT_THRESH;
@@ -1022,6 +1025,8 @@ static ssize_t _dmp_mem_store(struct device *dev,
 	struct inv_mpu_state *st = iio_priv(indio_dev);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
 	int result, data;
+	u8 sc_buf[IIO_BUFFER_BYTES];
+	u16 hdr;
 
 	if (st->chip_config.enable)
 		return -EBUSY;
@@ -1047,9 +1052,16 @@ static ssize_t _dmp_mem_store(struct device *dev,
 		result = inv_enable_pedometer(st, !!data);
 
 		/*reset internal pedometer step buffer*/
-		if(!!data)
+		if(!!data) {
 			result = inv_reset_pedometer_internal_timer(st);
-		else
+			// Sending dummy data to begin polling at HAL
+			hdr = STEP_COUNTER_HDR;
+			memcpy(sc_buf, &hdr, sizeof(hdr));
+			mutex_lock(&st->iio_buf_write_lock);
+			iio_push_to_buffers(indio_dev, sc_buf);
+			mutex_unlock(&st->iio_buf_write_lock);
+			pr_info("step counter dummy data sent\n");
+		} else
 			st->shealth.interrupt_mask = 0;
 
 		if (result)
@@ -1092,10 +1104,12 @@ static ssize_t _dmp_mem_store(struct device *dev,
 	case ATTR_DMP_SMD_THLD:
 		if (data < 0 || data > SHRT_MAX)
 			goto dmp_mem_store_fail;
-		result = write_be32_key_to_mem(st, data << 16,
+		data = data << 16;
+		result = write_be32_key_to_mem(st, data,
 						KEY_SMD_ACCEL_THLD);
 		if (result)
 			goto dmp_mem_store_fail;
+		cpu_to_be32s(&data);
 		st->smd.threshold = data;
 		break;
 	case ATTR_DMP_SMD_DELAY_THLD:
@@ -3162,8 +3176,7 @@ static int accel_do_calibrate(struct inv_mpu_state *st, int enable)
 	set_fs(KERNEL_DS);
 
 	cal_filp = filp_open(MPU6500_ACCEL_CAL_PATH,
-			O_CREAT | O_TRUNC | O_WRONLY,
-			S_IRUGO | S_IWUSR | S_IWGRP);
+			O_CREAT | O_TRUNC | O_WRONLY, 0660);
 	if (IS_ERR(cal_filp)) {
 		pr_err("%s: Can't open calibration file\n", __func__);
 		set_fs(old_fs);
@@ -3966,6 +3979,7 @@ static int inv_mpu_probe(struct i2c_client *client,
 		pr_err("%s : inv_check_chip_type\n", __func__);
 		goto out_free;
 	}
+	pr_info("[SENSOR] %s - chip_type=%d\n", __func__, st->chip_type);
 
 	result = st->init_config(indio_dev);
 	if (result) {
@@ -4040,6 +4054,7 @@ static int inv_mpu_probe(struct i2c_client *client,
 	INIT_KFIFO(st->timestamps);
 	spin_lock_init(&st->time_stamp_lock);
 	mutex_init(&st->suspend_resume_lock);
+	mutex_init(&st->iio_buf_write_lock);
 	wake_lock_init(&st->shealth.wake_lock, WAKE_LOCK_SUSPEND, "inv_iio");
 
 	result = st->set_power_state(st, false);
@@ -4087,6 +4102,7 @@ err_gyro_sensor_register_failed:
 #endif
 
 out_remove_dmp_sysfs:
+	mutex_destroy(&st->iio_buf_write_lock);
 	mutex_destroy(&st->suspend_resume_lock);
 	kfifo_free(&st->timestamps);
 out_unreg_iio:

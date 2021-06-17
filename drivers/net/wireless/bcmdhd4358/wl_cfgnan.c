@@ -3,7 +3,7 @@
  *
  * Support NAN (Neighbor Awareness Networking) and RTT (Round Trip Time)
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
+ * Copyright (C) 1999-2016, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -554,8 +554,7 @@ int
 wl_cfgnan_status_handler(struct net_device *ndev,
 	struct bcm_cfg80211 *cfg, char *cmd, nan_cmd_data_t *cmd_data)
 {
-	wl_nan_ioc_t *nanioc = NULL;
-	void *pxtlv;
+	wl_nan_ioc_t *nanioc = NULL, *nanioc_res = NULL;
 	char *ptr = cmd;
 	wl_nan_tlv_data_t tlv_data;
 	s32 ret = BCME_OK;
@@ -579,7 +578,6 @@ wl_cfgnan_status_handler(struct net_device *ndev,
 	/* nan status */
 	nanioc->version = htod16(WL_NAN_IOCTL_VERSION);
 	nanioc->id = htod16(WL_NAN_CMD_STATUS);
-	pxtlv = nanioc->data;
 	nanioc->len = NAN_IOCTL_BUF_SIZE;
 	nanioc_size = sizeof(wl_nan_ioc_t) + sizeof(bcm_xtlv_t);
 	ret = wldev_iovar_getbuf(ndev, "nan", nanioc, nanioc_size,
@@ -593,11 +591,14 @@ wl_cfgnan_status_handler(struct net_device *ndev,
 
 	/* unpack the tlvs */
 	memset(&tlv_data, 0, sizeof(tlv_data));
-	nanioc = (wl_nan_ioc_t *)cfg->ioctl_buf;
-	if (g_nan_debug) {
-		prhex(" nanioc->data: ", (uint8 *)nanioc->data, nanioc->len);
+	nanioc_res = (wl_nan_ioc_t *)cfg->ioctl_buf;
+	if (!nanioc_res) {
+		goto fail;
 	}
-	bcm_unpack_xtlv_buf(&tlv_data, nanioc->data, nanioc->len,
+	if (g_nan_debug) {
+		prhex(" nanioc->data: ", (uint8 *)nanioc_res->data, nanioc_res->len);
+	}
+	bcm_unpack_xtlv_buf(&tlv_data, nanioc_res->data, nanioc_res->len,
 		wl_cfgnan_set_vars_cbfn);
 
 	ptr += sprintf(ptr, CLUS_ID_PREFIX MACF, ETHER_TO_MACF(tlv_data.clus_id));
@@ -1235,7 +1236,7 @@ static int wl_cfgnan_config_attr(char *buf, nan_config_attr_t *attr)
 	nan_config_attr_t *nanc = NULL;
 
 	/* only one attribute at a time */
-	for (nanc = nan_config_attrs; nanc->name; nanc++) {
+	for (nanc = nan_config_attrs; nanc->name[0]; nanc++) {
 		if (!strncmp(nanc->name, buf, strlen(nanc->name))) {
 			strncpy((char *)attr->name, buf, strlen(nanc->name));
 			attr->type = nanc->type;
@@ -1258,7 +1259,7 @@ static int wl_cfgnan_parse_args(char *buf, nan_cmd_data_t *cmd_data)
 			buf += strlen(PUB_ID_PREFIX);
 			token = strsep(&buf, delim);
 			cmd_data->pub_id = simple_strtoul(token, NULL, 10);
-			if (INVALID_ID(cmd_data->pub_id)) {
+			if (NAN_INVALID_ID(cmd_data->pub_id)) {
 				WL_ERR((" invalid publisher id, pub_id = %d \n",
 					cmd_data->pub_id));
 				ret = -EINVAL;
@@ -1268,7 +1269,7 @@ static int wl_cfgnan_parse_args(char *buf, nan_cmd_data_t *cmd_data)
 			buf += strlen(SUB_ID_PREFIX);
 			token = strsep(&buf, delim);
 			cmd_data->sub_id = simple_strtoul(token, NULL, 10);
-			if (INVALID_ID(cmd_data->sub_id)) {
+			if (NAN_INVALID_ID(cmd_data->sub_id)) {
 				WL_ERR((" invalid subscriber id, sub_id = %d \n",
 					cmd_data->sub_id));
 				ret = -EINVAL;
@@ -1298,7 +1299,7 @@ static int wl_cfgnan_parse_args(char *buf, nan_cmd_data_t *cmd_data)
 			token = strsep(&buf, delim);
 			cmd_data->chanspec = wf_chspec_aton(token);
 			cmd_data->chanspec = wl_chspec_host_to_driver(cmd_data->chanspec);
-			if (INVALID_CHANSPEC(cmd_data->chanspec)) {
+			if (NAN_INVALID_CHANSPEC(cmd_data->chanspec)) {
 				WL_ERR((" invalid chanspec, chanspec = 0x%04x \n",
 					cmd_data->chanspec));
 				ret = -EINVAL;
@@ -1321,7 +1322,7 @@ static int wl_cfgnan_parse_args(char *buf, nan_cmd_data_t *cmd_data)
 			buf += strlen(ROLE_PREFIX);
 			token = strsep(&buf, delim);
 			cmd_data->role = simple_strtoul(token, NULL, 10);
-			if (INVALID_ROLE(cmd_data->role)) {
+			if (NAN_INVALID_ROLE(cmd_data->role)) {
 				WL_ERR((" invalid role, role = %d \n", cmd_data->role));
 				ret = -EINVAL;
 				goto fail;
@@ -1370,6 +1371,9 @@ wl_cfgnan_cmd_handler(struct net_device *ndev, struct bcm_cfg80211 *cfg,
 	int ret = BCME_OK;
 
 	cmd_name = strsep((char **)&buf, " ");
+	if (!cmd_name) {
+		return BCME_ERROR;
+	}
 	if (buf) {
 		buf_len = strlen(buf);
 	}
@@ -1427,7 +1431,7 @@ wl_cfgnan_notify_proxd_status(struct bcm_cfg80211 *cfg,
 	WL_DBG((" proxd event: type: %d num: %d len: %d \n",
 		event_type, event_num, data_len));
 
-	if (INVALID_PROXD_EVENT(event_num)) {
+	if (NAN_INVALID_PROXD_EVENT(event_num)) {
 		WL_ERR((" unsupported event, num: %d \n", event_num));
 		return -EINVAL;
 	}
@@ -1526,7 +1530,7 @@ wl_cfgnan_notify_nan_status(struct bcm_cfg80211 *cfg,
 	WL_DBG((" nan event: type: %d num: %d len: %d \n",
 		event_type, event_num, data_len));
 
-	if (INVALID_NAN_EVENT(event_num)) {
+	if (NAN_INVALID_EVENT(event_num)) {
 		WL_ERR((" unsupported event, num: %d \n", event_num));
 		return -EINVAL;
 	}
@@ -1591,7 +1595,7 @@ wl_cfgnan_notify_nan_status(struct bcm_cfg80211 *cfg,
 
 		if (tlv_data.vend_info.data && tlv_data.vend_info.dlen) {
 			struct ether_addr *ea;
-			u8 *data = tlv_data.vend_info.data;
+			u8 *temp_data = tlv_data.vend_info.data;
 			uint32 bitmap;
 			u16 dlen = tlv_data.vend_info.dlen;
 			chanspec_t chanspec;
@@ -1599,7 +1603,7 @@ wl_cfgnan_notify_nan_status(struct bcm_cfg80211 *cfg,
 			uint8 proto;
 
 			WL_DBG((" vendor info present \n"));
-			if ((*data != NAN_ATTR_VENDOR_SPECIFIC) ||
+			if ((*temp_data != NAN_ATTR_VENDOR_SPECIFIC) ||
 				(dlen < NAN_VENDOR_HDR_SIZE)) {
 				WL_ERR((" error in vendor info attribute \n"));
 				ret = -EINVAL;
@@ -1608,15 +1612,15 @@ wl_cfgnan_notify_nan_status(struct bcm_cfg80211 *cfg,
 				WL_DBG((" vendor info not present \n"));
 			}
 
-			if (*(data + 6) == NAN_VENDOR_TYPE_RTT) {
-				data += NAN_VENDOR_HDR_SIZE;
-				ea = (struct ether_addr *)data;
-				data += ETHER_ADDR_LEN;
-				mapcontrol = *data++;
-				proto = *data++;
-				bitmap = *(uint32 *)data;
-				data += 4;
-				chanspec = *(chanspec_t *)data;
+			if (*(temp_data + 6) == NAN_VENDOR_TYPE_RTT) {
+				temp_data += NAN_VENDOR_HDR_SIZE;
+				ea = (struct ether_addr *)temp_data;
+				temp_data += ETHER_ADDR_LEN;
+				mapcontrol = *temp_data++;
+				proto = *temp_data++;
+				bitmap = *(uint32 *)temp_data;
+				temp_data += 4;
+				chanspec = *(chanspec_t *)temp_data;
 				ptr += sprintf(ptr, " "BITMAP_PREFIX"0x%x "CHAN_PREFIX"%d/%s",
 					bitmap, wf_chspec_ctlchan(chanspec),
 					wf_chspec_to_bw_str(chanspec));

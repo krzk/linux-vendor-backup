@@ -62,7 +62,7 @@ static void get_timestamp(struct ssp_data *data, char *pchRcvDataFrame,
 				sensorsdata->timestamp = data->timestamp;
 		}
 	} else {
-		if (((sensortime->irq_diff * 10) > (data->adDelayBuf[iSensorData] * 18))
+		if (((sensortime->irq_diff * 10) > (data->adDelayBuf[iSensorData] * 15))
 			&& ((sensortime->irq_diff * 10) < (data->adDelayBuf[iSensorData] * 100))) {
 			generate_data(data, sensorsdata, iSensorData, data->timestamp);
 		}
@@ -280,7 +280,8 @@ int parse_dataframe(struct ssp_data *data, char *pchRcvDataFrame, int iLength)
 				if (sensortime.irq_diff > 1000000)
 					data->report_sensor_data[iSensorData](data, &sensorsdata);
 				else if ((iSensorData == PROXIMITY_SENSOR) || (iSensorData == PROXIMITY_RAW)
-						|| (iSensorData == GESTURE_SENSOR) || (iSensorData == SIG_MOTION_SENSOR))
+						|| (iSensorData == GESTURE_SENSOR) || (iSensorData == SIG_MOTION_SENSOR)
+						|| (iSensorData == STEP_DETECTOR) || (iSensorData == STEP_COUNTER))
 					data->report_sensor_data[iSensorData](data, &sensorsdata);
 				else
 					pr_err("[SSP]: %s irq_diff is under 1msec (%d)\n", __func__, iSensorData);

@@ -25,6 +25,9 @@
 #include <linux/async.h>
 #include <linux/pm_runtime.h>
 #include <linux/pinctrl/devinfo.h>
+#ifdef CONFIG_MULTITHREAD_PROBE
+#include <linux/slab.h>
+#endif
 
 #include "base.h"
 #include "power/power.h"
@@ -274,8 +277,21 @@ EXPORT_SYMBOL_GPL(device_bind_driver);
 static atomic_t probe_count = ATOMIC_INIT(0);
 static DECLARE_WAIT_QUEUE_HEAD(probe_waitqueue);
 
+#ifdef CONFIG_MULTITHREAD_PROBE
+struct probe_data {
+	struct device_driver *drv;
+	struct device *dev;
+};
+
+static int really_probe(void *void_data)
+{
+	struct probe_data *data = void_data;
+	struct device_driver *drv = data->drv;
+	struct device *dev = data->dev;
+#else
 static int really_probe(struct device *dev, struct device_driver *drv)
 {
+#endif
 	int ret = 0;
 
 	atomic_inc(&probe_count);
@@ -287,6 +303,7 @@ static int really_probe(struct device *dev, struct device_driver *drv)
 
 	/* If using pinctrl, bind pins now before probing */
 	ret = pinctrl_bind_pins(dev);
+
 	if (ret)
 		goto probe_failed;
 
@@ -339,6 +356,9 @@ probe_failed:
 done:
 	atomic_dec(&probe_count);
 	wake_up(&probe_waitqueue);
+#ifdef CONFIG_MULTITHREAD_PROBE
+	kfree(data);
+#endif
 	return ret;
 }
 
@@ -382,6 +402,9 @@ EXPORT_SYMBOL_GPL(wait_for_device_probe);
  */
 int driver_probe_device(struct device_driver *drv, struct device *dev)
 {
+#ifdef CONFIG_MULTITHREAD_PROBE
+	struct probe_data *data;
+#endif
 	int ret = 0;
 
 	if (!device_is_registered(dev))
@@ -390,8 +413,27 @@ int driver_probe_device(struct device_driver *drv, struct device *dev)
 	pr_debug("bus: '%s': %s: matched device %s with driver %s\n",
 		 drv->bus->name, __func__, dev_name(dev), drv->name);
 
+#ifdef CONFIG_MULTITHREAD_PROBE
+	data = kmalloc(sizeof(*data), GFP_KERNEL);
+	data->drv = drv;
+	data->dev = dev;
+#endif
+
 	pm_runtime_barrier(dev);
+
+#ifdef CONFIG_MULTITHREAD_PROBE
+	if (drv->multithread_probe) {
+		struct task_struct *probe_task;
+		probe_task = kthread_run(really_probe, data,
+					 "probe-%s", dev_name(dev));
+		if (IS_ERR(probe_task))
+			ret = PTR_ERR(probe_task);
+	} else
+		ret = really_probe(data);
+#else
 	ret = really_probe(dev, drv);
+#endif
+
 	pm_request_idle(dev);
 
 	return ret;

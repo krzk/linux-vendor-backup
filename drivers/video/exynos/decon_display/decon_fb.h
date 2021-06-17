@@ -32,6 +32,7 @@
 #define SYSREG_MIXER1_VALID	(1 << 4)
 #define FIMD_PAD_SINK_FROM_GSCALER_SRC		0
 #define FIMD_PADS_NUM				1
+#define MAX_FRM_DONE_WAIT	34
 
 /* SYSREG for local path between Gscaler and Mixer */
 #define SYSREG_DISP1BLK_CFG	(S3C_VA_SYS + 0x0214)
@@ -253,6 +254,7 @@ struct s3c_reg_data {
 	u32 		h[S3C_FB_MAX_WIN + 1];
 	bool		need_update;
 	bool		protection[S3C_FB_MAX_WIN];
+	struct sync_fence *fence;
 };
 #endif
 
@@ -399,9 +401,14 @@ struct s3c_fb {
 #endif
 	struct exynos5_bus_mif_handle *fb_mif_handle;
 	struct exynos5_bus_int_handle *fb_int_handle;
-
+	wait_queue_head_t               wait_frmint;
+	int	framint_cnt;
 	struct decon_lcd *lcd_info;
 	atomic_t	dsd_clk_ref_cnt;
+	int		frame_done_cnt_cur;
+	int		frame_done_cnt_target;
+	wait_queue_head_t	wait_frmdone;
+	ktime_t		trig_mask_timestamp;
 #ifdef CONFIG_FB_WINDOW_UPDATE
 	struct s3c_fb_win_rect	update_win;
 	bool	need_update;
@@ -424,6 +431,7 @@ struct s3c_fb {
 	struct notifier_block	pcd_reboot_noti;
 #endif
 	bool	protected_content;
+	int	num_of_window;
 };
 
 struct s3c_fb_rect {

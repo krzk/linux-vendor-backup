@@ -96,6 +96,32 @@ void exynos5433_cpu_up(unsigned int cpu_id)
 
 	addr = EXYNOS_ARM_CORE_CONFIGURATION(core + (4 * cluster));
 
+#if defined(CONFIG_EXYNOS5433_CORE_FEEDBACK_CHECK_DISABLE)
+	tmp = __raw_readl(addr + 0x8);
+	tmp &= ~(0x2);
+	__raw_writel(tmp, addr + 0x8);
+
+	tmp = __raw_readl(addr + 0x10);
+	tmp &= ~(0xff << 4);
+	tmp |= (0x11 << 4);
+	__raw_writel(tmp, addr + 0x10);
+
+	tmp = __raw_readl(addr + 0x14);
+	tmp &= ~(0xff << 4);
+	tmp |= (0x11 << 4);
+	__raw_writel(tmp, addr + 0x14);
+
+	tmp = __raw_readl(addr + 0x18);
+	tmp &= ~(0xff << 4);
+	tmp |= (0x11 << 4);
+	__raw_writel(tmp, addr + 0x18);
+
+	tmp = __raw_readl(addr + 0x1C);
+	tmp &= ~(0xff << 4);
+	tmp |= (0x11 << 4);
+	__raw_writel(tmp, addr + 0x1C);
+#endif
+
 	tmp = __raw_readl(addr);
 	tmp |= EXYNOS_CORE_PWR_EN;
 	__raw_writel(tmp, addr);
@@ -473,7 +499,7 @@ int __init exynos5433_pmu_init(void)
 
 	/* UP Scheduler Enable */
 	tmp = __raw_readl(EXYNOS5_UP_SCHEDULER);
-	tmp |= ENABLE_EAGLE_CPU;
+	tmp |= (ENABLE_EAGLE_CPU | ENABLE_KFC_CPU);
 	__raw_writel(tmp, EXYNOS5_UP_SCHEDULER);
 
 	/*

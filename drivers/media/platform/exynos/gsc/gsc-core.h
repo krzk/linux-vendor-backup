@@ -318,6 +318,8 @@ struct gsc_scaler {
 	u32	pre_vratio;
 	unsigned long main_hratio;
 	unsigned long main_vratio;
+	bool	main_hratio_dirty;
+	bool	main_vratio_dirty;
 	bool	is_scaled_down;
 };
 
@@ -386,9 +388,35 @@ struct gsc_output_device {
 	struct vb2_queue	vbq;
 	struct media_pad	vd_pad;
 	struct media_pad	sd_pads[GSC_PADS_NUM];
+	struct list_head	pending_buf_q;
 	struct list_head	active_buf_q;
 	int			req_cnt;
 	unsigned int		pending_mask;
+#define MAX_DEBUG_BUF_CNT		20
+	unsigned long long	q_time[MAX_DEBUG_BUF_CNT];
+	unsigned long long	dq_time[MAX_DEBUG_BUF_CNT];
+	unsigned long long	wq_time[MAX_DEBUG_BUF_CNT];
+	unsigned long long	isr_time[MAX_DEBUG_BUF_CNT];
+	unsigned long long	src_time[MAX_DEBUG_BUF_CNT];
+	unsigned long long	dst_time[MAX_DEBUG_BUF_CNT];
+	unsigned long long	enable_time;
+	unsigned long long	disable_time;
+
+	u32			q_cnt;
+	u32			dq_cnt;
+	u32			isr_cnt;
+	u32			wq_cnt;
+	u32			real_isr_cnt;
+	u32			src_cnt; /* src size setting */
+	u32			dst_cnt; /* dst size setting */
+	u32			src_w[MAX_DEBUG_BUF_CNT];
+	u32			src_h[MAX_DEBUG_BUF_CNT];
+	u32			src_x[MAX_DEBUG_BUF_CNT];
+	u32			src_y[MAX_DEBUG_BUF_CNT];
+	u32			dst_w[MAX_DEBUG_BUF_CNT];
+	u32			dst_h[MAX_DEBUG_BUF_CNT];
+	u32			dst_x[MAX_DEBUG_BUF_CNT];
+	u32			dst_y[MAX_DEBUG_BUF_CNT];
 };
 
 /**
@@ -403,6 +431,12 @@ struct gsc_m2m_device {
 	struct v4l2_m2m_dev	*m2m_dev;
 	struct gsc_ctx		*ctx;
 	int			refcnt;
+#if defined(CONFIG_VIDEO_EXYNOS_GSCALER_DEBUG)
+	u32			isr_cnt;
+	u32			run_cnt;
+	unsigned long long	isr_time[50];
+	unsigned long long	run_time[50];
+#endif /* CONFIG_VIDEO_EXYNOS_GSCALER_DEBUG */
 };
 
 /**
@@ -566,10 +600,7 @@ struct gsc_dev {
 	void __iomem			*sysreg_disp;
 	void __iomem			*sysreg_gscl;
 	struct timer_list		op_timer;
-	u32				q_cnt;
-	u32				dq_cnt;
-	u32				isr_cnt;
-	u32				wq_cnt;
+	unsigned long long		pending_isr_time;
 };
 
 /**
@@ -769,20 +800,38 @@ static inline struct gsc_frame *ctx_get_frame(struct gsc_ctx *ctx,
 	return frame;
 }
 
-static inline struct gsc_input_buf *
-active_queue_pop(struct gsc_output_device *vid_out, struct gsc_dev *dev)
+static inline struct gsc_input_buf *active_q_pop(struct gsc_output_device *out)
 {
 	struct gsc_input_buf *buf;
 
-	buf = list_entry(vid_out->active_buf_q.next, struct gsc_input_buf, list);
+	buf = list_first_entry(&out->active_buf_q, struct gsc_input_buf,
+				list);
+	list_del(&buf->list);
 
 	return buf;
 }
 
-static inline void active_queue_push(struct gsc_output_device *vid_out,
-			     struct gsc_input_buf *buf, struct gsc_dev *dev)
+static inline void active_q_push(struct gsc_output_device *out,
+				     struct gsc_input_buf *buf)
 {
-	list_add_tail(&buf->list, &vid_out->active_buf_q);
+	list_add_tail(&buf->list, &out->active_buf_q);
+}
+
+static inline struct gsc_input_buf *pending_q_pop(struct gsc_output_device *out)
+{
+	struct gsc_input_buf *buf;
+
+	buf = list_first_entry(&out->pending_buf_q, struct gsc_input_buf,
+				list);
+	list_del(&buf->list);
+
+	return buf;
+}
+
+static inline void pending_q_push(struct gsc_output_device *out,
+				     struct gsc_input_buf *buf)
+{
+	list_add_tail(&buf->list, &out->pending_buf_q);
 }
 
 static inline struct gsc_dev *entity_to_gsc(struct media_entity *me)
@@ -835,6 +884,7 @@ void gsc_hw_set_mainscaler(struct gsc_ctx *ctx);
 void gsc_hw_set_input_rotation(struct gsc_ctx *ctx);
 void gsc_hw_set_global_alpha(struct gsc_ctx *ctx);
 void gsc_hw_set_sfr_update(struct gsc_ctx *ctx);
+void gsc_hw_wait_sfr_update(struct gsc_ctx *ctx);
 void gsc_hw_set_local_dst(struct gsc_dev *gsc, int out, bool on);
 void gsc_hw_set_mixer(int id);
 void gsc_hw_set_sysreg_writeback(struct gsc_dev *dev, bool on);

@@ -949,8 +949,6 @@ static void s5p_mfc_handle_frame_copy_timestamp(struct s5p_mfc_ctx *ctx)
 	}
 }
 
-#define on_res_change(ctx)	((ctx)->state >= MFCINST_RES_CHANGE_INIT &&	\
-				 (ctx)->state <= MFCINST_RES_CHANGE_END)
 static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 {
 	struct s5p_mfc_dec *dec;
@@ -1016,8 +1014,10 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 	}
 
 	/* If frame is same as previous then skip and do not dequeue */
-	if (frame_type == S5P_FIMV_DISPLAY_FRAME_NOT_CODED)
-		return;
+	if (frame_type == S5P_FIMV_DISPLAY_FRAME_NOT_CODED) {
+		if (!(not_coded_cond(ctx) && FW_HAS_NOT_CODED(dev)))
+			return;
+	}
 
 	if (dec->is_dynamic_dpb) {
 		prev_flag = dec->dynamic_used;
@@ -1069,7 +1069,8 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 			dst_buf->vb.v4l2_buf.flags &=
 					~(V4L2_BUF_FLAG_KEYFRAME |
 					V4L2_BUF_FLAG_PFRAME |
-					V4L2_BUF_FLAG_BFRAME);
+					V4L2_BUF_FLAG_BFRAME |
+					V4L2_BUF_FLAG_ERROR);
 
 			switch (frame_type) {
 			case S5P_FIMV_DISPLAY_FRAME_I:
@@ -1088,9 +1089,12 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 				break;
 			}
 
-			if (s5p_mfc_err_dspl(err))
+			if (s5p_mfc_err_dspl(err)) {
 				mfc_err_ctx("Warning for displayed frame: %d\n",
 							s5p_mfc_err_dspl(err));
+				dst_buf->vb.v4l2_buf.flags |=
+					V4L2_BUF_FLAG_ERROR;
+			}
 
 			if (call_cop(ctx, get_buf_ctrls_val, ctx, &ctx->dst_ctrls[index]) < 0)
 				mfc_err_ctx("failed in get_buf_ctrls_val\n");
@@ -1149,10 +1153,13 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 					sizeof(struct timeval));
 			}
 
-			if (!no_order)
+			if (!no_order) {
 				ctx->last_framerate =
 					get_framerate_by_timestamp(
 						ctx, &dst_buf->vb.v4l2_buf);
+				ctx->last_framerate =
+					(ctx->qos_ratio * ctx->last_framerate) / 100;
+			}
 
 			vb2_buffer_done(&dst_buf->vb,
 				s5p_mfc_err_dspl(err) ?
@@ -1708,13 +1715,22 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 	case S5P_FIMV_R2H_CMD_FIELD_DONE_RET:
 	case S5P_FIMV_R2H_CMD_FRAME_DONE_RET:
 	case S5P_FIMV_R2H_CMD_COMPLETE_SEQ_RET:
+	case S5P_FIMV_R2H_CMD_ENC_BUFFER_FULL_RET:
 		if (ctx->type == MFCINST_DECODER) {
 			s5p_mfc_handle_frame(ctx, reason, err);
 		} else if (ctx->type == MFCINST_ENCODER) {
 			if (reason == S5P_FIMV_R2H_CMD_SLICE_DONE_RET) {
 				dev->preempt_ctx = ctx->num;
+				enc->buf_full = 0;
 				enc->in_slice = 1;
+			} else if (reason == S5P_FIMV_R2H_CMD_ENC_BUFFER_FULL_RET) {
+				mfc_err_ctx("stream buffer size(%d) isn't enough\n",
+						s5p_mfc_get_enc_strm_size());
+				dev->preempt_ctx = ctx->num;
+				enc->buf_full = 1;
+				enc->in_slice = 0;
 			} else {
+				enc->buf_full = 0;
 				enc->in_slice = 0;
 			}
 
@@ -1807,8 +1823,16 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 		goto irq_cleanup_hw;
 		break;
 	case S5P_FIMV_R2H_CMD_NAL_ABORT_RET:
-		ctx->state = MFCINST_ABORT;
-		clear_work_bit(ctx);
+		if (ctx->type == MFCINST_ENCODER && enc->buf_full) {
+			ctx->state = MFCINST_RUNNING_BUF_FULL;
+			enc->buf_full = 0;
+			if (ctx->c_ops->post_frame_start)
+				if (ctx->c_ops->post_frame_start(ctx))
+					mfc_err_ctx("post_frame_start() failed\n");
+		} else {
+			ctx->state = MFCINST_ABORT;
+			clear_work_bit(ctx);
+		}
 		if (clear_hw_bit(ctx) == 0)
 			BUG();
 		goto irq_cleanup_hw;
@@ -1934,7 +1958,7 @@ err_prot_enable:
 	return ret;
 }
 
-static int s5p_mfc_request_sec_pgtable(struct s5p_mfc_dev *dev)
+int s5p_mfc_request_sec_pgtable(struct s5p_mfc_dev *dev)
 {
 	int ret;
 	uint32_t base;
@@ -1942,31 +1966,35 @@ static int s5p_mfc_request_sec_pgtable(struct s5p_mfc_dev *dev)
 
 	ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_FW, &base, &size);
 	ret = exynos_smc(SMC_DRM_MAKE_PGTABLE, SMC_FC_ID_MFC_FW(dev->id), base, size);
-	if (ret)
+	if (ret) {
+		mfc_err("smc call for fw page table failed. ret = %d\n", ret);
 		return -1;
-
+	}
 	ion_exynos_contig_heap_info(ION_EXYNOS_ID_VIDEO, &base, &size);
 	ret = exynos_smc(SMC_DRM_MAKE_PGTABLE, SMC_FC_ID_VIDEO(dev->id), base, size);
-	if (ret)
+	if (ret) {
+		mfc_err("smc call for video page table failed. ret = %d\n", ret);
 		return -1;
-
+	}
 	ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_SH, &base, &size);
 	ret = exynos_smc(SMC_DRM_MAKE_PGTABLE, SMC_FC_ID_MFC_SH(dev->id), base, size);
-	if (ret)
+	if (ret) {
+		mfc_err("smc call for video ext page table failed. ret = %d\n", ret);
 		return -1;
-
+	}
 	return 0;
 }
 
-static int s5p_mfc_release_sec_pgtable(struct s5p_mfc_dev *dev)
+int s5p_mfc_release_sec_pgtable(struct s5p_mfc_dev *dev)
 {
 	int ret;
 
 	ret = exynos_smc(SMC_DRM_CLEAR_PGTABLE, dev->id, 0, 0);
-	if (ret)
-		mfc_err("Failed to clear secure sysmmu page table.\n");
-
-	return -1;
+	if (ret) {
+		mfc_err("Failed to clear secure sysmmu page table. ret = %d\n", ret);
+		return -1;
+	}
+	return 0;
 }
 #endif
 
@@ -2276,19 +2304,13 @@ err_no_device:
 	return ret;
 }
 
-#define need_to_wait_frame_start(ctx)		\
-	(((ctx->state == MFCINST_FINISHING) ||	\
-	  (ctx->state == MFCINST_RUNNING)) &&	\
-	 test_bit(ctx->num, &ctx->dev->hw_lock))
 /* Release MFC context */
 static int s5p_mfc_release(struct file *file)
 {
 	struct s5p_mfc_ctx *ctx = fh_to_mfc_ctx(file->private_data);
 	struct s5p_mfc_dev *dev = NULL;
 	struct s5p_mfc_enc *enc = NULL;
-#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	int ret = 0;
-#endif
 
 	dev = ctx->dev;
 	if (!dev) {
@@ -2308,6 +2330,13 @@ static int s5p_mfc_release(struct file *file)
 			s5p_mfc_cleanup_timeout(ctx);
 	}
 
+	if (need_to_wait_nal_abort(ctx)) {
+		ctx->state = MFCINST_ABORT;
+		if (s5p_mfc_wait_for_done_ctx(ctx,
+				S5P_FIMV_R2H_CMD_NAL_ABORT_RET))
+			s5p_mfc_cleanup_timeout(ctx);
+	}
+
 	if (ctx->type == MFCINST_ENCODER) {
 		enc = ctx->enc_priv;
 		if (!enc) {
@@ -2316,7 +2345,7 @@ static int s5p_mfc_release(struct file *file)
 			return -EINVAL;
 		}
 
-		if (enc->in_slice) {
+		if (enc->in_slice || enc->buf_full) {
 			ctx->state = MFCINST_ABORT_INST;
 			spin_lock_irq(&dev->condlock);
 			set_bit(ctx->num, &dev->ctx_work_bits);
@@ -2327,6 +2356,7 @@ static int s5p_mfc_release(struct file *file)
 				s5p_mfc_cleanup_timeout(ctx);
 
 			enc->in_slice = 0;
+			enc->buf_full = 0;
 		}
 	}
 
@@ -2368,17 +2398,18 @@ static int s5p_mfc_release(struct file *file)
 	 * return instance and free reosurces */
 	if (!atomic_read(&dev->watchdog_run) &&
 		(ctx->inst_no != MFC_NO_INSTANCE_SET)) {
-		ctx->state = MFCINST_RETURN_INST;
-		spin_lock_irq(&dev->condlock);
-		set_bit(ctx->num, &dev->ctx_work_bits);
-		spin_unlock_irq(&dev->condlock);
-
 		/* Wait for hw_lock == 0 for this context */
 		wait_event_timeout(ctx->queue,
 				(test_bit(ctx->num, &dev->hw_lock) == 0),
 				msecs_to_jiffies(MFC_INT_SHORT_TIMEOUT));
 
+		ctx->state = MFCINST_RETURN_INST;
+		spin_lock_irq(&dev->condlock);
+		set_bit(ctx->num, &dev->ctx_work_bits);
+		spin_unlock_irq(&dev->condlock);
+
 		/* To issue the command 'CLOSE_INSTANCE' */
+		s5p_mfc_clean_ctx_int_flags(ctx);
 		s5p_mfc_try_run(dev);
 
 		/* Wait until instance is returned or timeout occured */
@@ -2419,6 +2450,7 @@ static int s5p_mfc_release(struct file *file)
 
 					flush_workqueue(dev->sched_wq);
 
+					s5p_mfc_clock_off(dev);
 					mfc_debug(2, "power off\n");
 					s5p_mfc_power_off(dev);
 
@@ -2431,6 +2463,8 @@ static int s5p_mfc_release(struct file *file)
 						dev->is_support_smc = 0;
 					}
 #endif
+				} else {
+					s5p_mfc_clock_off(dev);
 				}
 
 

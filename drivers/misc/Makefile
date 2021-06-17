@@ -37,6 +37,7 @@ obj-$(CONFIG_EP93XX_PWM)	+= ep93xx_pwm.o
 obj-$(CONFIG_DS1682)		+= ds1682.o
 obj-$(CONFIG_TI_DAC7512)	+= ti_dac7512.o
 obj-$(CONFIG_UID_STAT)		+= uid_stat.o
+obj-$(CONFIG_UID_CPUTIME) 	+= uid_cputime.o
 obj-$(CONFIG_C2PORT)		+= c2port/
 obj-$(CONFIG_HMC6352)		+= hmc6352.o
 obj-y				+= eeprom/
@@ -59,6 +60,7 @@ obj-$(CONFIG_SEC_MODEM_V1)	+= modem_v1/
 obj-$(CONFIG_SEC_MODEM_V2)	+= modem_v2/
 obj-$(CONFIG_QC_MODEM)		+= mdm_if/
 obj-$(CONFIG_LED_COVER)		+= led_cover_pwr.o
+obj-$(CONFIG_SEC_DEV_JACK)	+= sec_jack.o
 
 # Secure OS Mobicore Interface
 obj-$(CONFIG_MOBICORE_DRIVER)  += tzic.o

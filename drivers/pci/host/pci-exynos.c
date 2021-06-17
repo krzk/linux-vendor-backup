@@ -24,6 +24,7 @@
 #include <linux/resource.h>
 #include <linux/signal.h>
 #include <linux/types.h>
+#include <linux/slab.h>
 
 #include <plat/gpio-cfg.h>
 #include <plat/cpu.h>
@@ -37,6 +38,7 @@
 #define to_exynos_pcie(x)	container_of(x, struct exynos_pcie, pp)
 
 int poweronoff_flag = 0;
+int entering_l23 = 0;
 int probe_ok = 0;
 int l1ss_enable = 1;
 
@@ -189,7 +191,6 @@ static void exynos_pcie_set_l1ss(int enable)
 static int sec_argos_l1ss_notifier(struct notifier_block *notifier,
 					unsigned long speed, void *v)
 {
-	printk("%s - speed : %ld, l1ss_enable = %d\n", __func__, speed, l1ss_enable);
 	if (speed > TPUT_THRESHOLD && l1ss_enable == 1) {
 		exynos_pcie_set_l1ss(0);
 		l1ss_enable = 0;
@@ -278,7 +279,8 @@ retry:
 	gpio_set_value(g_pcie->perst_gpio, 1);
 	msleep(80);
 
-	printk("D state: %x, %x\n", readl(g_pcie->elbi_base + PCIE_PM_DSTATE) & 0x7, readl(g_pcie->elbi_base + PCIE_ELBI_RDLH_LINKUP) & 0x1f);
+	printk("D state: %x, %x\n", readl(g_pcie->elbi_base + PCIE_PM_DSTATE) & 0x7,
+				readl(g_pcie->elbi_base + PCIE_ELBI_RDLH_LINKUP) & 0x1f);
 
 	/* assert LTSSM enable */
 	writel(PCIE_ELBI_LTSSM_ENABLE, g_pcie->elbi_base + PCIE_APP_LTSSM_ENABLE);
@@ -298,7 +300,8 @@ retry:
 	val = readl(g_pcie->elbi_base + PCIE_PM_DSTATE) & 0x7;
 	if (count >= MAX_TIMEOUT || val == PCIE_D0_UNINIT_STATE) {
 		try_cnt++;
-		dev_info(pp->dev, "%s: Link is not up, try count: %d, %x\n", __func__, try_cnt, readl(g_pcie->elbi_base + PCIE_ELBI_RDLH_LINKUP) & 0x1f);
+		dev_info(pp->dev, "%s: Link is not up, try count: %d, %x\n", __func__,
+				try_cnt, readl(g_pcie->elbi_base + PCIE_ELBI_RDLH_LINKUP) & 0x1f);
 		if (try_cnt < 10) {
 			gpio_set_value(g_pcie->perst_gpio, 0);
 			/* LTSSM disable */
@@ -315,7 +318,8 @@ retry:
 			return -EPIPE;
 		}
 	} else {
-		dev_info(pp->dev, "%s: Link up:%x\n", __func__, readl(g_pcie->elbi_base + PCIE_PM_DSTATE) & 0x7);
+		dev_info(pp->dev, "%s: Link up:%x, %x\n", __func__, readl(g_pcie->elbi_base + PCIE_PM_DSTATE) & 0x7,
+				readl(g_pcie->elbi_base + PCIE_ELBI_RDLH_LINKUP) & 0x1f);
 	}
 
 	/* setup ATU for cfg/mem outbound */
@@ -337,7 +341,6 @@ void exynos_pcie_work(struct work_struct *work)
 {
 	struct exynos_pcie *exynos_pcie = container_of(work, struct exynos_pcie, work.work);
 	u32 val;
-
 	if (!poweronoff_flag)
 		return;
 
@@ -354,6 +357,7 @@ void exynos_pcie_work(struct work_struct *work)
 	if (val == PCIE_D0_UNINIT_STATE)
 		printk("%s: d0uninit state\n", __func__);
 
+
 	if (readl(g_pcie->elbi_base + PCIE_IRQ_SPECIAL) & (0x1 << 2))
 		printk("%s: link down event\n", __func__);
 
@@ -361,6 +365,7 @@ void exynos_pcie_work(struct work_struct *work)
 	dhd_host_recover_link();
 
 exit:
+
 	mutex_unlock(&exynos_pcie->lock);
 }
 
@@ -553,7 +558,7 @@ static int exynos_pcie_establish_link(struct pcie_port *pp)
 	u32 val;
 
 	val = readl(exynos_pcie->elbi_base + PCIE_ELBI_RDLH_LINKUP);
-	printk("LINK STATUS: %x\n", val);
+	dev_info(pp->dev, "LINK STATUS: %x\n", val);
 
 	writel(1, pmu_base + PCIE_PHY_CONTROL);
 
@@ -1008,13 +1013,17 @@ static void exynos_pcie_resumed_phydown(void)
 	clk_disable_unprepare(g_pcie->phy_clk);
 }
 
+struct pci_saved_state {
+	u32 config_space[16];
+	struct pci_cap_saved_data cap[0];
+};
+
 void exynos_pcie_poweron(void)
 {
 	u32 __maybe_unused val;
 	int __maybe_unused count = 0;
 
 	if (check_rev()) {
-		printk("------%s------ probe_ok: %d, poweronoff_flag: %d\n", __func__, probe_ok, poweronoff_flag);
 		if (!poweronoff_flag && probe_ok) {
 			poweronoff_flag = 1;
 
@@ -1025,7 +1034,20 @@ void exynos_pcie_poweron(void)
 			udelay(100);
 			writel(readl(g_pcie->phy_base + 0x21*4) & ~(0x1 << 4), g_pcie->phy_base + 0x21*4);
 
-			exynos_pcie_reset(&g_pcie->pp);
+			writel((readl(g_pcie->gpio_base + 0x8) & ~(0x3 << 12)) | (0x1 << 12), g_pcie->gpio_base + 0x8);
+			udelay(20);
+			writel(readl(g_pcie->gpio_base + 0x8) | (0x3 << 12), g_pcie->gpio_base + 0x8);
+
+			gpio_set_value(g_pcie->perst_gpio, 1);
+			exynos_pcie_host_init(&g_pcie->pp);
+
+			/* setup ATU for cfg/mem outbound */
+			dw_pcie_prog_viewport_cfg0(&g_pcie->pp, 0x1000000);
+			dw_pcie_prog_viewport_mem_outbound(&g_pcie->pp);
+
+			/* L1.2 ASPM enable */
+			dw_pcie_config_l1ss(&g_pcie->pp);
+
 			pci_restore_state(g_pcie->pci_dev);
 
 			writel(readl(g_pcie->elbi_base + PCIE_IRQ_SPECIAL), g_pcie->elbi_base + PCIE_IRQ_SPECIAL);
@@ -1039,13 +1061,17 @@ EXPORT_SYMBOL(exynos_pcie_poweron);
 
 void exynos_pcie_poweroff(void)
 {
+	struct pcie_port *pp = &g_pcie->pp;
 	u32 __maybe_unused val;
 	int __maybe_unused count = 0;
+	unsigned long flags;
 
 	if (check_rev()) {
-		printk("------%s------ probe_ok: %d, poweronoff_flag: %d\n", __func__, probe_ok, poweronoff_flag);
-		if (poweronoff_flag && probe_ok) {
+		if ((poweronoff_flag && probe_ok) || entering_l23) {
 			cancel_delayed_work_sync(&g_pcie->work);
+
+			spin_lock_irqsave(&pp->conf_lock, flags);
+
 			gpio_set_value(g_pcie->perst_gpio, 0);
 			/* LTSSM disable */
 			writel(PCIE_ELBI_LTSSM_DISABLE, g_pcie->elbi_base + PCIE_APP_LTSSM_ENABLE);
@@ -1053,10 +1079,12 @@ void exynos_pcie_poweroff(void)
 			writel(readl(g_pcie->phy_base + 0x55*4) | (0x1 << 3), g_pcie->phy_base + 0x55*4);
 			writel(readl(g_pcie->phy_base + 0x21*4) | (0x1 << 4), g_pcie->phy_base + 0x21*4);
 
+			poweronoff_flag = 0;
+			entering_l23 = 0;
+			spin_unlock_irqrestore(&pp->conf_lock, flags);
+
 			clk_disable_unprepare(g_pcie->phy_clk);
 			clk_disable_unprepare(g_pcie->clk);
-
-			poweronoff_flag = 0;
 
 			return;
 		}
@@ -1064,12 +1092,59 @@ void exynos_pcie_poweroff(void)
 }
 EXPORT_SYMBOL(exynos_pcie_poweroff);
 
+
+void exynos_pcie_send_pme_turn_off(void)
+{
+	int count = 0;
+	u32 val;
+
+	writel(0x0, g_pcie->elbi_base + 0xa8);
+
+	val = readl(g_pcie->block_base + PCIE_PHY_GLOBAL_RESET);
+	val |= 0x1 << 5;
+	writel(val, g_pcie->block_base + PCIE_PHY_GLOBAL_RESET);
+
+	writel(0x1, g_pcie->elbi_base + PCIE_APP_REQ_EXIT_L1);
+	writel(0x1, g_pcie->elbi_base + 0xac);
+	writel(0x13, g_pcie->elbi_base + 0xb0);
+	writel(0x19, g_pcie->elbi_base + 0xd0);
+	writel(0x1, g_pcie->elbi_base + 0xa8);
+	while (count < MAX_TIMEOUT) {
+	if ((readl(g_pcie->elbi_base + PCIE_IRQ_PULSE) & IRQ_RADM_PM_TO_ACK)) {
+		printk("ack message is ok\n");
+		break;
+	}
+
+	udelay(10);
+	count++;
+	}
+
+	if (count >= MAX_TIMEOUT)
+		printk("cannot receive ack message from wifi\n");
+
+	writel(0x0, g_pcie->elbi_base + PCIE_APP_REQ_EXIT_L1);
+
+	do {
+		val = readl(g_pcie->elbi_base + PCIE_ELBI_RDLH_LINKUP);
+		val = val & 0x1f;
+		if (val == 0x15) {
+			printk("received Enter_L23_READY DLLP packet\n");
+			break;
+		}
+		udelay(10);
+		count++;
+	} while (count < MAX_TIMEOUT);
+
+	if (count >= MAX_TIMEOUT)
+		printk("cannot receive L23_READY DLLP packet\n");
+}
+
 void exynos_pcie_suspend(void)
 {
 	int __maybe_unused count = 0;
 	u32 __maybe_unused val;
 
-	printk("+ %s\n", __func__);
+	printk("+ %s Enter\n", __func__);
 	
 	if (!probe_ok)
 		return;
@@ -1127,12 +1202,41 @@ EXPORT_SYMBOL(exynos_pcie_suspend);
 
 void exynos_pcie_resume(void)
 {
+	printk("%s : Enter\n", __func__);
 	if(!probe_ok)
 		return;
 
 	exynos_pcie_host_init(&g_pcie->pp);
 }
 EXPORT_SYMBOL(exynos_pcie_resume);
+
+
+void exynos_pcie_pm_suspend(void)
+{
+	struct pcie_port *pp = &g_pcie->pp;
+	unsigned long flags;
+
+	printk("%s : Enter\n", __func__);
+	if (!poweronoff_flag) {
+		dev_info(pp->dev, "RC already off\n");
+		return;
+	}
+	spin_lock_irqsave(&pp->conf_lock, flags);
+	poweronoff_flag = 0;
+	entering_l23 = 1;
+	spin_unlock_irqrestore(&pp->conf_lock, flags);
+
+	exynos_pcie_send_pme_turn_off();
+	exynos_pcie_poweroff();
+}
+EXPORT_SYMBOL(exynos_pcie_pm_suspend);
+
+void exynos_pcie_pm_resume(void)
+{
+	printk("%s : Enter\n", __func__);
+	exynos_pcie_poweron();
+}
+EXPORT_SYMBOL(exynos_pcie_pm_resume);
 
 #ifdef CONFIG_PM
 static int exynos_pcie_prepare(struct device *dev)
@@ -1152,9 +1256,6 @@ static void exynos_pcie_complete(struct device *dev)
 
 static int exynos_pcie_suspend_noirq(struct device *dev)
 {
-	int __maybe_unused count = 0;
-	u32 __maybe_unused val;
-
 	if (!check_rev())
 		return 0;
 
@@ -1166,45 +1267,7 @@ static int exynos_pcie_suspend_noirq(struct device *dev)
 		return 0;
 	}
 
-	writel(0x0, g_pcie->elbi_base + 0xa8);
-
-	val = readl(g_pcie->block_base + PCIE_PHY_GLOBAL_RESET);
-	val |= 0x1 << 5;
-	writel(val, g_pcie->block_base + PCIE_PHY_GLOBAL_RESET);
-
-	writel(0x1, g_pcie->elbi_base + PCIE_APP_REQ_EXIT_L1);
-	writel(0x1, g_pcie->elbi_base + 0xac);
-	writel(0x13, g_pcie->elbi_base + 0xb0);
-	writel(0x19, g_pcie->elbi_base + 0xd0);
-	writel(0x1, g_pcie->elbi_base + 0xa8);
-	while (count < MAX_TIMEOUT) {
-		if ((readl(g_pcie->elbi_base + PCIE_IRQ_PULSE) & IRQ_RADM_PM_TO_ACK)) {
-			printk("ack message is ok\n");
-			break;
-		}
-
-		udelay(10);
-		count++;
-	}
-
-	if (count >= MAX_TIMEOUT)
-		printk("cannot receive ack message from wifi\n");
-
-	writel(0x0, g_pcie->elbi_base + PCIE_APP_REQ_EXIT_L1);
-
-	do {
-		val = readl(g_pcie->elbi_base + PCIE_ELBI_RDLH_LINKUP);
-		val = val & 0x1f;
-		if (val == 0x15) {
-			printk("received Enter_L23_READY DLLP packet\n");
-			break;
-		}
-		udelay(10);
-		count++;
-	} while (count < MAX_TIMEOUT);
-
-	if (count >= MAX_TIMEOUT)
-		printk("cannot receive L23_READY DLLP packet\n");
+	exynos_pcie_send_pme_turn_off();
 
 	gpio_set_value(g_pcie->perst_gpio, 0);
 

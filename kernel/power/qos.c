@@ -127,6 +127,19 @@ static struct pm_qos_object bus_throughput_pm_qos = {
 	.name = "bus_throughput",
 };
 
+static BLOCKING_NOTIFIER_HEAD(bus_throughput_max_notifier);
+static struct pm_qos_constraints bus_tput_max_constraints = {
+	.list = PLIST_HEAD_INIT(bus_tput_max_constraints.list),
+	.target_value = PM_QOS_BUS_THROUGHPUT_MAX_DEFAULT_VALUE,
+	.default_value = PM_QOS_BUS_THROUGHPUT_MAX_DEFAULT_VALUE,
+	.type = PM_QOS_MIN,
+	.notifiers = &bus_throughput_max_notifier,
+};
+static struct pm_qos_object bus_throughput_max_pm_qos = {
+	.constraints = &bus_tput_max_constraints,
+	.name = "bus_throughput_max",
+};
+
 static BLOCKING_NOTIFIER_HEAD(network_throughput_notifier);
 static struct pm_qos_constraints network_tput_constraints = {
 	.list = PLIST_HEAD_INIT(network_tput_constraints.list),
@@ -226,6 +239,7 @@ static struct pm_qos_object *pm_qos_array[] = {
 	&memory_throughput_pm_qos,
 	&device_throughput_pm_qos,
 	&bus_throughput_pm_qos,
+	&bus_throughput_max_pm_qos,
 	&network_throughput_pm_qos,
 	&cpu_freq_min_pm_qos,
 	&cpu_freq_max_pm_qos,
@@ -806,7 +820,7 @@ static void pm_qos_debug_show_one(struct seq_file *s, struct pm_qos_object *qos)
 	plist_for_each(p, &qos->constraints->list) {
 		struct pm_qos_request *req =
 			container_of(p, struct pm_qos_request, node);
-		seq_printf(s, "      %pk: %d (%ps)\n",
+		seq_printf(s, "      %pK: %d (%ps)\n",
 				req, p->prio, (void *)req->caller);
 	}
 

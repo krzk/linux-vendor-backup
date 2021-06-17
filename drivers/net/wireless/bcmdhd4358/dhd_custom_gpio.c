@@ -1,6 +1,6 @@
 /*
 * Customer code to add GPIO control during WLAN start/stop
-* Copyright (C) 1999-2014, Broadcom Corporation
+* Copyright (C) 1999-2016, Broadcom Corporation
 * 
 *      Unless you and Broadcom execute a separate written software license
 * agreement governing use of this software, this software is licensed to you
@@ -43,7 +43,7 @@
 int __attribute__ ((weak)) wifi_get_fw_nv_path(char *fw, char *nv) { return 0;};
 #endif
 
-#endif /* CUSTOMER_HW2 || CUSTOMER_HW4 */
+#endif 
 
 #if defined(OOB_INTR_ONLY) || defined(BCMSPI_ANDROID)
 
@@ -99,8 +99,8 @@ int dhd_customer_oob_irq_map(void *adapter, unsigned long *irq_flags_ptr)
 	gpio_request(dhd_oob_gpio_num, "oob irq");
 	host_oob_irq = gpio_to_irq(dhd_oob_gpio_num);
 	gpio_direction_input(dhd_oob_gpio_num);
-#endif /* defined CUSTOMER_HW3 || defined(PLATFORM_MPS) */
-#endif /* CUSTOMER_HW2 || CUSTOMER_HW4 */
+#endif 
+#endif 
 
 	return (host_oob_irq);
 }
@@ -197,9 +197,6 @@ const struct cntry_locales_custom translate_custom_table[] = {
 */
 void get_customized_country_code(void *adapter, char *country_iso_code, wl_country_t *cspec)
 {
-
-
-
 	int size, i;
 
 	size = ARRAYSIZE(translate_custom_table);

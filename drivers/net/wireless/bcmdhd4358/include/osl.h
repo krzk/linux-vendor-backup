@@ -1,7 +1,7 @@
 /*
  * OS Abstraction Layer
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
+ * Copyright (C) 1999-2016, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: osl.h 498511 2014-08-24 09:17:44Z $
+ * $Id: osl.h 505854 2014-10-01 11:03:36Z $
  */
 
 #ifndef _osl_h_
@@ -92,14 +92,13 @@ typedef void  (*osl_wreg_fn_t)(void *ctx, volatile void *reg, unsigned int val, 
 	for ((nskb) = NULL; (skb) != NULL; (skb) = (nskb))
 #define	PKTCFREE		PKTFREE
 
-
 #define PKTCENQTAIL(h, t, p) \
 do { \
 	if ((t) == NULL) { \
 		(h) = (t) = (p); \
 	} \
 } while (0)
-#endif /* !linux || !PKTC */
+#endif 
 
 #define PKTSETCHAINED(osh, skb)		BCM_REFERENCE(osh)
 #define PKTCLRCHAINED(osh, skb)		BCM_REFERENCE(osh)

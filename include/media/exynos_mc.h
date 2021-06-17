@@ -80,6 +80,7 @@ enum decon_ioctl_for_sync {
 enum gsc_ioctl_for_sync {
 	GSC_SFR_UPDATE,
 	GSC_WAIT_STOP,
+	GSC_SFR_DUMP,
 };
 
 enum mdev_node {
@@ -121,6 +122,7 @@ struct exynos_md {
 	struct v4l2_subdev	*csis_sd[CSIS_MAX_ENTITIES];
 	struct v4l2_subdev	*flite_sd[FLITE_MAX_ENTITIES];
 	struct v4l2_subdev	*sensor_sd[SENSOR_MAX_ENTITIES];
+	struct v4l2_subdev	*decon_sd;
 	u16			id;
 	bool			is_flite_on;
 	spinlock_t slock;

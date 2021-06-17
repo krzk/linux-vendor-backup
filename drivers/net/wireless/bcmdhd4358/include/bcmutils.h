@@ -1,7 +1,7 @@
 /*
  * Misc useful os-independent macros and functions.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
+ * Copyright (C) 1999-2016, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmutils.h 504038 2014-09-22 19:05:19Z $
+ * $Id: bcmutils.h 530648 2015-01-30 12:57:32Z $
  */
 
 #ifndef	_bcmutils_h_
@@ -136,6 +136,7 @@ extern int ether_isnulladdr(const void *ea);
 #define BCM_RXCPL_CLR_VALID_INFO(a)	((a)->rxcpl_id.flags &= ~BCM_RXCPL_FLAGS_RXCPLVALID)
 #define BCM_RXCPL_VALID_INFO(a) (((a)->rxcpl_id.flags & BCM_RXCPL_FLAGS_RXCPLVALID) ? TRUE : FALSE)
 
+#define UP_TABLE_MAX	((IPV4_TOS_DSCP_MASK >> IPV4_TOS_DSCP_SHIFT) + 1)	/* 64 max */
 
 struct reorder_rxcpl_id_list {
 	uint16 head;
@@ -216,6 +217,7 @@ extern void *pktoffset(osl_t *osh, void *p,  uint offset);
 #define DSCP_EF		0x2E
 
 extern uint pktsetprio(void *pkt, bool update_vtag);
+extern uint pktsetprio_qms(void *pkt, uint8* up_table, bool update_vtag);
 extern bool pktgetdscp(uint8 *pktdata, uint pktlen, uint8 *dscp);
 
 /* string */
@@ -1170,5 +1172,9 @@ typedef struct _counter_tbl_t {
 
 void counter_printlog(counter_tbl_t *ctr_tbl);
 #endif /* DEBUG_COUNTER */
+
+/* below MACRO use on GSCAN, RTT */
+#define TIMESPEC_TO_US(ts)  (((uint64)(ts).tv_sec * USEC_PER_SEC) + \
+		(ts).tv_nsec / NSEC_PER_USEC)
 
 #endif	/* _bcmutils_h_ */

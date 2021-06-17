@@ -1294,6 +1294,18 @@ err:
 	return ret;
 }
 
+static ssize_t dex_read(struct fb_info *info, char __user *buf,
+			size_t count, loff_t *ppos)
+{
+	return 0;
+}
+
+static ssize_t dex_write(struct fb_info *info, const char __user *buf,
+		size_t count, loff_t *ppos)
+{
+	return 0;
+}
+
 static int dex_ioctl(struct fb_info *info, unsigned int cmd,
 			unsigned long arg)
 {
@@ -1415,6 +1427,8 @@ static int dex_release(struct fb_info *info, int user)
 static struct fb_ops dex_fb_ops = {
 	.owner		= THIS_MODULE,
 	.fb_blank	= dex_blank,
+	.fb_read	= dex_read,
+	.fb_write	= dex_write,
 	.fb_ioctl	= dex_ioctl,
 	.fb_release	= dex_release,
 };

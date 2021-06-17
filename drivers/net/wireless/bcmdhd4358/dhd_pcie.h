@@ -1,7 +1,7 @@
 /*
  * Linux DHD Bus Module for PCIE
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
+ * Copyright (C) 1999-2016, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_pcie.h 500805 2014-09-05 04:54:06Z $
+ * $Id: dhd_pcie.h 607278 2015-12-18 11:05:38Z $
  */
 
 
@@ -32,9 +32,25 @@
 #include <hnd_cons.h>
 #ifdef SUPPORT_LINKDOWN_RECOVERY
 #ifdef CONFIG_ARCH_MSM
+#ifdef CONFIG_ARCH_MSM8994
+#include <linux/msm_pcie.h>
+#else
 #include <mach/msm_pcie.h>
+#endif /* CONFIG_ARCH_MSM8994 */
 #endif /* CONFIG_ARCH_MSM */
 #endif /* SUPPORT_LINKDOWN_RECOVERY */
+#ifdef DHD_USE_IDLECOUNT
+#include <linux/mutex.h>
+#include <linux/wait.h>
+
+#ifndef MAX_IDLE_COUNT
+#define MAX_IDLE_COUNT 20
+#endif /* MAX_IDLE_COUNT */
+
+#ifndef MAX_RESUME_WAIT
+#define MAX_RESUME_WAIT 100
+#endif /* MAX_RESUME_WAIT */
+#endif /* DHD_USE_IDLECOUNT */
 
 /* defines */
 
@@ -165,11 +181,24 @@ typedef struct dhd_bus {
 #ifdef SUPPORT_LINKDOWN_RECOVERY
 #ifdef CONFIG_ARCH_MSM
 	struct msm_pcie_register_event pcie_event;
-	bool islinkdown;
+	bool no_cfg_restore;
 #endif /* CONFIG_ARCH_MSM */
 #endif /* SUPPORT_LINKDOWN_RECOVERY */
+#ifdef DHD_USE_IDLECOUNT
+	int32 idlecount;		/* Activity timeout counter */
+	int32 idletime;			/* Control for activity timeout */
+	int32 idletime_backup;	/* For backup activity timeout */
+	int32 bus_wake;			/* For wake up the bus */
+	int32 runtime_suspend;		/* For check runtime suspend end */
+	bool host_suspend;		/* For checking host is suspended */
+	struct mutex pm_lock;		/* Synchronize for system PM & runtime PM */
+	wait_queue_head_t rpm_queue; /* wait-queue for bus wake up */
+#endif /* DHD_USE_IDLECOUNT */
 	uint32 d3_inform_cnt;
+	uint32 d0_inform_cnt;
+	uint32 d0_inform_in_use_cnt;
 	uint8 force_suspend;
+	uint32 d3_ack_war_cnt;
 } dhd_bus_t;
 
 /* function declarations */
@@ -183,6 +212,7 @@ extern struct dhd_bus* dhdpcie_bus_attach(osl_t *osh, volatile char* regs, volat
 extern uint32 dhdpcie_bus_cfg_read_dword(struct dhd_bus *bus, uint32 addr, uint32 size);
 extern void dhdpcie_bus_cfg_write_dword(struct dhd_bus *bus, uint32 addr, uint32 size, uint32 data);
 extern void dhdpcie_bus_intr_disable(struct dhd_bus *bus);
+extern void dhdpcie_bus_remove_prep(struct dhd_bus *bus);
 extern void dhdpcie_bus_release(struct dhd_bus *bus);
 extern int32 dhdpcie_bus_isr(struct dhd_bus *bus);
 extern void dhdpcie_free_irq(dhd_bus_t *bus);
@@ -203,6 +233,22 @@ extern int dhdpcie_oob_intr_register(dhd_bus_t *bus);
 extern void dhdpcie_oob_intr_unregister(dhd_bus_t *bus);
 extern void dhdpcie_oob_intr_set(dhd_bus_t *bus, bool enable);
 #endif /* BCMPCIE_OOB_HOST_WAKE */
+
+#ifdef USE_EXYNOS_PCIE_RC_PMPATCH
+#if defined(CONFIG_MACH_UNIVERSAL7420)
+#define EXYNOS_PCIE_CH_NUM	1
+#define EXYNOS_PCIE_DEVICE_ID	0xa575
+extern int exynos_pcie_pm_suspend(int ch_num);
+extern int exynos_pcie_pm_resume(int ch_num);
+#elif defined(CONFIG_MACH_UNIVERSAL5433)
+#define	EXYNOS_PCIE_CH_NUM
+#define EXYNOS_PCIE_DEVICE_ID	0xa5e3
+extern void exynos_pcie_pm_suspend(void);
+extern void exynos_pcie_pm_resume(void);
+#else
+#error "Not supported platform"
+#endif /* CONFIG_MACH_UNIVERSAL7420 */
+#endif /* USE_EXYNOS_PCIE_RC_PMPATCH */
 
 extern int dhd_buzzz_dump_dngl(dhd_bus_t *bus);
 #endif /* dhd_pcie_h */

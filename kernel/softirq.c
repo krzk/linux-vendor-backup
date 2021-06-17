@@ -26,6 +26,7 @@
 #include <linux/smpboot.h>
 #include <linux/tick.h>
 
+#include <mach/exynos-ss.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/irq.h>
 
@@ -209,14 +210,14 @@ EXPORT_SYMBOL(local_bh_enable_ip);
  * we want to handle softirqs as soon as possible, but they
  * should not be able to lock up the box.
  */
-#define MAX_SOFTIRQ_TIME  msecs_to_jiffies(2)
+#define MAX_SOFTIRQ_TIME  2 * NSEC_PER_MSEC
 #define MAX_SOFTIRQ_RESTART 10
 
 asmlinkage void __do_softirq(void)
 {
 	struct softirq_action *h;
 	__u32 pending;
-	unsigned long end = jiffies + MAX_SOFTIRQ_TIME;
+	unsigned long long end = local_clock() + MAX_SOFTIRQ_TIME;
 	int cpu;
 	unsigned long old_flags = current->flags;
 	int max_restart = MAX_SOFTIRQ_RESTART;
@@ -256,8 +257,10 @@ restart:
 			kstat_incr_softirqs_this_cpu(vec_nr);
 
 			trace_softirq_entry(vec_nr);
+			exynos_ss_softirq(ESS_FLAG_SOFTIRQ, h->action, irqs_disabled(), ESS_FLAG_IN);
 			sec_debug_softirq_log(9999, h->action, 7);
 			h->action(h);
+			exynos_ss_softirq(ESS_FLAG_SOFTIRQ, h->action, irqs_disabled(), ESS_FLAG_OUT);
 			sec_debug_softirq_log(9999, h->action, 8);
 			trace_softirq_exit(vec_nr);
 #ifdef CONFIG_SEC_DEBUG_RT_THROTTLE_ACTIVE
@@ -285,7 +288,7 @@ restart:
 
 	pending = local_softirq_pending();
 	if (pending) {
-		if (time_before(jiffies, end) && !need_resched() &&
+		if ((end > local_clock()) && !need_resched() &&
 		    --max_restart)
 			goto restart;
 
@@ -499,8 +502,12 @@ static void tasklet_action(struct softirq_action *a)
 #endif
 				if (!test_and_clear_bit(TASKLET_STATE_SCHED, &t->state))
 					BUG();
+				exynos_ss_softirq(ESS_FLAG_SOFTIRQ_TASKLET,
+							t->func, irqs_disabled(), ESS_FLAG_IN);
 				sec_debug_softirq_log(9997, t->func, 7);
 				t->func(t->data);
+				exynos_ss_softirq(ESS_FLAG_SOFTIRQ_TASKLET,
+							t->func, irqs_disabled(), ESS_FLAG_OUT);
 				sec_debug_softirq_log(9997, t->func, 8);
 #ifdef CONFIG_SEC_DEBUG_RT_THROTTLE_ACTIVE
 				end_time = sec_debug_clock();
@@ -547,8 +554,12 @@ static void tasklet_hi_action(struct softirq_action *a)
 #endif
 				if (!test_and_clear_bit(TASKLET_STATE_SCHED, &t->state))
 					BUG();
+				exynos_ss_softirq(ESS_FLAG_SOFTIRQ_HI_TASKLET,
+							t->func, irqs_disabled(), ESS_FLAG_IN);
 				sec_debug_softirq_log(9998, t->func, 7);
 				t->func(t->data);
+				exynos_ss_softirq(ESS_FLAG_SOFTIRQ_HI_TASKLET,
+							t->func, irqs_disabled(), ESS_FLAG_OUT);
 				sec_debug_softirq_log(9998, t->func, 8);
 #ifdef CONFIG_SEC_DEBUG_RT_THROTTLE_ACTIVE
 				end_time = sec_debug_clock();

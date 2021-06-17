@@ -330,12 +330,9 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	}
 
 	card->ext_csd.rev = ext_csd[EXT_CSD_REV];
-	if (card->ext_csd.rev > 7) {
-		pr_err("%s: unrecognised EXT_CSD revision %d\n",
-			mmc_hostname(card->host), card->ext_csd.rev);
-		err = -EINVAL;
-		goto out;
-	}
+	if (card->ext_csd.rev > 7) /* Support beyond EXT_CSD revision device of JESD84-B50 */
+		pr_err("%s: EXT_CSD revision is over than 7 (%d)\n",
+				mmc_hostname(card->host), card->ext_csd.rev);
 
 	card->ext_csd.raw_sectors[0] = ext_csd[EXT_CSD_SEC_CNT + 0];
 	card->ext_csd.raw_sectors[1] = ext_csd[EXT_CSD_SEC_CNT + 1];
@@ -587,15 +584,26 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 
 	/* eMMC v5.0 or later */
 	if (card->ext_csd.rev >= 7) {
-		card->ext_csd.cmdq_support = ext_csd[EXT_CSD_CMDQ_SUPPORT];
-		if (card->ext_csd.cmdq_support) {
-			card->ext_csd.cmdq_depth = ext_csd[EXT_CSD_CMDQ_DEPTH];
-			card->ext_csd.qrdy_support =
-				ext_csd[EXT_CSD_QRDY_SUPPORT];
-			card->ext_csd.qrdy_function =
-				ext_csd[EXT_CSD_CMDQ_QRDY_FUNCTION];
+		/* Enable CMDQ only when explicitly enabled at device tree */
+		/* CMDQ supporting eMMC device can be used though we don't */
+		/* use it */
+		if (card->host->caps2 & MMC_CAP2_CMDQ) {
+			card->ext_csd.cmdq_support =
+				ext_csd[EXT_CSD_CMDQ_SUPPORT];
+			if (card->ext_csd.cmdq_support) {
+				/* depth is 0~31 in spec. so +1 for 1~32 */
+				card->ext_csd.cmdq_depth =
+					ext_csd[EXT_CSD_CMDQ_DEPTH] + 1;
+				if (EMMC_MAX_QUEUE_DEPTH <
+						card->ext_csd.cmdq_depth)
+					card->ext_csd.cmdq_depth =
+						EMMC_MAX_QUEUE_DEPTH;
+				card->ext_csd.qrdy_support =
+					ext_csd[EXT_CSD_QRDY_SUPPORT];
+				card->ext_csd.qrdy_function =
+					ext_csd[EXT_CSD_CMDQ_QRDY_FUNCTION];
+			}
 		}
-
 		if (card->cid.manfid == 0x15 &&
 				ext_csd[EXT_CSD_PRE_EOL_INFO] == 0x0 &&
 				ext_csd[EXT_CSD_DEVICE_VERSION] == 0x0) {
@@ -1202,13 +1210,13 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		if (card->ext_csd.hs_max_dtr > 52000000 &&
 			(host->caps2 & MMC_CAP2_HS200 ||
 			 host->caps2 & MMC_CAP2_HS200_DDR)) {
+			/*
+			 * Device output driver strength
+			 */
+			driver_type = host->dev_drv_str << 4;
 			if (en_strobe_enhanced) {
 				err = mmc_select_hs(card);
 			} else {
-				/*
-				 * Device output driver strength
-				 */
-				driver_type = host->dev_drv_str << 4;
 				err = mmc_select_hs200(card, driver_type);
 			}
 		} else if (host->caps & MMC_CAP_MMC_HIGHSPEED)

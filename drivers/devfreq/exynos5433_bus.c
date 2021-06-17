@@ -2142,6 +2142,7 @@ int exynos5433_devfreq_isp_deinit(struct devfreq_data_isp *data)
 /* ========== 3. MIF related function */
 #define TRAFFIC_BYTES_HD_32BIT_60FPS		(1280*720*4*60)
 #define TRAFFIC_BYTES_FHD_32BIT_60FPS		(1920*1080*4*60)
+#define TRAFFIC_BYTES_QXGA_32BIT_60FPS		(1536*2048*4*60)
 #define TRAFFIC_BYTES_WQHD_32BIT_60FPS		(2560*1440*4*60)
 #define TRAFFIC_BYTES_WQXGA_32BIT_60FPS		(2560*1600*4*60)
 
@@ -2624,13 +2625,13 @@ struct devfreq_distriction_level {
 };
 
 struct devfreq_distriction_level distriction_fullhd[] = {
-	{MIF_LV9,       DISP_LV3},                      /*  78000 or  83000 */
-	{MIF_LV8,       DISP_LV3},                      /* 103000 or 111000 */
-	{MIF_LV7,       DISP_LV3},                      /* 138000 or 133000 */
-	{MIF_LV6,       DISP_LV2},                      /* 165000 or 167000 */
-	{MIF_LV5,       DISP_LV2},                      /* 206000 or 222000 */
-	{MIF_LV4,       DISP_LV2},                      /* 275000 or 334000 */
-	{MIF_LV0,       DISP_LV0},                      /* 825000 or 921000 */
+	{MIF_LV9,       DISP_LV3,	INT_LV6},                      /*  78000 or  83000 */
+	{MIF_LV8,       DISP_LV3,	INT_LV6},                      /* 103000 or 111000 */
+	{MIF_LV7,       DISP_LV3,	INT_LV6},                      /* 138000 or 133000 */
+	{MIF_LV6,       DISP_LV2,	INT_LV5},                      /* 165000 or 167000 */
+	{MIF_LV5,       DISP_LV2,	INT_LV5},                      /* 206000 or 222000 */
+	{MIF_LV4,       DISP_LV2,	INT_LV5},                      /* 275000 or 334000 */
+	{MIF_LV0,       DISP_LV0,	INT_LV3},                      /* 825000 or 921000 */
 };
 
 unsigned int timeout_fullhd[][2] = {
@@ -2647,13 +2648,13 @@ unsigned int timeout_fullhd[][2] = {
 };
 
 struct devfreq_distriction_level distriction_fullhd_gscl[] = {
-	{MIF_LV6,	DISP_LV2},
-	{MIF_LV5,	DISP_LV2},
-	{MIF_LV5,	DISP_LV2},
-	{MIF_LV4,	DISP_LV2},
-	{MIF_LV4,	DISP_LV2},
-	{MIF_LV0,	DISP_LV3},
-	{MIF_LV0,	DISP_LV0},
+	{MIF_LV6,	DISP_LV2,	INT_LV5},
+	{MIF_LV5,	DISP_LV2,	INT_LV5},
+	{MIF_LV5,	DISP_LV2,	INT_LV5},
+	{MIF_LV4,	DISP_LV2,	INT_LV5},
+	{MIF_LV4,	DISP_LV2,	INT_LV5},
+	{MIF_LV0,	DISP_LV3,	INT_LV6},
+	{MIF_LV0,	DISP_LV0,	INT_LV0},
 };
 
 unsigned int timeout_fullhd_gscl[][2] = {
@@ -2670,13 +2671,13 @@ unsigned int timeout_fullhd_gscl[][2] = {
 };
 
 struct devfreq_distriction_level distriction_fullhd_tv[] = {
-	{MIF_LV4,	DISP_LV1},
-	{MIF_LV4,	DISP_LV1},
-	{MIF_LV4,	DISP_LV1},
-	{MIF_LV4,	DISP_LV1},
-	{MIF_LV4,	DISP_LV1},
-	{MIF_LV3,	DISP_LV1},
-	{MIF_LV0,	DISP_LV0},
+	{MIF_LV4,	DISP_LV1,	INT_LV4},
+	{MIF_LV4,	DISP_LV1,	INT_LV4},
+	{MIF_LV4,	DISP_LV1,	INT_LV4},
+	{MIF_LV4,	DISP_LV1,	INT_LV4},
+	{MIF_LV4,	DISP_LV1,	INT_LV4},
+	{MIF_LV3,	DISP_LV1,	INT_LV4},
+	{MIF_LV0,	DISP_LV0,	INT_LV0},
 };
 
 unsigned int timeout_fullhd_tv[][2] = {
@@ -2694,13 +2695,13 @@ unsigned int timeout_fullhd_tv[][2] = {
 
 
 struct devfreq_distriction_level distriction_fullhd_camera[] = {
-	{MIF_LV3,	DISP_LV3},
-	{MIF_LV3,	DISP_LV3},
-	{MIF_LV3,	DISP_LV3},
-	{MIF_LV3,	DISP_LV2},
-	{MIF_LV3,	DISP_LV2},
-	{MIF_LV3,	DISP_LV2},
-	{MIF_LV0,	DISP_LV0},
+	{MIF_LV3,	DISP_LV3,	INT_LV6},
+	{MIF_LV3,	DISP_LV3,	INT_LV6},
+	{MIF_LV3,	DISP_LV3,	INT_LV6},
+	{MIF_LV3,	DISP_LV2,	INT_LV5},
+	{MIF_LV3,	DISP_LV2,	INT_LV5},
+	{MIF_LV3,	DISP_LV2,	INT_LV5},
+	{MIF_LV0,	DISP_LV0,	INT_LV0},
 };
 
 unsigned int timeout_fullhd_camera[][2] = {
@@ -2833,6 +2834,7 @@ unsigned int timeout_wqhd_ud_encode[][2] = {
 
 enum devfreq_mif_thermal_autorate {
 	RATE_ONE = 0x000B005D,
+	RATE_3_4 = 0x00080045,
 	RATE_HALF = 0x0005002E,
 	RATE_QUARTER = 0x00030017,
 };
@@ -2846,11 +2848,19 @@ static struct workqueue_struct *devfreq_mif_thermal_wq_ch0;
 static struct workqueue_struct *devfreq_mif_thermal_wq_ch1;
 struct devfreq_thermal_work devfreq_mif_ch0_work = {
 	.channel = THERMAL_CHANNEL0,
+#if defined(CONFIG_ARM_EXYNOS5433_BUS_DEVFREQ_THERMAL_POLICY_3_4)
+	.polling_period = 300,
+#else
 	.polling_period = 1000,
+#endif /* CONFIG_ARM_EXYNOS5433_BUS_DEVFREQ_THERMAL_POLICY_3_4 */
 };
 struct devfreq_thermal_work devfreq_mif_ch1_work = {
 	.channel = THERMAL_CHANNEL1,
+#if defined(CONFIG_ARM_EXYNOS5433_BUS_DEVFREQ_THERMAL_POLICY_3_4)
+	.polling_period = 300,
+#else
 	.polling_period = 1000,
+#endif /* CONFIG_ARM_EXYNOS5433_BUS_DEVFREQ_THERMAL_POLICY_3_4 */
 };
 struct devfreq_data_mif *data_mif;
 
@@ -3341,6 +3351,9 @@ void exynos5_update_media_layers(enum devfreq_media_type media_type, unsigned in
 			case TRAFFIC_BYTES_FHD_32BIT_60FPS:
 				media_resolution = RESOLUTION_FULLHD;
 				break;
+			case TRAFFIC_BYTES_QXGA_32BIT_60FPS:
+				media_resolution = RESOLUTION_WQHD;
+				break;
 			case TRAFFIC_BYTES_WQHD_32BIT_60FPS:
 				media_resolution = RESOLUTION_WQHD;
 				break;
@@ -3365,6 +3378,8 @@ void exynos5_update_media_layers(enum devfreq_media_type media_type, unsigned in
 		if (media_enabled_fimc_lite) {
 			if (mif_qos > distriction_fullhd_camera[total_layer_count].mif_level)
 				mif_qos = distriction_fullhd_camera[total_layer_count].mif_level;
+			if (int_qos > distriction_fullhd_camera[total_layer_count].int_level)
+				int_qos = distriction_fullhd_camera[total_layer_count].int_level;
 			timeout_table = timeout_fullhd_camera;
 		}
 		if (media_enabled_gscl_local) {
@@ -3379,6 +3394,8 @@ void exynos5_update_media_layers(enum devfreq_media_type media_type, unsigned in
 			}
 			if (mif_qos > distriction_fullhd_gscl[total_layer_count].mif_level)
 				mif_qos = distriction_fullhd_gscl[total_layer_count].mif_level;
+			if (int_qos > distriction_fullhd_gscl[total_layer_count].int_level)
+				int_qos = distriction_fullhd_gscl[total_layer_count].int_level;
 			if (disp_qos > distriction_fullhd_gscl[total_layer_count].disp_level)
 				disp_qos = distriction_fullhd_gscl[total_layer_count].disp_level;
 			timeout_table = timeout_fullhd_gscl;
@@ -3386,6 +3403,8 @@ void exynos5_update_media_layers(enum devfreq_media_type media_type, unsigned in
 		if (media_enabled_tv) {
 			if (mif_qos > distriction_fullhd_tv[total_layer_count].mif_level)
 				mif_qos = distriction_fullhd_tv[total_layer_count].mif_level;
+			if (int_qos > distriction_fullhd_tv[total_layer_count].int_level);
+				int_qos = distriction_fullhd_tv[total_layer_count].int_level;
 			if (disp_qos > distriction_fullhd_tv[total_layer_count].disp_level)
 				disp_qos = distriction_fullhd_tv[total_layer_count].disp_level;
 			timeout_table = timeout_fullhd_tv;
@@ -3394,6 +3413,8 @@ void exynos5_update_media_layers(enum devfreq_media_type media_type, unsigned in
 			timeout_table = timeout_fullhd;
 		if (mif_qos > distriction_fullhd[total_layer_count].mif_level)
 			mif_qos = distriction_fullhd[total_layer_count].mif_level;
+		if (int_qos > distriction_fullhd[total_layer_count].int_level)
+			int_qos = distriction_fullhd[total_layer_count].int_level;
 		if (disp_qos > distriction_fullhd[total_layer_count].disp_level)
 			disp_qos = distriction_fullhd[total_layer_count].disp_level;
 	} else if (media_resolution == RESOLUTION_WQHD || media_resolution == RESOLUTION_WQXGA) {
@@ -3903,7 +3924,11 @@ static void exynos5_devfreq_thermal_monitor(struct work_struct *work)
 	struct devfreq_thermal_work *thermal_work =
 			container_of(d_work, struct devfreq_thermal_work, devfreq_mif_thermal_work);
 	unsigned int mrstatus, tmp_thermal_level, max_thermal_level = 0, tmp;
+#if defined(CONFIG_ARM_EXYNOS5433_BUS_DEVFREQ_THERMAL_POLICY_3_4)
+	unsigned int timingaref_value = RATE_3_4;
+#else
 	unsigned int timingaref_value = RATE_ONE;
+#endif /* CONFIG_ARM_EXYNOS5433_BUS_DEVFREQ_THERMAL_POLICY_3_4 */
 	unsigned long max_freq = data_mif->cal_qos_max;
 	bool throttling = false;
 	void __iomem *base_drex = NULL;
@@ -3940,8 +3965,13 @@ static void exynos5_devfreq_thermal_monitor(struct work_struct *work)
 	case 1:
 	case 2:
 	case 3:
+#if defined(CONFIG_ARM_EXYNOS5433_BUS_DEVFREQ_THERMAL_POLICY_3_4)
+		timingaref_value = RATE_3_4;
+		thermal_work->polling_period = 300;
+#else
 		timingaref_value = RATE_ONE;
 		thermal_work->polling_period = 1000;
+#endif /* CONFIG_ARM_EXYNOS5433_BUS_DEVFREQ_THERMAL_POLICY_3_4 */
 		break;
 	case 4:
 		timingaref_value = RATE_HALF;

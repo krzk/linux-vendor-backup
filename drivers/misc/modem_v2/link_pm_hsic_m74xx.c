@@ -24,7 +24,6 @@
 #include <linux/sec_sysfs.h>
 #include <linux/platform_device.h>
 #include <linux/platform_data/modem.h>
-
 #include <plat/usb-phy.h>
 
 #include "modem_prj.h"
@@ -50,6 +49,7 @@
 
 #define IOCTL_LINK_CONNECTED		_IO('o', 0x33)
 #define IOCTL_LINK_DEVICE_RESET		_IO('o', 0x44)
+#define IOCTL_DUMPER_CONNECTED		_IO('o', 0x55)
 
 /* /sys/module/link_pm_hsic_m74xx/parameters/...*/
 static int l2_delay = 200;
@@ -76,6 +76,7 @@ enum status {
 	MAIN_CONNECT = 1 << 4,
 	LOADER_CONNECT = 1 << 5,
 	CP_CRASH = 1 << 6,
+	DUMPER_CONNECT = 1 << 7,
 };
 
 #ifdef CONFIG_WAIT_CP_SUSPEND_READY
@@ -120,6 +121,8 @@ static int (*generic_usb_resume)(struct usb_device *, pm_message_t);
 					(atomic_read(&p->status) & 0x0F) | val))
 
 #define set_crash_status(p, val)	(atomic_set(&p->status, \
+					atomic_read(&p->status) | val))
+#define set_dumper_status(p, val)	(atomic_set(&p->status, \
 					atomic_read(&p->status) | val))
 
 #define get_pm_status(p)		(atomic_read(&p->status) & 0x03)
@@ -378,7 +381,7 @@ static int wait_hostwake_value(struct link_pm_data *pmdata, int val)
 	mif_info("\n");
 
 	while (cnt--) {
-		ret = wait_event_interruptible_timeout(pmdata->hostwake_waitq,
+		ret = wait_event_timeout(pmdata->hostwake_waitq,
 			get_hostwake_status(pmdata) == val,
 			HOSTWAKE_WAITQ_TIMEOUT);
 		if (!check_status(pmdata, MAIN_CONNECT) ||
@@ -387,7 +390,7 @@ static int wait_hostwake_value(struct link_pm_data *pmdata, int val)
 
 		usb_mark_last_busy(pmdata->hdev);
 
-		if (ret && ret != -ERESTARTSYS)
+		if (ret)
 			return 0;
 
 		mif_info("hostwake: %d\n",
@@ -411,8 +414,7 @@ static int wait_cp2ap_status_value(struct link_pm_data *pmdata,
 	struct modemlink_pm_data *pdata = pmdata->pdata;
 
 	while (cnt--) {
-		ret = wait_event_interruptible_timeout(
-				pmdata->cp_suspend_ready_waitq,
+		ret = wait_event_timeout(pmdata->cp_suspend_ready_waitq,
 				get_cp2ap_status(pmdata) == val,
 				CP_SUSPEND_WAITQ_TIMEOUT);
 		if (!check_status(pmdata, MAIN_CONNECT) ||
@@ -423,7 +425,7 @@ static int wait_cp2ap_status_value(struct link_pm_data *pmdata,
 		if (udev->state == USB_STATE_NOTATTACHED)
 			return 0;
 
-		if (ret && ret != -ERESTARTSYS)
+		if (ret)
 			return 0;
 
 		mif_info("cp2ap_status: %d\n",
@@ -566,10 +568,9 @@ static int link_pm_usb_resume(struct usb_device *udev, pm_message_t msg)
 		mif_info("due to dpm_suspending, %s will be resumed later(pm event: %x)\n",
 			dev_name(&udev->dev), msg.event);
 		udev->can_submit = 0;
-
 		return -EBUSY;
 	}
-
+	
 	mif_debug("%s - dir: %d status: %d pm event: %x pm state: %d/%d\n",
 		dev_name(&udev->dev), dir, status, msg.event,
 		pmdata->udev->state, pmdata->hdev->state);
@@ -796,6 +797,25 @@ static void link_pm_clear_udev_runtime_error(struct usb_device *udev)
 	spin_unlock_irqrestore(&dev->power.lock, flags);
 }
 
+void clear_runtime_error_nowait(struct device *dev)
+{
+	unsigned long flags;
+	int loop = 1;
+
+	if (dev->parent)
+		loop++;
+	
+	while (loop-- && dev->power.runtime_error == -EBUSY && 
+			dev->power.runtime_status == RPM_SUSPENDED) {
+		mif_debug("%s: runtime error cleared\n", dev_name(dev));
+		spin_lock_irqsave(&dev->power.lock, flags);
+		dev->power.runtime_error = 0;
+		spin_unlock_irqrestore(&dev->power.lock, flags);
+
+		dev = dev->parent;
+	}
+}
+
 static int link_pm_notify(struct notifier_block *nfb,
 					unsigned long event, void *arg)
 {
@@ -805,16 +825,22 @@ static int link_pm_notify(struct notifier_block *nfb,
 	if (!pmdata)
 		return NOTIFY_DONE;
 
-	mif_debug("event: %ld\n", event);
+	mif_debug("event++: %ld\n", event);
 
 	switch (event) {
 	case PM_SUSPEND_PREPARE:
-		if (!wake_lock_active(&pmdata->wake))
+		if (!wake_lock_active(&pmdata->wake)) {
 			atomic_set(&pmdata->dpm_suspending, 1);
+			mif_debug("%s: dpm_suspending set\n", __func__);
+		}
 		break;
 	case PM_POST_SUSPEND:
 		atomic_set(&pmdata->dpm_suspending, 0);
+		mif_debug("%s: dpm_suspending cleared\n", __func__);
+
 		if (wake_lock_active(&pmdata->wake)) {
+			mif_debug("%s: rpm error cleared\n", __func__);
+
 			link_pm_clear_udev_runtime_error(pmdata->hdev);
 			link_pm_clear_udev_runtime_error(pmdata->udev);
 
@@ -822,6 +848,8 @@ static int link_pm_notify(struct notifier_block *nfb,
 		}
 		break;
 	}
+
+	mif_debug("event--: \n");
 
 	return NOTIFY_DONE;
 }
@@ -904,6 +932,9 @@ static int link_pm_usb_notify(struct notifier_block *nfb,
 			spin_unlock_irqrestore(&pmdata->lock, flags);
 
 			set_connect_status(pmdata, LOADER_CONNECT);
+
+			if (!strcmp(udev->product,"M7450 Dumper"))
+				set_dumper_status(pmdata, DUMPER_CONNECT);
 
 			mif_info("link_pm boot dev connect\n");
 
@@ -998,7 +1029,8 @@ static irqreturn_t link_pm_hostwake_handler(int irq, void *data)
 	hostwake = gpio_get_value(pdata->gpio_link_hostwake);
 	hostactive = gpio_get_value(pdata->gpio_link_active);
 
-	mif_debug("hostwake: %d\n", hostwake);
+	mif_debug("hostwake: %d, rpm evalue: %d \n", hostwake, 
+			pmdata->udev->dev.power.runtime_error);
 
 	irq_set_irq_type(irq, hostwake ? IRQF_TRIGGER_LOW : IRQF_TRIGGER_HIGH);
 
@@ -1025,7 +1057,10 @@ static irqreturn_t link_pm_hostwake_handler(int irq, void *data)
 			if (atomic_read(&pmdata->dpm_suspending))
 				log = "start later(dpm_suspending)";
 			else {
-				pm_request_resume(&pmdata->udev->dev);
+				struct device *dev = &pmdata->udev->dev;
+
+				clear_runtime_error_nowait(dev);
+				pm_request_resume(dev);
 				log = "start";
 			}
 		}
@@ -1134,8 +1169,12 @@ static long link_pm_ioctl(struct file *file, unsigned int cmd,
 	int ret;
 
 	struct link_pm_data *pmdata = file->private_data;
+	struct modemlink_pm_data *pdata = pmdata->pdata;
 
-	mif_info("%x\n", cmd);
+	mif_info("%x - %d/%d/%d\n", cmd,
+			gpio_get_value(pdata->gpio_link_slavewake),
+			gpio_get_value(pdata->gpio_link_hostwake),
+			gpio_get_value(pdata->gpio_link_active));
 
 	switch (cmd) {
 	case IOCTL_LINK_CONNECTED:
@@ -1153,6 +1192,8 @@ static long link_pm_ioctl(struct file *file, unsigned int cmd,
 			usb_unlock_device(pmdata->udev);
 		}
 		break;
+	case IOCTL_DUMPER_CONNECTED:
+		return check_status(pmdata, DUMPER_CONNECT);
 	default:
 		return -EINVAL;
 	}

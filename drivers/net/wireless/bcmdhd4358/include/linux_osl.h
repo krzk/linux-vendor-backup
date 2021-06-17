@@ -1,7 +1,7 @@
 /*
  * Linux OS Independent Layer
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
+ * Copyright (C) 1999-2016, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: linux_osl.h 498511 2014-08-24 09:17:44Z $
+ * $Id: linux_osl.h 547511 2015-04-08 21:22:26Z $
  */
 
 #ifndef _linux_osl_h_
@@ -156,8 +156,6 @@ extern uint osl_malloc_failed(osl_t *osh);
 #define	DMA_FREE_CONSISTENT_FORCE32(osh, va, size, pa, dmah) \
 	osl_dma_free_consistent((osh), (void*)(va), (size), (pa))
 
-
-
 extern uint osl_dma_consistent_align(void);
 extern void *osl_dma_alloc_consistent(osl_t *osh, uint size, uint16 align,
 	uint *tot, dmaaddr_t *pap);
@@ -176,6 +174,10 @@ extern void osl_dma_unmap(osl_t *osh, uint pa, uint size, int direction);
 
 /* API for DMA addressing capability */
 #define OSL_DMADDRWIDTH(osh, addrwidth) ({BCM_REFERENCE(osh); BCM_REFERENCE(addrwidth);})
+
+/* API for CPU relax */
+extern void osl_cpu_relax(void);
+#define OSL_CPU_RELAX() osl_cpu_relax()
 
 #if (defined(USE_KMALLOC_FOR_FLOW_RING) && defined(__ARM_ARCH_7A__))
 	extern void osl_cache_flush(void *va, uint size);
@@ -327,12 +329,14 @@ extern int osl_error(int bcmerror);
 #ifdef CONFIG_DHD_USE_STATIC_BUF
 #define	PKTGET_STATIC(osh, len, send)		osl_pktget_static((osh), (len))
 #define	PKTFREE_STATIC(osh, skb, send)		osl_pktfree_static((osh), (skb), (send))
-#define PKTCLEAR_STATIC(osh)		osl_pktclear_static((osh))
 #else
 #define	PKTGET_STATIC	PKTGET
 #define	PKTFREE_STATIC	PKTFREE
-#define PKTCLEAR_STATIC(osh)
 #endif /* CONFIG_DHD_USE_STATIC_BUF */
+#if defined(BCMPCIE) && defined(CONFIG_DHD_USE_STATIC_BUF) && \
+	defined(DHD_USE_STATIC_CTRLBUF)
+#define PKTINVALIDATE_STATIC(osh, skb)		osl_pktinvalidate_static((osh), (skb))
+#endif /* BCMPCIE && CONFIG_DHD_USE_STATIC_BUF && DHD_USE_STATIC_IOCTL_BUF */
 #define	PKTDATA(osh, skb)		({BCM_REFERENCE(osh); (((struct sk_buff*)(skb))->data);})
 #define	PKTLEN(osh, skb)		({BCM_REFERENCE(osh); (((struct sk_buff*)(skb))->len);})
 #define PKTHEADROOM(osh, skb)		(PKTDATA(osh, skb)-(((struct sk_buff*)(skb))->head))
@@ -381,8 +385,9 @@ extern int osl_error(int bcmerror);
 #define PKTID(skb)              ({BCM_REFERENCE(skb); 0;})
 #define PKTSETID(skb, id)       ({BCM_REFERENCE(skb); BCM_REFERENCE(id);})
 #define PKTSHRINK(osh, m)		({BCM_REFERENCE(osh); m;})
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
-#define PKTORPHAN(skb)          skb_orphan(skb)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)) && defined(TSQ_MULTIPLIER)
+#define PKTORPHAN(skb)          osl_pkt_orphan_partial(skb)
+extern void osl_pkt_orphan_partial(struct sk_buff *skb);
 #else
 #define PKTORPHAN(skb)          ({BCM_REFERENCE(skb); 0;})
 #endif /* LINUX VERSION >= 3.6 */
@@ -482,53 +487,16 @@ extern void osl_ctfpool_stats(osl_t *osh, void *b);
 #define	PKTCLRCTF(osh, skb)	({BCM_REFERENCE(osh); BCM_REFERENCE(skb);})
 #define	PKTISCTF(osh, skb)	({BCM_REFERENCE(osh); BCM_REFERENCE(skb); FALSE;})
 
-
 #define	PKTSETSKIPCT(osh, skb)	({BCM_REFERENCE(osh); BCM_REFERENCE(skb);})
 #define	PKTCLRSKIPCT(osh, skb)	({BCM_REFERENCE(osh); BCM_REFERENCE(skb);})
 #define	PKTSKIPCT(osh, skb)	({BCM_REFERENCE(osh); BCM_REFERENCE(skb);})
 #define CTF_MARK(m)		({BCM_REFERENCE(m); 0;})
 
 
-/** pktalloced accounting in devices using GMAC Bulk Forwarding to DHD */
-
-/* Account for packets delivered to downstream forwarder by GMAC interface. */
-
-/* Account for packets received from downstream forwarder. */
-
-
-/** GMAC Forwarded packet tagging for reduced cache flush/invalidate.
- * In FWDERBUF tagged packet, only FWDER_PKTMAPSZ amount of data would have
- * been accessed in the GMAC forwarder. This may be used to limit the number of
- * cachelines that need to be flushed or invalidated.
- * Packets sent to the DHD from a GMAC forwarder will be tagged w/ FWDERBUF.
- * DHD may clear the FWDERBUF tag, if more than FWDER_PKTMAPSZ was accessed.
- * Likewise, a debug print of a packet payload in say the ethernet driver needs
- * to be accompanied with a clear of the FWDERBUF tag.
- */
-
-/** Forwarded packets, have a HWRXOFF sized rx header (etc.h) */
-
-/** Maximum amount of a pktadat that a downstream forwarder (GMAC) may have
- * read into the L1 cache (not dirty). This may be used in reduced cache ops.
- *
- * Max 56: ET HWRXOFF[30] + BRCMHdr[4] + EtherHdr[14] + VlanHdr[4] + IP[4]
- */
-
-
-
-
-
-
-
-
-
 #define PKTSETFWDERBUF(osh, skb)  ({ BCM_REFERENCE(osh); BCM_REFERENCE(skb); })
 #define PKTCLRFWDERBUF(osh, skb)  ({ BCM_REFERENCE(osh); BCM_REFERENCE(skb); })
 #define PKTISFWDERBUF(osh, skb)   ({ BCM_REFERENCE(osh); BCM_REFERENCE(skb); FALSE;})
 
-
-
-/* For broadstream iqos */
 
 #define	PKTSETTOBR(osh, skb)	({BCM_REFERENCE(osh); BCM_REFERENCE(skb);})
 #define	PKTCLRTOBR(osh, skb)	({BCM_REFERENCE(osh); BCM_REFERENCE(skb);})
@@ -567,8 +535,11 @@ extern void osl_ctfpool_stats(osl_t *osh, void *b);
 extern void osl_pktfree(osl_t *osh, void *skb, bool send);
 extern void *osl_pktget_static(osl_t *osh, uint len);
 extern void osl_pktfree_static(osl_t *osh, void *skb, bool send);
-extern void osl_pktclear_static(osl_t *osh);
 extern void osl_pktclone(osl_t *osh, void **pkt);
+#if defined(BCMPCIE) && defined(CONFIG_DHD_USE_STATIC_BUF) && \
+	defined(DHD_USE_STATIC_CTRLBUF)
+extern void osl_pktinvalidate_static(osl_t *osh, void *p);
+#endif /* BCMPCIE && CONFIG_DHD_USE_STATIC_BUF && DHD_USE_STATIC_IOCTL_BUF */
 
 extern void *osl_pkt_frmnative(osl_t *osh, void *skb);
 extern void *osl_pktget(osl_t *osh, uint len);
@@ -608,9 +579,6 @@ extern uint32 osl_rand(void);
 
 #define	DMA_MAP(osh, va, size, direction, p, dmah) \
 	osl_dma_map((osh), (va), (size), (direction), (p), (dmah))
-
-/* Use 8 bytes of skb tstamp field to store below info */
-
 
 
 #else /* ! BCMDRIVER */

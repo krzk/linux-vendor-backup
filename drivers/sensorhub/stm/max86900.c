@@ -895,6 +895,8 @@ static ssize_t eol_test_result_store(struct device *dev,
 	if (buf_len > MAX_EOL_RESULT)
 		buf_len = MAX_EOL_RESULT;
 
+	mutex_lock(&data->storelock);
+
 	if (data->eol_test_result != NULL)
 		kfree(data->eol_test_result);
 
@@ -902,9 +904,13 @@ static ssize_t eol_test_result_store(struct device *dev,
 	if (data->eol_test_result == NULL) {
 		pr_err("max86900_%s - couldn't allocate memory\n",
 			__func__);
+		mutex_unlock(&data->storelock);
 		return -ENOMEM;
 	}
 	strncpy(data->eol_test_result, buf, buf_len);
+
+	mutex_unlock(&data->storelock);
+	
 	pr_info("max86900_%s - result = %s, buf_len(%u)\n", __func__, data->eol_test_result, buf_len);
 	data->eol_test_status = 1;
 	return size;
@@ -998,15 +1004,21 @@ static ssize_t max86900_lib_ver_store(struct device *dev,
 	if (buf_len > MAX_LIB_VER)
 		buf_len = MAX_LIB_VER;
 
+	mutex_lock(&data->storelock);
+
 	if (data->lib_ver != NULL)
 		kfree(data->lib_ver);
 
 	data->lib_ver = kzalloc(sizeof(char) * buf_len, GFP_KERNEL);
 	if (data->lib_ver == NULL) {
 		pr_err("%s - couldn't allocate memory\n", __func__);
+		mutex_unlock(&data->storelock);
 		return -ENOMEM;
 	}
 	strncpy(data->lib_ver, buf, buf_len);
+
+	mutex_unlock(&data->storelock);
+
 	pr_info("%s - lib_ver = %s\n", __func__, data->lib_ver);
 	return size;
 }
@@ -1028,20 +1040,19 @@ static ssize_t max86900_hrm_flush_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size)
 {
 	struct max86900_device_data *data = dev_get_drvdata(dev);
+	int ret = 0;
 	u8 handle = 0;
 
-	if (sysfs_streq(buf, "16")) /* ID_SAM_HRM */
-		handle = 16;
-	else if (sysfs_streq(buf, "17")) /* ID_AOSP_HRM */
-		handle = 17;
-	else if (sysfs_streq(buf, "18")) /* ID_HRM_RAW */
-		handle = 18;
-	else {
-		pr_info("%s: invalid value %d\n", __func__, *buf);
-		return -EINVAL;
+	ret = kstrtou8(buf, 10, &handle);
+	if (ret < 0) {
+		pr_err("%s - kstrtou8 failed.(%d)\n", __func__, ret);
+		return ret;
 	}
+	pr_info("%s - handle = %d\n", __func__, handle);
 
 	input_report_rel(data->hrm_input_dev, REL_MISC, handle);
+	input_sync(data->hrm_input_dev);
+
 	return size;
 }
 
@@ -1187,6 +1198,7 @@ int max86900_probe(struct i2c_client *client, const struct i2c_device_id *id )
 
 	mutex_init(&data->i2clock);
 	mutex_init(&data->activelock);
+	mutex_init(&data->storelock);
 
 	data->dev = &client->dev;
 
@@ -1269,6 +1281,7 @@ int max86900_probe(struct i2c_client *client, const struct i2c_device_id *id )
 	input_set_capability(data->hrm_input_dev, EV_REL, REL_X);
 	input_set_capability(data->hrm_input_dev, EV_REL, REL_Y);
 	input_set_capability(data->hrm_input_dev, EV_REL, REL_Z);
+	input_set_capability(data->hrm_input_dev, EV_REL, REL_MISC);
 
 	err = input_register_device(data->hrm_input_dev);
 	if (err < 0) {

@@ -1566,6 +1566,13 @@ static ssize_t fwu_sysfs_store_image(struct file *data_file,
 	struct synaptics_rmi4_data *rmi4_data = rmi_attr_kobj_to_drvdata(kobj);
 	struct synaptics_rmi4_fwu_handle *fwu = rmi4_data->fwu;
 
+	if (count > (fwu->img.image_size - fwu->data_pos)) {
+		dev_err(&rmi4_data->i2c_client->dev,
+				"%s: Not enough space in buffer\n",
+				__func__);
+		return -EINVAL;
+	}
+
 	memcpy((void *)(&fwu->ext_data_source[fwu->data_pos]),
 			(const void *)buf,
 			count);

@@ -61,7 +61,7 @@
 #define MMC_BKOPS_MAX_TIMEOUT	(4 * 60 * 1000) /* max time to wait in ms */
 
 static struct workqueue_struct *workqueue;
-static const unsigned freqs[] = { 400000 };
+static const unsigned freqs[] = { 400000, 300000 };
 
 /*
  * Enabling software CRCs on the data blocks can be a significant (30%)
@@ -703,7 +703,7 @@ static int mmc_wait_for_data_req_done(struct mmc_host *host,
 				host->ops->request(host, mrq);
 				continue;
 			} else if (!cmd->error || !cmd->retries ||
-			    mmc_card_removed(host->card)) {
+				mmc_card_removed(host->card)) {
 				err = host->areq->err_check(host->card,
 							    host->areq);
 				break; /* return err */
@@ -1957,10 +1957,9 @@ int mmc_resume_bus(struct mmc_host *host)
 		mmc_power_up(host);
 		BUG_ON(!host->bus_ops->resume);
 		host->bus_ops->resume(host);
+		if (host->bus_ops->detect)
+			host->bus_ops->detect(host);
 	}
-
-	if (host->bus_ops->detect && !host->bus_dead)
-		host->bus_ops->detect(host);
 
 	mmc_bus_put(host);
 	printk("%s: Deferred resume completed\n", mmc_hostname(host));
@@ -2369,6 +2368,16 @@ int mmc_erase(struct mmc_card *card, unsigned int from, unsigned int nr,
 
 	if (to <= from)
 		return -EINVAL;
+
+	/* to set the address in 16k (32sectors) */
+	if(arg == MMC_TRIM_ARG) {
+		if ((from % 32) != 0)
+			from = ((from >> 5) + 1) << 5;
+
+		to = (to >> 5) << 5;
+		if (from >= to)
+			return 0;
+	}
 
 	/* 'from' and 'to' are inclusive */
 	to -= 1;

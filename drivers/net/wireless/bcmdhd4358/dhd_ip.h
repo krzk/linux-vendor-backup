@@ -3,7 +3,7 @@
  *
  * Provides type definitions and function prototypes used to parse ip packet.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
+ * Copyright (C) 1999-2016, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -23,7 +23,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_ip.h 495994 2014-08-09 14:38:51Z $
+ * $Id: dhd_ip.h 523227 2014-12-29 06:47:15Z $
  */
 
 #ifndef _dhd_ip_h_

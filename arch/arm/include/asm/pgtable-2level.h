@@ -178,37 +178,46 @@ asm(".arch_extension sec\n");
 #endif	//CONFIG_HYP_RKP
 #endif 
 
+extern int boot_mode_security;
 #ifdef	CONFIG_TIMA_RKP_L1_TABLES
 static inline void copy_pmd(pmd_t *pmdpd, pmd_t *pmdps)
 {
-	unsigned long cmd_id = 0x83809000;
-	unsigned long tima_wr_out;
+	if (boot_mode_security) {
+		unsigned long cmd_id = 0x83809000;
+		unsigned long tima_wr_out;
 
-	cpu_dcache_clean_area(pmdpd, 8);
-	__asm__ __volatile__ (
-		"stmfd  sp!,{r0-r4}\n"
-		"mov   	r2, r0\n"  /* useless here for backward compatible reason */
-		"mov    r0, %1\n"
-		"mov	r1, %2\n"
-		"mov    r3, %3\n"
-		"mov    r4, %4\n"
-		"mcr    p15, 0, r1, c7, c14, 1\n"
-		"add    r1, r1, #4\n"
-		"mcr    p15, 0, r1, c7, c14, 1\n"
-		"dsb\n"
-		rkp_call
-//		"mcr    p15, 0, r1, c7, c10,  1\n"
-//		"sub    r1, r1, #4\n"
-//		"mcr    p15, 0, r1, c7, c10,  1\n"
-//		"dsb\n"
-		"mov    r0, #0\n"
-		"mcr    p15, 0, r0, c8, c3, 0\n"
-		"dsb\n"
-		"isb\n"
-		"ldmfd   sp!, {r0-r4}\n"
-		:"=r"(tima_wr_out):"r"(cmd_id),"r"((unsigned long)pmdpd),"r"(pmdps[0]),"r"(pmdps[1]):"r0","r1","r2","r3","r4","cc");
+		cpu_dcache_clean_area(pmdpd, 8);
+		__asm__ __volatile__ (
+			"stmfd  sp!,{r0-r4}\n"
+			"mov   	r2, r0\n"  /* useless here for backward compatible reason */
+			"mov    r0, %1\n"
+			"mov	r1, %2\n"
+			"mov    r3, %3\n"
+			"mov    r4, %4\n"
+			"mcr    p15, 0, r1, c7, c14, 1\n"
+			"add    r1, r1, #4\n"
+			"mcr    p15, 0, r1, c7, c14, 1\n"
+			"dsb\n"
+			rkp_call
+	//		"mcr    p15, 0, r1, c7, c10,  1\n"
+	//		"sub    r1, r1, #4\n"
+	//		"mcr    p15, 0, r1, c7, c10,  1\n"
+	//		"dsb\n"
+			"mov    r0, #0\n"
+			"mcr    p15, 0, r0, c8, c3, 0\n"
+			"dsb\n"
+			"isb\n"
+			"ldmfd   sp!, {r0-r4}\n"
+			:"=r"(tima_wr_out):"r"(cmd_id),"r"((unsigned long)pmdpd),"r"(pmdps[0]),"r"(pmdps[1]):"r0","r1","r2","r3","r4","cc");
 
-		flush_pmd_entry(pmdpd);
+			flush_pmd_entry(pmdpd);
+	} else {
+		do {
+			pmdpd[0] = pmdps[0];
+			pmdpd[1] = pmdps[1];
+			flush_pmd_entry(pmdpd);
+		} while (0);
+	}
 }
 #else
 #define copy_pmd(pmdpd,pmdps)		\
@@ -233,32 +242,40 @@ extern void cpu_v7_tima_iommu_opt(unsigned long start,
 #ifdef  CONFIG_TIMA_RKP_L1_TABLES
 static inline void pmd_clear(pmd_t *pmdp)
 {
-	unsigned long cmd_id = 0x8380a000;
-	unsigned long tima_wr_out;
-	cpu_dcache_clean_area(pmdp, 8);	
-	__asm__ __volatile__ (
-		"stmfd  sp!,{r0-r2}\n"
-		"mov   	r2, r0\n"
-		"mov    r0, %1\n"
-		"mov	r1, %2\n"
-		"mcr    p15, 0, r1, c7, c14, 1\n"
-		"add    r1, r1, #4\n"
-		"mcr    p15, 0, r1, c7, c14, 1\n"
-		"dsb\n"
-		rkp_call
-//		"mcr    p15, 0, r1, c7, c10,  1\n"
-//		"sub    r1, r1, #4\n"
-//		"mcr    p15, 0, r1, c7, c10,  1\n"
-//		"dsb\n"
-		"mov    r0, #0\n" 
-		"mov    %0, r0\n"
-		"mcr    p15, 0, r0, c8, c3, 0\n"
-		"dsb\n"
-		"isb\n"
-		"ldmfd  sp!, {r0-r2}\n"
-		:"=r"(tima_wr_out):"r"(cmd_id),"r"((unsigned long)pmdp):"r0","r1","r2","cc");
-		 
-		clean_pmd_entry(pmdp);
+	if (boot_mode_security) {
+		unsigned long cmd_id = 0x8380a000;
+		unsigned long tima_wr_out;
+		cpu_dcache_clean_area(pmdp, 8);	
+		__asm__ __volatile__ (
+			"stmfd  sp!,{r0-r2}\n"
+			"mov   	r2, r0\n"
+			"mov    r0, %1\n"
+			"mov	r1, %2\n"
+			"mcr    p15, 0, r1, c7, c14, 1\n"
+			"add    r1, r1, #4\n"
+			"mcr    p15, 0, r1, c7, c14, 1\n"
+			"dsb\n"
+			rkp_call
+	//		"mcr    p15, 0, r1, c7, c10,  1\n"
+	//		"sub    r1, r1, #4\n"
+	//		"mcr    p15, 0, r1, c7, c10,  1\n"
+	//		"dsb\n"
+			"mov    r0, #0\n" 
+			"mov    %0, r0\n"
+			"mcr    p15, 0, r0, c8, c3, 0\n"
+			"dsb\n"
+			"isb\n"
+			"ldmfd  sp!, {r0-r2}\n"
+			:"=r"(tima_wr_out):"r"(cmd_id),"r"((unsigned long)pmdp):"r0","r1","r2","cc");
+			 
+			clean_pmd_entry(pmdp);
+	} else {
+		do {
+			pmdp[0] = __pmd(0);
+			pmdp[1] = __pmd(0);
+			clean_pmd_entry(pmdp);
+		} while (0);
+	}
 }
 #else
 #define pmd_clear(pmdp)			\
@@ -278,16 +295,61 @@ extern void cpu_v7_timal2group_set_pte_commit(void *tima_l2group_entry_ptr,
 /* we don't need complex calculations here as the pmd is folded into the pgd */
 #define pmd_addr_end(addr,end) (end)
 
+#ifdef CONFIG_RKP_DBLMAP_PROT
+#define RAM_SIZE (0xbfffffffUL)
+//the space is reserved in vmlinux.lds.S
+extern u8 rkp_double_bitmap[];
+static u8 rkp_is_pg_double_mapped(unsigned long pa)
+{
+	unsigned long addr, bit_index, u8_index;
+	u8 val;
+
+	if (pa < PHYS_OFFSET){ return 0; }
+
+	addr = pa - PHYS_OFFSET;
+	bit_index = (addr>>PAGE_SHIFT);
+	u8_index = bit_index >> 3;
+
+	//larger than bit map size, ignore
+	if (u8_index >= 0x18000) { return 0; }
+
+	val = (((rkp_double_bitmap[u8_index]) & (1<< (bit_index % 8)))?1:0);
+	if(val){
+		printk("DBLMAP pa=0x%08lx, pa-PHYS_OFFSET=0x%08lx\n", pa, addr);
+		printk("DBLMAP bitmap=0x%08lx, byte addr=0x%08lx, byte val=0x%02x\n", 
+				(unsigned long)rkp_double_bitmap, 
+				(unsigned long) (&rkp_double_bitmap[u8_index]), 
+				rkp_double_bitmap[u8_index]);
+	}
+	return val;
+}
+#endif 
+
 #ifdef CONFIG_TIMA_RKP_L2_TABLES
 static inline void set_pte_ext(pte_t *ptep,pte_t pte,unsigned int ext)
 {
+	if(!(boot_mode_security)){
+		cpu_set_pte_ext(ptep,pte,ext);
+		return;
+	}
+
 	if (tima_is_pg_protected((unsigned long) ptep) == 0)
 		cpu_set_pte_ext(ptep,pte,ext);
 	else
-		cpu_tima_set_pte_ext(ptep,pte,ext); 
+		cpu_tima_set_pte_ext(ptep,pte,ext);
 }
 #else
-#define set_pte_ext(ptep,pte,ext) cpu_set_pte_ext(ptep,pte,ext)
+	#ifdef CONFIG_RKP_DBLMAP_PROT
+		static inline void set_pte_ext(pte_t *ptep,pte_t pte,unsigned int ext){			
+			if (rkp_is_pg_double_mapped((u32)pte)) {
+				panic("\n Trying to double map the page \n");
+				return;
+			}	
+			cpu_set_pte_ext(ptep,pte,ext);
+		}
+	#else
+		#define set_pte_ext(ptep,pte,ext) cpu_set_pte_ext(ptep,pte,ext)
+	#endif
 #endif
 
 #ifdef CONFIG_TIMA_RKP_LAZY_MMU

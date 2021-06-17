@@ -1,7 +1,7 @@
 /*
  * DHD Bus Module for SDIO
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
+ * Copyright (C) 1999-2016, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_sdio.c 499555 2014-08-29 02:40:49Z $
+ * $Id: dhd_sdio.c 593074 2015-10-15 08:38:56Z $
  */
 
 #include <typedefs.h>
@@ -1232,6 +1232,7 @@ dhdsdio_htclk(dhd_bus_t *bus, bool on, bool pendok)
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)
 			else if (ht_avail_error == HT_AVAIL_ERROR_MAX) {
+				bus->dhd->hang_reason = HANG_REASON_HT_AVAIL_ERROR;
 				dhd_os_send_hang_message(bus->dhd);
 			}
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27) */
@@ -1705,18 +1706,9 @@ dhd_bus_txdata(struct dhd_bus *bus, void *pkt)
 	BCM_REFERENCE(datalen);
 #endif /* SDTEST */
 
-#if defined(DHD_TX_DUMP)
+#if defined(DHD_TX_DUMP) && defined(DHD_TX_FULL_DUMP)
 	dump_data = PKTDATA(osh, pkt);
 	dump_data += 4; /* skip 4 bytes header */
-	protocol = (dump_data[12] << 8) | dump_data[13];
-
-	if (protocol == ETHER_TYPE_802_1X) {
-		DHD_ERROR(("ETHER_TYPE_802_1X [TX]: ver %d, type %d, replay %d\n",
-			dump_data[14], dump_data[15], dump_data[30]));
-	}
-#endif /* DHD_TX_DUMP */
-
-#if defined(DHD_TX_DUMP) && defined(DHD_TX_FULL_DUMP)
 	{
 		int i;
 		DHD_ERROR(("TX DUMP\n"));
@@ -2225,6 +2217,9 @@ dhdsdio_sendfromq(dhd_bus_t *bus, uint maxframes)
 
 	osh = dhd->osh;
 	tx_prec_map = ~bus->flowcontrol;
+#ifdef DHD_LOSSLESS_ROAMING
+	tx_prec_map &= dhd->dequeue_prec_map;
+#endif
 	for (cnt = 0; (cnt < maxframes) && DATAOK(bus);) {
 		int i;
 		int num_pkt = 1;
@@ -2238,7 +2233,7 @@ dhdsdio_sendfromq(dhd_bus_t *bus, uint maxframes)
 		}
 		num_pkt = MIN(num_pkt, pktq_mlen(&bus->txq, tx_prec_map));
 		for (i = 0; i < num_pkt; i++) {
-			pkts[i] = pktq_mdeq(&bus->txq, ~bus->flowcontrol, &prec_out);
+			pkts[i] = pktq_mdeq(&bus->txq, tx_prec_map, &prec_out);
 			if (!pkts[i]) {
 				DHD_ERROR(("%s: pktq_mlen non-zero when no pkt\n",
 					__FUNCTION__));
@@ -7949,8 +7944,7 @@ dhdsdio_download_firmware(struct dhd_bus *bus, osl_t *osh, void *sdh)
 	int ret;
 
 #if defined(SUPPORT_MULTIPLE_REVISION)
-	if (concate_revision(bus, bus->fw_path, sizeof(bus->fw_path),
-		bus->nv_path, sizeof(bus->nv_path)) != 0) {
+	if (concate_revision(bus, bus->fw_path, bus->nv_path) != 0) {
 		DHD_ERROR(("%s: fail to concatnate revison \n",
 			__FUNCTION__));
 		return BCME_BADARG;
@@ -8791,8 +8785,7 @@ concate_revision_bcm4330(dhd_bus_t *bus)
 }
 
 static int
-concate_revision_bcm4334(dhd_bus_t *bus,
-	char *fw_path, int fw_path_len, char *nv_path, int nv_path_len)
+concate_revision_bcm4334(dhd_bus_t *bus, char *fw_path, char *nv_path)
 {
 #define	REV_ID_ADDR	0x1E008F90
 #define BCM4334_B1_UNIQUE	0x30312E36
@@ -8845,8 +8838,7 @@ concate_revision_bcm4334(dhd_bus_t *bus,
 }
 
 static int
-concate_revision_bcm4335
-	(dhd_bus_t *bus, char *fw_path, int fw_path_len, char *nv_path, int nv_path_len)
+concate_revision_bcm4335(dhd_bus_t *bus, char *fw_path, char *nv_path)
 {
 
 	uint chipver;
@@ -8879,8 +8871,7 @@ concate_revision_bcm4335
 }
 
 static int
-concate_revision_bcm4339
-	(dhd_bus_t *bus, char *fw_path, int fw_path_len, char *nv_path, int nv_path_len)
+concate_revision_bcm4339(dhd_bus_t *bus, char *fw_path, char *nv_path)
 {
 
 	uint chipver;
@@ -8911,8 +8902,7 @@ concate_revision_bcm4339
 }
 
 static int
-concate_revision_bcm43349
-	(dhd_bus_t *bus, char *fw_path, int fw_path_len, char *nv_path, int nv_path_len)
+concate_revision_bcm43349(dhd_bus_t *bus, char *fw_path, char *nv_path)
 {
 	uint chipver;
 #if defined(SUPPORT_MULTIPLE_CHIPS)
@@ -8940,8 +8930,7 @@ concate_revision_bcm43349
 	return 0;
 }
 
-static int concate_revision_bcm43241(dhd_bus_t *bus,
-	char *fw_path, int fw_path_len, char *nv_path, int nv_path_len)
+static int concate_revision_bcm43241(dhd_bus_t *bus, char *fw_path, char *nv_path)
 {
 	uint32 chip_id, chip_ver;
 #if defined(SUPPORT_MULTIPLE_CHIPS)
@@ -8971,8 +8960,7 @@ static int concate_revision_bcm43241(dhd_bus_t *bus,
 	return 0;
 }
 
-static int concate_revision_bcm4350(dhd_bus_t *bus,
-        char *fw_path, int fw_path_len, char *nv_path, int nv_path_len)
+static int concate_revision_bcm4350(dhd_bus_t *bus, char *fw_path, char *nv_path)
 {
 	uint32 chip_id, chip_ver;
 #if defined(SUPPORT_MULTIPLE_CHIPS)
@@ -9002,8 +8990,7 @@ static int concate_revision_bcm4350(dhd_bus_t *bus,
 	return 0;
 }
 
-static int concate_revision_bcm4354(dhd_bus_t *bus,
-        char *fw_path, int fw_path_len, char *nv_path, int nv_path_len)
+static int concate_revision_bcm4354(dhd_bus_t *bus, char *fw_path, char *nv_path)
 {
 	uint32 chip_id, chip_ver;
 #if defined(SUPPORT_MULTIPLE_CHIPS)
@@ -9034,7 +9021,7 @@ static int concate_revision_bcm4354(dhd_bus_t *bus,
 }
 
 int
-concate_revision(dhd_bus_t *bus, char *fw_path, int fw_path_len, char *nv_path, int nv_path_len)
+concate_revision(dhd_bus_t *bus, char *fw_path, char *nv_path)
 {
 	int res = 0;
 
@@ -9053,29 +9040,26 @@ concate_revision(dhd_bus_t *bus, char *fw_path, int fw_path_len, char *nv_path, 
 		res = concate_revision_bcm4330(bus);
 		break;
 	case BCM4334_CHIP_ID:
-		res =  concate_revision_bcm4334(bus, fw_path, fw_path_len,
-			nv_path, nv_path_len);
+		res = concate_revision_bcm4334(bus, fw_path, nv_path);
 		break;
 	case BCM4335_CHIP_ID:
-		res = concate_revision_bcm4335(bus, fw_path, fw_path_len,
-			nv_path, nv_path_len);
+		res = concate_revision_bcm4335(bus, fw_path, nv_path);
+
 		break;
 	case BCM4339_CHIP_ID:
-		res = concate_revision_bcm4339(bus, fw_path, fw_path_len,
-			nv_path, nv_path_len);
+		res = concate_revision_bcm4339(bus, fw_path, nv_path);
 		break;
 	case BCM43349_CHIP_ID:
-		res = concate_revision_bcm43349(bus, fw_path, fw_path_len,
-			nv_path, nv_path_len);
+		res = concate_revision_bcm43349(bus, fw_path, nv_path);
 		break;
 	case BCM4324_CHIP_ID:
-		res = concate_revision_bcm43241(bus, fw_path, fw_path_len, nv_path, nv_path_len);
+		res = concate_revision_bcm43241(bus, fw_path, nv_path);
 		break;
 	case BCM4350_CHIP_ID:
-		res = concate_revision_bcm4350(bus, fw_path, fw_path_len, nv_path, nv_path_len);
+		res = concate_revision_bcm4350(bus, fw_path, nv_path);
 		break;
 	case BCM4354_CHIP_ID:
-		res = concate_revision_bcm4354(bus, fw_path, fw_path_len, nv_path, nv_path_len);
+		res = concate_revision_bcm4354(bus, fw_path, nv_path);
 		break;
 
 	default:

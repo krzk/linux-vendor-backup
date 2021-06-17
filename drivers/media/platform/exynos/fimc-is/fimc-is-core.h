@@ -247,12 +247,13 @@ struct fimc_is_sysfs_debug {
 	unsigned int clk_gate_mode;
 };
 
-#ifdef CONFIG_COMPANION_USE
+#if defined(CONFIG_COMPANION_USE) || !defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
 struct fimc_is_spi_gpio {
-        char *spi_sclk;
-        char *spi_ssn;
-        char *spi_miso;
-        char *spi_mois;
+	char *spi_sclk;
+	char *spi_ssn;
+	char *spi_miso;
+	char *spi_mois;
+	char *pinname;
 };
 #endif
 
@@ -314,6 +315,8 @@ struct fimc_is_core {
 	struct fimc_is_spi_gpio			spi_gpio;
 	u32					companion_spi_channel;
 	bool					use_two_spi_line;
+#elif !defined(CONFIG_CAMERA_EEPROM_SUPPORT_REAR)
+	struct fimc_is_spi_gpio			spi_gpio;
 #endif
 	u32					use_sensor_dynamic_voltage_mode;
 	struct mutex				spi_lock;
@@ -324,6 +327,9 @@ struct fimc_is_core {
 #endif /* CONFIG_OIS_USE */
 	bool					use_ois_hsi2c;
 	bool					use_module_check;
+#ifdef CONFIG_CAMERA_VARIABLE_MIPI_LANES
+	u32					vtcam_mipi_lane_num;
+#endif
 #ifdef USE_ION_ALLOC
 	struct ion_client    *fimc_ion_client;
 #endif

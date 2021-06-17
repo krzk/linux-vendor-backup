@@ -974,7 +974,11 @@ static int exynos_cpufreq_pm_notifier(struct notifier_block *notifier,
 
 		volt = max(get_boot_volt(CA15),
 				get_freq_volt(CA15, freqCA15));
-		BUG_ON(volt <= 0);
+		if ( volt <= 0) {
+			printk("oops, strange voltage CA15 -> boot volt:%d, get_freq_volt:%d, freqCA15:%d \n",
+				get_boot_volt(CA15), get_freq_volt(CA15, freqCA15), freqCA15);
+			BUG_ON(volt <= 0);
+		}
 		volt = get_limit_voltage(volt);
 
 		set_abb_first_than_volt = false;
@@ -2230,8 +2234,9 @@ device_initcall(exynos_cpufreq_init);
 late_initcall(exynos_cpufreq_init);
 #endif
 
-#if defined(CONFIG_SEC_PM) && defined(CONFIG_SOC_EXYNOS5433) && \
-	defined(CONFIG_MUIC_NOTIFIER) && !defined(CONFIG_SEC_FACTORY)
+#if defined(CONFIG_SEC_PM) && defined(CONFIG_MUIC_NOTIFIER) && !defined(CONFIG_SEC_FACTORY) && \
+	(defined(CONFIG_SOC_EXYNOS5433) || defined(CONFIG_SOC_EXYNOS5422) || \
+	defined(CONFIG_SOC_EXYNOS5430))
 static struct notifier_block cpufreq_muic_nb;
 static bool jig_is_attached;
 
@@ -2262,6 +2267,10 @@ static int exynos_cpufreq_muic_notifier(struct notifier_block *nb,
 static int __init exynos_cpufreq_late_init(void)
 {
 	unsigned long timeout = 200 * USEC_PER_SEC;
+
+#ifdef CONFIG_AP_CLOCK_LIMIT_ON_JIG_BOOT
+	timeout = 500 * USEC_PER_SEC;
+#endif
 
 	muic_notifier_register(&cpufreq_muic_nb,
 			exynos_cpufreq_muic_notifier, MUIC_NOTIFY_DEV_CPUFREQ);

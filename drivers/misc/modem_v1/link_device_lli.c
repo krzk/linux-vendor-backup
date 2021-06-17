@@ -1,11 +1,3 @@
-/**
-@file		link_device_lli.c
-@brief		functions for a pseudo shared-memory based on a chip-to-chip
-		(C2C) interface
-@date		2014/02/05
-@author		Hankook Jang (hankook.jang@samsung.com)
-*/
-
 /*
  * Copyright (C) 2010 Samsung Electronics.
  *
@@ -66,9 +58,7 @@ static inline void send_ap2cp_irq(struct mem_link_device *mld, u16 mask)
 
 	gpio_set_value(mld->gpio_ipc_int2cp, val);
 
-#ifdef DEBUG_MODEM_IF
 	trace_send_sig(mask, val);
-#endif
 
 	spin_unlock_irqrestore(&mld->sig_lock, flags);
 #else
@@ -77,6 +67,42 @@ static inline void send_ap2cp_irq(struct mem_link_device *mld, u16 mask)
 }
 
 #ifdef CONFIG_LINK_POWER_MANAGEMENT
+
+static bool forbid_cp_sleep_wait(struct mem_link_device *mld, int flag)
+{
+	long res;
+
+	if (mld->forbid_cp_sleep)
+		mld->forbid_cp_sleep(mld, flag);
+
+#ifndef CONFIG_SEC_MODEM_XMM7260_CAT6
+	if (atomic_read(&mld->cp_boot_done)) {
+#endif
+		/* As of now, tx path of iosm message should always guarantee
+		 * process context. We don't have to care rx path because cp
+		 * might try to mount lli i/f before sending data. */
+		res = wait_event_interruptible_timeout(mld->wq,
+				mld->link_active(mld), msecs_to_jiffies(5000));
+		switch (res) {
+		case 0:
+			mif_err("timeout for link active event\n");
+#ifdef CONFIG_SEC_MODEM_XMM7260_CAT6
+			modemctl_notify_event(MDM_CRASH_BY_IOSM);
+#endif
+			return false;
+		case -ERESTARTSYS:
+			mif_info("woken by a signal\n");
+			return false;
+		default:
+			mif_info("got link active event\n");
+		}
+#ifndef CONFIG_SEC_MODEM_XMM7260_CAT6
+	}
+#endif
+
+	return true;
+}
+
 #ifdef CONFIG_LINK_POWER_MANAGEMENT_WITH_FSM
 
 /**
@@ -90,15 +116,14 @@ mem_link_device instance.
 @remark		CAUTION!!! permit_cp_sleep() MUST be invoked after
 		forbid_cp_sleep() success to decrease the "ref_cnt" counter.
 */
-static void forbid_cp_sleep(struct mem_link_device *mld)
+static void forbid_cp_sleep(struct mem_link_device *mld, int flag)
 {
 	struct modem_link_pm *pm = &mld->link_dev.pm;
-	int ref_cnt;
 
-	ref_cnt = atomic_inc_return(&mld->ref_cnt);
-	mif_debug("ref_cnt %d\n", ref_cnt);
+	atomic_set(&pm->ref_cnt, atomic_read(&pm->ref_cnt) | flag);
+	mif_debug("ref_cnt %d\n", atomic_read(&pm->ref_cnt));
 
-	if (ref_cnt > 1)
+	if (atomic_read(&pm->ref_cnt) > 1)
 		return;
 
 	if (pm->request_hold)
@@ -117,20 +142,15 @@ than or equal to 0.
 @remark		MUST be invoked after forbid_cp_sleep() success to decrease the
 		"ref_cnt" counter.
 */
-static void permit_cp_sleep(struct mem_link_device *mld)
+static void permit_cp_sleep(struct mem_link_device *mld, int flag)
 {
 	struct modem_link_pm *pm = &mld->link_dev.pm;
-	int ref_cnt;
 
-	ref_cnt = atomic_dec_return(&mld->ref_cnt);
-	if (ref_cnt > 0)
+	atomic_set(&pm->ref_cnt, atomic_read(&pm->ref_cnt) & ~flag);
+	mif_debug("ref_cnt %d\n", atomic_read(&pm->ref_cnt));
+
+	if (atomic_read(&pm->ref_cnt) > 0)
 		return;
-
-	if (ref_cnt < 0) {
-		mif_info("WARNING! ref_cnt %d < 0\n", ref_cnt);
-		atomic_set(&mld->ref_cnt, 0);
-		ref_cnt = 0;
-	}
 
 	if (pm->release_hold)
 		pm->release_hold(pm);
@@ -156,7 +176,7 @@ static bool check_link_status(struct mem_link_device *mld)
 
 static void pm_fail_cb(struct modem_link_pm *pm)
 {
-	modemctl_notify_event(MDM_EVENT_CP_FORCE_CRASH);
+	modemctl_notify_event(MDM_CRASH_PM_FAIL);
 }
 
 static void pm_cp_fail_cb(struct modem_link_pm *pm)
@@ -176,7 +196,7 @@ static void pm_cp_fail_cb(struct modem_link_pm *pm)
 		if (mld->stop_pm)
 			mld->stop_pm(mld);
 
-		modemctl_notify_event(MDM_EVENT_CP_FORCE_CRASH);
+		modemctl_notify_event(MDM_CRASH_PM_CP_FAIL);
 		return;
 	}
 
@@ -200,7 +220,11 @@ static void start_pm(struct mem_link_device *mld)
 
 	if (pm_enable) {
 		if (mld->iosm)
+#ifdef CONFIG_SEC_MODEM_XMM7260_CAT6
 			pm->start(pm, PM_EVENT_NO_EVENT);
+#else
+			pm->start(pm, PM_EVENT_CP_BOOTING);
+#endif
 		else
 			pm->start(pm, PM_EVENT_CP_BOOTING);
 	} else {
@@ -224,7 +248,7 @@ static int init_pm(struct mem_link_device *mld)
 	int ret;
 
 	spin_lock_init(&mld->sig_lock);
-	atomic_set(&mld->ref_cnt, 0);
+	atomic_set(&pm->ref_cnt, 0);
 
 	pm_svc = mipi_lli_get_pm_svc();
 
@@ -331,7 +355,7 @@ mem_link_device instance.
 @remark		CAUTION!!! permit_cp_sleep() MUST be invoked after
 		forbid_cp_sleep() success to decrease the "ref_cnt" counter.
 */
-static void forbid_cp_sleep(struct mem_link_device *mld)
+static void forbid_cp_sleep(struct mem_link_device *mld, int flag)
 {
 	int ref_cnt;
 	unsigned long flags;
@@ -342,7 +366,8 @@ static void forbid_cp_sleep(struct mem_link_device *mld)
 	if (work_pending(&mld->cp_sleep_dwork.work))
 		cancel_delayed_work(&mld->cp_sleep_dwork);
 
-	ref_cnt = atomic_inc_return(&mld->ref_cnt);
+	ref_cnt = atomic_read(&mld->ref_cnt) | flag;
+	atomic_set(&mld->ref_cnt, ref_cnt);
 	mif_debug("ref_cnt %d\n", ref_cnt);
 
 	cp_wakeup = gpio_get_value(mld->gpio_cp_wakeup);
@@ -366,14 +391,15 @@ than or equal to 0.
 @remark		MUST be invoked after forbid_cp_sleep() success to decrease the
 		"ref_cnt" counter.
 */
-static void permit_cp_sleep(struct mem_link_device *mld)
+static void permit_cp_sleep(struct mem_link_device *mld, int flag)
 {
 	int ref_cnt;
 	unsigned long flags;
 
 	spin_lock_irqsave(&mld->pm_lock, flags);
 
-	ref_cnt = atomic_dec_return(&mld->ref_cnt);
+	ref_cnt = atomic_read(&mld->ref_cnt) & ~flag;
+	atomic_set(&mld->ref_cnt, ref_cnt);
 	if (ref_cnt > 0)
 		goto exit;
 
@@ -559,15 +585,10 @@ static int init_pm(struct mem_link_device *mld)
 #endif
 #endif
 
-static void lli_link_ready(struct link_device *ld)
-{
-	mif_err("%s: PM %s <%pf>\n", ld->name, FUNC, CALLER);
-	stop_pm(ld_to_mem_link_device(ld));
-}
-
 static void lli_link_reset(struct link_device *ld)
 {
 	mif_err("%s: PM %s <%pf>\n", ld->name, FUNC, CALLER);
+	mipi_lli_intr_enable();
 	mipi_lli_reset();
 }
 
@@ -580,8 +601,8 @@ static void lli_link_reload(struct link_device *ld)
 static void lli_link_off(struct link_device *ld)
 {
 	mif_err("%s: PM %s <%pf>\n", ld->name, FUNC, CALLER);
+	mipi_lli_intr_disable();
 	stop_pm(ld_to_mem_link_device(ld));
-	mipi_lli_reload();
 }
 
 static bool lli_link_unmounted(struct link_device *ld)
@@ -651,6 +672,7 @@ static struct mem_link_device *g_mld;
  * some hard-coded values are used to limit the size of line and row.
  * need to invent more neater and cleaner way.
  */
+#if 0
 static ssize_t dump_rb_frame(char *buf, size_t size, struct sbd_ring_buffer *rb)
 {
 	int idx;
@@ -732,7 +754,7 @@ static const struct file_operations dbgfs_frame_fops = {
 	.read = dbgfs_frame,
 	.owner = THIS_MODULE
 };
-
+#endif
 static inline void dev_debugfs_add(struct mem_link_device *mld)
 {
 	mld->dbgfs_dir = debugfs_create_dir("svnet", NULL);
@@ -743,8 +765,9 @@ static inline void dev_debugfs_add(struct mem_link_device *mld)
 	debugfs_create_blob("mem_dump", S_IRUGO, mld->dbgfs_dir,
 					&mld->mem_dump_blob);
 
-	mld->dbgfs_frame = debugfs_create_file("frame", S_IRUGO,
+/*	mld->dbgfs_frame = debugfs_create_file("frame", S_IRUGO,
 			mld->dbgfs_dir, mld, &dbgfs_frame_fops);
+*/
 }
 #else
 static inline void dev_debugfs_add(struct mem_link_device *mld) {}
@@ -793,7 +816,6 @@ struct link_device *lli_create_link_device(struct platform_device *pdev)
 
 	ld = &mld->link_dev;
 
-	ld->ready = lli_link_ready;
 	ld->reset = lli_link_reset;
 	ld->reload = lli_link_reload;
 	ld->off = lli_link_off;
@@ -821,6 +843,7 @@ struct link_device *lli_create_link_device(struct platform_device *pdev)
 	mld->start_pm = start_pm;
 	mld->stop_pm = stop_pm;
 	mld->forbid_cp_sleep = forbid_cp_sleep;
+	mld->forbid_cp_sleep_wait = forbid_cp_sleep_wait;
 	mld->permit_cp_sleep = permit_cp_sleep;
 	mld->link_active = check_link_status;
 #endif
@@ -869,6 +892,8 @@ struct link_device *lli_create_link_device(struct platform_device *pdev)
 	mld->gpio_cp_status = modem->gpio_cp_status;
 	mld->gpio_ap_status = modem->gpio_ap_status;
 	mld->gpio_ipc_int2cp = modem->gpio_ipc_int2cp;
+
+	init_waitqueue_head(&mld->wq);
 
 #ifdef CONFIG_LINK_POWER_MANAGEMENT
 	err = init_pm(mld);

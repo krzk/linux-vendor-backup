@@ -35,10 +35,7 @@
 #define DRDY_IRQ_ENABLE			1
 #define DRDY_IRQ_DISABLE		0
 
-#ifdef CONFIG_SEC_FACTORY
-#undef ENABLE_SENSORS_FPRINT_SECURE
-#else
-#define ENABLE_SENSORS_FPRINT_SECURE
+#ifdef ENABLE_SENSORS_FPRINT_SECURE
 #define FEATURE_SPI_WAKELOCK
 #endif /* CONFIG_SEC_FACTORY */
 
@@ -129,6 +126,11 @@
 /* To switch core */
 #define VFSSPI_IOCTL_CPU_SPEEDUP     _IOW(VFSSPI_IOCTL_MAGIC,	\
 						19, unsigned int)
+#define VFSSPI_IOCTL_SET_SENSOR_TYPE     _IOW(VFSSPI_IOCTL_MAGIC,	\
+							20, unsigned int)
+/* IOCTL #21 was already used Synaptics service. Do not use #21 */
+#define VFSSPI_IOCTL_SET_LOCKSCREEN     _IOW(VFSSPI_IOCTL_MAGIC,	\
+							22, unsigned int)
 #endif
 /* get sensor orienation from the SPI driver*/
 #define VFSSPI_IOCTL_GET_SENSOR_ORIENT	\

@@ -31,6 +31,9 @@
 #elif defined(CONFIG_MFD_MAX77843)
 #include <linux/mfd/max77843.h>
 #include <linux/mfd/max77843-private.h>
+#elif defined(CONFIG_MFD_MAX77849)
+#include <linux/mfd/max77849.h>
+#include <linux/mfd/max77849-private.h>
 #elif defined(CONFIG_MFD_MAX77888)
 #include <linux/mfd/max77888.h>
 #include <linux/mfd/max77888-private.h>
@@ -51,7 +54,7 @@ static struct switch_dev switch_dock = {
 #if defined(CONFIG_MUIC_NOTIFIER)
 static struct notifier_block dock_notifier_block;
 
-static void muic_send_dock_intent(int type)
+void muic_send_dock_intent(int type)
 {
 	pr_info("%s: MUIC dock type(%d)\n", __func__, type);
 #ifdef CONFIG_SWITCH

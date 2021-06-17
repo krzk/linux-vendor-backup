@@ -4,7 +4,7 @@
  * Provides type definitions and function prototypes used to link the
  * DHD OS, bus, and protocol modules.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
+ * Copyright (C) 1999-2016, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -24,7 +24,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_bus.h 500879 2014-09-05 09:34:44Z $
+ * $Id: dhd_bus.h 517443 2014-11-25 09:49:34Z $
  */
 
 #ifndef _dhd_bus_h_
@@ -188,5 +188,9 @@ extern int dhd_bus_release_dongle(struct dhd_bus *bus);
 extern int dhd_bus_request_irq(struct dhd_bus *bus);
 
 
+#ifdef DHD_USE_IDLECOUNT
+extern void bus_wake(struct dhd_bus *bus);
+extern bool bus_wakeup(dhd_pub_t *pub);
+#endif /* DHD_USE_IDLECOUNT */
 #endif /* BCMPCIE */
 #endif /* _dhd_bus_h_ */

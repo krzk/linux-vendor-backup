@@ -95,10 +95,12 @@ void gsc_hw_enable_localout(struct gsc_ctx *ctx, bool enable)
 		gsc_hw_set_qos_enable(dev);
 		gsc_hw_enable_control(dev, true);
 		gsc_dbg("GSC start(%d)", dev->id);
+		dev->out.enable_time = sched_clock();
 	} else {
+		gsc_hw_wait_sfr_update(ctx);
 		gsc_hw_set_smart_if_con(dev, false);
 		gsc_hw_enable_control(dev, false);
-		gsc_hw_set_sfr_update(ctx);
+		dev->out.disable_time = sched_clock();
 	}
 }
 
@@ -260,11 +262,18 @@ int gsc_wait_operating(struct gsc_dev *dev)
 {
 	u32 cfg;
 	u32 cnt = (loops_per_jiffy * HZ) / MSEC_PER_SEC;
-
+#if defined(CONFIG_VIDEO_EXYNOS_GSCALER_DEBUG)
+	cnt = cnt / 10;
+#endif /* CONFIG_VIDEO_EXYNOS_GSCALER_DEBUG */
 	do {
 		cfg = readl(dev->regs + GSC_ENABLE);
 		if (cfg & GSC_ENABLE_OP_STATUS)
 			return 0;
+#if defined(CONFIG_VIDEO_EXYNOS_GSCALER_DEBUG)
+		gsc_info("waiting cnt to start : %d", cnt);
+		udelay(10);
+		gsc_hw_enable_control(dev, true);
+#endif /* CONFIG_VIDEO_EXYNOS_GSCALER_DEBUG */
 	} while (--cnt);
 
 	return -EBUSY;
@@ -646,6 +655,17 @@ void gsc_hw_set_in_size(struct gsc_ctx *ctx)
 	cfg = GSC_CROPPED_WIDTH(frame->crop.width);
 	cfg |= GSC_CROPPED_HEIGHT(frame->crop.height);
 	writel(cfg, dev->regs + GSC_CROPPED_SIZE);
+
+	if (gsc_out_opened(dev)) {
+		dev->out.src_x[dev->out.src_cnt] = frame->crop.left;
+		dev->out.src_y[dev->out.src_cnt] = frame->crop.top;
+		dev->out.src_w[dev->out.src_cnt] = frame->crop.width;
+		dev->out.src_h[dev->out.src_cnt] = frame->crop.height;
+		dev->out.src_time[dev->out.src_cnt] = sched_clock();
+		dev->out.src_cnt++;
+		if (dev->out.src_cnt == MAX_DEBUG_BUF_CNT)
+			dev->out.src_cnt = 0;
+	}
 }
 
 void gsc_hw_set_in_image_rgb(struct gsc_ctx *ctx)
@@ -785,6 +805,17 @@ void gsc_hw_set_out_size(struct gsc_ctx *ctx)
 	}
 
 	writel(cfg, dev->regs + GSC_SCALED_SIZE);
+
+	if (gsc_out_opened(dev)) {
+		dev->out.dst_x[dev->out.dst_cnt] = frame->crop.left;
+		dev->out.dst_y[dev->out.dst_cnt] = frame->crop.top;
+		dev->out.dst_w[dev->out.dst_cnt] = frame->crop.width;
+		dev->out.dst_h[dev->out.dst_cnt] = frame->crop.height;
+		dev->out.dst_time[dev->out.dst_cnt] = sched_clock();
+		dev->out.dst_cnt++;
+		if (dev->out.dst_cnt == MAX_DEBUG_BUF_CNT)
+			dev->out.dst_cnt = 0;
+	}
 }
 
 void gsc_hw_set_out_image_rgb(struct gsc_ctx *ctx)
@@ -952,18 +983,46 @@ void gsc_hw_set_global_alpha(struct gsc_ctx *ctx)
 	writel(cfg, dev->regs + GSC_OUT_CON);
 }
 
+void gsc_hw_wait_sfr_update(struct gsc_ctx *ctx)
+{
+	struct gsc_dev *dev = ctx->gsc_dev;
+	u32 cfg;
+	ktime_t start = ktime_get();
+	bool frame_done = false;
+
+	do {
+		cfg = readl(dev->regs + GSC_ENABLE);
+		if (!(cfg & GSC_ENABLE_SFR_UPDATE)) {
+			frame_done = true;
+			break;
+		}
+		udelay(1);
+	} while(ktime_us_delta(ktime_get(), start) < 20000);
+
+	if (!frame_done)
+		gsc_warn("SFR_UPDATE bit is not clear(%d)",
+				readl(dev->regs + GSC_ENABLE));
+}
+
 void gsc_hw_set_sfr_update(struct gsc_ctx *ctx)
 {
 	struct gsc_dev *dev = ctx->gsc_dev;
 	u32 cfg;
 	ktime_t start = ktime_get();
+	bool frame_done = false;
 
 	do {
 		cfg = readl(dev->regs + GSC_ENABLE);
-		if (!(cfg & GSC_ENABLE_SFR_UPDATE))
+		if (!(cfg & GSC_ENABLE_SFR_UPDATE)) {
+			frame_done = true;
 			break;
+		}
 		udelay(1);
 	} while(ktime_us_delta(ktime_get(), start) < 20000);
+
+	if (!frame_done)
+		gsc_warn("SFR_UPDATE bit is not clear(%d)",
+				readl(dev->regs + GSC_ENABLE));
 
 	cfg |= GSC_ENABLE_SFR_UPDATE;
 	writel(cfg, dev->regs + GSC_ENABLE);

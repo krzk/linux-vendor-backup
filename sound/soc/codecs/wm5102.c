@@ -634,17 +634,17 @@ static int wm5102_adsp_power_ev(struct snd_soc_dapm_widget *w,
 	unsigned int v;
 	int ret;
 
+	ret = regmap_read(arizona->regmap, ARIZONA_SYSTEM_CLOCK_1, &v);
+	if (ret != 0) {
+		dev_err(codec->dev,
+			"Failed to read SYSCLK state: %d\n", ret);
+		return -EIO;
+	}
+
+	v = (v & ARIZONA_SYSCLK_FREQ_MASK) >> ARIZONA_SYSCLK_FREQ_SHIFT;
+
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		ret = regmap_read(arizona->regmap, ARIZONA_SYSTEM_CLOCK_1, &v);
-		if (ret != 0) {
-			dev_err(codec->dev,
-				"Failed to read SYSCLK state: %d\n", ret);
-			return -EIO;
-		}
-
-		v = (v & ARIZONA_SYSCLK_FREQ_MASK) >> ARIZONA_SYSCLK_FREQ_SHIFT;
-
 		if (v >= 3) {
 			ret = arizona_dvfs_up(arizona, ARIZONA_DVFS_ADSP1_RQ);
 			if (ret != 0) {
@@ -666,7 +666,7 @@ static int wm5102_adsp_power_ev(struct snd_soc_dapm_widget *w,
 		break;
 	}
 
-	return wm_adsp2_early_event(w, kcontrol, event);
+	return arizona_adsp_power_ev(w, kcontrol, event);
 }
 
 static int wm5102_out_comp_coeff_get(struct snd_kcontrol *kcontrol,
@@ -874,13 +874,15 @@ SOC_ENUM("LHPF2 Mode", arizona_lhpf2_mode),
 SOC_ENUM("LHPF3 Mode", arizona_lhpf3_mode),
 SOC_ENUM("LHPF4 Mode", arizona_lhpf4_mode),
 
-ARIZONA_SAMPLE_RATE_CONTROL_DVFS("Sample Rate 2", 2),
-ARIZONA_SAMPLE_RATE_CONTROL_DVFS("Sample Rate 3", 3),
+SOC_VALUE_ENUM("Sample Rate 2", arizona_sample_rate[0]),
+SOC_VALUE_ENUM("Sample Rate 3", arizona_sample_rate[1]),
 
 SOC_VALUE_ENUM("FX Rate", arizona_fx_rate),
 
 SOC_VALUE_ENUM("ISRC1 FSL", arizona_isrc_fsl[0]),
 SOC_VALUE_ENUM("ISRC2 FSL", arizona_isrc_fsl[1]),
+SOC_VALUE_ENUM("ASRC RATE 1", arizona_asrc_rate1),
+SOC_VALUE_ENUM("ASRC RATE 2", arizona_asrc_rate2),
 
 ARIZONA_MIXER_CONTROLS("Mic", ARIZONA_MICMIX_INPUT_1_SOURCE),
 ARIZONA_MIXER_CONTROLS("Noise", ARIZONA_NOISEMIX_INPUT_1_SOURCE),
@@ -963,6 +965,9 @@ SND_SOC_BYTES_EXT("Output Compensation Coefficient", 2,
 
 SOC_SINGLE_EXT("Output Compensation Switch", 0, 0, 1, 0,
 	       wm5102_out_comp_switch_get, wm5102_out_comp_switch_put),
+
+SOC_VALUE_ENUM("Output Rate 1", arizona_output_rate),
+SOC_VALUE_ENUM("In Rate", arizona_input_rate),
 
 WM5102_NG_SRC("HPOUT1L", ARIZONA_NOISE_GATE_SELECT_1L),
 WM5102_NG_SRC("HPOUT1R", ARIZONA_NOISE_GATE_SELECT_1R),
@@ -1434,7 +1439,7 @@ ARIZONA_MUX_WIDGETS(ISRC2DEC2, "ISRC2DEC2"),
 ARIZONA_MUX_WIDGETS(ISRC2INT1, "ISRC2INT1"),
 ARIZONA_MUX_WIDGETS(ISRC2INT2, "ISRC2INT2"),
 
-WM_ADSP2_E("DSP1", 0, wm5102_adsp_power_ev),
+WM_ADSP2("DSP1", 0, wm5102_adsp_power_ev),
 
 SND_SOC_DAPM_OUTPUT("DSP Virtual Output"),
 
@@ -1900,7 +1905,7 @@ static irqreturn_t adsp2_irq(int irq, void *data)
 	struct wm5102_priv *wm5102 = data;
 
 	if (wm5102->core.arizona->pdata.ez2ctrl_trigger &&
-	    wm5102->core.adsp[0].fw_id == 0x5f003)
+	    wm5102->core.adsp[0].fw_features.ez2control_trigger)
 		wm5102->core.arizona->pdata.ez2ctrl_trigger();
 
 	return IRQ_HANDLED;
@@ -2041,7 +2046,8 @@ static int wm5102_probe(struct platform_device *pdev)
 			= arizona->pdata.num_fw_defs[0];
 	}
 
-	ret = wm_adsp2_init(&wm5102->core.adsp[0], &wm5102->fw_lock);
+	ret = wm_adsp2_init(&wm5102->core.adsp[0], true,
+			    &wm5102->fw_lock);
 	if (ret != 0)
 		return ret;
 

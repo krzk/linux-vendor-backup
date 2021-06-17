@@ -123,12 +123,19 @@ static inline struct sk_buff *prepare_skb(struct if_usb_devdata *pipe_data,
 		struct urb *urb)
 {
 	struct sk_buff *skb;
-	unsigned int alloc_size = pipe_data->rx_buf_size;
+	unsigned int alloc_size = pipe_data->rx_buf_setup;
 
 	if (pipe_data->idx < pipe_data->usb_ld->max_acm_ch) {
+retry_alloc:
 		skb = alloc_skb(alloc_size, GFP_ATOMIC | GFP_DMA);
-		if (unlikely(!skb))
-			mif_err("Failed to alloc skb\n");
+		if (unlikely(!skb)) {
+			alloc_size = alloc_size / 2 - 256;
+			if (alloc_size >= PAGE_SIZE - 512) {
+				mif_err("re-try to alloc skb %d\n", alloc_size);
+				goto retry_alloc;
+			}
+		}
+		pipe_data->rx_buf_size = alloc_size;
 	} else {
 		skb = (struct sk_buff *)urb->context;
 	}
@@ -843,6 +850,10 @@ int usb_tx_skb(struct if_usb_devdata *pipe_data, struct sk_buff *skb)
 			pm_request_resume(dev);
 	}
 #else
+#if defined(CONFIG_SEC_MODEM_M74XX)
+	/* clear runtime error */ 
+	clear_runtime_error_nowait(dev);
+#endif
 	pm_runtime_get(dev);
 #endif
 
@@ -1522,7 +1533,7 @@ static int __devinit if_usb_probe(struct usb_interface *intf,
 			pipe_data->net_connected = true;
 			pipe_data->iod =
 				link_get_iod_with_format(&usb_ld->ld, IPC_BOOT);
-			pipe_data->rx_buf_size = (16 * 1024);
+			pipe_data->rx_buf_size = 15872;	/* 15.5KB */
 		} else if (info->flags & FLAG_IPC_CHANNEL) {
 			dev_index = intf->altsetting->desc.bInterfaceNumber / 2;
 			if (dev_index >= usb_ld->max_acm_ch) {
@@ -1539,9 +1550,12 @@ static int __devinit if_usb_probe(struct usb_interface *intf,
 					&usb_ld->ld, SIPC_CH_ID_CPLOG1);
 			else
 				pipe_data->iod = link_get_iod_with_format(
-							&usb_ld->ld, dev_index);
+						&usb_ld->ld, dev_index);
 			pipe_data->rx_buf_size = (0xE00); /* 3.5KB */
 		}
+
+		/* backup rx_buf_size */
+		pipe_data->rx_buf_setup = pipe_data->rx_buf_size;
 
 		/* prepare rx_urb for ACM */
 		urb = usb_alloc_urb(0, GFP_KERNEL);
@@ -1555,10 +1569,6 @@ static int __devinit if_usb_probe(struct usb_interface *intf,
 
 	if (!pipe_data)
 		return -EINVAL;
-
-	/* override modem specific buffer size from usb_id_info */
-	if (info->rx_buf_size)
-		pipe_data->rx_buf_size = info->rx_buf_size;
 
 	pipe_data->info = info;
 	atomic_set(&pipe_data->kill_urb, 0);
@@ -1609,11 +1619,7 @@ static int __devinit if_usb_probe(struct usb_interface *intf,
 		mif_com_log(pipe_data->iod->msd, "<%s> BOOT_DOWN\n", __func__);
 	} else if (info->flags & FLAG_IPC_CHANNEL) {
 		/* HSIC main comm channel has been established */
-#ifndef CONFIG_USB_NET_CDC_NCM
 		if (dev_index == usb_ld->max_link_ch - 1) {
-#else
-		if (dev_index == usb_ld->max_acm_ch - 1) {
-#endif
 			usb_ld->ld.com_state = COM_ONLINE;
 			if_change_modem_state(usb_ld, STATE_ONLINE);
 			usb_ld->if_usb_connected = 1;
@@ -1666,7 +1672,7 @@ static struct usb_id_info xmm6360_cdc_ncm_info = {
 	.flags = FLAG_IPC_CHANNEL,
 	.urb_cnt = MULTI_URB,
 	.bind = xmm6360_cdc_ncm_bind,
-	.unbind = cdc_ncm_unbind,
+	.unbind = cdc_ncm_unbind2,
 	.tx_fixup = cdc_ncm_tx_fixup,
 	.rx_fixup = cdc_ncm_rx_fixup_copyskb,
 	.intr_complete = cdc_ncm_intr_complete,
@@ -1690,7 +1696,7 @@ static struct usb_id_info cmc_cdc_ncm_info = {
 	.flags = FLAG_IPC_CHANNEL,
 	.urb_cnt = MULTI_URB,
 	.bind = cdc_ncm_bind,
-	.unbind = cdc_ncm_unbind,
+	.unbind = cdc_ncm_unbind2,
 	.tx_fixup = cdc_ncm_tx_fixup,
 	.rx_fixup = cdc_ncm_rx_fixup,
 	.intr_complete = cdc_ncm_intr_complete,
@@ -1713,7 +1719,7 @@ static struct usb_id_info ste_cdc_ncm_info = {
 	.flags = FLAG_IPC_CHANNEL,
 	.urb_cnt = MULTI_URB,
 	.bind = cdc_ncm_bind,
-	.unbind = cdc_ncm_unbind,
+	.unbind = cdc_ncm_unbind2,
 	.tx_fixup = cdc_ncm_tx_fixup,
 	.rx_fixup = cdc_ncm_rx_fixup_copyskb,
 	.intr_complete = cdc_ncm_intr_complete,
@@ -1764,7 +1770,6 @@ static struct usb_device_id if_usb_ids[] = {
 		USB_CDC_SUBCLASS_ACM, 1),
 	.driver_info = (unsigned long)&cmc_cdc_acm_info,
 	}, /* Shannon CDC ACM */
-#ifndef CONFIG_USB_NET_CDC_NCM
 	{ USB_DEVICE_AND_INTERFACE_INFO(0x1519, 0x0443,	USB_CLASS_COMM,
 		USB_CDC_SUBCLASS_NCM, USB_CDC_PROTO_NONE),
 	.driver_info = (unsigned long)&xmm6360_cdc_ncm_info,
@@ -1777,7 +1782,6 @@ static struct usb_device_id if_usb_ids[] = {
 		USB_CDC_SUBCLASS_NCM, USB_CDC_PROTO_NONE),
 	.driver_info = (unsigned long)&cmc_cdc_ncm_info,
 	}, /* Shannon CDC NCM */
-#endif
 /*	{ USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_ACM,
 		USB_CDC_PROTO_NONE),
 	},

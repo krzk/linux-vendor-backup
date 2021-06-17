@@ -81,6 +81,7 @@ struct max77843_muic_data {
 	muic_afc_data_t			afc_data;
 	u8				qc_hv;
 	struct delayed_work		hv_muic_qc_vb_work;
+	struct delayed_work		hv_muic_mping_miss_wa;
 
 	/* muic status value */
 	u8				status1;
@@ -91,6 +92,10 @@ struct max77843_muic_data {
 	u8				hvcontrol1;
 	u8				hvcontrol2;
 
+#if defined(CONFIG_USB_EXTERNAL_NOTIFY)
+	/* USB Notifier */
+	struct notifier_block	usb_nb;
+#endif
 };
 
 /* max77843 muic register read/write related information defines. */

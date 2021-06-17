@@ -205,6 +205,10 @@ extern int check_wifi_op(void);
 extern void exynos_pci_lpa_resume(void);
 #endif
 
+#ifdef CONFIG_BCM4358
+extern int wl_check_wifi_scanning(void);
+#endif
+
 #ifdef CONFIG_BT
 extern int check_bt_op(void);
 #endif
@@ -320,12 +324,12 @@ static int exynos_check_lpc(void)
 		return 1;
 #endif
 
-#if 0
-#if defined(CONFIG_GPS_BCMxxxxx)
+//#if 0
+#if defined(CONFIG_GPS_BCMxxxxx) && !defined(CONFIG_GPS_BCM4773)
 	if (check_gps_op())
 		return 1;
 #endif
-#endif
+//#endif
 
 #if defined(CONFIG_VIDEO_EXYNOS_FIMG2D)
 	if (exynos_check_reg_status(exynos5_lpc_power_domain,
@@ -393,6 +397,11 @@ static int exynos_check_enter_mode(void)
 
 #if defined(CONFIG_GPS_BCMxxxxx) && !defined(CONFIG_GPS_BCM4773)
 	if (check_gps_op())
+		return EXYNOS_CHECK_DIDLE;
+#endif
+
+#ifdef CONFIG_PWM_SAMSUNG
+	if(pwm_check_enable_cnt())
 		return EXYNOS_CHECK_DIDLE;
 #endif
 
@@ -1035,6 +1044,11 @@ static int exynos_enter_c2(struct cpuidle_device *dev,
 		return exynos_enter_idle(dev, drv, 0);
 #endif
 
+#ifdef CONFIG_BCM4358
+	if (wl_check_wifi_scanning())
+		return exynos_enter_idle(dev, drv, 0);
+#endif
+
 #ifdef CONFIG_SEC_PM_DEBUG
 	if (unlikely(log_en & ENABLE_C2))
 		pr_info("+++c2\n");
@@ -1108,19 +1122,21 @@ static int exynos_cpuidle_notifier_event(struct notifier_block *this,
 {
 	switch (event) {
 	case PM_SUSPEND_PREPARE:
+#ifdef CONFIG_EXYNOS_IDLE_CLOCK_DOWN
 		/* To enter sleep mode quickly, disable idle clock down  */
 		exynos_idle_clock_down(false, ARM);
 		exynos_idle_clock_down(false, KFC);
-
+#endif
 		cpu_idle_poll_ctrl(true);
 		pr_debug("PM_SUSPEND_PREPARE for CPUIDLE\n");
 		return NOTIFY_OK;
 	case PM_POST_RESTORE:
 	case PM_POST_SUSPEND:
+#ifdef CONFIG_EXYNOS_IDLE_CLOCK_DOWN
 		/* Enable idle clock down after wakeup from skeep mode */
 		exynos_idle_clock_down(true, ARM);
 		exynos_idle_clock_down(true, KFC);
-
+#endif
 		cpu_idle_poll_ctrl(false);
 		pr_debug("PM_POST_SUSPEND for CPUIDLE\n");
 		return NOTIFY_OK;

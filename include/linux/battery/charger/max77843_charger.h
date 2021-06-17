@@ -125,6 +125,8 @@
 
 /* MAX77843_CHG_REG_CHG_CNFG_12 */
 #define MAX77843_CHG_WCINSEL		        0x40
+#define CHG_CNFG_12_CHGINSEL_SHIFT			5
+#define CHG_CNFG_12_CHGINSEL_MASK			(0x1 << CHG_CNFG_12_CHGINSEL_SHIFT)
 
 /* MAX77843_CHG_REG_CHG_DTLS_00 */
 #define MAX77843_BATP_DTLS		        0x01
@@ -187,6 +189,9 @@ struct max77843_charger_data {
 	int		siop_level;
 	int uvlo_attach_flag;
 	int uvlo_attach_cable_type;
+#if defined(CONFIG_BATTERY_SWELLING)
+	unsigned int swelling_chg_current;
+#endif
 
 	int		irq_bypass;
 	int		irq_batp;

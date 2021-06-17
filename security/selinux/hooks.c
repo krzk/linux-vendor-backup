@@ -120,11 +120,13 @@ inline void rkp_print_debug(void)
 	printk(KERN_ERR"\nRKP2 uid = %d gid = %d euid = %d  egid = %d \n",current->cred->uid,current->cred->gid,current->cred->euid,current->cred->egid);
 
 }
+
 /* Main function to verify cred security context of a process */
 int security_integrity_current(void)
 {
-	if (!tima_ro_page((unsigned long)current->cred)||
-		cmp_sec_integrity()) {
+	if (rkp_cred_enable && 
+		(!tima_ro_page((unsigned long)current->cred)||
+		cmp_sec_integrity())) {
 		rkp_print_debug();
 		panic("RKP CRED PROTECTION VIOLATION\n");
 	}
@@ -467,6 +469,13 @@ static int sb_finish_set_opts(struct super_block *sb)
 	if (strncmp(sb->s_type->name, "sysfs", sizeof("sysfs")) == 0)
 		sbsec->flags |= SE_SBLABELSUPP;
 
+	/*
+	 * Special handling for rootfs. Is genfs but supports
+	 * setting SELinux context on in-core inodes.
+	 */
+	if (strncmp(sb->s_type->name, "rootfs", sizeof("rootfs")) == 0)
+		sbsec->flags |= SE_SBLABELSUPP;
+
 	/* Initialize the root inode. */
 	rc = inode_doinit_with_dentry(root_inode, root);
 
@@ -481,6 +490,7 @@ next_inode:
 				list_entry(sbsec->isec_head.next,
 					   struct inode_security_struct, list);
 		struct inode *inode = isec->inode;
+		list_del_init(&isec->list);
 		spin_unlock(&sbsec->isec_lock);
 		inode = igrab(inode);
 		if (inode) {
@@ -489,7 +499,6 @@ next_inode:
 			iput(inode);
 		}
 		spin_lock(&sbsec->isec_lock);
-		list_del_init(&isec->list);
 		goto next_inode;
 	}
 	spin_unlock(&sbsec->isec_lock);
@@ -1496,12 +1505,29 @@ static int task_has_perm(const struct task_struct *tsk1,
 			 const struct task_struct *tsk2,
 			 u32 perms)
 {
+#ifdef CONFIG_TIMA_RKP_RO_CRED
+	volatile struct task_security_struct *tsec1, *tsec2;
+#endif /*CONFIG_TIMA_RKP_RO_CRED*/
 	const struct task_security_struct *__tsec1, *__tsec2;
 	u32 sid1, sid2;
 
 	rcu_read_lock();
+
+#ifdef CONFIG_TIMA_RKP_RO_CRED
+	if(rkp_cred_enable){
+		while((u64)(tsec1 = __task_cred(tsk1)->security) == (u64)0x07);
+		while((u64)(tsec2 = __task_cred(tsk2)->security) == (u64)0x07);
+		sid1 = tsec1->sid;
+		sid2 = tsec2->sid;
+	}else {
+		__tsec1 = __task_cred(tsk1)->security;	sid1 = __tsec1->sid;
+		__tsec2 = __task_cred(tsk2)->security;	sid2 = __tsec2->sid;
+	}
+#else
 	__tsec1 = __task_cred(tsk1)->security;	sid1 = __tsec1->sid;
 	__tsec2 = __task_cred(tsk2)->security;	sid2 = __tsec2->sid;
+#endif /*CONFIG_TIMA_RKP_RO_CRED*/
+
 	rcu_read_unlock();
 	return avc_has_perm(sid1, sid2, SECCLASS_PROCESS, perms, NULL);
 }
@@ -3326,6 +3352,44 @@ static void selinux_file_free_security(struct file *file)
 	file_free_security(file);
 }
 
+/*
+ * Check whether a task has the ioctl permission and cmd
+ * operation to an inode.
+ */
+int ioctl_has_perm(const struct cred *cred, struct file *file,
+		u32 requested, u16 cmd)
+{
+	struct common_audit_data ad;
+	struct file_security_struct *fsec = file->f_security;
+	struct inode *inode = file_inode(file);
+	struct inode_security_struct *isec = inode->i_security;
+	struct lsm_ioctlop_audit ioctl;
+	u32 ssid = cred_sid(cred);
+	int rc;
+
+	ad.type = LSM_AUDIT_DATA_IOCTL_OP;
+	ad.u.op = &ioctl;
+	ad.u.op->cmd = cmd;
+	ad.u.op->path = file->f_path;
+
+	if (ssid != fsec->sid) {
+		rc = avc_has_perm(ssid, fsec->sid,
+				SECCLASS_FD,
+				FD__USE,
+				&ad);
+		if (rc)
+			goto out;
+	}
+
+	if (unlikely(IS_PRIVATE(inode)))
+		return 0;
+
+	rc = avc_has_operation(ssid, isec->sid, isec->sclass,
+			requested, cmd, &ad);
+out:
+	return rc;
+}
+
 static int selinux_file_ioctl(struct file *file, unsigned int cmd,
 			      unsigned long arg)
 {
@@ -3372,7 +3436,7 @@ static int selinux_file_ioctl(struct file *file, unsigned int cmd,
 	 * to the file's ioctl() function.
 	 */
 	default:
-		error = file_has_perm(cred, file, FILE__IOCTL);
+		error = ioctl_has_perm(cred, file, FILE__IOCTL, (u16) cmd);
 	}
 	return error;
 }
@@ -3659,6 +3723,12 @@ static int selinux_cred_alloc_blank(struct cred *cred, gfp_t gfp)
 static void selinux_cred_free(struct cred *cred)
 {
 	struct task_security_struct *tsec = cred->security;
+
+	if((unsigned long) cred->security == 0x7) {
+		printk(KERN_ERR"CRED SECURITY is already freed  %s -> %p sec %p SHOULD BE 7\n",
+					__func__, cred, cred->security);
+		return;
+	}
 
 	/*
 	 * cred->security == NULL if security_cred_alloc_blank() or

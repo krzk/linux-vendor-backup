@@ -19,6 +19,7 @@
 #include <linux/videodev2.h>
 #include <linux/videodev2_exynos_media.h>
 #include <linux/io.h>
+#include <linux/pm_qos.h>
 #include <media/videobuf2-core.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-mem2mem.h>
@@ -89,6 +90,8 @@ extern int sc_log_level;
 #define sc_fmt_is_ayv12(x)	((x) == V4L2_PIX_FMT_YVU420)
 #define sc_dith_val(a, b, c)	((a << SCALER_DITH_R_SHIFT) |	\
 		(b << SCALER_DITH_G_SHIFT) | (c << SCALER_DITH_B_SHIFT))
+
+#define SC_FMT_PREMULTI_FLAG	10
 
 #ifdef CONFIG_VIDEOBUF2_ION
 #define sc_buf_sync_prepare vb2_ion_buf_prepare
@@ -269,6 +272,7 @@ struct sc_frame {
 
 	struct sc_addr			addr;
 	unsigned long			bytesused[SC_MAX_PLANES];
+	bool			pre_multi;
 };
 
 struct sc_int_frame {
@@ -346,6 +350,8 @@ struct sc_dev {
 	spinlock_t			ctxlist_lock;
 	struct sc_ctx			*current_ctx;
 	struct list_head		context_list; /* for sc_ctx_abs.node */
+	struct pm_qos_request		qosreq_int;
+	s32				qosreq_int_level;
 	u32				version;
 };
 
@@ -429,7 +435,7 @@ static inline struct sc_frame *ctx_get_frame(struct sc_ctx *ctx,
 
 int sc_hwset_src_image_format(struct sc_dev *sc, const struct sc_fmt *);
 int sc_hwset_dst_image_format(struct sc_dev *sc, const struct sc_fmt *);
-void sc_hwset_pre_multi_format(struct sc_dev *sc);
+void sc_hwset_pre_multi_format(struct sc_dev *sc, bool src, bool dst);
 void sc_hwset_blend(struct sc_dev *sc, enum sc_blend_op bl_op, bool pre_multi,
 		unsigned char g_alpha);
 void sc_hwset_color_fill(struct sc_dev *sc, unsigned int val);

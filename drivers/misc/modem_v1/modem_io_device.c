@@ -23,7 +23,6 @@
 #include <linux/etherdevice.h>
 #include <linux/device.h>
 #include <linux/module.h>
-#include <trace/events/modem_if.h>
 
 #include "modem_prj.h"
 #include "modem_utils.h"
@@ -72,9 +71,7 @@ static ssize_t store_waketime(struct device *dev,
 		return count;
 
 	iod->waketime = msecs_to_jiffies(msec);
-#ifdef DEBUG_MODEM_IF
 	mif_err("%s: waketime = %lu ms\n", iod->name, msec);
-#endif
 
 	if (iod->format == IPC_MULTI_RAW) {
 		struct modem_shared *msd = iod->msd;
@@ -84,10 +81,8 @@ static ssize_t store_waketime(struct device *dev,
 			iod = get_iod_with_channel(msd, i);
 			if (iod) {
 				iod->waketime = msecs_to_jiffies(msec);
-#ifdef DEBUG_MODEM_IF
 				mif_err("%s: waketime = %lu ms\n",
 					iod->name, msec);
-#endif
 			}
 		}
 	}
@@ -174,7 +169,7 @@ static int queue_skb_to_iod(struct sk_buff *skb, struct io_device *iod)
 		goto enqueue;
 
 	if (rxq->qlen > MAX_IOD_RXQ_LEN) {
-		mif_err("%s: %s may be dead (rxq->qlen %d > %d)\n",
+		mif_err_limited("%s: %s may be dead (rxq->qlen %d > %d)\n",
 			iod->name, iod->app ? iod->app : "corresponding",
 			rxq->qlen, MAX_IOD_RXQ_LEN);
 		dev_kfree_skb_any(skb);
@@ -332,9 +327,6 @@ static int rx_multi_pdp(struct sk_buff *skb)
 		skb_pull(skb, sizeof(struct ethhdr));
 	}
 
-#ifdef DEBUG_MODEM_IF_IP_DATA
-	print_ipv4_packet(skb->data, RX);
-#endif
 	log_ipc_pkt(PS_RX, iod->id, skb);
 
 #ifdef CONFIG_LINK_DEVICE_NAPI
@@ -385,7 +377,6 @@ static int rx_demux(struct link_device *ld, struct sk_buff *skb)
 	if (atomic_read(&iod->opened) <= 0) {
 		mif_err_limited("%s: ERR! %s is not opened\n",
 				ld->name, iod->name);
-		modemctl_notify_event(MDM_EVENT_CP_ABNORMAL_RX);
 		return -ENODEV;
 	}
 
@@ -922,7 +913,6 @@ static int io_dev_recv_net_skb_from_link_dev(struct io_device *iod,
 		struct modem_ctl *mc = iod->mc;
 		mif_err_limited("%s: %s<-%s: ERR! %s is not opened\n",
 				ld->name, iod->name, mc->name, iod->name);
-		modemctl_notify_event(MDM_EVENT_CP_ABNORMAL_RX);
 		return -ENODEV;
 	}
 
@@ -998,7 +988,7 @@ static int misc_open(struct inode *inode, struct file *filp)
 		if (IS_CONNECTED(iod, ld) && ld->init_comm) {
 			ret = ld->init_comm(ld, iod);
 			if (ret < 0) {
-				mif_err("%s<->%s: ERR! init_comm fail(%d)\n",
+				mif_debug("%s<->%s: ERR! init_comm fail(%d)\n",
 					iod->name, ld->name, ret);
 				atomic_dec(&iod->opened);
 				return ret;
@@ -1344,14 +1334,6 @@ static ssize_t misc_write(struct file *filp, const char __user *data,
 	unsigned int headroom;
 	unsigned int tailroom;
 	unsigned int tx_bytes;
-#ifdef DEBUG_MODEM_IF
-	struct timespec ts;
-#endif
-
-#ifdef DEBUG_MODEM_IF
-	/* Record the timestamp */
-	getnstimeofday(&ts);
-#endif
 
 	if (iod->format <= IPC_RFS && iod->id == 0)
 		return -EINVAL;
@@ -1419,9 +1401,7 @@ static ssize_t misc_write(struct file *filp, const char __user *data,
 	 * Send the skb with a link device
 	 */
 
-#ifdef DEBUG_MODEM_IF
 	trace_mif_event(skb, tx_bytes, FUNC);
-#endif
 
 	ret = ld->send(ld, iod, skb);
 	if (ret < 0) {
@@ -1431,12 +1411,7 @@ static ssize_t misc_write(struct file *filp, const char __user *data,
 		return ret;
 	}
 
-	if (ret != tx_bytes) {
-		mif_info("%s->%s: WARN! %s->send ret:%d (tx_bytes:%d len:%ld)\n",
-			iod->name, mc->name, ld->name, ret, tx_bytes, (long)count);
-	}
-
-	return count;
+	return ret - headroom - tailroom;
 }
 
 static ssize_t misc_read(struct file *filp, char *buf, size_t count,
@@ -1573,14 +1548,6 @@ static int vnet_xmit(struct sk_buff *skb, struct net_device *ndev)
 	unsigned int headroom;
 	unsigned int tailroom;
 	unsigned int tx_bytes;
-#ifdef DEBUG_MODEM_IF
-	struct timespec ts;
-#endif
-
-#ifdef DEBUG_MODEM_IF
-	/* Record the timestamp */
-	getnstimeofday(&ts);
-#endif
 
 	if (unlikely(!cp_online(mc))) {
 		if (!netif_queue_stopped(ndev))
@@ -1867,7 +1834,6 @@ int sipc5_init_io_device(struct io_device *iod)
 
 		iod->miscdev.minor = MISC_DYNAMIC_MINOR;
 		iod->miscdev.name = iod->name;
-		iod->miscdev.fops = &misc_io_fops;
 
 		ret = misc_register(&iod->miscdev);
 		if (ret)

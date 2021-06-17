@@ -1,7 +1,7 @@
 /*
  * Linux cfgp2p driver
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
+ * Copyright (C) 1999-2016, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_cfgp2p.c 502643 2014-09-15 14:55:45Z $
+ * $Id: wl_cfgp2p.c 606116 2015-12-14 12:53:46Z $
  *
  */
 #include <typedefs.h>
@@ -287,27 +287,25 @@ void wl_cfgp2p_print_actframe(bool tx, void *frame, u32 frame_len, u32 channel)
 		sd_act_frm = (wifi_p2psd_gas_pub_act_frame_t *)frame;
 		switch (sd_act_frm->action) {
 			case P2PSD_ACTION_ID_GAS_IREQ:
-				CFGP2P_ACTION(("%s P2P GAS Initial Request,"
+				CFGP2P_ACTION(("%s GAS Initial Request,"
 					" channel=%d\n", (tx)? "TX" : "RX", channel));
 				break;
 			case P2PSD_ACTION_ID_GAS_IRESP:
-				CFGP2P_ACTION(("%s P2P GAS Initial Response,"
+				CFGP2P_ACTION(("%s GAS Initial Response,"
 					" channel=%d\n", (tx)? "TX" : "RX", channel));
 				break;
 			case P2PSD_ACTION_ID_GAS_CREQ:
-				CFGP2P_ACTION(("%s P2P GAS Comback Request,"
+				CFGP2P_ACTION(("%s GAS Comeback Request,"
 					" channel=%d\n", (tx)? "TX" : "RX", channel));
 				break;
 			case P2PSD_ACTION_ID_GAS_CRESP:
-				CFGP2P_ACTION(("%s P2P GAS Comback Response,"
+				CFGP2P_ACTION(("%s GAS Comeback Response,"
 					" channel=%d\n", (tx)? "TX" : "RX", channel));
 				break;
 			default:
-				CFGP2P_ACTION(("%s Unknown P2P GAS Frame,"
+				CFGP2P_ACTION(("%s Unknown GAS Frame,"
 					" channel=%d\n", (tx)? "TX" : "RX", channel));
 		}
-
-
 	}
 }
 
@@ -682,7 +680,7 @@ wl_cfgp2p_deinit_discovery(struct bcm_cfg80211 *cfg)
 	s32 ret = BCME_OK;
 	CFGP2P_DBG(("enter\n"));
 
-	if (wl_to_p2p_bss_bssidx(cfg, P2PAPI_BSSCFG_DEVICE) == 0) {
+	if (wl_to_p2p_bss_bssidx(cfg, P2PAPI_BSSCFG_DEVICE) <= 0) {
 		CFGP2P_ERR(("do nothing, not initialized\n"));
 		return -1;
 	}
@@ -1607,7 +1605,7 @@ wl_cfgp2p_listen_complete(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 	s32 ret = BCME_OK;
 	struct net_device *ndev = NULL;
 
-	if (!cfg || !cfg->p2p)
+	if (!cfg || !cfg->p2p || !cfgdev)
 		return BCME_ERROR;
 
 	CFGP2P_DBG((" Enter\n"));
@@ -2122,6 +2120,7 @@ wl_cfgp2p_set_p2p_noa(struct bcm_cfg80211 *cfg, struct net_device *ndev, char* b
 	s32 ret = -1;
 	int count, start, duration;
 	wl_p2p_sched_t dongle_noa;
+	int iovar_len = sizeof(dongle_noa);
 
 	CFGP2P_DBG((" Enter\n"));
 
@@ -2158,7 +2157,7 @@ wl_cfgp2p_set_p2p_noa(struct bcm_cfg80211 *cfg, struct net_device *ndev, char* b
 		}
 		else {
 			/* Continuous NoA interval. */
-			dongle_noa.action = WL_P2P_SCHED_ACTION_NONE;
+			dongle_noa.action = WL_P2P_SCHED_ACTION_DOZE;
 			dongle_noa.type = WL_P2P_SCHED_TYPE_ABS;
 			if ((cfg->p2p->noa.desc[0].interval == 102) ||
 				(cfg->p2p->noa.desc[0].interval == 100)) {
@@ -2182,8 +2181,12 @@ wl_cfgp2p_set_p2p_noa(struct bcm_cfg80211 *cfg, struct net_device *ndev, char* b
 		}
 		dongle_noa.desc[0].interval = htod32(cfg->p2p->noa.desc[0].interval*1000);
 
+		if (dongle_noa.action == WL_P2P_SCHED_ACTION_RESET) {
+			iovar_len -= sizeof(wl_p2p_sched_desc_t);
+		}
+
 		ret = wldev_iovar_setbuf(wl_to_p2p_bss_ndev(cfg, P2PAPI_BSSCFG_CONNECTION),
-			"p2p_noa", &dongle_noa, sizeof(dongle_noa), cfg->ioctl_buf,
+			"p2p_noa", &dongle_noa, iovar_len, cfg->ioctl_buf,
 			WLC_IOCTL_MAXLEN, &cfg->ioctl_buf_sync);
 
 		if (ret < 0) {
@@ -2735,6 +2738,8 @@ wl_cfgp2p_del_p2p_disc_if(struct wireless_dev *wdev, struct bcm_cfg80211 *cfg)
 	if (rollback_lock)
 		rtnl_unlock();
 
+	synchronize_rcu();
+
 	kfree(wdev);
 
 	if (cfg)
@@ -2745,14 +2750,17 @@ wl_cfgp2p_del_p2p_disc_if(struct wireless_dev *wdev, struct bcm_cfg80211 *cfg)
 	return 0;
 }
 #endif /* WL_CFG80211_P2P_DEV_IF */
+
 void
 wl_cfgp2p_need_wait_actfrmae(struct bcm_cfg80211 *cfg, void *frame, u32 frame_len, bool tx)
 {
 	wifi_p2p_pub_act_frame_t *pact_frm;
 	int status = 0;
+
 	if (!frame || (frame_len < (sizeof(*pact_frm) + WL_P2P_AF_STATUS_OFFSET - 1))) {
 		return;
 	}
+
 	if (wl_cfgp2p_is_pub_action(frame, frame_len)) {
 		pact_frm = (wifi_p2p_pub_act_frame_t *)frame;
 		if (pact_frm->subtype == P2P_PAF_GON_RSP && tx) {
@@ -2764,9 +2772,11 @@ wl_cfgp2p_need_wait_actfrmae(struct bcm_cfg80211 *cfg, void *frame, u32 frame_le
 			}
 		}
 	}
+
 	cfg->need_wait_afrx = true;
 	return;
 }
+
 int
 wl_cfgp2p_is_p2p_specific_scan(struct cfg80211_scan_request *request)
 {

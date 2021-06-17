@@ -1,3 +1,22 @@
+/*
+ * Copyright (c) 2015 Samsung Electronics Co., Ltd.
+ *
+ * Sensitive Data Protection
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
+
 #ifndef _FIPS_CRYPTO_H
 #define _FIPS_CRYPTO_H
 
@@ -11,22 +30,17 @@
 #define OP_RSA_DEC 11
 #define OP_DH_DEC 12
 #define OP_DH_ENC 13
+#define OP_ECDH_DEC 14
+#define OP_ECDH_ENC 15
 
 #define PUB_CRYPTO_ERROR 99
 
-struct rsa_send_msg {
+typedef struct __cipher_param {
     u32 request_id;
     u8 opcode;
 	dek_t in;
 	kek_t key;
-};
-
-struct dh_send_msg {
-    u32 request_id;
-    u8 opcode;
-	dek_t in;
-	kek_t key;
-};
+}cipher_param_t;
 
 typedef struct result {
     u32 request_id;
@@ -63,10 +77,7 @@ typedef struct pub_crypto_request {
 
 	enum req_state state;
 
-	union {
-		struct dh_send_msg dh;
-		struct rsa_send_msg rsa;
-	}msg;
+	cipher_param_t cipher_param;
 
 	result_t result;
 
@@ -78,5 +89,6 @@ int rsa_encryptByPub(dek_t *dek, dek_t *edek, kek_t *key);
 int rsa_decryptByPair(dek_t *edek, dek_t *dek, kek_t *key);
 int dh_decryptEDEK(dek_t *edek, dek_t *dek, kek_t *key);
 int dh_encryptDEK(dek_t *dek, dek_t *edek, kek_t *key);
-
+int ecdh_decryptEDEK(dek_t *edek, dek_t *dek, kek_t *key);
+int ecdh_encryptDEK(dek_t *dek, dek_t *edek, kek_t *key);
 #endif

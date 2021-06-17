@@ -37,6 +37,8 @@
 #define ASHMEM_NAME_PREFIX_LEN (sizeof(ASHMEM_NAME_PREFIX) - 1)
 #define ASHMEM_FULL_NAME_LEN (ASHMEM_NAME_LEN + ASHMEM_NAME_PREFIX_LEN)
 
+extern int boot_mode_security;
+
 /*
  * ashmem_area - anonymous shared memory area
  * Lifecycle: From our parent file's open() until its release()
@@ -291,7 +293,13 @@ static int ashmem_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct ashmem_area *asma = file->private_data;
 	int ret = 0;
-
+#ifdef CONFIG_TIMA_RKP
+#ifdef CONFIG_IOMMU_OPT
+	if (boot_mode_security && vma->vm_end - vma->vm_start) {
+		cpu_v7_tima_iommu_opt(vma->vm_start, vma->vm_end, (unsigned long)vma->vm_mm->pgd);
+	}
+#endif
+#endif
 	mutex_lock(&ashmem_mutex);
 
 	/* user needs to SET_SIZE before mapping */
@@ -372,7 +380,7 @@ static int ashmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		loff_t start = range->pgstart * PAGE_SIZE;
 		loff_t end = (range->pgend + 1) * PAGE_SIZE;
 
-		do_fallocate(range->asma->file,
+		range->asma->file->f_op->fallocate(range->asma->file,
 				FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
 				start, end - start);
 		range->purged = ASHMEM_WAS_PURGED;

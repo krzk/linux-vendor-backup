@@ -530,6 +530,11 @@ static int sc_v4l2_s_fmt_mplane(struct file *file, void *fh,
 		return -EINVAL;
 	}
 
+	if (pixm->reserved[SC_FMT_PREMULTI_FLAG] != 0)
+		frame->pre_multi = true;
+	else
+		frame->pre_multi = false;
+
 	frame->width = pixm->width;
 	frame->height = pixm->height;
 	frame->pixelformat = pixm->pixelformat;
@@ -1906,8 +1911,8 @@ static int sc_run_next_job(struct sc_dev *sc)
 
 	sc_hwset_src_image_format(sc, s_frame->sc_fmt);
 	sc_hwset_dst_image_format(sc, d_frame->sc_fmt);
-	if (ctx->pre_multi)
-		sc_hwset_pre_multi_format(sc);
+
+	sc_hwset_pre_multi_format(sc, s_frame->pre_multi, d_frame->pre_multi);
 
 	sc_hwset_src_imgsize(sc, s_frame);
 	sc_hwset_dst_imgsize(sc, d_frame);
@@ -2687,13 +2692,25 @@ static int sc_runtime_resume(struct device *dev)
 			return ret;
 		}
 	}
+
+	if (sc->qosreq_int_level > 0)
+		pm_qos_update_request(&sc->qosreq_int, sc->qosreq_int_level);
+
+	return 0;
+}
+
+static int sc_runtime_suspend(struct device *dev)
+{
+	struct sc_dev *sc = dev_get_drvdata(dev);
+	if (sc->qosreq_int_level > 0)
+		pm_qos_update_request(&sc->qosreq_int, 0);
 	return 0;
 }
 #endif
 
 static const struct dev_pm_ops sc_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(sc_suspend, sc_resume)
-	SET_RUNTIME_PM_OPS(NULL, sc_runtime_resume, NULL)
+	SET_RUNTIME_PM_OPS(NULL, sc_runtime_resume, sc_runtime_suspend)
 };
 
 static int sc_probe(struct platform_device *pdev)
@@ -2814,6 +2831,16 @@ static int sc_probe(struct platform_device *pdev)
 		goto err_wq;
 	}
 
+	if (!of_property_read_u32(pdev->dev.of_node, "mscl,int_qos_minlock",
+				(u32 *)&sc->qosreq_int_level)) {
+		if (sc->qosreq_int_level > 0) {
+			pm_qos_add_request(&sc->qosreq_int,
+						PM_QOS_DEVICE_THROUGHPUT, 0);
+			dev_info(&pdev->dev, "INT Min.Lock Freq. = %u\n",
+						sc->qosreq_int_level);
+		}
+	}
+
 	ret = sc_register_m2m_device(sc, dev_id);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register m2m device\n");
@@ -2824,7 +2851,11 @@ static int sc_probe(struct platform_device *pdev)
 		"Driver probed successfully(version: %08x)\n", hwver);
 
 	return 0;
+
 err_m2m:
+	if (sc->qosreq_int_level > 0)
+		pm_qos_remove_request(&sc->qosreq_int);
+
 	destroy_workqueue(sc->fence_wq);
 err_wq:
 err_ver:
@@ -2851,6 +2882,9 @@ static int sc_remove(struct platform_device *pdev)
 		del_timer(&sc->wdt.timer);
 
 	m2m1shot_destroy_device(sc->m21dev);
+
+	if (sc->qosreq_int_level > 0)
+		pm_qos_remove_request(&sc->qosreq_int);
 
 	return 0;
 }
