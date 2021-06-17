@@ -2062,7 +2062,8 @@ extern int ext4_mb_add_groupinfo(struct super_block *sb,
 		ext4_group_t i, struct ext4_group_desc *desc);
 extern int ext4_group_add_blocks(handle_t *handle, struct super_block *sb,
 				ext4_fsblk_t block, unsigned long count);
-extern int ext4_trim_fs(struct super_block *, struct fstrim_range *);
+extern int ext4_trim_fs(struct super_block *, struct fstrim_range *,
+				unsigned long blkdev_flags);
 
 /* inode.c */
 struct buffer_head *ext4_getblk(handle_t *, struct inode *,
@@ -2150,7 +2151,12 @@ extern int search_dir(struct buffer_head *bh,
 		      struct inode *dir,
 		      const struct qstr *d_name,
 		      unsigned int offset,
+#ifdef CONFIG_SDCARD_FS_CI_SEARCH
+		      struct ext4_dir_entry_2 **res_dir,
+		      char *ci_name_buf);
+#else
 		      struct ext4_dir_entry_2 **res_dir);
+#endif
 extern int ext4_generic_delete_entry(handle_t *handle,
 				     struct inode *dir,
 				     struct ext4_dir_entry_2 *de_del,
@@ -2257,6 +2263,14 @@ extern void ext4_group_desc_csum_set(struct super_block *sb, __u32 group,
 				     struct ext4_group_desc *gdp);
 extern int ext4_register_li_request(struct super_block *sb,
 				    ext4_group_t first_not_zeroed);
+/* for debugging, sangwoo2.lee */
+extern void print_iloc_info(struct super_block *sb,
+				struct ext4_iloc iloc);
+extern void print_bh(struct super_block *sb,
+                  struct buffer_head *bh, int start, int len);
+extern void print_block_data(struct super_block *sb, sector_t blocknr,
+                  unsigned char *data_to_dump, int start, int len);
+/* for debugging */
 
 static inline int ext4_has_group_desc_csum(struct super_block *sb)
 {
