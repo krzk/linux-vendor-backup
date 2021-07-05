@@ -981,6 +981,14 @@ start_over:
 		plist_requeue(&si->avail_lists[node], &swap_avail_heads[node]);
 		spin_unlock(&swap_avail_lock);
 		spin_lock(&si->lock);
+
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+		if (si->flags & SWP_PRIVATE) {
+			spin_lock(&swap_avail_lock);
+			spin_unlock(&si->lock);
+			goto nextsi;
+		}
+#endif
 		if (!si->highest_bit || !(si->flags & SWP_WRITEOK)) {
 			spin_lock(&swap_avail_lock);
 			if (plist_node_empty(&si->avail_lists[node])) {
@@ -1036,8 +1044,7 @@ noswap:
 	return n_ret;
 }
 
-/* The only caller of this function is now suspend routine */
-swp_entry_t get_swap_page_of_type(int type)
+swp_entry_t __get_swap_page_of_type(int type, int usage)
 {
 	struct swap_info_struct *si = swap_type_to_swap_info(type);
 	pgoff_t offset;
@@ -1049,7 +1056,7 @@ swp_entry_t get_swap_page_of_type(int type)
 	if (si->flags & SWP_WRITEOK) {
 		atomic_long_dec(&nr_swap_pages);
 		/* This is called for allocating swap entry, not cache */
-		offset = scan_swap_map(si, 1);
+		offset = scan_swap_map(si, usage);
 		if (offset) {
 			spin_unlock(&si->lock);
 			return swp_entry(type, offset);
@@ -1059,6 +1066,12 @@ swp_entry_t get_swap_page_of_type(int type)
 	spin_unlock(&si->lock);
 fail:
 	return (swp_entry_t) {0};
+}
+
+/* The only caller of this function is now suspend routine */
+swp_entry_t get_swap_page_of_type(int type)
+{
+	return __get_swap_page_of_type(type, 1);
 }
 
 static struct swap_info_struct *__swap_info_get(swp_entry_t entry)
@@ -1108,6 +1121,15 @@ bad_free:
 out:
 	return NULL;
 }
+
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+bool is_private_swap_info(swp_entry_t entry)
+{
+	struct swap_info_struct *p = _swap_info_get(entry);
+
+	return (p && ((p->flags & SWP_PRIVATE) == SWP_PRIVATE));
+}
+#endif
 
 static struct swap_info_struct *swap_info_get(swp_entry_t entry)
 {
@@ -2645,6 +2667,9 @@ SYSCALL_DEFINE1(swapoff, const char __user *, specialfile)
 	cluster_info = p->cluster_info;
 	p->cluster_info = NULL;
 	frontswap_map = frontswap_map_get(p);
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+	mem_cgroup_remove_swapfile(p->type);
+#endif
 	spin_unlock(&p->lock);
 	spin_unlock(&swap_lock);
 	frontswap_invalidate_area(p->type);
@@ -3101,6 +3126,92 @@ static bool swap_discardable(struct swap_info_struct *si)
 	return true;
 }
 
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+int swap_retrive_swap_device(const int *_type, struct seq_file *swap)
+{
+	struct swap_info_struct *si;
+	struct file *file;
+	int type;
+
+	spin_lock(&swap_lock);
+	type = *_type;
+	if (type == SWAP_TYPE_NONE) {
+		spin_unlock(&swap_lock);
+		seq_puts(swap, "none\n");
+		return 0;
+	}
+	if (type == SWAP_TYPE_DEFAULT) {
+	spin_unlock(&swap_lock);
+		seq_puts(swap, "default\n");
+		return 0;
+	}
+	BUG_ON(type < 0);
+	BUG_ON(type >= nr_swapfiles);
+
+	si = swap_info[type];
+	spin_lock(&si->lock);
+	spin_unlock(&swap_lock);
+	BUG_ON(!(si->flags & SWP_USED));
+	file = si->swap_file;
+	seq_path(swap, &file->f_path, " \t\n\\");
+	seq_putc(swap, '\n');
+	spin_unlock(&si->lock);
+
+	return 0;
+}
+
+int swap_store_swap_device(const char *buf, int *_type)
+{
+	struct file *victim;
+	struct address_space *mapping;
+	int type;
+	int err;
+	char *nl;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
+	nl = strchr(buf, '\n');
+	if (nl != NULL)
+		*nl = '\0';
+	if (strcmp(buf, "none") == 0) {
+		*_type = SWAP_TYPE_NONE;
+		return 0;
+	}
+	if (strcmp(buf, "default") == 0) {
+		*_type = SWAP_TYPE_DEFAULT;
+		return 0;
+	}
+
+	victim = filp_open(buf, O_RDWR|O_LARGEFILE, 0);
+	err = PTR_ERR(victim);
+	if (IS_ERR(victim))
+		return err;
+
+	mapping = victim->f_mapping;
+	spin_lock(&swap_lock);
+	for (type = 0; type < nr_swapfiles; type++) {
+		struct swap_info_struct *si = swap_info[type];
+
+		if ((si->flags & SWP_WRITEOK) == SWP_WRITEOK) {
+			if (si->swap_file->f_mapping == mapping)
+				break;
+		}
+	}
+
+	if (type == nr_swapfiles)
+		err = -EINVAL;
+	else {
+		err = 0;
+		*_type = type;
+	}
+
+	spin_unlock(&swap_lock);
+	filp_close(victim, NULL);
+	return err;
+}
+#endif
+
 SYSCALL_DEFINE2(swapon, const char __user *, specialfile, int, swap_flags)
 {
 	struct swap_info_struct *p;
@@ -3189,6 +3300,11 @@ SYSCALL_DEFINE2(swapon, const char __user *, specialfile, int, swap_flags)
 
 	if (bdi_cap_synchronous_io(inode_to_bdi(inode)))
 		p->flags |= SWP_SYNCHRONOUS_IO;
+
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+	if (swap_flags & SWAP_FLAG_PRIVATE)
+		p->flags |= SWP_PRIVATE;
+#endif
 
 	if (p->bdev && blk_queue_nonrot(bdev_get_queue(p->bdev))) {
 		int cpu;
@@ -3291,6 +3407,9 @@ SYSCALL_DEFINE2(swapon, const char __user *, specialfile, int, swap_flags)
 		(p->flags & SWP_DISCARDABLE) ? "D" : "",
 		(p->flags & SWP_AREA_DISCARD) ? "s" : "",
 		(p->flags & SWP_PAGE_DISCARD) ? "c" : "",
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+		(p->flags & SWP_PRIVATE) ? "P" : "",
+#endif
 		(frontswap_map) ? "FS" : "");
 
 	mutex_unlock(&swapon_mutex);
@@ -3768,6 +3887,55 @@ void mem_cgroup_throttle_swaprate(struct mem_cgroup *memcg, int node,
 }
 #endif
 
+unsigned long get_swap_orig_data_nrpages(void)
+{
+	unsigned long x = 0;
+#if IS_ENABLED(CONFIG_ZSMALLOC)
+	struct sysinfo i;
+
+	si_swapinfo(&i);
+	x = i.totalswap - i.freeswap;
+#endif
+	/*
+	 * to be safe on arithmetic calcuation in case of either
+	 * !defined(CONFIG_ZSMALLOC) or entirely swap free
+	 */
+	if (x == 0)
+		x = 1;
+
+	return x;
+}
+
+unsigned long get_swap_comp_pool_nrpages(void)
+{
+	unsigned long x = 0;
+
+#if IS_ENABLED(CONFIG_ZSMALLOC)
+	x = global_zone_page_state(NR_ZSPAGES);
+#endif
+
+	return x;
+}
+
+static int swap_size_notifier(struct notifier_block *nb,
+			       unsigned long action, void *data)
+{
+	struct seq_file *s;
+
+	s = (struct seq_file *)data;
+	if (s)
+		seq_printf(s, "SwapSize:       %8lu kB\n",
+			(unsigned long)get_swap_comp_pool_nrpages() << (PAGE_SHIFT - 10));
+	else
+		pr_cont("SwapSize:%lukB ",
+			(unsigned long)get_swap_comp_pool_nrpages() << (PAGE_SHIFT - 10));
+	return 0;
+}
+
+static struct notifier_block swap_size_nb = {
+	.notifier_call = swap_size_notifier,
+};
+
 static int __init swapfile_init(void)
 {
 	int nid;
@@ -3781,6 +3949,8 @@ static int __init swapfile_init(void)
 
 	for_each_node(nid)
 		plist_head_init(&swap_avail_heads[nid]);
+
+	show_mem_extra_notifier_register(&swap_size_nb);
 
 	return 0;
 }

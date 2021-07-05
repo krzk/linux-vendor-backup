@@ -77,6 +77,8 @@ Brief summary of control files.
  memory.move_charge_at_immigrate # set/show controls of moving charges
  memory.oom_control		 # set/show oom controls.
  memory.numa_stat		 # show the number of memory usage per numa node
+ memory.swapfile		 # set/show swap file
+ memory.swapquota		 # set/show swap quota (# of pages writable)
 
  memory.kmem.limit_in_bytes      # set/show hard limit for kernel memory
  memory.kmem.usage_in_bytes      # show current kernel memory allocation
@@ -341,6 +343,23 @@ set:
     triggered for the cgroup for both kinds of memory. This setup gives the
     admin a unified view of memory, and it is also useful for people who just
     want to track kernel memory usage.
+
+2.8 Private swap files
+(originated from
+ "mm/swap: support per memory cgroup swapfiles" by Suleiman Souhlal
+ <suleiman@google.com>)
+
+It's possible to configure a cgroup to swap to a particular file by using
+memory.swapfile.
+
+A value of "default" in memory.swapfile indicates that this cgroup should
+use the default, system-wide, swap files. A value of "none" indicates that
+this cgroup should never swap. Other values are interpreted as the path
+to a private swap file.
+
+The swap file has to be created and swapon() has to be done on it with
+SWAP_FLAG_PRIVATE, before it can be used. This flag ensures that the swap
+file is private and does not get used by others.
 
 3. User Interface
 

@@ -47,6 +47,7 @@
 #include <linux/page_owner.h>
 #include <linux/sched/mm.h>
 #include <linux/ptrace.h>
+#include <linux/freezer.h>
 
 #include <asm/tlbflush.h>
 
@@ -683,6 +684,8 @@ void migrate_page_states(struct page *newpage, struct page *page)
 		SetPageActive(newpage);
 	} else if (TestClearPageUnevictable(page))
 		SetPageUnevictable(newpage);
+	if (PageWorkingset(page))
+		SetPageWorkingset(newpage);
 	if (PageChecked(page))
 		SetPageChecked(newpage);
 	if (PageMappedToDisk(page))
@@ -994,12 +997,14 @@ out:
 }
 
 static int __unmap_and_move(struct page *page, struct page *newpage,
-				int force, enum migrate_mode mode)
+				int force, enum migrate_mode mode,
+				enum migrate_reason reason)
 {
 	int rc = -EAGAIN;
 	int page_was_mapped = 0;
 	struct anon_vma *anon_vma = NULL;
 	bool is_lru = !__PageMovable(page);
+	bool inplace_migration = false;
 
 	if (!trylock_page(page)) {
 		if (!force || mode == MIGRATE_ASYNC)
@@ -1097,14 +1102,33 @@ static int __unmap_and_move(struct page *page, struct page *newpage,
 		}
 	} else if (page_mapped(page)) {
 		/* Establish migration ptes */
+		enum ttu_flags ttuflags;
+
 		VM_BUG_ON_PAGE(PageAnon(page) && !PageKsm(page) && !anon_vma,
 				page);
-		try_to_unmap(page,
-			TTU_MIGRATION|TTU_IGNORE_MLOCK|TTU_IGNORE_ACCESS);
-		page_was_mapped = 1;
+
+		ttuflags = TTU_MIGRATION | TTU_IGNORE_MLOCK | TTU_IGNORE_ACCESS;
+
+		if (reason == MR_MEMORY_HOTPLUG) {
+			ttuflags |= TTU_BATCH_FLUSH | TTU_FORCE_BATCH_FLUSH;
+			/*
+			 * migrate_anon_page() is not safe
+			 * when a prcoess is runnable
+			 */
+			if (migrate_anon_page(page, newpage) ==
+			    MIGRATEPAGE_SUCCESS) {
+				rc = MIGRATEPAGE_SUCCESS;
+				inplace_migration = true;
+			}
+		}
+
+		if (!inplace_migration) {
+			try_to_unmap(page, ttuflags);
+			page_was_mapped = 1;
+		}
 	}
 
-	if (!page_mapped(page))
+	if (!inplace_migration && !page_mapped(page))
 		rc = move_to_new_page(newpage, page, mode);
 
 	if (page_was_mapped)
@@ -1186,7 +1210,7 @@ static ICE_noinline int unmap_and_move(new_page_t get_new_page,
 		goto out;
 	}
 
-	rc = __unmap_and_move(page, newpage, force, mode);
+	rc = __unmap_and_move(page, newpage, force, mode, reason);
 	if (rc == MIGRATEPAGE_SUCCESS)
 		set_page_owner_migrate_reason(newpage, reason);
 

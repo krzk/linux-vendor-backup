@@ -12,5 +12,8 @@ extern struct swap_info_struct *swap_info[];
 extern int try_to_unuse(unsigned int, bool, unsigned long);
 extern unsigned long generic_max_swapfile_size(void);
 extern unsigned long max_swapfile_size(void);
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+extern bool is_private_swap_info(swp_entry_t entry);
+#endif
 
 #endif /* _LINUX_SWAPFILE_H */

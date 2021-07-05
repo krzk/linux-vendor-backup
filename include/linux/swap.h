@@ -24,10 +24,19 @@ struct bio;
 #define SWAP_FLAG_DISCARD	0x10000 /* enable discard for swap */
 #define SWAP_FLAG_DISCARD_ONCE	0x20000 /* discard swap area at swapon-time */
 #define SWAP_FLAG_DISCARD_PAGES 0x40000 /* discard page-clusters after use */
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+#define SWAP_FLAG_PRIVATE     0x1000000	/* set if get_swap_page should skip */
+#endif
 
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+#define SWAP_FLAGS_VALID	(SWAP_FLAG_PRIO_MASK | SWAP_FLAG_PREFER | \
+				 SWAP_FLAG_DISCARD | SWAP_FLAG_DISCARD_ONCE | \
+				 SWAP_FLAG_DISCARD_PAGES | SWAP_FLAG_PRIVATE)
+#else
 #define SWAP_FLAGS_VALID	(SWAP_FLAG_PRIO_MASK | SWAP_FLAG_PREFER | \
 				 SWAP_FLAG_DISCARD | SWAP_FLAG_DISCARD_ONCE | \
 				 SWAP_FLAG_DISCARD_PAGES)
+#endif
 #define SWAP_BATCH 64
 
 static inline int current_is_kswapd(void)
@@ -173,7 +182,17 @@ enum {
 	SWP_STABLE_WRITES = (1 << 10),	/* no overwrite PG_writeback pages */
 	SWP_SYNCHRONOUS_IO = (1 << 11),	/* synchronous IO is efficient */
 					/* add others here before... */
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+	SWP_PRIVATE	= (1 << 12),	/* not for general use */
+	SWP_SCANNING	= (1 << 13),	/* refcount in scan_swap_map */
+#else
 	SWP_SCANNING	= (1 << 12),	/* refcount in scan_swap_map */
+#endif
+};
+
+enum {
+	SWAP_TYPE_DEFAULT = -1,		/* use default/global/system swap file */
+	SWAP_TYPE_NONE = -2,		/* swap is disabled */
 };
 
 #define SWAP_CLUSTER_MAX 32UL
@@ -305,7 +324,7 @@ struct vma_swap_readahead {
 
 /* linux/mm/workingset.c */
 void *workingset_eviction(struct address_space *mapping, struct page *page);
-bool workingset_refault(void *shadow);
+void workingset_refault(struct page *page, void *shadow);
 void workingset_activation(struct page *page);
 
 /* Do not use directly, use workingset_lookup_update */
@@ -453,6 +472,11 @@ static inline long get_nr_swap_pages(void)
 }
 
 extern void si_swapinfo(struct sysinfo *);
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+extern int swap_retrive_swap_device(const int *, struct seq_file *);
+extern int swap_store_swap_device(const char *, int *);
+extern swp_entry_t __get_swap_page_of_type(int type, int usage);
+#endif
 extern swp_entry_t get_swap_page(struct page *page);
 extern void put_swap_page(struct page *page, swp_entry_t entry);
 extern swp_entry_t get_swap_page_of_type(int);
@@ -479,6 +503,8 @@ extern int try_to_free_swap(struct page *);
 struct backing_dev_info;
 extern int init_swap_address_space(unsigned int type, unsigned long nr_pages);
 extern void exit_swap_address_space(unsigned int type);
+extern unsigned long get_swap_orig_data_nrpages(void);
+extern unsigned long get_swap_comp_pool_nrpages(void);
 
 #else /* CONFIG_SWAP */
 
@@ -625,7 +651,7 @@ static inline int split_swap_cluster(swp_entry_t entry)
 }
 #endif
 
-#ifdef CONFIG_MEMCG
+#if defined(CONFIG_MEMCG) && !defined(CONFIG_MEMCG_FORCE_USE_VM_SWAPPINESS)
 static inline int mem_cgroup_swappiness(struct mem_cgroup *memcg)
 {
 	/* Cgroup2 doesn't have per-cgroup swappiness */

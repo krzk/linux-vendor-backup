@@ -3560,6 +3560,87 @@ static int mem_cgroup_swappiness_write(struct cgroup_subsys_state *css,
 	return 0;
 }
 
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+static ssize_t
+mem_cgroup_swapfile_write(struct kernfs_open_file *of,
+				    char *buf, size_t nbytes, loff_t off)
+{
+	struct mem_cgroup *memcg = mem_cgroup_from_css(of_css(of));
+	int ret = swap_store_swap_device(buf, &memcg->swap_type);
+
+	return ret ? ret : nbytes;
+}
+
+static int
+mem_cgroup_swapfile_read(struct seq_file *sf, void *v)
+{
+	struct mem_cgroup *memcg = mem_cgroup_from_css(seq_css(sf));
+
+	return swap_retrive_swap_device(&memcg->swap_type, sf);
+}
+
+static u64 mem_cgroup_swapquota_read(struct cgroup_subsys_state *css,
+				      struct cftype *cft)
+{
+	struct mem_cgroup *memcg = mem_cgroup_from_css(css);
+
+	return atomic_read(&memcg->swap_quota);
+}
+
+static int mem_cgroup_swapquota_write(struct cgroup_subsys_state *css,
+				       struct cftype *cft, u64 val)
+{
+	struct mem_cgroup *memcg = mem_cgroup_from_css(css);
+	u64 threshold = (5 << (30 - PAGE_SHIFT)); // #pages in 5GB
+
+	if (val > threshold)
+		return -EINVAL;
+	atomic_set(&memcg->swap_quota, val);
+
+	return 0;
+}
+
+static int
+mem_cgroup_get_swap_type(struct mem_cgroup *memcg)
+{
+	return !memcg ? SWAP_TYPE_DEFAULT : memcg->swap_type;
+}
+
+int
+mem_cgroup_get_page_swap_type(struct page *page)
+{
+	struct mem_cgroup *memcg = page_memcg(page);
+
+	return mem_cgroup_get_swap_type(memcg);
+}
+
+void mem_cgroup_remove_swapfile(int type)
+{
+	struct mem_cgroup *memcg;
+
+	for_each_mem_cgroup(memcg)
+		if (memcg->swap_type == type)
+			memcg->swap_type = SWAP_TYPE_DEFAULT;
+}
+
+bool mem_cgroup_page_nandswap_available(struct page *page)
+{
+	struct mem_cgroup *memcg = page_memcg(page);
+
+	if (atomic_read(&memcg->swap_quota) <= 0)
+		return false;
+
+	return true;
+}
+
+void mem_cgroup_page_dec_swap_quota(struct page *page)
+{
+	struct mem_cgroup *memcg = page_memcg(page);
+
+	atomic_dec(&memcg->swap_quota);
+}
+#endif
+
 static void __mem_cgroup_threshold(struct mem_cgroup *memcg, bool swap)
 {
 	struct mem_cgroup_threshold_ary *t;
@@ -4286,6 +4367,19 @@ static struct cftype mem_cgroup_legacy_files[] = {
 		.read_u64 = mem_cgroup_swappiness_read,
 		.write_u64 = mem_cgroup_swappiness_write,
 	},
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+	{
+		.name = "swapfile",
+		.seq_show = mem_cgroup_swapfile_read,
+		.write = mem_cgroup_swapfile_write,
+		.max_write_len = PATH_MAX,
+	},
+	{
+		.name = "swapquota",
+		.read_u64 = mem_cgroup_swapquota_read,
+		.write_u64 = mem_cgroup_swapquota_write,
+	},
+#endif
 	{
 		.name = "move_charge_at_immigrate",
 		.read_u64 = mem_cgroup_move_charge_read,
@@ -4530,6 +4624,10 @@ static struct mem_cgroup *mem_cgroup_alloc(void)
 	INIT_WORK(&memcg->high_work, high_work_func);
 	memcg->last_scanned_node = MAX_NUMNODES;
 	INIT_LIST_HEAD(&memcg->oom_notify);
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+	memcg->swap_type = SWAP_TYPE_DEFAULT;
+	atomic_set(&memcg->swap_quota, 0);
+#endif
 	mutex_init(&memcg->thresholds_lock);
 	spin_lock_init(&memcg->move_lock);
 	vmpressure_init(&memcg->vmpressure);

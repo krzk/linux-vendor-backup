@@ -220,6 +220,26 @@ wakealarm_store(struct device *dev, struct device_attribute *attr,
 }
 static DEVICE_ATTR_RW(wakealarm);
 
+#if defined(CONFIG_RTC_BOOT_ALARM)
+static ssize_t
+alarm_boot_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	ssize_t retval;
+	struct rtc_wkalrm alm;
+
+	retval = rtc_get_boot_alarm(to_rtc_device(dev), &alm);
+	if (retval) {
+		retval = sprintf(buf, "%d", alm.enabled);
+		printk(" rtc_sysfs_show_boot_alarm -- enabled? : %d\n", alm.enabled);
+		return retval;
+	}
+
+	return retval;
+}
+static DEVICE_ATTR_RO(alarm_boot);
+#endif
+
 static ssize_t
 offset_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -266,6 +286,9 @@ static struct attribute *rtc_attrs[] = {
 	&dev_attr_wakealarm.attr,
 	&dev_attr_offset.attr,
 	&dev_attr_range.attr,
+#if defined(CONFIG_RTC_BOOT_ALARM)
+	&dev_attr_alarm_boot.attr,
+#endif
 	NULL,
 };
 

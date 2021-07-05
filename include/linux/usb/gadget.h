@@ -114,6 +114,12 @@ struct usb_request {
 
 	int			status;
 	unsigned		actual;
+
+#ifdef CONFIG_USB_CONFIGFS_F_MBIM
+	struct sk_buff		*skb;
+#endif
+	/* Device Specific Flag */
+	u32			func_flag;
 };
 
 /*-------------------------------------------------------------------------*/

@@ -78,6 +78,10 @@ struct rtc_class_ops {
 	int (*set_time)(struct device *, struct rtc_time *);
 	int (*read_alarm)(struct device *, struct rtc_wkalrm *);
 	int (*set_alarm)(struct device *, struct rtc_wkalrm *);
+#if defined(CONFIG_RTC_BOOT_ALARM)
+	int (*read_boot_alarm)(struct device *, struct rtc_wkalrm *);
+	int (*set_boot_alarm)(struct device *, struct rtc_wkalrm *);
+#endif
 	int (*proc)(struct device *, struct seq_file *);
 	int (*set_mmss64)(struct device *, time64_t secs);
 	int (*set_mmss)(struct device *, unsigned long secs);
@@ -189,6 +193,12 @@ extern int rtc_read_alarm(struct rtc_device *rtc,
 			struct rtc_wkalrm *alrm);
 extern int rtc_set_alarm(struct rtc_device *rtc,
 				struct rtc_wkalrm *alrm);
+#if defined(CONFIG_RTC_BOOT_ALARM)
+extern int rtc_set_boot_alarm(struct rtc_device *rtc,
+			    struct rtc_wkalrm *alarm);
+extern int rtc_get_boot_alarm(struct rtc_device *rtc,
+				struct rtc_wkalrm *alarm);
+#endif
 extern int rtc_initialize_alarm(struct rtc_device *rtc,
 				struct rtc_wkalrm *alrm);
 extern void rtc_update_irq(struct rtc_device *rtc,

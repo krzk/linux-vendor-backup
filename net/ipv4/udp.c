@@ -1513,6 +1513,7 @@ static struct sk_buff *__first_packet_length(struct sock *sk,
 					IS_UDPLITE(sk));
 			__UDP_INC_STATS(sock_net(sk), UDP_MIB_INERRORS,
 					IS_UDPLITE(sk));
+			DROPDUMP_QUEUE_SKB(skb, NET_DROPDUMP_UDP_MIB_INERRORS);
 			atomic_inc(&sk->sk_drops);
 			__skb_unlink(skb, rcvq);
 			*total += skb->truesize;
@@ -1721,6 +1722,7 @@ try_again:
 			atomic_inc(&sk->sk_drops);
 			UDP_INC_STATS(sock_net(sk),
 				      UDP_MIB_INERRORS, is_udplite);
+			DROPDUMP_QUEUE_SKB(skb, NET_DROPDUMP_UDP_MIB_INERRORS1);
 		}
 		kfree_skb(skb);
 		return err;
@@ -1759,6 +1761,7 @@ csum_copy_err:
 				 udp_skb_destructor)) {
 		UDP_INC_STATS(sock_net(sk), UDP_MIB_CSUMERRORS, is_udplite);
 		UDP_INC_STATS(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
+		DROPDUMP_QUEUE_SKB(skb, NET_DROPDUMP_UDP_MIB_INERRORS2);
 	}
 	kfree_skb(skb);
 
@@ -1912,6 +1915,7 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
 			UDP_INC_STATS(sock_net(sk), UDP_MIB_RCVBUFERRORS,
 					is_udplite);
 		UDP_INC_STATS(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
+		DROPDUMP_QPCAP_SKB(skb, NET_DROPDUMP_UDP_MIB_INERRORS3);
 		kfree_skb(skb);
 		trace_udp_fail_queue_rcv_skb(rc, sk);
 		return -1;
@@ -2031,8 +2035,10 @@ static int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
 
 csum_error:
 	__UDP_INC_STATS(sock_net(sk), UDP_MIB_CSUMERRORS, is_udplite);
+	DROPDUMP_QUEUE_SKB(skb, NET_DROPDUMP_UDP_MIB_CSUMERRORS);
 drop:
 	__UDP_INC_STATS(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
+	DROPDUMP_QPCAP_SKB(skb, NET_DROPDUMP_UDP_MIB_INERRORS4);
 	atomic_inc(&sk->sk_drops);
 	kfree_skb(skb);
 	return -1;
@@ -2267,6 +2273,7 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
 	 * Hmm.  We got an UDP packet to a port to which we
 	 * don't wanna listen.  Ignore it.
 	 */
+	DROPDUMP_QPCAP_SKB(skb, NET_DROPDUMP_OPT_UDP_UNREACH);
 	kfree_skb(skb);
 	return 0;
 
@@ -2288,8 +2295,10 @@ csum_error:
 			    &saddr, ntohs(uh->source), &daddr, ntohs(uh->dest),
 			    ulen);
 	__UDP_INC_STATS(net, UDP_MIB_CSUMERRORS, proto == IPPROTO_UDPLITE);
+	DROPDUMP_QUEUE_SKB(skb, NET_DROPDUMP_UDP_MIB_CSUMERRORS1);
 drop:
 	__UDP_INC_STATS(net, UDP_MIB_INERRORS, proto == IPPROTO_UDPLITE);
+	DROPDUMP_QUEUE_SKB(skb, NET_DROPDUMP_UDP_MIB_INERRORS5);
 	kfree_skb(skb);
 	return 0;
 }

@@ -32,6 +32,8 @@
 #include <linux/perf_event.h>
 #include <linux/preempt.h>
 #include <linux/hugetlb.h>
+#include <linux/debug-snapshot.h>
+#include <linux/sec_debug.h>
 
 #include <asm/bug.h>
 #include <asm/cmpxchg.h>
@@ -46,6 +48,7 @@
 #include <asm/traps.h>
 
 #include <acpi/ghes.h>
+static int safe_fault_in_progress = 0;
 
 struct fault_info {
 	int	(*fn)(unsigned long addr, unsigned int esr,
@@ -56,6 +59,10 @@ struct fault_info {
 };
 
 static const struct fault_info fault_info[];
+
+#ifdef CONFIG_SEC_DEBUG_AVOID_UNNECESSARY_TRAP
+unsigned long long incorrect_addr;
+#endif
 
 static inline const struct fault_info *esr_to_fault_info(unsigned int esr)
 {
@@ -123,6 +130,17 @@ static void mem_abort_decode(unsigned int esr)
 
 	if (esr_is_data_abort(esr))
 		data_abort_decode(esr);
+}
+
+static inline phys_addr_t show_virt_to_phys(unsigned long addr)
+{
+	if (!is_vmalloc_addr((void *)addr) ||
+		(addr >= (unsigned long) KERNEL_START &&
+		 addr <= (unsigned long) KERNEL_END))
+		return __pa(addr);
+	else
+		return page_to_phys(vmalloc_to_page((void *)addr)) +
+		       offset_in_page(addr);
 }
 
 /*
@@ -230,6 +248,18 @@ int ptep_set_access_flags(struct vm_area_struct *vma,
 	return 1;
 }
 
+int __do_kernel_fault_safe(struct mm_struct *mm, unsigned long addr,
+		unsigned int esr, struct pt_regs *regs)
+{
+	safe_fault_in_progress = 0xFAFADEAD;
+
+	dbg_snapshot_panic_handler_safe();
+	dbg_snapshot_printkl(safe_fault_in_progress,safe_fault_in_progress);
+	dbg_snapshot_spin_func();
+
+	return 0;
+}
+
 static bool is_el1_instruction_abort(unsigned int esr)
 {
 	return ESR_ELx_EC(esr) == ESR_ELx_EC_IABT_CUR;
@@ -260,8 +290,13 @@ static void die_kernel_fault(const char *msg, unsigned long addr,
 {
 	bust_spinlocks(1);
 
-	pr_alert("Unable to handle kernel %s at virtual address %016lx\n", msg,
+	pr_auto(ASL1, "Unable to handle kernel %s at virtual address %016lx\n", msg,
 		 addr);
+
+#ifdef CONFIG_SEC_DEBUG_EXTRA_INFO
+	secdbg_exin_set_fault(KERNEL_FAULT, addr, regs);
+	secdbg_exin_set_esr(esr);
+#endif
 
 	mem_abort_decode(esr);
 
@@ -282,6 +317,11 @@ static void __do_kernel_fault(unsigned long addr, unsigned int esr,
 	 */
 	if (!is_el1_instruction_abort(esr) && fixup_exception(regs))
 		return;
+
+	if (safe_fault_in_progress) {
+		dbg_snapshot_printkl(safe_fault_in_progress, safe_fault_in_progress);
+		return;
+	}
 
 	if (is_el1_permission_fault(esr, regs, addr)) {
 		if (esr & ESR_ELx_WNR)
@@ -600,10 +640,16 @@ no_context:
 	return 0;
 }
 
+#define thread_virt_addr_valid(xaddr)   pfn_valid(__pa(xaddr) >> PAGE_SHIFT)
+
 static int __kprobes do_translation_fault(unsigned long addr,
 					  unsigned int esr,
 					  struct pt_regs *regs)
 {
+	/* We may have invalid '*current' */
+	if (!thread_virt_addr_valid(current_thread_info()))
+		__do_kernel_fault_safe(NULL, addr, esr, regs);
+
 	if (addr < TASK_SIZE)
 		return do_page_fault(addr, esr, regs);
 
@@ -628,8 +674,15 @@ static int do_sea(unsigned long addr, unsigned int esr, struct pt_regs *regs)
 	struct siginfo info;
 	const struct fault_info *inf;
 
+#ifdef CONFIG_SEC_DEBUG_AVOID_UNNECESSARY_TRAP
+	incorrect_addr = (unsigned long long)addr;
+#endif
+
 	inf = esr_to_fault_info(esr);
 
+	if (IS_ENABLED(CONFIG_SEC_DEBUG_FAULT_MSG_ADV))
+		pr_auto(ASL1, "%s (0x%08x) at 0x%016lx[0x%09lx]\n",
+			      inf->name, esr, addr, show_virt_to_phys(addr));
 	/*
 	 * Synchronous aborts may interrupt code which had interrupts masked.
 	 * Before calling out into the wider kernel tell the interested
@@ -644,6 +697,13 @@ static int do_sea(unsigned long addr, unsigned int esr, struct pt_regs *regs)
 		if (interrupts_enabled(regs))
 			nmi_exit();
 	}
+
+#ifdef CONFIG_SEC_DEBUG_EXTRA_INFO
+	if (!user_mode(regs)) {
+		secdbg_exin_set_fault(SEABORT_FAULT, addr, regs);
+		secdbg_exin_set_esr(esr);
+	}
+#endif
 
 	clear_siginfo(&info);
 	info.si_signo = inf->sig;
@@ -740,7 +800,15 @@ asmlinkage void __exception do_mem_abort(unsigned long addr, unsigned int esr,
 		return;
 
 	if (!user_mode(regs)) {
-		pr_alert("Unhandled fault at 0x%016lx\n", addr);
+		if (IS_ENABLED(CONFIG_SEC_DEBUG_FAULT_MSG_ADV))
+			pr_auto(ASL1, "Unhandled fault: %s (0x%08x) at 0x%016lx\n",
+						inf->name, esr, addr);
+		else
+			pr_alert("Unhandled fault at 0x%016lx\n", addr);
+#ifdef CONFIG_SEC_DEBUG_EXTRA_INFO
+		secdbg_exin_set_fault(MEM_ABORT_FAULT, addr, regs);
+		secdbg_exin_set_esr(esr);
+#endif
 		mem_abort_decode(esr);
 		show_pte(addr);
 	}
@@ -789,6 +857,20 @@ asmlinkage void __exception do_sp_pc_abort(unsigned long addr,
 	}
 
 	clear_siginfo(&info);
+
+#if defined(CONFIG_SEC_DEBUG_FAULT_MSG_ADV)
+	if (!user_mode(regs))
+		pr_auto(ASL1, "%s exception: pc=0x%016llx sp=0x%016llx\n",
+			esr_get_class_string(esr),
+			(void *)regs->pc, (void *)regs->sp);
+#endif
+#ifdef CONFIG_SEC_DEBUG_EXTRA_INFO
+	if (!user_mode(regs)) {
+		secdbg_exin_set_fault(SP_PC_ABORT_FAULT, addr, regs);
+		secdbg_exin_set_esr(esr);
+	}
+#endif
+
 	info.si_signo = SIGBUS;
 	info.si_errno = 0;
 	info.si_code  = BUS_ADRALN;

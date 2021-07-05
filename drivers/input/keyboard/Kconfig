@@ -747,6 +747,12 @@ config KEYBOARD_BCM
 	  To compile this driver as a module, choose M here: the
 	  module will be called bcm-keypad.
 
+config KEYBOARD_S2MPU10
+	tristate "Samsung Electronics S2MPU10 Powerkey Controller"
+	depends on I2C
+	depends on MFD_S2MPU10
+	select SEC_PMIC_PWRKEY
+
 config KEYBOARD_MTK_PMIC
 	tristate "MediaTek PMIC keys support"
 	depends on MFD_MT6397
@@ -755,5 +761,7 @@ config KEYBOARD_MTK_PMIC
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called pmic-keys.
+
+source "drivers/input/keyboard/stm/fsr1ad04/Kconfig"
 
 endif

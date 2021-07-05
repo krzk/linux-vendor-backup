@@ -76,6 +76,7 @@ static inline void dwc3_gadget_move_started_request(struct dwc3_request *req)
 	struct dwc3_ep		*dep = req->dep;
 
 	req->started = true;
+	req->status = DWC3_REQUEST_STATUS_STARTED;
 	list_move_tail(&req->list, &dep->started_list);
 }
 
@@ -120,5 +121,11 @@ static inline void dwc3_gadget_ep_get_transfer_index(struct dwc3_ep *dep)
 	res_id = dwc3_readl(dep->regs, DWC3_DEPCMD);
 	dep->resource_index = DWC3_DEPCMD_GET_RSC_IDX(res_id);
 }
+
+/**
+ * ISR for DWC3 gadget was changed because of RNDIS performance.
+ * However, previous ISR code was not removed to track the history.
+ */
+#undef DWC3_GADGET_IRQ_ORG
 
 #endif /* __DRIVERS_USB_DWC3_GADGET_H */

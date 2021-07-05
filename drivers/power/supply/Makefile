@@ -85,3 +85,12 @@ obj-$(CONFIG_CHARGER_TPS65217)	+= tps65217_charger.o
 obj-$(CONFIG_AXP288_FUEL_GAUGE) += axp288_fuel_gauge.o
 obj-$(CONFIG_AXP288_CHARGER)	+= axp288_charger.o
 obj-$(CONFIG_CHARGER_CROS_USBPD)	+= cros_usbpd-charger.o
+obj-$(CONFIG_BATTERY_S2MU00X)   += s2mu00x_battery.o
+obj-$(CONFIG_FUELGAUGE_S2MU004) += s2mu004_fuelgauge.o
+obj-$(CONFIG_CHARGER_S2MU004)   += s2mu004_charger.o
+ifndef CONFIG_BATTERY_SAMSUNG_LEGO_STYLE
+obj-$(CONFIG_CHARGER_S2MU107)   += s2mu107_switching_charger.o
+obj-$(CONFIG_PM_S2MU107)  		+= s2mu107_pmeter.o
+obj-$(CONFIG_MANAGER_S2M_CHARGER)   += s2m_chg_manager.o
+obj-$(CONFIG_FUELGAUGE_S2MU107)		+= s2mu107_fuelgauge.o
+endif

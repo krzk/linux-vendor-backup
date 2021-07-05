@@ -33,6 +33,10 @@
 #include <linux/vmalloc.h>
 #include <linux/mutex.h>
 #include <linux/mm.h>
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+#include <linux/swapfile.h>
+#include <linux/swapops.h>
+#endif
 
 static DEFINE_PER_CPU(struct swap_slots_cache, swp_slots);
 static bool	swap_slot_cache_active;
@@ -279,6 +283,11 @@ int free_swap_slot(swp_entry_t entry)
 {
 	struct swap_slots_cache *cache;
 
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+	if (is_private_swap_info(entry))
+		goto direct_free;
+#endif
+
 	cache = raw_cpu_ptr(&swp_slots);
 	if (likely(use_swap_slot_cache && cache->slots_ret)) {
 		spin_lock_irq(&cache->free_lock);
@@ -311,6 +320,9 @@ swp_entry_t get_swap_page(struct page *page)
 {
 	swp_entry_t entry, *pentry;
 	struct swap_slots_cache *cache;
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+	int type;
+#endif
 
 	entry.val = 0;
 
@@ -319,6 +331,19 @@ swp_entry_t get_swap_page(struct page *page)
 			get_swap_pages(1, &entry, HPAGE_PMD_NR);
 		goto out;
 	}
+
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+	type = mem_cgroup_get_page_swap_type(page);
+	if (type == SWAP_TYPE_NONE)
+		return entry;
+	if (type != SWAP_TYPE_DEFAULT &&
+			mem_cgroup_page_nandswap_available(page)) {
+		entry = __get_swap_page_of_type(type, SWAP_HAS_CACHE);
+		/* fallback to default swap if fails */
+		if (entry.val)
+			return entry;
+	}
+#endif
 
 	/*
 	 * Preemption is allowed here, because we may sleep

@@ -103,6 +103,17 @@ struct nf_conn {
 
 	/* Storage reserved for other modules, must be the last member */
 	union nf_conntrack_proto proto;
+
+#ifdef CONFIG_HW_FORWARD
+	u32 packet_count;
+	bool forward_registered;
+	struct net_device *netdev;
+#endif
+#ifdef CONFIG_LINK_FORWARD
+	u32 packet_count;
+	bool linkforward_registered;
+	struct net_device *netdev;
+#endif
 };
 
 static inline struct nf_conn *

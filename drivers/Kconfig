@@ -27,6 +27,8 @@ source "drivers/nvme/Kconfig"
 
 source "drivers/misc/Kconfig"
 
+source "drivers/ifconn/Kconfig"
+
 source "drivers/ide/Kconfig"
 
 source "drivers/scsi/Kconfig"
@@ -219,4 +221,91 @@ source "drivers/siox/Kconfig"
 
 source "drivers/slimbus/Kconfig"
 
+source "drivers/energy_model/Kconfig"
+
+source "drivers/bts/Kconfig"
+
+source "drivers/gud/Kconfig"
+
+source "drivers/switch/Kconfig"
+
+source "drivers/vision/Kconfig"
+
+source "drivers/samsung/Kconfig"
+
+
+source "drivers/security/samsung/icdrv/Kconfig"
+
+source "drivers/usb/typec/slsi/common/Kconfig"
+
+source "drivers/sensorhub/Kconfig"
+
+source "drivers/usb/typec/slsi/s2mu107/Kconfig"
+
+source "drivers/misc/drb/Kconfig"
+
+source "drivers/vibrator/common/Kconfig"
+
+
+source "drivers/nfc/nfc_logger/Kconfig"
+
+source "drivers/security/samsung/five_tee_driver/Kconfig"
+
+source "drivers/sti/common/Kconfig"
+
+
+
+source "drivers/muic/common/Kconfig"
+
+source "drivers/fingerprint/Kconfig"
+
+source "drivers/usb/typec/slsi/s2mu106/Kconfig"
+
+source "drivers/usb/typec/manager/Kconfig"
+
+source "drivers/usb/typec/common/Kconfig"
+
+source "drivers/sensorhub/proximity/Kconfig"
+
+source "drivers/sti/abc/Kconfig"
+
+source "drivers/sensorhub/magnetic/Kconfig"
+
+source "drivers/sensorhub/gyroscope/Kconfig"
+
+source "drivers/sensorhub/light/Kconfig"
+
+source "drivers/sensorhub/accelerometer/Kconfig"
+
+source "drivers/vibrator/dc/Kconfig"
+
+source "drivers/regulator/s2mpb03/Kconfig"
+
+source "drivers/mfd/slsi/s2mu107/Kconfig"
+
+source "drivers/battery/charger/pca9468_charger/Kconfig"
+
+source "drivers/input/misc/hall/Kconfig"
+
+source "drivers/mfd/slsi/s2mu106/Kconfig"
+
+source "drivers/hwmon/sec_thermistor/Kconfig"
+
+source "drivers/muic/slsi/s2mu106/Kconfig"
+
+source "drivers/battery/fuelgauge/s2mu106_fuelgauge/Kconfig"
+
+source "drivers/muic/slsi/s2mu107/Kconfig"
+
+source "drivers/battery/fuelgauge/s2mu107_fuelgauge/Kconfig"
+
+source "drivers/nfc/Kconfig"
+
+source "drivers/input/touchscreen/sec_ts/y771/Kconfig"
+
+source "drivers/battery/charger/s2mu107_charger/Kconfig"
+
+source "drivers/battery/charger/s2mu106_charger/Kconfig"
+
+source "drivers/battery/common/Kconfig"
 endmenu

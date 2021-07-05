@@ -1,28 +1,14 @@
 # SPDX-License-Identifier: GPL-2.0
-subdir-y += actions
-subdir-y += al
-subdir-y += allwinner
-subdir-y += altera
-subdir-y += amd
-subdir-y += amlogic
-subdir-y += apm
-subdir-y += arm
-subdir-y += broadcom
-subdir-y += cavium
-subdir-y += exynos
-subdir-y += freescale
-subdir-y += hisilicon
-subdir-y += lg
-subdir-y += marvell
-subdir-y += mediatek
-subdir-y += nvidia
-subdir-y += qcom
-subdir-y += realtek
-subdir-y += renesas
-subdir-y += rockchip
-subdir-y += socionext
-subdir-y += sprd
-subdir-y += synaptics
-subdir-y += ti
-subdir-y += xilinx
-subdir-y += zte
+dtb-y += exynos/exynos9630.dtb
+dtbo-y += samsung/a71x/a71x/a71x_eur_open_w00_r05.dtbo
+dtbo-y += samsung/a71x/a71x/a71x_eur_open_w00_r06.dtbo
+dtbo-y += samsung/a71x/a71x/a71x_eur_open_w00_r03.dtbo
+dtbo-y += samsung/a71x/a71x/a71x_eur_open_w00_r07.dtbo
+
+targets += dtbs
+DTB_LIST  := $(dtb-y) $(dtbo-y)
+always    := $(DTB_LIST)
+
+dtbs: $(addprefix $(obj)/, $(DTB_LIST))
+
+clean-files := *.dtb*

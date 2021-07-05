@@ -63,9 +63,11 @@ void end_swap_bio_write(struct bio *bio)
 		 * Also clear PG_reclaim to avoid rotate_reclaimable_page()
 		 */
 		set_page_dirty(page);
+#ifndef CONFIG_ZRAM
 		pr_alert("Write-error on swap-device (%u:%u:%llu)\n",
 			 MAJOR(bio_dev(bio)), MINOR(bio_dev(bio)),
 			 (unsigned long long)bio->bi_iter.bi_sector);
+#endif
 		ClearPageReclaim(page);
 	}
 	end_page_writeback(page);
@@ -267,6 +269,15 @@ static sector_t swap_page_sector(struct page *page)
 	return (sector_t)__page_file_index(page) << (PAGE_SHIFT - 9);
 }
 
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+static inline void dec_nandswap_quota(struct page *page) {
+	int type = mem_cgroup_get_page_swap_type(page);
+	if (type != SWAP_TYPE_NONE && type != SWAP_TYPE_DEFAULT &&
+			mem_cgroup_page_nandswap_available(page))
+		mem_cgroup_page_dec_swap_quota(page);
+}
+#endif
+
 static inline void count_swpout_vm_event(struct page *page)
 {
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
@@ -328,6 +339,9 @@ int __swap_writepage(struct page *page, struct writeback_control *wbc,
 	ret = bdev_write_page(sis->bdev, swap_page_sector(page), page, wbc);
 	if (!ret) {
 		count_swpout_vm_event(page);
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+		dec_nandswap_quota(page);
+#endif
 		return 0;
 	}
 
@@ -342,6 +356,9 @@ int __swap_writepage(struct page *page, struct writeback_control *wbc,
 	bio->bi_opf = REQ_OP_WRITE | REQ_SWAP | wbc_to_write_flags(wbc);
 	bio_associate_blkcg_from_page(bio, page);
 	count_swpout_vm_event(page);
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+	dec_nandswap_quota(page);
+#endif
 	set_page_writeback(page);
 	unlock_page(page);
 	submit_bio(bio);

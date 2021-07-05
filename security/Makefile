@@ -30,3 +30,12 @@ obj-$(CONFIG_CGROUP_DEVICE)		+= device_cgroup.o
 # Object integrity file lists
 subdir-$(CONFIG_INTEGRITY)		+= integrity
 obj-$(CONFIG_INTEGRITY)			+= integrity/
+
+# Knox SDP
+obj-$(CONFIG_SDP) += sdp/
+obj-$(CONFIG_SDP) += sdp/built-in.a
+obj-y += samsung/defex_lsm/
+obj-y += samsung/proca/gaf/
+obj-y += samsung/proca/
+obj-y += samsung/dsms/
+obj-y += samsung/five/

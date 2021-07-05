@@ -53,6 +53,8 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_CS35L33 if I2C
 	select SND_SOC_CS35L34 if I2C
 	select SND_SOC_CS35L35 if I2C
+	select SND_SOC_CS35L41_I2C if I2C
+	select SND_SOC_CS35L41_SPI if SPI_MASTER
 	select SND_SOC_CS42L42 if I2C
 	select SND_SOC_CS42L51_I2C if I2C
 	select SND_SOC_CS42L52 if I2C && INPUT
@@ -66,6 +68,11 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_CS43130 if I2C
 	select SND_SOC_CS4349 if I2C
 	select SND_SOC_CS47L24 if MFD_CS47L24
+	select SND_SOC_CS47L15 if MFD_CS47L15
+	select SND_SOC_CS47L35 if MFD_CS47L35
+	select SND_SOC_CS47L85 if MFD_CS47L85
+	select SND_SOC_CS47L90 if MFD_CS47L90
+	select SND_SOC_CS47L92 if MFD_CS47L92
 	select SND_SOC_CS53L30 if I2C
 	select SND_SOC_CX20442 if TTY
 	select SND_SOC_DA7210 if SND_SOC_I2C_AND_SPI
@@ -99,6 +106,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_MAX98926 if I2C
 	select SND_SOC_MAX98927 if I2C
 	select SND_SOC_MAX98373 if I2C
+	select SND_SOC_MAX98506 if I2C
 	select SND_SOC_MAX9850 if I2C
 	select SND_SOC_MAX9860 if I2C
 	select SND_SOC_MAX9759
@@ -158,11 +166,13 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_STAC9766 if SND_SOC_AC97_BUS
 	select SND_SOC_STI_SAS
 	select SND_SOC_TAS2552 if I2C
+	select SND_SOC_TAS2562 if I2C
 	select SND_SOC_TAS5086 if I2C
 	select SND_SOC_TAS571X if I2C
 	select SND_SOC_TAS5720 if I2C
 	select SND_SOC_TAS6424 if I2C
 	select SND_SOC_TDA7419 if I2C
+	select SND_SOC_TFA9874 if I2C
 	select SND_SOC_TFA9879 if I2C
 	select SND_SOC_TLV320AIC23_I2C if I2C
 	select SND_SOC_TLV320AIC23_SPI if SPI_MASTER
@@ -269,14 +279,17 @@ config SND_SOC_WM_HUBS
 config SND_SOC_WM_ADSP
 	tristate
 	select SND_SOC_COMPRESS
+	default y if SND_SOC_MADERA=y
 	default y if SND_SOC_CS47L24=y
 	default y if SND_SOC_WM5102=y
 	default y if SND_SOC_WM5110=y
 	default y if SND_SOC_WM2200=y
+	default m if SND_SOC_MADERA=m
 	default m if SND_SOC_CS47L24=m
 	default m if SND_SOC_WM5102=m
 	default m if SND_SOC_WM5110=m
 	default m if SND_SOC_WM2200=m
+	default y if SND_SOC_CS35L41=y
 
 config SND_SOC_AB8500_CODEC
 	tristate
@@ -461,6 +474,10 @@ config SND_SOC_CS35L35
 	tristate "Cirrus Logic CS35L35 CODEC"
 	depends on I2C
 
+config SND_SOC_CS35L41
+	tristate "Cirrus Logic CS35L41 CODEC"
+	select SND_SOC_WM_ADSP
+
 config SND_SOC_CS42L42
 	tristate "Cirrus Logic CS42L42 CODEC"
 	depends on I2C
@@ -540,6 +557,21 @@ config SND_SOC_CS4349
 config SND_SOC_CS47L24
 	tristate
 
+config SND_SOC_CS47L15
+	tristate
+
+config SND_SOC_CS47L35
+	tristate
+
+config SND_SOC_CS47L85
+	tristate
+
+config SND_SOC_CS47L90
+	tristate
+
+config SND_SOC_CS47L92
+	tristate
+
 # Cirrus Logic Quad-Channel ADC
 config SND_SOC_CS53L30
 	tristate "Cirrus Logic CS53L30 CODEC"
@@ -548,6 +580,30 @@ config SND_SOC_CS53L30
 config SND_SOC_CX20442
 	tristate
 	depends on TTY
+
+config SND_SOC_AUD3003X
+	tristate "AUD3003X Codec Driver"
+	default n
+
+config SND_SOC_AUD3003X_5PIN
+	tristate "AUD3003X Codec Driver - 5pin"
+	select SND_SOC_AUD3003X_HP_VTS
+	depends on SND_SOC_AUD3003X
+	default n
+
+config SND_SOC_AUD3003X_6PIN
+	tristate "AUD3003X Codec Driver - 6pin"
+	select SND_SOC_AUD3003X_HP_VTS
+	depends on SND_SOC_AUD3003X
+	default n
+
+config SND_SOC_AUD3003X_EXT_ANT
+	tristate "AUD3003X Codec EXT ANT"
+	depends on SND_SOC_AUD3003X
+	default n
+
+config SND_SOC_AUD3003X_HP_VTS
+	tristate "AUD3003X Codec HP VTS"
 
 config SND_SOC_JZ4740_CODEC
 	select REGMAP_MMIO
@@ -628,6 +684,19 @@ config SND_SOC_ISABELLE
 config SND_SOC_LM49453
 	tristate
 
+config SND_SOC_MADERA
+	tristate
+	default y if SND_SOC_CS47L15=y
+	default y if SND_SOC_CS47L35=y
+	default y if SND_SOC_CS47L85=y
+	default y if SND_SOC_CS47L90=y
+	default y if SND_SOC_CS47L92=y
+	default m if SND_SOC_CS47L15=m
+	default m if SND_SOC_CS47L35=m
+	default m if SND_SOC_CS47L85=m
+	default m if SND_SOC_CS47L90=m
+	default m if SND_SOC_CS47L92=m
+
 config SND_SOC_MAX98088
        tristate
 
@@ -646,6 +715,12 @@ config SND_SOC_MAX98371
 config SND_SOC_MAX98504
 	tristate "Maxim MAX98504 speaker amplifier"
 	depends on I2C
+
+config SND_SOC_MAX98506
+	bool "Support MAX98506"
+	depends on I2C
+	help
+	MAX98506 driver
 
 config SND_SOC_MAX9867
 	tristate "Maxim MAX9867 CODEC"
@@ -958,6 +1033,13 @@ config SND_SOC_TAS2552
 	tristate "Texas Instruments TAS2552 Mono Audio amplifier"
 	depends on I2C
 
+config SND_SOC_TAS2562
+	tristate "Texas Instruments TAS2562 SmartAmp(R)"
+	depends on I2C
+	select TAS2562_REGMAP
+	select TAS2562_CODEC
+	select TAS25XX_ALGO
+
 config SND_SOC_TAS5086
 	tristate "Texas Instruments TAS5086 speaker amplifier"
 	depends on I2C
@@ -987,6 +1069,10 @@ config SND_SOC_TDA7419
 	tristate "ST TDA7419 audio processor"
 	depends on I2C
 	select REGMAP_I2C
+
+config SND_SOC_TFA9874
+	tristate "NXP Semiconductors TFA9874 amplifier"
+	depends on I2C
 
 config SND_SOC_TFA9879
 	tristate "NXP Semiconductors TFA9879 amplifier"
@@ -1309,5 +1395,8 @@ config SND_SOC_NAU8825
 config SND_SOC_TPA6130A2
 	tristate "Texas Instruments TPA6130A2 headphone amplifier"
 	depends on I2C
+
+# TAS2562
+source "sound/soc/codecs/tas2562/Kconfig"
 
 endmenu

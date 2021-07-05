@@ -67,6 +67,7 @@ obj-$(CONFIG_CONNECTOR)		+= connector/
 obj-$(CONFIG_FB_I810)           += video/fbdev/i810/
 obj-$(CONFIG_FB_INTEL)          += video/fbdev/intelfb/
 
+obj-$(CONFIG_IFCONN_MANAGER)    += ifconn/
 obj-$(CONFIG_PARPORT)		+= parport/
 obj-$(CONFIG_NVM)		+= lightnvm/
 obj-y				+= base/ block/ misc/ mfd/ nfc/
@@ -157,6 +158,8 @@ obj-$(CONFIG_REMOTEPROC)	+= remoteproc/
 obj-$(CONFIG_RPMSG)		+= rpmsg/
 obj-$(CONFIG_SOUNDWIRE)		+= soundwire/
 
+obj-$(CONFIG_ENERGY_MODEL)	+= energy_model/
+
 # Virtualization drivers
 obj-$(CONFIG_VIRT_DRIVERS)	+= virt/
 obj-$(CONFIG_HYPERV)		+= hv/
@@ -186,3 +189,55 @@ obj-$(CONFIG_MULTIPLEXER)	+= mux/
 obj-$(CONFIG_UNISYS_VISORBUS)	+= visorbus/
 obj-$(CONFIG_SIOX)		+= siox/
 obj-$(CONFIG_GNSS)		+= gnss/
+obj-$(CONFIG_EXYNOS_BTS)        += bts/
+
+
+
+# Mobicore driver
+obj-$(CONFIG_TRUSTONIC_TEE)     += gud/
+
+# vision driver
+obj-$(CONFIG_VISION_SUPPORT)	+= vision/
+
+# Samsung Features
+obj-y				+= samsung/
+
+# uH
+obj-$(CONFIG_UH)		+= uh/
+
+
+obj-y += security/samsung/icdrv/
+obj-y += usb/typec/slsi/common/
+obj-y += sensorhub/
+obj-y += usb/typec/slsi/s2mu107/
+obj-y += misc/drb/
+obj-y += vibrator/common/
+obj-y += nfc/nfc_logger/
+obj-y += security/samsung/five_tee_driver/
+obj-y += muic/common/
+obj-y += fingerprint/
+obj-y += usb/typec/slsi/s2mu106/
+obj-y += usb/typec/manager/
+obj-y += usb/typec/common/
+obj-y += sensorhub/proximity/
+obj-y += sti/abc/
+obj-y += sensorhub/magnetic/
+obj-y += sensorhub/gyroscope/
+obj-y += sensorhub/light/
+obj-y += sensorhub/accelerometer/
+obj-y += vibrator/dc/
+obj-y += regulator/s2mpb03/
+obj-y += mfd/slsi/s2mu107/
+obj-y += battery/charger/pca9468_charger/
+obj-y += input/misc/hall/
+obj-y += mfd/slsi/s2mu106/
+obj-y += hwmon/sec_thermistor/
+obj-y += muic/slsi/s2mu106/
+obj-y += battery/fuelgauge/s2mu106_fuelgauge/
+obj-y += muic/slsi/s2mu107/
+obj-y += battery/fuelgauge/s2mu107_fuelgauge/
+obj-y += nfc/
+obj-y += input/touchscreen/sec_ts/y771/
+obj-y += battery/charger/s2mu107_charger/
+obj-y += battery/charger/s2mu106_charger/
+obj-y += battery/common/

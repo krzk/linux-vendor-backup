@@ -151,6 +151,8 @@ obj-$(CONFIG_SCSI_ENCLOSURE)	+= ses.o
 obj-$(CONFIG_SCSI_OSD_INITIATOR) += osd/
 obj-$(CONFIG_SCSI_HISI_SAS) += hisi_sas/
 
+obj-$(CONFIG_UFS_SRPMB)		+= scsi_srpmb.o
+
 # This goes last, so that "real" scsi devices probe earlier
 obj-$(CONFIG_SCSI_DEBUG)	+= scsi_debug.o
 scsi_mod-y			+= scsi.o hosts.o scsi_ioctl.o \
@@ -201,3 +203,14 @@ $(obj)/53c700_d.h: $(src)/53c700.scr $(src)/script_asm.pl
 	$(PERL) -s $(src)/script_asm.pl -ncr7x0_family $@ $(@:_d.h=_u.h) < $<
 
 endif
+
+GCOV_PROFILE_scsi.o := $(CONFIG_KUNIT)
+GCOV_PROFILE_scsi_common.o := $(CONFIG_KUNIT)
+GCOV_PROFILE_scsi_error.o := $(CONFIG_KUNIT)
+GCOV_PROFILE_scsi_ioctl.o := $(CONFIG_KUNIT)
+GCOV_PROFILE_scsi_lib.o := $(CONFIG_KUNIT)
+GCOV_PROFILE_scsi_lib_dma.o := $(CONFIG_KUNIT)
+GCOV_PROFILE_scsi_pm.o := $(CONFIG_KUNIT)
+GCOV_PROFILE_scsi_scan.o := $(CONFIG_KUNIT)
+GCOV_PROFILE_scsi_srpmb.o := $(CONFIG_KUNIT)
+GCOV_PROFILE_sd.o := $(CONFIG_KUNIT)

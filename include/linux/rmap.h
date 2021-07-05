@@ -99,6 +99,7 @@ enum ttu_flags {
 	TTU_RMAP_LOCKED		= 0x80,	/* do not grab rmap lock:
 					 * caller holds it */
 	TTU_SPLIT_FREEZE	= 0x100,		/* freeze pte under splitting thp */
+	TTU_FORCE_BATCH_FLUSH	= 0x200,/* just for page_steal */
 };
 
 #ifdef CONFIG_MMU

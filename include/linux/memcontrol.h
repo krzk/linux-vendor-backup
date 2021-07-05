@@ -234,6 +234,12 @@ struct mem_cgroup {
 	bool		oom_lock;
 	int		under_oom;
 
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+	/* per-memcg swapfile type; protected by swap_lock */
+	int	swap_type;
+	/* quota for when swap file is stored in nand */
+	atomic_t swap_quota;
+#endif
 	int	swappiness;
 	/* OOM-Killer disable */
 	int		oom_kill_disable;
@@ -550,6 +556,13 @@ bool mem_cgroup_oom_synchronize(bool wait);
 struct mem_cgroup *mem_cgroup_get_oom_group(struct task_struct *victim,
 					    struct mem_cgroup *oom_domain);
 void mem_cgroup_print_oom_group(struct mem_cgroup *memcg);
+
+#ifdef CONFIG_MEMCG_SWAPFILE_ISOLATION
+int mem_cgroup_get_page_swap_type(struct page *page);
+void mem_cgroup_remove_swapfile(int type);
+bool mem_cgroup_page_nandswap_available(struct page *page);
+void mem_cgroup_page_dec_swap_quota(struct page *page);
+#endif
 
 #ifdef CONFIG_MEMCG_SWAP
 extern int do_swap_account;
