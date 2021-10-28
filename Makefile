@@ -673,6 +673,12 @@ ifdef need-config
 include include/config/auto.conf
 endif
 
+ifdef CONFIG_DEVICE_MODULES
+# Include the device-modules Makefile.include to setup the proper includes
+# within the device-modules.
+-include $(srctree)/device-modules/Makefile.include
+endif
+
 ifeq ($(KBUILD_EXTMOD),)
 # Objects we will link into vmlinux / subdirs we need to visit
 core-y		:= init/ usr/ arch/$(SRCARCH)/
