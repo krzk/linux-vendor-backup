@@ -1175,6 +1175,10 @@ ifeq ($(KBUILD_EXTMOD),)
 endif
 	$(Q)$(MAKE) $(hdr-inst)=$(hdr-prefix)include/uapi
 	$(Q)$(MAKE) $(hdr-inst)=$(hdr-prefix)arch/$(SRCARCH)/include/uapi
+	$(if $(wildcard $(srctree)/$(hdr-prefix)device-modules/include/uapi), \
+	  $(Q)$(MAKE) $(hdr-inst)=$(hdr-prefix)device-modules/include/uapi skip-clean=1)
+	$(if $(wildcard $(srctree)/$(hdr-prefix)device-modules/arch/$(SRCARCH)/include/uapi), \
+	  $(Q)$(MAKE) $(hdr-inst)=$(hdr-prefix)device-modules/arch/$(SRCARCH)/include/uapi skip-clean=1)
 
 ifeq ($(KBUILD_EXTMOD),)
 core-y		+= kernel/ certs/ mm/ fs/ ipc/ security/ crypto/ block/

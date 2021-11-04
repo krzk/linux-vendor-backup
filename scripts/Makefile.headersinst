@@ -69,8 +69,13 @@ quiet_cmd_remove = REMOVE  $(unwanted)
       cmd_remove = rm -f $(unwanted)
 
 __headers: $(all-headers)
+# The variable `skip-clean` can be used to install UAPI headers from multiple
+# git projects with the same path, e.g. include/uapi. When set, the `dst`
+# folder will not be cleaned.
+ifneq ($(skip-clean),1)
 ifneq ($(unwanted),)
 	$(call cmd,remove)
+endif
 endif
 	@:
 
