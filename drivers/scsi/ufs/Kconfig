@@ -165,13 +165,14 @@ config SCSI_UFS_BSG
 	  If unsure, say N.
 
 config SCSI_UFS_EXYNOS
-	tristate "EXYNOS UFS Host Controller Driver"
-	depends on SCSI_UFSHCD && SCSI_UFSHCD_PLATFORM
+	tristate "EXYNOS specific hooks to UFS controller platform driver"
+	depends on SCSI_UFSHCD_PLATFORM && (ARCH_EXYNOS || COMPILE_TEST)
 	help
-	  This selects the EXYNOS UFS host controller driver which
-	  run with Exynos SoCs.
+	  This selects the EXYNOS specific additions to UFSHCD platform driver.
+	  UFS host on EXYNOS includes HCI and UNIPRO layer, and associates with
+	  UFS-PHY driver.
 
-	  If you have a controller with this interface, say Y or M here.
+	  Select this if you have UFS host controller on EXYNOS chipset.
 	  If unsure, say N.
 
 config SCSI_UFS_CRYPTO
