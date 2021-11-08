@@ -8,6 +8,7 @@
 
 #include <dt-bindings/interrupt-controller/gs101.h>
 #include <dt-bindings/pinctrl/samsung.h>
+#include <dt-bindings/pinctrl/gs101.h>
 
 / {
 	/* GPIO_ALIVE */

@@ -9,6 +9,7 @@
 #include <dt-bindings/clock/gs101.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/samsung.h>
+#include <dt-bindings/pinctrl/gs101.h>
 
 &pinctrl_4 {
 	hsi2c1_bus: hsi2c1-bus {
