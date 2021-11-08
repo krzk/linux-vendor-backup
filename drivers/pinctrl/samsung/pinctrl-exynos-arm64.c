@@ -14,7 +14,6 @@
 // external gpio and wakeup interrupt support.
 
 #include <linux/slab.h>
-#include <linux/module.h>
 #include <linux/soc/samsung/exynos-regs-pmu.h>
 
 #include "pinctrl-samsung.h"
@@ -539,4 +538,3 @@ const struct samsung_pinctrl_of_match_data exynos850_of_data __initconst = {
 	.ctrl		= exynos850_pin_ctrl,
 	.num_ctrl	= ARRAY_SIZE(exynos850_pin_ctrl),
 };
-MODULE_LICENSE("GPL");
