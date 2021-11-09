@@ -26,7 +26,7 @@ static inline u32 acpm_get_apsocdn_count(void) { return 0; }
 static inline u32 acpm_get_early_wakeup_count(void) { return 0; }
 #endif
 
-#if IS_ENABLED(CONFIG_PINCTRL_SAMSUNG)
+#if IS_ENABLED(CONFIG_PINCTRL_EXYNOS_GS)
 u32 exynos_eint_to_pin_num(int eint);
 extern u32 exynos_eint_wake_mask_array[3];
 #else
