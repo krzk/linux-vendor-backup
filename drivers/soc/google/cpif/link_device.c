@@ -21,7 +21,7 @@
 #include <linux/mcu_ipc.h>
 #include <linux/modem_notifier.h>
 #include <linux/of_reserved_mem.h>
-#if IS_ENABLED(CONFIG_PCI_EXYNOS)
+#if IS_ENABLED(CONFIG_PCI_EXYNOS_GS)
 #include <linux/exynos-pci-ctrl.h>
 #endif
 #if IS_ENABLED(CONFIG_ECT)
@@ -3174,7 +3174,7 @@ static irqreturn_t shmem_cp2ap_wakelock_handler(int irq, void *data)
 }
 #endif
 
-#if IS_ENABLED(CONFIG_MCU_IPC) && IS_ENABLED(CONFIG_PCI_EXYNOS)
+#if IS_ENABLED(CONFIG_MCU_IPC) && IS_ENABLED(CONFIG_PCI_EXYNOS_GS)
 static irqreturn_t shmem_cp2ap_rat_mode_handler(int irq, void *data)
 {
 	struct mem_link_device *mld = (struct mem_link_device *)data;
@@ -4290,7 +4290,7 @@ struct link_device *create_link_device(struct platform_device *pdev, u32 link_ty
 	/**
 	 * Retrieve SHMEM MBOX# and IRQ# for RAT_MODE
 	 */
-#if IS_ENABLED(CONFIG_MCU_IPC) && IS_ENABLED(CONFIG_PCI_EXYNOS)
+#if IS_ENABLED(CONFIG_MCU_IPC) && IS_ENABLED(CONFIG_PCI_EXYNOS_GS)
 	mld->irq_cp2ap_rat_mode = modem->mbx->irq_cp2ap_rat_mode;
 
 	err = cp_mbox_register_handler(CP_MBOX_IRQ_IDX_0, mld->irq_cp2ap_rat_mode,
