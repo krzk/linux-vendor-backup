@@ -169,6 +169,7 @@
 	exynos-cpuphp {
 		compatible = "samsung,exynos-cpuhp";
 		status = "okay";
+		clocks = <&clock CLKOUT1>;
 	};
 
 	cpupm {
