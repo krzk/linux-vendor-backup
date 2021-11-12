@@ -1,5 +1,17 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Recent Exynos platforms should just select COMMON_CLK_SAMSUNG:
+config COMMON_CLK_SAMSUNG
+	bool "Samsung Exynos clock controller support" if COMPILE_TEST
+	select S3C64XX_COMMON_CLK if ARM && ARCH_S3C64XX
+	select S5PV210_COMMON_CLK if ARM && ARCH_S5PV210
+	select EXYNOS_3250_COMMON_CLK if ARM && SOC_EXYNOS3250
+	select EXYNOS_4_COMMON_CLK if ARM && ARCH_EXYNOS4
+	select EXYNOS_5250_COMMON_CLK if ARM && SOC_EXYNOS5250
+	select EXYNOS_5260_COMMON_CLK if ARM && SOC_EXYNOS5260
+	select EXYNOS_5410_COMMON_CLK if ARM && SOC_EXYNOS5410
+	select EXYNOS_5420_COMMON_CLK if ARM && SOC_EXYNOS5420
+	select EXYNOS_ARM64_COMMON_CLK if ARM64 && ARCH_EXYNOS
+
 config S3C64XX_COMMON_CLK
 	bool "Samsung S3C64xx clock controller support" if COMPILE_TEST
 	depends on COMMON_CLK_SAMSUNG
@@ -102,7 +114,3 @@ config S3C2412_COMMON_CLK
 config S3C2443_COMMON_CLK
 	bool "Samsung S3C2443 clock controller support" if COMPILE_TEST
 	select COMMON_CLK_SAMSUNG
-
-config COMPOSITE_CLK_SAMSUNG
-	tristate "Samsung Exynos clock controller support"
-	depends on COMMON_CLK_SAMSUNG && CAL_IF
