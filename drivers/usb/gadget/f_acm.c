@@ -23,7 +23,6 @@
 #include "u_serial.h"
 #include "gadget_chips.h"
 
-
 /*
  * This CDC ACM function support just wraps control functions and
  * notifications around the generic serial-over-usb code.
@@ -431,10 +430,11 @@ static int acm_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			VDBG(cdev, "reset acm control interface %d\n", intf);
 			usb_ep_disable(acm->notify);
 		}
-
-		if (!acm->notify->desc)
+		if (!acm->notify->desc) {
+			VDBG(cdev, "init acm ctrl interface %d\n", intf);
 			if (config_ep_by_speed(cdev->gadget, f, acm->notify))
 				return -EINVAL;
+		}
 
 		usb_ep_enable(acm->notify);
 		acm->notify->driver_data = acm;
@@ -608,7 +608,6 @@ acm_bind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct usb_composite_dev *cdev = c->cdev;
 	struct f_acm		*acm = func_to_acm(f);
-	struct usb_string	*us;
 	int			status;
 	struct usb_ep		*ep;
 
@@ -617,13 +616,28 @@ acm_bind(struct usb_configuration *c, struct usb_function *f)
 	 */
 
 	/* maybe allocate device-global string IDs, and patch descriptors */
-	us = usb_gstrings_attach(cdev, acm_strings,
-			ARRAY_SIZE(acm_string_defs));
-	if (IS_ERR(us))
-		return PTR_ERR(us);
-	acm_control_interface_desc.iInterface = us[ACM_CTRL_IDX].id;
-	acm_data_interface_desc.iInterface = us[ACM_DATA_IDX].id;
-	acm_iad_descriptor.iFunction = us[ACM_IAD_IDX].id;
+	if (acm_string_defs[ACM_CTRL_IDX].id == 0) {
+		status = usb_string_id(c->cdev);
+		if (status < 0)
+			return status;
+		acm_string_defs[ACM_CTRL_IDX].id = status;
+
+		acm_control_interface_desc.iInterface = status;
+
+		status = usb_string_id(c->cdev);
+		if (status < 0)
+			return status;
+		acm_string_defs[ACM_DATA_IDX].id = status;
+
+		acm_data_interface_desc.iInterface = status;
+
+		status = usb_string_id(c->cdev);
+		if (status < 0)
+			return status;
+		acm_string_defs[ACM_IAD_IDX].id = status;
+
+		acm_iad_descriptor.iFunction = status;
+	}
 
 	/* allocate instance-specific interface IDs, and patch descriptors */
 	status = usb_interface_id(c, f);
@@ -758,6 +772,15 @@ static struct usb_function *acm_alloc_func(struct usb_function_instance *fi)
 	acm->port.func.disable = acm_disable;
 
 	opts = container_of(fi, struct f_serial_opts, func_inst);
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+	acm->port.func.name = kasprintf(GFP_KERNEL, "acm%u", opts->port_num);
+	if (!acm->port.func.name) {
+		kfree(acm);
+		return ERR_PTR(-ENOMEM);
+	}
+#else
+	acm->port.func.name = "acm";
+#endif
 	acm->port_num = opts->port_num;
 	acm->port.func.unbind = acm_unbind;
 	acm->port.func.free_func = acm_free_func;
@@ -846,4 +869,16 @@ static struct usb_function_instance *acm_alloc_instance(void)
 	return &opts->func_inst;
 }
 DECLARE_USB_FUNCTION_INIT(acm, acm_alloc_instance, acm_alloc_func);
+
+static int __init acm_init(void)
+{
+	return usb_function_register(&acmusb_func);
+}
+static void __exit acm_exit(void)
+{
+	return usb_function_unregister(&acmusb_func);
+}
+module_init(acm_init);
+module_exit(acm_exit);
+
 MODULE_LICENSE("GPL");

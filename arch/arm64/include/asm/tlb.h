@@ -63,7 +63,7 @@ static inline void tlb_flush(struct mmu_gather *tlb)
 		flush_tlb_mm(tlb->mm);
 	else if (tlb->range_end > 0) {
 		flush_tlb_range(tlb->vma, tlb->range_start, tlb->range_end);
-		tlb->range_start = TASK_SIZE;
+		tlb->range_start = TASK_SIZE_64;
 		tlb->range_end = 0;
 	}
 }
@@ -142,7 +142,7 @@ tlb_start_vma(struct mmu_gather *tlb, struct vm_area_struct *vma)
 {
 	if (!tlb->fullmm) {
 		tlb->vma = vma;
-		tlb->range_start = TASK_SIZE;
+		tlb->range_start = TASK_SIZE_64;
 		tlb->range_end = 0;
 	}
 }
@@ -189,5 +189,11 @@ static inline void __pmd_free_tlb(struct mmu_gather *tlb, pmd_t *pmdp,
 #define pud_free_tlb(tlb, pudp, addr)	pud_free((tlb)->mm, pudp)
 
 #define tlb_migrate_finish(mm)		do { } while (0)
+
+static inline void
+tlb_remove_pmd_tlb_entry(struct mmu_gather *tlb, pmd_t *pmdp, unsigned long addr)
+{
+	tlb_add_flush(tlb, addr);
+}
 
 #endif

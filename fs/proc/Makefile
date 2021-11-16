@@ -30,3 +30,7 @@ proc-$(CONFIG_PROC_VMCORE)	+= vmcore.o
 proc-$(CONFIG_PROC_DEVICETREE)	+= proc_devtree.o
 proc-$(CONFIG_PRINTK)	+= kmsg.o
 proc-$(CONFIG_PROC_PAGE_MONITOR)	+= page.o
+proc-$(CONFIG_MACH_M86) += inform.o
+proc-$(CONFIG_MACH_M86) += uboot_version.o
+proc-$(CONFIG_MACH_M86) += uboot_git_version.o
+proc-$(CONFIG_MACH_M86) += bootloader_unlock.o

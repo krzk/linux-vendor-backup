@@ -66,8 +66,6 @@ Exynos4 SoC and this is specified where applicable.
   sclk_dac            138
   sclk_pixel          139
   sclk_fimd0          140
-  sclk_mdnie0         141     Exynos4412
-  sclk_mdnie_pwm0 12  142     Exynos4412
   sclk_mipi0          143
   sclk_audio0         144
   sclk_mmc0           145
@@ -102,6 +100,7 @@ Exynos4 SoC and this is specified where applicable.
   sclk_spi0_isp       174     Exynos4x12
   sclk_spi1_isp       175     Exynos4x12
   sclk_uart_isp       176     Exynos4x12
+  sclk_fimg2d         177
 
 	      [Peripheral Clock Gates]
 
@@ -129,7 +128,7 @@ Exynos4 SoC and this is specified where applicable.
   smmu_mfcl           274
   smmu_mfcr           275
   g3d                 276
-  g2d                 277     Exynos4210
+  g2d                 277
   rotator             278     Exynos4210
   mdma                279     Exynos4210
   smmu_g2d            280     Exynos4210
@@ -137,7 +136,6 @@ Exynos4 SoC and this is specified where applicable.
   smmu_mdma           282     Exynos4210
   fimd0               283
   mie0                284
-  mdnie0              285     Exynos4412
   dsim0               286
   smmu_fimd0          287
   fimd1               288     Exynos4210

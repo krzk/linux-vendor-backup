@@ -28,7 +28,19 @@
 #include <linux/gpio.h>
 #include <linux/of_platform.h>
 #include <linux/of_gpio.h>
+#include <linux/of_irq.h>
 #include <linux/spinlock.h>
+#include <linux/meizu-sys.h>
+#ifdef CONFIG_AUTO_SLEEP_WAKEUP_TEST
+#include <linux/notifier.h>
+#include <linux/auto_sleep_wakeup_test.h>
+#endif
+
+#if defined(CONFIG_JANUARY_BOOSTER) && defined(CONFIG_KEY_BOOSTER)
+#include <linux/input/janeps_booster.h>
+#endif
+
+#define	LINK_KOBJ_NAME	"key"
 
 struct gpio_button_data {
 	const struct gpio_keys_button *button;
@@ -46,8 +58,44 @@ struct gpio_keys_drvdata {
 	const struct gpio_keys_platform_data *pdata;
 	struct input_dev *input;
 	struct mutex disable_lock;
+#ifdef CONFIG_AUTO_SLEEP_WAKEUP_TEST
+	struct notifier_block auto_sleep_wakeup_test_notifier_block;
+#endif
 	struct gpio_button_data data[0];
 };
+
+static BLOCKING_NOTIFIER_HEAD(hall_notifier_list);
+
+/**
+ *	input_register_notifier_client - register a input client notifier
+ *	@nb: notifier block to callback on events
+ */
+int hall_register_notifier_client(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&hall_notifier_list, nb);
+}
+EXPORT_SYMBOL(hall_register_notifier_client);
+
+/**
+ *	input_unregister_notifier_client - unregister a input client notifier
+ *	@nb: notifier block to callback on events
+ */
+int hall_unregister_notifier_client(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&hall_notifier_list, nb);
+}
+EXPORT_SYMBOL(hall_unregister_notifier_client);
+
+/**
+ * input_notifier_call_chain - notify clients of input event.
+ *
+ */
+int hall_notifier_call_chain(unsigned long val, void *v)
+{
+	return blocking_notifier_call_chain(&hall_notifier_list, val, v);
+}
+EXPORT_SYMBOL_GPL(hall_notifier_call_chain);
+
 
 /*
  * SYSFS interface for enabling/disabling keys and switches:
@@ -297,6 +345,18 @@ static ssize_t gpio_keys_store_##name(struct device *dev,		\
 ATTR_STORE_FN(disabled_keys, EV_KEY);
 ATTR_STORE_FN(disabled_switches, EV_SW);
 
+/*   /sys/class/meizu/key/hall_status
+*   1:  near
+*   0:  far
+*/
+static unsigned int hall_state = 0;
+static ssize_t gpio_keys_show_hall(struct device *dev,	struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", hall_state);
+}
+static DEVICE_ATTR(hall_status, S_IRUGO, gpio_keys_show_hall, NULL);
+
+
 /*
  * ATTRIBUTES:
  *
@@ -311,6 +371,7 @@ static DEVICE_ATTR(disabled_switches, S_IWUSR | S_IRUGO,
 		   gpio_keys_store_disabled_switches);
 
 static struct attribute *gpio_keys_attrs[] = {
+    &dev_attr_hall_status.attr,
 	&dev_attr_keys.attr,
 	&dev_attr_switches.attr,
 	&dev_attr_disabled_keys.attr,
@@ -322,20 +383,41 @@ static struct attribute_group gpio_keys_attr_group = {
 	.attrs = gpio_keys_attrs,
 };
 
+extern int key_input_report(int evt_type);
+
 static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 {
 	const struct gpio_keys_button *button = bdata->button;
 	struct input_dev *input = bdata->input;
 	unsigned int type = button->type ?: EV_KEY;
 	int state = (gpio_get_value_cansleep(button->gpio) ? 1 : 0) ^ button->active_low;
+	struct irq_desc *desc = irq_to_desc(gpio_to_irq(button->gpio));
 
 	if (type == EV_ABS) {
 		if (state)
 			input_event(input, type, button->code, button->value);
 	} else {
-		input_event(input, type, button->code, !!state);
+		input_event(input, type, button->code,
+				irqd_is_wakeup_set(&desc->irq_data) ? 1 : !!state);
+		if(type == EV_SW){
+			if(!!state){
+				hall_state = 1;
+				hall_notifier_call_chain(1, NULL);
+			}else{
+				hall_state = 0;
+				hall_notifier_call_chain(0, NULL);
+			}
+		}
 	}
 	input_sync(input);
+
+#if defined(CONFIG_JANUARY_BOOSTER) && defined(CONFIG_KEY_BOOSTER)
+	if (type != EV_ABS)
+		janeps_input_report(!!state ? DOWN : UP, 0, 0);
+#elif defined(CONFIG_INPUT_KEY_BOOSTER)
+	if (type != EV_ABS)
+		key_input_report(!!state ? 1 : 0);
+#endif
 }
 
 static void gpio_keys_gpio_work_func(struct work_struct *work)
@@ -456,15 +538,17 @@ static int gpio_keys_setup_key(struct platform_device *pdev,
 						button->debounce_interval;
 		}
 
-		irq = gpio_to_irq(button->gpio);
-		if (irq < 0) {
-			error = irq;
-			dev_err(dev,
-				"Unable to get irq number for GPIO %d, error %d\n",
-				button->gpio, error);
-			goto fail;
+		if (!bdata->irq) {
+			irq = gpio_to_irq(button->gpio);
+			if (irq < 0) {
+				error = irq;
+				dev_err(dev,
+					"Unable to get irq number for GPIO %d, error %d\n",
+					button->gpio, error);
+				goto fail;
+			}
+			bdata->irq = irq;
 		}
-		bdata->irq = irq;
 
 		INIT_WORK(&bdata->work, gpio_keys_gpio_work_func);
 		setup_timer(&bdata->timer,
@@ -501,6 +585,9 @@ static int gpio_keys_setup_key(struct platform_device *pdev,
 	 */
 	if (!button->can_disable)
 		irqflags |= IRQF_SHARED;
+
+	if (button->wakeup)
+		irqflags |= IRQF_NO_SUSPEND;
 
 	error = request_any_context_irq(bdata->irq, isr, irqflags, desc, bdata);
 	if (error < 0) {
@@ -595,6 +682,7 @@ gpio_keys_get_devtree_pdata(struct device *dev)
 		goto err_out;
 	}
 
+	of_property_read_string(node, "keypad-name", &pdata->name);
 	pdata->buttons = (struct gpio_keys_button *)(pdata + 1);
 	pdata->nbuttons = nbuttons;
 
@@ -684,6 +772,24 @@ static void gpio_remove_key(struct gpio_button_data *bdata)
 		gpio_free(bdata->button->gpio);
 }
 
+#ifdef CONFIG_AUTO_SLEEP_WAKEUP_TEST
+static int auto_sleep_wakeup_test_notifier(struct notifier_block *notifier,
+					unsigned long event, void *v)
+{
+	struct gpio_keys_drvdata *ddata = container_of(notifier, struct gpio_keys_drvdata,
+								auto_sleep_wakeup_test_notifier_block);
+		switch ((int)event) {
+			case AUTO_SLEEP_WAKEUP_TEST_PRESS_POWER_BUTTON:
+				input_report_key(ddata->input, KEY_POWER, 1);
+				input_sync(ddata->input);
+				input_report_key(ddata->input, KEY_POWER, 0);
+				input_sync(ddata->input);
+				break;
+	}
+	return NOTIFY_OK;
+}
+
+#endif
 static int gpio_keys_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -692,6 +798,9 @@ static int gpio_keys_probe(struct platform_device *pdev)
 	struct input_dev *input;
 	int i, error;
 	int wakeup = 0;
+#ifdef CONFIG_OF
+	struct device_node *node, *pp;
+#endif
 
 	if (!pdata) {
 		pdata = gpio_keys_get_devtree_pdata(dev);
@@ -711,6 +820,10 @@ static int gpio_keys_probe(struct platform_device *pdev)
 
 	ddata->pdata = pdata;
 	ddata->input = input;
+#ifdef CONFIG_AUTO_SLEEP_WAKEUP_TEST
+	ddata->auto_sleep_wakeup_test_notifier_block.notifier_call = auto_sleep_wakeup_test_notifier;
+	auto_sleep_wakeup_test_register_client(&ddata->auto_sleep_wakeup_test_notifier_block);
+#endif
 	mutex_init(&ddata->disable_lock);
 
 	platform_set_drvdata(pdev, ddata);
@@ -731,6 +844,21 @@ static int gpio_keys_probe(struct platform_device *pdev)
 	if (pdata->rep)
 		__set_bit(EV_REP, input->evbit);
 
+#ifdef CONFIG_OF
+	i = 0;
+	node = dev->of_node;
+	if (!node) {
+		error = -ENODEV;
+		goto fail2;
+	}
+
+	for_each_child_of_node(node, pp) {
+		struct gpio_button_data *bdata = &ddata->data[i];
+		bdata->irq = irq_of_parse_and_map(pp, 0);
+		i++;
+	}
+#endif
+
 	for (i = 0; i < pdata->nbuttons; i++) {
 		const struct gpio_keys_button *button = &pdata->buttons[i];
 		struct gpio_button_data *bdata = &ddata->data[i];
@@ -738,6 +866,8 @@ static int gpio_keys_probe(struct platform_device *pdev)
 		error = gpio_keys_setup_key(pdev, input, bdata, button);
 		if (error)
 			goto fail2;
+
+		dev_info(dev, "button: %s, value: %d\n", button->desc, gpio_get_value(button->gpio));
 
 		if (button->wakeup)
 			wakeup = 1;
@@ -749,24 +879,30 @@ static int gpio_keys_probe(struct platform_device *pdev)
 			error);
 		goto fail2;
 	}
-
+	if(meizu_sysfslink_register(&pdev->dev, LINK_KOBJ_NAME) < 0){
+		printk("gpio key sysfs_create_link failed.\n");
+		goto fail3;
+    }
 	error = input_register_device(input);
 	if (error) {
 		dev_err(dev, "Unable to register input device, error: %d\n",
 			error);
-		goto fail3;
+		goto fail4;
 	}
 
 	device_init_wakeup(&pdev->dev, wakeup);
 
 	return 0;
-
- fail3:
+fail4:
+    meizu_sysfslink_unregister(LINK_KOBJ_NAME);
+fail3:
 	sysfs_remove_group(&pdev->dev.kobj, &gpio_keys_attr_group);
- fail2:
+fail2:
 	while (--i >= 0)
 		gpio_remove_key(&ddata->data[i]);
-
+#ifdef CONFIG_AUTO_SLEEP_WAKEUP_TEST
+	auto_sleep_wakeup_test_unregister_client(&ddata->auto_sleep_wakeup_test_notifier_block);
+#endif
 	platform_set_drvdata(pdev, NULL);
  fail1:
 	input_free_device(input);
@@ -784,6 +920,7 @@ static int gpio_keys_remove(struct platform_device *pdev)
 	struct input_dev *input = ddata->input;
 	int i;
 
+    meizu_sysfslink_unregister(LINK_KOBJ_NAME);
 	sysfs_remove_group(&pdev->dev.kobj, &gpio_keys_attr_group);
 
 	device_init_wakeup(&pdev->dev, 0);
@@ -791,6 +928,9 @@ static int gpio_keys_remove(struct platform_device *pdev)
 	for (i = 0; i < ddata->pdata->nbuttons; i++)
 		gpio_remove_key(&ddata->data[i]);
 
+#ifdef CONFIG_AUTO_SLEEP_WAKEUP_TEST
+	auto_sleep_wakeup_test_unregister_client(&ddata->auto_sleep_wakeup_test_notifier_block);
+#endif
 	input_unregister_device(input);
 
 	/* If we have no platform data, we allocated pdata dynamically. */

@@ -33,11 +33,22 @@
 #include <linux/compat.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/delay.h>
 
 #include <linux/spi/spi.h>
 #include <linux/spi/spidev.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
+#include <linux/platform_data/spi-s3c64xx.h>
+
+#include <linux/pm_runtime.h>
+#include <linux/clk.h>
+
+#include <linux/of_dma.h>
+#include <linux/amba/bus.h>
 
 #include <asm/uaccess.h>
+#include <mach/secos_booster.h>
 
 
 /*
@@ -305,6 +316,165 @@ done:
 	kfree(k_xfers);
 	return status;
 }
+struct sec_spi_info {
+        u32		port;
+#if defined(CONFIG_ARM64)
+		uint64_t	speed;
+#else
+		unsigned long	speed;
+#endif
+};
+
+static int sec_spi_prepare(struct sec_spi_info *spi_info, struct spi_device *spi)
+{
+        struct s3c64xx_spi_driver_data *sdd = NULL;
+	//struct s3c64xx_spi_csinfo *cs;
+	//int reset_gpio;
+	//int cs_gpio;
+	//int error =0;
+
+        sdd = spi_master_get_devdata(spi->master);
+        if (!sdd)
+                return -EFAULT;
+	
+        pm_runtime_get_sync(&sdd->pdev->dev);
+#if 0
+
+	 /* get reset gpio */
+        reset_gpio    = -EINVAL;
+
+        reset_gpio = of_get_named_gpio(spi->dev.of_node, "fpc,gpio_reset", 0);
+	//printk("reset gpio is : %d\n", reset_gpio);	
+ 
+	if (gpio_is_valid(reset_gpio)) {
+		printk("reset gpio is valid");
+
+		error = gpio_request(reset_gpio, "fpc1020_reset");
+		if (error) {
+			printk("[STEVE] gpio_request (reset) failed.\n");
+			return error;
+		}
+		error = gpio_direction_output(reset_gpio, 1);
+		if (error) {
+			printk("[STEVE] gpio_direction_output(reset) failed.\n");
+		}
+#if 0		
+
+		//gpio_direction_output(dev->reset_gpio, 1);
+	        gpio_set_value(reset_gpio, 1);
+		usleep_range(150, 200);
+		gpio_set_value(reset_gpio, 0);
+        	usleep_range(1000, 1500);
+        	gpio_set_value(reset_gpio, 1);
+		usleep_range(1200, 1700);
+        	msleep(60);
+#endif		
+		gpio_free(reset_gpio);
+	}
+#endif
+#if 0
+	/*get cs gpio*/
+        cs_gpio = of_get_named_gpio(spi->dev.of_node, "fpc,gpio_cs", 0);
+        if (!gpio_is_valid(cs_gpio))
+        {
+                printk("[ERROR] gpio_request (cs) failed.\n");
+        }
+        error= gpio_request(cs_gpio, "fpc1020_cs");
+        if (error) {
+                printk("could not request cs gpio, %d\n",error);
+        }
+        error = gpio_direction_output(cs_gpio, 1);
+        if(error) {
+                printk("gpio operation fail, %d\n",error);
+        }
+        //gpio_set_value(cs_gpio, 0);
+#endif
+
+
+        // set spi clock rate
+        clk_set_rate(sdd->src_clk, spi_info->speed * 2);
+
+#if 0 
+        // enable chip select
+        cs = spi->controller_data;
+        if(cs->line != (unsigned long)NULL) {
+                gpio_set_value(cs->line, 0);
+                printk("cs->line is 0");
+        } else {
+                printk("s->line is null");
+        }
+#endif
+        return 0;
+}
+
+#define SEC_IOC_SPI_PREPARE             _IOWR('k', 21, struct sec_spi_info)
+#define SEC_IOC_SPI_UNPREPARE           _IOWR('k', 22, struct sec_spi_info)
+
+static int sec_spi_unprepare(struct sec_spi_info *spi_info, struct spi_device *spi)
+{
+        struct s3c64xx_spi_driver_data *sdd = NULL;
+
+        sdd = spi_master_get_devdata(spi->master);
+        if (!sdd)
+                return -EFAULT;
+/*
+        // disable chip select
+        cs = spi->controller_data;
+        if(cs->line != (unsigned long)NULL)
+                gpio_set_value(cs->line, 1);
+*/
+        pm_runtime_put(&sdd->pdev->dev);
+
+        return 0;
+}
+
+struct amba_device *adev_dma;
+
+#if 1
+static int sec_dma_prepare(struct sec_spi_info *spi_info)
+{
+	struct device_node *np;
+
+	printk("SPI port is : %d",spi_info->port);
+
+	if (spi_info->port != 4)
+		return -1;
+	printk("SPI port is 4, in function: %s",__func__);
+	for_each_compatible_node(np, NULL, "arm,pl330")
+	{
+		if (!of_device_is_available(np))
+			continue;
+
+		if (!of_dma_secure_mode(np))
+			continue;
+
+		adev_dma = of_find_amba_device_by_node(np);
+		pr_info("[%s]device_name:%s\n", __func__, dev_name(&adev_dma->dev));
+		break;
+	}
+
+	if (adev_dma == NULL)
+		return -1;
+
+	pm_runtime_get_sync(&adev_dma->dev);
+
+	return 0;
+}
+
+static int sec_dma_unprepare(void)
+{
+	if (adev_dma == NULL)
+		return -1;
+
+	pm_runtime_put(&adev_dma->dev);
+
+	return 0;
+}
+#endif
+
+
+#define SEC_IOC_SPI_PREPARE             _IOWR('k', 21, struct sec_spi_info)
+#define SEC_IOC_SPI_UNPREPARE           _IOWR('k', 22, struct sec_spi_info)
 
 static long
 spidev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
@@ -316,6 +486,7 @@ spidev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	u32			tmp;
 	unsigned		n_ioc;
 	struct spi_ioc_transfer	*ioc;
+	struct sec_spi_info spi_info;
 
 	/* Check type and command number */
 	if (_IOC_TYPE(cmd) != SPI_IOC_MAGIC)
@@ -354,6 +525,45 @@ spidev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	mutex_lock(&spidev->buf_lock);
 
 	switch (cmd) {
+        case SEC_IOC_SPI_PREPARE:
+			retval = copy_from_user(&spi_info, (void __user *)arg, sizeof(spi_info));
+			if (retval == 0) {
+				retval = -EFAULT;
+			}
+
+			printk("in function: %s, spi speed is : %lld", __func__, spi_info.speed);
+
+			//spi_info.speed = 1000*1000;//spi->max_speed_hz;
+			retval = sec_spi_prepare(&spi_info, spi);
+			if (retval < 0)
+				pr_err("%s: Unable to enable spi clk\n",__func__);
+
+			//printk("in function: %s, SPI port is : %d", __func__, spi_info.port);
+			retval = sec_dma_prepare(&spi_info);
+			if (retval) {
+				pr_err("%s: Failed to prepare sec_dma\n", __func__);
+				retval = -EFAULT;
+			}
+			break;
+
+        case SEC_IOC_SPI_UNPREPARE:
+			retval = copy_from_user(&spi_info, (void __user *)arg, sizeof(spi_info));
+			if (retval == 0) {
+				retval = -EFAULT;
+			}
+			printk("%s DISABLE_SPI_CLOCK\n", __func__);
+			retval = sec_spi_unprepare(&spi_info, spi);
+			if (retval < 0)
+				pr_err("%s: couldn't disable spi clks\n", __func__);
+
+
+			retval = sec_dma_unprepare();
+			if (retval) {
+				pr_err("%s: Failed to unprepare sec_dma\n", __func__);
+				retval = -EFAULT;
+			}
+			break;
+
 	/* read requests */
 	case SPI_IOC_RD_MODE:
 		retval = __put_user(spi->mode & SPI_MODE_MASK,
@@ -579,6 +789,7 @@ static int spidev_probe(struct spi_device *spi)
 	int			status;
 	unsigned long		minor;
 
+	printk("%s\n",__func__);
 	/* Allocate driver data */
 	spidev = kzalloc(sizeof(*spidev), GFP_KERNEL);
 	if (!spidev)
@@ -645,7 +856,7 @@ static int spidev_remove(struct spi_device *spi)
 }
 
 static const struct of_device_id spidev_dt_ids[] = {
-	{ .compatible = "rohm,dh2228fv" },
+	{ .compatible = "spi-fpc-dummy" },
 	{},
 };
 
@@ -677,6 +888,7 @@ static int __init spidev_init(void)
 	 * that will key udev/mdev to add/remove /dev nodes.  Last, register
 	 * the driver which manages those device numbers.
 	 */
+	printk("%s\n",__func__);
 	BUILD_BUG_ON(N_SPI_MINORS > 256);
 	status = register_chrdev(SPIDEV_MAJOR, "spi", &spidev_fops);
 	if (status < 0)
@@ -693,6 +905,7 @@ static int __init spidev_init(void)
 		class_destroy(spidev_class);
 		unregister_chrdev(SPIDEV_MAJOR, spidev_spi_driver.driver.name);
 	}
+	printk("end%s\n",__func__);
 	return status;
 }
 module_init(spidev_init);

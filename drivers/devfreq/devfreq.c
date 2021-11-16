@@ -91,26 +91,36 @@ static int devfreq_get_freq_level(struct devfreq *devfreq, unsigned long freq)
  */
 static int devfreq_update_status(struct devfreq *devfreq, unsigned long freq)
 {
-	int lev, prev_lev;
+	int lev, prev_lev, ret = 0;
 	unsigned long cur_time;
 
-	lev = devfreq_get_freq_level(devfreq, freq);
-	if (lev < 0)
-		return lev;
-
 	cur_time = jiffies;
-	devfreq->time_in_state[lev] +=
+
+	prev_lev = devfreq_get_freq_level(devfreq, devfreq->previous_freq);
+	if (prev_lev < 0) {
+		pr_err("DEVFREQ: invalid index to update status\n");
+		ret = prev_lev;
+		goto out;
+	}
+
+	devfreq->time_in_state[prev_lev] +=
 			 cur_time - devfreq->last_stat_updated;
-	if (freq != devfreq->previous_freq) {
-		prev_lev = devfreq_get_freq_level(devfreq,
-						devfreq->previous_freq);
+
+	lev = devfreq_get_freq_level(devfreq, freq);
+	if (lev < 0) {
+		ret = lev;
+		goto out;
+	}
+
+	if (lev != prev_lev) {
 		devfreq->trans_table[(prev_lev *
 				devfreq->profile->max_state) + lev]++;
 		devfreq->total_trans++;
 	}
-	devfreq->last_stat_updated = cur_time;
 
-	return 0;
+out:
+	devfreq->last_stat_updated = cur_time;
+	return ret;
 }
 
 /**
@@ -211,13 +221,69 @@ static void devfreq_monitor(struct work_struct *work)
 
 	mutex_lock(&devfreq->lock);
 	err = update_devfreq(devfreq);
-	if (err)
+	if (err && err != -EAGAIN)
 		dev_err(&devfreq->dev, "dvfs failed with (%d) error\n", err);
-
-	queue_delayed_work(devfreq_wq, &devfreq->work,
-				msecs_to_jiffies(devfreq->profile->polling_ms));
+#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_HYBRID_INVOKING
+		/*
+		 * If the current frequency is minimum.
+		 * DEVFREQ shall be invoked by deferrable WQ.
+		 */
+	
+		if(devfreq->profile->AlwaysDeferred ||
+			devfreq->previous_freq <= devfreq->min_freq ||
+			devfreq->previous_freq <= devfreq->locked_min_freq) {
+			mod_delayed_work_on(0, devfreq_wq, &devfreq->dfwork,
+						msecs_to_jiffies(devfreq->profile->polling_ms));
+			devfreq->deferred = true;
+		} else {
+			mod_delayed_work_on(0, devfreq_wq, &devfreq->work,
+						msecs_to_jiffies(devfreq->profile->polling_ms));
+			devfreq->deferred = false;
+		}
+#else // CONFIG_HYBRID_INVOKING
+		mod_delayed_work_on(0, devfreq_wq, &devfreq->work,
+					msecs_to_jiffies(devfreq->profile->polling_ms));
+#endif // CONFIG_HYBRID_INVOKING
+#else
+		queue_delayed_work(devfreq_wq, &devfreq->work,
+					msecs_to_jiffies(devfreq->profile->polling_ms));
+#endif
 	mutex_unlock(&devfreq->lock);
 }
+
+#ifdef CONFIG_HYBRID_INVOKING
+static void devfreq_monitor_deferred(struct work_struct *work)
+{
+	int err;
+	struct devfreq *devfreq = container_of(work,
+					struct devfreq, dfwork.work);
+
+	mutex_lock(&devfreq->lock);
+	err = update_devfreq(devfreq);
+	if (err && err != -EAGAIN)
+		dev_err(&devfreq->dev, "dvfs failed with (%d) error\n", err);
+	/*
+	 * If the current frequency is minimum.
+	 * DEVFREQ shall be invoked by deferrable WQ.
+	 */
+
+	if(devfreq->profile->AlwaysDeferred ||
+		devfreq->previous_freq <= devfreq->min_freq ||
+		devfreq->previous_freq <= devfreq->locked_min_freq) {
+
+		mod_delayed_work_on(0, devfreq_wq, &devfreq->dfwork,
+					msecs_to_jiffies(devfreq->profile->polling_ms));
+		devfreq->deferred = true;
+	} else {
+
+		mod_delayed_work_on(0, devfreq_wq, &devfreq->work,
+					msecs_to_jiffies(devfreq->profile->polling_ms));
+		devfreq->deferred = false;
+	}
+	mutex_unlock(&devfreq->lock);
+}
+#endif // CONFIG_HYBRID_INVOKING
 
 /**
  * devfreq_monitor_start() - Start load monitoring of devfreq instance
@@ -230,7 +296,15 @@ static void devfreq_monitor(struct work_struct *work)
  */
 void devfreq_monitor_start(struct devfreq *devfreq)
 {
+#if defined(CONFIG_DEFERRABLE_INVOKING)
 	INIT_DEFERRABLE_WORK(&devfreq->work, devfreq_monitor);
+#elif defined(CONFIG_HYBRID_INVOKING)
+	INIT_DELAYED_WORK(&devfreq->work, devfreq_monitor);
+	INIT_DEFERRABLE_WORK(&devfreq->dfwork, devfreq_monitor_deferred);
+	devfreq->deferred = false;
+#else
+	INIT_DELAYED_WORK(&devfreq->work, devfreq_monitor);
+#endif
 	if (devfreq->profile->polling_ms)
 		queue_delayed_work(devfreq_wq, &devfreq->work,
 			msecs_to_jiffies(devfreq->profile->polling_ms));
@@ -248,6 +322,10 @@ EXPORT_SYMBOL(devfreq_monitor_start);
 void devfreq_monitor_stop(struct devfreq *devfreq)
 {
 	cancel_delayed_work_sync(&devfreq->work);
+#ifdef CONFIG_HYBRID_INVOKING
+	cancel_delayed_work_sync(&devfreq->dfwork);
+#endif
+
 }
 EXPORT_SYMBOL(devfreq_monitor_stop);
 
@@ -274,6 +352,9 @@ void devfreq_monitor_suspend(struct devfreq *devfreq)
 	devfreq->stop_polling = true;
 	mutex_unlock(&devfreq->lock);
 	cancel_delayed_work_sync(&devfreq->work);
+#ifdef CONFIG_HYBRID_INVOKING
+	cancel_delayed_work_sync(&devfreq->dfwork);
+#endif
 }
 EXPORT_SYMBOL(devfreq_monitor_suspend);
 
@@ -292,9 +373,13 @@ void devfreq_monitor_resume(struct devfreq *devfreq)
 		goto out;
 
 	if (!delayed_work_pending(&devfreq->work) &&
-			devfreq->profile->polling_ms)
+			devfreq->profile->polling_ms) {
 		queue_delayed_work(devfreq_wq, &devfreq->work,
 			msecs_to_jiffies(devfreq->profile->polling_ms));
+#ifdef CONFIG_HYBRID_INVOKING
+		devfreq->deferred = false;
+#endif
+	}
 	devfreq->stop_polling = false;
 
 out:
@@ -325,6 +410,9 @@ void devfreq_interval_update(struct devfreq *devfreq, unsigned int *delay)
 	if (!new_delay) {
 		mutex_unlock(&devfreq->lock);
 		cancel_delayed_work_sync(&devfreq->work);
+#ifdef CONFIG_HYBRID_INVOKING
+		cancel_delayed_work_sync(&devfreq->dfwork);
+#endif
 		return;
 	}
 
@@ -332,6 +420,9 @@ void devfreq_interval_update(struct devfreq *devfreq, unsigned int *delay)
 	if (!cur_delay) {
 		queue_delayed_work(devfreq_wq, &devfreq->work,
 			msecs_to_jiffies(devfreq->profile->polling_ms));
+#ifdef CONFIG_HYBRID_INVOKING
+		devfreq->deferred = false;
+#endif
 		goto out;
 	}
 
@@ -339,10 +430,17 @@ void devfreq_interval_update(struct devfreq *devfreq, unsigned int *delay)
 	if (cur_delay > new_delay) {
 		mutex_unlock(&devfreq->lock);
 		cancel_delayed_work_sync(&devfreq->work);
+#ifdef CONFIG_HYBRID_INVOKING
+		cancel_delayed_work_sync(&devfreq->dfwork);
+#endif
 		mutex_lock(&devfreq->lock);
-		if (!devfreq->stop_polling)
+		if (!devfreq->stop_polling) {
 			queue_delayed_work(devfreq_wq, &devfreq->work,
 			      msecs_to_jiffies(devfreq->profile->polling_ms));
+#ifdef CONFIG_HYBRID_INVOKING
+			devfreq->deferred = false;
+#endif
+		}
 	}
 out:
 	mutex_unlock(&devfreq->lock);
@@ -472,7 +570,7 @@ struct devfreq *devfreq_add_device(struct device *dev,
 						devfreq->profile->max_state *
 						devfreq->profile->max_state,
 						GFP_KERNEL);
-	devfreq->time_in_state = devm_kzalloc(dev, sizeof(unsigned int) *
+	devfreq->time_in_state = devm_kzalloc(dev, sizeof(unsigned long) *
 						devfreq->profile->max_state,
 						GFP_KERNEL);
 	devfreq->last_stat_updated = jiffies;
@@ -941,6 +1039,27 @@ static ssize_t show_trans_table(struct device *dev, struct device_attribute *att
 	return len;
 }
 
+static ssize_t show_time_in_state(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct devfreq *devfreq = to_devfreq(dev);
+	ssize_t len = 0;
+	int i, err;
+	unsigned int max_state = devfreq->profile->max_state;
+
+	err = devfreq_update_status(devfreq, devfreq->previous_freq);
+	if (err)
+		return 0;
+
+	for (i = 0; i < max_state; i++) {
+		len += sprintf(buf + len, "%8u",
+				devfreq->profile->freq_table[i]);
+		len += sprintf(buf + len, "%10u\n",
+			jiffies_to_msecs(devfreq->time_in_state[i]));
+	}
+	return len;
+}
+
 static struct device_attribute devfreq_attrs[] = {
 	__ATTR(governor, S_IRUGO | S_IWUSR, show_governor, store_governor),
 	__ATTR(available_governors, S_IRUGO, show_available_governors, NULL),
@@ -952,6 +1071,7 @@ static struct device_attribute devfreq_attrs[] = {
 	__ATTR(min_freq, S_IRUGO | S_IWUSR, show_min_freq, store_min_freq),
 	__ATTR(max_freq, S_IRUGO | S_IWUSR, show_max_freq, store_max_freq),
 	__ATTR(trans_stat, S_IRUGO, show_trans_table, NULL),
+	__ATTR(time_in_state_raw, S_IRUGO, show_time_in_state, NULL),
 	{ },
 };
 

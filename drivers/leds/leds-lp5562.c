@@ -19,6 +19,9 @@
 #include <linux/mutex.h>
 #include <linux/platform_data/leds-lp55xx.h>
 #include <linux/slab.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
+
 
 #include "leds-lp55xx-common.h"
 
@@ -102,6 +105,101 @@
 #define LP5562_CMD_DIRECT		0x3F
 #define LP5562_PATTERN_OFF		0
 
+
+#define	MODE_CURRENT			0x01//256
+#define	MODE_SLOPE				0x02//512
+#define	MODE_TBLINK				0x04//1024
+#define MODE_TEST				0x03//768 -- //1280
+
+#define	GET_MODE(x)	((x>>8)&0x0F)
+
+static struct lp55xx_led_config lp5562_led_config[] = {
+	/*{
+		.name 		= "R",
+		.chan_nr	= 0,
+		.led_current	= 20,
+		.max_current	= 40,
+	},
+	{
+		.name 		= "G",
+		.chan_nr	= 1,
+		.led_current	= 20,
+		.max_current	= 40,
+	},
+	{
+		.name 		= "B",
+		.chan_nr	= 2,
+		.led_current	= 20,
+		.max_current	= 40,
+	},*/
+	{
+		.name 		= "m86_led",
+		.chan_nr	= 0,
+		.led_current	= 80,
+		.max_current	= 80,
+	},
+};
+/*
+prescale: bit[14]
+1: divides master clock by 512 = 64hz, 15.6 ms cycle time
+0: divides master clock by 16 = 2048hz, 0.49 ms cycle time
+
+step time: one ramp increment done in step time * clock after prescale
+
+sign: bit[7]
+0: increase pwm output
+1: decrease pwm output
+
+increment: the number of steps is increment + 1.
+*/
+
+
+/* mode_1: breath mode */
+/*in this mode:      0--255   (6.37 * 255  = 1624.35ms)    
+                               255      (13 * 15.6 = 202.8ms)   
+                           255--0     (1624.35ms)
+                                0         (63 * 15.6 = 982.8)*/
+static const u8 mode_1[] = { 0x0d, 0x7F, 0x0d, 0x7F, 0x4d, 0x00, 0x0d, 0xFF, 0x0d, 0xFF, 0x7F, 0x00};
+
+/* mode_2: blinking mode */
+/* in this mode:     0--255   (0.98 * 255 = 249.9ms)
+                                0        (24 * 15.6 = 374.4ms)
+                            255--0   (249.9ms)
+                                0        (982.8ms)
+*/
+ static const u8 mode_2[] = { 0x02, 0x7F, 0x02, 0x7F, 0x40, 0x00,0x58, 0x00, 0x40, 0xFF, 0x02, 0xFF, 0x02, 0xFF, 0x7F, 0x00};
+
+
+/* mode_3:test */
+static const u8 mode_3[] = { 0x42, 0x7F, 0x42, 0x7F, 0x42, 0xFF, 0x42, 0xFF, 0x7F, 0x00};
+
+struct lp55xx_predef_pattern lp5562_led_patterns[] = {
+	{
+		.r = mode_1,
+		.size_r = ARRAY_SIZE(mode_1),
+	},
+	{
+		.r = mode_2,
+		.size_r = ARRAY_SIZE(mode_2),
+	},
+	{
+		.r = mode_3,
+		.size_r = ARRAY_SIZE(mode_3),
+	},
+};
+
+static struct lp55xx_platform_data lp5562_platform_data = {
+        .led_config     = lp5562_led_config,
+        .num_channels   = ARRAY_SIZE(lp5562_led_config),
+        //.setup_resources   = lp5562_setup,
+        //.release_resources = lp5562_release,
+        //.enable            = lp5562_enable,
+        .patterns		= lp5562_led_patterns,
+        .num_patterns	= ARRAY_SIZE(lp5562_led_patterns),
+};
+
+static int lp5562_run_predef_led_pattern(struct lp55xx_chip *chip, int mode);
+
 static inline void lp5562_wait_opmode_done(void)
 {
 	/* operation mode change needs to be longer than 153 us */
@@ -126,6 +224,41 @@ static void lp5562_set_led_current(struct lp55xx_led *led, u8 led_current)
 	led->led_current = led_current;
 	lp55xx_write(led->chip, addr[led->chan_nr], led_current);
 }
+
+static void lp5562_set_led_pwm(struct lp55xx_led *led, u8 led_current)
+{
+	//u8 enable;
+	u8 cfg = LP5562_DEFAULT_CFG;
+	struct lp55xx_chip *chip = led->chip;
+
+	gpio_set_value(chip->pdata->en_gpio, 1);
+	usleep_range(1000, 1100);
+
+	//lp55xx_read(chip, LP5562_REG_ENABLE, &enable);
+	//enable |= LP5562_MASTER_ENABLE;
+	lp55xx_write(chip, LP5562_REG_ENABLE, LP5562_ENABLE_DEFAULT);
+	usleep_range(1000, 1100);
+
+	if (!lp55xx_is_extclk_used(chip))
+		cfg |= LP5562_CLK_INT;
+
+	lp55xx_write(chip, LP5562_REG_CONFIG, cfg);
+
+	lp55xx_write(chip, LP5562_REG_ENG_SEL, LP5562_ENG_SEL_PWM);
+	
+	
+	//lp55xx_write(led->chip, LP5562_REG_W_CURRENT, 30);
+	lp55xx_write(led->chip, LP5562_REG_W_PWM, led_current);
+
+	if(0 == led_current){
+		printk("%s: enter power save mode.\n", __func__);
+		lp55xx_write(chip, LP5562_REG_ENABLE, 0x00);
+		usleep_range(1000, 1100);
+		lp55xx_write(chip, LP5562_REG_CONFIG, LP5562_DEFAULT_CFG);
+		gpio_set_value(chip->pdata->en_gpio, 0);
+	}
+}
+
 
 static void lp5562_load_engine(struct lp55xx_chip *chip)
 {
@@ -164,9 +297,12 @@ static void lp5562_run_engine(struct lp55xx_chip *chip, bool start)
 		lp55xx_write(chip, LP5562_REG_ENABLE, LP5562_ENABLE_DEFAULT);
 		lp5562_wait_enable_done();
 		lp5562_stop_engine(chip);
-		lp55xx_write(chip, LP5562_REG_ENG_SEL, LP5562_ENG_SEL_PWM);
+		//lp55xx_write(chip, LP5562_REG_ENG_SEL, LP5562_ENG_SEL_PWM);
 		lp55xx_write(chip, LP5562_REG_OP_MODE, LP5562_CMD_DIRECT);
 		lp5562_wait_opmode_done();
+		lp55xx_write(chip, LP5562_REG_CONFIG, LP5562_DEFAULT_CFG);
+		gpio_set_value(chip->pdata->en_gpio, 0);
+		printk("%s: enter power save mode.\n", __func__);
 		return;
 	}
 
@@ -303,29 +439,62 @@ static int lp5562_post_init_device(struct lp55xx_chip *chip)
 	lp55xx_write(chip, LP5562_REG_R_PWM, 0);
 	lp55xx_write(chip, LP5562_REG_G_PWM, 0);
 	lp55xx_write(chip, LP5562_REG_B_PWM, 0);
+	lp55xx_write(chip, LP5562_REG_R_CURRENT, 0);
+	lp55xx_write(chip, LP5562_REG_G_CURRENT, 0);
+	lp55xx_write(chip, LP5562_REG_B_CURRENT, 0);
 	lp55xx_write(chip, LP5562_REG_W_PWM, 0);
 
+	lp55xx_write(chip, LP5562_REG_W_CURRENT, chip->pdata->led_config[0].led_current);
 	/* Set LED map as register PWM by default */
 	lp55xx_write(chip, LP5562_REG_ENG_SEL, LP5562_ENG_SEL_PWM);
 
+	/*load the pattern*/
+	lp55xx_write(chip, LP5562_REG_CONFIG, LP5562_DEFAULT_CFG);
 	return 0;
 }
 
 static void lp5562_led_brightness_work(struct work_struct *work)
 {
-	struct lp55xx_led *led = container_of(work, struct lp55xx_led,
-					      brightness_work);
+	struct lp55xx_led *led = container_of(work, struct lp55xx_led, brightness_work);
 	struct lp55xx_chip *chip = led->chip;
-	u8 addr[] = {
-		LP5562_REG_R_PWM,
-		LP5562_REG_G_PWM,
-		LP5562_REG_B_PWM,
-		LP5562_REG_W_PWM,
-	};
+	int mode;
+	u8 data = (led->brightness & 0x0FF);
 
 	mutex_lock(&chip->lock);
-	lp55xx_write(chip, addr[led->chan_nr], led->brightness);
+	if (0 == data) {
+		mode = MODE_CURRENT;
+	}else {
+		mode = GET_MODE(led->brightness);
+	}
+	printk("%s :value = 0x%.4X, mode = %d, data = %d \n",__func__, led->brightness,mode, data);
+	
+	switch( mode )
+	{
+	case MODE_CURRENT:
+		lp5562_set_led_pwm(led, data);
+		break;
+	case MODE_SLOPE:
+		lp5562_run_predef_led_pattern(chip,1);
+		printk("+++++++++++++++++slope mode!\n");
+		break;
+	case MODE_TBLINK:
+		lp5562_run_predef_led_pattern(chip,2);
+		printk("+++++++++++++++++tblink mode!\n");
+		break;
+	case MODE_TEST:
+		lp5562_run_predef_led_pattern(chip,3);
+		printk("+++++++++++++++++test mode!\n");
+		break;
+	default:
+		lp5562_run_predef_led_pattern(chip, 0);
+		printk(" this is default mode! mode = %d\n", mode);
+		//dev_err(led_cdev->dev, "mode  %d is valite \n",mode);
+		//ret = -EINVAL;			
+		break;
+	}
 	mutex_unlock(&chip->lock);
+
+	
 }
 
 static void lp5562_write_program_memory(struct lp55xx_chip *chip,
@@ -367,10 +536,18 @@ static int lp5562_run_predef_led_pattern(struct lp55xx_chip *chip, int mode)
 		return -EINVAL;
 	}
 
+	gpio_set_value(chip->pdata->en_gpio, 1);
+	usleep_range(1000, 1100);
+
+	lp55xx_write(chip, LP5562_REG_ENABLE, LP5562_ENABLE_DEFAULT);
+	usleep_range(1000, 1100);
+
+	lp55xx_write(chip, LP5562_REG_CONFIG, LP5562_DEFAULT_CFG | LP5562_CLK_INT);
+
 	lp5562_stop_engine(chip);
 
 	/* Set LED map as RGB */
-	lp55xx_write(chip, LP5562_REG_ENG_SEL, LP5562_ENG_SEL_RGB);
+	lp55xx_write(chip, LP5562_REG_ENG_SEL, LP5562_ENG1_FOR_W);
 
 	/* Load engines */
 	for (i = LP55XX_ENGINE_1; i <= LP55XX_ENGINE_3; i++) {
@@ -381,19 +558,22 @@ static int lp5562_run_predef_led_pattern(struct lp55xx_chip *chip, int mode)
 	/* Clear program registers */
 	lp55xx_write(chip, LP5562_REG_PROG_MEM_ENG1, 0);
 	lp55xx_write(chip, LP5562_REG_PROG_MEM_ENG1 + 1, 0);
+/*
 	lp55xx_write(chip, LP5562_REG_PROG_MEM_ENG2, 0);
 	lp55xx_write(chip, LP5562_REG_PROG_MEM_ENG2 + 1, 0);
 	lp55xx_write(chip, LP5562_REG_PROG_MEM_ENG3, 0);
 	lp55xx_write(chip, LP5562_REG_PROG_MEM_ENG3 + 1, 0);
+*/
 
 	/* Program engines */
 	lp5562_write_program_memory(chip, LP5562_REG_PROG_MEM_ENG1,
 				ptn->r, ptn->size_r);
+/*
 	lp5562_write_program_memory(chip, LP5562_REG_PROG_MEM_ENG2,
 				ptn->g, ptn->size_g);
 	lp5562_write_program_memory(chip, LP5562_REG_PROG_MEM_ENG3,
 				ptn->b, ptn->size_b);
-
+*/
 	/* Run engines */
 	lp5562_run_engine(chip, true);
 
@@ -476,13 +656,36 @@ static ssize_t lp5562_store_engine_mux(struct device *dev,
 
 	return len;
 }
+static ssize_t lp5562_reg_show(struct device *dev, struct device_attribute *attr,char *buf)
+{
+	struct lp55xx_led *led = i2c_get_clientdata(to_i2c_client(dev));
+	struct lp55xx_chip *chip = led->chip;
+
+	u8 regdata;
+	int res=0;
+	int count=0;
+	int i;
+
+	for(i = 0;i <16 ;i++){
+		lp55xx_read(chip, 0x00+i, &regdata);
+		if(res<0)
+			break;
+		else
+			count+=sprintf(buf+count,"[%x] = (%x)\n",0x00+i,regdata);
+	}
+	return count;
+}
+
 
 static DEVICE_ATTR(led_pattern, S_IWUSR, NULL, lp5562_store_pattern);
 static DEVICE_ATTR(engine_mux, S_IWUSR, NULL, lp5562_store_engine_mux);
+static DEVICE_ATTR(reg, 0444, lp5562_reg_show, NULL);
+
 
 static struct attribute *lp5562_attributes[] = {
 	&dev_attr_led_pattern.attr,
 	&dev_attr_engine_mux.attr,
+	&dev_attr_reg.attr,
 	NULL,
 };
 
@@ -515,21 +718,22 @@ static int lp5562_probe(struct i2c_client *client,
 	int ret;
 	struct lp55xx_chip *chip;
 	struct lp55xx_led *led;
-	struct lp55xx_platform_data *pdata = client->dev.platform_data;
-
-	if (!pdata) {
-		dev_err(&client->dev, "no platform data\n");
-		return -EINVAL;
-	}
+	struct lp55xx_platform_data *pdata = &lp5562_platform_data;
+	struct device_node *dp = client->dev.of_node;
 
 	chip = devm_kzalloc(&client->dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip)
 		return -ENOMEM;
 
-	led = devm_kzalloc(&client->dev,
-			sizeof(*led) * pdata->num_channels, GFP_KERNEL);
+	led = devm_kzalloc(&client->dev,sizeof(*led), GFP_KERNEL);
 	if (!led)
 		return -ENOMEM;
+	
+	if(of_property_read_bool(dp, "led,en_gpio")) {
+		pdata->en_gpio = of_get_named_gpio_flags(dp, "led,en_gpio", 0, NULL);
+	}else {
+		pdata->en_gpio = -1;
+	}
 
 	chip->cl = client;
 	chip->pdata = pdata;
@@ -577,6 +781,24 @@ static int lp5562_remove(struct i2c_client *client)
 	return 0;
 }
 
+static void lp5562_shutdown(struct i2c_client *client)
+
+{
+	struct lp55xx_led *led = i2c_get_clientdata(client);
+	struct lp55xx_chip *chip = led->chip;
+
+	lp5562_stop_engine(chip);
+
+}
+
+static struct of_device_id mx_led_of_match_table[] = {
+	{
+		.compatible = "ti,lp5562",
+	},
+	{},
+};
+
+
 static const struct i2c_device_id lp5562_id[] = {
 	{ "lp5562", 0 },
 	{ }
@@ -586,9 +808,12 @@ MODULE_DEVICE_TABLE(i2c, lp5562_id);
 static struct i2c_driver lp5562_driver = {
 	.driver = {
 		.name	= "lp5562",
+		.owner 	= THIS_MODULE,
+		.of_match_table = mx_led_of_match_table,
 	},
 	.probe		= lp5562_probe,
 	.remove		= lp5562_remove,
+	.shutdown 	= lp5562_shutdown,
 	.id_table	= lp5562_id,
 };
 

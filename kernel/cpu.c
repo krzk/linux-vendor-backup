@@ -20,6 +20,10 @@
 #include <linux/gfp.h>
 #include <linux/suspend.h>
 
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+#include <mach/cpufreq.h>
+#endif
+
 #include "smpboot.h"
 
 #ifdef CONFIG_SMP
@@ -481,6 +485,28 @@ static cpumask_var_t frozen_cpus;
 int disable_nonboot_cpus(void)
 {
 	int cpu, first_cpu, error = 0;
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+	int lated_cpu;
+#endif
+
+	static int suspend_cnt1 = 0;
+	static int suspend_cnt2 = 0;
+
+	suspend_cnt1++;
+	if (suspend_cnt1 >= 10000000) {
+		suspend_cnt1 = 0;
+		suspend_cnt2++;
+	}
+	if (suspend_cnt2 >= 10000000) {
+		suspend_cnt2 = 0;
+	}
+
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+	if (exynos_boot_cluster == CL_ZERO)
+		lated_cpu = NR_CLUST0_CPUS;
+	else
+		lated_cpu = NR_CLUST1_CPUS;
+#endif
 
 	cpu_maps_update_begin();
 	first_cpu = cpumask_first(cpu_online_mask);
@@ -490,9 +516,15 @@ int disable_nonboot_cpus(void)
 	 */
 	cpumask_clear(frozen_cpus);
 
-	printk("Disabling non-boot CPUs ...\n");
+	printk("Disabling non-boot CPUs ...online:%d count:%d/%d\n",
+		num_online_cpus(), suspend_cnt2, suspend_cnt1);
+
 	for_each_online_cpu(cpu) {
+#if defined(CONFIG_ARM_EXYNOS_MP_CPUFREQ)
+		if (cpu == first_cpu || cpu == lated_cpu)
+#else
 		if (cpu == first_cpu)
+#endif
 			continue;
 		error = _cpu_down(cpu, 1);
 		if (!error)
@@ -504,6 +536,16 @@ int disable_nonboot_cpus(void)
 		}
 	}
 
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+	if (num_online_cpus() > 1) {
+		error = _cpu_down(lated_cpu, 1);
+		if (!error)
+			cpumask_set_cpu(lated_cpu, frozen_cpus);
+		else
+			printk(KERN_ERR "Error taking CPU%d down: %d\n",
+				lated_cpu, error);
+	}
+#endif
 	if (!error) {
 		BUG_ON(num_online_cpus() > 1);
 		/* Make sure the CPUs won't be enabled by someone else */
@@ -523,6 +565,11 @@ void __weak arch_enable_nonboot_cpus_end(void)
 {
 }
 
+#if defined(CONFIG_SCHED_HMP) && defined(CONFIG_EXYNOS5_DYNAMIC_CPU_HOTPLUG)
+extern struct cpumask hmp_slow_cpu_mask;
+extern int disable_dm_hotplug_before_suspend;
+#endif
+
 void __ref enable_nonboot_cpus(void)
 {
 	int cpu, error;
@@ -536,6 +583,11 @@ void __ref enable_nonboot_cpus(void)
 	printk(KERN_INFO "Enabling non-boot CPUs ...\n");
 
 	arch_enable_nonboot_cpus_begin();
+
+#if defined(CONFIG_SCHED_HMP) && defined(CONFIG_EXYNOS5_DYNAMIC_CPU_HOTPLUG)
+	if (!disable_dm_hotplug_before_suspend)
+		cpumask_and(frozen_cpus, frozen_cpus, &hmp_slow_cpu_mask);
+#endif
 
 	for_each_cpu(cpu, frozen_cpus) {
 		error = _cpu_up(cpu, 1);
@@ -618,7 +670,7 @@ core_initcall(cpu_hotplug_pm_sync_init);
  * It must be called by the arch code on the new cpu, before the new cpu
  * enables interrupts and before the "boot" cpu returns from __cpu_up().
  */
-void __cpuinit notify_cpu_starting(unsigned int cpu)
+void notify_cpu_starting(unsigned int cpu)
 {
 	unsigned long val = CPU_STARTING;
 
@@ -728,3 +780,23 @@ void init_cpu_online(const struct cpumask *src)
 {
 	cpumask_copy(to_cpumask(cpu_online_bits), src);
 }
+
+static ATOMIC_NOTIFIER_HEAD(idle_notifier);
+
+void idle_notifier_register(struct notifier_block *n)
+{
+	atomic_notifier_chain_register(&idle_notifier, n);
+}
+EXPORT_SYMBOL_GPL(idle_notifier_register);
+
+void idle_notifier_unregister(struct notifier_block *n)
+{
+	atomic_notifier_chain_unregister(&idle_notifier, n);
+}
+EXPORT_SYMBOL_GPL(idle_notifier_unregister);
+
+void idle_notifier_call_chain(unsigned long val)
+{
+	atomic_notifier_call_chain(&idle_notifier, val, NULL);
+}
+EXPORT_SYMBOL_GPL(idle_notifier_call_chain);

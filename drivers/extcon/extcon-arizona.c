@@ -86,8 +86,8 @@ struct arizona_extcon_info {
 };
 
 static const struct arizona_micd_config micd_default_modes[] = {
-	{ ARIZONA_ACCDET_SRC, 1 << ARIZONA_MICD_BIAS_SRC_SHIFT, 0 },
-	{ 0,                  2 << ARIZONA_MICD_BIAS_SRC_SHIFT, 1 },
+	{ ARIZONA_ACCDET_SRC, 1, 0 },
+	{ 0,                  2, 1 },
 };
 
 static const struct arizona_micd_range micd_default_ranges[] = {
@@ -126,11 +126,29 @@ static void arizona_extcon_do_magic(struct arizona_extcon_info *info,
 				    unsigned int magic)
 {
 	struct arizona *arizona = info->arizona;
+	unsigned int mask = 0, val = 0;
 	int ret;
 
-	mutex_lock(&arizona->dapm->card->dapm_mutex);
+	switch (arizona->type) {
+	case WM1814:
+	case WM8998:
+		return;
+	case WM8280:
+	case WM5110:
+		mask = 0x0007;
+		if (magic)
+			val = 0x0001;
+		else
+			val = 0x0006;
+		break;
+	default:
+		mask = 0x4000;
+		if (magic)
+			val = 0x4000;
+		break;
+	};
 
-	arizona->hpdet_magic = magic;
+	mutex_lock(&arizona->dapm->card->dapm_mutex);
 
 	/* Keep the HP output stages disabled while doing the magic */
 	if (magic) {
@@ -144,14 +162,12 @@ static void arizona_extcon_do_magic(struct arizona_extcon_info *info,
 				 ret);
 	}
 
-	ret = regmap_update_bits(arizona->regmap, 0x225, 0x4000,
-				 magic);
+	ret = regmap_update_bits(arizona->regmap, 0x225, mask, val);
 	if (ret != 0)
 		dev_warn(arizona->dev, "Failed to do magic: %d\n",
 				 ret);
 
-	ret = regmap_update_bits(arizona->regmap, 0x226, 0x4000,
-				 magic);
+	ret = regmap_update_bits(arizona->regmap, 0x226, mask, val);
 	if (ret != 0)
 		dev_warn(arizona->dev, "Failed to do magic: %d\n",
 			 ret);
@@ -182,7 +198,8 @@ static void arizona_extcon_set_mode(struct arizona_extcon_info *info, int mode)
 					info->micd_modes[mode].gpio);
 	regmap_update_bits(arizona->regmap, ARIZONA_MIC_DETECT_1,
 			   ARIZONA_MICD_BIAS_SRC_MASK,
-			   info->micd_modes[mode].bias);
+			   info->micd_modes[mode].bias <<
+			   ARIZONA_MICD_BIAS_SRC_SHIFT);
 	regmap_update_bits(arizona->regmap, ARIZONA_ACCESSORY_DETECT_MODE_1,
 			   ARIZONA_ACCDET_SRC, info->micd_modes[mode].src);
 
@@ -193,7 +210,7 @@ static void arizona_extcon_set_mode(struct arizona_extcon_info *info, int mode)
 
 static const char *arizona_extcon_get_micbias(struct arizona_extcon_info *info)
 {
-	switch (info->micd_modes[0].bias >> ARIZONA_MICD_BIAS_SRC_SHIFT) {
+	switch (info->micd_modes[0].bias) {
 	case 1:
 		return "MICBIAS1";
 	case 2:
@@ -388,10 +405,11 @@ static int arizona_hpdet_read(struct arizona_extcon_info *info)
 			   >> ARIZONA_HP_IMPEDANCE_RANGE_SHIFT;
 
 		if (range < ARRAY_SIZE(arizona_hpdet_b_ranges) - 1 &&
-		    (val < 100 || val > 0x3fb)) {
+		    (val < 100 || val >= 0x3fb)) {
 			range++;
-			dev_dbg(arizona->dev, "Moving to HPDET range %d\n",
-				range);
+			dev_dbg(arizona->dev,
+				"Moving to HPDET range %d (%x)\n",
+				range, val);
 			regmap_update_bits(arizona->regmap,
 					   ARIZONA_HEADPHONE_DETECT_1,
 					   ARIZONA_HP_IMPEDANCE_RANGE_MASK,
@@ -401,8 +419,9 @@ static int arizona_hpdet_read(struct arizona_extcon_info *info)
 		}
 
 		/* If we go out of range report top of range */
-		if (val < 100 || val > 0x3fb) {
-			dev_dbg(arizona->dev, "Measurement out of range\n");
+		if (val < 100 || val >= 0x3fb) {
+			dev_dbg(arizona->dev, "Measurement out of range: %x\n",
+				val);
 			return ARIZONA_HPDET_MAX;
 		}
 

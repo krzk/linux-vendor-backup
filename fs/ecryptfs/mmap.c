@@ -164,10 +164,17 @@ ecryptfs_copy_up_encrypted_with_header(struct page *page,
 				((view_extent_num * crypt_stat->extent_size)
 				 - crypt_stat->metadata_size);
 
+#if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
+			rc = ecryptfs_read_lower_page_segment(
+				page, (lower_offset >> PAGE_CACHE_SHIFT),
+				(lower_offset & ~PAGE_CACHE_MASK),
+				crypt_stat->extent_size, page->mapping->host, 0);
+#else
 			rc = ecryptfs_read_lower_page_segment(
 				page, (lower_offset >> PAGE_CACHE_SHIFT),
 				(lower_offset & ~PAGE_CACHE_MASK),
 				crypt_stat->extent_size, page->mapping->host);
+#endif
 			if (rc) {
 				printk(KERN_ERR "%s: Error attempting to read "
 				       "extent at offset [%lld] in the lower "
@@ -198,9 +205,15 @@ static int ecryptfs_readpage(struct file *file, struct page *page)
 	int rc = 0;
 
 	if (!crypt_stat || !(crypt_stat->flags & ECRYPTFS_ENCRYPTED)) {
+#if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
+		rc = ecryptfs_read_lower_page_segment(page, page->index, 0,
+						      PAGE_CACHE_SIZE,
+						      page->mapping->host, 0);
+#else
 		rc = ecryptfs_read_lower_page_segment(page, page->index, 0,
 						      PAGE_CACHE_SIZE,
 						      page->mapping->host);
+#endif
 	} else if (crypt_stat->flags & ECRYPTFS_VIEW_AS_ENCRYPTED) {
 		if (crypt_stat->flags & ECRYPTFS_METADATA_IN_XATTR) {
 			rc = ecryptfs_copy_up_encrypted_with_header(page,
@@ -215,9 +228,15 @@ static int ecryptfs_readpage(struct file *file, struct page *page)
 			}
 
 		} else {
+#if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
+			rc = ecryptfs_read_lower_page_segment(
+				page, page->index, 0, PAGE_CACHE_SIZE,
+				page->mapping->host, 0);
+#else
 			rc = ecryptfs_read_lower_page_segment(
 				page, page->index, 0, PAGE_CACHE_SIZE,
 				page->mapping->host);
+#endif
 			if (rc) {
 				printk(KERN_ERR "Error reading page; rc = "
 				       "[%d]\n", rc);
@@ -296,8 +315,14 @@ static int ecryptfs_write_begin(struct file *file,
 			&ecryptfs_inode_to_private(mapping->host)->crypt_stat;
 
 		if (!(crypt_stat->flags & ECRYPTFS_ENCRYPTED)) {
+#if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
+			rc = ecryptfs_read_lower_page_segment(
+				page, index, 0, PAGE_CACHE_SIZE, mapping->host, 0);
+#else
 			rc = ecryptfs_read_lower_page_segment(
 				page, index, 0, PAGE_CACHE_SIZE, mapping->host);
+#endif
+
 			if (rc) {
 				printk(KERN_ERR "%s: Error attemping to read "
 				       "lower page segment; rc = [%d]\n",
@@ -322,9 +347,16 @@ static int ecryptfs_write_begin(struct file *file,
 				}
 				SetPageUptodate(page);
 			} else {
+#if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
+				rc = ecryptfs_read_lower_page_segment(
+					page, index, 0, PAGE_CACHE_SIZE,
+					mapping->host, 0);
+#else
 				rc = ecryptfs_read_lower_page_segment(
 					page, index, 0, PAGE_CACHE_SIZE,
 					mapping->host);
+#endif
+
 				if (rc) {
 					printk(KERN_ERR "%s: Error reading "
 					       "page; rc = [%d]\n",
@@ -402,6 +434,7 @@ static int ecryptfs_write_inode_size_to_header(struct inode *ecryptfs_inode)
 	put_unaligned_be64(i_size_read(ecryptfs_inode), file_size_virt);
 	rc = ecryptfs_write_lower(ecryptfs_inode, file_size_virt, 0,
 				  sizeof(u64));
+
 	kfree(file_size_virt);
 	if (rc < 0)
 		printk(KERN_ERR "%s: Error writing file size to header; "

@@ -33,5 +33,19 @@ config EXYNOS_DP
 	default n
 	help
 	  This enables support for DP device.
+	  
+config EXYNOS_DUAL_MIPI_DISPLAY
+	bool "EXYNOS Dual MIPI LCD display support"
+	depends on EXYNOS_MIPI_DSI
+	default n
+	help
+	  This enables support dual MIPI LCD display.
+
+source "drivers/video/exynos/decon_display/Kconfig"
+source "drivers/video/exynos/decon_tv_display/Kconfig"
+source "drivers/video/exynos/decon/Kconfig"
+if SOC_EXYNOS7580
+source "drivers/video/exynos/decon_7580/Kconfig"
+endif # SOC_EXYNOS7580
 
 endif # EXYNOS_VIDEO

@@ -108,7 +108,7 @@ struct lp55xx_led {
 	u8 led_current;
 	u8 max_current;
 	struct work_struct brightness_work;
-	u8 brightness;
+	int brightness;
 	struct lp55xx_chip *chip;
 };
 

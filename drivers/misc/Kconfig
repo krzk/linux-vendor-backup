@@ -424,6 +424,10 @@ config TI_DAC7512
 	  This driver can also be built as a module. If so, the module
 	  will be called ti_dac7512.
 
+config UID_STAT
+	bool "UID based statistics tracking exported to /proc/uid_stat"
+	default n
+
 config VMWARE_BALLOON
 	tristate "VMware Balloon Driver"
 	depends on X86 && HYPERVISOR_GUEST
@@ -527,6 +531,45 @@ config SRAM
 	  the genalloc API. It is supposed to be used for small on-chip SRAM
 	  areas found on many SoCs.
 
+config EXYNOS_OTP
+	bool "Exynos OTP (one-time programmable) support"
+	default n
+	depends on ARCH_EXYNOS
+	help
+	  This option enables OTP (one-time programmable) tune bits functions
+
+config TMD2771X_PLSENSOR
+     tristate "TAOS TMD27713 P/L sensor"
+     depends on I2C=y
+     help
+       This option enables support for the TAOS TMD27713 P/L sensor.
+
+config AUTO_SLEEP_WAKEUP_TEST
+        bool "The dummy driver for auto sleep wakeup test"
+        default n
+
+config EXYNOS_MANUAL_POWER_MODE
+	bool "This option enable manual power mode. It can control it by SYSFS"
+	default n
+
+config EXTCON_TSU6721
+      tristate "TSU6721 EXTCON Support"
+      depends on I2C
+      help
+        If you say yes here you get support for the MUIC device of
+        TI TSU6721 PMIC. The TSU6721 MUIC is a USB port accessory
+        detector and switch.
+
+config MZ_NFC_PN547
+	tristate "MEIZU NXP PN547 NFC driver"
+        depends on I2C
+	help
+	  NXP PN547 NFC driver for M86.
+	  This driver provides support for NXP NFC PN547 devices.
+
+	  Say Y here to compile support for PN547 devices into the
+	  kernel or say M to compile it as module (pn547).
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -536,4 +579,8 @@ source "drivers/misc/carma/Kconfig"
 source "drivers/misc/altera-stapl/Kconfig"
 source "drivers/misc/mei/Kconfig"
 source "drivers/misc/vmw_vmci/Kconfig"
+source "drivers/misc/mipi-lli/Kconfig"
+source "drivers/misc/modem_v1/Kconfig"
+source "drivers/misc/sscr_tools/Kconfig"
+source "drivers/misc/type-c/Kconfig"
 endmenu

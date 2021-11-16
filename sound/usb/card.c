@@ -768,5 +768,5 @@ static void __exit snd_usb_audio_cleanup(void)
 	usb_deregister(&usb_audio_driver);
 }
 
-module_init(snd_usb_audio_init);
+late_initcall(snd_usb_audio_init);
 module_exit(snd_usb_audio_cleanup);

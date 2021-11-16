@@ -99,6 +99,9 @@ struct backlight_device {
 
 	/* The framebuffer notifier block */
 	struct notifier_block fb_notif;
+#ifdef CONFIG_RECOVERY_KERNEL
+	int isNotify;
+#endif
 
 	struct device dev;
 };

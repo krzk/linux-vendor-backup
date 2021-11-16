@@ -53,7 +53,13 @@ static int fb_notifier_callback(struct notifier_block *self,
 				bd->props.state &= ~BL_CORE_FBBLANK;
 			else
 				bd->props.state |= BL_CORE_FBBLANK;
+#ifdef CONFIG_RECOVERY_KERNEL
+			bd->isNotify = 1;
+#endif
 			backlight_update_status(bd);
+#ifdef CONFIG_RECOVERY_KERNEL
+			bd->isNotify = 0;
+#endif
 		}
 	mutex_unlock(&bd->ops_lock);
 	return 0;
@@ -208,6 +214,7 @@ static ssize_t backlight_show_actual_brightness(struct device *dev,
 
 static struct class *backlight_class;
 
+#ifndef CONFIG_RECOVERY_KERNEL
 static int backlight_suspend(struct device *dev, pm_message_t state)
 {
 	struct backlight_device *bd = to_backlight_device(dev);
@@ -235,6 +242,7 @@ static int backlight_resume(struct device *dev)
 
 	return 0;
 }
+#endif
 
 static void bl_device_release(struct device *dev)
 {
@@ -414,8 +422,10 @@ static int __init backlight_class_init(void)
 	}
 
 	backlight_class->dev_attrs = bl_device_attributes;
+#ifndef CONFIG_RECOVERY_KERNEL
 	backlight_class->suspend = backlight_suspend;
 	backlight_class->resume = backlight_resume;
+#endif
 	return 0;
 }
 

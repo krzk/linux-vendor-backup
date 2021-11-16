@@ -32,6 +32,9 @@ struct arizona_ldo1 {
 
 	struct regulator_consumer_supply supply;
 	struct regulator_init_data init_data;
+
+	int ena;
+	int ena_state;
 };
 
 static int arizona_ldo1_hc_list_voltage(struct regulator_dev *rdev,
@@ -111,13 +114,68 @@ static int arizona_ldo1_hc_get_voltage_sel(struct regulator_dev *rdev)
 	return (val & ARIZONA_LDO1_VSEL_MASK) >> ARIZONA_LDO1_VSEL_SHIFT;
 }
 
+static int arizona_ldo_enable_time(struct regulator_dev *rdev)
+{
+	struct arizona_ldo1 *ldo1 = rdev_get_drvdata(rdev);
+
+	switch (ldo1->arizona->type) {
+	case WM8998:
+	case WM1814:
+		return 9000;
+	case WM5102:
+		return 1500;
+	default:
+		return 500;
+	}
+}
+
+static int arizona_ldo_enable(struct regulator_dev *rdev)
+{
+	struct arizona_ldo1 *ldo1 = rdev_get_drvdata(rdev);
+
+	if (!ldo1->ena)
+		return -EINVAL;
+
+	gpio_set_value_cansleep(ldo1->ena, 1);
+	ldo1->ena_state = 1;
+
+	return 0;
+}
+
+static int arizona_ldo_disable(struct regulator_dev *rdev)
+{
+	struct arizona_ldo1 *ldo1 = rdev_get_drvdata(rdev);
+
+	if (!ldo1->ena)
+		return -EINVAL;
+
+	gpio_set_value_cansleep(ldo1->ena, 0);
+	ldo1->ena_state = 0;
+
+	return 0;
+}
+
+static int arizona_ldo_is_enabled(struct regulator_dev *rdev)
+{
+	struct arizona_ldo1 *ldo1 = rdev_get_drvdata(rdev);
+
+	if (!ldo1->ena)
+		return -EINVAL;
+
+	return ldo1->ena_state;
+}
+
 static struct regulator_ops arizona_ldo1_hc_ops = {
 	.list_voltage = arizona_ldo1_hc_list_voltage,
 	.map_voltage = arizona_ldo1_hc_map_voltage,
-	.get_voltage_sel = arizona_ldo1_hc_get_voltage_sel,
+	.get_voltage_sel = arizona_ldo1_hc_get_voltage_sel,//CONFIG_LINF_PMIC
 	.set_voltage_sel = arizona_ldo1_hc_set_voltage_sel,
 	.get_bypass = regulator_get_bypass_regmap,
 	.set_bypass = regulator_set_bypass_regmap,
+	.enable = arizona_ldo_enable,
+	.disable = arizona_ldo_disable,
+	.is_enabled = arizona_ldo_is_enabled,
+	.enable_time = arizona_ldo_enable_time,
 };
 
 static const struct regulator_desc arizona_ldo1_hc = {
@@ -141,6 +199,8 @@ static struct regulator_ops arizona_ldo1_ops = {
 	.map_voltage = regulator_map_voltage_linear,
 	.get_voltage_sel = regulator_get_voltage_sel_regmap,
 	.set_voltage_sel = regulator_set_voltage_sel_regmap,
+	.get_bypass = regulator_get_bypass_regmap,
+	.set_bypass = regulator_set_bypass_regmap,
 };
 
 static const struct regulator_desc arizona_ldo1 = {
@@ -201,6 +261,7 @@ static int arizona_ldo1_probe(struct platform_device *pdev)
 	 */
 	switch (arizona->type) {
 	case WM5102:
+	case WM8998:
 		desc = &arizona_ldo1_hc;
 		ldo1->init_data = arizona_ldo1_dvfs;
 		break;
@@ -224,7 +285,7 @@ static int arizona_ldo1_probe(struct platform_device *pdev)
 	else
 		config.init_data = &ldo1->init_data;
 
-	ldo1->regulator = regulator_register(desc, &config);
+	ldo1->regulator = regulator_register(desc, &config);//CONFIG_LINF_PMIC
 	if (IS_ERR(ldo1->regulator)) {
 		ret = PTR_ERR(ldo1->regulator);
 		dev_err(arizona->dev, "Failed to register LDO1 supply: %d\n",

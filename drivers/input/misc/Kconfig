@@ -222,6 +222,26 @@ config INPUT_GP2A
 	  To compile this driver as a module, choose M here: the
 	  module will be called gp2ap002a00f.
 
+config INPUT_ISL
+    tristate "Intersil ISL29125 light sensor driver"
+    depends on I2C 
+    help
+      Say Y here if you have a Intersil isl29125 light combo-chip
+      hooked to an I2C bus.
+
+      To compile this driver as a module, choose M here: the 
+      module will be called isl29125.
+
+config INPUT_PS
+    tristate "TXC pa12200002 ps sensor driver"                                                                                                                                                               
+    depends on I2C 
+    help
+      Say Y here if you have a TXC pa12200002 combo-chip
+      hooked to an I2C bus.
+
+      To compile this driver as a module, choose M here: the 
+      module will be called pa12200002.
+
 config INPUT_GPIO_TILT_POLLED
 	tristate "Polled GPIO tilt switch"
 	depends on GPIOLIB
@@ -298,6 +318,17 @@ config INPUT_ATI_REMOTE2
 
 	  To compile this driver as a module, choose M here: the module will be
 	  called ati_remote2.
+
+config INPUT_KEYCHORD
+	tristate "Key chord input driver support"
+	help
+	  Say Y here if you want to enable the key chord driver
+	  accessible at /dev/keychord.  This driver can be used
+	  for receiving notifications when client specified key
+	  combinations are pressed.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called keychord.
 
 config INPUT_KEYSPAN_REMOTE
 	tristate "Keyspan DMR USB remote control"
@@ -433,6 +464,11 @@ config INPUT_SGI_BTNS
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called sgi_btns.
+
+config INPUT_GPIO
+	tristate "GPIO driver support"
+	help
+	  Say Y here if you want to support gpio based keys, wheels etc...
 
 config HP_SDC_RTC
 	tristate "HP SDC Real Time Clock"
@@ -636,5 +672,18 @@ config INPUT_XEN_KBDDEV_FRONTEND
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called xen-kbdfront.
+
+config STMVL6180
+	tristate "STM VL6180 Proximity support"
+	depends on I2C=y
+	default y
+	help
+	  Say Y here if you want to use STMicroelectronics's proximity sensor
+	  through I2C interface.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called stmvl6180.
+
+source "drivers/input/misc/fpc-fingerprint/Kconfig"
 
 endif

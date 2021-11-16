@@ -48,8 +48,19 @@
 
 #include <asm/uaccess.h>
 
+#include <mach/resetreason.h>
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/printk.h>
+
+#ifdef CONFIG_SSCR_SEC_LOG
+void (*dump_to_memory)(char c) = NULL;
+EXPORT_SYMBOL(dump_to_memory);
+#endif
+
+#ifdef CONFIG_EARLY_PRINTK_DIRECT
+extern void printascii(char *);
+#endif
 
 /* printk's without a loglevel use this.. */
 #define DEFAULT_MESSAGE_LOGLEVEL CONFIG_DEFAULT_MESSAGE_LOGLEVEL
@@ -200,6 +211,13 @@ enum log_flags {
 	LOG_CONT	= 8,	/* text is a fragment of a continuation line */
 };
 
+enum APCP_CONSOLE {
+        CLOSE_CONSOLE,
+        OPEN_CONSOLE,
+};
+
+enum APCP_CONSOLE apcp_consle = OPEN_CONSOLE;
+
 struct log {
 	u64 ts_nsec;		/* timestamp in nanoseconds */
 	u16 len;		/* length of entire record */
@@ -208,6 +226,12 @@ struct log {
 	u8 facility;		/* syslog facility */
 	u8 flags:5;		/* internal record flags */
 	u8 level:3;		/* syslog level */
+#ifdef CONFIG_PRINTK_PROCESS
+	char process[16];	/* process name */
+	pid_t pid;		/* process id */
+	u8 cpu;			/* cpu id */
+	u8 in_interrupt;	/* interrupt context */
+#endif
 };
 
 /*
@@ -241,7 +265,11 @@ static enum log_flags console_prev;
 static u64 clear_seq;
 static u32 clear_idx;
 
+#ifdef CONFIG_PRINTK_PROCESS
+#define PREFIX_MAX		48
+#else
 #define PREFIX_MAX		32
+#endif
 #define LOG_LINE_MAX		1024 - PREFIX_MAX
 
 /* record buffer */
@@ -302,6 +330,77 @@ static u32 log_next(u32 idx)
 	return idx + msg->len;
 }
 
+#ifdef CONFIG_PRINTK_PROCESS
+static bool printk_process = 1;
+static size_t print_process(const struct log *msg, char *buf)
+
+{
+	if (!printk_process)
+		return 0;
+
+	if (!buf)
+		return snprintf(NULL, 0, "%c[%1d:%15s:%5d] ", ' ', 0, " ", 0);
+
+	return sprintf(buf, "%c[%1d:%15s:%5d] ",
+			msg->in_interrupt ? 'I' : ' ',
+			msg->cpu,
+			msg->process,
+			msg->pid);
+}
+#else
+static bool printk_process = 0;
+static size_t print_process(const struct log *msg, char *buf)
+{
+	return 0;
+}
+#endif
+module_param_named(process, printk_process, bool, S_IRUGO | S_IWUSR);
+
+#ifdef CONFIG_EXYNOS_SNAPSHOT
+static size_t hook_size;
+static char hook_text[LOG_LINE_MAX + PREFIX_MAX];
+static void (*func_hook_logbuf)(const char *buf, size_t size);
+static size_t msg_print_text(const struct log *msg, enum log_flags prev,
+				bool syslog, char *buf, size_t size);
+void register_hook_logbuf(void (*func)(const char *buf, size_t size))
+{
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&logbuf_lock, flags);
+	/*
+	 * In register hooking function,  we should check messages already
+	 * printed on log_buf. If so, they will be copyied to backup
+	 * exynos log buffer
+	 * */
+	if (log_first_seq != log_next_seq) {
+		unsigned int step_seq, step_idx, start, end;
+		struct log *msg;
+		start = log_first_seq;
+		end = log_next_seq;
+		step_idx = log_first_idx;
+		for (step_seq = start; step_seq < end; step_seq++) {
+			msg = (struct log *)(log_buf + step_idx);
+			hook_size = msg_print_text(msg, msg->flags,
+					true, hook_text, LOG_LINE_MAX + PREFIX_MAX);
+			func(hook_text, hook_size);
+			step_idx = log_next(step_idx);
+		}
+	}
+	func_hook_logbuf = func;
+	raw_spin_unlock_irqrestore(&logbuf_lock, flags);
+}
+EXPORT_SYMBOL(register_hook_logbuf);
+#endif
+
+#ifdef CONFIG_SSCR_SEC_LOG
+static void emit_log_char(char c)
+{
+        if (likely(dump_to_memory != NULL) )
+            dump_to_memory(c);
+}
+#endif
+
+
 /* insert record into the buffer, discard old ones, update heads */
 static void log_store(int facility, int level,
 		      enum log_flags flags, u64 ts_nsec,
@@ -357,6 +456,23 @@ static void log_store(int facility, int level,
 		msg->ts_nsec = local_clock();
 	memset(log_dict(msg) + dict_len, 0, pad_len);
 	msg->len = sizeof(struct log) + text_len + dict_len + pad_len;
+
+#ifdef CONFIG_PRINTK_PROCESS
+	if (printk_process) {
+		strncpy(msg->process, current->comm, sizeof(msg->process));
+		msg->pid = task_pid_nr(current);
+		msg->cpu = smp_processor_id();
+		msg->in_interrupt = in_interrupt() ? 1 : 0;
+	}
+#endif
+
+#ifdef CONFIG_EXYNOS_SNAPSHOT
+	if (func_hook_logbuf) {
+		hook_size = msg_print_text(msg, msg->flags,
+				true, hook_text, LOG_LINE_MAX + PREFIX_MAX);
+		func_hook_logbuf(hook_text, hook_size);
+	}
+#endif
 
 	/* insert message */
 	log_next_idx += msg->len;
@@ -861,6 +977,13 @@ static inline void boot_delay_msec(int level)
 }
 #endif
 
+#if defined(CONFIG_PRINTK_CORE_NUM)
+static bool printk_core_num = 1;
+#else
+static bool printk_core_num = 0;
+#endif
+module_param_named(core_num, printk_core_num, bool, S_IRUGO | S_IWUSR);
+
 #if defined(CONFIG_PRINTK_TIME)
 static bool printk_time = 1;
 #else
@@ -904,6 +1027,7 @@ static size_t print_prefix(const struct log *msg, bool syslog, char *buf)
 	}
 
 	len += print_time(msg->ts_nsec, buf ? buf + len : NULL);
+	len += print_process(msg, buf ? buf + len : NULL);
 	return len;
 }
 
@@ -1261,6 +1385,20 @@ SYSCALL_DEFINE3(syslog, int, type, char __user *, buf, int, len)
 	return do_syslog(type, buf, len, SYSLOG_FROM_READER);
 }
 
+static int __init apcpconsole_setup(char *str)
+{
+        if(!str) {
+            return -1;
+        }
+        if((!memcmp(str, "off", strlen("off"))) ||
+            (!memcmp(str, "of", strlen("of")))){
+            apcp_consle = CLOSE_CONSOLE;
+        }
+        return 0;
+}
+
+__setup("apdebug_onoff=", apcpconsole_setup);
+
 /*
  * Call the console drivers, asking them to write out
  * log_buf[start] to log_buf[end - 1].
@@ -1269,14 +1407,15 @@ SYSCALL_DEFINE3(syslog, int, type, char __user *, buf, int, len)
 static void call_console_drivers(int level, const char *text, size_t len)
 {
 	struct console *con;
-
 	trace_console(text, len);
 
 	if (level >= console_loglevel && !ignore_loglevel)
 		return;
 	if (!console_drivers)
 		return;
-
+       if(apcp_consle == CLOSE_CONSOLE) {
+            return;
+       }
 	for_each_console(con) {
 		if (exclusive_console && con != exclusive_console)
 			continue;
@@ -1472,6 +1611,8 @@ static size_t cont_print_text(char *text, size_t size)
 
 	if (cont.cons == 0 && (console_prev & LOG_NEWLINE)) {
 		textlen += print_time(cont.ts_nsec, text);
+		*(text+textlen) = ' ';
+		textlen += print_process(NULL, NULL);
 		size -= textlen;
 	}
 
@@ -1505,6 +1646,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 	unsigned long flags;
 	int this_cpu;
 	int printed_len = 0;
+	static bool prev_new_line = true;
 
 	boot_delay_msec(level);
 	printk_delay();
@@ -1550,12 +1692,33 @@ asmlinkage int vprintk_emit(int facility, int level,
 	 * The printf needs to come first; we need the syslog
 	 * prefix which might be passed-in as a parameter.
 	 */
-	text_len = vscnprintf(text, sizeof(textbuf), fmt, args);
+	if (printk_core_num && prev_new_line) {
+		char tempbuf[LOG_LINE_MAX];
+		char *temp = tempbuf;
+
+		vscnprintf(temp, sizeof(tempbuf), fmt, args);
+		if (printk_get_level(tempbuf))
+			text_len = snprintf(text, sizeof(textbuf),
+					    "%c%c[c%d] %s", tempbuf[0],
+					    tempbuf[1], this_cpu, &tempbuf[2]);
+		else
+			text_len = snprintf(text, sizeof(textbuf), "[c%d] %s",
+					    this_cpu, &tempbuf[0]);
+	} else {
+		text_len = vscnprintf(text, sizeof(textbuf), fmt, args);
+	}
+
+#ifdef	CONFIG_DEBUG_LL
+	printascii(text);
+#endif
 
 	/* mark and strip a trailing newline */
 	if (text_len && text[text_len-1] == '\n') {
 		text_len--;
 		lflags |= LOG_NEWLINE;
+		prev_new_line = true;
+	} else {
+		prev_new_line = false;
 	}
 
 	/* strip kernel syslog prefix and extract log level or control flags */
@@ -1577,6 +1740,10 @@ asmlinkage int vprintk_emit(int facility, int level,
 			text = (char *)end_of_header;
 		}
 	}
+
+#ifdef CONFIG_EARLY_PRINTK_DIRECT
+	printascii(text);
+#endif
 
 	if (level == -1)
 		level = default_message_loglevel;
@@ -1789,7 +1956,6 @@ static int __init console_setup(char *str)
 	char buf[sizeof(console_cmdline[0].name) + 4]; /* 4 for index */
 	char *s, *options, *brl_options = NULL;
 	int idx;
-
 #ifdef CONFIG_A11Y_BRAILLE_CONSOLE
 	if (!memcmp(str, "brl,", 4)) {
 		brl_options = "";
@@ -1895,7 +2061,7 @@ void suspend_console(void)
 {
 	if (!console_suspend_enabled)
 		return;
-	printk("Suspending console(s) (use no_console_suspend to debug)\n");
+	printk("Suspending console(s) (use no_console_suspend to debug) \n");
 	console_lock();
 	console_suspended = 1;
 	up(&console_sem);
@@ -1908,6 +2074,19 @@ void resume_console(void)
 	down(&console_sem);
 	console_suspended = 0;
 	console_unlock();
+}
+
+/**
+ * console_flush - flush dmesg if console isn't suspended
+ * console_unlock always flushes the dmesg buffer, so just try to
+ * grab&drop the console lock. If that fails we know that the current
+ * holder will eventually drop the console lock and so flush the dmesg
+ * buffers at the earliest possible time.
+ */
+void console_flush(void)
+{
+	if (console_trylock())
+		console_unlock();
 }
 
 /**
@@ -1929,8 +2108,7 @@ static int __cpuinit console_cpu_notify(struct notifier_block *self,
 	case CPU_DEAD:
 	case CPU_DOWN_FAILED:
 	case CPU_UP_CANCELED:
-		console_lock();
-		console_unlock();
+		console_flush();
 	}
 	return NOTIFY_OK;
 }
@@ -1988,6 +2166,9 @@ static void console_cont_flush(char *text, size_t size)
 {
 	unsigned long flags;
 	size_t len;
+#ifdef CONFIG_SSCR_SEC_LOG
+	char *tp;
+#endif	
 
 	raw_spin_lock_irqsave(&logbuf_lock, flags);
 
@@ -2003,6 +2184,10 @@ static void console_cont_flush(char *text, size_t size)
 		goto out;
 
 	len = cont_print_text(text, size);
+#ifdef CONFIG_SSCR_SEC_LOG
+	for (tp = (char *)text; tp < text + len; tp++)
+		emit_log_char(*tp);
+#endif
 	raw_spin_unlock(&logbuf_lock);
 	stop_critical_timings();
 	call_console_drivers(cont.level, text, len);
@@ -2034,6 +2219,9 @@ void console_unlock(void)
 	unsigned long flags;
 	bool wake_klogd = false;
 	bool retry;
+#ifdef CONFIG_SSCR_SEC_LOG
+	char *tp;
+#endif		
 
 	if (console_suspended) {
 		up(&console_sem);
@@ -2090,6 +2278,10 @@ skip:
 		console_idx = log_next(console_idx);
 		console_seq++;
 		console_prev = msg->flags;
+#ifdef CONFIG_SSCR_SEC_LOG
+		for (tp = (char *)text; tp < text + len; tp++)
+			emit_log_char(*tp);
+#endif		
 		raw_spin_unlock(&logbuf_lock);
 
 		stop_critical_timings();	/* don't trace print latency */
@@ -2616,6 +2808,8 @@ void kmsg_dump(enum kmsg_dump_reason reason)
 {
 	struct kmsg_dumper *dumper;
 	unsigned long flags;
+
+	record_reset_reason(reason);
 
 	if ((reason > KMSG_DUMP_OOPS) && !always_kmsg_dump)
 		return;

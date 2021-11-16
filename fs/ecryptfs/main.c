@@ -162,6 +162,9 @@ void ecryptfs_put_lower_file(struct inode *inode)
 	inode_info = ecryptfs_inode_to_private(inode);
 	if (atomic_dec_and_mutex_lock(&inode_info->lower_file_count,
 				      &inode_info->lower_file_mutex)) {
+#if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
+		inode_info->lower_file->f_mapping->use_fmp = 0;
+#endif
 		filemap_write_and_wait(inode->i_mapping);
 		fput(inode_info->lower_file);
 		inode_info->lower_file = NULL;
@@ -177,6 +180,9 @@ enum { ecryptfs_opt_sig, ecryptfs_opt_ecryptfs_sig,
        ecryptfs_opt_fn_cipher, ecryptfs_opt_fn_cipher_key_bytes,
        ecryptfs_opt_unlink_sigs, ecryptfs_opt_mount_auth_tok_only,
        ecryptfs_opt_check_dev_ruid,
+#if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
+       ecryptfs_opt_use_fmp,
+#endif
        ecryptfs_opt_err };
 
 static const match_table_t tokens = {
@@ -194,6 +200,9 @@ static const match_table_t tokens = {
 	{ecryptfs_opt_unlink_sigs, "ecryptfs_unlink_sigs"},
 	{ecryptfs_opt_mount_auth_tok_only, "ecryptfs_mount_auth_tok_only"},
 	{ecryptfs_opt_check_dev_ruid, "ecryptfs_check_dev_ruid"},
+#if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
+	{ecryptfs_opt_use_fmp, "ecryptfs_use_fmp"},
+#endif
 	{ecryptfs_opt_err, NULL}
 };
 
@@ -391,6 +400,11 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 		case ecryptfs_opt_check_dev_ruid:
 			*check_ruid = 1;
 			break;
+#if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
+		case ecryptfs_opt_use_fmp:
+			mount_crypt_stat->flags |= ECRYPTFS_USE_FMP;
+			break;
+#endif
 		case ecryptfs_opt_err:
 		default:
 			printk(KERN_WARNING
@@ -434,6 +448,22 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 		goto out;
 	}
 
+#if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
+	mount_crypt_stat->cipher_code = cipher_code;
+
+	if (cipher_code == RFC2440_CIPHER_AES_XTS_256) {
+		if (!(mount_crypt_stat->flags & ECRYPTFS_USE_FMP)) {
+			ecryptfs_printk(KERN_ERR,
+				"eCryptfs doesn't support cipher with FMP: %s",
+				mount_crypt_stat->global_default_cipher_name);
+			rc = -EINVAL;
+			goto out;
+		}
+		strncpy(mount_crypt_stat->global_default_cipher_name, ECRYPTFS_DEFAULT_CIPHER, ECRYPTFS_MAX_CIPHER_NAME_SIZE);
+		if (mount_crypt_stat->flags & ECRYPTFS_GLOBAL_ENCRYPT_FILENAMES)
+			strncpy(mount_crypt_stat->global_default_fn_cipher_name, ECRYPTFS_DEFAULT_CIPHER, ECRYPTFS_MAX_CIPHER_NAME_SIZE);
+	}
+#endif
 	mutex_lock(&key_tfm_list_mutex);
 	if (!ecryptfs_tfm_exists(mount_crypt_stat->global_default_cipher_name,
 				 NULL)) {

@@ -22,6 +22,15 @@
 
 #include "rtc-core.h"
 
+int rtc_is_suspend = 0;
+
+#ifdef CONFIG_SUSPEND_TIME
+extern int suspend_time_suspend(struct rtc_time before);
+extern int suspend_time_resume(struct rtc_time after);
+#else
+#define suspend_time_suspend(t)	do { } while (0)
+#define suspend_time_resume(t)	do { } while (0)
+#endif
 
 static DEFINE_IDA(rtc_ida);
 struct class *rtc_class;
@@ -52,6 +61,8 @@ static int rtc_suspend(struct device *dev, pm_message_t mesg)
 	struct rtc_device	*rtc = to_rtc_device(dev);
 	struct rtc_time		tm;
 	struct timespec		delta, delta_delta;
+
+	rtc_is_suspend = 1;
 
 	if (has_persistent_clock())
 		return 0;
@@ -132,6 +143,10 @@ static int rtc_resume(struct device *dev)
 	if (sleep_time.tv_sec >= 0)
 		timekeeping_inject_sleeptime(&sleep_time);
 	rtc_hctosys_ret = 0;
+	suspend_time_resume(tm);
+
+	rtc_is_suspend = 0;
+
 	return 0;
 }
 
@@ -216,6 +231,8 @@ struct rtc_device *rtc_device_register(const char *name, struct device *dev,
 	rtc_dev_add_device(rtc);
 	rtc_sysfs_add_device(rtc);
 	rtc_proc_add_device(rtc);
+
+	rtc_is_suspend = 0;
 
 	dev_info(dev, "rtc core: registered %s as %s\n",
 			rtc->name, dev_name(&rtc->dev));

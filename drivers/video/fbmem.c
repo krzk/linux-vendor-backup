@@ -746,6 +746,8 @@ fb_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 	int c, cnt = 0, err = 0;
 	unsigned long total_size;
 
+	return -EIO;
+
 	if (!info || ! info->screen_base)
 		return -ENODEV;
 

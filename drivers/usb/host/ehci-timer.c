@@ -14,6 +14,10 @@
 
 /* This file is part of ehci-hcd.c */
 
+#ifdef CONFIG_MDM_HSIC_PM
+#include <mach/bts.h>
+#endif
+
 /*-------------------------------------------------------------------------*/
 
 /* Set a bit in the USBCMD register */
@@ -329,6 +333,9 @@ static void ehci_iaa_watchdog(struct ehci_hcd *ehci)
 	}
 
 	ehci_dbg(ehci, "IAA watchdog: status %x cmd %x\n", status, cmd);
+#ifdef CONFIG_MDM_HSIC_PM
+	exynos7_bts_show_mo_status();
+#endif
 	end_unlink_async(ehci);
 }
 

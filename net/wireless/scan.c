@@ -55,7 +55,7 @@
  * also linked into the probe response struct.
  */
 
-#define IEEE80211_SCAN_RESULT_EXPIRE	(30 * HZ)
+#define IEEE80211_SCAN_RESULT_EXPIRE	(7 * HZ)
 
 static void bss_free(struct cfg80211_internal_bss *bss)
 {
@@ -427,8 +427,11 @@ static int cmp_bss(struct cfg80211_bss *a,
 	const u8 *ie2 = NULL;
 	int i, r;
 
-	if (a->channel != b->channel)
-		return b->channel->center_freq - a->channel->center_freq;
+	if (a->channel != b->channel) {
+		if(b->channel->center_freq != a->channel->center_freq) {
+			return b->channel->center_freq - a->channel->center_freq;
+		}
+	}
 
 	a_ies = rcu_access_pointer(a->ies);
 	if (!a_ies)

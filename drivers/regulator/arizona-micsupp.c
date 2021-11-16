@@ -140,10 +140,23 @@ static int arizona_micsupp_set_bypass(struct regulator_dev *rdev, bool ena)
 	return ret;
 }
 
+static int arizona_micsupp_enable_time(struct regulator_dev *dev)
+{
+	struct arizona_micsupp *micsupp = rdev_get_drvdata(dev);
+
+	switch (micsupp->arizona->type) {
+	case WM8998:
+	case WM1814:
+		return 8000;
+	default:
+		return 3000;
+	}
+}
 static struct regulator_ops arizona_micsupp_ops = {
 	.enable = arizona_micsupp_enable,
 	.disable = arizona_micsupp_disable,
 	.is_enabled = regulator_is_enabled_regmap,
+	.enable_time = arizona_micsupp_enable_time,
 
 	.list_voltage = arizona_micsupp_list_voltage,
 	.map_voltage = arizona_micsupp_map_voltage,

@@ -67,6 +67,8 @@ struct lp55xx_platform_data {
 	/* Predefined pattern data */
 	struct lp55xx_predef_pattern *patterns;
 	unsigned int num_patterns;
+
+	int en_gpio;
 };
 
 #endif /* _LEDS_LP55XX_H */

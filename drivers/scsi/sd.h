@@ -15,6 +15,8 @@
 #define SD_MOD_TIMEOUT		(75 * HZ)
 #define SD_FLUSH_TIMEOUT	(60 * HZ)
 #define SD_WRITE_SAME_TIMEOUT	(120 * HZ)
+#define SD_UFS_TIMEOUT		(10 * HZ)
+#define SD_UFS_FLUSH_TIMEOUT	(6 * HZ)
 
 /*
  * Number of allowed retries

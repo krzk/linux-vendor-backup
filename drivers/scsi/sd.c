@@ -818,7 +818,10 @@ static int sd_setup_write_same_cmnd(struct scsi_device *sdp, struct request *rq)
 
 static int scsi_setup_flush_cmnd(struct scsi_device *sdp, struct request *rq)
 {
-	rq->timeout = SD_FLUSH_TIMEOUT;
+	if (sdp->host->by_ufs)
+		rq->timeout = SD_UFS_TIMEOUT;
+	else
+		rq->timeout = SD_FLUSH_TIMEOUT;
 	rq->retries = SD_MAX_RETRIES;
 	rq->cmd[0] = SYNCHRONIZE_CACHE;
 	rq->cmd_len = 10;
@@ -1277,6 +1280,11 @@ static int sd_ioctl(struct block_device *bdev, fmode_t mode,
 	SCSI_LOG_IOCTL(1, sd_printk(KERN_INFO, sdkp, "sd_ioctl: disk=%s, "
 				    "cmd=0x%x\n", disk->disk_name, cmd));
 
+	/* Forbid setting device's ro attribute */
+	if (cmd == BLKROSET) {
+		return -EACCES;
+	}
+
 	error = scsi_verify_blk_ioctl(bdev, cmd);
 	if (error < 0)
 		return error;
@@ -1420,13 +1428,17 @@ out:
 
 static int sd_sync_cache(struct scsi_disk *sdkp)
 {
-	int retries, res;
+	int retries, res, timeout;
 	struct scsi_device *sdp = sdkp->device;
 	struct scsi_sense_hdr sshdr;
 
 	if (!scsi_device_online(sdp))
 		return -ENODEV;
 
+	if (sdp->host->by_ufs)
+		timeout = SD_UFS_FLUSH_TIMEOUT;
+	else
+		timeout = SD_FLUSH_TIMEOUT;
 
 	for (retries = 3; retries > 0; --retries) {
 		unsigned char cmd[10] = { 0 };
@@ -1437,7 +1449,7 @@ static int sd_sync_cache(struct scsi_disk *sdkp)
 		 * flush everything.
 		 */
 		res = scsi_execute_req_flags(sdp, cmd, DMA_NONE, NULL, 0,
-					     &sshdr, SD_FLUSH_TIMEOUT,
+					     &sshdr, timeout,
 					     SD_MAX_RETRIES, NULL, REQ_PM);
 		if (res == 0)
 			break;
@@ -2249,7 +2261,7 @@ sd_read_write_protect_flag(struct scsi_disk *sdkp, unsigned char *buffer)
 	struct scsi_mode_data data;
 	int old_wp = sdkp->write_prot;
 
-	set_disk_ro(sdkp->disk, 0);
+	//set_disk_ro(sdkp->disk, 0);
 	if (sdp->skip_ms_page_3f) {
 		sd_printk(KERN_NOTICE, sdkp, "Assuming Write Enabled\n");
 		return;
@@ -2287,7 +2299,7 @@ sd_read_write_protect_flag(struct scsi_disk *sdkp, unsigned char *buffer)
 			  "Test WP failed, assume Write Enabled\n");
 	} else {
 		sdkp->write_prot = ((data.device_specific & 0x80) != 0);
-		set_disk_ro(sdkp->disk, sdkp->write_prot);
+		//set_disk_ro(sdkp->disk, sdkp->write_prot);
 		if (sdkp->first_scan || old_wp != sdkp->write_prot) {
 			sd_printk(KERN_NOTICE, sdkp, "Write Protect is %s\n",
 				  sdkp->write_prot ? "on" : "off");
@@ -2940,6 +2952,9 @@ static int sd_probe(struct device *dev)
 		else
 			blk_queue_rq_timeout(sdp->request_queue,
 					     SD_MOD_TIMEOUT);
+		if (sdp->host->by_ufs)
+			blk_queue_rq_timeout(sdp->request_queue,
+					     SD_UFS_TIMEOUT);
 	}
 
 	device_initialize(&sdkp->dev);
@@ -3064,6 +3079,9 @@ static int sd_start_stop_device(struct scsi_disk *sdkp, int start)
 static void sd_shutdown(struct device *dev)
 {
 	struct scsi_disk *sdkp = scsi_disk_get_from_dev(dev);
+	struct scsi_device *sdp = to_scsi_device(dev);
+	struct request_queue *q = sdp->request_queue;
+	unsigned long flags;
 
 	if (!sdkp)
 		return;         /* this can happen */
@@ -3082,6 +3100,14 @@ static void sd_shutdown(struct device *dev)
 	}
 
 exit:
+	if (sdp->host->by_ufs) {
+		spin_lock_irqsave(q->queue_lock, flags);
+		queue_flag_set(QUEUE_FLAG_DYING, q);
+		__blk_drain_queue(q, true);
+		queue_flag_set(QUEUE_FLAG_DEAD, q);
+		spin_unlock_irqrestore(q->queue_lock, flags);
+	}
+
 	scsi_disk_put(sdkp);
 }
 

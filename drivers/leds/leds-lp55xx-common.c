@@ -19,6 +19,7 @@
 #include <linux/leds.h>
 #include <linux/module.h>
 #include <linux/platform_data/leds-lp55xx.h>
+#include <linux/gpio.h>
 
 #include "leds-lp55xx-common.h"
 
@@ -136,10 +137,12 @@ static struct attribute_group lp55xx_led_attr_group = {
 
 static void lp55xx_set_brightness(struct led_classdev *cdev,
 			     enum led_brightness brightness)
+			    //int brightness)
 {
 	struct lp55xx_led *led = cdev_to_lp55xx_led(cdev);
 
-	led->brightness = (u8)brightness;
+	led->brightness = brightness;
+	printk("%s: brightness = %d\n", __func__, brightness);
 	schedule_work(&led->brightness_work);
 }
 
@@ -172,6 +175,7 @@ static int lp55xx_init_led(struct lp55xx_led *led,
 	}
 
 	led->cdev.brightness_set = lp55xx_set_brightness;
+	led->cdev.max_brightness= 0xFFF;
 
 	if (pdata->led_config[chan].name) {
 		led->cdev.name = pdata->led_config[chan].name;
@@ -379,13 +383,13 @@ bool lp55xx_is_extclk_used(struct lp55xx_chip *chip)
 		goto use_internal_clk;
 	}
 
-	dev_info(&chip->cl->dev, "%dHz external clock used\n",	LP55XX_CLK_32K);
+	//dev_info(&chip->cl->dev, "%dHz external clock used\n",	LP55XX_CLK_32K);
 
 	chip->clk = clk;
 	return true;
 
 use_internal_clk:
-	dev_info(&chip->cl->dev, "internal clock used\n");
+	//dev_info(&chip->cl->dev, "internal clock used\n");
 	return false;
 }
 EXPORT_SYMBOL_GPL(lp55xx_is_extclk_used);
@@ -404,7 +408,7 @@ int lp55xx_init_device(struct lp55xx_chip *chip)
 
 	if (!pdata || !cfg)
 		return -EINVAL;
-
+#if 0
 	if (pdata->setup_resources) {
 		ret = pdata->setup_resources();
 		if (ret < 0) {
@@ -419,7 +423,20 @@ int lp55xx_init_device(struct lp55xx_chip *chip)
 		pdata->enable(1);
 		usleep_range(1000, 2000); /* 500us abs min. */
 	}
-
+#else
+	ret = gpio_request(pdata->en_gpio, "led_en");
+	if(ret) {
+		pr_err("%s: Failed to get gpio %d (code: %d)",
+			 __func__, pdata->en_gpio, ret);
+			return ret;
+	} 
+	ret = gpio_direction_output(pdata->en_gpio, 1);
+	gpio_set_value(pdata->en_gpio, 0);
+	usleep_range(1000,2000);
+	gpio_set_value(pdata->en_gpio, 1);
+	usleep_range(1000,2000);
+	
+#endif
 	lp55xx_reset_device(chip);
 
 	/*
@@ -498,8 +515,8 @@ int lp55xx_register_leds(struct lp55xx_led *led, struct lp55xx_chip *chip)
 		each->chip = chip;
 
 		/* setting led current at each channel */
-		if (cfg->set_led_current)
-			cfg->set_led_current(each, led_current);
+		//if (cfg->set_led_current)
+			//cfg->set_led_current(each, led_current);
 	}
 
 	return 0;

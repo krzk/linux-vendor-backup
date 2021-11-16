@@ -61,6 +61,11 @@ EXPORT_SYMBOL_GPL(arizona_free_irq);
 
 int arizona_set_irq_wake(struct arizona *arizona, int irq, int on)
 {
+	if (on)
+		irq_set_irq_wake(arizona->irq, 1);
+	else
+		irq_set_irq_wake(arizona->irq, 0);
+
 	irq = arizona_map_irq(arizona, irq);
 	if (irq < 0)
 		return irq;
@@ -200,10 +205,28 @@ int arizona_irq_init(struct arizona *arizona)
 		ctrlif_error = false;
 		break;
 #endif
-#ifdef CONFIG_MFD_WM5110
+#ifdef CONFIG_MFD_FLORIDA
+	case WM8280:
 	case WM5110:
-		aod = &wm5110_aod;
-		irq = &wm5110_irq;
+		aod = &florida_aod;
+		irq = &florida_irq;
+
+		ctrlif_error = false;
+		break;
+#endif
+#ifdef CONFIG_MFD_WM8997
+	case WM8997:
+		aod = &wm8997_aod;
+		irq = &wm8997_irq;
+
+		ctrlif_error = false;
+		break;
+#endif
+#ifdef CONFIG_MFD_WM8998
+	case WM8998:
+	case WM1814:
+		aod = &wm8998_aod;
+		irq = &wm8998_irq;
 
 		ctrlif_error = false;
 		break;

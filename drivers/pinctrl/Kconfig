@@ -201,6 +201,12 @@ config PINCTRL_COH901
 	  COH 901 335 and COH 901 571/3. They contain 3, 5 or 7
 	  ports of 8 GPIO pins each.
 
+config GPIO_CONTROL_SPEED_OPTIMIZATION
+	bool "Speed Optimization about GPIO Control"
+	depends on PINCTRL_SAMSUNG
+	help
+	  Say yes here to enable speed up about GPIO control
+
 config PINCTRL_SAMSUNG
 	bool
 	select PINMUX
