@@ -31,8 +31,6 @@ source "drivers/media/platform/davinci/Kconfig"
 
 source "drivers/media/platform/omap/Kconfig"
 
-source "drivers/media/platform/exynos/Kconfig"
-
 config VIDEO_ASPEED
 	tristate "Aspeed AST2400 and AST2500 Video Engine driver"
 	depends on VIDEO_V4L2
@@ -602,16 +600,6 @@ config VIDEO_SUN8I_ROTATE
 	   To compile this driver as a module choose m here.
 
 endif # V4L_MEM2MEM_DRIVERS
-
-config VIDEO_EXYNOS_SMFC
-	tristate "Exynos Still MFC(H/W JPEG CODEC) Driver"
-	depends on VIDEO_DEV && VIDEO_V4L2 && HAS_DMA
-	select V4L2_MEM2MEM_DEV
-	select VIDEOBUF2_DMA_SG
-	default n
-	help
-	  Still MFC(Multi Format Codec) V4L2 Driver for Exynos SoCs.
-	  The driver supports for mem2mem V4L2 device.
 
 # TI VIDEO PORT Helper Modules
 # These will be selected by VPE and VIP
