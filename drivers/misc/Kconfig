@@ -485,49 +485,6 @@ config HISI_HIKEY_USB
 	  switching between the dual-role USB-C port and the USB-A host ports
 	  using only one USB controller.
 
-config GSC_TPM
-	tristate "Google Security Companion"
-	depends on SPI
-	help
-	  Say Y here if you have a GSC security microcontroller from Google LLC
-	  It will be accessible using a TPM-style transport interface from within
-	  Linux.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called gsc-spi.
-
-config GOOGLE_LOGBUFFER
-	tristate "Google logbuffer"
-	help
-	  Say Y here to enable the logbuffer driver from Google LLC. The driver
-	  exposes an API that allow drivers in GBMS and TCPM to log internal
-	  and debug information that cannot be routed to syslog to a separate
-	  ringbuffer. The content of the ringbuffer is accessible as a character
-	  device.
-
-	  To compile this driver as a module, choose M here: the module will be
-	  called logbuffer.
-
-config GOOGLE_VOTABLE
-	tristate "Google votable interface"
-	help
-	  Say Y here to enable the google voter API. The module is used from
-	  GBMS to arbitrate the access and manage the state of shared resources.
-
-	  To compile this driver as a module, choose M here: the module will be
-	  called gvotable.
-
-
-config ACCESS_RAMOOPS
-	tristate "Driver to allow access for decrypting encrypted ramoops"
-	depends on PSTORE_CONSOLE
-	help
-	  Say 'Y' here to enable access to ramoops encryption metadata. The
-	  encryption metablock contains ramoops encryption parameters.
-
-	  To compile this driver as a module, choose M here: the module will be
-	  called access_ramoops.
-
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -544,8 +501,5 @@ source "drivers/misc/bcm-vk/Kconfig"
 source "drivers/misc/cardreader/Kconfig"
 source "drivers/misc/habanalabs/Kconfig"
 source "drivers/misc/uacce/Kconfig"
-source "drivers/misc/sscoredump/Kconfig"
-source "drivers/misc/sbb-mux/Kconfig"
-source "drivers/misc/bbdpl/Kconfig"
 source "drivers/misc/pvpanic/Kconfig"
 endmenu
