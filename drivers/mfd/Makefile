@@ -267,12 +267,6 @@ obj-$(CONFIG_MFD_KHADAS_MCU) 	+= khadas-mcu.o
 obj-$(CONFIG_MFD_ACER_A500_EC)	+= acer-ec-a500.o
 obj-$(CONFIG_MFD_QCOM_PM8008)	+= qcom-pm8008.o
 
-obj-$(CONFIG_MFD_S2MPG10) 		+= s2mpg10-mfd.o
-s2mpg10-mfd-$(CONFIG_MFD_S2MPG10) 	+= s2mpg10-core.o s2mpg10-irq.o
-obj-$(CONFIG_MFD_S2MPG11) 		+= s2mpg11-mfd.o
-s2mpg11-mfd-$(CONFIG_MFD_S2MPG11) 	+= s2mpg11-core.o s2mpg11-irq.o
-obj-$(CONFIG_MFD_S2MPG1X_GPIO) 	+= s2mpg1x-gpio.o
-
 obj-$(CONFIG_SGI_MFD_IOC3)	+= ioc3.o
 obj-$(CONFIG_MFD_SIMPLE_MFD_I2C)	+= simple-mfd-i2c.o
 obj-$(CONFIG_MFD_INTEL_M10_BMC)   += intel-m10-bmc.o
@@ -284,5 +278,3 @@ rsmu-i2c-objs			:= rsmu_core.o rsmu_i2c.o
 rsmu-spi-objs			:= rsmu_core.o rsmu_spi.o
 obj-$(CONFIG_MFD_RSMU_I2C)	+= rsmu-i2c.o
 obj-$(CONFIG_MFD_RSMU_SPI)	+= rsmu-spi.o
-
-obj-$(CONFIG_MFD_SLG51000)	+= slg51000-core.o
