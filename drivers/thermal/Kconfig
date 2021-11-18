@@ -441,9 +441,8 @@ source "drivers/thermal/ti-soc-thermal/Kconfig"
 endmenu
 
 menu "Samsung thermal drivers"
-depends on (ARCH_EXYNOS || SOC_GOOGLE) || COMPILE_TEST
+depends on ARCH_EXYNOS || COMPILE_TEST
 source "drivers/thermal/samsung/Kconfig"
-source "drivers/thermal/google/Kconfig"
 endmenu
 
 menu "STMicroelectronics thermal drivers"
