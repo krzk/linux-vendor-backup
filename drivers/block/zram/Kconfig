@@ -54,22 +54,6 @@ config ZRAM_DEF_COMP
 	default "lz4hc" if ZRAM_DEF_COMP_LZ4HC
 	default "842" if ZRAM_DEF_COMP_842
 
-config ZCOMP_CPU
-	tristate "CPU compression"
-	depends on ZRAM
-	default y
-	help
-	  Support CPU compressor. User should configuire it via echo
-	  "lzo" > /sys/block/zramX/comp_algorithm
-
-config ZCOMP_EH
-	tristate "Support Emerald Hill HW compressor"
-	depends on ZRAM
-	select GOOGLE_EH
-	help
-	  Support Emerald Hill HW compressor. User should configure it via
-	  echo "lz77eh" > /sys/block/zramX/comp_algorithm
-
 config ZRAM_WRITEBACK
        bool "Write back incompressible or idle page to backing device"
        depends on ZRAM
