@@ -1236,10 +1236,10 @@ config SND_SOC_RT5677_SPI
 	default SND_SOC_RT5677 && SPI
 
 config SND_SOC_RT5682
-	tristate "Realtek 5682 CODEC"
+	tristate
 
 config SND_SOC_RT5682_I2C
-	tristate "Realtek RT5682 Codec - I2C"
+	tristate
 	depends on I2C
 	select SND_SOC_RT5682
 
