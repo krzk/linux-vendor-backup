@@ -674,8 +674,9 @@ include include/config/auto.conf
 endif
 
 ifdef CONFIG_DEVICE_MODULES
-# Include the device-modules Makefile.include to setup the proper includes
-# within the device-modules.
+# Include the device-modules/Makefile.include to allow for extending or
+# possibly overriding any build variables to support the DEVICE_MODULES
+# project.
 -include $(srctree)/device-modules/Makefile.include
 endif
 
@@ -1433,7 +1434,9 @@ kselftest-merge:
 # Devicetree files
 
 ifneq ($(wildcard $(srctree)/arch/$(SRCARCH)/boot/dts/),)
-dtstree := arch/$(SRCARCH)/boot/dts
+# ANDROID: allow this to be overridden by device-modules/Makefile.include.
+# This allows us to compile a device tree that is located out-of-tree.
+dtstree ?= arch/$(SRCARCH)/boot/dts
 endif
 
 ifneq ($(dtstree),)
