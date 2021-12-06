@@ -16,6 +16,10 @@
 #include "ext4.h"
 #include "xattr.h"
 
+#ifdef CONFIG_EXT4CRYPT_SDP
+#include "sdp/fscrypto_sdp_dek_private.h"
+#endif
+
 static int ext4_inode_has_encryption_context(struct inode *inode)
 {
 	int res = ext4_xattr_get(inode, EXT4_XATTR_INDEX_ENCRYPTION,
@@ -77,6 +81,9 @@ static int ext4_create_encryption_context_from_policy(
 	ctx.contents_encryption_mode = policy->contents_encryption_mode;
 	ctx.filenames_encryption_mode = policy->filenames_encryption_mode;
 	ctx.flags = policy->flags;
+#if defined(CONFIG_EXT4CRYPT_SDP) || defined(CONFIG_DDAR)
+	ctx.knox_flags = 0;
+#endif
 	BUILD_BUG_ON(sizeof(ctx.nonce) != EXT4_KEY_DERIVATION_NONCE_SIZE);
 	get_random_bytes(ctx.nonce, EXT4_KEY_DERIVATION_NONCE_SIZE);
 
@@ -256,6 +263,19 @@ int ext4_inherit_context(struct inode *parent, struct inode *child)
 		       EXT4_KEY_DESCRIPTOR_SIZE);
 	}
 	get_random_bytes(ctx.nonce, EXT4_KEY_DERIVATION_NONCE_SIZE);
+#if defined(CONFIG_DDAR) || defined(CONFIG_EXT4CRYPT_SDP)
+	ctx.knox_flags = 0;
+#endif
+
+#ifdef CONFIG_EXT4CRYPT_SDP
+	res = fscrypt_sdp_test_and_inherit_context(parent, child, &ctx);
+	if (res) {
+		printk_once(KERN_WARNING
+				"%s: Failed to set sensitive ongoing flag (err:%d)\n", __func__, res);
+		return res;
+	}
+#endif
+
 	res = ext4_xattr_set(child, EXT4_XATTR_INDEX_ENCRYPTION,
 			     EXT4_XATTR_NAME_ENCRYPTION_CONTEXT, &ctx,
 			     sizeof(ctx), 0);

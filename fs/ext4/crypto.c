@@ -39,6 +39,11 @@
 #include "ext4_extents.h"
 #include "xattr.h"
 
+#ifdef CONFIG_EXT4CRYPT_SDP
+#include "sdp/fscrypto_sdp_private.h"
+#include "sdp/fscrypto_sdp_dek_private.h"
+#endif
+
 /* Encryption added and removed here! (L: */
 
 static unsigned int num_prealloc_crypto_pages = 32;
@@ -167,6 +172,9 @@ void ext4_exit_crypto(void)
 	if (ext4_crypt_info_cachep)
 		kmem_cache_destroy(ext4_crypt_info_cachep);
 	ext4_crypt_info_cachep = NULL;
+#ifdef CONFIG_EXT4CRYPT_SDP
+	fscrypt_sdp_release_sdp_info_cachep();
+#endif
 }
 
 /**
@@ -197,6 +205,11 @@ int ext4_init_crypto(void)
 					    SLAB_RECLAIM_ACCOUNT);
 	if (!ext4_crypt_info_cachep)
 		goto fail;
+
+#ifdef CONFIG_EXT4CRYPT_SDP
+	if (!fscrypt_sdp_init_sdp_info_cachep())
+		goto fail;
+#endif
 
 	for (i = 0; i < num_prealloc_crypto_ctxs; i++) {
 		struct ext4_crypto_ctx *ctx;
@@ -261,7 +274,6 @@ static int ext4_page_crypto(struct inode *inode,
 			    struct page *src_page,
 			    struct page *dest_page,
 			    gfp_t gfp_flags)
-
 {
 	u8 xts_tweak[EXT4_XTS_TWEAK_SIZE];
 	struct ablkcipher_request *req = NULL;
@@ -389,14 +401,12 @@ int ext4_decrypt(struct page *page)
 				page->index, page, page, GFP_NOFS);
 }
 
-int ext4_encrypted_zeroout(struct inode *inode, struct ext4_extent *ex)
+int ext4_encrypted_zeroout(struct inode *inode, ext4_lblk_t lblk,
+			   ext4_fsblk_t pblk, ext4_lblk_t len)
 {
 	struct ext4_crypto_ctx	*ctx;
 	struct page		*ciphertext_page = NULL;
 	struct bio		*bio;
-	ext4_lblk_t		lblk = le32_to_cpu(ex->ee_block);
-	ext4_fsblk_t		pblk = ext4_ext_pblock(ex);
-	unsigned int		len = ext4_ext_get_actual_len(ex);
 	int			ret, err = 0;
 
 #if 0
@@ -418,12 +428,20 @@ int ext4_encrypted_zeroout(struct inode *inode, struct ext4_extent *ex)
 	}
 
 	while (len--) {
-		err = ext4_page_crypto(inode, EXT4_ENCRYPT, lblk,
+#ifdef CONFIG_EXT4_PRIVATE_ENCRYPTION
+		if (!inode->i_mapping->private_enc_mode) {
+#endif /* CONFIG_EXT4_PRIVATE_ENCRYPTION */
+			err = ext4_page_crypto(inode, EXT4_ENCRYPT, lblk,
 				       ZERO_PAGE(0), ciphertext_page,
 				       GFP_NOFS);
-		if (err)
-			goto errout;
-
+			if (err)
+				goto errout;
+#ifdef CONFIG_EXT4_PRIVATE_ENCRYPTION
+		} else {
+			memset(page_address(ciphertext_page), 0, PAGE_SIZE);
+			ciphertext_page->mapping = inode->i_mapping;
+		}
+#endif /* CONFIG_EXT4_PRIVATE_ENCRYPTION */
 		bio = bio_alloc(GFP_NOWAIT, 1);
 		if (!bio) {
 			err = -ENOMEM;
@@ -453,13 +471,23 @@ int ext4_encrypted_zeroout(struct inode *inode, struct ext4_extent *ex)
 	}
 	err = 0;
 errout:
+#ifdef CONFIG_EXT4_PRIVATE_ENCRYPTION
+	if (inode->i_mapping->private_enc_mode)
+		ciphertext_page->mapping = NULL;
+#endif /* CONFIG_EXT4_PRIVATE_ENCRYPTION */
 	ext4_release_crypto_ctx(ctx);
 	return err;
 }
 
 bool ext4_valid_contents_enc_mode(uint32_t mode)
 {
+#ifdef CONFIG_EXT4_PRIVATE_ENCRYPTION
+	return (mode == EXT4_ENCRYPTION_MODE_AES_256_XTS) || \
+		      (mode == EXT4_PRIVATE_ENCRYPTION_MODE_AES_256_XTS) || \
+		      (mode == EXT4_ENCRYPTION_MODE_PRIVATE);
+#else
 	return (mode == EXT4_ENCRYPTION_MODE_AES_256_XTS);
+#endif /* CONFIG_EXT4_PRIVATE_ENCRYPTION */
 }
 
 /**
@@ -496,6 +524,11 @@ static int ext4_d_revalidate(struct dentry *dentry, unsigned int flags)
 		return 0;
 	}
 	ci = EXT4_I(d_inode(dir))->i_crypt_info;
+//	if (ci && ci->ci_keyring_key &&
+//	    (ci->ci_keyring_key->flags & ((1 << KEY_FLAG_INVALIDATED) |
+//					  (1 << KEY_FLAG_REVOKED) |
+//					  (1 << KEY_FLAG_DEAD))))
+//		ci = NULL;
 
 	/* this should eventually be an flag in d_flags */
 	cached_with_key = dentry->d_fsdata != NULL;
@@ -530,6 +563,16 @@ static int ext4_d_revalidate(struct dentry *dentry, unsigned int flags)
 	return 1;
 }
 
+#ifdef CONFIG_EXT4CRYPT_SDP
+static int ext4_sdp_d_delete(const struct dentry *dentry)
+{
+	return ext4_sdp_d_delete_wrapper(dentry);
+}
+#endif
+
 const struct dentry_operations ext4_encrypted_d_ops = {
 	.d_revalidate = ext4_d_revalidate,
+#ifdef CONFIG_EXT4CRYPT_SDP
+	.d_delete     = ext4_sdp_d_delete,
+#endif
 };

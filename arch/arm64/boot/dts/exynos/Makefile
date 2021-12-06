@@ -1,5 +1,9 @@
-dtb-$(CONFIG_ARCH_EXYNOS7) += exynos7-espresso.dtb
+# SPDX-License-Identifier: GPL-2.0
+dtb-y += exynos7885-jackpotlte_eur_open_03.dtb
+dtb-y += exynos7885-jackpotlte_eur_open_04.dtb
+dtb-y += exynos7885-jackpotlte_eur_open_05.dtb
+dtb-y += exynos7885-jackpotlte_eur_open_06.dtb
+dtb-y += exynos7885-jackpotlte_eur_open_07.dtb
 
-always		:= $(dtb-y)
-subdir-y	:= $(dts-dirs)
-clean-files	:= *.dtb
+always            := $(dtb-y) $(dtbo-y)
+clean-files       := *.dtb*

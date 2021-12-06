@@ -1072,8 +1072,11 @@ static int ovl_fill_super(struct super_block *sb, void *data, int silent)
 		 * Make lower_mnt R/O.  That way fchmod/fchown on lower file
 		 * will fail instead of modifying lower fs.
 		 */
-		mnt->mnt_flags |= MNT_READONLY;
-
+#ifdef CONFIG_RKP_NS_PROT
+        rkp_set_mnt_flags(mnt,MNT_READONLY);
+#else
+        mnt->mnt_flags |= MNT_READONLY;
+#endif
 		ufs->lower_mnt[ufs->numlower] = mnt;
 		ufs->numlower++;
 	}

@@ -38,6 +38,7 @@
 #include <linux/sched/rt.h>
 #include <linux/mm_inline.h>
 #include <trace/events/writeback.h>
+#include <linux/version.h>
 
 #include "internal.h"
 
@@ -70,13 +71,13 @@ static long ratelimit_pages = 32;
 /*
  * Start background writeback (via writeback threads) at this percentage
  */
-int dirty_background_ratio = 10;
+int dirty_background_ratio;
 
 /*
  * dirty_background_bytes starts at 0 (disabled) so that it is a function of
  * dirty_background_ratio * the amount of dirtyable memory
  */
-unsigned long dirty_background_bytes;
+unsigned long dirty_background_bytes = 25 * 1024 * 1024;
 
 /*
  * free highmem will not be subtracted from the total free memory
@@ -87,13 +88,13 @@ int vm_highmem_is_dirtyable;
 /*
  * The generator of dirty data starts writeback at this percentage
  */
-int vm_dirty_ratio = 20;
+int vm_dirty_ratio;
 
 /*
  * vm_dirty_bytes starts at 0 (disabled) so that it is a function of
  * vm_dirty_ratio * the amount of dirtyable memory
  */
-unsigned long vm_dirty_bytes;
+unsigned long vm_dirty_bytes = 50 * 1024 * 1024;
 
 /*
  * The interval between `kupdate'-style writebacks
@@ -1737,6 +1738,20 @@ pause:
 					  period,
 					  pause,
 					  start_time);
+
+		/* Do not sleep if the backing device is removed */
+		if (unlikely(!bdi->dev))
+			return;
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0))
+		bdi->last_thresh = thresh;
+		bdi->last_nr_dirty = dirty;
+#else
+		bdi->last_thresh = dirty_thresh;
+		bdi->last_nr_dirty = nr_dirty;
+#endif
+		bdi->paused_total += pause;
+
 		__set_current_state(TASK_KILLABLE);
 		io_schedule_timeout(pause);
 
@@ -2187,29 +2202,13 @@ retry:
 	while (!done && (index <= end)) {
 		int i;
 
-		nr_pages = pagevec_lookup_tag(&pvec, mapping, &index, tag,
-			      min(end - index, (pgoff_t)PAGEVEC_SIZE-1) + 1);
+		nr_pages = pagevec_lookup_range_tag(&pvec, mapping, &index, end,
+				tag);
 		if (nr_pages == 0)
 			break;
 
 		for (i = 0; i < nr_pages; i++) {
 			struct page *page = pvec.pages[i];
-
-			/*
-			 * At this point, the page may be truncated or
-			 * invalidated (changing page->mapping to NULL), or
-			 * even swizzled back from swapper_space to tmpfs file
-			 * mapping. However, page->index will not change
-			 * because we have a reference on the page.
-			 */
-			if (page->index > end) {
-				/*
-				 * can't be range_cyclic (1st pass) because
-				 * end == -1 in that case.
-				 */
-				done = 1;
-				break;
-			}
 
 			done_index = page->index;
 
