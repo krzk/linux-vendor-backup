@@ -38,6 +38,7 @@
 #include <linux/bio.h>
 #include <linux/notifier.h>
 #include <linux/cpu.h>
+#include <linux/smp.h>
 #include <linux/bitops.h>
 #include <linux/mpage.h>
 #include <linux/bit_spinlock.h>
@@ -650,6 +651,13 @@ void mark_buffer_dirty_inode(struct buffer_head *bh, struct inode *inode)
 }
 EXPORT_SYMBOL(mark_buffer_dirty_inode);
 
+void mark_buffer_dirty_inode_sync(struct buffer_head *bh, struct inode *inode)
+{
+	set_buffer_sync_flush(bh);
+	mark_buffer_dirty_inode(bh, inode);
+}
+EXPORT_SYMBOL(mark_buffer_dirty_inode_sync);
+
 /*
  * Mark the page dirty, and set it dirty in the radix tree, and mark the inode
  * dirty.
@@ -996,8 +1004,13 @@ grow_dev_page(struct block_device *bdev, sector_t block,
 	struct page *page;
 	struct buffer_head *bh;
 
+#ifdef CONFIG_DMA_CMA
+	page = find_or_create_page(inode->i_mapping, index,
+		(mapping_gfp_mask(inode->i_mapping) & ~__GFP_FS));
+#else
 	page = find_or_create_page(inode->i_mapping, index,
 		(mapping_gfp_mask(inode->i_mapping) & ~__GFP_FS)|__GFP_MOVABLE);
+#endif
 	if (!page)
 		return NULL;
 
@@ -1172,6 +1185,34 @@ void mark_buffer_dirty(struct buffer_head *bh)
 }
 EXPORT_SYMBOL(mark_buffer_dirty);
 
+void mark_buffer_dirty_sync(struct buffer_head *bh)
+{
+	WARN_ON_ONCE(!buffer_uptodate(bh));
+
+	/*
+	 * Very *carefully* optimize the it-is-already-dirty case.
+	 *
+	 * Don't let the final "is it dirty" escape to before we
+	 * perhaps modified the buffer.
+	 */
+	if (buffer_dirty(bh)) {
+		smp_mb();
+		if (buffer_dirty(bh))
+			return;
+	}
+
+	set_buffer_sync_flush(bh);
+	if (!test_set_buffer_dirty(bh)) {
+		struct page *page = bh->b_page;
+		if (!TestSetPageDirty(page)) {
+			struct address_space *mapping = page_mapping(page);
+			if (mapping)
+				__set_page_dirty(page, mapping, 0);
+		}
+	}
+}
+EXPORT_SYMBOL(mark_buffer_dirty_sync);
+
 /*
  * Decrement a buffer_head's reference count.  If all buffers against a page
  * have zero reference count, are clean and unlocked, and if the page is clean
@@ -1269,6 +1310,16 @@ static inline void check_irqs_on(void)
 static void bh_lru_install(struct buffer_head *bh)
 {
 	struct buffer_head *evictee = NULL;
+
+#ifdef CONFIG_DMA_CMA
+	/*
+	 * Pages are busy when their buffers stay on bh_lru list.
+	 * The CMA pages are expected to be migrated at any time,
+	 * therefore they should never go on any local LRU lists.
+	 */
+	if (is_cma_pageblock(bh->b_page))
+		return;
+#endif
 
 	check_irqs_on();
 	bh_lru_lock();
@@ -1437,6 +1488,35 @@ void invalidate_bh_lrus(void)
 	on_each_cpu(invalidate_bh_lru, NULL, 1);
 }
 EXPORT_SYMBOL_GPL(invalidate_bh_lrus);
+
+#ifdef CONFIG_DMA_CMA
+static void evict_bh_lru(void *arg)
+{
+	struct bh_lru *b = &get_cpu_var(bh_lrus);
+	struct buffer_head *bh = arg;
+	int i;
+
+	for (i = 0; i < BH_LRU_SIZE; i++) {
+		if (b->bhs[i] == bh) {
+			printk(KERN_INFO "%s[%d] drop buffer head %p.\n",
+				__func__, __LINE__, b->bhs[i]);
+			brelse(b->bhs[i]);
+			b->bhs[i] = NULL;
+			break;
+		}
+	}
+
+	put_cpu_var(bh_lrus);
+}
+
+void evict_bh_lrus(struct buffer_head *bh)
+{
+	on_each_cpu(evict_bh_lru, bh, 1);
+}
+#else
+static inline void evict_bh_lrus(struct buffer_head *bh) {}
+#endif
+EXPORT_SYMBOL_GPL(evict_bh_lrus);
 
 void set_bh_page(struct buffer_head *bh,
 		struct page *page, unsigned long offset)
@@ -2942,6 +3022,11 @@ int submit_bh(int rw, struct buffer_head * bh)
 	bio->bi_end_io = end_bio_bh_io_sync;
 	bio->bi_private = bh;
 
+	if(buffer_sync_flush(bh)) {
+		rw |= REQ_SYNC;
+		clear_buffer_sync_flush(bh);
+	}
+
 	bio_get(bio);
 	submit_bio(rw, bio);
 
@@ -3085,6 +3170,7 @@ drop_buffers(struct page *page, struct buffer_head **buffers_to_free)
 
 	bh = head;
 	do {
+		evict_bh_lrus(bh);
 		if (buffer_write_io_error(bh) && page->mapping)
 			set_bit(AS_EIO, &page->mapping->flags);
 		if (buffer_busy(bh))
