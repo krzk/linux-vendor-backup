@@ -1060,6 +1060,25 @@ int fg_check_cap_corruption(void)
 	return ret;
 }
 
+int fg_check_cap_corruption_p4(void)
+{
+	struct i2c_client *client = fg_i2c_client;
+	struct max17042_chip *chip = i2c_get_clientdata(client);
+
+	int designcap;
+
+	/* If usgin Jig or low batt compensation flag is set,
+    then skip checking. */
+	if (chip->pdata->check_jig_status()) {
+		fg_write_register(DESIGNCAP_REG, chip->info.vfcapacity - 1);
+		designcap = fg_read_register(DESIGNCAP_REG);
+		pr_info("%s: return by jig, vfcap(0x%04x), designcap(0x%04x)\n", __func__, chip->info.vfcapacity, designcap);
+		return 0;
+	} else
+		return 1;
+}
+
+
 void fg_set_full_charged(void)
 {
 	pr_info("[FG_Set_Full] (B) FullCAP(%d), RemCAP(%d)\n",

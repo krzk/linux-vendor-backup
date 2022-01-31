@@ -2080,7 +2080,10 @@ static int isx012_do_af(struct v4l2_subdev *sd, u32 touch)
 
 	if (!touch && (state->exposure.restore_lock || state->wb.restore_lock))
 		focus_aeawb_lock = true;
-
+#if defined(CONFIG_MACH_P4NOTE)
+	else if (!touch && !IS_FULL_USER_AEAWB_LOCK_SUPPORTED())
+		focus_aeawb_lock = true;
+#endif
 	if (state->sensor_mode == SENSOR_MOVIE) {
 		isx012_set_from_table(sd, "af_camcorder_start",
 			&state->regs->af_camcorder_start, 1, 0);

@@ -202,8 +202,8 @@ static void smb347_charger_init(struct smb347_chg_data *chg)
 	smb347_i2c_write(chg->client, SMB347_COMMAND_B, 0x00);
 
 	/* Charge curr : Fast-chg 2200mA */
-	/* Pre-charge curr 250mA, Term curr 250mA */
-	smb347_i2c_write(chg->client, SMB347_CHARGE_CURRENT, 0xDD);
+	/* Pre-charge curr 200mA, Term curr 200mA */
+	smb347_i2c_write(chg->client, SMB347_CHARGE_CURRENT, 0xDC);
 
 	/* Pin enable control : Charger enable control EN Pin - I2C */
 	/*  : USB5/1/HC or USB9/1.5/HC Control - Register Control */
